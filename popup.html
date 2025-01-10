@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Article Saver</title>
+    <link rel="stylesheet" href="popup.css">
+    <script src="popup.js" defer></script>
+    <!-- Add mark.js for text highlighting -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mark.js/8.11.1/mark.min.js"></script>
+</head>
+<body>
+    <h1>Article Saver</h1>
+    <!-- Input for naming the article -->
+    <input type="text" id="articleName" placeholder="Enter article name" />
+    <button id="saveArticleButton">Save Article</button>
+    <button id="loadArticleButton">Load Articles</button>
+
+    <!-- Highlighting Section -->
+    <h2>Highlight Text</h2>
+    <input type="text" id="highlightInput" placeholder="Enter text to highlight" />
+    <button id="highlightButton">Highlight</button>
+
+    <!-- Area to display content for highlighting -->
+    <div id="articlePreview" contenteditable="true" style="border: 1px solid #ccc; padding: 10px; margin-top: 10px; height: 200px; overflow-y: auto;">
+        Paste or type article content here...
+    </div>
+
+    <!-- Area to display saved articles -->
+    <ul id="savedArticlesList"></ul>
+    <div id="savedArticleContainer"></div>
+</body>
+</html>
