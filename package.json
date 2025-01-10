@@ -18,5 +18,10 @@
     "url": "https://github.com/atsokolas/note-taker-3/issues"
   },
   "homepage": "https://github.com/atsokolas/note-taker-3#readme",
-  "description": ""
+  "description": "",
+  "dependencies": {
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "mongodb": "^6.12.0"
+  }
 }
