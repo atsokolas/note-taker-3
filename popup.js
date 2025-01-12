@@ -85,7 +85,7 @@ function saveArticle(title, content) {
 }
 
 function saveArticleToServer(title, content) {
-    const url = "http://127.0.0.1:5500/save-article";
+    const url = "https://your-app.onrender.com";
 
     console.log("Saving article to server:", { title, content });
 
@@ -137,7 +137,7 @@ function loadArticles() {
     savedArticleContainer.innerHTML = "";
 
     // Fetch list of saved articles from the local server
-    fetch("http://127.0.0.1:5500/saved_articles/")
+    fetch("https://your-app.onrender.com")
         .then((response) => response.text())
         .then((html) => {
             const parser = new DOMParser();
