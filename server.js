@@ -58,3 +58,11 @@ app.get("/articles/:userId", (req, res) => {
 app.listen(PORT, () => {
     console.log(`Server running on http://127.0.0.1:${PORT}`);
 });
+
+const mongoose = require("mongoose");
+
+const DB_URI = "your-mongodb-connection-string";
+
+mongoose.connect(DB_URI, { useNewUrlParser: true, useUnifiedTopology: true })
+  .then(() => console.log("MongoDB connected"))
+  .catch((err) => console.error("MongoDB connection error:", err));
