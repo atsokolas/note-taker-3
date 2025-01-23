@@ -85,23 +85,20 @@ function saveArticle(title, content) {
 }
 
 function saveArticleToServer(title, content) {
-    const url = "https://note-taker-3-unrg.onrender.com";
-
-    console.log("Saving article to server:", { title, content });
+    const url = "https://note-taker-3-unrg.onrender.com/save-article";
+    const userId = "exampleUserId"; // Replace with dynamic user ID logic if needed
 
     fetch(url, {
         method: "POST",
         headers: {
             "Content-Type": "application/json",
         },
-        body: JSON.stringify({ title, content }),
+        body: JSON.stringify({ title, content, userId }),
     })
         .then((response) => {
-            console.log("Server response:", response);
             if (response.ok) {
                 alert(`Article "${title}" saved successfully!`);
             } else {
-                console.error("Server response not OK:", response.statusText);
                 throw new Error(`Failed to save article: ${response.status}`);
             }
         })
@@ -110,7 +107,6 @@ function saveArticleToServer(title, content) {
             alert("Error saving article: " + error.message);
         });
 }
-
 // Save article locally via Native Messaging Host (production setup)
 function saveArticleLocally(title, content) {
     const message = { name: title, content: content };
@@ -130,26 +126,28 @@ function saveArticleLocally(title, content) {
 }
 
 function loadArticles() {
-    const savedArticlesList = document.getElementById("savedArticlesList");
-    const savedArticleContainer = document.getElementById("savedArticleContainer");
+    const userId = "exampleUserId"; // Replace with dynamic user ID logic if needed
+    const url = `https://note-taker-3-unrg.onrender.com/articles/${userId}`;
 
-    savedArticlesList.innerHTML = "";
-    savedArticleContainer.innerHTML = "";
+    fetch(url)
+        .then((response) => {
+            if (!response.ok) {
+                throw new Error(`Failed to load articles: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then((articles) => {
+            const savedArticlesList = document.getElementById("savedArticlesList");
+            const savedArticleContainer = document.getElementById("savedArticleContainer");
 
-    // Fetch list of saved articles from the local server
-    fetch("https://note-taker-3-unrg.onrender.com")
-        .then((response) => response.text())
-        .then((html) => {
-            const parser = new DOMParser();
-            const doc = parser.parseFromString(html, "text/html");
-            const links = doc.querySelectorAll("a");
+            savedArticlesList.innerHTML = "";
+            savedArticleContainer.innerHTML = "";
 
-            links.forEach((link) => {
-                const fileName = link.textContent;
+            articles.forEach((article) => {
                 const listItem = document.createElement("li");
-                listItem.textContent = fileName.replace(".html", "");
+                listItem.textContent = article.title;
                 listItem.addEventListener("click", () => {
-                    savedArticleContainer.innerHTML = `<iframe src="/saved_articles/${fileName}" style="width:100%; height:600px;"></iframe>`;
+                    savedArticleContainer.innerHTML = `<div>${article.content}</div>`;
                 });
                 savedArticlesList.appendChild(listItem);
             });
