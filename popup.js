@@ -85,7 +85,7 @@ function saveArticle(title, content) {
 }
 
 function saveArticleToServer(title, content) {
-    const url = "https://your-app.onrender.com";
+    const url = "https://note-taker-3-unrg.onrender.com";
 
     console.log("Saving article to server:", { title, content });
 
@@ -137,7 +137,7 @@ function loadArticles() {
     savedArticleContainer.innerHTML = "";
 
     // Fetch list of saved articles from the local server
-    fetch("https://your-app.onrender.com")
+    fetch("https://note-taker-3-unrg.onrender.com")
         .then((response) => response.text())
         .then((html) => {
             const parser = new DOMParser();

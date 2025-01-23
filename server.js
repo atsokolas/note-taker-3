@@ -9,8 +9,8 @@ const PORT = process.env.PORT || 5500;
 app.use(bodyParser.json());
 app.use(cors());
 
-const MONGO_URI = "your_mongodb_connection_string_here"; // Replace with your MongoDB connection string
-const DATABASE_NAME = "note_taker";
+const MONGO_URI = "mongodb+srv://atsokolas:<Boonies#0918>@note-taker.kdtnq.mongodb.net/?retryWrites=true&w=majority&appName=Note-taker"; // Replace with your MongoDB connection string
+const DATABASE_NAME = "sample_mflix";
 const COLLECTION_NAME = "articles";
 
 let db, collection;
@@ -61,7 +61,7 @@ app.listen(PORT, () => {
 
 const mongoose = require("mongoose");
 
-const DB_URI = "your-mongodb-connection-string";
+const DB_URI = "mongodb+srv://atsokolas:<Boonies#0918>@note-taker.kdtnq.mongodb.net/?retryWrites=true&w=majority&appName=Note-taker";
 
 mongoose.connect(DB_URI, { useNewUrlParser: true, useUnifiedTopology: true })
   .then(() => console.log("MongoDB connected"))
