@@ -42,7 +42,7 @@
     "https://patrickcollison.com/*"
   ],
   "content_security_policy": {
-    "extension_pages": "script-src 'self'; connect-src 'self' http://127.0.0.1:5500"
+    "extension_pages": "script-src 'self'; connect-src 'self' http://127.0.0.1:5500 https://note-taker-3-unrg.onrender.com"
   },
   "web_accessible_resources": [
     {
