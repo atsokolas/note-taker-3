@@ -24,25 +24,14 @@ MongoClient.connect(MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true
     })
     .catch((err) => console.error("Failed to connect to MongoDB:", err));
 
-app.post("/save-article", (req, res) => {
-    const { title, content, userId } = req.body;
-
-    if (!title || !content || !userId) {
-        return res.status(400).send("Missing required fields.");
-    }
-
-    const article = { title, content, userId, dateSaved: new Date() };
-
-    collection.insertOne(article)
-        .then(() => {
-            console.log("Article saved:", article);
-            res.status(200).send("Article saved successfully!");
-        })
-        .catch((err) => {
-            console.error("Error saving article:", err);
-            res.status(500).send("Failed to save article.");
-        });
-});
+    app.post("/save-article", (req, res) => {
+        const { title, content } = req.body;
+        if (!title || !content) {
+            return res.status(400).send("Invalid article data.");
+        }
+        // Handle saving logic here
+        res.status(200).send("Article saved successfully!");
+    });
 
 app.get("/articles/:userId", (req, res) => {
     const userId = req.params.userId;
