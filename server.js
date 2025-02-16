@@ -71,3 +71,11 @@ app.get("/", (req, res) => {
 app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
 });
+
+// Test endpoint
+
+app.get("/ping", (req, res) => {
+    console.log("Ping received!");
+    res.send("Server is alive");
+});
+

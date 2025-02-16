@@ -9,6 +9,13 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         return;
     }
 
+    // Handle ping action
+    if (request.action === "ping") {
+        console.log("Ping received. Background script is active!");
+        sendResponse({ success: true, message: "Pong from background script" });
+        return true;
+    }
+
     // Check if the action is to capture a screenshot
     if (request.action === "capture") {
         // Use Chrome's `captureVisibleTab` to capture the current visible area
