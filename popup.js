@@ -2,7 +2,7 @@ document.addEventListener("DOMContentLoaded", function () {
     console.log("DOM fully loaded, attaching event listeners...");
 
     // Ensure saveButton exists before adding event listener
-    const saveButton = document.querySelector("#saveButton");
+    const saveButton = document.querySelector("#saveArticleButton");
     if (!saveButton) {
         console.error("❌ saveButton not found in popup.html");
         return;
