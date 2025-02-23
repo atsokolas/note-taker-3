@@ -37,3 +37,11 @@ function saveArticle(title, content) {
     .then(data => console.log("Server response:", data))
     .catch(error => console.error("Error saving article:", error));
 }
+
+document.addEventListener("DOMContentLoaded", function () {
+    console.log("DOM fully loaded, attaching event listeners...");
+
+    document.getElementById("saveButton").addEventListener("click", function () {
+        console.log("Save Article button clicked!");
+    });
+});

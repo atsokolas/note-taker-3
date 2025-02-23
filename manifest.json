@@ -46,7 +46,7 @@
   },
   "web_accessible_resources": [
     {
-      "resources": ["images/*", "html/*"],
+      "resources": ["images/*", "html/*", "popup.js"],
       "matches": ["http://*/*", "https://*/*"]
     }
   ]
