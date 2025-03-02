@@ -6,7 +6,10 @@
     <title>Article Saver</title>
     <link rel="stylesheet" href="popup.css">
     <script src="popup.js" defer></script>
-    <script src="mark.min.js" defer></script>
+    <script>
+        console.log("Loading Mark.js...");
+    </script>
+    <script src="mark.min.js" onload="console.log('✅ Mark.js loaded!')" onerror="console.error('❌ Failed to load Mark.js')"></script>
 </head>
 <body>
     <h1>Article Saver</h1>
