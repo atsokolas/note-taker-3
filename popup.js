@@ -1,52 +1,65 @@
 document.addEventListener("DOMContentLoaded", function () {
-    console.log("DOM fully loaded, attaching event listeners...");
+    console.log("✅ DOM fully loaded, attaching event listeners...");
 
-    // Ensure saveButton exists before adding event listener
+    // Ensure buttons exist before adding event listeners
     const saveButton = document.querySelector("#saveArticleButton");
-    if (!saveButton) {
-        console.error("❌ saveButton not found in popup.html");
+    const loadButton = document.querySelector("#loadArticleButton");
+    const highlightButton = document.querySelector("#highlightButton");
+
+    if (!saveButton || !loadButton || !highlightButton) {
+        console.error("❌ One or more buttons not found in popup.html");
         return;
     }
 
-    saveButton.addEventListener("click", function () {
-        console.log("Save Article button clicked!");
+    // Attach event listeners
+    saveButton.addEventListener("click", saveArticleHandler);
+    loadButton.addEventListener("click", loadArticlesHandler);
+    highlightButton.addEventListener("click", highlightTextHandler);
 
-        // Get active tab
-        chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
-            if (chrome.runtime.lastError) {
-                console.error("Error querying active tab:", chrome.runtime.lastError.message);
-                return;
-            }
-
-            if (tabs.length === 0) {
-                console.error("❌ No active tab found.");
-                return;
-            }
-
-            // Send message to content script
-            chrome.tabs.sendMessage(tabs[0].id, { action: "extractContent" }, function (response) {
-                if (chrome.runtime.lastError) {
-                    console.error("❌ Error sending message to content script:", chrome.runtime.lastError.message);
-                    return;
-                }
-
-                console.log("Extracted content received:", response);
-
-                if (response && response.content) {
-                    saveArticle(response.title, response.content);
-                } else {
-                    console.error("❌ No content extracted.");
-                }
-            });
-        });
-    });
-
-    // Load Mark.js dynamically
-    loadMarkJS();
+    // Log Mark.js loading status
+    checkMarkJS();
 });
 
-// Function to send article data to the backend
-function saveArticle(title, content) {
+/**
+ * Handler for saving an article
+ */
+function saveArticleHandler() {
+    console.log("📌 Save Article button clicked!");
+
+    chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
+        if (chrome.runtime.lastError) {
+            console.error("❌ Error querying active tab:", chrome.runtime.lastError.message);
+            return;
+        }
+
+        if (tabs.length === 0) {
+            console.error("❌ No active tab found.");
+            return;
+        }
+
+        // Send message to content script to extract article content
+        chrome.tabs.sendMessage(tabs[0].id, { action: "extractContent" }, function (response) {
+            if (chrome.runtime.lastError) {
+                console.error("❌ Error sending message to content script:", chrome.runtime.lastError.message);
+                return;
+            }
+
+            if (response && response.content) {
+                console.log("✅ Extracted content received:", response);
+                sendToBackend(response.title, response.content);
+            } else {
+                console.error("❌ No content extracted.");
+            }
+        });
+    });
+}
+
+/**
+ * Function to send extracted article data to the backend
+ * @param {string} title - Title of the article
+ * @param {string} content - Extracted article content
+ */
+function sendToBackend(title, content) {
     fetch("https://note-taker-3-unrg.onrender.com/save-article", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -57,16 +70,75 @@ function saveArticle(title, content) {
     .catch(error => console.error("❌ Error saving article:", error));
 }
 
-// Function to dynamically load Mark.js
-async function loadMarkJS() {
-    try {
-        const response = await fetch("https://cdnjs.cloudflare.com/ajax/libs/mark.js/8.11.1/mark.min.js");
-        const scriptText = await response.text();
-        const scriptElement = document.createElement("script");
-        scriptElement.textContent = scriptText;
-        document.head.appendChild(scriptElement);
-        console.log("✅ Mark.js loaded dynamically");
-    } catch (error) {
-        console.error("❌ Failed to load Mark.js:", error);
+/**
+ * Handler for loading saved articles
+ */
+function loadArticlesHandler() {
+    console.log("📌 Load Articles button clicked!");
+    fetch("https://note-taker-3-unrg.onrender.com/get-articles")
+        .then(response => response.json())
+        .then(articles => {
+            console.log("✅ Fetched articles:", articles);
+            displayArticles(articles);
+        })
+        .catch(error => console.error("❌ Error fetching articles:", error));
+}
+
+/**
+ * Function to display loaded articles in the popup
+ * @param {Array} articles - List of saved articles
+ */
+function displayArticles(articles) {
+    const listContainer = document.querySelector("#savedArticlesList");
+    listContainer.innerHTML = "";
+
+    if (!articles || articles.length === 0) {
+        listContainer.innerHTML = "<li>No saved articles found.</li>";
+        return;
+    }
+
+    articles.forEach(article => {
+        const listItem = document.createElement("li");
+        listItem.textContent = article.title;
+        listContainer.appendChild(listItem);
+    });
+}
+
+/**
+ * Handler for highlighting text in the article preview
+ */
+function highlightTextHandler() {
+    console.log("📌 Highlight button clicked!");
+
+    const highlightInput = document.querySelector("#highlightInput").value.trim();
+    if (!highlightInput) {
+        console.warn("⚠️ No text entered for highlighting.");
+        return;
+    }
+
+    const articlePreview = document.querySelector("#articlePreview");
+    if (!articlePreview) {
+        console.error("❌ Article preview section not found.");
+        return;
+    }
+
+    const markInstance = new Mark(articlePreview);
+    markInstance.unmark(); // Remove existing highlights
+    markInstance.mark(highlightInput, {
+        className: "highlighted-text",
+        separateWordSearch: false
+    });
+
+    console.log(`✅ Highlighted occurrences of: "${highlightInput}"`);
+}
+
+/**
+ * Check if Mark.js is loaded
+ */
+function checkMarkJS() {
+    if (typeof Mark === "function") {
+        console.log("✅ Mark.js loaded!");
+    } else {
+        console.error("❌ Mark.js failed to load.");
     }
 }
