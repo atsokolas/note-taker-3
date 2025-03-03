@@ -37,20 +37,38 @@ function saveArticleHandler() {
             return;
         }
 
-        // Send message to content script to extract article content
-        chrome.tabs.sendMessage(tabs[0].id, { action: "extractContent" }, function (response) {
-            if (chrome.runtime.lastError) {
-                console.error("❌ Error sending message to content script:", chrome.runtime.lastError.message);
-                return;
-            }
+        const tabId = tabs[0].id;
 
-            if (response && response.content) {
-                console.log("✅ Extracted content received:", response);
-                sendToBackend(response.title, response.content);
-            } else {
-                console.error("❌ No content extracted.");
+        // Inject content.js before messaging
+        chrome.scripting.executeScript(
+            {
+                target: { tabId: tabId },
+                files: ["content.js"]
+            },
+            () => {
+                if (chrome.runtime.lastError) {
+                    console.error("❌ Error injecting content script:", chrome.runtime.lastError.message);
+                    return;
+                }
+
+                console.log("✅ Content script injected successfully.");
+
+                // Now send the message to content.js
+                chrome.tabs.sendMessage(tabId, { action: "extractContent" }, function (response) {
+                    if (chrome.runtime.lastError) {
+                        console.error("❌ Error sending message to content script:", chrome.runtime.lastError.message);
+                        return;
+                    }
+
+                    if (response && response.content) {
+                        console.log("✅ Extracted content received:", response);
+                        sendToBackend(response.title, response.content);
+                    } else {
+                        console.error("❌ No content extracted.");
+                    }
+                });
             }
-        });
+        );
     });
 }
 
