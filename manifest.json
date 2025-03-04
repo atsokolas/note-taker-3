@@ -42,7 +42,7 @@
     "https://patrickcollison.com/*"
   ],
   "content_security_policy": {
-    "extension_pages": "script-src 'self'; object-src 'none'; connect-src 'self' https://cdnjs.cloudflare.com;"
+    "extension_pages": "script-src 'self'; object-src 'none'; connect-src 'self' https://cdnjs.cloudflare.com https://note-taker-3-unrg.onrender.com;"
   },
   "web_accessible_resources": [
     {
