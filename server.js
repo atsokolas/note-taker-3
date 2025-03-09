@@ -86,3 +86,12 @@ app.get("/ping", (req, res) => {
 app.listen(PORT, () => {
     console.log(`🌐 Server running at http://localhost:${PORT}`);
 });
+
+app.get("/get-articles", async (req, res) => {
+    try {
+        const articles = await ArticleModel.find(); // Adjust based on your DB
+        res.json(articles);
+    } catch (error) {
+        res.status(500).json({ error: "Failed to fetch articles" });
+    }
+});
