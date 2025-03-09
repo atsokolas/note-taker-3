@@ -15,8 +15,17 @@ app.use(cors({ origin: "*" })); // Allow all origins temporarily for testing
 
 // MongoDB connection
 const DB_URI = process.env.MONGO_URI;
-mongoose.connect(DB_URI)
-    .then(() => console.log("✅ Connected to MongoDB"))
+console.log("🔗 Connecting to MongoDB with URI:", DB_URI); // Debugging connection string
+
+mongoose.connect(DB_URI, {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+    dbName: "test" // Ensure connection to the correct database
+})
+    .then(() => {
+        console.log("✅ Connected to MongoDB");
+        console.log("📂 Using Database:", mongoose.connection.db.databaseName);
+    })
     .catch((err) => {
         console.error("❌ MongoDB connection error:", err);
         process.exit(1);
@@ -41,9 +50,9 @@ app.post("/save-article", async (req, res) => {
     const { title, content, userId } = req.body;
 
     // Validate request body
-    if (!title || !content) {
+    if (!title || !content || !userId) {
         console.log("⚠️ Missing fields:", req.body);
-        return res.status(400).json({ error: "Missing required fields (title, content)" });
+        return res.status(400).json({ error: "Missing required fields (title, content, userId)" });
     }
 
     try {
@@ -57,7 +66,7 @@ app.post("/save-article", async (req, res) => {
     }
 });
 
-// Fetch Articles
+// Fetch Articles for a Specific User
 app.get("/articles/:userId", async (req, res) => {
     const { userId } = req.params;
 
@@ -67,6 +76,18 @@ app.get("/articles/:userId", async (req, res) => {
         res.status(200).json(articles);
     } catch (err) {
         console.error("❌ Error fetching articles:", err);
+        res.status(500).json({ error: "Failed to fetch articles" });
+    }
+});
+
+// Fetch All Articles (for debugging)
+app.get("/get-articles", async (req, res) => {
+    try {
+        console.log("📂 Fetching articles from DB:", mongoose.connection.db.databaseName); // Debugging database name
+        const articles = await Article.find();
+        res.json(articles);
+    } catch (error) {
+        console.error("❌ Error fetching articles:", error);
         res.status(500).json({ error: "Failed to fetch articles" });
     }
 });
@@ -85,13 +106,4 @@ app.get("/ping", (req, res) => {
 // Start server
 app.listen(PORT, () => {
     console.log(`🌐 Server running at http://localhost:${PORT}`);
-});
-
-app.get("/get-articles", async (req, res) => {
-    try {
-        const articles = await ArticleModel.find(); // Adjust based on your DB
-        res.json(articles);
-    } catch (error) {
-        res.status(500).json({ error: "Failed to fetch articles" });
-    }
 });
