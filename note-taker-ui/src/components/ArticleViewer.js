@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState } from 'react';
 
 const ArticleViewer = ({ articleContent, articleId }) => {
     const [highlights, setHighlights] = useState([]);
@@ -6,6 +6,8 @@ const ArticleViewer = ({ articleContent, articleId }) => {
     const handleMouseUp = () => {
         const selection = window.getSelection();
         const selectedText = selection.toString().trim();
+
+        console.log("Selected Text:", selectedText);  // For debugging
 
         if (selectedText) {
             const range = selection.getRangeAt(0);
@@ -25,7 +27,7 @@ const ArticleViewer = ({ articleContent, articleId }) => {
 
     return (
         <div
-            onMouseUp={handleMouseUp}
+            onMouseUp={handleMouseUp}  // <-- Add this here
             dangerouslySetInnerHTML={{ __html: articleContent }}
             style={{ padding: "20px", lineHeight: "1.6" }}
         />
