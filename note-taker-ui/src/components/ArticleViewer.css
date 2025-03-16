@@ -1,0 +1,7 @@
+.highlight {
+    background-color: yellow;
+    color: black;
+    padding: 0 2px;
+    border-radius: 3px;
+    cursor: pointer;
+  }
