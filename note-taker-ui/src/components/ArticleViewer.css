@@ -1,7 +1,5 @@
-.highlight {
-    background-color: yellow;
-    color: black;
-    padding: 0 2px;
-    border: 2px solid #FFD700;  /* Thicker border for better visibility */
-    cursor: pointer;
+mark.highlight {
+    background-color: yellow !important;
+    color: black !important;
+    border: 2px solid #FFD700; 
 }

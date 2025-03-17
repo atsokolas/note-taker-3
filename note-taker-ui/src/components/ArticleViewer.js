@@ -29,15 +29,15 @@ const ArticleViewer = ({ articleContent, articleId }) => {
                 setHighlights([...highlights, newHighlight]);
                 console.log("✅ Highlight saved:", newHighlight);
 
-                // Highlight in the DOM
+                // Highlight in the DOM (Fallback version for robustness)
                 const range = selection.getRangeAt(0);
-
                 if (range) {
-                    const highlightSpan = document.createElement("mark");
-                    highlightSpan.className = "highlight";
-                    highlightSpan.title = `Note: ${note || "No note"}\nTags: ${newHighlight.tags.join(", ")}`;
-                    range.surroundContents(highlightSpan);
-                    console.log("✅ Highlighted in DOM:", highlightSpan);
+                    const span = document.createElement('span');
+                    span.innerHTML = `<mark class="highlight" title="Note: ${note || 'No note'}\nTags: ${newHighlight.tags.join(", ")}">${selectedText}</mark>`;
+
+                    range.deleteContents();
+                    range.insertNode(span);
+                    console.log("✅ Highlighted in DOM:", span);
                 } else {
                     console.warn("❌ No valid range detected for highlighting.");
                 }
