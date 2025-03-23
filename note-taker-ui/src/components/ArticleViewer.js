@@ -1,14 +1,19 @@
 import './ArticleViewer.css';
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 
 const ArticleViewer = ({ articleContent, articleId }) => {
     const [highlights, setHighlights] = useState([]);
+    const contentRef = useRef(null);
 
     const handleMouseUp = () => {
         setTimeout(() => {
             const selection = window.getSelection();
-            const selectedText = selection.toString().trim();
+            if (!selection || selection.rangeCount === 0) {
+                console.warn("❌ No text selected.");
+                return;
+            }
 
+            const selectedText = selection.toString().trim();
             console.log("📋 MouseUp triggered!");
             console.log("Selected Text:", selectedText);
 
@@ -29,33 +34,31 @@ const ArticleViewer = ({ articleContent, articleId }) => {
                 setHighlights([...highlights, newHighlight]);
                 console.log("✅ Highlight saved:", newHighlight);
 
-                // Highlight in the DOM (Fallback version for robustness)
+                // Highlight in the DOM
                 const range = selection.getRangeAt(0);
                 if (range) {
-                    const span = document.createElement('span');
-                    span.innerHTML = `<mark class="highlight" title="Note: ${note || 'No note'}\nTags: ${newHighlight.tags.join(", ")}">${selectedText}</mark>`;
+                    const mark = document.createElement("mark");
+                    mark.className = "highlight";
+                    mark.title = `Note: ${note || "No note"}\nTags: ${newHighlight.tags.join(", ")}`;
+                    mark.textContent = selectedText;
 
                     range.deleteContents();
-                    range.insertNode(span);
-                    console.log("✅ Highlighted in DOM:", span);
+                    range.insertNode(mark);
+                    console.log("✅ Highlighted in DOM:", mark);
                 } else {
                     console.warn("❌ No valid range detected for highlighting.");
                 }
 
                 // Clear selection to avoid confusion
                 selection.removeAllRanges();
-            } else {
-                console.warn("❌ No text selected.");
             }
         }, 100); // Small delay to improve text capture accuracy
     };
 
     return (
-        <div
-            onMouseUp={handleMouseUp}
-            dangerouslySetInnerHTML={{ __html: articleContent }}
-            style={{ padding: "20px", lineHeight: "1.6" }}
-        />
+        <div ref={contentRef} style={{ padding: "20px", lineHeight: "1.6" }}>
+            <div onMouseUp={handleMouseUp} dangerouslySetInnerHTML={{ __html: articleContent }} />
+        </div>
     );
 };
 
