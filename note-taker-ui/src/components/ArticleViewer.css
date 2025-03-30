@@ -1,5 +1,18 @@
-mark.highlight {
-    background-color: yellow !important;
-    color: black !important;
-    border: 2px solid #FFD700; 
+.highlight-popup {
+    position: absolute;
+    background: white;
+    padding: 5px 10px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    box-shadow: 0px 2px 5px rgba(0, 0, 0, 0.2);
+    z-index: 1000;
+}
+
+.highlight-popup button {
+    background: #007bff;
+    color: white;
+    border: none;
+    padding: 5px 10px;
+    cursor: pointer;
+    border-radius: 3px;
 }

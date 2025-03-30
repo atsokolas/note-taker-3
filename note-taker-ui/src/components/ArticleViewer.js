@@ -3,61 +3,83 @@ import React, { useState, useEffect, useRef } from 'react';
 
 const ArticleViewer = ({ articleContent, articleId }) => {
     const [highlights, setHighlights] = useState([]);
-    const contentRef = useRef(null);
+    const [popup, setPopup] = useState({ visible: false, x: 0, y: 0, text: "" });
+    const popupRef = useRef(null);
+
+    useEffect(() => {
+        document.addEventListener("click", handleClickOutside);
+        return () => document.removeEventListener("click", handleClickOutside);
+    }, []);
+
+    const handleClickOutside = (event) => {
+        if (popupRef.current && !popupRef.current.contains(event.target)) {
+            setPopup({ visible: false, x: 0, y: 0, text: "" });
+        }
+    };
 
     const handleMouseUp = () => {
         setTimeout(() => {
             const selection = window.getSelection();
-            if (!selection || selection.rangeCount === 0) {
-                console.warn("❌ No text selected.");
-                return;
-            }
-
             const selectedText = selection.toString().trim();
-            console.log("📋 MouseUp triggered!");
-            console.log("Selected Text:", selectedText);
+            if (!selectedText) return;
 
-            if (selectedText) {
-                // Ask user for notes and tags
-                const note = prompt("Add a note for this highlight:");
-                const tags = prompt("Add tags for this highlight (comma-separated):");
+            console.log("📋 Text Selected:", selectedText);
 
-                // Save the highlight with note and tags
-                const newHighlight = {
-                    text: selectedText,
-                    note: note || "",
-                    tags: tags ? tags.split(",").map(tag => tag.trim()) : [],
-                    articleId: articleId,
-                    timestamp: Date.now()
-                };
+            const range = selection.getRangeAt(0);
+            const rect = range.getBoundingClientRect();
 
-                setHighlights([...highlights, newHighlight]);
-                console.log("✅ Highlight saved:", newHighlight);
+            setPopup({
+                visible: true,
+                x: rect.left + window.scrollX,
+                y: rect.top + window.scrollY - 40,
+                text: selectedText
+            });
+        }, 100);
+    };
 
-                // Highlight in the DOM
-                const range = selection.getRangeAt(0);
-                if (range) {
-                    const mark = document.createElement("mark");
-                    mark.className = "highlight";
-                    mark.title = `Note: ${note || "No note"}\nTags: ${newHighlight.tags.join(", ")}`;
-                    mark.textContent = selectedText;
+    const saveHighlight = () => {
+        const note = prompt("Add a note for this highlight:");
+        const newHighlight = {
+            text: popup.text,
+            note: note || "",
+            articleId: articleId,
+            timestamp: Date.now()
+        };
 
-                    range.deleteContents();
-                    range.insertNode(mark);
-                    console.log("✅ Highlighted in DOM:", mark);
-                } else {
-                    console.warn("❌ No valid range detected for highlighting.");
-                }
+        setHighlights([...highlights, newHighlight]);
 
-                // Clear selection to avoid confusion
-                selection.removeAllRanges();
-            }
-        }, 100); // Small delay to improve text capture accuracy
+        // Apply highlight in the DOM
+        const selection = window.getSelection();
+        if (selection.rangeCount > 0) {
+            const range = selection.getRangeAt(0);
+            const mark = document.createElement("mark");
+            mark.className = "highlight";
+            mark.textContent = popup.text;
+            range.deleteContents();
+            range.insertNode(mark);
+        }
+
+        console.log("✅ Highlight saved:", newHighlight);
+        setPopup({ visible: false, x: 0, y: 0, text: "" });
     };
 
     return (
-        <div ref={contentRef} style={{ padding: "20px", lineHeight: "1.6" }}>
-            <div onMouseUp={handleMouseUp} dangerouslySetInnerHTML={{ __html: articleContent }} />
+        <div>
+            <div
+                className="article-container"
+                onMouseUp={handleMouseUp}
+                dangerouslySetInnerHTML={{ __html: articleContent }}
+            />
+            
+            {popup.visible && (
+                <div
+                    ref={popupRef}
+                    className="highlight-popup"
+                    style={{ top: popup.y, left: popup.x, position: "absolute" }}
+                >
+                    <button onClick={saveHighlight}>Save Highlight</button>
+                </div>
+            )}
         </div>
     );
 };
