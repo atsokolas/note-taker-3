@@ -1,5 +1,6 @@
 import './ArticleViewer.css';
 import React, { useState, useEffect, useRef } from 'react';
+import axios from 'axios';
 
 const ArticleViewer = ({ articleContent, articleId }) => {
     const [highlights, setHighlights] = useState([]);
@@ -7,6 +8,7 @@ const ArticleViewer = ({ articleContent, articleId }) => {
     const popupRef = useRef(null);
 
     useEffect(() => {
+        fetchHighlights();
         document.addEventListener("click", handleClickOutside);
         return () => document.removeEventListener("click", handleClickOutside);
     }, []);
@@ -17,38 +19,36 @@ const ArticleViewer = ({ articleContent, articleId }) => {
         }
     };
 
-    const handleMouseUp = () => {
-        setTimeout(() => {
-            const selection = window.getSelection();
-            const selectedText = selection.toString().trim();
-            if (!selectedText) return;
-
-            console.log("📋 Text Selected:", selectedText);
-
-            const range = selection.getRangeAt(0);
-            const rect = range.getBoundingClientRect();
-
-            setPopup({
-                visible: true,
-                x: rect.left + window.scrollX,
-                y: rect.top + window.scrollY - 40,
-                text: selectedText
-            });
-        }, 100);
+    const fetchHighlights = async () => {
+        try {
+            const res = await axios.get(`http://localhost:5500/articles/${articleId}`);
+            const highlightsFromDB = res.data.highlights || [];
+            setHighlights(highlightsFromDB);
+            console.log("📥 Fetched highlights:", highlightsFromDB);
+        } catch (err) {
+            console.error("❌ Error fetching highlights:", err);
+        }
     };
 
-    const saveHighlight = () => {
+    const saveHighlight = async () => {
         const note = prompt("Add a note for this highlight:");
+
         const newHighlight = {
             text: popup.text,
             note: note || "",
-            articleId: articleId,
-            timestamp: Date.now()
+            tags: [],
         };
 
-        setHighlights([...highlights, newHighlight]);
+        try {
+            const res = await axios.post(`http://localhost:5500/articles/${articleId}/highlights`, newHighlight);
+            const updatedArticle = res.data.article;
+            setHighlights(updatedArticle.highlights);
+            console.log("✅ Highlight saved to server:", newHighlight);
+        } catch (err) {
+            console.error("❌ Failed to save highlight:", err);
+        }
 
-        // Apply highlight in the DOM
+        // Highlight in the DOM
         const selection = window.getSelection();
         if (selection.rangeCount > 0) {
             const range = selection.getRangeAt(0);
@@ -59,8 +59,17 @@ const ArticleViewer = ({ articleContent, articleId }) => {
             range.insertNode(mark);
         }
 
-        console.log("✅ Highlight saved:", newHighlight);
         setPopup({ visible: false, x: 0, y: 0, text: "" });
+    };
+
+    const renderArticleWithHighlights = () => {
+        let renderedContent = articleContent;
+        highlights.forEach(h => {
+            const escaped = h.text.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&'); // Escape RegEx chars
+            const regex = new RegExp(escaped, 'gi');
+            renderedContent = renderedContent.replace(regex, match => `<mark class="highlight">${match}</mark>`);
+        });
+        return renderedContent;
     };
 
     return (
@@ -68,9 +77,9 @@ const ArticleViewer = ({ articleContent, articleId }) => {
             <div
                 className="article-container"
                 onMouseUp={handleMouseUp}
-                dangerouslySetInnerHTML={{ __html: articleContent }}
+                dangerouslySetInnerHTML={{ __html: renderArticleWithHighlights() }}
             />
-            
+
             {popup.visible && (
                 <div
                     ref={popupRef}

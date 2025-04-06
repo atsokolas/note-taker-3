@@ -30,17 +30,23 @@ mongoose.connect(DB_URI, {
         console.error("❌ MongoDB connection error:", err);
         process.exit(1);
     });
-
-// Article Schema
-const articleSchema = new mongoose.Schema({
-    title: String,
-    content: String,
-    userId: String,
-    createdAt: { type: Date, default: Date.now }
-});
-
-const Article = mongoose.model("Article", articleSchema);
-
+    const articleSchema = new mongoose.Schema({
+        title: String,
+        content: String,
+        userId: String,
+        createdAt: { type: Date, default: Date.now },
+        highlights: [
+            {
+                text: String,
+                note: String,
+                tags: [String],
+                createdAt: { type: Date, default: Date.now }
+            }
+        ]
+    });
+    
+    const Article = mongoose.model("Article", articleSchema); // ✅ Add this
+    
 // Routes
 
 // Save Article
@@ -92,6 +98,30 @@ app.get("/get-articles", async (req, res) => {
     }
 });
 
+app.post("/articles/:articleId/highlights", async (req, res) => {
+    const { articleId } = req.params;
+    const { text, note, tags } = req.body;
+
+    if (!text) {
+        return res.status(400).json({ error: "Highlight text is required" });
+    }
+
+    try {
+        const article = await Article.findById(articleId);
+        if (!article) {
+            return res.status(404).json({ error: "Article not found" });
+        }
+
+        article.highlights.push({ text, note, tags });
+        await article.save();
+
+        res.status(200).json({ message: "Highlight added successfully", article });
+    } catch (err) {
+        console.error("❌ Error adding highlight:", err);
+        res.status(500).json({ error: "Failed to add highlight" });
+    }
+});
+
 // Health check
 app.get("/", (req, res) => {
     res.send("🚀 Server is running!");
@@ -105,5 +135,5 @@ app.get("/ping", (req, res) => {
 
 // Start server
 app.listen(PORT, () => {
-    console.log(`🌐 Server running at http://localhost:${PORT}`);
+    console.log(`🌐 Server running on port ${PORT}`);
 });
