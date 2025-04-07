@@ -72,6 +72,26 @@ const ArticleViewer = ({ articleContent, articleId }) => {
         return renderedContent;
     };
 
+    const handleMouseUp = () => {
+        setTimeout(() => {
+            const selection = window.getSelection();
+            const selectedText = selection.toString().trim();
+            console.log("🖱 Mouse up triggered — selected:", selectedText);
+    
+            if (!selectedText) return;
+    
+            const range = selection.getRangeAt(0);
+            const rect = range.getBoundingClientRect();
+    
+            setPopup({
+                visible: true,
+                x: rect.left + window.scrollX,
+                y: rect.top + window.scrollY - 40,
+                text: selectedText,
+            });
+        }, 100);
+    };
+    
     return (
         <div>
             <div
