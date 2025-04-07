@@ -1,18 +1,19 @@
-.highlight-popup {
-    position: absolute;
-    background: white;
-    padding: 5px 10px;
-    border: 1px solid #ccc;
-    border-radius: 5px;
-    box-shadow: 0px 2px 5px rgba(0, 0, 0, 0.2);
-    z-index: 1000;
+.article-container {
+    position: relative;
+    padding: 20px;
+    background: #fff;
+    line-height: 1.6;
 }
 
-.highlight-popup button {
-    background: #007bff;
-    color: white;
-    border: none;
-    padding: 5px 10px;
-    cursor: pointer;
-    border-radius: 3px;
+.highlight {
+    background-color: yellow;
+    padding: 0 2px;
+}
+
+.highlight-popup {
+    background: white;
+    border: 1px solid #ccc;
+    padding: 8px;
+    border-radius: 6px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.2);
 }

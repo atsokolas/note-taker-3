@@ -6,6 +6,7 @@ const ArticleViewer = ({ articleContent, articleId }) => {
     const [highlights, setHighlights] = useState([]);
     const [popup, setPopup] = useState({ visible: false, x: 0, y: 0, text: "" });
     const popupRef = useRef(null);
+    const containerRef = useRef(null);
 
     useEffect(() => {
         fetchHighlights();
@@ -30,6 +31,25 @@ const ArticleViewer = ({ articleContent, articleId }) => {
         }
     };
 
+    const handleMouseUp = () => {
+        const selection = window.getSelection();
+        const selectedText = selection.toString().trim();
+
+        if (!selectedText) return;
+
+        const range = selection.getRangeAt(0);
+        const rect = range.getBoundingClientRect();
+
+        setPopup({
+            visible: true,
+            x: rect.left + window.scrollX,
+            y: rect.top + window.scrollY - 40,
+            text: selectedText,
+        });
+
+        console.log("📌 Text selected:", selectedText);
+    };
+
     const saveHighlight = async () => {
         const note = prompt("Add a note for this highlight:");
 
@@ -48,7 +68,7 @@ const ArticleViewer = ({ articleContent, articleId }) => {
             console.error("❌ Failed to save highlight:", err);
         }
 
-        // Highlight in the DOM
+        // Apply visual marking in DOM
         const selection = window.getSelection();
         if (selection.rangeCount > 0) {
             const range = selection.getRangeAt(0);
@@ -65,37 +85,18 @@ const ArticleViewer = ({ articleContent, articleId }) => {
     const renderArticleWithHighlights = () => {
         let renderedContent = articleContent;
         highlights.forEach(h => {
-            const escaped = h.text.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&'); // Escape RegEx chars
+            const escaped = h.text.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
             const regex = new RegExp(escaped, 'gi');
             renderedContent = renderedContent.replace(regex, match => `<mark class="highlight">${match}</mark>`);
         });
         return renderedContent;
     };
 
-    const handleMouseUp = () => {
-        setTimeout(() => {
-            const selection = window.getSelection();
-            const selectedText = selection.toString().trim();
-            console.log("🖱 Mouse up triggered — selected:", selectedText);
-    
-            if (!selectedText) return;
-    
-            const range = selection.getRangeAt(0);
-            const rect = range.getBoundingClientRect();
-    
-            setPopup({
-                visible: true,
-                x: rect.left + window.scrollX,
-                y: rect.top + window.scrollY - 40,
-                text: selectedText,
-            });
-        }, 100);
-    };
-    
     return (
         <div>
             <div
                 className="article-container"
+                ref={containerRef}
                 onMouseUp={handleMouseUp}
                 dangerouslySetInnerHTML={{ __html: renderArticleWithHighlights() }}
             />
@@ -104,9 +105,9 @@ const ArticleViewer = ({ articleContent, articleId }) => {
                 <div
                     ref={popupRef}
                     className="highlight-popup"
-                    style={{ top: popup.y, left: popup.x, position: "absolute" }}
+                    style={{ top: popup.y, left: popup.x, position: "absolute", zIndex: 10 }}
                 >
-                    <button onClick={saveHighlight}>Save Highlight</button>
+                    <button onClick={saveHighlight}>💾 Save Highlight</button>
                 </div>
             )}
         </div>
