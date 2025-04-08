@@ -31,24 +31,31 @@ const ArticleViewer = ({ articleContent, articleId }) => {
         }
     };
 
-    const handleMouseUp = () => {
-        const selection = window.getSelection();
-        const selectedText = selection.toString().trim();
-
-        if (!selectedText) return;
-
-        const range = selection.getRangeAt(0);
-        const rect = range.getBoundingClientRect();
-
-        setPopup({
-            visible: true,
-            x: rect.left + window.scrollX,
-            y: rect.top + window.scrollY - 40,
-            text: selectedText,
-        });
-
-        console.log("📌 Text selected:", selectedText);
-    };
+    useEffect(() => {
+        const handleMouseUp = () => {
+            setTimeout(() => {
+                const selection = window.getSelection();
+                const selectedText = selection.toString().trim();
+    
+                if (!selectedText) return;
+    
+                const range = selection.getRangeAt(0);
+                const rect = range.getBoundingClientRect();
+    
+                setPopup({
+                    visible: true,
+                    x: rect.left + window.scrollX,
+                    y: rect.top + window.scrollY - 40,
+                    text: selectedText,
+                });
+    
+                console.log("📌 Text selected:", selectedText);
+            }, 10); // small delay to ensure selection is settled
+        };
+    
+        document.addEventListener("mouseup", handleMouseUp);
+        return () => document.removeEventListener("mouseup", handleMouseUp);
+    }, []);
 
     const saveHighlight = async () => {
         const note = prompt("Add a note for this highlight:");
@@ -97,10 +104,9 @@ const ArticleViewer = ({ articleContent, articleId }) => {
             <div
                 className="article-container"
                 ref={containerRef}
-                onMouseUp={handleMouseUp}
                 dangerouslySetInnerHTML={{ __html: renderArticleWithHighlights() }}
             />
-
+    
             {popup.visible && (
                 <div
                     ref={popupRef}
