@@ -23,52 +23,60 @@ document.addEventListener("DOMContentLoaded", function () {
 /**
  * Handler for saving an article
  */
-function saveArticleHandler() {
-    console.log("📌 Save Article button clicked!");
+async function saveArticleHandler() {
+    console.log("📰 Save Article button clicked");
 
-    chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
+    // Get the current active tab
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+
+    if (!tab || !tab.id) {
+        console.error("❌ Could not find the active tab.");
+        return;
+    }
+
+    // Send message to content script to extract article content
+    chrome.tabs.sendMessage(tab.id, { action: "extractContent" }, async (response) => {
         if (chrome.runtime.lastError) {
-            console.error("❌ Error querying active tab:", chrome.runtime.lastError.message);
+            console.error("❌ Error communicating with content script:", chrome.runtime.lastError.message);
             return;
         }
 
-        if (tabs.length === 0) {
-            console.error("❌ No active tab found.");
+        if (!response || response.error) {
+            console.error("❌ Failed to extract article:", response?.error);
             return;
         }
 
-        const tabId = tabs[0].id;
+        console.log("✅ Article content extracted:", response.title);
 
-        // Inject content.js before messaging
-        chrome.scripting.executeScript(
-            {
-                target: { tabId: tabId },
-                files: ["content.js"]
-            },
-            () => {
-                if (chrome.runtime.lastError) {
-                    console.error("❌ Error injecting content script:", chrome.runtime.lastError.message);
-                    return;
-                }
+        // Send to your backend API
+        try {
+            const res = await fetch("https://note-taker-3-unrg.onrender.com/save-article", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    title: response.title,
+                    url: tab.url,
+                    content: response.content,
+                    text: response.text,
+                    userId: "exampleUserId" // TODO: Replace with real user ID
+                })
+            });
 
-                console.log("✅ Content script injected successfully.");
+            const data = await res.json();
 
-                // Now send the message to content.js
-                chrome.tabs.sendMessage(tabId, { action: "extractContent" }, function (response) {
-                    if (chrome.runtime.lastError) {
-                        console.error("❌ Error sending message to content script:", chrome.runtime.lastError.message);
-                        return;
-                    }
-
-                    if (response && response.content) {
-                        console.log("✅ Extracted content received:", response);
-                        sendToBackend(response.title, response.content);
-                    } else {
-                        console.error("❌ No content extracted.");
-                    }
-                });
+            if (res.ok) {
+                console.log("✅ Article saved:", data);
+                alert("Article saved successfully!");
+            } else {
+                console.error("❌ Failed to save article:", data.error);
+                alert("Failed to save article.");
             }
-        );
+        } catch (error) {
+            console.error("❌ Network error while saving article:", error);
+            alert("Error saving article.");
+        }
     });
 }
 

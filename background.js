@@ -1,39 +1,60 @@
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-    console.log("Received request:", request);
-    console.log("Sender details:", sender);
+    console.log("📩 Background received request:", request);
 
-    // Ensure the request contains an action
     if (!request.action) {
-        console.warn("Request missing 'action'. Ignoring.");
-        sendResponse({ success: false, error: "Invalid request. Missing 'action' field." });
+        const errorMsg = "Missing 'action' field in request.";
+        console.warn("⚠️", errorMsg);
+        sendResponse({ success: false, error: errorMsg });
         return;
     }
 
-    // Handle ping action
-    if (request.action === "ping") {
-        console.log("Ping received. Background script is active!");
-        sendResponse({ success: true, message: "Pong from background script" });
-        return true;
+    switch (request.action) {
+        case "ping":
+            console.log("🏓 Ping received.");
+            sendResponse({ success: true, message: "Pong from background script" });
+            break;
+
+        case "capture":
+            chrome.tabs.captureVisibleTab(null, { format: "png" }, (dataUrl) => {
+                if (chrome.runtime.lastError) {
+                    console.error("❌ Capture error:", chrome.runtime.lastError.message);
+                    sendResponse({ success: false, error: chrome.runtime.lastError.message });
+                } else {
+                    console.log("📸 Screenshot captured.");
+                    sendResponse({ success: true, dataUrl });
+                }
+            });
+            return true; // Async response
+
+        case "saveHighlight":
+            console.log("📝 Saving highlight:", request.text);
+
+            fetch("https://note-taker-3-unrg.onrender.com/save-highlight", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    text: request.text,
+                    url: request.url,
+                    title: request.title,
+                    timestamp: request.timestamp,
+                    userId: "exampleUserId", // TODO: Replace with actual user ID logic
+                }),
+            })
+            .then(res => res.json())
+            .then(data => {
+                console.log("✅ Highlight saved to backend:", data);
+                sendResponse({ success: true, data });
+            })
+            .catch(error => {
+                console.error("❌ Error saving highlight:", error);
+                sendResponse({ success: false, error: error.message });
+            });
+
+            return true; // Async response
+
+        default:
+            const unknownMsg = `Unknown action: ${request.action}`;
+            console.warn("⚠️", unknownMsg);
+            sendResponse({ success: false, error: unknownMsg });
     }
-
-    // Check if the action is to capture a screenshot
-    if (request.action === "capture") {
-        // Use Chrome's `captureVisibleTab` to capture the current visible area
-        chrome.tabs.captureVisibleTab(null, { format: "png" }, (dataUrl) => {
-            if (chrome.runtime.lastError) {
-                console.error("Error capturing visible tab:", chrome.runtime.lastError.message);
-                sendResponse({ success: false, error: chrome.runtime.lastError.message });
-            } else {
-                console.log("Screenshot captured successfully");
-                sendResponse({ success: true, dataUrl });
-            }
-        });
-
-        // Indicate that the response will be sent asynchronously
-        return true;
-    }
-
-    // Unknown action handling
-    console.warn("Unknown action received:", request.action);
-    sendResponse({ success: false, error: `Unknown action: ${request.action}` });
 });
