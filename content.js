@@ -1,58 +1,77 @@
-console.log("✅ Content script initialized.");
+console.log("✅ Content script loaded.");
 
-// Extracts main article content from the page
+// Extract the main article content
 function extractArticleContent() {
     try {
-        const container = document.querySelector(
-            "article, [class*='content'], [class*='main'], [id*='content'], [id*='main']"
-        );
-
-        if (!container) {
-            throw new Error("Main article container not found.");
-        }
+        const container = document.querySelector("article, [class*='content'], [class*='main'], [id*='content'], [id*='main']");
+        if (!container) throw new Error("Main content container not found.");
 
         return {
-            title: document.title || "Untitled Article",
+            title: document.title || "Untitled",
             content: container.innerHTML,
-            text: container.innerText,
+            text: container.innerText
         };
-    } catch (err) {
-        console.error("❌ Failed to extract article:", err.message);
+    } catch (error) {
+        console.error("❌ Extraction failed:", error.message);
         return {
             title: "",
             content: "",
             text: "",
-            error: err.message,
+            error: error.message
         };
     }
 }
 
-// Respond to extraction request from popup.js
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+// Respond to messages from popup.js
+chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
     if (message.action === "extractContent") {
-        console.log("📩 Received extractContent request");
-        const result = extractArticleContent();
-        sendResponse(result);
-    }
+        console.log("📥 Received extractContent request");
 
-    return true;
+        try {
+            const article = extractArticleContent();
+
+            if (!article || !article.content) {
+                console.warn("⚠️ No article content found.");
+                sendResponse({ success: false, error: "No article content found" });
+                return;
+            }
+
+            console.log("📰 Extracted article content:", {
+                title: article.title,
+                url: window.location.href,
+                textLength: article.text.length
+            });
+
+            sendResponse({
+                success: true,
+                data: {
+                    ...article,
+                    url: window.location.href
+                }
+            });
+        } catch (err) {
+            console.error("❌ Error extracting article:", err.message);
+            sendResponse({ success: false, error: err.message });
+        }
+
+        return true;
+    }
 });
 
-// Tooltip for saving highlights
+// Highlight tooltip on text selection
 document.addEventListener("mouseup", () => {
-    const selection = window.getSelection();
-    const selectedText = selection.toString().trim();
+    const selectedText = window.getSelection().toString().trim();
     if (!selectedText) return;
 
-    const existingTooltip = document.getElementById("note-taker-tooltip");
-    if (existingTooltip) existingTooltip.remove();
+    document.getElementById("note-taker-tooltip")?.remove();
 
-    const range = selection.getRangeAt(0);
+    const range = window.getSelection().getRangeAt(0);
     const rect = range.getBoundingClientRect();
 
     const tooltip = document.createElement("div");
     tooltip.id = "note-taker-tooltip";
     tooltip.innerText = "💾 Save Highlight";
+
     Object.assign(tooltip.style, {
         position: "absolute",
         top: `${window.scrollY + rect.top - 30}px`,
@@ -61,13 +80,11 @@ document.addEventListener("mouseup", () => {
         color: "#fff",
         padding: "5px 10px",
         borderRadius: "6px",
-        cursor: "pointer",
-        zIndex: 99999,
         fontSize: "14px",
+        zIndex: 99999,
+        cursor: "pointer",
         boxShadow: "0 2px 6px rgba(0, 0, 0, 0.2)"
     });
-
-    document.body.appendChild(tooltip);
 
     tooltip.addEventListener("click", () => {
         chrome.runtime.sendMessage({
@@ -75,7 +92,7 @@ document.addEventListener("mouseup", () => {
             text: selectedText,
             url: window.location.href,
             title: document.title,
-            timestamp: new Date().toISOString(),
+            timestamp: new Date().toISOString()
         }, (response) => {
             if (response?.success) {
                 console.log("✅ Highlight saved.");
@@ -87,10 +104,12 @@ document.addEventListener("mouseup", () => {
         tooltip.remove();
     });
 
-    document.addEventListener("click", function handleClickOutside(event) {
-        if (!tooltip.contains(event.target)) {
+    document.body.appendChild(tooltip);
+
+    document.addEventListener("click", function dismissTooltip(e) {
+        if (!tooltip.contains(e.target)) {
             tooltip.remove();
-            document.removeEventListener("click", handleClickOutside);
+            document.removeEventListener("click", dismissTooltip);
         }
     }, { once: true });
 });
