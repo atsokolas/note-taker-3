@@ -61,109 +61,96 @@ chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
 // --- HIGHLIGHTING + SAVE TOOLTIP ---
 console.log("📌 Adding mouseup listener");
 
-document.addEventListener("mouseup", async () => {
-    console.log("🖱 Mouseup triggered");
-
-    const selection = window.getSelection();
-    const selectedText = selection?.toString().trim();
-    console.log("🔍 Selected text:", selectedText);
-
-    if (!selectedText || selectedText.length < 2) return;
-
-    // Remove any existing tooltip
-    const existingHost = document.getElementById("note-taker-shadow-host");
-    if (existingHost) existingHost.remove();
-
-    const range = selection.getRangeAt(0);
-    const rect = range.getBoundingClientRect();
-    console.log("📐 Highlight rect:", rect);
-
-    // Create the tooltip
+// Create the tooltip element
+function createTooltip(x, y) {
     const tooltip = document.createElement("div");
     tooltip.id = "note-taker-tooltip";
     tooltip.innerText = "💾 Save Highlight";
 
     Object.assign(tooltip.style, {
-        position: "absolute",
-        top: "0", // We'll position the host, not the tooltip itself
-        left: "0",
-        background: "#000",
-        color: "#fff",
-        padding: "6px 10px",
-        borderRadius: "6px",
-        fontSize: "13px",
+        position: "fixed",
+        top: `${y + 10}px`,    // 10px below the end of selection
+        left: `${x + 10}px`,   // 10px to the right of selection
+        background: "red",
+        color: "white",
+        padding: "10px",
+        fontSize: "20px",
         fontWeight: "bold",
+        borderRadius: "8px",
+        zIndex: "9999999",
         cursor: "pointer",
-        zIndex: "2147483647",
-        boxShadow: "0 0 6px rgba(0,0,0,0.25)",
-        border: "2px solid red"
+        userSelect: "none"
     });
 
-    // Create the shadow host and attach shadow DOM
-    const host = document.createElement("div");
-    host.id = "note-taker-shadow-host";
-    host.style.position = "absolute";
-    host.style.top = `${window.scrollY + rect.top - 40}px`;
-    host.style.left = `${window.scrollX + rect.left}px`;
-    host.style.zIndex = "2147483647";
+    document.body.appendChild(tooltip);
+    console.log("✅ Tooltip appended to body");
 
-    document.body.appendChild(host);
+    return tooltip;
+}
 
-    const shadow = host.attachShadow({ mode: "open" });
-    shadow.appendChild(tooltip);
-
-    console.log("🚨 Tooltip appended:", tooltip);
-
-    // Add click handler inside the tooltip
-    tooltip.addEventListener("click", async () => {
-        tooltip.innerText = "💾 Saving...";
-        try {
-            const res = await fetch("https://note-taker-3-unrg.onrender.com/save-highlight", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    highlight: selectedText,
-                    url: window.location.href,
-                    title: document.title,
-                    timestamp: new Date().toISOString(),
-                    userId: "exampleUserId"
-                })
-            });
-
-            const result = await res.json();
-            if (res.ok) {
-                tooltip.innerText = "✅ Saved!";
-                console.log("✅ Highlight saved:", result);
-                setTimeout(() => {
-                    host.remove(); // 🧹 Clean up after save
-                }, 1200);
-            } else {
-                tooltip.innerText = "❌ Error";
-                console.error("❌ Save failed:", result.error);
+// Protect the tooltip from being removed
+function protectTooltip(tooltip) {
+    const observer = new MutationObserver((mutations) => {
+        for (const mutation of mutations) {
+            if (mutation.type === "childList") {
+                const stillExists = document.body.contains(tooltip);
+                if (!stillExists) {
+                    console.warn("⚠️ Tooltip was removed, reinjecting...");
+                    document.body.appendChild(tooltip);
+                }
             }
-        } catch (err) {
-            tooltip.innerText = "❌ Network Error";
-            console.error("❌ Error saving:", err.message);
         }
-
-        selection.removeAllRanges();
     });
 
-    // Check immediately if tooltip exists
-    const tip = host.shadowRoot?.querySelector("#note-taker-tooltip");
-    if (tip) {
-        console.log("✅ Tooltip exists inside shadow DOM and is visible:", tip);
-    } else {
-        console.error("❌ Tooltip vanished or was never added (shadow DOM check).");
-    }
+    observer.observe(document.body, {
+        childList: true,
+        subtree: true
+    });
 
-    // 🧹 Dismiss tooltip if clicking outside
-    document.addEventListener("click", function dismissTooltip(e) {
-        if (!tooltip.contains(e.target)) {
-            host.remove();
-            document.removeEventListener("click", dismissTooltip);
+    console.log("🔒 Tooltip protected with MutationObserver");
+}
+
+// Main event: when the user finishes highlighting
+document.addEventListener("mouseup", (event) => {
+    console.log("🖱 Mouseup triggered");
+
+    try {
+        const selection = window.getSelection();
+        if (!selection) {
+            console.error("❌ No window.getSelection available");
+            return;
         }
-    }, { once: true });
+        const selectedText = selection.toString().trim();
+        console.log("🔍 Selected text:", selectedText);
 
-    console.log("📌 Tooltip fully set up");
+        if (!selectedText || selectedText.length < 2) {
+            console.warn("⚠️ No valid text selected");
+            return;
+        }
+
+        console.log("🛠 Preparing to create tooltip...");
+
+        // Remove existing tooltip if it exists
+        const existingTooltip = document.getElementById("note-taker-tooltip");
+        if (existingTooltip) {
+            console.warn("⚠️ Existing tooltip found, removing");
+            existingTooltip.remove();
+        }
+
+        // Calculate tooltip position
+        const range = selection.getRangeAt(0);
+        const rect = range.getBoundingClientRect();
+
+        const x = rect.right + window.scrollX;
+        const y = rect.bottom + window.scrollY;
+
+        console.log(`📍 Tooltip position: x=${x}, y=${y}`);
+
+        // Create and protect the tooltip
+        const tooltip = createTooltip(x, y);
+        protectTooltip(tooltip);
+
+    } catch (err) {
+        console.error("💥 Error during tooltip creation:", err);
+    }
 });
