@@ -23,6 +23,19 @@ async function handleSaveArticle() {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     if (!tab?.id) return console.error("❌ Active tab not found.");
 
+    // ✅ First, inject the content script
+    try {
+        await chrome.scripting.executeScript({
+            target: { tabId: tab.id },
+            files: ["content.js"]
+        });
+        console.log("✅ content.js injected");
+    } catch (err) {
+        console.error("❌ Failed to inject content.js:", err);
+        return;
+    }
+
+    // ✅ Then, send the message
     chrome.tabs.sendMessage(tab.id, { action: "extractContent" }, async (response) => {
         if (chrome.runtime.lastError || !response || response.error) {
             console.error("❌ Error extracting content:", chrome.runtime.lastError?.message || response?.error);

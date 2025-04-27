@@ -1,6 +1,6 @@
 console.log("✅ Content script loaded.");
 
-// Extract the main article content
+// --- ARTICLE EXTRACTION ---
 function extractArticleContent() {
     try {
         const container = document.querySelector("article, [class*='content'], [class*='main'], [id*='content'], [id*='main']");
@@ -22,7 +22,7 @@ function extractArticleContent() {
     }
 }
 
-// Respond to messages from popup.js
+// --- RESPOND TO popup.js FOR FULL ARTICLE SAVE ---
 chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
     if (message.action === "extractContent") {
         console.log("📥 Received extractContent request");
@@ -58,58 +58,112 @@ chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
     }
 });
 
-// Highlight tooltip on text selection
-document.addEventListener("mouseup", () => {
-    const selectedText = window.getSelection().toString().trim();
-    if (!selectedText) return;
+// --- HIGHLIGHTING + SAVE TOOLTIP ---
+console.log("📌 Adding mouseup listener");
 
-    document.getElementById("note-taker-tooltip")?.remove();
+document.addEventListener("mouseup", async () => {
+    console.log("🖱 Mouseup triggered");
 
-    const range = window.getSelection().getRangeAt(0);
+    const selection = window.getSelection();
+    const selectedText = selection?.toString().trim();
+    console.log("🔍 Selected text:", selectedText);
+
+    if (!selectedText || selectedText.length < 2) return;
+
+    // Remove any existing tooltip
+    const existingHost = document.getElementById("note-taker-shadow-host");
+    if (existingHost) existingHost.remove();
+
+    const range = selection.getRangeAt(0);
     const rect = range.getBoundingClientRect();
+    console.log("📐 Highlight rect:", rect);
 
+    // Create the tooltip
     const tooltip = document.createElement("div");
     tooltip.id = "note-taker-tooltip";
     tooltip.innerText = "💾 Save Highlight";
 
     Object.assign(tooltip.style, {
         position: "absolute",
-        top: `${window.scrollY + rect.top - 30}px`,
-        left: `${window.scrollX + rect.left}px`,
-        background: "#333",
+        top: "0", // We'll position the host, not the tooltip itself
+        left: "0",
+        background: "#000",
         color: "#fff",
-        padding: "5px 10px",
+        padding: "6px 10px",
         borderRadius: "6px",
-        fontSize: "14px",
-        zIndex: 99999,
+        fontSize: "13px",
+        fontWeight: "bold",
         cursor: "pointer",
-        boxShadow: "0 2px 6px rgba(0, 0, 0, 0.2)"
+        zIndex: "2147483647",
+        boxShadow: "0 0 6px rgba(0,0,0,0.25)",
+        border: "2px solid red"
     });
 
-    tooltip.addEventListener("click", () => {
-        chrome.runtime.sendMessage({
-            action: "saveHighlight",
-            text: selectedText,
-            url: window.location.href,
-            title: document.title,
-            timestamp: new Date().toISOString()
-        }, (response) => {
-            if (response?.success) {
-                console.log("✅ Highlight saved.");
+    // Create the shadow host and attach shadow DOM
+    const host = document.createElement("div");
+    host.id = "note-taker-shadow-host";
+    host.style.position = "absolute";
+    host.style.top = `${window.scrollY + rect.top - 40}px`;
+    host.style.left = `${window.scrollX + rect.left}px`;
+    host.style.zIndex = "2147483647";
+
+    document.body.appendChild(host);
+
+    const shadow = host.attachShadow({ mode: "open" });
+    shadow.appendChild(tooltip);
+
+    console.log("🚨 Tooltip appended:", tooltip);
+
+    // Add click handler inside the tooltip
+    tooltip.addEventListener("click", async () => {
+        tooltip.innerText = "💾 Saving...";
+        try {
+            const res = await fetch("https://note-taker-3-unrg.onrender.com/save-highlight", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    highlight: selectedText,
+                    url: window.location.href,
+                    title: document.title,
+                    timestamp: new Date().toISOString(),
+                    userId: "exampleUserId"
+                })
+            });
+
+            const result = await res.json();
+            if (res.ok) {
+                tooltip.innerText = "✅ Saved!";
+                console.log("✅ Highlight saved:", result);
+                setTimeout(() => {
+                    host.remove(); // 🧹 Clean up after save
+                }, 1200);
             } else {
-                console.error("❌ Failed to save highlight:", response?.error);
+                tooltip.innerText = "❌ Error";
+                console.error("❌ Save failed:", result.error);
             }
-        });
+        } catch (err) {
+            tooltip.innerText = "❌ Network Error";
+            console.error("❌ Error saving:", err.message);
+        }
 
-        tooltip.remove();
+        selection.removeAllRanges();
     });
 
-    document.body.appendChild(tooltip);
+    // Check immediately if tooltip exists
+    const tip = host.shadowRoot?.querySelector("#note-taker-tooltip");
+    if (tip) {
+        console.log("✅ Tooltip exists inside shadow DOM and is visible:", tip);
+    } else {
+        console.error("❌ Tooltip vanished or was never added (shadow DOM check).");
+    }
 
+    // 🧹 Dismiss tooltip if clicking outside
     document.addEventListener("click", function dismissTooltip(e) {
         if (!tooltip.contains(e.target)) {
-            tooltip.remove();
+            host.remove();
             document.removeEventListener("click", dismissTooltip);
         }
     }, { once: true });
+
+    console.log("📌 Tooltip fully set up");
 });
