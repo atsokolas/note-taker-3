@@ -1,0 +1,10 @@
+{
+  "extension_name": {
+    "message": "Note Taker",
+    "description": "The name of the extension."
+  },
+  "extension_description": {
+    "message": "Capture and save notes from articles seamlessly.",
+    "description": "A short description of the extension."
+  }
+}
