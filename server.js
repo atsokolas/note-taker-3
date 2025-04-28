@@ -11,16 +11,16 @@ const PORT = process.env.PORT || 5500;
 
 // Middleware
 app.use(bodyParser.json());
-app.use(cors({ origin: "*" })); // Allow all origins temporarily for testing
+app.use(cors({ origin: "*" }));
 
 // MongoDB connection
 const DB_URI = process.env.MONGO_URI;
-console.log("🔗 Connecting to MongoDB with URI:", DB_URI); // Debugging connection string
+console.log("🔗 Connecting to MongoDB with URI:", DB_URI);
 
 mongoose.connect(DB_URI, {
     useNewUrlParser: true,
     useUnifiedTopology: true,
-    dbName: "test" // Ensure connection to the correct database
+    dbName: "test"
 })
     .then(() => {
         console.log("✅ Connected to MongoDB");
@@ -30,39 +30,41 @@ mongoose.connect(DB_URI, {
         console.error("❌ MongoDB connection error:", err);
         process.exit(1);
     });
-    const articleSchema = new mongoose.Schema({
-        title: String,
-        content: String,
-        userId: String,
-        createdAt: { type: Date, default: Date.now },
-        highlights: [
-            {
-                text: String,
-                note: String,
-                tags: [String],
-                createdAt: { type: Date, default: Date.now }
-            }
-        ]
-    });
-    
-    const Article = mongoose.model("Article", articleSchema); // ✅ Add this
-    
+
+// Define Article Schema and Model
+const articleSchema = new mongoose.Schema({
+    url: { type: String, required: true }, // ✅ Added URL field
+    title: String,
+    content: String,
+    userId: String,
+    createdAt: { type: Date, default: Date.now },
+    highlights: [
+        {
+            text: String,
+            note: String,
+            tags: [String],
+            createdAt: { type: Date, default: Date.now }
+        }
+    ]
+});
+
+const Article = mongoose.model("Article", articleSchema);
+
 // Routes
 
 // Save Article
 app.post("/save-article", async (req, res) => {
-    console.log("📩 Incoming request body:", req.body); // Debugging incoming data
+    console.log("📩 Incoming request body:", req.body);
 
-    const { title, content, userId } = req.body;
+    const { title, content, userId, url } = req.body;
 
-    // Validate request body
-    if (!title || !content || !userId) {
+    if (!title || !content || !userId || !url) {
         console.log("⚠️ Missing fields:", req.body);
-        return res.status(400).json({ error: "Missing required fields (title, content, userId)" });
+        return res.status(400).json({ error: "Missing required fields (title, content, userId, url)" });
     }
 
     try {
-        const newArticle = new Article({ title, content, userId });
+        const newArticle = new Article({ title, content, userId, url });
         await newArticle.save();
         console.log("✅ Article saved successfully:", newArticle);
         res.status(200).json({ message: "Article saved successfully!" });
@@ -72,32 +74,7 @@ app.post("/save-article", async (req, res) => {
     }
 });
 
-// Fetch Articles for a Specific User
-app.get("/articles/:userId", async (req, res) => {
-    const { userId } = req.params;
-
-    try {
-        const articles = await Article.find({ userId });
-        console.log(`📖 Retrieved ${articles.length} articles for user: ${userId}`);
-        res.status(200).json(articles);
-    } catch (err) {
-        console.error("❌ Error fetching articles:", err);
-        res.status(500).json({ error: "Failed to fetch articles" });
-    }
-});
-
-// Fetch All Articles (for debugging)
-app.get("/get-articles", async (req, res) => {
-    try {
-        console.log("📂 Fetching articles from DB:", mongoose.connection.db.databaseName); // Debugging database name
-        const articles = await Article.find();
-        res.json(articles);
-    } catch (error) {
-        console.error("❌ Error fetching articles:", error);
-        res.status(500).json({ error: "Failed to fetch articles" });
-    }
-});
-
+// Save Highlight to an Article (by Article ID - optional older route)
 app.post("/articles/:articleId/highlights", async (req, res) => {
     const { articleId } = req.params;
     const { text, note, tags } = req.body;
@@ -122,18 +99,70 @@ app.post("/articles/:articleId/highlights", async (req, res) => {
     }
 });
 
-// Health check
+// ✅ Save Highlight to an Article (by URL - NEW ROUTE for content.js)
+app.post("/articles/save-highlight", async (req, res) => {
+    const { url, highlight } = req.body;
+
+    if (!url || !highlight || !highlight.text) {
+        return res.status(400).json({ error: "Missing required fields (url, highlight.text)" });
+    }
+
+    try {
+        let article = await Article.findOne({ url });
+
+        if (!article) {
+            // If no article exists yet for the URL, create it
+            article = new Article({ url, title: url, content: "", userId: "", highlights: [] });
+        }
+
+        article.highlights.push(highlight);
+        await article.save();
+
+        console.log("✅ Highlight saved for URL:", url);
+        res.status(200).json({ message: "Highlight saved successfully", article });
+    } catch (err) {
+        console.error("❌ Error saving highlight:", err);
+        res.status(500).json({ error: "Failed to save highlight", details: err.message });
+    }
+});
+
+// Fetch Articles for a Specific User
+app.get("/articles/:userId", async (req, res) => {
+    const { userId } = req.params;
+
+    try {
+        const articles = await Article.find({ userId });
+        console.log(`📖 Retrieved ${articles.length} articles for user: ${userId}`);
+        res.status(200).json(articles);
+    } catch (err) {
+        console.error("❌ Error fetching articles:", err);
+        res.status(500).json({ error: "Failed to fetch articles" });
+    }
+});
+
+// Fetch All Articles
+app.get("/get-articles", async (req, res) => {
+    try {
+        const articles = await Article.find();
+        res.json(articles);
+    } catch (error) {
+        console.error("❌ Error fetching articles:", error);
+        res.status(500).json({ error: "Failed to fetch articles" });
+    }
+});
+
+// Health Check
 app.get("/", (req, res) => {
     res.send("🚀 Server is running!");
 });
 
-// Ping test
+// Ping Test
 app.get("/ping", (req, res) => {
     console.log("🔔 Ping received!");
     res.send("✅ Server is alive");
 });
 
-// Start server
+// Start Server
 app.listen(PORT, () => {
     console.log(`🌐 Server running on port ${PORT}`);
 });
