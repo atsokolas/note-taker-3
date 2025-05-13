@@ -1,11 +1,12 @@
 let lastSelectionRange = null;
+const SERVER_BASE = "http://localhost:3000"; // CHANGE TO PROD SERVER WHEN DEPLOYED
 
 // --- Load highlights when content script runs ---
 (async function loadAndRenderHighlights() {
   const articleUrl = window.location.href;
 
   try {
-    const response = await fetch(`https://your-server.com/highlights?url=${encodeURIComponent(articleUrl)}`);
+    const response = await fetch(`${SERVER_BASE}/highlights?url=${encodeURIComponent(articleUrl)}`);
     const highlights = await response.json();
 
     if (Array.isArray(highlights)) {
@@ -21,20 +22,19 @@ let lastSelectionRange = null;
 // --- Listen for text selection and mouseup ---
 document.addEventListener("mouseup", () => {
   const selection = window.getSelection();
-  const selectedText = selection.toString().trim();
+  const selected = selection.toString().trim();
 
-  if (!selectedText || selectedText.length < 1) return;
+  if (!selected || selected.length < 1) return;
 
-  // Save range BEFORE selection is lost
   if (selection.rangeCount > 0) {
     lastSelectionRange = selection.getRangeAt(0).cloneRange();
   }
 
-  addTooltipToSelection(selectedText);
+  addTooltipToSelection(selected);
 });
 
 // --- Tooltip UI ---
-function addTooltipToSelection(selectedText) {
+function addTooltipToSelection(textToSave) {
   const tooltip = document.createElement("div");
   tooltip.innerText = "💾 Save Highlight";
   tooltip.style.cssText = `
@@ -57,16 +57,15 @@ function addTooltipToSelection(selectedText) {
 
   document.body.appendChild(tooltip);
 
-  // Save the highlight when clicked
-  const selectedText = window.getSelection().toString().trim();
   tooltip.addEventListener('click', () => {
-    if (selectedText) {
-      saveHighlight(selectedText);
+    if (textToSave) {
+      saveHighlight(textToSave);
       visuallyHighlightSelection();
     }
+    tooltip.remove(); // Remove tooltip immediately after click
   });
 
-  // Remove tooltip if user clicks away
+  // Remove tooltip on outside click
   setTimeout(() => {
     document.addEventListener(
       "click",
@@ -86,7 +85,9 @@ function visuallyHighlightSelection() {
   mark.style.padding = "0 2px";
 
   try {
-    lastSelectionRange.surroundContents(mark);
+    const extractedContents = lastSelectionRange.extractContents();
+    mark.appendChild(extractedContents);
+    lastSelectionRange.insertNode(mark);
     lastSelectionRange = null;
   } catch (err) {
     console.error("❌ Error applying visual highlight:", err);
@@ -107,7 +108,7 @@ async function saveHighlight(selectedText) {
       timestamp: new Date().toISOString(),
     };
 
-    const response = await fetch("https://your-server.com/highlights", {
+    const response = await fetch(`${SERVER_BASE}/highlights`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -151,7 +152,9 @@ function applyHighlightToText(textToHighlight) {
     mark.style.padding = "0 2px";
 
     try {
-      range.surroundContents(mark);
+      const extracted = range.extractContents();
+      mark.appendChild(extracted);
+      range.insertNode(mark);
     } catch (err) {
       console.warn("⚠️ Could not re-apply highlight:", err);
     }
