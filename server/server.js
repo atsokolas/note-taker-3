@@ -5,7 +5,7 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const dotenv = require('dotenv');
 
-dotenv.config();
+dotenv.config({ path: '../.env' }); // if your .env is one level up
 
 const app = express();
 const PORT = process.env.PORT || 3000;
