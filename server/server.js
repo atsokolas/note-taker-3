@@ -10,11 +10,18 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Middleware
-app.use(cors());
+// --- MIDDLEWARE ---
+
+// Enable CORS for all origins (development-safe)
+app.use(cors({
+  origin: '*',
+  methods: ['GET', 'POST'],
+  allowedHeaders: ['Content-Type'],
+}));
+
 app.use(express.json());
 
-// MongoDB Connection
+// --- DATABASE CONNECTION ---
 mongoose.connect(process.env.MONGODB_URI, {
   useNewUrlParser: true,
   useUnifiedTopology: true,
@@ -22,7 +29,7 @@ mongoose.connect(process.env.MONGODB_URI, {
 .then(() => console.log('✅ Connected to MongoDB'))
 .catch((err) => console.error('❌ MongoDB connection error:', err));
 
-// Schema & Model
+// --- SCHEMA & MODEL ---
 const articleSchema = new mongoose.Schema({
   url: { type: String, required: true, unique: true },
   content: String,
@@ -37,9 +44,9 @@ const articleSchema = new mongoose.Schema({
 
 const Article = mongoose.model('Article', articleSchema);
 
-// Routes
+// --- ROUTES ---
 
-// Save or update article with highlights
+// ✅ Save or update article with highlights
 app.post('/articles', async (req, res) => {
   const { url, content, highlights } = req.body;
 
@@ -59,7 +66,7 @@ app.post('/articles', async (req, res) => {
   }
 });
 
-// Get highlights for a specific article
+// ✅ Get highlights for a specific article
 app.get('/highlights', async (req, res) => {
   const { url } = req.query;
 
@@ -69,6 +76,7 @@ app.get('/highlights', async (req, res) => {
     const article = await Article.findOne({ url });
 
     if (!article) {
+      console.warn(`🔍 No article found for URL: ${url}`);
       return res.status(404).json({ highlights: [] });
     }
 
@@ -79,11 +87,12 @@ app.get('/highlights', async (req, res) => {
   }
 });
 
-// Health check
+// ✅ Health check
 app.get('/', (req, res) => {
-  res.send('Note Taker backend is running!');
+  res.send('✅ Note Taker backend is running!');
 });
 
+// --- START SERVER ---
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
 });
