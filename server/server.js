@@ -1,41 +1,41 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
-
-const corsOptions = {
-  origin: '*', // or restrict to specific domains
-  methods: ['GET', 'POST', 'OPTIONS'],
-  allowedHeaders: ['Content-Type'],
-};
-
-app.use(cors(corsOptions));
-
-// Optional: handle OPTIONS manually
-app.options('*', cors(corsOptions));
 const dotenv = require('dotenv');
 const highlightRoutes = require('./save-highlights'); // <- import router
 
 dotenv.config({ path: '../.env' }); // Adjust if needed
 
-const app = express();
+const app = express(); // ✅ Declare before using!
+
 const PORT = process.env.PORT || 3000;
 
+// --- CORS OPTIONS ---
+const corsOptions = {
+  origin: '*', // Or specify specific domains
+  methods: ['GET', 'POST', 'OPTIONS'],
+  allowedHeaders: ['Content-Type'],
+};
+
 // --- MIDDLEWARE ---
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions)); // Preflight support
+
 app.use(cors({
-    origin: [
-      'chrome-extension://<YOUR_EXTENSION_ID>',
-      'https://joincolossus.com', // add any sites you’re testing on
-      'http://localhost:3000',     // allow localhost for dev
-    ],
-    methods: ['GET', 'POST'],
-    credentials: true,
-  }));
+  origin: [
+    'chrome-extension://<YOUR_EXTENSION_ID>',
+    'https://joincolossus.com',
+    'http://localhost:3000',
+  ],
+  methods: ['GET', 'POST'],
+  credentials: true,
+}));
 app.use(express.json());
 
 // --- DATABASE CONNECTION ---
 mongoose.connect(process.env.MONGODB_URI)
-.then(() => console.log('✅ Connected to MongoDB'))
-.catch((err) => console.error('❌ MongoDB connection error:', err));
+  .then(() => console.log('✅ Connected to MongoDB'))
+  .catch((err) => console.error('❌ MongoDB connection error:', err));
 
 // --- SCHEMA & MODEL ---
 const articleSchema = new mongoose.Schema({
@@ -45,9 +45,9 @@ const articleSchema = new mongoose.Schema({
     {
       text: String,
       note: String,
-      tags: [String]
+      tags: [String],
     }
-  ]
+  ],
 });
 const Article = mongoose.model('Article', articleSchema);
 
@@ -89,7 +89,7 @@ app.get('/highlights', async (req, res) => {
   }
 });
 
-// Mount highlight-specific routes (separate model)
+// Mount highlight-specific routes
 app.use('/', highlightRoutes);
 
 // Health check
@@ -97,6 +97,7 @@ app.get('/', (req, res) => {
   res.send('✅ Note Taker backend is running!');
 });
 
+// Start server
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
 });
