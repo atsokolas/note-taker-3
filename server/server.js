@@ -66,7 +66,8 @@ app.get('/highlights', async (req, res) => {
   if (!url) return res.status(400).json({ error: 'URL query param is required' });
 
   try {
-    const article = await Article.findOne({ url });
+    const decodedUrl = decodeURIComponent(url);
+    const article = await Article.findOne({ url: decodedUrl });
     if (!article) {
       return res.status(404).json({ highlights: [] });
     }
