@@ -1,31 +1,28 @@
-// server.js
-
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const dotenv = require('dotenv');
+const highlightRoutes = require('./save-highlights'); // <- import router
 
-dotenv.config({ path: '../.env' }); // if your .env is one level up
+dotenv.config({ path: '../.env' }); // Adjust if needed
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 // --- MIDDLEWARE ---
-
-// Enable CORS for all origins (development-safe)
 app.use(cors({
-  origin: '*',
-  methods: ['GET', 'POST'],
-  allowedHeaders: ['Content-Type'],
-}));
-
+    origin: [
+      'chrome-extension://<YOUR_EXTENSION_ID>',
+      'https://joincolossus.com', // add any sites you’re testing on
+      'http://localhost:3000',     // allow localhost for dev
+    ],
+    methods: ['GET', 'POST'],
+    credentials: true,
+  }));
 app.use(express.json());
 
 // --- DATABASE CONNECTION ---
-mongoose.connect(process.env.MONGODB_URI, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
-})
+mongoose.connect(process.env.MONGODB_URI)
 .then(() => console.log('✅ Connected to MongoDB'))
 .catch((err) => console.error('❌ MongoDB connection error:', err));
 
@@ -41,15 +38,13 @@ const articleSchema = new mongoose.Schema({
     }
   ]
 });
-
 const Article = mongoose.model('Article', articleSchema);
 
 // --- ROUTES ---
 
-// ✅ Save or update article with highlights
+// Save or update an article and its highlights
 app.post('/articles', async (req, res) => {
   const { url, content, highlights } = req.body;
-
   if (!url) return res.status(400).json({ error: 'URL is required' });
 
   try {
@@ -58,7 +53,6 @@ app.post('/articles', async (req, res) => {
       { content, highlights },
       { upsert: true, new: true }
     );
-
     res.json({ success: true, article: updated });
   } catch (error) {
     console.error('❌ Error saving article:', error);
@@ -66,20 +60,16 @@ app.post('/articles', async (req, res) => {
   }
 });
 
-// ✅ Get highlights for a specific article
+// Get highlights for a given article
 app.get('/highlights', async (req, res) => {
   const { url } = req.query;
-
   if (!url) return res.status(400).json({ error: 'URL query param is required' });
 
   try {
     const article = await Article.findOne({ url });
-
     if (!article) {
-      console.warn(`🔍 No article found for URL: ${url}`);
       return res.status(404).json({ highlights: [] });
     }
-
     res.json({ highlights: article.highlights });
   } catch (error) {
     console.error('❌ Error fetching highlights:', error);
@@ -87,12 +77,14 @@ app.get('/highlights', async (req, res) => {
   }
 });
 
-// ✅ Health check
+// Mount highlight-specific routes (separate model)
+app.use('/', highlightRoutes);
+
+// Health check
 app.get('/', (req, res) => {
   res.send('✅ Note Taker backend is running!');
 });
 
-// --- START SERVER ---
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
 });
