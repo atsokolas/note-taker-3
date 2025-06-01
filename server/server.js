@@ -1,6 +1,17 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
+
+const corsOptions = {
+  origin: '*', // or restrict to specific domains
+  methods: ['GET', 'POST', 'OPTIONS'],
+  allowedHeaders: ['Content-Type'],
+};
+
+app.use(cors(corsOptions));
+
+// Optional: handle OPTIONS manually
+app.options('*', cors(corsOptions));
 const dotenv = require('dotenv');
 const highlightRoutes = require('./save-highlights'); // <- import router
 
