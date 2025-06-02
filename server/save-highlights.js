@@ -4,15 +4,6 @@ const express = require('express');
 const router = express.Router();
 const mongoose = require('mongoose');
 
-// Define your schema
-const highlightSchema = new mongoose.Schema({
-  userId: String,
-  articleUrl: String,
-  text: String,
-  note: String,
-  tags: [String],
-  createdAt: { type: Date, default: Date.now }
-});
 
 // Create the model
 const Highlight = mongoose.model('Highlight', highlightSchema);

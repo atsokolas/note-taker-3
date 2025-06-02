@@ -2,10 +2,11 @@
   if (window.hasRunNoteTakerScript) return;
   window.hasRunNoteTakerScript = true;
 
-  let lastSelectionRange = null;
   const SERVER_BASE = "https://note-taker-3-1.onrender.com";
+  let lastSelectionRange = null;
+  const savedHighlights = [];
 
-  // --- Load highlights when content script runs ---
+  // --- Load and render highlights from the backend ---
   (async function loadAndRenderHighlights() {
     const articleUrl = window.location.href;
 
@@ -14,6 +15,7 @@
       const highlights = await response.json();
 
       if (Array.isArray(highlights)) {
+        savedHighlights.push(...highlights); // Merge server highlights for popup access
         highlights.forEach((highlight) => {
           applyHighlightToText(highlight.text);
         });
@@ -23,22 +25,26 @@
     }
   })();
 
-  // --- Listen for text selection and mouseup ---
+  // --- Detect text selection and show tooltip ---
   document.addEventListener("mouseup", () => {
     const selection = window.getSelection();
     const selected = selection.toString().trim();
 
-    if (!selected || selected.length < 1) return;
+    if (!selected || selected.length < 1 || selection.rangeCount === 0) return;
 
-    if (selection.rangeCount > 0) {
-      lastSelectionRange = selection.getRangeAt(0).cloneRange();
-    }
-
+    lastSelectionRange = selection.getRangeAt(0).cloneRange();
     addTooltipToSelection(selected);
   });
 
   // --- Tooltip UI ---
   function addTooltipToSelection(textToSave) {
+    const selection = window.getSelection();
+    const range = selection.getRangeAt(0);
+    const rect = range.getBoundingClientRect();
+
+    // Avoid creating tooltip for collapsed/invisible selections
+    if (rect.width === 0 && rect.height === 0) return;
+
     const tooltip = document.createElement("div");
     tooltip.innerText = "💾 Save Highlight";
     tooltip.style.cssText = `
@@ -52,21 +58,17 @@
       z-index: 9999;
     `;
 
-    const selection = window.getSelection();
-    const range = selection.getRangeAt(0);
-    const rect = range.getBoundingClientRect();
-
     tooltip.style.top = `${rect.top + window.scrollY - 30}px`;
     tooltip.style.left = `${rect.left + window.scrollX}px`;
 
     document.body.appendChild(tooltip);
 
-    tooltip.addEventListener('click', () => {
+    tooltip.addEventListener("click", () => {
       if (textToSave) {
         saveHighlight(textToSave);
         visuallyHighlightSelection();
       }
-      tooltip.remove(); // Remove tooltip immediately after click
+      tooltip.remove();
     });
 
     // Remove tooltip on outside click
@@ -79,7 +81,7 @@
     }, 10);
   }
 
-  // --- Visually wrap selection in <mark> ---
+  // --- Wrap selected text in a <mark> for visual feedback ---
   function visuallyHighlightSelection() {
     if (!lastSelectionRange) return;
 
@@ -89,8 +91,8 @@
     mark.style.padding = "0 2px";
 
     try {
-      const extractedContents = lastSelectionRange.extractContents();
-      mark.appendChild(extractedContents);
+      const extracted = lastSelectionRange.extractContents();
+      mark.appendChild(extracted);
       lastSelectionRange.insertNode(mark);
       lastSelectionRange = null;
     } catch (err) {
@@ -98,25 +100,25 @@
     }
   }
 
-  // --- Save the highlight to your backend ---
+  // --- Save the highlight to the backend ---
   async function saveHighlight(selectedText) {
-    if (!selectedText || selectedText.trim() === "") {
-      console.warn("⚠️ No valid text selected.");
-      return false;
-    }
+    if (!selectedText || selectedText.trim() === "") return false;
+
+    const payload = {
+      userId: "guest",
+      articleUrl: window.location.href,
+      text: selectedText,
+      note: "",
+      tags: [],
+      createdAt: new Date().toISOString(),
+    };
+
+    savedHighlights.push(payload); // Save locally
 
     try {
-      const payload = {
-        url: window.location.href,
-        text: selectedText,
-        timestamp: new Date().toISOString(),
-      };
-
-      const response = await fetch(`${SERVER_BASE}/highlights`, {
+      const response = await fetch(`${SERVER_BASE}/api/highlights`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
 
@@ -130,7 +132,7 @@
     }
   }
 
-  // --- Helper: apply highlight to matching text on load ---
+  // --- Apply visual highlighting for matching text in the document ---
   function applyHighlightToText(textToHighlight) {
     const walker = document.createTreeWalker(
       document.body,
@@ -143,10 +145,12 @@
       }
     );
 
-    const node = walker.nextNode();
-    if (node) {
-      const range = document.createRange();
+    let node;
+    while ((node = walker.nextNode())) {
       const index = node.nodeValue.indexOf(textToHighlight);
+      if (index === -1) continue;
+
+      const range = document.createRange();
       range.setStart(node, index);
       range.setEnd(node, index + textToHighlight.length);
 
@@ -164,23 +168,25 @@
       }
     }
   }
-  // --- Listen for messages from popup.js to extract article content ---
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  if (message.action === "extractContent") {
-    try {
-      const title = document.title;
-      const url = window.location.href;
-      const content = document.body.innerHTML;
-      const text = document.body.innerText;
 
-      sendResponse({ data: { title, url, content, text } });
-    } catch (err) {
-      console.error("❌ Failed to extract content:", err);
-      sendResponse({ error: "Failed to extract content." });
+  // --- Unified message listener for popup.js ---
+  chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+    if (request.action === "getSavedHighlights") {
+      sendResponse({ highlights: savedHighlights });
+    } else if (request.action === "extractContent") {
+      try {
+        const title = document.title;
+        const url = window.location.href;
+        const content = document.body.innerHTML;
+        const text = document.body.innerText;
+
+        sendResponse({ data: { title, url, content, text } });
+      } catch (err) {
+        console.error("❌ Failed to extract content:", err);
+        sendResponse({ error: "Failed to extract content." });
+      }
+
+      return true; // Required for async sendResponse
     }
-
-    // Important for async sendResponse
-    return true;
-  }
-});
+  });
 })();

@@ -2,7 +2,7 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const dotenv = require('dotenv');
-const highlightRoutes = require('./save-highlights'); // <- import router
+
 
 dotenv.config({ path: '../.env' }); // Adjust if needed
 
@@ -54,22 +54,23 @@ const Article = mongoose.model('Article', articleSchema);
 // --- ROUTES ---
 
 // Save or update an article and its highlights
-app.post('/articles', async (req, res) => {
-  const { url, content, highlights } = req.body;
-  if (!url) return res.status(400).json({ error: 'URL is required' });
-
-  try {
-    const updated = await Article.findOneAndUpdate(
-      { url },
-      { content, highlights },
-      { upsert: true, new: true }
-    );
-    res.json({ success: true, article: updated });
-  } catch (error) {
-    console.error('❌ Error saving article:', error);
-    res.status(500).json({ error: 'Failed to save article' });
-  }
-});
+app.post('/save-article', async (req, res) => {
+    const { title, url, content, text, userId, highlights = [] } = req.body;
+  
+    if (!url) return res.status(400).json({ error: "URL is required" });
+  
+    try {
+      const article = await Article.findOneAndUpdate(
+        { url },
+        { title, content, highlights },
+        { upsert: true, new: true }
+      );
+      res.json({ success: true, article });
+    } catch (error) {
+      console.error("❌ Error saving article:", error);
+      res.status(500).json({ error: "Failed to save article" });
+    }
+  });
 
 // Get highlights for a given article
 app.get('/highlights', async (req, res) => {
@@ -88,9 +89,6 @@ app.get('/highlights', async (req, res) => {
     res.status(500).json({ error: 'Failed to fetch highlights' });
   }
 });
-
-// Mount highlight-specific routes
-app.use('/', highlightRoutes);
 
 // Health check
 app.get('/', (req, res) => {

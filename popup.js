@@ -37,41 +37,37 @@ async function handleSaveArticle() {
 
     // ✅ Then, send the message
     chrome.tabs.sendMessage(tab.id, { action: "extractContent" }, async (response) => {
-        if (chrome.runtime.lastError || !response || response.error) {
-            console.error("❌ Error extracting content:", chrome.runtime.lastError?.message || response?.error);
-            return;
-        }
-
-        console.log("📩 Received response from content script:", response);
-
-        const payload = {
+        if (!response || response.error) return;
+      
+        // 🔄 Fetch saved highlights from content script
+        chrome.tabs.sendMessage(tab.id, { action: "getSavedHighlights" }, async (highlightResponse) => {
+          const highlights = highlightResponse?.highlights || [];
+      
+          const payload = {
             title: response.data.title,
             url: response.data.url,
             content: response.data.content,
             text: response.data.text,
-            userId: "exampleUserId" // Replace with real user ID
-        };
-
-        try {
+            userId: "exampleUserId",
+            highlights, // ✅ Include highlights in payload
+          };
+      
+          try {
             const res = await fetch("https://note-taker-3-unrg.onrender.com/save-article", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(payload)
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(payload),
             });
-
+      
             const data = await res.json();
-            if (res.ok) {
-                alert("✅ Article saved successfully!");
-            } else {
-                alert("❌ Failed to save article.");
-                console.error("❌ Server error:", data.error);
-            }
-        } catch (err) {
-            console.error("❌ Network error:", err);
+            if (res.ok) alert("✅ Article & highlights saved!");
+            else alert("❌ Failed to save article.");
+          } catch (err) {
             alert("Network error while saving.");
-        }
-    });
-}
+          }
+        });
+      });
+    } 
 
 async function handleLoadArticles() {
     try {
