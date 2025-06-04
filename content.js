@@ -6,25 +6,24 @@
   let lastSelectionRange = null;
   const savedHighlights = [];
 
-  // --- Load and render highlights from the backend ---
-  (async function loadAndRenderHighlights() {
-    const articleUrl = window.location.href;
-
-    try {
-      const response = await fetch(`${BASE_URL}/highlights?url=${encodeURIComponent(articleUrl)}`);
-      const highlights = await response.json();
-
-      if (Array.isArray(highlights)) {
-        savedHighlights.push(...highlights); // Merge server highlights for popup access
-        highlights.forEach((highlight) => {
-          applyHighlightToText(highlight.text);
-        });
-      }
-    } catch (err) {
-      console.error("❌ Failed to fetch highlights:", err);
-    }
-  })();
-
+  function loadAndRenderHighlights(articleUrl) {
+    fetch(`https://note-taker-3-unrg.onrender.com/highlights?url=${encodeURIComponent(articleUrl)}`)
+      .then((res) => {
+        if (!res.ok) throw new Error("Not found");
+        return res.json();
+      })
+      .then((highlights) => {
+        if (Array.isArray(highlights)) {
+          savedHighlights.push(...highlights);
+          highlights.forEach((highlight) => {
+            applyHighlightToText(highlight.text);
+          });
+        }
+      })
+      .catch((err) => {
+        console.warn("No highlights found or failed to load:", err.message);
+      });
+  }
   // --- Detect text selection and show tooltip ---
   document.addEventListener("mouseup", () => {
     const selection = window.getSelection();
@@ -173,6 +172,7 @@
   chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === "getSavedHighlights") {
       sendResponse({ highlights: savedHighlights });
+
     } else if (request.action === "extractContent") {
       try {
         const title = document.title;
@@ -185,8 +185,11 @@
         console.error("❌ Failed to extract content:", err);
         sendResponse({ error: "Failed to extract content." });
       }
+      return true; // ✅ Required for async sendResponse
 
-      return true; // Required for async sendResponse
+    } else if (request.action === "loadHighlights" && request.url) {
+      loadAndRenderHighlights(request.url);
     }
   });
-})();
+
+})(); // ✅ Correctly closes your IIFE
