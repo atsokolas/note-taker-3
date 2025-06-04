@@ -2,7 +2,7 @@
   if (window.hasRunNoteTakerScript) return;
   window.hasRunNoteTakerScript = true;
 
-  const SERVER_BASE = "https://note-taker-3-1.onrender.com";
+  const BASE_URL = "https://note-taker-3-unrg.onrender.com"; // unified backend URL
   let lastSelectionRange = null;
   const savedHighlights = [];
 
@@ -11,7 +11,7 @@
     const articleUrl = window.location.href;
 
     try {
-      const response = await fetch(`${SERVER_BASE}/highlights?url=${encodeURIComponent(articleUrl)}`);
+      const response = await fetch(`${BASE_URL}/highlights?url=${encodeURIComponent(articleUrl)}`);
       const highlights = await response.json();
 
       if (Array.isArray(highlights)) {
@@ -116,7 +116,7 @@
     savedHighlights.push(payload); // Save locally
 
     try {
-      const response = await fetch(`${SERVER_BASE}/api/highlights`, {
+      const response = await fetch(`${BASE_URL}/save-highlight`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),

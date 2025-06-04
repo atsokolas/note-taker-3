@@ -9,9 +9,9 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // --- MIDDLEWARE ---
-app.use(express.json()); // ✅ Enables parsing of JSON bodies
+app.use(express.json());
 
-// --- CORS (⚠️ Open to all origins — development only) ---
+// --- CORS (Open to all origins — dev only) ---
 app.use(cors({
   origin: '*',
   methods: ['GET', 'POST'],
@@ -66,8 +66,7 @@ app.get('/highlights', async (req, res) => {
   if (!url) return res.status(400).json({ error: 'URL query param is required' });
 
   try {
-    const decodedUrl = decodeURIComponent(url);
-    const article = await Article.findOne({ url: decodedUrl });
+    const article = await Article.findOne({ url });
     if (!article) {
       return res.status(404).json({ highlights: [] });
     }
@@ -78,12 +77,11 @@ app.get('/highlights', async (req, res) => {
   }
 });
 
-// Health check route
+// Health check
 app.get('/', (req, res) => {
   res.send('✅ Note Taker backend is running!');
 });
 
-// --- START SERVER ---
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
 });
