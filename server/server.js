@@ -100,6 +100,17 @@ app.post('/save-highlight', async (req, res) => {
     }
   });
 
+  // Add this under your save-highlight route, before health check
+app.get('/get-articles', async (req, res) => {
+    try {
+      const articles = await Article.find({}, { title: 1, url: 1 });
+      res.json(articles);
+    } catch (err) {
+      console.error("❌ Error fetching articles:", err);
+      res.status(500).json({ error: "Failed to fetch articles" });
+    }
+  });
+
 // Health check
 app.get('/', (req, res) => {
   res.send('✅ Note Taker backend is running!');
