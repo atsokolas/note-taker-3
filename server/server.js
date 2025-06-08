@@ -41,23 +41,28 @@ const Article = mongoose.model('Article', articleSchema);
 // --- ROUTES ---
 
 // Save or update an article and its highlights
-app.post('/save-article', async (req, res) => {
-  const { title, url, content, highlights = [] } = req.body;
-
-  if (!url) return res.status(400).json({ error: "URL is required" });
-
-  try {
-    const article = await Article.findOneAndUpdate(
-      { url },
-      { title, content, highlights },
-      { upsert: true, new: true }
-    );
-    res.json({ success: true, article });
-  } catch (error) {
-    console.error("❌ Error saving article:", error);
-    res.status(500).json({ error: "Failed to save article" });
-  }
-});
+app.post('/save-highlight', async (req, res) => {
+    const { url, highlight } = req.body;
+  
+    console.log('📥 Incoming highlight save request:', req.body);
+  
+    if (!url || !highlight) {
+      console.error('❌ Missing url or highlight:', { url, highlight });
+      return res.status(400).json({ error: "URL and highlight are required" });
+    }
+  
+    try {
+      const article = await Article.findOneAndUpdate(
+        { url },
+        { $push: { highlights: highlight } },
+        { new: true }
+      );
+      res.json({ success: true, article });
+    } catch (error) {
+      console.error("❌ Error saving highlight:", error);
+      res.status(500).json({ error: "Failed to save highlight" });
+    }
+  });
 
 // Get highlights for a given article
 app.get('/highlights', async (req, res) => {
