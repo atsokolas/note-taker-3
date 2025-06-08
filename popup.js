@@ -72,7 +72,10 @@ async function handleSaveArticle() {
           } catch (err) {
             console.error("❌ Network error while saving:", err);
             alert("❌ Network error while saving.");
-          }
+        }
+      });
+    }); // <<< THESE TWO
+  }
 
 async function handleLoadArticles() {
     try {
