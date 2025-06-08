@@ -168,27 +168,36 @@
     }
   }
 
-  // --- Unified message listener for popup.js ---
-  chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-    if (request.action === "getSavedHighlights") {
+  chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (message.action === "getSavedHighlights") {
       sendResponse({ highlights: savedHighlights });
-
-    } else if (request.action === "extractContent") {
+  
+    } else if (message.action === "extractContent") {
       try {
         const title = document.title;
         const url = window.location.href;
         const content = document.body.innerHTML;
         const text = document.body.innerText;
-
+  
         sendResponse({ data: { title, url, content, text } });
       } catch (err) {
         console.error("❌ Failed to extract content:", err);
         sendResponse({ error: "Failed to extract content." });
       }
       return true; // ✅ Required for async sendResponse
-
-    } else if (request.action === "loadHighlights" && request.url) {
-      loadAndRenderHighlights(request.url);
+  
+    } else if (message.action === "loadHighlights" && message.url) {
+      loadAndRenderHighlights(message.url);
+  
+    } else if (message.action === "articleSaved") {
+      const { title, url, id } = message.article;
+  
+      console.log("📥 Received confirmation from background that article was saved:");
+      console.log("Title:", title);
+      console.log("URL:", url);
+      console.log("ID:", id);
+  
+      loadAndRenderHighlights(url);
     }
   });
 

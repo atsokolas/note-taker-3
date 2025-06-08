@@ -13,7 +13,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   // Save article content
   else if (request.action === "capture") {
     console.log("📰 Saving article content...");
-
+  
     fetch(`${BASE_URL}/save-article`, {
       method: "POST",
       headers: {
@@ -33,13 +33,26 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
           title: request.title,
           url: request.url,
         };
+  
+        // 🔧 Send message back to the tab that made the request
+        if (sender.tab && sender.tab.id !== undefined) {
+          chrome.tabs.sendMessage(sender.tab.id, {
+            action: "articleSaved",
+            article: {
+              title: request.title,
+              url: request.url,
+              id: data.id ?? null, // if your backend returns an ID
+            },
+          });
+        }
+  
         sendResponse({ success: true });
       })
       .catch((err) => {
         console.error("❌ Error saving article:", err);
         sendResponse({ success: false, error: err.message });
       });
-
+  
     return true; // Indicates async response
   }
 
