@@ -99,37 +99,41 @@
     }
   }
 
-  // --- Save the highlight to the backend ---
-  async function saveHighlight(selectedText) {
-    if (!selectedText || selectedText.trim() === "") return false;
+// --- Save the highlight to the backend ---
+async function saveHighlight(selectedText) {
+  if (!selectedText || selectedText.trim() === "") return false;
 
-    const payload = {
-      userId: "guest",
-      articleUrl: window.location.href,
-      text: selectedText,
-      note: "",
-      tags: [],
-      createdAt: new Date().toISOString(),
-    };
+  const highlight = {
+    userId: "guest",
+    text: selectedText,
+    note: "",
+    tags: [],
+    createdAt: new Date().toISOString(),
+  };
 
-    savedHighlights.push(payload); // Save locally
+  const payload = {
+    url: window.location.href,
+    highlight: highlight,
+  };
 
-    try {
-      const response = await fetch(`${BASE_URL}/save-highlight`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
+  savedHighlights.push(highlight); // Save locally
 
-      if (!response.ok) throw new Error("❌ Failed to save highlight");
+  try {
+    const response = await fetch(`${BASE_URL}/save-highlight`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
 
-      console.log("✅ Highlight saved.");
-      return true;
-    } catch (err) {
-      console.error("❌ Error saving highlight:", err);
-      return false;
-    }
+    if (!response.ok) throw new Error("❌ Failed to save highlight");
+
+    console.log("✅ Highlight saved.");
+    return true;
+  } catch (err) {
+    console.error("❌ Error saving highlight:", err);
+    return false;
   }
+}
 
   // --- Apply visual highlighting for matching text in the document ---
   function applyHighlightToText(textToHighlight) {
