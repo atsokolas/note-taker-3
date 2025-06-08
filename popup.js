@@ -87,6 +87,19 @@ async function handleLoadArticles() {
     }
 }
 
+async function loadAndDisplayArticle(url) {
+    try {
+        const res = await fetch(`https://note-taker-3-unrg.onrender.com/get-article?url=${encodeURIComponent(url)}`);
+        if (!res.ok) throw new Error(`Failed to fetch article: ${res.statusText}`);
+
+        const article = await res.json();
+        renderArticlePreview(article);
+    } catch (err) {
+        console.error("❌ Error loading article:", err);
+        alert("Failed to load article content.");
+    }
+}
+
 function displayArticles(articles = []) {
     const container = document.querySelector("#savedArticlesList");
     if (!container) return;
@@ -98,9 +111,11 @@ function displayArticles(articles = []) {
         return;
     }
 
-    articles.forEach(({ title }) => {
+    articles.forEach(({ title, url }) => {
         const item = document.createElement("li");
         item.textContent = title;
+        item.style.cursor = "pointer";
+        item.addEventListener("click", () => loadAndDisplayArticle(url));
         container.appendChild(item);
     });
 }
