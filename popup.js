@@ -58,16 +58,21 @@ async function handleSaveArticle() {
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify(payload),
             });
-      
+          
+            if (!res.ok) {
+              const errorText = await res.text();
+              console.error(`❌ Server error (${res.status}): ${errorText}`);
+              alert(`❌ Failed to save article. Server said: ${errorText}`);
+              return;
+            }
+          
             const data = await res.json();
-            if (res.ok) alert("✅ Article & highlights saved!");
-            else alert("❌ Failed to save article.");
+            console.log("✅ Article saved:", data);
+            alert("✅ Article & highlights saved!");
           } catch (err) {
-            alert("Network error while saving.");
+            console.error("❌ Network error while saving:", err);
+            alert("❌ Network error while saving.");
           }
-        });
-      });
-    } 
 
 async function handleLoadArticles() {
     try {
