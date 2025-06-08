@@ -77,6 +77,25 @@ app.get('/highlights', async (req, res) => {
   }
 });
 
+// Add this in server.js
+app.post('/save-highlight', async (req, res) => {
+    const { url, highlight } = req.body;
+  
+    if (!url || !highlight) return res.status(400).json({ error: "URL and highlight are required" });
+  
+    try {
+      const article = await Article.findOneAndUpdate(
+        { url },
+        { $push: { highlights: highlight } },
+        { new: true }
+      );
+      res.json({ success: true, article });
+    } catch (error) {
+      console.error("❌ Error saving highlight:", error);
+      res.status(500).json({ error: "Failed to save highlight" });
+    }
+  });
+
 // Health check
 app.get('/', (req, res) => {
   res.send('✅ Note Taker backend is running!');
