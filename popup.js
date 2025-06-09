@@ -120,6 +120,29 @@ function displayArticles(articles = []) {
     });
 }
 
+function renderArticlePreview(article) {
+    const preview = document.querySelector("#articlePreview");
+    if (!preview) return;
+
+    const { title, content, highlights } = article;
+
+    preview.innerHTML = `
+        <h3>${title}</h3>
+        <p>${content}</p>
+    `;
+
+    if (highlights && highlights.length > 0) {
+        const list = document.createElement("ul");
+        list.innerHTML = "<strong>Highlights:</strong>";
+        highlights.forEach(h => {
+            const li = document.createElement("li");
+            li.textContent = h.text;
+            list.appendChild(li);
+        });
+        preview.appendChild(list);
+    }
+}
+
 function handleHighlight() {
     const input = document.querySelector("#highlightInput")?.value.trim();
     const preview = document.querySelector("#articlePreview");
