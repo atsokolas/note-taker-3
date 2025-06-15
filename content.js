@@ -179,17 +179,28 @@ async function saveHighlight(selectedText) {
     } else if (message.action === "extractContent") {
       try {
         const title = document.title;
-        const url = window.location.href;
-        const content = document.body.innerHTML;
-        const text = document.body.innerText;
   
-        sendResponse({ data: { title, url, content, text } });
+        const articleElement = document.querySelector("article");
+        const content = articleElement
+          ? articleElement.innerHTML
+          : document.body.innerHTML;
+  
+        const textContent = articleElement
+          ? articleElement.innerText
+          : document.body.innerText;
+  
+        sendResponse({
+          title: title,
+          url: window.location.href,
+          content: content.trim(),
+          text: textContent.trim(),
+        });
       } catch (err) {
         console.error("❌ Failed to extract content:", err);
-        sendResponse({ error: "Failed to extract content." });
+        sendResponse({ error: "Content extraction failed" });
       }
-      return true; // ✅ Required for async sendResponse
   
+      return true; // Keep message channel open
     } else if (message.action === "loadHighlights" && message.url) {
       loadAndRenderHighlights(message.url);
   

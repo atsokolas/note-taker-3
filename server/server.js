@@ -6,6 +6,11 @@ const dotenv = require('dotenv');
 dotenv.config({ path: '../.env' }); // Adjust path as needed
 
 const app = express();
+
+app.use(cors({
+  origin: "https://note-taker-3-1.onrender.com",
+}));
+
 const PORT = process.env.PORT || 3000;
 
 // --- MIDDLEWARE ---
@@ -41,23 +46,32 @@ const Article = mongoose.model('Article', articleSchema);
 // --- ROUTES ---
 
 // Save or update an article and its highlights
-app.post('/save-article', async (req, res) => {
-  const { title, url, content, highlights = [] } = req.body;
-
-  if (!url) return res.status(400).json({ error: "URL is required" });
-
-  try {
-    const article = await Article.findOneAndUpdate(
-      { url },
-      { title, content, highlights },
-      { upsert: true, new: true }
-    );
-    res.json({ success: true, article });
-  } catch (error) {
-    console.error("❌ Error saving article:", error);
-    res.status(500).json({ error: "Failed to save article" });
-  }
-});
+app.post("/save-article", async (req, res) => {
+    const { title, url, content, highlights } = req.body;
+  
+    if (!url) {
+      return res.status(400).json({ error: "URL is required" });
+    }
+    if (!title) {
+      return res.status(400).json({ error: "Title is required" });
+    }
+    
+    // Validate highlights
+    const highlightsToSave = Array.isArray(highlights) ? highlights : [];
+  
+    try {
+      const article = await Article.findOneAndUpdate(
+        { url },
+        { title, content, highlights: highlightsToSave },
+        { upsert: true, new: true }
+      );
+  
+      res.json({ success: true, article });
+    } catch (error) {
+      console.error("❌ Error saving article:", error);
+      res.status(500).json({ error: "Failed to save article" });
+    }
+  });
 
 // Get highlights for a given article
 app.get('/highlights', async (req, res) => {
@@ -100,14 +114,18 @@ app.post('/save-highlight', async (req, res) => {
     }
   });
 
-  // Add this under your save-highlight route, before health check
-app.get('/get-articles', async (req, res) => {
+  app.get('/get-article', async (req, res) => {
+    const { url } = req.query;
+    if (!url) return res.status(400).json({ error: "URL is required" });
+  
     try {
-      const articles = await Article.find({}, { title: 1, url: 1 });
-      res.json(articles);
+      const article = await Article.findOne({ url });
+      if (!article) return res.status(404).json({ error: "Article not found" });
+  
+      res.json(article); // Includes title, content, highlights
     } catch (err) {
-      console.error("❌ Error fetching articles:", err);
-      res.status(500).json({ error: "Failed to fetch articles" });
+      console.error("❌ Error fetching article:", err);
+      res.status(500).json({ error: "Failed to fetch article" });
     }
   });
 
