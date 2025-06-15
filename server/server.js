@@ -129,6 +129,17 @@ app.post('/save-highlight', async (req, res) => {
     }
   });
 
+  // Get all articles
+app.get('/get-articles', async (req, res) => {
+    try {
+      const articles = await Article.find({});
+      res.json(articles);
+    } catch (err) {
+      console.error("❌ Failed to fetch articles:", err);
+      res.status(500).json({ error: "Failed to fetch articles" });
+    }
+  });
+  
 // Health check
 app.get('/', (req, res) => {
   res.send('✅ Note Taker backend is running!');
