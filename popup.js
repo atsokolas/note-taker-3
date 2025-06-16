@@ -19,6 +19,27 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 });
 
+function cleanContent(rawHtml) {
+    // Parse into a temporary DOM first
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(rawHtml, "text/html");
+  
+    // Remove unwanted elements
+    doc.querySelectorAll('ul, nav, header, footer, aside').forEach(el => el.remove());
+  
+    return doc.body.innerHTML;
+  }
+  
+  function displayHighlights(highlights) {
+    const highlightsList = document.createElement('ul');
+    highlightsList.innerHTML = highlights
+      .map(h => `<li>${h.text} — ${new Date(h.createdAt).toLocaleString()}</li>`)
+      .join('');
+    
+    document.querySelector("#highlights").innerHTML = '';
+    document.querySelector("#highlights").appendChild(highlightsList);
+  }
+
 async function handleSaveArticle() {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     if (!tab?.id) return console.error("❌ Active tab not found.");
@@ -128,18 +149,13 @@ function renderArticlePreview(article) {
 
     preview.innerHTML = `
         <h3>${title}</h3>
-        <p>${content}</p>
+        <div>${cleanContent(content)}</div>
     `;
 
     if (highlights && highlights.length > 0) {
-        const list = document.createElement("ul");
-        list.innerHTML = "<strong>Highlights:</strong>";
-        highlights.forEach(h => {
-            const li = document.createElement("li");
-            li.textContent = h.text;
-            list.appendChild(li);
-        });
-        preview.appendChild(list);
+        displayHighlights(highlights);
+    } else {
+        document.querySelector("#highlights").innerHTML = "<p>No highlights</p>";
     }
 }
 
