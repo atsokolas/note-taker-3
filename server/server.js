@@ -31,16 +31,6 @@ mongoose.connect(process.env.MONGO_URI, {
 // const articleRoutes = require('./routes/articles');
 // app.use('/articles', articleRoutes);
 
-// Start server (Render provides PORT env var)
-app.listen(PORT, () => {
-  console.log(`✅ Server running on port ${PORT}`);
-});
-
-// --- DATABASE CONNECTION ---
-mongoose.connect(process.env.MONGODB_URI)
-  .then(() => console.log('✅ Connected to MongoDB'))
-  .catch((err) => console.error('❌ MongoDB connection error:', err));
-
 // --- SCHEMA & MODEL ---
 const articleSchema = new mongoose.Schema({
   url: { type: String, required: true, unique: true },
