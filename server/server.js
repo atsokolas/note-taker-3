@@ -1,29 +1,37 @@
 const express = require('express');
-const mongoose = require('mongoose');
 const cors = require('cors');
+const mongoose = require('mongoose');
 const dotenv = require('dotenv');
 
-// Load environment variables
-dotenv.config({ path: '../.env' }); // Adjust path as needed
+dotenv.config({ path: '../.env' }); // Adjust path if needed
 
-const app = express(); // Initialize BEFORE using
+const app = express();
 
-// --- CORS SETUP ---
+const PORT = process.env.PORT || 3000;
+
+// CORS – allow your front-end domain
 app.use(cors({
-  origin: ["https://note-taker-3-1.onrender.com", "http://localhost:3000"], // allow both dev and prod
+  origin: "https://note-taker-3-1.onrender.com", // Change to your actual frontend URL
   methods: ['GET', 'POST'],
   allowedHeaders: ['Content-Type'],
 }));
 
-const PORT = process.env.PORT || 3000;
-
-// --- MIDDLEWARE ---
+// Middleware
 app.use(express.json({ limit: '5mb' }));
 
-// --- YOUR ROUTES GO HERE ---
-// Example: app.use('/articles', require('./routes/articleRoutes'));
+// MongoDB Connection
+mongoose.connect(process.env.MONGO_URI, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
+}).then(() => console.log("✅ MongoDB connected"))
+  .catch(err => console.error("❌ MongoDB connection error:", err));
 
-// --- START SERVER ---
+// Your routes go here
+// Example:
+// const articleRoutes = require('./routes/articles');
+// app.use('/articles', articleRoutes);
+
+// Start server (Render provides PORT env var)
 app.listen(PORT, () => {
   console.log(`✅ Server running on port ${PORT}`);
 });
