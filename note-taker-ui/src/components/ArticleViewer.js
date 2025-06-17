@@ -23,11 +23,21 @@ const ArticleViewer = () => {
     const fetchArticle = async (id) => {
         try {
             const res = await axios.get(`http://localhost:5500/articles/${id}`);
-
-            setArticleContent(res.data.content);
+    
+            // Parse the HTML first
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(res.data.content, 'text/html');
+    
+            // Remove all hyperlinks
+            doc.querySelectorAll('a').forEach(a => a.remove());
+    
+            // Strip messy URLs or unwanted elements here if you want
+            // e.g. removing certain divs, spans, etc.
+    
+            setArticleContent(doc.body.innerHTML);
             setHighlights(res.data.highlights || []);
-
-            console.log("📥 Fetched article and highlights.");
+    
+            console.log("📥 Fetched and cleaned article.");
         } catch (err) {
             console.error("❌ Error fetching article and highlights:", err);
         }
