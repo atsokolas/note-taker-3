@@ -1,6 +1,6 @@
 const express = require('express');
 const mongoose = require('mongoose');
-const cors = require('cors');
+app.use(cors()) // WARNING: this lets ANY origin connect — fine for testing, not for production
 const dotenv = require('dotenv');
 
 dotenv.config({ path: '../.env' }); // Adjust path as needed
