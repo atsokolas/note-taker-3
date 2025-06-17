@@ -1,14 +1,18 @@
 const express = require('express');
 const mongoose = require('mongoose');
-app.use(cors()) // WARNING: this lets ANY origin connect — fine for testing, not for production
+const cors = require('cors');
 const dotenv = require('dotenv');
 
+// Load environment variables
 dotenv.config({ path: '../.env' }); // Adjust path as needed
 
-const app = express();
+const app = express(); // Initialize BEFORE using
 
+// --- CORS SETUP ---
 app.use(cors({
-  origin: "https://note-taker-3-1.onrender.com",
+  origin: ["https://note-taker-3-1.onrender.com", "http://localhost:3000"], // allow both dev and prod
+  methods: ['GET', 'POST'],
+  allowedHeaders: ['Content-Type'],
 }));
 
 const PORT = process.env.PORT || 3000;
@@ -16,12 +20,13 @@ const PORT = process.env.PORT || 3000;
 // --- MIDDLEWARE ---
 app.use(express.json({ limit: '5mb' }));
 
-// --- CORS (Open to all origins — dev only) ---
-app.use(cors({
-  origin: '*',
-  methods: ['GET', 'POST'],
-  allowedHeaders: ['Content-Type'],
-}));
+// --- YOUR ROUTES GO HERE ---
+// Example: app.use('/articles', require('./routes/articleRoutes'));
+
+// --- START SERVER ---
+app.listen(PORT, () => {
+  console.log(`✅ Server running on port ${PORT}`);
+});
 
 // --- DATABASE CONNECTION ---
 mongoose.connect(process.env.MONGODB_URI)
