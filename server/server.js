@@ -11,7 +11,7 @@ const PORT = process.env.PORT || 3000;
 
 // CORS – allow your front-end domain
 app.use(cors({
-  origin: "https://note-taker-3-1.onrender.com", // Change to your actual frontend URL
+  origin: "https://note-taker-3-unrg.onrender.com", // Change to your actual frontend URL
   methods: ['GET', 'POST'],
   allowedHeaders: ['Content-Type'],
 }));
