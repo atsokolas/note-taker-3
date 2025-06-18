@@ -6,6 +6,32 @@
   let lastSelectionRange = null;
   const savedHighlights = [];
 
+  async function saveArticle() {
+    const articleData = {
+      title: document.title,
+      url: window.location.href,
+      content: document.body.innerText,
+      highlights: []  // Can be empty for now
+    };
+  
+    try {
+      const response = await fetch('https://note-taker-3-unrg.onrender.com/save-article', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(articleData)
+      });
+  
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+  
+      const result = await response.json();
+      console.log("✅ Article saved:", result);
+    } catch (error) {
+      console.error("❌ Failed to save article:", error);
+    }
+  }
+
   function loadAndRenderHighlights(articleUrl) {
     fetch(`https://note-taker-3-unrg.onrender.com/highlights?url=${encodeURIComponent(articleUrl)}`)
       .then((res) => {
@@ -215,5 +241,14 @@ async function saveHighlight(selectedText) {
       loadAndRenderHighlights(url);
     }
   });
+
+  (async () => {
+    try {
+      await saveArticle();
+      console.log("✅ Article saved on load");
+    } catch (err) {
+      console.error("❌ Error auto-saving article:", err);
+    }
+  })();
 
 })(); // ✅ Correctly closes your IIFE
