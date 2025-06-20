@@ -15,6 +15,7 @@ app.use(cors({
   methods: ['GET', 'POST'],
   allowedHeaders: ['Content-Type'],
 }));
+
 // Middleware
 app.use(express.json({ limit: '5mb' }));
 
