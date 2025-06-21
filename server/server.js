@@ -20,7 +20,7 @@ app.use(cors({
 app.use(express.json({ limit: '5mb' }));
 
 // MongoDB Connection
-mongoose.connect(process.env.MONGO_URI, {
+mongoose.connect(process.env.MONGODB_URI, {
   useNewUrlParser: true,
   useUnifiedTopology: true,
 }).then(() => console.log("✅ MongoDB connected"))
@@ -50,31 +50,28 @@ const Article = mongoose.model('Article', articleSchema);
 
 // Save or update an article and its highlights
 app.post("/save-article", async (req, res) => {
+  try {
+    console.log("🛬 Incoming article payload:", req.body);
+
     const { title, url, content, highlights } = req.body;
-  
-    if (!url) {
-      return res.status(400).json({ error: "URL is required" });
+
+    if (!title || !url || !content) {
+      return res.status(400).json({ error: "Missing required fields" });
     }
-    if (!title) {
-      return res.status(400).json({ error: "Title is required" });
-    }
-    
-    // Validate highlights
-    const highlightsToSave = Array.isArray(highlights) ? highlights : [];
-  
-    try {
-      const article = await Article.findOneAndUpdate(
-        { url },
-        { title, content, highlights: highlightsToSave },
-        { upsert: true, new: true }
-      );
-  
-      res.json({ success: true, article });
-    } catch (error) {
-      console.error("❌ Error saving article:", error);
-      res.status(500).json({ error: "Failed to save article" });
-    }
-  });
+
+    const saved = await Article.findOneAndUpdate(
+      { url },
+      { title, url, content, highlights },
+      { new: true, upsert: true }
+    );
+
+    console.log("✅ Article saved:", saved);
+    res.json(saved);
+  } catch (err) {
+    console.error("❌ Server error in /save-article:", err);
+    res.status(500).json({ error: "Internal server error", details: err.message });
+  }
+});
 
 // Get highlights for a given article
 app.get('/highlights', async (req, res) => {
