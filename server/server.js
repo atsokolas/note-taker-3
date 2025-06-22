@@ -117,20 +117,28 @@ app.post('/save-highlight', async (req, res) => {
     }
   });
 
-  app.get('/get-article', async (req, res) => {
-    const { url } = req.query;
-    if (!url) return res.status(400).json({ error: "URL is required" });
-  
-    try {
-      const article = await Article.findOne({ url });
-      if (!article) return res.status(404).json({ error: "Article not found" });
-  
-      res.json(article); // Includes title, content, highlights
-    } catch (err) {
-      console.error("❌ Error fetching article:", err);
-      res.status(500).json({ error: "Failed to fetch article" });
+// This new route matches the GET /articles/:id request from your frontend
+app.get('/articles/:id', async (req, res) => {
+  try {
+    // Get the 'id' from the URL parameters instead of a query string
+    const { id } = req.params;
+
+    // Use Mongoose's findById to look for the article by its primary key
+    const article = await mongoose.model('Article').findById(id);
+
+    if (!article) {
+      // If no article is found with that ID, send a 404
+      return res.status(404).json({ error: "Article not found" });
     }
-  });
+
+    // If found, send the article data back
+    res.json(article);
+  } catch (err) {
+    console.error("❌ Error fetching article by ID:", err);
+    res.status(500).json({ error: "Failed to fetch article" });
+  }
+});
+
 
   // Get all articles
 app.get('/get-articles', async (req, res) => {
