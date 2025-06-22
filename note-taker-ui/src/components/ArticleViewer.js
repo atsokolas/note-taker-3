@@ -19,7 +19,7 @@ const ArticleViewer = () => {
             setPopup({ visible: false, x: 0, y: 0, text: '' });
         }
     };
-
+    
     const fetchArticle = async (id) => {
         try {
             const res = await axios.get(`http://localhost:5500/articles/${id}`);
@@ -78,7 +78,7 @@ const ArticleViewer = () => {
         const newHighlight = { text: popup.text, note: note || "", tags: [] };
 
         try {
-            const res = await axios.post(`http://localhost:5500/articles/${id}/highlights`, newHighlight);
+            const res = await axios.post(`https://note-taker-3.onrender.com/articles/${id}/highlights`, newHighlight);
             setHighlights(res.data.article.highlights);
         } catch (err) {
             console.error("❌ Failed to save highlight:", err);
