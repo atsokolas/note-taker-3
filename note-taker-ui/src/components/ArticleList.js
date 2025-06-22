@@ -13,7 +13,7 @@ const ArticleList = () => {
         const fetchArticles = async () => {
             try {
                 // Use the correct, live URL for your backend API
-                const response = await axios.get('https://note-taker-3.onrender.com/get-articles');
+                const response = await axios.get('https://note-taker-3-unrg.onrender.com/get-articles');
                 setArticles(response.data);
                 setError(null);
             } catch (err) {
