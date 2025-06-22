@@ -48,28 +48,31 @@ const Article = mongoose.model('Article', articleSchema);
 
 // --- ROUTES ---
 
-// Save or update an article and its highlights
 app.post("/save-article", async (req, res) => {
   try {
-    console.log("🛬 Incoming article payload:", req.body);
+    console.log("📥 Incoming article payload:", req.body); // Log the incoming body
 
     const { title, url, content, highlights } = req.body;
 
+    // Validate input
     if (!title || !url || !content) {
-      return res.status(400).json({ error: "Missing required fields" });
+      console.warn("⚠️ Missing required fields in request body");
+      return res.status(400).json({ error: "Missing required fields: title, url, and content are mandatory." });
     }
 
-    const saved = await Article.findOneAndUpdate(
+    // Save or update article in the DB
+    const updatedArticle = await Article.findOneAndUpdate(
       { url },
-      { title, url, content, highlights },
-      { new: true, upsert: true }
+      { title, content, highlights: highlights || [] },
+      { upsert: true, new: true, setDefaultsOnInsert: true }
     );
 
-    console.log("✅ Article saved:", saved);
-    res.json(saved);
-  } catch (err) {
-    console.error("❌ Server error in /save-article:", err);
-    res.status(500).json({ error: "Internal server error", details: err.message });
+    console.log("✅ Article saved:", updatedArticle);
+    res.status(200).json(updatedArticle);
+
+  } catch (error) {
+    console.error("❌ Error in /save-article:", error.message);
+    res.status(500).json({ error: "Internal server error." });
   }
 });
 
