@@ -2,7 +2,15 @@
   if (window.hasRunNoteTakerScript) return;
   window.hasRunNoteTakerScript = true;
 
-  const BASE_URL = "https://note-taker-3-unrg.onrender.com"; // unified backend URL
+  const BASE_URL = "https://note-taker-3-unrg.onrender.com";
+  const selfDomain = "note-taker-3-1.onrender.com";
+
+  // ✅ Prevent running on the note-taker app itself
+  if (window.location.hostname.includes(selfDomain)) {
+    console.log("🚫 Skipping note-taker script on app domain.");
+    return;
+  }
+
   let lastSelectionRange = null;
   const savedHighlights = [];
 
@@ -11,20 +19,20 @@
       title: document.title,
       url: window.location.href,
       content: document.body.innerText,
-      highlights: []  // Can be empty for now
+      highlights: []
     };
-  
+
     try {
-      const response = await fetch('https://note-taker-3-unrg.onrender.com/save-article', {
+      const response = await fetch(`${BASE_URL}/save-article`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(articleData)
       });
-  
+
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-  
+
       const result = await response.json();
       console.log("✅ Article saved:", result);
     } catch (error) {
