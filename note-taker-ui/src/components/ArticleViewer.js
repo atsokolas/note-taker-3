@@ -23,17 +23,28 @@ const ArticleViewer = () => {
     const fetchArticle = async (id) => {
         try {
             const res = await axios.get(`https://note-taker-3-unrg.onrender.com/articles/${id}`);
-
     
-            // Parse the HTML first
+            // The article data includes the original URL, which we need
+            const originalArticleUrl = res.data.url; 
+            const articleOrigin = new URL(originalArticleUrl).origin;
+    
             const parser = new DOMParser();
             const doc = parser.parseFromString(res.data.content, 'text/html');
     
-            // Remove all hyperlinks
+            // This part removes hyperlinks (you can keep it)
             doc.querySelectorAll('a').forEach(a => a.remove());
     
-            // Strip messy URLs or unwanted elements here if you want
-            // e.g. removing certain divs, spans, etc.
+            // --- ADD THIS NEW BLOCK OF CODE ---
+            // Find all images and fix their source URLs
+            doc.querySelectorAll('img').forEach(img => {
+                const src = img.getAttribute('src');
+                // Check if the src exists and is a relative path (starts with '/')
+                if (src && src.startsWith('/')) {
+                    // Prepend the original article's domain to make it an absolute URL
+                    img.src = `${articleOrigin}${src}`;
+                }
+            });
+            // --- END OF NEW CODE BLOCK ---
     
             setArticleContent(doc.body.innerHTML);
             setHighlights(res.data.highlights || []);
@@ -43,6 +54,7 @@ const ArticleViewer = () => {
             console.error("❌ Error fetching article and highlights:", err);
         }
     };
+    
     
     useEffect(() => {
         if (id) fetchArticle(id);
