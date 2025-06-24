@@ -40,21 +40,56 @@ function cleanContent(rawHtml) {
     document.querySelector("#highlights").appendChild(highlightsList);
   }
 
-async function handleSaveArticle() {
+  async function handleSaveArticle() {
+    // 1. Get the current active browser tab
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (!tab?.id) return console.error("❌ Active tab not found.");
-
-    // ✅ First, inject the content script
-    try {
-        await chrome.scripting.executeScript({
-            target: { tabId: tab.id },
-            files: ["content.js"]
-        });
-        console.log("✅ content.js injected");
-    } catch (err) {
-        console.error("❌ Failed to inject content.js:", err);
+    if (!tab?.id) {
+        console.error("❌ Active tab not found.");
+        alert("Could not find the active tab.");
         return;
     }
+
+    // 2. Send ONE message to content.js asking for the clean article
+    //    content.js will use Readability.js to do the work.
+    try {
+        const response = await chrome.tabs.sendMessage(tab.id, { action: "getCleanArticle" });
+
+        if (!response || !response.article) {
+            console.error("❌ Did not receive a clean article from content script.");
+            alert("Could not parse a clean article from this page.");
+            return;
+        }
+
+        // 3. Build the payload with the CLEAN data from Readability.js
+        const payload = {
+            title: response.article.title,      // The clean title from Readability
+            url: tab.url,                       // The tab's URL
+            content: response.article.content,  // The clean HTML content from Readability
+            highlights: []                      // Start with an empty highlights array
+        };
+
+        // 4. Send the clean payload to your backend to save
+        const saveResponse = await fetch("https://note-taker-3-unrg.onrender.com/save-article", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+        });
+
+        if (!saveResponse.ok) {
+            const errorText = await saveResponse.text();
+            throw new Error(`Server error (${saveResponse.status}): ${errorText}`);
+        }
+
+        const data = await saveResponse.json();
+        console.log("✅ Article saved:", data);
+        alert(`✅ Article "${data.title}" saved!`);
+
+    } catch (err) {
+        console.error("❌ Failed during the save process:", err);
+        alert(`An error occurred: ${err.message}`);
+    }
+}
+
 
     // ✅ Then, send the message
     chrome.tabs.sendMessage(tab.id, { action: "extractContent" }, async (response) => {
@@ -96,7 +131,6 @@ async function handleSaveArticle() {
         }
       });
     }); // <<< THESE TWO
-  }
 
 async function handleLoadArticles() {
     try {

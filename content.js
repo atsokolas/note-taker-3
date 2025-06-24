@@ -1,47 +1,24 @@
 (function () {
+  // Prevent script from running multiple times on the same page
   if (window.hasRunNoteTakerScript) return;
   window.hasRunNoteTakerScript = true;
 
   const BASE_URL = "https://note-taker-3-unrg.onrender.com";
   const selfDomain = "note-taker-3-1.onrender.com";
 
-  // ✅ Prevent running on the note-taker app itself
+  // Prevent running on the note-taker app itself
   if (window.location.hostname.includes(selfDomain)) {
     console.log("🚫 Skipping note-taker script on app domain.");
     return;
   }
 
+  // --- All of your existing highlight logic remains unchanged ---
+
   let lastSelectionRange = null;
   const savedHighlights = [];
 
-  async function saveArticle() {
-    const articleData = {
-      title: document.title,
-      url: window.location.href,
-      content: document.body.innerText,
-      highlights: []
-    };
-
-    try {
-      const response = await fetch(`${BASE_URL}/save-article`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(articleData)
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const result = await response.json();
-      console.log("✅ Article saved:", result);
-    } catch (error) {
-      console.error("❌ Failed to save article:", error);
-    }
-  }
-
   function loadAndRenderHighlights(articleUrl) {
-    fetch(`https://note-taker-3-unrg.onrender.com/highlights?url=${encodeURIComponent(articleUrl)}`)
+    fetch(`${BASE_URL}/highlights?url=${encodeURIComponent(articleUrl)}`)
       .then((res) => {
         if (!res.ok) throw new Error("Not found");
         return res.json();
@@ -58,42 +35,29 @@
         console.warn("No highlights found or failed to load:", err.message);
       });
   }
-  // --- Detect text selection and show tooltip ---
+
   document.addEventListener("mouseup", () => {
     const selection = window.getSelection();
     const selected = selection.toString().trim();
-
     if (!selected || selected.length < 1 || selection.rangeCount === 0) return;
-
     lastSelectionRange = selection.getRangeAt(0).cloneRange();
     addTooltipToSelection(selected);
   });
 
-  // --- Tooltip UI ---
   function addTooltipToSelection(textToSave) {
     const selection = window.getSelection();
     const range = selection.getRangeAt(0);
     const rect = range.getBoundingClientRect();
-
-    // Avoid creating tooltip for collapsed/invisible selections
     if (rect.width === 0 && rect.height === 0) return;
 
     const tooltip = document.createElement("div");
     tooltip.innerText = "💾 Save Highlight";
     tooltip.style.cssText = `
-      position: absolute;
-      background: #333;
-      color: white;
-      padding: 5px 10px;
-      border-radius: 6px;
-      font-size: 12px;
-      cursor: pointer;
-      z-index: 9999;
+      position: absolute; background: #333; color: white; padding: 5px 10px;
+      border-radius: 6px; font-size: 12px; cursor: pointer; z-index: 9999;
     `;
-
     tooltip.style.top = `${rect.top + window.scrollY - 30}px`;
     tooltip.style.left = `${rect.left + window.scrollX}px`;
-
     document.body.appendChild(tooltip);
 
     tooltip.addEventListener("click", () => {
@@ -104,25 +68,17 @@
       tooltip.remove();
     });
 
-    // Remove tooltip on outside click
     setTimeout(() => {
-      document.addEventListener(
-        "click",
-        () => tooltip.remove(),
-        { once: true }
-      );
+      document.addEventListener("click", () => tooltip.remove(), { once: true });
     }, 10);
   }
 
-  // --- Wrap selected text in a <mark> for visual feedback ---
   function visuallyHighlightSelection() {
     if (!lastSelectionRange) return;
-
     const mark = document.createElement("mark");
     mark.className = "highlighted-text";
     mark.style.backgroundColor = "#ffeb3b";
     mark.style.padding = "0 2px";
-
     try {
       const extracted = lastSelectionRange.extractContents();
       mark.appendChild(extracted);
@@ -133,69 +89,47 @@
     }
   }
 
-// --- Save the highlight to the backend ---
-async function saveHighlight(selectedText) {
-  if (!selectedText || selectedText.trim() === "") return false;
-
-  const highlight = {
-    userId: "guest",
-    text: selectedText,
-    note: "",
-    tags: [],
-    createdAt: new Date().toISOString(),
-  };
-
-  const payload = {
-    url: window.location.href,
-    highlight: highlight,
-  };
-
-  savedHighlights.push(highlight); // Save locally
-
-  try {
-    const response = await fetch(`${BASE_URL}/save-highlight`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-
-    if (!response.ok) throw new Error("❌ Failed to save highlight");
-
-    console.log("✅ Highlight saved.");
-    return true;
-  } catch (err) {
-    console.error("❌ Error saving highlight:", err);
-    return false;
+  async function saveHighlight(selectedText) {
+    if (!selectedText || selectedText.trim() === "") return false;
+    const highlight = {
+      userId: "guest", text: selectedText, note: "", tags: [],
+      createdAt: new Date().toISOString(),
+    };
+    const payload = { url: window.location.href, highlight: highlight };
+    savedHighlights.push(highlight);
+    try {
+      const response = await fetch(`${BASE_URL}/save-highlight`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!response.ok) throw new Error("❌ Failed to save highlight");
+      console.log("✅ Highlight saved.");
+      return true;
+    } catch (err) {
+      console.error("❌ Error saving highlight:", err);
+      return false;
+    }
   }
-}
 
-  // --- Apply visual highlighting for matching text in the document ---
   function applyHighlightToText(textToHighlight) {
-    const walker = document.createTreeWalker(
-      document.body,
-      NodeFilter.SHOW_TEXT,
-      {
-        acceptNode: (node) =>
-          node.nodeValue.includes(textToHighlight)
-            ? NodeFilter.FILTER_ACCEPT
-            : NodeFilter.FILTER_SKIP,
-      }
-    );
-
+    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
+      acceptNode: (node) =>
+        node.nodeValue.includes(textToHighlight)
+          ? NodeFilter.FILTER_ACCEPT
+          : NodeFilter.FILTER_SKIP,
+    });
     let node;
     while ((node = walker.nextNode())) {
       const index = node.nodeValue.indexOf(textToHighlight);
       if (index === -1) continue;
-
       const range = document.createRange();
       range.setStart(node, index);
       range.setEnd(node, index + textToHighlight.length);
-
       const mark = document.createElement("mark");
       mark.className = "highlighted-text";
       mark.style.backgroundColor = "#ffeb3b";
       mark.style.padding = "0 2px";
-
       try {
         const extracted = range.extractContents();
         mark.appendChild(extracted);
@@ -206,57 +140,39 @@ async function saveHighlight(selectedText) {
     }
   }
 
+  // --- NEW AND IMPROVED MESSAGE LISTENER ---
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-    if (message.action === "getSavedHighlights") {
-      sendResponse({ highlights: savedHighlights });
-  
-    } else if (message.action === "extractContent") {
-      try {
-        const title = document.title;
-  
-        const articleElement = document.querySelector("article");
-        const content = articleElement
-          ? articleElement.innerHTML
-          : document.body.innerHTML;
-  
-        const textContent = articleElement
-          ? articleElement.innerText
-          : document.body.innerText;
-  
-        sendResponse({
-          title: title,
-          url: window.location.href,
-          content: content.trim(),
-          text: textContent.trim(),
-        });
-      } catch (err) {
-        console.error("❌ Failed to extract content:", err);
-        sendResponse({ error: "Content extraction failed" });
+    // This is the new action that popup.js will call
+    if (message.action === "getCleanArticle") {
+      // Check if Readability library is available
+      if (typeof Readability === "undefined") {
+        console.error("❌ Readability.js is not loaded. Check your manifest.json.");
+        sendResponse({ error: "Readability library not available." });
+        return false; // Return false because we are not responding asynchronously
       }
-  
-      return true; // Keep message channel open
+      
+      // We must clone the document because Readability modifies it
+      const documentClone = document.cloneNode(true);
+      const reader = new Readability(documentClone);
+      const article = reader.parse();
+      
+      // Send the clean article object back to the popup
+      sendResponse({ article: article });
+
+    } else if (message.action === "getSavedHighlights") {
+      sendResponse({ highlights: savedHighlights });
+    
     } else if (message.action === "loadHighlights" && message.url) {
       loadAndRenderHighlights(message.url);
-  
+    
     } else if (message.action === "articleSaved") {
       const { title, url, id } = message.article;
-  
-      console.log("📥 Received confirmation from background that article was saved:");
-      console.log("Title:", title);
-      console.log("URL:", url);
-      console.log("ID:", id);
-  
+      console.log("📥 Received confirmation from background that article was saved:", title, url, id);
       loadAndRenderHighlights(url);
     }
+    
+    // Return true to indicate you wish to send a response asynchronously
+    return true; 
   });
 
-  (async () => {
-    try {
-      await saveArticle();
-      console.log("✅ Article saved on load");
-    } catch (err) {
-      console.error("❌ Error auto-saving article:", err);
-    }
-  })();
-
-})(); // ✅ Correctly closes your IIFE
+})();
