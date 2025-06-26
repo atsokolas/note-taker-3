@@ -92,7 +92,7 @@ const ArticleViewer = () => {
 
         try {
             const res = await axios.post(`https://note-taker-3-unrg.onrender.com/articles/${id}/highlights`, newHighlight);
-            setHighlights(res.data.article.highlights);
+            setHighlights(res.data.highlights);
         } catch (err) {
             console.error("❌ Failed to save highlight:", err);
         }

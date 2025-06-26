@@ -94,28 +94,42 @@ app.get('/highlights', async (req, res) => {
   }
 });
 
-app.post('/save-highlight', async (req, res) => {
-    const { url, highlight } = req.body;
-  
-    console.log('📥 Incoming highlight save request:', req.body);
-  
-    if (!url || !highlight) {
-      console.error('❌ Missing url or highlight:', { url, highlight });
-      return res.status(400).json({ error: "URL and highlight are required" });
+// This new route matches the POST /articles/:id/highlights request from your frontend
+app.post('/articles/:id/highlights', async (req, res) => {
+  try {
+    // Get the article's unique ID from the URL parameters
+    const { id } = req.params; 
+
+    // Get the text of the new highlight directly from the request body
+    const newHighlightData = req.body;
+
+    const newHighlight = {
+      text: newHighlightData.text,
+      note: newHighlightData.note || "",
+      tags: newHighlightData.tags || [],
+      createdAt: new Date().toISOString()
+    };
+
+    // Find the article by its ID and push the new highlight into its 'highlights' array
+    const updatedArticle = await Article.findByIdAndUpdate(
+      id,
+      { $push: { highlights: newHighlight } },
+      { new: true } // This option returns the updated document
+    );
+
+    if (!updatedArticle) {
+      return res.status(404).json({ error: "Article not found" });
     }
-  
-    try {
-      const article = await Article.findOneAndUpdate(
-        { url },
-        { $push: { highlights: highlight } },
-        { new: true }
-      );
-      res.json({ success: true, article });
-    } catch (error) {
-      console.error("❌ Error saving highlight:", error);
-      res.status(500).json({ error: "Failed to save highlight" });
-    }
-  });
+
+    // Success! Send back the entire updated article.
+    res.status(201).json(updatedArticle); 
+
+  } catch (err) {
+    console.error("❌ Error saving highlight:", err);
+    res.status(500).json({ error: "Failed to save highlight" });
+  }
+});
+
 
 // This new route matches the GET /articles/:id request from your frontend
 app.get('/articles/:id', async (req, res) => {
@@ -138,8 +152,6 @@ app.get('/articles/:id', async (req, res) => {
     res.status(500).json({ error: "Failed to fetch article" });
   }
 });
-
-
   // Get all articles
 app.get('/get-articles', async (req, res) => {
     try {
