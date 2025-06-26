@@ -1,16 +1,12 @@
 document.addEventListener("DOMContentLoaded", () => {
     const saveButton = document.querySelector("#saveArticleButton");
-    const loadButton = document.querySelector("#loadArticleButton");
-    const highlightButton = document.querySelector("#highlightButton");
 
-    if (!saveButton || !loadButton || !highlightButton) {
+    if (!saveButton) {
         console.error("❌ Required buttons missing in popup.html.");
         return;
     }
 
     saveButton.addEventListener("click", handleSaveArticle);
-    loadButton.addEventListener("click", handleLoadArticles);
-    highlightButton.addEventListener("click", handleHighlight);
 
     if (typeof Mark === "function") {
         console.log("✅ Mark.js loaded.");
@@ -40,35 +36,33 @@ function cleanContent(rawHtml) {
     document.querySelector("#highlights").appendChild(highlightsList);
   }
 
-  async function handleSaveArticle() {
-    // 1. Get the current active browser tab
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (!tab?.id) {
-        console.error("❌ Active tab not found.");
-        alert("Could not find the active tab.");
-        return;
-    }
+// REPLACE your existing handleSaveArticle function with this improved version
+async function handleSaveArticle() {
+    const statusMessage = document.querySelector("#statusMessage");
+    const saveButton = document.querySelector("#saveArticleButton");
 
-    // 2. Send ONE message to content.js asking for the clean article
-    //    content.js will use Readability.js to do the work.
+    // Give instant feedback
+    statusMessage.textContent = "Saving...";
+    saveButton.disabled = true; // Prevent multiple clicks
+
     try {
-        const response = await chrome.tabs.sendMessage(tab.id, { action: "getCleanArticle" });
-
-        if (!response || !response.article) {
-            console.error("❌ Did not receive a clean article from content script.");
-            alert("Could not parse a clean article from this page.");
-            return;
+        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+        if (!tab?.id) {
+            throw new Error("Active tab not found.");
         }
 
-        // 3. Build the payload with the CLEAN data from Readability.js
+        const response = await chrome.tabs.sendMessage(tab.id, { action: "getCleanArticle" });
+        if (!response || !response.article) {
+            throw new Error("Could not parse a clean article from this page.");
+        }
+
         const payload = {
-            title: response.article.title,      // The clean title from Readability
-            url: tab.url,                       // The tab's URL
-            content: response.article.content,  // The clean HTML content from Readability
-            highlights: []                      // Start with an empty highlights array
+            title: response.article.title,
+            url: tab.url,
+            content: response.article.content,
+            highlights: []
         };
 
-        // 4. Send the clean payload to your backend to save
         const saveResponse = await fetch("https://note-taker-3-unrg.onrender.com/save-article", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -82,14 +76,21 @@ function cleanContent(rawHtml) {
 
         const data = await saveResponse.json();
         console.log("✅ Article saved:", data);
-        alert(`✅ Article "${data.title}" saved!`);
-
+        statusMessage.textContent = `✅ Article Saved!`;
+        
     } catch (err) {
         console.error("❌ Failed during the save process:", err);
-        alert(`An error occurred: ${err.message}`);
+        statusMessage.textContent = `Error: ${err.message}`; // Display error to user
+    } finally {
+        // Re-enable the button after a short delay
+        setTimeout(() => {
+            saveButton.disabled = false;
+            if (!statusMessage.textContent.includes("Error")) {
+               statusMessage.textContent = ""; // Clear success message after a few seconds
+            }
+        }, 3000);
     }
 }
-
 
     // ✅ Then, send the message
     chrome.tabs.sendMessage(tab.id, { action: "extractContent" }, async (response) => {
