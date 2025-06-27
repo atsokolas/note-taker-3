@@ -2,27 +2,18 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Article Saver</title>
     <link rel="stylesheet" href="popup.css">
-    <script src="mark.min.js" defer></script>
-    <script src="popup.js" defer></script>
 </head>
 <body>
-    <h1>Article Saver</h1>
-    <input type="text" id="articleName" placeholder="Enter article name" />
-    <button id="saveArticleButton">Save Article</button>
-    <button id="loadArticleButton">Load Articles</button>
-
-    <h2>Highlight Text</h2>
-    <input type="text" id="highlightInput" placeholder="Enter text to highlight" />
-    <button id="highlightButton">Highlight</button>
-
-    <div id="articlePreview" contenteditable="true" style="border: 1px solid #ccc; padding: 10px; margin-top: 10px; height: 200px; overflow-y: auto;">
-        Paste or type article content here...
+    <div class="container">
+        <h1 class="title">Article Saver</h1>
+        <div id="main-actions">
+            <button id="saveArticleButton">Save Full Article</button>
+            <button id="toggleHighlightingButton">Activate Highlighting</button>
+        </div>
+        <div id="statusMessage"></div>
     </div>
-
-    <ul id="savedArticlesList"></ul>
-    <div id="savedArticleContainer"></div>
+    <script src="popup.js"></script>
 </body>
 </html>

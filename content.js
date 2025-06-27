@@ -1,3 +1,5 @@
+// content.js - FINAL VERSION
+
 (function () {
   // Prevent script from running multiple times on the same page
   if (window.hasRunNoteTakerScript) return;
@@ -16,6 +18,9 @@
 
   let lastSelectionRange = null;
   const savedHighlights = [];
+
+  // ADDED: This new variable will be controlled by the popup.
+  let isHighlightingActive = false;
 
   function loadAndRenderHighlights(articleUrl) {
     fetch(`${BASE_URL}/highlights?url=${encodeURIComponent(articleUrl)}`)
@@ -37,6 +42,10 @@
   }
 
   document.addEventListener("mouseup", () => {
+    // CHANGED: This entire listener is now wrapped in a check.
+    // It will only run if the user has activated highlighting from the popup.
+    if (!isHighlightingActive) return;
+
     const selection = window.getSelection();
     const selected = selection.toString().trim();
     if (!selected || selected.length < 1 || selection.rangeCount === 0) return;
@@ -140,25 +149,31 @@
     }
   }
 
-  // --- NEW AND IMPROVED MESSAGE LISTENER ---
+  // --- MESSAGE LISTENER WITH ADDED ACTIONS ---
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-    // This is the new action that popup.js will call
     if (message.action === "getCleanArticle") {
-      // Check if Readability library is available
       if (typeof Readability === "undefined") {
         console.error("❌ Readability.js is not loaded. Check your manifest.json.");
         sendResponse({ error: "Readability library not available." });
-        return false; // Return false because we are not responding asynchronously
+        return false;
       }
       
-      // We must clone the document because Readability modifies it
       const documentClone = document.cloneNode(true);
       const reader = new Readability(documentClone);
       const article = reader.parse();
       
-      // Send the clean article object back to the popup
       sendResponse({ article: article });
+    
+    // ADDED: New actions to be controlled by the popup
+    } else if (message.action === "toggleHighlighting") {
+        isHighlightingActive = !isHighlightingActive;
+        console.log("Highlighting toggled via popup:", isHighlightingActive);
+        sendResponse({ highlightingActive: isHighlightingActive });
 
+    } else if (message.action === "getHighlightingStatus") {
+        sendResponse({ highlightingActive: isHighlightingActive });
+    
+    // The rest of your listeners remain the same
     } else if (message.action === "getSavedHighlights") {
       sendResponse({ highlights: savedHighlights });
     
@@ -171,7 +186,6 @@
       loadAndRenderHighlights(url);
     }
     
-    // Return true to indicate you wish to send a response asynchronously
     return true; 
   });
 
