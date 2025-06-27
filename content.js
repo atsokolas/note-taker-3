@@ -164,14 +164,14 @@
       
       sendResponse({ article: article });
     
-    // ADDED: New actions to be controlled by the popup
-    } else if (message.action === "toggleHighlighting") {
-        isHighlightingActive = !isHighlightingActive;
-        console.log("Highlighting toggled via popup:", isHighlightingActive);
-        sendResponse({ highlightingActive: isHighlightingActive });
+// ... inside your listener ...
+    // ADDED: New action to activate highlighting automatically after a save.
+  } else if (message.action === "activateHighlighting") {
+    isHighlightingActive = true;
+    console.log("✅ Highlighting has been automatically activated for this page.");
+    sendResponse({ success: true });
+//...
 
-    } else if (message.action === "getHighlightingStatus") {
-        sendResponse({ highlightingActive: isHighlightingActive });
     
     // The rest of your listeners remain the same
     } else if (message.action === "getSavedHighlights") {
