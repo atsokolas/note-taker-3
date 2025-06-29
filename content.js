@@ -1,26 +1,22 @@
 // content.js - FINAL VERSION
-
 (function () {
-  // Prevent script from running multiple times on the same page
   if (window.hasRunNoteTakerScript) return;
   window.hasRunNoteTakerScript = true;
 
-  const BASE_URL = "https://note-taker-3-unrg.onrender.com";
+  const BASE_URL = "https://note-taker-3-unrg.onrender.com"; // CORRECTED URL
+  // ... all of your other content.js code remains the same ...
+  // The rest of the file you provided previously is correct.
+  // Just ensure this one line at the top is updated.
   const selfDomain = "note-taker-3-1.onrender.com";
 
-  // Prevent running on the note-taker app itself
   if (window.location.hostname.includes(selfDomain)) {
     console.log("🚫 Skipping note-taker script on app domain.");
     return;
   }
 
-  // --- All of your existing highlight logic remains unchanged ---
-
+  let isHighlightingActive = false;
   let lastSelectionRange = null;
   const savedHighlights = [];
-
-  // ADDED: This new variable will be controlled by the popup.
-  let isHighlightingActive = false;
 
   function loadAndRenderHighlights(articleUrl) {
     fetch(`${BASE_URL}/highlights?url=${encodeURIComponent(articleUrl)}`)
@@ -42,8 +38,6 @@
   }
 
   document.addEventListener("mouseup", () => {
-    // CHANGED: This entire listener is now wrapped in a check.
-    // It will only run if the user has activated highlighting from the popup.
     if (!isHighlightingActive) return;
 
     const selection = window.getSelection();
@@ -149,7 +143,6 @@
     }
   }
 
-  // --- MESSAGE LISTENER WITH ADDED ACTIONS ---
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.action === "getCleanArticle") {
       if (typeof Readability === "undefined") {
@@ -163,17 +156,12 @@
       const article = reader.parse();
       
       sendResponse({ article: article });
-    
-// ... inside your listener ...
-    // ADDED: New action to activate highlighting automatically after a save.
-  } else if (message.action === "activateHighlighting") {
-    isHighlightingActive = true;
-    console.log("✅ Highlighting has been automatically activated for this page.");
-    sendResponse({ success: true });
-//...
 
+    } else if (message.action === "activateHighlighting") {
+        isHighlightingActive = true;
+        console.log("✅ Highlighting has been automatically activated for this page.");
+        sendResponse({ success: true });
     
-    // The rest of your listeners remain the same
     } else if (message.action === "getSavedHighlights") {
       sendResponse({ highlights: savedHighlights });
     

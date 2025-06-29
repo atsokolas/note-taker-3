@@ -1,19 +1,13 @@
-// background.js - FINAL PRODUCTION VERSION
+// background.js - FINAL VERSION
 
-const BASE_URL = "https://note-taker-3-1.onrender.com";
+const BASE_URL = "https://note-taker-3-unrg.onrender.com"; // CORRECTED URL
 
-// Make the entire listener function async to reliably use await
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === "capture") {
-    
-    // Immediately log what we received from the popup to be sure.
     console.log("Background script received 'capture' request with data:", request);
 
-    // Create a new async function to handle the logic.
-    // This is a robust pattern for async operations in listeners.
     const handleCapture = async () => {
       try {
-        // Double-check that we have the necessary data before fetching
         if (!request.url || !request.title) {
           throw new Error("Missing title or url in the capture request.");
         }
@@ -24,22 +18,17 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
           body: JSON.stringify({
             title: request.title,
             url: request.url,
-            // We are now back to using the real content from the request
-            content: request.content || "", // Default to empty string if content is missing
+            content: request.content || "",
             userId: "exampleUserId",
           }),
         });
 
-        const responseText = await response.text();
-
-        if (responseText.trim() === "") {
-            throw new Error("Received an empty response from server.");
-        }
         if (!response.ok) {
-            throw new Error(`Server Error: ${response.status} - ${responseText}`);
+            const errorText = await response.text();
+            throw new Error(`Server Error: ${response.status} - ${errorText}`);
         }
 
-        const data = JSON.parse(responseText);
+        const data = await response.json();
         console.log("✅ Article saved successfully:", data);
 
         if (sender.tab && sender.tab.id) {
@@ -58,10 +47,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       }
     };
 
-    // Call our async function and send the response when it's done.
     handleCapture().then(sendResponse);
-
-    // Return true to indicate that the response will be sent asynchronously.
     return true;
   }
 });

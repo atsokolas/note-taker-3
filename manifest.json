@@ -19,8 +19,7 @@
     "activeTab"
   ],
   "host_permissions": [
-    "http://localhost:3000/*", 
-    "https://note-taker-3-1.onrender.com/*"
+    "https://note-taker-3-unrg.onrender.com/*"
   ],
   "content_scripts": [
     {
@@ -36,6 +35,6 @@
     }
   ],
   "content_security_policy": {
-    "extension_pages": "script-src 'self'; object-src 'none'; connect-src 'self' http://localhost:3000 https://note-taker-3-1.onrender.com;"
+    "extension_pages": "script-src 'self'; object-src 'none'; connect-src 'self' https://note-taker-3-unrg.onrender.com;"
   }
 }
