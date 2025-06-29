@@ -1,4 +1,4 @@
-// server.js - FINAL PRODUCTION VERSION
+// server.js - FINAL COMPLETE VERSION
 
 const express = require('express');
 const cors = require('cors');
@@ -41,7 +41,6 @@ const Article = mongoose.model('Article', articleSchema);
 
 // POST /save-article: Saves or updates an entire article.
 app.post("/save-article", async (req, res) => {
-  console.log("✅ /save-article route hit.");
   try {
     const { title, url, content } = req.body;
     if (!title || !url) {
@@ -52,7 +51,6 @@ app.post("/save-article", async (req, res) => {
       { title: title, content: content || '', $setOnInsert: { highlights: [] } },
       { upsert: true, new: true, setDefaultsOnInsert: true }
     );
-    console.log("✅ Database operation successful for /save-article. ID:", updatedArticle._id);
     res.status(200).json(updatedArticle);
   } catch (error) {
     console.error("❌ Error in /save-article:", error);
@@ -60,11 +58,10 @@ app.post("/save-article", async (req, res) => {
   }
 });
 
-// GET /get-articles: Gets a list of all saved articles. THIS IS THE MISSING ROUTE.
+// GET /get-articles: Gets a list of all saved articles.
 app.get('/get-articles', async (req, res) => {
-    console.log("✅ /get-articles route hit.");
     try {
-      const articles = await Article.find({}).select('title url createdAt').sort({createdAt: -1});
+      const articles = await Article.find({}).select('title url createdAt _id').sort({createdAt: -1});
       res.json(articles);
     } catch (err) {
       console.error("❌ Failed to fetch articles:", err);
@@ -72,39 +69,19 @@ app.get('/get-articles', async (req, res) => {
     }
 });
 
-// GET /highlights: Gets all highlights for a specific article URL.
-app.get('/highlights', async (req, res) => {
-  const { url } = req.query;
-  if (!url) return res.status(400).json({ error: 'URL query param is required' });
+// GET /articles/:id: Gets a single article by its unique ID. THIS IS THE MISSING ROUTE.
+app.get('/articles/:id', async (req, res) => {
   try {
-    const article = await Article.findOne({ url });
-    res.json({ highlights: article ? article.highlights : [] });
-  } catch (error) {
-    console.error('❌ Error fetching highlights:', error);
-    res.status(500).json({ error: 'Failed to fetch highlights' });
+    const { id } = req.params;
+    const article = await Article.findById(id);
+    if (!article) {
+      return res.status(404).json({ error: "Article not found" });
+    }
+    res.json(article);
+  } catch (err) {
+    console.error("❌ Error fetching article by ID:", err);
+    res.status(500).json({ error: "Failed to fetch article by ID" });
   }
-});
-
-// POST /save-highlight: Adds a new highlight to an existing article.
-app.post('/save-highlight', async (req, res) => {
-    const { url, highlight } = req.body;
-    if (!url || !highlight || !highlight.text) {
-        return res.status(400).json({ error: 'URL and highlight object with text are required.' });
-    }
-    try {
-        const updatedArticle = await Article.findOneAndUpdate(
-            { url: url },
-            { $push: { highlights: highlight } },
-            { new: true }
-        );
-        if (!updatedArticle) {
-            return res.status(404).json({ error: "Article not found to add highlight to." });
-        }
-        res.status(201).json(updatedArticle);
-    } catch (err) {
-        console.error("❌ Error saving highlight:", err);
-        res.status(500).json({ error: "Failed to save highlight" });
-    }
 });
   
 // Health check route
