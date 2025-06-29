@@ -1,4 +1,4 @@
-// server.js - FINAL COMPLETE VERSION
+// server.js - FINAL COMPLETE & PRODUCTION-READY VERSION
 
 const express = require('express');
 const cors = require('cors');
@@ -39,7 +39,7 @@ const Article = mongoose.model('Article', articleSchema);
 
 // --- API ROUTES ---
 
-// POST /save-article: Saves or updates an entire article.
+// POST /save-article: Saves or updates an entire article (from the extension).
 app.post("/save-article", async (req, res) => {
   try {
     const { title, url, content } = req.body;
@@ -58,7 +58,7 @@ app.post("/save-article", async (req, res) => {
   }
 });
 
-// GET /get-articles: Gets a list of all saved articles.
+// GET /get-articles: Gets a list of all saved articles (for the web app's main page).
 app.get('/get-articles', async (req, res) => {
     try {
       const articles = await Article.find({}).select('title url createdAt _id').sort({createdAt: -1});
@@ -69,7 +69,7 @@ app.get('/get-articles', async (req, res) => {
     }
 });
 
-// GET /articles/:id: Gets a single article by its unique ID. THIS IS THE MISSING ROUTE.
+// GET /articles/:id: Gets a single article by its unique ID (for the web app's viewer page).
 app.get('/articles/:id', async (req, res) => {
   try {
     const { id } = req.params;
@@ -82,6 +82,38 @@ app.get('/articles/:id', async (req, res) => {
     console.error("❌ Error fetching article by ID:", err);
     res.status(500).json({ error: "Failed to fetch article by ID" });
   }
+});
+
+// POST /articles/:id/highlights: Adds a new highlight to a specific article. THIS IS THE MISSING ROUTE.
+app.post('/articles/:id/highlights', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { text, note, tags } = req.body; // Expecting highlight data in the body
+
+        if (!text) {
+            return res.status(400).json({ error: "Highlight text is required." });
+        }
+
+        const newHighlight = {
+            text: text,
+            note: note || "",
+            tags: tags || []
+        };
+
+        const updatedArticle = await Article.findByIdAndUpdate(
+            id,
+            { $push: { highlights: newHighlight } },
+            { new: true } // This option returns the updated document
+        );
+
+        if (!updatedArticle) {
+            return res.status(404).json({ error: "Article not found to add highlight to." });
+        }
+        res.status(201).json(updatedArticle);
+    } catch (err) {
+        console.error("❌ Error saving highlight:", err);
+        res.status(500).json({ error: "Failed to save highlight" });
+    }
 });
   
 // Health check route
