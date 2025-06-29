@@ -1,75 +1,58 @@
-// content.js - FINAL VERSION WITH CORRECT HIGHLIGHT SAVING
+// content.js - ULTIMATE DEBUGGING VERSION
 
 (function () {
+  console.log('[DEBUG] content.js script has been injected.');
+
   if (window.hasRunNoteTakerScript) return;
   window.hasRunNoteTakerScript = true;
 
   const BASE_URL = "https://note-taker-3-unrg.onrender.com";
-  const selfDomain = "note-taker-3-1.onrender.com";
-
-  if (window.location.hostname.includes(selfDomain)) {
-    return;
-  }
-
-  // --- 1. ADD A VARIABLE TO STORE THE ARTICLE ID ---
-  let savedArticleId = null;
   
+  let savedArticleId = null;
   let isHighlightingActive = false;
   let lastSelectionRange = null;
-  // Note: We remove the old `savedHighlights` array as the server is now the source of truth.
 
-  function loadAndRenderHighlights(articleUrl) {
-    // This function logic remains correct.
-    fetch(`${BASE_URL}/highlights?url=${encodeURIComponent(articleUrl)}`)
-      .then((res) => {
-        if (!res.ok) throw new Error("Not found");
-        return res.json();
-      })
-      .then((data) => {
-        if (Array.isArray(data.highlights)) {
-          data.highlights.forEach((highlight) => {
-            applyHighlightToText(highlight.text);
-          });
-        }
-      })
-      .catch((err) => {
-        console.warn("Could not load previous highlights:", err.message);
-      });
-  }
+  document.addEventListener("mouseup", (event) => {
+    console.log('[DEBUG] "mouseup" event detected.');
+    
+    if (!isHighlightingActive) {
+      console.log('[DEBUG] Highlighting is not active. Ignoring text selection.');
+      return;
+    }
+    console.log('[DEBUG] Highlighting IS active. Proceeding...');
 
-  document.addEventListener("mouseup", () => {
-    if (!isHighlightingActive) return;
+    // Prevent the tooltip from appearing when clicking on the tooltip itself
+    if (event.target.id === 'highlight-tooltip') return;
+
     const selection = window.getSelection();
-    const selected = selection.toString().trim();
-    if (!selected || selected.length < 1 || selection.rangeCount === 0) return;
-    lastSelectionRange = selection.getRangeAt(0).cloneRange();
-    addTooltipToSelection(selected);
+    const selectedText = selection.toString().trim();
+    
+    if (selectedText.length > 0) {
+        console.log(`[DEBUG] Text selected: "${selectedText}"`);
+        lastSelectionRange = selection.getRangeAt(0).cloneRange();
+        addTooltipToSelection(selectedText, event.clientX, event.clientY);
+    }
   });
 
-  function addTooltipToSelection(textToSave) {
-    // This function logic remains correct.
-    const selection = window.getSelection();
-    const range = selection.getRangeAt(0);
-    const rect = range.getBoundingClientRect();
-    if (rect.width === 0 && rect.height === 0) return;
-
+  function addTooltipToSelection(textToSave, x, y) {
+    console.log('[DEBUG] Creating "Save Highlight" tooltip.');
+    const existingTooltip = document.getElementById('highlight-tooltip');
+    if (existingTooltip) existingTooltip.remove();
+    
     const tooltip = document.createElement("div");
+    tooltip.id = 'highlight-tooltip';
     tooltip.innerText = "💾 Save Highlight";
-    tooltip.style.cssText = `
-      position: absolute; background: #333; color: white; padding: 5px 10px;
-      border-radius: 6px; font-size: 12px; cursor: pointer; z-index: 9999;
-    `;
-    tooltip.style.top = `${rect.top + window.scrollY - 30}px`;
-    tooltip.style.left = `${rect.left + window.scrollX}px`;
-    document.body.appendChild(tooltip);
-
+    tooltip.style.cssText = `position: fixed; top: ${y - 40}px; left: ${x}px; background: black; color: white; padding: 8px 12px; border-radius: 6px; font-size: 14px; cursor: pointer; z-index: 9999;`;
+    
     tooltip.addEventListener("click", () => {
-      if (textToSave) {
-        saveHighlight(textToSave);
-        visuallyHighlightSelection();
-      }
+      console.log('[DEBUG] "Save Highlight" tooltip CLICKED.');
+      saveHighlight(textToSave);
+      visuallyHighlightSelection();
       tooltip.remove();
     });
+
+    document.body.appendChild(tooltip);
+    console.log('[DEBUG] Tooltip added to page.');
 
     setTimeout(() => {
       document.addEventListener("click", () => tooltip.remove(), { once: true });
@@ -77,81 +60,53 @@
   }
 
   function visuallyHighlightSelection() {
-    // This function logic remains correct.
     if (!lastSelectionRange) return;
     const mark = document.createElement("mark");
-    mark.className = "highlighted-text";
     mark.style.backgroundColor = "#ffeb3b";
     try {
-      const extracted = lastSelectionRange.extractContents();
-      mark.appendChild(extracted);
-      lastSelectionRange.insertNode(mark);
-      lastSelectionRange = null;
+      lastSelectionRange.surroundContents(mark);
     } catch (err) {
       console.error("❌ Error applying visual highlight:", err);
     }
+    window.getSelection().removeAllRanges();
   }
 
-  // --- 2. REWRITE THE saveHighlight FUNCTION ---
   async function saveHighlight(selectedText) {
-    // First, check if we have an ID. If not, we can't save the highlight.
+    console.log('[DEBUG] Entered saveHighlight function.');
     if (!savedArticleId) {
-      console.error("Cannot save highlight: Article ID is missing.");
-      alert("Could not save highlight. Please ensure the article is saved first.");
+      console.error('[CRITICAL] Cannot save highlight because savedArticleId is null.');
       return;
     }
 
-    if (!selectedText || selectedText.trim() === "") return;
-
-    const highlightPayload = {
-      text: selectedText,
-      note: "", // You can add UI to capture notes later
-      tags: [], // You can add UI to capture tags later
-    };
+    const highlightPayload = { text: selectedText };
+    const endpoint = `${BASE_URL}/articles/${savedArticleId}/highlights`;
+    
+    console.log(`[DEBUG] Preparing to POST highlight to: ${endpoint}`);
 
     try {
-      // Use the correct endpoint with the stored article ID
-      const response = await fetch(`${BASE_URL}/articles/${savedArticleId}/highlights`, {
+      const response = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(highlightPayload),
       });
+
       if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || "Failed to save highlight");
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Server returned an error");
       }
-      console.log("✅ Highlight saved successfully.");
-      return true;
+      
+      const responseData = await response.json();
+      console.log("✅ [SUCCESS] Highlight saved.", responseData);
+
     } catch (err) {
-      console.error("❌ Error saving highlight:", err);
-      return false;
+      console.error("❌ [CRITICAL] Error fetching to save highlight:", err);
     }
   }
 
-  function applyHighlightToText(textToHighlight) {
-    // This function logic remains correct.
-    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null);
-    let node;
-    while ((node = walker.nextNode())) {
-        if (node.nodeValue.includes(textToHighlight)) {
-            const range = document.createRange();
-            const index = node.nodeValue.indexOf(textToHighlight);
-            range.setStart(node, index);
-            range.setEnd(node, index + textToHighlight.length);
-            
-            const mark = document.createElement("mark");
-            mark.className = "highlighted-text";
-            mark.style.backgroundColor = "#ffeb3b";
-            try {
-                range.surroundContents(mark);
-            } catch (err) {
-                console.warn("⚠️ Could not re-apply highlight:", err);
-            }
-        }
-    }
-  }
-
+  // --- MESSAGE LISTENER ---
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    console.log('[DEBUG] Message received by content script:', message);
+
     if (message.action === "getCleanArticle") {
       if (typeof Readability === "undefined") {
         sendResponse({ error: "Readability library not available." });
@@ -164,16 +119,12 @@
 
     } else if (message.action === "activateHighlighting") {
         isHighlightingActive = true;
-        console.log("✅ Highlighting activated for this page.");
+        console.log(`[DEBUG] 'activateHighlighting' message received. isHighlightingActive is now: ${isHighlightingActive}`);
         sendResponse({ success: true });
     
-    // --- 3. UPDATE THE articleSaved LISTENER ---
     } else if (message.action === "articleSaved") {
-        // When the background confirms the save, catch and store the ID.
         savedArticleId = message.article.id;
-        console.log(`📥 Article save confirmed. Stored ID: ${savedArticleId}`);
-        // Now, load any previously saved highlights for this article.
-        loadAndRenderHighlights(message.article.url);
+        console.log(`[DEBUG] 'articleSaved' message received. Stored ID is now: ${savedArticleId}`);
     }
     
     return true; 
