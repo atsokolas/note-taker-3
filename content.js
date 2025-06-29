@@ -1,45 +1,44 @@
-// content.js - FINAL VERSION
+// content.js - FINAL VERSION WITH CORRECT HIGHLIGHT SAVING
+
 (function () {
   if (window.hasRunNoteTakerScript) return;
   window.hasRunNoteTakerScript = true;
 
-  const BASE_URL = "https://note-taker-3-unrg.onrender.com"; // CORRECTED URL
-  // ... all of your other content.js code remains the same ...
-  // The rest of the file you provided previously is correct.
-  // Just ensure this one line at the top is updated.
+  const BASE_URL = "https://note-taker-3-unrg.onrender.com";
   const selfDomain = "note-taker-3-1.onrender.com";
 
   if (window.location.hostname.includes(selfDomain)) {
-    console.log("🚫 Skipping note-taker script on app domain.");
     return;
   }
 
+  // --- 1. ADD A VARIABLE TO STORE THE ARTICLE ID ---
+  let savedArticleId = null;
+  
   let isHighlightingActive = false;
   let lastSelectionRange = null;
-  const savedHighlights = [];
+  // Note: We remove the old `savedHighlights` array as the server is now the source of truth.
 
   function loadAndRenderHighlights(articleUrl) {
+    // This function logic remains correct.
     fetch(`${BASE_URL}/highlights?url=${encodeURIComponent(articleUrl)}`)
       .then((res) => {
         if (!res.ok) throw new Error("Not found");
         return res.json();
       })
-      .then((highlights) => {
-        if (Array.isArray(highlights)) {
-          savedHighlights.push(...highlights);
-          highlights.forEach((highlight) => {
+      .then((data) => {
+        if (Array.isArray(data.highlights)) {
+          data.highlights.forEach((highlight) => {
             applyHighlightToText(highlight.text);
           });
         }
       })
       .catch((err) => {
-        console.warn("No highlights found or failed to load:", err.message);
+        console.warn("Could not load previous highlights:", err.message);
       });
   }
 
   document.addEventListener("mouseup", () => {
     if (!isHighlightingActive) return;
-
     const selection = window.getSelection();
     const selected = selection.toString().trim();
     if (!selected || selected.length < 1 || selection.rangeCount === 0) return;
@@ -48,6 +47,7 @@
   });
 
   function addTooltipToSelection(textToSave) {
+    // This function logic remains correct.
     const selection = window.getSelection();
     const range = selection.getRangeAt(0);
     const rect = range.getBoundingClientRect();
@@ -77,11 +77,11 @@
   }
 
   function visuallyHighlightSelection() {
+    // This function logic remains correct.
     if (!lastSelectionRange) return;
     const mark = document.createElement("mark");
     mark.className = "highlighted-text";
     mark.style.backgroundColor = "#ffeb3b";
-    mark.style.padding = "0 2px";
     try {
       const extracted = lastSelectionRange.extractContents();
       mark.appendChild(extracted);
@@ -92,22 +92,35 @@
     }
   }
 
+  // --- 2. REWRITE THE saveHighlight FUNCTION ---
   async function saveHighlight(selectedText) {
-    if (!selectedText || selectedText.trim() === "") return false;
-    const highlight = {
-      userId: "guest", text: selectedText, note: "", tags: [],
-      createdAt: new Date().toISOString(),
+    // First, check if we have an ID. If not, we can't save the highlight.
+    if (!savedArticleId) {
+      console.error("Cannot save highlight: Article ID is missing.");
+      alert("Could not save highlight. Please ensure the article is saved first.");
+      return;
+    }
+
+    if (!selectedText || selectedText.trim() === "") return;
+
+    const highlightPayload = {
+      text: selectedText,
+      note: "", // You can add UI to capture notes later
+      tags: [], // You can add UI to capture tags later
     };
-    const payload = { url: window.location.href, highlight: highlight };
-    savedHighlights.push(highlight);
+
     try {
-      const response = await fetch(`${BASE_URL}/save-highlight`, {
+      // Use the correct endpoint with the stored article ID
+      const response = await fetch(`${BASE_URL}/articles/${savedArticleId}/highlights`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(highlightPayload),
       });
-      if (!response.ok) throw new Error("❌ Failed to save highlight");
-      console.log("✅ Highlight saved.");
+      if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || "Failed to save highlight");
+      }
+      console.log("✅ Highlight saved successfully.");
       return true;
     } catch (err) {
       console.error("❌ Error saving highlight:", err);
@@ -116,62 +129,51 @@
   }
 
   function applyHighlightToText(textToHighlight) {
-    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
-      acceptNode: (node) =>
-        node.nodeValue.includes(textToHighlight)
-          ? NodeFilter.FILTER_ACCEPT
-          : NodeFilter.FILTER_SKIP,
-    });
+    // This function logic remains correct.
+    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null);
     let node;
     while ((node = walker.nextNode())) {
-      const index = node.nodeValue.indexOf(textToHighlight);
-      if (index === -1) continue;
-      const range = document.createRange();
-      range.setStart(node, index);
-      range.setEnd(node, index + textToHighlight.length);
-      const mark = document.createElement("mark");
-      mark.className = "highlighted-text";
-      mark.style.backgroundColor = "#ffeb3b";
-      mark.style.padding = "0 2px";
-      try {
-        const extracted = range.extractContents();
-        mark.appendChild(extracted);
-        range.insertNode(mark);
-      } catch (err) {
-        console.warn("⚠️ Could not re-apply highlight:", err);
-      }
+        if (node.nodeValue.includes(textToHighlight)) {
+            const range = document.createRange();
+            const index = node.nodeValue.indexOf(textToHighlight);
+            range.setStart(node, index);
+            range.setEnd(node, index + textToHighlight.length);
+            
+            const mark = document.createElement("mark");
+            mark.className = "highlighted-text";
+            mark.style.backgroundColor = "#ffeb3b";
+            try {
+                range.surroundContents(mark);
+            } catch (err) {
+                console.warn("⚠️ Could not re-apply highlight:", err);
+            }
+        }
     }
   }
 
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.action === "getCleanArticle") {
       if (typeof Readability === "undefined") {
-        console.error("❌ Readability.js is not loaded. Check your manifest.json.");
         sendResponse({ error: "Readability library not available." });
         return false;
       }
-      
       const documentClone = document.cloneNode(true);
       const reader = new Readability(documentClone);
       const article = reader.parse();
-      
       sendResponse({ article: article });
 
     } else if (message.action === "activateHighlighting") {
         isHighlightingActive = true;
-        console.log("✅ Highlighting has been automatically activated for this page.");
+        console.log("✅ Highlighting activated for this page.");
         sendResponse({ success: true });
     
-    } else if (message.action === "getSavedHighlights") {
-      sendResponse({ highlights: savedHighlights });
-    
-    } else if (message.action === "loadHighlights" && message.url) {
-      loadAndRenderHighlights(message.url);
-    
+    // --- 3. UPDATE THE articleSaved LISTENER ---
     } else if (message.action === "articleSaved") {
-      const { title, url, id } = message.article;
-      console.log("📥 Received confirmation from background that article was saved:", title, url, id);
-      loadAndRenderHighlights(url);
+        // When the background confirms the save, catch and store the ID.
+        savedArticleId = message.article.id;
+        console.log(`📥 Article save confirmed. Stored ID: ${savedArticleId}`);
+        // Now, load any previously saved highlights for this article.
+        loadAndRenderHighlights(message.article.url);
     }
     
     return true; 
