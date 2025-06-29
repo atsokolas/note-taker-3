@@ -6,31 +6,21 @@
   "default_locale": "en",
   "icons": {
     "48": "images/icon-48.png",
-    "96": "images/icon-96.png",
-    "128": "images/icon-128.png",
-    "256": "images/icon-256.png",
-    "512": "images/icon-512.png"
+    "128": "images/icon-128.png"
   },
   "background": {
     "service_worker": "background.js"
   },
   "action": {
-    "default_popup": "popup.html",
-    "default_icon": {
-      "48": "images/icon-48.png",
-      "96": "images/icon-96.png",
-      "128": "images/icon-128.png"
-    }
+    "default_popup": "popup.html"
   },
   "permissions": [
-    "tabs",
     "storage",
-    "activeTab",
-    "scripting"
+    "activeTab"
   ],
   "host_permissions": [
-    "http://127.0.0.1:5500/*",
-    "https://*/*"
+    "http://localhost:3000/*", 
+    "https://note-taker-3-1.onrender.com/*"
   ],
   "content_scripts": [
     {
@@ -39,18 +29,13 @@
       "run_at": "document_idle"
     }
   ],
-
   "web_accessible_resources": [
     {
-      "resources": [
-        "images/*",
-        "popup.js",
-        "mark.min.js"
-      ],
-      "matches": ["<all_urls>"]
+      "resources": [ "Readability.js" ],
+      "matches": [ "<all_urls>" ]
     }
   ],
   "content_security_policy": {
-    "extension_pages": "script-src 'self'; object-src 'none'; connect-src 'self' https://note-taker-3-unrg.onrender.com https://cdnjs.cloudflare.com;"
+    "extension_pages": "script-src 'self'; object-src 'none'; connect-src 'self' http://localhost:3000 https://note-taker-3-1.onrender.com;"
   }
 }
