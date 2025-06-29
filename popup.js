@@ -1,4 +1,4 @@
-// popup.js - FINAL SIMPLIFIED VERSION
+// popup.js - FINAL VERSION
 
 document.addEventListener("DOMContentLoaded", () => {
     const saveButton = document.getElementById("saveArticleButton");
@@ -11,7 +11,6 @@ document.addEventListener("DOMContentLoaded", () => {
         try {
             const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
             
-            // 1. Ask content script for the clean article data
             const articleResponse = await chrome.tabs.sendMessage(tab.id, { action: "getCleanArticle" });
 
             if (articleResponse.error || !articleResponse.article) {
@@ -20,9 +19,10 @@ document.addEventListener("DOMContentLoaded", () => {
             
             statusMessage.textContent = "Saving article...";
             
-            // 2. Send the clean data to the background script to be saved
+            // Send the clean data AND the tab's ID to the background script
             const backgroundResponse = await chrome.runtime.sendMessage({
                 action: "capture",
+                tabId: tab.id, // THE FIX: Explicitly send the tab ID
                 title: articleResponse.article.title,
                 url: tab.url,
                 content: articleResponse.article.content

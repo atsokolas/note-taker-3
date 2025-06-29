@@ -1,15 +1,13 @@
 // background.js - FINAL VERSION
 
-const BASE_URL = "https://note-taker-3-unrg.onrender.com"; // CORRECTED URL
+const BASE_URL = "https://note-taker-3-unrg.onrender.com";
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === "capture") {
-    console.log("Background script received 'capture' request with data:", request);
-
     const handleCapture = async () => {
       try {
-        if (!request.url || !request.title) {
-          throw new Error("Missing title or url in the capture request.");
+        if (!request.url || !request.title || !request.tabId) { // Check for tabId
+          throw new Error("Missing title, url, or tabId in the capture request.");
         }
 
         const response = await fetch(`${BASE_URL}/save-article`, {
@@ -31,13 +29,12 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         const data = await response.json();
         console.log("✅ Article saved successfully:", data);
 
-        if (sender.tab && sender.tab.id) {
-          chrome.tabs.sendMessage(sender.tab.id, { action: "activateHighlighting" });
-          chrome.tabs.sendMessage(sender.tab.id, {
-            action: "articleSaved",
-            article: { title: request.title, url: request.url, id: data._id ?? null },
-          });
-        }
+        // THE FIX: Use request.tabId instead of sender.tab.id
+        chrome.tabs.sendMessage(request.tabId, { action: "activateHighlighting" });
+        chrome.tabs.sendMessage(request.tabId, {
+          action: "articleSaved",
+          article: { title: request.title, url: request.url, id: data._id ?? null },
+        });
         
         return { success: true, data: data };
 
