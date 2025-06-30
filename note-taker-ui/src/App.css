@@ -90,12 +90,34 @@ body {
     font-size: 36px;
     margin-bottom: 16px;
 }
-
+/* Find this existing class in App.css */
 .article-content .content-body {
-    font-size: 18px;
-    line-height: 1.7;
-    max-width: 720px; /* Optimal reading width */
+  font-size: 18px;
+  line-height: 1.7;
+  max-width: 720px; /* Optimal reading width */
+  overflow-x: hidden; /* ADD THIS - Prevents horizontal scrollbar on the container */
 }
+
+/* --- ADD THIS ENTIRE NEW BLOCK OF CODE --- */
+/* These rules target specific elements INSIDE the fetched HTML */
+
+.article-content .content-body img,
+.article-content .content-body video,
+.article-content .content-body iframe {
+  max-width: 100%; /* This is the key fix for images */
+  height: auto;    /* This maintains the aspect ratio */
+  border-radius: 8px; /* Optional: adds a nice touch to images */
+}
+
+.article-content .content-body pre,
+.article-content .content-body code,
+.article-content .content-body table {
+  max-width: 100%;
+  overflow-x: auto; /* Allows scrolling within a code/table block if needed */
+  white-space: pre-wrap;   /* Wraps long lines of code */
+  word-wrap: break-word; /* Breaks long words or URLs */
+}
+/* --- END OF NEW CODE BLOCK --- */
 
 /* Style for the highlights within the article */
 .article-content mark.highlight {
