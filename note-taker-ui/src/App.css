@@ -143,3 +143,16 @@ body {
 .highlight-popup:hover {
     background-color: #000;
 }
+
+.folder-group {
+  margin-bottom: 24px;
+}
+
+.folder-group h2 {
+  font-size: 14px;
+  text-transform: uppercase;
+  color: #6c757d;
+  letter-spacing: 0.5px;
+  margin: 0 0 12px 16px;
+  font-weight: 600;
+}
