@@ -239,22 +239,33 @@ app.patch('/articles/:id/move', async (req, res) => {
   }
 });
 
-// POST /articles/:id/highlights: Adds a new highlight to an article
+// server.js - MODIFIED POST /articles/:id/highlights ROUTE
+
 app.post('/articles/:id/highlights', async (req, res) => {
   try {
     const { id } = req.params;
-    const { text, note, tags } = req.body; // Add note and tags if you expand highlight schema
+    // --- UPDATED: Destructure note and tags from req.body ---
+    const { text, note, tags } = req.body; 
+    // ----------------------------------------------------
     
     if (!text) {
       return res.status(400).json({ error: "Highlight text is required." });
     }
 
-    const newHighlight = { text, note: note || '', tags: tags || [] };
+    // --- UPDATED: Include note and tags in the newHighlight object ---
+    const newHighlight = { 
+        text, 
+        note: note || '', // Default to empty string if note is not provided
+        tags: tags || []  // Default to empty array if tags are not provided
+    };
+    // ----------------------------------------------------------------
 
     const updatedArticle = await Article.findByIdAndUpdate(
       id,
       { $push: { highlights: newHighlight } }, // Use $push to add to array
-      { new: true } // Return the updated document
+      { new: true, populate: 'highlights' } // IMPORTANT: Populate highlights to return them
+                                           // Also populate 'folder' if you want that too
+                                           // populate: ['highlights', 'folder']
     );
 
     if (!updatedArticle) {
@@ -269,7 +280,6 @@ app.post('/articles/:id/highlights', async (req, res) => {
     res.status(500).json({ error: "Failed to add highlight.", details: error.message });
   }
 });
-
 
 // Root endpoint for health check
 app.get('/', (req, res) => res.send('✅ Note Taker backend is running!'));
