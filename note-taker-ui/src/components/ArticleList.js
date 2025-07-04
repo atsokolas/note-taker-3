@@ -1,10 +1,9 @@
-import React, { useState, useEffect, useCallback } from 'react'; // Import useCallback
+import React, { useState, useEffect, useCallback } from 'react';
 import { NavLink } from 'react-router-dom';
 import axios from 'axios';
 
-const BASE_URL = "https://note-taker-3-unrg.onrender.com"; // Define BASE_URL here
+const BASE_URL = "https://note-taker-3-unrg.onrender.com";
 
-// A new, reusable component for the expand/collapse icon
 const AccordionIcon = ({ isOpen }) => (
     <svg className={`accordion-icon ${isOpen ? 'open' : ''}`} width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
         <path d="M6 4L10 8L6 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -13,13 +12,13 @@ const AccordionIcon = ({ isOpen }) => (
 
 const ArticleList = () => {
     const [groupedArticles, setGroupedArticles] = useState({});
-    const [folders, setFolders] = useState([]); // State to hold all available folders
+    const [folders, setFolders] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
-    const [openFolder, setOpenFolder] = useState(null); // State to track which folder is currently open
-    const [newFolderName, setNewFolderName] = useState(''); // State for new folder input
+    const [openFolder, setOpenFolder] = useState(null);
+    const [newFolderName, setNewFolderName] = useState('');
 
-    // Wrap fetchAndGroupArticles in useCallback to prevent unnecessary re-creations
+    // useCallback for fetchAndGroupArticles to optimize performance and prevent unnecessary re-runs
     const fetchAndGroupArticles = useCallback(async () => {
         setLoading(true);
         setError(null);
@@ -30,37 +29,28 @@ const ArticleList = () => {
             const articlesData = articlesResponse.data;
             const foldersData = foldersResponse.data;
 
-            // --- DEBUG LOGS ---
             console.log("[DEBUG] Raw articles fetched for grouping:", articlesData); 
             console.log("[DEBUG] Raw folders fetched for grouping:", foldersData); 
-            // ------------------
 
-            setFolders(foldersData); // Update folders state
+            setFolders(foldersData); 
 
             const articlesByFolder = articlesData.reduce((acc, article) => {
                 const folderName = article.folder ? article.folder.name : 'Uncategorized';
-                // Use a unique ID for the key; 'uncategorized' for articles without a folder
                 const folderId = article.folder ? article.folder._id : 'uncategorized';
                 
                 if (!acc[folderId]) {
-                    acc[folderId] = { id: folderId, name: folderName, articles: [] }; // Include id for consistency
+                    acc[folderId] = { id: folderId, name: folderName, articles: [] };
                 }
                 
                 acc[folderId].articles.push(article);
                 return acc;
             }, {});
 
-            // --- DEBUG LOG ---
             console.log("[DEBUG] Grouped articles after reduction:", articlesByFolder);
-            // -----------------
 
-            // Use functional update for setGroupedArticles to ensure latest state
-            setGroupedArticles(prevGroupedArticles => {
-                // Ensure a new object reference is always returned if content changes,
-                // or if we simply want to force a re-render.
-                // A shallow copy of articlesByFolder ensures a new reference is passed.
-                return { ...articlesByFolder }; 
-            });
+            // Using a functional update with a spread to guarantee a new object reference
+            // This strongly signals React to re-render.
+            setGroupedArticles(prevGroupedArticles => ({ ...articlesByFolder })); 
 
         } catch (err) {
             console.error("Failed to fetch articles or folders:", err);
@@ -68,21 +58,19 @@ const ArticleList = () => {
         } finally {
             setLoading(false);
         }
-    }, []); // Empty dependency array, as fetchAndGroupArticles doesn't depend on props/state that change its logic
+    }, []); // Dependencies for useCallback. Empty means it only creates once.
 
-    // Initial fetch when component mounts
+    // useEffect to run fetchAndGroupArticles on component mount
     useEffect(() => {
         fetchAndGroupArticles();
-    }, [fetchAndGroupArticles]); // Add fetchAndGroupArticles to dependencies due to useCallback
+    }, [fetchAndGroupArticles]); // Dependency on fetchAndGroupArticles (due to useCallback)
 
-    // Function to handle clicking on a folder header
+    // Function to handle clicking on a folder header (accordion toggle)
     const handleFolderClick = (folderId) => {
-        // If the clicked folder is already open, close it by setting state to null.
-        // Otherwise, open the clicked folder.
         setOpenFolder(openFolder === folderId ? null : folderId);
     };
 
-    // --- Handle Create Folder ---
+    // Handle Create Folder
     const handleCreateFolder = async () => {
         if (!newFolderName.trim()) {
             alert("Please enter a folder name.");
@@ -91,8 +79,8 @@ const ArticleList = () => {
         try {
             const response = await axios.post(`${BASE_URL}/folders`, { name: newFolderName.trim() });
             alert(`Folder "${response.data.name}" created successfully!`);
-            setNewFolderName(''); // Clear input
-            await fetchAndGroupArticles(); // Refresh list to show new folder
+            setNewFolderName('');
+            await fetchAndGroupArticles(); // Re-fetch to update list with new folder
         } catch (err) {
             console.error("Error creating folder:", err);
             if (err.response && err.response.data && err.response.data.error) {
@@ -103,7 +91,7 @@ const ArticleList = () => {
         }
     };
 
-    // --- Handle Delete Folder ---
+    // Handle Delete Folder
     const handleDeleteFolder = async (folderId, folderName) => {
         if (!window.confirm(`Are you sure you want to delete the folder "${folderName}"? All articles in it must be moved first.`)) {
             return;
@@ -111,11 +99,11 @@ const ArticleList = () => {
         try {
             await axios.delete(`${BASE_URL}/folders/${folderId}`);
             alert(`Folder "${folderName}" deleted successfully!`);
-            // Close the folder if it was open
+            // If the deleted folder was open, close it
             if (openFolder === folderId) {
                 setOpenFolder(null);
             }
-            await fetchAndGroupArticles(); // Refresh list
+            await fetchAndGroupArticles(); // Re-fetch to update list without deleted folder
         } catch (err) {
             console.error("Error deleting folder:", err);
             if (err.response && err.response.data && err.response.data.error) {
@@ -126,7 +114,7 @@ const ArticleList = () => {
         }
     };
 
-    // --- Re-added: Handle Delete Article ---
+    // Handle Delete Article (for actions within the list)
     const handleDeleteArticle = async (articleId, articleTitle) => {
         if (!window.confirm(`Are you sure you want to delete "${articleTitle}"?`)) {
             return;
@@ -134,21 +122,21 @@ const ArticleList = () => {
         try {
             await axios.delete(`${BASE_URL}/articles/${articleId}`);
             alert(`Article "${articleTitle}" deleted successfully!`);
-            await fetchAndGroupArticles(); // Refresh list
+            await fetchAndGroupArticles(); // Re-fetch to update list without deleted article
         } catch (err) {
             console.error("Error deleting article:", err);
             alert("Failed to delete article.");
         }
     };
 
-    // --- Re-added: Handle Move Article ---
+    // Handle Move Article (for actions within the list)
     const handleMoveArticle = async (articleId, newFolderId) => {
         console.log(`[DEBUG] Attempting to move article ${articleId} to folder ${newFolderId}`); 
         try {
             const response = await axios.patch(`${BASE_URL}/articles/${articleId}/move`, { folderId: newFolderId });
             console.log("[DEBUG] Backend response for move:", response.data); 
             alert("Article moved successfully!");
-            await fetchAndGroupArticles(); // Refresh list to show the article in its new folder
+            await fetchAndGroupArticles(); // Re-fetch to update the list and show article in new folder
             console.log("[DEBUG] fetchAndGroupArticles called after move.");
         } catch (err) {
             console.error("Error moving article:", err);
@@ -163,10 +151,10 @@ const ArticleList = () => {
     if (loading) return <p className="status-message">Loading articles...</p>;
     if (error) return <p className="status-message" style={{ color: 'red' }}>{error}</p>;
 
-    // Filter out 'Uncategorized' if it somehow exists as a real folder in 'folders' state
+    // Prepare folder options for the "Move To" dropdown
     const allFoldersIncludingUncategorized = [
         { _id: 'uncategorized', name: 'Uncategorized' },
-        ...folders.filter(f => f.name !== 'Uncategorized') 
+        ...folders.filter(f => f.name !== 'Uncategorized') // Ensure 'Uncategorized' is unique if it exists as a real folder
     ];
 
     return (
@@ -184,24 +172,24 @@ const ArticleList = () => {
                 <button onClick={handleCreateFolder}>Create Folder</button>
             </div>
             
+            {/* Render Folders and their Articles */}
             {Object.keys(groupedArticles).length > 0 ? (
                 Object.keys(groupedArticles).map(folderId => {
                     const folder = groupedArticles[folderId];
-                    // Check if this folder is the currently open one
                     const isOpen = openFolder === folderId;
 
                     return (
                         <div key={folderId} className="folder-group">
-                            {/* Make the folder header a clickable button */}
+                            {/* Folder Header (clickable for accordion) */}
                             <button className="folder-header" onClick={() => handleFolderClick(folderId)}>
                                 <AccordionIcon isOpen={isOpen} />
                                 {folder.name}
-                                {/* Only show delete button for actual folders, not 'Uncategorized' */}
+                                {/* Delete Folder Button (only for non-uncategorized folders) */}
                                 {folderId !== 'uncategorized' && (
                                     <span 
                                         className="delete-folder-button" 
                                         onClick={(e) => { 
-                                            e.stopPropagation(); // Prevent folder from collapsing/expanding
+                                            e.stopPropagation(); // Prevents accordion from toggling
                                             handleDeleteFolder(folderId, folder.name);
                                         }}
                                         title="Delete Folder"
@@ -211,14 +199,15 @@ const ArticleList = () => {
                                 )}
                             </button>
 
-                            {/* Conditionally apply the 'open' class to the article list for CSS animation */}
+                            {/* Nested Article List (toggles open/close) */}
                             <ul className={`article-list nested ${isOpen ? 'open' : ''}`}>
                                 {folder.articles.map(article => (
                                     <li key={article._id} className="article-list-item">
                                         <NavLink to={`/articles/${article._id}`} className="article-title-link">
                                             {article.title}
                                         </NavLink>
-                                        <div className="article-actions"> {/* Re-added this div for actions */}
+                                        {/* Article Actions: Delete and Move */}
+                                        <div className="article-actions">
                                             {/* Delete Article Button */}
                                             <button 
                                                 className="action-button delete-button" 
@@ -235,13 +224,14 @@ const ArticleList = () => {
                                                 value={article.folder ? article.folder._id : 'uncategorized'} // Set current folder as selected
                                                 title="Move to Folder"
                                             >
+                                                {/* Render options for all folders */}
                                                 {allFoldersIncludingUncategorized.map(f => (
                                                     <option key={f._id} value={f._id}>
                                                         Move to {f.name}
                                                     </option>
                                                 ))}
                                             </select>
-                                        </div> {/* End re-added actions div */}
+                                        </div>
                                     </li>
                                 ))}
                             </ul>
