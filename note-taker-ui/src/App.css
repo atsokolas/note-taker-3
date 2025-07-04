@@ -156,3 +156,56 @@ body {
   margin: 0 0 12px 16px;
   font-weight: 600;
 }
+
+/* --- NEW: Accordion Folder Styles --- */
+
+.folder-header {
+  /* Reset button styles to look like our h2 */
+  background: none;
+  border: none;
+  padding: 10px 16px;
+  width: 100%;
+  text-align: left;
+  /* End of reset */
+  
+  font-size: 14px;
+  text-transform: uppercase;
+  color: #6c757d;
+  letter-spacing: 0.5px;
+  margin: 0 0 4px 0;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  border-radius: 8px;
+  transition: background-color 0.2s ease;
+}
+
+.folder-header:hover {
+  background-color: var(--medium-gray);
+}
+
+.accordion-icon {
+  margin-right: 8px;
+  transition: transform 0.3s ease;
+  color: #6c757d;
+}
+
+.accordion-icon.open {
+  transform: rotate(90deg);
+}
+
+.article-list.nested {
+  /* Collapsed by default */
+  max-height: 0;
+  overflow: hidden;
+  /* Smooth animation */
+  transition: max-height 0.4s ease-in-out;
+  padding-left: 20px; /* Indent nested articles for clarity */
+  margin: 0; /* Remove default ul margin */
+}
+
+.article-list.nested.open {
+  /* Expanded state */
+  max-height: 1000px; /* A large value to allow the list to grow */
+}
