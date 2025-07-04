@@ -209,3 +209,156 @@ body {
   /* Expanded state */
   max-height: 1000px; /* A large value to allow the list to grow */
 }
+
+/* Additions for new UI elements in ArticleList.js */
+
+.new-folder-section {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+  padding: 0 15px; /* Align with sidebar padding */
+}
+
+.new-folder-section input {
+  flex-grow: 1;
+  padding: 8px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  background-color: var(--card-bg-color);
+  color: var(--text-color);
+}
+
+.new-folder-section button {
+  padding: 8px 15px;
+  background-color: var(--primary-color);
+  color: white;
+  border: none;
+  border-radius: var(--border-radius);
+  cursor: pointer;
+  font-weight: 500;
+  transition: background-color 0.2s ease;
+}
+
+.new-folder-section button:hover {
+  background-color: var(--primary-color-dark);
+}
+
+.folder-header {
+  position: relative; /* For positioning the delete button */
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 10px 15px;
+  text-align: left;
+  background-color: transparent; /* or var(--card-bg-color) for a subtle background */
+  color: var(--text-color);
+  border: none;
+  border-bottom: 1px solid var(--border-color);
+  cursor: pointer;
+  font-size: 1.1em;
+  font-weight: 600;
+  transition: background-color 0.2s ease;
+}
+
+.folder-header:hover {
+  background-color: var(--hover-color);
+}
+
+.folder-group .article-list.nested {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.3s ease-out, padding-top 0.3s ease-out;
+  padding-top: 0;
+}
+
+.folder-group .article-list.nested.open {
+  max-height: 500px; /* Adjust as needed to be taller than max content */
+  padding-top: 10px;
+}
+
+.article-list-item {
+  display: flex;
+  justify-content: space-between; /* Puts title on left, actions on right */
+  align-items: center;
+  padding: 8px 15px;
+  border-bottom: 1px solid var(--border-color-light);
+  transition: background-color 0.2s ease;
+}
+
+.article-list-item:hover {
+  background-color: var(--hover-color);
+}
+
+.article-list-item:last-child {
+  border-bottom: none;
+}
+
+.article-title-link {
+  flex-grow: 1; /* Allows title to take up available space */
+  color: var(--text-color);
+  text-decoration: none;
+  margin-right: 10px; /* Space between title and actions */
+}
+
+.article-title-link:hover {
+  color: var(--primary-color);
+}
+
+.article-actions {
+  display: flex;
+  gap: 5px; /* Space between action buttons/dropdown */
+  align-items: center;
+}
+
+.action-button {
+  padding: 5px 8px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  cursor: pointer;
+  font-size: 0.85em;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+  background-color: var(--card-bg-color);
+  color: var(--text-color-secondary);
+}
+
+.action-button:hover {
+  background-color: var(--hover-color);
+  border-color: var(--primary-color);
+}
+
+.delete-button {
+  color: var(--danger-color);
+  border-color: var(--danger-color-light);
+}
+
+.delete-button:hover {
+  background-color: var(--danger-color-light);
+  color: white;
+}
+
+.delete-folder-button {
+  margin-left: auto; /* Pushes the delete button to the right */
+  background: none;
+  border: none;
+  color: var(--text-color-secondary);
+  font-size: 1.5em;
+  font-weight: bold;
+  cursor: pointer;
+  padding: 0 5px;
+  line-height: 1; /* For better vertical alignment of 'x' */
+  transition: color 0.2s ease;
+}
+
+.delete-folder-button:hover {
+  color: var(--danger-color);
+}
+
+.move-select {
+  /* Styling for the dropdown itself */
+  appearance: none; /* Removes default dropdown arrow */
+  padding-right: 25px; /* Space for custom arrow if you add one */
+  background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%236c757d%22%20d%3D%22M287%2C118.8L146.2%2C259.6L5.4%2C118.8z%22%2F%3E%3C%2Fsvg%3E'); /* Custom arrow */
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  background-size: 12px;
+}
