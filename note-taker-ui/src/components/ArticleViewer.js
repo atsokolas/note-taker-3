@@ -4,7 +4,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 
 const BASE_URL = "https://note-taker-3-unrg.onrender.com";
 
-const ArticleViewer = ({ onArticleChange }) => { // Accept onArticleChange prop
+const ArticleViewer = ({ onArticleChange }) => {
     const { id } = useParams();
     const navigate = useNavigate();
     const [article, setArticle] = useState(null);
@@ -70,7 +70,13 @@ const ArticleViewer = ({ onArticleChange }) => { // Accept onArticleChange prop
                 const range = selection.getRangeAt(0);
                 if (contentRef.current && contentRef.current.contains(range.commonAncestorContainer)) {
                     const rect = range.getBoundingClientRect();
-                    setPopup({ visible: true, x: rect.left + window.scrollX, y: rect.top + window.scrollY - 45, text: selectedText });
+                    // Positioning the popup more centrally above the selection
+                    setPopup({ 
+                        visible: true, 
+                        x: rect.left + window.scrollX + (rect.width / 2), // Center horizontally
+                        y: rect.top + window.scrollY - 50, // Move further up 
+                        text: selectedText 
+                    });
                 }
             }
         };
@@ -96,6 +102,7 @@ const ArticleViewer = ({ onArticleChange }) => { // Accept onArticleChange prop
         try {
             const res = await axios.post(`${BASE_URL}/articles/${id}/highlights`, newHighlight);
             setArticle(res.data);
+            alert("Highlight saved!"); // Added alert for highlight saved
         } catch (err) {
             console.error("Failed to save highlight:", err);
             alert("Error: Could not save highlight.");
@@ -109,9 +116,8 @@ const ArticleViewer = ({ onArticleChange }) => { // Accept onArticleChange prop
         try {
             await axios.delete(`${BASE_URL}/articles/${article._id}`);
             alert(`Article "${article.title}" deleted successfully!`);
-            console.log("[DEBUG - ArticleViewer.js] Calling onArticleChange for delete."); // Add this
-            onArticleChange(); // Notify App.js to refresh ArticleList
-            navigate('/'); // Redirect to home page after deletion
+            onArticleChange();
+            navigate('/');
         } catch (err) {
             console.error("Error deleting article:", err);
             alert("Failed to delete article.");
@@ -122,13 +128,11 @@ const ArticleViewer = ({ onArticleChange }) => { // Accept onArticleChange prop
         const newFolderId = e.target.value;
         if (!article || !newFolderId) return;
 
-        console.log(`[DEBUG - ArticleViewer.js] Attempting to move article ${article._id} to folder ${newFolderId}`); // Add this
         try {
             const response = await axios.patch(`${BASE_URL}/articles/${article._id}/move`, { folderId: newFolderId });
-            setArticle(response.data); // Update article state with new folder info
+            setArticle(response.data);
             alert("Article moved successfully!");
-            console.log("[DEBUG - ArticleViewer.js] Calling onArticleChange for move."); // Add this
-            onArticleChange(); // Notify App.js to refresh ArticleList
+            onArticleChange();
         } catch (err) {
             console.error("Error moving article:", err);
             if (err.response && err.response.data && err.response.data.error) {
@@ -149,7 +153,6 @@ const ArticleViewer = ({ onArticleChange }) => { // Accept onArticleChange prop
 
     return (
         <div className="article-viewer-container">
-            {/* New Management Bar */}
             <div className="article-management-bar">
                 <button 
                     className="management-button delete-button" 
@@ -182,10 +185,21 @@ const ArticleViewer = ({ onArticleChange }) => { // Accept onArticleChange prop
                 {popup.visible && (
                     <button
                         className="highlight-popup"
-                        style={{ top: popup.y, left: popup.x, position: 'absolute' }}
+                        style={{ 
+                            top: popup.y, 
+                            left: popup.x, 
+                            position: 'absolute', 
+                            // Using transform to truly center the popup based on its own width/height
+                            transform: 'translateX(-50%)' 
+                        }}
                         onClick={saveHighlight}
+                        title="Save Highlight"
                     >
-                        Save Highlight
+                        {/* Replaced text with SVG icon and optionally a label */}
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" className="highlight-icon">
+                            <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
+                        </svg>
+                        <span className="highlight-label">Save</span> {/* Optional label */}
                     </button>
                 )}
             </div>

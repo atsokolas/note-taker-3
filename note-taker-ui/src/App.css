@@ -1,4 +1,4 @@
-/* Variables for consistent theming */
+/* Existing CSS Variables and Global Styles (keep them as they are) */
 :root {
   --bg-color: #f8f8f8; /* Light gray background */
   --sidebar-bg-color: #ffffff; /* White sidebar */
@@ -19,7 +19,7 @@
 
 body {
   margin: 0;
-  font-family: 'SF Pro Text', 'Helvetica Neue', 'Segoe UI', sans-serif; /* Apple-like font stack */
+  font-family: 'SF Pro Text', 'Helvetica Neue', 'Segoe UI', sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   background-color: var(--bg-color);
@@ -30,22 +30,22 @@ body {
 .app-container {
   display: flex;
   height: 100vh;
-  overflow: hidden; /* Prevent body scroll */
+  overflow: hidden;
 }
 
 .sidebar {
-  width: 300px; /* Fixed width for sidebar */
+  width: 300px;
   background-color: var(--sidebar-bg-color);
   border-right: 1px solid var(--border-color);
-  padding-top: 20px; /* Space from top */
-  overflow-y: auto; /* Enable scrolling for sidebar content */
-  flex-shrink: 0; /* Prevent sidebar from shrinking */
+  padding-top: 20px;
+  overflow-y: auto;
+  flex-shrink: 0;
 }
 
 .sidebar h1 {
   font-size: 1.6em;
-  font-weight: 700; /* Bolder for titles */
-  margin: 0 15px 25px 15px; /* Margin for "Your Library" title */
+  font-weight: 700;
+  margin: 0 15px 25px 15px;
   color: var(--text-color);
 }
 
@@ -71,13 +71,13 @@ body {
   background-color: var(--card-bg-color);
   color: var(--text-color);
   font-size: 0.95em;
-  outline: none; /* Remove outline on focus */
-  box-shadow: inset 0 1px 2px rgba(0,0,0,0.03); /* Subtle inner shadow */
+  outline: none;
+  box-shadow: inset 0 1px 2px rgba(0,0,0,0.03);
 }
 
 .new-folder-section input:focus {
   border-color: var(--primary-color);
-  box-shadow: inset 0 1px 2px rgba(0,0,0,0.03), 0 0 0 3px rgba(0, 122, 255, 0.2); /* Focus ring */
+  box-shadow: inset 0 1px 2px rgba(0,0,0,0.03), 0 0 0 3px rgba(0, 122, 255, 0.2);
 }
 
 .new-folder-section button {
@@ -102,13 +102,12 @@ body {
   box-shadow: none;
 }
 
-
 /* Folder Headers (Accordion) */
 .folder-group {
   border-bottom: 1px solid var(--border-color);
 }
 .folder-group:last-of-type {
-  border-bottom: none; /* No border for the last one */
+  border-bottom: none;
 }
 
 .folder-header {
@@ -116,16 +115,16 @@ body {
   display: flex;
   align-items: center;
   width: 100%;
-  padding: 12px 15px; /* More padding */
+  padding: 12px 15px;
   text-align: left;
   background-color: transparent;
   color: var(--text-color);
   border: none;
   cursor: pointer;
-  font-size: 1.05em; /* Slightly larger font */
+  font-size: 1.05em;
   font-weight: 600;
   transition: background-color 0.2s ease;
-  box-shadow: inset 0 -1px 0 rgba(0,0,0,0.02); /* Subtle line below */
+  box-shadow: inset 0 -1px 0 rgba(0,0,0,0.02);
 }
 
 .folder-header:hover {
@@ -147,10 +146,10 @@ body {
   background: none;
   border: none;
   color: var(--text-color-secondary);
-  font-size: 1.4em; /* Slightly smaller 'x' */
+  font-size: 1.4em;
   font-weight: normal;
   cursor: pointer;
-  padding: 0 8px; /* More clickable area */
+  padding: 0 8px;
   line-height: 1;
   transition: color 0.2s ease, transform 0.1s ease;
 }
@@ -164,27 +163,27 @@ body {
 .folder-group .article-list.nested {
   max-height: 0;
   overflow: hidden;
-  transition: max-height 0.3s cubic-bezier(0.86, 0, 0.07, 1), padding-top 0.3s ease-out; /* Smooth slide */
+  transition: max-height 0.3s cubic-bezier(0.86, 0, 0.07, 1), padding-top 0.3s ease-out;
   padding-top: 0;
-  background-color: var(--hover-color); /* Slightly different background for open section */
-  border-top: 1px solid var(--border-color-light); /* Separator line */
+  background-color: var(--hover-color);
+  border-top: 1px solid var(--border-color-light);
 }
 
 .folder-group .article-list.nested.open {
-  max-height: 800px; /* Adjust as needed */
-  padding-top: 5px; /* Small padding from folder header */
+  max-height: 800px;
+  padding-top: 5px;
 }
 
 .article-list-item {
   display: flex;
   align-items: center;
-  padding: 10px 15px; /* More padding */
+  padding: 10px 15px;
   border-bottom: 1px solid var(--border-color-light);
   transition: background-color 0.2s ease;
 }
 
 .article-list-item:hover {
-  background-color: var(--active-color); /* Darker hover for list items */
+  background-color: var(--active-color);
 }
 
 .article-list-item:last-child {
@@ -196,10 +195,10 @@ body {
   color: var(--text-color);
   text-decoration: none;
   font-size: 0.95em;
-  white-space: normal; /* Allow text to wrap */
+  white-space: normal;
   overflow: hidden;
-  text-overflow: unset; /* Ensure full title is visible */
-  padding-right: 10px; /* Small space just in case */
+  text-overflow: unset;
+  padding-right: 10px;
 }
 
 .article-title-link:hover {
@@ -208,11 +207,11 @@ body {
 
 /* Content Viewer */
 .content-viewer {
-  flex-grow: 1; /* Takes up remaining space */
-  background-color: var(--card-bg-color); /* White background for content area */
+  flex-grow: 1;
+  background-color: var(--card-bg-color);
   display: flex;
-  flex-direction: column; /* Stack children vertically */
-  overflow-y: auto; /* Enable scrolling for content */
+  flex-direction: column;
+  overflow-y: auto;
 }
 
 .welcome-message {
@@ -222,7 +221,7 @@ body {
   font-size: 1.2em;
 }
 
-/* Article Viewer Container (new) */
+/* Article Viewer Container */
 .article-viewer-container {
   display: flex;
   flex-direction: column;
@@ -230,18 +229,18 @@ body {
   height: 100%;
 }
 
-/* Article Management Bar (new) */
+/* Article Management Bar */
 .article-management-bar {
   display: flex;
-  justify-content: flex-end; /* Align buttons to the right */
+  justify-content: flex-end;
   gap: 10px;
-  padding: 15px 25px; /* Generous padding */
+  padding: 15px 25px;
   border-bottom: 1px solid var(--border-color);
   background-color: var(--card-bg-color);
-  box-shadow: var(--box-shadow-light); /* Subtle shadow at the bottom */
-  position: sticky; /* Sticks to the top when scrolling */
+  box-shadow: var(--box-shadow-light);
+  position: sticky;
   top: 0;
-  z-index: 10; /* Ensure it's above article content */
+  z-index: 10;
 }
 
 .management-button {
@@ -255,7 +254,7 @@ body {
   background-color: var(--card-bg-color);
   color: var(--text-color-secondary);
   box-shadow: var(--box-shadow-light);
-  outline: none; /* Remove focus outline */
+  outline: none;
 }
 
 .management-button:hover {
@@ -281,12 +280,12 @@ body {
 
 .management-button.move-select {
   appearance: none;
-  padding-right: 35px; /* More space for arrow */
+  padding-right: 35px;
   background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%236c757d%22%20d%3D%22M287%2C118.8L146.2%2C259.6L5.4%2C118.8z%22%2F%3E%3C%2Fsvg%3E');
   background-repeat: no-repeat;
   background-position: right 12px center;
   background-size: 10px;
-  min-width: 150px; /* Ensure dropdown has enough width */
+  min-width: 150px;
 }
 
 .management-button.move-select option {
@@ -294,16 +293,15 @@ body {
   color: var(--text-color);
 }
 
-
 /* Article Content */
 .article-content {
-  flex-grow: 1; /* Takes remaining vertical space */
-  padding: 30px 40px; /* Generous padding for readability */
-  max-width: 800px; /* Max width for content for better reading experience */
-  margin: 0 auto; /* Center content */
+  flex-grow: 1;
+  padding: 30px 40px;
+  max-width: 800px;
+  margin: 0 auto;
   background-color: var(--card-bg-color);
-  box-shadow: var(--box-shadow-light); /* Subtle shadow around content */
-  margin-bottom: 20px; /* Space at the bottom */
+  box-shadow: var(--box-shadow-light);
+  margin-bottom: 20px;
 }
 
 .article-content h1 {
@@ -328,20 +326,53 @@ body {
   height: auto;
   display: block;
   margin: 20px auto;
-  border-radius: var(--border-radius); /* Rounded corners for images */
+  border-radius: var(--border-radius);
   box-shadow: var(--box-shadow-light);
 }
 
 /* Highlight popup */
 .highlight-popup {
-  background: #333;
-  color: white;
-  padding: 8px 12px;
-  border-radius: var(--border-radius);
-  border: none;
-  cursor: pointer;
-  font-size: 0.9em;
-  white-space: nowrap;
-  z-index: 1000;
-  box-shadow: var(--box-shadow-light);
+    /* Base styles, similar to other buttons for consistency */
+    display: flex; /* Allow icon and text to sit side-by-side */
+    align-items: center;
+    gap: 6px; /* Space between icon and text */
+    
+    padding: 8px 12px;
+    border-radius: var(--border-radius);
+    border: 1px solid var(--border-color); /* Subtle border */
+    cursor: pointer;
+    font-size: 0.9em;
+    white-space: nowrap;
+    z-index: 1000;
+    box-shadow: var(--box-shadow-light);
+    
+    background-color: var(--card-bg-color); /* White background */
+    color: var(--primary-color); /* Blue text/icon for active action */
+    
+    transition: background-color 0.2s ease, border-color 0.2s ease, transform 0.1s ease;
+}
+
+.highlight-popup:hover {
+    background-color: var(--hover-color);
+    border-color: var(--primary-color-dark);
+    transform: translateY(-1px);
+}
+
+.highlight-popup:active {
+    transform: translateY(0);
+    box-shadow: none;
+}
+
+/* Styles for the SVG icon within the popup */
+.highlight-icon {
+    width: 18px; /* Ensure consistent size */
+    height: 18px;
+    stroke: currentColor; /* Inherit color from parent (.highlight-popup) */
+    stroke-width: 2;
+    fill: none; /* Make sure it's an outline icon */
+}
+
+/* Optional: Style for the text label next to the icon */
+.highlight-label {
+    font-weight: 500; /* Match button text weight */
 }
