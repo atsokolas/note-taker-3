@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react'; // Import useCallback
 import { NavLink } from 'react-router-dom';
 import axios from 'axios';
 
@@ -16,18 +16,17 @@ const ArticleList = () => {
     const [folders, setFolders] = useState([]); // State to hold all available folders
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
-    // NEW: State to track which folder is currently open
-    const [openFolder, setOpenFolder] = useState(null);
+    const [openFolder, setOpenFolder] = useState(null); // State to track which folder is currently open
     const [newFolderName, setNewFolderName] = useState(''); // State for new folder input
 
-    // Function to fetch articles and group them by folder
-    const fetchAndGroupArticles = async () => {
+    // Wrap fetchAndGroupArticles in useCallback to prevent unnecessary re-creations
+    const fetchAndGroupArticles = useCallback(async () => {
         setLoading(true);
         setError(null);
         try {
             const articlesResponse = await axios.get(`${BASE_URL}/get-articles`);
-            const foldersResponse = await axios.get(`${BASE_URL}/folders`); // Fetch folders as well
-
+            const foldersResponse = await axios.get(`${BASE_URL}/folders`);
+            
             const articlesData = articlesResponse.data;
             const foldersData = foldersResponse.data;
 
@@ -55,28 +54,35 @@ const ArticleList = () => {
             console.log("[DEBUG] Grouped articles after reduction:", articlesByFolder);
             // -----------------
 
-            setGroupedArticles(articlesByFolder);
+            // Use functional update for setGroupedArticles to ensure latest state
+            setGroupedArticles(prevGroupedArticles => {
+                // Ensure a new object reference is always returned if content changes,
+                // or if we simply want to force a re-render.
+                // A shallow copy of articlesByFolder ensures a new reference is passed.
+                return { ...articlesByFolder }; 
+            });
+
         } catch (err) {
             console.error("Failed to fetch articles or folders:", err);
             setError("Failed to load articles or folders.");
         } finally {
             setLoading(false);
         }
-    };
+    }, []); // Empty dependency array, as fetchAndGroupArticles doesn't depend on props/state that change its logic
 
     // Initial fetch when component mounts
     useEffect(() => {
         fetchAndGroupArticles();
-    }, []);
+    }, [fetchAndGroupArticles]); // Add fetchAndGroupArticles to dependencies due to useCallback
 
-    // NEW: Function to handle clicking on a folder header
+    // Function to handle clicking on a folder header
     const handleFolderClick = (folderId) => {
         // If the clicked folder is already open, close it by setting state to null.
         // Otherwise, open the clicked folder.
         setOpenFolder(openFolder === folderId ? null : folderId);
     };
 
-    // --- NEW: Handle Create Folder ---
+    // --- Handle Create Folder ---
     const handleCreateFolder = async () => {
         if (!newFolderName.trim()) {
             alert("Please enter a folder name.");
@@ -97,7 +103,7 @@ const ArticleList = () => {
         }
     };
 
-    // --- NEW: Handle Delete Folder ---
+    // --- Handle Delete Folder ---
     const handleDeleteFolder = async (folderId, folderName) => {
         if (!window.confirm(`Are you sure you want to delete the folder "${folderName}"? All articles in it must be moved first.`)) {
             return;
@@ -120,7 +126,7 @@ const ArticleList = () => {
         }
     };
 
-    // --- NEW: Handle Delete Article ---
+    // --- Re-added: Handle Delete Article ---
     const handleDeleteArticle = async (articleId, articleTitle) => {
         if (!window.confirm(`Are you sure you want to delete "${articleTitle}"?`)) {
             return;
@@ -135,21 +141,15 @@ const ArticleList = () => {
         }
     };
 
-    // --- NEW: Handle Move Article ---
+    // --- Re-added: Handle Move Article ---
     const handleMoveArticle = async (articleId, newFolderId) => {
-        // --- DEBUG LOG ---
         console.log(`[DEBUG] Attempting to move article ${articleId} to folder ${newFolderId}`); 
-        // -----------------
         try {
             const response = await axios.patch(`${BASE_URL}/articles/${articleId}/move`, { folderId: newFolderId });
-            // --- DEBUG LOG ---
             console.log("[DEBUG] Backend response for move:", response.data); 
-            // -----------------
             alert("Article moved successfully!");
             await fetchAndGroupArticles(); // Refresh list to show the article in its new folder
-            // --- DEBUG LOG ---
             console.log("[DEBUG] fetchAndGroupArticles called after move.");
-            // -----------------
         } catch (err) {
             console.error("Error moving article:", err);
             if (err.response && err.response.data && err.response.data.error) {
@@ -218,7 +218,30 @@ const ArticleList = () => {
                                         <NavLink to={`/articles/${article._id}`} className="article-title-link">
                                             {article.title}
                                         </NavLink>
-                                        {/* Removed article actions from here to ArticleViewer */}
+                                        <div className="article-actions"> {/* Re-added this div for actions */}
+                                            {/* Delete Article Button */}
+                                            <button 
+                                                className="action-button delete-button" 
+                                                onClick={() => handleDeleteArticle(article._id, article.title)}
+                                                title="Delete Article"
+                                            >
+                                                &#x2715; {/* Unicode 'X' mark */}
+                                            </button>
+
+                                            {/* Move Article Dropdown */}
+                                            <select 
+                                                className="action-button move-select" 
+                                                onChange={(e) => handleMoveArticle(article._id, e.target.value)}
+                                                value={article.folder ? article.folder._id : 'uncategorized'} // Set current folder as selected
+                                                title="Move to Folder"
+                                            >
+                                                {allFoldersIncludingUncategorized.map(f => (
+                                                    <option key={f._id} value={f._id}>
+                                                        Move to {f.name}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </div> {/* End re-added actions div */}
                                     </li>
                                 ))}
                             </ul>
