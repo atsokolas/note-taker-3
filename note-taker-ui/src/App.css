@@ -1,292 +1,190 @@
-/* App.css - A modern design for your note taker */
-
+/* Variables for consistent theming */
 :root {
-  --sidebar-width: 350px;
-  --primary-blue: #0d6efd;
-  --light-gray: #f8f9fa;
-  --medium-gray: #e9ecef;
-  --dark-gray: #343a40;
-  --text-color: #212529;
-  --border-color: #dee2e6;
-  --highlight-yellow: #ffe066;
+  --bg-color: #f8f8f8; /* Light gray background */
+  --sidebar-bg-color: #ffffff; /* White sidebar */
+  --card-bg-color: #ffffff; /* White for cards/elements */
+  --border-color: #e0e0e0; /* Light gray border */
+  --border-color-light: #f0f0f0; /* Even lighter for item separators */
+  --text-color: #333333; /* Dark gray for main text */
+  --text-color-secondary: #6c757d; /* Muted gray for secondary text */
+  --primary-color: #007aff; /* Apple-like blue */
+  --primary-color-dark: #005bb5;
+  --hover-color: #f5f5f5; /* Light hover effect */
+  --active-color: #e8e8e8; /* Slightly darker for active states */
+  --danger-color: #dc3545; /* Red for delete actions */
+  --danger-color-light: #f8d7da; /* Light red background for hover */
+  --box-shadow-light: 0 1px 3px rgba(0, 0, 0, 0.05), 0 1px 2px rgba(0, 0, 0, 0.05); /* Subtle shadow */
+  --border-radius: 8px; /* Consistent rounded corners */
 }
 
 body {
-    margin: 0;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-    background-color: var(--light-gray);
-    color: var(--text-color);
-    overflow: hidden; /* Prevent body scrollbars */
+  margin: 0;
+  font-family: 'SF Pro Text', 'Helvetica Neue', 'Segoe UI', sans-serif; /* Apple-like font stack */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: var(--bg-color);
+  color: var(--text-color);
+  line-height: 1.6;
 }
 
 .app-container {
-    display: flex;
-    height: 100vh;
+  display: flex;
+  height: 100vh;
+  overflow: hidden; /* Prevent body scroll */
 }
 
-/* --- Sidebar (Article List) Styling --- */
 .sidebar {
-    width: var(--sidebar-width);
-    flex-shrink: 0; /* Prevent sidebar from shrinking */
-    background-color: #ffffff;
-    border-right: 1px solid var(--border-color);
-    padding: 24px;
-    overflow-y: auto;
-    display: flex;
-    flex-direction: column;
+  width: 300px; /* Fixed width for sidebar */
+  background-color: var(--sidebar-bg-color);
+  border-right: 1px solid var(--border-color);
+  padding-top: 20px; /* Space from top */
+  overflow-y: auto; /* Enable scrolling for sidebar content */
+  flex-shrink: 0; /* Prevent sidebar from shrinking */
 }
 
 .sidebar h1 {
-    font-size: 24px;
-    margin: 0 0 24px 0;
-    color: var(--dark-gray);
-}
-
-.article-list {
-    list-style: none;
-    padding: 0;
-    margin: 0;
-}
-
-.article-list-item a {
-    display: block;
-    text-decoration: none;
-    color: #495057;
-    padding: 12px 16px;
-    border-radius: 8px;
-    margin-bottom: 8px;
-    transition: background-color 0.2s ease-in-out, color 0.2s ease-in-out;
-    font-weight: 500;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.article-list-item a:hover {
-    background-color: var(--medium-gray);
-}
-
-.article-list-item a.active {
-    background-color: var(--primary-blue);
-    color: white;
+  font-size: 1.6em;
+  font-weight: 700; /* Bolder for titles */
+  margin: 0 15px 25px 15px; /* Margin for "Your Library" title */
+  color: var(--text-color);
 }
 
 .status-message {
-    margin-top: auto;
-    padding: 10px;
-    text-align: center;
-    color: #6c757d;
+  text-align: center;
+  padding: 20px;
+  color: var(--text-color-secondary);
 }
 
-/* --- Main Content (Article Viewer) Styling --- */
-.content-viewer {
-    flex-grow: 1;
-    padding: 40px;
-    overflow-y: auto;
-    position: relative; /* Needed for popup positioning */
+/* New Folder Creation Section */
+.new-folder-section {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+  padding: 0 15px;
 }
 
-.article-content h1 {
-    font-size: 36px;
-    margin-bottom: 16px;
-}
-/* Find this existing class in App.css */
-.article-content .content-body {
-  font-size: 18px;
-  line-height: 1.7;
-  max-width: 720px; /* Optimal reading width */
-  overflow-x: hidden; /* ADD THIS - Prevents horizontal scrollbar on the container */
-}
-
-/* --- ADD THIS ENTIRE NEW BLOCK OF CODE --- */
-/* These rules target specific elements INSIDE the fetched HTML */
-
-.article-content .content-body img,
-.article-content .content-body video,
-.article-content .content-body iframe {
-  max-width: 100%; /* This is the key fix for images */
-  height: auto;    /* This maintains the aspect ratio */
-  border-radius: 8px; /* Optional: adds a nice touch to images */
+.new-folder-section input {
+  flex-grow: 1;
+  padding: 10px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  background-color: var(--card-bg-color);
+  color: var(--text-color);
+  font-size: 0.95em;
+  outline: none; /* Remove outline on focus */
+  box-shadow: inset 0 1px 2px rgba(0,0,0,0.03); /* Subtle inner shadow */
 }
 
-.article-content .content-body pre,
-.article-content .content-body code,
-.article-content .content-body table {
-  max-width: 100%;
-  overflow-x: auto; /* Allows scrolling within a code/table block if needed */
-  white-space: pre-wrap;   /* Wraps long lines of code */
-  word-wrap: break-word; /* Breaks long words or URLs */
-}
-/* --- END OF NEW CODE BLOCK --- */
-
-/* Style for the highlights within the article */
-.article-content mark.highlight {
-    background-color: var(--highlight-yellow);
-    padding: 2px 0;
-    border-radius: 3px;
+.new-folder-section input:focus {
+  border-color: var(--primary-color);
+  box-shadow: inset 0 1px 2px rgba(0,0,0,0.03), 0 0 0 3px rgba(0, 122, 255, 0.2); /* Focus ring */
 }
 
-/* --- Highlight Popup Styling (Replaces old icon) --- */
-.highlight-popup {
-    background-color: var(--dark-gray);
-    color: white;
-    padding: 8px 12px;
-    border-radius: 6px;
-    font-size: 14px;
-    font-weight: 500;
-    cursor: pointer;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-    transition: background-color 0.2s ease;
-    border: none;
-}
-
-.highlight-popup:hover {
-    background-color: #000;
-}
-
-.folder-group {
-  margin-bottom: 24px;
-}
-
-.folder-group h2 {
-  font-size: 14px;
-  text-transform: uppercase;
-  color: #6c757d;
-  letter-spacing: 0.5px;
-  margin: 0 0 12px 16px;
+.new-folder-section button {
+  padding: 10px 18px;
+  background-color: var(--primary-color);
+  color: white;
+  border: none;
+  border-radius: var(--border-radius);
+  cursor: pointer;
   font-weight: 600;
+  font-size: 0.95em;
+  transition: background-color 0.2s ease, transform 0.1s ease;
+  box-shadow: var(--box-shadow-light);
 }
 
-/* --- NEW: Accordion Folder Styles --- */
+.new-folder-section button:hover {
+  background-color: var(--primary-color-dark);
+  transform: translateY(-1px);
+}
+.new-folder-section button:active {
+  transform: translateY(0);
+  box-shadow: none;
+}
+
+
+/* Folder Headers (Accordion) */
+.folder-group {
+  border-bottom: 1px solid var(--border-color);
+}
+.folder-group:last-of-type {
+  border-bottom: none; /* No border for the last one */
+}
 
 .folder-header {
-  /* Reset button styles to look like our h2 */
-  background: none;
-  border: none;
-  padding: 10px 16px;
-  width: 100%;
-  text-align: left;
-  /* End of reset */
-  
-  font-size: 14px;
-  text-transform: uppercase;
-  color: #6c757d;
-  letter-spacing: 0.5px;
-  margin: 0 0 4px 0;
-  font-weight: 600;
-  cursor: pointer;
+  position: relative;
   display: flex;
   align-items: center;
-  border-radius: 8px;
+  width: 100%;
+  padding: 12px 15px; /* More padding */
+  text-align: left;
+  background-color: transparent;
+  color: var(--text-color);
+  border: none;
+  cursor: pointer;
+  font-size: 1.05em; /* Slightly larger font */
+  font-weight: 600;
   transition: background-color 0.2s ease;
+  box-shadow: inset 0 -1px 0 rgba(0,0,0,0.02); /* Subtle line below */
 }
 
 .folder-header:hover {
-  background-color: var(--medium-gray);
+  background-color: var(--hover-color);
 }
 
 .accordion-icon {
   margin-right: 8px;
-  transition: transform 0.3s ease;
-  color: #6c757d;
+  transition: transform 0.2s ease;
+  color: var(--text-color-secondary);
 }
 
 .accordion-icon.open {
   transform: rotate(90deg);
 }
 
-.article-list.nested {
-  /* Collapsed by default */
-  max-height: 0;
-  overflow: hidden;
-  /* Smooth animation */
-  transition: max-height 0.4s ease-in-out;
-  padding-left: 20px; /* Indent nested articles for clarity */
-  margin: 0; /* Remove default ul margin */
-}
-
-.article-list.nested.open {
-  /* Expanded state */
-  max-height: 1000px; /* A large value to allow the list to grow */
-}
-
-/* Additions for new UI elements in ArticleList.js */
-
-.new-folder-section {
-  display: flex;
-  gap: 10px;
-  margin-bottom: 20px;
-  padding: 0 15px; /* Align with sidebar padding */
-}
-
-.new-folder-section input {
-  flex-grow: 1;
-  padding: 8px;
-  border: 1px solid var(--border-color);
-  border-radius: var(--border-radius);
-  background-color: var(--card-bg-color);
-  color: var(--text-color);
-}
-
-.new-folder-section button {
-  padding: 8px 15px;
-  background-color: var(--primary-color);
-  color: white;
+.delete-folder-button {
+  margin-left: auto;
+  background: none;
   border: none;
-  border-radius: var(--border-radius);
+  color: var(--text-color-secondary);
+  font-size: 1.4em; /* Slightly smaller 'x' */
+  font-weight: normal;
   cursor: pointer;
-  font-weight: 500;
-  transition: background-color 0.2s ease;
+  padding: 0 8px; /* More clickable area */
+  line-height: 1;
+  transition: color 0.2s ease, transform 0.1s ease;
 }
 
-.new-folder-section button:hover {
-  background-color: var(--primary-color-dark);
+.delete-folder-button:hover {
+  color: var(--danger-color);
+  transform: scale(1.1);
 }
 
-.folder-header {
-  position: relative; /* For positioning the delete button */
-  display: flex;
-  align-items: center;
-  width: 100%;
-  padding: 10px 15px;
-  text-align: left;
-  background-color: transparent; /* or var(--card-bg-color) for a subtle background */
-  color: var(--text-color);
-  border: none;
-  border-bottom: 1px solid var(--border-color);
-  cursor: pointer;
-  font-size: 1.1em;
-  font-weight: 600;
-  transition: background-color 0.2s ease;
-}
-
-.folder-header:hover {
-  background-color: var(--hover-color);
-}
-
+/* Article List (Nested) */
 .folder-group .article-list.nested {
   max-height: 0;
   overflow: hidden;
-  transition: max-height 0.3s ease-out, padding-top 0.3s ease-out;
+  transition: max-height 0.3s cubic-bezier(0.86, 0, 0.07, 1), padding-top 0.3s ease-out; /* Smooth slide */
   padding-top: 0;
+  background-color: var(--hover-color); /* Slightly different background for open section */
+  border-top: 1px solid var(--border-color-light); /* Separator line */
 }
 
 .folder-group .article-list.nested.open {
-  max-height: 500px; /* Adjust as needed to be taller than max content */
-  padding-top: 10px;
+  max-height: 800px; /* Adjust as needed */
+  padding-top: 5px; /* Small padding from folder header */
 }
 
 .article-list-item {
   display: flex;
-  justify-content: space-between; /* Puts title on left, actions on right */
   align-items: center;
-  padding: 8px 15px;
+  padding: 10px 15px; /* More padding */
   border-bottom: 1px solid var(--border-color-light);
   transition: background-color 0.2s ease;
 }
 
 .article-list-item:hover {
-  background-color: var(--hover-color);
+  background-color: var(--active-color); /* Darker hover for list items */
 }
 
 .article-list-item:last-child {
@@ -294,71 +192,156 @@ body {
 }
 
 .article-title-link {
-  flex-grow: 1; /* Allows title to take up available space */
+  flex-grow: 1;
   color: var(--text-color);
   text-decoration: none;
-  margin-right: 10px; /* Space between title and actions */
+  font-size: 0.95em;
+  white-space: normal; /* Allow text to wrap */
+  overflow: hidden;
+  text-overflow: unset; /* Ensure full title is visible */
+  padding-right: 10px; /* Small space just in case */
 }
 
 .article-title-link:hover {
   color: var(--primary-color);
 }
 
-.article-actions {
+/* Content Viewer */
+.content-viewer {
+  flex-grow: 1; /* Takes up remaining space */
+  background-color: var(--card-bg-color); /* White background for content area */
   display: flex;
-  gap: 5px; /* Space between action buttons/dropdown */
-  align-items: center;
+  flex-direction: column; /* Stack children vertically */
+  overflow-y: auto; /* Enable scrolling for content */
 }
 
-.action-button {
-  padding: 5px 8px;
+.welcome-message {
+  text-align: center;
+  color: var(--text-color-secondary);
+  margin-top: 50px;
+  font-size: 1.2em;
+}
+
+/* Article Viewer Container (new) */
+.article-viewer-container {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+}
+
+/* Article Management Bar (new) */
+.article-management-bar {
+  display: flex;
+  justify-content: flex-end; /* Align buttons to the right */
+  gap: 10px;
+  padding: 15px 25px; /* Generous padding */
+  border-bottom: 1px solid var(--border-color);
+  background-color: var(--card-bg-color);
+  box-shadow: var(--box-shadow-light); /* Subtle shadow at the bottom */
+  position: sticky; /* Sticks to the top when scrolling */
+  top: 0;
+  z-index: 10; /* Ensure it's above article content */
+}
+
+.management-button {
+  padding: 8px 15px;
   border: 1px solid var(--border-color);
   border-radius: var(--border-radius);
   cursor: pointer;
-  font-size: 0.85em;
-  transition: background-color 0.2s ease, border-color 0.2s ease;
+  font-size: 0.9em;
+  font-weight: 500;
+  transition: background-color 0.2s ease, border-color 0.2s ease, transform 0.1s ease;
   background-color: var(--card-bg-color);
   color: var(--text-color-secondary);
+  box-shadow: var(--box-shadow-light);
+  outline: none; /* Remove focus outline */
 }
 
-.action-button:hover {
+.management-button:hover {
   background-color: var(--hover-color);
   border-color: var(--primary-color);
+  transform: translateY(-1px);
+}
+.management-button:active {
+  transform: translateY(0);
+  box-shadow: none;
 }
 
-.delete-button {
+.management-button.delete-button {
   color: var(--danger-color);
   border-color: var(--danger-color-light);
 }
 
-.delete-button:hover {
-  background-color: var(--danger-color-light);
+.management-button.delete-button:hover {
+  background-color: var(--danger-color);
   color: white;
+  border-color: var(--danger-color);
 }
 
-.delete-folder-button {
-  margin-left: auto; /* Pushes the delete button to the right */
-  background: none;
-  border: none;
-  color: var(--text-color-secondary);
-  font-size: 1.5em;
-  font-weight: bold;
-  cursor: pointer;
-  padding: 0 5px;
-  line-height: 1; /* For better vertical alignment of 'x' */
-  transition: color 0.2s ease;
-}
-
-.delete-folder-button:hover {
-  color: var(--danger-color);
-}
-
-.move-select {
-  /* Styling for the dropdown itself */
-  appearance: none; /* Removes default dropdown arrow */
-  padding-right: 25px; /* Space for custom arrow if you add one */
-  background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%236c757d%22%20d%3D%22M287%2C118.8L146.2%2C259.6L5.4%2C118.8z%22%2F%3E%3C%2Fsvg%3E'); /* Custom arrow */
+.management-button.move-select {
+  appearance: none;
+  padding-right: 35px; /* More space for arrow */
+  background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%236c757d%22%20d%3D%22M287%2C118.8L146.2%2C259.6L5.4%2C118.8z%22%2F%3E%3C%2Fsvg%3E');
   background-repeat: no-repeat;
-  background-position: right 8px center;
-  background-size: 12px;
+  background-position: right 12px center;
+  background-size: 10px;
+  min-width: 150px; /* Ensure dropdown has enough width */
+}
+
+.management-button.move-select option {
+  background-color: var(--card-bg-color);
+  color: var(--text-color);
+}
+
+
+/* Article Content */
+.article-content {
+  flex-grow: 1; /* Takes remaining vertical space */
+  padding: 30px 40px; /* Generous padding for readability */
+  max-width: 800px; /* Max width for content for better reading experience */
+  margin: 0 auto; /* Center content */
+  background-color: var(--card-bg-color);
+  box-shadow: var(--box-shadow-light); /* Subtle shadow around content */
+  margin-bottom: 20px; /* Space at the bottom */
+}
+
+.article-content h1 {
+  font-size: 2.2em;
+  font-weight: 700;
+  margin-bottom: 20px;
+  color: var(--text-color);
+}
+
+.article-content .content-body {
+  font-size: 1em;
+  line-height: 1.8;
+  color: var(--text-color);
+}
+
+.article-content .content-body p {
+  margin-bottom: 1em;
+}
+
+.article-content .content-body img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  margin: 20px auto;
+  border-radius: var(--border-radius); /* Rounded corners for images */
+  box-shadow: var(--box-shadow-light);
+}
+
+/* Highlight popup */
+.highlight-popup {
+  background: #333;
+  color: white;
+  padding: 8px 12px;
+  border-radius: var(--border-radius);
+  border: none;
+  cursor: pointer;
+  font-size: 0.9em;
+  white-space: nowrap;
+  z-index: 1000;
+  box-shadow: var(--box-shadow-light);
 }

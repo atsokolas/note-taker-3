@@ -1,25 +1,43 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom'; // Import useNavigate
+
+const BASE_URL = "https://note-taker-3-unrg.onrender.com"; // Define BASE_URL here
 
 const ArticleViewer = () => {
     const { id } = useParams();
+    const navigate = useNavigate(); // Initialize useNavigate hook
     const [article, setArticle] = useState(null);
     const [error, setError] = useState(null);
     const [popup, setPopup] = useState({ visible: false, x: 0, y: 0, text: '' });
     const contentRef = useRef(null); // Ref for the content div
+    const [folders, setFolders] = useState([]); // State to hold all available folders
 
-    // Fetch article data when the ID in the URL changes
+    // Function to fetch all folders
+    const fetchFolders = async () => {
+        try {
+            const response = await axios.get(`${BASE_URL}/folders`);
+            // Add 'Uncategorized' option manually for the dropdown
+            const allFolders = [{ _id: 'uncategorized', name: 'Uncategorized' }, ...response.data];
+            setFolders(allFolders);
+        } catch (err) {
+            console.error("Error fetching folders for move dropdown:", err);
+            // Optionally set an error state or alert user
+        }
+    };
+
+    // Fetch article data and folders when the ID in the URL changes
     useEffect(() => {
         if (id) {
-            setArticle(null); // Clear previous article to show loading state
+            setArticle(null);
             setError(null);
+            fetchFolders(); // Fetch folders whenever a new article is loaded
+
             const fetchArticle = async () => {
                 try {
-                    const res = await axios.get(`https://note-taker-3-unrg.onrender.com/articles/${id}`);
+                    const res = await axios.get(`${BASE_URL}/articles/${id}`);
                     const articleData = res.data;
 
-                    // Fix relative image paths before setting content
                     const parser = new DOMParser();
                     const doc = parser.parseFromString(articleData.content, 'text/html');
                     const articleOrigin = new URL(articleData.url).origin;
@@ -30,7 +48,6 @@ const ArticleViewer = () => {
                         }
                     });
                     
-                    // Re-apply existing highlights
                     (articleData.highlights || []).forEach(h => {
                         const escaped = h.text?.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
                         const regex = new RegExp(escaped, 'gi');
@@ -48,7 +65,7 @@ const ArticleViewer = () => {
         }
     }, [id]);
 
-    // Handle text selection for creating new highlights
+    // Handle text selection for creating new highlights (remains the same)
     useEffect(() => {
         const handleMouseUp = () => {
             const selection = window.getSelection();
@@ -56,7 +73,6 @@ const ArticleViewer = () => {
 
             if (selectedText && selection.rangeCount > 0) {
                 const range = selection.getRangeAt(0);
-                // Ensure the selection is within our article content
                 if (contentRef.current && contentRef.current.contains(range.commonAncestorContainer)) {
                     const rect = range.getBoundingClientRect();
                     setPopup({ visible: true, x: rect.left + window.scrollX, y: rect.top + window.scrollY - 45, text: selectedText });
@@ -80,14 +96,50 @@ const ArticleViewer = () => {
 
     const saveHighlight = async () => {
         const newHighlight = { text: popup.text };
-        setPopup({ visible: false, x: 0, y: 0, text: '' }); // Hide popup immediately
+        setPopup({ visible: false, x: 0, y: 0, text: '' });
 
         try {
-            const res = await axios.post(`https://note-taker-3-unrg.onrender.com/articles/${id}/highlights`, newHighlight);
-            setArticle(res.data); // Refresh article with the new highlight included
+            const res = await axios.post(`${BASE_URL}/articles/${id}/highlights`, newHighlight);
+            setArticle(res.data);
         } catch (err) {
             console.error("Failed to save highlight:", err);
             alert("Error: Could not save highlight.");
+        }
+    };
+
+    // --- NEW: Handle Delete Article from ArticleViewer ---
+    const handleDeleteArticle = async () => {
+        if (!article || !window.confirm(`Are you sure you want to delete "${article.title}"?`)) {
+            return;
+        }
+        try {
+            await axios.delete(`${BASE_URL}/articles/${article._id}`);
+            alert(`Article "${article.title}" deleted successfully!`);
+            navigate('/'); // Redirect to home page after deletion
+        } catch (err) {
+            console.error("Error deleting article:", err);
+            alert("Failed to delete article.");
+        }
+    };
+
+    // --- NEW: Handle Move Article from ArticleViewer ---
+    const handleMoveArticle = async (e) => {
+        const newFolderId = e.target.value;
+        if (!article || !newFolderId) return;
+
+        try {
+            const response = await axios.patch(`${BASE_URL}/articles/${article._id}/move`, { folderId: newFolderId });
+            setArticle(response.data); // Update article state with new folder info
+            alert("Article moved successfully!");
+            // Optionally, you might want to redirect or refresh the ArticleList somehow
+            // For now, the ArticleList will refresh when you navigate back to it.
+        } catch (err) {
+            console.error("Error moving article:", err);
+            if (err.response && err.response.data && err.response.data.error) {
+                alert(`Error moving article: ${err.response.data.error}`);
+            } else {
+                alert("Failed to move article.");
+            }
         }
     };
 
@@ -95,25 +147,49 @@ const ArticleViewer = () => {
     if (!article) return <h2>Loading article...</h2>;
 
     return (
-        <div className="article-content">
-            <h1>{article.title}</h1>
-            <div
-                ref={contentRef}
-                className="content-body"
-                dangerouslySetInnerHTML={{ __html: article.content }}
-            />
-            {popup.visible && (
-                <button
-                    className="highlight-popup"
-                    style={{ top: popup.y, left: popup.x, position: 'absolute' }}
-                    onClick={saveHighlight}
+        <div className="article-viewer-container">
+            {/* New Management Bar */}
+            <div className="article-management-bar">
+                <button 
+                    className="management-button delete-button" 
+                    onClick={handleDeleteArticle}
+                    title="Delete Article"
                 >
-                    Save Highlight
+                    Delete Article
                 </button>
-            )}
+                <select 
+                    className="management-button move-select" 
+                    onChange={handleMoveArticle}
+                    value={article.folder ? article.folder._id : 'uncategorized'}
+                    title="Move to Folder"
+                >
+                    {folders.map(f => (
+                        <option key={f._id} value={f._id}>
+                            Move to {f.name}
+                        </option>
+                    ))}
+                </select>
+            </div>
+
+            <div className="article-content">
+                <h1>{article.title}</h1>
+                <div
+                    ref={contentRef}
+                    className="content-body"
+                    dangerouslySetInnerHTML={{ __html: article.content }}
+                />
+                {popup.visible && (
+                    <button
+                        className="highlight-popup"
+                        style={{ top: popup.y, left: popup.x, position: 'absolute' }}
+                        onClick={saveHighlight}
+                    >
+                        Save Highlight
+                    </button>
+                )}
+            </div>
         </div>
     );
 };
 
 export default ArticleViewer;
-

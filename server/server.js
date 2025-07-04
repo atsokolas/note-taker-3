@@ -108,6 +108,82 @@ app.post('/folders', async (req, res) => {
     }
 });
 
+// server.js - ADDITIONS FOR DELETE/MOVE ARTICLE & DELETE FOLDER
+
+// --- NEW: DELETE Article ---
+app.delete('/articles/:id', async (req, res) => {
+  try {
+      const { id } = req.params;
+      const result = await Article.findByIdAndDelete(id);
+      if (!result) {
+          return res.status(404).json({ error: "Article not found." });
+      }
+      res.status(200).json({ message: "Article deleted successfully." });
+  } catch (error) {
+      console.error("❌ Error deleting article:", error);
+      res.status(500).json({ error: "Failed to delete article.", details: error.message });
+  }
+});
+
+// --- NEW: Move Article to a different Folder (or remove from folder) ---
+// Expects: { folderId: "newFolderId" } or { folderId: null }
+app.patch('/articles/:id/move', async (req, res) => {
+  try {
+      const { id } = req.params;
+      const { folderId } = req.body; // Can be a folder _id or null
+
+      // Validate if folderId exists if it's not null
+      if (folderId && folderId !== 'null' && folderId !== 'uncategorized') { // 'null' and 'uncategorized' are client-side conventions
+          const folderExists = await Folder.findById(folderId);
+          if (!folderExists) {
+              return res.status(400).json({ error: "Provided folderId does not exist." });
+          }
+      }
+
+      const updatedArticle = await Article.findByIdAndUpdate(
+          id,
+          { folder: (folderId === 'null' || folderId === 'uncategorized' || !folderId) ? null : folderId }, // Set to null if 'null', 'uncategorized', or empty
+          { new: true, populate: 'folder' } // Return the updated article with populated folder
+      );
+
+      if (!updatedArticle) {
+          return res.status(404).json({ error: "Article not found." });
+      }
+      res.status(200).json(updatedArticle);
+  } catch (error) {
+      console.error("❌ Error moving article:", error);
+      res.status(500).json({ error: "Failed to move article.", details: error.message });
+  }
+});
+
+// --- NEW: DELETE Folder ---
+app.delete('/folders/:id', async (req, res) => {
+  try {
+      const { id } = req.params;
+
+      // Optional: Check if the folder contains any articles.
+      // You might want to prevent deletion if articles are present,
+      // or reassign them to 'Uncategorized'. For now, we'll allow deletion
+      // and any articles pointing to this ID will just have `folder: null`.
+      const articlesInFolder = await Article.countDocuments({ folder: id });
+      if (articlesInFolder > 0) {
+           // Option 1: Prevent deletion
+           return res.status(409).json({ error: "Cannot delete folder with articles. Please move or delete articles first." });
+           // Option 2: Reassign articles to null (Uncategorized)
+           // await Article.updateMany({ folder: id }, { $set: { folder: null } });
+           // console.log(`[INFO] Reassigned ${articlesInFolder} articles from deleted folder ${id} to uncategorized.`);
+      }
+
+      const result = await Folder.findByIdAndDelete(id);
+      if (!result) {
+          return res.status(404).json({ error: "Folder not found." });
+      }
+      res.status(200).json({ message: "Folder deleted successfully." });
+  } catch (error) {
+      console.error("❌ Error deleting folder:", error);
+      res.status(500).json({ error: "Failed to delete folder.", details: error.message });
+  }
+});
 
 // --- EXISTING ARTICLE/HIGHLIGHT ROUTES ---
 
