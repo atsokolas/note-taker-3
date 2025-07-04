@@ -24,7 +24,7 @@
   "content_scripts": [
     {
       "matches": ["http://*/*", "https://*/*"],
-      "js": ["Readability.js", "content.js"],
+      "js": ["Readability.js", "content.js", "content.css"],
       "run_at": "document_idle"
     }
   ],
