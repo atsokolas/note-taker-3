@@ -19,7 +19,7 @@ const ArticleList = () => {
     const [newFolderName, setNewFolderName] = useState('');
 
     const fetchAndGroupArticles = useCallback(async () => {
-        console.log("[DEBUG - ArticleList.js] fetchAndGroupArticles triggered."); // Add this
+        console.log("[DEBUG - ArticleList.js] fetchAndGroupArticles triggered.");
         setLoading(true);
         setError(null);
         try {
@@ -34,25 +34,33 @@ const ArticleList = () => {
 
             setFolders(foldersData); 
 
-            const articlesByFolder = articlesData.reduce((acc, article) => {
-                const folderName = article.folder ? article.folder.name : 'Uncategorized';
-                const folderId = article.folder ? article.folder._id : 'uncategorized';
-                
-                if (!acc[folderId]) {
-                    acc[folderId] = { id: folderId, name: folderName, articles: [] };
-                }
-                
-                acc[folderId].articles.push(article);
-                return acc;
-            }, {});
-
-            console.log("[DEBUG - ArticleList.js] Grouped articles after reduction:", articlesByFolder);
-
-            setGroupedArticles(prevGroupedArticles => {
-                console.log("[DEBUG - ArticleList.js] Calling setGroupedArticles."); // Add this
-                // Force a new object reference if content is identical, but it should be new anyway from reduce.
-                return { ...articlesByFolder }; 
+            // --- CRUCIAL CHANGE HERE ---
+            // 1. Initialize groupedArticles with all existing folders (even empty ones)
+            const initialGroupedArticles = {};
+            // Add 'Uncategorized' as a base group
+            initialGroupedArticles['uncategorized'] = { id: 'uncategorized', name: 'Uncategorized', articles: [] };
+            
+            foldersData.forEach(folder => {
+                initialGroupedArticles[folder._id] = { id: folder._id, name: folder.name, articles: [] };
             });
+
+            // 2. Then, distribute articles into these pre-existing groups
+            articlesData.forEach(article => {
+                const folderId = article.folder ? article.folder._id : 'uncategorized';
+                if (initialGroupedArticles[folderId]) {
+                    initialGroupedArticles[folderId].articles.push(article);
+                } else {
+                    // Fallback: if an article points to a folder that somehow doesn't exist
+                    // (e.g., folder deleted, but article wasn't re-categorized),
+                    // put it in uncategorized.
+                    initialGroupedArticles['uncategorized'].articles.push(article);
+                }
+            });
+            // --- END CRUCIAL CHANGE ---
+
+            console.log("[DEBUG - ArticleList.js] Grouped articles after reduction (FINAL):", initialGroupedArticles);
+
+            setGroupedArticles(prevGroupedArticles => ({ ...initialGroupedArticles })); 
 
         } catch (err) {
             console.error("Failed to fetch articles or folders:", err);
@@ -63,7 +71,7 @@ const ArticleList = () => {
     }, []);
 
     useEffect(() => {
-        console.log("[DEBUG - ArticleList.js] useEffect running, calling fetchAndGroupArticles."); // Add this
+        console.log("[DEBUG - ArticleList.js] useEffect running, calling fetchAndGroupArticles.");
         fetchAndGroupArticles();
     }, [fetchAndGroupArticles]);
 
@@ -76,12 +84,12 @@ const ArticleList = () => {
             alert("Please enter a folder name.");
             return;
         }
-        console.log(`[DEBUG - ArticleList.js] Attempting to create folder: ${newFolderName.trim()}`); // Add this
+        console.log(`[DEBUG - ArticleList.js] Attempting to create folder: ${newFolderName.trim()}`);
         try {
             const response = await axios.post(`${BASE_URL}/folders`, { name: newFolderName.trim() });
             alert(`Folder "${response.data.name}" created successfully!`);
             setNewFolderName('');
-            console.log("[DEBUG - ArticleList.js] Calling fetchAndGroupArticles after folder creation."); // Add this
+            console.log("[DEBUG - ArticleList.js] Calling fetchAndGroupArticles after folder creation.");
             await fetchAndGroupArticles(); 
         } catch (err) {
             console.error("Error creating folder:", err);
@@ -97,14 +105,14 @@ const ArticleList = () => {
         if (!window.confirm(`Are you sure you want to delete the folder "${folderName}"? All articles in it must be moved first.`)) {
             return;
         }
-        console.log(`[DEBUG - ArticleList.js] Attempting to delete folder: ${folderName} (${folderId})`); // Add this
+        console.log(`[DEBUG - ArticleList.js] Attempting to delete folder: ${folderName} (${folderId})`);
         try {
             await axios.delete(`${BASE_URL}/folders/${folderId}`);
             alert(`Folder "${folderName}" deleted successfully!`);
             if (openFolder === folderId) {
                 setOpenFolder(null);
             }
-            console.log("[DEBUG - ArticleList.js] Calling fetchAndGroupArticles after folder deletion."); // Add this
+            console.log("[DEBUG - ArticleList.js] Calling fetchAndGroupArticles after folder deletion.");
             await fetchAndGroupArticles(); 
         } catch (err) {
             console.error("Error deleting folder:", err);
@@ -124,6 +132,13 @@ const ArticleList = () => {
         ...folders.filter(f => f.name !== 'Uncategorized') 
     ];
 
+    // Added a check to sort folder keys to ensure consistent order (e.g., Uncategorized first, then alphabetical)
+    const sortedFolderKeys = Object.keys(groupedArticles).sort((a, b) => {
+        if (a === 'uncategorized') return -1;
+        if (b === 'uncategorized') return 1;
+        return groupedArticles[a].name.localeCompare(groupedArticles[b].name);
+    });
+
     return (
         <>
             <h1>Your Library</h1>
@@ -139,7 +154,7 @@ const ArticleList = () => {
             </div>
             
             {Object.keys(groupedArticles).length > 0 ? (
-                Object.keys(groupedArticles).map(folderId => {
+                sortedFolderKeys.map(folderId => { // Use sorted keys here
                     const folder = groupedArticles[folderId];
                     const isOpen = openFolder === folderId;
 
