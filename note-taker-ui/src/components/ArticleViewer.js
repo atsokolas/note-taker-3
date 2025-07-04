@@ -4,8 +4,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 
 const BASE_URL = "https://note-taker-3-unrg.onrender.com";
 
-// Accept onArticleChange prop
-const ArticleViewer = ({ onArticleChange }) => { 
+const ArticleViewer = ({ onArticleChange }) => { // Accept onArticleChange prop
     const { id } = useParams();
     const navigate = useNavigate();
     const [article, setArticle] = useState(null);
@@ -110,6 +109,7 @@ const ArticleViewer = ({ onArticleChange }) => {
         try {
             await axios.delete(`${BASE_URL}/articles/${article._id}`);
             alert(`Article "${article.title}" deleted successfully!`);
+            console.log("[DEBUG - ArticleViewer.js] Calling onArticleChange for delete."); // Add this
             onArticleChange(); // Notify App.js to refresh ArticleList
             navigate('/'); // Redirect to home page after deletion
         } catch (err) {
@@ -122,10 +122,12 @@ const ArticleViewer = ({ onArticleChange }) => {
         const newFolderId = e.target.value;
         if (!article || !newFolderId) return;
 
+        console.log(`[DEBUG - ArticleViewer.js] Attempting to move article ${article._id} to folder ${newFolderId}`); // Add this
         try {
             const response = await axios.patch(`${BASE_URL}/articles/${article._id}/move`, { folderId: newFolderId });
             setArticle(response.data); // Update article state with new folder info
             alert("Article moved successfully!");
+            console.log("[DEBUG - ArticleViewer.js] Calling onArticleChange for move."); // Add this
             onArticleChange(); // Notify App.js to refresh ArticleList
         } catch (err) {
             console.error("Error moving article:", err);
@@ -140,7 +142,6 @@ const ArticleViewer = ({ onArticleChange }) => {
     if (error) return <h2 style={{color: 'red'}}>{error}</h2>;
     if (!article) return <h2>Loading article...</h2>;
 
-    // Filter folders for the dropdown to ensure 'Uncategorized' is unique if it's there.
     const allFoldersIncludingUncategorized = [
         { _id: 'uncategorized', name: 'Uncategorized' },
         ...folders.filter(f => f.name !== 'Uncategorized' && f._id !== 'uncategorized')

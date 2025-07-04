@@ -19,6 +19,7 @@ const ArticleList = () => {
     const [newFolderName, setNewFolderName] = useState('');
 
     const fetchAndGroupArticles = useCallback(async () => {
+        console.log("[DEBUG - ArticleList.js] fetchAndGroupArticles triggered."); // Add this
         setLoading(true);
         setError(null);
         try {
@@ -28,9 +29,8 @@ const ArticleList = () => {
             const articlesData = articlesResponse.data;
             const foldersData = foldersResponse.data;
 
-            // Debug logs removed from this file for cleanliness, but keep them in your working copy if desired for other issues.
-            // console.log("[DEBUG] Raw articles fetched for grouping:", articlesData); 
-            // console.log("[DEBUG] Raw folders fetched for grouping:", foldersData); 
+            console.log("[DEBUG - ArticleList.js] Raw articles fetched:", articlesData); 
+            console.log("[DEBUG - ArticleList.js] Raw folders fetched:", foldersData); 
 
             setFolders(foldersData); 
 
@@ -46,9 +46,13 @@ const ArticleList = () => {
                 return acc;
             }, {});
 
-            // console.log("[DEBUG] Grouped articles after reduction:", articlesByFolder);
+            console.log("[DEBUG - ArticleList.js] Grouped articles after reduction:", articlesByFolder);
 
-            setGroupedArticles(prevGroupedArticles => ({ ...articlesByFolder })); 
+            setGroupedArticles(prevGroupedArticles => {
+                console.log("[DEBUG - ArticleList.js] Calling setGroupedArticles."); // Add this
+                // Force a new object reference if content is identical, but it should be new anyway from reduce.
+                return { ...articlesByFolder }; 
+            });
 
         } catch (err) {
             console.error("Failed to fetch articles or folders:", err);
@@ -59,6 +63,7 @@ const ArticleList = () => {
     }, []);
 
     useEffect(() => {
+        console.log("[DEBUG - ArticleList.js] useEffect running, calling fetchAndGroupArticles."); // Add this
         fetchAndGroupArticles();
     }, [fetchAndGroupArticles]);
 
@@ -71,10 +76,12 @@ const ArticleList = () => {
             alert("Please enter a folder name.");
             return;
         }
+        console.log(`[DEBUG - ArticleList.js] Attempting to create folder: ${newFolderName.trim()}`); // Add this
         try {
             const response = await axios.post(`${BASE_URL}/folders`, { name: newFolderName.trim() });
             alert(`Folder "${response.data.name}" created successfully!`);
             setNewFolderName('');
+            console.log("[DEBUG - ArticleList.js] Calling fetchAndGroupArticles after folder creation."); // Add this
             await fetchAndGroupArticles(); 
         } catch (err) {
             console.error("Error creating folder:", err);
@@ -90,12 +97,14 @@ const ArticleList = () => {
         if (!window.confirm(`Are you sure you want to delete the folder "${folderName}"? All articles in it must be moved first.`)) {
             return;
         }
+        console.log(`[DEBUG - ArticleList.js] Attempting to delete folder: ${folderName} (${folderId})`); // Add this
         try {
             await axios.delete(`${BASE_URL}/folders/${folderId}`);
             alert(`Folder "${folderName}" deleted successfully!`);
             if (openFolder === folderId) {
                 setOpenFolder(null);
             }
+            console.log("[DEBUG - ArticleList.js] Calling fetchAndGroupArticles after folder deletion."); // Add this
             await fetchAndGroupArticles(); 
         } catch (err) {
             console.error("Error deleting folder:", err);
@@ -106,9 +115,6 @@ const ArticleList = () => {
             }
         }
     };
-
-    // --- REMOVED: handleDeleteArticle and handleMoveArticle as they are now in ArticleViewer ---
-    // These functions are intentionally NOT present here.
 
     if (loading) return <p className="status-message">Loading articles...</p>;
     if (error) return <p className="status-message" style={{ color: 'red' }}>{error}</p>;
@@ -162,7 +168,6 @@ const ArticleList = () => {
                                         <NavLink to={`/articles/${article._id}`} className="article-title-link">
                                             {article.title}
                                         </NavLink>
-                                        {/* Removed article actions div from here, they are now in ArticleViewer */}
                                     </li>
                                 ))}
                             </ul>
