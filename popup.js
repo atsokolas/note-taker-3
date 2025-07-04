@@ -1,4 +1,4 @@
-// popup.js - UPDATED WITH FOLDER LOGIC
+// popup.js - UPDATED WITH FOLDER LOGIC AND ENHANCED ERROR HANDLING FOR COMMUNICATION
 
 document.addEventListener("DOMContentLoaded", () => {
     // Get all the new UI elements
@@ -20,11 +20,14 @@ document.addEventListener("DOMContentLoaded", () => {
         } catch (error) {
             statusMessage.textContent = error.message;
             statusMessage.className = 'status error';
+            console.error("[ERROR - Popup.js] Failed to fetch folders:", error); // Added debug log
         }
     };
 
     // --- NEW: Function to add folders to the dropdown menu ---
     const populateFoldersDropdown = (folders) => {
+        // Clear existing options first to prevent duplicates on re-fetch
+        folderSelect.innerHTML = '<option value="">Uncategorized</option>'; 
         folders.forEach(folder => {
             const option = document.createElement("option");
             option.value = folder._id;
@@ -57,77 +60,81 @@ document.addEventListener("DOMContentLoaded", () => {
             option.value = newFolder._id;
             option.textContent = newFolder.name;
             folderSelect.appendChild(option);
-            folderSelect.value = newFolder._id;
+            folderSelect.value = newFolder._id; // Select the newly created folder
 
             newFolderNameInput.value = ""; // Clear the input field
+            statusMessage.textContent = `Folder "${newFolder.name}" created!`; // More descriptive status
+            statusMessage.className = 'status success';
         } catch (error) {
             alert(error.message);
+            statusMessage.textContent = error.message;
+            statusMessage.className = 'status error';
+            console.error("[ERROR - Popup.js] Failed to create folder:", error); // Added debug log
         }
     });
 
-// background.js - FINAL VERSION WITH ERROR HANDLING REFINEMENT
-
-const BASE_URL = "https://note-taker-3-unrg.onrender.com";
-
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  // Check if the message is for the "capture" action
-  if (request.action === "capture") {
-    console.log(`[DEBUG - Background] Received 'capture' request:`, request);
-
-    const handleCapture = async () => {
-      try {
-        if (!request.url || !request.title || !request.tabId) {
-          throw new Error("Missing required fields: title, url, or tabId in the capture request.");
-        }
-
-        const folderIdToSend = request.folderId;
-        console.log(`[DEBUG - Background] Attempting to save article with folderId: ${folderIdToSend}`);
-
-        const response = await fetch(`${BASE_URL}/save-article`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            title: request.title,
-            url: request.url,
-            content: request.content || "",
-            folderId: folderIdToSend,
-          }),
-        });
-
-        if (!response.ok) {
-            const errorText = await response.text();
-            throw new new Error(`Server Error: ${response.status} - ${errorText}`);
-        }
-
-        const data = await response.json();
-        console.log("✅ [SUCCESS - Background] Article saved successfully:", data);
-
-        // Send messages back to the content script for highlighting functionality
-        chrome.tabs.sendMessage(request.tabId, { action: "activateHighlighting" });
-        chrome.tabs.sendMessage(request.tabId, {
-          action: "articleSaved",
-          article: { title: request.title, url: request.url, id: data._id ?? null },
-        });
+    // --- UPDATED: The "Save Article" button logic ---
+    saveButton.addEventListener("click", async () => {
+        statusMessage.textContent = "Parsing article...";
+        statusMessage.className = 'status';
+        console.log("[DEBUG - Popup.js] Save button clicked, initiating parsing."); // Added debug log
         
-        return { success: true, data: data }; // Resolve with success
-      } catch (error) {
-        console.error("❌ [ERROR - Background] An error occurred in handleCapture:", error);
-        // Ensure error message is user-friendly
-        const userFacingError = error.message.includes("Server Error") ? error.message : "Failed to save article due to an internal error.";
-        return { success: false, error: userFacingError }; // Reject with failure
-      }
-    };
+        try {
+            const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+            
+            // Check if the tab.id is valid
+            if (!tab || typeof tab.id === 'undefined') {
+                throw new Error("No active tab found or tab ID is undefined.");
+            }
 
-    // This ensures sendResponse is called when the async operation completes.
-    handleCapture().then(sendResponse);
-    
-    // IMPORTANT: Return true to indicate that sendResponse will be called asynchronously.
-    return true; 
-  }
+            console.log(`[DEBUG - Popup.js] Sending 'getCleanArticle' message to tab ID: ${tab.id}`);
+            const articleResponse = await chrome.tabs.sendMessage(tab.id, { action: "getCleanArticle" });
+            
+            // Handle potential errors or missing response from content script
+            if (!articleResponse || articleResponse.error) {
+                throw new Error(articleResponse?.error || "Content script failed to return article data.");
+            }
+            console.log("[DEBUG - Popup.js] Article data received from content script:", articleResponse.article.title);
+            
+            statusMessage.textContent = "Saving article...";
+            
+            const selectedFolderId = folderSelect.value;
+            
+            const messagePayload = {
+                action: "capture",
+                tabId: tab.id,
+                title: articleResponse.article.title,
+                url: tab.url,
+                content: articleResponse.article.content,
+                folderId: selectedFolderId
+            };
+            console.log("[DEBUG - Popup.js] Sending 'capture' message to background:", messagePayload);
 
-  // If the message action is not "capture", we are NOT sending an asynchronous response.
-  // Explicitly returning false or nothing (undefined) tells Chrome this.
-  // For safety, let's explicitly return false for unhandled actions.
-  console.log(`[DEBUG - Background] Received unhandled action: ${request.action}`);
-  return false; 
+            // Using a try-catch around sendMessage as it can throw directly if no listener is present
+            let backgroundResponse;
+            try {
+                 backgroundResponse = await chrome.runtime.sendMessage(messagePayload);
+            } catch (sendMessageError) {
+                if (sendMessageError.message.includes("Receiving end does not exist")) {
+                    throw new Error("Extension background service is not active or crashed. Please try reloading the extension in chrome://extensions/.");
+                }
+                throw sendMessageError; // Re-throw other errors
+            }
+
+            if (!backgroundResponse || !backgroundResponse.success) {
+                throw new Error(backgroundResponse?.error || "Failed to save article: Background service did not respond or indicated failure.");
+            }
+
+            statusMessage.textContent = "Article Saved!";
+            statusMessage.className = 'status success';
+            console.log("[DEBUG - Popup.js] Article saved successfully by background service.");
+        } catch (error) {
+            statusMessage.textContent = error.message;
+            statusMessage.className = 'status error';
+            console.error("[ERROR - Popup.js] Error saving article:", error); // Added debug log
+        }
+    });
+
+    // --- Load folders when the popup is opened ---
+    fetchFolders();
 });
