@@ -24,6 +24,7 @@
   "content_scripts": [
     {
       "matches": ["http://*/*", "https://*/*"],
+      "exclude_matches": ["https://note-taker-3-1.onrender.com/*"],
       "js": ["Readability.js", "content.js"],
       "css": ["content.css"],
       "run_at": "document_idle"
