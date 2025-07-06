@@ -150,20 +150,23 @@ app.delete('/folders/:id', async (req, res) => {
 
 // --- ARTICLE MANAGEMENT API ROUTES ---
 
-// GET /get-articles: Fetches all articles, populating folder information
+// server.js - MODIFIED GET /get-articles ROUTE to include highlights
+
 app.get('/get-articles', async (req, res) => {
-    try {
-      // Populate the folder information for each article
-      const articles = await Article.find({})
-                                   .populate('folder')
-                                   .select('title url createdAt folder') // Select specific fields to return
-                                   .sort({createdAt: -1}); // Sort by creation date, newest first
-      res.json(articles);
-    } catch (err) {
-      console.error("❌ Failed to fetch articles:", err);
-      res.status(500).json({ error: "Failed to fetch articles" });
-    }
+  try {
+    const articles = await Article.find({})
+                                 .populate('folder')
+                                 // --- UPDATED: Include 'highlights' in select statement ---
+                                 .select('title url createdAt folder highlights')
+                                 // --------------------------------------------------------
+                                 .sort({createdAt: -1});
+    res.json(articles);
+  } catch (err) {
+    console.error("❌ Failed to fetch articles:", err);
+    res.status(500).json({ error: "Failed to fetch articles" });
+  }
 });
+
 
 // GET /articles/:id: Fetches a single article by ID (FIXED ROUTE)
 app.get('/articles/:id', async (req, res) => {
