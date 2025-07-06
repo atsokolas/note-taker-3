@@ -1,4 +1,4 @@
-// content.js - FINAL POSITIONING FIX
+// content.js - HIGHLIGHT TOOLTIP DISMISSAL FIX
 
 (function () {
   console.log('[DEBUG] content.js script has been injected.');
@@ -13,7 +13,7 @@
   
   let savedArticleId = null;
   let isHighlightingActive = false;
-  let lastSelectionRange = null;
+  let lastSelectionRange = null; // Store the last selection range globally for tooltip dismissal
 
   console.log('[DEBUG] content.js variables initialized. isHighlightingActive:', isHighlightingActive);
 
@@ -21,32 +21,38 @@
   document.addEventListener("mouseup", (event) => {
     console.log('[DEBUG] "mouseup" event detected. Target:', event.target);
     
-    if (!isHighlightingActive) {
-      console.log('[DEBUG] Highlighting is NOT active. Returning.');
-      const existingTooltip = document.getElementById('highlight-tooltip');
-      if (existingTooltip) existingTooltip.remove();
-      return;
+    // First, always try to remove the tooltip if no text is selected or if highlighting is not active.
+    // This also helps clear old tooltips if user clicks away without selecting text.
+    const selection = window.getSelection();
+    const selectedText = selection.toString().trim();
+    if (!selectedText.length || !isHighlightingActive) {
+        const existingTooltip = document.getElementById('highlight-tooltip');
+        if (existingTooltip) {
+            console.log('[DEBUG] No text selected or highlighting not active. Removing tooltip.');
+            existingTooltip.remove();
+        }
+        if (!isHighlightingActive) {
+             console.log('[DEBUG] Highlighting is NOT active. Returning.');
+             return; // Stop if not active
+        }
     }
+
     console.log('[DEBUG] Highlighting IS active. Proceeding...');
 
+    // If the click was inside the tooltip itself, prevent re-creation/dismissal
     if (event.target.closest('#highlight-tooltip')) {
         console.log('[DEBUG] Clicked inside highlight tooltip, ignoring.');
         return;
     }
 
-    const selection = window.getSelection();
-    const selectedText = selection.toString().trim();
-    console.log('[DEBUG] Selected text length:', selectedText.length, 'Selected text:', selectedText);
-    
+    // Now, if text is selected and highlighting is active, create the tooltip
     if (selectedText.length > 0) {
+        console.log('[DEBUG] Selected text length:', selectedText.length, 'Selected text:', selectedText);
         console.log('[DEBUG] Calling addTooltipToSelection.');
-        lastSelectionRange = selection.getRangeAt(0).cloneRange();
+        lastSelectionRange = selection.getRangeAt(0).cloneRange(); // Store range for external click check
         addTooltipToSelection(selectedText);
-    } else {
-        console.log('[DEBUG] No text selected, removing tooltip if exists.');
-        const existingTooltip = document.getElementById('highlight-tooltip');
-        if (existingTooltip) existingTooltip.remove();
-    }
+    } 
+    // If selectedText.length is 0, it was handled at the top of the listener.
   });
 
   function addTooltipToSelection(textToSave) {
@@ -77,16 +83,11 @@
 
         const selection = window.getSelection();
         const range = selection.getRangeAt(0);
-        const rect = range.getBoundingClientRect(); // This gives viewport-relative coordinates
+        const rect = range.getBoundingClientRect();
         
-        // --- CRUCIAL CHANGE HERE ---
-        // For position:fixed, use viewport-relative coordinates directly
-        tooltip.style.left = `${rect.left + (rect.width / 2)}px`; // Center horizontally
-        // Position above the selection. Adjust -15px to -20px or -25px if needed for spacing
+        tooltip.style.left = `${rect.left + (rect.width / 2)}px`;
         tooltip.style.top = `${rect.top - tooltip.offsetHeight - 15}px`; 
-        // ---------------------------
-        
-        tooltip.style.transform = 'translateX(-50%)'; // Ensure horizontal centering relative to its own width
+        tooltip.style.transform = 'translateX(-50%)'; 
 
         console.log('[DEBUG] Tooltip positioned. Top:', tooltip.style.top, 'Left:', tooltip.style.left, 'Rect Top:', rect.top, 'Rect Left:', rect.left);
 
@@ -106,16 +107,29 @@
             console.error("[ERROR] Save button not found after appending tooltip. DOM might be manipulated.");
         }
 
-        const handleClickOutside = (event) => {
-            if (!tooltip.contains(event.target) && lastSelectionRange && !lastSelectionRange.commonAncestorContainer.contains(event.target)) {
-                console.log('[DEBUG] Clicked outside tooltip, removing.');
-                tooltip.remove();
-                document.removeEventListener("click", handleClickOutside);
-            }
-        };
-        setTimeout(() => {
+        // --- CRUCIAL CHANGE TO DISMISSAL LOGIC ---
+        // Detach previous global click listener to avoid multiple firings
+        document.removeEventListener("click", handleClickOutside); 
+        const dismissTimeout = setTimeout(() => { // Use a timeout to ensure it doesn't fire immediately after mouseup
             document.addEventListener("click", handleClickOutside);
         }, 100);
+
+        // Define handleClickOutside locally or pass context
+        function handleClickOutside(event) {
+            // Check if click target is outside the tooltip container AND outside the initial selected range's bounding box
+            const clickIsOutsideTooltip = !tooltip.contains(event.target);
+            const clickIsOutsideSelection = lastSelectionRange && !lastSelectionRange.getBoundingClientRect().contains(event.clientX, event.clientY);
+            
+            if (clickIsOutsideTooltip && clickIsOutsideSelection) {
+                console.log('[DEBUG] Clicked outside tooltip and selection, removing.');
+                tooltip.remove();
+                document.removeEventListener("click", handleClickOutside); // Clean up listener
+                clearTimeout(dismissTimeout); // Clear the timeout if it hasn't fired yet
+            } else {
+                console.log('[DEBUG] Click was inside tooltip or on selection, keeping tooltip.');
+            }
+        }
+        // --- END CRUCIAL CHANGE ---
 
     } catch (e) {
         console.error("❌ [CRITICAL] Error appending or positioning tooltip:", e);
