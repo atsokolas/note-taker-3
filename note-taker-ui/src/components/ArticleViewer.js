@@ -1,4 +1,4 @@
-// note-taker-ui/src/components/ArticleViewer.js - ADDED MORE DEBUG LOGS FOR HIGHLIGHT ACTIVATION
+// note-taker-ui/src/components/ArticleViewer.js - ABSOLUTE PATCH FOR MISSING INITIALIZATION AND DUPLICATES
 
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
@@ -7,22 +7,43 @@ import { useParams, useNavigate } from 'react-router-dom';
 const BASE_URL = "https://note-taker-3-unrg.onrender.com";
 
 const ArticleViewer = ({ onArticleChange }) => {
-    // ... (rest of your state variables and functions remain the same) ...
+    // --- START OF ALL HOOKS AND STATE VARIABLES DECLARED AT THE TOP OF THE COMPONENT ---
+    const { id } = useParams();
+    const navigate = useNavigate();
+    const [article, setArticle] = useState(null);
+    const [error, setError] = useState(null);
+    const [popup, setPopup] = useState({ visible: false, x: 0, y: 0, text: '' });
+    const contentRef = useRef(null); // Ref for the main article content div
+    const popupRef = useRef(null);   // Ref for the highlight popup container
+    const [folders, setFolders] = useState([]);
+    
+    // State for highlight editing in the sidebar
+    const [editingHighlightId, setEditingHighlightId] = useState(null);
+    const [editNote, setEditNote] = useState('');
+    const [editTags, setEditTags] = useState('');
 
+    // State for highlight CREATION POPUP on the web app
+    const [newHighlightNote, setNewHighlightNote] = useState('');
+    const [newHighlightTags, setNewHighlightTags] = useState('');
+    // --- END OF ALL HOOKS AND STATE VARIABLES ---
+
+    const fetchFolders = async () => {
+        try {
+            const response = await axios.get(`${BASE_URL}/folders`);
+            const allFolders = [{ _id: 'uncategorized', name: 'Uncategorized' }, ...response.data];
+            setFolders(allFolders);
+        } catch (err) {
+            console.error("Error fetching folders for move dropdown:", err);
+        }
+    };
+
+    // --- THIS IS THE FIRST useEffect (handling mouse events for selection and popup dismissal) ---
     useEffect(() => {
-        const handleMouseUp = (event) => { // Keep event parameter here, though not directly used for popup state
+        const handleMouseUp = () => { // Removed 'event' parameter here, as it's not used directly for popup state (passed to setPopup instead)
             const selection = window.getSelection();
             const selectedText = selection?.toString().trim();
 
-            console.log("[DEBUG - AV] MouseUp detected."); // New log
-            console.log("[DEBUG - AV] Selected Text:", `"${selectedText}"`, "Length:", selectedText.length); // New log
-            console.log("[DEBUG - AV] Selection Range Count:", selection?.rangeCount); // New log
-            console.log("[DEBUG - AV] ContentRef Current:", contentRef.current); // New log
-            console.log("[DEBUG - AV] ContentRef Contains Selection:", selection?.rangeCount > 0 && contentRef.current && contentRef.current.contains(selection.getRangeAt(0).commonAncestorContainer)); // New log
-
-            // Only proceed if text is actually selected AND it's within the article content area
-            if (selectedText && selectedText.length > 0 && selection.rangeCount > 0 && contentRef.current && contentRef.current.contains(selection.getRangeAt(0).commonAncestorContainer)) {
-                console.log("[DEBUG - AV] All conditions met for highlight popup."); // New log
+            if (selectedText && selection.rangeCount > 0 && contentRef.current && contentRef.current.contains(selection.getRangeAt(0).commonAncestorContainer)) {
                 const range = selection.getRangeAt(0);
                 const rect = range.getBoundingClientRect();
                 setPopup({ 
@@ -34,13 +55,18 @@ const ArticleViewer = ({ onArticleChange }) => {
                 setNewHighlightNote('');
                 setNewHighlightTags('');
             } else {
-                console.log("[DEBUG - AV] Conditions NOT met for highlight popup, hiding."); // New log
                 setPopup({ visible: false, x: 0, y: 0, text: '' });
             }
         };
 
-        const handleClickToDismiss = (event) => {
-            // ... (rest of handleClickToDismiss remains the same) ...
+        const handleClickToDismiss = (event) => { // Keep event parameter here, it's used
+            if (popup.visible && popupRef.current && !popupRef.current.contains(event.target)) {
+                const selection = window.getSelection();
+                if (contentRef.current && contentRef.current.contains(event.target) && selection && selection.toString().trim().length > 0) {
+                     return;
+                }
+                setPopup({ visible: false, x: 0, y: 0, text: '' });
+            }
         };
 
         document.addEventListener("mouseup", handleMouseUp);
@@ -51,9 +77,9 @@ const ArticleViewer = ({ onArticleChange }) => {
             document.removeEventListener("click", handleClickToDismiss);
         };
 
-    }, [popup.visible, contentRef]); // Keep dependencies as is
+    }, [popup.visible, contentRef, popupRef]); // Ensure popupRef is in dependencies
 
-
+    // --- THIS IS THE SECOND useEffect (for fetching article data and applying visual highlights) ---
     useEffect(() => {
         if (id) {
             setArticle(null);
@@ -98,81 +124,23 @@ const ArticleViewer = ({ onArticleChange }) => {
             };
             fetchArticle();
         }
-    }, [id]);
+    }, [id]); // Dependency on 'id'
 
-    useEffect(() => {
-        const handleMouseUp = () => { // Removed event param here as it's not used directly for popup state
-            const selection = window.getSelection();
-            const selectedText = selection?.toString().trim();
 
-            if (selectedText && selection.rangeCount > 0 && contentRef.current && contentRef.current.contains(selection.getRangeAt(0).commonAncestorContainer)) {
-                const range = selection.getRangeAt(0);
-                const rect = range.getBoundingClientRect();
-                setPopup({ 
-                    visible: true, 
-                    x: rect.left + window.scrollX + (rect.width / 2), 
-                    y: rect.top + window.scrollY - 50, 
-                    text: selectedText 
-                });
-                // Reset new highlight inputs when popup appears
-                setNewHighlightNote('');
-                setNewHighlightTags('');
-            } else {
-                setPopup({ visible: false, x: 0, y: 0, text: '' });
-            }
-        };
-
-        // --- CORRECTED DISMISSAL LOGIC ---
-        // Use a general 'click' listener on document, but only when popup is visible
-        const handleClickToDismiss = (event) => {
-            // Only dismiss if the popup is visible AND the click was truly outside the popup.
-            // Check if popupRef.current exists before using it.
-            if (popup.visible && popupRef.current && !popupRef.current.contains(event.target)) {
-                // IMPORTANT: Prevent dismissal if the click was on a highlight marker itself
-                // or within the original selection range, to allow interaction with highlights.
-                const selection = window.getSelection();
-                // Check if the click occurred within any part of the active selection range
-                // A common pitfall is that event.target.closest('mark.highlight') only works
-                // if the selection *is* a highlight.
-                // A better check for 'inside selected text area' is needed if that's desired.
-                // For now, if click is outside popup AND a selection is active, we assume user is re-selecting.
-                if (contentRef.current && contentRef.current.contains(event.target) && selection && selection.toString().trim().length > 0) {
-                     // This means a new selection has been made, or user clicked on text to adjust it.
-                     // The handleMouseUp will deal with showing a new popup, so don't dismiss the old one.
-                     return;
-                }
-                
-                setPopup({ visible: false, x: 0, y: 0, text: '' });
-            }
-        };
-
-        // Attach mouseup for showing popup
-        document.addEventListener("mouseup", handleMouseUp);
-
-        // Attach a global click listener for dismissing the popup.
-        // It's attached *only once* and its logic handles visibility.
-        document.addEventListener("click", handleClickToDismiss);
-
-        // Cleanup function for useEffect
-        return () => {
-            document.removeEventListener("mouseup", handleMouseUp);
-            document.removeEventListener("click", handleClickToDismiss); // Clean up click listener
-        };
-
-    }, [popup.visible, contentRef]); // Effect re-runs when popup.visible state changes or contentRef changes
+    // --- All other helper functions defined here (NOT inside useEffect) ---
 
     // MODIFIED: saveHighlight function to use new state variables and send note/tags
     const saveHighlight = async () => {
         const newHighlight = { 
             text: popup.text,
-            note: newHighlightNote, // Use state for note
-            tags: newHighlightTags.split(',').map(tag => tag.trim()).filter(t => t) // Use state for tags
+            note: newHighlightNote, 
+            tags: newHighlightTags.split(',').map(tag => tag.trim()).filter(t => t) 
         }; 
-        setPopup({ visible: false, x: 0, y: 0, text: '' }); // Hide popup immediately
+        setPopup({ visible: false, x: 0, y: 0, text: '' });
 
         try {
             const res = await axios.post(`${BASE_URL}/articles/${id}/highlights`, newHighlight);
-            setArticle(res.data); // Update article state to include the new highlight
+            setArticle(res.data);
             alert("Highlight saved!");
         } catch (err) {
             console.error("Failed to save highlight:", err);
@@ -226,21 +194,18 @@ const ArticleViewer = ({ onArticleChange }) => {
         }
     };
 
-    // Handle starting highlight edit mode (for sidebar highlights)
     const startEditHighlight = (highlight) => {
         setEditingHighlightId(highlight._id);
         setEditNote(highlight.note || '');
         setEditTags(highlight.tags ? highlight.tags.join(', ') : '');
     };
 
-    // Handle canceling highlight edit mode (for sidebar highlights)
     const cancelEditHighlight = () => {
         setEditingHighlightId(null);
         setEditNote('');
         setEditTags('');
     };
 
-    // Backend API call for updating a highlight (used by saveHighlightEdits)
     const updateHighlightOnBackend = async (highlightId, updatedNote, updatedTags) => {
         try {
             const response = await axios.patch(`${BASE_URL}/articles/${id}/highlights/${highlightId}`, {
@@ -254,21 +219,19 @@ const ArticleViewer = ({ onArticleChange }) => {
         }
     };
 
-    // Handle saving highlight edits (for sidebar highlights)
     const saveHighlightEdits = async (highlightId) => {
         try {
             const updatedArticleData = await updateHighlightOnBackend(highlightId, editNote, editTags);
             setArticle(updatedArticleData); 
             alert("Highlight updated successfully!");
             cancelEditHighlight(); 
-            onArticleChange(); // Notify parent (App.js) for global highlights view refresh
+            onArticleChange();
         } catch (err) {
             alert(err.message);
             console.error("Failed to save highlight edits:", err);
         }
     };
 
-    // Handle deleting a specific highlight (from sidebar)
     const deleteHighlight = async (highlightId) => {
         if (!window.confirm("Are you sure you want to delete this highlight?")) {
             return;
@@ -277,13 +240,14 @@ const ArticleViewer = ({ onArticleChange }) => {
             const response = await axios.delete(`${BASE_URL}/articles/${id}/highlights/${highlightId}`);
             setArticle(response.data); 
             alert("Highlight deleted successfully!");
-            onArticleChange(); // Notify parent (App.js) for global highlights view refresh
+            onArticleChange();
         } catch (err) {
             alert(err.response?.data?.error || "Failed to delete highlight.");
             console.error("Failed to delete highlight:", err);
         }
     };
 
+    // --- START OF JSX RETURN STATEMENT ---
     if (error) return <h2 style={{color: 'red'}}>{error}</h2>;
     if (!article) return <h2>Loading article...</h2>;
 
@@ -421,6 +385,6 @@ const ArticleViewer = ({ onArticleChange }) => {
             </div>
         </div>
     );
-};
+}; // <--- This closing brace was missing, leading to compilation issues.
 
 export default ArticleViewer;
