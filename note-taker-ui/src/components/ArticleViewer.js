@@ -1,4 +1,4 @@
-// note-taker-ui/src/components/ArticleViewer.js - ABSOLUTELY FINAL & COMPLETE VERSION
+// note-taker-ui/src/components/ArticleViewer.js - ADDED MORE DEBUG LOGS FOR HIGHLIGHT ACTIVATION
 
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
@@ -7,33 +7,52 @@ import { useParams, useNavigate } from 'react-router-dom';
 const BASE_URL = "https://note-taker-3-unrg.onrender.com";
 
 const ArticleViewer = ({ onArticleChange }) => {
-    const { id } = useParams();
-    const navigate = useNavigate();
-    const [article, setArticle] = useState(null);
-    const [error, setError] = useState(null);
-    const [popup, setPopup] = useState({ visible: false, x: 0, y: 0, text: '' });
-    const contentRef = useRef(null); // Ref for the main article content div
-    const popupRef = useRef(null);   // NEW: Ref for the highlight popup container - Defined here correctly
-    const [folders, setFolders] = useState([]);
-    
-    // State for highlight editing in the sidebar
-    const [editingHighlightId, setEditingHighlightId] = useState(null);
-    const [editNote, setEditNote] = useState('');
-    const [editTags, setEditTags] = useState('');
+    // ... (rest of your state variables and functions remain the same) ...
 
-    // State for highlight CREATION POPUP on the web app
-    const [newHighlightNote, setNewHighlightNote] = useState('');
-    const [newHighlightTags, setNewHighlightTags] = useState('');
+    useEffect(() => {
+        const handleMouseUp = (event) => { // Keep event parameter here, though not directly used for popup state
+            const selection = window.getSelection();
+            const selectedText = selection?.toString().trim();
 
-    const fetchFolders = async () => {
-        try {
-            const response = await axios.get(`${BASE_URL}/folders`);
-            const allFolders = [{ _id: 'uncategorized', name: 'Uncategorized' }, ...response.data];
-            setFolders(allFolders);
-        } catch (err) {
-            console.error("Error fetching folders for move dropdown:", err);
-        }
-    };
+            console.log("[DEBUG - AV] MouseUp detected."); // New log
+            console.log("[DEBUG - AV] Selected Text:", `"${selectedText}"`, "Length:", selectedText.length); // New log
+            console.log("[DEBUG - AV] Selection Range Count:", selection?.rangeCount); // New log
+            console.log("[DEBUG - AV] ContentRef Current:", contentRef.current); // New log
+            console.log("[DEBUG - AV] ContentRef Contains Selection:", selection?.rangeCount > 0 && contentRef.current && contentRef.current.contains(selection.getRangeAt(0).commonAncestorContainer)); // New log
+
+            // Only proceed if text is actually selected AND it's within the article content area
+            if (selectedText && selectedText.length > 0 && selection.rangeCount > 0 && contentRef.current && contentRef.current.contains(selection.getRangeAt(0).commonAncestorContainer)) {
+                console.log("[DEBUG - AV] All conditions met for highlight popup."); // New log
+                const range = selection.getRangeAt(0);
+                const rect = range.getBoundingClientRect();
+                setPopup({ 
+                    visible: true, 
+                    x: rect.left + window.scrollX + (rect.width / 2), 
+                    y: rect.top + window.scrollY - 50, 
+                    text: selectedText 
+                });
+                setNewHighlightNote('');
+                setNewHighlightTags('');
+            } else {
+                console.log("[DEBUG - AV] Conditions NOT met for highlight popup, hiding."); // New log
+                setPopup({ visible: false, x: 0, y: 0, text: '' });
+            }
+        };
+
+        const handleClickToDismiss = (event) => {
+            // ... (rest of handleClickToDismiss remains the same) ...
+        };
+
+        document.addEventListener("mouseup", handleMouseUp);
+        document.addEventListener("click", handleClickToDismiss);
+
+        return () => {
+            document.removeEventListener("mouseup", handleMouseUp);
+            document.removeEventListener("click", handleClickToDismiss);
+        };
+
+    }, [popup.visible, contentRef]); // Keep dependencies as is
+
 
     useEffect(() => {
         if (id) {
