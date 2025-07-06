@@ -34,7 +34,9 @@ body {
   overflow: hidden;
 }
 
-/* Sidebar styles */
+/* ----------------------------------- */
+/* Sidebar (Left Panel) Styles */
+/* ----------------------------------- */
 .sidebar {
   width: 300px;
   background-color: var(--sidebar-bg-color);
@@ -185,7 +187,7 @@ body {
   transform: scale(1.1);
 }
 
-/* Article List (Nested) */
+/* Article List (Nested under Folders) */
 .folder-group .article-list.nested {
   max-height: 0;
   overflow: hidden;
@@ -231,7 +233,100 @@ body {
   color: var(--primary-color);
 }
 
-/* Content Viewer (Main Content Area of App) */
+/* ----------------------------------- */
+/* Highlights by Tag View Styles */
+/* ----------------------------------- */
+.highlight-by-tag-list-container {
+  padding: 20px 15px; /* Consistent padding with sidebar */
+}
+
+.highlight-by-tag-list-container h1 {
+  font-size: 1.6em;
+  font-weight: 700;
+  margin: 0 0 25px 0;
+  color: var(--text-color);
+}
+
+.tag-group {
+  border-bottom: 1px solid var(--border-color);
+}
+.tag-group:last-of-type {
+  border-bottom: none;
+}
+
+.tag-header {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 12px 0; /* Align with sidebar nav links */
+  text-align: left;
+  background-color: transparent;
+  color: var(--text-color);
+  border: none;
+  cursor: pointer;
+  font-size: 1.05em;
+  font-weight: 600;
+  transition: background-color 0.2s ease;
+}
+
+.tag-header:hover {
+  background-color: var(--hover-color);
+}
+
+.highlight-list.nested {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.3s cubic-bezier(0.86, 0, 0.07, 1), padding-top 0.3s ease-out;
+  padding-top: 0;
+  background-color: var(--hover-color);
+  border-top: 1px solid var(--border-color-light);
+}
+
+.highlight-list.nested.open {
+  max-height: 800px; /* Adjust as needed */
+  padding-top: 5px;
+}
+
+.highlight-list-item {
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border-color-light);
+  font-size: 0.95em;
+  color: var(--text-color);
+}
+
+.highlight-list-item:last-child {
+  border-bottom: none;
+}
+
+.highlight-list-item .highlight-text {
+  font-weight: 500;
+  margin-bottom: 5px;
+  line-height: 1.4;
+}
+
+.highlight-list-item .highlight-note {
+  font-size: 0.9em;
+  color: var(--text-color-secondary);
+  margin-bottom: 5px;
+  line-height: 1.3;
+}
+
+.highlight-list-item .highlight-article-link {
+  display: block;
+  font-size: 0.85em;
+  color: var(--primary-color);
+  text-decoration: none;
+  margin-top: 8px;
+}
+
+.highlight-list-item .highlight-article-link:hover {
+  text-decoration: underline;
+}
+
+/* ----------------------------------- */
+/* Content Viewer (Right Panel) Styles */
+/* ----------------------------------- */
 .content-viewer {
   flex-grow: 1; /* Takes up remaining space */
   background-color: var(--card-bg-color); /* White background for content area */
@@ -247,6 +342,9 @@ body {
   font-size: 1.2em;
 }
 
+/* ----------------------------------- */
+/* Article Viewer Specific Layout Styles */
+/* ----------------------------------- */
 /* Article Viewer Main Page Layout (Flex container for article content + highlights sidebar) */
 .article-viewer-page {
     flex-grow: 1; /* Takes up remaining space in app-container */
@@ -271,7 +369,7 @@ body {
   justify-content: flex-end;
   gap: 10px;
   padding: 15px 25px;
-  border-bottom: 1px solid var(--border-color);
+  border-bottom: 1:px solid var(--border-color); /* Corrected from '1:px' to '1px' */
   background-color: var(--card-bg-color);
   box-shadow: var(--box-shadow-light);
   position: sticky;
@@ -337,7 +435,7 @@ body {
   margin: 0 auto; /* Center content */
   background-color: var(--card-bg-color); /* Already part of .article-viewer-page */
   box-shadow: var(--box-shadow-light); /* Apply to main area for consistency */
-  margin-bottom: 20px; /* Space at the bottom */
+  margin-bottom: 20px;
 }
 
 .article-content h1 {
@@ -495,4 +593,111 @@ body {
     color: var(--text-color-secondary);
     text-align: center;
     padding-top: 20px;
+}
+
+/* App.css Additions for Highlight Editing UI in ArticleViewer (These were missing) */
+
+.sidebar-highlight-item.editing {
+    padding: 15px; /* More padding for edit mode */
+    background-color: var(--active-color); /* Highlight editing item */
+}
+
+.edit-highlight-note-input,
+.edit-highlight-tags-input {
+    width: 100%;
+    padding: 8px 10px;
+    margin-bottom: 8px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+    background-color: var(--card-bg-color);
+    color: var(--text-color);
+    font-size: 0.9em;
+    box-sizing: border-box;
+    resize: vertical; /* Allow textarea to be vertically resized */
+    min-height: 40px;
+}
+
+.edit-highlight-note-input:focus,
+.edit-highlight-tags-input:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.2);
+}
+
+.edit-highlight-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end; /* Align buttons to the right */
+    margin-top: 10px;
+}
+
+.edit-save-button,
+.edit-cancel-button {
+    padding: 8px 15px;
+    border-radius: var(--border-radius);
+    cursor: pointer;
+    font-size: 0.9em;
+    font-weight: 500;
+    transition: background-color 0.2s ease, transform 0.1s ease;
+}
+
+.edit-save-button {
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+}
+
+.edit-save-button:hover {
+    background-color: var(--primary-color-dark);
+    transform: translateY(-1px);
+}
+
+.edit-cancel-button {
+    background-color: transparent;
+    color: var(--text-color-secondary);
+    border: 1px solid var(--border-color);
+}
+
+.edit-cancel-button:hover {
+    background-color: var(--hover-color);
+    transform: translateY(-1px);
+}
+
+.highlight-item-actions {
+    display: flex;
+    gap: 5px;
+    justify-content: flex-end; /* Align actions to the right */
+    margin-top: 10px;
+}
+
+.highlight-item-actions .edit-button,
+.highlight-item-actions .delete-button {
+    padding: 6px 10px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 0.8em;
+    font-weight: 500;
+    transition: background-color 0.2s ease;
+}
+
+.highlight-item-actions .edit-button {
+    background-color: var(--primary-color-light); /* Light blue background */
+    color: var(--primary-color);
+    border: 1px solid var(--primary-color);
+}
+
+.highlight-item-actions .edit-button:hover {
+    background-color: var(--primary-color);
+    color: white;
+}
+
+.highlight-item-actions .delete-button {
+    background-color: var(--danger-color-light);
+    color: var(--danger-color);
+    border: 1px solid var(--danger-color);
+}
+
+.highlight-item-actions .delete-button:hover {
+    background-color: var(--danger-color);
+    color: white;
 }
