@@ -325,7 +325,7 @@ body {
 }
 
 /* ----------------------------------- */
-/* Content Viewer (Right Panel) Styles */
+/* Content Viewer (Right Panel - Main App Content Area) Styles */
 /* ----------------------------------- */
 .content-viewer {
   flex-grow: 1; /* Takes up remaining space */
@@ -344,6 +344,7 @@ body {
 
 /* ----------------------------------- */
 /* Article Viewer Specific Layout Styles */
+/* (This applies when an article is open and includes its sidebar) */
 /* ----------------------------------- */
 /* Article Viewer Main Page Layout (Flex container for article content + highlights sidebar) */
 .article-viewer-page {
@@ -433,7 +434,7 @@ body {
   padding: 30px 40px;
   max-width: 800px; /* Max width for content for better reading experience */
   margin: 0 auto; /* Center content */
-  background-color: var(--card-bg-color); /* Already part of .article-viewer-page */
+  /* background-color: var(--card-bg-color); <-- This was redundant, handled by .article-viewer-page */
   box-shadow: var(--box-shadow-light); /* Apply to main area for consistency */
   margin-bottom: 20px;
 }
@@ -464,51 +465,110 @@ body {
   box-shadow: var(--box-shadow-light);
 }
 
-/* Highlight popup (for selection on the article content itself) */
-.highlight-popup {
+/* ----------------------------------- */
+/* Highlight Popup (for text selection on the web app) Styles */
+/* ----------------------------------- */
+/* This is the container for inputs and save button when selecting text on the web app */
+.highlight-popup-web-app-container {
+    /* Positioning handled by inline styles in JS */
+    position: absolute; 
+    z-index: 1000;     
+
+    background: #ffffff; 
+    border: 1px solid var(--border-color); 
+    border-radius: var(--border-radius); 
+    box-shadow: var(--box-shadow-light); 
+    
+    display: flex;
+    flex-direction: column; 
+    gap: 8px; 
+    padding: 12px 15px; 
+
+    font-family: 'SF Pro Text', 'Helvetica Neue', 'Segoe UI', sans-serif;
+    font-size: 14px;
+    color: var(--text-color);
+    width: 250px; 
+    box-sizing: border-box;
+    
+    animation: fadeIn 0.15s ease-out forwards; 
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px) translateX(-50%); }
+    to { opacity: 1; transform: translateY(0) translateX(-50%); }
+}
+
+/* Styles for inputs within the web app highlight popup */
+.highlight-popup-web-app-container .highlight-input {
+    width: 100%;
+    padding: 8px 10px;
+    border: 1px solid var(--border-color-light);
+    border-radius: 6px;
+    background-color: var(--hover-color);
+    color: var(--text-color);
+    font-size: 13px;
+    box-sizing: border-box;
+    resize: vertical;
+    min-height: 35px;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.highlight-popup-web-app-container .highlight-input::placeholder {
+    color: var(--text-color-secondary);
+    opacity: 0.8;
+}
+
+.highlight-popup-web-app-container .highlight-input:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.2);
+    background-color: #ffffff;
+}
+
+/* Styles for the Save button within the web app highlight popup */
+.highlight-popup-save-button {
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+    padding: 10px 15px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 14px;
+    transition: background-color 0.2s ease, transform 0.1s ease, box-shadow 0.2s ease;
+    
     display: flex;
     align-items: center;
-    gap: 6px;
-    
-    padding: 8px 12px;
-    border-radius: var(--border-radius);
-    border: 1px solid var(--border-color);
-    cursor: pointer;
-    font-size: 0.9em;
-    white-space: nowrap;
-    z-index: 1000;
+    justify-content: center;
+    gap: 8px;
+
     box-shadow: var(--box-shadow-light);
-    
-    background-color: var(--card-bg-color);
-    color: var(--primary-color);
-    
-    transition: background-color 0.2s ease, border-color 0.2s ease, transform 0.1s ease;
 }
 
-.highlight-popup:hover {
-    background-color: var(--hover-color);
-    border-color: var(--primary-color-dark);
+.highlight-popup-save-button:hover {
+    background-color: var(--primary-color-dark);
     transform: translateY(-1px);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1), 0 1px 3px rgba(0, 0, 0, 0.08);
 }
 
-.highlight-popup:active {
+.highlight-popup-save-button:active {
     transform: translateY(0);
-    box-shadow: none;
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.2);
 }
 
-.highlight-icon {
-    width: 18px;
+/* Styles for the SVG icon within the popup's save button */
+.highlight-popup-save-button .highlight-icon { 
+    width: 18px; 
     height: 18px;
     stroke: currentColor;
     stroke-width: 2;
     fill: none;
+    flex-shrink: 0;
 }
 
-.highlight-label {
-    font-weight: 500;
-}
-
-/* NEW: Article Highlights Sidebar */
+/* ----------------------------------- */
+/* NEW: Article Highlights Sidebar Styles */
+/* ----------------------------------- */
 .article-highlights-sidebar {
     width: 300px; /* Fixed width for the highlights sidebar */
     flex-shrink: 0; /* Prevent it from shrinking */
@@ -595,8 +655,9 @@ body {
     padding-top: 20px;
 }
 
-/* App.css Additions for Highlight Editing UI in ArticleViewer (These were missing) */
-
+/* ----------------------------------- */
+/* Highlight Editing UI in ArticleViewer (These were missing and are now added) */
+/* ----------------------------------- */
 .sidebar-highlight-item.editing {
     padding: 15px; /* More padding for edit mode */
     background-color: var(--active-color); /* Highlight editing item */

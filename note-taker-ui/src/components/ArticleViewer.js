@@ -1,4 +1,4 @@
-// note-taker-ui/src/components/ArticleViewer.js - UPDATED FOR HIGHLIGHT EDITING
+// note-taker-ui/src/components/ArticleViewer.js - FINAL & COMPLETE VERSION
 
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
@@ -14,10 +14,15 @@ const ArticleViewer = ({ onArticleChange }) => {
     const [popup, setPopup] = useState({ visible: false, x: 0, y: 0, text: '' });
     const contentRef = useRef(null);
     const [folders, setFolders] = useState([]);
-    // NEW: State to track which highlight is currently being edited
+    
+    // State for highlight editing in the sidebar
     const [editingHighlightId, setEditingHighlightId] = useState(null);
     const [editNote, setEditNote] = useState('');
     const [editTags, setEditTags] = useState('');
+
+    // State for highlight CREATION POPUP on the web app
+    const [newHighlightNote, setNewHighlightNote] = useState('');
+    const [newHighlightTags, setNewHighlightTags] = useState('');
 
     const fetchFolders = async () => {
         try {
@@ -89,13 +94,16 @@ const ArticleViewer = ({ onArticleChange }) => {
                     y: rect.top + window.scrollY - 50, 
                     text: selectedText 
                 });
+                // Reset new highlight inputs when popup appears
+                setNewHighlightNote('');
+                setNewHighlightTags('');
             } else {
                 setPopup({ visible: false, x: 0, y: 0, text: '' });
             }
         };
 
         const handleClickOutside = (event) => {
-            if (popup.visible && !event.target.closest('.highlight-popup') && !event.target.closest('mark.highlight')) {
+            if (popup.visible && !event.target.closest('.highlight-popup-web-app-container') && !event.target.closest('mark.highlight')) {
                 setPopup({ visible: false, x: 0, y: 0, text: '' });
             }
         };
@@ -108,11 +116,14 @@ const ArticleViewer = ({ onArticleChange }) => {
         };
     }, [popup.visible]);
 
+    // MODIFIED: saveHighlight function to use new state variables and send note/tags
     const saveHighlight = async () => {
-        // This saveHighlight function is for adding new highlights from text selection.
-        // It currently only saves text. To add note/tags here, you'd need input fields in the popup.
-        const newHighlight = { text: popup.text }; 
-        setPopup({ visible: false, x: 0, y: 0, text: '' });
+        const newHighlight = { 
+            text: popup.text,
+            note: newHighlightNote, // Use state for note
+            tags: newHighlightTags.split(',').map(tag => tag.trim()).filter(t => t) // Use state for tags
+        }; 
+        setPopup({ visible: false, x: 0, y: 0, text: '' }); // Hide popup immediately
 
         try {
             const res = await axios.post(`${BASE_URL}/articles/${id}/highlights`, newHighlight);
@@ -170,70 +181,63 @@ const ArticleViewer = ({ onArticleChange }) => {
         }
     };
 
-    // --- NEW: Handle starting highlight edit mode ---
+    // Handle starting highlight edit mode (for sidebar highlights)
     const startEditHighlight = (highlight) => {
         setEditingHighlightId(highlight._id);
         setEditNote(highlight.note || '');
         setEditTags(highlight.tags ? highlight.tags.join(', ') : '');
     };
 
-    // --- NEW: Handle canceling highlight edit mode ---
+    // Handle canceling highlight edit mode (for sidebar highlights)
     const cancelEditHighlight = () => {
         setEditingHighlightId(null);
         setEditNote('');
         setEditTags('');
     };
 
-    // --- NEW: Backend API endpoint for updating a highlight (needs to be added to server.js) ---
-    // PATCH /articles/:articleId/highlights/:highlightId
-    // This will take { note, tags } in req.body
-    // Make sure your server.js has this endpoint.
-    // If not, we need to add it first before this frontend code works.
+    // Backend API call for updating a highlight (used by saveHighlightEdits)
     const updateHighlightOnBackend = async (highlightId, updatedNote, updatedTags) => {
         try {
             const response = await axios.patch(`${BASE_URL}/articles/${id}/highlights/${highlightId}`, {
                 note: updatedNote,
-                tags: updatedTags.split(',').map(tag => tag.trim()).filter(t => t) // Convert string to array
+                tags: updatedTags.split(',').map(tag => tag.trim()).filter(t => t)
             });
-            return response.data; // Should return the updated article with populated highlights
+            return response.data; 
         } catch (err) {
             console.error("Error updating highlight on backend:", err);
             throw new Error(err.response?.data?.error || "Failed to update highlight.");
         }
     };
 
-    // --- NEW: Handle saving highlight edits ---
+    // Handle saving highlight edits (for sidebar highlights)
     const saveHighlightEdits = async (highlightId) => {
         try {
             const updatedArticleData = await updateHighlightOnBackend(highlightId, editNote, editTags);
-            setArticle(updatedArticleData); // Update article state with the modified highlight
+            setArticle(updatedArticleData); 
             alert("Highlight updated successfully!");
-            cancelEditHighlight(); // Exit edit mode
-            onArticleChange(); // Notify parent (App.js) that articles might need refresh (e.g., if tags changed for global view)
+            cancelEditHighlight(); 
+            onArticleChange(); // Notify parent (App.js) for global highlights view refresh
         } catch (err) {
             alert(err.message);
             console.error("Failed to save highlight edits:", err);
         }
     };
 
-    // --- NEW: Handle deleting a specific highlight ---
-    // DELETE /articles/:articleId/highlights/:highlightId
+    // Handle deleting a specific highlight (from sidebar)
     const deleteHighlight = async (highlightId) => {
         if (!window.confirm("Are you sure you want to delete this highlight?")) {
             return;
         }
         try {
-            // Need to add this DELETE endpoint to server.js if it doesn't exist.
             const response = await axios.delete(`${BASE_URL}/articles/${id}/highlights/${highlightId}`);
-            setArticle(response.data); // Update article state (should return article with highlight removed)
+            setArticle(response.data); 
             alert("Highlight deleted successfully!");
-            onArticleChange(); // Notify parent (App.js)
+            onArticleChange(); // Notify parent (App.js) for global highlights view refresh
         } catch (err) {
             alert(err.response?.data?.error || "Failed to delete highlight.");
             console.error("Failed to delete highlight:", err);
         }
     };
-
 
     if (error) return <h2 style={{color: 'red'}}>{error}</h2>;
     if (!article) return <h2>Loading article...</h2>;
@@ -276,22 +280,40 @@ const ArticleViewer = ({ onArticleChange }) => {
                         dangerouslySetInnerHTML={{ __html: article.content }}
                     />
                     {popup.visible && (
-                        <button
-                            className="highlight-popup"
+                        // This is the highlight creation popup when text is selected on the web app
+                        <div
+                            className="highlight-popup-web-app-container"
                             style={{ 
                                 top: popup.y, 
                                 left: popup.x, 
                                 position: 'absolute', 
                                 transform: 'translateX(-50%)' 
                             }}
-                            onClick={saveHighlight}
-                            title="Save Highlight"
                         >
-                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" className="highlight-icon">
-                                <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
-                            </svg>
-                            <span className="highlight-label">Save</span>
-                        </button>
+                            <textarea 
+                                className="highlight-input highlight-note-input"
+                                placeholder="Add a note (optional)"
+                                value={newHighlightNote}
+                                onChange={(e) => setNewHighlightNote(e.target.value)}
+                            ></textarea>
+                            <input 
+                                type="text"
+                                className="highlight-input highlight-tags-input"
+                                placeholder="Tags (comma-separated, optional)"
+                                value={newHighlightTags}
+                                onChange={(e) => setNewHighlightTags(e.target.value)}
+                            />
+                            <button
+                                className="highlight-popup-save-button"
+                                onClick={saveHighlight}
+                                title="Save Highlight"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" className="highlight-icon">
+                                    <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
+                                </svg>
+                                <span className="highlight-label">Save</span>
+                            </button>
+                        </div>
                     )}
                 </div>
             </div>
@@ -304,7 +326,7 @@ const ArticleViewer = ({ onArticleChange }) => {
                         {article.highlights.map(h => (
                             <li key={h._id} className={`sidebar-highlight-item ${editingHighlightId === h._id ? 'editing' : ''}`}>
                                 {editingHighlightId === h._id ? (
-                                    // Edit Mode UI
+                                    // Edit Mode UI for sidebar highlights
                                     <>
                                         <textarea 
                                             className="edit-highlight-note-input"
@@ -325,7 +347,7 @@ const ArticleViewer = ({ onArticleChange }) => {
                                         </div>
                                     </>
                                 ) : (
-                                    // Display Mode UI
+                                    // Display Mode UI for sidebar highlights
                                     <>
                                         <p className="sidebar-highlight-text" onClick={() => scrollToHighlight(`highlight-${h._id}`)}>
                                             {h.text}
