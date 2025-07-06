@@ -369,7 +369,7 @@ body {
   justify-content: flex-end;
   gap: 10px;
   padding: 15px 25px;
-  border-bottom: 1:px solid var(--border-color); /* Corrected from '1:px' to '1px' */
+  border-bottom: 1px solid var(--border-color);
   background-color: var(--card-bg-color);
   box-shadow: var(--box-shadow-light);
   position: sticky;
