@@ -1,4 +1,4 @@
-// note-taker-ui/src/components/ArticleViewer.js - FINAL & COMPLETE VERSION
+// note-taker-ui/src/components/ArticleViewer.js - ABSOLUTELY FINAL & COMPLETE VERSION
 
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
@@ -12,7 +12,8 @@ const ArticleViewer = ({ onArticleChange }) => {
     const [article, setArticle] = useState(null);
     const [error, setError] = useState(null);
     const [popup, setPopup] = useState({ visible: false, x: 0, y: 0, text: '' });
-    const contentRef = useRef(null);
+    const contentRef = useRef(null); // Ref for the main article content div
+    const popupRef = useRef(null);   // NEW: Ref for the highlight popup container - Defined here correctly
     const [folders, setFolders] = useState([]);
     
     // State for highlight editing in the sidebar
@@ -81,7 +82,7 @@ const ArticleViewer = ({ onArticleChange }) => {
     }, [id]);
 
     useEffect(() => {
-        const handleMouseUp = () => {
+        const handleMouseUp = () => { // Removed event param here as it's not used directly for popup state
             const selection = window.getSelection();
             const selectedText = selection?.toString().trim();
 
@@ -102,19 +103,44 @@ const ArticleViewer = ({ onArticleChange }) => {
             }
         };
 
-        const handleClickOutside = (event) => {
-            if (popup.visible && !event.target.closest('.highlight-popup-web-app-container') && !event.target.closest('mark.highlight')) {
+        // --- CORRECTED DISMISSAL LOGIC ---
+        // Use a general 'click' listener on document, but only when popup is visible
+        const handleClickToDismiss = (event) => {
+            // Only dismiss if the popup is visible AND the click was truly outside the popup.
+            // Check if popupRef.current exists before using it.
+            if (popup.visible && popupRef.current && !popupRef.current.contains(event.target)) {
+                // IMPORTANT: Prevent dismissal if the click was on a highlight marker itself
+                // or within the original selection range, to allow interaction with highlights.
+                const selection = window.getSelection();
+                // Check if the click occurred within any part of the active selection range
+                // A common pitfall is that event.target.closest('mark.highlight') only works
+                // if the selection *is* a highlight.
+                // A better check for 'inside selected text area' is needed if that's desired.
+                // For now, if click is outside popup AND a selection is active, we assume user is re-selecting.
+                if (contentRef.current && contentRef.current.contains(event.target) && selection && selection.toString().trim().length > 0) {
+                     // This means a new selection has been made, or user clicked on text to adjust it.
+                     // The handleMouseUp will deal with showing a new popup, so don't dismiss the old one.
+                     return;
+                }
+                
                 setPopup({ visible: false, x: 0, y: 0, text: '' });
             }
         };
 
+        // Attach mouseup for showing popup
         document.addEventListener("mouseup", handleMouseUp);
-        document.addEventListener("mousedown", handleClickOutside);
+
+        // Attach a global click listener for dismissing the popup.
+        // It's attached *only once* and its logic handles visibility.
+        document.addEventListener("click", handleClickToDismiss);
+
+        // Cleanup function for useEffect
         return () => {
             document.removeEventListener("mouseup", handleMouseUp);
-            document.removeEventListener("mousedown", handleClickOutside);
+            document.removeEventListener("click", handleClickToDismiss); // Clean up click listener
         };
-    }, [popup.visible]);
+
+    }, [popup.visible, contentRef]); // Effect re-runs when popup.visible state changes or contentRef changes
 
     // MODIFIED: saveHighlight function to use new state variables and send note/tags
     const saveHighlight = async () => {
@@ -282,6 +308,7 @@ const ArticleViewer = ({ onArticleChange }) => {
                     {popup.visible && (
                         // This is the highlight creation popup when text is selected on the web app
                         <div
+                            ref={popupRef} /* Attach popupRef here */
                             className="highlight-popup-web-app-container"
                             style={{ 
                                 top: popup.y, 
