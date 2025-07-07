@@ -85,51 +85,85 @@ const ArticleViewer = ({ onArticleChange }) => {
         }
     }, [id]); // Dependency on 'id'
 
-    // useEffect for handling mouse events (selection and popup dismissal)
+    // --- REVISED useEffect for handling mouse events (selection and popup dismissal) ---
     useEffect(() => {
-        const handleMouseUp = () => {
+        console.log("[DEBUG - AV EFFECT] Highlight listener useEffect started.");
+
+        const handleMouseUp = (event) => {
+            // Ensure event happened within contentRef and not already on the popup
+            if (!contentRef.current || !contentRef.current.contains(event.target) || event.target.closest('.highlight-popup-web-app-container')) {
+                return; // Not a valid selection event for the content area or it's inside the popup
+            }
+
             const selection = window.getSelection();
             const selectedText = selection?.toString().trim();
 
-            if (selectedText && selection.rangeCount > 0 && contentRef.current && contentRef.current.contains(selection.getRangeAt(0).commonAncestorContainer)) {
-                const range = selection.getRangeAt(0);
-                const rect = range.getBoundingClientRect();
-                setPopup({ 
-                    visible: true, 
-                    x: rect.left + window.scrollX + (rect.width / 2), 
-                    y: rect.top + window.scrollY - 50, 
-                    text: selectedText 
-                });
-                // Reset new highlight inputs when popup appears
-                setNewHighlightNote('');
-                setNewHighlightTags('');
+            console.log("[DEBUG - AV] MouseUp detected inside handler.");
+            console.log("[DEBUG - AV] Selected Text (inside handler):", `"${selectedText}"`, "Length:", selectedText.length);
+            console.log("[DEBUG - AV] Selection Range Count (inside handler):", selection?.rangeCount);
+
+            const isSelectionValid = selectedText && selectedText.length > 0 && selection.rangeCount > 0;
+
+            if (isSelectionValid) {
+                if (!popup.visible) { // Only set popup to visible if it's currently hidden
+                    console.log("[DEBUG - AV] All conditions met for highlight popup, SHOWING.");
+                    const range = selection.getRangeAt(0);
+                    const rect = range.getBoundingClientRect();
+                    setPopup({
+                        visible: true,
+                        x: rect.left + window.scrollX + (rect.width / 2),
+                        y: rect.top + window.scrollY - 50,
+                        text: selectedText
+                    });
+                    setNewHighlightNote('');
+                    setNewHighlightTags('');
+                } else {
+                    console.log("[DEBUG - AV] Popup already visible, not re-setting for new selection (re-selection).");
+                }
             } else {
-                setPopup({ visible: false, x: 0, y: 0, text: '' });
+                if (popup.visible) { // Only set popup to hidden if it's currently visible
+                    console.log("[DEBUG - AV] Conditions NOT met for highlight popup, HIDING.");
+                    setPopup({ visible: false, x: 0, y: 0, text: '' });
+                } else {
+                    console.log("[DEBUG - AV] Popup already hidden, no action needed.");
+                }
             }
         };
 
         const handleClickToDismiss = (event) => {
-            if (popup.visible && popupRef.current && !popupRef.current.contains(event.target)) {
-                const selection = window.getSelection();
-                if (contentRef.current && contentRef.current.contains(event.target) && selection && selection.toString().trim().length > 0) {
-                     return; 
-                }
+            console.log("[DEBUG - AV] Click detected for dismissal.");
+            // Check if popupRef.current exists before using it to avoid errors if popup not rendered yet
+            // Ensure click is outside the popupRef AND outside the contentRef (if no text is selected)
+            const clickIsOutsidePopup = popupRef.current && !popupRef.current.contains(event.target);
+            const clickIsOutsideContent = contentRef.current && !contentRef.current.contains(event.target);
+
+            if (popup.visible && clickIsOutsidePopup && clickIsOutsideContent) {
+                console.log("[DEBUG - AV] Dismissing popup due to click outside both popup and content.");
                 setPopup({ visible: false, x: 0, y: 0, text: '' });
+            } else if (!popup.visible) {
+                 console.log("[DEBUG - AV] Popup is not visible, click dismissal ignored.");
             }
         };
 
-        // Attach mouseup for showing popup
-        document.addEventListener("mouseup", handleMouseUp);
-        // Attach a global click listener for dismissing the popup.
+        // Attach mouseup listener DIRECTLY to the contentRef.current div
+        // This is more precise than document.addEventListener for selections within a specific area.
+        if (contentRef.current) { // Ensure ref is available before attaching listener
+            contentRef.current.addEventListener("mouseup", handleMouseUp);
+        }
+        
+        // Attach global click listener for dismissing the popup.
         document.addEventListener("click", handleClickToDismiss);
 
         // Cleanup function for useEffect
         return () => {
-            document.removeEventListener("mouseup", handleMouseUp);
+            console.log("[DEBUG - AV EFFECT] Cleanup: Removing event listeners.");
+            if (contentRef.current) { // Clean up only if attached
+                contentRef.current.removeEventListener("mouseup", handleMouseUp);
+            }
             document.removeEventListener("click", handleClickToDismiss);
         };
 
-    }, [popup.visible, contentRef, popupRef]); // Dependencies for this useEffect
+    }, [popup.visible, contentRef, popupRef, setPopup, setNewHighlightNote, setNewHighlightTags]);
 
     // MODIFIED: saveHighlight function to use new state variables and send note/tags
     const saveHighlight = async () => {
