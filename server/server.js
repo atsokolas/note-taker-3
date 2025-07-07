@@ -289,3 +289,67 @@ app.get('/', (req, res) => res.send('✅ Note Taker backend is running!'));
 
 // Start the server
 app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
+
+// server.js - ADDITIONS FOR UPDATING/DELETING SPECIFIC HIGHLIGHTS
+
+// PATCH /articles/:articleId/highlights/:highlightId: Update a specific highlight
+app.patch('/articles/:articleId/highlights/:highlightId', async (req, res) => {
+  try {
+      const { articleId, highlightId } = req.params;
+      const { note, tags } = req.body;
+
+      // Find the article
+      const article = await Article.findById(articleId);
+      if (!article) {
+          return res.status(404).json({ error: "Article not found." });
+      }
+
+      // Find the highlight within the article's highlights array
+      const highlight = article.highlights.id(highlightId);
+      if (!highlight) {
+          return res.status(404).json({ error: "Highlight not found in this article." });
+      }
+
+      // Update its properties
+      highlight.note = note !== undefined ? note : highlight.note;
+      highlight.tags = tags !== undefined ? tags : highlight.tags;
+
+      await article.save(); // Save the parent article document
+
+      // Re-fetch and populate to ensure correct response
+      const updatedArticle = await Article.findById(articleId).populate('folder'); // Populate folder if needed
+      res.status(200).json(updatedArticle);
+  } catch (error) {
+      console.error("❌ Error updating highlight:", error);
+      if (error.name === 'CastError') {
+          return res.status(400).json({ error: "Invalid ID format." });
+      }
+      res.status(500).json({ error: "Failed to update highlight.", details: error.message });
+  }
+});
+
+// DELETE /articles/:articleId/highlights/:highlightId: Delete a specific highlight
+app.delete('/articles/:articleId/highlights/:highlightId', async (req, res) => {
+  try {
+      const { articleId, highlightId } = req.params;
+
+      const article = await Article.findById(articleId);
+      if (!article) {
+          return res.status(404).json({ error: "Article not found." });
+      }
+
+      // Use Mongoose's .pull() method to remove the subdocument
+      article.highlights.pull(highlightId);
+      await article.save();
+
+      // Re-fetch and populate to ensure correct response
+      const updatedArticle = await Article.findById(articleId).populate('folder'); // Populate folder if needed
+      res.status(200).json(updatedArticle);
+  } catch (error) {
+      console.error("❌ Error deleting highlight:", error);
+      if (error.name === 'CastError') {
+          return res.status(400).json({ error: "Invalid ID format." });
+      }
+      res.status(500).json({ error: "Failed to delete highlight.", details: error.message });
+  }
+});
