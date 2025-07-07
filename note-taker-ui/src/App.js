@@ -1,10 +1,10 @@
-// note-taker-ui/src/App.js
+// note-taker-ui/src/App.js - UPDATED FOR ALWAYS VISIBLE ARTICLE LIST IN SIDEBAR
 
 import React, { useState } from 'react';
-import { BrowserRouter as Router, Routes, Route, NavLink } from 'react-router-dom'; // Import NavLink
+import { BrowserRouter as Router, Routes, Route, NavLink } from 'react-router-dom';
 import ArticleList from './components/ArticleList';
 import ArticleViewer from './components/ArticleViewer';
-import HighlightByTagList from './components/HighlightByTagList'; // Import new component
+import HighlightByTagList from './components/HighlightByTagList';
 import './App.css';
 
 const Welcome = () => <h2 className="welcome-message">Select an article to read</h2>;
@@ -24,25 +24,24 @@ function App() {
       <div className="app-container">
         <div className="sidebar">
           {/* Nav Links in Sidebar */}
-          <div className="sidebar-nav"> {/* New div for navigation links */}
+          <div className="sidebar-nav">
+            {/* The NavLink for "Your Library" can still exist for visual clarity/active state */}
             <NavLink to="/" className="sidebar-link" end>Your Library</NavLink>
+            {/* Link to Highlights by Tag, now as a main content view */}
             <NavLink to="/highlights-by-tag" className="sidebar-link">Highlights by Tag</NavLink>
           </div>
 
-          {/* Render ArticleList or HighlightByTagList based on route */}
-          <Routes>
-            <Route path="/" element={<ArticleList key={articleListKey} />} />
-            <Route path="/highlights-by-tag" element={<HighlightByTagList />} />
-            {/* ArticleViewer is still handled in the main content area */}
-            <Route path="/articles/:id" element={<div />} /> {/* Dummy route to prevent ArticleList from rendering */}
-          </Routes>
+          {/* ArticleList (Your Library) is now ALWAYS rendered in the sidebar */}
+          <ArticleList key={articleListKey} /> 
+          {/* Removed the <Routes> block from here */}
         </div>
 
-        {/* The Main Content area will change based on the URL */}
         <div className="content-viewer">
           <Routes>
             <Route path="/" element={<Welcome />} />
-            <Route path="/highlights-by-tag" element={<Welcome />} /> {/* Show welcome for highlights view too */}
+            {/* If on /highlights-by-tag, show the HighlightByTagList in the main content area */}
+            <Route path="/highlights-by-tag" element={<HighlightByTagList />} />
+            {/* When an article is selected, show the ArticleViewer */}
             <Route path="/articles/:id" element={<ArticleViewer onArticleChange={refreshArticleList} />} />
           </Routes>
         </div>
