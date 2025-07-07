@@ -1,34 +1,29 @@
-// note-taker-ui/src/components/ArticleViewer.js - THE ABSOLUTE FINAL, DEFINITIVE, COMPLETE, and CORRECTED VERSION
+// note-taker-ui/src/components/ArticleViewer.js - REVERT MOUSEUP TO DOCUMENT, REFINE DISMISSAL
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import axios from 'axios';
 import { useParams, useNavigate } from 'react-router-dom';
 
 const BASE_URL = "https://note-taker-3-unrg.onrender.com";
 
 const ArticleViewer = ({ onArticleChange }) => {
-    // --- ALL HOOKS AND STATE VARIABLES MUST BE DECLARED HERE AT THE TOP OF THE COMPONENT'S BODY ---
     const { id } = useParams();
     const navigate = useNavigate();
     const [article, setArticle] = useState(null);
     const [error, setError] = useState(null);
     const [popup, setPopup] = useState({ visible: false, x: 0, y: 0, text: '' });
-    const contentRef = useRef(null); // Ref for the main article content div
-    const popupRef = useRef(null);   // Ref for the highlight popup container
+    const contentRef = useRef(null);
+    const popupRef = useRef(null);
     const [folders, setFolders] = useState([]);
     
-    // State for highlight editing in the sidebar
     const [editingHighlightId, setEditingHighlightId] = useState(null);
     const [editNote, setEditNote] = useState('');
     const [editTags, setEditTags] = useState('');
 
-    // State for highlight CREATION POPUP on the web app
     const [newHighlightNote, setNewHighlightNote] = useState('');
     const [newHighlightTags, setNewHighlightTags] = useState('');
-    // --- END OF ALL HOOKS AND STATE VARIABLES ---
 
-
-    const fetchFolders = async () => {
+    const fetchFolders = useCallback(async () => {
         try {
             const response = await axios.get(`${BASE_URL}/folders`);
             const allFolders = [{ _id: 'uncategorized', name: 'Uncategorized' }, ...response.data];
@@ -36,14 +31,14 @@ const ArticleViewer = ({ onArticleChange }) => {
         } catch (err) {
             console.error("Error fetching folders for move dropdown:", err);
         }
-    };
+    }, []);
 
     // useEffect for fetching article data and applying visual highlights
     useEffect(() => {
         if (id) {
             setArticle(null);
             setError(null);
-            fetchFolders(); // This fetchFolders is defined above the useEffect, so it's in scope
+            fetchFolders();
 
             const fetchArticle = async () => {
                 try {
@@ -60,7 +55,6 @@ const ArticleViewer = ({ onArticleChange }) => {
                         }
                     });
                     
-                    // Apply highlights visually
                     (articleData.highlights || []).forEach(h => {
                         const highlightId = `highlight-${h._id}`; 
                         const escaped = h.text?.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
@@ -83,29 +77,32 @@ const ArticleViewer = ({ onArticleChange }) => {
             };
             fetchArticle();
         }
-    }, [id]); // Dependency on 'id'
+    }, [id, fetchFolders]);
 
-    // --- REVISED useEffect for handling mouse events (selection and popup dismissal) ---
+    // --- CRITICAL useEffect for handling mouse events (selection and popup dismissal) ---
     useEffect(() => {
         console.log("[DEBUG - AV EFFECT] Highlight listener useEffect started.");
 
-        const handleMouseUp = (event) => {
-            // Ensure event happened within contentRef and not already on the popup
+        const handleMouseUp = (event) => { // Keep event parameter here, needed for event.target
+            console.log("[DEBUG - AV] MouseUp detected inside handler.");
+            
+            // Only proceed if event target is within contentRef and not already on the popup
             if (!contentRef.current || !contentRef.current.contains(event.target) || event.target.closest('.highlight-popup-web-app-container')) {
-                return; // Not a valid selection event for the content area or it's inside the popup
+                console.log("[DEBUG - AV] MouseUp not on valid content area or inside popup, ignoring.");
+                return;
             }
 
             const selection = window.getSelection();
             const selectedText = selection?.toString().trim();
 
-            console.log("[DEBUG - AV] MouseUp detected inside handler.");
             console.log("[DEBUG - AV] Selected Text (inside handler):", `"${selectedText}"`, "Length:", selectedText.length);
             console.log("[DEBUG - AV] Selection Range Count (inside handler):", selection?.rangeCount);
 
             const isSelectionValid = selectedText && selectedText.length > 0 && selection.rangeCount > 0;
 
             if (isSelectionValid) {
-                if (!popup.visible) { // Only set popup to visible if it's currently hidden
+                // Only show popup if it's currently hidden
+                if (!popup.visible) {
                     console.log("[DEBUG - AV] All conditions met for highlight popup, SHOWING.");
                     const range = selection.getRangeAt(0);
                     const rect = range.getBoundingClientRect();
@@ -118,10 +115,14 @@ const ArticleViewer = ({ onArticleChange }) => {
                     setNewHighlightNote('');
                     setNewHighlightTags('');
                 } else {
-                    console.log("[DEBUG - AV] Popup already visible, not re-setting for new selection (re-selection).");
+                    console.log("[DEBUG - AV] Popup already visible (re-selection).");
+                    // If user selects new text while popup is open, update its text content.
+                    // This is optional, but improves UX.
+                    setPopup(prevPopup => ({ ...prevPopup, text: selectedText })); 
                 }
             } else {
-                if (popup.visible) { // Only set popup to hidden if it's currently visible
+                // Only hide popup if it's currently visible (prevents unnecessary renders)
+                if (popup.visible) {
                     console.log("[DEBUG - AV] Conditions NOT met for highlight popup, HIDING.");
                     setPopup({ visible: false, x: 0, y: 0, text: '' });
                 } else {
@@ -133,37 +134,42 @@ const ArticleViewer = ({ onArticleChange }) => {
         const handleClickToDismiss = (event) => {
             console.log("[DEBUG - AV] Click detected for dismissal.");
             // Check if popupRef.current exists before using it to avoid errors if popup not rendered yet
-            // Ensure click is outside the popupRef AND outside the contentRef (if no text is selected)
+            // Dismiss if popup is visible AND click is NOT inside the popup itself.
+            // Also, consider if click is on selected text within contentRef.
             const clickIsOutsidePopup = popupRef.current && !popupRef.current.contains(event.target);
-            const clickIsOutsideContent = contentRef.current && !contentRef.current.contains(event.target);
+            const clickIsOnContent = contentRef.current && contentRef.current.contains(event.target);
+            const selection = window.getSelection();
+            const hasActiveSelection = selection && selection.toString().trim().length > 0;
 
-            if (popup.visible && clickIsOutsidePopup && clickIsOutsideContent) {
-                console.log("[DEBUG - AV] Dismissing popup due to click outside both popup and content.");
+            if (popup.visible && clickIsOutsidePopup) {
+                if (clickIsOnContent && hasActiveSelection) {
+                    // This means a click happened inside the article content, AND text is currently selected.
+                    // This is likely part of user adjusting selection, so don't dismiss.
+                    console.log("[DEBUG - AV] Click inside content with active selection, not dismissing.");
+                    return;
+                }
+                // If click is outside popup, and not a new selection within content, then dismiss.
+                console.log("[DEBUG - AV] Dismissing popup.");
                 setPopup({ visible: false, x: 0, y: 0, text: '' });
             } else if (!popup.visible) {
                  console.log("[DEBUG - AV] Popup is not visible, click dismissal ignored.");
             }
         };
 
-        // Attach mouseup listener DIRECTLY to the contentRef.current div
-        // This is more precise than document.addEventListener for selections within a specific area.
-        if (contentRef.current) { // Ensure ref is available before attaching listener
-            contentRef.current.addEventListener("mouseup", handleMouseUp);
-        }
-        
-        // Attach global click listener for dismissing the popup.
+        // Attach mouseup for showing popup GLOBALLY
+        // This is necessary to reliably capture text selections across the document.
+        document.addEventListener("mouseup", handleMouseUp);
+        // Attach a global click listener for dismissing the popup.
         document.addEventListener("click", handleClickToDismiss);
 
         // Cleanup function for useEffect
         return () => {
             console.log("[DEBUG - AV EFFECT] Cleanup: Removing event listeners.");
-            if (contentRef.current) { // Clean up only if attached
-                contentRef.current.removeEventListener("mouseup", handleMouseUp);
-            }
+            document.removeEventListener("mouseup", handleMouseUp);
             document.removeEventListener("click", handleClickToDismiss);
         };
 
-    }, [popup.visible, contentRef, popupRef, setPopup, setNewHighlightNote, setNewHighlightTags]);
+    }, [popup.visible, contentRef, popupRef, setPopup, setNewHighlightNote, setNewHighlightTags]); // Ensure all setters and refs are dependencies
 
     // MODIFIED: saveHighlight function to use new state variables and send note/tags
     const saveHighlight = async () => {
