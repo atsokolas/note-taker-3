@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
+import logo from '../logo.png'; // <--- ADD THIS LINE: Import your logo image
 
 const BASE_URL = "https://note-taker-3-unrg.onrender.com"; // Ensure this matches your backend URL
 
@@ -42,6 +43,8 @@ const Login = () => {
 
     return (
         <div className="auth-container">
+            {/* ADD THIS LOGO ELEMENT */}
+            <img src={logo} alt="Note Taker Logo" className="auth-logo" /> 
             <h2>Login</h2>
             <form onSubmit={handleLogin} className="auth-form">
                 <div className="form-group">
