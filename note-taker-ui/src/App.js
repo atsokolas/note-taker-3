@@ -1,12 +1,13 @@
-// note-taker-ui/src/App.js - UPDATED FOR AUTH ROUTES
+// note-taker-ui/src/App.js - CORRECTED IMPORT FOR NAVIGATE
 
 import React, { useState } from 'react';
-import { BrowserRouter as Router, Routes, Route, NavLink, useNavigate } from 'react-router-dom'; // Import useNavigate
+// Add Navigate to the import list from 'react-router-dom'
+import { BrowserRouter as Router, Routes, Route, NavLink, useNavigate, Navigate } from 'react-router-dom'; 
 import ArticleList from './components/ArticleList';
 import ArticleViewer from './components/ArticleViewer';
 import HighlightByTagList from './components/HighlightByTagList';
-import Register from './components/Register'; // Import Register component
-import Login from './components/Login';       // Import Login component
+import Register from './components/Register';
+import Login from './components/Login';
 import './App.css';
 
 // A simple component for a welcome message when no article is selected
@@ -77,7 +78,7 @@ function App() {
           </>
         ) : (
           // If not authenticated, only show login/register routes
-          <div className="auth-pages-container"> {/* New container for auth pages */}
+          <div className="auth-pages-container">
             <Routes>
               <Route path="/register" element={<Register />} />
               <Route path="/login" element={<Login />} />
