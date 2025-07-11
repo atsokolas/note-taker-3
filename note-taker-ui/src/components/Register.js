@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
-import logo from '../logo.png'; // <--- ADD THIS LINE: Import your logo image
+import logo from '../Logo.png'; // <--- ADD THIS LINE: Import your logo image
 
 const BASE_URL = "https://note-taker-3-unrg.onrender.com"; // Ensure this matches your backend URL
 
