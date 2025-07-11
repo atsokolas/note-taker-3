@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
-import logo from '../Logo.png'; // <--- ADD THIS LINE: Import your logo image
+// The 'logo' import is REMOVED because the image is now in the public folder.
 
 const BASE_URL = "https://note-taker-3-unrg.onrender.com"; // Ensure this matches your backend URL
 
@@ -37,8 +37,8 @@ const Register = () => {
 
     return (
         <div className="auth-container">
-            {/* ADD THIS LOGO ELEMENT */}
-            <img src={logo} alt="Note Taker Logo" className="auth-logo" />
+            {/* Referencing the logo directly from the public folder's root */}
+            <img src="/Logo.png" alt="Note Taker Logo" className="auth-logo" />
             <h2>Register</h2>
             <form onSubmit={handleRegister} className="auth-form">
                 <div className="form-group">
