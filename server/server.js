@@ -19,25 +19,9 @@ const allowedOrigins = [
   process.env.CHROME_EXTENSION_ID || 'chrome-extension://YOUR_EXTENSION_ID_HERE_IN_DEV_IF_NEEDED_BUT_GET_IT_FROM_ENV',
 ];
 
-app.use(cors({
-  origin: function (origin, callback) {
-    // --- START: Add this for debugging ---
-    console.log("--- CORS CHECK ---");
-    console.log("Request Origin:", origin);
-    console.log("Allowed Origins on Server:", allowedOrigins);
-    const isAllowed = !origin || allowedOrigins.includes(origin);
-    console.log("Is Origin Allowed?:", isAllowed);
-    // --- END: Debugging code ---
+// ADD THIS LINE IN ITS PLACE
+app.use(cors({ origin: '*' }));
 
-    if (isAllowed) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
-  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
-  credentials: true
-}));
 
 app.use(express.json({ limit: '5mb' }));
 
