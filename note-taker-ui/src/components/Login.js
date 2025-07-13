@@ -18,12 +18,13 @@ const Login = () => {
         setIsError(false);
 
         try {
-            // Use the correct login endpoint and payload
             const response = await axios.post(`${BASE_URL}/api/auth/login`, { username, password });
 
-            // On success, store the token and reload the page to update the UI
-            localStorage.setItem('token', response.data.token);
-            window.location.href = '/'; // Redirect and force refresh to apply protected routes
+            // --- FIX: Use chrome.storage.local for persistent login ---
+            chrome.storage.local.set({ token: response.data.token }, () => {
+                console.log('Token saved to chrome.storage');
+                window.location.href = '/'; // Redirect and force refresh
+            });
 
         } catch (error) {
             console.error('Login error:', error.response?.data || error.message);
