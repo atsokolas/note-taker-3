@@ -1,35 +1,33 @@
-// src/components/Register.js
+// src/components/Login.js
 import React, { useState } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
-// The 'logo' import is REMOVED because the image is now in the public folder.
 
-const BASE_URL = "https://note-taker-3-unrg.onrender.com"; // Ensure this matches your backend URL
+const BASE_URL = "https://note-taker-3-unrg.onrender.com";
 
-const Register = () => {
-    const [email, setEmail] = useState('');
+const Login = () => {
+    const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [message, setMessage] = useState('');
     const [isError, setIsError] = useState(false);
     const navigate = useNavigate();
 
-    const handleRegister = async (e) => {
+    const handleLogin = async (e) => {
         e.preventDefault();
-        setMessage(''); // Clear previous messages
-        setIsError(false); // Reset error state
+        setMessage('');
+        setIsError(false);
 
         try {
-            const response = await axios.post(`${BASE_URL}/register`, { email, password });
-            setMessage('Registration successful! You can now log in.');
-            setIsError(false);
-            console.log('Registration success:', response.data);
-            // Optionally redirect to login page after successful registration
-            setTimeout(() => {
-                navigate('/login');
-            }, 2000); // Redirect after 2 seconds
+            // Use the correct login endpoint and payload
+            const response = await axios.post(`${BASE_URL}/api/auth/login`, { username, password });
+
+            // On success, store the token and reload the page to update the UI
+            localStorage.setItem('token', response.data.token);
+            window.location.href = '/'; // Redirect and force refresh to apply protected routes
+
         } catch (error) {
-            console.error('Registration error:', error.response?.data || error.message);
-            const errorMessage = error.response?.data?.error || 'Registration failed. Please try again.';
+            console.error('Login error:', error.response?.data || error.message);
+            const errorMessage = error.response?.data?.error || 'Login failed. Please check your credentials.';
             setMessage(errorMessage);
             setIsError(true);
         }
@@ -37,18 +35,18 @@ const Register = () => {
 
     return (
         <div className="auth-container">
-            {/* Referencing the logo directly from the public folder's root */}
             <img src="/Logo.png" alt="Note Taker Logo" className="auth-logo" />
-            <h2>Register</h2>
-            <form onSubmit={handleRegister} className="auth-form">
+            <h2>Login</h2>
+            <form onSubmit={handleLogin} className="auth-form">
                 <div className="form-group">
-                    <label htmlFor="email">Email:</label>
+                    <label htmlFor="username">Username:</label>
                     <input
-                        type="email"
-                        id="email"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
+                        type="text"
+                        id="username"
+                        value={username}
+                        onChange={(e) => setUsername(e.target.value)}
                         required
+                        autoComplete="username"
                     />
                 </div>
                 <div className="form-group">
@@ -59,9 +57,10 @@ const Register = () => {
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
                         required
+                        autoComplete="current-password"
                     />
                 </div>
-                <button type="submit" className="auth-button">Register</button>
+                <button type="submit" className="auth-button">Login</button>
             </form>
             {message && (
                 <p className={`status-message ${isError ? 'error-message' : 'success-message'}`}>
@@ -69,10 +68,10 @@ const Register = () => {
                 </p>
             )}
             <p className="auth-link">
-                Already have an account? <a onClick={() => navigate('/login')}>Login here</a>
+                Don't have an account? <a onClick={() => navigate('/register')}>Register here</a>
             </p>
         </div>
     );
 };
 
-export default Register;
+export default Login;
