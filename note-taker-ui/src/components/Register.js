@@ -7,7 +7,7 @@ import { useNavigate } from 'react-router-dom';
 const BASE_URL = "https://note-taker-3-unrg.onrender.com";
 
 const Register = () => {
-    // --- CHANGE: Use 'username' instead of 'email' ---
+    // --- FIX: Use 'username' state to match the backend requirement ---
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [message, setMessage] = useState('');
@@ -20,15 +20,14 @@ const Register = () => {
         setIsError(false);
 
         try {
-            // --- FIX: Correct the API endpoint and send 'username' ---
+            // --- FIX: Correct the API endpoint and send 'username' in the body ---
             const response = await axios.post(`${BASE_URL}/api/auth/register`, { username, password });
             
             setMessage('Registration successful! You can now log in.');
             setIsError(false);
-            console.log('Registration success:', response.data);
-
+            
             setTimeout(() => {
-                navigate('/login'); // Redirect to login after 2 seconds
+                navigate('/login');
             }, 2000);
         } catch (error) {
             console.error('Registration error:', error.response?.data || error.message);
@@ -44,7 +43,7 @@ const Register = () => {
             <h2>Register</h2>
             <form onSubmit={handleRegister} className="auth-form">
                 <div className="form-group">
-                    {/* --- CHANGE: Label and input now for username --- */}
+                    {/* --- FIX: Change label and input to handle username --- */}
                     <label htmlFor="username">Username:</label>
                     <input
                         type="text"
