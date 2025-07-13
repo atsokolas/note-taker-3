@@ -2,12 +2,13 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
-// The 'logo' import is REMOVED because the image is now in the public folder.
 
-const BASE_URL = "https://note-taker-3-unrg.onrender.com"; // Ensure this matches your backend URL
+// Ensure this matches your backend URL
+const BASE_URL = "https://note-taker-3-unrg.onrender.com";
 
 const Register = () => {
-    const [email, setEmail] = useState('');
+    // --- CHANGE: Use 'username' instead of 'email' ---
+    const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [message, setMessage] = useState('');
     const [isError, setIsError] = useState(false);
@@ -15,18 +16,20 @@ const Register = () => {
 
     const handleRegister = async (e) => {
         e.preventDefault();
-        setMessage(''); // Clear previous messages
-        setIsError(false); // Reset error state
+        setMessage('');
+        setIsError(false);
 
         try {
-            const response = await axios.post(`${BASE_URL}/register`, { email, password });
+            // --- FIX: Correct the API endpoint and send 'username' ---
+            const response = await axios.post(`${BASE_URL}/api/auth/register`, { username, password });
+            
             setMessage('Registration successful! You can now log in.');
             setIsError(false);
             console.log('Registration success:', response.data);
-            // Optionally redirect to login page after successful registration
+
             setTimeout(() => {
-                navigate('/login');
-            }, 2000); // Redirect after 2 seconds
+                navigate('/login'); // Redirect to login after 2 seconds
+            }, 2000);
         } catch (error) {
             console.error('Registration error:', error.response?.data || error.message);
             const errorMessage = error.response?.data?.error || 'Registration failed. Please try again.';
@@ -37,18 +40,19 @@ const Register = () => {
 
     return (
         <div className="auth-container">
-            {/* Referencing the logo directly from the public folder's root */}
             <img src="/Logo.png" alt="Note Taker Logo" className="auth-logo" />
             <h2>Register</h2>
             <form onSubmit={handleRegister} className="auth-form">
                 <div className="form-group">
-                    <label htmlFor="email">Email:</label>
+                    {/* --- CHANGE: Label and input now for username --- */}
+                    <label htmlFor="username">Username:</label>
                     <input
-                        type="email"
-                        id="email"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
+                        type="text"
+                        id="username"
+                        value={username}
+                        onChange={(e) => setUsername(e.target.value)}
                         required
+                        autoComplete="username"
                     />
                 </div>
                 <div className="form-group">
@@ -59,6 +63,7 @@ const Register = () => {
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
                         required
+                        autoComplete="new-password"
                     />
                 </div>
                 <button type="submit" className="auth-button">Register</button>
