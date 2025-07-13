@@ -18,19 +18,17 @@
   --border-radius: 8px; /* Consistent rounded corners */
 }
 
-body {
-  margin: 0;
-  font-family: 'SF Pro Text', 'Helvetica Neue', 'Segoe UI', sans-serif;
+/* GLOBAL STYLES FOR HTML, BODY, AND #ROOT - ONLY PLACE FOR THESE */
+html, body, #root {
+  height: 100%; /* Make sure they fill the entire viewport */
+  margin: 0; /* Remove default body margin */
+  font-family: 'SF Pro Text', 'Helvetica Neue', 'Segoe UI', sans-serif; /* Your desired font */
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background-color: var(--bg-color);
-  color: var(--text-color);
+  background-color: var(--bg-color); /* THIS IS THE CRUCIAL BACKGROUND COLOR */
+  color: var(--text-color); /* THIS IS THE CRUCIAL BASE TEXT COLOR */
   line-height: 1.6;
-}
-
-/* Ensure root and html/body take full height */
-#root, html, body {
-  height: 100%;
+  box-sizing: border-box; /* Good practice for consistent sizing */
 }
 
 .app-container {
@@ -511,26 +509,26 @@ body {
 /* This is the container for inputs and save button when selecting text on the web app */
 .highlight-popup-web-app-container {
     /* Positioning handled by inline styles in JS */
-    position: absolute; 
-    z-index: 1000;     
+    position: absolute;
+    z-index: 1000;
 
-    background: #ffffff; 
-    border: 1px solid var(--border-color); 
-    border-radius: var(--border-radius); 
-    box-shadow: var(--box-shadow-light); 
-    
+    background: #ffffff;
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+    box-shadow: var(--box-shadow-light);
+
     display: flex;
-    flex-direction: column; 
-    gap: 8px; 
-    padding: 12px 15px; 
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px 15px;
 
     font-family: 'SF Pro Text', 'Helvetica Neue', 'Segoe UI', sans-serif;
     font-size: 14px;
     color: var(--text-color);
-    width: 250px; 
+    width: 250px;
     box-sizing: border-box;
-    
-    animation: fadeIn 0.15s ease-out forwards; 
+
+    animation: fadeIn 0.15s ease-out forwards;
 }
 
 @keyframes fadeIn {
@@ -576,7 +574,7 @@ body {
     font-weight: 600;
     font-size: 14px;
     transition: background-color 0.2s ease, transform 0.1s ease, box-shadow 0.2s ease;
-    
+
     display: flex;
     align-items: center;
     justify-content: center;
@@ -597,8 +595,8 @@ body {
 }
 
 /* Styles for the SVG icon within the popup's save button */
-.highlight-popup-save-button .highlight-icon { 
-    width: 18px; 
+.highlight-popup-save-button .highlight-icon {
+    width: 18px;
     height: 18px;
     stroke: currentColor;
     stroke-width: 2;
@@ -812,6 +810,13 @@ body {
     box-sizing: border-box;
 }
 
+.auth-logo { /* Added this style for the logo */
+    max-width: 150px; /* Adjust as needed */
+    height: auto;
+    margin-bottom: 30px; /* Space between logo and title */
+    display: block; /* Ensure it behaves as a block element for margin */
+}
+
 .auth-container h2 {
     color: var(--text-color);
     margin-bottom: 30px;
@@ -920,4 +925,3 @@ body {
     width: 100%;
     /* No flex-grow: 1 here because app-container already defines flex */
 }
-
