@@ -12,14 +12,21 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// 2. Update CORS to allow credentials (cookies) to be sent from specific origins
+// New, safer code
+const allowedOrigins = [
+  'https://note-taker-3-unrg.onrender.com' // Your Web App's URL
+];
+
+// Only add the extension ID to the list if it actually exists
+if (process.env.CHROME_EXTENSION_ID) {
+  allowedOrigins.push(process.env.CHROME_EXTENSION_ID);
+}
+
 app.use(cors({
-  origin: [
-    'https://note-taker-3-unrg.onrender.com', // Your Web App's URL
-    process.env.CHROME_EXTENSION_ID // Your Extension's Origin from Render ENV VARS
-  ],
+  origin: allowedOrigins,
   credentials: true
 }));
+
 
 app.use(express.json({ limit: '5mb' }));
 app.use(cookieParser()); // 3. Use the cookie-parser middleware
