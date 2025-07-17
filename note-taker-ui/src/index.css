@@ -1,0 +1,7 @@
+/* src/index.css - CORRECTED */
+
+/* This file should only contain specific global resets, not body styling */
+code {
+  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
+    monospace;
+}
