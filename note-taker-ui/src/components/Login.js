@@ -1,4 +1,3 @@
-// src/components/Login.js
 /* global chrome */
 import React, { useState } from 'react';
 import axios from 'axios';
@@ -6,40 +5,33 @@ import { useNavigate } from 'react-router-dom';
 
 const BASE_URL = "https://note-taker-3-unrg.onrender.com";
 
-const Login = () => {
+const Login = ({ onLoginSuccess }) => {
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [message, setMessage] = useState('');
-    const [isError, setIsError] = useState(false);
     const navigate = useNavigate();
 
     const handleLogin = async (e) => {
         e.preventDefault();
         setMessage('');
-        setIsError(false);
-
         try {
-            const response = await axios.post(`${BASE_URL}/api/auth/login`, { username, password });
-
-            // --- FIX: Use chrome.storage.local for persistent login ---
-            chrome.storage.local.set({ token: response.data.token }, () => {
-                console.log('Token saved to chrome.storage');
-                window.location.href = '/'; // Redirect and force refresh
-            });
+            // 'withCredentials: true' tells the browser to handle the auth cookie
+            await axios.post(`${BASE_URL}/api/auth/login`, { username, password }, { withCredentials: true });
+            
+            // This function updates the main app's state to show the logged-in view
+            onLoginSuccess();
 
         } catch (error) {
-            console.error('Login error:', error.response?.data || error.message);
-            const errorMessage = error.response?.data?.error || 'Login failed. Please check your credentials.';
-            setMessage(errorMessage);
-            setIsError(true);
+            setMessage('Login failed. Please check your credentials.');
+            console.error("Login Error:", error);
         }
     };
 
     return (
         <div className="auth-container">
-            <img src="/Logo.png" alt="Note Taker Logo" className="auth-logo" />
             <h2>Login</h2>
             <form onSubmit={handleLogin} className="auth-form">
+                {/* --- The missing form fields are now restored --- */}
                 <div className="form-group">
                     <label htmlFor="username">Username:</label>
                     <input
@@ -64,11 +56,7 @@ const Login = () => {
                 </div>
                 <button type="submit" className="auth-button">Login</button>
             </form>
-            {message && (
-                <p className={`status-message ${isError ? 'error-message' : 'success-message'}`}>
-                    {message}
-                </p>
-            )}
+            {message && <p className="status-message error-message">{message}</p>}
             <p className="auth-link">
                 Don't have an account? <a onClick={() => navigate('/register')}>Register here</a>
             </p>

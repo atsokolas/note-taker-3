@@ -1,33 +1,60 @@
-// popup.js - UPDATED WITH FOLDER LOGIC AND ENHANCED ERROR HANDLING FOR COMMUNICATION
-
+/* global chrome */
 document.addEventListener("DOMContentLoaded", () => {
-    // Get all the new UI elements
+    // Get all UI elements from popup.html
+    const saveArticleContainer = document.getElementById("saveArticleContainer");
+    const loginContainer = document.getElementById("loginContainer");
+    const loginButton = document.getElementById("loginButton");
     const saveButton = document.getElementById("saveArticleButton");
     const statusMessage = document.getElementById("statusMessage");
     const folderSelect = document.getElementById("folderSelect");
     const newFolderNameInput = document.getElementById("newFolderName");
     const createFolderButton = document.getElementById("createFolderButton");
 
+    // Define constants
     const BASE_URL = "https://note-taker-3-unrg.onrender.com";
+    const WEB_LOGIN_URL = "https://note-taker-3-unrg.onrender.com/login";
 
-    // --- NEW: Function to fetch folders from the API ---
+    // --- NEW: Functions to show the correct view ---
+    const showLoginView = () => {
+        saveArticleContainer.classList.add('hidden');
+        loginContainer.classList.remove('hidden');
+    };
+
+    const showSaveArticleView = () => {
+        loginContainer.classList.add('hidden');
+        saveArticleContainer.classList.remove('hidden');
+    };
+
+    // --- UPDATED: This function now checks for authentication ---
     const fetchFolders = async () => {
         try {
-            const response = await fetch(`${BASE_URL}/folders`);
-            if (!response.ok) throw new Error("Failed to fetch folders");
+            // Add 'credentials: include' to send the auth cookie with the request
+            const response = await fetch(`${BASE_URL}/folders`, { credentials: 'include' });
+
+            // If status is 401, the user is not logged in
+            if (response.status === 401) {
+                showLoginView();
+                return; // Stop execution
+            }
+
+            if (!response.ok) {
+                throw new Error("Failed to fetch folders");
+            }
+
+            // If successful, show the main UI and populate data
+            showSaveArticleView();
             const folders = await response.json();
             populateFoldersDropdown(folders);
+
         } catch (error) {
             statusMessage.textContent = error.message;
             statusMessage.className = 'status error';
-            console.error("[ERROR - Popup.js] Failed to fetch folders:", error); // Added debug log
+            console.error("[ERROR] Failed to fetch folders:", error);
         }
     };
 
-    // --- NEW: Function to add folders to the dropdown menu ---
     const populateFoldersDropdown = (folders) => {
-        // Clear existing options first to prevent duplicates on re-fetch
-        folderSelect.innerHTML = '<option value="">Uncategorized</option>'; 
+        folderSelect.innerHTML = '<option value="">Uncategorized</option>';
         folders.forEach(folder => {
             const option = document.createElement("option");
             option.value = folder._id;
@@ -36,7 +63,13 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     };
 
-    // --- NEW: Logic for the "Create Folder" button ---
+    // --- NEW: Event listener for the login button ---
+    loginButton.addEventListener('click', () => {
+        chrome.tabs.create({ url: WEB_LOGIN_URL });
+        window.close(); // Close the popup after opening the tab
+    });
+
+    // --- UPDATED: Logic for the "Create Folder" button ---
     createFolderButton.addEventListener("click", async () => {
         const folderName = newFolderNameInput.value.trim();
         if (!folderName) {
@@ -44,97 +77,76 @@ document.addEventListener("DOMContentLoaded", () => {
             return;
         }
         try {
+            // Add 'credentials: include' to this fetch call as well
             const response = await fetch(`${BASE_URL}/folders`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name: folderName })
+                body: JSON.stringify({ name: folderName }),
+                credentials: 'include' // Important for authentication
             });
             if (!response.ok) {
-                 const errorData = await response.json();
-                 throw new Error(errorData.error || "Failed to create folder.");
+                const errorData = await response.json();
+                throw new Error(errorData.error || "Failed to create folder.");
             }
             const newFolder = await response.json();
-            
-            // Add the new folder to the dropdown and select it
+
             const option = document.createElement("option");
             option.value = newFolder._id;
             option.textContent = newFolder.name;
             folderSelect.appendChild(option);
-            folderSelect.value = newFolder._id; // Select the newly created folder
+            folderSelect.value = newFolder._id;
 
-            newFolderNameInput.value = ""; // Clear the input field
-            statusMessage.textContent = `Folder "${newFolder.name}" created!`; // More descriptive status
+            newFolderNameInput.value = "";
+            statusMessage.textContent = `Folder "${newFolder.name}" created!`;
             statusMessage.className = 'status success';
         } catch (error) {
             alert(error.message);
             statusMessage.textContent = error.message;
             statusMessage.className = 'status error';
-            console.error("[ERROR - Popup.js] Failed to create folder:", error); // Added debug log
+            console.error("[ERROR] Failed to create folder:", error);
         }
     });
 
-    // --- UPDATED: The "Save Article" button logic ---
+    // --- The "Save Article" button logic (no changes needed here) ---
     saveButton.addEventListener("click", async () => {
         statusMessage.textContent = "Parsing article...";
         statusMessage.className = 'status';
-        console.log("[DEBUG - Popup.js] Save button clicked, initiating parsing."); // Added debug log
-        
+
         try {
             const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-            
-            // Check if the tab.id is valid
             if (!tab || typeof tab.id === 'undefined') {
-                throw new Error("No active tab found or tab ID is undefined.");
+                throw new Error("No active tab found.");
             }
 
-            console.log(`[DEBUG - Popup.js] Sending 'getCleanArticle' message to tab ID: ${tab.id}`);
             const articleResponse = await chrome.tabs.sendMessage(tab.id, { action: "getCleanArticle" });
-            
-            // Handle potential errors or missing response from content script
             if (!articleResponse || articleResponse.error) {
-                throw new Error(articleResponse?.error || "Content script failed to return article data.");
+                throw new Error(articleResponse?.error || "Failed to parse article data.");
             }
-            console.log("[DEBUG - Popup.js] Article data received from content script:", articleResponse.article.title);
-            
+
             statusMessage.textContent = "Saving article...";
-            
-            const selectedFolderId = folderSelect.value;
-            
             const messagePayload = {
                 action: "capture",
                 tabId: tab.id,
                 title: articleResponse.article.title,
                 url: tab.url,
                 content: articleResponse.article.content,
-                folderId: selectedFolderId
+                folderId: folderSelect.value
             };
-            console.log("[DEBUG - Popup.js] Sending 'capture' message to background:", messagePayload);
 
-            // Using a try-catch around sendMessage as it can throw directly if no listener is present
-            let backgroundResponse;
-            try {
-                 backgroundResponse = await chrome.runtime.sendMessage(messagePayload);
-            } catch (sendMessageError) {
-                if (sendMessageError.message.includes("Receiving end does not exist")) {
-                    throw new Error("Extension background service is not active or crashed. Please try reloading the extension in chrome://extensions/.");
-                }
-                throw sendMessageError; // Re-throw other errors
-            }
-
+            const backgroundResponse = await chrome.runtime.sendMessage(messagePayload);
             if (!backgroundResponse || !backgroundResponse.success) {
-                throw new Error(backgroundResponse?.error || "Failed to save article: Background service did not respond or indicated failure.");
+                throw new Error(backgroundResponse?.error || "Failed to save article.");
             }
 
             statusMessage.textContent = "Article Saved!";
             statusMessage.className = 'status success';
-            console.log("[DEBUG - Popup.js] Article saved successfully by background service.");
         } catch (error) {
             statusMessage.textContent = error.message;
             statusMessage.className = 'status error';
-            console.error("[ERROR - Popup.js] Error saving article:", error); // Added debug log
+            console.error("[ERROR] Error saving article:", error);
         }
     });
 
-    // --- Load folders when the popup is opened ---
+    // --- Initial check to see if user is logged in when popup opens ---
     fetchFolders();
 });

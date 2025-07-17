@@ -24,6 +24,11 @@ body {
     margin-bottom: 12px;
 }
 
+/* Add this class to your existing CSS file */
+.hidden {
+    display: none;
+}
+
 /* NEW: Styling for the text label above the dropdown */
 .form-group label {
     display: block;

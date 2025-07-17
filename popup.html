@@ -1,12 +1,12 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
+    <meta charset="UTF--8">
     <title>Article Saver</title>
     <link rel="stylesheet" href="popup.css">
 </head>
 <body>
-    <div class="container">
+    <div id="saveArticleContainer" class="container">
         <h1 class="title">Save Article</h1>
         
         <div class="form-group">
@@ -24,6 +24,13 @@
         <button id="saveArticleButton">Save Article</button>
         <div id="statusMessage"></div>
     </div>
+
+    <div id="loginContainer" class="container hidden">
+        <h1 class="title">Please Login</h1>
+        <p>You need to log in on our website to save articles.</p>
+        <button id="loginButton">Open Login Page</button>
+    </div>
+
     <script src="popup.js"></script>
 </body>
 </html>
