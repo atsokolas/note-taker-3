@@ -18,7 +18,7 @@ const allowedOrigins = [
   process.env.CHROME_EXTENSION_ID // Your Extension's Origin
 ];
 
-// Temporarily allow all origins to confirm functionality
+// Temporarily allow all origins to confirm functiona
 app.use(cors({
   origin: (origin, callback) => callback(null, true),
   credentials: true
