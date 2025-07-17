@@ -18,23 +18,9 @@ const allowedOrigins = [
   process.env.CHROME_EXTENSION_ID // Your Extension's Origin
 ];
 
-<<<<<<< HEAD
 // Temporarily allow all origins to confirm functiona
 app.use(cors({
   origin: (origin, callback) => callback(null, true),
-=======
-// This is the updated, more robust CORS configuration
-app.use(cors({
-  origin: function (origin, callback) {
-    // Allow requests with no origin (like server-to-server or same-origin requests)
-    // or if the origin is in our allowed list.
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
->>>>>>> f87237e1b941438a4442252773e5c27ca419b9ad
   credentials: true
 }));
 
