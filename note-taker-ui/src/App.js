@@ -1,7 +1,8 @@
-// note-taker-ui/src/App.js
-/* global chrome */
 import React, { useState, useEffect } from 'react';
+// Use BrowserRouter for the web app, but this is handled by the build.
+// The MemoryRouter in the old extension code is not needed here.
 import { BrowserRouter as Router, Routes, Route, NavLink, Navigate } from 'react-router-dom';
+import axios from 'axios';
 import ArticleList from './components/ArticleList';
 import ArticleViewer from './components/ArticleViewer';
 import HighlightByTagList from './components/HighlightByTagList';
@@ -9,19 +10,11 @@ import Register from './components/Register';
 import Login from './components/Login';
 import './App.css';
 
-// A simple component for a welcome message when no article is selected
+const BASE_URL = "https://note-taker-3-unrg.onrender.com";
+
 const Welcome = () => <h2 className="welcome-message">Select an article to read</h2>;
 
-// --- FIX: This component is now passed the authentication status directly ---
-const PrivateRoute = ({ isAuthenticated, children }) => {
-  if (!isAuthenticated) {
-    // Redirect them to the login page
-    return <Navigate to="/login" replace />;
-  }
-  return children;
-};
-
-// --- This new component contains your main app layout for when a user is logged in ---
+// This component contains your main app layout for when a user is logged in
 const MainAppLayout = ({ onLogout, onArticleChange }) => (
   <>
     <div className="sidebar">
@@ -35,13 +28,11 @@ const MainAppLayout = ({ onLogout, onArticleChange }) => (
       </div>
       <ArticleList key={onArticleChange} />
     </div>
-
     <div className="content-viewer">
       <Routes>
         <Route path="/" element={<Welcome />} />
         <Route path="/highlights-by-tag" element={<HighlightByTagList />} />
         <Route path="/articles/:id" element={<ArticleViewer onArticleChange={onArticleChange} />} />
-        {/* If any other path is hit while logged in, redirect to home */}
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
     </div>
@@ -50,29 +41,41 @@ const MainAppLayout = ({ onLogout, onArticleChange }) => (
 
 function App() {
   const [articleListKey, setArticleListKey] = useState(0);
-  // --- FIX: Manage authentication state properly ---
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
-  // --- FIX: Check chrome.storage when the app starts ---
+  // When the app starts, verify the user's session with the server
   useEffect(() => {
-    chrome.storage.local.get(['token'], function(result) {
-      if (result.token) {
+    const verifyAuth = async () => {
+      try {
+        // We can ping any protected route. If it succeeds, the user is logged in.
+        await axios.get(`${BASE_URL}/folders`, { withCredentials: true });
         setIsAuthenticated(true);
+      } catch (error) {
+        // If it fails (e.g., 401 Unauthorized), the user is not logged in.
+        setIsAuthenticated(false);
+      } finally {
+        setIsLoading(false);
       }
-      setIsLoading(false);
-    });
+    };
+    verifyAuth();
   }, []);
 
   const refreshArticleList = () => {
     setArticleListKey(prevKey => prevKey + 1);
   };
+  
+  const handleLoginSuccess = () => {
+    setIsAuthenticated(true);
+  };
 
-  // --- FIX: Update logout to use chrome.storage ---
-  const handleLogout = () => {
-    chrome.storage.local.remove('token', () => {
-      setIsAuthenticated(false);
-    });
+  const handleLogout = async () => {
+    try {
+      await axios.post(`${BASE_URL}/api/auth/logout`, {}, { withCredentials: true });
+    } catch (error) {
+      console.error("Logout failed", error);
+    }
+    setIsAuthenticated(false);
   };
 
   if (isLoading) {
@@ -82,25 +85,20 @@ function App() {
   return (
     <Router>
       <div className="app-container">
-        <Routes>
-          {/* Public routes that are always available */}
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
-          
-          {/* Protected routes are wrapped in the PrivateRoute component */}
-          <Route 
-            path="/*" 
-            element={
-              <PrivateRoute isAuthenticated={isAuthenticated}>
-                <MainAppLayout onLogout={handleLogout} onArticleChange={refreshArticleList} />
-              </PrivateRoute>
-            } 
-          />
-        </Routes>
+        {isAuthenticated ? (
+          <MainAppLayout onLogout={handleLogout} onArticleChange={refreshArticleList} />
+        ) : (
+          <div className="auth-pages-container">
+            <Routes>
+              <Route path="/register" element={<Register />} />
+              <Route path="/login" element={<Login onLoginSuccess={handleLoginSuccess} />} />
+              <Route path="*" element={<Navigate to="/login" />} />
+            </Routes>
+          </div>
+        )}
       </div>
     </Router>
   );
 }
 
 export default App;
-
