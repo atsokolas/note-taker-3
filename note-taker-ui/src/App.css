@@ -18,25 +18,26 @@
   --border-radius: 8px; /* Consistent rounded corners */
 }
 
-/* GLOBAL STYLES FOR HTML, BODY, AND #ROOT - ONLY PLACE FOR THESE */
-html, body, #root {
-  height: 100%; /* Make sure they fill the entire viewport */
-  margin: 0; /* Remove default body margin */
-  font-family: 'SF Pro Text', 'Helvetica Neue', 'Segoe UI', sans-serif; /* Your desired font */
+/* GLOBAL STYLES FOR POPUP */
+body {
+  /* This sets a fixed width for the popup window */
+  width: 350px; 
+  
+  /* These are your original font and color styles */
+  margin: 0;
+  font-family: 'SF Pro Text', 'Helvetica Neue', 'Segoe UI', sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background-color: var(--bg-color); /* THIS IS THE CRUCIAL BACKGROUND COLOR */
-  color: var(--text-color); /* THIS IS THE CRUCIAL BASE TEXT COLOR */
+  background-color: var(--bg-color);
+  color: var(--text-color);
   line-height: 1.6;
-  box-sizing: border-box; /* Good practice for consistent sizing */
 }
 
 .app-container {
-  display: flex;
-  height: 100vh;
-  overflow: hidden;
-  width: 100%; /* Ensure it takes full width, especially for auth pages */
+  /* This ensures the app fills the width of the popup */
+  width: 100%; 
 }
+
 
 /* ----------------------------------- */
 /* Sidebar (Left Panel) Styles */
