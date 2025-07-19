@@ -960,37 +960,37 @@ html, body, #root {
   background-color: var(--primary-color-dark);
 }
 
-
 /* --- EXTENSION POPUP OVERRIDES --- */
 /* These rules ONLY apply when the app is loaded as an extension */
 body.extension-mode {
   width: 350px;
-  height: auto;
+  height: auto; /* Let the height be determined by the content */
 }
 
 body.extension-mode .app-container {
-  height: auto;
-  display: block;
+  height: auto; /* Override the 100vh for the popup */
+  display: block; /* The flex layout is not needed */
 }
 
-/* New styles for the simplified popup layout */
+body.extension-mode .auth-pages-container {
+  min-height: auto; /* Override min-height for the login form in the popup */
+}
+
+/* Styles for the simplified popup layout */
 .popup-container {
   padding: 15px;
 }
-
 .popup-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-bottom: 10px;
 }
-
 .popup-header h2 {
   font-size: 1.4em;
   font-weight: 700;
   margin: 0;
 }
-
 .popup-divider {
   border: none;
   border-top: 1px solid #eee;
