@@ -959,3 +959,40 @@ html, body, #root {
 .save-article-main-button:hover {
   background-color: var(--primary-color-dark);
 }
+
+
+/* --- EXTENSION POPUP OVERRIDES --- */
+/* These rules ONLY apply when the app is loaded as an extension */
+body.extension-mode {
+  width: 350px;
+  height: auto;
+}
+
+body.extension-mode .app-container {
+  height: auto;
+  display: block;
+}
+
+/* New styles for the simplified popup layout */
+.popup-container {
+  padding: 15px;
+}
+
+.popup-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.popup-header h2 {
+  font-size: 1.4em;
+  font-weight: 700;
+  margin: 0;
+}
+
+.popup-divider {
+  border: none;
+  border-top: 1px solid #eee;
+  margin: 0 0 15px 0;
+}
