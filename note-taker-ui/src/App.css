@@ -18,12 +18,9 @@
   --border-radius: 8px; /* Consistent rounded corners */
 }
 
-/* GLOBAL STYLES FOR POPUP */
-body {
-  /* This sets a fixed width for the popup window */
-  width: 350px; 
-  
-  /* These are your original font and color styles */
+/* --- WEB APP STYLES (These apply by default) --- */
+html, body, #root {
+  height: 100%;
   margin: 0;
   font-family: 'SF Pro Text', 'Helvetica Neue', 'Segoe UI', sans-serif;
   -webkit-font-smoothing: antialiased;
@@ -34,10 +31,10 @@ body {
 }
 
 .app-container {
-  /* This ensures the app fills the width of the popup */
-  width: 100%; 
+  display: flex;
+  height: 100vh;
+  width: 100%;
 }
-
 
 /* ----------------------------------- */
 /* Sidebar (Left Panel) Styles */
@@ -385,25 +382,22 @@ body {
 /* Article Viewer Specific Layout Styles */
 /* (This applies when an article is open and includes its sidebar) */
 /* ----------------------------------- */
-/* Article Viewer Main Page Layout (Flex container for article content + highlights sidebar) */
 .article-viewer-page {
-    flex-grow: 1; /* Takes up remaining space in app-container */
-    display: flex; /* Use flexbox to lay out main article content and sidebar */
-    background-color: var(--card-bg-color); /* White background for the whole viewer area */
-    overflow: hidden; /* Manage overflow of its children */
-}
-
-/* Main Article Content Container (holds management bar and scrollable content) */
-.article-viewer-main {
-    flex-grow: 1; /* Main article content takes up most space */
-    max-width: calc(100% - 300px); /* Adjust based on sidebar width, leaving space for it */
-    min-width: 0; /* Allow it to shrink if window is too small */
+    flex-grow: 1;
     display: flex;
-    flex-direction: column; /* Stack management bar and article content */
-    overflow-y: auto; /* Allow main article content to scroll independently */
+    background-color: var(--card-bg-color);
+    overflow: hidden;
 }
 
-/* Article Management Bar (within article-viewer-main) */
+.article-viewer-main {
+    flex-grow: 1;
+    max-width: calc(100% - 300px);
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+}
+
 .article-management-bar {
   display: flex;
   justify-content: flex-end;
@@ -467,14 +461,12 @@ body {
   color: var(--text-color);
 }
 
-/* Article Content (within article-viewer-main) */
 .article-content {
   flex-grow: 1;
   padding: 30px 40px;
-  max-width: 800px; /* Max width for content for better reading experience */
-  margin: 0 auto; /* Center content */
-  /* background-color: var(--card-bg-color); <-- This was redundant, handled by .article-viewer-page */
-  box-shadow: var(--box-shadow-light); /* Apply to main area for consistency */
+  max-width: 800px;
+  margin: 0 auto;
+  box-shadow: var(--box-shadow-light);
   margin-bottom: 20px;
 }
 
@@ -507,28 +499,22 @@ body {
 /* ----------------------------------- */
 /* Highlight Popup (for text selection on the web app) Styles */
 /* ----------------------------------- */
-/* This is the container for inputs and save button when selecting text on the web app */
 .highlight-popup-web-app-container {
-    /* Positioning handled by inline styles in JS */
     position: absolute;
     z-index: 1000;
-
     background: #ffffff;
     border: 1px solid var(--border-color);
     border-radius: var(--border-radius);
     box-shadow: var(--box-shadow-light);
-
     display: flex;
     flex-direction: column;
     gap: 8px;
     padding: 12px 15px;
-
     font-family: 'SF Pro Text', 'Helvetica Neue', 'Segoe UI', sans-serif;
     font-size: 14px;
     color: var(--text-color);
     width: 250px;
     box-sizing: border-box;
-
     animation: fadeIn 0.15s ease-out forwards;
 }
 
@@ -537,7 +523,6 @@ body {
     to { opacity: 1; transform: translateY(0) translateX(-50%); }
 }
 
-/* Styles for inputs within the web app highlight popup */
 .highlight-popup-web-app-container .highlight-input {
     width: 100%;
     padding: 8px 10px;
@@ -564,7 +549,6 @@ body {
     background-color: #ffffff;
 }
 
-/* Styles for the Save button within the web app highlight popup */
 .highlight-popup-save-button {
     background-color: var(--primary-color);
     color: white;
@@ -575,12 +559,10 @@ body {
     font-weight: 600;
     font-size: 14px;
     transition: background-color 0.2s ease, transform 0.1s ease, box-shadow 0.2s ease;
-
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 8px;
-
     box-shadow: var(--box-shadow-light);
 }
 
@@ -595,7 +577,6 @@ body {
     box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.2);
 }
 
-/* Styles for the SVG icon within the popup's save button */
 .highlight-popup-save-button .highlight-icon {
     width: 18px;
     height: 18px;
@@ -609,14 +590,14 @@ body {
 /* NEW: Article Highlights Sidebar Styles */
 /* ----------------------------------- */
 .article-highlights-sidebar {
-    width: 300px; /* Fixed width for the highlights sidebar */
-    flex-shrink: 0; /* Prevent it from shrinking */
-    background-color: var(--hover-color); /* Light background for the sidebar */
-    border-left: 1px solid var(--border-color); /* Separator from main content */
+    width: 300px;
+    flex-shrink: 0;
+    background-color: var(--hover-color);
+    border-left: 1px solid var(--border-color);
     padding: 20px;
-    overflow-y: auto; /* Allow highlights sidebar to scroll independently */
+    overflow-y: auto;
     display: flex;
-    flex-direction: column; /* Stack elements inside */
+    flex-direction: column;
 }
 
 .article-highlights-sidebar h2 {
@@ -634,7 +615,7 @@ body {
 }
 
 .article-highlights-sidebar .sidebar-highlight-item {
-    background-color: var(--card-bg-color); /* White background for each highlight card */
+    background-color: var(--card-bg-color);
     border: 1px solid var(--border-color-light);
     border-radius: var(--border-radius);
     padding: 12px;
@@ -654,7 +635,7 @@ body {
     line-height: 1.4;
     color: var(--text-color);
     margin-bottom: 8px;
-    cursor: pointer; /* Indicate clickable */
+    cursor: pointer;
     transition: color 0.2s ease;
 }
 
@@ -667,7 +648,7 @@ body {
     color: var(--text-color-secondary);
     line-height: 1.3;
     margin-bottom: 8px;
-    font-style: italic; /* Emphasize notes */
+    font-style: italic;
 }
 
 .article-highlights-sidebar .sidebar-highlight-tags {
@@ -678,13 +659,13 @@ body {
 }
 
 .article-highlights-sidebar .highlight-tag {
-    background-color: var(--primary-color-light, rgba(0, 122, 255, 0.1)); /* Light primary color background */
-    color: var(--primary-color); /* Primary color text */
+    background-color: var(--primary-color-light, rgba(0, 122, 255, 0.1));
+    color: var(--primary-color);
     font-size: 0.75em;
     padding: 4px 8px;
     border-radius: 4px;
     font-weight: 500;
-    white-space: nowrap; /* Keep tags on one line */
+    white-space: nowrap;
 }
 
 .article-highlights-sidebar .no-highlights-message {
@@ -698,8 +679,8 @@ body {
 /* Highlight Editing UI in ArticleViewer (These were missing and are now added) */
 /* ----------------------------------- */
 .sidebar-highlight-item.editing {
-    padding: 15px; /* More padding for edit mode */
-    background-color: var(--active-color); /* Highlight editing item */
+    padding: 15px;
+    background-color: var(--active-color);
 }
 
 .edit-highlight-note-input,
@@ -713,7 +694,7 @@ body {
     color: var(--text-color);
     font-size: 0.9em;
     box-sizing: border-box;
-    resize: vertical; /* Allow textarea to be vertically resized */
+    resize: vertical;
     min-height: 40px;
 }
 
@@ -727,7 +708,7 @@ body {
 .edit-highlight-actions {
     display: flex;
     gap: 8px;
-    justify-content: flex-end; /* Align buttons to the right */
+    justify-content: flex-end;
     margin-top: 10px;
 }
 
@@ -766,12 +747,12 @@ body {
 .highlight-item-actions {
     display: flex;
     gap: 5px;
-    justify-content: flex-end; /* Align actions to the right */
+    justify-content: flex-end;
     margin-top: 10px;
 }
 
 .highlight-item-actions .edit-button {
-    background-color: var(--primary-color-light); /* Light blue background */
+    background-color: var(--primary-color-light);
     color: var(--primary-color);
     border: 1px solid var(--primary-color);
 }
@@ -799,7 +780,7 @@ body {
     justify-content: center;
     align-items: center;
     min-height: 100vh;
-    background-color: var(--bg-color); /* Use the general background color */
+    background-color: var(--bg-color);
 }
 
 .auth-container {
@@ -811,11 +792,11 @@ body {
     box-sizing: border-box;
 }
 
-.auth-logo { /* Added this style for the logo */
-    max-width: 150px; /* Adjust as needed */
+.auth-logo {
+    max-width: 150px;
     height: auto;
-    margin-bottom: 30px; /* Space between logo and title */
-    display: block; /* Ensure it behaves as a block element for margin */
+    margin-bottom: 30px;
+    display: block;
 }
 
 .auth-container h2 {
@@ -835,7 +816,7 @@ body {
     display: flex;
     flex-direction: column;
     gap: 20px;
-    border: 1px solid var(--border-color); /* Add a subtle border */
+    border: 1px solid var(--border-color);
 }
 
 .form-group {
@@ -845,7 +826,7 @@ body {
 
 .form-group label {
     margin-bottom: 8px;
-    font-weight: 600; /* Slightly bolder labels */
+    font-weight: 600;
     color: var(--text-color);
 }
 
@@ -875,7 +856,7 @@ body {
     border-radius: var(--border-radius);
     cursor: pointer;
     font-size: 1.1em;
-    font-weight: 600; /* Match other buttons */
+    font-weight: 600;
     transition: background-color 0.2s ease, transform 0.1s ease;
     width: 100%;
     box-sizing: border-box;
@@ -893,7 +874,7 @@ body {
 
 /* Status messages */
 .status-message.success-message {
-    background-color: var(--primary-color-light); /* Use a lighter primary color for success */
+    background-color: var(--primary-color-light);
     color: var(--primary-color);
     border: 1px solid var(--primary-color);
 }
@@ -924,5 +905,57 @@ body {
 /* Styles for the main app container when authentication routes are active */
 .app-container .auth-pages-container {
     width: 100%;
-    /* No flex-grow: 1 here because app-container already defines flex */
+}
+
+.save-article-container {
+  padding: 0 15px 15px 15px;
+}
+
+.save-article-container .title {
+  text-align: center;
+  font-size: 1.2em;
+  margin-top: 0;
+  margin-bottom: 20px;
+}
+
+.folder-creation-form {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 15px;
+}
+
+.folder-creation-form input {
+  flex-grow: 1;
+  padding: 8px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  font-size: 0.9em;
+}
+
+.folder-creation-form button {
+  background-color: #f0f0f0;
+  border: 1px solid var(--border-color);
+  padding: 0 12px;
+  border-radius: var(--border-radius);
+  cursor: pointer;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.folder-creation-form button:hover {
+  background-color: #e0e0e0;
+}
+
+.save-article-main-button {
+    background-color: var(--primary-color);
+    color: white;
+    width: 100%;
+    padding: 12px;
+    border: none;
+    border-radius: var(--border-radius);
+    font-size: 1em;
+    font-weight: 600;
+    cursor: pointer;
+}
+.save-article-main-button:hover {
+  background-color: var(--primary-color-dark);
 }

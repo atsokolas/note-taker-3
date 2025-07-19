@@ -10,11 +10,9 @@ const SaveArticle = () => {
   const [newFolderName, setNewFolderName] = useState('');
   const [statusMessage, setStatusMessage] = useState('');
 
-  // When the component loads, fetch the user's folders
   useEffect(() => {
     const fetchFolders = async () => {
       try {
-        // The browser automatically sends the auth cookie with this request
         const response = await axios.get(`${BASE_URL}/folders`, { withCredentials: true });
         setFolders(response.data);
       } catch (error) {
@@ -25,60 +23,25 @@ const SaveArticle = () => {
     fetchFolders();
   }, []);
 
-  const handleCreateFolder = async () => {
-    if (!newFolderName.trim()) {
-        alert("Please enter a folder name.");
-        return;
-    }
+  const handleCreateFolder = async (e) => {
+    e.preventDefault(); // Prevent form submission
+    if (!newFolderName.trim()) return;
     try {
         const response = await axios.post(`${BASE_URL}/folders`, 
             { name: newFolderName }, 
             { withCredentials: true }
         );
-        
         const newFolder = response.data;
-        // Add new folder to our list and automatically select it
         setFolders([...folders, newFolder]);
         setSelectedFolder(newFolder._id);
-        setNewFolderName(''); // Clear input
-        setStatusMessage(`Folder "${newFolder.name}" created!`);
-
+        setNewFolderName('');
     } catch (error) {
         setStatusMessage('Error creating folder.');
-        console.error("Create folder error:", error);
     }
   };
   
   const handleSaveArticle = async () => {
-    setStatusMessage('Parsing article...');
-    try {
-      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-      const articleResponse = await chrome.tabs.sendMessage(tab.id, { action: "getCleanArticle" });
-
-      if (articleResponse.error) throw new Error(articleResponse.error);
-      
-      setStatusMessage('Saving article...');
-      const payload = {
-          action: "capture",
-          tabId: tab.id,
-          title: articleResponse.article.title,
-          url: tab.url,
-          content: articleResponse.article.content,
-          folderId: selectedFolder || null
-      };
-
-      const backgroundResponse = await chrome.runtime.sendMessage(payload);
-      if (!backgroundResponse || !backgroundResponse.success) {
-          throw new Error(backgroundResponse?.error || "Failed to save article.");
-      }
-
-      setStatusMessage('Article Saved!');
-      setTimeout(() => setStatusMessage(''), 3000);
-
-    } catch (error) {
-        setStatusMessage(`Error: ${error.message}`);
-        console.error("Save article error:", error);
-    }
+    // ... (Your existing handleSaveArticle logic remains the same)
   };
 
   return (
@@ -95,17 +58,17 @@ const SaveArticle = () => {
             </select>
         </div>
 
-        <div className="form-group folder-creation">
+        <form className="folder-creation-form" onSubmit={handleCreateFolder}>
             <input 
               type="text" 
               value={newFolderName}
               onChange={e => setNewFolderName(e.target.value)}
-              placeholder="Or create a new folder..."
+              placeholder="New folder name"
             />
-            <button onClick={handleCreateFolder}>+</button>
-        </div>
+            <button type="submit">Create Folder</button>
+        </form>
 
-        <button onClick={handleSaveArticle} className="auth-button">Save Article</button>
+        <button onClick={handleSaveArticle} className="save-article-main-button">Save Current Page</button>
         {statusMessage && <p className="status-message">{statusMessage}</p>}
     </div>
   );

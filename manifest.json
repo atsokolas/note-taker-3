@@ -12,7 +12,7 @@
     "service_worker": "background.js"
   },
   "action": {
-    "default_popup": "note-taker-ui/build/index.html"
+    "default_popup": "note-taker-ui/build/index.html?mode=extension"
   },
   "permissions": [
     "storage",
