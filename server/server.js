@@ -28,11 +28,7 @@ app.use(express.json({ limit: '5mb' }));
 app.use(cookieParser());
 
 // MongoDB Connection
-<<<<<<< HEAD
 mongoose.connect(process.env.MONGO_URI)
-=======
-mongoose.connect(process.env.MONGODB_URI)
->>>>>>> 3b97bec68d590e587e8c367d07c82aa32284e5e9
   .then(() => console.log("✅ MongoDB connected successfully."))
   .catch(err => console.error("❌ MongoDB connection error:", err));
 
