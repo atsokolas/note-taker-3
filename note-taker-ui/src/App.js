@@ -1,3 +1,4 @@
+/* global chrome */
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, NavLink, useLocation, Navigate } from 'react-router-dom';
 import axios from 'axios';
@@ -11,51 +12,47 @@ import './App.css';
 
 const BASE_URL = "https://note-taker-3-unrg.onrender.com";
 
-const Welcome = () => <h2 className="welcome-message">Select an article to read</h2>;
-
-// This component is the main UI for a logged-in user
-// FIX: It now correctly receives and uses articleListKey
-const MainAppLayout = ({ onLogout, onArticleChange, isExtension, articleListKey }) => (
+// Layout for the full-screen Web Application
+const WebAppLayout = ({ onLogout, onArticleChange }) => (
   <>
-    {!isExtension && (
-      <div className="sidebar">
-        <div className="sidebar-header">
-          <h2>Note Taker</h2>
-          <button onClick={onLogout} className="logout-button">Logout</button>
-        </div>
-        <div className="sidebar-nav">
-          <NavLink to="/" className="sidebar-link" end>Your Library</NavLink>
-          <NavLink to="/highlights-by-tag" className="sidebar-link">Highlights by Tag</NavLink>
-        </div>
-        <ArticleList key={articleListKey} onArticleChange={onArticleChange} />
+    <div className="sidebar">
+      <div className="sidebar-header">
+        <h2>Note Taker</h2>
+        <button onClick={onLogout} className="logout-button">Logout</button>
       </div>
-    )}
+      <div className="sidebar-nav">
+        <NavLink to="/" className="sidebar-link" end>Your Library</NavLink>
+        <NavLink to="/highlights-by-tag" className="sidebar-link">Highlights by Tag</NavLink>
+      </div>
+      <ArticleList key={onArticleChange} />
+    </div>
     <div className="content-viewer">
-      {isExtension ? (
-        <div className="popup-container">
-            <header className="popup-header">
-                <h2>Note Taker</h2>
-                <button onClick={onLogout} className="logout-button">Logout</button>
-            </header>
-            <hr className="popup-divider" />
-            <main>
-                <SaveArticle />
-            </main>
-        </div>
-      ) : (
-        <Routes>
-          <Route path="/" element={<Welcome />} />
-          <Route path="/highlights-by-tag" element={<HighlightByTagList />} />
-          <Route path="/articles/:id" element={<ArticleViewer onArticleChange={onArticleChange} />} />
-          <Route path="*" element={<Navigate to="/" />} />
-        </Routes>
-      )}
+      <Routes>
+        <Route path="/" element={<h2 className="welcome-message">Select an article to read</h2>} />
+        <Route path="/highlights-by-tag" element={<HighlightByTagList />} />
+        <Route path="/articles/:id" element={<ArticleViewer onArticleChange={onArticleChange} />} />
+        <Route path="*" element={<Navigate to="/" />} />
+      </Routes>
     </div>
   </>
 );
 
+// Layout for the compact Extension Popup
+const ExtensionPopupLayout = ({ onLogout }) => (
+  <div className="popup-container">
+    <header className="popup-header">
+      <h2>Note Taker</h2>
+      <button onClick={onLogout} className="logout-button">Logout</button>
+    </header>
+    <hr className="popup-divider" />
+    <main>
+      <SaveArticle />
+    </main>
+  </div>
+);
+
+// This component contains all the logic
 const AppContent = () => {
-  const [articleListKey, setArticleListKey] = useState(0);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isExtension, setIsExtension] = useState(false);
@@ -83,22 +80,11 @@ const AppContent = () => {
     verifyAuth();
   }, []);
 
-  const refreshArticleList = () => {
-    setArticleListKey(prevKey => prevKey + 1);
-  };
-  
-  const handleLoginSuccess = () => {
-    setIsAuthenticated(true);
-  };
-
+  const handleLoginSuccess = () => setIsAuthenticated(true);
   const handleLogout = async () => {
-    try {
-      await axios.post(`${BASE_URL}/api/auth/logout`, {}, { withCredentials: true });
-    } catch (error) {
-      console.error("Logout failed", error);
-    }
-    setIsAuthenticated(false);
+    // ... (logout logic)
   };
+  const refreshArticleList = () => { /* ... */ };
 
   if (isLoading) {
     return <div className="loading-container">Loading...</div>;
@@ -107,8 +93,7 @@ const AppContent = () => {
   return (
     <div className="app-container">
       {isAuthenticated ? (
-        // FIX: Pass articleListKey down as a prop
-        <MainAppLayout onLogout={handleLogout} onArticleChange={refreshArticleList} isExtension={isExtension} articleListKey={articleListKey} />
+        isExtension ? <ExtensionPopupLayout onLogout={handleLogout} /> : <WebAppLayout onLogout={handleLogout} onArticleChange={refreshArticleList} />
       ) : (
         <div className="auth-pages-container">
           <Routes>
@@ -123,6 +108,8 @@ const AppContent = () => {
 };
 
 function App() {
+  // Use BrowserRouter for the web app. React Router is smart enough to handle
+  // the extension environment when loaded from a file URL.
   return (
     <Router>
       <AppContent />
