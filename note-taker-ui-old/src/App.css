@@ -1,0 +1,998 @@
+/* Variables for consistent theming */
+:root {
+  --bg-color: #f8f8f8; /* Light gray background */
+  --sidebar-bg-color: #ffffff; /* White sidebar */
+  --card-bg-color: #ffffff; /* White for cards/elements */
+  --border-color: #e0e0e0; /* Light gray border */
+  --border-color-light: #f0f0f0; /* Even lighter for item separators */
+  --text-color: #333333; /* Dark gray for main text */
+  --text-color-secondary: #6c757d; /* Muted gray for secondary text */
+  --primary-color: #007aff; /* Apple-like blue */
+  --primary-color-dark: #005bb5;
+  --primary-color-light: rgba(0, 122, 255, 0.1); /* Lighter version for highlight background etc. */
+  --hover-color: #f5f5f5; /* Light hover effect */
+  --active-color: #e8e8e8; /* Slightly darker for active states */
+  --danger-color: #dc3545; /* Red for delete actions */
+  --danger-color-light: #f8d7da; /* Light red background for hover */
+  --box-shadow-light: 0 1px 3px rgba(0, 0, 0, 0.05), 0 1px 2px rgba(0, 0, 0, 0.05); /* Subtle shadow */
+  --border-radius: 8px; /* Consistent rounded corners */
+}
+
+/* --- WEB APP STYLES (These apply by default) --- */
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  font-family: 'SF Pro Text', 'Helvetica Neue', 'Segoe UI', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: var(--bg-color);
+  color: var(--text-color);
+  line-height: 1.6;
+}
+
+.app-container {
+  display: flex;
+  height: 100vh;
+  width: 100%;
+}
+
+/* ----------------------------------- */
+/* Sidebar (Left Panel) Styles */
+/* ----------------------------------- */
+.sidebar {
+  width: 300px;
+  background-color: var(--sidebar-bg-color);
+  border-right: 1px solid var(--border-color);
+  padding-top: 20px;
+  overflow-y: auto;
+  flex-shrink: 0;
+  display: flex; /* Make sidebar a flex container */
+  flex-direction: column; /* Stack content vertically */
+}
+
+.sidebar-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 15px 25px 15px; /* Adjust padding to match h1 spacing */
+}
+
+.sidebar h2 { /* Targeting the h2 for "Note Taker" in the sidebar-header */
+  font-size: 1.6em;
+  font-weight: 700;
+  margin: 0; /* Reset margin as it's part of header */
+  color: var(--text-color);
+}
+
+.logout-button {
+    background-color: var(--danger-color);
+    color: white;
+    padding: 6px 12px;
+    border: none;
+    border-radius: var(--border-radius);
+    cursor: pointer;
+    font-size: 0.85em;
+    font-weight: 600;
+    transition: background-color 0.2s ease, transform 0.1s ease;
+    box-shadow: var(--box-shadow-light);
+}
+
+.logout-button:hover {
+    background-color: var(--danger-color-light);
+    color: var(--danger-color);
+    border: 1px solid var(--danger-color);
+    transform: translateY(-1px);
+}
+.logout-button:active {
+    transform: translateY(0);
+    box-shadow: none;
+}
+
+
+.status-message {
+  text-align: center;
+  padding: 20px;
+  color: var(--text-color-secondary);
+}
+
+/* Sidebar Navigation (for "Your Library" and "Highlights by Tag") */
+.sidebar-nav {
+  padding: 0 15px;
+  margin-bottom: 20px;
+}
+
+.sidebar-link {
+  display: block;
+  padding: 10px 0;
+  color: var(--text-color-secondary);
+  text-decoration: none;
+  font-weight: 500;
+  transition: color 0.2s ease;
+}
+
+.sidebar-link:hover {
+  color: var(--primary-color);
+}
+
+.sidebar-link.active { /* Style for the active NavLink */
+  color: var(--primary-color);
+  font-weight: 600;
+}
+
+/* New Folder Creation Section */
+.new-folder-section {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+  padding: 0 15px;
+}
+
+.new-folder-section input {
+  flex-grow: 1;
+  padding: 10px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  background-color: var(--card-bg-color);
+  color: var(--text-color);
+  font-size: 0.95em;
+  outline: none;
+  box-shadow: inset 0 1px 2px rgba(0,0,0,0.03);
+}
+
+.new-folder-section input:focus {
+  border-color: var(--primary-color);
+  box-shadow: inset 0 1px 2px rgba(0,0,0,0.03), 0 0 0 3px rgba(0, 122, 255, 0.2);
+}
+
+.new-folder-section button {
+  padding: 10px 18px;
+  background-color: var(--primary-color);
+  color: white;
+  border: none;
+  border-radius: var(--border-radius);
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.95em;
+  transition: background-color 0.2s ease, transform 0.1s ease;
+  box-shadow: var(--box-shadow-light);
+}
+
+.new-folder-section button:hover {
+  background-color: var(--primary-color-dark);
+  transform: translateY(-1px);
+}
+.new-folder-section button:active {
+  transform: translateY(0);
+  box-shadow: none;
+}
+
+/* Folder Headers (Accordion) */
+.folder-group {
+  border-bottom: 1px solid var(--border-color);
+}
+.folder-group:last-of-type {
+  border-bottom: none;
+}
+
+.folder-header {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 12px 15px;
+  text-align: left;
+  background-color: transparent;
+  color: var(--text-color);
+  border: none;
+  cursor: pointer;
+  font-size: 1.05em;
+  font-weight: 600;
+  transition: background-color 0.2s ease;
+  box-shadow: inset 0 -1px 0 rgba(0,0,0,0.02);
+}
+
+.folder-header:hover {
+  background-color: var(--hover-color);
+}
+
+.accordion-icon {
+  margin-right: 8px;
+  transition: transform 0.2s ease;
+  color: var(--text-color-secondary);
+}
+
+.accordion-icon.open {
+  transform: rotate(90deg);
+}
+
+.delete-folder-button {
+  margin-left: auto;
+  background: none;
+  border: none;
+  color: var(--text-color-secondary);
+  font-size: 1.4em;
+  font-weight: normal;
+  cursor: pointer;
+  padding: 0 8px;
+  line-height: 1;
+  transition: color 0.2s ease, transform 0.1s ease;
+}
+
+.delete-folder-button:hover {
+  color: var(--danger-color);
+  transform: scale(1.1);
+}
+
+/* Article List (Nested under Folders) */
+.folder-group .article-list.nested {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.3s cubic-bezier(0.86, 0, 0.07, 1), padding-top 0.3s ease-out;
+  padding-top: 0;
+  background-color: var(--hover-color);
+  border-top: 1px solid var(--border-color-light);
+}
+
+.folder-group .article-list.nested.open {
+  max-height: 800px; /* Adjust as needed */
+  padding-top: 5px;
+}
+
+.article-list-item {
+  display: flex;
+  align-items: center;
+  padding: 10px 15px;
+  border-bottom: 1px solid var(--border-color-light);
+  transition: background-color 0.2s ease;
+}
+
+.article-list-item:hover {
+  background-color: var(--active-color);
+}
+
+.article-list-item:last-child {
+  border-bottom: none;
+}
+
+.article-title-link {
+  flex-grow: 1;
+  color: var(--text-color);
+  text-decoration: none;
+  font-size: 0.95em;
+  white-space: normal;
+  overflow: hidden;
+  text-overflow: unset;
+  padding-right: 10px;
+}
+
+.article-title-link:hover {
+  color: var(--primary-color);
+}
+
+/* ----------------------------------- */
+/* Highlights by Tag View Styles */
+/* ----------------------------------- */
+.highlight-by-tag-list-container {
+  padding: 20px 15px; /* Consistent padding with sidebar */
+}
+
+.highlight-by-tag-list-container h1 {
+  font-size: 1.6em;
+  font-weight: 700;
+  margin: 0 0 25px 0;
+  color: var(--text-color);
+}
+
+.tag-group {
+  border-bottom: 1px solid var(--border-color);
+}
+.tag-group:last-of-type {
+  border-bottom: none;
+}
+
+.tag-header {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 12px 0; /* Align with sidebar nav links */
+  text-align: left;
+  background-color: transparent;
+  color: var(--text-color);
+  border: none;
+  cursor: pointer;
+  font-size: 1.05em;
+  font-weight: 600;
+  transition: background-color 0.2s ease;
+}
+
+.tag-header:hover {
+  background-color: var(--hover-color);
+}
+
+.highlight-list.nested {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.3s cubic-bezier(0.86, 0, 0.07, 1), padding-top 0.3s ease-out;
+  padding-top: 0;
+  background-color: var(--hover-color);
+  border-top: 1px solid var(--border-color-light);
+}
+
+.highlight-list.nested.open {
+  max-height: 800px; /* Adjust as needed */
+  padding-top: 5px;
+}
+
+.highlight-list-item {
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border-color-light);
+  font-size: 0.95em;
+  color: var(--text-color);
+}
+
+.highlight-list-item:last-child {
+  border-bottom: none;
+}
+
+.highlight-list-item .highlight-text {
+  font-weight: 500;
+  margin-bottom: 5px;
+  line-height: 1.4;
+}
+
+.highlight-list-item .highlight-note {
+  font-size: 0.9em;
+  color: var(--text-color-secondary);
+  margin-bottom: 5px;
+  line-height: 1.3;
+}
+
+.highlight-list-item .highlight-article-link {
+  display: block;
+  font-size: 0.85em;
+  color: var(--primary-color);
+  text-decoration: none;
+  margin-top: 8px;
+}
+
+.highlight-list-item .highlight-article-link:hover {
+  text-decoration: underline;
+}
+
+/* ----------------------------------- */
+/* Content Viewer (Right Panel - Main App Content Area) Styles */
+/* ----------------------------------- */
+.content-viewer {
+  flex-grow: 1; /* Takes up remaining space */
+  background-color: var(--card-bg-color); /* White background for content area */
+  display: flex;
+  flex-direction: column; /* Stack children vertically */
+  overflow-y: auto; /* Enable scrolling for content if this is the only scrollable part */
+}
+
+.welcome-message {
+  text-align: center;
+  color: var(--text-color-secondary);
+  margin-top: 50px;
+  font-size: 1.2em;
+}
+
+/* ----------------------------------- */
+/* Article Viewer Specific Layout Styles */
+/* (This applies when an article is open and includes its sidebar) */
+/* ----------------------------------- */
+.article-viewer-page {
+    flex-grow: 1;
+    display: flex;
+    background-color: var(--card-bg-color);
+    overflow: hidden;
+}
+
+.article-viewer-main {
+    flex-grow: 1;
+    max-width: calc(100% - 300px);
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+}
+
+.article-management-bar {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 15px 25px;
+  border-bottom: 1px solid var(--border-color);
+  background-color: var(--card-bg-color);
+  box-shadow: var(--box-shadow-light);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.management-button {
+  padding: 8px 15px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  cursor: pointer;
+  font-size: 0.9em;
+  font-weight: 500;
+  transition: background-color 0.2s ease, border-color 0.2s ease, transform 0.1s ease;
+  background-color: var(--card-bg-color);
+  color: var(--text-color-secondary);
+  box-shadow: var(--box-shadow-light);
+  outline: none;
+}
+
+.management-button:hover {
+  background-color: var(--hover-color);
+  border-color: var(--primary-color);
+  transform: translateY(-1px);
+}
+.management-button:active {
+  transform: translateY(0);
+  box-shadow: none;
+}
+
+.management-button.delete-button {
+  color: var(--danger-color);
+  border-color: var(--danger-color-light);
+}
+
+.management-button.delete-button:hover {
+  background-color: var(--danger-color);
+  color: white;
+  border-color: var(--danger-color);
+}
+
+.management-button.move-select {
+  appearance: none;
+  padding-right: 35px;
+  background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%236c757d%22%20d%3D%22M287%2C118.8L146.2%2C259.6L5.4%2C118.8z%22%2F%3E%3C%2Fsvg%3E');
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 10px;
+  min-width: 150px;
+}
+
+.management-button.move-select option {
+  background-color: var(--card-bg-color);
+  color: var(--text-color);
+}
+
+.article-content {
+  flex-grow: 1;
+  padding: 30px 40px;
+  max-width: 800px;
+  margin: 0 auto;
+  box-shadow: var(--box-shadow-light);
+  margin-bottom: 20px;
+}
+
+.article-content h1 {
+  font-size: 2.2em;
+  font-weight: 700;
+  margin-bottom: 20px;
+  color: var(--text-color);
+}
+
+.article-content .content-body {
+  font-size: 1em;
+  line-height: 1.8;
+  color: var(--text-color);
+}
+
+.article-content .content-body p {
+  margin-bottom: 1em;
+}
+
+.article-content .content-body img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  margin: 20px auto;
+  border-radius: var(--border-radius);
+  box-shadow: var(--box-shadow-light);
+}
+
+/* ----------------------------------- */
+/* Highlight Popup (for text selection on the web app) Styles */
+/* ----------------------------------- */
+.highlight-popup-web-app-container {
+    position: absolute;
+    z-index: 1000;
+    background: #ffffff;
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+    box-shadow: var(--box-shadow-light);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px 15px;
+    font-family: 'SF Pro Text', 'Helvetica Neue', 'Segoe UI', sans-serif;
+    font-size: 14px;
+    color: var(--text-color);
+    width: 250px;
+    box-sizing: border-box;
+    animation: fadeIn 0.15s ease-out forwards;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px) translateX(-50%); }
+    to { opacity: 1; transform: translateY(0) translateX(-50%); }
+}
+
+.highlight-popup-web-app-container .highlight-input {
+    width: 100%;
+    padding: 8px 10px;
+    border: 1px solid var(--border-color-light);
+    border-radius: 6px;
+    background-color: var(--hover-color);
+    color: var(--text-color);
+    font-size: 13px;
+    box-sizing: border-box;
+    resize: vertical;
+    min-height: 35px;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.highlight-popup-web-app-container .highlight-input::placeholder {
+    color: var(--text-color-secondary);
+    opacity: 0.8;
+}
+
+.highlight-popup-web-app-container .highlight-input:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.2);
+    background-color: #ffffff;
+}
+
+.highlight-popup-save-button {
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+    padding: 10px 15px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 14px;
+    transition: background-color 0.2s ease, transform 0.1s ease, box-shadow 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    box-shadow: var(--box-shadow-light);
+}
+
+.highlight-popup-save-button:hover {
+    background-color: var(--primary-color-dark);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1), 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.highlight-popup-save-button:active {
+    transform: translateY(0);
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.highlight-popup-save-button .highlight-icon {
+    width: 18px;
+    height: 18px;
+    stroke: currentColor;
+    stroke-width: 2;
+    fill: none;
+    flex-shrink: 0;
+}
+
+/* ----------------------------------- */
+/* NEW: Article Highlights Sidebar Styles */
+/* ----------------------------------- */
+.article-highlights-sidebar {
+    width: 300px;
+    flex-shrink: 0;
+    background-color: var(--hover-color);
+    border-left: 1px solid var(--border-color);
+    padding: 20px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+}
+
+.article-highlights-sidebar h2 {
+    font-size: 1.2em;
+    font-weight: 700;
+    margin-top: 0;
+    margin-bottom: 20px;
+    color: var(--text-color);
+}
+
+.article-highlights-sidebar .highlights-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.article-highlights-sidebar .sidebar-highlight-item {
+    background-color: var(--card-bg-color);
+    border: 1px solid var(--border-color-light);
+    border-radius: var(--border-radius);
+    padding: 12px;
+    margin-bottom: 10px;
+    box-shadow: var(--box-shadow-light);
+    transition: transform 0.1s ease, box-shadow 0.1s ease;
+}
+
+.article-highlights-sidebar .sidebar-highlight-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.08);
+}
+
+.article-highlights-sidebar .sidebar-highlight-text {
+    font-size: 0.95em;
+    font-weight: 500;
+    line-height: 1.4;
+    color: var(--text-color);
+    margin-bottom: 8px;
+    cursor: pointer;
+    transition: color 0.2s ease;
+}
+
+.article-highlights-sidebar .sidebar-highlight-text:hover {
+    color: var(--primary-color);
+}
+
+.article-highlights-sidebar .sidebar-highlight-note {
+    font-size: 0.85em;
+    color: var(--text-color-secondary);
+    line-height: 1.3;
+    margin-bottom: 8px;
+    font-style: italic;
+}
+
+.article-highlights-sidebar .sidebar-highlight-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    margin-top: 5px;
+}
+
+.article-highlights-sidebar .highlight-tag {
+    background-color: var(--primary-color-light, rgba(0, 122, 255, 0.1));
+    color: var(--primary-color);
+    font-size: 0.75em;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+.article-highlights-sidebar .no-highlights-message {
+    font-size: 0.9em;
+    color: var(--text-color-secondary);
+    text-align: center;
+    padding-top: 20px;
+}
+
+/* ----------------------------------- */
+/* Highlight Editing UI in ArticleViewer (These were missing and are now added) */
+/* ----------------------------------- */
+.sidebar-highlight-item.editing {
+    padding: 15px;
+    background-color: var(--active-color);
+}
+
+.edit-highlight-note-input,
+.edit-highlight-tags-input {
+    width: 100%;
+    padding: 8px 10px;
+    margin-bottom: 8px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+    background-color: var(--card-bg-color);
+    color: var(--text-color);
+    font-size: 0.9em;
+    box-sizing: border-box;
+    resize: vertical;
+    min-height: 40px;
+}
+
+.edit-highlight-note-input:focus,
+.edit-highlight-tags-input:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.2);
+}
+
+.edit-highlight-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+    margin-top: 10px;
+}
+
+.edit-save-button,
+.edit-cancel-button {
+    padding: 8px 15px;
+    border-radius: var(--border-radius);
+    cursor: pointer;
+    font-size: 0.9em;
+    font-weight: 500;
+    transition: background-color 0.2s ease, transform 0.1s ease;
+}
+
+.edit-save-button {
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+}
+
+.edit-save-button:hover {
+    background-color: var(--primary-color-dark);
+    transform: translateY(-1px);
+}
+
+.edit-cancel-button {
+    background-color: transparent;
+    color: var(--text-color-secondary);
+    border: 1px solid var(--border-color);
+}
+
+.edit-cancel-button:hover {
+    background-color: var(--hover-color);
+    transform: translateY(-1px);
+}
+
+.highlight-item-actions {
+    display: flex;
+    gap: 5px;
+    justify-content: flex-end;
+    margin-top: 10px;
+}
+
+.highlight-item-actions .edit-button {
+    background-color: var(--primary-color-light);
+    color: var(--primary-color);
+    border: 1px solid var(--primary-color);
+}
+
+.highlight-item-actions .edit-button:hover {
+    background-color: var(--primary-color);
+    color: white;
+}
+
+.highlight-item-actions .delete-button {
+    background-color: var(--danger-color-light);
+    color: var(--danger-color);
+    border: 1px solid var(--danger-color);
+}
+
+.highlight-item-actions .delete-button:hover {
+    background-color: var(--danger-color);
+    color: white;
+}
+
+/* --- NEW AUTHENTICATION STYLES --- */
+.auth-pages-container {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    background-color: var(--bg-color);
+}
+
+.auth-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    box-sizing: border-box;
+}
+
+.auth-logo {
+    max-width: 150px;
+    height: auto;
+    margin-bottom: 30px;
+    display: block;
+}
+
+.auth-container h2 {
+    color: var(--text-color);
+    margin-bottom: 30px;
+    font-size: 2em;
+    font-weight: 700;
+}
+
+.auth-form {
+    background-color: var(--card-bg-color);
+    padding: 40px;
+    border-radius: var(--border-radius);
+    box-shadow: var(--box-shadow-light);
+    width: 100%;
+    max-width: 400px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    border: 1px solid var(--border-color);
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+}
+
+.form-group label {
+    margin-bottom: 8px;
+    font-weight: 600;
+    color: var(--text-color);
+}
+
+.form-group input {
+    padding: 12px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+    background-color: var(--card-bg-color);
+    color: var(--text-color);
+    font-size: 1em;
+    width: 100%;
+    box-sizing: border-box;
+    outline: none;
+    box-shadow: inset 0 1px 2px rgba(0,0,0,0.03);
+}
+
+.form-group input:focus {
+    border-color: var(--primary-color);
+    box-shadow: inset 0 1px 2px rgba(0,0,0,0.03), 0 0 0 3px var(--primary-color-light);
+}
+
+.auth-button {
+    background-color: var(--primary-color);
+    color: white;
+    padding: 12px 20px;
+    border: none;
+    border-radius: var(--border-radius);
+    cursor: pointer;
+    font-size: 1.1em;
+    font-weight: 600;
+    transition: background-color 0.2s ease, transform 0.1s ease;
+    width: 100%;
+    box-sizing: border-box;
+    box-shadow: var(--box-shadow-light);
+}
+
+.auth-button:hover {
+    background-color: var(--primary-color-dark);
+    transform: translateY(-1px);
+}
+.auth-button:active {
+    transform: translateY(0);
+    box-shadow: none;
+}
+
+/* Status messages */
+.status-message.success-message {
+    background-color: var(--primary-color-light);
+    color: var(--primary-color);
+    border: 1px solid var(--primary-color);
+}
+
+.status-message.error-message {
+    background-color: var(--danger-color-light);
+    color: var(--danger-color);
+    border: 1px solid var(--danger-color);
+}
+
+.auth-link {
+    margin-top: 20px;
+    color: var(--text-color-secondary);
+    font-size: 0.95em;
+}
+
+.auth-link a {
+    color: var(--primary-color);
+    text-decoration: none;
+    cursor: pointer;
+    font-weight: 500;
+}
+
+.auth-link a:hover {
+    text-decoration: underline;
+}
+
+/* Styles for the main app container when authentication routes are active */
+.app-container .auth-pages-container {
+    width: 100%;
+}
+
+.save-article-container {
+  padding: 0 15px 15px 15px;
+}
+
+.save-article-container .title {
+  text-align: center;
+  font-size: 1.2em;
+  margin-top: 0;
+  margin-bottom: 20px;
+}
+
+.folder-creation-form {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 15px;
+}
+
+.folder-creation-form input {
+  flex-grow: 1;
+  padding: 8px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  font-size: 0.9em;
+}
+
+.folder-creation-form button {
+  background-color: #f0f0f0;
+  border: 1px solid var(--border-color);
+  padding: 0 12px;
+  border-radius: var(--border-radius);
+  cursor: pointer;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.folder-creation-form button:hover {
+  background-color: #e0e0e0;
+}
+
+.save-article-main-button {
+    background-color: var(--primary-color);
+    color: white;
+    width: 100%;
+    padding: 12px;
+    border: none;
+    border-radius: var(--border-radius);
+    font-size: 1em;
+    font-weight: 600;
+    cursor: pointer;
+}
+.save-article-main-button:hover {
+  background-color: var(--primary-color-dark);
+}
+
+/* --- EXTENSION POPUP OVERRIDES --- */
+/* These rules ONLY apply when the app is loaded as an extension */
+body.extension-mode {
+  width: 350px;
+  height: auto; /* Let the height be determined by the content */
+}
+
+body.extension-mode .app-container {
+  height: auto; /* Override the 100vh for the popup */
+  display: block; /* The flex layout is not needed */
+}
+
+body.extension-mode .auth-pages-container {
+  min-height: auto; /* Override min-height for the login form in the popup */
+}
+
+/* Styles for the simplified popup layout */
+.popup-container {
+  padding: 15px;
+}
+.popup-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+.popup-header h2 {
+  font-size: 1.4em;
+  font-weight: 700;
+  margin: 0;
+}
+.popup-divider {
+  border: none;
+  border-top: 1px solid #eee;
+  margin: 0 0 15px 0;
+}

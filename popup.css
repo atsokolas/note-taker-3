@@ -1,0 +1,117 @@
+/* popup.css - A clean design for the extension popup */
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background-color: #f8f9fa; /* Changed to match web app for consistency */
+    margin: 0;
+    width: 280px; /* A bit wider for the new elements */
+}
+
+.container {
+    padding: 16px;
+}
+
+.title {
+    font-size: 18px;
+    font-weight: 600;
+    text-align: center;
+    margin: 0 0 16px 0;
+    color: #343a40;
+}
+
+/* NEW: A generic class to add spacing between form elements */
+.form-group {
+    margin-bottom: 12px;
+}
+
+/* Add this class to your existing CSS file */
+.hidden {
+    display: none;
+}
+
+/* NEW: Styling for the text label above the dropdown */
+.form-group label {
+    display: block;
+    font-size: 13px;
+    font-weight: 500;
+    margin-bottom: 6px;
+    color: #495057;
+}
+
+/* NEW: Shared styles for the dropdown and text input for a consistent look */
+.form-group select,
+.form-group input[type="text"] {
+    width: 100%;
+    box-sizing: border-box; /* Important for consistent sizing */
+    padding: 8px 10px;
+    border: 1px solid #ced4da;
+    border-radius: 6px;
+    font-size: 14px;
+    background-color: white;
+}
+
+/* NEW: Flexbox container to align the creation input and button horizontally */
+.folder-creation {
+    display: flex;
+    align-items: center;
+}
+
+/* NEW: Make the input field take up the available space */
+.folder-creation input {
+    flex-grow: 1;
+    /* Remove the right-side border radius to seamlessly join with the button */
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+}
+
+/* NEW: Style the '+' button */
+.folder-creation button {
+    flex-shrink: 0;
+    padding: 8px 12px;
+    border: 1px solid #ced4da;
+    border-left: none;
+    background-color: #e9ecef;
+    cursor: pointer;
+    font-size: 16px;
+    /* Remove the left-side border radius to join with the input */
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+}
+
+/* UPDATED: Styles for the main save button */
+#saveArticleButton {
+    width: 100%;
+    padding: 10px;
+    margin-top: 8px; /* Added some space above */
+    background-color: #0d6efd;
+    color: white;
+    font-size: 15px;
+    font-weight: 500;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+#saveArticleButton:hover {
+    background-color: #0b5ed7;
+}
+
+/* Status Message Styling (from your original, slightly adapted) */
+#statusMessage {
+    margin-top: 12px;
+    font-size: 13px;
+    text-align: center;
+    padding: 8px;
+    border-radius: 6px;
+}
+
+#statusMessage.success {
+    background-color: #d1e7dd;
+    color: #0f5132;
+}
+
+#statusMessage.error {
+    background-color: #f8d7da;
+    color: #842029;
+}
