@@ -1,4 +1,3 @@
-/* global chrome */
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, NavLink, useLocation, Navigate } from 'react-router-dom';
 import axios from 'axios';
@@ -12,6 +11,8 @@ import './App.css';
 
 const BASE_URL = "https://note-taker-3-unrg.onrender.com";
 
+const Welcome = () => <h2 className="welcome-message">Select an article to read</h2>;
+
 // Layout for the full-screen Web Application
 const WebAppLayout = ({ onLogout, onArticleChange }) => (
   <>
@@ -24,11 +25,11 @@ const WebAppLayout = ({ onLogout, onArticleChange }) => (
         <NavLink to="/" className="sidebar-link" end>Your Library</NavLink>
         <NavLink to="/highlights-by-tag" className="sidebar-link">Highlights by Tag</NavLink>
       </div>
-      <ArticleList key={onArticleChange} />
+      <ArticleList onArticleChange={onArticleChange} />
     </div>
     <div className="content-viewer">
       <Routes>
-        <Route path="/" element={<h2 className="welcome-message">Select an article to read</h2>} />
+        <Route path="/" element={<Welcome />} />
         <Route path="/highlights-by-tag" element={<HighlightByTagList />} />
         <Route path="/articles/:id" element={<ArticleViewer onArticleChange={onArticleChange} />} />
         <Route path="*" element={<Navigate to="/" />} />
@@ -53,6 +54,7 @@ const ExtensionPopupLayout = ({ onLogout }) => (
 
 // This component contains all the logic
 const AppContent = () => {
+  const [articleListKey, setArticleListKey] = useState(0);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isExtension, setIsExtension] = useState(false);
@@ -81,10 +83,19 @@ const AppContent = () => {
   }, []);
 
   const handleLoginSuccess = () => setIsAuthenticated(true);
+
   const handleLogout = async () => {
-    // ... (logout logic)
+    try {
+      await axios.post(`${BASE_URL}/api/auth/logout`, {}, { withCredentials: true });
+    } catch (error) {
+      console.error("Logout failed", error);
+    }
+    setIsAuthenticated(false);
   };
-  const refreshArticleList = () => { /* ... */ };
+
+  const refreshArticleList = () => {
+    setArticleListKey(prevKey => prevKey + 1);
+  };
 
   if (isLoading) {
     return <div className="loading-container">Loading...</div>;
@@ -108,8 +119,6 @@ const AppContent = () => {
 };
 
 function App() {
-  // Use BrowserRouter for the web app. React Router is smart enough to handle
-  // the extension environment when loaded from a file URL.
   return (
     <Router>
       <AppContent />
