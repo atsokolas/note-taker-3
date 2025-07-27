@@ -1,4 +1,4 @@
-// server.js - FINAL VERSION WITH ROBUST CORS & ALL ROUTES
+// server.js - FINAL COMPLETE VERSION
 const express = require('express');
 const cors = require('cors');
 const mongoose = require('mongoose');
@@ -10,17 +10,25 @@ const cookieParser = require('cookie-parser');
 dotenv.config();
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 5500;
 
 // This list defines which origins are allowed to make requests
 const allowedOrigins = [
   'https://note-taker-3-unrg.onrender.com', // Your Web App's URL
-  process.env.CHROME_EXTENSION_ID // Your Extension's Origin
+  process.env.CHROME_EXTENSION_ID // Your Extension's Origin from Render ENV VARS
 ];
 
-// Temporarily allow all origins to confirm functiona
+// This is the robust CORS configuration that works for both the web app and extension
 app.use(cors({
-  origin: (origin, callback) => callback(null, true),
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like same-origin requests or server-to-server)
+    // or if the origin is in our allowed list.
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true
 }));
 
@@ -28,7 +36,7 @@ app.use(express.json({ limit: '5mb' }));
 app.use(cookieParser());
 
 // MongoDB Connection
-mongoose.connect(process.env.MONGO_URI)
+mongoose.connect(process.env.MONGODB_URI)
   .then(() => console.log("✅ MongoDB connected successfully."))
   .catch(err => console.error("❌ MongoDB connection error:", err));
 
@@ -113,7 +121,6 @@ app.post('/api/auth/logout', (req, res) => {
     res.status(200).json({ message: "Logout successful." });
 });
 
-
 // POST /save-article
 app.post("/save-article", authenticateToken, async (req, res) => {
   try {
@@ -123,10 +130,7 @@ app.post("/save-article", authenticateToken, async (req, res) => {
     let actualFolderId = null;
     if (folderId && folderId !== 'null' && folderId !== 'uncategorized') {
       const folderExists = await Folder.findOne({ _id: folderId, userId: userId });
-      if (!folderExists) {
-          console.warn(`Attempted to save article with non-existent or unauthorized folderId: ${folderId} for user ${userId}`);
-          return res.status(400).json({ error: "Provided folderId does not exist or is not accessible." });
-      }
+      if (!folderExists) return res.status(400).json({ error: "Provided folderId does not exist or is not accessible." });
       actualFolderId = folderId;
     }
     const articleData = { title, content: content || '', folder: actualFolderId, userId, $setOnInsert: { highlights: [] } };
