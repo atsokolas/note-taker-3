@@ -1,8 +1,7 @@
 /* global chrome */
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-
-const BASE_URL = "https://note-taker-3-unrg.onrender.com";
+import { BASE_URL } from '../apiConfig';
 
 const SaveArticle = () => {
   const [folders, setFolders] = useState([]);

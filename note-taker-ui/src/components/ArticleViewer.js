@@ -2,8 +2,8 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import axios from 'axios';
 import { useParams, useNavigate } from 'react-router-dom';
+import { BASE_URL } from '../apiConfig';
 
-const BASE_URL = "https://note-taker-3-unrg.onrender.com";
 
 const ArticleViewer = ({ onArticleChange }) => {
     const { id } = useParams();

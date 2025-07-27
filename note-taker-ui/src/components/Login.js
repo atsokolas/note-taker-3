@@ -2,8 +2,8 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
+import { BASE_URL } from '../apiConfig';
 
-const BASE_URL = "https://note-taker-3-unrg.onrender.com";
 
 const Login = ({ onLoginSuccess }) => {
     const [username, setUsername] = useState('');
