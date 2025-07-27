@@ -8,7 +8,7 @@ import Register from './components/Register';
 import Login from './components/Login';
 import SaveArticle from './components/SaveArticle';
 import './App.css';
-import { BASE_URL } from '../apiConfig';
+import { BASE_URL } from './apiConfig';
 
 const Welcome = () => <h2 className="welcome-message">Select an article to read</h2>;
 
