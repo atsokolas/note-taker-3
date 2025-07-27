@@ -12,11 +12,12 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 5500;
 
-// This list defines which origins are allowed to make requests
 const allowedOrigins = [
-  'https://note-taker-3-unrg.onrender.com', // Your Web App's URL
-  process.env.CHROME_EXTENSION_ID // Your Extension's Origin from Render ENV VARS
+  'https://note-taker-3.onrender.com', // Your Backend
+  'https://note-taker-frontend.onrender.com', // <-- YOUR NEW FRONTEND URL
+  process.env.CHROME_EXTENSION_ID
 ];
+
 
 // This is the robust CORS configuration that works for both the web app and extension
 app.use(cors({
