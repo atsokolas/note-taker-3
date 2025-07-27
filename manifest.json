@@ -3,7 +3,6 @@
   "name": "Note Taker",
   "description": "Capture, save, and highlight web articles effortlessly.",
   "version": "1.0",
-  "default_locale": "en",
   "icons": {
     "48": "images/Logo.png",
     "128": "images/Logo.png"
@@ -19,7 +18,7 @@
     "tabs"
   ],
   "host_permissions": [
-    "https://note-taker-3-unrg.onrender.com/*"
+    "https://note-taker-3.onrender.com/*"
   ],
   "content_scripts": [
     {
@@ -32,11 +31,11 @@
   ],
   "web_accessible_resources": [
     {
-      "resources": [ "Readability.js" ],
+      "resources": [ "Readability.js", "mark.min.js" ],
       "matches": [ "<all_urls>" ]
     }
   ],
   "content_security_policy": {
-    "extension_pages": "script-src 'self'; object-src 'none'; connect-src 'self' https://note-taker-3-unrg.onrender.com;"
+    "extension_pages": "script-src 'self'; object-src 'none'; connect-src 'self' https://note-taker-3.onrender.com;"
   }
 }
