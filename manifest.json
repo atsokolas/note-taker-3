@@ -19,12 +19,12 @@
     "tabs"
   ],
   "host_permissions": [
-    "https://note-taker-frontend.onrender.com/*"
+    "https://note-taker-3-unrg.onrender.com/*"
   ],
   "content_scripts": [
     {
       "matches": ["http://*/*", "https://*/*"],
-      "exclude_matches": ["https://note-taker-frontend.onrender.com/*"],
+      "exclude_matches": ["https://note-taker-3-unrg.onrender.com/*"],
       "js": ["Readability.js", "content.js"],
       "css": ["content.css"],
       "run_at": "document_idle"
