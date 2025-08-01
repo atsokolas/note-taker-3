@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
-
-const BASE_URL = "https://note-taker-3-unrg.onrender.com";
+import { BASE_URL } from '../apiConfig';
 
 const Register = () => {
     const [username, setUsername] = useState('');

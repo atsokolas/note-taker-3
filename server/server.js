@@ -15,6 +15,7 @@ const PORT = process.env.PORT || 5500;
 const allowedOrigins = [
   'https://note-taker-3.onrender.com', // Your Backend
   'https://note-taker-frontend.onrender.com', // <-- YOUR NEW FRONTEND URL
+  'https://note-taker-frontend-6nna.onrender.com',
   process.env.CHROME_EXTENSION_ID
 ];
 
