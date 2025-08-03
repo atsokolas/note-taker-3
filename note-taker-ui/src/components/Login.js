@@ -4,8 +4,8 @@ import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import logo from '../assets/logo.png';
 
-
-const BASE_URL = "https://note-taker-3-unrg.onrender.com"; // Ensure this matches your backend URL
+// Ensure this matches your backend URL
+const BASE_URL = "https://note-taker-3-unrg.onrender.com"; 
 
 const Login = () => {
     const [email, setEmail] = useState('');
@@ -16,19 +16,27 @@ const Login = () => {
 
     const handleLogin = async (e) => {
         e.preventDefault();
-        setMessage(''); // Clear previous messages
-        setIsError(false); // Reset error state
+        setMessage('');
+        setIsError(false);
 
         try {
             const response = await axios.post(`${BASE_URL}/login`, { email, password });
             console.log('Login success:', response.data);
 
-            // Assuming your backend returns a token, store it in localStorage
             if (response.data.token) {
+                // Save token for the web app to use
                 localStorage.setItem('token', response.data.token);
+
+                // --- THE FIX: Save token for the extension to use ---
+                if (window.chrome && chrome.storage && chrome.storage.local) {
+                    chrome.storage.local.set({ token: response.data.token }, () => {
+                        console.log('Token saved to chrome.storage for extension use.');
+                    });
+                }
+                // ----------------------------------------------------
+
                 setMessage('Login successful!');
                 setIsError(false);
-                // Redirect to the main application page (e.g., '/')
                 navigate('/');
             } else {
                 setMessage('Login successful, but no token received.');
@@ -44,25 +52,24 @@ const Login = () => {
 
     return (
         <div className="auth-container">
-            {/* ADD THIS LOGO ELEMENT */}
             <img src={logo} alt="Note Taker Logo" className="auth-logo" /> 
             <h2>Login</h2>
             <form onSubmit={handleLogin} className="auth-form">
                 <div className="form-group">
-                    <label htmlFor="email">Email:</label>
+                    <label htmlFor="email-login">Email:</label>
                     <input
                         type="email"
-                        id="email-login" // Unique ID
+                        id="email-login"
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
                         required
                     />
                 </div>
                 <div className="form-group">
-                    <label htmlFor="password">Password:</label>
+                    <label htmlFor="password-login">Password:</label>
                     <input
                         type="password"
-                        id="password-login" // Unique ID
+                        id="password-login"
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
                         required

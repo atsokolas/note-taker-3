@@ -1,8 +1,5 @@
-// note-taker-ui/src/App.js - CORRECTED IMPORT FOR NAVIGATE
-
-import React, { useState } from 'react';
-// Add Navigate to the import list from 'react-router-dom'
-import { BrowserRouter as Router, Routes, Route, NavLink, useNavigate, Navigate } from 'react-router-dom'; 
+import React, { useState, useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route, NavLink, Navigate } from 'react-router-dom';
 import ArticleList from './components/ArticleList';
 import ArticleViewer from './components/ArticleViewer';
 import HighlightByTagList from './components/HighlightByTagList';
@@ -10,50 +7,47 @@ import Register from './components/Register';
 import Login from './components/Login';
 import './App.css';
 
-// A simple component for a welcome message when no article is selected
 const Welcome = () => <h2 className="welcome-message">Select an article to read</h2>;
 
-// Placeholder for protected route logic (will be enhanced with AuthContext later)
-const PrivateRoute = ({ children }) => {
-  const navigate = useNavigate();
-  // For now, a very basic check. We'll improve this with context.
-  const isAuthenticated = localStorage.getItem('token'); 
-
-  if (!isAuthenticated) {
-    // Redirect them to the login page, but save the current location they were trying to go to
-    return <Navigate to="/login" replace />; 
-  }
-  return children;
-};
-
-
 function App() {
+  // Use state to manage authentication status
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [articleListKey, setArticleListKey] = useState(0);
 
+  // Check for token in localStorage only once when the app loads
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      setIsAuthenticated(true);
+    }
+    setIsLoading(false); // Finished checking, stop loading
+  }, []);
+
   const refreshArticleList = () => {
-    setArticleListKey(prevKey => {
-      console.log("[DEBUG - App.js] articleListKey changing from", prevKey, "to", prevKey + 1);
-      return prevKey + 1;
-    });
+    setArticleListKey(prevKey => prevKey + 1);
   };
 
-  // Basic check for logged in state for header/sidebar visibility
-  const isAuthenticated = localStorage.getItem('token'); 
+  // This function will be passed to the Login component
+  const handleLoginSuccess = () => {
+    setIsAuthenticated(true);
+  };
 
-  // Function to handle logout
   const handleLogout = () => {
-    localStorage.removeItem('token'); // Remove the token
-    // Optionally remove other user-related data
-    refreshArticleList(); // Refresh list to reflect no data
-    window.location.href = '/login'; // Redirect to login page and force a full reload
+    localStorage.removeItem('token');
+    setIsAuthenticated(false); // Update state to trigger re-render
   };
 
+  // Don't render anything until we have checked for the token
+  if (isLoading) {
+    return <div>Loading...</div>;
+  }
 
   return (
     <Router>
       <div className="app-container">
-        {/* Only show header and sidebar if authenticated */}
         {isAuthenticated ? (
+          // Authenticated View
           <>
             <div className="sidebar">
               <div className="sidebar-header">
@@ -66,24 +60,26 @@ function App() {
               </div>
               <ArticleList key={articleListKey} /> 
             </div>
-
             <div className="content-viewer">
               <Routes>
-                {/* Protected Routes */}
                 <Route path="/" element={<Welcome />} /> 
                 <Route path="/highlights-by-tag" element={<HighlightByTagList />} />
                 <Route path="/articles/:id" element={<ArticleViewer onArticleChange={refreshArticleList} />} />
+                {/* If authenticated, redirect any auth pages back to home */}
+                <Route path="/login" element={<Navigate to="/" replace />} />
+                <Route path="/register" element={<Navigate to="/" replace />} />
               </Routes>
             </div>
           </>
         ) : (
-          // If not authenticated, only show login/register routes
+          // Unauthenticated View
           <div className="auth-pages-container">
             <Routes>
               <Route path="/register" element={<Register />} />
-              <Route path="/login" element={<Login />} />
-              {/* Redirect any other path to login if not authenticated */}
-              <Route path="*" element={<Login />} /> 
+              {/* Pass the handleLoginSuccess function to the Login component */}
+              <Route path="/login" element={<Login onLoginSuccess={handleLoginSuccess} />} />
+              {/* Redirect any other path to the login page */}
+              <Route path="*" element={<Navigate to="/login" replace />} /> 
             </Routes>
           </div>
         )}

@@ -915,6 +915,13 @@ body {
     text-decoration: underline;
 }
 
+.auth-logo {
+  max-width: 150px;
+  height: auto;
+  margin-bottom: 30px;
+}
+
+
 /* Styles for the main app container when authentication routes are active */
 .app-container .auth-pages-container {
     width: 100%;
