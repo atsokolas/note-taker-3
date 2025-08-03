@@ -4,7 +4,6 @@ import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import logo from '../assets/logo.png';
 
-
 const BASE_URL = "https://note-taker-3-unrg.onrender.com"; // Ensure this matches your backend URL
 
 const Register = () => {
