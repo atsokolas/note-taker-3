@@ -28,11 +28,13 @@ const Login = () => {
                 localStorage.setItem('token', response.data.token);
 
                 // --- THE FIX: Save token for the extension to use ---
+                // eslint-disable-next-line no-undef
                 if (window.chrome && chrome.storage && chrome.storage.local) {
                     chrome.storage.local.set({ token: response.data.token }, () => {
                         console.log('Token saved to chrome.storage for extension use.');
                     });
                 }
+
                 // ----------------------------------------------------
 
                 setMessage('Login successful!');
