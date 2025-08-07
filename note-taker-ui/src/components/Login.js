@@ -4,17 +4,15 @@ import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import logo from '../assets/logo.png';
 
-// Ensure this matches your backend URL
-const BASE_URL = "https://note-taker-3-unrg.onrender.com"; 
+const BASE_URL = "https://note-taker-3-unrg.onrender.com";
 
-const Login = () => {
+// THE FIX IS HERE: The component now accepts 'onLoginSuccess' as a prop
+const Login = ({ onLoginSuccess }) => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [message, setMessage] = useState('');
     const [isError, setIsError] = useState(false);
     const navigate = useNavigate();
-
-// In Login.js, replace the whole function with this one:
 
     const handleLogin = async (e) => {
         e.preventDefault();
@@ -26,25 +24,21 @@ const Login = () => {
             console.log('Login success:', response.data);
 
             if (response.data.token) {
-                // Save token for the web app to use
                 localStorage.setItem('token', response.data.token);
 
-                // --- THE FIX: Use window.chrome consistently ---
                 if (window.chrome && window.chrome.storage && window.chrome.storage.local) {
                     window.chrome.storage.local.set({ token: response.data.token }, () => {
                         console.log('Token saved to chrome.storage for extension use.');
                     });
                 }
-                // ------------------------------------------------
 
                 setMessage('Login successful!');
                 setIsError(false);
                 
-                // This is coming from App.js now, so we need to call it
                 if (typeof onLoginSuccess === 'function') {
                     onLoginSuccess();
                 } else {
-                    navigate('/'); // Fallback if the prop isn't passed
+                    navigate('/');
                 }
 
             } else {
@@ -58,7 +52,6 @@ const Login = () => {
             setIsError(true);
         }
     };
-
 
     return (
         <div className="auth-container">
