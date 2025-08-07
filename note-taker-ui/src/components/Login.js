@@ -6,7 +6,6 @@ import logo from '../assets/logo.png';
 
 const BASE_URL = "https://note-taker-3-unrg.onrender.com";
 
-// THE FIX IS HERE: The component now accepts 'onLoginSuccess' as a prop
 const Login = ({ onLoginSuccess }) => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -20,7 +19,8 @@ const Login = ({ onLoginSuccess }) => {
         setIsError(false);
 
         try {
-            const response = await axios.post(`${BASE_URL}/login`, { email, password });
+            // --- THE ONLY CHANGE IS ON THIS LINE ---
+            const response = await axios.post(`${BASE_URL}/api/auth/login`, { email, password });
             console.log('Login success:', response.data);
 
             if (response.data.token) {
