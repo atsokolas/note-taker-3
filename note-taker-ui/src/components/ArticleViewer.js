@@ -6,6 +6,16 @@ import { useParams, useNavigate } from 'react-router-dom';
 
 const BASE_URL = "https://note-taker-3-unrg.onrender.com";
 
+// Add this helper function right below your BASE_URL constant
+const getAuthConfig = () => {
+    const token = localStorage.getItem('token');
+    if (!token) {
+        throw new Error("Authentication token not found. Please log in again.");
+    }
+    return { headers: { Authorization: `Bearer ${token}` } };
+};
+
+
 const ArticleViewer = ({ onArticleChange }) => {
     const { id } = useParams();
     const navigate = useNavigate();
@@ -25,7 +35,7 @@ const ArticleViewer = ({ onArticleChange }) => {
 
     const fetchFolders = useCallback(async () => {
         try {
-            const response = await axios.get(`${BASE_URL}/folders`);
+            const response = await axios.get(`${BASE_URL}/folders`, getAuthConfig());
             const allFolders = [{ _id: 'uncategorized', name: 'Uncategorized' }, ...response.data];
             setFolders(allFolders);
         } catch (err) {
@@ -42,7 +52,7 @@ const ArticleViewer = ({ onArticleChange }) => {
 
             const fetchArticle = async () => {
                 try {
-                    const res = await axios.get(`${BASE_URL}/articles/${id}`);
+                    const res = await axios.get(`${BASE_URL}/articles/${id}`, getAuthConfig());
                     const articleData = res.data;
 
                     const parser = new DOMParser();
@@ -181,7 +191,7 @@ const ArticleViewer = ({ onArticleChange }) => {
         setPopup({ visible: false, x: 0, y: 0, text: '' });
 
         try {
-            const res = await axios.post(`${BASE_URL}/articles/${id}/highlights`, newHighlight);
+            const res = await axios.post(`${BASE_URL}/articles/${id}/highlights`, newHighlight, getAuthConfig());
             setArticle(res.data);
             alert("Highlight saved!");
         } catch (err) {
@@ -195,7 +205,7 @@ const ArticleViewer = ({ onArticleChange }) => {
             return;
         }
         try {
-            await axios.delete(`${BASE_URL}/articles/${article._id}`);
+            await axios.delete(`${BASE_URL}/articles/${article._id}`, getAuthConfig());
             alert(`Article "${article.title}" deleted successfully!`);
             onArticleChange();
             navigate('/');
@@ -210,7 +220,7 @@ const ArticleViewer = ({ onArticleChange }) => {
         if (!article || !newFolderId) return;
 
         try {
-            const response = await axios.patch(`${BASE_URL}/articles/${article._id}/move`, { folderId: newFolderId });
+            const response = await axios.patch(`${BASE_URL}/articles/${article._id}/move`, { folderId: newFolderId }, getAuthConfig());
             setArticle(response.data);
             alert("Article moved successfully!");
             onArticleChange();
@@ -251,9 +261,10 @@ const ArticleViewer = ({ onArticleChange }) => {
     const updateHighlightOnBackend = async (highlightId, updatedNote, updatedTags) => {
         try {
             const response = await axios.patch(`${BASE_URL}/articles/${id}/highlights/${highlightId}`, {
+
                 note: updatedNote,
                 tags: updatedTags.split(',').map(tag => tag.trim()).filter(t => t)
-            });
+            }, getAuthConfig());
             return response.data; 
         } catch (err) {
             console.error("Error updating highlight on backend:", err);
@@ -279,7 +290,7 @@ const ArticleViewer = ({ onArticleChange }) => {
             return;
         }
         try {
-            const response = await axios.delete(`${BASE_URL}/articles/${id}/highlights/${highlightId}`);
+            const response = await axios.delete(`${BASE_URL}/articles/${id}/highlights/${highlightId}`, getAuthConfig());
             setArticle(response.data); 
             alert("Highlight deleted successfully!");
             onArticleChange();
