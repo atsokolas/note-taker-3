@@ -7,7 +7,8 @@ import logo from '../assets/logo.png';
 const BASE_URL = "https://note-taker-3-unrg.onrender.com";
 
 const Login = ({ onLoginSuccess }) => {
-    const [email, setEmail] = useState('');
+    // THE FIX: Renamed 'email' state to 'username'
+    const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [message, setMessage] = useState('');
     const [isError, setIsError] = useState(false);
@@ -19,8 +20,8 @@ const Login = ({ onLoginSuccess }) => {
         setIsError(false);
 
         try {
-            // --- THE ONLY CHANGE IS ON THIS LINE ---
-            const response = await axios.post(`${BASE_URL}/api/auth/login`, { email, password });
+            // THE FIX: Sending 'username' in the request body
+            const response = await axios.post(`${BASE_URL}/api/auth/login`, { username, password });
             console.log('Login success:', response.data);
 
             if (response.data.token) {
@@ -40,7 +41,6 @@ const Login = ({ onLoginSuccess }) => {
                 } else {
                     navigate('/');
                 }
-
             } else {
                 setMessage('Login successful, but no token received.');
                 setIsError(true);
@@ -59,12 +59,13 @@ const Login = ({ onLoginSuccess }) => {
             <h2>Login</h2>
             <form onSubmit={handleLogin} className="auth-form">
                 <div className="form-group">
-                    <label htmlFor="email-login">Email:</label>
+                    {/* THE FIX: Updated label and input */}
+                    <label htmlFor="username-login">Username:</label>
                     <input
-                        type="email"
-                        id="email-login"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
+                        type="text"
+                        id="username-login"
+                        value={username}
+                        onChange={(e) => setUsername(e.target.value)}
                         required
                     />
                 </div>
@@ -80,14 +81,8 @@ const Login = ({ onLoginSuccess }) => {
                 </div>
                 <button type="submit" className="auth-button">Login</button>
             </form>
-            {message && (
-                <p className={`status-message ${isError ? 'error-message' : 'success-message'}`}>
-                    {message}
-                </p>
-            )}
-            <p className="auth-link">
-                Don't have an account? <a onClick={() => navigate('/register')}>Register here</a>
-            </p>
+            {message && (<p className={`status-message ${isError ? 'error-message' : 'success-message'}`}>{message}</p>)}
+            <p className="auth-link">Don't have an account? <a onClick={() => navigate('/register')}>Register here</a></p>
         </div>
     );
 };

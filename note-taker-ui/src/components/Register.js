@@ -7,7 +7,8 @@ import logo from '../assets/logo.png';
 const BASE_URL = "https://note-taker-3-unrg.onrender.com";
 
 const Register = () => {
-    const [email, setEmail] = useState('');
+    // THE FIX: Renamed 'email' state to 'username'
+    const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [message, setMessage] = useState('');
     const [isError, setIsError] = useState(false);
@@ -19,11 +20,10 @@ const Register = () => {
         setIsError(false);
 
         try {
-            // --- THE ONLY CHANGE IS ON THIS LINE ---
-            const response = await axios.post(`${BASE_URL}/api/auth/register`, { email, password });
+            // THE FIX: Sending 'username' in the request body
+            const response = await axios.post(`${BASE_URL}/api/auth/register`, { username, password });
             setMessage('Registration successful! You can now log in.');
             setIsError(false);
-            console.log('Registration success:', response.data);
             
             setTimeout(() => {
                 navigate('/login');
@@ -42,12 +42,13 @@ const Register = () => {
             <h2>Register</h2>
             <form onSubmit={handleRegister} className="auth-form">
                 <div className="form-group">
-                    <label htmlFor="email">Email:</label>
+                    {/* THE FIX: Updated label and input */}
+                    <label htmlFor="username">Username:</label>
                     <input
-                        type="email"
-                        id="email"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
+                        type="text"
+                        id="username"
+                        value={username}
+                        onChange={(e) => setUsername(e.target.value)}
                         required
                     />
                 </div>
@@ -63,14 +64,8 @@ const Register = () => {
                 </div>
                 <button type="submit" className="auth-button">Register</button>
             </form>
-            {message && (
-                <p className={`status-message ${isError ? 'error-message' : 'success-message'}`}>
-                    {message}
-                </p>
-            )}
-            <p className="auth-link">
-                Already have an account? <a onClick={() => navigate('/login')}>Login here</a>
-            </p>
+            {message && (<p className={`status-message ${isError ? 'error-message' : 'success-message'}`}>{message}</p>)}
+            <p className="auth-link">Already have an account? <a onClick={() => navigate('/login')}>Login here</a></p>
         </div>
     );
 };
