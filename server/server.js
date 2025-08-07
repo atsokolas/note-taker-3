@@ -16,12 +16,14 @@ const PORT = process.env.PORT || 3000;
 // In production, replace 'chrome-extension://<YOUR_EXTENSION_ID>'
 // You can find your extension ID by loading it unpackaged in Chrome extensions (chrome://extensions)
 // In development, you might keep '*' for ease, but secure it for production.
+// In server.js
 const allowedOrigins = [
-  'https://note-taker-3-unrg.onrender.com', // Your backend URL if accessed by a separate web client
+  'https://note-taker-3-unrg.onrender.com',
   'http://localhost:5173',
-  'https://note-taker-frontend-6nna.onrender.com/',
-  process.env.CHROME_EXTENSION_ID || 'chrome-extension://YOUR_EXTENSION_ID_HERE_IN_DEV_IF_NEEDED_BUT_GET_IT_FROM_ENV',
+  'https://note-taker-frontend-6nna.onrender.com', // <-- CORRECTED (NO SLASH)
+  process.env.CHROME_EXTENSION_ID || 'chrome-extension://YOUR_ID_HERE'
 ];
+
 
 app.use(cors({
   origin: function (origin, callback) {
