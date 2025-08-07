@@ -18,10 +18,8 @@ const PORT = process.env.PORT || 3000;
 // In development, you might keep '*' for ease, but secure it for production.
 const allowedOrigins = [
   'https://note-taker-3-unrg.onrender.com', // Your backend URL if accessed by a separate web client
-  'http://localhost:5173', // Example for a local web client development
-  // IMPORTANT: Replace this with your actual Chrome Extension ID in production
-  // Example: `chrome-extension://abcdefghijklmnopqrstuvwxyz1234567890abcdef`
-  // You can get your extension ID from chrome://extensions when loaded unpacked
+  'http://localhost:5173',
+  'https://note-taker-frontend-6nna.onrender.com/'
   process.env.CHROME_EXTENSION_ID || 'chrome-extension://YOUR_EXTENSION_ID_HERE_IN_DEV_IF_NEEDED_BUT_GET_IT_FROM_ENV',
 ];
 
