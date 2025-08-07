@@ -14,6 +14,8 @@ const Login = () => {
     const [isError, setIsError] = useState(false);
     const navigate = useNavigate();
 
+// In Login.js, replace the whole function with this one:
+
     const handleLogin = async (e) => {
         e.preventDefault();
         setMessage('');
@@ -27,19 +29,24 @@ const Login = () => {
                 // Save token for the web app to use
                 localStorage.setItem('token', response.data.token);
 
-                // --- THE FIX: Save token for the extension to use ---
-                // eslint-disable-next-line no-undef
-                if (window.chrome && chrome.storage && chrome.storage.local) {
-                    chrome.storage.local.set({ token: response.data.token }, () => {
+                // --- THE FIX: Use window.chrome consistently ---
+                if (window.chrome && window.chrome.storage && window.chrome.storage.local) {
+                    window.chrome.storage.local.set({ token: response.data.token }, () => {
                         console.log('Token saved to chrome.storage for extension use.');
                     });
                 }
-
-                // ----------------------------------------------------
+                // ------------------------------------------------
 
                 setMessage('Login successful!');
                 setIsError(false);
-                navigate('/');
+                
+                // This is coming from App.js now, so we need to call it
+                if (typeof onLoginSuccess === 'function') {
+                    onLoginSuccess();
+                } else {
+                    navigate('/'); // Fallback if the prop isn't passed
+                }
+
             } else {
                 setMessage('Login successful, but no token received.');
                 setIsError(true);
@@ -51,6 +58,7 @@ const Login = () => {
             setIsError(true);
         }
     };
+
 
     return (
         <div className="auth-container">
