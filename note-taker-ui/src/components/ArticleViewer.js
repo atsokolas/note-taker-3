@@ -50,11 +50,14 @@ const ArticleViewer = ({ onArticleChange }) => {
             setError(null);
             fetchFolders();
 
+            // Inside the fetchArticle function in ArticleViewer.js
             const fetchArticle = async () => {
                 try {
                     const res = await axios.get(`${BASE_URL}/articles/${id}`, getAuthConfig());
                     const articleData = res.data;
 
+                    // --- ADD THIS LINE TO DEBUG ---
+                    console.log("Full article data received from API:", articleData);
                     const parser = new DOMParser();
                     const doc = parser.parseFromString(articleData.content, 'text/html');
                     const articleOrigin = new URL(articleData.url).origin;
