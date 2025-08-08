@@ -168,11 +168,17 @@
     console.log(`[DEBUG] Preparing to POST highlight to: ${endpoint} with payload:`, highlightPayload);
 
     try {
+      const { token } = await chrome.storage.local.get("token");
+      if (!token) throw new Error("Authentication token not found.");
+    
       const response = await fetch(endpoint, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`
+        },
         body: JSON.stringify(highlightPayload),
-      });
+      });    
 
       if (!response.ok) {
         const errorData = await response.json();
@@ -187,30 +193,37 @@
     }
   }
 
-  // --- MESSAGE LISTENER ---
-  chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-    console.log('[DEBUG] Message received by content script:', message);
+// --- MESSAGE LISTENER ---
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  console.log('[DEBUG] Message received by content script:', message);
 
-    let willSendResponseAsync = false; 
+  let willSendResponseAsync = false; 
 
-    if (message.action === "getCleanArticle") {
-      if (typeof Readability === "undefined") {
-        sendResponse({ error: "Readability library not available." });
-      } else {
-        const documentClone = document.cloneNode(true);
-        const reader = new Readability(documentClone);
-        const article = reader.parse();
-        sendResponse({ article: article });
+  if (message.action === "getCleanArticle") {
+    if (typeof Readability === "undefined") {
+      sendResponse({ error: "Readability library not available." });
+    } else {
+      const documentClone = document.cloneNode(true);
+      const reader = new Readability(documentClone);
+      const article = reader.parse();
+      
+      if (!article || !article.content) {
+          sendResponse({ error: "Could not parse article content from this page." });
+          return;
       }
-    } else if (message.action === "activateHighlighting") {
-        isHighlightingActive = true;
-        console.log(`[DEBUG] 'activateHighlighting' message received. isHighlightingActive is now: ${isHighlightingActive}`);
-        sendResponse({ success: true });
-    } else if (message.action === "articleSaved") {
-        savedArticleId = message.article.id;
-        console.log(`[DEBUG] 'articleSaved' message received. Stored ID is now: ${savedArticleId}`);
-    }
-    return willSendResponseAsync; 
-  });
+      
+      sendResponse({ article: article });
+    } // <-- THIS IS THE MISSING BRACE
+  } else if (message.action === "activateHighlighting") {
+      isHighlightingActive = true;
+      console.log(`[DEBUG] 'activateHighlighting' message received. isHighlightingActive is now: ${isHighlightingActive}`);
+      sendResponse({ success: true });
+  } else if (message.action === "articleSaved") {
+      savedArticleId = message.article.id;
+      console.log(`[DEBUG] 'articleSaved' message received. Stored ID is now: ${savedArticleId}`);
+  }
+  return willSendResponseAsync; 
+});
+
 
 })();
