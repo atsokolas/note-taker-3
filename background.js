@@ -1,30 +1,47 @@
-// background.js - FINAL CORRECTED VERSION FOR ACTIVATING HIGHLIGHTING
-
+// background.js
 const BASE_URL = "https://note-taker-3-unrg.onrender.com";
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === "capture") {
-    console.log(`[DEBUG - Background] Received 'capture' request:`, request);
-
+    
     const handleCapture = async () => {
+      // --- DEBUGGING LOGS ADDED ---
+      console.log("[BACKGROUND.JS TRACE] 'capture' message received. Starting handleCapture.");
+      
       try {
         if (!request.url || !request.title || !request.tabId) {
-          throw new Error("Missing required fields: title, url, or tabId in the capture request.");
+          throw new Error("Missing required fields in the capture request.");
         }
 
-        const folderIdToSend = request.folderId;
-        console.log(`[DEBUG - Background] Attempting to save article with folderId: ${folderIdToSend}`);
+        // Let's see if we can get the token.
+        const storageResult = await chrome.storage.local.get("token");
+        const token = storageResult.token;
+        
+        // This is the most important log. Let's see what the token value is.
+        console.log("[BACKGROUND.JS TRACE] Token retrieved from storage:", token);
 
-        const response = await fetch(`${BASE_URL}/save-article`, {
+        if (!token) {
+          throw new Error("Authentication token not found. Please log in.");
+        }
+
+        const fetchOptions = {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { 
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}` 
+          },
           body: JSON.stringify({
             title: request.title,
             url: request.url,
             content: request.content || "",
-            folderId: folderIdToSend,
+            folderId: request.folderId,
           }),
-        });
+        };
+
+        // Let's log the options right before we send the request.
+        console.log("[BACKGROUND.JS TRACE] Preparing to fetch with these options:", fetchOptions);
+
+        const response = await fetch(`${BASE_URL}/save-article`, fetchOptions);
 
         if (!response.ok) {
             const errorText = await response.text();
@@ -33,37 +50,26 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
         const data = await response.json();
         console.log("✅ [SUCCESS - Background] Article saved successfully:", data);
-
-        // --- CRUCIAL: Send messages to the content script to activate highlighting ---
+        
         try {
-            console.log(`[DEBUG - Background] Sending 'activateHighlighting' to tab: ${request.tabId}`);
             await chrome.tabs.sendMessage(request.tabId, { action: "activateHighlighting" });
-            
-            console.log(`[DEBUG - Background] Sending 'articleSaved' to tab: ${request.tabId}`);
             await chrome.tabs.sendMessage(request.tabId, {
               action: "articleSaved",
               article: { title: request.title, url: request.url, id: data._id ?? null },
             });
-            console.log("[DEBUG - Background] Messages sent to content script successfully.");
         } catch (sendMessageError) {
             console.error("❌ [ERROR - Background] Failed to send message to content script:", sendMessageError);
-            // This error often means the tab was closed or the content script crashed.
         }
-        // -----------------------------------------------------------------------------
         
-        return { success: true, data: data }; // Resolve popup.js's call
+        return { success: true, data: data };
       } catch (error) {
         console.error("❌ [ERROR - Background] An error occurred in handleCapture:", error);
-        const userFacingError = error.message.includes("Server Error") ? error.message : "Failed to save article due to an internal error.";
-        return { success: false, error: userFacingError }; // Reject popup.js's call
+        return { success: false, error: error.message };
       }
     };
 
-    handleCapture().then(sendResponse); // Send response back to popup.js when done
-    return true; // Indicate that sendResponse will be called asynchronously
+    handleCapture().then(sendResponse);
+    return true; 
   }
-
-  // If the message action is not "capture", we are NOT sending an asynchronous response.
-  console.log(`[DEBUG - Background] Received unhandled action: ${request.action}`);
-  return false; 
+  return false;
 });
