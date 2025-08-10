@@ -1,12 +1,27 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <title>Article Saver</title>
+    <title>Note Taker</title>
     <link rel="stylesheet" href="popup.css">
 </head>
 <body>
-    <div class="container">
+    <div id="loggedOutView" class="container">
+        <h2>Welcome</h2>
+        <form id="loginForm">
+            <div class="form-group">
+                <label for="username">Username:</label>
+                <input type="text" id="username" required>
+            </div>
+            <div class="form-group">
+                <label for="password">Password:</label>
+                <input type="password" id="password" required>
+            </div>
+            <button type="submit" id="loginButton" class="primary-button">Login</button>
+        </form>
+        <p id="loginStatusMessage" class="status"></p>
+    </div>
+
+    <div id="loggedInView" class="container" style="display: none;">
         <h1 class="title">Save Article</h1>
         
         <div class="form-group">
@@ -22,8 +37,13 @@
         </div>
 
         <button id="saveArticleButton">Save Article</button>
+        
+        <hr>
+        <button id="logoutButton" class="secondary-button">Logout</button>
+
         <div id="statusMessage"></div>
     </div>
+
     <script src="popup.js"></script>
 </body>
 </html>
