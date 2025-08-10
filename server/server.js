@@ -19,11 +19,9 @@ const PORT = process.env.PORT || 3000;
 // In server.js
 const allowedOrigins = [
   'https://note-taker-3-unrg.onrender.com',
-  'http://localhost:5173',
-  'https://note-taker-frontend-6nna.onrender.com', // <-- CORRECTED (NO SLASH)
-  process.env.CHROME_EXTENSION_ID || 'chrome-extension://YOUR_ID_HERE'
+  'https://note-taker-frontend-6nna.onrender.com',
+  process.env.CHROME_EXTENSION_ID
 ];
-
 
 app.use(cors({
   origin: function (origin, callback) {
