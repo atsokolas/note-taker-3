@@ -24,7 +24,9 @@
   "content_scripts": [
     {
       "matches": ["http://*/*", "https://*/*"],
-      "exclude_matches": ["https://note-taker-3-1.onrender.com/*"],
+      "exclude_matches": [
+        "https://note-taker-frontend-6nna.onrender.com/*"
+      ],
       "js": ["Readability.js", "content.js"],
       "css": ["content.css"],
       "run_at": "document_idle"
@@ -36,6 +38,11 @@
       "matches": [ "<all_urls>" ]
     }
   ],
+  "externally_connectable": {
+    "matches": [
+      "https://note-taker-frontend-6nna.onrender.com/*"
+    ]
+  },
   "content_security_policy": {
     "extension_pages": "script-src 'self'; object-src 'none'; connect-src 'self' https://note-taker-3-unrg.onrender.com;"
   }
