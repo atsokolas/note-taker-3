@@ -1,12 +1,10 @@
-// note-taker-ui/src/components/ArticleViewer.js - REVERT MOUSEUP TO DOCUMENT, REFINE DISMISSAL
-
+// note-taker-ui/src/components/ArticleViewer.js
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import axios from 'axios';
 import { useParams, useNavigate } from 'react-router-dom';
 
 const BASE_URL = "https://note-taker-3-unrg.onrender.com";
 
-// Add this helper function right below your BASE_URL constant
 const getAuthConfig = () => {
     const token = localStorage.getItem('token');
     if (!token) {
@@ -14,7 +12,6 @@ const getAuthConfig = () => {
     }
     return { headers: { Authorization: `Bearer ${token}` } };
 };
-
 
 const ArticleViewer = ({ onArticleChange }) => {
     const { id } = useParams();
@@ -33,6 +30,11 @@ const ArticleViewer = ({ onArticleChange }) => {
     const [newHighlightNote, setNewHighlightNote] = useState('');
     const [newHighlightTags, setNewHighlightTags] = useState('');
 
+    // --- NEW: State for Recommendation Modal ---
+    const [isRecommendModalOpen, setIsRecommendModalOpen] = useState(false);
+    const [selectedHighlights, setSelectedHighlights] = useState([]);
+    // ------------------------------------------
+
     const fetchFolders = useCallback(async () => {
         try {
             const response = await axios.get(`${BASE_URL}/folders`, getAuthConfig());
@@ -43,21 +45,18 @@ const ArticleViewer = ({ onArticleChange }) => {
         }
     }, []);
 
-    // useEffect for fetching article data and applying visual highlights
     useEffect(() => {
         if (id) {
             setArticle(null);
             setError(null);
             fetchFolders();
 
-            // Inside the fetchArticle function in ArticleViewer.js
             const fetchArticle = async () => {
                 try {
                     const res = await axios.get(`${BASE_URL}/articles/${id}`, getAuthConfig());
                     const articleData = res.data;
-
-                    // --- ADD THIS LINE TO DEBUG ---
                     console.log("Full article data received from API:", articleData);
+
                     const parser = new DOMParser();
                     const doc = parser.parseFromString(articleData.content, 'text/html');
                     const articleOrigin = new URL(articleData.url).origin;
@@ -72,13 +71,7 @@ const ArticleViewer = ({ onArticleChange }) => {
                         const highlightId = `highlight-${h._id}`; 
                         const escaped = h.text?.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
                         const regex = new RegExp(`(?<!<mark[^>]*>)${escaped}(?!<\\/mark>)`, 'gi'); 
-                        
-                        doc.body.innerHTML = doc.body.innerHTML.replace(regex, match => {
-                            if (match.includes('<mark class="highlight"')) {
-                                return match;
-                            }
-                            return `<mark class="highlight" data-highlight-id="${highlightId}">${match}</mark>`;
-                        });
+                        doc.body.innerHTML = doc.body.innerHTML.replace(regex, match => `<mark class="highlight" data-highlight-id="${highlightId}">${match}</mark>`);
                     });
 
                     setArticle({ ...articleData, content: doc.body.innerHTML });
@@ -92,63 +85,33 @@ const ArticleViewer = ({ onArticleChange }) => {
         }
     }, [id, fetchFolders]);
 
-    // --- CRITICAL useEffect for handling mouse events (selection and popup dismissal) ---
     useEffect(() => {
-        console.log("[DEBUG - AV EFFECT] Highlight listener useEffect started.");
-
-        const handleMouseUp = (event) => { // Keep event parameter here, needed for event.target
-            console.log("[DEBUG - AV] MouseUp detected inside handler.");
-            
-            // Only proceed if event target is within contentRef and not already on the popup
+        const handleMouseUp = (event) => {
             if (!contentRef.current || !contentRef.current.contains(event.target) || event.target.closest('.highlight-popup-web-app-container')) {
-                console.log("[DEBUG - AV] MouseUp not on valid content area or inside popup, ignoring.");
                 return;
             }
 
             const selection = window.getSelection();
             const selectedText = selection?.toString().trim();
 
-            console.log("[DEBUG - AV] Selected Text (inside handler):", `"${selectedText}"`, "Length:", selectedText.length);
-            console.log("[DEBUG - AV] Selection Range Count (inside handler):", selection?.rangeCount);
-
-            const isSelectionValid = selectedText && selectedText.length > 0 && selection.rangeCount > 0;
-
-            if (isSelectionValid) {
-                // Only show popup if it's currently hidden
+            if (selectedText && selectedText.length > 0 && selection.rangeCount > 0) {
                 if (!popup.visible) {
-                    console.log("[DEBUG - AV] All conditions met for highlight popup, SHOWING.");
                     const range = selection.getRangeAt(0);
                     const rect = range.getBoundingClientRect();
-                    setPopup({
-                        visible: true,
-                        x: rect.left + window.scrollX + (rect.width / 2),
-                        y: rect.top + window.scrollY - 50,
-                        text: selectedText
-                    });
+                    setPopup({ visible: true, x: rect.left + window.scrollX + (rect.width / 2), y: rect.top + window.scrollY - 50, text: selectedText });
                     setNewHighlightNote('');
                     setNewHighlightTags('');
                 } else {
-                    console.log("[DEBUG - AV] Popup already visible (re-selection).");
-                    // If user selects new text while popup is open, update its text content.
-                    // This is optional, but improves UX.
                     setPopup(prevPopup => ({ ...prevPopup, text: selectedText })); 
                 }
             } else {
-                // Only hide popup if it's currently visible (prevents unnecessary renders)
                 if (popup.visible) {
-                    console.log("[DEBUG - AV] Conditions NOT met for highlight popup, HIDING.");
                     setPopup({ visible: false, x: 0, y: 0, text: '' });
-                } else {
-                    console.log("[DEBUG - AV] Popup already hidden, no action needed.");
                 }
             }
         };
 
         const handleClickToDismiss = (event) => {
-            console.log("[DEBUG - AV] Click detected for dismissal.");
-            // Check if popupRef.current exists before using it to avoid errors if popup not rendered yet
-            // Dismiss if popup is visible AND click is NOT inside the popup itself.
-            // Also, consider if click is on selected text within contentRef.
             const clickIsOutsidePopup = popupRef.current && !popupRef.current.contains(event.target);
             const clickIsOnContent = contentRef.current && contentRef.current.contains(event.target);
             const selection = window.getSelection();
@@ -156,35 +119,51 @@ const ArticleViewer = ({ onArticleChange }) => {
 
             if (popup.visible && clickIsOutsidePopup) {
                 if (clickIsOnContent && hasActiveSelection) {
-                    // This means a click happened inside the article content, AND text is currently selected.
-                    // This is likely part of user adjusting selection, so don't dismiss.
-                    console.log("[DEBUG - AV] Click inside content with active selection, not dismissing.");
                     return;
                 }
-                // If click is outside popup, and not a new selection within content, then dismiss.
-                console.log("[DEBUG - AV] Dismissing popup.");
                 setPopup({ visible: false, x: 0, y: 0, text: '' });
-            } else if (!popup.visible) {
-                 console.log("[DEBUG - AV] Popup is not visible, click dismissal ignored.");
             }
         };
-
-        // Attach mouseup for showing popup GLOBALLY
-        // This is necessary to reliably capture text selections across the document.
         document.addEventListener("mouseup", handleMouseUp);
-        // Attach a global click listener for dismissing the popup.
         document.addEventListener("click", handleClickToDismiss);
-
-        // Cleanup function for useEffect
         return () => {
-            console.log("[DEBUG - AV EFFECT] Cleanup: Removing event listeners.");
             document.removeEventListener("mouseup", handleMouseUp);
             document.removeEventListener("click", handleClickToDismiss);
         };
+    }, [popup.visible]);
 
-    }, [popup.visible, contentRef, popupRef, setPopup, setNewHighlightNote, setNewHighlightTags]); // Ensure all setters and refs are dependencies
+    // --- NEW: Functions for Recommendation Modal ---
+    const handleHighlightSelectionChange = (highlightId) => {
+        setSelectedHighlights(prevSelected => {
+            if (prevSelected.includes(highlightId)) {
+                return prevSelected.filter(id => id !== highlightId);
+            } else {
+                if (prevSelected.length < 10) {
+                    return [...prevSelected, highlightId];
+                }
+                return prevSelected;
+            }
+        });
+    };
 
-    // MODIFIED: saveHighlight function to use new state variables and send note/tags
+    const handleRecommendArticle = async () => {
+        if (selectedHighlights.length === 0) {
+            alert("Please select at least one highlight to recommend.");
+            return;
+        }
+        try {
+            const payload = { articleId: article._id, highlightIds: selectedHighlights };
+            await axios.post(`${BASE_URL}/api/recommendations`, payload, getAuthConfig());
+            alert("Article recommended successfully!");
+            setIsRecommendModalOpen(false);
+            setSelectedHighlights([]);
+        } catch (err) {
+            console.error("Error recommending article:", err);
+            alert(err.response?.data?.error || "Failed to recommend article.");
+        }
+    };
+    // ---------------------------------------------
+
     const saveHighlight = async () => {
         const newHighlight = { 
             text: popup.text,
@@ -192,7 +171,6 @@ const ArticleViewer = ({ onArticleChange }) => {
             tags: newHighlightTags.split(',').map(tag => tag.trim()).filter(t => t) 
         }; 
         setPopup({ visible: false, x: 0, y: 0, text: '' });
-
         try {
             const res = await axios.post(`${BASE_URL}/articles/${id}/highlights`, newHighlight, getAuthConfig());
             setArticle(res.data);
@@ -221,7 +199,6 @@ const ArticleViewer = ({ onArticleChange }) => {
     const handleMoveArticle = async (e) => {
         const newFolderId = e.target.value;
         if (!article || !newFolderId) return;
-
         try {
             const response = await axios.patch(`${BASE_URL}/articles/${article._id}/move`, { folderId: newFolderId }, getAuthConfig());
             setArticle(response.data);
@@ -229,11 +206,7 @@ const ArticleViewer = ({ onArticleChange }) => {
             onArticleChange();
         } catch (err) {
             console.error("Error moving article:", err);
-            if (err.response && err.response.data && err.response.data.error) {
-                alert(`Error moving article: ${err.response.data.error}`);
-            } else {
-                alert("Failed to move article.");
-            }
+            alert(err.response?.data?.error || "Failed to move article.");
         }
     };
 
@@ -264,7 +237,6 @@ const ArticleViewer = ({ onArticleChange }) => {
     const updateHighlightOnBackend = async (highlightId, updatedNote, updatedTags) => {
         try {
             const response = await axios.patch(`${BASE_URL}/articles/${id}/highlights/${highlightId}`, {
-
                 note: updatedNote,
                 tags: updatedTags.split(',').map(tag => tag.trim()).filter(t => t)
             }, getAuthConfig());
@@ -315,6 +287,15 @@ const ArticleViewer = ({ onArticleChange }) => {
         <div className="article-viewer-page">
             <div className="article-viewer-main">
                 <div className="article-management-bar">
+                    {/* --- NEW: Recommend Button --- */}
+                    <button 
+                        className="management-button" 
+                        onClick={() => setIsRecommendModalOpen(true)}
+                        title="Recommend Article"
+                    >
+                        Recommend
+                    </button>
+                    {/* --------------------------- */}
                     <button 
                         className="management-button delete-button" 
                         onClick={handleDeleteArticle}
@@ -344,9 +325,8 @@ const ArticleViewer = ({ onArticleChange }) => {
                         dangerouslySetInnerHTML={{ __html: article.content }}
                     />
                     {popup.visible && (
-                        // This is the highlight creation popup when text is selected on the web app
                         <div
-                            ref={popupRef} /* Attach popupRef here */
+                            ref={popupRef}
                             className="highlight-popup-web-app-container"
                             style={{ 
                                 top: popup.y, 
@@ -373,7 +353,7 @@ const ArticleViewer = ({ onArticleChange }) => {
                                 onClick={saveHighlight}
                                 title="Save Highlight"
                             >
-                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" className="highlight-icon">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="highlight-icon">
                                     <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
                                 </svg>
                                 <span className="highlight-label">Save</span>
@@ -383,7 +363,6 @@ const ArticleViewer = ({ onArticleChange }) => {
                 </div>
             </div>
 
-            {/* Highlights Sidebar */}
             <div className="article-highlights-sidebar">
                 <h2>Article Highlights</h2>
                 {article.highlights && article.highlights.length > 0 ? (
@@ -391,7 +370,6 @@ const ArticleViewer = ({ onArticleChange }) => {
                         {article.highlights.map(h => (
                             <li key={h._id} className={`sidebar-highlight-item ${editingHighlightId === h._id ? 'editing' : ''}`}>
                                 {editingHighlightId === h._id ? (
-                                    // Edit Mode UI for sidebar highlights
                                     <>
                                         <textarea 
                                             className="edit-highlight-note-input"
@@ -412,7 +390,6 @@ const ArticleViewer = ({ onArticleChange }) => {
                                         </div>
                                     </>
                                 ) : (
-                                    // Display Mode UI for sidebar highlights
                                     <>
                                         <p className="sidebar-highlight-text" onClick={() => scrollToHighlight(`highlight-${h._id}`)}>
                                             {h.text}
@@ -438,8 +415,40 @@ const ArticleViewer = ({ onArticleChange }) => {
                     <p className="no-highlights-message">No highlights for this article yet.</p>
                 )}
             </div>
+
+            {/* --- NEW: JSX for Recommendation Modal --- */}
+            {isRecommendModalOpen && (
+                <div className="modal-overlay">
+                    <div className="modal-content">
+                        <h2>Recommend Article</h2>
+                        <p>Select up to 10 highlights to share with your recommendation.</p>
+                        <p className="highlight-counter">{selectedHighlights.length} / 10 selected</p>
+                        
+                        <div className="highlight-selection-list">
+                            {(article.highlights || []).map(h => (
+                                <div key={h._id} className="highlight-selection-item">
+                                    <input 
+                                        type="checkbox"
+                                        id={`cb-${h._id}`}
+                                        checked={selectedHighlights.includes(h._id)}
+                                        onChange={() => handleHighlightSelectionChange(h._id)}
+                                        disabled={selectedHighlights.length >= 10 && !selectedHighlights.includes(h._id)}
+                                    />
+                                    <label htmlFor={`cb-${h._id}`}>{h.text}</label>
+                                </div>
+                            ))}
+                        </div>
+
+                        <div className="modal-actions">
+                            <button className="secondary-button" onClick={() => { setIsRecommendModalOpen(false); setSelectedHighlights([]); }}>Cancel</button>
+                            <button className="primary-button" onClick={handleRecommendArticle}>Confirm Recommendation</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {/* ------------------------------------ */}
         </div>
     );
-}; // <-- This brace was missing in your last input, which I've added to make the component valid.
+};
 
 export default ArticleViewer;
