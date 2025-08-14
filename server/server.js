@@ -228,6 +228,30 @@ app.post('/api/recommendations', authenticateToken, async (req, res) => {
   }
 });
 
+// GET /api/trending - Get a list of the most recommended articles
+app.get('/api/trending', async (req, res) => {
+  try {
+      const trendingArticles = await Recommendation.aggregate([
+          // Group documents by articleUrl and count how many times each appears
+          { $group: {
+              _id: "$articleUrl",
+              recommendationCount: { $sum: 1 },
+              articleTitle: { $first: "$articleTitle" } // Get the title from the first document in each group
+          }},
+          // Sort by the count in descending order
+          { $sort: { recommendationCount: -1 } },
+          // Limit to the top 10 results
+          { $limit: 10 }
+      ]);
+
+      res.status(200).json(trendingArticles);
+
+  } catch (error) {
+      console.error("❌ Error fetching trending articles:", error);
+      res.status(500).json({ error: "Internal server error." });
+  }
+});
+
 // POST /save-article: Saves a new article or updates an existing one - MODIFIED FOR USER AUTHENTICATION
 app.post("/save-article", authenticateToken, async (req, res) => {
   try {
@@ -448,30 +472,6 @@ app.post('/articles/:id/highlights', authenticateToken, async (req, res) => {
         note: note || '',
         tags: tags || []
     };
-
-// GET /api/trending - Get a list of the most recommended articles
-app.get('/api/trending', async (req, res) => {
-  try {
-      const trendingArticles = await Recommendation.aggregate([
-          // Group documents by articleUrl and count how many times each appears
-          { $group: {
-              _id: "$articleUrl",
-              recommendationCount: { $sum: 1 },
-              articleTitle: { $first: "$articleTitle" } // Get the title from the first document in each group
-          }},
-          // Sort by the count in descending order
-          { $sort: { recommendationCount: -1 } },
-          // Limit to the top 10 results
-          { $limit: 10 }
-      ]);
-
-      res.status(200).json(trendingArticles);
-
-  } catch (error) {
-      console.error("❌ Error fetching trending articles:", error);
-      res.status(500).json({ error: "Internal server error." });
-  }
-});
 
     // Find article by ID AND ensure it belongs to the authenticated user
     const updatedArticle = await Article.findOneAndUpdate(
