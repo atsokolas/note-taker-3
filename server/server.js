@@ -173,6 +173,60 @@ app.post('/api/auth/login', async (req, res) => {
     }
 });
 
+// --- NEW SOCIAL API ROUTES ---
+
+// POST /api/recommendations - Recommend an article with selected highlights
+app.post('/api/recommendations', authenticateToken, async (req, res) => {
+  const { articleId, highlightIds } = req.body;
+  const userId = req.user.id;
+
+  // --- Validation Rules ---
+  if (!articleId || !highlightIds) {
+      return res.status(400).json({ error: "Article ID and highlight IDs are required." });
+  }
+  if (!Array.isArray(highlightIds) || highlightIds.length === 0) {
+      return res.status(400).json({ error: "You must select at least one highlight to share." });
+  }
+  if (highlightIds.length > 10) {
+      return res.status(400).json({ error: "You can share a maximum of 10 highlights." });
+  }
+  const WORD_LIMIT_PER_HIGHLIGHT = 35; // A reasonable limit
+  // -------------------------
+
+  try {
+      const article = await Article.findOne({ _id: articleId, userId: userId });
+      if (!article) {
+          return res.status(404).json({ error: "Article not found or you do not own it." });
+      }
+
+      const sharedHighlights = [];
+      for (const hId of highlightIds) {
+          const highlight = article.highlights.id(hId);
+          if (!highlight) {
+              return res.status(400).json({ error: `Highlight with ID ${hId} not found.` });
+          }
+          // Check word count for each highlight
+          if (highlight.text.split(' ').length > WORD_LIMIT_PER_HIGHLIGHT) {
+              return res.status(400).json({ error: `One of your selected highlights exceeds the ${WORD_LIMIT_PER_HIGHLIGHT}-word limit.` });
+          }
+          sharedHighlights.push({ text: highlight.text });
+      }
+
+      const newRecommendation = new Recommendation({
+          articleUrl: article.url,
+          articleTitle: article.title,
+          recommendingUserId: userId,
+          sharedHighlights: sharedHighlights
+      });
+
+      await newRecommendation.save();
+      res.status(201).json({ message: "Article recommended successfully!", recommendation: newRecommendation });
+
+  } catch (error) {
+      console.error("❌ Error recommending article:", error);
+      res.status(500).json({ error: "Internal server error." });
+  }
+});
 
 // POST /save-article: Saves a new article or updates an existing one - MODIFIED FOR USER AUTHENTICATION
 app.post("/save-article", authenticateToken, async (req, res) => {
@@ -394,60 +448,6 @@ app.post('/articles/:id/highlights', authenticateToken, async (req, res) => {
         note: note || '',
         tags: tags || []
     };
-// --- NEW SOCIAL API ROUTES ---
-
-// POST /api/recommendations - Recommend an article with selected highlights
-app.post('/api/recommendations', authenticateToken, async (req, res) => {
-  const { articleId, highlightIds } = req.body;
-  const userId = req.user.id;
-
-  // --- Validation Rules ---
-  if (!articleId || !highlightIds) {
-      return res.status(400).json({ error: "Article ID and highlight IDs are required." });
-  }
-  if (!Array.isArray(highlightIds) || highlightIds.length === 0) {
-      return res.status(400).json({ error: "You must select at least one highlight to share." });
-  }
-  if (highlightIds.length > 10) {
-      return res.status(400).json({ error: "You can share a maximum of 10 highlights." });
-  }
-  const WORD_LIMIT_PER_HIGHLIGHT = 35; // A reasonable limit
-  // -------------------------
-
-  try {
-      const article = await Article.findOne({ _id: articleId, userId: userId });
-      if (!article) {
-          return res.status(404).json({ error: "Article not found or you do not own it." });
-      }
-
-      const sharedHighlights = [];
-      for (const hId of highlightIds) {
-          const highlight = article.highlights.id(hId);
-          if (!highlight) {
-              return res.status(400).json({ error: `Highlight with ID ${hId} not found.` });
-          }
-          // Check word count for each highlight
-          if (highlight.text.split(' ').length > WORD_LIMIT_PER_HIGHLIGHT) {
-              return res.status(400).json({ error: `One of your selected highlights exceeds the ${WORD_LIMIT_PER_HIGHLIGHT}-word limit.` });
-          }
-          sharedHighlights.push({ text: highlight.text });
-      }
-
-      const newRecommendation = new Recommendation({
-          articleUrl: article.url,
-          articleTitle: article.title,
-          recommendingUserId: userId,
-          sharedHighlights: sharedHighlights
-      });
-
-      await newRecommendation.save();
-      res.status(201).json({ message: "Article recommended successfully!", recommendation: newRecommendation });
-
-  } catch (error) {
-      console.error("❌ Error recommending article:", error);
-      res.status(500).json({ error: "Internal server error." });
-  }
-});
 
 // GET /api/trending - Get a list of the most recommended articles
 app.get('/api/trending', async (req, res) => {
@@ -472,7 +472,6 @@ app.get('/api/trending', async (req, res) => {
       res.status(500).json({ error: "Internal server error." });
   }
 });
-
 
     // Find article by ID AND ensure it belongs to the authenticated user
     const updatedArticle = await Article.findOneAndUpdate(
