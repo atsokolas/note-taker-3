@@ -119,16 +119,30 @@
             document.addEventListener("click", handleClickOutside);
         }, 100);
 
+        // This is the corrected version of the function
         function handleClickOutside(event) {
-            const clickIsOutsideTooltip = !tooltip.contains(event.target);
-            const clickIsOutsideSelection = lastSelectionRange && !lastSelectionRange.getBoundingClientRect().contains(event.clientX, event.clientY);
-            
-            if (clickIsOutsideTooltip && clickIsOutsideSelection) {
-                tooltip.remove();
-                document.removeEventListener("click", handleClickOutside);
-                clearTimeout(dismissTimeout);
-            }
+          const clickIsOutsideTooltip = !tooltip.contains(event.target);
+
+          // Correctly check if the click is within the selection's bounds
+          let clickIsOutsideSelection = true;
+          if (lastSelectionRange) {
+              const rect = lastSelectionRange.getBoundingClientRect();
+              if (event.clientX >= rect.left && event.clientX <= rect.right &&
+                  event.clientY >= rect.top && event.clientY <= rect.bottom) {
+                  clickIsOutsideSelection = false; // It's inside, so set to false
+              }
+          }
+
+          if (clickIsOutsideTooltip && clickIsOutsideSelection) {
+              console.log('[DEBUG] Clicked outside tooltip and selection, removing.');
+              tooltip.remove();
+              document.removeEventListener("click", handleClickOutside); // Clean up listener
+              clearTimeout(dismissTimeout); // Clear the timeout if it hasn't fired yet
+          } else {
+              console.log('[DEBUG] Click was inside tooltip or on selection, keeping tooltip.');
+          }
         }
+
     } catch (e) {
         console.error("❌ [CRITICAL] Error appending or positioning tooltip:", e);
     }
