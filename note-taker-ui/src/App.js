@@ -27,12 +27,15 @@ function App() {
     setArticleListKey(prevKey => prevKey + 1);
   };
 
-  // --- CHANGED: handleLogout now forces a full page reload for a clean state ---
   const handleLogout = () => {
     localStorage.removeItem('token');
     setIsAuthenticated(false);
-    // Redirect to login page and force a full reload
     window.location.href = '/login'; 
+  };
+  
+  // 1. ADD THIS HANDLER TO UPDATE THE STATE
+  const handleLoginSuccess = () => {
+    setIsAuthenticated(true);
   };
 
   if (isLoading) {
@@ -71,8 +74,11 @@ function App() {
           <div className="auth-pages-container">
             <Routes>
               <Route path="/register" element={<Register />} />
-              {/* --- CHANGED: Removed the onLoginSuccess prop --- */}
-              <Route path="/login" element={<Login />} />
+              {/* 2. PASS THE HANDLER AS A PROP TO THE LOGIN COMPONENT */}
+              <Route 
+                path="/login" 
+                element={<Login onLoginSuccess={handleLoginSuccess} />} 
+              />
               <Route path="*" element={<Navigate to="/login" replace />} /> 
             </Routes>
           </div>

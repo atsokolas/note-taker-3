@@ -1,4 +1,3 @@
-// src/components/Login.js
 import React, { useState } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
@@ -7,7 +6,6 @@ import logo from '../assets/logo.png';
 const BASE_URL = "https://note-taker-3-unrg.onrender.com";
 
 const Login = ({ onLoginSuccess }) => {
-    // THE FIX: Renamed 'email' state to 'username'
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [message, setMessage] = useState('');
@@ -20,7 +18,6 @@ const Login = ({ onLoginSuccess }) => {
         setIsError(false);
 
         try {
-            // THE FIX: Sending 'username' in the request body
             const response = await axios.post(`${BASE_URL}/api/auth/login`, { username, password });
             console.log('Login success:', response.data);
 
@@ -36,10 +33,9 @@ const Login = ({ onLoginSuccess }) => {
                 setMessage('Login successful!');
                 setIsError(false);
                 
+                // 3. CLEAN UP: RELY ONLY ON THE PROP TO SIGNAL SUCCESS
                 if (typeof onLoginSuccess === 'function') {
                     onLoginSuccess();
-                } else {
-                    navigate('/');
                 }
             } else {
                 setMessage('Login successful, but no token received.');
@@ -59,7 +55,6 @@ const Login = ({ onLoginSuccess }) => {
             <h2>Login</h2>
             <form onSubmit={handleLogin} className="auth-form">
                 <div className="form-group">
-                    {/* THE FIX: Updated label and input */}
                     <label htmlFor="username-login">Username:</label>
                     <input
                         type="text"
