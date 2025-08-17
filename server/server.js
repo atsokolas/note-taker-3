@@ -399,6 +399,32 @@ app.get('/articles/:id', authenticateToken, async (req, res) => {
     }
 });
 
+// Add this new route to server.js
+
+// GET /api/articles/by-url: Finds an article by its URL for the current user
+app.get('/api/articles/by-url', authenticateToken, async (req, res) => {
+  try {
+      const { url } = req.query;
+      if (!url) {
+          return res.status(400).json({ error: 'URL query parameter is required.' });
+      }
+      
+      const userId = req.user.id;
+      // Find the article that matches the URL and the logged-in user
+      const article = await Article.findOne({ url: url, userId: userId });
+
+      if (!article) {
+          // It's not an error if not found, just return an empty success response
+          return res.status(200).json(null); 
+      }
+
+      res.status(200).json(article); // Return the found article
+  } catch (error) {
+      console.error("❌ Error fetching article by URL:", error);
+      res.status(500).json({ error: "Internal server error." });
+  }
+});
+
 // DELETE /articles/:id: Deletes a specific article - MODIFIED FOR USER AUTHENTICATION
 app.delete('/articles/:id', authenticateToken, async (req, res) => {
   try {

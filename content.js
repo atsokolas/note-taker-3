@@ -1,4 +1,4 @@
-// content.js - HIGHLIGHT TOOLTIP DISMISSAL FIX
+// content.js - FINAL VERSION WITH ALL FIXES
 
 (function () {
   console.log('[DEBUG] content.js script has been injected.');
@@ -13,53 +13,69 @@
   
   let savedArticleId = null;
   let isHighlightingActive = false;
-  let lastSelectionRange = null; // Store the last selection range globally for tooltip dismissal
+  let lastSelectionRange = null;
 
-  console.log('[DEBUG] content.js variables initialized. isHighlightingActive:', isHighlightingActive);
+  // --- NEW: Check if article exists when the page loads ---
+  const checkForExistingArticle = async () => {
+    try {
+        const { token } = await chrome.storage.local.get("token");
+        if (!token) {
+            console.log("[DEBUG] No token found, highlighting will remain inactive.");
+            return;
+        }
 
+        const encodedUrl = encodeURIComponent(window.location.href);
+        const response = await fetch(`${BASE_URL}/api/articles/by-url?url=${encodedUrl}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (!response.ok) return;
+
+        const article = await response.json();
+
+        if (article) {
+            console.log("[DEBUG] Existing article found on page load:", article);
+            savedArticleId = article._id;
+            isHighlightingActive = true;
+        } else {
+            console.log("[DEBUG] No existing article found for this URL.");
+        }
+    } catch (error) {
+        console.error("Error checking for existing article:", error);
+    }
+  };
+  // --------------------------------------------------------
 
   document.addEventListener("mouseup", (event) => {
     console.log('[DEBUG] "mouseup" event detected. Target:', event.target);
     
-    // First, always try to remove the tooltip if no text is selected or if highlighting is not active.
-    // This also helps clear old tooltips if user clicks away without selecting text.
     const selection = window.getSelection();
     const selectedText = selection.toString().trim();
     if (!selectedText.length || !isHighlightingActive) {
         const existingTooltip = document.getElementById('highlight-tooltip');
         if (existingTooltip) {
-            console.log('[DEBUG] No text selected or highlighting not active. Removing tooltip.');
             existingTooltip.remove();
         }
         if (!isHighlightingActive) {
              console.log('[DEBUG] Highlighting is NOT active. Returning.');
-             return; // Stop if not active
+             return;
         }
     }
 
-    console.log('[DEBUG] Highlighting IS active. Proceeding...');
-
-    // If the click was inside the tooltip itself, prevent re-creation/dismissal
     if (event.target.closest('#highlight-tooltip')) {
         console.log('[DEBUG] Clicked inside highlight tooltip, ignoring.');
         return;
     }
 
-    // Now, if text is selected and highlighting is active, create the tooltip
     if (selectedText.length > 0) {
-        console.log('[DEBUG] Selected text length:', selectedText.length, 'Selected text:', selectedText);
-        console.log('[DEBUG] Calling addTooltipToSelection.');
-        lastSelectionRange = selection.getRangeAt(0).cloneRange(); // Store range for external click check
+        lastSelectionRange = selection.getRangeAt(0).cloneRange();
         addTooltipToSelection(selectedText);
     } 
-    // If selectedText.length is 0, it was handled at the top of the listener.
   });
 
   function addTooltipToSelection(textToSave) {
-    console.log('[DEBUG] Entering addTooltipToSelection function.');
     const existingTooltip = document.getElementById('highlight-tooltip');
     if (existingTooltip) {
-      console.log('[DEBUG] Existing tooltip found, removing.');
       existingTooltip.remove();
     }
     
@@ -79,58 +95,40 @@
     
     try {
         document.body.appendChild(tooltip);
-        console.log('[DEBUG] Tooltip appended to document.body.');
-
         const selection = window.getSelection();
         const range = selection.getRangeAt(0);
         const rect = range.getBoundingClientRect();
         
-        tooltip.style.left = `${rect.left + (rect.width / 2)}px`;
-        tooltip.style.top = `${rect.top - tooltip.offsetHeight - 15}px`; 
+        tooltip.style.left = `${window.scrollX + rect.left + (rect.width / 2)}px`;
+        tooltip.style.top = `${window.scrollY + rect.top - tooltip.offsetHeight - 15}px`; 
         tooltip.style.transform = 'translateX(-50%)'; 
-
-        console.log('[DEBUG] Tooltip positioned. Top:', tooltip.style.top, 'Left:', tooltip.style.left, 'Rect Top:', rect.top, 'Rect Left:', rect.left);
 
         const saveButton = document.getElementById("save-highlight-button");
         if (saveButton) {
             saveButton.addEventListener("click", () => {
-                console.log('[DEBUG] "Save Highlight" button CLICKED.');
                 const note = document.getElementById("highlight-note-input").value;
-                const tags = document.getElementById("highlight-tags-input").value
-                                    .split(',').map(tag => tag.trim()).filter(tag => tag); 
-                
+                const tags = document.getElementById("highlight-tags-input").value.split(',').map(tag => tag.trim()).filter(tag => tag); 
                 saveHighlight(textToSave, note, tags); 
                 visuallyHighlightSelection();
                 tooltip.remove();
             });
-        } else {
-            console.error("[ERROR] Save button not found after appending tooltip. DOM might be manipulated.");
         }
-
-        // --- CRUCIAL CHANGE TO DISMISSAL LOGIC ---
-        // Detach previous global click listener to avoid multiple firings
+        
         document.removeEventListener("click", handleClickOutside); 
-        const dismissTimeout = setTimeout(() => { // Use a timeout to ensure it doesn't fire immediately after mouseup
+        const dismissTimeout = setTimeout(() => {
             document.addEventListener("click", handleClickOutside);
         }, 100);
 
-        // Define handleClickOutside locally or pass context
         function handleClickOutside(event) {
-            // Check if click target is outside the tooltip container AND outside the initial selected range's bounding box
             const clickIsOutsideTooltip = !tooltip.contains(event.target);
             const clickIsOutsideSelection = lastSelectionRange && !lastSelectionRange.getBoundingClientRect().contains(event.clientX, event.clientY);
             
             if (clickIsOutsideTooltip && clickIsOutsideSelection) {
-                console.log('[DEBUG] Clicked outside tooltip and selection, removing.');
                 tooltip.remove();
-                document.removeEventListener("click", handleClickOutside); // Clean up listener
-                clearTimeout(dismissTimeout); // Clear the timeout if it hasn't fired yet
-            } else {
-                console.log('[DEBUG] Click was inside tooltip or on selection, keeping tooltip.');
+                document.removeEventListener("click", handleClickOutside);
+                clearTimeout(dismissTimeout);
             }
         }
-        // --- END CRUCIAL CHANGE ---
-
     } catch (e) {
         console.error("❌ [CRITICAL] Error appending or positioning tooltip:", e);
     }
@@ -151,79 +149,59 @@
   }
 
   async function saveHighlight(selectedText, note, tags) {
-    console.log('[DEBUG] Entered saveHighlight function with note and tags.');
     if (!savedArticleId) {
       console.error('[CRITICAL] Cannot save highlight because savedArticleId is null.');
       return;
     }
-
-    const highlightPayload = { 
-        text: selectedText,
-        note: note,
-        tags: tags
-    };
-
+    const highlightPayload = { text: selectedText, note, tags };
     const endpoint = `${BASE_URL}/articles/${savedArticleId}/highlights`;
-    
-    console.log(`[DEBUG] Preparing to POST highlight to: ${endpoint} with payload:`, highlightPayload);
-
     try {
       const { token } = await chrome.storage.local.get("token");
       if (!token) throw new Error("Authentication token not found.");
     
       const response = await fetch(endpoint, {
         method: "POST",
-        headers: { 
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${token}`
-        },
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
         body: JSON.stringify(highlightPayload),
       });    
-
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || "Server returned an error");
       }
-      
-      const responseData = await response.json();
-      console.log("✅ [SUCCESS] Highlight saved.", responseData);
-
+      console.log("✅ [SUCCESS] Highlight saved.", await response.json());
     } catch (err) {
       console.error("❌ [CRITICAL] Error fetching to save highlight:", err);
     }
   }
 
-// --- MESSAGE LISTENER ---
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  console.log('[DEBUG] Message received by content script:', message);
+  chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (message.action === "getCleanArticle") {
+      if (typeof Readability === "undefined") {
+        sendResponse({ error: "Readability library not available." });
+      } else {
+        const documentClone = document.cloneNode(true);
+        const reader = new Readability(documentClone);
+        const article = reader.parse();
+        
+        if (!article || !article.content) {
+            sendResponse({ error: "Could not parse article content from this page." });
+            return;
+        }
+        
+        sendResponse({ article: article });
+      } // <-- SYNTAX FIX: This brace was added
+    } else if (message.action === "activateHighlighting") {
+        isHighlightingActive = true;
+        console.log(`[DEBUG] Highlighting activated. isHighlightingActive is now: ${isHighlightingActive}`);
+        sendResponse({ success: true });
+    } else if (message.action === "articleSaved") {
+        savedArticleId = message.article.id;
+        console.log(`[DEBUG] 'articleSaved' message received. Stored ID is now: ${savedArticleId}`);
+    }
+    return false; 
+  });
 
-  let willSendResponseAsync = false; 
-
-  if (message.action === "getCleanArticle") {
-    if (typeof Readability === "undefined") {
-      sendResponse({ error: "Readability library not available." });
-    } else {
-      const documentClone = document.cloneNode(true);
-      const reader = new Readability(documentClone);
-      const article = reader.parse();
-      
-      if (!article || !article.content) {
-          sendResponse({ error: "Could not parse article content from this page." });
-          return;
-      }
-      
-      sendResponse({ article: article });
-    } // <-- THIS IS THE MISSING BRACE
-  } else if (message.action === "activateHighlighting") {
-      isHighlightingActive = true;
-      console.log(`[DEBUG] 'activateHighlighting' message received. isHighlightingActive is now: ${isHighlightingActive}`);
-      sendResponse({ success: true });
-  } else if (message.action === "articleSaved") {
-      savedArticleId = message.article.id;
-      console.log(`[DEBUG] 'articleSaved' message received. Stored ID is now: ${savedArticleId}`);
-  }
-  return willSendResponseAsync; 
-});
-
+  // --- NEW: Run the check when the script first loads ---
+  checkForExistingArticle();
 
 })();
