@@ -5,7 +5,7 @@ import ArticleViewer from './components/ArticleViewer';
 import HighlightByTagList from './components/HighlightByTagList';
 import Register from './components/Register';
 import Login from './components/Login';
-import Trending from './components/Trending'; // --- NEW: Import the Trending component ---
+import Trending from './components/Trending';
 import './App.css';
 
 const Welcome = () => <h2 className="welcome-message">Select an article to read</h2>;
@@ -27,13 +27,12 @@ function App() {
     setArticleListKey(prevKey => prevKey + 1);
   };
 
-  const handleLoginSuccess = () => {
-    setIsAuthenticated(true);
-  };
-
+  // --- CHANGED: handleLogout now forces a full page reload for a clean state ---
   const handleLogout = () => {
     localStorage.removeItem('token');
     setIsAuthenticated(false);
+    // Redirect to login page and force a full reload
+    window.location.href = '/login'; 
   };
 
   if (isLoading) {
@@ -53,7 +52,6 @@ function App() {
               <div className="sidebar-nav">
                 <NavLink to="/" className="sidebar-link" end>Your Library</NavLink>
                 <NavLink to="/highlights-by-tag" className="sidebar-link">Highlights by Tag</NavLink>
-                {/* --- NEW: Add NavLink for the Trending page --- */}
                 <NavLink to="/trending" className="sidebar-link">Trending</NavLink>
               </div>
               <ArticleList key={articleListKey} /> 
@@ -63,7 +61,6 @@ function App() {
                 <Route path="/" element={<Welcome />} /> 
                 <Route path="/highlights-by-tag" element={<HighlightByTagList />} />
                 <Route path="/articles/:id" element={<ArticleViewer onArticleChange={refreshArticleList} />} />
-                {/* --- NEW: Add Route for the Trending page --- */}
                 <Route path="/trending" element={<Trending />} />
                 <Route path="/login" element={<Navigate to="/" replace />} />
                 <Route path="/register" element={<Navigate to="/" replace />} />
@@ -74,7 +71,8 @@ function App() {
           <div className="auth-pages-container">
             <Routes>
               <Route path="/register" element={<Register />} />
-              <Route path="/login" element={<Login onLoginSuccess={handleLoginSuccess} />} />
+              {/* --- CHANGED: Removed the onLoginSuccess prop --- */}
+              <Route path="/login" element={<Login />} />
               <Route path="*" element={<Navigate to="/login" replace />} /> 
             </Routes>
           </div>
