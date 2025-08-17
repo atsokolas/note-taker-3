@@ -63,40 +63,91 @@
   });
 
   function addTooltipToSelection(textToSave) {
-    const existingTooltip = document.getElementById('highlight-tooltip');
+    const existingTooltip = document.getElementById('nt-tooltip-wrapper'); // Use new ID
     if (existingTooltip) existingTooltip.remove();
     
     const tooltip = document.createElement("div");
-    tooltip.id = 'highlight-tooltip';
-    tooltip.className = 'highlight-tooltip-container'; 
+    tooltip.id = 'nt-tooltip-wrapper'; // New unique ID for the wrapper
+  
+    // --- FIX: Encapsulate all HTML and CSS within the innerHTML ---
     tooltip.innerHTML = `
-      <textarea id="highlight-note-input" class="highlight-input" placeholder="Add a note (optional)"></textarea>
-      <input type="text" id="highlight-tags-input" class="highlight-input" placeholder="Tags (comma-separated, optional)">
-      <button id="save-highlight-button" class="highlight-button">
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="highlight-button-icon"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path></svg>
+      <style>
+        /* Scoped styles for the tooltip to avoid conflicts */
+        #nt-tooltip-wrapper {
+          all: initial; /* Reset all inherited styles */
+          position: absolute;
+          z-index: 2147483647;
+          background-color: white;
+          border: 1px solid #ccc;
+          border-radius: 8px;
+          padding: 10px;
+          box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+          font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+        .nt-input {
+          border: 1px solid #ccc;
+          border-radius: 4px;
+          padding: 6px;
+          font-size: 14px;
+          width: 250px;
+          resize: vertical;
+        }
+        .nt-button {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          background-color: #3498db;
+          color: white;
+          border: none;
+          border-radius: 4px;
+          padding: 8px;
+          cursor: pointer;
+          font-weight: bold;
+        }
+        .nt-button:hover {
+          background-color: #2980b9;
+        }
+        .nt-button-icon {
+          width: 16px;
+          height: 16px;
+        }
+      </style>
+      
+      <textarea id="nt-note-input" class="nt-input" placeholder="Add a note (optional)"></textarea>
+      <input type="text" id="nt-tags-input" class="nt-input" placeholder="Tags (comma-separated, optional)">
+      <button id="nt-save-highlight-button" class="nt-button">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="nt-button-icon">
+              <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
+          </svg>
           Save Highlight
       </button>
     `;
+    // -----------------------------------------------------------------
     
     document.body.appendChild(tooltip);
     const range = window.getSelection().getRangeAt(0);
     const rect = range.getBoundingClientRect();
     
+    // The positioning logic remains the same, but now it will work correctly
     tooltip.style.left = `${window.scrollX + rect.left + (rect.width / 2)}px`;
     tooltip.style.top = `${window.scrollY + rect.top - tooltip.offsetHeight - 15}px`; 
     tooltip.style.transform = 'translateX(-50%)'; 
-
-    document.getElementById("save-highlight-button").addEventListener("click", () => {
-        const note = document.getElementById("highlight-note-input").value;
-        const tags = document.getElementById("highlight-tags-input").value.split(',').map(tag => tag.trim()).filter(tag => tag); 
+  
+    // Use new, unique IDs to find the elements
+    document.getElementById("nt-save-highlight-button").addEventListener("click", () => {
+        const note = document.getElementById("nt-note-input").value;
+        const tags = document.getElementById("nt-tags-input").value.split(',').map(tag => tag.trim()).filter(tag => tag); 
         saveHighlight(textToSave, note, tags); 
         visuallyHighlightSelection();
         tooltip.remove();
     });
-
-    // logic to close tooltip when clicking outside
+  
     setTimeout(() => document.addEventListener("click", handleClickOutside), 100);
-
+  
     function handleClickOutside(event) {
       if (!tooltip.contains(event.target)) {
           tooltip.remove();
@@ -104,7 +155,8 @@
       }
     }
   }
-
+  
+  
   function visuallyHighlightSelection() {
     if (!lastSelectionRange) return;
     const mark = document.createElement("mark");
