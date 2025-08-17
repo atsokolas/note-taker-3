@@ -1,4 +1,3 @@
-// content.js - FINAL VERSION WITH ALL FIXES
 (function () {
   console.log('[DEBUG] content.js script has been injected.');
 
@@ -46,15 +45,13 @@
     const selection = window.getSelection();
     const selectedText = selection.toString().trim();
 
-    // Hide tooltip if selection is cleared or highlighting is off
     if (!selectedText.length || !isHighlightingActive) {
-        const existingTooltip = document.getElementById('highlight-tooltip');
+        const existingTooltip = document.getElementById('nt-tooltip-wrapper');
         if (existingTooltip) existingTooltip.remove();
-        if (!isHighlightingActive) return;
+        return;
     }
 
-    // Ignore clicks inside the tooltip itself
-    if (event.target.closest('#highlight-tooltip')) return;
+    if (event.target.closest('#nt-tooltip-wrapper')) return;
 
     if (selectedText.length > 0) {
         lastSelectionRange = selection.getRangeAt(0).cloneRange();
@@ -63,18 +60,16 @@
   });
 
   function addTooltipToSelection(textToSave) {
-    const existingTooltip = document.getElementById('nt-tooltip-wrapper'); // Use new ID
+    const existingTooltip = document.getElementById('nt-tooltip-wrapper');
     if (existingTooltip) existingTooltip.remove();
     
     const tooltip = document.createElement("div");
-    tooltip.id = 'nt-tooltip-wrapper'; // New unique ID for the wrapper
+    tooltip.id = 'nt-tooltip-wrapper';
   
-    // --- FIX: Encapsulate all HTML and CSS within the innerHTML ---
     tooltip.innerHTML = `
       <style>
-        /* Scoped styles for the tooltip to avoid conflicts */
         #nt-tooltip-wrapper {
-          all: initial; /* Reset all inherited styles */
+          all: initial;
           position: absolute;
           z-index: 2147483647;
           background-color: white;
@@ -126,19 +121,19 @@
           Save Highlight
       </button>
     `;
-    // -----------------------------------------------------------------
     
     document.body.appendChild(tooltip);
     const range = window.getSelection().getRangeAt(0);
     const rect = range.getBoundingClientRect();
     
-    // The positioning logic remains the same, but now it will work correctly
     tooltip.style.left = `${window.scrollX + rect.left + (rect.width / 2)}px`;
     tooltip.style.top = `${window.scrollY + rect.top - tooltip.offsetHeight - 15}px`; 
     tooltip.style.transform = 'translateX(-50%)'; 
   
-    // Use new, unique IDs to find the elements
     document.getElementById("nt-save-highlight-button").addEventListener("click", () => {
+        // --- THE ONLY CHANGE IS THIS DEBUGGING LINE ---
+        console.log("Save button was clicked."); 
+        
         const note = document.getElementById("nt-note-input").value;
         const tags = document.getElementById("nt-tags-input").value.split(',').map(tag => tag.trim()).filter(tag => tag); 
         saveHighlight(textToSave, note, tags); 
@@ -155,7 +150,6 @@
       }
     }
   }
-  
   
   function visuallyHighlightSelection() {
     if (!lastSelectionRange) return;
@@ -193,7 +187,6 @@
     }
   }
 
-  // --- REFACTORED AND FIXED ---
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.action === "getCleanArticle") {
       if (typeof Readability === "undefined") {
@@ -220,10 +213,8 @@
     else if (message.action === "articleSaved") {
       savedArticleId = message.article.id;
       console.log(`[DEBUG] 'articleSaved' message received. Stored ID is now: ${savedArticleId}`);
-      // No response needed for this message
     }
   });
-  // -----------------------------
 
   checkForExistingArticle();
 })();
