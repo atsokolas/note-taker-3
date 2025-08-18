@@ -1,4 +1,3 @@
-// note-taker-ui/src/components/ArticleViewer.js
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import axios from 'axios';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -44,7 +43,7 @@ const ArticleViewer = ({ onArticleChange }) => {
     const [popup, setPopup] = useState({ visible: false, x: 0, y: 0, text: '' });
     const contentRef = useRef(null);
     const popupRef = useRef(null);
-    // REMOVED: The selectionRangeRef is no longer needed
+    const selectionRangeRef = useRef(null);
     const [folders, setFolders] = useState([]);
     
     const [editingHighlightId, setEditingHighlightId] = useState(null);
@@ -90,7 +89,6 @@ const ArticleViewer = ({ onArticleChange }) => {
 
     useEffect(() => {
         const handleMouseUp = (event) => {
-            // Prevent triggering if the click is on the popup itself
             if (popupRef.current && popupRef.current.contains(event.target)) {
                 return;
             }
@@ -99,13 +97,13 @@ const ArticleViewer = ({ onArticleChange }) => {
             const selectedText = selection?.toString().trim();
 
             if (selectedText && selectedText.length > 0 && selection.rangeCount > 0) {
+                selectionRangeRef.current = selection.getRangeAt(0).cloneRange();
+                
                 const range = selection.getRangeAt(0);
                 const rect = range.getBoundingClientRect();
-                setPopup({ visible: true, x: rect.left + window.scrollX + (rect.width / 2), y: rect.top + window.scrollY - 10, text: selectedText });
+                setPopup({ visible: true, x: rect.left + window.scrollX + (rect.width / 2), y: rect.top + window.scrollY, text: selectedText });
                 setNewHighlightNote('');
                 setNewHighlightTags('');
-            } else {
-                setPopup({ visible: false, x: 0, y: 0, text: '' });
             }
         };
 
@@ -115,16 +113,25 @@ const ArticleViewer = ({ onArticleChange }) => {
             }
         };
 
-        // Use mousedown for dismissing to catch the click before it clears selection
         document.addEventListener("mousedown", handleClickOutside);
         document.addEventListener("mouseup", handleMouseUp);
         return () => {
             document.removeEventListener("mousedown", handleClickOutside);
             document.removeEventListener("mouseup", handleMouseUp);
         };
-    }, []); // Changed dependency array to empty to prevent re-binding issues
+    }, []);
 
-    // REMOVED: The useEffect to restore the selection is no longer needed.
+    useEffect(() => {
+        if (popup.visible && selectionRangeRef.current) {
+            setTimeout(() => {
+                const selection = window.getSelection();
+                if (selection) {
+                    selection.removeAllRanges();
+                    selection.addRange(selectionRangeRef.current);
+                }
+            }, 0);
+        }
+    }, [popup.visible]);
 
     const handleHighlightSelectionChange = (highlightId) => {
         setSelectedHighlights(prevSelected => {
@@ -162,6 +169,7 @@ const ArticleViewer = ({ onArticleChange }) => {
             note: newHighlightNote, 
             tags: newHighlightTags.split(',').map(tag => tag.trim()).filter(t => t) 
         }; 
+        window.getSelection()?.removeAllRanges();
         setPopup({ visible: false, x: 0, y: 0, text: '' });
         try {
             const res = await axios.post(`${BASE_URL}/articles/${id}/highlights`, newHighlight, getAuthConfig());
@@ -270,6 +278,8 @@ const ArticleViewer = ({ onArticleChange }) => {
         }
     };
 
+    const preventFocusSteal = (e) => e.preventDefault();
+    
     if (error) return <h2 style={{color: 'red'}}>{error}</h2>;
     if (!article) return <h2>Loading article...</h2>;
 
@@ -277,9 +287,6 @@ const ArticleViewer = ({ onArticleChange }) => {
         { _id: 'uncategorized', name: 'Uncategorized' },
         ...folders.filter(f => f.name !== 'Uncategorized' && f._id !== 'uncategorized')
     ];
-
-    // --- ADDED: A simple function to prevent default mousedown behavior ---
-    const preventFocusSteal = (e) => e.preventDefault();
 
     return (
         <div className="article-viewer-page">
@@ -323,15 +330,13 @@ const ArticleViewer = ({ onArticleChange }) => {
                     {popup.visible && (
                         <div
                             ref={popupRef}
-                            // --- THIS IS THE KEY FIX ---
                             onMouseDown={preventFocusSteal}
-                            // --------------------------
                             className="highlight-popup-web-app-container"
                             style={{ 
                                 top: popup.y, 
                                 left: popup.x, 
                                 position: 'absolute', 
-                                transform: 'translate(-50%, -100%)' // Adjusted for better placement
+                                transform: 'translate(-50%, -100%)'
                             }}
                         >
                             <textarea 
