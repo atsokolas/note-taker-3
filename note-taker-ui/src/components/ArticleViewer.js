@@ -13,14 +13,12 @@ const getAuthConfig = () => {
     return { headers: { Authorization: `Bearer ${token}` } };
 };
 
-// --- STEP 1: CREATE A REUSABLE FUNCTION for processing highlights ---
 const processArticleContent = (articleData) => {
     const { content, highlights, url } = articleData;
     const parser = new DOMParser();
     const doc = parser.parseFromString(content, 'text/html');
     const articleOrigin = new URL(url).origin;
 
-    // Fix relative image paths
     doc.querySelectorAll('img').forEach(img => {
         const src = img.getAttribute('src');
         if (src && src.startsWith('/')) {
@@ -28,7 +26,6 @@ const processArticleContent = (articleData) => {
         }
     });
     
-    // Inject <mark> tags for all highlights
     (highlights || []).forEach(h => {
         const highlightId = `highlight-${h._id}`; 
         const escaped = h.text?.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
@@ -36,10 +33,8 @@ const processArticleContent = (articleData) => {
         doc.body.innerHTML = doc.body.innerHTML.replace(regex, match => `<mark class="highlight" data-highlight-id="${highlightId}">${match}</mark>`);
     });
 
-    // Return a new article object with the processed content
     return { ...articleData, content: doc.body.innerHTML };
 };
-// ------------------------------------------------------------------
 
 const ArticleViewer = ({ onArticleChange }) => {
     const { id } = useParams();
@@ -49,6 +44,9 @@ const ArticleViewer = ({ onArticleChange }) => {
     const [popup, setPopup] = useState({ visible: false, x: 0, y: 0, text: '' });
     const contentRef = useRef(null);
     const popupRef = useRef(null);
+    // --- STEP 1: Create a ref to store the selection range ---
+    const selectionRangeRef = useRef(null);
+    // --------------------------------------------------------
     const [folders, setFolders] = useState([]);
     
     const [editingHighlightId, setEditingHighlightId] = useState(null);
@@ -80,10 +78,8 @@ const ArticleViewer = ({ onArticleChange }) => {
             const fetchArticle = async () => {
                 try {
                     const res = await axios.get(`${BASE_URL}/articles/${id}`, getAuthConfig());
-                    // --- STEP 2: USE THE REUSABLE FUNCTION ON INITIAL LOAD ---
                     const processedArticle = processArticleContent(res.data);
                     setArticle(processedArticle);
-                    // --------------------------------------------------------
 
                 } catch (err) {
                     console.error("Error fetching article:", err);
@@ -104,15 +100,16 @@ const ArticleViewer = ({ onArticleChange }) => {
             const selectedText = selection?.toString().trim();
 
             if (selectedText && selectedText.length > 0 && selection.rangeCount > 0) {
-                if (!popup.visible) {
-                    const range = selection.getRangeAt(0);
-                    const rect = range.getBoundingClientRect();
-                    setPopup({ visible: true, x: rect.left + window.scrollX + (rect.width / 2), y: rect.top + window.scrollY - 50, text: selectedText });
-                    setNewHighlightNote('');
-                    setNewHighlightTags('');
-                } else {
-                    setPopup(prevPopup => ({ ...prevPopup, text: selectedText })); 
-                }
+                // --- STEP 2: Save the selection range before showing the popup ---
+                selectionRangeRef.current = selection.getRangeAt(0);
+                // ---------------------------------------------------------------
+                
+                const range = selection.getRangeAt(0);
+                const rect = range.getBoundingClientRect();
+                setPopup({ visible: true, x: rect.left + window.scrollX + (rect.width / 2), y: rect.top + window.scrollY - 50, text: selectedText });
+                setNewHighlightNote('');
+                setNewHighlightTags('');
+
             } else {
                 if (popup.visible) {
                     setPopup({ visible: false, x: 0, y: 0, text: '' });
@@ -122,24 +119,33 @@ const ArticleViewer = ({ onArticleChange }) => {
 
         const handleClickToDismiss = (event) => {
             const clickIsOutsidePopup = popupRef.current && !popupRef.current.contains(event.target);
-            const clickIsOnContent = contentRef.current && contentRef.current.contains(event.target);
-            const selection = window.getSelection();
-            const hasActiveSelection = selection && selection.toString().trim().length > 0;
-
+            
             if (popup.visible && clickIsOutsidePopup) {
-                if (clickIsOnContent && hasActiveSelection) {
+                // Prevent dismissing if the user is trying to adjust their selection
+                const selection = window.getSelection();
+                if (selection && selection.toString().trim().length > 0) {
                     return;
                 }
                 setPopup({ visible: false, x: 0, y: 0, text: '' });
             }
         };
         document.addEventListener("mouseup", handleMouseUp);
-        document.addEventListener("click", handleClickToDismiss);
+        document.addEventListener("mousedown", handleClickToDismiss);
         return () => {
             document.removeEventListener("mouseup", handleMouseUp);
-            document.removeEventListener("click", handleClickToDismiss);
+            document.removeEventListener("mousedown", handleClickToDismiss);
         };
     }, [popup.visible]);
+
+    // --- STEP 3: Add a new useEffect to restore the selection ---
+    useEffect(() => {
+        if (popup.visible && selectionRangeRef.current) {
+            const selection = window.getSelection();
+            selection.removeAllRanges();
+            selection.addRange(selectionRangeRef.current);
+        }
+    }, [popup.visible]);
+    // ----------------------------------------------------------
 
     const handleHighlightSelectionChange = (highlightId) => {
         setSelectedHighlights(prevSelected => {
@@ -180,10 +186,8 @@ const ArticleViewer = ({ onArticleChange }) => {
         setPopup({ visible: false, x: 0, y: 0, text: '' });
         try {
             const res = await axios.post(`${BASE_URL}/articles/${id}/highlights`, newHighlight, getAuthConfig());
-            // --- STEP 3: USE THE REUSABLE FUNCTION AFTER SAVING A HIGHLIGHT ---
             const processedArticle = processArticleContent(res.data);
             setArticle(processedArticle);
-            // -----------------------------------------------------------------
             alert("Highlight saved!");
         } catch (err) {
             console.error("Failed to save highlight:", err);
@@ -286,9 +290,6 @@ const ArticleViewer = ({ onArticleChange }) => {
             console.error("Failed to delete highlight:", err);
         }
     };
-    
-    // Also update saveHighlightEdits and deleteHighlight to use the processor
-    // (I've added these changes above for completeness)
 
     if (error) return <h2 style={{color: 'red'}}>{error}</h2>;
     if (!article) return <h2>Loading article...</h2>;
@@ -299,7 +300,6 @@ const ArticleViewer = ({ onArticleChange }) => {
     ];
 
     return (
-        // The JSX for your component remains unchanged.
         <div className="article-viewer-page">
             <div className="article-viewer-main">
                 <div className="article-management-bar">
