@@ -13,6 +13,34 @@ const getAuthConfig = () => {
     return { headers: { Authorization: `Bearer ${token}` } };
 };
 
+// --- STEP 1: CREATE A REUSABLE FUNCTION for processing highlights ---
+const processArticleContent = (articleData) => {
+    const { content, highlights, url } = articleData;
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(content, 'text/html');
+    const articleOrigin = new URL(url).origin;
+
+    // Fix relative image paths
+    doc.querySelectorAll('img').forEach(img => {
+        const src = img.getAttribute('src');
+        if (src && src.startsWith('/')) {
+            img.src = `${articleOrigin}${src}`;
+        }
+    });
+    
+    // Inject <mark> tags for all highlights
+    (highlights || []).forEach(h => {
+        const highlightId = `highlight-${h._id}`; 
+        const escaped = h.text?.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
+        const regex = new RegExp(`(?<!<mark[^>]*>)${escaped}(?!<\\/mark>)`, 'gi'); 
+        doc.body.innerHTML = doc.body.innerHTML.replace(regex, match => `<mark class="highlight" data-highlight-id="${highlightId}">${match}</mark>`);
+    });
+
+    // Return a new article object with the processed content
+    return { ...articleData, content: doc.body.innerHTML };
+};
+// ------------------------------------------------------------------
+
 const ArticleViewer = ({ onArticleChange }) => {
     const { id } = useParams();
     const navigate = useNavigate();
@@ -30,10 +58,8 @@ const ArticleViewer = ({ onArticleChange }) => {
     const [newHighlightNote, setNewHighlightNote] = useState('');
     const [newHighlightTags, setNewHighlightTags] = useState('');
 
-    // --- NEW: State for Recommendation Modal ---
     const [isRecommendModalOpen, setIsRecommendModalOpen] = useState(false);
     const [selectedHighlights, setSelectedHighlights] = useState([]);
-    // ------------------------------------------
 
     const fetchFolders = useCallback(async () => {
         try {
@@ -54,27 +80,10 @@ const ArticleViewer = ({ onArticleChange }) => {
             const fetchArticle = async () => {
                 try {
                     const res = await axios.get(`${BASE_URL}/articles/${id}`, getAuthConfig());
-                    const articleData = res.data;
-                    console.log("Full article data received from API:", articleData);
-
-                    const parser = new DOMParser();
-                    const doc = parser.parseFromString(articleData.content, 'text/html');
-                    const articleOrigin = new URL(articleData.url).origin;
-                    doc.querySelectorAll('img').forEach(img => {
-                        const src = img.getAttribute('src');
-                        if (src && src.startsWith('/')) {
-                            img.src = `${articleOrigin}${src}`;
-                        }
-                    });
-                    
-                    (articleData.highlights || []).forEach(h => {
-                        const highlightId = `highlight-${h._id}`; 
-                        const escaped = h.text?.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
-                        const regex = new RegExp(`(?<!<mark[^>]*>)${escaped}(?!<\\/mark>)`, 'gi'); 
-                        doc.body.innerHTML = doc.body.innerHTML.replace(regex, match => `<mark class="highlight" data-highlight-id="${highlightId}">${match}</mark>`);
-                    });
-
-                    setArticle({ ...articleData, content: doc.body.innerHTML });
+                    // --- STEP 2: USE THE REUSABLE FUNCTION ON INITIAL LOAD ---
+                    const processedArticle = processArticleContent(res.data);
+                    setArticle(processedArticle);
+                    // --------------------------------------------------------
 
                 } catch (err) {
                     console.error("Error fetching article:", err);
@@ -132,7 +141,6 @@ const ArticleViewer = ({ onArticleChange }) => {
         };
     }, [popup.visible]);
 
-    // --- NEW: Functions for Recommendation Modal ---
     const handleHighlightSelectionChange = (highlightId) => {
         setSelectedHighlights(prevSelected => {
             if (prevSelected.includes(highlightId)) {
@@ -162,7 +170,6 @@ const ArticleViewer = ({ onArticleChange }) => {
             alert(err.response?.data?.error || "Failed to recommend article.");
         }
     };
-    // ---------------------------------------------
 
     const saveHighlight = async () => {
         const newHighlight = { 
@@ -173,7 +180,10 @@ const ArticleViewer = ({ onArticleChange }) => {
         setPopup({ visible: false, x: 0, y: 0, text: '' });
         try {
             const res = await axios.post(`${BASE_URL}/articles/${id}/highlights`, newHighlight, getAuthConfig());
-            setArticle(res.data);
+            // --- STEP 3: USE THE REUSABLE FUNCTION AFTER SAVING A HIGHLIGHT ---
+            const processedArticle = processArticleContent(res.data);
+            setArticle(processedArticle);
+            // -----------------------------------------------------------------
             alert("Highlight saved!");
         } catch (err) {
             console.error("Failed to save highlight:", err);
@@ -250,7 +260,8 @@ const ArticleViewer = ({ onArticleChange }) => {
     const saveHighlightEdits = async (highlightId) => {
         try {
             const updatedArticleData = await updateHighlightOnBackend(highlightId, editNote, editTags);
-            setArticle(updatedArticleData); 
+            const processedArticle = processArticleContent(updatedArticleData);
+            setArticle(processedArticle); 
             alert("Highlight updated successfully!");
             cancelEditHighlight(); 
             onArticleChange();
@@ -266,7 +277,8 @@ const ArticleViewer = ({ onArticleChange }) => {
         }
         try {
             const response = await axios.delete(`${BASE_URL}/articles/${id}/highlights/${highlightId}`, getAuthConfig());
-            setArticle(response.data); 
+            const processedArticle = processArticleContent(response.data);
+            setArticle(processedArticle);
             alert("Highlight deleted successfully!");
             onArticleChange();
         } catch (err) {
@@ -274,6 +286,9 @@ const ArticleViewer = ({ onArticleChange }) => {
             console.error("Failed to delete highlight:", err);
         }
     };
+    
+    // Also update saveHighlightEdits and deleteHighlight to use the processor
+    // (I've added these changes above for completeness)
 
     if (error) return <h2 style={{color: 'red'}}>{error}</h2>;
     if (!article) return <h2>Loading article...</h2>;
@@ -284,10 +299,10 @@ const ArticleViewer = ({ onArticleChange }) => {
     ];
 
     return (
+        // The JSX for your component remains unchanged.
         <div className="article-viewer-page">
             <div className="article-viewer-main">
                 <div className="article-management-bar">
-                    {/* --- NEW: Recommend Button --- */}
                     <button 
                         className="management-button" 
                         onClick={() => setIsRecommendModalOpen(true)}
@@ -295,7 +310,6 @@ const ArticleViewer = ({ onArticleChange }) => {
                     >
                         Recommend
                     </button>
-                    {/* --------------------------- */}
                     <button 
                         className="management-button delete-button" 
                         onClick={handleDeleteArticle}
@@ -416,7 +430,6 @@ const ArticleViewer = ({ onArticleChange }) => {
                 )}
             </div>
 
-            {/* --- NEW: JSX for Recommendation Modal --- */}
             {isRecommendModalOpen && (
                 <div className="modal-overlay">
                     <div className="modal-content">
@@ -446,7 +459,6 @@ const ArticleViewer = ({ onArticleChange }) => {
                     </div>
                 </div>
             )}
-            {/* ------------------------------------ */}
         </div>
     );
 };
