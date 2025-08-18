@@ -44,9 +44,7 @@ const ArticleViewer = ({ onArticleChange }) => {
     const [popup, setPopup] = useState({ visible: false, x: 0, y: 0, text: '' });
     const contentRef = useRef(null);
     const popupRef = useRef(null);
-    // --- STEP 1: Create a ref to store the selection range ---
-    const selectionRangeRef = useRef(null);
-    // --------------------------------------------------------
+    // REMOVED: The selectionRangeRef is no longer needed
     const [folders, setFolders] = useState([]);
     
     const [editingHighlightId, setEditingHighlightId] = useState(null);
@@ -92,7 +90,8 @@ const ArticleViewer = ({ onArticleChange }) => {
 
     useEffect(() => {
         const handleMouseUp = (event) => {
-            if (!contentRef.current || !contentRef.current.contains(event.target) || event.target.closest('.highlight-popup-web-app-container')) {
+            // Prevent triggering if the click is on the popup itself
+            if (popupRef.current && popupRef.current.contains(event.target)) {
                 return;
             }
 
@@ -100,52 +99,32 @@ const ArticleViewer = ({ onArticleChange }) => {
             const selectedText = selection?.toString().trim();
 
             if (selectedText && selectedText.length > 0 && selection.rangeCount > 0) {
-                // --- STEP 2: Save the selection range before showing the popup ---
-                selectionRangeRef.current = selection.getRangeAt(0);
-                // ---------------------------------------------------------------
-                
                 const range = selection.getRangeAt(0);
                 const rect = range.getBoundingClientRect();
-                setPopup({ visible: true, x: rect.left + window.scrollX + (rect.width / 2), y: rect.top + window.scrollY - 50, text: selectedText });
+                setPopup({ visible: true, x: rect.left + window.scrollX + (rect.width / 2), y: rect.top + window.scrollY - 10, text: selectedText });
                 setNewHighlightNote('');
                 setNewHighlightTags('');
-
             } else {
-                if (popup.visible) {
-                    setPopup({ visible: false, x: 0, y: 0, text: '' });
-                }
-            }
-        };
-
-        const handleClickToDismiss = (event) => {
-            const clickIsOutsidePopup = popupRef.current && !popupRef.current.contains(event.target);
-            
-            if (popup.visible && clickIsOutsidePopup) {
-                // Prevent dismissing if the user is trying to adjust their selection
-                const selection = window.getSelection();
-                if (selection && selection.toString().trim().length > 0) {
-                    return;
-                }
                 setPopup({ visible: false, x: 0, y: 0, text: '' });
             }
         };
-        document.addEventListener("mouseup", handleMouseUp);
-        document.addEventListener("mousedown", handleClickToDismiss);
-        return () => {
-            document.removeEventListener("mouseup", handleMouseUp);
-            document.removeEventListener("mousedown", handleClickToDismiss);
-        };
-    }, [popup.visible]);
 
-    // --- STEP 3: Add a new useEffect to restore the selection ---
-    useEffect(() => {
-        if (popup.visible && selectionRangeRef.current) {
-            const selection = window.getSelection();
-            selection.removeAllRanges();
-            selection.addRange(selectionRangeRef.current);
-        }
-    }, [popup.visible]);
-    // ----------------------------------------------------------
+        const handleClickOutside = (event) => {
+            if (popupRef.current && !popupRef.current.contains(event.target)) {
+                setPopup({ visible: false, x: 0, y: 0, text: '' });
+            }
+        };
+
+        // Use mousedown for dismissing to catch the click before it clears selection
+        document.addEventListener("mousedown", handleClickOutside);
+        document.addEventListener("mouseup", handleMouseUp);
+        return () => {
+            document.removeEventListener("mousedown", handleClickOutside);
+            document.removeEventListener("mouseup", handleMouseUp);
+        };
+    }, []); // Changed dependency array to empty to prevent re-binding issues
+
+    // REMOVED: The useEffect to restore the selection is no longer needed.
 
     const handleHighlightSelectionChange = (highlightId) => {
         setSelectedHighlights(prevSelected => {
@@ -299,6 +278,9 @@ const ArticleViewer = ({ onArticleChange }) => {
         ...folders.filter(f => f.name !== 'Uncategorized' && f._id !== 'uncategorized')
     ];
 
+    // --- ADDED: A simple function to prevent default mousedown behavior ---
+    const preventFocusSteal = (e) => e.preventDefault();
+
     return (
         <div className="article-viewer-page">
             <div className="article-viewer-main">
@@ -341,12 +323,15 @@ const ArticleViewer = ({ onArticleChange }) => {
                     {popup.visible && (
                         <div
                             ref={popupRef}
+                            // --- THIS IS THE KEY FIX ---
+                            onMouseDown={preventFocusSteal}
+                            // --------------------------
                             className="highlight-popup-web-app-container"
                             style={{ 
                                 top: popup.y, 
                                 left: popup.x, 
                                 position: 'absolute', 
-                                transform: 'translateX(-50%)' 
+                                transform: 'translate(-50%, -100%)' // Adjusted for better placement
                             }}
                         >
                             <textarea 
