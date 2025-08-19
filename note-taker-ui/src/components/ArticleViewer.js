@@ -1,8 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import axios from 'axios';
+import api from '../api'; // UPDATED: Import the custom api instance
 import { useParams, useNavigate } from 'react-router-dom';
-
-const BASE_URL = "https://note-taker-3-unrg.onrender.com";
 
 const getAuthConfig = () => {
     const token = localStorage.getItem('token');
@@ -58,7 +56,7 @@ const ArticleViewer = ({ onArticleChange }) => {
 
     const fetchFolders = useCallback(async () => {
         try {
-            const response = await axios.get(`${BASE_URL}/folders`, getAuthConfig());
+            const response = await api.get('/folders', getAuthConfig());
             const allFolders = [{ _id: 'uncategorized', name: 'Uncategorized' }, ...response.data];
             setFolders(allFolders);
         } catch (err) {
@@ -74,13 +72,15 @@ const ArticleViewer = ({ onArticleChange }) => {
 
             const fetchArticle = async () => {
                 try {
-                    const res = await axios.get(`${BASE_URL}/articles/${id}`, getAuthConfig());
+                    const res = await api.get(`/articles/${id}`, getAuthConfig());
                     const processedArticle = processArticleContent(res.data);
                     setArticle(processedArticle);
 
                 } catch (err) {
                     console.error("Error fetching article:", err);
-                    setError("Could not load the selected article.");
+                    if (err.response?.status !== 401 && err.response?.status !== 403) {
+                        setError("Could not load the selected article.");
+                    }
                 }
             };
             fetchArticle();
@@ -153,7 +153,7 @@ const ArticleViewer = ({ onArticleChange }) => {
         }
         try {
             const payload = { articleId: article._id, highlightIds: selectedHighlights };
-            await axios.post(`${BASE_URL}/api/recommendations`, payload, getAuthConfig());
+            await api.post('/api/recommendations', payload, getAuthConfig());
             alert("Article recommended successfully!");
             setIsRecommendModalOpen(false);
             setSelectedHighlights([]);
@@ -172,7 +172,7 @@ const ArticleViewer = ({ onArticleChange }) => {
         window.getSelection()?.removeAllRanges();
         setPopup({ visible: false, x: 0, y: 0, text: '' });
         try {
-            const res = await axios.post(`${BASE_URL}/articles/${id}/highlights`, newHighlight, getAuthConfig());
+            const res = await api.post(`/articles/${id}/highlights`, newHighlight, getAuthConfig());
             const processedArticle = processArticleContent(res.data);
             setArticle(processedArticle);
             alert("Highlight saved!");
@@ -187,7 +187,7 @@ const ArticleViewer = ({ onArticleChange }) => {
             return;
         }
         try {
-            await axios.delete(`${BASE_URL}/articles/${article._id}`, getAuthConfig());
+            await api.delete(`/articles/${article._id}`, getAuthConfig());
             alert(`Article "${article.title}" deleted successfully!`);
             onArticleChange();
             navigate('/');
@@ -201,7 +201,7 @@ const ArticleViewer = ({ onArticleChange }) => {
         const newFolderId = e.target.value;
         if (!article || !newFolderId) return;
         try {
-            const response = await axios.patch(`${BASE_URL}/articles/${article._id}/move`, { folderId: newFolderId }, getAuthConfig());
+            const response = await api.patch(`/articles/${article._id}/move`, { folderId: newFolderId }, getAuthConfig());
             setArticle(response.data);
             alert("Article moved successfully!");
             onArticleChange();
@@ -237,7 +237,7 @@ const ArticleViewer = ({ onArticleChange }) => {
 
     const updateHighlightOnBackend = async (highlightId, updatedNote, updatedTags) => {
         try {
-            const response = await axios.patch(`${BASE_URL}/articles/${id}/highlights/${highlightId}`, {
+            const response = await api.patch(`/articles/${id}/highlights/${highlightId}`, {
                 note: updatedNote,
                 tags: updatedTags.split(',').map(tag => tag.trim()).filter(t => t)
             }, getAuthConfig());
@@ -267,7 +267,7 @@ const ArticleViewer = ({ onArticleChange }) => {
             return;
         }
         try {
-            const response = await axios.delete(`${BASE_URL}/articles/${id}/highlights/${highlightId}`, getAuthConfig());
+            const response = await api.delete(`/articles/${id}/highlights/${highlightId}`, getAuthConfig());
             const processedArticle = processArticleContent(response.data);
             setArticle(processedArticle);
             alert("Highlight deleted successfully!");
@@ -357,7 +357,7 @@ const ArticleViewer = ({ onArticleChange }) => {
                                 onClick={saveHighlight}
                                 title="Save Highlight"
                             >
-                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="highlight-icon">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="highlight-icon">
                                     <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
                                 </svg>
                                 <span className="highlight-label">Save</span>

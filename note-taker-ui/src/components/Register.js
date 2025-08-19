@@ -1,13 +1,9 @@
-// src/components/Register.js
 import React, { useState } from 'react';
-import axios from 'axios';
+import api from '../api'; // UPDATED: Import the custom api instance
 import { useNavigate } from 'react-router-dom';
 import logo from '../assets/logo.png';
 
-const BASE_URL = "https://note-taker-3-unrg.onrender.com";
-
 const Register = () => {
-    // THE FIX: Renamed 'email' state to 'username'
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [message, setMessage] = useState('');
@@ -20,8 +16,8 @@ const Register = () => {
         setIsError(false);
 
         try {
-            // THE FIX: Sending 'username' in the request body
-            const response = await axios.post(`${BASE_URL}/api/auth/register`, { username, password });
+            // UPDATED: Use the 'api' instance and simplified URL
+            await api.post('/api/auth/register', { username, password });
             setMessage('Registration successful! You can now log in.');
             setIsError(false);
             
@@ -42,7 +38,6 @@ const Register = () => {
             <h2>Register</h2>
             <form onSubmit={handleRegister} className="auth-form">
                 <div className="form-group">
-                    {/* THE FIX: Updated label and input */}
                     <label htmlFor="username">Username:</label>
                     <input
                         type="text"

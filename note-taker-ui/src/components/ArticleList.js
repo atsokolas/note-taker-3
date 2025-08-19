@@ -1,8 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { NavLink } from 'react-router-dom';
-import axios from 'axios';
-
-const BASE_URL = "https://note-taker-3-unrg.onrender.com";
+import api from '../api'; // UPDATED: Import the custom api instance
 
 const AccordionIcon = ({ isOpen }) => (
     <svg className={`accordion-icon ${isOpen ? 'open' : ''}`} width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -22,14 +20,12 @@ const ArticleList = () => {
         setLoading(true);
         setError(null);
         try {
-            // --- THE FIX: Get token and create headers ---
             const token = localStorage.getItem('token');
             if (!token) throw new Error("Authentication token not found.");
             const authHeaders = { headers: { 'Authorization': `Bearer ${token}` } };
-            // ------------------------------------------
 
-            const articlesResponse = await axios.get(`${BASE_URL}/get-articles`, authHeaders);
-            const foldersResponse = await axios.get(`${BASE_URL}/folders`, authHeaders);
+            const articlesResponse = await api.get('/get-articles', authHeaders);
+            const foldersResponse = await api.get('/folders', authHeaders);
             
             const articlesData = articlesResponse.data;
             const foldersData = foldersResponse.data;
@@ -56,7 +52,10 @@ const ArticleList = () => {
 
         } catch (err) {
             console.error("Failed to fetch articles or folders:", err);
-            setError("Failed to load articles or folders. Please try logging in again.");
+            // The interceptor will handle auth errors, so only set state for other errors.
+            if (err.response?.status !== 401 && err.response?.status !== 403) {
+                setError("Failed to load articles or folders. Please try logging in again.");
+            }
         } finally {
             setLoading(false);
         }
@@ -73,13 +72,11 @@ const ArticleList = () => {
     const handleCreateFolder = async () => {
         if (!newFolderName.trim()) return;
         try {
-            // --- THE FIX: Get token and create headers ---
             const token = localStorage.getItem('token');
             if (!token) throw new Error("Authentication token not found.");
             const authHeaders = { headers: { 'Authorization': `Bearer ${token}` } };
-            // ------------------------------------------
 
-            const response = await axios.post(`${BASE_URL}/folders`, { name: newFolderName.trim() }, authHeaders);
+            const response = await api.post('/folders', { name: newFolderName.trim() }, authHeaders);
             alert(`Folder "${response.data.name}" created successfully!`);
             setNewFolderName('');
             await fetchAndGroupArticles(); 
@@ -92,13 +89,11 @@ const ArticleList = () => {
     const handleDeleteFolder = async (folderId, folderName) => {
         if (!window.confirm(`Are you sure you want to delete "${folderName}"?`)) return;
         try {
-            // --- THE FIX: Get token and create headers ---
             const token = localStorage.getItem('token');
             if (!token) throw new Error("Authentication token not found.");
             const authHeaders = { headers: { 'Authorization': `Bearer ${token}` } };
-            // ------------------------------------------
 
-            await axios.delete(`${BASE_URL}/folders/${folderId}`, authHeaders);
+            await api.delete(`/folders/${folderId}`, authHeaders);
             alert(`Folder "${folderName}" deleted successfully!`);
             if (openFolder === folderId) setOpenFolder(null);
             await fetchAndGroupArticles(); 
@@ -119,7 +114,6 @@ const ArticleList = () => {
 
     return (
         <>
-            {/* The component's JSX remains the same */}
             <h1>Your Library</h1>
             <div className="new-folder-section">
                 <input

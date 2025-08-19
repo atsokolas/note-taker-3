@@ -1,8 +1,5 @@
-// note-taker-ui/src/components/Trending.js
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
-
-const BASE_URL = "https://note-taker-3-unrg.onrender.com";
+import api from '../api'; // UPDATED: Import the custom api instance
 
 const Trending = () => {
     const [trendingArticles, setTrendingArticles] = useState([]);
@@ -13,11 +10,15 @@ const Trending = () => {
         const fetchTrending = async () => {
             try {
                 setLoading(true);
-                const response = await axios.get(`${BASE_URL}/api/trending`);
+                // UPDATED: Use the 'api' instance
+                const response = await api.get('/api/trending');
                 setTrendingArticles(response.data);
             } catch (err) {
                 console.error("Error fetching trending articles:", err);
-                setError("Could not load trending articles.");
+                // The interceptor will handle auth errors
+                if (err.response?.status !== 401 && err.response?.status !== 403) {
+                    setError("Could not load trending articles.");
+                }
             } finally {
                 setLoading(false);
             }

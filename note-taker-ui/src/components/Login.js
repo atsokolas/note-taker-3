@@ -1,9 +1,7 @@
 import React, { useState } from 'react';
-import axios from 'axios';
+import api from '../api'; // UPDATED: Import the custom api instance
 import { useNavigate } from 'react-router-dom';
 import logo from '../assets/logo.png';
-
-const BASE_URL = "https://note-taker-3-unrg.onrender.com";
 
 const Login = ({ onLoginSuccess }) => {
     const [username, setUsername] = useState('');
@@ -18,7 +16,8 @@ const Login = ({ onLoginSuccess }) => {
         setIsError(false);
 
         try {
-            const response = await axios.post(`${BASE_URL}/api/auth/login`, { username, password });
+            // UPDATED: Use the 'api' instance and simplified URL
+            const response = await api.post('/api/auth/login', { username, password });
             console.log('Login success:', response.data);
 
             if (response.data.token) {
@@ -33,7 +32,6 @@ const Login = ({ onLoginSuccess }) => {
                 setMessage('Login successful!');
                 setIsError(false);
                 
-                // 3. CLEAN UP: RELY ONLY ON THE PROP TO SIGNAL SUCCESS
                 if (typeof onLoginSuccess === 'function') {
                     onLoginSuccess();
                 }
