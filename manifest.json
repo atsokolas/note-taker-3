@@ -16,8 +16,7 @@
   },
   "permissions": [
     "storage",
-    "activeTab",
-    "scripting" 
+    "activeTab"
   ],
   "host_permissions": [
     "https://note-taker-3-unrg.onrender.com/*"
