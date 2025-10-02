@@ -562,6 +562,14 @@ app.delete('/articles/:articleId/highlights/:highlightId', authenticateToken, as
   }
 });
 
+// --- HEALTH CHECK ENDPOINT to prevent cold starts ---
+app.get("/health", (req, res) => {
+  // This route does nothing but send a success status.
+  // It's a lightweight way for a pinging service to keep the server alive.
+  console.log("Health check ping received.");
+  res.status(200).json({ status: "ok", message: "Server is warm." });
+});
+
 // Root endpoint for health check
 app.get('/', (req, res) => res.send('✅ Note Taker backend is running!'));
 
