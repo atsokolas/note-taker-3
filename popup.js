@@ -4,18 +4,22 @@ document.addEventListener("DOMContentLoaded", () => {
     const loggedOutView = document.getElementById("loggedOutView");
 
     // Logged Out Elements
+    const loginView = document.getElementById("loginView"); // <-- New
     const loginForm = document.getElementById("loginForm");
     const usernameInput = document.getElementById("username");
     const passwordInput = document.getElementById("password");
     const loginStatusMessage = document.getElementById("loginStatusMessage");
+    const showRegisterLink = document.getElementById("showRegisterLink"); // <-- New
 
-    // Logged In Elements
-    const saveButton = document.getElementById("saveArticleButton");
-    const statusMessage = document.getElementById("statusMessage");
-    const folderSelect = document.getElementById("folderSelect");
-    const newFolderNameInput = document.getElementById("newFolderName");
-    const createFolderButton = document.getElementById("createFolderButton");
-    const logoutButton = document.getElementById("logoutButton");
+    // Register Form Elements (All New)
+    const registerView = document.getElementById("registerView");
+    const registerForm = document.getElementById("registerForm");
+    const registerUsernameInput = document.getElementById("registerUsername");
+    const registerPasswordInput = document.getElementById("registerPassword");
+    const confirmPasswordInput = document.getElementById("confirmPassword");
+    const registerStatusMessage = document.getElementById("registerStatusMessage");
+    const showLoginLink = document.getElementById("showLoginLink");
+
 
     const BASE_URL = "https://note-taker-3-unrg.onrender.com";
 
@@ -31,8 +35,13 @@ document.addEventListener("DOMContentLoaded", () => {
         } else {
             loggedInView.style.display = 'none';
             loggedOutView.style.display = 'block';
+
+            // --- ADD THESE TWO LINES ---
+            loginView.style.display = 'block';    // Show login form by default
+            registerView.style.display = 'none'; // Hide register form
         }
     };
+
 
     // This function handles the new login form inside the popup.
     const handleLogin = async (event) => {
@@ -71,6 +80,64 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     };
 
+        // --- NEW FUNCTION: Handle Account Registration ---
+    const handleRegister = async (event) => {
+        event.preventDefault();
+        registerStatusMessage.textContent = "Creating account...";
+        registerStatusMessage.className = 'status';
+
+        const username = registerUsernameInput.value;
+        const password = registerPasswordInput.value;
+        const confirmPassword = confirmPasswordInput.value;
+
+        // --- Client-side Validation ---
+        if (!username || !password || !confirmPassword) {
+            registerStatusMessage.textContent = "All fields are required.";
+            registerStatusMessage.className = 'status error';
+            return;
+        }
+
+        if (password !== confirmPassword) {
+            registerStatusMessage.textContent = "Passwords do not match.";
+            registerStatusMessage.className = 'status error';
+            return;
+        }
+
+        // --- API Call ---
+        try {
+            const response = await fetch(`${BASE_URL}/api/auth/register`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password })
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                // Handle errors like "Username already exists"
+                throw new Error(data.error || `Error ${response.status}`);
+            }
+
+            // --- Success Confirmation ---
+            registerStatusMessage.textContent = "Account created! Please log in.";
+            registerStatusMessage.className = 'status success';
+
+            // After 2 seconds, switch back to the login view
+            setTimeout(() => {
+                registerView.style.display = 'none';
+                loginView.style.display = 'block';
+                registerStatusMessage.textContent = ""; // Clear message
+                registerForm.reset(); // Clear form
+            }, 2000);
+
+        } catch (error) {
+            registerStatusMessage.textContent = error.message;
+            registerStatusMessage.className = 'status error';
+            console.error("Registration failed:", error);
+        }
+    };
+
+
     // Fetches folders from the server using a token.
     const fetchFolders = async (token) => {
         try {
@@ -105,6 +172,25 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Listener for the new login form
     loginForm.addEventListener("submit", handleLogin);
+    
+    // Listener for the new register form
+    registerForm.addEventListener("submit", handleRegister);
+
+    // Listener to show register form
+    showRegisterLink.addEventListener("click", (e) => {
+        e.preventDefault();
+        loginView.style.display = 'none';
+        registerView.style.display = 'block';
+        loginStatusMessage.textContent = ''; // Clear any login errors
+    });
+
+    // Listener to show login form
+    showLoginLink.addEventListener("click", (e) => {
+        e.preventDefault();
+        registerView.style.display = 'none';
+        loginView.style.display = 'block';
+        registerStatusMessage.textContent = ''; // Clear any register errors
+    });
 
     // Listener for the logout button
     logoutButton.addEventListener("click", () => {
@@ -176,14 +262,20 @@ document.addEventListener("DOMContentLoaded", () => {
             
             statusMessage.textContent = "Saving article...";
             
+            // --- MODIFIED MESSAGE PAYLOAD ---
+            // Pass all the new data from the article object
             const messagePayload = {
                 action: "capture",
                 tabId: tab.id,
-                title: articleResponse.article.title,
                 url: tab.url,
+                title: articleResponse.article.title,
                 content: articleResponse.article.content,
+                author: articleResponse.article.author,
+                publicationDate: articleResponse.article.publicationDate,
+                siteName: articleResponse.article.siteName,
                 folderId: folderSelect.value
             };
+            // --- END MODIFIED PAYLOAD ---
             
             const backgroundResponse = await chrome.runtime.sendMessage(messagePayload);
 
@@ -199,7 +291,6 @@ document.addEventListener("DOMContentLoaded", () => {
             console.error("[ERROR - Popup.js] Error saving article:", error);
         }
     });
-
     // --- Initial Setup ---
     // This will check if the user is logged in and show the correct view when the popup opens.
     updatePopupView();

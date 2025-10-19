@@ -15,6 +15,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
           throw new Error("Authentication token not found. Please log in again.");
         }
 
+        // --- MODIFIED FETCH REQUEST ---
         const response = await fetch(`${BASE_URL}/save-article`, {
           method: "POST",
           headers: { 
@@ -26,8 +27,14 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             url: request.url,
             content: request.content || "",
             folderId: request.folderId,
+            
+            // Add the new fields here
+            author: request.author,
+            publicationDate: request.publicationDate,
+            siteName: request.siteName
           }),
         });
+        // --- END MODIFIED FETCH REQUEST ---
 
         if (!response.ok) {
             const errorData = await response.json();

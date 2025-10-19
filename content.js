@@ -13,6 +13,28 @@
   let isHighlightingActive = false;
   let lastSelectionRange = null;
 
+  // Tries to find the publication date in common HTML tags
+  function findPublicationDate() {
+    // 1. Try a standard <meta> tag
+    const metaTag = document.querySelector('meta[property="article:published_time"]');
+    if (metaTag) {
+      return metaTag.getAttribute('content');
+    }
+
+    // 2. Try another common <meta> tag
+    const metaTag2 = document.querySelector('meta[name="date"]');
+    if (metaTag2) {
+      return metaTag2.getAttribute('content');
+    }
+
+    // 3. Try the <time> element's datetime attribute
+    const timeTag = document.querySelector('time[datetime]');
+    if (timeTag) {
+      return timeTag.getAttribute('datetime');
+    }
+    
+    return ''; // Return empty if not found
+  }
   const checkForExistingArticle = async () => {
     try {
         const { token } = await chrome.storage.local.get("token");
@@ -203,7 +225,19 @@
           return;
       }
       
-      sendResponse({ article: article });
+      // --- MODIFIED RESPONSE ---
+      // We now send back the new metadata we found.
+      // Readability provides author (byline) and siteName.
+      sendResponse({ 
+        article: {
+          title: article.title,
+          content: article.content,
+          author: article.byline || '',      // Get author from Readability
+          siteName: article.siteName || '',  // Get siteName from Readability
+          publicationDate: findPublicationDate() // Use our new helper function
+        }
+      });
+      // --- END MODIFIED RESPONSE ---
     } 
     else if (message.action === "activateHighlighting") {
       isHighlightingActive = true;

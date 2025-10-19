@@ -56,18 +56,26 @@ const Folder = mongoose.model('Folder', folderSchema);
 
 // Article Schema and Model - MODIFIED TO INCLUDE userId
 const articleSchema = new mongoose.Schema({
-  url: { type: String, required: true }, // Unique per user, not globally unique
+  url: { type: String, required: true },
   title: { type: String, required: true },
   content: String,
   folder: { type: mongoose.Schema.Types.ObjectId, ref: 'Folder', default: null },
-  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }, // Link to user
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   highlights: [{
       text: String,
       note: String,
       tags: [String],
       createdAt: { type: Date, default: Date.now }
   }],
+
+  // --- CORRECT LOCATION FOR NEW FIELDS ---
+  author: { type: String, default: '' },
+  publicationDate: { type: String, default: '' }, // <-- TYPO FIXED
+  siteName: { type: String, default: '' }
+  // --- END ---
+
 }, { timestamps: true });
+
 
 // Add a unique compound index for url and userId to ensure unique article URLs per user
 articleSchema.index({ url: 1, userId: 1 }, { unique: true });
@@ -233,7 +241,8 @@ app.get('/api/trending', async (req, res) => {
 // POST /save-article: Saves a new article or updates an existing one - MODIFIED FOR USER AUTHENTICATION
 app.post("/save-article", authenticateToken, async (req, res) => {
   try {
-    const { title, url, content, folderId } = req.body;
+    // --- 1. I added the new fields here ---
+    const {title, url, content, folderId, author, publicationDate, siteName} = req.body;
     const userId = req.user.id; // Get user ID from authenticated token
 
     if (!title || !url) {
@@ -250,14 +259,19 @@ app.post("/save-article", authenticateToken, async (req, res) => {
       }
       actualFolderId = folderId;
     }
-
     const articleData = {
         title: title,
         content: content || '',
         folder: actualFolderId,
-        userId: userId, // Associate article with the current user
+        userId: userId,
+        
+        // --- 2. And I added them to the data object here ---
+        author: author || '',
+        publicationDate: publicationDate || '',
+        siteName: siteName || '',
+        
         $setOnInsert: { highlights: [] }
-    };
+    }; // <-- THIS WAS THE MISSING BRACE AND SEMICOLON
 
     // Find and update/upsert based on url AND userId
     const updatedArticle = await Article.findOneAndUpdate({ url: url, userId: userId }, articleData, {
