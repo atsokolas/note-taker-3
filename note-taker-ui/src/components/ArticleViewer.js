@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import api from '../api'; // UPDATED: Import the custom api instance
+import api from '../api';
 import { useParams, useNavigate } from 'react-router-dom';
+import CitationGenerator from './CitationGenerator'; // <-- 1. IMPORT THE NEW COMPONENT
 
 const getAuthConfig = () => {
+    // ... (Your existing code)
     const token = localStorage.getItem('token');
     if (!token) {
         throw new Error("Authentication token not found. Please log in again.");
@@ -11,6 +13,7 @@ const getAuthConfig = () => {
 };
 
 const processArticleContent = (articleData) => {
+    // ... (Your existing code)
     const { content, highlights, url } = articleData;
     const parser = new DOMParser();
     const doc = parser.parseFromString(content, 'text/html');
@@ -34,6 +37,7 @@ const processArticleContent = (articleData) => {
 };
 
 const ArticleViewer = ({ onArticleChange }) => {
+    // ... (Your existing state and hooks)
     const { id } = useParams();
     const navigate = useNavigate();
     const [article, setArticle] = useState(null);
@@ -55,6 +59,7 @@ const ArticleViewer = ({ onArticleChange }) => {
     const [selectedHighlights, setSelectedHighlights] = useState([]);
 
     const fetchFolders = useCallback(async () => {
+        // ... (Your existing code)
         try {
             const response = await api.get('/folders', getAuthConfig());
             const allFolders = [{ _id: 'uncategorized', name: 'Uncategorized' }, ...response.data];
@@ -65,6 +70,7 @@ const ArticleViewer = ({ onArticleChange }) => {
     }, []);
 
     useEffect(() => {
+        // ... (Your existing code)
         if (id) {
             setArticle(null);
             setError(null);
@@ -88,6 +94,7 @@ const ArticleViewer = ({ onArticleChange }) => {
     }, [id, fetchFolders]);
 
     useEffect(() => {
+        // ... (Your existing mouseup/click logic)
         const handleMouseUp = (event) => {
             if (popupRef.current && popupRef.current.contains(event.target)) {
                 return;
@@ -122,6 +129,7 @@ const ArticleViewer = ({ onArticleChange }) => {
     }, []);
 
     useEffect(() => {
+        // ... (Your existing popup logic)
         if (popup.visible && selectionRangeRef.current) {
             setTimeout(() => {
                 const selection = window.getSelection();
@@ -133,7 +141,9 @@ const ArticleViewer = ({ onArticleChange }) => {
         }
     }, [popup.visible]);
 
+    // ... (Your existing functions: handleHighlightSelectionChange, handleRecommendArticle, saveHighlight, etc.)
     const handleHighlightSelectionChange = (highlightId) => {
+        // ...
         setSelectedHighlights(prevSelected => {
             if (prevSelected.includes(highlightId)) {
                 return prevSelected.filter(id => id !== highlightId);
@@ -147,6 +157,7 @@ const ArticleViewer = ({ onArticleChange }) => {
     };
 
     const handleRecommendArticle = async () => {
+        // ...
         if (selectedHighlights.length === 0) {
             alert("Please select at least one highlight to recommend.");
             return;
@@ -164,6 +175,7 @@ const ArticleViewer = ({ onArticleChange }) => {
     };
 
     const saveHighlight = async () => {
+        // ...
         const newHighlight = { 
             text: popup.text,
             note: newHighlightNote, 
@@ -183,6 +195,7 @@ const ArticleViewer = ({ onArticleChange }) => {
     };
 
     const handleDeleteArticle = async () => {
+        // ...
         if (!article || !window.confirm(`Are you sure you want to delete "${article.title}"?`)) {
             return;
         }
@@ -198,6 +211,7 @@ const ArticleViewer = ({ onArticleChange }) => {
     };
 
     const handleMoveArticle = async (e) => {
+        // ...
         const newFolderId = e.target.value;
         if (!article || !newFolderId) return;
         try {
@@ -212,6 +226,7 @@ const ArticleViewer = ({ onArticleChange }) => {
     };
 
     const scrollToHighlight = (highlightId) => {
+        // ...
         const targetElement = document.querySelector(`mark[data-highlight-id="${highlightId}"]`);
         if (targetElement) {
             targetElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -224,18 +239,21 @@ const ArticleViewer = ({ onArticleChange }) => {
     };
 
     const startEditHighlight = (highlight) => {
+        // ...
         setEditingHighlightId(highlight._id);
         setEditNote(highlight.note || '');
         setEditTags(highlight.tags ? highlight.tags.join(', ') : '');
     };
 
     const cancelEditHighlight = () => {
+        // ...
         setEditingHighlightId(null);
         setEditNote('');
         setEditTags('');
     };
 
     const updateHighlightOnBackend = async (highlightId, updatedNote, updatedTags) => {
+        // ...
         try {
             const response = await api.patch(`/articles/${id}/highlights/${highlightId}`, {
                 note: updatedNote,
@@ -249,6 +267,7 @@ const ArticleViewer = ({ onArticleChange }) => {
     };
 
     const saveHighlightEdits = async (highlightId) => {
+        // ...
         try {
             const updatedArticleData = await updateHighlightOnBackend(highlightId, editNote, editTags);
             const processedArticle = processArticleContent(updatedArticleData);
@@ -263,6 +282,7 @@ const ArticleViewer = ({ onArticleChange }) => {
     };
 
     const deleteHighlight = async (highlightId) => {
+        // ...
         if (!window.confirm("Are you sure you want to delete this highlight?")) {
             return;
         }
@@ -284,6 +304,7 @@ const ArticleViewer = ({ onArticleChange }) => {
     if (!article) return <h2>Loading article...</h2>;
 
     const allFoldersIncludingUncategorized = [
+        // ... (Your existing code)
         { _id: 'uncategorized', name: 'Uncategorized' },
         ...folders.filter(f => f.name !== 'Uncategorized' && f._id !== 'uncategorized')
     ];
@@ -292,6 +313,7 @@ const ArticleViewer = ({ onArticleChange }) => {
         <div className="article-viewer-page">
             <div className="article-viewer-main">
                 <div className="article-management-bar">
+                    {/* ... (Your existing management bar buttons) ... */}
                     <button 
                         className="management-button" 
                         onClick={() => setIsRecommendModalOpen(true)}
@@ -322,6 +344,10 @@ const ArticleViewer = ({ onArticleChange }) => {
 
                 <div className="article-content">
                     <h1>{article.title}</h1>
+                    
+                    {/* --- 2. ADD THE CITATION COMPONENT HERE --- */}
+                    <CitationGenerator article={article} />
+                    
                     <div
                         ref={contentRef}
                         className="content-body"
@@ -330,6 +356,7 @@ const ArticleViewer = ({ onArticleChange }) => {
                     {popup.visible && (
                         <div
                             ref={popupRef}
+                            // ... (Your existing popup code)
                             onMouseDown={preventFocusSteal}
                             className="highlight-popup-web-app-container"
                             style={{ 
@@ -368,6 +395,7 @@ const ArticleViewer = ({ onArticleChange }) => {
             </div>
 
             <div className="article-highlights-sidebar">
+                {/* ... (Your existing highlights sidebar code) ... */}
                 <h2>Article Highlights</h2>
                 {article.highlights && article.highlights.length > 0 ? (
                     <ul className="highlights-list">
@@ -422,6 +450,7 @@ const ArticleViewer = ({ onArticleChange }) => {
 
             {isRecommendModalOpen && (
                 <div className="modal-overlay">
+                    {/* ... (Your existing modal code) ... */}
                     <div className="modal-content">
                         <h2>Recommend Article</h2>
                         <p>Select up to 10 highlights to share with your recommendation.</p>
