@@ -1,11 +1,15 @@
 import React, { useState } from 'react';
-import api from '../api'; // UPDATED: Import the custom api instance
+import api from '../api'; 
 import { useNavigate } from 'react-router-dom';
 import logo from '../assets/logo.png';
 
 const Register = () => {
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
+    
+    // --- 1. ADD STATE FOR CONFIRM PASSWORD ---
+    const [confirmPassword, setConfirmPassword] = useState(''); 
+    
     const [message, setMessage] = useState('');
     const [isError, setIsError] = useState(false);
     const navigate = useNavigate();
@@ -15,8 +19,14 @@ const Register = () => {
         setMessage('');
         setIsError(false);
 
+        // --- 2. ADD VALIDATION LOGIC ---
+        if (password !== confirmPassword) {
+            setMessage('Passwords do not match.');
+            setIsError(true);
+            return; // Stop the function
+        }
+
         try {
-            // UPDATED: Use the 'api' instance and simplified URL
             await api.post('/api/auth/register', { username, password });
             setMessage('Registration successful! You can now log in.');
             setIsError(false);
@@ -57,6 +67,19 @@ const Register = () => {
                         required
                     />
                 </div>
+
+                {/* --- 3. ADD THE NEW INPUT FIELD --- */}
+                <div className="form-group">
+                    <label htmlFor="confirm-password">Confirm Password:</label>
+                    <input
+                        type="password"
+                        id="confirm-password"
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        required
+                    />
+                </div>
+
                 <button type="submit" className="auth-button">Register</button>
             </form>
             {message && (<p className={`status-message ${isError ? 'error-message' : 'success-message'}`}>{message}</p>)}
