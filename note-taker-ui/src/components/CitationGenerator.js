@@ -4,30 +4,18 @@ import React, { useState } from 'react';
 import { Cite } from '@citation-js/core';
 import '@citation-js/plugin-csl'; // Import CSL plugin
 
-// Helper function to create a simplified data object for the library
 const getCitationData = (article) => {
-  // Try to parse the date. Handle invalid or empty dates.
-  let dateParts = [];
-  if (article.publicationDate) {
-    try {
-      // Create a date object. new Date() is very flexible.
-      const d = new Date(article.publicationDate);
-      // Check if the date is valid
-      if (!isNaN(d.getTime())) { 
-        dateParts = [d.getFullYear(), d.getMonth() + 1, d.getDate()];
-      }
-    } catch (e) {
-      console.warn("Could not parse publication date:", article.publicationDate);
-    }
-  }
+  // citation-js can often parse ISO 8601 dates directly.
+  // We only need to provide the date part if it exists.
+  const dateData = article.publicationDate ? { 'date-parts': [[article.publicationDate.substring(0, 10)]] } : {}; // Extract YYYY-MM-DD
 
   return {
     id: article._id,
-    type: 'article-journal', // 'webpage' is also a good option
+    type: 'article-journal', // Or 'webpage'
     title: article.title,
-    author: article.author ? [{ literal: article.author }] : [], // Format author as required
-    issued: { 'date-parts': [dateParts] }, // Pass the parsed date parts
-    'container-title': article.siteName || '', // The name of the website/publication
+    author: article.author ? [{ literal: article.author }] : [], 
+    issued: dateData, // Pass the simplified date data
+    'container-title': article.siteName || '', 
     URL: article.url
   };
 };

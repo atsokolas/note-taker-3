@@ -4,14 +4,14 @@ document.addEventListener("DOMContentLoaded", () => {
     const loggedOutView = document.getElementById("loggedOutView");
 
     // Logged Out Elements
-    const loginView = document.getElementById("loginView"); // <-- New
+    const loginView = document.getElementById("loginView");
     const loginForm = document.getElementById("loginForm");
     const usernameInput = document.getElementById("username");
     const passwordInput = document.getElementById("password");
     const loginStatusMessage = document.getElementById("loginStatusMessage");
-    const showRegisterLink = document.getElementById("showRegisterLink"); // <-- New
+    const showRegisterLink = document.getElementById("showRegisterLink");
 
-    // Register Form Elements (All New)
+    // Register Form Elements
     const registerView = document.getElementById("registerView");
     const registerForm = document.getElementById("registerForm");
     const registerUsernameInput = document.getElementById("registerUsername");
@@ -19,6 +19,16 @@ document.addEventListener("DOMContentLoaded", () => {
     const confirmPasswordInput = document.getElementById("confirmPassword");
     const registerStatusMessage = document.getElementById("registerStatusMessage");
     const showLoginLink = document.getElementById("showLoginLink");
+
+    // --- ADD THIS BLOCK BACK ---
+    // Logged In Elements (These were missing)
+    const saveButton = document.getElementById("saveArticleButton");
+    const statusMessage = document.getElementById("statusMessage");
+    const folderSelect = document.getElementById("folderSelect");
+    const newFolderNameInput = document.getElementById("newFolderName");
+    const createFolderButton = document.getElementById("createFolderButton");
+    const logoutButton = document.getElementById("logoutButton");
+    // --- END BLOCK TO ADD ---
 
 
     const BASE_URL = "https://note-taker-3-unrg.onrender.com";

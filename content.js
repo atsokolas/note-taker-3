@@ -210,6 +210,8 @@
   }
 
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    
+    // --- Block 1: Get Clean Article ---
     if (message.action === "getCleanArticle") {
       if (typeof Readability === "undefined") {
         sendResponse({ error: "Readability library not available." });
@@ -225,28 +227,34 @@
           return;
       }
       
-      // --- MODIFIED RESPONSE ---
-      // We now send back the new metadata we found.
-      // Readability provides author (byline) and siteName.
+      // Clean the byline by removing "By " if it exists
+      const author = (article.byline || '').replace(/^By\s/i, '').trim();
+
       sendResponse({ 
         article: {
           title: article.title,
           content: article.content,
-          author: article.byline || '',      // Get author from Readability
-          siteName: article.siteName || '',  // Get siteName from Readability
-          publicationDate: findPublicationDate() // Use our new helper function
+          author: author, // Use the new, clean author variable
+          siteName: article.siteName || '',
+          publicationDate: findPublicationDate()
         }
       });
-      // --- END MODIFIED RESPONSE ---
-    } 
+      
+      return; // Stop execution for this message
+    } // <-- THIS CLOSING BRACE WAS MISSING
+    
+    // --- Block 2: Activate Highlighting ---
     else if (message.action === "activateHighlighting") {
       isHighlightingActive = true;
       console.log(`[DEBUG] Highlighting activated. isHighlightingActive is now: ${isHighlightingActive}`);
       sendResponse({ success: true });
     } 
+    
+    // --- Block 3: Article Saved ---
     else if (message.action === "articleSaved") {
       savedArticleId = message.article.id;
       console.log(`[DEBUG] 'articleSaved' message received. Stored ID is now: ${savedArticleId}`);
+      sendResponse({ success: true }); // Acknowledge the message
     }
   });
 
