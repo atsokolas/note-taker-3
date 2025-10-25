@@ -4,29 +4,29 @@ import React, { useState } from 'react';
 import { Cite } from '@citation-js/core';
 import '@citation-js/plugin-csl'; // Import CSL plugin
 
-// --- REVISED HELPER FUNCTION ---
 const getCitationData = (article) => {
   const data = {
     id: article._id,
-    type: 'webpage', // Using webpage type
-    title: article.title || '', // Ensure title is passed
-    author: article.author ? [{ literal: article.author }] : [], // Keep author format
-    URL: article.url || '' // Ensure URL is passed
+    type: 'article-journal', // <--- CHANGE THIS BACK
+    title: article.title || '',
+    author: article.author ? [{ literal: article.author }] : [],
+    URL: article.url || ''
   };
 
   // Add publication/site name if available
   if (article.siteName) {
-    data['container-title'] = article.siteName;
+    // For 'article-journal', the publication title goes in 'container-title'
+    data['container-title'] = article.siteName; 
   }
 
-  // Add date if available and attempt basic parsing
+  // Add date if available
   if (article.publicationDate) {
     // Extract just YYYY-MM-DD
     const dateMatch = article.publicationDate.match(/^(\d{4}-\d{2}-\d{2})/);
     if (dateMatch) {
       data.issued = { 'date-parts': [dateMatch[1].split('-')] };
     } else {
-      // Fallback for just the year if full date extraction failed
+       // Fallback for just the year
        const yearMatch = article.publicationDate.match(/^(\d{4})/);
        if (yearMatch) {
          data.issued = { 'date-parts': [[yearMatch[1]]] };
@@ -36,7 +36,6 @@ const getCitationData = (article) => {
 
   return data;
 };
-// --- END REVISED HELPER FUNCTION ---
 
 const CitationGenerator = ({ article }) => {
   console.log("Article data for citation:", article);
