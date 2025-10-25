@@ -79,6 +79,7 @@ const ArticleViewer = ({ onArticleChange }) => {
             const fetchArticle = async () => {
                 try {
                     const res = await api.get(`/articles/${id}`, getAuthConfig());
+                    console.log("Fetched article data:", res.data);
                     const processedArticle = processArticleContent(res.data);
                     setArticle(processedArticle);
 
