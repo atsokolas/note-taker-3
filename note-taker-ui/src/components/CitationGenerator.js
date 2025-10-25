@@ -21,7 +21,7 @@ const getCitationData = (article) => {
 };
 
 const CitationGenerator = ({ article }) => {
-  console.log("Article data for citation:", aricle);
+  console.log("Article data for citation:", article);
   const [copiedFormat, setCopiedFormat] = useState(null);
   
   // 1. Get the formatted data
