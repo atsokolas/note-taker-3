@@ -4,21 +4,39 @@ import React, { useState } from 'react';
 import { Cite } from '@citation-js/core';
 import '@citation-js/plugin-csl'; // Import CSL plugin
 
+// --- REVISED HELPER FUNCTION ---
 const getCitationData = (article) => {
-  // citation-js can often parse ISO 8601 dates directly.
-  // We only need to provide the date part if it exists.
-  const dateData = article.publicationDate ? { 'date-parts': [[article.publicationDate.substring(0, 10)]] } : {}; // Extract YYYY-MM-DD
-
-  return {
+  const data = {
     id: article._id,
-    type: 'article-journal', // Or 'webpage'
-    title: article.title,
-    author: article.author ? [{ literal: article.author }] : [], 
-    issued: dateData, // Pass the simplified date data
-    'container-title': article.siteName || '', 
-    URL: article.url
+    type: 'webpage', // Using webpage type
+    title: article.title || '', // Ensure title is passed
+    author: article.author ? [{ literal: article.author }] : [], // Keep author format
+    URL: article.url || '' // Ensure URL is passed
   };
+
+  // Add publication/site name if available
+  if (article.siteName) {
+    data['container-title'] = article.siteName;
+  }
+
+  // Add date if available and attempt basic parsing
+  if (article.publicationDate) {
+    // Extract just YYYY-MM-DD
+    const dateMatch = article.publicationDate.match(/^(\d{4}-\d{2}-\d{2})/);
+    if (dateMatch) {
+      data.issued = { 'date-parts': [dateMatch[1].split('-')] };
+    } else {
+      // Fallback for just the year if full date extraction failed
+       const yearMatch = article.publicationDate.match(/^(\d{4})/);
+       if (yearMatch) {
+         data.issued = { 'date-parts': [[yearMatch[1]]] };
+       }
+    }
+  }
+
+  return data;
 };
+// --- END REVISED HELPER FUNCTION ---
 
 const CitationGenerator = ({ article }) => {
   console.log("Article data for citation:", article);
