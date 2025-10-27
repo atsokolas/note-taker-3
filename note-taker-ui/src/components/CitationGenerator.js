@@ -4,29 +4,29 @@ import React, { useState } from 'react';
 import { Cite } from '@citation-js/core';
 import '@citation-js/plugin-csl'; // Import CSL plugin
 
+// --- REVISED HELPER FUNCTION ---
 const getCitationData = (article) => {
   const data = {
     id: article._id,
-    type: 'article-journal', // <--- CHANGE THIS BACK
-    title: article.title || '',
-    author: article.author ? [{ literal: article.author }] : [],
-    URL: article.url || ''
+    type: 'article-journal', // Using article-journal type
+    title: article.title || '', // Ensure title is passed
+    author: article.author ? [{ literal: article.author }] : [], // Keep author format
+    URL: article.url || '' // Ensure URL is passed
   };
 
   // Add publication/site name if available
   if (article.siteName) {
-    // For 'article-journal', the publication title goes in 'container-title'
-    data['container-title'] = article.siteName; 
+    data['container-title'] = article.siteName;
   }
 
-  // Add date if available
+  // Add date if available and attempt basic parsing
   if (article.publicationDate) {
     // Extract just YYYY-MM-DD
     const dateMatch = article.publicationDate.match(/^(\d{4}-\d{2}-\d{2})/);
     if (dateMatch) {
       data.issued = { 'date-parts': [dateMatch[1].split('-')] };
     } else {
-       // Fallback for just the year
+       // Fallback for just the year if full date extraction failed
        const yearMatch = article.publicationDate.match(/^(\d{4})/);
        if (yearMatch) {
          data.issued = { 'date-parts': [[yearMatch[1]]] };
@@ -36,23 +36,31 @@ const getCitationData = (article) => {
 
   return data;
 };
+// --- END REVISED HELPER FUNCTION ---
 
 const CitationGenerator = ({ article }) => {
   console.log("Article data for citation:", article);
   const [copiedFormat, setCopiedFormat] = useState(null);
-  
+
   // 1. Get the formatted data
   const citationData = getCitationData(article);
+  // --- ADDED console.log to check data structure ---
+  console.log("Data passed to citation-js:", citationData);
+  // --- END ADD ---
 
   // 2. Function to generate a citation style
   const getCitation = (style) => {
     try {
       const cite = new Cite(citationData);
-      return cite.format('bibliography', {
+      const htmlOutput = cite.format('bibliography', { // Store output
         format: 'html', // Use HTML for rich text (like italics)
         template: style, // 'apa', 'mla', 'chicago-author-date'
         lang: 'en-US'
       });
+      // --- ADDED console.log to check raw HTML ---
+      if (style === 'apa') { console.log("Raw APA HTML:", htmlOutput); }
+      // --- END ADD ---
+      return htmlOutput; // Return it
     } catch (e) {
       console.error("Citation error:", e);
       return "Could not generate citation.";
@@ -76,7 +84,7 @@ const CitationGenerator = ({ article }) => {
   return (
     <div className="citation-generator">
       <h4>Generate Citations</h4>
-      
+
       <div className="citation-block">
         <strong>APA</strong>
         <div className="citation-text" dangerouslySetInnerHTML={{ __html: apaCitation }} />
@@ -105,4 +113,3 @@ const CitationGenerator = ({ article }) => {
 };
 
 export default CitationGenerator;
-
