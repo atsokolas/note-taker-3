@@ -1,13 +1,39 @@
 // src/components/CitationGenerator.js
-import React, { useState, useEffect } from 'react'; // Keep useEffect import
+import React, { useState, useEffect } from 'react';
 import { Cite, plugins } from '@citation-js/core';
+// --- CORRECTED IMPORT ---
+// Import plugin-csl AND ALSO get 'templates' from it
 import '@citation-js/plugin-csl';
+import { templates } from '@citation-js/plugin-csl/lib/styles'; // <--- Get templates from here
+// --- END CORRECTION ---
+
+// --- Explicitly register the needed templates ---
+try {
+  const cslConfig = plugins.config.get('@csl');
+  // ... (The rest of the registration code using 'templates.get(...)' remains the same)
+  if (!cslConfig.templates.has('mla')) {
+    cslConfig.templates.add('mla', templates.get('mla'));
+    console.log("Registered MLA style.");
+  }
+   if (!cslConfig.templates.has('chicago-author-date')) {
+    cslConfig.templates.add('chicago-author-date', templates.get('chicago-author-date'));
+     console.log("Registered Chicago style.");
+  }
+   if (!cslConfig.templates.has('apa')) {
+    cslConfig.templates.add('apa', templates.get('apa'));
+     console.log("Registered APA style.");
+  }
+} catch (e) {
+  console.error("Error registering CSL templates:", e);
+}
+// --- END Registration ---
 
 const getCitationData = (article) => {
-  // ... (Your existing getCitationData function is correct and unchanged)
+  // ... (Your getCitationData function remains the same)
+  // ... (type: 'article-journal' is correct)
   const data = {
     id: article._id,
-    type: 'article-journal',
+    type: 'article-journal', 
     title: article.title || '',
     author: article.author ? [{ literal: article.author }] : [],
     URL: article.url || ''
@@ -33,20 +59,16 @@ const CitationGenerator = ({ article }) => {
   console.log("Article data for citation:", article);
   const [copiedFormat, setCopiedFormat] = useState(null);
 
-  // --- MOVED useEffect INSIDE the component ---
+  // useEffect for checking templates (optional now, but keep for debugging)
   useEffect(() => {
     try {
       const cslConfig = plugins.config.get('@csl');
       if (cslConfig && cslConfig.templates) {
-        console.log("Available CSL Templates:", cslConfig.templates.list());
-      } else {
-        console.warn('CSL plugin or templates not found.');
-      }
-    } catch (e) {
-      console.error("Error accessing CSL templates:", e);
-    }
-  }, []); // Empty dependency array means this runs once when the component mounts
-  // --- END MOVED useEffect ---
+        // Log again to confirm registration worked
+        console.log("Available CSL Templates (after registration):", cslConfig.templates.list()); 
+      } else { console.warn('CSL plugin or templates not found.'); }
+    } catch (e) { console.error("Error accessing CSL templates:", e); }
+  }, []);
 
   // 1. Get the formatted data
   const citationData = getCitationData(article);
@@ -58,11 +80,11 @@ const CitationGenerator = ({ article }) => {
       const cite = new Cite(citationData);
       let htmlOutput = cite.format('bibliography', {
         format: 'html',
-        template: style,
+        template: style, // Use the now-registered style names
         lang: 'en-US'
       });
 
-      // Manual italics workaround
+      // Manual italics workaround (keep this, it might still be needed)
       if (citationData['container-title']) {
         const siteNameEscaped = citationData['container-title'].replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         const regex = new RegExp(`(${siteNameEscaped}\\.?)`, 'g');
@@ -73,15 +95,15 @@ const CitationGenerator = ({ article }) => {
 
       return htmlOutput;
     } catch (e) {
-      console.error("Citation error:", e);
-      return "Could not generate citation.";
+      console.error(`Citation error for style ${style}:`, e); // Log style name
+      return `Could not generate ${style.toUpperCase()} citation.`;
     }
   };
 
   // 3. Handle copy to clipboard
   const handleCopy = (format, htmlText) => {
     // ... (rest of handleCopy function)
-    const plainText = htmlText.replace(/<[^>]+>/g, '');
+     const plainText = htmlText.replace(/<[^>]+>/g, '');
     navigator.clipboard.writeText(plainText);
     setCopiedFormat(format);
     setTimeout(() => setCopiedFormat(null), 2000);
@@ -89,12 +111,12 @@ const CitationGenerator = ({ article }) => {
 
   // 4. Generate the formats we want to show
   const apaCitation = getCitation('apa');
-  const mlaCitation = getCitation('mla');
-  const chicagoCitation = getCitation('chicago-author-date');
+  const mlaCitation = getCitation('mla'); // Should now work
+  const chicagoCitation = getCitation('chicago-author-date'); // Should now work
 
   return (
     // ... (Your existing JSX remains unchanged)
-    <div className="citation-generator">
+     <div className="citation-generator">
       <h4>Generate Citations</h4>
       <div className="citation-block">
         <strong>APA</strong>
@@ -103,7 +125,6 @@ const CitationGenerator = ({ article }) => {
           {copiedFormat === 'APA' ? 'Copied!' : 'Copy'}
         </button>
       </div>
-      {/* ... MLA and Chicago blocks ... */}
       <div className="citation-block">
         <strong>MLA</strong>
         <div className="citation-text" dangerouslySetInnerHTML={{ __html: mlaCitation }} />
