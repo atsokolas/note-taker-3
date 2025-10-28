@@ -1,10 +1,22 @@
 // src/components/CitationGenerator.js
+import React, { useState, useEffect } from 'react'; // Added useEffect
+import { Cite, plugins } from '@citation-js/core'; // Import 'plugins'
+import '@citation-js/plugin-csl';
 
-import React, { useState } from 'react';
-import { Cite } from '@citation-js/core';
-import '@citation-js/plugin-csl'; // Import CSL plugin
+// --- ADD Check for loaded CSL templates ---
+useEffect(() => {
+  try {
+    const cslConfig = plugins.config.get('@csl');
+    if (cslConfig && cslConfig.templates) {
+      console.log("Available CSL Templates:", cslConfig.templates.list());
+    } else {
+      console.warn('CSL plugin or templates not found.');
+    }
+  } catch (e) {
+    console.error("Error accessing CSL templates:", e);
+  }
+}, []); // Empty dependency array means this runs once when the component mounts
 
-// --- REVISED HELPER FUNCTION ---
 const getCitationData = (article) => {
   const data = {
     id: article._id,
