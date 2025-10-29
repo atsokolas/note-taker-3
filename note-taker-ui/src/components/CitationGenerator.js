@@ -1,14 +1,39 @@
 // src/components/CitationGenerator.js
 import React, { useState, useEffect } from 'react';
 import { Cite, plugins } from '@citation-js/core';
-// --- 1. ONLY keep this import for CSL ---
 import '@citation-js/plugin-csl'; 
-// --- Removed the incorrect 'templates' import ---
-// --- Removed the manual registration block ---
+
+// --- 1. TRY NEW IMPORT PATH ---
+// Attempt to import the templates object from the plugin's data bundle
+import { templates } from '@citation-js/plugin-csl/lib/data.js'; 
+// --- END ---
+
+// --- 2. Manually register the templates ---
+try {
+  const cslConfig = plugins.config.get('@csl');
+  
+  // Check if the template exists in our imported object AND isn't already registered
+  if (templates.has('mla') && !cslConfig.templates.has('mla')) {
+    cslConfig.templates.add('mla', templates.get('mla'));
+    console.log("SUCCESS: Manually registered MLA style.");
+  }
+  if (templates.has('chicago-author-date') && !cslConfig.templates.has('chicago-author-date')) {
+    cslConfig.templates.add('chicago-author-date', templates.get('chicago-author-date'));
+    console.log("SUCCESS: Manually registered Chicago style.");
+  }
+  if (templates.has('apa') && !cslConfig.templates.has('apa')) {
+    cslConfig.templates.add('apa', templates.get('apa'));
+    console.log("SUCCESS: Manually registered APA style.");
+  }
+} catch (e) {
+  console.error("Error registering CSL templates:", e);
+  console.log("This likely means the 'templates' import from '/lib/data.js' failed.");
+}
+// --- END Registration ---
 
 
 const getCitationData = (article) => {
-  // ... (Your getCitationData function remains the same - keep type: 'article-journal')
+  // ... (Your getCitationData function remains the same)
   const data = {
     id: article._id,
     type: 'article-journal', 
@@ -37,12 +62,12 @@ const CitationGenerator = ({ article }) => {
   console.log("Article data for citation:", article);
   const [copiedFormat, setCopiedFormat] = useState(null);
 
-  // Keep this useEffect to check available templates
+  // This useEffect will now log the list *after* our registration attempt
   useEffect(() => {
     try {
       const cslConfig = plugins.config.get('@csl');
       if (cslConfig && cslConfig.templates) {
-        console.log("Available CSL Templates (Simplified):", cslConfig.templates.list()); 
+        console.log("Available CSL Templates (after manual registration):", cslConfig.templates.list()); 
       } else { console.warn('CSL plugin or templates not found.'); }
     } catch (e) { console.error("Error accessing CSL templates:", e); }
   }, []);
@@ -66,7 +91,7 @@ const CitationGenerator = ({ article }) => {
         lang: 'en-US'
       });
 
-      // Manual italics workaround 
+      // Manual italics workaround
       if (citationData['container-title']) {
         const siteNameEscaped = citationData['container-title'].replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         const regex = new RegExp(`(${siteNameEscaped}\\.?)`, 'g');
@@ -78,15 +103,10 @@ const CitationGenerator = ({ article }) => {
       return htmlOutput;
     } catch (e) {
       console.error(`Citation error for style ${style}:`, e); 
-      // More specific error logging
-      if (e.message && e.message.includes('XML')) {
-          return `Could not generate ${style.toUpperCase()} citation (CSL parsing error).`;
-      }
       return `Could not generate ${style.toUpperCase()} citation.`;
     }
   };
 
-  // ... (rest of your component: handleCopy, JSX)
   const handleCopy = (format, htmlText) => {
     const plainText = htmlText.replace(/<[^>]+>/g, '');
     navigator.clipboard.writeText(plainText);
