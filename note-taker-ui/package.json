@@ -5,6 +5,7 @@
 	"dependencies": {
 		"@citation-js/core": "^0.7.21",
 		"@citation-js/plugin-csl": "^0.7.21",
+		"@citation/csl-style-all": "^1.0.0",
 		"@testing-library/dom": "^10.4.0",
 		"@testing-library/jest-dom": "^6.6.3",
 		"@testing-library/react": "^16.2.0",

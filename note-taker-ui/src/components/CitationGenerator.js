@@ -3,37 +3,46 @@ import React, { useState, useEffect } from 'react';
 import { Cite, plugins } from '@citation-js/core';
 import '@citation-js/plugin-csl'; 
 
-// --- 1. TRY NEW IMPORT PATH ---
-// Attempt to import the templates object from the plugin's data bundle
-import { templates } from '@citation-js/plugin-csl/lib/data.js'; 
-// --- END ---
+// --- 1. Manually import (require) the raw CSL style files ---
+// We import from '@citation/csl-style-all' which we just installed
+let mla, chicago;
+try {
+  // Use '!!raw-loader!' to import the file as a raw text string
+  // This package contains all styles at its root.
+  mla = require('!!raw-loader!@citation/csl-style-all/modern-language-association.csl');
+  chicago = require('!!raw-loader!@citation/csl-style-all/chicago-author-date.csl');
+} catch (e) {
+  console.error("Failed to require CSL styles. Make sure '@citation/csl-style-all' is installed.", e);
+}
+// --- END CSL IMPORT ---
+
 
 // --- 2. Manually register the templates ---
 try {
   const cslConfig = plugins.config.get('@csl');
   
-  // Check if the template exists in our imported object AND isn't already registered
-  if (templates.has('mla') && !cslConfig.templates.has('mla')) {
-    cslConfig.templates.add('mla', templates.get('mla'));
+  // Register the styles we just imported
+  if (mla && !cslConfig.templates.has('mla')) {
+    cslConfig.templates.add('mla', mla);
     console.log("SUCCESS: Manually registered MLA style.");
   }
-  if (templates.has('chicago-author-date') && !cslConfig.templates.has('chicago-author-date')) {
-    cslConfig.templates.add('chicago-author-date', templates.get('chicago-author-date'));
+  if (chicago && !cslConfig.templates.has('chicago-author-date')) {
+    cslConfig.templates.add('chicago-author-date', chicago);
     console.log("SUCCESS: Manually registered Chicago style.");
   }
-  if (templates.has('apa') && !cslConfig.templates.has('apa')) {
+  
+  // APA is usually default, but let's add it just in case
+  if (templates && templates.has('apa') && !cslConfig.templates.has('apa')) {
     cslConfig.templates.add('apa', templates.get('apa'));
     console.log("SUCCESS: Manually registered APA style.");
   }
+
 } catch (e) {
   console.error("Error registering CSL templates:", e);
-  console.log("This likely means the 'templates' import from '/lib/data.js' failed.");
 }
-// --- END Registration ---
-
 
 const getCitationData = (article) => {
-  // ... (Your getCitationData function remains the same)
+  // ... (This function remains the same)
   const data = {
     id: article._id,
     type: 'article-journal', 
@@ -146,5 +155,5 @@ const CitationGenerator = ({ article }) => {
   );
 };
 
-
 export default CitationGenerator;
+
