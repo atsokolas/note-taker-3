@@ -4,12 +4,14 @@ import { Cite, plugins } from '@citation-js/core';
 import '@citation-js/plugin-csl'; 
 
 // --- 1. Manually import (require) the raw CSL style files ---
-// We import from '@citation/csl-style-all' which we just installed
+// We import from '@citation/csl-style-all'
 let mla, chicago;
 try {
-  // Use '!!raw-loader!' to import the file as a raw text string
-  // This package contains all styles at its root.
+  // We disable the ESLint rule for these lines because we need
+  // this specific syntax to import the raw CSL text file.
+  // eslint-disable-next-line import/no-webpack-loader-syntax
   mla = require('!!raw-loader!@citation/csl-style-all/modern-language-association.csl');
+  // eslint-disable-next-line import/no-webpack-loader-syntax
   chicago = require('!!raw-loader!@citation/csl-style-all/chicago-author-date.csl');
 } catch (e) {
   console.error("Failed to require CSL styles. Make sure '@citation/csl-style-all' is installed.", e);
@@ -30,12 +32,7 @@ try {
     cslConfig.templates.add('chicago-author-date', chicago);
     console.log("SUCCESS: Manually registered Chicago style.");
   }
-  
-  // APA is usually default, but let's add it just in case
-  if (templates && templates.has('apa') && !cslConfig.templates.has('apa')) {
-    cslConfig.templates.add('apa', templates.get('apa'));
-    console.log("SUCCESS: Manually registered APA style.");
-  }
+  // --- Removed the buggy 'templates' variable check for APA ---
 
 } catch (e) {
   console.error("Error registering CSL templates:", e);
