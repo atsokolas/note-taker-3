@@ -1,5 +1,5 @@
 {
-  "manifest_version": 3,
+  "manifest_version": 4,
   "name": "Note Taker",
   "description": "Capture, save, and highlight web articles effortlessly.",
   "version": "1.0",
