@@ -1072,3 +1072,64 @@ body {
   background-color: var(--active-color);
   color: var(--text-color);
 }
+/* --- STYLES FOR NEW PROMO LINKS --- */
+
+/* --- Logged-In Sidebar Button --- */
+.sidebar {
+  /* This ensures the promo button sticks to the bottom */
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.sidebar-promo {
+  padding: 20px;
+  border-top: 1px solid var(--border-color);
+  background-color: var(--sidebar-bg-color);
+}
+
+.chrome-store-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 10px;
+  background-color: var(--hover-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  text-decoration: none;
+  color: var(--text-color);
+  font-weight: 500;
+  transition: background-color 0.2s ease;
+}
+
+.chrome-store-button:hover {
+  background-color: var(--active-color);
+  border-color: var(--border-color-dark);
+}
+
+.chrome-store-button svg {
+  flex-shrink: 0;
+  stroke: var(--text-color-secondary);
+}
+
+/* --- Login/Register Page Link --- */
+.get-extension-link {
+  font-size: 0.9em;
+  text-align: center;
+  padding: 10px;
+  background-color: var(--primary-color-light);
+  border: 1px solid var(--primary-color);
+  color: var(--primary-color-dark);
+  border-radius: var(--border-radius);
+  max-width: 400px;
+  width: 100%;
+  box-sizing: border-box; /* Ensures padding doesn't break layout */
+  margin-bottom: 20px;
+}
+
+.get-extension-link a {
+  font-weight: 600;
+  color: var(--primary-color-dark);
+}
+

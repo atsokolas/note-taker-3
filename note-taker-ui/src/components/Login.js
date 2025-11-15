@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import api from '../api'; // UPDATED: Import the custom api instance
+import api from '../api';
 import { useNavigate } from 'react-router-dom';
 import logo from '../assets/logo.png';
 
-const Login = ({ onLoginSuccess }) => {
+// --- 1. ACCEPT THE 'chromeStoreLink' PROP ---
+const Login = ({ onLoginSuccess, chromeStoreLink }) => {
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [message, setMessage] = useState('');
@@ -11,27 +12,21 @@ const Login = ({ onLoginSuccess }) => {
     const navigate = useNavigate();
 
     const handleLogin = async (e) => {
+        // ... (your existing handleLogin function)
         e.preventDefault();
         setMessage('');
         setIsError(false);
-
         try {
-            // UPDATED: Use the 'api' instance and simplified URL
             const response = await api.post('/api/auth/login', { username, password });
-            console.log('Login success:', response.data);
-
             if (response.data.token) {
                 localStorage.setItem('token', response.data.token);
-
                 if (window.chrome && window.chrome.storage && window.chrome.storage.local) {
                     window.chrome.storage.local.set({ token: response.data.token }, () => {
                         console.log('Token saved to chrome.storage for extension use.');
                     });
                 }
-
                 setMessage('Login successful!');
                 setIsError(false);
-                
                 if (typeof onLoginSuccess === 'function') {
                     onLoginSuccess();
                 }
@@ -51,7 +46,16 @@ const Login = ({ onLoginSuccess }) => {
         <div className="auth-container">
             <img src={logo} alt="Note Taker Logo" className="auth-logo" /> 
             <h2>Login</h2>
+            
+            {/* --- 2. ADD THE EXTENSION LINK HERE --- */}
+            <p className="get-extension-link">
+                This is a web app. To save articles, you need the free 
+                <a href={chromeStoreLink} target="_blank" rel="noopener noreferrer"> Chrome Extension</a>.
+            </p>
+            {/* --- END OF NEW LINK --- */}
+
             <form onSubmit={handleLogin} className="auth-form">
+                {/* ... (your form inputs) ... */}
                 <div className="form-group">
                     <label htmlFor="username-login">Username:</label>
                     <input
@@ -81,3 +85,4 @@ const Login = ({ onLoginSuccess }) => {
 };
 
 export default Login;
+

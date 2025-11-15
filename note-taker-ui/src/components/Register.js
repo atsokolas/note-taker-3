@@ -1,36 +1,31 @@
 import React, { useState } from 'react';
-import api from '../api'; 
+import api from '../api';
 import { useNavigate } from 'react-router-dom';
 import logo from '../assets/logo.png';
 
-const Register = () => {
+// --- 1. ACCEPT THE 'chromeStoreLink' PROP ---
+const Register = ({ chromeStoreLink }) => {
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
-    
-    // --- 1. ADD STATE FOR CONFIRM PASSWORD ---
-    const [confirmPassword, setConfirmPassword] = useState(''); 
-    
+    const [confirmPassword, setConfirmPassword] = useState('');
     const [message, setMessage] = useState('');
     const [isError, setIsError] = useState(false);
     const navigate = useNavigate();
 
     const handleRegister = async (e) => {
+        // ... (your existing handleRegister function)
         e.preventDefault();
         setMessage('');
         setIsError(false);
-
-        // --- 2. ADD VALIDATION LOGIC ---
         if (password !== confirmPassword) {
             setMessage('Passwords do not match.');
             setIsError(true);
-            return; // Stop the function
+            return;
         }
-
         try {
             await api.post('/api/auth/register', { username, password });
             setMessage('Registration successful! You can now log in.');
             setIsError(false);
-            
             setTimeout(() => {
                 navigate('/login');
             }, 2000);
@@ -46,7 +41,16 @@ const Register = () => {
         <div className="auth-container">
             <img src={logo} alt="Note Taker Logo" className="auth-logo" />
             <h2>Register</h2>
+
+            {/* --- 2. ADD THE EXTENSION LINK HERE --- */}
+            <p className="get-extension-link">
+                This is a web app. To save articles, you need the free 
+                <a href={chromeStoreLink} target="_blank" rel="noopener noreferrer"> Chrome Extension</a>.
+            </p>
+            {/* --- END OF NEW LINK --- */}
+
             <form onSubmit={handleRegister} className="auth-form">
+                {/* ... (your form inputs) ... */}
                 <div className="form-group">
                     <label htmlFor="username">Username:</label>
                     <input
@@ -67,8 +71,6 @@ const Register = () => {
                         required
                     />
                 </div>
-
-                {/* --- 3. ADD THE NEW INPUT FIELD --- */}
                 <div className="form-group">
                     <label htmlFor="confirm-password">Confirm Password:</label>
                     <input
@@ -79,7 +81,6 @@ const Register = () => {
                         required
                     />
                 </div>
-
                 <button type="submit" className="auth-button">Register</button>
             </form>
             {message && (<p className={`status-message ${isError ? 'error-message' : 'success-message'}`}>{message}</p>)}
@@ -89,3 +90,4 @@ const Register = () => {
 };
 
 export default Register;
+
