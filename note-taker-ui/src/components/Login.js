@@ -3,7 +3,7 @@ import api from '../api';
 import { useNavigate } from 'react-router-dom';
 import logo from '../assets/logo.png';
 
-// --- 1. ACCEPT THE 'chromeStoreLink' PROP ---
+// --- 1. Accept the 'chromeStoreLink' prop ---
 const Login = ({ onLoginSuccess, chromeStoreLink }) => {
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
@@ -12,7 +12,6 @@ const Login = ({ onLoginSuccess, chromeStoreLink }) => {
     const navigate = useNavigate();
 
     const handleLogin = async (e) => {
-        // ... (your existing handleLogin function)
         e.preventDefault();
         setMessage('');
         setIsError(false);
@@ -47,15 +46,14 @@ const Login = ({ onLoginSuccess, chromeStoreLink }) => {
             <img src={logo} alt="Note Taker Logo" className="auth-logo" /> 
             <h2>Login</h2>
             
-            {/* --- 2. ADD THE EXTENSION LINK HERE --- */}
+            {/* --- 2. ENSURE THIS 'a' TAG IS CORRECT --- */}
             <p className="get-extension-link">
                 This is a web app. To save articles, you need the free 
                 <a href={chromeStoreLink} target="_blank" rel="noopener noreferrer"> Chrome Extension</a>.
             </p>
-            {/* --- END OF NEW LINK --- */}
+            {/* --- END OF LINK --- */}
 
             <form onSubmit={handleLogin} className="auth-form">
-                {/* ... (your form inputs) ... */}
                 <div className="form-group">
                     <label htmlFor="username-login">Username:</label>
                     <input
@@ -85,4 +83,3 @@ const Login = ({ onLoginSuccess, chromeStoreLink }) => {
 };
 
 export default Login;
-

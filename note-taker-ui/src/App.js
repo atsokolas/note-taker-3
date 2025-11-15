@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, NavLink, Navigate } from 'react-router-dom';
-import { Analytics } from '@vercel/analytics/react'; // <-- 1. IMPORT
+import { Analytics } from '@vercel/analytics/react';
 import ArticleList from './components/ArticleList';
 import ArticleViewer from './components/ArticleViewer';
 import HighlightByTagList from './components/HighlightByTagList';
@@ -9,21 +9,30 @@ import Login from './components/Login';
 import Trending from './components/Trending';
 import './App.css';
 
-// ... (your ChromeIcon component)
 const ChromeIcon = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    {/* ... (svg paths) ... */}
+    <path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z" stroke="#333" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M12 16C14.2091 16 16 14.2091 16 12C16 9.79086 14.2091 8 12 8C9.79086 8 8 9.79086 8 12C8 14.2091 9.79086 16 12 16Z" stroke="#333" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M12 2V5" stroke="#333" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M12 19V22" stroke="#333" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M22 12L19 12" stroke="#333" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M5 12L2 12" stroke="#333" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M19.0711 4.92896L16.9497 7.05029" stroke="#333" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M7.05029 16.9497L4.92896 19.0711" stroke="#333" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M19.0711 19.0711L16.9497 16.9497" stroke="#333" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M7.05029 7.05029L4.92896 4.92896" stroke="#333" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
   </svg>
 );
+
 
 const Welcome = () => <h2 className="welcome-message">Select an article to read</h2>;
 
 function App() {
-  // ... (your existing state and functions: isAuthenticated, handleLogout, etc.)
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [articleListKey, setArticleListKey] = useState(0);
 
+  // --- THIS IS THE LINK ---
   const chromeStoreLink = "https://chromewebstore.google.com/detail/note-taker/bekllegjmjbnamphjnkifpijkhoiepaa?hl=en-US&utm_source=ext_sidebar";
 
   useEffect(() => {
@@ -54,13 +63,12 @@ function App() {
 
   return (
     <Router>
-      <Analytics /> {/* <-- 2. ADD THE COMPONENT HERE */}
+      <Analytics /> 
       <div className="app-container">
         {isAuthenticated ? (
           <>
             <div className="sidebar">
-              {/* ... (your existing sidebar JSX) ... */}
-              <div>
+              <div> 
                 <div className="sidebar-header">
                   <h2>Note Taker</h2>
                   <button onClick={handleLogout} className="logout-button">Logout</button>
@@ -72,6 +80,7 @@ function App() {
                 </div>
                 <ArticleList key={articleListKey} /> 
               </div>
+              
               <div className="sidebar-promo">
                 <a href={chromeStoreLink} target="_blank" rel="noopener noreferrer" className="chrome-store-button">
                   <ChromeIcon />
@@ -81,7 +90,6 @@ function App() {
             </div>
             
             <div className="content-viewer">
-              {/* ... (your existing Routes) ... */}
               <Routes>
                 <Route path="/" element={<Welcome />} /> 
                 <Route path="/highlights-by-tag" element={<HighlightByTagList />} />
@@ -94,8 +102,8 @@ function App() {
           </>
         ) : (
           <div className="auth-pages-container">
-            {/* ... (your existing auth Routes) ... */}
             <Routes>
+              {/* --- 2. PASS THE LINK AS A PROP --- */}
               <Route path="/register" element={<Register chromeStoreLink={chromeStoreLink} />} />
               <Route 
                 path="/login" 

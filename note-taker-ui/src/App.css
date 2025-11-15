@@ -1073,6 +1073,9 @@ body {
   color: var(--text-color);
 }
 /* --- STYLES FOR NEW PROMO LINKS --- */
+/* ... (your existing App.css) ... */
+
+/* --- STYLES FOR NEW PROMO LINKS --- */
 
 /* --- Logged-In Sidebar Button --- */
 .sidebar {
@@ -1128,8 +1131,14 @@ body {
   margin-bottom: 20px;
 }
 
+/* --- THIS IS THE UPDATED RULE --- */
 .get-extension-link a {
   font-weight: 600;
   color: var(--primary-color-dark);
+  text-decoration: underline; /* <-- EXPLICITLY ADDED UNDERLINE */
+  cursor: pointer;
 }
 
+.get-extension-link a:hover {
+  text-decoration: none; /* Optional: remove underline on hover */
+}
