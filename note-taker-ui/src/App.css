@@ -1142,3 +1142,133 @@ body {
 .get-extension-link a:hover {
   text-decoration: none; /* Optional: remove underline on hover */
 }
+
+/* ... (existing styles) ... */
+
+/* --- LANDING PAGE STYLES --- */
+.landing-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  width: 100%;
+  background-color: var(--bg-color);
+  padding: 20px;
+  box-sizing: border-box;
+}
+
+.landing-content {
+  background-color: var(--card-bg-color);
+  padding: 50px;
+  border-radius: var(--border-radius);
+  box-shadow: 0 10px 25px rgba(0,0,0,0.05);
+  max-width: 600px;
+  width: 100%;
+  text-align: center;
+  border: 1px solid var(--border-color);
+}
+
+.landing-logo {
+  max-width: 80px;
+  margin-bottom: 20px;
+}
+
+.landing-title {
+  font-size: 2.5em;
+  font-weight: 800;
+  color: var(--text-color);
+  margin-bottom: 30px;
+  letter-spacing: -0.5px;
+}
+
+.landing-body {
+  text-align: left;
+  font-size: 1.1em;
+  color: var(--text-color);
+  line-height: 1.6;
+  margin-bottom: 40px;
+}
+
+.landing-body p {
+  margin-bottom: 15px;
+}
+
+.landing-list {
+  list-style: none;
+  padding: 0;
+  margin: 20px 0;
+  background-color: var(--hover-color);
+  padding: 20px;
+  border-radius: var(--border-radius);
+}
+
+.landing-list li {
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.landing-list li:last-child {
+  margin-bottom: 0;
+}
+
+.landing-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  margin-bottom: 30px;
+}
+
+.landing-button {
+  padding: 15px 20px;
+  border-radius: var(--border-radius);
+  font-size: 1.1em;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.1s ease, box-shadow 0.2s ease;
+  border: none;
+}
+
+.landing-button:active {
+  transform: scale(0.98);
+}
+
+.landing-button.primary {
+  background-color: var(--primary-color);
+  color: white;
+  box-shadow: 0 4px 12px rgba(0, 122, 255, 0.3);
+}
+
+.landing-button.primary:hover {
+  background-color: var(--primary-color-dark);
+}
+
+.landing-button.secondary {
+  background-color: transparent;
+  color: var(--text-color-secondary);
+  border: 2px solid var(--border-color);
+}
+
+.landing-button.secondary:hover {
+  border-color: var(--text-color-secondary);
+  color: var(--text-color);
+}
+
+.landing-footer {
+    font-size: 0.9em;
+    color: var(--text-color-secondary);
+    border-top: 1px solid var(--border-color-light);
+    padding-top: 20px;
+}
+
+.landing-footer a {
+    color: var(--primary-color);
+    text-decoration: none;
+    font-weight: 600;
+}
+
+.landing-footer a:hover {
+    text-decoration: underline;
+}
+

@@ -7,6 +7,7 @@ import HighlightByTagList from './components/HighlightByTagList';
 import Register from './components/Register';
 import Login from './components/Login';
 import Trending from './components/Trending';
+import LandingPage from './components/LandingPage'; // <-- 1. IMPORT LANDING PAGE
 import './App.css';
 
 const ChromeIcon = () => (
@@ -24,7 +25,6 @@ const ChromeIcon = () => (
   </svg>
 );
 
-
 const Welcome = () => <h2 className="welcome-message">Select an article to read</h2>;
 
 function App() {
@@ -32,7 +32,7 @@ function App() {
   const [isLoading, setIsLoading] = useState(true);
   const [articleListKey, setArticleListKey] = useState(0);
 
-  // --- THIS IS THE LINK ---
+  // Your existing Chrome Store link
   const chromeStoreLink = "https://chromewebstore.google.com/detail/note-taker/bekllegjmjbnamphjnkifpijkhoiepaa?hl=en-US&utm_source=ext_sidebar";
 
   useEffect(() => {
@@ -50,7 +50,8 @@ function App() {
   const handleLogout = () => {
     localStorage.removeItem('token');
     setIsAuthenticated(false);
-    window.location.href = '/login'; 
+    // --- CHANGE: Redirect to home (Landing Page) instead of /login ---
+    window.location.href = '/'; 
   };
   
   const handleLoginSuccess = () => {
@@ -95,6 +96,7 @@ function App() {
                 <Route path="/highlights-by-tag" element={<HighlightByTagList />} />
                 <Route path="/articles/:id" element={<ArticleViewer onArticleChange={refreshArticleList} />} />
                 <Route path="/trending" element={<Trending />} />
+                {/* Redirect authenticated users away from auth pages */}
                 <Route path="/login" element={<Navigate to="/" replace />} />
                 <Route path="/register" element={<Navigate to="/" replace />} />
               </Routes>
@@ -103,13 +105,20 @@ function App() {
         ) : (
           <div className="auth-pages-container">
             <Routes>
-              {/* --- 2. PASS THE LINK AS A PROP --- */}
+              {/* --- 2. NEW ROUTING LOGIC --- */}
+              
+              {/* Default route shows LandingPage */}
+              <Route path="/" element={<LandingPage chromeStoreLink={chromeStoreLink} />} />
+              
+              {/* Pass chromeStoreLink to Register and Login */}
               <Route path="/register" element={<Register chromeStoreLink={chromeStoreLink} />} />
               <Route 
                 path="/login" 
                 element={<Login onLoginSuccess={handleLoginSuccess} chromeStoreLink={chromeStoreLink} />} 
               />
-              <Route path="*" element={<Navigate to="/login" replace />} /> 
+              
+              {/* Any unknown route redirects to the Landing Page ("/") */}
+              <Route path="*" element={<Navigate to="/" replace />} /> 
             </Routes>
           </div>
         )}
