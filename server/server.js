@@ -4,6 +4,16 @@ const mongoose = require('mongoose');
 const dotenv = require('dotenv');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const noteSchema = new mongoose.Schema({
+    title: { type: String, default: 'Untitled Note' },
+    content: { type: String, default: '' }, // Stores HTML content from the editor
+    folder: { type: mongoose.Schema.Types.ObjectId, ref: 'Folder', default: null },
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+}, { timestamps: true });
+
+const Note = mongoose.model('Note', noteSchema);
+
+// ... (Rest of your schemas) ...
 
 dotenv.config();
 
@@ -574,6 +584,87 @@ app.delete('/articles/:articleId/highlights/:highlightId', authenticateToken, as
       }
       res.status(500).json({ error: "Failed to delete highlight.", details: error.message });
   }
+});
+
+// --- NOTEBOOK API ROUTES ---
+
+// GET /api/notes: Fetch all notes for the user
+app.get('/api/notes', authenticateToken, async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const notes = await Note.find({ userId }).sort({ updatedAt: -1 });
+        res.json(notes);
+    } catch (err) {
+        console.error("Error fetching notes:", err);
+        res.status(500).json({ error: "Failed to fetch notes." });
+    }
+});
+
+// POST /api/notes: Create a new blank note
+app.post('/api/notes', authenticateToken, async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const { title, content, folderId } = req.body;
+
+        const newNote = new Note({
+            title: title || 'Untitled Note',
+            content: content || '',
+            userId: userId,
+            folder: folderId || null
+        });
+
+        await newNote.save();
+        res.status(201).json(newNote);
+    } catch (err) {
+        console.error("Error creating note:", err);
+        res.status(500).json({ error: "Failed to create note." });
+    }
+});
+
+// PUT /api/notes/:id: Update a note
+app.put('/api/notes/:id', authenticateToken, async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const { id } = req.params;
+        const { title, content, folderId } = req.body;
+
+        const updatedNote = await Note.findOneAndUpdate(
+            { _id: id, userId }, // Ensure user owns the note
+            { title, content, folder },
+            { new: true }
+        );
+
+        if (!updatedNote) return res.status(404).json({ error: "Note not found." });
+        res.json(updatedNote);
+    } catch (err) {
+        console.error("Error updating note:", err);
+        res.status(500).json({ error: "Failed to update note." });
+    }
+});
+
+// GET /api/notes/:id: Fetch single note
+app.get('/api/notes/:id', authenticateToken, async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const { id } = req.params;
+        const note = await Note.findOne({ _id: id, userId });
+        if (!note) return res.status(404).json({ error: "Note not found." });
+        res.json(note);
+    } catch (err) {
+        res.status(500).json({ error: "Error fetching note." });
+    }
+});
+
+// DELETE /api/notes/:id: Delete a note
+app.delete('/api/notes/:id', authenticateToken, async (req, res) => {
+     try {
+        const userId = req.user.id;
+        const { id } = req.params;
+        await Note.findOneAndDelete({ _id: id, userId });
+        res.json({ message: "Note deleted." });
+    } catch (err) {
+        res.status(500).json({ error: "Error deleting note." });
+    }
 });
 
 // --- HEALTH CHECK ENDPOINT to prevent cold starts ---

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, NavLink, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, NavLink, Navigate, Link } from 'react-router-dom';
 import { Analytics } from '@vercel/analytics/react';
 import ArticleList from './components/ArticleList';
 import ArticleViewer from './components/ArticleViewer';
@@ -7,7 +7,9 @@ import HighlightByTagList from './components/HighlightByTagList';
 import Register from './components/Register';
 import Login from './components/Login';
 import Trending from './components/Trending';
-import LandingPage from './components/LandingPage'; // <-- 1. IMPORT LANDING PAGE
+import LandingPage from './components/LandingPage';
+import NoteEditor from './components/NoteEditor'; // <-- IMPORT NOTE EDITOR
+import AdminDashboard from './components/AdminDashboard';
 import './App.css';
 
 const ChromeIcon = () => (
@@ -25,14 +27,13 @@ const ChromeIcon = () => (
   </svg>
 );
 
-const Welcome = () => <h2 className="welcome-message">Select an article to read</h2>;
+const Welcome = () => <h2 className="welcome-message">Select an article to read or create a note</h2>;
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [articleListKey, setArticleListKey] = useState(0);
 
-  // Your existing Chrome Store link
   const chromeStoreLink = "https://chromewebstore.google.com/detail/note-taker/bekllegjmjbnamphjnkifpijkhoiepaa?hl=en-US&utm_source=ext_sidebar";
 
   useEffect(() => {
@@ -50,7 +51,6 @@ function App() {
   const handleLogout = () => {
     localStorage.removeItem('token');
     setIsAuthenticated(false);
-    // --- CHANGE: Redirect to home (Landing Page) instead of /login ---
     window.location.href = '/'; 
   };
   
@@ -75,6 +75,9 @@ function App() {
                   <button onClick={handleLogout} className="logout-button">Logout</button>
                 </div>
                 <div className="sidebar-nav">
+                  {/* --- NEW NOTE BUTTON --- */}
+                  <Link to="/notes" className="sidebar-link new-note-link" style={{fontWeight: 'bold', color: '#007aff'}}>+ New Note</Link>
+                  
                   <NavLink to="/" className="sidebar-link" end>Your Library</NavLink>
                   <NavLink to="/highlights-by-tag" className="sidebar-link">Highlights by Tag</NavLink>
                   <NavLink to="/trending" className="sidebar-link">Trending</NavLink>
@@ -96,7 +99,11 @@ function App() {
                 <Route path="/highlights-by-tag" element={<HighlightByTagList />} />
                 <Route path="/articles/:id" element={<ArticleViewer onArticleChange={refreshArticleList} />} />
                 <Route path="/trending" element={<Trending />} />
-                {/* Redirect authenticated users away from auth pages */}
+                <Route path="/admin" element={<AdminDashboard />} />
+                
+                {/* --- NOTEBOOK ROUTE --- */}
+                <Route path="/notes/:id?" element={<NoteEditor />} />
+
                 <Route path="/login" element={<Navigate to="/" replace />} />
                 <Route path="/register" element={<Navigate to="/" replace />} />
               </Routes>
@@ -105,19 +112,9 @@ function App() {
         ) : (
           <div className="auth-pages-container">
             <Routes>
-              {/* --- 2. NEW ROUTING LOGIC --- */}
-              
-              {/* Default route shows LandingPage */}
               <Route path="/" element={<LandingPage chromeStoreLink={chromeStoreLink} />} />
-              
-              {/* Pass chromeStoreLink to Register and Login */}
               <Route path="/register" element={<Register chromeStoreLink={chromeStoreLink} />} />
-              <Route 
-                path="/login" 
-                element={<Login onLoginSuccess={handleLoginSuccess} chromeStoreLink={chromeStoreLink} />} 
-              />
-              
-              {/* Any unknown route redirects to the Landing Page ("/") */}
+              <Route path="/login" element={<Login onLoginSuccess={handleLoginSuccess} chromeStoreLink={chromeStoreLink} />} />
               <Route path="*" element={<Navigate to="/" replace />} /> 
             </Routes>
           </div>
@@ -128,5 +125,3 @@ function App() {
 }
 
 export default App;
-
-
