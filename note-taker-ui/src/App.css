@@ -170,6 +170,74 @@ body {
   box-shadow: none;
 }
 
+.upload-card {
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  padding: 16px;
+  background: var(--card-bg-color);
+  box-shadow: var(--box-shadow-light);
+  margin-bottom: 20px;
+}
+
+.upload-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.upload-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 12px;
+  align-items: center;
+}
+
+.upload-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.upload-field label {
+  font-weight: 600;
+  font-size: 0.9em;
+  color: var(--text-color-secondary);
+}
+
+.upload-field input,
+.upload-field select {
+  padding: 10px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  background: var(--hover-color);
+  outline: none;
+}
+
+.upload-actions {
+  align-items: flex-start;
+}
+
+.upload-actions button {
+  padding: 10px 16px;
+  background-color: var(--primary-color);
+  color: #fff;
+  border: none;
+  border-radius: var(--border-radius);
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.upload-actions button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.pdf-status {
+  display: inline-block;
+}
+
 /* Folder Headers (Accordion) */
 .folder-group {
   border-bottom: 1px solid var(--border-color);
@@ -1827,5 +1895,8 @@ body {
   }
   .pdf-pill {
     min-width: 100%;
+  }
+  .upload-grid {
+    grid-template-columns: 1fr;
   }
 }
