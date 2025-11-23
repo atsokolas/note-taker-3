@@ -13,9 +13,9 @@ const PORT = process.env.PORT || 3000;
 // This is the new, permissive CORS setup
 app.use(cors());
 
-// Add this line to parse incoming JSON request bodies (allowing larger payloads for PDFs)
-app.use(express.json({ limit: '15mb' }));
-app.use(express.urlencoded({ extended: true, limit: '15mb' }));
+// Allow larger payloads for PDFs (Render/nginx often defaults to 1–10MB)
+app.use(express.json({ limit: '25mb' }));
+app.use(express.urlencoded({ extended: true, limit: '25mb' }));
 
 // MongoDB Connection
 mongoose.connect(process.env.MONGODB_URI) // useNewUrlParser and useUnifiedTopology are deprecated in recent Mongoose versions
@@ -31,6 +31,24 @@ const userSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 const User = mongoose.model('User', userSchema);
+
+// --- PDF attachments / annotations (defined early so Article can reference it) ---
+const annotationSchema = new mongoose.Schema({
+  id: { type: String, required: true },
+  text: { type: String, default: '', trim: true },
+  note: { type: String, default: '', trim: true },
+  page: { type: Number, default: null },
+  color: { type: String, default: '#f6c244' },
+  createdAt: { type: Date, default: Date.now }
+}, { _id: false });
+
+const pdfAttachmentSchema = new mongoose.Schema({
+  id: { type: String, required: true },
+  name: { type: String, required: true, trim: true },
+  dataUrl: { type: String, required: true },
+  uploadedAt: { type: Date, default: Date.now },
+  annotations: [annotationSchema]
+}, { _id: false });
 
 // --- NEW SCHEMA for Recommendations ---
 const recommendationSchema = new mongoose.Schema({
