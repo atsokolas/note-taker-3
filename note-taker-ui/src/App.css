@@ -217,6 +217,10 @@ body {
 
 .upload-actions {
   align-items: flex-start;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  grid-column: 1 / -1; /* stretch across grid to avoid getting squeezed */
 }
 
 .upload-actions button {
