@@ -21,6 +21,7 @@ const ArticleList = () => {
     const [pdfStatus, setPdfStatus] = useState('');
     const [pdfError, setPdfError] = useState('');
     const [pdfUploading, setPdfUploading] = useState(false);
+    const canUploadPdf = !!pdfFile && !pdfUploading;
 
     const fetchAndGroupArticles = useCallback(async () => {
         setLoading(true);
@@ -176,11 +177,12 @@ const ArticleList = () => {
             };
 
             await api.post('/save-article', payload, authHeaders);
-            setPdfStatus('PDF uploaded successfully.');
+            setPdfStatus('PDF uploaded successfully. Refreshing...');
             setPdfFile(null);
             setPdfTitle('');
             setPdfFolder('uncategorized');
             await fetchAndGroupArticles();
+            setPdfStatus('PDF uploaded successfully.');
         } catch (err) {
             console.error("Error uploading PDF:", err);
             setPdfError(err.response?.data?.error || err.message || "Failed to upload PDF.");
@@ -238,7 +240,9 @@ const ArticleList = () => {
                         </select>
                     </div>
                     <div className="upload-field upload-actions">
-                        <button onClick={handleUploadPdf} disabled={pdfUploading}>Upload</button>
+                        <button type="button" onClick={handleUploadPdf} disabled={!canUploadPdf}>
+                            {pdfUploading ? 'Uploading...' : 'Upload PDF'}
+                        </button>
                         {pdfStatus && !pdfError && <span className="pdf-status muted small">{pdfStatus}</span>}
                         {pdfError && <span className="status-message error-message">{pdfError}</span>}
                     </div>
