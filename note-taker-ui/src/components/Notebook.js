@@ -175,7 +175,7 @@ const Notebook = () => {
         <div className="notebook-sidebar-header">
           <div>
             <p className="eyebrow">Notebook</p>
-            <h2>Capture ideas like Notion</h2>
+            <h2>Capture ideas</h2>
             <p className="muted">Create pages, jot thoughts, and keep living checklists.</p>
           </div>
           <button className="notebook-button primary" onClick={handleCreateNote} disabled={saving}>
