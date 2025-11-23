@@ -479,6 +479,215 @@ body {
   margin-bottom: 20px;
 }
 
+/* ----------------------------------- */
+/* Notebook Experience Styles */
+/* ----------------------------------- */
+.note-workspace {
+  display: flex;
+  height: 100%;
+  background: var(--card-bg-color);
+}
+
+.note-sidebar {
+  width: 340px;
+  border-right: 1px solid var(--border-color);
+  padding: 20px;
+  overflow-y: auto;
+  background: var(--sidebar-bg-color);
+}
+
+.note-sidebar-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.note-sidebar-controls {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.note-sidebar-controls input,
+.note-sidebar-controls select {
+  flex: 1;
+  padding: 10px;
+  border-radius: var(--border-radius);
+  border: 1px solid var(--border-color);
+  background: var(--card-bg-color);
+}
+
+.note-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.note-list-item {
+  padding: 12px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  cursor: pointer;
+  background: var(--card-bg-color);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.1s ease;
+}
+
+.note-list-item:hover {
+  border-color: var(--primary-color);
+  box-shadow: var(--box-shadow-light);
+}
+
+.note-list-item.active {
+  border-color: var(--primary-color);
+  box-shadow: 0 6px 18px rgba(0, 122, 255, 0.15);
+}
+
+.note-list-item-title {
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.note-list-item-meta {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font-size: 0.85em;
+  color: var(--text-color-secondary);
+  margin-bottom: 6px;
+}
+
+.note-list-item-preview {
+  margin: 0;
+  color: var(--text-color-secondary);
+  font-size: 0.95em;
+}
+
+.note-editor-pane {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.note-editor-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 20px 30px;
+  gap: 16px;
+}
+
+.note-editor-toolbar {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.note-meta h1 {
+  margin: 6px 0;
+  font-size: 1.8em;
+}
+
+.note-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.note-editor-controls {
+  display: flex;
+  gap: 12px;
+}
+
+.note-editor-controls input,
+.note-editor-controls select {
+  flex: 1;
+  padding: 12px;
+  border-radius: var(--border-radius);
+  border: 1px solid var(--border-color);
+  font-size: 1em;
+}
+
+.rich-editor {
+  flex: 1;
+  min-height: 400px;
+}
+
+.rich-editor .ql-container,
+.rich-editor .ql-editor {
+  height: 100%;
+}
+
+.primary-button,
+.ghost-button,
+.danger-button {
+  border-radius: var(--border-radius);
+  padding: 10px 14px;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all 0.2s ease;
+}
+
+.primary-button {
+  background: var(--primary-color);
+  color: white;
+  border-color: var(--primary-color);
+}
+
+.primary-button:hover {
+  background: var(--primary-color-dark);
+}
+
+.ghost-button {
+  background: transparent;
+  border-color: var(--border-color);
+  color: var(--text-color);
+}
+
+.ghost-button:hover {
+  border-color: var(--primary-color);
+  color: var(--primary-color);
+}
+
+.danger-button {
+  background: var(--danger-color-light);
+  border-color: var(--danger-color);
+  color: var(--danger-color);
+}
+
+.danger-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.pill {
+  background: var(--primary-color-light);
+  color: var(--primary-color);
+  border-radius: 999px;
+  padding: 2px 10px;
+  font-size: 0.8em;
+}
+
+.eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.75em;
+  margin: 0;
+  color: var(--text-color-secondary);
+}
+
+.subtext {
+  color: var(--text-color-secondary);
+  font-size: 0.9em;
+}
+
 .article-content h1 {
   font-size: 2.2em;
   font-weight: 700;
