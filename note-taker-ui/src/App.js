@@ -8,7 +8,7 @@ import Register from './components/Register';
 import Login from './components/Login';
 import Trending from './components/Trending';
 import LandingPage from './components/LandingPage';
-import NoteEditor from './components/NoteEditor'; // <-- IMPORT NOTE EDITOR
+import NoteWorkspace from './components/NoteWorkspace';
 import AdminDashboard from './components/AdminDashboard';
 import './App.css';
 
@@ -102,7 +102,7 @@ function App() {
                 <Route path="/admin" element={<AdminDashboard />} />
                 
                 {/* --- NOTEBOOK ROUTE --- */}
-                <Route path="/notes/:id?" element={<NoteEditor />} />
+                <Route path="/notes/:id?" element={<NoteWorkspace />} />
 
                 <Route path="/login" element={<Navigate to="/" replace />} />
                 <Route path="/register" element={<Navigate to="/" replace />} />

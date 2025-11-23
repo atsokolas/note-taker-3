@@ -1,90 +1,79 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css'; // Import styles
-import api from '../api';
-import { useParams, useNavigate } from 'react-router-dom';
 
-const NoteEditor = () => {
-    const { id } = useParams(); // If ID exists, we are editing. If not, creating new.
-    const navigate = useNavigate();
+const NoteEditor = ({ note, folders = [], onSave, onDelete, onCreateNew, isSaving }) => {
     const [title, setTitle] = useState('');
     const [content, setContent] = useState('');
-    const [isSaving, setIsSaving] = useState(false);
+    const [folderId, setFolderId] = useState('');
 
-    // Load note if ID is present
     useEffect(() => {
-        if (id) {
-            const fetchNote = async () => {
-                try {
-                    const token = localStorage.getItem('token');
-                    const res = await api.get(`/api/notes/${id}`, {
-                         headers: { Authorization: `Bearer ${token}` }
-                    });
-                    setTitle(res.data.title);
-                    setContent(res.data.content);
-                } catch (err) {
-                    console.error("Error loading note", err);
-                }
-            };
-            fetchNote();
-        }
-    }, [id]);
+        setTitle(note?.title || 'Untitled Note');
+        setContent(note?.content || '');
+        setFolderId(note?.folder?._id || note?.folder || '');
+    }, [note]);
 
-    const handleSave = async () => {
-        setIsSaving(true);
-        const token = localStorage.getItem('token');
-        const headers = { Authorization: `Bearer ${token}` };
-        
-        try {
-            if (id) {
-                // Update existing
-                await api.put(`/api/notes/${id}`, { title, content }, { headers });
-            } else {
-                // Create new
-                const res = await api.post('/api/notes', { title, content }, { headers });
-                navigate(`/notes/${res.data._id}`); // Redirect to edit mode
-            }
-            alert('Note Saved!');
-        } catch (err) {
-            console.error("Error saving note", err);
-            alert("Failed to save.");
-        } finally {
-            setIsSaving(false);
+    const handleSave = () => {
+        if (!onSave) return;
+        onSave({ title, content, folderId });
+    };
+
+    const handleDelete = () => {
+        if (note?._id && onDelete) {
+            onDelete(note._id);
         }
     };
 
     return (
-        <div className="note-editor-container" style={{ padding: '20px', maxWidth: '800px', margin: '0 auto' }}>
-            <input 
-                type="text" 
-                placeholder="Note Title..." 
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                style={{ 
-                    width: '100%', fontSize: '2em', border: 'none', outline: 'none', 
-                    marginBottom: '20px', fontWeight: 'bold', backgroundColor: 'transparent' 
-                }}
-            />
-            
-            <div style={{ height: '500px', marginBottom: '50px' }}>
-                <ReactQuill 
-                    theme="snow" 
-                    value={content} 
-                    onChange={setContent} 
+        <div className="note-editor-container">
+            <div className="note-editor-toolbar">
+                <div className="note-meta">
+                    <p className="eyebrow">{note?._id ? 'Continue writing' : 'New note'}</p>
+                    <h1>{title || 'Untitled Note'}</h1>
+                    {note?.updatedAt && (
+                        <span className="subtext">Last updated {new Date(note.updatedAt).toLocaleString()}</span>
+                    )}
+                </div>
+                <div className="note-actions">
+                    <button className="ghost-button" onClick={onCreateNew}>New note</button>
+                    <button
+                        className="danger-button"
+                        onClick={handleDelete}
+                        disabled={!note?._id}
+                        title={note?._id ? 'Delete note' : 'Save before deleting'}
+                    >
+                        Delete
+                    </button>
+                    <button className="primary-button" onClick={handleSave} disabled={isSaving}>
+                        {isSaving ? 'Saving…' : 'Save note'}
+                    </button>
+                </div>
+            </div>
+
+            <div className="note-editor-controls">
+                <input
+                    type="text"
+                    placeholder="Note title"
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                />
+
+                <select value={folderId || ''} onChange={(e) => setFolderId(e.target.value)}>
+                    <option value="">Uncategorized</option>
+                    {folders.map(folder => (
+                        <option key={folder._id} value={folder._id}>{folder.name}</option>
+                    ))}
+                </select>
+            </div>
+
+            <div className="rich-editor">
+                <ReactQuill
+                    theme="snow"
+                    value={content}
+                    onChange={setContent}
                     style={{ height: '100%' }}
                 />
             </div>
-
-            <button 
-                onClick={handleSave} 
-                style={{ 
-                    padding: '10px 20px', backgroundColor: '#007aff', color: 'white', 
-                    border: 'none', borderRadius: '5px', cursor: 'pointer', fontSize: '1em'
-                }}
-                disabled={isSaving}
-            >
-                {isSaving ? 'Saving...' : 'Save Note'}
-            </button>
         </div>
     );
 };

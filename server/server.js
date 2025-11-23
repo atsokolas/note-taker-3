@@ -588,11 +588,41 @@ app.delete('/articles/:articleId/highlights/:highlightId', authenticateToken, as
 
 // --- NOTEBOOK API ROUTES ---
 
+// Utility: validate a folder belongs to the authenticated user and return a safe folder id
+async function resolveFolderForUser(folderId, userId) {
+    if (!folderId || folderId === 'uncategorized' || folderId === 'null') return null;
+
+    const folder = await Folder.findOne({ _id: folderId, userId });
+    if (!folder) {
+        throw new Error('FOLDER_NOT_FOUND');
+    }
+
+    return folder._id;
+}
+
 // GET /api/notes: Fetch all notes for the user
 app.get('/api/notes', authenticateToken, async (req, res) => {
     try {
         const userId = req.user.id;
-        const notes = await Note.find({ userId }).sort({ updatedAt: -1 });
+        const { folderId, search } = req.query;
+
+        const filter = { userId };
+
+        if (folderId && folderId !== 'all') {
+            filter.folder = folderId === 'uncategorized' ? null : folderId;
+        }
+
+        if (search) {
+            const searchRegex = new RegExp(search, 'i');
+            filter.$or = [
+                { title: searchRegex },
+                { content: searchRegex }
+            ];
+        }
+
+        const notes = await Note.find(filter)
+            .populate('folder')
+            .sort({ updatedAt: -1 });
         res.json(notes);
     } catch (err) {
         console.error("Error fetching notes:", err);
@@ -606,11 +636,21 @@ app.post('/api/notes', authenticateToken, async (req, res) => {
         const userId = req.user.id;
         const { title, content, folderId } = req.body;
 
+        let validatedFolder = null;
+        try {
+            validatedFolder = await resolveFolderForUser(folderId, userId);
+        } catch (validationError) {
+            if (validationError.message === 'FOLDER_NOT_FOUND') {
+                return res.status(400).json({ error: 'Provided folderId does not exist or is not accessible.' });
+            }
+            throw validationError;
+        }
+
         const newNote = new Note({
             title: title || 'Untitled Note',
             content: content || '',
             userId: userId,
-            folder: folderId || null
+            folder: validatedFolder
         });
 
         await newNote.save();
@@ -628,9 +668,19 @@ app.put('/api/notes/:id', authenticateToken, async (req, res) => {
         const { id } = req.params;
         const { title, content, folderId } = req.body;
 
+        let validatedFolder = null;
+        try {
+            validatedFolder = await resolveFolderForUser(folderId, userId);
+        } catch (validationError) {
+            if (validationError.message === 'FOLDER_NOT_FOUND') {
+                return res.status(400).json({ error: 'Provided folderId does not exist or is not accessible.' });
+            }
+            throw validationError;
+        }
+
         const updatedNote = await Note.findOneAndUpdate(
             { _id: id, userId }, // Ensure user owns the note
-            { title, content, folder },
+            { title, content, folder: validatedFolder },
             { new: true }
         );
 
@@ -647,7 +697,7 @@ app.get('/api/notes/:id', authenticateToken, async (req, res) => {
     try {
         const userId = req.user.id;
         const { id } = req.params;
-        const note = await Note.findOne({ _id: id, userId });
+        const note = await Note.findOne({ _id: id, userId }).populate('folder');
         if (!note) return res.status(404).json({ error: "Note not found." });
         res.json(note);
     } catch (err) {
