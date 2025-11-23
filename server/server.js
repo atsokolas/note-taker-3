@@ -13,8 +13,9 @@ const PORT = process.env.PORT || 3000;
 // This is the new, permissive CORS setup
 app.use(cors());
 
-// Add this line to parse incoming JSON request bodies
-app.use(express.json());
+// Add this line to parse incoming JSON request bodies (allowing larger payloads for PDFs)
+app.use(express.json({ limit: '15mb' }));
+app.use(express.urlencoded({ extended: true, limit: '15mb' }));
 
 // MongoDB Connection
 mongoose.connect(process.env.MONGODB_URI) // useNewUrlParser and useUnifiedTopology are deprecated in recent Mongoose versions
@@ -67,6 +68,7 @@ const articleSchema = new mongoose.Schema({
       tags: [String],
       createdAt: { type: Date, default: Date.now }
   }],
+  pdfs: { type: [pdfAttachmentSchema], default: [] },
 
   // --- CORRECT LOCATION FOR NEW FIELDS ---
   author: { type: String, default: '' },
@@ -96,6 +98,23 @@ const noteSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 const Note = mongoose.model('Note', noteSchema);
+
+const annotationSchema = new mongoose.Schema({
+  id: { type: String, required: true },
+  text: { type: String, default: '', trim: true },
+  note: { type: String, default: '', trim: true },
+  page: { type: Number, default: null },
+  color: { type: String, default: '#f6c244' },
+  createdAt: { type: Date, default: Date.now }
+}, { _id: false });
+
+const pdfAttachmentSchema = new mongoose.Schema({
+  id: { type: String, required: true },
+  name: { type: String, required: true, trim: true },
+  dataUrl: { type: String, required: true },
+  uploadedAt: { type: Date, default: Date.now },
+  annotations: [annotationSchema]
+}, { _id: false });
 
 
 // --- AUTHENTICATION ADDITIONS: JWT Verification Middleware ---
@@ -264,6 +283,42 @@ const normalizeChecklist = (checklist = []) => {
     .filter(item => item.text.length > 0);
 };
 
+const normalizeAnnotations = (annotations = []) => {
+  if (!Array.isArray(annotations)) return [];
+  return annotations
+    .map(item => {
+      const text = (item?.text || '').trim();
+      const note = (item?.note || '').trim();
+      if (!text && !note) return null;
+      return {
+        id: item?.id || new mongoose.Types.ObjectId().toString(),
+        text,
+        note,
+        page: typeof item?.page === 'number' ? item.page : null,
+        color: item?.color || '#f6c244',
+        createdAt: item?.createdAt || new Date()
+      };
+    })
+    .filter(Boolean);
+};
+
+const normalizePdfs = (pdfs = []) => {
+  if (!Array.isArray(pdfs)) return [];
+  return pdfs
+    .map(pdf => {
+      const dataUrl = typeof pdf?.dataUrl === 'string' ? pdf.dataUrl : '';
+      if (!dataUrl) return null;
+      return {
+        id: pdf?.id || new mongoose.Types.ObjectId().toString(),
+        name: (pdf?.name || 'Untitled.pdf').trim().slice(0, 200),
+        dataUrl,
+        uploadedAt: pdf?.uploadedAt || new Date(),
+        annotations: normalizeAnnotations(pdf?.annotations || [])
+      };
+    })
+    .filter(Boolean);
+};
+
 // GET /api/notes - fetch all notes for the authenticated user
 app.get('/api/notes', authenticateToken, async (req, res) => {
   try {
@@ -361,7 +416,7 @@ app.delete('/api/notes/:id', authenticateToken, async (req, res) => {
 app.post("/save-article", authenticateToken, async (req, res) => {
   try {
     // --- 1. I added the new fields here ---
-    const {title, url, content, folderId, author, publicationDate, siteName} = req.body;
+    const {title, url, content, folderId, author, publicationDate, siteName, pdfs} = req.body;
     const userId = req.user.id; // Get user ID from authenticated token
 
     if (!title || !url) {
@@ -388,6 +443,7 @@ app.post("/save-article", authenticateToken, async (req, res) => {
         author: author || '',
         publicationDate: publicationDate || '',
         siteName: siteName || '',
+        ...(pdfs !== undefined ? { pdfs: normalizePdfs(pdfs) } : {}),
         
         $setOnInsert: { highlights: [] }
     }; // <-- THIS WAS THE MISSING BRACE AND SEMICOLON
@@ -590,6 +646,34 @@ app.patch('/articles/:id/move', authenticateToken, async (req, res) => {
         return res.status(400).json({ error: "Invalid article ID format." });
       }
       res.status(500).json({ error: "Failed to move article.", details: error.message });
+  }
+});
+
+// PATCH /articles/:id/pdfs - replace PDF attachments and annotations for an article
+app.patch('/articles/:id/pdfs', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+    const { pdfs } = req.body;
+
+    const normalizedPdfs = normalizePdfs(pdfs || []);
+    const updatedArticle = await Article.findOneAndUpdate(
+      { _id: id, userId },
+      { pdfs: normalizedPdfs },
+      { new: true }
+    ).populate('folder');
+
+    if (!updatedArticle) {
+      return res.status(404).json({ error: "Article not found or you do not have permission to modify it." });
+    }
+
+    res.status(200).json(updatedArticle);
+  } catch (error) {
+    console.error("❌ Error updating article PDFs:", error);
+    if (error.name === 'CastError') {
+      return res.status(400).json({ error: "Invalid article ID format." });
+    }
+    res.status(500).json({ error: "Failed to update PDFs.", details: error.message });
   }
 });
 

@@ -1487,6 +1487,235 @@ body {
   gap: 12px;
 }
 
+.pdf-card {
+  grid-column: 1 / -1;
+  background: var(--card-bg-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.pdf-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.pdf-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.upload-pill {
+  background: var(--primary-color);
+  color: #fff;
+  border-radius: 999px;
+  padding: 10px 16px;
+  border: 1px solid var(--primary-color);
+  cursor: pointer;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.upload-pill input {
+  display: none;
+}
+
+.pdf-empty {
+  border: 1px dashed var(--border-color);
+  border-radius: var(--border-radius);
+  padding: 18px;
+  background: var(--hover-color);
+}
+
+.pdf-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.pdf-pill {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  cursor: pointer;
+  background: var(--hover-color);
+  min-width: 240px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.pdf-pill:hover {
+  border-color: var(--primary-color);
+}
+
+.pdf-pill.active {
+  border-color: var(--primary-color);
+  box-shadow: 0 6px 14px rgba(0, 122, 255, 0.12);
+}
+
+.pdf-pill-text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: flex-start;
+}
+
+.pdf-pill-name {
+  font-weight: 700;
+}
+
+.pdf-pill-meta {
+  color: var(--text-color-secondary);
+  font-size: 0.85em;
+}
+
+.pdf-viewer-panel {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  align-items: stretch;
+}
+
+.pdf-viewer {
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  min-height: 360px;
+  background: var(--card-bg-color);
+  overflow: hidden;
+}
+
+.pdf-viewer object {
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
+.pdf-annotations {
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  padding: 12px;
+  background: var(--card-bg-color);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.annotations-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.annotation-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.annotation-form input,
+.annotation-form textarea {
+  width: 100%;
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  padding: 8px 10px;
+  background: var(--hover-color);
+  outline: none;
+}
+
+.annotation-form textarea {
+  min-height: 80px;
+  resize: vertical;
+}
+
+.annotation-row {
+  display: flex;
+  gap: 10px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+
+.annotation-row label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 90px;
+}
+
+.color-picker {
+  min-width: 120px;
+}
+
+.annotation-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.annotation-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  background: var(--hover-color);
+}
+
+.annotation-badge {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-top: 6px;
+  flex-shrink: 0;
+}
+
+.annotation-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+}
+
+.annotation-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.annotation-meta {
+  color: var(--text-color-secondary);
+  font-size: 0.85em;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.annotation-dot {
+  color: var(--text-color-secondary);
+}
+
+.annotation-note {
+  margin: 0;
+  color: var(--text-color);
+}
 .checklist-header {
   display: flex;
   justify-content: space-between;
@@ -1592,5 +1821,11 @@ body {
   }
   .notebook-panels {
     grid-template-columns: 1fr;
+  }
+  .pdf-viewer-panel {
+    grid-template-columns: 1fr;
+  }
+  .pdf-pill {
+    min-width: 100%;
   }
 }

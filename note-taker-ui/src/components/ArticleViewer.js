@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import api from '../api';
 import { useParams, useNavigate } from 'react-router-dom';
 import CitationGenerator from './CitationGenerator'; // <-- 1. IMPORT THE NEW COMPONENT
@@ -36,6 +36,42 @@ const processArticleContent = (articleData) => {
     return { ...articleData, content: doc.body.innerHTML };
 };
 
+const formatDate = (dateString) => {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    return date.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+};
+
+const createClientId = () => {
+    if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
+    return `id-${Math.random().toString(36).slice(2, 10)}-${Date.now()}`;
+};
+
+const normalizeAnnotations = (annotations = []) => (
+    Array.isArray(annotations) ? annotations.map(a => ({
+        id: a.id || createClientId(),
+        text: a.text || '',
+        note: a.note || '',
+        page: a.page ?? '',
+        color: a.color || '#f6c244',
+        createdAt: a.createdAt || new Date().toISOString()
+    })) : []
+);
+
+const normalizePdfs = (pdfs = []) => (
+    Array.isArray(pdfs)
+        ? pdfs
+            .filter(pdf => pdf && pdf.dataUrl)
+            .map(pdf => ({
+                id: pdf.id || createClientId(),
+                name: pdf.name || 'Attachment.pdf',
+                dataUrl: pdf.dataUrl,
+                uploadedAt: pdf.uploadedAt || new Date().toISOString(),
+                annotations: normalizeAnnotations(pdf.annotations || [])
+            }))
+        : []
+);
+
 const ArticleViewer = ({ onArticleChange }) => {
     // ... (Your existing state and hooks)
     const { id } = useParams();
@@ -57,6 +93,17 @@ const ArticleViewer = ({ onArticleChange }) => {
 
     const [isRecommendModalOpen, setIsRecommendModalOpen] = useState(false);
     const [selectedHighlights, setSelectedHighlights] = useState([]);
+    const [pdfs, setPdfs] = useState([]);
+    const [activePdfId, setActivePdfId] = useState(null);
+    const [pdfUploadError, setPdfUploadError] = useState('');
+    const [pdfUploading, setPdfUploading] = useState(false);
+    const [annotationDraft, setAnnotationDraft] = useState({ text: '', note: '', page: '', color: '#f6c244' });
+    const [pdfSaving, setPdfSaving] = useState(false);
+    const [pdfStatus, setPdfStatus] = useState('');
+    const activePdf = useMemo(() => {
+        if (!pdfs || pdfs.length === 0) return null;
+        return pdfs.find(pdf => pdf.id === activePdfId) || pdfs[0];
+    }, [pdfs, activePdfId]);
 
     const fetchFolders = useCallback(async () => {
         // ... (Your existing code)
@@ -68,6 +115,118 @@ const ArticleViewer = ({ onArticleChange }) => {
             console.error("Error fetching folders for move dropdown:", err);
         }
     }, []);
+
+    const handlePdfFileSelect = (event) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+        if (file.type !== 'application/pdf') {
+            setPdfUploadError('Please upload a PDF file.');
+            event.target.value = '';
+            return;
+        }
+        const maxSize = 10 * 1024 * 1024;
+        if (file.size > maxSize) {
+            setPdfUploadError('PDF must be 10MB or smaller.');
+            event.target.value = '';
+            return;
+        }
+
+        setPdfUploadError('');
+        setPdfUploading(true);
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const dataUrl = e.target?.result;
+            if (!dataUrl) {
+                setPdfUploadError('Could not read that file. Please try again.');
+                setPdfUploading(false);
+                return;
+            }
+            const newPdf = {
+                id: createClientId(),
+                name: file.name,
+                dataUrl,
+                uploadedAt: new Date().toISOString(),
+                annotations: []
+            };
+            setPdfs(prev => [...prev, newPdf]);
+            setActivePdfId(newPdf.id);
+            setPdfStatus('Unsaved PDF changes');
+            setPdfUploading(false);
+            event.target.value = '';
+        };
+        reader.onerror = () => {
+            setPdfUploadError('Could not read that file. Please try again.');
+            setPdfUploading(false);
+            event.target.value = '';
+        };
+        reader.readAsDataURL(file);
+    };
+
+    const handleRemovePdf = (pdfId) => {
+        setPdfs(prev => {
+            const next = prev.filter(pdf => pdf.id !== pdfId);
+            if (pdfId === activePdfId) {
+                setActivePdfId(next[0]?.id || null);
+            }
+            return next;
+        });
+        setPdfStatus('Unsaved PDF changes');
+    };
+
+    const handleAddAnnotation = () => {
+        if (!activePdf) return;
+        const text = annotationDraft.text.trim();
+        const note = annotationDraft.note.trim();
+        if (!text && !note) return;
+
+        const annotation = {
+            id: createClientId(),
+            text,
+            note,
+            page: annotationDraft.page ? Number(annotationDraft.page) : '',
+            color: annotationDraft.color || '#f6c244',
+            createdAt: new Date().toISOString()
+        };
+
+        setPdfs(prev => prev.map(pdf => (
+            pdf.id === activePdf.id
+                ? { ...pdf, annotations: [annotation, ...(pdf.annotations || [])] }
+                : pdf
+        )));
+        setAnnotationDraft({ text: '', note: '', page: '', color: annotationDraft.color });
+        setPdfStatus('Unsaved PDF changes');
+    };
+
+    const handleRemoveAnnotation = (pdfId, annotationId) => {
+        setPdfs(prev => prev.map(pdf => (
+            pdf.id === pdfId
+                ? { ...pdf, annotations: (pdf.annotations || []).filter(a => a.id !== annotationId) }
+                : pdf
+        )));
+        setPdfStatus('Unsaved PDF changes');
+    };
+
+    const handleSavePdfs = async () => {
+        if (!article) return;
+        setPdfSaving(true);
+        setPdfStatus('Saving PDFs...');
+        try {
+            const payload = { pdfs: normalizePdfs(pdfs) };
+            const res = await api.patch(`/articles/${article._id}/pdfs`, payload, getAuthConfig());
+            const processedArticle = processArticleContent(res.data);
+            const normalized = normalizePdfs(res.data.pdfs || []);
+            setArticle(processedArticle);
+            setPdfs(normalized);
+            setActivePdfId(normalized[0]?.id || null);
+            setPdfStatus('PDFs saved');
+        } catch (err) {
+            console.error("Error saving PDFs:", err);
+            setPdfStatus(err.response?.data?.error || "Could not save PDFs.");
+        } finally {
+            setPdfSaving(false);
+        }
+    };
 
     useEffect(() => {
         // ... (Your existing code)
@@ -82,6 +241,11 @@ const ArticleViewer = ({ onArticleChange }) => {
                     console.log("Fetched article data:", res.data);
                     const processedArticle = processArticleContent(res.data);
                     setArticle(processedArticle);
+                    const normalizedPdfs = normalizePdfs(res.data.pdfs || []);
+                    setPdfs(normalizedPdfs);
+                    setActivePdfId(normalizedPdfs[0]?.id || null);
+                    setPdfStatus('');
+                    setPdfUploadError('');
 
                 } catch (err) {
                     console.error("Error fetching article:", err);
@@ -141,6 +305,21 @@ const ArticleViewer = ({ onArticleChange }) => {
             }, 0);
         }
     }, [popup.visible]);
+
+    useEffect(() => {
+        if (!pdfs || pdfs.length === 0) {
+            setActivePdfId(null);
+            return;
+        }
+        const exists = pdfs.find(pdf => pdf.id === activePdfId);
+        if (!exists) {
+            setActivePdfId(pdfs[0].id);
+        }
+    }, [pdfs, activePdfId]);
+
+    useEffect(() => {
+        setAnnotationDraft({ text: '', note: '', page: '', color: '#f6c244' });
+    }, [activePdfId, id]);
 
     // ... (Your existing functions: handleHighlightSelectionChange, handleRecommendArticle, saveHighlight, etc.)
     const handleHighlightSelectionChange = (highlightId) => {
@@ -392,6 +571,128 @@ const ArticleViewer = ({ onArticleChange }) => {
                             </button>
                         </div>
                     )}
+                    <div className="pdf-card">
+                        <div className="pdf-card-header">
+                            <div>
+                                <p className="eyebrow">PDF attachments</p>
+                                <h3>Upload & annotate</h3>
+                                <p className="muted small">Keep source PDFs with the article and capture highlights or page notes.</p>
+                            </div>
+                            <div className="pdf-actions">
+                                <label className="upload-pill">
+                                    <input type="file" accept="application/pdf" onChange={handlePdfFileSelect} disabled={pdfUploading} />
+                                    {pdfUploading ? 'Uploading...' : 'Upload PDF'}
+                                </label>
+                                <button className="notebook-button primary" onClick={handleSavePdfs} disabled={pdfSaving || !article}>
+                                    {pdfSaving ? 'Saving...' : 'Save PDFs'}
+                                </button>
+                            </div>
+                        </div>
+                        {pdfUploadError && <p className="status-message error-message">{pdfUploadError}</p>}
+                        {pdfStatus && !pdfUploadError && <p className="pdf-pill-meta">{pdfStatus}</p>}
+
+                        {(!pdfs || pdfs.length === 0) && (
+                            <div className="pdf-empty">
+                                <p className="muted">Upload a PDF to preview it here and log your own highlights alongside the article.</p>
+                            </div>
+                        )}
+
+                        {pdfs && pdfs.length > 0 && (
+                            <>
+                                <div className="pdf-list">
+                                    {pdfs.map(pdf => (
+                                        <div key={pdf.id} className={`pdf-pill ${activePdf?.id === pdf.id ? 'active' : ''}`} onClick={() => setActivePdfId(pdf.id)}>
+                                            <div className="pdf-pill-text">
+                                                <span className="pdf-pill-name">{pdf.name}</span>
+                                                <span className="pdf-pill-meta">{pdf.annotations?.length || 0} notes · Added {formatDate(pdf.uploadedAt)}</span>
+                                            </div>
+                                            <button className="icon-button" onClick={(e) => { e.stopPropagation(); handleRemovePdf(pdf.id); }} title="Remove PDF">×</button>
+                                        </div>
+                                    ))}
+                                </div>
+
+                                <div className="pdf-viewer-panel">
+                                    <div className="pdf-viewer">
+                                        {activePdf ? (
+                                            <object data={activePdf.dataUrl} type="application/pdf" width="100%" height="360">
+                                                <p className="muted">Your browser cannot display the PDF inline. <a href={activePdf.dataUrl} target="_blank" rel="noreferrer">Open in a new tab</a>.</p>
+                                            </object>
+                                        ) : (
+                                            <p className="muted small">Select a PDF to preview.</p>
+                                        )}
+                                    </div>
+
+                                    <div className="pdf-annotations">
+                                        <div className="annotations-header">
+                                            <div>
+                                                <p className="eyebrow">Highlights</p>
+                                                <h4>Capture takeaways</h4>
+                                            </div>
+                                            {activePdf && <span className="pdf-pill-meta">{activePdf.annotations?.length || 0} saved</span>}
+                                        </div>
+
+                                        <div className="annotation-form">
+                                            <input
+                                                type="text"
+                                                placeholder="What stood out?"
+                                                value={annotationDraft.text}
+                                                onChange={(e) => setAnnotationDraft(prev => ({ ...prev, text: e.target.value }))}
+                                            />
+                                            <textarea
+                                                placeholder="Notes, reactions, or follow-ups"
+                                                value={annotationDraft.note}
+                                                onChange={(e) => setAnnotationDraft(prev => ({ ...prev, note: e.target.value }))}
+                                            />
+                                            <div className="annotation-row">
+                                                <label>
+                                                    <span className="muted small">Page</span>
+                                                    <input
+                                                        type="number"
+                                                        min="1"
+                                                        value={annotationDraft.page}
+                                                        onChange={(e) => setAnnotationDraft(prev => ({ ...prev, page: e.target.value }))}
+                                                        placeholder="3"
+                                                    />
+                                                </label>
+                                                <label className="color-picker">
+                                                    <span className="muted small">Highlight color</span>
+                                                    <input
+                                                        type="color"
+                                                        value={annotationDraft.color}
+                                                        onChange={(e) => setAnnotationDraft(prev => ({ ...prev, color: e.target.value }))}
+                                                    />
+                                                </label>
+                                                <button className="notebook-button" onClick={handleAddAnnotation} disabled={!activePdf}>Save</button>
+                                            </div>
+                                        </div>
+
+                                        <ul className="annotation-list">
+                                            {activePdf?.annotations?.map((annotation) => (
+                                                <li key={annotation.id} className="annotation-item">
+                                                    <div className="annotation-badge" style={{ backgroundColor: annotation.color }}></div>
+                                                    <div className="annotation-body">
+                                                        <div className="annotation-top">
+                                                            <strong>{annotation.text || 'Untitled highlight'}</strong>
+                                                            <span className="annotation-meta">
+                                                                {annotation.page ? `Page ${annotation.page}` : 'No page'}
+                                                                <span className="annotation-dot">•</span>
+                                                                {formatDate(annotation.createdAt)}
+                                                            </span>
+                                                        </div>
+                                                        {annotation.note && <p className="annotation-note">{annotation.note}</p>}
+                                                    </div>
+                                                    <button className="icon-button" onClick={() => handleRemoveAnnotation(activePdf.id, annotation.id)} title="Remove annotation">×</button>
+                                                </li>
+                                            ))}
+                                            {(!activePdf?.annotations || activePdf.annotations.length === 0) && (
+                                                <li className="muted small">No highlights yet. Add your first takeaway.</li>
+                                            )}
+                                        </ul>
+                                    </div>
+                                </div>
+                            </>
+                        )}
+                    </div>
                 </div>
             </div>
 
