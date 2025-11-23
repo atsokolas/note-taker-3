@@ -14,8 +14,8 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 
 // Allow larger payloads for PDFs (Render/nginx often defaults to 1–10MB)
-app.use(express.json({ limit: '25mb' }));
-app.use(express.urlencoded({ extended: true, limit: '25mb' }));
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // MongoDB Connection
 mongoose.connect(process.env.MONGODB_URI) // useNewUrlParser and useUnifiedTopology are deprecated in recent Mongoose versions
@@ -116,23 +116,6 @@ const noteSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 const Note = mongoose.model('Note', noteSchema);
-
-const annotationSchema = new mongoose.Schema({
-  id: { type: String, required: true },
-  text: { type: String, default: '', trim: true },
-  note: { type: String, default: '', trim: true },
-  page: { type: Number, default: null },
-  color: { type: String, default: '#f6c244' },
-  createdAt: { type: Date, default: Date.now }
-}, { _id: false });
-
-const pdfAttachmentSchema = new mongoose.Schema({
-  id: { type: String, required: true },
-  name: { type: String, required: true, trim: true },
-  dataUrl: { type: String, required: true },
-  uploadedAt: { type: Date, default: Date.now },
-  annotations: [annotationSchema]
-}, { _id: false });
 
 
 // --- AUTHENTICATION ADDITIONS: JWT Verification Middleware ---
