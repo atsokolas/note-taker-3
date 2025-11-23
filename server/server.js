@@ -82,6 +82,21 @@ articleSchema.index({ url: 1, userId: 1 }, { unique: true });
 
 const Article = mongoose.model('Article', articleSchema);
 
+// --- NOTEBOOK: Schema for freeform notes with checklists ---
+const checklistItemSchema = new mongoose.Schema({
+  text: { type: String, required: true, trim: true },
+  checked: { type: Boolean, default: false }
+}, { _id: true });
+
+const noteSchema = new mongoose.Schema({
+  title: { type: String, required: true, trim: true },
+  content: { type: String, default: '' },
+  checklist: [checklistItemSchema],
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }
+}, { timestamps: true });
+
+const Note = mongoose.model('Note', noteSchema);
+
 
 // --- AUTHENTICATION ADDITIONS: JWT Verification Middleware ---
 function authenticateToken(req, res, next) {
@@ -235,6 +250,110 @@ app.get('/api/trending', async (req, res) => {
   } catch (error) {
       console.error("❌ Error fetching trending articles:", error);
       res.status(500).json({ error: "Internal server error." });
+  }
+});
+
+// --- NOTEBOOK ROUTES ---
+const normalizeChecklist = (checklist = []) => {
+  if (!Array.isArray(checklist)) return [];
+  return checklist
+    .map(item => ({
+      text: (item?.text || '').trim(),
+      checked: !!item?.checked
+    }))
+    .filter(item => item.text.length > 0);
+};
+
+// GET /api/notes - fetch all notes for the authenticated user
+app.get('/api/notes', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const notes = await Note.find({ userId }).sort({ updatedAt: -1 });
+    res.status(200).json(notes);
+  } catch (error) {
+    console.error("❌ Error fetching notes:", error);
+    res.status(500).json({ error: "Failed to fetch notes." });
+  }
+});
+
+// POST /api/notes - create a new note
+app.post('/api/notes', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { title, content, checklist } = req.body;
+
+    if (!title || !title.trim()) {
+      return res.status(400).json({ error: "A title is required to create a note." });
+    }
+
+    const newNote = new Note({
+      title: title.trim(),
+      content: content || '',
+      checklist: normalizeChecklist(checklist),
+      userId
+    });
+
+    await newNote.save();
+    res.status(201).json(newNote);
+  } catch (error) {
+    console.error("❌ Error creating note:", error);
+    res.status(500).json({ error: "Failed to create note." });
+  }
+});
+
+// PATCH /api/notes/:id - update an existing note
+app.patch('/api/notes/:id', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { id } = req.params;
+    const { title, content, checklist } = req.body;
+
+    const updates = {};
+    if (title !== undefined) {
+      const trimmed = title.trim();
+      updates.title = trimmed.length ? trimmed : 'Untitled note';
+    }
+    if (content !== undefined) updates.content = content;
+    if (checklist !== undefined) updates.checklist = normalizeChecklist(checklist);
+
+    const updatedNote = await Note.findOneAndUpdate(
+      { _id: id, userId },
+      updates,
+      { new: true }
+    );
+
+    if (!updatedNote) {
+      return res.status(404).json({ error: "Note not found or you do not have permission to edit it." });
+    }
+
+    res.status(200).json(updatedNote);
+  } catch (error) {
+    console.error("❌ Error updating note:", error);
+    if (error.name === 'CastError') {
+      return res.status(400).json({ error: "Invalid note ID format." });
+    }
+    res.status(500).json({ error: "Failed to update note." });
+  }
+});
+
+// DELETE /api/notes/:id - delete a note
+app.delete('/api/notes/:id', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { id } = req.params;
+
+    const deletedNote = await Note.findOneAndDelete({ _id: id, userId });
+    if (!deletedNote) {
+      return res.status(404).json({ error: "Note not found or you do not have permission to delete it." });
+    }
+
+    res.status(200).json({ message: "Note deleted successfully." });
+  } catch (error) {
+    console.error("❌ Error deleting note:", error);
+    if (error.name === 'CastError') {
+      return res.status(400).json({ error: "Invalid note ID format." });
+    }
+    res.status(500).json({ error: "Failed to delete note." });
   }
 });
 

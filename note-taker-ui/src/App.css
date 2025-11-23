@@ -1272,3 +1272,325 @@ body {
     text-decoration: underline;
 }
 
+/* --- NOTEBOOK STYLES --- */
+.notebook-wrapper {
+  display: flex;
+  flex: 1;
+  min-height: 100%;
+  background: linear-gradient(135deg, #f8fafc 0%, #ffffff 45%);
+  border-left: 1px solid var(--border-color);
+}
+
+.notebook-sidebar {
+  width: 340px;
+  background: var(--hover-color);
+  border-right: 1px solid var(--border-color);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  overflow-y: auto;
+  box-sizing: border-box;
+}
+
+.notebook-sidebar-header h2 {
+  margin: 4px 0 6px;
+  font-size: 1.3em;
+}
+
+.eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.75em;
+  color: var(--text-color-secondary);
+  margin: 0;
+}
+
+.muted {
+  color: var(--text-color-secondary);
+  margin: 0;
+}
+
+.muted.small {
+  font-size: 0.9em;
+}
+
+.notebook-button {
+  background-color: var(--hover-color);
+  color: var(--text-color);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  padding: 10px 14px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: transform 0.1s ease, box-shadow 0.15s ease, background-color 0.2s ease;
+}
+
+.notebook-button:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--box-shadow-light);
+}
+
+.notebook-button.primary {
+  background-color: var(--primary-color);
+  color: #fff;
+  border-color: var(--primary-color);
+}
+
+.notebook-button.primary:hover {
+  background-color: var(--primary-color-dark);
+}
+
+.notebook-button.subtle {
+  background: transparent;
+  color: var(--danger-color);
+  border-color: var(--border-color);
+}
+
+.notebook-empty {
+  background: var(--card-bg-color);
+  border: 1px dashed var(--border-color);
+  border-radius: var(--border-radius);
+  padding: 14px;
+  text-align: center;
+}
+
+.notebook-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.notebook-list-item {
+  background: var(--card-bg-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  padding: 12px;
+  cursor: pointer;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.1s ease;
+}
+
+.notebook-list-item:hover {
+  border-color: var(--primary-color);
+  transform: translateY(-1px);
+}
+
+.notebook-list-item.active {
+  border-color: var(--primary-color);
+  box-shadow: 0 6px 14px rgba(0, 122, 255, 0.12);
+}
+
+.notebook-list-title {
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.notebook-list-meta {
+  display: flex;
+  justify-content: space-between;
+  color: var(--text-color-secondary);
+  font-size: 0.85em;
+  margin-bottom: 6px;
+}
+
+.notebook-list-preview {
+  color: var(--text-color-secondary);
+  margin: 0;
+  font-size: 0.95em;
+  line-height: 1.4;
+}
+
+.notebook-editor {
+  flex: 1;
+  padding: 24px 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  min-width: 0;
+  background: var(--card-bg-color);
+}
+
+.notebook-editor-bar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.notebook-title-input {
+  flex: 1;
+  border: none;
+  border-bottom: 2px solid var(--border-color);
+  font-size: 1.6em;
+  font-weight: 700;
+  padding: 8px 4px;
+  outline: none;
+  background: transparent;
+}
+
+.notebook-title-input:focus {
+  border-color: var(--primary-color);
+}
+
+.notebook-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.notebook-status {
+  color: var(--primary-color);
+  font-weight: 600;
+}
+
+.notebook-updated {
+  color: var(--text-color-secondary);
+  font-size: 0.9em;
+}
+
+.notebook-panels {
+  display: grid;
+  grid-template-columns: 1.6fr 1fr;
+  gap: 18px;
+  align-items: start;
+}
+
+.notebook-content {
+  background: var(--hover-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  padding: 12px;
+}
+
+.notebook-textarea {
+  width: 100%;
+  min-height: 320px;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: 1em;
+  line-height: 1.6;
+  color: var(--text-color);
+  resize: vertical;
+}
+
+.notebook-checklist-card {
+  background: var(--card-bg-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.checklist-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.checklist-header h3 {
+  margin: 4px 0 0;
+}
+
+.checklist-add {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+}
+
+.checklist-add input {
+  flex: 1;
+  padding: 10px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  background: var(--hover-color);
+  outline: none;
+}
+
+.checklist-add input:focus {
+  border-color: var(--primary-color);
+}
+
+.checklist-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.checklist-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  background: var(--hover-color);
+}
+
+.checklist-item label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+}
+
+.checklist-item input[type="text"] {
+  border: none;
+  background: transparent;
+  width: 100%;
+  outline: none;
+  padding: 4px 6px;
+  border-bottom: 1px dashed var(--border-color);
+}
+
+.checklist-item input[type="text"].completed {
+  text-decoration: line-through;
+  color: var(--text-color-secondary);
+}
+
+.icon-button {
+  background: transparent;
+  border: none;
+  color: var(--text-color-secondary);
+  cursor: pointer;
+  font-size: 1.2em;
+}
+
+.icon-button:hover {
+  color: var(--danger-color);
+}
+
+.notebook-empty-editor {
+  border: 2px dashed var(--border-color);
+  border-radius: var(--border-radius);
+  padding: 40px;
+  text-align: center;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: center;
+  justify-content: center;
+}
+
+@media (max-width: 1024px) {
+  .notebook-wrapper {
+    flex-direction: column;
+  }
+  .notebook-sidebar {
+    width: 100%;
+  }
+  .notebook-panels {
+    grid-template-columns: 1fr;
+  }
+}
