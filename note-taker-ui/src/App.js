@@ -9,7 +9,6 @@ import Login from './components/Login';
 import Trending from './components/Trending';
 import LandingPage from './components/LandingPage';
 import NoteWorkspace from './components/NoteWorkspace';
-import AdminDashboard from './components/AdminDashboard';
 import './App.css';
 
 const ChromeIcon = () => (
@@ -99,8 +98,7 @@ function App() {
                 <Route path="/highlights-by-tag" element={<HighlightByTagList />} />
                 <Route path="/articles/:id" element={<ArticleViewer onArticleChange={refreshArticleList} />} />
                 <Route path="/trending" element={<Trending />} />
-                <Route path="/admin" element={<AdminDashboard />} />
-                
+
                 {/* --- NOTEBOOK ROUTE --- */}
                 <Route path="/notes/:id?" element={<NoteWorkspace />} />
 
