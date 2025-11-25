@@ -121,22 +121,23 @@ button.primary-button,
 
 .cta-panel {
     border: 1px solid var(--border-color);
-    border-radius: 10px;
-    padding: 12px 14px;
-    background: linear-gradient(135deg, rgba(0,122,255,0.08) 0%, rgba(255,255,255,0.02) 100%);
-    margin-bottom: 12px;
+    border-radius: 12px;
+    padding: 14px;
+    background: linear-gradient(160deg, rgba(0,122,255,0.18) 0%, rgba(0,122,255,0.05) 45%, rgba(0,0,0,0.1) 100%);
+    margin-bottom: 14px;
     color: var(--primary-text-color);
     text-align: left;
+    box-shadow: 0 8px 18px rgba(0,0,0,0.25);
 }
 
 .cta-title {
     margin: 0;
     font-weight: 700;
-    font-size: 0.95em;
+    font-size: 1em;
 }
 
 .cta-text {
-    margin: 6px 0 10px;
+    margin: 8px 0 12px;
     color: var(--secondary-text-color);
     font-size: 0.9em;
 }
@@ -144,17 +145,18 @@ button.primary-button,
 .cta-link {
     display: inline-block;
     text-decoration: none;
-    background: var(--accent-color);
+    background: #0b84ff;
     color: #fff;
-    padding: 8px 12px;
+    padding: 10px 14px;
     border-radius: 999px;
     font-weight: 700;
-    font-size: 0.9em;
+    font-size: 0.95em;
     transition: background 0.2s ease, transform 0.1s ease;
+    letter-spacing: 0.2px;
 }
 
 .cta-link:hover {
-    background: var(--accent-color-hover);
+    background: #006ad4;
     transform: translateY(-1px);
 }
 
