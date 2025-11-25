@@ -119,6 +119,45 @@ button.primary-button,
     color: white;
 }
 
+.cta-panel {
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    padding: 12px 14px;
+    background: linear-gradient(135deg, rgba(0,122,255,0.08) 0%, rgba(255,255,255,0.02) 100%);
+    margin-bottom: 12px;
+    color: var(--primary-text-color);
+    text-align: left;
+}
+
+.cta-title {
+    margin: 0;
+    font-weight: 700;
+    font-size: 0.95em;
+}
+
+.cta-text {
+    margin: 6px 0 10px;
+    color: var(--secondary-text-color);
+    font-size: 0.9em;
+}
+
+.cta-link {
+    display: inline-block;
+    text-decoration: none;
+    background: var(--accent-color);
+    color: #fff;
+    padding: 8px 12px;
+    border-radius: 999px;
+    font-weight: 700;
+    font-size: 0.9em;
+    transition: background 0.2s ease, transform 0.1s ease;
+}
+
+.cta-link:hover {
+    background: var(--accent-color-hover);
+    transform: translateY(-1px);
+}
+
 button.primary-button:hover,
 #saveArticleButton:hover,
 #createFolderButton:hover {
@@ -176,4 +215,3 @@ button:active {
     background-color: rgba(0, 122, 255, 0.15);
     color: var(--accent-color);
 }
-

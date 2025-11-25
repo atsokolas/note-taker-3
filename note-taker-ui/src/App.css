@@ -242,6 +242,76 @@ body {
   display: inline-block;
 }
 
+.feedback-card {
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  padding: 16px;
+  background: var(--card-bg-color);
+  box-shadow: var(--box-shadow-light);
+  margin-bottom: 20px;
+}
+
+.feedback-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.feedback-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.feedback-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.feedback-field input,
+.feedback-field textarea {
+  padding: 10px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  background: var(--hover-color);
+  outline: none;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.feedback-rating {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.rating-dot {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid var(--border-color);
+  background: var(--hover-color);
+  cursor: pointer;
+  font-weight: 700;
+  color: var(--text-color);
+}
+
+.rating-dot.active {
+  background: var(--primary-color);
+  color: #fff;
+  border-color: var(--primary-color);
+}
+
+.feedback-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
 /* Folder Headers (Accordion) */
 .folder-group {
   border-bottom: 1px solid var(--border-color);

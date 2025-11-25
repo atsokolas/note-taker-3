@@ -4,6 +4,7 @@ const mongoose = require('mongoose');
 const dotenv = require('dotenv');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const nodemailer = require('nodemailer');
 
 dotenv.config();
 
@@ -49,6 +50,24 @@ const pdfAttachmentSchema = new mongoose.Schema({
   uploadedAt: { type: Date, default: Date.now },
   annotations: [annotationSchema]
 }, { _id: false });
+
+// --- FEEDBACK EMAIL TRANSPORT ---
+const buildFeedbackTransporter = () => {
+  const { SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS } = process.env;
+  if (!SMTP_HOST || !SMTP_PORT || !SMTP_USER || !SMTP_PASS) {
+    console.warn("⚠️ Feedback SMTP credentials are not fully configured. Set SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS.");
+    return null;
+  }
+  return nodemailer.createTransport({
+    host: SMTP_HOST,
+    port: Number(SMTP_PORT),
+    secure: Number(SMTP_PORT) === 465,
+    auth: {
+      user: SMTP_USER,
+      pass: SMTP_PASS
+    }
+  });
+};
 
 // --- NEW SCHEMA for Recommendations ---
 const recommendationSchema = new mongoose.Schema({
@@ -675,6 +694,49 @@ app.patch('/articles/:id/pdfs', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: "Invalid article ID format." });
     }
     res.status(500).json({ error: "Failed to update PDFs.", details: error.message });
+  }
+});
+
+// POST /api/feedback - lightweight feedback to email (no exposure of your address)
+app.post('/api/feedback', async (req, res) => {
+  try {
+    const { message, rating, email, source } = req.body || {};
+    const trimmedMessage = (message || '').trim();
+    if (!trimmedMessage) {
+      return res.status(400).json({ error: "Feedback message is required." });
+    }
+    const safeRating = Number.isFinite(Number(rating)) ? Math.max(1, Math.min(5, Number(rating))) : null;
+
+    const feedbackTo = process.env.FEEDBACK_TO;
+    const feedbackFrom = process.env.FEEDBACK_FROM || process.env.SMTP_USER || 'no-reply@feedback.local';
+    if (!feedbackTo) {
+      console.error("Missing FEEDBACK_TO environment variable for feedback routing.");
+      return res.status(500).json({ error: "Feedback destination is not configured." });
+    }
+
+    const transporter = buildFeedbackTransporter();
+    if (!transporter) {
+      return res.status(500).json({ error: "Email transport is not configured." });
+    }
+
+    const lines = [
+      `Message: ${trimmedMessage}`,
+      safeRating ? `Rating: ${safeRating}/5` : 'Rating: (not provided)',
+      email ? `User Email (optional): ${email}` : 'User Email: (not provided)',
+      source ? `Source: ${source}` : 'Source: web app'
+    ];
+
+    await transporter.sendMail({
+      from: feedbackFrom,
+      to: feedbackTo,
+      subject: `New feedback${safeRating ? ` (${safeRating}/5)` : ''}`,
+      text: lines.join('\n')
+    });
+
+    res.status(200).json({ message: "Feedback sent. Thank you!" });
+  } catch (error) {
+    console.error("❌ Error sending feedback:", error);
+    res.status(500).json({ error: "Failed to send feedback." });
   }
 });
 

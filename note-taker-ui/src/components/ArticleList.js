@@ -24,6 +24,15 @@ const ArticleList = () => {
     const [pdfParsing, setPdfParsing] = useState(false);
     const canUploadPdf = !!pdfFile && !pdfUploading;
 
+    // Feedback state
+    const [feedbackOpen, setFeedbackOpen] = useState(false);
+    const [feedbackMessage, setFeedbackMessage] = useState('');
+    const [feedbackEmail, setFeedbackEmail] = useState('');
+    const [feedbackRating, setFeedbackRating] = useState(5);
+    const [feedbackStatus, setFeedbackStatus] = useState('');
+    const [feedbackError, setFeedbackError] = useState('');
+    const [feedbackSending, setFeedbackSending] = useState(false);
+
     const fetchAndGroupArticles = useCallback(async () => {
         setLoading(true);
         setError(null);
@@ -234,6 +243,34 @@ const ArticleList = () => {
         }
     };
 
+    const submitFeedback = async () => {
+        if (!feedbackMessage.trim()) {
+            setFeedbackError('Tell us a bit about your experience.');
+            return;
+        }
+        setFeedbackSending(true);
+        setFeedbackStatus('');
+        setFeedbackError('');
+        try {
+            const payload = {
+                message: feedbackMessage.trim(),
+                rating: feedbackRating,
+                email: feedbackEmail.trim(),
+                source: 'web-app'
+            };
+            await api.post('/api/feedback', payload);
+            setFeedbackStatus('Thanks for sharing. We read every note.');
+            setFeedbackMessage('');
+            setFeedbackEmail('');
+            setFeedbackRating(5);
+        } catch (err) {
+            console.error('Error sending feedback:', err);
+            setFeedbackError(err.response?.data?.error || 'Could not send feedback. Please try again.');
+        } finally {
+            setFeedbackSending(false);
+        }
+    };
+
     if (loading) return <p className="status-message">Loading articles...</p>;
     if (error) return <p className="status-message" style={{ color: 'red' }}>{error}</p>;
 
@@ -290,6 +327,65 @@ const ArticleList = () => {
                         {pdfError && <span className="status-message error-message">{pdfError}</span>}
                     </div>
                 </div>
+            </div>
+
+            <div className="feedback-card">
+                <div className="feedback-header">
+                    <div>
+                        <p className="eyebrow">Feedback</p>
+                        <h3>Help shape Note Taker</h3>
+                        <p className="muted small">Share what works, what’s missing, or a quick idea.</p>
+                    </div>
+                    <button className="notebook-button" onClick={() => setFeedbackOpen(!feedbackOpen)}>
+                        {feedbackOpen ? 'Hide' : 'Leave feedback'}
+                    </button>
+                </div>
+
+                {feedbackOpen && (
+                    <div className="feedback-body">
+                        <label className="feedback-field">
+                            <span>How do you feel?</span>
+                            <div className="feedback-rating">
+                                {[1,2,3,4,5].map((n) => (
+                                    <button
+                                        key={n}
+                                        type="button"
+                                        className={`rating-dot ${feedbackRating === n ? 'active' : ''}`}
+                                        onClick={() => setFeedbackRating(n)}
+                                    >
+                                        {n}
+                                    </button>
+                                ))}
+                                <span className="muted small">{feedbackRating}/5</span>
+                            </div>
+                        </label>
+                        <label className="feedback-field">
+                            <span>Your thoughts</span>
+                            <textarea
+                                placeholder="Quick note, idea, or wish..."
+                                value={feedbackMessage}
+                                onChange={(e) => setFeedbackMessage(e.target.value)}
+                                rows={3}
+                            />
+                        </label>
+                        <label className="feedback-field">
+                            <span>Contact (optional)</span>
+                            <input
+                                type="email"
+                                placeholder="Where we can reach you"
+                                value={feedbackEmail}
+                                onChange={(e) => setFeedbackEmail(e.target.value)}
+                            />
+                        </label>
+                        <div className="feedback-actions">
+                            <button type="button" className="notebook-button primary" onClick={submitFeedback} disabled={feedbackSending}>
+                                {feedbackSending ? 'Sending...' : 'Send feedback'}
+                            </button>
+                            {feedbackStatus && <span className="pdf-status muted small">{feedbackStatus}</span>}
+                            {feedbackError && <span className="status-message error-message">{feedbackError}</span>}
+                        </div>
+                    </div>
+                )}
             </div>
 
             <div className="new-folder-section">
