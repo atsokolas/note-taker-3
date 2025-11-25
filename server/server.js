@@ -52,20 +52,27 @@ const pdfAttachmentSchema = new mongoose.Schema({
 }, { _id: false });
 
 // --- FEEDBACK EMAIL TRANSPORT ---
-const buildFeedbackTransporter = () => {
+const validateSmtpConfig = () => {
+  const missing = [];
   const { SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS } = process.env;
-  if (!SMTP_HOST || !SMTP_PORT || !SMTP_USER || !SMTP_PASS) {
-    console.warn("⚠️ Feedback SMTP credentials are not fully configured. Set SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS.");
+  if (!SMTP_HOST) missing.push('SMTP_HOST');
+  if (!SMTP_PORT) missing.push('SMTP_PORT');
+  if (!SMTP_USER) missing.push('SMTP_USER');
+  if (!SMTP_PASS) missing.push('SMTP_PASS');
+  return { missing, host: SMTP_HOST, port: SMTP_PORT, user: SMTP_USER, pass: SMTP_PASS };
+};
+
+const buildFeedbackTransporter = () => {
+  const { missing, host, port, user, pass } = validateSmtpConfig();
+  if (missing.length) {
+    console.warn(`⚠️ Feedback SMTP missing: ${missing.join(', ')}`);
     return null;
   }
   return nodemailer.createTransport({
-    host: SMTP_HOST,
-    port: Number(SMTP_PORT),
-    secure: Number(SMTP_PORT) === 465,
-    auth: {
-      user: SMTP_USER,
-      pass: SMTP_PASS
-    }
+    host,
+    port: Number(port),
+    secure: Number(port) === 465,
+    auth: { user, pass }
   });
 };
 
