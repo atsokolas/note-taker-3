@@ -726,6 +726,14 @@ app.post('/api/feedback', async (req, res) => {
       return res.status(500).json({ error: "Email transport is not configured." });
     }
 
+    console.log("📨 Sending feedback email", {
+      to: feedbackTo,
+      from: feedbackFrom,
+      host: process.env.SMTP_HOST,
+      port: process.env.SMTP_PORT,
+      user: process.env.SMTP_USER
+    });
+
     const lines = [
       `Message: ${trimmedMessage}`,
       safeRating ? `Rating: ${safeRating}/5` : 'Rating: (not provided)',
@@ -743,7 +751,8 @@ app.post('/api/feedback', async (req, res) => {
     res.status(200).json({ message: "Feedback sent. Thank you!" });
   } catch (error) {
     console.error("❌ Error sending feedback:", error);
-    res.status(500).json({ error: "Failed to send feedback." });
+    const safeMessage = error?.message || 'Failed to send feedback.';
+    res.status(500).json({ error: safeMessage });
   }
 });
 
