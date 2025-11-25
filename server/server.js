@@ -717,6 +717,14 @@ app.post('/api/feedback', async (req, res) => {
 // GET /api/feedback - fetch feedback (authenticated)
 app.get('/api/feedback', authenticateToken, async (req, res) => {
   try {
+    const adminList = (process.env.FEEDBACK_ADMIN_USERNAMES || '')
+      .split(',')
+      .map(x => x.trim())
+      .filter(Boolean);
+    if (adminList.length > 0 && !adminList.includes(req.user?.username)) {
+      return res.status(403).json({ error: "Not authorized to view feedback." });
+    }
+
     const feedback = await Feedback.find().sort({ createdAt: -1 }).limit(200);
     res.status(200).json(feedback);
   } catch (error) {

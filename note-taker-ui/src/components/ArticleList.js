@@ -34,6 +34,7 @@ const ArticleList = () => {
     const [feedbackSending, setFeedbackSending] = useState(false);
     const [feedbackItems, setFeedbackItems] = useState([]);
     const [feedbackLoading, setFeedbackLoading] = useState(false);
+    const [feedbackAllowed, setFeedbackAllowed] = useState(true);
 
     const fetchAndGroupArticles = useCallback(async () => {
         setLoading(true);
@@ -284,6 +285,9 @@ const ArticleList = () => {
             setFeedbackItems(res.data || []);
         } catch (err) {
             console.error("Error fetching feedback:", err);
+            if (err.response?.status === 403) {
+                setFeedbackAllowed(false);
+            }
         } finally {
             setFeedbackLoading(false);
         }
@@ -405,11 +409,15 @@ const ArticleList = () => {
                         <div className="feedback-list">
                             <div className="feedback-list-header">
                                 <span className="eyebrow">Recent feedback</span>
-                                <button type="button" className="notebook-button" onClick={fetchFeedback} disabled={feedbackLoading}>
-                                    {feedbackLoading ? 'Loading...' : 'Refresh'}
-                                </button>
+                                {feedbackAllowed ? (
+                                    <button type="button" className="notebook-button" onClick={fetchFeedback} disabled={feedbackLoading}>
+                                        {feedbackLoading ? 'Loading...' : 'Refresh'}
+                                    </button>
+                                ) : (
+                                    <span className="muted small">Admins only</span>
+                                )}
                             </div>
-                            {feedbackItems && feedbackItems.length > 0 ? (
+                            {feedbackAllowed && feedbackItems && feedbackItems.length > 0 ? (
                                 <ul>
                                     {feedbackItems.slice(0, 10).map((item) => (
                                         <li key={item._id} className="feedback-list-item">
@@ -425,8 +433,10 @@ const ArticleList = () => {
                                         </li>
                                     ))}
                                 </ul>
-                            ) : (
+                            ) : feedbackAllowed ? (
                                 <p className="muted small">No feedback yet.</p>
+                            ) : (
+                                <p className="muted small">Only admins can view feedback.</p>
                             )}
                         </div>
                     </div>
