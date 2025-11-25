@@ -4,7 +4,7 @@ const mongoose = require('mongoose');
 const dotenv = require('dotenv');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const nodemailer = require('nodemailer');
+const axios = require('axios');
 
 dotenv.config();
 
@@ -51,31 +51,17 @@ const pdfAttachmentSchema = new mongoose.Schema({
   annotations: [annotationSchema]
 }, { _id: false });
 
-// --- FEEDBACK EMAIL TRANSPORT ---
-const validateSmtpConfig = () => {
-  const missing = [];
-  const { SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS } = process.env;
-  if (!SMTP_HOST) missing.push('SMTP_HOST');
-  if (!SMTP_PORT) missing.push('SMTP_PORT');
-  if (!SMTP_USER) missing.push('SMTP_USER');
-  if (!SMTP_PASS) missing.push('SMTP_PASS');
-  return { missing, host: SMTP_HOST, port: SMTP_PORT, user: SMTP_USER, pass: SMTP_PASS };
-};
 
-const buildFeedbackTransporter = () => {
-  const { missing, host, port, user, pass } = validateSmtpConfig();
-  if (missing.length) {
-    console.warn(`⚠️ Feedback SMTP missing: ${missing.join(', ')}`);
-    return null;
-  }
-  return nodemailer.createTransport({
-    host,
-    port: Number(port),
-    secure: Number(port) === 465,
-    auth: { user, pass }
-  });
-};
+// --- FEEDBACK STORAGE ONLY ---
+const feedbackSchema = new mongoose.Schema({
+  message: { type: String, required: true, trim: true },
+  rating: { type: Number, min: 1, max: 5, default: null },
+  email: { type: String, default: '' },
+  source: { type: String, default: 'web-app' },
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null }
+}, { timestamps: true });
 
+const Feedback = mongoose.model('Feedback', feedbackSchema);
 // --- NEW SCHEMA for Recommendations ---
 const recommendationSchema = new mongoose.Schema({
   articleUrl: { type: String, required: true, index: true },
@@ -704,7 +690,7 @@ app.patch('/articles/:id/pdfs', authenticateToken, async (req, res) => {
   }
 });
 
-// POST /api/feedback - lightweight feedback to email (no exposure of your address)
+// POST /api/feedback - store feedback in Mongo (no email)
 app.post('/api/feedback', async (req, res) => {
   try {
     const { message, rating, email, source } = req.body || {};
@@ -713,46 +699,29 @@ app.post('/api/feedback', async (req, res) => {
       return res.status(400).json({ error: "Feedback message is required." });
     }
     const safeRating = Number.isFinite(Number(rating)) ? Math.max(1, Math.min(5, Number(rating))) : null;
-
-    const feedbackTo = process.env.FEEDBACK_TO;
-    const feedbackFrom = process.env.FEEDBACK_FROM || process.env.SMTP_USER || 'no-reply@feedback.local';
-    if (!feedbackTo) {
-      console.error("Missing FEEDBACK_TO environment variable for feedback routing.");
-      return res.status(500).json({ error: "Feedback destination is not configured." });
-    }
-
-    const transporter = buildFeedbackTransporter();
-    if (!transporter) {
-      return res.status(500).json({ error: "Email transport is not configured." });
-    }
-
-    console.log("📨 Sending feedback email", {
-      to: feedbackTo,
-      from: feedbackFrom,
-      host: process.env.SMTP_HOST,
-      port: process.env.SMTP_PORT,
-      user: process.env.SMTP_USER
+    const feedback = new Feedback({
+      message: trimmedMessage,
+      rating: safeRating,
+      email: (email || '').trim(),
+      source: source || 'web-app',
+      userId: req.user?.id || null
     });
-
-    const lines = [
-      `Message: ${trimmedMessage}`,
-      safeRating ? `Rating: ${safeRating}/5` : 'Rating: (not provided)',
-      email ? `User Email (optional): ${email}` : 'User Email: (not provided)',
-      source ? `Source: ${source}` : 'Source: web app'
-    ];
-
-    await transporter.sendMail({
-      from: feedbackFrom,
-      to: feedbackTo,
-      subject: `New feedback${safeRating ? ` (${safeRating}/5)` : ''}`,
-      text: lines.join('\n')
-    });
-
-    res.status(200).json({ message: "Feedback sent. Thank you!" });
+    await feedback.save();
+    res.status(200).json({ message: "Feedback saved. Thank you!" });
   } catch (error) {
-    console.error("❌ Error sending feedback:", error);
-    const safeMessage = error?.message || 'Failed to send feedback.';
-    res.status(500).json({ error: safeMessage });
+    console.error("❌ Error saving feedback:", error);
+    res.status(500).json({ error: "Failed to save feedback." });
+  }
+});
+
+// GET /api/feedback - fetch feedback (authenticated)
+app.get('/api/feedback', authenticateToken, async (req, res) => {
+  try {
+    const feedback = await Feedback.find().sort({ createdAt: -1 }).limit(200);
+    res.status(200).json(feedback);
+  } catch (error) {
+    console.error("❌ Error fetching feedback:", error);
+    res.status(500).json({ error: "Failed to fetch feedback." });
   }
 });
 

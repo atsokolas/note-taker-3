@@ -32,6 +32,8 @@ const ArticleList = () => {
     const [feedbackStatus, setFeedbackStatus] = useState('');
     const [feedbackError, setFeedbackError] = useState('');
     const [feedbackSending, setFeedbackSending] = useState(false);
+    const [feedbackItems, setFeedbackItems] = useState([]);
+    const [feedbackLoading, setFeedbackLoading] = useState(false);
 
     const fetchAndGroupArticles = useCallback(async () => {
         setLoading(true);
@@ -263,6 +265,7 @@ const ArticleList = () => {
             setFeedbackMessage('');
             setFeedbackEmail('');
             setFeedbackRating(5);
+            fetchFeedback();
         } catch (err) {
             console.error('Error sending feedback:', err);
             setFeedbackError(err.response?.data?.error || 'Could not send feedback. Please try again.');
@@ -270,6 +273,21 @@ const ArticleList = () => {
             setFeedbackSending(false);
         }
     };
+
+    const fetchFeedback = useCallback(async () => {
+        try {
+            setFeedbackLoading(true);
+            const token = localStorage.getItem('token');
+            if (!token) throw new Error("Authentication token not found.");
+            const authHeaders = { headers: { 'Authorization': `Bearer ${token}` } };
+            const res = await api.get('/api/feedback', authHeaders);
+            setFeedbackItems(res.data || []);
+        } catch (err) {
+            console.error("Error fetching feedback:", err);
+        } finally {
+            setFeedbackLoading(false);
+        }
+    }, []);
 
     if (loading) return <p className="status-message">Loading articles...</p>;
     if (error) return <p className="status-message" style={{ color: 'red' }}>{error}</p>;
@@ -383,6 +401,33 @@ const ArticleList = () => {
                             </button>
                             {feedbackStatus && <span className="pdf-status muted small">{feedbackStatus}</span>}
                             {feedbackError && <span className="status-message error-message">{feedbackError}</span>}
+                        </div>
+                        <div className="feedback-list">
+                            <div className="feedback-list-header">
+                                <span className="eyebrow">Recent feedback</span>
+                                <button type="button" className="notebook-button" onClick={fetchFeedback} disabled={feedbackLoading}>
+                                    {feedbackLoading ? 'Loading...' : 'Refresh'}
+                                </button>
+                            </div>
+                            {feedbackItems && feedbackItems.length > 0 ? (
+                                <ul>
+                                    {feedbackItems.slice(0, 10).map((item) => (
+                                        <li key={item._id} className="feedback-list-item">
+                                            <div className="feedback-list-top">
+                                                <strong>{item.rating ? `${item.rating}/5` : 'No rating'}</strong>
+                                                <span className="feedback-date">{new Date(item.createdAt).toLocaleString()}</span>
+                                            </div>
+                                            <p className="feedback-message">{item.message}</p>
+                                            <p className="feedback-meta">
+                                                {item.email ? `Contact: ${item.email}` : 'No contact provided'}
+                                                {item.source ? ` · Source: ${item.source}` : ''}
+                                            </p>
+                                        </li>
+                                    ))}
+                                </ul>
+                            ) : (
+                                <p className="muted small">No feedback yet.</p>
+                            )}
                         </div>
                     </div>
                 )}

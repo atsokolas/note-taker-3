@@ -312,6 +312,58 @@ body {
   flex-wrap: wrap;
 }
 
+.feedback-list {
+  border-top: 1px solid var(--border-color);
+  padding-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.feedback-list-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.feedback-list ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.feedback-list-item {
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  padding: 10px;
+  background: var(--hover-color);
+}
+
+.feedback-list-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.feedback-date {
+  color: var(--text-color-secondary);
+  font-size: 0.85em;
+}
+
+.feedback-message {
+  margin: 6px 0;
+}
+
+.feedback-meta {
+  margin: 0;
+  color: var(--text-color-secondary);
+  font-size: 0.9em;
+}
+
 /* Folder Headers (Accordion) */
 .folder-group {
   border-bottom: 1px solid var(--border-color);
