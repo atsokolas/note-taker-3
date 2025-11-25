@@ -263,7 +263,6 @@ const ArticleList = () => {
             setFeedbackMessage('');
             setFeedbackEmail('');
             setFeedbackRating(5);
-            fetchFeedback();
         } catch (err) {
             console.error('Error sending feedback:', err);
             setFeedbackError(err.response?.data?.error || 'Could not send feedback. Please try again.');
@@ -271,24 +270,6 @@ const ArticleList = () => {
             setFeedbackSending(false);
         }
     };
-
-    const fetchFeedback = useCallback(async () => {
-        try {
-            setFeedbackLoading(true);
-            const token = localStorage.getItem('token');
-            if (!token) throw new Error("Authentication token not found.");
-            const authHeaders = { headers: { 'Authorization': `Bearer ${token}` } };
-            const res = await api.get('/api/feedback', authHeaders);
-            setFeedbackItems(res.data || []);
-        } catch (err) {
-            console.error("Error fetching feedback:", err);
-            if (err.response?.status === 403) {
-                setFeedbackAllowed(false);
-            }
-        } finally {
-            setFeedbackLoading(false);
-        }
-    }, []);
 
     if (loading) return <p className="status-message">Loading articles...</p>;
     if (error) return <p className="status-message" style={{ color: 'red' }}>{error}</p>;
