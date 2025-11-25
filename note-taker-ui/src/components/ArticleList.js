@@ -32,9 +32,6 @@ const ArticleList = () => {
     const [feedbackStatus, setFeedbackStatus] = useState('');
     const [feedbackError, setFeedbackError] = useState('');
     const [feedbackSending, setFeedbackSending] = useState(false);
-    const [feedbackItems, setFeedbackItems] = useState([]);
-    const [feedbackLoading, setFeedbackLoading] = useState(false);
-    const [feedbackAllowed, setFeedbackAllowed] = useState(true);
 
     const fetchAndGroupArticles = useCallback(async () => {
         setLoading(true);
@@ -405,39 +402,6 @@ const ArticleList = () => {
                             </button>
                             {feedbackStatus && <span className="pdf-status muted small">{feedbackStatus}</span>}
                             {feedbackError && <span className="status-message error-message">{feedbackError}</span>}
-                        </div>
-                        <div className="feedback-list">
-                            <div className="feedback-list-header">
-                                <span className="eyebrow">Recent feedback</span>
-                                {feedbackAllowed ? (
-                                    <button type="button" className="notebook-button" onClick={fetchFeedback} disabled={feedbackLoading}>
-                                        {feedbackLoading ? 'Loading...' : 'Refresh'}
-                                    </button>
-                                ) : (
-                                    <span className="muted small">Admins only</span>
-                                )}
-                            </div>
-                            {feedbackAllowed && feedbackItems && feedbackItems.length > 0 ? (
-                                <ul>
-                                    {feedbackItems.slice(0, 10).map((item) => (
-                                        <li key={item._id} className="feedback-list-item">
-                                            <div className="feedback-list-top">
-                                                <strong>{item.rating ? `${item.rating}/5` : 'No rating'}</strong>
-                                                <span className="feedback-date">{new Date(item.createdAt).toLocaleString()}</span>
-                                            </div>
-                                            <p className="feedback-message">{item.message}</p>
-                                            <p className="feedback-meta">
-                                                {item.email ? `Contact: ${item.email}` : 'No contact provided'}
-                                                {item.source ? ` · Source: ${item.source}` : ''}
-                                            </p>
-                                        </li>
-                                    ))}
-                                </ul>
-                            ) : feedbackAllowed ? (
-                                <p className="muted small">No feedback yet.</p>
-                            ) : (
-                                <p className="muted small">Only admins can view feedback.</p>
-                            )}
                         </div>
                     </div>
                 )}
