@@ -21,6 +21,7 @@ const ArticleList = () => {
     const [pdfStatus, setPdfStatus] = useState('');
     const [pdfError, setPdfError] = useState('');
     const [pdfUploading, setPdfUploading] = useState(false);
+    const [pdfParsing, setPdfParsing] = useState(false);
     const canUploadPdf = !!pdfFile && !pdfUploading;
 
     const fetchAndGroupArticles = useCallback(async () => {
@@ -140,29 +141,71 @@ const ArticleList = () => {
             setPdfError('Choose a PDF to upload.');
             return;
         }
-        const titleToUse = pdfTitle.trim() || pdfFile.name.replace(/\\.pdf$/i, '') || 'Uploaded PDF';
+        const titleToUse = pdfTitle.trim() || pdfFile.name.replace(/\.pdf$/i, '') || 'Uploaded PDF';
         setPdfUploading(true);
         setPdfError('');
-        setPdfStatus('Uploading PDF...');
+        setPdfStatus('Preparing PDF...');
         try {
-            const dataUrl = await new Promise((resolve, reject) => {
+            const ensurePdfJs = () => new Promise((resolve, reject) => {
+                if (window.pdfjsLib) return resolve(window.pdfjsLib);
+                const script = document.createElement('script');
+                script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.2.67/pdf.min.js';
+                script.onload = () => {
+                    window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.2.67/pdf.worker.min.js';
+                    resolve(window.pdfjsLib);
+                };
+                script.onerror = () => reject(new Error('Failed to load PDF.js'));
+                document.head.appendChild(script);
+            });
+
+            const arrayBuffer = await new Promise((resolve, reject) => {
                 const reader = new FileReader();
                 reader.onload = (e) => {
                     if (e.target?.result) resolve(e.target.result);
                     else reject(new Error('Could not read file.'));
                 };
                 reader.onerror = () => reject(new Error('Could not read file.'));
-                reader.readAsDataURL(pdfFile);
+                reader.readAsArrayBuffer(pdfFile);
             });
 
+            const base64Data = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+            const dataUrl = `data:application/pdf;base64,${base64Data}`;
+
+            let extractedHtml = '';
+            try {
+                setPdfParsing(true);
+                setPdfStatus('Extracting text for highlights...');
+                const pdfjsLib = await ensurePdfJs();
+                const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+                const pageTexts = [];
+                for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+                    const page = await pdf.getPage(pageNum);
+                    const textContent = await page.getTextContent();
+                    const pageText = textContent.items.map(item => item.str).join(' ');
+                    pageTexts.push(pageText);
+                }
+                const combined = pageTexts.join('\\n\\n');
+                extractedHtml = combined
+                    .split(/\\n{2,}/)
+                    .map(para => para.trim())
+                    .filter(Boolean)
+                    .map(para => `<p>${para}</p>`)
+                    .join('\\n');
+            } catch (parseErr) {
+                console.warn('PDF text extraction failed, uploading without parsed text:', parseErr);
+                extractedHtml = '';
+            } finally {
+                setPdfParsing(false);
+            }
+
             const token = localStorage.getItem('token');
-            if (!token) throw new Error("Authentication token not found.");
+            if (!token) throw new Error('Authentication token not found.');
             const authHeaders = { headers: { 'Authorization': `Bearer ${token}` } };
 
             const payload = {
                 title: titleToUse,
                 url: `uploaded://${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-                content: '',
+                content: extractedHtml,
                 folderId: pdfFolder === 'uncategorized' ? null : pdfFolder,
                 pdfs: [{
                     id: `pdf-${Date.now()}`,
@@ -184,8 +227,8 @@ const ArticleList = () => {
             await fetchAndGroupArticles();
             setPdfStatus('PDF uploaded successfully.');
         } catch (err) {
-            console.error("Error uploading PDF:", err);
-            setPdfError(err.response?.data?.error || err.message || "Failed to upload PDF.");
+            console.error('Error uploading PDF:', err);
+            setPdfError(err.response?.data?.error || err.message || 'Failed to upload PDF.');
         } finally {
             setPdfUploading(false);
         }
