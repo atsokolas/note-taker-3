@@ -665,8 +665,8 @@ app.patch('/articles/:id/move', authenticateToken, async (req, res) => {
 // PATCH /articles/:id/pdfs - replace PDF attachments and annotations for an article
 app.patch('/articles/:id/pdfs', authenticateToken, async (req, res) => {
   try {
-    const { id } = req.params;
-    const userId = req.user.id;
+      const { id } = req.params;
+      const userId = req.user.id;
     const { pdfs } = req.body;
 
     const normalizedPdfs = normalizePdfs(pdfs || []);
@@ -687,6 +687,31 @@ app.patch('/articles/:id/pdfs', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: "Invalid article ID format." });
     }
     res.status(500).json({ error: "Failed to update PDFs.", details: error.message });
+  }
+});
+
+// GET /api/highlights/all - fetch all highlights across user's articles
+app.get('/api/highlights/all', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const highlights = await Article.aggregate([
+      { $match: { userId: new mongoose.Types.ObjectId(userId) } },
+      { $unwind: '$highlights' },
+      { $project: {
+          _id: '$highlights._id',
+          articleId: '$_id',
+          articleTitle: '$title',
+          text: '$highlights.text',
+          note: '$highlights.note',
+          tags: '$highlights.tags',
+          createdAt: '$highlights.createdAt'
+      } },
+      { $sort: { createdAt: -1 } }
+    ]);
+    res.status(200).json(highlights);
+  } catch (error) {
+    console.error("❌ Error fetching all highlights:", error);
+    res.status(500).json({ error: "Failed to fetch highlights." });
   }
 });
 

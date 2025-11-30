@@ -9,6 +9,7 @@ import Login from './components/Login';
 import Trending from './components/Trending';
 import LandingPage from './components/LandingPage'; // <-- 1. IMPORT LANDING PAGE
 import Notebook from './components/Notebook';
+import AllHighlights from './pages/AllHighlights';
 import './App.css';
 
 const ChromeIcon = () => (
@@ -78,6 +79,7 @@ function App() {
                 <div className="sidebar-nav">
                   <NavLink to="/" className="sidebar-link" end>Your Library</NavLink>
                   <NavLink to="/highlights-by-tag" className="sidebar-link">Highlights by Tag</NavLink>
+                  <NavLink to="/all-highlights" className="sidebar-link">All Highlights</NavLink>
                   <NavLink to="/notebook" className="sidebar-link">Notebook</NavLink>
                   <NavLink to="/trending" className="sidebar-link">Trending</NavLink>
                 </div>
@@ -96,6 +98,7 @@ function App() {
               <Routes>
                 <Route path="/" element={<Welcome />} /> 
                 <Route path="/highlights-by-tag" element={<HighlightByTagList />} />
+                <Route path="/all-highlights" element={<AllHighlights />} />
                 <Route path="/notebook" element={<Notebook />} />
                 <Route path="/articles/:id" element={<ArticleViewer onArticleChange={refreshArticleList} />} />
                 <Route path="/trending" element={<Trending />} />
@@ -131,4 +134,3 @@ function App() {
 }
 
 export default App;
-
