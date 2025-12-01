@@ -758,6 +758,55 @@ app.get('/api/feedback', authenticateToken, async (req, res) => {
   }
 });
 
+// GET /api/search?q= - search articles and highlights
+app.get('/api/search', authenticateToken, async (req, res) => {
+  try {
+    const q = (req.query.q || '').trim();
+    if (!q) {
+      return res.status(400).json({ error: "Query parameter q is required." });
+    }
+    const userId = req.user.id;
+    const regex = new RegExp(q, 'i');
+
+    const articles = await Article.find({
+      userId,
+      $or: [{ title: regex }, { content: regex }]
+    })
+      .select('title content')
+      .sort({ updatedAt: -1 })
+      .limit(50);
+
+    const highlights = await Article.aggregate([
+      { $match: { userId: new mongoose.Types.ObjectId(userId) } },
+      { $unwind: '$highlights' },
+      { $match: {
+          $or: [
+            { 'highlights.text': regex },
+            { 'highlights.note': regex },
+            { 'highlights.tags': regex }
+          ]
+        }
+      },
+      { $project: {
+          _id: '$highlights._id',
+          articleId: '$_id',
+          articleTitle: '$title',
+          text: '$highlights.text',
+          note: '$highlights.note',
+          tags: '$highlights.tags',
+          createdAt: '$highlights.createdAt'
+      } },
+      { $sort: { createdAt: -1 } },
+      { $limit: 100 }
+    ]);
+
+    res.status(200).json({ articles, highlights });
+  } catch (error) {
+    console.error("❌ Error performing search:", error);
+    res.status(500).json({ error: "Failed to perform search." });
+  }
+});
+
 // POST /articles/:id/highlights - MODIFIED FOR USER AUTHENTICATION
 app.post('/articles/:id/highlights', authenticateToken, async (req, res) => {
   try {

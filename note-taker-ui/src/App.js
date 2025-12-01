@@ -9,6 +9,7 @@ import Trending from './components/Trending';
 import LandingPage from './components/LandingPage'; // <-- 1. IMPORT LANDING PAGE
 import Notebook from './components/Notebook';
 import AllHighlights from './pages/AllHighlights';
+import Search from './pages/Search';
 import './App.css';
 
 const ChromeIcon = () => (
@@ -79,6 +80,7 @@ function App() {
                   <NavLink to="/" className="sidebar-link" end>Your Library</NavLink>
                   <NavLink to="/all-highlights" className="sidebar-link">All Highlights</NavLink>
                   <NavLink to="/notebook" className="sidebar-link">Notebook</NavLink>
+                  <NavLink to="/search" className="sidebar-link">Search</NavLink>
                   <NavLink to="/trending" className="sidebar-link">Trending</NavLink>
                 </div>
                 <ArticleList key={articleListKey} /> 
@@ -97,6 +99,7 @@ function App() {
                 <Route path="/" element={<Welcome />} /> 
                 <Route path="/all-highlights" element={<AllHighlights />} />
                 <Route path="/notebook" element={<Notebook />} />
+                <Route path="/search" element={<Search />} />
                 <Route path="/articles/:id" element={<ArticleViewer onArticleChange={refreshArticleList} />} />
                 <Route path="/trending" element={<Trending />} />
                 {/* Redirect authenticated users away from auth pages */}
