@@ -26,6 +26,7 @@ const AllHighlights = () => {
   const [editing, setEditing] = useState(null); // { id, note, tags, articleId }
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState('');
+  const [selectedTag, setSelectedTag] = useState('all');
 
   useEffect(() => {
     const fetchData = async () => {
@@ -46,12 +47,23 @@ const AllHighlights = () => {
     fetchData();
   }, []);
 
+  const tagOptions = useMemo(() => {
+    const set = new Set();
+    highlights.forEach(h => (h.tags || []).forEach(t => set.add(t)));
+    return ['all', ...Array.from(set).sort((a, b) => a.localeCompare(b))];
+  }, [highlights]);
+
+  const filteredHighlights = useMemo(() => {
+    if (selectedTag === 'all') return highlights;
+    return highlights.filter(h => Array.isArray(h.tags) && h.tags.includes(selectedTag));
+  }, [highlights, selectedTag]);
+
   const pagedHighlights = useMemo(() => {
     const start = (page - 1) * PAGE_SIZE;
-    return highlights.slice(start, start + PAGE_SIZE);
-  }, [highlights, page]);
+    return filteredHighlights.slice(start, start + PAGE_SIZE);
+  }, [filteredHighlights, page]);
 
-  const totalPages = Math.max(1, Math.ceil(highlights.length / PAGE_SIZE));
+  const totalPages = Math.max(1, Math.ceil(filteredHighlights.length / PAGE_SIZE));
 
   const startEdit = (h) => {
     setEditing({
@@ -103,6 +115,20 @@ const AllHighlights = () => {
       <div className="article-content" style={{ maxWidth: '960px' }}>
         <h1>All Highlights</h1>
         <p className="muted">A unified feed of your newest highlights.</p>
+        <div className="filter-row" style={{ display: 'flex', gap: '12px', alignItems: 'center', marginBottom: '12px' }}>
+          <label className="feedback-field" style={{ margin: 0, flex: 1 }}>
+            <span style={{ display: 'block', marginBottom: '4px' }}>Filter by tag</span>
+            <select
+              value={selectedTag}
+              onChange={(e) => { setSelectedTag(e.target.value); setPage(1); }}
+              style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--border-color)' }}
+            >
+              {tagOptions.map(tag => (
+                <option key={tag} value={tag}>{tag === 'all' ? 'All tags' : tag}</option>
+              ))}
+            </select>
+          </label>
+        </div>
 
         {loading && <p className="status-message">Loading highlights...</p>}
         {error && <p className="status-message error-message">{error}</p>}
