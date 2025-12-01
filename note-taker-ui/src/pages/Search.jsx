@@ -20,6 +20,12 @@ const Search = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
+  const getAuthHeaders = () => {
+    const token = localStorage.getItem('token');
+    if (!token) throw new Error("Authentication token not found.");
+    return { headers: { Authorization: `Bearer ${token}` } };
+  };
+
   const doSearch = async (e) => {
     e.preventDefault();
     const q = query.trim();
@@ -27,7 +33,7 @@ const Search = () => {
     setLoading(true);
     setError('');
     try {
-      const res = await api.get(`/api/search?q=${encodeURIComponent(q)}`);
+      const res = await api.get(`/api/search?q=${encodeURIComponent(q)}`, getAuthHeaders());
       setResults(res.data || { articles: [], highlights: [] });
     } catch (err) {
       console.error('Error searching:', err);
