@@ -2,16 +2,24 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../api';
 
+const stripHtml = (input = '') => {
+  if (!input) return '';
+  const tmp = document.createElement('div');
+  tmp.innerHTML = input;
+  return tmp.textContent || tmp.innerText || '';
+};
+
 const snippet = (text = '', q = '') => {
-  if (!text) return '';
-  const lower = text.toLowerCase();
+  const clean = stripHtml(text);
+  if (!clean) return '';
+  const lower = clean.toLowerCase();
   const idx = q ? lower.indexOf(q.toLowerCase()) : -1;
-  if (idx === -1) return text.slice(0, 140) + (text.length > 140 ? '…' : '');
-  const start = Math.max(0, idx - 40);
-  const end = Math.min(text.length, idx + q.length + 60);
+  if (idx === -1) return clean.slice(0, 160) + (clean.length > 160 ? '…' : '');
+  const start = Math.max(0, idx - 60);
+  const end = Math.min(clean.length, idx + q.length + 80);
   const prefix = start > 0 ? '…' : '';
-  const suffix = end < text.length ? '…' : '';
-  return prefix + text.slice(start, end) + suffix;
+  const suffix = end < clean.length ? '…' : '';
+  return prefix + clean.slice(start, end) + suffix;
 };
 
 const Search = () => {
@@ -62,36 +70,36 @@ const Search = () => {
         </form>
         {error && <p className="status-message error-message">{error}</p>}
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '12px' }}>
-          <div className="feedback-list">
-            <div className="feedback-list-header">
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '16px' }}>
+          <div className="search-section">
+            <div className="search-section-header">
               <span className="eyebrow">Articles</span>
               <span className="muted small">{results.articles?.length || 0} results</span>
             </div>
             {results.articles && results.articles.length > 0 ? (
-              <ul>
+              <div className="search-card-grid">
                 {results.articles.map((a) => (
-                  <li key={a._id} className="feedback-list-item">
+                  <div key={a._id} className="search-card">
                     <Link to={`/articles/${a._id}`} className="article-title-link">{a.title || 'Untitled article'}</Link>
-                    <p className="feedback-message">{snippet(a.content || '', query)}</p>
-                  </li>
+                    <p className="search-snippet">{snippet(a.content || '', query)}</p>
+                  </div>
                 ))}
-              </ul>
+              </div>
             ) : (
               <p className="muted small">No articles match.</p>
             )}
           </div>
 
-          <div className="feedback-list">
-            <div className="feedback-list-header">
+          <div className="search-section">
+            <div className="search-section-header">
               <span className="eyebrow">Highlights</span>
               <span className="muted small">{results.highlights?.length || 0} results</span>
             </div>
             {results.highlights && results.highlights.length > 0 ? (
-              <ul>
+              <div className="search-card-grid">
                 {results.highlights.map((h) => (
-                  <li key={h._id} className="feedback-list-item">
-                    <div className="feedback-list-top">
+                  <div key={h._id} className="search-card">
+                    <div className="search-card-top">
                       <Link to={`/articles/${h.articleId}`} className="article-title-link">{h.articleTitle || 'Untitled article'}</Link>
                       <span className="feedback-date">{new Date(h.createdAt).toLocaleString()}</span>
                     </div>
@@ -101,10 +109,10 @@ const Search = () => {
                         <span key={tag} className="highlight-tag" style={{ marginRight: 6 }}>{tag}</span>
                       )) : <span className="muted small">No tags</span>}
                     </p>
-                    <p className="feedback-message">{snippet(h.note || '', query)}</p>
-                  </li>
+                    <p className="search-snippet">{snippet(h.note || '', query)}</p>
+                  </div>
                 ))}
-              </ul>
+              </div>
             ) : (
               <p className="muted small">No highlights match.</p>
             )}
