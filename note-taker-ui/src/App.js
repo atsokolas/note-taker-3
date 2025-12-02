@@ -7,7 +7,7 @@ import Register from './components/Register';
 import Login from './components/Login';
 import Trending from './components/Trending';
 import LandingPage from './components/LandingPage'; // <-- 1. IMPORT LANDING PAGE
-import Notebook from './components/Notebook';
+import Notebook from './pages/Notebook';
 import AllHighlights from './pages/AllHighlights';
 import Search from './pages/Search';
 import TagBrowser from './pages/TagBrowser';

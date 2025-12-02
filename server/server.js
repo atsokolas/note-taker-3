@@ -129,6 +129,15 @@ const noteSchema = new mongoose.Schema({
 
 const Note = mongoose.model('Note', noteSchema);
 
+// --- NOTEBOOK ENTRIES (new lightweight notebook) ---
+const notebookEntrySchema = new mongoose.Schema({
+  title: { type: String, required: true, trim: true },
+  content: { type: String, default: '' },
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }
+}, { timestamps: true });
+
+const NotebookEntry = mongoose.model('NotebookEntry', notebookEntrySchema);
+
 
 // --- AUTHENTICATION ADDITIONS: JWT Verification Middleware ---
 function authenticateToken(req, res, next) {
@@ -715,6 +724,79 @@ app.get('/api/highlights/all', authenticateToken, async (req, res) => {
   }
 });
 
+
+// --- NOTEBOOK ENTRY CRUD ---
+// GET /api/notebook - list entries
+app.get('/api/notebook', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const entries = await NotebookEntry.find({ userId }).sort({ updatedAt: -1 });
+    res.status(200).json(entries);
+  } catch (error) {
+    console.error("❌ Error fetching notebook entries:", error);
+    res.status(500).json({ error: "Failed to fetch notebook entries." });
+  }
+});
+
+// POST /api/notebook - create
+app.post('/api/notebook', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { title, content } = req.body;
+    const newEntry = new NotebookEntry({
+      title: (title || 'Untitled').trim(),
+      content: content || '',
+      userId
+    });
+    await newEntry.save();
+    res.status(201).json(newEntry);
+  } catch (error) {
+    console.error("❌ Error creating notebook entry:", error);
+    res.status(500).json({ error: "Failed to create notebook entry." });
+  }
+});
+
+// PUT /api/notebook/:id - update
+app.put('/api/notebook/:id', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { id } = req.params;
+    const { title, content } = req.body;
+    const updates = {};
+    if (title !== undefined) updates.title = title.trim() || 'Untitled';
+    if (content !== undefined) updates.content = content;
+
+    const updated = await NotebookEntry.findOneAndUpdate(
+      { _id: id, userId },
+      updates,
+      { new: true }
+    );
+    if (!updated) {
+      return res.status(404).json({ error: "Notebook entry not found." });
+    }
+    res.status(200).json(updated);
+  } catch (error) {
+    console.error("❌ Error updating notebook entry:", error);
+    res.status(500).json({ error: "Failed to update notebook entry." });
+  }
+});
+
+// DELETE /api/notebook/:id - delete
+app.delete('/api/notebook/:id', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { id } = req.params;
+    const deleted = await NotebookEntry.findOneAndDelete({ _id: id, userId });
+    if (!deleted) {
+      return res.status(404).json({ error: "Notebook entry not found." });
+    }
+    res.status(200).json({ message: "Notebook entry deleted." });
+  } catch (error) {
+    console.error("❌ Error deleting notebook entry:", error);
+    res.status(500).json({ error: "Failed to delete notebook entry." });
+  }
+});
+
 // POST /api/feedback - store feedback in Mongo (no email)
 app.post('/api/feedback', async (req, res) => {
   try {
@@ -927,9 +1009,18 @@ app.patch('/articles/:articleId/highlights/:highlightId', authenticateToken, asy
 
       await article.save();
 
-      // Re-fetch and populate to ensure correct response
-      const updatedArticle = await Article.findById(articleId).populate('folder');
-      res.status(200).json(updatedArticle);
+      // Return just the updated highlight with article info
+      const refreshed = await Article.findById(articleId);
+      const updatedHighlight = refreshed.highlights.id(highlightId);
+      res.status(200).json({
+        _id: updatedHighlight._id,
+        articleId: refreshed._id,
+        articleTitle: refreshed.title,
+        text: updatedHighlight.text,
+        note: updatedHighlight.note,
+        tags: updatedHighlight.tags,
+        createdAt: updatedHighlight.createdAt
+      });
   } catch (error) {
       console.error("❌ Error updating highlight:", error);
       if (error.name === 'CastError') {
