@@ -20,6 +20,12 @@ const Notebook = () => {
   const [highlightModalOpen, setHighlightModalOpen] = useState(false);
   const [allHighlights, setAllHighlights] = useState([]);
   const [hlSearch, setHlSearch] = useState('');
+  const [folders, setFolders] = useState([]);
+  const [newFolderName, setNewFolderName] = useState('');
+  const [selectedFolder, setSelectedFolder] = useState('all');
+  const [articles, setArticles] = useState([]);
+  const [linkedArticleId, setLinkedArticleId] = useState('');
+  const [tagsInput, setTagsInput] = useState('');
   const textareaRef = useRef(null);
 
   useEffect(() => {
@@ -34,6 +40,9 @@ const Notebook = () => {
           setActiveId(res.data[0]._id);
           setTitle(res.data[0].title);
           setContent(res.data[0].content);
+          setLinkedArticleId(res.data[0].linkedArticleId || '');
+          setTagsInput((res.data[0].tags || []).join(', '));
+          setSelectedFolder(res.data[0].folder || 'all');
         }
       } catch (err) {
         console.error('Error loading notebook entries:', err);
@@ -42,7 +51,27 @@ const Notebook = () => {
         setLoading(false);
       }
     };
+    const fetchFolders = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        const res = await api.get('/api/notebook/folders', { headers: { Authorization: `Bearer ${token}` } });
+        setFolders(res.data || []);
+      } catch (err) {
+        console.error('Error loading folders:', err);
+      }
+    };
+    const fetchArticles = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        const res = await api.get('/get-articles', { headers: { Authorization: `Bearer ${token}` } });
+        setArticles(res.data || []);
+      } catch (err) {
+        console.error('Error loading articles:', err);
+      }
+    };
     fetchEntries();
+    fetchFolders();
+    fetchArticles();
   }, []);
 
   useEffect(() => {
@@ -70,10 +99,18 @@ const Notebook = () => {
     ).slice(0, 100);
   }, [allHighlights, hlSearch]);
 
+  const filteredEntries = useMemo(() => {
+    if (selectedFolder === 'all') return entries;
+    return entries.filter(e => (e.folder || null) === selectedFolder);
+  }, [entries, selectedFolder]);
+
   const selectEntry = (entry) => {
     setActiveId(entry._id);
     setTitle(entry.title);
     setContent(entry.content);
+    setLinkedArticleId(entry.linkedArticleId || '');
+    setTagsInput((entry.tags || []).join(', '));
+    setSelectedFolder(entry.folder || 'all');
     setStatus('');
     setError('');
   };
@@ -103,7 +140,15 @@ const Notebook = () => {
     setError('');
     try {
       const token = localStorage.getItem('token');
-      const res = await api.put(`/api/notebook/${activeId}`, { title: title || 'Untitled', content }, { headers: { Authorization: `Bearer ${token}` } });
+      const tagsArray = tagsInput.split(',').map(t => t.trim()).filter(Boolean);
+      const payload = {
+        title: title || 'Untitled',
+        content,
+        linkedArticleId: linkedArticleId || null,
+        tags: tagsArray,
+        folder: selectedFolder === 'all' ? null : selectedFolder
+      };
+      const res = await api.put(`/api/notebook/${activeId}`, payload, { headers: { Authorization: `Bearer ${token}` } });
       setEntries(prev => prev.map(e => e._id === activeId ? res.data : e));
       setStatus('Saved');
     } catch (err) {
@@ -142,24 +187,41 @@ const Notebook = () => {
   };
 
   const insertHighlight = (text) => {
-    const textarea = textareaRef.current;
-    if (!textarea) return;
-    const start = textarea.selectionStart;
-    const end = textarea.selectionEnd;
-    const before = content.slice(0, start);
-    const after = content.slice(end);
-    const next = `${before}${text}${after}`;
-    setContent(next);
-    setTimeout(() => {
-      textarea.focus();
-      textarea.selectionStart = textarea.selectionEnd = start + text.length;
-    }, 0);
-    setHighlightModalOpen(false);
-  };
+      const textarea = textareaRef.current;
+      if (!textarea) return;
+      const start = textarea.selectionStart;
+      const end = textarea.selectionEnd;
+      const before = content.slice(0, start);
+      const after = content.slice(end);
+      const next = `${before}${text}${after}`;
+      setContent(next);
+      setTimeout(() => {
+        textarea.focus();
+        textarea.selectionStart = textarea.selectionEnd = start + text.length;
+      }, 0);
+      setHighlightModalOpen(false);
+    };
 
   const buildHighlightBlock = (h) => {
     const notePart = h.note ? `\nNote: ${h.note}` : '';
     return `> ${h.text}\n— ${h.articleTitle || 'Article'}${notePart}\n\n`;
+  };
+
+  // Drag/drop support
+  const onHighlightDragStart = (e, h) => {
+    e.dataTransfer.setData('text/plain', buildHighlightBlock(h));
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    const text = e.dataTransfer.getData('text/plain');
+    if (text) {
+      insertHighlight(text);
+    }
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
   };
 
   return (
@@ -183,10 +245,30 @@ const Notebook = () => {
                 <h2>My notes</h2>
               </div>
             </div>
+            <div className="new-folder-section" style={{ marginBottom: 12 }}>
+              <input
+                type="text"
+                placeholder="New folder"
+                value={newFolderName}
+                onChange={(e) => setNewFolderName(e.target.value)}
+                onKeyDown={async (e) => { if (e.key === 'Enter') await createFolder(); }}
+              />
+              <button onClick={async () => await createFolder()}>+</button>
+            </div>
+            <div className="tag-grid" style={{ marginBottom: 10, gap: 6 }}>
+              <button className={`tag-chip ${selectedFolder === 'all' ? 'active' : ''}`} onClick={() => setSelectedFolder('all')}>
+                All <span className="tag-count">{entries.length}</span>
+              </button>
+              {folders.map(f => (
+                <button key={f._id} className={`tag-chip ${selectedFolder === f._id ? 'active' : ''}`} onClick={() => setSelectedFolder(f._id)}>
+                  {f.name}
+                </button>
+              ))}
+            </div>
             {loading && <p className="status-message">Loading entries...</p>}
-            {!loading && entries.length === 0 && <p className="muted small">No entries yet. Create one to start writing.</p>}
+            {!loading && filteredEntries.length === 0 && <p className="muted small">No entries yet. Create one to start writing.</p>}
             <ul className="notebook-list">
-              {entries.map(e => (
+              {filteredEntries.map(e => (
                 <li
                   key={e._id}
                   className={`notebook-list-item ${activeId === e._id ? 'active' : ''}`}
@@ -211,8 +293,34 @@ const Notebook = () => {
                   onChange={(e) => setTitle(e.target.value)}
                   placeholder="Title"
                 />
-                <div className="notebook-actions">
+                <div className="notebook-actions" style={{ gap: '8px', flexWrap: 'wrap' }}>
                   <span className="notebook-updated">Updated {formatDate(entries.find(e => e._id === activeId)?.updatedAt)}</span>
+                  <select
+                    value={selectedFolder}
+                    onChange={(e) => setSelectedFolder(e.target.value)}
+                    className="notebook-title-input"
+                    style={{ maxWidth: '200px', borderBottom: '1px solid var(--border-color)' }}
+                  >
+                    <option value="all">No folder</option>
+                    {folders.map(f => <option key={f._id} value={f._id}>{f.name}</option>)}
+                  </select>
+                  <select
+                    value={linkedArticleId}
+                    onChange={(e) => setLinkedArticleId(e.target.value)}
+                    className="notebook-title-input"
+                    style={{ maxWidth: '240px', borderBottom: '1px solid var(--border-color)' }}
+                  >
+                    <option value="">No article linked</option>
+                    {articles.map(a => <option key={a._id} value={a._id}>{a.title}</option>)}
+                  </select>
+                  <input
+                    type="text"
+                    value={tagsInput}
+                    onChange={(e) => setTagsInput(e.target.value)}
+                    placeholder="Tags (comma separated)"
+                    className="notebook-title-input"
+                    style={{ maxWidth: '240px', borderBottom: '1px solid var(--border-color)' }}
+                  />
                   <button className="notebook-button" onClick={() => setHighlightModalOpen(true)}>Insert Highlight</button>
                 </div>
                 <textarea
@@ -222,6 +330,8 @@ const Notebook = () => {
                   value={content}
                   onChange={(e) => setContent(e.target.value)}
                   placeholder="Write freely..."
+                  onDrop={handleDrop}
+                  onDragOver={handleDragOver}
                 />
               </>
             ) : (
@@ -244,7 +354,14 @@ const Notebook = () => {
             />
             <div className="search-card-grid" style={{ maxHeight: '400px', overflowY: 'auto' }}>
               {filteredHighlights.map(h => (
-                <div key={h._id} className="search-card" onClick={() => insertHighlight(buildHighlightBlock(h))} style={{ cursor: 'pointer' }}>
+                <div
+                  key={h._id}
+                  className="search-card"
+                  onClick={() => insertHighlight(buildHighlightBlock(h))}
+                  style={{ cursor: 'pointer' }}
+                  draggable
+                  onDragStart={(e) => onHighlightDragStart(e, h)}
+                >
                   <div className="search-card-top">
                     <span className="article-title-link">{h.articleTitle || 'Untitled article'}</span>
                     <span className="feedback-date">{formatRelativeTime(h.createdAt)}</span>
