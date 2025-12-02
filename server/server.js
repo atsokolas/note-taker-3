@@ -807,6 +807,64 @@ app.get('/api/search', authenticateToken, async (req, res) => {
   }
 });
 
+// GET /api/tags - list unique tags with counts
+app.get('/api/tags', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const tags = await Article.aggregate([
+      { $match: { userId: new mongoose.Types.ObjectId(userId) } },
+      { $unwind: '$highlights' },
+      { $unwind: '$highlights.tags' },
+      { $group: { _id: '$highlights.tags', count: { $sum: 1 } } },
+      { $sort: { count: -1, _id: 1 } }
+    ]);
+    res.status(200).json(tags.map(t => ({ tag: t._id, count: t.count })));
+  } catch (error) {
+    console.error("❌ Error fetching tags:", error);
+    res.status(500).json({ error: "Failed to fetch tags." });
+  }
+});
+
+// GET /api/tags/:tag - highlights for a tag and related tags
+app.get('/api/tags/:tag', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const tag = req.params.tag;
+    const highlights = await Article.aggregate([
+      { $match: { userId: new mongoose.Types.ObjectId(userId) } },
+      { $unwind: '$highlights' },
+      { $match: { 'highlights.tags': tag } },
+      { $project: {
+          _id: '$highlights._id',
+          articleId: '$_id',
+          articleTitle: '$title',
+          text: '$highlights.text',
+          note: '$highlights.note',
+          tags: '$highlights.tags',
+          createdAt: '$highlights.createdAt'
+      } },
+      { $sort: { createdAt: -1 } }
+    ]);
+
+    const relatedCounts = {};
+    highlights.forEach(h => {
+      (h.tags || []).forEach(t => {
+        if (t !== tag) {
+          relatedCounts[t] = (relatedCounts[t] || 0) + 1;
+        }
+      });
+    });
+    const relatedTags = Object.entries(relatedCounts)
+      .map(([t, count]) => ({ tag: t, count }))
+      .sort((a, b) => b.count - a.count || a.tag.localeCompare(b.tag));
+
+    res.status(200).json({ tag, count: highlights.length, highlights, relatedTags });
+  } catch (error) {
+    console.error("❌ Error fetching tag details:", error);
+    res.status(500).json({ error: "Failed to fetch tag details." });
+  }
+});
+
 // POST /articles/:id/highlights - MODIFIED FOR USER AUTHENTICATION
 app.post('/articles/:id/highlights', authenticateToken, async (req, res) => {
   try {

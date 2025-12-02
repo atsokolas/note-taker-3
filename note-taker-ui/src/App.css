@@ -403,6 +403,42 @@ body {
   color: var(--text-color-secondary);
 }
 
+.tag-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.tag-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border-color);
+  background: var(--hover-color);
+  color: var(--text-color);
+  cursor: pointer;
+  transition: transform 0.1s ease, box-shadow 0.15s ease;
+}
+
+.tag-chip.active {
+  border-color: var(--primary-color);
+  box-shadow: 0 6px 12px rgba(0, 122, 255, 0.15);
+}
+
+.tag-chip:hover {
+  transform: translateY(-1px);
+}
+
+.tag-count {
+  background: var(--card-bg-color);
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-size: 0.85em;
+  color: var(--text-color-secondary);
+}
+
 /* Folder Headers (Accordion) */
 .folder-group {
   border-bottom: 1px solid var(--border-color);
