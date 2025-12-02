@@ -155,8 +155,11 @@ const Notebook = () => {
       const res = await api.post('/api/notebook/folders', { name }, { headers: { Authorization: `Bearer ${token}` } });
       setFolders(prev => [...prev, res.data]);
       setNewFolderName('');
+      setSelectedFolder(res.data._id);
+      setStatus('Folder created');
     } catch (err) {
       console.error('Error creating folder:', err);
+      setError(err.response?.data?.error || 'Failed to create folder.');
     }
   };
 
@@ -254,25 +257,28 @@ const Notebook = () => {
   return (
     <div className="content-viewer">
       <div className="article-content" style={{ maxWidth: '1100px' }}>
-        <div className="search-section-header" style={{ marginBottom: 12 }}>
-          <h1 style={{ margin: 0 }}>Notebook</h1>
-          <div style={{ display: 'flex', gap: '8px' }}>
-            <button className="notebook-button" onClick={createEntry} disabled={saving}>New</button>
-            <button className="notebook-button primary" onClick={saveEntry} disabled={saving || !activeId}>Save</button>
-            <button className="notebook-button" onClick={deleteEntry} disabled={saving || !activeId}>Delete</button>
+        <div className="notebook-header-bar">
+          <div>
+            <p className="eyebrow">Thinking layer</p>
+            <h1 className="notebook-title">Notebook</h1>
+          </div>
+          <div className="header-actions">
+            <button className="pill-button" onClick={createEntry} disabled={saving}>New</button>
+            <button className="pill-button primary" onClick={saveEntry} disabled={saving || !activeId}>Save</button>
+            <button className="pill-button danger" onClick={deleteEntry} disabled={saving || !activeId}>Delete</button>
           </div>
         </div>
         {status && <p className="status-message success-message">{status}</p>}
         {error && <p className="status-message error-message">{error}</p>}
-        <div className="notebook-wrapper" style={{ background: 'transparent', border: 'none' }}>
-          <aside className="notebook-sidebar" style={{ width: '320px' }}>
+        <div className="notebook-wrapper notebook-shell">
+          <aside className="notebook-sidebar notebook-panel" style={{ width: '320px' }}>
             <div className="notebook-sidebar-header">
               <div>
                 <p className="eyebrow">Entries</p>
                 <h2>My notes</h2>
               </div>
             </div>
-            <div className="new-folder-section" style={{ marginBottom: 12 }}>
+            <div className="folder-row">
               <input
                 type="text"
                 placeholder="New folder"
@@ -282,7 +288,7 @@ const Notebook = () => {
               />
               <button onClick={async () => await createFolder()}>+</button>
             </div>
-            <div className="tag-grid" style={{ marginBottom: 10, gap: 6 }}>
+            <div className="tag-grid pill-row">
               <button className={`tag-chip ${selectedFolder === 'all' ? 'active' : ''}`} onClick={() => setSelectedFolder('all')}>
                 All <span className="tag-count">{entries.length}</span>
               </button>
@@ -325,8 +331,8 @@ const Notebook = () => {
                   <select
                     value={selectedFolder}
                     onChange={(e) => setSelectedFolder(e.target.value)}
-                    className="notebook-title-input"
-                    style={{ maxWidth: '200px', borderBottom: '1px solid var(--border-color)' }}
+                    className="compact-select"
+                    style={{ maxWidth: '200px' }}
                   >
                     <option value="all">No folder</option>
                     {folders.map(f => <option key={f._id} value={f._id}>{f.name}</option>)}
@@ -334,8 +340,8 @@ const Notebook = () => {
                   <select
                     value={linkedArticleId}
                     onChange={(e) => setLinkedArticleId(e.target.value)}
-                    className="notebook-title-input"
-                    style={{ maxWidth: '240px', borderBottom: '1px solid var(--border-color)' }}
+                    className="compact-select"
+                    style={{ maxWidth: '240px' }}
                   >
                     <option value="">No article linked</option>
                     {articles.map(a => <option key={a._id} value={a._id}>{a.title}</option>)}
