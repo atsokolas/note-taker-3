@@ -7,6 +7,20 @@ const formatDate = (dateString) => {
   return d.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
 };
 
+const formatRelativeTime = (dateString) => {
+  if (!dateString) return '';
+  const diffMs = Date.now() - new Date(dateString).getTime();
+  const diffSec = Math.floor(diffMs / 1000);
+  const diffMin = Math.floor(diffSec / 60);
+  const diffHr = Math.floor(diffMin / 60);
+  const diffDay = Math.floor(diffHr / 24);
+  if (diffSec < 60) return `${diffSec}s ago`;
+  if (diffMin < 60) return `${diffMin}m ago`;
+  if (diffHr < 24) return `${diffHr}h ago`;
+  if (diffDay < 7) return `${diffDay}d ago`;
+  return new Date(dateString).toLocaleDateString();
+};
+
 const Notebook = () => {
   const [entries, setEntries] = useState([]);
   const [activeId, setActiveId] = useState(null);
@@ -130,6 +144,19 @@ const Notebook = () => {
       setError(err.response?.data?.error || 'Failed to create entry.');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const createFolder = async () => {
+    const name = newFolderName.trim();
+    if (!name) return;
+    try {
+      const token = localStorage.getItem('token');
+      const res = await api.post('/api/notebook/folders', { name }, { headers: { Authorization: `Bearer ${token}` } });
+      setFolders(prev => [...prev, res.data]);
+      setNewFolderName('');
+    } catch (err) {
+      console.error('Error creating folder:', err);
     }
   };
 
