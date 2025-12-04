@@ -17,7 +17,7 @@ const formatRelativeTime = (dateString) => {
 };
 
 const Trending = () => {
-  const [data, setData] = useState({ tags: [], articles: [], latestHighlights: [] });
+  const [data, setData] = useState({ recommended: [], highlighted: [] });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -28,7 +28,7 @@ const Trending = () => {
       try {
         const token = localStorage.getItem('token');
         const res = await api.get('/api/trending', { headers: { Authorization: `Bearer ${token}` } });
-        setData(res.data || { tags: [], articles: [], latestHighlights: [] });
+        setData(res.data || { recommended: [], highlighted: [] });
       } catch (err) {
         console.error('Error loading trending:', err);
         setError(err.response?.data?.error || 'Failed to load trending.');
@@ -50,27 +50,34 @@ const Trending = () => {
           <div className="search-card-grid" style={{ gridTemplateColumns: '1fr', gap: '14px' }}>
             <div className="search-section">
               <div className="search-section-header">
-                <span className="eyebrow">Hot Tags This Week</span>
-                <span className="muted small">{data.tags.length} tags</span>
+                <span className="eyebrow">Top Recommended Articles</span>
+                <span className="muted small">{data.recommended.length} items</span>
               </div>
-              <div className="tag-grid">
-                {data.tags.map(t => (
-                  <Link key={t.tag} to={`/tags`} className="tag-chip">
-                    {t.tag} <span className="tag-count">{t.count}</span>
-                  </Link>
-                ))}
-                {data.tags.length === 0 && <p className="muted small">No tag activity yet.</p>}
-              </div>
+              {data.recommended.length > 0 ? (
+                <div className="search-card-grid">
+                  {data.recommended.map(r => (
+                    <div key={r._id} className="search-card">
+                      <div className="search-card-top">
+                        <span className="article-title-link">{r.articleTitle || 'Untitled article'}</span>
+                        <span className="feedback-date">{r.recommendationCount} recs</span>
+                      </div>
+                      <p className="search-snippet">{r._id}</p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="muted small">No recommendations this week.</p>
+              )}
             </div>
 
             <div className="search-section">
               <div className="search-section-header">
                 <span className="eyebrow">Most Highlighted Articles</span>
-                <span className="muted small">{data.articles.length} articles</span>
+                <span className="muted small">{data.highlighted.length} articles</span>
               </div>
-              {data.articles.length > 0 ? (
+              {data.highlighted.length > 0 ? (
                 <div className="search-card-grid">
-                  {data.articles.map(a => (
+                  {data.highlighted.map(a => (
                     <div key={a._id} className="search-card">
                       <Link to={`/articles/${a._id}`} className="article-title-link">{a.title || 'Untitled article'}</Link>
                       <p className="feedback-meta">Highlights this week: {a.count}</p>
@@ -79,34 +86,6 @@ const Trending = () => {
                 </div>
               ) : (
                 <p className="muted small">No highlights this week.</p>
-              )}
-            </div>
-
-            <div className="search-section">
-              <div className="search-section-header">
-                <span className="eyebrow">Latest Highlights</span>
-                <span className="muted small">{data.latestHighlights.length} items</span>
-              </div>
-              {data.latestHighlights.length > 0 ? (
-                <div className="search-card-grid">
-                  {data.latestHighlights.map(h => (
-                    <div key={h._id} className="search-card">
-                      <div className="search-card-top">
-                        <Link to={`/articles/${h.articleId}`} className="article-title-link">{h.articleTitle || 'Untitled article'}</Link>
-                        <span className="feedback-date">{formatRelativeTime(h.createdAt)}</span>
-                      </div>
-                      <p className="highlight-text" style={{ margin: '6px 0', fontWeight: 600 }}>{h.text}</p>
-                      <p className="feedback-meta" style={{ marginBottom: '6px' }}>
-                        {h.tags && h.tags.length > 0 ? h.tags.map(tag => (
-                          <span key={tag} className="highlight-tag" style={{ marginRight: 6 }}>{tag}</span>
-                        )) : <span className="muted small">No tags</span>}
-                      </p>
-                      <p className="search-snippet">{h.note ? h.note.slice(0, 120) + (h.note.length > 120 ? '…' : '') : <span className="muted small">No note</span>}</p>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="muted small">No highlights yet.</p>
               )}
             </div>
           </div>

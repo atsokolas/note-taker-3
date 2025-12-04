@@ -280,56 +280,35 @@ app.post('/api/recommendations', authenticateToken, async (req, res) => {
   }
 });
 
-// GET /api/trending - tags, articles, and latest highlights (last 7 days)
+// GET /api/trending - top recommended and highlighted articles across all users (last 7 days)
 app.get('/api/trending', authenticateToken, async (req, res) => {
   try {
-    const userId = req.user.id;
     const cutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
 
-    // Hot tags
-    const tags = await Article.aggregate([
-      { $match: { userId: new mongoose.Types.ObjectId(userId) } },
-      { $unwind: '$highlights' },
-      { $match: { 'highlights.createdAt': { $gte: cutoff } } },
-      { $unwind: '$highlights.tags' },
-      { $group: { _id: '$highlights.tags', count: { $sum: 1 } } },
-      { $sort: { count: -1, _id: 1 } },
-      { $limit: 20 }
+    const recommended = await Recommendation.aggregate([
+      { $match: { createdAt: { $gte: cutoff } } },
+      { $group: {
+          _id: "$articleUrl",
+          recommendationCount: { $sum: 1 },
+          articleTitle: { $first: "$articleTitle" }
+      }},
+      { $sort: { recommendationCount: -1 } },
+      { $limit: 10 }
     ]);
 
-    // Most highlighted articles
-    const articles = await Article.aggregate([
-      { $match: { userId: new mongoose.Types.ObjectId(userId) } },
+    const highlighted = await Article.aggregate([
       { $unwind: '$highlights' },
       { $match: { 'highlights.createdAt': { $gte: cutoff } } },
-      { $group: { _id: '$_id', title: { $first: '$title' }, count: { $sum: 1 } } },
+      { $group: {
+          _id: '$_id',
+          title: { $first: '$title' },
+          count: { $sum: 1 }
+      }},
       { $sort: { count: -1, title: 1 } },
       { $limit: 10 }
     ]);
 
-    // Latest highlights
-    const latestHighlights = await Article.aggregate([
-      { $match: { userId: new mongoose.Types.ObjectId(userId) } },
-      { $unwind: '$highlights' },
-      { $match: { 'highlights.createdAt': { $gte: cutoff } } },
-      { $project: {
-          _id: '$highlights._id',
-          articleId: '$_id',
-          articleTitle: '$title',
-          text: '$highlights.text',
-          note: '$highlights.note',
-          tags: '$highlights.tags',
-          createdAt: '$highlights.createdAt'
-      } },
-      { $sort: { createdAt: -1 } },
-      { $limit: 20 }
-    ]);
-
-    res.status(200).json({
-      tags: tags.map(t => ({ tag: t._id, count: t.count })),
-      articles,
-      latestHighlights
-    });
+    res.status(200).json({ recommended, highlighted });
   } catch (error) {
     console.error("❌ Error fetching trending data:", error);
     res.status(500).json({ error: "Failed to fetch trending." });
