@@ -280,27 +280,59 @@ app.post('/api/recommendations', authenticateToken, async (req, res) => {
   }
 });
 
-// GET /api/trending - Get a list of the most recommended articles
-app.get('/api/trending', async (req, res) => {
+// GET /api/trending - tags, articles, and latest highlights (last 7 days)
+app.get('/api/trending', authenticateToken, async (req, res) => {
   try {
-      const trendingArticles = await Recommendation.aggregate([
-          // Group documents by articleUrl and count how many times each appears
-          { $group: {
-              _id: "$articleUrl",
-              recommendationCount: { $sum: 1 },
-              articleTitle: { $first: "$articleTitle" } // Get the title from the first document in each group
-          }},
-          // Sort by the count in descending order
-          { $sort: { recommendationCount: -1 } },
-          // Limit to the top 10 results
-          { $limit: 10 }
-      ]);
+    const userId = req.user.id;
+    const cutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
 
-      res.status(200).json(trendingArticles);
+    // Hot tags
+    const tags = await Article.aggregate([
+      { $match: { userId: new mongoose.Types.ObjectId(userId) } },
+      { $unwind: '$highlights' },
+      { $match: { 'highlights.createdAt': { $gte: cutoff } } },
+      { $unwind: '$highlights.tags' },
+      { $group: { _id: '$highlights.tags', count: { $sum: 1 } } },
+      { $sort: { count: -1, _id: 1 } },
+      { $limit: 20 }
+    ]);
 
+    // Most highlighted articles
+    const articles = await Article.aggregate([
+      { $match: { userId: new mongoose.Types.ObjectId(userId) } },
+      { $unwind: '$highlights' },
+      { $match: { 'highlights.createdAt': { $gte: cutoff } } },
+      { $group: { _id: '$_id', title: { $first: '$title' }, count: { $sum: 1 } } },
+      { $sort: { count: -1, title: 1 } },
+      { $limit: 10 }
+    ]);
+
+    // Latest highlights
+    const latestHighlights = await Article.aggregate([
+      { $match: { userId: new mongoose.Types.ObjectId(userId) } },
+      { $unwind: '$highlights' },
+      { $match: { 'highlights.createdAt': { $gte: cutoff } } },
+      { $project: {
+          _id: '$highlights._id',
+          articleId: '$_id',
+          articleTitle: '$title',
+          text: '$highlights.text',
+          note: '$highlights.note',
+          tags: '$highlights.tags',
+          createdAt: '$highlights.createdAt'
+      } },
+      { $sort: { createdAt: -1 } },
+      { $limit: 20 }
+    ]);
+
+    res.status(200).json({
+      tags: tags.map(t => ({ tag: t._id, count: t.count })),
+      articles,
+      latestHighlights
+    });
   } catch (error) {
-      console.error("❌ Error fetching trending articles:", error);
-      res.status(500).json({ error: "Internal server error." });
+    console.error("❌ Error fetching trending data:", error);
+    res.status(500).json({ error: "Failed to fetch trending." });
   }
 });
 
