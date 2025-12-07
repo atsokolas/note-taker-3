@@ -355,11 +355,13 @@ const ArticleViewer = ({ onArticleChange }) => {
     };
 
     const saveHighlight = async () => {
-        // ...
+        if (!popup.text) return;
+        const position = selectionRangeRef.current ? selectionRangeRef.current.startOffset : 0;
         const newHighlight = { 
             text: popup.text,
-            note: newHighlightNote, 
-            tags: newHighlightTags.split(',').map(tag => tag.trim()).filter(t => t) 
+            note: '',
+            tags: [],
+            position
         }; 
         window.getSelection()?.removeAllRanges();
         setPopup({ visible: false, x: 0, y: 0, text: '' });
@@ -367,7 +369,6 @@ const ArticleViewer = ({ onArticleChange }) => {
             const res = await api.post(`/articles/${id}/highlights`, newHighlight, getAuthConfig());
             const processedArticle = processArticleContent(res.data);
             setArticle(processedArticle);
-            alert("Highlight saved!");
         } catch (err) {
             console.error("Failed to save highlight:", err);
             alert("Error: Could not save highlight.");
@@ -529,14 +530,13 @@ const ArticleViewer = ({ onArticleChange }) => {
                     <CitationGenerator article={article} />
                     
                     <div
-                        ref={contentRef}
-                        className="content-body"
-                        dangerouslySetInnerHTML={{ __html: article.content }}
+                    ref={contentRef}
+                    className="content-body"
+                    dangerouslySetInnerHTML={{ __html: article.content }}
                     />
                     {popup.visible && (
                         <div
                             ref={popupRef}
-                            // ... (Your existing popup code)
                             onMouseDown={preventFocusSteal}
                             className="highlight-popup-web-app-container"
                             style={{ 
@@ -546,28 +546,13 @@ const ArticleViewer = ({ onArticleChange }) => {
                                 transform: 'translate(-50%, -100%)'
                             }}
                         >
-                            <textarea 
-                                className="highlight-input highlight-note-input"
-                                placeholder="Add a note (optional)"
-                                value={newHighlightNote}
-                                onChange={(e) => setNewHighlightNote(e.target.value)}
-                            ></textarea>
-                            <input 
-                                type="text"
-                                className="highlight-input highlight-tags-input"
-                                placeholder="Tags (comma-separated, optional)"
-                                value={newHighlightTags}
-                                onChange={(e) => setNewHighlightTags(e.target.value)}
-                            />
                             <button
-                                className="highlight-popup-save-button"
+                                className="pill-button primary"
                                 onClick={saveHighlight}
-                                title="Save Highlight"
+                                title="Highlight"
+                                style={{ padding: '8px 12px', fontSize: '0.9em' }}
                             >
-                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="highlight-icon">
-                                    <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
-                                </svg>
-                                <span className="highlight-label">Save</span>
+                                Highlight
                             </button>
                         </div>
                     )}
