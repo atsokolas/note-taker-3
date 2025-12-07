@@ -1059,6 +1059,43 @@ app.get('/api/tags/cooccurrence', authenticateToken, async (req, res) => {
   }
 });
 
+// GET /api/tags/filter?tags=a,b - highlights containing all selected tags
+app.get('/api/tags/filter', authenticateToken, async (req, res) => {
+  try {
+    const userId = new mongoose.Types.ObjectId(req.user.id);
+    const tagsParam = (req.query.tags || '').trim();
+    if (!tagsParam) {
+      return res.status(400).json({ error: "Query parameter 'tags' is required (comma-separated)." });
+    }
+    const tags = tagsParam.split(',').map(t => t.trim()).filter(Boolean);
+    if (tags.length === 0) {
+      return res.status(400).json({ error: "At least one tag is required." });
+    }
+
+    const highlights = await Article.aggregate([
+      { $match: { userId } },
+      { $unwind: '$highlights' },
+      { $match: { 'highlights.tags': { $all: tags } } },
+      { $project: {
+          _id: '$highlights._id',
+          articleId: '$_id',
+          articleTitle: '$title',
+          text: '$highlights.text',
+          note: '$highlights.note',
+          tags: '$highlights.tags',
+          createdAt: '$highlights.createdAt'
+      } },
+      { $sort: { createdAt: -1 } },
+      { $limit: 200 }
+    ]);
+
+    res.status(200).json(highlights);
+  } catch (error) {
+    console.error("❌ Error filtering highlights by tags:", error);
+    res.status(500).json({ error: "Failed to fetch highlights by tags." });
+  }
+});
+
 // GET /api/tags/:tag - highlights for a tag and related tags
 app.get('/api/tags/:tag', authenticateToken, async (req, res) => {
   try {

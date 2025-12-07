@@ -28,6 +28,10 @@ const TagBrowser = () => {
   const [pairs, setPairs] = useState([]);
   const [loadingPairs, setLoadingPairs] = useState(false);
   const [pairsError, setPairsError] = useState('');
+  const [selectedTags, setSelectedTags] = useState([]);
+  const [filteredHighlights, setFilteredHighlights] = useState([]);
+  const [loadingFiltered, setLoadingFiltered] = useState(false);
+  const [filteredError, setFilteredError] = useState('');
 
   useEffect(() => {
     const fetchTags = async () => {
@@ -66,6 +70,34 @@ const TagBrowser = () => {
     };
     fetchPairs();
   }, []);
+
+  useEffect(() => {
+    const fetchFiltered = async () => {
+      if (selectedTags.length === 0) {
+        setFilteredHighlights([]);
+        setFilteredError('');
+        return;
+      }
+      setLoadingFiltered(true);
+      setFilteredError('');
+      try {
+        const token = localStorage.getItem('token');
+        const authHeaders = { headers: { Authorization: `Bearer ${token}` } };
+        const res = await api.get(`/api/tags/filter?tags=${encodeURIComponent(selectedTags.join(','))}`, authHeaders);
+        setFilteredHighlights(res.data || []);
+      } catch (err) {
+        console.error('Error loading filtered highlights:', err);
+        setFilteredError(err.response?.data?.error || 'Failed to load highlights for those tags.');
+      } finally {
+        setLoadingFiltered(false);
+      }
+    };
+    fetchFiltered();
+  }, [selectedTags]);
+
+  const toggleSelectedTag = (tag) => {
+    setSelectedTags(prev => prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]);
+  };
 
   const selectTag = async (tag) => {
     setSelectedTag(tag);
@@ -111,8 +143,8 @@ const TagBrowser = () => {
             {sortedTags.map(t => (
               <TagChip
                 key={t.tag}
-                className={selectedTag === t.tag ? 'active' : ''}
-                onClick={() => selectTag(t.tag)}
+                className={`${selectedTag === t.tag ? 'active' : ''} ${selectedTags.includes(t.tag) ? 'active' : ''}`}
+                onClick={() => toggleSelectedTag(t.tag)}
               >
                 {t.tag} <span className="tag-count">{t.count}</span>
               </TagChip>
@@ -138,6 +170,33 @@ const TagBrowser = () => {
                     <TagChip>{p.tagB}</TagChip>
                   </div>
                   <p className="muted small">{p.count} co-occurrences</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+
+        <Card className="search-section">
+          <div className="search-section-header">
+            <span className="eyebrow">Highlights for selected tags</span>
+            <span className="muted small">{selectedTags.length > 0 ? selectedTags.join(', ') : 'Select tags to explore'}</span>
+          </div>
+          {loadingFiltered && <p className="status-message">Loading highlights…</p>}
+          {filteredError && <p className="status-message error-message">{filteredError}</p>}
+          {!loadingFiltered && !filteredError && (
+            <div className="search-card-grid">
+              {selectedTags.length === 0 && <p className="muted small">Tap tags above to explore combined highlights.</p>}
+              {selectedTags.length > 0 && filteredHighlights.length === 0 && <p className="muted small">No highlights match that combination.</p>}
+              {filteredHighlights.map(h => (
+                <div key={h._id} className="search-card">
+                  <div className="search-card-top">
+                    <Link to={`/articles/${h.articleId}`} className="article-title-link">{h.articleTitle || 'Untitled article'}</Link>
+                    <span className="feedback-date">{formatRelativeTime(h.createdAt)}</span>
+                  </div>
+                  <p className="highlight-text" style={{ margin: '6px 0', fontWeight: 600 }}>{h.text}</p>
+                  <div className="highlight-tag-chips" style={{ marginBottom: 6 }}>
+                    {h.tags && h.tags.length > 0 ? h.tags.map(tag => <TagChip key={tag}>{tag}</TagChip>) : <span className="muted small">No tags</span>}
+                  </div>
                 </div>
               ))}
             </div>
