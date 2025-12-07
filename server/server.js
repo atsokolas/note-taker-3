@@ -780,6 +780,22 @@ app.post('/api/notebook', authenticateToken, async (req, res) => {
   }
 });
 
+// GET /api/notebook/:id - fetch single entry
+app.get('/api/notebook/:id', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { id } = req.params;
+    const entry = await NotebookEntry.findOne({ _id: id, userId });
+    if (!entry) {
+      return res.status(404).json({ error: "Notebook entry not found." });
+    }
+    res.status(200).json(entry);
+  } catch (error) {
+    console.error("❌ Error fetching notebook entry:", error);
+    res.status(500).json({ error: "Failed to fetch notebook entry." });
+  }
+});
+
 // PUT /api/notebook/:id - update
 app.put('/api/notebook/:id', authenticateToken, async (req, res) => {
   try {
@@ -1016,6 +1032,110 @@ app.get('/api/tags/:tag', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error("❌ Error fetching tag details:", error);
     res.status(500).json({ error: "Failed to fetch tag details." });
+  }
+});
+
+// GET /api/brain/summary - surface patterns from highlights/articles (non-AI)
+app.get('/api/brain/summary', authenticateToken, async (req, res) => {
+  try {
+    const userId = new mongoose.Types.ObjectId(req.user.id);
+    const now = new Date();
+    const cutoff30 = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    const cutoff14 = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
+
+    // Top tags (last 30 days)
+    const topTagsAgg = await Article.aggregate([
+      { $match: { userId } },
+      { $unwind: '$highlights' },
+      { $match: { 'highlights.createdAt': { $gte: cutoff30 } } },
+      { $unwind: '$highlights.tags' },
+      { $group: { _id: '$highlights.tags', count: { $sum: 1 } } },
+      { $sort: { count: -1, _id: 1 } },
+      { $limit: 5 },
+      { $project: { _id: 0, tag: '$_id', count: 1 } }
+    ]);
+
+    // Most highlighted articles (last 30 days)
+    const mostHighlightedAgg = await Article.aggregate([
+      { $match: { userId } },
+      { $unwind: '$highlights' },
+      { $match: { 'highlights.createdAt': { $gte: cutoff30 } } },
+      { $group: { _id: '$_id', title: { $first: '$title' }, count: { $sum: 1 } } },
+      { $sort: { count: -1, title: 1 } },
+      { $limit: 5 },
+      { $project: { _id: 0, articleId: '$_id', title: 1, count: 1 } }
+    ]);
+
+    // Recent highlights (10 newest)
+    const recentHighlights = await Article.aggregate([
+      { $match: { userId } },
+      { $unwind: '$highlights' },
+      { $sort: { 'highlights.createdAt': -1 } },
+      { $limit: 10 },
+      { $project: {
+          _id: 0,
+          text: '$highlights.text',
+          tags: '$highlights.tags',
+          articleTitle: '$title',
+          articleId: '$_id',
+          createdAt: '$highlights.createdAt'
+      } }
+    ]);
+
+    // Tag correlations (last 30 days) computed in memory for clarity
+    const highlightsForPairs = await Article.aggregate([
+      { $match: { userId } },
+      { $unwind: '$highlights' },
+      { $match: { 'highlights.createdAt': { $gte: cutoff30 } } },
+      { $project: { tags: '$highlights.tags' } }
+    ]);
+
+    const pairCounts = {};
+    highlightsForPairs.forEach(h => {
+      const tags = Array.isArray(h.tags) ? [...new Set(h.tags.filter(Boolean))] : [];
+      for (let i = 0; i < tags.length; i++) {
+        for (let j = i + 1; j < tags.length; j++) {
+          const a = tags[i];
+          const b = tags[j];
+          if (!a || !b) continue;
+          const [tagA, tagB] = a.localeCompare(b) <= 0 ? [a, b] : [b, a];
+          const key = `${tagA}:::${tagB}`;
+          pairCounts[key] = (pairCounts[key] || 0) + 1;
+        }
+      }
+    });
+    const tagCorrelations = Object.entries(pairCounts)
+      .map(([key, count]) => {
+        const [tagA, tagB] = key.split(':::');
+        return { tagA, tagB, count };
+      })
+      .sort((a, b) => b.count - a.count || a.tagA.localeCompare(b.tagA))
+      .slice(0, 20);
+
+    // Reading streak: days with at least 1 highlight in last 14 days
+    const streakAgg = await Article.aggregate([
+      { $match: { userId } },
+      { $unwind: '$highlights' },
+      { $match: { 'highlights.createdAt': { $gte: cutoff14 } } },
+      { $project: {
+          day: {
+            $dateToString: { format: "%Y-%m-%d", date: '$highlights.createdAt' }
+          }
+      } },
+      { $group: { _id: '$day', count: { $sum: 1 } } }
+    ]);
+    const readingStreaks = streakAgg.length;
+
+    res.status(200).json({
+      topTags: topTagsAgg,
+      mostHighlightedArticles: mostHighlightedAgg,
+      recentHighlights,
+      tagCorrelations,
+      readingStreaks
+    });
+  } catch (error) {
+    console.error("❌ Error building brain summary:", error);
+    res.status(500).json({ error: "Failed to build brain summary." });
   }
 });
 

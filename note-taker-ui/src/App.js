@@ -11,6 +11,7 @@ import Notebook from './pages/Notebook';
 import AllHighlights from './pages/AllHighlights';
 import Search from './pages/Search';
 import TagBrowser from './pages/TagBrowser';
+import Brain from './pages/Brain';
 import { Page, Card, Sidebar } from './components/ui';
 import './styles/theme.css';
 import './App.css';
@@ -64,7 +65,7 @@ function App() {
   };
 
   const navItems = [
-    { label: 'Brain', to: '/', end: true },
+    { label: 'Brain', to: '/brain' },
     { label: 'Library', to: '/library' },
     { label: 'Highlights', to: '/all-highlights' },
     { label: 'Tags/Collections', to: '/tags' },
@@ -109,6 +110,7 @@ function App() {
             <Routes>
               <Route path="/" element={<Welcome />} /> 
               <Route path="/library" element={<Welcome />} />
+              <Route path="/brain" element={<Brain />} />
               <Route path="/all-highlights" element={<AllHighlights />} />
               <Route path="/tags" element={<TagBrowser />} />
               <Route path="/notebook" element={<Notebook />} />
