@@ -13,6 +13,8 @@ import Search from './pages/Search';
 import TagBrowser from './pages/TagBrowser';
 import Brain from './pages/Brain';
 import Journey from './pages/Journey';
+import Collections from './pages/Collections';
+import CollectionDetail from './pages/CollectionDetail';
 import { Page, Card, Sidebar } from './components/ui';
 import './styles/theme.css';
 import './App.css';
@@ -69,7 +71,8 @@ function App() {
     { label: 'Brain', to: '/brain' },
     { label: 'Library', to: '/library' },
     { label: 'Highlights', to: '/all-highlights' },
-    { label: 'Tags/Collections', to: '/tags' },
+    { label: 'Tags', to: '/tags' },
+    { label: 'Collections', to: '/collections' },
     { label: 'Notebook', to: '/notebook' },
     { label: 'Journey', to: '/journey' },
     { label: 'Trending', to: '/trending' }
@@ -114,6 +117,8 @@ function App() {
               <Route path="/brain" element={<Brain />} />
               <Route path="/all-highlights" element={<AllHighlights />} />
               <Route path="/tags" element={<TagBrowser />} />
+              <Route path="/collections" element={<Collections />} />
+              <Route path="/collections/:slug" element={<CollectionDetail />} />
               <Route path="/notebook" element={<Notebook />} />
               <Route path="/search" element={<Search />} />
               <Route path="/journey" element={<Journey />} />

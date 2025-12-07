@@ -49,10 +49,5 @@ export const Sidebar = ({ brand = 'Note Taker', navItems = [], footer, onLogout,
   </aside>
 );
 
-export default {
-  Page,
-  Card,
-  Button,
-  Sidebar,
-  TagChip
-};
+const ui = { Page, Card, Button, Sidebar, TagChip };
+export default ui;
