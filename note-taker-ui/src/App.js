@@ -13,6 +13,7 @@ import Search from './pages/Search';
 import TagBrowser from './pages/TagBrowser';
 import Brain from './pages/Brain';
 import Journey from './pages/Journey';
+import Resurface from './pages/Resurface';
 import Collections from './pages/Collections';
 import CollectionDetail from './pages/CollectionDetail';
 import { Page, Card, Sidebar } from './components/ui';
@@ -69,6 +70,7 @@ function App() {
 
   const navItems = [
     { label: 'Brain', to: '/brain' },
+    { label: 'Resurface', to: '/resurface' },
     { label: 'Library', to: '/library' },
     { label: 'Highlights', to: '/all-highlights' },
     { label: 'Tags', to: '/tags' },
@@ -115,6 +117,7 @@ function App() {
               <Route path="/" element={<Welcome />} /> 
               <Route path="/library" element={<Welcome />} />
               <Route path="/brain" element={<Brain />} />
+              <Route path="/resurface" element={<Resurface />} />
               <Route path="/all-highlights" element={<AllHighlights />} />
               <Route path="/tags" element={<TagBrowser />} />
               <Route path="/collections" element={<Collections />} />
