@@ -25,6 +25,9 @@ const TagBrowser = () => {
   const [tagDetail, setTagDetail] = useState(null);
   const [detailError, setDetailError] = useState('');
   const [detailLoading, setDetailLoading] = useState(false);
+  const [pairs, setPairs] = useState([]);
+  const [loadingPairs, setLoadingPairs] = useState(false);
+  const [pairsError, setPairsError] = useState('');
 
   useEffect(() => {
     const fetchTags = async () => {
@@ -43,6 +46,25 @@ const TagBrowser = () => {
       }
     };
     fetchTags();
+  }, []);
+
+  useEffect(() => {
+    const fetchPairs = async () => {
+      setLoadingPairs(true);
+      setPairsError('');
+      try {
+        const token = localStorage.getItem('token');
+        const authHeaders = { headers: { Authorization: `Bearer ${token}` } };
+        const res = await api.get('/api/tags/cooccurrence', authHeaders);
+        setPairs(res.data || []);
+      } catch (err) {
+        console.error('Error loading co-occurrence:', err);
+        setPairsError(err.response?.data?.error || 'Failed to load co-occurrence.');
+      } finally {
+        setLoadingPairs(false);
+      }
+    };
+    fetchPairs();
   }, []);
 
   const selectTag = async (tag) => {
@@ -97,6 +119,29 @@ const TagBrowser = () => {
             ))}
             {sortedTags.length === 0 && !loadingTags && <p className="muted small">No tags yet.</p>}
           </div>
+        </Card>
+
+        <Card className="search-section">
+          <div className="search-section-header">
+            <span className="eyebrow">Tag Explorer (Top pairs)</span>
+            <span className="muted small">{pairs.length} pairs</span>
+          </div>
+          {loadingPairs && <p className="status-message">Loading pairs...</p>}
+          {pairsError && <p className="status-message error-message">{pairsError}</p>}
+          {!loadingPairs && !pairsError && (
+            <div className="search-card-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))' }}>
+              {pairs.length === 0 && <p className="muted small">No pairs yet.</p>}
+              {pairs.map((p, idx) => (
+                <div key={`${p.tagA}-${p.tagB}-${idx}`} className="search-card">
+                  <div className="highlight-tag-chips" style={{ marginBottom: 6 }}>
+                    <TagChip>{p.tagA}</TagChip>
+                    <TagChip>{p.tagB}</TagChip>
+                  </div>
+                  <p className="muted small">{p.count} co-occurrences</p>
+                </div>
+              ))}
+            </div>
+          )}
         </Card>
 
         <Card className="search-section">

@@ -1019,6 +1019,46 @@ app.get('/api/tags', authenticateToken, async (req, res) => {
   }
 });
 
+// GET /api/tags/cooccurrence - top tag pairs
+app.get('/api/tags/cooccurrence', authenticateToken, async (req, res) => {
+  try {
+    const userId = new mongoose.Types.ObjectId(req.user.id);
+    const highlights = await Article.aggregate([
+      { $match: { userId } },
+      { $unwind: '$highlights' },
+      { $project: { tags: '$highlights.tags' } }
+    ]);
+
+    const pairCounts = {};
+    highlights.forEach(h => {
+      const tags = Array.isArray(h.tags) ? [...new Set(h.tags.filter(Boolean))] : [];
+      for (let i = 0; i < tags.length; i++) {
+        for (let j = i + 1; j < tags.length; j++) {
+          const a = tags[i];
+          const b = tags[j];
+          if (!a || !b) continue;
+          const [tagA, tagB] = a.localeCompare(b) <= 0 ? [a, b] : [b, a];
+          const key = `${tagA}:::${tagB}`;
+          pairCounts[key] = (pairCounts[key] || 0) + 1;
+        }
+      }
+    });
+
+    const pairs = Object.entries(pairCounts)
+      .map(([key, count]) => {
+        const [tagA, tagB] = key.split(':::');
+        return { tagA, tagB, count };
+      })
+      .sort((a, b) => b.count - a.count || a.tagA.localeCompare(b.tagA))
+      .slice(0, 20);
+
+    res.status(200).json(pairs);
+  } catch (error) {
+    console.error("❌ Error computing tag cooccurrence:", error);
+    res.status(500).json({ error: "Failed to compute tag cooccurrence." });
+  }
+});
+
 // GET /api/tags/:tag - highlights for a tag and related tags
 app.get('/api/tags/:tag', authenticateToken, async (req, res) => {
   try {
