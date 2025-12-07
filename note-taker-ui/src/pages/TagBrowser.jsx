@@ -178,15 +178,15 @@ const TagBrowser = () => {
 
         <Card className="search-section">
           <div className="search-section-header">
-            <span className="eyebrow">Highlights for selected tags</span>
+            <span className="eyebrow">Highlights for selected tags (OR)</span>
             <span className="muted small">{selectedTags.length > 0 ? selectedTags.join(', ') : 'Select tags to explore'}</span>
           </div>
           {loadingFiltered && <p className="status-message">Loading highlights…</p>}
           {filteredError && <p className="status-message error-message">{filteredError}</p>}
           {!loadingFiltered && !filteredError && (
             <div className="search-card-grid">
-              {selectedTags.length === 0 && <p className="muted small">Tap tags above to explore combined highlights.</p>}
-              {selectedTags.length > 0 && filteredHighlights.length === 0 && <p className="muted small">No highlights match that combination.</p>}
+              {selectedTags.length === 0 && <p className="muted small">Tap tags above to explore highlights that include any of them.</p>}
+              {selectedTags.length > 0 && filteredHighlights.length === 0 && <p className="muted small">No highlights match those tags yet.</p>}
               {filteredHighlights.map(h => (
                 <div key={h._id} className="search-card">
                   <div className="search-card-top">

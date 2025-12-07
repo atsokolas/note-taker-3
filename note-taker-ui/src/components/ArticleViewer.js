@@ -89,9 +89,6 @@ const ArticleViewer = ({ onArticleChange }) => {
     const [editNote, setEditNote] = useState('');
     const [editTags, setEditTags] = useState('');
 
-    const [newHighlightNote, setNewHighlightNote] = useState('');
-    const [newHighlightTags, setNewHighlightTags] = useState('');
-
     const [isRecommendModalOpen, setIsRecommendModalOpen] = useState(false);
     const [selectedHighlights, setSelectedHighlights] = useState([]);
     const [pdfs, setPdfs] = useState([]);
@@ -275,8 +272,6 @@ const ArticleViewer = ({ onArticleChange }) => {
                 const range = selection.getRangeAt(0);
                 const rect = range.getBoundingClientRect();
                 setPopup({ visible: true, x: rect.left + window.scrollX + (rect.width / 2), y: rect.top + window.scrollY, text: selectedText });
-                setNewHighlightNote('');
-                setNewHighlightTags('');
             }
         };
 

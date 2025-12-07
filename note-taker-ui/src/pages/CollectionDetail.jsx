@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import api from '../api';
 import { Page, Card, Button, TagChip } from '../components/ui';
@@ -17,7 +17,7 @@ const CollectionDetail = () => {
 
   const headers = () => ({ headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
@@ -29,9 +29,9 @@ const CollectionDetail = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [slug]);
 
-  const loadExtras = async () => {
+  const loadExtras = useCallback(async () => {
     try {
       const art = await api.get('/get-articles', headers());
       setArticles(art.data || []);
@@ -40,12 +40,12 @@ const CollectionDetail = () => {
     } catch (err) {
       console.error('Error loading lists:', err);
     }
-  };
+  }, []);
 
   useEffect(() => {
     load();
     loadExtras();
-  }, [slug]);
+  }, [load, loadExtras]);
 
   const updateCollectionItems = async (newArticleIds, newHighlightIds) => {
     if (!data?.collection?._id) return;

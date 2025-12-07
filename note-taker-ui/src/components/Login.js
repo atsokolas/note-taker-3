@@ -77,7 +77,7 @@ const Login = ({ onLoginSuccess, chromeStoreLink }) => {
                 <button type="submit" className="auth-button">Login</button>
             </form>
             {message && (<p className={`status-message ${isError ? 'error-message' : 'success-message'}`}>{message}</p>)}
-            <p className="auth-link">Don't have an account? <a onClick={() => navigate('/register')}>Register here</a></p>
+            <p className="auth-link">Don't have an account? <button type="button" className="link-button" onClick={() => navigate('/register')}>Register here</button></p>
         </div>
     );
 };

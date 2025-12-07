@@ -1059,7 +1059,7 @@ app.get('/api/tags/cooccurrence', authenticateToken, async (req, res) => {
   }
 });
 
-// GET /api/tags/filter?tags=a,b - highlights containing all selected tags
+// GET /api/tags/filter?tags=a,b - highlights containing any of the selected tags
 app.get('/api/tags/filter', authenticateToken, async (req, res) => {
   try {
     const userId = new mongoose.Types.ObjectId(req.user.id);
@@ -1075,7 +1075,7 @@ app.get('/api/tags/filter', authenticateToken, async (req, res) => {
     const highlights = await Article.aggregate([
       { $match: { userId } },
       { $unwind: '$highlights' },
-      { $match: { 'highlights.tags': { $all: tags } } },
+      { $match: { 'highlights.tags': { $in: tags } } },
       { $project: {
           _id: '$highlights._id',
           articleId: '$_id',

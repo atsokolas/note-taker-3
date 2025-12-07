@@ -21,7 +21,6 @@ const ArticleList = () => {
     const [pdfStatus, setPdfStatus] = useState('');
     const [pdfError, setPdfError] = useState('');
     const [pdfUploading, setPdfUploading] = useState(false);
-    const [pdfParsing, setPdfParsing] = useState(false);
     const canUploadPdf = !!pdfFile && !pdfUploading;
 
     // Feedback state
@@ -182,7 +181,6 @@ const ArticleList = () => {
 
             let extractedHtml = '';
             try {
-                setPdfParsing(true);
                 setPdfStatus('Extracting text for highlights...');
                 const pdfjsLib = await ensurePdfJs();
                 const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
@@ -203,8 +201,6 @@ const ArticleList = () => {
             } catch (parseErr) {
                 console.warn('PDF text extraction failed, uploading without parsed text:', parseErr);
                 extractedHtml = '';
-            } finally {
-                setPdfParsing(false);
             }
 
             const token = localStorage.getItem('token');

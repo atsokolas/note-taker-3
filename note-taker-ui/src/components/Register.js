@@ -82,11 +82,10 @@ const Register = ({ chromeStoreLink }) => {
                 <button type="submit" className="auth-button">Register</button>
             </form>
             {message && (<p className={`status-message ${isError ? 'error-message' : 'success-message'}`}>{message}</p>)}
-            <p className="auth-link">Already have an account? <a onClick={() => navigate('/login')}>Login here</a></p>
+            <p className="auth-link">Already have an account? <button type="button" className="link-button" onClick={() => navigate('/login')}>Login here</button></p>
         </div>
     );
 };
 
 export default Register;
-
 
