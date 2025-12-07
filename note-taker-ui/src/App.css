@@ -831,11 +831,11 @@ body {
 /* Article Content (within article-viewer-main) */
 .article-content {
   flex-grow: 1;
-  padding: 30px 40px;
-  max-width: 800px; /* Max width for content for better reading experience */
-  margin: 0 auto; /* Center content */
-  /* background-color: var(--card-bg-color); <-- This was redundant, handled by .article-viewer-page */
-  box-shadow: var(--box-shadow-light); /* Apply to main area for consistency */
+  padding: 24px 28px;
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  box-shadow: none;
   margin-bottom: 20px;
 }
 
