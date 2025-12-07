@@ -1355,58 +1355,40 @@ app.delete('/api/collections/:id', authenticateToken, async (req, res) => {
   }
 });
 
-// --- RESURFACE HIGHLIGHTS ---
+// --- RESURFACE HIGHLIGHTS (random sample) ---
 app.get('/api/resurface', authenticateToken, async (req, res) => {
   try {
     const userId = new mongoose.Types.ObjectId(req.user.id);
-    const now = new Date();
 
-    const range = (days, delta) => ({
-      $gte: new Date(now.getTime() - (days + delta) * 24 * 60 * 60 * 1000),
-      $lte: new Date(now.getTime() - (days - delta) * 24 * 60 * 60 * 1000)
-    });
-
-    const importantTags = ['important', 'insight', 'key'];
-
-    const projectFields = {
-      _id: '$highlights._id',
-      text: '$highlights.text',
-      tags: '$highlights.tags',
-      articleTitle: '$title',
-      articleId: '$_id',
-      createdAt: '$highlights.createdAt'
-    };
-
-    const highlightsFrom1YearAgo = await Article.aggregate([
+    // Count total highlights for this user
+    const countAgg = await Article.aggregate([
       { $match: { userId } },
       { $unwind: '$highlights' },
-      { $match: { 'highlights.createdAt': range(365, 3) } },
-      { $project: projectFields },
-      { $sort: { createdAt: -1 } }
+      { $count: 'total' }
     ]);
+    const totalHighlights = countAgg[0]?.total || 0;
 
-    const highlightsFrom30DaysAgo = await Article.aggregate([
+    if (totalHighlights === 0) {
+      return res.status(200).json({ dailyRandomHighlights: [] });
+    }
+
+    const sampleSize = Math.min(5, totalHighlights);
+
+    const dailyRandomHighlights = await Article.aggregate([
       { $match: { userId } },
       { $unwind: '$highlights' },
-      { $match: { 'highlights.createdAt': range(30, 2) } },
-      { $project: projectFields },
-      { $sort: { createdAt: -1 } }
+      { $project: {
+          _id: '$highlights._id',
+          text: '$highlights.text',
+          tags: '$highlights.tags',
+          articleTitle: '$title',
+          articleId: '$_id',
+          createdAt: '$highlights.createdAt'
+      } },
+      { $sample: { size: sampleSize } }
     ]);
 
-    const importantHighlights = await Article.aggregate([
-      { $match: { userId } },
-      { $unwind: '$highlights' },
-      { $match: { 'highlights.tags': { $in: importantTags } } },
-      { $project: projectFields },
-      { $sort: { createdAt: -1 } },
-      { $limit: 50 }
-    ]);
-
-    res.status(200).json({
-      highlightsFrom1YearAgo,
-      highlightsFrom30DaysAgo,
-      importantHighlights
-    });
+    res.status(200).json({ dailyRandomHighlights });
   } catch (error) {
     console.error("❌ Error building resurface feed:", error);
     res.status(500).json({ error: "Failed to load resurfacing highlights." });
