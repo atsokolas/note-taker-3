@@ -43,7 +43,7 @@ p {
 
 .ui-page {
   width: 100%;
-  max-width: 1240px;
+  max-width: 1360px;
   margin: 0 auto;
   padding: 32px 28px 48px;
 }
@@ -208,8 +208,8 @@ p {
 
 .article-viewer-grid {
   display: grid;
-  grid-template-columns: 2fr 0.85fr;
-  gap: 20px;
+  grid-template-columns: 2.4fr 0.8fr;
+  gap: 24px;
 }
 
 .article-viewer-card {

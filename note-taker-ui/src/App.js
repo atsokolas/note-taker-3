@@ -79,7 +79,7 @@ function App() {
 
   const AppLayout = () => {
     const location = useLocation();
-    const showLibraryRail = location.pathname === '/' || location.pathname === '/library';
+    const showLibraryRail = location.pathname === '/' || location.pathname === '/library' || location.pathname.startsWith('/articles/');
 
     return (
       <div className="app-shell">
