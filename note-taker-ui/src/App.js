@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { Analytics } from '@vercel/analytics/react';
 import ArticleList from './components/ArticleList';
 import ArticleViewer from './components/ArticleViewer';
@@ -77,71 +77,73 @@ function App() {
     return <div>Loading...</div>;
   }
 
+  const AppLayout = () => {
+    const location = useLocation();
+    const showLibraryRail = location.pathname === '/' || location.pathname === '/library';
+
+    return (
+      <div className="app-shell">
+        <Sidebar
+          brand="Note Taker"
+          navItems={navItems}
+          onLogout={handleLogout}
+          footer={
+            <a href={chromeStoreLink} target="_blank" rel="noopener noreferrer" className="chrome-store-button simple-pill">
+              <ChromeIcon />
+              <span>Get the Extension</span>
+            </a>
+          }
+        />
+
+        <div className={`layout-main ${showLibraryRail ? '' : 'layout-main--single'}`}>
+          {showLibraryRail && (
+            <div className="library-rail">
+              <Card>
+                <div className="muted-label" style={{ marginBottom: 8 }}>Library</div>
+                <ArticleList key={articleListKey} /> 
+              </Card>
+            </div>
+          )}
+
+          <Page className="page-area">
+            <Routes>
+              <Route path="/" element={<Welcome />} /> 
+              <Route path="/library" element={<Welcome />} />
+              <Route path="/all-highlights" element={<AllHighlights />} />
+              <Route path="/tags" element={<TagBrowser />} />
+              <Route path="/notebook" element={<Notebook />} />
+              <Route path="/search" element={<Search />} />
+              <Route path="/articles/:id" element={<ArticleViewer onArticleChange={refreshArticleList} />} />
+              <Route path="/trending" element={<Trending />} />
+              {/* Redirect authenticated users away from auth pages */}
+              <Route path="/login" element={<Navigate to="/" replace />} />
+              <Route path="/register" element={<Navigate to="/" replace />} />
+              <Route path="/journey" element={<Search />} />
+            </Routes>
+          </Page>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <Router>
       <Analytics /> 
-      <div className="app-shell">
-        {isAuthenticated ? (
-          <>
-            <Sidebar
-              brand="Note Taker"
-              navItems={navItems}
-              onLogout={handleLogout}
-              footer={
-                <a href={chromeStoreLink} target="_blank" rel="noopener noreferrer" className="chrome-store-button simple-pill">
-                  <ChromeIcon />
-                  <span>Get the Extension</span>
-                </a>
-              }
+      {isAuthenticated ? (
+        <AppLayout />
+      ) : (
+        <div className="auth-pages-container">
+          <Routes>
+            <Route path="/" element={<LandingPage chromeStoreLink={chromeStoreLink} />} />
+            <Route path="/register" element={<Register chromeStoreLink={chromeStoreLink} />} />
+            <Route 
+              path="/login" 
+              element={<Login onLoginSuccess={handleLoginSuccess} chromeStoreLink={chromeStoreLink} />} 
             />
-
-            <div className="layout-main">
-              <div className="library-rail">
-                <Card>
-                  <div className="muted-label" style={{ marginBottom: 8 }}>Library</div>
-                  <ArticleList key={articleListKey} /> 
-                </Card>
-              </div>
-
-              <Page className="page-area">
-                <Routes>
-                  <Route path="/" element={<Welcome />} /> 
-                  <Route path="/library" element={<Welcome />} />
-                  <Route path="/all-highlights" element={<AllHighlights />} />
-                  <Route path="/tags" element={<TagBrowser />} />
-                  <Route path="/notebook" element={<Notebook />} />
-                  <Route path="/search" element={<Search />} />
-                  <Route path="/articles/:id" element={<ArticleViewer onArticleChange={refreshArticleList} />} />
-                  <Route path="/trending" element={<Trending />} />
-                  {/* Redirect authenticated users away from auth pages */}
-                  <Route path="/login" element={<Navigate to="/" replace />} />
-                  <Route path="/register" element={<Navigate to="/" replace />} />
-                  <Route path="/journey" element={<Search />} />
-                </Routes>
-              </Page>
-            </div>
-          </>
-        ) : (
-          <div className="auth-pages-container">
-            <Routes>
-              {/* --- 2. NEW ROUTING LOGIC --- */}
-              
-              {/* Default route shows LandingPage */}
-              <Route path="/" element={<LandingPage chromeStoreLink={chromeStoreLink} />} />
-              
-              {/* Pass chromeStoreLink to Register and Login */}
-              <Route path="/register" element={<Register chromeStoreLink={chromeStoreLink} />} />
-              <Route 
-                path="/login" 
-                element={<Login onLoginSuccess={handleLoginSuccess} chromeStoreLink={chromeStoreLink} />} 
-              />
-              
-              {/* Any unknown route redirects to the Landing Page ("/") */}
-              <Route path="*" element={<Navigate to="/" replace />} /> 
-            </Routes>
-          </div>
-        )}
-      </div>
+            <Route path="*" element={<Navigate to="/" replace />} /> 
+          </Routes>
+        </div>
+      )}
     </Router>
   );
 }

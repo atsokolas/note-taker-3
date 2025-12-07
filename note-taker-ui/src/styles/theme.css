@@ -43,7 +43,7 @@ p {
 
 .ui-page {
   width: 100%;
-  max-width: 1100px;
+  max-width: 1240px;
   margin: 0 auto;
   padding: 32px 28px 48px;
 }
@@ -148,6 +148,10 @@ p {
   padding: 24px;
 }
 
+.layout-main--single {
+  grid-template-columns: 1fr;
+}
+
 .library-rail {
   position: sticky;
   top: 16px;
@@ -204,7 +208,7 @@ p {
 
 .article-viewer-grid {
   display: grid;
-  grid-template-columns: 1.6fr 0.9fr;
+  grid-template-columns: 2fr 0.85fr;
   gap: 20px;
 }
 
