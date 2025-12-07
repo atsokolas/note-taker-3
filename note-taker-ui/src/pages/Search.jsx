@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../api';
+import { Page, Card, TagChip, Button } from '../components/ui';
 
 const stripHtml = (input = '') => {
   if (!input) return '';
@@ -52,10 +53,13 @@ const Search = () => {
   };
 
   return (
-    <div className="content-viewer">
-      <div className="article-content" style={{ maxWidth: '960px' }}>
+    <Page>
+      <div className="page-header">
+        <p className="muted-label">Universal search</p>
         <h1>Search</h1>
         <p className="muted">Find articles and highlights by title, text, notes, or tags.</p>
+      </div>
+      <Card className="highlight-tag-card">
         <form onSubmit={doSearch} style={{ display: 'flex', gap: '10px', marginBottom: '14px' }}>
           <input
             type="text"
@@ -64,14 +68,14 @@ const Search = () => {
             placeholder="Search everything..."
             style={{ flex: 1, padding: '10px', borderRadius: '8px', border: '1px solid var(--border-color)' }}
           />
-          <button className="notebook-button primary" type="submit" disabled={loading}>
+          <Button type="submit" disabled={loading}>
             {loading ? 'Searching...' : 'Search'}
-          </button>
+          </Button>
         </form>
         {error && <p className="status-message error-message">{error}</p>}
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '16px' }}>
-          <div className="search-section">
+        <div className="section-stack">
+          <Card className="search-section">
             <div className="search-section-header">
               <span className="eyebrow">Articles</span>
               <span className="muted small">{results.articles?.length || 0} results</span>
@@ -88,9 +92,9 @@ const Search = () => {
             ) : (
               <p className="muted small">No articles match.</p>
             )}
-          </div>
+          </Card>
 
-          <div className="search-section">
+          <Card className="search-section">
             <div className="search-section-header">
               <span className="eyebrow">Highlights</span>
               <span className="muted small">{results.highlights?.length || 0} results</span>
@@ -104,11 +108,11 @@ const Search = () => {
                       <span className="feedback-date">{new Date(h.createdAt).toLocaleString()}</span>
                     </div>
                     <p className="highlight-text" style={{ margin: '6px 0', fontWeight: 600 }}>{h.text}</p>
-                    <p className="feedback-meta" style={{ marginBottom: '6px' }}>
+                    <div className="highlight-tag-chips" style={{ marginBottom: '6px' }}>
                       {h.tags && h.tags.length > 0 ? h.tags.map(tag => (
-                        <span key={tag} className="highlight-tag" style={{ marginRight: 6 }}>{tag}</span>
+                        <TagChip key={tag}>{tag}</TagChip>
                       )) : <span className="muted small">No tags</span>}
-                    </p>
+                    </div>
                     <p className="search-snippet">{snippet(h.note || '', query)}</p>
                   </div>
                 ))}
@@ -116,10 +120,10 @@ const Search = () => {
             ) : (
               <p className="muted small">No highlights match.</p>
             )}
-          </div>
+          </Card>
         </div>
-      </div>
-    </div>
+      </Card>
+    </Page>
   );
 };
 

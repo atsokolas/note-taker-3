@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../api';
+import { Page, Card, TagChip } from '../components/ui';
 
 const formatRelativeTime = (dateString) => {
   if (!dateString) return '';
@@ -68,34 +69,37 @@ const TagBrowser = () => {
   );
 
   return (
-    <div className="content-viewer">
-      <div className="article-content" style={{ maxWidth: '960px' }}>
+    <Page>
+      <div className="page-header">
+        <p className="muted-label">Tags & collections</p>
         <h1>Tags</h1>
         <p className="muted">Browse your highlights by tag. Click a tag to see its highlights and related tags.</p>
+      </div>
 
-        {loadingTags && <p className="status-message">Loading tags...</p>}
-        {tagsError && <p className="status-message error-message">{tagsError}</p>}
+      {loadingTags && <p className="status-message">Loading tags...</p>}
+      {tagsError && <p className="status-message error-message">{tagsError}</p>}
 
-        <div className="search-section" style={{ marginBottom: '16px' }}>
+      <div className="section-stack">
+        <Card className="search-section">
           <div className="search-section-header">
             <span className="eyebrow">All tags</span>
             <span className="muted small">{tags.length} tags</span>
           </div>
           <div className="tag-grid">
             {sortedTags.map(t => (
-              <button
+              <TagChip
                 key={t.tag}
-                className={`tag-chip ${selectedTag === t.tag ? 'active' : ''}`}
+                className={selectedTag === t.tag ? 'active' : ''}
                 onClick={() => selectTag(t.tag)}
               >
                 {t.tag} <span className="tag-count">{t.count}</span>
-              </button>
+              </TagChip>
             ))}
             {sortedTags.length === 0 && !loadingTags && <p className="muted small">No tags yet.</p>}
           </div>
-        </div>
+        </Card>
 
-        <div className="search-section">
+        <Card className="search-section">
           <div className="search-section-header">
             <span className="eyebrow">Highlights</span>
             <span className="muted small">{tagDetail?.count || 0} results</span>
@@ -111,11 +115,11 @@ const TagBrowser = () => {
                     <span className="feedback-date">{formatRelativeTime(h.createdAt)}</span>
                   </div>
                   <p className="highlight-text" style={{ margin: '6px 0', fontWeight: 600 }}>{h.text}</p>
-                  <p className="feedback-meta" style={{ marginBottom: '6px' }}>
+                  <div className="highlight-tag-chips" style={{ marginBottom: '6px' }}>
                     {h.tags && h.tags.length > 0 ? h.tags.map(tag => (
-                      <span key={tag} className="highlight-tag" style={{ marginRight: 6 }}>{tag}</span>
+                      <TagChip key={tag}>{tag}</TagChip>
                     )) : <span className="muted small">No tags</span>}
-                  </p>
+                  </div>
                   <p className="search-snippet">{h.note ? h.note.slice(0, 120) + (h.note.length > 120 ? '…' : '') : <span className="muted small">No note</span>}</p>
                 </div>
               ))}
@@ -129,16 +133,16 @@ const TagBrowser = () => {
               <span className="eyebrow">Related tags</span>
               <div className="tag-grid" style={{ marginTop: '8px' }}>
                 {tagDetail.relatedTags.map(rt => (
-                  <button key={rt.tag} className="tag-chip" onClick={() => selectTag(rt.tag)}>
+                  <TagChip key={rt.tag} onClick={() => selectTag(rt.tag)}>
                     {rt.tag} <span className="tag-count">{rt.count}</span>
-                  </button>
+                  </TagChip>
                 ))}
               </div>
             </div>
           )}
-        </div>
+        </Card>
       </div>
-    </div>
+    </Page>
   );
 };
 

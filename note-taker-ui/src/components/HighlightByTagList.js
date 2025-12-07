@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { NavLink } from 'react-router-dom';
 import axios from 'axios';
+import { Page, Card, TagChip } from './ui';
 
 const BASE_URL = "https://note-taker-3-unrg.onrender.com";
 
@@ -15,6 +16,12 @@ const HighlightByTagList = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [openTag, setOpenTag] = useState(null);
+
+    const formatTimestamp = (ts) => {
+        if (!ts) return '';
+        const date = new Date(ts);
+        return date.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    };
 
     const fetchAndGroupHighlights = useCallback(async () => {
         setLoading(true);
@@ -81,37 +88,60 @@ const HighlightByTagList = () => {
     });
 
     return (
-        <div className="highlight-by-tag-list-container">
-            <h1>Highlights by Tag</h1>
-            {sortedTagKeys.length > 0 ? (
-                sortedTagKeys.map(tagKey => {
-                    const tagGroup = groupedHighlights[tagKey];
-                    const isOpen = openTag === tagKey;
+        <Page>
+            <Card className="highlight-tag-card">
+                <div className="highlights-by-tag-header">
+                    <div>
+                        <p className="muted-label">Highlights</p>
+                        <h1>Highlights by Tag</h1>
+                    </div>
+                </div>
 
-                    return (
-                        <div key={tagKey} className="tag-group">
-                            <button className="tag-header" onClick={() => handleTagClick(tagKey)}>
-                                <AccordionIcon isOpen={isOpen} />
-                                {tagGroup.name} ({tagGroup.highlights.length})
-                            </button>
-                            <ul className={`highlight-list nested ${isOpen ? 'open' : ''}`}>
-                                {tagGroup.highlights.map((highlight, index) => (
-                                    <li key={highlight._id || `${highlight.text.substring(0,10)}-${index}`} className="highlight-list-item">
-                                        <p className="highlight-text">{highlight.text}</p>
-                                        {highlight.note && <p className="highlight-note">Note: {highlight.note}</p>}
-                                        <NavLink to={`/articles/${highlight.articleId}`} className="highlight-article-link">
-                                            From: {highlight.articleTitle}
-                                        </NavLink>
-                                    </li>
-                                ))}
-                            </ul>
-                        </div>
-                    );
-                })
-            ) : (
-                <p className="status-message">No highlights found yet.</p>
-            )}
-        </div>
+                {sortedTagKeys.length > 0 ? (
+                    <div className="tag-browser-grid">
+                        {sortedTagKeys.map(tagKey => {
+                            const tagGroup = groupedHighlights[tagKey];
+                            const isOpen = openTag === tagKey;
+
+                            return (
+                                <div key={tagKey} className="tag-accordion">
+                                    <button onClick={() => handleTagClick(tagKey)}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                            <AccordionIcon isOpen={isOpen} />
+                                            {tagGroup.name}
+                                        </div>
+                                        <span className="tag-count">{tagGroup.highlights.length}</span>
+                                    </button>
+                                    {isOpen && (
+                                        <div className="accordion-body">
+                                            {tagGroup.highlights.map((highlight, index) => (
+                                                <div key={highlight._id || `${highlight.text.substring(0,10)}-${index}`} className="tag-highlight-item">
+                                                    <p className="highlight-text">{highlight.text}</p>
+                                                    {highlight.note && <p className="highlight-note">{highlight.note}</p>}
+                                                    <div className="highlight-tag-chips">
+                                                        {(highlight.tags || []).map(tag => (
+                                                            <TagChip key={tag}>{tag}</TagChip>
+                                                        ))}
+                                                    </div>
+                                                    <div className="tag-highlight-footer">
+                                                        <NavLink to={`/articles/${highlight.articleId}`} className="highlight-article-link">
+                                                            From {highlight.articleTitle}
+                                                        </NavLink>
+                                                        <span className="small-muted">{formatTimestamp(highlight.createdAt)}</span>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        })}
+                    </div>
+                ) : (
+                    <p className="status-message">No highlights found yet.</p>
+                )}
+            </Card>
+        </Page>
     );
 };
 

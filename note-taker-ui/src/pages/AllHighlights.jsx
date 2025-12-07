@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../api';
+import { Page, Card, TagChip, Button } from '../components/ui';
 
 const PAGE_SIZE = 20;
 
@@ -111,10 +112,14 @@ const AllHighlights = () => {
   };
 
   return (
-    <div className="content-viewer">
-      <div className="article-content" style={{ maxWidth: '960px' }}>
+    <Page>
+      <div className="page-header">
+        <p className="muted-label">Highlights</p>
         <h1>All Highlights</h1>
         <p className="muted">A unified feed of your newest highlights.</p>
+      </div>
+
+      <Card className="highlight-tag-card">
         <div className="filter-row" style={{ display: 'flex', gap: '12px', alignItems: 'center', marginBottom: '12px' }}>
           <label className="feedback-field" style={{ margin: 0, flex: 1 }}>
             <span style={{ display: 'block', marginBottom: '4px' }}>Filter by tag</span>
@@ -134,63 +139,65 @@ const AllHighlights = () => {
         {error && <p className="status-message error-message">{error}</p>}
         {saveMessage && <p className="status-message success-message">{saveMessage}</p>}
 
-        {!loading && !error && pagedHighlights.map((h) => (
-          <div key={h._id} className="feedback-list-item" style={{ borderRadius: '10px' }}>
-            <div className="feedback-list-top">
-              <Link to={`/articles/${h.articleId}`} className="article-title-link">{h.articleTitle || 'Untitled article'}</Link>
-              <span className="feedback-date">{formatRelativeTime(h.createdAt)}</span>
-            </div>
-            <p className="highlight-text" style={{ margin: '8px 0', fontWeight: 600 }}>{h.text}</p>
-            <p className="feedback-meta" style={{ marginBottom: '6px' }}>
-              {h.tags && h.tags.length > 0 ? h.tags.map(tag => (
-                <span key={tag} className="highlight-tag" style={{ marginRight: 6 }}>{tag}</span>
-              )) : <span className="muted small">No tags</span>}
-            </p>
-            <p className="feedback-message">
-              {h.note ? `${h.note.slice(0, 100)}${h.note.length > 100 ? '…' : ''}` : <span className="muted small">No note</span>}
-            </p>
-            {editing && editing.id === h._id ? (
-              <div className="feedback-body" style={{ paddingTop: 8 }}>
-                <label className="feedback-field">
-                  <span>Tags (comma-separated)</span>
-                  <input
-                    type="text"
-                    value={editing.tags}
-                    onChange={(e) => setEditing(prev => ({ ...prev, tags: e.target.value }))}
-                  />
-                </label>
-                <label className="feedback-field">
-                  <span>Note</span>
-                  <textarea
-                    rows={3}
-                    value={editing.note}
-                    onChange={(e) => setEditing(prev => ({ ...prev, note: e.target.value }))}
-                  />
-                </label>
-                <div className="feedback-actions">
-                  <button className="notebook-button primary" onClick={saveEdit} disabled={saving}>
-                    {saving ? 'Saving...' : 'Save'}
-                  </button>
-                  <button className="notebook-button" onClick={cancelEdit}>Cancel</button>
+        <div className="section-stack">
+          {!loading && !error && pagedHighlights.map((h) => (
+            <Card key={h._id} className="tag-highlight-item">
+              <div className="feedback-list-top">
+                <Link to={`/articles/${h.articleId}`} className="article-title-link">{h.articleTitle || 'Untitled article'}</Link>
+                <span className="feedback-date">{formatRelativeTime(h.createdAt)}</span>
+              </div>
+              <p className="highlight-text" style={{ margin: '8px 0', fontWeight: 600 }}>{h.text}</p>
+              <div className="highlight-tag-chips" style={{ marginBottom: '6px' }}>
+                {h.tags && h.tags.length > 0 ? h.tags.map(tag => (
+                  <TagChip key={tag}>{tag}</TagChip>
+                )) : <span className="muted small">No tags</span>}
+              </div>
+              <p className="feedback-message">
+                {h.note ? `${h.note.slice(0, 100)}${h.note.length > 100 ? '…' : ''}` : <span className="muted small">No note</span>}
+              </p>
+              {editing && editing.id === h._id ? (
+                <div className="feedback-body" style={{ paddingTop: 8 }}>
+                  <label className="feedback-field">
+                    <span>Tags (comma-separated)</span>
+                    <input
+                      type="text"
+                      value={editing.tags}
+                      onChange={(e) => setEditing(prev => ({ ...prev, tags: e.target.value }))}
+                    />
+                  </label>
+                  <label className="feedback-field">
+                    <span>Note</span>
+                    <textarea
+                      rows={3}
+                      value={editing.note}
+                      onChange={(e) => setEditing(prev => ({ ...prev, note: e.target.value }))}
+                    />
+                  </label>
+                  <div className="feedback-actions">
+                    <Button onClick={saveEdit} disabled={saving}>
+                      {saving ? 'Saving...' : 'Save'}
+                    </Button>
+                    <Button variant="secondary" onClick={cancelEdit}>Cancel</Button>
+                  </div>
                 </div>
-              </div>
-            ) : (
-              <div className="feedback-actions">
-                <button className="notebook-button" onClick={() => startEdit(h)}>Edit tags/note</button>
-              </div>
-            )}
-          </div>
-        ))}
+              ) : (
+                <div className="feedback-actions">
+                  <Button variant="secondary" onClick={() => startEdit(h)}>Edit tags/note</Button>
+                </div>
+              )}
+            </Card>
+          ))}
+        </div>
 
         {!loading && !error && (
           <div className="pagination-controls" style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '14px' }}>
-            <button className="notebook-button" disabled={page === 1} onClick={() => setPage(p => Math.max(1, p - 1))}>Prev</button>
+            <Button variant="secondary" disabled={page === 1} onClick={() => setPage(p => Math.max(1, p - 1))}>Prev</Button>
             <span className="muted small">Page {page} of {totalPages}</span>
-            <button className="notebook-button" disabled={page >= totalPages} onClick={() => setPage(p => Math.min(totalPages, p + 1))}>Next</button>
+            <Button variant="secondary" disabled={page >= totalPages} onClick={() => setPage(p => Math.min(totalPages, p + 1))}>Next</Button>
           </div>
         )}
-      </div>
-    </div>
+      </Card>
+    </Page>
   );
 };
 

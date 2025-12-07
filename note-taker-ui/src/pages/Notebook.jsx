@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import api from '../api';
+import { Page, Card, Button, TagChip } from '../components/ui';
 
 const formatDate = (dateString) => {
   if (!dateString) return '';
@@ -255,23 +256,23 @@ const Notebook = () => {
   };
 
   return (
-    <div className="content-viewer">
-      <div className="article-content" style={{ maxWidth: '1100px' }}>
-        <div className="notebook-header-bar">
-          <div>
-            <p className="eyebrow">Thinking layer</p>
-            <h1 className="notebook-title">Notebook</h1>
-          </div>
-          <div className="header-actions">
-            <button className="pill-button" onClick={createEntry} disabled={saving}>New</button>
-            <button className="pill-button primary" onClick={saveEntry} disabled={saving || !activeId}>Save</button>
-            <button className="pill-button danger" onClick={deleteEntry} disabled={saving || !activeId}>Delete</button>
-          </div>
+    <Page>
+      <div className="page-header">
+        <p className="muted-label">Thinking layer</p>
+        <h1 className="notebook-title">Notebook</h1>
+      </div>
+      {status && <p className="status-message success-message">{status}</p>}
+      {error && <p className="status-message error-message">{error}</p>}
+      <div className="notebook-toolbar">
+        <div className="left">
+          <Button variant="secondary" onClick={createEntry} disabled={saving}>New</Button>
+          <Button onClick={saveEntry} disabled={saving || !activeId}>{saving ? 'Saving...' : 'Save'}</Button>
+          <Button variant="secondary" onClick={deleteEntry} disabled={saving || !activeId}>Delete</Button>
         </div>
-        {status && <p className="status-message success-message">{status}</p>}
-        {error && <p className="status-message error-message">{error}</p>}
-        <div className="notebook-wrapper notebook-shell">
-          <aside className="notebook-sidebar notebook-panel" style={{ width: '320px' }}>
+      </div>
+      <div className="notebook-grid">
+        <Card className="notebook-pane">
+          <div className="pane-inner">
             <div className="notebook-sidebar-header">
               <div>
                 <p className="eyebrow">Entries</p>
@@ -286,16 +287,16 @@ const Notebook = () => {
                 onChange={(e) => setNewFolderName(e.target.value)}
                 onKeyDown={async (e) => { if (e.key === 'Enter') await createFolder(); }}
               />
-              <button onClick={async () => await createFolder()}>+</button>
+              <Button variant="secondary" onClick={async () => await createFolder()} style={{ padding: '10px 12px' }}>+</Button>
             </div>
             <div className="tag-grid pill-row">
-              <button className={`tag-chip ${selectedFolder === 'all' ? 'active' : ''}`} onClick={() => setSelectedFolder('all')}>
+              <TagChip className={selectedFolder === 'all' ? 'active' : ''} onClick={() => setSelectedFolder('all')}>
                 All <span className="tag-count">{entries.length}</span>
-              </button>
+              </TagChip>
               {folders.map(f => (
-                <button key={f._id} className={`tag-chip ${selectedFolder === f._id ? 'active' : ''}`} onClick={() => setSelectedFolder(f._id)}>
+                <TagChip key={f._id} className={selectedFolder === f._id ? 'active' : ''} onClick={() => setSelectedFolder(f._id)}>
                   {f.name}
-                </button>
+                </TagChip>
               ))}
             </div>
             {loading && <p className="status-message">Loading entries...</p>}
@@ -315,8 +316,11 @@ const Notebook = () => {
                 </li>
               ))}
             </ul>
-          </aside>
-          <section className="notebook-editor">
+          </div>
+        </Card>
+
+        <Card className="notebook-pane">
+          <div className="pane-inner">
             {activeId ? (
               <>
                 <input
@@ -354,7 +358,7 @@ const Notebook = () => {
                     className="notebook-title-input"
                     style={{ maxWidth: '240px', borderBottom: '1px solid var(--border-color)' }}
                   />
-                  <button className="notebook-button" onClick={() => setHighlightModalOpen(true)}>Insert Highlight</button>
+                  <Button variant="secondary" onClick={() => setHighlightModalOpen(true)}>Insert Highlight</Button>
                 </div>
                 <textarea
                   ref={textareaRef}
@@ -370,8 +374,8 @@ const Notebook = () => {
             ) : (
               <p className="muted">Select or create an entry to start writing.</p>
             )}
-          </section>
-        </div>
+          </div>
+        </Card>
       </div>
 
       {highlightModalOpen && (
@@ -411,12 +415,12 @@ const Notebook = () => {
               {filteredHighlights.length === 0 && <p className="muted small">No highlights found.</p>}
             </div>
             <div className="modal-actions" style={{ marginTop: '12px', display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
-              <button className="notebook-button" onClick={() => setHighlightModalOpen(false)}>Close</button>
+              <Button variant="secondary" onClick={() => setHighlightModalOpen(false)}>Close</Button>
             </div>
           </div>
         </div>
       )}
-    </div>
+    </Page>
   );
 };
 

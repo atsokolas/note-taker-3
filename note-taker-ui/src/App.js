@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, NavLink, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Analytics } from '@vercel/analytics/react';
 import ArticleList from './components/ArticleList';
 import ArticleViewer from './components/ArticleViewer';
@@ -11,6 +11,8 @@ import Notebook from './pages/Notebook';
 import AllHighlights from './pages/AllHighlights';
 import Search from './pages/Search';
 import TagBrowser from './pages/TagBrowser';
+import { Page, Card, Sidebar } from './components/ui';
+import './styles/theme.css';
 import './App.css';
 
 const ChromeIcon = () => (
@@ -56,10 +58,20 @@ function App() {
     // --- CHANGE: Redirect to home (Landing Page) instead of /login ---
     window.location.href = '/'; 
   };
-  
+
   const handleLoginSuccess = () => {
     setIsAuthenticated(true);
   };
+
+  const navItems = [
+    { label: 'Brain', to: '/', end: true },
+    { label: 'Library', to: '/library' },
+    { label: 'Highlights', to: '/all-highlights' },
+    { label: 'Tags/Collections', to: '/tags' },
+    { label: 'Notebook', to: '/notebook' },
+    { label: 'Journey', to: '/search' },
+    { label: 'Trending', to: '/trending' }
+  ];
 
   if (isLoading) {
     return <div>Loading...</div>;
@@ -68,47 +80,45 @@ function App() {
   return (
     <Router>
       <Analytics /> 
-      <div className="app-container">
+      <div className="app-shell">
         {isAuthenticated ? (
           <>
-            <div className="sidebar">
-              <div> 
-                <div className="sidebar-header">
-                  <h2>Note Taker</h2>
-                  <button onClick={handleLogout} className="logout-button">Logout</button>
-                </div>
-                <div className="sidebar-nav">
-                  <NavLink to="/" className="sidebar-link" end>Your Library</NavLink>
-                  <NavLink to="/all-highlights" className="sidebar-link">All Highlights</NavLink>
-                  <NavLink to="/tags" className="sidebar-link">Tags</NavLink>
-                  <NavLink to="/notebook" className="sidebar-link">Notebook</NavLink>
-                  <NavLink to="/search" className="sidebar-link">Search</NavLink>
-                  <NavLink to="/trending" className="sidebar-link">Trending</NavLink>
-                </div>
-                <ArticleList key={articleListKey} /> 
-              </div>
-              
-              <div className="sidebar-promo">
-                <a href={chromeStoreLink} target="_blank" rel="noopener noreferrer" className="chrome-store-button">
+            <Sidebar
+              brand="Note Taker"
+              navItems={navItems}
+              onLogout={handleLogout}
+              footer={
+                <a href={chromeStoreLink} target="_blank" rel="noopener noreferrer" className="chrome-store-button simple-pill">
                   <ChromeIcon />
                   <span>Get the Extension</span>
                 </a>
+              }
+            />
+
+            <div className="layout-main">
+              <div className="library-rail">
+                <Card>
+                  <div className="muted-label" style={{ marginBottom: 8 }}>Library</div>
+                  <ArticleList key={articleListKey} /> 
+                </Card>
               </div>
-            </div>
-            
-            <div className="content-viewer">
-              <Routes>
-                <Route path="/" element={<Welcome />} /> 
-                <Route path="/all-highlights" element={<AllHighlights />} />
-                <Route path="/tags" element={<TagBrowser />} />
-                <Route path="/notebook" element={<Notebook />} />
-                <Route path="/search" element={<Search />} />
-                <Route path="/articles/:id" element={<ArticleViewer onArticleChange={refreshArticleList} />} />
-                <Route path="/trending" element={<Trending />} />
-                {/* Redirect authenticated users away from auth pages */}
-                <Route path="/login" element={<Navigate to="/" replace />} />
-                <Route path="/register" element={<Navigate to="/" replace />} />
-              </Routes>
+
+              <Page className="page-area">
+                <Routes>
+                  <Route path="/" element={<Welcome />} /> 
+                  <Route path="/library" element={<Welcome />} />
+                  <Route path="/all-highlights" element={<AllHighlights />} />
+                  <Route path="/tags" element={<TagBrowser />} />
+                  <Route path="/notebook" element={<Notebook />} />
+                  <Route path="/search" element={<Search />} />
+                  <Route path="/articles/:id" element={<ArticleViewer onArticleChange={refreshArticleList} />} />
+                  <Route path="/trending" element={<Trending />} />
+                  {/* Redirect authenticated users away from auth pages */}
+                  <Route path="/login" element={<Navigate to="/" replace />} />
+                  <Route path="/register" element={<Navigate to="/" replace />} />
+                  <Route path="/journey" element={<Search />} />
+                </Routes>
+              </Page>
             </div>
           </>
         ) : (

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import api from '../api';
 import { useParams, useNavigate } from 'react-router-dom';
 import CitationGenerator from './CitationGenerator'; // <-- 1. IMPORT THE NEW COMPONENT
+import { Page, Card } from './ui';
 
 const getAuthConfig = () => {
     // ... (Your existing code)
@@ -491,248 +492,252 @@ const ArticleViewer = ({ onArticleChange }) => {
     ];
 
     return (
-        <div className="article-viewer-page">
-            <div className="article-viewer-main">
-                <div className="article-management-bar">
-                    {/* ... (Your existing management bar buttons) ... */}
-                    <button 
-                        className="management-button" 
-                        onClick={() => setIsRecommendModalOpen(true)}
-                        title="Recommend Article"
-                    >
-                        Recommend
-                    </button>
-                    <button 
-                        className="management-button delete-button" 
-                        onClick={handleDeleteArticle}
-                        title="Delete Article"
-                    >
-                        Delete Article
-                    </button>
-                    <select 
-                        className="management-button move-select" 
-                        onChange={handleMoveArticle}
-                        value={article.folder ? article.folder._id : 'uncategorized'}
-                        title="Move to Folder"
-                    >
-                        {allFoldersIncludingUncategorized.map(f => (
-                            <option key={f._id} value={f._id}>
-                                Move to {f.name}
-                            </option>
-                        ))}
-                    </select>
-                </div>
-
-                <div className="article-content">
-                    <h1>{article.title}</h1>
-                    
-                    {/* --- 2. ADD THE CITATION COMPONENT HERE --- */}
-                    <CitationGenerator article={article} />
-                    
-                    <div
-                    ref={contentRef}
-                    className="content-body"
-                    dangerouslySetInnerHTML={{ __html: article.content }}
-                    />
-                    {popup.visible && (
-                        <div
-                            ref={popupRef}
-                            onMouseDown={preventFocusSteal}
-                            className="highlight-popup-web-app-container"
-                            style={{ 
-                                top: popup.y, 
-                                left: popup.x, 
-                                position: 'absolute', 
-                                transform: 'translate(-50%, -100%)'
-                            }}
-                        >
-                            <button
-                                className="pill-button primary"
-                                onClick={saveHighlight}
-                                title="Highlight"
-                                style={{ padding: '8px 12px', fontSize: '0.9em' }}
+        <Page className="article-viewer-shell">
+            <div className="article-viewer-grid">
+                <Card className="article-viewer-card">
+                    <div className="article-viewer-main">
+                        <div className="article-management-bar">
+                            {/* ... (Your existing management bar buttons) ... */}
+                            <button 
+                                className="management-button" 
+                                onClick={() => setIsRecommendModalOpen(true)}
+                                title="Recommend Article"
                             >
-                                Highlight
+                                Recommend
                             </button>
+                            <button 
+                                className="management-button delete-button" 
+                                onClick={handleDeleteArticle}
+                                title="Delete Article"
+                            >
+                                Delete Article
+                            </button>
+                            <select 
+                                className="management-button move-select" 
+                                onChange={handleMoveArticle}
+                                value={article.folder ? article.folder._id : 'uncategorized'}
+                                title="Move to Folder"
+                            >
+                                {allFoldersIncludingUncategorized.map(f => (
+                                    <option key={f._id} value={f._id}>
+                                        Move to {f.name}
+                                    </option>
+                                ))}
+                            </select>
                         </div>
-                    )}
-                    <div className="pdf-card">
-                        <div className="pdf-card-header">
-                            <div>
-                                <p className="eyebrow">PDF attachments</p>
-                                <h3>Upload & annotate</h3>
-                                <p className="muted small">Keep source PDFs with the article and capture highlights or page notes.</p>
-                            </div>
-                            <div className="pdf-actions">
-                                <label className="upload-pill">
-                                    <input type="file" accept="application/pdf" onChange={handlePdfFileSelect} disabled={pdfUploading} />
-                                    {pdfUploading ? 'Uploading...' : 'Upload PDF'}
-                                </label>
-                                <button className="notebook-button primary" onClick={handleSavePdfs} disabled={pdfSaving || !article}>
-                                    {pdfSaving ? 'Saving...' : 'Save PDFs'}
-                                </button>
-                            </div>
-                        </div>
-                        {pdfUploadError && <p className="status-message error-message">{pdfUploadError}</p>}
-                        {pdfStatus && !pdfUploadError && <p className="pdf-pill-meta">{pdfStatus}</p>}
 
-                        {(!pdfs || pdfs.length === 0) && (
-                            <div className="pdf-empty">
-                                <p className="muted">Upload a PDF to preview it here and log your own highlights alongside the article.</p>
-                            </div>
-                        )}
-
-                        {pdfs && pdfs.length > 0 && (
-                            <>
-                                <div className="pdf-list">
-                                    {pdfs.map(pdf => (
-                                        <div key={pdf.id} className={`pdf-pill ${activePdf?.id === pdf.id ? 'active' : ''}`} onClick={() => setActivePdfId(pdf.id)}>
-                                            <div className="pdf-pill-text">
-                                                <span className="pdf-pill-name">{pdf.name}</span>
-                                                <span className="pdf-pill-meta">{pdf.annotations?.length || 0} notes · Added {formatDate(pdf.uploadedAt)}</span>
-                                            </div>
-                                            <button className="icon-button" onClick={(e) => { e.stopPropagation(); handleRemovePdf(pdf.id); }} title="Remove PDF">×</button>
-                                        </div>
-                                    ))}
+                        <div className="article-content">
+                            <h1>{article.title}</h1>
+                            
+                            {/* --- 2. ADD THE CITATION COMPONENT HERE --- */}
+                            <CitationGenerator article={article} />
+                            
+                            <div
+                            ref={contentRef}
+                            className="content-body"
+                            dangerouslySetInnerHTML={{ __html: article.content }}
+                            />
+                            {popup.visible && (
+                                <div
+                                    ref={popupRef}
+                                    onMouseDown={preventFocusSteal}
+                                    className="highlight-popup-web-app-container"
+                                    style={{ 
+                                        top: popup.y, 
+                                        left: popup.x, 
+                                        position: 'absolute', 
+                                        transform: 'translate(-50%, -100%)'
+                                    }}
+                                >
+                                    <button
+                                        className="pill-button primary"
+                                        onClick={saveHighlight}
+                                        title="Highlight"
+                                        style={{ padding: '8px 12px', fontSize: '0.9em' }}
+                                    >
+                                        Highlight
+                                    </button>
                                 </div>
-
-                                <div className="pdf-viewer-panel">
-                                    <div className="pdf-viewer">
-                                        {activePdf ? (
-                                            <object data={activePdf.dataUrl} type="application/pdf" width="100%" height="360">
-                                                <p className="muted">Your browser cannot display the PDF inline. <a href={activePdf.dataUrl} target="_blank" rel="noreferrer">Open in a new tab</a>.</p>
-                                            </object>
-                                        ) : (
-                                            <p className="muted small">Select a PDF to preview.</p>
-                                        )}
+                            )}
+                            <div className="pdf-card">
+                                <div className="pdf-card-header">
+                                    <div>
+                                        <p className="eyebrow">PDF attachments</p>
+                                        <h3>Upload & annotate</h3>
+                                        <p className="muted small">Keep source PDFs with the article and capture highlights or page notes.</p>
                                     </div>
+                                    <div className="pdf-actions">
+                                        <label className="upload-pill">
+                                            <input type="file" accept="application/pdf" onChange={handlePdfFileSelect} disabled={pdfUploading} />
+                                            {pdfUploading ? 'Uploading...' : 'Upload PDF'}
+                                        </label>
+                                        <button className="notebook-button primary" onClick={handleSavePdfs} disabled={pdfSaving || !article}>
+                                            {pdfSaving ? 'Saving...' : 'Save PDFs'}
+                                        </button>
+                                    </div>
+                                </div>
+                                {pdfUploadError && <p className="status-message error-message">{pdfUploadError}</p>}
+                                {pdfStatus && !pdfUploadError && <p className="pdf-pill-meta">{pdfStatus}</p>}
 
-                                    <div className="pdf-annotations">
-                                        <div className="annotations-header">
-                                            <div>
-                                                <p className="eyebrow">Highlights</p>
-                                                <h4>Capture takeaways</h4>
-                                            </div>
-                                            {activePdf && <span className="pdf-pill-meta">{activePdf.annotations?.length || 0} saved</span>}
-                                        </div>
+                                {(!pdfs || pdfs.length === 0) && (
+                                    <div className="pdf-empty">
+                                        <p className="muted">Upload a PDF to preview it here and log your own highlights alongside the article.</p>
+                                    </div>
+                                )}
 
-                                        <div className="annotation-form">
-                                            <input
-                                                type="text"
-                                                placeholder="What stood out?"
-                                                value={annotationDraft.text}
-                                                onChange={(e) => setAnnotationDraft(prev => ({ ...prev, text: e.target.value }))}
-                                            />
-                                            <textarea
-                                                placeholder="Notes, reactions, or follow-ups"
-                                                value={annotationDraft.note}
-                                                onChange={(e) => setAnnotationDraft(prev => ({ ...prev, note: e.target.value }))}
-                                            />
-                                            <div className="annotation-row">
-                                                <label>
-                                                    <span className="muted small">Page</span>
-                                                    <input
-                                                        type="number"
-                                                        min="1"
-                                                        value={annotationDraft.page}
-                                                        onChange={(e) => setAnnotationDraft(prev => ({ ...prev, page: e.target.value }))}
-                                                        placeholder="3"
-                                                    />
-                                                </label>
-                                                <label className="color-picker">
-                                                    <span className="muted small">Highlight color</span>
-                                                    <input
-                                                        type="color"
-                                                        value={annotationDraft.color}
-                                                        onChange={(e) => setAnnotationDraft(prev => ({ ...prev, color: e.target.value }))}
-                                                    />
-                                                </label>
-                                                <button className="notebook-button" onClick={handleAddAnnotation} disabled={!activePdf}>Save</button>
-                                            </div>
-                                        </div>
-
-                                        <ul className="annotation-list">
-                                            {activePdf?.annotations?.map((annotation) => (
-                                                <li key={annotation.id} className="annotation-item">
-                                                    <div className="annotation-badge" style={{ backgroundColor: annotation.color }}></div>
-                                                    <div className="annotation-body">
-                                                        <div className="annotation-top">
-                                                            <strong>{annotation.text || 'Untitled highlight'}</strong>
-                                                            <span className="annotation-meta">
-                                                                {annotation.page ? `Page ${annotation.page}` : 'No page'}
-                                                                <span className="annotation-dot">•</span>
-                                                                {formatDate(annotation.createdAt)}
-                                                            </span>
-                                                        </div>
-                                                        {annotation.note && <p className="annotation-note">{annotation.note}</p>}
+                                {pdfs && pdfs.length > 0 && (
+                                    <>
+                                        <div className="pdf-list">
+                                            {pdfs.map(pdf => (
+                                                <div key={pdf.id} className={`pdf-pill ${activePdf?.id === pdf.id ? 'active' : ''}`} onClick={() => setActivePdfId(pdf.id)}>
+                                                    <div className="pdf-pill-text">
+                                                        <span className="pdf-pill-name">{pdf.name}</span>
+                                                        <span className="pdf-pill-meta">{pdf.annotations?.length || 0} notes · Added {formatDate(pdf.uploadedAt)}</span>
                                                     </div>
-                                                    <button className="icon-button" onClick={() => handleRemoveAnnotation(activePdf.id, annotation.id)} title="Remove annotation">×</button>
-                                                </li>
+                                                    <button className="icon-button" onClick={(e) => { e.stopPropagation(); handleRemovePdf(pdf.id); }} title="Remove PDF">×</button>
+                                                </div>
                                             ))}
-                                            {(!activePdf?.annotations || activePdf.annotations.length === 0) && (
-                                                <li className="muted small">No highlights yet. Add your first takeaway.</li>
-                                            )}
-                                        </ul>
-                                    </div>
-                                </div>
-                            </>
-                        )}
-                    </div>
-                </div>
-            </div>
-
-            <div className="article-highlights-sidebar">
-                {/* ... (Your existing highlights sidebar code) ... */}
-                <h2>Article Highlights</h2>
-                {article.highlights && article.highlights.length > 0 ? (
-                    <ul className="highlights-list">
-                        {article.highlights.map(h => (
-                            <li key={h._id} className={`sidebar-highlight-item ${editingHighlightId === h._id ? 'editing' : ''}`}>
-                                {editingHighlightId === h._id ? (
-                                    <>
-                                        <textarea 
-                                            className="edit-highlight-note-input"
-                                            value={editNote}
-                                            onChange={(e) => setEditNote(e.target.value)}
-                                            placeholder="Note"
-                                        />
-                                        <input
-                                            type="text"
-                                            className="edit-highlight-tags-input"
-                                            value={editTags}
-                                            onChange={(e) => setEditTags(e.target.value)}
-                                            placeholder="Tags (comma-separated)"
-                                        />
-                                        <div className="edit-highlight-actions">
-                                            <button className="edit-save-button" onClick={() => saveHighlightEdits(h._id)}>Save</button>
-                                            <button className="edit-cancel-button" onClick={cancelEditHighlight}>Cancel</button>
                                         </div>
-                                    </>
-                                ) : (
-                                    <>
-                                        <p className="sidebar-highlight-text" onClick={() => scrollToHighlight(`highlight-${h._id}`)}>
-                                            {h.text}
-                                        </p>
-                                        {h.note && <p className="sidebar-highlight-note">Note: {h.note}</p>}
-                                        {h.tags && h.tags.length > 0 && (
-                                            <div className="sidebar-highlight-tags">
-                                                {h.tags.map(tag => (
-                                                    <span key={tag} className="highlight-tag">{tag}</span>
-                                                ))}
+
+                                        <div className="pdf-viewer-panel">
+                                            <div className="pdf-viewer">
+                                                {activePdf ? (
+                                                    <object data={activePdf.dataUrl} type="application/pdf" width="100%" height="360">
+                                                        <p className="muted">Your browser cannot display the PDF inline. <a href={activePdf.dataUrl} target="_blank" rel="noreferrer">Open in a new tab</a>.</p>
+                                                    </object>
+                                                ) : (
+                                                    <p className="muted small">Select a PDF to preview.</p>
+                                                )}
                                             </div>
-                                        )}
-                                        <div className="highlight-item-actions">
-                                            <button className="edit-button" onClick={() => startEditHighlight(h)}>Edit</button>
-                                            <button className="delete-button" onClick={() => deleteHighlight(h._id)}>Delete</button>
+
+                                            <div className="pdf-annotations">
+                                                <div className="annotations-header">
+                                                    <div>
+                                                        <p className="eyebrow">Highlights</p>
+                                                        <h4>Capture takeaways</h4>
+                                                    </div>
+                                                    {activePdf && <span className="pdf-pill-meta">{activePdf.annotations?.length || 0} saved</span>}
+                                                </div>
+
+                                                <div className="annotation-form">
+                                                    <input
+                                                        type="text"
+                                                        placeholder="What stood out?"
+                                                        value={annotationDraft.text}
+                                                        onChange={(e) => setAnnotationDraft(prev => ({ ...prev, text: e.target.value }))}
+                                                    />
+                                                    <textarea
+                                                        placeholder="Notes, reactions, or follow-ups"
+                                                        value={annotationDraft.note}
+                                                        onChange={(e) => setAnnotationDraft(prev => ({ ...prev, note: e.target.value }))}
+                                                    />
+                                                    <div className="annotation-row">
+                                                        <label>
+                                                            <span className="muted small">Page</span>
+                                                            <input
+                                                                type="number"
+                                                                min="1"
+                                                                value={annotationDraft.page}
+                                                                onChange={(e) => setAnnotationDraft(prev => ({ ...prev, page: e.target.value }))}
+                                                                placeholder="3"
+                                                            />
+                                                        </label>
+                                                        <label className="color-picker">
+                                                            <span className="muted small">Highlight color</span>
+                                                            <input
+                                                                type="color"
+                                                                value={annotationDraft.color}
+                                                                onChange={(e) => setAnnotationDraft(prev => ({ ...prev, color: e.target.value }))}
+                                                            />
+                                                        </label>
+                                                        <button className="notebook-button" onClick={handleAddAnnotation} disabled={!activePdf}>Save</button>
+                                                    </div>
+                                                </div>
+
+                                                <ul className="annotation-list">
+                                                    {activePdf?.annotations?.map((annotation) => (
+                                                        <li key={annotation.id} className="annotation-item">
+                                                            <div className="annotation-badge" style={{ backgroundColor: annotation.color }}></div>
+                                                            <div className="annotation-body">
+                                                                <div className="annotation-top">
+                                                                    <strong>{annotation.text || 'Untitled highlight'}</strong>
+                                                                    <span className="annotation-meta">
+                                                                        {annotation.page ? `Page ${annotation.page}` : 'No page'}
+                                                                        <span className="annotation-dot">•</span>
+                                                                        {formatDate(annotation.createdAt)}
+                                                                    </span>
+                                                                </div>
+                                                                {annotation.note && <p className="annotation-note">{annotation.note}</p>}
+                                                            </div>
+                                                            <button className="icon-button" onClick={() => handleRemoveAnnotation(activePdf.id, annotation.id)} title="Remove annotation">×</button>
+                                                        </li>
+                                                    ))}
+                                                    {(!activePdf?.annotations || activePdf.annotations.length === 0) && (
+                                                        <li className="muted small">No highlights yet. Add your first takeaway.</li>
+                                                    )}
+                                                </ul>
+                                            </div>
                                         </div>
                                     </>
                                 )}
-                            </li>
-                        ))}
-                    </ul>
-                ) : (
-                    <p className="no-highlights-message">No highlights for this article yet.</p>
-                )}
+                            </div>
+                        </div>
+                    </div>
+                </Card>
+
+                <Card className="article-highlights-card">
+                    {/* ... (Your existing highlights sidebar code) ... */}
+                    <h2>Article Highlights</h2>
+                    {article.highlights && article.highlights.length > 0 ? (
+                        <ul className="highlights-list">
+                            {article.highlights.map(h => (
+                                <li key={h._id} className={`sidebar-highlight-item ${editingHighlightId === h._id ? 'editing' : ''}`}>
+                                    {editingHighlightId === h._id ? (
+                                        <>
+                                            <textarea 
+                                                className="edit-highlight-note-input"
+                                                value={editNote}
+                                                onChange={(e) => setEditNote(e.target.value)}
+                                                placeholder="Note"
+                                            />
+                                            <input
+                                                type="text"
+                                                className="edit-highlight-tags-input"
+                                                value={editTags}
+                                                onChange={(e) => setEditTags(e.target.value)}
+                                                placeholder="Tags (comma-separated)"
+                                            />
+                                            <div className="edit-highlight-actions">
+                                                <button className="edit-save-button" onClick={() => saveHighlightEdits(h._id)}>Save</button>
+                                                <button className="edit-cancel-button" onClick={cancelEditHighlight}>Cancel</button>
+                                            </div>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <p className="sidebar-highlight-text" onClick={() => scrollToHighlight(`highlight-${h._id}`)}>
+                                                {h.text}
+                                            </p>
+                                            {h.note && <p className="sidebar-highlight-note">Note: {h.note}</p>}
+                                            {h.tags && h.tags.length > 0 && (
+                                                <div className="sidebar-highlight-tags">
+                                                    {h.tags.map(tag => (
+                                                        <span key={tag} className="highlight-tag">{tag}</span>
+                                                    ))}
+                                                </div>
+                                            )}
+                                            <div className="highlight-item-actions">
+                                                <button className="edit-button" onClick={() => startEditHighlight(h)}>Edit</button>
+                                                <button className="delete-button" onClick={() => deleteHighlight(h._id)}>Delete</button>
+                                            </div>
+                                        </>
+                                    )}
+                                </li>
+                            ))}
+                        </ul>
+                    ) : (
+                        <p className="no-highlights-message">No highlights for this article yet.</p>
+                    )}
+                </Card>
             </div>
 
             {isRecommendModalOpen && (
@@ -765,7 +770,7 @@ const ArticleViewer = ({ onArticleChange }) => {
                     </div>
                 </div>
             )}
-        </div>
+        </Page>
     );
 };
 
