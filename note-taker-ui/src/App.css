@@ -756,12 +756,11 @@ body {
 
 /* Main Article Content Container (holds management bar and scrollable content) */
 .article-viewer-main {
-    flex-grow: 1; /* Main article content takes up most space */
-    max-width: calc(100% - 300px); /* Adjust based on sidebar width, leaving space for it */
-    min-width: 0; /* Allow it to shrink if window is too small */
+    width: 100%;
+    max-width: none;
+    min-width: 0;
     display: flex;
-    flex-direction: column; /* Stack management bar and article content */
-    overflow-y: auto; /* Allow main article content to scroll independently */
+    flex-direction: column;
 }
 
 /* Article Management Bar (within article-viewer-main) */
