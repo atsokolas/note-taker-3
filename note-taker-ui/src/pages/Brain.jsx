@@ -31,7 +31,7 @@ const Brain = () => {
       <div className="page-header">
         <p className="muted-label">Brain</p>
         <h1>Reading Patterns</h1>
-        <p className="muted">No AI here—just your own data surfaced cleanly.</p>
+        <p className="muted">Tiny data delights, handcrafted from your highlights.</p>
       </div>
 
       {loading && <p className="status-message">Loading insights...</p>}

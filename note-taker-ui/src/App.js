@@ -12,6 +12,7 @@ import AllHighlights from './pages/AllHighlights';
 import Search from './pages/Search';
 import TagBrowser from './pages/TagBrowser';
 import Brain from './pages/Brain';
+import Journey from './pages/Journey';
 import { Page, Card, Sidebar } from './components/ui';
 import './styles/theme.css';
 import './App.css';
@@ -70,7 +71,7 @@ function App() {
     { label: 'Highlights', to: '/all-highlights' },
     { label: 'Tags/Collections', to: '/tags' },
     { label: 'Notebook', to: '/notebook' },
-    { label: 'Journey', to: '/search' },
+    { label: 'Journey', to: '/journey' },
     { label: 'Trending', to: '/trending' }
   ];
 
@@ -115,6 +116,7 @@ function App() {
               <Route path="/tags" element={<TagBrowser />} />
               <Route path="/notebook" element={<Notebook />} />
               <Route path="/search" element={<Search />} />
+              <Route path="/journey" element={<Journey />} />
               <Route path="/articles/:id" element={<ArticleViewer onArticleChange={refreshArticleList} />} />
               <Route path="/trending" element={<Trending />} />
               {/* Redirect authenticated users away from auth pages */}

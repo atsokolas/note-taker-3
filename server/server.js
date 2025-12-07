@@ -1139,6 +1139,67 @@ app.get('/api/brain/summary', authenticateToken, async (req, res) => {
   }
 });
 
+// GET /api/journey?range=30d - article activity snapshot
+app.get('/api/journey', authenticateToken, async (req, res) => {
+  try {
+    const userId = new mongoose.Types.ObjectId(req.user.id);
+    const range = (req.query.range || '30d').toLowerCase();
+    const rangeDays = { '7d': 7, '30d': 30, '90d': 90 };
+    const days = rangeDays[range] || null;
+    const cutoff = days ? new Date(Date.now() - days * 24 * 60 * 60 * 1000) : null;
+
+    const pipeline = [
+      { $match: { userId } },
+      { $unwind: '$highlights' }
+    ];
+
+    if (cutoff) {
+      pipeline.push({ $match: { 'highlights.createdAt': { $gte: cutoff } } });
+    }
+
+    pipeline.push({
+      $group: {
+        _id: '$_id',
+        title: { $first: '$title' },
+        url: { $first: '$url' },
+        createdAt: { $first: '$createdAt' },
+        highlightCount: { $sum: 1 },
+        tags: { $push: '$highlights.tags' }
+      }
+    });
+
+    pipeline.push({ $sort: { highlightCount: -1, createdAt: -1 } });
+
+    const aggregated = await Article.aggregate(pipeline);
+
+    const results = aggregated.map(doc => {
+      const flatTags = (doc.tags || []).flat().filter(Boolean);
+      const counts = {};
+      flatTags.forEach(t => {
+        counts[t] = (counts[t] || 0) + 1;
+      });
+      const topTags = Object.entries(counts)
+        .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+        .slice(0, 3)
+        .map(([tag]) => tag);
+
+      return {
+        _id: doc._id,
+        title: doc.title,
+        url: doc.url,
+        createdAt: doc.createdAt,
+        highlightCount: doc.highlightCount,
+        topTags
+      };
+    });
+
+    res.status(200).json(results);
+  } catch (error) {
+    console.error("❌ Error building journey feed:", error);
+    res.status(500).json({ error: "Failed to load journey." });
+  }
+});
+
 // POST /articles/:id/highlights - MODIFIED FOR USER AUTHENTICATION
 app.post('/articles/:id/highlights', authenticateToken, async (req, res) => {
   try {
