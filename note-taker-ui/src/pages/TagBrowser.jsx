@@ -207,6 +207,9 @@ const TagBrowser = () => {
           <div className="search-section-header">
             <span className="eyebrow">Highlights</span>
             <span className="muted small">{tagDetail?.count || 0} results</span>
+            {selectedTags.length === 1 && (
+              <Link to={`/concept/${encodeURIComponent(selectedTags[0])}`} className="article-title-link">Open concept page</Link>
+            )}
           </div>
           {detailLoading && <p className="status-message">Loading highlights...</p>}
           {detailError && <p className="status-message error-message">{detailError}</p>}

@@ -16,6 +16,7 @@ import Journey from './pages/Journey';
 import Resurface from './pages/Resurface';
 import Collections from './pages/Collections';
 import CollectionDetail from './pages/CollectionDetail';
+import TagConcept from './pages/TagConcept';
 import { Page, Card, Sidebar } from './components/ui';
 import './styles/theme.css';
 import './App.css';
@@ -125,6 +126,7 @@ function App() {
               <Route path="/notebook" element={<Notebook />} />
               <Route path="/search" element={<Search />} />
               <Route path="/journey" element={<Journey />} />
+              <Route path="/concept/:tag" element={<TagConcept />} />
               <Route path="/articles/:id" element={<ArticleViewer onArticleChange={refreshArticleList} />} />
               <Route path="/trending" element={<Trending />} />
               {/* Redirect authenticated users away from auth pages */}

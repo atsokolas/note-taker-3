@@ -148,6 +148,18 @@ const notebookFolderSchema = new mongoose.Schema({
 
 const NotebookFolder = mongoose.model('NotebookFolder', notebookFolderSchema);
 
+// Tag concepts (metadata for tags)
+const tagConceptSchema = new mongoose.Schema({
+  tag: { type: String, required: true, trim: true },
+  description: { type: String, default: '', trim: true },
+  notes: { type: String, default: '', trim: true },
+  pinnedHighlightIds: [{ type: mongoose.Schema.Types.ObjectId }],
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }
+}, { timestamps: true });
+
+tagConceptSchema.index({ tag: 1, userId: 1 }, { unique: true });
+
+const TagConcept = mongoose.model('TagConcept', tagConceptSchema);
 // Collections
 const collectionSchema = new mongoose.Schema({
   name: { type: String, required: true, trim: true },
@@ -1093,6 +1105,61 @@ app.get('/api/tags/filter', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error("❌ Error filtering highlights by tags:", error);
     res.status(500).json({ error: "Failed to fetch highlights by tags." });
+  }
+});
+
+// GET /api/tags/:tag/concept - metadata + pinned highlights for a tag
+app.get('/api/tags/:tag/concept', authenticateToken, async (req, res) => {
+  try {
+    const userId = new mongoose.Types.ObjectId(req.user.id);
+    const tag = req.params.tag;
+    const concept = await TagConcept.findOne({ tag, userId });
+
+    const pinnedIds = concept?.pinnedHighlightIds || [];
+    let pinnedHighlights = [];
+    if (pinnedIds.length > 0) {
+      pinnedHighlights = await Article.aggregate([
+        { $match: { userId } },
+        { $unwind: '$highlights' },
+        { $match: { 'highlights._id': { $in: pinnedIds } } },
+        { $project: {
+            _id: '$highlights._id',
+            text: '$highlights.text',
+            tags: '$highlights.tags',
+            articleTitle: '$title',
+            articleId: '$_id',
+            createdAt: '$highlights.createdAt'
+        } }
+      ]);
+    }
+
+    res.status(200).json({
+      concept: concept || { tag, description: '', notes: '', pinnedHighlightIds: [] },
+      pinnedHighlights
+    });
+  } catch (error) {
+    console.error("❌ Error fetching tag concept:", error);
+    res.status(500).json({ error: "Failed to fetch tag concept." });
+  }
+});
+
+// PUT /api/tags/:tag/concept - update metadata/pins
+app.put('/api/tags/:tag/concept', authenticateToken, async (req, res) => {
+  try {
+    const userId = new mongoose.Types.ObjectId(req.user.id);
+    const tag = req.params.tag;
+    const { description = '', notes = '', pinnedHighlightIds = [] } = req.body;
+
+    const updated = await TagConcept.findOneAndUpdate(
+      { tag, userId },
+      { description, notes, pinnedHighlightIds },
+      { new: true, upsert: true, setDefaultsOnInsert: true }
+    );
+
+    res.status(200).json(updated);
+  } catch (error) {
+    console.error("❌ Error updating tag concept:", error);
+    res.status(500).json({ error: "Failed to update tag concept." });
   }
 });
 
