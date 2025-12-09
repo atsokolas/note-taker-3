@@ -117,6 +117,16 @@ const TagBrowser = () => {
     }
   };
 
+  const filteredCount = selectedTags.length > 0
+    ? filteredHighlights.length
+    : (tagDetail?.highlights?.length || 0);
+
+  useEffect(() => {
+    if (selectedTags.length === 0 && tagDetail?.highlights) {
+      setFilteredHighlights(tagDetail.highlights);
+    }
+  }, [tagDetail, selectedTags.length]);
+
   const sortedTags = useMemo(
     () => [...tags].sort((a, b) => b.count - a.count || a.tag.localeCompare(b.tag)),
     [tags]
@@ -177,13 +187,15 @@ const TagBrowser = () => {
         </Card>
 
         <Card className="search-section">
-          <div className="search-section-header" style={{ alignItems: 'center', gap: 8 }}>
+          <div className="search-section-header" style={{ alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
             <span className="eyebrow">Highlights</span>
             <span className="muted small">{filteredCount} results</span>
             {selectedTags.length === 1 && (
-              <Link to={`/tags/${encodeURIComponent(selectedTags[0])}`} className="article-title-link" style={{ marginLeft: 'auto' }}>
-                Open concept page
-              </Link>
+              <span style={{ marginLeft: 'auto' }}>
+                <Link to={`/tags/${encodeURIComponent(selectedTags[0])}`} className="article-title-link">
+                  Open concept page
+                </Link>
+              </span>
             )}
           </div>
           {loadingFiltered && <p className="status-message">Loading highlights…</p>}
@@ -229,4 +241,3 @@ const TagBrowser = () => {
 };
 
 export default TagBrowser;
-  const filteredCount = filteredHighlights.length;
