@@ -143,7 +143,7 @@ const TagBrowser = () => {
             {sortedTags.map(t => (
               <TagChip
                 key={t.tag}
-                className={`${selectedTag === t.tag ? 'active' : ''} ${selectedTags.includes(t.tag) ? 'active' : ''}`}
+                className={`${selectedTag === t.tag ? 'active' : ''} ${selectedTags.includes(t.tag) ? 'ui-tag-chip-selected' : ''}`}
                 onClick={() => toggleSelectedTag(t.tag)}
               >
                 {t.tag} <span className="tag-count">{t.count}</span>
@@ -178,44 +178,17 @@ const TagBrowser = () => {
 
         <Card className="search-section">
           <div className="search-section-header">
-            <span className="eyebrow">Highlights for selected tags (OR)</span>
-            <span className="muted small">{selectedTags.length > 0 ? selectedTags.join(', ') : 'Select tags to explore'}</span>
-          </div>
-          {loadingFiltered && <p className="status-message">Loading highlights…</p>}
-          {filteredError && <p className="status-message error-message">{filteredError}</p>}
-          {!loadingFiltered && !filteredError && (
-            <div className="search-card-grid">
-              {selectedTags.length === 0 && <p className="muted small">Tap tags above to explore highlights that include any of them.</p>}
-              {selectedTags.length > 0 && filteredHighlights.length === 0 && <p className="muted small">No highlights match those tags yet.</p>}
-              {filteredHighlights.map(h => (
-                <div key={h._id} className="search-card">
-                  <div className="search-card-top">
-                    <Link to={`/articles/${h.articleId}`} className="article-title-link">{h.articleTitle || 'Untitled article'}</Link>
-                    <span className="feedback-date">{formatRelativeTime(h.createdAt)}</span>
-                  </div>
-                  <p className="highlight-text" style={{ margin: '6px 0', fontWeight: 600 }}>{h.text}</p>
-                  <div className="highlight-tag-chips" style={{ marginBottom: 6 }}>
-                    {h.tags && h.tags.length > 0 ? h.tags.map(tag => <TagChip key={tag}>{tag}</TagChip>) : <span className="muted small">No tags</span>}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </Card>
-
-        <Card className="search-section">
-          <div className="search-section-header">
             <span className="eyebrow">Highlights</span>
             <span className="muted small">{tagDetail?.count || 0} results</span>
             {selectedTags.length === 1 && (
               <Link to={`/concept/${encodeURIComponent(selectedTags[0])}`} className="article-title-link">Open concept page</Link>
             )}
           </div>
-          {detailLoading && <p className="status-message">Loading highlights...</p>}
-          {detailError && <p className="status-message error-message">{detailError}</p>}
-          {!detailLoading && !detailError && tagDetail?.highlights && tagDetail.highlights.length > 0 ? (
+          {loadingFiltered && <p className="status-message">Loading highlights…</p>}
+          {filteredError && <p className="status-message error-message">{filteredError}</p>}
+          {!loadingFiltered && !filteredError && filteredHighlights.length > 0 ? (
             <div className="search-card-grid">
-              {tagDetail.highlights.map(h => (
+              {filteredHighlights.map(h => (
                 <div key={h._id} className="search-card">
                   <div className="search-card-top">
                     <Link to={`/articles/${h.articleId}`} className="article-title-link">{h.articleTitle || 'Untitled article'}</Link>
@@ -232,7 +205,7 @@ const TagBrowser = () => {
               ))}
             </div>
           ) : (
-            !detailLoading && <p className="muted small">Select a tag to see highlights.</p>
+            !loadingFiltered && <p className="muted small">Select a tag to see highlights.</p>
           )}
 
           {tagDetail?.relatedTags && tagDetail.relatedTags.length > 0 && (

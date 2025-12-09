@@ -185,6 +185,12 @@ p {
   color: var(--accent);
 }
 
+.ui-tag-chip-selected {
+  background: var(--accent);
+  color: #fff;
+  box-shadow: 0 8px 16px rgba(11, 116, 255, 0.2);
+}
+
 .section-heading {
   margin-bottom: 12px;
   font-size: 20px;
