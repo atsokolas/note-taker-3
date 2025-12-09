@@ -177,11 +177,13 @@ const TagBrowser = () => {
         </Card>
 
         <Card className="search-section">
-          <div className="search-section-header">
+          <div className="search-section-header" style={{ alignItems: 'center', gap: 8 }}>
             <span className="eyebrow">Highlights</span>
-            <span className="muted small">{tagDetail?.count || 0} results</span>
+            <span className="muted small">{filteredCount} results</span>
             {selectedTags.length === 1 && (
-              <Link to={`/concept/${encodeURIComponent(selectedTags[0])}`} className="article-title-link">Open concept page</Link>
+              <Link to={`/tags/${encodeURIComponent(selectedTags[0])}`} className="article-title-link" style={{ marginLeft: 'auto' }}>
+                Open concept page
+              </Link>
             )}
           </div>
           {loadingFiltered && <p className="status-message">Loading highlights…</p>}
@@ -227,3 +229,4 @@ const TagBrowser = () => {
 };
 
 export default TagBrowser;
+  const filteredCount = filteredHighlights.length;

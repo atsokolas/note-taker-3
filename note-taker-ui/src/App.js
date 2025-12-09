@@ -121,6 +121,7 @@ function App() {
               <Route path="/resurface" element={<Resurface />} />
               <Route path="/all-highlights" element={<AllHighlights />} />
               <Route path="/tags" element={<TagBrowser />} />
+              <Route path="/tags/:tagName" element={<TagConcept />} />
               <Route path="/collections" element={<Collections />} />
               <Route path="/collections/:slug" element={<CollectionDetail />} />
               <Route path="/notebook" element={<Notebook />} />
