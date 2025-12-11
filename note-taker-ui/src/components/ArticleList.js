@@ -154,18 +154,6 @@ const ArticleList = () => {
         setPdfError('');
         setPdfStatus('Preparing PDF...');
         try {
-            const ensurePdfJs = () => new Promise((resolve, reject) => {
-                if (window.pdfjsLib) return resolve(window.pdfjsLib);
-                const script = document.createElement('script');
-                script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.2.67/pdf.min.js';
-                script.onload = () => {
-                    window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.2.67/pdf.worker.min.js';
-                    resolve(window.pdfjsLib);
-                };
-                script.onerror = () => reject(new Error('Failed to load PDF.js'));
-                document.head.appendChild(script);
-            });
-
             const arrayBuffer = await new Promise((resolve, reject) => {
                 const reader = new FileReader();
                 reader.onload = (e) => {
@@ -179,29 +167,8 @@ const ArticleList = () => {
             const base64Data = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
             const dataUrl = `data:application/pdf;base64,${base64Data}`;
 
-            let extractedHtml = '';
-            try {
-                setPdfStatus('Extracting text for highlights...');
-                const pdfjsLib = await ensurePdfJs();
-                const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-                const pageTexts = [];
-                for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
-                    const page = await pdf.getPage(pageNum);
-                    const textContent = await page.getTextContent();
-                    const pageText = textContent.items.map(item => item.str).join(' ');
-                    pageTexts.push(pageText);
-                }
-                const combined = pageTexts.join('\\n\\n');
-                extractedHtml = combined
-                    .split(/\\n{2,}/)
-                    .map(para => para.trim())
-                    .filter(Boolean)
-                    .map(para => `<p>${para}</p>`)
-                    .join('\\n');
-            } catch (parseErr) {
-                console.warn('PDF text extraction failed, uploading without parsed text:', parseErr);
-                extractedHtml = '';
-            }
+            // Do not load remote scripts in extension context; skip text extraction
+            const extractedHtml = '';
 
             const token = localStorage.getItem('token');
             if (!token) throw new Error('Authentication token not found.');
