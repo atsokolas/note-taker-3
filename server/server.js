@@ -136,6 +136,7 @@ const notebookEntrySchema = new mongoose.Schema({
   folder: { type: mongoose.Schema.Types.ObjectId, ref: 'NotebookFolder', default: null },
   tags: { type: [String], default: [] },
   linkedArticleId: { type: mongoose.Schema.Types.ObjectId, ref: 'Article', default: null },
+  linkedHighlightIds: [{ type: mongoose.Schema.Types.ObjectId }],
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }
 }, { timestamps: true });
 
@@ -831,6 +832,30 @@ app.get('/api/notebook/:id', authenticateToken, async (req, res) => {
   }
 });
 
+// POST /api/notebook/:id/link-highlight - record backlink to highlight
+app.post('/api/notebook/:id/link-highlight', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { id } = req.params;
+    const { highlightId } = req.body;
+    if (!highlightId) {
+      return res.status(400).json({ error: "highlightId is required." });
+    }
+    const updated = await NotebookEntry.findOneAndUpdate(
+      { _id: id, userId },
+      { $addToSet: { linkedHighlightIds: highlightId } },
+      { new: true }
+    );
+    if (!updated) {
+      return res.status(404).json({ error: "Notebook entry not found." });
+    }
+    res.status(200).json(updated);
+  } catch (error) {
+    console.error("❌ Error linking highlight to notebook:", error);
+    res.status(500).json({ error: "Failed to link highlight." });
+  }
+});
+
 // PUT /api/notebook/:id - update
 app.put('/api/notebook/:id', authenticateToken, async (req, res) => {
   try {
@@ -1250,6 +1275,50 @@ app.get('/api/tags/:name/highlights', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error("❌ Error fetching tag highlights:", error);
     res.status(500).json({ error: "Failed to fetch highlights for tag." });
+  }
+});
+
+// GET /api/highlights/:id/references - notebook entries & collections containing highlight
+app.get('/api/highlights/:id/references', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { id } = req.params;
+    const notebookEntries = await NotebookEntry.find({ userId, linkedHighlightIds: id })
+      .select('title updatedAt');
+    const collections = await Collection.find({ userId, highlightIds: id })
+      .select('name slug');
+    res.status(200).json({ notebookEntries, collections });
+  } catch (error) {
+    console.error("❌ Error fetching highlight references:", error);
+    res.status(500).json({ error: "Failed to fetch highlight references." });
+  }
+});
+
+// GET /api/articles/:id/references - where article's highlights are used
+app.get('/api/articles/:id/references', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { id } = req.params;
+    const article = await Article.findOne({ _id: id, userId }).select('highlights');
+    if (!article) {
+      return res.status(404).json({ error: "Article not found." });
+    }
+    const highlightIds = (article.highlights || []).map(h => h._id);
+    if (highlightIds.length === 0) {
+      return res.status(200).json({ highlightCount: 0, notebookEntries: [], collections: [] });
+    }
+    const notebookEntries = await NotebookEntry.find({ userId, linkedHighlightIds: { $in: highlightIds } })
+      .select('title updatedAt');
+    const collections = await Collection.find({ userId, highlightIds: { $in: highlightIds } })
+      .select('name slug');
+    res.status(200).json({
+      highlightCount: highlightIds.length,
+      notebookEntries,
+      collections
+    });
+  } catch (error) {
+    console.error("❌ Error fetching article references:", error);
+    res.status(500).json({ error: "Failed to fetch article references." });
   }
 });
 

@@ -217,21 +217,34 @@ const Notebook = () => {
     }
   };
 
-  const insertHighlight = (text) => {
-      const textarea = textareaRef.current;
-      if (!textarea) return;
-      const start = textarea.selectionStart;
-      const end = textarea.selectionEnd;
-      const before = content.slice(0, start);
-      const after = content.slice(end);
-      const next = `${before}${text}${after}`;
-      setContent(next);
-      setTimeout(() => {
-        textarea.focus();
-        textarea.selectionStart = textarea.selectionEnd = start + text.length;
-      }, 0);
-      setHighlightModalOpen(false);
-    };
+  const insertTextAtCursor = (text) => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const before = content.slice(0, start);
+    const after = content.slice(end);
+    const next = `${before}${text}${after}`;
+    setContent(next);
+    setTimeout(() => {
+      textarea.focus();
+      textarea.selectionStart = textarea.selectionEnd = start + text.length;
+    }, 0);
+    setHighlightModalOpen(false);
+  };
+
+  const insertHighlight = async (h) => {
+    const block = buildHighlightBlock(h);
+    insertTextAtCursor(block);
+    if (activeId && h?._id) {
+      try {
+        const token = localStorage.getItem('token');
+        await api.post(`/api/notebook/${activeId}/link-highlight`, { highlightId: h._id }, { headers: { Authorization: `Bearer ${token}` } });
+      } catch (err) {
+        console.error('Error linking highlight to notebook:', err);
+      }
+    }
+  };
 
   const buildHighlightBlock = (h) => {
     const notePart = h.note ? `\nNote: ${h.note}` : '';
@@ -247,7 +260,7 @@ const Notebook = () => {
     e.preventDefault();
     const text = e.dataTransfer.getData('text/plain');
     if (text) {
-      insertHighlight(text);
+      insertTextAtCursor(text);
     }
   };
 
@@ -394,7 +407,7 @@ const Notebook = () => {
                 <div
                   key={h._id}
                   className="search-card"
-                  onClick={() => insertHighlight(buildHighlightBlock(h))}
+                  onClick={() => insertHighlight(h)}
                   style={{ cursor: 'pointer' }}
                   draggable
                   onDragStart={(e) => onHighlightDragStart(e, h)}

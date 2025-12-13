@@ -1,7 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
-import api from '../api';
-import { Page, Card, TagChip, Button } from '../components/ui';
+const refsInitial = { data: null, loading: false, error: '' };
 
 const TagConcept = () => {
   const { tagName } = useParams();
@@ -13,6 +10,7 @@ const TagConcept = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
+  const [refs, setRefs] = useState({});
 
   const authHeaders = () => ({ headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
 
@@ -39,6 +37,26 @@ const TagConcept = () => {
       setLoading(false);
     }
   }, [tagName]);
+
+  const fetchRefs = async (id) => {
+    setRefs(prev => ({ ...prev, [id]: { ...(prev[id] || refsInitial), loading: true, error: '' } }));
+    try {
+      const res = await api.get(`/api/highlights/${id}/references`, authHeaders());
+      setRefs(prev => ({ ...prev, [id]: { data: res.data, loading: false, error: '' } }));
+    } catch (err) {
+      setRefs(prev => ({ ...prev, [id]: { data: null, loading: false, error: err.response?.data?.error || 'Failed to load references.' } }));
+    }
+  };
+
+  const toggleRefs = (id) => {
+    const current = refs[id];
+    if (!current || (!current.data && !current.loading)) {
+      fetchRefs(id);
+    } else {
+      setRefs(prev => ({ ...prev, [id]: { ...(prev[id] || refsInitial), data: current?.data, loading: false, error: current?.error, show: !current.show } }));
+      setRefs(prev => ({ ...prev, [id]: { ...prev[id], show: !current?.show } }));
+    }
+  };
 
   useEffect(() => {
     loadData();
@@ -140,12 +158,36 @@ const TagConcept = () => {
                       <Button variant="secondary" onClick={() => togglePin(h._id)}>
                         {isPinned(h._id) ? 'Unpin' : 'Pin'}
                       </Button>
+                      <Button variant="secondary" onClick={() => toggleRefs(h._id)}>References</Button>
                     </div>
                   </div>
                   <p className="highlight-text" style={{ margin: '6px 0', fontWeight: 600 }}>{h.text}</p>
                   <div className="highlight-tag-chips">
                     {h.tags && h.tags.length > 0 ? h.tags.map(t => <TagChip key={t}>{t}</TagChip>) : <span className="muted small">No tags</span>}
                   </div>
+                  {refs[h._id]?.loading && <p className="muted small">Loading references…</p>}
+                  {refs[h._id]?.error && <p className="status-message error-message">{refs[h._id].error}</p>}
+                  {refs[h._id]?.data && (
+                    <div className="muted small" style={{ marginTop: 6 }}>
+                      {refs[h._id].data.notebookEntries.length === 0 && refs[h._id].data.collections.length === 0 && (
+                        <p className="muted small">No references yet.</p>
+                      )}
+                      {refs[h._id].data.notebookEntries.length > 0 && (
+                        <p>
+                          Notebook: {refs[h._id].data.notebookEntries.map(n => (
+                            <span key={n._id} style={{ marginRight: 6 }}>{n.title}</span>
+                          ))}
+                        </p>
+                      )}
+                      {refs[h._id].data.collections.length > 0 && (
+                        <p>
+                          Collections: {refs[h._id].data.collections.map(c => (
+                            <span key={c._id} style={{ marginRight: 6 }}>{c.name}</span>
+                          ))}
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </div>
               ))}
               {highlights.length === 0 && <p className="muted small">No highlights yet for this tag.</p>}
@@ -171,3 +213,7 @@ const TagConcept = () => {
 };
 
 export default TagConcept;
+import React, { useEffect, useState, useCallback } from 'react';
+import { useParams, Link, useNavigate } from 'react-router-dom';
+import api from '../api';
+import { Page, Card, TagChip, Button } from '../components/ui';
