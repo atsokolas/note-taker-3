@@ -14,6 +14,7 @@ const ViewDetail = () => {
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState(null);
   const [folders, setFolders] = useState([]);
+  const [tagOptions, setTagOptions] = useState([]);
 
   const authHeaders = () => ({ headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
 
@@ -31,7 +32,7 @@ const ViewDetail = () => {
         name: viewRes.data.name,
         description: viewRes.data.description,
         targetType: viewRes.data.targetType,
-        tags: (viewRes.data.filters?.tags || []).join(', '),
+        tags: viewRes.data.filters?.tags || [],
         textQuery: viewRes.data.filters?.textQuery || '',
         dateFrom: viewRes.data.filters?.dateFrom ? viewRes.data.filters.dateFrom.slice(0,10) : '',
         dateTo: viewRes.data.filters?.dateTo ? viewRes.data.filters.dateTo.slice(0,10) : '',
@@ -55,7 +56,17 @@ const ViewDetail = () => {
         console.error('Error loading folders for view detail:', err);
       }
     };
+    const loadTags = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        const res = await api.get('/api/tags', authHeaders());
+        setTagOptions(res.data || []);
+      } catch (err) {
+        console.error('Error loading tags for view detail:', err);
+      }
+    };
     loadFolders();
+    loadTags();
   }, [id]);
 
   const save = async () => {
@@ -68,7 +79,9 @@ const ViewDetail = () => {
         description: form.description.trim(),
         targetType: form.targetType,
         filters: {
-          tags: form.tags ? form.tags.split(',').map(t => t.trim()).filter(Boolean) : [],
+          tags: Array.isArray(form.tags)
+            ? form.tags
+            : (form.tags || '').split(',').map(t => t.trim()).filter(Boolean),
           textQuery: form.textQuery.trim(),
           dateFrom: form.dateFrom || null,
           dateTo: form.dateTo || null,
@@ -160,10 +173,33 @@ const ViewDetail = () => {
                   <option value="notebook">Notebook</option>
                 </select>
               </label>
-              <label className="feedback-field">
-                <span>Tags (comma separated)</span>
-                <input type="text" value={form.tags} onChange={(e) => setForm(f => ({ ...f, tags: e.target.value }))} />
-              </label>
+              {form.targetType === 'highlights' ? (
+                <div className="feedback-field">
+                  <span>Tags</span>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    {tagOptions.map(t => (
+                      <Button
+                        key={t.tag}
+                        variant={form.tags.includes(t.tag) ? 'primary' : 'secondary'}
+                        onClick={() => {
+                          setForm(prev => {
+                            const exists = prev.tags.includes(t.tag);
+                            const next = exists ? prev.tags.filter(tag => tag !== t.tag) : [...prev.tags, t.tag];
+                            return { ...prev, tags: next };
+                          });
+                        }}
+                      >
+                        {t.tag}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <label className="feedback-field">
+                  <span>Tags (comma separated)</span>
+                  <input type="text" value={form.tags} onChange={(e) => setForm(f => ({ ...f, tags: e.target.value }))} />
+                </label>
+              )}
               {form.targetType === 'articles' && (
                 <div className="feedback-field">
                   <span>Folders</span>

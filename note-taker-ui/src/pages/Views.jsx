@@ -13,13 +13,14 @@ const Views = () => {
     name: '',
     description: '',
     targetType: 'highlights',
-    tags: '',
+    tags: [],
     textQuery: '',
     dateFrom: '',
     dateTo: '',
     folders: []
   });
   const [folders, setFolders] = useState([]);
+  const [tagOptions, setTagOptions] = useState([]);
   const navigate = useNavigate();
 
   const authHeaders = () => ({ headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
@@ -48,7 +49,17 @@ const Views = () => {
         console.error('Error loading folders for views:', err);
       }
     };
+    const loadTags = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        const res = await api.get('/api/tags', authHeaders());
+        setTagOptions(res.data || []);
+      } catch (err) {
+        console.error('Error loading tags for views:', err);
+      }
+    };
     loadFolders();
+    loadTags();
   }, []);
 
   const createView = async () => {
@@ -60,7 +71,9 @@ const Views = () => {
         description: form.description.trim(),
         targetType: form.targetType,
         filters: {
-          tags: form.tags ? form.tags.split(',').map(t => t.trim()).filter(Boolean) : [],
+          tags: Array.isArray(form.tags)
+            ? form.tags
+            : (form.tags || '').split(',').map(t => t.trim()).filter(Boolean),
           textQuery: form.textQuery.trim(),
           dateFrom: form.dateFrom || null,
           dateTo: form.dateTo || null,
@@ -131,10 +144,33 @@ const Views = () => {
                 <option value="notebook">Notebook</option>
               </select>
             </label>
-            <label className="feedback-field">
-              <span>Tags (comma separated)</span>
-              <input type="text" value={form.tags} onChange={(e) => setForm(f => ({ ...f, tags: e.target.value }))} />
-            </label>
+            {form.targetType === 'highlights' ? (
+              <div className="feedback-field">
+                <span>Tags</span>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  {tagOptions.map(t => (
+                    <Button
+                      key={t.tag}
+                      variant={form.tags.includes(t.tag) ? 'primary' : 'secondary'}
+                      onClick={() => {
+                        setForm(prev => {
+                          const exists = prev.tags.includes(t.tag);
+                          const next = exists ? prev.tags.filter(tag => tag !== t.tag) : [...prev.tags, t.tag];
+                          return { ...prev, tags: next };
+                        });
+                      }}
+                    >
+                      {t.tag}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <label className="feedback-field">
+                <span>Tags (comma separated)</span>
+                <input type="text" value={form.tags} onChange={(e) => setForm(f => ({ ...f, tags: e.target.value }))} />
+              </label>
+            )}
             {form.targetType === 'articles' && (
               <div className="feedback-field">
                 <span>Folders</span>
