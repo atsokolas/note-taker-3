@@ -170,7 +170,8 @@ const savedViewSchema = new mongoose.Schema({
     tags: [{ type: String }],
     textQuery: { type: String, default: '' },
     dateFrom: { type: Date },
-    dateTo: { type: Date }
+    dateTo: { type: Date },
+    folders: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Folder' }]
   },
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }
 }, { timestamps: true });
@@ -1412,7 +1413,7 @@ app.get('/api/views/:id/run', authenticateToken, async (req, res) => {
     if (!view) return res.status(404).json({ error: "View not found." });
 
     const { targetType, filters = {} } = view;
-    const { tags = [], textQuery = '', dateFrom, dateTo } = filters;
+    const { tags = [], textQuery = '', dateFrom, dateTo, folders = [] } = filters;
     const regex = textQuery ? new RegExp(textQuery, 'i') : null;
     const dateFilter = {};
     if (dateFrom) dateFilter.$gte = new Date(dateFrom);
@@ -1424,6 +1425,9 @@ app.get('/api/views/:id/run', authenticateToken, async (req, res) => {
       const pipeline = [
         { $match: { userId: new mongoose.Types.ObjectId(userId) } }
       ];
+      if (folders && folders.length > 0) {
+        pipeline.push({ $match: { $or: [{ folder: { $in: folders.map(f => new mongoose.Types.ObjectId(f)) } }, { folder: { $exists: false } }] } });
+      }
       if (regex) {
         pipeline.push({ $match: { $or: [{ title: regex }, { content: regex }] } });
       }

@@ -16,8 +16,10 @@ const Views = () => {
     tags: '',
     textQuery: '',
     dateFrom: '',
-    dateTo: ''
+    dateTo: '',
+    folders: []
   });
+  const [folders, setFolders] = useState([]);
   const navigate = useNavigate();
 
   const authHeaders = () => ({ headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
@@ -37,6 +39,16 @@ const Views = () => {
 
   useEffect(() => {
     loadViews();
+    const loadFolders = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        const res = await api.get('/folders', authHeaders());
+        setFolders(res.data || []);
+      } catch (err) {
+        console.error('Error loading folders for views:', err);
+      }
+    };
+    loadFolders();
   }, []);
 
   const createView = async () => {
@@ -51,7 +63,8 @@ const Views = () => {
           tags: form.tags ? form.tags.split(',').map(t => t.trim()).filter(Boolean) : [],
           textQuery: form.textQuery.trim(),
           dateFrom: form.dateFrom || null,
-          dateTo: form.dateTo || null
+          dateTo: form.dateTo || null,
+          folders: form.folders || []
         }
       };
       const res = await api.post('/api/views', payload, authHeaders());
@@ -122,6 +135,29 @@ const Views = () => {
               <span>Tags (comma separated)</span>
               <input type="text" value={form.tags} onChange={(e) => setForm(f => ({ ...f, tags: e.target.value }))} />
             </label>
+            {form.targetType === 'articles' && (
+              <div className="feedback-field">
+                <span>Folders</span>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  {folders.map(folder => (
+                    <label key={folder._id} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <input
+                        type="checkbox"
+                        checked={form.folders.includes(folder._id)}
+                        onChange={(e) => {
+                          setForm(prev => {
+                            const exists = prev.folders.includes(folder._id);
+                            const next = exists ? prev.folders.filter(id => id !== folder._id) : [...prev.folders, folder._id];
+                            return { ...prev, folders: next };
+                          });
+                        }}
+                      />
+                      <span>{folder.name}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
             <label className="feedback-field">
               <span>Text query</span>
               <input type="text" value={form.textQuery} onChange={(e) => setForm(f => ({ ...f, textQuery: e.target.value }))} />

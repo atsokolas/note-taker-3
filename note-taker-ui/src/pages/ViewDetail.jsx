@@ -33,7 +33,8 @@ const ViewDetail = () => {
         tags: (viewRes.data.filters?.tags || []).join(', '),
         textQuery: viewRes.data.filters?.textQuery || '',
         dateFrom: viewRes.data.filters?.dateFrom ? viewRes.data.filters.dateFrom.slice(0,10) : '',
-        dateTo: viewRes.data.filters?.dateTo ? viewRes.data.filters.dateTo.slice(0,10) : ''
+        dateTo: viewRes.data.filters?.dateTo ? viewRes.data.filters.dateTo.slice(0,10) : '',
+        folders: viewRes.data.filters?.folders || []
       });
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to load view.');
@@ -44,6 +45,16 @@ const ViewDetail = () => {
 
   useEffect(() => {
     load();
+    const loadFolders = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        const res = await api.get('/folders', authHeaders());
+        setFolders(res.data || []);
+      } catch (err) {
+        console.error('Error loading folders for view detail:', err);
+      }
+    };
+    loadFolders();
   }, [id]);
 
   const save = async () => {
@@ -59,7 +70,8 @@ const ViewDetail = () => {
           tags: form.tags ? form.tags.split(',').map(t => t.trim()).filter(Boolean) : [],
           textQuery: form.textQuery.trim(),
           dateFrom: form.dateFrom || null,
-          dateTo: form.dateTo || null
+          dateTo: form.dateTo || null,
+          folders: form.folders || []
         }
       };
       await api.put(`/api/views/${id}`, payload, authHeaders());
@@ -151,6 +163,29 @@ const ViewDetail = () => {
                 <span>Tags (comma separated)</span>
                 <input type="text" value={form.tags} onChange={(e) => setForm(f => ({ ...f, tags: e.target.value }))} />
               </label>
+              {form.targetType === 'articles' && (
+                <div className="feedback-field">
+                  <span>Folders</span>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    {folders.map(folder => (
+                      <label key={folder._id} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                        <input
+                          type="checkbox"
+                          checked={form.folders.includes(folder._id)}
+                          onChange={(e) => {
+                            setForm(prev => {
+                              const exists = prev.folders.includes(folder._id);
+                              const next = exists ? prev.folders.filter(id => id !== folder._id) : [...prev.folders, folder._id];
+                              return { ...prev, folders: next };
+                            });
+                          }}
+                        />
+                        <span>{folder.name}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
               <label className="feedback-field">
                 <span>Text query</span>
                 <input type="text" value={form.textQuery} onChange={(e) => setForm(f => ({ ...f, textQuery: e.target.value }))} />
