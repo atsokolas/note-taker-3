@@ -20,6 +20,7 @@ import TagConcept from './pages/TagConcept';
 import Views from './pages/Views';
 import ViewDetail from './pages/ViewDetail';
 import Today from './pages/Today';
+import CommandPalette from './components/CommandPalette';
 import { Page, Card, Sidebar } from './components/ui';
 import './styles/theme.css';
 import './App.css';
@@ -45,6 +46,7 @@ function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [articleListKey, setArticleListKey] = useState(0);
+  const [paletteOpen, setPaletteOpen] = useState(false);
 
   // Your existing Chrome Store link
   const chromeStoreLink = "https://chromewebstore.google.com/detail/note-taker/bekllegjmjbnamphjnkifpijkhoiepaa?hl=en-US&utm_source=ext_sidebar";
@@ -71,6 +73,38 @@ function App() {
   const handleLoginSuccess = () => {
     setIsAuthenticated(true);
   };
+
+  // Global keyboard shortcuts and palette
+  useEffect(() => {
+    let lastG = 0;
+    const handleKeyDown = (e) => {
+      const tag = (e.target && e.target.tagName) || '';
+      const isText = ['INPUT', 'TEXTAREA'].includes(tag) || e.target?.isContentEditable;
+      if (isText) return;
+
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setPaletteOpen(true);
+        return;
+      }
+
+      const now = Date.now();
+      if (e.key.toLowerCase() === 'g') {
+        lastG = now;
+        return;
+      }
+      if (now - lastG < 800) {
+        if (e.key.toLowerCase() === 't') window.location.href = '/today';
+        if (e.key.toLowerCase() === 'b') window.location.href = '/brain';
+        if (e.key.toLowerCase() === 'n') window.location.href = '/notebook';
+        if (e.key.toLowerCase() === 'j') window.location.href = '/journey';
+        if (e.key.toLowerCase() === 'c') window.location.href = '/collections';
+        if (e.key.toLowerCase() === 'v') window.location.href = '/views';
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   const navItems = [
     { label: 'Today', to: '/today' },
@@ -119,10 +153,10 @@ function App() {
           )}
 
           <Page className="page-area">
+            <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
             <Routes>
-              <Route path="/" element={<Welcome />} /> 
-              <Route path="/library" element={<Welcome />} />
               <Route path="/" element={<Navigate to="/today" replace />} />
+              <Route path="/library" element={<Welcome />} />
               <Route path="/today" element={<Today />} />
               <Route path="/brain" element={<Brain />} />
               <Route path="/resurface" element={<Resurface />} />
@@ -142,7 +176,7 @@ function App() {
               {/* Redirect authenticated users away from auth pages */}
               <Route path="/login" element={<Navigate to="/" replace />} />
               <Route path="/register" element={<Navigate to="/" replace />} />
-              <Route path="/journey" element={<Search />} />
+              <Route path="/journey" element={<Journey />} />
             </Routes>
           </Page>
         </div>
