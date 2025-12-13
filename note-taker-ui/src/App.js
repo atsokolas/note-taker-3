@@ -17,6 +17,8 @@ import Resurface from './pages/Resurface';
 import Collections from './pages/Collections';
 import CollectionDetail from './pages/CollectionDetail';
 import TagConcept from './pages/TagConcept';
+import Views from './pages/Views';
+import ViewDetail from './pages/ViewDetail';
 import { Page, Card, Sidebar } from './components/ui';
 import './styles/theme.css';
 import './App.css';
@@ -77,6 +79,7 @@ function App() {
     { label: 'Tags', to: '/tags' },
     { label: 'Collections', to: '/collections' },
     { label: 'Notebook', to: '/notebook' },
+    { label: 'Views', to: '/views' },
     { label: 'Journey', to: '/journey' },
     { label: 'Trending', to: '/trending' }
   ];
@@ -125,6 +128,8 @@ function App() {
               <Route path="/collections" element={<Collections />} />
               <Route path="/collections/:slug" element={<CollectionDetail />} />
               <Route path="/notebook" element={<Notebook />} />
+              <Route path="/views" element={<Views />} />
+              <Route path="/views/:id" element={<ViewDetail />} />
               <Route path="/search" element={<Search />} />
               <Route path="/journey" element={<Journey />} />
               <Route path="/concept/:tag" element={<TagConcept />} />
