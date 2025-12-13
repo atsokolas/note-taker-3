@@ -19,6 +19,7 @@ import CollectionDetail from './pages/CollectionDetail';
 import TagConcept from './pages/TagConcept';
 import Views from './pages/Views';
 import ViewDetail from './pages/ViewDetail';
+import Today from './pages/Today';
 import { Page, Card, Sidebar } from './components/ui';
 import './styles/theme.css';
 import './App.css';
@@ -72,6 +73,7 @@ function App() {
   };
 
   const navItems = [
+    { label: 'Today', to: '/today' },
     { label: 'Brain', to: '/brain' },
     { label: 'Resurface', to: '/resurface' },
     { label: 'Library', to: '/library' },
@@ -120,6 +122,8 @@ function App() {
             <Routes>
               <Route path="/" element={<Welcome />} /> 
               <Route path="/library" element={<Welcome />} />
+              <Route path="/" element={<Navigate to="/today" replace />} />
+              <Route path="/today" element={<Today />} />
               <Route path="/brain" element={<Brain />} />
               <Route path="/resurface" element={<Resurface />} />
               <Route path="/all-highlights" element={<AllHighlights />} />
