@@ -2191,3 +2191,63 @@ body {
     grid-template-columns: 1fr;
   }
 }
+
+/* Command palette */
+.palette-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.25);
+  z-index: 2000;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 60px;
+}
+
+.palette-card {
+  width: min(720px, 90vw);
+  padding: 16px;
+}
+
+.palette-input-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.palette-input {
+  flex: 1;
+  padding: 10px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+}
+
+.palette-list {
+  max-height: 360px;
+  overflow-y: auto;
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.palette-item {
+  padding: 10px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  cursor: pointer;
+}
+
+.palette-item.active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.palette-shortcuts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 8px 0 12px;
+}

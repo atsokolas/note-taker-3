@@ -1547,6 +1547,49 @@ app.get('/api/today', authenticateToken, async (req, res) => {
   }
 });
 
+// --- EXPORT JSON ---
+app.get('/api/export/json', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const [articles, notebookEntries, collections, tagsMeta] = await Promise.all([
+      Article.find({ userId }).lean(),
+      NotebookEntry.find({ userId }).lean(),
+      Collection.find({ userId }).lean(),
+      TagMeta.find({ userId }).lean()
+    ]);
+
+    // Flatten highlights across articles for convenience
+    const highlights = [];
+    articles.forEach(a => {
+      (a.highlights || []).forEach(h => {
+        highlights.push({
+          _id: h._id,
+          text: h.text,
+          note: h.note,
+          tags: h.tags,
+          createdAt: h.createdAt,
+          articleId: a._id,
+          articleTitle: a.title
+        });
+      });
+    });
+
+    const payload = {
+      exportedAt: new Date().toISOString(),
+      articles,
+      highlights,
+      notebookEntries,
+      collections,
+      tagsMeta
+    };
+
+    res.status(200).json(payload);
+  } catch (error) {
+    console.error("❌ Error exporting data:", error);
+    res.status(500).json({ error: "Failed to export data." });
+  }
+});
+
 // GET /api/brain/summary - surface patterns from highlights/articles (non-AI)
 app.get('/api/brain/summary', authenticateToken, async (req, res) => {
   try {

@@ -20,6 +20,7 @@ import TagConcept from './pages/TagConcept';
 import Views from './pages/Views';
 import ViewDetail from './pages/ViewDetail';
 import Today from './pages/Today';
+import Export from './pages/Export';
 import CommandPalette from './components/CommandPalette';
 import { Page, Card, Sidebar } from './components/ui';
 import './styles/theme.css';
@@ -117,7 +118,8 @@ function App() {
     { label: 'Notebook', to: '/notebook' },
     { label: 'Views', to: '/views' },
     { label: 'Journey', to: '/journey' },
-    { label: 'Trending', to: '/trending' }
+    { label: 'Trending', to: '/trending' },
+    { label: 'Export', to: '/export' }
   ];
 
   if (isLoading) {
@@ -173,10 +175,10 @@ function App() {
               <Route path="/concept/:tag" element={<TagConcept />} />
               <Route path="/articles/:id" element={<ArticleViewer onArticleChange={refreshArticleList} />} />
               <Route path="/trending" element={<Trending />} />
+              <Route path="/export" element={<Export />} />
               {/* Redirect authenticated users away from auth pages */}
               <Route path="/login" element={<Navigate to="/" replace />} />
               <Route path="/register" element={<Navigate to="/" replace />} />
-              <Route path="/journey" element={<Journey />} />
             </Routes>
           </Page>
         </div>

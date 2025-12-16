@@ -83,7 +83,7 @@ const Views = () => {
       const res = await api.post('/api/views', payload, authHeaders());
       setViews(prev => [res.data, ...prev]);
       setShowModal(false);
-      setForm({ name: '', description: '', targetType: 'highlights', tags: '', textQuery: '', dateFrom: '', dateTo: '' });
+      setForm({ name: '', description: '', targetType: 'highlights', tags: [], textQuery: '', dateFrom: '', dateTo: '', folders: [] });
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to create view.');
     } finally {

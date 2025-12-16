@@ -21,7 +21,8 @@ const CommandPalette = ({ open, onClose }) => {
     { label: 'Collections', path: '/collections' },
     { label: 'Views', path: '/views' },
     { label: 'Tags', path: '/tags' },
-    { label: 'Resurface', path: '/resurface' }
+    { label: 'Resurface', path: '/resurface' },
+    { label: 'Export', path: '/export' }
   ]), []);
 
   useEffect(() => {
@@ -117,6 +118,15 @@ const CommandPalette = ({ open, onClose }) => {
             className="palette-input"
           />
           <Button variant="secondary" onClick={onClose}>Close</Button>
+        </div>
+        <div className="palette-shortcuts">
+          <span className="muted small">Cmd/Ctrl+K: Open</span>
+          <span className="muted small">g then t: Today</span>
+          <span className="muted small">g then b: Brain</span>
+          <span className="muted small">g then n: Notebook</span>
+          <span className="muted small">g then j: Journey</span>
+          <span className="muted small">g then c: Collections</span>
+          <span className="muted small">g then v: Views</span>
         </div>
         {loading && <p className="muted small">Searching…</p>}
         <div className="palette-list">
