@@ -28,6 +28,7 @@ const AllHighlights = () => {
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState('');
   const [selectedTag, setSelectedTag] = useState('all');
+  const [refs, setRefs] = useState({});
 
   useEffect(() => {
     const fetchData = async () => {
@@ -111,6 +112,27 @@ const AllHighlights = () => {
     }
   };
 
+  const fetchRefs = async (id) => {
+    setRefs(prev => ({ ...prev, [id]: { ...(prev[id] || {}), loading: true, error: '', show: true } }));
+    try {
+      const token = localStorage.getItem('token');
+      const authHeaders = { headers: { Authorization: `Bearer ${token}` } };
+      const res = await api.get(`/api/highlights/${id}/references`, authHeaders);
+      setRefs(prev => ({ ...prev, [id]: { data: res.data, loading: false, error: '', show: true } }));
+    } catch (err) {
+      setRefs(prev => ({ ...prev, [id]: { data: null, loading: false, error: err.response?.data?.error || 'Failed to load references.', show: true } }));
+    }
+  };
+
+  const toggleRefs = (id) => {
+    const current = refs[id];
+    if (!current || (!current.data && !current.loading)) {
+      fetchRefs(id);
+    } else {
+      setRefs(prev => ({ ...prev, [id]: { ...(prev[id] || {}), show: !current.show } }));
+    }
+  };
+
   return (
     <Page>
       <div className="page-header">
@@ -152,9 +174,27 @@ const AllHighlights = () => {
                   <TagChip key={tag} to={`/tags/${encodeURIComponent(tag)}`}>{tag}</TagChip>
                 )) : <span className="muted small">No tags</span>}
               </div>
-              <p className="feedback-message">
-                {h.note ? `${h.note.slice(0, 100)}${h.note.length > 100 ? '…' : ''}` : <span className="muted small">No note</span>}
-              </p>
+                  <p className="feedback-message">
+                    {h.note ? `${h.note.slice(0, 100)}${h.note.length > 100 ? '…' : ''}` : <span className="muted small">No note</span>}
+                  </p>
+              <Button variant="secondary" onClick={() => toggleRefs(h._id)} style={{ marginTop: 6 }}>
+                {refs[h._id]?.show ? 'Hide references' : 'Referenced in'}
+              </Button>
+              {refs[h._id]?.loading && <p className="muted small">Loading references…</p>}
+              {refs[h._id]?.error && <p className="status-message error-message">{refs[h._id].error}</p>}
+              {refs[h._id]?.data && refs[h._id]?.show && (
+                <div className="muted small" style={{ marginTop: 6 }}>
+                  {refs[h._id].data.notebookEntries.length === 0 && refs[h._id].data.collections.length === 0 && (
+                    <p className="muted small">No references yet.</p>
+                  )}
+                  {refs[h._id].data.notebookEntries.length > 0 && (
+                    <p>Notebook: {refs[h._id].data.notebookEntries.map(n => n.title).join(', ')}</p>
+                  )}
+                  {refs[h._id].data.collections.length > 0 && (
+                    <p>Collections: {refs[h._id].data.collections.map(c => c.name).join(', ')}</p>
+                  )}
+                </div>
+              )}
               {editing && editing.id === h._id ? (
                 <div className="feedback-body" style={{ paddingTop: 8 }}>
                   <label className="feedback-field">

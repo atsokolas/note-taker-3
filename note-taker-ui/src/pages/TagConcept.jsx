@@ -22,6 +22,7 @@ const TagConcept = () => {
   const [noteForm, setNoteForm] = useState({ title: '', content: '' });
   const [editingNoteId, setEditingNoteId] = useState(null);
   const [editingNoteDraft, setEditingNoteDraft] = useState({ title: '', content: '' });
+  const [conceptRefs, setConceptRefs] = useState({ data: null, loading: false, error: '' });
 
   const authHeaders = () => ({ headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
 
@@ -83,6 +84,19 @@ const TagConcept = () => {
     loadData();
     loadNotes();
   }, [loadData, loadNotes]);
+
+  useEffect(() => {
+    const fetchConceptRefs = async () => {
+      setConceptRefs({ data: null, loading: true, error: '' });
+      try {
+        const res = await api.get(`/api/concepts/${encodeURIComponent(tagName)}/references`, authHeaders());
+        setConceptRefs({ data: res.data, loading: false, error: '' });
+      } catch (err) {
+        setConceptRefs({ data: null, loading: false, error: err.response?.data?.error || 'Failed to load references.' });
+      }
+    };
+    fetchConceptRefs();
+  }, [tagName]);
 
   const togglePin = (id) => {
     setMeta(prev => {
@@ -286,6 +300,46 @@ const TagConcept = () => {
                 </TagChip>
               )) : <span className="muted small">No related tags yet.</span>}
             </div>
+          </Card>
+
+          <Card className="search-section">
+            <div className="search-section-header">
+              <span className="eyebrow">Used in</span>
+            </div>
+            {conceptRefs.loading && <p className="muted small">Loading references…</p>}
+            {conceptRefs.error && <p className="status-message error-message">{conceptRefs.error}</p>}
+            {conceptRefs.data && (
+              <div className="section-stack">
+                <div>
+                  <span className="muted-label">Notebook entries</span>
+                  {conceptRefs.data.notebookEntries.length === 0 ? (
+                    <p className="muted small">No notebook entries reference this concept.</p>
+                  ) : (
+                    <ul className="muted small">
+                      {conceptRefs.data.notebookEntries.map(n => (
+                        <li key={n._id}>{n.title || 'Untitled'} — {n.updatedAt ? new Date(n.updatedAt).toLocaleDateString() : ''}</li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+                <div>
+                  <span className="muted-label">Collections</span>
+                  {conceptRefs.data.collections.length === 0 ? (
+                    <p className="muted small">No collections contain this concept yet.</p>
+                  ) : (
+                    <ul className="muted small">
+                      {conceptRefs.data.collections.map(c => (
+                        <li key={c._id}>{c.name}</li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+                <div>
+                  <span className="muted-label">Concept notes</span>
+                  <p className="muted small">{conceptRefs.data.conceptNotesCount || 0} note(s)</p>
+                </div>
+              </div>
+            )}
           </Card>
 
           <Card className="search-section">

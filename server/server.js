@@ -1367,6 +1367,49 @@ app.delete('/api/concepts/notes/:id', authenticateToken, async (req, res) => {
   }
 });
 
+// GET /api/concepts/:tagName/references - where concept is used
+app.get('/api/concepts/:tagName/references', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { tagName } = req.params;
+
+    const highlightAgg = await Article.aggregate([
+      { $match: { userId: new mongoose.Types.ObjectId(userId) } },
+      { $unwind: '$highlights' },
+      { $match: { 'highlights.tags': tagName } },
+      { $project: { _id: '$highlights._id' } }
+    ]);
+    const highlightIds = highlightAgg.map(h => h._id);
+
+    const notebookEntries = await NotebookEntry.find({
+      userId,
+      $or: [
+        { linkedHighlightIds: { $in: highlightIds } },
+        { content: { $regex: new RegExp(`#${tagName}\\b`, 'i') } }
+      ]
+    }).select('title updatedAt');
+
+    const collections = await Collection.find({
+      userId,
+      highlightIds: { $in: highlightIds }
+    }).select('name slug');
+
+    const notesCount = await ConceptNote.countDocuments({
+      userId,
+      tagName: { $regex: new RegExp(`^${tagName}$`, 'i') }
+    });
+
+    res.status(200).json({
+      notebookEntries,
+      collections,
+      conceptNotesCount: notesCount
+    });
+  } catch (error) {
+    console.error("❌ Error fetching concept references:", error);
+    res.status(500).json({ error: "Failed to fetch concept references." });
+  }
+});
+
 // GET /api/highlights/:id/references - notebook entries & collections containing highlight
 app.get('/api/highlights/:id/references', authenticateToken, async (req, res) => {
   try {

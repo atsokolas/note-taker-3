@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import api from '../api';
 import { useParams, useNavigate } from 'react-router-dom';
 import CitationGenerator from './CitationGenerator'; // <-- 1. IMPORT THE NEW COMPONENT
-import { Page, Card } from './ui';
+import { Page, Card, Button } from './ui';
 
 const getAuthConfig = () => {
     // ... (Your existing code)
@@ -98,6 +98,7 @@ const ArticleViewer = ({ onArticleChange }) => {
     const [annotationDraft, setAnnotationDraft] = useState({ text: '', note: '', page: '', color: '#f6c244' });
     const [pdfSaving, setPdfSaving] = useState(false);
     const [pdfStatus, setPdfStatus] = useState('');
+    const [refs, setRefs] = useState({ loading: false, error: '', data: null, open: false });
     const activePdf = useMemo(() => {
         if (!pdfs || pdfs.length === 0) return null;
         return pdfs.find(pdf => pdf.id === activePdfId) || pdfs[0];
@@ -194,6 +195,20 @@ const ArticleViewer = ({ onArticleChange }) => {
         )));
         setAnnotationDraft({ text: '', note: '', page: '', color: annotationDraft.color });
         setPdfStatus('Unsaved PDF changes');
+    };
+
+    const toggleReferences = async () => {
+        if (refs.open) {
+            setRefs(prev => ({ ...prev, open: false }));
+            return;
+        }
+        setRefs({ loading: true, error: '', data: null, open: true });
+        try {
+            const res = await api.get(`/api/articles/${id}/references`, getAuthConfig());
+            setRefs({ loading: false, error: '', data: res.data, open: true });
+        } catch (err) {
+            setRefs({ loading: false, error: err.response?.data?.error || 'Failed to load references.', data: null, open: true });
+        }
     };
 
     const handleRemoveAnnotation = (pdfId, annotationId) => {
@@ -681,8 +696,42 @@ const ArticleViewer = ({ onArticleChange }) => {
                 </Card>
 
                 <Card className="article-highlights-card">
+                    <div className="search-section-header" style={{ marginBottom: 12 }}>
+                        <h2 style={{ margin: 0 }}>Article Highlights</h2>
+                        <Button variant="secondary" onClick={toggleReferences}>Used in</Button>
+                    </div>
+                    {refs.open && (
+                        <div className="muted small" style={{ marginBottom: 12 }}>
+                            {refs.loading && <p>Loading references…</p>}
+                            {refs.error && <p className="status-message error-message">{refs.error}</p>}
+                            {refs.data && (
+                                <>
+                                    <p>{refs.data.highlightCount} highlight(s) in this article.</p>
+                                    <div>
+                                        <span className="muted-label">Notebook</span>
+                                        {refs.data.notebookEntries.length === 0 ? <p>No notebook entries yet.</p> : (
+                                            <ul>
+                                                {refs.data.notebookEntries.map(n => (
+                                                    <li key={n._id}>{n.title || 'Untitled'} — {n.updatedAt ? new Date(n.updatedAt).toLocaleDateString() : ''}</li>
+                                                ))}
+                                            </ul>
+                                        )}
+                                    </div>
+                                    <div>
+                                        <span className="muted-label">Collections</span>
+                                        {refs.data.collections.length === 0 ? <p>No collections yet.</p> : (
+                                            <ul>
+                                                {refs.data.collections.map(c => (
+                                                    <li key={c._id}>{c.name}</li>
+                                                ))}
+                                            </ul>
+                                        )}
+                                    </div>
+                                </>
+                            )}
+                        </div>
+                    )}
                     {/* ... (Your existing highlights sidebar code) ... */}
-                    <h2>Article Highlights</h2>
                     {article.highlights && article.highlights.length > 0 ? (
                         <ul className="highlights-list">
                             {article.highlights.map(h => (

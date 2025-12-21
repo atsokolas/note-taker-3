@@ -17,6 +17,7 @@ const TodayMode = () => {
   const [insights, setInsights] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [refs, setRefs] = useState({});
 
   const authHeaders = () => ({ headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
 
@@ -59,6 +60,25 @@ const TodayMode = () => {
     if (active === 'desk') loadDesk();
   }, [active]);
 
+  const fetchRefs = async (id) => {
+    setRefs(prev => ({ ...prev, [id]: { ...(prev[id] || {}), loading: true, error: '', show: true } }));
+    try {
+      const res = await api.get(`/api/highlights/${id}/references`, authHeaders());
+      setRefs(prev => ({ ...prev, [id]: { data: res.data, loading: false, error: '', show: true } }));
+    } catch (err) {
+      setRefs(prev => ({ ...prev, [id]: { data: null, loading: false, error: err.response?.data?.error || 'Failed to load references.', show: true } }));
+    }
+  };
+
+  const toggleRefs = (id) => {
+    const current = refs[id];
+    if (!current || (!current.data && !current.loading)) {
+      fetchRefs(id);
+    } else {
+      setRefs(prev => ({ ...prev, [id]: { ...(prev[id] || {}), show: !current.show } }));
+    }
+  };
+
   const renderDesk = () => (
     <div className="section-stack">
       <Card className="search-section">
@@ -80,6 +100,24 @@ const TodayMode = () => {
               <div className="highlight-tag-chips">
                 {h.tags && h.tags.length > 0 ? h.tags.map(tag => <TagChip key={tag} to={`/tags/${encodeURIComponent(tag)}`}>{tag}</TagChip>) : <span className="muted small">No tags</span>}
               </div>
+              <Button variant="secondary" onClick={() => toggleRefs(h._id)} style={{ marginTop: 6 }}>
+                {refs[h._id]?.show ? 'Hide references' : 'Referenced in'}
+              </Button>
+              {refs[h._id]?.loading && <p className="muted small">Loading references…</p>}
+              {refs[h._id]?.error && <p className="status-message error-message">{refs[h._id].error}</p>}
+              {refs[h._id]?.data && refs[h._id]?.show && (
+                <div className="muted small" style={{ marginTop: 6 }}>
+                  {refs[h._id].data.notebookEntries.length === 0 && refs[h._id].data.collections.length === 0 && (
+                    <p className="muted small">No references yet.</p>
+                  )}
+                  {refs[h._id].data.notebookEntries.length > 0 && (
+                    <p>Notebook: {refs[h._id].data.notebookEntries.map(n => n.title).join(', ')}</p>
+                  )}
+                  {refs[h._id].data.collections.length > 0 && (
+                    <p>Collections: {refs[h._id].data.collections.map(c => c.name).join(', ')}</p>
+                  )}
+                </div>
+              )}
             </div>
           )) : <p className="muted small">No highlights yet.</p>}
         </div>
