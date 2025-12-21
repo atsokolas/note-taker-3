@@ -7,6 +7,32 @@ const Export = () => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
+  const downloadPdfZip = async () => {
+    setLoading(true);
+    setStatus('');
+    setError('');
+    try {
+      const token = localStorage.getItem('token');
+      const res = await api.get('/api/export/pdf-zip', {
+        headers: { Authorization: `Bearer ${token}` },
+        responseType: 'blob'
+      });
+      const blob = new Blob([res.data], { type: 'application/zip' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `note-taker-export-pdfs.zip`;
+      a.click();
+      URL.revokeObjectURL(url);
+      setStatus('PDF bundle downloaded.');
+    } catch (err) {
+      console.error('PDF export failed:', err);
+      setError(err.response?.data?.error || 'Failed to export PDF bundle.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const downloadJson = async () => {
     setLoading(true);
     setStatus('');
@@ -57,6 +83,9 @@ const Export = () => {
       </div>
       <Card className="search-section">
         <div className="section-stack">
+          <Button onClick={downloadPdfZip} disabled={loading}>
+            {loading ? 'Preparing…' : 'Download PDF Bundle'}
+          </Button>
           <Button onClick={downloadJson} disabled={loading}>
             {loading ? 'Preparing…' : 'Download JSON Export'}
           </Button>
