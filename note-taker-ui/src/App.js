@@ -21,6 +21,11 @@ import Views from './pages/Views';
 import ViewDetail from './pages/ViewDetail';
 import Today from './pages/Today';
 import Export from './pages/Export';
+import TodayMode from './pages/TodayMode';
+import LibraryMode from './pages/LibraryMode';
+import ThinkMode from './pages/ThinkMode';
+import ReviewMode from './pages/ReviewMode';
+import Settings from './pages/Settings';
 import CommandPalette from './components/CommandPalette';
 import { Page, Card, Sidebar } from './components/ui';
 import './styles/theme.css';
@@ -109,17 +114,10 @@ function App() {
 
   const navItems = [
     { label: 'Today', to: '/today' },
-    { label: 'Brain', to: '/brain' },
-    { label: 'Resurface', to: '/resurface' },
     { label: 'Library', to: '/library' },
-    { label: 'Highlights', to: '/all-highlights' },
-    { label: 'Tags', to: '/tags' },
-    { label: 'Collections', to: '/collections' },
-    { label: 'Notebook', to: '/notebook' },
-    { label: 'Views', to: '/views' },
-    { label: 'Journey', to: '/journey' },
-    { label: 'Trending', to: '/trending' },
-    { label: 'Export', to: '/export' }
+    { label: 'Think', to: '/think' },
+    { label: 'Review', to: '/review' },
+    { label: 'Settings', to: '/settings' }
   ];
 
   if (isLoading) {
@@ -159,7 +157,13 @@ function App() {
             <Routes>
               <Route path="/" element={<Navigate to="/today" replace />} />
               <Route path="/library" element={<Welcome />} />
-              <Route path="/today" element={<Today />} />
+              <Route path="/today" element={<TodayMode />} />
+              <Route path="/library" element={<LibraryMode />} />
+              <Route path="/think" element={<ThinkMode />} />
+              <Route path="/review" element={<ReviewMode />} />
+              <Route path="/settings" element={<Settings />} />
+
+              {/* Legacy/feature routes kept for compatibility */}
               <Route path="/brain" element={<Brain />} />
               <Route path="/resurface" element={<Resurface />} />
               <Route path="/all-highlights" element={<AllHighlights />} />

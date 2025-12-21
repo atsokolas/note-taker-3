@@ -15,10 +15,11 @@ const CommandPalette = ({ open, onClose }) => {
 
   const pages = useMemo(() => ([
     { label: 'Today', path: '/today' },
-    { label: 'Brain', path: '/brain' },
-    { label: 'Notebook', path: '/notebook' },
-    { label: 'Journey', path: '/journey' },
-    { label: 'Collections', path: '/collections' },
+    { label: 'Library', path: '/library' },
+    { label: 'Think', path: '/think' },
+    { label: 'Review', path: '/review' },
+    { label: 'Settings', path: '/settings' },
+    // legacy quick links
     { label: 'Views', path: '/views' },
     { label: 'Tags', path: '/tags' },
     { label: 'Resurface', path: '/resurface' },
