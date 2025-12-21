@@ -78,7 +78,7 @@ const TodayMode = () => {
               </div>
               <p className="highlight-text" style={{ margin: '6px 0', fontWeight: 600 }}>{h.text}</p>
               <div className="highlight-tag-chips">
-                {h.tags && h.tags.length > 0 ? h.tags.map(tag => <TagChip key={tag}>{tag}</TagChip>) : <span className="muted small">No tags</span>}
+                {h.tags && h.tags.length > 0 ? h.tags.map(tag => <TagChip key={tag} to={`/tags/${encodeURIComponent(tag)}`}>{tag}</TagChip>) : <span className="muted small">No tags</span>}
               </div>
             </div>
           )) : <p className="muted small">No highlights yet.</p>}

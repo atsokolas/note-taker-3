@@ -211,7 +211,7 @@ const TagBrowser = () => {
                   <p className="highlight-text" style={{ margin: '6px 0', fontWeight: 600 }}>{h.text}</p>
                   <div className="highlight-tag-chips" style={{ marginBottom: '6px' }}>
                     {h.tags && h.tags.length > 0 ? h.tags.map(tag => (
-                      <TagChip key={tag}>{tag}</TagChip>
+                      <TagChip key={tag} to={`/tags/${encodeURIComponent(tag)}`}>{tag}</TagChip>
                     )) : <span className="muted small">No tags</span>}
                   </div>
                   <p className="search-snippet">{h.note ? h.note.slice(0, 120) + (h.note.length > 120 ? '…' : '') : <span className="muted small">No note</span>}</p>

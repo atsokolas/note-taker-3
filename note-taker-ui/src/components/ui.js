@@ -1,5 +1,5 @@
 import React from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, Link } from 'react-router-dom';
 
 const cx = (...classes) => classes.filter(Boolean).join(' ');
 
@@ -17,11 +17,20 @@ export const Button = ({ children, variant = 'primary', className, ...rest }) =>
   </button>
 );
 
-export const TagChip = ({ children, className, onClick }) => (
-  <span className={cx('ui-tag-chip', onClick && 'clickable', className)} onClick={onClick}>
-    {children}
-  </span>
-);
+export const TagChip = ({ children, className, onClick, to }) => {
+  if (to) {
+    return (
+      <Link to={to} className={cx('ui-tag-chip', 'clickable', className)} onClick={onClick}>
+        {children}
+      </Link>
+    );
+  }
+  return (
+    <span className={cx('ui-tag-chip', onClick && 'clickable', className)} onClick={onClick}>
+      {children}
+    </span>
+  );
+};
 
 export const Sidebar = ({ brand = 'Note Taker', navItems = [], footer, onLogout, className }) => (
   <aside className={cx('ui-sidebar', className)}>

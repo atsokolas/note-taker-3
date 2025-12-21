@@ -16,6 +16,12 @@ const TagConcept = () => {
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
   const [refs, setRefs] = useState({});
+  const [notes, setNotes] = useState([]);
+  const [noteError, setNoteError] = useState('');
+  const [noteSaving, setNoteSaving] = useState(false);
+  const [noteForm, setNoteForm] = useState({ title: '', content: '' });
+  const [editingNoteId, setEditingNoteId] = useState(null);
+  const [editingNoteDraft, setEditingNoteDraft] = useState({ title: '', content: '' });
 
   const authHeaders = () => ({ headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
 
@@ -43,6 +49,16 @@ const TagConcept = () => {
     }
   }, [tagName]);
 
+  const loadNotes = useCallback(async () => {
+    try {
+      const res = await api.get(`/api/concepts/${encodeURIComponent(tagName)}/notes`, authHeaders());
+      setNotes(res.data || []);
+    } catch (err) {
+      console.error('Error loading concept notes:', err);
+      setNoteError(err.response?.data?.error || 'Failed to load notes.');
+    }
+  }, [tagName]);
+
   const fetchRefs = async (id) => {
     setRefs(prev => ({ ...prev, [id]: { ...(prev[id] || refsInitial), loading: true, error: '' } }));
     try {
@@ -65,7 +81,8 @@ const TagConcept = () => {
 
   useEffect(() => {
     loadData();
-  }, [loadData]);
+    loadNotes();
+  }, [loadData, loadNotes]);
 
   const togglePin = (id) => {
     setMeta(prev => {
@@ -95,6 +112,65 @@ const TagConcept = () => {
   };
 
   const isPinned = (id) => meta.pinnedHighlightIds?.some(hid => String(hid) === String(id));
+
+  const submitNote = async () => {
+    if (!noteForm.title.trim() && !noteForm.content.trim()) return;
+    setNoteSaving(true);
+    setNoteError('');
+    try {
+      await api.post(`/api/concepts/${encodeURIComponent(tagName)}/notes`, {
+        title: noteForm.title.trim(),
+        content: noteForm.content.trim()
+      }, authHeaders());
+      setNoteForm({ title: '', content: '' });
+      await loadNotes();
+    } catch (err) {
+      setNoteError(err.response?.data?.error || 'Failed to save note.');
+    } finally {
+      setNoteSaving(false);
+    }
+  };
+
+  const startEditNote = (note) => {
+    setEditingNoteId(note._id);
+    setEditingNoteDraft({ title: note.title || '', content: note.content || '' });
+  };
+
+  const saveEditNote = async () => {
+    if (!editingNoteId) return;
+    setNoteSaving(true);
+    setNoteError('');
+    try {
+      await api.put(`/api/concepts/notes/${editingNoteId}`, {
+        title: editingNoteDraft.title,
+        content: editingNoteDraft.content
+      }, authHeaders());
+      setEditingNoteId(null);
+      setEditingNoteDraft({ title: '', content: '' });
+      await loadNotes();
+    } catch (err) {
+      setNoteError(err.response?.data?.error || 'Failed to update note.');
+    } finally {
+      setNoteSaving(false);
+    }
+  };
+
+  const deleteNote = async (id) => {
+    setNoteSaving(true);
+    setNoteError('');
+    try {
+      await api.delete(`/api/concepts/notes/${id}`, authHeaders());
+      if (editingNoteId === id) {
+        setEditingNoteId(null);
+        setEditingNoteDraft({ title: '', content: '' });
+      }
+      await loadNotes();
+    } catch (err) {
+      setNoteError(err.response?.data?.error || 'Failed to delete note.');
+    } finally {
+      setNoteSaving(false);
+    }
+  };
 
   return (
     <Page>
@@ -142,7 +218,7 @@ const TagConcept = () => {
                   </div>
                   <p className="highlight-text" style={{ margin: '6px 0', fontWeight: 600 }}>{h.text}</p>
                   <div className="highlight-tag-chips">
-                    {h.tags && h.tags.length > 0 ? h.tags.map(t => <TagChip key={t}>{t}</TagChip>) : <span className="muted small">No tags</span>}
+                    {h.tags && h.tags.length > 0 ? h.tags.map(t => <TagChip key={t} to={`/tags/${encodeURIComponent(t)}`}>{t}</TagChip>) : <span className="muted small">No tags</span>}
                   </div>
                 </div>
               ))}
@@ -168,7 +244,7 @@ const TagConcept = () => {
                   </div>
                   <p className="highlight-text" style={{ margin: '6px 0', fontWeight: 600 }}>{h.text}</p>
                   <div className="highlight-tag-chips">
-                    {h.tags && h.tags.length > 0 ? h.tags.map(t => <TagChip key={t}>{t}</TagChip>) : <span className="muted small">No tags</span>}
+                    {h.tags && h.tags.length > 0 ? h.tags.map(t => <TagChip key={t} to={`/tags/${encodeURIComponent(t)}`}>{t}</TagChip>) : <span className="muted small">No tags</span>}
                   </div>
                   {refs[h._id]?.loading && <p className="muted small">Loading references…</p>}
                   {refs[h._id]?.error && <p className="status-message error-message">{refs[h._id].error}</p>}
@@ -205,10 +281,84 @@ const TagConcept = () => {
             </div>
             <div className="highlight-tag-chips" style={{ flexWrap: 'wrap' }}>
               {relatedTags && relatedTags.length > 0 ? relatedTags.map(rt => (
-                <TagChip key={rt.tag} onClick={() => navigate(`/tags/${encodeURIComponent(rt.tag)}`)}>
+                <TagChip key={rt.tag} to={`/tags/${encodeURIComponent(rt.tag)}`}>
                   {rt.tag} <span className="tag-count">{rt.count}</span>
                 </TagChip>
               )) : <span className="muted small">No related tags yet.</span>}
+            </div>
+          </Card>
+
+          <Card className="search-section">
+            <div className="search-section-header">
+              <span className="eyebrow">Concept notes</span>
+              <span className="muted small">{notes.length} notes</span>
+            </div>
+            {noteError && <p className="status-message error-message">{noteError}</p>}
+            <div className="section-stack">
+              <label className="feedback-field">
+                <span>Title</span>
+                <input
+                  type="text"
+                  value={noteForm.title}
+                  onChange={(e) => setNoteForm(prev => ({ ...prev, title: e.target.value }))}
+                />
+              </label>
+              <label className="feedback-field">
+                <span>Content</span>
+                <textarea
+                  rows={3}
+                  value={noteForm.content}
+                  onChange={(e) => setNoteForm(prev => ({ ...prev, content: e.target.value }))}
+                />
+              </label>
+              <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                <Button onClick={submitNote} disabled={noteSaving || (!noteForm.title.trim() && !noteForm.content.trim())}>
+                  {noteSaving ? 'Saving…' : 'Add note'}
+                </Button>
+              </div>
+            </div>
+            <div className="section-stack" style={{ marginTop: 12 }}>
+              {notes.length === 0 && <p className="muted small">No notes yet. Capture ideas about this concept.</p>}
+              {notes.map(n => (
+                <div key={n._id} className="search-card">
+                  {editingNoteId === n._id ? (
+                    <>
+                      <label className="feedback-field">
+                        <span>Title</span>
+                        <input
+                          type="text"
+                          value={editingNoteDraft.title}
+                          onChange={(e) => setEditingNoteDraft(prev => ({ ...prev, title: e.target.value }))}
+                        />
+                      </label>
+                      <label className="feedback-field">
+                        <span>Content</span>
+                        <textarea
+                          rows={3}
+                          value={editingNoteDraft.content}
+                          onChange={(e) => setEditingNoteDraft(prev => ({ ...prev, content: e.target.value }))}
+                        />
+                      </label>
+                      <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                        <Button variant="secondary" onClick={() => { setEditingNoteId(null); setEditingNoteDraft({ title: '', content: '' }); }}>Cancel</Button>
+                        <Button onClick={saveEditNote} disabled={noteSaving}>{noteSaving ? 'Saving…' : 'Save'}</Button>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="search-card-top">
+                        <span className="article-title-link">{n.title || 'Untitled note'}</span>
+                        <span className="muted small">{n.updatedAt ? new Date(n.updatedAt).toLocaleDateString() : ''}</span>
+                      </div>
+                      <p className="muted small" style={{ whiteSpace: 'pre-wrap' }}>{n.content || 'No content'}</p>
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        <Button variant="secondary" onClick={() => startEditNote(n)}>Edit</Button>
+                        <Button variant="secondary" onClick={() => deleteNote(n._id)}>Delete</Button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              ))}
             </div>
           </Card>
         </div>

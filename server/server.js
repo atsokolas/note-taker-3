@@ -163,6 +163,16 @@ tagMetaSchema.index({ name: 1, userId: 1 }, { unique: true });
 
 const TagMeta = mongoose.model('TagMeta', tagMetaSchema);
 
+// Concept notes (per-tag notes)
+const conceptNoteSchema = new mongoose.Schema({
+  tagName: { type: String, required: true, trim: true },
+  title: { type: String, default: '', trim: true },
+  content: { type: String, default: '' },
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }
+}, { timestamps: true });
+
+const ConceptNote = mongoose.model('ConceptNote', conceptNoteSchema);
+
 // Saved Views (Smart Folders)
 const savedViewSchema = new mongoose.Schema({
   name: { type: String, required: true, trim: true },
@@ -1294,6 +1304,66 @@ app.get('/api/tags/:name/highlights', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error("❌ Error fetching tag highlights:", error);
     res.status(500).json({ error: "Failed to fetch highlights for tag." });
+  }
+});
+
+// --- Concept Notes CRUD ---
+app.get('/api/concepts/:tagName/notes', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const tagName = req.params.tagName;
+    const notes = await ConceptNote.find({
+      userId,
+      tagName: { $regex: new RegExp(`^${tagName}$`, 'i') }
+    }).sort({ updatedAt: -1 });
+    res.status(200).json(notes);
+  } catch (error) {
+    console.error("❌ Error fetching concept notes:", error);
+    res.status(500).json({ error: "Failed to fetch concept notes." });
+  }
+});
+
+app.post('/api/concepts/:tagName/notes', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const tagName = req.params.tagName;
+    const { title = '', content = '' } = req.body;
+    const note = await ConceptNote.create({ tagName, title, content, userId });
+    res.status(201).json(note);
+  } catch (error) {
+    console.error("❌ Error creating concept note:", error);
+    res.status(500).json({ error: "Failed to create concept note." });
+  }
+});
+
+app.put('/api/concepts/notes/:id', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { id } = req.params;
+    const { title = '', content = '' } = req.body;
+    const updated = await ConceptNote.findOneAndUpdate(
+      { _id: id, userId },
+      { title, content },
+      { new: true }
+    );
+    if (!updated) return res.status(404).json({ error: "Note not found." });
+    res.status(200).json(updated);
+  } catch (error) {
+    console.error("❌ Error updating concept note:", error);
+    res.status(500).json({ error: "Failed to update concept note." });
+  }
+});
+
+app.delete('/api/concepts/notes/:id', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { id } = req.params;
+    const removed = await ConceptNote.findOneAndDelete({ _id: id, userId });
+    if (!removed) return res.status(404).json({ error: "Note not found." });
+    res.status(200).json({ message: "Note deleted." });
+  } catch (error) {
+    console.error("❌ Error deleting concept note:", error);
+    res.status(500).json({ error: "Failed to delete concept note." });
   }
 });
 
