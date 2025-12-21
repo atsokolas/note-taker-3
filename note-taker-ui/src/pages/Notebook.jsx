@@ -41,6 +41,8 @@ const Notebook = () => {
   const [articles, setArticles] = useState([]);
   const [linkedArticleId, setLinkedArticleId] = useState('');
   const [tagsInput, setTagsInput] = useState('');
+  const [showPreview, setShowPreview] = useState(false);
+  const [splitView, setSplitView] = useState(false);
   const textareaRef = useRef(null);
 
   useEffect(() => {
@@ -217,6 +219,121 @@ const Notebook = () => {
     }
   };
 
+  const escapeHtml = (str = '') =>
+    str
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+
+  const renderMarkdown = (md = '') => {
+    const lines = md.split(/\r?\n/);
+    let html = '';
+    let inList = false;
+    lines.forEach((line) => {
+      if (/^\s*$/.test(line)) {
+        if (inList) {
+          html += '</ul>';
+          inList = false;
+        }
+        html += '<br />';
+        return;
+      }
+      const heading = line.match(/^(#{1,3})\s+(.*)$/);
+      if (heading) {
+        if (inList) {
+          html += '</ul>';
+          inList = false;
+        }
+        const level = heading[1].length;
+        html += `<h${level}>${escapeHtml(heading[2])}</h${level}>`;
+        return;
+      }
+      const bullet = line.match(/^(\s*)-\s+(.*)$/);
+      if (bullet) {
+        if (!inList) {
+          html += '<ul>';
+          inList = true;
+        }
+        html += `<li>${escapeHtml(bullet[2])}</li>`;
+        return;
+      }
+      if (inList) {
+        html += '</ul>';
+        inList = false;
+      }
+      html += `<p>${escapeHtml(line)}</p>`;
+    });
+    if (inList) html += '</ul>';
+    return html;
+  };
+
+  const handleIndent = (shiftKey) => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const lineStart = content.lastIndexOf('\n', start - 1) + 1;
+    const lineEndIdx = content.indexOf('\n', start);
+    const lineEnd = lineEndIdx === -1 ? content.length : lineEndIdx;
+    const line = content.slice(lineStart, lineEnd);
+    const indentUnit = '  ';
+
+    if (shiftKey) {
+      if (line.startsWith(indentUnit)) {
+        const newLine = line.slice(indentUnit.length);
+        const nextContent = content.slice(0, lineStart) + newLine + content.slice(lineEnd);
+        const delta = -indentUnit.length;
+        setContent(nextContent);
+        setTimeout(() => {
+          textarea.selectionStart = Math.max(lineStart, start + delta);
+          textarea.selectionEnd = Math.max(lineStart, end + delta);
+        }, 0);
+      }
+    } else {
+      const newLine = indentUnit + line;
+      const nextContent = content.slice(0, lineStart) + newLine + content.slice(lineEnd);
+      const delta = indentUnit.length;
+      setContent(nextContent);
+      setTimeout(() => {
+        textarea.selectionStart = start + delta;
+        textarea.selectionEnd = end + delta;
+      }, 0);
+    }
+  };
+
+  const handleEnterBullet = (e) => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+    const pos = textarea.selectionStart;
+    const lineStart = content.lastIndexOf('\n', pos - 1) + 1;
+    const lineEndIdx = content.indexOf('\n', pos);
+    const lineEnd = lineEndIdx === -1 ? content.length : lineEndIdx;
+    const line = content.slice(lineStart, lineEnd);
+    const bullet = line.match(/^(\s*)-\s.+/);
+    if (bullet) {
+      e.preventDefault();
+      const indent = bullet[1] || '';
+      const insert = `\n${indent}- `;
+      const nextContent = content.slice(0, pos) + insert + content.slice(textarea.selectionEnd);
+      setContent(nextContent);
+      setTimeout(() => {
+        const nextPos = pos + insert.length;
+        textarea.selectionStart = textarea.selectionEnd = nextPos;
+      }, 0);
+    }
+  };
+
+  const handleEditorKeyDown = (e) => {
+    if (e.key === 'Tab') {
+      e.preventDefault();
+      handleIndent(e.shiftKey);
+      return;
+    }
+    if (e.key === 'Enter') {
+      handleEnterBullet(e);
+    }
+  };
+
   const insertTextAtCursor = (text) => {
     const textarea = textareaRef.current;
     if (!textarea) return;
@@ -373,16 +490,38 @@ const Notebook = () => {
                   />
                   <Button variant="secondary" onClick={() => setHighlightModalOpen(true)}>Insert Highlight</Button>
                 </div>
-                <textarea
-                  ref={textareaRef}
-                  className="notebook-textarea"
-                  style={{ minHeight: 400 }}
-                  value={content}
-                  onChange={(e) => setContent(e.target.value)}
-                  placeholder="Write freely..."
+                <div className="notebook-editor-actions" style={{ display: 'flex', gap: 8, margin: '8px 0' }}>
+                  <Button variant={showPreview ? 'secondary' : 'primary'} onClick={() => setShowPreview(p => !p)}>
+                    {showPreview ? 'Hide Preview' : 'Show Preview'}
+                  </Button>
+                  <Button variant={splitView ? 'secondary' : 'primary'} onClick={() => setSplitView(v => !v)}>
+                    {splitView ? 'Single View' : 'Split View'}
+                  </Button>
+                  <span className="muted small">Tip: "- " for bullets, "## " for headings, Tab/Shift+Tab to indent.</span>
+                </div>
+                <div
+                  className={`notebook-editor-area ${splitView ? 'split' : ''}`}
+                  style={{ display: splitView ? 'grid' : 'block', gridTemplateColumns: splitView ? '1fr 1fr' : '1fr', gap: '12px' }}
                   onDrop={handleDrop}
                   onDragOver={handleDragOver}
-                />
+                >
+                  <textarea
+                    ref={textareaRef}
+                    className="notebook-textarea"
+                    style={{ minHeight: 400, width: '100%' }}
+                    value={content}
+                    onChange={(e) => setContent(e.target.value)}
+                    placeholder="Write freely..."
+                    onKeyDown={handleEditorKeyDown}
+                  />
+                  {showPreview && (
+                    <div
+                      className="notebook-preview"
+                      style={{ minHeight: 400, padding: '12px', border: '1px solid var(--border-color)', borderRadius: '8px', background: '#fff', overflowY: 'auto' }}
+                      dangerouslySetInnerHTML={{ __html: renderMarkdown(content) }}
+                    />
+                  )}
+                </div>
               </>
             ) : (
               <p className="muted">Select or create an entry to start writing.</p>
