@@ -248,7 +248,7 @@ const Notebook = () => {
         html += `<h${level}>${escapeHtml(heading[2])}</h${level}>`;
         return;
       }
-      const bullet = line.match(/^(\s*)-\s+(.*)$/);
+      const bullet = line.match(/^(\s*)\*\s+(.*)$/);
       if (bullet) {
         if (!inList) {
           html += '<ul>';
@@ -309,11 +309,11 @@ const Notebook = () => {
     const lineEndIdx = content.indexOf('\n', pos);
     const lineEnd = lineEndIdx === -1 ? content.length : lineEndIdx;
     const line = content.slice(lineStart, lineEnd);
-    const bullet = line.match(/^(\s*)-\s.+/);
+    const bullet = line.match(/^(\s*)\*\s.+/);
     if (bullet) {
       e.preventDefault();
       const indent = bullet[1] || '';
-      const insert = `\n${indent}- `;
+      const insert = `\n${indent}* `;
       const nextContent = content.slice(0, pos) + insert + content.slice(textarea.selectionEnd);
       setContent(nextContent);
       setTimeout(() => {
@@ -323,12 +323,36 @@ const Notebook = () => {
     }
   };
 
+  const handleSpaceBullet = (e) => {
+    if (e.key !== ' ') return false;
+    const textarea = textareaRef.current;
+    if (!textarea) return false;
+    const pos = textarea.selectionStart;
+    const lineStart = content.lastIndexOf('\n', pos - 1) + 1;
+    // Check if immediately after a single "*" at line start
+    if (pos - 1 >= 0 && content[pos - 1] === '*' && (pos - 1 === lineStart)) {
+      e.preventDefault();
+      const before = content.slice(0, pos - 1);
+      const after = content.slice(textarea.selectionEnd);
+      const insert = '* ';
+      const nextContent = before + insert + after;
+      setContent(nextContent);
+      setTimeout(() => {
+        const nextPos = before.length + insert.length;
+        textarea.selectionStart = textarea.selectionEnd = nextPos;
+      }, 0);
+      return true;
+    }
+    return false;
+  };
+
   const handleEditorKeyDown = (e) => {
     if (e.key === 'Tab') {
       e.preventDefault();
       handleIndent(e.shiftKey);
       return;
     }
+    if (handleSpaceBullet(e)) return;
     if (e.key === 'Enter') {
       handleEnterBullet(e);
     }
@@ -497,7 +521,7 @@ const Notebook = () => {
                   <Button variant={splitView ? 'secondary' : 'primary'} onClick={() => setSplitView(v => !v)}>
                     {splitView ? 'Single View' : 'Split View'}
                   </Button>
-                  <span className="muted small">Tip: "- " for bullets, "## " for headings, Tab/Shift+Tab to indent.</span>
+                  <span className="muted small">Tip: "* " for bullets, "## " for headings, Tab/Shift+Tab to indent.</span>
                 </div>
                 <div
                   className={`notebook-editor-area ${splitView ? 'split' : ''}`}
