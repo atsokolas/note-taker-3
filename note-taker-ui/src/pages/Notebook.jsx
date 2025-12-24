@@ -288,12 +288,21 @@ const Notebook = () => {
   const handleEditorKeyDown = (e) => {
     if (e.key === 'Tab') {
       e.preventDefault();
-      // simple indent: insert two spaces at line start or remove them
-      const sel = window.getSelection();
-      const range = sel && sel.getRangeAt(0);
-      if (!range || !editorRef.current) return;
-      // Let the browser handle visually; on input we reparse
-      document.execCommand(e.shiftKey ? 'outdent' : 'indent');
+      if (e.shiftKey) {
+        // outdent by removing leading two spaces on current line if present
+        const caret = getCaretIndex(editorRef.current);
+        const md = content;
+        const lineStart = md.lastIndexOf('\n', caret - 1) + 1;
+        if (md.slice(lineStart, lineStart + 2) === '  ') {
+          const next = md.slice(0, lineStart) + md.slice(lineStart + 2);
+          setContent(next);
+          const html = renderMarkdown(next);
+          editorRef.current.innerHTML = html;
+          setCaretIndex(editorRef.current, Math.max(0, caret - 2));
+        }
+      } else {
+        insertTextAtCursor('  ');
+      }
     }
   };
 
@@ -513,7 +522,7 @@ const Notebook = () => {
                 </div>
                 <div
                   className="notebook-editor-area"
-                  style={{ minHeight: 400, border: '1px solid var(--border)', borderRadius: '8px', padding: '12px', background: '#fff', whiteSpace: 'pre-wrap', lineHeight: 1.5, outline: 'none' }}
+                  style={{ minHeight: 400, border: '1px solid var(--border)', borderRadius: '8px', padding: '12px', background: '#fff', lineHeight: 1.5, outline: 'none' }}
                   onDrop={handleDrop}
                   onDragOver={handleDragOver}
                   contentEditable
