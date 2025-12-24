@@ -310,6 +310,20 @@ const Notebook = () => {
     const lineEnd = lineEndIdx === -1 ? content.length : lineEndIdx;
     const line = content.slice(lineStart, lineEnd);
     const bullet = line.match(/^(\s*)\*\s.+/);
+    const emptyBullet = line.match(/^(\s*)\*\s*$/);
+    if (emptyBullet) {
+      // If the current line is just "* " and user presses Enter, exit the list.
+      e.preventDefault();
+      const before = content.slice(0, lineStart);
+      const after = content.slice(lineEnd);
+      const nextContent = `${before}\n${after}`;
+      setContent(nextContent);
+      setTimeout(() => {
+        const nextPos = before.length + 1;
+        textarea.selectionStart = textarea.selectionEnd = nextPos;
+      }, 0);
+      return;
+    }
     if (bullet) {
       e.preventDefault();
       const indent = bullet[1] || '';
@@ -521,7 +535,7 @@ const Notebook = () => {
                   <Button variant={splitView ? 'secondary' : 'primary'} onClick={() => setSplitView(v => !v)}>
                     {splitView ? 'Single View' : 'Split View'}
                   </Button>
-                  <span className="muted small">Tip: "* " for bullets, "## " for headings, Tab/Shift+Tab to indent.</span>
+                  <span className="muted small">Tip: "* " for bullets (preview to see dots), "## " for headings, Tab/Shift+Tab to indent.</span>
                 </div>
                 <div
                   className={`notebook-editor-area ${splitView ? 'split' : ''}`}

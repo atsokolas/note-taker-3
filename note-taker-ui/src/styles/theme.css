@@ -35,6 +35,35 @@ p {
   color: var(--muted);
 }
 
+.notebook-preview h1 {
+  font-size: 1.6rem;
+  font-weight: 700;
+  margin: 0 0 8px 0;
+}
+.notebook-preview h2 {
+  font-size: 1.35rem;
+  font-weight: 700;
+  margin: 0 0 8px 0;
+}
+.notebook-preview h3 {
+  font-size: 1.15rem;
+  font-weight: 700;
+  margin: 0 0 6px 0;
+}
+.notebook-preview p {
+  margin: 0 0 8px 0;
+  color: var(--text);
+}
+.notebook-preview ul {
+  list-style: disc;
+  padding-left: 20px;
+  margin: 0 0 10px 0;
+}
+.notebook-preview li {
+  margin: 4px 0;
+  color: var(--text);
+}
+
 .app-shell {
   display: flex;
   min-height: 100vh;
