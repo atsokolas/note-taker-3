@@ -264,8 +264,12 @@ const Notebook = () => {
     const lines = [];
     Array.from(root.childNodes).forEach((node) => {
       if (node.nodeType === Node.TEXT_NODE) {
-        const txt = node.textContent || '';
-        if (txt.trim().length > 0) lines.push(txt.trim());
+        const txt = (node.textContent || '').trimEnd();
+        if (txt.length > 0) lines.push(txt);
+        return;
+      }
+      if (node.nodeName === 'BR') {
+        lines.push('');
         return;
       }
       const text = (node.innerText || '').replace(/^•\s*/, '').trimEnd();
@@ -348,27 +352,50 @@ const Notebook = () => {
     e.preventDefault();
   };
 
-  const syncFromDom = () => {
-    if (!editorRef.current) return;
-    const md = htmlToMarkdown(editorRef.current);
-    setContent(md);
-    // Re-render formatted HTML
-    const html = renderMarkdown(md);
-    if (editorRef.current.innerHTML !== html) {
-      const sel = window.getSelection();
-      const range = sel && sel.rangeCount ? sel.getRangeAt(0) : null;
-      editorRef.current.innerHTML = html;
-      // Move caret to end as a simple fallback
-      if (editorRef.current.lastChild) {
-        const r = document.createRange();
-        r.selectNodeContents(editorRef.current);
-        r.collapse(false);
-        sel?.removeAllRanges();
-        sel?.addRange(r);
-      } else if (range) {
+  const getCaretIndex = (root) => {
+    const sel = window.getSelection();
+    if (!sel || sel.rangeCount === 0) return 0;
+    const range = sel.getRangeAt(0).cloneRange();
+    range.selectNodeContents(root);
+    range.setEnd(sel.anchorNode, sel.anchorOffset);
+    return range.toString().length;
+  };
+
+  const setCaretIndex = (root, idx) => {
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
+    let pos = idx;
+    let node;
+    while ((node = walker.nextNode())) {
+      const len = node.textContent?.length || 0;
+      if (pos <= len) {
+        const range = document.createRange();
+        range.setStart(node, Math.max(0, pos));
+        range.collapse(true);
+        const sel = window.getSelection();
         sel?.removeAllRanges();
         sel?.addRange(range);
+        return;
       }
+      pos -= len;
+    }
+    // Fallback to end
+    const range = document.createRange();
+    range.selectNodeContents(root);
+    range.collapse(false);
+    const sel = window.getSelection();
+    sel?.removeAllRanges();
+    sel?.addRange(range);
+  };
+
+  const syncFromDom = () => {
+    if (!editorRef.current) return;
+    const caret = getCaretIndex(editorRef.current);
+    const md = htmlToMarkdown(editorRef.current);
+    setContent(md);
+    const html = renderMarkdown(md);
+    if (editorRef.current.innerHTML !== html) {
+      editorRef.current.innerHTML = html;
+      setCaretIndex(editorRef.current, Math.min(caret, editorRef.current.innerText.length));
     }
   };
 
@@ -486,7 +513,7 @@ const Notebook = () => {
                 </div>
                 <div
                   className="notebook-editor-area"
-                  style={{ minHeight: 400, border: '1px solid var(--border)', borderRadius: '8px', padding: '12px', background: '#fff' }}
+                  style={{ minHeight: 400, border: '1px solid var(--border)', borderRadius: '8px', padding: '12px', background: '#fff', whiteSpace: 'pre-wrap', lineHeight: 1.5, outline: 'none' }}
                   onDrop={handleDrop}
                   onDragOver={handleDragOver}
                   contentEditable
