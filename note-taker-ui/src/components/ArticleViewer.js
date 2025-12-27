@@ -662,8 +662,6 @@ const ArticleViewer = ({ onArticleChange }) => {
         }
     };
 
-    const preventFocusSteal = (e) => e.preventDefault();
-    
     if (error) return <h2 style={{color: 'red'}}>{error}</h2>;
     if (!article) return <h2>Loading article...</h2>;
 
@@ -722,7 +720,7 @@ const ArticleViewer = ({ onArticleChange }) => {
                             {popup.visible && (
                                 <div
                                     ref={popupRef}
-                                    onMouseDown={preventFocusSteal}
+                                    onMouseDown={(e) => e.stopPropagation()}
                                     className="highlight-popup-web-app-container"
                                     style={{ 
                                         top: popup.y, 

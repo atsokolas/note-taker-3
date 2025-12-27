@@ -7,6 +7,9 @@ const jwt = require('jsonwebtoken');
 const axios = require('axios');
 const PDFDocument = require('pdfkit');
 const archiver = require('archiver');
+const multer = require('multer');
+const Papa = require('papaparse');
+const path = require('path');
 
 dotenv.config();
 
@@ -19,6 +22,11 @@ app.use(cors());
 // Allow larger payloads for PDFs (Render/nginx often defaults to 1–10MB)
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 15 * 1024 * 1024 }
+});
 
 // MongoDB Connection
 mongoose.connect(process.env.MONGODB_URI) // useNewUrlParser and useUnifiedTopology are deprecated in recent Mongoose versions
@@ -233,6 +241,30 @@ function authenticateToken(req, res, next) {
     next(); // Proceed to the next middleware/route handler
   });
 }
+
+const findRowValue = (row, keys) => {
+  if (!row) return '';
+  for (const key of keys) {
+    if (row[key] !== undefined && row[key] !== null) return row[key];
+    const match = Object.keys(row).find(k => k.toLowerCase() === String(key).toLowerCase());
+    if (match && row[match] !== undefined && row[match] !== null) return row[match];
+  }
+  return '';
+};
+
+const parseTagList = (value) => (
+  String(value || '')
+    .split(',')
+    .map(tag => tag.trim())
+    .filter(Boolean)
+);
+
+const slugify = (value) => (
+  String(value || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)/g, '')
+);
 
 const slugify = (text = '') => {
   return text
@@ -1767,6 +1799,127 @@ app.get('/api/today', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error("❌ Error building today snapshot:", error);
     res.status(500).json({ error: "Failed to load today snapshot." });
+  }
+});
+
+// POST /api/import/readwise-csv - import highlights from Readwise CSV export
+app.post('/api/import/readwise-csv', authenticateToken, upload.single('file'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'CSV file is required.' });
+    }
+
+    const csvText = req.file.buffer.toString('utf8');
+    const parsed = Papa.parse(csvText, { header: true, skipEmptyLines: true });
+    const rows = Array.isArray(parsed.data) ? parsed.data : [];
+
+    let importedArticles = 0;
+    let importedHighlights = 0;
+    let skippedRows = 0;
+
+    const articleCache = new Map();
+    const dirtyArticles = new Set();
+    const userId = req.user.userId;
+
+    for (const row of rows) {
+      const highlightText = String(findRowValue(row, ['Highlight', 'Text', 'Highlight text'])).trim();
+      if (!highlightText) {
+        skippedRows += 1;
+        continue;
+      }
+
+      const title = String(findRowValue(row, ['Title', 'Book Title', 'Article Title'])).trim() || 'Untitled';
+      const author = String(findRowValue(row, ['Author'])).trim();
+      let url = String(findRowValue(row, ['URL', 'Source URL', 'Link'])).trim();
+      if (!url) {
+        const base = `${slugify(title)}-${slugify(author || 'source')}`;
+        url = `import://readwise/${base || 'untitled'}`;
+      }
+
+      const note = String(findRowValue(row, ['Note', 'Notes'])).trim();
+      const tagsValue = findRowValue(row, ['Tags', 'Tag']);
+      const tags = parseTagList(tagsValue);
+      const tagList = tags.length > 0 ? tags : ['imported'];
+
+      const dateValue = findRowValue(row, ['Highlighted at', 'Created at', 'Added', 'Date']);
+      const parsedDate = dateValue ? new Date(dateValue) : null;
+      const createdAt = parsedDate && !Number.isNaN(parsedDate.getTime()) ? parsedDate : new Date();
+
+      let article = articleCache.get(url);
+      if (!article) {
+        article = await Article.findOne({ userId, url });
+        if (!article) {
+          article = new Article({
+            url,
+            title,
+            content: '',
+            userId
+          });
+          importedArticles += 1;
+        }
+        articleCache.set(url, article);
+      }
+
+      const alreadyExists = (article.highlights || []).some(h => (
+        h.text === highlightText
+        && (!note || h.note === note)
+        && (!createdAt || new Date(h.createdAt).getTime() === createdAt.getTime())
+      ));
+
+      if (alreadyExists) {
+        skippedRows += 1;
+        continue;
+      }
+
+      article.highlights.push({
+        text: highlightText,
+        note,
+        tags: tagList,
+        createdAt
+      });
+      dirtyArticles.add(article._id.toString());
+      importedHighlights += 1;
+    }
+
+    await Promise.all(
+      Array.from(articleCache.values())
+        .filter(article => dirtyArticles.has(article._id.toString()))
+        .map(article => article.save())
+    );
+
+    res.status(200).json({
+      importedArticles,
+      importedHighlights,
+      skippedRows,
+      parseErrors: parsed.errors ? parsed.errors.length : 0
+    });
+  } catch (err) {
+    console.error('Readwise CSV import failed:', err);
+    res.status(500).json({ error: 'Failed to import Readwise CSV.' });
+  }
+});
+
+// POST /api/import/markdown - import a markdown file as a notebook entry
+app.post('/api/import/markdown', authenticateToken, upload.single('file'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'Markdown file is required.' });
+    }
+    const originalName = req.file.originalname || 'imported-note.md';
+    const title = path.basename(originalName, path.extname(originalName)) || 'Imported note';
+    const content = req.file.buffer.toString('utf8');
+
+    const entry = new NotebookEntry({
+      title,
+      content,
+      userId: req.user.userId
+    });
+    await entry.save();
+
+    res.status(200).json({ importedNotes: 1, entryId: entry._id });
+  } catch (err) {
+    console.error('Markdown import failed:', err);
+    res.status(500).json({ error: 'Failed to import markdown file.' });
   }
 });
 

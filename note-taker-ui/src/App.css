@@ -1015,6 +1015,32 @@ body {
     border-radius: 2px;
 }
 
+.settings-card {
+    margin-bottom: 24px;
+}
+
+.settings-import-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border-color-light);
+}
+
+.settings-import-row:last-of-type {
+    border-bottom: none;
+}
+
+.settings-import-row input[type="file"] {
+    width: 100%;
+    max-width: 320px;
+}
+
+.import-summary p {
+    margin: 4px 0;
+}
+
 /* ----------------------------------- */
 /* NEW: Article Highlights Sidebar Styles */
 /* ----------------------------------- */
