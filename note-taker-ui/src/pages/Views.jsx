@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import api from '../api';
 import { Page, Card, Button, TagChip } from '../components/ui';
+import { SkeletonCard } from '../components/Skeleton';
+import { fetchWithCache, setCached } from '../utils/cache';
 
 const Views = () => {
   const [views, setViews] = useState([]);
@@ -25,12 +27,15 @@ const Views = () => {
 
   const authHeaders = () => ({ headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
 
-  const loadViews = async () => {
+  const loadViews = async (force = false) => {
     setLoading(true);
     setError('');
     try {
-      const res = await api.get('/api/views', authHeaders());
-      setViews(res.data || []);
+      const data = await fetchWithCache('views.list', async () => {
+        const res = await api.get('/api/views', authHeaders());
+        return res.data || [];
+      }, { force });
+      setViews(data);
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to load views.');
     } finally {
@@ -39,7 +44,7 @@ const Views = () => {
   };
 
   useEffect(() => {
-    loadViews();
+    loadViews(false);
     const loadFolders = async () => {
       try {
         const token = localStorage.getItem('token');
@@ -51,9 +56,11 @@ const Views = () => {
     };
     const loadTags = async () => {
       try {
-        const token = localStorage.getItem('token');
-        const res = await api.get('/api/tags', authHeaders());
-        setTagOptions(res.data || []);
+        const data = await fetchWithCache('tags.list', async () => {
+          const res = await api.get('/api/tags', authHeaders());
+          return res.data || [];
+        });
+        setTagOptions(data);
       } catch (err) {
         console.error('Error loading tags for views:', err);
       }
@@ -81,7 +88,11 @@ const Views = () => {
         }
       };
       const res = await api.post('/api/views', payload, authHeaders());
-      setViews(prev => [res.data, ...prev]);
+      setViews(prev => {
+        const next = [res.data, ...prev];
+        setCached('views.list', next);
+        return next;
+      });
       setShowModal(false);
       setForm({ name: '', description: '', targetType: 'highlights', tags: [], textQuery: '', dateFrom: '', dateTo: '', folders: [] });
     } catch (err) {
@@ -98,10 +109,17 @@ const Views = () => {
         <h1>Smart Folders</h1>
         <p className="muted">Reusable filters across articles, highlights, or notebook entries.</p>
       </div>
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12, gap: 12 }}>
+        <Button variant="secondary" onClick={() => loadViews(true)} disabled={loading}>Refresh</Button>
         <Button onClick={() => setShowModal(true)}>New View</Button>
       </div>
-      {loading && <p className="status-message">Loading…</p>}
+      {loading && (
+        <div className="search-card-grid">
+          {Array.from({ length: 4 }).map((_, idx) => (
+            <SkeletonCard key={`views-skeleton-${idx}`} />
+          ))}
+        </div>
+      )}
       {error && <p className="status-message error-message">{error}</p>}
       <div className="search-card-grid">
         {views.length === 0 && !loading && <p className="muted small">No views yet.</p>}

@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import api from '../api';
 import { Page, Card, Button } from '../components/ui';
+import { SkeletonCard } from '../components/Skeleton';
+import { fetchWithCache, setCached } from '../utils/cache';
 
 const Collections = () => {
   const [collections, setCollections] = useState([]);
@@ -12,13 +14,16 @@ const Collections = () => {
   const [saving, setSaving] = useState(false);
   const navigate = useNavigate();
 
-  const loadCollections = async () => {
+  const loadCollections = async (force = false) => {
     setLoading(true);
     setError('');
     try {
       const token = localStorage.getItem('token');
-      const res = await api.get('/api/collections', { headers: { Authorization: `Bearer ${token}` } });
-      setCollections(res.data || []);
+      const data = await fetchWithCache('collections.list', async () => {
+        const res = await api.get('/api/collections', { headers: { Authorization: `Bearer ${token}` } });
+        return res.data || [];
+      }, { force });
+      setCollections(data);
     } catch (err) {
       console.error('Error loading collections:', err);
       setError(err.response?.data?.error || 'Failed to load collections.');
@@ -28,7 +33,7 @@ const Collections = () => {
   };
 
   useEffect(() => {
-    loadCollections();
+    loadCollections(false);
   }, []);
 
   const createCollection = async () => {
@@ -43,7 +48,11 @@ const Collections = () => {
       }, { headers: { Authorization: `Bearer ${token}` } });
       setShowModal(false);
       setForm({ name: '', description: '' });
-      setCollections(prev => [res.data, ...prev]);
+      setCollections(prev => {
+        const next = [res.data, ...prev];
+        setCached('collections.list', next);
+        return next;
+      });
       navigate(`/collections/${res.data.slug}`);
     } catch (err) {
       console.error('Error creating collection:', err);
@@ -60,10 +69,17 @@ const Collections = () => {
         <h1>Your curated sets</h1>
         <p className="muted">Group articles and highlights into custom collections.</p>
       </div>
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12, gap: 12 }}>
+        <Button variant="secondary" onClick={() => loadCollections(true)} disabled={loading}>Refresh</Button>
         <Button onClick={() => setShowModal(true)}>New Collection</Button>
       </div>
-      {loading && <p className="status-message">Loading…</p>}
+      {loading && (
+        <div className="search-card-grid">
+          {Array.from({ length: 4 }).map((_, idx) => (
+            <SkeletonCard key={`collection-skeleton-${idx}`} />
+          ))}
+        </div>
+      )}
       {error && <p className="status-message error-message">{error}</p>}
 
       <div className="search-card-grid">

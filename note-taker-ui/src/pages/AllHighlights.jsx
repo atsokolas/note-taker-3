@@ -1,8 +1,10 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../api';
 import { Page, Card, TagChip, Button } from '../components/ui';
 import QuestionModal from '../components/QuestionModal';
+import { SkeletonCard } from '../components/Skeleton';
+import { fetchWithCache, setCached } from '../utils/cache';
 
 const PAGE_SIZE = 20;
 
@@ -20,6 +22,91 @@ const formatRelativeTime = (dateString) => {
   return new Date(dateString).toLocaleDateString();
 };
 
+const HighlightListItem = React.memo(({
+  highlight,
+  refs,
+  onToggleRefs,
+  onOpenQuestion,
+  onStartEdit,
+  editing,
+  setEditing,
+  onSaveEdit,
+  onCancelEdit,
+  saving
+}) => {
+  const isEditing = editing?.id === highlight._id;
+  return (
+    <Card className="tag-highlight-item">
+      <div className="feedback-list-top">
+        <Link to={`/articles/${highlight.articleId}`} className="article-title-link">{highlight.articleTitle || 'Untitled article'}</Link>
+        <span className="feedback-date">{formatRelativeTime(highlight.createdAt)}</span>
+      </div>
+      <p className="highlight-text" style={{ margin: '8px 0', fontWeight: 600 }}>{highlight.text}</p>
+      <div className="highlight-tag-chips" style={{ marginBottom: '6px' }}>
+        {highlight.tags && highlight.tags.length > 0 ? highlight.tags.map(tag => (
+          <TagChip key={tag} to={`/tags/${encodeURIComponent(tag)}`}>{tag}</TagChip>
+        )) : <span className="muted small">No tags</span>}
+      </div>
+      <p className="feedback-message">
+        {highlight.note ? `${highlight.note.slice(0, 100)}${highlight.note.length > 100 ? '…' : ''}` : <span className="muted small">No note</span>}
+      </p>
+      <Button variant="secondary" onClick={() => onToggleRefs(highlight._id)} style={{ marginTop: 6 }}>
+        {refs[highlight._id]?.show ? 'Hide references' : 'Referenced in'}
+      </Button>
+      <Button
+        variant="secondary"
+        onClick={() => onOpenQuestion(highlight)}
+        style={{ marginTop: 6 }}
+      >
+        Add Question
+      </Button>
+      {refs[highlight._id]?.loading && <p className="muted small">Loading references…</p>}
+      {refs[highlight._id]?.error && <p className="status-message error-message">{refs[highlight._id].error}</p>}
+      {refs[highlight._id]?.data && refs[highlight._id]?.show && (
+        <div className="muted small" style={{ marginTop: 6 }}>
+          {refs[highlight._id].data.notebookEntries.length === 0 && refs[highlight._id].data.collections.length === 0 && (
+            <p className="muted small">No references yet.</p>
+          )}
+          {refs[highlight._id].data.notebookEntries.length > 0 && (
+            <p>Notebook: {refs[highlight._id].data.notebookEntries.map(n => n.title).join(', ')}</p>
+          )}
+          {refs[highlight._id].data.collections.length > 0 && (
+            <p>Collections: {refs[highlight._id].data.collections.map(c => c.name).join(', ')}</p>
+          )}
+        </div>
+      )}
+      {isEditing ? (
+        <div className="feedback-body" style={{ paddingTop: 8 }}>
+          <label className="feedback-field">
+            <span>Tags (comma-separated)</span>
+            <input
+              type="text"
+              value={editing.tags}
+              onChange={(e) => setEditing(prev => ({ ...prev, tags: e.target.value }))}
+            />
+          </label>
+          <label className="feedback-field">
+            <span>Note</span>
+            <textarea
+              rows={3}
+              value={editing.note}
+              onChange={(e) => setEditing(prev => ({ ...prev, note: e.target.value }))}
+            />
+          </label>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <Button onClick={onSaveEdit} disabled={saving}>Save</Button>
+            <Button variant="secondary" onClick={onCancelEdit} disabled={saving}>Cancel</Button>
+          </div>
+        </div>
+      ) : (
+        <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+          <Button variant="secondary" onClick={() => onStartEdit(highlight)}>Edit</Button>
+        </div>
+      )}
+    </Card>
+  );
+});
+
 const AllHighlights = () => {
   const [highlights, setHighlights] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -32,24 +119,28 @@ const AllHighlights = () => {
   const [refs, setRefs] = useState({});
   const [questionModal, setQuestionModal] = useState({ open: false, highlight: null });
 
-  useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true);
-      setError('');
-      try {
-        const token = localStorage.getItem('token');
-        const authHeaders = { headers: { Authorization: `Bearer ${token}` } };
+  const fetchData = useCallback(async (force = false) => {
+    setLoading(true);
+    setError('');
+    try {
+      const token = localStorage.getItem('token');
+      const authHeaders = { headers: { Authorization: `Bearer ${token}` } };
+      const data = await fetchWithCache('highlights.all', async () => {
         const res = await api.get('/api/highlights/all', authHeaders);
-        setHighlights(res.data || []);
-      } catch (err) {
-        console.error('Error fetching highlights:', err);
-        setError(err.response?.data?.error || 'Failed to load highlights.');
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchData();
+        return res.data || [];
+      }, { force });
+      setHighlights(data);
+    } catch (err) {
+      console.error('Error fetching highlights:', err);
+      setError(err.response?.data?.error || 'Failed to load highlights.');
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    fetchData(false);
+  }, [fetchData]);
 
   const tagOptions = useMemo(() => {
     const set = new Set();
@@ -69,7 +160,7 @@ const AllHighlights = () => {
 
   const totalPages = Math.max(1, Math.ceil(filteredHighlights.length / PAGE_SIZE));
 
-  const startEdit = (h) => {
+  const startEdit = useCallback((h) => {
     setEditing({
       id: h._id,
       articleId: h.articleId,
@@ -78,7 +169,7 @@ const AllHighlights = () => {
     });
     setSaveMessage('');
     setError('');
-  };
+  }, []);
 
   const cancelEdit = () => {
     setEditing(null);
@@ -99,11 +190,15 @@ const AllHighlights = () => {
       const payload = { note: editing.note, tags: tagsArray };
       const res = await api.patch(`/articles/${editing.articleId}/highlights/${editing.id}`, payload, authHeaders);
       // Update local cache
-      setHighlights(prev => prev.map(h => h._id === editing.id ? {
-        ...h,
-        note: res.data.note,
-        tags: res.data.tags
-      } : h));
+      setHighlights(prev => {
+        const next = prev.map(h => h._id === editing.id ? {
+          ...h,
+          note: res.data.note,
+          tags: res.data.tags
+        } : h);
+        setCached('highlights.all', next);
+        return next;
+      });
       setSaveMessage('Saved');
       setEditing(null);
     } catch (err) {
@@ -126,20 +221,32 @@ const AllHighlights = () => {
     }
   };
 
-  const toggleRefs = (id) => {
+  const toggleRefs = useCallback((id) => {
     const current = refs[id];
     if (!current || (!current.data && !current.loading)) {
       fetchRefs(id);
     } else {
       setRefs(prev => ({ ...prev, [id]: { ...(prev[id] || {}), show: !current.show } }));
     }
+  }, [refs]);
+
+  const openQuestionModal = useCallback((highlight) => {
+    setQuestionModal({ open: true, highlight });
+  }, []);
+
+  const handleRefresh = () => {
+    setPage(1);
+    fetchData(true);
   };
 
   return (
     <Page>
       <div className="page-header">
         <p className="muted-label">Highlights</p>
-        <h1>All Highlights</h1>
+        <div className="page-header-row">
+          <h1>All Highlights</h1>
+          <Button variant="secondary" onClick={handleRefresh} disabled={loading}>Refresh</Button>
+        </div>
         <p className="muted">A unified feed of your newest highlights.</p>
       </div>
 
@@ -159,82 +266,31 @@ const AllHighlights = () => {
           </label>
         </div>
 
-        {loading && <p className="status-message">Loading highlights...</p>}
+        {loading && (
+          <div className="section-stack">
+            {Array.from({ length: 5 }).map((_, idx) => (
+              <SkeletonCard key={`highlight-skeleton-${idx}`} />
+            ))}
+          </div>
+        )}
         {error && <p className="status-message error-message">{error}</p>}
         {saveMessage && <p className="status-message success-message">{saveMessage}</p>}
 
         <div className="section-stack">
           {!loading && !error && pagedHighlights.map((h) => (
-            <Card key={h._id} className="tag-highlight-item">
-              <div className="feedback-list-top">
-                <Link to={`/articles/${h.articleId}`} className="article-title-link">{h.articleTitle || 'Untitled article'}</Link>
-                <span className="feedback-date">{formatRelativeTime(h.createdAt)}</span>
-              </div>
-              <p className="highlight-text" style={{ margin: '8px 0', fontWeight: 600 }}>{h.text}</p>
-              <div className="highlight-tag-chips" style={{ marginBottom: '6px' }}>
-                {h.tags && h.tags.length > 0 ? h.tags.map(tag => (
-                  <TagChip key={tag} to={`/tags/${encodeURIComponent(tag)}`}>{tag}</TagChip>
-                )) : <span className="muted small">No tags</span>}
-              </div>
-                  <p className="feedback-message">
-                    {h.note ? `${h.note.slice(0, 100)}${h.note.length > 100 ? '…' : ''}` : <span className="muted small">No note</span>}
-                  </p>
-              <Button variant="secondary" onClick={() => toggleRefs(h._id)} style={{ marginTop: 6 }}>
-                {refs[h._id]?.show ? 'Hide references' : 'Referenced in'}
-              </Button>
-              <Button
-                variant="secondary"
-                onClick={() => setQuestionModal({ open: true, highlight: h })}
-                style={{ marginTop: 6 }}
-              >
-                Add Question
-              </Button>
-              {refs[h._id]?.loading && <p className="muted small">Loading references…</p>}
-              {refs[h._id]?.error && <p className="status-message error-message">{refs[h._id].error}</p>}
-              {refs[h._id]?.data && refs[h._id]?.show && (
-                <div className="muted small" style={{ marginTop: 6 }}>
-                  {refs[h._id].data.notebookEntries.length === 0 && refs[h._id].data.collections.length === 0 && (
-                    <p className="muted small">No references yet.</p>
-                  )}
-                  {refs[h._id].data.notebookEntries.length > 0 && (
-                    <p>Notebook: {refs[h._id].data.notebookEntries.map(n => n.title).join(', ')}</p>
-                  )}
-                  {refs[h._id].data.collections.length > 0 && (
-                    <p>Collections: {refs[h._id].data.collections.map(c => c.name).join(', ')}</p>
-                  )}
-                </div>
-              )}
-              {editing && editing.id === h._id ? (
-                <div className="feedback-body" style={{ paddingTop: 8 }}>
-                  <label className="feedback-field">
-                    <span>Tags (comma-separated)</span>
-                    <input
-                      type="text"
-                      value={editing.tags}
-                      onChange={(e) => setEditing(prev => ({ ...prev, tags: e.target.value }))}
-                    />
-                  </label>
-                  <label className="feedback-field">
-                    <span>Note</span>
-                    <textarea
-                      rows={3}
-                      value={editing.note}
-                      onChange={(e) => setEditing(prev => ({ ...prev, note: e.target.value }))}
-                    />
-                  </label>
-                  <div className="feedback-actions">
-                    <Button onClick={saveEdit} disabled={saving}>
-                      {saving ? 'Saving...' : 'Save'}
-                    </Button>
-                    <Button variant="secondary" onClick={cancelEdit}>Cancel</Button>
-                  </div>
-                </div>
-              ) : (
-                <div className="feedback-actions">
-                  <Button variant="secondary" onClick={() => startEdit(h)}>Edit tags/note</Button>
-                </div>
-              )}
-            </Card>
+            <HighlightListItem
+              key={h._id}
+              highlight={h}
+              refs={refs}
+              onToggleRefs={toggleRefs}
+              onOpenQuestion={openQuestionModal}
+              onStartEdit={startEdit}
+              editing={editing}
+              setEditing={setEditing}
+              onSaveEdit={saveEdit}
+              onCancelEdit={cancelEdit}
+              saving={saving}
+            />
           ))}
         </div>
 

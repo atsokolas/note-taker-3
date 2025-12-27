@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import api from '../api';
 import { Page, Card, Button, TagChip } from '../components/ui';
 import { Link } from 'react-router-dom';
+import { fetchWithCache } from '../utils/cache';
 
 const ViewDetail = () => {
   const { id } = useParams();
@@ -58,9 +59,11 @@ const ViewDetail = () => {
     };
     const loadTags = async () => {
       try {
-        const token = localStorage.getItem('token');
-        const res = await api.get('/api/tags', authHeaders());
-        setTagOptions(res.data || []);
+        const data = await fetchWithCache('tags.list', async () => {
+          const res = await api.get('/api/tags', authHeaders());
+          return res.data || [];
+        });
+        setTagOptions(data);
       } catch (err) {
         console.error('Error loading tags for view detail:', err);
       }

@@ -5,6 +5,7 @@ import AllHighlights from './AllHighlights';
 import { Page, Card, Button, TagChip } from '../components/ui';
 import api from '../api';
 import QuestionModal from '../components/QuestionModal';
+import { fetchWithCache } from '../utils/cache';
 
 const ThinkMode = () => {
   const tabs = [
@@ -38,8 +39,11 @@ const ThinkMode = () => {
 
   const loadTags = async () => {
     try {
-      const res = await api.get('/api/tags', authHeaders());
-      setTags(res.data || []);
+      const data = await fetchWithCache('tags.list', async () => {
+        const res = await api.get('/api/tags', authHeaders());
+        return res.data || [];
+      });
+      setTags(data);
     } catch (err) {
       console.error('Error loading tags for questions:', err);
     }

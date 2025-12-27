@@ -1,7 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../api';
-import { Page, Card, TagChip } from '../components/ui';
+import { Page, Card, TagChip, Button } from '../components/ui';
+import { SkeletonCard } from '../components/Skeleton';
+import { fetchWithCache } from '../utils/cache';
 
 const formatRelativeTime = (dateString) => {
   if (!dateString) return '';
@@ -33,42 +35,50 @@ const TagBrowser = () => {
   const [loadingFiltered, setLoadingFiltered] = useState(false);
   const [filteredError, setFilteredError] = useState('');
 
-  useEffect(() => {
-    const fetchTags = async () => {
-      setLoadingTags(true);
-      setTagsError('');
-      try {
-        const token = localStorage.getItem('token');
-        const authHeaders = { headers: { Authorization: `Bearer ${token}` } };
+  const fetchTags = async (force = false) => {
+    setLoadingTags(true);
+    setTagsError('');
+    try {
+      const token = localStorage.getItem('token');
+      const authHeaders = { headers: { Authorization: `Bearer ${token}` } };
+      const data = await fetchWithCache('tags.list', async () => {
         const res = await api.get('/api/tags', authHeaders);
-        setTags(res.data || []);
-      } catch (err) {
-        console.error('Error loading tags:', err);
-        setTagsError(err.response?.data?.error || 'Failed to load tags.');
-      } finally {
-        setLoadingTags(false);
-      }
-    };
-    fetchTags();
-  }, []);
+        return res.data || [];
+      }, { force });
+      setTags(data);
+    } catch (err) {
+      console.error('Error loading tags:', err);
+      setTagsError(err.response?.data?.error || 'Failed to load tags.');
+    } finally {
+      setLoadingTags(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchPairs = async () => {
-      setLoadingPairs(true);
-      setPairsError('');
-      try {
-        const token = localStorage.getItem('token');
-        const authHeaders = { headers: { Authorization: `Bearer ${token}` } };
+    fetchTags(false);
+  }, []);
+
+  const fetchPairs = async (force = false) => {
+    setLoadingPairs(true);
+    setPairsError('');
+    try {
+      const token = localStorage.getItem('token');
+      const authHeaders = { headers: { Authorization: `Bearer ${token}` } };
+      const data = await fetchWithCache('tags.pairs', async () => {
         const res = await api.get('/api/tags/cooccurrence', authHeaders);
-        setPairs(res.data || []);
-      } catch (err) {
-        console.error('Error loading co-occurrence:', err);
-        setPairsError(err.response?.data?.error || 'Failed to load co-occurrence.');
-      } finally {
-        setLoadingPairs(false);
-      }
-    };
-    fetchPairs();
+        return res.data || [];
+      }, { force });
+      setPairs(data);
+    } catch (err) {
+      console.error('Error loading co-occurrence:', err);
+      setPairsError(err.response?.data?.error || 'Failed to load co-occurrence.');
+    } finally {
+      setLoadingPairs(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchPairs(false);
   }, []);
 
   useEffect(() => {
@@ -132,15 +142,28 @@ const TagBrowser = () => {
     [tags]
   );
 
+  const refreshTags = () => {
+    fetchTags(true);
+    fetchPairs(true);
+  };
+
   return (
     <Page>
       <div className="page-header">
         <p className="muted-label">Tags & collections</p>
-        <h1>Tags</h1>
+        <div className="page-header-row">
+          <h1>Tags</h1>
+          <Button variant="secondary" onClick={refreshTags} disabled={loadingTags || loadingPairs}>Refresh</Button>
+        </div>
         <p className="muted">Browse your highlights by tag. Click a tag to see its highlights and related tags.</p>
       </div>
 
-      {loadingTags && <p className="status-message">Loading tags...</p>}
+      {loadingTags && (
+        <div className="section-stack">
+          <SkeletonCard />
+          <SkeletonCard />
+        </div>
+      )}
       {tagsError && <p className="status-message error-message">{tagsError}</p>}
 
       <div className="section-stack">

@@ -4,6 +4,7 @@ import api from '../api';
 import Brain from './Brain';
 import { Page, Card, Button, TagChip } from '../components/ui';
 import QuestionModal from '../components/QuestionModal';
+import { SkeletonCard } from '../components/Skeleton';
 
 const TodayMode = () => {
   const tabs = [
@@ -92,7 +93,14 @@ const TodayMode = () => {
           </div>
         </div>
         <div className="section-stack">
-          {highlights.length > 0 ? highlights.map(h => (
+          {loading && (
+            <>
+              {Array.from({ length: 3 }).map((_, idx) => (
+                <SkeletonCard key={`desk-highlight-${idx}`} />
+              ))}
+            </>
+          )}
+          {!loading && highlights.length > 0 ? highlights.map(h => (
             <div key={h._id} className="search-card">
               <div className="search-card-top">
                 <Link to={`/articles/${h.articleId}`} className="article-title-link">{h.articleTitle || 'Untitled article'}</Link>
@@ -128,7 +136,7 @@ const TodayMode = () => {
                 </div>
               )}
             </div>
-          )) : <p className="muted small">No highlights yet.</p>}
+          )) : !loading && <p className="muted small">No highlights yet.</p>}
         </div>
       </Card>
 
@@ -137,7 +145,14 @@ const TodayMode = () => {
           <span className="eyebrow">Recent articles</span>
         </div>
         <div className="section-stack">
-          {articles.length > 0 ? articles.map(a => (
+          {loading && (
+            <>
+              {Array.from({ length: 3 }).map((_, idx) => (
+                <SkeletonCard key={`desk-article-${idx}`} />
+              ))}
+            </>
+          )}
+          {!loading && articles.length > 0 ? articles.map(a => (
             <div key={a._id} className="search-card">
               <div className="search-card-top">
                 <Link to={`/articles/${a._id}`} className="article-title-link">{a.title || 'Untitled article'}</Link>
@@ -145,7 +160,7 @@ const TodayMode = () => {
               </div>
               <p className="muted small">{a.url}</p>
             </div>
-          )) : <p className="muted small">No recent articles.</p>}
+          )) : !loading && <p className="muted small">No recent articles.</p>}
         </div>
       </Card>
 
@@ -155,7 +170,14 @@ const TodayMode = () => {
           <Link to="/think" className="muted small">Open Notebook</Link>
         </div>
         <div className="section-stack">
-          {notebook.length > 0 ? notebook.map(n => (
+          {loading && (
+            <>
+              {Array.from({ length: 2 }).map((_, idx) => (
+                <SkeletonCard key={`desk-note-${idx}`} />
+              ))}
+            </>
+          )}
+          {!loading && notebook.length > 0 ? notebook.map(n => (
             <div key={n._id} className="search-card">
               <div className="search-card-top">
                 <span className="article-title-link">{n.title || 'Untitled'}</span>
@@ -163,7 +185,7 @@ const TodayMode = () => {
               </div>
               <p className="muted small">{(n.content || '').slice(0, 140)}{(n.content || '').length > 140 ? '…' : ''}</p>
             </div>
-          )) : <p className="muted small">No notebook entries yet.</p>}
+          )) : !loading && <p className="muted small">No notebook entries yet.</p>}
         </div>
       </Card>
 
@@ -175,22 +197,36 @@ const TodayMode = () => {
           <div>
             <span className="muted-label">Top tags</span>
             <div className="highlight-tag-chips" style={{ flexWrap: 'wrap' }}>
-              {insights?.topTags && insights.topTags.length > 0 ? insights.topTags.map(t => (
+              {loading && (
+                <>
+                  {Array.from({ length: 4 }).map((_, idx) => (
+                    <span key={`desk-tag-${idx}`} className="tag-chip"> </span>
+                  ))}
+                </>
+              )}
+              {!loading && insights?.topTags && insights.topTags.length > 0 ? insights.topTags.map(t => (
                 <TagChip key={t.tag}>{t.tag} <span className="tag-count">{t.count}</span></TagChip>
-              )) : <span className="muted small">No tags yet.</span>}
+              )) : !loading && <span className="muted small">No tags yet.</span>}
             </div>
           </div>
           <div>
             <span className="muted-label">Most highlighted articles</span>
             <div className="section-stack">
-              {insights?.mostHighlightedArticles && insights.mostHighlightedArticles.length > 0 ? insights.mostHighlightedArticles.map(a => (
+              {loading && (
+                <>
+                  {Array.from({ length: 2 }).map((_, idx) => (
+                    <SkeletonCard key={`desk-most-${idx}`} />
+                  ))}
+                </>
+              )}
+              {!loading && insights?.mostHighlightedArticles && insights.mostHighlightedArticles.length > 0 ? insights.mostHighlightedArticles.map(a => (
                 <div key={a.articleId} className="search-card">
                   <div className="search-card-top">
                     <Link to={`/articles/${a.articleId}`} className="article-title-link">{a.title || 'Untitled article'}</Link>
                     <span className="muted small">{a.count} highlights</span>
                   </div>
                 </div>
-              )) : <p className="muted small">No highlight activity yet.</p>}
+              )) : !loading && <p className="muted small">No highlight activity yet.</p>}
             </div>
           </div>
         </div>
@@ -210,7 +246,6 @@ const TodayMode = () => {
     if (active === 'brain') return <Brain />;
     return (
       <>
-        {loading && <p className="status-message">Loading…</p>}
         {error && <p className="status-message error-message">{error}</p>}
         {renderDesk()}
       </>
