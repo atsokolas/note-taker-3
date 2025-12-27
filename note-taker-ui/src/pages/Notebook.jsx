@@ -339,84 +339,8 @@ const Notebook = () => {
     e.preventDefault();
   };
 
-  const handleEditorKeyDown = (e) => {
-    if (e.key === 'Tab') {
-      e.preventDefault();
-      const textarea = textareaRef.current;
-      if (!textarea) return;
-      const start = textarea.selectionStart;
-      const end = textarea.selectionEnd;
-      const value = content;
-      if (e.shiftKey) {
-        const lineStart = value.lastIndexOf('\n', start - 1) + 1;
-        if (value.slice(lineStart, lineStart + 2) === '  ') {
-          const next = value.slice(0, lineStart) + value.slice(lineStart + 2);
-          setContent(next);
-          setTimeout(() => {
-            textarea.selectionStart = Math.max(lineStart, start - 2);
-            textarea.selectionEnd = Math.max(lineStart, end - 2);
-          }, 0);
-        }
-      } else {
-        const next = value.slice(0, start) + '  ' + value.slice(end);
-        setContent(next);
-        setTimeout(() => {
-          textarea.selectionStart = textarea.selectionEnd = start + 2;
-        }, 0);
-      }
-    }
-    if (e.key === 'Enter') {
-      const textarea = textareaRef.current;
-      if (!textarea) return;
-      const pos = textarea.selectionStart;
-      const lineStart = content.lastIndexOf('\n', pos - 1) + 1;
-      const lineEndIdx = content.indexOf('\n', pos);
-      const lineEnd = lineEndIdx === -1 ? content.length : lineEndIdx;
-      const line = content.slice(lineStart, lineEnd);
-      const bullet = line.match(/^(\s*)\*\s.+/);
-      const emptyBullet = line.match(/^(\s*)\*\s*$/);
-      if (emptyBullet) {
-        e.preventDefault();
-        const before = content.slice(0, lineStart);
-        const after = content.slice(lineEnd);
-        const nextContent = `${before}\n${after}`;
-        setContent(nextContent);
-        setTimeout(() => {
-          const nextPos = before.length + 1;
-          textarea.selectionStart = textarea.selectionEnd = nextPos;
-        }, 0);
-        return;
-      }
-      if (bullet) {
-        e.preventDefault();
-        const indent = bullet[1] || '';
-        const insert = `\n${indent}* `;
-        const nextContent = content.slice(0, pos) + insert + content.slice(textarea.selectionEnd);
-        setContent(nextContent);
-        setTimeout(() => {
-          const nextPos = pos + insert.length;
-          textarea.selectionStart = textarea.selectionEnd = nextPos;
-        }, 0);
-      }
-    }
-    if (e.key === ' ' && textareaRef.current) {
-      const textarea = textareaRef.current;
-      const pos = textarea.selectionStart;
-      const lineStart = content.lastIndexOf('\n', pos - 1) + 1;
-      if (pos - 1 >= 0 && content[pos - 1] === '*' && (pos - 1 === lineStart)) {
-        e.preventDefault();
-        const before = content.slice(0, pos - 1);
-        const after = content.slice(textarea.selectionEnd);
-        const insert = '* ';
-        const nextContent = before + insert + after;
-        setContent(nextContent);
-        setTimeout(() => {
-          const nextPos = before.length + insert.length;
-          textarea.selectionStart = textarea.selectionEnd = nextPos;
-        }, 0);
-      }
-    }
-  };
+  // Basic key handling only (no custom caret moves)
+  const handleEditorKeyDown = () => {};
 
   return (
     <Page>
