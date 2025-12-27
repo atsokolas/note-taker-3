@@ -43,7 +43,7 @@ const Notebook = () => {
   const [tagsInput, setTagsInput] = useState('');
   const [showPreview, setShowPreview] = useState(false);
   const [splitView, setSplitView] = useState(false);
-  const editorRef = useRef(null);
+  const textareaRef = useRef(null);
 
   useEffect(() => {
     const fetchEntries = async () => {
@@ -225,65 +225,47 @@ const Notebook = () => {
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;');
 
-  const markdownToBlocks = (md = '') => {
+  const renderMarkdown = (md = '') => {
     const lines = md.split(/\r?\n/);
-    const blocks = [];
+    let html = '';
+    let inList = false;
     lines.forEach((line) => {
       if (/^\s*$/.test(line)) {
-        blocks.push({ type: 'paragraph', text: '' });
+        if (inList) {
+          html += '</ul>';
+          inList = false;
+        }
+        html += '<br />';
         return;
       }
       const heading = line.match(/^(#{1,3})\s+(.*)$/);
       if (heading) {
+        if (inList) {
+          html += '</ul>';
+          inList = false;
+        }
         const level = heading[1].length;
-        blocks.push({ type: `h${level}`, text: heading[2] });
+        html += `<h${level}>${escapeHtml(heading[2])}</h${level}>`;
         return;
       }
       const bullet = line.match(/^(\s*)\*\s+(.*)$/);
       if (bullet) {
-        blocks.push({ type: 'bullet', text: bullet[2] });
+        if (!inList) {
+          html += '<ul>';
+          inList = true;
+        }
+        html += `<li>${escapeHtml(bullet[2])}</li>`;
         return;
       }
-      blocks.push({ type: 'paragraph', text: line });
+      if (inList) {
+        html += '</ul>';
+        inList = false;
+      }
+      html += `<p>${escapeHtml(line)}</p>`;
     });
-    return blocks;
+    if (inList) html += '</ul>';
+    return html;
   };
-
-  const blocksToHtml = (blocks = []) =>
-    blocks
-      .map((b) => {
-        if (b.type === 'h1') return `<div data-type="h1">${escapeHtml(b.text)}</div>`;
-        if (b.type === 'h2') return `<div data-type="h2">${escapeHtml(b.text)}</div>`;
-        if (b.type === 'h3') return `<div data-type="h3">${escapeHtml(b.text)}</div>`;
-        if (b.type === 'bullet') return `<div data-type="bullet">• ${escapeHtml(b.text)}</div>`;
-        return `<div data-type="paragraph">${escapeHtml(b.text)}</div>`;
-      })
-      .join('');
-
-  const htmlToMarkdown = (root) => {
-    const lines = [];
-    Array.from(root.childNodes).forEach((node) => {
-      if (node.nodeType === Node.TEXT_NODE) {
-        const txt = (node.textContent || '').trimEnd();
-        if (txt.length > 0) lines.push(txt);
-        return;
-      }
-      if (node.nodeName === 'BR') {
-        lines.push('');
-        return;
-      }
-      const text = (node.innerText || '').replace(/^•\s*/, '').trimEnd();
-      const type = node.dataset?.type;
-      if (type === 'h1') lines.push(`# ${text}`);
-      else if (type === 'h2') lines.push(`## ${text}`);
-      else if (type === 'h3') lines.push(`### ${text}`);
-      else if (type === 'bullet') lines.push(`* ${text}`);
-      else lines.push(text);
-    });
-    return lines.join('\n').replace(/\n{3,}/g, '\n\n');
-  };
-
-  const renderMarkdown = (md = '') => blocksToHtml(markdownToBlocks(md));
 
   const handleEditorKeyDown = (e) => {
     if (e.key === 'Tab') {
@@ -307,23 +289,19 @@ const Notebook = () => {
   };
 
   const insertTextAtCursor = (text) => {
-    // For contentEditable, insert at cursor by manipulating selection
-    const sel = window.getSelection();
-    if (!sel || !sel.rangeCount) return;
-    const range = sel.getRangeAt(0);
-    range.deleteContents();
-    const node = document.createTextNode(text);
-    range.insertNode(node);
-    range.setStartAfter(node);
-    range.collapse(true);
-    sel.removeAllRanges();
-    sel.addRange(range);
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const before = content.slice(0, start);
+    const after = content.slice(end);
+    const next = `${before}${text}${after}`;
+    setContent(next);
     setTimeout(() => {
-      if (editorRef.current) editorRef.current.focus();
+      textarea.focus();
+      textarea.selectionStart = textarea.selectionEnd = start + text.length;
     }, 0);
     setHighlightModalOpen(false);
-    // trigger input parsing
-    handleEditorInput();
   };
 
   const insertHighlight = async (h) => {
@@ -361,55 +339,83 @@ const Notebook = () => {
     e.preventDefault();
   };
 
-  const getCaretIndex = (root) => {
-    const sel = window.getSelection();
-    if (!sel || sel.rangeCount === 0) return 0;
-    const range = sel.getRangeAt(0).cloneRange();
-    range.selectNodeContents(root);
-    range.setEnd(sel.anchorNode, sel.anchorOffset);
-    return range.toString().length;
-  };
-
-  const setCaretIndex = (root, idx) => {
-    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
-    let pos = idx;
-    let node;
-    while ((node = walker.nextNode())) {
-      const len = node.textContent?.length || 0;
-      if (pos <= len) {
-        const range = document.createRange();
-        range.setStart(node, Math.max(0, pos));
-        range.collapse(true);
-        const sel = window.getSelection();
-        sel?.removeAllRanges();
-        sel?.addRange(range);
+  const handleEditorKeyDown = (e) => {
+    if (e.key === 'Tab') {
+      e.preventDefault();
+      const textarea = textareaRef.current;
+      if (!textarea) return;
+      const start = textarea.selectionStart;
+      const end = textarea.selectionEnd;
+      const value = content;
+      if (e.shiftKey) {
+        const lineStart = value.lastIndexOf('\n', start - 1) + 1;
+        if (value.slice(lineStart, lineStart + 2) === '  ') {
+          const next = value.slice(0, lineStart) + value.slice(lineStart + 2);
+          setContent(next);
+          setTimeout(() => {
+            textarea.selectionStart = Math.max(lineStart, start - 2);
+            textarea.selectionEnd = Math.max(lineStart, end - 2);
+          }, 0);
+        }
+      } else {
+        const next = value.slice(0, start) + '  ' + value.slice(end);
+        setContent(next);
+        setTimeout(() => {
+          textarea.selectionStart = textarea.selectionEnd = start + 2;
+        }, 0);
+      }
+    }
+    if (e.key === 'Enter') {
+      const textarea = textareaRef.current;
+      if (!textarea) return;
+      const pos = textarea.selectionStart;
+      const lineStart = content.lastIndexOf('\n', pos - 1) + 1;
+      const lineEndIdx = content.indexOf('\n', pos);
+      const lineEnd = lineEndIdx === -1 ? content.length : lineEndIdx;
+      const line = content.slice(lineStart, lineEnd);
+      const bullet = line.match(/^(\s*)\*\s.+/);
+      const emptyBullet = line.match(/^(\s*)\*\s*$/);
+      if (emptyBullet) {
+        e.preventDefault();
+        const before = content.slice(0, lineStart);
+        const after = content.slice(lineEnd);
+        const nextContent = `${before}\n${after}`;
+        setContent(nextContent);
+        setTimeout(() => {
+          const nextPos = before.length + 1;
+          textarea.selectionStart = textarea.selectionEnd = nextPos;
+        }, 0);
         return;
       }
-      pos -= len;
+      if (bullet) {
+        e.preventDefault();
+        const indent = bullet[1] || '';
+        const insert = `\n${indent}* `;
+        const nextContent = content.slice(0, pos) + insert + content.slice(textarea.selectionEnd);
+        setContent(nextContent);
+        setTimeout(() => {
+          const nextPos = pos + insert.length;
+          textarea.selectionStart = textarea.selectionEnd = nextPos;
+        }, 0);
+      }
     }
-    // Fallback to end
-    const range = document.createRange();
-    range.selectNodeContents(root);
-    range.collapse(false);
-    const sel = window.getSelection();
-    sel?.removeAllRanges();
-    sel?.addRange(range);
-  };
-
-  const syncFromDom = () => {
-    if (!editorRef.current) return;
-    const caret = getCaretIndex(editorRef.current);
-    const md = htmlToMarkdown(editorRef.current);
-    setContent(md);
-    const html = renderMarkdown(md);
-    if (editorRef.current.innerHTML !== html) {
-      editorRef.current.innerHTML = html;
-      setCaretIndex(editorRef.current, Math.min(caret, editorRef.current.innerText.length));
+    if (e.key === ' ' && textareaRef.current) {
+      const textarea = textareaRef.current;
+      const pos = textarea.selectionStart;
+      const lineStart = content.lastIndexOf('\n', pos - 1) + 1;
+      if (pos - 1 >= 0 && content[pos - 1] === '*' && (pos - 1 === lineStart)) {
+        e.preventDefault();
+        const before = content.slice(0, pos - 1);
+        const after = content.slice(textarea.selectionEnd);
+        const insert = '* ';
+        const nextContent = before + insert + after;
+        setContent(nextContent);
+        setTimeout(() => {
+          const nextPos = before.length + insert.length;
+          textarea.selectionStart = textarea.selectionEnd = nextPos;
+        }, 0);
+      }
     }
-  };
-
-  const handleEditorInput = () => {
-    syncFromDom();
   };
 
   return (
@@ -518,20 +524,37 @@ const Notebook = () => {
                   <Button variant="secondary" onClick={() => setHighlightModalOpen(true)}>Insert Highlight</Button>
                 </div>
                 <div className="notebook-editor-actions" style={{ display: 'flex', gap: 8, margin: '8px 0' }}>
-                  <span className="muted small">Tip: "* " for bullets, "## " for headings, Tab/Shift+Tab to indent.</span>
+                  <Button variant={showPreview ? 'secondary' : 'primary'} onClick={() => setShowPreview(p => !p)}>
+                    {showPreview ? 'Hide Preview' : 'Show Preview'}
+                  </Button>
+                  <Button variant={splitView ? 'secondary' : 'primary'} onClick={() => setSplitView(v => !v)}>
+                    {splitView ? 'Single View' : 'Split View'}
+                  </Button>
+                  <span className="muted small">Tip: "* " for bullets (preview to see dots), "## " for headings, Tab/Shift+Tab to indent.</span>
                 </div>
                 <div
-                  className="notebook-editor-area"
-                  style={{ minHeight: 400, border: '1px solid var(--border)', borderRadius: '8px', padding: '12px', background: '#fff', lineHeight: 1.5, outline: 'none' }}
+                  className={`notebook-editor-area ${splitView ? 'split' : ''}`}
+                  style={{ display: splitView ? 'grid' : 'block', gridTemplateColumns: splitView ? '1fr 1fr' : '1fr', gap: '12px' }}
                   onDrop={handleDrop}
                   onDragOver={handleDragOver}
-                  contentEditable
-                  ref={editorRef}
-                  onInput={handleEditorInput}
-                  onKeyDown={handleEditorKeyDown}
-                  suppressContentEditableWarning
-                  dangerouslySetInnerHTML={{ __html: renderMarkdown(content) }}
-                />
+                >
+                  <textarea
+                    ref={textareaRef}
+                    className="notebook-textarea"
+                    style={{ minHeight: 400, width: '100%' }}
+                    value={content}
+                    onChange={(e) => setContent(e.target.value)}
+                    placeholder="Write freely..."
+                    onKeyDown={handleEditorKeyDown}
+                  />
+                  {showPreview && (
+                    <div
+                      className="notebook-preview"
+                      style={{ minHeight: 400, padding: '12px', border: '1px solid var(--border-color)', borderRadius: '8px', background: '#fff', overflowY: 'auto' }}
+                      dangerouslySetInnerHTML={{ __html: renderMarkdown(content) }}
+                    />
+                  )}
+                </div>
               </>
             ) : (
               <p className="muted">Select or create an entry to start writing.</p>

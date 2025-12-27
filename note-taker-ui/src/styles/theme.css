@@ -64,28 +64,6 @@ p {
   color: var(--text);
 }
 
-.notebook-editor-area [data-type="h1"] {
-  font-size: 1.6rem;
-  font-weight: 700;
-  margin: 0 0 8px 0;
-}
-.notebook-editor-area [data-type="h2"] {
-  font-size: 1.35rem;
-  font-weight: 700;
-  margin: 0 0 8px 0;
-}
-.notebook-editor-area [data-type="h3"] {
-  font-size: 1.15rem;
-  font-weight: 700;
-  margin: 0 0 6px 0;
-}
-.notebook-editor-area [data-type="paragraph"] {
-  margin: 0 0 8px 0;
-}
-.notebook-editor-area [data-type="bullet"] {
-  margin: 4px 0 4px 12px;
-}
-
 .app-shell {
   display: flex;
   min-height: 100vh;
