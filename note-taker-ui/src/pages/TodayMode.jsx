@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import api from '../api';
 import Brain from './Brain';
 import { Page, Card, Button, TagChip } from '../components/ui';
+import QuestionModal from '../components/QuestionModal';
 
 const TodayMode = () => {
   const tabs = [
@@ -18,6 +19,7 @@ const TodayMode = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [refs, setRefs] = useState({});
+  const [questionModal, setQuestionModal] = useState({ open: false, highlight: null });
 
   const authHeaders = () => ({ headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
 
@@ -103,6 +105,13 @@ const TodayMode = () => {
               <Button variant="secondary" onClick={() => toggleRefs(h._id)} style={{ marginTop: 6 }}>
                 {refs[h._id]?.show ? 'Hide references' : 'Referenced in'}
               </Button>
+              <Button
+                variant="secondary"
+                onClick={() => setQuestionModal({ open: true, highlight: h })}
+                style={{ marginTop: 6 }}
+              >
+                Add Question
+              </Button>
               {refs[h._id]?.loading && <p className="muted small">Loading references…</p>}
               {refs[h._id]?.error && <p className="status-message error-message">{refs[h._id].error}</p>}
               {refs[h._id]?.data && refs[h._id]?.show && (
@@ -186,6 +195,14 @@ const TodayMode = () => {
           </div>
         </div>
       </Card>
+      <QuestionModal
+        open={questionModal.open}
+        onClose={() => setQuestionModal({ open: false, highlight: null })}
+        defaults={{
+          linkedHighlightId: questionModal.highlight?._id || null,
+          linkedTagName: questionModal.highlight?.tags?.[0] || ''
+        }}
+      />
     </div>
   );
 

@@ -28,9 +28,13 @@ const processArticleContent = (articleData) => {
     });
     
     (highlights || []).forEach(h => {
-        const highlightId = `highlight-${h._id}`; 
-        const escaped = h.text?.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
-        const regex = new RegExp(`(?<!<mark[^>]*>)${escaped}(?!<\\/mark>)`, 'gi'); 
+        const highlightId = `highlight-${h._id}`;
+        const escaped = h.text
+            ?.trim()
+            .replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&')
+            .replace(/\s+/g, '\\s+');
+        if (!escaped) return;
+        const regex = new RegExp(`(?<!<mark[^>]*>)${escaped}(?!<\\/mark>)`, 'gi');
         doc.body.innerHTML = doc.body.innerHTML.replace(regex, match => `<mark class="highlight" data-highlight-id="${highlightId}">${match}</mark>`);
     });
 
@@ -287,6 +291,13 @@ const ArticleViewer = ({ onArticleChange }) => {
                 const range = selection.getRangeAt(0);
                 const rect = range.getBoundingClientRect();
                 setPopup({ visible: true, x: rect.left + window.scrollX + (rect.width / 2), y: rect.top + window.scrollY, text: selectedText });
+                requestAnimationFrame(() => {
+                    const sel = window.getSelection();
+                    if (sel && selectionRangeRef.current) {
+                        sel.removeAllRanges();
+                        sel.addRange(selectionRangeRef.current);
+                    }
+                });
             }
         };
 
@@ -560,10 +571,9 @@ const ArticleViewer = ({ onArticleChange }) => {
                                     }}
                                 >
                                     <button
-                                        className="pill-button primary"
+                                        className="highlight-popup-save-button"
                                         onClick={saveHighlight}
                                         title="Highlight"
-                                        style={{ padding: '8px 12px', fontSize: '0.9em' }}
                                     >
                                         Highlight
                                     </button>

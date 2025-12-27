@@ -189,7 +189,7 @@ body {
 
 .upload-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
+  grid-template-columns: 1fr 1fr;
   gap: 12px;
   align-items: center;
 }
@@ -198,6 +198,7 @@ body {
   display: flex;
   flex-direction: column;
   gap: 6px;
+  min-width: 0;
 }
 
 .upload-field label {
@@ -942,6 +943,7 @@ body {
     gap: 8px;
 
     box-shadow: var(--box-shadow-light);
+    width: 100%;
 }
 
 .highlight-popup-save-button:hover {

@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import api from '../api';
 import { Page, Card, TagChip, Button } from '../components/ui';
+import QuestionModal from '../components/QuestionModal';
 
 const refsInitial = { data: null, loading: false, error: '' };
 
@@ -23,6 +24,10 @@ const TagConcept = () => {
   const [editingNoteId, setEditingNoteId] = useState(null);
   const [editingNoteDraft, setEditingNoteDraft] = useState({ title: '', content: '' });
   const [conceptRefs, setConceptRefs] = useState({ data: null, loading: false, error: '' });
+  const [questions, setQuestions] = useState([]);
+  const [questionError, setQuestionError] = useState('');
+  const [questionLoading, setQuestionLoading] = useState(false);
+  const [questionModalOpen, setQuestionModalOpen] = useState(false);
 
   const authHeaders = () => ({ headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
 
@@ -60,6 +65,19 @@ const TagConcept = () => {
     }
   }, [tagName]);
 
+  const loadQuestions = useCallback(async () => {
+    setQuestionLoading(true);
+    setQuestionError('');
+    try {
+      const res = await api.get(`/api/questions?status=open&tag=${encodeURIComponent(tagName)}`, authHeaders());
+      setQuestions(res.data || []);
+    } catch (err) {
+      setQuestionError(err.response?.data?.error || 'Failed to load questions.');
+    } finally {
+      setQuestionLoading(false);
+    }
+  }, [tagName]);
+
   const fetchRefs = async (id) => {
     setRefs(prev => ({ ...prev, [id]: { ...(prev[id] || refsInitial), loading: true, error: '' } }));
     try {
@@ -83,6 +101,7 @@ const TagConcept = () => {
   useEffect(() => {
     loadData();
     loadNotes();
+    loadQuestions();
   }, [loadData, loadNotes]);
 
   useEffect(() => {
@@ -300,6 +319,44 @@ const TagConcept = () => {
                 </TagChip>
               )) : <span className="muted small">No related tags yet.</span>}
             </div>
+          </Card>
+
+          <Card className="search-section">
+            <div className="search-section-header">
+              <span className="eyebrow">Questions</span>
+              <Button variant="secondary" onClick={() => setQuestionModalOpen(true)}>Add question</Button>
+            </div>
+            {questionLoading && <p className="muted small">Loading questions…</p>}
+            {questionError && <p className="status-message error-message">{questionError}</p>}
+            <div className="section-stack">
+              {questions.length === 0 && !questionLoading && <p className="muted small">No open questions yet.</p>}
+              {questions.map(q => (
+                <div key={q._id} className="search-card">
+                  <div className="search-card-top">
+                    <span className="article-title-link">{q.text}</span>
+                    <Button
+                      variant="secondary"
+                      onClick={async () => {
+                        try {
+                          await api.put(`/api/questions/${q._id}`, { status: 'answered' }, authHeaders());
+                          setQuestions(prev => prev.filter(item => item._id !== q._id));
+                        } catch (err) {
+                          setQuestionError(err.response?.data?.error || 'Failed to update question.');
+                        }
+                      }}
+                    >
+                      Mark answered
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <QuestionModal
+              open={questionModalOpen}
+              onClose={() => setQuestionModalOpen(false)}
+              onCreated={(q) => setQuestions(prev => [q, ...prev])}
+              defaults={{ linkedTagName: tagName }}
+            />
           </Card>
 
           <Card className="search-section">

@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../api';
 import { Page, Card, TagChip, Button } from '../components/ui';
+import QuestionModal from '../components/QuestionModal';
 
 const PAGE_SIZE = 20;
 
@@ -29,6 +30,7 @@ const AllHighlights = () => {
   const [saveMessage, setSaveMessage] = useState('');
   const [selectedTag, setSelectedTag] = useState('all');
   const [refs, setRefs] = useState({});
+  const [questionModal, setQuestionModal] = useState({ open: false, highlight: null });
 
   useEffect(() => {
     const fetchData = async () => {
@@ -180,6 +182,13 @@ const AllHighlights = () => {
               <Button variant="secondary" onClick={() => toggleRefs(h._id)} style={{ marginTop: 6 }}>
                 {refs[h._id]?.show ? 'Hide references' : 'Referenced in'}
               </Button>
+              <Button
+                variant="secondary"
+                onClick={() => setQuestionModal({ open: true, highlight: h })}
+                style={{ marginTop: 6 }}
+              >
+                Add Question
+              </Button>
               {refs[h._id]?.loading && <p className="muted small">Loading references…</p>}
               {refs[h._id]?.error && <p className="status-message error-message">{refs[h._id].error}</p>}
               {refs[h._id]?.data && refs[h._id]?.show && (
@@ -237,6 +246,15 @@ const AllHighlights = () => {
           </div>
         )}
       </Card>
+
+      <QuestionModal
+        open={questionModal.open}
+        onClose={() => setQuestionModal({ open: false, highlight: null })}
+        defaults={{
+          linkedHighlightId: questionModal.highlight?._id || null,
+          linkedTagName: questionModal.highlight?.tags?.[0] || ''
+        }}
+      />
     </Page>
   );
 };
