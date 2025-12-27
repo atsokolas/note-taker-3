@@ -173,6 +173,17 @@ const conceptNoteSchema = new mongoose.Schema({
 
 const ConceptNote = mongoose.model('ConceptNote', conceptNoteSchema);
 
+// Questions - lightweight thinking queue
+const questionSchema = new mongoose.Schema({
+  text: { type: String, required: true, trim: true },
+  status: { type: String, enum: ['open', 'answered'], default: 'open' },
+  linkedTagName: { type: String, default: '' },
+  linkedHighlightId: { type: mongoose.Schema.Types.ObjectId, default: null },
+  linkedNotebookEntryId: { type: mongoose.Schema.Types.ObjectId, default: null },
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }
+}, { timestamps: true });
+
+const Question = mongoose.model('Question', questionSchema);
 // Saved Views (Smart Folders)
 const savedViewSchema = new mongoose.Schema({
   name: { type: String, required: true, trim: true },
@@ -1364,6 +1375,77 @@ app.delete('/api/concepts/notes/:id', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error("❌ Error deleting concept note:", error);
     res.status(500).json({ error: "Failed to delete concept note." });
+  }
+});
+
+// --- QUESTIONS CRUD ---
+app.get('/api/questions', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { status, tag, highlightId, notebookEntryId } = req.query;
+    const filter = { userId };
+    if (status) filter.status = status;
+    if (tag) filter.linkedTagName = tag;
+    if (highlightId) filter.linkedHighlightId = highlightId;
+    if (notebookEntryId) filter.linkedNotebookEntryId = notebookEntryId;
+    const questions = await Question.find(filter).sort({ createdAt: -1 });
+    res.status(200).json(questions);
+  } catch (error) {
+    console.error("❌ Error fetching questions:", error);
+    res.status(500).json({ error: "Failed to fetch questions." });
+  }
+});
+
+app.post('/api/questions', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { text, status = 'open', linkedTagName = '', linkedHighlightId = null, linkedNotebookEntryId = null } = req.body;
+    if (!text || !text.trim()) return res.status(400).json({ error: "Question text is required." });
+    const question = await Question.create({
+      text: text.trim(),
+      status,
+      linkedTagName,
+      linkedHighlightId,
+      linkedNotebookEntryId,
+      userId
+    });
+    res.status(201).json(question);
+  } catch (error) {
+    console.error("❌ Error creating question:", error);
+    res.status(500).json({ error: "Failed to create question." });
+  }
+});
+
+app.put('/api/questions/:id', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { id } = req.params;
+    const { text, status, linkedTagName, linkedHighlightId, linkedNotebookEntryId } = req.body;
+    const payload = {};
+    if (text !== undefined) payload.text = text;
+    if (status !== undefined) payload.status = status;
+    if (linkedTagName !== undefined) payload.linkedTagName = linkedTagName;
+    if (linkedHighlightId !== undefined) payload.linkedHighlightId = linkedHighlightId;
+    if (linkedNotebookEntryId !== undefined) payload.linkedNotebookEntryId = linkedNotebookEntryId;
+    const updated = await Question.findOneAndUpdate({ _id: id, userId }, payload, { new: true });
+    if (!updated) return res.status(404).json({ error: "Question not found." });
+    res.status(200).json(updated);
+  } catch (error) {
+    console.error("❌ Error updating question:", error);
+    res.status(500).json({ error: "Failed to update question." });
+  }
+});
+
+app.delete('/api/questions/:id', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { id } = req.params;
+    const removed = await Question.findOneAndDelete({ _id: id, userId });
+    if (!removed) return res.status(404).json({ error: "Question not found." });
+    res.status(200).json({ message: "Deleted." });
+  } catch (error) {
+    console.error("❌ Error deleting question:", error);
+    res.status(500).json({ error: "Failed to delete question." });
   }
 });
 
