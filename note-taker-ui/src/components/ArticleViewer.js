@@ -87,6 +87,7 @@ const ArticleViewer = ({ onArticleChange }) => {
     const contentRef = useRef(null);
     const popupRef = useRef(null);
     const selectionRangeRef = useRef(null);
+    const tempHighlightRef = useRef(null);
     const [folders, setFolders] = useState([]);
     
     const [editingHighlightId, setEditingHighlightId] = useState(null);
@@ -275,6 +276,30 @@ const ArticleViewer = ({ onArticleChange }) => {
         }
     }, [id, fetchFolders]);
 
+    const clearTempHighlight = () => {
+        const el = tempHighlightRef.current;
+        if (!el || !el.parentNode) return;
+        const parent = el.parentNode;
+        while (el.firstChild) {
+            parent.insertBefore(el.firstChild, el);
+        }
+        parent.removeChild(el);
+        tempHighlightRef.current = null;
+    };
+
+    const applyTempHighlight = (range) => {
+        clearTempHighlight();
+        try {
+            const span = document.createElement('mark');
+            span.className = 'temp-highlight-selection';
+            range.surroundContents(span);
+            tempHighlightRef.current = span;
+        } catch (err) {
+            // If the selection spans multiple nodes, fallback to keeping native selection
+            tempHighlightRef.current = null;
+        }
+    };
+
     useEffect(() => {
         // ... (Your existing mouseup/click logic)
         const handleMouseUp = (event) => {
@@ -289,6 +314,7 @@ const ArticleViewer = ({ onArticleChange }) => {
                 selectionRangeRef.current = selection.getRangeAt(0).cloneRange();
                 
                 const range = selection.getRangeAt(0);
+                applyTempHighlight(range.cloneRange());
                 const rect = range.getBoundingClientRect();
                 setPopup({ visible: true, x: rect.left + window.scrollX + (rect.width / 2), y: rect.top + window.scrollY, text: selectedText });
                 requestAnimationFrame(() => {
@@ -303,6 +329,7 @@ const ArticleViewer = ({ onArticleChange }) => {
 
         const handleClickOutside = (event) => {
             if (popupRef.current && !popupRef.current.contains(event.target)) {
+                clearTempHighlight();
                 setPopup({ visible: false, x: 0, y: 0, text: '' });
             }
         };
@@ -386,6 +413,7 @@ const ArticleViewer = ({ onArticleChange }) => {
             position
         }; 
         window.getSelection()?.removeAllRanges();
+        clearTempHighlight();
         setPopup({ visible: false, x: 0, y: 0, text: '' });
         try {
             const res = await api.post(`/articles/${id}/highlights`, newHighlight, getAuthConfig());

@@ -967,6 +967,12 @@ body {
     flex-shrink: 0;
 }
 
+.temp-highlight-selection {
+    background: rgba(11, 116, 255, 0.28);
+    border-radius: 2px;
+    padding: 0 2px;
+}
+
 /* ----------------------------------- */
 /* NEW: Article Highlights Sidebar Styles */
 /* ----------------------------------- */
