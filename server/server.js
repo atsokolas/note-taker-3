@@ -179,6 +179,7 @@ const questionSchema = new mongoose.Schema({
   status: { type: String, enum: ['open', 'answered'], default: 'open' },
   linkedTagName: { type: String, default: '' },
   linkedHighlightId: { type: mongoose.Schema.Types.ObjectId, default: null },
+  linkedHighlightIds: [{ type: mongoose.Schema.Types.ObjectId }],
   linkedNotebookEntryId: { type: mongoose.Schema.Types.ObjectId, default: null },
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }
 }, { timestamps: true });
@@ -1399,13 +1400,18 @@ app.get('/api/questions', authenticateToken, async (req, res) => {
 app.post('/api/questions', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
-    const { text, status = 'open', linkedTagName = '', linkedHighlightId = null, linkedNotebookEntryId = null } = req.body;
+    const { text, status = 'open', linkedTagName = '', linkedHighlightId = null, linkedHighlightIds = [], linkedNotebookEntryId = null } = req.body;
     if (!text || !text.trim()) return res.status(400).json({ error: "Question text is required." });
+    const highlightIds = [
+      ...(Array.isArray(linkedHighlightIds) ? linkedHighlightIds : []),
+      ...(linkedHighlightId ? [linkedHighlightId] : [])
+    ].filter(Boolean);
     const question = await Question.create({
       text: text.trim(),
       status,
       linkedTagName,
       linkedHighlightId,
+      linkedHighlightIds: highlightIds,
       linkedNotebookEntryId,
       userId
     });
@@ -1420,12 +1426,13 @@ app.put('/api/questions/:id', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
     const { id } = req.params;
-    const { text, status, linkedTagName, linkedHighlightId, linkedNotebookEntryId } = req.body;
+    const { text, status, linkedTagName, linkedHighlightId, linkedHighlightIds, linkedNotebookEntryId } = req.body;
     const payload = {};
     if (text !== undefined) payload.text = text;
     if (status !== undefined) payload.status = status;
     if (linkedTagName !== undefined) payload.linkedTagName = linkedTagName;
     if (linkedHighlightId !== undefined) payload.linkedHighlightId = linkedHighlightId;
+    if (linkedHighlightIds !== undefined) payload.linkedHighlightIds = linkedHighlightIds;
     if (linkedNotebookEntryId !== undefined) payload.linkedNotebookEntryId = linkedNotebookEntryId;
     const updated = await Question.findOneAndUpdate({ _id: id, userId }, payload, { new: true });
     if (!updated) return res.status(404).json({ error: "Question not found." });
@@ -1446,6 +1453,25 @@ app.delete('/api/questions/:id', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error("❌ Error deleting question:", error);
     res.status(500).json({ error: "Failed to delete question." });
+  }
+});
+
+app.post('/api/questions/:id/link-highlight', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { id } = req.params;
+    const { highlightId } = req.body;
+    if (!highlightId) return res.status(400).json({ error: "highlightId is required." });
+    const updated = await Question.findOneAndUpdate(
+      { _id: id, userId },
+      { $addToSet: { linkedHighlightIds: highlightId } },
+      { new: true }
+    );
+    if (!updated) return res.status(404).json({ error: "Question not found." });
+    res.status(200).json(updated);
+  } catch (error) {
+    console.error("❌ Error linking highlight to question:", error);
+    res.status(500).json({ error: "Failed to link highlight." });
   }
 });
 
@@ -2293,7 +2319,8 @@ app.post('/articles/:id/highlights', authenticateToken, async (req, res) => {
     if (!updatedArticle) {
       return res.status(404).json({ error: "Article not found or you do not have permission to add highlight." });
     }
-    res.status(200).json(updatedArticle);
+    const createdHighlight = updatedArticle.highlights?.[updatedArticle.highlights.length - 1];
+    res.status(200).json({ article: updatedArticle, highlight: createdHighlight });
   } catch (error) {
     console.error("❌ Error adding highlight:", error);
     if (error.name === 'CastError') {

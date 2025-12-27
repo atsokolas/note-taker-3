@@ -3,7 +3,6 @@ import api from '../api';
 import { useParams, useNavigate } from 'react-router-dom';
 import CitationGenerator from './CitationGenerator'; // <-- 1. IMPORT THE NEW COMPONENT
 import { Page, Card, Button } from './ui';
-import QuestionModal from './QuestionModal';
 
 const getAuthConfig = () => {
     // ... (Your existing code)
@@ -86,8 +85,13 @@ const ArticleViewer = ({ onArticleChange }) => {
     const [error, setError] = useState(null);
     const [popup, setPopup] = useState({ visible: false, x: 0, y: 0, text: '' });
     const [popupNote, setPopupNote] = useState('');
-    const [popupTags, setPopupTags] = useState('');
-    const [questionModal, setQuestionModal] = useState({ open: false, highlight: null });
+    const [availableTags, setAvailableTags] = useState([]);
+    const [selectedTags, setSelectedTags] = useState([]);
+    const [newTagInput, setNewTagInput] = useState('');
+    const [availableQuestions, setAvailableQuestions] = useState([]);
+    const [selectedQuestionIds, setSelectedQuestionIds] = useState([]);
+    const [newQuestionText, setNewQuestionText] = useState('');
+    const [newQuestionTag, setNewQuestionTag] = useState('');
     const contentRef = useRef(null);
     const popupRef = useRef(null);
     const selectionRangeRef = useRef(null);
@@ -113,6 +117,59 @@ const ArticleViewer = ({ onArticleChange }) => {
         if (!pdfs || pdfs.length === 0) return null;
         return pdfs.find(pdf => pdf.id === activePdfId) || pdfs[0];
     }, [pdfs, activePdfId]);
+
+    const parseTagInput = (value) => (
+        value
+            .split(',')
+            .map(tag => tag.trim())
+            .filter(Boolean)
+    );
+
+    const toggleTagSelection = (tag) => {
+        setSelectedTags(prev => (
+            prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]
+        ));
+    };
+
+    const toggleQuestionSelection = (questionId) => {
+        setSelectedQuestionIds(prev => (
+            prev.includes(questionId)
+                ? prev.filter(id => id !== questionId)
+                : [...prev, questionId]
+        ));
+    };
+
+    useEffect(() => {
+        if (!popup.visible) return;
+        setSelectedTags([]);
+        setNewTagInput('');
+        setSelectedQuestionIds([]);
+        setNewQuestionText('');
+        setNewQuestionTag('');
+
+        const loadPopupData = async () => {
+            try {
+                const [tagsRes, questionsRes] = await Promise.all([
+                    api.get('/api/tags', getAuthConfig()),
+                    api.get('/api/questions?status=open', getAuthConfig())
+                ]);
+                const tagList = Array.isArray(tagsRes.data)
+                    ? tagsRes.data
+                    : (Array.isArray(tagsRes.data?.tags) ? tagsRes.data.tags : []);
+                const normalizedTags = tagList
+                    .map(tag => tag.tag || tag.name || tag._id || tag)
+                    .filter(Boolean);
+                setAvailableTags(normalizedTags);
+                setAvailableQuestions(Array.isArray(questionsRes.data) ? questionsRes.data : []);
+            } catch (err) {
+                console.error('Failed to load tags/questions:', err);
+                setAvailableTags([]);
+                setAvailableQuestions([]);
+            }
+        };
+
+        loadPopupData();
+    }, [popup.visible]);
 
     const fetchFolders = useCallback(async () => {
         // ... (Your existing code)
@@ -350,7 +407,11 @@ const ArticleViewer = ({ onArticleChange }) => {
                 const rect = range.getBoundingClientRect();
                 setPopup({ visible: true, x: rect.left + window.scrollX + (rect.width / 2), y: rect.top + window.scrollY, text: selectedText });
                 setPopupNote('');
-                setPopupTags('');
+                setNewTagInput('');
+                setSelectedTags([]);
+                setSelectedQuestionIds([]);
+                setNewQuestionText('');
+                setNewQuestionTag('');
                 requestAnimationFrame(() => {
                     const sel = window.getSelection();
                     if (sel && selectionRangeRef.current) {
@@ -367,7 +428,11 @@ const ArticleViewer = ({ onArticleChange }) => {
                 clearSelectionOverlay();
                 setPopup({ visible: false, x: 0, y: 0, text: '' });
                 setPopupNote('');
-                setPopupTags('');
+                setNewTagInput('');
+                setSelectedTags([]);
+                setSelectedQuestionIds([]);
+                setNewQuestionText('');
+                setNewQuestionTag('');
             }
         };
 
@@ -443,10 +508,10 @@ const ArticleViewer = ({ onArticleChange }) => {
     const saveHighlight = async () => {
         if (!popup.text) return;
         const position = selectionRangeRef.current ? selectionRangeRef.current.startOffset : 0;
-        const tagsArray = popupTags
-            .split(',')
-            .map(t => t.trim())
-            .filter(Boolean);
+        const tagsArray = Array.from(new Set([
+            ...selectedTags,
+            ...parseTagInput(newTagInput)
+        ]));
         const newHighlight = { 
             text: popup.text,
             note: popupNote.trim(),
@@ -458,10 +523,34 @@ const ArticleViewer = ({ onArticleChange }) => {
         clearSelectionOverlay();
         setPopup({ visible: false, x: 0, y: 0, text: '' });
         setPopupNote('');
-        setPopupTags('');
+        setNewTagInput('');
+        setSelectedTags([]);
+        setSelectedQuestionIds([]);
+        setNewQuestionText('');
+        setNewQuestionTag('');
         try {
             const res = await api.post(`/articles/${id}/highlights`, newHighlight, getAuthConfig());
-            const processedArticle = processArticleContent(res.data);
+            const articleData = res.data?.article || res.data;
+            const createdHighlight = res.data?.highlight
+                || res.data?.createdHighlight
+                || res.data?.highlightDoc
+                || (Array.isArray(articleData?.highlights)
+                    ? articleData.highlights.find(h => h.text === newHighlight.text && h.position === position)
+                    : null);
+            if (createdHighlight?._id && selectedQuestionIds.length > 0) {
+                await Promise.all(selectedQuestionIds.map(questionId => (
+                    api.post(`/api/questions/${questionId}/link-highlight`, { highlightId: createdHighlight._id }, getAuthConfig())
+                )));
+            }
+            if (createdHighlight?._id && newQuestionText.trim()) {
+                await api.post('/api/questions', {
+                    text: newQuestionText.trim(),
+                    status: 'open',
+                    linkedTagName: newQuestionTag.trim() || tagsArray[0] || '',
+                    linkedHighlightId: createdHighlight._id
+                }, getAuthConfig());
+            }
+            const processedArticle = processArticleContent(articleData);
             setArticle(processedArticle);
         } catch (err) {
             console.error("Failed to save highlight:", err);
@@ -649,13 +738,63 @@ const ArticleViewer = ({ onArticleChange }) => {
                                         value={popupNote}
                                         onChange={(e) => setPopupNote(e.target.value)}
                                     />
-                                    <input
-                                        className="highlight-popup-input"
-                                        type="text"
-                                        placeholder="Tags (comma-separated, optional)"
-                                        value={popupTags}
-                                        onChange={(e) => setPopupTags(e.target.value)}
-                                    />
+                                    <div className="highlight-popup-section">
+                                        <p className="highlight-popup-label">Tags</p>
+                                        <div className="highlight-popup-chips">
+                                            {availableTags.length === 0 && (
+                                                <span className="muted small">No tags yet.</span>
+                                            )}
+                                            {availableTags.map(tag => (
+                                                <button
+                                                    key={tag}
+                                                    type="button"
+                                                    className={`tag-chip ${selectedTags.includes(tag) ? 'active' : ''}`}
+                                                    onClick={() => toggleTagSelection(tag)}
+                                                >
+                                                    {tag}
+                                                </button>
+                                            ))}
+                                        </div>
+                                        <input
+                                            className="highlight-popup-input"
+                                            type="text"
+                                            placeholder="Add tags (comma-separated)"
+                                            value={newTagInput}
+                                            onChange={(e) => setNewTagInput(e.target.value)}
+                                        />
+                                    </div>
+                                    <div className="highlight-popup-section">
+                                        <p className="highlight-popup-label">Questions</p>
+                                        <div className="highlight-popup-chips">
+                                            {availableQuestions.length === 0 && (
+                                                <span className="muted small">No open questions yet.</span>
+                                            )}
+                                            {availableQuestions.map(question => (
+                                                <button
+                                                    key={question._id}
+                                                    type="button"
+                                                    className={`tag-chip ${selectedQuestionIds.includes(question._id) ? 'active' : ''}`}
+                                                    onClick={() => toggleQuestionSelection(question._id)}
+                                                >
+                                                    {question.text}
+                                                </button>
+                                            ))}
+                                        </div>
+                                        <textarea
+                                            className="highlight-popup-input"
+                                            rows={2}
+                                            placeholder="New question (optional)"
+                                            value={newQuestionText}
+                                            onChange={(e) => setNewQuestionText(e.target.value)}
+                                        />
+                                        <input
+                                            className="highlight-popup-input"
+                                            type="text"
+                                            placeholder="Question tag (optional)"
+                                            value={newQuestionTag}
+                                            onChange={(e) => setNewQuestionTag(e.target.value)}
+                                        />
+                                    </div>
                                     <button
                                         className="highlight-popup-save-button"
                                         onClick={saveHighlight}
@@ -663,26 +802,8 @@ const ArticleViewer = ({ onArticleChange }) => {
                                     >
                                         Save Highlight
                                     </button>
-                                    <button
-                                        className="highlight-popup-save-button secondary"
-                                        onClick={() => setQuestionModal({
-                                            open: true,
-                                            highlight: { _id: null, tags: popupTags ? popupTags.split(',').map(t => t.trim()).filter(Boolean) : [] }
-                                        })}
-                                        title="Add question"
-                                    >
-                                        Add Question
-                                    </button>
                                 </div>
                             )}
-                                <QuestionModal
-                                    open={questionModal.open}
-                                    onClose={() => setQuestionModal({ open: false, highlight: null })}
-                                    defaults={{
-                                    linkedHighlightId: questionModal.highlight?._id || null,
-                                    linkedTagName: questionModal.highlight?.tags?.[0] || ''
-                                    }}
-                                />
                             <div className="pdf-card">
                                 <div className="pdf-card-header">
                                     <div>
