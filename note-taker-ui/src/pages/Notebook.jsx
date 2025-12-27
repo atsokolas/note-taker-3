@@ -267,27 +267,6 @@ const Notebook = () => {
     return html;
   };
 
-  const handleEditorKeyDown = (e) => {
-    if (e.key === 'Tab') {
-      e.preventDefault();
-      if (e.shiftKey) {
-        // outdent by removing leading two spaces on current line if present
-        const caret = getCaretIndex(editorRef.current);
-        const md = content;
-        const lineStart = md.lastIndexOf('\n', caret - 1) + 1;
-        if (md.slice(lineStart, lineStart + 2) === '  ') {
-          const next = md.slice(0, lineStart) + md.slice(lineStart + 2);
-          setContent(next);
-          const html = renderMarkdown(next);
-          editorRef.current.innerHTML = html;
-          setCaretIndex(editorRef.current, Math.max(0, caret - 2));
-        }
-      } else {
-        insertTextAtCursor('  ');
-      }
-    }
-  };
-
   const insertTextAtCursor = (text) => {
     const textarea = textareaRef.current;
     if (!textarea) return;
