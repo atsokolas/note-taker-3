@@ -3,6 +3,7 @@ import api from '../api';
 import { useParams, useNavigate } from 'react-router-dom';
 import CitationGenerator from './CitationGenerator'; // <-- 1. IMPORT THE NEW COMPONENT
 import { Page, Card, Button } from './ui';
+import QuestionModal from './QuestionModal';
 
 const getAuthConfig = () => {
     // ... (Your existing code)
@@ -84,10 +85,14 @@ const ArticleViewer = ({ onArticleChange }) => {
     const [article, setArticle] = useState(null);
     const [error, setError] = useState(null);
     const [popup, setPopup] = useState({ visible: false, x: 0, y: 0, text: '' });
+    const [popupNote, setPopupNote] = useState('');
+    const [popupTags, setPopupTags] = useState('');
+    const [questionModal, setQuestionModal] = useState({ open: false, highlight: null });
     const contentRef = useRef(null);
     const popupRef = useRef(null);
     const selectionRangeRef = useRef(null);
     const tempHighlightRef = useRef(null);
+    const selectionOverlayRef = useRef(null);
     const [folders, setFolders] = useState([]);
     
     const [editingHighlightId, setEditingHighlightId] = useState(null);
@@ -287,6 +292,32 @@ const ArticleViewer = ({ onArticleChange }) => {
         tempHighlightRef.current = null;
     };
 
+    const clearSelectionOverlay = () => {
+        if (selectionOverlayRef.current) {
+            selectionOverlayRef.current.remove();
+            selectionOverlayRef.current = null;
+        }
+    };
+
+    const showSelectionOverlay = (range) => {
+        clearSelectionOverlay();
+        const rects = Array.from(range.getClientRects());
+        if (rects.length === 0) return;
+        const overlay = document.createElement('div');
+        overlay.className = 'selection-overlay-container';
+        rects.forEach((rect) => {
+            const mark = document.createElement('div');
+            mark.className = 'selection-overlay';
+            mark.style.left = `${rect.left + window.scrollX}px`;
+            mark.style.top = `${rect.top + window.scrollY}px`;
+            mark.style.width = `${rect.width}px`;
+            mark.style.height = `${rect.height}px`;
+            overlay.appendChild(mark);
+        });
+        document.body.appendChild(overlay);
+        selectionOverlayRef.current = overlay;
+    };
+
     const applyTempHighlight = (range) => {
         clearTempHighlight();
         try {
@@ -315,8 +346,11 @@ const ArticleViewer = ({ onArticleChange }) => {
                 
                 const range = selection.getRangeAt(0);
                 applyTempHighlight(range.cloneRange());
+                showSelectionOverlay(range.cloneRange());
                 const rect = range.getBoundingClientRect();
                 setPopup({ visible: true, x: rect.left + window.scrollX + (rect.width / 2), y: rect.top + window.scrollY, text: selectedText });
+                setPopupNote('');
+                setPopupTags('');
                 requestAnimationFrame(() => {
                     const sel = window.getSelection();
                     if (sel && selectionRangeRef.current) {
@@ -330,7 +364,10 @@ const ArticleViewer = ({ onArticleChange }) => {
         const handleClickOutside = (event) => {
             if (popupRef.current && !popupRef.current.contains(event.target)) {
                 clearTempHighlight();
+                clearSelectionOverlay();
                 setPopup({ visible: false, x: 0, y: 0, text: '' });
+                setPopupNote('');
+                setPopupTags('');
             }
         };
 
@@ -406,15 +443,22 @@ const ArticleViewer = ({ onArticleChange }) => {
     const saveHighlight = async () => {
         if (!popup.text) return;
         const position = selectionRangeRef.current ? selectionRangeRef.current.startOffset : 0;
+        const tagsArray = popupTags
+            .split(',')
+            .map(t => t.trim())
+            .filter(Boolean);
         const newHighlight = { 
             text: popup.text,
-            note: '',
-            tags: [],
+            note: popupNote.trim(),
+            tags: tagsArray,
             position
         }; 
         window.getSelection()?.removeAllRanges();
         clearTempHighlight();
+        clearSelectionOverlay();
         setPopup({ visible: false, x: 0, y: 0, text: '' });
+        setPopupNote('');
+        setPopupTags('');
         try {
             const res = await api.post(`/articles/${id}/highlights`, newHighlight, getAuthConfig());
             const processedArticle = processArticleContent(res.data);
@@ -598,15 +642,47 @@ const ArticleViewer = ({ onArticleChange }) => {
                                         transform: 'translate(-50%, -100%)'
                                     }}
                                 >
+                                    <textarea
+                                        className="highlight-popup-input"
+                                        rows={2}
+                                        placeholder="Add a note (optional)"
+                                        value={popupNote}
+                                        onChange={(e) => setPopupNote(e.target.value)}
+                                    />
+                                    <input
+                                        className="highlight-popup-input"
+                                        type="text"
+                                        placeholder="Tags (comma-separated, optional)"
+                                        value={popupTags}
+                                        onChange={(e) => setPopupTags(e.target.value)}
+                                    />
                                     <button
                                         className="highlight-popup-save-button"
                                         onClick={saveHighlight}
-                                        title="Highlight"
+                                        title="Save highlight"
                                     >
-                                        Highlight
+                                        Save Highlight
+                                    </button>
+                                    <button
+                                        className="highlight-popup-save-button secondary"
+                                        onClick={() => setQuestionModal({
+                                            open: true,
+                                            highlight: { _id: null, tags: popupTags ? popupTags.split(',').map(t => t.trim()).filter(Boolean) : [] }
+                                        })}
+                                        title="Add question"
+                                    >
+                                        Add Question
                                     </button>
                                 </div>
                             )}
+                                <QuestionModal
+                                    open={questionModal.open}
+                                    onClose={() => setQuestionModal({ open: false, highlight: null })}
+                                    defaults={{
+                                    linkedHighlightId: questionModal.highlight?._id || null,
+                                    linkedTagName: questionModal.highlight?.tags?.[0] || ''
+                                    }}
+                                />
                             <div className="pdf-card">
                                 <div className="pdf-card-header">
                                     <div>

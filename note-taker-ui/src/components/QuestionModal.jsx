@@ -4,6 +4,7 @@ import { Button } from './ui';
 
 const QuestionModal = ({ open, onClose, onCreated, defaults = {} }) => {
   const [text, setText] = useState(defaults.text || '');
+  const [tag, setTag] = useState(defaults.linkedTagName || '');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
@@ -15,7 +16,7 @@ const QuestionModal = ({ open, onClose, onCreated, defaults = {} }) => {
       const token = localStorage.getItem('token');
       const payload = {
         text: text.trim(),
-        linkedTagName: defaults.linkedTagName || '',
+        linkedTagName: tag.trim(),
         linkedHighlightId: defaults.linkedHighlightId || null,
         linkedNotebookEntryId: defaults.linkedNotebookEntryId || null
       };
@@ -44,9 +45,15 @@ const QuestionModal = ({ open, onClose, onCreated, defaults = {} }) => {
           <span>Question</span>
           <textarea rows={3} value={text} onChange={(e) => setText(e.target.value)} />
         </label>
-        {defaults.linkedTagName && (
-          <p className="muted small">Linked to concept: {defaults.linkedTagName}</p>
-        )}
+        <label className="feedback-field">
+          <span>Tag (concept)</span>
+          <input
+            type="text"
+            placeholder="e.g. Systems"
+            value={tag}
+            onChange={(e) => setTag(e.target.value)}
+          />
+        </label>
         {error && <p className="status-message error-message">{error}</p>}
         <div className="modal-actions" style={{ justifyContent: 'flex-end', gap: 8 }}>
           <Button variant="secondary" onClick={onClose}>Cancel</Button>

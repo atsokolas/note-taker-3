@@ -887,7 +887,7 @@ body {
     font-family: 'SF Pro Text', 'Helvetica Neue', 'Segoe UI', sans-serif;
     font-size: 14px;
     color: var(--text-color);
-    width: 250px; 
+    width: 320px; 
     box-sizing: border-box;
     
     animation: fadeIn 0.15s ease-out forwards; 
@@ -899,7 +899,7 @@ body {
 }
 
 /* Styles for inputs within the web app highlight popup */
-.highlight-popup-web-app-container .highlight-input {
+.highlight-popup-web-app-container .highlight-popup-input {
     width: 100%;
     padding: 8px 10px;
     border: 1px solid var(--border-color-light);
@@ -913,12 +913,12 @@ body {
     transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
-.highlight-popup-web-app-container .highlight-input::placeholder {
+.highlight-popup-web-app-container .highlight-popup-input::placeholder {
     color: var(--text-color-secondary);
     opacity: 0.8;
 }
 
-.highlight-popup-web-app-container .highlight-input:focus {
+.highlight-popup-web-app-container .highlight-popup-input:focus {
     outline: none;
     border-color: var(--primary-color);
     box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.2);
@@ -944,6 +944,11 @@ body {
 
     box-shadow: var(--box-shadow-light);
     width: 100%;
+}
+.highlight-popup-save-button.secondary {
+    background: transparent;
+    color: var(--primary-color);
+    border: 1px solid var(--primary-color);
 }
 
 .highlight-popup-save-button:hover {
@@ -971,6 +976,22 @@ body {
     background: rgba(11, 116, 255, 0.28);
     border-radius: 2px;
     padding: 0 2px;
+}
+
+.selection-overlay-container {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 0;
+    height: 0;
+    pointer-events: none;
+    z-index: 999;
+}
+
+.selection-overlay {
+    position: absolute;
+    background: rgba(11, 116, 255, 0.22);
+    border-radius: 2px;
 }
 
 /* ----------------------------------- */
