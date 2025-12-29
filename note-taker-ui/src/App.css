@@ -1985,6 +1985,40 @@ body {
   resize: vertical;
 }
 
+.notebook-editor-area {
+  background: var(--hover-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  padding: 14px;
+}
+
+.tiptap-editor {
+  min-height: 360px;
+  outline: none;
+  font-size: 1em;
+  line-height: 1.7;
+  color: var(--text-color);
+  direction: ltr;
+  text-align: left;
+}
+
+.tiptap-editor > * + * {
+  margin-top: 0.75em;
+}
+
+.tiptap-editor ul,
+.tiptap-editor ol {
+  padding-left: 1.5em;
+}
+
+.tiptap-editor blockquote {
+  border-left: 3px solid var(--border-color);
+  padding-left: 12px;
+  color: var(--text-color-secondary);
+  background: rgba(15, 23, 42, 0.02);
+  border-radius: 8px;
+}
+
 .notebook-checklist-card {
   background: var(--card-bg-color);
   border: 1px solid var(--border-color);

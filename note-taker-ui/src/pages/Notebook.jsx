@@ -1,7 +1,30 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import api from '../api';
 import { Page, Card, Button, TagChip } from '../components/ui';
-import BlockEditor from '../components/BlockEditor';
+import { EditorContent, useEditor } from '@tiptap/react';
+import StarterKit from '@tiptap/starter-kit';
+import Placeholder from '@tiptap/extension-placeholder';
+import { Extension } from '@tiptap/core';
+
+const ListIndentExtension = Extension.create({
+  name: 'listIndent',
+  addKeyboardShortcuts() {
+    return {
+      Tab: () => {
+        if (this.editor.isActive('bulletList') || this.editor.isActive('orderedList')) {
+          return this.editor.commands.sinkListItem('listItem');
+        }
+        return false;
+      },
+      'Shift-Tab': () => {
+        if (this.editor.isActive('bulletList') || this.editor.isActive('orderedList')) {
+          return this.editor.commands.liftListItem('listItem');
+        }
+        return false;
+      }
+    };
+  }
+});
 
 const formatDate = (dateString) => {
   if (!dateString) return '';
@@ -23,11 +46,17 @@ const formatRelativeTime = (dateString) => {
   return new Date(dateString).toLocaleDateString();
 };
 
+const stripHtml = (value = '') =>
+  String(value)
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
 const Notebook = () => {
   const [entries, setEntries] = useState([]);
   const [activeId, setActiveId] = useState(null);
   const [title, setTitle] = useState('');
-  const [blocks, setBlocks] = useState([]);
+  const [content, setContent] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -43,45 +72,27 @@ const Notebook = () => {
   const [linkedArticleId, setLinkedArticleId] = useState('');
   const [tagsInput, setTagsInput] = useState('');
 
-  const createBlock = (overrides = {}) => ({
-    id: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `block-${Math.random().toString(36).slice(2, 9)}-${Date.now()}`,
-    type: 'paragraph',
-    text: '',
-    indent: 0,
-    level: 1,
-    highlightId: null,
-    status: 'open',
-    ...overrides
+  const editor = useEditor({
+    extensions: [
+      StarterKit.configure({
+        heading: { levels: [1, 2, 3] }
+      }),
+      Placeholder.configure({
+        placeholder: 'Write freely...'
+      }),
+      ListIndentExtension
+    ],
+    content: '<p></p>',
+    editorProps: {
+      attributes: {
+        class: 'tiptap-editor',
+        dir: 'ltr'
+      }
+    },
+    onUpdate: ({ editor: ed }) => {
+      setContent(ed.getHTML());
+    }
   });
-
-  const normalizeBlocks = (entry) => {
-    if (Array.isArray(entry.blocks) && entry.blocks.length > 0) {
-      return entry.blocks;
-    }
-    if (entry.content && entry.content.trim()) {
-      return [createBlock({ text: entry.content })];
-    }
-    return [createBlock()];
-  };
-
-  const blocksToPlainText = (list = []) => (
-    list.map(block => {
-      if (block.type === 'heading') {
-        return `${'#'.repeat(block.level || 1)} ${block.text || ''}`.trim();
-      }
-      if (block.type === 'bullet') {
-        const prefix = `${'  '.repeat(block.indent || 0)}- `;
-        return `${prefix}${block.text || ''}`.trim();
-      }
-      if (block.type === 'quote') {
-        return `> ${block.text || ''}`.trim();
-      }
-      if (block.type === 'highlight-ref') {
-        return `> ${block.text || ''}`.trim();
-      }
-      return block.text || '';
-    }).join('\n')
-  );
 
   useEffect(() => {
     const fetchEntries = async () => {
@@ -90,15 +101,15 @@ const Notebook = () => {
       try {
         const token = localStorage.getItem('token');
         const res = await api.get('/api/notebook', { headers: { Authorization: `Bearer ${token}` } });
-        setEntries(res.data || []);
-        if (res.data && res.data.length > 0) {
-          setActiveId(res.data[0]._id);
-          setTitle(res.data[0].title);
-          setBlocks(normalizeBlocks(res.data[0]));
-          setLinkedArticleId(res.data[0].linkedArticleId || '');
-          setTagsInput((res.data[0].tags || []).join(', '));
-          setSelectedFolder(res.data[0].folder || 'all');
-        }
+          setEntries(res.data || []);
+          if (res.data && res.data.length > 0) {
+            setActiveId(res.data[0]._id);
+            setTitle(res.data[0].title);
+            setContent(res.data[0].content || '');
+            setLinkedArticleId(res.data[0].linkedArticleId || '');
+            setTagsInput((res.data[0].tags || []).join(', '));
+            setSelectedFolder(res.data[0].folder || 'all');
+          }
       } catch (err) {
         console.error('Error loading notebook entries:', err);
         setError(err.response?.data?.error || 'Failed to load notebook.');
@@ -128,6 +139,14 @@ const Notebook = () => {
     fetchFolders();
     fetchArticles();
   }, []);
+
+  useEffect(() => {
+    if (!editor || !activeId) return;
+    const current = entries.find(e => e._id === activeId);
+    if (current) {
+      editor.commands.setContent(current.content || '<p></p>', false);
+    }
+  }, [editor, activeId, entries]);
 
   useEffect(() => {
     if (highlightModalOpen && allHighlights.length === 0) {
@@ -162,7 +181,10 @@ const Notebook = () => {
   const selectEntry = (entry) => {
     setActiveId(entry._id);
     setTitle(entry.title);
-    setBlocks(normalizeBlocks(entry));
+    setContent(entry.content || '');
+    if (editor) {
+      editor.commands.setContent(entry.content || '<p></p>', false);
+    }
     setLinkedArticleId(entry.linkedArticleId || '');
     setTagsInput((entry.tags || []).join(', '));
     setSelectedFolder(entry.folder || 'all');
@@ -176,7 +198,7 @@ const Notebook = () => {
     setError('');
     try {
       const token = localStorage.getItem('token');
-      const res = await api.post('/api/notebook', { title: 'Untitled', content: '', blocks: [createBlock()] }, { headers: { Authorization: `Bearer ${token}` } });
+      const res = await api.post('/api/notebook', { title: 'Untitled', content: '' }, { headers: { Authorization: `Bearer ${token}` } });
       setEntries(prev => [res.data, ...prev]);
       selectEntry(res.data);
       setStatus('New entry created');
@@ -212,10 +234,10 @@ const Notebook = () => {
     try {
       const token = localStorage.getItem('token');
       const tagsArray = tagsInput.split(',').map(t => t.trim()).filter(Boolean);
+      const html = editor ? editor.getHTML() : content;
       const payload = {
         title: title || 'Untitled',
-        content: blocksToPlainText(blocks),
-        blocks,
+        content: html,
         linkedArticleId: linkedArticleId || null,
         tags: tagsArray,
         folder: selectedFolder === 'all' ? null : selectedFolder
@@ -247,7 +269,7 @@ const Notebook = () => {
       } else {
         setActiveId(null);
         setTitle('');
-        setBlocks([]);
+        setContent('');
       }
       setStatus('Entry deleted');
     } catch (err) {
@@ -259,12 +281,10 @@ const Notebook = () => {
   };
 
   const insertHighlight = async (h) => {
-    const block = createBlock({
-      type: 'highlight-ref',
-      text: buildHighlightText(h),
-      highlightId: h?._id || null
-    });
-    setBlocks(prev => [...prev, block]);
+    if (editor) {
+      const html = buildHighlightHtml(h);
+      editor.chain().focus().insertContent(html).run();
+    }
     setHighlightModalOpen(false);
     if (activeId && h?._id) {
       try {
@@ -276,21 +296,31 @@ const Notebook = () => {
     }
   };
 
-  const buildHighlightText = (h) => {
-    const notePart = h.note ? ` — ${h.note}` : '';
-    return `"${h.text}" — ${h.articleTitle || 'Article'}${notePart}`;
+  const escapeHtml = (value = '') =>
+    String(value)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+
+  const buildHighlightHtml = (h) => {
+    const notePart = h.note ? `<p class="muted small">${escapeHtml(h.note)}</p>` : '';
+    return `<blockquote><p>${escapeHtml(h.text || '')}</p><p><strong>${escapeHtml(h.articleTitle || 'Article')}</strong></p>${notePart}</blockquote><p></p>`;
   };
 
   // Drag/drop support
   const onHighlightDragStart = (e, h) => {
-    e.dataTransfer.setData('text/plain', buildHighlightText(h));
+    e.dataTransfer.setData('text/plain', h.text || '');
   };
 
   const handleDrop = (e) => {
     e.preventDefault();
     const text = e.dataTransfer.getData('text/plain');
     if (text) {
-      setBlocks(prev => [...prev, createBlock({ text })]);
+      if (editor) {
+        editor.chain().focus().insertContent(escapeHtml(text)).run();
+      }
     }
   };
 
@@ -355,12 +385,7 @@ const Notebook = () => {
                   <div className="notebook-list-meta">
                     <span>{formatDate(e.updatedAt)}</span>
                   </div>
-                  <p className="notebook-list-preview">
-                    {((e.content && e.content.trim())
-                      ? e.content
-                      : (Array.isArray(e.blocks) && e.blocks[0]?.text ? e.blocks[0].text : '')
-                    ).slice(0, 80)}
-                  </p>
+                  <p className="notebook-list-preview">{stripHtml(e.content || '').slice(0, 80)}</p>
                 </li>
               ))}
             </ul>
@@ -409,14 +434,14 @@ const Notebook = () => {
                   <Button variant="secondary" onClick={() => setHighlightModalOpen(true)}>Insert Highlight</Button>
                 </div>
                 <div className="notebook-editor-actions" style={{ display: 'flex', gap: 8, margin: '8px 0' }}>
-                  <span className="muted small">Tip: "- " for bullets, "## " for headings, Tab/Shift+Tab to indent.</span>
+                  <span className="muted small">Tip: "- " for bullets, "1. " for numbered lists, "## " for headings, Tab/Shift+Tab to indent.</span>
                 </div>
                 <div
                   className="notebook-editor-area"
                   onDrop={handleDrop}
                   onDragOver={handleDragOver}
                 >
-                  <BlockEditor blocks={blocks} onChange={setBlocks} />
+                  <EditorContent editor={editor} />
                 </div>
               </>
             ) : (
