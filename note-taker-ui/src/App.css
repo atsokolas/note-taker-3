@@ -1041,6 +1041,71 @@ body {
     margin: 4px 0;
 }
 
+.sidebar-footer-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.sidebar-help-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.95em;
+    color: var(--text-color-secondary);
+    text-decoration: none;
+    padding: 8px 10px;
+    border-radius: 999px;
+    border: 1px solid var(--border-color-light);
+}
+
+.sidebar-help-link:hover {
+    color: var(--text-color);
+    border-color: var(--border-color);
+    background: var(--hover-color);
+}
+
+.sidebar-help-icon {
+    width: 22px;
+    height: 22px;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--primary-color);
+    color: #fff;
+    font-weight: 700;
+    font-size: 0.85em;
+}
+
+.howto-list {
+    margin: 0;
+    padding-left: 20px;
+    color: var(--text-color);
+    line-height: 1.7;
+}
+
+.howto-list li + li {
+    margin-top: 8px;
+}
+
+.howto-checklist {
+    margin: 0;
+    padding-left: 18px;
+    color: var(--text-color);
+}
+
+.howto-checklist li + li {
+    margin-top: 6px;
+}
+
+.howto-tour-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.95em;
+}
+
 
 /* ----------------------------------- */
 /* NEW: Article Highlights Sidebar Styles */

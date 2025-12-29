@@ -26,6 +26,7 @@ import LibraryMode from './pages/LibraryMode';
 import ThinkMode from './pages/ThinkMode';
 import ReviewMode from './pages/ReviewMode';
 import Settings from './pages/Settings';
+import HowToUse from './pages/HowToUse';
 import CommandPalette from './components/CommandPalette';
 import { Page, Card, Sidebar } from './components/ui';
 import './styles/theme.css';
@@ -134,12 +135,18 @@ function App() {
           brand="Note Taker"
           navItems={navItems}
           onLogout={handleLogout}
-          footer={
-            <a href={chromeStoreLink} target="_blank" rel="noopener noreferrer" className="chrome-store-button simple-pill">
-              <ChromeIcon />
-              <span>Get the Extension</span>
-            </a>
-          }
+          footer={(
+            <div className="sidebar-footer-stack">
+              <a href={chromeStoreLink} target="_blank" rel="noopener noreferrer" className="chrome-store-button simple-pill">
+                <ChromeIcon />
+                <span>Get the Extension</span>
+              </a>
+              <a href="/how-to-use" className="sidebar-help-link" title="How to Use">
+                <span className="sidebar-help-icon">?</span>
+                <span>How to Use</span>
+              </a>
+            </div>
+          )}
         />
 
         <div className={`layout-main ${showLibraryRail ? '' : 'layout-main--single'}`}>
@@ -162,6 +169,7 @@ function App() {
               <Route path="/think" element={<ThinkMode />} />
               <Route path="/review" element={<ReviewMode />} />
               <Route path="/settings" element={<Settings />} />
+              <Route path="/how-to-use" element={<HowToUse />} />
 
               {/* Legacy/feature routes kept for compatibility */}
               <Route path="/brain" element={<Brain />} />
