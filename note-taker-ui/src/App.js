@@ -118,7 +118,8 @@ function App() {
     { label: 'Library', to: '/library' },
     { label: 'Think', to: '/think' },
     { label: 'Review', to: '/review' },
-    { label: 'Settings', to: '/settings' }
+    { label: 'Settings', to: '/settings' },
+    { label: 'How to Use', to: '/how-to-use' }
   ];
 
   if (isLoading) {

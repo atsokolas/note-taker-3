@@ -37,7 +37,7 @@ const HowToUse = () => {
       <div className="page-header">
         <p className="muted-label">How to Use</p>
         <h1>A calm filing cabinet for your reading life.</h1>
-        <p className="muted">Note Taker turns the best parts of what you read into ideas you can find in 10 seconds—months later.</p>
+        <p className="muted">Note Taker turns the best parts of what you read into ideas you can find in 10 seconds, months later.</p>
         <p className="muted">
           You are the kind of person who highlights, saves, and swears you will come back.
           Now you actually can. Without chaos. Without ten tabs open forever.
@@ -51,7 +51,7 @@ const HowToUse = () => {
       <div className="section-stack">
         <Card className="search-section">
           <div className="search-section-header">
-            <span className="eyebrow">The 5-minute tour</span>
+            <span className="eyebrow">The 5 minute tour</span>
             <span className="muted small">Do these once and you are set.</span>
           </div>
           <ol className="howto-list">
@@ -78,7 +78,7 @@ const HowToUse = () => {
             {
               title: 'Today',
               copy: 'Your daily desk. Resurfaced highlights, recent notes, and quick wins.',
-              intent: 'Use this when you want a 60-second reset.',
+              intent: 'Use this when you want a 60 second reset.',
               next: 'Reshuffle and save one resurfaced highlight.',
               route: '/today'
             },
@@ -149,7 +149,7 @@ const HowToUse = () => {
           <div className="section-stack">
             <div>
               <strong>Is this like Notion?</strong>
-              <p className="muted">Calmer. Focused on reading, recall, and ideas—not endless pages.</p>
+              <p className="muted">Calmer. Focused on reading, recall, and ideas not endless pages.</p>
             </div>
             <div>
               <strong>Do I need to organize perfectly?</strong>
@@ -193,7 +193,7 @@ const HowToUse = () => {
           <p className="muted">
             You read great stuff. You highlight it. Then it disappears into a screenshot folder you never open.
             Note Taker is the opposite of that. It gives your reading a real home.
-            So the next time you need the idea, it is there—calm, clean, and ready.
+            So the next time you need the idea, it is there, calm, clean, and ready.
           </p>
         </Card>
       </div>
