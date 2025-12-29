@@ -204,6 +204,22 @@ const questionSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 const Question = mongoose.model('Question', questionSchema);
+
+// Reference edges (block-level backlinks)
+const referenceEdgeSchema = new mongoose.Schema({
+  sourceType: { type: String, required: true },
+  sourceId: { type: mongoose.Schema.Types.ObjectId, required: true },
+  sourceBlockId: { type: String, required: true },
+  targetType: { type: String, required: true },
+  targetId: { type: mongoose.Schema.Types.ObjectId, default: null },
+  targetTagName: { type: String, default: '' },
+  blockPreviewText: { type: String, default: '' },
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }
+}, { timestamps: true });
+
+referenceEdgeSchema.index({ targetType: 1, targetId: 1, targetTagName: 1 });
+
+const ReferenceEdge = mongoose.model('ReferenceEdge', referenceEdgeSchema);
 // Saved Views (Smart Folders)
 const savedViewSchema = new mongoose.Schema({
   name: { type: String, required: true, trim: true },
@@ -276,6 +292,56 @@ const slugify = (value) => (
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/(^-|-$)/g, '')
 );
+
+const extractConceptTags = (text = '') => {
+  const matches = String(text).match(/#([a-zA-Z0-9_-]+)/g) || [];
+  return Array.from(new Set(matches.map(tag => tag.slice(1).toLowerCase())));
+};
+
+const syncNotebookReferences = async (userId, entryId, blocks = []) => {
+  if (!Array.isArray(blocks) || blocks.length === 0) {
+    await ReferenceEdge.deleteMany({ userId, sourceType: 'notebook', sourceId: entryId });
+    return;
+  }
+
+  await ReferenceEdge.deleteMany({ userId, sourceType: 'notebook', sourceId: entryId });
+  const edges = [];
+
+  blocks.forEach((block) => {
+    const blockId = block.id || block.blockId;
+    if (!blockId) return;
+    const preview = String(block.text || '').slice(0, 180);
+
+    if (block.type === 'highlight-ref' && block.highlightId) {
+      edges.push({
+        sourceType: 'notebook',
+        sourceId: entryId,
+        sourceBlockId: blockId,
+        targetType: 'highlight',
+        targetId: block.highlightId,
+        blockPreviewText: preview,
+        userId
+      });
+    }
+
+    const tags = extractConceptTags(block.text || '');
+    tags.forEach((tagName) => {
+      edges.push({
+        sourceType: 'notebook',
+        sourceId: entryId,
+        sourceBlockId: blockId,
+        targetType: 'concept',
+        targetTagName: tagName,
+        blockPreviewText: preview,
+        userId
+      });
+    });
+  });
+
+  if (edges.length > 0) {
+    await ReferenceEdge.insertMany(edges);
+  }
+};
 
 
 // --- API ROUTES ---
@@ -884,6 +950,9 @@ app.post('/api/notebook', authenticateToken, async (req, res) => {
       userId
     });
     await newEntry.save();
+    if (Array.isArray(blocks)) {
+      await syncNotebookReferences(userId, newEntry._id, blocks);
+    }
     res.status(201).json(newEntry);
   } catch (error) {
     console.error("❌ Error creating notebook entry:", error);
@@ -953,6 +1022,9 @@ app.put('/api/notebook/:id', authenticateToken, async (req, res) => {
     if (!updated) {
       return res.status(404).json({ error: "Notebook entry not found." });
     }
+    if (Array.isArray(blocks)) {
+      await syncNotebookReferences(userId, updated._id, blocks);
+    }
     res.status(200).json(updated);
   } catch (error) {
     console.error("❌ Error updating notebook entry:", error);
@@ -969,6 +1041,7 @@ app.delete('/api/notebook/:id', authenticateToken, async (req, res) => {
     if (!deleted) {
       return res.status(404).json({ error: "Notebook entry not found." });
     }
+    await ReferenceEdge.deleteMany({ userId, sourceType: 'notebook', sourceId: id });
     res.status(200).json({ message: "Notebook entry deleted." });
   } catch (error) {
     console.error("❌ Error deleting notebook entry:", error);
@@ -1594,6 +1667,152 @@ app.get('/api/articles/:id/references', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error("❌ Error fetching article references:", error);
     res.status(500).json({ error: "Failed to fetch article references." });
+  }
+});
+
+// Reference edges endpoints
+app.get('/api/references/for-highlight/:highlightId', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { highlightId } = req.params;
+    const edges = await ReferenceEdge.find({
+      userId,
+      targetType: 'highlight',
+      targetId: highlightId
+    });
+
+    const entryIds = edges.map(edge => edge.sourceId);
+    const entries = await NotebookEntry.find({ userId, _id: { $in: entryIds } })
+      .select('title updatedAt');
+    const entryMap = new Map(entries.map(entry => [entry._id.toString(), entry]));
+
+    const notebookBlocks = edges.map(edge => {
+      const entry = entryMap.get(edge.sourceId.toString());
+      return {
+        notebookEntryId: edge.sourceId,
+        notebookTitle: entry?.title || 'Untitled',
+        blockId: edge.sourceBlockId,
+        blockPreviewText: edge.blockPreviewText || '',
+        updatedAt: entry?.updatedAt
+      };
+    });
+
+    const collections = await Collection.find({ userId, highlightIds: highlightId })
+      .select('name slug');
+
+    res.status(200).json({ notebookBlocks, collections });
+  } catch (error) {
+    console.error('❌ Error fetching references for highlight:', error);
+    res.status(500).json({ error: 'Failed to load references.' });
+  }
+});
+
+app.get('/api/references/for-article/:articleId', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { articleId } = req.params;
+    const article = await Article.findOne({ _id: articleId, userId }).select('highlights title');
+    if (!article) {
+      return res.status(404).json({ error: 'Article not found.' });
+    }
+
+    const highlightIds = (article.highlights || []).map(h => h._id);
+    const edges = await ReferenceEdge.find({
+      userId,
+      targetType: 'highlight',
+      targetId: { $in: highlightIds }
+    });
+
+    const entryIds = edges.map(edge => edge.sourceId);
+    const entries = await NotebookEntry.find({ userId, _id: { $in: entryIds } })
+      .select('title updatedAt');
+    const entryMap = new Map(entries.map(entry => [entry._id.toString(), entry]));
+
+    const notebookBlocks = edges.map(edge => {
+      const entry = entryMap.get(edge.sourceId.toString());
+      return {
+        notebookEntryId: edge.sourceId,
+        notebookTitle: entry?.title || 'Untitled',
+        blockId: edge.sourceBlockId,
+        blockPreviewText: edge.blockPreviewText || '',
+        updatedAt: entry?.updatedAt
+      };
+    });
+
+    const collections = await Collection.find({
+      userId,
+      $or: [
+        { articleIds: articleId },
+        { highlightIds: { $in: highlightIds } }
+      ]
+    }).select('name slug');
+
+    res.status(200).json({ notebookBlocks, collections });
+  } catch (error) {
+    console.error('❌ Error fetching references for article:', error);
+    res.status(500).json({ error: 'Failed to load references.' });
+  }
+});
+
+app.get('/api/references/for-concept/:tagName', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const tagName = String(req.params.tagName || '').toLowerCase();
+    const edges = await ReferenceEdge.find({
+      userId,
+      targetType: 'concept',
+      targetTagName: tagName
+    });
+
+    const entryIds = edges.map(edge => edge.sourceId);
+    const entries = await NotebookEntry.find({ userId, _id: { $in: entryIds } })
+      .select('title updatedAt');
+    const entryMap = new Map(entries.map(entry => [entry._id.toString(), entry]));
+
+    const notebookBlocks = edges.map(edge => {
+      const entry = entryMap.get(edge.sourceId.toString());
+      return {
+        notebookEntryId: edge.sourceId,
+        notebookTitle: entry?.title || 'Untitled',
+        blockId: edge.sourceBlockId,
+        blockPreviewText: edge.blockPreviewText || '',
+        updatedAt: entry?.updatedAt
+      };
+    });
+
+    res.status(200).json({ notebookBlocks, collections: [] });
+  } catch (error) {
+    console.error('❌ Error fetching references for concept:', error);
+    res.status(500).json({ error: 'Failed to load references.' });
+  }
+});
+
+app.get('/api/references/for-notebook/:notebookId', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { notebookId } = req.params;
+    const edges = await ReferenceEdge.find({
+      userId,
+      sourceType: 'notebook',
+      sourceId: notebookId
+    });
+
+    const entry = await NotebookEntry.findOne({ userId, _id: notebookId }).select('title updatedAt');
+    const notebookBlocks = edges.map(edge => ({
+      notebookEntryId: edge.sourceId,
+      notebookTitle: entry?.title || 'Untitled',
+      blockId: edge.sourceBlockId,
+      blockPreviewText: edge.blockPreviewText || '',
+      updatedAt: entry?.updatedAt,
+      targetType: edge.targetType,
+      targetId: edge.targetId,
+      targetTagName: edge.targetTagName
+    }));
+
+    res.status(200).json({ notebookBlocks, collections: [] });
+  } catch (error) {
+    console.error('❌ Error fetching references for notebook:', error);
+    res.status(500).json({ error: 'Failed to load references.' });
   }
 });
 

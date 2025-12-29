@@ -1,33 +1,31 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import api from '../api';
 import { Page, Card, TagChip, Button } from '../components/ui';
 import QuestionModal from '../components/QuestionModal';
-
-const refsInitial = { data: null, loading: false, error: '' };
+import ReferencesPanel from '../components/ReferencesPanel';
 
 const TagConcept = () => {
   const { tagName } = useParams();
-  const navigate = useNavigate();
   const [highlights, setHighlights] = useState([]);
   const [relatedTags, setRelatedTags] = useState([]);
   const [meta, setMeta] = useState({ description: '', pinnedHighlightIds: [] });
   const [pinnedHighlights, setPinnedHighlights] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [statusMessage, setStatusMessage] = useState('');
   const [saving, setSaving] = useState(false);
-  const [refs, setRefs] = useState({});
   const [notes, setNotes] = useState([]);
   const [noteError, setNoteError] = useState('');
   const [noteSaving, setNoteSaving] = useState(false);
   const [noteForm, setNoteForm] = useState({ title: '', content: '' });
   const [editingNoteId, setEditingNoteId] = useState(null);
   const [editingNoteDraft, setEditingNoteDraft] = useState({ title: '', content: '' });
-  const [conceptRefs, setConceptRefs] = useState({ data: null, loading: false, error: '' });
   const [questions, setQuestions] = useState([]);
   const [questionError, setQuestionError] = useState('');
   const [questionLoading, setQuestionLoading] = useState(false);
   const [questionModalOpen, setQuestionModalOpen] = useState(false);
+  const [creatingNote, setCreatingNote] = useState(false);
 
   const authHeaders = () => ({ headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
 
@@ -78,44 +76,11 @@ const TagConcept = () => {
     }
   }, [tagName]);
 
-  const fetchRefs = async (id) => {
-    setRefs(prev => ({ ...prev, [id]: { ...(prev[id] || refsInitial), loading: true, error: '' } }));
-    try {
-      const res = await api.get(`/api/highlights/${id}/references`, authHeaders());
-      setRefs(prev => ({ ...prev, [id]: { data: res.data, loading: false, error: '' } }));
-    } catch (err) {
-      setRefs(prev => ({ ...prev, [id]: { data: null, loading: false, error: err.response?.data?.error || 'Failed to load references.' } }));
-    }
-  };
-
-  const toggleRefs = (id) => {
-    const current = refs[id];
-    if (!current || (!current.data && !current.loading)) {
-      fetchRefs(id);
-    } else {
-      setRefs(prev => ({ ...prev, [id]: { ...(prev[id] || refsInitial), data: current?.data, loading: false, error: current?.error, show: !current.show } }));
-      setRefs(prev => ({ ...prev, [id]: { ...prev[id], show: !current?.show } }));
-    }
-  };
-
   useEffect(() => {
     loadData();
     loadNotes();
     loadQuestions();
   }, [loadData, loadNotes]);
-
-  useEffect(() => {
-    const fetchConceptRefs = async () => {
-      setConceptRefs({ data: null, loading: true, error: '' });
-      try {
-        const res = await api.get(`/api/concepts/${encodeURIComponent(tagName)}/references`, authHeaders());
-        setConceptRefs({ data: res.data, loading: false, error: '' });
-      } catch (err) {
-        setConceptRefs({ data: null, loading: false, error: err.response?.data?.error || 'Failed to load references.' });
-      }
-    };
-    fetchConceptRefs();
-  }, [tagName]);
 
   const togglePin = (id) => {
     setMeta(prev => {
@@ -141,6 +106,32 @@ const TagConcept = () => {
       setError(err.response?.data?.error || 'Failed to save concept.');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const createNoteForConcept = async () => {
+    setCreatingNote(true);
+    try {
+      const token = localStorage.getItem('token');
+      const blockId = () => (typeof crypto !== 'undefined' && crypto.randomUUID
+        ? crypto.randomUUID()
+        : `block-${Math.random().toString(36).slice(2, 9)}-${Date.now()}`);
+      const blocks = [
+        { id: blockId(), type: 'heading', text: tagName, level: 1 },
+        { id: blockId(), type: 'paragraph', text: `#${tagName}` }
+      ];
+      const contentHtml = `<h1>${tagName}</h1><p>#${tagName}</p>`;
+      await api.post('/api/notebook', {
+        title: `${tagName} notes`,
+        content: contentHtml,
+        blocks
+      }, authHeaders());
+      setStatusMessage('New note created in Notebook.');
+    } catch (err) {
+      console.error('Error creating concept note:', err);
+      setError(err.response?.data?.error || 'Failed to create note.');
+    } finally {
+      setCreatingNote(false);
     }
   };
 
@@ -214,6 +205,7 @@ const TagConcept = () => {
       </div>
       {loading && <p className="status-message">Loading…</p>}
       {error && <p className="status-message error-message">{error}</p>}
+      {statusMessage && <p className="status-message success-message">{statusMessage}</p>}
 
       {!loading && !error && (
         <div className="section-stack">
@@ -221,6 +213,11 @@ const TagConcept = () => {
             <div className="search-section-header">
               <span className="eyebrow">Overview</span>
               <span className="muted small">{meta.allHighlightCount || highlights.length} highlights total</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
+              <Button variant="secondary" onClick={createNoteForConcept} disabled={creatingNote}>
+                {creatingNote ? 'Creating…' : 'New note in this concept'}
+              </Button>
             </div>
             <label className="feedback-field">
               <span>Description</span>
@@ -272,36 +269,15 @@ const TagConcept = () => {
                       <Button variant="secondary" onClick={() => togglePin(h._id)}>
                         {isPinned(h._id) ? 'Unpin' : 'Pin'}
                       </Button>
-                      <Button variant="secondary" onClick={() => toggleRefs(h._id)}>References</Button>
                     </div>
                   </div>
                   <p className="highlight-text" style={{ margin: '6px 0', fontWeight: 600 }}>{h.text}</p>
                   <div className="highlight-tag-chips">
                     {h.tags && h.tags.length > 0 ? h.tags.map(t => <TagChip key={t} to={`/tags/${encodeURIComponent(t)}`}>{t}</TagChip>) : <span className="muted small">No tags</span>}
                   </div>
-                  {refs[h._id]?.loading && <p className="muted small">Loading references…</p>}
-                  {refs[h._id]?.error && <p className="status-message error-message">{refs[h._id].error}</p>}
-                  {refs[h._id]?.data && (
-                    <div className="muted small" style={{ marginTop: 6 }}>
-                      {refs[h._id].data.notebookEntries.length === 0 && refs[h._id].data.collections.length === 0 && (
-                        <p className="muted small">No references yet.</p>
-                      )}
-                      {refs[h._id].data.notebookEntries.length > 0 && (
-                        <p>
-                          Notebook: {refs[h._id].data.notebookEntries.map(n => (
-                            <span key={n._id} style={{ marginRight: 6 }}>{n.title}</span>
-                          ))}
-                        </p>
-                      )}
-                      {refs[h._id].data.collections.length > 0 && (
-                        <p>
-                          Collections: {refs[h._id].data.collections.map(c => (
-                            <span key={c._id} style={{ marginRight: 6 }}>{c.name}</span>
-                          ))}
-                        </p>
-                      )}
-                    </div>
-                  )}
+                  <div style={{ marginTop: 6 }}>
+                    <ReferencesPanel targetType="highlight" targetId={h._id} label="Used in" />
+                  </div>
                 </div>
               ))}
               {highlights.length === 0 && <p className="muted small">No highlights yet for this tag.</p>}
@@ -363,40 +339,7 @@ const TagConcept = () => {
             <div className="search-section-header">
               <span className="eyebrow">Used in</span>
             </div>
-            {conceptRefs.loading && <p className="muted small">Loading references…</p>}
-            {conceptRefs.error && <p className="status-message error-message">{conceptRefs.error}</p>}
-            {conceptRefs.data && (
-              <div className="section-stack">
-                <div>
-                  <span className="muted-label">Notebook entries</span>
-                  {conceptRefs.data.notebookEntries.length === 0 ? (
-                    <p className="muted small">No notebook entries reference this concept.</p>
-                  ) : (
-                    <ul className="muted small">
-                      {conceptRefs.data.notebookEntries.map(n => (
-                        <li key={n._id}>{n.title || 'Untitled'} — {n.updatedAt ? new Date(n.updatedAt).toLocaleDateString() : ''}</li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-                <div>
-                  <span className="muted-label">Collections</span>
-                  {conceptRefs.data.collections.length === 0 ? (
-                    <p className="muted small">No collections contain this concept yet.</p>
-                  ) : (
-                    <ul className="muted small">
-                      {conceptRefs.data.collections.map(c => (
-                        <li key={c._id}>{c.name}</li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-                <div>
-                  <span className="muted-label">Concept notes</span>
-                  <p className="muted small">{conceptRefs.data.conceptNotesCount || 0} note(s)</p>
-                </div>
-              </div>
-            )}
+            <ReferencesPanel targetType="concept" tagName={tagName} label="Used in" />
           </Card>
 
           <Card className="search-section">

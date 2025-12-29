@@ -1,10 +1,12 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import api from '../api';
+import { useLocation } from 'react-router-dom';
 import { Page, Card, Button, TagChip } from '../components/ui';
 import { EditorContent, useEditor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
 import { Extension } from '@tiptap/core';
+import ReferencesPanel from '../components/ReferencesPanel';
 
 const ListIndentExtension = Extension.create({
   name: 'listIndent',
@@ -23,6 +25,33 @@ const ListIndentExtension = Extension.create({
         return false;
       }
     };
+  }
+});
+
+const BlockIdExtension = Extension.create({
+  name: 'blockId',
+  addGlobalAttributes() {
+    return [
+      {
+        types: ['paragraph', 'heading', 'blockquote', 'listItem'],
+        attributes: {
+          blockId: {
+            default: null,
+            parseHTML: element => element.getAttribute('data-block-id'),
+            renderHTML: attributes => (
+              attributes.blockId ? { 'data-block-id': attributes.blockId } : {}
+            )
+          },
+          highlightId: {
+            default: null,
+            parseHTML: element => element.getAttribute('data-highlight-id'),
+            renderHTML: attributes => (
+              attributes.highlightId ? { 'data-highlight-id': attributes.highlightId } : {}
+            )
+          }
+        }
+      }
+    ];
   }
 });
 
@@ -53,6 +82,7 @@ const stripHtml = (value = '') =>
     .trim();
 
 const Notebook = () => {
+  const location = useLocation();
   const [entries, setEntries] = useState([]);
   const [activeId, setActiveId] = useState(null);
   const [title, setTitle] = useState('');
@@ -72,6 +102,95 @@ const Notebook = () => {
   const [linkedArticleId, setLinkedArticleId] = useState('');
   const [tagsInput, setTagsInput] = useState('');
 
+  const isNormalizingRef = useRef(false);
+
+  const createBlockId = () => {
+    if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
+    return `block-${Math.random().toString(36).slice(2, 9)}-${Date.now()}`;
+  };
+
+  const ensureBlockIds = (node) => {
+    if (!node) return { node, changed: false };
+    let changed = false;
+    const next = { ...node };
+    if (['paragraph', 'heading', 'blockquote', 'listItem'].includes(node.type)) {
+      next.attrs = { ...(node.attrs || {}) };
+      if (!next.attrs.blockId) {
+        next.attrs.blockId = createBlockId();
+        changed = true;
+      }
+    }
+    if (node.content) {
+      next.content = node.content.map(child => {
+        const result = ensureBlockIds(child);
+        if (result.changed) changed = true;
+        return result.node;
+      });
+    }
+    return { node: next, changed };
+  };
+
+  const extractText = (node) => {
+    if (!node) return '';
+    if (node.type === 'text') return node.text || '';
+    return (node.content || []).map(extractText).join('');
+  };
+
+  const extractBlocksFromDoc = (doc) => {
+    const blocks = [];
+    const walk = (node, indent = 0) => {
+      if (!node) return;
+      if (node.type === 'paragraph') {
+        blocks.push({
+          id: node.attrs?.blockId || createBlockId(),
+          type: 'paragraph',
+          text: extractText(node)
+        });
+        return;
+      }
+      if (node.type === 'heading') {
+        blocks.push({
+          id: node.attrs?.blockId || createBlockId(),
+          type: 'heading',
+          level: node.attrs?.level || 1,
+          text: extractText(node)
+        });
+        return;
+      }
+      if (node.type === 'blockquote') {
+        blocks.push({
+          id: node.attrs?.blockId || createBlockId(),
+          type: node.attrs?.highlightId ? 'highlight-ref' : 'quote',
+          highlightId: node.attrs?.highlightId || null,
+          text: extractText(node)
+        });
+        return;
+      }
+      if (node.type === 'bulletList' || node.type === 'orderedList') {
+        (node.content || []).forEach(child => walk(child, indent));
+        return;
+      }
+      if (node.type === 'listItem') {
+        const paragraph = (node.content || []).find(child => child.type === 'paragraph');
+        blocks.push({
+          id: node.attrs?.blockId || createBlockId(),
+          type: 'bullet',
+          indent,
+          text: paragraph ? extractText(paragraph) : extractText(node)
+        });
+        (node.content || []).forEach(child => {
+          if (child.type === 'bulletList' || child.type === 'orderedList') {
+            (child.content || []).forEach(grandchild => walk(grandchild, indent + 1));
+          }
+        });
+        return;
+      }
+      (node.content || []).forEach(child => walk(child, indent));
+    };
+    walk(doc, 0);
+    return blocks;
+  };
+
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
@@ -80,6 +199,7 @@ const Notebook = () => {
       Placeholder.configure({
         placeholder: 'Write freely...'
       }),
+      BlockIdExtension,
       ListIndentExtension
     ],
     content: '<p></p>',
@@ -90,6 +210,14 @@ const Notebook = () => {
       }
     },
     onUpdate: ({ editor: ed }) => {
+      if (isNormalizingRef.current) return;
+      const json = ed.getJSON();
+      const normalized = ensureBlockIds(json);
+      if (normalized.changed) {
+        isNormalizingRef.current = true;
+        ed.commands.setContent(normalized.node, false);
+        isNormalizingRef.current = false;
+      }
       setContent(ed.getHTML());
     }
   });
@@ -147,6 +275,25 @@ const Notebook = () => {
       editor.commands.setContent(current.content || '<p></p>', false);
     }
   }, [editor, activeId, entries]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const entryId = params.get('entryId');
+    const blockId = params.get('blockId');
+    if (!entryId || entries.length === 0) return;
+    const entry = entries.find(e => e._id === entryId);
+    if (entry) {
+      selectEntry(entry);
+    }
+    if (blockId) {
+      setTimeout(() => {
+        const target = document.querySelector(`[data-block-id="${blockId}"]`);
+        if (target) {
+          target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 300);
+    }
+  }, [location.search, entries]);
 
   useEffect(() => {
     if (highlightModalOpen && allHighlights.length === 0) {
@@ -235,9 +382,11 @@ const Notebook = () => {
       const token = localStorage.getItem('token');
       const tagsArray = tagsInput.split(',').map(t => t.trim()).filter(Boolean);
       const html = editor ? editor.getHTML() : content;
+      const blocks = editor ? extractBlocksFromDoc(editor.getJSON()) : [];
       const payload = {
         title: title || 'Untitled',
         content: html,
+        blocks,
         linkedArticleId: linkedArticleId || null,
         tags: tagsArray,
         folder: selectedFolder === 'all' ? null : selectedFolder
@@ -306,7 +455,8 @@ const Notebook = () => {
 
   const buildHighlightHtml = (h) => {
     const notePart = h.note ? `<p class="muted small">${escapeHtml(h.note)}</p>` : '';
-    return `<blockquote><p>${escapeHtml(h.text || '')}</p><p><strong>${escapeHtml(h.articleTitle || 'Article')}</strong></p>${notePart}</blockquote><p></p>`;
+    const blockId = createBlockId();
+    return `<blockquote data-block-id="${blockId}" data-highlight-id="${escapeHtml(h._id || '')}"><p>${escapeHtml(h.text || '')}</p><p><strong>${escapeHtml(h.articleTitle || 'Article')}</strong></p>${notePart}</blockquote><p></p>`;
   };
 
   // Drag/drop support
@@ -442,6 +592,9 @@ const Notebook = () => {
                   onDragOver={handleDragOver}
                 >
                   <EditorContent editor={editor} />
+                </div>
+                <div style={{ marginTop: 12 }}>
+                  <ReferencesPanel targetType="notebook" targetId={activeId} label="Links in this note" />
                 </div>
               </>
             ) : (

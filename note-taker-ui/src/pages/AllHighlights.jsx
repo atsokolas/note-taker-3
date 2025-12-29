@@ -5,6 +5,7 @@ import { Page, Card, TagChip, Button } from '../components/ui';
 import QuestionModal from '../components/QuestionModal';
 import { SkeletonCard } from '../components/Skeleton';
 import { fetchWithCache, setCached } from '../utils/cache';
+import ReferencesPanel from '../components/ReferencesPanel';
 
 const PAGE_SIZE = 20;
 
@@ -24,8 +25,6 @@ const formatRelativeTime = (dateString) => {
 
 const HighlightListItem = React.memo(({
   highlight,
-  refs,
-  onToggleRefs,
   onOpenQuestion,
   onStartEdit,
   editing,
@@ -50,9 +49,9 @@ const HighlightListItem = React.memo(({
       <p className="feedback-message">
         {highlight.note ? `${highlight.note.slice(0, 100)}${highlight.note.length > 100 ? '…' : ''}` : <span className="muted small">No note</span>}
       </p>
-      <Button variant="secondary" onClick={() => onToggleRefs(highlight._id)} style={{ marginTop: 6 }}>
-        {refs[highlight._id]?.show ? 'Hide references' : 'Referenced in'}
-      </Button>
+      <div style={{ marginTop: 6 }}>
+        <ReferencesPanel targetType="highlight" targetId={highlight._id} label="Used in" />
+      </div>
       <Button
         variant="secondary"
         onClick={() => onOpenQuestion(highlight)}
@@ -60,21 +59,6 @@ const HighlightListItem = React.memo(({
       >
         Add Question
       </Button>
-      {refs[highlight._id]?.loading && <p className="muted small">Loading references…</p>}
-      {refs[highlight._id]?.error && <p className="status-message error-message">{refs[highlight._id].error}</p>}
-      {refs[highlight._id]?.data && refs[highlight._id]?.show && (
-        <div className="muted small" style={{ marginTop: 6 }}>
-          {refs[highlight._id].data.notebookEntries.length === 0 && refs[highlight._id].data.collections.length === 0 && (
-            <p className="muted small">No references yet.</p>
-          )}
-          {refs[highlight._id].data.notebookEntries.length > 0 && (
-            <p>Notebook: {refs[highlight._id].data.notebookEntries.map(n => n.title).join(', ')}</p>
-          )}
-          {refs[highlight._id].data.collections.length > 0 && (
-            <p>Collections: {refs[highlight._id].data.collections.map(c => c.name).join(', ')}</p>
-          )}
-        </div>
-      )}
       {isEditing ? (
         <div className="feedback-body" style={{ paddingTop: 8 }}>
           <label className="feedback-field">
@@ -116,7 +100,6 @@ const AllHighlights = () => {
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState('');
   const [selectedTag, setSelectedTag] = useState('all');
-  const [refs, setRefs] = useState({});
   const [questionModal, setQuestionModal] = useState({ open: false, highlight: null });
 
   const fetchData = useCallback(async (force = false) => {
@@ -209,26 +192,6 @@ const AllHighlights = () => {
     }
   };
 
-  const fetchRefs = async (id) => {
-    setRefs(prev => ({ ...prev, [id]: { ...(prev[id] || {}), loading: true, error: '', show: true } }));
-    try {
-      const token = localStorage.getItem('token');
-      const authHeaders = { headers: { Authorization: `Bearer ${token}` } };
-      const res = await api.get(`/api/highlights/${id}/references`, authHeaders);
-      setRefs(prev => ({ ...prev, [id]: { data: res.data, loading: false, error: '', show: true } }));
-    } catch (err) {
-      setRefs(prev => ({ ...prev, [id]: { data: null, loading: false, error: err.response?.data?.error || 'Failed to load references.', show: true } }));
-    }
-  };
-
-  const toggleRefs = useCallback((id) => {
-    const current = refs[id];
-    if (!current || (!current.data && !current.loading)) {
-      fetchRefs(id);
-    } else {
-      setRefs(prev => ({ ...prev, [id]: { ...(prev[id] || {}), show: !current.show } }));
-    }
-  }, [refs]);
 
   const openQuestionModal = useCallback((highlight) => {
     setQuestionModal({ open: true, highlight });
@@ -281,8 +244,6 @@ const AllHighlights = () => {
             <HighlightListItem
               key={h._id}
               highlight={h}
-              refs={refs}
-              onToggleRefs={toggleRefs}
               onOpenQuestion={openQuestionModal}
               onStartEdit={startEdit}
               editing={editing}
