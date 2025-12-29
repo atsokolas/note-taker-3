@@ -1041,6 +1041,79 @@ body {
     margin: 4px 0;
 }
 
+.block-editor {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-height: 360px;
+}
+
+.block-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 6px 8px;
+    border-radius: 10px;
+}
+
+.block-row:focus-within {
+    background: var(--hover-color);
+}
+
+.block-content {
+    flex: 1;
+    min-height: 22px;
+    outline: none;
+    line-height: 1.6;
+    white-space: pre-wrap;
+}
+
+.block-content:empty:before {
+    content: attr(data-placeholder);
+    color: var(--text-color-secondary);
+}
+
+.block-row-bullet .block-content {
+    padding-top: 1px;
+}
+
+.block-bullet-dot {
+    margin-top: 6px;
+    font-size: 16px;
+    color: var(--text-color-secondary);
+}
+
+.block-row-heading .block-content {
+    font-weight: 700;
+}
+
+.block-heading-1 {
+    font-size: 1.6rem;
+}
+
+.block-heading-2 {
+    font-size: 1.35rem;
+}
+
+.block-heading-3 {
+    font-size: 1.2rem;
+}
+
+.block-row-quote {
+    border-left: 3px solid var(--border-color);
+    padding-left: 12px;
+    color: var(--text-color-secondary);
+    font-style: italic;
+}
+
+.block-row-highlight {
+    background: rgba(255, 204, 0, 0.1);
+}
+
+.block-row-question {
+    border: 1px solid var(--border-color-light);
+}
+
 /* ----------------------------------- */
 /* NEW: Article Highlights Sidebar Styles */
 /* ----------------------------------- */

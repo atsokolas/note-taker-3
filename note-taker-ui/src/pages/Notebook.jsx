@@ -1,6 +1,7 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import api from '../api';
 import { Page, Card, Button, TagChip } from '../components/ui';
+import BlockEditor from '../components/BlockEditor';
 
 const formatDate = (dateString) => {
   if (!dateString) return '';
@@ -26,7 +27,7 @@ const Notebook = () => {
   const [entries, setEntries] = useState([]);
   const [activeId, setActiveId] = useState(null);
   const [title, setTitle] = useState('');
-  const [content, setContent] = useState('');
+  const [blocks, setBlocks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -41,9 +42,46 @@ const Notebook = () => {
   const [articles, setArticles] = useState([]);
   const [linkedArticleId, setLinkedArticleId] = useState('');
   const [tagsInput, setTagsInput] = useState('');
-  const [showPreview, setShowPreview] = useState(false);
-  const [splitView, setSplitView] = useState(false);
-  const textareaRef = useRef(null);
+
+  const createBlock = (overrides = {}) => ({
+    id: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `block-${Math.random().toString(36).slice(2, 9)}-${Date.now()}`,
+    type: 'paragraph',
+    text: '',
+    indent: 0,
+    level: 1,
+    highlightId: null,
+    status: 'open',
+    ...overrides
+  });
+
+  const normalizeBlocks = (entry) => {
+    if (Array.isArray(entry.blocks) && entry.blocks.length > 0) {
+      return entry.blocks;
+    }
+    if (entry.content && entry.content.trim()) {
+      return [createBlock({ text: entry.content })];
+    }
+    return [createBlock()];
+  };
+
+  const blocksToPlainText = (list = []) => (
+    list.map(block => {
+      if (block.type === 'heading') {
+        return `${'#'.repeat(block.level || 1)} ${block.text || ''}`.trim();
+      }
+      if (block.type === 'bullet') {
+        const prefix = `${'  '.repeat(block.indent || 0)}- `;
+        return `${prefix}${block.text || ''}`.trim();
+      }
+      if (block.type === 'quote') {
+        return `> ${block.text || ''}`.trim();
+      }
+      if (block.type === 'highlight-ref') {
+        return `> ${block.text || ''}`.trim();
+      }
+      return block.text || '';
+    }).join('\n')
+  );
 
   useEffect(() => {
     const fetchEntries = async () => {
@@ -56,7 +94,7 @@ const Notebook = () => {
         if (res.data && res.data.length > 0) {
           setActiveId(res.data[0]._id);
           setTitle(res.data[0].title);
-          setContent(res.data[0].content);
+          setBlocks(normalizeBlocks(res.data[0]));
           setLinkedArticleId(res.data[0].linkedArticleId || '');
           setTagsInput((res.data[0].tags || []).join(', '));
           setSelectedFolder(res.data[0].folder || 'all');
@@ -124,7 +162,7 @@ const Notebook = () => {
   const selectEntry = (entry) => {
     setActiveId(entry._id);
     setTitle(entry.title);
-    setContent(entry.content);
+    setBlocks(normalizeBlocks(entry));
     setLinkedArticleId(entry.linkedArticleId || '');
     setTagsInput((entry.tags || []).join(', '));
     setSelectedFolder(entry.folder || 'all');
@@ -138,7 +176,7 @@ const Notebook = () => {
     setError('');
     try {
       const token = localStorage.getItem('token');
-      const res = await api.post('/api/notebook', { title: 'Untitled', content: '' }, { headers: { Authorization: `Bearer ${token}` } });
+      const res = await api.post('/api/notebook', { title: 'Untitled', content: '', blocks: [createBlock()] }, { headers: { Authorization: `Bearer ${token}` } });
       setEntries(prev => [res.data, ...prev]);
       selectEntry(res.data);
       setStatus('New entry created');
@@ -176,7 +214,8 @@ const Notebook = () => {
       const tagsArray = tagsInput.split(',').map(t => t.trim()).filter(Boolean);
       const payload = {
         title: title || 'Untitled',
-        content,
+        content: blocksToPlainText(blocks),
+        blocks,
         linkedArticleId: linkedArticleId || null,
         tags: tagsArray,
         folder: selectedFolder === 'all' ? null : selectedFolder
@@ -208,7 +247,7 @@ const Notebook = () => {
       } else {
         setActiveId(null);
         setTitle('');
-        setContent('');
+        setBlocks([]);
       }
       setStatus('Entry deleted');
     } catch (err) {
@@ -219,73 +258,14 @@ const Notebook = () => {
     }
   };
 
-  const escapeHtml = (str = '') =>
-    str
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;');
-
-  const renderMarkdown = (md = '') => {
-    const lines = md.split(/\r?\n/);
-    let html = '';
-    let inList = false;
-    lines.forEach((line) => {
-      if (/^\s*$/.test(line)) {
-        if (inList) {
-          html += '</ul>';
-          inList = false;
-        }
-        html += '<br />';
-        return;
-      }
-      const heading = line.match(/^(#{1,3})\s+(.*)$/);
-      if (heading) {
-        if (inList) {
-          html += '</ul>';
-          inList = false;
-        }
-        const level = heading[1].length;
-        html += `<h${level}>${escapeHtml(heading[2])}</h${level}>`;
-        return;
-      }
-      const bullet = line.match(/^(\s*)\*\s+(.*)$/);
-      if (bullet) {
-        if (!inList) {
-          html += '<ul>';
-          inList = true;
-        }
-        html += `<li>${escapeHtml(bullet[2])}</li>`;
-        return;
-      }
-      if (inList) {
-        html += '</ul>';
-        inList = false;
-      }
-      html += `<p>${escapeHtml(line)}</p>`;
-    });
-    if (inList) html += '</ul>';
-    return html;
-  };
-
-  const insertTextAtCursor = (text) => {
-    const textarea = textareaRef.current;
-    if (!textarea) return;
-    const start = textarea.selectionStart;
-    const end = textarea.selectionEnd;
-    const before = content.slice(0, start);
-    const after = content.slice(end);
-    const next = `${before}${text}${after}`;
-    setContent(next);
-    setTimeout(() => {
-      textarea.focus();
-      textarea.selectionStart = textarea.selectionEnd = start + text.length;
-    }, 0);
-    setHighlightModalOpen(false);
-  };
-
   const insertHighlight = async (h) => {
-    const block = buildHighlightBlock(h);
-    insertTextAtCursor(block);
+    const block = createBlock({
+      type: 'highlight-ref',
+      text: buildHighlightText(h),
+      highlightId: h?._id || null
+    });
+    setBlocks(prev => [...prev, block]);
+    setHighlightModalOpen(false);
     if (activeId && h?._id) {
       try {
         const token = localStorage.getItem('token');
@@ -296,30 +276,27 @@ const Notebook = () => {
     }
   };
 
-  const buildHighlightBlock = (h) => {
-    const notePart = h.note ? `\nNote: ${h.note}` : '';
-    return `> ${h.text}\n— ${h.articleTitle || 'Article'}${notePart}\n\n`;
+  const buildHighlightText = (h) => {
+    const notePart = h.note ? ` — ${h.note}` : '';
+    return `"${h.text}" — ${h.articleTitle || 'Article'}${notePart}`;
   };
 
   // Drag/drop support
   const onHighlightDragStart = (e, h) => {
-    e.dataTransfer.setData('text/plain', buildHighlightBlock(h));
+    e.dataTransfer.setData('text/plain', buildHighlightText(h));
   };
 
   const handleDrop = (e) => {
     e.preventDefault();
     const text = e.dataTransfer.getData('text/plain');
     if (text) {
-      insertTextAtCursor(text);
+      setBlocks(prev => [...prev, createBlock({ text })]);
     }
   };
 
   const handleDragOver = (e) => {
     e.preventDefault();
   };
-
-  // Basic key handling only (no custom caret moves)
-  const handleEditorKeyDown = () => {};
 
   return (
     <Page>
@@ -378,7 +355,12 @@ const Notebook = () => {
                   <div className="notebook-list-meta">
                     <span>{formatDate(e.updatedAt)}</span>
                   </div>
-                  <p className="notebook-list-preview">{(e.content || '').slice(0, 80)}</p>
+                  <p className="notebook-list-preview">
+                    {((e.content && e.content.trim())
+                      ? e.content
+                      : (Array.isArray(e.blocks) && e.blocks[0]?.text ? e.blocks[0].text : '')
+                    ).slice(0, 80)}
+                  </p>
                 </li>
               ))}
             </ul>
@@ -427,36 +409,14 @@ const Notebook = () => {
                   <Button variant="secondary" onClick={() => setHighlightModalOpen(true)}>Insert Highlight</Button>
                 </div>
                 <div className="notebook-editor-actions" style={{ display: 'flex', gap: 8, margin: '8px 0' }}>
-                  <Button variant={showPreview ? 'secondary' : 'primary'} onClick={() => setShowPreview(p => !p)}>
-                    {showPreview ? 'Hide Preview' : 'Show Preview'}
-                  </Button>
-                  <Button variant={splitView ? 'secondary' : 'primary'} onClick={() => setSplitView(v => !v)}>
-                    {splitView ? 'Single View' : 'Split View'}
-                  </Button>
-                  <span className="muted small">Tip: "* " for bullets (preview to see dots), "## " for headings, Tab/Shift+Tab to indent.</span>
+                  <span className="muted small">Tip: "- " for bullets, "## " for headings, Tab/Shift+Tab to indent.</span>
                 </div>
                 <div
-                  className={`notebook-editor-area ${splitView ? 'split' : ''}`}
-                  style={{ display: splitView ? 'grid' : 'block', gridTemplateColumns: splitView ? '1fr 1fr' : '1fr', gap: '12px' }}
+                  className="notebook-editor-area"
                   onDrop={handleDrop}
                   onDragOver={handleDragOver}
                 >
-                  <textarea
-                    ref={textareaRef}
-                    className="notebook-textarea"
-                    style={{ minHeight: 400, width: '100%' }}
-                    value={content}
-                    onChange={(e) => setContent(e.target.value)}
-                    placeholder="Write freely..."
-                    onKeyDown={handleEditorKeyDown}
-                  />
-                  {showPreview && (
-                    <div
-                      className="notebook-preview"
-                      style={{ minHeight: 400, padding: '12px', border: '1px solid var(--border-color)', borderRadius: '8px', background: '#fff', overflowY: 'auto' }}
-                      dangerouslySetInnerHTML={{ __html: renderMarkdown(content) }}
-                    />
-                  )}
+                  <BlockEditor blocks={blocks} onChange={setBlocks} />
                 </div>
               </>
             ) : (

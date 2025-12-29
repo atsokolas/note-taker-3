@@ -140,9 +140,20 @@ const noteSchema = new mongoose.Schema({
 const Note = mongoose.model('Note', noteSchema);
 
 // --- NOTEBOOK ENTRIES (new lightweight notebook) ---
+const notebookBlockSchema = new mongoose.Schema({
+  id: { type: String, required: true },
+  type: { type: String, default: 'paragraph' },
+  text: { type: String, default: '' },
+  indent: { type: Number, default: 0 },
+  level: { type: Number, default: 1 },
+  highlightId: { type: mongoose.Schema.Types.ObjectId, default: null },
+  status: { type: String, enum: ['open', 'answered'], default: 'open' }
+}, { _id: false });
+
 const notebookEntrySchema = new mongoose.Schema({
   title: { type: String, required: true, trim: true },
   content: { type: String, default: '' },
+  blocks: { type: [notebookBlockSchema], default: [] },
   folder: { type: mongoose.Schema.Types.ObjectId, ref: 'NotebookFolder', default: null },
   tags: { type: [String], default: [] },
   linkedArticleId: { type: mongoose.Schema.Types.ObjectId, ref: 'Article', default: null },
@@ -862,10 +873,11 @@ app.get('/api/notebook', authenticateToken, async (req, res) => {
 app.post('/api/notebook', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
-    const { title, content, folder, tags, linkedArticleId } = req.body;
+    const { title, content, blocks, folder, tags, linkedArticleId } = req.body;
     const newEntry = new NotebookEntry({
       title: (title || 'Untitled').trim(),
       content: content || '',
+      blocks: Array.isArray(blocks) ? blocks : [],
       folder: folder || null,
       tags: Array.isArray(tags) ? tags : [],
       linkedArticleId: linkedArticleId || null,
@@ -924,10 +936,11 @@ app.put('/api/notebook/:id', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
     const { id } = req.params;
-    const { title, content, folder, tags, linkedArticleId } = req.body;
+    const { title, content, blocks, folder, tags, linkedArticleId } = req.body;
     const updates = {};
     if (title !== undefined) updates.title = title.trim() || 'Untitled';
     if (content !== undefined) updates.content = content;
+    if (blocks !== undefined) updates.blocks = Array.isArray(blocks) ? blocks : [];
     if (folder !== undefined) updates.folder = folder || null;
     if (tags !== undefined) updates.tags = Array.isArray(tags) ? tags : [];
     if (linkedArticleId !== undefined) updates.linkedArticleId = linkedArticleId || null;
