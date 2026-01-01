@@ -2427,3 +2427,19 @@ body {
   gap: 10px;
   margin: 8px 0 12px;
 }
+
+.library-filter-bar {
+  display: flex;
+  gap: 12px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  padding: 16px 24px 0;
+}
+
+.library-tag-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 12px 24px 8px;
+  border-bottom: 1px solid var(--border-color);
+}

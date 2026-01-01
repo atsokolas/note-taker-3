@@ -1,11 +1,11 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import api from '../api';
 import { Page, Card, Button } from '../components/ui';
 import { SkeletonCard } from '../components/Skeleton';
 import { fetchWithCache, setCached } from '../utils/cache';
 
-const Collections = () => {
+const Collections = ({ embedded = false, filters = {} }) => {
   const [collections, setCollections] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -62,13 +62,21 @@ const Collections = () => {
     }
   };
 
-  return (
-    <Page>
-      <div className="page-header">
-        <p className="muted-label">Collections</p>
-        <h1>Your curated sets</h1>
-        <p className="muted">Group articles and highlights into custom collections.</p>
-      </div>
+  const filteredCollections = useMemo(() => {
+    const query = (filters.query || '').trim().toLowerCase();
+    if (!query) return collections;
+    return collections.filter(c => `${c.name || ''} ${c.description || ''}`.toLowerCase().includes(query));
+  }, [collections, filters.query]);
+
+  const content = (
+    <>
+      {!embedded && (
+        <div className="page-header">
+          <p className="muted-label">Collections</p>
+          <h1>Your curated sets</h1>
+          <p className="muted">Group articles and highlights into custom collections.</p>
+        </div>
+      )}
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12, gap: 12 }}>
         <Button variant="secondary" onClick={() => loadCollections(true)} disabled={loading}>Refresh</Button>
         <Button onClick={() => setShowModal(true)}>New Collection</Button>
@@ -83,8 +91,8 @@ const Collections = () => {
       {error && <p className="status-message error-message">{error}</p>}
 
       <div className="search-card-grid">
-        {collections.length === 0 && !loading && <p className="muted small">No collections yet.</p>}
-        {collections.map(c => (
+        {filteredCollections.length === 0 && !loading && <p className="muted small">No collections yet.</p>}
+        {filteredCollections.map(c => (
           <Card key={c._id} className="search-card">
             <div className="search-card-top">
               <Link to={`/collections/${c.slug}`} className="article-title-link">{c.name}</Link>
@@ -130,8 +138,10 @@ const Collections = () => {
           </div>
         </div>
       )}
-    </Page>
+    </>
   );
+
+  return embedded ? content : <Page>{content}</Page>;
 };
 
 export default Collections;

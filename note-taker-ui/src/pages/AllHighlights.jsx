@@ -91,7 +91,7 @@ const HighlightListItem = React.memo(({
   );
 });
 
-const AllHighlights = () => {
+const AllHighlights = ({ embedded = false, filters = {} }) => {
   const [highlights, setHighlights] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -131,10 +131,37 @@ const AllHighlights = () => {
     return ['all', ...Array.from(set).sort((a, b) => a.localeCompare(b))];
   }, [highlights]);
 
+  const activeTags = useMemo(() => {
+    if (Array.isArray(filters.tags) && filters.tags.length > 0) return filters.tags;
+    if (selectedTag === 'all') return [];
+    return [selectedTag];
+  }, [filters.tags, selectedTag]);
+
   const filteredHighlights = useMemo(() => {
-    if (selectedTag === 'all') return highlights;
-    return highlights.filter(h => Array.isArray(h.tags) && h.tags.includes(selectedTag));
-  }, [highlights, selectedTag]);
+    let next = highlights;
+    if (activeTags.length > 0) {
+      next = next.filter(h => Array.isArray(h.tags) && activeTags.some(tag => h.tags.includes(tag)));
+    }
+    const query = (filters.query || '').trim().toLowerCase();
+    if (query) {
+      next = next.filter(h => {
+        const text = `${h.text || ''} ${h.note || ''} ${h.articleTitle || ''}`.toLowerCase();
+        return text.includes(query);
+      });
+    }
+    if (filters.dateFrom) {
+      const from = new Date(filters.dateFrom);
+      next = next.filter(h => h.createdAt && new Date(h.createdAt) >= from);
+    }
+    if (filters.dateTo) {
+      const to = new Date(filters.dateTo);
+      next = next.filter(h => h.createdAt && new Date(h.createdAt) <= to);
+    }
+    if (filters.sort === 'recent') {
+      next = [...next].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    }
+    return next;
+  }, [highlights, activeTags, filters.query, filters.dateFrom, filters.dateTo, filters.sort]);
 
   const pagedHighlights = useMemo(() => {
     const start = (page - 1) * PAGE_SIZE;
@@ -142,6 +169,10 @@ const AllHighlights = () => {
   }, [filteredHighlights, page]);
 
   const totalPages = Math.max(1, Math.ceil(filteredHighlights.length / PAGE_SIZE));
+
+  useEffect(() => {
+    setPage(1);
+  }, [filters.query, filters.dateFrom, filters.dateTo, filters.sort, activeTags.join('|')]);
 
   const startEdit = useCallback((h) => {
     setEditing({
@@ -202,18 +233,9 @@ const AllHighlights = () => {
     fetchData(true);
   };
 
-  return (
-    <Page>
-      <div className="page-header">
-        <p className="muted-label">Highlights</p>
-        <div className="page-header-row">
-          <h1>All Highlights</h1>
-          <Button variant="secondary" onClick={handleRefresh} disabled={loading}>Refresh</Button>
-        </div>
-        <p className="muted">A unified feed of your newest highlights.</p>
-      </div>
-
-      <Card className="highlight-tag-card">
+  const content = (
+    <Card className="highlight-tag-card">
+      {!embedded && (
         <div className="filter-row" style={{ display: 'flex', gap: '12px', alignItems: 'center', marginBottom: '12px' }}>
           <label className="feedback-field" style={{ margin: 0, flex: 1 }}>
             <span style={{ display: 'block', marginBottom: '4px' }}>Filter by tag</span>
@@ -228,6 +250,7 @@ const AllHighlights = () => {
             </select>
           </label>
         </div>
+      )}
 
         {loading && (
           <div className="section-stack">
@@ -262,8 +285,25 @@ const AllHighlights = () => {
             <Button variant="secondary" disabled={page >= totalPages} onClick={() => setPage(p => Math.min(totalPages, p + 1))}>Next</Button>
           </div>
         )}
-      </Card>
+    </Card>
+  );
 
+  return (
+    <>
+      {!embedded && (
+        <Page>
+          <div className="page-header">
+            <p className="muted-label">Highlights</p>
+            <div className="page-header-row">
+              <h1>All Highlights</h1>
+              <Button variant="secondary" onClick={handleRefresh} disabled={loading}>Refresh</Button>
+            </div>
+            <p className="muted">A unified feed of your newest highlights.</p>
+          </div>
+          {content}
+        </Page>
+      )}
+      {embedded && content}
       <QuestionModal
         open={questionModal.open}
         onClose={() => setQuestionModal({ open: false, highlight: null })}
@@ -272,7 +312,7 @@ const AllHighlights = () => {
           linkedTagName: questionModal.highlight?.tags?.[0] || ''
         }}
       />
-    </Page>
+    </>
   );
 };
 

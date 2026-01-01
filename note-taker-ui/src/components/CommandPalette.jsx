@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api';
-import { Card, TagChip, Button } from './ui';
+import { Card, Button } from './ui';
 
 const CommandPalette = ({ open, onClose }) => {
   const navigate = useNavigate();
@@ -10,6 +10,7 @@ const CommandPalette = ({ open, onClose }) => {
   const [highlights, setHighlights] = useState([]);
   const [notebook, setNotebook] = useState([]);
   const [collections, setCollections] = useState([]);
+  const [concepts, setConcepts] = useState([]);
   const [loading, setLoading] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
 
@@ -34,12 +35,14 @@ const CommandPalette = ({ open, onClose }) => {
       try {
         const token = localStorage.getItem('token');
         const headers = { Authorization: `Bearer ${token}` };
-        const [nbRes, colRes] = await Promise.all([
+        const [nbRes, colRes, tagRes] = await Promise.all([
           api.get('/api/notebook', { headers }),
-          api.get('/api/collections', { headers })
+          api.get('/api/collections', { headers }),
+          api.get('/api/tags', { headers })
         ]);
         setNotebook(nbRes.data || []);
         setCollections(colRes.data || []);
+        setConcepts(tagRes.data || []);
       } catch (err) {
         console.error('Palette preload failed', err);
       }
@@ -72,18 +75,53 @@ const CommandPalette = ({ open, onClose }) => {
     return () => clearTimeout(t);
   }, [query, open]);
 
+  const createNote = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const headers = { Authorization: `Bearer ${token}` };
+      const res = await api.post('/api/notebook', { title: 'Untitled', content: '', blocks: [] }, { headers });
+      if (res.data?._id) {
+        navigate(`/notebook?entryId=${res.data._id}`);
+      } else {
+        navigate('/notebook');
+      }
+    } catch (err) {
+      console.error('Palette new note failed', err);
+      navigate('/notebook');
+    }
+  };
+
+  const reshuffleToday = () => {
+    navigate('/today');
+    window.setTimeout(() => {
+      window.dispatchEvent(new Event('today-reshuffle'));
+    }, 50);
+  };
+
+  const actions = [
+    { label: 'New note', run: createNote },
+    { label: 'New collection', run: () => navigate('/library?tab=collections') },
+    { label: 'Reshuffle resurfaced', run: reshuffleToday }
+  ];
+
   const items = useMemo(() => {
     const list = [];
+    actions.forEach(a => list.push({ type: 'Action', label: a.label, action: a.run }));
     pages.forEach(p => list.push({ type: 'Page', label: p.label, path: p.path }));
+    concepts.slice(0, 8).forEach(c => list.push({ type: 'Concept', label: c.tag, path: `/tags/${encodeURIComponent(c.tag)}` }));
     articles.slice(0, 5).forEach(a => list.push({ type: 'Article', label: a.title || 'Untitled article', path: `/articles/${a._id}` }));
     highlights.slice(0, 5).forEach(h => list.push({ type: 'Highlight', label: h.text, path: `/articles/${h.articleId}` }));
-    notebook.slice(0, 5).forEach(n => list.push({ type: 'Notebook', label: n.title || 'Untitled', path: '/notebook' }));
+    notebook.slice(0, 5).forEach(n => list.push({ type: 'Notebook', label: n.title || 'Untitled', path: `/notebook?entryId=${n._id}` }));
     collections.slice(0, 5).forEach(c => list.push({ type: 'Collection', label: c.name, path: `/collections/${c.slug}` }));
     return list;
-  }, [pages, articles, highlights, notebook, collections]);
+  }, [actions, pages, concepts, articles, highlights, notebook, collections]);
 
   const handleSelect = (item) => {
     onClose();
+    if (item?.action) {
+      item.action();
+      return;
+    }
     if (item?.path) {
       navigate(item.path);
     }
@@ -115,7 +153,7 @@ const CommandPalette = ({ open, onClose }) => {
             autoFocus
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Jump to pages, articles, highlights, notebook…"
+            placeholder="Jump to pages, concepts, notes, highlights…"
             className="palette-input"
           />
           <Button variant="secondary" onClick={onClose}>Close</Button>

@@ -10,6 +10,7 @@ const archiver = require('archiver');
 const multer = require('multer');
 const Papa = require('papaparse');
 const path = require('path');
+const crypto = require('crypto');
 
 dotenv.config();
 
@@ -2157,14 +2158,70 @@ app.post('/api/import/markdown', authenticateToken, upload.single('file'), async
     }
     const originalName = req.file.originalname || 'imported-note.md';
     const title = path.basename(originalName, path.extname(originalName)) || 'Imported note';
-    const content = req.file.buffer.toString('utf8');
+    const markdown = req.file.buffer.toString('utf8');
+
+    const createBlockId = () => {
+      if (crypto.randomUUID) return crypto.randomUUID();
+      return `block-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    };
+    const escapeHtml = (value = '') =>
+      String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+
+    const lines = markdown.split(/\r?\n/);
+    const blocks = [];
+    const htmlParts = [];
+    let listItems = [];
+
+    const flushList = () => {
+      if (listItems.length === 0) return;
+      htmlParts.push(`<ul>${listItems.map(item => `<li>${escapeHtml(item)}</li>`).join('')}</ul>`);
+      listItems = [];
+    };
+
+    lines.forEach((line) => {
+      const trimmed = line.trim();
+      if (!trimmed) {
+        flushList();
+        return;
+      }
+      if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
+        const text = trimmed.slice(2).trim();
+        listItems.push(text);
+        blocks.push({
+          id: createBlockId(),
+          type: 'bullet',
+          text,
+          indent: 0
+        });
+        return;
+      }
+      flushList();
+      htmlParts.push(`<p>${escapeHtml(trimmed)}</p>`);
+      blocks.push({
+        id: createBlockId(),
+        type: 'paragraph',
+        text: trimmed
+      });
+    });
+    flushList();
+
+    const content = htmlParts.join('') || `<p>${escapeHtml(markdown.trim())}</p>`;
 
     const entry = new NotebookEntry({
       title,
       content,
-      userId: req.user.userId
+      blocks,
+      userId: req.user.id
     });
     await entry.save();
+    if (blocks.length > 0) {
+      await syncNotebookReferences(req.user.id, entry._id, blocks);
+    }
 
     res.status(200).json({ importedNotes: 1, entryId: entry._id });
   } catch (err) {
@@ -2177,11 +2234,12 @@ app.post('/api/import/markdown', authenticateToken, upload.single('file'), async
 app.get('/api/export/json', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
-    const [articles, notebookEntries, collections, tagsMeta] = await Promise.all([
+    const [articles, notebookEntries, collections, tagsMeta, views] = await Promise.all([
       Article.find({ userId }).lean(),
       NotebookEntry.find({ userId }).lean(),
       Collection.find({ userId }).lean(),
-      TagMeta.find({ userId }).lean()
+      TagMeta.find({ userId }).lean(),
+      SavedView.find({ userId }).lean()
     ]);
 
     // Flatten highlights across articles for convenience
@@ -2206,7 +2264,8 @@ app.get('/api/export/json', authenticateToken, async (req, res) => {
       highlights,
       notebookEntries,
       collections,
-      tagsMeta
+      tagsMeta,
+      views
     };
 
     res.status(200).json(payload);

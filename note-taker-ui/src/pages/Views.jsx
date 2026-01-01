@@ -1,11 +1,11 @@
-import React, { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React, { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import api from '../api';
 import { Page, Card, Button, TagChip } from '../components/ui';
 import { SkeletonCard } from '../components/Skeleton';
 import { fetchWithCache, setCached } from '../utils/cache';
 
-const Views = () => {
+const Views = ({ embedded = false, filters = {}, onSelectView }) => {
   const [views, setViews] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -102,13 +102,21 @@ const Views = () => {
     }
   };
 
-  return (
-    <Page>
-      <div className="page-header">
-        <p className="muted-label">Saved Views</p>
-        <h1>Smart Folders</h1>
-        <p className="muted">Reusable filters across articles, highlights, or notebook entries.</p>
-      </div>
+  const filteredViews = useMemo(() => {
+    const query = (filters.query || '').trim().toLowerCase();
+    if (!query) return views;
+    return views.filter(v => `${v.name || ''} ${v.description || ''}`.toLowerCase().includes(query));
+  }, [views, filters.query]);
+
+  const content = (
+    <>
+      {!embedded && (
+        <div className="page-header">
+          <p className="muted-label">Saved Views</p>
+          <h1>Smart Folders</h1>
+          <p className="muted">Reusable filters across articles, highlights, or notebook entries.</p>
+        </div>
+      )}
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12, gap: 12 }}>
         <Button variant="secondary" onClick={() => loadViews(true)} disabled={loading}>Refresh</Button>
         <Button onClick={() => setShowModal(true)}>New View</Button>
@@ -122,9 +130,20 @@ const Views = () => {
       )}
       {error && <p className="status-message error-message">{error}</p>}
       <div className="search-card-grid">
-        {views.length === 0 && !loading && <p className="muted small">No views yet.</p>}
-        {views.map(v => (
-          <Card key={v._id} className="search-card" onClick={() => navigate(`/views/${v._id}`)} style={{ cursor: 'pointer' }}>
+        {filteredViews.length === 0 && !loading && <p className="muted small">No views yet.</p>}
+        {filteredViews.map(v => (
+          <Card
+            key={v._id}
+            className="search-card"
+            onClick={() => {
+              if (embedded && onSelectView) {
+                onSelectView(v);
+              } else {
+                navigate(`/views/${v._id}`);
+              }
+            }}
+            style={{ cursor: 'pointer' }}
+          >
             <div className="search-card-top">
               <span className="article-title-link">{v.name}</span>
               <span className="muted small">{v.targetType}</span>
@@ -235,8 +254,10 @@ const Views = () => {
           </div>
         </div>
       )}
-    </Page>
+    </>
   );
+
+  return embedded ? content : <Page>{content}</Page>;
 };
 
 export default Views;

@@ -35,7 +35,7 @@ const TodayMode = () => {
     }
   };
 
-  const reshuffle = async () => {
+  const reshuffle = React.useCallback(async () => {
     try {
       const res = await api.get('/api/resurface', authHeaders());
       setHighlights(res.data?.dailyRandomHighlights || []);
@@ -43,11 +43,17 @@ const TodayMode = () => {
       console.error('Error reshuffling highlights:', err);
       setError(err.response?.data?.error || 'Failed to reshuffle highlights.');
     }
-  };
+  }, []);
 
   useEffect(() => {
     loadDesk();
   }, []);
+
+  useEffect(() => {
+    const handleReshuffle = () => reshuffle();
+    window.addEventListener('today-reshuffle', handleReshuffle);
+    return () => window.removeEventListener('today-reshuffle', handleReshuffle);
+  }, [reshuffle]);
 
   const createId = () => {
     if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();

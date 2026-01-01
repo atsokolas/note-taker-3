@@ -19,7 +19,7 @@ const formatRelativeTime = (dateString) => {
   return new Date(dateString).toLocaleDateString();
 };
 
-const TagBrowser = () => {
+const TagBrowser = ({ embedded = false, filters = {} }) => {
   const [tags, setTags] = useState([]);
   const [loadingTags, setLoadingTags] = useState(false);
   const [tagsError, setTagsError] = useState('');
@@ -34,6 +34,23 @@ const TagBrowser = () => {
   const [filteredHighlights, setFilteredHighlights] = useState([]);
   const [loadingFiltered, setLoadingFiltered] = useState(false);
   const [filteredError, setFilteredError] = useState('');
+
+  const filteredTagList = useMemo(() => {
+    const query = (filters.query || '').trim().toLowerCase();
+    if (!query) return tags;
+    return tags.filter(t => t.tag.toLowerCase().includes(query));
+  }, [tags, filters.query]);
+
+  useEffect(() => {
+    if (!embedded) return;
+    const nextTags = Array.isArray(filters.tags) ? filters.tags : [];
+    setSelectedTags((prev) => {
+      if (prev.length === nextTags.length && prev.every((tag, idx) => tag === nextTags[idx])) {
+        return prev;
+      }
+      return nextTags;
+    });
+  }, [embedded, filters.tags]);
 
   const fetchTags = async (force = false) => {
     setLoadingTags(true);
@@ -138,8 +155,8 @@ const TagBrowser = () => {
   }, [tagDetail, selectedTags.length]);
 
   const sortedTags = useMemo(
-    () => [...tags].sort((a, b) => b.count - a.count || a.tag.localeCompare(b.tag)),
-    [tags]
+    () => [...filteredTagList].sort((a, b) => b.count - a.count || a.tag.localeCompare(b.tag)),
+    [filteredTagList]
   );
 
   const refreshTags = () => {
@@ -147,16 +164,18 @@ const TagBrowser = () => {
     fetchPairs(true);
   };
 
-  return (
-    <Page>
-      <div className="page-header">
-        <p className="muted-label">Tags & collections</p>
-        <div className="page-header-row">
-          <h1>Tags</h1>
-          <Button variant="secondary" onClick={refreshTags} disabled={loadingTags || loadingPairs}>Refresh</Button>
+  const content = (
+    <>
+      {!embedded && (
+        <div className="page-header">
+          <p className="muted-label">Tags & collections</p>
+          <div className="page-header-row">
+            <h1>Tags</h1>
+            <Button variant="secondary" onClick={refreshTags} disabled={loadingTags || loadingPairs}>Refresh</Button>
+          </div>
+          <p className="muted">Browse your highlights by tag. Click a tag to see its highlights and related tags.</p>
         </div>
-        <p className="muted">Browse your highlights by tag. Click a tag to see its highlights and related tags.</p>
-      </div>
+      )}
 
       {loadingTags && (
         <div className="section-stack">
@@ -170,7 +189,7 @@ const TagBrowser = () => {
         <Card className="search-section">
           <div className="search-section-header">
             <span className="eyebrow">All tags</span>
-            <span className="muted small">{tags.length} tags</span>
+            <span className="muted small">{sortedTags.length} tags</span>
           </div>
           <div className="tag-grid">
             {sortedTags.map(t => (
@@ -259,8 +278,10 @@ const TagBrowser = () => {
           )}
         </Card>
       </div>
-    </Page>
+    </>
   );
+
+  return embedded ? content : <Page>{content}</Page>;
 };
 
 export default TagBrowser;
