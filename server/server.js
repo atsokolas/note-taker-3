@@ -1444,6 +1444,131 @@ app.get('/api/concepts/:tagName/notes', authenticateToken, async (req, res) => {
   }
 });
 
+// Concept timeline (weekly activity)
+app.get('/api/concepts/:tagName/timeline', authenticateToken, async (req, res) => {
+  try {
+    const userId = new mongoose.Types.ObjectId(req.user.id);
+    const { tagName } = req.params;
+    const range = req.query.range || '90d';
+
+    const escapeRegExp = (value = '') => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const tagRegex = new RegExp(`^${escapeRegExp(tagName)}$`, 'i');
+
+    let startDate = null;
+    if (range !== 'all') {
+      const days = parseInt(range.replace(/d/i, ''), 10);
+      const validDays = Number.isNaN(days) ? 90 : days;
+      startDate = new Date(Date.now() - validDays * 24 * 60 * 60 * 1000);
+    }
+
+    const highlightMatch = {
+      userId,
+      ...(startDate ? { 'highlights.createdAt': { $gte: startDate } } : {})
+    };
+
+    const highlightPipeline = [
+      { $match: { userId } },
+      { $unwind: '$highlights' },
+      ...(startDate ? [{ $match: { 'highlights.createdAt': { $gte: startDate } } }] : []),
+      { $match: { 'highlights.tags': { $regex: tagRegex } } },
+      {
+        $group: {
+          _id: {
+            $dateTrunc: { date: '$highlights.createdAt', unit: 'week', timezone: 'UTC' }
+          },
+          count: { $sum: 1 }
+        }
+      },
+      { $project: { _id: 0, weekStartDate: '$_id', count: 1 } },
+      { $sort: { weekStartDate: 1 } }
+    ];
+
+    const topArticlesPipeline = [
+      { $match: { userId } },
+      { $unwind: '$highlights' },
+      ...(startDate ? [{ $match: { 'highlights.createdAt': { $gte: startDate } } }] : []),
+      { $match: { 'highlights.tags': { $regex: tagRegex } } },
+      {
+        $group: {
+          _id: '$_id',
+          title: { $first: '$title' },
+          count: { $sum: 1 }
+        }
+      },
+      { $sort: { count: -1 } },
+      { $limit: 5 },
+      { $project: { _id: 0, articleId: '$_id', title: 1, count: 1 } }
+    ];
+
+    const noteEdgesPipeline = [
+      { $match: { userId, targetType: 'concept', targetTagName: { $regex: tagRegex } } },
+      {
+        $lookup: {
+          from: 'notebookentries',
+          localField: 'sourceId',
+          foreignField: '_id',
+          as: 'entry'
+        }
+      },
+      { $unwind: '$entry' },
+      ...(startDate ? [{ $match: { 'entry.createdAt': { $gte: startDate } } }] : []),
+      { $group: { _id: '$entry._id', createdAt: { $first: '$entry.createdAt' } } },
+      {
+        $group: {
+          _id: { $dateTrunc: { date: '$createdAt', unit: 'week', timezone: 'UTC' } },
+          count: { $sum: 1 }
+        }
+      },
+      { $project: { _id: 0, weekStartDate: '$_id', count: 1 } },
+      { $sort: { weekStartDate: 1 } }
+    ];
+
+    const conceptNotesPipeline = [
+      { $match: { userId, tagName: { $regex: tagRegex } } },
+      ...(startDate ? [{ $match: { createdAt: { $gte: startDate } } }] : []),
+      {
+        $group: {
+          _id: { $dateTrunc: { date: '$createdAt', unit: 'week', timezone: 'UTC' } },
+          count: { $sum: 1 }
+        }
+      },
+      { $project: { _id: 0, weekStartDate: '$_id', count: 1 } },
+      { $sort: { weekStartDate: 1 } }
+    ];
+
+    const [highlightsPerWeek, topReferencedArticles, noteEdgesPerWeek, conceptNotesPerWeek] = await Promise.all([
+      Article.aggregate(highlightPipeline),
+      Article.aggregate(topArticlesPipeline),
+      ReferenceEdge.aggregate(noteEdgesPipeline),
+      ConceptNote.aggregate(conceptNotesPipeline)
+    ]);
+
+    const notesByWeek = new Map();
+    const addWeekCounts = (rows) => {
+      rows.forEach(row => {
+        const key = new Date(row.weekStartDate).toISOString();
+        const current = notesByWeek.get(key) || 0;
+        notesByWeek.set(key, current + row.count);
+      });
+    };
+    addWeekCounts(noteEdgesPerWeek);
+    addWeekCounts(conceptNotesPerWeek);
+
+    const notesCreatedPerWeek = Array.from(notesByWeek.entries())
+      .map(([weekStartDate, count]) => ({ weekStartDate, count }))
+      .sort((a, b) => new Date(a.weekStartDate) - new Date(b.weekStartDate));
+
+    res.status(200).json({
+      highlightsPerWeek,
+      notesCreatedPerWeek,
+      topReferencedArticles
+    });
+  } catch (error) {
+    console.error('❌ Error building concept timeline:', error);
+    res.status(500).json({ error: 'Failed to load concept timeline.' });
+  }
+});
+
 app.post('/api/concepts/:tagName/notes', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
@@ -2519,6 +2644,55 @@ app.get('/api/brain/summary', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error("❌ Error building brain summary:", error);
     res.status(500).json({ error: "Failed to build brain summary." });
+  }
+});
+
+// Reflection snapshot (lightweight)
+app.get('/api/reflection', authenticateToken, async (req, res) => {
+  try {
+    const userId = new mongoose.Types.ObjectId(req.user.id);
+    const range = req.query.range || '30d';
+    const days = parseInt(range.replace(/d/i, ''), 10);
+    const windowDays = Number.isNaN(days) ? 30 : days;
+    const now = new Date();
+    const currentStart = new Date(now.getTime() - windowDays * 24 * 60 * 60 * 1000);
+    const previousStart = new Date(now.getTime() - windowDays * 2 * 24 * 60 * 60 * 1000);
+
+    const tagAggForRange = async (start, end) => Article.aggregate([
+      { $match: { userId } },
+      { $unwind: '$highlights' },
+      { $match: { 'highlights.createdAt': { $gte: start, ...(end ? { $lt: end } : {}) } } },
+      { $unwind: '$highlights.tags' },
+      { $group: { _id: '$highlights.tags', count: { $sum: 1 } } },
+      { $sort: { count: -1, _id: 1 } }
+    ]);
+
+    const [currentTags, previousTags, openQuestions] = await Promise.all([
+      tagAggForRange(currentStart, null),
+      tagAggForRange(previousStart, currentStart),
+      Question.find({ userId, status: 'open' }).sort({ createdAt: -1 }).lean()
+    ]);
+
+    const prevMap = new Map(previousTags.map(t => [t._id, t.count]));
+    const mostActiveConcepts = currentTags.slice(0, 5).map(t => ({ tag: t._id, count: t.count }));
+
+    const increasedConcepts = currentTags
+      .map(t => {
+        const prevCount = prevMap.get(t._id) || 0;
+        return { tag: t._id, currentCount: t.count, previousCount: prevCount, delta: t.count - prevCount };
+      })
+      .filter(t => t.delta > 0)
+      .sort((a, b) => b.delta - a.delta)
+      .slice(0, 5);
+
+    res.status(200).json({
+      mostActiveConcepts,
+      increasedConcepts,
+      openQuestions
+    });
+  } catch (error) {
+    console.error('❌ Error building reflection snapshot:', error);
+    res.status(500).json({ error: 'Failed to load reflection snapshot.' });
   }
 });
 

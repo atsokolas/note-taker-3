@@ -58,6 +58,19 @@ const LibraryMode = () => {
     if (tab && tabs.some(t => t.key === tab)) {
       setActive(tab);
     }
+    const tag = params.get('tag');
+    const from = params.get('from');
+    const to = params.get('to');
+    const q = params.get('q');
+    if (tag || from || to || q) {
+      setFilters((prev) => ({
+        ...prev,
+        tags: tag ? [tag] : prev.tags,
+        dateFrom: from || prev.dateFrom,
+        dateTo: to || prev.dateTo,
+        query: q || prev.query
+      }));
+    }
   }, [location.search]);
 
   const toggleFilterTag = (tag) => {

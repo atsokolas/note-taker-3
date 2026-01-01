@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import api from '../api';
 import { Page, Card, TagChip, Button } from '../components/ui';
@@ -26,6 +26,9 @@ const TagConcept = () => {
   const [questionLoading, setQuestionLoading] = useState(false);
   const [questionModalOpen, setQuestionModalOpen] = useState(false);
   const [creatingNote, setCreatingNote] = useState(false);
+  const [timeline, setTimeline] = useState({ highlightsPerWeek: [], notesCreatedPerWeek: [], topReferencedArticles: [] });
+  const [timelineLoading, setTimelineLoading] = useState(false);
+  const [timelineError, setTimelineError] = useState('');
 
   const authHeaders = () => ({ headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
 
@@ -76,11 +79,62 @@ const TagConcept = () => {
     }
   }, [tagName]);
 
+  const loadTimeline = useCallback(async () => {
+    setTimelineLoading(true);
+    setTimelineError('');
+    try {
+      const res = await api.get(`/api/concepts/${encodeURIComponent(tagName)}/timeline?range=90d`, authHeaders());
+      setTimeline({
+        highlightsPerWeek: res.data?.highlightsPerWeek || [],
+        notesCreatedPerWeek: res.data?.notesCreatedPerWeek || [],
+        topReferencedArticles: res.data?.topReferencedArticles || []
+      });
+    } catch (err) {
+      console.error('Error loading concept timeline:', err);
+      setTimelineError(err.response?.data?.error || 'Failed to load timeline.');
+    } finally {
+      setTimelineLoading(false);
+    }
+  }, [tagName]);
+
   useEffect(() => {
     loadData();
     loadNotes();
     loadQuestions();
-  }, [loadData, loadNotes]);
+    loadTimeline();
+  }, [loadData, loadNotes, loadQuestions, loadTimeline]);
+
+  const formatWeek = (dateString) => {
+    if (!dateString) return '';
+    return new Date(dateString).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+  };
+
+  const buildWeekLink = (weekStartDate) => {
+    if (!weekStartDate) return '#';
+    const start = new Date(weekStartDate);
+    const end = new Date(start);
+    end.setDate(start.getDate() + 6);
+    const params = new URLSearchParams();
+    params.set('tab', 'highlights');
+    params.set('tag', tagName);
+    params.set('from', start.toISOString().slice(0, 10));
+    params.set('to', end.toISOString().slice(0, 10));
+    return `/library?${params.toString()}`;
+  };
+
+  const timelineRows = useMemo(() => {
+    const map = new Map();
+    timeline.highlightsPerWeek.forEach((row) => {
+      const key = new Date(row.weekStartDate).toISOString();
+      map.set(key, { weekStartDate: row.weekStartDate, highlights: row.count, notes: 0 });
+    });
+    timeline.notesCreatedPerWeek.forEach((row) => {
+      const key = new Date(row.weekStartDate).toISOString();
+      const existing = map.get(key) || { weekStartDate: row.weekStartDate, highlights: 0, notes: 0 };
+      map.set(key, { ...existing, notes: row.count });
+    });
+    return Array.from(map.values()).sort((a, b) => new Date(b.weekStartDate) - new Date(a.weekStartDate));
+  }, [timeline.highlightsPerWeek, timeline.notesCreatedPerWeek]);
 
   const togglePin = (id) => {
     setMeta(prev => {
@@ -295,6 +349,44 @@ const TagConcept = () => {
                 </TagChip>
               )) : <span className="muted small">No related tags yet.</span>}
             </div>
+          </Card>
+
+          <Card className="search-section">
+            <div className="search-section-header">
+              <span className="eyebrow">Timeline</span>
+              <span className="muted small">Last 90 days</span>
+            </div>
+            {timelineLoading && <p className="muted small">Loading timeline…</p>}
+            {timelineError && <p className="status-message error-message">{timelineError}</p>}
+            {!timelineLoading && !timelineError && (
+              <div className="section-stack">
+                {timelineRows.length === 0 && <p className="muted small">No activity yet for this concept.</p>}
+                {timelineRows.map(row => (
+                  <div key={row.weekStartDate} className="search-card">
+                    <div className="search-card-top">
+                      <span className="article-title-link">Week of {formatWeek(row.weekStartDate)}</span>
+                      <Link to={buildWeekLink(row.weekStartDate)} className="muted small">What changed?</Link>
+                    </div>
+                    <p className="muted small">{row.highlights} highlights · {row.notes} notes</p>
+                  </div>
+                ))}
+                {timeline.topReferencedArticles.length > 0 && (
+                  <div>
+                    <span className="eyebrow">Top referenced articles</span>
+                    <div className="section-stack" style={{ marginTop: 8 }}>
+                      {timeline.topReferencedArticles.map(article => (
+                        <div key={article.articleId} className="search-card">
+                          <div className="search-card-top">
+                            <Link to={`/articles/${article.articleId}`} className="article-title-link">{article.title || 'Untitled article'}</Link>
+                            <span className="muted small">{article.count} highlights</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </Card>
 
           <Card className="search-section">
