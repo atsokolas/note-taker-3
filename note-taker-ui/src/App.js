@@ -164,7 +164,6 @@ function App() {
             <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
             <Routes>
               <Route path="/" element={<Navigate to="/today" replace />} />
-              <Route path="/library" element={<Welcome />} />
               <Route path="/today" element={<TodayMode />} />
               <Route path="/library" element={<LibraryMode />} />
               <Route path="/think" element={<ThinkMode />} />
