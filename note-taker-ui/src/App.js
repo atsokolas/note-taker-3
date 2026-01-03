@@ -119,6 +119,7 @@ function App() {
     { label: 'Library', to: '/library' },
     { label: 'Think', to: '/think' },
     { label: 'Review', to: '/review' },
+    { label: 'How To Use', to: '/how-to-use' },
     { label: 'Settings', to: '/settings' }
   ];
 
@@ -142,7 +143,7 @@ function App() {
                 <ChromeIcon />
                 <span>Get the Extension</span>
               </a>
-              <a href="/how-to-use" className="sidebar-help-link" title="How to Use">
+              <a href="/how-to-use" className="sidebar-help-link" title="How To Use">
                 <span className="sidebar-help-icon">?</span>
               </a>
             </div>

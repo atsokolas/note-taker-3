@@ -42,7 +42,7 @@ const HowToUse = () => {
   return (
     <Page>
       <div className="page-header">
-        <p className="muted-label">How to Use</p>
+        <p className="muted-label">How To Use</p>
         <h1>Your calm filing cabinet for everything you read.</h1>
         <p className="muted">Note Taker takes what you read, keeps the best parts, and hands them back right when you need them.</p>
         <p className="muted">
