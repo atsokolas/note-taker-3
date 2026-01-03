@@ -310,6 +310,12 @@ const Notebook = () => {
     }
   }, [highlightModalOpen, allHighlights.length]);
 
+  useEffect(() => {
+    const handleOpen = () => setHighlightModalOpen(true);
+    window.addEventListener('open-insert-highlight', handleOpen);
+    return () => window.removeEventListener('open-insert-highlight', handleOpen);
+  }, []);
+
   const filteredHighlights = useMemo(() => {
     const q = hlSearch.toLowerCase();
     if (!q) return allHighlights.slice(0, 100);
@@ -488,7 +494,7 @@ const Notebook = () => {
       {error && <p className="status-message error-message">{error}</p>}
       <div className="notebook-toolbar">
         <div className="left">
-          <Button variant="secondary" onClick={createEntry} disabled={saving}>New</Button>
+          <Button variant="secondary" onClick={createEntry} disabled={saving} data-onboard-id="new-note">New</Button>
           <Button onClick={saveEntry} disabled={saving || !activeId}>{saving ? 'Saving...' : 'Save'}</Button>
           <Button variant="secondary" onClick={deleteEntry} disabled={saving || !activeId}>Delete</Button>
         </div>
@@ -581,7 +587,7 @@ const Notebook = () => {
                     className="notebook-title-input"
                     style={{ maxWidth: '240px', borderBottom: '1px solid var(--border-color)' }}
                   />
-                  <Button variant="secondary" onClick={() => setHighlightModalOpen(true)}>Insert Highlight</Button>
+                  <Button variant="secondary" onClick={() => setHighlightModalOpen(true)} data-onboard-id="insert-highlight">Insert Highlight</Button>
                 </div>
                 <div className="notebook-editor-actions" style={{ display: 'flex', gap: 8, margin: '8px 0' }}>
                   <span className="muted small">Tip: "- " for bullets, "1. " for numbered lists, "## " for headings, Tab/Shift+Tab to indent.</span>

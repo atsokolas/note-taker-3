@@ -1428,6 +1428,44 @@ app.get('/api/tags/:name/highlights', authenticateToken, async (req, res) => {
   }
 });
 
+// Onboarding summary (lightweight counts)
+app.get('/api/onboarding/summary', authenticateToken, async (req, res) => {
+  try {
+    const userId = new mongoose.Types.ObjectId(req.user.id);
+
+    const [articleCount, notebookCount, highlightCountAgg, taggedHighlightAgg, linkedHighlightEdge] = await Promise.all([
+      Article.countDocuments({ userId }),
+      NotebookEntry.countDocuments({ userId }),
+      Article.aggregate([
+        { $match: { userId } },
+        { $unwind: '$highlights' },
+        { $count: 'total' }
+      ]),
+      Article.aggregate([
+        { $match: { userId } },
+        { $unwind: '$highlights' },
+        { $match: { 'highlights.tags.0': { $exists: true } } },
+        { $limit: 1 }
+      ]),
+      ReferenceEdge.findOne({ userId, sourceType: 'notebook', targetType: 'highlight' }).lean()
+    ]);
+
+    const hasHighlights = (highlightCountAgg[0]?.total || 0) > 0;
+    const hasTaggedHighlight = taggedHighlightAgg.length > 0;
+
+    res.status(200).json({
+      hasArticle: articleCount > 0,
+      hasHighlight: hasHighlights,
+      hasTaggedHighlight,
+      hasNote: notebookCount > 0,
+      hasLinkedHighlight: Boolean(linkedHighlightEdge)
+    });
+  } catch (error) {
+    console.error('❌ Error building onboarding summary:', error);
+    res.status(500).json({ error: 'Failed to load onboarding summary.' });
+  }
+});
+
 // --- Concept Notes CRUD ---
 app.get('/api/concepts/:tagName/notes', authenticateToken, async (req, res) => {
   try {

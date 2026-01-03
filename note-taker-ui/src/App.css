@@ -1050,11 +1050,11 @@ body {
 .sidebar-help-link {
     display: inline-flex;
     align-items: center;
-    gap: 8px;
-    font-size: 0.95em;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
     color: var(--text-color-secondary);
     text-decoration: none;
-    padding: 8px 10px;
     border-radius: 999px;
     border: 1px solid var(--border-color-light);
 }
@@ -2426,6 +2426,101 @@ body {
   flex-wrap: wrap;
   gap: 10px;
   margin: 8px 0 12px;
+}
+
+/* Landing */
+.landing-shell {
+  max-width: 980px;
+  margin: 0 auto;
+  padding: 64px 24px 80px;
+  display: grid;
+  gap: 24px;
+}
+
+.landing-hero h1 {
+  font-size: clamp(2rem, 4vw, 3.2rem);
+  margin: 8px 0 12px;
+}
+
+.landing-eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 0.75rem;
+  color: var(--text-color-secondary);
+}
+
+.landing-subhead {
+  font-size: 1.1rem;
+  color: var(--text-color-secondary);
+  max-width: 720px;
+}
+
+.landing-cta {
+  margin-top: 20px;
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.landing-card {
+  padding: 24px;
+}
+
+.landing-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.landing-list,
+.landing-steps {
+  padding-left: 18px;
+  color: var(--text-color-secondary);
+  display: grid;
+  gap: 6px;
+}
+
+.landing-footer {
+  text-align: center;
+}
+
+/* Onboarding */
+.onboarding-shell {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 2500;
+}
+
+.onboarding-card {
+  width: min(360px, 85vw);
+  padding: 16px;
+}
+
+.onboarding-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.onboarding-actions {
+  margin-top: 12px;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.onboarding-target {
+  outline: 2px solid var(--accent);
+  box-shadow: 0 0 0 6px rgba(0, 122, 255, 0.1);
+  border-radius: 12px;
+  animation: onboardingPulse 1.8s ease-in-out infinite;
+}
+
+@keyframes onboardingPulse {
+  0% { box-shadow: 0 0 0 2px rgba(0, 122, 255, 0.2); }
+  50% { box-shadow: 0 0 0 10px rgba(0, 122, 255, 0.08); }
+  100% { box-shadow: 0 0 0 2px rgba(0, 122, 255, 0.2); }
 }
 
 .library-filter-bar {

@@ -246,7 +246,7 @@ const ArticleList = () => {
     return (
         <>
             <h1>Your Library</h1>
-            <div className="upload-card">
+            <div className="upload-card" data-onboard-id="save-article">
                 <div className="upload-card-header">
                     <div>
                         <p className="eyebrow">Upload PDF</p>

@@ -234,7 +234,7 @@ const AllHighlights = ({ embedded = false, filters = {} }) => {
   };
 
   const content = (
-    <Card className="highlight-tag-card">
+    <Card className="highlight-tag-card" data-onboard-id={embedded ? 'highlight-tags' : undefined}>
       {!embedded && (
         <div className="filter-row" style={{ display: 'flex', gap: '12px', alignItems: 'center', marginBottom: '12px' }}>
           <label className="feedback-field" style={{ margin: 0, flex: 1 }}>

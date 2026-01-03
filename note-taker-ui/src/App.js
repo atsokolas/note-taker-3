@@ -6,7 +6,7 @@ import ArticleViewer from './components/ArticleViewer';
 import Register from './components/Register';
 import Login from './components/Login';
 import Trending from './pages/Trending';
-import LandingPage from './components/LandingPage'; // <-- 1. IMPORT LANDING PAGE
+import Landing from './pages/Landing';
 import Notebook from './pages/Notebook';
 import AllHighlights from './pages/AllHighlights';
 import Search from './pages/Search';
@@ -28,6 +28,7 @@ import ReviewMode from './pages/ReviewMode';
 import Settings from './pages/Settings';
 import HowToUse from './pages/HowToUse';
 import CommandPalette from './components/CommandPalette';
+import OnboardingManager from './components/OnboardingManager';
 import { Page, Card, Sidebar } from './components/ui';
 import './styles/theme.css';
 import './App.css';
@@ -118,8 +119,7 @@ function App() {
     { label: 'Library', to: '/library' },
     { label: 'Think', to: '/think' },
     { label: 'Review', to: '/review' },
-    { label: 'Settings', to: '/settings' },
-    { label: 'How to Use', to: '/how-to-use' }
+    { label: 'Settings', to: '/settings' }
   ];
 
   if (isLoading) {
@@ -144,7 +144,6 @@ function App() {
               </a>
               <a href="/how-to-use" className="sidebar-help-link" title="How to Use">
                 <span className="sidebar-help-icon">?</span>
-                <span>How to Use</span>
               </a>
             </div>
           )}
@@ -152,7 +151,7 @@ function App() {
 
         <div className={`layout-main ${showLibraryRail ? '' : 'layout-main--single'}`}>
           {showLibraryRail && (
-            <div className="library-rail">
+            <div className="library-rail" data-onboard-id="article-list">
               <Card>
                 <div className="muted-label" style={{ marginBottom: 8 }}>Library</div>
                 <ArticleList key={articleListKey} /> 
@@ -162,6 +161,7 @@ function App() {
 
           <Page className="page-area">
             <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
+            <OnboardingManager />
             <Routes>
               <Route path="/" element={<Navigate to="/today" replace />} />
               <Route path="/today" element={<TodayMode />} />
@@ -206,7 +206,7 @@ function App() {
       ) : (
         <div className="auth-pages-container">
           <Routes>
-            <Route path="/" element={<LandingPage chromeStoreLink={chromeStoreLink} />} />
+            <Route path="/" element={<Landing />} />
             <Route path="/register" element={<Register chromeStoreLink={chromeStoreLink} />} />
             <Route 
               path="/login" 

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import api from '../api';
 import { Page, Card, TagChip, Button } from '../components/ui';
 import { SkeletonCard } from '../components/Skeleton';
@@ -34,6 +34,8 @@ const TagBrowser = ({ embedded = false, filters = {} }) => {
   const [filteredHighlights, setFilteredHighlights] = useState([]);
   const [loadingFiltered, setLoadingFiltered] = useState(false);
   const [filteredError, setFilteredError] = useState('');
+  const [selectionMode, setSelectionMode] = useState(false);
+  const navigate = useNavigate();
 
   const filteredTagList = useMemo(() => {
     const query = (filters.query || '').trim().toLowerCase();
@@ -126,6 +128,14 @@ const TagBrowser = ({ embedded = false, filters = {} }) => {
     setSelectedTags(prev => prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]);
   };
 
+  const handleTagClick = (tag) => {
+    if (selectionMode) {
+      toggleSelectedTag(tag);
+      return;
+    }
+    navigate(`/tags/${encodeURIComponent(tag)}`);
+  };
+
   const selectTag = async (tag) => {
     setSelectedTag(tag);
     setDetailError('');
@@ -171,7 +181,12 @@ const TagBrowser = ({ embedded = false, filters = {} }) => {
           <p className="muted-label">Tags & collections</p>
           <div className="page-header-row">
             <h1>Tags</h1>
-            <Button variant="secondary" onClick={refreshTags} disabled={loadingTags || loadingPairs}>Refresh</Button>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <Button variant="secondary" onClick={() => setSelectionMode(prev => !prev)}>
+                {selectionMode ? 'Exit select mode' : 'Select tags'}
+              </Button>
+              <Button variant="secondary" onClick={refreshTags} disabled={loadingTags || loadingPairs}>Refresh</Button>
+            </div>
           </div>
           <p className="muted">Browse your highlights by tag. Click a tag to see its highlights and related tags.</p>
         </div>
@@ -191,12 +206,15 @@ const TagBrowser = ({ embedded = false, filters = {} }) => {
             <span className="eyebrow">All tags</span>
             <span className="muted small">{sortedTags.length} tags</span>
           </div>
+          <p className="muted small" style={{ marginTop: 8 }}>
+            {selectionMode ? 'Select one or more tags to explore highlights below.' : 'Click a tag to open its concept page.'}
+          </p>
           <div className="tag-grid">
             {sortedTags.map(t => (
               <TagChip
                 key={t.tag}
                 className={`${selectedTag === t.tag ? 'active' : ''} ${selectedTags.includes(t.tag) ? 'ui-tag-chip-selected' : ''}`}
-                onClick={() => toggleSelectedTag(t.tag)}
+                onClick={() => handleTagClick(t.tag)}
               >
                 {t.tag} <span className="tag-count">{t.count}</span>
               </TagChip>
@@ -228,10 +246,11 @@ const TagBrowser = ({ embedded = false, filters = {} }) => {
           )}
         </Card>
 
-        <Card className="search-section">
-          <div className="search-section-header" style={{ alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-            <span className="eyebrow">Highlights</span>
-            <span className="muted small">{filteredCount} results</span>
+        {selectionMode && (
+          <Card className="search-section">
+            <div className="search-section-header" style={{ alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              <span className="eyebrow">Highlights</span>
+              <span className="muted small">{filteredCount} results</span>
             {selectedTags.length === 1 && (
               <span style={{ marginLeft: 'auto' }}>
                 <Link to={`/tags/${encodeURIComponent(selectedTags[0])}`} className="article-title-link">
@@ -239,11 +258,11 @@ const TagBrowser = ({ embedded = false, filters = {} }) => {
                 </Link>
               </span>
             )}
-          </div>
-          {loadingFiltered && <p className="status-message">Loading highlights…</p>}
-          {filteredError && <p className="status-message error-message">{filteredError}</p>}
-          {!loadingFiltered && !filteredError && filteredHighlights.length > 0 ? (
-            <div className="search-card-grid">
+            </div>
+            {loadingFiltered && <p className="status-message">Loading highlights…</p>}
+            {filteredError && <p className="status-message error-message">{filteredError}</p>}
+            {!loadingFiltered && !filteredError && filteredHighlights.length > 0 ? (
+              <div className="search-card-grid">
               {filteredHighlights.map(h => (
                 <div key={h._id} className="search-card">
                   <div className="search-card-top">
@@ -260,23 +279,24 @@ const TagBrowser = ({ embedded = false, filters = {} }) => {
                 </div>
               ))}
             </div>
-          ) : (
-            !loadingFiltered && <p className="muted small">Select a tag to see highlights.</p>
-          )}
+            ) : (
+              !loadingFiltered && <p className="muted small">Select a tag to see highlights.</p>
+            )}
 
-          {tagDetail?.relatedTags && tagDetail.relatedTags.length > 0 && (
-            <div style={{ marginTop: '12px' }}>
-              <span className="eyebrow">Related tags</span>
-              <div className="tag-grid" style={{ marginTop: '8px' }}>
-                {tagDetail.relatedTags.map(rt => (
-                  <TagChip key={rt.tag} onClick={() => selectTag(rt.tag)}>
-                    {rt.tag} <span className="tag-count">{rt.count}</span>
-                  </TagChip>
-                ))}
+            {tagDetail?.relatedTags && tagDetail.relatedTags.length > 0 && (
+              <div style={{ marginTop: '12px' }}>
+                <span className="eyebrow">Related tags</span>
+                <div className="tag-grid" style={{ marginTop: '8px' }}>
+                  {tagDetail.relatedTags.map(rt => (
+                    <TagChip key={rt.tag} onClick={() => handleTagClick(rt.tag)}>
+                      {rt.tag} <span className="tag-count">{rt.count}</span>
+                    </TagChip>
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
-        </Card>
+            )}
+          </Card>
+        )}
       </div>
     </>
   );

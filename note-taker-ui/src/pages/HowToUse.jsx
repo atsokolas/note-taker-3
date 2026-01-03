@@ -3,10 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import { Page, Card, Button } from '../components/ui';
 
 const TOUR_KEYS = [
-  { key: 'toured_today', label: 'Visited Today' },
-  { key: 'toured_library', label: 'Visited Library' },
-  { key: 'toured_think', label: 'Visited Think' },
-  { key: 'toured_review', label: 'Visited Review' }
+  { key: 'toured_today', label: 'Today checked off' },
+  { key: 'toured_library', label: 'Library checked off' },
+  { key: 'toured_think', label: 'Think checked off' },
+  { key: 'toured_review', label: 'Review checked off' }
 ];
 
 const HowToUse = () => {
@@ -32,82 +32,91 @@ const HowToUse = () => {
     });
   };
 
+  const handleTourClick = () => {
+    const section = document.getElementById('howto-tour');
+    if (section) {
+      section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
+
   return (
     <Page>
       <div className="page-header">
         <p className="muted-label">How to Use</p>
-        <h1>A calm filing cabinet for your reading life.</h1>
-        <p className="muted">Note Taker turns the best parts of what you read into ideas you can find in 10 seconds, months later.</p>
+        <h1>Your calm filing cabinet for everything you read.</h1>
+        <p className="muted">Note Taker takes what you read, keeps the best parts, and hands them back right when you need them.</p>
         <p className="muted">
-          You are the kind of person who highlights, saves, and swears you will come back.
-          Now you actually can. Without chaos. Without ten tabs open forever.
+          You are the kind of person who reads a lot, highlights the good parts, and plans to come back later.
+          You want the payoff without the mess. This is that.
         </p>
         <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
           <Button onClick={() => navigate('/library')}>Start here: Set up your Library</Button>
-          <Button variant="secondary" onClick={() => navigate('/today')}>Take the 5-minute tour</Button>
+          <Button variant="secondary" onClick={handleTourClick}>Take the 5-minute tour</Button>
         </div>
       </div>
 
       <div className="section-stack">
-        <Card className="search-section">
-          <div className="search-section-header">
-            <span className="eyebrow">The 5 minute tour</span>
-            <span className="muted small">Do these once and you are set.</span>
-          </div>
-          <ol className="howto-list">
-            <li>
-              <strong>Save an article.</strong> This is your source. Your library shelf.
-            </li>
-            <li>
-              <strong>Highlight what matters.</strong> A highlight is the atomic unit. Tiny, precise, useful.
-            </li>
-            <li>
-              <strong>Tag as Concepts.</strong> Concepts are idea homes. “Compounding.” “AI hardware.” “Strategy.”
-            </li>
-            <li>
-              <strong>Drop highlights into Notes.</strong> Think mode is where you synthesize, not just collect.
-            </li>
-            <li>
-              <strong>Come back tomorrow.</strong> Today resurfaces your best bits so your brain stays warm.
-            </li>
-          </ol>
-        </Card>
+        <section id="howto-tour">
+          <Card className="search-section">
+            <div className="search-section-header">
+              <span className="eyebrow">The 5-minute tour</span>
+              <span className="muted small">Do these once and you are set.</span>
+            </div>
+            <ol className="howto-list">
+              <li>
+                <strong>Save an article.</strong> An Article is the whole source. The book on the shelf.
+              </li>
+              <li>
+                <strong>Highlight the parts that matter.</strong> A Highlight is the atomic unit. Small, sharp, easy to reuse.
+              </li>
+              <li>
+                <strong>Tag as Concepts.</strong> Concepts are idea homes. “Second-order effects.” “Personal finance.” “Great openings.”
+              </li>
+              <li>
+                <strong>Drop highlights into Notes.</strong> Think mode is where you stitch ideas into something new.
+              </li>
+              <li>
+                <strong>Come back tomorrow.</strong> Today resurfaces the good stuff so your brain stays warm.
+              </li>
+            </ol>
+          </Card>
+        </section>
 
         <div className="search-card-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))' }}>
           {[
             {
               title: 'Today',
-              copy: 'Your daily desk. Resurfaced highlights, recent notes, and quick wins.',
-              intent: 'Use this when you want a 60 second reset.',
-              next: 'Reshuffle and save one resurfaced highlight.',
+              copy: 'Why it exists: a daily desk. You will see resurfaced highlights, recent notes, and quick prompts.',
+              intent: 'Use this when you want a 60-second reset and a quick win.',
+              next: 'Hit reshuffle and drop one resurfaced highlight into a note.',
               route: '/today'
             },
             {
               title: 'Library',
-              copy: 'Where your reading lives. Articles, highlights, concepts, and saved views.',
-              intent: 'Use this when you need to find something fast.',
-              next: 'Create one saved view for a theme you care about.',
+              copy: 'Why it exists: a home for everything you read. You will see articles, highlights, concepts, and saved views as drawers.',
+              intent: 'Use this when you want to find something in 10 seconds.',
+              next: 'Create one saved view for a theme you keep returning to.',
               route: '/library'
             },
             {
               title: 'Think',
-              copy: 'The synthesis layer. Notebook + concept pages + backlinks.',
-              intent: 'Use this when you want to make sense of what you read.',
-              next: 'Write a short note using three highlights.',
+              copy: 'Why it exists: synthesis. You will see your notebook, concept pages, and backlinks.',
+              intent: 'Use this when you want to make sense, not just collect.',
+              next: 'Write one short note using five highlights.',
               route: '/think'
             },
             {
               title: 'Review',
-              copy: 'Journey, resurfacing, and reflection. Optional, powerful.',
+              copy: 'Why it exists: perspective. You will see your journey, resurfacing, and reflection prompts.',
               intent: 'Use this when you want to see progress or patterns.',
-              next: 'Open Journey and scan your last 7 days.',
+              next: 'Open Journey and scan your last seven days.',
               route: '/review'
             },
             {
               title: 'Settings',
-              copy: 'Export, import, and ownership. Your brain is yours.',
+              copy: 'Why it exists: ownership. You will see export, import, and your backup levers.',
               intent: 'Use this when you want control and backup.',
-              next: 'Export your data once so you know it is yours.',
+              next: 'Export your data once, just to prove it.',
               route: '/settings'
             }
           ].map(card => (
@@ -149,15 +158,15 @@ const HowToUse = () => {
           <div className="section-stack">
             <div>
               <strong>Is this like Notion?</strong>
-              <p className="muted">Calmer. Focused on reading, recall, and ideas not endless pages.</p>
+              <p className="muted">Calmer. Focused on reading, recall, and ideas. Not endless pages.</p>
             </div>
             <div>
               <strong>Do I need to organize perfectly?</strong>
-              <p className="muted">No. Start messy. Search and resurface will save you.</p>
+              <p className="muted">No. Start messy. The system forgives you.</p>
             </div>
             <div>
               <strong>What if I forget to tag?</strong>
-              <p className="muted">Still fine. You can find it later and tag in seconds.</p>
+              <p className="muted">Search plus resurfacing saves you. Tag later in seconds.</p>
             </div>
             <div>
               <strong>Is my data stuck here?</strong>
@@ -182,7 +191,7 @@ const HowToUse = () => {
                 <span>{item.label}</span>
               </label>
             ))}
-            {allComplete && <p className="status-message success-message">Tour complete. You are in.</p>}
+            {allComplete && <p className="status-message success-message">Tour complete. You are officially dangerous.</p>}
           </div>
         </Card>
 
@@ -191,9 +200,9 @@ const HowToUse = () => {
             <span className="eyebrow">Why this exists</span>
           </div>
           <p className="muted">
-            You read great stuff. You highlight it. Then it disappears into a screenshot folder you never open.
-            Note Taker is the opposite of that. It gives your reading a real home.
-            So the next time you need the idea, it is there, calm, clean, and ready.
+            You read great stuff. You highlight it. Then it disappears into a folder you never open.
+            Note Taker is the opposite of that. It gives your reading a real home and keeps it warm.
+            So six months from now you can find the exact idea in 10 seconds and get on with your day.
           </p>
         </Card>
       </div>

@@ -783,6 +783,7 @@ const ArticleViewer = ({ onArticleChange }) => {
                                         className="highlight-popup-save-button"
                                         onClick={saveHighlight}
                                         title="Save highlight"
+                                        data-onboard-id="highlight-save"
                                     >
                                         Save Highlight
                                     </button>

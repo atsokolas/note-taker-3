@@ -122,7 +122,7 @@ const TodayMode = () => {
       </div>
       {error && <p className="status-message error-message">{error}</p>}
       <div className="section-stack">
-        <Card className="search-section">
+        <Card className="search-section" data-onboard-id="today-desk">
           <div className="search-section-header">
             <span className="eyebrow">Resurfaced for you</span>
             <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>

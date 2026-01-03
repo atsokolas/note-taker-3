@@ -75,6 +75,23 @@ const Settings = () => {
         <p className="muted">Export your data and keep your workspace organized.</p>
       </div>
       <Card className="settings-card">
+        <h2>Onboarding</h2>
+        <p className="muted">Need a refresher? Restart the onboarding guide.</p>
+        <Button
+          variant="secondary"
+          onClick={() => {
+            localStorage.removeItem('onboardingComplete');
+            localStorage.removeItem('onboardingStep');
+            localStorage.removeItem('hasCreatedHighlight');
+            localStorage.removeItem('hasTaggedHighlight');
+            localStorage.removeItem('hasCreatedNote');
+            localStorage.removeItem('hasInsertedHighlightIntoNote');
+          }}
+        >
+          Restart Onboarding
+        </Button>
+      </Card>
+      <Card className="settings-card">
         <h2>Import your data</h2>
         <p className="muted">Bring highlights from Readwise or markdown notes into your workspace.</p>
         <div className="settings-import-row">
