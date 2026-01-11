@@ -24,6 +24,7 @@ const Library = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const scope = searchParams.get('scope') || 'all';
   const folderId = searchParams.get('folderId') || '';
+  const highlightQuery = searchParams.get('hq') || '';
   const [selectedArticleId, setSelectedArticleId] = useState('');
   const [moveModalOpen, setMoveModalOpen] = useState(false);
   const [articleToMove, setArticleToMove] = useState(null);
@@ -89,6 +90,9 @@ const Library = () => {
     const params = new URLSearchParams(searchParams);
     params.set('scope', nextScope);
     params.delete('folderId');
+    if (nextScope !== 'highlights') {
+      params.delete('hq');
+    }
     setSearchParams(params);
   };
 
@@ -192,6 +196,17 @@ const Library = () => {
 
   const unfiledCount = folderCounts.unfiled || 0;
   const allCount = useMemo(() => allArticles.length, [allArticles.length]);
+  const folderOptions = useMemo(() => {
+    const options = [{ value: 'unfiled', label: 'Unfiled' }];
+    folders.forEach(folder => {
+      options.push({ value: folder._id, label: folder.name });
+    });
+    return options;
+  }, [folders]);
+  const articleOptions = useMemo(
+    () => allArticles.map(article => ({ value: article._id, label: article.title || 'Untitled article' })),
+    [allArticles]
+  );
 
   const groupedHighlights = useMemo(() => {
     const groups = {};
@@ -232,6 +247,28 @@ const Library = () => {
           onSelectFolder={handleSelectFolder}
         />
       )}
+      <div className="library-search-panel">
+        <SectionHeader title="Search" subtitle="Find highlights fast." />
+        <label className="feedback-field" style={{ margin: 0 }}>
+          <span>Highlight search</span>
+          <input
+            type="text"
+            value={highlightQuery}
+            placeholder="Search highlights..."
+            onChange={(event) => {
+              const params = new URLSearchParams(searchParams);
+              const value = event.target.value;
+              if (value) {
+                params.set('scope', 'highlights');
+                params.set('hq', value);
+              } else {
+                params.delete('hq');
+              }
+              setSearchParams(params);
+            }}
+          />
+        </label>
+      </div>
       <div className="library-saved-views">
         <SectionHeader title="Saved Views" subtitle="Optional shortcuts." />
         <Link className="library-saved-view-link" to="/views">Open Saved Views</Link>
@@ -267,6 +304,19 @@ const Library = () => {
       readerRef={readerRef}
       onSelectArticle={handleSelectArticle}
       onMoveArticle={openMoveModal}
+      folderOptions={folderOptions}
+      articleOptions={articleOptions}
+      externalQuery={highlightQuery}
+      onQueryChange={(value) => {
+        const params = new URLSearchParams(searchParams);
+        if (value) {
+          params.set('scope', 'highlights');
+          params.set('hq', value);
+        } else {
+          params.delete('hq');
+        }
+        setSearchParams(params);
+      }}
     />
   );
 

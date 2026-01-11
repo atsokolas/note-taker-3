@@ -41,6 +41,12 @@ const LibraryCabinet = ({
         <span>Unfiled</span>
         {typeof unfiledCount === 'number' && <span className="library-cabinet-count">{unfiledCount}</span>}
       </QuietButton>
+      <QuietButton
+        className={scope === 'highlights' ? 'is-active' : ''}
+        onClick={() => onSelectScope('highlights')}
+      >
+        <span>Highlights</span>
+      </QuietButton>
     </div>
     <FolderTree
       folders={folders}

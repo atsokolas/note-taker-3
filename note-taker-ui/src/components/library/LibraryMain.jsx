@@ -1,6 +1,7 @@
 import React from 'react';
 import ArticleReader from '../ArticleReader';
 import LibraryArticleList from './LibraryArticleList';
+import LibraryHighlights from './LibraryHighlights';
 
 const LibraryMain = ({
   selectedArticleId,
@@ -15,8 +16,23 @@ const LibraryMain = ({
   selectedFolderName,
   readerRef,
   onSelectArticle,
-  onMoveArticle
+  onMoveArticle,
+  folderOptions,
+  articleOptions,
+  externalQuery,
+  onQueryChange
 }) => {
+  if (scope === 'highlights') {
+    return (
+      <LibraryHighlights
+        folderOptions={folderOptions}
+        articleOptions={articleOptions}
+        externalQuery={externalQuery}
+        onQueryChange={onQueryChange}
+      />
+    );
+  }
+
   if (selectedArticleId) {
     return (
       <div className="section-stack">

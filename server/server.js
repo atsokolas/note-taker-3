@@ -1205,6 +1205,76 @@ app.get('/api/feedback', authenticateToken, async (req, res) => {
   }
 });
 
+// GET /api/highlights - filtered highlights
+app.get('/api/highlights', authenticateToken, async (req, res) => {
+  try {
+    const userId = new mongoose.Types.ObjectId(req.user.id);
+    const { folderId, tag, articleId, q, cursor, limit = 120 } = req.query;
+    const match = { userId };
+
+    if (folderId) {
+      if (folderId === 'unfiled') {
+        match.folder = null;
+      } else {
+        match.folder = new mongoose.Types.ObjectId(folderId);
+      }
+    }
+
+    if (articleId) {
+      match._id = new mongoose.Types.ObjectId(articleId);
+    }
+
+    const highlightMatch = {};
+    if (tag) {
+      highlightMatch['highlights.tags'] = tag;
+    }
+    if (cursor) {
+      const cursorDate = new Date(cursor);
+      if (!Number.isNaN(cursorDate.getTime())) {
+        highlightMatch['highlights.createdAt'] = { $lt: cursorDate };
+      }
+    }
+    if (q) {
+      const regex = new RegExp(q, 'i');
+      highlightMatch.$or = [
+        { 'highlights.text': regex },
+        { 'highlights.note': regex },
+        { 'highlights.tags': regex },
+        { title: regex }
+      ];
+    }
+
+    const pipeline = [
+      { $match: match },
+      { $unwind: '$highlights' }
+    ];
+
+    if (Object.keys(highlightMatch).length > 0) {
+      pipeline.push({ $match: highlightMatch });
+    }
+
+    pipeline.push(
+      { $sort: { 'highlights.createdAt': -1 } },
+      { $limit: Math.min(Number(limit) || 120, 200) },
+      { $project: {
+        _id: '$highlights._id',
+        articleId: '$_id',
+        articleTitle: '$title',
+        text: '$highlights.text',
+        note: '$highlights.note',
+        tags: '$highlights.tags',
+        createdAt: '$highlights.createdAt'
+      } }
+    );
+
+    const highlights = await Article.aggregate(pipeline);
+    res.status(200).json(highlights);
+  } catch (error) {
+    console.error("❌ Error fetching highlights:", error);
+    res.status(500).json({ error: "Failed to fetch highlights." });
+  }
+});
+
 // GET /api/search?q= - search articles and highlights
 app.get('/api/search', authenticateToken, async (req, res) => {
   try {
