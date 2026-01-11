@@ -1099,3 +1099,51 @@ p {
   color: var(--muted);
   font-size: 12px;
 }
+
+.reflection-list {
+  display: grid;
+  gap: 14px;
+}
+
+.reflection-list--bullets {
+  padding-left: 18px;
+  margin: 0;
+}
+
+.reflection-row {
+  display: grid;
+  gap: 6px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.reflection-row:first-child {
+  border-top: none;
+  padding-top: 0;
+}
+
+.reflection-row-title {
+  display: grid;
+  gap: 4px;
+}
+
+.reflection-row-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.reflection-group {
+  display: grid;
+  gap: 8px;
+}
+
+.reflection-group-title {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}

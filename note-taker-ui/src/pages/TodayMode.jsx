@@ -334,7 +334,7 @@ const TodayMode = () => {
       <div className="section-stack">
         <QuietButton onClick={() => navigate('/notebook')}>New Note</QuietButton>
         <QuietButton onClick={() => navigate('/library')}>Open Library</QuietButton>
-        <QuietButton onClick={() => navigate('/review?tab=reflection')}>Open Review → Reflections</QuietButton>
+        <QuietButton onClick={() => navigate('/review?tab=reflections')}>Open Review → Reflections</QuietButton>
         <QuietButton onClick={() => navigate('/export')}>Export</QuietButton>
       </div>
       <SubtleDivider />

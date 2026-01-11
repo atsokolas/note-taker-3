@@ -232,6 +232,14 @@ const { getConcepts, getConceptMeta, updateConceptMeta, getConceptRelated } = bu
   ReferenceEdge,
   mongoose
 });
+const { buildReflectionService } = require('./services/reflectionService');
+const { getReflections } = buildReflectionService({
+  Article,
+  NotebookEntry,
+  Question,
+  TagMeta,
+  mongoose
+});
 // Saved Views (Smart Folders)
 const savedViewSchema = new mongoose.Schema({
   name: { type: String, required: true, trim: true },
@@ -2825,6 +2833,18 @@ app.get('/api/reflection', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('❌ Error building reflection snapshot:', error);
     res.status(500).json({ error: 'Failed to load reflection snapshot.' });
+  }
+});
+
+// Structured reflections (editorial snapshot)
+app.get('/api/reflections', authenticateToken, async (req, res) => {
+  try {
+    const range = req.query.range || '14d';
+    const data = await getReflections(req.user.id, range);
+    res.status(200).json(data);
+  } catch (error) {
+    console.error('❌ Error building reflections snapshot:', error);
+    res.status(500).json({ error: 'Failed to load reflections.' });
   }
 });
 
