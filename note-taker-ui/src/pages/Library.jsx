@@ -5,6 +5,8 @@ import WorkspaceShell from '../layouts/WorkspaceShell';
 import ArticleReader from '../components/ArticleReader';
 import LibraryCabinet from '../components/library/LibraryCabinet';
 import LibraryArticleList from '../components/library/LibraryArticleList';
+import MoveToFolderModal from '../components/library/MoveToFolderModal';
+import { moveArticleToFolder } from '../api/articles';
 import useFolders from '../hooks/useFolders';
 import useLibraryArticles from '../hooks/useLibraryArticles';
 import useArticleDetail from '../hooks/useArticleDetail';
@@ -21,6 +23,10 @@ const Library = () => {
   const scope = searchParams.get('scope') || 'all';
   const folderId = searchParams.get('folderId') || '';
   const [selectedArticleId, setSelectedArticleId] = useState('');
+  const [moveModalOpen, setMoveModalOpen] = useState(false);
+  const [articleToMove, setArticleToMove] = useState(null);
+  const [moveError, setMoveError] = useState('');
+  const [moving, setMoving] = useState(false);
   const [rightOpen, setRightOpen] = useState(() => {
     const stored = localStorage.getItem(RIGHT_STORAGE_KEY);
     if (stored === null) return true;
@@ -32,7 +38,13 @@ const Library = () => {
   const readerRef = useRef(null);
 
   const { folders, loading: foldersLoading, error: foldersError } = useFolders();
-  const { articles, allArticles, loading: articlesLoading, error: articlesError } = useLibraryArticles({
+  const {
+    articles,
+    allArticles,
+    loading: articlesLoading,
+    error: articlesError,
+    setAllArticles
+  } = useLibraryArticles({
     scope,
     folderId,
     sort: 'recent'
@@ -89,6 +101,54 @@ const Library = () => {
     localStorage.setItem('library.lastArticleId', id);
   };
 
+  const openMoveModal = (article) => {
+    setArticleToMove(article);
+    setMoveError('');
+    setMoveModalOpen(true);
+  };
+
+  const closeMoveModal = () => {
+    setMoveModalOpen(false);
+    setArticleToMove(null);
+    setMoving(false);
+  };
+
+  const handleMoveArticle = async (nextFolderId) => {
+    if (!articleToMove) return;
+    setMoving(true);
+    setMoveError('');
+    const previous = allArticles;
+    const nextFolder = nextFolderId
+      ? folders.find(folder => folder._id === nextFolderId) || { _id: nextFolderId, name: 'Folder' }
+      : null;
+    setAllArticles(prevArticles =>
+      prevArticles.map(article =>
+        article._id === articleToMove._id ? { ...article, folder: nextFolder } : article
+      )
+    );
+    try {
+      const updated = await moveArticleToFolder(articleToMove._id, nextFolderId);
+      if (updated) {
+        setAllArticles(prevArticles =>
+          prevArticles.map(article =>
+            article._id === articleToMove._id ? updated : article
+          )
+        );
+      }
+      closeMoveModal();
+      if (scope === 'folder' && nextFolderId !== folderId && selectedArticleId === articleToMove._id) {
+        setSelectedArticleId('');
+      }
+      if (scope === 'unfiled' && nextFolderId && selectedArticleId === articleToMove._id) {
+        setSelectedArticleId('');
+      }
+    } catch (err) {
+      setMoveError(err.response?.data?.error || 'Failed to move article.');
+      setAllArticles(previous);
+      setMoving(false);
+    }
+  };
+
   const handleHighlightClick = (highlight) => {
     setActiveHighlightId(highlight._id);
     readerRef.current?.scrollToHighlight(highlight._id);
@@ -116,7 +176,7 @@ const Library = () => {
     });
   };
 
-  const folderCounts = useMemo(() => {
+  const fallbackCounts = useMemo(() => {
     const counts = {};
     allArticles.forEach(article => {
       const id = article.folder?._id || 'unfiled';
@@ -124,6 +184,21 @@ const Library = () => {
     });
     return counts;
   }, [allArticles]);
+
+  const countsFromFolders = useMemo(() => {
+    const counts = {};
+    folders.forEach(folder => {
+      if (typeof folder.articleCount === 'number') {
+        counts[folder._id] = folder.articleCount;
+      }
+    });
+    return counts;
+  }, [folders]);
+
+  const folderCounts = useMemo(
+    () => ({ ...fallbackCounts, ...countsFromFolders }),
+    [fallbackCounts, countsFromFolders]
+  );
 
   const unfiledCount = folderCounts.unfiled || 0;
   const allCount = useMemo(() => allArticles.length, [allArticles.length]);
@@ -192,6 +267,7 @@ const Library = () => {
           highlights={articleHighlights}
           readingMode={readingMode}
           onToggleReadingMode={toggleReadingMode}
+          onMove={() => selectedArticle && openMoveModal(selectedArticle)}
         />
       )}
     </div>
@@ -206,6 +282,7 @@ const Library = () => {
           ? `No articles in ${selectedFolderName || 'this folder'} yet.`
           : 'No articles saved yet.'}
       onSelectArticle={handleSelectArticle}
+      onMoveArticle={openMoveModal}
     />
   );
 
@@ -309,6 +386,15 @@ const Library = () => {
         rightOpen={readingMode ? false : rightOpen}
         onToggleRight={handleToggleRight}
         className={`library-shell ${readingMode ? 'library-shell--reading' : ''}`}
+      />
+      <MoveToFolderModal
+        open={moveModalOpen}
+        folders={folders}
+        currentFolderId={articleToMove?.folder?._id || ''}
+        onClose={closeMoveModal}
+        onMove={handleMoveArticle}
+        loading={moving}
+        error={moveError}
       />
     </Page>
   );

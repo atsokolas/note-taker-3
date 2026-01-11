@@ -13,7 +13,8 @@ const formatDate = (value) => {
  *  loading: boolean,
  *  error: string,
  *  emptyLabel: string,
- *  onSelectArticle: (id: string) => void
+ *  onSelectArticle: (id: string) => void,
+ *  onMoveArticle?: (article: { _id: string }) => void
  * }} props
  */
 const LibraryArticleList = ({
@@ -21,7 +22,8 @@ const LibraryArticleList = ({
   loading,
   error,
   emptyLabel,
-  onSelectArticle
+  onSelectArticle,
+  onMoveArticle
 }) => (
   <div className="library-article-list">
     {loading && <p className="muted small">Loading articles…</p>}
@@ -35,17 +37,29 @@ const LibraryArticleList = ({
       </div>
     )}
     {!loading && !error && articles.map(article => (
-      <button
-        key={article._id}
-        className="library-article-row"
-        onClick={() => onSelectArticle(article._id)}
-      >
-        <div className="library-article-row-title">{article.title || 'Untitled article'}</div>
-        <div className="library-article-row-meta">
-          <span>{formatDate(article.createdAt)}</span>
-          <span>{(article.highlights || []).length} highlights</span>
-        </div>
-      </button>
+      <div key={article._id} className="library-article-row">
+        <button
+          className="library-article-row-main"
+          onClick={() => onSelectArticle(article._id)}
+        >
+          <div className="library-article-row-title">{article.title || 'Untitled article'}</div>
+          <div className="library-article-row-meta">
+            <span>{formatDate(article.createdAt)}</span>
+            <span>{(article.highlights || []).length} highlights</span>
+          </div>
+        </button>
+        {onMoveArticle && (
+          <button
+            className="library-article-row-action"
+            onClick={(e) => {
+              e.stopPropagation();
+              onMoveArticle(article);
+            }}
+          >
+            Move
+          </button>
+        )}
+      </div>
     ))}
   </div>
 );

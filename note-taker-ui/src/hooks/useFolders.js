@@ -7,6 +7,9 @@ import { getFolders } from '../api/folders';
  * @property {string} name
  * @property {string} [createdAt]
  * @property {string} [updatedAt]
+ * @property {string | null} [parentFolderId]
+ * @property {number} [sortOrder]
+ * @property {number} [articleCount]
  */
 
 const useFolders = () => {

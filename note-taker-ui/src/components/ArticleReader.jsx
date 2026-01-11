@@ -39,7 +39,13 @@ const formatDate = (value) => {
   return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
 };
 
-const ArticleReader = forwardRef(({ article, highlights = [], readingMode, onToggleReadingMode }, ref) => {
+const ArticleReader = forwardRef(({
+  article,
+  highlights = [],
+  readingMode,
+  onToggleReadingMode,
+  onMove
+}, ref) => {
   const contentRef = useRef(null);
   const html = useMemo(
     () => processArticleContent(article, highlights),
@@ -76,11 +82,18 @@ const ArticleReader = forwardRef(({ article, highlights = [], readingMode, onTog
             )}
           </div>
         </div>
-        {onToggleReadingMode && (
-          <QuietButton onClick={onToggleReadingMode}>
-            {readingMode ? 'Exit reading mode' : 'Reading mode'}
-          </QuietButton>
-        )}
+        <div style={{ display: 'inline-flex', gap: 8 }}>
+          {onMove && (
+            <QuietButton onClick={onMove}>
+              Move
+            </QuietButton>
+          )}
+          {onToggleReadingMode && (
+            <QuietButton onClick={onToggleReadingMode}>
+              {readingMode ? 'Exit reading mode' : 'Reading mode'}
+            </QuietButton>
+          )}
+        </div>
       </div>
       <div className="article-reader-content" ref={contentRef} dangerouslySetInnerHTML={{ __html: html }} />
     </div>

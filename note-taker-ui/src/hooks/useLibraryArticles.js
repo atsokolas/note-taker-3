@@ -56,7 +56,7 @@ const useLibraryArticles = ({ scope, folderId, query = '', sort = 'recent' }) =>
     return next;
   }, [allArticles, scope, folderId, query, sort]);
 
-  return { articles, allArticles, loading, error, refresh: fetchArticles };
+  return { articles, allArticles, loading, error, refresh: fetchArticles, setAllArticles };
 };
 
 export default useLibraryArticles;

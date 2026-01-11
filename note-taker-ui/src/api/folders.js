@@ -7,9 +7,12 @@ import { getAuthHeaders } from '../hooks/useAuthHeaders';
  * @property {string} name
  * @property {string} [createdAt]
  * @property {string} [updatedAt]
+ * @property {string | null} [parentFolderId]
+ * @property {number} [sortOrder]
+ * @property {number} [articleCount]
  */
 
 export const getFolders = async () => {
-  const res = await api.get('/folders', getAuthHeaders());
+  const res = await api.get('/api/folders?includeCounts=true', getAuthHeaders());
   return res.data || [];
 };

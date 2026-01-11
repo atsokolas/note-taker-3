@@ -124,6 +124,8 @@ const articleSchema = new mongoose.Schema({
 articleSchema.index({ url: 1, userId: 1 }, { unique: true });
 
 const Article = mongoose.model('Article', articleSchema);
+const { buildFolderService } = require('./services/folderService');
+const { getFoldersWithCounts } = buildFolderService({ Folder, Article, mongoose });
 
 // --- NOTEBOOK: Schema for freeform notes with checklists ---
 const checklistItemSchema = new mongoose.Schema({
@@ -683,6 +685,23 @@ app.post("/save-article", authenticateToken, async (req, res) => {
 
 
 // --- FOLDER API ROUTES ---
+
+// GET /api/folders?includeCounts=true - folders with optional article counts
+app.get('/api/folders', authenticateToken, async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const includeCounts = String(req.query.includeCounts || '').toLowerCase() === 'true';
+        if (includeCounts) {
+            const data = await getFoldersWithCounts(userId);
+            return res.json(data);
+        }
+        const folders = await Folder.find({ userId: userId }).sort({ name: 1 });
+        return res.json(folders);
+    } catch (err) {
+        console.error("❌ Failed to fetch folders:", err);
+        res.status(500).json({ error: "Failed to fetch folders" });
+    }
+});
 
 // GET /folders: Fetches all created folders - MODIFIED FOR USER AUTHENTICATION
 app.get('/folders', authenticateToken, async (req, res) => {

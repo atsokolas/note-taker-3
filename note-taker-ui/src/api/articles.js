@@ -52,3 +52,12 @@ export const getArticles = async ({
 
   return articles;
 };
+
+export const moveArticleToFolder = async (articleId, folderId) => {
+  const res = await api.patch(
+    `/articles/${articleId}/move`,
+    { folderId: folderId || 'uncategorized' },
+    getAuthHeaders()
+  );
+  return res.data;
+};
