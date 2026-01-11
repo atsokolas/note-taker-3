@@ -7,10 +7,17 @@ import useConcept from '../hooks/useConcept';
 import useConceptRelated from '../hooks/useConceptRelated';
 import useConceptReferences from '../hooks/useConceptReferences';
 import { updateConcept } from '../api/concepts';
+import NotebookView from '../components/think/notebook/NotebookView';
+import NotebookContext from '../components/think/notebook/NotebookContext';
 
 const ThinkMode = () => {
   const [searchParams, setSearchParams] = useSearchParams();
+  const viewParam = searchParams.get('view') || '';
   const queryConcept = searchParams.get('concept') || '';
+  const allowedViews = ['notebook', 'concepts', 'questions'];
+  const activeView = allowedViews.includes(viewParam)
+    ? viewParam
+    : (searchParams.get('entryId') ? 'notebook' : 'concepts');
   const [search, setSearch] = useState('');
   const [descriptionDraft, setDescriptionDraft] = useState('');
   const [savingDescription, setSavingDescription] = useState(false);
@@ -18,19 +25,20 @@ const ThinkMode = () => {
   const [highlightOffset, setHighlightOffset] = useState(0);
   const [recentHighlights, setRecentHighlights] = useState([]);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [activeNotebookEntry, setActiveNotebookEntry] = useState(null);
 
   const { concepts, loading: conceptsLoading, error: conceptsError } = useConcepts();
   const selectedName = queryConcept || concepts[0]?.name || '';
   const { concept, loading: conceptLoading, error: conceptLoadError, refresh, setConcept } = useConcept(selectedName, {
-    enabled: Boolean(selectedName)
+    enabled: activeView === 'concepts' && Boolean(selectedName)
   });
   const { related, loading: relatedLoading, error: relatedError } = useConceptRelated(selectedName, {
-    enabled: Boolean(selectedName),
+    enabled: activeView === 'concepts' && Boolean(selectedName),
     limit: 20,
     offset: highlightOffset
   });
   const { references, loading: refLoading, error: refError } = useConceptReferences(selectedName, {
-    enabled: Boolean(selectedName)
+    enabled: activeView === 'concepts' && Boolean(selectedName)
   });
 
   const filteredConcepts = useMemo(() => {
@@ -65,7 +73,14 @@ const ThinkMode = () => {
 
   const handleSelectConcept = (name) => {
     const params = new URLSearchParams(searchParams);
+    params.set('view', 'concepts');
     params.set('concept', name);
+    setSearchParams(params);
+  };
+
+  const handleSelectView = (view) => {
+    const params = new URLSearchParams(searchParams);
+    params.set('view', view);
     setSearchParams(params);
   };
 
@@ -134,42 +149,75 @@ const ThinkMode = () => {
 
   const leftPanel = (
     <div className="section-stack">
-      <SectionHeader title="Concepts" subtitle="Structured pages." />
-      <label className="feedback-field" style={{ margin: 0 }}>
-        <span>Search</span>
-        <input
-          type="text"
-          value={search}
-          placeholder="Find a concept"
-          onChange={(e) => setSearch(e.target.value)}
-        />
-      </label>
-      {conceptsLoading && <p className="muted small">Loading concepts…</p>}
-      {conceptsError && <p className="status-message error-message">{conceptsError}</p>}
-      <div className="concept-list">
-        {filteredConcepts.map(conceptItem => (
-          <QuietButton
-            key={conceptItem.name}
-            className={conceptItem.name === selectedName ? 'is-active' : ''}
-            onClick={() => handleSelectConcept(conceptItem.name)}
-          >
-            <span>{conceptItem.name}</span>
-            {typeof conceptItem.count === 'number' && (
-              <span className="concept-count">{conceptItem.count}</span>
-            )}
-          </QuietButton>
-        ))}
-        {!conceptsLoading && filteredConcepts.length === 0 && (
-          <p className="muted small">No concepts found.</p>
-        )}
+      <SectionHeader title="Think" subtitle="Choose your space." />
+      <div className="think-tabs">
+        <QuietButton
+          className={activeView === 'notebook' ? 'is-active' : ''}
+          onClick={() => handleSelectView('notebook')}
+        >
+          Notebook
+        </QuietButton>
+        <QuietButton
+          className={activeView === 'concepts' ? 'is-active' : ''}
+          onClick={() => handleSelectView('concepts')}
+        >
+          Concepts
+        </QuietButton>
+        <QuietButton
+          className={activeView === 'questions' ? 'is-active' : ''}
+          onClick={() => handleSelectView('questions')}
+        >
+          Questions
+        </QuietButton>
       </div>
+      {activeView === 'concepts' && (
+        <>
+          <SectionHeader title="Concepts" subtitle="Structured pages." />
+          <label className="feedback-field" style={{ margin: 0 }}>
+            <span>Search</span>
+            <input
+              type="text"
+              value={search}
+              placeholder="Find a concept"
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </label>
+          {conceptsLoading && <p className="muted small">Loading concepts…</p>}
+          {conceptsError && <p className="status-message error-message">{conceptsError}</p>}
+          <div className="concept-list">
+            {filteredConcepts.map(conceptItem => (
+              <QuietButton
+                key={conceptItem.name}
+                className={conceptItem.name === selectedName ? 'is-active' : ''}
+                onClick={() => handleSelectConcept(conceptItem.name)}
+              >
+                <span>{conceptItem.name}</span>
+                {typeof conceptItem.count === 'number' && (
+                  <span className="concept-count">{conceptItem.count}</span>
+                )}
+              </QuietButton>
+            ))}
+            {!conceptsLoading && filteredConcepts.length === 0 && (
+              <p className="muted small">No concepts found.</p>
+            )}
+          </div>
+        </>
+      )}
     </div>
   );
 
-  const mainPanel = (
+  const mainPanel = activeView === 'notebook' ? (
+    <NotebookView onActiveEntryChange={setActiveNotebookEntry} />
+  ) : activeView === 'questions' ? (
+    <div className="section-stack">
+      <SectionHeader title="Questions" subtitle="Keep open loops visible." />
+      <p className="muted small">Questions view is coming next.</p>
+    </div>
+  ) : (
     <div className="section-stack">
       {conceptLoadError && <p className="status-message error-message">{conceptLoadError}</p>}
       {conceptError && <p className="status-message error-message">{conceptError}</p>}
+      {relatedError && <p className="status-message error-message">{relatedError}</p>}
       {conceptLoading && <p className="muted small">Loading concept…</p>}
       {!conceptLoading && concept && (
         <>
@@ -278,7 +326,14 @@ const ThinkMode = () => {
     </div>
   );
 
-  const rightPanel = (
+  const rightPanel = activeView === 'notebook' ? (
+    <NotebookContext entry={activeNotebookEntry} />
+  ) : activeView === 'questions' ? (
+    <div className="section-stack">
+      <SectionHeader title="Context" subtitle="Open loops." />
+      <p className="muted small">Questions will surface related concepts here.</p>
+    </div>
+  ) : (
     <div className="section-stack">
       <SectionHeader title="Related concepts" subtitle="Neighbors and cousins." />
       {concept?.relatedTags?.length > 0 ? (

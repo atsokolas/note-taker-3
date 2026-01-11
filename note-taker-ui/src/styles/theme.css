@@ -1186,3 +1186,144 @@ p {
   letter-spacing: 0.08em;
   color: var(--muted);
 }
+
+.think-tabs {
+  display: grid;
+  gap: 8px;
+}
+
+.think-tabs .ui-quiet-button {
+  width: 100%;
+  justify-content: space-between;
+}
+
+.think-notebook-layout {
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr);
+  gap: 16px;
+  min-height: 520px;
+}
+
+.think-notebook-list {
+  display: grid;
+  gap: 12px;
+  border-right: 1px solid var(--border-subtle);
+  padding-right: 12px;
+}
+
+.think-notebook-list-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.think-notebook-list-title {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.think-notebook-list-items {
+  display: grid;
+  gap: 8px;
+}
+
+.think-notebook-list-item {
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  padding: 10px 12px;
+  text-align: left;
+  background: var(--surface);
+  cursor: pointer;
+  transition: border-color 0.18s ease, background 0.18s ease;
+}
+
+.think-notebook-list-item:hover {
+  border-color: var(--accent);
+}
+
+.think-notebook-list-item.is-active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.think-notebook-item-title {
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 4px;
+}
+
+.think-notebook-item-meta {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.think-notebook-editor-pane {
+  display: grid;
+  min-width: 0;
+}
+
+.think-notebook-editor {
+  display: grid;
+  gap: 12px;
+  padding: 12px 4px;
+}
+
+.think-notebook-editor--empty {
+  padding: 24px;
+  border: 1px dashed var(--border-subtle);
+  border-radius: 12px;
+  background: var(--surface);
+}
+
+.think-notebook-editor-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.think-notebook-title-input {
+  flex: 1;
+  border: none;
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: 1.35rem;
+  font-weight: 600;
+  padding: 6px 2px;
+  background: transparent;
+  color: var(--text);
+  outline: none;
+  font-family: var(--font-serif);
+}
+
+.think-notebook-editor-actions {
+  display: inline-flex;
+  gap: 8px;
+}
+
+.think-notebook-editor-body {
+  min-height: 420px;
+  font-family: var(--font-serif);
+  line-height: 1.75;
+  color: var(--text);
+}
+
+.think-notebook-empty {
+  padding: 16px;
+  border: 1px dashed var(--border-subtle);
+  border-radius: 12px;
+  background: var(--surface);
+  display: grid;
+  gap: 8px;
+}
+
+@media (max-width: 1100px) {
+  .think-notebook-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .think-notebook-list {
+    border-right: none;
+    padding-right: 0;
+  }
+}
