@@ -22,7 +22,7 @@ import ViewDetail from './pages/ViewDetail';
 import Today from './pages/Today';
 import Export from './pages/Export';
 import TodayMode from './pages/TodayMode';
-import LibraryMode from './pages/LibraryMode';
+import Library from './pages/Library';
 import ThinkMode from './pages/ThinkMode';
 import ReviewMode from './pages/ReviewMode';
 import Settings from './pages/Settings';
@@ -167,7 +167,7 @@ function App() {
             <Routes>
               <Route path="/" element={hasSeenLanding ? <Navigate to="/today" replace /> : <Landing />} />
               <Route path="/today" element={<TodayMode />} />
-              <Route path="/library" element={<LibraryMode />} />
+              <Route path="/library" element={<Library />} />
               <Route path="/think" element={<ThinkMode />} />
               <Route path="/review" element={<ReviewMode />} />
               <Route path="/settings" element={<Settings />} />
