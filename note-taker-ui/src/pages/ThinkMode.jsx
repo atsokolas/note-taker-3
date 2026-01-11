@@ -2,10 +2,11 @@ import React, { useState } from 'react';
 import Notebook from './Notebook';
 import TagBrowser from './TagBrowser';
 import AllHighlights from './AllHighlights';
-import { Page, Card, Button, TagChip } from '../components/ui';
+import { Page, Card, Button, TagChip, SectionHeader, QuietButton, SubtleDivider } from '../components/ui';
 import api from '../api';
 import QuestionModal from '../components/QuestionModal';
 import { fetchWithCache } from '../utils/cache';
+import WorkspaceShell from '../layouts/WorkspaceShell';
 
 const ThinkMode = () => {
   const tabs = [
@@ -60,16 +61,6 @@ const ThinkMode = () => {
 
   const renderQuestions = () => (
     <div className="section-stack">
-      <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-        <Button onClick={() => setModalOpen(true)}>New Question</Button>
-        <label className="feedback-field" style={{ margin: 0 }}>
-          <span>Filter by concept</span>
-          <select value={tagFilter} onChange={(e) => setTagFilter(e.target.value)} className="compact-select">
-            <option value="all">All concepts</option>
-            {tags.map(t => <option key={t.tag} value={t.tag}>{t.tag}</option>)}
-          </select>
-        </label>
-      </div>
       {questionLoading && <p className="status-message">Loading questions…</p>}
       {questionError && <p className="status-message error-message">{questionError}</p>}
       <div className="section-stack">
@@ -125,29 +116,63 @@ const ThinkMode = () => {
     }
   }, [active, tagFilter]);
 
+  const leftPanel = (
+    <div className="section-stack">
+      <SectionHeader title="Think sections" subtitle="Move between modes." />
+      <div className="section-stack">
+        {tabs.map(t => (
+          <QuietButton
+            key={t.key}
+            className={active === t.key ? 'is-active' : ''}
+            onClick={() => setActive(t.key)}
+          >
+            {t.label}
+          </QuietButton>
+        ))}
+      </div>
+      <SubtleDivider />
+      <p className="muted small">Notebook for writing. Concepts for structure. Backlinks for connections.</p>
+    </div>
+  );
+
+  const mainPanel = (
+    <div className="section-stack">
+      {renderTab()}
+    </div>
+  );
+
+  const rightPanel = (
+    <div className="section-stack">
+      <SectionHeader title="Actions" subtitle={active === 'questions' ? 'Keep the queue tidy.' : 'Quick tools.'} />
+      {active === 'questions' ? (
+        <>
+          <Button onClick={() => setModalOpen(true)}>New Question</Button>
+          <label className="feedback-field" style={{ margin: 0 }}>
+            <span>Filter by concept</span>
+            <select value={tagFilter} onChange={(e) => setTagFilter(e.target.value)} className="compact-select">
+              <option value="all">All concepts</option>
+              {tags.map(t => <option key={t.tag} value={t.tag}>{t.tag}</option>)}
+            </select>
+          </label>
+        </>
+      ) : (
+        <p className="muted small">Use this space for questions or filters when you need them.</p>
+      )}
+    </div>
+  );
+
   return (
     <Page>
-      <div className="page-header">
-        <p className="muted-label">Mode</p>
-        <h1>Think</h1>
-        <p className="muted">Write, connect concepts, and see backlinks across your notes and highlights.</p>
-      </div>
-      <Card className="tab-card">
-        <div className="tab-bar">
-          {tabs.map(t => (
-            <Button
-              key={t.key}
-              variant={active === t.key ? 'primary' : 'secondary'}
-              onClick={() => setActive(t.key)}
-            >
-              {t.label}
-            </Button>
-          ))}
-        </div>
-        <div className="tab-body">
-          {renderTab()}
-        </div>
-      </Card>
+      <WorkspaceShell
+        title="Think"
+        subtitle="Write, connect concepts, and see backlinks across your notes and highlights."
+        eyebrow="Mode"
+        left={leftPanel}
+        main={mainPanel}
+        right={rightPanel}
+        rightTitle="Think tools"
+        defaultRightOpen
+      />
     </Page>
   );
 };

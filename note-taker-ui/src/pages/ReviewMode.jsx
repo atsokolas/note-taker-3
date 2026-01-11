@@ -4,7 +4,8 @@ import Journey from './Journey';
 import Resurface from './Resurface';
 import Trending from './Trending';
 import api from '../api';
-import { Page, Card, Button, TagChip } from '../components/ui';
+import { Page, Card, Button, TagChip, SectionHeader, QuietButton, SubtleDivider } from '../components/ui';
+import WorkspaceShell from '../layouts/WorkspaceShell';
 
 const ReviewMode = () => {
   const tabs = [
@@ -108,32 +109,62 @@ const ReviewMode = () => {
     }
   };
 
+  const leftPanel = (
+    <div className="section-stack">
+      <SectionHeader title="Review sections" subtitle="Switch your lens." />
+      <div className="section-stack">
+        {tabs.map(t => (
+          <QuietButton
+            key={t.key}
+            className={active === t.key ? 'is-active' : ''}
+            onClick={() => {
+              setActive(t.key);
+              if (t.key === 'reflection') loadReflection();
+            }}
+          >
+            {t.label}
+          </QuietButton>
+        ))}
+      </div>
+      <SubtleDivider />
+      <p className="muted small">Review is optional, but it shows you where the patterns live.</p>
+    </div>
+  );
+
+  const mainPanel = (
+    <div className="section-stack">
+      {renderTab()}
+    </div>
+  );
+
+  const rightPanel = (
+    <div className="section-stack">
+      <SectionHeader title="Review tools" subtitle="Lightweight by design." />
+      {active === 'reflection' ? (
+        <>
+          <Button variant="secondary" onClick={loadReflection} disabled={reflectionLoading}>
+            {reflectionLoading ? 'Refreshing…' : 'Refresh reflection'}
+          </Button>
+          <p className="muted small">Reflection uses your last 30 days to spot what is building momentum.</p>
+        </>
+      ) : (
+        <p className="muted small">Switch to Reflection when you want the 30-day snapshot.</p>
+      )}
+    </div>
+  );
+
   return (
     <Page>
-      <div className="page-header">
-        <p className="muted-label">Mode</p>
-        <h1>Review</h1>
-        <p className="muted">Revisit what matters: recent reading, resurfaced highlights, and trending patterns.</p>
-      </div>
-      <Card className="tab-card">
-        <div className="tab-bar">
-          {tabs.map(t => (
-            <Button
-              key={t.key}
-              variant={active === t.key ? 'primary' : 'secondary'}
-              onClick={() => {
-                setActive(t.key);
-                if (t.key === 'reflection') loadReflection();
-              }}
-            >
-              {t.label}
-            </Button>
-          ))}
-        </div>
-        <div className="tab-body">
-          {renderTab()}
-        </div>
-      </Card>
+      <WorkspaceShell
+        title="Review"
+        subtitle="Revisit what matters: recent reading, resurfaced highlights, and trending patterns."
+        eyebrow="Mode"
+        left={leftPanel}
+        main={mainPanel}
+        right={rightPanel}
+        rightTitle="Review tools"
+        defaultRightOpen
+      />
     </Page>
   );
 };

@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import api from '../api';
-import { Page, Card, Button, TagChip } from '../components/ui';
+import { Page, Card, Button, TagChip, SectionHeader, QuietButton, SubtleDivider } from '../components/ui';
 import { SkeletonCard } from '../components/Skeleton';
+import WorkspaceShell from '../layouts/WorkspaceShell';
 
 const TodayMode = () => {
   const [highlights, setHighlights] = useState([]);
@@ -113,143 +114,145 @@ const TodayMode = () => {
     }
   };
 
+  const leftPanel = (
+    <div className="section-stack">
+      <SectionHeader
+        title="Continue thinking"
+        action={<QuietButton onClick={() => navigate('/think')}>Open Notebook</QuietButton>}
+      />
+      <div className="section-stack">
+        {loading && (
+          <>
+            {Array.from({ length: 2 }).map((_, idx) => (
+              <SkeletonCard key={`desk-note-${idx}`} />
+            ))}
+          </>
+        )}
+        {!loading && notebook.length > 0 ? (
+          <>
+            <div className="search-card">
+              <div className="search-card-top">
+                <span className="article-title-link">{notebook[0].title || 'Untitled'}</span>
+                <span className="muted small">{notebook[0].updatedAt ? new Date(notebook[0].updatedAt).toLocaleDateString() : ''}</span>
+              </div>
+              <p className="muted small">{(notebook[0].content || '').slice(0, 160)}{(notebook[0].content || '').length > 160 ? '…' : ''}</p>
+              <Button
+                variant="secondary"
+                onClick={() => navigate(`/notebook?entryId=${notebook[0]._id}`)}
+                style={{ marginTop: 8 }}
+              >
+                Continue this note
+              </Button>
+            </div>
+            {notebook.slice(1).map(n => (
+              <div key={n._id} className="search-card">
+                <div className="search-card-top">
+                  <span className="article-title-link">{n.title || 'Untitled'}</span>
+                  <span className="muted small">{n.updatedAt ? new Date(n.updatedAt).toLocaleDateString() : ''}</span>
+                </div>
+                <p className="muted small">{(n.content || '').slice(0, 120)}{(n.content || '').length > 120 ? '…' : ''}</p>
+              </div>
+            ))}
+          </>
+        ) : !loading && <p className="muted small">No notebook entries yet. Start with a quick reflection.</p>}
+      </div>
+      <SubtleDivider />
+      <SectionHeader title="Active concepts" />
+      <div className="highlight-tag-chips" style={{ flexWrap: 'wrap' }}>
+        {loading && (
+          <>
+            {Array.from({ length: 5 }).map((_, idx) => (
+              <span key={`desk-tag-${idx}`} className="tag-chip"> </span>
+            ))}
+          </>
+        )}
+        {!loading && activeConcepts.length > 0 ? activeConcepts.map(t => (
+          <TagChip key={t.tag} to={`/tags/${encodeURIComponent(t.tag)}`}>{t.tag} <span className="tag-count">{t.count}</span></TagChip>
+        )) : !loading && <span className="muted small">No concept activity yet.</span>}
+      </div>
+    </div>
+  );
+
+  const mainPanel = (
+    <div className="section-stack">
+      {error && <p className="status-message error-message">{error}</p>}
+      <Card className="search-section" data-onboard-id="today-desk">
+        <div className="search-section-header">
+          <span className="eyebrow">Resurfaced for you</span>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <span className="muted small">{highlights.length} items</span>
+            <Button variant="secondary" onClick={reshuffle} disabled={loading}>Reshuffle</Button>
+          </div>
+        </div>
+        <div className="section-stack">
+          {loading && (
+            <>
+              {Array.from({ length: 3 }).map((_, idx) => (
+                <SkeletonCard key={`desk-highlight-${idx}`} />
+              ))}
+            </>
+          )}
+          {!loading && highlights.length > 0 ? highlights.map(h => (
+            <div key={h._id} className="search-card">
+              <div className="search-card-top">
+                <Link to={`/articles/${h.articleId}`} className="article-title-link">{h.articleTitle || 'Untitled article'}</Link>
+                <span className="muted small">{h.createdAt ? new Date(h.createdAt).toLocaleDateString() : ''}</span>
+              </div>
+              <p className="highlight-text" style={{ margin: '6px 0', fontWeight: 600 }}>{h.text}</p>
+              <div className="highlight-tag-chips">
+                {h.tags && h.tags.length > 0 ? h.tags.map(tag => <TagChip key={tag} to={`/tags/${encodeURIComponent(tag)}`}>{tag}</TagChip>) : <span className="muted small">No tags</span>}
+              </div>
+            </div>
+          )) : !loading && <p className="muted small">No highlights yet. Save a few to see them resurface here.</p>}
+        </div>
+      </Card>
+    </div>
+  );
+
+  const rightPanel = (
+    <div className="section-stack">
+      <SectionHeader title="Daily prompt" />
+      <div className="section-stack">
+        <p className="muted" style={{ margin: 0 }}>{dailyPrompt?.text || 'Your prompt will show up here.'}</p>
+        <Button onClick={startDailyNote} disabled={creatingNote || !dailyPrompt}>
+          {creatingNote ? 'Starting…' : 'Start a note'}
+        </Button>
+      </div>
+      <SubtleDivider />
+      <SectionHeader title="Recent articles" />
+      <div className="section-stack">
+        {loading && (
+          <>
+            {Array.from({ length: 3 }).map((_, idx) => (
+              <SkeletonCard key={`desk-article-${idx}`} />
+            ))}
+          </>
+        )}
+        {!loading && articles.length > 0 ? articles.map(a => (
+          <div key={a._id} className="search-card">
+            <div className="search-card-top">
+              <Link to={`/articles/${a._id}`} className="article-title-link">{a.title || 'Untitled article'}</Link>
+              <span className="muted small">{a.createdAt ? new Date(a.createdAt).toLocaleDateString() : ''}</span>
+            </div>
+            <p className="muted small">{a.url}</p>
+          </div>
+        )) : !loading && <p className="muted small">No recent articles yet.</p>}
+      </div>
+    </div>
+  );
+
   return (
     <Page>
-      <div className="page-header">
-        <p className="muted-label">Mode</p>
-        <h1>Today</h1>
-        <p className="muted">A calm daily desk to resurface highlights, continue thinking, and keep ideas moving.</p>
-      </div>
-      {error && <p className="status-message error-message">{error}</p>}
-      <div className="section-stack">
-        <Card className="search-section" data-onboard-id="today-desk">
-          <div className="search-section-header">
-            <span className="eyebrow">Resurfaced for you</span>
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-              <span className="muted small">{highlights.length} items</span>
-              <Button variant="secondary" onClick={reshuffle} disabled={loading}>Reshuffle</Button>
-            </div>
-          </div>
-          <div className="section-stack">
-            {loading && (
-              <>
-                {Array.from({ length: 3 }).map((_, idx) => (
-                  <SkeletonCard key={`desk-highlight-${idx}`} />
-                ))}
-              </>
-            )}
-            {!loading && highlights.length > 0 ? highlights.map(h => (
-              <div key={h._id} className="search-card">
-                <div className="search-card-top">
-                  <Link to={`/articles/${h.articleId}`} className="article-title-link">{h.articleTitle || 'Untitled article'}</Link>
-                  <span className="muted small">{h.createdAt ? new Date(h.createdAt).toLocaleDateString() : ''}</span>
-                </div>
-                <p className="highlight-text" style={{ margin: '6px 0', fontWeight: 600 }}>{h.text}</p>
-                <div className="highlight-tag-chips">
-                  {h.tags && h.tags.length > 0 ? h.tags.map(tag => <TagChip key={tag} to={`/tags/${encodeURIComponent(tag)}`}>{tag}</TagChip>) : <span className="muted small">No tags</span>}
-                </div>
-              </div>
-            )) : !loading && <p className="muted small">No highlights yet. Save a few to see them resurface here.</p>}
-          </div>
-        </Card>
-
-        <Card className="search-section">
-          <div className="search-section-header">
-            <span className="eyebrow">Continue thinking</span>
-            <Link to="/think" className="muted small">Open Notebook</Link>
-          </div>
-          <div className="section-stack">
-            {loading && (
-              <>
-                {Array.from({ length: 2 }).map((_, idx) => (
-                  <SkeletonCard key={`desk-note-${idx}`} />
-                ))}
-              </>
-            )}
-            {!loading && notebook.length > 0 ? (
-              <>
-                <div className="search-card">
-                  <div className="search-card-top">
-                    <span className="article-title-link">{notebook[0].title || 'Untitled'}</span>
-                    <span className="muted small">{notebook[0].updatedAt ? new Date(notebook[0].updatedAt).toLocaleDateString() : ''}</span>
-                  </div>
-                  <p className="muted small">{(notebook[0].content || '').slice(0, 160)}{(notebook[0].content || '').length > 160 ? '…' : ''}</p>
-                  <Button
-                    variant="secondary"
-                    onClick={() => navigate(`/notebook?entryId=${notebook[0]._id}`)}
-                    style={{ marginTop: 8 }}
-                  >
-                    Continue this note
-                  </Button>
-                </div>
-                {notebook.slice(1).map(n => (
-                  <div key={n._id} className="search-card">
-                    <div className="search-card-top">
-                      <span className="article-title-link">{n.title || 'Untitled'}</span>
-                      <span className="muted small">{n.updatedAt ? new Date(n.updatedAt).toLocaleDateString() : ''}</span>
-                    </div>
-                    <p className="muted small">{(n.content || '').slice(0, 120)}{(n.content || '').length > 120 ? '…' : ''}</p>
-                  </div>
-                ))}
-              </>
-            ) : !loading && <p className="muted small">No notebook entries yet. Start with a quick reflection.</p>}
-          </div>
-        </Card>
-
-        <Card className="search-section">
-          <div className="search-section-header">
-            <span className="eyebrow">Recent articles</span>
-          </div>
-          <div className="section-stack">
-            {loading && (
-              <>
-                {Array.from({ length: 3 }).map((_, idx) => (
-                  <SkeletonCard key={`desk-article-${idx}`} />
-                ))}
-              </>
-            )}
-            {!loading && articles.length > 0 ? articles.map(a => (
-              <div key={a._id} className="search-card">
-                <div className="search-card-top">
-                  <Link to={`/articles/${a._id}`} className="article-title-link">{a.title || 'Untitled article'}</Link>
-                  <span className="muted small">{a.createdAt ? new Date(a.createdAt).toLocaleDateString() : ''}</span>
-                </div>
-                <p className="muted small">{a.url}</p>
-              </div>
-            )) : !loading && <p className="muted small">No recent articles yet.</p>}
-          </div>
-        </Card>
-
-        <Card className="search-section">
-          <div className="search-section-header">
-            <span className="eyebrow">Active concepts</span>
-          </div>
-          <div className="highlight-tag-chips" style={{ flexWrap: 'wrap' }}>
-            {loading && (
-              <>
-                {Array.from({ length: 5 }).map((_, idx) => (
-                  <span key={`desk-tag-${idx}`} className="tag-chip"> </span>
-                ))}
-              </>
-            )}
-            {!loading && activeConcepts.length > 0 ? activeConcepts.map(t => (
-              <TagChip key={t.tag} to={`/tags/${encodeURIComponent(t.tag)}`}>{t.tag} <span className="tag-count">{t.count}</span></TagChip>
-            )) : !loading && <span className="muted small">No concept activity yet.</span>}
-          </div>
-        </Card>
-
-        <Card className="search-section">
-          <div className="search-section-header">
-            <span className="eyebrow">Daily prompt</span>
-          </div>
-          <div className="section-stack">
-            <p className="muted" style={{ margin: 0 }}>{dailyPrompt?.text || 'Your prompt will show up here.'}</p>
-            <Button onClick={startDailyNote} disabled={creatingNote || !dailyPrompt}>
-              {creatingNote ? 'Starting…' : 'Start a note'}
-            </Button>
-          </div>
-        </Card>
-      </div>
+      <WorkspaceShell
+        title="Today"
+        subtitle="A calm daily desk to resurface highlights, continue thinking, and keep ideas moving."
+        eyebrow="Mode"
+        left={leftPanel}
+        main={mainPanel}
+        right={rightPanel}
+        rightTitle="Today details"
+        defaultRightOpen
+      />
     </Page>
   );
 };

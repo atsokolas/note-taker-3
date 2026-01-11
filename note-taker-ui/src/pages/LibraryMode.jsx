@@ -5,8 +5,9 @@ import AllHighlights from './AllHighlights';
 import TagBrowser from './TagBrowser';
 import Views from './Views';
 import Collections from './Collections';
-import { Page, Card, Button, TagChip } from '../components/ui';
+import { Page, Card, Button, TagChip, SectionHeader, QuietButton, SubtleDivider } from '../components/ui';
 import { fetchWithCache, getCached, setCached } from '../utils/cache';
+import WorkspaceShell from '../layouts/WorkspaceShell';
 
 const LibraryMode = () => {
   const tabs = [
@@ -231,84 +232,106 @@ const LibraryMode = () => {
     }
   };
 
+  const leftPanel = (
+    <div className="section-stack">
+      <SectionHeader title="Library sections" subtitle="Switch your focus." />
+      <div className="section-stack">
+        {tabs.map(t => (
+          <QuietButton
+            key={t.key}
+            className={active === t.key ? 'is-active' : ''}
+            onClick={() => setActive(t.key)}
+          >
+            {t.label}
+          </QuietButton>
+        ))}
+      </div>
+      <SubtleDivider />
+      <p className="muted small">Use tags and saved views to keep the library tidy without overthinking it.</p>
+    </div>
+  );
+
+  const mainPanel = (
+    <div className="section-stack">
+      {renderTab()}
+    </div>
+  );
+
+  const rightPanel = (
+    <div className="section-stack">
+      <SectionHeader title="Filters" subtitle="Narrow the view." />
+      <label className="feedback-field" style={{ margin: 0 }}>
+        <span>Search</span>
+        <input
+          type="text"
+          value={filters.query}
+          onChange={(e) => setFilters(prev => ({ ...prev, query: e.target.value }))}
+          placeholder="Search titles, text, notes, or tags"
+        />
+      </label>
+      <label className="feedback-field" style={{ margin: 0 }}>
+        <span>Sort</span>
+        <select
+          value={filters.sort}
+          onChange={(e) => setFilters(prev => ({ ...prev, sort: e.target.value }))}
+          className="compact-select"
+        >
+          <option value="recent">Most recent</option>
+          <option value="most-highlighted">Most highlighted</option>
+        </select>
+      </label>
+      <label className="feedback-field" style={{ margin: 0 }}>
+        <span>From</span>
+        <input
+          type="date"
+          value={filters.dateFrom}
+          onChange={(e) => setFilters(prev => ({ ...prev, dateFrom: e.target.value }))}
+        />
+      </label>
+      <label className="feedback-field" style={{ margin: 0 }}>
+        <span>To</span>
+        <input
+          type="date"
+          value={filters.dateTo}
+          onChange={(e) => setFilters(prev => ({ ...prev, dateTo: e.target.value }))}
+        />
+      </label>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        <QuietButton onClick={clearFilters}>Clear</QuietButton>
+        <Button onClick={openSaveView} disabled={!canSaveView}>Save view</Button>
+      </div>
+      <SubtleDivider />
+      <SectionHeader title="Tags" subtitle="Quick filters." />
+      <div className="library-tag-filters" style={{ padding: 0, border: 'none' }}>
+        {tagsLoading && <span className="muted small">Loading tags…</span>}
+        {!tagsLoading && filteredTagOptions.map(t => (
+          <TagChip
+            key={t.tag}
+            className={filters.tags.includes(t.tag) ? 'ui-tag-chip-selected' : ''}
+            onClick={() => toggleFilterTag(t.tag)}
+          >
+            {t.tag} <span className="tag-count">{t.count}</span>
+          </TagChip>
+        ))}
+        {!tagsLoading && filteredTagOptions.length === 0 && (
+          <span className="muted small">No tags match that search.</span>
+        )}
+      </div>
+    </div>
+  );
+
   return (
     <Page>
-      <div className="page-header">
-        <p className="muted-label">Mode</p>
-        <h1>Library</h1>
-        <p className="muted">Browse everything you’ve saved—articles, highlights, concepts, and smart views.</p>
-      </div>
-      <Card className="tab-card">
-        <div className="tab-bar">
-          {tabs.map(t => (
-            <Button
-              key={t.key}
-              variant={active === t.key ? 'primary' : 'secondary'}
-              onClick={() => setActive(t.key)}
-            >
-              {t.label}
-            </Button>
-          ))}
-        </div>
-        <div className="library-filter-bar">
-          <label className="feedback-field" style={{ flex: 1 }}>
-            <span>Search</span>
-            <input
-              type="text"
-              value={filters.query}
-              onChange={(e) => setFilters(prev => ({ ...prev, query: e.target.value }))}
-              placeholder="Search titles, text, notes, or tags"
-            />
-          </label>
-          <label className="feedback-field" style={{ minWidth: 180 }}>
-            <span>Sort</span>
-            <select
-              value={filters.sort}
-              onChange={(e) => setFilters(prev => ({ ...prev, sort: e.target.value }))}
-              className="compact-select"
-            >
-              <option value="recent">Most recent</option>
-              <option value="most-highlighted">Most highlighted</option>
-            </select>
-          </label>
-          <label className="feedback-field" style={{ minWidth: 160 }}>
-            <span>From</span>
-            <input
-              type="date"
-              value={filters.dateFrom}
-              onChange={(e) => setFilters(prev => ({ ...prev, dateFrom: e.target.value }))}
-            />
-          </label>
-          <label className="feedback-field" style={{ minWidth: 160 }}>
-            <span>To</span>
-            <input
-              type="date"
-              value={filters.dateTo}
-              onChange={(e) => setFilters(prev => ({ ...prev, dateTo: e.target.value }))}
-            />
-          </label>
-          <Button variant="secondary" onClick={clearFilters}>Clear</Button>
-          <Button onClick={openSaveView} disabled={!canSaveView}>Save view</Button>
-        </div>
-        <div className="library-tag-filters">
-          {tagsLoading && <span className="muted small">Loading tags…</span>}
-          {!tagsLoading && filteredTagOptions.map(t => (
-            <TagChip
-              key={t.tag}
-              className={filters.tags.includes(t.tag) ? 'ui-tag-chip-selected' : ''}
-              onClick={() => toggleFilterTag(t.tag)}
-            >
-              {t.tag} <span className="tag-count">{t.count}</span>
-            </TagChip>
-          ))}
-          {!tagsLoading && filteredTagOptions.length === 0 && (
-            <span className="muted small">No tags match that search.</span>
-          )}
-        </div>
-        <div className="tab-body">
-          {renderTab()}
-        </div>
-      </Card>
+      <WorkspaceShell
+        title="Library"
+        subtitle="Browse everything you’ve saved—articles, highlights, concepts, and smart views."
+        eyebrow="Mode"
+        left={leftPanel}
+        main={mainPanel}
+        right={rightPanel}
+        rightTitle="Library tools"
+        defaultRightOpen
+      />
       {showSaveView && (
         <div className="modal-overlay">
           <div className="modal-content" style={{ maxWidth: 520 }}>
