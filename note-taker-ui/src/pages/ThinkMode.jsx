@@ -13,8 +13,9 @@ import useQuestions from '../hooks/useQuestions';
 import { createQuestion, updateQuestion } from '../api/questions';
 import QuestionInput from '../components/think/questions/QuestionInput';
 import QuestionList from '../components/think/questions/QuestionList';
-import AllQuestionsView from '../components/think/questions/AllQuestionsView';
 import HighlightBlock from '../components/blocks/HighlightBlock';
+import QuestionsView from '../components/think/questions/QuestionsView';
+import useHighlights from '../hooks/useHighlights';
 
 const ThinkMode = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -32,6 +33,13 @@ const ThinkMode = () => {
   const [recentHighlights, setRecentHighlights] = useState([]);
   const [loadingMore, setLoadingMore] = useState(false);
   const [activeNotebookEntry, setActiveNotebookEntry] = useState(null);
+  const [activeQuestion, setActiveQuestion] = useState(null);
+  const { highlightMap } = useHighlights({ enabled: activeView === 'questions' });
+
+  const createBlockId = () => {
+    if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
+    return `block-${Math.random().toString(36).slice(2, 9)}-${Date.now()}`;
+  };
 
   const { concepts, loading: conceptsLoading, error: conceptsError } = useConcepts();
   const selectedName = queryConcept || concepts[0]?.name || '';
@@ -55,15 +63,6 @@ const ThinkMode = () => {
     conceptName: selectedName,
     status: 'open',
     enabled: activeView === 'concepts' && Boolean(selectedName)
-  });
-  const {
-    questions: allQuestions,
-    loading: allQuestionsLoading,
-    error: allQuestionsError,
-    setQuestions: setAllQuestions
-  } = useQuestions({
-    status: 'open',
-    enabled: activeView === 'questions'
   });
 
   const filteredConcepts = useMemo(() => {
@@ -175,7 +174,11 @@ const ThinkMode = () => {
   const handleAddQuestion = async (text) => {
     if (!selectedName) return;
     try {
-      const created = await createQuestion({ text, conceptName: selectedName });
+      const created = await createQuestion({
+        text,
+        conceptName: selectedName,
+        blocks: [{ id: createBlockId(), type: 'paragraph', text }]
+      });
       setConceptQuestions(prev => [created, ...prev]);
     } catch (err) {
       setConceptError(err.response?.data?.error || 'Failed to add question.');
@@ -191,14 +194,6 @@ const ThinkMode = () => {
     }
   };
 
-  const handleMarkAnsweredGlobal = async (question) => {
-    try {
-      await updateQuestion(question._id, { status: 'answered' });
-      setAllQuestions(prev => prev.filter(item => item._id !== question._id));
-    } catch (err) {
-      setConceptError(err.response?.data?.error || 'Failed to update question.');
-    }
-  };
 
   const leftPanel = (
     <div className="section-stack">
@@ -262,12 +257,7 @@ const ThinkMode = () => {
   const mainPanel = activeView === 'notebook' ? (
     <NotebookView onActiveEntryChange={setActiveNotebookEntry} />
   ) : activeView === 'questions' ? (
-    <AllQuestionsView
-      questions={allQuestions}
-      loading={allQuestionsLoading}
-      error={allQuestionsError}
-      onMarkAnswered={handleMarkAnsweredGlobal}
-    />
+    <QuestionsView onSelectQuestion={setActiveQuestion} />
   ) : (
     <div className="section-stack">
       {conceptLoadError && <p className="status-message error-message">{conceptLoadError}</p>}
@@ -393,7 +383,33 @@ const ThinkMode = () => {
   ) : activeView === 'questions' ? (
     <div className="section-stack">
       <SectionHeader title="Context" subtitle="Open loops." />
-      <p className="muted small">Questions will surface related concepts here.</p>
+      {activeQuestion?.linkedTagName ? (
+        <TagChip to={`/think?view=concepts&concept=${encodeURIComponent(activeQuestion.linkedTagName)}`}>
+          {activeQuestion.linkedTagName}
+        </TagChip>
+      ) : (
+        <p className="muted small">No concept linked.</p>
+      )}
+      <SectionHeader title="Embedded highlights" subtitle="References in this question." />
+      {activeQuestion?.blocks?.filter(block => block.type === 'highlight-ref').length ? (
+        <div className="concept-note-grid">
+          {activeQuestion.blocks
+            .filter(block => block.type === 'highlight-ref')
+            .map(block => {
+              const highlight = highlightMap.get(String(block.highlightId)) || {
+                id: block.highlightId,
+                text: block.text || 'Highlight',
+                tags: [],
+                articleTitle: ''
+              };
+              return (
+                <HighlightBlock key={block.id} highlight={highlight} compact />
+              );
+            })}
+        </div>
+      ) : (
+        <p className="muted small">No highlights embedded yet.</p>
+      )}
     </div>
   ) : (
     <div className="section-stack">

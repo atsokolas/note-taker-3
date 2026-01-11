@@ -11,7 +11,9 @@ const QuestionList = ({ questions, onMarkAnswered }) => {
       {questions.map(question => (
         <div key={question._id} className="think-question-row">
           <div className="think-question-text">{question.text}</div>
-          <QuietButton onClick={() => onMarkAnswered(question)}>Mark answered</QuietButton>
+          {onMarkAnswered && (
+            <QuietButton onClick={() => onMarkAnswered(question)}>Mark answered</QuietButton>
+          )}
         </div>
       ))}
     </div>

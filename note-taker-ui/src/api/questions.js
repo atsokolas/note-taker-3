@@ -20,6 +20,11 @@ export const getQuestions = async ({ status, tag } = {}) => {
   return res.data || [];
 };
 
+export const getQuestion = async (id) => {
+  const res = await api.get(`/api/questions/${id}`, getAuthHeaders());
+  return res.data;
+};
+
 export const getConceptQuestions = async (conceptName, { status = 'open' } = {}) => {
   const params = new URLSearchParams();
   if (status) params.set('status', status);
@@ -31,11 +36,13 @@ export const getConceptQuestions = async (conceptName, { status = 'open' } = {})
   return res.data || [];
 };
 
-export const createQuestion = async ({ text, conceptName, status = 'open' }) => {
+export const createQuestion = async ({ text, conceptName, status = 'open', blocks = [] }) => {
   const payload = {
     text,
     status,
-    linkedTagName: conceptName || ''
+    conceptName: conceptName || '',
+    linkedTagName: conceptName || '',
+    blocks
   };
   const res = await api.post('/api/questions', payload, getAuthHeaders());
   return res.data;

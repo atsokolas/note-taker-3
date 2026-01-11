@@ -199,6 +199,13 @@ const questionSchema = new mongoose.Schema({
   text: { type: String, required: true, trim: true },
   status: { type: String, enum: ['open', 'answered'], default: 'open' },
   linkedTagName: { type: String, default: '' },
+  conceptName: { type: String, default: '' },
+  blocks: [{
+    id: { type: String, required: true },
+    type: { type: String, enum: ['paragraph', 'highlight-ref'], default: 'paragraph' },
+    text: { type: String, default: '' },
+    highlightId: { type: mongoose.Schema.Types.ObjectId, default: null }
+  }],
   linkedHighlightId: { type: mongoose.Schema.Types.ObjectId, default: null },
   linkedHighlightIds: [{ type: mongoose.Schema.Types.ObjectId }],
   linkedNotebookEntryId: { type: mongoose.Schema.Types.ObjectId, default: null },
@@ -1776,10 +1783,11 @@ app.get('/api/concepts/:name/questions', authenticateToken, async (req, res) => 
 app.get('/api/questions', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
-    const { status, tag, highlightId, notebookEntryId } = req.query;
+    const { status, tag, conceptName, highlightId, notebookEntryId } = req.query;
     const filter = { userId };
     if (status) filter.status = status;
     if (tag) filter.linkedTagName = tag;
+    if (conceptName) filter.linkedTagName = new RegExp(`^${conceptName}$`, 'i');
     if (highlightId) filter.linkedHighlightId = highlightId;
     if (notebookEntryId) filter.linkedNotebookEntryId = notebookEntryId;
     const questions = await Question.find(filter).sort({ createdAt: -1 });
@@ -1790,19 +1798,44 @@ app.get('/api/questions', authenticateToken, async (req, res) => {
   }
 });
 
+app.get('/api/questions/:id', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { id } = req.params;
+    const question = await Question.findOne({ _id: id, userId });
+    if (!question) return res.status(404).json({ error: "Question not found." });
+    res.status(200).json(question);
+  } catch (error) {
+    console.error("❌ Error fetching question:", error);
+    res.status(500).json({ error: "Failed to fetch question." });
+  }
+});
+
 app.post('/api/questions', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
-    const { text, status = 'open', linkedTagName = '', linkedHighlightId = null, linkedHighlightIds = [], linkedNotebookEntryId = null } = req.body;
+    const {
+      text,
+      status = 'open',
+      linkedTagName = '',
+      conceptName = '',
+      blocks = [],
+      linkedHighlightId = null,
+      linkedHighlightIds = [],
+      linkedNotebookEntryId = null
+    } = req.body;
     if (!text || !text.trim()) return res.status(400).json({ error: "Question text is required." });
     const highlightIds = [
       ...(Array.isArray(linkedHighlightIds) ? linkedHighlightIds : []),
       ...(linkedHighlightId ? [linkedHighlightId] : [])
     ].filter(Boolean);
+    const normalizedConcept = (conceptName || linkedTagName || '').trim();
     const question = await Question.create({
       text: text.trim(),
       status,
-      linkedTagName,
+      linkedTagName: (linkedTagName || normalizedConcept || '').trim(),
+      conceptName: normalizedConcept,
+      blocks: Array.isArray(blocks) ? blocks : [],
       linkedHighlightId,
       linkedHighlightIds: highlightIds,
       linkedNotebookEntryId,
@@ -1819,11 +1852,16 @@ app.put('/api/questions/:id', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
     const { id } = req.params;
-    const { text, status, linkedTagName, linkedHighlightId, linkedHighlightIds, linkedNotebookEntryId } = req.body;
+    const { text, status, linkedTagName, conceptName, blocks, linkedHighlightId, linkedHighlightIds, linkedNotebookEntryId } = req.body;
     const payload = {};
     if (text !== undefined) payload.text = text;
     if (status !== undefined) payload.status = status;
     if (linkedTagName !== undefined) payload.linkedTagName = linkedTagName;
+    if (conceptName !== undefined) {
+      payload.conceptName = conceptName;
+      if (linkedTagName === undefined) payload.linkedTagName = conceptName;
+    }
+    if (blocks !== undefined) payload.blocks = Array.isArray(blocks) ? blocks : [];
     if (linkedHighlightId !== undefined) payload.linkedHighlightId = linkedHighlightId;
     if (linkedHighlightIds !== undefined) payload.linkedHighlightIds = linkedHighlightIds;
     if (linkedNotebookEntryId !== undefined) payload.linkedNotebookEntryId = linkedNotebookEntryId;
