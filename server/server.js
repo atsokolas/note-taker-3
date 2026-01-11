@@ -1753,6 +1753,25 @@ app.delete('/api/concepts/notes/:id', authenticateToken, async (req, res) => {
   }
 });
 
+// GET /api/concepts/:name/questions - open questions for a concept
+app.get('/api/concepts/:name/questions', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const conceptName = req.params.name;
+    const status = req.query.status || 'open';
+    const nameRegex = new RegExp(`^${conceptName}$`, 'i');
+    const questions = await Question.find({
+      userId,
+      status,
+      linkedTagName: nameRegex
+    }).sort({ createdAt: -1 });
+    res.status(200).json(questions);
+  } catch (error) {
+    console.error("❌ Error fetching concept questions:", error);
+    res.status(500).json({ error: "Failed to fetch questions." });
+  }
+});
+
 // --- QUESTIONS CRUD ---
 app.get('/api/questions', authenticateToken, async (req, res) => {
   try {

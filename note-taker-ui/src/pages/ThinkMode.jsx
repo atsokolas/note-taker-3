@@ -9,6 +9,11 @@ import useConceptReferences from '../hooks/useConceptReferences';
 import { updateConcept } from '../api/concepts';
 import NotebookView from '../components/think/notebook/NotebookView';
 import NotebookContext from '../components/think/notebook/NotebookContext';
+import useQuestions from '../hooks/useQuestions';
+import { createQuestion, updateQuestion } from '../api/questions';
+import QuestionInput from '../components/think/questions/QuestionInput';
+import QuestionList from '../components/think/questions/QuestionList';
+import AllQuestionsView from '../components/think/questions/AllQuestionsView';
 
 const ThinkMode = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -39,6 +44,25 @@ const ThinkMode = () => {
   });
   const { references, loading: refLoading, error: refError } = useConceptReferences(selectedName, {
     enabled: activeView === 'concepts' && Boolean(selectedName)
+  });
+  const {
+    questions: conceptQuestions,
+    loading: questionsLoading,
+    error: questionsError,
+    setQuestions: setConceptQuestions
+  } = useQuestions({
+    conceptName: selectedName,
+    status: 'open',
+    enabled: activeView === 'concepts' && Boolean(selectedName)
+  });
+  const {
+    questions: allQuestions,
+    loading: allQuestionsLoading,
+    error: allQuestionsError,
+    setQuestions: setAllQuestions
+  } = useQuestions({
+    status: 'open',
+    enabled: activeView === 'questions'
   });
 
   const filteredConcepts = useMemo(() => {
@@ -147,6 +171,34 @@ const ThinkMode = () => {
     setLoadingMore(false);
   };
 
+  const handleAddQuestion = async (text) => {
+    if (!selectedName) return;
+    try {
+      const created = await createQuestion({ text, conceptName: selectedName });
+      setConceptQuestions(prev => [created, ...prev]);
+    } catch (err) {
+      setConceptError(err.response?.data?.error || 'Failed to add question.');
+    }
+  };
+
+  const handleMarkAnswered = async (question) => {
+    try {
+      await updateQuestion(question._id, { status: 'answered' });
+      setConceptQuestions(prev => prev.filter(item => item._id !== question._id));
+    } catch (err) {
+      setConceptError(err.response?.data?.error || 'Failed to update question.');
+    }
+  };
+
+  const handleMarkAnsweredGlobal = async (question) => {
+    try {
+      await updateQuestion(question._id, { status: 'answered' });
+      setAllQuestions(prev => prev.filter(item => item._id !== question._id));
+    } catch (err) {
+      setConceptError(err.response?.data?.error || 'Failed to update question.');
+    }
+  };
+
   const leftPanel = (
     <div className="section-stack">
       <SectionHeader title="Think" subtitle="Choose your space." />
@@ -209,10 +261,12 @@ const ThinkMode = () => {
   const mainPanel = activeView === 'notebook' ? (
     <NotebookView onActiveEntryChange={setActiveNotebookEntry} />
   ) : activeView === 'questions' ? (
-    <div className="section-stack">
-      <SectionHeader title="Questions" subtitle="Keep open loops visible." />
-      <p className="muted small">Questions view is coming next.</p>
-    </div>
+    <AllQuestionsView
+      questions={allQuestions}
+      loading={allQuestionsLoading}
+      error={allQuestionsError}
+      onMarkAnswered={handleMarkAnsweredGlobal}
+    />
   ) : (
     <div className="section-stack">
       {conceptLoadError && <p className="status-message error-message">{conceptLoadError}</p>}
@@ -321,6 +375,15 @@ const ThinkMode = () => {
               </div>
             ))}
           </div>
+          <SectionHeader title="Questions" subtitle="Open loops tied to this concept." />
+          {questionsError && <p className="status-message error-message">{questionsError}</p>}
+          {questionsLoading && <p className="muted small">Loading questions…</p>}
+          {!questionsLoading && (
+            <>
+              <QuestionInput onSubmit={handleAddQuestion} />
+              <QuestionList questions={conceptQuestions} onMarkAnswered={handleMarkAnswered} />
+            </>
+          )}
         </>
       )}
     </div>
