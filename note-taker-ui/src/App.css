@@ -1,26 +1,26 @@
 /* Variables for consistent theming */
 :root {
-  --bg-color: #f8f8f8; /* Light gray background */
-  --sidebar-bg-color: #ffffff; /* White sidebar */
-  --card-bg-color: #ffffff; /* White for cards/elements */
-  --border-color: #e0e0e0; /* Light gray border */
-  --border-color-light: #f0f0f0; /* Even lighter for item separators */
-  --text-color: #333333; /* Dark gray for main text */
-  --text-color-secondary: #6c757d; /* Muted gray for secondary text */
-  --primary-color: #007aff; /* Apple-like blue */
-  --primary-color-dark: #005bb5;
-  --primary-color-light: rgba(0, 122, 255, 0.1); /* Lighter version for highlight background etc. */
-  --hover-color: #f5f5f5; /* Light hover effect */
-  --active-color: #e8e8e8; /* Slightly darker for active states */
+  --bg-color: var(--background); /* Light gray background */
+  --sidebar-bg-color: var(--surface); /* White sidebar */
+  --card-bg-color: var(--surface); /* White for cards/elements */
+  --border-color: var(--border-subtle); /* Light gray border */
+  --border-color-light: #f0f2f6; /* Even lighter for item separators */
+  --text-color: var(--text-primary); /* Dark gray for main text */
+  --text-color-secondary: var(--text-secondary); /* Muted gray for secondary text */
+  --primary-color: var(--accent); /* Brand accent */
+  --primary-color-dark: #095fcf;
+  --primary-color-light: var(--accent-soft); /* Lighter version for highlight background etc. */
+  --hover-color: var(--surface-muted); /* Light hover effect */
+  --active-color: #eef2f7; /* Slightly darker for active states */
   --danger-color: #dc3545; /* Red for delete actions */
   --danger-color-light: #f8d7da; /* Light red background for hover */
-  --box-shadow-light: 0 1px 3px rgba(0, 0, 0, 0.05), 0 1px 2px rgba(0, 0, 0, 0.05); /* Subtle shadow */
-  --border-radius: 8px; /* Consistent rounded corners */
+  --box-shadow-light: var(--shadow-subtle); /* Subtle shadow */
+  --border-radius: var(--radius-1); /* Consistent rounded corners */
 }
 
 body {
   margin: 0;
-  font-family: 'SF Pro Text', 'Helvetica Neue', 'Segoe UI', sans-serif;
+  font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   background-color: var(--bg-color);
@@ -1976,6 +1976,7 @@ body {
   line-height: 1.6;
   color: var(--text-color);
   resize: vertical;
+  font-family: var(--font-serif);
 }
 
 .notebook-editor-area {
@@ -1993,6 +1994,7 @@ body {
   color: var(--text-color);
   direction: ltr;
   text-align: left;
+  font-family: var(--font-serif);
 }
 
 .tiptap-editor > * + * {
