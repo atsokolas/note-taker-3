@@ -119,8 +119,8 @@ function App() {
     { label: 'Library', to: '/library' },
     { label: 'Think', to: '/think' },
     { label: 'Review', to: '/review' },
-    { label: 'How To Use', to: '/how-to-use' },
-    { label: 'Settings', to: '/settings' }
+    { label: 'Settings', to: '/settings' },
+    { label: 'How To Use', to: '/how-to-use' }
   ];
 
   if (isLoading) {

@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import api from '../api';
-import { Page, Card, Button, TagChip, SectionHeader, QuietButton } from '../components/ui';
+import { Page, Card, Button, TagChip, SectionHeader, QuietButton, SubtleDivider } from '../components/ui';
 import { SkeletonCard } from '../components/Skeleton';
 import WorkspaceShell from '../layouts/WorkspaceShell';
 

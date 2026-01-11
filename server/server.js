@@ -126,6 +126,14 @@ articleSchema.index({ url: 1, userId: 1 }, { unique: true });
 const Article = mongoose.model('Article', articleSchema);
 const { buildFolderService } = require('./services/folderService');
 const { getFoldersWithCounts } = buildFolderService({ Folder, Article, mongoose });
+const { buildConceptService } = require('./services/conceptService');
+const { getConcepts, getConceptMeta, updateConceptMeta, getConceptRelated } = buildConceptService({
+  Article,
+  TagMeta,
+  NotebookEntry,
+  ReferenceEdge,
+  mongoose
+});
 
 // --- NOTEBOOK: Schema for freeform notes with checklists ---
 const checklistItemSchema = new mongoose.Schema({
@@ -178,6 +186,7 @@ const tagMetaSchema = new mongoose.Schema({
   name: { type: String, required: true, trim: true },
   description: { type: String, default: '', trim: true },
   pinnedHighlightIds: [{ type: mongoose.Schema.Types.ObjectId }],
+  pinnedNoteIds: [{ type: mongoose.Schema.Types.ObjectId }],
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }
 }, { timestamps: true });
 
@@ -1245,6 +1254,48 @@ app.get('/api/tags', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error("❌ Error fetching tags:", error);
     res.status(500).json({ error: "Failed to fetch tags." });
+  }
+});
+
+// --- CONCEPT (TAG) API ROUTES ---
+app.get('/api/concepts', authenticateToken, async (req, res) => {
+  try {
+    const data = await getConcepts(req.user.id);
+    res.status(200).json(data);
+  } catch (error) {
+    console.error("❌ Error fetching concepts:", error);
+    res.status(500).json({ error: "Failed to fetch concepts." });
+  }
+});
+
+app.get('/api/concepts/:name', authenticateToken, async (req, res) => {
+  try {
+    const data = await getConceptMeta(req.user.id, req.params.name);
+    res.status(200).json(data);
+  } catch (error) {
+    console.error("❌ Error fetching concept meta:", error);
+    res.status(500).json({ error: "Failed to fetch concept meta." });
+  }
+});
+
+app.put('/api/concepts/:name', authenticateToken, async (req, res) => {
+  try {
+    const updated = await updateConceptMeta(req.user.id, req.params.name, req.body || {});
+    res.status(200).json(updated);
+  } catch (error) {
+    console.error("❌ Error updating concept meta:", error);
+    res.status(500).json({ error: "Failed to update concept meta." });
+  }
+});
+
+app.get('/api/concepts/:name/related', authenticateToken, async (req, res) => {
+  try {
+    const { limit = 20, offset = 0 } = req.query;
+    const data = await getConceptRelated(req.user.id, req.params.name, { limit, offset });
+    res.status(200).json(data);
+  } catch (error) {
+    console.error("❌ Error fetching concept related data:", error);
+    res.status(500).json({ error: "Failed to fetch concept related data." });
   }
 });
 
