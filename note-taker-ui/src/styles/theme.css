@@ -1295,6 +1295,49 @@ p {
   gap: 8px;
   flex-wrap: wrap;
 }
+
+.highlight-ref-node {
+  margin: 12px 0;
+}
+
+.modal-highlight-list {
+  max-height: 360px;
+  overflow-y: auto;
+  display: grid;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.modal-highlight-item {
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  padding: 12px;
+  background: var(--surface);
+}
+
+.modal-highlight-title {
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 6px;
+}
+
+.modal-highlight-text {
+  font-size: 0.95rem;
+  margin: 0 0 8px;
+  color: var(--text);
+}
+
+.modal-highlight-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.modal-highlight-actions {
+  display: flex;
+  justify-content: flex-end;
+}
 .think-notebook-layout {
   display: grid;
   grid-template-columns: 260px minmax(0, 1fr);
