@@ -129,6 +129,7 @@ function App() {
 
   const AppLayout = () => {
     const location = useLocation();
+    const hasSeenLanding = localStorage.getItem('hasSeenLanding') === 'true';
     const showLibraryRail = location.pathname.startsWith('/articles/');
 
     return (
@@ -164,7 +165,7 @@ function App() {
             <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
             <OnboardingManager />
             <Routes>
-              <Route path="/" element={<Navigate to="/today" replace />} />
+              <Route path="/" element={hasSeenLanding ? <Navigate to="/today" replace /> : <Landing />} />
               <Route path="/today" element={<TodayMode />} />
               <Route path="/library" element={<LibraryMode />} />
               <Route path="/think" element={<ThinkMode />} />

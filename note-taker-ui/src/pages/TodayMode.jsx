@@ -1,9 +1,11 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import api from '../api';
-import { Page, Card, Button, TagChip, SectionHeader, QuietButton, SubtleDivider } from '../components/ui';
+import { Page, Card, Button, TagChip, SectionHeader, QuietButton } from '../components/ui';
 import { SkeletonCard } from '../components/Skeleton';
 import WorkspaceShell from '../layouts/WorkspaceShell';
+
+const IMPORTANT_TAG = 'important';
 
 const TodayMode = () => {
   const [highlights, setHighlights] = useState([]);
@@ -13,6 +15,8 @@ const TodayMode = () => {
   const [dailyPrompt, setDailyPrompt] = useState(null);
   const [loading, setLoading] = useState(false);
   const [creatingNote, setCreatingNote] = useState(false);
+  const [sendingHighlight, setSendingHighlight] = useState(null);
+  const [noteTargets, setNoteTargets] = useState({});
   const [error, setError] = useState('');
   const navigate = useNavigate();
 
@@ -69,6 +73,11 @@ const TodayMode = () => {
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#39;');
 
+  const recentArticle = articles[0] || null;
+  const recentNote = notebook[0] || null;
+  const topConcept = activeConcepts[0] || null;
+  const resurfaced = useMemo(() => highlights.slice(0, 5), [highlights]);
+
   const startDailyNote = async () => {
     if (!dailyPrompt?.text) return;
     setCreatingNote(true);
@@ -114,61 +123,103 @@ const TodayMode = () => {
     }
   };
 
+  const createNoteFromHighlight = async (highlight) => {
+    const title = highlight.articleTitle ? `Note — ${highlight.articleTitle}` : 'New note';
+    const headingBlock = { id: createId(), type: 'heading', level: 2, text: title };
+    const highlightBlock = {
+      id: createId(),
+      type: 'highlight-ref',
+      text: `"${highlight.text}" — ${highlight.articleTitle || 'Untitled article'}`,
+      highlightId: highlight._id
+    };
+    const contentParts = [
+      `<h2>${escapeHtml(title)}</h2>`,
+      `<blockquote data-highlight-id="${highlight._id}" data-block-id="${highlightBlock.id}">${escapeHtml(highlightBlock.text)}</blockquote>`
+    ];
+    const payload = {
+      title,
+      content: contentParts.join(''),
+      blocks: [headingBlock, highlightBlock]
+    };
+    const res = await api.post('/api/notebook', payload, authHeaders());
+    return res.data?._id || null;
+  };
+
+  const sendHighlightToNote = async (highlight) => {
+    const target = noteTargets[highlight._id] || 'new';
+    setSendingHighlight(highlight._id);
+    setError('');
+    try {
+      if (target === 'new') {
+        const newId = await createNoteFromHighlight(highlight);
+        if (newId) navigate(`/notebook?entryId=${newId}`);
+        return;
+      }
+      await api.post(`/api/notebook/${target}/link-highlight`, { highlightId: highlight._id }, authHeaders());
+      navigate(`/notebook?entryId=${target}`);
+    } catch (err) {
+      console.error('Error sending highlight to note:', err);
+      setError(err.response?.data?.error || 'Failed to send highlight.');
+    } finally {
+      setSendingHighlight(null);
+    }
+  };
+
+  const markImportant = async (highlight) => {
+    const articleId = highlight.articleId || highlight.article?._id;
+    if (!articleId) return;
+    const existing = Array.isArray(highlight.tags) ? highlight.tags : [];
+    if (existing.includes(IMPORTANT_TAG)) return;
+    const updatedTags = [...existing, IMPORTANT_TAG];
+    try {
+      await api.patch(`/articles/${articleId}/highlights/${highlight._id}`, { tags: updatedTags }, authHeaders());
+      setHighlights(prev => prev.map(h => (h._id === highlight._id ? { ...h, tags: updatedTags } : h)));
+    } catch (err) {
+      console.error('Error marking highlight important:', err);
+      setError(err.response?.data?.error || 'Failed to mark important.');
+    }
+  };
+
   const leftPanel = (
     <div className="section-stack">
-      <SectionHeader
-        title="Continue thinking"
-        action={<QuietButton onClick={() => navigate('/think')}>Open Notebook</QuietButton>}
-      />
-      <div className="section-stack">
-        {loading && (
-          <>
-            {Array.from({ length: 2 }).map((_, idx) => (
-              <SkeletonCard key={`desk-note-${idx}`} />
-            ))}
-          </>
-        )}
-        {!loading && notebook.length > 0 ? (
-          <>
-            <div className="search-card">
-              <div className="search-card-top">
-                <span className="article-title-link">{notebook[0].title || 'Untitled'}</span>
-                <span className="muted small">{notebook[0].updatedAt ? new Date(notebook[0].updatedAt).toLocaleDateString() : ''}</span>
-              </div>
-              <p className="muted small">{(notebook[0].content || '').slice(0, 160)}{(notebook[0].content || '').length > 160 ? '…' : ''}</p>
-              <Button
-                variant="secondary"
-                onClick={() => navigate(`/notebook?entryId=${notebook[0]._id}`)}
-                style={{ marginTop: 8 }}
-              >
-                Continue this note
-              </Button>
-            </div>
-            {notebook.slice(1).map(n => (
-              <div key={n._id} className="search-card">
-                <div className="search-card-top">
-                  <span className="article-title-link">{n.title || 'Untitled'}</span>
-                  <span className="muted small">{n.updatedAt ? new Date(n.updatedAt).toLocaleDateString() : ''}</span>
-                </div>
-                <p className="muted small">{(n.content || '').slice(0, 120)}{(n.content || '').length > 120 ? '…' : ''}</p>
-              </div>
-            ))}
-          </>
-        ) : !loading && <p className="muted small">No notebook entries yet. Start with a quick reflection.</p>}
-      </div>
-      <SubtleDivider />
-      <SectionHeader title="Active concepts" />
-      <div className="highlight-tag-chips" style={{ flexWrap: 'wrap' }}>
-        {loading && (
-          <>
-            {Array.from({ length: 5 }).map((_, idx) => (
-              <span key={`desk-tag-${idx}`} className="tag-chip"> </span>
-            ))}
-          </>
-        )}
-        {!loading && activeConcepts.length > 0 ? activeConcepts.map(t => (
-          <TagChip key={t.tag} to={`/tags/${encodeURIComponent(t.tag)}`}>{t.tag} <span className="tag-count">{t.count}</span></TagChip>
-        )) : !loading && <span className="muted small">No concept activity yet.</span>}
+      <SectionHeader title="Focus" subtitle="Pick one thread and keep moving." />
+      <div className="desk-focus-list">
+        <div className="desk-focus-item">
+          <div className="desk-focus-title">Continue Reading</div>
+          {loading ? (
+            <span className="muted small">Loading…</span>
+          ) : recentArticle ? (
+            <Link to={`/articles/${recentArticle._id}`} className="article-title-link">
+              {recentArticle.title || 'Untitled article'}
+            </Link>
+          ) : (
+            <span className="muted small">No recent articles yet.</span>
+          )}
+        </div>
+        <div className="desk-focus-item">
+          <div className="desk-focus-title">Continue Thinking</div>
+          {loading ? (
+            <span className="muted small">Loading…</span>
+          ) : recentNote ? (
+            <Link to={`/notebook?entryId=${recentNote._id}`} className="article-title-link">
+              {recentNote.title || 'Untitled note'}
+            </Link>
+          ) : (
+            <span className="muted small">No notebook entries yet.</span>
+          )}
+        </div>
+        <div className="desk-focus-item">
+          <div className="desk-focus-title">Active Concept</div>
+          {loading ? (
+            <span className="muted small">Loading…</span>
+          ) : topConcept ? (
+            <TagChip to={`/tags/${encodeURIComponent(topConcept.tag)}`}>
+              {topConcept.tag} <span className="tag-count">{topConcept.count}</span>
+            </TagChip>
+          ) : (
+            <span className="muted small">No concept activity yet.</span>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -178,21 +229,21 @@ const TodayMode = () => {
       {error && <p className="status-message error-message">{error}</p>}
       <Card className="search-section" data-onboard-id="today-desk">
         <div className="search-section-header">
-          <span className="eyebrow">Resurfaced for you</span>
+          <span className="eyebrow">Resurfaced highlights</span>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <span className="muted small">{highlights.length} items</span>
-            <Button variant="secondary" onClick={reshuffle} disabled={loading}>Reshuffle</Button>
+            <span className="muted small">{resurfaced.length} items</span>
+            <QuietButton onClick={reshuffle} disabled={loading}>Reshuffle</QuietButton>
           </div>
         </div>
         <div className="section-stack">
           {loading && (
             <>
-              {Array.from({ length: 3 }).map((_, idx) => (
+              {Array.from({ length: 5 }).map((_, idx) => (
                 <SkeletonCard key={`desk-highlight-${idx}`} />
               ))}
             </>
           )}
-          {!loading && highlights.length > 0 ? highlights.map(h => (
+          {!loading && resurfaced.length > 0 ? resurfaced.map(h => (
             <div key={h._id} className="search-card">
               <div className="search-card-top">
                 <Link to={`/articles/${h.articleId}`} className="article-title-link">{h.articleTitle || 'Untitled article'}</Link>
@@ -202,8 +253,76 @@ const TodayMode = () => {
               <div className="highlight-tag-chips">
                 {h.tags && h.tags.length > 0 ? h.tags.map(tag => <TagChip key={tag} to={`/tags/${encodeURIComponent(tag)}`}>{tag}</TagChip>) : <span className="muted small">No tags</span>}
               </div>
+              <div className="desk-action-row">
+                <Link to={`/articles/${h.articleId}`} className="muted small">Open Article</Link>
+                <div className="desk-action-group">
+                  <select
+                    value={noteTargets[h._id] || 'new'}
+                    onChange={(e) => setNoteTargets(prev => ({ ...prev, [h._id]: e.target.value }))}
+                    className="compact-select"
+                  >
+                    <option value="new">New note</option>
+                    {notebook.map(n => (
+                      <option key={n._id} value={n._id}>{n.title || 'Untitled note'}</option>
+                    ))}
+                  </select>
+                  <QuietButton onClick={() => sendHighlightToNote(h)} disabled={sendingHighlight === h._id}>
+                    {sendingHighlight === h._id ? 'Sending…' : 'Send to Note'}
+                  </QuietButton>
+                </div>
+                <QuietButton
+                  onClick={() => markImportant(h)}
+                  disabled={(h.tags || []).includes(IMPORTANT_TAG)}
+                >
+                  {(h.tags || []).includes(IMPORTANT_TAG) ? 'Important' : 'Mark Important'}
+                </QuietButton>
+              </div>
             </div>
           )) : !loading && <p className="muted small">No highlights yet. Save a few to see them resurface here.</p>}
+        </div>
+      </Card>
+
+      <Card className="search-section">
+        <SectionHeader title="Continue Reading" subtitle="Your last opened article." />
+        {recentArticle ? (
+          <div className="search-card desk-row-card">
+            <div>
+              <div className="article-title-link">{recentArticle.title || 'Untitled article'}</div>
+              <p className="muted small">{recentArticle.url || ''}</p>
+            </div>
+            <Button variant="secondary" onClick={() => navigate(`/articles/${recentArticle._id}`)}>
+              Open
+            </Button>
+          </div>
+        ) : (
+          <p className="muted small">No recent articles yet.</p>
+        )}
+      </Card>
+
+      <Card className="search-section">
+        <SectionHeader title="Continue Thinking" subtitle="Your last edited note." />
+        {recentNote ? (
+          <div className="search-card desk-row-card">
+            <div>
+              <div className="article-title-link">{recentNote.title || 'Untitled note'}</div>
+              <p className="muted small">{(recentNote.content || '').slice(0, 120)}{(recentNote.content || '').length > 120 ? '…' : ''}</p>
+            </div>
+            <Button variant="secondary" onClick={() => navigate(`/notebook?entryId=${recentNote._id}`)}>
+              Open
+            </Button>
+          </div>
+        ) : (
+          <p className="muted small">No notebook entries yet.</p>
+        )}
+      </Card>
+
+      <Card className="search-section">
+        <SectionHeader title="Daily Prompt" subtitle="One small nudge." />
+        <p className="muted" style={{ margin: 0 }}>{dailyPrompt?.text || 'Your prompt will show up here.'}</p>
+        <div style={{ marginTop: 10 }}>
+          <Button onClick={startDailyNote} disabled={creatingNote || !dailyPrompt}>
+            {creatingNote ? 'Starting…' : 'Start a note'}
+          </Button>
         </div>
       </Card>
     </div>
@@ -211,24 +330,24 @@ const TodayMode = () => {
 
   const rightPanel = (
     <div className="section-stack">
-      <SectionHeader title="Daily prompt" />
+      <SectionHeader title="Quick actions" subtitle="Keep momentum." />
       <div className="section-stack">
-        <p className="muted" style={{ margin: 0 }}>{dailyPrompt?.text || 'Your prompt will show up here.'}</p>
-        <Button onClick={startDailyNote} disabled={creatingNote || !dailyPrompt}>
-          {creatingNote ? 'Starting…' : 'Start a note'}
-        </Button>
+        <QuietButton onClick={() => navigate('/notebook')}>New Note</QuietButton>
+        <QuietButton onClick={() => navigate('/library')}>Open Library</QuietButton>
+        <QuietButton onClick={() => navigate('/review?tab=reflection')}>Open Review → Reflections</QuietButton>
+        <QuietButton onClick={() => navigate('/export')}>Export</QuietButton>
       </div>
       <SubtleDivider />
-      <SectionHeader title="Recent articles" />
+      <SectionHeader title="Recent articles" subtitle="Quick picks." />
       <div className="section-stack">
         {loading && (
           <>
-            {Array.from({ length: 3 }).map((_, idx) => (
+            {Array.from({ length: 2 }).map((_, idx) => (
               <SkeletonCard key={`desk-article-${idx}`} />
             ))}
           </>
         )}
-        {!loading && articles.length > 0 ? articles.map(a => (
+        {!loading && articles.length > 0 ? articles.slice(0, 2).map(a => (
           <div key={a._id} className="search-card">
             <div className="search-card-top">
               <Link to={`/articles/${a._id}`} className="article-title-link">{a.title || 'Untitled article'}</Link>
@@ -250,7 +369,7 @@ const TodayMode = () => {
         left={leftPanel}
         main={mainPanel}
         right={rightPanel}
-        rightTitle="Today details"
+        rightTitle="Context"
         defaultRightOpen
       />
     </Page>

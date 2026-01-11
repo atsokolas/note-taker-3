@@ -6,7 +6,12 @@ const Landing = () => {
   const navigate = useNavigate();
   const hasToken = Boolean(localStorage.getItem('token'));
 
+  const markLandingSeen = () => {
+    localStorage.setItem('hasSeenLanding', 'true');
+  };
+
   const handleEnter = () => {
+    markLandingSeen();
     if (hasToken) {
       navigate('/today');
     } else {
@@ -24,7 +29,7 @@ const Landing = () => {
           you can actually come back to.
         </p>
         <div className="landing-cta">
-          <Button onClick={() => navigate('/register')}>Get started</Button>
+          <Button onClick={() => { markLandingSeen(); navigate('/register'); }}>Get started</Button>
           <Button variant="secondary" onClick={() => document.getElementById('tour')?.scrollIntoView({ behavior: 'smooth' })}>
             See how it works (2 minutes)
           </Button>

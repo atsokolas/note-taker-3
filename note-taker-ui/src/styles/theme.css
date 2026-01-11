@@ -542,6 +542,48 @@ p {
   color: var(--text);
 }
 
+.desk-focus-list {
+  display: grid;
+  gap: 12px;
+}
+
+.desk-focus-item {
+  display: grid;
+  gap: 6px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #fbfcff;
+}
+
+.desk-focus-title {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+
+.desk-action-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  margin-top: 8px;
+}
+
+.desk-action-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.desk-row-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
 @media (max-width: 1100px) {
   .workspace-shell,
   .workspace-shell--right-collapsed {

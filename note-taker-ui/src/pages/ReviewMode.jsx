@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { Link, useLocation } from 'react-router-dom';
 import Journey from './Journey';
 import Resurface from './Resurface';
 import Trending from './Trending';
@@ -18,6 +18,7 @@ const ReviewMode = () => {
   const [reflection, setReflection] = useState({ mostActiveConcepts: [], increasedConcepts: [], openQuestions: [] });
   const [reflectionLoading, setReflectionLoading] = useState(false);
   const [reflectionError, setReflectionError] = useState('');
+  const location = useLocation();
 
   const authHeaders = () => ({ headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
 
@@ -108,6 +109,17 @@ const ReviewMode = () => {
         return <Journey />;
     }
   };
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const tab = params.get('tab');
+    if (tab && tabs.some(t => t.key === tab)) {
+      setActive(tab);
+      if (tab === 'reflection') {
+        loadReflection();
+      }
+    }
+  }, [location.search]);
 
   const leftPanel = (
     <div className="section-stack">
