@@ -6,7 +6,7 @@ import useConcepts from '../hooks/useConcepts';
 import useConcept from '../hooks/useConcept';
 import useConceptRelated from '../hooks/useConceptRelated';
 import useConceptReferences from '../hooks/useConceptReferences';
-import { updateConcept } from '../api/concepts';
+import { updateConcept, updateConceptPins } from '../api/concepts';
 import NotebookView from '../components/think/notebook/NotebookView';
 import NotebookContext from '../components/think/notebook/NotebookContext';
 import useQuestions from '../hooks/useQuestions';
@@ -16,6 +16,7 @@ import QuestionList from '../components/think/questions/QuestionList';
 import HighlightBlock from '../components/blocks/HighlightBlock';
 import QuestionsView from '../components/think/questions/QuestionsView';
 import useHighlights from '../hooks/useHighlights';
+import AddToConceptModal from '../components/think/concepts/AddToConceptModal';
 
 const ThinkMode = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -35,6 +36,7 @@ const ThinkMode = () => {
   const [activeNotebookEntry, setActiveNotebookEntry] = useState(null);
   const [activeQuestion, setActiveQuestion] = useState(null);
   const { highlightMap } = useHighlights({ enabled: activeView === 'questions' });
+  const [addModal, setAddModal] = useState({ open: false, mode: 'highlight' });
 
   const createBlockId = () => {
     if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
@@ -72,7 +74,9 @@ const ThinkMode = () => {
   }, [concepts, search]);
 
   const pinnedHighlightIds = concept?.pinnedHighlightIds || [];
+  const pinnedArticleIds = concept?.pinnedArticleIds || [];
   const pinnedHighlights = concept?.pinnedHighlights || [];
+  const pinnedArticles = concept?.pinnedArticles || [];
   const pinnedNotes = concept?.pinnedNotes || [];
 
   React.useEffect(() => {
@@ -116,6 +120,7 @@ const ThinkMode = () => {
       const updated = await updateConcept(concept.name, {
         description: descriptionDraft,
         pinnedHighlightIds,
+        pinnedArticleIds,
         pinnedNoteIds: concept.pinnedNoteIds || []
       });
       setConcept({ ...concept, description: updated.description || '' });
@@ -129,16 +134,25 @@ const ThinkMode = () => {
   const togglePinHighlight = async (highlightId) => {
     if (!concept) return;
     const exists = pinnedHighlightIds.some(id => String(id) === String(highlightId));
-    const nextIds = exists
-      ? pinnedHighlightIds.filter(id => String(id) !== String(highlightId))
-      : [...pinnedHighlightIds, highlightId];
     try {
-      const updated = await updateConcept(concept.name, {
-        description: concept.description || '',
-        pinnedHighlightIds: nextIds,
-        pinnedNoteIds: concept.pinnedNoteIds || []
+      await updateConceptPins(concept.name, {
+        addHighlightIds: exists ? [] : [highlightId],
+        removeHighlightIds: exists ? [highlightId] : []
       });
-      setConcept({ ...concept, pinnedHighlightIds: updated.pinnedHighlightIds || nextIds });
+      refresh();
+    } catch (err) {
+      setConceptError(err.response?.data?.error || 'Failed to update pins.');
+    }
+  };
+
+  const togglePinArticle = async (articleId) => {
+    if (!concept) return;
+    const exists = pinnedArticleIds.some(id => String(id) === String(articleId));
+    try {
+      await updateConceptPins(concept.name, {
+        addArticleIds: exists ? [] : [articleId],
+        removeArticleIds: exists ? [articleId] : []
+      });
       refresh();
     } catch (err) {
       setConceptError(err.response?.data?.error || 'Failed to update pins.');
@@ -156,6 +170,7 @@ const ThinkMode = () => {
       const updated = await updateConcept(concept.name, {
         description: concept.description || '',
         pinnedHighlightIds,
+        pinnedArticleIds,
         pinnedNoteIds: nextIds
       });
       setConcept({ ...concept, pinnedNoteIds: updated.pinnedNoteIds || nextIds });
@@ -182,6 +197,28 @@ const ThinkMode = () => {
       setConceptQuestions(prev => [created, ...prev]);
     } catch (err) {
       setConceptError(err.response?.data?.error || 'Failed to add question.');
+    }
+  };
+
+  const handleAddHighlights = async (ids) => {
+    if (!concept || ids.length === 0) return;
+    try {
+      await updateConceptPins(concept.name, { addHighlightIds: ids });
+      setAddModal({ open: false, mode: 'highlight' });
+      refresh();
+    } catch (err) {
+      setConceptError(err.response?.data?.error || 'Failed to add highlights.');
+    }
+  };
+
+  const handleAddArticles = async (ids) => {
+    if (!concept || ids.length === 0) return;
+    try {
+      await updateConceptPins(concept.name, { addArticleIds: ids });
+      setAddModal({ open: false, mode: 'article' });
+      refresh();
+    } catch (err) {
+      setConceptError(err.response?.data?.error || 'Failed to add articles.');
     }
   };
 
@@ -284,6 +321,11 @@ const ThinkMode = () => {
           </div>
 
           <SectionHeader title="Pinned Highlights" subtitle="Anchor ideas." />
+          <div style={{ display: 'flex', gap: 8 }}>
+            <Button variant="secondary" onClick={() => setAddModal({ open: true, mode: 'highlight' })}>
+              Add Highlights
+            </Button>
+          </div>
           {pinnedHighlights.length === 0 && <p className="muted small">No pinned highlights yet.</p>}
           <div className="concept-highlight-grid">
             {pinnedHighlights.map(h => (
@@ -292,6 +334,7 @@ const ThinkMode = () => {
                   highlight={h}
                   compact
                   onRemove={() => togglePinHighlight(h._id)}
+                  removeLabel="Unpin"
                 />
               </div>
             ))}
@@ -305,6 +348,7 @@ const ThinkMode = () => {
                   highlight={h}
                   compact
                   onRemove={() => togglePinHighlight(h._id)}
+                  removeLabel={pinnedHighlightIds.some(id => String(id) === String(h._id)) ? 'Unpin' : 'Pin'}
                 />
               </div>
             ))}
@@ -350,6 +394,24 @@ const ThinkMode = () => {
           </div>
 
           <SectionHeader title="Source articles" subtitle="Where the highlights live." />
+          <div style={{ display: 'flex', gap: 8 }}>
+            <Button variant="secondary" onClick={() => setAddModal({ open: true, mode: 'article' })}>
+              Add Articles
+            </Button>
+          </div>
+          {pinnedArticles.length > 0 && (
+            <div className="concept-source-list">
+              {pinnedArticles.map(article => (
+                <div key={article._id} className="concept-source-row">
+                  <div>
+                    <div className="concept-source-title">{article.title || 'Untitled article'}</div>
+                    {article.url && <p className="muted small">{article.url}</p>}
+                  </div>
+                  <QuietButton onClick={() => togglePinArticle(article._id)}>Unpin</QuietButton>
+                </div>
+              ))}
+            </div>
+          )}
           {related.articles.length === 0 && !relatedLoading && (
             <p className="muted small">No source articles yet.</p>
           )}
@@ -471,6 +533,15 @@ const ThinkMode = () => {
         right={rightPanel}
         rightTitle="Context"
         defaultRightOpen
+      />
+      <AddToConceptModal
+        open={addModal.open}
+        mode={addModal.mode}
+        pinnedHighlightIds={pinnedHighlightIds}
+        pinnedArticleIds={pinnedArticleIds}
+        onClose={() => setAddModal({ open: false, mode: 'highlight' })}
+        onAddHighlights={handleAddHighlights}
+        onAddArticles={handleAddArticles}
       />
     </Page>
   );

@@ -30,6 +30,7 @@ const buildConceptService = ({ Article, TagMeta, NotebookEntry, ReferenceEdge, m
     const meta = await TagMeta.findOne({ name: new RegExp(`^${cleanName}$`, 'i'), userId: userObjectId });
     const pinnedHighlightIds = meta?.pinnedHighlightIds || [];
     const pinnedNoteIds = meta?.pinnedNoteIds || [];
+    const pinnedArticleIds = meta?.pinnedArticleIds || [];
 
     let pinnedHighlights = [];
     if (pinnedHighlightIds.length > 0) {
@@ -51,6 +52,10 @@ const buildConceptService = ({ Article, TagMeta, NotebookEntry, ReferenceEdge, m
     const pinnedNotes = pinnedNoteIds.length
       ? await NotebookEntry.find({ userId: userObjectId, _id: { $in: pinnedNoteIds } })
         .select('title content updatedAt')
+      : [];
+    const pinnedArticles = pinnedArticleIds.length
+      ? await Article.find({ userId: userObjectId, _id: { $in: pinnedArticleIds } })
+        .select('title url createdAt')
       : [];
 
     const relatedAgg = await Article.aggregate([
@@ -76,8 +81,10 @@ const buildConceptService = ({ Article, TagMeta, NotebookEntry, ReferenceEdge, m
       name: cleanName,
       description: meta?.description || '',
       pinnedHighlightIds,
+      pinnedArticleIds,
       pinnedNoteIds,
       pinnedHighlights,
+      pinnedArticles,
       pinnedNotes,
       relatedTags,
       allHighlightCount
@@ -86,10 +93,10 @@ const buildConceptService = ({ Article, TagMeta, NotebookEntry, ReferenceEdge, m
 
   const updateConceptMeta = async (userId, name, payload) => {
     const cleanName = normalizeName(name);
-    const { description = '', pinnedHighlightIds = [], pinnedNoteIds = [] } = payload;
+    const { description = '', pinnedHighlightIds = [], pinnedArticleIds = [], pinnedNoteIds = [] } = payload;
     const updated = await TagMeta.findOneAndUpdate(
       { name: new RegExp(`^${cleanName}$`, 'i'), userId: new mongoose.Types.ObjectId(userId) },
-      { name: cleanName, description, pinnedHighlightIds, pinnedNoteIds },
+      { name: cleanName, description, pinnedHighlightIds, pinnedArticleIds, pinnedNoteIds },
       { new: true, upsert: true, setDefaultsOnInsert: true }
     );
     return updated;

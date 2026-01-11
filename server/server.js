@@ -176,6 +176,7 @@ const tagMetaSchema = new mongoose.Schema({
   name: { type: String, required: true, trim: true },
   description: { type: String, default: '', trim: true },
   pinnedHighlightIds: [{ type: mongoose.Schema.Types.ObjectId }],
+  pinnedArticleIds: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Article' }],
   pinnedNoteIds: [{ type: mongoose.Schema.Types.ObjectId }],
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }
 }, { timestamps: true });
@@ -1381,6 +1382,44 @@ app.get('/api/concepts/:name/related', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error("❌ Error fetching concept related data:", error);
     res.status(500).json({ error: "Failed to fetch concept related data." });
+  }
+});
+
+// Update concept pins (highlights/articles)
+app.put('/api/concepts/:name/pins', authenticateToken, async (req, res) => {
+  try {
+    const userId = new mongoose.Types.ObjectId(req.user.id);
+    const cleanName = String(req.params.name || '').trim();
+    const {
+      addHighlightIds = [],
+      removeHighlightIds = [],
+      addArticleIds = [],
+      removeArticleIds = []
+    } = req.body || {};
+
+    const update = {};
+    if (addHighlightIds.length) {
+      update.$addToSet = { ...(update.$addToSet || {}), pinnedHighlightIds: { $each: addHighlightIds } };
+    }
+    if (removeHighlightIds.length) {
+      update.$pull = { ...(update.$pull || {}), pinnedHighlightIds: { $in: removeHighlightIds } };
+    }
+    if (addArticleIds.length) {
+      update.$addToSet = { ...(update.$addToSet || {}), pinnedArticleIds: { $each: addArticleIds } };
+    }
+    if (removeArticleIds.length) {
+      update.$pull = { ...(update.$pull || {}), pinnedArticleIds: { $in: removeArticleIds } };
+    }
+
+    const updated = await TagMeta.findOneAndUpdate(
+      { name: new RegExp(`^${cleanName}$`, 'i'), userId },
+      { name: cleanName, ...update },
+      { new: true, upsert: true, setDefaultsOnInsert: true }
+    );
+    res.status(200).json(updated);
+  } catch (error) {
+    console.error("❌ Error updating concept pins:", error);
+    res.status(500).json({ error: "Failed to update concept pins." });
   }
 });
 

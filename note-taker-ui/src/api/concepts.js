@@ -7,8 +7,10 @@ import { getAuthHeaders } from '../hooks/useAuthHeaders';
  * @property {string} description
  * @property {number} [count]
  * @property {Array} [pinnedHighlightIds]
+ * @property {Array} [pinnedArticleIds]
  * @property {Array} [pinnedNoteIds]
  * @property {Array<{ tag: string, count: number }>} [relatedTags]
+ * @property {Array<{ _id: string, title: string, url?: string, createdAt?: string }>} [pinnedArticles]
  */
 
 export const getConcepts = async () => {
@@ -23,6 +25,11 @@ export const getConcept = async (name) => {
 
 export const updateConcept = async (name, payload) => {
   const res = await api.put(`/api/concepts/${encodeURIComponent(name)}`, payload, getAuthHeaders());
+  return res.data;
+};
+
+export const updateConceptPins = async (name, payload) => {
+  const res = await api.put(`/api/concepts/${encodeURIComponent(name)}/pins`, payload, getAuthHeaders());
   return res.data;
 };
 

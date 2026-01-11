@@ -18,10 +18,11 @@ import { TagChip, QuietButton } from '../ui';
  *  highlight: Highlight,
  *  onOpenArticle?: (highlight: Highlight) => void,
  *  onRemove?: (highlightId: string) => void,
+ *  removeLabel?: string,
  *  compact?: boolean
  * }} props
  */
-const HighlightBlock = ({ highlight, onOpenArticle, onRemove, compact = false }) => {
+const HighlightBlock = ({ highlight, onOpenArticle, onRemove, removeLabel = 'Remove', compact = false }) => {
   const highlightId = highlight._id || highlight.id || '';
   const hasArticle = Boolean(highlight.articleId || highlight.articleTitle);
   const handleOpenArticle = () => {
@@ -68,7 +69,7 @@ const HighlightBlock = ({ highlight, onOpenArticle, onRemove, compact = false })
             <QuietButton onClick={handleOpenArticle}>Open article</QuietButton>
           )}
           {onRemove && highlightId && (
-            <QuietButton onClick={() => onRemove(highlightId)}>Remove</QuietButton>
+            <QuietButton onClick={() => onRemove(highlightId)}>{removeLabel}</QuietButton>
           )}
         </div>
       )}

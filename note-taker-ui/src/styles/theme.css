@@ -1394,6 +1394,40 @@ p {
   justify-content: flex-end;
 }
 
+.concept-search-filters {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  margin-bottom: 12px;
+}
+
+.concept-search-results {
+  display: grid;
+  gap: 12px;
+  max-height: 55vh;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.concept-search-row {
+  display: grid;
+  gap: 10px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  padding: 12px;
+  background: var(--surface);
+}
+
+.concept-search-article {
+  display: grid;
+  gap: 4px;
+}
+
+.concept-search-title {
+  font-weight: 600;
+  color: var(--text);
+}
+
 @media (max-width: 1100px) {
   .think-question-layout {
     grid-template-columns: 1fr;
