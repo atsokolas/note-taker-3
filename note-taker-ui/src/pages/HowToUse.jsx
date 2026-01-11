@@ -44,7 +44,7 @@ const HowToUse = () => {
       <div className="page-header">
         <p className="muted-label">How To Use</p>
         <h1>Your calm filing cabinet for everything you read.</h1>
-        <p className="muted">Note Taker takes what you read, keeps the best parts, and hands them back right when you need them.</p>
+        <p className="muted">Note Taker keeps the best parts, keeps them connected, and hands them back right when you need them.</p>
         <p className="muted">
           You are the kind of person who reads a lot, highlights the good parts, and plans to come back later.
           You want the payoff without the mess. This is that.
@@ -82,42 +82,59 @@ const HowToUse = () => {
           </Card>
         </section>
 
+        <Card className="search-section">
+          <div className="search-section-header">
+            <span className="eyebrow">Your first 10 minutes</span>
+            <span className="muted small">Do this once. Feel the system click.</span>
+          </div>
+          <ol className="howto-list">
+            <li>
+              <strong>Save 2 articles.</strong> Give Library a heartbeat.
+            </li>
+            <li>
+              <strong>Pull 6 highlights.</strong> Don’t overthink it. Just grab what matters.
+            </li>
+            <li>
+              <strong>Create 2 Concepts.</strong> Name the idea home, not the source.
+            </li>
+            <li>
+              <strong>Open Think and write 5 sentences.</strong> One tiny synthesis note is enough.
+            </li>
+            <li>
+              <strong>Visit Today.</strong> Get the resurfaced loop going for tomorrow-you.
+            </li>
+          </ol>
+        </Card>
+
         <div className="search-card-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))' }}>
           {[
             {
               title: 'Today',
-              copy: 'Why it exists: a daily desk. You will see resurfaced highlights, recent notes, and quick prompts.',
+              copy: 'Why it exists: a calm desk. You will see resurfaced highlights plus continue reading and thinking.',
               intent: 'Use this when you want a 60-second reset and a quick win.',
-              next: 'Hit reshuffle and drop one resurfaced highlight into a note.',
+              next: 'Open one resurfaced highlight and send it to a note.',
               route: '/today'
             },
             {
               title: 'Library',
-              copy: 'Why it exists: a home for everything you read. You will see articles, highlights, concepts, and saved views as drawers.',
+              copy: 'Why it exists: a reading room with folders and context. You will see articles, highlights, and where they connect.',
               intent: 'Use this when you want to find something in 10 seconds.',
-              next: 'Create one saved view for a theme you keep returning to.',
+              next: 'Open an article, skim the context panel, then collapse it for deep reading.',
               route: '/library'
             },
             {
               title: 'Think',
-              copy: 'Why it exists: synthesis. You will see your notebook, concept pages, and backlinks.',
+              copy: 'Why it exists: synthesis. You will see your notebook, concept pages, and embedded questions.',
               intent: 'Use this when you want to make sense, not just collect.',
-              next: 'Write one short note using five highlights.',
+              next: 'Add one question to a concept and answer it in a note.',
               route: '/think'
             },
             {
               title: 'Review',
-              copy: 'Why it exists: perspective. You will see your journey, resurfacing, and reflection prompts.',
+              copy: 'Why it exists: perspective. You will see Reflections, Journey, and Resurface.',
               intent: 'Use this when you want to see progress or patterns.',
-              next: 'Open Journey and scan your last seven days.',
+              next: 'Open Reflections and start a weekly note.',
               route: '/review'
-            },
-            {
-              title: 'Settings',
-              copy: 'Why it exists: ownership. You will see export, import, and your backup levers.',
-              intent: 'Use this when you want control and backup.',
-              next: 'Export your data once, just to prove it.',
-              route: '/settings'
             }
           ].map(card => (
             <Card key={card.title} className="search-card">
@@ -149,6 +166,27 @@ const HowToUse = () => {
             <li>Day 6: Answer one open question.</li>
             <li>Day 7: Export your data (trust ritual).</li>
           </ul>
+        </Card>
+
+        <Card className="search-section">
+          <div className="search-section-header">
+            <span className="eyebrow">Where to start if…</span>
+            <span className="muted small">Pick the path that fits you.</span>
+          </div>
+          <div className="section-stack">
+            <div>
+              <strong>You read a lot.</strong>
+              <p className="muted">Start in Library. Save three articles. Highlight ten lines. Then go to Today tomorrow.</p>
+            </div>
+            <div>
+              <strong>You research for work.</strong>
+              <p className="muted">Start in Think. Create two Concepts and drop highlights into one note. Add one question per concept.</p>
+            </div>
+            <div>
+              <strong>You are writing.</strong>
+              <p className="muted">Start in Think → Notebook. Make one synthesis note, then visit Review → Reflections weekly.</p>
+            </div>
+          </div>
         </Card>
 
         <Card className="search-section">
