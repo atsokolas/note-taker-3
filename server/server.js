@@ -124,16 +124,6 @@ const articleSchema = new mongoose.Schema({
 articleSchema.index({ url: 1, userId: 1 }, { unique: true });
 
 const Article = mongoose.model('Article', articleSchema);
-const { buildFolderService } = require('./services/folderService');
-const { getFoldersWithCounts } = buildFolderService({ Folder, Article, mongoose });
-const { buildConceptService } = require('./services/conceptService');
-const { getConcepts, getConceptMeta, updateConceptMeta, getConceptRelated } = buildConceptService({
-  Article,
-  TagMeta,
-  NotebookEntry,
-  ReferenceEdge,
-  mongoose
-});
 
 // --- NOTEBOOK: Schema for freeform notes with checklists ---
 const checklistItemSchema = new mongoose.Schema({
@@ -232,6 +222,16 @@ const referenceEdgeSchema = new mongoose.Schema({
 referenceEdgeSchema.index({ targetType: 1, targetId: 1, targetTagName: 1 });
 
 const ReferenceEdge = mongoose.model('ReferenceEdge', referenceEdgeSchema);
+const { buildFolderService } = require('./services/folderService');
+const { getFoldersWithCounts } = buildFolderService({ Folder, Article, mongoose });
+const { buildConceptService } = require('./services/conceptService');
+const { getConcepts, getConceptMeta, updateConceptMeta, getConceptRelated } = buildConceptService({
+  Article,
+  TagMeta,
+  NotebookEntry,
+  ReferenceEdge,
+  mongoose
+});
 // Saved Views (Smart Folders)
 const savedViewSchema = new mongoose.Schema({
   name: { type: String, required: true, trim: true },
