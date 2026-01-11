@@ -14,7 +14,9 @@ const WorkspaceShell = ({
   eyebrow,
   actions,
   rightOpen,
-  className
+  className,
+  rightToggleLabel,
+  persistRightOpen = true
 }) => {
   const location = useLocation();
   const hasRight = Boolean(right);
@@ -40,20 +42,25 @@ const WorkspaceShell = ({
   }, [storageKey, defaultRightOpen]);
 
   useEffect(() => {
-    if (!isControlled) return;
+    if (!isControlled || !persistRightOpen) return;
     localStorage.setItem(storageKey, String(rightOpen));
-  }, [isControlled, rightOpen, storageKey]);
+  }, [isControlled, persistRightOpen, rightOpen, storageKey]);
 
   const effectiveRightOpen = isControlled ? rightOpen : internalRightOpen;
 
   const toggleRight = () => {
     const next = !effectiveRightOpen;
-    localStorage.setItem(storageKey, String(next));
+    if (persistRightOpen) {
+      localStorage.setItem(storageKey, String(next));
+    }
     if (onToggleRight) onToggleRight(next);
     if (!isControlled) {
       setInternalRightOpen(next);
     }
   };
+
+  const toggleLabel = rightToggleLabel || (effectiveRightOpen ? 'Hide panel' : 'Show panel');
+  const toggleClassName = rightToggleLabel && effectiveRightOpen ? 'is-active' : '';
 
   return (
     <div className={`workspace-shell ${effectiveRightOpen ? '' : 'workspace-shell--right-collapsed'} ${className || ''}`}>
@@ -66,8 +73,8 @@ const WorkspaceShell = ({
           <div className="workspace-main-actions">
             {actions}
             {hasRight && (
-              <QuietButton onClick={toggleRight}>
-                {effectiveRightOpen ? 'Hide panel' : 'Show panel'}
+              <QuietButton onClick={toggleRight} className={toggleClassName}>
+                {toggleLabel}
               </QuietButton>
             )}
           </div>

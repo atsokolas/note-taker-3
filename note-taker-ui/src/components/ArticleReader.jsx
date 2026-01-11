@@ -42,8 +42,6 @@ const formatDate = (value) => {
 const ArticleReader = forwardRef(({
   article,
   highlights = [],
-  readingMode,
-  onToggleReadingMode,
   onMove
 }, ref) => {
   const contentRef = useRef(null);
@@ -86,11 +84,6 @@ const ArticleReader = forwardRef(({
           {onMove && (
             <QuietButton onClick={onMove}>
               Move
-            </QuietButton>
-          )}
-          {onToggleReadingMode && (
-            <QuietButton onClick={onToggleReadingMode}>
-              {readingMode ? 'Exit reading mode' : 'Reading mode'}
             </QuietButton>
           )}
         </div>
