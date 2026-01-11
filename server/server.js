@@ -786,6 +786,30 @@ app.get('/articles/:id', authenticateToken, async (req, res) => {
     }
 });
 
+// GET /api/articles/:id/highlights - highlights for a single article
+app.get('/api/articles/:id/highlights', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+    const article = await Article.findOne({ _id: id, userId }).select('highlights title');
+    if (!article) {
+      return res.status(404).json({ error: "Article not found." });
+    }
+    const highlights = (article.highlights || []).map(h => ({
+      _id: h._id,
+      text: h.text,
+      tags: h.tags || [],
+      createdAt: h.createdAt,
+      articleId: id,
+      articleTitle: article.title || 'Untitled article'
+    }));
+    res.status(200).json(highlights);
+  } catch (error) {
+    console.error("❌ Error fetching article highlights:", error);
+    res.status(500).json({ error: "Failed to fetch article highlights." });
+  }
+});
+
 // Add this new route to server.js
 
 // GET /api/articles/by-url: Finds an article by its URL for the current user

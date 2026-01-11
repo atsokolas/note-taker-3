@@ -1,13 +1,35 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { useLocation } from 'react-router-dom';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import api from '../api';
 import AllHighlights from './AllHighlights';
 import TagBrowser from './TagBrowser';
 import Views from './Views';
 import Collections from './Collections';
-import { Page, Card, Button, TagChip, SectionHeader, QuietButton, SubtleDivider } from '../components/ui';
+import { Page, Button, TagChip, SectionHeader, QuietButton, SubtleDivider } from '../components/ui';
 import { fetchWithCache, getCached, setCached } from '../utils/cache';
 import WorkspaceShell from '../layouts/WorkspaceShell';
+import ArticleReader from '../components/ArticleReader';
+
+const RIGHT_STORAGE_KEY = 'workspace-right-open:/library';
+
+const createId = () => {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
+  return `block-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+};
+
+const escapeHtml = (value = '') =>
+  String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+
+const formatDate = (value) => {
+  if (!value) return '';
+  const date = new Date(value);
+  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+};
 
 const LibraryMode = () => {
   const tabs = [
@@ -31,9 +53,42 @@ const LibraryMode = () => {
   const [savingView, setSavingView] = useState(false);
   const [saveViewForm, setSaveViewForm] = useState({ name: '', description: '' });
   const [saveViewError, setSaveViewError] = useState('');
+  const [articles, setArticles] = useState([]);
+  const [articlesLoading, setArticlesLoading] = useState(false);
+  const [articlesError, setArticlesError] = useState('');
+  const [selectedArticleId, setSelectedArticleId] = useState('');
+  const [selectedArticle, setSelectedArticle] = useState(null);
+  const [articleLoading, setArticleLoading] = useState(false);
+  const [articleError, setArticleError] = useState('');
+  const [articleHighlights, setArticleHighlights] = useState([]);
+  const [references, setReferences] = useState({ notebookBlocks: [], collections: [] });
+  const [referencesLoading, setReferencesLoading] = useState(false);
+  const [referencesError, setReferencesError] = useState('');
+  const [activeHighlightId, setActiveHighlightId] = useState('');
+  const [rightOpen, setRightOpen] = useState(() => {
+    const stored = localStorage.getItem(RIGHT_STORAGE_KEY);
+    if (stored === null) return true;
+    return stored === 'true';
+  });
+  const [readingMode, setReadingMode] = useState(false);
+  const [savedRightOpen, setSavedRightOpen] = useState(null);
+  const [sendModalOpen, setSendModalOpen] = useState(false);
+  const [highlightToSend, setHighlightToSend] = useState(null);
+  const [notes, setNotes] = useState([]);
+  const [notesLoading, setNotesLoading] = useState(false);
+  const [notesError, setNotesError] = useState('');
+  const [selectedNoteId, setSelectedNoteId] = useState('new');
+  const [sendingHighlight, setSendingHighlight] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
+  const readerRef = useRef(null);
 
   const authHeaders = () => ({ headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
+
+  const setRightPanelOpen = (value) => {
+    setRightOpen(value);
+    localStorage.setItem(RIGHT_STORAGE_KEY, String(value));
+  };
 
   useEffect(() => {
     const loadTags = async () => {
@@ -72,7 +127,91 @@ const LibraryMode = () => {
         query: q || prev.query
       }));
     }
-  }, [location.search]);
+  }, [location.search, tabs]);
+
+  useEffect(() => {
+    const loadArticles = async () => {
+      setArticlesLoading(true);
+      setArticlesError('');
+      try {
+        const res = await api.get('/get-articles', authHeaders());
+        setArticles(res.data || []);
+      } catch (err) {
+        setArticlesError(err.response?.data?.error || 'Failed to load articles.');
+      } finally {
+        setArticlesLoading(false);
+      }
+    };
+    loadArticles();
+  }, []);
+
+  useEffect(() => {
+    if (articles.length === 0) return;
+    const saved = localStorage.getItem('library.lastArticleId');
+    if (saved && articles.some(a => a._id === saved)) {
+      setSelectedArticleId(saved);
+      return;
+    }
+    if (!selectedArticleId) {
+      setSelectedArticleId(articles[0]._id);
+    }
+  }, [articles, selectedArticleId]);
+
+  useEffect(() => {
+    if (active !== 'articles') {
+      setReadingMode(false);
+    }
+  }, [active]);
+
+  useEffect(() => {
+    if (!selectedArticleId || active !== 'articles') return;
+    let cancelled = false;
+    const loadArticle = async () => {
+      setArticleLoading(true);
+      setArticleError('');
+      try {
+        const [articleRes, highlightRes] = await Promise.all([
+          api.get(`/articles/${selectedArticleId}`, authHeaders()),
+          api.get(`/api/articles/${selectedArticleId}/highlights`, authHeaders()).catch(() => ({ data: [] }))
+        ]);
+        if (cancelled) return;
+        setSelectedArticle(articleRes.data || null);
+        const highlights = highlightRes.data?.length ? highlightRes.data : (articleRes.data?.highlights || []);
+        setArticleHighlights(highlights);
+        setActiveHighlightId('');
+      } catch (err) {
+        if (cancelled) return;
+        setArticleError(err.response?.data?.error || 'Failed to load article.');
+      } finally {
+        if (!cancelled) setArticleLoading(false);
+      }
+    };
+    loadArticle();
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedArticleId, active]);
+
+  useEffect(() => {
+    if (!selectedArticleId || active !== 'articles') return;
+    let cancelled = false;
+    const loadReferences = async () => {
+      setReferencesLoading(true);
+      setReferencesError('');
+      try {
+        const res = await api.get(`/api/references/for-article/${selectedArticleId}`, authHeaders());
+        if (!cancelled) setReferences(res.data || { notebookBlocks: [], collections: [] });
+      } catch (err) {
+        if (!cancelled) setReferencesError(err.response?.data?.error || 'Failed to load references.');
+      } finally {
+        if (!cancelled) setReferencesLoading(false);
+      }
+    };
+    loadReferences();
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedArticleId, active]);
 
   const toggleFilterTag = (tag) => {
     setFilters((prev) => {
@@ -136,6 +275,112 @@ const LibraryMode = () => {
     }
   };
 
+  const handleSelectArticle = (id) => {
+    setSelectedArticleId(id);
+    localStorage.setItem('library.lastArticleId', id);
+  };
+
+  const handleHighlightClick = (highlight) => {
+    setActiveHighlightId(highlight._id);
+    readerRef.current?.scrollToHighlight(highlight._id);
+  };
+
+  const handleToggleRight = (nextOpen) => {
+    if (readingMode && nextOpen) {
+      setReadingMode(false);
+    }
+    setRightPanelOpen(nextOpen);
+  };
+
+  const handleToggleReadingMode = () => {
+    setReadingMode(prev => {
+      const next = !prev;
+      if (next) {
+        setSavedRightOpen(rightOpen);
+        setRightPanelOpen(false);
+      } else {
+        setRightPanelOpen(savedRightOpen === null ? true : savedRightOpen);
+      }
+      return next;
+    });
+  };
+
+  const loadNotes = async () => {
+    setNotesLoading(true);
+    setNotesError('');
+    try {
+      const res = await api.get('/api/notebook', authHeaders());
+      setNotes(res.data || []);
+    } catch (err) {
+      setNotesError(err.response?.data?.error || 'Failed to load notes.');
+    } finally {
+      setNotesLoading(false);
+    }
+  };
+
+  const openSendModal = (highlight) => {
+    setHighlightToSend(highlight);
+    setSelectedNoteId('new');
+    setSendModalOpen(true);
+    if (notes.length === 0) {
+      loadNotes();
+    }
+  };
+
+  const closeSendModal = () => {
+    setSendModalOpen(false);
+    setHighlightToSend(null);
+    setSendingHighlight(false);
+  };
+
+  const createHighlightBlock = (highlight) => {
+    const blockId = createId();
+    const text = `"${highlight.text}" — ${highlight.articleTitle || selectedArticle?.title || 'Untitled article'}`;
+    const html = `<blockquote data-highlight-id="${escapeHtml(highlight._id)}" data-block-id="${blockId}">${escapeHtml(text)}</blockquote><p></p>`;
+    return { blockId, text, html };
+  };
+
+  const createNoteFromHighlight = async (highlight) => {
+    const title = highlight.articleTitle ? `Note — ${highlight.articleTitle}` : 'New note';
+    const block = createHighlightBlock(highlight);
+    const payload = {
+      title,
+      content: `<h2>${escapeHtml(title)}</h2>${block.html}`,
+      blocks: [{ id: block.blockId, type: 'highlight-ref', text: block.text, highlightId: highlight._id }]
+    };
+    const res = await api.post('/api/notebook', payload, authHeaders());
+    return res.data?._id || null;
+  };
+
+  const appendHighlightToNote = async (highlight, noteId) => {
+    const res = await api.get(`/api/notebook/${noteId}`, authHeaders());
+    const entry = res.data;
+    if (!entry) return;
+    const block = createHighlightBlock(highlight);
+    const nextBlocks = [...(entry.blocks || []), { id: block.blockId, type: 'highlight-ref', text: block.text, highlightId: highlight._id }];
+    const contentBase = entry.content || '';
+    const nextContent = `${contentBase}${contentBase ? '' : ''}${block.html}`;
+    await api.put(`/api/notebook/${noteId}`, { content: nextContent, blocks: nextBlocks }, authHeaders());
+  };
+
+  const sendHighlightToNote = async () => {
+    if (!highlightToSend) return;
+    setSendingHighlight(true);
+    try {
+      if (selectedNoteId === 'new') {
+        const newId = await createNoteFromHighlight(highlightToSend);
+        if (newId) navigate(`/notebook?entryId=${newId}`);
+      } else {
+        await appendHighlightToNote(highlightToSend, selectedNoteId);
+        navigate(`/notebook?entryId=${selectedNoteId}`);
+      }
+      closeSendModal();
+    } catch (err) {
+      setNotesError(err.response?.data?.error || 'Failed to send highlight.');
+      setSendingHighlight(false);
+    }
+  };
+
   const canSaveView = active === 'articles' || active === 'highlights';
 
   const filteredTagOptions = useMemo(() => {
@@ -144,78 +389,27 @@ const LibraryMode = () => {
     return tagOptions.filter(t => t.tag.toLowerCase().includes(query));
   }, [tagOptions, filters.query]);
 
-  const LibraryArticlesPanel = () => {
-    const [articles, setArticles] = useState([]);
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState('');
+  const groupedHighlights = useMemo(() => {
+    const groups = {};
+    (articleHighlights || []).forEach(h => {
+      const tags = h.tags && h.tags.length > 0 ? h.tags : ['Untagged'];
+      tags.forEach(tag => {
+        if (!groups[tag]) groups[tag] = [];
+        groups[tag].push(h);
+      });
+    });
+    return groups;
+  }, [articleHighlights]);
 
-    useEffect(() => {
-      const loadArticles = async () => {
-        setLoading(true);
-        setError('');
-        try {
-          const res = await api.get('/get-articles', authHeaders());
-          setArticles(res.data || []);
-        } catch (err) {
-          setError(err.response?.data?.error || 'Failed to load articles.');
-        } finally {
-          setLoading(false);
-        }
-      };
-      loadArticles();
-    }, []);
+  const highlightGroups = useMemo(() => {
+    const tags = Object.keys(groupedHighlights);
+    return tags.sort((a, b) => a.localeCompare(b));
+  }, [groupedHighlights]);
 
-    const filtered = useMemo(() => {
-      let next = articles;
-      const query = filters.query.trim().toLowerCase();
-      if (query) {
-        next = next.filter(a => `${a.title || ''} ${a.content || ''}`.toLowerCase().includes(query));
-      }
-      if (filters.tags.length > 0) {
-        next = next.filter(a => {
-          const tags = new Set();
-          (a.highlights || []).forEach(h => (h.tags || []).forEach(t => tags.add(t)));
-          return filters.tags.some(tag => tags.has(tag));
-        });
-      }
-      if (filters.dateFrom) {
-        const from = new Date(filters.dateFrom);
-        next = next.filter(a => a.createdAt && new Date(a.createdAt) >= from);
-      }
-      if (filters.dateTo) {
-        const to = new Date(filters.dateTo);
-        next = next.filter(a => a.createdAt && new Date(a.createdAt) <= to);
-      }
-      if (filters.sort === 'most-highlighted') {
-        next = [...next].sort((a, b) => (b.highlights?.length || 0) - (a.highlights?.length || 0));
-      } else {
-        next = [...next].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-      }
-      return next;
-    }, [articles, filters.query, filters.tags, filters.dateFrom, filters.dateTo, filters.sort]);
-
-    return (
-      <div className="section-stack">
-        {loading && <p className="status-message">Loading articles…</p>}
-        {error && <p className="status-message error-message">{error}</p>}
-        {filtered.length === 0 && !loading && !error && (
-          <p className="muted small">No articles match your filters yet.</p>
-        )}
-        {filtered.map(article => (
-          <Card key={article._id} className="search-card">
-            <div className="search-card-top">
-              <span className="article-title-link">{article.title || 'Untitled article'}</span>
-              <span className="muted small">{article.createdAt ? new Date(article.createdAt).toLocaleDateString() : ''}</span>
-            </div>
-            <p className="muted small">{article.url || ''}</p>
-            <p className="muted small" style={{ marginTop: 6 }}>
-              {(article.highlights || []).length} highlights
-            </p>
-          </Card>
-        ))}
-      </div>
-    );
-  };
+  const activeHighlight = useMemo(
+    () => articleHighlights.find(h => h._id === activeHighlightId) || null,
+    [articleHighlights, activeHighlightId]
+  );
 
   const renderTab = () => {
     switch (active) {
@@ -228,13 +422,13 @@ const LibraryMode = () => {
       case 'collections':
         return <Collections embedded filters={filters} />;
       default:
-        return <LibraryArticlesPanel />;
+        return null;
     }
   };
 
   const leftPanel = (
     <div className="section-stack">
-      <SectionHeader title="Library sections" subtitle="Switch your focus." />
+      <SectionHeader title="Library" subtitle="Reading room." />
       <div className="section-stack">
         {tabs.map(t => (
           <QuietButton
@@ -246,18 +440,148 @@ const LibraryMode = () => {
           </QuietButton>
         ))}
       </div>
-      <SubtleDivider />
-      <p className="muted small">Use tags and saved views to keep the library tidy without overthinking it.</p>
+      {active === 'articles' && (
+        <>
+          <SubtleDivider />
+          <div className="library-article-list">
+            {articlesLoading && <p className="muted small">Loading articles…</p>}
+            {articlesError && <p className="status-message error-message">{articlesError}</p>}
+            {!articlesLoading && !articlesError && articles.length === 0 && (
+              <p className="muted small">No saved articles yet.</p>
+            )}
+            {!articlesLoading && !articlesError && articles.map(article => (
+              <button
+                key={article._id}
+                className={`library-article-item ${selectedArticleId === article._id ? 'is-active' : ''}`}
+                onClick={() => handleSelectArticle(article._id)}
+              >
+                <div className="library-article-title">{article.title || 'Untitled article'}</div>
+                <div className="library-article-meta">
+                  <span>{formatDate(article.createdAt)}</span>
+                  <span>{(article.highlights || []).length} highlights</span>
+                </div>
+              </button>
+            ))}
+          </div>
+        </>
+      )}
     </div>
   );
 
-  const mainPanel = (
+  const mainPanel = active === 'articles' ? (
     <div className="section-stack">
-      {renderTab()}
+      {articleError && <p className="status-message error-message">{articleError}</p>}
+      {articleLoading && <p className="muted small">Loading article…</p>}
+      {!articleLoading && (
+        <ArticleReader
+          ref={readerRef}
+          article={selectedArticle}
+          highlights={articleHighlights}
+          readingMode={readingMode}
+          onToggleReadingMode={handleToggleReadingMode}
+        />
+      )}
     </div>
+  ) : (
+    <div className="section-stack">{renderTab()}</div>
   );
 
-  const rightPanel = (
+  const rightPanel = active === 'articles' ? (
+    <div className="section-stack">
+      <SectionHeader title="Quick actions" subtitle="Use one highlight at a time." />
+      {activeHighlight ? (
+        <div className="library-quick-actions">
+          <QuietButton onClick={() => openSendModal(activeHighlight)}>Send highlight to note</QuietButton>
+          {activeHighlight.tags && activeHighlight.tags.length > 0 && (
+            <QuietButton onClick={() => navigate(`/tags/${encodeURIComponent(activeHighlight.tags[0])}`)}>
+              Open concept page
+            </QuietButton>
+          )}
+        </div>
+      ) : (
+        <p className="muted small">Select a highlight to enable quick actions.</p>
+      )}
+      <SubtleDivider />
+      <SectionHeader title="Highlights" subtitle="Grouped by concept." />
+      {articleHighlights.length === 0 && !articleLoading && (
+        <p className="muted small">No highlights saved for this article yet.</p>
+      )}
+      {highlightGroups.map(tag => (
+        <div key={tag} className="library-highlight-group">
+          <div className="library-highlight-group-header">
+            <span className="library-highlight-group-title">{tag}</span>
+            {tag !== 'Untagged' && (
+              <Link to={`/tags/${encodeURIComponent(tag)}`} className="muted small">Open concept</Link>
+            )}
+          </div>
+          <div className="library-highlight-list">
+            {groupedHighlights[tag].map(highlight => (
+              <div
+                key={highlight._id}
+                className={`library-highlight-item ${activeHighlightId === highlight._id ? 'is-active' : ''}`}
+                role="button"
+                tabIndex={0}
+                onClick={() => handleHighlightClick(highlight)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleHighlightClick(highlight);
+                }}
+              >
+                <div className="library-highlight-text">{highlight.text}</div>
+                <div className="library-highlight-tags">
+                  {(highlight.tags || []).length > 0 ? (
+                    highlight.tags.map(tagName => (
+                      <TagChip key={`${highlight._id}-${tagName}`} to={`/tags/${encodeURIComponent(tagName)}`}>
+                        {tagName}
+                      </TagChip>
+                    ))
+                  ) : (
+                    <span className="muted small">Untagged</span>
+                  )}
+                </div>
+                <div className="library-highlight-actions">
+                  <QuietButton
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      openSendModal(highlight);
+                    }}
+                  >
+                    Send to Note
+                  </QuietButton>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+      <SubtleDivider />
+      <SectionHeader title="Used in Notes" subtitle="Backlinks for this article." />
+      {referencesLoading && <p className="muted small">Loading references…</p>}
+      {referencesError && <p className="status-message error-message">{referencesError}</p>}
+      {!referencesLoading && !referencesError && (
+        <div className="library-references">
+          {references.notebookBlocks.length === 0 ? (
+            <p className="muted small">No notes yet.</p>
+          ) : (
+            references.notebookBlocks.slice(0, 6).map((block, idx) => (
+              <button
+                key={`${block.notebookEntryId}-${block.blockId}-${idx}`}
+                className="library-reference-item"
+                onClick={() => {
+                  const params = new URLSearchParams();
+                  params.set('entryId', block.notebookEntryId);
+                  if (block.blockId) params.set('blockId', block.blockId);
+                  navigate(`/notebook?${params.toString()}`);
+                }}
+              >
+                <div className="library-reference-title">{block.notebookTitle || 'Untitled note'}</div>
+                <div className="muted small">{block.blockPreviewText || 'Referenced block'}</div>
+              </button>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  ) : (
     <div className="section-stack">
       <SectionHeader title="Filters" subtitle="Narrow the view." />
       <label className="feedback-field" style={{ margin: 0 }}>
@@ -324,13 +648,16 @@ const LibraryMode = () => {
     <Page>
       <WorkspaceShell
         title="Library"
-        subtitle="Browse everything you’ve saved—articles, highlights, concepts, and smart views."
+        subtitle="Read in full. Keep your highlights close. Return when it matters."
         eyebrow="Mode"
         left={leftPanel}
         main={mainPanel}
         right={rightPanel}
-        rightTitle="Library tools"
+        rightTitle="Context"
         defaultRightOpen
+        rightOpen={active === 'articles' ? (readingMode ? false : rightOpen) : rightOpen}
+        onToggleRight={handleToggleRight}
+        className={`library-shell ${active === 'articles' && readingMode ? 'library-shell--reading' : ''}`}
       />
       {showSaveView && (
         <div className="modal-overlay">
@@ -360,6 +687,40 @@ const LibraryMode = () => {
               <Button variant="secondary" onClick={() => setShowSaveView(false)}>Cancel</Button>
               <Button onClick={saveCurrentView} disabled={savingView || !saveViewForm.name.trim()}>
                 {savingView ? 'Saving…' : 'Save'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+      {sendModalOpen && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ maxWidth: 520 }}>
+            <div className="modal-header">
+              <h3>Send highlight to note</h3>
+              <button className="icon-button" onClick={closeSendModal}>×</button>
+            </div>
+            {highlightToSend && (
+              <p className="muted small">{highlightToSend.text}</p>
+            )}
+            <label className="feedback-field">
+              <span>Choose note</span>
+              <select
+                value={selectedNoteId}
+                onChange={(e) => setSelectedNoteId(e.target.value)}
+                className="compact-select"
+              >
+                <option value="new">New note</option>
+                {notes.map(note => (
+                  <option key={note._id} value={note._id}>{note.title || 'Untitled note'}</option>
+                ))}
+              </select>
+            </label>
+            {notesLoading && <p className="muted small">Loading notes…</p>}
+            {notesError && <p className="status-message error-message">{notesError}</p>}
+            <div className="modal-actions" style={{ justifyContent: 'flex-end', gap: 8 }}>
+              <Button variant="secondary" onClick={closeSendModal}>Cancel</Button>
+              <Button onClick={sendHighlightToNote} disabled={sendingHighlight || notesLoading}>
+                {sendingHighlight ? 'Sending…' : 'Send'}
               </Button>
             </div>
           </div>

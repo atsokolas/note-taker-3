@@ -12,16 +12,19 @@ const WorkspaceShell = ({
   title,
   subtitle,
   eyebrow,
-  actions
+  actions,
+  rightOpen,
+  className
 }) => {
   const location = useLocation();
   const hasRight = Boolean(right);
+  const isControlled = typeof rightOpen === 'boolean';
   const storageKey = useMemo(
     () => `workspace-right-open:${location.pathname}`,
     [location.pathname]
   );
 
-  const [rightOpen, setRightOpen] = useState(() => {
+  const [internalRightOpen, setInternalRightOpen] = useState(() => {
     const stored = localStorage.getItem(storageKey);
     if (stored === null) return defaultRightOpen;
     return stored === 'true';
@@ -30,23 +33,30 @@ const WorkspaceShell = ({
   useEffect(() => {
     const stored = localStorage.getItem(storageKey);
     if (stored === null) {
-      setRightOpen(defaultRightOpen);
+      setInternalRightOpen(defaultRightOpen);
     } else {
-      setRightOpen(stored === 'true');
+      setInternalRightOpen(stored === 'true');
     }
   }, [storageKey, defaultRightOpen]);
 
+  useEffect(() => {
+    if (!isControlled) return;
+    localStorage.setItem(storageKey, String(rightOpen));
+  }, [isControlled, rightOpen, storageKey]);
+
+  const effectiveRightOpen = isControlled ? rightOpen : internalRightOpen;
+
   const toggleRight = () => {
-    setRightOpen(prev => {
-      const next = !prev;
-      localStorage.setItem(storageKey, String(next));
-      if (onToggleRight) onToggleRight(next);
-      return next;
-    });
+    const next = !effectiveRightOpen;
+    localStorage.setItem(storageKey, String(next));
+    if (onToggleRight) onToggleRight(next);
+    if (!isControlled) {
+      setInternalRightOpen(next);
+    }
   };
 
   return (
-    <div className={`workspace-shell ${rightOpen ? '' : 'workspace-shell--right-collapsed'}`}>
+    <div className={`workspace-shell ${effectiveRightOpen ? '' : 'workspace-shell--right-collapsed'} ${className || ''}`}>
       <aside className="workspace-panel workspace-panel-left">
         {left}
       </aside>
@@ -57,7 +67,7 @@ const WorkspaceShell = ({
             {actions}
             {hasRight && (
               <QuietButton onClick={toggleRight}>
-                {rightOpen ? 'Hide panel' : 'Show panel'}
+                {effectiveRightOpen ? 'Hide panel' : 'Show panel'}
               </QuietButton>
             )}
           </div>
@@ -69,10 +79,10 @@ const WorkspaceShell = ({
       </section>
       {hasRight && (
         <aside
-          className={`workspace-panel workspace-panel-right ${rightOpen ? '' : 'is-collapsed'}`}
-          aria-hidden={!rightOpen}
+          className={`workspace-panel workspace-panel-right ${effectiveRightOpen ? '' : 'is-collapsed'}`}
+          aria-hidden={!effectiveRightOpen}
         >
-          {rightOpen && (
+          {effectiveRightOpen && (
             <>
               <PanelHeader
                 title={rightTitle}
