@@ -1244,6 +1244,57 @@ p {
   letter-spacing: 0.08em;
   color: var(--muted);
 }
+
+.highlight-block {
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  padding: 12px 14px;
+  background: var(--surface);
+  display: grid;
+  gap: 8px;
+}
+
+.highlight-block--compact {
+  padding: 10px 12px;
+}
+
+.highlight-block-quote {
+  font-family: var(--font-serif);
+  font-size: 1rem;
+  line-height: 1.7;
+  color: var(--text);
+}
+
+.highlight-block-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.highlight-block-title {
+  color: var(--text);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.highlight-block-title:hover {
+  color: var(--accent);
+}
+
+.highlight-block-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.highlight-block-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
 .think-notebook-layout {
   display: grid;
   grid-template-columns: 260px minmax(0, 1fr);

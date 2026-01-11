@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { SectionHeader, TagChip } from '../../ui';
 import ReferencesPanel from '../../ReferencesPanel';
+import HighlightBlock from '../../blocks/HighlightBlock';
 
 const NotebookContext = ({ entry }) => {
   const highlightRefs = useMemo(() => {
@@ -27,9 +28,15 @@ const NotebookContext = ({ entry }) => {
       {highlightRefs.length ? (
         <div className="concept-note-grid">
           {highlightRefs.map(ref => (
-            <div key={ref.id} className="concept-note-card">
-              <div className="concept-note-title">{ref.text || 'Highlight reference'}</div>
-            </div>
+            <HighlightBlock
+              key={ref.id || ref.highlightId}
+              compact
+              highlight={{
+                id: ref.highlightId || ref.id,
+                text: ref.text || 'Highlight reference',
+                tags: entry?.tags || []
+              }}
+            />
           ))}
         </div>
       ) : (

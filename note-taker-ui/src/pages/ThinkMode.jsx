@@ -14,6 +14,7 @@ import { createQuestion, updateQuestion } from '../api/questions';
 import QuestionInput from '../components/think/questions/QuestionInput';
 import QuestionList from '../components/think/questions/QuestionList';
 import AllQuestionsView from '../components/think/questions/AllQuestionsView';
+import HighlightBlock from '../components/blocks/HighlightBlock';
 
 const ThinkMode = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -297,11 +298,11 @@ const ThinkMode = () => {
           <div className="concept-highlight-grid">
             {pinnedHighlights.map(h => (
               <div key={h._id} className="concept-highlight-card">
-                <p className="concept-highlight-text">{h.text}</p>
-                <div className="concept-highlight-meta">
-                  <Link to={`/articles/${h.articleId}`} className="muted small">{h.articleTitle || 'Article'}</Link>
-                  <QuietButton onClick={() => togglePinHighlight(h._id)}>Unpin</QuietButton>
-                </div>
+                <HighlightBlock
+                  highlight={h}
+                  compact
+                  onRemove={() => togglePinHighlight(h._id)}
+                />
               </div>
             ))}
           </div>
@@ -310,13 +311,11 @@ const ThinkMode = () => {
           <div className="concept-highlight-grid">
             {recentHighlights.map(h => (
               <div key={h._id} className="concept-highlight-card">
-                <p className="concept-highlight-text">{h.text}</p>
-                <div className="concept-highlight-meta">
-                  <Link to={`/articles/${h.articleId}`} className="muted small">{h.articleTitle || 'Article'}</Link>
-                  <QuietButton onClick={() => togglePinHighlight(h._id)}>
-                    {pinnedHighlightIds.some(id => String(id) === String(h._id)) ? 'Unpin' : 'Pin'}
-                  </QuietButton>
-                </div>
+                <HighlightBlock
+                  highlight={h}
+                  compact
+                  onRemove={() => togglePinHighlight(h._id)}
+                />
               </div>
             ))}
             {!relatedLoading && recentHighlights.length === 0 && (

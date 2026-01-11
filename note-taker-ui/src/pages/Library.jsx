@@ -1,8 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { Page, SectionHeader, TagChip } from '../components/ui';
-import WorkspaceShell from '../layouts/WorkspaceShell';
 import LibraryCabinet from '../components/library/LibraryCabinet';
+import LibraryShell from '../components/library/LibraryShell';
 import LibraryMain from '../components/library/LibraryMain';
 import LibraryContext from '../components/library/LibraryContext';
 import MoveToFolderModal from '../components/library/MoveToFolderModal';
@@ -288,15 +288,10 @@ const Library = () => {
 
   return (
     <Page>
-      <WorkspaceShell
-        title="Library"
-        subtitle="Reading room for your saved work."
-        eyebrow="Mode"
+      <LibraryShell
         left={leftPanel}
         main={mainPanel}
         right={rightPanel}
-        rightTitle="Context"
-        defaultRightOpen
         rightOpen={effectiveRightOpen}
         onToggleRight={handleToggleRight}
         rightToggleLabel="Context"
