@@ -421,10 +421,13 @@ p {
 }
 
 .workspace-shell {
+  /* Bug fix: keep context in the grid so it can't overlay the reader. */
   display: grid;
   grid-template-columns: 260px minmax(0, 1fr) 340px;
   gap: 16px;
   align-items: start;
+  width: 100%;
+  min-width: 0;
 }
 
 .workspace-shell--right-collapsed {
@@ -435,6 +438,10 @@ p {
 .workspace-main {
   min-width: 0;
   position: relative;
+}
+
+.workspace-panel-right {
+  overflow-y: auto;
 }
 
 .workspace-panel {
@@ -451,6 +458,8 @@ p {
   box-shadow: none;
   padding: 0;
   overflow: hidden;
+  width: 0;
+  pointer-events: none;
 }
 
 .workspace-main {

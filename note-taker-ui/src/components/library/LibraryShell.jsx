@@ -1,6 +1,7 @@
 import React from 'react';
 import WorkspaceShell from '../../layouts/WorkspaceShell';
 
+// Bug fix: Context must stay in the grid column so it never overlays the reader.
 // Layout invariant: Context is a column, never a layer.
 const LibraryShell = ({
   left,

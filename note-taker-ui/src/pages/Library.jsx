@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { Page, SectionHeader, TagChip } from '../components/ui';
 import LibraryCabinet from '../components/library/LibraryCabinet';
@@ -161,14 +161,14 @@ const Library = () => {
     readerRef.current?.scrollToHighlight(highlight._id);
   };
 
-  const handleToggleRight = (nextOpen) => {
+  const handleToggleRight = useCallback((nextOpen) => {
     if (selectedArticleId && nextOpen && !contextOverride) {
       setContextOverride(true);
       localStorage.setItem(CONTEXT_OVERRIDE_KEY, 'true');
     }
     setRightOpen(nextOpen);
     localStorage.setItem(RIGHT_STORAGE_KEY, String(nextOpen));
-  };
+  }, [contextOverride, selectedArticleId]);
 
   const fallbackCounts = useMemo(() => {
     const counts = {};
@@ -288,6 +288,17 @@ const Library = () => {
     storedOpen: rightOpen,
     userOverride: contextOverride
   });
+
+  useEffect(() => {
+    if (!effectiveRightOpen) return;
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        handleToggleRight(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [effectiveRightOpen, handleToggleRight]);
 
   const mainPanel = (
     <LibraryMain
