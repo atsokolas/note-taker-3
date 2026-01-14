@@ -9,6 +9,9 @@ const WorkspaceShell = ({
   rightTitle = 'Details',
   defaultRightOpen = true,
   onToggleRight,
+  leftOpen,
+  onToggleLeft,
+  leftToggleLabel,
   title,
   subtitle,
   eyebrow,
@@ -21,6 +24,8 @@ const WorkspaceShell = ({
   const location = useLocation();
   const hasRight = Boolean(right);
   const isControlled = typeof rightOpen === 'boolean';
+  const hasLeftToggle = typeof leftOpen === 'boolean' && typeof onToggleLeft === 'function';
+  const effectiveLeftOpen = typeof leftOpen === 'boolean' ? leftOpen : true;
   const storageKey = useMemo(
     () => `workspace-right-open:${location.pathname}`,
     [location.pathname]
@@ -61,10 +66,13 @@ const WorkspaceShell = ({
 
   const toggleLabel = rightToggleLabel || (effectiveRightOpen ? 'Hide panel' : 'Show panel');
   const toggleClassName = rightToggleLabel && effectiveRightOpen ? 'is-active' : '';
+  const leftToggleClassName = leftToggleLabel && effectiveLeftOpen ? 'is-active' : '';
 
   return (
-    <div className={`workspace-shell ${effectiveRightOpen ? '' : 'workspace-shell--right-collapsed'} ${className || ''}`}>
-      <aside className="workspace-panel workspace-panel-left">
+    <div
+      className={`workspace-shell ${effectiveLeftOpen ? '' : 'workspace-shell--left-collapsed'} ${effectiveRightOpen ? '' : 'workspace-shell--right-collapsed'} ${className || ''}`}
+    >
+      <aside className={`workspace-panel workspace-panel-left ${effectiveLeftOpen ? '' : 'is-collapsed'}`}>
         {left}
       </aside>
       <section className="workspace-main">
@@ -72,6 +80,11 @@ const WorkspaceShell = ({
           <PageTitle eyebrow={eyebrow} title={title} subtitle={subtitle} />
           <div className="workspace-main-actions">
             {actions}
+            {hasLeftToggle && (
+              <QuietButton onClick={() => onToggleLeft?.(!effectiveLeftOpen)} className={leftToggleClassName}>
+                {leftToggleLabel || (effectiveLeftOpen ? 'Hide cabinet' : 'Show cabinet')}
+              </QuietButton>
+            )}
             {hasRight && (
               <QuietButton onClick={toggleRight} className={toggleClassName}>
                 {toggleLabel}

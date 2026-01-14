@@ -430,14 +430,31 @@ p {
   min-width: 0;
 }
 
+.workspace-shell--left-collapsed {
+  grid-template-columns: 0px minmax(0, 1fr) 340px;
+}
+
 .workspace-shell--right-collapsed {
   grid-template-columns: 260px minmax(0, 1fr) 0px;
+}
+
+.workspace-shell--left-collapsed.workspace-shell--right-collapsed {
+  grid-template-columns: 0px minmax(0, 1fr) 0px;
 }
 
 .workspace-panel,
 .workspace-main {
   min-width: 0;
   position: relative;
+}
+
+.workspace-panel-left.is-collapsed {
+  border: none;
+  box-shadow: none;
+  padding: 0;
+  overflow: hidden;
+  width: 0;
+  pointer-events: none;
 }
 
 .workspace-panel-right {
@@ -1091,11 +1108,17 @@ p {
 
 @media (max-width: 1100px) {
   .workspace-shell,
-  .workspace-shell--right-collapsed {
+  .workspace-shell--right-collapsed,
+  .workspace-shell--left-collapsed,
+  .workspace-shell--left-collapsed.workspace-shell--right-collapsed {
     grid-template-columns: 1fr;
   }
 
   .workspace-panel-right.is-collapsed {
+    display: none;
+  }
+
+  .workspace-panel-left.is-collapsed {
     display: none;
   }
 }

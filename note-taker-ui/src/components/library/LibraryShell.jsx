@@ -9,9 +9,13 @@ const LibraryShell = ({
   right,
   rightOpen,
   onToggleRight,
+  leftOpen,
+  onToggleLeft,
+  leftToggleLabel,
   className,
   rightToggleLabel,
-  persistRightOpen
+  persistRightOpen,
+  actions
 }) => (
   <WorkspaceShell
     title="Library"
@@ -26,6 +30,10 @@ const LibraryShell = ({
     onToggleRight={onToggleRight}
     rightToggleLabel={rightToggleLabel}
     persistRightOpen={persistRightOpen}
+    leftOpen={leftOpen}
+    onToggleLeft={onToggleLeft}
+    leftToggleLabel={leftToggleLabel}
+    actions={actions}
     className={className}
   />
 );

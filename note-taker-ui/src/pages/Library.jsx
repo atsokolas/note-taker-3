@@ -16,6 +16,8 @@ import { getContextPanelOpen } from '../utils/readingMode';
 
 const RIGHT_STORAGE_KEY = 'workspace-right-open:/library';
 const CONTEXT_OVERRIDE_KEY = 'library.context.override:/library';
+const LEFT_STORAGE_KEY = 'workspace-left-open:/library';
+const CABINET_OVERRIDE_KEY = 'library.cabinet.override:/library';
 
 // Folder contract: GET `/folders` -> [{ _id, name, createdAt, updatedAt }].
 // Articles reference folders via `article.folder` (populated Folder) or null for unfiled.
@@ -35,8 +37,16 @@ const Library = () => {
     if (stored === null) return true;
     return stored === 'true';
   });
+  const [leftOpen, setLeftOpen] = useState(() => {
+    const stored = localStorage.getItem(LEFT_STORAGE_KEY);
+    if (stored === null) return true;
+    return stored === 'true';
+  });
   const [contextOverride, setContextOverride] = useState(() => (
     localStorage.getItem(CONTEXT_OVERRIDE_KEY) === 'true'
+  ));
+  const [cabinetOverride, setCabinetOverride] = useState(() => (
+    localStorage.getItem(CABINET_OVERRIDE_KEY) === 'true'
   ));
   const [activeHighlightId, setActiveHighlightId] = useState('');
   const readerRef = useRef(null);
@@ -170,6 +180,15 @@ const Library = () => {
     localStorage.setItem(RIGHT_STORAGE_KEY, String(nextOpen));
   }, [contextOverride, selectedArticleId]);
 
+  const handleToggleLeft = useCallback((nextOpen) => {
+    if (selectedArticleId && nextOpen && !cabinetOverride) {
+      setCabinetOverride(true);
+      localStorage.setItem(CABINET_OVERRIDE_KEY, 'true');
+    }
+    setLeftOpen(nextOpen);
+    localStorage.setItem(LEFT_STORAGE_KEY, String(nextOpen));
+  }, [cabinetOverride, selectedArticleId]);
+
   const fallbackCounts = useMemo(() => {
     const counts = {};
     allArticles.forEach(article => {
@@ -288,6 +307,11 @@ const Library = () => {
     storedOpen: rightOpen,
     userOverride: contextOverride
   });
+  const effectiveLeftOpen = getContextPanelOpen({
+    hasSelection: Boolean(selectedArticleId),
+    storedOpen: leftOpen,
+    userOverride: cabinetOverride
+  });
 
   useEffect(() => {
     if (!effectiveRightOpen) return;
@@ -353,6 +377,9 @@ const Library = () => {
         left={leftPanel}
         main={mainPanel}
         right={rightPanel}
+        leftOpen={effectiveLeftOpen}
+        onToggleLeft={handleToggleLeft}
+        leftToggleLabel="Cabinet"
         rightOpen={effectiveRightOpen}
         onToggleRight={handleToggleRight}
         rightToggleLabel="Context"
