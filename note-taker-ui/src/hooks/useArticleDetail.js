@@ -10,15 +10,18 @@ import { getAuthHeaders } from './useAuthHeaders';
  * @property {string} [createdAt]
  * @property {string} [articleId]
  * @property {string} [articleTitle]
+ * @property {Object} [anchor]
  */
 
+const normalizeHighlight = (highlight, article) => ({
+  ...highlight,
+  tags: highlight.tags || [],
+  articleId: highlight.articleId || article?._id,
+  articleTitle: highlight.articleTitle || article?.title
+});
+
 const normalizeHighlights = (highlights = [], article) => (
-  highlights.map(h => ({
-    ...h,
-    tags: h.tags || [],
-    articleId: h.articleId || article?._id,
-    articleTitle: h.articleTitle || article?.title
-  }))
+  highlights.map(h => normalizeHighlight(h, article))
 );
 
 const useArticleDetail = (articleId, options = {}) => {
@@ -52,7 +55,31 @@ const useArticleDetail = (articleId, options = {}) => {
     fetchArticle();
   }, [fetchArticle]);
 
-  return { article, highlights, loading, error, refresh: fetchArticle };
+  const addHighlightOptimistic = useCallback((highlight) => {
+    setHighlights(prev => normalizeHighlights([...prev, highlight], article));
+  }, [article]);
+
+  const replaceHighlight = useCallback((tempId, highlight) => {
+    setHighlights(prev => normalizeHighlights(
+      prev.map(item => (item._id === tempId ? highlight : item)),
+      article
+    ));
+  }, [article]);
+
+  const removeHighlight = useCallback((id) => {
+    setHighlights(prev => prev.filter(item => item._id !== id));
+  }, []);
+
+  return {
+    article,
+    highlights,
+    loading,
+    error,
+    refresh: fetchArticle,
+    addHighlightOptimistic,
+    replaceHighlight,
+    removeHighlight
+  };
 };
 
 export default useArticleDetail;

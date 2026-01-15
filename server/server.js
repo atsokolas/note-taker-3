@@ -107,6 +107,12 @@ const articleSchema = new mongoose.Schema({
       text: String,
       note: String,
       tags: [String],
+      anchor: {
+        text: String,
+        prefix: String,
+        suffix: String,
+        startOffsetApprox: Number
+      },
       createdAt: { type: Date, default: Date.now }
   }],
   pdfs: { type: [pdfAttachmentSchema], default: [] },
@@ -843,6 +849,7 @@ app.get('/api/articles/:id/highlights', authenticateToken, async (req, res) => {
       _id: h._id,
       text: h.text,
       tags: h.tags || [],
+      anchor: h.anchor,
       createdAt: h.createdAt,
       articleId: id,
       articleTitle: article.title || 'Untitled article'
@@ -3250,17 +3257,26 @@ app.get('/api/resurface', authenticateToken, async (req, res) => {
 app.post('/articles/:id/highlights', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
-    const { text, note, tags } = req.body;
+    const { text, note, tags, anchor } = req.body;
     const userId = req.user.id; // Get user ID from authenticated token
 
-    if (!text) {
+    const trimmedText = typeof text === 'string' ? text.trim() : '';
+    if (trimmedText.length < 3) {
       return res.status(400).json({ error: "Highlight text is required." });
     }
 
     const newHighlight = {
-        text,
+        text: trimmedText,
         note: note || '',
-        tags: tags || []
+        tags: tags || [],
+        anchor: anchor ? {
+          text: anchor.text || trimmedText,
+          prefix: anchor.prefix || '',
+          suffix: anchor.suffix || '',
+          startOffsetApprox: Number.isFinite(anchor.startOffsetApprox)
+            ? anchor.startOffsetApprox
+            : undefined
+        } : undefined
     };
 
     // Find article by ID AND ensure it belongs to the authenticated user

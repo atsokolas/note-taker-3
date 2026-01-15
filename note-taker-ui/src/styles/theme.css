@@ -776,6 +776,7 @@ p {
 .article-reader {
   display: grid;
   gap: 16px;
+  position: relative;
 }
 
 .article-reader-header {
@@ -831,6 +832,46 @@ p {
   background: rgba(11, 116, 255, 0.12);
   border-radius: 4px;
   padding: 0 2px;
+}
+
+.selection-menu {
+  position: fixed;
+  transform: translate(-50%, -100%);
+  background: var(--surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: 999px;
+  box-shadow: var(--shadow-subtle);
+  padding: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  z-index: 1200;
+}
+
+.selection-menu-button {
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 10px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.selection-menu-button:hover {
+  background: var(--surface-muted);
+}
+
+.selection-menu-button.is-muted {
+  color: var(--muted);
+}
+
+.selection-menu-divider {
+  width: 1px;
+  height: 18px;
+  background: var(--border-subtle);
 }
 
 .article-reader-empty {

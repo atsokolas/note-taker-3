@@ -17,6 +17,9 @@ const LibraryMain = ({
   readerRef,
   onSelectArticle,
   onMoveArticle,
+  onHighlightOptimistic,
+  onHighlightReplace,
+  onHighlightRemove,
   folderOptions,
   articleOptions,
   externalQuery,
@@ -44,6 +47,9 @@ const LibraryMain = ({
             article={selectedArticle}
             highlights={articleHighlights}
             onMove={() => selectedArticle && onMoveArticle(selectedArticle)}
+            onHighlightOptimistic={onHighlightOptimistic}
+            onHighlightReplace={onHighlightReplace}
+            onHighlightRemove={onHighlightRemove}
           />
         )}
       </div>

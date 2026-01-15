@@ -1,5 +1,8 @@
-import React, { forwardRef, useImperativeHandle, useMemo, useRef } from 'react';
+import React, { forwardRef, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { QuietButton } from './ui';
+import { createHighlight } from '../api/highlights';
+import useTextSelection from './reader/useTextSelection';
+import SelectionMenu from './reader/SelectionMenu';
 
 const processArticleContent = (article, highlights = []) => {
   if (!article?.content) return '';
@@ -42,13 +45,22 @@ const formatDate = (value) => {
 const ArticleReader = forwardRef(({
   article,
   highlights = [],
-  onMove
+  onMove,
+  onHighlightOptimistic,
+  onHighlightReplace,
+  onHighlightRemove
 }, ref) => {
   const contentRef = useRef(null);
+  const menuRef = useRef(null);
+  const [saveError, setSaveError] = useState('');
   const html = useMemo(
     () => processArticleContent(article, highlights),
     [article, highlights]
   );
+  const { selectionState, clearSelection } = useTextSelection({
+    containerRef: contentRef,
+    menuRef
+  });
 
   useImperativeHandle(ref, () => ({
     scrollToHighlight: (highlightId) => {
@@ -68,8 +80,53 @@ const ArticleReader = forwardRef(({
     );
   }
 
+  const handleCreateHighlight = async () => {
+    if (!article || !selectionState.text) return;
+    const highlightText = selectionState.text;
+    const highlightAnchor = selectionState.anchor;
+    setSaveError('');
+    const tempId = `temp-${Date.now()}`;
+    const optimisticHighlight = {
+      _id: tempId,
+      text: highlightText,
+      tags: [],
+      articleId: article._id,
+      articleTitle: article.title,
+      createdAt: new Date().toISOString(),
+      anchor: highlightAnchor
+    };
+    onHighlightOptimistic?.(optimisticHighlight);
+    clearSelection();
+    try {
+      const created = await createHighlight({
+        articleId: article._id,
+        text: highlightText,
+        tags: [],
+        anchor: highlightAnchor
+      });
+      if (created?._id) {
+        onHighlightReplace?.(tempId, created);
+      } else {
+        onHighlightRemove?.(tempId);
+      }
+    } catch (err) {
+      onHighlightRemove?.(tempId);
+      setSaveError(err.response?.data?.error || 'Failed to save highlight.');
+    }
+  };
+
   return (
     <div className="article-reader">
+      {selectionState.isOpen && (
+        <SelectionMenu
+          ref={menuRef}
+          rect={selectionState.rect}
+          onHighlight={handleCreateHighlight}
+          onAddNote={() => setSaveError('Add to Notebook is coming soon.')}
+          onAddQuestion={() => setSaveError('Add to Question is coming soon.')}
+          onAddTag={() => setSaveError('Add Tag is coming soon.')}
+        />
+      )}
       <div className="article-reader-header">
         <div>
           <div className="article-reader-title">{article.title || 'Untitled article'}</div>
@@ -89,6 +146,7 @@ const ArticleReader = forwardRef(({
         </div>
       </div>
       <div className="article-reader-content" ref={contentRef} dangerouslySetInnerHTML={{ __html: html }} />
+      {saveError && <p className="status-message error-message">{saveError}</p>}
     </div>
   );
 });

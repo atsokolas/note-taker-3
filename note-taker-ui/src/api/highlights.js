@@ -28,3 +28,12 @@ export const updateHighlightTags = async ({ articleId, highlightId, tags = [] })
   const res = await api.patch(`/articles/${articleId}/highlights/${highlightId}`, { tags }, getAuthHeaders());
   return res.data?.highlight || res.data;
 };
+
+export const createHighlight = async ({ articleId, text, tags = [], anchor }) => {
+  const res = await api.post(
+    `/articles/${articleId}/highlights`,
+    { text, tags, anchor },
+    getAuthHeaders()
+  );
+  return res.data?.highlight || res.data?.createdHighlight || res.data;
+};

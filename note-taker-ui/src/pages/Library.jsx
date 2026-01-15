@@ -68,7 +68,10 @@ const Library = () => {
     article: selectedArticle,
     highlights: articleHighlights,
     loading: articleLoading,
-    error: articleError
+    error: articleError,
+    addHighlightOptimistic,
+    replaceHighlight,
+    removeHighlight
   } = useArticleDetail(selectedArticleId, { enabled: Boolean(selectedArticleId) });
   const {
     references,
@@ -339,6 +342,9 @@ const Library = () => {
       readerRef={readerRef}
       onSelectArticle={handleSelectArticle}
       onMoveArticle={openMoveModal}
+      onHighlightOptimistic={addHighlightOptimistic}
+      onHighlightReplace={replaceHighlight}
+      onHighlightRemove={removeHighlight}
       folderOptions={folderOptions}
       articleOptions={articleOptions}
       externalQuery={highlightQuery}
