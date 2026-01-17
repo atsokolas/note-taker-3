@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import api from '../api';
 import { Page, Card, Button, TagChip } from '../components/ui';
@@ -17,9 +17,12 @@ const ViewDetail = () => {
   const [folders, setFolders] = useState([]);
   const [tagOptions, setTagOptions] = useState([]);
 
-  const authHeaders = () => ({ headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
+  const authHeaders = useCallback(
+    () => ({ headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } }),
+    []
+  );
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
@@ -44,13 +47,12 @@ const ViewDetail = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [id, authHeaders]);
 
   useEffect(() => {
     load();
     const loadFolders = async () => {
       try {
-        const token = localStorage.getItem('token');
         const res = await api.get('/folders', authHeaders());
         setFolders(res.data || []);
       } catch (err) {
@@ -70,7 +72,7 @@ const ViewDetail = () => {
     };
     loadFolders();
     loadTags();
-  }, [id]);
+  }, [id, load, authHeaders]);
 
   const save = async () => {
     if (!form) return;

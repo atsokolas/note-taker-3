@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import api from '../api';
 import { useParams, useNavigate } from 'react-router-dom';
 import CitationGenerator from './CitationGenerator'; // <-- 1. IMPORT THE NEW COMPONENT
-import { Page, Card, Button } from './ui';
+import { Page, Card } from './ui';
 import ReferencesPanel from './ReferencesPanel';
 
 const getAuthConfig = () => {
@@ -324,7 +324,7 @@ const ArticleViewer = ({ onArticleChange }) => {
         }
     }, [id, fetchFolders]);
 
-    const clearTempHighlight = () => {
+    const clearTempHighlight = useCallback(() => {
         const el = tempHighlightRef.current;
         if (!el || !el.parentNode) return;
         const parent = el.parentNode;
@@ -333,16 +333,16 @@ const ArticleViewer = ({ onArticleChange }) => {
         }
         parent.removeChild(el);
         tempHighlightRef.current = null;
-    };
+    }, []);
 
-    const clearSelectionOverlay = () => {
+    const clearSelectionOverlay = useCallback(() => {
         if (selectionOverlayRef.current) {
             selectionOverlayRef.current.remove();
             selectionOverlayRef.current = null;
         }
-    };
+    }, []);
 
-    const showSelectionOverlay = (range) => {
+    const showSelectionOverlay = useCallback((range) => {
         clearSelectionOverlay();
         const rects = Array.from(range.getClientRects());
         if (rects.length === 0) return;
@@ -359,9 +359,9 @@ const ArticleViewer = ({ onArticleChange }) => {
         });
         document.body.appendChild(overlay);
         selectionOverlayRef.current = overlay;
-    };
+    }, [clearSelectionOverlay]);
 
-    const applyTempHighlight = (range) => {
+    const applyTempHighlight = useCallback((range) => {
         clearTempHighlight();
         try {
             const span = document.createElement('mark');
@@ -372,7 +372,7 @@ const ArticleViewer = ({ onArticleChange }) => {
             // If the selection spans multiple nodes, fallback to keeping native selection
             tempHighlightRef.current = null;
         }
-    };
+    }, [clearTempHighlight]);
 
     useEffect(() => {
         // ... (Your existing mouseup/click logic)
@@ -428,7 +428,7 @@ const ArticleViewer = ({ onArticleChange }) => {
             document.removeEventListener("mousedown", handleClickOutside);
             document.removeEventListener("mouseup", handleMouseUp);
         };
-    }, []);
+    }, [applyTempHighlight, showSelectionOverlay, clearSelectionOverlay, clearTempHighlight]);
 
     useEffect(() => {
         // ... (Your existing popup logic)

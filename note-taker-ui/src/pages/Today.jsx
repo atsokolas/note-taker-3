@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { Link, Navigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import api from '../api';
-import { Page, Card, TagChip, Button } from '../components/ui';
+import { Page, Card, TagChip } from '../components/ui';
 
 const Today = () => {
   const [data, setData] = useState(null);

@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import api from '../api';
 import { PageTitle, Card, Button, TagChip, SectionHeader, QuietButton, SubtleDivider } from '../components/ui';
 import { SkeletonCard } from '../components/Skeleton';
@@ -28,9 +28,12 @@ const TodayMode = () => {
   const [focusFilter, setFocusFilter] = useState('today');
   const navigate = useNavigate();
 
-  const authHeaders = () => ({ headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
+  const authHeaders = useCallback(
+    () => ({ headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } }),
+    []
+  );
 
-  const loadDesk = async () => {
+  const loadDesk = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
@@ -45,7 +48,7 @@ const TodayMode = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [authHeaders]);
 
   const reshuffle = React.useCallback(async () => {
     try {
@@ -55,11 +58,11 @@ const TodayMode = () => {
       console.error('Error reshuffling highlights:', err);
       setError(err.response?.data?.error || 'Failed to reshuffle highlights.');
     }
-  }, []);
+  }, [authHeaders]);
 
   useEffect(() => {
     loadDesk();
-  }, []);
+  }, [loadDesk]);
 
   useEffect(() => {
     const handleReshuffle = () => reshuffle();

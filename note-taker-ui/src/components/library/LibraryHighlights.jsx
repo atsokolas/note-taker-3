@@ -98,7 +98,6 @@ const LibraryHighlights = ({ folderOptions, articleOptions, externalQuery = '', 
   }, [folderId, tag, articleId, query, view]);
 
   useEffect(() => {
-    if (externalQuery === query) return;
     setQuery(externalQuery || '');
   }, [externalQuery]);
 

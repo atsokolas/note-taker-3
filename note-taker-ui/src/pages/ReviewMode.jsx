@@ -13,12 +13,12 @@ import { createQuestion } from '../api/questions';
 import { getAuthHeaders } from '../hooks/useAuthHeaders';
 
 const ReviewMode = () => {
-  const tabs = [
+  const tabs = useMemo(() => ([
     { key: 'journey', label: 'Journey' },
     { key: 'reflections', label: 'Reflections' },
     { key: 'resurface', label: 'Resurface' },
     { key: 'patterns', label: 'Brain / Patterns' }
-  ];
+  ]), []);
   const [active, setActive] = useState('journey');
   const [range, setRange] = useState('14d');
   const location = useLocation();
@@ -37,11 +37,11 @@ const ReviewMode = () => {
 
   const authHeaders = () => ({ headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
 
-  const rangeOptions = [
+  const rangeOptions = useMemo(() => ([
     { label: '7d', value: '7d' },
     { label: '14d', value: '14d' },
     { label: '30d', value: '30d' }
-  ];
+  ]), []);
 
   const setQueryParams = (updates) => {
     const params = new URLSearchParams(location.search);
@@ -344,7 +344,7 @@ const ReviewMode = () => {
     if (nextRange && rangeOptions.some(option => option.value === nextRange)) {
       setRange(nextRange);
     }
-  }, [location.search]);
+  }, [location.search, rangeOptions, tabs]);
 
   const leftPanel = (
     <div className="section-stack">

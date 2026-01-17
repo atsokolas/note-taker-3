@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api';
 import { Page, Card, Button, TagChip } from '../components/ui';
@@ -25,9 +25,12 @@ const Views = ({ embedded = false, filters = {}, onSelectView }) => {
   const [tagOptions, setTagOptions] = useState([]);
   const navigate = useNavigate();
 
-  const authHeaders = () => ({ headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
+  const authHeaders = useCallback(
+    () => ({ headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } }),
+    []
+  );
 
-  const loadViews = async (force = false) => {
+  const loadViews = useCallback(async (force = false) => {
     setLoading(true);
     setError('');
     try {
@@ -41,13 +44,12 @@ const Views = ({ embedded = false, filters = {}, onSelectView }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [authHeaders]);
 
   useEffect(() => {
     loadViews(false);
     const loadFolders = async () => {
       try {
-        const token = localStorage.getItem('token');
         const res = await api.get('/folders', authHeaders());
         setFolders(res.data || []);
       } catch (err) {
@@ -67,7 +69,7 @@ const Views = ({ embedded = false, filters = {}, onSelectView }) => {
     };
     loadFolders();
     loadTags();
-  }, []);
+  }, [loadViews, authHeaders]);
 
   const createView = async () => {
     setSaving(true);

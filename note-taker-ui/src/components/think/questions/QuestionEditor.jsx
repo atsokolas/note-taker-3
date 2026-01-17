@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Button } from '../../ui';
 import QuestionBlocksEditor from './QuestionBlocksEditor';
 import InsertHighlightModal from '../notebook/InsertHighlightModal';
@@ -30,7 +30,7 @@ const QuestionEditor = ({ question, saving, error, onSave, onRegisterInsert }) =
   useEffect(() => {
     setTitleDraft(question?.text || '');
     setBlocksDraft(normalizeBlocks(question?.blocks || []));
-  }, [question?._id]);
+  }, [question?.blocks, question?.text]);
 
   useEffect(() => {
     if (!onRegisterInsert) return;

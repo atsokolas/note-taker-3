@@ -13,7 +13,6 @@ const ThreePaneLayout = ({
   rightOpen,
   defaultLeftOpen = false,
   defaultRightOpen = false,
-  onToggleLeft,
   onToggleRight,
   mainHeader,
   mainActions,
@@ -47,12 +46,6 @@ const ThreePaneLayout = ({
 
   const effectiveLeftOpen = leftControlled ? leftOpen : internalLeftOpen;
   const effectiveRightOpen = rightControlled ? rightOpen : internalRightOpen;
-
-  const handleToggleLeft = (next) => {
-    if (!leftControlled) setInternalLeftOpen(next);
-    localStorage.setItem(leftStorageKey, String(next));
-    onToggleLeft?.(next);
-  };
 
   const handleToggleRight = (next) => {
     if (!rightControlled) setInternalRightOpen(next);

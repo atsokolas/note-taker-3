@@ -166,7 +166,6 @@ const TagConcept = () => {
   const createNoteForConcept = async () => {
     setCreatingNote(true);
     try {
-      const token = localStorage.getItem('token');
       const blockId = () => (typeof crypto !== 'undefined' && crypto.randomUUID
         ? crypto.randomUUID()
         : `block-${Math.random().toString(36).slice(2, 9)}-${Date.now()}`);

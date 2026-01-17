@@ -19,7 +19,6 @@ import CollectionDetail from './pages/CollectionDetail';
 import TagConcept from './pages/TagConcept';
 import Views from './pages/Views';
 import ViewDetail from './pages/ViewDetail';
-import Today from './pages/Today';
 import Export from './pages/Export';
 import TodayMode from './pages/TodayMode';
 import Library from './pages/Library';
@@ -37,23 +36,6 @@ import './styles/theme.css';
 import './styles/tokens.css';
 import './styles/global.css';
 import './App.css';
-
-const ChromeIcon = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z" stroke="#333" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-    <path d="M12 16C14.2091 16 16 14.2091 16 12C16 9.79086 14.2091 8 12 8C9.79086 8 8 9.79086 8 12C8 14.2091 9.79086 16 12 16Z" stroke="#333" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-    <path d="M12 2V5" stroke="#333" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-    <path d="M12 19V22" stroke="#333" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-    <path d="M22 12L19 12" stroke="#333" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-    <path d="M5 12L2 12" stroke="#333" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-    <path d="M19.0711 4.92896L16.9497 7.05029" stroke="#333" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-    <path d="M7.05029 16.9497L4.92896 19.0711" stroke="#333" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-    <path d="M19.0711 19.0711L16.9497 16.9497" stroke="#333" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-    <path d="M7.05029 7.05029L4.92896 4.92896" stroke="#333" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-  </svg>
-);
-
-const Welcome = () => <h2 className="welcome-message">Select an article to read</h2>;
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);

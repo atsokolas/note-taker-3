@@ -196,7 +196,7 @@ const NotebookEditor = ({ entry, saving, error, onSave, onDelete, onRegisterInse
     if (editor) {
       editor.commands.setContent(entry.content || '<p></p>', false);
     }
-  }, [entry?._id, editor]);
+  }, [entry, editor]);
 
   const handleSave = () => {
     if (!entry || !editor) return;

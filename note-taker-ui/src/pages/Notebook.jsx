@@ -293,7 +293,7 @@ const Notebook = () => {
         }
       }, 300);
     }
-  }, [location.search, entries]);
+  }, [location.search, entries, selectEntry]);
 
   useEffect(() => {
     if (highlightModalOpen && allHighlights.length === 0) {
@@ -331,7 +331,7 @@ const Notebook = () => {
     return entries.filter(e => (e.folder || null) === selectedFolder);
   }, [entries, selectedFolder]);
 
-  const selectEntry = (entry) => {
+  const selectEntry = React.useCallback((entry) => {
     setActiveId(entry._id);
     setTitle(entry.title);
     setContent(entry.content || '');
@@ -343,7 +343,7 @@ const Notebook = () => {
     setSelectedFolder(entry.folder || 'all');
     setStatus('');
     setError('');
-  };
+  }, [editor]);
 
   const createEntry = async () => {
     setSaving(true);

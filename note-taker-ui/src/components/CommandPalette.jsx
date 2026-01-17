@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api';
 import { Card, Button } from './ui';
@@ -75,7 +75,7 @@ const CommandPalette = ({ open, onClose }) => {
     return () => clearTimeout(t);
   }, [query, open]);
 
-  const createNote = async () => {
+  const createNote = useCallback(async () => {
     try {
       const token = localStorage.getItem('token');
       const headers = { Authorization: `Bearer ${token}` };
@@ -89,22 +89,21 @@ const CommandPalette = ({ open, onClose }) => {
       console.error('Palette new note failed', err);
       navigate('/notebook');
     }
-  };
+  }, [navigate]);
 
-  const reshuffleToday = () => {
+  const reshuffleToday = useCallback(() => {
     navigate('/today');
     window.setTimeout(() => {
       window.dispatchEvent(new Event('today-reshuffle'));
     }, 50);
-  };
-
-  const actions = [
-    { label: 'New note', run: createNote },
-    { label: 'New collection', run: () => navigate('/library?tab=collections') },
-    { label: 'Reshuffle resurfaced', run: reshuffleToday }
-  ];
+  }, [navigate]);
 
   const items = useMemo(() => {
+    const actions = [
+      { label: 'New note', run: createNote },
+      { label: 'New collection', run: () => navigate('/library?tab=collections') },
+      { label: 'Reshuffle resurfaced', run: reshuffleToday }
+    ];
     const list = [];
     actions.forEach(a => list.push({ type: 'Action', label: a.label, action: a.run }));
     pages.forEach(p => list.push({ type: 'Page', label: p.label, path: p.path }));
@@ -114,7 +113,7 @@ const CommandPalette = ({ open, onClose }) => {
     notebook.slice(0, 5).forEach(n => list.push({ type: 'Notebook', label: n.title || 'Untitled', path: `/notebook?entryId=${n._id}` }));
     collections.slice(0, 5).forEach(c => list.push({ type: 'Collection', label: c.name, path: `/collections/${c.slug}` }));
     return list;
-  }, [actions, pages, concepts, articles, highlights, notebook, collections]);
+  }, [pages, concepts, articles, highlights, notebook, collections, createNote, navigate, reshuffleToday]);
 
   const handleSelect = (item) => {
     onClose();

@@ -170,9 +170,11 @@ const AllHighlights = ({ embedded = false, filters = {} }) => {
 
   const totalPages = Math.max(1, Math.ceil(filteredHighlights.length / PAGE_SIZE));
 
+  const activeTagsKey = useMemo(() => activeTags.join('|'), [activeTags]);
+
   useEffect(() => {
     setPage(1);
-  }, [filters.query, filters.dateFrom, filters.dateTo, filters.sort, activeTags.join('|')]);
+  }, [filters.query, filters.dateFrom, filters.dateTo, filters.sort, activeTagsKey]);
 
   const startEdit = useCallback((h) => {
     setEditing({

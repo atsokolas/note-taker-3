@@ -23,10 +23,7 @@ const TagBrowser = ({ embedded = false, filters = {} }) => {
   const [tags, setTags] = useState([]);
   const [loadingTags, setLoadingTags] = useState(false);
   const [tagsError, setTagsError] = useState('');
-  const [selectedTag, setSelectedTag] = useState(null);
   const [tagDetail, setTagDetail] = useState(null);
-  const [detailError, setDetailError] = useState('');
-  const [detailLoading, setDetailLoading] = useState(false);
   const [pairs, setPairs] = useState([]);
   const [loadingPairs, setLoadingPairs] = useState(false);
   const [pairsError, setPairsError] = useState('');
@@ -124,6 +121,25 @@ const TagBrowser = ({ embedded = false, filters = {} }) => {
     fetchFiltered();
   }, [selectedTags]);
 
+  useEffect(() => {
+    if (selectedTags.length !== 1) {
+      setTagDetail(null);
+      return;
+    }
+    const fetchDetail = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        const authHeaders = { headers: { Authorization: `Bearer ${token}` } };
+        const res = await api.get(`/api/tags/${encodeURIComponent(selectedTags[0])}`, authHeaders);
+        setTagDetail(res.data || null);
+      } catch (err) {
+        console.error('Error loading tag detail:', err);
+        setTagDetail(null);
+      }
+    };
+    fetchDetail();
+  }, [selectedTags]);
+
   const toggleSelectedTag = (tag) => {
     setSelectedTags(prev => prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]);
   };
@@ -134,24 +150,6 @@ const TagBrowser = ({ embedded = false, filters = {} }) => {
       return;
     }
     navigate(`/tags/${encodeURIComponent(tag)}`);
-  };
-
-  const selectTag = async (tag) => {
-    setSelectedTag(tag);
-    setDetailError('');
-    setDetailLoading(true);
-    try {
-      const token = localStorage.getItem('token');
-      const authHeaders = { headers: { Authorization: `Bearer ${token}` } };
-      const res = await api.get(`/api/tags/${encodeURIComponent(tag)}`, authHeaders);
-      setTagDetail(res.data || null);
-    } catch (err) {
-      console.error('Error loading tag detail:', err);
-      setDetailError(err.response?.data?.error || 'Failed to load tag detail.');
-      setTagDetail(null);
-    } finally {
-      setDetailLoading(false);
-    }
   };
 
   const filteredCount = selectedTags.length > 0
@@ -213,7 +211,7 @@ const TagBrowser = ({ embedded = false, filters = {} }) => {
             {sortedTags.map(t => (
               <TagChip
                 key={t.tag}
-                className={`${selectedTag === t.tag ? 'active' : ''} ${selectedTags.includes(t.tag) ? 'ui-tag-chip-selected' : ''}`}
+                className={`${selectedTags.includes(t.tag) ? 'ui-tag-chip-selected' : ''}`}
                 onClick={() => handleTagClick(t.tag)}
               >
                 {t.tag} <span className="tag-count">{t.count}</span>
