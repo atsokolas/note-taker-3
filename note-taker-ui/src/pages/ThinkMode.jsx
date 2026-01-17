@@ -24,7 +24,6 @@ import { getAuthHeaders } from '../hooks/useAuthHeaders';
 
 const ThinkMode = () => {
   const [searchParams, setSearchParams] = useSearchParams();
-  const viewParam = searchParams.get('view') || '';
   const queryConcept = searchParams.get('concept') || '';
   const allowedViews = ['notebook', 'concepts', 'questions'];
   const resolveActiveView = (params) => {
@@ -182,7 +181,7 @@ const ThinkMode = () => {
     if (allowedViews.includes(rawView)) {
       setActiveView(rawView);
     }
-  }, [searchParams]);
+  }, [searchParams, allowedViews]);
 
   useEffect(() => {
     if (!notebookActiveId || activeView !== 'notebook') return;
