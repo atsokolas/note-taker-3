@@ -25,7 +25,7 @@ import { getAuthHeaders } from '../hooks/useAuthHeaders';
 const ThinkMode = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const queryConcept = searchParams.get('concept') || '';
-  const allowedViews = ['notebook', 'concepts', 'questions'];
+  const allowedViews = useMemo(() => ['notebook', 'concepts', 'questions'], []);
   const resolveActiveView = (params) => {
     const rawView = params.get('view') || '';
     if (allowedViews.includes(rawView)) return rawView;
