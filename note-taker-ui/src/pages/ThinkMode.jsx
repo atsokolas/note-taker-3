@@ -915,9 +915,9 @@ const ThinkMode = () => {
             >
               Questions
             </QuietButton>
-            <Button variant="secondary" onClick={handleCreateNotebookEntry}>
+            <QuietButton className="list-button" onClick={handleCreateNotebookEntry}>
               New note
-            </Button>
+            </QuietButton>
           </div>
         )}
       />
