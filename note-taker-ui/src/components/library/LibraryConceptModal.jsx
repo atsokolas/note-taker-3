@@ -11,13 +11,13 @@ const LibraryConceptModal = ({ open, highlight, onClose, onSelect }) => {
     setQuery('');
   }, [open]);
 
-  if (!open || !highlight) return null;
-
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return concepts;
     return concepts.filter(concept => concept.name.toLowerCase().includes(q));
   }, [concepts, query]);
+
+  if (!open || !highlight) return null;
 
   return (
     <div className="modal-overlay">

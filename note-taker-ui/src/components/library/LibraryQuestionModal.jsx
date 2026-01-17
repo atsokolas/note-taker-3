@@ -19,13 +19,13 @@ const LibraryQuestionModal = ({ open, highlight, onClose, onCreate, onAttach }) 
     setSelectedId('');
   }, [open, highlight]);
 
-  if (!open || !highlight) return null;
-
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return questions;
     return questions.filter(question => question.text.toLowerCase().includes(q));
   }, [questions, query]);
+
+  if (!open || !highlight) return null;
 
   return (
     <div className="modal-overlay">

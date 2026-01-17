@@ -15,13 +15,13 @@ const LibraryNotebookModal = ({ open, highlight, onClose, onSend }) => {
     setQuery('');
   }, [open]);
 
-  if (!open) return null;
-
   const filteredEntries = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return entries;
     return entries.filter(entry => (entry.title || '').toLowerCase().includes(q));
   }, [entries, query]);
+
+  if (!open) return null;
 
   const handleCreate = async () => {
     const title = query.trim() || 'Untitled note';
