@@ -9,6 +9,11 @@ import InsertHighlightModal from './InsertHighlightModal';
 import useHighlights from '../../../hooks/useHighlights';
 import { ensureBlockIds, serializeBlocksFromDoc } from '../../../utils/notebookBlocks';
 
+const createId = () => {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
+  return `block-${Math.random().toString(36).slice(2, 9)}-${Date.now()}`;
+};
+
 const ListIndentExtension = Extension.create({
   name: 'listIndent',
   addKeyboardShortcuts() {
