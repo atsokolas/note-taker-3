@@ -1,18 +1,25 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { Page, SectionHeader, TagChip } from '../components/ui';
-import LibraryCabinet from '../components/library/LibraryCabinet';
-import LibraryShell from '../components/library/LibraryShell';
+import { PageTitle, SectionHeader, TagChip, QuietButton } from '../components/ui';
 import LibraryMain from '../components/library/LibraryMain';
 import LibraryContext from '../components/library/LibraryContext';
+import FolderTree from '../components/library/FolderTree';
 import MoveToFolderModal from '../components/library/MoveToFolderModal';
 import { moveArticleToFolder } from '../api/articles';
+import { updateHighlightTags } from '../api/highlights';
+import { createQuestion } from '../api/questions';
 import useFolders from '../hooks/useFolders';
 import useLibraryArticles from '../hooks/useLibraryArticles';
 import useArticleDetail from '../hooks/useArticleDetail';
 import useArticleReferences from '../hooks/useArticleReferences';
 import useTags from '../hooks/useTags';
 import { getContextPanelOpen } from '../utils/readingMode';
+import ThreePaneLayout from '../layout/ThreePaneLayout';
+import LibraryConceptModal from '../components/library/LibraryConceptModal';
+import LibraryNotebookModal from '../components/library/LibraryNotebookModal';
+import LibraryQuestionModal from '../components/library/LibraryQuestionModal';
+import api from '../api';
+import { getAuthHeaders } from '../hooks/useAuthHeaders';
 
 const RIGHT_STORAGE_KEY = 'workspace-right-open:/library';
 const CONTEXT_OVERRIDE_KEY = 'library.context.override:/library';
@@ -27,11 +34,15 @@ const Library = () => {
   const scope = searchParams.get('scope') || 'all';
   const folderId = searchParams.get('folderId') || '';
   const highlightQuery = searchParams.get('hq') || '';
+  const highlightView = searchParams.get('highlightView') || 'concept';
   const [selectedArticleId, setSelectedArticleId] = useState('');
   const [moveModalOpen, setMoveModalOpen] = useState(false);
   const [articleToMove, setArticleToMove] = useState(null);
   const [moveError, setMoveError] = useState('');
   const [moving, setMoving] = useState(false);
+  const [conceptModal, setConceptModal] = useState({ open: false, highlight: null });
+  const [notebookModal, setNotebookModal] = useState({ open: false, highlight: null });
+  const [questionModal, setQuestionModal] = useState({ open: false, highlight: null });
   const [rightOpen, setRightOpen] = useState(() => {
     const stored = localStorage.getItem(RIGHT_STORAGE_KEY);
     if (stored === null) return true;
@@ -105,6 +116,9 @@ const Library = () => {
     params.delete('folderId');
     if (nextScope !== 'highlights') {
       params.delete('hq');
+      params.delete('highlightView');
+    } else if (!params.get('highlightView')) {
+      params.set('highlightView', 'concept');
     }
     setSearchParams(params);
   };
@@ -119,6 +133,13 @@ const Library = () => {
   const handleSelectArticle = (id) => {
     setSelectedArticleId(id);
     localStorage.setItem('library.lastArticleId', id);
+  };
+
+  const handleSelectHighlightView = (view) => {
+    const params = new URLSearchParams(searchParams);
+    params.set('scope', 'highlights');
+    params.set('highlightView', view);
+    setSearchParams(params);
   };
 
   const openMoveModal = (article) => {
@@ -192,6 +213,41 @@ const Library = () => {
     localStorage.setItem(LEFT_STORAGE_KEY, String(nextOpen));
   }, [cabinetOverride, selectedArticleId]);
 
+  const createId = () => {
+    if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
+    return `block-${Math.random().toString(36).slice(2, 9)}-${Date.now()}`;
+  };
+
+  const handleAddConcept = async (highlight, conceptName) => {
+    const nextTags = Array.from(new Set([...(highlight.tags || []), conceptName]));
+    const updated = await updateHighlightTags({
+      articleId: highlight.articleId,
+      highlightId: highlight._id,
+      tags: nextTags
+    });
+    if (updated) {
+      replaceHighlight(highlight._id, { ...highlight, tags: updated.tags || nextTags });
+    }
+    setConceptModal({ open: false, highlight: null });
+  };
+
+  const handleAddQuestion = async (highlight, conceptName, text) => {
+    await createQuestion({
+      text,
+      conceptName,
+      blocks: [
+        { id: createId(), type: 'paragraph', text },
+        { id: createId(), type: 'highlight-ref', highlightId: highlight._id, text: highlight.text || '' }
+      ]
+    });
+    setQuestionModal({ open: false, highlight: null });
+  };
+
+  const handleSendToNotebook = async (highlight, entryId) => {
+    await api.post(`/api/notebook/${entryId}/link-highlight`, { highlightId: highlight._id }, getAuthHeaders());
+    setNotebookModal({ open: false, highlight: null });
+  };
+
   const fallbackCounts = useMemo(() => {
     const counts = {};
     allArticles.forEach(article => {
@@ -255,19 +311,65 @@ const Library = () => {
 
   const leftPanel = (
     <div className="section-stack">
+      <SectionHeader title="Cabinet" subtitle="Your filing system." />
+      <div className="library-cabinet-actions">
+        <QuietButton
+          className={`list-button ${scope === 'all' ? 'is-active' : ''}`}
+          onClick={() => handleSelectScope('all')}
+        >
+          <span>All Articles</span>
+          {typeof allCount === 'number' && <span className="library-cabinet-count">{allCount}</span>}
+        </QuietButton>
+        <QuietButton
+          className={`list-button ${scope === 'unfiled' ? 'is-active' : ''}`}
+          onClick={() => handleSelectScope('unfiled')}
+        >
+          <span>Unfiled</span>
+          {typeof unfiledCount === 'number' && <span className="library-cabinet-count">{unfiledCount}</span>}
+        </QuietButton>
+        <QuietButton
+          className={`list-button ${scope === 'highlights' ? 'is-active' : ''}`}
+          onClick={() => handleSelectScope('highlights')}
+        >
+          <span>Highlights</span>
+        </QuietButton>
+        {scope === 'highlights' && (
+          <div className="library-highlight-scope">
+            <QuietButton
+              className={`list-button ${highlightView === 'concept' ? 'is-active' : ''}`}
+              onClick={() => handleSelectHighlightView('concept')}
+            >
+              By Concept
+            </QuietButton>
+            <QuietButton
+              className={`list-button ${highlightView === 'article' ? 'is-active' : ''}`}
+              onClick={() => handleSelectHighlightView('article')}
+            >
+              By Article
+            </QuietButton>
+            <QuietButton
+              className={`list-button ${highlightView === 'untagged' ? 'is-active' : ''}`}
+              onClick={() => handleSelectHighlightView('untagged')}
+            >
+              Untagged
+            </QuietButton>
+          </div>
+        )}
+      </div>
       {foldersLoading && <p className="muted small">Loading cabinet…</p>}
       {foldersError && <p className="status-message error-message">{foldersError}</p>}
       {!foldersLoading && !foldersError && (
-        <LibraryCabinet
-          folders={folders}
-          folderCounts={folderCounts}
-          allCount={allCount}
-          unfiledCount={unfiledCount}
-          scope={scope}
-          selectedFolderId={folderId}
-          onSelectScope={handleSelectScope}
-          onSelectFolder={handleSelectFolder}
-        />
+        <div className="library-folder-group">
+          <div className="library-folder-header">Folders</div>
+          <div className="library-folder-items">
+            <FolderTree
+              folders={folders}
+              counts={folderCounts}
+              selectedFolderId={folderId}
+              onSelectFolder={handleSelectFolder}
+            />
+          </div>
+        </div>
       )}
       <div className="library-search-panel">
         <SectionHeader title="Search" subtitle="Find highlights fast." />
@@ -283,6 +385,9 @@ const Library = () => {
               if (value) {
                 params.set('scope', 'highlights');
                 params.set('hq', value);
+                if (!params.get('highlightView')) {
+                  params.set('highlightView', 'concept');
+                }
               } else {
                 params.delete('hq');
               }
@@ -348,11 +453,15 @@ const Library = () => {
       folderOptions={folderOptions}
       articleOptions={articleOptions}
       externalQuery={highlightQuery}
+      highlightView={highlightView}
       onQueryChange={(value) => {
         const params = new URLSearchParams(searchParams);
         if (value) {
           params.set('scope', 'highlights');
           params.set('hq', value);
+          if (!params.get('highlightView')) {
+            params.set('highlightView', 'concept');
+          }
         } else {
           params.delete('hq');
         }
@@ -374,23 +483,35 @@ const Library = () => {
       activeHighlightId={activeHighlightId}
       onHighlightClick={handleHighlightClick}
       onSelectHighlight={setActiveHighlightId}
+      onAddConcept={(highlight) => setConceptModal({ open: true, highlight })}
+      onAddNotebook={(highlight) => setNotebookModal({ open: true, highlight })}
+      onAddQuestion={(highlight) => setQuestionModal({ open: true, highlight })}
     />
   );
 
   return (
-    <Page>
-      <LibraryShell
+    <>
+      <ThreePaneLayout
         left={leftPanel}
         main={mainPanel}
         right={rightPanel}
-        leftOpen={effectiveLeftOpen}
-        onToggleLeft={handleToggleLeft}
-        leftToggleLabel="Cabinet"
+        rightTitle="Context"
         rightOpen={effectiveRightOpen}
         onToggleRight={handleToggleRight}
+        leftOpen={effectiveLeftOpen}
+        onToggleLeft={handleToggleLeft}
         rightToggleLabel="Context"
-        persistRightOpen={false}
-        className={`library-shell ${selectedArticleId && !effectiveRightOpen ? 'library-shell--reading' : ''}`}
+        mainHeader={<PageTitle eyebrow="Mode" title="Library" subtitle="Reading room for your saved work." />}
+        mainActions={(
+          <div className="library-main-actions">
+            <QuietButton onClick={() => handleToggleLeft(!effectiveLeftOpen)}>
+              Cabinet
+            </QuietButton>
+            <QuietButton onClick={() => handleToggleRight(!effectiveRightOpen)}>
+              Context
+            </QuietButton>
+          </div>
+        )}
       />
       <MoveToFolderModal
         open={moveModalOpen}
@@ -401,7 +522,25 @@ const Library = () => {
         loading={moving}
         error={moveError}
       />
-    </Page>
+      <LibraryConceptModal
+        open={conceptModal.open}
+        highlight={conceptModal.highlight}
+        onClose={() => setConceptModal({ open: false, highlight: null })}
+        onSelect={handleAddConcept}
+      />
+      <LibraryNotebookModal
+        open={notebookModal.open}
+        highlight={notebookModal.highlight}
+        onClose={() => setNotebookModal({ open: false, highlight: null })}
+        onSend={handleSendToNotebook}
+      />
+      <LibraryQuestionModal
+        open={questionModal.open}
+        highlight={questionModal.highlight}
+        onClose={() => setQuestionModal({ open: false, highlight: null })}
+        onCreate={handleAddQuestion}
+      />
+    </>
   );
 };
 

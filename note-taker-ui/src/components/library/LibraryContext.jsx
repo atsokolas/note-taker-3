@@ -13,7 +13,10 @@ const LibraryContext = ({
   groupedHighlights,
   activeHighlightId,
   onHighlightClick,
-  onSelectHighlight
+  onSelectHighlight,
+  onAddConcept,
+  onAddNotebook,
+  onAddQuestion
 }) => {
   if (!selectedArticleId) {
     return (
@@ -62,13 +65,43 @@ const LibraryContext = ({
                   )}
                 </div>
                 <div className="library-highlight-actions">
+                  {onAddNotebook && (
+                    <QuietButton
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onAddNotebook(highlight);
+                      }}
+                    >
+                      Add to Notebook
+                    </QuietButton>
+                  )}
+                  {onAddConcept && (
+                    <QuietButton
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onAddConcept(highlight);
+                      }}
+                    >
+                      Add to Concept
+                    </QuietButton>
+                  )}
+                  {onAddQuestion && (
+                    <QuietButton
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onAddQuestion(highlight);
+                      }}
+                    >
+                      Add to Question
+                    </QuietButton>
+                  )}
                   <QuietButton
                     onClick={(e) => {
                       e.stopPropagation();
                       onSelectHighlight(highlight._id);
                     }}
                   >
-                    Select
+                    Focus
                   </QuietButton>
                 </div>
               </div>

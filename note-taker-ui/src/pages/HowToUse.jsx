@@ -1,36 +1,10 @@
-import React, { useMemo, useState } from 'react';
+import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Page, Card, Button } from '../components/ui';
-
-const TOUR_KEYS = [
-  { key: 'toured_today', label: 'Today checked off' },
-  { key: 'toured_library', label: 'Library checked off' },
-  { key: 'toured_think', label: 'Think checked off' },
-  { key: 'toured_review', label: 'Review checked off' }
-];
+import OnboardingChecklist from '../components/OnboardingChecklist';
 
 const HowToUse = () => {
   const navigate = useNavigate();
-  const [tourState, setTourState] = useState(() => {
-    const initial = {};
-    TOUR_KEYS.forEach(item => {
-      initial[item.key] = localStorage.getItem(item.key) === 'true';
-    });
-    return initial;
-  });
-
-  const allComplete = useMemo(
-    () => TOUR_KEYS.every(item => tourState[item.key]),
-    [tourState]
-  );
-
-  const toggleTour = (key) => {
-    setTourState(prev => {
-      const next = { ...prev, [key]: !prev[key] };
-      localStorage.setItem(key, String(next[key]));
-      return next;
-    });
-  };
 
   const handleTourClick = () => {
     const section = document.getElementById('howto-tour');
@@ -43,15 +17,13 @@ const HowToUse = () => {
     <Page>
       <div className="page-header">
         <p className="muted-label">How To Use</p>
-        <h1>Your calm filing cabinet for everything you read.</h1>
-        <p className="muted">Note Taker keeps the best parts, keeps them connected, and hands them back right when you need them.</p>
-        <p className="muted">
-          You are the kind of person who reads a lot, highlights the good parts, and plans to come back later.
-          You want the payoff without the mess. This is that.
-        </p>
+        <h1>A calm home for every idea you don’t want to lose.</h1>
+        <p className="muted">Save what you read. Pull the best lines. Turn them into thinking you can use.</p>
+        <p className="muted">You read a lot. You highlight the good parts. You want those ideas to show up when you need them, not vanish into a folder. This fixes that.</p>
         <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-          <Button onClick={() => navigate('/library')}>Start here: Set up your Library</Button>
-          <Button variant="secondary" onClick={handleTourClick}>Take the 5-minute tour</Button>
+          <Button onClick={() => navigate('/today')}>Start in Today</Button>
+          <Button variant="secondary" onClick={() => navigate('/library')}>Build your Library</Button>
+          <Button variant="secondary" onClick={handleTourClick}>Take the 5‑minute tour</Button>
         </div>
       </div>
 
@@ -60,27 +32,41 @@ const HowToUse = () => {
           <Card className="search-section">
             <div className="search-section-header">
               <span className="eyebrow">The 5-minute tour</span>
-              <span className="muted small">Do these once and you are set.</span>
+              <span className="muted small">Do these once and the system clicks.</span>
             </div>
             <ol className="howto-list">
               <li>
-                <strong>Save an article.</strong> An Article is the whole source. The book on the shelf.
+                <strong>Save an article.</strong> This is the shelf. Everything starts here.
               </li>
               <li>
-                <strong>Highlight the parts that matter.</strong> A Highlight is the atomic unit. Small, sharp, easy to reuse.
+                <strong>Highlight the parts that matter.</strong> Highlights are the atoms. Tiny. Sharp. Reusable.
               </li>
               <li>
-                <strong>Tag as Concepts.</strong> Concepts are idea homes. “Second-order effects.” “Personal finance.” “Great openings.”
+                <strong>Tag as Concepts.</strong> Concepts are idea homes: “Compounding,” “Story openings,” “AI strategy.”
               </li>
               <li>
-                <strong>Drop highlights into Notes.</strong> Think mode is where you stitch ideas into something new.
+                <strong>Ask a question.</strong> Questions live inside concepts so your curiosity has a place.
               </li>
               <li>
-                <strong>Come back tomorrow.</strong> Today resurfaces the good stuff so your brain stays warm.
+                <strong>Write a note.</strong> Think is where you turn raw highlights into your words.
+              </li>
+              <li>
+                <strong>Come back to Today.</strong> It resurfaces what matters so your brain stays warm.
               </li>
             </ol>
           </Card>
         </section>
+
+        <Card className="search-section">
+          <div className="search-section-header">
+            <span className="eyebrow">The latticework</span>
+            <span className="muted small">How ideas turn into thinking.</span>
+          </div>
+          <p className="muted">
+            Highlights are the raw material. Concepts and Questions are the scaffolding.
+            Notes are the synthesis. That lattice is what lets you find the exact idea in ten seconds—months later.
+          </p>
+        </Card>
 
         <Card className="search-section">
           <div className="search-section-header">
@@ -98,10 +84,13 @@ const HowToUse = () => {
               <strong>Create 2 Concepts.</strong> Name the idea home, not the source.
             </li>
             <li>
-              <strong>Open Think and write 5 sentences.</strong> One tiny synthesis note is enough.
+              <strong>Create 1 Question.</strong> Put it under a concept.
             </li>
             <li>
-              <strong>Visit Today.</strong> Get the resurfaced loop going for tomorrow-you.
+              <strong>Write 5 sentences.</strong> One tiny synthesis note is enough.
+            </li>
+            <li>
+              <strong>Visit Today.</strong> That’s your daily loop.
             </li>
           </ol>
         </Card>
@@ -110,29 +99,29 @@ const HowToUse = () => {
           {[
             {
               title: 'Today',
-              copy: 'Why it exists: a calm desk. You will see resurfaced highlights plus continue reading and thinking.',
-              intent: 'Use this when you want a 60-second reset and a quick win.',
-              next: 'Open one resurfaced highlight and send it to a note.',
+              copy: 'Your calm desk. Resurfaced highlights, open questions, and your next move.',
+              intent: 'Use this when you want a 60‑second reset and a quick win.',
+              next: 'Pick one highlight and send it into a note.',
               route: '/today'
             },
             {
               title: 'Library',
-              copy: 'Why it exists: a reading room with folders and context. You will see articles, highlights, and where they connect.',
-              intent: 'Use this when you want to find something in 10 seconds.',
-              next: 'Open an article, skim the context panel, then collapse it for deep reading.',
+              copy: 'Your reading room. Articles, folders, highlights, and the threads between them.',
+              intent: 'Use this when you need to find something fast.',
+              next: 'Open one article and pull two highlights.',
               route: '/library'
             },
             {
               title: 'Think',
-              copy: 'Why it exists: synthesis. You will see your notebook, concept pages, and embedded questions.',
+              copy: 'Synthesis lives here: notebook, concepts, and questions.',
               intent: 'Use this when you want to make sense, not just collect.',
-              next: 'Add one question to a concept and answer it in a note.',
+              next: 'Add a question to a concept and answer it in a note.',
               route: '/think'
             },
             {
               title: 'Review',
-              copy: 'Why it exists: perspective. You will see Reflections, Journey, and Resurface.',
-              intent: 'Use this when you want to see progress or patterns.',
+              copy: 'Perspective over time. Reflections, Journey, and Resurface.',
+              intent: 'Use this when you want to see progress and patterns.',
               next: 'Open Reflections and start a weekly note.',
               route: '/review'
             }
@@ -215,22 +204,10 @@ const HowToUse = () => {
 
         <Card className="search-section">
           <div className="search-section-header">
-            <span className="eyebrow">Tour complete</span>
-            <span className="muted small">Optional, but satisfying.</span>
+            <span className="eyebrow">Your first five moves</span>
+            <span className="muted small">Short, clear, and you are rolling.</span>
           </div>
-          <div className="section-stack">
-            {TOUR_KEYS.map(item => (
-              <label key={item.key} className="howto-tour-row">
-                <input
-                  type="checkbox"
-                  checked={tourState[item.key]}
-                  onChange={() => toggleTour(item.key)}
-                />
-                <span>{item.label}</span>
-              </label>
-            ))}
-            {allComplete && <p className="status-message success-message">Tour complete. You are officially dangerous.</p>}
-          </div>
+          <OnboardingChecklist />
         </Card>
 
         <Card className="search-section">

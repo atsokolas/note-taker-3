@@ -23,6 +23,7 @@ const LibraryMain = ({
   folderOptions,
   articleOptions,
   externalQuery,
+  highlightView,
   onQueryChange
 }) => {
   if (scope === 'highlights') {
@@ -31,6 +32,7 @@ const LibraryMain = ({
         folderOptions={folderOptions}
         articleOptions={articleOptions}
         externalQuery={externalQuery}
+        view={highlightView}
         onQueryChange={onQueryChange}
       />
     );

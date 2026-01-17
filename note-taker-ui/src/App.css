@@ -457,11 +457,11 @@ body {
 }
 
 .search-section {
-  border: 1px solid var(--border-color);
-  border-radius: var(--border-radius);
-  padding: 12px;
-  background: var(--card-bg-color);
-  box-shadow: var(--box-shadow-light);
+  border: none;
+  border-radius: 0;
+  padding: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
 .search-section-header {
@@ -478,10 +478,11 @@ body {
 }
 
 .search-card {
-  border: 1px solid var(--border-color);
-  border-radius: var(--border-radius);
-  padding: 12px;
-  background: var(--hover-color);
+  border: none;
+  border-bottom: 1px solid var(--border-color-light);
+  border-radius: 0;
+  padding: 12px 0;
+  background: transparent;
 }
 
 .search-card-top {

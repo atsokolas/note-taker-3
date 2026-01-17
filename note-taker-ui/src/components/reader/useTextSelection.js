@@ -96,14 +96,12 @@ const useTextSelection = ({ containerRef, menuRef, minLength = 3 }) => {
 
     container.addEventListener('mouseup', handleMouseUp);
     container.addEventListener('keyup', handleKeyUp);
-    window.addEventListener('scroll', handleScroll, true);
-    window.addEventListener('resize', handleScroll);
+    container.addEventListener('scroll', handleScroll);
 
     return () => {
       container.removeEventListener('mouseup', handleMouseUp);
       container.removeEventListener('keyup', handleKeyUp);
-      window.removeEventListener('scroll', handleScroll, true);
-      window.removeEventListener('resize', handleScroll);
+      container.removeEventListener('scroll', handleScroll);
     };
   }, [captureSelection, clearSelection, containerRef, menuRef]);
 

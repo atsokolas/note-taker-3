@@ -1,5 +1,5 @@
 import React from 'react';
-import { NavLink, Link } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 
 const cx = (...classes) => classes.filter(Boolean).join(' ');
 
@@ -71,37 +71,10 @@ export const PanelHeader = ({ title, action, className }) => (
   </div>
 );
 
-export const Sidebar = ({ brand = 'Note Taker', navItems = [], footer, onLogout, className }) => (
-  <aside className={cx('ui-sidebar', className)}>
-    <div className="ui-sidebar__brand">
-      <div className="ui-sidebar__title">{brand}</div>
-      {onLogout && (
-        <button className="ui-button ui-button-ghost ui-sidebar__logout" onClick={onLogout}>
-          Logout
-        </button>
-      )}
-    </div>
-    <nav className="ui-sidebar__nav">
-      {navItems.map(item => (
-        <NavLink
-          key={item.to}
-          to={item.to}
-          end={item.end}
-          className={({ isActive }) => cx('ui-nav-link', isActive && 'active')}
-        >
-          <span>{item.label}</span>
-        </NavLink>
-      ))}
-    </nav>
-    {footer && <div className="ui-sidebar__footer">{footer}</div>}
-  </aside>
-);
-
 const ui = {
   Page,
   Card,
   Button,
-  Sidebar,
   TagChip,
   PageTitle,
   SectionHeader,

@@ -134,7 +134,7 @@ const HighlightRefNode = Node.create({
   }
 });
 
-const NotebookEditor = ({ entry, saving, error, onSave, onDelete }) => {
+const NotebookEditor = ({ entry, saving, error, onSave, onDelete, onRegisterInsert }) => {
   const [titleDraft, setTitleDraft] = useState(entry?.title || '');
   const [insertOpen, setInsertOpen] = useState(false);
   const { highlights, highlightMap, loading: highlightsLoading, error: highlightsError } = useHighlights();
@@ -164,6 +164,26 @@ const NotebookEditor = ({ entry, saving, error, onSave, onDelete }) => {
       attributes: { class: 'think-notebook-editor-body' }
     }
   });
+
+  useEffect(() => {
+    if (!onRegisterInsert) return;
+    const insert = (highlight) => {
+      if (!editor) return;
+      editor.commands.insertContent({
+        type: 'highlightRef',
+        attrs: {
+          highlightId: highlight._id,
+          highlightText: highlight.text || '',
+          articleTitle: highlight.articleTitle || '',
+          articleId: highlight.articleId || '',
+          tags: (highlight.tags || []).join(','),
+          blockId: createId()
+        }
+      });
+    };
+    onRegisterInsert(insert);
+    return () => onRegisterInsert(null);
+  }, [editor, onRegisterInsert]);
 
   useEffect(() => {
     if (!entry) return;

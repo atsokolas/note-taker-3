@@ -10,7 +10,7 @@ const ranges = [
   { label: 'All', value: 'all' }
 ];
 
-const Journey = () => {
+const Journey = ({ embedded = false }) => {
   const [items, setItems] = useState([]);
   const [range, setRange] = useState('30d');
   const [loading, setLoading] = useState(false);
@@ -35,8 +35,32 @@ const Journey = () => {
     fetchJourney(range);
   }, [range]);
 
-  return (
-    <Page>
+  const grouped = React.useMemo(() => {
+    const groups = new Map();
+    items.forEach(item => {
+      const date = item.createdAt ? new Date(item.createdAt) : new Date();
+      const key = date.toLocaleString(undefined, { month: 'long', year: 'numeric' });
+      if (!groups.has(key)) {
+        groups.set(key, { key, items: [], highlightCount: 0, tagCounts: {} });
+      }
+      const group = groups.get(key);
+      group.items.push(item);
+      group.highlightCount += item.highlightCount || 0;
+      (item.topTags || []).forEach(tag => {
+        group.tagCounts[tag] = (group.tagCounts[tag] || 0) + 1;
+      });
+    });
+    return Array.from(groups.values()).map(group => {
+      const topTags = Object.entries(group.tagCounts)
+        .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+        .slice(0, 4)
+        .map(([tag]) => tag);
+      return { ...group, topTags };
+    });
+  }, [items]);
+
+  const content = (
+    <>
       <div className="page-header">
         <p className="muted-label">Journey</p>
         <h1>Your reading trail</h1>
@@ -61,29 +85,44 @@ const Journey = () => {
         {loading && <p className="status-message">Loading…</p>}
         {error && <p className="status-message error-message">{error}</p>}
         {!loading && !error && (
-          <div className="search-card-grid">
+          <div className="journey-group-list">
             {items.length === 0 && <p className="muted small">No activity yet.</p>}
-            {items.map(item => (
-              <div key={item._id} className="search-card">
-                <div className="search-card-top">
-                  <Link to={`/articles/${item._id}`} className="article-title-link">{item.title || 'Untitled article'}</Link>
-                  <span className="feedback-date">{item.highlightCount} highlights</span>
+            {grouped.map(group => (
+              <div key={group.key} className="journey-group">
+                <div className="journey-group-header">
+                  <div className="journey-group-title">{group.key}</div>
+                  <div className="muted small">{group.highlightCount} highlights</div>
                 </div>
-                <p className="muted small">{new Date(item.createdAt).toLocaleString()}</p>
-                <div className="highlight-tag-chips" style={{ marginTop: 6 }}>
-                  {item.topTags && item.topTags.length > 0 ? (
-                    item.topTags.map(tag => <TagChip key={tag}>{tag}</TagChip>)
+                <div className="journey-group-tags">
+                  {group.topTags.length > 0 ? (
+                    group.topTags.map(tag => <TagChip key={`${group.key}-${tag}`}>{tag}</TagChip>)
                   ) : (
                     <span className="muted small">No tags</span>
                   )}
+                </div>
+                <div className="journey-group-items">
+                  {group.items.map(item => (
+                    <div key={item._id} className="journey-group-row">
+                      <Link to={`/articles/${item._id}`} className="article-title-link">
+                        {item.title || 'Untitled article'}
+                      </Link>
+                      <span className="muted small">{item.highlightCount} highlights</span>
+                    </div>
+                  ))}
                 </div>
               </div>
             ))}
           </div>
         )}
       </Card>
-    </Page>
+    </>
   );
+
+  if (embedded) {
+    return content;
+  }
+
+  return <Page>{content}</Page>;
 };
 
 export default Journey;

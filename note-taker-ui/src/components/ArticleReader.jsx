@@ -145,7 +145,7 @@ const ArticleReader = forwardRef(({
           )}
         </div>
       </div>
-      <div className="article-reader-content" ref={contentRef} dangerouslySetInnerHTML={{ __html: html }} />
+      <div className="article-reader-content reader" ref={contentRef} dangerouslySetInnerHTML={{ __html: html }} />
       {saveError && <p className="status-message error-message">{saveError}</p>}
     </div>
   );

@@ -29,8 +29,13 @@ import Settings from './pages/Settings';
 import HowToUse from './pages/HowToUse';
 import CommandPalette from './components/CommandPalette';
 import OnboardingManager from './components/OnboardingManager';
-import { Page, Card, Sidebar } from './components/ui';
+import { Page, Card } from './components/ui';
+import AppShell from './layout/AppShell';
+import TopBar from './layout/TopBar';
+import ThreePaneLayout from './layout/ThreePaneLayout';
 import './styles/theme.css';
+import './styles/tokens.css';
+import './styles/global.css';
 import './App.css';
 
 const ChromeIcon = () => (
@@ -119,8 +124,7 @@ function App() {
     { label: 'Library', to: '/library' },
     { label: 'Think', to: '/think' },
     { label: 'Review', to: '/review' },
-    { label: 'Settings', to: '/settings' },
-    { label: 'How To Use', to: '/how-to-use' }
+    { label: 'Settings', to: '/settings' }
   ];
 
   if (isLoading) {
@@ -131,72 +135,90 @@ function App() {
     const location = useLocation();
     const hasSeenLanding = localStorage.getItem('hasSeenLanding') === 'true';
     const showLibraryRail = location.pathname.startsWith('/articles/');
+    const isLibraryRoute = location.pathname.startsWith('/library');
+    const isThinkRoute = location.pathname.startsWith('/think');
+    const isReviewRoute = location.pathname.startsWith('/review');
+    const isTodayRoute = location.pathname.startsWith('/today');
+    const leftPlaceholder = showLibraryRail ? (
+      <Card>
+        <div className="muted-label" style={{ marginBottom: 8 }}>Library</div>
+        <ArticleList key={articleListKey} />
+      </Card>
+    ) : (
+      <div className="muted small">Sections will live here.</div>
+    );
+    const rightPlaceholder = (
+      <div className="muted small">Context will live here.</div>
+    );
+
+    const routes = (
+      <Page className="page-area">
+        <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
+        <OnboardingManager />
+        <Routes>
+          <Route path="/" element={hasSeenLanding ? <Navigate to="/today" replace /> : <Landing />} />
+          <Route path="/today" element={<TodayMode />} />
+          <Route path="/library" element={<Library />} />
+          <Route path="/think" element={<ThinkMode />} />
+          <Route path="/review" element={<ReviewMode />} />
+          <Route path="/settings" element={<Settings />} />
+          <Route path="/how-to-use" element={<HowToUse />} />
+
+          {/* Legacy/feature routes kept for compatibility */}
+          <Route path="/brain" element={<Brain />} />
+          <Route path="/resurface" element={<Resurface />} />
+          <Route path="/all-highlights" element={<AllHighlights />} />
+          <Route path="/tags" element={<TagBrowser />} />
+          <Route path="/tags/:tagName" element={<TagConcept />} />
+          <Route path="/collections" element={<Collections />} />
+          <Route path="/collections/:slug" element={<CollectionDetail />} />
+          <Route path="/notebook" element={<Notebook />} />
+          <Route path="/views" element={<Views />} />
+          <Route path="/views/:id" element={<ViewDetail />} />
+          <Route path="/search" element={<Search />} />
+          <Route path="/journey" element={<Journey />} />
+          <Route path="/concept/:tag" element={<TagConcept />} />
+          <Route path="/articles/:id" element={<ArticleViewer onArticleChange={refreshArticleList} />} />
+          <Route path="/trending" element={<Trending />} />
+          <Route path="/export" element={<Export />} />
+          {/* Redirect authenticated users away from auth pages */}
+          <Route path="/login" element={<Navigate to="/" replace />} />
+          <Route path="/register" element={<Navigate to="/" replace />} />
+        </Routes>
+      </Page>
+    );
 
     return (
-      <div className="app-shell">
-        <Sidebar
-          brand="Note Taker"
-          navItems={navItems}
-          onLogout={handleLogout}
-          footer={(
-            <div className="sidebar-footer-stack">
-              <a href={chromeStoreLink} target="_blank" rel="noopener noreferrer" className="chrome-store-button simple-pill">
-                <ChromeIcon />
-                <span>Get the Extension</span>
-              </a>
-              <a href="/how-to-use" className="sidebar-help-link" title="How To Use">
-                <span className="sidebar-help-icon">?</span>
-              </a>
-            </div>
-          )}
-        />
-
-        <div className={`layout-main ${showLibraryRail ? '' : 'layout-main--single'}`}>
-          {showLibraryRail && (
-            <div className="library-rail" data-onboard-id="article-list">
-              <Card>
-                <div className="muted-label" style={{ marginBottom: 8 }}>Library</div>
-                <ArticleList key={articleListKey} /> 
-              </Card>
-            </div>
-          )}
-
-          <Page className="page-area">
-            <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
-            <OnboardingManager />
-            <Routes>
-              <Route path="/" element={hasSeenLanding ? <Navigate to="/today" replace /> : <Landing />} />
-              <Route path="/today" element={<TodayMode />} />
-              <Route path="/library" element={<Library />} />
-              <Route path="/think" element={<ThinkMode />} />
-              <Route path="/review" element={<ReviewMode />} />
-              <Route path="/settings" element={<Settings />} />
-              <Route path="/how-to-use" element={<HowToUse />} />
-
-              {/* Legacy/feature routes kept for compatibility */}
-              <Route path="/brain" element={<Brain />} />
-              <Route path="/resurface" element={<Resurface />} />
-              <Route path="/all-highlights" element={<AllHighlights />} />
-              <Route path="/tags" element={<TagBrowser />} />
-              <Route path="/tags/:tagName" element={<TagConcept />} />
-              <Route path="/collections" element={<Collections />} />
-              <Route path="/collections/:slug" element={<CollectionDetail />} />
-              <Route path="/notebook" element={<Notebook />} />
-              <Route path="/views" element={<Views />} />
-              <Route path="/views/:id" element={<ViewDetail />} />
-              <Route path="/search" element={<Search />} />
-              <Route path="/journey" element={<Journey />} />
-              <Route path="/concept/:tag" element={<TagConcept />} />
-              <Route path="/articles/:id" element={<ArticleViewer onArticleChange={refreshArticleList} />} />
-              <Route path="/trending" element={<Trending />} />
-              <Route path="/export" element={<Export />} />
-              {/* Redirect authenticated users away from auth pages */}
-              <Route path="/login" element={<Navigate to="/" replace />} />
-              <Route path="/register" element={<Navigate to="/" replace />} />
-            </Routes>
-          </Page>
-        </div>
-      </div>
+      <AppShell
+        topBar={(
+          <TopBar
+            navItems={navItems}
+            rightSlot={(
+              <>
+                <a href="/how-to-use" className="topbar__button" title="How To Use">How To Use</a>
+                <a href={chromeStoreLink} target="_blank" rel="noopener noreferrer" className="topbar__button">
+                  Get the Extension
+                </a>
+                <button className="topbar__button" onClick={handleLogout}>Logout</button>
+              </>
+            )}
+          />
+        )}
+      >
+        {(isLibraryRoute || isThinkRoute || isReviewRoute || isTodayRoute) ? (
+          routes
+        ) : (
+          <ThreePaneLayout
+            left={leftPlaceholder}
+            main={routes}
+            right={rightPlaceholder}
+            rightTitle="Context"
+            defaultLeftOpen={showLibraryRail}
+            defaultRightOpen={false}
+            rightToggleLabel="Context"
+          />
+        )}
+      </AppShell>
     );
   };
 

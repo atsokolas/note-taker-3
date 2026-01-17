@@ -1,22 +1,35 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import Journey from './Journey';
-import Resurface from './Resurface';
 import api from '../api';
-import { Page, Card, Button, SectionHeader, QuietButton, SubtleDivider, Chip } from '../components/ui';
-import WorkspaceShell from '../layouts/WorkspaceShell';
+import { PageTitle, Card, Button, SectionHeader, QuietButton, SubtleDivider, Chip, TagChip } from '../components/ui';
 import useReflections from '../hooks/useReflections';
+import ThreePaneLayout from '../layout/ThreePaneLayout';
+import LibraryConceptModal from '../components/library/LibraryConceptModal';
+import LibraryNotebookModal from '../components/library/LibraryNotebookModal';
+import LibraryQuestionModal from '../components/library/LibraryQuestionModal';
+import { updateHighlightTags } from '../api/highlights';
+import { createQuestion } from '../api/questions';
+import { getAuthHeaders } from '../hooks/useAuthHeaders';
 
 const ReviewMode = () => {
   const tabs = [
     { key: 'journey', label: 'Journey' },
     { key: 'reflections', label: 'Reflections' },
-    { key: 'resurface', label: 'Resurface' }
+    { key: 'resurface', label: 'Resurface' },
+    { key: 'patterns', label: 'Brain / Patterns' }
   ];
   const [active, setActive] = useState('journey');
   const [range, setRange] = useState('14d');
   const location = useLocation();
   const navigate = useNavigate();
+  const [resurfaceHighlights, setResurfaceHighlights] = useState([]);
+  const [resurfaceLoading, setResurfaceLoading] = useState(false);
+  const [resurfaceError, setResurfaceError] = useState('');
+  const [activeHighlightId, setActiveHighlightId] = useState('');
+  const [conceptModal, setConceptModal] = useState({ open: false, highlight: null });
+  const [notebookModal, setNotebookModal] = useState({ open: false, highlight: null });
+  const [questionModal, setQuestionModal] = useState({ open: false, highlight: null });
   const reflectionsEnabled = active === 'reflections';
   const { data: reflections, loading: reflectionsLoading, error: reflectionsError, refresh } = useReflections(range, {
     enabled: reflectionsEnabled
@@ -86,10 +99,115 @@ const ReviewMode = () => {
     }
   };
 
+  const getDailyResurfaceKey = () => {
+    const today = new Date().toISOString().slice(0, 10);
+    return `resurface.daily:${today}`;
+  };
+
+  const loadResurface = useCallback(async () => {
+    setResurfaceLoading(true);
+    setResurfaceError('');
+    try {
+      const stored = localStorage.getItem(getDailyResurfaceKey());
+      if (stored) {
+        const cached = JSON.parse(stored);
+        if (Array.isArray(cached) && cached.length > 0) {
+          setResurfaceHighlights(cached);
+          setResurfaceLoading(false);
+          return;
+        }
+      }
+      const res = await api.get('/api/resurface', authHeaders());
+      const highlights = res.data?.dailyRandomHighlights || [];
+      const trimmed = highlights.slice(0, 5);
+      setResurfaceHighlights(trimmed);
+      localStorage.setItem(getDailyResurfaceKey(), JSON.stringify(trimmed));
+    } catch (err) {
+      console.error('Error loading resurfacing highlights:', err);
+      setResurfaceError(err.response?.data?.error || 'Failed to load resurfacing highlights.');
+    } finally {
+      setResurfaceLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (active !== 'resurface') return;
+    loadResurface();
+  }, [active, loadResurface]);
+
+  useEffect(() => {
+    if (active !== 'resurface') return;
+    if (resurfaceHighlights.length && !activeHighlightId) {
+      setActiveHighlightId(resurfaceHighlights[0]._id);
+    }
+  }, [active, activeHighlightId, resurfaceHighlights]);
+
+  const selectedHighlight = useMemo(
+    () => resurfaceHighlights.find(h => h._id === activeHighlightId) || null,
+    [activeHighlightId, resurfaceHighlights]
+  );
+
+  const handleAddConcept = async (highlight, conceptName) => {
+    const nextTags = Array.from(new Set([...(highlight.tags || []), conceptName]));
+    await updateHighlightTags({
+      articleId: highlight.articleId,
+      highlightId: highlight._id,
+      tags: nextTags
+    });
+    setConceptModal({ open: false, highlight: null });
+  };
+
+  const handleAddQuestion = async (highlight, conceptName, text) => {
+    await createQuestion({
+      text,
+      conceptName,
+      blocks: [
+        { id: createId(), type: 'paragraph', text },
+        { id: createId(), type: 'highlight-ref', highlightId: highlight._id, text: highlight.text || '' }
+      ]
+    });
+    setQuestionModal({ open: false, highlight: null });
+  };
+
+  const handleSendToNotebook = async (highlight, entryId) => {
+    await api.post(`/api/notebook/${entryId}/link-highlight`, { highlightId: highlight._id }, getAuthHeaders());
+    setNotebookModal({ open: false, highlight: null });
+  };
+
   const renderTab = () => {
     switch (active) {
       case 'resurface':
-        return <Resurface />;
+        return (
+          <div className="section-stack">
+            <SectionHeader title="Daily Resurface" subtitle="Five highlights, steady and calm." />
+            {resurfaceLoading && <p className="muted small">Loading…</p>}
+            {resurfaceError && <p className="status-message error-message">{resurfaceError}</p>}
+            {!resurfaceLoading && !resurfaceError && (
+              <div className="review-resurface-list">
+                {resurfaceHighlights.length === 0 && (
+                  <p className="muted small">No highlights to resurface yet.</p>
+                )}
+                {resurfaceHighlights.map(h => (
+                  <button
+                    key={h._id}
+                    className={`review-resurface-row ${activeHighlightId === h._id ? 'is-active' : ''}`}
+                    onClick={() => setActiveHighlightId(h._id)}
+                  >
+                    <div className="review-resurface-title">{h.articleTitle || 'Untitled article'}</div>
+                    <div className="review-resurface-text">{h.text}</div>
+                    <div className="review-resurface-tags">
+                      {(h.tags || []).length > 0 ? h.tags.map(tag => (
+                        <TagChip key={`${h._id}-${tag}`}>{tag}</TagChip>
+                      )) : (
+                        <span className="muted small">Untagged</span>
+                      )}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        );
       case 'reflections': {
         const activeConcepts = reflections.activeConcepts || [];
         const notesInProgress = reflections.notesInProgress || [];
@@ -203,8 +321,16 @@ const ReviewMode = () => {
           </div>
         );
       }
+      case 'patterns':
+        return (
+          <div className="section-stack">
+            <SectionHeader title="Patterns" subtitle="Longer arcs and signals." />
+            <p className="muted">Open the Brain view for trends and pattern summaries.</p>
+            <Button variant="secondary" onClick={() => navigate('/brain')}>Open Brain</Button>
+          </div>
+        );
       default:
-        return <Journey />;
+        return <Journey embedded />;
     }
   };
 
@@ -227,7 +353,7 @@ const ReviewMode = () => {
         {tabs.map(t => (
           <QuietButton
             key={t.key}
-            className={active === t.key ? 'is-active' : ''}
+            className={`list-button ${active === t.key ? 'is-active' : ''}`}
             onClick={() => {
               setActive(t.key);
               setQueryParams({ tab: t.key });
@@ -245,7 +371,7 @@ const ReviewMode = () => {
             {rangeOptions.map(option => (
               <QuietButton
                 key={option.value}
-                className={range === option.value ? 'is-active' : ''}
+                className={`list-button ${range === option.value ? 'is-active' : ''}`}
                 onClick={() => {
                   setRange(option.value);
                   setQueryParams({ tab: 'reflections', range: option.value });
@@ -274,6 +400,32 @@ const ReviewMode = () => {
         title={active === 'reflections' ? 'Quick actions' : 'Review tools'}
         subtitle={active === 'reflections' ? 'Keep momentum.' : 'Lightweight by design.'}
       />
+      {active === 'resurface' && (
+        <>
+          {selectedHighlight ? (
+            <div className="section-stack">
+              <div className="review-resurface-context-title">{selectedHighlight.articleTitle || 'Untitled article'}</div>
+              <div className="review-resurface-context-text">{selectedHighlight.text}</div>
+              <div className="review-resurface-context-actions">
+                <Button variant="secondary" onClick={() => navigate(`/articles/${selectedHighlight.articleId}`)}>
+                  Open Article
+                </Button>
+                <Button variant="secondary" onClick={() => setNotebookModal({ open: true, highlight: selectedHighlight })}>
+                  Send to Notebook
+                </Button>
+                <Button variant="secondary" onClick={() => setConceptModal({ open: true, highlight: selectedHighlight })}>
+                  Add to Concept
+                </Button>
+                <Button variant="secondary" onClick={() => setQuestionModal({ open: true, highlight: selectedHighlight })}>
+                  Add to Question
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <p className="muted small">Select a highlight to drill in.</p>
+          )}
+        </>
+      )}
       {active === 'reflections' ? (
         <>
           <Button variant="secondary" onClick={refresh} disabled={reflectionsLoading}>
@@ -309,18 +461,34 @@ const ReviewMode = () => {
   );
 
   return (
-    <Page>
-      <WorkspaceShell
-        title="Review"
-        subtitle="Revisit what matters: recent reading, resurfaced highlights, and steady patterns."
-        eyebrow="Mode"
+    <>
+      <ThreePaneLayout
         left={leftPanel}
         main={mainPanel}
         right={rightPanel}
         rightTitle={active === 'reflections' ? 'Quick actions' : 'Review tools'}
         defaultRightOpen
+        mainHeader={<PageTitle eyebrow="Mode" title="Review" subtitle="Revisit what matters: recent reading, resurfaced highlights, and steady patterns." />}
       />
-    </Page>
+      <LibraryConceptModal
+        open={conceptModal.open}
+        highlight={conceptModal.highlight}
+        onClose={() => setConceptModal({ open: false, highlight: null })}
+        onSelect={handleAddConcept}
+      />
+      <LibraryNotebookModal
+        open={notebookModal.open}
+        highlight={notebookModal.highlight}
+        onClose={() => setNotebookModal({ open: false, highlight: null })}
+        onSend={handleSendToNotebook}
+      />
+      <LibraryQuestionModal
+        open={questionModal.open}
+        highlight={questionModal.highlight}
+        onClose={() => setQuestionModal({ open: false, highlight: null })}
+        onCreate={handleAddQuestion}
+      />
+    </>
   );
 };
 

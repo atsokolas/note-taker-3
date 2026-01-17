@@ -21,10 +21,11 @@ const createId = () => {
  *  folderOptions: Array<{ value: string, label: string }>,
  *  articleOptions: Array<{ value: string, label: string }>,
  *  externalQuery?: string,
- *  onQueryChange?: (value: string) => void
+ *  onQueryChange?: (value: string) => void,
+ *  view?: 'concept' | 'article' | 'untagged'
  * }} props
  */
-const LibraryHighlights = ({ folderOptions, articleOptions, externalQuery = '', onQueryChange }) => {
+const LibraryHighlights = ({ folderOptions, articleOptions, externalQuery = '', onQueryChange, view = 'concept' }) => {
   const [folderId, setFolderId] = useState('');
   const [tag, setTag] = useState('');
   const [articleId, setArticleId] = useState('');
@@ -49,11 +50,52 @@ const LibraryHighlights = ({ folderOptions, articleOptions, externalQuery = '', 
     [highlights]
   );
 
-  const selectedHighlight = rows[selectedIndex] || null;
+  const filteredRows = useMemo(() => {
+    if (view === 'untagged') return rows.filter(h => !h.tags || h.tags.length === 0);
+    return rows;
+  }, [rows, view]);
+
+  const groupedRows = useMemo(() => {
+    if (view === 'concept') {
+      return filteredRows.reduce((acc, highlight) => {
+        const tags = highlight.tags?.length ? highlight.tags : ['Untagged'];
+        tags.forEach(tagName => {
+          if (!acc[tagName]) acc[tagName] = [];
+          acc[tagName].push(highlight);
+        });
+        return acc;
+      }, {});
+    }
+    if (view === 'article') {
+      return filteredRows.reduce((acc, highlight) => {
+        const key = highlight.articleTitle || 'Untitled article';
+        if (!acc[key]) acc[key] = [];
+        acc[key].push(highlight);
+        return acc;
+      }, {});
+    }
+    return {};
+  }, [filteredRows, view]);
+
+  const groupedKeys = useMemo(() => {
+    if (view === 'concept' || view === 'article') {
+      return Object.keys(groupedRows).sort((a, b) => a.localeCompare(b));
+    }
+    return [];
+  }, [groupedRows, view]);
+
+  const displayRows = useMemo(() => {
+    if (view === 'concept' || view === 'article') {
+      return groupedKeys.flatMap(key => groupedRows[key]);
+    }
+    return filteredRows;
+  }, [filteredRows, groupedKeys, groupedRows, view]);
+
+  const selectedHighlight = displayRows[selectedIndex] || null;
 
   useEffect(() => {
     setSelectedIndex(0);
-  }, [folderId, tag, articleId, query]);
+  }, [folderId, tag, articleId, query, view]);
 
   useEffect(() => {
     if (externalQuery === query) return;
@@ -67,10 +109,10 @@ const LibraryHighlights = ({ folderOptions, articleOptions, externalQuery = '', 
   }, [selectedHighlight]);
 
   const handleKeyDown = useCallback((event) => {
-    if (rows.length === 0) return;
+    if (displayRows.length === 0) return;
     if (event.key === 'j') {
       event.preventDefault();
-      setSelectedIndex(prev => Math.min(prev + 1, rows.length - 1));
+      setSelectedIndex(prev => Math.min(prev + 1, displayRows.length - 1));
     }
     if (event.key === 'k') {
       event.preventDefault();
@@ -83,7 +125,7 @@ const LibraryHighlights = ({ folderOptions, articleOptions, externalQuery = '', 
         window.location.href = `/articles/${selectedHighlight.articleId}`;
       }
     }
-  }, [rows.length, selectedHighlight]);
+  }, [displayRows.length, selectedHighlight]);
 
   useEffect(() => {
     window.addEventListener('keydown', handleKeyDown);
@@ -156,14 +198,53 @@ const LibraryHighlights = ({ folderOptions, articleOptions, externalQuery = '', 
       {loading && <p className="muted small">Loading highlights…</p>}
       {error && <p className="status-message error-message">{error}</p>}
       <div className="library-highlights-list" ref={listRef}>
-        {rows.map(highlight => (
+        {(view === 'concept' || view === 'article') ? groupedKeys.map(group => (
+          <div key={group} className="library-highlight-group-block">
+            <div className="library-highlight-group-title">{group}</div>
+            {groupedRows[group].map(highlight => (
+              <div
+                key={highlight._id}
+                data-highlight-id={highlight._id}
+                className={`library-highlight-row ${selectedHighlight?._id === highlight._id ? 'is-active' : ''}`}
+                role="button"
+                tabIndex={0}
+                onClick={() => setSelectedIndex(displayRows.findIndex(item => item._id === highlight._id))}
+              >
+                <HighlightBlock highlight={highlight} compact />
+                <div className="library-highlight-row-actions">
+                  <Button
+                    variant="secondary"
+                    onClick={() => setConceptModal({ open: true, highlight })}
+                  >
+                    Add to Concept
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    onClick={() => setNotebookModal({ open: true, highlight })}
+                  >
+                    Send to Notebook
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    onClick={() => setQuestionModal({ open: true, highlight })}
+                  >
+                    Add to Question
+                  </Button>
+                  <QuietButton onClick={() => window.location.href = `/articles/${highlight.articleId}`}>
+                    Open Source
+                  </QuietButton>
+                </div>
+              </div>
+            ))}
+          </div>
+        )) : filteredRows.map(highlight => (
           <div
             key={highlight._id}
             data-highlight-id={highlight._id}
             className={`library-highlight-row ${selectedHighlight?._id === highlight._id ? 'is-active' : ''}`}
             role="button"
             tabIndex={0}
-            onClick={() => setSelectedIndex(rows.findIndex(item => item._id === highlight._id))}
+            onClick={() => setSelectedIndex(displayRows.findIndex(item => item._id === highlight._id))}
           >
             <HighlightBlock highlight={highlight} compact />
             <div className="library-highlight-row-actions">
@@ -191,7 +272,7 @@ const LibraryHighlights = ({ folderOptions, articleOptions, externalQuery = '', 
             </div>
           </div>
         ))}
-        {!loading && rows.length === 0 && (
+        {!loading && displayRows.length === 0 && (
           <p className="muted small">No highlights match those filters.</p>
         )}
       </div>

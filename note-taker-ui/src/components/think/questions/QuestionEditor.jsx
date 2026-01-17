@@ -21,7 +21,7 @@ const normalizeBlocks = (blocks = []) => {
   }));
 };
 
-const QuestionEditor = ({ question, saving, error, onSave }) => {
+const QuestionEditor = ({ question, saving, error, onSave, onRegisterInsert }) => {
   const [titleDraft, setTitleDraft] = useState('');
   const [blocksDraft, setBlocksDraft] = useState([]);
   const [insertOpen, setInsertOpen] = useState(false);
@@ -31,6 +31,18 @@ const QuestionEditor = ({ question, saving, error, onSave }) => {
     setTitleDraft(question?.text || '');
     setBlocksDraft(normalizeBlocks(question?.blocks || []));
   }, [question?._id]);
+
+  useEffect(() => {
+    if (!onRegisterInsert) return;
+    const insert = (highlight) => {
+      setBlocksDraft(prev => [
+        ...prev,
+        { id: createId(), type: 'highlight-ref', highlightId: highlight._id, text: highlight.text || '' }
+      ]);
+    };
+    onRegisterInsert(insert);
+    return () => onRegisterInsert(null);
+  }, [onRegisterInsert]);
 
   const handleSave = () => {
     if (!question) return;

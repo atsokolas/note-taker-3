@@ -1,22 +1,26 @@
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { Page, SectionHeader, QuietButton, Button, TagChip } from '../components/ui';
-import WorkspaceShell from '../layouts/WorkspaceShell';
+import { PageTitle, SectionHeader, QuietButton, Button, TagChip } from '../components/ui';
 import useConcepts from '../hooks/useConcepts';
 import useConcept from '../hooks/useConcept';
 import useConceptRelated from '../hooks/useConceptRelated';
 import useConceptReferences from '../hooks/useConceptReferences';
 import { updateConcept, updateConceptPins } from '../api/concepts';
-import NotebookView from '../components/think/notebook/NotebookView';
+import NotebookList from '../components/think/notebook/NotebookList';
+import NotebookEditor from '../components/think/notebook/NotebookEditor';
 import NotebookContext from '../components/think/notebook/NotebookContext';
 import useQuestions from '../hooks/useQuestions';
 import { createQuestion, updateQuestion } from '../api/questions';
 import QuestionInput from '../components/think/questions/QuestionInput';
 import QuestionList from '../components/think/questions/QuestionList';
 import HighlightBlock from '../components/blocks/HighlightBlock';
-import QuestionsView from '../components/think/questions/QuestionsView';
-import useHighlights from '../hooks/useHighlights';
 import AddToConceptModal from '../components/think/concepts/AddToConceptModal';
+import QuestionEditor from '../components/think/questions/QuestionEditor';
+import ThreePaneLayout from '../layout/ThreePaneLayout';
+import useHighlights from '../hooks/useHighlights';
+import useTags from '../hooks/useTags';
+import api from '../api';
+import { getAuthHeaders } from '../hooks/useAuthHeaders';
 
 const ThinkMode = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -35,8 +39,27 @@ const ThinkMode = () => {
   const [loadingMore, setLoadingMore] = useState(false);
   const [activeNotebookEntry, setActiveNotebookEntry] = useState(null);
   const [activeQuestion, setActiveQuestion] = useState(null);
-  const { highlightMap } = useHighlights({ enabled: activeView === 'questions' });
+  const { highlightMap, highlights: allHighlights } = useHighlights();
+  const { tags } = useTags();
   const [addModal, setAddModal] = useState({ open: false, mode: 'highlight' });
+  const notebookInsertRef = useRef(null);
+  const questionInsertRef = useRef(null);
+  const [highlightQuery, setHighlightQuery] = useState('');
+  const [highlightTag, setHighlightTag] = useState('');
+  const [highlightArticle, setHighlightArticle] = useState('');
+  const [questionStatus, setQuestionStatus] = useState('open');
+  const [questionConceptFilter, setQuestionConceptFilter] = useState('');
+  const [activeQuestionId, setActiveQuestionId] = useState('');
+  const [questionSaving, setQuestionSaving] = useState(false);
+  const [questionError, setQuestionError] = useState('');
+
+  const [notebookEntries, setNotebookEntries] = useState([]);
+  const [notebookActiveId, setNotebookActiveId] = useState('');
+  const [notebookLoadingList, setNotebookLoadingList] = useState(false);
+  const [notebookLoadingEntry, setNotebookLoadingEntry] = useState(false);
+  const [notebookSaving, setNotebookSaving] = useState(false);
+  const [notebookListError, setNotebookListError] = useState('');
+  const [notebookEntryError, setNotebookEntryError] = useState('');
 
   const createBlockId = () => {
     if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
@@ -79,6 +102,87 @@ const ThinkMode = () => {
   const pinnedArticles = concept?.pinnedArticles || [];
   const pinnedNotes = concept?.pinnedNotes || [];
 
+  const questionQuery = useQuestions({
+    status: questionStatus,
+    tag: questionConceptFilter || undefined,
+    enabled: activeView === 'questions'
+  });
+  const { questions: allQuestions, loading: allQuestionsLoading, error: allQuestionsError, setQuestions: setAllQuestions } = questionQuery;
+
+  const activeQuestionData = useMemo(
+    () => allQuestions.find(q => q._id === activeQuestionId) || null,
+    [allQuestions, activeQuestionId]
+  );
+
+  useEffect(() => {
+    if (activeView !== 'questions') return;
+    if (allQuestions.length === 0) {
+      setActiveQuestionId('');
+      setActiveQuestion(null);
+      return;
+    }
+    if (!activeQuestionId || !allQuestions.some(q => q._id === activeQuestionId)) {
+      setActiveQuestionId(allQuestions[0]._id);
+      setActiveQuestion(allQuestions[0]);
+    }
+  }, [activeView, allQuestions, activeQuestionId]);
+
+  useEffect(() => {
+    if (activeView !== 'questions') return;
+    setActiveQuestion(activeQuestionData);
+  }, [activeView, activeQuestionData]);
+
+  const loadNotebookEntries = useCallback(async () => {
+    setNotebookLoadingList(true);
+    setNotebookListError('');
+    try {
+      const res = await api.get('/api/notebook', getAuthHeaders());
+      const data = res.data || [];
+      setNotebookEntries(data);
+      if (data.length === 0) {
+        setNotebookActiveId('');
+        setActiveNotebookEntry(null);
+      } else if (searchParams.get('entryId') && data.some(entry => entry._id === searchParams.get('entryId'))) {
+        setNotebookActiveId(searchParams.get('entryId'));
+      } else if (!searchParams.get('entryId')) {
+        setNotebookActiveId(data[0]._id);
+      }
+    } catch (err) {
+      setNotebookListError(err.response?.data?.error || 'Failed to load notebook.');
+    } finally {
+      setNotebookLoadingList(false);
+    }
+  }, [searchParams]);
+
+  const loadNotebookEntry = useCallback(async (entryId) => {
+    if (!entryId) return;
+    setNotebookLoadingEntry(true);
+    setNotebookEntryError('');
+    try {
+      const res = await api.get(`/api/notebook/${entryId}`, getAuthHeaders());
+      const entry = res.data || null;
+      setActiveNotebookEntry(entry);
+    } catch (err) {
+      setNotebookEntryError(err.response?.data?.error || 'Failed to load note.');
+      setActiveNotebookEntry(null);
+    } finally {
+      setNotebookLoadingEntry(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadNotebookEntries();
+  }, [loadNotebookEntries]);
+
+  useEffect(() => {
+    if (!notebookActiveId) return;
+    loadNotebookEntry(notebookActiveId);
+    const params = new URLSearchParams(searchParams);
+    params.set('view', 'notebook');
+    params.set('entryId', notebookActiveId);
+    setSearchParams(params, { replace: true });
+  }, [notebookActiveId, loadNotebookEntry, searchParams, setSearchParams]);
+
   React.useEffect(() => {
     setDescriptionDraft(concept?.description || '');
   }, [concept?.description]);
@@ -110,6 +214,67 @@ const ThinkMode = () => {
     const params = new URLSearchParams(searchParams);
     params.set('view', view);
     setSearchParams(params);
+  };
+
+  const handleSelectNotebookEntry = (id) => {
+    setNotebookActiveId(id);
+    handleSelectView('notebook');
+  };
+
+  const handleCreateNotebookEntry = async () => {
+    setNotebookSaving(true);
+    setNotebookEntryError('');
+    try {
+      const res = await api.post('/api/notebook', { title: 'Untitled', content: '', blocks: [] }, getAuthHeaders());
+      const created = res.data;
+      setNotebookEntries(prev => [created, ...prev]);
+      setNotebookActiveId(created._id);
+      setActiveNotebookEntry(created);
+    } catch (err) {
+      setNotebookEntryError(err.response?.data?.error || 'Failed to create note.');
+    } finally {
+      setNotebookSaving(false);
+    }
+  };
+
+  const handleSaveNotebookEntry = async (payload) => {
+    if (!payload?.id) return;
+    setNotebookSaving(true);
+    setNotebookEntryError('');
+    try {
+      const res = await api.put(`/api/notebook/${payload.id}`, payload, getAuthHeaders());
+      const updated = res.data;
+      setNotebookEntries(prev => prev.map(entry => entry._id === updated._id ? updated : entry));
+      setActiveNotebookEntry(updated);
+    } catch (err) {
+      setNotebookEntryError(err.response?.data?.error || 'Failed to save note.');
+    } finally {
+      setNotebookSaving(false);
+    }
+  };
+
+  const handleDeleteNotebookEntry = async (entry) => {
+    if (!entry?._id) return;
+    if (!window.confirm('Delete this note? This cannot be undone.')) return;
+    setNotebookSaving(true);
+    setNotebookEntryError('');
+    try {
+      await api.delete(`/api/notebook/${entry._id}`, getAuthHeaders());
+      setNotebookEntries(prev => {
+        const remaining = prev.filter(item => item._id !== entry._id);
+        if (remaining.length > 0) {
+          setNotebookActiveId(remaining[0]._id);
+        } else {
+          setNotebookActiveId('');
+          setActiveNotebookEntry(null);
+        }
+        return remaining;
+      });
+    } catch (err) {
+      setNotebookEntryError(err.response?.data?.error || 'Failed to delete note.');
+    } finally {
+      setNotebookSaving(false);
+    }
   };
 
   const handleSaveDescription = async () => {
@@ -226,75 +391,174 @@ const ThinkMode = () => {
     try {
       await updateQuestion(question._id, { status: 'answered' });
       setConceptQuestions(prev => prev.filter(item => item._id !== question._id));
+      setAllQuestions(prev => prev.filter(item => item._id !== question._id));
     } catch (err) {
       setConceptError(err.response?.data?.error || 'Failed to update question.');
+    }
+  };
+
+  const handleCreateQuestion = async () => {
+    setQuestionSaving(true);
+    setQuestionError('');
+    try {
+      const created = await createQuestion({
+        text: 'New question',
+        conceptName: questionConceptFilter || '',
+        blocks: [{ id: createBlockId(), type: 'paragraph', text: '' }]
+      });
+      setAllQuestions(prev => [created, ...prev]);
+      setActiveQuestionId(created._id);
+      setActiveQuestion(created);
+    } catch (err) {
+      setQuestionError(err.response?.data?.error || 'Failed to create question.');
+    } finally {
+      setQuestionSaving(false);
+    }
+  };
+
+  const handleSaveQuestion = async (payload) => {
+    if (!payload?._id) return;
+    setQuestionSaving(true);
+    setQuestionError('');
+    try {
+      const updated = await updateQuestion(payload._id, {
+        text: payload.text,
+        status: payload.status,
+        conceptName: payload.conceptName || payload.linkedTagName || '',
+        blocks: payload.blocks || []
+      });
+      setAllQuestions(prev => prev.map(q => q._id === updated._id ? updated : q));
+    } catch (err) {
+      setQuestionError(err.response?.data?.error || 'Failed to save question.');
+    } finally {
+      setQuestionSaving(false);
     }
   };
 
 
   const leftPanel = (
     <div className="section-stack">
-      <SectionHeader title="Think" subtitle="Choose your space." />
-      <div className="think-tabs">
-        <QuietButton
-          className={activeView === 'notebook' ? 'is-active' : ''}
-          onClick={() => handleSelectView('notebook')}
-        >
-          Notebook
-        </QuietButton>
-        <QuietButton
-          className={activeView === 'concepts' ? 'is-active' : ''}
-          onClick={() => handleSelectView('concepts')}
-        >
-          Concepts
-        </QuietButton>
-        <QuietButton
-          className={activeView === 'questions' ? 'is-active' : ''}
-          onClick={() => handleSelectView('questions')}
-        >
-          Questions
-        </QuietButton>
-      </div>
-      {activeView === 'concepts' && (
-        <>
-          <SectionHeader title="Concepts" subtitle="Structured pages." />
-          <label className="feedback-field" style={{ margin: 0 }}>
-            <span>Search</span>
-            <input
-              type="text"
-              value={search}
-              placeholder="Find a concept"
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </label>
-          {conceptsLoading && <p className="muted small">Loading concepts…</p>}
-          {conceptsError && <p className="status-message error-message">{conceptsError}</p>}
-          <div className="concept-list">
-            {filteredConcepts.map(conceptItem => (
-              <QuietButton
-                key={conceptItem.name}
-                className={conceptItem.name === selectedName ? 'is-active' : ''}
-                onClick={() => handleSelectConcept(conceptItem.name)}
-              >
-                <span>{conceptItem.name}</span>
-                {typeof conceptItem.count === 'number' && (
-                  <span className="concept-count">{conceptItem.count}</span>
-                )}
-              </QuietButton>
-            ))}
-            {!conceptsLoading && filteredConcepts.length === 0 && (
-              <p className="muted small">No concepts found.</p>
+      <SectionHeader title="Notebook" subtitle="Working notes." />
+      <NotebookList
+        entries={notebookEntries}
+        activeId={notebookActiveId}
+        loading={notebookLoadingList}
+        error={notebookListError}
+        onSelect={handleSelectNotebookEntry}
+        onCreate={handleCreateNotebookEntry}
+      />
+
+      <SectionHeader title="Concepts" subtitle="Structured pages." />
+      <label className="feedback-field" style={{ margin: 0 }}>
+        <span>Search</span>
+        <input
+          type="text"
+          value={search}
+          placeholder="Find a concept"
+          onChange={(e) => setSearch(e.target.value)}
+        />
+      </label>
+      {conceptsLoading && <p className="muted small">Loading concepts…</p>}
+      {conceptsError && <p className="status-message error-message">{conceptsError}</p>}
+      <div className="concept-list">
+        {filteredConcepts.map(conceptItem => (
+          <QuietButton
+            key={conceptItem.name}
+            className={`list-button ${conceptItem.name === selectedName ? 'is-active' : ''}`}
+            onClick={() => handleSelectConcept(conceptItem.name)}
+          >
+            <span>{conceptItem.name}</span>
+            {typeof conceptItem.count === 'number' && (
+              <span className="concept-count">{conceptItem.count}</span>
             )}
-          </div>
-        </>
+          </QuietButton>
+        ))}
+        {!conceptsLoading && filteredConcepts.length === 0 && (
+          <p className="muted small">No concepts found.</p>
+        )}
+      </div>
+
+      <SectionHeader title="Questions" subtitle="Open loops." />
+      <div className="think-question-filters">
+        <select
+          value={questionStatus}
+          onChange={(event) => {
+            setQuestionStatus(event.target.value);
+            handleSelectView('questions');
+          }}
+        >
+          <option value="open">Open</option>
+          <option value="answered">Answered</option>
+        </select>
+        <select
+          value={questionConceptFilter}
+          onChange={(event) => {
+            setQuestionConceptFilter(event.target.value);
+            handleSelectView('questions');
+          }}
+        >
+          <option value="">All concepts</option>
+          {concepts.map(concept => (
+            <option key={concept.name} value={concept.name}>{concept.name}</option>
+          ))}
+        </select>
+        <Button variant="secondary" onClick={handleCreateQuestion} disabled={questionSaving}>
+          New
+        </Button>
+      </div>
+      {allQuestionsError && <p className="status-message error-message">{allQuestionsError}</p>}
+      {questionError && <p className="status-message error-message">{questionError}</p>}
+      {allQuestionsLoading && <p className="muted small">Loading questions…</p>}
+      {!allQuestionsLoading && allQuestions.length === 0 && (
+        <p className="muted small">No questions in this view.</p>
       )}
+      <div className="think-question-list">
+        {allQuestions.map(question => (
+          <button
+            key={question._id}
+            className={`think-question-row list-button ${activeQuestionId === question._id ? 'is-active' : ''}`}
+            onClick={() => {
+              setActiveQuestionId(question._id);
+              handleSelectView('questions');
+            }}
+          >
+            <div className="think-question-text">{question.text}</div>
+            <div className="muted small">{question.linkedTagName || 'Uncategorized'}</div>
+          </button>
+        ))}
+      </div>
     </div>
   );
 
   const mainPanel = activeView === 'notebook' ? (
-    <NotebookView onActiveEntryChange={setActiveNotebookEntry} />
+    <div className="think-notebook-editor-pane">
+      {notebookLoadingEntry && <p className="muted small">Loading note…</p>}
+      {!notebookLoadingEntry && (
+        <NotebookEditor
+          entry={activeNotebookEntry}
+          saving={notebookSaving}
+          error={notebookEntryError}
+          onSave={handleSaveNotebookEntry}
+          onDelete={handleDeleteNotebookEntry}
+          onRegisterInsert={(fn) => { notebookInsertRef.current = fn; }}
+        />
+      )}
+    </div>
   ) : activeView === 'questions' ? (
-    <QuestionsView onSelectQuestion={setActiveQuestion} />
+    <div className="think-question-editor-pane">
+      <QuestionEditor
+        question={activeQuestionData}
+        saving={questionSaving}
+        error={questionError}
+        onSave={handleSaveQuestion}
+        onRegisterInsert={(fn) => { questionInsertRef.current = fn; }}
+      />
+      {activeQuestionData && questionStatus === 'open' && (
+        <div className="think-question-actions">
+          <QuietButton onClick={() => handleMarkAnswered(activeQuestionData)}>Mark answered</QuietButton>
+        </div>
+      )}
+    </div>
   ) : (
     <div className="section-stack">
       {conceptLoadError && <p className="status-message error-message">{conceptLoadError}</p>}
@@ -440,82 +704,160 @@ const ThinkMode = () => {
     </div>
   );
 
-  const rightPanel = activeView === 'notebook' ? (
-    <NotebookContext entry={activeNotebookEntry} />
-  ) : activeView === 'questions' ? (
+  const filteredHighlights = useMemo(() => {
+    const query = highlightQuery.trim().toLowerCase();
+    return allHighlights.filter(h => {
+      const textMatch = !query || (h.text || '').toLowerCase().includes(query);
+      const tagMatch = !highlightTag || (h.tags || []).includes(highlightTag);
+      const articleMatch = !highlightArticle || (h.articleTitle || '').toLowerCase().includes(highlightArticle.toLowerCase());
+      return textMatch && tagMatch && articleMatch;
+    });
+  }, [allHighlights, highlightQuery, highlightTag, highlightArticle]);
+
+  const articleOptions = useMemo(() => {
+    const map = new Map();
+    allHighlights.forEach(h => {
+      if (h.articleTitle) map.set(h.articleTitle, h.articleTitle);
+    });
+    return Array.from(map.values());
+  }, [allHighlights]);
+
+  const handleInsertHighlight = async (highlight) => {
+    if (activeView === 'notebook' && notebookInsertRef.current) {
+      notebookInsertRef.current(highlight);
+      return;
+    }
+    if (activeView === 'questions' && questionInsertRef.current) {
+      questionInsertRef.current(highlight);
+      return;
+    }
+    if (activeView === 'concepts' && concept?.name) {
+      await updateConceptPins(concept.name, { addHighlightIds: [highlight._id] });
+      refresh();
+    }
+  };
+
+  const rightPanel = (
     <div className="section-stack">
-      <SectionHeader title="Context" subtitle="Open loops." />
-      {activeQuestion?.linkedTagName ? (
-        <TagChip to={`/think?view=concepts&concept=${encodeURIComponent(activeQuestion.linkedTagName)}`}>
-          {activeQuestion.linkedTagName}
-        </TagChip>
-      ) : (
-        <p className="muted small">No concept linked.</p>
-      )}
-      <SectionHeader title="Embedded highlights" subtitle="References in this question." />
-      {activeQuestion?.blocks?.filter(block => block.type === 'highlight-ref').length ? (
-        <div className="concept-note-grid">
-          {activeQuestion.blocks
-            .filter(block => block.type === 'highlight-ref')
-            .map(block => {
-              const highlight = highlightMap.get(String(block.highlightId)) || {
-                id: block.highlightId,
-                text: block.text || 'Highlight',
-                tags: [],
-                articleTitle: ''
-              };
-              return (
-                <HighlightBlock key={block.id} highlight={highlight} compact />
-              );
-            })}
-        </div>
-      ) : (
-        <p className="muted small">No highlights embedded yet.</p>
-      )}
-    </div>
-  ) : (
-    <div className="section-stack">
-      <SectionHeader title="Related concepts" subtitle="Neighbors and cousins." />
-      {concept?.relatedTags?.length > 0 ? (
-        <div className="concept-related-tags">
-          {concept.relatedTags.slice(0, 8).map(tag => (
-            <TagChip key={tag.tag} to={`/think?concept=${encodeURIComponent(tag.tag)}`}>
-              {tag.tag}
-            </TagChip>
+      <SectionHeader title="Insert" subtitle="Search highlights." />
+      <div className="library-highlight-filters">
+        <input
+          type="text"
+          placeholder="Search highlights"
+          value={highlightQuery}
+          onChange={(event) => setHighlightQuery(event.target.value)}
+        />
+        <select value={highlightTag} onChange={(event) => setHighlightTag(event.target.value)}>
+          <option value="">All concepts</option>
+          {tags.map(tag => (
+            <option key={tag.tag} value={tag.tag}>{tag.tag}</option>
           ))}
-        </div>
-      ) : (
-        <p className="muted small">No related concepts yet.</p>
-      )}
-      <SectionHeader title="Tag correlations" subtitle="Co-occuring themes." />
-      {concept?.relatedTags?.length > 0 ? (
-        <div className="concept-related-tags">
-          {concept.relatedTags.slice(0, 8).map(tag => (
-            <TagChip key={`corr-${tag.tag}`} to={`/think?concept=${encodeURIComponent(tag.tag)}`}>
-              {tag.tag}
-            </TagChip>
+        </select>
+        <select value={highlightArticle} onChange={(event) => setHighlightArticle(event.target.value)}>
+          <option value="">All articles</option>
+          {articleOptions.map(article => (
+            <option key={article} value={article}>{article}</option>
           ))}
-        </div>
-      ) : (
-        <p className="muted small">No correlations yet.</p>
+        </select>
+      </div>
+      <div className="library-highlights-list">
+        {filteredHighlights.slice(0, 8).map(highlight => (
+          <div key={highlight._id} className="library-highlight-row">
+            <HighlightBlock highlight={highlight} compact />
+            <div className="library-highlight-row-actions">
+              <QuietButton onClick={() => handleInsertHighlight(highlight)}>
+                {activeView === 'concepts' ? 'Pin to concept' : 'Insert'}
+              </QuietButton>
+            </div>
+          </div>
+        ))}
+        {filteredHighlights.length === 0 && (
+          <p className="muted small">No highlights match.</p>
+        )}
+      </div>
+
+      {activeView === 'notebook' && (
+        <NotebookContext entry={activeNotebookEntry} />
       )}
-      <SectionHeader title="Used in" subtitle="References and collections." />
-      {refLoading && <p className="muted small">Loading references…</p>}
-      {refError && <p className="status-message error-message">{refError}</p>}
-      {!refLoading && !refError && (
-        <div className="concept-used-list">
-          {references.notebookBlocks.length === 0 ? (
-            <p className="muted small">No references yet.</p>
+
+      {activeView === 'questions' && (
+        <div className="section-stack">
+          <SectionHeader title="Context" subtitle="Open loops." />
+          {activeQuestion?.linkedTagName ? (
+            <TagChip to={`/think?view=concepts&concept=${encodeURIComponent(activeQuestion.linkedTagName)}`}>
+              {activeQuestion.linkedTagName}
+            </TagChip>
           ) : (
-            references.notebookBlocks.slice(0, 6).map((block, idx) => (
-              <Link
-                key={`${block.notebookEntryId}-${block.blockId}-${idx}`}
-                to={`/notebook?entryId=${block.notebookEntryId}`}
-                className="concept-used-link"
-              >
-                {block.notebookTitle || 'Untitled note'}
-              </Link>
-            ))
+            <p className="muted small">No concept linked.</p>
+          )}
+          <SectionHeader title="Embedded highlights" subtitle="References in this question." />
+          {activeQuestion?.blocks?.filter(block => block.type === 'highlight-ref').length ? (
+            <div className="concept-note-grid">
+              {activeQuestion.blocks
+                .filter(block => block.type === 'highlight-ref')
+                .map(block => {
+                  const highlight = highlightMap.get(String(block.highlightId)) || {
+                    id: block.highlightId,
+                    text: block.text || 'Highlight',
+                    tags: [],
+                    articleTitle: ''
+                  };
+                  return (
+                    <HighlightBlock key={block.id} highlight={highlight} compact />
+                  );
+                })}
+            </div>
+          ) : (
+            <p className="muted small">No highlights embedded yet.</p>
+          )}
+        </div>
+      )}
+
+      {activeView === 'concepts' && (
+        <div className="section-stack">
+          <SectionHeader title="Related concepts" subtitle="Neighbors and cousins." />
+          {concept?.relatedTags?.length > 0 ? (
+            <div className="concept-related-tags">
+              {concept.relatedTags.slice(0, 8).map(tag => (
+                <TagChip key={tag.tag} to={`/think?concept=${encodeURIComponent(tag.tag)}`}>
+                  {tag.tag}
+                </TagChip>
+              ))}
+            </div>
+          ) : (
+            <p className="muted small">No related concepts yet.</p>
+          )}
+          <SectionHeader title="Tag correlations" subtitle="Co-occuring themes." />
+          {concept?.relatedTags?.length > 0 ? (
+            <div className="concept-related-tags">
+              {concept.relatedTags.slice(0, 8).map(tag => (
+                <TagChip key={`corr-${tag.tag}`} to={`/think?concept=${encodeURIComponent(tag.tag)}`}>
+                  {tag.tag}
+                </TagChip>
+              ))}
+            </div>
+          ) : (
+            <p className="muted small">No correlations yet.</p>
+          )}
+          <SectionHeader title="Used in" subtitle="References and collections." />
+          {refLoading && <p className="muted small">Loading references…</p>}
+          {refError && <p className="status-message error-message">{refError}</p>}
+          {!refLoading && !refError && (
+            <div className="concept-used-list">
+              {references.notebookBlocks.length === 0 ? (
+                <p className="muted small">No references yet.</p>
+              ) : (
+                references.notebookBlocks.slice(0, 6).map((block, idx) => (
+                  <Link
+                    key={`${block.notebookEntryId}-${block.blockId}-${idx}`}
+                    to={`/notebook?entryId=${block.notebookEntryId}`}
+                    className="concept-used-link"
+                  >
+                    {block.notebookTitle || 'Untitled note'}
+                  </Link>
+                ))
+              )}
+            </div>
           )}
         </div>
       )}
@@ -523,16 +865,21 @@ const ThinkMode = () => {
   );
 
   return (
-    <Page>
-      <WorkspaceShell
-        title="Think"
-        subtitle="Concepts as structured pages you can return to."
-        eyebrow="Mode"
+    <>
+      <ThreePaneLayout
         left={leftPanel}
         main={mainPanel}
         right={rightPanel}
         rightTitle="Context"
         defaultRightOpen
+        mainHeader={<PageTitle eyebrow="Mode" title="Think" subtitle="Concepts as structured pages you can return to." />}
+        mainActions={(
+          <div className="library-main-actions">
+            <QuietButton onClick={() => handleSelectView('notebook')}>Notebook</QuietButton>
+            <QuietButton onClick={() => handleSelectView('concepts')}>Concepts</QuietButton>
+            <QuietButton onClick={() => handleSelectView('questions')}>Questions</QuietButton>
+          </div>
+        )}
       />
       <AddToConceptModal
         open={addModal.open}
@@ -543,7 +890,7 @@ const ThinkMode = () => {
         onAddHighlights={handleAddHighlights}
         onAddArticles={handleAddArticles}
       />
-    </Page>
+    </>
   );
 };
 

@@ -36,7 +36,7 @@ const NotebookList = ({ entries, activeId, loading, error, onSelect, onCreate })
       {entries.map(entry => (
         <button
           key={entry._id}
-          className={`think-notebook-list-item ${activeId === entry._id ? 'is-active' : ''}`}
+          className={`think-notebook-list-item list-button ${activeId === entry._id ? 'is-active' : ''}`}
           onClick={() => onSelect(entry._id)}
         >
           <div className="think-notebook-item-title">{entry.title || 'Untitled note'}</div>

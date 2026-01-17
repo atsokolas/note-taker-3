@@ -39,7 +39,7 @@ const FolderRow = ({
     ) : (
       <span className="library-folder-toggle-spacer" />
     )}
-    <QuietButton className="library-folder-button" onClick={() => onSelect(id)}>
+    <QuietButton className="library-folder-button list-button" onClick={() => onSelect(id)}>
       <span className="library-folder-name">{name}</span>
       {typeof count === 'number' && <span className="library-folder-count">{count}</span>}
     </QuietButton>
