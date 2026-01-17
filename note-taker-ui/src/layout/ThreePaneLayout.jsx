@@ -33,11 +33,11 @@ const ThreePaneLayout = ({
     [location.pathname]
   );
 
-  const [internalLeftOpen, setInternalLeftOpen] = useState(() => {
+  const internalLeftOpen = useMemo(() => {
     const stored = localStorage.getItem(leftStorageKey);
     if (stored === null) return defaultLeftOpen;
     return stored === 'true';
-  });
+  }, [defaultLeftOpen, leftStorageKey]);
   const [internalRightOpen, setInternalRightOpen] = useState(() => {
     const stored = localStorage.getItem(rightStorageKey);
     if (stored === null) return defaultRightOpen;

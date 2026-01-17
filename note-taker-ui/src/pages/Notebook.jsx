@@ -276,6 +276,20 @@ const Notebook = () => {
     }
   }, [editor, activeId, entries]);
 
+  const selectEntry = React.useCallback((entry) => {
+    setActiveId(entry._id);
+    setTitle(entry.title);
+    setContent(entry.content || '');
+    if (editor) {
+      editor.commands.setContent(entry.content || '<p></p>', false);
+    }
+    setLinkedArticleId(entry.linkedArticleId || '');
+    setTagsInput((entry.tags || []).join(', '));
+    setSelectedFolder(entry.folder || 'all');
+    setStatus('');
+    setError('');
+  }, [editor]);
+
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const entryId = params.get('entryId');
@@ -330,20 +344,6 @@ const Notebook = () => {
     if (selectedFolder === 'all') return entries;
     return entries.filter(e => (e.folder || null) === selectedFolder);
   }, [entries, selectedFolder]);
-
-  const selectEntry = React.useCallback((entry) => {
-    setActiveId(entry._id);
-    setTitle(entry.title);
-    setContent(entry.content || '');
-    if (editor) {
-      editor.commands.setContent(entry.content || '<p></p>', false);
-    }
-    setLinkedArticleId(entry.linkedArticleId || '');
-    setTagsInput((entry.tags || []).join(', '));
-    setSelectedFolder(entry.folder || 'all');
-    setStatus('');
-    setError('');
-  }, [editor]);
 
   const createEntry = async () => {
     setSaving(true);
