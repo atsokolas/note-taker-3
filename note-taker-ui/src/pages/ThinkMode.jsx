@@ -175,13 +175,13 @@ const ThinkMode = () => {
   }, [loadNotebookEntries]);
 
   useEffect(() => {
-    if (!notebookActiveId) return;
+    if (!notebookActiveId || activeView !== 'notebook') return;
     loadNotebookEntry(notebookActiveId);
     const params = new URLSearchParams(searchParams);
     params.set('view', 'notebook');
     params.set('entryId', notebookActiveId);
     setSearchParams(params, { replace: true });
-  }, [notebookActiveId, loadNotebookEntry, searchParams, setSearchParams]);
+  }, [notebookActiveId, activeView, loadNotebookEntry, searchParams, setSearchParams]);
 
   React.useEffect(() => {
     setDescriptionDraft(concept?.description || '');
@@ -213,6 +213,12 @@ const ThinkMode = () => {
   const handleSelectView = (view) => {
     const params = new URLSearchParams(searchParams);
     params.set('view', view);
+    if (view !== 'notebook') {
+      params.delete('entryId');
+    }
+    if (view !== 'concepts') {
+      params.delete('concept');
+    }
     setSearchParams(params);
   };
 
@@ -230,6 +236,7 @@ const ThinkMode = () => {
       setNotebookEntries(prev => [created, ...prev]);
       setNotebookActiveId(created._id);
       setActiveNotebookEntry(created);
+      handleSelectView('notebook');
     } catch (err) {
       setNotebookEntryError(err.response?.data?.error || 'Failed to create note.');
     } finally {
