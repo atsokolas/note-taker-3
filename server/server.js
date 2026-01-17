@@ -11,6 +11,16 @@ const multer = require('multer');
 const Papa = require('papaparse');
 const path = require('path');
 const crypto = require('crypto');
+const { checkHealth } = require('./ai/ollamaClient');
+const {
+  enqueueArticleEmbedding,
+  enqueueHighlightEmbedding,
+  enqueueNotebookEmbedding,
+  enqueueQuestionEmbedding
+} = require('./ai/embeddingJobs');
+const { EmbeddingError } = require('./ai/embed');
+const { semanticSearch, relatedHighlights } = require('./ai/semanticSearch');
+const { enqueueBrainSummary, registerBrainSummaryHandler } = require('./ai/brainSummaryJobs');
 
 dotenv.config();
 
@@ -221,6 +231,22 @@ const questionSchema = new mongoose.Schema({
 
 const Question = mongoose.model('Question', questionSchema);
 
+// Brain summaries (AI-generated, cached)
+const brainSummarySchema = new mongoose.Schema({
+  timeRange: { type: String, required: true },
+  generatedAt: { type: Date, required: true },
+  sourceCount: { type: Number, default: 0 },
+  themes: { type: [String], default: [] },
+  connections: { type: [String], default: [] },
+  questions: { type: [String], default: [] },
+  sourceHighlightIds: [{ type: mongoose.Schema.Types.ObjectId }],
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }
+}, { timestamps: true });
+
+brainSummarySchema.index({ userId: 1, timeRange: 1, generatedAt: -1 });
+
+const BrainSummary = mongoose.model('BrainSummary', brainSummarySchema);
+
 // Reference edges (block-level backlinks)
 const referenceEdgeSchema = new mongoose.Schema({
   sourceType: { type: String, required: true },
@@ -254,6 +280,8 @@ const { getReflections } = buildReflectionService({
   TagMeta,
   mongoose
 });
+
+registerBrainSummaryHandler({ Article, BrainSummary });
 // Saved Views (Smart Folders)
 const savedViewSchema = new mongoose.Schema({
   name: { type: String, required: true, trim: true },
@@ -707,6 +735,7 @@ app.post("/save-article", authenticateToken, async (req, res) => {
       new: true,
       setDefaultsOnInsert: true
     });
+    enqueueArticleEmbedding(updatedArticle);
     res.status(200).json(updatedArticle);
   } catch (error) {
     console.error("❌ Error in /save-article:", error);
@@ -1029,6 +1058,7 @@ app.post('/api/notebook', authenticateToken, async (req, res) => {
     if (Array.isArray(blocks)) {
       await syncNotebookReferences(userId, newEntry._id, blocks);
     }
+    enqueueNotebookEmbedding(newEntry);
     res.status(201).json(newEntry);
   } catch (error) {
     console.error("❌ Error creating notebook entry:", error);
@@ -1101,6 +1131,7 @@ app.put('/api/notebook/:id', authenticateToken, async (req, res) => {
     if (Array.isArray(blocks)) {
       await syncNotebookReferences(userId, updated._id, blocks);
     }
+    enqueueNotebookEmbedding(updated);
     res.status(200).json(updated);
   } catch (error) {
     console.error("❌ Error updating notebook entry:", error);
@@ -1329,6 +1360,22 @@ app.get('/api/search', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error("❌ Error performing search:", error);
     res.status(500).json({ error: "Failed to perform search." });
+  }
+});
+
+// GET /api/search/semantic?q=
+app.get('/api/search/semantic', authenticateToken, async (req, res) => {
+  try {
+    const q = (req.query.q || '').trim();
+    if (!q) {
+      return res.status(400).json({ error: "Query parameter q is required." });
+    }
+    const limit = Math.min(Number(req.query.limit) || 12, 30);
+    const results = await semanticSearch({ query: q, limit, userId: req.user.id });
+    res.status(200).json({ results });
+  } catch (error) {
+    const status = error instanceof EmbeddingError ? (error.status || 503) : 500;
+    res.status(status).json({ error: error.message });
   }
 });
 
@@ -1957,6 +2004,7 @@ app.post('/api/questions', authenticateToken, async (req, res) => {
       linkedNotebookEntryId,
       userId
     });
+    enqueueQuestionEmbedding(question);
     res.status(201).json(question);
   } catch (error) {
     console.error("❌ Error creating question:", error);
@@ -1983,6 +2031,7 @@ app.put('/api/questions/:id', authenticateToken, async (req, res) => {
     if (linkedNotebookEntryId !== undefined) payload.linkedNotebookEntryId = linkedNotebookEntryId;
     const updated = await Question.findOneAndUpdate({ _id: id, userId }, payload, { new: true });
     if (!updated) return res.status(404).json({ error: "Question not found." });
+    enqueueQuestionEmbedding(updated);
     res.status(200).json(updated);
   } catch (error) {
     console.error("❌ Error updating question:", error);
@@ -2062,6 +2111,41 @@ app.get('/api/concepts/:tagName/references', authenticateToken, async (req, res)
   } catch (error) {
     console.error("❌ Error fetching concept references:", error);
     res.status(500).json({ error: "Failed to fetch concept references." });
+  }
+});
+
+// GET /api/highlights/:id/related - semantic neighbors
+app.get('/api/highlights/:id/related', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { id } = req.params;
+    const highlightAgg = await Article.aggregate([
+      { $match: { userId: new mongoose.Types.ObjectId(userId) } },
+      { $unwind: '$highlights' },
+      { $match: { 'highlights._id': new mongoose.Types.ObjectId(id) } },
+      { $project: {
+        _id: '$highlights._id',
+        text: '$highlights.text',
+        note: '$highlights.note',
+        tags: '$highlights.tags',
+        articleTitle: '$title'
+      } }
+    ]);
+    if (highlightAgg.length === 0) {
+      return res.status(404).json({ error: "Highlight not found." });
+    }
+    const highlight = highlightAgg[0];
+    const queryText = [highlight.text, highlight.note].filter(Boolean).join('\n');
+    const results = await relatedHighlights({
+      text: queryText,
+      excludeId: id,
+      limit: 5,
+      userId
+    });
+    res.status(200).json({ results });
+  } catch (error) {
+    const status = error instanceof EmbeddingError ? (error.status || 503) : 500;
+    res.status(status).json({ error: error.message });
   }
 });
 
@@ -2856,107 +2940,37 @@ app.get('/api/export/pdf-zip', authenticateToken, async (req, res) => {
   }
 });
 
-// GET /api/brain/summary - surface patterns from highlights/articles (non-AI)
+// POST /api/brain/generate - enqueue AI summary
+app.post('/api/brain/generate', authenticateToken, async (req, res) => {
+  const { timeRange = '30d' } = req.body || {};
+  const allowedRanges = ['7d', '30d', '90d'];
+  const safeRange = allowedRanges.includes(timeRange) ? timeRange : '30d';
+  enqueueBrainSummary({ userId: req.user.id, timeRange: safeRange });
+  res.status(202).json({ status: 'queued' });
+});
+
+// GET /api/brain/summary?timeRange=7d - cached AI summary
 app.get('/api/brain/summary', authenticateToken, async (req, res) => {
   try {
-    const userId = new mongoose.Types.ObjectId(req.user.id);
-    const now = new Date();
-    const cutoff30 = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-    const cutoff14 = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
+    const timeRange = req.query.timeRange || '30d';
+    const summary = await BrainSummary.findOne({
+      userId: req.user.id,
+      timeRange
+    }).sort({ generatedAt: -1 });
 
-    // Top tags (last 30 days)
-    const topTagsAgg = await Article.aggregate([
-      { $match: { userId } },
-      { $unwind: '$highlights' },
-      { $match: { 'highlights.createdAt': { $gte: cutoff30 } } },
-      { $unwind: '$highlights.tags' },
-      { $group: { _id: '$highlights.tags', count: { $sum: 1 } } },
-      { $sort: { count: -1, _id: 1 } },
-      { $limit: 5 },
-      { $project: { _id: 0, tag: '$_id', count: 1 } }
-    ]);
+    if (!summary) {
+      return res.status(200).json({ status: 'missing' });
+    }
 
-    // Most highlighted articles (last 30 days)
-    const mostHighlightedAgg = await Article.aggregate([
-      { $match: { userId } },
-      { $unwind: '$highlights' },
-      { $match: { 'highlights.createdAt': { $gte: cutoff30 } } },
-      { $group: { _id: '$_id', title: { $first: '$title' }, count: { $sum: 1 } } },
-      { $sort: { count: -1, title: 1 } },
-      { $limit: 5 },
-      { $project: { _id: 0, articleId: '$_id', title: 1, count: 1 } }
-    ]);
-
-    // Recent highlights (10 newest)
-    const recentHighlights = await Article.aggregate([
-      { $match: { userId } },
-      { $unwind: '$highlights' },
-      { $sort: { 'highlights.createdAt': -1 } },
-      { $limit: 10 },
-      { $project: {
-          _id: 0,
-          text: '$highlights.text',
-          tags: '$highlights.tags',
-          articleTitle: '$title',
-          articleId: '$_id',
-          createdAt: '$highlights.createdAt'
-      } }
-    ]);
-
-    // Tag correlations (last 30 days) computed in memory for clarity
-    const highlightsForPairs = await Article.aggregate([
-      { $match: { userId } },
-      { $unwind: '$highlights' },
-      { $match: { 'highlights.createdAt': { $gte: cutoff30 } } },
-      { $project: { tags: '$highlights.tags' } }
-    ]);
-
-    const pairCounts = {};
-    highlightsForPairs.forEach(h => {
-      const tags = Array.isArray(h.tags) ? [...new Set(h.tags.filter(Boolean))] : [];
-      for (let i = 0; i < tags.length; i++) {
-        for (let j = i + 1; j < tags.length; j++) {
-          const a = tags[i];
-          const b = tags[j];
-          if (!a || !b) continue;
-          const [tagA, tagB] = a.localeCompare(b) <= 0 ? [a, b] : [b, a];
-          const key = `${tagA}:::${tagB}`;
-          pairCounts[key] = (pairCounts[key] || 0) + 1;
-        }
-      }
-    });
-    const tagCorrelations = Object.entries(pairCounts)
-      .map(([key, count]) => {
-        const [tagA, tagB] = key.split(':::');
-        return { tagA, tagB, count };
-      })
-      .sort((a, b) => b.count - a.count || a.tagA.localeCompare(b.tagA))
-      .slice(0, 20);
-
-    // Reading streak: days with at least 1 highlight in last 14 days
-    const streakAgg = await Article.aggregate([
-      { $match: { userId } },
-      { $unwind: '$highlights' },
-      { $match: { 'highlights.createdAt': { $gte: cutoff14 } } },
-      { $project: {
-          day: {
-            $dateToString: { format: "%Y-%m-%d", date: '$highlights.createdAt' }
-          }
-      } },
-      { $group: { _id: '$day', count: { $sum: 1 } } }
-    ]);
-    const readingStreaks = streakAgg.length;
-
+    const maxAgeMs = 24 * 60 * 60 * 1000;
+    const isFresh = Date.now() - new Date(summary.generatedAt).getTime() < maxAgeMs;
     res.status(200).json({
-      topTags: topTagsAgg,
-      mostHighlightedArticles: mostHighlightedAgg,
-      recentHighlights,
-      tagCorrelations,
-      readingStreaks
+      status: isFresh ? 'fresh' : 'stale',
+      summary
     });
   } catch (error) {
-    console.error("❌ Error building brain summary:", error);
-    res.status(500).json({ error: "Failed to build brain summary." });
+    console.error("❌ Error fetching brain summary:", error);
+    res.status(500).json({ error: "Failed to fetch brain summary." });
   }
 });
 
@@ -3290,6 +3304,9 @@ app.post('/articles/:id/highlights', authenticateToken, async (req, res) => {
       return res.status(404).json({ error: "Article not found or you do not have permission to add highlight." });
     }
     const createdHighlight = updatedArticle.highlights?.[updatedArticle.highlights.length - 1];
+    if (createdHighlight) {
+      enqueueHighlightEmbedding({ highlight: createdHighlight, article: updatedArticle });
+    }
     res.status(200).json({ article: updatedArticle, highlight: createdHighlight });
   } catch (error) {
     console.error("❌ Error adding highlight:", error);
@@ -3328,6 +3345,7 @@ app.patch('/articles/:articleId/highlights/:highlightId', authenticateToken, asy
       // Return just the updated highlight with article info
       const refreshed = await Article.findById(articleId);
       const updatedHighlight = refreshed.highlights.id(highlightId);
+      enqueueHighlightEmbedding({ highlight: updatedHighlight, article: refreshed });
       res.status(200).json({
         _id: updatedHighlight._id,
         articleId: refreshed._id,
@@ -3371,6 +3389,16 @@ app.delete('/articles/:articleId/highlights/:highlightId', authenticateToken, as
           return res.status(400).json({ error: "Invalid ID format." });
       }
       res.status(500).json({ error: "Failed to delete highlight.", details: error.message });
+  }
+});
+
+// --- AI / OLLAMA ---
+app.get('/api/ai/health', async (req, res) => {
+  try {
+    const status = await checkHealth();
+    res.status(200).json({ ok: true, model: status.model, available: status.available });
+  } catch (error) {
+    res.status(200).json({ ok: false, error: error.message });
   }
 });
 

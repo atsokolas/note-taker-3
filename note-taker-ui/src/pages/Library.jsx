@@ -60,6 +60,9 @@ const Library = () => {
     localStorage.getItem(CABINET_OVERRIDE_KEY) === 'true'
   ));
   const [activeHighlightId, setActiveHighlightId] = useState('');
+  const [relatedHighlights, setRelatedHighlights] = useState([]);
+  const [relatedLoading, setRelatedLoading] = useState(false);
+  const [relatedError, setRelatedError] = useState('');
   const readerRef = useRef(null);
 
   const { folders, loading: foldersLoading, error: foldersError } = useFolders();
@@ -303,6 +306,43 @@ const Library = () => {
     [groupedHighlights]
   );
 
+  useEffect(() => {
+    if (!selectedArticleId) {
+      setRelatedHighlights([]);
+      setRelatedLoading(false);
+      setRelatedError('');
+      return;
+    }
+    const targetId = activeHighlightId || articleHighlights[0]?._id;
+    if (!targetId) {
+      setRelatedHighlights([]);
+      setRelatedLoading(false);
+      setRelatedError('');
+      return;
+    }
+    let cancelled = false;
+    const fetchRelated = async () => {
+      setRelatedLoading(true);
+      setRelatedError('');
+      try {
+        const res = await api.get(`/api/highlights/${targetId}/related`, getAuthHeaders());
+        if (!cancelled) {
+          setRelatedHighlights(res.data?.results || []);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setRelatedError(err.response?.data?.error || 'Failed to load related highlights.');
+        }
+      } finally {
+        if (!cancelled) setRelatedLoading(false);
+      }
+    };
+    fetchRelated();
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedArticleId, activeHighlightId, articleHighlights]);
+
   const selectedFolderName = useMemo(() => {
     if (scope !== 'folder') return '';
     const folder = folders.find(item => item._id === folderId);
@@ -480,6 +520,9 @@ const Library = () => {
       highlightGroups={highlightGroups}
       groupedHighlights={groupedHighlights}
       activeHighlightId={activeHighlightId}
+      relatedHighlights={relatedHighlights}
+      relatedLoading={relatedLoading}
+      relatedError={relatedError}
       onHighlightClick={handleHighlightClick}
       onSelectHighlight={setActiveHighlightId}
       onAddConcept={(highlight) => setConceptModal({ open: true, highlight })}

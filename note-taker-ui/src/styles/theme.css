@@ -202,6 +202,16 @@ p {
   gap: var(--space-3);
 }
 
+.topbar__search {
+  min-width: 220px;
+  max-width: 320px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border-subtle-2);
+  background: var(--surface);
+  font-size: var(--text-sm);
+}
+
 .topbar__button {
   border: 1px solid var(--border-subtle);
   background: transparent;
@@ -614,6 +624,80 @@ p {
 .library-article-list {
   display: grid;
   gap: 10px;
+}
+
+.search-form {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.search-input {
+  flex: 1;
+  padding: 10px 12px;
+  border-radius: var(--radius-2);
+  border: 1px solid var(--border-subtle-2);
+  background: var(--surface);
+}
+
+.semantic-group {
+  display: grid;
+  gap: 10px;
+}
+
+.semantic-list {
+  display: grid;
+  gap: 10px;
+}
+
+.semantic-row {
+  display: grid;
+  gap: 4px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border-subtle-2);
+  text-decoration: none;
+  color: var(--text);
+}
+
+.semantic-row:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.semantic-title {
+  font-weight: 600;
+}
+
+.semantic-snippet {
+  color: var(--text-secondary);
+}
+
+.brain-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  justify-content: space-between;
+}
+
+.brain-range {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.brain-list {
+  display: grid;
+  gap: 10px;
+}
+
+.brain-row {
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border-subtle-2);
+}
+
+.brain-row:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
 }
 
 .library-article-row {
@@ -1207,6 +1291,29 @@ p {
   font-weight: 600;
   color: var(--text);
   margin-bottom: 4px;
+}
+
+.library-related-list {
+  display: grid;
+  gap: 8px;
+}
+
+.library-related-item {
+  text-decoration: none;
+  color: var(--text);
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border-subtle-2);
+  display: grid;
+  gap: 4px;
+}
+
+.library-related-item:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.library-related-title {
+  font-weight: 600;
 }
 
 .ui-page-title {

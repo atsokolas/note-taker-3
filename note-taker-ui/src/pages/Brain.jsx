@@ -1,37 +1,109 @@
-import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import api from '../api';
-import { Page, Card, TagChip } from '../components/ui';
+import { Page, Button, SectionHeader, QuietButton } from '../components/ui';
+
+const ranges = [
+  { label: '7d', value: '7d' },
+  { label: '30d', value: '30d' },
+  { label: '90d', value: '90d' }
+];
 
 const Brain = () => {
+  const [timeRange, setTimeRange] = useState('30d');
   const [summary, setSummary] = useState(null);
+  const [status, setStatus] = useState('idle');
   const [loading, setLoading] = useState(false);
+  const [queueing, setQueueing] = useState(false);
   const [error, setError] = useState('');
 
+  const authHeaders = useCallback(() => ({
+    headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+  }), []);
+
+  const loadSummary = useCallback(async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const res = await api.get(`/api/brain/summary?timeRange=${timeRange}`, authHeaders());
+      setStatus(res.data?.status || 'missing');
+      setSummary(res.data?.summary || null);
+    } catch (err) {
+      console.error('Error loading brain summary:', err);
+      setError(err.response?.data?.error || 'Failed to load insights.');
+    } finally {
+      setLoading(false);
+    }
+  }, [authHeaders, timeRange]);
+
   useEffect(() => {
-    const fetchSummary = async () => {
-      setLoading(true);
-      setError('');
-      try {
-        const token = localStorage.getItem('token');
-        const res = await api.get('/api/brain/summary', { headers: { Authorization: `Bearer ${token}` } });
-        setSummary(res.data);
-      } catch (err) {
-        console.error('Error loading brain summary:', err);
-        setError(err.response?.data?.error || 'Failed to load insights.');
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchSummary();
-  }, []);
+    loadSummary();
+  }, [loadSummary]);
+
+  const handleGenerate = async () => {
+    setQueueing(true);
+    setError('');
+    try {
+      await api.post('/api/brain/generate', { timeRange }, authHeaders());
+      setStatus('queued');
+    } catch (err) {
+      console.error('Error queuing brain summary:', err);
+      setError(err.response?.data?.error || 'Failed to queue generation.');
+    } finally {
+      setQueueing(false);
+    }
+  };
+
+  useEffect(() => {
+    if (status !== 'queued') return;
+    let tries = 0;
+    const timer = setInterval(async () => {
+      tries += 1;
+      await loadSummary();
+      if (tries > 12) clearInterval(timer);
+    }, 5000);
+    return () => clearInterval(timer);
+  }, [status, loadSummary]);
+
+  const generatedAt = summary?.generatedAt
+    ? new Date(summary.generatedAt).toLocaleString()
+    : null;
+  const sourceCount = summary?.sourceCount || 0;
+
+  const themes = useMemo(() => summary?.themes || [], [summary]);
+  const connections = useMemo(() => summary?.connections || [], [summary]);
+  const questions = useMemo(() => summary?.questions || [], [summary]);
 
   return (
     <Page>
       <div className="page-header">
         <p className="muted-label">Brain</p>
-        <h1>Reading Patterns</h1>
-        <p className="muted">Tiny data delights, handcrafted from your highlights.</p>
+        <h1>Brain Summary</h1>
+        <p className="muted">Themes, connections, and open questions — generated locally.</p>
+      </div>
+
+      <div className="section-stack">
+        <div className="brain-controls">
+          <div className="brain-range">
+            {ranges.map(range => (
+              <QuietButton
+                key={range.value}
+                className={`list-button ${timeRange === range.value ? 'is-active' : ''}`}
+                onClick={() => setTimeRange(range.value)}
+              >
+                {range.label}
+              </QuietButton>
+            ))}
+          </div>
+          <Button variant="secondary" onClick={handleGenerate} disabled={queueing}>
+            {queueing ? 'Queuing…' : 'Generate / Refresh'}
+          </Button>
+        </div>
+        {generatedAt && (
+          <p className="muted small">
+            Last generated: {generatedAt} · {sourceCount} highlights
+            {status === 'stale' && ' · stale'}
+          </p>
+        )}
       </div>
 
       {loading && <p className="status-message">Loading insights...</p>}
@@ -39,97 +111,38 @@ const Brain = () => {
 
       {summary && (
         <div className="section-stack">
-          <Card className="search-section">
-            <div className="search-section-header">
-              <span className="eyebrow">Top Tags (30d)</span>
+          <SectionHeader title="Themes" subtitle="Recurring threads and ideas." />
+          {themes.length === 0 ? (
+            <p className="muted small">No themes yet.</p>
+          ) : (
+            <div className="brain-list">
+              {themes.map((item, idx) => (
+                <div key={`${item}-${idx}`} className="brain-row">{item}</div>
+              ))}
             </div>
-            <div className="highlight-tag-chips" style={{ gap: 10 }}>
-              {summary.topTags && summary.topTags.length > 0 ? (
-                summary.topTags.map(t => (
-                  <TagChip key={t.tag}>
-                    {t.tag} <span className="tag-count">{t.count}</span>
-                  </TagChip>
-                ))
-              ) : (
-                <p className="muted small">No tags yet.</p>
-              )}
-            </div>
-          </Card>
+          )}
 
-          <Card className="search-section">
-            <div className="search-section-header">
-              <span className="eyebrow">Most Highlighted Articles (30d)</span>
+          <SectionHeader title="Connections" subtitle="Links across concepts." />
+          {connections.length === 0 ? (
+            <p className="muted small">No connections yet.</p>
+          ) : (
+            <div className="brain-list">
+              {connections.map((item, idx) => (
+                <div key={`${item}-${idx}`} className="brain-row">{item}</div>
+              ))}
             </div>
-            {summary.mostHighlightedArticles && summary.mostHighlightedArticles.length > 0 ? (
-              <div className="search-card-grid">
-                {summary.mostHighlightedArticles.map(a => (
-                  <div key={a.articleId} className="search-card">
-                    <div className="search-card-top">
-                      <Link to={`/articles/${a.articleId}`} className="article-title-link">{a.title || 'Untitled'}</Link>
-                      <span className="feedback-date">{a.count} highlights</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="muted small">No highlights in the last 30 days.</p>
-            )}
-          </Card>
+          )}
 
-          <Card className="search-section">
-            <div className="search-section-header">
-              <span className="eyebrow">Recent Highlights</span>
-              <span className="muted small">{summary.recentHighlights?.length || 0} items</span>
+          <SectionHeader title="Open questions" subtitle="What to chase next." />
+          {questions.length === 0 ? (
+            <p className="muted small">No questions yet.</p>
+          ) : (
+            <div className="brain-list">
+              {questions.map((item, idx) => (
+                <div key={`${item}-${idx}`} className="brain-row">{item}</div>
+              ))}
             </div>
-            {summary.recentHighlights && summary.recentHighlights.length > 0 ? (
-              <div className="section-stack">
-                {summary.recentHighlights.map((h, idx) => (
-                  <div key={`${h.articleId}-${idx}`} className="search-card">
-                    <div className="search-card-top">
-                      <Link to={`/articles/${h.articleId}`} className="article-title-link">{h.articleTitle || 'Untitled article'}</Link>
-                      <span className="feedback-date">{new Date(h.createdAt).toLocaleString()}</span>
-                    </div>
-                    <p className="highlight-text" style={{ margin: '6px 0', fontWeight: 600 }}>{h.text}</p>
-                    <div className="highlight-tag-chips" style={{ marginTop: 6 }}>
-                      {h.tags && h.tags.length > 0 ? h.tags.map(tag => <TagChip key={tag}>{tag}</TagChip>) : <span className="muted small">No tags</span>}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="muted small">No highlights yet.</p>
-            )}
-          </Card>
-
-          <Card className="search-section">
-            <div className="search-section-header">
-              <span className="eyebrow">Tag Correlations (30d)</span>
-            </div>
-            {summary.tagCorrelations && summary.tagCorrelations.length > 0 ? (
-              <div className="search-card-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))' }}>
-                {summary.tagCorrelations.map((pair, idx) => (
-                  <div key={`${pair.tagA}-${pair.tagB}-${idx}`} className="search-card">
-                    <div className="highlight-tag-chips" style={{ marginBottom: 6 }}>
-                      <TagChip>{pair.tagA}</TagChip>
-                      <TagChip>{pair.tagB}</TagChip>
-                    </div>
-                    <p className="muted small">{pair.count} co-occurrences</p>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="muted small">No tag correlations yet.</p>
-            )}
-          </Card>
-
-          <Card className="search-section">
-            <div className="search-section-header">
-              <span className="eyebrow">Reading Streak (14d)</span>
-            </div>
-            <p style={{ fontWeight: 700, fontSize: '18px' }}>
-              {summary.readingStreaks || 0} days with highlights in the last 14 days.
-            </p>
-          </Card>
+          )}
         </div>
       )}
     </Page>

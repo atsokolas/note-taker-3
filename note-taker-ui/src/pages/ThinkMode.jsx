@@ -123,11 +123,18 @@ const ThinkMode = () => {
       setActiveQuestion(null);
       return;
     }
+    const requestedId = searchParams.get('questionId');
+    const target = requestedId && allQuestions.find(q => q._id === requestedId);
+    if (target) {
+      setActiveQuestionId(target._id);
+      setActiveQuestion(target);
+      return;
+    }
     if (!activeQuestionId || !allQuestions.some(q => q._id === activeQuestionId)) {
       setActiveQuestionId(allQuestions[0]._id);
       setActiveQuestion(allQuestions[0]);
     }
-  }, [activeView, allQuestions, activeQuestionId]);
+  }, [activeView, allQuestions, activeQuestionId, searchParams]);
 
   useEffect(() => {
     if (activeView !== 'questions') return;

@@ -12,6 +12,9 @@ const LibraryContext = ({
   highlightGroups,
   groupedHighlights,
   activeHighlightId,
+  relatedHighlights,
+  relatedLoading,
+  relatedError,
   onHighlightClick,
   onSelectHighlight,
   onAddConcept,
@@ -131,6 +134,27 @@ const LibraryContext = ({
                 <div className="library-reference-title">{block.notebookTitle || 'Untitled note'}</div>
                 <div className="muted small">{block.blockPreviewText || 'Referenced block'}</div>
               </button>
+            ))
+          )}
+        </div>
+      )}
+      <SectionHeader title="Related highlights" subtitle="Semantically similar." />
+      {relatedLoading && <p className="muted small">Finding related highlights…</p>}
+      {relatedError && <p className="status-message error-message">{relatedError}</p>}
+      {!relatedLoading && !relatedError && (
+        <div className="library-related-list">
+          {relatedHighlights.length === 0 ? (
+            <p className="muted small">No related highlights yet.</p>
+          ) : (
+            relatedHighlights.map(item => (
+              <Link
+                key={item.objectId}
+                to={`/articles/${item.articleId || selectedArticleId}`}
+                className="library-related-item"
+              >
+                <div className="library-related-title">{item.title || 'Highlight'}</div>
+                <div className="muted small">{item.articleTitle || 'Article'}</div>
+              </Link>
             ))
           )}
         </div>
