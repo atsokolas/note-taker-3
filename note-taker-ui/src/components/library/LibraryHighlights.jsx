@@ -42,7 +42,7 @@ const LibraryHighlights = ({ folderOptions, articleOptions, externalQuery = '', 
     articleId: articleId || undefined,
     q: query || undefined
   }), [folderId, tag, articleId, query]);
-  const { highlights, loading, error, setHighlights } = useHighlightsQuery(filters);
+  const { highlights, loading, error } = useHighlightsQuery(filters);
 
   const rows = useMemo(
     () => highlights.map(h => ({ ...h, tags: h.tags || [] })),
