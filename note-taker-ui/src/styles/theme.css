@@ -529,6 +529,7 @@ p {
 .library-cabinet-count {
   font-size: 12px;
   color: var(--muted);
+  margin-left: 6px;
 }
 
 .library-folder-row {
@@ -602,6 +603,12 @@ p {
 .library-folder-items {
   display: grid;
   gap: 8px;
+}
+
+.library-cabinet-nested {
+  display: grid;
+  gap: 8px;
+  padding-left: 14px;
 }
 
 .library-article-list {

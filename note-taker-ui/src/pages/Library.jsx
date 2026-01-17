@@ -320,13 +320,27 @@ const Library = () => {
           <span>All Articles</span>
           {typeof allCount === 'number' && <span className="library-cabinet-count">{allCount}</span>}
         </QuietButton>
-        <QuietButton
-          className={`list-button ${scope === 'unfiled' ? 'is-active' : ''}`}
-          onClick={() => handleSelectScope('unfiled')}
-        >
-          <span>Unfiled</span>
-          {typeof unfiledCount === 'number' && <span className="library-cabinet-count">{unfiledCount}</span>}
-        </QuietButton>
+        <div className="library-cabinet-nested">
+          <QuietButton
+            className={`list-button ${scope === 'unfiled' ? 'is-active' : ''}`}
+            onClick={() => handleSelectScope('unfiled')}
+          >
+            <span>Unfiled</span>
+            {typeof unfiledCount === 'number' && <span className="library-cabinet-count">{unfiledCount}</span>}
+          </QuietButton>
+          {foldersLoading && <p className="muted small">Loading cabinet…</p>}
+          {foldersError && <p className="status-message error-message">{foldersError}</p>}
+          {!foldersLoading && !foldersError && (
+            <div className="library-folder-items">
+              <FolderTree
+                folders={folders}
+                counts={folderCounts}
+                selectedFolderId={folderId}
+                onSelectFolder={handleSelectFolder}
+              />
+            </div>
+          )}
+        </div>
         <QuietButton
           className={`list-button ${scope === 'highlights' ? 'is-active' : ''}`}
           onClick={() => handleSelectScope('highlights')}
@@ -356,21 +370,6 @@ const Library = () => {
           </div>
         )}
       </div>
-      {foldersLoading && <p className="muted small">Loading cabinet…</p>}
-      {foldersError && <p className="status-message error-message">{foldersError}</p>}
-      {!foldersLoading && !foldersError && (
-        <div className="library-folder-group">
-          <div className="library-folder-header">Folders</div>
-          <div className="library-folder-items">
-            <FolderTree
-              folders={folders}
-              counts={folderCounts}
-              selectedFolderId={folderId}
-              onSelectFolder={handleSelectFolder}
-            />
-          </div>
-        </div>
-      )}
       <div className="library-search-panel">
         <SectionHeader title="Search" subtitle="Find highlights fast." />
         <label className="feedback-field" style={{ margin: 0 }}>
