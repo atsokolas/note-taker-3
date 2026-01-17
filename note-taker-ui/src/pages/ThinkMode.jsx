@@ -27,9 +27,12 @@ const ThinkMode = () => {
   const viewParam = searchParams.get('view') || '';
   const queryConcept = searchParams.get('concept') || '';
   const allowedViews = ['notebook', 'concepts', 'questions'];
-  const activeView = allowedViews.includes(viewParam)
-    ? viewParam
-    : (searchParams.get('entryId') ? 'notebook' : 'concepts');
+  const resolveActiveView = (params) => {
+    const rawView = params.get('view') || '';
+    if (allowedViews.includes(rawView)) return rawView;
+    return params.get('entryId') ? 'notebook' : 'concepts';
+  };
+  const [activeView, setActiveView] = useState(() => resolveActiveView(searchParams));
   const [search, setSearch] = useState('');
   const [descriptionDraft, setDescriptionDraft] = useState('');
   const [savingDescription, setSavingDescription] = useState(false);
@@ -175,6 +178,10 @@ const ThinkMode = () => {
   }, [loadNotebookEntries]);
 
   useEffect(() => {
+    setActiveView(resolveActiveView(searchParams));
+  }, [searchParams]);
+
+  useEffect(() => {
     if (!notebookActiveId || activeView !== 'notebook') return;
     loadNotebookEntry(notebookActiveId);
     const params = new URLSearchParams(searchParams);
@@ -207,6 +214,7 @@ const ThinkMode = () => {
     const params = new URLSearchParams(searchParams);
     params.set('view', 'concepts');
     params.set('concept', name);
+    setActiveView('concepts');
     setSearchParams(params);
   };
 
@@ -219,11 +227,13 @@ const ThinkMode = () => {
     if (view !== 'concepts') {
       params.delete('concept');
     }
+    setActiveView(view);
     setSearchParams(params);
   };
 
   const handleSelectNotebookEntry = (id) => {
     setNotebookActiveId(id);
+    setActiveView('notebook');
     handleSelectView('notebook');
   };
 
@@ -878,13 +888,33 @@ const ThinkMode = () => {
         main={mainPanel}
         right={rightPanel}
         rightTitle="Context"
+        leftOpen
+        defaultLeftOpen
         defaultRightOpen
         mainHeader={<PageTitle eyebrow="Mode" title="Think" subtitle="Concepts as structured pages you can return to." />}
         mainActions={(
           <div className="library-main-actions">
-            <QuietButton onClick={() => handleSelectView('notebook')}>Notebook</QuietButton>
-            <QuietButton onClick={() => handleSelectView('concepts')}>Concepts</QuietButton>
-            <QuietButton onClick={() => handleSelectView('questions')}>Questions</QuietButton>
+            <QuietButton
+              className={`list-button ${activeView === 'notebook' ? 'is-active' : ''}`}
+              onClick={() => handleSelectView('notebook')}
+            >
+              Notebook
+            </QuietButton>
+            <QuietButton
+              className={`list-button ${activeView === 'concepts' ? 'is-active' : ''}`}
+              onClick={() => handleSelectView('concepts')}
+            >
+              Concepts
+            </QuietButton>
+            <QuietButton
+              className={`list-button ${activeView === 'questions' ? 'is-active' : ''}`}
+              onClick={() => handleSelectView('questions')}
+            >
+              Questions
+            </QuietButton>
+            <Button variant="secondary" onClick={handleCreateNotebookEntry}>
+              New note
+            </Button>
           </div>
         )}
       />
