@@ -444,7 +444,7 @@ const Notebook = () => {
     if (activeId && h?._id) {
       try {
         const token = localStorage.getItem('token');
-        await api.post(`/api/notebook/${activeId}/link-highlight`, { highlightId: h._id }, { headers: { Authorization: `Bearer ${token}` } });
+        await api.post(`/api/notebook/${activeId}/append-highlight`, { highlightId: h._id }, { headers: { Authorization: `Bearer ${token}` } });
       } catch (err) {
         console.error('Error linking highlight to notebook:', err);
       }

@@ -6,7 +6,6 @@ import LibraryContext from '../components/library/LibraryContext';
 import FolderTree from '../components/library/FolderTree';
 import MoveToFolderModal from '../components/library/MoveToFolderModal';
 import { moveArticleToFolder } from '../api/articles';
-import { updateHighlightTags } from '../api/highlights';
 import { createQuestion } from '../api/questions';
 import useFolders from '../hooks/useFolders';
 import useLibraryArticles from '../hooks/useLibraryArticles';
@@ -222,32 +221,35 @@ const Library = () => {
   };
 
   const handleAddConcept = async (highlight, conceptName) => {
-    const nextTags = Array.from(new Set([...(highlight.tags || []), conceptName]));
-    const updated = await updateHighlightTags({
-      articleId: highlight.articleId,
-      highlightId: highlight._id,
-      tags: nextTags
-    });
-    if (updated) {
-      replaceHighlight(highlight._id, { ...highlight, tags: updated.tags || nextTags });
-    }
+    await api.post(`/api/concepts/${encodeURIComponent(conceptName)}/add-highlight`, {
+      highlightId: highlight._id
+    }, getAuthHeaders());
     setConceptModal({ open: false, highlight: null });
   };
 
   const handleAddQuestion = async (highlight, conceptName, text) => {
-    await createQuestion({
+    const created = await createQuestion({
       text,
       conceptName,
       blocks: [
         { id: createId(), type: 'paragraph', text },
         { id: createId(), type: 'highlight-ref', highlightId: highlight._id, text: highlight.text || '' }
-      ]
+      ],
+      linkedHighlightIds: [highlight._id]
     });
+    if (created?._id) {
+      await api.post(`/api/questions/${created._id}/add-highlight`, { highlightId: highlight._id }, getAuthHeaders());
+    }
+    setQuestionModal({ open: false, highlight: null });
+  };
+
+  const handleAttachQuestion = async (highlight, questionId) => {
+    await api.post(`/api/questions/${questionId}/add-highlight`, { highlightId: highlight._id }, getAuthHeaders());
     setQuestionModal({ open: false, highlight: null });
   };
 
   const handleSendToNotebook = async (highlight, entryId) => {
-    await api.post(`/api/notebook/${entryId}/link-highlight`, { highlightId: highlight._id }, getAuthHeaders());
+    await api.post(`/api/notebook/${entryId}/append-highlight`, { highlightId: highlight._id }, getAuthHeaders());
     setNotebookModal({ open: false, highlight: null });
   };
 
@@ -581,6 +583,7 @@ const Library = () => {
         highlight={questionModal.highlight}
         onClose={() => setQuestionModal({ open: false, highlight: null })}
         onCreate={handleAddQuestion}
+        onAttach={handleAttachQuestion}
       />
     </>
   );

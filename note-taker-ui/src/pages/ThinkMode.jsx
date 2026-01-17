@@ -13,7 +13,7 @@ import useQuestions from '../hooks/useQuestions';
 import { createQuestion, updateQuestion } from '../api/questions';
 import QuestionInput from '../components/think/questions/QuestionInput';
 import QuestionList from '../components/think/questions/QuestionList';
-import HighlightBlock from '../components/blocks/HighlightBlock';
+import HighlightCard from '../components/blocks/HighlightCard';
 import AddToConceptModal from '../components/think/concepts/AddToConceptModal';
 import QuestionEditor from '../components/think/questions/QuestionEditor';
 import ThreePaneLayout from '../layout/ThreePaneLayout';
@@ -21,6 +21,9 @@ import useHighlights from '../hooks/useHighlights';
 import useTags from '../hooks/useTags';
 import api from '../api';
 import { getAuthHeaders } from '../hooks/useAuthHeaders';
+import LibraryConceptModal from '../components/library/LibraryConceptModal';
+import LibraryNotebookModal from '../components/library/LibraryNotebookModal';
+import LibraryQuestionModal from '../components/library/LibraryQuestionModal';
 
 const ThinkMode = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -54,6 +57,9 @@ const ThinkMode = () => {
   const [activeQuestionId, setActiveQuestionId] = useState('');
   const [questionSaving, setQuestionSaving] = useState(false);
   const [questionError, setQuestionError] = useState('');
+  const [highlightConceptModal, setHighlightConceptModal] = useState({ open: false, highlight: null });
+  const [highlightNotebookModal, setHighlightNotebookModal] = useState({ open: false, highlight: null });
+  const [highlightQuestionModal, setHighlightQuestionModal] = useState({ open: false, highlight: null });
 
   const [notebookEntries, setNotebookEntries] = useState([]);
   const [notebookActiveId, setNotebookActiveId] = useState('');
@@ -391,6 +397,39 @@ const ThinkMode = () => {
     }
   };
 
+  const handleAddHighlightToConcept = async (highlight, conceptName) => {
+    await api.post(`/api/concepts/${encodeURIComponent(conceptName)}/add-highlight`, {
+      highlightId: highlight._id
+    }, getAuthHeaders());
+    setHighlightConceptModal({ open: false, highlight: null });
+  };
+
+  const handleSendHighlightToNotebook = async (highlight, entryId) => {
+    await api.post(`/api/notebook/${entryId}/append-highlight`, { highlightId: highlight._id }, getAuthHeaders());
+    setHighlightNotebookModal({ open: false, highlight: null });
+  };
+
+  const handleCreateQuestionFromHighlight = async (highlight, conceptName, text) => {
+    const created = await createQuestion({
+      text,
+      conceptName,
+      blocks: [
+        { id: createBlockId(), type: 'paragraph', text },
+        { id: createBlockId(), type: 'highlight-ref', highlightId: highlight._id, text: highlight.text || '' }
+      ],
+      linkedHighlightIds: [highlight._id]
+    });
+    if (created?._id) {
+      await api.post(`/api/questions/${created._id}/add-highlight`, { highlightId: highlight._id }, getAuthHeaders());
+    }
+    setHighlightQuestionModal({ open: false, highlight: null });
+  };
+
+  const handleAttachHighlightToQuestion = async (highlight, questionId) => {
+    await api.post(`/api/questions/${questionId}/add-highlight`, { highlightId: highlight._id }, getAuthHeaders());
+    setHighlightQuestionModal({ open: false, highlight: null });
+  };
+
   const handleAddHighlights = async (ids) => {
     if (!concept || ids.length === 0) return;
     try {
@@ -621,12 +660,14 @@ const ThinkMode = () => {
           <div className="concept-highlight-grid">
             {pinnedHighlights.map(h => (
               <div key={h._id} className="concept-highlight-card">
-                <HighlightBlock
+                <HighlightCard
                   highlight={h}
                   compact
-                  onRemove={() => togglePinHighlight(h._id)}
-                  removeLabel="Unpin"
+                  onAddNotebook={(item) => setHighlightNotebookModal({ open: true, highlight: item })}
+                  onAddConcept={(item) => setHighlightConceptModal({ open: true, highlight: item })}
+                  onAddQuestion={(item) => setHighlightQuestionModal({ open: true, highlight: item })}
                 />
+                <QuietButton onClick={() => togglePinHighlight(h._id)}>Unpin</QuietButton>
               </div>
             ))}
           </div>
@@ -635,12 +676,16 @@ const ThinkMode = () => {
           <div className="concept-highlight-grid">
             {recentHighlights.map(h => (
               <div key={h._id} className="concept-highlight-card">
-                <HighlightBlock
+                <HighlightCard
                   highlight={h}
                   compact
-                  onRemove={() => togglePinHighlight(h._id)}
-                  removeLabel={pinnedHighlightIds.some(id => String(id) === String(h._id)) ? 'Unpin' : 'Pin'}
+                  onAddNotebook={(item) => setHighlightNotebookModal({ open: true, highlight: item })}
+                  onAddConcept={(item) => setHighlightConceptModal({ open: true, highlight: item })}
+                  onAddQuestion={(item) => setHighlightQuestionModal({ open: true, highlight: item })}
                 />
+                <QuietButton onClick={() => togglePinHighlight(h._id)}>
+                  {pinnedHighlightIds.some(id => String(id) === String(h._id)) ? 'Unpin' : 'Pin'}
+                </QuietButton>
               </div>
             ))}
             {!relatedLoading && recentHighlights.length === 0 && (
@@ -790,7 +835,13 @@ const ThinkMode = () => {
       <div className="library-highlights-list">
         {filteredHighlights.slice(0, 8).map(highlight => (
           <div key={highlight._id} className="library-highlight-row">
-            <HighlightBlock highlight={highlight} compact />
+            <HighlightCard
+              highlight={highlight}
+              compact
+              onAddNotebook={(item) => setHighlightNotebookModal({ open: true, highlight: item })}
+              onAddConcept={(item) => setHighlightConceptModal({ open: true, highlight: item })}
+              onAddQuestion={(item) => setHighlightQuestionModal({ open: true, highlight: item })}
+            />
             <div className="library-highlight-row-actions">
               <QuietButton onClick={() => handleInsertHighlight(highlight)}>
                 {activeView === 'concepts' ? 'Pin to concept' : 'Insert'}
@@ -830,7 +881,14 @@ const ThinkMode = () => {
                     articleTitle: ''
                   };
                   return (
-                    <HighlightBlock key={block.id} highlight={highlight} compact />
+                    <HighlightCard
+                      key={block.id}
+                      highlight={highlight}
+                      compact
+                      onAddNotebook={(item) => setHighlightNotebookModal({ open: true, highlight: item })}
+                      onAddConcept={(item) => setHighlightConceptModal({ open: true, highlight: item })}
+                      onAddQuestion={(item) => setHighlightQuestionModal({ open: true, highlight: item })}
+                    />
                   );
                 })}
             </div>
@@ -936,6 +994,25 @@ const ThinkMode = () => {
         onClose={() => setAddModal({ open: false, mode: 'highlight' })}
         onAddHighlights={handleAddHighlights}
         onAddArticles={handleAddArticles}
+      />
+      <LibraryConceptModal
+        open={highlightConceptModal.open}
+        highlight={highlightConceptModal.highlight}
+        onClose={() => setHighlightConceptModal({ open: false, highlight: null })}
+        onSelect={handleAddHighlightToConcept}
+      />
+      <LibraryNotebookModal
+        open={highlightNotebookModal.open}
+        highlight={highlightNotebookModal.highlight}
+        onClose={() => setHighlightNotebookModal({ open: false, highlight: null })}
+        onSend={handleSendHighlightToNotebook}
+      />
+      <LibraryQuestionModal
+        open={highlightQuestionModal.open}
+        highlight={highlightQuestionModal.highlight}
+        onClose={() => setHighlightQuestionModal({ open: false, highlight: null })}
+        onCreate={handleCreateQuestionFromHighlight}
+        onAttach={handleAttachHighlightToQuestion}
       />
     </>
   );

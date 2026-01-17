@@ -282,6 +282,29 @@ const { getReflections } = buildReflectionService({
 });
 
 registerBrainSummaryHandler({ Article, BrainSummary });
+
+const createBlockId = () => (
+  (crypto.randomUUID ? crypto.randomUUID() : `block-${Math.random().toString(36).slice(2, 9)}-${Date.now()}`)
+);
+
+const findHighlightById = async (userId, highlightId) => {
+  if (!mongoose.Types.ObjectId.isValid(highlightId)) return null;
+  const matches = await Article.aggregate([
+    { $match: { userId: new mongoose.Types.ObjectId(userId) } },
+    { $unwind: '$highlights' },
+    { $match: { 'highlights._id': new mongoose.Types.ObjectId(highlightId) } },
+    { $project: {
+      _id: '$highlights._id',
+      text: '$highlights.text',
+      note: '$highlights.note',
+      tags: '$highlights.tags',
+      articleId: '$_id',
+      articleTitle: '$title',
+      createdAt: '$highlights.createdAt'
+    } }
+  ]);
+  return matches[0] || null;
+};
 // Saved Views (Smart Folders)
 const savedViewSchema = new mongoose.Schema({
   name: { type: String, required: true, trim: true },
@@ -1106,6 +1129,43 @@ app.post('/api/notebook/:id/link-highlight', authenticateToken, async (req, res)
   }
 });
 
+// POST /api/notebook/:id/append-highlight - append highlight block to notebook
+app.post('/api/notebook/:id/append-highlight', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { id } = req.params;
+    const { highlightId } = req.body;
+    if (!highlightId) return res.status(400).json({ error: "highlightId is required." });
+    const entry = await NotebookEntry.findOne({ _id: id, userId });
+    if (!entry) return res.status(404).json({ error: "Notebook entry not found." });
+    const highlight = await findHighlightById(userId, highlightId);
+    if (!highlight) return res.status(404).json({ error: "Highlight not found." });
+
+    const hasBlock = (entry.blocks || []).some(block =>
+      block.type === 'highlight-ref' && String(block.highlightId) === String(highlightId)
+    );
+    if (!hasBlock) {
+      entry.blocks = entry.blocks || [];
+      entry.blocks.push({
+        id: createBlockId(),
+        type: 'highlight-ref',
+        text: highlight.text || '',
+        highlightId
+      });
+    }
+    entry.linkedHighlightIds = entry.linkedHighlightIds || [];
+    if (!entry.linkedHighlightIds.some(id => String(id) === String(highlightId))) {
+      entry.linkedHighlightIds.push(highlightId);
+    }
+    await entry.save();
+    await syncNotebookReferences(userId, entry._id, entry.blocks || []);
+    res.status(200).json(entry);
+  } catch (error) {
+    console.error("❌ Error appending highlight to notebook:", error);
+    res.status(500).json({ error: "Failed to append highlight." });
+  }
+});
+
 // PUT /api/notebook/:id - update
 app.put('/api/notebook/:id', authenticateToken, async (req, res) => {
   try {
@@ -1436,6 +1496,31 @@ app.get('/api/concepts/:name/related', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error("❌ Error fetching concept related data:", error);
     res.status(500).json({ error: "Failed to fetch concept related data." });
+  }
+});
+
+// POST /api/concepts/:id/add-highlight - attach highlight to concept
+app.post('/api/concepts/:id/add-highlight', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { id } = req.params;
+    const { highlightId } = req.body;
+    if (!highlightId) return res.status(400).json({ error: "highlightId is required." });
+    const query = mongoose.Types.ObjectId.isValid(id)
+      ? { _id: id, userId }
+      : { name: id, userId };
+    const update = {
+      $setOnInsert: { name: String(id) },
+      $addToSet: { pinnedHighlightIds: highlightId }
+    };
+    const concept = await TagMeta.findOneAndUpdate(query, update, {
+      new: true,
+      upsert: true
+    });
+    res.status(200).json(concept);
+  } catch (error) {
+    console.error("❌ Error adding highlight to concept:", error);
+    res.status(500).json({ error: "Failed to add highlight to concept." });
   }
 });
 
@@ -2036,6 +2121,42 @@ app.put('/api/questions/:id', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error("❌ Error updating question:", error);
     res.status(500).json({ error: "Failed to update question." });
+  }
+});
+
+// POST /api/questions/:id/add-highlight - attach highlight to question
+app.post('/api/questions/:id/add-highlight', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { id } = req.params;
+    const { highlightId } = req.body;
+    if (!highlightId) return res.status(400).json({ error: "highlightId is required." });
+    const question = await Question.findOne({ _id: id, userId });
+    if (!question) return res.status(404).json({ error: "Question not found." });
+    const highlight = await findHighlightById(userId, highlightId);
+    if (!highlight) return res.status(404).json({ error: "Highlight not found." });
+
+    const hasBlock = (question.blocks || []).some(block =>
+      block.type === 'highlight-ref' && String(block.highlightId) === String(highlightId)
+    );
+    if (!hasBlock) {
+      question.blocks = question.blocks || [];
+      question.blocks.push({
+        id: createBlockId(),
+        type: 'highlight-ref',
+        text: highlight.text || '',
+        highlightId
+      });
+    }
+    question.linkedHighlightIds = question.linkedHighlightIds || [];
+    if (!question.linkedHighlightIds.some(idValue => String(idValue) === String(highlightId))) {
+      question.linkedHighlightIds.push(highlightId);
+    }
+    await question.save();
+    res.status(200).json(question);
+  } catch (error) {
+    console.error("❌ Error adding highlight to question:", error);
+    res.status(500).json({ error: "Failed to add highlight to question." });
   }
 });
 

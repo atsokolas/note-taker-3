@@ -1,12 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Button, QuietButton, SectionHeader } from '../ui';
-import HighlightBlock from '../blocks/HighlightBlock';
+import { QuietButton, SectionHeader } from '../ui';
+import HighlightCard from '../blocks/HighlightCard';
 import useHighlightsQuery from '../../hooks/useHighlightsQuery';
 import useTags from '../../hooks/useTags';
 import LibraryConceptModal from './LibraryConceptModal';
 import LibraryNotebookModal from './LibraryNotebookModal';
 import LibraryQuestionModal from './LibraryQuestionModal';
-import { updateHighlightTags } from '../../api/highlights';
 import { createQuestion } from '../../api/questions';
 import api from '../../api';
 import { getAuthHeaders } from '../../hooks/useAuthHeaders';
@@ -132,32 +131,35 @@ const LibraryHighlights = ({ folderOptions, articleOptions, externalQuery = '', 
   }, [handleKeyDown]);
 
   const handleAddConcept = async (highlight, conceptName) => {
-    const nextTags = Array.from(new Set([...(highlight.tags || []), conceptName]));
-    const updated = await updateHighlightTags({
-      articleId: highlight.articleId,
-      highlightId: highlight._id,
-      tags: nextTags
-    });
-    if (updated) {
-      setHighlights(prev => prev.map(h => h._id === highlight._id ? { ...h, tags: updated.tags || nextTags } : h));
-    }
+    await api.post(`/api/concepts/${encodeURIComponent(conceptName)}/add-highlight`, {
+      highlightId: highlight._id
+    }, getAuthHeaders());
     setConceptModal({ open: false, highlight: null });
   };
 
   const handleAddQuestion = async (highlight, conceptName, text) => {
-    await createQuestion({
+    const created = await createQuestion({
       text,
       conceptName,
       blocks: [
         { id: createId(), type: 'paragraph', text },
         { id: createId(), type: 'highlight-ref', highlightId: highlight._id, text: highlight.text || '' }
-      ]
+      ],
+      linkedHighlightIds: [highlight._id]
     });
+    if (created?._id) {
+      await api.post(`/api/questions/${created._id}/add-highlight`, { highlightId: highlight._id }, getAuthHeaders());
+    }
+    setQuestionModal({ open: false, highlight: null });
+  };
+
+  const handleAttachQuestion = async (highlight, questionId) => {
+    await api.post(`/api/questions/${questionId}/add-highlight`, { highlightId: highlight._id }, getAuthHeaders());
     setQuestionModal({ open: false, highlight: null });
   };
 
   const handleSendToNotebook = async (highlight, entryId) => {
-    await api.post(`/api/notebook/${entryId}/link-highlight`, { highlightId: highlight._id }, getAuthHeaders());
+    await api.post(`/api/notebook/${entryId}/append-highlight`, { highlightId: highlight._id }, getAuthHeaders());
     setNotebookModal({ open: false, highlight: null });
   };
 
@@ -209,26 +211,14 @@ const LibraryHighlights = ({ folderOptions, articleOptions, externalQuery = '', 
                 tabIndex={0}
                 onClick={() => setSelectedIndex(displayRows.findIndex(item => item._id === highlight._id))}
               >
-                <HighlightBlock highlight={highlight} compact />
+                <HighlightCard
+                  highlight={highlight}
+                  compact
+                  onAddConcept={(h) => setConceptModal({ open: true, highlight: h })}
+                  onAddNotebook={(h) => setNotebookModal({ open: true, highlight: h })}
+                  onAddQuestion={(h) => setQuestionModal({ open: true, highlight: h })}
+                />
                 <div className="library-highlight-row-actions">
-                  <Button
-                    variant="secondary"
-                    onClick={() => setConceptModal({ open: true, highlight })}
-                  >
-                    Add to Concept
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    onClick={() => setNotebookModal({ open: true, highlight })}
-                  >
-                    Send to Notebook
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    onClick={() => setQuestionModal({ open: true, highlight })}
-                  >
-                    Add to Question
-                  </Button>
                   <QuietButton onClick={() => window.location.href = `/articles/${highlight.articleId}`}>
                     Open Source
                   </QuietButton>
@@ -245,26 +235,14 @@ const LibraryHighlights = ({ folderOptions, articleOptions, externalQuery = '', 
             tabIndex={0}
             onClick={() => setSelectedIndex(displayRows.findIndex(item => item._id === highlight._id))}
           >
-            <HighlightBlock highlight={highlight} compact />
+            <HighlightCard
+              highlight={highlight}
+              compact
+              onAddConcept={(h) => setConceptModal({ open: true, highlight: h })}
+              onAddNotebook={(h) => setNotebookModal({ open: true, highlight: h })}
+              onAddQuestion={(h) => setQuestionModal({ open: true, highlight: h })}
+            />
             <div className="library-highlight-row-actions">
-              <Button
-                variant="secondary"
-                onClick={() => setConceptModal({ open: true, highlight })}
-              >
-                Add to Concept
-              </Button>
-              <Button
-                variant="secondary"
-                onClick={() => setNotebookModal({ open: true, highlight })}
-              >
-                Send to Notebook
-              </Button>
-              <Button
-                variant="secondary"
-                onClick={() => setQuestionModal({ open: true, highlight })}
-              >
-                Add to Question
-              </Button>
               <QuietButton onClick={() => window.location.href = `/articles/${highlight.articleId}`}>
                 Open Source
               </QuietButton>
@@ -295,6 +273,7 @@ const LibraryHighlights = ({ folderOptions, articleOptions, externalQuery = '', 
         highlight={questionModal.highlight}
         onClose={() => setQuestionModal({ open: false, highlight: null })}
         onCreate={handleAddQuestion}
+        onAttach={handleAttachQuestion}
       />
     </div>
   );

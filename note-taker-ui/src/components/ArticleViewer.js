@@ -525,7 +525,7 @@ const ArticleViewer = ({ onArticleChange }) => {
                     : null);
             if (createdHighlight?._id && selectedQuestionIds.length > 0) {
                 await Promise.all(selectedQuestionIds.map(questionId => (
-                    api.post(`/api/questions/${questionId}/link-highlight`, { highlightId: createdHighlight._id }, getAuthConfig())
+                    api.post(`/api/questions/${questionId}/add-highlight`, { highlightId: createdHighlight._id }, getAuthConfig())
                 )));
             }
             if (createdHighlight?._id && newQuestionText.trim()) {

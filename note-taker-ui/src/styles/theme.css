@@ -700,6 +700,17 @@ p {
   padding-bottom: 0;
 }
 
+.highlight-card {
+  display: grid;
+  gap: 8px;
+}
+
+.highlight-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
 .library-article-row {
   border: 1px solid var(--border-subtle);
   border-radius: 10px;

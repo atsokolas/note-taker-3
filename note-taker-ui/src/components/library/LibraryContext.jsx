@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { SectionHeader, QuietButton, TagChip } from '../ui';
+import HighlightCard from '../blocks/HighlightCard';
 
 const LibraryContext = ({
   selectedArticleId,
@@ -55,7 +56,13 @@ const LibraryContext = ({
                   if (e.key === 'Enter') onHighlightClick(highlight);
                 }}
               >
-                <div className="library-highlight-text">{highlight.text}</div>
+                <HighlightCard
+                  highlight={highlight}
+                  compact
+                  onAddNotebook={onAddNotebook}
+                  onAddConcept={onAddConcept}
+                  onAddQuestion={onAddQuestion}
+                />
                 <div className="library-highlight-tags">
                   {(highlight.tags || []).length > 0 ? (
                     highlight.tags.map(tagName => (
@@ -68,36 +75,6 @@ const LibraryContext = ({
                   )}
                 </div>
                 <div className="library-highlight-actions">
-                  {onAddNotebook && (
-                    <QuietButton
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onAddNotebook(highlight);
-                      }}
-                    >
-                      Add to Notebook
-                    </QuietButton>
-                  )}
-                  {onAddConcept && (
-                    <QuietButton
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onAddConcept(highlight);
-                      }}
-                    >
-                      Add to Concept
-                    </QuietButton>
-                  )}
-                  {onAddQuestion && (
-                    <QuietButton
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onAddQuestion(highlight);
-                      }}
-                    >
-                      Add to Question
-                    </QuietButton>
-                  )}
                   <QuietButton
                     onClick={(e) => {
                       e.stopPropagation();
