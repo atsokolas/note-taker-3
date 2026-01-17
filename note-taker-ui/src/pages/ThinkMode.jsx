@@ -178,7 +178,10 @@ const ThinkMode = () => {
   }, [loadNotebookEntries]);
 
   useEffect(() => {
-    setActiveView(resolveActiveView(searchParams));
+    const rawView = searchParams.get('view');
+    if (allowedViews.includes(rawView)) {
+      setActiveView(rawView);
+    }
   }, [searchParams]);
 
   useEffect(() => {
@@ -557,6 +560,7 @@ const ThinkMode = () => {
           error={notebookEntryError}
           onSave={handleSaveNotebookEntry}
           onDelete={handleDeleteNotebookEntry}
+          onCreate={handleCreateNotebookEntry}
           onRegisterInsert={(fn) => { notebookInsertRef.current = fn; }}
         />
       )}

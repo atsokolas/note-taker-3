@@ -139,7 +139,7 @@ const HighlightRefNode = Node.create({
   }
 });
 
-const NotebookEditor = ({ entry, saving, error, onSave, onDelete, onRegisterInsert }) => {
+const NotebookEditor = ({ entry, saving, error, onSave, onDelete, onRegisterInsert, onCreate }) => {
   const [titleDraft, setTitleDraft] = useState(entry?.title || '');
   const [insertOpen, setInsertOpen] = useState(false);
   const { highlights, highlightMap, loading: highlightsLoading, error: highlightsError } = useHighlights();
@@ -234,6 +234,11 @@ const NotebookEditor = ({ entry, saving, error, onSave, onDelete, onRegisterInse
     return (
       <div className="think-notebook-editor think-notebook-editor--empty">
         <p className="muted small">Select a note to start editing.</p>
+        {onCreate && (
+          <Button variant="secondary" onClick={onCreate}>
+            New note
+          </Button>
+        )}
       </div>
     );
   }
@@ -249,6 +254,11 @@ const NotebookEditor = ({ entry, saving, error, onSave, onDelete, onRegisterInse
           placeholder="Untitled note"
         />
         <div className="think-notebook-editor-actions">
+          {onCreate && (
+            <Button variant="secondary" onClick={onCreate}>
+              New note
+            </Button>
+          )}
           <Button variant="secondary" onClick={() => setInsertOpen(true)}>
             Insert highlight
           </Button>

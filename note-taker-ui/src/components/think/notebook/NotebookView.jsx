@@ -152,6 +152,7 @@ const NotebookView = ({ onActiveEntryChange }) => {
             error={entryError}
             onSave={handleSave}
             onDelete={handleDelete}
+            onCreate={handleCreate}
           />
         )}
       </div>
