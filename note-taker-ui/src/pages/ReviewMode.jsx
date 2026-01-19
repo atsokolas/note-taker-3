@@ -91,7 +91,7 @@ const ReviewMode = () => {
     try {
       const res = await api.post('/api/notebook', payload, authHeaders());
       if (res.data?._id) {
-        navigate(`/notebook?entryId=${res.data._id}`);
+        navigate(`/think?tab=notebook&entryId=${res.data._id}`);
       }
     } catch (err) {
       console.error('Error creating reflection note:', err);
@@ -233,7 +233,7 @@ const ReviewMode = () => {
                   {activeConcepts.map(concept => (
                     <div key={concept.name} className="reflection-row">
                       <div className="reflection-row-title">
-                        <Link to={`/think?concept=${encodeURIComponent(concept.name)}`} className="article-title-link">
+                        <Link to={`/think?tab=concepts&concept=${encodeURIComponent(concept.name)}`} className="article-title-link">
                           {concept.name}
                         </Link>
                         {concept.description && <span className="muted small">{concept.description}</span>}
@@ -260,7 +260,7 @@ const ReviewMode = () => {
                   {notesInProgress.map(note => (
                     <div key={note.id} className="reflection-row">
                       <div className="reflection-row-title">
-                        <Link to={`/notebook?entryId=${note.id}`} className="article-title-link">
+                        <Link to={`/think?tab=notebook&entryId=${note.id}`} className="article-title-link">
                           {note.title}
                         </Link>
                         {note.snippet && <span className="muted small">{note.snippet}</span>}
@@ -296,7 +296,7 @@ const ReviewMode = () => {
                           </div>
                           {question.linkedNotebookEntryId && (
                             <div className="reflection-row-meta">
-                              <Link to={`/notebook?entryId=${question.linkedNotebookEntryId}`} className="muted small">
+                              <Link to={`/think?tab=notebook&entryId=${question.linkedNotebookEntryId}`} className="muted small">
                                 Open note
                               </Link>
                             </div>
@@ -440,7 +440,7 @@ const ReviewMode = () => {
             variant="secondary"
             onClick={() => {
               const note = reflections.notesInProgress?.[0];
-              if (note?.id) navigate(`/notebook?entryId=${note.id}`);
+              if (note?.id) navigate(`/think?tab=notebook&entryId=${note.id}`);
             }}
             disabled={!reflections.notesInProgress?.[0]?.id}
           >
@@ -450,7 +450,7 @@ const ReviewMode = () => {
             variant="secondary"
             onClick={() => {
               const concept = reflections.activeConcepts?.[0];
-              if (concept?.name) navigate(`/think?concept=${encodeURIComponent(concept.name)}`);
+              if (concept?.name) navigate(`/think?tab=concepts&concept=${encodeURIComponent(concept.name)}`);
             }}
             disabled={!reflections.activeConcepts?.[0]?.name}
           >

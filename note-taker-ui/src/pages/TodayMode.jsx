@@ -302,7 +302,7 @@ const TodayMode = () => {
         <div className="section-stack">
           <div className="today-context-title">{selectedItem.data.text}</div>
           {selectedItem.data.linkedTagName && (
-            <TagChip to={`/think?view=concepts&concept=${encodeURIComponent(selectedItem.data.linkedTagName)}`}>
+            <TagChip to={`/think?tab=concepts&concept=${encodeURIComponent(selectedItem.data.linkedTagName)}`}>
               {selectedItem.data.linkedTagName}
             </TagChip>
           )}
@@ -311,7 +311,7 @@ const TodayMode = () => {
       {selectedItem?.type === 'note' && (
         <div className="section-stack">
           <div className="today-context-title">{selectedItem.data.title || 'Untitled note'}</div>
-          <Button variant="secondary" onClick={() => navigate(`/notebook?entryId=${selectedItem.data._id}`)}>
+          <Button variant="secondary" onClick={() => navigate(`/think?tab=notebook&entryId=${selectedItem.data._id}`)}>
             Open note
           </Button>
         </div>
@@ -319,7 +319,7 @@ const TodayMode = () => {
       {selectedItem?.type === 'concept' && (
         <div className="section-stack">
           <div className="today-context-title">{selectedItem.data.tag}</div>
-          <Button variant="secondary" onClick={() => navigate(`/think?view=concepts&concept=${encodeURIComponent(selectedItem.data.tag)}`)}>
+          <Button variant="secondary" onClick={() => navigate(`/think?tab=concepts&concept=${encodeURIComponent(selectedItem.data.tag)}`)}>
             Open concept
           </Button>
         </div>

@@ -50,14 +50,14 @@ const ReferencesPanel = ({ targetType, targetId, tagName, label = 'Used in' }) =
     const params = new URLSearchParams();
     params.set('entryId', entryId);
     if (blockId) params.set('blockId', blockId);
-    params.set('view', 'notebook');
+    params.set('tab', 'notebook');
     navigate(`/think?${params.toString()}`);
   };
 
   const handleConceptClick = (name) => {
     if (!name) return;
     const params = new URLSearchParams();
-    params.set('view', 'concepts');
+    params.set('tab', 'concepts');
     params.set('concept', name);
     navigate(`/think?${params.toString()}`);
   };
@@ -65,7 +65,7 @@ const ReferencesPanel = ({ targetType, targetId, tagName, label = 'Used in' }) =
   const handleQuestionClick = (questionId) => {
     if (!questionId) return;
     const params = new URLSearchParams();
-    params.set('view', 'questions');
+    params.set('tab', 'questions');
     params.set('questionId', questionId);
     navigate(`/think?${params.toString()}`);
   };

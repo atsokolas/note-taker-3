@@ -81,7 +81,7 @@ const CommandPalette = ({ open, onClose }) => {
       const headers = { Authorization: `Bearer ${token}` };
       const res = await api.post('/api/notebook', { title: 'Untitled', content: '', blocks: [] }, { headers });
       if (res.data?._id) {
-        navigate(`/notebook?entryId=${res.data._id}`);
+        navigate(`/think?tab=notebook&entryId=${res.data._id}`);
       } else {
         navigate('/notebook');
       }
@@ -110,7 +110,7 @@ const CommandPalette = ({ open, onClose }) => {
     concepts.slice(0, 8).forEach(c => list.push({ type: 'Concept', label: c.tag, path: `/tags/${encodeURIComponent(c.tag)}` }));
     articles.slice(0, 5).forEach(a => list.push({ type: 'Article', label: a.title || 'Untitled article', path: `/articles/${a._id}` }));
     highlights.slice(0, 5).forEach(h => list.push({ type: 'Highlight', label: h.text, path: `/articles/${h.articleId}` }));
-    notebook.slice(0, 5).forEach(n => list.push({ type: 'Notebook', label: n.title || 'Untitled', path: `/notebook?entryId=${n._id}` }));
+    notebook.slice(0, 5).forEach(n => list.push({ type: 'Notebook', label: n.title || 'Untitled', path: `/think?tab=notebook&entryId=${n._id}` }));
     collections.slice(0, 5).forEach(c => list.push({ type: 'Collection', label: c.name, path: `/collections/${c.slug}` }));
     return list;
   }, [pages, concepts, articles, highlights, notebook, collections, createNote, navigate, reshuffleToday]);

@@ -30,7 +30,7 @@ const ThinkMode = () => {
   const queryConcept = searchParams.get('concept') || '';
   const allowedViews = useMemo(() => ['notebook', 'concepts', 'questions'], []);
   const resolveActiveView = (params) => {
-    const rawView = params.get('view') || '';
+    const rawView = params.get('tab') || '';
     if (allowedViews.includes(rawView)) return rawView;
     return params.get('entryId') ? 'notebook' : 'concepts';
   };
@@ -187,7 +187,7 @@ const ThinkMode = () => {
   }, [loadNotebookEntries]);
 
   useEffect(() => {
-    const rawView = searchParams.get('view');
+    const rawView = searchParams.get('tab');
     if (allowedViews.includes(rawView)) {
       setActiveView(rawView);
     }
@@ -197,7 +197,7 @@ const ThinkMode = () => {
     if (!notebookActiveId || activeView !== 'notebook') return;
     loadNotebookEntry(notebookActiveId);
     const params = new URLSearchParams(searchParams);
-    params.set('view', 'notebook');
+    params.set('tab', 'notebook');
     params.set('entryId', notebookActiveId);
     setSearchParams(params, { replace: true });
   }, [notebookActiveId, activeView, loadNotebookEntry, searchParams, setSearchParams]);
@@ -224,7 +224,7 @@ const ThinkMode = () => {
 
   const handleSelectConcept = (name) => {
     const params = new URLSearchParams(searchParams);
-    params.set('view', 'concepts');
+    params.set('tab', 'concepts');
     params.set('concept', name);
     setActiveView('concepts');
     setSearchParams(params);
@@ -232,7 +232,7 @@ const ThinkMode = () => {
 
   const handleSelectView = (view) => {
     const params = new URLSearchParams(searchParams);
-    params.set('view', view);
+    params.set('tab', view);
     if (view !== 'notebook') {
       params.delete('entryId');
     }
@@ -710,7 +710,7 @@ const ThinkMode = () => {
                       ? 'Unpin'
                       : 'Pin'}
                   </QuietButton>
-                  <Link to={`/notebook?entryId=${note.notebookEntryId}`} className="muted small">Open note</Link>
+                <Link to={`/think?tab=notebook&entryId=${note.notebookEntryId}`} className="muted small">Open note</Link>
                 </div>
               </div>
             ))}
@@ -720,7 +720,7 @@ const ThinkMode = () => {
                 <p className="muted small">{(note.content || '').slice(0, 120)}{(note.content || '').length > 120 ? '…' : ''}</p>
                 <div className="concept-note-actions">
                   <QuietButton onClick={() => togglePinNote(note._id)}>Unpin</QuietButton>
-                  <Link to={`/notebook?entryId=${note._id}`} className="muted small">Open note</Link>
+                <Link to={`/think?tab=notebook&entryId=${note._id}`} className="muted small">Open note</Link>
                 </div>
               </div>
             ))}
@@ -859,7 +859,7 @@ const ThinkMode = () => {
         <div className="section-stack">
           <SectionHeader title="Context" subtitle="Open loops." />
           {activeQuestion?.linkedTagName ? (
-            <TagChip to={`/think?view=concepts&concept=${encodeURIComponent(activeQuestion.linkedTagName)}`}>
+            <TagChip to={`/think?tab=concepts&concept=${encodeURIComponent(activeQuestion.linkedTagName)}`}>
               {activeQuestion.linkedTagName}
             </TagChip>
           ) : (
@@ -907,7 +907,7 @@ const ThinkMode = () => {
           {concept?.relatedTags?.length > 0 ? (
             <div className="concept-related-tags">
               {concept.relatedTags.slice(0, 8).map(tag => (
-                <TagChip key={tag.tag} to={`/think?concept=${encodeURIComponent(tag.tag)}`}>
+                <TagChip key={tag.tag} to={`/think?tab=concepts&concept=${encodeURIComponent(tag.tag)}`}>
                   {tag.tag}
                 </TagChip>
               ))}
@@ -919,7 +919,7 @@ const ThinkMode = () => {
           {concept?.relatedTags?.length > 0 ? (
             <div className="concept-related-tags">
               {concept.relatedTags.slice(0, 8).map(tag => (
-                <TagChip key={`corr-${tag.tag}`} to={`/think?concept=${encodeURIComponent(tag.tag)}`}>
+                <TagChip key={`corr-${tag.tag}`} to={`/think?tab=concepts&concept=${encodeURIComponent(tag.tag)}`}>
                   {tag.tag}
                 </TagChip>
               ))}

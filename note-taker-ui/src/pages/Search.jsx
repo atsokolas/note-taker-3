@@ -150,8 +150,8 @@ const Search = () => {
                       const to = (() => {
                         if (item.type === 'article') return `/articles/${item.objectId}`;
                         if (item.type === 'highlight') return `/articles/${item.articleId || item.objectId}`;
-                        if (item.type === 'notebook_entry') return `/think?view=notebook&entryId=${item.objectId}`;
-                        if (item.type === 'question') return `/think?view=questions&questionId=${item.objectId}`;
+                        if (item.type === 'notebook_entry') return `/think?tab=notebook&entryId=${item.objectId}`;
+                        if (item.type === 'question') return `/think?tab=questions&questionId=${item.objectId}`;
                         return '/search';
                       })();
                       return (

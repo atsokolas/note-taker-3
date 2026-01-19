@@ -105,7 +105,8 @@ const LibraryContext = ({
                   const params = new URLSearchParams();
                   params.set('entryId', block.notebookEntryId);
                   if (block.blockId) params.set('blockId', block.blockId);
-                  window.location.href = `/notebook?${params.toString()}`;
+                  params.set('tab', 'notebook');
+                  window.location.href = `/think?${params.toString()}`;
                 }}
               >
                 <div className="library-reference-title">{block.notebookTitle || 'Untitled note'}</div>

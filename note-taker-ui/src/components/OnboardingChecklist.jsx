@@ -4,9 +4,9 @@ import { Link } from 'react-router-dom';
 const CHECKLIST = [
   { key: 'onboard_save_article', label: 'Save your first article', href: '/library' },
   { key: 'onboard_highlight', label: 'Highlight a passage', href: '/library' },
-  { key: 'onboard_to_concept', label: 'Send a highlight to a concept', href: '/think?view=concepts' },
-  { key: 'onboard_question', label: 'Create a question', href: '/think?view=questions' },
-  { key: 'onboard_notebook', label: 'Write a notebook entry', href: '/think?view=notebook' }
+  { key: 'onboard_to_concept', label: 'Send a highlight to a concept', href: '/think?tab=concepts' },
+  { key: 'onboard_question', label: 'Create a question', href: '/think?tab=questions' },
+  { key: 'onboard_notebook', label: 'Write a notebook entry', href: '/think?tab=notebook' }
 ];
 
 const COMPLETE_KEY = 'onboardingChecklistComplete';

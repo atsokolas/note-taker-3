@@ -17,7 +17,7 @@ const NotebookContext = ({ entry }) => {
       {entry?.tags?.length ? (
         <div className="concept-related-tags">
           {entry.tags.map(tag => (
-            <TagChip key={tag} to={`/think?view=concepts&concept=${encodeURIComponent(tag)}`}>
+            <TagChip key={tag} to={`/think?tab=concepts&concept=${encodeURIComponent(tag)}`}>
               {tag}
             </TagChip>
           ))}

@@ -91,7 +91,7 @@ function App() {
       if (now - lastG < 800) {
         if (e.key.toLowerCase() === 't') window.location.href = '/today';
         if (e.key.toLowerCase() === 'b') window.location.href = '/brain';
-        if (e.key.toLowerCase() === 'n') window.location.href = '/notebook';
+        if (e.key.toLowerCase() === 'n') window.location.href = '/think?tab=notebook';
         if (e.key.toLowerCase() === 'j') window.location.href = '/journey';
         if (e.key.toLowerCase() === 'c') window.location.href = '/collections';
         if (e.key.toLowerCase() === 'v') window.location.href = '/views';
@@ -106,7 +106,8 @@ function App() {
     { label: 'Library', to: '/library' },
     { label: 'Think', to: '/think' },
     { label: 'Review', to: '/review' },
-    { label: 'Settings', to: '/settings' }
+    { label: 'Settings', to: '/settings' },
+    { label: 'How To Use', to: '/how-to-use' }
   ];
 
   if (isLoading) {

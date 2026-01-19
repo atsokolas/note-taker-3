@@ -230,7 +230,7 @@ const ConceptRefNode = createReferenceNode({
   idKey: 'conceptId',
   titleKey: 'conceptName',
   metaKey: 'conceptMeta',
-  buildHref: (attrs) => (attrs.conceptName ? `/think?view=concepts&concept=${encodeURIComponent(attrs.conceptName)}` : '')
+  buildHref: (attrs) => (attrs.conceptName ? `/think?tab=concepts&concept=${encodeURIComponent(attrs.conceptName)}` : '')
 });
 
 const QuestionRefNode = createReferenceNode({
@@ -239,7 +239,7 @@ const QuestionRefNode = createReferenceNode({
   idKey: 'questionId',
   titleKey: 'questionText',
   metaKey: 'questionMeta',
-  buildHref: (attrs) => (attrs.questionId ? `/think?view=questions&questionId=${attrs.questionId}` : '')
+  buildHref: (attrs) => (attrs.questionId ? `/think?tab=questions&questionId=${attrs.questionId}` : '')
 });
 
 const NotebookEditor = ({ entry, saving, error, onSave, onDelete, onRegisterInsert, onCreate }) => {

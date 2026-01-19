@@ -57,7 +57,7 @@ const HighlightBlock = ({ highlight, onOpenArticle, onRemove, removeLabel = 'Rem
       {(highlight.tags || []).length > 0 && (
         <div className="highlight-block-tags">
           {highlight.tags.map(tag => (
-            <TagChip key={`${highlightId}-${tag}`} to={`/think?view=concepts&concept=${encodeURIComponent(tag)}`}>
+            <TagChip key={`${highlightId}-${tag}`} to={`/think?tab=concepts&concept=${encodeURIComponent(tag)}`}>
               {tag}
             </TagChip>
           ))}
