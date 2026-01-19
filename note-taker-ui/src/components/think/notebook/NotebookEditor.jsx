@@ -6,8 +6,12 @@ import { Extension, Node, mergeAttributes } from '@tiptap/core';
 import { Button, QuietButton } from '../../ui';
 import HighlightBlock from '../../blocks/HighlightBlock';
 import InsertHighlightModal from './InsertHighlightModal';
+import InsertReferenceModal from './InsertReferenceModal';
 import useHighlights from '../../../hooks/useHighlights';
-import { ensureBlockIds, serializeBlocksFromDoc } from '../../../utils/notebookBlocks';
+import useArticles from '../../../hooks/useArticles';
+import useConcepts from '../../../hooks/useConcepts';
+import useQuestions from '../../../hooks/useQuestions';
+import { buildDocFromBlocks, ensureBlockIds, serializeBlocksFromDoc } from '../../../utils/notebookBlocks';
 
 const createId = () => {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
@@ -139,10 +143,112 @@ const HighlightRefNode = Node.create({
   }
 });
 
+const ReferenceCard = ({ label, title, meta, href }) => (
+  <div className="notebook-ref-card">
+    <div className="notebook-ref-label">{label}</div>
+    {href ? (
+      <a className="notebook-ref-title" href={href}>{title}</a>
+    ) : (
+      <div className="notebook-ref-title">{title}</div>
+    )}
+    {meta ? <div className="notebook-ref-meta">{meta}</div> : null}
+  </div>
+);
+
+const createReferenceNode = ({ name, label, idKey, titleKey, metaKey, buildHref }) => Node.create({
+  name,
+  group: 'block',
+  atom: true,
+  selectable: true,
+  draggable: true,
+  addAttributes() {
+    return {
+      [idKey]: {
+        default: null,
+        parseHTML: element => element.getAttribute(`data-${idKey}`),
+        renderHTML: attributes => (
+          attributes[idKey] ? { [`data-${idKey}`]: attributes[idKey] } : {}
+        )
+      },
+      [titleKey]: {
+        default: '',
+        parseHTML: element => element.getAttribute(`data-${titleKey}`) || '',
+        renderHTML: attributes => (
+          attributes[titleKey] ? { [`data-${titleKey}`]: attributes[titleKey] } : {}
+        )
+      },
+      [metaKey]: {
+        default: '',
+        parseHTML: element => element.getAttribute(`data-${metaKey}`) || '',
+        renderHTML: attributes => (
+          attributes[metaKey] ? { [`data-${metaKey}`]: attributes[metaKey] } : {}
+        )
+      },
+      blockId: {
+        default: null,
+        parseHTML: element => element.getAttribute('data-block-id'),
+        renderHTML: attributes => (
+          attributes.blockId ? { 'data-block-id': attributes.blockId } : {}
+        )
+      }
+    };
+  },
+  parseHTML() {
+    return [
+      { tag: `div[data-${idKey}]` }
+    ];
+  },
+  renderHTML({ HTMLAttributes }) {
+    return ['div', mergeAttributes(HTMLAttributes)];
+  },
+  addNodeView() {
+    return ReactNodeViewRenderer(({ node }) => {
+      const title = node.attrs[titleKey] || 'Untitled';
+      const meta = metaKey ? node.attrs[metaKey] : '';
+      const href = buildHref ? buildHref(node.attrs) : '';
+      return (
+        <NodeViewWrapper className="notebook-ref-node" contentEditable={false}>
+          <ReferenceCard label={label} title={title} meta={meta} href={href} />
+        </NodeViewWrapper>
+      );
+    });
+  }
+});
+
+const ArticleRefNode = createReferenceNode({
+  name: 'articleRef',
+  label: 'Article',
+  idKey: 'articleId',
+  titleKey: 'articleTitle',
+  metaKey: 'articleMeta',
+  buildHref: (attrs) => (attrs.articleId ? `/articles/${attrs.articleId}` : '')
+});
+
+const ConceptRefNode = createReferenceNode({
+  name: 'conceptRef',
+  label: 'Concept',
+  idKey: 'conceptId',
+  titleKey: 'conceptName',
+  metaKey: 'conceptMeta',
+  buildHref: (attrs) => (attrs.conceptName ? `/think?view=concepts&concept=${encodeURIComponent(attrs.conceptName)}` : '')
+});
+
+const QuestionRefNode = createReferenceNode({
+  name: 'questionRef',
+  label: 'Question',
+  idKey: 'questionId',
+  titleKey: 'questionText',
+  metaKey: 'questionMeta',
+  buildHref: (attrs) => (attrs.questionId ? `/think?view=questions&questionId=${attrs.questionId}` : '')
+});
+
 const NotebookEditor = ({ entry, saving, error, onSave, onDelete, onRegisterInsert, onCreate }) => {
   const [titleDraft, setTitleDraft] = useState(entry?.title || '');
-  const [insertOpen, setInsertOpen] = useState(false);
+  const [insertMode, setInsertMode] = useState('');
   const { highlights, highlightMap, loading: highlightsLoading, error: highlightsError } = useHighlights();
+  const { articles } = useArticles({ enabled: insertMode === 'article' });
+  const { concepts } = useConcepts();
+  const { questions } = useQuestions({ status: 'open', enabled: insertMode === 'question' });
   const highlightLookupRef = useRef((id) => highlightMap.get(String(id)));
 
   useEffect(() => {
@@ -162,9 +268,12 @@ const NotebookEditor = ({ entry, saving, error, onSave, onDelete, onRegisterInse
       Placeholder.configure({ placeholder: 'Write freely…' }),
       ListIndentExtension,
       BlockIdExtension,
-      highlightExtension
+      highlightExtension,
+      ArticleRefNode,
+      ConceptRefNode,
+      QuestionRefNode
     ],
-    content: entry?.content || '<p></p>',
+    content: entry?.blocks?.length ? buildDocFromBlocks(entry.blocks) : (entry?.content || '<p></p>'),
     editorProps: {
       attributes: { class: 'think-notebook-editor-body' }
     }
@@ -194,7 +303,8 @@ const NotebookEditor = ({ entry, saving, error, onSave, onDelete, onRegisterInse
     if (!entry) return;
     setTitleDraft(entry.title || '');
     if (editor) {
-      editor.commands.setContent(entry.content || '<p></p>', false);
+      const content = entry.blocks?.length ? buildDocFromBlocks(entry.blocks) : (entry.content || '<p></p>');
+      editor.commands.setContent(content, false);
     }
   }, [entry, editor]);
 
@@ -230,6 +340,45 @@ const NotebookEditor = ({ entry, saving, error, onSave, onDelete, onRegisterInse
     });
   };
 
+  const handleInsertArticle = (article) => {
+    if (!editor) return;
+    editor.commands.insertContent({
+      type: 'articleRef',
+      attrs: {
+        articleId: article._id,
+        articleTitle: article.title || 'Untitled article',
+        articleMeta: article.source || '',
+        blockId: createId()
+      }
+    });
+  };
+
+  const handleInsertConcept = (concept) => {
+    if (!editor) return;
+    editor.commands.insertContent({
+      type: 'conceptRef',
+      attrs: {
+        conceptId: concept._id || '',
+        conceptName: concept.name || 'Concept',
+        conceptMeta: concept.description || '',
+        blockId: createId()
+      }
+    });
+  };
+
+  const handleInsertQuestion = (question) => {
+    if (!editor) return;
+    editor.commands.insertContent({
+      type: 'questionRef',
+      attrs: {
+        questionId: question._id,
+        questionText: question.text || 'Question',
+        questionMeta: question.linkedTagName || question.conceptName || '',
+        blockId: createId()
+      }
+    });
+  };
+
   if (!entry) {
     return (
       <div className="think-notebook-editor think-notebook-editor--empty">
@@ -259,9 +408,14 @@ const NotebookEditor = ({ entry, saving, error, onSave, onDelete, onRegisterInse
               New note
             </Button>
           )}
-          <Button variant="secondary" onClick={() => setInsertOpen(true)}>
-            Insert highlight
-          </Button>
+          <div className="notebook-insert-group">
+            <Button variant="secondary" onClick={() => setInsertMode('highlight')}>
+              Insert highlight
+            </Button>
+            <QuietButton onClick={() => setInsertMode('article')}>Article</QuietButton>
+            <QuietButton onClick={() => setInsertMode('concept')}>Concept</QuietButton>
+            <QuietButton onClick={() => setInsertMode('question')}>Question</QuietButton>
+          </div>
           <QuietButton onClick={() => onDelete(entry)} disabled={saving}>Delete</QuietButton>
           <Button onClick={handleSave} disabled={saving}>{saving ? 'Saving…' : 'Save'}</Button>
         </div>
@@ -269,14 +423,56 @@ const NotebookEditor = ({ entry, saving, error, onSave, onDelete, onRegisterInse
       {error && <p className="status-message error-message">{error}</p>}
       {editor && <EditorContent editor={editor} />}
       <InsertHighlightModal
-        open={insertOpen}
+        open={insertMode === 'highlight'}
         highlights={highlights}
         loading={highlightsLoading}
         error={highlightsError}
-        onClose={() => setInsertOpen(false)}
+        onClose={() => setInsertMode('')}
         onSelect={(highlight) => {
           handleInsertHighlight(highlight);
-          setInsertOpen(false);
+          setInsertMode('');
+        }}
+      />
+      <InsertReferenceModal
+        open={insertMode === 'article'}
+        title="Insert Article"
+        subtitle="Search by title."
+        items={articles}
+        getLabel={(item) => item.title || 'Untitled article'}
+        getMeta={(item) => item.source || ''}
+        placeholder="Search articles..."
+        onClose={() => setInsertMode('')}
+        onSelect={(item) => {
+          handleInsertArticle(item);
+          setInsertMode('');
+        }}
+      />
+      <InsertReferenceModal
+        open={insertMode === 'concept'}
+        title="Insert Concept"
+        subtitle="Search by name or description."
+        items={concepts}
+        getLabel={(item) => item.name || 'Concept'}
+        getMeta={(item) => item.description || ''}
+        placeholder="Search concepts..."
+        onClose={() => setInsertMode('')}
+        onSelect={(item) => {
+          handleInsertConcept(item);
+          setInsertMode('');
+        }}
+      />
+      <InsertReferenceModal
+        open={insertMode === 'question'}
+        title="Insert Question"
+        subtitle="Search open questions."
+        items={questions}
+        getLabel={(item) => item.text || 'Question'}
+        getMeta={(item) => item.linkedTagName || item.conceptName || ''}
+        placeholder="Search questions..."
+        onClose={() => setInsertMode('')}
+        onSelect={(item) => {
+          handleInsertQuestion(item);
+          setInsertMode('');
         }}
       />
     </div>

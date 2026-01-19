@@ -1906,6 +1906,47 @@ p {
   margin: 12px 0;
 }
 
+.notebook-ref-node {
+  margin: 12px 0;
+}
+
+.notebook-ref-card {
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  padding: 12px 14px;
+  background: var(--surface);
+}
+
+.notebook-ref-label {
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+
+.notebook-ref-title {
+  font-weight: 600;
+  color: var(--text);
+  text-decoration: none;
+}
+
+.notebook-ref-title:hover {
+  color: var(--accent);
+}
+
+.notebook-ref-meta {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.notebook-insert-group {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
 .modal-highlight-list {
   max-height: 360px;
   overflow-y: auto;

@@ -6,7 +6,9 @@ import HighlightCard from '../../blocks/HighlightCard';
 const NotebookContext = ({ entry }) => {
   const highlightRefs = useMemo(() => {
     if (!entry?.blocks) return [];
-    return entry.blocks.filter(block => block.type === 'highlight-ref').slice(0, 6);
+    return entry.blocks.filter(block => (
+      block.type === 'highlight-ref' || block.type === 'highlight_embed'
+    )).slice(0, 6);
   }, [entry]);
 
   return (

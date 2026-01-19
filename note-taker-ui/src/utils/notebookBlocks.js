@@ -7,7 +7,7 @@ export const ensureBlockIds = (node, createId = defaultId) => {
   if (!node) return { node, changed: false };
   let changed = false;
   const next = { ...node };
-  const needsId = ['paragraph', 'heading', 'blockquote', 'listItem', 'highlightRef'].includes(node.type);
+  const needsId = ['paragraph', 'heading', 'blockquote', 'listItem', 'highlightRef', 'articleRef', 'conceptRef', 'questionRef'].includes(node.type);
   if (needsId) {
     next.attrs = { ...(node.attrs || {}) };
     if (!next.attrs.blockId) {
@@ -55,16 +55,46 @@ export const serializeBlocksFromDoc = (doc, createId = defaultId) => {
     if (node.type === 'highlightRef') {
       blocks.push({
         id: node.attrs?.blockId || createId(),
-        type: 'highlight-ref',
+        type: 'highlight_embed',
         highlightId: node.attrs?.highlightId || null,
         text: node.attrs?.highlightText || ''
+      });
+      return;
+    }
+    if (node.type === 'articleRef') {
+      blocks.push({
+        id: node.attrs?.blockId || createId(),
+        type: 'article_ref',
+        articleId: node.attrs?.articleId || null,
+        articleTitle: node.attrs?.articleTitle || '',
+        text: node.attrs?.articleTitle || ''
+      });
+      return;
+    }
+    if (node.type === 'conceptRef') {
+      blocks.push({
+        id: node.attrs?.blockId || createId(),
+        type: 'concept_ref',
+        conceptId: node.attrs?.conceptId || null,
+        conceptName: node.attrs?.conceptName || '',
+        text: node.attrs?.conceptName || ''
+      });
+      return;
+    }
+    if (node.type === 'questionRef') {
+      blocks.push({
+        id: node.attrs?.blockId || createId(),
+        type: 'question_ref',
+        questionId: node.attrs?.questionId || null,
+        questionText: node.attrs?.questionText || '',
+        text: node.attrs?.questionText || ''
       });
       return;
     }
     if (node.type === 'blockquote') {
       blocks.push({
         id: node.attrs?.blockId || createId(),
-        type: node.attrs?.highlightId ? 'highlight-ref' : 'quote',
+        type: node.attrs?.highlightId ? 'highlight_embed' : 'quote',
         highlightId: node.attrs?.highlightId || null,
         text: extractText(node)
       });
@@ -105,12 +135,42 @@ export const buildDocFromBlocks = (blocks = []) => ({
         content: block.text ? [{ type: 'text', text: block.text }] : []
       };
     }
-    if (block.type === 'highlight-ref') {
+    if (block.type === 'highlight-ref' || block.type === 'highlight_embed') {
       return {
         type: 'highlightRef',
         attrs: {
           highlightId: block.highlightId || null,
           highlightText: block.text || '',
+          blockId: block.id
+        }
+      };
+    }
+    if (block.type === 'article_ref' || block.type === 'article-ref') {
+      return {
+        type: 'articleRef',
+        attrs: {
+          articleId: block.articleId || null,
+          articleTitle: block.articleTitle || block.text || '',
+          blockId: block.id
+        }
+      };
+    }
+    if (block.type === 'concept_ref' || block.type === 'concept-ref') {
+      return {
+        type: 'conceptRef',
+        attrs: {
+          conceptId: block.conceptId || null,
+          conceptName: block.conceptName || block.text || '',
+          blockId: block.id
+        }
+      };
+    }
+    if (block.type === 'question_ref' || block.type === 'question-ref') {
+      return {
+        type: 'questionRef',
+        attrs: {
+          questionId: block.questionId || null,
+          questionText: block.questionText || block.text || '',
           blockId: block.id
         }
       };

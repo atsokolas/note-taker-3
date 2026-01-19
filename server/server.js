@@ -164,6 +164,12 @@ const notebookBlockSchema = new mongoose.Schema({
   indent: { type: Number, default: 0 },
   level: { type: Number, default: 1 },
   highlightId: { type: mongoose.Schema.Types.ObjectId, default: null },
+  articleId: { type: mongoose.Schema.Types.ObjectId, default: null },
+  articleTitle: { type: String, default: '' },
+  conceptId: { type: mongoose.Schema.Types.ObjectId, default: null },
+  conceptName: { type: String, default: '' },
+  questionId: { type: mongoose.Schema.Types.ObjectId, default: null },
+  questionText: { type: String, default: '' },
   status: { type: String, enum: ['open', 'answered'], default: 'open' }
 }, { _id: false });
 
@@ -383,6 +389,23 @@ const extractConceptTags = (text = '') => {
   return Array.from(new Set(matches.map(tag => tag.slice(1).toLowerCase())));
 };
 
+const stripHtml = (value = '') => (
+  String(value || '')
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+);
+
+const ensureNotebookBlocks = (entry, createId) => {
+  if (!entry) return entry;
+  if (Array.isArray(entry.blocks) && entry.blocks.length > 0) return entry;
+  const text = stripHtml(entry.content || '');
+  if (!text) return entry;
+  const blockId = createId ? createId() : `block-${Math.random().toString(36).slice(2, 9)}-${Date.now()}`;
+  entry.blocks = [{ id: blockId, type: 'paragraph', text }];
+  return entry;
+};
+
 const syncNotebookReferences = async (userId, entryId, blocks = []) => {
   if (!Array.isArray(blocks) || blocks.length === 0) {
     await ReferenceEdge.deleteMany({ userId, sourceType: 'notebook', sourceId: entryId });
@@ -397,13 +420,50 @@ const syncNotebookReferences = async (userId, entryId, blocks = []) => {
     if (!blockId) return;
     const preview = String(block.text || '').slice(0, 180);
 
-    if (block.type === 'highlight-ref' && block.highlightId) {
+    const blockType = block.type || '';
+    if ((blockType === 'highlight-ref' || blockType === 'highlight_embed') && block.highlightId) {
       edges.push({
         sourceType: 'notebook',
         sourceId: entryId,
         sourceBlockId: blockId,
         targetType: 'highlight',
         targetId: block.highlightId,
+        blockPreviewText: preview,
+        userId
+      });
+    }
+
+    if ((blockType === 'article_ref' || blockType === 'article-ref') && block.articleId) {
+      edges.push({
+        sourceType: 'notebook',
+        sourceId: entryId,
+        sourceBlockId: blockId,
+        targetType: 'article',
+        targetId: block.articleId,
+        blockPreviewText: preview,
+        userId
+      });
+    }
+
+    if ((blockType === 'concept_ref' || blockType === 'concept-ref') && block.conceptName) {
+      edges.push({
+        sourceType: 'notebook',
+        sourceId: entryId,
+        sourceBlockId: blockId,
+        targetType: 'concept',
+        targetTagName: block.conceptName,
+        blockPreviewText: preview,
+        userId
+      });
+    }
+
+    if ((blockType === 'question_ref' || blockType === 'question-ref') && block.questionId) {
+      edges.push({
+        sourceType: 'notebook',
+        sourceId: entryId,
+        sourceBlockId: blockId,
+        targetType: 'question',
+        targetId: block.questionId,
         blockPreviewText: preview,
         userId
       });
@@ -1056,7 +1116,15 @@ app.get('/api/notebook', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
     const entries = await NotebookEntry.find({ userId }).sort({ updatedAt: -1 });
-    res.status(200).json(entries);
+    const normalized = await Promise.all(entries.map(async entry => {
+      const hadBlocks = Array.isArray(entry.blocks) && entry.blocks.length > 0;
+      ensureNotebookBlocks(entry, createBlockId);
+      if (!hadBlocks && entry.blocks?.length) {
+        await entry.save();
+      }
+      return entry;
+    }));
+    res.status(200).json(normalized);
   } catch (error) {
     console.error("❌ Error fetching notebook entries:", error);
     res.status(500).json({ error: "Failed to fetch notebook entries." });
@@ -1068,18 +1136,21 @@ app.post('/api/notebook', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
     const { title, content, blocks, folder, tags, linkedArticleId } = req.body;
+    const nextBlocks = Array.isArray(blocks)
+      ? blocks
+      : (stripHtml(content || '') ? [{ id: createBlockId(), type: 'paragraph', text: stripHtml(content || '') }] : []);
     const newEntry = new NotebookEntry({
       title: (title || 'Untitled').trim(),
       content: content || '',
-      blocks: Array.isArray(blocks) ? blocks : [],
+      blocks: nextBlocks,
       folder: folder || null,
       tags: Array.isArray(tags) ? tags : [],
       linkedArticleId: linkedArticleId || null,
       userId
     });
     await newEntry.save();
-    if (Array.isArray(blocks)) {
-      await syncNotebookReferences(userId, newEntry._id, blocks);
+    if (Array.isArray(nextBlocks)) {
+      await syncNotebookReferences(userId, newEntry._id, nextBlocks);
     }
     enqueueNotebookEmbedding(newEntry);
     res.status(201).json(newEntry);
@@ -1097,6 +1168,11 @@ app.get('/api/notebook/:id', authenticateToken, async (req, res) => {
     const entry = await NotebookEntry.findOne({ _id: id, userId });
     if (!entry) {
       return res.status(404).json({ error: "Notebook entry not found." });
+    }
+    const hadBlocks = Array.isArray(entry.blocks) && entry.blocks.length > 0;
+    ensureNotebookBlocks(entry, createBlockId);
+    if (!hadBlocks && entry.blocks?.length) {
+      await entry.save();
     }
     res.status(200).json(entry);
   } catch (error) {
@@ -1141,14 +1217,16 @@ app.post('/api/notebook/:id/append-highlight', authenticateToken, async (req, re
     const highlight = await findHighlightById(userId, highlightId);
     if (!highlight) return res.status(404).json({ error: "Highlight not found." });
 
-    const hasBlock = (entry.blocks || []).some(block =>
-      block.type === 'highlight-ref' && String(block.highlightId) === String(highlightId)
-    );
+    const hasBlock = (entry.blocks || []).some(block => {
+      const blockType = block.type || '';
+      return (blockType === 'highlight-ref' || blockType === 'highlight_embed')
+        && String(block.highlightId) === String(highlightId);
+    });
     if (!hasBlock) {
       entry.blocks = entry.blocks || [];
       entry.blocks.push({
         id: createBlockId(),
-        type: 'highlight-ref',
+        type: 'highlight_embed',
         text: highlight.text || '',
         highlightId
       });
@@ -1175,7 +1253,12 @@ app.put('/api/notebook/:id', authenticateToken, async (req, res) => {
     const updates = {};
     if (title !== undefined) updates.title = title.trim() || 'Untitled';
     if (content !== undefined) updates.content = content;
-    if (blocks !== undefined) updates.blocks = Array.isArray(blocks) ? blocks : [];
+    if (blocks !== undefined) {
+      updates.blocks = Array.isArray(blocks) ? blocks : [];
+    } else if (content !== undefined) {
+      const text = stripHtml(content || '');
+      updates.blocks = text ? [{ id: createBlockId(), type: 'paragraph', text }] : [];
+    }
     if (folder !== undefined) updates.folder = folder || null;
     if (tags !== undefined) updates.tags = Array.isArray(tags) ? tags : [];
     if (linkedArticleId !== undefined) updates.linkedArticleId = linkedArticleId || null;
