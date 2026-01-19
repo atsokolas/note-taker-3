@@ -60,6 +60,10 @@ const ThinkMode = () => {
   const [highlightConceptModal, setHighlightConceptModal] = useState({ open: false, highlight: null });
   const [highlightNotebookModal, setHighlightNotebookModal] = useState({ open: false, highlight: null });
   const [highlightQuestionModal, setHighlightQuestionModal] = useState({ open: false, highlight: null });
+  const [shareStatus, setShareStatus] = useState('');
+  const [shareError, setShareError] = useState('');
+  const [shareWorking, setShareWorking] = useState(false);
+  const [shareSlug, setShareSlug] = useState('');
 
   const [notebookEntries, setNotebookEntries] = useState([]);
   const [notebookActiveId, setNotebookActiveId] = useState('');
@@ -204,7 +208,10 @@ const ThinkMode = () => {
 
   React.useEffect(() => {
     setDescriptionDraft(concept?.description || '');
-  }, [concept?.description]);
+    setShareSlug(concept?.slug || '');
+    setShareStatus('');
+    setShareError('');
+  }, [concept?.description, concept?.slug, concept?.isPublic]);
 
   React.useEffect(() => {
     setHighlightOffset(0);
@@ -315,13 +322,59 @@ const ThinkMode = () => {
         description: descriptionDraft,
         pinnedHighlightIds,
         pinnedArticleIds,
-        pinnedNoteIds: concept.pinnedNoteIds || []
+        pinnedNoteIds: concept.pinnedNoteIds || [],
+        isPublic: concept.isPublic || false,
+        slug: concept.slug || ''
       });
       setConcept({ ...concept, description: updated.description || '' });
     } catch (err) {
       setConceptError(err.response?.data?.error || 'Failed to save description.');
     } finally {
       setSavingDescription(false);
+    }
+  };
+
+  const handleToggleSharing = async () => {
+    if (!concept) return;
+    setShareWorking(true);
+    setShareError('');
+    try {
+      const updated = await updateConcept(concept.name, {
+        description: concept.description || '',
+        pinnedHighlightIds: concept.pinnedHighlightIds || [],
+        pinnedArticleIds: concept.pinnedArticleIds || [],
+        pinnedNoteIds: concept.pinnedNoteIds || [],
+        isPublic: !concept.isPublic,
+        slug: shareSlug || concept.slug || ''
+      });
+      setConcept({ ...concept, ...updated });
+      setShareSlug(updated.slug || '');
+      setShareStatus(updated.isPublic ? 'Public link ready.' : 'Sharing disabled.');
+    } catch (err) {
+      setShareError(err.response?.data?.error || 'Failed to update sharing.');
+    } finally {
+      setShareWorking(false);
+    }
+  };
+
+  const handleExportConcept = async () => {
+    if (!concept?.name) return;
+    try {
+      const res = await api.get(`/api/export/concepts/${encodeURIComponent(concept.name)}`, {
+        ...getAuthHeaders(),
+        responseType: 'blob'
+      });
+      const blob = new Blob([res.data], { type: 'text/markdown' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${concept.name}.md`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      setConceptError(err.response?.data?.error || 'Failed to export concept.');
     }
   };
 
@@ -645,7 +698,23 @@ const ThinkMode = () => {
             <Button onClick={handleSaveDescription} disabled={savingDescription}>
               {savingDescription ? 'Saving…' : 'Save summary'}
             </Button>
+            <Button variant="secondary" onClick={handleExportConcept}>
+              Export markdown
+            </Button>
           </div>
+          <SectionHeader title="Sharing" subtitle="Publish a read-only concept page." />
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+            <Button variant="secondary" onClick={handleToggleSharing} disabled={shareWorking}>
+              {shareWorking ? 'Saving…' : (concept.isPublic ? 'Disable sharing' : 'Enable sharing')}
+            </Button>
+            {concept.isPublic && shareSlug && (
+              <span className="muted small">
+                Public link: {`${window.location.origin}/public/concepts/${shareSlug}`}
+              </span>
+            )}
+          </div>
+          {shareStatus && <p className="status-message">{shareStatus}</p>}
+          {shareError && <p className="status-message error-message">{shareError}</p>}
 
           <SectionHeader title="Pinned Highlights" subtitle="Anchor ideas." />
           <div style={{ display: 'flex', gap: 8 }}>

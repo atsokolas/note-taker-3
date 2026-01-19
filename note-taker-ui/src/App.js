@@ -26,6 +26,7 @@ import ThinkMode from './pages/ThinkMode';
 import ReviewMode from './pages/ReviewMode';
 import Settings from './pages/Settings';
 import HowToUse from './pages/HowToUse';
+import Integrations from './pages/Integrations';
 import CommandPalette from './components/CommandPalette';
 import OnboardingManager from './components/OnboardingManager';
 import { Page, Card } from './components/ui';
@@ -146,6 +147,7 @@ function App() {
           <Route path="/review" element={<ReviewMode />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/how-to-use" element={<HowToUse />} />
+          <Route path="/integrations" element={<Integrations />} />
 
           {/* Legacy/feature routes kept for compatibility */}
           <Route path="/brain" element={<Brain />} />

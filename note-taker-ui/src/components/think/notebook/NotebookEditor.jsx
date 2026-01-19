@@ -379,6 +379,30 @@ const NotebookEditor = ({ entry, saving, error, onSave, onDelete, onRegisterInse
     });
   };
 
+  const handleExport = async () => {
+    if (!entry?._id) return;
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`/api/export/notebook/${entry._id}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (!res.ok) {
+        throw new Error('Failed to export notebook entry.');
+      }
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${entry.title || 'notebook-entry'}.md`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   if (!entry) {
     return (
       <div className="think-notebook-editor think-notebook-editor--empty">
@@ -435,6 +459,7 @@ const NotebookEditor = ({ entry, saving, error, onSave, onDelete, onRegisterInse
               Question
             </QuietButton>
           </div>
+          <QuietButton onClick={handleExport}>Export</QuietButton>
           <QuietButton onClick={() => onDelete(entry)} disabled={saving}>Delete</QuietButton>
           <Button onClick={handleSave} disabled={saving}>{saving ? 'Saving…' : 'Save'}</Button>
         </div>

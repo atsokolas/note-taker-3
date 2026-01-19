@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import Export from './Export';
 import api from '../api';
 import { Page, Card, Button } from '../components/ui';
+import { Link } from 'react-router-dom';
 
 const getAuthConfig = () => {
   const token = localStorage.getItem('token');
@@ -22,7 +23,7 @@ const Settings = () => {
     try {
       const formData = new FormData();
       formData.append('file', file);
-      const res = await api.post('/api/import/readwise-csv', formData, getAuthConfig());
+      const res = await api.post('/api/import/readwise', formData, getAuthConfig());
       setImportStats({
         importedArticles: res.data.importedArticles || 0,
         importedHighlights: res.data.importedHighlights || 0,
@@ -90,6 +91,13 @@ const Settings = () => {
         >
           Restart Onboarding
         </Button>
+      </Card>
+      <Card className="settings-card">
+        <h2>Integrations</h2>
+        <p className="muted">Import Readwise, export markdown, and manage public sharing.</p>
+        <Link to="/integrations" className="ui-button ui-button-secondary">
+          Open Integrations
+        </Link>
       </Card>
       <Card className="settings-card">
         <h2>Import your data</h2>

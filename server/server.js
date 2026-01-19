@@ -200,10 +200,13 @@ const tagMetaSchema = new mongoose.Schema({
   pinnedHighlightIds: [{ type: mongoose.Schema.Types.ObjectId }],
   pinnedArticleIds: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Article' }],
   pinnedNoteIds: [{ type: mongoose.Schema.Types.ObjectId }],
+  isPublic: { type: Boolean, default: false },
+  slug: { type: String, default: '', trim: true },
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }
 }, { timestamps: true });
 
 tagMetaSchema.index({ name: 1, userId: 1 }, { unique: true });
+tagMetaSchema.index({ slug: 1 }, { unique: true, sparse: true });
 
 const TagMeta = mongoose.model('TagMeta', tagMetaSchema);
 
@@ -395,6 +398,83 @@ const stripHtml = (value = '') => (
     .replace(/\s+/g, ' ')
     .trim()
 );
+
+const buildNotebookMarkdown = (entry) => {
+  const title = entry?.title || 'Untitled';
+  const blocks = Array.isArray(entry?.blocks) && entry.blocks.length > 0
+    ? entry.blocks
+    : [{ type: 'paragraph', text: stripHtml(entry?.content || '') }];
+  const lines = [`# ${title}`, ''];
+  blocks.forEach((block) => {
+    const type = block.type || 'paragraph';
+    const text = String(block.text || '').trim();
+    if (type === 'heading') {
+      const level = Math.min(Math.max(block.level || 1, 1), 4);
+      lines.push(`${'#'.repeat(level)} ${text}`);
+      lines.push('');
+      return;
+    }
+    if (type === 'bullet') {
+      const indent = '  '.repeat(block.indent || 0);
+      lines.push(`${indent}- ${text}`);
+      return;
+    }
+    if (type === 'highlight_embed' || type === 'highlight-ref') {
+      if (text) {
+        lines.push(`> ${text}`);
+        lines.push('');
+      }
+      return;
+    }
+    if (type === 'article_ref' || type === 'article-ref') {
+      lines.push(`- Article: ${block.articleTitle || text || 'Untitled article'}`);
+      return;
+    }
+    if (type === 'concept_ref' || type === 'concept-ref') {
+      lines.push(`- Concept: ${block.conceptName || text || 'Concept'}`);
+      return;
+    }
+    if (type === 'question_ref' || type === 'question-ref') {
+      lines.push(`- Question: ${block.questionText || text || 'Question'}`);
+      return;
+    }
+    if (text) {
+      lines.push(text);
+      lines.push('');
+    }
+  });
+  return lines.join('\n').trim() + '\n';
+};
+
+const buildConceptMarkdown = ({ concept, related, questions }) => {
+  const lines = [`# ${concept?.name || 'Concept'}`, ''];
+  if (concept?.description) {
+    lines.push(concept.description);
+    lines.push('');
+  }
+  if (related?.highlights?.length) {
+    lines.push('## Highlights');
+    related.highlights.forEach(h => {
+      lines.push(`- ${h.text || 'Highlight'}${h.articleTitle ? ` — ${h.articleTitle}` : ''}`);
+    });
+    lines.push('');
+  }
+  if (related?.articles?.length) {
+    lines.push('## Source articles');
+    related.articles.forEach(article => {
+      lines.push(`- ${article.title || 'Untitled article'} (${article.highlightCount || 0} highlights)`);
+    });
+    lines.push('');
+  }
+  if (questions?.length) {
+    lines.push('## Questions');
+    questions.forEach(question => {
+      lines.push(`- ${question.text}`);
+    });
+    lines.push('');
+  }
+  return lines.join('\n').trim() + '\n';
+};
 
 const ensureNotebookBlocks = (entry, createId) => {
   if (!entry) return entry;
@@ -2961,8 +3041,7 @@ app.get('/api/today', authenticateToken, async (req, res) => {
   }
 });
 
-// POST /api/import/readwise-csv - import highlights from Readwise CSV export
-app.post('/api/import/readwise-csv', authenticateToken, upload.single('file'), async (req, res) => {
+const handleReadwiseImport = async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'CSV file is required.' });
@@ -3021,8 +3100,6 @@ app.post('/api/import/readwise-csv', authenticateToken, upload.single('file'), a
 
       const alreadyExists = (article.highlights || []).some(h => (
         h.text === highlightText
-        && (!note || h.note === note)
-        && (!createdAt || new Date(h.createdAt).getTime() === createdAt.getTime())
       ));
 
       if (alreadyExists) {
@@ -3056,7 +3133,12 @@ app.post('/api/import/readwise-csv', authenticateToken, upload.single('file'), a
     console.error('Readwise CSV import failed:', err);
     res.status(500).json({ error: 'Failed to import Readwise CSV.' });
   }
-});
+};
+
+// POST /api/import/readwise-csv - import highlights from Readwise CSV export
+app.post('/api/import/readwise-csv', authenticateToken, upload.single('file'), handleReadwiseImport);
+// POST /api/import/readwise - MVP Readwise CSV import
+app.post('/api/import/readwise', authenticateToken, upload.single('file'), handleReadwiseImport);
 
 // POST /api/import/markdown - import a markdown file as a notebook entry
 app.post('/api/import/markdown', authenticateToken, upload.single('file'), async (req, res) => {
@@ -3135,6 +3217,95 @@ app.post('/api/import/markdown', authenticateToken, upload.single('file'), async
   } catch (err) {
     console.error('Markdown import failed:', err);
     res.status(500).json({ error: 'Failed to import markdown file.' });
+  }
+});
+
+// GET /api/export/notebook/:id - export a notebook entry as markdown
+app.get('/api/export/notebook/:id', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { id } = req.params;
+    const entry = await NotebookEntry.findOne({ _id: id, userId });
+    if (!entry) {
+      return res.status(404).json({ error: 'Notebook entry not found.' });
+    }
+    ensureNotebookBlocks(entry, createBlockId);
+    const markdown = buildNotebookMarkdown(entry);
+    const fileName = `${slugify(entry.title || 'notebook-entry') || 'notebook-entry'}.md`;
+    res.setHeader('Content-Type', 'text/markdown; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+    res.status(200).send(markdown);
+  } catch (error) {
+    console.error('❌ Error exporting notebook entry:', error);
+    res.status(500).json({ error: 'Failed to export notebook entry.' });
+  }
+});
+
+// GET /api/export/concepts/:id - export a concept as markdown
+app.get('/api/export/concepts/:id', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { id } = req.params;
+    let concept = null;
+    if (mongoose.Types.ObjectId.isValid(id)) {
+      concept = await TagMeta.findOne({ _id: id, userId });
+    }
+    if (!concept) {
+      concept = await TagMeta.findOne({ userId, name: new RegExp(`^${id}$`, 'i') });
+    }
+    if (!concept) {
+      return res.status(404).json({ error: 'Concept not found.' });
+    }
+    const meta = await getConceptMeta(userId, concept.name);
+    const related = await getConceptRelated(userId, concept.name, { limit: 50, offset: 0 });
+    const questions = await Question.find({
+      userId,
+      $or: [
+        { conceptName: new RegExp(`^${concept.name}$`, 'i') },
+        { linkedTagName: new RegExp(`^${concept.name}$`, 'i') }
+      ]
+    }).select('text').lean();
+    const markdown = buildConceptMarkdown({ concept: meta, related, questions });
+    const fileName = `${slugify(meta.name || 'concept') || 'concept'}.md`;
+    res.setHeader('Content-Type', 'text/markdown; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+    res.status(200).send(markdown);
+  } catch (error) {
+    console.error('❌ Error exporting concept:', error);
+    res.status(500).json({ error: 'Failed to export concept.' });
+  }
+});
+
+// GET /public/concepts/:slug - public concept view (no auth)
+app.get('/public/concepts/:slug', async (req, res) => {
+  try {
+    const { slug } = req.params;
+    const concept = await TagMeta.findOne({ slug, isPublic: true }).lean();
+    if (!concept) {
+      return res.status(404).json({ error: 'Public concept not found.' });
+    }
+    const userId = concept.userId;
+    const related = await getConceptRelated(userId, concept.name, { limit: 50, offset: 0 });
+    const questions = await Question.find({
+      userId,
+      $or: [
+        { conceptName: new RegExp(`^${concept.name}$`, 'i') },
+        { linkedTagName: new RegExp(`^${concept.name}$`, 'i') }
+      ]
+    }).select('text status updatedAt').lean();
+    res.status(200).json({
+      concept: {
+        name: concept.name,
+        description: concept.description || '',
+        slug: concept.slug
+      },
+      highlights: related.highlights || [],
+      articles: related.articles || [],
+      questions: questions || []
+    });
+  } catch (error) {
+    console.error('❌ Error loading public concept:', error);
+    res.status(500).json({ error: 'Failed to load public concept.' });
   }
 });
 

@@ -19,7 +19,9 @@ const buildConceptService = ({ Article, TagMeta, NotebookEntry, ReferenceEdge, m
         count: row.count,
         description: found?.description || '',
         pinnedHighlightIds: found?.pinnedHighlightIds || [],
-        pinnedNoteIds: found?.pinnedNoteIds || []
+        pinnedNoteIds: found?.pinnedNoteIds || [],
+        isPublic: found?.isPublic || false,
+        slug: found?.slug || ''
       };
     });
   };
@@ -80,6 +82,8 @@ const buildConceptService = ({ Article, TagMeta, NotebookEntry, ReferenceEdge, m
     return {
       name: cleanName,
       description: meta?.description || '',
+      isPublic: meta?.isPublic || false,
+      slug: meta?.slug || '',
       pinnedHighlightIds,
       pinnedArticleIds,
       pinnedNoteIds,
@@ -91,12 +95,40 @@ const buildConceptService = ({ Article, TagMeta, NotebookEntry, ReferenceEdge, m
     };
   };
 
+  const slugify = (value) => (
+    String(value || '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/(^-|-$)/g, '')
+  );
+
+  const getUniqueSlug = async (base, currentId) => {
+    const root = slugify(base) || 'concept';
+    let candidate = root;
+    let counter = 2;
+    while (await TagMeta.exists({ slug: candidate, _id: { $ne: currentId } })) {
+      candidate = `${root}-${counter}`;
+      counter += 1;
+    }
+    return candidate;
+  };
+
   const updateConceptMeta = async (userId, name, payload) => {
     const cleanName = normalizeName(name);
+    const userObjectId = new mongoose.Types.ObjectId(userId);
+    const existing = await TagMeta.findOne({ name: new RegExp(`^${cleanName}$`, 'i'), userId: userObjectId });
     const { description = '', pinnedHighlightIds = [], pinnedArticleIds = [], pinnedNoteIds = [] } = payload;
+    const isPublic = payload.isPublic !== undefined ? Boolean(payload.isPublic) : existing?.isPublic || false;
+    let slug = payload.slug !== undefined ? slugify(payload.slug) : (existing?.slug || '');
+    if (isPublic && !slug) {
+      slug = await getUniqueSlug(cleanName, existing?._id);
+    }
+    if (slug) {
+      slug = await getUniqueSlug(slug, existing?._id);
+    }
     const updated = await TagMeta.findOneAndUpdate(
-      { name: new RegExp(`^${cleanName}$`, 'i'), userId: new mongoose.Types.ObjectId(userId) },
-      { name: cleanName, description, pinnedHighlightIds, pinnedArticleIds, pinnedNoteIds },
+      { name: new RegExp(`^${cleanName}$`, 'i'), userId: userObjectId },
+      { name: cleanName, description, pinnedHighlightIds, pinnedArticleIds, pinnedNoteIds, isPublic, slug },
       { new: true, upsert: true, setDefaultsOnInsert: true }
     );
     return updated;
