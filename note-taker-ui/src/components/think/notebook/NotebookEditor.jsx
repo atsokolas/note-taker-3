@@ -409,12 +409,31 @@ const NotebookEditor = ({ entry, saving, error, onSave, onDelete, onRegisterInse
             </Button>
           )}
           <div className="notebook-insert-group">
-            <Button variant="secondary" onClick={() => setInsertMode('highlight')}>
-              Insert highlight
-            </Button>
-            <QuietButton onClick={() => setInsertMode('article')}>Article</QuietButton>
-            <QuietButton onClick={() => setInsertMode('concept')}>Concept</QuietButton>
-            <QuietButton onClick={() => setInsertMode('question')}>Question</QuietButton>
+            <span className="notebook-insert-label">Insert</span>
+            <QuietButton
+              className={insertMode === 'highlight' ? 'is-active' : ''}
+              onClick={() => setInsertMode('highlight')}
+            >
+              Highlight
+            </QuietButton>
+            <QuietButton
+              className={insertMode === 'article' ? 'is-active' : ''}
+              onClick={() => setInsertMode('article')}
+            >
+              Article
+            </QuietButton>
+            <QuietButton
+              className={insertMode === 'concept' ? 'is-active' : ''}
+              onClick={() => setInsertMode('concept')}
+            >
+              Concept
+            </QuietButton>
+            <QuietButton
+              className={insertMode === 'question' ? 'is-active' : ''}
+              onClick={() => setInsertMode('question')}
+            >
+              Question
+            </QuietButton>
           </div>
           <QuietButton onClick={() => onDelete(entry)} disabled={saving}>Delete</QuietButton>
           <Button onClick={handleSave} disabled={saving}>{saving ? 'Saving…' : 'Save'}</Button>

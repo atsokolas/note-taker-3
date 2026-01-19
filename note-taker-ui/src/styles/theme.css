@@ -1947,6 +1947,25 @@ p {
   align-items: center;
 }
 
+.notebook-insert-label {
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  margin-right: 2px;
+}
+
+.notebook-insert-group .quiet-button {
+  border: 1px solid var(--border-subtle);
+  border-radius: 999px;
+  padding: 6px 12px;
+}
+
+.notebook-insert-group .quiet-button.is-active {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
 .modal-highlight-list {
   max-height: 360px;
   overflow-y: auto;
