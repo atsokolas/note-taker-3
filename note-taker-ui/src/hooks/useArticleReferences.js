@@ -22,7 +22,7 @@ const useArticleReferences = (articleId, options = {}) => {
     setLoading(true);
     setError('');
     try {
-      const res = await api.get(`/api/references/for-article/${articleId}`, getAuthHeaders());
+      const res = await api.get(`/api/articles/${articleId}/backlinks`, getAuthHeaders());
       setReferences(res.data || { notebookBlocks: [], collections: [] });
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to load references.');

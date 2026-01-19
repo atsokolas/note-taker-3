@@ -4,7 +4,7 @@ import { PageTitle, SectionHeader, QuietButton, Button, TagChip } from '../compo
 import useConcepts from '../hooks/useConcepts';
 import useConcept from '../hooks/useConcept';
 import useConceptRelated from '../hooks/useConceptRelated';
-import useConceptReferences from '../hooks/useConceptReferences';
+import ReferencesPanel from '../components/ReferencesPanel';
 import { updateConcept, updateConceptPins } from '../api/concepts';
 import NotebookList from '../components/think/notebook/NotebookList';
 import NotebookEditor from '../components/think/notebook/NotebookEditor';
@@ -83,9 +83,6 @@ const ThinkMode = () => {
     enabled: activeView === 'concepts' && Boolean(selectedName),
     limit: 20,
     offset: highlightOffset
-  });
-  const { references, loading: refLoading, error: refError } = useConceptReferences(selectedName, {
-    enabled: activeView === 'concepts' && Boolean(selectedName)
   });
   const {
     questions: conceptQuestions,
@@ -895,6 +892,12 @@ const ThinkMode = () => {
           ) : (
             <p className="muted small">No highlights embedded yet.</p>
           )}
+          {activeQuestion?._id && (
+            <div>
+              <SectionHeader title="Used in" subtitle="Backlinks to this question." />
+              <ReferencesPanel targetType="question" targetId={activeQuestion._id} label="Show backlinks" />
+            </div>
+          )}
         </div>
       )}
 
@@ -924,24 +927,10 @@ const ThinkMode = () => {
           ) : (
             <p className="muted small">No correlations yet.</p>
           )}
-          <SectionHeader title="Used in" subtitle="References and collections." />
-          {refLoading && <p className="muted small">Loading references…</p>}
-          {refError && <p className="status-message error-message">{refError}</p>}
-          {!refLoading && !refError && (
-            <div className="concept-used-list">
-              {references.notebookBlocks.length === 0 ? (
-                <p className="muted small">No references yet.</p>
-              ) : (
-                references.notebookBlocks.slice(0, 6).map((block, idx) => (
-                  <Link
-                    key={`${block.notebookEntryId}-${block.blockId}-${idx}`}
-                    to={`/notebook?entryId=${block.notebookEntryId}`}
-                    className="concept-used-link"
-                  >
-                    {block.notebookTitle || 'Untitled note'}
-                  </Link>
-                ))
-              )}
+          {concept?.name && (
+            <div>
+              <SectionHeader title="Used in" subtitle="Backlinks to this concept." />
+              <ReferencesPanel targetType="concept" tagName={concept.name} label="Show backlinks" />
             </div>
           )}
         </div>

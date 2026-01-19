@@ -8,9 +8,10 @@ const getAuthConfig = () => ({
 });
 
 const endpointFor = ({ targetType, targetId, tagName }) => {
-  if (targetType === 'highlight') return `/api/references/for-highlight/${targetId}`;
-  if (targetType === 'article') return `/api/references/for-article/${targetId}`;
-  if (targetType === 'concept') return `/api/references/for-concept/${encodeURIComponent(tagName || '')}`;
+  if (targetType === 'highlight') return `/api/highlights/${targetId}/backlinks`;
+  if (targetType === 'article') return `/api/articles/${targetId}/backlinks`;
+  if (targetType === 'concept') return `/api/concepts/${encodeURIComponent(tagName || '')}/backlinks`;
+  if (targetType === 'question') return `/api/questions/${targetId}/backlinks`;
   if (targetType === 'notebook') return `/api/references/for-notebook/${targetId}`;
   return null;
 };
@@ -49,7 +50,24 @@ const ReferencesPanel = ({ targetType, targetId, tagName, label = 'Used in' }) =
     const params = new URLSearchParams();
     params.set('entryId', entryId);
     if (blockId) params.set('blockId', blockId);
-    navigate(`/notebook?${params.toString()}`);
+    params.set('view', 'notebook');
+    navigate(`/think?${params.toString()}`);
+  };
+
+  const handleConceptClick = (name) => {
+    if (!name) return;
+    const params = new URLSearchParams();
+    params.set('view', 'concepts');
+    params.set('concept', name);
+    navigate(`/think?${params.toString()}`);
+  };
+
+  const handleQuestionClick = (questionId) => {
+    if (!questionId) return;
+    const params = new URLSearchParams();
+    params.set('view', 'questions');
+    params.set('questionId', questionId);
+    navigate(`/think?${params.toString()}`);
   };
 
   const renderNotebookBlocks = () => {
@@ -87,8 +105,60 @@ const ReferencesPanel = ({ targetType, targetId, tagName, label = 'Used in' }) =
           {!loading && !error && (
             <>
               {renderNotebookBlocks()}
+              {data?.concepts && data.concepts.length > 0 && (
+                <div style={{ marginTop: 12 }}>
+                  <p className="muted-label">Concepts</p>
+                  <div className="section-stack">
+                    {data.concepts.map((concept) => (
+                      <button
+                        key={concept._id || concept.name}
+                        className="search-card"
+                        onClick={() => handleConceptClick(concept.name)}
+                      >
+                        <div className="search-card-top">
+                          <span className="article-title-link">{concept.name}</span>
+                          {concept.updatedAt && (
+                            <span className="muted small">
+                              {new Date(concept.updatedAt).toLocaleDateString()}
+                            </span>
+                          )}
+                        </div>
+                        {concept.description && <p className="muted small">{concept.description}</p>}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {data?.questions && data.questions.length > 0 && (
+                <div style={{ marginTop: 12 }}>
+                  <p className="muted-label">Questions</p>
+                  <div className="section-stack">
+                    {data.questions.map((question) => (
+                      <button
+                        key={question._id}
+                        className="search-card"
+                        onClick={() => handleQuestionClick(question._id)}
+                      >
+                        <div className="search-card-top">
+                          <span className="article-title-link">{question.text}</span>
+                          {question.updatedAt && (
+                            <span className="muted small">
+                              {new Date(question.updatedAt).toLocaleDateString()}
+                            </span>
+                          )}
+                        </div>
+                        {(question.conceptName || question.linkedTagName) && (
+                          <p className="muted small">
+                            {question.conceptName || question.linkedTagName}
+                          </p>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
               {data?.collections && data.collections.length > 0 && (
-                <div style={{ marginTop: 8 }}>
+                <div style={{ marginTop: 12 }}>
                   <p className="muted-label">Collections</p>
                   {data.collections.map((c) => (
                     <Link key={c._id} to={`/collections/${c.slug}`} className="article-title-link">
