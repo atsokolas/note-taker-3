@@ -1633,12 +1633,6 @@ app.get('/api/highlights', authenticateToken, async (req, res) => {
   }
 });
 
-const stripHtml = (input = '') =>
-  String(input || '')
-    .replace(/<[^>]*>/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-
 const buildSnippet = (text = '', limit = 180) => {
   const clean = stripHtml(text || '');
   if (!clean) return '';
