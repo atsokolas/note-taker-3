@@ -242,7 +242,7 @@ const QuestionRefNode = createReferenceNode({
   buildHref: (attrs) => (attrs.questionId ? `/think?tab=questions&questionId=${attrs.questionId}` : '')
 });
 
-const NotebookEditor = ({ entry, saving, error, onSave, onDelete, onRegisterInsert, onCreate }) => {
+const NotebookEditor = ({ entry, saving, error, onSave, onDelete, onRegisterInsert, onCreate, onSynthesize }) => {
   const [titleDraft, setTitleDraft] = useState(entry?.title || '');
   const [insertMode, setInsertMode] = useState('');
   const { highlights, highlightMap, loading: highlightsLoading, error: highlightsError } = useHighlights();
@@ -433,33 +433,41 @@ const NotebookEditor = ({ entry, saving, error, onSave, onDelete, onRegisterInse
             </Button>
           )}
           <div className="notebook-insert-group">
-            <span className="notebook-insert-label">Insert</span>
-            <QuietButton
-              className={insertMode === 'highlight' ? 'is-active' : ''}
-              onClick={() => setInsertMode('highlight')}
-            >
-              Highlight
-            </QuietButton>
-            <QuietButton
-              className={insertMode === 'article' ? 'is-active' : ''}
-              onClick={() => setInsertMode('article')}
-            >
-              Article
-            </QuietButton>
-            <QuietButton
-              className={insertMode === 'concept' ? 'is-active' : ''}
-              onClick={() => setInsertMode('concept')}
-            >
-              Concept
-            </QuietButton>
-            <QuietButton
-              className={insertMode === 'question' ? 'is-active' : ''}
-              onClick={() => setInsertMode('question')}
-            >
-              Question
-            </QuietButton>
+            <div className="notebook-insert-labels">
+              <span className="notebook-insert-label">Insert blocks</span>
+              <span className="notebook-insert-hint">Highlights / Articles / Concepts / Questions</span>
+            </div>
+            <div className="notebook-insert-buttons">
+              <QuietButton
+                className={insertMode === 'highlight' ? 'is-active' : ''}
+                onClick={() => setInsertMode('highlight')}
+              >
+                Highlight
+              </QuietButton>
+              <QuietButton
+                className={insertMode === 'article' ? 'is-active' : ''}
+                onClick={() => setInsertMode('article')}
+              >
+                Article
+              </QuietButton>
+              <QuietButton
+                className={insertMode === 'concept' ? 'is-active' : ''}
+                onClick={() => setInsertMode('concept')}
+              >
+                Concept
+              </QuietButton>
+              <QuietButton
+                className={insertMode === 'question' ? 'is-active' : ''}
+                onClick={() => setInsertMode('question')}
+              >
+                Question
+              </QuietButton>
+            </div>
           </div>
           <QuietButton onClick={handleExport}>Export</QuietButton>
+          {onSynthesize && (
+            <QuietButton onClick={() => onSynthesize(entry)}>Synthesize</QuietButton>
+          )}
           <QuietButton onClick={() => onDelete(entry)} disabled={saving}>Delete</QuietButton>
           <Button onClick={handleSave} disabled={saving}>{saving ? 'Saving…' : 'Save'}</Button>
         </div>

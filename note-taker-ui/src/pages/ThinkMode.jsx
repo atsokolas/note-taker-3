@@ -24,11 +24,12 @@ import { getAuthHeaders } from '../hooks/useAuthHeaders';
 import LibraryConceptModal from '../components/library/LibraryConceptModal';
 import LibraryNotebookModal from '../components/library/LibraryNotebookModal';
 import LibraryQuestionModal from '../components/library/LibraryQuestionModal';
+import SynthesisModal from '../components/think/SynthesisModal';
 
 const ThinkMode = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const queryConcept = searchParams.get('concept') || '';
-  const allowedViews = useMemo(() => ['notebook', 'concepts', 'questions'], []);
+  const allowedViews = useMemo(() => ['notebook', 'concepts', 'questions', 'insights'], []);
   const resolveActiveView = (params) => {
     const rawView = params.get('tab') || '';
     if (allowedViews.includes(rawView)) return rawView;
@@ -64,6 +65,28 @@ const ThinkMode = () => {
   const [shareError, setShareError] = useState('');
   const [shareWorking, setShareWorking] = useState(false);
   const [shareSlug, setShareSlug] = useState('');
+  const [conceptRelated, setConceptRelated] = useState({ highlights: [], concepts: [] });
+  const [conceptRelatedLoading, setConceptRelatedLoading] = useState(false);
+  const [conceptRelatedError, setConceptRelatedError] = useState('');
+  const [conceptSuggestions, setConceptSuggestions] = useState([]);
+  const [conceptSuggestionsLoading, setConceptSuggestionsLoading] = useState(false);
+  const [conceptSuggestionsError, setConceptSuggestionsError] = useState('');
+  const [insightsTab, setInsightsTab] = useState('themes');
+  const [themesRange, setThemesRange] = useState('7d');
+  const [themes, setThemes] = useState([]);
+  const [themesLoading, setThemesLoading] = useState(false);
+  const [themesError, setThemesError] = useState('');
+  const [connections, setConnections] = useState([]);
+  const [connectionsLoading, setConnectionsLoading] = useState(false);
+  const [connectionsError, setConnectionsError] = useState('');
+  const [synthesisOpen, setSynthesisOpen] = useState(false);
+  const [synthesisLoading, setSynthesisLoading] = useState(false);
+  const [synthesisError, setSynthesisError] = useState('');
+  const [synthesisData, setSynthesisData] = useState(null);
+  const [synthesisScope, setSynthesisScope] = useState({ type: '', id: '' });
+  const [questionRelated, setQuestionRelated] = useState({ highlights: [], concepts: [] });
+  const [questionRelatedLoading, setQuestionRelatedLoading] = useState(false);
+  const [questionRelatedError, setQuestionRelatedError] = useState('');
 
   const [notebookEntries, setNotebookEntries] = useState([]);
   const [notebookActiveId, setNotebookActiveId] = useState('');
@@ -147,6 +170,156 @@ const ThinkMode = () => {
     if (activeView !== 'questions') return;
     setActiveQuestion(activeQuestionData);
   }, [activeView, activeQuestionData]);
+
+  useEffect(() => {
+    if (activeView !== 'concepts' || !concept?._id) {
+      setConceptRelated({ highlights: [], concepts: [] });
+      setConceptRelatedLoading(false);
+      setConceptRelatedError('');
+      return;
+    }
+    let cancelled = false;
+    const fetchRelated = async () => {
+      setConceptRelatedLoading(true);
+      setConceptRelatedError('');
+      try {
+        const res = await api.get(`/api/concepts/${concept._id}/related`, getAuthHeaders());
+        if (cancelled) return;
+        const items = res.data?.results || [];
+        setConceptRelated({
+          highlights: items.filter(item => item.objectType === 'highlight'),
+          concepts: items.filter(item => item.objectType === 'concept')
+        });
+      } catch (err) {
+        if (!cancelled) {
+          setConceptRelatedError(err.response?.data?.error || 'Failed to load related items.');
+        }
+      } finally {
+        if (!cancelled) setConceptRelatedLoading(false);
+      }
+    };
+    fetchRelated();
+    return () => {
+      cancelled = true;
+    };
+  }, [activeView, concept?._id]);
+
+  useEffect(() => {
+    if (activeView !== 'insights' || insightsTab !== 'themes') {
+      return;
+    }
+    let cancelled = false;
+    const fetchThemes = async () => {
+      setThemesLoading(true);
+      setThemesError('');
+      try {
+        const res = await api.get(`/api/ai/themes?range=${encodeURIComponent(themesRange)}`, getAuthHeaders());
+        if (!cancelled) {
+          setThemes(res.data?.clusters || []);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setThemesError(err.response?.data?.error || 'Failed to load themes.');
+        }
+      } finally {
+        if (!cancelled) setThemesLoading(false);
+      }
+    };
+    fetchThemes();
+    return () => {
+      cancelled = true;
+    };
+  }, [activeView, insightsTab, themesRange]);
+
+  useEffect(() => {
+    if (activeView !== 'insights' || insightsTab !== 'connections') {
+      return;
+    }
+    let cancelled = false;
+    const fetchConnections = async () => {
+      setConnectionsLoading(true);
+      setConnectionsError('');
+      try {
+        const res = await api.get('/api/ai/connections?limit=20', getAuthHeaders());
+        if (!cancelled) {
+          setConnections(res.data?.pairs || []);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setConnectionsError(err.response?.data?.error || 'Failed to load connections.');
+        }
+      } finally {
+        if (!cancelled) setConnectionsLoading(false);
+      }
+    };
+    fetchConnections();
+    return () => {
+      cancelled = true;
+    };
+  }, [activeView, insightsTab]);
+
+  useEffect(() => {
+    if (activeView !== 'concepts' || !concept?._id) {
+      setConceptSuggestions([]);
+      setConceptSuggestionsLoading(false);
+      setConceptSuggestionsError('');
+      return;
+    }
+    let cancelled = false;
+    const fetchSuggestions = async () => {
+      setConceptSuggestionsLoading(true);
+      setConceptSuggestionsError('');
+      try {
+        const res = await api.get(`/api/concepts/${concept._id}/suggestions?limit=12`, getAuthHeaders());
+        if (!cancelled) {
+          setConceptSuggestions(res.data?.results || []);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setConceptSuggestionsError(err.response?.data?.error || 'Failed to load suggestions.');
+        }
+      } finally {
+        if (!cancelled) setConceptSuggestionsLoading(false);
+      }
+    };
+    fetchSuggestions();
+    return () => {
+      cancelled = true;
+    };
+  }, [activeView, concept?._id]);
+
+  useEffect(() => {
+    if (activeView !== 'questions' || !activeQuestion?._id) {
+      setQuestionRelated({ highlights: [], concepts: [] });
+      setQuestionRelatedLoading(false);
+      setQuestionRelatedError('');
+      return;
+    }
+    let cancelled = false;
+    const fetchRelated = async () => {
+      setQuestionRelatedLoading(true);
+      setQuestionRelatedError('');
+      try {
+        const res = await api.get(`/api/questions/${activeQuestion._id}/related`, getAuthHeaders());
+        if (cancelled) return;
+        const items = res.data?.results || [];
+        setQuestionRelated({
+          highlights: items.filter(item => item.objectType === 'highlight'),
+          concepts: items.filter(item => item.objectType === 'concept')
+        });
+      } catch (err) {
+        if (!cancelled) {
+          setQuestionRelatedError(err.response?.data?.error || 'Failed to load related items.');
+        }
+      } finally {
+        if (!cancelled) setQuestionRelatedLoading(false);
+      }
+    };
+    fetchRelated();
+    return () => {
+      cancelled = true;
+    };
+  }, [activeView, activeQuestion?._id]);
 
   const loadNotebookEntries = useCallback(async () => {
     setNotebookLoadingList(true);
@@ -502,6 +675,99 @@ const ThinkMode = () => {
     }
   };
 
+  const handleAddRelatedHighlight = async (highlightId) => {
+    if (!concept || !highlightId) return;
+    if (pinnedHighlightIds.some(id => String(id) === String(highlightId))) return;
+    try {
+      await updateConceptPins(concept.name, { addHighlightIds: [highlightId] });
+      setConceptSuggestions(prev => prev.filter(item => String(item.objectId) !== String(highlightId)));
+      refresh();
+    } catch (err) {
+      setConceptError(err.response?.data?.error || 'Failed to add highlight.');
+    }
+  };
+
+  const handleDismissSuggestion = async (highlightId) => {
+    if (!concept || !highlightId) return;
+    try {
+      await api.post(`/api/concepts/${concept._id}/suggestions/dismiss`, { highlightId }, getAuthHeaders());
+      setConceptSuggestions(prev => prev.filter(item => String(item.objectId) !== String(highlightId)));
+    } catch (err) {
+      setConceptSuggestionsError(err.response?.data?.error || 'Failed to dismiss suggestion.');
+    }
+  };
+
+  const openSynthesis = async (scopeType, scopeId) => {
+    if (!scopeId || !scopeType) return;
+    setSynthesisOpen(true);
+    setSynthesisLoading(true);
+    setSynthesisError('');
+    setSynthesisScope({ type: scopeType, id: scopeId });
+    try {
+      const res = await api.post('/api/ai/synthesize', {
+        scopeType,
+        scopeId
+      }, getAuthHeaders());
+      setSynthesisData(res.data || {});
+    } catch (err) {
+      setSynthesisError(err.response?.data?.error || 'Failed to synthesize.');
+    } finally {
+      setSynthesisLoading(false);
+    }
+  };
+
+  const handleAddThemeConcept = async (title) => {
+    if (!title) return;
+    try {
+      await updateConcept(title, { description: '' });
+    } catch (err) {
+      setConceptError(err.response?.data?.error || 'Failed to add concept.');
+    }
+  };
+
+  const handleAddSynthesisQuestion = async (text) => {
+    if (!text) return;
+    try {
+      await createQuestion({
+        text,
+        conceptName: activeView === 'concepts' ? selectedName : '',
+        blocks: [{ id: createBlockId(), type: 'paragraph', text }]
+      });
+    } catch (err) {
+      setQuestionError(err.response?.data?.error || 'Failed to add question.');
+    }
+  };
+
+  const handleLinkSuggested = async (item) => {
+    if (!item || item.objectType !== 'highlight') return;
+    try {
+      if (synthesisScope.type === 'concept') {
+        await updateConceptPins(selectedName, { addHighlightIds: [item.objectId] });
+        refresh();
+      } else if (synthesisScope.type === 'question' && activeQuestion?._id) {
+        await api.post(`/api/questions/${activeQuestion._id}/add-highlight`, { highlightId: item.objectId }, getAuthHeaders());
+      } else if (synthesisScope.type === 'notebook' && activeNotebookEntry?._id) {
+        await api.post(`/api/notebook/${activeNotebookEntry._id}/append-highlight`, { highlightId: item.objectId }, getAuthHeaders());
+      }
+      setSynthesisData(prev => prev ? {
+        ...prev,
+        suggestedLinks: (prev.suggestedLinks || []).filter(link => String(link.objectId) !== String(item.objectId))
+      } : prev);
+    } catch (err) {
+      setSynthesisError(err.response?.data?.error || 'Failed to link highlight.');
+    }
+  };
+
+  const handleAttachRelatedHighlight = async (highlightId) => {
+    if (!activeQuestion || !highlightId) return;
+    try {
+      await api.post(`/api/questions/${activeQuestion._id}/add-highlight`, { highlightId }, getAuthHeaders());
+      setActiveQuestion(prev => prev ? { ...prev, linkedHighlightIds: [...(prev.linkedHighlightIds || []), highlightId] } : prev);
+    } catch (err) {
+      setQuestionError(err.response?.data?.error || 'Failed to attach highlight.');
+    }
+  };
+
   const handleMarkAnswered = async (question) => {
     try {
       await updateQuestion(question._id, { status: 'answered' });
@@ -657,6 +923,7 @@ const ThinkMode = () => {
           onDelete={handleDeleteNotebookEntry}
           onCreate={handleCreateNotebookEntry}
           onRegisterInsert={(fn) => { notebookInsertRef.current = fn; }}
+          onSynthesize={(entry) => openSynthesis('notebook', entry?._id)}
         />
       )}
     </div>
@@ -668,12 +935,17 @@ const ThinkMode = () => {
         error={questionError}
         onSave={handleSaveQuestion}
         onRegisterInsert={(fn) => { questionInsertRef.current = fn; }}
+        onSynthesize={(question) => openSynthesis('question', question?._id)}
       />
       {activeQuestionData && questionStatus === 'open' && (
         <div className="think-question-actions">
           <QuietButton onClick={() => handleMarkAnswered(activeQuestionData)}>Mark answered</QuietButton>
         </div>
       )}
+    </div>
+  ) : activeView === 'insights' ? (
+    <div className="section-stack">
+      {insightsPanel}
     </div>
   ) : (
     <div className="section-stack">
@@ -697,6 +969,9 @@ const ThinkMode = () => {
           <div style={{ display: 'flex', gap: 8 }}>
             <Button onClick={handleSaveDescription} disabled={savingDescription}>
               {savingDescription ? 'Saving…' : 'Save summary'}
+            </Button>
+            <Button variant="secondary" onClick={() => openSynthesis('concept', concept._id)}>
+              Synthesize
             </Button>
             <Button variant="secondary" onClick={handleExportConcept}>
               Export markdown
@@ -737,6 +1012,40 @@ const ThinkMode = () => {
               </div>
             ))}
           </div>
+
+          <SectionHeader title="Suggested highlights" subtitle="AI recommendations you can approve." />
+          {conceptSuggestionsLoading && <p className="muted small">Finding suggestions…</p>}
+          {conceptSuggestionsError && <p className="status-message error-message">{conceptSuggestionsError}</p>}
+          {!conceptSuggestionsLoading && !conceptSuggestionsError && (
+            <div className="concept-highlight-grid">
+              {conceptSuggestions.length === 0 ? (
+                <p className="muted small">No suggestions yet.</p>
+              ) : (
+                conceptSuggestions.slice(0, 8).map(item => (
+                  <div key={item.objectId} className="concept-highlight-card">
+                    <HighlightCard
+                      highlight={{
+                        _id: item.objectId,
+                        text: item.title,
+                        tags: item.metadata?.tags || [],
+                        articleId: item.metadata?.articleId,
+                        articleTitle: item.metadata?.articleTitle || '',
+                        createdAt: item.metadata?.createdAt
+                      }}
+                      compact
+                      onAddNotebook={(highlight) => setHighlightNotebookModal({ open: true, highlight })}
+                      onAddConcept={(highlight) => setHighlightConceptModal({ open: true, highlight })}
+                      onAddQuestion={(highlight) => setHighlightQuestionModal({ open: true, highlight })}
+                    />
+                    <div className="concept-suggestion-actions">
+                      <QuietButton onClick={() => handleAddRelatedHighlight(item.objectId)}>Add to concept</QuietButton>
+                      <QuietButton onClick={() => handleDismissSuggestion(item.objectId)}>Dismiss</QuietButton>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
 
           <SectionHeader title="Recent Highlights" subtitle="Newest signals." />
           <div className="concept-highlight-grid">
@@ -875,7 +1184,132 @@ const ThinkMode = () => {
     }
   };
 
-  const rightPanel = (
+  const insightsPanel = (
+    <div className="section-stack">
+      <SectionHeader title="Insights" subtitle="Themes and connections across your thinking." />
+      <div className="library-highlight-filters">
+        <button
+          type="button"
+          className={`ui-quiet-button ${insightsTab === 'themes' ? 'is-active' : ''}`}
+          onClick={() => setInsightsTab('themes')}
+        >
+          Themes
+        </button>
+        <button
+          type="button"
+          className={`ui-quiet-button ${insightsTab === 'connections' ? 'is-active' : ''}`}
+          onClick={() => setInsightsTab('connections')}
+        >
+          Connections
+        </button>
+      </div>
+
+      {insightsTab === 'themes' && (
+        <>
+          <div className="library-highlight-filters">
+            <select value={themesRange} onChange={(event) => setThemesRange(event.target.value)}>
+              <option value="7d">Last 7 days</option>
+              <option value="30d">Last 30 days</option>
+              <option value="90d">Last 90 days</option>
+            </select>
+          </div>
+          {themesLoading && <p className="muted small">Finding themes…</p>}
+          {themesError && <p className="status-message error-message">{themesError}</p>}
+          {!themesLoading && !themesError && (
+            <div className="related-embed-list">
+              {themes.length === 0 ? (
+                <p className="muted small">No themes yet.</p>
+              ) : (
+                themes.map((cluster, idx) => (
+                  <div key={`${cluster.title}-${idx}`} className="concept-highlight-card">
+                    <div className="related-embed-title">{cluster.title || 'Theme'}</div>
+                    {cluster.topTags?.length > 0 && (
+                      <div className="concept-related-tags" style={{ marginTop: 6 }}>
+                        {cluster.topTags.slice(0, 4).map(tag => (
+                          <TagChip key={`${cluster.title}-${tag}`} to={`/tags/${encodeURIComponent(tag)}`}>
+                            {tag}
+                          </TagChip>
+                        ))}
+                      </div>
+                    )}
+                    <div className="concept-note-grid" style={{ marginTop: 10 }}>
+                      {(cluster.representativeHighlights || []).map(highlight => (
+                        <HighlightCard
+                          key={highlight.id}
+                          highlight={{
+                            _id: highlight.id,
+                            text: highlight.text,
+                            tags: highlight.tags || [],
+                            articleId: highlight.articleId,
+                            articleTitle: highlight.articleTitle || ''
+                          }}
+                          compact
+                          onAddNotebook={(item) => setHighlightNotebookModal({ open: true, highlight: item })}
+                          onAddConcept={(item) => setHighlightConceptModal({ open: true, highlight: item })}
+                          onAddQuestion={(item) => setHighlightQuestionModal({ open: true, highlight: item })}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+        </>
+      )}
+
+      {insightsTab === 'connections' && (
+        <>
+          {connectionsLoading && <p className="muted small">Mapping connections…</p>}
+          {connectionsError && <p className="status-message error-message">{connectionsError}</p>}
+          {!connectionsLoading && !connectionsError && (
+            <div className="related-embed-list">
+              {connections.length === 0 ? (
+                <p className="muted small">No connections yet.</p>
+              ) : (
+                connections.map((pair, idx) => (
+                  <div key={`${pair.conceptA?.id}-${pair.conceptB?.id}-${idx}`} className="concept-highlight-card">
+                    <div className="related-embed-title">
+                      {pair.conceptA?.name || 'Concept'} ↔ {pair.conceptB?.name || 'Concept'}
+                    </div>
+                    {pair.sharedSuggestedHighlights?.length > 0 ? (
+                      <div className="concept-note-grid" style={{ marginTop: 10 }}>
+                        {pair.sharedSuggestedHighlights.map(highlight => (
+                          <HighlightCard
+                            key={highlight.objectId}
+                            highlight={{
+                              _id: highlight.objectId,
+                              text: highlight.title,
+                              tags: highlight.metadata?.tags || [],
+                              articleId: highlight.metadata?.articleId,
+                              articleTitle: highlight.metadata?.articleTitle || ''
+                            }}
+                            compact
+                            onAddNotebook={(item) => setHighlightNotebookModal({ open: true, highlight: item })}
+                            onAddConcept={(item) => setHighlightConceptModal({ open: true, highlight: item })}
+                            onAddQuestion={(item) => setHighlightQuestionModal({ open: true, highlight: item })}
+                          />
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="muted small" style={{ marginTop: 8 }}>No shared highlights yet.</p>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+
+  const rightPanel = activeView === 'insights' ? (
+    <div className="section-stack">
+      <SectionHeader title="Context" subtitle="Insights stay read-only." />
+      <p className="muted small">Use themes and connections to decide what to deepen next.</p>
+    </div>
+  ) : (
     <div className="section-stack">
       <SectionHeader title="Insert" subtitle="Search highlights." />
       <div className="library-highlight-filters">
@@ -961,6 +1395,47 @@ const ThinkMode = () => {
           ) : (
             <p className="muted small">No highlights embedded yet.</p>
           )}
+          <SectionHeader title="Related highlights" subtitle="Semantically similar." />
+          {questionRelatedLoading && <p className="muted small">Finding related highlights…</p>}
+          {questionRelatedError && <p className="status-message error-message">{questionRelatedError}</p>}
+          {!questionRelatedLoading && !questionRelatedError && (
+            <div className="related-embed-list">
+              {questionRelated.highlights.length === 0 ? (
+                <p className="muted small">No related highlights yet.</p>
+              ) : (
+                questionRelated.highlights.slice(0, 6).map(item => (
+                  <div key={item.objectId} className="related-embed-row">
+                    <div>
+                      <div className="related-embed-title">{item.title || 'Highlight'}</div>
+                      <div className="muted small">{item.snippet || item.metadata?.articleTitle || ''}</div>
+                    </div>
+                    <QuietButton onClick={() => handleAttachRelatedHighlight(item.objectId)}>Add</QuietButton>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+          <SectionHeader title="Related concepts" subtitle="Neighbors and cousins." />
+          {questionRelatedLoading && <p className="muted small">Finding related concepts…</p>}
+          {questionRelatedError && <p className="status-message error-message">{questionRelatedError}</p>}
+          {!questionRelatedLoading && !questionRelatedError && (
+            <div className="related-embed-list">
+              {questionRelated.concepts.length === 0 ? (
+                <p className="muted small">No related concepts yet.</p>
+              ) : (
+                <div className="concept-related-tags">
+                  {questionRelated.concepts.slice(0, 8).map(item => {
+                    const name = item.metadata?.name || item.title || '';
+                    return (
+                      <TagChip key={item.objectId} to={`/think?tab=concepts&concept=${encodeURIComponent(name)}`}>
+                        {name || 'Concept'}
+                      </TagChip>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
           {activeQuestion?._id && (
             <div>
               <SectionHeader title="Used in" subtitle="Backlinks to this question." />
@@ -972,17 +1447,44 @@ const ThinkMode = () => {
 
       {activeView === 'concepts' && (
         <div className="section-stack">
-          <SectionHeader title="Related concepts" subtitle="Neighbors and cousins." />
-          {concept?.relatedTags?.length > 0 ? (
-            <div className="concept-related-tags">
-              {concept.relatedTags.slice(0, 8).map(tag => (
-                <TagChip key={tag.tag} to={`/think?tab=concepts&concept=${encodeURIComponent(tag.tag)}`}>
-                  {tag.tag}
-                </TagChip>
-              ))}
+          <SectionHeader title="Related highlights" subtitle="Semantically similar." />
+          {conceptRelatedLoading && <p className="muted small">Finding related highlights…</p>}
+          {conceptRelatedError && <p className="status-message error-message">{conceptRelatedError}</p>}
+          {!conceptRelatedLoading && !conceptRelatedError && (
+            <div className="related-embed-list">
+              {conceptRelated.highlights.length === 0 ? (
+                <p className="muted small">No related highlights yet.</p>
+              ) : (
+                conceptRelated.highlights.slice(0, 6).map(item => (
+                  <div key={item.objectId} className="related-embed-row">
+                    <div>
+                      <div className="related-embed-title">{item.title || 'Highlight'}</div>
+                      <div className="muted small">{item.snippet || item.metadata?.articleTitle || ''}</div>
+                    </div>
+                    <QuietButton onClick={() => handleAddRelatedHighlight(item.objectId)}>Add</QuietButton>
+                  </div>
+                ))
+              )}
             </div>
-          ) : (
-            <p className="muted small">No related concepts yet.</p>
+          )}
+          <SectionHeader title="Related concepts" subtitle="Neighbors and cousins." />
+          {conceptRelatedLoading && <p className="muted small">Finding related concepts…</p>}
+          {conceptRelatedError && <p className="status-message error-message">{conceptRelatedError}</p>}
+          {!conceptRelatedLoading && !conceptRelatedError && (
+            conceptRelated.concepts.length > 0 ? (
+              <div className="concept-related-tags">
+                {conceptRelated.concepts.slice(0, 8).map(item => {
+                  const name = item.metadata?.name || item.title || '';
+                  return (
+                    <TagChip key={item.objectId} to={`/think?tab=concepts&concept=${encodeURIComponent(name)}`}>
+                      {name || 'Concept'}
+                    </TagChip>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="muted small">No related concepts yet.</p>
+            )
           )}
           <SectionHeader title="Tag correlations" subtitle="Co-occuring themes." />
           {concept?.relatedTags?.length > 0 ? (
@@ -1004,6 +1506,7 @@ const ThinkMode = () => {
           )}
         </div>
       )}
+
     </div>
   );
 
@@ -1038,6 +1541,12 @@ const ThinkMode = () => {
             >
               Questions
             </QuietButton>
+            <QuietButton
+              className={`list-button ${activeView === 'insights' ? 'is-active' : ''}`}
+              onClick={() => handleSelectView('insights')}
+            >
+              Insights
+            </QuietButton>
             <QuietButton className="list-button" onClick={handleCreateNotebookEntry}>
               New note
             </QuietButton>
@@ -1071,6 +1580,17 @@ const ThinkMode = () => {
         onClose={() => setHighlightQuestionModal({ open: false, highlight: null })}
         onCreate={handleCreateQuestionFromHighlight}
         onAttach={handleAttachHighlightToQuestion}
+      />
+      <SynthesisModal
+        open={synthesisOpen}
+        title="Synthesis"
+        loading={synthesisLoading}
+        error={synthesisError}
+        data={synthesisData}
+        onClose={() => setSynthesisOpen(false)}
+        onAddTheme={handleAddThemeConcept}
+        onAddQuestion={handleAddSynthesisQuestion}
+        onLinkSuggested={handleLinkSuggested}
       />
     </>
   );

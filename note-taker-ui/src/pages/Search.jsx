@@ -26,9 +26,19 @@ const snippet = (text = '', q = '') => {
 const typeLabel = (type) => {
   if (type === 'article') return 'Articles';
   if (type === 'highlight') return 'Highlights';
-  if (type === 'notebook_entry') return 'Notebook';
+  if (type === 'concept') return 'Concepts';
+  if (type === 'notebook' || type === 'notebook_entry' || type === 'notebook_block') return 'Notebook';
   if (type === 'question') return 'Questions';
   return 'Other';
+};
+
+const typeIcon = (type) => {
+  if (type === 'article') return '📰';
+  if (type === 'highlight') return '✨';
+  if (type === 'concept') return '🧠';
+  if (type === 'notebook' || type === 'notebook_entry' || type === 'notebook_block') return '📝';
+  if (type === 'question') return '❓';
+  return '•';
 };
 
 const Search = () => {
@@ -62,7 +72,7 @@ const Search = () => {
       setError('');
       try {
         if (mode === 'semantic') {
-          const res = await api.get(`/api/search/semantic?q=${encodeURIComponent(q)}`, getAuthHeaders());
+          const res = await api.post('/api/search/semantic', { query: q, limit: 24 }, getAuthHeaders());
           if (!cancelled) {
             setResults(prev => ({ ...prev, semantic: res.data?.results || [] }));
           }
@@ -94,11 +104,11 @@ const Search = () => {
   const groupedSemantic = useMemo(() => {
     const groups = {};
     (results.semantic || []).forEach(item => {
-      const type = item.type || 'other';
+      const type = item.objectType || item.type || 'other';
       if (!groups[type]) groups[type] = [];
       groups[type].push(item);
     });
-    const order = ['article', 'highlight', 'notebook_entry', 'question', 'other'];
+    const order = ['article', 'highlight', 'concept', 'notebook', 'notebook_entry', 'notebook_block', 'question', 'other'];
     return order
       .filter(type => groups[type]?.length)
       .map(type => [type, groups[type]]);
@@ -111,6 +121,13 @@ const Search = () => {
     const params = new URLSearchParams(searchParams);
     params.set('q', q);
     if (!params.get('mode')) params.set('mode', 'semantic');
+    setSearchParams(params);
+  };
+
+  const handleModeChange = (nextMode) => {
+    const params = new URLSearchParams(searchParams);
+    params.set('mode', nextMode);
+    if (query.trim()) params.set('q', query.trim());
     setSearchParams(params);
   };
 
@@ -134,6 +151,25 @@ const Search = () => {
             {loading ? 'Searching...' : 'Search'}
           </Button>
         </form>
+        <div className="search-mode-toggle">
+          <span className="muted small">Mode</span>
+          <div className="search-mode-buttons">
+            <button
+              type="button"
+              className={`ui-quiet-button ${mode === 'semantic' ? 'is-active' : ''}`}
+              onClick={() => handleModeChange('semantic')}
+            >
+              Meaning
+            </button>
+            <button
+              type="button"
+              className={`ui-quiet-button ${mode === 'keyword' ? 'is-active' : ''}`}
+              onClick={() => handleModeChange('keyword')}
+            >
+              Keyword
+            </button>
+          </div>
+        </div>
         {error && <p className="status-message error-message">{error}</p>}
 
         <div className="section-stack">
@@ -142,16 +178,25 @@ const Search = () => {
               groupedSemantic.map(([type, items]) => (
                 <div key={type} className="semantic-group">
                   <div className="search-section-header">
-                    <span className="eyebrow">{typeLabel(type)}</span>
+                    <span className="eyebrow">{typeIcon(type)} {typeLabel(type)}</span>
                     <span className="muted small">{items.length} results</span>
                   </div>
                   <div className="semantic-list">
                     {items.map(item => {
+                      const resolvedType = item.objectType || item.type || 'other';
+                      const metadata = item.metadata || {};
                       const to = (() => {
-                        if (item.type === 'article') return `/articles/${item.objectId}`;
-                        if (item.type === 'highlight') return `/articles/${item.articleId || item.objectId}`;
-                        if (item.type === 'notebook_entry') return `/think?tab=notebook&entryId=${item.objectId}`;
-                        if (item.type === 'question') return `/think?tab=questions&questionId=${item.objectId}`;
+                        if (resolvedType === 'article') return `/articles/${item.objectId}`;
+                        if (resolvedType === 'highlight') return `/articles/${metadata.articleId || item.objectId}`;
+                        if (resolvedType === 'notebook' || resolvedType === 'notebook_entry' || resolvedType === 'notebook_block') {
+                          const blockId = metadata.blockId ? `&blockId=${encodeURIComponent(metadata.blockId)}` : '';
+                          return `/think?tab=notebook&entryId=${item.objectId}${blockId}`;
+                        }
+                        if (resolvedType === 'concept') {
+                          const conceptName = metadata.name || item.title || '';
+                          return `/think?tab=concepts&concept=${encodeURIComponent(conceptName)}`;
+                        }
+                        if (resolvedType === 'question') return `/think?tab=questions&questionId=${item.objectId}`;
                         return '/search';
                       })();
                       return (

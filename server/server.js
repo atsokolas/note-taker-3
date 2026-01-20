@@ -19,8 +19,24 @@ const {
   enqueueQuestionEmbedding
 } = require('./ai/embeddingJobs');
 const { EmbeddingError } = require('./ai/embed');
-const { semanticSearch, relatedHighlights } = require('./ai/semanticSearch');
 const { enqueueBrainSummary, registerBrainSummaryHandler } = require('./ai/brainSummaryJobs');
+const {
+  isAiEnabled,
+  upsertEmbeddings,
+  deleteEmbeddings,
+  semanticSearch: aiSemanticSearch,
+  similarTo: aiSimilarTo,
+  getEmbeddings: aiGetEmbeddings
+} = require('./config/aiClient');
+const { buildEmbeddingId } = require('./ai/embeddingTypes');
+const {
+  highlightToEmbeddingItem,
+  articleToEmbeddingItems,
+  notebookEntryToEmbeddingItems,
+  conceptToEmbeddingItem,
+  questionToEmbeddingItem
+} = require('./ai/mappers');
+const { isGenerationEnabled, generateDraftInsights } = require('./ai/generation');
 
 dotenv.config();
 
@@ -200,6 +216,7 @@ const tagMetaSchema = new mongoose.Schema({
   pinnedHighlightIds: [{ type: mongoose.Schema.Types.ObjectId }],
   pinnedArticleIds: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Article' }],
   pinnedNoteIds: [{ type: mongoose.Schema.Types.ObjectId }],
+  dismissedHighlightIds: [{ type: mongoose.Schema.Types.ObjectId }],
   isPublic: { type: Boolean, default: false },
   slug: { type: String, default: '', trim: true },
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }
@@ -474,6 +491,37 @@ const buildConceptMarkdown = ({ concept, related, questions }) => {
     lines.push('');
   }
   return lines.join('\n').trim() + '\n';
+};
+
+const queueEmbeddingUpsert = (items) => {
+  if (!isAiEnabled()) return;
+  const payload = (items || []).filter(Boolean);
+  if (payload.length === 0) return;
+  setImmediate(() => {
+    upsertEmbeddings(payload).catch(err => {
+      console.error('❌ AI upsert failed:', err.message || err);
+    });
+  });
+};
+
+const queueEmbeddingDelete = (ids) => {
+  if (!isAiEnabled()) return;
+  const payload = (ids || []).filter(Boolean);
+  if (payload.length === 0) return;
+  setImmediate(() => {
+    deleteEmbeddings(payload).catch(err => {
+      console.error('❌ AI delete failed:', err.message || err);
+    });
+  });
+};
+
+const safeMapEmbedding = (fn, label) => {
+  try {
+    return fn();
+  } catch (err) {
+    console.error(`❌ AI mapping failed (${label}):`, err.message || err);
+    return null;
+  }
 };
 
 const ensureNotebookBlocks = (entry, createId) => {
@@ -931,6 +979,13 @@ app.post("/save-article", authenticateToken, async (req, res) => {
       setDefaultsOnInsert: true
     });
     enqueueArticleEmbedding(updatedArticle);
+    const articleItems = safeMapEmbedding(
+      () => articleToEmbeddingItems(updatedArticle, String(userId)),
+      'article'
+    );
+    if (Array.isArray(articleItems)) {
+      queueEmbeddingUpsert(articleItems);
+    }
     res.status(200).json(updatedArticle);
   } catch (error) {
     console.error("❌ Error in /save-article:", error);
@@ -1121,6 +1176,15 @@ app.delete('/articles/:id', authenticateToken, async (req, res) => {
       if (!result) {
           return res.status(404).json({ error: "Article not found or you do not have permission to delete it." });
       }
+      const ids = [
+        buildEmbeddingId({ userId: String(userId), objectType: 'article', objectId: String(result._id) }),
+        ...(result.highlights || []).map(h => buildEmbeddingId({
+          userId: String(userId),
+          objectType: 'highlight',
+          objectId: String(h._id)
+        }))
+      ];
+      queueEmbeddingDelete(ids);
       res.status(200).json({ message: "Article deleted successfully." });
   } catch (error) {
       console.error("❌ Error deleting article:", error);
@@ -1569,6 +1633,123 @@ app.get('/api/highlights', authenticateToken, async (req, res) => {
   }
 });
 
+const stripHtml = (input = '') =>
+  String(input || '')
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+const buildSnippet = (text = '', limit = 180) => {
+  const clean = stripHtml(text || '');
+  if (!clean) return '';
+  if (clean.length <= limit) return clean;
+  return `${clean.slice(0, limit).trim()}…`;
+};
+
+const parseEmbeddingId = (value = '') => {
+  const parts = String(value || '').split(':');
+  if (parts.length < 3) return {};
+  return {
+    userId: parts[0],
+    objectType: parts[1],
+    objectId: parts[2],
+    subId: parts[3] || ''
+  };
+};
+
+const hydrateSemanticResults = async ({ matches = [], userId }) => {
+  const safeUserId = String(userId || '');
+  const hydrated = await Promise.all(matches.map(async (item) => {
+    const meta = item?.metadata || {};
+    const parsed = parseEmbeddingId(item?.id || '');
+    const rawType = meta.objectType || item.objectType || parsed.objectType || '';
+    const objectType = rawType || 'other';
+    const objectId = meta.objectId || item.objectId || parsed.objectId || '';
+    const blockId = meta.subId || parsed.subId || '';
+    const score = item?.score ?? null;
+    const base = {
+      objectType: objectType === 'notebook_block' ? 'notebook' : objectType,
+      objectId: String(objectId || ''),
+      score,
+      metadata: { ...meta }
+    };
+
+    if (objectType === 'article') {
+      const article = await Article.findOne({ _id: objectId, userId: safeUserId })
+        .select('title content updatedAt');
+      if (!article) return null;
+      return {
+        ...base,
+        title: article.title || 'Untitled article',
+        snippet: buildSnippet(article.content || ''),
+        metadata: { ...base.metadata, updatedAt: article.updatedAt }
+      };
+    }
+
+    if (objectType === 'highlight') {
+      const highlight = await findHighlightById(safeUserId, objectId);
+      if (!highlight) return null;
+      return {
+        ...base,
+        title: highlight.text || 'Highlight',
+        snippet: highlight.articleTitle || '',
+        metadata: {
+          ...base.metadata,
+          articleId: highlight.articleId,
+          articleTitle: highlight.articleTitle,
+          tags: highlight.tags || [],
+          createdAt: highlight.createdAt
+        }
+      };
+    }
+
+    if (objectType === 'notebook_block') {
+      const entry = await NotebookEntry.findOne({ _id: objectId, userId: safeUserId })
+        .select('title blocks updatedAt');
+      if (!entry) return null;
+      const block = entry.blocks?.find((b) => String(b.id) === String(blockId));
+      const snippet = item?.document || block?.text || '';
+      return {
+        ...base,
+        title: entry.title || 'Untitled note',
+        snippet: buildSnippet(snippet),
+        metadata: { ...base.metadata, blockId }
+      };
+    }
+
+    if (objectType === 'concept') {
+      const conceptQuery = mongoose.Types.ObjectId.isValid(objectId)
+        ? { _id: objectId, userId: safeUserId }
+        : { name: objectId, userId: safeUserId };
+      const concept = await TagMeta.findOne(conceptQuery)
+        .select('name description updatedAt');
+      if (!concept) return null;
+      return {
+        ...base,
+        title: concept.name || 'Concept',
+        snippet: buildSnippet(concept.description || ''),
+        metadata: { ...base.metadata, name: concept.name }
+      };
+    }
+
+    if (objectType === 'question') {
+      const question = await Question.findOne({ _id: objectId, userId: safeUserId })
+        .select('text conceptName linkedTagName updatedAt');
+      if (!question) return null;
+      return {
+        ...base,
+        title: question.text || 'Question',
+        snippet: question.conceptName || question.linkedTagName || '',
+        metadata: { ...base.metadata }
+      };
+    }
+
+    return null;
+  }));
+
+  return hydrated.filter(Boolean);
+};
+
 // GET /api/search?q= - search articles and highlights
 app.get('/api/search', authenticateToken, async (req, res) => {
   try {
@@ -1618,20 +1799,243 @@ app.get('/api/search', authenticateToken, async (req, res) => {
   }
 });
 
-// GET /api/search/semantic?q=
-app.get('/api/search/semantic', authenticateToken, async (req, res) => {
-  try {
-    const q = (req.query.q || '').trim();
-    if (!q) {
-      return res.status(400).json({ error: "Query parameter q is required." });
+const normalizeSearchTypes = (types) => {
+  if (!Array.isArray(types)) return undefined;
+  return types
+    .map((type) => String(type || '').trim())
+    .filter(Boolean)
+    .map((type) => {
+      if (type === 'notebook' || type === 'notebook_entry') return 'notebook_block';
+      return type;
+    });
+};
+
+const normalizeRelatedTypes = (types) => normalizeSearchTypes(types);
+
+const fetchSimilarEmbeddings = async ({ userId, sourceId, types, limit }) => {
+  if (!isAiEnabled()) {
+    const error = new Error('AI similarity is disabled.');
+    error.status = 503;
+    throw error;
+  }
+  const response = await aiSimilarTo({
+    userId: String(userId),
+    sourceId: String(sourceId),
+    types,
+    limit
+  });
+  return Array.isArray(response?.results) ? response.results : [];
+};
+
+const filterOutIds = (items, type, ids) => {
+  if (!ids || ids.size === 0) return items;
+  return items.filter(item => {
+    if (item.objectType !== type) return true;
+    return !ids.has(String(item.objectId));
+  });
+};
+
+const buildRangeStart = (range) => {
+  const mapping = { '7d': 7, '30d': 30, '90d': 90 };
+  const days = mapping[range] || 7;
+  const start = new Date();
+  start.setDate(start.getDate() - days);
+  return start;
+};
+
+const cosineSimilarity = (a, b) => {
+  if (!a || !b || a.length !== b.length) return 0;
+  let dot = 0;
+  let normA = 0;
+  let normB = 0;
+  for (let i = 0; i < a.length; i += 1) {
+    dot += a[i] * b[i];
+    normA += a[i] * a[i];
+    normB += b[i] * b[i];
+  }
+  if (!normA || !normB) return 0;
+  return dot / (Math.sqrt(normA) * Math.sqrt(normB));
+};
+
+const stopWords = new Set([
+  'the', 'and', 'for', 'with', 'that', 'this', 'from', 'into', 'your', 'you',
+  'are', 'was', 'were', 'have', 'has', 'had', 'but', 'not', 'about', 'what',
+  'when', 'where', 'who', 'why', 'how', 'can', 'could', 'should', 'would',
+  'their', 'they', 'them', 'then', 'than', 'these', 'those', 'its', 'it', 'in',
+  'on', 'of', 'to', 'a', 'an', 'as', 'is', 'be', 'by', 'or', 'we', 'our'
+]);
+
+const labelCluster = (highlights) => {
+  const tagCounts = new Map();
+  highlights.forEach(item => {
+    (item.tags || []).forEach(tag => {
+      tagCounts.set(tag, (tagCounts.get(tag) || 0) + 1);
+    });
+  });
+  if (tagCounts.size > 0) {
+    return Array.from(tagCounts.entries()).sort((a, b) => b[1] - a[1])[0][0];
+  }
+  const wordCounts = new Map();
+  highlights.forEach(item => {
+    const words = stripHtml(item.text || '')
+      .toLowerCase()
+      .replace(/[^a-z0-9\s]/g, ' ')
+      .split(/\s+/)
+      .filter(word => word.length > 3 && !stopWords.has(word));
+    words.forEach(word => {
+      wordCounts.set(word, (wordCounts.get(word) || 0) + 1);
+    });
+  });
+  if (wordCounts.size === 0) return 'Highlights';
+  return Array.from(wordCounts.entries()).sort((a, b) => b[1] - a[1])[0][0];
+};
+
+const getObjectIdFromEmbedding = (item) => {
+  if (item?.metadata?.objectId) return String(item.metadata.objectId);
+  const parsed = parseEmbeddingId(item?.id || '');
+  return parsed.objectId ? String(parsed.objectId) : '';
+};
+
+const sentimentScore = (text = '') => {
+  const positive = ['growth', 'improve', 'benefit', 'win', 'success', 'good', 'great', 'strong', 'positive'];
+  const negative = ['risk', 'problem', 'failure', 'bad', 'weak', 'negative', 'loss', 'decline', 'conflict'];
+  const lower = stripHtml(text).toLowerCase();
+  let score = 0;
+  positive.forEach(word => {
+    if (lower.includes(word)) score += 1;
+  });
+  negative.forEach(word => {
+    if (lower.includes(word)) score -= 1;
+  });
+  return score;
+};
+
+const extractQuestions = (texts = []) => {
+  const questions = new Set();
+  texts.forEach(text => {
+    const clean = stripHtml(text || '');
+    const parts = clean.split(/(?<=[?.!])\s+/);
+    parts.forEach(part => {
+      const trimmed = part.trim();
+      if (!trimmed) return;
+      if (trimmed.endsWith('?')) {
+        questions.add(trimmed);
+        return;
+      }
+      if (/^(why|how|what|where|when|who)\b/i.test(trimmed)) {
+        questions.add(trimmed.endsWith('?') ? trimmed : `${trimmed}?`);
+      }
+    });
+  });
+  return Array.from(questions).slice(0, 10);
+};
+
+const fetchHighlightsByIds = async (userId, highlightIds) => {
+  const ids = (highlightIds || [])
+    .map(id => mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : null)
+    .filter(Boolean);
+  if (!ids.length) return [];
+  const results = await Article.aggregate([
+    { $match: { userId: new mongoose.Types.ObjectId(userId) } },
+    { $unwind: '$highlights' },
+    { $match: { 'highlights._id': { $in: ids } } },
+    { $project: {
+      _id: '$highlights._id',
+      text: '$highlights.text',
+      note: '$highlights.note',
+      tags: '$highlights.tags',
+      articleId: '$_id',
+      articleTitle: '$title',
+      createdAt: '$highlights.createdAt'
+    } }
+  ]);
+  return results;
+};
+
+const kMeans = (vectors, k, maxIterations = 12) => {
+  const count = vectors.length;
+  const dims = vectors[0]?.length || 0;
+  const centroids = [];
+  const used = new Set();
+  while (centroids.length < k && centroids.length < count) {
+    const idx = Math.floor(Math.random() * count);
+    if (used.has(idx)) continue;
+    used.add(idx);
+    centroids.push([...vectors[idx]]);
+  }
+  const assignments = new Array(count).fill(0);
+  for (let iter = 0; iter < maxIterations; iter += 1) {
+    let changed = false;
+    for (let i = 0; i < count; i += 1) {
+      let bestIdx = 0;
+      let bestScore = -Infinity;
+      for (let c = 0; c < centroids.length; c += 1) {
+        const score = cosineSimilarity(vectors[i], centroids[c]);
+        if (score > bestScore) {
+          bestScore = score;
+          bestIdx = c;
+        }
+      }
+      if (assignments[i] !== bestIdx) {
+        assignments[i] = bestIdx;
+        changed = true;
+      }
     }
-    const limit = Math.min(Number(req.query.limit) || 12, 30);
-    const results = await semanticSearch({ query: q, limit, userId: req.user.id });
+    const sums = Array.from({ length: centroids.length }, () => new Array(dims).fill(0));
+    const counts = new Array(centroids.length).fill(0);
+    for (let i = 0; i < count; i += 1) {
+      const cluster = assignments[i];
+      counts[cluster] += 1;
+      for (let d = 0; d < dims; d += 1) {
+        sums[cluster][d] += vectors[i][d];
+      }
+    }
+    for (let c = 0; c < centroids.length; c += 1) {
+      if (!counts[c]) continue;
+      for (let d = 0; d < dims; d += 1) {
+        centroids[c][d] = sums[c][d] / counts[c];
+      }
+    }
+    if (!changed) break;
+  }
+  return { centroids, assignments };
+};
+
+const handleSemanticSearch = async (req, res, query, rawTypes, rawLimit) => {
+  if (!isAiEnabled()) {
+    return res.status(503).json({ error: 'AI search is disabled.' });
+  }
+  const q = String(query || '').trim();
+  if (!q) {
+    return res.status(400).json({ error: 'Query is required.' });
+  }
+  const limit = Math.min(Number(rawLimit) || 12, 30);
+  const types = normalizeSearchTypes(rawTypes);
+  try {
+    const response = await aiSemanticSearch({
+      userId: String(req.user.id),
+      query: q,
+      types,
+      limit
+    });
+    const matches = Array.isArray(response?.results) ? response.results : [];
+    const results = await hydrateSemanticResults({ matches, userId: req.user.id });
     res.status(200).json({ results });
   } catch (error) {
     const status = error instanceof EmbeddingError ? (error.status || 503) : 500;
     res.status(status).json({ error: error.message });
   }
+};
+
+// GET /api/search/semantic?q=
+app.get('/api/search/semantic', authenticateToken, async (req, res) => {
+  await handleSemanticSearch(req, res, req.query.q, req.query.types, req.query.limit);
+});
+
+// POST /api/search/semantic
+app.post('/api/search/semantic', authenticateToken, async (req, res) => {
+  const { query, types, limit } = req.body || {};
+  await handleSemanticSearch(req, res, query, types, limit);
 });
 
 // GET /api/tags - list unique tags with counts
@@ -1691,6 +2095,575 @@ app.get('/api/concepts/:name/related', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error("❌ Error fetching concept related data:", error);
     res.status(500).json({ error: "Failed to fetch concept related data." });
+  }
+});
+
+// GET /api/concepts/:id/suggestions - semantic highlight suggestions
+app.get('/api/concepts/:id/suggestions', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { id } = req.params;
+    const limit = Math.min(Number(req.query.limit) || 20, 50);
+    const query = mongoose.Types.ObjectId.isValid(id)
+      ? { _id: id, userId }
+      : { name: id, userId };
+    const concept = await TagMeta.findOne(query)
+      .select('name pinnedHighlightIds dismissedHighlightIds');
+    if (!concept) {
+      return res.status(404).json({ error: 'Concept not found.' });
+    }
+    const sourceId = buildEmbeddingId({
+      userId: String(userId),
+      objectType: 'concept',
+      objectId: String(concept._id || concept.name)
+    });
+    const matches = await fetchSimilarEmbeddings({
+      userId,
+      sourceId,
+      types: ['highlight'],
+      limit: limit + 5
+    });
+    let results = await hydrateSemanticResults({ matches, userId });
+    const pinnedSet = new Set((concept.pinnedHighlightIds || []).map(item => String(item)));
+    const dismissedSet = new Set((concept.dismissedHighlightIds || []).map(item => String(item)));
+    results = results
+      .filter(item => item.objectType === 'highlight')
+      .filter(item => !pinnedSet.has(String(item.objectId)))
+      .filter(item => !dismissedSet.has(String(item.objectId)))
+      .slice(0, limit);
+    res.status(200).json({ results });
+  } catch (error) {
+    const status = error instanceof EmbeddingError ? (error.status || 503) : 500;
+    res.status(status).json({ error: error.message });
+  }
+});
+
+// GET /api/ai/themes?range=7d|30d|90d
+app.get('/api/ai/themes', authenticateToken, async (req, res) => {
+  try {
+    if (!isAiEnabled()) {
+      return res.status(503).json({ error: 'AI is disabled.' });
+    }
+    const userId = req.user.id;
+    const range = String(req.query.range || '7d');
+    const limit = 500;
+    const since = buildRangeStart(range);
+    const highlights = await Article.aggregate([
+      { $match: { userId: new mongoose.Types.ObjectId(userId) } },
+      { $unwind: '$highlights' },
+      { $match: { 'highlights.createdAt': { $gte: since } } },
+      { $project: {
+        _id: '$highlights._id',
+        text: '$highlights.text',
+        tags: '$highlights.tags',
+        articleId: '$_id',
+        articleTitle: '$title',
+        createdAt: '$highlights.createdAt'
+      } },
+      { $sort: { 'highlights.createdAt': -1 } },
+      { $limit: limit }
+    ]);
+    if (!highlights.length) {
+      return res.status(200).json({ clusters: [] });
+    }
+    const embeddingIds = highlights.map(h => buildEmbeddingId({
+      userId: String(userId),
+      objectType: 'highlight',
+      objectId: String(h._id)
+    }));
+    const embedResponse = await aiGetEmbeddings(embeddingIds);
+    const embedItems = Array.isArray(embedResponse?.results) ? embedResponse.results : [];
+    const embeddingMap = new Map(embedItems.map(item => [item.id, item.embedding]));
+    const vectors = [];
+    const highlightRecords = [];
+    highlights.forEach((highlight) => {
+      const id = buildEmbeddingId({
+        userId: String(userId),
+        objectType: 'highlight',
+        objectId: String(highlight._id)
+      });
+      const vector = embeddingMap.get(id);
+      if (!vector) return;
+      vectors.push(vector);
+      highlightRecords.push({
+        id: String(highlight._id),
+        text: highlight.text || '',
+        tags: highlight.tags || [],
+        articleId: String(highlight.articleId),
+        articleTitle: highlight.articleTitle || ''
+      });
+    });
+    if (vectors.length < 3) {
+      return res.status(200).json({
+        clusters: vectors.length ? [{
+          title: labelCluster(highlightRecords),
+          highlightIds: highlightRecords.map(h => h.id),
+          topTags: [],
+          representativeHighlights: highlightRecords.slice(0, 5)
+        }] : []
+      });
+    }
+    const k = Math.min(7, Math.max(2, Math.round(Math.sqrt(vectors.length / 2))));
+    const { centroids, assignments } = kMeans(vectors, k);
+    const clusterMap = new Map();
+    assignments.forEach((clusterIdx, idx) => {
+      if (!clusterMap.has(clusterIdx)) clusterMap.set(clusterIdx, []);
+      clusterMap.get(clusterIdx).push({ vector: vectors[idx], highlight: highlightRecords[idx] });
+    });
+    const clusters = Array.from(clusterMap.entries()).map(([clusterIdx, items]) => {
+      const highlightsForCluster = items.map(item => item.highlight);
+      const tagCounts = new Map();
+      highlightsForCluster.forEach(item => {
+        (item.tags || []).forEach(tag => {
+          tagCounts.set(tag, (tagCounts.get(tag) || 0) + 1);
+        });
+      });
+      const topTags = Array.from(tagCounts.entries())
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 5)
+        .map(([tag]) => tag);
+      const centroid = centroids[clusterIdx];
+      const sorted = items
+        .map(item => ({
+          highlight: item.highlight,
+          score: cosineSimilarity(item.vector, centroid)
+        }))
+        .sort((a, b) => b.score - a.score)
+        .map(item => item.highlight);
+      return {
+        title: labelCluster(highlightsForCluster),
+        highlightIds: highlightsForCluster.map(h => h.id),
+        topTags,
+        representativeHighlights: sorted.slice(0, 5)
+      };
+    }).sort((a, b) => b.highlightIds.length - a.highlightIds.length);
+    res.status(200).json({ clusters: clusters.slice(0, 7) });
+  } catch (error) {
+    const status = error instanceof EmbeddingError ? (error.status || 503) : 500;
+    res.status(status).json({ error: error.message });
+  }
+});
+
+// GET /api/ai/connections?limit=20
+app.get('/api/ai/connections', authenticateToken, async (req, res) => {
+  try {
+    if (!isAiEnabled()) {
+      return res.status(503).json({ error: 'AI is disabled.' });
+    }
+    const userId = req.user.id;
+    const limit = Math.min(Number(req.query.limit) || 20, 40);
+    const concepts = await TagMeta.find({ userId })
+      .select('name description')
+      .limit(50);
+    if (concepts.length < 2) {
+      return res.status(200).json({ pairs: [] });
+    }
+    const embeddingIds = concepts.map(concept => buildEmbeddingId({
+      userId: String(userId),
+      objectType: 'concept',
+      objectId: String(concept._id)
+    }));
+    const embedResponse = await aiGetEmbeddings(embeddingIds);
+    const embedItems = Array.isArray(embedResponse?.results) ? embedResponse.results : [];
+    const embeddingMap = new Map(embedItems.map(item => [item.id, item.embedding]));
+    const conceptVectors = concepts.map((concept) => ({
+      id: String(concept._id),
+      name: concept.name,
+      embeddingId: buildEmbeddingId({
+        userId: String(userId),
+        objectType: 'concept',
+        objectId: String(concept._id)
+      }),
+      vector: embeddingMap.get(buildEmbeddingId({
+        userId: String(userId),
+        objectType: 'concept',
+        objectId: String(concept._id)
+      })) || null
+    })).filter(item => item.vector);
+    const pairs = [];
+    for (let i = 0; i < conceptVectors.length; i += 1) {
+      for (let j = i + 1; j < conceptVectors.length; j += 1) {
+        const score = cosineSimilarity(conceptVectors[i].vector, conceptVectors[j].vector);
+        pairs.push({
+          conceptA: conceptVectors[i],
+          conceptB: conceptVectors[j],
+          score
+        });
+      }
+    }
+    const topPairs = pairs.sort((a, b) => b.score - a.score).slice(0, limit);
+    const hydrated = await Promise.all(topPairs.map(async (pair) => {
+      const [aSimilar, bSimilar] = await Promise.all([
+        fetchSimilarEmbeddings({
+          userId,
+          sourceId: pair.conceptA.embeddingId,
+          types: ['highlight'],
+          limit: 20
+        }),
+        fetchSimilarEmbeddings({
+          userId,
+          sourceId: pair.conceptB.embeddingId,
+          types: ['highlight'],
+          limit: 20
+        })
+      ]);
+      const toIds = (items) => new Set(
+        items
+          .map(item => getObjectIdFromEmbedding(item))
+          .filter(Boolean)
+      );
+      const setA = toIds(aSimilar);
+      const sharedIds = Array.from(setA).filter(id => toIds(bSimilar).has(id));
+      const sharedHighlights = await Promise.all(
+        sharedIds.slice(0, 5).map(async (id) => {
+          const highlight = await findHighlightById(userId, id);
+          if (!highlight) return null;
+          return {
+            objectId: String(highlight._id),
+            title: highlight.text || 'Highlight',
+            snippet: highlight.articleTitle || '',
+            metadata: {
+              articleId: highlight.articleId,
+              articleTitle: highlight.articleTitle,
+              tags: highlight.tags || []
+            }
+          };
+        })
+      );
+      return {
+        conceptA: { id: pair.conceptA.id, name: pair.conceptA.name },
+        conceptB: { id: pair.conceptB.id, name: pair.conceptB.name },
+        score: pair.score,
+        sharedSuggestedHighlights: sharedHighlights.filter(Boolean)
+      };
+    }));
+    res.status(200).json({ pairs: hydrated });
+  } catch (error) {
+    const status = error instanceof EmbeddingError ? (error.status || 503) : 500;
+    res.status(status).json({ error: error.message });
+  }
+});
+
+// POST /api/ai/synthesize
+app.post('/api/ai/synthesize', authenticateToken, async (req, res) => {
+  try {
+    if (!isAiEnabled()) {
+      return res.status(503).json({ error: 'AI is disabled.' });
+    }
+    const userId = req.user.id;
+    const {
+      scopeType = 'custom',
+      scopeId = '',
+      itemIds = [],
+      range
+    } = req.body || {};
+
+    const scopeSets = {
+      highlight: new Set(),
+      article: new Set(),
+      notebook: new Set(),
+      question: new Set(),
+      concept: new Set()
+    };
+    const sourceTexts = [];
+    const highlightRecords = [];
+
+    const addHighlightRecord = (highlight) => {
+      if (!highlight) return;
+      const id = String(highlight._id || highlight.objectId || '');
+      if (!id) return;
+      if (scopeSets.highlight.has(id)) return;
+      scopeSets.highlight.add(id);
+      highlightRecords.push({
+        id,
+        text: highlight.text || '',
+        note: highlight.note || '',
+        tags: highlight.tags || [],
+        articleId: String(highlight.articleId || ''),
+        articleTitle: highlight.articleTitle || ''
+      });
+      sourceTexts.push([highlight.text, highlight.note].filter(Boolean).join(' '));
+    };
+
+    if (scopeType === 'range') {
+      const since = buildRangeStart(range || '7d');
+      const highlights = await Article.aggregate([
+        { $match: { userId: new mongoose.Types.ObjectId(userId) } },
+        { $unwind: '$highlights' },
+        { $match: { 'highlights.createdAt': { $gte: since } } },
+        { $project: {
+          _id: '$highlights._id',
+          text: '$highlights.text',
+          note: '$highlights.note',
+          tags: '$highlights.tags',
+          articleId: '$_id',
+          articleTitle: '$title',
+          createdAt: '$highlights.createdAt'
+        } },
+        { $limit: 300 }
+      ]);
+      highlights.forEach(addHighlightRecord);
+    } else if (scopeType === 'concept') {
+      const query = mongoose.Types.ObjectId.isValid(scopeId)
+        ? { _id: scopeId, userId }
+        : { name: scopeId, userId };
+      const concept = await TagMeta.findOne(query)
+        .select('name description pinnedHighlightIds');
+      if (!concept) {
+        return res.status(404).json({ error: 'Concept not found.' });
+      }
+      scopeSets.concept.add(String(concept._id || concept.name));
+      sourceTexts.push(`${concept.name}\n${concept.description || ''}`);
+      const pinned = await fetchHighlightsByIds(userId, concept.pinnedHighlightIds || []);
+      pinned.forEach(addHighlightRecord);
+      if (pinned.length === 0 && concept.name) {
+        const tagged = await Article.aggregate([
+          { $match: { userId: new mongoose.Types.ObjectId(userId) } },
+          { $unwind: '$highlights' },
+          { $match: { 'highlights.tags': concept.name } },
+          { $project: {
+            _id: '$highlights._id',
+            text: '$highlights.text',
+            note: '$highlights.note',
+            tags: '$highlights.tags',
+            articleId: '$_id',
+            articleTitle: '$title',
+            createdAt: '$highlights.createdAt'
+          } },
+          { $limit: 200 }
+        ]);
+        tagged.forEach(addHighlightRecord);
+      }
+    } else if (scopeType === 'question') {
+      const question = await Question.findOne({ _id: scopeId, userId })
+        .select('text blocks linkedHighlightIds');
+      if (!question) {
+        return res.status(404).json({ error: 'Question not found.' });
+      }
+      scopeSets.question.add(String(question._id));
+      sourceTexts.push(question.text || '');
+      const highlightIds = new Set(question.linkedHighlightIds || []);
+      (question.blocks || []).forEach(block => {
+        if (block.highlightId) highlightIds.add(block.highlightId);
+        if (block.text) sourceTexts.push(block.text);
+      });
+      const highlights = await fetchHighlightsByIds(userId, Array.from(highlightIds));
+      highlights.forEach(addHighlightRecord);
+    } else if (scopeType === 'notebook') {
+      const entry = await NotebookEntry.findOne({ _id: scopeId, userId })
+        .select('title blocks linkedHighlightIds');
+      if (!entry) {
+        return res.status(404).json({ error: 'Notebook entry not found.' });
+      }
+      scopeSets.notebook.add(String(entry._id));
+      sourceTexts.push(entry.title || '');
+      const highlightIds = new Set(entry.linkedHighlightIds || []);
+      (entry.blocks || []).forEach(block => {
+        if (block.highlightId) highlightIds.add(block.highlightId);
+        if (block.text) sourceTexts.push(block.text);
+      });
+      const highlights = await fetchHighlightsByIds(userId, Array.from(highlightIds));
+      highlights.forEach(addHighlightRecord);
+    } else if (scopeType === 'custom' && Array.isArray(itemIds)) {
+      for (const item of itemIds) {
+        const objectType = item?.objectType;
+        const objectId = item?.objectId;
+        if (!objectType || !objectId) continue;
+        if (objectType === 'highlight') {
+          const highlight = await findHighlightById(userId, objectId);
+          addHighlightRecord(highlight);
+        }
+        if (objectType === 'article') {
+          const article = await Article.findOne({ _id: objectId, userId }).select('title content');
+          if (article) {
+            scopeSets.article.add(String(article._id));
+            sourceTexts.push(`${article.title}\n${buildSnippet(article.content || '', 400)}`);
+          }
+        }
+        if (objectType === 'concept') {
+          const concept = await TagMeta.findOne({ _id: objectId, userId }).select('name description');
+          if (concept) {
+            scopeSets.concept.add(String(concept._id));
+            sourceTexts.push(`${concept.name}\n${concept.description || ''}`);
+          }
+        }
+        if (objectType === 'question') {
+          const question = await Question.findOne({ _id: objectId, userId }).select('text');
+          if (question) {
+            scopeSets.question.add(String(question._id));
+            sourceTexts.push(question.text || '');
+          }
+        }
+        if (objectType === 'notebook') {
+          const entry = await NotebookEntry.findOne({ _id: objectId, userId }).select('title blocks');
+          if (entry) {
+            scopeSets.notebook.add(String(entry._id));
+            sourceTexts.push(entry.title || '');
+            (entry.blocks || []).forEach(block => {
+              if (block.text) sourceTexts.push(block.text);
+            });
+          }
+        }
+      }
+    }
+
+    const highlightIds = highlightRecords.map(item => item.id);
+    const embeddingIds = highlightIds.map(id => buildEmbeddingId({
+      userId: String(userId),
+      objectType: 'highlight',
+      objectId: String(id)
+    }));
+    const embedResponse = embeddingIds.length ? await aiGetEmbeddings(embeddingIds) : { results: [] };
+    const embedItems = Array.isArray(embedResponse?.results) ? embedResponse.results : [];
+    const embeddingMap = new Map(embedItems.map(item => [item.id, item.embedding]));
+    const vectors = [];
+    const vectorHighlights = [];
+    highlightRecords.forEach(record => {
+      const embedId = buildEmbeddingId({
+        userId: String(userId),
+        objectType: 'highlight',
+        objectId: record.id
+      });
+      const vector = embeddingMap.get(embedId);
+      if (!vector) return;
+      vectors.push(vector);
+      vectorHighlights.push(record);
+    });
+
+    let themes = [];
+    if (vectors.length >= 3) {
+      const k = Math.min(5, Math.max(2, Math.round(Math.sqrt(vectors.length / 2))));
+      const { centroids, assignments } = kMeans(vectors, k);
+      const clusters = new Map();
+      assignments.forEach((clusterIdx, idx) => {
+        if (!clusters.has(clusterIdx)) clusters.set(clusterIdx, []);
+        clusters.get(clusterIdx).push({ vector: vectors[idx], highlight: vectorHighlights[idx] });
+      });
+      themes = Array.from(clusters.entries()).map(([clusterIdx, items]) => {
+        const highlights = items.map(item => item.highlight);
+        const centroid = centroids[clusterIdx];
+        const ranked = items
+          .map(item => ({
+            highlight: item.highlight,
+            score: cosineSimilarity(item.vector, centroid)
+          }))
+          .sort((a, b) => b.score - a.score)
+          .map(item => item.highlight);
+        return {
+          title: labelCluster(highlights),
+          evidence: highlights.map(h => h.id),
+          representative: ranked.slice(0, 4).map(h => h.id)
+        };
+      });
+    } else if (vectorHighlights.length > 0) {
+      themes = [{
+        title: labelCluster(vectorHighlights),
+        evidence: vectorHighlights.map(h => h.id),
+        representative: vectorHighlights.map(h => h.id).slice(0, 4)
+      }];
+    }
+
+    const connections = [];
+    if (vectorHighlights.length >= 2) {
+      const pairs = [];
+      for (let i = 0; i < vectorHighlights.length; i += 1) {
+        for (let j = i + 1; j < vectorHighlights.length; j += 1) {
+          const sim = cosineSimilarity(vectors[i], vectors[j]);
+          if (sim < 0.75) continue;
+          const s1 = sentimentScore(vectorHighlights[i].text);
+          const s2 = sentimentScore(vectorHighlights[j].text);
+          if (s1 === 0 || s2 === 0 || Math.sign(s1) === Math.sign(s2)) continue;
+          pairs.push({
+            a: vectorHighlights[i],
+            b: vectorHighlights[j],
+            score: sim
+          });
+        }
+      }
+      pairs.sort((a, b) => b.score - a.score);
+      pairs.slice(0, 5).forEach(pair => {
+        connections.push({
+          description: `Possible tension between "${buildSnippet(pair.a.text, 90)}" and "${buildSnippet(pair.b.text, 90)}"`,
+          evidence: [pair.a.id, pair.b.id]
+        });
+      });
+    }
+
+    const questions = extractQuestions(sourceTexts);
+
+    const queryText = sourceTexts.slice(0, 6).join(' ');
+    let suggestedLinks = [];
+    if (queryText.trim()) {
+      const response = await aiSemanticSearch({
+        userId: String(userId),
+        query: queryText,
+        limit: 12
+      });
+      const matches = Array.isArray(response?.results) ? response.results : [];
+      const hydrated = await hydrateSemanticResults({ matches, userId });
+      suggestedLinks = hydrated
+        .filter(item => !scopeSets[item.objectType]?.has(String(item.objectId)))
+        .slice(0, 10)
+        .map(item => ({
+          objectType: item.objectType,
+          objectId: item.objectId,
+          score: item.score,
+          title: item.title,
+          snippet: item.snippet,
+          metadata: item.metadata || {}
+        }));
+    }
+
+    let draftInsights = null;
+    if (isGenerationEnabled()) {
+      try {
+        draftInsights = await generateDraftInsights({
+          highlights: highlightRecords,
+          themes,
+          connections,
+          questions
+        });
+      } catch (err) {
+        console.error('Draft insights failed:', err);
+      }
+    }
+
+    res.status(200).json({
+      themes,
+      connections,
+      questions,
+      suggestedLinks,
+      draftInsights
+    });
+  } catch (error) {
+    const status = error instanceof EmbeddingError ? (error.status || 503) : 500;
+    res.status(status).json({ error: error.message });
+  }
+});
+
+// POST /api/concepts/:id/suggestions/dismiss - dismiss a highlight suggestion
+app.post('/api/concepts/:id/suggestions/dismiss', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { id } = req.params;
+    const { highlightId } = req.body || {};
+    if (!highlightId) {
+      return res.status(400).json({ error: 'highlightId is required.' });
+    }
+    const query = mongoose.Types.ObjectId.isValid(id)
+      ? { _id: id, userId }
+      : { name: id, userId };
+    const updated = await TagMeta.findOneAndUpdate(
+      query,
+      { $addToSet: { dismissedHighlightIds: highlightId } },
+      { new: true }
+    );
+    if (!updated) {
+      return res.status(404).json({ error: 'Concept not found.' });
+    }
+    res.status(200).json({ dismissedHighlightIds: updated.dismissedHighlightIds || [] });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to dismiss suggestion.' });
   }
 });
 
@@ -2435,29 +3408,132 @@ app.get('/api/highlights/:id/related', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
     const { id } = req.params;
-    const highlightAgg = await Article.aggregate([
-      { $match: { userId: new mongoose.Types.ObjectId(userId) } },
-      { $unwind: '$highlights' },
-      { $match: { 'highlights._id': new mongoose.Types.ObjectId(id) } },
-      { $project: {
-        _id: '$highlights._id',
-        text: '$highlights.text',
-        note: '$highlights.note',
-        tags: '$highlights.tags',
-        articleTitle: '$title'
-      } }
-    ]);
-    if (highlightAgg.length === 0) {
-      return res.status(404).json({ error: "Highlight not found." });
-    }
-    const highlight = highlightAgg[0];
-    const queryText = [highlight.text, highlight.note].filter(Boolean).join('\n');
-    const results = await relatedHighlights({
-      text: queryText,
-      excludeId: id,
-      limit: 5,
-      userId
+    const sourceId = buildEmbeddingId({
+      userId: String(userId),
+      objectType: 'highlight',
+      objectId: String(id)
     });
+    const matches = await fetchSimilarEmbeddings({
+      userId,
+      sourceId,
+      types: ['highlight'],
+      limit: 6
+    });
+    const results = await hydrateSemanticResults({ matches, userId });
+    res.status(200).json({ results });
+  } catch (error) {
+    const status = error instanceof EmbeddingError ? (error.status || 503) : 500;
+    res.status(status).json({ error: error.message });
+  }
+});
+
+// GET /api/concepts/:id/related - semantic neighbors
+app.get('/api/concepts/:id/related', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { id } = req.params;
+    const query = mongoose.Types.ObjectId.isValid(id)
+      ? { _id: id, userId }
+      : { name: id, userId };
+    const concept = await TagMeta.findOne(query)
+      .select('name pinnedHighlightIds');
+    if (!concept) {
+      return res.status(404).json({ error: 'Concept not found.' });
+    }
+    const sourceId = buildEmbeddingId({
+      userId: String(userId),
+      objectType: 'concept',
+      objectId: String(concept._id || concept.name)
+    });
+    const matches = await fetchSimilarEmbeddings({
+      userId,
+      sourceId,
+      types: ['highlight', 'concept'],
+      limit: 12
+    });
+    let results = await hydrateSemanticResults({ matches, userId });
+    const pinnedSet = new Set((concept.pinnedHighlightIds || []).map(item => String(item)));
+    results = filterOutIds(results, 'highlight', pinnedSet);
+    results = results.filter(item => {
+      if (item.objectType !== 'concept') return true;
+      const metadataName = item.metadata?.name || '';
+      if (metadataName && metadataName === concept.name) return false;
+      if (String(item.objectId) === String(concept._id)) return false;
+      return true;
+    });
+    res.status(200).json({ results });
+  } catch (error) {
+    const status = error instanceof EmbeddingError ? (error.status || 503) : 500;
+    res.status(status).json({ error: error.message });
+  }
+});
+
+// GET /api/questions/:id/related - semantic neighbors
+app.get('/api/questions/:id/related', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { id } = req.params;
+    const question = await Question.findOne({ _id: id, userId })
+      .select('conceptName linkedTagName linkedHighlightIds');
+    if (!question) {
+      return res.status(404).json({ error: 'Question not found.' });
+    }
+    const sourceId = buildEmbeddingId({
+      userId: String(userId),
+      objectType: 'question',
+      objectId: String(question._id)
+    });
+    const matches = await fetchSimilarEmbeddings({
+      userId,
+      sourceId,
+      types: ['highlight', 'concept'],
+      limit: 12
+    });
+    let results = await hydrateSemanticResults({ matches, userId });
+    const linkedSet = new Set((question.linkedHighlightIds || []).map(item => String(item)));
+    results = filterOutIds(results, 'highlight', linkedSet);
+    const conceptName = question.conceptName || question.linkedTagName || '';
+    if (conceptName) {
+      results = results.filter(item => {
+        if (item.objectType !== 'concept') return true;
+        const metadataName = item.metadata?.name || item.title || '';
+        return metadataName !== conceptName;
+      });
+    }
+    res.status(200).json({ results });
+  } catch (error) {
+    const status = error instanceof EmbeddingError ? (error.status || 503) : 500;
+    res.status(status).json({ error: error.message });
+  }
+});
+
+// GET /api/notebook/:id/related - semantic neighbors
+app.get('/api/notebook/:id/related', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { id } = req.params;
+    const entry = await NotebookEntry.findOne({ _id: id, userId })
+      .select('blocks title');
+    if (!entry) {
+      return res.status(404).json({ error: 'Notebook entry not found.' });
+    }
+    const firstBlock = entry.blocks?.[0];
+    if (!firstBlock?.id) {
+      return res.status(200).json({ results: [] });
+    }
+    const sourceId = buildEmbeddingId({
+      userId: String(userId),
+      objectType: 'notebook_block',
+      objectId: String(entry._id),
+      subId: String(firstBlock.id)
+    });
+    const matches = await fetchSimilarEmbeddings({
+      userId,
+      sourceId,
+      types: ['highlight', 'concept', 'question', 'article'],
+      limit: 12
+    });
+    const results = await hydrateSemanticResults({ matches, userId });
     res.status(200).json({ results });
   } catch (error) {
     const status = error instanceof EmbeddingError ? (error.status || 503) : 500;
@@ -3863,6 +4939,14 @@ app.post('/articles/:id/highlights', authenticateToken, async (req, res) => {
     const createdHighlight = updatedArticle.highlights?.[updatedArticle.highlights.length - 1];
     if (createdHighlight) {
       enqueueHighlightEmbedding({ highlight: createdHighlight, article: updatedArticle });
+      const highlightItem = safeMapEmbedding(
+        () => highlightToEmbeddingItem(
+          { ...createdHighlight, articleId: updatedArticle._id, articleTitle: updatedArticle.title },
+          String(userId)
+        ),
+        'highlight'
+      );
+      if (highlightItem) queueEmbeddingUpsert([highlightItem]);
     }
     res.status(200).json({ article: updatedArticle, highlight: createdHighlight });
   } catch (error) {
@@ -3903,6 +4987,14 @@ app.patch('/articles/:articleId/highlights/:highlightId', authenticateToken, asy
       const refreshed = await Article.findById(articleId);
       const updatedHighlight = refreshed.highlights.id(highlightId);
       enqueueHighlightEmbedding({ highlight: updatedHighlight, article: refreshed });
+      const highlightItem = safeMapEmbedding(
+        () => highlightToEmbeddingItem(
+          { ...updatedHighlight, articleId: refreshed._id, articleTitle: refreshed.title },
+          String(userId)
+        ),
+        'highlight'
+      );
+      if (highlightItem) queueEmbeddingUpsert([highlightItem]);
       res.status(200).json({
         _id: updatedHighlight._id,
         articleId: refreshed._id,
@@ -3939,6 +5031,12 @@ app.delete('/articles/:articleId/highlights/:highlightId', authenticateToken, as
 
       // Re-fetch and populate to ensure correct response
       const updatedArticle = await Article.findById(articleId).populate('folder');
+      const deleteId = buildEmbeddingId({
+        userId: String(userId),
+        objectType: 'highlight',
+        objectId: String(highlightId)
+      });
+      queueEmbeddingDelete([deleteId]);
       res.status(200).json(updatedArticle);
   } catch (error) {
       console.error("❌ Error deleting highlight:", error);
@@ -3946,6 +5044,87 @@ app.delete('/articles/:articleId/highlights/:highlightId', authenticateToken, as
           return res.status(400).json({ error: "Invalid ID format." });
       }
       res.status(500).json({ error: "Failed to delete highlight.", details: error.message });
+  }
+});
+
+// --- AI Reindex ---
+app.post('/api/ai/reindex', authenticateToken, async (req, res) => {
+  try {
+    if (!isAiEnabled()) {
+      return res.status(400).json({ error: 'AI indexing is disabled.' });
+    }
+    if (process.env.NODE_ENV === 'production') {
+      const secret = process.env.AI_REINDEX_SECRET || '';
+      const header = req.headers['x-ai-reindex-secret'];
+      if (!secret || header !== secret) {
+        return res.status(403).json({ error: 'Reindex not permitted.' });
+      }
+    }
+
+    const userId = req.user.id;
+    const [articles, notebookEntries, concepts, questions] = await Promise.all([
+      Article.find({ userId }).lean(),
+      NotebookEntry.find({ userId }).lean(),
+      TagMeta.find({ userId }).lean(),
+      Question.find({ userId }).lean()
+    ]);
+
+    const items = [];
+
+    articles.forEach(article => {
+      const articleItems = safeMapEmbedding(
+        () => articleToEmbeddingItems(article, String(userId)),
+        'article'
+      );
+      if (Array.isArray(articleItems)) items.push(...articleItems);
+      (article.highlights || []).forEach(highlight => {
+        const highlightItem = safeMapEmbedding(
+          () => highlightToEmbeddingItem(
+            { ...highlight, articleId: article._id, articleTitle: article.title },
+            String(userId)
+          ),
+          'highlight'
+        );
+        if (highlightItem) items.push(highlightItem);
+      });
+    });
+
+    notebookEntries.forEach(entry => {
+      const blockItems = safeMapEmbedding(
+        () => notebookEntryToEmbeddingItems(entry, String(userId)),
+        'notebook'
+      );
+      if (Array.isArray(blockItems)) items.push(...blockItems);
+    });
+
+    concepts.forEach(concept => {
+      const conceptItem = safeMapEmbedding(
+        () => conceptToEmbeddingItem(concept, String(userId)),
+        'concept'
+      );
+      if (conceptItem) items.push(conceptItem);
+    });
+
+    questions.forEach(question => {
+      const questionItem = safeMapEmbedding(
+        () => questionToEmbeddingItem(question, String(userId)),
+        'question'
+      );
+      if (questionItem) items.push(questionItem);
+    });
+
+    const batchSize = Number(process.env.AI_UPSERT_BATCH || 100);
+    let indexed = 0;
+    for (let i = 0; i < items.length; i += batchSize) {
+      const batch = items.slice(i, i + batchSize);
+      await upsertEmbeddings(batch);
+      indexed += batch.length;
+    }
+
+    res.status(200).json({ indexed });
+  } catch (error) {
+    console.error('❌ AI reindex failed:', error);
+    res.status(500).json({ error: 'Failed to reindex embeddings.' });
   }
 });
 

@@ -1456,6 +1456,10 @@ body {
   flex-direction: column;
 }
 
+.modal-content--wide {
+  max-width: 820px;
+}
+
 .modal-content h2 {
   margin-top: 0;
 }

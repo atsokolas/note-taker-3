@@ -21,7 +21,7 @@ const normalizeBlocks = (blocks = []) => {
   }));
 };
 
-const QuestionEditor = ({ question, saving, error, onSave, onRegisterInsert }) => {
+const QuestionEditor = ({ question, saving, error, onSave, onRegisterInsert, onSynthesize }) => {
   const [titleDraft, setTitleDraft] = useState('');
   const [blocksDraft, setBlocksDraft] = useState([]);
   const [insertOpen, setInsertOpen] = useState(false);
@@ -78,7 +78,12 @@ const QuestionEditor = ({ question, saving, error, onSave, onRegisterInsert }) =
           onChange={(event) => setTitleDraft(event.target.value)}
           placeholder="Untitled question"
         />
-        <Button onClick={handleSave} disabled={saving}>{saving ? 'Saving…' : 'Save'}</Button>
+        <div className="think-question-editor-actions">
+          {onSynthesize && (
+            <Button variant="secondary" onClick={() => onSynthesize(question)}>Synthesize</Button>
+          )}
+          <Button onClick={handleSave} disabled={saving}>{saving ? 'Saving…' : 'Save'}</Button>
+        </div>
       </div>
       {error && <p className="status-message error-message">{error}</p>}
       <QuestionBlocksEditor

@@ -632,6 +632,30 @@ p {
   margin-bottom: 14px;
 }
 
+.search-mode-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.search-mode-buttons {
+  display: inline-flex;
+  gap: 6px;
+  padding: 4px;
+  border-radius: 999px;
+  background: var(--surface-muted);
+}
+
+.search-mode-buttons .ui-quiet-button {
+  background: transparent;
+}
+
+.search-mode-buttons .ui-quiet-button.is-active {
+  background: var(--surface);
+  border-color: var(--border-subtle);
+}
+
 .search-input {
   flex: 1;
   padding: 10px 12px;
@@ -670,6 +694,29 @@ p {
 
 .semantic-snippet {
   color: var(--text-secondary);
+}
+
+.related-embed-list {
+  display: grid;
+  gap: 10px;
+}
+
+.related-embed-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border-subtle-2);
+}
+
+.related-embed-row:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.related-embed-title {
+  font-weight: 600;
 }
 
 .brain-controls {
@@ -1757,6 +1804,12 @@ p {
   gap: 12px;
 }
 
+.think-question-editor-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .think-question-title-input {
   flex: 1;
   border: none;
@@ -1838,6 +1891,12 @@ p {
 .concept-search-title {
   font-weight: 600;
   color: var(--text);
+}
+
+.concept-suggestion-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
 }
 
 @media (max-width: 1100px) {
@@ -1943,8 +2002,14 @@ p {
 
 .notebook-insert-group {
   display: flex;
-  gap: 8px;
+  gap: 12px;
   align-items: center;
+}
+
+.notebook-insert-labels {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
 .notebook-insert-label {
@@ -1952,13 +2017,26 @@ p {
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--muted);
-  margin-right: 2px;
+}
+
+.notebook-insert-hint {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.notebook-insert-buttons {
+  display: flex;
+  gap: 6px;
+  padding: 4px;
+  border-radius: 999px;
+  background: var(--surface-muted);
 }
 
 .notebook-insert-group .quiet-button {
   border: 1px solid var(--border-subtle);
   border-radius: 999px;
   padding: 6px 12px;
+  background: var(--surface);
 }
 
 .notebook-insert-group .quiet-button.is-active {

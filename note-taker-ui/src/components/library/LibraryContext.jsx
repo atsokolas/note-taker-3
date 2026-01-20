@@ -124,16 +124,21 @@ const LibraryContext = ({
           {relatedHighlights.length === 0 ? (
             <p className="muted small">No related highlights yet.</p>
           ) : (
-            relatedHighlights.map(item => (
-              <Link
-                key={item.objectId}
-                to={`/articles/${item.articleId || selectedArticleId}`}
-                className="library-related-item"
-              >
-                <div className="library-related-title">{item.title || 'Highlight'}</div>
-                <div className="muted small">{item.articleTitle || 'Article'}</div>
-              </Link>
-            ))
+            relatedHighlights.map(item => {
+              const meta = item.metadata || {};
+              const articleId = meta.articleId || item.articleId || selectedArticleId;
+              const articleTitle = meta.articleTitle || item.articleTitle || 'Article';
+              return (
+                <Link
+                  key={item.objectId}
+                  to={`/articles/${articleId}`}
+                  className="library-related-item"
+                >
+                  <div className="library-related-title">{item.title || 'Highlight'}</div>
+                  <div className="muted small">{articleTitle}</div>
+                </Link>
+              );
+            })
           )}
         </div>
       )}
