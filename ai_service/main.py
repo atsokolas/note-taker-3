@@ -35,6 +35,7 @@ class EmbedItem(BaseModel):
     objectType: Optional[str] = None
     objectId: Optional[str] = None
     updatedAt: Optional[str] = None
+    embedding: Optional[List[float]] = None
 
 
 class EmbedUpsertRequest(BaseModel):
@@ -43,9 +44,10 @@ class EmbedUpsertRequest(BaseModel):
 
 class SearchRequest(BaseModel):
     userId: str = Field(..., min_length=1)
-    query: str
+    query: Optional[str] = None
     types: Optional[List[str]] = None
     limit: int = 10
+    embedding: Optional[List[float]] = None
 
 
 class SimilarRequest(BaseModel):
@@ -75,6 +77,9 @@ def embed_upsert(req: EmbedUpsertRequest):
     ids = [item.id for item in req.items]
     texts = [item.text for item in req.items]
     metadatas = []
+    embeddings = []
+    missing_texts = []
+    missing_indexes = []
 
     for item in req.items:
         metadata = dict(item.metadata or {})
@@ -87,12 +92,21 @@ def embed_upsert(req: EmbedUpsertRequest):
         if item.updatedAt:
             metadata["updatedAt"] = item.updatedAt
         metadatas.append(metadata)
+        if item.embedding and isinstance(item.embedding, list):
+            embeddings.append(item.embedding)
+        else:
+            embeddings.append(None)
+            missing_indexes.append(len(embeddings) - 1)
+            missing_texts.append(item.text)
 
     try:
-        embeddings = []
-        for i in range(0, len(texts), EMBEDDING_BATCH_SIZE):
-            batch = texts[i:i + EMBEDDING_BATCH_SIZE]
-            embeddings.extend(model.encode(batch, normalize_embeddings=True).tolist())
+        if missing_texts:
+            computed = []
+            for i in range(0, len(missing_texts), EMBEDDING_BATCH_SIZE):
+                batch = missing_texts[i:i + EMBEDDING_BATCH_SIZE]
+                computed.extend(model.encode(batch, normalize_embeddings=True).tolist())
+            for idx, emb in zip(missing_indexes, computed):
+                embeddings[idx] = emb
         collection.upsert(
             ids=ids,
             embeddings=embeddings,
@@ -142,10 +156,15 @@ def embed_get(req: EmbedGetRequest):
 
 @app.post("/search")
 def search(req: SearchRequest):
-    if not req.query.strip():
-        raise HTTPException(status_code=400, detail="query is required")
+    if not (req.query or req.embedding):
+        raise HTTPException(status_code=400, detail="query or embedding is required")
     try:
-        embedding = model.encode([req.query], normalize_embeddings=True).tolist()[0]
+        if req.embedding and isinstance(req.embedding, list):
+            embedding = req.embedding
+        else:
+            if not req.query or not req.query.strip():
+                raise HTTPException(status_code=400, detail="query is required")
+            embedding = model.encode([req.query], normalize_embeddings=True).tolist()[0]
         where = {"userId": req.userId}
         if req.types:
             where["objectType"] = {"$in": req.types}

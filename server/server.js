@@ -37,6 +37,7 @@ const {
   questionToEmbeddingItem
 } = require('./ai/mappers');
 const { isGenerationEnabled, generateDraftInsights } = require('./ai/generation');
+const { embedTexts, embedQuery } = require('./ai/hfEmbeddingsClient');
 
 dotenv.config();
 
@@ -498,9 +499,18 @@ const queueEmbeddingUpsert = (items) => {
   const payload = (items || []).filter(Boolean);
   if (payload.length === 0) return;
   setImmediate(() => {
-    upsertEmbeddings(payload).catch(err => {
-      console.error('❌ AI upsert failed:', err.message || err);
-    });
+    const texts = payload.map(item => item.text || '');
+    embedTexts(texts, { batchSize: 32 })
+      .then((embeddings) => {
+        const enriched = payload.map((item, idx) => ({
+          ...item,
+          embedding: embeddings[idx]
+        }));
+        return upsertEmbeddings(enriched);
+      })
+      .catch(err => {
+        console.error('❌ AI upsert failed:', err.message || err);
+      });
   });
 };
 
@@ -2006,9 +2016,11 @@ const handleSemanticSearch = async (req, res, query, rawTypes, rawLimit) => {
   const limit = Math.min(Number(rawLimit) || 12, 30);
   const types = normalizeSearchTypes(rawTypes);
   try {
+    const embedding = await embedQuery(q);
     const response = await aiSemanticSearch({
       userId: String(req.user.id),
       query: q,
+      embedding,
       types,
       limit
     });
@@ -2588,9 +2600,11 @@ app.post('/api/ai/synthesize', authenticateToken, async (req, res) => {
     const queryText = sourceTexts.slice(0, 6).join(' ');
     let suggestedLinks = [];
     if (queryText.trim()) {
+      const embedding = await embedQuery(queryText);
       const response = await aiSemanticSearch({
         userId: String(userId),
         query: queryText,
+        embedding,
         limit: 12
       });
       const matches = Array.isArray(response?.results) ? response.results : [];
