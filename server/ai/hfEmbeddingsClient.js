@@ -18,7 +18,7 @@ const truncateText = (text, maxChars = DEFAULT_MAX_CHARS) => {
 };
 
 const buildUrl = (model) =>
-  `https://api-inference.huggingface.co/pipeline/feature-extraction/${encodeURIComponent(model)}`;
+  `https://router.huggingface.co/pipeline/feature-extraction/${encodeURIComponent(model)}`;
 
 const requestEmbeddings = async ({ token, model, texts }) => {
   if (!token) {
