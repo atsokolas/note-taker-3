@@ -12,7 +12,7 @@ Environment variables:
 
 Health check:
 
-- `GET /api/ai/health` → `{ ok, model, available }`
+- `GET /api/ai/health` → `{ ok, model, dims }`
 
 ## Semantic search (Qdrant + embeddings)
 
@@ -37,7 +37,7 @@ Environment variables:
 - `HF_TOKEN` (required)
 - `HF_EMBEDDING_MODEL` (default: `sentence-transformers/all-MiniLM-L6-v2`)
 - `HF_BASE_URL` (default: `https://router.huggingface.co`)
-- `HF_TIMEOUT_MS` (default: `20000`)
+- `HF_TIMEOUT_MS` (default: `30000`)
 
 Health check:
 

@@ -1823,11 +1823,6 @@ const normalizeSearchTypes = (types) => {
 const normalizeRelatedTypes = (types) => normalizeSearchTypes(types);
 
 const fetchSimilarEmbeddings = async ({ userId, sourceId, types, limit }) => {
-  if (!isAiEnabled()) {
-    const error = new Error('AI similarity is disabled.');
-    error.status = 503;
-    throw error;
-  }
   const response = await aiSimilarTo({
     userId: String(userId),
     sourceId: String(sourceId),
@@ -2157,9 +2152,6 @@ app.get('/api/concepts/:id/suggestions', authenticateToken, async (req, res) => 
 // GET /api/ai/themes?range=7d|30d|90d
 app.get('/api/ai/themes', authenticateToken, async (req, res) => {
   try {
-    if (!isAiEnabled()) {
-      return res.status(503).json({ error: 'AI is disabled.' });
-    }
     const userId = req.user.id;
     const range = String(req.query.range || '7d');
     const limit = 500;
@@ -2265,9 +2257,6 @@ app.get('/api/ai/themes', authenticateToken, async (req, res) => {
 // GET /api/ai/connections?limit=20
 app.get('/api/ai/connections', authenticateToken, async (req, res) => {
   try {
-    if (!isAiEnabled()) {
-      return res.status(503).json({ error: 'AI is disabled.' });
-    }
     const userId = req.user.id;
     const limit = Math.min(Number(req.query.limit) || 20, 40);
     const concepts = await TagMeta.find({ userId })
@@ -2367,9 +2356,6 @@ app.get('/api/ai/connections', authenticateToken, async (req, res) => {
 // POST /api/ai/synthesize
 app.post('/api/ai/synthesize', authenticateToken, async (req, res) => {
   try {
-    if (!isAiEnabled()) {
-      return res.status(503).json({ error: 'AI is disabled.' });
-    }
     const userId = req.user.id;
     const {
       scopeType = 'custom',
@@ -5160,13 +5146,24 @@ app.post('/api/ai/reindex', authenticateToken, async (req, res) => {
   }
 });
 
-// --- AI / OLLAMA ---
+// --- AI / HF EMBEDDINGS ---
 app.get('/api/ai/health', async (req, res) => {
   try {
-    const status = await checkHealth();
-    res.status(200).json({ ok: true, model: status.model, available: status.available });
+    const [embedding] = await embedTexts(['ping'], { batchSize: 1 });
+    if (!Array.isArray(embedding)) {
+      throw new EmbeddingError('HF embeddings response missing vector.', 502);
+    }
+    res.status(200).json({ ok: true, model: process.env.HF_EMBEDDING_MODEL, dims: embedding.length });
   } catch (error) {
-    res.status(200).json({ ok: false, error: error.message });
+    if (error.payload || error instanceof EmbeddingError) {
+      return res.status(error.status || 502).json({
+        ok: false,
+        error: error.payload?.error || 'HF request failed',
+        message: error.payload?.message || error.message,
+        url: error.payload?.url || ''
+      });
+    }
+    res.status(500).json({ ok: false, error: 'HF request failed', message: error.message, url: '' });
   }
 });
 
