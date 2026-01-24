@@ -26,14 +26,22 @@ const requestEmbeddings = async ({ token, model, texts }) => {
     err.status = 401;
     throw err;
   }
-  const res = await fetch(buildUrl(model), {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({ inputs: texts })
-  });
+  let res;
+  try {
+    res = await fetch(buildUrl(model), {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ inputs: texts })
+    });
+  } catch (error) {
+    const err = new Error('HF request failed. Check outbound network access and HF_TOKEN.');
+    err.status = 503;
+    err.cause = error;
+    throw err;
+  }
   if (res.status === 401 || res.status === 403) {
     const err = new Error('HF token missing/invalid');
     err.status = res.status;
