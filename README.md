@@ -27,3 +27,18 @@ Endpoints:
 
 - `GET /api/search/semantic?q=...` → `{ results: [{ type, objectId, title, snippet, score }] }`
 - `GET /api/highlights/:id/related` → `{ results: [...] }`
+
+## Hugging Face embeddings
+
+The backend can generate embeddings via Hugging Face Serverless Inference.
+
+Environment variables:
+
+- `HF_TOKEN` (required)
+- `HF_EMBEDDING_MODEL` (default: `sentence-transformers/all-MiniLM-L6-v2`)
+- `HF_BASE_URL` (default: `https://router.huggingface.co`)
+- `HF_TIMEOUT_MS` (default: `20000`)
+
+Health check:
+
+- `GET /api/ai/hf-smoke` → `{ ok, size }`

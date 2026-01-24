@@ -1,7 +1,7 @@
 const DEFAULT_MODEL = 'sentence-transformers/all-MiniLM-L6-v2';
 const DEFAULT_BATCH_SIZE = 32;
 const DEFAULT_MAX_CHARS = 4000;
-const DEFAULT_BASE_URL = 'https://api-inference.huggingface.co';
+const DEFAULT_BASE_URL = 'https://router.huggingface.co';
 const DEFAULT_TIMEOUT_MS = 20000;
 const QUERY_CACHE_TTL_MS = 5 * 60 * 1000;
 
@@ -12,6 +12,13 @@ const getConfig = () => ({
   model: process.env.HF_EMBEDDING_MODEL || DEFAULT_MODEL,
   baseUrl: process.env.HF_BASE_URL || DEFAULT_BASE_URL,
   timeoutMs: Number(process.env.HF_TIMEOUT_MS || DEFAULT_TIMEOUT_MS)
+});
+
+const startupConfig = getConfig();
+console.log('[HF] embeddings config', {
+  baseUrl: startupConfig.baseUrl,
+  model: startupConfig.model,
+  timeoutMs: startupConfig.timeoutMs
 });
 
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
