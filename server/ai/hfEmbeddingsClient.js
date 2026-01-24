@@ -1,13 +1,17 @@
 const DEFAULT_MODEL = 'sentence-transformers/all-MiniLM-L6-v2';
 const DEFAULT_BATCH_SIZE = 32;
 const DEFAULT_MAX_CHARS = 4000;
+const DEFAULT_BASE_URL = 'https://api-inference.huggingface.co';
+const DEFAULT_TIMEOUT_MS = 20000;
 const QUERY_CACHE_TTL_MS = 5 * 60 * 1000;
 
 const queryCache = new Map();
 
 const getConfig = () => ({
   token: process.env.HF_TOKEN || '',
-  model: process.env.HF_EMBEDDING_MODEL || DEFAULT_MODEL
+  model: process.env.HF_EMBEDDING_MODEL || DEFAULT_MODEL,
+  baseUrl: process.env.HF_BASE_URL || DEFAULT_BASE_URL,
+  timeoutMs: Number(process.env.HF_TIMEOUT_MS || DEFAULT_TIMEOUT_MS)
 });
 
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
@@ -17,45 +21,133 @@ const truncateText = (text, maxChars = DEFAULT_MAX_CHARS) => {
   return value.length > maxChars ? value.slice(0, maxChars) : value;
 };
 
-const buildUrl = (model) =>
-  `https://router.huggingface.co/pipeline/feature-extraction/${encodeURIComponent(model)}`;
+const buildUrl = (baseUrl, model) =>
+  `${baseUrl.replace(/\/$/, '')}/pipeline/feature-extraction/${encodeURIComponent(model)}`;
+
+const buildHint = (status, message = '') => {
+  if (status === 401 || status === 403) return 'Check HF_TOKEN.';
+  if (status === 503) return 'HF inference temporarily unavailable.';
+  if (status === 504) return 'Request timed out.';
+  if (message.includes('ENOTFOUND') || message.includes('fetch failed')) {
+    return 'Outbound network or DNS is blocked.';
+  }
+  return 'Check HF_BASE_URL and network access.';
+};
+
+const buildClientError = ({ message, status, cause, hint, meta }) => {
+  const error = new Error(message);
+  error.status = status;
+  error.cause = cause;
+  error.payload = {
+    error: status === 504 ? 'HF timeout' : 'HF request failed',
+    message,
+    cause: String(cause || ''),
+    hint
+  };
+  error.meta = meta;
+  return error;
+};
 
 const requestEmbeddings = async ({ token, model, texts }) => {
+  const { baseUrl, timeoutMs } = getConfig();
+  const url = buildUrl(baseUrl, model);
+  const meta = { url, model, timeoutMs };
   if (!token) {
-    const err = new Error('HF token missing/invalid');
-    err.status = 401;
-    throw err;
+    throw buildClientError({
+      message: 'HF token missing/invalid',
+      status: 401,
+      cause: '',
+      hint: buildHint(401),
+      meta
+    });
   }
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
   let res;
   try {
-    res = await fetch(buildUrl(model), {
+    res = await fetch(url, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${token}`,
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({ inputs: texts })
+      body: JSON.stringify({ inputs: texts }),
+      signal: controller.signal
     });
   } catch (error) {
-    const err = new Error('HF request failed. Check outbound network access and HF_TOKEN.');
-    err.status = 503;
-    err.cause = error;
+    clearTimeout(timeout);
+    const status = error.name === 'AbortError' ? 504 : 502;
+    const message = error.name === 'AbortError'
+      ? `HF request timed out after ${timeoutMs}ms`
+      : 'HF request failed. Check outbound network access and HF_TOKEN.';
+    const err = buildClientError({
+      message,
+      status,
+      cause: error,
+      hint: buildHint(status, error.message || ''),
+      meta
+    });
+    console.error('[HF] request failed', {
+      name: err.name,
+      message: err.message,
+      cause: String(err.cause || ''),
+      stack: err.stack,
+      meta
+    });
     throw err;
+  } finally {
+    clearTimeout(timeout);
   }
   if (res.status === 401 || res.status === 403) {
-    const err = new Error('HF token missing/invalid');
-    err.status = res.status;
+    const err = buildClientError({
+      message: 'HF token missing/invalid',
+      status: res.status,
+      cause: '',
+      hint: buildHint(res.status),
+      meta
+    });
+    console.error('[HF] request failed', {
+      name: err.name,
+      message: err.message,
+      cause: String(err.cause || ''),
+      stack: err.stack,
+      meta
+    });
     throw err;
   }
   if (res.status === 503) {
-    const err = new Error('HF inference temporarily unavailable');
-    err.status = 503;
+    const err = buildClientError({
+      message: 'HF inference temporarily unavailable',
+      status: 503,
+      cause: '',
+      hint: buildHint(503),
+      meta
+    });
+    console.error('[HF] request failed', {
+      name: err.name,
+      message: err.message,
+      cause: String(err.cause || ''),
+      stack: err.stack,
+      meta
+    });
     throw err;
   }
   if (!res.ok) {
     const body = await res.text().catch(() => '');
-    const err = new Error(`HF embeddings failed (${res.status}): ${body || res.statusText}`);
-    err.status = res.status;
+    const err = buildClientError({
+      message: `HF embeddings failed (${res.status}): ${body || res.statusText}`,
+      status: res.status,
+      cause: '',
+      hint: buildHint(res.status, body || res.statusText),
+      meta
+    });
+    console.error('[HF] request failed', {
+      name: err.name,
+      message: err.message,
+      cause: String(err.cause || ''),
+      stack: err.stack,
+      meta
+    });
     throw err;
   }
   return res.json();

@@ -525,6 +525,12 @@ const queueEmbeddingDelete = (ids) => {
   });
 };
 
+const sendEmbeddingError = (res, error) => {
+  const status = error.status || 503;
+  const payload = error.payload || { error: error.message };
+  res.status(status).json(payload);
+};
+
 const safeMapEmbedding = (fn, label) => {
   try {
     return fn();
@@ -2028,8 +2034,10 @@ const handleSemanticSearch = async (req, res, query, rawTypes, rawLimit) => {
     const results = await hydrateSemanticResults({ matches, userId: req.user.id });
     res.status(200).json({ results });
   } catch (error) {
-    const status = error instanceof EmbeddingError ? (error.status || 503) : 500;
-    res.status(status).json({ error: error.message });
+    if (error.payload || error instanceof EmbeddingError) {
+      return sendEmbeddingError(res, error);
+    }
+    res.status(500).json({ error: error.message });
   }
 };
 
@@ -2139,8 +2147,10 @@ app.get('/api/concepts/:id/suggestions', authenticateToken, async (req, res) => 
       .slice(0, limit);
     res.status(200).json({ results });
   } catch (error) {
-    const status = error instanceof EmbeddingError ? (error.status || 503) : 500;
-    res.status(status).json({ error: error.message });
+    if (error.payload || error instanceof EmbeddingError) {
+      return sendEmbeddingError(res, error);
+    }
+    res.status(500).json({ error: error.message });
   }
 });
 
@@ -2245,8 +2255,10 @@ app.get('/api/ai/themes', authenticateToken, async (req, res) => {
     }).sort((a, b) => b.highlightIds.length - a.highlightIds.length);
     res.status(200).json({ clusters: clusters.slice(0, 7) });
   } catch (error) {
-    const status = error instanceof EmbeddingError ? (error.status || 503) : 500;
-    res.status(status).json({ error: error.message });
+    if (error.payload || error instanceof EmbeddingError) {
+      return sendEmbeddingError(res, error);
+    }
+    res.status(500).json({ error: error.message });
   }
 });
 
@@ -2345,8 +2357,10 @@ app.get('/api/ai/connections', authenticateToken, async (req, res) => {
     }));
     res.status(200).json({ pairs: hydrated });
   } catch (error) {
-    const status = error instanceof EmbeddingError ? (error.status || 503) : 500;
-    res.status(status).json({ error: error.message });
+    if (error.payload || error instanceof EmbeddingError) {
+      return sendEmbeddingError(res, error);
+    }
+    res.status(500).json({ error: error.message });
   }
 });
 
@@ -2644,8 +2658,10 @@ app.post('/api/ai/synthesize', authenticateToken, async (req, res) => {
       draftInsights
     });
   } catch (error) {
-    const status = error instanceof EmbeddingError ? (error.status || 503) : 500;
-    res.status(status).json({ error: error.message });
+    if (error.payload || error instanceof EmbeddingError) {
+      return sendEmbeddingError(res, error);
+    }
+    res.status(500).json({ error: error.message });
   }
 });
 
@@ -3430,8 +3446,10 @@ app.get('/api/highlights/:id/related', authenticateToken, async (req, res) => {
     const results = await hydrateSemanticResults({ matches, userId });
     res.status(200).json({ results });
   } catch (error) {
-    const status = error instanceof EmbeddingError ? (error.status || 503) : 500;
-    res.status(status).json({ error: error.message });
+    if (error.payload || error instanceof EmbeddingError) {
+      return sendEmbeddingError(res, error);
+    }
+    res.status(500).json({ error: error.message });
   }
 });
 
@@ -3471,8 +3489,10 @@ app.get('/api/concepts/:id/related', authenticateToken, async (req, res) => {
     });
     res.status(200).json({ results });
   } catch (error) {
-    const status = error instanceof EmbeddingError ? (error.status || 503) : 500;
-    res.status(status).json({ error: error.message });
+    if (error.payload || error instanceof EmbeddingError) {
+      return sendEmbeddingError(res, error);
+    }
+    res.status(500).json({ error: error.message });
   }
 });
 
@@ -3510,8 +3530,10 @@ app.get('/api/questions/:id/related', authenticateToken, async (req, res) => {
     }
     res.status(200).json({ results });
   } catch (error) {
-    const status = error instanceof EmbeddingError ? (error.status || 503) : 500;
-    res.status(status).json({ error: error.message });
+    if (error.payload || error instanceof EmbeddingError) {
+      return sendEmbeddingError(res, error);
+    }
+    res.status(500).json({ error: error.message });
   }
 });
 
@@ -3544,8 +3566,10 @@ app.get('/api/notebook/:id/related', authenticateToken, async (req, res) => {
     const results = await hydrateSemanticResults({ matches, userId });
     res.status(200).json({ results });
   } catch (error) {
-    const status = error instanceof EmbeddingError ? (error.status || 503) : 500;
-    res.status(status).json({ error: error.message });
+    if (error.payload || error instanceof EmbeddingError) {
+      return sendEmbeddingError(res, error);
+    }
+    res.status(500).json({ error: error.message });
   }
 });
 
