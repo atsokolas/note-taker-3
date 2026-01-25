@@ -5170,11 +5170,11 @@ app.get('/api/ai/health', async (req, res) => {
 // --- HF embeddings smoke test ---
 app.get('/api/ai/hf-smoke', async (req, res) => {
   try {
-    const [embedding] = await embedTexts(['smoke'], { batchSize: 1 });
+    const [embedding] = await embedTexts(['hello world'], { batchSize: 1 });
     if (!Array.isArray(embedding)) {
       throw new EmbeddingError('HF embeddings response missing vector.', 502);
     }
-    res.status(200).json({ ok: true, size: embedding.length });
+    res.status(200).json({ ok: true, dims: embedding.length });
   } catch (error) {
     if (error.payload || error instanceof EmbeddingError) {
       return sendEmbeddingError(res, error);

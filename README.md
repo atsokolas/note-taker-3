@@ -36,9 +36,8 @@ Environment variables:
 
 - `HF_TOKEN` (required)
 - `HF_EMBEDDING_MODEL` (default: `sentence-transformers/all-MiniLM-L6-v2`)
-- `HF_BASE_URL` (default: `https://router.huggingface.co`)
 - `HF_TIMEOUT_MS` (default: `30000`)
 
 Health check:
 
-- `GET /api/ai/hf-smoke` → `{ ok, size }`
+- `GET /api/ai/hf-smoke` → `{ ok, dims }`

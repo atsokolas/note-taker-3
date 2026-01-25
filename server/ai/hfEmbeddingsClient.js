@@ -1,7 +1,8 @@
+const { embedTexts: embedWithClient } = require('./hfClient');
+
 const DEFAULT_MODEL = 'sentence-transformers/all-MiniLM-L6-v2';
 const DEFAULT_BATCH_SIZE = 32;
 const DEFAULT_MAX_CHARS = 4000;
-const DEFAULT_BASE_URL = 'https://router.huggingface.co';
 const DEFAULT_TIMEOUT_MS = 30000;
 const QUERY_CACHE_TTL_MS = 5 * 60 * 1000;
 
@@ -10,13 +11,11 @@ const queryCache = new Map();
 const getConfig = () => ({
   token: process.env.HF_TOKEN || '',
   model: process.env.HF_EMBEDDING_MODEL || DEFAULT_MODEL,
-  baseUrl: process.env.HF_BASE_URL || DEFAULT_BASE_URL,
   timeoutMs: Number(process.env.HF_TIMEOUT_MS || DEFAULT_TIMEOUT_MS)
 });
 
 const startupConfig = getConfig();
 console.log('[HF] embeddings config', {
-  baseUrl: startupConfig.baseUrl,
   model: startupConfig.model,
   timeoutMs: startupConfig.timeoutMs
 });
@@ -28,16 +27,6 @@ const truncateText = (text, maxChars = DEFAULT_MAX_CHARS) => {
   return value.length > maxChars ? value.slice(0, maxChars) : value;
 };
 
-// Router URL shape: https://router.huggingface.co/hf-inference/models/<model-id>
-const encodeModel = (model) =>
-  String(model || '')
-    .split('/')
-    .map(segment => encodeURIComponent(segment))
-    .join('/');
-
-const buildUrl = (baseUrl, model) =>
-  `${baseUrl.replace(/\/$/, '')}/hf-inference/models/${encodeModel(model)}`;
-
 const buildHint = (status, message = '') => {
   if (status === 401 || status === 403) return 'Check HF_TOKEN.';
   if (status === 503) return 'HF inference temporarily unavailable.';
@@ -45,7 +34,7 @@ const buildHint = (status, message = '') => {
   if (message.includes('ENOTFOUND') || message.includes('fetch failed')) {
     return 'Outbound network or DNS is blocked.';
   }
-  return 'Check HF_BASE_URL and network access.';
+  return 'Check HF credentials and network access.';
 };
 
 const buildClientError = ({ message, status, cause, hint, meta }) => {
@@ -57,16 +46,33 @@ const buildClientError = ({ message, status, cause, hint, meta }) => {
     message,
     cause: String(cause || ''),
     hint,
+    model: meta?.model || '',
+    status,
     url: meta?.url || ''
   };
   error.meta = meta;
   return error;
 };
 
+const extractBodySnippet = (error) => {
+  const raw =
+    error?.response?.data ||
+    error?.response?.body ||
+    error?.body ||
+    error?.cause ||
+    '';
+  if (!raw) return '';
+  if (typeof raw === 'string') return raw.slice(0, 200);
+  try {
+    return JSON.stringify(raw).slice(0, 200);
+  } catch (err) {
+    return String(raw).slice(0, 200);
+  }
+};
+
 const requestEmbeddings = async ({ token, model, texts }) => {
-  const { baseUrl, timeoutMs } = getConfig();
-  const url = buildUrl(baseUrl, model);
-  const meta = { url, model, timeoutMs };
+  const { timeoutMs } = getConfig();
+  const meta = { model, timeoutMs };
   if (!token) {
     throw buildClientError({
       message: 'HF token missing/invalid',
@@ -76,49 +82,20 @@ const requestEmbeddings = async ({ token, model, texts }) => {
       meta
     });
   }
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), timeoutMs);
-  let res;
   try {
-    res = await fetch(url, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ inputs: texts, options: { wait_for_model: true } }),
-      signal: controller.signal
-    });
+    return await embedWithClient(texts);
   } catch (error) {
-    clearTimeout(timeout);
-    const status = error.name === 'AbortError' ? 504 : 502;
-    const message = error.name === 'AbortError'
-      ? `HF request timed out after ${timeoutMs}ms | url=${url}`
-      : `HF request failed. Check outbound network access and HF_TOKEN. | url=${url}`;
+    const bodySnippet = extractBodySnippet(error);
+    const status = error.status || error.response?.status || 502;
+    const isTimeout = status === 504 || error.code === 'ETIMEDOUT';
+    const message = isTimeout
+      ? `HF request timed out after ${timeoutMs}ms | model=${model}`
+      : `HF embeddings failed (${status}): ${bodySnippet || error.message || 'Unknown error'} | model=${model}`;
     const err = buildClientError({
       message,
-      status,
+      status: isTimeout ? 504 : status,
       cause: error,
-      hint: buildHint(status, error.message || ''),
-      meta
-    });
-    console.error('[HF] request failed', {
-      name: err.name,
-      message: err.message,
-      cause: String(err.cause || ''),
-      stack: err.stack,
-      meta
-    });
-    throw err;
-  } finally {
-    clearTimeout(timeout);
-  }
-  if (res.status === 401 || res.status === 403) {
-    const err = buildClientError({
-      message: 'HF token missing/invalid',
-      status: res.status,
-      cause: '',
-      hint: buildHint(res.status),
+      hint: buildHint(status, bodySnippet || error.message || ''),
       meta
     });
     console.error('[HF] request failed', {
@@ -130,43 +107,6 @@ const requestEmbeddings = async ({ token, model, texts }) => {
     });
     throw err;
   }
-  if (res.status === 503) {
-    const err = buildClientError({
-      message: `HF inference temporarily unavailable | url=${url}`,
-      status: 503,
-      cause: '',
-      hint: buildHint(503),
-      meta
-    });
-    console.error('[HF] request failed', {
-      name: err.name,
-      message: err.message,
-      cause: String(err.cause || ''),
-      stack: err.stack,
-      meta
-    });
-    throw err;
-  }
-  if (!res.ok) {
-    const body = await res.text().catch(() => '');
-    const bodySnippet = String(body || '').slice(0, 200);
-    const err = buildClientError({
-      message: `HF embeddings failed (${res.status}): ${bodySnippet || res.statusText} | url=${url}`,
-      status: res.status,
-      cause: bodySnippet,
-      hint: buildHint(res.status, bodySnippet || res.statusText),
-      meta
-    });
-    console.error('[HF] request failed', {
-      name: err.name,
-      message: err.message,
-      cause: String(err.cause || ''),
-      stack: err.stack,
-      meta
-    });
-    throw err;
-  }
-  return res.json();
 };
 
 const embedTexts = async (texts, options = {}) => {
@@ -189,7 +129,9 @@ const embedTexts = async (texts, options = {}) => {
         embeddings.forEach(embed => output.push(embed));
         break;
       } catch (err) {
-        if (err.status === 503 && attempt < retries) {
+        const status = err.status || err.response?.status || 502;
+        const shouldRetry = status === 429 || status >= 500;
+        if (shouldRetry && attempt < retries) {
           const delay = 500 * Math.pow(2, attempt);
           attempt += 1;
           await sleep(delay);
