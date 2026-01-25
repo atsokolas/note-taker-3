@@ -18,10 +18,15 @@ const Login = ({ onLoginSuccess, chromeStoreLink }) => {
         try {
             const response = await api.post('/api/auth/login', { username, password });
             if (response.data.token) {
+                localStorage.removeItem('token');
+                localStorage.removeItem('authToken');
+                localStorage.removeItem('jwt');
                 localStorage.setItem('token', response.data.token);
                 if (window.chrome && window.chrome.storage && window.chrome.storage.local) {
-                    window.chrome.storage.local.set({ token: response.data.token }, () => {
+                    window.chrome.storage.local.remove(['token', 'authToken', 'jwt'], () => {
+                      window.chrome.storage.local.set({ token: response.data.token }, () => {
                         console.log('Token saved to chrome.storage for extension use.');
+                      });
                     });
                 }
                 setMessage('Login successful!');

@@ -15,12 +15,18 @@ api.interceptors.response.use(
   (error) => {
     // Check if the error is a 401 (Unauthorized) or 403 (Forbidden)
     if (error.response && (error.response.status === 401 || error.response.status === 403)) {
+      const authError = error.response.data?.error;
+      if (authError === 'AUTH_EXPIRED') {
+        window.alert('Session expired, please log in again.');
+      }
       console.log("Authentication error detected. Logging out.");
       
       // Remove the invalid token from storage
       localStorage.removeItem('token');
+      localStorage.removeItem('authToken');
+      localStorage.removeItem('jwt');
       if (window.chrome && window.chrome.storage) {
-        window.chrome.storage.local.remove('token');
+        window.chrome.storage.local.remove(['token', 'authToken', 'jwt']);
       }
 
       // Force a redirect to the login page

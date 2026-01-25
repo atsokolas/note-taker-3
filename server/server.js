@@ -363,21 +363,67 @@ collectionSchema.index({ slug: 1, userId: 1 }, { unique: true });
 const Collection = mongoose.model('Collection', collectionSchema);
 
 // --- AUTHENTICATION ADDITIONS: JWT Verification Middleware ---
-function authenticateToken(req, res, next) {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1]; // Expects 'Bearer TOKEN'
+const getCookieValue = (cookieHeader, name) => {
+  if (!cookieHeader) return '';
+  const parts = cookieHeader.split(';').map(part => part.trim());
+  const match = parts.find(part => part.startsWith(`${name}=`));
+  if (!match) return '';
+  return decodeURIComponent(match.slice(name.length + 1));
+};
 
-  if (token == null) {
-    return res.status(401).json({ error: "Authentication token required." }); // No token provided
+function authenticateToken(req, res, next) {
+  const authHeader = req.headers['authorization'] || '';
+  const headerToken = authHeader.startsWith('Bearer ')
+    ? authHeader.slice(7).trim()
+    : '';
+  const cookieHeader = req.headers.cookie || '';
+  const cookieToken =
+    getCookieValue(cookieHeader, 'token') ||
+    getCookieValue(cookieHeader, 'authToken') ||
+    getCookieValue(cookieHeader, 'jwt');
+
+  const token = headerToken || cookieToken;
+  const tokenSource = headerToken ? 'header' : (cookieToken ? 'cookie' : 'none');
+
+  if (!token) {
+    if (process.env.DEBUG_AUTH === 'true') {
+      console.log('[AUTH] missing token', {
+        tokenSource,
+        serverNowSec: Math.floor(Date.now() / 1000)
+      });
+    }
+    return res.status(401).json({ error: "AUTH_REQUIRED" });
   }
 
   jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
-    if (err) {
-      console.error("JWT Verification Error:", err.message);
-      return res.status(403).json({ error: "Invalid or expired token." }); // Token is invalid
+    const serverNowSec = Math.floor(Date.now() / 1000);
+    const decoded = jwt.decode(token) || {};
+    if (process.env.DEBUG_AUTH === 'true') {
+      const diffSec = decoded.exp ? serverNowSec - decoded.exp : null;
+      console.log('[AUTH] verify', {
+        tokenSource,
+        serverNowSec,
+        iat: decoded.iat,
+        exp: decoded.exp,
+        diffSec
+      });
     }
-    req.user = user; // Store user payload (e.g., { id: userId, username: username }) in request
-    next(); // Proceed to the next middleware/route handler
+
+    if (err) {
+      if (err.name === 'TokenExpiredError') {
+        console.warn("JWT Verification Error: token expired");
+        return res.status(401).json({ error: "AUTH_EXPIRED" });
+      }
+      console.warn("JWT Verification Error:", err.message);
+      return res.status(401).json({ error: "AUTH_INVALID" });
+    }
+    req.user = user;
+    req.authInfo = {
+      tokenSource,
+      iat: user.iat,
+      exp: user.exp
+    };
+    next();
   });
 }
 
@@ -712,9 +758,12 @@ app.post('/api/auth/login', async (req, res) => {
         const token = jwt.sign(
             { id: user._id, username: user.username },
             process.env.JWT_SECRET,
-            { expiresIn: '1h' } // Token expires in 1 hour
+            { expiresIn: '7d' } // Token expires in 7 days
         );
 
+        res.clearCookie('token');
+        res.clearCookie('authToken');
+        res.clearCookie('jwt');
         res.status(200).json({ token, username: user.username, userId: user._id });
     } catch (error) {
         console.error("❌ Error logging in user:", error);
@@ -5181,6 +5230,22 @@ app.get('/api/ai/hf-smoke', async (req, res) => {
     }
     res.status(500).json({ error: error.message });
   }
+});
+
+// --- DEBUG ---
+app.get('/api/debug/time', (req, res) => {
+  const serverNowSec = Math.floor(Date.now() / 1000);
+  res.status(200).json({ serverNowISO: new Date().toISOString(), serverNowSec });
+});
+
+app.get('/api/debug/auth', authenticateToken, (req, res) => {
+  const serverNowSec = Math.floor(Date.now() / 1000);
+  res.status(200).json({
+    tokenSource: req.authInfo?.tokenSource || 'unknown',
+    serverNowSec,
+    iat: req.authInfo?.iat,
+    exp: req.authInfo?.exp
+  });
 });
 
 // --- HEALTH CHECK ENDPOINT to prevent cold starts ---
