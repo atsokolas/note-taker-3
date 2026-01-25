@@ -26,6 +26,28 @@ import LibraryNotebookModal from '../components/library/LibraryNotebookModal';
 import LibraryQuestionModal from '../components/library/LibraryQuestionModal';
 import SynthesisModal from '../components/think/SynthesisModal';
 
+const formatAiError = (err, fallback = 'Request failed.') => {
+  const status = err?.response?.status;
+  const data = err?.response?.data;
+  const bodySnippet = typeof data === 'string'
+    ? data.slice(0, 300)
+    : data
+      ? JSON.stringify(data).slice(0, 300)
+      : '';
+  const output = status
+    ? `HTTP ${status} — ${bodySnippet || fallback}`
+    : `${err?.name || 'Error'}: ${err?.message || fallback}`;
+  console.error('AI request failed', {
+    url: err?.config?.url,
+    method: err?.config?.method,
+    status,
+    bodySnippet,
+    thrownName: err?.name,
+    thrownMessage: err?.message
+  });
+  return output;
+};
+
 const ThinkMode = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const queryConcept = searchParams.get('concept') || '';
@@ -192,7 +214,7 @@ const ThinkMode = () => {
         });
       } catch (err) {
         if (!cancelled) {
-          setConceptRelatedError(err.response?.data?.error || 'Failed to load related items.');
+          setConceptRelatedError(formatAiError(err, 'Failed to load related items.'));
         }
       } finally {
         if (!cancelled) setConceptRelatedLoading(false);
@@ -219,7 +241,7 @@ const ThinkMode = () => {
         }
       } catch (err) {
         if (!cancelled) {
-          setThemesError(err.response?.data?.error || 'Failed to load themes.');
+          setThemesError(formatAiError(err, 'Failed to load themes.'));
         }
       } finally {
         if (!cancelled) setThemesLoading(false);
@@ -246,7 +268,7 @@ const ThinkMode = () => {
         }
       } catch (err) {
         if (!cancelled) {
-          setConnectionsError(err.response?.data?.error || 'Failed to load connections.');
+          setConnectionsError(formatAiError(err, 'Failed to load connections.'));
         }
       } finally {
         if (!cancelled) setConnectionsLoading(false);
@@ -276,7 +298,7 @@ const ThinkMode = () => {
         }
       } catch (err) {
         if (!cancelled) {
-          setConceptSuggestionsError(err.response?.data?.error || 'Failed to load suggestions.');
+          setConceptSuggestionsError(formatAiError(err, 'Failed to load suggestions.'));
         }
       } finally {
         if (!cancelled) setConceptSuggestionsLoading(false);
@@ -309,7 +331,7 @@ const ThinkMode = () => {
         });
       } catch (err) {
         if (!cancelled) {
-          setQuestionRelatedError(err.response?.data?.error || 'Failed to load related items.');
+          setQuestionRelatedError(formatAiError(err, 'Failed to load related items.'));
         }
       } finally {
         if (!cancelled) setQuestionRelatedLoading(false);
@@ -710,7 +732,7 @@ const ThinkMode = () => {
       }, getAuthHeaders());
       setSynthesisData(res.data || {});
     } catch (err) {
-      setSynthesisError(err.response?.data?.error || 'Failed to synthesize.');
+      setSynthesisError(formatAiError(err, 'Failed to synthesize.'));
     } finally {
       setSynthesisLoading(false);
     }

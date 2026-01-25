@@ -41,6 +41,28 @@ const typeIcon = (type) => {
   return '•';
 };
 
+const formatApiError = (err, fallback = 'Request failed.') => {
+  const status = err?.response?.status;
+  const data = err?.response?.data;
+  const bodySnippet = typeof data === 'string'
+    ? data.slice(0, 300)
+    : data
+      ? JSON.stringify(data).slice(0, 300)
+      : '';
+  const output = status
+    ? `HTTP ${status} — ${bodySnippet || fallback}`
+    : `${err?.name || 'Error'}: ${err?.message || fallback}`;
+  console.error('AI request failed', {
+    url: err?.config?.url,
+    method: err?.config?.method,
+    status,
+    bodySnippet,
+    thrownName: err?.name,
+    thrownMessage: err?.message
+  });
+  return output;
+};
+
 const Search = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const mode = searchParams.get('mode') || 'semantic';
@@ -88,8 +110,7 @@ const Search = () => {
         }
       } catch (err) {
         if (!cancelled) {
-          console.error('Error searching:', err);
-          setError(err.response?.data?.error || 'Search failed.');
+          setError(formatApiError(err, 'Search failed.'));
         }
       } finally {
         if (!cancelled) setLoading(false);

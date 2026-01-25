@@ -44,6 +44,14 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+app.use((req, res, next) => {
+  const requestId = req.headers['x-request-id'] || crypto.randomUUID();
+  req.requestId = requestId;
+  res.setHeader('X-Request-Id', requestId);
+  console.log(`[REQ] ${requestId} ${req.method} ${req.originalUrl}`);
+  next();
+});
+
 // This is the new, permissive CORS setup
 app.use(cors());
 
@@ -2568,7 +2576,19 @@ app.post('/api/ai/synthesize', authenticateToken, async (req, res) => {
       objectType: 'highlight',
       objectId: String(id)
     }));
-    const embedResponse = embeddingIds.length ? await aiGetEmbeddings(embeddingIds) : { results: [] };
+    let embedResponse = { results: [] };
+    if (embeddingIds.length) {
+      try {
+        embedResponse = await aiGetEmbeddings(embeddingIds);
+      } catch (error) {
+        return res.status(502).json({
+          error: 'UPSTREAM_FAILED',
+          upstream: 'ai_service',
+          message: error.message,
+          details: error.payload || error.response?.data || ''
+        });
+      }
+    }
     const embedItems = Array.isArray(embedResponse?.results) ? embedResponse.results : [];
     const embeddingMap = new Map(embedItems.map(item => [item.id, item.embedding]));
     const vectors = [];
@@ -2649,13 +2669,33 @@ app.post('/api/ai/synthesize', authenticateToken, async (req, res) => {
     const queryText = sourceTexts.slice(0, 6).join(' ');
     let suggestedLinks = [];
     if (queryText.trim()) {
-      const embedding = await embedQuery(queryText);
-      const response = await aiSemanticSearch({
-        userId: String(userId),
-        query: queryText,
-        embedding,
-        limit: 12
-      });
+      let embedding;
+      try {
+        embedding = await embedQuery(queryText);
+      } catch (error) {
+        return res.status(502).json({
+          error: 'UPSTREAM_FAILED',
+          upstream: 'huggingface',
+          message: error.message,
+          details: error.payload || error.response?.data || ''
+        });
+      }
+      let response;
+      try {
+        response = await aiSemanticSearch({
+          userId: String(userId),
+          query: queryText,
+          embedding,
+          limit: 12
+        });
+      } catch (error) {
+        return res.status(502).json({
+          error: 'UPSTREAM_FAILED',
+          upstream: 'ai_service',
+          message: error.message,
+          details: error.payload || error.response?.data || ''
+        });
+      }
       const matches = Array.isArray(response?.results) ? response.results : [];
       const hydrated = await hydrateSemanticResults({ matches, userId });
       suggestedLinks = hydrated
