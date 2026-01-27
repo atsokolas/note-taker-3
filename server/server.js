@@ -26,7 +26,8 @@ const {
   deleteEmbeddings,
   semanticSearch: aiSemanticSearch,
   similarTo: aiSimilarTo,
-  getEmbeddings: aiGetEmbeddings
+  getEmbeddings: aiGetEmbeddings,
+  checkUpstreamHealth
 } = require('./config/aiClient');
 const { buildEmbeddingId } = require('./ai/embeddingTypes');
 const {
@@ -37,7 +38,6 @@ const {
   questionToEmbeddingItem
 } = require('./ai/mappers');
 const { isGenerationEnabled, generateDraftInsights } = require('./ai/generation');
-const { embedTexts, embedQuery } = require('./ai/hfEmbeddingsClient');
 
 dotenv.config();
 
@@ -553,15 +553,7 @@ const queueEmbeddingUpsert = (items) => {
   const payload = (items || []).filter(Boolean);
   if (payload.length === 0) return;
   setImmediate(() => {
-    const texts = payload.map(item => item.text || '');
-    embedTexts(texts, { batchSize: 32 })
-      .then((embeddings) => {
-        const enriched = payload.map((item, idx) => ({
-          ...item,
-          embedding: embeddings[idx]
-        }));
-        return upsertEmbeddings(enriched);
-      })
+    upsertEmbeddings(payload, { requestId: 'embedding-upsert' })
       .catch(err => {
         console.error('❌ AI upsert failed:', err.message || err);
       });
@@ -1879,13 +1871,13 @@ const normalizeSearchTypes = (types) => {
 
 const normalizeRelatedTypes = (types) => normalizeSearchTypes(types);
 
-const fetchSimilarEmbeddings = async ({ userId, sourceId, types, limit }) => {
+const fetchSimilarEmbeddings = async ({ userId, sourceId, types, limit, requestId }) => {
   const response = await aiSimilarTo({
     userId: String(userId),
     sourceId: String(sourceId),
     types,
     limit
-  });
+  }, { requestId });
   return Array.isArray(response?.results) ? response.results : [];
 };
 
@@ -2065,7 +2057,7 @@ const kMeans = (vectors, k, maxIterations = 12) => {
 
 const handleSemanticSearch = async (req, res, query, rawTypes, rawLimit) => {
   if (!isAiEnabled()) {
-    return res.status(503).json({ error: 'AI search is disabled.' });
+    return res.status(503).json({ error: 'AI_DISABLED', hint: 'Set AI_ENABLED=true to enable AI search.' });
   }
   const q = String(query || '').trim();
   if (!q) {
@@ -2074,14 +2066,12 @@ const handleSemanticSearch = async (req, res, query, rawTypes, rawLimit) => {
   const limit = Math.min(Number(rawLimit) || 12, 30);
   const types = normalizeSearchTypes(rawTypes);
   try {
-    const embedding = await embedQuery(q);
     const response = await aiSemanticSearch({
       userId: String(req.user.id),
       query: q,
-      embedding,
       types,
       limit
-    });
+    }, { requestId: req.requestId });
     const matches = Array.isArray(response?.results) ? response.results : [];
     const results = await hydrateSemanticResults({ matches, userId: req.user.id });
     res.status(200).json({ results });
@@ -2187,7 +2177,8 @@ app.get('/api/concepts/:id/suggestions', authenticateToken, async (req, res) => 
       userId,
       sourceId,
       types: ['highlight'],
-      limit: limit + 5
+      limit: limit + 5,
+      requestId: req.requestId
     });
     let results = await hydrateSemanticResults({ matches, userId });
     const pinnedSet = new Set((concept.pinnedHighlightIds || []).map(item => String(item)));
@@ -2236,7 +2227,7 @@ app.get('/api/ai/themes', authenticateToken, async (req, res) => {
       objectType: 'highlight',
       objectId: String(h._id)
     }));
-    const embedResponse = await aiGetEmbeddings(embeddingIds);
+    const embedResponse = await aiGetEmbeddings(embeddingIds, { requestId: req.requestId });
     const embedItems = Array.isArray(embedResponse?.results) ? embedResponse.results : [];
     const embeddingMap = new Map(embedItems.map(item => [item.id, item.embedding]));
     const vectors = [];
@@ -2327,7 +2318,7 @@ app.get('/api/ai/connections', authenticateToken, async (req, res) => {
       objectType: 'concept',
       objectId: String(concept._id)
     }));
-    const embedResponse = await aiGetEmbeddings(embeddingIds);
+    const embedResponse = await aiGetEmbeddings(embeddingIds, { requestId: req.requestId });
     const embedItems = Array.isArray(embedResponse?.results) ? embedResponse.results : [];
     const embeddingMap = new Map(embedItems.map(item => [item.id, item.embedding]));
     const conceptVectors = concepts.map((concept) => ({
@@ -2362,13 +2353,15 @@ app.get('/api/ai/connections', authenticateToken, async (req, res) => {
           userId,
           sourceId: pair.conceptA.embeddingId,
           types: ['highlight'],
-          limit: 20
+          limit: 20,
+          requestId: req.requestId
         }),
         fetchSimilarEmbeddings({
           userId,
           sourceId: pair.conceptB.embeddingId,
           types: ['highlight'],
-          limit: 20
+          limit: 20,
+          requestId: req.requestId
         })
       ]);
       const toIds = (items) => new Set(
@@ -2571,39 +2564,42 @@ app.post('/api/ai/synthesize', authenticateToken, async (req, res) => {
     }
 
     const highlightIds = highlightRecords.map(item => item.id);
-    const embeddingIds = highlightIds.map(id => buildEmbeddingId({
-      userId: String(userId),
-      objectType: 'highlight',
-      objectId: String(id)
-    }));
-    let embedResponse = { results: [] };
-    if (embeddingIds.length) {
-      try {
-        embedResponse = await aiGetEmbeddings(embeddingIds);
-      } catch (error) {
-        return res.status(502).json({
-          error: 'UPSTREAM_FAILED',
-          upstream: 'ai_service',
-          message: error.message,
-          details: error.payload || error.response?.data || ''
-        });
-      }
-    }
-    const embedItems = Array.isArray(embedResponse?.results) ? embedResponse.results : [];
-    const embeddingMap = new Map(embedItems.map(item => [item.id, item.embedding]));
     const vectors = [];
     const vectorHighlights = [];
-    highlightRecords.forEach(record => {
-      const embedId = buildEmbeddingId({
+
+    if (highlightRecords.length > 0) {
+      const embeddingIds = highlightIds.map(id => buildEmbeddingId({
         userId: String(userId),
         objectType: 'highlight',
-        objectId: record.id
+        objectId: String(id)
+      }));
+      let embedResponse = { results: [] };
+      if (embeddingIds.length) {
+        try {
+          embedResponse = await aiGetEmbeddings(embeddingIds, { requestId: req.requestId });
+        } catch (error) {
+          return res.status(502).json({
+            error: 'UPSTREAM_FAILED',
+            upstream: 'ai_service',
+            message: error.message,
+            details: error.payload || error.response?.data || ''
+          });
+        }
+      }
+      const embedItems = Array.isArray(embedResponse?.results) ? embedResponse.results : [];
+      const embeddingMap = new Map(embedItems.map(item => [item.id, item.embedding]));
+      highlightRecords.forEach(record => {
+        const embedId = buildEmbeddingId({
+          userId: String(userId),
+          objectType: 'highlight',
+          objectId: record.id
+        });
+        const vector = embeddingMap.get(embedId);
+        if (!vector) return;
+        vectors.push(vector);
+        vectorHighlights.push(record);
       });
-      const vector = embeddingMap.get(embedId);
-      if (!vector) return;
-      vectors.push(vector);
-      vectorHighlights.push(record);
-    });
+    }
 
     let themes = [];
     if (vectors.length >= 3) {
@@ -2669,25 +2665,13 @@ app.post('/api/ai/synthesize', authenticateToken, async (req, res) => {
     const queryText = sourceTexts.slice(0, 6).join(' ');
     let suggestedLinks = [];
     if (queryText.trim()) {
-      let embedding;
-      try {
-        embedding = await embedQuery(queryText);
-      } catch (error) {
-        return res.status(502).json({
-          error: 'UPSTREAM_FAILED',
-          upstream: 'huggingface',
-          message: error.message,
-          details: error.payload || error.response?.data || ''
-        });
-      }
       let response;
       try {
         response = await aiSemanticSearch({
           userId: String(userId),
           query: queryText,
-          embedding,
           limit: 12
-        });
+        }, { requestId: req.requestId });
       } catch (error) {
         return res.status(502).json({
           error: 'UPSTREAM_FAILED',
@@ -3516,7 +3500,8 @@ app.get('/api/highlights/:id/related', authenticateToken, async (req, res) => {
       userId,
       sourceId,
       types: ['highlight'],
-      limit: 6
+      limit: 6,
+      requestId: req.requestId
     });
     const results = await hydrateSemanticResults({ matches, userId });
     res.status(200).json({ results });
@@ -3550,7 +3535,8 @@ app.get('/api/concepts/:id/related', authenticateToken, async (req, res) => {
       userId,
       sourceId,
       types: ['highlight', 'concept'],
-      limit: 12
+      limit: 12,
+      requestId: req.requestId
     });
     let results = await hydrateSemanticResults({ matches, userId });
     const pinnedSet = new Set((concept.pinnedHighlightIds || []).map(item => String(item)));
@@ -3590,7 +3576,8 @@ app.get('/api/questions/:id/related', authenticateToken, async (req, res) => {
       userId,
       sourceId,
       types: ['highlight', 'concept'],
-      limit: 12
+      limit: 12,
+      requestId: req.requestId
     });
     let results = await hydrateSemanticResults({ matches, userId });
     const linkedSet = new Set((question.linkedHighlightIds || []).map(item => String(item)));
@@ -3636,7 +3623,8 @@ app.get('/api/notebook/:id/related', authenticateToken, async (req, res) => {
       userId,
       sourceId,
       types: ['highlight', 'concept', 'question', 'article'],
-      limit: 12
+      limit: 12,
+      requestId: req.requestId
     });
     const results = await hydrateSemanticResults({ matches, userId });
     res.status(200).json({ results });
@@ -5235,40 +5223,35 @@ app.post('/api/ai/reindex', authenticateToken, async (req, res) => {
   }
 });
 
-// --- AI / HF EMBEDDINGS ---
-app.get('/api/ai/health', async (req, res) => {
-  try {
-    const [embedding] = await embedTexts(['ping'], { batchSize: 1 });
-    if (!Array.isArray(embedding)) {
-      throw new EmbeddingError('HF embeddings response missing vector.', 502);
-    }
-    res.status(200).json({ ok: true, model: process.env.HF_EMBEDDING_MODEL, dims: embedding.length });
-  } catch (error) {
-    if (error.payload || error instanceof EmbeddingError) {
-      return res.status(error.status || 502).json({
-        ok: false,
-        error: error.payload?.error || 'HF request failed',
-        message: error.payload?.message || error.message,
-        url: error.payload?.url || ''
-      });
-    }
-    res.status(500).json({ ok: false, error: 'HF request failed', message: error.message, url: '' });
+// --- AI / AI SERVICE HEALTH ---
+app.get('/api/ai/health', authenticateToken, async (req, res) => {
+  if (!isAiEnabled()) {
+    return res.status(503).json({
+      error: 'AI_DISABLED',
+      hint: 'Set AI_ENABLED=true to enable AI features.'
+    });
   }
-});
-
-// --- HF embeddings smoke test ---
-app.get('/api/ai/hf-smoke', async (req, res) => {
   try {
-    const [embedding] = await embedTexts(['hello world'], { batchSize: 1 });
-    if (!Array.isArray(embedding)) {
-      throw new EmbeddingError('HF embeddings response missing vector.', 502);
-    }
-    res.status(200).json({ ok: true, dims: embedding.length });
+    const data = await checkUpstreamHealth({ requestId: req.requestId });
+    res.status(200).json(data);
   } catch (error) {
     if (error.payload || error instanceof EmbeddingError) {
       return sendEmbeddingError(res, error);
     }
-    res.status(500).json({ error: error.message });
+    res.status(502).json({ error: 'UPSTREAM_FAILED', message: error.message });
+  }
+});
+
+// --- AI service smoke test ---
+app.get('/api/ai/hf-smoke', authenticateToken, async (req, res) => {
+  try {
+    const data = await checkUpstreamHealth({ requestId: req.requestId });
+    res.status(200).json(data);
+  } catch (error) {
+    if (error.payload || error instanceof EmbeddingError) {
+      return sendEmbeddingError(res, error);
+    }
+    res.status(502).json({ error: 'UPSTREAM_FAILED', message: error.message });
   }
 });
 

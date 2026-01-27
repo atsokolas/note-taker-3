@@ -1,34 +1,61 @@
-const AI_SERVICE_URL = process.env.AI_SERVICE_URL || 'http://localhost:8001';
-const AI_ENABLED = String(process.env.AI_ENABLED || 'false').toLowerCase() === 'true';
+const { request, health, getConfig } = require('../services/aiServiceClient');
 
-const request = async (path, payload) => {
-  const res = await fetch(`${AI_SERVICE_URL}${path}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload || {})
-  });
-  if (!res.ok) {
-    const errorText = await res.text();
-    throw new Error(`AI service error ${res.status}: ${errorText}`);
-  }
-  return res.json();
-};
+const AI_ENABLED = String(process.env.AI_ENABLED || 'false').toLowerCase() === 'true';
 
 const isAiEnabled = () => AI_ENABLED;
 
-const upsertEmbeddings = (items) => request('/embed/upsert', { items });
-const deleteEmbeddings = (ids) => request('/embed/delete', { ids });
-const getEmbeddings = (ids) => request('/embed/get', { ids });
-const semanticSearch = (query) => request('/search', query);
-const similarTo = (payload) => request('/similar', payload);
+const ensureEnabled = () => {
+  if (!AI_ENABLED) {
+    const error = new Error('AI features are disabled.');
+    error.status = 503;
+    error.payload = {
+      error: 'AI_DISABLED',
+      hint: 'Set AI_ENABLED=true to enable AI features.'
+    };
+    throw error;
+  }
+};
+
+const upsertEmbeddings = (items, options = {}) => {
+  ensureEnabled();
+  return request({ path: '/embed/upsert', body: { items }, requestId: options.requestId });
+};
+
+const deleteEmbeddings = (ids, options = {}) => {
+  ensureEnabled();
+  return request({ path: '/embed/delete', body: { ids }, requestId: options.requestId });
+};
+
+const getEmbeddings = (ids, options = {}) => {
+  ensureEnabled();
+  return request({ path: '/embed/get', body: { ids }, requestId: options.requestId });
+};
+
+const semanticSearch = (query, options = {}) => {
+  ensureEnabled();
+  return request({ path: '/search', body: query, requestId: options.requestId });
+};
+
+const similarTo = (payload, options = {}) => {
+  ensureEnabled();
+  return request({ path: '/similar', body: payload, requestId: options.requestId });
+};
+
+const checkUpstreamHealth = (options = {}) => {
+  ensureEnabled();
+  return health({ requestId: options.requestId });
+};
+
+const aiConfig = getConfig();
 
 module.exports = {
-  AI_SERVICE_URL,
   AI_ENABLED,
+  AI_SERVICE_URL: aiConfig.baseUrl,
   isAiEnabled,
   upsertEmbeddings,
   deleteEmbeddings,
   getEmbeddings,
   semanticSearch,
-  similarTo
+  similarTo,
+  checkUpstreamHealth
 };

@@ -1,16 +1,28 @@
 import logging
 import os
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request, Depends
 from pydantic import BaseModel, Field
 from typing import List, Dict, Any, Optional
 import chromadb
 from chromadb.config import Settings
 from sentence_transformers import SentenceTransformer
 
-app = FastAPI(title="Note Taker AI Service")
-
 logger = logging.getLogger("ai_service")
 logging.basicConfig(level=logging.INFO)
+
+
+def require_shared_secret(request: Request):
+    secret = os.environ.get("AI_SHARED_SECRET", "")
+    if not secret:
+        logger.error("AI_SHARED_SECRET is not configured")
+        raise HTTPException(status_code=500, detail="AI_SHARED_SECRET not configured")
+    auth_header = request.headers.get("Authorization", "")
+    if auth_header != f"Bearer {secret}":
+        logger.warning("Unauthorized ai_service request")
+        raise HTTPException(status_code=401, detail="unauthorized")
+
+
+app = FastAPI(title="Note Taker AI Service", dependencies=[Depends(require_shared_secret)])
 
 client = chromadb.Client(
     Settings(
@@ -66,7 +78,7 @@ class EmbedGetRequest(BaseModel):
 
 @app.get("/health")
 def health():
-    return {"ok": True}
+    return {"status": "ok"}
 
 
 @app.post("/embed/upsert")

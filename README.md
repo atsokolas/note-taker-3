@@ -28,16 +28,29 @@ Endpoints:
 - `GET /api/search/semantic?q=...` → `{ results: [{ type, objectId, title, snippet, score }] }`
 - `GET /api/highlights/:id/related` → `{ results: [...] }`
 
-## Hugging Face embeddings
+## AI service
 
-The backend can generate embeddings via Hugging Face Serverless Inference.
+AI requests are proxied through the Node backend to a private `ai_service` (FastAPI).
 
-Environment variables:
+Node environment variables:
 
-- `HF_TOKEN` (required)
+- `AI_ENABLED` (true/false)
+- `AI_SERVICE_URL` (required when AI is enabled)
+- `AI_SHARED_SECRET` (required, must match ai_service)
+- `AI_SERVICE_TIMEOUT_MS` (default: `30000`)
+- `AI_SERVICE_RETRIES` (default: `1`)
+
+AI service environment variables:
+
+- `AI_SHARED_SECRET` (required)
+- `HF_TOKEN` (if the ai_service uses HF)
 - `HF_EMBEDDING_MODEL` (default: `sentence-transformers/all-MiniLM-L6-v2`)
-- `HF_TIMEOUT_MS` (default: `30000`)
 
 Health check:
 
-- `GET /api/ai/hf-smoke` → `{ ok, dims }`
+- `GET /api/ai/health` → proxies to ai_service `/health`
+
+Common failure modes:
+
+- Render free tier can sleep/cold start upstream services.
+- Wrong or missing `AI_SERVICE_URL` or `AI_SHARED_SECRET`.

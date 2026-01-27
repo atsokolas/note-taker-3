@@ -101,6 +101,8 @@ const ThinkMode = () => {
   const [connections, setConnections] = useState([]);
   const [connectionsLoading, setConnectionsLoading] = useState(false);
   const [connectionsError, setConnectionsError] = useState('');
+  const [aiHealthStatus, setAiHealthStatus] = useState('idle');
+  const [aiHealthError, setAiHealthError] = useState('');
   const [synthesisOpen, setSynthesisOpen] = useState(false);
   const [synthesisLoading, setSynthesisLoading] = useState(false);
   const [synthesisError, setSynthesisError] = useState('');
@@ -230,6 +232,9 @@ const ThinkMode = () => {
     if (activeView !== 'insights' || insightsTab !== 'themes') {
       return;
     }
+    if (aiHealthStatus !== 'ok') {
+      return;
+    }
     let cancelled = false;
     const fetchThemes = async () => {
       setThemesLoading(true);
@@ -251,10 +256,13 @@ const ThinkMode = () => {
     return () => {
       cancelled = true;
     };
-  }, [activeView, insightsTab, themesRange]);
+  }, [activeView, insightsTab, themesRange, aiHealthStatus]);
 
   useEffect(() => {
     if (activeView !== 'insights' || insightsTab !== 'connections') {
+      return;
+    }
+    if (aiHealthStatus !== 'ok') {
       return;
     }
     let cancelled = false;
@@ -278,7 +286,37 @@ const ThinkMode = () => {
     return () => {
       cancelled = true;
     };
-  }, [activeView, insightsTab]);
+  }, [activeView, insightsTab, aiHealthStatus]);
+
+  useEffect(() => {
+    if (activeView !== 'insights') {
+      return;
+    }
+    let cancelled = false;
+    const checkHealth = async () => {
+      setAiHealthStatus('loading');
+      setAiHealthError('');
+      try {
+        await api.get('/api/ai/health', getAuthHeaders());
+        if (!cancelled) {
+          setAiHealthStatus('ok');
+        }
+      } catch (err) {
+        if (cancelled) return;
+        const code = err.response?.data?.error;
+        if (code === 'AI_DISABLED') {
+          setAiHealthError('AI is disabled. Set AI_ENABLED=true on the server.');
+        } else {
+          setAiHealthError('AI service unreachable. Check server configuration.');
+        }
+        setAiHealthStatus('error');
+      }
+    };
+    checkHealth();
+    return () => {
+      cancelled = true;
+    };
+  }, [activeView]);
 
   useEffect(() => {
     if (activeView !== 'concepts' || !concept?._id) {
@@ -936,6 +974,12 @@ const ThinkMode = () => {
   const insightsPanel = (
     <div className="section-stack">
       <SectionHeader title="Insights" subtitle="Themes and connections across your thinking." />
+      {aiHealthStatus === 'loading' && (
+        <p className="muted small">Checking AI service…</p>
+      )}
+      {aiHealthStatus === 'error' && (
+        <p className="status-message error-message">{aiHealthError}</p>
+      )}
       <div className="library-highlight-filters">
         <button
           type="button"
