@@ -1,6 +1,7 @@
-# AI Service (FastAPI + ChromaDB)
+# AI Service (FastAPI + Hugging Face)
 
-Minimal AI microservice for embeddings and semantic search.
+Lightweight AI microservice that calls Hugging Face hosted inference over HTTP.
+This service intentionally avoids local ML dependencies for fast deploys.
 
 ## Setup
 
@@ -16,19 +17,45 @@ pip install -r requirements.txt
 uvicorn main:app --host 0.0.0.0 --port 8001 --reload
 ```
 
-ChromaDB persists to `ai_service/.chroma`.
+## Environment variables
+
+- `AI_SHARED_SECRET` (required)
+- `HF_TOKEN` (required)
+- `HF_EMBEDDING_MODEL` (default: `sentence-transformers/all-MiniLM-L6-v2`)
+- `HF_TEXT_MODEL` (default: `google/flan-t5-base`)
+- `HF_BASE_URL` (default: `https://router.huggingface.co`)
+- `HF_TIMEOUT_MS` (default: `30000`)
 
 ## Auth
 
-Set `AI_SHARED_SECRET` in the ai_service environment. All requests must include:
+Requests to `/embed` and `/synthesize` must include:
 
 ```
-Authorization: Bearer <AI_SHARED_SECRET>
+x-ai-secret: <AI_SHARED_SECRET>
 ```
 
 ## Endpoints
 
-- `GET /health` -> `{ status: "ok" }`
-- `POST /embed/upsert` (stub)
-- `POST /search` (stub)
-- `POST /similar` (stub)
+- `GET /health` -> `{ "status": "ok", "message": "Server is warm." }`
+- `POST /embed`
+- `POST /synthesize`
+
+## Example curl
+
+```bash
+curl http://localhost:8001/health
+```
+
+```bash
+curl -X POST http://localhost:8001/embed \
+  -H "x-ai-secret: $AI_SHARED_SECRET" \
+  -H "Content-Type: application/json" \
+  -d '{"texts":["hello world","second text"]}'
+```
+
+```bash
+curl -X POST http://localhost:8001/synthesize \
+  -H "x-ai-secret: $AI_SHARED_SECRET" \
+  -H "Content-Type: application/json" \
+  -d '{"items":[{"type":"highlight","id":"h1","text":"Example highlight text."}]}'
+```

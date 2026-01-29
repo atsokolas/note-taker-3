@@ -1,14 +1,21 @@
+import json
 import logging
 import os
+import time
+from typing import List, Optional, Dict, Any
+from urllib.parse import quote
+
+import httpx
 from fastapi import FastAPI, HTTPException, Request, Depends
 from pydantic import BaseModel, Field
-from typing import List, Dict, Any, Optional
-import chromadb
-from chromadb.config import Settings
-from sentence_transformers import SentenceTransformer
+from dotenv import load_dotenv
+
+load_dotenv()
 
 logger = logging.getLogger("ai_service")
 logging.basicConfig(level=logging.INFO)
+
+app = FastAPI(title="Note Taker AI Service")
 
 
 def require_shared_secret(request: Request):
@@ -16,238 +23,157 @@ def require_shared_secret(request: Request):
     if not secret:
         logger.error("AI_SHARED_SECRET is not configured")
         raise HTTPException(status_code=500, detail="AI_SHARED_SECRET not configured")
-    auth_header = request.headers.get("Authorization", "")
-    if auth_header != f"Bearer {secret}":
+    provided = request.headers.get("x-ai-secret", "")
+    if provided != secret:
         logger.warning("Unauthorized ai_service request")
         raise HTTPException(status_code=401, detail="unauthorized")
 
 
-app = FastAPI(title="Note Taker AI Service", dependencies=[Depends(require_shared_secret)])
-
-client = chromadb.Client(
-    Settings(
-        persist_directory=".chroma",
-        anonymized_telemetry=False
-    )
-)
-
-MODEL_NAME = os.environ.get("EMBEDDING_MODEL", "sentence-transformers/all-MiniLM-L6-v2")
-EMBEDDING_BATCH_SIZE = int(os.environ.get("EMBEDDING_BATCH_SIZE", "64"))
-COLLECTION_NAME = os.environ.get("CHROMA_COLLECTION", "embeddings")
-
-model = SentenceTransformer(MODEL_NAME)
-collection = client.get_or_create_collection(COLLECTION_NAME)
+class EmbedRequest(BaseModel):
+    texts: List[str] = Field(default_factory=list)
 
 
-class EmbedItem(BaseModel):
+class SynthesizeItem(BaseModel):
+    type: str
     id: str
     text: str
-    metadata: Optional[Dict[str, Any]] = None
-    userId: Optional[str] = None
-    objectType: Optional[str] = None
-    objectId: Optional[str] = None
-    updatedAt: Optional[str] = None
-    embedding: Optional[List[float]] = None
 
 
-class EmbedUpsertRequest(BaseModel):
-    items: List[EmbedItem]
+class SynthesizeRequest(BaseModel):
+    items: List[SynthesizeItem] = Field(default_factory=list)
+    prompt: Optional[str] = None
 
 
-class SearchRequest(BaseModel):
-    userId: str = Field(..., min_length=1)
-    query: Optional[str] = None
-    types: Optional[List[str]] = None
-    limit: int = 10
-    embedding: Optional[List[float]] = None
+def get_hf_config() -> Dict[str, Any]:
+    return {
+        "token": os.environ.get("HF_TOKEN", ""),
+        "embedding_model": os.environ.get(
+            "HF_EMBEDDING_MODEL",
+            "sentence-transformers/all-MiniLM-L6-v2"
+        ),
+        "text_model": os.environ.get(
+            "HF_TEXT_MODEL",
+            "google/flan-t5-base"
+        ),
+        "base_url": os.environ.get(
+            "HF_BASE_URL",
+            "https://router.huggingface.co"
+        ).rstrip("/"),
+        "timeout_ms": int(os.environ.get("HF_TIMEOUT_MS", "30000")),
+    }
 
 
-class SimilarRequest(BaseModel):
-    userId: str = Field(..., min_length=1)
-    sourceId: str = Field(..., min_length=1)
-    types: Optional[List[str]] = None
-    limit: int = 10
+def encode_model(model: str) -> str:
+    return "/".join(quote(part, safe="") for part in model.split("/"))
 
 
-class EmbedDeleteRequest(BaseModel):
-    ids: List[str]
+def build_hf_url(base_url: str, model: str) -> str:
+    return f"{base_url}/hf-inference/models/{encode_model(model)}"
 
-class EmbedGetRequest(BaseModel):
-    ids: List[str]
+
+def hf_post(url: str, token: str, payload: Dict[str, Any], timeout_ms: int, retries: int = 1) -> Any:
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/json"
+    }
+    attempt = 0
+    while True:
+        try:
+            with httpx.Client(timeout=timeout_ms / 1000.0) as client:
+                res = client.post(url, headers=headers, json=payload)
+            if res.status_code != 200:
+                body = res.text[:300] if res.text else ""
+                raise HTTPException(
+                    status_code=res.status_code,
+                    detail=f"HF error {res.status_code}: {body}"
+                )
+            return res.json()
+        except HTTPException:
+            if attempt < retries:
+                time.sleep(0.3)
+                attempt += 1
+                continue
+            raise
+        except Exception as exc:
+            if attempt < retries:
+                time.sleep(0.3)
+                attempt += 1
+                continue
+            raise HTTPException(status_code=502, detail=f"HF request failed: {exc}") from exc
+
+
+def parse_synthesis(output: str) -> Dict[str, Any]:
+    try:
+        data = json.loads(output)
+        if isinstance(data, dict):
+            return {
+                "summary": data.get("summary", ""),
+                "bullets": data.get("bullets", []),
+                "connections": data.get("connections", [])
+            }
+    except Exception:
+        pass
+    return {
+        "summary": output.strip(),
+        "bullets": [],
+        "connections": []
+    }
 
 
 @app.get("/health")
 def health():
-    return {"status": "ok"}
+    return {"status": "ok", "message": "Server is warm."}
 
 
-@app.post("/embed/upsert")
-def embed_upsert(req: EmbedUpsertRequest):
+@app.post("/embed", dependencies=[Depends(require_shared_secret)])
+def embed(req: EmbedRequest):
+    if not req.texts:
+        raise HTTPException(status_code=400, detail="texts are required")
+    config = get_hf_config()
+    if not config["token"]:
+        raise HTTPException(status_code=500, detail="HF_TOKEN not configured")
+    url = build_hf_url(config["base_url"], config["embedding_model"])
+    payload = {"inputs": req.texts, "options": {"wait_for_model": True}}
+    result = hf_post(url, config["token"], payload, config["timeout_ms"], retries=1)
+    if not isinstance(result, list):
+        raise HTTPException(status_code=502, detail="HF embeddings response invalid")
+    return {"embeddings": result, "model": config["embedding_model"]}
+
+
+@app.post("/synthesize", dependencies=[Depends(require_shared_secret)])
+def synthesize(req: SynthesizeRequest):
     if not req.items:
         raise HTTPException(status_code=400, detail="items are required")
+    config = get_hf_config()
+    if not config["token"]:
+        raise HTTPException(status_code=500, detail="HF_TOKEN not configured")
+    url = build_hf_url(config["base_url"], config["text_model"])
 
-    ids = [item.id for item in req.items]
-    texts = [item.text for item in req.items]
-    metadatas = []
-    embeddings = []
-    missing_texts = []
-    missing_indexes = []
-
-    for item in req.items:
-        metadata = dict(item.metadata or {})
-        if item.userId:
-            metadata["userId"] = item.userId
-        if item.objectType:
-            metadata["objectType"] = item.objectType
-        if item.objectId:
-            metadata["objectId"] = item.objectId
-        if item.updatedAt:
-            metadata["updatedAt"] = item.updatedAt
-        metadatas.append(metadata)
-        if item.embedding and isinstance(item.embedding, list):
-            embeddings.append(item.embedding)
-        else:
-            embeddings.append(None)
-            missing_indexes.append(len(embeddings) - 1)
-            missing_texts.append(item.text)
-
-    try:
-        if missing_texts:
-            computed = []
-            for i in range(0, len(missing_texts), EMBEDDING_BATCH_SIZE):
-                batch = missing_texts[i:i + EMBEDDING_BATCH_SIZE]
-                computed.extend(model.encode(batch, normalize_embeddings=True).tolist())
-            for idx, emb in zip(missing_indexes, computed):
-                embeddings[idx] = emb
-        collection.upsert(
-            ids=ids,
-            embeddings=embeddings,
-            documents=texts,
-            metadatas=metadatas
-        )
-        return {"upserted": len(ids)}
-    except Exception as exc:
-        logger.exception("Embedding upsert failed")
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
-
-
-@app.post("/embed/delete")
-def embed_delete(req: EmbedDeleteRequest):
-    if not req.ids:
-        raise HTTPException(status_code=400, detail="ids are required")
-    try:
-        collection.delete(ids=req.ids)
-        return {"deleted": len(req.ids)}
-    except Exception as exc:
-        logger.exception("Embedding delete failed")
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
-
-
-@app.post("/embed/get")
-def embed_get(req: EmbedGetRequest):
-    if not req.ids:
-        raise HTTPException(status_code=400, detail="ids are required")
-    try:
-        result = collection.get(ids=req.ids, include=["embeddings", "metadatas", "documents"])
-        ids = result.get("ids", []) or []
-        embeddings = result.get("embeddings", []) or []
-        metadatas = result.get("metadatas", []) or []
-        documents = result.get("documents", []) or []
-        items = []
-        for idx, item_id in enumerate(ids):
-            items.append({
-                "id": item_id,
-                "embedding": embeddings[idx] if idx < len(embeddings) else None,
-                "metadata": metadatas[idx] if idx < len(metadatas) else {},
-                "document": documents[idx] if idx < len(documents) else None
-            })
-        return {"results": items}
-    except Exception as exc:
-        logger.exception("Embedding get failed")
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
-
-@app.post("/search")
-def search(req: SearchRequest):
-    if not (req.query or req.embedding):
-        raise HTTPException(status_code=400, detail="query or embedding is required")
-    try:
-        if req.embedding and isinstance(req.embedding, list):
-            embedding = req.embedding
-        else:
-            if not req.query or not req.query.strip():
-                raise HTTPException(status_code=400, detail="query is required")
-            embedding = model.encode([req.query], normalize_embeddings=True).tolist()[0]
-        where = {"userId": req.userId}
-        if req.types:
-            where["objectType"] = {"$in": req.types}
-        result = collection.query(
-            query_embeddings=[embedding],
-            n_results=req.limit,
-            where=where,
-            include=["metadatas", "documents", "distances", "ids"]
-        )
-        ids = result.get("ids", [[]])[0] or []
-        metadatas = result.get("metadatas", [[]])[0] or []
-        documents = result.get("documents", [[]])[0] or []
-        distances = result.get("distances", [[]])[0] or []
-        results = []
-        for idx, item_id in enumerate(ids):
-            metadata = metadatas[idx] if idx < len(metadatas) else {}
-            distance = distances[idx] if idx < len(distances) else None
-            score = (1 - distance) if distance is not None else None
-            results.append({
-                "id": item_id,
-                "score": score,
-                "distance": distance,
-                "metadata": metadata or {},
-                "document": documents[idx] if idx < len(documents) else None
-            })
-        return {"results": results}
-    except Exception as exc:
-        logger.exception("Semantic search failed")
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
-
-
-@app.post("/similar")
-def similar(req: SimilarRequest):
-    try:
-        source = collection.get(ids=[req.sourceId], include=["embeddings"])
-        embeddings = source.get("embeddings", []) if source else []
-        if not embeddings:
-            raise HTTPException(status_code=404, detail="source embedding not found")
-        embedding = embeddings[0]
-        where = {"userId": req.userId}
-        if req.types:
-            where["objectType"] = {"$in": req.types}
-        result = collection.query(
-            query_embeddings=[embedding],
-            n_results=req.limit + 1,
-            where=where,
-            include=["metadatas", "documents", "distances", "ids"]
-        )
-        ids = result.get("ids", [[]])[0] or []
-        metadatas = result.get("metadatas", [[]])[0] or []
-        documents = result.get("documents", [[]])[0] or []
-        distances = result.get("distances", [[]])[0] or []
-        results = []
-        for idx, item_id in enumerate(ids):
-            if item_id == req.sourceId:
-                continue
-            metadata = metadatas[idx] if idx < len(metadatas) else {}
-            distance = distances[idx] if idx < len(distances) else None
-            score = (1 - distance) if distance is not None else None
-            results.append({
-                "id": item_id,
-                "score": score,
-                "distance": distance,
-                "metadata": metadata or {},
-                "document": documents[idx] if idx < len(documents) else None
-            })
-            if len(results) >= req.limit:
-                break
-        return {"results": results}
-    except HTTPException:
-        raise
-    except Exception as exc:
-        logger.exception("Similarity search failed")
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+    items_text = "\n".join(
+        f"- ({item.type}) {item.id}: {item.text}" for item in req.items
+    )
+    guidance = req.prompt or "Summarize the themes and connections."
+    prompt = (
+        "You are a concise assistant. Return JSON with keys: "
+        "summary (string), bullets (array of strings), connections "
+        "(array of objects with a, b, why). No extra text.\n\n"
+        f"Items:\n{items_text}\n\nInstruction: {guidance}"
+    )
+    payload = {
+        "inputs": prompt,
+        "parameters": {
+            "max_new_tokens": 256,
+            "temperature": 0.2,
+            "return_full_text": False
+        },
+        "options": {"wait_for_model": True}
+    }
+    result = hf_post(url, config["token"], payload, config["timeout_ms"], retries=1)
+    output_text = ""
+    if isinstance(result, list) and result:
+        output_text = result[0].get("generated_text", "")
+    elif isinstance(result, dict):
+        output_text = result.get("generated_text", "")
+    if not output_text:
+        raise HTTPException(status_code=502, detail="HF text response empty")
+    return parse_synthesis(output_text)
