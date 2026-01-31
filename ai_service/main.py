@@ -61,6 +61,11 @@ class SynthesizeRequest(BaseModel):
 
 
 def get_hf_config() -> Dict[str, Any]:
+    base_url = os.environ.get("HF_BASE_URL", "https://router.huggingface.co")
+    models_base = os.environ.get(
+        "HF_MODELS_BASE",
+        "https://router.huggingface.co/hf-inference/models"
+    )
     return {
         "token": os.environ.get("HF_TOKEN", ""),
         "embedding_model": os.environ.get(
@@ -71,20 +76,14 @@ def get_hf_config() -> Dict[str, Any]:
             "HF_TEXT_MODEL",
             "mistralai/Mistral-7B-Instruct-v0.3"
         ),
-        "base_url": os.environ.get(
-            "HF_BASE_URL",
-            "https://router.huggingface.co/hf-inference/models"
-        ).rstrip("/"),
+        "base_url": base_url.rstrip("/"),
+        "models_base": models_base.rstrip("/"),
         "timeout_ms": int(os.environ.get("HF_TIMEOUT_MS", "30000")),
     }
 
 
-def encode_model(model: str) -> str:
-    return "/".join(quote(part, safe="") for part in model.split("/"))
-
-
-def build_hf_url(base_url: str, model: str) -> str:
-    return f"{base_url}/{encode_model(model)}"
+def build_hf_url(models_base: str, model: str) -> str:
+    return f"{models_base.rstrip('/')}/{model}"
 
 
 def hf_post_json(url: str, payload: Dict[str, Any], timeout_ms: int) -> Any:
@@ -190,8 +189,9 @@ def _extract_generated_text(result: Any) -> str:
 
 _HF_STARTUP_CONFIG = get_hf_config()
 print(
-    "[HF] base_url={base_url} embedding_model={embedding_model} "
-    "text_model={text_model} timeout={timeout_ms}".format(**_HF_STARTUP_CONFIG)
+    "[HF] base_url={base_url} models_base={models_base} "
+    "embedding_model={embedding_model} text_model={text_model} "
+    "timeout={timeout_ms}".format(**_HF_STARTUP_CONFIG)
 )
 
 
@@ -220,6 +220,7 @@ def debug_hf():
     config = get_hf_config()
     return {
         "hf_base_url": config["base_url"],
+        "hf_models_base": config["models_base"],
         "embedding_model": config["embedding_model"],
         "text_model": config["text_model"],
         "token_set": bool(config["token"])
@@ -229,7 +230,7 @@ def debug_hf():
 @app.post("/debug/hf-embed", dependencies=[Depends(require_shared_secret)])
 def debug_hf_embed():
     config = get_hf_config()
-    url = build_hf_url(config["base_url"], config["embedding_model"])
+    url = build_hf_url(config["models_base"], config["embedding_model"])
     payload = {
         "inputs": ["hello world", "test sentence"],
         "options": {"wait_for_model": True}
@@ -247,13 +248,13 @@ def debug_hf_embed():
         body = res.json()
     except ValueError:
         body = body_text
-    return {"status": res.status_code, "body": body}
+    return {"url": url, "status": res.status_code, "body": body}
 
 
 @app.post("/debug/hf-generate", dependencies=[Depends(require_shared_secret)])
 def debug_hf_generate():
     config = get_hf_config()
-    url = build_hf_url(config["base_url"], config["text_model"])
+    url = build_hf_url(config["models_base"], config["text_model"])
     payload = {
         "inputs": "Say hello in one sentence.",
         "parameters": {"max_new_tokens": 30, "return_full_text": False},
@@ -272,7 +273,7 @@ def debug_hf_generate():
         body = res.json()
     except ValueError:
         body = body_text
-    return {"status": res.status_code, "body": body}
+    return {"url": url, "status": res.status_code, "body": body}
 
 
 @app.post("/embed", dependencies=[Depends(require_shared_secret)])
@@ -280,7 +281,7 @@ def embed(req: EmbedRequest):
     if not req.texts:
         raise HTTPException(status_code=400, detail="texts are required")
     config = get_hf_config()
-    url = build_hf_url(config["base_url"], config["embedding_model"])
+    url = build_hf_url(config["models_base"], config["embedding_model"])
     payload = {"inputs": req.texts, "options": {"wait_for_model": True}}
     result = hf_post_json(url, payload, config["timeout_ms"])
     embeddings = _normalize_embeddings(result)
@@ -292,7 +293,7 @@ def synthesize(req: SynthesizeRequest):
     if not req.items:
         raise HTTPException(status_code=400, detail="items are required")
     config = get_hf_config()
-    url = build_hf_url(config["base_url"], config["text_model"])
+    url = build_hf_url(config["models_base"], config["text_model"])
 
     items_text = "\n".join(
         f"- ({item.type}) {item.id}: {item.text}" for item in req.items
@@ -307,7 +308,7 @@ def synthesize(req: SynthesizeRequest):
     payload = {
         "inputs": prompt,
         "parameters": {
-            "max_new_tokens": 400,
+            "max_new_tokens": 200,
             "temperature": 0.3,
             "return_full_text": False
         },
