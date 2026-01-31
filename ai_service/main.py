@@ -1,17 +1,23 @@
 import json
 import logging
 import os
-import time
 import hashlib
 from typing import List, Optional, Dict, Any
-from urllib.parse import quote
 
-import httpx
 from fastapi import FastAPI, HTTPException, Request, Depends, Header
 from pydantic import BaseModel, Field
 from dotenv import load_dotenv
 
 load_dotenv()
+
+from hf_client import (  # noqa: E402
+    embeddings_client,
+    text_client,
+    HF_TOKEN,
+    HF_EMBEDDING_MODEL,
+    HF_TEXT_MODEL,
+    HF_PROVIDER,
+)
 
 logger = logging.getLogger("ai_service")
 logging.basicConfig(level=logging.INFO)
@@ -61,69 +67,22 @@ class SynthesizeRequest(BaseModel):
 
 
 def get_hf_config() -> Dict[str, Any]:
-    base_url = os.environ.get("HF_BASE_URL", "https://router.huggingface.co")
-    models_base = os.environ.get(
-        "HF_MODELS_BASE",
-        "https://router.huggingface.co/hf-inference/models"
-    )
     return {
-        "token": os.environ.get("HF_TOKEN", ""),
-        "embedding_model": os.environ.get(
-            "HF_EMBEDDING_MODEL",
-            "sentence-transformers/all-MiniLM-L6-v2"
-        ),
-        "text_model": os.environ.get(
-            "HF_TEXT_MODEL",
-            "mistralai/Mistral-7B-Instruct-v0.3"
-        ),
-        "base_url": base_url.rstrip("/"),
-        "models_base": models_base.rstrip("/"),
-        "timeout_ms": int(os.environ.get("HF_TIMEOUT_MS", "30000")),
+        "token": HF_TOKEN,
+        "embedding_model": HF_EMBEDDING_MODEL,
+        "text_model": HF_TEXT_MODEL,
+        "provider": HF_PROVIDER,
     }
 
 
-def build_hf_url(models_base: str, model: str) -> str:
-    return f"{models_base.rstrip('/')}/{model}"
-
-
-def hf_post_json(url: str, payload: Dict[str, Any], timeout_ms: int) -> Any:
-    token = os.environ.get("HF_TOKEN", "")
-    if not token:
-        raise HTTPException(status_code=500, detail="HF_TOKEN not configured")
-    headers = {
-        "Authorization": f"Bearer {token}",
-        "Content-Type": "application/json"
-    }
-    attempt = 0
-    retries = 1
-    while True:
-        try:
-            with httpx.Client(timeout=timeout_ms / 1000.0) as client:
-                res = client.post(url, headers=headers, json=payload)
-            logger.info("[HF] POST %s status=%s", url, res.status_code)
-            if res.status_code < 200 or res.status_code >= 300:
-                body = res.text[:300] if res.text else ""
-                log_hf(url, res.status_code, body)
-                raise HTTPException(
-                    status_code=502,
-                    detail=f"HF error {res.status_code}: {body}"
-                )
-            try:
-                return res.json()
-            except ValueError:
-                return res.text
-        except HTTPException:
-            if attempt < retries:
-                time.sleep(0.3)
-                attempt += 1
-                continue
-            raise
-        except Exception as exc:
-            if attempt < retries:
-                time.sleep(0.3)
-                attempt += 1
-                continue
-            raise HTTPException(status_code=502, detail=f"HF request failed: {exc}") from exc
+def _raise_hf_error(task: str, exc: Exception) -> None:
+    raise HTTPException(
+        status_code=502,
+        detail=(
+            f"HF {task} failed: {exc}. "
+            "Try a different HF_*_MODEL; not all models are served by the provider."
+        )
+    ) from exc
 
 
 def _mean_pool_token_embeddings(token_embeddings: List[List[float]]) -> List[float]:
@@ -143,15 +102,18 @@ def _mean_pool_token_embeddings(token_embeddings: List[List[float]]) -> List[flo
     return [value / count for value in sums]
 
 
-def _normalize_embeddings(result: Any) -> List[List[float]]:
+def _normalize_embeddings(result: Any, expected_count: int) -> List[List[float]]:
     if isinstance(result, list) and result:
-        if isinstance(result[0], list) and result[0]:
-            if isinstance(result[0][0], (int, float)):
-                return [list(map(float, vec)) for vec in result]
-            if isinstance(result[0][0], list):
-                return [_mean_pool_token_embeddings(tokens) for tokens in result]
-        if isinstance(result[0], (int, float)):
+        first = result[0]
+        if isinstance(first, (int, float)):
             return [list(map(float, result))]
+        if isinstance(first, list) and first:
+            if isinstance(first[0], (int, float)):
+                if expected_count == 1 and len(result) != 1:
+                    return [_mean_pool_token_embeddings(result)]
+                return [list(map(float, vec)) for vec in result]
+            if isinstance(first[0], list):
+                return [_mean_pool_token_embeddings(tokens) for tokens in result]
     raise HTTPException(status_code=502, detail="HF embeddings response invalid")
 
 
@@ -159,17 +121,14 @@ def parse_synthesis(output: str) -> Dict[str, Any]:
     try:
         data = json.loads(output)
         if isinstance(data, dict):
-            return {
-                "summary": data.get("summary", ""),
-                "bullets": data.get("bullets", []),
-                "connections": data.get("connections", [])
-            }
+            return data
     except Exception:
         pass
     return {
         "summary": output.strip(),
-        "bullets": [],
-        "connections": []
+        "themes": [],
+        "connections": [],
+        "questions": []
     }
 
 
@@ -186,17 +145,26 @@ def _extract_generated_text(result: Any) -> str:
         return result.strip()
     return ""
 
-
-_HF_STARTUP_CONFIG = get_hf_config()
-print(
-    "[HF] base_url={base_url} models_base={models_base} "
-    "embedding_model={embedding_model} text_model={text_model} "
-    "timeout={timeout_ms}".format(**_HF_STARTUP_CONFIG)
-)
-
-
-def log_hf(url: str, status: int, body_snippet: str) -> None:
-    logger.warning("[HF] non-2xx url=%s status=%s body=%s", url, status, body_snippet)
+def _extract_chat_text(result: Any) -> str:
+    if hasattr(result, "choices"):
+        choices = getattr(result, "choices", [])
+        if choices:
+            choice = choices[0]
+            message = getattr(choice, "message", None)
+            if message is not None and hasattr(message, "content"):
+                return str(message.content).strip()
+            if hasattr(choice, "text"):
+                return str(choice.text).strip()
+    if isinstance(result, dict):
+        choices = result.get("choices") or []
+        if choices:
+            first = choices[0]
+            message = first.get("message", {})
+            if isinstance(message, dict) and "content" in message:
+                return str(message.get("content", "")).strip()
+            if "text" in first:
+                return str(first.get("text", "")).strip()
+    return ""
 
 
 @app.get("/health")
@@ -219,61 +187,63 @@ def debug_secret():
 def debug_hf():
     config = get_hf_config()
     return {
-        "hf_base_url": config["base_url"],
-        "hf_models_base": config["models_base"],
+        "token_set": bool(config["token"]),
+        "provider": config["provider"],
         "embedding_model": config["embedding_model"],
         "text_model": config["text_model"],
-        "token_set": bool(config["token"])
     }
 
 
-@app.post("/debug/hf-embed", dependencies=[Depends(require_shared_secret)])
-def debug_hf_embed():
+@app.post("/debug/hf-smoke", dependencies=[Depends(require_shared_secret)])
+def debug_hf_smoke():
     config = get_hf_config()
-    url = build_hf_url(config["models_base"], config["embedding_model"])
-    payload = {
-        "inputs": ["hello world", "test sentence"],
-        "options": {"wait_for_model": True}
-    }
-    token = config["token"]
-    if not token:
+    if not config["token"]:
         raise HTTPException(status_code=500, detail="HF_TOKEN not configured")
-    headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
-    with httpx.Client(timeout=config["timeout_ms"] / 1000.0) as client:
-        res = client.post(url, headers=headers, json=payload)
-    body_text = res.text[:300] if res.text else ""
-    if res.status_code < 200 or res.status_code >= 300:
-        log_hf(url, res.status_code, body_text)
+    result: Dict[str, Any] = {"embedding": {}, "generation": {}}
     try:
-        body = res.json()
-    except ValueError:
-        body = body_text
-    return {"url": url, "status": res.status_code, "body": body}
-
-
-@app.post("/debug/hf-generate", dependencies=[Depends(require_shared_secret)])
-def debug_hf_generate():
-    config = get_hf_config()
-    url = build_hf_url(config["models_base"], config["text_model"])
-    payload = {
-        "inputs": "Say hello in one sentence.",
-        "parameters": {"max_new_tokens": 30, "return_full_text": False},
-        "options": {"wait_for_model": True}
+        embed_out = embeddings_client.feature_extraction(
+            ["hello world", "test sentence"]
+        )
+        vectors = _normalize_embeddings(embed_out, expected_count=2)
+        result["embedding"] = {
+            "ok": True,
+            "preview": vectors[0][:5] if vectors else []
+        }
+    except Exception as exc:
+        result["embedding"] = {"ok": False, "error": str(exc)}
+    try:
+        if hasattr(text_client, "chat_completion"):
+            chat_out = text_client.chat_completion(
+                messages=[
+                    {
+                        "role": "system",
+                        "content": "You are a thinking partner. Return ONLY valid JSON."
+                    },
+                    {"role": "user", "content": "Say hello in one sentence."}
+                ],
+                max_tokens=30,
+                temperature=0.3,
+            )
+            text_out = _extract_chat_text(chat_out)
+        else:
+            text_out = text_client.text_generation(
+                "Say hello in one sentence.",
+                max_new_tokens=30,
+                temperature=0.3,
+                return_full_text=False,
+            )
+        result["generation"] = {
+            "ok": True,
+            "preview": str(text_out)[:120]
+        }
+    except Exception as exc:
+        result["generation"] = {"ok": False, "error": str(exc)}
+    return {
+        "provider": config["provider"],
+        "embedding_model": config["embedding_model"],
+        "text_model": config["text_model"],
+        **result,
     }
-    token = config["token"]
-    if not token:
-        raise HTTPException(status_code=500, detail="HF_TOKEN not configured")
-    headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
-    with httpx.Client(timeout=config["timeout_ms"] / 1000.0) as client:
-        res = client.post(url, headers=headers, json=payload)
-    body_text = res.text[:300] if res.text else ""
-    if res.status_code < 200 or res.status_code >= 300:
-        log_hf(url, res.status_code, body_text)
-    try:
-        body = res.json()
-    except ValueError:
-        body = body_text
-    return {"url": url, "status": res.status_code, "body": body}
 
 
 @app.post("/embed", dependencies=[Depends(require_shared_secret)])
@@ -281,10 +251,13 @@ def embed(req: EmbedRequest):
     if not req.texts:
         raise HTTPException(status_code=400, detail="texts are required")
     config = get_hf_config()
-    url = build_hf_url(config["models_base"], config["embedding_model"])
-    payload = {"inputs": req.texts, "options": {"wait_for_model": True}}
-    result = hf_post_json(url, payload, config["timeout_ms"])
-    embeddings = _normalize_embeddings(result)
+    if not config["token"]:
+        raise HTTPException(status_code=500, detail="HF_TOKEN not configured")
+    try:
+        result = embeddings_client.feature_extraction(req.texts)
+        embeddings = _normalize_embeddings(result, expected_count=len(req.texts))
+    except Exception as exc:
+        _raise_hf_error("embeddings", exc)
     return {"vectors": embeddings, "model": config["embedding_model"]}
 
 
@@ -293,29 +266,52 @@ def synthesize(req: SynthesizeRequest):
     if not req.items:
         raise HTTPException(status_code=400, detail="items are required")
     config = get_hf_config()
-    url = build_hf_url(config["models_base"], config["text_model"])
+    if not config["token"]:
+        raise HTTPException(status_code=500, detail="HF_TOKEN not configured")
 
     items_text = "\n".join(
         f"- ({item.type}) {item.id}: {item.text}" for item in req.items
     )
     guidance = req.prompt or "Summarize the themes and connections."
     prompt = (
-        "You are a concise assistant. Return JSON with keys: "
-        "summary (string), bullets (array of strings), connections "
-        "(array of objects with a, b, why). No extra text.\n\n"
+        "Return ONLY valid JSON with keys: themes (array of strings), "
+        "connections (array of objects with a, b, why), and questions "
+        "(array of strings). No extra text.\n\n"
         f"Items:\n{items_text}\n\nInstruction: {guidance}"
     )
-    payload = {
-        "inputs": prompt,
-        "parameters": {
-            "max_new_tokens": 200,
-            "temperature": 0.3,
-            "return_full_text": False
-        },
-        "options": {"wait_for_model": True}
-    }
-    result = hf_post_json(url, payload, config["timeout_ms"])
-    output_text = _extract_generated_text(result)
+    output_text = ""
+    try:
+        if hasattr(text_client, "chat_completion"):
+            result = text_client.chat_completion(
+                messages=[
+                    {
+                        "role": "system",
+                        "content": "You are a thinking partner. Return ONLY valid JSON."
+                    },
+                    {"role": "user", "content": prompt}
+                ],
+                max_tokens=200,
+                temperature=0.3,
+            )
+            output_text = _extract_chat_text(result)
+        else:
+            result = text_client.text_generation(
+                prompt,
+                max_new_tokens=200,
+                temperature=0.3,
+                return_full_text=False,
+            )
+            output_text = _extract_generated_text(result)
+    except Exception as exc:
+        _raise_hf_error("generation", exc)
     if not output_text:
         raise HTTPException(status_code=502, detail="HF text response empty")
-    return parse_synthesis(output_text)
+    parsed = parse_synthesis(output_text)
+    if "themes" not in parsed:
+        parsed["themes"] = []
+    if "connections" not in parsed:
+        parsed["connections"] = []
+    if "questions" not in parsed:
+        parsed["questions"] = []
+    parsed["model"] = config["text_model"]
+    return parsed
