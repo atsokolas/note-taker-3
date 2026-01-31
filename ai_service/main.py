@@ -1,5 +1,7 @@
+import json
 import logging
 import os
+import re
 import hashlib
 import hmac
 from typing import List, Optional, Dict, Any
@@ -177,21 +179,58 @@ def _parse_generation_output(body: Any) -> str:
     return ""
 
 
+def _strip_think_blocks(text: str) -> str:
+    return re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL | re.IGNORECASE)
+
+
+def _strip_code_fences(text: str) -> str:
+    text = re.sub(r"```[a-zA-Z0-9_-]*", "", text)
+    return text.replace("```", "")
+
+
+def _clean_model_output(text: str) -> str:
+    cleaned = _strip_think_blocks(text)
+    cleaned = _strip_code_fences(cleaned)
+    return cleaned.strip()
+
+
+def _validate_synthesis_payload(payload: Any) -> bool:
+    if not isinstance(payload, dict):
+        return False
+    expected_keys = {"themes", "connections", "questions"}
+    if set(payload.keys()) != expected_keys:
+        return False
+    for key in expected_keys:
+        value = payload.get(key)
+        if not isinstance(value, list) or len(value) != 3:
+            return False
+        if not all(isinstance(item, str) for item in value):
+            return False
+    return True
+
+
 async def hf_chat_complete(
     prompt: str,
     model: str,
     token: str,
     timeout_ms: int,
     router_base_url: str,
+    system: Optional[str] = None,
+    temperature: float = 0.2,
+    max_tokens: int = 400,
 ) -> Dict[str, Any]:
     if not model:
         raise HTTPException(status_code=500, detail="HF_TEXT_MODEL not configured")
     chat_url = f"{router_base_url}/chat/completions"
+    messages: List[Dict[str, str]] = []
+    if system:
+        messages.append({"role": "system", "content": system})
+    messages.append({"role": "user", "content": prompt})
     chat_payload = {
         "model": model,
-        "messages": [{"role": "user", "content": prompt}],
-        "temperature": 0.5,
-        "max_tokens": 400,
+        "messages": messages,
+        "temperature": temperature,
+        "max_tokens": max_tokens,
     }
     res = await _post_hf(chat_url, token, chat_payload, timeout_ms)
     body = _parse_json_or_text(res)
@@ -284,7 +323,7 @@ async def debug_hf_generate():
     config = get_hf_config()
     if not config["token"]:
         raise HTTPException(status_code=500, detail="HF_TOKEN not configured")
-    prompt = "Say hello in one sentence."
+    prompt = "Say 'ok'."
     result = await hf_chat_complete(
         prompt,
         config["text_model"],
@@ -323,7 +362,7 @@ async def debug_hf_smoke():
             embed_preview = vectors[0][:5] if vectors else []
         except HTTPException:
             embed_ok = False
-    prompt = "Say hello in one sentence."
+    prompt = "Say 'ok'."
     gen_ok = True
     gen_method = "chat"
     gen_url = ""
@@ -407,10 +446,14 @@ async def synthesize(req: SynthesizeRequest):
         f"- ({item.type}) {item.id}: {item.text}" for item in req.items
     )
     guidance = req.prompt or "Summarize the themes and connections."
+    system_instruction = (
+        "Output ONLY valid JSON matching this schema and no extra keys: "
+        "{\"themes\":[\"...\",\"...\",\"...\"],"
+        "\"connections\":[\"...\",\"...\",\"...\"],"
+        "\"questions\":[\"...\",\"...\",\"...\"]}. "
+        "No markdown, no code fences, no <think> blocks."
+    )
     prompt = (
-        "Return ONLY valid JSON with keys: themes (array of strings), "
-        "connections (array of objects with a, b, why), and questions "
-        "(array of strings). No extra text.\n\n"
         f"Items:\n{items_text}\n\nInstruction: {guidance}"
     )
     try:
@@ -420,13 +463,58 @@ async def synthesize(req: SynthesizeRequest):
             config["token"],
             config["timeout_ms"],
             config["router_base_url"],
+            system=system_instruction,
+            temperature=0.2,
+            max_tokens=400,
         )
     except Exception as exc:
         if isinstance(exc, HTTPException):
             raise
         _raise_hf_error("generation", exc)
-    return {
-        "text": result["text"],
-        "model": result["model"],
-        "method": result["method"],
-    }
+    raw_text = result["text"]
+    cleaned = _clean_model_output(raw_text)
+    try:
+        parsed = json.loads(cleaned)
+    except Exception:
+        parsed = None
+    if not _validate_synthesis_payload(parsed):
+        repair_prompt = (
+            "Fix the following output to be ONLY valid JSON matching this schema: "
+            "{\"themes\":[\"...\",\"...\",\"...\"],"
+            "\"connections\":[\"...\",\"...\",\"...\"],"
+            "\"questions\":[\"...\",\"...\",\"...\"]}. "
+            "No markdown, no code fences, no <think> blocks.\n\n"
+            f"Malformed output:\n{raw_text}"
+        )
+        try:
+            repair_result = await hf_chat_complete(
+                repair_prompt,
+                config["text_model"],
+                config["token"],
+                config["timeout_ms"],
+                config["router_base_url"],
+                system=system_instruction,
+                temperature=0.0,
+                max_tokens=400,
+            )
+        except Exception as exc:
+            if isinstance(exc, HTTPException):
+                raise
+            _raise_hf_error("generation", exc)
+        repaired_raw = repair_result["text"]
+        repaired_clean = _clean_model_output(repaired_raw)
+        try:
+            parsed = json.loads(repaired_clean)
+        except Exception:
+            parsed = None
+        if not _validate_synthesis_payload(parsed):
+            logger.warning(
+                "[HF] synthesize invalid JSON. raw=%s repaired=%s",
+                raw_text,
+                repaired_raw
+            )
+            raise HTTPException(
+                status_code=502,
+                detail="HF generation failed: could not repair JSON output"
+            )
+    return parsed
