@@ -2,11 +2,12 @@ import json
 import logging
 import os
 import time
+import hashlib
 from typing import List, Optional, Dict, Any
 from urllib.parse import quote
 
 import httpx
-from fastapi import FastAPI, HTTPException, Request, Depends
+from fastapi import FastAPI, HTTPException, Request, Depends, Header
 from pydantic import BaseModel, Field
 from dotenv import load_dotenv
 
@@ -17,14 +18,29 @@ logging.basicConfig(level=logging.INFO)
 
 app = FastAPI(title="Note Taker AI Service")
 
+AI_SHARED_SECRET = os.getenv("AI_SHARED_SECRET", "")
 
-def require_shared_secret(request: Request):
-    secret = os.environ.get("AI_SHARED_SECRET", "")
+
+def _secret_fp(secret: str) -> str:
     if not secret:
+        return ""
+    return hashlib.sha256(secret.encode("utf-8")).hexdigest()[:12]
+
+
+print(f"[AI] AI_SHARED_SECRET length: {len(AI_SHARED_SECRET)}")
+print(
+    f"[AI] AI_SHARED_SECRET sha256[:12]: "
+    f"{_secret_fp(AI_SHARED_SECRET) or 'EMPTY'}"
+)
+
+def require_shared_secret(
+    x_ai_shared_secret: str = Header(default="", alias="x-ai-shared-secret")
+):
+    if not AI_SHARED_SECRET:
         logger.error("AI_SHARED_SECRET is not configured")
         raise HTTPException(status_code=500, detail="AI_SHARED_SECRET not configured")
-    provided = request.headers.get("x-ai-secret", "")
-    if provided != secret:
+    provided = x_ai_shared_secret.strip()
+    if not provided or provided != AI_SHARED_SECRET.strip():
         logger.warning("Unauthorized ai_service request")
         raise HTTPException(status_code=401, detail="unauthorized")
 
@@ -123,6 +139,18 @@ def parse_synthesis(output: str) -> Dict[str, Any]:
 @app.get("/health")
 def health():
     return {"status": "ok", "message": "Server is warm."}
+
+@app.get("/debug/headers")
+def debug_headers(request: Request):
+    return {key.lower(): value for key, value in request.headers.items()}
+
+
+@app.get("/debug/secret")
+def debug_secret():
+    return {
+        "expected_len": len(AI_SHARED_SECRET),
+        "expected_fp": _secret_fp(AI_SHARED_SECRET) or "EMPTY"
+    }
 
 
 @app.post("/embed", dependencies=[Depends(require_shared_secret)])
