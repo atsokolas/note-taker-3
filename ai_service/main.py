@@ -71,7 +71,9 @@ def get_hf_config() -> Dict[str, Any]:
             "HF_TEXT_MODEL",
             "Qwen/Qwen2.5-Coder-7B-Instruct"
         ),
+        "text_models_fallback": os.environ.get("HF_TEXT_MODELS_FALLBACK", ""),
         "base_url": "https://router.huggingface.co/hf-inference/models",
+        "timeout_ms": int(os.environ.get("HF_TIMEOUT_MS", "30000")),
     }
 
 
@@ -129,12 +131,26 @@ def _hf_headers(token: str) -> Dict[str, str]:
     return {"Authorization": f"Bearer {token}"}
 
 
-def _post_hf(url: str, token: str, payload: Dict[str, Any]) -> httpx.Response:
+def _post_hf(
+    url: str,
+    token: str,
+    payload: Dict[str, Any],
+    timeout_ms: int,
+    retries: int = 1
+) -> httpx.Response:
     headers = _hf_headers(token)
-    with httpx.Client(timeout=30.0) as client:
-        res = client.post(url, headers=headers, json=payload)
-    logger.info("[HF] POST %s status=%s", url, res.status_code)
-    return res
+    attempt = 0
+    while True:
+        try:
+            with httpx.Client(timeout=timeout_ms / 1000.0) as client:
+                res = client.post(url, headers=headers, json=payload)
+            logger.info("[HF] POST %s status=%s", url, res.status_code)
+            return res
+        except Exception:
+            if attempt < retries:
+                attempt += 1
+                continue
+            raise
 
 
 def _is_not_found_response(res: httpx.Response) -> bool:
@@ -165,6 +181,85 @@ def _parse_generation_output(body: Any) -> str:
     return ""
 
 
+def _parse_fallback_models(raw: str) -> List[str]:
+    if not raw:
+        return []
+    parts = [item.strip() for item in raw.split(",")]
+    return [item for item in parts if item]
+
+
+def _build_model_candidates(primary: str, fallback_raw: str) -> List[str]:
+    candidates: List[str] = []
+    for model in [primary] + _parse_fallback_models(fallback_raw):
+        if model and model not in candidates:
+            candidates.append(model)
+    return candidates
+
+
+def hf_chat_complete(
+    prompt: str,
+    model_candidates: List[str],
+    token: str,
+    timeout_ms: int,
+) -> Dict[str, Any]:
+    if not model_candidates:
+        raise HTTPException(status_code=500, detail="HF_TEXT_MODEL not configured")
+    last_not_found: Optional[str] = None
+    for model in model_candidates:
+        chat_url = build_router_url(model, "v1/chat/completions")
+        chat_payload = {
+            "model": model,
+            "messages": [{"role": "user", "content": prompt}]
+        }
+        res = _post_hf(chat_url, token, chat_payload, timeout_ms)
+        body = _parse_json_or_text(res)
+        if _is_not_found_response(res):
+            last_not_found = f"{model} not found"
+            continue
+        if res.status_code in (400, 401, 403):
+            raise HTTPException(
+                status_code=502,
+                detail=(
+                    f"HF generation failed: {body}. "
+                    "Try a different HF_*_MODEL; not all models are served by the provider."
+                )
+            )
+        if res.status_code < 200 or res.status_code >= 300:
+            raise HTTPException(
+                status_code=502,
+                detail=(
+                    f"HF generation failed: {body}. "
+                    "Try a different HF_*_MODEL; not all models are served by the provider."
+                )
+            )
+        text_out = ""
+        if isinstance(body, dict):
+            text_out = (
+                body.get("choices", [{}])[0]
+                .get("message", {})
+                .get("content", "")
+            ).strip()
+        if not text_out:
+            text_out = _parse_generation_output(body)
+        if text_out:
+            logger.info("[HF] chat model used=%s", model)
+            return {
+                "model": model,
+                "text": text_out,
+                "method": "chat",
+                "url": chat_url,
+                "status": 200,
+            }
+        raise HTTPException(status_code=502, detail="HF text response empty")
+    raise HTTPException(
+        status_code=502,
+        detail=(
+            f"HF generation failed: {last_not_found or 'Not Found'}. "
+            "Try a different HF_*_MODEL; not all models are served by the provider."
+        )
+    )
+
+
 @app.get("/health")
 def health():
     return {"status": "ok", "message": "Server is warm."}
@@ -184,11 +279,17 @@ def debug_secret():
 @app.get("/debug/hf")
 def debug_hf():
     config = get_hf_config()
+    candidates = _build_model_candidates(
+        config["text_model"],
+        config["text_models_fallback"]
+    )
     return {
         "token_set": bool(config["token"]),
         "provider": "hf-inference",
+        "hf_base_url": config["base_url"],
         "embedding_model": config["embedding_model"],
         "text_model": config["text_model"],
+        "fallback_count": len(candidates) - 1 if candidates else 0,
     }
 
 
@@ -201,7 +302,8 @@ def debug_hf_embed():
     res = _post_hf(
         url,
         config["token"],
-        {"inputs": ["hello world", "test sentence"]}
+        {"inputs": ["hello world", "test sentence"]},
+        config["timeout_ms"],
     )
     body = _parse_json_or_text(res)
     vectors: List[List[float]] = []
@@ -225,35 +327,23 @@ def debug_hf_generate():
     if not config["token"]:
         raise HTTPException(status_code=500, detail="HF_TOKEN not configured")
     prompt = "Say hello in one sentence."
-    chat_url = build_router_url(config["text_model"], "v1/chat/completions")
-    chat_payload = {
-        "model": config["text_model"],
-        "messages": [{"role": "user", "content": prompt}]
-    }
-    res = _post_hf(chat_url, config["token"], chat_payload)
-    method = "chat"
-    used_url = chat_url
-    body = _parse_json_or_text(res)
-    if _is_not_found_response(res):
-        gen_url = build_router_url(config["text_model"], "pipeline/text-generation")
-        gen_payload = {
-            "inputs": prompt,
-            "parameters": {"max_new_tokens": 400, "temperature": 0.5}
-        }
-        res = _post_hf(gen_url, config["token"], gen_payload)
-        method = "text-generation"
-        used_url = gen_url
-        body = _parse_json_or_text(res)
-    text_out = ""
-    if res.status_code >= 200 and res.status_code < 300:
-        text_out = _parse_generation_output(body)
+    candidates = _build_model_candidates(
+        config["text_model"],
+        config["text_models_fallback"]
+    )
+    result = hf_chat_complete(
+        prompt,
+        candidates,
+        config["token"],
+        config["timeout_ms"],
+    )
     return {
         "provider": "hf-inference",
-        "text_model": config["text_model"],
-        "method": method,
-        "url": used_url,
-        "status": res.status_code,
-        "preview": text_out[:200],
+        "text_model": result["model"],
+        "method": result["method"],
+        "url": result["url"],
+        "status": result["status"],
+        "preview": result["text"][:200],
     }
 
 
@@ -266,7 +356,8 @@ def debug_hf_smoke():
     embed_res = _post_hf(
         embed_url,
         config["token"],
-        {"inputs": ["hello world", "test sentence"]}
+        {"inputs": ["hello world", "test sentence"]},
+        config["timeout_ms"],
     )
     embed_body = _parse_json_or_text(embed_res)
     embed_ok = embed_res.status_code >= 200 and embed_res.status_code < 300
@@ -278,28 +369,27 @@ def debug_hf_smoke():
         except HTTPException:
             embed_ok = False
     prompt = "Say hello in one sentence."
-    chat_url = build_router_url(config["text_model"], "v1/chat/completions")
-    chat_payload = {
-        "model": config["text_model"],
-        "messages": [{"role": "user", "content": prompt}]
-    }
+    candidates = _build_model_candidates(
+        config["text_model"],
+        config["text_models_fallback"]
+    )
+    gen_ok = True
     gen_method = "chat"
-    gen_url = chat_url
-    gen_res = _post_hf(chat_url, config["token"], chat_payload)
-    gen_body = _parse_json_or_text(gen_res)
-    if _is_not_found_response(gen_res):
-        gen_url = build_router_url(config["text_model"], "pipeline/text-generation")
-        gen_payload = {
-            "inputs": prompt,
-            "parameters": {"max_new_tokens": 400, "temperature": 0.5}
-        }
-        gen_res = _post_hf(gen_url, config["token"], gen_payload)
-        gen_body = _parse_json_or_text(gen_res)
-        gen_method = "text-generation"
-    gen_ok = gen_res.status_code >= 200 and gen_res.status_code < 300
+    gen_url = ""
     gen_preview = ""
-    if gen_ok:
-        gen_preview = _parse_generation_output(gen_body)[:200]
+    try:
+        gen_result = hf_chat_complete(
+            prompt,
+            candidates,
+            config["token"],
+            config["timeout_ms"],
+        )
+        gen_method = gen_result["method"]
+        gen_url = gen_result["url"]
+        gen_preview = gen_result["text"][:200]
+    except HTTPException as exc:
+        gen_ok = False
+        gen_preview = exc.detail if isinstance(exc.detail, str) else "generation failed"
     return {
         "provider": "hf-inference",
         "embedding_model": config["embedding_model"],
@@ -314,7 +404,7 @@ def debug_hf_smoke():
             "ok": gen_ok,
             "method": gen_method,
             "url": gen_url,
-            "status": gen_res.status_code,
+            "status": 200 if gen_ok else 502,
             "preview": gen_preview,
         },
     }
@@ -332,7 +422,12 @@ def embed(req: EmbedRequest):
             config["embedding_model"],
             "pipeline/feature-extraction"
         )
-        res = _post_hf(url, config["token"], {"inputs": req.texts})
+        res = _post_hf(
+            url,
+            config["token"],
+            {"inputs": req.texts},
+            config["timeout_ms"],
+        )
         body = _parse_json_or_text(res)
         if res.status_code < 200 or res.status_code >= 300:
             raise HTTPException(
@@ -366,50 +461,23 @@ def synthesize(req: SynthesizeRequest):
         "(array of strings). No extra text.\n\n"
         f"Items:\n{items_text}\n\nInstruction: {guidance}"
     )
-    output_text = ""
-    method = "chat"
     try:
-        chat_url = build_router_url(config["text_model"], "v1/chat/completions")
-        chat_payload = {
-            "model": config["text_model"],
-            "messages": [{"role": "user", "content": prompt}]
-        }
-        res = _post_hf(chat_url, config["token"], chat_payload)
-        body = _parse_json_or_text(res)
-        if _is_not_found_response(res):
-            method = "text-generation"
-            gen_url = build_router_url(
-                config["text_model"],
-                "pipeline/text-generation"
-            )
-            gen_payload = {
-                "inputs": prompt,
-                "parameters": {"max_new_tokens": 400, "temperature": 0.5}
-            }
-            res = _post_hf(gen_url, config["token"], gen_payload)
-            body = _parse_json_or_text(res)
-        if res.status_code < 200 or res.status_code >= 300:
-            raise HTTPException(
-                status_code=502,
-                detail=f"HF generation failed: {body}. "
-                "Try a different HF_*_MODEL; not all models are served by the provider."
-            )
-        if method == "chat" and isinstance(body, dict):
-            output_text = (
-                body.get("choices", [{}])[0]
-                .get("message", {})
-                .get("content", "")
-            ).strip()
-        if not output_text:
-            output_text = _parse_generation_output(body)
+        candidates = _build_model_candidates(
+            config["text_model"],
+            config["text_models_fallback"]
+        )
+        result = hf_chat_complete(
+            prompt,
+            candidates,
+            config["token"],
+            config["timeout_ms"],
+        )
     except Exception as exc:
         if isinstance(exc, HTTPException):
             raise
         _raise_hf_error("generation", exc)
-    if not output_text:
-        raise HTTPException(status_code=502, detail="HF text response empty")
     return {
-        "text": output_text,
-        "model": config["text_model"],
-        "method": method,
+        "text": result["text"],
+        "model": result["model"],
+        "method": result["method"],
     }
