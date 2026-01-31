@@ -87,6 +87,10 @@ def build_hf_url(base_url: str, model: str) -> str:
     return f"{base_url}/hf-inference/models/{encode_model(model)}"
 
 
+def build_hf_embedding_url(base_url: str, model: str) -> str:
+    return f"{build_hf_url(base_url, model)}/pipeline/feature-extraction"
+
+
 def hf_post_json(url: str, payload: Dict[str, Any], timeout_ms: int) -> Any:
     token = os.environ.get("HF_TOKEN", "")
     if not token:
@@ -109,7 +113,10 @@ def hf_post_json(url: str, payload: Dict[str, Any], timeout_ms: int) -> Any:
                     status_code=502,
                     detail=f"HF error {res.status_code}: {body}"
                 )
-            return res.json()
+            try:
+                return res.json()
+            except ValueError:
+                return res.text
         except HTTPException:
             if attempt < retries:
                 time.sleep(0.3)
@@ -214,7 +221,7 @@ def embed(req: EmbedRequest):
     if not req.texts:
         raise HTTPException(status_code=400, detail="texts are required")
     config = get_hf_config()
-    url = build_hf_url(config["base_url"], config["embedding_model"])
+    url = build_hf_embedding_url(config["base_url"], config["embedding_model"])
     payload = {"inputs": req.texts, "options": {"wait_for_model": True}}
     result = hf_post_json(url, payload, config["timeout_ms"])
     embeddings = _normalize_embeddings(result)
