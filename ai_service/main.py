@@ -8,7 +8,7 @@ from typing import List, Optional, Dict, Any
 
 import httpx
 from fastapi import FastAPI, HTTPException, Request, Depends, Header
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, conlist
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -60,6 +60,12 @@ class SynthesizeItem(BaseModel):
 class SynthesizeRequest(BaseModel):
     items: List[SynthesizeItem] = Field(default_factory=list)
     prompt: Optional[str] = None
+
+
+class SynthResponse(BaseModel):
+    themes: conlist(str, min_length=3, max_length=3)
+    connections: conlist(str, min_length=3, max_length=3)
+    questions: conlist(str, min_length=3, max_length=3)
 
 
 def get_hf_config() -> Dict[str, Any]:
@@ -194,19 +200,40 @@ def _clean_model_output(text: str) -> str:
     return cleaned.strip()
 
 
-def _validate_synthesis_payload(payload: Any) -> bool:
-    if not isinstance(payload, dict):
-        return False
-    expected_keys = {"themes", "connections", "questions"}
-    if set(payload.keys()) != expected_keys:
-        return False
-    for key in expected_keys:
-        value = payload.get(key)
-        if not isinstance(value, list) or len(value) != 3:
-            return False
-        if not all(isinstance(item, str) for item in value):
-            return False
-    return True
+def _extract_first_json_object(text: str) -> str:
+    start = text.find("{")
+    if start == -1:
+        return text
+    depth = 0
+    in_string = False
+    escape = False
+    for i in range(start, len(text)):
+        ch = text[i]
+        if in_string:
+            if escape:
+                escape = False
+            elif ch == "\\":
+                escape = True
+            elif ch == "\"":
+                in_string = False
+            continue
+        if ch == "\"":
+            in_string = True
+            continue
+        if ch == "{":
+            depth += 1
+        elif ch == "}":
+            depth -= 1
+            if depth == 0:
+                return text[start:i + 1]
+    return text[start:]
+
+
+def _parse_and_validate_synthesis(text: str) -> SynthResponse:
+    cleaned = _clean_model_output(text)
+    cleaned = _extract_first_json_object(cleaned)
+    data = json.loads(cleaned)
+    return SynthResponse.model_validate(data)
 
 
 async def hf_chat_complete(
@@ -330,6 +357,9 @@ async def debug_hf_generate():
         config["token"],
         config["timeout_ms"],
         config["router_base_url"],
+        system="You must output ONLY valid JSON with keys themes, connections, questions.",
+        temperature=0.0,
+        max_tokens=200,
     )
     return {
         "provider": "hf-inference",
@@ -374,6 +404,9 @@ async def debug_hf_smoke():
             config["token"],
             config["timeout_ms"],
             config["router_base_url"],
+            system="You must output ONLY valid JSON with keys themes, connections, questions.",
+            temperature=0.0,
+            max_tokens=200,
         )
         gen_method = gen_result["method"]
         gen_url = gen_result["url"]
@@ -447,11 +480,9 @@ async def synthesize(req: SynthesizeRequest):
     )
     guidance = req.prompt or "Summarize the themes and connections."
     system_instruction = (
-        "Output ONLY valid JSON matching this schema and no extra keys: "
-        "{\"themes\":[\"...\",\"...\",\"...\"],"
-        "\"connections\":[\"...\",\"...\",\"...\"],"
-        "\"questions\":[\"...\",\"...\",\"...\"]}. "
-        "No markdown, no code fences, no <think> blocks."
+        "You must output ONLY a valid JSON object with keys themes, connections, "
+        "questions. Each is an array of exactly 3 strings. No markdown. "
+        "No extra keys. No commentary."
     )
     prompt = (
         f"Items:\n{items_text}\n\nInstruction: {guidance}"
@@ -464,27 +495,21 @@ async def synthesize(req: SynthesizeRequest):
             config["timeout_ms"],
             config["router_base_url"],
             system=system_instruction,
-            temperature=0.2,
-            max_tokens=400,
+            temperature=0.0,
+            max_tokens=500,
         )
     except Exception as exc:
         if isinstance(exc, HTTPException):
             raise
         _raise_hf_error("generation", exc)
     raw_text = result["text"]
-    cleaned = _clean_model_output(raw_text)
     try:
-        parsed = json.loads(cleaned)
+        parsed = _parse_and_validate_synthesis(raw_text)
     except Exception:
-        parsed = None
-    if not _validate_synthesis_payload(parsed):
         repair_prompt = (
-            "Fix the following output to be ONLY valid JSON matching this schema: "
-            "{\"themes\":[\"...\",\"...\",\"...\"],"
-            "\"connections\":[\"...\",\"...\",\"...\"],"
-            "\"questions\":[\"...\",\"...\",\"...\"]}. "
-            "No markdown, no code fences, no <think> blocks.\n\n"
-            f"Malformed output:\n{raw_text}"
+            "Your last output was invalid. Output ONLY valid JSON with exactly the "
+            "required keys and arrays length=3. No other text.\n\n"
+            f"Invalid output:\n{raw_text}"
         )
         try:
             repair_result = await hf_chat_complete(
@@ -495,19 +520,18 @@ async def synthesize(req: SynthesizeRequest):
                 config["router_base_url"],
                 system=system_instruction,
                 temperature=0.0,
-                max_tokens=400,
+                max_tokens=500,
             )
         except Exception as exc:
             if isinstance(exc, HTTPException):
                 raise
             _raise_hf_error("generation", exc)
         repaired_raw = repair_result["text"]
-        repaired_clean = _clean_model_output(repaired_raw)
         try:
-            parsed = json.loads(repaired_clean)
-        except Exception:
-            parsed = None
-        if not _validate_synthesis_payload(parsed):
+            parsed = _parse_and_validate_synthesis(repaired_raw)
+        except Exception as exc:
+            sanitized = _clean_model_output(repaired_raw)
+            sanitized = _extract_first_json_object(sanitized)
             logger.warning(
                 "[HF] synthesize invalid JSON. raw=%s repaired=%s",
                 raw_text,
@@ -515,6 +539,10 @@ async def synthesize(req: SynthesizeRequest):
             )
             raise HTTPException(
                 status_code=502,
-                detail="HF generation failed: could not repair JSON output"
-            )
-    return parsed
+                detail={
+                    "detail": "HF generation failed: invalid JSON output",
+                    "raw": sanitized[:400],
+                    "error_type": "validation",
+                },
+            ) from exc
+    return parsed.model_dump()

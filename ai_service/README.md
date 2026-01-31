@@ -40,6 +40,14 @@ x-ai-secret: <AI_SHARED_SECRET>
 - `POST /embed`
 - `POST /synthesize`
 
+### Synthesize JSON safety
+
+`/synthesize` uses a sanitize + retry + validate flow:
+1) sanitize model output (strip `<think>` blocks and code fences)
+2) extract the first JSON object substring
+3) parse and validate against a strict schema (exact keys, 3 strings each)
+4) if invalid, do one repair retry, then return a structured 502 error JSON
+
 ## Example curl
 
 ```bash
