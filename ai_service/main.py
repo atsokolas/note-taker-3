@@ -73,7 +73,7 @@ def get_hf_config() -> Dict[str, Any]:
         ),
         "base_url": os.environ.get(
             "HF_BASE_URL",
-            "https://router.huggingface.co"
+            "https://router.huggingface.co/hf-inference/models"
         ).rstrip("/"),
         "timeout_ms": int(os.environ.get("HF_TIMEOUT_MS", "30000")),
     }
@@ -84,11 +84,7 @@ def encode_model(model: str) -> str:
 
 
 def build_hf_url(base_url: str, model: str) -> str:
-    return f"{base_url}/hf-inference/models/{encode_model(model)}"
-
-
-def build_hf_embedding_url(base_url: str, model: str) -> str:
-    return f"{build_hf_url(base_url, model)}/pipeline/feature-extraction"
+    return f"{base_url}/{encode_model(model)}"
 
 
 def hf_post_json(url: str, payload: Dict[str, Any], timeout_ms: int) -> Any:
@@ -108,7 +104,7 @@ def hf_post_json(url: str, payload: Dict[str, Any], timeout_ms: int) -> Any:
             logger.info("[HF] POST %s status=%s", url, res.status_code)
             if res.status_code < 200 or res.status_code >= 300:
                 body = res.text[:300] if res.text else ""
-                logger.warning("[HF] error status=%s body=%s", res.status_code, body)
+                log_hf(url, res.status_code, body)
                 raise HTTPException(
                     status_code=502,
                     detail=f"HF error {res.status_code}: {body}"
@@ -199,6 +195,10 @@ print(
 )
 
 
+def log_hf(url: str, status: int, body_snippet: str) -> None:
+    logger.warning("[HF] non-2xx url=%s status=%s body=%s", url, status, body_snippet)
+
+
 @app.get("/health")
 def health():
     return {"status": "ok", "message": "Server is warm."}
@@ -215,17 +215,76 @@ def debug_secret():
         "expected_fp": _secret_fp(AI_SHARED_SECRET) or "EMPTY"
     }
 
+@app.get("/debug/hf")
+def debug_hf():
+    config = get_hf_config()
+    return {
+        "hf_base_url": config["base_url"],
+        "embedding_model": config["embedding_model"],
+        "text_model": config["text_model"],
+        "token_set": bool(config["token"])
+    }
+
+
+@app.post("/debug/hf-embed", dependencies=[Depends(require_shared_secret)])
+def debug_hf_embed():
+    config = get_hf_config()
+    url = build_hf_url(config["base_url"], config["embedding_model"])
+    payload = {
+        "inputs": ["hello world", "test sentence"],
+        "options": {"wait_for_model": True}
+    }
+    token = config["token"]
+    if not token:
+        raise HTTPException(status_code=500, detail="HF_TOKEN not configured")
+    headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+    with httpx.Client(timeout=config["timeout_ms"] / 1000.0) as client:
+        res = client.post(url, headers=headers, json=payload)
+    body_text = res.text[:300] if res.text else ""
+    if res.status_code < 200 or res.status_code >= 300:
+        log_hf(url, res.status_code, body_text)
+    try:
+        body = res.json()
+    except ValueError:
+        body = body_text
+    return {"status": res.status_code, "body": body}
+
+
+@app.post("/debug/hf-generate", dependencies=[Depends(require_shared_secret)])
+def debug_hf_generate():
+    config = get_hf_config()
+    url = build_hf_url(config["base_url"], config["text_model"])
+    payload = {
+        "inputs": "Say hello in one sentence.",
+        "parameters": {"max_new_tokens": 30, "return_full_text": False},
+        "options": {"wait_for_model": True}
+    }
+    token = config["token"]
+    if not token:
+        raise HTTPException(status_code=500, detail="HF_TOKEN not configured")
+    headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+    with httpx.Client(timeout=config["timeout_ms"] / 1000.0) as client:
+        res = client.post(url, headers=headers, json=payload)
+    body_text = res.text[:300] if res.text else ""
+    if res.status_code < 200 or res.status_code >= 300:
+        log_hf(url, res.status_code, body_text)
+    try:
+        body = res.json()
+    except ValueError:
+        body = body_text
+    return {"status": res.status_code, "body": body}
+
 
 @app.post("/embed", dependencies=[Depends(require_shared_secret)])
 def embed(req: EmbedRequest):
     if not req.texts:
         raise HTTPException(status_code=400, detail="texts are required")
     config = get_hf_config()
-    url = build_hf_embedding_url(config["base_url"], config["embedding_model"])
+    url = build_hf_url(config["base_url"], config["embedding_model"])
     payload = {"inputs": req.texts, "options": {"wait_for_model": True}}
     result = hf_post_json(url, payload, config["timeout_ms"])
     embeddings = _normalize_embeddings(result)
-    return {"embeddings": embeddings, "model": config["embedding_model"]}
+    return {"vectors": embeddings, "model": config["embedding_model"]}
 
 
 @app.post("/synthesize", dependencies=[Depends(require_shared_secret)])
