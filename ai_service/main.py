@@ -19,6 +19,10 @@ logging.basicConfig(level=logging.INFO)
 app = FastAPI(title="Note Taker AI Service")
 
 AI_SHARED_SECRET = os.getenv("AI_SHARED_SECRET", "")
+MAX_SYNTH_TOTAL_CHARS = int(os.getenv("AI_SYNTH_MAX_CHARS", "20000"))
+MAX_SYNTH_ITEM_CHARS = int(os.getenv("AI_SYNTH_MAX_ITEM_CHARS", "800"))
+MAX_SYNTH_ITEMS = int(os.getenv("AI_SYNTH_MAX_ITEMS", "40"))
+ENABLE_JSON_SCHEMA = os.getenv("HF_JSON_SCHEMA", "false").lower() == "true"
 
 
 def _secret_fp(secret: str) -> str:
@@ -229,11 +233,61 @@ def _extract_first_json_object(text: str) -> str:
     return text[start:]
 
 
+def _is_valid_synthesis_payload(data: Any) -> bool:
+    if not isinstance(data, dict):
+        return False
+    if set(data.keys()) != {"themes", "connections", "questions"}:
+        return False
+    for key in ("themes", "connections", "questions"):
+        values = data.get(key)
+        if not isinstance(values, list) or len(values) != 3:
+            return False
+        if not all(isinstance(item, str) for item in values):
+            return False
+    return True
+
+
 def _parse_and_validate_synthesis(text: str) -> SynthResponse:
     cleaned = _clean_model_output(text)
     cleaned = _extract_first_json_object(cleaned)
     data = json.loads(cleaned)
+    if not _is_valid_synthesis_payload(data):
+        raise ValueError("Synthesis output failed validation.")
     return SynthResponse.model_validate(data)
+
+
+def _build_synthesis_schema() -> Dict[str, Any]:
+    return {
+        "type": "json_schema",
+        "json_schema": {
+            "name": "Synthesis",
+            "schema": {
+                "type": "object",
+                "additionalProperties": False,
+                "properties": {
+                    "themes": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "minItems": 3,
+                        "maxItems": 3,
+                    },
+                    "connections": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "minItems": 3,
+                        "maxItems": 3,
+                    },
+                    "questions": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "minItems": 3,
+                        "maxItems": 3,
+                    },
+                },
+                "required": ["themes", "connections", "questions"],
+            },
+        },
+    }
 
 
 async def hf_chat_complete(
@@ -245,6 +299,7 @@ async def hf_chat_complete(
     system: Optional[str] = None,
     temperature: float = 0.2,
     max_tokens: int = 400,
+    response_format: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     if not model:
         raise HTTPException(status_code=500, detail="HF_TEXT_MODEL not configured")
@@ -259,13 +314,21 @@ async def hf_chat_complete(
         "temperature": temperature,
         "max_tokens": max_tokens,
     }
+    if response_format:
+        chat_payload["response_format"] = response_format
     res = await _post_hf(chat_url, token, chat_payload, timeout_ms)
     body = _parse_json_or_text(res)
     if res.status_code < 200 or res.status_code >= 300:
-        raise HTTPException(
-            status_code=502,
-            detail=f"HF generation failed: {body}"
-        )
+        if response_format and res.status_code in (400, 422):
+            logger.warning("[HF] response_format unsupported; retrying without schema")
+            chat_payload.pop("response_format", None)
+            res = await _post_hf(chat_url, token, chat_payload, timeout_ms)
+            body = _parse_json_or_text(res)
+        if res.status_code < 200 or res.status_code >= 300:
+            raise HTTPException(
+                status_code=502,
+                detail=f"HF generation failed: {body}"
+            )
     text_out = ""
     if isinstance(body, dict):
         text_out = (
@@ -286,6 +349,37 @@ async def hf_chat_complete(
         "status": res.status_code,
         "body": body,
     }
+
+
+def _truncate_items(items: List[SynthesizeItem]) -> Dict[str, Any]:
+    total_before = sum(len(item.text or "") for item in items)
+    max_item_before = max((len(item.text or "") for item in items), default=0)
+    truncated_items: List[SynthesizeItem] = []
+    total_after = 0
+    for item in items[-MAX_SYNTH_ITEMS:]:
+        text = item.text or ""
+        if len(text) > MAX_SYNTH_ITEM_CHARS:
+            text = text[:MAX_SYNTH_ITEM_CHARS]
+        if total_after + len(text) > MAX_SYNTH_TOTAL_CHARS:
+            break
+        total_after += len(text)
+        truncated_items.append(SynthesizeItem(type=item.type, id=item.id, text=text))
+    max_item_after = max((len(i.text) for i in truncated_items), default=0)
+    truncated = (
+        len(truncated_items) != len(items)
+        or total_before > total_after
+        or max_item_before > max_item_after
+    )
+    stats = {
+        "count_before": len(items),
+        "count_after": len(truncated_items),
+        "total_chars_before": total_before,
+        "total_chars_after": total_after,
+        "max_item_chars_before": max_item_before,
+        "max_item_chars_after": max_item_after,
+        "truncated": truncated,
+    }
+    return {"items": truncated_items, "stats": stats}
 
 
 @app.get("/health")
@@ -475,18 +569,41 @@ async def synthesize(req: SynthesizeRequest):
     if not config["token"]:
         raise HTTPException(status_code=500, detail="HF_TOKEN not configured")
 
+    truncation = _truncate_items(req.items)
+    items = truncation["items"]
+    stats = truncation["stats"]
+    if stats["truncated"]:
+        logger.info(
+            "[HF] synthesize input truncated: count %s->%s total_chars %s->%s max_item %s->%s",
+            stats["count_before"],
+            stats["count_after"],
+            stats["total_chars_before"],
+            stats["total_chars_after"],
+            stats["max_item_chars_before"],
+            stats["max_item_chars_after"],
+        )
+    else:
+        logger.info(
+            "[HF] synthesize input size: count=%s total_chars=%s max_item=%s",
+            stats["count_after"],
+            stats["total_chars_after"],
+            stats["max_item_chars_after"],
+        )
+    if not items:
+        raise HTTPException(status_code=400, detail="items are required")
+
     items_text = "\n".join(
-        f"- ({item.type}) {item.id}: {item.text}" for item in req.items
+        f"- ({item.type}) {item.id}: {item.text}" for item in items
     )
     guidance = req.prompt or "Summarize the themes and connections."
     system_instruction = (
-        "You must output ONLY a valid JSON object with keys themes, connections, "
-        "questions. Each is an array of exactly 3 strings. No markdown. "
-        "No extra keys. No commentary."
+        "You MUST output ONLY valid JSON that matches the schema. "
+        "No <think> blocks, no markdown, no code fences, no extra keys."
     )
     prompt = (
         f"Items:\n{items_text}\n\nInstruction: {guidance}"
     )
+    response_format = _build_synthesis_schema() if ENABLE_JSON_SCHEMA else None
     try:
         result = await hf_chat_complete(
             prompt,
@@ -496,7 +613,8 @@ async def synthesize(req: SynthesizeRequest):
             config["router_base_url"],
             system=system_instruction,
             temperature=0.0,
-            max_tokens=500,
+            max_tokens=450,
+            response_format=response_format,
         )
     except Exception as exc:
         if isinstance(exc, HTTPException):
@@ -507,8 +625,8 @@ async def synthesize(req: SynthesizeRequest):
         parsed = _parse_and_validate_synthesis(raw_text)
     except Exception:
         repair_prompt = (
-            "Your last output was invalid. Output ONLY valid JSON with exactly the "
-            "required keys and arrays length=3. No other text.\n\n"
+            "Rewrite the following into valid JSON ONLY that matches the schema. "
+            "Return exactly keys themes, connections, questions with arrays length=3.\n\n"
             f"Invalid output:\n{raw_text}"
         )
         try:
@@ -520,7 +638,8 @@ async def synthesize(req: SynthesizeRequest):
                 config["router_base_url"],
                 system=system_instruction,
                 temperature=0.0,
-                max_tokens=500,
+                max_tokens=450,
+                response_format=response_format,
             )
         except Exception as exc:
             if isinstance(exc, HTTPException):
@@ -533,16 +652,17 @@ async def synthesize(req: SynthesizeRequest):
             sanitized = _clean_model_output(repaired_raw)
             sanitized = _extract_first_json_object(sanitized)
             logger.warning(
-                "[HF] synthesize invalid JSON. raw=%s repaired=%s",
-                raw_text,
-                repaired_raw
+                "[HF] synthesize invalid JSON. raw_snippet=%s repaired_snippet=%s",
+                raw_text[:200],
+                repaired_raw[:200],
             )
             raise HTTPException(
                 status_code=502,
                 detail={
-                    "detail": "HF generation failed: invalid JSON output",
-                    "raw": sanitized[:400],
-                    "error_type": "validation",
+                    "detail": "invalid_json",
+                    "raw_snippet": sanitized[:400],
+                    "model": config["text_model"],
+                    "provider": "hf-inference",
                 },
             ) from exc
     return parsed.model_dump()
