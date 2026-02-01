@@ -1997,6 +1997,15 @@ const normalizeAiServiceBaseUrl = (value = '') => {
   return trimmed;
 };
 
+const joinUrl = (base = '', path = '') => {
+  const safeBase = String(base || '').replace(/\/+$/, '');
+  const safePath = String(path || '').replace(/^\/+/, '');
+  if (!safeBase && !safePath) return '';
+  if (!safeBase) return `/${safePath}`;
+  if (!safePath) return safeBase;
+  return `${safeBase}/${safePath}`;
+};
+
 const toPositiveInt = (value, fallback) => {
   const parsed = Number(value);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
@@ -2733,7 +2742,7 @@ app.post('/api/ai/synthesize', authenticateToken, async (req, res) => {
     };
     const { items: synthItems, stats: synthStats } = applySynthesisLimits(synthesisItems, synthLimits);
     const upstreamBaseUrl = normalizeAiServiceBaseUrl(process.env.AI_SERVICE_URL || '');
-    const upstreamUrl = upstreamBaseUrl ? `${upstreamBaseUrl}/synthesize` : '';
+    const upstreamUrl = upstreamBaseUrl ? joinUrl(upstreamBaseUrl, '/synthesize') : '';
     console.log('[AI-SYNTH] payload', {
       route: 'ai_synthesize',
       scopeType,
@@ -2906,11 +2915,15 @@ app.post('/api/ai/synthesize', authenticateToken, async (req, res) => {
         }
       }
       if (synthError || !synthData) {
+        const status = synthError?.status;
         return res.status(502).json({
           error: 'UPSTREAM_FAILED',
-          upstream_status: synthError?.status,
+          upstream_status: status,
           upstream_body: synthError?.bodySnippet || '',
-          hint: 'likely payload too large or AI service timeout'
+          upstream_url: status === 404 ? upstreamUrl : undefined,
+          hint: status === 404
+            ? 'AI service route mismatch; expected /synthesize'
+            : 'likely payload too large or AI service timeout'
         });
       }
       const upstreamThemes = Array.isArray(synthData.themes) ? synthData.themes : [];
@@ -5546,4 +5559,11 @@ app.get("/health", (req, res) => {
 app.get('/', (req, res) => res.send('✅ Note Taker backend is running!'));
 
 // Start the server
-app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
+app.listen(PORT, () => {
+  console.log(`🚀 Server running on port ${PORT}`);
+  const base = normalizeAiServiceBaseUrl(process.env.AI_SERVICE_URL || '');
+  const synthUrl = base ? joinUrl(base, '/synthesize') : '';
+  if (synthUrl) {
+    console.log('[AI-SYNTH] resolved_upstream_url', synthUrl);
+  }
+});
