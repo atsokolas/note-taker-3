@@ -27,6 +27,7 @@ const {
   semanticSearch: aiSemanticSearch,
   similarTo: aiSimilarTo,
   getEmbeddings: aiGetEmbeddings,
+  embedTexts: aiEmbedTexts,
   checkUpstreamHealth
 } = require('./config/aiClient');
 const { buildEmbeddingId } = require('./ai/embeddingTypes');
@@ -2563,20 +2564,23 @@ app.post('/api/ai/synthesize', authenticateToken, async (req, res) => {
       }
     }
 
-    const highlightIds = highlightRecords.map(item => item.id);
     const vectors = [];
     const vectorHighlights = [];
 
     if (highlightRecords.length > 0) {
-      const embeddingIds = highlightIds.map(id => buildEmbeddingId({
-        userId: String(userId),
-        objectType: 'highlight',
-        objectId: String(id)
-      }));
-      let embedResponse = { results: [] };
-      if (embeddingIds.length) {
+      const embedInputs = highlightRecords
+        .map(record => ({
+          record,
+          text: [record.text, record.note].filter(Boolean).join(' ').trim()
+        }))
+        .filter(item => item.text);
+      if (embedInputs.length) {
+        let embedResponse;
         try {
-          embedResponse = await aiGetEmbeddings(embeddingIds, { requestId: req.requestId });
+          embedResponse = await aiEmbedTexts(
+            embedInputs.map(item => item.text),
+            { requestId: req.requestId }
+          );
         } catch (error) {
           return res.status(502).json({
             error: 'UPSTREAM_FAILED',
@@ -2585,20 +2589,15 @@ app.post('/api/ai/synthesize', authenticateToken, async (req, res) => {
             details: error.payload || error.response?.data || ''
           });
         }
-      }
-      const embedItems = Array.isArray(embedResponse?.results) ? embedResponse.results : [];
-      const embeddingMap = new Map(embedItems.map(item => [item.id, item.embedding]));
-      highlightRecords.forEach(record => {
-        const embedId = buildEmbeddingId({
-          userId: String(userId),
-          objectType: 'highlight',
-          objectId: record.id
+        const embedVectors = Array.isArray(embedResponse?.vectors)
+          ? embedResponse.vectors
+          : [];
+        embedVectors.forEach((vector, idx) => {
+          if (!Array.isArray(vector)) return;
+          vectors.push(vector);
+          vectorHighlights.push(embedInputs[idx].record);
         });
-        const vector = embeddingMap.get(embedId);
-        if (!vector) return;
-        vectors.push(vector);
-        vectorHighlights.push(record);
-      });
+      }
     }
 
     let themes = [];

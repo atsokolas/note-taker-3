@@ -3,14 +3,24 @@ const crypto = require('crypto');
 const DEFAULT_TIMEOUT_MS = 30000;
 const DEFAULT_RETRIES = 1;
 
+const normalizeBaseUrl = (value = '') => {
+  const trimmed = String(value || '').trim().replace(/\/+$/, '');
+  if (!trimmed) return '';
+  if (trimmed.endsWith('/synthesize')) {
+    return trimmed.slice(0, -'/synthesize'.length);
+  }
+  if (trimmed.endsWith('/embed')) {
+    return trimmed.slice(0, -'/embed'.length);
+  }
+  return trimmed;
+};
+
 const getConfig = () => ({
-  baseUrl: (process.env.AI_SERVICE_URL || '').trim(),
+  baseUrl: normalizeBaseUrl(process.env.AI_SERVICE_URL || ''),
   secret: (process.env.AI_SHARED_SECRET || '').trim(),
   timeoutMs: Number(process.env.AI_SERVICE_TIMEOUT_MS || DEFAULT_TIMEOUT_MS),
   retries: Number(process.env.AI_SERVICE_RETRIES || DEFAULT_RETRIES)
 });
-
-const redactUrl = (url) => (url || '').replace(/\/$/, '');
 
 const buildError = ({ status, message, hint }) => {
   const error = new Error(message);
@@ -33,7 +43,7 @@ const request = async ({
   requestId
 }) => {
   const { baseUrl, secret, timeoutMs, retries } = getConfig();
-  const safeBaseUrl = redactUrl(baseUrl);
+  const safeBaseUrl = baseUrl;
   const safePath = path.startsWith('/') ? path : `/${path}`;
   if (!safeBaseUrl) {
     throw buildError({
@@ -56,6 +66,7 @@ const request = async ({
     requestId: traceId,
     baseUrl: safeBaseUrl,
     path: safePath,
+    url,
     timeoutMs
   });
 
@@ -67,7 +78,7 @@ const request = async ({
       const res = await fetch(url, {
         method,
         headers: {
-          Authorization: `Bearer ${secret}`,
+          'x-ai-shared-secret': secret,
           'Content-Type': 'application/json',
           'X-Request-Id': traceId
         },
@@ -77,13 +88,15 @@ const request = async ({
       clearTimeout(timeout);
       if (!res.ok) {
         const text = await res.text().catch(() => '');
-        const snippet = String(text || '').slice(0, 300);
+        const snippet = String(text || '').slice(0, 500);
         const message = `AI service error ${res.status}: ${snippet || res.statusText}`;
         console.error('[AI-UPSTREAM] response error', {
           requestId: traceId,
           status: res.status,
           path: safePath,
-          message
+          url,
+          message,
+          bodySnippet: snippet
         });
         if ((res.status === 429 || res.status >= 500) && attempt < retries) {
           await sleep(200 * Math.pow(2, attempt));

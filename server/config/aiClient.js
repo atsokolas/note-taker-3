@@ -31,6 +31,11 @@ const getEmbeddings = (ids, options = {}) => {
   return request({ path: '/embed/get', body: { ids }, requestId: options.requestId });
 };
 
+const embedTexts = (texts, options = {}) => {
+  ensureEnabled();
+  return request({ path: '/embed', body: { texts }, requestId: options.requestId });
+};
+
 const semanticSearch = (query, options = {}) => {
   ensureEnabled();
   return request({ path: '/search', body: query, requestId: options.requestId });
@@ -55,6 +60,7 @@ module.exports = {
   upsertEmbeddings,
   deleteEmbeddings,
   getEmbeddings,
+  embedTexts,
   semanticSearch,
   similarTo,
   checkUpstreamHealth
