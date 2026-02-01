@@ -1985,6 +1985,86 @@ const extractQuestions = (texts = []) => {
   return Array.from(questions).slice(0, 10);
 };
 
+const normalizeAiServiceBaseUrl = (value = '') => {
+  const trimmed = String(value || '').trim().replace(/\/+$/, '');
+  if (!trimmed) return '';
+  if (trimmed.endsWith('/synthesize')) {
+    return trimmed.slice(0, -'/synthesize'.length);
+  }
+  if (trimmed.endsWith('/embed')) {
+    return trimmed.slice(0, -'/embed'.length);
+  }
+  return trimmed;
+};
+
+const toPositiveInt = (value, fallback) => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+};
+
+const truncateText = (text, limit) => (
+  text.length > limit ? text.slice(0, limit) : text
+);
+
+const applySynthesisLimits = (items = [], limits = {}) => {
+  const maxItems = toPositiveInt(limits.maxItems, 60);
+  const maxTotalChars = toPositiveInt(limits.maxTotalChars, 25000);
+  const maxItemChars = toPositiveInt(limits.maxItemChars, 1200);
+  const prepared = items
+    .map(item => ({
+      ...item,
+      text: truncateText(String(item.text || ''), maxItemChars)
+    }))
+    .filter(item => item.text);
+
+  const recencyValue = (item) => {
+    if (typeof item.createdAt === 'number' && !Number.isNaN(item.createdAt)) {
+      return item.createdAt;
+    }
+    if (typeof item.order === 'number' && !Number.isNaN(item.order)) {
+      return item.order;
+    }
+    return 0;
+  };
+
+  const byRecency = [...prepared].sort((a, b) => {
+    const aValue = recencyValue(a);
+    const bValue = recencyValue(b);
+    if (aValue === bValue) {
+      return (b.order || 0) - (a.order || 0);
+    }
+    return bValue - aValue;
+  });
+
+  const cappedByTotal = [];
+  let totalChars = 0;
+  for (const item of byRecency) {
+    let text = item.text;
+    if (text.length > maxTotalChars) {
+      text = text.slice(0, maxTotalChars);
+    }
+    if (totalChars + text.length > maxTotalChars) {
+      continue;
+    }
+    totalChars += text.length;
+    cappedByTotal.push({ ...item, text });
+    if (totalChars >= maxTotalChars) break;
+  }
+
+  let capped = cappedByTotal;
+  if (capped.length > maxItems) {
+    capped = capped.slice(0, maxItems);
+  }
+
+  const stats = {
+    item_count: capped.length,
+    total_chars: capped.reduce((sum, item) => sum + item.text.length, 0),
+    max_item_chars: capped.reduce((max, item) => Math.max(max, item.text.length), 0)
+  };
+
+  return { items: capped, stats, limits: { maxItems, maxTotalChars, maxItemChars } };
+};
+
 const fetchHighlightsByIds = async (userId, highlightIds) => {
   const ids = (highlightIds || [])
     .map(id => mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : null)
@@ -2424,6 +2504,21 @@ app.post('/api/ai/synthesize', authenticateToken, async (req, res) => {
     };
     const sourceTexts = [];
     const highlightRecords = [];
+    const synthesisItems = [];
+    let synthesisOrder = 0;
+
+    const addSynthesisItem = ({ type, id, text, createdAt }) => {
+      const cleanText = String(text || '').trim();
+      if (!cleanText) return;
+      synthesisItems.push({
+        type: String(type || 'text'),
+        id: String(id || ''),
+        text: cleanText,
+        createdAt: createdAt ? new Date(createdAt).getTime() : null,
+        order: synthesisOrder
+      });
+      synthesisOrder += 1;
+    };
 
     const addHighlightRecord = (highlight) => {
       if (!highlight) return;
@@ -2437,9 +2532,17 @@ app.post('/api/ai/synthesize', authenticateToken, async (req, res) => {
         note: highlight.note || '',
         tags: highlight.tags || [],
         articleId: String(highlight.articleId || ''),
-        articleTitle: highlight.articleTitle || ''
+        articleTitle: highlight.articleTitle || '',
+        createdAt: highlight.createdAt || null
       });
-      sourceTexts.push([highlight.text, highlight.note].filter(Boolean).join(' '));
+      const highlightText = [highlight.text, highlight.note].filter(Boolean).join(' ');
+      sourceTexts.push(highlightText);
+      addSynthesisItem({
+        type: 'highlight',
+        id,
+        text: highlightText,
+        createdAt: highlight.createdAt
+      });
     };
 
     if (scopeType === 'range') {
@@ -2470,7 +2573,13 @@ app.post('/api/ai/synthesize', authenticateToken, async (req, res) => {
         return res.status(404).json({ error: 'Concept not found.' });
       }
       scopeSets.concept.add(String(concept._id || concept.name));
-      sourceTexts.push(`${concept.name}\n${concept.description || ''}`);
+      const conceptText = `${concept.name}\n${concept.description || ''}`;
+      sourceTexts.push(conceptText);
+      addSynthesisItem({
+        type: 'concept',
+        id: concept._id || concept.name,
+        text: conceptText
+      });
       const pinned = await fetchHighlightsByIds(userId, concept.pinnedHighlightIds || []);
       pinned.forEach(addHighlightRecord);
       if (pinned.length === 0 && concept.name) {
@@ -2499,10 +2608,22 @@ app.post('/api/ai/synthesize', authenticateToken, async (req, res) => {
       }
       scopeSets.question.add(String(question._id));
       sourceTexts.push(question.text || '');
+      addSynthesisItem({
+        type: 'question',
+        id: question._id,
+        text: question.text || ''
+      });
       const highlightIds = new Set(question.linkedHighlightIds || []);
-      (question.blocks || []).forEach(block => {
+      (question.blocks || []).forEach((block, idx) => {
         if (block.highlightId) highlightIds.add(block.highlightId);
-        if (block.text) sourceTexts.push(block.text);
+        if (block.text) {
+          sourceTexts.push(block.text);
+          addSynthesisItem({
+            type: 'question-block',
+            id: block.id || `${question._id}-block-${idx}`,
+            text: block.text
+          });
+        }
       });
       const highlights = await fetchHighlightsByIds(userId, Array.from(highlightIds));
       highlights.forEach(addHighlightRecord);
@@ -2514,10 +2635,22 @@ app.post('/api/ai/synthesize', authenticateToken, async (req, res) => {
       }
       scopeSets.notebook.add(String(entry._id));
       sourceTexts.push(entry.title || '');
+      addSynthesisItem({
+        type: 'notebook',
+        id: entry._id,
+        text: entry.title || ''
+      });
       const highlightIds = new Set(entry.linkedHighlightIds || []);
-      (entry.blocks || []).forEach(block => {
+      (entry.blocks || []).forEach((block, idx) => {
         if (block.highlightId) highlightIds.add(block.highlightId);
-        if (block.text) sourceTexts.push(block.text);
+        if (block.text) {
+          sourceTexts.push(block.text);
+          addSynthesisItem({
+            type: 'notebook-block',
+            id: block.id || `${entry._id}-block-${idx}`,
+            text: block.text
+          });
+        }
       });
       const highlights = await fetchHighlightsByIds(userId, Array.from(highlightIds));
       highlights.forEach(addHighlightRecord);
@@ -2534,14 +2667,26 @@ app.post('/api/ai/synthesize', authenticateToken, async (req, res) => {
           const article = await Article.findOne({ _id: objectId, userId }).select('title content');
           if (article) {
             scopeSets.article.add(String(article._id));
-            sourceTexts.push(`${article.title}\n${buildSnippet(article.content || '', 400)}`);
+            const articleText = `${article.title}\n${buildSnippet(article.content || '', 400)}`;
+            sourceTexts.push(articleText);
+            addSynthesisItem({
+              type: 'article',
+              id: article._id,
+              text: articleText
+            });
           }
         }
         if (objectType === 'concept') {
           const concept = await TagMeta.findOne({ _id: objectId, userId }).select('name description');
           if (concept) {
             scopeSets.concept.add(String(concept._id));
-            sourceTexts.push(`${concept.name}\n${concept.description || ''}`);
+            const conceptText = `${concept.name}\n${concept.description || ''}`;
+            sourceTexts.push(conceptText);
+            addSynthesisItem({
+              type: 'concept',
+              id: concept._id,
+              text: conceptText
+            });
           }
         }
         if (objectType === 'question') {
@@ -2549,6 +2694,11 @@ app.post('/api/ai/synthesize', authenticateToken, async (req, res) => {
           if (question) {
             scopeSets.question.add(String(question._id));
             sourceTexts.push(question.text || '');
+            addSynthesisItem({
+              type: 'question',
+              id: question._id,
+              text: question.text || ''
+            });
           }
         }
         if (objectType === 'notebook') {
@@ -2556,13 +2706,43 @@ app.post('/api/ai/synthesize', authenticateToken, async (req, res) => {
           if (entry) {
             scopeSets.notebook.add(String(entry._id));
             sourceTexts.push(entry.title || '');
-            (entry.blocks || []).forEach(block => {
-              if (block.text) sourceTexts.push(block.text);
+            addSynthesisItem({
+              type: 'notebook',
+              id: entry._id,
+              text: entry.title || ''
+            });
+            (entry.blocks || []).forEach((block, idx) => {
+              if (block.text) {
+                sourceTexts.push(block.text);
+                addSynthesisItem({
+                  type: 'notebook-block',
+                  id: block.id || `${entry._id}-block-${idx}`,
+                  text: block.text
+                });
+              }
             });
           }
         }
       }
     }
+
+    const synthLimits = {
+      maxItems: process.env.AI_SYNTH_MAX_ITEMS,
+      maxTotalChars: process.env.AI_SYNTH_MAX_CHARS,
+      maxItemChars: process.env.AI_SYNTH_MAX_ITEM_CHARS
+    };
+    const { items: synthItems, stats: synthStats } = applySynthesisLimits(synthesisItems, synthLimits);
+    const upstreamBaseUrl = normalizeAiServiceBaseUrl(process.env.AI_SERVICE_URL || '');
+    const upstreamUrl = upstreamBaseUrl ? `${upstreamBaseUrl}/synthesize` : '';
+    console.log('[AI-SYNTH] payload', {
+      route: 'ai_synthesize',
+      scopeType,
+      scopeId,
+      item_count: synthStats.item_count,
+      total_chars: synthStats.total_chars,
+      max_item_chars: synthStats.max_item_chars,
+      upstream_url: upstreamUrl
+    });
 
     const vectors = [];
     const vectorHighlights = [];
@@ -2633,7 +2813,7 @@ app.post('/api/ai/synthesize', authenticateToken, async (req, res) => {
       }];
     }
 
-    const connections = [];
+    let connections = [];
     if (vectorHighlights.length >= 2) {
       const pairs = [];
       for (let i = 0; i < vectorHighlights.length; i += 1) {
@@ -2659,7 +2839,91 @@ app.post('/api/ai/synthesize', authenticateToken, async (req, res) => {
       });
     }
 
-    const questions = extractQuestions(sourceTexts);
+    let questions = extractQuestions(sourceTexts);
+    if (synthItems.length > 0) {
+      const aiSecret = String(process.env.AI_SHARED_SECRET || '').trim();
+      if (!upstreamUrl || !aiSecret) {
+        return res.status(503).json({
+          error: 'UPSTREAM_FAILED',
+          upstream_status: 503,
+          hint: 'AI service not configured.'
+        });
+      }
+      const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+      const timeoutMs = toPositiveInt(process.env.AI_SERVICE_TIMEOUT_MS, 60000);
+      const backoffs = [250, 750];
+      let synthData = null;
+      let synthError = null;
+      for (let attempt = 0; attempt <= backoffs.length; attempt += 1) {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), timeoutMs);
+        try {
+          const res = await fetch(upstreamUrl, {
+            method: 'POST',
+            headers: {
+              'x-ai-shared-secret': aiSecret,
+              'Content-Type': 'application/json',
+              'X-Request-Id': req.requestId
+            },
+            body: JSON.stringify({
+              items: synthItems.map(item => ({
+                type: item.type,
+                id: item.id,
+                text: item.text
+              }))
+            }),
+            signal: controller.signal
+          });
+          clearTimeout(timeout);
+          const bodyText = await res.text().catch(() => '');
+          const bodySnippet = String(bodyText || '').slice(0, 200);
+          if (!res.ok) {
+            if ([502, 503, 504].includes(res.status) && attempt < backoffs.length) {
+              await sleep(backoffs[attempt]);
+              continue;
+            }
+            synthError = { status: res.status, bodySnippet };
+            break;
+          }
+          try {
+            synthData = JSON.parse(bodyText);
+          } catch (err) {
+            synthError = { status: res.status, bodySnippet };
+          }
+          break;
+        } catch (err) {
+          clearTimeout(timeout);
+          const isTimeout = err.name === 'AbortError';
+          if (isTimeout && attempt < backoffs.length) {
+            await sleep(backoffs[attempt]);
+            continue;
+          }
+          synthError = {
+            status: isTimeout ? 504 : 502,
+            bodySnippet: ''
+          };
+          break;
+        }
+      }
+      if (synthError || !synthData) {
+        return res.status(502).json({
+          error: 'UPSTREAM_FAILED',
+          upstream_status: synthError?.status,
+          upstream_body: synthError?.bodySnippet || '',
+          hint: 'likely payload too large or AI service timeout'
+        });
+      }
+      const upstreamThemes = Array.isArray(synthData.themes) ? synthData.themes : [];
+      const upstreamConnections = Array.isArray(synthData.connections) ? synthData.connections : [];
+      const upstreamQuestions = Array.isArray(synthData.questions) ? synthData.questions : [];
+      themes = upstreamThemes.map(title => ({
+        title,
+        evidence: [],
+        representative: []
+      }));
+      connections = upstreamConnections.map(description => ({ description }));
+      questions = upstreamQuestions;
+    }
 
     const queryText = sourceTexts.slice(0, 6).join(' ');
     let suggestedLinks = [];
