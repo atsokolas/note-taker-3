@@ -2887,6 +2887,11 @@ app.post('/api/ai/synthesize', authenticateToken, async (req, res) => {
           const bodyText = await res.text().catch(() => '');
           const bodySnippet = String(bodyText || '').slice(0, 200);
           if (!res.ok) {
+            console.error('[AI-SYNTH] upstream error', {
+              upstream_url: upstreamUrl,
+              status: res.status,
+              body_snippet: bodySnippet
+            });
             if ([502, 503, 504].includes(res.status) && attempt < backoffs.length) {
               await sleep(backoffs[attempt]);
               continue;
@@ -2919,7 +2924,7 @@ app.post('/api/ai/synthesize', authenticateToken, async (req, res) => {
         return res.status(502).json({
           error: 'UPSTREAM_FAILED',
           upstream_status: status,
-          upstream_body: synthError?.bodySnippet || '',
+          upstream_body_snippet: synthError?.bodySnippet || '',
           upstream_url: status === 404 ? upstreamUrl : undefined,
           hint: status === 404
             ? 'AI service route mismatch; expected /synthesize'
