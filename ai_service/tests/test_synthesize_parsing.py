@@ -90,3 +90,43 @@ class TestSynthesizeIntegration(unittest.IsolatedAsyncioTestCase):
         finally:
             main.hf_chat_complete = original_chat
             main.get_hf_config = original_config
+
+    async def test_synthesize_fallback_on_unparseable_output(self):
+        original_chat = main.hf_chat_complete
+        original_config = main.get_hf_config
+        calls = {"count": 0}
+
+        async def fake_chat_complete(*args, **kwargs):
+            calls["count"] += 1
+            return {
+                "model": "fake",
+                "text": "<think>bad</think>not json",
+                "method": "chat",
+                "url": "http://fake",
+                "status": 200,
+                "body": {},
+            }
+
+        def fake_get_hf_config():
+            return {
+                "token": "fake-token",
+                "embedding_model": "fake-embed",
+                "text_model": "fake-model",
+                "base_url": "https://router.huggingface.co/hf-inference/models",
+                "router_base_url": "https://router.huggingface.co/v1",
+                "timeout_ms": 1000,
+            }
+
+        try:
+            main.hf_chat_complete = fake_chat_complete
+            main.get_hf_config = fake_get_hf_config
+            req = main.SynthesizeRequest(
+                items=[main.SynthesizeItem(type="note", id="1", text="hello")]
+            )
+            result = await main.synthesize(req)
+            self.assertEqual(result["warning"], "invalid_json")
+            self.assertEqual(len(result["themes"]), 3)
+            self.assertEqual(result["themes"][0], "(AI unavailable)")
+        finally:
+            main.hf_chat_complete = original_chat
+            main.get_hf_config = original_config

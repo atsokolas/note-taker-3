@@ -256,6 +256,16 @@ def _parse_and_validate_synthesis(text: str) -> SynthResponse:
     return SynthResponse.model_validate(data)
 
 
+def _fallback_synthesis(warning: str = "invalid_json") -> Dict[str, Any]:
+    fallback = ["(AI unavailable)", "(AI unavailable)", "(AI unavailable)"]
+    return {
+        "themes": fallback,
+        "connections": fallback,
+        "questions": fallback,
+        "warning": warning,
+    }
+
+
 def _build_synthesis_schema() -> Dict[str, Any]:
     return {
         "type": "json_schema",
@@ -656,13 +666,13 @@ async def synthesize(req: SynthesizeRequest):
                 raw_text[:200],
                 repaired_raw[:200],
             )
-            raise HTTPException(
-                status_code=502,
-                detail={
-                    "detail": "invalid_json",
-                    "raw_snippet": sanitized[:400],
-                    "model": config["text_model"],
-                    "provider": "hf-inference",
-                },
-            ) from exc
+            logger.warning(
+                "[HF] synthesize fallback. model=%s provider=%s raw_len=%s repaired_len=%s raw_snippet=%s",
+                config["text_model"],
+                "hf-inference",
+                len(raw_text),
+                len(repaired_raw),
+                sanitized[:300],
+            )
+            return _fallback_synthesis("invalid_json")
     return parsed.model_dump()
