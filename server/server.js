@@ -1985,26 +1985,7 @@ const extractQuestions = (texts = []) => {
   return Array.from(questions).slice(0, 10);
 };
 
-const normalizeAiServiceBaseUrl = (value = '') => {
-  const trimmed = String(value || '').trim().replace(/\/+$/, '');
-  if (!trimmed) return '';
-  if (trimmed.endsWith('/synthesize')) {
-    return trimmed.slice(0, -'/synthesize'.length);
-  }
-  if (trimmed.endsWith('/embed')) {
-    return trimmed.slice(0, -'/embed'.length);
-  }
-  return trimmed;
-};
-
-const joinUrl = (base = '', path = '') => {
-  const safeBase = String(base || '').replace(/\/+$/, '');
-  const safePath = String(path || '').replace(/^\/+/, '');
-  if (!safeBase && !safePath) return '';
-  if (!safeBase) return `/${safePath}`;
-  if (!safePath) return safeBase;
-  return `${safeBase}/${safePath}`;
-};
+const { parseAiServiceUrl, normalizeAiServiceOrigin, joinUrl } = require('./utils/aiUpstream');
 
 const toPositiveInt = (value, fallback) => {
   const parsed = Number(value);
@@ -2741,8 +2722,13 @@ app.post('/api/ai/synthesize', authenticateToken, async (req, res) => {
       maxItemChars: process.env.AI_SYNTH_MAX_ITEM_CHARS
     };
     const { items: synthItems, stats: synthStats } = applySynthesisLimits(synthesisItems, synthLimits);
-    const upstreamBaseUrl = normalizeAiServiceBaseUrl(process.env.AI_SERVICE_URL || '');
-    const upstreamUrl = upstreamBaseUrl ? joinUrl(upstreamBaseUrl, '/synthesize') : '';
+    const { origin: upstreamOrigin, hasPath: upstreamHasPath } = parseAiServiceUrl(
+      process.env.AI_SERVICE_URL || ''
+    );
+    const upstreamUrl = upstreamOrigin ? joinUrl(upstreamOrigin, '/synthesize') : '';
+    if (upstreamUrl) {
+      console.log('AI upstream URL:', upstreamUrl);
+    }
     console.log('[AI-SYNTH] payload', {
       route: 'ai_synthesize',
       scopeType,
@@ -2752,6 +2738,9 @@ app.post('/api/ai/synthesize', authenticateToken, async (req, res) => {
       max_item_chars: synthStats.max_item_chars,
       upstream_url: upstreamUrl
     });
+    if (upstreamHasPath) {
+      console.warn('[AI-SYNTH] AI_SERVICE_URL includes a path; using origin only.');
+    }
 
     const vectors = [];
     const vectorHighlights = [];
@@ -2867,6 +2856,7 @@ app.post('/api/ai/synthesize', authenticateToken, async (req, res) => {
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), timeoutMs);
         try {
+          console.log('AI upstream URL:', upstreamUrl);
           const res = await fetch(upstreamUrl, {
             method: 'POST',
             headers: {
@@ -2926,6 +2916,7 @@ app.post('/api/ai/synthesize', authenticateToken, async (req, res) => {
           upstream_status: status,
           upstream_body_snippet: synthError?.bodySnippet || '',
           upstream_url: status === 404 ? upstreamUrl : undefined,
+          message: status === 404 ? 'AI service route mismatch; expected /synthesize' : undefined,
           hint: status === 404
             ? 'AI service route mismatch; expected /synthesize'
             : 'likely payload too large or AI service timeout'
@@ -5552,6 +5543,17 @@ app.get('/api/debug/auth', authenticateToken, (req, res) => {
   });
 });
 
+app.get('/api/debug/ai-upstream', (req, res) => {
+  const { origin, hasPath } = parseAiServiceUrl(process.env.AI_SERVICE_URL || '');
+  const synthesizeUrl = origin ? joinUrl(origin, '/synthesize') : '';
+  res.status(200).json({
+    ai_service_origin: origin,
+    synthesize_url: synthesizeUrl,
+    looks_valid: Boolean(origin) && !hasPath,
+    has_path: hasPath
+  });
+});
+
 // --- HEALTH CHECK ENDPOINT to prevent cold starts ---
 app.get("/health", (req, res) => {
   // This route does nothing but send a success status.
@@ -5566,9 +5568,12 @@ app.get('/', (req, res) => res.send('✅ Note Taker backend is running!'));
 // Start the server
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
-  const base = normalizeAiServiceBaseUrl(process.env.AI_SERVICE_URL || '');
-  const synthUrl = base ? joinUrl(base, '/synthesize') : '';
+  const { origin, hasPath } = parseAiServiceUrl(process.env.AI_SERVICE_URL || '');
+  const synthUrl = origin ? joinUrl(origin, '/synthesize') : '';
   if (synthUrl) {
-    console.log('[AI-SYNTH] resolved_upstream_url', synthUrl);
+    console.log('AI upstream URL:', synthUrl);
+  }
+  if (hasPath) {
+    console.warn('[AI-UPSTREAM] AI_SERVICE_URL includes a path; using origin only.');
   }
 });
