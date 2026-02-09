@@ -32,6 +32,8 @@ import {
   deleteWorkingMemory
 } from '../api/workingMemory';
 
+const THINK_RIGHT_STORAGE_KEY = 'workspace-right-open:/think';
+
 const formatAiError = (err, fallback = 'Request failed.') => {
   const status = err?.response?.status;
   const data = err?.response?.data;
@@ -128,6 +130,11 @@ const ThinkMode = () => {
   const [workingMemoryItems, setWorkingMemoryItems] = useState([]);
   const [workingMemoryLoading, setWorkingMemoryLoading] = useState(false);
   const [workingMemoryError, setWorkingMemoryError] = useState('');
+  const [rightOpen, setRightOpen] = useState(() => {
+    const stored = localStorage.getItem(THINK_RIGHT_STORAGE_KEY);
+    if (stored === null) return true;
+    return stored === 'true';
+  });
 
   const createBlockId = () => {
     if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
@@ -504,6 +511,11 @@ const ThinkMode = () => {
     setActiveView(view);
     setSearchParams(params);
   };
+
+  const handleToggleRight = useCallback((nextOpen) => {
+    setRightOpen(nextOpen);
+    localStorage.setItem(THINK_RIGHT_STORAGE_KEY, String(nextOpen));
+  }, []);
 
   const handleSelectNotebookEntry = (id) => {
     setNotebookActiveId(id);
@@ -1743,6 +1755,8 @@ const ThinkMode = () => {
         main={mainPanel}
         right={rightPanel}
         rightTitle="Context"
+        rightOpen={rightOpen}
+        onToggleRight={handleToggleRight}
         leftOpen
         defaultLeftOpen
         defaultRightOpen
@@ -1775,6 +1789,12 @@ const ThinkMode = () => {
             </QuietButton>
             <QuietButton className="list-button" onClick={handleCreateNotebookEntry}>
               New note
+            </QuietButton>
+            <QuietButton
+              className={`list-button ${rightOpen ? 'is-active' : ''}`}
+              onClick={() => handleToggleRight(!rightOpen)}
+            >
+              Context
             </QuietButton>
           </div>
         )}
