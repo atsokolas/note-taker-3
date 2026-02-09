@@ -59,6 +59,7 @@ const LibraryContext = ({
                 <HighlightCard
                   highlight={highlight}
                   compact
+                  organizable
                   onAddNotebook={onAddNotebook}
                   onAddConcept={onAddConcept}
                   onAddQuestion={onAddQuestion}

@@ -12,11 +12,18 @@ import useArticles from '../../../hooks/useArticles';
 import useConcepts from '../../../hooks/useConcepts';
 import useQuestions from '../../../hooks/useQuestions';
 import { buildDocFromBlocks, ensureBlockIds, serializeBlocksFromDoc } from '../../../utils/notebookBlocks';
+import { getNotebookClaimEvidence, searchNotebookClaims } from '../../../api/organize';
 
 const createId = () => {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
   return `block-${Math.random().toString(36).slice(2, 9)}-${Date.now()}`;
 };
+
+const ITEM_TYPES = [
+  { value: 'note', label: 'Note' },
+  { value: 'claim', label: 'Claim' },
+  { value: 'evidence', label: 'Evidence' }
+];
 
 const ListIndentExtension = Extension.create({
   name: 'listIndent',
@@ -255,6 +262,18 @@ const NotebookEditor = ({
 }) => {
   const [titleDraft, setTitleDraft] = useState(entry?.title || '');
   const [insertMode, setInsertMode] = useState('');
+  const [organizeOpen, setOrganizeOpen] = useState(false);
+  const [entryType, setEntryType] = useState(entry?.type || 'note');
+  const [entryTags, setEntryTags] = useState(entry?.tags || []);
+  const [tagInput, setTagInput] = useState('');
+  const [claimId, setClaimId] = useState(entry?.claimId ? String(entry.claimId) : '');
+  const [claimQuery, setClaimQuery] = useState('');
+  const [claimOptions, setClaimOptions] = useState([]);
+  const [claimOptionsLoading, setClaimOptionsLoading] = useState(false);
+  const [claimEvidenceOpen, setClaimEvidenceOpen] = useState(false);
+  const [claimEvidenceItems, setClaimEvidenceItems] = useState([]);
+  const [claimEvidenceLoading, setClaimEvidenceLoading] = useState(false);
+  const [organizeError, setOrganizeError] = useState('');
   const { highlights, highlightMap, loading: highlightsLoading, error: highlightsError } = useHighlights();
   const { articles } = useArticles({ enabled: insertMode === 'article' });
   const { concepts } = useConcepts();
@@ -312,11 +331,87 @@ const NotebookEditor = ({
   useEffect(() => {
     if (!entry) return;
     setTitleDraft(entry.title || '');
+    setEntryType(entry.type || 'note');
+    setEntryTags(Array.isArray(entry.tags) ? entry.tags : []);
+    setClaimId(entry.claimId ? String(entry.claimId) : '');
+    setOrganizeError('');
+    setClaimEvidenceOpen(false);
+    setClaimEvidenceItems([]);
     if (editor) {
       const content = entry.blocks?.length ? buildDocFromBlocks(entry.blocks) : (entry.content || '<p></p>');
       editor.commands.setContent(content, false);
     }
   }, [entry, editor]);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!organizeOpen || entryType !== 'evidence') {
+      setClaimOptions([]);
+      setClaimOptionsLoading(false);
+      return;
+    }
+    const loadClaims = async () => {
+      setClaimOptionsLoading(true);
+      try {
+        const claims = await searchNotebookClaims(claimQuery);
+        if (cancelled) return;
+        setClaimOptions(claims.filter(item => String(item._id) !== String(entry?._id)));
+      } catch (err) {
+        if (!cancelled) {
+          setOrganizeError(err.response?.data?.error || 'Failed to load claim options.');
+        }
+      } finally {
+        if (!cancelled) setClaimOptionsLoading(false);
+      }
+    };
+    loadClaims();
+    return () => {
+      cancelled = true;
+    };
+  }, [organizeOpen, entryType, claimQuery, entry?._id]);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!organizeOpen || !claimEvidenceOpen || entryType !== 'claim' || !entry?._id || entry?.type !== 'claim') {
+      setClaimEvidenceItems([]);
+      setClaimEvidenceLoading(false);
+      return;
+    }
+    const loadEvidence = async () => {
+      setClaimEvidenceLoading(true);
+      try {
+        const data = await getNotebookClaimEvidence(entry._id);
+        if (!cancelled) {
+          setClaimEvidenceItems(Array.isArray(data?.evidence) ? data.evidence : []);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setOrganizeError(err.response?.data?.error || 'Failed to load evidence.');
+        }
+      } finally {
+        if (!cancelled) setClaimEvidenceLoading(false);
+      }
+    };
+    loadEvidence();
+    return () => {
+      cancelled = true;
+    };
+  }, [organizeOpen, claimEvidenceOpen, entryType, entry?._id, entry?.type]);
+
+  const addTag = () => {
+    const nextTag = tagInput.trim();
+    if (!nextTag) return;
+    if (entryTags.some(tag => tag.toLowerCase() === nextTag.toLowerCase())) {
+      setTagInput('');
+      return;
+    }
+    setEntryTags(prev => [...prev, nextTag]);
+    setTagInput('');
+  };
+
+  const removeTag = (tagValue) => {
+    setEntryTags(prev => prev.filter(tag => tag !== tagValue));
+  };
 
   const handleSave = () => {
     if (!entry || !editor) return;
@@ -331,7 +426,9 @@ const NotebookEditor = ({
       title: titleDraft.trim() || 'Untitled note',
       content: editor.getHTML(),
       blocks,
-      tags: entry.tags || [],
+      type: entryType,
+      tags: entryTags,
+      claimId: entryType === 'evidence' ? (claimId || null) : null,
       linkedArticleId: entry.linkedArticleId || null
     });
   };
@@ -477,6 +574,9 @@ const NotebookEditor = ({
             </div>
           </div>
           <div className="think-notebook-editor-actions-right">
+            <QuietButton onClick={() => setOrganizeOpen(prev => !prev)}>
+              {organizeOpen ? 'Close Organize' : 'Organize'}
+            </QuietButton>
             <QuietButton onClick={handleExport}>Export</QuietButton>
             {onDump && (
               <QuietButton onClick={onDump}>Dump to Working Memory</QuietButton>
@@ -490,6 +590,115 @@ const NotebookEditor = ({
         </div>
       </div>
       {error && <p className="status-message error-message">{error}</p>}
+      {organizeOpen && (
+        <div className="notebook-organize-panel">
+          <div className="notebook-organize-row">
+            <label htmlFor="notebook-type-select" className="notebook-organize-label">Type</label>
+            <select
+              id="notebook-type-select"
+              className="notebook-organize-select"
+              value={entryType}
+              onChange={(event) => {
+                const next = event.target.value;
+                setEntryType(next);
+                if (next !== 'evidence') setClaimId('');
+                setOrganizeError('');
+              }}
+            >
+              {ITEM_TYPES.map(option => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="notebook-organize-row">
+            <span className="notebook-organize-label">Tags</span>
+            <div className="notebook-organize-tags">
+              {entryTags.map(tag => (
+                <button
+                  type="button"
+                  key={`${entry?._id}-${tag}`}
+                  className="notebook-tag-chip"
+                  onClick={() => removeTag(tag)}
+                  title="Remove tag"
+                >
+                  {tag} ×
+                </button>
+              ))}
+            </div>
+            <div className="notebook-tag-input-row">
+              <input
+                type="text"
+                value={tagInput}
+                onChange={(event) => setTagInput(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') {
+                    event.preventDefault();
+                    addTag();
+                  }
+                }}
+                placeholder="Add tag"
+              />
+              <QuietButton onClick={addTag}>Add tag</QuietButton>
+            </div>
+          </div>
+
+          {entryType === 'evidence' && (
+            <div className="notebook-organize-row">
+              <span className="notebook-organize-label">Link claim</span>
+              <input
+                type="text"
+                value={claimQuery}
+                onChange={(event) => setClaimQuery(event.target.value)}
+                placeholder="Search claims"
+              />
+              <select
+                className="notebook-organize-select"
+                value={claimId}
+                onChange={(event) => setClaimId(event.target.value)}
+              >
+                <option value="">Select claim</option>
+                {claimOptions.map(option => (
+                  <option key={option._id} value={option._id}>
+                    {option.title || 'Untitled claim'}
+                  </option>
+                ))}
+              </select>
+              {claimOptionsLoading && <p className="muted small">Loading claim options…</p>}
+            </div>
+          )}
+
+          {entryType === 'claim' && (
+            <div className="notebook-organize-row">
+              <div className="notebook-organize-inline">
+                <span className="notebook-organize-label">Evidence</span>
+                <QuietButton onClick={() => setClaimEvidenceOpen(prev => !prev)}>
+                  {claimEvidenceOpen ? 'Hide' : 'Show'}
+                </QuietButton>
+              </div>
+              {entry?.type !== 'claim' && (
+                <p className="muted small">Save this note as Claim to load linked evidence.</p>
+              )}
+              {entry?.type === 'claim' && claimEvidenceOpen && (
+                <div className="notebook-organize-evidence-list">
+                  {claimEvidenceLoading && <p className="muted small">Loading evidence…</p>}
+                  {!claimEvidenceLoading && claimEvidenceItems.length === 0 && (
+                    <p className="muted small">No evidence linked yet.</p>
+                  )}
+                  {!claimEvidenceLoading && claimEvidenceItems.map(item => (
+                    <div key={item._id} className="notebook-organize-evidence-item">
+                      <div className="notebook-organize-evidence-title">{item.title || 'Untitled note'}</div>
+                      <div className="muted small">{new Date(item.updatedAt || item.createdAt).toLocaleString()}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {organizeError && <p className="status-message error-message">{organizeError}</p>}
+        </div>
+      )}
       {editor && <EditorContent editor={editor} />}
       <InsertHighlightModal
         open={insertMode === 'highlight'}

@@ -142,7 +142,9 @@ const articleSchema = new mongoose.Schema({
   highlights: [{
       text: String,
       note: String,
-      tags: [String],
+      tags: { type: [String], default: [] },
+      type: { type: String, enum: ['claim', 'evidence', 'note'], default: 'note' },
+      claimId: { type: mongoose.Schema.Types.ObjectId, default: null },
       anchor: {
         text: String,
         prefix: String,
@@ -204,6 +206,8 @@ const notebookEntrySchema = new mongoose.Schema({
   content: { type: String, default: '' },
   blocks: { type: [notebookBlockSchema], default: [] },
   folder: { type: mongoose.Schema.Types.ObjectId, ref: 'NotebookFolder', default: null },
+  type: { type: String, enum: ['claim', 'evidence', 'note'], default: 'note' },
+  claimId: { type: mongoose.Schema.Types.ObjectId, default: null },
   tags: { type: [String], default: [] },
   linkedArticleId: { type: mongoose.Schema.Types.ObjectId, ref: 'Article', default: null },
   linkedHighlightIds: [{ type: mongoose.Schema.Types.ObjectId }],
@@ -336,6 +340,45 @@ const createBlockId = () => (
   (crypto.randomUUID ? crypto.randomUUID() : `block-${Math.random().toString(36).slice(2, 9)}-${Date.now()}`)
 );
 
+const ITEM_TYPES = new Set(['claim', 'evidence', 'note']);
+
+const normalizeItemType = (value, fallback = 'note') => {
+  const candidate = String(value || '').trim().toLowerCase();
+  if (ITEM_TYPES.has(candidate)) return candidate;
+  return fallback;
+};
+
+const normalizeTags = (input) => {
+  if (!Array.isArray(input)) return [];
+  const seen = new Set();
+  const output = [];
+  input.forEach(tag => {
+    const value = String(tag || '').trim();
+    if (!value || seen.has(value.toLowerCase())) return;
+    seen.add(value.toLowerCase());
+    output.push(value);
+  });
+  return output.slice(0, 40);
+};
+
+const parseClaimId = (value) => {
+  if (value === null || value === undefined || value === '') return null;
+  if (!mongoose.Types.ObjectId.isValid(value)) return null;
+  return new mongoose.Types.ObjectId(value);
+};
+
+const mapHighlightWithArticle = (article, highlight) => ({
+  _id: highlight._id,
+  articleId: article._id,
+  articleTitle: article.title || 'Untitled article',
+  text: highlight.text,
+  note: highlight.note,
+  tags: highlight.tags || [],
+  type: normalizeItemType(highlight.type, 'note'),
+  claimId: highlight.claimId || null,
+  createdAt: highlight.createdAt
+});
+
 const findHighlightById = async (userId, highlightId) => {
   if (!mongoose.Types.ObjectId.isValid(highlightId)) return null;
   const matches = await Article.aggregate([
@@ -347,6 +390,8 @@ const findHighlightById = async (userId, highlightId) => {
       text: '$highlights.text',
       note: '$highlights.note',
       tags: '$highlights.tags',
+      type: '$highlights.type',
+      claimId: '$highlights.claimId',
       articleId: '$_id',
       articleTitle: '$title',
       createdAt: '$highlights.createdAt'
@@ -1206,7 +1251,10 @@ app.get('/api/articles/:id/highlights', authenticateToken, async (req, res) => {
     const highlights = (article.highlights || []).map(h => ({
       _id: h._id,
       text: h.text,
+      note: h.note || '',
       tags: h.tags || [],
+      type: normalizeItemType(h.type, 'note'),
+      claimId: h.claimId || null,
       anchor: h.anchor,
       createdAt: h.createdAt,
       articleId: id,
@@ -1353,6 +1401,8 @@ app.get('/api/highlights/all', authenticateToken, async (req, res) => {
           text: '$highlights.text',
           note: '$highlights.note',
           tags: '$highlights.tags',
+          type: '$highlights.type',
+          claimId: '$highlights.claimId',
           createdAt: '$highlights.createdAt'
       } },
       { $sort: { createdAt: -1 } }
@@ -1390,16 +1440,29 @@ app.get('/api/notebook', authenticateToken, async (req, res) => {
 app.post('/api/notebook', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
-    const { title, content, blocks, folder, tags, linkedArticleId } = req.body;
+    const { title, content, blocks, folder, tags, linkedArticleId, type, claimId } = req.body;
     const nextBlocks = Array.isArray(blocks)
       ? blocks
       : (stripHtml(content || '') ? [{ id: createBlockId(), type: 'paragraph', text: stripHtml(content || '') }] : []);
+    const nextType = normalizeItemType(type, 'note');
+    const nextClaimId = nextType === 'evidence' ? parseClaimId(claimId) : null;
+    if (nextType === 'evidence' && claimId !== undefined && claimId !== null && claimId !== '' && !nextClaimId) {
+      return res.status(400).json({ error: 'Invalid claimId.' });
+    }
+    if (nextType === 'evidence' && nextClaimId) {
+      const linkedClaim = await NotebookEntry.findOne({ _id: nextClaimId, userId }).select('type');
+      if (!linkedClaim || normalizeItemType(linkedClaim.type, 'note') !== 'claim') {
+        return res.status(400).json({ error: 'claimId must reference one of your claim notes.' });
+      }
+    }
     const newEntry = new NotebookEntry({
       title: (title || 'Untitled').trim(),
       content: content || '',
       blocks: nextBlocks,
       folder: folder || null,
-      tags: Array.isArray(tags) ? tags : [],
+      type: nextType,
+      claimId: nextClaimId,
+      tags: normalizeTags(tags),
       linkedArticleId: linkedArticleId || null,
       userId
     });
@@ -1412,6 +1475,31 @@ app.post('/api/notebook', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error("❌ Error creating notebook entry:", error);
     res.status(500).json({ error: "Failed to create notebook entry." });
+  }
+});
+
+// GET /api/notebook/organize/claims - searchable claim notes for linking evidence
+app.get('/api/notebook/organize/claims', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const queryText = String(req.query.q || '').trim();
+    const query = { userId, type: 'claim' };
+    if (queryText) {
+      const regex = new RegExp(queryText, 'i');
+      query.$or = [
+        { title: regex },
+        { content: regex },
+        { tags: regex }
+      ];
+    }
+    const claims = await NotebookEntry.find(query)
+      .sort({ updatedAt: -1 })
+      .limit(30)
+      .select('_id title tags updatedAt');
+    res.status(200).json(claims);
+  } catch (error) {
+    console.error("❌ Error fetching notebook claims:", error);
+    res.status(500).json({ error: 'Failed to fetch claims.' });
   }
 });
 
@@ -1433,6 +1521,109 @@ app.get('/api/notebook/:id', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error("❌ Error fetching notebook entry:", error);
     res.status(500).json({ error: "Failed to fetch notebook entry." });
+  }
+});
+
+// PATCH /api/notebook/:id/organize - update type/tags/claim linkage for note organization
+app.patch('/api/notebook/:id/organize', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { id } = req.params;
+    const { type, tags, claimId } = req.body || {};
+    const entry = await NotebookEntry.findOne({ _id: id, userId });
+    if (!entry) {
+      return res.status(404).json({ error: 'Notebook entry not found.' });
+    }
+
+    const hasType = type !== undefined;
+    const nextType = hasType ? normalizeItemType(type, '') : normalizeItemType(entry.type, 'note');
+    if (hasType && !nextType) {
+      return res.status(400).json({ error: 'type must be one of claim, evidence, note.' });
+    }
+
+    let nextClaimId = claimId !== undefined ? parseClaimId(claimId) : entry.claimId;
+    if (claimId !== undefined && claimId !== null && claimId !== '' && !nextClaimId) {
+      return res.status(400).json({ error: 'Invalid claimId.' });
+    }
+
+    if (nextType !== 'evidence') {
+      nextClaimId = null;
+    }
+
+    if (nextType === 'evidence' && nextClaimId) {
+      const linkedClaim = await NotebookEntry.findOne({ _id: nextClaimId, userId }).select('_id type');
+      if (!linkedClaim || normalizeItemType(linkedClaim.type, 'note') !== 'claim') {
+        return res.status(400).json({ error: 'claimId must reference one of your claim notes.' });
+      }
+      if (String(linkedClaim._id) === String(entry._id)) {
+        return res.status(400).json({ error: 'An evidence note cannot link to itself as a claim.' });
+      }
+    }
+
+    if (hasType) entry.type = nextType;
+    if (tags !== undefined) entry.tags = normalizeTags(tags);
+    entry.claimId = nextClaimId;
+    await entry.save();
+    res.status(200).json(entry);
+  } catch (error) {
+    console.error("❌ Error organizing notebook entry:", error);
+    res.status(500).json({ error: 'Failed to organize notebook entry.' });
+  }
+});
+
+// POST /api/notebook/:id/link-claim - link an evidence note to a claim note
+app.post('/api/notebook/:id/link-claim', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { id } = req.params;
+    const claimObjectId = parseClaimId(req.body?.claimId);
+    if (!claimObjectId) {
+      return res.status(400).json({ error: 'claimId is required.' });
+    }
+
+    const evidence = await NotebookEntry.findOne({ _id: id, userId });
+    if (!evidence) {
+      return res.status(404).json({ error: 'Notebook entry not found.' });
+    }
+    const claim = await NotebookEntry.findOne({ _id: claimObjectId, userId }).select('_id type');
+    if (!claim || normalizeItemType(claim.type, 'note') !== 'claim') {
+      return res.status(400).json({ error: 'claimId must reference one of your claim notes.' });
+    }
+    if (String(claim._id) === String(evidence._id)) {
+      return res.status(400).json({ error: 'An evidence note cannot link to itself as a claim.' });
+    }
+
+    evidence.type = 'evidence';
+    evidence.claimId = claim._id;
+    await evidence.save();
+    res.status(200).json(evidence);
+  } catch (error) {
+    console.error("❌ Error linking note evidence to claim:", error);
+    res.status(500).json({ error: 'Failed to link evidence to claim.' });
+  }
+});
+
+// GET /api/notebook/:id/claim - fetch claim note plus linked evidence notes
+app.get('/api/notebook/:id/claim', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { id } = req.params;
+    const claim = await NotebookEntry.findOne({ _id: id, userId });
+    if (!claim) {
+      return res.status(404).json({ error: 'Notebook entry not found.' });
+    }
+    if (normalizeItemType(claim.type, 'note') !== 'claim') {
+      return res.status(400).json({ error: 'Requested notebook entry is not a claim.' });
+    }
+    const evidence = await NotebookEntry.find({
+      userId,
+      type: 'evidence',
+      claimId: claim._id
+    }).sort({ createdAt: -1 });
+    res.status(200).json({ claim, evidence });
+  } catch (error) {
+    console.error("❌ Error fetching note claim evidence:", error);
+    res.status(500).json({ error: 'Failed to fetch claim evidence.' });
   }
 });
 
@@ -1504,7 +1695,7 @@ app.put('/api/notebook/:id', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
     const { id } = req.params;
-    const { title, content, blocks, folder, tags, linkedArticleId } = req.body;
+    const { title, content, blocks, folder, tags, linkedArticleId, type, claimId } = req.body;
     const updates = {};
     if (title !== undefined) updates.title = title.trim() || 'Untitled';
     if (content !== undefined) updates.content = content;
@@ -1515,8 +1706,56 @@ app.put('/api/notebook/:id', authenticateToken, async (req, res) => {
       updates.blocks = text ? [{ id: createBlockId(), type: 'paragraph', text }] : [];
     }
     if (folder !== undefined) updates.folder = folder || null;
-    if (tags !== undefined) updates.tags = Array.isArray(tags) ? tags : [];
+    if (tags !== undefined) updates.tags = normalizeTags(tags);
     if (linkedArticleId !== undefined) updates.linkedArticleId = linkedArticleId || null;
+    if (type !== undefined) {
+      const nextType = normalizeItemType(type, '');
+      if (!nextType) {
+        return res.status(400).json({ error: 'type must be one of claim, evidence, note.' });
+      }
+      updates.type = nextType;
+      if (nextType !== 'evidence') {
+        updates.claimId = null;
+      }
+    }
+    if (claimId !== undefined) {
+      const nextClaimId = parseClaimId(claimId);
+      if (claimId !== null && claimId !== '' && !nextClaimId) {
+        return res.status(400).json({ error: 'Invalid claimId.' });
+      }
+      updates.claimId = nextClaimId;
+    }
+
+    let effectiveType = updates.type;
+    if (!effectiveType) {
+      const existing = await NotebookEntry.findOne({ _id: id, userId }).select('type');
+      if (!existing) {
+        return res.status(404).json({ error: "Notebook entry not found." });
+      }
+      effectiveType = normalizeItemType(existing.type, 'note');
+    }
+    if (effectiveType !== 'evidence') {
+      if (updates.claimId) {
+        return res.status(400).json({ error: 'claimId can only be set when type is evidence.' });
+      }
+      if (updates.claimId !== undefined) {
+        updates.claimId = null;
+      }
+    }
+    const needsClaimValidation = effectiveType === 'evidence' && updates.claimId !== undefined;
+    if (needsClaimValidation) {
+      if (!updates.claimId) {
+        updates.claimId = null;
+      } else {
+        const linkedClaim = await NotebookEntry.findOne({ _id: updates.claimId, userId }).select('_id type');
+        if (!linkedClaim || normalizeItemType(linkedClaim.type, 'note') !== 'claim') {
+          return res.status(400).json({ error: 'claimId must reference one of your claim notes.' });
+        }
+        if (String(linkedClaim._id) === String(id)) {
+          return res.status(400).json({ error: 'An evidence note cannot link to itself as a claim.' });
+        }
+      }
+    }
 
     const updated = await NotebookEntry.findOneAndUpdate(
       { _id: id, userId },
@@ -1761,6 +2000,8 @@ app.get('/api/highlights', authenticateToken, async (req, res) => {
         text: '$highlights.text',
         note: '$highlights.note',
         tags: '$highlights.tags',
+        type: '$highlights.type',
+        claimId: '$highlights.claimId',
         createdAt: '$highlights.createdAt'
       } }
     );
@@ -1770,6 +2011,215 @@ app.get('/api/highlights', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error("❌ Error fetching highlights:", error);
     res.status(500).json({ error: "Failed to fetch highlights." });
+  }
+});
+
+// GET /api/highlights/organize/claims - searchable claim highlights for linking evidence
+app.get('/api/highlights/organize/claims', authenticateToken, async (req, res) => {
+  try {
+    const userId = new mongoose.Types.ObjectId(req.user.id);
+    const queryText = String(req.query.q || '').trim();
+    const pipeline = [
+      { $match: { userId } },
+      { $unwind: '$highlights' },
+      { $match: { 'highlights.type': 'claim' } }
+    ];
+    if (queryText) {
+      const regex = new RegExp(queryText, 'i');
+      pipeline.push({
+        $match: {
+          $or: [
+            { 'highlights.text': regex },
+            { 'highlights.tags': regex },
+            { title: regex }
+          ]
+        }
+      });
+    }
+    pipeline.push(
+      { $sort: { 'highlights.createdAt': -1 } },
+      { $limit: 30 },
+      {
+        $project: {
+          _id: '$highlights._id',
+          articleId: '$_id',
+          articleTitle: '$title',
+          text: '$highlights.text',
+          tags: '$highlights.tags',
+          createdAt: '$highlights.createdAt'
+        }
+      }
+    );
+    const claims = await Article.aggregate(pipeline);
+    res.status(200).json(claims);
+  } catch (error) {
+    console.error("❌ Error fetching highlight claims:", error);
+    res.status(500).json({ error: 'Failed to fetch claims.' });
+  }
+});
+
+// PATCH /api/highlights/:id/organize - update highlight type/tags/claim linkage
+app.patch('/api/highlights/:id/organize', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const highlightId = req.params.id;
+    if (!mongoose.Types.ObjectId.isValid(highlightId)) {
+      return res.status(400).json({ error: 'Invalid highlight ID format.' });
+    }
+    const { type, tags, claimId } = req.body || {};
+    const article = await Article.findOne({ userId, 'highlights._id': new mongoose.Types.ObjectId(highlightId) });
+    if (!article) {
+      return res.status(404).json({ error: 'Highlight not found.' });
+    }
+    const highlight = article.highlights.id(highlightId);
+    if (!highlight) {
+      return res.status(404).json({ error: 'Highlight not found.' });
+    }
+
+    const hasType = type !== undefined;
+    const nextType = hasType ? normalizeItemType(type, '') : normalizeItemType(highlight.type, 'note');
+    if (hasType && !nextType) {
+      return res.status(400).json({ error: 'type must be one of claim, evidence, note.' });
+    }
+
+    let nextClaimId = claimId !== undefined ? parseClaimId(claimId) : highlight.claimId;
+    if (claimId !== undefined && claimId !== null && claimId !== '' && !nextClaimId) {
+      return res.status(400).json({ error: 'Invalid claimId.' });
+    }
+
+    if (nextType !== 'evidence') {
+      nextClaimId = null;
+    }
+
+    if (nextType === 'evidence' && nextClaimId) {
+      const claimArticle = await Article.findOne({ userId, 'highlights._id': nextClaimId }).select('highlights');
+      const claimHighlight = claimArticle?.highlights?.id(nextClaimId) || null;
+      if (!claimHighlight || normalizeItemType(claimHighlight.type, 'note') !== 'claim') {
+        return res.status(400).json({ error: 'claimId must reference one of your claim highlights.' });
+      }
+      if (String(claimHighlight._id) === String(highlight._id)) {
+        return res.status(400).json({ error: 'An evidence highlight cannot link to itself as a claim.' });
+      }
+    }
+
+    if (hasType) highlight.type = nextType;
+    if (tags !== undefined) highlight.tags = normalizeTags(tags);
+    highlight.claimId = nextClaimId;
+    await article.save();
+    enqueueHighlightEmbedding({ highlight, article });
+    res.status(200).json(mapHighlightWithArticle(article, highlight));
+  } catch (error) {
+    console.error("❌ Error organizing highlight:", error);
+    res.status(500).json({ error: 'Failed to organize highlight.' });
+  }
+});
+
+// POST /api/highlights/:id/link-claim - link evidence highlight to claim highlight
+app.post('/api/highlights/:id/link-claim', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const highlightId = req.params.id;
+    if (!mongoose.Types.ObjectId.isValid(highlightId)) {
+      return res.status(400).json({ error: 'Invalid highlight ID format.' });
+    }
+    const claimObjectId = parseClaimId(req.body?.claimId);
+    if (!claimObjectId) {
+      return res.status(400).json({ error: 'claimId is required.' });
+    }
+
+    const evidenceArticle = await Article.findOne({ userId, 'highlights._id': new mongoose.Types.ObjectId(highlightId) });
+    if (!evidenceArticle) {
+      return res.status(404).json({ error: 'Highlight not found.' });
+    }
+    const evidenceHighlight = evidenceArticle.highlights.id(highlightId);
+
+    const claimArticle = await Article.findOne({ userId, 'highlights._id': claimObjectId });
+    const claimHighlight = claimArticle?.highlights?.id(claimObjectId) || null;
+    if (!claimHighlight || normalizeItemType(claimHighlight.type, 'note') !== 'claim') {
+      return res.status(400).json({ error: 'claimId must reference one of your claim highlights.' });
+    }
+    if (String(claimHighlight._id) === String(evidenceHighlight._id)) {
+      return res.status(400).json({ error: 'An evidence highlight cannot link to itself as a claim.' });
+    }
+
+    evidenceHighlight.type = 'evidence';
+    evidenceHighlight.claimId = claimHighlight._id;
+    await evidenceArticle.save();
+    enqueueHighlightEmbedding({ highlight: evidenceHighlight, article: evidenceArticle });
+    res.status(200).json(mapHighlightWithArticle(evidenceArticle, evidenceHighlight));
+  } catch (error) {
+    console.error("❌ Error linking highlight evidence to claim:", error);
+    res.status(500).json({ error: 'Failed to link evidence to claim.' });
+  }
+});
+
+// GET /api/highlights/:id/claim - fetch claim highlight plus linked evidence highlights
+app.get('/api/highlights/:id/claim', authenticateToken, async (req, res) => {
+  try {
+    const userId = new mongoose.Types.ObjectId(req.user.id);
+    const claimId = req.params.id;
+    if (!mongoose.Types.ObjectId.isValid(claimId)) {
+      return res.status(400).json({ error: 'Invalid highlight ID format.' });
+    }
+    const claimObjectId = new mongoose.Types.ObjectId(claimId);
+
+    const claimRows = await Article.aggregate([
+      { $match: { userId } },
+      { $unwind: '$highlights' },
+      {
+        $match: {
+          'highlights._id': claimObjectId,
+          'highlights.type': 'claim'
+        }
+      },
+      {
+        $project: {
+          _id: '$highlights._id',
+          articleId: '$_id',
+          articleTitle: '$title',
+          text: '$highlights.text',
+          note: '$highlights.note',
+          tags: '$highlights.tags',
+          type: '$highlights.type',
+          claimId: '$highlights.claimId',
+          createdAt: '$highlights.createdAt'
+        }
+      }
+    ]);
+    const claim = claimRows[0];
+    if (!claim) {
+      return res.status(404).json({ error: 'Claim highlight not found.' });
+    }
+
+    const evidence = await Article.aggregate([
+      { $match: { userId } },
+      { $unwind: '$highlights' },
+      {
+        $match: {
+          'highlights.type': 'evidence',
+          'highlights.claimId': claimObjectId
+        }
+      },
+      { $sort: { 'highlights.createdAt': -1 } },
+      {
+        $project: {
+          _id: '$highlights._id',
+          articleId: '$_id',
+          articleTitle: '$title',
+          text: '$highlights.text',
+          note: '$highlights.note',
+          tags: '$highlights.tags',
+          type: '$highlights.type',
+          claimId: '$highlights.claimId',
+          createdAt: '$highlights.createdAt'
+        }
+      }
+    ]);
+
+    res.status(200).json({ claim, evidence });
+  } catch (error) {
+    console.error("❌ Error fetching claim evidence:", error);
+    res.status(500).json({ error: 'Failed to fetch claim evidence.' });
   }
 });
 
@@ -5356,7 +5806,9 @@ app.post('/articles/:id/highlights', authenticateToken, async (req, res) => {
     const newHighlight = {
         text: trimmedText,
         note: note || '',
-        tags: tags || [],
+        tags: normalizeTags(tags),
+        type: 'note',
+        claimId: null,
         anchor: anchor ? {
           text: anchor.text || trimmedText,
           prefix: anchor.prefix || '',
@@ -5403,7 +5855,7 @@ app.post('/articles/:id/highlights', authenticateToken, async (req, res) => {
 app.patch('/articles/:articleId/highlights/:highlightId', authenticateToken, async (req, res) => {
   try {
       const { articleId, highlightId } = req.params;
-      const { note, tags } = req.body;
+      const { note, tags, type, claimId } = req.body;
       const userId = req.user.id;
 
       // Find the article by ID AND ensure it belongs to the authenticated user
@@ -5420,7 +5872,37 @@ app.patch('/articles/:articleId/highlights/:highlightId', authenticateToken, asy
 
       // Update its properties
       highlight.note = note !== undefined ? note : highlight.note;
-      highlight.tags = tags !== undefined ? tags : highlight.tags;
+      highlight.tags = tags !== undefined ? normalizeTags(tags) : highlight.tags;
+      if (type !== undefined) {
+        const nextType = normalizeItemType(type, '');
+        if (!nextType) {
+          return res.status(400).json({ error: 'type must be one of claim, evidence, note.' });
+        }
+        highlight.type = nextType;
+        if (nextType !== 'evidence') {
+          highlight.claimId = null;
+        }
+      }
+      if (claimId !== undefined) {
+        const nextClaimId = parseClaimId(claimId);
+        if (claimId !== null && claimId !== '' && !nextClaimId) {
+          return res.status(400).json({ error: 'Invalid claimId.' });
+        }
+        highlight.claimId = nextClaimId;
+      }
+      const finalType = normalizeItemType(highlight.type, 'note');
+      if (finalType === 'evidence' && highlight.claimId) {
+        const claimArticle = await Article.findOne({ userId, 'highlights._id': highlight.claimId }).select('highlights');
+        const claimHighlight = claimArticle?.highlights?.id(highlight.claimId) || null;
+        if (!claimHighlight || normalizeItemType(claimHighlight.type, 'note') !== 'claim') {
+          return res.status(400).json({ error: 'claimId must reference one of your claim highlights.' });
+        }
+        if (String(claimHighlight._id) === String(highlight._id)) {
+          return res.status(400).json({ error: 'An evidence highlight cannot link to itself as a claim.' });
+        }
+      } else if (finalType !== 'evidence') {
+        highlight.claimId = null;
+      }
 
       await article.save();
 
@@ -5443,6 +5925,8 @@ app.patch('/articles/:articleId/highlights/:highlightId', authenticateToken, asy
         text: updatedHighlight.text,
         note: updatedHighlight.note,
         tags: updatedHighlight.tags,
+        type: normalizeItemType(updatedHighlight.type, 'note'),
+        claimId: updatedHighlight.claimId || null,
         createdAt: updatedHighlight.createdAt
       });
   } catch (error) {

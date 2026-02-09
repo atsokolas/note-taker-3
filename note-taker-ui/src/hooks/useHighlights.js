@@ -7,6 +7,8 @@ import { getAuthHeaders } from './useAuthHeaders';
  * @property {string} _id
  * @property {string} text
  * @property {string[]} [tags]
+ * @property {'claim'|'evidence'|'note'} [type]
+ * @property {string|null} [claimId]
  * @property {string} [articleId]
  * @property {string} [articleTitle]
  * @property {string} [createdAt]

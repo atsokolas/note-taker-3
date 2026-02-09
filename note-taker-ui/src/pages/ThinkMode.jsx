@@ -1198,6 +1198,7 @@ const ThinkMode = () => {
                             articleTitle: highlight.articleTitle || ''
                           }}
                           compact
+                          organizable
                           onAddNotebook={(item) => setHighlightNotebookModal({ open: true, highlight: item })}
                           onAddConcept={(item) => setHighlightConceptModal({ open: true, highlight: item })}
                           onAddQuestion={(item) => setHighlightQuestionModal({ open: true, highlight: item })}
@@ -1239,6 +1240,7 @@ const ThinkMode = () => {
                               articleTitle: highlight.metadata?.articleTitle || ''
                             }}
                             compact
+                            organizable
                             onAddNotebook={(item) => setHighlightNotebookModal({ open: true, highlight: item })}
                             onAddConcept={(item) => setHighlightConceptModal({ open: true, highlight: item })}
                             onAddQuestion={(item) => setHighlightQuestionModal({ open: true, highlight: item })}
@@ -1352,6 +1354,7 @@ const ThinkMode = () => {
                 <HighlightCard
                   highlight={h}
                   compact
+                  organizable
                   onAddNotebook={(item) => setHighlightNotebookModal({ open: true, highlight: item })}
                   onAddConcept={(item) => setHighlightConceptModal({ open: true, highlight: item })}
                   onAddQuestion={(item) => setHighlightQuestionModal({ open: true, highlight: item })}
@@ -1381,6 +1384,7 @@ const ThinkMode = () => {
                         createdAt: item.metadata?.createdAt
                       }}
                       compact
+                      organizable
                       onAddNotebook={(highlight) => setHighlightNotebookModal({ open: true, highlight })}
                       onAddConcept={(highlight) => setHighlightConceptModal({ open: true, highlight })}
                       onAddQuestion={(highlight) => setHighlightQuestionModal({ open: true, highlight })}
@@ -1402,6 +1406,7 @@ const ThinkMode = () => {
                 <HighlightCard
                   highlight={h}
                   compact
+                  organizable
                   onAddNotebook={(item) => setHighlightNotebookModal({ open: true, highlight: item })}
                   onAddConcept={(item) => setHighlightConceptModal({ open: true, highlight: item })}
                   onAddQuestion={(item) => setHighlightQuestionModal({ open: true, highlight: item })}
@@ -1576,6 +1581,7 @@ const ThinkMode = () => {
             <HighlightCard
               highlight={highlight}
               compact
+              organizable
               onAddNotebook={(item) => setHighlightNotebookModal({ open: true, highlight: item })}
               onAddConcept={(item) => setHighlightConceptModal({ open: true, highlight: item })}
               onAddQuestion={(item) => setHighlightQuestionModal({ open: true, highlight: item })}
@@ -1623,6 +1629,7 @@ const ThinkMode = () => {
                       key={block.id}
                       highlight={highlight}
                       compact
+                      organizable
                       onAddNotebook={(item) => setHighlightNotebookModal({ open: true, highlight: item })}
                       onAddConcept={(item) => setHighlightConceptModal({ open: true, highlight: item })}
                       onAddQuestion={(item) => setHighlightQuestionModal({ open: true, highlight: item })}
