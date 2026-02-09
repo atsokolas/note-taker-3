@@ -23,7 +23,8 @@ export const getNotebookClaimEvidence = async (id) => {
 export const searchNotebookClaims = async (query = '') => {
   const params = new URLSearchParams();
   if (query) params.set('q', query);
-  const res = await api.get(`/api/notebook/organize/claims?${params.toString()}`, getAuthHeaders());
+  const suffix = params.toString();
+  const res = await api.get(`/api/notebook/organize/claims${suffix ? `?${suffix}` : ''}`, getAuthHeaders());
   return Array.isArray(res.data) ? res.data : [];
 };
 
@@ -49,6 +50,7 @@ export const getHighlightClaimEvidence = async (id) => {
 export const searchHighlightClaims = async (query = '') => {
   const params = new URLSearchParams();
   if (query) params.set('q', query);
-  const res = await api.get(`/api/highlights/organize/claims?${params.toString()}`, getAuthHeaders());
+  const suffix = params.toString();
+  const res = await api.get(`/api/highlights/organize/claims${suffix ? `?${suffix}` : ''}`, getAuthHeaders());
   return Array.isArray(res.data) ? res.data : [];
 };

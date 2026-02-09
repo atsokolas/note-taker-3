@@ -1274,6 +1274,7 @@ const ThinkMode = () => {
           onRegisterInsert={(fn) => { notebookInsertRef.current = fn; }}
           onSynthesize={(entry) => openSynthesis('notebook', entry?._id)}
           onDump={() => handleDumpToWorkingMemory()}
+          claimCandidates={notebookEntries.filter(item => (item.type || 'note') === 'claim')}
         />
       )}
     </div>

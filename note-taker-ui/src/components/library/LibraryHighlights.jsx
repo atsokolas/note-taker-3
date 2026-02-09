@@ -214,6 +214,7 @@ const LibraryHighlights = ({ folderOptions, articleOptions, externalQuery = '', 
                 <HighlightCard
                   highlight={highlight}
                   compact
+                  organizable
                   onAddConcept={(h) => setConceptModal({ open: true, highlight: h })}
                   onAddNotebook={(h) => setNotebookModal({ open: true, highlight: h })}
                   onAddQuestion={(h) => setQuestionModal({ open: true, highlight: h })}
@@ -238,6 +239,7 @@ const LibraryHighlights = ({ folderOptions, articleOptions, externalQuery = '', 
             <HighlightCard
               highlight={highlight}
               compact
+              organizable
               onAddConcept={(h) => setConceptModal({ open: true, highlight: h })}
               onAddNotebook={(h) => setNotebookModal({ open: true, highlight: h })}
               onAddQuestion={(h) => setQuestionModal({ open: true, highlight: h })}

@@ -258,7 +258,8 @@ const NotebookEditor = ({
   onRegisterInsert,
   onCreate,
   onSynthesize,
-  onDump
+  onDump,
+  claimCandidates = []
 }) => {
   const [titleDraft, setTitleDraft] = useState(entry?.title || '');
   const [insertMode, setInsertMode] = useState('');
@@ -355,10 +356,27 @@ const NotebookEditor = ({
       try {
         const claims = await searchNotebookClaims(claimQuery);
         if (cancelled) return;
-        setClaimOptions(claims.filter(item => String(item._id) !== String(entry?._id)));
+        const localClaims = (claimCandidates || []).filter(item => item && String(item._id || item.id));
+        const merged = new Map();
+        [...localClaims, ...claims].forEach(item => {
+          const key = String(item._id || item.id);
+          if (!key || key === String(entry?._id)) return;
+          merged.set(key, {
+            _id: key,
+            title: item.title || item.name || 'Untitled claim',
+            tags: item.tags || []
+          });
+        });
+        setClaimOptions(Array.from(merged.values()));
       } catch (err) {
         if (!cancelled) {
           setOrganizeError(err.response?.data?.error || 'Failed to load claim options.');
+          const localClaims = (claimCandidates || []).filter(item => String(item?._id) !== String(entry?._id));
+          setClaimOptions(localClaims.map(item => ({
+            _id: item._id,
+            title: item.title || 'Untitled claim',
+            tags: item.tags || []
+          })));
         }
       } finally {
         if (!cancelled) setClaimOptionsLoading(false);
@@ -368,7 +386,7 @@ const NotebookEditor = ({
     return () => {
       cancelled = true;
     };
-  }, [organizeOpen, entryType, claimQuery, entry?._id]);
+  }, [organizeOpen, entryType, claimQuery, entry?._id, claimCandidates]);
 
   useEffect(() => {
     let cancelled = false;
