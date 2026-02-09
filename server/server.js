@@ -267,6 +267,19 @@ const questionSchema = new mongoose.Schema({
 
 const Question = mongoose.model('Question', questionSchema);
 
+const workingMemoryItemSchema = new mongoose.Schema({
+  sourceType: { type: String, required: true, trim: true },
+  sourceId: { type: String, required: true, trim: true },
+  textSnippet: { type: String, required: true, trim: true },
+  workspaceType: { type: String, default: 'global', trim: true },
+  workspaceId: { type: String, default: '', trim: true },
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }
+}, { timestamps: true });
+
+workingMemoryItemSchema.index({ userId: 1, workspaceType: 1, workspaceId: 1, createdAt: -1 });
+
+const WorkingMemoryItem = mongoose.model('WorkingMemoryItem', workingMemoryItemSchema);
+
 // Brain summaries (AI-generated, cached)
 const brainSummarySchema = new mongoose.Schema({
   timeRange: { type: String, required: true },
@@ -1583,6 +1596,67 @@ app.delete('/api/notebook/folders/:id', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error("❌ Error deleting notebook folder:", error);
     res.status(500).json({ error: "Failed to delete folder." });
+  }
+});
+
+// --- WORKING MEMORY ---
+app.get('/api/working-memory', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const workspaceType = String(req.query.workspaceType || 'global').trim();
+    const workspaceId = String(req.query.workspaceId || '').trim();
+    const query = { userId, workspaceType, workspaceId };
+    const items = await WorkingMemoryItem.find(query).sort({ createdAt: -1 }).limit(200);
+    res.status(200).json(items);
+  } catch (error) {
+    console.error('❌ Error fetching working memory:', error);
+    res.status(500).json({ error: 'Failed to fetch working memory.' });
+  }
+});
+
+app.post('/api/working-memory', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const {
+      sourceType = '',
+      sourceId = '',
+      textSnippet = '',
+      workspaceType = 'global',
+      workspaceId = ''
+    } = req.body || {};
+    const safeSnippet = String(textSnippet || '').trim().slice(0, 1200);
+    if (!sourceType || !sourceId || !safeSnippet) {
+      return res.status(400).json({
+        error: 'sourceType, sourceId, and textSnippet are required.'
+      });
+    }
+    const created = await WorkingMemoryItem.create({
+      sourceType: String(sourceType).trim(),
+      sourceId: String(sourceId).trim(),
+      textSnippet: safeSnippet,
+      workspaceType: String(workspaceType || 'global').trim() || 'global',
+      workspaceId: String(workspaceId || '').trim(),
+      userId
+    });
+    res.status(201).json(created);
+  } catch (error) {
+    console.error('❌ Error creating working memory item:', error);
+    res.status(500).json({ error: 'Failed to create working memory item.' });
+  }
+});
+
+app.delete('/api/working-memory/:id', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { id } = req.params;
+    const deleted = await WorkingMemoryItem.findOneAndDelete({ _id: id, userId });
+    if (!deleted) {
+      return res.status(404).json({ error: 'Working memory item not found.' });
+    }
+    res.status(200).json({ message: 'Working memory item deleted.' });
+  } catch (error) {
+    console.error('❌ Error deleting working memory item:', error);
+    res.status(500).json({ error: 'Failed to delete working memory item.' });
   }
 });
 

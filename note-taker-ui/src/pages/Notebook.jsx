@@ -7,6 +7,12 @@ import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
 import { Extension } from '@tiptap/core';
 import ReferencesPanel from '../components/ReferencesPanel';
+import WorkingMemoryPanel from '../components/working-memory/WorkingMemoryPanel';
+import {
+  listWorkingMemory,
+  createWorkingMemory,
+  deleteWorkingMemory
+} from '../api/workingMemory';
 
 const ListIndentExtension = Extension.create({
   name: 'listIndent',
@@ -101,6 +107,9 @@ const Notebook = () => {
   const [articles, setArticles] = useState([]);
   const [linkedArticleId, setLinkedArticleId] = useState('');
   const [tagsInput, setTagsInput] = useState('');
+  const [workingMemoryItems, setWorkingMemoryItems] = useState([]);
+  const [workingMemoryLoading, setWorkingMemoryLoading] = useState(false);
+  const [workingMemoryError, setWorkingMemoryError] = useState('');
 
   const isNormalizingRef = useRef(false);
 
@@ -345,6 +354,93 @@ const Notebook = () => {
     return entries.filter(e => (e.folder || null) === selectedFolder);
   }, [entries, selectedFolder]);
 
+  const loadWorkingMemory = React.useCallback(async () => {
+    setWorkingMemoryLoading(true);
+    setWorkingMemoryError('');
+    try {
+      const items = await listWorkingMemory({
+        workspaceType: 'notebook',
+        workspaceId: activeId || ''
+      });
+      setWorkingMemoryItems(items);
+    } catch (err) {
+      setWorkingMemoryError(err.response?.data?.error || 'Failed to load working memory.');
+    } finally {
+      setWorkingMemoryLoading(false);
+    }
+  }, [activeId]);
+
+  useEffect(() => {
+    loadWorkingMemory();
+  }, [loadWorkingMemory]);
+
+  const addWorkingMemoryItem = React.useCallback(async ({
+    sourceType,
+    sourceId,
+    textSnippet
+  }) => {
+    const cleanText = String(textSnippet || '').trim();
+    if (!cleanText) return;
+    const optimistic = {
+      _id: `tmp-${Date.now()}`,
+      sourceType,
+      sourceId,
+      textSnippet: cleanText.slice(0, 1200),
+      createdAt: new Date().toISOString()
+    };
+    setWorkingMemoryItems(prev => [optimistic, ...prev]);
+    try {
+      const created = await createWorkingMemory({
+        workspaceType: 'notebook',
+        workspaceId: activeId || '',
+        sourceType,
+        sourceId,
+        textSnippet: cleanText
+      });
+      setWorkingMemoryItems(prev => prev.map(item => (
+        item._id === optimistic._id ? created : item
+      )));
+    } catch (err) {
+      setWorkingMemoryItems(prev => prev.filter(item => item._id !== optimistic._id));
+      setWorkingMemoryError(err.response?.data?.error || 'Failed to dump to working memory.');
+    }
+  }, [activeId]);
+
+  const handleDeleteWorkingMemoryItem = React.useCallback(async (itemId) => {
+    const previous = workingMemoryItems;
+    setWorkingMemoryItems(prev => prev.filter(item => item._id !== itemId));
+    try {
+      await deleteWorkingMemory(itemId);
+    } catch (err) {
+      setWorkingMemoryItems(previous);
+      setWorkingMemoryError(err.response?.data?.error || 'Failed to remove item.');
+    }
+  }, [workingMemoryItems]);
+
+  const handleDumpToWorkingMemory = React.useCallback(async (manualText = '') => {
+    const selectedText = window.getSelection?.()?.toString()?.trim() || '';
+    const fallbackText = selectedText
+      || stripHtml(editor?.getHTML?.() || content || '').slice(0, 400)
+      || title
+      || 'Notebook note';
+    await addWorkingMemoryItem({
+      sourceType: selectedText ? 'notebook-selection' : 'notebook-entry',
+      sourceId: String(activeId || 'notebook'),
+      textSnippet: manualText || fallbackText
+    });
+  }, [activeId, addWorkingMemoryItem, content, editor, title]);
+
+  useEffect(() => {
+    const onKeyDown = (event) => {
+      const isDump = (event.metaKey || event.ctrlKey) && event.shiftKey && event.key.toLowerCase() === 'd';
+      if (!isDump) return;
+      event.preventDefault();
+      handleDumpToWorkingMemory();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [handleDumpToWorkingMemory]);
+
   const createEntry = async () => {
     setSaving(true);
     setStatus('');
@@ -588,6 +684,9 @@ const Notebook = () => {
                     style={{ maxWidth: '240px', borderBottom: '1px solid var(--border-color)' }}
                   />
                   <Button variant="secondary" onClick={() => setHighlightModalOpen(true)} data-onboard-id="insert-highlight">Insert Highlight</Button>
+                  <Button variant="secondary" onClick={() => handleDumpToWorkingMemory()}>
+                    Dump to Working Memory
+                  </Button>
                 </div>
                 <div className="notebook-editor-actions" style={{ display: 'flex', gap: 8, margin: '8px 0' }}>
                   <span className="muted small">Tip: "- " for bullets, "1. " for numbered lists, "## " for headings, Tab/Shift+Tab to indent.</span>
@@ -601,6 +700,15 @@ const Notebook = () => {
                 </div>
                 <div style={{ marginTop: 12 }}>
                   <ReferencesPanel targetType="notebook" targetId={activeId} label="Links in this note" />
+                </div>
+                <div style={{ marginTop: 12 }}>
+                  <WorkingMemoryPanel
+                    items={workingMemoryItems}
+                    loading={workingMemoryLoading}
+                    error={workingMemoryError}
+                    onDumpText={(text) => handleDumpToWorkingMemory(text)}
+                    onDeleteItem={handleDeleteWorkingMemoryItem}
+                  />
                 </div>
               </>
             ) : (

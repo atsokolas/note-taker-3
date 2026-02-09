@@ -216,6 +216,89 @@ body {
   outline: none;
 }
 
+.working-memory-panel {
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  background: var(--card-bg-color);
+  padding: 10px;
+}
+
+.working-memory-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.working-memory-title {
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+
+.working-memory-toggle {
+  border: 1px solid var(--border-color);
+  background: var(--hover-color);
+  color: var(--text-color);
+  border-radius: var(--border-radius);
+  padding: 4px 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.working-memory-toggle-icon {
+  width: 12px;
+  text-align: center;
+}
+
+.working-memory-body {
+  margin-top: 10px;
+  display: grid;
+  gap: 10px;
+}
+
+.working-memory-input-row {
+  display: grid;
+  gap: 8px;
+}
+
+.working-memory-input {
+  width: 100%;
+  resize: vertical;
+  min-height: 54px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  padding: 8px;
+  font: inherit;
+  color: var(--text-color);
+  background: var(--card-bg-color);
+}
+
+.working-memory-list {
+  display: grid;
+  gap: 8px;
+}
+
+.working-memory-item {
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  padding: 8px;
+  background: var(--hover-color);
+}
+
+.working-memory-item-text {
+  white-space: pre-wrap;
+}
+
+.working-memory-item-meta {
+  margin-top: 6px;
+  display: flex;
+  gap: 10px;
+  color: var(--text-color-secondary);
+  font-size: 0.8rem;
+}
+
 .upload-actions {
   align-items: flex-start;
   display: flex;

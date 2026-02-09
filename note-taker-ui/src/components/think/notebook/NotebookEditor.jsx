@@ -242,7 +242,17 @@ const QuestionRefNode = createReferenceNode({
   buildHref: (attrs) => (attrs.questionId ? `/think?tab=questions&questionId=${attrs.questionId}` : '')
 });
 
-const NotebookEditor = ({ entry, saving, error, onSave, onDelete, onRegisterInsert, onCreate, onSynthesize }) => {
+const NotebookEditor = ({
+  entry,
+  saving,
+  error,
+  onSave,
+  onDelete,
+  onRegisterInsert,
+  onCreate,
+  onSynthesize,
+  onDump
+}) => {
   const [titleDraft, setTitleDraft] = useState(entry?.title || '');
   const [insertMode, setInsertMode] = useState('');
   const { highlights, highlightMap, loading: highlightsLoading, error: highlightsError } = useHighlights();
@@ -465,6 +475,9 @@ const NotebookEditor = ({ entry, saving, error, onSave, onDelete, onRegisterInse
             </div>
           </div>
           <QuietButton onClick={handleExport}>Export</QuietButton>
+          {onDump && (
+            <QuietButton onClick={onDump}>Dump to Working Memory</QuietButton>
+          )}
           {onSynthesize && (
             <QuietButton onClick={() => onSynthesize(entry)}>Synthesize</QuietButton>
           )}

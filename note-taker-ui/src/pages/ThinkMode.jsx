@@ -25,6 +25,12 @@ import LibraryConceptModal from '../components/library/LibraryConceptModal';
 import LibraryNotebookModal from '../components/library/LibraryNotebookModal';
 import LibraryQuestionModal from '../components/library/LibraryQuestionModal';
 import SynthesisModal from '../components/think/SynthesisModal';
+import WorkingMemoryPanel from '../components/working-memory/WorkingMemoryPanel';
+import {
+  listWorkingMemory,
+  createWorkingMemory,
+  deleteWorkingMemory
+} from '../api/workingMemory';
 
 const formatAiError = (err, fallback = 'Request failed.') => {
   const status = err?.response?.status;
@@ -119,6 +125,9 @@ const ThinkMode = () => {
   const [notebookSaving, setNotebookSaving] = useState(false);
   const [notebookListError, setNotebookListError] = useState('');
   const [notebookEntryError, setNotebookEntryError] = useState('');
+  const [workingMemoryItems, setWorkingMemoryItems] = useState([]);
+  const [workingMemoryLoading, setWorkingMemoryLoading] = useState(false);
+  const [workingMemoryError, setWorkingMemoryError] = useState('');
 
   const createBlockId = () => {
     if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
@@ -169,6 +178,19 @@ const ThinkMode = () => {
     () => allQuestions.find(q => q._id === activeQuestionId) || null,
     [allQuestions, activeQuestionId]
   );
+
+  const workingMemoryScope = useMemo(() => {
+    if (activeView === 'notebook' && activeNotebookEntry?._id) {
+      return { workspaceType: 'notebook', workspaceId: activeNotebookEntry._id };
+    }
+    if (activeView === 'questions' && activeQuestionData?._id) {
+      return { workspaceType: 'question', workspaceId: activeQuestionData._id };
+    }
+    if (activeView === 'concepts' && concept?._id) {
+      return { workspaceType: 'concept', workspaceId: concept._id };
+    }
+    return { workspaceType: 'think', workspaceId: '' };
+  }, [activeView, activeNotebookEntry?._id, activeQuestionData?._id, concept?._id]);
 
   useEffect(() => {
     if (activeView !== 'questions') return;
@@ -545,6 +567,133 @@ const ThinkMode = () => {
       setNotebookSaving(false);
     }
   };
+
+  const loadWorkingMemoryItems = useCallback(async () => {
+    setWorkingMemoryLoading(true);
+    setWorkingMemoryError('');
+    try {
+      const items = await listWorkingMemory(workingMemoryScope);
+      setWorkingMemoryItems(items);
+    } catch (err) {
+      setWorkingMemoryError(err.response?.data?.error || 'Failed to load working memory.');
+    } finally {
+      setWorkingMemoryLoading(false);
+    }
+  }, [workingMemoryScope]);
+
+  useEffect(() => {
+    loadWorkingMemoryItems();
+  }, [loadWorkingMemoryItems]);
+
+  const addWorkingMemoryItem = useCallback(async ({
+    sourceType,
+    sourceId,
+    textSnippet
+  }) => {
+    const cleanText = String(textSnippet || '').trim();
+    if (!cleanText) return;
+    const optimistic = {
+      _id: `tmp-${Date.now()}`,
+      sourceType,
+      sourceId: String(sourceId || ''),
+      textSnippet: cleanText.slice(0, 1200),
+      createdAt: new Date().toISOString()
+    };
+    setWorkingMemoryItems(prev => [optimistic, ...prev]);
+    try {
+      const created = await createWorkingMemory({
+        ...workingMemoryScope,
+        sourceType,
+        sourceId: String(sourceId || ''),
+        textSnippet: cleanText
+      });
+      setWorkingMemoryItems(prev => prev.map(item => (
+        item._id === optimistic._id ? created : item
+      )));
+    } catch (err) {
+      setWorkingMemoryItems(prev => prev.filter(item => item._id !== optimistic._id));
+      setWorkingMemoryError(err.response?.data?.error || 'Failed to dump to working memory.');
+    }
+  }, [workingMemoryScope]);
+
+  const handleDeleteWorkingMemoryItem = useCallback(async (itemId) => {
+    const previous = workingMemoryItems;
+    setWorkingMemoryItems(prev => prev.filter(item => item._id !== itemId));
+    try {
+      await deleteWorkingMemory(itemId);
+    } catch (err) {
+      setWorkingMemoryItems(previous);
+      setWorkingMemoryError(err.response?.data?.error || 'Failed to remove item.');
+    }
+  }, [workingMemoryItems]);
+
+  const buildFallbackDump = useCallback(() => {
+    if (activeView === 'notebook' && activeNotebookEntry) {
+      const blockText = (activeNotebookEntry.blocks || [])
+        .map(block => block.text || '')
+        .join(' ')
+        .trim()
+        .slice(0, 400);
+      return {
+        sourceType: 'notebook',
+        sourceId: activeNotebookEntry._id,
+        textSnippet: blockText || activeNotebookEntry.title || 'Notebook entry'
+      };
+    }
+    if (activeView === 'questions' && activeQuestionData) {
+      return {
+        sourceType: 'question',
+        sourceId: activeQuestionData._id,
+        textSnippet: activeQuestionData.text || 'Question'
+      };
+    }
+    if (activeView === 'concepts' && concept) {
+      return {
+        sourceType: 'concept',
+        sourceId: concept._id,
+        textSnippet: descriptionDraft || concept.name || 'Concept'
+      };
+    }
+    return {
+      sourceType: 'think',
+      sourceId: activeView,
+      textSnippet: 'Working memory item'
+    };
+  }, [activeNotebookEntry, activeQuestionData, activeView, concept, descriptionDraft]);
+
+  const handleDumpToWorkingMemory = useCallback(async (manualText = '') => {
+    const selectedText = window.getSelection?.()?.toString()?.trim() || '';
+    if (manualText) {
+      const fallback = buildFallbackDump();
+      await addWorkingMemoryItem({
+        sourceType: fallback.sourceType,
+        sourceId: fallback.sourceId,
+        textSnippet: manualText
+      });
+      return;
+    }
+    if (selectedText) {
+      const fallback = buildFallbackDump();
+      await addWorkingMemoryItem({
+        sourceType: `${fallback.sourceType}-selection`,
+        sourceId: fallback.sourceId,
+        textSnippet: selectedText
+      });
+      return;
+    }
+    await addWorkingMemoryItem(buildFallbackDump());
+  }, [addWorkingMemoryItem, buildFallbackDump]);
+
+  useEffect(() => {
+    const onKeyDown = (event) => {
+      const isDump = (event.metaKey || event.ctrlKey) && event.shiftKey && event.key.toLowerCase() === 'd';
+      if (!isDump) return;
+      event.preventDefault();
+      handleDumpToWorkingMemory();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [handleDumpToWorkingMemory]);
 
   const handleSaveDescription = async () => {
     if (!concept) return;
@@ -1110,6 +1259,7 @@ const ThinkMode = () => {
           onCreate={handleCreateNotebookEntry}
           onRegisterInsert={(fn) => { notebookInsertRef.current = fn; }}
           onSynthesize={(entry) => openSynthesis('notebook', entry?._id)}
+          onDump={() => handleDumpToWorkingMemory()}
         />
       )}
     </div>
@@ -1377,6 +1527,16 @@ const ThinkMode = () => {
     </div>
   ) : (
     <div className="section-stack">
+      <WorkingMemoryPanel
+        items={workingMemoryItems}
+        loading={workingMemoryLoading}
+        error={workingMemoryError}
+        onDumpText={(text) => handleDumpToWorkingMemory(text)}
+        onDeleteItem={handleDeleteWorkingMemoryItem}
+      />
+      <QuietButton onClick={() => handleDumpToWorkingMemory()}>
+        Dump to Working Memory
+      </QuietButton>
       <SectionHeader title="Insert" subtitle="Search highlights." />
       <div className="library-highlight-filters">
         <input

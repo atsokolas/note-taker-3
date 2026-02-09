@@ -159,6 +159,7 @@ const CommandPalette = ({ open, onClose }) => {
         </div>
         <div className="palette-shortcuts">
           <span className="muted small">Cmd/Ctrl+K: Open</span>
+          <span className="muted small">Cmd/Ctrl+Shift+D: Dump to memory</span>
           <span className="muted small">g then t: Today</span>
           <span className="muted small">g then b: Brain</span>
           <span className="muted small">g then n: Notebook</span>
