@@ -17,6 +17,12 @@ import ThreePaneLayout from '../layout/ThreePaneLayout';
 import LibraryConceptModal from '../components/library/LibraryConceptModal';
 import LibraryNotebookModal from '../components/library/LibraryNotebookModal';
 import LibraryQuestionModal from '../components/library/LibraryQuestionModal';
+import WorkingMemoryPanel from '../components/working-memory/WorkingMemoryPanel';
+import {
+  listWorkingMemory,
+  createWorkingMemory,
+  deleteWorkingMemory
+} from '../api/workingMemory';
 import api from '../api';
 import { getAuthHeaders } from '../hooks/useAuthHeaders';
 
@@ -62,6 +68,9 @@ const Library = () => {
   const [relatedHighlights, setRelatedHighlights] = useState([]);
   const [relatedLoading, setRelatedLoading] = useState(false);
   const [relatedError, setRelatedError] = useState('');
+  const [workingMemoryItems, setWorkingMemoryItems] = useState([]);
+  const [workingMemoryLoading, setWorkingMemoryLoading] = useState(false);
+  const [workingMemoryError, setWorkingMemoryError] = useState('');
   const readerRef = useRef(null);
 
   const { folders, loading: foldersLoading, error: foldersError } = useFolders();
@@ -91,6 +100,13 @@ const Library = () => {
     loading: referencesLoading,
     error: referencesError
   } = useArticleReferences(selectedArticleId, { enabled: Boolean(selectedArticleId) });
+
+  const workingMemoryScope = useMemo(() => {
+    if (selectedArticleId) {
+      return { workspaceType: 'article', workspaceId: selectedArticleId };
+    }
+    return { workspaceType: 'library', workspaceId: '' };
+  }, [selectedArticleId]);
 
   useEffect(() => {
     setSelectedArticleId('');
@@ -345,6 +361,120 @@ const Library = () => {
     };
   }, [selectedArticleId, activeHighlightId, articleHighlights]);
 
+  const loadWorkingMemoryItems = useCallback(async () => {
+    setWorkingMemoryLoading(true);
+    setWorkingMemoryError('');
+    try {
+      const items = await listWorkingMemory(workingMemoryScope);
+      setWorkingMemoryItems(items);
+    } catch (err) {
+      setWorkingMemoryError(err.response?.data?.error || 'Failed to load working memory.');
+    } finally {
+      setWorkingMemoryLoading(false);
+    }
+  }, [workingMemoryScope]);
+
+  useEffect(() => {
+    loadWorkingMemoryItems();
+  }, [loadWorkingMemoryItems]);
+
+  const addWorkingMemoryItem = useCallback(async ({
+    sourceType,
+    sourceId,
+    textSnippet
+  }) => {
+    const cleanText = String(textSnippet || '').trim();
+    if (!cleanText) return;
+    const optimistic = {
+      _id: `tmp-${Date.now()}`,
+      sourceType,
+      sourceId: String(sourceId || ''),
+      textSnippet: cleanText.slice(0, 1200),
+      createdAt: new Date().toISOString()
+    };
+    setWorkingMemoryItems(prev => [optimistic, ...prev]);
+    try {
+      const created = await createWorkingMemory({
+        ...workingMemoryScope,
+        sourceType,
+        sourceId: String(sourceId || ''),
+        textSnippet: cleanText
+      });
+      setWorkingMemoryItems(prev => prev.map(item => (
+        item._id === optimistic._id ? created : item
+      )));
+    } catch (err) {
+      setWorkingMemoryItems(prev => prev.filter(item => item._id !== optimistic._id));
+      setWorkingMemoryError(err.response?.data?.error || 'Failed to dump to working memory.');
+    }
+  }, [workingMemoryScope]);
+
+  const handleDeleteWorkingMemoryItem = useCallback(async (itemId) => {
+    const previous = workingMemoryItems;
+    setWorkingMemoryItems(prev => prev.filter(item => item._id !== itemId));
+    try {
+      await deleteWorkingMemory(itemId);
+    } catch (err) {
+      setWorkingMemoryItems(previous);
+      setWorkingMemoryError(err.response?.data?.error || 'Failed to remove item.');
+    }
+  }, [workingMemoryItems]);
+
+  const buildFallbackDump = useCallback(() => {
+    if (selectedArticle) {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(selectedArticle.content || '', 'text/html');
+      const excerpt = (doc.body?.textContent || '')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .slice(0, 400);
+      return {
+        sourceType: 'article',
+        sourceId: selectedArticle._id,
+        textSnippet: excerpt || selectedArticle.title || 'Article'
+      };
+    }
+    return {
+      sourceType: 'library',
+      sourceId: 'library',
+      textSnippet: 'Library working memory item'
+    };
+  }, [selectedArticle]);
+
+  const handleDumpToWorkingMemory = useCallback(async (manualText = '') => {
+    const selectedText = window.getSelection?.()?.toString()?.trim() || '';
+    if (manualText) {
+      const fallback = buildFallbackDump();
+      await addWorkingMemoryItem({
+        sourceType: fallback.sourceType,
+        sourceId: fallback.sourceId,
+        textSnippet: manualText
+      });
+      return;
+    }
+    if (selectedText) {
+      const fallback = buildFallbackDump();
+      await addWorkingMemoryItem({
+        sourceType: `${fallback.sourceType}-selection`,
+        sourceId: fallback.sourceId,
+        textSnippet: selectedText
+      });
+      return;
+    }
+    await addWorkingMemoryItem(buildFallbackDump());
+  }, [addWorkingMemoryItem, buildFallbackDump]);
+
+  useEffect(() => {
+    const onKeyDown = (event) => {
+      const isDump = (event.metaKey || event.ctrlKey) && event.shiftKey && event.key.toLowerCase() === 'd';
+      if (!isDump) return;
+      event.preventDefault();
+      handleDumpToWorkingMemory();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [handleDumpToWorkingMemory]);
+
   const selectedFolderName = useMemo(() => {
     if (scope !== 'folder') return '';
     const folder = folders.find(item => item._id === folderId);
@@ -512,25 +642,37 @@ const Library = () => {
   );
 
   const rightPanel = (
-    <LibraryContext
-      selectedArticleId={selectedArticleId}
-      articleHighlights={articleHighlights}
-      articleLoading={articleLoading}
-      references={references}
-      referencesLoading={referencesLoading}
-      referencesError={referencesError}
-      highlightGroups={highlightGroups}
-      groupedHighlights={groupedHighlights}
-      activeHighlightId={activeHighlightId}
-      relatedHighlights={relatedHighlights}
-      relatedLoading={relatedLoading}
-      relatedError={relatedError}
-      onHighlightClick={handleHighlightClick}
-      onSelectHighlight={setActiveHighlightId}
-      onAddConcept={(highlight) => setConceptModal({ open: true, highlight })}
-      onAddNotebook={(highlight) => setNotebookModal({ open: true, highlight })}
-      onAddQuestion={(highlight) => setQuestionModal({ open: true, highlight })}
-    />
+    <div className="section-stack">
+      <WorkingMemoryPanel
+        items={workingMemoryItems}
+        loading={workingMemoryLoading}
+        error={workingMemoryError}
+        onDumpText={(text) => handleDumpToWorkingMemory(text)}
+        onDeleteItem={handleDeleteWorkingMemoryItem}
+      />
+      <QuietButton onClick={() => handleDumpToWorkingMemory()}>
+        Dump to Working Memory
+      </QuietButton>
+      <LibraryContext
+        selectedArticleId={selectedArticleId}
+        articleHighlights={articleHighlights}
+        articleLoading={articleLoading}
+        references={references}
+        referencesLoading={referencesLoading}
+        referencesError={referencesError}
+        highlightGroups={highlightGroups}
+        groupedHighlights={groupedHighlights}
+        activeHighlightId={activeHighlightId}
+        relatedHighlights={relatedHighlights}
+        relatedLoading={relatedLoading}
+        relatedError={relatedError}
+        onHighlightClick={handleHighlightClick}
+        onSelectHighlight={setActiveHighlightId}
+        onAddConcept={(highlight) => setConceptModal({ open: true, highlight })}
+        onAddNotebook={(highlight) => setNotebookModal({ open: true, highlight })}
+        onAddQuestion={(highlight) => setQuestionModal({ open: true, highlight })}
+      />
+    </div>
   );
 
   return (

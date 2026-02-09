@@ -2001,15 +2001,16 @@ p {
 }
 
 .notebook-insert-group {
-  display: flex;
-  gap: 12px;
-  align-items: center;
+  display: grid;
+  gap: 8px;
+  align-items: start;
 }
 
 .notebook-insert-labels {
   display: flex;
-  flex-direction: column;
-  gap: 2px;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 8px;
 }
 
 .notebook-insert-label {
@@ -2026,20 +2027,22 @@ p {
 
 .notebook-insert-buttons {
   display: flex;
-  gap: 6px;
+  flex-wrap: wrap;
+  gap: 8px;
   padding: 4px;
-  border-radius: 999px;
+  border-radius: 12px;
   background: var(--surface-muted);
 }
 
-.notebook-insert-group .quiet-button {
+.notebook-insert-group .ui-quiet-button {
   border: 1px solid var(--border-subtle);
   border-radius: 999px;
   padding: 6px 12px;
   background: var(--surface);
+  white-space: nowrap;
 }
 
-.notebook-insert-group .quiet-button.is-active {
+.notebook-insert-group .ui-quiet-button.is-active {
   border-color: var(--accent);
   color: var(--accent);
 }
@@ -2162,14 +2165,12 @@ p {
 }
 
 .think-notebook-editor-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+  display: grid;
   gap: 12px;
 }
 
 .think-notebook-title-input {
-  flex: 1;
+  width: 100%;
   border: none;
   border-bottom: 1px solid var(--border-subtle);
   font-size: 1.35rem;
@@ -2182,8 +2183,33 @@ p {
 }
 
 .think-notebook-editor-actions {
-  display: inline-flex;
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+
+.think-notebook-editor-actions-left {
+  display: flex;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 10px;
+  min-width: 0;
+}
+
+.think-notebook-editor-actions-right {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
   gap: 8px;
+}
+
+.think-notebook-editor-actions-right .ui-button,
+.think-notebook-editor-actions-right .ui-quiet-button,
+.think-notebook-editor-actions-left .ui-button {
+  white-space: nowrap;
 }
 
 .think-notebook-editor-body {

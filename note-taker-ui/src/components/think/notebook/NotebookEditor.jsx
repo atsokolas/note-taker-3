@@ -437,52 +437,56 @@ const NotebookEditor = ({
           placeholder="Untitled note"
         />
         <div className="think-notebook-editor-actions">
-          {onCreate && (
-            <Button variant="secondary" onClick={onCreate}>
-              New note
-            </Button>
-          )}
-          <div className="notebook-insert-group">
-            <div className="notebook-insert-labels">
-              <span className="notebook-insert-label">Insert blocks</span>
-              <span className="notebook-insert-hint">Highlights / Articles / Concepts / Questions</span>
-            </div>
-            <div className="notebook-insert-buttons">
-              <QuietButton
-                className={insertMode === 'highlight' ? 'is-active' : ''}
-                onClick={() => setInsertMode('highlight')}
-              >
-                Highlight
-              </QuietButton>
-              <QuietButton
-                className={insertMode === 'article' ? 'is-active' : ''}
-                onClick={() => setInsertMode('article')}
-              >
-                Article
-              </QuietButton>
-              <QuietButton
-                className={insertMode === 'concept' ? 'is-active' : ''}
-                onClick={() => setInsertMode('concept')}
-              >
-                Concept
-              </QuietButton>
-              <QuietButton
-                className={insertMode === 'question' ? 'is-active' : ''}
-                onClick={() => setInsertMode('question')}
-              >
-                Question
-              </QuietButton>
+          <div className="think-notebook-editor-actions-left">
+            {onCreate && (
+              <Button variant="secondary" onClick={onCreate}>
+                New note
+              </Button>
+            )}
+            <div className="notebook-insert-group">
+              <div className="notebook-insert-labels">
+                <span className="notebook-insert-label">Insert blocks</span>
+                <span className="notebook-insert-hint">Highlights, articles, concepts, questions</span>
+              </div>
+              <div className="notebook-insert-buttons">
+                <QuietButton
+                  className={insertMode === 'highlight' ? 'is-active' : ''}
+                  onClick={() => setInsertMode('highlight')}
+                >
+                  Highlight
+                </QuietButton>
+                <QuietButton
+                  className={insertMode === 'article' ? 'is-active' : ''}
+                  onClick={() => setInsertMode('article')}
+                >
+                  Article
+                </QuietButton>
+                <QuietButton
+                  className={insertMode === 'concept' ? 'is-active' : ''}
+                  onClick={() => setInsertMode('concept')}
+                >
+                  Concept
+                </QuietButton>
+                <QuietButton
+                  className={insertMode === 'question' ? 'is-active' : ''}
+                  onClick={() => setInsertMode('question')}
+                >
+                  Question
+                </QuietButton>
+              </div>
             </div>
           </div>
-          <QuietButton onClick={handleExport}>Export</QuietButton>
-          {onDump && (
-            <QuietButton onClick={onDump}>Dump to Working Memory</QuietButton>
-          )}
-          {onSynthesize && (
-            <QuietButton onClick={() => onSynthesize(entry)}>Synthesize</QuietButton>
-          )}
-          <QuietButton onClick={() => onDelete(entry)} disabled={saving}>Delete</QuietButton>
-          <Button onClick={handleSave} disabled={saving}>{saving ? 'Saving…' : 'Save'}</Button>
+          <div className="think-notebook-editor-actions-right">
+            <QuietButton onClick={handleExport}>Export</QuietButton>
+            {onDump && (
+              <QuietButton onClick={onDump}>Dump to Working Memory</QuietButton>
+            )}
+            {onSynthesize && (
+              <QuietButton onClick={() => onSynthesize(entry)}>Synthesize</QuietButton>
+            )}
+            <QuietButton onClick={() => onDelete(entry)} disabled={saving}>Delete</QuietButton>
+            <Button onClick={handleSave} disabled={saving}>{saving ? 'Saving…' : 'Save'}</Button>
+          </div>
         </div>
       </div>
       {error && <p className="status-message error-message">{error}</p>}
