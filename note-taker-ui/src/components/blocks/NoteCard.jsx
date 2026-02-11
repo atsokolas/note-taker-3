@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { QuietButton } from '../ui';
+import ReturnLaterControl from '../return-queue/ReturnLaterControl';
 
 const summarize = (text, max = 180) => {
   const raw = String(text || '');
@@ -31,13 +32,13 @@ const NoteCard = ({
   timestamp,
   onOrganize,
   onDumpToWorkingMemory,
-  onReturnQueue,
+  returnQueueItemType = 'notebook',
+  returnQueueItemId,
   forceExpandedState,
   forceExpandedVersion = 0,
   children
 }) => {
   const [expanded, setExpanded] = useState(false);
-  const [queueing, setQueueing] = useState(false);
 
   const tagSummary = useMemo(() => {
     const safeTags = Array.isArray(tags) ? tags : [];
@@ -56,16 +57,6 @@ const NoteCard = ({
       setExpanded(forceExpandedState);
     }
   }, [forceExpandedState, forceExpandedVersion]);
-
-  const handleReturnQueue = async () => {
-    if (!onReturnQueue) return;
-    setQueueing(true);
-    try {
-      await onReturnQueue();
-    } finally {
-      setQueueing(false);
-    }
-  };
 
   return (
     <div className="note-card">
@@ -100,11 +91,11 @@ const NoteCard = ({
               </QuietButton>
             )}
             {children}
-            {onReturnQueue && (
-              <QuietButton onClick={handleReturnQueue} disabled={queueing}>
-                {queueing ? 'Queueing…' : 'Return Queue'}
-              </QuietButton>
-            )}
+            <ReturnLaterControl
+              itemType={returnQueueItemType}
+              itemId={returnQueueItemId || id}
+              defaultReason={summarize(bodyText, 120)}
+            />
             {onDumpToWorkingMemory && (
               <QuietButton onClick={() => onDumpToWorkingMemory()}>
                 Dump to Working Memory

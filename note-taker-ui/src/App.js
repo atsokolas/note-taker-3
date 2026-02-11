@@ -24,6 +24,7 @@ import TodayMode from './pages/TodayMode';
 import Library from './pages/Library';
 import ThinkMode from './pages/ThinkMode';
 import ReviewMode from './pages/ReviewMode';
+import ReturnQueue from './pages/ReturnQueue';
 import Settings from './pages/Settings';
 import HowToUse from './pages/HowToUse';
 import Integrations from './pages/Integrations';
@@ -106,6 +107,7 @@ function App() {
     { label: 'Today', to: '/today' },
     { label: 'Library', to: '/library' },
     { label: 'Think', to: '/think' },
+    { label: 'Return Queue', to: '/return-queue' },
     { label: 'Review', to: '/review' },
     { label: 'Settings', to: '/settings' },
     { label: 'How To Use', to: '/how-to-use' }
@@ -121,6 +123,7 @@ function App() {
     const showLibraryRail = location.pathname.startsWith('/articles/');
     const isLibraryRoute = location.pathname.startsWith('/library');
     const isThinkRoute = location.pathname.startsWith('/think');
+    const isReturnQueueRoute = location.pathname.startsWith('/return-queue');
     const isReviewRoute = location.pathname.startsWith('/review');
     const isTodayRoute = location.pathname.startsWith('/today');
     const leftPlaceholder = showLibraryRail ? (
@@ -144,6 +147,7 @@ function App() {
           <Route path="/today" element={<TodayMode />} />
           <Route path="/library" element={<Library />} />
           <Route path="/think" element={<ThinkMode />} />
+          <Route path="/return-queue" element={<ReturnQueue />} />
           <Route path="/review" element={<ReviewMode />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/how-to-use" element={<HowToUse />} />
@@ -190,7 +194,7 @@ function App() {
           />
         )}
       >
-        {(isLibraryRoute || isThinkRoute || isReviewRoute || isTodayRoute) ? (
+        {(isLibraryRoute || isThinkRoute || isReturnQueueRoute || isReviewRoute || isTodayRoute) ? (
           routes
         ) : (
           <ThreePaneLayout

@@ -1467,7 +1467,6 @@ const ThinkMode = () => {
                 forceExpandedState={cardsExpanded}
                 forceExpandedVersion={cardsExpandVersion}
                 onOrganize={() => openNotebookEntry(note.notebookEntryId)}
-                onReturnQueue={() => handleQueueNotebookEntry(note.notebookEntryId, note.tags || [])}
                 onDumpToWorkingMemory={() => handleDumpToWorkingMemory(note.blockPreviewText || note.notebookTitle || 'Note')}
               >
                 <QuietButton onClick={() => togglePinNote(note.notebookEntryId)}>
@@ -1492,7 +1491,6 @@ const ThinkMode = () => {
                 forceExpandedState={cardsExpanded}
                 forceExpandedVersion={cardsExpandVersion}
                 onOrganize={() => openNotebookEntry(note._id)}
-                onReturnQueue={() => handleQueueNotebookEntry(note._id, note.tags || [])}
                 onDumpToWorkingMemory={() => handleDumpToWorkingMemory(note.content || note.title || 'Note')}
               >
                 <QuietButton onClick={() => togglePinNote(note._id)}>Unpin</QuietButton>
@@ -1587,24 +1585,6 @@ const ThinkMode = () => {
     const next = !cardsExpanded;
     setCardsExpanded(next);
     setCardsExpandVersion(prev => prev + 1);
-  };
-
-  const handleQueueNotebookEntry = async (entryId, currentTags = []) => {
-    if (!entryId) return;
-    const tags = Array.isArray(currentTags) ? currentTags : [];
-    const nextTags = tags.some(tag => String(tag).toLowerCase() === 'return-queue')
-      ? tags
-      : [...tags, 'return-queue'];
-    try {
-      const updated = await api.put(`/api/notebook/${entryId}`, { tags: nextTags }, getAuthHeaders());
-      const entry = updated.data;
-      setNotebookEntries(prev => prev.map(item => (item._id === entry._id ? { ...item, ...entry } : item)));
-      if (activeNotebookEntry && String(activeNotebookEntry._id) === String(entry._id)) {
-        setActiveNotebookEntry(entry);
-      }
-    } catch (err) {
-      setConceptError(err.response?.data?.error || 'Failed to add note to return queue.');
-    }
   };
 
   const rightPanel = activeView === 'insights' ? (

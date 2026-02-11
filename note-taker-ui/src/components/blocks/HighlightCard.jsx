@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Button, QuietButton } from '../ui';
 import HighlightBlock from './HighlightBlock';
+import ReturnLaterControl from '../return-queue/ReturnLaterControl';
 import {
   getHighlightClaimEvidence,
   organizeHighlightItem,
@@ -61,7 +62,6 @@ const HighlightCard = ({
   const [claimEvidenceLoading, setClaimEvidenceLoading] = useState(false);
   const [organizeSaving, setOrganizeSaving] = useState(false);
   const [organizeError, setOrganizeError] = useState('');
-  const [queueSaving, setQueueSaving] = useState(false);
 
   const tagSummary = useMemo(() => {
     const tags = Array.isArray(itemTags) ? itemTags : [];
@@ -182,28 +182,6 @@ const HighlightCard = ({
     }
   };
 
-  const queueForReturn = async () => {
-    if (!highlightId) return;
-    setQueueSaving(true);
-    setOrganizeError('');
-    try {
-      const nextTags = itemTags.some(tag => tag.toLowerCase() === 'return-queue')
-        ? itemTags
-        : [...itemTags, 'return-queue'];
-      const updated = await organizeHighlightItem(highlightId, {
-        type: itemType,
-        tags: nextTags,
-        claimId: itemType === 'evidence' ? (claimId || null) : null
-      });
-      setItemTags(updated?.tags || nextTags);
-      onOrganized?.(updated);
-    } catch (err) {
-      setOrganizeError(err.response?.data?.error || 'Failed to add to return queue.');
-    } finally {
-      setQueueSaving(false);
-    }
-  };
-
   return (
     <div className="highlight-card">
       <div className="highlight-card-collapsed">
@@ -257,9 +235,11 @@ const HighlightCard = ({
                 Link to Source
               </QuietButton>
             )}
-            <QuietButton onClick={queueForReturn} disabled={queueSaving}>
-              {queueSaving ? 'Queueing…' : 'Return Queue'}
-            </QuietButton>
+            <ReturnLaterControl
+              itemType="highlight"
+              itemId={highlightId}
+              defaultReason={summarize(highlight?.text, 120)}
+            />
             {onDumpToWorkingMemory && (
               <QuietButton onClick={() => onDumpToWorkingMemory(highlight)}>
                 Dump to Working Memory
