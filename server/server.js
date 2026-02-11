@@ -437,9 +437,19 @@ const buildUnavailableQueueItem = () => ({
   exists: false
 });
 
+const decodeBasicHtmlEntities = (value = '') => (
+  String(value || '')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+);
+
 const buildQueueSnippet = (...values) => {
   const first = values.find(value => String(value || '').trim());
-  return String(first || '').trim().slice(0, 280);
+  const clean = decodeBasicHtmlEntities(stripHtml(first || ''));
+  return clean.slice(0, 280);
 };
 
 const resolveReturnQueueItem = async (userId, itemType, itemId) => {
