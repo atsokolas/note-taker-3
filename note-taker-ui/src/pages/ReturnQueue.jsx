@@ -48,9 +48,14 @@ const ReturnQueue = () => {
     loadEntries();
   }, [loadEntries]);
 
-  const now = useMemo(() => new Date(), [entries]);
-  const dueNow = useMemo(() => entries.filter(entry => isDueNow(entry, now)), [entries, now]);
-  const upcoming = useMemo(() => entries.filter(entry => isUpcoming(entry, now)), [entries, now]);
+  const dueNow = useMemo(() => {
+    const now = new Date();
+    return entries.filter(entry => isDueNow(entry, now));
+  }, [entries]);
+  const upcoming = useMemo(() => {
+    const now = new Date();
+    return entries.filter(entry => isUpcoming(entry, now));
+  }, [entries]);
   const completed = useMemo(
     () => entries.filter(entry => entry.status === 'completed').sort((a, b) => (
       new Date(b.completedAt || b.updatedAt || 0) - new Date(a.completedAt || a.updatedAt || 0)
