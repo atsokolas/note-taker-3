@@ -2075,6 +2075,16 @@ p {
   cursor: pointer;
 }
 
+.think-question-row-main {
+  flex: 1;
+}
+
+.think-question-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .think-question-text {
   font-weight: 600;
   color: var(--text);

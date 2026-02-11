@@ -27,6 +27,7 @@ import LibraryNotebookModal from '../components/library/LibraryNotebookModal';
 import LibraryQuestionModal from '../components/library/LibraryQuestionModal';
 import SynthesisModal from '../components/think/SynthesisModal';
 import WorkingMemoryPanel from '../components/working-memory/WorkingMemoryPanel';
+import ReturnLaterControl from '../components/return-queue/ReturnLaterControl';
 import {
   listWorkingMemory,
   createWorkingMemory,
@@ -1119,17 +1120,29 @@ const ThinkMode = () => {
       )}
       <div className="think-question-list">
         {allQuestions.map(question => (
-          <button
+          <div
             key={question._id}
-            className={`think-question-row list-button ${activeQuestionId === question._id ? 'is-active' : ''}`}
-            onClick={() => {
-              setActiveQuestionId(question._id);
-              handleSelectView('questions');
-            }}
+            className={`think-question-row ${activeQuestionId === question._id ? 'is-active' : ''}`}
           >
-            <div className="think-question-text">{question.text}</div>
-            <div className="muted small">{question.linkedTagName || 'Uncategorized'}</div>
-          </button>
+            <button
+              type="button"
+              className={`think-question-row-main list-button ${activeQuestionId === question._id ? 'is-active' : ''}`}
+              onClick={() => {
+                setActiveQuestionId(question._id);
+                handleSelectView('questions');
+              }}
+            >
+              <div className="think-question-text">{question.text}</div>
+              <div className="muted small">{question.linkedTagName || 'Uncategorized'}</div>
+            </button>
+            <div className="think-question-row-actions" onClick={(event) => event.stopPropagation()}>
+              <ReturnLaterControl
+                itemType="question"
+                itemId={question._id}
+                defaultReason={question.text || 'Question'}
+              />
+            </div>
+          </div>
         ))}
       </div>
     </div>
@@ -1335,6 +1348,11 @@ const ThinkMode = () => {
             <Button onClick={handleSaveDescription} disabled={savingDescription}>
               {savingDescription ? 'Saving…' : 'Save summary'}
             </Button>
+            <ReturnLaterControl
+              itemType="concept"
+              itemId={concept._id}
+              defaultReason={concept.name || descriptionDraft || 'Concept'}
+            />
             <Button variant="secondary" onClick={() => openSynthesis('concept', concept._id)}>
               Synthesize
             </Button>

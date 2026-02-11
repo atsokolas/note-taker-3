@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Button } from '../../ui';
 import QuestionBlocksEditor from './QuestionBlocksEditor';
 import InsertHighlightModal from '../notebook/InsertHighlightModal';
+import ReturnLaterControl from '../../return-queue/ReturnLaterControl';
 import useHighlights from '../../../hooks/useHighlights';
 
 const createId = () => {
@@ -79,6 +80,11 @@ const QuestionEditor = ({ question, saving, error, onSave, onRegisterInsert, onS
           placeholder="Untitled question"
         />
         <div className="think-question-editor-actions">
+          <ReturnLaterControl
+            itemType="question"
+            itemId={question?._id}
+            defaultReason={titleDraft || question?.text || 'Question'}
+          />
           {onSynthesize && (
             <Button variant="secondary" onClick={() => onSynthesize(question)}>Synthesize</Button>
           )}

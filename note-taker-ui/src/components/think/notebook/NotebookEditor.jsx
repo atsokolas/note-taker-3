@@ -5,6 +5,7 @@ import Placeholder from '@tiptap/extension-placeholder';
 import { Extension, Node, mergeAttributes } from '@tiptap/core';
 import { Button, QuietButton } from '../../ui';
 import HighlightBlock from '../../blocks/HighlightBlock';
+import ReturnLaterControl from '../../return-queue/ReturnLaterControl';
 import InsertHighlightModal from './InsertHighlightModal';
 import InsertReferenceModal from './InsertReferenceModal';
 import useHighlights from '../../../hooks/useHighlights';
@@ -596,6 +597,11 @@ const NotebookEditor = ({
               {organizeOpen ? 'Close Organize' : 'Organize'}
             </QuietButton>
             <QuietButton onClick={handleExport}>Export</QuietButton>
+            <ReturnLaterControl
+              itemType="notebook"
+              itemId={entry?._id}
+              defaultReason={titleDraft || entry?.title || 'Notebook entry'}
+            />
             {onDump && (
               <QuietButton onClick={onDump}>Dump to Working Memory</QuietButton>
             )}
