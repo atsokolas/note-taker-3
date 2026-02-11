@@ -23,6 +23,7 @@ import Export from './pages/Export';
 import TodayMode from './pages/TodayMode';
 import Library from './pages/Library';
 import ThinkMode from './pages/ThinkMode';
+import MapView from './pages/MapView';
 import ReviewMode from './pages/ReviewMode';
 import ReturnQueue from './pages/ReturnQueue';
 import Settings from './pages/Settings';
@@ -107,6 +108,7 @@ function App() {
     { label: 'Today', to: '/today' },
     { label: 'Library', to: '/library' },
     { label: 'Think', to: '/think' },
+    { label: 'Map', to: '/map' },
     { label: 'Return Queue', to: '/return-queue' },
     { label: 'Review', to: '/review' },
     { label: 'Settings', to: '/settings' },
@@ -124,6 +126,7 @@ function App() {
     const isLibraryRoute = location.pathname.startsWith('/library');
     const isThinkRoute = location.pathname.startsWith('/think');
     const isReturnQueueRoute = location.pathname.startsWith('/return-queue');
+    const isMapRoute = location.pathname.startsWith('/map');
     const isReviewRoute = location.pathname.startsWith('/review');
     const isTodayRoute = location.pathname.startsWith('/today');
     const leftPlaceholder = showLibraryRail ? (
@@ -147,6 +150,7 @@ function App() {
           <Route path="/today" element={<TodayMode />} />
           <Route path="/library" element={<Library />} />
           <Route path="/think" element={<ThinkMode />} />
+          <Route path="/map" element={<MapView />} />
           <Route path="/return-queue" element={<ReturnQueue />} />
           <Route path="/review" element={<ReviewMode />} />
           <Route path="/settings" element={<Settings />} />
@@ -194,7 +198,7 @@ function App() {
           />
         )}
       >
-        {(isLibraryRoute || isThinkRoute || isReturnQueueRoute || isReviewRoute || isTodayRoute) ? (
+        {(isLibraryRoute || isThinkRoute || isMapRoute || isReturnQueueRoute || isReviewRoute || isTodayRoute) ? (
           routes
         ) : (
           <ThreePaneLayout

@@ -701,6 +701,7 @@ const createEmptyConnectionCandidateSets = () => ({
 });
 
 const addToCandidateSet = (set, value) => {
+  if (!set || typeof set.add !== 'function') return;
   const safe = String(value || '').trim();
   if (safe) set.add(safe);
 };
@@ -929,6 +930,138 @@ const getConceptPathWithProgress = async (userId, pathDoc) => {
       currentIndex: Math.max(0, Math.min(progress.currentIndex || 0, Math.max(itemRefs.length - 1, 0)))
     }
   };
+};
+
+const parseCsvList = (value) => (
+  String(value || '')
+    .split(',')
+    .map(part => part.trim())
+    .filter(Boolean)
+);
+
+const buildGraphNodeKey = (itemType, itemId) => `${itemType}:${itemId}`;
+
+const buildGraphNodeMap = async (userId, idsByType = {}) => {
+  const userObjectId = new mongoose.Types.ObjectId(userId);
+  const nodeMap = new Map();
+
+  const highlightIds = toObjectIdList(Array.from(idsByType.highlight || []));
+  if (highlightIds.length > 0) {
+    const highlights = await Article.aggregate([
+      { $match: { userId: userObjectId } },
+      { $unwind: '$highlights' },
+      { $match: { 'highlights._id': { $in: highlightIds } } },
+      { $project: {
+        itemId: '$highlights._id',
+        articleId: '$_id',
+        articleTitle: '$title',
+        text: '$highlights.text',
+        tags: '$highlights.tags',
+        createdAt: '$highlights.createdAt'
+      } }
+    ]);
+    highlights.forEach(row => {
+      const itemId = String(row.itemId);
+      const key = buildGraphNodeKey('highlight', itemId);
+      nodeMap.set(key, {
+        id: key,
+        itemType: 'highlight',
+        itemId,
+        title: row.articleTitle || 'Highlight',
+        snippet: buildQueueSnippet(row.text, row.articleTitle),
+        tags: Array.isArray(row.tags) ? row.tags : [],
+        updatedAt: row.createdAt || null,
+        openPath: row.articleId ? `/articles/${row.articleId}` : '/library?scope=highlights'
+      });
+    });
+  }
+
+  const notebookIds = toObjectIdList(Array.from(idsByType.notebook || []));
+  if (notebookIds.length > 0) {
+    const notes = await NotebookEntry.find({ userId, _id: { $in: notebookIds } })
+      .select('title content tags updatedAt')
+      .lean();
+    notes.forEach(note => {
+      const itemId = String(note._id);
+      const key = buildGraphNodeKey('notebook', itemId);
+      nodeMap.set(key, {
+        id: key,
+        itemType: 'notebook',
+        itemId,
+        title: note.title || 'Note',
+        snippet: buildQueueSnippet(note.content, note.title),
+        tags: Array.isArray(note.tags) ? note.tags : [],
+        updatedAt: note.updatedAt || null,
+        openPath: `/think?tab=notebook&entryId=${note._id}`
+      });
+    });
+  }
+
+  const articleIds = toObjectIdList(Array.from(idsByType.article || []));
+  if (articleIds.length > 0) {
+    const articles = await Article.find({ userId, _id: { $in: articleIds } })
+      .select('title content updatedAt')
+      .lean();
+    articles.forEach(article => {
+      const itemId = String(article._id);
+      const key = buildGraphNodeKey('article', itemId);
+      nodeMap.set(key, {
+        id: key,
+        itemType: 'article',
+        itemId,
+        title: article.title || 'Article',
+        snippet: buildQueueSnippet(article.content, article.title),
+        tags: [],
+        updatedAt: article.updatedAt || null,
+        openPath: `/articles/${article._id}`
+      });
+    });
+  }
+
+  const conceptIds = toObjectIdList(Array.from(idsByType.concept || []));
+  if (conceptIds.length > 0) {
+    const concepts = await TagMeta.find({ userId, _id: { $in: conceptIds } })
+      .select('name description updatedAt')
+      .lean();
+    concepts.forEach(concept => {
+      const itemId = String(concept._id);
+      const key = buildGraphNodeKey('concept', itemId);
+      nodeMap.set(key, {
+        id: key,
+        itemType: 'concept',
+        itemId,
+        title: concept.name || 'Concept',
+        snippet: buildQueueSnippet(concept.description, concept.name),
+        tags: concept.name ? [concept.name] : [],
+        updatedAt: concept.updatedAt || null,
+        openPath: concept.name ? `/think?tab=concepts&concept=${encodeURIComponent(concept.name)}` : '/think?tab=concepts'
+      });
+    });
+  }
+
+  const questionIds = toObjectIdList(Array.from(idsByType.question || []));
+  if (questionIds.length > 0) {
+    const questions = await Question.find({ userId, _id: { $in: questionIds } })
+      .select('text linkedTagName updatedAt')
+      .lean();
+    questions.forEach(question => {
+      const itemId = String(question._id);
+      const key = buildGraphNodeKey('question', itemId);
+      const tags = question.linkedTagName ? [question.linkedTagName] : [];
+      nodeMap.set(key, {
+        id: key,
+        itemType: 'question',
+        itemId,
+        title: 'Question',
+        snippet: buildQueueSnippet(question.text),
+        tags,
+        updatedAt: question.updatedAt || null,
+        openPath: `/think?tab=questions&questionId=${question._id}`
+      });
+    });
+  }
+
+  return nodeMap;
 };
 // Saved Views (Smart Folders)
 const savedViewSchema = new mongoose.Schema({
@@ -2914,6 +3047,127 @@ app.get('/api/connections/scope', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('❌ Error listing scope connections:', error);
     res.status(500).json({ error: 'Failed to list scope connections.' });
+  }
+});
+
+app.get('/api/map/graph', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const limit = Math.max(20, Math.min(600, Number(req.query.limit) || 180));
+    const offset = Math.max(0, Number(req.query.offset) || 0);
+    const relationTypes = parseCsvList(req.query.relationTypes)
+      .map(value => normalizeRelationType(value))
+      .filter(Boolean);
+    const itemTypes = parseCsvList(req.query.itemTypes)
+      .map(value => normalizeConnectionItemType(value))
+      .filter(Boolean);
+    const tagFilters = new Set(parseCsvList(req.query.tags).map(tag => tag.toLowerCase()));
+    const notebookId = String(req.query.notebookId || '').trim();
+
+    const hasScopeInput = req.query.scopeType !== undefined || req.query.scopeId !== undefined;
+    let scope = null;
+    if (hasScopeInput) {
+      scope = await resolveConnectionScopeInput(userId, req.query.scopeType, req.query.scopeId, true);
+      if (!scope) {
+        return res.status(400).json({ error: 'Invalid scopeType/scopeId.' });
+      }
+    }
+
+    const query = { userId };
+    if (hasScopeInput) {
+      query.scopeType = scope.scopeType || '';
+      query.scopeId = scope.scopeId || '';
+    }
+    if (relationTypes.length > 0) {
+      query.relationType = { $in: relationTypes };
+    }
+    if (itemTypes.length > 0) {
+      query.fromType = { $in: itemTypes };
+      query.toType = { $in: itemTypes };
+    }
+    if (notebookId) {
+      query.$or = [
+        { fromType: 'notebook', fromId: notebookId },
+        { toType: 'notebook', toId: notebookId }
+      ];
+    }
+
+    const rows = await Connection.find(query)
+      .sort({ createdAt: -1 })
+      .skip(offset)
+      .limit(limit + 1)
+      .lean();
+    const hasMore = rows.length > limit;
+    const edgeRows = hasMore ? rows.slice(0, limit) : rows;
+
+    const idsByType = {
+      highlight: new Set(),
+      notebook: new Set(),
+      article: new Set(),
+      concept: new Set(),
+      question: new Set()
+    };
+    edgeRows.forEach(row => {
+      addToCandidateSet(idsByType[row.fromType], row.fromId);
+      addToCandidateSet(idsByType[row.toType], row.toId);
+    });
+
+    const nodeMap = await buildGraphNodeMap(userId, idsByType);
+    let edges = edgeRows
+      .map(row => ({
+        id: String(row._id),
+        source: buildGraphNodeKey(row.fromType, row.fromId),
+        target: buildGraphNodeKey(row.toType, row.toId),
+        relationType: row.relationType,
+        createdAt: row.createdAt,
+        scopeType: row.scopeType || '',
+        scopeId: row.scopeId || ''
+      }))
+      .filter(edge => nodeMap.has(edge.source) && nodeMap.has(edge.target));
+    let nodes = Array.from(nodeMap.values());
+
+    if (tagFilters.size > 0) {
+      const matchedNodeIds = new Set(
+        nodes
+          .filter(node => Array.isArray(node.tags) && node.tags.some(tag => tagFilters.has(String(tag || '').toLowerCase())))
+          .map(node => node.id)
+      );
+
+      if (matchedNodeIds.size === 0) {
+        return res.status(200).json({
+          nodes: [],
+          edges: [],
+          page: {
+            limit,
+            offset,
+            hasMore: false,
+            nextOffset: offset
+          }
+        });
+      }
+
+      edges = edges.filter(edge => matchedNodeIds.has(edge.source) || matchedNodeIds.has(edge.target));
+      const visibleNodeIds = new Set(matchedNodeIds);
+      edges.forEach(edge => {
+        visibleNodeIds.add(edge.source);
+        visibleNodeIds.add(edge.target);
+      });
+      nodes = nodes.filter(node => visibleNodeIds.has(node.id));
+    }
+
+    res.status(200).json({
+      nodes,
+      edges,
+      page: {
+        limit,
+        offset,
+        hasMore,
+        nextOffset: hasMore ? offset + limit : offset
+      }
+    });
+  } catch (error) {
+    console.error('❌ Error fetching map graph:', error);
+    res.status(500).json({ error: 'Failed to fetch graph.' });
   }
 });
 
