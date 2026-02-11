@@ -6358,9 +6358,10 @@ app.get("/health", (req, res) => {
 // Root endpoint for health check
 app.get('/', (req, res) => res.send('✅ Note Taker backend is running!'));
 
-// Start the server
-app.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
+// Start the server (explicit host binding for Render/containers)
+const HOST = process.env.HOST || '0.0.0.0';
+app.listen(PORT, HOST, () => {
+  console.log(`🚀 Server running on ${HOST}:${PORT}`);
   const { origin, hasPath } = parseAiServiceUrl(process.env.AI_SERVICE_URL || '');
   const synthUrl = origin ? joinUrl(origin, '/synthesize') : '';
   if (synthUrl) {
