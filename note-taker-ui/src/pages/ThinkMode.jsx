@@ -28,6 +28,7 @@ import LibraryQuestionModal from '../components/library/LibraryQuestionModal';
 import SynthesisModal from '../components/think/SynthesisModal';
 import WorkingMemoryPanel from '../components/working-memory/WorkingMemoryPanel';
 import ReturnLaterControl from '../components/return-queue/ReturnLaterControl';
+import { getConnectionsForScope } from '../api/connections';
 import {
   listWorkingMemory,
   createWorkingMemory,
@@ -121,6 +122,9 @@ const ThinkMode = () => {
   const [questionRelated, setQuestionRelated] = useState({ highlights: [], concepts: [] });
   const [questionRelatedLoading, setQuestionRelatedLoading] = useState(false);
   const [questionRelatedError, setQuestionRelatedError] = useState('');
+  const [contextConnections, setContextConnections] = useState([]);
+  const [contextConnectionsLoading, setContextConnectionsLoading] = useState(false);
+  const [contextConnectionsError, setContextConnectionsError] = useState('');
 
   const [notebookEntries, setNotebookEntries] = useState([]);
   const [notebookActiveId, setNotebookActiveId] = useState('');
@@ -202,6 +206,16 @@ const ThinkMode = () => {
     }
     return { workspaceType: 'think', workspaceId: '' };
   }, [activeView, activeNotebookEntry?._id, activeQuestionData?._id, concept?._id]);
+
+  const connectionScope = useMemo(() => {
+    if (activeView === 'concepts' && concept?._id) {
+      return { scopeType: 'concept', scopeId: concept._id };
+    }
+    if (activeView === 'questions' && activeQuestionData?._id) {
+      return { scopeType: 'question', scopeId: activeQuestionData._id };
+    }
+    return { scopeType: '', scopeId: '' };
+  }, [activeView, concept?._id, activeQuestionData?._id]);
 
   useEffect(() => {
     if (activeView !== 'questions') return;
@@ -413,6 +427,36 @@ const ThinkMode = () => {
       cancelled = true;
     };
   }, [activeView, activeQuestion?._id]);
+
+  useEffect(() => {
+    if (!connectionScope.scopeType || !connectionScope.scopeId) {
+      setContextConnections([]);
+      setContextConnectionsLoading(false);
+      setContextConnectionsError('');
+      return;
+    }
+    let cancelled = false;
+    const fetchConnectionsForScope = async () => {
+      setContextConnectionsLoading(true);
+      setContextConnectionsError('');
+      try {
+        const data = await getConnectionsForScope(connectionScope);
+        if (!cancelled) {
+          setContextConnections(Array.isArray(data?.connections) ? data.connections : []);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setContextConnectionsError(err.response?.data?.error || 'Failed to load scoped connections.');
+        }
+      } finally {
+        if (!cancelled) setContextConnectionsLoading(false);
+      }
+    };
+    fetchConnectionsForScope();
+    return () => {
+      cancelled = true;
+    };
+  }, [connectionScope.scopeType, connectionScope.scopeId]);
 
   const loadNotebookEntries = useCallback(async () => {
     setNotebookLoadingList(true);
@@ -1215,6 +1259,8 @@ const ThinkMode = () => {
                           }}
                           compact
                           organizable
+                          connectionScopeType={connectionScope.scopeType}
+                          connectionScopeId={connectionScope.scopeId}
                           forceExpandedState={cardsExpanded}
                           forceExpandedVersion={cardsExpandVersion}
                           onDumpToWorkingMemory={(item) => handleDumpToWorkingMemory(item?.text || '')}
@@ -1260,6 +1306,8 @@ const ThinkMode = () => {
                             }}
                             compact
                             organizable
+                            connectionScopeType={connectionScope.scopeType}
+                            connectionScopeId={connectionScope.scopeId}
                             forceExpandedState={cardsExpanded}
                             forceExpandedVersion={cardsExpandVersion}
                             onDumpToWorkingMemory={(item) => handleDumpToWorkingMemory(item?.text || '')}
@@ -1388,6 +1436,8 @@ const ThinkMode = () => {
                   highlight={h}
                   compact
                   organizable
+                  connectionScopeType={connectionScope.scopeType}
+                  connectionScopeId={connectionScope.scopeId}
                   forceExpandedState={cardsExpanded}
                   forceExpandedVersion={cardsExpandVersion}
                   onDumpToWorkingMemory={(item) => handleDumpToWorkingMemory(item?.text || '')}
@@ -1421,6 +1471,8 @@ const ThinkMode = () => {
                       }}
                       compact
                       organizable
+                      connectionScopeType={connectionScope.scopeType}
+                      connectionScopeId={connectionScope.scopeId}
                       forceExpandedState={cardsExpanded}
                       forceExpandedVersion={cardsExpandVersion}
                       onDumpToWorkingMemory={(highlight) => handleDumpToWorkingMemory(highlight?.text || '')}
@@ -1446,6 +1498,8 @@ const ThinkMode = () => {
                   highlight={h}
                   compact
                   organizable
+                  connectionScopeType={connectionScope.scopeType}
+                  connectionScopeId={connectionScope.scopeId}
                   forceExpandedState={cardsExpanded}
                   forceExpandedVersion={cardsExpandVersion}
                   onDumpToWorkingMemory={(item) => handleDumpToWorkingMemory(item?.text || '')}
@@ -1482,6 +1536,8 @@ const ThinkMode = () => {
                 type="note"
                 tags={note.tags || []}
                 timestamp={note.updatedAt}
+                connectionScopeType={connectionScope.scopeType}
+                connectionScopeId={connectionScope.scopeId}
                 forceExpandedState={cardsExpanded}
                 forceExpandedVersion={cardsExpandVersion}
                 onOrganize={() => openNotebookEntry(note.notebookEntryId)}
@@ -1506,6 +1562,8 @@ const ThinkMode = () => {
                 type={note.type || 'note'}
                 tags={note.tags || []}
                 timestamp={note.updatedAt || note.createdAt}
+                connectionScopeType={connectionScope.scopeType}
+                connectionScopeId={connectionScope.scopeId}
                 forceExpandedState={cardsExpanded}
                 forceExpandedVersion={cardsExpandVersion}
                 onOrganize={() => openNotebookEntry(note._id)}
@@ -1650,6 +1708,8 @@ const ThinkMode = () => {
               highlight={highlight}
               compact
               organizable
+              connectionScopeType={connectionScope.scopeType}
+              connectionScopeId={connectionScope.scopeId}
               forceExpandedState={cardsExpanded}
               forceExpandedVersion={cardsExpandVersion}
               onDumpToWorkingMemory={(item) => handleDumpToWorkingMemory(item?.text || '')}
@@ -1683,6 +1743,24 @@ const ThinkMode = () => {
           ) : (
             <p className="muted small">No concept linked.</p>
           )}
+          <SectionHeader title="Connections in this question" subtitle="Supports, contradictions, extensions." />
+          {contextConnectionsLoading && <p className="muted small">Loading connections…</p>}
+          {contextConnectionsError && <p className="status-message error-message">{contextConnectionsError}</p>}
+          {!contextConnectionsLoading && !contextConnectionsError && (
+            <div className="context-connection-list">
+              {contextConnections.length === 0 ? (
+                <p className="muted small">No scoped connections yet.</p>
+              ) : (
+                contextConnections.slice(0, 10).map(row => (
+                  <div key={row._id} className="context-connection-row">
+                    <span className="context-connection-node">{row.fromItem?.title || row.fromType}</span>
+                    <span className="context-connection-relation">{row.relationType}</span>
+                    <span className="context-connection-node">{row.toItem?.title || row.toType}</span>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
           <SectionHeader title="Embedded highlights" subtitle="References in this question." />
           {activeQuestion?.blocks?.filter(block => block.type === 'highlight-ref').length ? (
             <div className="concept-note-grid">
@@ -1701,6 +1779,8 @@ const ThinkMode = () => {
                       highlight={highlight}
                       compact
                       organizable
+                      connectionScopeType={connectionScope.scopeType}
+                      connectionScopeId={connectionScope.scopeId}
                       forceExpandedState={cardsExpanded}
                       forceExpandedVersion={cardsExpandVersion}
                       onDumpToWorkingMemory={(item) => handleDumpToWorkingMemory(item?.text || '')}
@@ -1766,6 +1846,24 @@ const ThinkMode = () => {
 
       {activeView === 'concepts' && (
         <div className="section-stack">
+          <SectionHeader title="Connections in this concept" subtitle="Supports, contradictions, extensions." />
+          {contextConnectionsLoading && <p className="muted small">Loading connections…</p>}
+          {contextConnectionsError && <p className="status-message error-message">{contextConnectionsError}</p>}
+          {!contextConnectionsLoading && !contextConnectionsError && (
+            <div className="context-connection-list">
+              {contextConnections.length === 0 ? (
+                <p className="muted small">No scoped connections yet.</p>
+              ) : (
+                contextConnections.slice(0, 10).map(row => (
+                  <div key={row._id} className="context-connection-row">
+                    <span className="context-connection-node">{row.fromItem?.title || row.fromType}</span>
+                    <span className="context-connection-relation">{row.relationType}</span>
+                    <span className="context-connection-node">{row.toItem?.title || row.toType}</span>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
           <SectionHeader title="Related highlights" subtitle="Semantically similar." />
           {conceptRelatedLoading && <p className="muted small">Finding related highlights…</p>}
           {conceptRelatedError && <p className="status-message error-message">{conceptRelatedError}</p>}

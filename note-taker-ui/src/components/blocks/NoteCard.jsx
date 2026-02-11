@@ -35,6 +35,8 @@ const NoteCard = ({
   onDumpToWorkingMemory,
   returnQueueItemType = 'notebook',
   returnQueueItemId,
+  connectionScopeType = '',
+  connectionScopeId = '',
   forceExpandedState,
   forceExpandedVersion = 0,
   children
@@ -100,6 +102,8 @@ const NoteCard = ({
             <ConnectionBuilder
               itemType={returnQueueItemType}
               itemId={returnQueueItemId || id}
+              scopeType={connectionScopeType}
+              scopeId={connectionScopeId}
             />
             {onDumpToWorkingMemory && (
               <QuietButton onClick={() => onDumpToWorkingMemory()}>

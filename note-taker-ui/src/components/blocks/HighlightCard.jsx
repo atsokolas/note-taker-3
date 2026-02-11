@@ -45,6 +45,8 @@ const HighlightCard = ({
   organizable = false,
   onOrganized,
   onDumpToWorkingMemory,
+  connectionScopeType = '',
+  connectionScopeId = '',
   forceExpandedState,
   forceExpandedVersion = 0
 }) => {
@@ -241,7 +243,12 @@ const HighlightCard = ({
               itemId={highlightId}
               defaultReason={summarize(highlight?.text, 120)}
             />
-            <ConnectionBuilder itemType="highlight" itemId={highlightId} />
+            <ConnectionBuilder
+              itemType="highlight"
+              itemId={highlightId}
+              scopeType={connectionScopeType}
+              scopeId={connectionScopeId}
+            />
             {onDumpToWorkingMemory && (
               <QuietButton onClick={() => onDumpToWorkingMemory(highlight)}>
                 Dump to Working Memory

@@ -305,17 +305,38 @@ const connectionSchema = new mongoose.Schema({
   toType: { type: String, required: true, trim: true },
   toId: { type: String, required: true, trim: true },
   relationType: { type: String, required: true, trim: true },
+  scopeType: { type: String, default: '', trim: true },
+  scopeId: { type: String, default: '', trim: true },
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }
 }, { timestamps: true });
 
 connectionSchema.index(
-  { userId: 1, fromType: 1, fromId: 1, toType: 1, toId: 1, relationType: 1 },
+  { userId: 1, scopeType: 1, scopeId: 1, fromType: 1, fromId: 1, toType: 1, toId: 1, relationType: 1 },
   { unique: true }
 );
-connectionSchema.index({ userId: 1, fromType: 1, fromId: 1, createdAt: -1 });
-connectionSchema.index({ userId: 1, toType: 1, toId: 1, createdAt: -1 });
+connectionSchema.index({ userId: 1, scopeType: 1, scopeId: 1, fromType: 1, fromId: 1, createdAt: -1 });
+connectionSchema.index({ userId: 1, scopeType: 1, scopeId: 1, toType: 1, toId: 1, createdAt: -1 });
 
 const Connection = mongoose.model('Connection', connectionSchema);
+
+const dropLegacyConnectionIndex = async () => {
+  const legacyIndexName = 'userId_1_fromType_1_fromId_1_toType_1_toId_1_relationType_1';
+  try {
+    await Connection.collection.dropIndex(legacyIndexName);
+    console.log(`ℹ️ Dropped legacy connection index: ${legacyIndexName}`);
+  } catch (error) {
+    if (error?.codeName === 'IndexNotFound' || error?.code === 27) return;
+    console.warn('⚠️ Unable to drop legacy connection index:', error?.message || error);
+  }
+};
+
+if (mongoose.connection.readyState === 1) {
+  dropLegacyConnectionIndex();
+} else {
+  mongoose.connection.once('open', () => {
+    dropLegacyConnectionIndex();
+  });
+}
 
 // Brain summaries (AI-generated, cached)
 const brainSummarySchema = new mongoose.Schema({
@@ -470,6 +491,8 @@ const buildQueueSnippet = (...values) => {
   return clean.slice(0, 280);
 };
 
+const escapeRegExp = (value = '') => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
 const resolveReturnQueueItem = async (userId, itemType, itemId) => {
   const safeItemId = String(itemId || '').trim();
   if (!safeItemId) return null;
@@ -540,6 +563,7 @@ const resolveReturnQueueItem = async (userId, itemType, itemId) => {
 
 const CONNECTION_RELATION_TYPES = new Set(['supports', 'contradicts', 'extends', 'related']);
 const CONNECTION_ITEM_TYPES = new Set(['highlight', 'notebook']);
+const CONNECTION_SCOPE_TYPES = new Set(['', 'concept', 'question']);
 
 const normalizeConnectionItemType = (value) => {
   const candidate = String(value || '').trim().toLowerCase();
@@ -554,10 +578,208 @@ const normalizeRelationType = (value) => {
   return '';
 };
 
+const normalizeConnectionScopeType = (value) => {
+  const candidate = String(value || '').trim().toLowerCase();
+  if (candidate === '') return '';
+  if (CONNECTION_SCOPE_TYPES.has(candidate)) return candidate;
+  return null;
+};
+
+const resolveConnectionScope = async (userId, scopeType, scopeId) => {
+  const safeScopeType = normalizeConnectionScopeType(scopeType);
+  const safeScopeId = String(scopeId || '').trim();
+  if (safeScopeType === null) return null;
+  if (safeScopeType === '') {
+    return { scopeType: '', scopeId: '', title: '' };
+  }
+  if (!safeScopeId) return null;
+  if (safeScopeType === 'concept') {
+    if (mongoose.Types.ObjectId.isValid(safeScopeId)) {
+      const conceptById = await TagMeta.findOne({ _id: safeScopeId, userId }).select('name').lean();
+      if (conceptById) {
+        return {
+          scopeType: 'concept',
+          scopeId: String(conceptById._id),
+          title: conceptById.name || 'Concept',
+          conceptName: conceptById.name || ''
+        };
+      }
+    }
+    const conceptByName = await TagMeta.findOne({
+      userId,
+      name: new RegExp(`^${escapeRegExp(safeScopeId)}$`, 'i')
+    }).select('name').lean();
+    if (!conceptByName) return null;
+    return {
+      scopeType: 'concept',
+      scopeId: String(conceptByName._id),
+      title: conceptByName.name || 'Concept',
+      conceptName: conceptByName.name || ''
+    };
+  }
+  if (safeScopeType === 'question') {
+    if (!mongoose.Types.ObjectId.isValid(safeScopeId)) return null;
+    const question = await Question.findOne({ _id: safeScopeId, userId }).select('text').lean();
+    if (!question) return null;
+    return {
+      scopeType: 'question',
+      scopeId: String(safeScopeId),
+      title: question.text || 'Question'
+    };
+  }
+  return null;
+};
+
 const resolveConnectionItem = async (userId, itemType, itemId) => {
   const normalizedType = normalizeConnectionItemType(itemType);
   if (!normalizedType) return null;
   return resolveReturnQueueItem(userId, normalizedType, itemId);
+};
+
+const resolveConnectionScopeInput = async (userId, scopeType, scopeId, hasInput = false) => {
+  if (!hasInput) return { scopeType: '', scopeId: '', title: '' };
+  const scope = await resolveConnectionScope(userId, scopeType, scopeId);
+  if (!scope) return null;
+  return {
+    scopeType: scope.scopeType || '',
+    scopeId: scope.scopeId || '',
+    title: scope.title || ''
+  };
+};
+
+const toObjectIdList = (ids = []) => (
+  ids
+    .map(value => String(value || '').trim())
+    .filter(value => mongoose.Types.ObjectId.isValid(value))
+    .map(value => new mongoose.Types.ObjectId(value))
+);
+
+const normalizeConnectionScopeCandidates = (rows = []) => {
+  const set = new Set();
+  rows.forEach(row => {
+    const value = String(row?._id || row || '').trim();
+    if (value) set.add(value);
+  });
+  return set;
+};
+
+const buildConnectionScopeCandidates = async (userId, scope) => {
+  if (!scope?.scopeType || !scope?.scopeId) return null;
+
+  if (scope.scopeType === 'concept') {
+    const concept = await TagMeta.findOne({ _id: scope.scopeId, userId })
+      .select('name pinnedHighlightIds pinnedNoteIds')
+      .lean();
+    if (!concept) return null;
+
+    const highlightIds = normalizeConnectionScopeCandidates(concept.pinnedHighlightIds || []);
+    const notebookIds = normalizeConnectionScopeCandidates(concept.pinnedNoteIds || []);
+    const conceptName = String(concept.name || '').trim();
+
+    if (conceptName) {
+      const regex = new RegExp(`^${escapeRegExp(conceptName)}$`, 'i');
+      const taggedHighlights = await Article.aggregate([
+        { $match: { userId: new mongoose.Types.ObjectId(userId) } },
+        { $unwind: '$highlights' },
+        { $match: { 'highlights.tags': regex } },
+        { $project: { _id: '$highlights._id' } },
+        { $limit: 600 }
+      ]);
+      taggedHighlights.forEach(row => highlightIds.add(String(row?._id || '')));
+
+      const taggedNotes = await NotebookEntry.find({ userId, tags: regex })
+        .select('_id')
+        .lean();
+      taggedNotes.forEach(row => notebookIds.add(String(row?._id || '')));
+
+      const conceptReferenceEdges = await ReferenceEdge.find({
+        userId: new mongoose.Types.ObjectId(userId),
+        targetType: 'concept',
+        targetTagName: regex
+      })
+        .select('sourceId')
+        .lean();
+      conceptReferenceEdges.forEach(edge => notebookIds.add(String(edge?.sourceId || '')));
+    }
+
+    const highlightObjectIds = toObjectIdList(Array.from(highlightIds));
+    if (highlightObjectIds.length > 0) {
+      const notesLinkedToHighlights = await NotebookEntry.find({
+        userId,
+        linkedHighlightIds: { $in: highlightObjectIds }
+      })
+        .select('_id')
+        .lean();
+      notesLinkedToHighlights.forEach(row => notebookIds.add(String(row?._id || '')));
+    }
+
+    return { highlightIds, notebookIds };
+  }
+
+  if (scope.scopeType === 'question') {
+    const question = await Question.findOne({ _id: scope.scopeId, userId })
+      .select('blocks linkedHighlightId linkedHighlightIds linkedNotebookEntryId')
+      .lean();
+    if (!question) return null;
+
+    const highlightIds = new Set();
+    const notebookIds = new Set();
+    const addHighlightId = (value) => {
+      const clean = String(value || '').trim();
+      if (clean) highlightIds.add(clean);
+    };
+
+    addHighlightId(question.linkedHighlightId);
+    (question.linkedHighlightIds || []).forEach(addHighlightId);
+    (question.blocks || []).forEach(block => {
+      if (block?.type === 'highlight-ref') addHighlightId(block.highlightId);
+    });
+
+    if (question.linkedNotebookEntryId) {
+      notebookIds.add(String(question.linkedNotebookEntryId));
+    }
+
+    const highlightObjectIds = toObjectIdList(Array.from(highlightIds));
+    if (highlightObjectIds.length > 0) {
+      const notesLinkedToHighlights = await NotebookEntry.find({
+        userId,
+        linkedHighlightIds: { $in: highlightObjectIds }
+      })
+        .select('_id')
+        .lean();
+      notesLinkedToHighlights.forEach(row => notebookIds.add(String(row?._id || '')));
+    }
+
+    return { highlightIds, notebookIds };
+  }
+
+  return null;
+};
+
+const isConnectionItemInScopeCandidates = (itemType, itemId, candidates) => {
+  if (!candidates) return true;
+  const safeType = normalizeConnectionItemType(itemType);
+  const safeId = String(itemId || '').trim();
+  if (!safeType || !safeId) return false;
+  if (safeType === 'highlight') return candidates.highlightIds.has(safeId);
+  if (safeType === 'notebook') return candidates.notebookIds.has(safeId);
+  return false;
+};
+
+const buildConnectionScopeQuery = (scope) => {
+  if (!scope?.scopeType && !scope?.scopeId) {
+    return {
+      $or: [
+        { scopeType: '', scopeId: '' },
+        { scopeType: { $exists: false }, scopeId: { $exists: false } },
+        { scopeType: null, scopeId: null }
+      ]
+    };
+  }
+  return {
+    scopeType: scope.scopeType || '',
+    scopeId: scope.scopeId || ''
+  };
 };
 // Saved Views (Smart Folders)
 const savedViewSchema = new mongoose.Schema({
@@ -2193,7 +2415,9 @@ app.post('/api/connections', authenticateToken, async (req, res) => {
       fromId = '',
       toType = '',
       toId = '',
-      relationType = ''
+      relationType = '',
+      scopeType,
+      scopeId
     } = req.body || {};
 
     const safeFromType = normalizeConnectionItemType(fromType);
@@ -2211,6 +2435,12 @@ app.post('/api/connections', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'Cannot connect an item to itself.' });
     }
 
+    const hasScopeInput = scopeType !== undefined || scopeId !== undefined;
+    const scope = await resolveConnectionScopeInput(userId, scopeType, scopeId, hasScopeInput);
+    if (!scope) {
+      return res.status(400).json({ error: 'Invalid scopeType/scopeId.' });
+    }
+
     const [fromItem, toItem] = await Promise.all([
       resolveConnectionItem(userId, safeFromType, safeFromId),
       resolveConnectionItem(userId, safeToType, safeToId)
@@ -2225,7 +2455,8 @@ app.post('/api/connections', authenticateToken, async (req, res) => {
       fromId: safeFromId,
       toType: safeToType,
       toId: safeToId,
-      relationType: safeRelationType
+      relationType: safeRelationType,
+      ...buildConnectionScopeQuery(scope)
     }).lean();
     if (existing) {
       return res.status(409).json({ error: 'Connection already exists.' });
@@ -2237,6 +2468,8 @@ app.post('/api/connections', authenticateToken, async (req, res) => {
       toType: safeToType,
       toId: safeToId,
       relationType: safeRelationType,
+      scopeType: scope.scopeType || '',
+      scopeId: scope.scopeId || '',
       userId
     });
 
@@ -2268,11 +2501,19 @@ app.get('/api/connections', authenticateToken, async (req, res) => {
       return res.status(404).json({ error: 'Item not found for this user.' });
     }
 
+    const hasScopeInput = req.query.scopeType !== undefined || req.query.scopeId !== undefined;
+    const scope = await resolveConnectionScopeInput(userId, req.query.scopeType, req.query.scopeId, hasScopeInput);
+    if (!scope) {
+      return res.status(400).json({ error: 'Invalid scopeType/scopeId.' });
+    }
+
+    const scopeFilter = buildConnectionScopeQuery(scope);
+
     const [outgoingRows, incomingRows] = await Promise.all([
-      Connection.find({ userId, fromType: safeItemType, fromId: safeItemId })
+      Connection.find({ userId, fromType: safeItemType, fromId: safeItemId, ...scopeFilter })
         .sort({ createdAt: -1 })
         .lean(),
-      Connection.find({ userId, toType: safeItemType, toId: safeItemId })
+      Connection.find({ userId, toType: safeItemType, toId: safeItemId, ...scopeFilter })
         .sort({ createdAt: -1 })
         .lean()
     ]);
@@ -2288,6 +2529,10 @@ app.get('/api/connections', authenticateToken, async (req, res) => {
 
     res.status(200).json({
       item,
+      scope: {
+        scopeType: scope.scopeType || '',
+        scopeId: scope.scopeId || ''
+      },
       outgoing: outgoing.filter(row => row.target),
       incoming: incoming.filter(row => row.source)
     });
@@ -2304,21 +2549,43 @@ app.get('/api/connections/search', authenticateToken, async (req, res) => {
     const excludeType = normalizeConnectionItemType(req.query.excludeType);
     const excludeId = String(req.query.excludeId || '').trim();
     const limit = Math.max(1, Math.min(40, Number(req.query.limit) || 15));
-    const escapeRegExp = (value = '') => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const regex = q ? new RegExp(escapeRegExp(q), 'i') : null;
+    const hasScopeInput = req.query.scopeType !== undefined || req.query.scopeId !== undefined;
+    const scope = await resolveConnectionScopeInput(userId, req.query.scopeType, req.query.scopeId, hasScopeInput);
+    if (!scope) {
+      return res.status(400).json({ error: 'Invalid scopeType/scopeId.' });
+    }
+    const scopeCandidates = await buildConnectionScopeCandidates(userId, scope);
+    const scopedNotebookObjectIds = scopeCandidates
+      ? toObjectIdList(Array.from(scopeCandidates.notebookIds || []))
+      : [];
+    const scopedHighlightObjectIds = scopeCandidates
+      ? toObjectIdList(Array.from(scopeCandidates.highlightIds || []))
+      : [];
+
+    if (scopeCandidates && scopedNotebookObjectIds.length === 0 && scopedHighlightObjectIds.length === 0) {
+      return res.status(200).json([]);
+    }
+
+    const fetchLimit = scopeCandidates ? Math.max(limit * 4, 80) : limit;
+    const notebookQuery = {
+      userId,
+      ...(regex ? { $or: [{ title: regex }, { content: regex }] } : {})
+    };
+    if (scopeCandidates) {
+      notebookQuery._id = { $in: scopedNotebookObjectIds };
+    }
 
     const [notebooks, highlights] = await Promise.all([
-      NotebookEntry.find({
-        userId,
-        ...(regex ? { $or: [{ title: regex }, { content: regex }] } : {})
-      })
+      NotebookEntry.find(notebookQuery)
         .select('title content updatedAt')
         .sort({ updatedAt: -1 })
-        .limit(limit)
+        .limit(fetchLimit)
         .lean(),
       Article.aggregate([
         { $match: { userId: new mongoose.Types.ObjectId(userId) } },
         { $unwind: '$highlights' },
+        ...(scopeCandidates ? [{ $match: { 'highlights._id': { $in: scopedHighlightObjectIds } } }] : []),
         ...(regex ? [{
           $match: {
             $or: [
@@ -2329,7 +2596,7 @@ app.get('/api/connections/search', authenticateToken, async (req, res) => {
           }
         }] : []),
         { $sort: { 'highlights.createdAt': -1 } },
-        { $limit: limit },
+        { $limit: fetchLimit },
         {
           $project: {
             _id: '$highlights._id',
@@ -2359,12 +2626,58 @@ app.get('/api/connections/search', authenticateToken, async (req, res) => {
 
     const results = [...notebookItems, ...highlightItems]
       .filter(item => !(item.itemType === excludeType && item.itemId === excludeId))
+      .filter(item => isConnectionItemInScopeCandidates(item.itemType, item.itemId, scopeCandidates))
       .slice(0, limit);
 
     res.status(200).json(results);
   } catch (error) {
     console.error('❌ Error searching connectable items:', error);
     res.status(500).json({ error: 'Failed to search items.' });
+  }
+});
+
+app.get('/api/connections/scope', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const hasScopeInput = req.query.scopeType !== undefined || req.query.scopeId !== undefined;
+    const scope = await resolveConnectionScopeInput(userId, req.query.scopeType, req.query.scopeId, hasScopeInput);
+    if (!scope || !scope.scopeType || !scope.scopeId) {
+      return res.status(400).json({ error: 'scopeType and scopeId are required.' });
+    }
+
+    const limit = Math.max(1, Math.min(120, Number(req.query.limit) || 40));
+    const rows = await Connection.find({
+      userId,
+      scopeType: scope.scopeType,
+      scopeId: scope.scopeId
+    })
+      .sort({ createdAt: -1 })
+      .limit(limit)
+      .lean();
+
+    const connections = await Promise.all(rows.map(async (row) => {
+      const [fromItem, toItem] = await Promise.all([
+        resolveConnectionItem(userId, row.fromType, row.fromId),
+        resolveConnectionItem(userId, row.toType, row.toId)
+      ]);
+      return {
+        ...row,
+        fromItem,
+        toItem
+      };
+    }));
+
+    res.status(200).json({
+      scope: {
+        scopeType: scope.scopeType,
+        scopeId: scope.scopeId,
+        title: scope.title || ''
+      },
+      connections: connections.filter(row => row.fromItem && row.toItem)
+    });
+  } catch (error) {
+    console.error('❌ Error listing scope connections:', error);
+    res.status(500).json({ error: 'Failed to list scope connections.' });
   }
 });
 

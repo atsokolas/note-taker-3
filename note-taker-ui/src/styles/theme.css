@@ -1068,6 +1068,37 @@ p {
   overflow-wrap: anywhere;
 }
 
+.context-connection-list {
+  display: grid;
+  gap: 6px;
+}
+
+.context-connection-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+  padding: 8px 10px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  background: var(--surface-muted);
+}
+
+.context-connection-node {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text);
+}
+
+.context-connection-relation {
+  font-size: 0.75rem;
+  text-transform: capitalize;
+  letter-spacing: 0.03em;
+  color: var(--muted);
+}
+
 .return-queue-toolbar {
   display: flex;
   justify-content: flex-end;

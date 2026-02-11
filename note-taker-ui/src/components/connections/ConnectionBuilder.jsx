@@ -19,7 +19,7 @@ const formatSummary = (item) => {
   return item.snippet || item.title || '';
 };
 
-const ConnectionBuilder = ({ itemType, itemId }) => {
+const ConnectionBuilder = ({ itemType, itemId, scopeType = '', scopeId = '' }) => {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -32,13 +32,22 @@ const ConnectionBuilder = ({ itemType, itemId }) => {
   const [relationType, setRelationType] = useState('related');
 
   const totalCount = (connections.outgoing?.length || 0) + (connections.incoming?.length || 0);
+  const scopePayload = useMemo(
+    () => (scopeType && scopeId ? { scopeType, scopeId } : {}),
+    [scopeType, scopeId]
+  );
+  const scopeLabel = scopeType === 'concept'
+    ? 'this concept'
+    : scopeType === 'question'
+      ? 'this question'
+      : '';
 
   const loadConnections = useCallback(async () => {
     if (!itemType || !itemId) return;
     setLoading(true);
     setError('');
     try {
-      const data = await getConnectionsForItem({ itemType, itemId });
+      const data = await getConnectionsForItem({ itemType, itemId, ...scopePayload });
       setConnections({
         outgoing: Array.isArray(data?.outgoing) ? data.outgoing : [],
         incoming: Array.isArray(data?.incoming) ? data.incoming : []
@@ -48,7 +57,7 @@ const ConnectionBuilder = ({ itemType, itemId }) => {
     } finally {
       setLoading(false);
     }
-  }, [itemType, itemId]);
+  }, [itemType, itemId, scopePayload]);
 
   useEffect(() => {
     if (!open) return;
@@ -69,7 +78,8 @@ const ConnectionBuilder = ({ itemType, itemId }) => {
         const items = await searchConnectableItems({
           q: trimmed,
           excludeType: itemType,
-          excludeId: itemId
+          excludeId: itemId,
+          ...scopePayload
         });
         if (!cancelled) setSearchResults(items);
       } catch (err) {
@@ -84,7 +94,7 @@ const ConnectionBuilder = ({ itemType, itemId }) => {
       cancelled = true;
       clearTimeout(timeoutId);
     };
-  }, [query, itemType, itemId, open]);
+  }, [query, itemType, itemId, open, scopePayload]);
 
   const canCreate = useMemo(
     () => Boolean(selectedTarget?.itemType && selectedTarget?.itemId && relationType),
@@ -101,7 +111,8 @@ const ConnectionBuilder = ({ itemType, itemId }) => {
         fromId: itemId,
         toType: selectedTarget.itemType,
         toId: selectedTarget.itemId,
-        relationType
+        relationType,
+        ...scopePayload
       });
       setConnections(prev => ({
         ...prev,
@@ -144,7 +155,7 @@ const ConnectionBuilder = ({ itemType, itemId }) => {
               type="text"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search notes/highlights"
+              placeholder={scopeLabel ? `Search items in ${scopeLabel}` : 'Search notes/highlights'}
             />
             <select value={relationType} onChange={(event) => setRelationType(event.target.value)}>
               {RELATION_TYPES.map(option => (

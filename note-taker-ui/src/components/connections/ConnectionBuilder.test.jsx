@@ -69,4 +69,52 @@ describe('ConnectionBuilder', () => {
       });
     });
   });
+
+  it('passes scope to search/list/create when scope is provided', async () => {
+    render(
+      <ConnectionBuilder
+        itemType="highlight"
+        itemId="h-1"
+        scopeType="concept"
+        scopeId="concept-1"
+      />
+    );
+
+    fireEvent.click(screen.getByText('Connect'));
+    await waitFor(() => {
+      expect(getConnectionsForItem).toHaveBeenCalledWith({
+        itemType: 'highlight',
+        itemId: 'h-1',
+        scopeType: 'concept',
+        scopeId: 'concept-1'
+      });
+    });
+
+    fireEvent.change(screen.getByPlaceholderText('Search items in this concept'), {
+      target: { value: 'target' }
+    });
+    await waitFor(() => {
+      expect(searchConnectableItems).toHaveBeenCalledWith({
+        q: 'target',
+        excludeType: 'highlight',
+        excludeId: 'h-1',
+        scopeType: 'concept',
+        scopeId: 'concept-1'
+      });
+    });
+
+    fireEvent.click(screen.getByText('Target note'));
+    fireEvent.click(screen.getByText('Save'));
+    await waitFor(() => {
+      expect(createConnection).toHaveBeenCalledWith({
+        fromType: 'highlight',
+        fromId: 'h-1',
+        toType: 'notebook',
+        toId: 'n-1',
+        relationType: 'related',
+        scopeType: 'concept',
+        scopeId: 'concept-1'
+      });
+    });
+  });
 });

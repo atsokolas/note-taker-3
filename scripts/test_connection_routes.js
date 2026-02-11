@@ -44,8 +44,10 @@ const createConnection = async (payload) => {
   return { status: res.status, body: text ? JSON.parse(text) : null };
 };
 
-const listConnections = async (itemType, itemId) => {
+const listConnections = async (itemType, itemId, scope = {}) => {
   const params = new URLSearchParams({ itemType, itemId });
+  if (scope.scopeType) params.set('scopeType', scope.scopeType);
+  if (scope.scopeId) params.set('scopeId', scope.scopeId);
   const res = await fetch(`${baseUrl}/api/connections?${params.toString()}`, {
     method: 'GET',
     headers
@@ -64,9 +66,42 @@ const deleteConnection = async (id) => {
   assert.strictEqual(res.status, 200, `delete connection failed status=${res.status} body=${text}`);
 };
 
+const listScopeConnections = async (scopeType, scopeId) => {
+  const params = new URLSearchParams({ scopeType, scopeId });
+  const res = await fetch(`${baseUrl}/api/connections/scope?${params.toString()}`, {
+    method: 'GET',
+    headers
+  });
+  const text = await res.text();
+  assert.strictEqual(res.status, 200, `list scope connections failed status=${res.status} body=${text}`);
+  return JSON.parse(text);
+};
+
+const createQuestion = async (text) => {
+  const res = await fetch(`${baseUrl}/api/questions`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ text, status: 'open' })
+  });
+  const bodyText = await res.text();
+  assert.strictEqual(res.status, 201, `create question failed status=${res.status} body=${bodyText}`);
+  return JSON.parse(bodyText);
+};
+
+const deleteQuestion = async (id) => {
+  const res = await fetch(`${baseUrl}/api/questions/${id}`, {
+    method: 'DELETE',
+    headers
+  });
+  const bodyText = await res.text();
+  assert.strictEqual(res.status, 200, `delete question failed status=${res.status} body=${bodyText}`);
+};
+
 const run = async () => {
   const a = await createNotebookEntry(`Connection test A ${Date.now()}`);
   const b = await createNotebookEntry(`Connection test B ${Date.now()}`);
+  const question = await createQuestion(`Connection scope test ${Date.now()}`);
+  const cleanupConnectionIds = [];
 
   try {
     const payload = {
@@ -79,6 +114,7 @@ const run = async () => {
     const created = await createConnection(payload);
     assert.strictEqual(created.status, 201, `create connection failed body=${JSON.stringify(created.body)}`);
     assert.ok(created.body?._id, 'connection _id missing');
+    cleanupConnectionIds.push(created.body._id);
 
     const duplicate = await createConnection(payload);
     assert.strictEqual(duplicate.status, 409, 'duplicate connection should return 409');
@@ -88,9 +124,40 @@ const run = async () => {
     assert.ok(listed.outgoing.some(item => String(item._id) === String(created.body._id)), 'created connection missing in outgoing list');
 
     await deleteConnection(created.body._id);
+    cleanupConnectionIds.pop();
     const afterDelete = await listConnections('notebook', a._id);
     assert.ok(!afterDelete.outgoing.some(item => String(item._id) === String(created.body._id)), 'deleted connection still listed');
+
+    const scopedPayload = {
+      ...payload,
+      scopeType: 'question',
+      scopeId: question._id
+    };
+    const scopedCreate = await createConnection(scopedPayload);
+    assert.strictEqual(scopedCreate.status, 201, `create scoped connection failed body=${JSON.stringify(scopedCreate.body)}`);
+    cleanupConnectionIds.push(scopedCreate.body._id);
+
+    const scopedDuplicate = await createConnection(scopedPayload);
+    assert.strictEqual(scopedDuplicate.status, 409, 'duplicate scoped connection should return 409');
+
+    const scopedListed = await listConnections('notebook', a._id, {
+      scopeType: 'question',
+      scopeId: question._id
+    });
+    assert.ok(scopedListed.outgoing.some(item => String(item._id) === String(scopedCreate.body._id)), 'scoped connection missing from scoped list');
+
+    const scopeRows = await listScopeConnections('question', question._id);
+    assert.ok(Array.isArray(scopeRows.connections), 'scope connections should be an array');
+    assert.ok(scopeRows.connections.some(row => String(row._id) === String(scopedCreate.body._id)), 'scoped connection missing from scope endpoint');
   } finally {
+    for (const connectionId of cleanupConnectionIds) {
+      try {
+        await deleteConnection(connectionId);
+      } catch (error) {
+        // no-op cleanup
+      }
+    }
+    await deleteQuestion(question._id);
     await deleteNotebookEntry(a._id);
     await deleteNotebookEntry(b._id);
   }
