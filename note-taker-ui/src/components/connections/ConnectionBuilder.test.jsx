@@ -50,7 +50,13 @@ describe('ConnectionBuilder', () => {
     });
 
     await waitFor(() => {
-      expect(searchConnectableItems).toHaveBeenCalled();
+      expect(
+        searchConnectableItems.mock.calls.some(([payload]) => (
+          payload.q === 'target'
+          && payload.excludeType === 'highlight'
+          && payload.excludeId === 'h-1'
+        ))
+      ).toBe(true);
     });
 
     fireEvent.click(screen.getByText('Target note'));
@@ -94,13 +100,15 @@ describe('ConnectionBuilder', () => {
       target: { value: 'target' }
     });
     await waitFor(() => {
-      expect(searchConnectableItems).toHaveBeenCalledWith({
-        q: 'target',
-        excludeType: 'highlight',
-        excludeId: 'h-1',
-        scopeType: 'concept',
-        scopeId: 'concept-1'
-      });
+      expect(
+        searchConnectableItems.mock.calls.some(([payload]) => (
+          payload.q === 'target'
+          && payload.excludeType === 'highlight'
+          && payload.excludeId === 'h-1'
+          && payload.scopeType === 'concept'
+          && payload.scopeId === 'concept-1'
+        ))
+      ).toBe(true);
     });
 
     fireEvent.click(screen.getByText('Target note'));

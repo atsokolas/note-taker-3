@@ -26,6 +26,7 @@ export const searchConnectableItems = async ({
   excludeType = '',
   excludeId = '',
   limit = 15,
+  itemTypes = [],
   scopeType = '',
   scopeId = ''
 } = {}) => {
@@ -33,6 +34,9 @@ export const searchConnectableItems = async ({
   if (q) params.set('q', q);
   if (excludeType) params.set('excludeType', excludeType);
   if (excludeId) params.set('excludeId', excludeId);
+  if (Array.isArray(itemTypes) && itemTypes.length > 0) {
+    params.set('itemTypes', itemTypes.join(','));
+  }
   if (scopeType) params.set('scopeType', scopeType);
   if (scopeId) params.set('scopeId', scopeId);
   params.set('limit', String(limit));

@@ -2602,6 +2602,11 @@ app.get('/api/connections/search', authenticateToken, async (req, res) => {
     const excludeId = String(req.query.excludeId || '').trim();
     const limit = Math.max(1, Math.min(40, Number(req.query.limit) || 15));
     const regex = q ? new RegExp(escapeRegExp(q), 'i') : null;
+    const requestedItemTypes = String(req.query.itemTypes || '')
+      .split(',')
+      .map(value => normalizeConnectionItemType(value))
+      .filter(Boolean);
+    const allowedItemTypes = new Set(requestedItemTypes);
     const hasScopeInput = req.query.scopeType !== undefined || req.query.scopeId !== undefined;
     const scope = await resolveConnectionScopeInput(userId, req.query.scopeType, req.query.scopeId, hasScopeInput);
     if (!scope) {
@@ -2754,6 +2759,7 @@ app.get('/api/connections/search', authenticateToken, async (req, res) => {
 
     const results = [...notebookItems, ...highlightItems, ...articleItems, ...conceptItems, ...questionItems]
       .filter(item => !(item.itemType === excludeType && item.itemId === excludeId))
+      .filter(item => (allowedItemTypes.size === 0 ? true : allowedItemTypes.has(item.itemType)))
       .filter(item => isConnectionItemInScopeCandidates(item.itemType, item.itemId, scopeCandidates))
       .sort((a, b) => {
         const aTime = a.updatedAt ? new Date(a.updatedAt).getTime() : 0;

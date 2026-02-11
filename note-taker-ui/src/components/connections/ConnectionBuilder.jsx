@@ -13,6 +13,14 @@ const RELATION_TYPES = [
   { value: 'extends', label: 'Extends' },
   { value: 'related', label: 'Related' }
 ];
+const ITEM_FILTERS = [
+  { value: 'all', label: 'All' },
+  { value: 'highlight', label: 'Highlights' },
+  { value: 'notebook', label: 'Notes' },
+  { value: 'article', label: 'Articles' },
+  { value: 'concept', label: 'Concepts' },
+  { value: 'question', label: 'Questions' }
+];
 const RELATION_LABELS = RELATION_TYPES.reduce((acc, item) => {
   acc[item.value] = item.label;
   return acc;
@@ -44,6 +52,7 @@ const ConnectionBuilder = ({ itemType, itemId, scopeType = '', scopeId = '' }) =
   const [searchResults, setSearchResults] = useState([]);
   const [selectedTarget, setSelectedTarget] = useState(null);
   const [relationType, setRelationType] = useState('related');
+  const [itemFilter, setItemFilter] = useState('all');
 
   const totalCount = (connections.outgoing?.length || 0) + (connections.incoming?.length || 0);
   const scopePayload = useMemo(
@@ -80,12 +89,9 @@ const ConnectionBuilder = ({ itemType, itemId, scopeType = '', scopeId = '' }) =
 
   useEffect(() => {
     if (!open) return;
-    const trimmed = query.trim();
-    if (!trimmed) {
-      setSearchResults([]);
-      return;
-    }
     let cancelled = false;
+    const trimmed = query.trim();
+    const itemTypes = itemFilter === 'all' ? [] : [itemFilter];
     const timeoutId = setTimeout(async () => {
       setSearchLoading(true);
       try {
@@ -93,6 +99,7 @@ const ConnectionBuilder = ({ itemType, itemId, scopeType = '', scopeId = '' }) =
           q: trimmed,
           excludeType: itemType,
           excludeId: itemId,
+          itemTypes,
           ...scopePayload
         });
         if (!cancelled) setSearchResults(items);
@@ -108,7 +115,7 @@ const ConnectionBuilder = ({ itemType, itemId, scopeType = '', scopeId = '' }) =
       cancelled = true;
       clearTimeout(timeoutId);
     };
-  }, [query, itemType, itemId, open, scopePayload]);
+  }, [query, itemType, itemId, open, scopePayload, itemFilter]);
 
   const canCreate = useMemo(
     () => Boolean(selectedTarget?.itemType && selectedTarget?.itemId && relationType),
@@ -207,6 +214,10 @@ const ConnectionBuilder = ({ itemType, itemId, scopeType = '', scopeId = '' }) =
             <div className="connection-builder-title">Create connection</div>
             {scopeLabel && <div className="connection-builder-scope">Scoped to {scopeLabel}</div>}
           </div>
+          <div className="connection-explainer">
+            <span><strong>Outgoing</strong> = this item points to other items.</span>
+            <span><strong>Incoming</strong> = other items point to this item.</span>
+          </div>
           <div className="connection-builder-row">
             <input
               type="text"
@@ -223,6 +234,18 @@ const ConnectionBuilder = ({ itemType, itemId, scopeType = '', scopeId = '' }) =
               {saving ? 'Saving...' : 'Save'}
             </Button>
           </div>
+          <div className="connection-filter-tabs">
+            {ITEM_FILTERS.map(filter => (
+              <button
+                type="button"
+                key={filter.value}
+                className={`connection-filter-tab ${itemFilter === filter.value ? 'is-active' : ''}`}
+                onClick={() => setItemFilter(filter.value)}
+              >
+                {filter.label}
+              </button>
+            ))}
+          </div>
           {selectedTarget && (
             <div className="connection-selected-target">
               <span className="connection-selected-label">Selected</span>
@@ -232,7 +255,7 @@ const ConnectionBuilder = ({ itemType, itemId, scopeType = '', scopeId = '' }) =
           )}
 
           {searchLoading && <p className="muted small">Searching...</p>}
-          {!searchLoading && query.trim() && searchResults.length === 0 && (
+          {!searchLoading && searchResults.length === 0 && (
             <p className="muted small">No matches in this scope.</p>
           )}
           {!searchLoading && searchResults.length > 0 && (
@@ -257,7 +280,7 @@ const ConnectionBuilder = ({ itemType, itemId, scopeType = '', scopeId = '' }) =
           {!loading && (
             <div className="connection-lists">
               <div className="connection-list-block">
-                <div className="connection-list-title">Outgoing</div>
+                <div className="connection-list-title">Connects to (Outgoing)</div>
                 {(connections.outgoing || []).length === 0 ? (
                   <p className="muted small">None</p>
                 ) : (
@@ -273,7 +296,7 @@ const ConnectionBuilder = ({ itemType, itemId, scopeType = '', scopeId = '' }) =
                 )}
               </div>
               <div className="connection-list-block">
-                <div className="connection-list-title">Incoming</div>
+                <div className="connection-list-title">Connected from (Incoming)</div>
                 {(connections.incoming || []).length === 0 ? (
                   <p className="muted small">None</p>
                 ) : (
