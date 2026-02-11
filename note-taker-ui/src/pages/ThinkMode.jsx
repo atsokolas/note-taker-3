@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import { PageTitle, SectionHeader, QuietButton, Button, TagChip } from '../components/ui';
 import useConcepts from '../hooks/useConcepts';
 import useConcept from '../hooks/useConcept';
@@ -218,6 +218,8 @@ const ThinkMode = () => {
     }
     return { scopeType: '', scopeId: '' };
   }, [activeView, concept?._id, activeQuestionData?._id]);
+  const connectionScopeType = connectionScope.scopeType;
+  const connectionScopeId = connectionScope.scopeId;
 
   useEffect(() => {
     if (activeView !== 'questions') return;
@@ -431,7 +433,7 @@ const ThinkMode = () => {
   }, [activeView, activeQuestion?._id]);
 
   useEffect(() => {
-    if (!connectionScope.scopeType || !connectionScope.scopeId) {
+    if (!connectionScopeType || !connectionScopeId) {
       setContextConnections([]);
       setContextConnectionsLoading(false);
       setContextConnectionsError('');
@@ -442,7 +444,10 @@ const ThinkMode = () => {
       setContextConnectionsLoading(true);
       setContextConnectionsError('');
       try {
-        const data = await getConnectionsForScope(connectionScope);
+        const data = await getConnectionsForScope({
+          scopeType: connectionScopeType,
+          scopeId: connectionScopeId
+        });
         if (!cancelled) {
           setContextConnections(Array.isArray(data?.connections) ? data.connections : []);
         }
@@ -458,7 +463,7 @@ const ThinkMode = () => {
     return () => {
       cancelled = true;
     };
-  }, [connectionScope.scopeType, connectionScope.scopeId]);
+  }, [connectionScopeType, connectionScopeId]);
 
   const loadNotebookEntries = useCallback(async () => {
     setNotebookLoadingList(true);
