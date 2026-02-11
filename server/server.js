@@ -562,7 +562,7 @@ const resolveReturnQueueItem = async (userId, itemType, itemId) => {
 };
 
 const CONNECTION_RELATION_TYPES = new Set(['supports', 'contradicts', 'extends', 'related']);
-const CONNECTION_ITEM_TYPES = new Set(['highlight', 'notebook']);
+const CONNECTION_ITEM_TYPES = new Set(['highlight', 'notebook', 'article', 'concept', 'question']);
 const CONNECTION_SCOPE_TYPES = new Set(['', 'concept', 'question']);
 
 const normalizeConnectionItemType = (value) => {
@@ -663,17 +663,49 @@ const normalizeConnectionScopeCandidates = (rows = []) => {
   return set;
 };
 
+const createEmptyConnectionCandidateSets = () => ({
+  highlightIds: new Set(),
+  notebookIds: new Set(),
+  articleIds: new Set(),
+  conceptIds: new Set(),
+  questionIds: new Set()
+});
+
+const addToCandidateSet = (set, value) => {
+  const safe = String(value || '').trim();
+  if (safe) set.add(safe);
+};
+
+const addManyToCandidateSet = (set, values = []) => {
+  values.forEach(value => addToCandidateSet(set, value));
+};
+
+const addArticleIdsForHighlightIds = async (userId, highlightIds, articleSet) => {
+  const highlightObjectIds = toObjectIdList(Array.from(highlightIds));
+  if (!highlightObjectIds.length) return;
+  const articleRows = await Article.aggregate([
+    { $match: { userId: new mongoose.Types.ObjectId(userId) } },
+    { $unwind: '$highlights' },
+    { $match: { 'highlights._id': { $in: highlightObjectIds } } },
+    { $group: { _id: '$_id' } }
+  ]);
+  articleRows.forEach(row => addToCandidateSet(articleSet, row?._id));
+};
+
 const buildConnectionScopeCandidates = async (userId, scope) => {
   if (!scope?.scopeType || !scope?.scopeId) return null;
 
   if (scope.scopeType === 'concept') {
     const concept = await TagMeta.findOne({ _id: scope.scopeId, userId })
-      .select('name pinnedHighlightIds pinnedNoteIds')
+      .select('name pinnedHighlightIds pinnedNoteIds pinnedArticleIds')
       .lean();
     if (!concept) return null;
 
-    const highlightIds = normalizeConnectionScopeCandidates(concept.pinnedHighlightIds || []);
-    const notebookIds = normalizeConnectionScopeCandidates(concept.pinnedNoteIds || []);
+    const candidates = createEmptyConnectionCandidateSets();
+    addToCandidateSet(candidates.conceptIds, concept._id);
+    addManyToCandidateSet(candidates.highlightIds, normalizeConnectionScopeCandidates(concept.pinnedHighlightIds || []));
+    addManyToCandidateSet(candidates.notebookIds, normalizeConnectionScopeCandidates(concept.pinnedNoteIds || []));
+    addManyToCandidateSet(candidates.articleIds, normalizeConnectionScopeCandidates(concept.pinnedArticleIds || []));
     const conceptName = String(concept.name || '').trim();
 
     if (conceptName) {
@@ -682,15 +714,24 @@ const buildConnectionScopeCandidates = async (userId, scope) => {
         { $match: { userId: new mongoose.Types.ObjectId(userId) } },
         { $unwind: '$highlights' },
         { $match: { 'highlights.tags': regex } },
-        { $project: { _id: '$highlights._id' } },
+        { $project: { _id: '$highlights._id', articleId: '$_id' } },
         { $limit: 600 }
       ]);
-      taggedHighlights.forEach(row => highlightIds.add(String(row?._id || '')));
+      taggedHighlights.forEach(row => {
+        addToCandidateSet(candidates.highlightIds, row?._id);
+        addToCandidateSet(candidates.articleIds, row?.articleId);
+      });
 
       const taggedNotes = await NotebookEntry.find({ userId, tags: regex })
         .select('_id')
         .lean();
-      taggedNotes.forEach(row => notebookIds.add(String(row?._id || '')));
+      taggedNotes.forEach(row => addToCandidateSet(candidates.notebookIds, row?._id));
+
+      const conceptQuestions = await Question.find({ userId, linkedTagName: regex })
+        .select('_id')
+        .limit(200)
+        .lean();
+      conceptQuestions.forEach(row => addToCandidateSet(candidates.questionIds, row?._id));
 
       const conceptReferenceEdges = await ReferenceEdge.find({
         userId: new mongoose.Types.ObjectId(userId),
@@ -699,10 +740,10 @@ const buildConnectionScopeCandidates = async (userId, scope) => {
       })
         .select('sourceId')
         .lean();
-      conceptReferenceEdges.forEach(edge => notebookIds.add(String(edge?.sourceId || '')));
+      conceptReferenceEdges.forEach(edge => addToCandidateSet(candidates.notebookIds, edge?.sourceId));
     }
 
-    const highlightObjectIds = toObjectIdList(Array.from(highlightIds));
+    const highlightObjectIds = toObjectIdList(Array.from(candidates.highlightIds));
     if (highlightObjectIds.length > 0) {
       const notesLinkedToHighlights = await NotebookEntry.find({
         userId,
@@ -710,23 +751,34 @@ const buildConnectionScopeCandidates = async (userId, scope) => {
       })
         .select('_id')
         .lean();
-      notesLinkedToHighlights.forEach(row => notebookIds.add(String(row?._id || '')));
+      notesLinkedToHighlights.forEach(row => addToCandidateSet(candidates.notebookIds, row?._id));
     }
 
-    return { highlightIds, notebookIds };
+    await addArticleIdsForHighlightIds(userId, candidates.highlightIds, candidates.articleIds);
+    return candidates;
   }
 
   if (scope.scopeType === 'question') {
     const question = await Question.findOne({ _id: scope.scopeId, userId })
-      .select('blocks linkedHighlightId linkedHighlightIds linkedNotebookEntryId')
+      .select('blocks linkedHighlightId linkedHighlightIds linkedNotebookEntryId linkedTagName')
       .lean();
     if (!question) return null;
 
-    const highlightIds = new Set();
-    const notebookIds = new Set();
+    const candidates = createEmptyConnectionCandidateSets();
+    addToCandidateSet(candidates.questionIds, question._id);
+    addToCandidateSet(candidates.notebookIds, question.linkedNotebookEntryId);
+
+    if (question.linkedTagName) {
+      const linkedConcept = await TagMeta.findOne({
+        userId,
+        name: new RegExp(`^${escapeRegExp(question.linkedTagName)}$`, 'i')
+      }).select('_id').lean();
+      addToCandidateSet(candidates.conceptIds, linkedConcept?._id);
+    }
+
     const addHighlightId = (value) => {
       const clean = String(value || '').trim();
-      if (clean) highlightIds.add(clean);
+      if (clean) candidates.highlightIds.add(clean);
     };
 
     addHighlightId(question.linkedHighlightId);
@@ -735,11 +787,7 @@ const buildConnectionScopeCandidates = async (userId, scope) => {
       if (block?.type === 'highlight-ref') addHighlightId(block.highlightId);
     });
 
-    if (question.linkedNotebookEntryId) {
-      notebookIds.add(String(question.linkedNotebookEntryId));
-    }
-
-    const highlightObjectIds = toObjectIdList(Array.from(highlightIds));
+    const highlightObjectIds = toObjectIdList(Array.from(candidates.highlightIds));
     if (highlightObjectIds.length > 0) {
       const notesLinkedToHighlights = await NotebookEntry.find({
         userId,
@@ -747,10 +795,11 @@ const buildConnectionScopeCandidates = async (userId, scope) => {
       })
         .select('_id')
         .lean();
-      notesLinkedToHighlights.forEach(row => notebookIds.add(String(row?._id || '')));
+      notesLinkedToHighlights.forEach(row => addToCandidateSet(candidates.notebookIds, row?._id));
     }
 
-    return { highlightIds, notebookIds };
+    await addArticleIdsForHighlightIds(userId, candidates.highlightIds, candidates.articleIds);
+    return candidates;
   }
 
   return null;
@@ -763,6 +812,9 @@ const isConnectionItemInScopeCandidates = (itemType, itemId, candidates) => {
   if (!safeType || !safeId) return false;
   if (safeType === 'highlight') return candidates.highlightIds.has(safeId);
   if (safeType === 'notebook') return candidates.notebookIds.has(safeId);
+  if (safeType === 'article') return candidates.articleIds.has(safeId);
+  if (safeType === 'concept') return candidates.conceptIds.has(safeId);
+  if (safeType === 'question') return candidates.questionIds.has(safeId);
   return false;
 };
 
@@ -2562,8 +2614,24 @@ app.get('/api/connections/search', authenticateToken, async (req, res) => {
     const scopedHighlightObjectIds = scopeCandidates
       ? toObjectIdList(Array.from(scopeCandidates.highlightIds || []))
       : [];
+    const scopedArticleObjectIds = scopeCandidates
+      ? toObjectIdList(Array.from(scopeCandidates.articleIds || []))
+      : [];
+    const scopedConceptObjectIds = scopeCandidates
+      ? toObjectIdList(Array.from(scopeCandidates.conceptIds || []))
+      : [];
+    const scopedQuestionObjectIds = scopeCandidates
+      ? toObjectIdList(Array.from(scopeCandidates.questionIds || []))
+      : [];
 
-    if (scopeCandidates && scopedNotebookObjectIds.length === 0 && scopedHighlightObjectIds.length === 0) {
+    if (
+      scopeCandidates &&
+      scopedNotebookObjectIds.length === 0 &&
+      scopedHighlightObjectIds.length === 0 &&
+      scopedArticleObjectIds.length === 0 &&
+      scopedConceptObjectIds.length === 0 &&
+      scopedQuestionObjectIds.length === 0
+    ) {
       return res.status(200).json([]);
     }
 
@@ -2576,7 +2644,31 @@ app.get('/api/connections/search', authenticateToken, async (req, res) => {
       notebookQuery._id = { $in: scopedNotebookObjectIds };
     }
 
-    const [notebooks, highlights] = await Promise.all([
+    const articleQuery = {
+      userId,
+      ...(regex ? { $or: [{ title: regex }, { content: regex }, { url: regex }] } : {})
+    };
+    if (scopeCandidates) {
+      articleQuery._id = { $in: scopedArticleObjectIds };
+    }
+
+    const conceptQuery = {
+      userId,
+      ...(regex ? { $or: [{ name: regex }, { description: regex }] } : {})
+    };
+    if (scopeCandidates) {
+      conceptQuery._id = { $in: scopedConceptObjectIds };
+    }
+
+    const questionQuery = {
+      userId,
+      ...(regex ? { text: regex } : {})
+    };
+    if (scopeCandidates) {
+      questionQuery._id = { $in: scopedQuestionObjectIds };
+    }
+
+    const [notebooks, highlights, articles, concepts, questions] = await Promise.all([
       NotebookEntry.find(notebookQuery)
         .select('title content updatedAt')
         .sort({ updatedAt: -1 })
@@ -2606,7 +2698,22 @@ app.get('/api/connections/search', authenticateToken, async (req, res) => {
             note: '$highlights.note'
           }
         }
-      ])
+      ]),
+      Article.find(articleQuery)
+        .select('title content url updatedAt')
+        .sort({ updatedAt: -1 })
+        .limit(fetchLimit)
+        .lean(),
+      TagMeta.find(conceptQuery)
+        .select('name description updatedAt')
+        .sort({ updatedAt: -1 })
+        .limit(fetchLimit)
+        .lean(),
+      Question.find(questionQuery)
+        .select('text updatedAt')
+        .sort({ updatedAt: -1 })
+        .limit(fetchLimit)
+        .lean()
     ]);
 
     const notebookItems = notebooks.map(entry => ({
@@ -2623,10 +2730,36 @@ app.get('/api/connections/search', authenticateToken, async (req, res) => {
       snippet: buildQueueSnippet(highlight.text, highlight.note),
       updatedAt: null
     }));
+    const articleItems = articles.map(article => ({
+      itemType: 'article',
+      itemId: String(article._id),
+      title: article.title || 'Article',
+      snippet: buildQueueSnippet(article.content, article.url, article.title),
+      updatedAt: article.updatedAt
+    }));
+    const conceptItems = concepts.map(concept => ({
+      itemType: 'concept',
+      itemId: String(concept._id),
+      title: concept.name || 'Concept',
+      snippet: buildQueueSnippet(concept.description, concept.name),
+      updatedAt: concept.updatedAt
+    }));
+    const questionItems = questions.map(question => ({
+      itemType: 'question',
+      itemId: String(question._id),
+      title: 'Question',
+      snippet: buildQueueSnippet(question.text),
+      updatedAt: question.updatedAt
+    }));
 
-    const results = [...notebookItems, ...highlightItems]
+    const results = [...notebookItems, ...highlightItems, ...articleItems, ...conceptItems, ...questionItems]
       .filter(item => !(item.itemType === excludeType && item.itemId === excludeId))
       .filter(item => isConnectionItemInScopeCandidates(item.itemType, item.itemId, scopeCandidates))
+      .sort((a, b) => {
+        const aTime = a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
+        const bTime = b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
+        return bTime - aTime;
+      })
       .slice(0, limit);
 
     res.status(200).json(results);

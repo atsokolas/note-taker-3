@@ -9,6 +9,13 @@ jest.mock('../../api/organize', () => ({
   getHighlightClaimEvidence: jest.fn().mockResolvedValue({ evidence: [] })
 }));
 
+jest.mock('../../api/connections', () => ({
+  createConnection: jest.fn().mockResolvedValue({}),
+  deleteConnection: jest.fn().mockResolvedValue({}),
+  getConnectionsForItem: jest.fn().mockResolvedValue({ outgoing: [], incoming: [] }),
+  searchConnectableItems: jest.fn().mockResolvedValue([])
+}));
+
 const renderCard = (props = {}) => {
   const longText = [
     'A concise first sentence for collapsed preview.',

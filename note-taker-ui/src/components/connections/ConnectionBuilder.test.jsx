@@ -45,7 +45,7 @@ describe('ConnectionBuilder', () => {
       expect(getConnectionsForItem).toHaveBeenCalledWith({ itemType: 'highlight', itemId: 'h-1' });
     });
 
-    fireEvent.change(screen.getByPlaceholderText('Search notes/highlights'), {
+    fireEvent.change(screen.getByPlaceholderText('Search notes, highlights, articles, concepts'), {
       target: { value: 'target' }
     });
 

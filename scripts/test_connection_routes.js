@@ -88,6 +88,17 @@ const createQuestion = async (text) => {
   return JSON.parse(bodyText);
 };
 
+const upsertConcept = async (name) => {
+  const res = await fetch(`${baseUrl}/api/concepts/${encodeURIComponent(name)}`, {
+    method: 'PUT',
+    headers,
+    body: JSON.stringify({ description: `test concept ${name}` })
+  });
+  const bodyText = await res.text();
+  assert.strictEqual(res.status, 200, `upsert concept failed status=${res.status} body=${bodyText}`);
+  return JSON.parse(bodyText);
+};
+
 const deleteQuestion = async (id) => {
   const res = await fetch(`${baseUrl}/api/questions/${id}`, {
     method: 'DELETE',
@@ -101,6 +112,8 @@ const run = async () => {
   const a = await createNotebookEntry(`Connection test A ${Date.now()}`);
   const b = await createNotebookEntry(`Connection test B ${Date.now()}`);
   const question = await createQuestion(`Connection scope test ${Date.now()}`);
+  const conceptA = await upsertConcept(`Connection Concept A ${Date.now()}`);
+  const conceptB = await upsertConcept(`Connection Concept B ${Date.now() + 1}`);
   const cleanupConnectionIds = [];
 
   try {
@@ -149,6 +162,22 @@ const run = async () => {
     const scopeRows = await listScopeConnections('question', question._id);
     assert.ok(Array.isArray(scopeRows.connections), 'scope connections should be an array');
     assert.ok(scopeRows.connections.some(row => String(row._id) === String(scopedCreate.body._id)), 'scoped connection missing from scope endpoint');
+
+    const conceptConnection = await createConnection({
+      fromType: 'concept',
+      fromId: conceptA._id,
+      toType: 'concept',
+      toId: conceptB._id,
+      relationType: 'extends'
+    });
+    assert.strictEqual(conceptConnection.status, 201, `concept connection failed body=${JSON.stringify(conceptConnection.body)}`);
+    cleanupConnectionIds.push(conceptConnection.body._id);
+
+    const conceptListed = await listConnections('concept', conceptA._id);
+    assert.ok(
+      conceptListed.outgoing.some(item => String(item._id) === String(conceptConnection.body._id)),
+      'concept connection missing from concept outgoing list'
+    );
   } finally {
     for (const connectionId of cleanupConnectionIds) {
       try {

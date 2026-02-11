@@ -15,6 +15,7 @@ import QuestionInput from '../components/think/questions/QuestionInput';
 import QuestionList from '../components/think/questions/QuestionList';
 import HighlightCard from '../components/blocks/HighlightCard';
 import NoteCard from '../components/blocks/NoteCard';
+import ArticleCard from '../components/blocks/ArticleCard';
 import AddToConceptModal from '../components/think/concepts/AddToConceptModal';
 import QuestionEditor from '../components/think/questions/QuestionEditor';
 import ThreePaneLayout from '../layout/ThreePaneLayout';
@@ -28,6 +29,7 @@ import LibraryQuestionModal from '../components/library/LibraryQuestionModal';
 import SynthesisModal from '../components/think/SynthesisModal';
 import WorkingMemoryPanel from '../components/working-memory/WorkingMemoryPanel';
 import ReturnLaterControl from '../components/return-queue/ReturnLaterControl';
+import ConnectionBuilder from '../components/connections/ConnectionBuilder';
 import { getConnectionsForScope } from '../api/connections';
 import {
   listWorkingMemory,
@@ -1407,6 +1409,7 @@ const ThinkMode = () => {
             <Button variant="secondary" onClick={handleExportConcept}>
               Export markdown
             </Button>
+            <ConnectionBuilder itemType="concept" itemId={concept._id} />
           </div>
           <SectionHeader title="Sharing" subtitle="Publish a read-only concept page." />
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -1586,13 +1589,16 @@ const ThinkMode = () => {
           {pinnedArticles.length > 0 && (
             <div className="concept-source-list">
               {pinnedArticles.map(article => (
-                <div key={article._id} className="concept-source-row">
-                  <div>
-                    <div className="concept-source-title">{article.title || 'Untitled article'}</div>
-                    {article.url && <p className="muted small">{article.url}</p>}
-                  </div>
+                <ArticleCard
+                  key={article._id}
+                  article={article}
+                  connectionScopeType={connectionScope.scopeType}
+                  connectionScopeId={connectionScope.scopeId}
+                  forceExpandedState={cardsExpanded}
+                  forceExpandedVersion={cardsExpandVersion}
+                >
                   <QuietButton onClick={() => togglePinArticle(article._id)}>Unpin</QuietButton>
-                </div>
+                </ArticleCard>
               ))}
             </div>
           )}
@@ -1601,13 +1607,18 @@ const ThinkMode = () => {
           )}
           <div className="concept-source-list">
             {related.articles.map(article => (
-              <div key={article._id} className="concept-source-row">
-                <div>
-                  <div className="concept-source-title">{article.title || 'Untitled article'}</div>
-                  <p className="muted small">{article.highlightCount} highlights</p>
-                </div>
-                <Link to={`/articles/${article._id}`} className="muted small">Open</Link>
-              </div>
+              <ArticleCard
+                key={article._id}
+                article={article}
+                connectionScopeType={connectionScope.scopeType}
+                connectionScopeId={connectionScope.scopeId}
+                forceExpandedState={cardsExpanded}
+                forceExpandedVersion={cardsExpandVersion}
+              >
+                <QuietButton onClick={() => togglePinArticle(article._id)}>
+                  {pinnedArticleIds.some(id => String(id) === String(article._id)) ? 'Unpin' : 'Pin'}
+                </QuietButton>
+              </ArticleCard>
             ))}
           </div>
           <SectionHeader title="Questions" subtitle="Open loops tied to this concept." />

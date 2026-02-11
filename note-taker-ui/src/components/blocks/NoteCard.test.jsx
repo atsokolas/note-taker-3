@@ -2,6 +2,13 @@ import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
 import NoteCard from './NoteCard';
 
+jest.mock('../../api/connections', () => ({
+  createConnection: jest.fn().mockResolvedValue({}),
+  deleteConnection: jest.fn().mockResolvedValue({}),
+  getConnectionsForItem: jest.fn().mockResolvedValue({ outgoing: [], incoming: [] }),
+  searchConnectableItems: jest.fn().mockResolvedValue([])
+}));
+
 describe('NoteCard progressive disclosure', () => {
   it('defaults to collapsed and hides full body text', () => {
     render(
