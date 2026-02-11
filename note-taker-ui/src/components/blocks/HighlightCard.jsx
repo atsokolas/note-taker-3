@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Button, QuietButton } from '../ui';
 import HighlightBlock from './HighlightBlock';
 import ReturnLaterControl from '../return-queue/ReturnLaterControl';
+import ConnectionBuilder from '../connections/ConnectionBuilder';
 import {
   getHighlightClaimEvidence,
   organizeHighlightItem,
@@ -240,6 +241,7 @@ const HighlightCard = ({
               itemId={highlightId}
               defaultReason={summarize(highlight?.text, 120)}
             />
+            <ConnectionBuilder itemType="highlight" itemId={highlightId} />
             {onDumpToWorkingMemory && (
               <QuietButton onClick={() => onDumpToWorkingMemory(highlight)}>
                 Dump to Working Memory

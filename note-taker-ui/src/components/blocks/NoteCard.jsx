@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { QuietButton } from '../ui';
 import ReturnLaterControl from '../return-queue/ReturnLaterControl';
+import ConnectionBuilder from '../connections/ConnectionBuilder';
 
 const summarize = (text, max = 180) => {
   const raw = String(text || '');
@@ -95,6 +96,10 @@ const NoteCard = ({
               itemType={returnQueueItemType}
               itemId={returnQueueItemId || id}
               defaultReason={summarize(bodyText, 120)}
+            />
+            <ConnectionBuilder
+              itemType={returnQueueItemType}
+              itemId={returnQueueItemId || id}
             />
             {onDumpToWorkingMemory && (
               <QuietButton onClick={() => onDumpToWorkingMemory()}>

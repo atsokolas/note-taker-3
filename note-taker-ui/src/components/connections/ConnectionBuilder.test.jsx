@@ -1,0 +1,72 @@
+import React from 'react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import ConnectionBuilder from './ConnectionBuilder';
+
+jest.mock('../../api/connections', () => ({
+  createConnection: jest.fn().mockResolvedValue({
+    _id: 'c-1',
+    fromType: 'highlight',
+    fromId: 'h-1',
+    toType: 'notebook',
+    toId: 'n-1',
+    relationType: 'supports',
+    target: { title: 'Target note' }
+  }),
+  deleteConnection: jest.fn().mockResolvedValue({ message: 'ok' }),
+  getConnectionsForItem: jest.fn().mockResolvedValue({ outgoing: [], incoming: [] }),
+  searchConnectableItems: jest.fn().mockResolvedValue([
+    {
+      itemType: 'notebook',
+      itemId: 'n-1',
+      title: 'Target note',
+      snippet: 'Snippet'
+    }
+  ])
+}));
+
+const {
+  createConnection,
+  getConnectionsForItem,
+  searchConnectableItems
+} = require('../../api/connections');
+
+describe('ConnectionBuilder', () => {
+  beforeEach(() => {
+    createConnection.mockClear();
+    getConnectionsForItem.mockClear();
+    searchConnectableItems.mockClear();
+  });
+
+  it('creates a connection from selected search target', async () => {
+    render(<ConnectionBuilder itemType="highlight" itemId="h-1" />);
+
+    fireEvent.click(screen.getByText('Connect'));
+    await waitFor(() => {
+      expect(getConnectionsForItem).toHaveBeenCalledWith({ itemType: 'highlight', itemId: 'h-1' });
+    });
+
+    fireEvent.change(screen.getByPlaceholderText('Search notes/highlights'), {
+      target: { value: 'target' }
+    });
+
+    await waitFor(() => {
+      expect(searchConnectableItems).toHaveBeenCalled();
+    });
+
+    fireEvent.click(screen.getByText('Target note'));
+    fireEvent.change(screen.getByDisplayValue('Related'), {
+      target: { value: 'supports' }
+    });
+    fireEvent.click(screen.getByText('Save'));
+
+    await waitFor(() => {
+      expect(createConnection).toHaveBeenCalledWith({
+        fromType: 'highlight',
+        fromId: 'h-1',
+        toType: 'notebook',
+        toId: 'n-1',
+        relationType: 'supports'
+      });
+    });
+  });
+});

@@ -1,0 +1,221 @@
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { Button, QuietButton } from '../ui';
+import {
+  createConnection,
+  deleteConnection,
+  getConnectionsForItem,
+  searchConnectableItems
+} from '../../api/connections';
+
+const RELATION_TYPES = [
+  { value: 'supports', label: 'Supports' },
+  { value: 'contradicts', label: 'Contradicts' },
+  { value: 'extends', label: 'Extends' },
+  { value: 'related', label: 'Related' }
+];
+
+const formatSummary = (item) => {
+  if (!item) return '';
+  return item.snippet || item.title || '';
+};
+
+const ConnectionBuilder = ({ itemType, itemId }) => {
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+  const [connections, setConnections] = useState({ outgoing: [], incoming: [] });
+  const [query, setQuery] = useState('');
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchResults, setSearchResults] = useState([]);
+  const [selectedTarget, setSelectedTarget] = useState(null);
+  const [relationType, setRelationType] = useState('related');
+
+  const totalCount = (connections.outgoing?.length || 0) + (connections.incoming?.length || 0);
+
+  const loadConnections = useCallback(async () => {
+    if (!itemType || !itemId) return;
+    setLoading(true);
+    setError('');
+    try {
+      const data = await getConnectionsForItem({ itemType, itemId });
+      setConnections({
+        outgoing: Array.isArray(data?.outgoing) ? data.outgoing : [],
+        incoming: Array.isArray(data?.incoming) ? data.incoming : []
+      });
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to load connections.');
+    } finally {
+      setLoading(false);
+    }
+  }, [itemType, itemId]);
+
+  useEffect(() => {
+    if (!open) return;
+    loadConnections();
+  }, [open, loadConnections]);
+
+  useEffect(() => {
+    if (!open) return;
+    const trimmed = query.trim();
+    if (!trimmed) {
+      setSearchResults([]);
+      return;
+    }
+    let cancelled = false;
+    const timeoutId = setTimeout(async () => {
+      setSearchLoading(true);
+      try {
+        const items = await searchConnectableItems({
+          q: trimmed,
+          excludeType: itemType,
+          excludeId: itemId
+        });
+        if (!cancelled) setSearchResults(items);
+      } catch (err) {
+        if (!cancelled) {
+          setError(err.response?.data?.error || 'Failed to search items.');
+        }
+      } finally {
+        if (!cancelled) setSearchLoading(false);
+      }
+    }, 200);
+    return () => {
+      cancelled = true;
+      clearTimeout(timeoutId);
+    };
+  }, [query, itemType, itemId, open]);
+
+  const canCreate = useMemo(
+    () => Boolean(selectedTarget?.itemType && selectedTarget?.itemId && relationType),
+    [selectedTarget, relationType]
+  );
+
+  const handleCreate = async () => {
+    if (!canCreate) return;
+    setSaving(true);
+    setError('');
+    try {
+      const created = await createConnection({
+        fromType: itemType,
+        fromId: itemId,
+        toType: selectedTarget.itemType,
+        toId: selectedTarget.itemId,
+        relationType
+      });
+      setConnections(prev => ({
+        ...prev,
+        outgoing: [created, ...(prev.outgoing || [])]
+      }));
+      setSelectedTarget(null);
+      setQuery('');
+      setSearchResults([]);
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to create connection.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = async (connectionId, direction) => {
+    setError('');
+    try {
+      await deleteConnection(connectionId);
+      setConnections(prev => ({
+        ...prev,
+        [direction]: (prev[direction] || []).filter(row => String(row._id) !== String(connectionId))
+      }));
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to delete connection.');
+    }
+  };
+
+  if (!itemType || !itemId) return null;
+
+  return (
+    <div className="connection-builder">
+      <QuietButton onClick={() => setOpen(prev => !prev)}>
+        {open ? 'Close Connect' : `Connect${totalCount ? ` (${totalCount})` : ''}`}
+      </QuietButton>
+      {open && (
+        <div className="connection-builder-panel">
+          <div className="connection-builder-row">
+            <input
+              type="text"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Search notes/highlights"
+            />
+            <select value={relationType} onChange={(event) => setRelationType(event.target.value)}>
+              {RELATION_TYPES.map(option => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
+            </select>
+            <Button onClick={handleCreate} disabled={!canCreate || saving}>
+              {saving ? 'Saving...' : 'Save'}
+            </Button>
+          </div>
+
+          {searchLoading && <p className="muted small">Searching...</p>}
+          {!searchLoading && searchResults.length > 0 && (
+            <div className="connection-search-results">
+              {searchResults.map(result => (
+                <button
+                  type="button"
+                  key={`${result.itemType}-${result.itemId}`}
+                  className={`connection-search-result ${selectedTarget?.itemId === result.itemId && selectedTarget?.itemType === result.itemType ? 'is-active' : ''}`}
+                  onClick={() => setSelectedTarget(result)}
+                >
+                  <div className="connection-search-title">{result.title || `${result.itemType} item`}</div>
+                  <div className="connection-search-meta">{result.itemType} · {formatSummary(result)}</div>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {error && <p className="status-message error-message">{error}</p>}
+          {loading && <p className="muted small">Loading connections...</p>}
+
+          {!loading && (
+            <div className="connection-lists">
+              <div className="connection-list-block">
+                <div className="connection-list-title">Outgoing</div>
+                {(connections.outgoing || []).length === 0 ? (
+                  <p className="muted small">None</p>
+                ) : (
+                  (connections.outgoing || []).map(row => (
+                    <div key={row._id} className="connection-row">
+                      <div className="connection-row-main">
+                        <div className="connection-row-relation">{row.relationType}</div>
+                        <div className="connection-row-text">{row.target?.title || row.toType}</div>
+                      </div>
+                      <QuietButton onClick={() => handleDelete(row._id, 'outgoing')}>Remove</QuietButton>
+                    </div>
+                  ))
+                )}
+              </div>
+              <div className="connection-list-block">
+                <div className="connection-list-title">Incoming</div>
+                {(connections.incoming || []).length === 0 ? (
+                  <p className="muted small">None</p>
+                ) : (
+                  (connections.incoming || []).map(row => (
+                    <div key={row._id} className="connection-row">
+                      <div className="connection-row-main">
+                        <div className="connection-row-relation">{row.relationType}</div>
+                        <div className="connection-row-text">{row.source?.title || row.fromType}</div>
+                      </div>
+                      <QuietButton onClick={() => handleDelete(row._id, 'incoming')}>Remove</QuietButton>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default ConnectionBuilder;

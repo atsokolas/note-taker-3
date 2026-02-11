@@ -299,6 +299,24 @@ returnQueueEntrySchema.index({ userId: 1, itemType: 1, itemId: 1, status: 1 });
 
 const ReturnQueueEntry = mongoose.model('ReturnQueueEntry', returnQueueEntrySchema);
 
+const connectionSchema = new mongoose.Schema({
+  fromType: { type: String, required: true, trim: true },
+  fromId: { type: String, required: true, trim: true },
+  toType: { type: String, required: true, trim: true },
+  toId: { type: String, required: true, trim: true },
+  relationType: { type: String, required: true, trim: true },
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }
+}, { timestamps: true });
+
+connectionSchema.index(
+  { userId: 1, fromType: 1, fromId: 1, toType: 1, toId: 1, relationType: 1 },
+  { unique: true }
+);
+connectionSchema.index({ userId: 1, fromType: 1, fromId: 1, createdAt: -1 });
+connectionSchema.index({ userId: 1, toType: 1, toId: 1, createdAt: -1 });
+
+const Connection = mongoose.model('Connection', connectionSchema);
+
 // Brain summaries (AI-generated, cached)
 const brainSummarySchema = new mongoose.Schema({
   timeRange: { type: String, required: true },
@@ -518,6 +536,28 @@ const resolveReturnQueueItem = async (userId, itemType, itemId) => {
     };
   }
   return null;
+};
+
+const CONNECTION_RELATION_TYPES = new Set(['supports', 'contradicts', 'extends', 'related']);
+const CONNECTION_ITEM_TYPES = new Set(['highlight', 'notebook']);
+
+const normalizeConnectionItemType = (value) => {
+  const candidate = String(value || '').trim().toLowerCase();
+  if (candidate === 'note') return 'notebook';
+  if (CONNECTION_ITEM_TYPES.has(candidate)) return candidate;
+  return '';
+};
+
+const normalizeRelationType = (value) => {
+  const candidate = String(value || '').trim().toLowerCase();
+  if (CONNECTION_RELATION_TYPES.has(candidate)) return candidate;
+  return '';
+};
+
+const resolveConnectionItem = async (userId, itemType, itemId) => {
+  const normalizedType = normalizeConnectionItemType(itemType);
+  if (!normalizedType) return null;
+  return resolveReturnQueueItem(userId, normalizedType, itemId);
 };
 // Saved Views (Smart Folders)
 const savedViewSchema = new mongoose.Schema({
@@ -2141,6 +2181,205 @@ app.patch(['/api/return-queue/:id', '/return-queue/:id'], authenticateToken, asy
   } catch (error) {
     console.error('❌ Error updating return queue entry:', error);
     res.status(500).json({ error: 'Failed to update return queue entry.' });
+  }
+});
+
+// --- CONNECTIONS (notes/highlights) ---
+app.post('/api/connections', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const {
+      fromType = '',
+      fromId = '',
+      toType = '',
+      toId = '',
+      relationType = ''
+    } = req.body || {};
+
+    const safeFromType = normalizeConnectionItemType(fromType);
+    const safeToType = normalizeConnectionItemType(toType);
+    const safeFromId = String(fromId || '').trim();
+    const safeToId = String(toId || '').trim();
+    const safeRelationType = normalizeRelationType(relationType);
+
+    if (!safeFromType || !safeToType || !safeFromId || !safeToId || !safeRelationType) {
+      return res.status(400).json({
+        error: 'fromType, fromId, toType, toId, relationType are required.'
+      });
+    }
+    if (safeFromType === safeToType && safeFromId === safeToId) {
+      return res.status(400).json({ error: 'Cannot connect an item to itself.' });
+    }
+
+    const [fromItem, toItem] = await Promise.all([
+      resolveConnectionItem(userId, safeFromType, safeFromId),
+      resolveConnectionItem(userId, safeToType, safeToId)
+    ]);
+    if (!fromItem || !toItem) {
+      return res.status(404).json({ error: 'One or both items were not found for this user.' });
+    }
+
+    const existing = await Connection.findOne({
+      userId,
+      fromType: safeFromType,
+      fromId: safeFromId,
+      toType: safeToType,
+      toId: safeToId,
+      relationType: safeRelationType
+    }).lean();
+    if (existing) {
+      return res.status(409).json({ error: 'Connection already exists.' });
+    }
+
+    const created = await Connection.create({
+      fromType: safeFromType,
+      fromId: safeFromId,
+      toType: safeToType,
+      toId: safeToId,
+      relationType: safeRelationType,
+      userId
+    });
+
+    res.status(201).json({
+      ...created.toObject(),
+      fromItem,
+      toItem
+    });
+  } catch (error) {
+    if (error?.code === 11000) {
+      return res.status(409).json({ error: 'Connection already exists.' });
+    }
+    console.error('❌ Error creating connection:', error);
+    res.status(500).json({ error: 'Failed to create connection.' });
+  }
+});
+
+app.get('/api/connections', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const safeItemType = normalizeConnectionItemType(req.query.itemType);
+    const safeItemId = String(req.query.itemId || '').trim();
+    if (!safeItemType || !safeItemId) {
+      return res.status(400).json({ error: 'itemType and itemId are required.' });
+    }
+
+    const item = await resolveConnectionItem(userId, safeItemType, safeItemId);
+    if (!item) {
+      return res.status(404).json({ error: 'Item not found for this user.' });
+    }
+
+    const [outgoingRows, incomingRows] = await Promise.all([
+      Connection.find({ userId, fromType: safeItemType, fromId: safeItemId })
+        .sort({ createdAt: -1 })
+        .lean(),
+      Connection.find({ userId, toType: safeItemType, toId: safeItemId })
+        .sort({ createdAt: -1 })
+        .lean()
+    ]);
+
+    const outgoing = await Promise.all(outgoingRows.map(async (row) => ({
+      ...row,
+      target: await resolveConnectionItem(userId, row.toType, row.toId)
+    })));
+    const incoming = await Promise.all(incomingRows.map(async (row) => ({
+      ...row,
+      source: await resolveConnectionItem(userId, row.fromType, row.fromId)
+    })));
+
+    res.status(200).json({
+      item,
+      outgoing: outgoing.filter(row => row.target),
+      incoming: incoming.filter(row => row.source)
+    });
+  } catch (error) {
+    console.error('❌ Error listing connections:', error);
+    res.status(500).json({ error: 'Failed to list connections.' });
+  }
+});
+
+app.get('/api/connections/search', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const q = String(req.query.q || '').trim();
+    const excludeType = normalizeConnectionItemType(req.query.excludeType);
+    const excludeId = String(req.query.excludeId || '').trim();
+    const limit = Math.max(1, Math.min(40, Number(req.query.limit) || 15));
+    const escapeRegExp = (value = '') => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = q ? new RegExp(escapeRegExp(q), 'i') : null;
+
+    const [notebooks, highlights] = await Promise.all([
+      NotebookEntry.find({
+        userId,
+        ...(regex ? { $or: [{ title: regex }, { content: regex }] } : {})
+      })
+        .select('title content updatedAt')
+        .sort({ updatedAt: -1 })
+        .limit(limit)
+        .lean(),
+      Article.aggregate([
+        { $match: { userId: new mongoose.Types.ObjectId(userId) } },
+        { $unwind: '$highlights' },
+        ...(regex ? [{
+          $match: {
+            $or: [
+              { title: regex },
+              { 'highlights.text': regex },
+              { 'highlights.note': regex }
+            ]
+          }
+        }] : []),
+        { $sort: { 'highlights.createdAt': -1 } },
+        { $limit: limit },
+        {
+          $project: {
+            _id: '$highlights._id',
+            articleId: '$_id',
+            articleTitle: '$title',
+            text: '$highlights.text',
+            note: '$highlights.note'
+          }
+        }
+      ])
+    ]);
+
+    const notebookItems = notebooks.map(entry => ({
+      itemType: 'notebook',
+      itemId: String(entry._id),
+      title: entry.title || 'Notebook entry',
+      snippet: buildQueueSnippet(entry.content, entry.title),
+      updatedAt: entry.updatedAt
+    }));
+    const highlightItems = highlights.map(highlight => ({
+      itemType: 'highlight',
+      itemId: String(highlight._id),
+      title: highlight.articleTitle || 'Highlight',
+      snippet: buildQueueSnippet(highlight.text, highlight.note),
+      updatedAt: null
+    }));
+
+    const results = [...notebookItems, ...highlightItems]
+      .filter(item => !(item.itemType === excludeType && item.itemId === excludeId))
+      .slice(0, limit);
+
+    res.status(200).json(results);
+  } catch (error) {
+    console.error('❌ Error searching connectable items:', error);
+    res.status(500).json({ error: 'Failed to search items.' });
+  }
+});
+
+app.delete('/api/connections/:id', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { id } = req.params;
+    const deleted = await Connection.findOneAndDelete({ _id: id, userId });
+    if (!deleted) {
+      return res.status(404).json({ error: 'Connection not found.' });
+    }
+    res.status(200).json({ message: 'Connection deleted.' });
+  } catch (error) {
+    console.error('❌ Error deleting connection:', error);
+    res.status(500).json({ error: 'Failed to delete connection.' });
   }
 });
 

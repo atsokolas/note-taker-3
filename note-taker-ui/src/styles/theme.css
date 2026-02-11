@@ -957,6 +957,117 @@ p {
   gap: 8px;
 }
 
+.connection-builder {
+  position: relative;
+}
+
+.connection-builder-panel {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  width: 320px;
+  z-index: 16;
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  background: var(--surface);
+  padding: 10px;
+  box-shadow: var(--shadow-subtle);
+  display: grid;
+  gap: 8px;
+}
+
+.connection-builder-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 8px;
+}
+
+.connection-builder-row input,
+.connection-builder-row select {
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  padding: 8px 10px;
+  background: var(--surface);
+  color: var(--text);
+}
+
+.connection-search-results {
+  display: grid;
+  gap: 6px;
+  max-height: 170px;
+  overflow-y: auto;
+}
+
+.connection-search-result {
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  background: var(--surface);
+  text-align: left;
+  cursor: pointer;
+  padding: 8px;
+}
+
+.connection-search-result.is-active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.connection-search-title {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.connection-search-meta {
+  font-size: 0.8rem;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+.connection-lists {
+  display: grid;
+  gap: 8px;
+}
+
+.connection-list-block {
+  border-top: 1px solid var(--border-subtle);
+  padding-top: 8px;
+  display: grid;
+  gap: 6px;
+}
+
+.connection-list-title {
+  font-size: 0.76rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.connection-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.connection-row-main {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.connection-row-relation {
+  font-size: 0.78rem;
+  text-transform: capitalize;
+  color: var(--muted);
+}
+
+.connection-row-text {
+  font-size: 0.9rem;
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
 .return-queue-toolbar {
   display: flex;
   justify-content: flex-end;
