@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Button, QuietButton } from '../ui';
 import HighlightBlock from './HighlightBlock';
 import {
@@ -13,6 +13,27 @@ const ITEM_TYPES = [
   { value: 'evidence', label: 'Evidence' }
 ];
 
+const summarize = (text, max = 170) => {
+  const raw = String(text || '');
+  const firstLine = raw.split('\n').find(line => line.trim()) || '';
+  const clean = firstLine.replace(/\s+/g, ' ').trim();
+  if (!clean) return 'No text';
+  if (clean.length <= max) return clean;
+  return `${clean.slice(0, max).trim()}…`;
+};
+
+const formatTypeLabel = (value = 'note') => {
+  const normalized = String(value || 'note').toLowerCase();
+  if (normalized === 'claim') return 'Claim';
+  if (normalized === 'evidence') return 'Evidence';
+  return 'Note';
+};
+
+const formatDateLabel = (value) => {
+  if (!value) return '';
+  return new Date(value).toLocaleDateString();
+};
+
 const HighlightCard = ({
   highlight,
   compact = false,
@@ -20,9 +41,13 @@ const HighlightCard = ({
   onAddConcept,
   onAddQuestion,
   organizable = false,
-  onOrganized
+  onOrganized,
+  onDumpToWorkingMemory,
+  forceExpandedState,
+  forceExpandedVersion = 0
 }) => {
   const highlightId = highlight?._id || highlight?.id;
+  const [expanded, setExpanded] = useState(false);
   const [organizeOpen, setOrganizeOpen] = useState(false);
   const [itemType, setItemType] = useState(highlight?.type || 'note');
   const [itemTags, setItemTags] = useState(highlight?.tags || []);
@@ -36,15 +61,35 @@ const HighlightCard = ({
   const [claimEvidenceLoading, setClaimEvidenceLoading] = useState(false);
   const [organizeSaving, setOrganizeSaving] = useState(false);
   const [organizeError, setOrganizeError] = useState('');
+  const [queueSaving, setQueueSaving] = useState(false);
+
+  const tagSummary = useMemo(() => {
+    const tags = Array.isArray(itemTags) ? itemTags : [];
+    return {
+      visible: tags.slice(0, 2),
+      hiddenCount: Math.max(0, tags.length - 2)
+    };
+  }, [itemTags]);
 
   useEffect(() => {
+    setExpanded(false);
     setItemType(highlight?.type || 'note');
     setItemTags(Array.isArray(highlight?.tags) ? highlight.tags : []);
     setClaimId(highlight?.claimId ? String(highlight.claimId) : '');
+    setOrganizeOpen(false);
     setOrganizeError('');
     setClaimEvidenceOpen(false);
     setClaimEvidenceItems([]);
   }, [highlight?._id, highlight?.type, highlight?.claimId, highlight?.tags]);
+
+  useEffect(() => {
+    if (typeof forceExpandedState === 'boolean') {
+      setExpanded(forceExpandedState);
+      if (!forceExpandedState) {
+        setOrganizeOpen(false);
+      }
+    }
+  }, [forceExpandedState, forceExpandedVersion]);
 
   useEffect(() => {
     let cancelled = false;
@@ -137,133 +182,198 @@ const HighlightCard = ({
     }
   };
 
+  const queueForReturn = async () => {
+    if (!highlightId) return;
+    setQueueSaving(true);
+    setOrganizeError('');
+    try {
+      const nextTags = itemTags.some(tag => tag.toLowerCase() === 'return-queue')
+        ? itemTags
+        : [...itemTags, 'return-queue'];
+      const updated = await organizeHighlightItem(highlightId, {
+        type: itemType,
+        tags: nextTags,
+        claimId: itemType === 'evidence' ? (claimId || null) : null
+      });
+      setItemTags(updated?.tags || nextTags);
+      onOrganized?.(updated);
+    } catch (err) {
+      setOrganizeError(err.response?.data?.error || 'Failed to add to return queue.');
+    } finally {
+      setQueueSaving(false);
+    }
+  };
+
   return (
     <div className="highlight-card">
-      <HighlightBlock highlight={{ ...highlight, tags: itemTags }} compact={compact} />
-      {(onAddNotebook || onAddConcept || onAddQuestion || organizable) && (
-        <div className="highlight-card-actions">
-          {onAddNotebook && (
-            <QuietButton onClick={() => onAddNotebook(highlight)}>Add to Notebook</QuietButton>
-          )}
-          {onAddConcept && (
-            <QuietButton onClick={() => onAddConcept(highlight)}>Add to Concept</QuietButton>
-          )}
-          {onAddQuestion && (
-            <QuietButton onClick={() => onAddQuestion(highlight)}>Add to Question</QuietButton>
-          )}
-          {organizable && (
-            <QuietButton onClick={() => setOrganizeOpen(prev => !prev)}>
-              {organizeOpen ? 'Close Organize' : 'Organize'}
-            </QuietButton>
-          )}
+      <div className="highlight-card-collapsed">
+        <div className="highlight-card-collapsed-main">
+          <div className="highlight-card-collapsed-title">
+            {highlight?.articleTitle || 'Highlight'}
+          </div>
+          <div className="highlight-card-collapsed-text">
+            {summarize(highlight?.text)}
+          </div>
+          <div className="highlight-card-collapsed-meta">
+            <span className={`item-type-badge item-type-${String(itemType || 'note').toLowerCase()}`}>
+              {formatTypeLabel(itemType)}
+            </span>
+            {tagSummary.visible.map(tag => (
+              <span key={`${highlightId}-${tag}`} className="item-tag-summary">{tag}</span>
+            ))}
+            {tagSummary.hiddenCount > 0 && (
+              <span className="item-tag-summary">+{tagSummary.hiddenCount}</span>
+            )}
+            {highlight?.createdAt && (
+              <span className="item-timestamp">{formatDateLabel(highlight.createdAt)}</span>
+            )}
+          </div>
         </div>
-      )}
-      {organizable && organizeOpen && (
-        <div className="highlight-organize-panel">
-          <div className="highlight-organize-row">
-            <label htmlFor={`highlight-type-${highlightId}`} className="highlight-organize-label">Type</label>
-            <select
-              id={`highlight-type-${highlightId}`}
-              className="highlight-organize-select"
-              value={itemType}
-              onChange={(event) => {
-                const next = event.target.value;
-                setItemType(next);
-                if (next !== 'evidence') setClaimId('');
-              }}
-            >
-              {ITEM_TYPES.map(option => (
-                <option key={`${highlightId}-${option.value}`} value={option.value}>{option.label}</option>
-              ))}
-            </select>
+        <QuietButton onClick={() => setExpanded(prev => !prev)}>
+          {expanded ? 'Collapse' : 'Expand'}
+        </QuietButton>
+      </div>
+
+      {expanded && (
+        <div className="highlight-card-expanded">
+          <HighlightBlock highlight={{ ...highlight, tags: itemTags }} compact={compact} />
+          <div className="highlight-card-actions">
+            {organizable && (
+              <QuietButton onClick={() => setOrganizeOpen(prev => !prev)}>
+                {organizeOpen ? 'Close Edit/Tag/Link' : 'Edit / Tag / Link'}
+              </QuietButton>
+            )}
+            {onAddNotebook && (
+              <QuietButton onClick={() => onAddNotebook(highlight)}>Add to Notebook</QuietButton>
+            )}
+            {onAddConcept && (
+              <QuietButton onClick={() => onAddConcept(highlight)}>Add to Concept</QuietButton>
+            )}
+            {onAddQuestion && (
+              <QuietButton onClick={() => onAddQuestion(highlight)}>Add to Question</QuietButton>
+            )}
+            {highlight?.articleId && (
+              <QuietButton onClick={() => { window.location.href = `/articles/${highlight.articleId}`; }}>
+                Link to Source
+              </QuietButton>
+            )}
+            <QuietButton onClick={queueForReturn} disabled={queueSaving}>
+              {queueSaving ? 'Queueing…' : 'Return Queue'}
+            </QuietButton>
+            {onDumpToWorkingMemory && (
+              <QuietButton onClick={() => onDumpToWorkingMemory(highlight)}>
+                Dump to Working Memory
+              </QuietButton>
+            )}
           </div>
-          <div className="highlight-organize-row">
-            <span className="highlight-organize-label">Tags</span>
-            <div className="highlight-organize-tags">
-              {itemTags.map(tag => (
-                <button
-                  type="button"
-                  key={`${highlightId}-${tag}`}
-                  className="highlight-tag-chip-button"
-                  onClick={() => removeTag(tag)}
+          {organizable && organizeOpen && (
+            <div className="highlight-organize-panel">
+              <div className="highlight-organize-row">
+                <label htmlFor={`highlight-type-${highlightId}`} className="highlight-organize-label">Type</label>
+                <select
+                  id={`highlight-type-${highlightId}`}
+                  className="highlight-organize-select"
+                  value={itemType}
+                  onChange={(event) => {
+                    const next = event.target.value;
+                    setItemType(next);
+                    if (next !== 'evidence') setClaimId('');
+                  }}
                 >
-                  {tag} ×
-                </button>
-              ))}
-            </div>
-            <div className="highlight-organize-tag-input">
-              <input
-                type="text"
-                value={tagInput}
-                onChange={(event) => setTagInput(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter') {
-                    event.preventDefault();
-                    addTag();
-                  }
-                }}
-                placeholder="Add tag"
-              />
-              <QuietButton onClick={addTag}>Add tag</QuietButton>
-            </div>
-          </div>
-          {itemType === 'evidence' && (
-            <div className="highlight-organize-row">
-              <span className="highlight-organize-label">Link claim</span>
-              <input
-                type="text"
-                value={claimQuery}
-                onChange={(event) => setClaimQuery(event.target.value)}
-                placeholder="Search claim highlights"
-              />
-              <select
-                className="highlight-organize-select"
-                value={claimId}
-                onChange={(event) => setClaimId(event.target.value)}
-              >
-                <option value="">Select claim</option>
-                {claimOptions.map(option => (
-                  <option key={option._id} value={option._id}>
-                    {(option.text || 'Claim').slice(0, 60)}
-                  </option>
-                ))}
-              </select>
-              {claimOptionsLoading && <p className="muted small">Loading claim options…</p>}
-            </div>
-          )}
-          {itemType === 'claim' && (
-            <div className="highlight-organize-row">
-              <div className="highlight-organize-inline">
-                <span className="highlight-organize-label">Evidence</span>
-                <QuietButton onClick={() => setClaimEvidenceOpen(prev => !prev)}>
-                  {claimEvidenceOpen ? 'Hide' : 'Show'}
-                </QuietButton>
+                  {ITEM_TYPES.map(option => (
+                    <option key={`${highlightId}-${option.value}`} value={option.value}>{option.label}</option>
+                  ))}
+                </select>
               </div>
-              {highlight?.type !== 'claim' && (
-                <p className="muted small">Save this highlight as Claim to load linked evidence.</p>
-              )}
-              {highlight?.type === 'claim' && claimEvidenceOpen && (
-                <div className="highlight-organize-evidence-list">
-                  {claimEvidenceLoading && <p className="muted small">Loading evidence…</p>}
-                  {!claimEvidenceLoading && claimEvidenceItems.length === 0 && (
-                    <p className="muted small">No evidence linked yet.</p>
-                  )}
-                  {!claimEvidenceLoading && claimEvidenceItems.map(item => (
-                    <div key={item._id} className="highlight-organize-evidence-item">
-                      <div className="highlight-organize-evidence-text">{item.text || 'Evidence'}</div>
-                      <div className="muted small">{item.articleTitle || 'Article'}</div>
-                    </div>
+              <div className="highlight-organize-row">
+                <span className="highlight-organize-label">Tags</span>
+                <div className="highlight-organize-tags">
+                  {itemTags.map(tag => (
+                    <button
+                      type="button"
+                      key={`${highlightId}-${tag}`}
+                      className="highlight-tag-chip-button"
+                      onClick={() => removeTag(tag)}
+                    >
+                      {tag} ×
+                    </button>
                   ))}
                 </div>
+                <div className="highlight-organize-tag-input">
+                  <input
+                    type="text"
+                    value={tagInput}
+                    onChange={(event) => setTagInput(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter') {
+                        event.preventDefault();
+                        addTag();
+                      }
+                    }}
+                    placeholder="Add tag"
+                  />
+                  <QuietButton onClick={addTag}>Add tag</QuietButton>
+                </div>
+              </div>
+              {itemType === 'evidence' && (
+                <div className="highlight-organize-row">
+                  <span className="highlight-organize-label">Link claim</span>
+                  <input
+                    type="text"
+                    value={claimQuery}
+                    onChange={(event) => setClaimQuery(event.target.value)}
+                    placeholder="Search claim highlights"
+                  />
+                  <select
+                    className="highlight-organize-select"
+                    value={claimId}
+                    onChange={(event) => setClaimId(event.target.value)}
+                  >
+                    <option value="">Select claim</option>
+                    {claimOptions.map(option => (
+                      <option key={option._id} value={option._id}>
+                        {(option.text || 'Claim').slice(0, 60)}
+                      </option>
+                    ))}
+                  </select>
+                  {claimOptionsLoading && <p className="muted small">Loading claim options…</p>}
+                </div>
               )}
+              {itemType === 'claim' && (
+                <div className="highlight-organize-row">
+                  <div className="highlight-organize-inline">
+                    <span className="highlight-organize-label">Evidence</span>
+                    <QuietButton onClick={() => setClaimEvidenceOpen(prev => !prev)}>
+                      {claimEvidenceOpen ? 'Hide' : 'Show'}
+                    </QuietButton>
+                  </div>
+                  {highlight?.type !== 'claim' && (
+                    <p className="muted small">Save this highlight as Claim to load linked evidence.</p>
+                  )}
+                  {highlight?.type === 'claim' && claimEvidenceOpen && (
+                    <div className="highlight-organize-evidence-list">
+                      {claimEvidenceLoading && <p className="muted small">Loading evidence…</p>}
+                      {!claimEvidenceLoading && claimEvidenceItems.length === 0 && (
+                        <p className="muted small">No evidence linked yet.</p>
+                      )}
+                      {!claimEvidenceLoading && claimEvidenceItems.map(item => (
+                        <div key={item._id} className="highlight-organize-evidence-item">
+                          <div className="highlight-organize-evidence-text">{item.text || 'Evidence'}</div>
+                          <div className="muted small">{item.articleTitle || 'Article'}</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+              <div className="highlight-organize-actions">
+                <Button onClick={saveOrganize} disabled={organizeSaving}>
+                  {organizeSaving ? 'Saving…' : 'Save organization'}
+                </Button>
+              </div>
+              {organizeError && <p className="status-message error-message">{organizeError}</p>}
             </div>
           )}
-          <div className="highlight-organize-actions">
-            <Button onClick={saveOrganize} disabled={organizeSaving}>
-              {organizeSaving ? 'Saving…' : 'Save organization'}
-            </Button>
-          </div>
-          {organizeError && <p className="status-message error-message">{organizeError}</p>}
         </div>
       )}
     </div>

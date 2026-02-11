@@ -24,12 +24,21 @@ const createId = () => {
  *  view?: 'concept' | 'article' | 'untagged'
  * }} props
  */
-const LibraryHighlights = ({ folderOptions, articleOptions, externalQuery = '', onQueryChange, view = 'concept' }) => {
+const LibraryHighlights = ({
+  folderOptions,
+  articleOptions,
+  externalQuery = '',
+  onQueryChange,
+  view = 'concept',
+  onDumpHighlight
+}) => {
   const [folderId, setFolderId] = useState('');
   const [tag, setTag] = useState('');
   const [articleId, setArticleId] = useState('');
   const [query, setQuery] = useState(externalQuery || '');
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [cardsExpanded, setCardsExpanded] = useState(false);
+  const [cardsExpandVersion, setCardsExpandVersion] = useState(0);
   const [conceptModal, setConceptModal] = useState({ open: false, highlight: null });
   const [notebookModal, setNotebookModal] = useState({ open: false, highlight: null });
   const [questionModal, setQuestionModal] = useState({ open: false, highlight: null });
@@ -163,9 +172,23 @@ const LibraryHighlights = ({ folderOptions, articleOptions, externalQuery = '', 
     setNotebookModal({ open: false, highlight: null });
   };
 
+  const handleToggleExpandAll = () => {
+    const next = !cardsExpanded;
+    setCardsExpanded(next);
+    setCardsExpandVersion(prev => prev + 1);
+  };
+
   return (
     <div className="section-stack">
-      <SectionHeader title="Highlights" subtitle="Thumb through and send them forward." />
+      <SectionHeader
+        title="Highlights"
+        subtitle="Thumb through and send them forward."
+        action={(
+          <QuietButton onClick={handleToggleExpandAll}>
+            {cardsExpanded ? 'Collapse all' : 'Expand all'}
+          </QuietButton>
+        )}
+      />
       <div className="library-highlight-filters">
         <select value={folderId} onChange={(event) => setFolderId(event.target.value)}>
           <option value="">All folders</option>
@@ -215,6 +238,9 @@ const LibraryHighlights = ({ folderOptions, articleOptions, externalQuery = '', 
                   highlight={highlight}
                   compact
                   organizable
+                  forceExpandedState={cardsExpanded}
+                  forceExpandedVersion={cardsExpandVersion}
+                  onDumpToWorkingMemory={onDumpHighlight}
                   onAddConcept={(h) => setConceptModal({ open: true, highlight: h })}
                   onAddNotebook={(h) => setNotebookModal({ open: true, highlight: h })}
                   onAddQuestion={(h) => setQuestionModal({ open: true, highlight: h })}
@@ -240,6 +266,9 @@ const LibraryHighlights = ({ folderOptions, articleOptions, externalQuery = '', 
               highlight={highlight}
               compact
               organizable
+              forceExpandedState={cardsExpanded}
+              forceExpandedVersion={cardsExpandVersion}
+              onDumpToWorkingMemory={onDumpHighlight}
               onAddConcept={(h) => setConceptModal({ open: true, highlight: h })}
               onAddNotebook={(h) => setNotebookModal({ open: true, highlight: h })}
               onAddQuestion={(h) => setQuestionModal({ open: true, highlight: h })}

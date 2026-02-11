@@ -749,10 +749,157 @@ p {
 
 .highlight-card {
   display: grid;
-  gap: 8px;
+  gap: 10px;
+  border: 1px solid var(--border-subtle-2);
+  border-radius: 12px;
+  background: var(--surface);
+  padding: 12px;
+}
+
+.highlight-card-collapsed {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.highlight-card-collapsed-main {
+  min-width: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.highlight-card-collapsed-title {
+  font-size: 0.82rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.highlight-card-collapsed-text {
+  font-family: var(--font-serif);
+  line-height: 1.65;
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
+.highlight-card-collapsed-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.highlight-card-expanded {
+  display: grid;
+  gap: 10px;
 }
 
 .highlight-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.item-type-badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 2px 10px;
+  border: 1px solid var(--border-subtle-2);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  background: var(--surface-muted);
+}
+
+.item-type-claim {
+  border-color: #b7d3ff;
+  background: #edf4ff;
+  color: #2558a9;
+}
+
+.item-type-evidence {
+  border-color: #bde3d0;
+  background: #eef9f2;
+  color: #2b6a49;
+}
+
+.item-type-note {
+  border-color: var(--border-subtle-2);
+  background: var(--surface-muted);
+  color: var(--text-secondary);
+}
+
+.item-tag-summary {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-size: 0.75rem;
+  color: var(--muted);
+  background: var(--surface-muted);
+  border: 1px solid var(--border-subtle-2);
+}
+
+.item-timestamp {
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.note-card {
+  display: grid;
+  gap: 10px;
+  border: 1px solid var(--border-subtle-2);
+  border-radius: 12px;
+  background: var(--surface);
+  padding: 12px;
+}
+
+.note-card-collapsed {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.note-card-collapsed-main {
+  min-width: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.note-card-collapsed-title {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.note-card-collapsed-text {
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+.note-card-collapsed-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.note-card-expanded {
+  display: grid;
+  gap: 10px;
+}
+
+.note-card-body {
+  line-height: 1.75;
+  color: var(--text);
+}
+
+.note-card-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;

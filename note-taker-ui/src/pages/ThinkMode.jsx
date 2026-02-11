@@ -14,6 +14,7 @@ import { createQuestion, updateQuestion } from '../api/questions';
 import QuestionInput from '../components/think/questions/QuestionInput';
 import QuestionList from '../components/think/questions/QuestionList';
 import HighlightCard from '../components/blocks/HighlightCard';
+import NoteCard from '../components/blocks/NoteCard';
 import AddToConceptModal from '../components/think/concepts/AddToConceptModal';
 import QuestionEditor from '../components/think/questions/QuestionEditor';
 import ThreePaneLayout from '../layout/ThreePaneLayout';
@@ -130,6 +131,8 @@ const ThinkMode = () => {
   const [workingMemoryItems, setWorkingMemoryItems] = useState([]);
   const [workingMemoryLoading, setWorkingMemoryLoading] = useState(false);
   const [workingMemoryError, setWorkingMemoryError] = useState('');
+  const [cardsExpanded, setCardsExpanded] = useState(false);
+  const [cardsExpandVersion, setCardsExpandVersion] = useState(0);
   const [rightOpen, setRightOpen] = useState(() => {
     const stored = localStorage.getItem(THINK_RIGHT_STORAGE_KEY);
     if (stored === null) return true;
@@ -1199,6 +1202,9 @@ const ThinkMode = () => {
                           }}
                           compact
                           organizable
+                          forceExpandedState={cardsExpanded}
+                          forceExpandedVersion={cardsExpandVersion}
+                          onDumpToWorkingMemory={(item) => handleDumpToWorkingMemory(item?.text || '')}
                           onAddNotebook={(item) => setHighlightNotebookModal({ open: true, highlight: item })}
                           onAddConcept={(item) => setHighlightConceptModal({ open: true, highlight: item })}
                           onAddQuestion={(item) => setHighlightQuestionModal({ open: true, highlight: item })}
@@ -1241,6 +1247,9 @@ const ThinkMode = () => {
                             }}
                             compact
                             organizable
+                            forceExpandedState={cardsExpanded}
+                            forceExpandedVersion={cardsExpandVersion}
+                            onDumpToWorkingMemory={(item) => handleDumpToWorkingMemory(item?.text || '')}
                             onAddNotebook={(item) => setHighlightNotebookModal({ open: true, highlight: item })}
                             onAddConcept={(item) => setHighlightConceptModal({ open: true, highlight: item })}
                             onAddQuestion={(item) => setHighlightQuestionModal({ open: true, highlight: item })}
@@ -1259,6 +1268,11 @@ const ThinkMode = () => {
       )}
     </div>
   );
+
+  const openNotebookEntry = useCallback((entryId) => {
+    if (!entryId) return;
+    window.location.href = `/think?tab=notebook&entryId=${entryId}`;
+  }, []);
 
   const mainPanel = activeView === 'notebook' ? (
     <div className="think-notebook-editor-pane">
@@ -1356,6 +1370,9 @@ const ThinkMode = () => {
                   highlight={h}
                   compact
                   organizable
+                  forceExpandedState={cardsExpanded}
+                  forceExpandedVersion={cardsExpandVersion}
+                  onDumpToWorkingMemory={(item) => handleDumpToWorkingMemory(item?.text || '')}
                   onAddNotebook={(item) => setHighlightNotebookModal({ open: true, highlight: item })}
                   onAddConcept={(item) => setHighlightConceptModal({ open: true, highlight: item })}
                   onAddQuestion={(item) => setHighlightQuestionModal({ open: true, highlight: item })}
@@ -1386,6 +1403,9 @@ const ThinkMode = () => {
                       }}
                       compact
                       organizable
+                      forceExpandedState={cardsExpanded}
+                      forceExpandedVersion={cardsExpandVersion}
+                      onDumpToWorkingMemory={(highlight) => handleDumpToWorkingMemory(highlight?.text || '')}
                       onAddNotebook={(highlight) => setHighlightNotebookModal({ open: true, highlight })}
                       onAddConcept={(highlight) => setHighlightConceptModal({ open: true, highlight })}
                       onAddQuestion={(highlight) => setHighlightQuestionModal({ open: true, highlight })}
@@ -1408,6 +1428,9 @@ const ThinkMode = () => {
                   highlight={h}
                   compact
                   organizable
+                  forceExpandedState={cardsExpanded}
+                  forceExpandedVersion={cardsExpandVersion}
+                  onDumpToWorkingMemory={(item) => handleDumpToWorkingMemory(item?.text || '')}
                   onAddNotebook={(item) => setHighlightNotebookModal({ open: true, highlight: item })}
                   onAddConcept={(item) => setHighlightConceptModal({ open: true, highlight: item })}
                   onAddQuestion={(item) => setHighlightQuestionModal({ open: true, highlight: item })}
@@ -1433,28 +1456,50 @@ const ThinkMode = () => {
           )}
           <div className="concept-note-grid">
             {related.notes.map((note, idx) => (
-              <div key={`${note.notebookEntryId}-${idx}`} className="concept-note-card">
-                <div className="concept-note-title">{note.notebookTitle || 'Untitled note'}</div>
-                <p className="muted small">{note.blockPreviewText || 'No preview available.'}</p>
-                <div className="concept-note-actions">
-                  <QuietButton onClick={() => togglePinNote(note.notebookEntryId)}>
-                    {(concept.pinnedNoteIds || []).some(id => String(id) === String(note.notebookEntryId))
-                      ? 'Unpin'
-                      : 'Pin'}
-                  </QuietButton>
-                <Link to={`/think?tab=notebook&entryId=${note.notebookEntryId}`} className="muted small">Open note</Link>
-                </div>
-              </div>
+              <NoteCard
+                key={`${note.notebookEntryId}-${idx}`}
+                id={note.notebookEntryId}
+                title={note.notebookTitle || 'Untitled note'}
+                bodyText={note.blockPreviewText || 'No preview available.'}
+                type="note"
+                tags={note.tags || []}
+                timestamp={note.updatedAt}
+                forceExpandedState={cardsExpanded}
+                forceExpandedVersion={cardsExpandVersion}
+                onOrganize={() => openNotebookEntry(note.notebookEntryId)}
+                onReturnQueue={() => handleQueueNotebookEntry(note.notebookEntryId, note.tags || [])}
+                onDumpToWorkingMemory={() => handleDumpToWorkingMemory(note.blockPreviewText || note.notebookTitle || 'Note')}
+              >
+                <QuietButton onClick={() => togglePinNote(note.notebookEntryId)}>
+                  {(concept.pinnedNoteIds || []).some(id => String(id) === String(note.notebookEntryId))
+                    ? 'Unpin'
+                    : 'Pin'}
+                </QuietButton>
+                <QuietButton onClick={() => openNotebookEntry(note.notebookEntryId)}>
+                  Open note
+                </QuietButton>
+              </NoteCard>
             ))}
             {pinnedNotes.map(note => (
-              <div key={note._id} className="concept-note-card pinned">
-                <div className="concept-note-title">{note.title || 'Untitled note'}</div>
-                <p className="muted small">{(note.content || '').slice(0, 120)}{(note.content || '').length > 120 ? '…' : ''}</p>
-                <div className="concept-note-actions">
-                  <QuietButton onClick={() => togglePinNote(note._id)}>Unpin</QuietButton>
-                <Link to={`/think?tab=notebook&entryId=${note._id}`} className="muted small">Open note</Link>
-                </div>
-              </div>
+              <NoteCard
+                key={note._id}
+                id={note._id}
+                title={note.title || 'Untitled note'}
+                bodyText={note.content || ''}
+                type={note.type || 'note'}
+                tags={note.tags || []}
+                timestamp={note.updatedAt || note.createdAt}
+                forceExpandedState={cardsExpanded}
+                forceExpandedVersion={cardsExpandVersion}
+                onOrganize={() => openNotebookEntry(note._id)}
+                onReturnQueue={() => handleQueueNotebookEntry(note._id, note.tags || [])}
+                onDumpToWorkingMemory={() => handleDumpToWorkingMemory(note.content || note.title || 'Note')}
+              >
+                <QuietButton onClick={() => togglePinNote(note._id)}>Unpin</QuietButton>
+                <QuietButton onClick={() => openNotebookEntry(note._id)}>
+                  Open note
+                </QuietButton>
+              </NoteCard>
             ))}
           </div>
 
@@ -1538,6 +1583,30 @@ const ThinkMode = () => {
     }
   };
 
+  const handleToggleExpandAllCards = () => {
+    const next = !cardsExpanded;
+    setCardsExpanded(next);
+    setCardsExpandVersion(prev => prev + 1);
+  };
+
+  const handleQueueNotebookEntry = async (entryId, currentTags = []) => {
+    if (!entryId) return;
+    const tags = Array.isArray(currentTags) ? currentTags : [];
+    const nextTags = tags.some(tag => String(tag).toLowerCase() === 'return-queue')
+      ? tags
+      : [...tags, 'return-queue'];
+    try {
+      const updated = await api.put(`/api/notebook/${entryId}`, { tags: nextTags }, getAuthHeaders());
+      const entry = updated.data;
+      setNotebookEntries(prev => prev.map(item => (item._id === entry._id ? { ...item, ...entry } : item)));
+      if (activeNotebookEntry && String(activeNotebookEntry._id) === String(entry._id)) {
+        setActiveNotebookEntry(entry);
+      }
+    } catch (err) {
+      setConceptError(err.response?.data?.error || 'Failed to add note to return queue.');
+    }
+  };
+
   const rightPanel = activeView === 'insights' ? (
     <div className="section-stack">
       <SectionHeader title="Context" subtitle="Insights stay read-only." />
@@ -1583,6 +1652,9 @@ const ThinkMode = () => {
               highlight={highlight}
               compact
               organizable
+              forceExpandedState={cardsExpanded}
+              forceExpandedVersion={cardsExpandVersion}
+              onDumpToWorkingMemory={(item) => handleDumpToWorkingMemory(item?.text || '')}
               onAddNotebook={(item) => setHighlightNotebookModal({ open: true, highlight: item })}
               onAddConcept={(item) => setHighlightConceptModal({ open: true, highlight: item })}
               onAddQuestion={(item) => setHighlightQuestionModal({ open: true, highlight: item })}
@@ -1631,6 +1703,9 @@ const ThinkMode = () => {
                       highlight={highlight}
                       compact
                       organizable
+                      forceExpandedState={cardsExpanded}
+                      forceExpandedVersion={cardsExpandVersion}
+                      onDumpToWorkingMemory={(item) => handleDumpToWorkingMemory(item?.text || '')}
                       onAddNotebook={(item) => setHighlightNotebookModal({ open: true, highlight: item })}
                       onAddConcept={(item) => setHighlightConceptModal({ open: true, highlight: item })}
                       onAddQuestion={(item) => setHighlightQuestionModal({ open: true, highlight: item })}
@@ -1797,6 +1872,9 @@ const ThinkMode = () => {
             </QuietButton>
             <QuietButton className="list-button" onClick={handleCreateNotebookEntry}>
               New note
+            </QuietButton>
+            <QuietButton className="list-button" onClick={handleToggleExpandAllCards}>
+              {cardsExpanded ? 'Collapse all' : 'Expand all'}
             </QuietButton>
             <QuietButton
               className={`list-button ${rightOpen ? 'is-active' : ''}`}

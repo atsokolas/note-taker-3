@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { SectionHeader, QuietButton, TagChip } from '../ui';
 import HighlightCard from '../blocks/HighlightCard';
@@ -20,8 +20,18 @@ const LibraryContext = ({
   onSelectHighlight,
   onAddConcept,
   onAddNotebook,
-  onAddQuestion
+  onAddQuestion,
+  onDumpToWorkingMemory
 }) => {
+  const [cardsExpanded, setCardsExpanded] = useState(false);
+  const [cardsExpandVersion, setCardsExpandVersion] = useState(0);
+
+  const handleToggleExpandAll = () => {
+    const next = !cardsExpanded;
+    setCardsExpanded(next);
+    setCardsExpandVersion(prev => prev + 1);
+  };
+
   if (!selectedArticleId) {
     return (
       <div className="section-stack">
@@ -32,7 +42,15 @@ const LibraryContext = ({
 
   return (
     <div className="section-stack">
-      <SectionHeader title="Highlights" subtitle="Grouped by concept." />
+      <SectionHeader
+        title="Highlights"
+        subtitle="Grouped by concept."
+        action={(
+          <QuietButton onClick={handleToggleExpandAll}>
+            {cardsExpanded ? 'Collapse all' : 'Expand all'}
+          </QuietButton>
+        )}
+      />
       {articleHighlights.length === 0 && !articleLoading && (
         <p className="muted small">No highlights saved for this article yet.</p>
       )}
@@ -60,6 +78,9 @@ const LibraryContext = ({
                   highlight={highlight}
                   compact
                   organizable
+                  forceExpandedState={cardsExpanded}
+                  forceExpandedVersion={cardsExpandVersion}
+                  onDumpToWorkingMemory={onDumpToWorkingMemory}
                   onAddNotebook={onAddNotebook}
                   onAddConcept={onAddConcept}
                   onAddQuestion={onAddQuestion}

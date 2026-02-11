@@ -638,6 +638,7 @@ const Library = () => {
         }
         setSearchParams(params);
       }}
+      onDumpHighlight={(highlight) => handleDumpToWorkingMemory(highlight?.text || '')}
     />
   );
 
@@ -671,6 +672,7 @@ const Library = () => {
         onAddConcept={(highlight) => setConceptModal({ open: true, highlight })}
         onAddNotebook={(highlight) => setNotebookModal({ open: true, highlight })}
         onAddQuestion={(highlight) => setQuestionModal({ open: true, highlight })}
+        onDumpToWorkingMemory={(highlight) => handleDumpToWorkingMemory(highlight?.text || '')}
       />
     </div>
   );

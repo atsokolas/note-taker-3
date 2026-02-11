@@ -24,7 +24,8 @@ const LibraryMain = ({
   articleOptions,
   externalQuery,
   highlightView,
-  onQueryChange
+  onQueryChange,
+  onDumpHighlight
 }) => {
   if (scope === 'highlights') {
     return (
@@ -34,6 +35,7 @@ const LibraryMain = ({
         externalQuery={externalQuery}
         view={highlightView}
         onQueryChange={onQueryChange}
+        onDumpHighlight={onDumpHighlight}
       />
     );
   }
