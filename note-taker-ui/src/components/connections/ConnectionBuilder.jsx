@@ -6,6 +6,7 @@ import {
   getConnectionsForItem,
   searchConnectableItems
 } from '../../api/connections';
+import { createConceptPath } from '../../api/conceptPaths';
 
 const RELATION_TYPES = [
   { value: 'supports', label: 'Supports' },
@@ -41,7 +42,7 @@ const formatItemTypeLabel = (value = '') => {
   return safe || 'Item';
 };
 
-const ConnectionBuilder = ({ itemType, itemId, scopeType = '', scopeId = '' }) => {
+const ConnectionBuilder = ({ itemType, itemId, scopeType = '', scopeId = '', itemTitle = '' }) => {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -53,6 +54,7 @@ const ConnectionBuilder = ({ itemType, itemId, scopeType = '', scopeId = '' }) =
   const [selectedTarget, setSelectedTarget] = useState(null);
   const [relationType, setRelationType] = useState('related');
   const [itemFilter, setItemFilter] = useState('all');
+  const [startingPath, setStartingPath] = useState(false);
 
   const totalCount = (connections.outgoing?.length || 0) + (connections.incoming?.length || 0);
   const scopePayload = useMemo(
@@ -179,6 +181,26 @@ const ConnectionBuilder = ({ itemType, itemId, scopeType = '', scopeId = '' }) =
     }
   };
 
+  const handleStartPath = async () => {
+    if (!itemType || !itemId) return;
+    setStartingPath(true);
+    setError('');
+    try {
+      const label = String(itemTitle || '').trim() || formatItemTypeLabel(itemType);
+      const created = await createConceptPath({
+        title: `Path: ${label.slice(0, 80)}`,
+        startItem: { type: itemType, id: itemId }
+      });
+      if (created?._id) {
+        window.location.href = `/think?tab=paths&pathId=${created._id}`;
+      }
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to start path.');
+    } finally {
+      setStartingPath(false);
+    }
+  };
+
   useEffect(() => {
     loadConnections();
   }, [loadConnections]);
@@ -213,6 +235,11 @@ const ConnectionBuilder = ({ itemType, itemId, scopeType = '', scopeId = '' }) =
           <div className="connection-builder-head">
             <div className="connection-builder-title">Create connection</div>
             {scopeLabel && <div className="connection-builder-scope">Scoped to {scopeLabel}</div>}
+          </div>
+          <div className="connection-builder-head-actions">
+            <QuietButton onClick={handleStartPath} disabled={startingPath}>
+              {startingPath ? 'Starting…' : 'Start a path'}
+            </QuietButton>
           </div>
           <div className="connection-explainer">
             <span><strong>Outgoing</strong> = this item points to other items.</span>

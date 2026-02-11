@@ -30,6 +30,7 @@ import SynthesisModal from '../components/think/SynthesisModal';
 import WorkingMemoryPanel from '../components/working-memory/WorkingMemoryPanel';
 import ReturnLaterControl from '../components/return-queue/ReturnLaterControl';
 import ConnectionBuilder from '../components/connections/ConnectionBuilder';
+import ConceptPathWorkspace from '../components/paths/ConceptPathWorkspace';
 import { getConnectionsForScope } from '../api/connections';
 import {
   listWorkingMemory,
@@ -64,13 +65,14 @@ const formatAiError = (err, fallback = 'Request failed.') => {
 const ThinkMode = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const queryConcept = searchParams.get('concept') || '';
-  const allowedViews = useMemo(() => ['notebook', 'concepts', 'questions', 'insights'], []);
+  const allowedViews = useMemo(() => ['notebook', 'concepts', 'questions', 'paths', 'insights'], []);
   const resolveActiveView = (params) => {
     const rawView = params.get('tab') || '';
     if (allowedViews.includes(rawView)) return rawView;
     return params.get('entryId') ? 'notebook' : 'concepts';
   };
   const [activeView, setActiveView] = useState(() => resolveActiveView(searchParams));
+  const selectedPathId = searchParams.get('pathId') || '';
   const [search, setSearch] = useState('');
   const [descriptionDraft, setDescriptionDraft] = useState('');
   const [savingDescription, setSavingDescription] = useState(false);
@@ -563,9 +565,24 @@ const ThinkMode = () => {
     if (view !== 'concepts') {
       params.delete('concept');
     }
+    if (view !== 'questions') {
+      params.delete('questionId');
+    }
+    if (view !== 'paths') {
+      params.delete('pathId');
+    }
     setActiveView(view);
     setSearchParams(params);
   };
+
+  const handleSelectPath = useCallback((pathId) => {
+    const params = new URLSearchParams(searchParams);
+    params.set('tab', 'paths');
+    if (pathId) params.set('pathId', pathId);
+    else params.delete('pathId');
+    setActiveView('paths');
+    setSearchParams(params, { replace: false });
+  }, [searchParams, setSearchParams]);
 
   const handleToggleRight = useCallback((nextOpen) => {
     setRightOpen(nextOpen);
@@ -1376,6 +1393,11 @@ const ThinkMode = () => {
         </div>
       )}
     </div>
+  ) : activeView === 'paths' ? (
+    <ConceptPathWorkspace
+      selectedPathId={selectedPathId}
+      onSelectPath={handleSelectPath}
+    />
   ) : activeView === 'insights' ? (
     <div className="section-stack">
       {insightsPanel}
@@ -1414,7 +1436,7 @@ const ThinkMode = () => {
             <Button variant="secondary" onClick={handleExportConcept}>
               Export markdown
             </Button>
-            <ConnectionBuilder itemType="concept" itemId={concept._id} />
+            <ConnectionBuilder itemType="concept" itemId={concept._id} itemTitle={concept.name} />
           </div>
           <SectionHeader title="Sharing" subtitle="Publish a read-only concept page." />
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -1975,6 +1997,12 @@ const ThinkMode = () => {
               onClick={() => handleSelectView('questions')}
             >
               Questions
+            </QuietButton>
+            <QuietButton
+              className={`list-button ${activeView === 'paths' ? 'is-active' : ''}`}
+              onClick={() => handleSelectView('paths')}
+            >
+              Paths
             </QuietButton>
             <QuietButton
               className={`list-button ${activeView === 'insights' ? 'is-active' : ''}`}

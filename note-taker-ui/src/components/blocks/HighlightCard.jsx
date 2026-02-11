@@ -246,6 +246,7 @@ const HighlightCard = ({
             <ConnectionBuilder
               itemType="highlight"
               itemId={highlightId}
+              itemTitle={highlight?.articleTitle || summarize(highlight?.text, 90)}
               scopeType={connectionScopeType}
               scopeId={connectionScopeId}
             />

@@ -102,6 +102,7 @@ const NoteCard = ({
             <ConnectionBuilder
               itemType={returnQueueItemType}
               itemId={returnQueueItemId || id}
+              itemTitle={title || summarize(bodyText, 90)}
               scopeType={connectionScopeType}
               scopeId={connectionScopeId}
             />

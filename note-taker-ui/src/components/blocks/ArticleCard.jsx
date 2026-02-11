@@ -72,6 +72,7 @@ const ArticleCard = ({
             <ConnectionBuilder
               itemType="article"
               itemId={articleId}
+              itemTitle={article?.title || 'Article'}
               scopeType={connectionScopeType}
               scopeId={connectionScopeId}
             />

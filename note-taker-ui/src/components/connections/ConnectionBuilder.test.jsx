@@ -24,6 +24,10 @@ jest.mock('../../api/connections', () => ({
   ])
 }));
 
+jest.mock('../../api/conceptPaths', () => ({
+  createConceptPath: jest.fn().mockResolvedValue({ _id: 'path-1' })
+}));
+
 const {
   createConnection,
   getConnectionsForItem,
