@@ -3,13 +3,34 @@ import Export from './Export';
 import api from '../api';
 import { Page, Card, Button } from '../components/ui';
 import { Link } from 'react-router-dom';
+import { ACCENT_OPTIONS } from '../settings/uiPreferences';
 
 const getAuthConfig = () => {
   const token = localStorage.getItem('token');
   return { headers: { Authorization: `Bearer ${token}` } };
 };
 
-const Settings = () => {
+const TYPOGRAPHY_OPTIONS = [
+  { value: 'small', label: 'Small' },
+  { value: 'default', label: 'Default' },
+  { value: 'large', label: 'Large' }
+];
+
+const DENSITY_OPTIONS = [
+  { value: 'comfortable', label: 'Comfortable' },
+  { value: 'compact', label: 'Compact' }
+];
+
+const THEME_OPTIONS = [
+  { value: 'light', label: 'Light' },
+  { value: 'dark', label: 'Dark' }
+];
+
+const Settings = ({
+  uiSettings = { typographyScale: 'default', density: 'comfortable', theme: 'light', accent: 'blue' },
+  uiSettingsSaving = false,
+  onUiSettingsChange = () => {}
+}) => {
   const [importStatus, setImportStatus] = useState('');
   const [importStats, setImportStats] = useState(null);
   const [importing, setImporting] = useState({ csv: false, md: false });
@@ -75,6 +96,81 @@ const Settings = () => {
         <h1>Settings</h1>
         <p className="muted">Export your data and keep your workspace organized.</p>
       </div>
+      <Card className="settings-card">
+        <div className="settings-appearance-header">
+          <div>
+            <h2>Workspace appearance</h2>
+            <p className="muted">Adjust typography scale, layout density, and color style.</p>
+          </div>
+          <p className="muted-label">{uiSettingsSaving ? 'Saving…' : 'Saved'}</p>
+        </div>
+
+        <div className="settings-option-group">
+          <p className="muted-label">Typography</p>
+          <div className="settings-option-row">
+            {TYPOGRAPHY_OPTIONS.map(option => (
+              <button
+                key={option.value}
+                type="button"
+                className={`settings-option-button${uiSettings.typographyScale === option.value ? ' is-active' : ''}`}
+                onClick={() => onUiSettingsChange({ typographyScale: option.value })}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="settings-option-group">
+          <p className="muted-label">Density</p>
+          <div className="settings-option-row">
+            {DENSITY_OPTIONS.map(option => (
+              <button
+                key={option.value}
+                type="button"
+                className={`settings-option-button${uiSettings.density === option.value ? ' is-active' : ''}`}
+                onClick={() => onUiSettingsChange({ density: option.value })}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="settings-option-group">
+          <p className="muted-label">Theme</p>
+          <div className="settings-option-row">
+            {THEME_OPTIONS.map(option => (
+              <button
+                key={option.value}
+                type="button"
+                className={`settings-option-button${uiSettings.theme === option.value ? ' is-active' : ''}`}
+                onClick={() => onUiSettingsChange({ theme: option.value })}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="settings-option-group">
+          <p className="muted-label">Accent color</p>
+          <div className="settings-option-row">
+            {ACCENT_OPTIONS.map(option => (
+              <button
+                key={option.value}
+                type="button"
+                className={`settings-option-button settings-accent-button${uiSettings.accent === option.value ? ' is-active' : ''}`}
+                onClick={() => onUiSettingsChange({ accent: option.value })}
+              >
+                <span className="settings-accent-swatch" style={{ background: option.color }} />
+                {option.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </Card>
+
       <Card className="settings-card">
         <h2>Onboarding</h2>
         <p className="muted">Need a refresher? Restart the onboarding guide.</p>

@@ -31,6 +31,13 @@ import HowToUse from './pages/HowToUse';
 import Integrations from './pages/Integrations';
 import CommandPalette from './components/CommandPalette';
 import OnboardingManager from './components/OnboardingManager';
+import { fetchUiSettings, saveUiSettings } from './api/uiSettings';
+import {
+  applyUiSettingsToRoot,
+  loadUiSettingsFromStorage,
+  normalizeUiSettings,
+  persistUiSettingsToStorage
+} from './settings/uiPreferences';
 import { Page, Card } from './components/ui';
 import AppShell from './layout/AppShell';
 import TopBar from './layout/TopBar';
@@ -45,6 +52,8 @@ function App() {
   const [isLoading, setIsLoading] = useState(true);
   const [articleListKey, setArticleListKey] = useState(0);
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [uiSettings, setUiSettings] = useState(() => loadUiSettingsFromStorage());
+  const [uiSettingsSaving, setUiSettingsSaving] = useState(false);
 
   // Your existing Chrome Store link
   const chromeStoreLink = "https://chromewebstore.google.com/detail/note-taker/bekllegjmjbnamphjnkifpijkhoiepaa?hl=en-US&utm_source=ext_sidebar";
@@ -56,6 +65,31 @@ function App() {
     }
     setIsLoading(false);
   }, []);
+
+  useEffect(() => {
+    const normalized = applyUiSettingsToRoot(document.documentElement, uiSettings);
+    persistUiSettingsToStorage(normalized);
+  }, [uiSettings]);
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    let cancelled = false;
+    const syncUiSettings = async () => {
+      try {
+        const remote = await fetchUiSettings();
+        if (cancelled) return;
+        const normalized = normalizeUiSettings(remote);
+        setUiSettings(normalized);
+        persistUiSettingsToStorage(normalized);
+      } catch (error) {
+        console.error('Failed to fetch UI settings:', error);
+      }
+    };
+    syncUiSettings();
+    return () => {
+      cancelled = true;
+    };
+  }, [isAuthenticated]);
 
   const refreshArticleList = () => {
     setArticleListKey(prevKey => prevKey + 1);
@@ -70,6 +104,23 @@ function App() {
 
   const handleLoginSuccess = () => {
     setIsAuthenticated(true);
+  };
+
+  const handleUiSettingsChange = async (updates) => {
+    const optimistic = normalizeUiSettings({ ...uiSettings, ...updates });
+    setUiSettings(optimistic);
+    if (!isAuthenticated) return;
+    setUiSettingsSaving(true);
+    try {
+      const saved = await saveUiSettings(optimistic);
+      const normalized = normalizeUiSettings(saved);
+      setUiSettings(normalized);
+      persistUiSettingsToStorage(normalized);
+    } catch (error) {
+      console.error('Failed to save UI settings:', error);
+    } finally {
+      setUiSettingsSaving(false);
+    }
   };
 
   // Global keyboard shortcuts and palette
@@ -153,7 +204,16 @@ function App() {
           <Route path="/map" element={<MapView />} />
           <Route path="/return-queue" element={<ReturnQueue />} />
           <Route path="/review" element={<ReviewMode />} />
-          <Route path="/settings" element={<Settings />} />
+          <Route
+            path="/settings"
+            element={(
+              <Settings
+                uiSettings={uiSettings}
+                uiSettingsSaving={uiSettingsSaving}
+                onUiSettingsChange={handleUiSettingsChange}
+              />
+            )}
+          />
           <Route path="/how-to-use" element={<HowToUse />} />
           <Route path="/integrations" element={<Integrations />} />
 

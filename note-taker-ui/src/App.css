@@ -1,5 +1,22 @@
 /* Variables for consistent theming */
 :root {
+  --ui-font-size-base: 16px;
+  --ui-line-height-base: 1.6;
+  --ui-density-scale: 1;
+  --ui-card-padding: 24px;
+  --ui-accent: #0b74ff;
+  --ui-accent-soft: rgba(11, 116, 255, 0.14);
+
+  --space-1: calc(4px * var(--ui-density-scale));
+  --space-2: calc(8px * var(--ui-density-scale));
+  --space-3: calc(12px * var(--ui-density-scale));
+  --space-4: calc(16px * var(--ui-density-scale));
+  --space-5: calc(24px * var(--ui-density-scale));
+  --space-6: calc(32px * var(--ui-density-scale));
+
+  --accent: var(--ui-accent);
+  --accent-soft: var(--ui-accent-soft);
+
   --bg-color: var(--background); /* Light gray background */
   --sidebar-bg-color: var(--surface); /* White sidebar */
   --card-bg-color: var(--surface); /* White for cards/elements */
@@ -18,6 +35,43 @@
   --border-radius: var(--radius-1); /* Consistent rounded corners */
 }
 
+html[data-ui-typography='small'] {
+  --ui-font-size-base: 15px;
+  --ui-line-height-base: 1.5;
+}
+
+html[data-ui-typography='large'] {
+  --ui-font-size-base: 17px;
+  --ui-line-height-base: 1.7;
+}
+
+html[data-ui-density='compact'] {
+  --ui-density-scale: 0.86;
+  --ui-card-padding: 18px;
+}
+
+html[data-ui-theme='dark'] {
+  --background: #0f172a;
+  --surface: #111827;
+  --surface-muted: #1f2937;
+  --border-subtle: #263243;
+  --border-subtle-2: rgba(148, 163, 184, 0.26);
+  --text-primary: #e5e7eb;
+  --text-secondary: #9ca3af;
+  --text: #e5e7eb;
+  --muted: #9ca3af;
+  --link: #dbeafe;
+  --bg-color: var(--background);
+  --sidebar-bg-color: var(--surface);
+  --card-bg-color: var(--surface);
+  --border-color: var(--border-subtle);
+  --border-color-light: rgba(148, 163, 184, 0.2);
+  --text-color: var(--text-primary);
+  --text-color-secondary: var(--text-secondary);
+  --hover-color: var(--surface-muted);
+  --active-color: #223044;
+}
+
 body {
   margin: 0;
   font-family: var(--font-sans);
@@ -25,7 +79,12 @@ body {
   -moz-osx-font-smoothing: grayscale;
   background-color: var(--bg-color);
   color: var(--text-color);
-  line-height: 1.6;
+  font-size: var(--ui-font-size-base);
+  line-height: var(--ui-line-height-base);
+}
+
+.ui-card {
+  padding: var(--ui-card-padding);
 }
 
 /* Ensure root and html/body take full height */
@@ -1101,6 +1160,67 @@ body {
 
 .settings-card {
     margin-bottom: 24px;
+}
+
+.settings-appearance-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 18px;
+}
+
+.settings-option-group {
+    display: grid;
+    gap: 8px;
+    margin-bottom: 16px;
+}
+
+.settings-option-group:last-child {
+    margin-bottom: 0;
+}
+
+.settings-option-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.settings-option-button {
+    border: 1px solid var(--border-color);
+    background: transparent;
+    color: var(--text-color);
+    border-radius: 999px;
+    padding: 7px 12px;
+    font-size: 0.9em;
+    font-weight: 600;
+    line-height: 1.2;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    transition: border-color 0.2s ease, background-color 0.2s ease, color 0.2s ease;
+}
+
+.settings-option-button:hover {
+    background: var(--hover-color);
+}
+
+.settings-option-button.is-active {
+    border-color: var(--primary-color);
+    background: var(--primary-color-light);
+    color: var(--primary-color);
+}
+
+.settings-accent-button {
+    min-width: 104px;
+    justify-content: center;
+}
+
+.settings-accent-swatch {
+    width: 12px;
+    height: 12px;
+    border-radius: 999px;
 }
 
 .settings-import-row {

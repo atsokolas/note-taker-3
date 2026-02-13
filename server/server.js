@@ -284,6 +284,20 @@ workingMemoryItemSchema.index({ userId: 1, workspaceType: 1, workspaceId: 1, cre
 
 const WorkingMemoryItem = mongoose.model('WorkingMemoryItem', workingMemoryItemSchema);
 
+const uiSettingsSchema = new mongoose.Schema({
+  typographyScale: { type: String, enum: ['small', 'default', 'large'], default: 'default' },
+  density: { type: String, enum: ['comfortable', 'compact'], default: 'comfortable' },
+  theme: { type: String, enum: ['light', 'dark'], default: 'light' },
+  accent: { type: String, enum: ['blue', 'emerald', 'amber', 'rose'], default: 'blue' },
+  workspaceType: { type: String, default: 'global', trim: true },
+  workspaceId: { type: String, default: '', trim: true },
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }
+}, { timestamps: true });
+
+uiSettingsSchema.index({ userId: 1, workspaceType: 1, workspaceId: 1 }, { unique: true });
+
+const UiSettings = mongoose.model('UiSettings', uiSettingsSchema);
+
 const returnQueueEntrySchema = new mongoose.Schema({
   itemType: { type: String, required: true, trim: true },
   itemId: { type: String, required: true, trim: true },
@@ -489,6 +503,72 @@ const normalizeReturnQueueItemType = (value) => {
   const candidate = String(value || '').trim().toLowerCase();
   if (RETURN_QUEUE_ITEM_TYPES.has(candidate)) return candidate;
   return '';
+};
+
+const UI_SETTINGS_DEFAULTS = Object.freeze({
+  typographyScale: 'default',
+  density: 'comfortable',
+  theme: 'light',
+  accent: 'blue'
+});
+
+const UI_SETTINGS_TYPOGRAPHY_VALUES = new Set(['small', 'default', 'large']);
+const UI_SETTINGS_DENSITY_VALUES = new Set(['comfortable', 'compact']);
+const UI_SETTINGS_THEME_VALUES = new Set(['light', 'dark']);
+const UI_SETTINGS_ACCENT_VALUES = new Set(['blue', 'emerald', 'amber', 'rose']);
+const UI_SETTINGS_SCOPE_TYPE_VALUES = new Set(['global', 'workspace', 'concept', 'question', 'notebook']);
+
+const normalizeUiSettingsValue = (value, allowedValues, fallbackValue) => {
+  const candidate = String(value || '').trim().toLowerCase();
+  if (allowedValues.has(candidate)) return candidate;
+  return fallbackValue;
+};
+
+const normalizeUiSettingsScope = (workspaceType, workspaceId) => {
+  const safeWorkspaceTypeCandidate = String(workspaceType || 'global').trim().toLowerCase();
+  const safeWorkspaceType = UI_SETTINGS_SCOPE_TYPE_VALUES.has(safeWorkspaceTypeCandidate)
+    ? safeWorkspaceTypeCandidate
+    : 'global';
+  if (safeWorkspaceType === 'global') {
+    return { workspaceType: 'global', workspaceId: '' };
+  }
+  return {
+    workspaceType: safeWorkspaceType,
+    workspaceId: String(workspaceId || '').trim().slice(0, 120)
+  };
+};
+
+const normalizeUiSettingsPayload = (input = {}) => ({
+  typographyScale: normalizeUiSettingsValue(
+    input.typographyScale,
+    UI_SETTINGS_TYPOGRAPHY_VALUES,
+    UI_SETTINGS_DEFAULTS.typographyScale
+  ),
+  density: normalizeUiSettingsValue(
+    input.density,
+    UI_SETTINGS_DENSITY_VALUES,
+    UI_SETTINGS_DEFAULTS.density
+  ),
+  theme: normalizeUiSettingsValue(
+    input.theme,
+    UI_SETTINGS_THEME_VALUES,
+    UI_SETTINGS_DEFAULTS.theme
+  ),
+  accent: normalizeUiSettingsValue(
+    input.accent,
+    UI_SETTINGS_ACCENT_VALUES,
+    UI_SETTINGS_DEFAULTS.accent
+  )
+});
+
+const buildUiSettingsResponse = (doc, scope = { workspaceType: 'global', workspaceId: '' }) => {
+  const normalized = normalizeUiSettingsPayload(doc || {});
+  return {
+    ...UI_SETTINGS_DEFAULTS,
+    ...normalized,
+    workspaceType: scope.workspaceType || 'global',
+    workspaceId: scope.workspaceId || ''
+  };
 };
 
 const parseDueAt = (value) => {
@@ -2560,6 +2640,55 @@ app.delete('/api/working-memory/:id', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('❌ Error deleting working memory item:', error);
     res.status(500).json({ error: 'Failed to delete working memory item.' });
+  }
+});
+
+// --- UI SETTINGS ---
+app.get('/api/ui-settings', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const scope = normalizeUiSettingsScope(req.query.workspaceType, req.query.workspaceId);
+    const settings = await UiSettings.findOne({
+      userId,
+      workspaceType: scope.workspaceType,
+      workspaceId: scope.workspaceId
+    }).lean();
+    res.status(200).json(buildUiSettingsResponse(settings, scope));
+  } catch (error) {
+    console.error('❌ Error fetching UI settings:', error);
+    res.status(500).json({ error: 'Failed to fetch UI settings.' });
+  }
+});
+
+app.put('/api/ui-settings', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const body = req.body || {};
+    const scope = normalizeUiSettingsScope(body.workspaceType, body.workspaceId);
+    const payload = normalizeUiSettingsPayload(body);
+    const updated = await UiSettings.findOneAndUpdate(
+      {
+        userId,
+        workspaceType: scope.workspaceType,
+        workspaceId: scope.workspaceId
+      },
+      {
+        $set: {
+          ...payload,
+          workspaceType: scope.workspaceType,
+          workspaceId: scope.workspaceId
+        }
+      },
+      {
+        new: true,
+        upsert: true,
+        setDefaultsOnInsert: true
+      }
+    ).lean();
+    res.status(200).json(buildUiSettingsResponse(updated, scope));
+  } catch (error) {
+    console.error('❌ Error updating UI settings:', error);
+    res.status(500).json({ error: 'Failed to update UI settings.' });
   }
 });
 
