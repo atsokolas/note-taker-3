@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import api from '../api';
+import { searchKeyword } from '../api/retrieval';
 import { Page, Card, TagChip, Button } from '../components/ui';
 
 const stripHtml = (input = '') => {
@@ -52,7 +53,7 @@ const formatApiError = (err, fallback = 'Request failed.') => {
   const output = status
     ? `HTTP ${status} — ${bodySnippet || fallback}`
     : `${err?.name || 'Error'}: ${err?.message || fallback}`;
-  console.error('AI request failed', {
+  console.error('Request failed', {
     url: err?.config?.url,
     method: err?.config?.method,
     status,
@@ -63,31 +64,58 @@ const formatApiError = (err, fallback = 'Request failed.') => {
   return output;
 };
 
+const KEYWORD_TYPES = ['note', 'highlight', 'claim', 'evidence', 'article'];
+
+const parseCsvParam = (value = '') => (
+  String(value || '')
+    .split(',')
+    .map(part => part.trim())
+    .filter(Boolean)
+);
+
 const Search = () => {
   const [searchParams, setSearchParams] = useSearchParams();
-  const mode = searchParams.get('mode') || 'semantic';
+  const mode = searchParams.get('mode') || 'keyword';
   const [query, setQuery] = useState(searchParams.get('q') || '');
-  const [results, setResults] = useState({ articles: [], highlights: [], semantic: [] });
+  const [scope, setScope] = useState(searchParams.get('scope') || 'all');
+  const [tagInput, setTagInput] = useState(searchParams.get('tags') || '');
+  const [selectedTypes, setSelectedTypes] = useState(() => parseCsvParam(searchParams.get('type') || ''));
+  const [results, setResults] = useState({
+    articles: [],
+    highlights: [],
+    notebook: [],
+    groups: { notes: [], highlights: [], claims: [], evidence: [] },
+    semantic: []
+  });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
   const getAuthHeaders = () => {
     const token = localStorage.getItem('token');
-    if (!token) throw new Error("Authentication token not found.");
+    if (!token) throw new Error('Authentication token not found.');
     return { headers: { Authorization: `Bearer ${token}` } };
   };
 
   useEffect(() => {
-    const q = (searchParams.get('q') || '').trim();
-    setQuery(q);
+    setQuery((searchParams.get('q') || '').trim());
+    setScope(searchParams.get('scope') || 'all');
+    setTagInput(searchParams.get('tags') || '');
+    setSelectedTypes(parseCsvParam(searchParams.get('type') || ''));
   }, [searchParams]);
 
   useEffect(() => {
     const q = query.trim();
     if (!q) {
-      setResults({ articles: [], highlights: [], semantic: [] });
+      setResults({
+        articles: [],
+        highlights: [],
+        notebook: [],
+        groups: { notes: [], highlights: [], claims: [], evidence: [] },
+        semantic: []
+      });
       return;
     }
+
     let cancelled = false;
     const timer = setTimeout(async () => {
       setLoading(true);
@@ -99,11 +127,23 @@ const Search = () => {
             setResults(prev => ({ ...prev, semantic: res.data?.results || [] }));
           }
         } else {
-          const res = await api.get(`/api/search?q=${encodeURIComponent(q)}`, getAuthHeaders());
+          const data = await searchKeyword({
+            q,
+            scope,
+            tags: parseCsvParam(tagInput),
+            type: selectedTypes
+          });
           if (!cancelled) {
             setResults({
-              articles: res.data?.articles || [],
-              highlights: res.data?.highlights || [],
+              articles: data?.articles || [],
+              highlights: data?.highlights || [],
+              notebook: data?.notebook || [],
+              groups: {
+                notes: data?.groups?.notes || [],
+                highlights: data?.groups?.highlights || [],
+                claims: data?.groups?.claims || [],
+                evidence: data?.groups?.evidence || []
+              },
               semantic: []
             });
           }
@@ -115,12 +155,13 @@ const Search = () => {
       } finally {
         if (!cancelled) setLoading(false);
       }
-    }, 300);
+    }, 220);
+
     return () => {
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [query, mode]);
+  }, [mode, query, scope, selectedTypes, tagInput]);
 
   const groupedSemantic = useMemo(() => {
     const groups = {};
@@ -135,13 +176,36 @@ const Search = () => {
       .map(type => [type, groups[type]]);
   }, [results.semantic]);
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
+  const keywordSections = useMemo(() => ([
+    { title: 'Notes', items: results.groups.notes || [] },
+    { title: 'Highlights', items: results.groups.highlights || [] },
+    { title: 'Claims', items: results.groups.claims || [] },
+    { title: 'Evidence', items: results.groups.evidence || [] }
+  ]), [results.groups]);
+
+  const toggleType = (type) => {
+    setSelectedTypes(prev => (
+      prev.includes(type)
+        ? prev.filter(item => item !== type)
+        : [...prev, type]
+    ));
+  };
+
+  const handleSubmit = (event) => {
+    event.preventDefault();
     const q = query.trim();
     if (!q) return;
     const params = new URLSearchParams(searchParams);
     params.set('q', q);
-    if (!params.get('mode')) params.set('mode', 'semantic');
+    params.set('mode', mode);
+    if (mode === 'keyword') {
+      params.set('scope', scope);
+      const tags = parseCsvParam(tagInput).join(',');
+      if (tags) params.set('tags', tags);
+      else params.delete('tags');
+      if (selectedTypes.length > 0) params.set('type', selectedTypes.join(','));
+      else params.delete('type');
+    }
     setSearchParams(params);
   };
 
@@ -149,6 +213,16 @@ const Search = () => {
     const params = new URLSearchParams(searchParams);
     params.set('mode', nextMode);
     if (query.trim()) params.set('q', query.trim());
+    if (nextMode !== 'keyword') {
+      params.delete('scope');
+      params.delete('tags');
+      params.delete('type');
+    } else {
+      params.set('scope', scope);
+      const tags = parseCsvParam(tagInput).join(',');
+      if (tags) params.set('tags', tags);
+      if (selectedTypes.length > 0) params.set('type', selectedTypes.join(','));
+    }
     setSearchParams(params);
   };
 
@@ -157,14 +231,14 @@ const Search = () => {
       <div className="page-header">
         <p className="muted-label">Universal search</p>
         <h1>Search</h1>
-        <p className="muted">Find ideas by meaning across your library.</p>
+        <p className="muted">Fast retrieval across notes and highlights without external AI calls.</p>
       </div>
       <Card className="highlight-tag-card">
         <form onSubmit={handleSubmit} className="search-form">
           <input
             type="text"
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(event) => setQuery(event.target.value)}
             placeholder="Search everything..."
             className="search-input"
           />
@@ -172,6 +246,7 @@ const Search = () => {
             {loading ? 'Searching...' : 'Search'}
           </Button>
         </form>
+
         <div className="search-mode-toggle">
           <span className="muted small">Mode</span>
           <div className="search-mode-buttons">
@@ -191,6 +266,47 @@ const Search = () => {
             </button>
           </div>
         </div>
+
+        {mode === 'keyword' && (
+          <div className="search-filter-grid">
+            <label className="search-filter-field">
+              <span className="muted small">Scope</span>
+              <select value={scope} onChange={(event) => setScope(event.target.value)}>
+                <option value="all">All</option>
+                <option value="notebook">Notebook</option>
+                <option value="highlights">Highlights</option>
+                <option value="articles">Articles</option>
+              </select>
+            </label>
+
+            <label className="search-filter-field search-filter-field--wide">
+              <span className="muted small">Tags</span>
+              <input
+                type="text"
+                value={tagInput}
+                onChange={(event) => setTagInput(event.target.value)}
+                placeholder="e.g. philosophy,systems"
+              />
+            </label>
+
+            <div className="search-filter-field search-filter-field--wide">
+              <span className="muted small">Type</span>
+              <div className="search-filter-chip-row">
+                {KEYWORD_TYPES.map(type => (
+                  <button
+                    key={type}
+                    type="button"
+                    className={`ui-quiet-button ${selectedTypes.includes(type) ? 'is-active' : ''}`}
+                    onClick={() => toggleType(type)}
+                  >
+                    {type}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
         {error && <p className="status-message error-message">{error}</p>}
 
         <div className="section-stack">
@@ -235,50 +351,54 @@ const Search = () => {
             )
           ) : (
             <>
+              {keywordSections.map(section => (
+                <Card key={section.title} className="search-section">
+                  <div className="search-section-header">
+                    <span className="eyebrow">{section.title}</span>
+                    <span className="muted small">{section.items.length} results</span>
+                  </div>
+                  {section.items.length > 0 ? (
+                    <div className="search-card-grid">
+                      {section.items.map(item => (
+                        <div key={`${section.title}-${item._id}-${item.sourceType || ''}`} className="search-card">
+                          <Link to={item.openPath || '/search'} className="article-title-link">
+                            {item.title || item.text || `Untitled ${section.title.slice(0, -1).toLowerCase()}`}
+                          </Link>
+                          <p className="search-snippet">{snippet(item.snippet || item.content || item.text || '', query)}</p>
+                          {Array.isArray(item.tags) && item.tags.length > 0 && (
+                            <div className="highlight-tag-chips" style={{ marginTop: 8 }}>
+                              {item.tags.slice(0, 4).map(tag => (
+                                <TagChip key={`${item._id}-${tag}`} to={`/tags/${encodeURIComponent(tag)}`}>{tag}</TagChip>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="muted small">No {section.title.toLowerCase()} match.</p>
+                  )}
+                </Card>
+              ))}
+
               <Card className="search-section">
                 <div className="search-section-header">
                   <span className="eyebrow">Articles</span>
-                  <span className="muted small">{results.articles?.length || 0} results</span>
+                  <span className="muted small">{results.articles.length} results</span>
                 </div>
-                {results.articles && results.articles.length > 0 ? (
+                {results.articles.length > 0 ? (
                   <div className="search-card-grid">
-                    {results.articles.map((a) => (
-                      <div key={a._id} className="search-card">
-                        <Link to={`/articles/${a._id}`} className="article-title-link">{a.title || 'Untitled article'}</Link>
-                        <p className="search-snippet">{snippet(a.content || '', query)}</p>
+                    {results.articles.map(article => (
+                      <div key={article._id} className="search-card">
+                        <Link to={`/articles/${article._id}`} className="article-title-link">
+                          {article.title || 'Untitled article'}
+                        </Link>
+                        <p className="search-snippet">{snippet(article.content || '', query)}</p>
                       </div>
                     ))}
                   </div>
                 ) : (
                   <p className="muted small">No articles match.</p>
-                )}
-              </Card>
-
-              <Card className="search-section">
-                <div className="search-section-header">
-                  <span className="eyebrow">Highlights</span>
-                  <span className="muted small">{results.highlights?.length || 0} results</span>
-                </div>
-                {results.highlights && results.highlights.length > 0 ? (
-                  <div className="search-card-grid">
-                    {results.highlights.map((h) => (
-                      <div key={h._id} className="search-card">
-                        <div className="search-card-top">
-                          <Link to={`/articles/${h.articleId}`} className="article-title-link">{h.articleTitle || 'Untitled article'}</Link>
-                          <span className="feedback-date">{new Date(h.createdAt).toLocaleString()}</span>
-                        </div>
-                        <p className="highlight-text" style={{ margin: '6px 0', fontWeight: 600 }}>{h.text}</p>
-                        <div className="highlight-tag-chips" style={{ marginBottom: '6px' }}>
-                          {h.tags && h.tags.length > 0 ? h.tags.map(tag => (
-                            <TagChip key={tag} to={`/tags/${encodeURIComponent(tag)}`}>{tag}</TagChip>
-                          )) : <span className="muted small">No tags</span>}
-                        </div>
-                        <p className="search-snippet">{snippet(h.note || '', query)}</p>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="muted small">No highlights match.</p>
                 )}
               </Card>
             </>

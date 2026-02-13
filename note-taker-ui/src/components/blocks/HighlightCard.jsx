@@ -3,6 +3,7 @@ import { Button, QuietButton } from '../ui';
 import HighlightBlock from './HighlightBlock';
 import ReturnLaterControl from '../return-queue/ReturnLaterControl';
 import ConnectionBuilder from '../connections/ConnectionBuilder';
+import RelatedSuggestions from '../retrieval/RelatedSuggestions';
 import {
   getHighlightClaimEvidence,
   organizeHighlightItem,
@@ -256,6 +257,12 @@ const HighlightCard = ({
               </QuietButton>
             )}
           </div>
+          <RelatedSuggestions
+            itemType="highlight"
+            itemId={highlightId}
+            enabled={expanded}
+            limit={6}
+          />
           {organizable && organizeOpen && (
             <div className="highlight-organize-panel">
               <div className="highlight-organize-row">

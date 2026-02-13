@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { QuietButton } from '../ui';
 import ReturnLaterControl from '../return-queue/ReturnLaterControl';
 import ConnectionBuilder from '../connections/ConnectionBuilder';
+import RelatedSuggestions from '../retrieval/RelatedSuggestions';
 
 const summarize = (text, max = 180) => {
   const raw = String(text || '');
@@ -112,6 +113,12 @@ const NoteCard = ({
               </QuietButton>
             )}
           </div>
+          <RelatedSuggestions
+            itemType={returnQueueItemType}
+            itemId={returnQueueItemId || id}
+            enabled={expanded}
+            limit={6}
+          />
         </div>
       )}
     </div>

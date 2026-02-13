@@ -1,13 +1,29 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api';
+import { searchKeyword } from '../api/retrieval';
 import { Card, Button } from './ui';
+
+const EMPTY_GROUPS = {
+  notes: [],
+  highlights: [],
+  claims: [],
+  evidence: []
+};
+
+const buildResultLabel = (item = {}, fallback = '') => {
+  const primary = String(item.title || item.text || fallback || '').trim();
+  const secondary = String(item.snippet || item.content || item.articleTitle || '').trim();
+  if (!secondary) return primary || 'Untitled';
+  if (!primary) return secondary;
+  return `${primary} — ${secondary.slice(0, 90)}`;
+};
 
 const CommandPalette = ({ open, onClose }) => {
   const navigate = useNavigate();
   const [query, setQuery] = useState('');
   const [articles, setArticles] = useState([]);
-  const [highlights, setHighlights] = useState([]);
+  const [searchGroups, setSearchGroups] = useState(EMPTY_GROUPS);
   const [notebook, setNotebook] = useState([]);
   const [collections, setCollections] = useState([]);
   const [concepts, setConcepts] = useState([]);
@@ -19,17 +35,15 @@ const CommandPalette = ({ open, onClose }) => {
     { label: 'Library', path: '/library' },
     { label: 'Think', path: '/think' },
     { label: 'Review', path: '/review' },
-    { label: 'Settings', path: '/settings' },
-    // legacy quick links
-    { label: 'Views', path: '/views' },
-    { label: 'Tags', path: '/tags' },
-    { label: 'Resurface', path: '/resurface' },
-    { label: 'Export', path: '/export' }
+    { label: 'Map', path: '/map' },
+    { label: 'Settings', path: '/settings' }
   ]), []);
 
   useEffect(() => {
     if (!open) return;
     setQuery('');
+    setArticles([]);
+    setSearchGroups(EMPTY_GROUPS);
     setActiveIndex(0);
     const fetchBase = async () => {
       try {
@@ -53,27 +67,35 @@ const CommandPalette = ({ open, onClose }) => {
   useEffect(() => {
     if (!open) return;
     const fetchSearch = async () => {
-      if (!query.trim()) {
+      const q = query.trim();
+      if (!q) {
         setArticles([]);
-        setHighlights([]);
+        setSearchGroups(EMPTY_GROUPS);
         return;
       }
       setLoading(true);
       try {
-        const token = localStorage.getItem('token');
-        const headers = { Authorization: `Bearer ${token}` };
-        const res = await api.get(`/api/search?q=${encodeURIComponent(query.trim())}`, { headers });
-        setArticles(res.data?.articles || []);
-        setHighlights(res.data?.highlights || []);
+        const data = await searchKeyword({ q, scope: 'all' });
+        setArticles(Array.isArray(data?.articles) ? data.articles : []);
+        setSearchGroups({
+          notes: Array.isArray(data?.groups?.notes) ? data.groups.notes : [],
+          highlights: Array.isArray(data?.groups?.highlights) ? data.groups.highlights : [],
+          claims: Array.isArray(data?.groups?.claims) ? data.groups.claims : [],
+          evidence: Array.isArray(data?.groups?.evidence) ? data.groups.evidence : []
+        });
       } catch (err) {
         console.error('Palette search failed', err);
       } finally {
         setLoading(false);
       }
     };
-    const t = setTimeout(fetchSearch, 200);
-    return () => clearTimeout(t);
+    const timer = setTimeout(fetchSearch, 180);
+    return () => clearTimeout(timer);
   }, [query, open]);
+
+  useEffect(() => {
+    setActiveIndex(0);
+  }, [query]);
 
   const createNote = useCallback(async () => {
     try {
@@ -91,58 +113,140 @@ const CommandPalette = ({ open, onClose }) => {
     }
   }, [navigate]);
 
-  const reshuffleToday = useCallback(() => {
-    navigate('/today');
-    window.setTimeout(() => {
-      window.dispatchEvent(new Event('today-reshuffle'));
-    }, 50);
-  }, [navigate]);
-
-  const items = useMemo(() => {
-    const actions = [
-      { label: 'New note', run: createNote },
-      { label: 'New collection', run: () => navigate('/library?tab=collections') },
-      { label: 'Reshuffle resurfaced', run: reshuffleToday }
-    ];
+  const sections = useMemo(() => {
+    const q = query.trim();
     const list = [];
-    actions.forEach(a => list.push({ type: 'Action', label: a.label, action: a.run }));
-    pages.forEach(p => list.push({ type: 'Page', label: p.label, path: p.path }));
-    concepts.slice(0, 8).forEach(c => list.push({ type: 'Concept', label: c.tag, path: `/tags/${encodeURIComponent(c.tag)}` }));
-    articles.slice(0, 5).forEach(a => list.push({ type: 'Article', label: a.title || 'Untitled article', path: `/articles/${a._id}` }));
-    highlights.slice(0, 5).forEach(h => list.push({ type: 'Highlight', label: h.text, path: `/articles/${h.articleId}` }));
-    notebook.slice(0, 5).forEach(n => list.push({ type: 'Notebook', label: n.title || 'Untitled', path: `/think?tab=notebook&entryId=${n._id}` }));
-    collections.slice(0, 5).forEach(c => list.push({ type: 'Collection', label: c.name, path: `/collections/${c.slug}` }));
-    return list;
-  }, [pages, concepts, articles, highlights, notebook, collections, createNote, navigate, reshuffleToday]);
+
+    list.push({
+      title: 'Actions',
+      items: [
+        { type: 'Action', label: 'New note', action: createNote },
+        { type: 'Action', label: 'New collection', path: '/library?tab=collections' }
+      ]
+    });
+
+    list.push({
+      title: 'Pages',
+      items: pages.map(page => ({ type: 'Page', label: page.label, path: page.path }))
+    });
+
+    if (q) {
+      list.push({
+        title: 'Notes',
+        items: (searchGroups.notes || []).slice(0, 6).map(item => ({
+          type: 'Note',
+          label: buildResultLabel(item, 'Note'),
+          path: item.openPath || `/think?tab=notebook&entryId=${item._id}`
+        }))
+      });
+      list.push({
+        title: 'Highlights',
+        items: (searchGroups.highlights || []).slice(0, 6).map(item => ({
+          type: 'Highlight',
+          label: buildResultLabel(item, 'Highlight'),
+          path: item.openPath || `/articles/${item.articleId || ''}`
+        }))
+      });
+      list.push({
+        title: 'Claims',
+        items: (searchGroups.claims || []).slice(0, 6).map(item => ({
+          type: 'Claim',
+          label: buildResultLabel(item, 'Claim'),
+          path: item.openPath || (item.articleId ? `/articles/${item.articleId}` : `/think?tab=notebook&entryId=${item._id}`)
+        }))
+      });
+      list.push({
+        title: 'Evidence',
+        items: (searchGroups.evidence || []).slice(0, 6).map(item => ({
+          type: 'Evidence',
+          label: buildResultLabel(item, 'Evidence'),
+          path: item.openPath || (item.articleId ? `/articles/${item.articleId}` : `/think?tab=notebook&entryId=${item._id}`)
+        }))
+      });
+      list.push({
+        title: 'Articles',
+        items: articles.slice(0, 5).map(item => ({
+          type: 'Article',
+          label: buildResultLabel(item, item.title || 'Article'),
+          path: `/articles/${item._id}`
+        }))
+      });
+    } else {
+      list.push({
+        title: 'Concepts',
+        items: concepts.slice(0, 8).map(item => ({
+          type: 'Concept',
+          label: item.tag,
+          path: `/tags/${encodeURIComponent(item.tag)}`
+        }))
+      });
+      list.push({
+        title: 'Notebook',
+        items: notebook.slice(0, 6).map(item => ({
+          type: 'Notebook',
+          label: item.title || 'Untitled note',
+          path: `/think?tab=notebook&entryId=${item._id}`
+        }))
+      });
+      list.push({
+        title: 'Collections',
+        items: collections.slice(0, 6).map(item => ({
+          type: 'Collection',
+          label: item.name,
+          path: `/collections/${item.slug}`
+        }))
+      });
+    }
+
+    return list
+      .map(section => ({ ...section, items: section.items.filter(Boolean) }))
+      .filter(section => section.items.length > 0);
+  }, [articles, collections, concepts, createNote, notebook, pages, query, searchGroups]);
+
+  const selectableItems = useMemo(
+    () => sections.flatMap(section => section.items),
+    [sections]
+  );
+
+  useEffect(() => {
+    if (selectableItems.length === 0) {
+      setActiveIndex(0);
+      return;
+    }
+    setActiveIndex(prev => Math.min(prev, selectableItems.length - 1));
+  }, [selectableItems]);
 
   const handleSelect = (item) => {
+    if (!item) return;
     onClose();
-    if (item?.action) {
+    if (item.action) {
       item.action();
       return;
     }
-    if (item?.path) {
+    if (item.path) {
       navigate(item.path);
     }
   };
 
-  const handleKeyDown = (e) => {
+  const handleKeyDown = (event) => {
     if (!open) return;
-    if (e.key === 'ArrowDown') {
-      e.preventDefault();
-      setActiveIndex((prev) => Math.min(prev + 1, items.length - 1));
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault();
-      setActiveIndex((prev) => Math.max(prev - 1, 0));
-    } else if (e.key === 'Enter') {
-      e.preventDefault();
-      if (items[activeIndex]) handleSelect(items[activeIndex]);
-    } else if (e.key === 'Escape') {
+    if (event.key === 'ArrowDown') {
+      event.preventDefault();
+      setActiveIndex(prev => Math.min(prev + 1, Math.max(selectableItems.length - 1, 0)));
+    } else if (event.key === 'ArrowUp') {
+      event.preventDefault();
+      setActiveIndex(prev => Math.max(prev - 1, 0));
+    } else if (event.key === 'Enter') {
+      event.preventDefault();
+      handleSelect(selectableItems[activeIndex]);
+    } else if (event.key === 'Escape') {
       onClose();
     }
   };
 
   if (!open) return null;
+
+  let renderedIndex = -1;
 
   return (
     <div className="palette-overlay" onKeyDown={handleKeyDown} tabIndex={-1}>
@@ -151,34 +255,39 @@ const CommandPalette = ({ open, onClose }) => {
           <input
             autoFocus
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Jump to pages, concepts, notes, highlights…"
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Quick open notes, highlights, claims, evidence..."
             className="palette-input"
           />
           <Button variant="secondary" onClick={onClose}>Close</Button>
         </div>
         <div className="palette-shortcuts">
           <span className="muted small">Cmd/Ctrl+K: Open</span>
+          <span className="muted small">Arrows + Enter: Navigate</span>
           <span className="muted small">Cmd/Ctrl+Shift+D: Dump to memory</span>
-          <span className="muted small">g then t: Today</span>
-          <span className="muted small">g then b: Brain</span>
-          <span className="muted small">g then n: Notebook</span>
-          <span className="muted small">g then j: Journey</span>
-          <span className="muted small">g then c: Collections</span>
-          <span className="muted small">g then v: Views</span>
         </div>
         {loading && <p className="muted small">Searching…</p>}
         <div className="palette-list">
-          {items.length === 0 && <p className="muted small">No results.</p>}
-          {items.map((item, idx) => (
-            <div
-              key={`${item.type}-${item.label}-${idx}`}
-              className={`palette-item ${idx === activeIndex ? 'active' : ''}`}
-              onMouseEnter={() => setActiveIndex(idx)}
-              onClick={() => handleSelect(item)}
-            >
-              <span className="muted small">{item.type}</span>
-              <span>{item.label}</span>
+          {!loading && selectableItems.length === 0 && <p className="muted small">No results.</p>}
+          {sections.map(section => (
+            <div key={section.title} className="palette-group">
+              <div className="palette-group-title">{section.title}</div>
+              {section.items.map(item => {
+                renderedIndex += 1;
+                const rowIndex = renderedIndex;
+                const isActive = rowIndex === activeIndex;
+                return (
+                  <div
+                    key={`${section.title}-${item.type}-${item.label}`}
+                    className={`palette-item ${isActive ? 'active' : ''}`}
+                    onMouseEnter={() => setActiveIndex(rowIndex)}
+                    onClick={() => handleSelect(item)}
+                  >
+                    <span className="muted small">{item.type}</span>
+                    <span>{item.label}</span>
+                  </div>
+                );
+              })}
             </div>
           ))}
         </div>

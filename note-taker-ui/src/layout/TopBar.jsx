@@ -9,7 +9,7 @@ const TopBar = ({ navItems = [], rightSlot }) => {
     if (event.key !== 'Enter') return;
     const q = query.trim();
     if (!q) return;
-    navigate(`/search?mode=semantic&q=${encodeURIComponent(q)}`);
+    navigate(`/search?mode=keyword&q=${encodeURIComponent(q)}`);
   };
 
   return (
@@ -30,7 +30,7 @@ const TopBar = ({ navItems = [], rightSlot }) => {
         <input
           type="text"
           className="topbar__search"
-          placeholder="Search by meaning…"
+          placeholder="Search notes and highlights…"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
           onKeyDown={handleKeyDown}

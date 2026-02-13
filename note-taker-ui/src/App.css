@@ -633,6 +633,45 @@ body {
   align-items: center;
 }
 
+.search-filter-grid {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 14px;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.search-filter-field {
+  display: grid;
+  gap: 6px;
+}
+
+.search-filter-field--wide {
+  grid-column: span 2;
+}
+
+.search-filter-field select,
+.search-filter-field input {
+  width: 100%;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  background: var(--card-bg-color);
+  color: var(--text-color);
+  padding: 8px 10px;
+  font-size: 0.9em;
+}
+
+.search-filter-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.search-filter-chip-row .ui-quiet-button.is-active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
 .search-snippet {
   margin: 4px 0 0;
   color: var(--text-color-secondary);
@@ -2614,6 +2653,19 @@ body {
   display: grid;
   gap: 8px;
   margin-top: 10px;
+}
+
+.palette-group {
+  display: grid;
+  gap: 6px;
+}
+
+.palette-group-title {
+  font-size: 0.74rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-color-secondary);
+  padding: 4px 2px;
 }
 
 .palette-item {

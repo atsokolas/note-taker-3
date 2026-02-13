@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { QuietButton } from '../ui';
 import ReturnLaterControl from '../return-queue/ReturnLaterControl';
 import ConnectionBuilder from '../connections/ConnectionBuilder';
+import RelatedSuggestions from '../retrieval/RelatedSuggestions';
 
 const summarize = (text, max = 170) => {
   const raw = String(text || '').replace(/\s+/g, ' ').trim();
@@ -78,6 +79,12 @@ const ArticleCard = ({
             />
             {children}
           </div>
+          <RelatedSuggestions
+            itemType="article"
+            itemId={articleId}
+            enabled={expanded}
+            limit={6}
+          />
         </div>
       )}
     </div>
