@@ -210,6 +210,38 @@ p {
   border: 1px solid var(--border-subtle-2);
   background: var(--surface);
   font-size: var(--text-sm);
+  color: var(--text);
+  caret-color: var(--accent);
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+
+.topbar__search::placeholder {
+  color: var(--muted);
+  opacity: 0.9;
+}
+
+.topbar__search:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-soft);
+}
+
+.topbar__search:-webkit-autofill,
+.topbar__search:-webkit-autofill:hover,
+.topbar__search:-webkit-autofill:focus {
+  -webkit-text-fill-color: var(--text);
+  box-shadow: 0 0 0px 1000px var(--surface) inset;
+  transition: background-color 9999s ease-in-out 0s;
+}
+
+html[data-ui-theme='dark'] .topbar__search {
+  background: var(--surface-muted);
+}
+
+html[data-ui-theme='dark'] .topbar__search:-webkit-autofill,
+html[data-ui-theme='dark'] .topbar__search:-webkit-autofill:hover,
+html[data-ui-theme='dark'] .topbar__search:-webkit-autofill:focus {
+  box-shadow: 0 0 0px 1000px var(--surface-muted) inset;
 }
 
 .topbar__button {
