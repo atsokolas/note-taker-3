@@ -31,7 +31,9 @@ export const saveUiSettings = async (settings, scope = {}) => {
   return response.data;
 };
 
-export default {
+const uiSettingsApi = {
   fetchUiSettings,
   saveUiSettings
 };
+
+export default uiSettingsApi;
