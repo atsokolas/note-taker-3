@@ -280,6 +280,7 @@ body {
   border-radius: var(--border-radius);
   background: var(--card-bg-color);
   padding: 10px;
+  box-shadow: var(--box-shadow-light);
 }
 
 .working-memory-header-row {
@@ -304,6 +305,8 @@ body {
   align-items: center;
   gap: 6px;
   cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 600;
 }
 
 .working-memory-toggle-icon {
@@ -325,13 +328,48 @@ body {
 .working-memory-input {
   width: 100%;
   resize: vertical;
-  min-height: 54px;
+  min-height: 120px;
   border: 1px solid var(--border-color);
   border-radius: var(--border-radius);
-  padding: 8px;
+  padding: 10px;
   font: inherit;
   color: var(--text-color);
   background: var(--card-bg-color);
+  line-height: 1.55;
+}
+
+.working-memory-input:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px var(--primary-color-light);
+}
+
+.working-memory-action-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.working-memory-action {
+  border: 1px solid var(--border-color);
+  background: var(--hover-color);
+  color: var(--text-color);
+  border-radius: 999px;
+  padding: 6px 11px;
+  font-size: 0.76rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.working-memory-action.is-primary {
+  background: var(--primary-color);
+  border-color: var(--primary-color);
+  color: #fff;
+}
+
+.working-memory-action:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .working-memory-list {

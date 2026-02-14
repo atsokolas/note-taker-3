@@ -38,6 +38,7 @@ import {
   createWorkingMemory,
   deleteWorkingMemory
 } from '../api/workingMemory';
+import { createBoardItem, getBoardForScope } from '../api/boards';
 
 const THINK_RIGHT_STORAGE_KEY = 'workspace-right-open:/think';
 
@@ -811,6 +812,43 @@ const ThinkMode = () => {
     }
     await addWorkingMemoryItem(buildFallbackDump());
   }, [addWorkingMemoryItem, buildFallbackDump]);
+
+  const workingMemoryPromotionScope = useMemo(() => {
+    if (activeView === 'questions' && activeQuestionData?._id) {
+      return { scopeType: 'question', scopeId: activeQuestionData._id };
+    }
+    if (activeView === 'concepts' && concept?.name) {
+      return { scopeType: 'concept', scopeId: concept.name };
+    }
+    if (activeView === 'board' && boardScope.scopeType && boardScope.scopeId) {
+      return { scopeType: boardScope.scopeType, scopeId: boardScope.scopeId };
+    }
+    if (activeView === 'notebook' && activeNotebookEntry?._id) {
+      return { scopeType: 'notebook', scopeId: activeNotebookEntry._id };
+    }
+    return { scopeType: '', scopeId: '' };
+  }, [activeQuestionData?._id, activeNotebookEntry?._id, activeView, boardScope.scopeId, boardScope.scopeType, concept?.name]);
+
+  const handlePromoteToBoardCard = useCallback(async (text) => {
+    const cleanText = String(text || '').trim();
+    if (!cleanText) return;
+    const scopeType = workingMemoryPromotionScope.scopeType;
+    const scopeId = workingMemoryPromotionScope.scopeId;
+    if ((scopeType !== 'concept' && scopeType !== 'question') || !scopeId) return;
+    try {
+      const { board } = await getBoardForScope(scopeType, scopeId);
+      if (!board?._id) throw new Error('Board unavailable.');
+      await createBoardItem(board._id, {
+        type: 'note',
+        text: cleanText,
+        x: 56 + (Math.floor(Date.now() / 1000) % 7) * 22,
+        y: 56 + (Math.floor(Date.now() / 700) % 9) * 16
+      });
+    } catch (err) {
+      setWorkingMemoryError(err.response?.data?.error || 'Failed to promote card.');
+      throw err;
+    }
+  }, [workingMemoryPromotionScope.scopeId, workingMemoryPromotionScope.scopeType]);
 
   useEffect(() => {
     const onKeyDown = (event) => {
@@ -1756,6 +1794,18 @@ const ThinkMode = () => {
     setCardsExpandVersion(prev => prev + 1);
   };
 
+  const workingMemoryDrawer = (
+    <WorkingMemoryPanel
+      items={workingMemoryItems}
+      loading={workingMemoryLoading}
+      error={workingMemoryError}
+      onDumpText={(text) => handleDumpToWorkingMemory(text)}
+      onDeleteItem={handleDeleteWorkingMemoryItem}
+      onPromoteToCard={handlePromoteToBoardCard}
+      promotionContext={workingMemoryPromotionScope}
+    />
+  );
+
   const rightPanel = activeView === 'insights' ? (
     <div className="section-stack">
       <SectionHeader title="Context" subtitle="Insights stay read-only." />
@@ -1763,6 +1813,7 @@ const ThinkMode = () => {
     </div>
   ) : activeView === 'board' ? (
     <div className="section-stack">
+      {workingMemoryDrawer}
       <SectionHeader title="Board Scope" subtitle="Canonical studio workspace." />
       {boardScope.scopeType && boardScope.scopeId ? (
         <p className="muted small">
@@ -1794,16 +1845,7 @@ const ThinkMode = () => {
     </div>
   ) : (
     <div className="section-stack">
-      <WorkingMemoryPanel
-        items={workingMemoryItems}
-        loading={workingMemoryLoading}
-        error={workingMemoryError}
-        onDumpText={(text) => handleDumpToWorkingMemory(text)}
-        onDeleteItem={handleDeleteWorkingMemoryItem}
-      />
-      <QuietButton onClick={() => handleDumpToWorkingMemory()}>
-        Dump to Working Memory
-      </QuietButton>
+      {workingMemoryDrawer}
       <SectionHeader title="Insert" subtitle="Search highlights." />
       <div className="library-highlight-filters">
         <input
