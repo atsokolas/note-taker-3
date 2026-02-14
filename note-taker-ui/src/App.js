@@ -47,6 +47,7 @@ import './styles/tokens.css';
 import './styles/global.css';
 import './App.css';
 import './styles/reading-layout.css';
+import './styles/studio-board.css';
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);

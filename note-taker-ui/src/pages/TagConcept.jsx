@@ -255,6 +255,16 @@ const TagConcept = () => {
         <p className="muted-label">Concept</p>
         <h1>{tagName}</h1>
         <p className="muted">A home for everything you know about this idea.</p>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <Button
+            variant="secondary"
+            onClick={() => {
+              window.location.href = `/think?tab=board&scopeType=concept&scopeId=${encodeURIComponent(tagName)}`;
+            }}
+          >
+            Open Studio Board
+          </Button>
+        </div>
       </div>
       {loading && <p className="status-message">Loading…</p>}
       {error && <p className="status-message error-message">{error}</p>}

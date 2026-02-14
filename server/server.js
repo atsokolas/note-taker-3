@@ -307,6 +307,31 @@ const questionSchema = new mongoose.Schema({
 
 const Question = mongoose.model('Question', questionSchema);
 
+const boardSchema = new mongoose.Schema({
+  scopeType: { type: String, enum: ['concept', 'question'], required: true },
+  scopeId: { type: String, required: true, trim: true },
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }
+}, { timestamps: true });
+
+boardSchema.index({ userId: 1, scopeType: 1, scopeId: 1 }, { unique: true });
+
+const Board = mongoose.model('Board', boardSchema);
+
+const boardItemSchema = new mongoose.Schema({
+  boardId: { type: mongoose.Schema.Types.ObjectId, ref: 'Board', required: true },
+  type: { type: String, enum: ['note', 'highlight', 'article'], required: true },
+  sourceId: { type: String, default: '', trim: true },
+  text: { type: String, default: '', trim: true },
+  x: { type: Number, default: 40 },
+  y: { type: Number, default: 40 },
+  w: { type: Number, default: 320 },
+  h: { type: Number, default: 220 }
+}, { timestamps: true });
+
+boardItemSchema.index({ boardId: 1, createdAt: 1 });
+
+const BoardItem = mongoose.model('BoardItem', boardItemSchema);
+
 const workingMemoryItemSchema = new mongoose.Schema({
   sourceType: { type: String, required: true, trim: true },
   sourceId: { type: String, required: true, trim: true },
@@ -544,6 +569,79 @@ const findHighlightById = async (userId, highlightId) => {
     } }
   ]);
   return matches[0] || null;
+};
+
+const BOARD_SCOPE_TYPES = new Set(['concept', 'question']);
+const BOARD_ITEM_TYPES = new Set(['note', 'highlight', 'article']);
+
+const normalizeBoardScopeType = (value) => {
+  const candidate = String(value || '').trim().toLowerCase();
+  if (!BOARD_SCOPE_TYPES.has(candidate)) return '';
+  return candidate;
+};
+
+const normalizeBoardScopeId = (scopeType, value) => {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  if (scopeType === 'concept') return raw.toLowerCase();
+  return raw;
+};
+
+const normalizeBoardItemType = (value) => {
+  const candidate = String(value || '').trim().toLowerCase();
+  if (!BOARD_ITEM_TYPES.has(candidate)) return '';
+  return candidate;
+};
+
+const normalizeBoardNumber = (value, fallback, { min = 0, max = 10000 } = {}) => {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.max(min, Math.min(max, parsed));
+};
+
+const resolveBoardItemPayload = async ({ userId, type, sourceId, text }) => {
+  const safeSourceId = String(sourceId || '').trim();
+  const safeText = String(text || '').trim();
+  if (!safeSourceId) return { sourceId: '', text: safeText };
+
+  if (type === 'highlight') {
+    const highlight = await findHighlightById(userId, safeSourceId);
+    if (!highlight) return null;
+    return {
+      sourceId: String(highlight._id),
+      text: safeText || highlight.text || ''
+    };
+  }
+
+  if (type === 'note') {
+    if (!mongoose.Types.ObjectId.isValid(safeSourceId)) return null;
+    const note = await NotebookEntry.findOne({ _id: safeSourceId, userId }).select('title content blocks');
+    if (!note) return null;
+    const blockText = Array.isArray(note.blocks)
+      ? note.blocks.map(block => String(block?.text || '').trim()).filter(Boolean).join(' ')
+      : '';
+    return {
+      sourceId: String(note._id),
+      text: safeText || note.title || blockText || ''
+    };
+  }
+
+  if (type === 'article') {
+    if (!mongoose.Types.ObjectId.isValid(safeSourceId)) return null;
+    const article = await Article.findOne({ _id: safeSourceId, userId }).select('title');
+    if (!article) return null;
+    return {
+      sourceId: String(article._id),
+      text: safeText || article.title || ''
+    };
+  }
+
+  return null;
+};
+
+const ensureBoardOwnership = async (userId, boardId) => {
+  if (!mongoose.Types.ObjectId.isValid(boardId)) return null;
+  return Board.findOne({ _id: boardId, userId });
 };
 
 const RETURN_QUEUE_ITEM_TYPES = new Set(['highlight', 'notebook', 'question', 'concept', 'article']);
@@ -6681,6 +6779,125 @@ app.post('/api/questions/:id/link-highlight', authenticateToken, async (req, res
   } catch (error) {
     console.error("❌ Error linking highlight to question:", error);
     res.status(500).json({ error: "Failed to link highlight." });
+  }
+});
+
+app.get('/api/boards/:scopeType/:scopeId', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const scopeType = normalizeBoardScopeType(req.params.scopeType);
+    if (!scopeType) return res.status(400).json({ error: 'Invalid scopeType.' });
+    const scopeId = normalizeBoardScopeId(scopeType, req.params.scopeId);
+    if (!scopeId) return res.status(400).json({ error: 'scopeId is required.' });
+    if (scopeType === 'question') {
+      if (!mongoose.Types.ObjectId.isValid(scopeId)) {
+        return res.status(400).json({ error: 'Invalid question scopeId.' });
+      }
+      const questionExists = await Question.exists({ _id: scopeId, userId });
+      if (!questionExists) return res.status(404).json({ error: 'Question not found.' });
+    }
+
+    const board = await Board.findOneAndUpdate(
+      { userId, scopeType, scopeId },
+      { $setOnInsert: { userId, scopeType, scopeId } },
+      { new: true, upsert: true, setDefaultsOnInsert: true }
+    );
+    const items = await BoardItem.find({ boardId: board._id }).sort({ createdAt: 1, _id: 1 });
+    res.status(200).json({ board, items });
+  } catch (error) {
+    console.error('❌ Error loading board:', error);
+    res.status(500).json({ error: 'Failed to load board.' });
+  }
+});
+
+app.post('/api/boards/:boardId/items', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const board = await ensureBoardOwnership(userId, req.params.boardId);
+    if (!board) return res.status(404).json({ error: 'Board not found.' });
+
+    const type = normalizeBoardItemType(req.body?.type);
+    if (!type) return res.status(400).json({ error: 'Invalid item type.' });
+
+    const payload = await resolveBoardItemPayload({
+      userId,
+      type,
+      sourceId: req.body?.sourceId,
+      text: req.body?.text
+    });
+    if (!payload) {
+      return res.status(400).json({ error: 'sourceId is invalid for this item type.' });
+    }
+
+    const item = await BoardItem.create({
+      boardId: board._id,
+      type,
+      sourceId: payload.sourceId,
+      text: payload.text,
+      x: normalizeBoardNumber(req.body?.x, 40),
+      y: normalizeBoardNumber(req.body?.y, 40),
+      w: normalizeBoardNumber(req.body?.w, 320, { min: 180, max: 1800 }),
+      h: normalizeBoardNumber(req.body?.h, 220, { min: 120, max: 1400 })
+    });
+
+    await Board.updateOne({ _id: board._id }, { $set: { updatedAt: new Date() } });
+    res.status(201).json(item);
+  } catch (error) {
+    console.error('❌ Error creating board item:', error);
+    res.status(500).json({ error: 'Failed to create board item.' });
+  }
+});
+
+app.put('/api/boards/:boardId/items', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const board = await ensureBoardOwnership(userId, req.params.boardId);
+    if (!board) return res.status(404).json({ error: 'Board not found.' });
+
+    const updates = Array.isArray(req.body?.items) ? req.body.items : [];
+    if (updates.length === 0) return res.status(200).json({ items: [] });
+
+    const ops = updates
+      .filter(item => item && mongoose.Types.ObjectId.isValid(item._id))
+      .map(item => ({
+        updateOne: {
+          filter: { _id: item._id, boardId: board._id },
+          update: {
+            $set: {
+              x: normalizeBoardNumber(item.x, 0),
+              y: normalizeBoardNumber(item.y, 0),
+              w: normalizeBoardNumber(item.w, 320, { min: 180, max: 1800 }),
+              h: normalizeBoardNumber(item.h, 220, { min: 120, max: 1400 })
+            }
+          }
+        }
+      }));
+
+    if (ops.length > 0) {
+      await BoardItem.bulkWrite(ops, { ordered: false });
+      await Board.updateOne({ _id: board._id }, { $set: { updatedAt: new Date() } });
+    }
+
+    const items = await BoardItem.find({ boardId: board._id }).sort({ createdAt: 1, _id: 1 });
+    res.status(200).json({ items });
+  } catch (error) {
+    console.error('❌ Error updating board items:', error);
+    res.status(500).json({ error: 'Failed to update board items.' });
+  }
+});
+
+app.delete('/api/boards/:boardId/items/:itemId', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const board = await ensureBoardOwnership(userId, req.params.boardId);
+    if (!board) return res.status(404).json({ error: 'Board not found.' });
+    const removed = await BoardItem.findOneAndDelete({ _id: req.params.itemId, boardId: board._id });
+    if (!removed) return res.status(404).json({ error: 'Board item not found.' });
+    await Board.updateOne({ _id: board._id }, { $set: { updatedAt: new Date() } });
+    res.status(200).json({ message: 'Deleted.' });
+  } catch (error) {
+    console.error('❌ Error deleting board item:', error);
+    res.status(500).json({ error: 'Failed to delete board item.' });
   }
 });
 

@@ -1,0 +1,199 @@
+.studio-board {
+  display: grid;
+  grid-template-columns: 280px minmax(0, 1fr);
+  gap: var(--space-4);
+  min-height: 72vh;
+}
+
+.studio-board--empty {
+  min-height: 42vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px dashed var(--border-subtle);
+  border-radius: var(--radius-2);
+  background: var(--surface);
+}
+
+.studio-board__library {
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius);
+  background: var(--surface-bg);
+  padding: var(--space-3);
+  display: grid;
+  gap: var(--space-3);
+  align-content: start;
+  max-height: 78vh;
+  overflow: auto;
+}
+
+.studio-board__library-header h3 {
+  margin: 0;
+  font-size: 0.98rem;
+  letter-spacing: 0.02em;
+}
+
+.studio-board__source-section {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.studio-board__source-title {
+  margin: 0;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  font-weight: 700;
+}
+
+.studio-board__source-list {
+  display: grid;
+  gap: 6px;
+}
+
+.studio-board__source-item {
+  border: 1px solid var(--surface-border);
+  background: var(--surface);
+  border-radius: var(--radius-1);
+  padding: 8px 10px;
+  text-align: left;
+  cursor: grab;
+  display: grid;
+  gap: 4px;
+}
+
+.studio-board__source-item:active {
+  cursor: grabbing;
+}
+
+.studio-board__source-item strong {
+  font-size: 0.83rem;
+  line-height: 1.2;
+  font-family: var(--font-sans);
+}
+
+.studio-board__source-item span {
+  font-size: 0.78rem;
+  line-height: 1.35;
+  color: var(--text-muted);
+}
+
+.studio-board__canvas-wrap {
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius);
+  background:
+    linear-gradient(90deg, rgba(15, 23, 42, 0.04) 1px, transparent 1px) 0 0 / 24px 24px,
+    linear-gradient(rgba(15, 23, 42, 0.04) 1px, transparent 1px) 0 0 / 24px 24px,
+    var(--surface-bg);
+  overflow: auto;
+}
+
+.studio-board__canvas {
+  position: relative;
+}
+
+.studio-board__empty-canvas {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  color: var(--text-muted);
+  font-family: var(--font-serif);
+  font-size: 1rem;
+}
+
+.studio-board__card {
+  position: absolute;
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  display: grid;
+  grid-template-rows: auto 1fr;
+  overflow: hidden;
+  box-shadow: var(--shadow-subtle);
+  min-width: 140px;
+  min-height: 80px;
+}
+
+.studio-board__card-header {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--surface-border);
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  cursor: move;
+  user-select: none;
+}
+
+.studio-board__card-title-wrap {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.studio-board__card-title {
+  margin: 0;
+  font-size: 0.8rem;
+  line-height: 1.2;
+  font-family: var(--font-sans);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.studio-board__card-meta {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-family: var(--font-sans);
+}
+
+.studio-board__card-body {
+  padding: 12px 12px 20px;
+  overflow: auto;
+  font-family: var(--font-serif);
+  font-size: 1rem;
+  line-height: 1.65;
+  color: var(--text-primary);
+  white-space: pre-wrap;
+}
+
+.studio-board__card-resize {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 16px;
+  height: 16px;
+  border: 0;
+  border-radius: 0;
+  cursor: nwse-resize;
+  background:
+    linear-gradient(135deg, transparent 50%, var(--text-muted) 50%) 0 0 / 100% 100% no-repeat;
+  opacity: 0.5;
+}
+
+.studio-board__card-resize:hover {
+  opacity: 0.9;
+}
+
+@media (max-width: 1200px) {
+  .studio-board {
+    grid-template-columns: 240px minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 900px) {
+  .studio-board {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .studio-board__library {
+    max-height: none;
+  }
+}

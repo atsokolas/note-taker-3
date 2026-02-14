@@ -31,6 +31,7 @@ import WorkingMemoryPanel from '../components/working-memory/WorkingMemoryPanel'
 import ReturnLaterControl from '../components/return-queue/ReturnLaterControl';
 import ConnectionBuilder from '../components/connections/ConnectionBuilder';
 import ConceptPathWorkspace from '../components/paths/ConceptPathWorkspace';
+import StudioBoard from '../components/StudioBoard';
 import { getConnectionsForScope } from '../api/connections';
 import {
   listWorkingMemory,
@@ -65,7 +66,7 @@ const formatAiError = (err, fallback = 'Request failed.') => {
 const ThinkMode = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const queryConcept = searchParams.get('concept') || '';
-  const allowedViews = useMemo(() => ['notebook', 'concepts', 'questions', 'paths', 'insights'], []);
+  const allowedViews = useMemo(() => ['notebook', 'concepts', 'questions', 'board', 'paths', 'insights'], []);
   const resolveActiveView = (params) => {
     const rawView = params.get('tab') || '';
     if (allowedViews.includes(rawView)) return rawView;
@@ -197,6 +198,21 @@ const ThinkMode = () => {
     () => allQuestions.find(q => q._id === activeQuestionId) || null,
     [allQuestions, activeQuestionId]
   );
+
+  const boardScope = useMemo(() => {
+    const paramType = searchParams.get('scopeType');
+    const paramId = searchParams.get('scopeId');
+    if ((paramType === 'concept' || paramType === 'question') && paramId) {
+      return { scopeType: paramType, scopeId: paramId };
+    }
+    if (activeView === 'questions' && activeQuestionData?._id) {
+      return { scopeType: 'question', scopeId: activeQuestionData._id };
+    }
+    if (selectedName) {
+      return { scopeType: 'concept', scopeId: selectedName };
+    }
+    return { scopeType: '', scopeId: '' };
+  }, [activeQuestionData?._id, activeView, searchParams, selectedName]);
 
   const workingMemoryScope = useMemo(() => {
     if (activeView === 'notebook' && activeNotebookEntry?._id) {
@@ -552,6 +568,8 @@ const ThinkMode = () => {
     const params = new URLSearchParams(searchParams);
     params.set('tab', 'concepts');
     params.set('concept', name);
+    params.delete('scopeType');
+    params.delete('scopeId');
     setActiveView('concepts');
     setSearchParams(params);
   };
@@ -571,9 +589,35 @@ const ThinkMode = () => {
     if (view !== 'paths') {
       params.delete('pathId');
     }
+    if (view !== 'board') {
+      params.delete('scopeType');
+      params.delete('scopeId');
+    } else {
+      const preferredScope = (activeView === 'questions' && activeQuestionData?._id)
+        ? { scopeType: 'question', scopeId: activeQuestionData._id }
+        : selectedName
+          ? { scopeType: 'concept', scopeId: selectedName }
+          : boardScope.scopeType && boardScope.scopeId
+            ? boardScope
+            : { scopeType: '', scopeId: '' };
+      if (preferredScope.scopeType && preferredScope.scopeId) {
+        params.set('scopeType', preferredScope.scopeType);
+        params.set('scopeId', preferredScope.scopeId);
+      }
+    }
     setActiveView(view);
     setSearchParams(params);
   };
+
+  const openBoardForScope = useCallback((scope) => {
+    if (!scope?.scopeType || !scope?.scopeId) return;
+    const params = new URLSearchParams(searchParams);
+    params.set('tab', 'board');
+    params.set('scopeType', scope.scopeType);
+    params.set('scopeId', scope.scopeId);
+    setActiveView('board');
+    setSearchParams(params);
+  }, [searchParams, setSearchParams]);
 
   const handleSelectPath = useCallback((pathId) => {
     const params = new URLSearchParams(searchParams);
@@ -1390,9 +1434,17 @@ const ThinkMode = () => {
       {activeQuestionData && questionStatus === 'open' && (
         <div className="think-question-actions">
           <QuietButton onClick={() => handleMarkAnswered(activeQuestionData)}>Mark answered</QuietButton>
+          <QuietButton onClick={() => openBoardForScope({ scopeType: 'question', scopeId: activeQuestionData._id })}>
+            Board
+          </QuietButton>
         </div>
       )}
     </div>
+  ) : activeView === 'board' ? (
+    <StudioBoard
+      scopeType={boardScope.scopeType}
+      scopeId={boardScope.scopeId}
+    />
   ) : activeView === 'paths' ? (
     <ConceptPathWorkspace
       selectedPathId={selectedPathId}
@@ -1432,6 +1484,9 @@ const ThinkMode = () => {
             />
             <Button variant="secondary" onClick={() => openSynthesis('concept', concept._id)}>
               Synthesize
+            </Button>
+            <Button variant="secondary" onClick={() => openBoardForScope({ scopeType: 'concept', scopeId: concept.name })}>
+              Board
             </Button>
             <Button variant="secondary" onClick={handleExportConcept}>
               Export markdown
@@ -1705,6 +1760,37 @@ const ThinkMode = () => {
     <div className="section-stack">
       <SectionHeader title="Context" subtitle="Insights stay read-only." />
       <p className="muted small">Use themes and connections to decide what to deepen next.</p>
+    </div>
+  ) : activeView === 'board' ? (
+    <div className="section-stack">
+      <SectionHeader title="Board Scope" subtitle="Canonical studio workspace." />
+      {boardScope.scopeType && boardScope.scopeId ? (
+        <p className="muted small">
+          {boardScope.scopeType}: {boardScope.scopeId}
+        </p>
+      ) : (
+        <p className="muted small">Select a concept or question to open a board.</p>
+      )}
+      {boardScope.scopeType === 'concept' && boardScope.scopeId && (
+        <QuietButton onClick={() => handleSelectConcept(boardScope.scopeId)}>
+          Open concept page
+        </QuietButton>
+      )}
+      {boardScope.scopeType === 'question' && boardScope.scopeId && (
+        <QuietButton
+          onClick={() => {
+            const params = new URLSearchParams(searchParams);
+            params.set('tab', 'questions');
+            params.set('questionId', boardScope.scopeId);
+            params.delete('scopeType');
+            params.delete('scopeId');
+            setActiveView('questions');
+            setSearchParams(params);
+          }}
+        >
+          Open question page
+        </QuietButton>
+      )}
     </div>
   ) : (
     <div className="section-stack">
@@ -1997,6 +2083,12 @@ const ThinkMode = () => {
               onClick={() => handleSelectView('questions')}
             >
               Questions
+            </QuietButton>
+            <QuietButton
+              className={`list-button ${activeView === 'board' ? 'is-active' : ''}`}
+              onClick={() => handleSelectView('board')}
+            >
+              Board
             </QuietButton>
             <QuietButton
               className={`list-button ${activeView === 'paths' ? 'is-active' : ''}`}
