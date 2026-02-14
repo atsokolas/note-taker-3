@@ -1,16 +1,26 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import api from '../api';
 import { getAuthHeaders } from '../hooks/useAuthHeaders';
-import { createBoardItem, deleteBoardItem, getBoardForScope, updateBoardItems } from '../api/boards';
+import {
+  createBoardEdge,
+  createBoardItem,
+  deleteBoardEdge,
+  deleteBoardItem,
+  getBoardForScope,
+  patchBoardItem,
+  updateBoardItems
+} from '../api/boards';
 
 const MIN_CARD_WIDTH = 220;
 const MIN_CARD_HEIGHT = 140;
 const DRAG_DATA_TYPE = 'application/x-studio-board-item';
+const CARD_ROLES = ['idea', 'claim', 'evidence'];
+const RELATION_OPTIONS = ['supports', 'contradicts', 'explains', 'example'];
 
 const toSnippet = (value, limit = 180) => {
   const text = String(value || '').replace(/\s+/g, ' ').trim();
   if (!text) return '';
-  return text.length > limit ? `${text.slice(0, limit)}…` : text;
+  return text.length > limit ? `${text.slice(0, limit)}...` : text;
 };
 
 const getNoteText = (note) => {
@@ -21,49 +31,107 @@ const getNoteText = (note) => {
   return note.title || blockText || note.content || '';
 };
 
+const toRoleLabel = (role) => {
+  const safeRole = String(role || 'idea').trim().toLowerCase();
+  if (safeRole === 'claim') return 'Claim';
+  if (safeRole === 'evidence') return 'Evidence';
+  return 'Idea';
+};
+
+const toRelationLabel = (relation) => {
+  const safeRelation = String(relation || '').trim().toLowerCase();
+  if (safeRelation === 'supports') return 'supports';
+  if (safeRelation === 'contradicts') return 'contradicts';
+  if (safeRelation === 'explains') return 'explains';
+  if (safeRelation === 'example') return 'example';
+  return safeRelation || 'related';
+};
+
 const StudioCard = React.memo(({
   item,
   title,
   meta,
   body,
+  isSelected,
+  isLinkSource,
+  isLinkTarget,
+  linkTargetMode,
+  onSelect,
   onStartMove,
   onStartResize,
-  onDelete
-}) => (
-  <article
-    className="studio-board__card"
-    style={{
-      left: item.x,
-      top: item.y,
-      width: item.w,
-      height: item.h
-    }}
-  >
-    <header className="studio-board__card-header" onMouseDown={(event) => onStartMove(event, item)}>
-      <div className="studio-board__card-title-wrap">
-        <h4 className="studio-board__card-title">{title}</h4>
-        <p className="studio-board__card-meta">{meta}</p>
+  onDelete,
+  onStartLink,
+  onChangeRole
+}) => {
+  const cardClasses = [
+    'studio-board__card',
+    isSelected ? 'is-selected' : '',
+    isLinkSource ? 'is-link-source' : '',
+    isLinkTarget ? 'is-link-target' : '',
+    linkTargetMode && !isLinkSource ? 'is-link-target-mode' : ''
+  ].filter(Boolean).join(' ');
+
+  return (
+    <article
+      className={cardClasses}
+      style={{
+        left: item.x,
+        top: item.y,
+        width: item.w,
+        height: item.h
+      }}
+      onMouseDown={() => onSelect(item)}
+    >
+      <header className="studio-board__card-header" onMouseDown={(event) => onStartMove(event, item)}>
+        <div className="studio-board__card-title-wrap">
+          <h4 className="studio-board__card-title">{title}</h4>
+          <p className="studio-board__card-meta">{meta}</p>
+        </div>
+        <div className="studio-board__card-actions" onMouseDown={(event) => event.stopPropagation()}>
+          <select
+            className="studio-board__role-select"
+            value={item.role || 'idea'}
+            aria-label="Card role"
+            onChange={(event) => onChangeRole(item._id, event.target.value)}
+          >
+            {CARD_ROLES.map(role => (
+              <option key={role} value={role}>{toRoleLabel(role)}</option>
+            ))}
+          </select>
+          <button
+            type="button"
+            className="ui-quiet-button"
+            onClick={() => onStartLink(item._id)}
+            title="Start link"
+          >
+            Link
+          </button>
+          <button type="button" className="icon-button" onClick={() => onDelete(item._id)} title="Delete card">
+            x
+          </button>
+        </div>
+      </header>
+      <div className="studio-board__card-body">
+        {body || 'No content'}
       </div>
-      <button type="button" className="icon-button" onClick={() => onDelete(item._id)} title="Delete card">
-        ×
-      </button>
-    </header>
-    <div className="studio-board__card-body">
-      {body || 'No content'}
-    </div>
-    <button
-      type="button"
-      className="studio-board__card-resize"
-      onMouseDown={(event) => onStartResize(event, item)}
-      aria-label="Resize card"
-      title="Resize"
-    />
-  </article>
-));
+      <button
+        type="button"
+        className="studio-board__card-resize"
+        onMouseDown={(event) => onStartResize(event, item)}
+        aria-label="Resize card"
+        title="Resize"
+      />
+    </article>
+  );
+});
 
 const StudioBoard = ({ scopeType, scopeId }) => {
   const [board, setBoard] = useState(null);
   const [items, setItems] = useState([]);
+  const [edges, setEdges] = useState([]);
+  const [activeCardId, setActiveCardId] = useState('');
+  const [linkDraft, setLinkDraft] = useState(null);
+  const [pendingRelation, setPendingRelation] = useState('supports');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [saveError, setSaveError] = useState('');
@@ -82,6 +150,9 @@ const StudioBoard = ({ scopeType, scopeId }) => {
     if (!safeScopeType || !safeScopeId) {
       setBoard(null);
       setItems([]);
+      setEdges([]);
+      setActiveCardId('');
+      setLinkDraft(null);
       return;
     }
     setLoading(true);
@@ -90,6 +161,8 @@ const StudioBoard = ({ scopeType, scopeId }) => {
       const data = await getBoardForScope(safeScopeType, safeScopeId);
       setBoard(data.board || null);
       setItems(Array.isArray(data.items) ? data.items : []);
+      setEdges(Array.isArray(data.edges) ? data.edges : []);
+      setSaveError('');
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to load board.');
     } finally {
@@ -238,7 +311,11 @@ const StudioBoard = ({ scopeType, scopeId }) => {
 
   const handleDeleteCard = useCallback(async (itemId) => {
     if (!board?._id) return;
-    setItems(prev => prev.filter(item => String(item._id) !== String(itemId)));
+    const safeId = String(itemId);
+    setItems(prev => prev.filter(item => String(item._id) !== safeId));
+    setEdges(prev => prev.filter(edge => String(edge.fromItemId) !== safeId && String(edge.toItemId) !== safeId));
+    if (activeCardId === safeId) setActiveCardId('');
+    if (linkDraft?.fromItemId === safeId || linkDraft?.toItemId === safeId) setLinkDraft(null);
     try {
       await deleteBoardItem(board._id, itemId);
       setSaveError('');
@@ -246,29 +323,100 @@ const StudioBoard = ({ scopeType, scopeId }) => {
       setSaveError(err.response?.data?.error || 'Failed to delete card.');
       loadBoard();
     }
-  }, [board?._id, loadBoard]);
+  }, [activeCardId, board?._id, linkDraft, loadBoard]);
 
-  const handleCreateCard = useCallback(async ({ type, sourceId = '', text = '', x = 40, y = 40 }) => {
+  const handleCreateCard = useCallback(async ({ type, sourceId = '', text = '', x = 40, y = 40, role = 'idea' }) => {
     if (!board?._id) return;
     try {
       const created = await createBoardItem(board._id, {
         type,
+        role,
         sourceId,
         text,
         x,
         y
       });
       setItems(prev => [...prev, created]);
+      setActiveCardId(String(created?._id || ''));
       setSaveError('');
     } catch (err) {
       setSaveError(err.response?.data?.error || 'Failed to create card.');
     }
   }, [board?._id]);
 
+  const handleChangeRole = useCallback(async (itemId, role) => {
+    if (!board?._id) return;
+    const safeRole = String(role || '').trim().toLowerCase();
+    if (!CARD_ROLES.includes(safeRole)) return;
+    setItems(prev => prev.map(item => (
+      String(item._id) === String(itemId) ? { ...item, role: safeRole } : item
+    )));
+    try {
+      const updated = await patchBoardItem(board._id, itemId, { role: safeRole });
+      setItems(prev => prev.map(item => (
+        String(item._id) === String(updated._id) ? { ...item, role: updated.role || safeRole } : item
+      )));
+      setSaveError('');
+    } catch (err) {
+      setSaveError(err.response?.data?.error || 'Failed to update card role.');
+      loadBoard();
+    }
+  }, [board?._id, loadBoard]);
+
+  const handleStartLink = useCallback((fromItemId) => {
+    setActiveCardId(String(fromItemId));
+    setPendingRelation('supports');
+    setLinkDraft({ fromItemId: String(fromItemId), toItemId: '' });
+  }, []);
+
+  const handleSelectCard = useCallback((item) => {
+    const itemId = String(item?._id || '');
+    if (!itemId) return;
+    setActiveCardId(itemId);
+    setLinkDraft(prev => {
+      if (!prev || !prev.fromItemId) return prev;
+      if (String(prev.fromItemId) === itemId) return prev;
+      return { ...prev, toItemId: itemId };
+    });
+  }, []);
+
+  const handleCreateEdge = useCallback(async () => {
+    if (!board?._id || !linkDraft?.fromItemId || !linkDraft?.toItemId) return;
+    const payload = {
+      fromItemId: linkDraft.fromItemId,
+      toItemId: linkDraft.toItemId,
+      relation: pendingRelation
+    };
+    try {
+      const created = await createBoardEdge(board._id, payload);
+      setEdges(prev => {
+        const exists = prev.some(edge => String(edge._id) === String(created?._id));
+        return exists ? prev : [...prev, created];
+      });
+      setLinkDraft(null);
+      setSaveError('');
+    } catch (err) {
+      setSaveError(err.response?.data?.error || 'Failed to create link.');
+    }
+  }, [board?._id, linkDraft, pendingRelation]);
+
+  const handleDeleteEdge = useCallback(async (edgeId) => {
+    if (!board?._id) return;
+    const safeEdgeId = String(edgeId || '');
+    setEdges(prev => prev.filter(edge => String(edge._id) !== safeEdgeId));
+    try {
+      await deleteBoardEdge(board._id, safeEdgeId);
+      setSaveError('');
+    } catch (err) {
+      setSaveError(err.response?.data?.error || 'Failed to delete link.');
+      loadBoard();
+    }
+  }, [board?._id, loadBoard]);
+
   const handleAddTextCard = useCallback(async () => {
     const text = window.prompt('Card text');
     if (text === null) return;
-    await handleCreateCard({ type: 'note', text: text.trim() || 'New note card', x: 56, y: 56 });
+    await handleCreateCard({ type: 'note', text: text.trim() || 'New note card', x: 56, y: 56, role: 'idea' });
   }, [handleCreateCard]);
 
   const onSourceDragStart = useCallback((event, payload) => {
@@ -296,18 +444,72 @@ const StudioBoard = ({ scopeType, scopeId }) => {
       sourceId: payload.sourceId || '',
       text: payload.text || '',
       x,
-      y
+      y,
+      role: 'idea'
     });
   }, [board?._id, handleCreateCard]);
 
+  const cards = useMemo(() => items.map(item => {
+    const itemType = String(item.type || '').toLowerCase();
+    const sourceId = String(item.sourceId || '');
+    if (itemType === 'highlight') {
+      const source = highlightsById.get(sourceId);
+      return {
+        ...item,
+        title: source?.articleTitle || 'Highlight',
+        meta: `${toRoleLabel(item.role)} • Highlight`,
+        body: source?.text || item.text || ''
+      };
+    }
+    if (itemType === 'article') {
+      const source = articlesById.get(sourceId);
+      return {
+        ...item,
+        title: source?.title || source?.url || 'Article',
+        meta: `${toRoleLabel(item.role)} • Article`,
+        body: item.text || source?.url || source?.title || ''
+      };
+    }
+    const source = notesById.get(sourceId);
+    return {
+      ...item,
+      title: source?.title || 'Note',
+      meta: `${toRoleLabel(item.role)} • Note`,
+      body: item.text || getNoteText(source) || ''
+    };
+  }), [articlesById, highlightsById, items, notesById]);
+
+  const cardsById = useMemo(() => {
+    const map = new Map();
+    cards.forEach(card => map.set(String(card._id), card));
+    return map;
+  }, [cards]);
+
+  const visibleEdges = useMemo(() => edges
+    .map(edge => {
+      const fromItem = cardsById.get(String(edge.fromItemId));
+      const toItem = cardsById.get(String(edge.toItemId));
+      if (!fromItem || !toItem) return null;
+      return {
+        ...edge,
+        fromItem,
+        toItem,
+        x1: Number(fromItem.x || 0) + Number(fromItem.w || 0) / 2,
+        y1: Number(fromItem.y || 0) + Number(fromItem.h || 0) / 2,
+        x2: Number(toItem.x || 0) + Number(toItem.w || 0) / 2,
+        y2: Number(toItem.y || 0) + Number(toItem.h || 0) / 2
+      };
+    })
+    .filter(Boolean), [cardsById, edges]);
+
   const canvasSize = useMemo(() => {
-    const maxX = items.reduce((acc, item) => Math.max(acc, (item.x || 0) + (item.w || 0)), 0);
-    const maxY = items.reduce((acc, item) => Math.max(acc, (item.y || 0) + (item.h || 0)), 0);
+    const maxX = cards.reduce((acc, item) => Math.max(acc, (item.x || 0) + (item.w || 0)), 0);
+    const maxY = cards.reduce((acc, item) => Math.max(acc, (item.y || 0) + (item.h || 0)), 0);
     return {
       width: Math.max(1600, maxX + 180),
       height: Math.max(920, maxY + 180)
     };
-  }, [items]);
+  }, [cards]);
 
   const notes = useMemo(
     () => sources.notes.slice(0, 16).map(note => ({
@@ -339,35 +541,17 @@ const StudioBoard = ({ scopeType, scopeId }) => {
     [sources.articles]
   );
 
-  const cards = useMemo(() => items.map(item => {
-    const itemType = String(item.type || '').toLowerCase();
-    const sourceId = String(item.sourceId || '');
-    if (itemType === 'highlight') {
-      const source = highlightsById.get(sourceId);
-      return {
-        ...item,
-        title: source?.articleTitle || 'Highlight',
-        meta: 'Highlight',
-        body: source?.text || item.text || ''
-      };
-    }
-    if (itemType === 'article') {
-      const source = articlesById.get(sourceId);
-      return {
-        ...item,
-        title: source?.title || source?.url || 'Article',
-        meta: 'Article',
-        body: item.text || source?.url || source?.title || ''
-      };
-    }
-    const source = notesById.get(sourceId);
-    return {
-      ...item,
-      title: source?.title || 'Note',
-      meta: 'Note',
-      body: item.text || getNoteText(source) || ''
-    };
-  }), [articlesById, highlightsById, items, notesById]);
+  const activeCard = activeCardId ? cardsById.get(activeCardId) : null;
+
+  const relatedEdges = useMemo(() => {
+    if (!activeCardId) return [];
+    return edges.filter(edge => (
+      String(edge.fromItemId) === String(activeCardId) || String(edge.toItemId) === String(activeCardId)
+    ));
+  }, [activeCardId, edges]);
+
+  const linkSource = linkDraft?.fromItemId ? cardsById.get(String(linkDraft.fromItemId)) : null;
+  const linkTarget = linkDraft?.toItemId ? cardsById.get(String(linkDraft.toItemId)) : null;
 
   if (!safeScopeType || !safeScopeId) {
     return (
@@ -387,10 +571,44 @@ const StudioBoard = ({ scopeType, scopeId }) => {
         <button type="button" className="ui-quiet-button" onClick={handleAddTextCard}>
           Add text card
         </button>
-        {loading && <p className="muted small">Loading board…</p>}
+
+        {activeCard && (
+          <div className="studio-board__source-section">
+            <p className="studio-board__source-title">Selected</p>
+            <p className="studio-board__selected-card">{activeCard.title}</p>
+            <div className="studio-board__edge-list">
+              {relatedEdges.length === 0 ? (
+                <p className="muted small">No links yet.</p>
+              ) : (
+                relatedEdges.map(edge => {
+                  const isOutgoing = String(edge.fromItemId) === String(activeCardId);
+                  const peerId = isOutgoing ? edge.toItemId : edge.fromItemId;
+                  const peer = cardsById.get(String(peerId));
+                  return (
+                    <div key={edge._id} className="studio-board__edge-row">
+                      <span>
+                        {toRelationLabel(edge.relation)} {isOutgoing ? '->' : '<-'} {peer?.title || 'Card'}
+                      </span>
+                      <button
+                        type="button"
+                        className="icon-button"
+                        title="Delete link"
+                        onClick={() => handleDeleteEdge(edge._id)}
+                      >
+                        x
+                      </button>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        )}
+
+        {loading && <p className="muted small">Loading board...</p>}
         {error && <p className="status-message error-message">{error}</p>}
         {saveError && <p className="status-message error-message">{saveError}</p>}
-        {sourceLoading && <p className="muted small">Loading sources…</p>}
+        {sourceLoading && <p className="muted small">Loading sources...</p>}
         {sourceError && <p className="status-message error-message">{sourceError}</p>}
 
         <div className="studio-board__source-section">
@@ -449,13 +667,61 @@ const StudioBoard = ({ scopeType, scopeId }) => {
       </aside>
 
       <div className="studio-board__canvas-wrap">
+        {linkDraft && (
+          <div className="studio-board__link-banner">
+            {!linkDraft.toItemId ? (
+              <span>
+                Link mode: select a target card for <strong>{linkSource?.title || 'card'}</strong>.
+              </span>
+            ) : (
+              <>
+                <span>
+                  {linkSource?.title || 'Card'} -> {linkTarget?.title || 'Card'}
+                </span>
+                <select value={pendingRelation} onChange={(event) => setPendingRelation(event.target.value)}>
+                  {RELATION_OPTIONS.map(relation => (
+                    <option key={relation} value={relation}>{toRelationLabel(relation)}</option>
+                  ))}
+                </select>
+                <button type="button" className="ui-quiet-button" onClick={handleCreateEdge}>Create link</button>
+              </>
+            )}
+            <button type="button" className="icon-button" onClick={() => setLinkDraft(null)} title="Cancel link mode">
+              x
+            </button>
+          </div>
+        )}
         <div
           ref={canvasRef}
           className="studio-board__canvas"
           style={{ width: canvasSize.width, minHeight: canvasSize.height }}
           onDragOver={(event) => event.preventDefault()}
           onDrop={onCanvasDrop}
+          onMouseDown={(event) => {
+            if (event.target === canvasRef.current) {
+              setActiveCardId('');
+            }
+          }}
         >
+          <svg className="studio-board__edges" width={canvasSize.width} height={canvasSize.height}>
+            {visibleEdges.map(edge => {
+              const midX = (edge.x1 + edge.x2) / 2;
+              const midY = (edge.y1 + edge.y2) / 2;
+              return (
+                <g key={edge._id || `${edge.fromItemId}-${edge.toItemId}-${edge.relation}`}>
+                  <line
+                    x1={edge.x1}
+                    y1={edge.y1}
+                    x2={edge.x2}
+                    y2={edge.y2}
+                    className={`studio-board__edge-line is-${edge.relation}`}
+                  />
+                  <text x={midX} y={midY} className="studio-board__edge-label">{toRelationLabel(edge.relation)}</text>
+                </g>
+              );
+            })}
+          </svg>
+
           {cards.map(item => (
             <StudioCard
               key={item._id}
@@ -463,9 +729,16 @@ const StudioBoard = ({ scopeType, scopeId }) => {
               title={item.title}
               meta={item.meta}
               body={item.body}
+              isSelected={String(item._id) === String(activeCardId)}
+              isLinkSource={String(item._id) === String(linkDraft?.fromItemId || '')}
+              isLinkTarget={String(item._id) === String(linkDraft?.toItemId || '')}
+              linkTargetMode={Boolean(linkDraft?.fromItemId) && !linkDraft?.toItemId}
+              onSelect={handleSelectCard}
               onStartMove={(event, targetItem) => beginInteraction(event, targetItem, 'move')}
               onStartResize={(event, targetItem) => beginInteraction(event, targetItem, 'resize')}
               onDelete={handleDeleteCard}
+              onStartLink={handleStartLink}
+              onChangeRole={handleChangeRole}
             />
           ))}
           {cards.length === 0 && !loading && (

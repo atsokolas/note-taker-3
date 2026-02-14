@@ -320,7 +320,11 @@ const Board = mongoose.model('Board', boardSchema);
 const boardItemSchema = new mongoose.Schema({
   boardId: { type: mongoose.Schema.Types.ObjectId, ref: 'Board', required: true },
   type: { type: String, enum: ['note', 'highlight', 'article'], required: true },
+  role: { type: String, enum: ['idea', 'claim', 'evidence'], default: 'idea' },
   sourceId: { type: String, default: '', trim: true },
+  noteId: { type: String, default: '', trim: true },
+  articleId: { type: String, default: '', trim: true },
+  highlightId: { type: String, default: '', trim: true },
   text: { type: String, default: '', trim: true },
   x: { type: Number, default: 40 },
   y: { type: Number, default: 40 },
@@ -331,6 +335,18 @@ const boardItemSchema = new mongoose.Schema({
 boardItemSchema.index({ boardId: 1, createdAt: 1 });
 
 const BoardItem = mongoose.model('BoardItem', boardItemSchema);
+
+const boardEdgeSchema = new mongoose.Schema({
+  boardId: { type: mongoose.Schema.Types.ObjectId, ref: 'Board', required: true },
+  fromItemId: { type: mongoose.Schema.Types.ObjectId, ref: 'BoardItem', required: true },
+  toItemId: { type: mongoose.Schema.Types.ObjectId, ref: 'BoardItem', required: true },
+  relation: { type: String, enum: ['supports', 'contradicts', 'explains', 'example'], required: true }
+}, { timestamps: true });
+
+boardEdgeSchema.index({ boardId: 1, createdAt: 1 });
+boardEdgeSchema.index({ boardId: 1, fromItemId: 1, toItemId: 1, relation: 1 }, { unique: true });
+
+const BoardEdge = mongoose.model('BoardEdge', boardEdgeSchema);
 
 const workingMemoryItemSchema = new mongoose.Schema({
   sourceType: { type: String, required: true, trim: true },
@@ -573,6 +589,8 @@ const findHighlightById = async (userId, highlightId) => {
 
 const BOARD_SCOPE_TYPES = new Set(['concept', 'question']);
 const BOARD_ITEM_TYPES = new Set(['note', 'highlight', 'article']);
+const BOARD_ITEM_ROLES = new Set(['idea', 'claim', 'evidence']);
+const BOARD_EDGE_RELATIONS = new Set(['supports', 'contradicts', 'explains', 'example']);
 
 const normalizeBoardScopeType = (value) => {
   const candidate = String(value || '').trim().toLowerCase();
@@ -593,6 +611,18 @@ const normalizeBoardItemType = (value) => {
   return candidate;
 };
 
+const normalizeBoardItemRole = (value, fallback = 'idea') => {
+  const candidate = String(value || '').trim().toLowerCase();
+  if (BOARD_ITEM_ROLES.has(candidate)) return candidate;
+  return fallback;
+};
+
+const normalizeBoardRelation = (value) => {
+  const candidate = String(value || '').trim().toLowerCase();
+  if (!BOARD_EDGE_RELATIONS.has(candidate)) return '';
+  return candidate;
+};
+
 const normalizeBoardNumber = (value, fallback, { min = 0, max = 10000 } = {}) => {
   const parsed = Number(value);
   if (!Number.isFinite(parsed)) return fallback;
@@ -602,14 +632,19 @@ const normalizeBoardNumber = (value, fallback, { min = 0, max = 10000 } = {}) =>
 const resolveBoardItemPayload = async ({ userId, type, sourceId, text }) => {
   const safeSourceId = String(sourceId || '').trim();
   const safeText = String(text || '').trim();
-  if (!safeSourceId) return { sourceId: '', text: safeText };
+  if (!safeSourceId) {
+    return { sourceId: '', text: safeText, noteId: '', articleId: '', highlightId: '' };
+  }
 
   if (type === 'highlight') {
     const highlight = await findHighlightById(userId, safeSourceId);
     if (!highlight) return null;
     return {
       sourceId: String(highlight._id),
-      text: safeText || highlight.text || ''
+      text: safeText || highlight.text || '',
+      noteId: '',
+      articleId: '',
+      highlightId: String(highlight._id)
     };
   }
 
@@ -622,7 +657,10 @@ const resolveBoardItemPayload = async ({ userId, type, sourceId, text }) => {
       : '';
     return {
       sourceId: String(note._id),
-      text: safeText || note.title || blockText || ''
+      text: safeText || note.title || blockText || '',
+      noteId: String(note._id),
+      articleId: '',
+      highlightId: ''
     };
   }
 
@@ -632,7 +670,10 @@ const resolveBoardItemPayload = async ({ userId, type, sourceId, text }) => {
     if (!article) return null;
     return {
       sourceId: String(article._id),
-      text: safeText || article.title || ''
+      text: safeText || article.title || '',
+      noteId: '',
+      articleId: String(article._id),
+      highlightId: ''
     };
   }
 
@@ -6803,7 +6844,8 @@ app.get('/api/boards/:scopeType/:scopeId', authenticateToken, async (req, res) =
       { new: true, upsert: true, setDefaultsOnInsert: true }
     );
     const items = await BoardItem.find({ boardId: board._id }).sort({ createdAt: 1, _id: 1 });
-    res.status(200).json({ board, items });
+    const edges = await BoardEdge.find({ boardId: board._id }).sort({ createdAt: 1, _id: 1 });
+    res.status(200).json({ board, items, edges });
   } catch (error) {
     console.error('❌ Error loading board:', error);
     res.status(500).json({ error: 'Failed to load board.' });
@@ -6818,6 +6860,7 @@ app.post('/api/boards/:boardId/items', authenticateToken, async (req, res) => {
 
     const type = normalizeBoardItemType(req.body?.type);
     if (!type) return res.status(400).json({ error: 'Invalid item type.' });
+    const role = normalizeBoardItemRole(req.body?.role, 'idea');
 
     const payload = await resolveBoardItemPayload({
       userId,
@@ -6832,7 +6875,11 @@ app.post('/api/boards/:boardId/items', authenticateToken, async (req, res) => {
     const item = await BoardItem.create({
       boardId: board._id,
       type,
+      role,
       sourceId: payload.sourceId,
+      noteId: payload.noteId,
+      articleId: payload.articleId,
+      highlightId: payload.highlightId,
       text: payload.text,
       x: normalizeBoardNumber(req.body?.x, 40),
       y: normalizeBoardNumber(req.body?.y, 40),
@@ -6886,6 +6933,114 @@ app.put('/api/boards/:boardId/items', authenticateToken, async (req, res) => {
   }
 });
 
+app.patch('/api/boards/:boardId/items/:itemId', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const board = await ensureBoardOwnership(userId, req.params.boardId);
+    if (!board) return res.status(404).json({ error: 'Board not found.' });
+
+    const existing = await BoardItem.findOne({ _id: req.params.itemId, boardId: board._id });
+    if (!existing) return res.status(404).json({ error: 'Board item not found.' });
+
+    const patch = {};
+    if (typeof req.body?.role !== 'undefined') {
+      patch.role = normalizeBoardItemRole(req.body.role, '');
+      if (!patch.role) return res.status(400).json({ error: 'Invalid role.' });
+      if (patch.role === 'evidence') {
+        const sourceId = String(existing.sourceId || '').trim();
+        if (sourceId) {
+          if (existing.type === 'note' && !existing.noteId) patch.noteId = sourceId;
+          if (existing.type === 'article' && !existing.articleId) patch.articleId = sourceId;
+          if (existing.type === 'highlight' && !existing.highlightId) patch.highlightId = sourceId;
+        }
+      }
+    }
+    if (Object.keys(patch).length === 0) {
+      return res.status(400).json({ error: 'No updates provided.' });
+    }
+
+    const item = await BoardItem.findOneAndUpdate(
+      { _id: existing._id, boardId: board._id },
+      { $set: patch },
+      { new: true }
+    );
+    if (!item) return res.status(404).json({ error: 'Board item not found.' });
+
+    await Board.updateOne({ _id: board._id }, { $set: { updatedAt: new Date() } });
+    res.status(200).json(item);
+  } catch (error) {
+    console.error('❌ Error patching board item:', error);
+    res.status(500).json({ error: 'Failed to update board item.' });
+  }
+});
+
+app.post('/api/boards/:boardId/edges', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const board = await ensureBoardOwnership(userId, req.params.boardId);
+    if (!board) return res.status(404).json({ error: 'Board not found.' });
+
+    const fromItemId = String(req.body?.fromItemId || '').trim();
+    const toItemId = String(req.body?.toItemId || '').trim();
+    const relation = normalizeBoardRelation(req.body?.relation);
+    if (!mongoose.Types.ObjectId.isValid(fromItemId) || !mongoose.Types.ObjectId.isValid(toItemId)) {
+      return res.status(400).json({ error: 'fromItemId and toItemId are required.' });
+    }
+    if (!relation) return res.status(400).json({ error: 'Invalid relation.' });
+    if (fromItemId === toItemId) return res.status(400).json({ error: 'Cannot link a card to itself.' });
+
+    const [fromItem, toItem] = await Promise.all([
+      BoardItem.findOne({ _id: fromItemId, boardId: board._id }).select('_id'),
+      BoardItem.findOne({ _id: toItemId, boardId: board._id }).select('_id')
+    ]);
+    if (!fromItem || !toItem) return res.status(404).json({ error: 'Board item not found.' });
+
+    let edge;
+    try {
+      edge = await BoardEdge.create({
+        boardId: board._id,
+        fromItemId: fromItem._id,
+        toItemId: toItem._id,
+        relation
+      });
+    } catch (error) {
+      if (error?.code === 11000) {
+        edge = await BoardEdge.findOne({
+          boardId: board._id,
+          fromItemId: fromItem._id,
+          toItemId: toItem._id,
+          relation
+        });
+      } else {
+        throw error;
+      }
+    }
+
+    await Board.updateOne({ _id: board._id }, { $set: { updatedAt: new Date() } });
+    res.status(201).json(edge);
+  } catch (error) {
+    console.error('❌ Error creating board edge:', error);
+    res.status(500).json({ error: 'Failed to create board edge.' });
+  }
+});
+
+app.delete('/api/boards/:boardId/edges/:edgeId', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const board = await ensureBoardOwnership(userId, req.params.boardId);
+    if (!board) return res.status(404).json({ error: 'Board not found.' });
+
+    const removed = await BoardEdge.findOneAndDelete({ _id: req.params.edgeId, boardId: board._id });
+    if (!removed) return res.status(404).json({ error: 'Board edge not found.' });
+
+    await Board.updateOne({ _id: board._id }, { $set: { updatedAt: new Date() } });
+    res.status(200).json({ message: 'Deleted.' });
+  } catch (error) {
+    console.error('❌ Error deleting board edge:', error);
+    res.status(500).json({ error: 'Failed to delete board edge.' });
+  }
+});
+
 app.delete('/api/boards/:boardId/items/:itemId', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
@@ -6893,6 +7048,13 @@ app.delete('/api/boards/:boardId/items/:itemId', authenticateToken, async (req, 
     if (!board) return res.status(404).json({ error: 'Board not found.' });
     const removed = await BoardItem.findOneAndDelete({ _id: req.params.itemId, boardId: board._id });
     if (!removed) return res.status(404).json({ error: 'Board item not found.' });
+    await BoardEdge.deleteMany({
+      boardId: board._id,
+      $or: [
+        { fromItemId: removed._id },
+        { toItemId: removed._id }
+      ]
+    });
     await Board.updateOne({ _id: board._id }, { $set: { updatedAt: new Date() } });
     res.status(200).json({ message: 'Deleted.' });
   } catch (error) {
