@@ -89,8 +89,92 @@
   overflow: auto;
 }
 
+.studio-board__view-toggle {
+  position: sticky;
+  top: 0;
+  z-index: 4;
+  display: inline-flex;
+  gap: 6px;
+  padding: 8px;
+  border-bottom: 1px solid var(--surface-border);
+  background: color-mix(in srgb, var(--surface-bg) 90%, white);
+}
+
+.studio-board__view-button {
+  border: 1px solid var(--surface-border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text-muted);
+  font-family: var(--font-sans);
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 6px 12px;
+  cursor: pointer;
+}
+
+.studio-board__view-button.is-active {
+  color: var(--text-primary);
+  border-color: color-mix(in srgb, var(--accent-primary, var(--primary-color)) 45%, var(--surface-border));
+  background: color-mix(in srgb, var(--surface) 85%, var(--accent-primary, var(--primary-color)) 15%);
+}
+
 .studio-board__canvas {
   position: relative;
+}
+
+.studio-board__map-wrap {
+  position: relative;
+  overflow: auto;
+}
+
+.studio-board__map {
+  display: block;
+}
+
+.studio-board__map-edge {
+  stroke: color-mix(in srgb, var(--text-muted) 55%, transparent);
+  stroke-width: 1.2px;
+}
+
+.studio-board__map-edge.is-contradicts {
+  stroke-dasharray: 5 3;
+}
+
+.studio-board__map-edge.is-dim {
+  opacity: 0.16;
+}
+
+.studio-board__map-node {
+  cursor: pointer;
+}
+
+.studio-board__map-node circle {
+  fill: color-mix(in srgb, var(--surface) 86%, #dbeafe);
+  stroke: color-mix(in srgb, var(--surface-border) 85%, var(--text-muted));
+  stroke-width: 1.2px;
+}
+
+.studio-board__map-node text {
+  fill: var(--text-muted);
+  font-family: var(--font-sans);
+  font-size: 10px;
+  text-anchor: middle;
+  pointer-events: none;
+}
+
+.studio-board__map-node.is-focus circle {
+  fill: color-mix(in srgb, #dbeafe 62%, var(--surface));
+  stroke: color-mix(in srgb, var(--accent-primary, var(--primary-color)) 65%, var(--surface-border));
+}
+
+.studio-board__map-node.is-focus text {
+  fill: var(--text-primary);
+}
+
+.studio-board__map-node.is-dim {
+  opacity: 0.22;
 }
 
 .studio-board__edges {
@@ -259,7 +343,7 @@
   align-items: center;
   gap: 8px;
   position: sticky;
-  top: 0;
+  top: 42px;
   z-index: 3;
 }
 

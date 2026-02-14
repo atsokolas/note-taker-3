@@ -16,6 +16,9 @@ const MIN_CARD_HEIGHT = 140;
 const DRAG_DATA_TYPE = 'application/x-studio-board-item';
 const CARD_ROLES = ['idea', 'claim', 'evidence'];
 const RELATION_OPTIONS = ['supports', 'contradicts', 'explains', 'example'];
+const MAP_CELL_WIDTH = 190;
+const MAP_CELL_HEIGHT = 126;
+const MAP_PADDING = 96;
 
 const toSnippet = (value, limit = 180) => {
   const text = String(value || '').replace(/\s+/g, ' ').trim();
@@ -45,6 +48,22 @@ const toRelationLabel = (relation) => {
   if (safeRelation === 'explains') return 'explains';
   if (safeRelation === 'example') return 'example';
   return safeRelation || 'related';
+};
+
+const toMapLabel = (title) => {
+  const text = String(title || '').trim();
+  if (!text) return 'Card';
+  return text.length > 32 ? `${text.slice(0, 32)}...` : text;
+};
+
+const hashString = (value) => {
+  const text = String(value || '');
+  let hash = 0;
+  for (let i = 0; i < text.length; i += 1) {
+    hash = ((hash << 5) - hash) + text.charCodeAt(i);
+    hash |= 0;
+  }
+  return Math.abs(hash);
 };
 
 const StudioCard = React.memo(({
@@ -129,6 +148,8 @@ const StudioBoard = ({ scopeType, scopeId }) => {
   const [board, setBoard] = useState(null);
   const [items, setItems] = useState([]);
   const [edges, setEdges] = useState([]);
+  const [viewMode, setViewMode] = useState('canvas');
+  const [mapFocusId, setMapFocusId] = useState('');
   const [activeCardId, setActiveCardId] = useState('');
   const [linkDraft, setLinkDraft] = useState(null);
   const [pendingRelation, setPendingRelation] = useState('supports');
@@ -502,6 +523,59 @@ const StudioBoard = ({ scopeType, scopeId }) => {
     })
     .filter(Boolean), [cardsById, edges]);
 
+  const mapLayout = useMemo(() => {
+    const count = cards.length;
+    if (count === 0) {
+      return { width: 960, height: 620, nodes: [], edges: [] };
+    }
+
+    const cols = Math.max(1, Math.ceil(Math.sqrt(count * 1.35)));
+    const rows = Math.ceil(count / cols);
+    const width = Math.max(960, MAP_PADDING * 2 + (cols - 1) * MAP_CELL_WIDTH + 220);
+    const height = Math.max(620, MAP_PADDING * 2 + (rows - 1) * MAP_CELL_HEIGHT + 180);
+
+    const nodes = cards.map((card, index) => {
+      const col = index % cols;
+      const row = Math.floor(index / cols);
+      const seed = hashString(card._id);
+      const jitterX = (seed % 19) - 9;
+      const jitterY = ((Math.floor(seed / 29)) % 19) - 9;
+      return {
+        ...card,
+        mapX: MAP_PADDING + (col * MAP_CELL_WIDTH) + jitterX,
+        mapY: MAP_PADDING + (row * MAP_CELL_HEIGHT) + jitterY
+      };
+    });
+
+    const nodeMap = new Map(nodes.map(node => [String(node._id), node]));
+    const edgeRows = edges
+      .map(edge => {
+        const fromNode = nodeMap.get(String(edge.fromItemId));
+        const toNode = nodeMap.get(String(edge.toItemId));
+        if (!fromNode || !toNode) return null;
+        return {
+          ...edge,
+          fromNode,
+          toNode
+        };
+      })
+      .filter(Boolean);
+
+    return { width, height, nodes, edges: edgeRows };
+  }, [cards, edges]);
+
+  const mapFocusSet = useMemo(() => {
+    if (!mapFocusId) return null;
+    const focus = new Set([String(mapFocusId)]);
+    edges.forEach(edge => {
+      const fromId = String(edge.fromItemId);
+      const toId = String(edge.toItemId);
+      if (fromId === String(mapFocusId)) focus.add(toId);
+      if (toId === String(mapFocusId)) focus.add(fromId);
+    });
+    return focus;
+  }, [edges, mapFocusId]);
+
   const canvasSize = useMemo(() => {
     const maxX = cards.reduce((acc, item) => Math.max(acc, (item.x || 0) + (item.w || 0)), 0);
     const maxY = cards.reduce((acc, item) => Math.max(acc, (item.y || 0) + (item.h || 0)), 0);
@@ -552,6 +626,19 @@ const StudioBoard = ({ scopeType, scopeId }) => {
 
   const linkSource = linkDraft?.fromItemId ? cardsById.get(String(linkDraft.fromItemId)) : null;
   const linkTarget = linkDraft?.toItemId ? cardsById.get(String(linkDraft.toItemId)) : null;
+
+  useEffect(() => {
+    if (viewMode !== 'canvas' && linkDraft) {
+      setLinkDraft(null);
+    }
+  }, [linkDraft, viewMode]);
+
+  useEffect(() => {
+    if (!mapFocusId) return;
+    if (!cardsById.has(String(mapFocusId))) {
+      setMapFocusId('');
+    }
+  }, [cardsById, mapFocusId]);
 
   if (!safeScopeType || !safeScopeId) {
     return (
@@ -667,7 +754,28 @@ const StudioBoard = ({ scopeType, scopeId }) => {
       </aside>
 
       <div className="studio-board__canvas-wrap">
-        {linkDraft && (
+        <div className="studio-board__view-toggle" role="tablist" aria-label="Studio board view mode">
+          <button
+            type="button"
+            className={`studio-board__view-button ${viewMode === 'canvas' ? 'is-active' : ''}`}
+            onClick={() => setViewMode('canvas')}
+            role="tab"
+            aria-selected={viewMode === 'canvas'}
+          >
+            Canvas
+          </button>
+          <button
+            type="button"
+            className={`studio-board__view-button ${viewMode === 'map' ? 'is-active' : ''}`}
+            onClick={() => setViewMode('map')}
+            role="tab"
+            aria-selected={viewMode === 'map'}
+          >
+            Map
+          </button>
+        </div>
+
+        {viewMode === 'canvas' && linkDraft && (
           <div className="studio-board__link-banner">
             {!linkDraft.toItemId ? (
               <span>
@@ -691,62 +799,112 @@ const StudioBoard = ({ scopeType, scopeId }) => {
             </button>
           </div>
         )}
-        <div
-          ref={canvasRef}
-          className="studio-board__canvas"
-          style={{ width: canvasSize.width, minHeight: canvasSize.height }}
-          onDragOver={(event) => event.preventDefault()}
-          onDrop={onCanvasDrop}
-          onMouseDown={(event) => {
-            if (event.target === canvasRef.current) {
-              setActiveCardId('');
-            }
-          }}
-        >
-          <svg className="studio-board__edges" width={canvasSize.width} height={canvasSize.height}>
-            {visibleEdges.map(edge => {
-              const midX = (edge.x1 + edge.x2) / 2;
-              const midY = (edge.y1 + edge.y2) / 2;
-              return (
-                <g key={edge._id || `${edge.fromItemId}-${edge.toItemId}-${edge.relation}`}>
-                  <line
-                    x1={edge.x1}
-                    y1={edge.y1}
-                    x2={edge.x2}
-                    y2={edge.y2}
-                    className={`studio-board__edge-line is-${edge.relation}`}
-                  />
-                  <text x={midX} y={midY} className="studio-board__edge-label">{toRelationLabel(edge.relation)}</text>
-                </g>
-              );
-            })}
-          </svg>
+        {viewMode === 'canvas' ? (
+          <div
+            ref={canvasRef}
+            className="studio-board__canvas"
+            style={{ width: canvasSize.width, minHeight: canvasSize.height }}
+            onDragOver={(event) => event.preventDefault()}
+            onDrop={onCanvasDrop}
+            onMouseDown={(event) => {
+              if (event.target === canvasRef.current) {
+                setActiveCardId('');
+              }
+            }}
+          >
+            <svg className="studio-board__edges" width={canvasSize.width} height={canvasSize.height}>
+              {visibleEdges.map(edge => {
+                const midX = (edge.x1 + edge.x2) / 2;
+                const midY = (edge.y1 + edge.y2) / 2;
+                return (
+                  <g key={edge._id || `${edge.fromItemId}-${edge.toItemId}-${edge.relation}`}>
+                    <line
+                      x1={edge.x1}
+                      y1={edge.y1}
+                      x2={edge.x2}
+                      y2={edge.y2}
+                      className={`studio-board__edge-line is-${edge.relation}`}
+                    />
+                    <text x={midX} y={midY} className="studio-board__edge-label">{toRelationLabel(edge.relation)}</text>
+                  </g>
+                );
+              })}
+            </svg>
 
-          {cards.map(item => (
-            <StudioCard
-              key={item._id}
-              item={item}
-              title={item.title}
-              meta={item.meta}
-              body={item.body}
-              isSelected={String(item._id) === String(activeCardId)}
-              isLinkSource={String(item._id) === String(linkDraft?.fromItemId || '')}
-              isLinkTarget={String(item._id) === String(linkDraft?.toItemId || '')}
-              linkTargetMode={Boolean(linkDraft?.fromItemId) && !linkDraft?.toItemId}
-              onSelect={handleSelectCard}
-              onStartMove={(event, targetItem) => beginInteraction(event, targetItem, 'move')}
-              onStartResize={(event, targetItem) => beginInteraction(event, targetItem, 'resize')}
-              onDelete={handleDeleteCard}
-              onStartLink={handleStartLink}
-              onChangeRole={handleChangeRole}
-            />
-          ))}
-          {cards.length === 0 && !loading && (
-            <div className="studio-board__empty-canvas">
-              <p>Drag notes, highlights, or articles here to start mapping this idea.</p>
-            </div>
-          )}
-        </div>
+            {cards.map(item => (
+              <StudioCard
+                key={item._id}
+                item={item}
+                title={item.title}
+                meta={item.meta}
+                body={item.body}
+                isSelected={String(item._id) === String(activeCardId)}
+                isLinkSource={String(item._id) === String(linkDraft?.fromItemId || '')}
+                isLinkTarget={String(item._id) === String(linkDraft?.toItemId || '')}
+                linkTargetMode={Boolean(linkDraft?.fromItemId) && !linkDraft?.toItemId}
+                onSelect={handleSelectCard}
+                onStartMove={(event, targetItem) => beginInteraction(event, targetItem, 'move')}
+                onStartResize={(event, targetItem) => beginInteraction(event, targetItem, 'resize')}
+                onDelete={handleDeleteCard}
+                onStartLink={handleStartLink}
+                onChangeRole={handleChangeRole}
+              />
+            ))}
+            {cards.length === 0 && !loading && (
+              <div className="studio-board__empty-canvas">
+                <p>Drag notes, highlights, or articles here to start mapping this idea.</p>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="studio-board__map-wrap">
+            <svg className="studio-board__map" width={mapLayout.width} height={mapLayout.height}>
+              {mapLayout.edges.map(edge => {
+                const fromId = String(edge.fromNode._id);
+                const toId = String(edge.toNode._id);
+                const hasFocus = Boolean(mapFocusSet);
+                const isFocusEdge = !hasFocus || mapFocusSet.has(fromId) || mapFocusSet.has(toId);
+                return (
+                  <g key={`map-${edge._id || `${fromId}-${toId}-${edge.relation}`}`}>
+                    <line
+                      x1={edge.fromNode.mapX}
+                      y1={edge.fromNode.mapY}
+                      x2={edge.toNode.mapX}
+                      y2={edge.toNode.mapY}
+                      className={`studio-board__map-edge is-${edge.relation} ${isFocusEdge ? '' : 'is-dim'}`}
+                    />
+                  </g>
+                );
+              })}
+
+              {mapLayout.nodes.map(node => {
+                const nodeId = String(node._id);
+                const isFocused = nodeId === String(mapFocusId);
+                const hasFocus = Boolean(mapFocusSet);
+                const isVisible = !hasFocus || mapFocusSet.has(nodeId);
+                return (
+                  <g
+                    key={`map-node-${nodeId}`}
+                    className={`studio-board__map-node ${isFocused ? 'is-focus' : ''} ${isVisible ? '' : 'is-dim'}`}
+                    transform={`translate(${node.mapX}, ${node.mapY})`}
+                    onClick={() => {
+                      setMapFocusId(current => (String(current) === nodeId ? '' : nodeId));
+                      setActiveCardId(nodeId);
+                    }}
+                  >
+                    <circle r="15" />
+                    <text dy="28">{toMapLabel(node.title)}</text>
+                  </g>
+                );
+              })}
+            </svg>
+            {mapLayout.nodes.length === 0 && !loading && (
+              <div className="studio-board__empty-canvas">
+                <p>No nodes yet. Add cards in Canvas view.</p>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
