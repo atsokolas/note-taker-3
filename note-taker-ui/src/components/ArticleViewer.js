@@ -4,6 +4,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import CitationGenerator from './CitationGenerator'; // <-- 1. IMPORT THE NEW COMPONENT
 import { Page, Card } from './ui';
 import ReferencesPanel from './ReferencesPanel';
+import ReadingLayout from '../layout/ReadingLayout';
 
 const getAuthConfig = () => {
     // ... (Your existing code)
@@ -657,9 +658,71 @@ const ArticleViewer = ({ onArticleChange }) => {
         ...folders.filter(f => f.name !== 'Uncategorized' && f._id !== 'uncategorized')
     ];
 
+    const highlightsPanel = (
+        <Card className="article-highlights-card" data-testid="article-context-panel">
+            <div className="search-section-header" style={{ marginBottom: 12 }}>
+                <h2 style={{ margin: 0 }}>Article Highlights</h2>
+                <ReferencesPanel targetType="article" targetId={id} label="Used in" />
+            </div>
+            {article.highlights && article.highlights.length > 0 ? (
+                <ul className="highlights-list">
+                    {article.highlights.map(h => (
+                        <li key={h._id} className={`sidebar-highlight-item ${editingHighlightId === h._id ? 'editing' : ''}`}>
+                            {editingHighlightId === h._id ? (
+                                <>
+                                    <textarea 
+                                        className="edit-highlight-note-input"
+                                        value={editNote}
+                                        onChange={(e) => setEditNote(e.target.value)}
+                                        placeholder="Note"
+                                    />
+                                    <input
+                                        type="text"
+                                        className="edit-highlight-tags-input"
+                                        value={editTags}
+                                        onChange={(e) => setEditTags(e.target.value)}
+                                        placeholder="Tags (comma-separated)"
+                                    />
+                                    <div className="edit-highlight-actions">
+                                        <button className="edit-save-button" onClick={() => saveHighlightEdits(h._id)}>Save</button>
+                                        <button className="edit-cancel-button" onClick={cancelEditHighlight}>Cancel</button>
+                                    </div>
+                                </>
+                            ) : (
+                                <>
+                                    <p className="sidebar-highlight-text" onClick={() => scrollToHighlight(`highlight-${h._id}`)}>
+                                        {h.text}
+                                    </p>
+                                    {h.note && <p className="sidebar-highlight-note">Note: {h.note}</p>}
+                                    {h.tags && h.tags.length > 0 && (
+                                        <div className="sidebar-highlight-tags">
+                                            {h.tags.map(tag => (
+                                                <span key={tag} className="highlight-tag">{tag}</span>
+                                            ))}
+                                        </div>
+                                    )}
+                                    <div className="highlight-item-actions">
+                                        <button className="edit-button" onClick={() => startEditHighlight(h)}>Edit</button>
+                                        <button className="delete-button" onClick={() => deleteHighlight(h._id)}>Delete</button>
+                                    </div>
+                                </>
+                            )}
+                        </li>
+                    ))}
+                </ul>
+            ) : (
+                <p className="no-highlights-message">No highlights for this article yet.</p>
+            )}
+        </Card>
+    );
+
     return (
         <Page className="article-viewer-shell">
-            <div className="article-viewer-grid">
+            <ReadingLayout
+                rightTitle="Article highlights"
+                rightPanelToggleLabel="Context"
+                rightPanel={highlightsPanel}
+            >
                 <Card className="article-viewer-card">
                     <div className="article-viewer-main">
                         <div className="article-management-bar">
@@ -693,16 +756,16 @@ const ArticleViewer = ({ onArticleChange }) => {
                         </div>
 
                         <div className="article-content">
-                            <h1>{article.title}</h1>
-                            
-                            {/* --- 2. ADD THE CITATION COMPONENT HERE --- */}
-                            <CitationGenerator article={article} />
-                            
-                            <div
-                            ref={contentRef}
-                            className="content-body"
-                            dangerouslySetInnerHTML={{ __html: article.content }}
-                            />
+                            <div className="article-reading-surface" data-testid="article-reading-surface">
+                                <h1>{article.title}</h1>
+                                <CitationGenerator article={article} />
+                                <div
+                                ref={contentRef}
+                                className="content-body"
+                                data-testid="article-content-body"
+                                dangerouslySetInnerHTML={{ __html: article.content }}
+                                />
+                            </div>
                             {popup.visible && (
                                 <div
                                     ref={popupRef}
@@ -914,64 +977,7 @@ const ArticleViewer = ({ onArticleChange }) => {
                         </div>
                     </div>
                 </Card>
-
-                <Card className="article-highlights-card">
-                    <div className="search-section-header" style={{ marginBottom: 12 }}>
-                        <h2 style={{ margin: 0 }}>Article Highlights</h2>
-                        <ReferencesPanel targetType="article" targetId={id} label="Used in" />
-                    </div>
-                    {/* ... (Your existing highlights sidebar code) ... */}
-                    {article.highlights && article.highlights.length > 0 ? (
-                        <ul className="highlights-list">
-                            {article.highlights.map(h => (
-                                <li key={h._id} className={`sidebar-highlight-item ${editingHighlightId === h._id ? 'editing' : ''}`}>
-                                    {editingHighlightId === h._id ? (
-                                        <>
-                                            <textarea 
-                                                className="edit-highlight-note-input"
-                                                value={editNote}
-                                                onChange={(e) => setEditNote(e.target.value)}
-                                                placeholder="Note"
-                                            />
-                                            <input
-                                                type="text"
-                                                className="edit-highlight-tags-input"
-                                                value={editTags}
-                                                onChange={(e) => setEditTags(e.target.value)}
-                                                placeholder="Tags (comma-separated)"
-                                            />
-                                            <div className="edit-highlight-actions">
-                                                <button className="edit-save-button" onClick={() => saveHighlightEdits(h._id)}>Save</button>
-                                                <button className="edit-cancel-button" onClick={cancelEditHighlight}>Cancel</button>
-                                            </div>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <p className="sidebar-highlight-text" onClick={() => scrollToHighlight(`highlight-${h._id}`)}>
-                                                {h.text}
-                                            </p>
-                                            {h.note && <p className="sidebar-highlight-note">Note: {h.note}</p>}
-                                            {h.tags && h.tags.length > 0 && (
-                                                <div className="sidebar-highlight-tags">
-                                                    {h.tags.map(tag => (
-                                                        <span key={tag} className="highlight-tag">{tag}</span>
-                                                    ))}
-                                                </div>
-                                            )}
-                                            <div className="highlight-item-actions">
-                                                <button className="edit-button" onClick={() => startEditHighlight(h)}>Edit</button>
-                                                <button className="delete-button" onClick={() => deleteHighlight(h._id)}>Delete</button>
-                                            </div>
-                                        </>
-                                    )}
-                                </li>
-                            ))}
-                        </ul>
-                    ) : (
-                        <p className="no-highlights-message">No highlights for this article yet.</p>
-                    )}
-                </Card>
-            </div>
+            </ReadingLayout>
 
             {isRecommendModalOpen && (
                 <div className="modal-overlay">
