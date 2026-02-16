@@ -2107,51 +2107,51 @@ const ThinkMode = () => {
         defaultRightOpen
         mainHeader={<PageTitle eyebrow="Mode" title="Think" subtitle="Concepts as structured pages you can return to." />}
         mainActions={(
-          <div className="library-main-actions">
+          <div className="library-main-actions think-main-actions">
             <QuietButton
-              className={`list-button ${activeView === 'notebook' ? 'is-active' : ''}`}
+              className={`list-button think-main-actions__tab ${activeView === 'notebook' ? 'is-active' : ''}`}
               onClick={() => handleSelectView('notebook')}
             >
               Notebook
             </QuietButton>
             <QuietButton
-              className={`list-button ${activeView === 'concepts' ? 'is-active' : ''}`}
+              className={`list-button think-main-actions__tab ${activeView === 'concepts' ? 'is-active' : ''}`}
               onClick={() => handleSelectView('concepts')}
             >
               Concepts
             </QuietButton>
             <QuietButton
-              className={`list-button ${activeView === 'questions' ? 'is-active' : ''}`}
+              className={`list-button think-main-actions__tab ${activeView === 'questions' ? 'is-active' : ''}`}
               onClick={() => handleSelectView('questions')}
             >
               Questions
             </QuietButton>
             <QuietButton
-              className={`list-button ${activeView === 'board' ? 'is-active' : ''}`}
+              className={`list-button think-main-actions__tab ${activeView === 'board' ? 'is-active' : ''}`}
               onClick={() => handleSelectView('board')}
             >
               Board
             </QuietButton>
             <QuietButton
-              className={`list-button ${activeView === 'paths' ? 'is-active' : ''}`}
+              className={`list-button think-main-actions__tab ${activeView === 'paths' ? 'is-active' : ''}`}
               onClick={() => handleSelectView('paths')}
             >
               Paths
             </QuietButton>
             <QuietButton
-              className={`list-button ${activeView === 'insights' ? 'is-active' : ''}`}
+              className={`list-button think-main-actions__tab ${activeView === 'insights' ? 'is-active' : ''}`}
               onClick={() => handleSelectView('insights')}
             >
               Insights
             </QuietButton>
-            <QuietButton className="list-button" onClick={handleCreateNotebookEntry}>
+            <QuietButton className="list-button think-main-actions__utility think-main-actions__utility--first" onClick={handleCreateNotebookEntry}>
               New note
             </QuietButton>
-            <QuietButton className="list-button" onClick={handleToggleExpandAllCards}>
+            <QuietButton className="list-button think-main-actions__utility" onClick={handleToggleExpandAllCards}>
               {cardsExpanded ? 'Collapse all' : 'Expand all'}
             </QuietButton>
             <QuietButton
-              className={`list-button ${rightOpen ? 'is-active' : ''}`}
+              className={`list-button think-main-actions__utility ${rightOpen ? 'is-active' : ''}`}
               onClick={() => handleToggleRight(!rightOpen)}
             >
               Context

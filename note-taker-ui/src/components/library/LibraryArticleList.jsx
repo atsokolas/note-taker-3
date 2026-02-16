@@ -1,5 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import { SectionHeader } from '../ui';
 
 const formatDate = (value) => {
   if (!value) return '';
@@ -26,6 +27,11 @@ const LibraryArticleList = ({
   onMoveArticle
 }) => (
   <div className="library-article-list">
+    <SectionHeader
+      title="Articles"
+      subtitle="Saved reads and source material."
+      className="library-section-head is-articles"
+    />
     {loading && <p className="muted small">Loading articles…</p>}
     {error && <p className="status-message error-message">{error}</p>}
     {!loading && !error && articles.length === 0 && (

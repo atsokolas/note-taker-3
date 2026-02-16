@@ -45,6 +45,7 @@ const LibraryContext = ({
       <SectionHeader
         title="Highlights"
         subtitle="Grouped by concept."
+        className="library-section-head is-highlights"
         action={(
           <QuietButton onClick={handleToggleExpandAll}>
             {cardsExpanded ? 'Collapse all' : 'Expand all'}

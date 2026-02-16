@@ -183,6 +183,7 @@ const LibraryHighlights = ({
       <SectionHeader
         title="Highlights"
         subtitle="Thumb through and send them forward."
+        className="library-section-head is-highlights"
         action={(
           <QuietButton onClick={handleToggleExpandAll}>
             {cardsExpanded ? 'Collapse all' : 'Expand all'}

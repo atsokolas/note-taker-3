@@ -483,7 +483,7 @@ const Library = () => {
 
   const leftPanel = (
     <div className="section-stack">
-      <SectionHeader title="Cabinet" subtitle="Your filing system." />
+      <SectionHeader title="Cabinet" subtitle="Your filing system." className="library-section-head is-articles" />
       <div className="library-cabinet-actions">
         <QuietButton
           className={`list-button ${scope === 'all' ? 'is-active' : ''}`}
@@ -692,10 +692,10 @@ const Library = () => {
         mainHeader={<PageTitle eyebrow="Mode" title="Library" subtitle="Reading room for your saved work." />}
         mainActions={(
           <div className="library-main-actions">
-            <QuietButton onClick={() => handleToggleLeft(!effectiveLeftOpen)}>
+            <QuietButton className="list-button" onClick={() => handleToggleLeft(!effectiveLeftOpen)}>
               Cabinet
             </QuietButton>
-            <QuietButton onClick={() => handleToggleRight(!effectiveRightOpen)}>
+            <QuietButton className="list-button" onClick={() => handleToggleRight(!effectiveRightOpen)}>
               Context
             </QuietButton>
           </div>
