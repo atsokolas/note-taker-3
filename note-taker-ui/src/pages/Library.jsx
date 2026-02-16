@@ -206,7 +206,7 @@ const Library = () => {
       setAllArticles(previous);
       setMoving(false);
     }
-  }, [articleToMove, closeMoveModal, folderId, folders, scope, selectedArticleId, setAllArticles]);
+  }, [allArticles, articleToMove, closeMoveModal, folderId, folders, scope, selectedArticleId, setAllArticles]);
 
   const handleHighlightClick = useCallback((highlight) => {
     setActiveHighlightId(highlight._id);
