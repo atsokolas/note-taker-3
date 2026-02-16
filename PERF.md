@@ -1,0 +1,5 @@
+- Added dev-only perf timing logs for `library.list.load`, `concept.page.load`, `concept.page.first-render`, `studio.board.load`, and `studio.board.first-render`.
+- Added React Profiler markers for heavy trees: library articles/highlights/context, concept page tree, and studio board tree.
+- Virtualized long Library lists with a reusable `VirtualList` and dynamic row-height support for expandable highlight cards.
+- Debounced network-driven search calls in `useHighlightsQuery` and `useArticles` (260ms in search UIs) and kept board drag persistence debounced (500ms bulk update).
+- Applied lazy media handling for article content (`img`, `video`, `iframe`) and image decoding hints for auth/landing logos.

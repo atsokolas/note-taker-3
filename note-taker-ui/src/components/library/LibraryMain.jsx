@@ -76,4 +76,4 @@ const LibraryMain = ({
   );
 };
 
-export default LibraryMain;
+export default React.memo(LibraryMain);

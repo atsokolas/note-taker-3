@@ -1,9 +1,10 @@
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import React, { Profiler, useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import api from '../api';
 import { Page, Card, TagChip, Button } from '../components/ui';
 import QuestionModal from '../components/QuestionModal';
 import ReferencesPanel from '../components/ReferencesPanel';
+import { createProfilerLogger, endPerfTimer, logPerf, startPerfTimer } from '../utils/perf';
 
 const TagConcept = () => {
   const { tagName } = useParams();
@@ -29,10 +30,14 @@ const TagConcept = () => {
   const [timeline, setTimeline] = useState({ highlightsPerWeek: [], notesCreatedPerWeek: [], topReferencedArticles: [] });
   const [timelineLoading, setTimelineLoading] = useState(false);
   const [timelineError, setTimelineError] = useState('');
+  const renderStartRef = useRef(startPerfTimer());
+  const hasRenderLoggedRef = useRef(false);
+  const conceptProfilerLogger = useMemo(() => createProfilerLogger('concept.page.render'), []);
 
   const authHeaders = () => ({ headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
 
   const loadData = useCallback(async () => {
+    const startedAt = startPerfTimer();
     setLoading(true);
     setError('');
     try {
@@ -47,7 +52,13 @@ const TagConcept = () => {
       });
       setPinnedHighlights(metaRes.data?.pinnedHighlights || []);
       setRelatedTags(metaRes.data?.relatedTags || []);
-      setHighlights(hlRes.data || []);
+      const nextHighlights = hlRes.data || [];
+      setHighlights(nextHighlights);
+      logPerf('concept.page.load', {
+        tagName,
+        highlightCount: nextHighlights.length,
+        durationMs: endPerfTimer(startedAt)
+      });
     } catch (err) {
       console.error('Error loading tag concept:', err);
       setError(err.response?.data?.error || 'Failed to load concept.');
@@ -103,6 +114,21 @@ const TagConcept = () => {
     loadQuestions();
     loadTimeline();
   }, [loadData, loadNotes, loadQuestions, loadTimeline]);
+
+  useEffect(() => {
+    renderStartRef.current = startPerfTimer();
+    hasRenderLoggedRef.current = false;
+  }, [tagName]);
+
+  useEffect(() => {
+    if (loading || hasRenderLoggedRef.current) return;
+    hasRenderLoggedRef.current = true;
+    logPerf('concept.page.first-render', {
+      tagName,
+      highlightCount: highlights.length,
+      durationMs: endPerfTimer(renderStartRef.current)
+    });
+  }, [highlights.length, loading, tagName]);
 
   const formatWeek = (dateString) => {
     if (!dateString) return '';
@@ -271,7 +297,8 @@ const TagConcept = () => {
       {statusMessage && <p className="status-message success-message">{statusMessage}</p>}
 
       {!loading && !error && (
-        <div className="section-stack">
+        <Profiler id="ConceptPageTree" onRender={conceptProfilerLogger}>
+          <div className="section-stack">
           <Card className="search-section">
             <div className="search-section-header">
               <span className="eyebrow">Overview</span>
@@ -516,7 +543,8 @@ const TagConcept = () => {
               ))}
             </div>
           </Card>
-        </div>
+          </div>
+        </Profiler>
       )}
     </Page>
   );

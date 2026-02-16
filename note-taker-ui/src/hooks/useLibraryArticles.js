@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { getArticles } from '../api/articles';
+import { endPerfTimer, logPerf, startPerfTimer } from '../utils/perf';
 
 /**
  * @typedef {Object} LibraryArticlesParams
@@ -15,11 +16,17 @@ const useLibraryArticles = ({ scope, folderId, query = '', sort = 'recent' }) =>
   const [error, setError] = useState('');
 
   const fetchArticles = useCallback(async () => {
+    const startedAt = startPerfTimer();
     setLoading(true);
     setError('');
     try {
       const data = await getArticles({ scope: 'all' });
-      setAllArticles(data || []);
+      const next = data || [];
+      setAllArticles(next);
+      logPerf('library.list.load', {
+        count: next.length,
+        durationMs: endPerfTimer(startedAt)
+      });
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to load articles.');
     } finally {

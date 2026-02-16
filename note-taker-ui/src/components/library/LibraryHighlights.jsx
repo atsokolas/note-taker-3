@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { Profiler, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { QuietButton, SectionHeader } from '../ui';
 import HighlightCard from '../blocks/HighlightCard';
 import useHighlightsQuery from '../../hooks/useHighlightsQuery';
@@ -9,11 +9,16 @@ import LibraryQuestionModal from './LibraryQuestionModal';
 import { createQuestion } from '../../api/questions';
 import api from '../../api';
 import { getAuthHeaders } from '../../hooks/useAuthHeaders';
+import VirtualList from '../virtual/VirtualList';
+import { createProfilerLogger } from '../../utils/perf';
 
 const createId = () => {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
   return `block-${Math.random().toString(36).slice(2, 9)}-${Date.now()}`;
 };
+
+const GROUP_HEADER_HEIGHT = 34;
+const HIGHLIGHT_ROW_HEIGHT = 228;
 
 /**
  * @param {{
@@ -42,7 +47,11 @@ const LibraryHighlights = ({
   const [conceptModal, setConceptModal] = useState({ open: false, highlight: null });
   const [notebookModal, setNotebookModal] = useState({ open: false, highlight: null });
   const [questionModal, setQuestionModal] = useState({ open: false, highlight: null });
-  const listRef = useRef(null);
+  const virtualListRef = useRef(null);
+  const virtualHeight = useMemo(() => {
+    const viewport = typeof window !== 'undefined' ? window.innerHeight : 0;
+    return Math.min(700, Math.max(360, viewport ? viewport - 300 : 580));
+  }, []);
 
   const { tags } = useTags();
   const filters = useMemo(() => ({
@@ -51,7 +60,7 @@ const LibraryHighlights = ({
     articleId: articleId || undefined,
     q: query || undefined
   }), [folderId, tag, articleId, query]);
-  const { highlights, loading, error } = useHighlightsQuery(filters);
+  const { highlights, loading, error } = useHighlightsQuery(filters, { debounceMs: 260 });
 
   const rows = useMemo(
     () => highlights.map(h => ({ ...h, tags: h.tags || [] })),
@@ -99,6 +108,25 @@ const LibraryHighlights = ({
     return filteredRows;
   }, [filteredRows, groupedKeys, groupedRows, view]);
 
+  const virtualRows = useMemo(() => {
+    if (view === 'concept' || view === 'article') {
+      return groupedKeys.flatMap(group => ([
+        { kind: 'header', id: `header:${group}`, group },
+        ...groupedRows[group].map(highlight => ({
+          kind: 'highlight',
+          id: `highlight:${highlight._id}`,
+          group,
+          highlight
+        }))
+      ]));
+    }
+    return filteredRows.map(highlight => ({
+      kind: 'highlight',
+      id: `highlight:${highlight._id}`,
+      highlight
+    }));
+  }, [filteredRows, groupedKeys, groupedRows, view]);
+
   const selectedHighlight = displayRows[selectedIndex] || null;
 
   useEffect(() => {
@@ -110,10 +138,13 @@ const LibraryHighlights = ({
   }, [externalQuery]);
 
   useEffect(() => {
-    if (!selectedHighlight || !listRef.current) return;
-    const row = listRef.current.querySelector(`[data-highlight-id="${selectedHighlight._id}"]`);
-    if (row) row.scrollIntoView({ block: 'nearest' });
-  }, [selectedHighlight]);
+    if (!selectedHighlight || !virtualListRef.current) return;
+    const virtualIndex = virtualRows.findIndex(row => (
+      row.kind === 'highlight' && String(row.highlight._id) === String(selectedHighlight._id)
+    ));
+    if (virtualIndex < 0) return;
+    virtualListRef.current.scrollToIndex(virtualIndex, 'auto');
+  }, [selectedHighlight, virtualRows]);
 
   const handleKeyDown = useCallback((event) => {
     if (displayRows.length === 0) return;
@@ -178,6 +209,11 @@ const LibraryHighlights = ({
     setCardsExpandVersion(prev => prev + 1);
   };
 
+  const handleSelectRow = useCallback((highlightId) => {
+    const index = displayRows.findIndex(item => String(item._id) === String(highlightId));
+    if (index >= 0) setSelectedIndex(index);
+  }, [displayRows]);
+
   return (
     <div className="section-stack">
       <SectionHeader
@@ -222,69 +258,61 @@ const LibraryHighlights = ({
       </div>
       {loading && <p className="muted small">Loading highlights…</p>}
       {error && <p className="status-message error-message">{error}</p>}
-      <div className="library-highlights-list" ref={listRef}>
-        {(view === 'concept' || view === 'article') ? groupedKeys.map(group => (
-          <div key={group} className="library-highlight-group-block">
-            <div className="library-highlight-group-title">{group}</div>
-            {groupedRows[group].map(highlight => (
-              <div
-                key={highlight._id}
-                data-highlight-id={highlight._id}
-                className={`library-highlight-row ${selectedHighlight?._id === highlight._id ? 'is-active' : ''}`}
-                role="button"
-                tabIndex={0}
-                onClick={() => setSelectedIndex(displayRows.findIndex(item => item._id === highlight._id))}
-              >
-                <HighlightCard
-                  highlight={highlight}
-                  compact
-                  organizable
-                  forceExpandedState={cardsExpanded}
-                  forceExpandedVersion={cardsExpandVersion}
-                  onDumpToWorkingMemory={onDumpHighlight}
-                  onAddConcept={(h) => setConceptModal({ open: true, highlight: h })}
-                  onAddNotebook={(h) => setNotebookModal({ open: true, highlight: h })}
-                  onAddQuestion={(h) => setQuestionModal({ open: true, highlight: h })}
-                />
-                <div className="library-highlight-row-actions">
-                  <QuietButton onClick={() => window.location.href = `/articles/${highlight.articleId}`}>
-                    Open Source
-                  </QuietButton>
-                </div>
-              </div>
-            ))}
-          </div>
-        )) : filteredRows.map(highlight => (
-          <div
-            key={highlight._id}
-            data-highlight-id={highlight._id}
-            className={`library-highlight-row ${selectedHighlight?._id === highlight._id ? 'is-active' : ''}`}
-            role="button"
-            tabIndex={0}
-            onClick={() => setSelectedIndex(displayRows.findIndex(item => item._id === highlight._id))}
-          >
-            <HighlightCard
-              highlight={highlight}
-              compact
-              organizable
-              forceExpandedState={cardsExpanded}
-              forceExpandedVersion={cardsExpandVersion}
-              onDumpToWorkingMemory={onDumpHighlight}
-              onAddConcept={(h) => setConceptModal({ open: true, highlight: h })}
-              onAddNotebook={(h) => setNotebookModal({ open: true, highlight: h })}
-              onAddQuestion={(h) => setQuestionModal({ open: true, highlight: h })}
+      <Profiler id="LibraryHighlightsRows" onRender={createProfilerLogger('library.highlights-list')}>
+        <div className="library-highlights-list">
+          {displayRows.length > 0 && (
+            <VirtualList
+              ref={virtualListRef}
+              items={virtualRows}
+              height={virtualHeight}
+              itemSize={(index, row) => (row.kind === 'header' ? GROUP_HEADER_HEIGHT : HIGHLIGHT_ROW_HEIGHT)}
+              overscan={4}
+              dynamicItemHeights
+              className="library-highlights-list-virtual"
+              renderItem={(row) => {
+                if (row.kind === 'header') {
+                  return (
+                    <div key={row.id} className="library-highlight-group-title library-highlight-group-title--virtual">
+                      {row.group}
+                    </div>
+                  );
+                }
+                const highlight = row.highlight;
+                return (
+                  <div
+                    key={row.id}
+                    data-highlight-id={highlight._id}
+                    className={`library-highlight-row ${selectedHighlight?._id === highlight._id ? 'is-active' : ''}`}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => handleSelectRow(highlight._id)}
+                  >
+                    <HighlightCard
+                      highlight={highlight}
+                      compact
+                      organizable
+                      forceExpandedState={cardsExpanded}
+                      forceExpandedVersion={cardsExpandVersion}
+                      onDumpToWorkingMemory={onDumpHighlight}
+                      onAddConcept={(h) => setConceptModal({ open: true, highlight: h })}
+                      onAddNotebook={(h) => setNotebookModal({ open: true, highlight: h })}
+                      onAddQuestion={(h) => setQuestionModal({ open: true, highlight: h })}
+                    />
+                    <div className="library-highlight-row-actions">
+                      <QuietButton onClick={() => window.location.href = `/articles/${highlight.articleId}`}>
+                        Open Source
+                      </QuietButton>
+                    </div>
+                  </div>
+                );
+              }}
             />
-            <div className="library-highlight-row-actions">
-              <QuietButton onClick={() => window.location.href = `/articles/${highlight.articleId}`}>
-                Open Source
-              </QuietButton>
-            </div>
-          </div>
-        ))}
-        {!loading && displayRows.length === 0 && (
-          <p className="muted small">No highlights match those filters.</p>
-        )}
-      </div>
+          )}
+          {!loading && displayRows.length === 0 && (
+            <p className="muted small">No highlights match those filters.</p>
+          )}
+        </div>
+      </Profiler>
 
       <LibraryConceptModal
         open={conceptModal.open}
@@ -311,4 +339,4 @@ const LibraryHighlights = ({
   );
 };
 
-export default LibraryHighlights;
+export default React.memo(LibraryHighlights);

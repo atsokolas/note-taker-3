@@ -17,6 +17,21 @@ const processArticleContent = (article, highlights = []) => {
     if (src && src.startsWith('/') && origin) {
       img.src = `${origin}${src}`;
     }
+    img.setAttribute('loading', 'lazy');
+    img.setAttribute('decoding', 'async');
+    img.style.maxWidth = '100%';
+    img.style.height = 'auto';
+    img.style.display = 'block';
+  });
+
+  doc.querySelectorAll('video, iframe').forEach(media => {
+    if (media.tagName.toLowerCase() === 'iframe') {
+      media.setAttribute('loading', 'lazy');
+    }
+    media.style.maxWidth = '100%';
+    media.style.width = '100%';
+    media.style.height = media.style.height || 'auto';
+    media.style.display = 'block';
   });
 
   highlights.forEach(h => {

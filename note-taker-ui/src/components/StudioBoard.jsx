@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { Profiler, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import api from '../api';
 import { getAuthHeaders } from '../hooks/useAuthHeaders';
 import {
@@ -10,6 +10,7 @@ import {
   patchBoardItem,
   updateBoardItems
 } from '../api/boards';
+import { createProfilerLogger, endPerfTimer, logPerf, startPerfTimer } from '../utils/perf';
 
 const MIN_CARD_WIDTH = 220;
 const MIN_CARD_HEIGHT = 140;
@@ -163,6 +164,9 @@ const StudioBoard = ({ scopeType, scopeId }) => {
   const interactionRef = useRef(null);
   const interactionListenersRef = useRef({ move: null, up: null });
   const persistTimerRef = useRef(null);
+  const renderStartRef = useRef(startPerfTimer());
+  const hasLoggedRenderRef = useRef(false);
+  const boardProfilerLogger = useMemo(() => createProfilerLogger('studio.board.render'), []);
 
   const safeScopeType = String(scopeType || '').trim().toLowerCase();
   const safeScopeId = String(scopeId || '').trim();
@@ -176,13 +180,24 @@ const StudioBoard = ({ scopeType, scopeId }) => {
       setLinkDraft(null);
       return;
     }
+    const startedAt = startPerfTimer();
     setLoading(true);
     setError('');
     try {
       const data = await getBoardForScope(safeScopeType, safeScopeId);
-      setBoard(data.board || null);
-      setItems(Array.isArray(data.items) ? data.items : []);
-      setEdges(Array.isArray(data.edges) ? data.edges : []);
+      const nextBoard = data.board || null;
+      const nextItems = Array.isArray(data.items) ? data.items : [];
+      const nextEdges = Array.isArray(data.edges) ? data.edges : [];
+      setBoard(nextBoard);
+      setItems(nextItems);
+      setEdges(nextEdges);
+      logPerf('studio.board.load', {
+        scopeType: safeScopeType,
+        scopeId: safeScopeId,
+        itemCount: nextItems.length,
+        edgeCount: nextEdges.length,
+        durationMs: endPerfTimer(startedAt)
+      });
       setSaveError('');
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to load board.');
@@ -215,6 +230,11 @@ const StudioBoard = ({ scopeType, scopeId }) => {
   useEffect(() => {
     loadBoard();
   }, [loadBoard]);
+
+  useEffect(() => {
+    renderStartRef.current = startPerfTimer();
+    hasLoggedRenderRef.current = false;
+  }, [safeScopeId, safeScopeType]);
 
   useEffect(() => {
     loadSources();
@@ -640,6 +660,17 @@ const StudioBoard = ({ scopeType, scopeId }) => {
     }
   }, [cardsById, mapFocusId]);
 
+  useEffect(() => {
+    if (loading || hasLoggedRenderRef.current) return;
+    hasLoggedRenderRef.current = true;
+    logPerf('studio.board.first-render', {
+      scopeType: safeScopeType,
+      scopeId: safeScopeId,
+      itemCount: cards.length,
+      durationMs: endPerfTimer(renderStartRef.current)
+    });
+  }, [cards.length, loading, safeScopeId, safeScopeType]);
+
   if (!safeScopeType || !safeScopeId) {
     return (
       <div className="studio-board studio-board--empty">
@@ -649,7 +680,8 @@ const StudioBoard = ({ scopeType, scopeId }) => {
   }
 
   return (
-    <div className="studio-board" data-testid="studio-board">
+    <Profiler id="StudioBoardTree" onRender={boardProfilerLogger}>
+      <div className="studio-board" data-testid="studio-board">
       <aside className="studio-board__library">
         <div className="studio-board__library-header">
           <h3>Studio Board</h3>
@@ -906,7 +938,8 @@ const StudioBoard = ({ scopeType, scopeId }) => {
           </div>
         )}
       </div>
-    </div>
+      </div>
+    </Profiler>
   );
 };
 

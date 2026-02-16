@@ -128,7 +128,7 @@ const Library = () => {
     }
   }, [allArticles, scope, selectedArticleId]);
 
-  const handleSelectScope = (nextScope) => {
+  const handleSelectScope = useCallback((nextScope) => {
     const params = new URLSearchParams(searchParams);
     params.set('scope', nextScope);
     params.delete('folderId');
@@ -139,40 +139,40 @@ const Library = () => {
       params.set('highlightView', 'concept');
     }
     setSearchParams(params);
-  };
+  }, [searchParams, setSearchParams]);
 
-  const handleSelectFolder = (id) => {
+  const handleSelectFolder = useCallback((id) => {
     const params = new URLSearchParams(searchParams);
     params.set('scope', 'folder');
     params.set('folderId', id);
     setSearchParams(params);
-  };
+  }, [searchParams, setSearchParams]);
 
-  const handleSelectArticle = (id) => {
+  const handleSelectArticle = useCallback((id) => {
     setSelectedArticleId(id);
     localStorage.setItem('library.lastArticleId', id);
-  };
+  }, []);
 
-  const handleSelectHighlightView = (view) => {
+  const handleSelectHighlightView = useCallback((view) => {
     const params = new URLSearchParams(searchParams);
     params.set('scope', 'highlights');
     params.set('highlightView', view);
     setSearchParams(params);
-  };
+  }, [searchParams, setSearchParams]);
 
-  const openMoveModal = (article) => {
+  const openMoveModal = useCallback((article) => {
     setArticleToMove(article);
     setMoveError('');
     setMoveModalOpen(true);
-  };
+  }, []);
 
-  const closeMoveModal = () => {
+  const closeMoveModal = useCallback(() => {
     setMoveModalOpen(false);
     setArticleToMove(null);
     setMoving(false);
-  };
+  }, []);
 
-  const handleMoveArticle = async (nextFolderId) => {
+  const handleMoveArticle = useCallback(async (nextFolderId) => {
     if (!articleToMove) return;
     setMoving(true);
     setMoveError('');
@@ -206,12 +206,12 @@ const Library = () => {
       setAllArticles(previous);
       setMoving(false);
     }
-  };
+  }, [articleToMove, closeMoveModal, folderId, folders, scope, selectedArticleId, setAllArticles]);
 
-  const handleHighlightClick = (highlight) => {
+  const handleHighlightClick = useCallback((highlight) => {
     setActiveHighlightId(highlight._id);
     readerRef.current?.scrollToHighlight(highlight._id);
-  };
+  }, []);
 
   const handleToggleRight = useCallback((nextOpen) => {
     if (selectedArticleId && nextOpen && !contextOverride) {
@@ -231,19 +231,19 @@ const Library = () => {
     localStorage.setItem(LEFT_STORAGE_KEY, String(nextOpen));
   }, [cabinetOverride, selectedArticleId]);
 
-  const createId = () => {
+  const createId = useCallback(() => {
     if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
     return `block-${Math.random().toString(36).slice(2, 9)}-${Date.now()}`;
-  };
+  }, []);
 
-  const handleAddConcept = async (highlight, conceptName) => {
+  const handleAddConcept = useCallback(async (highlight, conceptName) => {
     await api.post(`/api/concepts/${encodeURIComponent(conceptName)}/add-highlight`, {
       highlightId: highlight._id
     }, getAuthHeaders());
     setConceptModal({ open: false, highlight: null });
-  };
+  }, []);
 
-  const handleAddQuestion = async (highlight, conceptName, text) => {
+  const handleAddQuestion = useCallback(async (highlight, conceptName, text) => {
     const created = await createQuestion({
       text,
       conceptName,
@@ -257,17 +257,17 @@ const Library = () => {
       await api.post(`/api/questions/${created._id}/add-highlight`, { highlightId: highlight._id }, getAuthHeaders());
     }
     setQuestionModal({ open: false, highlight: null });
-  };
+  }, [createId]);
 
-  const handleAttachQuestion = async (highlight, questionId) => {
+  const handleAttachQuestion = useCallback(async (highlight, questionId) => {
     await api.post(`/api/questions/${questionId}/add-highlight`, { highlightId: highlight._id }, getAuthHeaders());
     setQuestionModal({ open: false, highlight: null });
-  };
+  }, []);
 
-  const handleSendToNotebook = async (highlight, entryId) => {
+  const handleSendToNotebook = useCallback(async (highlight, entryId) => {
     await api.post(`/api/notebook/${entryId}/append-highlight`, { highlightId: highlight._id }, getAuthHeaders());
     setNotebookModal({ open: false, highlight: null });
-  };
+  }, []);
 
   const fallbackCounts = useMemo(() => {
     const counts = {};
@@ -419,6 +419,32 @@ const Library = () => {
       setWorkingMemoryError(err.response?.data?.error || 'Failed to remove item.');
     }
   }, [workingMemoryItems]);
+
+  const handleHighlightQueryChange = useCallback((value) => {
+    const params = new URLSearchParams(searchParams);
+    if (value) {
+      params.set('scope', 'highlights');
+      params.set('hq', value);
+      if (!params.get('highlightView')) {
+        params.set('highlightView', 'concept');
+      }
+    } else {
+      params.delete('hq');
+    }
+    setSearchParams(params);
+  }, [searchParams, setSearchParams]);
+
+  const handleOpenConceptModal = useCallback((highlight) => {
+    setConceptModal({ open: true, highlight });
+  }, []);
+
+  const handleOpenNotebookModal = useCallback((highlight) => {
+    setNotebookModal({ open: true, highlight });
+  }, []);
+
+  const handleOpenQuestionModal = useCallback((highlight) => {
+    setQuestionModal({ open: true, highlight });
+  }, []);
 
   const buildFallbackDump = useCallback(() => {
     if (selectedArticle) {
@@ -604,7 +630,7 @@ const Library = () => {
   }, [effectiveRightOpen, handleToggleRight]);
 
   const mainPanel = (
-    <LibraryMain
+      <LibraryMain
       selectedArticleId={selectedArticleId}
       selectedArticle={selectedArticle}
       articleHighlights={articleHighlights}
@@ -625,19 +651,7 @@ const Library = () => {
       articleOptions={articleOptions}
       externalQuery={highlightQuery}
       highlightView={highlightView}
-      onQueryChange={(value) => {
-        const params = new URLSearchParams(searchParams);
-        if (value) {
-          params.set('scope', 'highlights');
-          params.set('hq', value);
-          if (!params.get('highlightView')) {
-            params.set('highlightView', 'concept');
-          }
-        } else {
-          params.delete('hq');
-        }
-        setSearchParams(params);
-      }}
+      onQueryChange={handleHighlightQueryChange}
       onDumpHighlight={(highlight) => handleDumpToWorkingMemory(highlight?.text || '')}
     />
   );
@@ -669,9 +683,9 @@ const Library = () => {
         relatedError={relatedError}
         onHighlightClick={handleHighlightClick}
         onSelectHighlight={setActiveHighlightId}
-        onAddConcept={(highlight) => setConceptModal({ open: true, highlight })}
-        onAddNotebook={(highlight) => setNotebookModal({ open: true, highlight })}
-        onAddQuestion={(highlight) => setQuestionModal({ open: true, highlight })}
+        onAddConcept={handleOpenConceptModal}
+        onAddNotebook={handleOpenNotebookModal}
+        onAddQuestion={handleOpenQuestionModal}
         onDumpToWorkingMemory={(highlight) => handleDumpToWorkingMemory(highlight?.text || '')}
       />
     </div>

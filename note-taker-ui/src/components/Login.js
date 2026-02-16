@@ -48,7 +48,7 @@ const Login = ({ onLoginSuccess, chromeStoreLink }) => {
 
     return (
         <div className="auth-container">
-            <img src={logo} alt="Note Taker Logo" className="auth-logo" /> 
+            <img src={logo} alt="Note Taker Logo" className="auth-logo" loading="lazy" decoding="async" /> 
             <h2>Login</h2>
             
             {/* --- 2. ENSURE THIS 'a' TAG IS CORRECT --- */}

@@ -8,7 +8,7 @@ const LandingPage = ({ chromeStoreLink }) => {
   return (
     <div className="landing-container">
       <div className="landing-content">
-        <img src={logo} alt="Note Taker Logo" className="landing-logo" />
+        <img src={logo} alt="Note Taker Logo" className="landing-logo" loading="lazy" decoding="async" />
         
         <h1 className="landing-title">A simple tool for your best reading.</h1>
         

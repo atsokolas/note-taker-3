@@ -34,7 +34,8 @@ const AddToConceptModal = ({
   const { articles: articleResults, loading: articleLoading, error: articleError } = useArticles({
     query,
     folderId,
-    enabled: open && mode === 'article'
+    enabled: open && mode === 'article',
+    debounceMs: 260
   });
   const highlightFilters = useMemo(() => ({
     folderId: folderId || undefined,
@@ -42,7 +43,8 @@ const AddToConceptModal = ({
     q: query || undefined
   }), [folderId, articleId, query]);
   const { highlights, loading: highlightsLoading, error: highlightsError } = useHighlightsQuery(highlightFilters, {
-    enabled: open && mode === 'highlight'
+    enabled: open && mode === 'highlight',
+    debounceMs: 260
   });
 
   if (!open) return null;
