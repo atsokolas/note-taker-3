@@ -7203,8 +7203,22 @@ app.get('/api/boards/:scopeType/:scopeId', authenticateToken, async (req, res) =
     const userId = req.user.id;
     const scopeType = normalizeBoardScopeType(req.params.scopeType);
     if (!scopeType) return res.status(400).json({ error: 'Invalid scopeType.' });
-    const scopeId = normalizeBoardScopeId(scopeType, req.params.scopeId);
+    let scopeId = normalizeBoardScopeId(scopeType, req.params.scopeId);
     if (!scopeId) return res.status(400).json({ error: 'scopeId is required.' });
+    if (scopeType === 'concept') {
+      if (mongoose.Types.ObjectId.isValid(scopeId)) {
+        const conceptExists = await TagMeta.exists({ _id: scopeId, userId });
+        if (!conceptExists) return res.status(404).json({ error: 'Concept not found.' });
+        scopeId = String(scopeId);
+      } else {
+        const conceptByName = await TagMeta.findOne({
+          name: new RegExp(`^${escapeRegExp(scopeId)}$`, 'i'),
+          userId
+        }).select('_id');
+        if (!conceptByName) return res.status(404).json({ error: 'Concept not found.' });
+        scopeId = String(conceptByName._id);
+      }
+    }
     if (scopeType === 'question') {
       if (!mongoose.Types.ObjectId.isValid(scopeId)) {
         return res.status(400).json({ error: 'Invalid question scopeId.' });

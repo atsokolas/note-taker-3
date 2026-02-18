@@ -2970,6 +2970,76 @@ html[data-ui-theme='dark'] .library-highlight-item .muted {
   justify-content: space-between;
 }
 
+.think-concept-hero {
+  display: grid;
+  gap: 10px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  background: var(--surface);
+  padding: 14px;
+}
+
+.think-concept-kicker {
+  margin: 0;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.think-concept-hero h1 {
+  margin: 0;
+  font-size: clamp(1.4rem, 2.2vw, 2rem);
+  line-height: 1.15;
+}
+
+.think-concept-summary {
+  border-top: 1px solid var(--border-subtle);
+  padding-top: 10px;
+}
+
+.think-concept-summary p {
+  margin: 0;
+  font-family: var(--font-serif);
+  font-size: 1.02rem;
+  line-height: 1.78;
+  color: var(--text);
+}
+
+.think-concept-summary-editor {
+  display: grid;
+  gap: 10px;
+  border-top: 1px solid var(--border-subtle);
+  padding-top: 10px;
+}
+
+.concept-description {
+  width: 100%;
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--text);
+  font-family: var(--font-serif);
+  font-size: 1rem;
+  line-height: 1.7;
+  padding: 12px 14px;
+  resize: vertical;
+}
+
+.think-concept-summary-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.think-concept-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 .think-question-input {
   display: flex;
   gap: 10px;

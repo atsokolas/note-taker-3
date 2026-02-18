@@ -79,6 +79,7 @@ const ThinkMode = () => {
   const selectedPathId = searchParams.get('pathId') || '';
   const [search, setSearch] = useState('');
   const [descriptionDraft, setDescriptionDraft] = useState('');
+  const [isEditingSummary, setIsEditingSummary] = useState(false);
   const [savingDescription, setSavingDescription] = useState(false);
   const [conceptError, setConceptError] = useState('');
   const [highlightOffset, setHighlightOffset] = useState(0);
@@ -203,6 +204,12 @@ const ThinkMode = () => {
     [allQuestions, activeQuestionId]
   );
 
+  const conceptByName = useMemo(() => {
+    const target = String(selectedName || '').trim().toLowerCase();
+    if (!target) return null;
+    return concepts.find(item => String(item.name || '').trim().toLowerCase() === target) || null;
+  }, [concepts, selectedName]);
+
   const boardScope = useMemo(() => {
     const paramType = searchParams.get('scopeType');
     const paramId = searchParams.get('scopeId');
@@ -212,11 +219,17 @@ const ThinkMode = () => {
     if (activeView === 'questions' && activeQuestionData?._id) {
       return { scopeType: 'question', scopeId: activeQuestionData._id };
     }
+    if (activeView === 'concepts' && concept?._id) {
+      return { scopeType: 'concept', scopeId: concept._id };
+    }
+    if (conceptByName?._id) {
+      return { scopeType: 'concept', scopeId: conceptByName._id };
+    }
     if (selectedName) {
       return { scopeType: 'concept', scopeId: selectedName };
     }
     return { scopeType: '', scopeId: '' };
-  }, [activeQuestionData?._id, activeView, searchParams, selectedName]);
+  }, [activeQuestionData?._id, activeView, concept?._id, conceptByName?._id, searchParams, selectedName]);
 
   const workingMemoryScope = useMemo(() => {
     if (activeView === 'notebook' && activeNotebookEntry?._id) {
@@ -547,6 +560,7 @@ const ThinkMode = () => {
 
   React.useEffect(() => {
     setDescriptionDraft(concept?.description || '');
+    setIsEditingSummary(false);
     setShareSlug(concept?.slug || '');
     setShareStatus('');
     setShareError('');
@@ -599,8 +613,8 @@ const ThinkMode = () => {
     } else {
       const preferredScope = (activeView === 'questions' && activeQuestionData?._id)
         ? { scopeType: 'question', scopeId: activeQuestionData._id }
-        : selectedName
-          ? { scopeType: 'concept', scopeId: selectedName }
+        : concept?._id
+          ? { scopeType: 'concept', scopeId: concept._id }
           : boardScope.scopeType && boardScope.scopeId
             ? boardScope
             : { scopeType: '', scopeId: '' };
@@ -918,6 +932,7 @@ const ThinkMode = () => {
         slug: concept.slug || ''
       });
       setConcept({ ...concept, description: updated.description || '' });
+      setIsEditingSummary(false);
     } catch (err) {
       setConceptError(err.response?.data?.error || 'Failed to save description.');
     } finally {
@@ -1484,6 +1499,17 @@ const ThinkMode = () => {
     window.location.href = `/think?tab=notebook&entryId=${entryId}`;
   }, []);
 
+  const resolveConceptNameFromScope = useCallback((scopeId) => {
+    const safeScopeId = String(scopeId || '').trim();
+    if (!safeScopeId) return '';
+    const byId = concepts.find(item => String(item._id || '') === safeScopeId);
+    if (byId?.name) return byId.name;
+    const byName = concepts.find(
+      item => String(item.name || '').trim().toLowerCase() === safeScopeId.toLowerCase()
+    );
+    return byName?.name || '';
+  }, [concepts]);
+
   const mainPanel = activeView === 'notebook' ? (
     <div className="think-notebook-editor-pane">
       {notebookLoadingEntry && <p className="muted small">Loading note…</p>}
@@ -1525,6 +1551,7 @@ const ThinkMode = () => {
     <StudioBoard
       scopeType={boardScope.scopeType}
       scopeId={boardScope.scopeId}
+      scopeLabel={boardScope.scopeType === 'concept' ? resolveConceptNameFromScope(boardScope.scopeId) : ''}
     />
   ) : activeView === 'paths' ? (
     <ConceptPathWorkspace
@@ -1543,21 +1570,51 @@ const ThinkMode = () => {
       {conceptLoading && <p className="muted small">Loading concept…</p>}
       {!conceptLoading && concept && (
         <>
-          <div className="concept-header">
+          <div className="think-concept-hero">
+            <p className="think-concept-kicker">Concept</p>
             <h1>{concept.name}</h1>
+            {!isEditingSummary && (
+              <div className="think-concept-summary">
+                {descriptionDraft?.trim() ? (
+                  <p>{descriptionDraft}</p>
+                ) : (
+                  <p className="muted">No summary yet. Capture the core idea in your own words.</p>
+                )}
+              </div>
+            )}
+            {isEditingSummary && (
+              <div className="think-concept-summary-editor">
+                <textarea
+                  className="concept-description"
+                  rows={5}
+                  value={descriptionDraft}
+                  onChange={(e) => setDescriptionDraft(e.target.value)}
+                  placeholder="What is this concept? Why does it matter?"
+                />
+                <div className="think-concept-summary-actions">
+                  <Button onClick={handleSaveDescription} disabled={savingDescription}>
+                    {savingDescription ? 'Saving…' : 'Save summary'}
+                  </Button>
+                  <QuietButton
+                    onClick={() => {
+                      setDescriptionDraft(concept.description || '');
+                      setIsEditingSummary(false);
+                    }}
+                    disabled={savingDescription}
+                  >
+                    Cancel
+                  </QuietButton>
+                </div>
+              </div>
+            )}
           </div>
-          <SectionHeader title="Definition" subtitle="Write the summary in your own words." />
-          <textarea
-            className="concept-description"
-            rows={4}
-            value={descriptionDraft}
-            onChange={(e) => setDescriptionDraft(e.target.value)}
-            placeholder="What is this concept? Why does it matter?"
-          />
-          <div style={{ display: 'flex', gap: 8 }}>
-            <Button onClick={handleSaveDescription} disabled={savingDescription}>
-              {savingDescription ? 'Saving…' : 'Save summary'}
-            </Button>
+
+          <div className="think-concept-toolbar">
+            {!isEditingSummary && (
+              <Button variant="secondary" onClick={() => setIsEditingSummary(true)}>
+                Edit summary
+              </Button>
+            )}
             <ReturnLaterControl
               itemType="concept"
               itemId={concept._id}
@@ -1566,7 +1623,7 @@ const ThinkMode = () => {
             <Button variant="secondary" onClick={() => openSynthesis('concept', concept._id)}>
               Synthesize
             </Button>
-            <Button variant="secondary" onClick={() => openBoardForScope({ scopeType: 'concept', scopeId: concept.name })}>
+            <Button variant="secondary" onClick={() => openBoardForScope({ scopeType: 'concept', scopeId: concept._id })}>
               Board
             </Button>
             <Button variant="secondary" onClick={handleExportConcept}>
@@ -1574,6 +1631,15 @@ const ThinkMode = () => {
             </Button>
             <ConnectionBuilder itemType="concept" itemId={concept._id} itemTitle={concept.name} />
           </div>
+
+          <SectionHeader title="Canvas" subtitle="Move material around and connect ideas." />
+          <StudioBoard
+            scopeType="concept"
+            scopeId={concept._id}
+            scopeLabel={concept.name}
+            embedded
+          />
+
           <SectionHeader title="Sharing" subtitle="Publish a read-only concept page." />
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
             <Button variant="secondary" onClick={handleToggleSharing} disabled={shareWorking}>
@@ -1852,6 +1918,10 @@ const ThinkMode = () => {
     />
   );
 
+  const boardScopeDisplay = boardScope.scopeType === 'concept'
+    ? (resolveConceptNameFromScope(boardScope.scopeId) || boardScope.scopeId)
+    : boardScope.scopeId;
+
   const rightPanel = activeView === 'insights' ? (
     <div className="section-stack">
       <SectionHeader title="Context" subtitle="Insights stay read-only." />
@@ -1863,13 +1933,19 @@ const ThinkMode = () => {
       <SectionHeader title="Board Scope" subtitle="Canonical studio workspace." />
       {boardScope.scopeType && boardScope.scopeId ? (
         <p className="muted small">
-          {boardScope.scopeType}: {boardScope.scopeId}
+          {boardScope.scopeType}: {boardScopeDisplay}
         </p>
       ) : (
         <p className="muted small">Select a concept or question to open a board.</p>
       )}
       {boardScope.scopeType === 'concept' && boardScope.scopeId && (
-        <QuietButton onClick={() => handleSelectConcept(boardScope.scopeId)}>
+        <QuietButton
+          onClick={() => {
+            const conceptName = resolveConceptNameFromScope(boardScope.scopeId);
+            if (conceptName) handleSelectConcept(conceptName);
+          }}
+          disabled={!resolveConceptNameFromScope(boardScope.scopeId)}
+        >
           Open concept page
         </QuietButton>
       )}

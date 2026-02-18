@@ -81,7 +81,8 @@ const StudioCard = React.memo(({
   onStartResize,
   onDelete,
   onStartLink,
-  onChangeRole
+  onChangeRole,
+  onOpenReader
 }) => {
   const cardClasses = [
     'studio-board__card',
@@ -101,6 +102,7 @@ const StudioCard = React.memo(({
         height: item.h
       }}
       onMouseDown={() => onSelect(item)}
+      onDoubleClick={() => onOpenReader(item._id)}
     >
       <header className="studio-board__card-header" onMouseDown={(event) => onStartMove(event, item)}>
         <div className="studio-board__card-title-wrap">
@@ -126,6 +128,14 @@ const StudioCard = React.memo(({
           >
             Link
           </button>
+          <button
+            type="button"
+            className="ui-quiet-button"
+            onClick={() => onOpenReader(item._id)}
+            title="Open reader"
+          >
+            Open
+          </button>
           <button type="button" className="icon-button" onClick={() => onDelete(item._id)} title="Delete card">
             x
           </button>
@@ -145,15 +155,17 @@ const StudioCard = React.memo(({
   );
 });
 
-const StudioBoard = ({ scopeType, scopeId }) => {
+const StudioBoard = ({ scopeType, scopeId, scopeLabel = '', embedded = false }) => {
   const [board, setBoard] = useState(null);
   const [items, setItems] = useState([]);
   const [edges, setEdges] = useState([]);
   const [viewMode, setViewMode] = useState('canvas');
   const [mapFocusId, setMapFocusId] = useState('');
   const [activeCardId, setActiveCardId] = useState('');
+  const [readerCardId, setReaderCardId] = useState('');
   const [linkDraft, setLinkDraft] = useState(null);
   const [pendingRelation, setPendingRelation] = useState('supports');
+  const [inspectorCollapsed, setInspectorCollapsed] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [saveError, setSaveError] = useState('');
@@ -170,6 +182,30 @@ const StudioBoard = ({ scopeType, scopeId }) => {
 
   const safeScopeType = String(scopeType || '').trim().toLowerCase();
   const safeScopeId = String(scopeId || '').trim();
+  const safeScopeLabel = String(scopeLabel || '').trim();
+  const scopeDisplay = safeScopeLabel || safeScopeId;
+  const inspectorStorageKey = useMemo(
+    () => `ui.studioBoard.inspectorCollapsed:${embedded ? 'embedded' : 'default'}:${safeScopeType}:${safeScopeId}`,
+    [embedded, safeScopeId, safeScopeType]
+  );
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(inspectorStorageKey);
+      setInspectorCollapsed(stored === 'true');
+    } catch (loadError) {
+      setInspectorCollapsed(false);
+    }
+  }, [inspectorStorageKey]);
+
+  const persistInspectorCollapsed = useCallback((nextCollapsed) => {
+    setInspectorCollapsed(nextCollapsed);
+    try {
+      localStorage.setItem(inspectorStorageKey, String(nextCollapsed));
+    } catch (persistError) {
+      // ignore localStorage write errors
+    }
+  }, [inspectorStorageKey]);
 
   const loadBoard = useCallback(async () => {
     if (!safeScopeType || !safeScopeId) {
@@ -177,6 +213,7 @@ const StudioBoard = ({ scopeType, scopeId }) => {
       setItems([]);
       setEdges([]);
       setActiveCardId('');
+      setReaderCardId('');
       setLinkDraft(null);
       return;
     }
@@ -191,6 +228,7 @@ const StudioBoard = ({ scopeType, scopeId }) => {
       setBoard(nextBoard);
       setItems(nextItems);
       setEdges(nextEdges);
+      setReaderCardId('');
       logPerf('studio.board.load', {
         scopeType: safeScopeType,
         scopeId: safeScopeId,
@@ -356,6 +394,7 @@ const StudioBoard = ({ scopeType, scopeId }) => {
     setItems(prev => prev.filter(item => String(item._id) !== safeId));
     setEdges(prev => prev.filter(edge => String(edge.fromItemId) !== safeId && String(edge.toItemId) !== safeId));
     if (activeCardId === safeId) setActiveCardId('');
+    if (readerCardId === safeId) setReaderCardId('');
     if (linkDraft?.fromItemId === safeId || linkDraft?.toItemId === safeId) setLinkDraft(null);
     try {
       await deleteBoardItem(board._id, itemId);
@@ -364,7 +403,7 @@ const StudioBoard = ({ scopeType, scopeId }) => {
       setSaveError(err.response?.data?.error || 'Failed to delete card.');
       loadBoard();
     }
-  }, [activeCardId, board?._id, linkDraft, loadBoard]);
+  }, [activeCardId, board?._id, linkDraft, loadBoard, readerCardId]);
 
   const handleCreateCard = useCallback(async ({ type, sourceId = '', text = '', x = 40, y = 40, role = 'idea' }) => {
     if (!board?._id) return;
@@ -459,6 +498,13 @@ const StudioBoard = ({ scopeType, scopeId }) => {
     if (text === null) return;
     await handleCreateCard({ type: 'note', text: text.trim() || 'New note card', x: 56, y: 56, role: 'idea' });
   }, [handleCreateCard]);
+
+  const handleOpenReader = useCallback((itemId) => {
+    const safeId = String(itemId || '');
+    if (!safeId) return;
+    setReaderCardId(safeId);
+    setActiveCardId(safeId);
+  }, []);
 
   const onSourceDragStart = useCallback((event, payload) => {
     event.dataTransfer.setData(DRAG_DATA_TYPE, JSON.stringify(payload));
@@ -636,6 +682,7 @@ const StudioBoard = ({ scopeType, scopeId }) => {
   );
 
   const activeCard = activeCardId ? cardsById.get(activeCardId) : null;
+  const readerCard = readerCardId ? cardsById.get(String(readerCardId)) : null;
 
   const relatedEdges = useMemo(() => {
     if (!activeCardId) return [];
@@ -652,6 +699,13 @@ const StudioBoard = ({ scopeType, scopeId }) => {
       setLinkDraft(null);
     }
   }, [linkDraft, viewMode]);
+
+  useEffect(() => {
+    if (!readerCardId) return;
+    if (!cardsById.has(String(readerCardId))) {
+      setReaderCardId('');
+    }
+  }, [cardsById, readerCardId]);
 
   useEffect(() => {
     if (!mapFocusId) return;
@@ -681,264 +735,334 @@ const StudioBoard = ({ scopeType, scopeId }) => {
 
   return (
     <Profiler id="StudioBoardTree" onRender={boardProfilerLogger}>
-      <div className="studio-board" data-testid="studio-board">
-      <aside className="studio-board__library">
-        <div className="studio-board__library-header">
-          <h3>Studio Board</h3>
-          <p className="muted small">{safeScopeType}: {safeScopeId}</p>
-        </div>
-        <button type="button" className="ui-quiet-button" onClick={handleAddTextCard}>
-          Add text card
-        </button>
+      <div
+        className={`studio-board ${embedded ? 'studio-board--embedded' : ''} ${inspectorCollapsed ? 'is-inspector-collapsed' : ''}`}
+        data-testid="studio-board"
+      >
+        <aside className="studio-board__library">
+          <div className="studio-board__library-header">
+            <h3>Materials Tray</h3>
+            <p className="muted small">{safeScopeType}: {scopeDisplay}</p>
+          </div>
+          <button type="button" className="ui-quiet-button" onClick={handleAddTextCard}>
+            Add text card
+          </button>
 
-        {activeCard && (
+          {loading && <p className="muted small">Loading board...</p>}
+          {error && <p className="status-message error-message">{error}</p>}
+          {saveError && <p className="status-message error-message">{saveError}</p>}
+          {sourceLoading && <p className="muted small">Loading sources...</p>}
+          {sourceError && <p className="status-message error-message">{sourceError}</p>}
+
           <div className="studio-board__source-section">
-            <p className="studio-board__source-title">Selected</p>
-            <p className="studio-board__selected-card">{activeCard.title}</p>
-            <div className="studio-board__edge-list">
-              {relatedEdges.length === 0 ? (
-                <p className="muted small">No links yet.</p>
-              ) : (
-                relatedEdges.map(edge => {
-                  const isOutgoing = String(edge.fromItemId) === String(activeCardId);
-                  const peerId = isOutgoing ? edge.toItemId : edge.fromItemId;
-                  const peer = cardsById.get(String(peerId));
-                  return (
-                    <div key={edge._id} className="studio-board__edge-row">
-                      <span>
-                        {toRelationLabel(edge.relation)} {isOutgoing ? '->' : '<-'} {peer?.title || 'Card'}
-                      </span>
-                      <button
-                        type="button"
-                        className="icon-button"
-                        title="Delete link"
-                        onClick={() => handleDeleteEdge(edge._id)}
-                      >
-                        x
-                      </button>
-                    </div>
-                  );
-                })
-              )}
+            <p className="studio-board__source-title">Notes</p>
+            <div className="studio-board__source-list">
+              {notes.map(item => (
+                <button
+                  key={`note-${item.sourceId}`}
+                  type="button"
+                  className="studio-board__source-item"
+                  draggable
+                  onDragStart={(event) => onSourceDragStart(event, item)}
+                >
+                  <strong>{item.title}</strong>
+                  <span>{item.text}</span>
+                </button>
+              ))}
             </div>
           </div>
-        )}
 
-        {loading && <p className="muted small">Loading board...</p>}
-        {error && <p className="status-message error-message">{error}</p>}
-        {saveError && <p className="status-message error-message">{saveError}</p>}
-        {sourceLoading && <p className="muted small">Loading sources...</p>}
-        {sourceError && <p className="status-message error-message">{sourceError}</p>}
-
-        <div className="studio-board__source-section">
-          <p className="studio-board__source-title">Notes</p>
-          <div className="studio-board__source-list">
-            {notes.map(item => (
-              <button
-                key={`note-${item.sourceId}`}
-                type="button"
-                className="studio-board__source-item"
-                draggable
-                onDragStart={(event) => onSourceDragStart(event, item)}
-              >
-                <strong>{item.title}</strong>
-                <span>{item.text}</span>
-              </button>
-            ))}
+          <div className="studio-board__source-section">
+            <p className="studio-board__source-title">Highlights</p>
+            <div className="studio-board__source-list">
+              {highlights.map(item => (
+                <button
+                  key={`highlight-${item.sourceId}`}
+                  type="button"
+                  className="studio-board__source-item"
+                  draggable
+                  onDragStart={(event) => onSourceDragStart(event, item)}
+                >
+                  <strong>{item.title}</strong>
+                  <span>{item.text}</span>
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
 
-        <div className="studio-board__source-section">
-          <p className="studio-board__source-title">Highlights</p>
-          <div className="studio-board__source-list">
-            {highlights.map(item => (
-              <button
-                key={`highlight-${item.sourceId}`}
-                type="button"
-                className="studio-board__source-item"
-                draggable
-                onDragStart={(event) => onSourceDragStart(event, item)}
-              >
-                <strong>{item.title}</strong>
-                <span>{item.text}</span>
-              </button>
-            ))}
+          <div className="studio-board__source-section">
+            <p className="studio-board__source-title">Articles</p>
+            <div className="studio-board__source-list">
+              {articles.map(item => (
+                <button
+                  key={`article-${item.sourceId}`}
+                  type="button"
+                  className="studio-board__source-item"
+                  draggable
+                  onDragStart={(event) => onSourceDragStart(event, item)}
+                >
+                  <strong>{item.title}</strong>
+                  <span>{item.text}</span>
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
+        </aside>
 
-        <div className="studio-board__source-section">
-          <p className="studio-board__source-title">Articles</p>
-          <div className="studio-board__source-list">
-            {articles.map(item => (
+        <div className="studio-board__canvas-wrap">
+          <div className="studio-board__toolbar">
+            <div className="studio-board__view-toggle" role="tablist" aria-label="Studio board view mode">
               <button
-                key={`article-${item.sourceId}`}
                 type="button"
-                className="studio-board__source-item"
-                draggable
-                onDragStart={(event) => onSourceDragStart(event, item)}
+                className={`studio-board__view-button ${viewMode === 'canvas' ? 'is-active' : ''}`}
+                onClick={() => setViewMode('canvas')}
+                role="tab"
+                aria-selected={viewMode === 'canvas'}
               >
-                <strong>{item.title}</strong>
-                <span>{item.text}</span>
+                Canvas
               </button>
-            ))}
-          </div>
-        </div>
-      </aside>
-
-      <div className="studio-board__canvas-wrap">
-        <div className="studio-board__view-toggle" role="tablist" aria-label="Studio board view mode">
-          <button
-            type="button"
-            className={`studio-board__view-button ${viewMode === 'canvas' ? 'is-active' : ''}`}
-            onClick={() => setViewMode('canvas')}
-            role="tab"
-            aria-selected={viewMode === 'canvas'}
-          >
-            Canvas
-          </button>
-          <button
-            type="button"
-            className={`studio-board__view-button ${viewMode === 'map' ? 'is-active' : ''}`}
-            onClick={() => setViewMode('map')}
-            role="tab"
-            aria-selected={viewMode === 'map'}
-          >
-            Map
-          </button>
-        </div>
-
-        {viewMode === 'canvas' && linkDraft && (
-          <div className="studio-board__link-banner">
-            {!linkDraft.toItemId ? (
-              <span>
-                Link mode: select a target card for <strong>{linkSource?.title || 'card'}</strong>.
-              </span>
-            ) : (
-              <>
-                <span>
-                  {linkSource?.title || 'Card'} -> {linkTarget?.title || 'Card'}
-                </span>
-                <select value={pendingRelation} onChange={(event) => setPendingRelation(event.target.value)}>
-                  {RELATION_OPTIONS.map(relation => (
-                    <option key={relation} value={relation}>{toRelationLabel(relation)}</option>
-                  ))}
-                </select>
-                <button type="button" className="ui-quiet-button" onClick={handleCreateEdge}>Create link</button>
-              </>
-            )}
-            <button type="button" className="icon-button" onClick={() => setLinkDraft(null)} title="Cancel link mode">
-              x
+              <button
+                type="button"
+                className={`studio-board__view-button ${viewMode === 'map' ? 'is-active' : ''}`}
+                onClick={() => setViewMode('map')}
+                role="tab"
+                aria-selected={viewMode === 'map'}
+              >
+                Map
+              </button>
+            </div>
+            <button
+              type="button"
+              className="ui-quiet-button"
+              onClick={() => persistInspectorCollapsed(!inspectorCollapsed)}
+            >
+              {inspectorCollapsed ? 'Show Context' : 'Hide Context'}
             </button>
           </div>
+
+          {viewMode === 'canvas' && linkDraft && (
+            <div className="studio-board__link-banner">
+              {!linkDraft.toItemId ? (
+                <span>
+                  Link mode: select a target card for <strong>{linkSource?.title || 'card'}</strong>.
+                </span>
+              ) : (
+                <>
+                  <span>
+                    {linkSource?.title || 'Card'} -> {linkTarget?.title || 'Card'}
+                  </span>
+                  <select value={pendingRelation} onChange={(event) => setPendingRelation(event.target.value)}>
+                    {RELATION_OPTIONS.map(relation => (
+                      <option key={relation} value={relation}>{toRelationLabel(relation)}</option>
+                    ))}
+                  </select>
+                  <button type="button" className="ui-quiet-button" onClick={handleCreateEdge}>Create link</button>
+                </>
+              )}
+              <button type="button" className="icon-button" onClick={() => setLinkDraft(null)} title="Cancel link mode">
+                x
+              </button>
+            </div>
+          )}
+          {viewMode === 'canvas' ? (
+            <div
+              ref={canvasRef}
+              className="studio-board__canvas"
+              style={{ width: canvasSize.width, minHeight: canvasSize.height }}
+              onDragOver={(event) => event.preventDefault()}
+              onDrop={onCanvasDrop}
+              onMouseDown={(event) => {
+                if (event.target === canvasRef.current) {
+                  setActiveCardId('');
+                }
+              }}
+            >
+              <svg className="studio-board__edges" width={canvasSize.width} height={canvasSize.height}>
+                {visibleEdges.map(edge => {
+                  const midX = (edge.x1 + edge.x2) / 2;
+                  const midY = (edge.y1 + edge.y2) / 2;
+                  return (
+                    <g key={edge._id || `${edge.fromItemId}-${edge.toItemId}-${edge.relation}`}>
+                      <line
+                        x1={edge.x1}
+                        y1={edge.y1}
+                        x2={edge.x2}
+                        y2={edge.y2}
+                        className={`studio-board__edge-line is-${edge.relation}`}
+                      />
+                      <text x={midX} y={midY} className="studio-board__edge-label">{toRelationLabel(edge.relation)}</text>
+                    </g>
+                  );
+                })}
+              </svg>
+
+              {cards.map(item => (
+                <StudioCard
+                  key={item._id}
+                  item={item}
+                  title={item.title}
+                  meta={item.meta}
+                  body={item.body}
+                  isSelected={String(item._id) === String(activeCardId)}
+                  isLinkSource={String(item._id) === String(linkDraft?.fromItemId || '')}
+                  isLinkTarget={String(item._id) === String(linkDraft?.toItemId || '')}
+                  linkTargetMode={Boolean(linkDraft?.fromItemId) && !linkDraft?.toItemId}
+                  onSelect={handleSelectCard}
+                  onStartMove={(event, targetItem) => beginInteraction(event, targetItem, 'move')}
+                  onStartResize={(event, targetItem) => beginInteraction(event, targetItem, 'resize')}
+                  onDelete={handleDeleteCard}
+                  onStartLink={handleStartLink}
+                  onChangeRole={handleChangeRole}
+                  onOpenReader={handleOpenReader}
+                />
+              ))}
+              {cards.length === 0 && !loading && (
+                <div className="studio-board__empty-canvas">
+                  <p>Drag notes, highlights, or articles here to start mapping this idea.</p>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="studio-board__map-wrap">
+              <svg className="studio-board__map" width={mapLayout.width} height={mapLayout.height}>
+                {mapLayout.edges.map(edge => {
+                  const fromId = String(edge.fromNode._id);
+                  const toId = String(edge.toNode._id);
+                  const hasFocus = Boolean(mapFocusSet);
+                  const isFocusEdge = !hasFocus || mapFocusSet.has(fromId) || mapFocusSet.has(toId);
+                  return (
+                    <g key={`map-${edge._id || `${fromId}-${toId}-${edge.relation}`}`}>
+                      <line
+                        x1={edge.fromNode.mapX}
+                        y1={edge.fromNode.mapY}
+                        x2={edge.toNode.mapX}
+                        y2={edge.toNode.mapY}
+                        className={`studio-board__map-edge is-${edge.relation} ${isFocusEdge ? '' : 'is-dim'}`}
+                      />
+                    </g>
+                  );
+                })}
+
+                {mapLayout.nodes.map(node => {
+                  const nodeId = String(node._id);
+                  const isFocused = nodeId === String(mapFocusId);
+                  const hasFocus = Boolean(mapFocusSet);
+                  const isVisible = !hasFocus || mapFocusSet.has(nodeId);
+                  return (
+                    <g
+                      key={`map-node-${nodeId}`}
+                      className={`studio-board__map-node ${isFocused ? 'is-focus' : ''} ${isVisible ? '' : 'is-dim'}`}
+                      transform={`translate(${node.mapX}, ${node.mapY})`}
+                      onClick={() => {
+                        setMapFocusId(current => (String(current) === nodeId ? '' : nodeId));
+                        setActiveCardId(nodeId);
+                      }}
+                    >
+                      <circle r="15" />
+                      <text dy="28">{toMapLabel(node.title)}</text>
+                    </g>
+                  );
+                })}
+              </svg>
+              {mapLayout.nodes.length === 0 && !loading && (
+                <div className="studio-board__empty-canvas">
+                  <p>No nodes yet. Add cards in Canvas view.</p>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {!inspectorCollapsed && (
+          <aside className="studio-board__inspector">
+            <div className="studio-board__inspector-header">
+              <h3>Context</h3>
+              <button
+                type="button"
+                className="ui-quiet-button"
+                onClick={() => persistInspectorCollapsed(true)}
+              >
+                Collapse
+              </button>
+            </div>
+            {!activeCard && (
+              <div className="studio-board__inspector-empty">
+                <p className="muted small">Select a card to inspect details and links.</p>
+                {edges.length === 0 && (
+                  <p className="muted small">Connections will appear here once cards are linked.</p>
+                )}
+              </div>
+            )}
+            {activeCard && (
+              <div className="studio-board__inspector-content">
+                <p className="studio-board__selected-card">{activeCard.title}</p>
+                <p className="studio-board__inspector-meta">{activeCard.meta}</p>
+                <div className="studio-board__inspector-actions">
+                  <button type="button" className="ui-quiet-button" onClick={() => handleOpenReader(activeCard._id)}>
+                    Open reader
+                  </button>
+                  <button type="button" className="ui-quiet-button" onClick={() => handleStartLink(activeCard._id)}>
+                    Link from selected
+                  </button>
+                </div>
+                <div className="studio-board__inspector-preview">
+                  {toSnippet(activeCard.body, 380) || 'No content'}
+                </div>
+                <div className="studio-board__edge-list">
+                  {relatedEdges.length === 0 ? (
+                    <p className="muted small">No links yet.</p>
+                  ) : (
+                    relatedEdges.map(edge => {
+                      const isOutgoing = String(edge.fromItemId) === String(activeCardId);
+                      const peerId = isOutgoing ? edge.toItemId : edge.fromItemId;
+                      const peer = cardsById.get(String(peerId));
+                      return (
+                        <div key={edge._id} className="studio-board__edge-row">
+                          <span>
+                            {toRelationLabel(edge.relation)} {isOutgoing ? '->' : '<-'} {peer?.title || 'Card'}
+                          </span>
+                          <button
+                            type="button"
+                            className="icon-button"
+                            title="Delete link"
+                            onClick={() => handleDeleteEdge(edge._id)}
+                          >
+                            x
+                          </button>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+            )}
+          </aside>
         )}
-        {viewMode === 'canvas' ? (
-          <div
-            ref={canvasRef}
-            className="studio-board__canvas"
-            style={{ width: canvasSize.width, minHeight: canvasSize.height }}
-            onDragOver={(event) => event.preventDefault()}
-            onDrop={onCanvasDrop}
-            onMouseDown={(event) => {
-              if (event.target === canvasRef.current) {
-                setActiveCardId('');
-              }
-            }}
+      </div>
+      {readerCard && (
+        <div className="studio-board__reader-overlay" onClick={() => setReaderCardId('')} role="presentation">
+          <article
+            className="studio-board__reader"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Card reader"
+            onClick={(event) => event.stopPropagation()}
           >
-            <svg className="studio-board__edges" width={canvasSize.width} height={canvasSize.height}>
-              {visibleEdges.map(edge => {
-                const midX = (edge.x1 + edge.x2) / 2;
-                const midY = (edge.y1 + edge.y2) / 2;
-                return (
-                  <g key={edge._id || `${edge.fromItemId}-${edge.toItemId}-${edge.relation}`}>
-                    <line
-                      x1={edge.x1}
-                      y1={edge.y1}
-                      x2={edge.x2}
-                      y2={edge.y2}
-                      className={`studio-board__edge-line is-${edge.relation}`}
-                    />
-                    <text x={midX} y={midY} className="studio-board__edge-label">{toRelationLabel(edge.relation)}</text>
-                  </g>
-                );
-              })}
-            </svg>
-
-            {cards.map(item => (
-              <StudioCard
-                key={item._id}
-                item={item}
-                title={item.title}
-                meta={item.meta}
-                body={item.body}
-                isSelected={String(item._id) === String(activeCardId)}
-                isLinkSource={String(item._id) === String(linkDraft?.fromItemId || '')}
-                isLinkTarget={String(item._id) === String(linkDraft?.toItemId || '')}
-                linkTargetMode={Boolean(linkDraft?.fromItemId) && !linkDraft?.toItemId}
-                onSelect={handleSelectCard}
-                onStartMove={(event, targetItem) => beginInteraction(event, targetItem, 'move')}
-                onStartResize={(event, targetItem) => beginInteraction(event, targetItem, 'resize')}
-                onDelete={handleDeleteCard}
-                onStartLink={handleStartLink}
-                onChangeRole={handleChangeRole}
-              />
-            ))}
-            {cards.length === 0 && !loading && (
-              <div className="studio-board__empty-canvas">
-                <p>Drag notes, highlights, or articles here to start mapping this idea.</p>
+            <header className="studio-board__reader-header">
+              <div>
+                <p className="studio-board__reader-kicker">{readerCard.meta}</p>
+                <h3>{readerCard.title}</h3>
               </div>
-            )}
-          </div>
-        ) : (
-          <div className="studio-board__map-wrap">
-            <svg className="studio-board__map" width={mapLayout.width} height={mapLayout.height}>
-              {mapLayout.edges.map(edge => {
-                const fromId = String(edge.fromNode._id);
-                const toId = String(edge.toNode._id);
-                const hasFocus = Boolean(mapFocusSet);
-                const isFocusEdge = !hasFocus || mapFocusSet.has(fromId) || mapFocusSet.has(toId);
-                return (
-                  <g key={`map-${edge._id || `${fromId}-${toId}-${edge.relation}`}`}>
-                    <line
-                      x1={edge.fromNode.mapX}
-                      y1={edge.fromNode.mapY}
-                      x2={edge.toNode.mapX}
-                      y2={edge.toNode.mapY}
-                      className={`studio-board__map-edge is-${edge.relation} ${isFocusEdge ? '' : 'is-dim'}`}
-                    />
-                  </g>
-                );
-              })}
-
-              {mapLayout.nodes.map(node => {
-                const nodeId = String(node._id);
-                const isFocused = nodeId === String(mapFocusId);
-                const hasFocus = Boolean(mapFocusSet);
-                const isVisible = !hasFocus || mapFocusSet.has(nodeId);
-                return (
-                  <g
-                    key={`map-node-${nodeId}`}
-                    className={`studio-board__map-node ${isFocused ? 'is-focus' : ''} ${isVisible ? '' : 'is-dim'}`}
-                    transform={`translate(${node.mapX}, ${node.mapY})`}
-                    onClick={() => {
-                      setMapFocusId(current => (String(current) === nodeId ? '' : nodeId));
-                      setActiveCardId(nodeId);
-                    }}
-                  >
-                    <circle r="15" />
-                    <text dy="28">{toMapLabel(node.title)}</text>
-                  </g>
-                );
-              })}
-            </svg>
-            {mapLayout.nodes.length === 0 && !loading && (
-              <div className="studio-board__empty-canvas">
-                <p>No nodes yet. Add cards in Canvas view.</p>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-      </div>
+              <button type="button" className="icon-button" onClick={() => setReaderCardId('')} title="Close reader">
+                x
+              </button>
+            </header>
+            <div className="studio-board__reader-body">
+              {readerCard.body || 'No content'}
+            </div>
+          </article>
+        </div>
+      )}
     </Profiler>
   );
 };
