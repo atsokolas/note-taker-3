@@ -12,6 +12,7 @@ import {
   listWorkingMemory,
   createWorkingMemory,
   archiveWorkingMemory,
+  unarchiveWorkingMemory,
   promoteWorkingMemory,
   splitWorkingMemory
 } from '../api/workingMemory';
@@ -112,6 +113,7 @@ const Notebook = () => {
   const [workingMemoryItems, setWorkingMemoryItems] = useState([]);
   const [workingMemoryLoading, setWorkingMemoryLoading] = useState(false);
   const [workingMemoryError, setWorkingMemoryError] = useState('');
+  const [workingMemoryView, setWorkingMemoryView] = useState('active');
 
   const isNormalizingRef = useRef(false);
 
@@ -362,7 +364,8 @@ const Notebook = () => {
     try {
       const items = await listWorkingMemory({
         workspaceType: 'notebook',
-        workspaceId: activeId || ''
+        workspaceId: activeId || '',
+        status: workingMemoryView
       });
       setWorkingMemoryItems(items);
     } catch (err) {
@@ -370,7 +373,7 @@ const Notebook = () => {
     } finally {
       setWorkingMemoryLoading(false);
     }
-  }, [activeId]);
+  }, [activeId, workingMemoryView]);
 
   useEffect(() => {
     loadWorkingMemory();
@@ -383,6 +386,21 @@ const Notebook = () => {
   }) => {
     const cleanText = String(textSnippet || '').trim();
     if (!cleanText) return;
+    if (workingMemoryView !== 'active') {
+      try {
+        await createWorkingMemory({
+          workspaceType: 'notebook',
+          workspaceId: activeId || '',
+          sourceType,
+          sourceId,
+          textSnippet: cleanText
+        });
+        setWorkingMemoryView('active');
+      } catch (err) {
+        setWorkingMemoryError(err.response?.data?.error || 'Failed to dump to working memory.');
+      }
+      return;
+    }
     const optimistic = {
       _id: `tmp-${Date.now()}`,
       sourceType,
@@ -406,7 +424,7 @@ const Notebook = () => {
       setWorkingMemoryItems(prev => prev.filter(item => item._id !== optimistic._id));
       setWorkingMemoryError(err.response?.data?.error || 'Failed to dump to working memory.');
     }
-  }, [activeId]);
+  }, [activeId, workingMemoryView]);
 
   const handleArchiveWorkingMemoryItems = React.useCallback(async (ids) => {
     const safeIds = Array.isArray(ids) ? ids.map(String).filter(Boolean) : [String(ids || '')].filter(Boolean);
@@ -419,6 +437,21 @@ const Notebook = () => {
     } catch (err) {
       setWorkingMemoryItems(previous);
       setWorkingMemoryError(err.response?.data?.error || 'Failed to archive working memory.');
+      throw err;
+    }
+  }, [workingMemoryItems]);
+
+  const handleRestoreWorkingMemoryItems = React.useCallback(async (ids) => {
+    const safeIds = Array.isArray(ids) ? ids.map(String).filter(Boolean) : [String(ids || '')].filter(Boolean);
+    if (safeIds.length === 0) return;
+    const previous = workingMemoryItems;
+    setWorkingMemoryItems(prev => prev.filter(item => !safeIds.includes(String(item._id))));
+    try {
+      await unarchiveWorkingMemory(safeIds);
+      setWorkingMemoryError('');
+    } catch (err) {
+      setWorkingMemoryItems(previous);
+      setWorkingMemoryError(err.response?.data?.error || 'Failed to restore working memory.');
       throw err;
     }
   }, [workingMemoryItems]);
@@ -753,8 +786,11 @@ const Notebook = () => {
                     items={workingMemoryItems}
                     loading={workingMemoryLoading}
                     error={workingMemoryError}
+                    viewMode={workingMemoryView}
+                    onViewModeChange={setWorkingMemoryView}
                     onDumpText={(text) => handleDumpToWorkingMemory(text)}
                     onArchiveItems={handleArchiveWorkingMemoryItems}
+                    onRestoreItems={handleRestoreWorkingMemoryItems}
                     onSplitItem={handleSplitWorkingMemoryItem}
                     onPromoteBlocks={handlePromoteWorkingMemoryBlocks}
                   />

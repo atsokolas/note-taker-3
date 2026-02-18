@@ -78,9 +78,12 @@ const WorkingMemoryPanel = ({
   items = [],
   loading = false,
   error = '',
+  viewMode = 'active',
+  onViewModeChange,
   onDumpText,
   onDeleteItem,
   onArchiveItems,
+  onRestoreItems,
   onSplitItem,
   onPromoteBlocks
 }) => {
@@ -162,6 +165,7 @@ const WorkingMemoryPanel = ({
   const selectedSet = useMemo(() => new Set(selectedIds.map(String)), [selectedIds]);
   const hasItems = items.length > 0;
   const allSelected = hasItems && selectedIds.length === items.length;
+  const isArchivedView = String(viewMode || 'active') === 'archived';
 
   const showToast = useCallback((message, tone = 'success') => {
     setToast({ message, tone });
@@ -210,10 +214,11 @@ const WorkingMemoryPanel = ({
     if (!text || !onDumpText) return;
     await withBusyState(async () => {
       await onDumpText(text);
+      if (onViewModeChange) onViewModeChange('active');
       setDraft('');
       showToast('Dumped to working memory.');
     }, 'Could not dump text.');
-  }, [draft, onDumpText, showToast, withBusyState]);
+  }, [draft, onDumpText, onViewModeChange, showToast, withBusyState]);
 
   const handleArchive = useCallback(async (ids, successMessage = 'Archived.') => {
     const safeIds = Array.isArray(ids) ? ids.map(String).filter(Boolean) : [String(ids || '')].filter(Boolean);
@@ -226,10 +231,25 @@ const WorkingMemoryPanel = ({
       } else {
         throw new Error('Archive action unavailable.');
       }
+      setMenuOpenId('');
       setSelectedIds(prev => prev.filter(id => !safeIds.includes(String(id))));
       showToast(successMessage);
     }, 'Could not archive block.');
   }, [onArchiveItems, onDeleteItem, showToast, withBusyState]);
+
+  const handleRestore = useCallback(async (ids, successMessage = 'Restored.') => {
+    const safeIds = Array.isArray(ids) ? ids.map(String).filter(Boolean) : [String(ids || '')].filter(Boolean);
+    if (safeIds.length === 0) return;
+    await withBusyState(async () => {
+      if (!onRestoreItems) {
+        throw new Error('Restore action unavailable.');
+      }
+      await onRestoreItems(safeIds);
+      setMenuOpenId('');
+      setSelectedIds(prev => prev.filter(id => !safeIds.includes(String(id))));
+      showToast(successMessage);
+    }, 'Could not restore block.');
+  }, [onRestoreItems, showToast, withBusyState]);
 
   const handleSplit = useCallback(async (itemId, mode = 'sentence') => {
     if (!onSplitItem) {
@@ -310,12 +330,32 @@ const WorkingMemoryPanel = ({
     selectOnly(itemId, 'question');
   }, [selectOnly]);
 
-  const renderPromoteComposer = selectedCount > 0;
+  const renderPromoteComposer = selectedCount > 0 && !isArchivedView;
 
   return (
     <div className="working-memory-panel" ref={panelRef}>
       <div className="working-memory-header-row">
         <div className="working-memory-title">Working Memory</div>
+        <div className="working-memory-status-toggle" role="tablist" aria-label="Working memory status">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={!isArchivedView}
+            className={!isArchivedView ? 'is-active' : ''}
+            onClick={() => onViewModeChange?.('active')}
+          >
+            Active
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={isArchivedView}
+            className={isArchivedView ? 'is-active' : ''}
+            onClick={() => onViewModeChange?.('archived')}
+          >
+            Archived
+          </button>
+        </div>
         <button
           type="button"
           className="working-memory-toggle"
@@ -329,18 +369,20 @@ const WorkingMemoryPanel = ({
 
       {expanded && (
         <div className="working-memory-body">
-          <div className="working-memory-input-row">
-            <textarea
-              className="working-memory-input"
-              value={draft}
-              placeholder="Scratch freely, paste fragments, jot ideas..."
-              onChange={(event) => setDraft(event.target.value)}
-              rows={6}
-            />
-            <Button onClick={handleDump} disabled={busy || !draft.trim()}>
-              Dump
-            </Button>
-          </div>
+          {!isArchivedView && (
+            <div className="working-memory-input-row">
+              <textarea
+                className="working-memory-input"
+                value={draft}
+                placeholder="Scratch freely, paste fragments, jot ideas..."
+                onChange={(event) => setDraft(event.target.value)}
+                rows={6}
+              />
+              <Button onClick={handleDump} disabled={busy || !draft.trim()}>
+                Dump
+              </Button>
+            </div>
+          )}
 
           {toast.message && (
             <p className={`status-message ${toast.tone === 'error' ? 'error-message' : 'success-message'}`}>
@@ -353,7 +395,9 @@ const WorkingMemoryPanel = ({
           {!loading && !error && (
             <div className="working-memory-list">
               {items.length === 0 ? (
-                <p className="muted small">No dumped items yet.</p>
+                <p className="muted small">
+                  {isArchivedView ? 'No archived blocks yet.' : 'No dumped items yet.'}
+                </p>
               ) : (
                 <>
                   <div className="working-memory-list-toolbar">
@@ -362,6 +406,14 @@ const WorkingMemoryPanel = ({
                     </button>
                     <span className="muted small">{selectedCount} selected</span>
                   </div>
+
+                  {isArchivedView && selectedCount > 0 && (
+                    <div className="working-memory-restore-bar">
+                      <Button disabled={busy} onClick={() => handleRestore(selectedIds, 'Restored selected blocks.')}>
+                        Restore selected
+                      </Button>
+                    </div>
+                  )}
 
                   {renderPromoteComposer && (
                     <div className="working-memory-promote-bar">
@@ -498,33 +550,47 @@ const WorkingMemoryPanel = ({
                         )}
 
                         <div className="working-memory-block-actions">
-                          <button type="button" onClick={() => handleQuickNotebook(itemId)} disabled={busy}>Notebook</button>
-                          <button type="button" onClick={() => handlePrepareConcept(itemId)} disabled={busy}>Concept</button>
-                          <button type="button" onClick={() => handlePrepareQuestion(itemId)} disabled={busy}>Question</button>
-                          <button type="button" onClick={() => handleSplit(itemId, 'sentence')} disabled={busy}>Split</button>
-                          <button type="button" onClick={() => handleArchive([itemId])} disabled={busy}>Archive</button>
+                          {isArchivedView ? (
+                            <button type="button" onClick={() => handleRestore([itemId])} disabled={busy}>Restore</button>
+                          ) : (
+                            <>
+                              <button type="button" onClick={() => handleQuickNotebook(itemId)} disabled={busy}>Notebook</button>
+                              <button type="button" onClick={() => handlePrepareConcept(itemId)} disabled={busy}>Concept</button>
+                              <button type="button" onClick={() => handlePrepareQuestion(itemId)} disabled={busy}>Question</button>
+                              <button type="button" onClick={() => handleSplit(itemId, 'sentence')} disabled={busy}>Split</button>
+                              <button type="button" onClick={() => handleArchive([itemId])} disabled={busy}>Archive</button>
+                            </>
+                          )}
                         </div>
 
                         {isMenuOpen && (
                           <div className="working-memory-menu" role="menu">
-                            <button type="button" role="menuitem" onClick={() => handleQuickNotebook(itemId)}>
-                              Promote to Notebook
-                            </button>
-                            <button type="button" role="menuitem" onClick={() => handlePrepareConcept(itemId)}>
-                              Promote to Concept
-                            </button>
-                            <button type="button" role="menuitem" onClick={() => handlePrepareQuestion(itemId)}>
-                              Promote to Question
-                            </button>
-                            <button type="button" role="menuitem" onClick={() => handleSplit(itemId, 'sentence')}>
-                              Split by Sentence
-                            </button>
-                            <button type="button" role="menuitem" onClick={() => handleSplit(itemId, 'newline')}>
-                              Split by Newline
-                            </button>
-                            <button type="button" role="menuitem" onClick={() => handleArchive([itemId])}>
-                              Archive
-                            </button>
+                            {isArchivedView ? (
+                              <button type="button" role="menuitem" onClick={() => handleRestore([itemId])}>
+                                Restore
+                              </button>
+                            ) : (
+                              <>
+                                <button type="button" role="menuitem" onClick={() => handleQuickNotebook(itemId)}>
+                                  Promote to Notebook
+                                </button>
+                                <button type="button" role="menuitem" onClick={() => handlePrepareConcept(itemId)}>
+                                  Promote to Concept
+                                </button>
+                                <button type="button" role="menuitem" onClick={() => handlePrepareQuestion(itemId)}>
+                                  Promote to Question
+                                </button>
+                                <button type="button" role="menuitem" onClick={() => handleSplit(itemId, 'sentence')}>
+                                  Split by Sentence
+                                </button>
+                                <button type="button" role="menuitem" onClick={() => handleSplit(itemId, 'newline')}>
+                                  Split by Newline
+                                </button>
+                                <button type="button" role="menuitem" onClick={() => handleArchive([itemId])}>
+                                  Archive
+                                </button>
+                              </>
+                            )}
                           </div>
                         )}
                       </article>

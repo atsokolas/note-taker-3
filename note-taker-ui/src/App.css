@@ -288,6 +288,7 @@ body {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
+  flex-wrap: wrap;
 }
 
 .working-memory-title {
@@ -312,6 +313,33 @@ body {
 .working-memory-toggle-icon {
   width: 12px;
   text-align: center;
+}
+
+.working-memory-status-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  border: 1px solid var(--border-color);
+  border-radius: 999px;
+  background: var(--hover-color);
+  padding: 2px;
+}
+
+.working-memory-status-toggle button {
+  border: none;
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: var(--text-color-secondary);
+  background: transparent;
+  cursor: pointer;
+}
+
+.working-memory-status-toggle button.is-active {
+  background: var(--card-bg-color);
+  color: var(--text-color);
+  box-shadow: var(--box-shadow-light);
 }
 
 .working-memory-body {
@@ -400,6 +428,11 @@ body {
   padding: 10px;
   display: grid;
   gap: 10px;
+}
+
+.working-memory-restore-bar {
+  display: flex;
+  justify-content: flex-start;
 }
 
 .working-memory-promote-top {

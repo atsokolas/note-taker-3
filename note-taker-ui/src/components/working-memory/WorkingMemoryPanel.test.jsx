@@ -75,4 +75,24 @@ describe('WorkingMemoryPanel', () => {
       expect(onSplitItem).toHaveBeenCalledWith('wm-1', 'sentence');
     });
   });
+
+  it('restores selected archived blocks', async () => {
+    const onRestoreItems = jest.fn().mockResolvedValue(undefined);
+    render(
+      <WorkingMemoryPanel
+        viewMode="archived"
+        items={[
+          { _id: 'wm-1', textSnippet: 'Archived memory', sourceType: 'note', createdAt: new Date().toISOString() }
+        ]}
+        onRestoreItems={onRestoreItems}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('checkbox'));
+    fireEvent.click(screen.getByRole('button', { name: 'Restore selected' }));
+
+    await waitFor(() => {
+      expect(onRestoreItems).toHaveBeenCalledWith(['wm-1']);
+    });
+  });
 });

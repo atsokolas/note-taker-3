@@ -776,6 +776,29 @@ const archiveWorkingMemoryItems = async ({
   );
 };
 
+const unarchiveWorkingMemoryItems = async ({
+  userId,
+  itemIds = []
+}) => {
+  if (!Array.isArray(itemIds) || itemIds.length === 0) {
+    return { matchedCount: 0, modifiedCount: 0 };
+  }
+  return WorkingMemoryItem.updateMany(
+    {
+      _id: { $in: itemIds },
+      userId,
+      status: 'archived'
+    },
+    {
+      $set: {
+        status: 'active',
+        processedAt: null,
+        processedReason: ''
+      }
+    }
+  );
+};
+
 const RETURN_QUEUE_ITEM_TYPES = new Set(['highlight', 'notebook', 'question', 'concept', 'article']);
 
 const normalizeReturnQueueItemType = (value) => {
@@ -2941,6 +2964,27 @@ app.post('/api/working-memory/archive', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('❌ Error archiving working memory items:', error);
     res.status(500).json({ error: 'Failed to archive working memory items.' });
+  }
+});
+
+app.post('/api/working-memory/unarchive', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const ids = normalizeWorkingMemoryIds(req.body?.ids || []);
+    if (ids.length === 0) {
+      return res.status(400).json({ error: 'ids must include at least one valid item id.' });
+    }
+    const result = await unarchiveWorkingMemoryItems({
+      userId,
+      itemIds: ids
+    });
+    res.status(200).json({
+      restoredCount: Number(result.modifiedCount || 0),
+      matchedCount: Number(result.matchedCount || 0)
+    });
+  } catch (error) {
+    console.error('❌ Error restoring working memory items:', error);
+    res.status(500).json({ error: 'Failed to restore working memory items.' });
   }
 });
 

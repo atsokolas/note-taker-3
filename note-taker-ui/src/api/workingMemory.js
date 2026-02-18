@@ -26,6 +26,12 @@ export const archiveWorkingMemory = async (ids = []) => {
   return res.data;
 };
 
+export const unarchiveWorkingMemory = async (ids = []) => {
+  const safeIds = Array.isArray(ids) ? ids : [ids];
+  const res = await api.post('/api/working-memory/unarchive', { ids: safeIds }, getAuthHeaders());
+  return res.data;
+};
+
 export const splitWorkingMemory = async (id, mode = 'sentence') => {
   const res = await api.post(`/api/working-memory/${id}/split`, { mode }, getAuthHeaders());
   return res.data;
