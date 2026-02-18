@@ -626,7 +626,6 @@ const StudioBoard = ({ scopeType, scopeId, scopeLabel = '', embedded = false }) 
       ordered.forEach((item, index) => {
         const col = index % maxCols;
         const row = Math.floor(index / maxCols);
-        const width = Math.max(MIN_CARD_WIDTH, Number(item.w || MIN_CARD_WIDTH));
         const height = Math.max(MIN_CARD_HEIGHT, Number(item.h || MIN_CARD_HEIGHT));
         const baseX = startX + (col * (cardWidth + spacingX));
         const baseY = startY + (row * (height + spacingY));
@@ -659,8 +658,9 @@ const StudioBoard = ({ scopeType, scopeId, scopeLabel = '', embedded = false }) 
   }, []);
 
   const handlePromoteReaderCard = useCallback(async () => {
-    if (!readerCard) return;
-    const bodyText = String(readerCard.body || '').trim();
+    const currentReaderCard = readerCardId ? cardsById.get(String(readerCardId)) : null;
+    if (!currentReaderCard) return;
+    const bodyText = String(currentReaderCard.body || '').trim();
     if (!bodyText) {
       setReaderStatus({ tone: 'error', message: 'Nothing to promote from this card.' });
       return;
@@ -668,14 +668,14 @@ const StudioBoard = ({ scopeType, scopeId, scopeLabel = '', embedded = false }) 
     setReaderBusy(true);
     try {
       await api.post('/api/notebook', {
-        title: String(readerCard.title || 'Board extract').slice(0, 140),
+        title: String(currentReaderCard.title || 'Board extract').slice(0, 140),
         content: bodyText,
         blocks: [{
           id: createLocalBlockId(),
           type: 'paragraph',
           text: bodyText.slice(0, 1200)
         }],
-        tags: Array.isArray(readerCard.tags) ? readerCard.tags.slice(0, 20) : []
+        tags: Array.isArray(currentReaderCard.tags) ? currentReaderCard.tags.slice(0, 20) : []
       }, getAuthHeaders());
       setReaderStatus({ tone: 'success', message: 'Promoted to notebook.' });
     } catch (promoteError) {
@@ -686,15 +686,16 @@ const StudioBoard = ({ scopeType, scopeId, scopeLabel = '', embedded = false }) 
     } finally {
       setReaderBusy(false);
     }
-  }, [readerCard]);
+  }, [cardsById, readerCardId]);
 
   const handleLinkReaderCardToConcept = useCallback(async () => {
-    if (!readerCard) return;
+    const currentReaderCard = readerCardId ? cardsById.get(String(readerCardId)) : null;
+    if (!currentReaderCard) return;
     if (!readerConceptId) {
       setReaderStatus({ tone: 'error', message: 'Select a concept first.' });
       return;
     }
-    const source = toConnectionSource(readerCard);
+    const source = toConnectionSource(currentReaderCard);
     if (!source.fromType || !source.fromId) {
       setReaderStatus({
         tone: 'error',
@@ -725,7 +726,7 @@ const StudioBoard = ({ scopeType, scopeId, scopeLabel = '', embedded = false }) 
     } finally {
       setReaderBusy(false);
     }
-  }, [readerCard, readerConceptId, safeScopeId, safeScopeType]);
+  }, [cardsById, readerCardId, readerConceptId, safeScopeId, safeScopeType]);
 
   const onSourceDragStart = useCallback((event, payload) => {
     event.dataTransfer.setData(DRAG_DATA_TYPE, JSON.stringify(payload));
