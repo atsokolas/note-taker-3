@@ -1,3 +1,5 @@
+/* Before: highlights and articles could blend visually in Library.
+   After: highlights mount on a distinct surface shell so section identity is clearer without layout changes. */
 import React, { Profiler, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { QuietButton, SectionHeader } from '../ui';
 import HighlightCard from '../blocks/HighlightCard';
@@ -215,7 +217,7 @@ const LibraryHighlights = ({
   }, [displayRows]);
 
   return (
-    <div className="section-stack">
+    <div className="section-stack library-highlights-surface">
       <SectionHeader
         title="Highlights"
         subtitle="Thumb through and send them forward."

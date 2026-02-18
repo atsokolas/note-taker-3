@@ -1,3 +1,5 @@
+/* Before: some embedded media could inherit source widths and visually crowd the reading surface.
+   After: media is hard-constrained to the reading column, right panel remains separate, and content scales safely across breakpoints. */
 :root {
   --surface-bg: var(--surface, #ffffff);
   --surface-border: var(--border-subtle-2, rgba(15, 23, 42, 0.08));
@@ -12,7 +14,7 @@
 
 .reading-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(280px, 340px);
+  grid-template-columns: minmax(0, 1fr) minmax(296px, 356px);
   gap: var(--space-4);
   align-items: start;
   width: 100%;
@@ -26,6 +28,10 @@
 .reading-layout__main-content,
 .reading-layout__context-region {
   min-width: 0;
+}
+
+.reading-layout__main-region {
+  overflow: hidden;
 }
 
 .reading-layout__toolbar {
@@ -74,6 +80,7 @@
   width: min(100%, 780px);
   margin: 0 auto;
   color: var(--text-primary);
+  isolation: isolate;
 }
 
 .article-reading-surface h1 {
@@ -89,6 +96,7 @@
   line-height: 1.86;
   color: var(--text-primary);
   overflow-wrap: anywhere;
+  min-width: 0;
 }
 
 .article-reading-surface .content-body :is(p, li, blockquote, h1, h2, h3, h4, h5, h6, pre) {
@@ -97,16 +105,19 @@
 
 .article-reading-surface .content-body :is(img, video, iframe, object, embed),
 .article-reader-content :is(img, video, iframe, object, embed) {
-  max-width: 100%;
   display: block;
+  max-width: 100% !important;
+  width: auto !important;
+  min-width: 0;
+  box-sizing: border-box;
   margin: var(--space-5) auto;
 }
 
 .article-reading-surface .content-body img,
 .article-reader-content img {
-  width: auto;
-  max-width: 100%;
-  height: auto;
+  width: auto !important;
+  max-width: 100% !important;
+  height: auto !important;
   border-radius: var(--radius);
   max-height: min(72vh, 920px);
   object-fit: contain;
@@ -114,19 +125,27 @@
 
 .article-reading-surface .content-body video,
 .article-reader-content video {
-  width: 100%;
-  height: auto;
+  width: 100% !important;
+  max-width: 100% !important;
+  height: auto !important;
   border-radius: var(--radius);
+  object-fit: contain;
 }
 
 .article-reading-surface .content-body :is(iframe, object, embed),
 .article-reader-content :is(iframe, object, embed) {
-  width: 100%;
+  width: 100% !important;
   border: 0;
   border-radius: var(--radius);
   aspect-ratio: 16 / 9;
   min-height: 240px;
   background: var(--surface-bg);
+}
+
+.article-reading-surface .content-body figure,
+.article-reader-content figure {
+  max-width: 100% !important;
+  margin: var(--space-5) auto;
 }
 
 .article-highlights-card {
