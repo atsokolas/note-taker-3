@@ -10,10 +10,12 @@ import {
   patchBoardItem,
   updateBoardItems
 } from '../api/boards';
+import { createConnection } from '../api/connections';
 import { createProfilerLogger, endPerfTimer, logPerf, startPerfTimer } from '../utils/perf';
 
 const MIN_CARD_WIDTH = 220;
 const MIN_CARD_HEIGHT = 140;
+const GRID_SIZE = 24;
 const DRAG_DATA_TYPE = 'application/x-studio-board-item';
 const CARD_ROLES = ['idea', 'claim', 'evidence'];
 const RELATION_OPTIONS = ['supports', 'contradicts', 'explains', 'example'];
@@ -57,6 +59,13 @@ const toMapLabel = (title) => {
   return text.length > 32 ? `${text.slice(0, 32)}...` : text;
 };
 
+const formatMetaDate = (value) => {
+  if (!value) return '';
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return String(value);
+  return parsed.toLocaleString();
+};
+
 const hashString = (value) => {
   const text = String(value || '');
   let hash = 0;
@@ -67,11 +76,29 @@ const hashString = (value) => {
   return Math.abs(hash);
 };
 
+const createLocalBlockId = () => {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return `block-${Math.random().toString(36).slice(2, 10)}-${Date.now()}`;
+};
+
+const toConnectionSource = (card) => {
+  const safeType = String(card?.sourceType || '').trim().toLowerCase();
+  const safeSourceId = String(card?.sourceId || '').trim();
+  if (!safeSourceId) return { fromType: '', fromId: '' };
+  if (safeType === 'note') return { fromType: 'notebook', fromId: safeSourceId };
+  if (safeType === 'highlight') return { fromType: 'highlight', fromId: safeSourceId };
+  if (safeType === 'article') return { fromType: 'article', fromId: safeSourceId };
+  return { fromType: '', fromId: '' };
+};
+
 const StudioCard = React.memo(({
   item,
   title,
+  sourceLabel,
   meta,
-  body,
+  preview,
   isSelected,
   isLinkSource,
   isLinkTarget,
@@ -107,6 +134,7 @@ const StudioCard = React.memo(({
       <header className="studio-board__card-header" onMouseDown={(event) => onStartMove(event, item)}>
         <div className="studio-board__card-title-wrap">
           <h4 className="studio-board__card-title">{title}</h4>
+          <p className="studio-board__card-label">{sourceLabel || 'Material'}</p>
           <p className="studio-board__card-meta">{meta}</p>
         </div>
         <div className="studio-board__card-actions" onMouseDown={(event) => event.stopPropagation()}>
@@ -142,7 +170,16 @@ const StudioCard = React.memo(({
         </div>
       </header>
       <div className="studio-board__card-body">
-        {body || 'No content'}
+        {preview || 'No content'}
+      </div>
+      <div className="studio-board__card-footer">
+        <button
+          type="button"
+          className="ui-quiet-button"
+          onClick={() => onOpenReader(item._id)}
+        >
+          Open
+        </button>
       </div>
       <button
         type="button"
@@ -153,7 +190,17 @@ const StudioCard = React.memo(({
       />
     </article>
   );
-});
+}, (prev, next) => (
+  prev.item === next.item
+  && prev.title === next.title
+  && prev.sourceLabel === next.sourceLabel
+  && prev.meta === next.meta
+  && prev.preview === next.preview
+  && prev.isSelected === next.isSelected
+  && prev.isLinkSource === next.isLinkSource
+  && prev.isLinkTarget === next.isLinkTarget
+  && prev.linkTargetMode === next.linkTargetMode
+));
 
 const StudioBoard = ({ scopeType, scopeId, scopeLabel = '', embedded = false }) => {
   const [board, setBoard] = useState(null);
@@ -163,19 +210,24 @@ const StudioBoard = ({ scopeType, scopeId, scopeLabel = '', embedded = false }) 
   const [mapFocusId, setMapFocusId] = useState('');
   const [activeCardId, setActiveCardId] = useState('');
   const [readerCardId, setReaderCardId] = useState('');
+  const [readerConceptId, setReaderConceptId] = useState('');
+  const [readerStatus, setReaderStatus] = useState({ tone: '', message: '' });
+  const [readerBusy, setReaderBusy] = useState(false);
   const [linkDraft, setLinkDraft] = useState(null);
   const [pendingRelation, setPendingRelation] = useState('supports');
   const [inspectorCollapsed, setInspectorCollapsed] = useState(false);
+  const [snapToGrid, setSnapToGrid] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [saveError, setSaveError] = useState('');
   const [sourceLoading, setSourceLoading] = useState(false);
   const [sourceError, setSourceError] = useState('');
-  const [sources, setSources] = useState({ notes: [], highlights: [], articles: [] });
+  const [sources, setSources] = useState({ notes: [], highlights: [], articles: [], concepts: [] });
   const canvasRef = useRef(null);
   const interactionRef = useRef(null);
   const interactionListenersRef = useRef({ move: null, up: null });
   const persistTimerRef = useRef(null);
+  const cardCacheRef = useRef(new Map());
   const renderStartRef = useRef(startPerfTimer());
   const hasLoggedRenderRef = useRef(false);
   const boardProfilerLogger = useMemo(() => createProfilerLogger('studio.board.render'), []);
@@ -186,6 +238,10 @@ const StudioBoard = ({ scopeType, scopeId, scopeLabel = '', embedded = false }) 
   const scopeDisplay = safeScopeLabel || safeScopeId;
   const inspectorStorageKey = useMemo(
     () => `ui.studioBoard.inspectorCollapsed:${embedded ? 'embedded' : 'default'}:${safeScopeType}:${safeScopeId}`,
+    [embedded, safeScopeId, safeScopeType]
+  );
+  const snapStorageKey = useMemo(
+    () => `ui.studioBoard.snapToGrid:${embedded ? 'embedded' : 'default'}:${safeScopeType}:${safeScopeId}`,
     [embedded, safeScopeId, safeScopeType]
   );
 
@@ -206,6 +262,24 @@ const StudioBoard = ({ scopeType, scopeId, scopeLabel = '', embedded = false }) 
       // ignore localStorage write errors
     }
   }, [inspectorStorageKey]);
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(snapStorageKey);
+      setSnapToGrid(stored === 'true');
+    } catch (loadError) {
+      setSnapToGrid(false);
+    }
+  }, [snapStorageKey]);
+
+  const persistSnapToGrid = useCallback((nextValue) => {
+    setSnapToGrid(nextValue);
+    try {
+      localStorage.setItem(snapStorageKey, String(nextValue));
+    } catch (persistError) {
+      // ignore localStorage write errors
+    }
+  }, [snapStorageKey]);
 
   const loadBoard = useCallback(async () => {
     if (!safeScopeType || !safeScopeId) {
@@ -248,15 +322,17 @@ const StudioBoard = ({ scopeType, scopeId, scopeLabel = '', embedded = false }) 
     setSourceLoading(true);
     setSourceError('');
     try {
-      const [notesRes, highlightsRes, articlesRes] = await Promise.all([
+      const [notesRes, highlightsRes, articlesRes, conceptsRes] = await Promise.all([
         api.get('/api/notebook', getAuthHeaders()),
         api.get('/api/highlights/all', getAuthHeaders()),
-        api.get('/get-articles', getAuthHeaders())
+        api.get('/get-articles', getAuthHeaders()),
+        api.get('/api/concepts', getAuthHeaders())
       ]);
       setSources({
         notes: Array.isArray(notesRes.data) ? notesRes.data : [],
         highlights: Array.isArray(highlightsRes.data) ? highlightsRes.data : [],
-        articles: Array.isArray(articlesRes.data) ? articlesRes.data : []
+        articles: Array.isArray(articlesRes.data) ? articlesRes.data : [],
+        concepts: Array.isArray(conceptsRes.data) ? conceptsRes.data : []
       });
     } catch (err) {
       setSourceError(err.response?.data?.error || 'Failed to load source items.');
@@ -322,15 +398,18 @@ const StudioBoard = ({ scopeType, scopeId, scopeLabel = '', embedded = false }) 
     if (persistTimerRef.current) clearTimeout(persistTimerRef.current);
   }, []);
 
-  const updateCard = useCallback((itemId, patch) => {
+  const updateCard = useCallback((itemId, patch, { persist = true } = {}) => {
     setItems(prev => {
       let changed = false;
       const next = prev.map(item => {
         if (String(item._id) !== String(itemId)) return item;
+        const keys = Object.keys(patch || {});
+        const isSame = keys.every(key => Number(item[key]) === Number(patch[key]) || item[key] === patch[key]);
+        if (isSame) return item;
         changed = true;
         return { ...item, ...patch };
       });
-      if (changed) persistLayout(next);
+      if (changed && persist) persistLayout(next);
       return changed ? next : prev;
     });
   }, [persistLayout]);
@@ -347,6 +426,9 @@ const StudioBoard = ({ scopeType, scopeId, scopeLabel = '', embedded = false }) 
       itemId: item._id,
       startX: event.clientX,
       startY: event.clientY,
+      pendingDx: 0,
+      pendingDy: 0,
+      rafId: 0,
       startItem: {
         x: Number(item.x) || 0,
         y: Number(item.y) || 0,
@@ -354,24 +436,42 @@ const StudioBoard = ({ scopeType, scopeId, scopeLabel = '', embedded = false }) 
         h: Number(item.h) || MIN_CARD_HEIGHT
       }
     };
-    const onMouseMove = (moveEvent) => {
+    const applyPending = () => {
       const state = interactionRef.current;
       if (!state) return;
-      const dx = moveEvent.clientX - state.startX;
-      const dy = moveEvent.clientY - state.startY;
+      state.rafId = 0;
+      const dx = state.pendingDx;
+      const dy = state.pendingDy;
+      const snapValue = (value) => (
+        snapToGrid ? Math.round(value / GRID_SIZE) * GRID_SIZE : value
+      );
       if (state.mode === 'move') {
         updateCard(state.itemId, {
-          x: Math.max(0, state.startItem.x + dx),
-          y: Math.max(0, state.startItem.y + dy)
+          x: Math.max(0, snapValue(state.startItem.x + dx)),
+          y: Math.max(0, snapValue(state.startItem.y + dy))
         });
         return;
       }
       updateCard(state.itemId, {
-        w: Math.max(MIN_CARD_WIDTH, state.startItem.w + dx),
-        h: Math.max(MIN_CARD_HEIGHT, state.startItem.h + dy)
+        w: Math.max(MIN_CARD_WIDTH, snapValue(state.startItem.w + dx)),
+        h: Math.max(MIN_CARD_HEIGHT, snapValue(state.startItem.h + dy))
       });
     };
+    const onMouseMove = (moveEvent) => {
+      const state = interactionRef.current;
+      if (!state) return;
+      state.pendingDx = moveEvent.clientX - state.startX;
+      state.pendingDy = moveEvent.clientY - state.startY;
+      if (!state.rafId) {
+        state.rafId = window.requestAnimationFrame(applyPending);
+      }
+    };
     const onMouseUp = () => {
+      const state = interactionRef.current;
+      if (state?.rafId) {
+        window.cancelAnimationFrame(state.rafId);
+      }
+      applyPending();
       interactionRef.current = null;
       window.removeEventListener('mousemove', onMouseMove);
       window.removeEventListener('mouseup', onMouseUp);
@@ -380,12 +480,16 @@ const StudioBoard = ({ scopeType, scopeId, scopeLabel = '', embedded = false }) 
     interactionListenersRef.current = { move: onMouseMove, up: onMouseUp };
     window.addEventListener('mousemove', onMouseMove);
     window.addEventListener('mouseup', onMouseUp);
-  }, [updateCard]);
+  }, [snapToGrid, updateCard]);
 
   useEffect(() => () => {
     const listeners = interactionListenersRef.current;
     if (listeners.move) window.removeEventListener('mousemove', listeners.move);
     if (listeners.up) window.removeEventListener('mouseup', listeners.up);
+    const state = interactionRef.current;
+    if (state?.rafId) {
+      window.cancelAnimationFrame(state.rafId);
+    }
   }, []);
 
   const handleDeleteCard = useCallback(async (itemId) => {
@@ -407,14 +511,17 @@ const StudioBoard = ({ scopeType, scopeId, scopeLabel = '', embedded = false }) 
 
   const handleCreateCard = useCallback(async ({ type, sourceId = '', text = '', x = 40, y = 40, role = 'idea' }) => {
     if (!board?._id) return;
+    const snapValue = (value) => (
+      snapToGrid ? Math.round(Number(value || 0) / GRID_SIZE) * GRID_SIZE : Number(value || 0)
+    );
     try {
       const created = await createBoardItem(board._id, {
         type,
         role,
         sourceId,
         text,
-        x,
-        y
+        x: snapValue(x),
+        y: snapValue(y)
       });
       setItems(prev => [...prev, created]);
       setActiveCardId(String(created?._id || ''));
@@ -422,7 +529,7 @@ const StudioBoard = ({ scopeType, scopeId, scopeLabel = '', embedded = false }) 
     } catch (err) {
       setSaveError(err.response?.data?.error || 'Failed to create card.');
     }
-  }, [board?._id]);
+  }, [board?._id, snapToGrid]);
 
   const handleChangeRole = useCallback(async (itemId, role) => {
     if (!board?._id) return;
@@ -499,12 +606,126 @@ const StudioBoard = ({ scopeType, scopeId, scopeLabel = '', embedded = false }) 
     await handleCreateCard({ type: 'note', text: text.trim() || 'New note card', x: 56, y: 56, role: 'idea' });
   }, [handleCreateCard]);
 
+  const handleTidyLayout = useCallback(() => {
+    setItems(prev => {
+      if (!Array.isArray(prev) || prev.length === 0) return prev;
+      const viewportWidth = Math.max(760, Number(canvasRef.current?.clientWidth || 1200));
+      const cardWidth = Math.max(MIN_CARD_WIDTH, 280);
+      const spacingX = 52;
+      const spacingY = 42;
+      const startX = 56;
+      const startY = 56;
+      const maxCols = Math.max(1, Math.floor((viewportWidth - startX * 2) / (cardWidth + spacingX)));
+      const ordered = [...prev].sort((a, b) => {
+        const ay = Number(a.y || 0);
+        const by = Number(b.y || 0);
+        if (ay !== by) return ay - by;
+        return Number(a.x || 0) - Number(b.x || 0);
+      });
+      const positionsById = new Map();
+      ordered.forEach((item, index) => {
+        const col = index % maxCols;
+        const row = Math.floor(index / maxCols);
+        const width = Math.max(MIN_CARD_WIDTH, Number(item.w || MIN_CARD_WIDTH));
+        const height = Math.max(MIN_CARD_HEIGHT, Number(item.h || MIN_CARD_HEIGHT));
+        const baseX = startX + (col * (cardWidth + spacingX));
+        const baseY = startY + (row * (height + spacingY));
+        const tidyX = snapToGrid ? Math.round(baseX / GRID_SIZE) * GRID_SIZE : baseX;
+        const tidyY = snapToGrid ? Math.round(baseY / GRID_SIZE) * GRID_SIZE : baseY;
+        positionsById.set(String(item._id), { x: tidyX, y: tidyY });
+      });
+      let changed = false;
+      const next = prev.map(item => {
+        const nextPos = positionsById.get(String(item._id));
+        if (!nextPos) return item;
+        const sameX = Number(item.x || 0) === Number(nextPos.x || 0);
+        const sameY = Number(item.y || 0) === Number(nextPos.y || 0);
+        if (sameX && sameY) return item;
+        changed = true;
+        return { ...item, x: nextPos.x, y: nextPos.y };
+      });
+      if (changed) {
+        persistLayout(next);
+      }
+      return changed ? next : prev;
+    });
+  }, [persistLayout, snapToGrid]);
+
   const handleOpenReader = useCallback((itemId) => {
     const safeId = String(itemId || '');
     if (!safeId) return;
     setReaderCardId(safeId);
     setActiveCardId(safeId);
   }, []);
+
+  const handlePromoteReaderCard = useCallback(async () => {
+    if (!readerCard) return;
+    const bodyText = String(readerCard.body || '').trim();
+    if (!bodyText) {
+      setReaderStatus({ tone: 'error', message: 'Nothing to promote from this card.' });
+      return;
+    }
+    setReaderBusy(true);
+    try {
+      await api.post('/api/notebook', {
+        title: String(readerCard.title || 'Board extract').slice(0, 140),
+        content: bodyText,
+        blocks: [{
+          id: createLocalBlockId(),
+          type: 'paragraph',
+          text: bodyText.slice(0, 1200)
+        }],
+        tags: Array.isArray(readerCard.tags) ? readerCard.tags.slice(0, 20) : []
+      }, getAuthHeaders());
+      setReaderStatus({ tone: 'success', message: 'Promoted to notebook.' });
+    } catch (promoteError) {
+      setReaderStatus({
+        tone: 'error',
+        message: promoteError?.response?.data?.error || 'Failed to promote card.'
+      });
+    } finally {
+      setReaderBusy(false);
+    }
+  }, [readerCard]);
+
+  const handleLinkReaderCardToConcept = useCallback(async () => {
+    if (!readerCard) return;
+    if (!readerConceptId) {
+      setReaderStatus({ tone: 'error', message: 'Select a concept first.' });
+      return;
+    }
+    const source = toConnectionSource(readerCard);
+    if (!source.fromType || !source.fromId) {
+      setReaderStatus({
+        tone: 'error',
+        message: 'Only source-backed cards can be linked to concepts.'
+      });
+      return;
+    }
+    setReaderBusy(true);
+    try {
+      await createConnection({
+        fromType: source.fromType,
+        fromId: source.fromId,
+        toType: 'concept',
+        toId: readerConceptId,
+        relationType: 'related',
+        scopeType: safeScopeType,
+        scopeId: safeScopeId
+      });
+      setReaderStatus({ tone: 'success', message: 'Linked to concept.' });
+    } catch (linkError) {
+      const status = Number(linkError?.response?.status || 0);
+      setReaderStatus({
+        tone: status === 409 ? 'success' : 'error',
+        message: status === 409
+          ? 'Concept link already exists.'
+          : (linkError?.response?.data?.error || 'Failed to link concept.')
+      });
+    } finally {
+      setReaderBusy(false);
+    }
+  }, [readerCard, readerConceptId, safeScopeId, safeScopeType]);
 
   const onSourceDragStart = useCallback((event, payload) => {
     event.dataTransfer.setData(DRAG_DATA_TYPE, JSON.stringify(payload));
@@ -524,8 +745,11 @@ const StudioBoard = ({ scopeType, scopeId, scopeLabel = '', embedded = false }) 
     }
     if (!payload?.type) return;
     const rect = canvasRef.current.getBoundingClientRect();
-    const x = Math.max(0, event.clientX - rect.left - 160);
-    const y = Math.max(0, event.clientY - rect.top - 60);
+    const snapValue = (value) => (
+      snapToGrid ? Math.round(value / GRID_SIZE) * GRID_SIZE : value
+    );
+    const x = Math.max(0, snapValue(event.clientX - rect.left - 160));
+    const y = Math.max(0, snapValue(event.clientY - rect.top - 60));
     await handleCreateCard({
       type: payload.type,
       sourceId: payload.sourceId || '',
@@ -534,37 +758,73 @@ const StudioBoard = ({ scopeType, scopeId, scopeLabel = '', embedded = false }) 
       y,
       role: 'idea'
     });
-  }, [board?._id, handleCreateCard]);
+  }, [board?._id, handleCreateCard, snapToGrid]);
 
-  const cards = useMemo(() => items.map(item => {
-    const itemType = String(item.type || '').toLowerCase();
-    const sourceId = String(item.sourceId || '');
-    if (itemType === 'highlight') {
-      const source = highlightsById.get(sourceId);
-      return {
+  const cards = useMemo(() => {
+    const nextCache = new Map();
+    const nextCards = items.map(item => {
+      const itemId = String(item._id);
+      const itemType = String(item.type || '').toLowerCase();
+      const sourceId = String(item.sourceId || '');
+      let source = null;
+      if (itemType === 'highlight') source = highlightsById.get(sourceId) || null;
+      if (itemType === 'article') source = articlesById.get(sourceId) || null;
+      if (itemType === 'note') source = notesById.get(sourceId) || null;
+
+      const cached = cardCacheRef.current.get(itemId);
+      if (cached && cached.itemRef === item && cached.sourceRef === source) {
+        nextCache.set(itemId, cached);
+        return cached.model;
+      }
+
+      const roleLabel = toRoleLabel(item.role);
+      let title = 'Card';
+      let sourceLabel = 'Material';
+      let body = String(item.text || '').trim();
+      let sourceMeta = '';
+      let tags = [];
+      if (itemType === 'highlight') {
+        title = source?.articleTitle || 'Highlight';
+        sourceLabel = 'Highlight';
+        body = source?.text || body;
+        sourceMeta = source?.articleTitle || '';
+        tags = Array.isArray(source?.tags) ? source.tags : [];
+      } else if (itemType === 'article') {
+        title = source?.title || source?.url || 'Article';
+        sourceLabel = 'Article';
+        body = body || source?.url || source?.title || '';
+        sourceMeta = source?.url || '';
+        tags = Array.isArray(source?.tags) ? source.tags : [];
+      } else {
+        title = source?.title || 'Note';
+        sourceLabel = 'Note';
+        body = body || getNoteText(source) || '';
+        sourceMeta = formatMetaDate(source?.updatedAt || source?.createdAt || '');
+        tags = Array.isArray(source?.tags) ? source.tags : [];
+      }
+
+      const model = {
         ...item,
-        title: source?.articleTitle || 'Highlight',
-        meta: `${toRoleLabel(item.role)} • Highlight`,
-        body: source?.text || item.text || ''
+        title,
+        sourceLabel,
+        meta: `${roleLabel} • ${sourceLabel}`,
+        sourceMeta,
+        sourceType: itemType,
+        sourceId,
+        tags,
+        body,
+        preview: toSnippet(body, 420)
       };
-    }
-    if (itemType === 'article') {
-      const source = articlesById.get(sourceId);
-      return {
-        ...item,
-        title: source?.title || source?.url || 'Article',
-        meta: `${toRoleLabel(item.role)} • Article`,
-        body: item.text || source?.url || source?.title || ''
-      };
-    }
-    const source = notesById.get(sourceId);
-    return {
-      ...item,
-      title: source?.title || 'Note',
-      meta: `${toRoleLabel(item.role)} • Note`,
-      body: item.text || getNoteText(source) || ''
-    };
-  }), [articlesById, highlightsById, items, notesById]);
+      nextCache.set(itemId, {
+        itemRef: item,
+        sourceRef: source,
+        model
+      });
+      return model;
+    });
+    cardCacheRef.current = nextCache;
+    return nextCards;
+  }, [articlesById, highlightsById, items, notesById]);
 
   const cardsById = useMemo(() => {
     const map = new Map();
@@ -681,6 +941,16 @@ const StudioBoard = ({ scopeType, scopeId, scopeLabel = '', embedded = false }) 
     [sources.articles]
   );
 
+  const conceptOptions = useMemo(() => (
+    (Array.isArray(sources.concepts) ? sources.concepts : [])
+      .map(concept => ({
+        id: String(concept?._id || ''),
+        name: String(concept?.name || '').trim()
+      }))
+      .filter(option => option.id && option.name)
+      .sort((a, b) => a.name.localeCompare(b.name))
+  ), [sources.concepts]);
+
   const activeCard = activeCardId ? cardsById.get(activeCardId) : null;
   const readerCard = readerCardId ? cardsById.get(String(readerCardId)) : null;
 
@@ -699,6 +969,27 @@ const StudioBoard = ({ scopeType, scopeId, scopeLabel = '', embedded = false }) 
       setLinkDraft(null);
     }
   }, [linkDraft, viewMode]);
+
+  useEffect(() => {
+    if (!readerCardId) {
+      setReaderStatus({ tone: '', message: '' });
+      return;
+    }
+    const conceptInScope = conceptOptions.find(option => (
+      safeScopeType === 'concept' && String(option.id) === String(safeScopeId)
+    ));
+    const fallback = conceptInScope || conceptOptions[0] || null;
+    setReaderConceptId(fallback?.id || '');
+    setReaderStatus({ tone: '', message: '' });
+  }, [conceptOptions, readerCardId, safeScopeId, safeScopeType]);
+
+  useEffect(() => {
+    if (!readerStatus.message) return undefined;
+    const timer = window.setTimeout(() => {
+      setReaderStatus({ tone: '', message: '' });
+    }, 2200);
+    return () => window.clearTimeout(timer);
+  }, [readerStatus.message]);
 
   useEffect(() => {
     if (!readerCardId) return;
@@ -831,13 +1122,31 @@ const StudioBoard = ({ scopeType, scopeId, scopeLabel = '', embedded = false }) 
                 Map
               </button>
             </div>
-            <button
-              type="button"
-              className="ui-quiet-button"
-              onClick={() => persistInspectorCollapsed(!inspectorCollapsed)}
-            >
-              {inspectorCollapsed ? 'Show Context' : 'Hide Context'}
-            </button>
+            <div className="studio-board__toolbar-actions">
+              <button
+                type="button"
+                className={`studio-board__toggle ${snapToGrid ? 'is-active' : ''}`}
+                onClick={() => persistSnapToGrid(!snapToGrid)}
+                aria-pressed={snapToGrid}
+              >
+                Snap to Grid
+              </button>
+              <button
+                type="button"
+                className="ui-quiet-button"
+                onClick={handleTidyLayout}
+                disabled={items.length < 2}
+              >
+                Tidy
+              </button>
+              <button
+                type="button"
+                className="ui-quiet-button"
+                onClick={() => persistInspectorCollapsed(!inspectorCollapsed)}
+              >
+                {inspectorCollapsed ? 'Show Context' : 'Hide Context'}
+              </button>
+            </div>
           </div>
 
           {viewMode === 'canvas' && linkDraft && (
@@ -901,8 +1210,9 @@ const StudioBoard = ({ scopeType, scopeId, scopeLabel = '', embedded = false }) 
                   key={item._id}
                   item={item}
                   title={item.title}
+                  sourceLabel={item.sourceLabel}
                   meta={item.meta}
-                  body={item.body}
+                  preview={item.preview}
                   isSelected={String(item._id) === String(activeCardId)}
                   isLinkSource={String(item._id) === String(linkDraft?.fromItemId || '')}
                   isLinkTarget={String(item._id) === String(linkDraft?.toItemId || '')}
@@ -1040,7 +1350,14 @@ const StudioBoard = ({ scopeType, scopeId, scopeLabel = '', embedded = false }) 
         )}
       </div>
       {readerCard && (
-        <div className="studio-board__reader-overlay" onClick={() => setReaderCardId('')} role="presentation">
+        <div
+          className="studio-board__reader-overlay"
+          onClick={() => {
+            setReaderBusy(false);
+            setReaderCardId('');
+          }}
+          role="presentation"
+        >
           <article
             className="studio-board__reader"
             role="dialog"
@@ -1053,10 +1370,72 @@ const StudioBoard = ({ scopeType, scopeId, scopeLabel = '', embedded = false }) 
                 <p className="studio-board__reader-kicker">{readerCard.meta}</p>
                 <h3>{readerCard.title}</h3>
               </div>
-              <button type="button" className="icon-button" onClick={() => setReaderCardId('')} title="Close reader">
+              <button
+                type="button"
+                className="icon-button"
+                onClick={() => {
+                  setReaderBusy(false);
+                  setReaderCardId('');
+                }}
+                title="Close reader"
+              >
                 x
               </button>
             </header>
+            <div className="studio-board__reader-meta">
+              <p>
+                <strong>Source:</strong> {readerCard.sourceLabel || 'Material'}
+              </p>
+              {readerCard.sourceMeta && (
+                <p>
+                  <strong>Reference:</strong> {readerCard.sourceMeta}
+                </p>
+              )}
+              <div className="studio-board__reader-tags">
+                {(readerCard.tags || []).length === 0 ? (
+                  <span className="muted small">No tags</span>
+                ) : (
+                  readerCard.tags.slice(0, 8).map(tag => (
+                    <span key={`${readerCard._id}-${tag}`} className="studio-board__reader-tag">{tag}</span>
+                  ))
+                )}
+              </div>
+            </div>
+            <div className="studio-board__reader-actions">
+              <button
+                type="button"
+                className="ui-quiet-button"
+                onClick={handlePromoteReaderCard}
+                disabled={readerBusy}
+              >
+                Promote to Notebook
+              </button>
+              <div className="studio-board__reader-link">
+                <select
+                  value={readerConceptId}
+                  onChange={(event) => setReaderConceptId(event.target.value)}
+                  disabled={readerBusy || conceptOptions.length === 0}
+                >
+                  <option value="">Select concept</option>
+                  {conceptOptions.map(option => (
+                    <option key={option.id} value={option.id}>{option.name}</option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  className="ui-quiet-button"
+                  onClick={handleLinkReaderCardToConcept}
+                  disabled={readerBusy || !readerConceptId}
+                >
+                  Link to Concept
+                </button>
+              </div>
+            </div>
+            {readerStatus.message && (
+              <p className={`status-message ${readerStatus.tone === 'error' ? 'error-message' : 'success-message'}`}>
+                {readerStatus.message}
+              </p>
+            )}
             <div className="studio-board__reader-body">
               {readerCard.body || 'No content'}
             </div>
