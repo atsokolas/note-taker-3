@@ -228,6 +228,7 @@ const StudioBoard = ({ scopeType, scopeId, scopeLabel = '', embedded = false }) 
   const interactionListenersRef = useRef({ move: null, up: null });
   const persistTimerRef = useRef(null);
   const cardCacheRef = useRef(new Map());
+  const readerCardRef = useRef(null);
   const renderStartRef = useRef(startPerfTimer());
   const hasLoggedRenderRef = useRef(false);
   const boardProfilerLogger = useMemo(() => createProfilerLogger('studio.board.render'), []);
@@ -658,7 +659,7 @@ const StudioBoard = ({ scopeType, scopeId, scopeLabel = '', embedded = false }) 
   }, []);
 
   const handlePromoteReaderCard = useCallback(async () => {
-    const currentReaderCard = readerCardId ? cardsById.get(String(readerCardId)) : null;
+    const currentReaderCard = readerCardRef.current;
     if (!currentReaderCard) return;
     const bodyText = String(currentReaderCard.body || '').trim();
     if (!bodyText) {
@@ -686,10 +687,10 @@ const StudioBoard = ({ scopeType, scopeId, scopeLabel = '', embedded = false }) 
     } finally {
       setReaderBusy(false);
     }
-  }, [cardsById, readerCardId]);
+  }, []);
 
   const handleLinkReaderCardToConcept = useCallback(async () => {
-    const currentReaderCard = readerCardId ? cardsById.get(String(readerCardId)) : null;
+    const currentReaderCard = readerCardRef.current;
     if (!currentReaderCard) return;
     if (!readerConceptId) {
       setReaderStatus({ tone: 'error', message: 'Select a concept first.' });
@@ -726,7 +727,7 @@ const StudioBoard = ({ scopeType, scopeId, scopeLabel = '', embedded = false }) 
     } finally {
       setReaderBusy(false);
     }
-  }, [cardsById, readerCardId, readerConceptId, safeScopeId, safeScopeType]);
+  }, [readerConceptId, safeScopeId, safeScopeType]);
 
   const onSourceDragStart = useCallback((event, payload) => {
     event.dataTransfer.setData(DRAG_DATA_TYPE, JSON.stringify(payload));
@@ -954,6 +955,10 @@ const StudioBoard = ({ scopeType, scopeId, scopeLabel = '', embedded = false }) 
 
   const activeCard = activeCardId ? cardsById.get(activeCardId) : null;
   const readerCard = readerCardId ? cardsById.get(String(readerCardId)) : null;
+
+  useEffect(() => {
+    readerCardRef.current = readerCard || null;
+  }, [readerCard]);
 
   const relatedEdges = useMemo(() => {
     if (!activeCardId) return [];
