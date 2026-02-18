@@ -21,7 +21,9 @@ import WorkingMemoryPanel from '../components/working-memory/WorkingMemoryPanel'
 import {
   listWorkingMemory,
   createWorkingMemory,
-  deleteWorkingMemory
+  archiveWorkingMemory,
+  promoteWorkingMemory,
+  splitWorkingMemory
 } from '../api/workingMemory';
 import api from '../api';
 import { getAuthHeaders } from '../hooks/useAuthHeaders';
@@ -409,14 +411,59 @@ const Library = () => {
     }
   }, [workingMemoryScope]);
 
-  const handleDeleteWorkingMemoryItem = useCallback(async (itemId) => {
+  const handleArchiveWorkingMemoryItems = useCallback(async (ids) => {
+    const safeIds = Array.isArray(ids) ? ids.map(String).filter(Boolean) : [String(ids || '')].filter(Boolean);
+    if (safeIds.length === 0) return;
     const previous = workingMemoryItems;
-    setWorkingMemoryItems(prev => prev.filter(item => item._id !== itemId));
+    setWorkingMemoryItems(prev => prev.filter(item => !safeIds.includes(String(item._id))));
     try {
-      await deleteWorkingMemory(itemId);
+      await archiveWorkingMemory(safeIds);
+      setWorkingMemoryError('');
     } catch (err) {
       setWorkingMemoryItems(previous);
-      setWorkingMemoryError(err.response?.data?.error || 'Failed to remove item.');
+      setWorkingMemoryError(err.response?.data?.error || 'Failed to archive working memory.');
+      throw err;
+    }
+  }, [workingMemoryItems]);
+
+  const handleSplitWorkingMemoryItem = useCallback(async (itemId, mode = 'sentence') => {
+    const safeItemId = String(itemId || '');
+    if (!safeItemId) return;
+    const previous = workingMemoryItems;
+    setWorkingMemoryItems(prev => prev.filter(item => String(item._id) !== safeItemId));
+    try {
+      const result = await splitWorkingMemory(safeItemId, mode);
+      const created = Array.isArray(result?.created) ? result.created : [];
+      setWorkingMemoryItems(prev => [...created, ...prev]);
+      setWorkingMemoryError('');
+    } catch (err) {
+      setWorkingMemoryItems(previous);
+      setWorkingMemoryError(err.response?.data?.error || 'Failed to split working memory block.');
+      throw err;
+    }
+  }, [workingMemoryItems]);
+
+  const handlePromoteWorkingMemoryBlocks = useCallback(async ({
+    target,
+    itemIds = [],
+    payload = {}
+  }) => {
+    const safeIds = Array.isArray(itemIds) ? itemIds.map(String).filter(Boolean) : [];
+    if (safeIds.length === 0) return null;
+    const previous = workingMemoryItems;
+    setWorkingMemoryItems(prev => prev.filter(item => !safeIds.includes(String(item._id))));
+    try {
+      const result = await promoteWorkingMemory({
+        target,
+        ids: safeIds,
+        ...payload
+      });
+      setWorkingMemoryError('');
+      return result;
+    } catch (err) {
+      setWorkingMemoryItems(previous);
+      setWorkingMemoryError(err.response?.data?.error || 'Failed to promote working memory blocks.');
+      throw err;
     }
   }, [workingMemoryItems]);
 
@@ -663,7 +710,9 @@ const Library = () => {
         loading={workingMemoryLoading}
         error={workingMemoryError}
         onDumpText={(text) => handleDumpToWorkingMemory(text)}
-        onDeleteItem={handleDeleteWorkingMemoryItem}
+        onArchiveItems={handleArchiveWorkingMemoryItems}
+        onSplitItem={handleSplitWorkingMemoryItem}
+        onPromoteBlocks={handlePromoteWorkingMemoryBlocks}
       />
       <QuietButton onClick={() => handleDumpToWorkingMemory()}>
         Dump to Working Memory

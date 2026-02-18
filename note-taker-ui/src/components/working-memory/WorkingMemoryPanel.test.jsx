@@ -1,13 +1,23 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import WorkingMemoryPanel from './WorkingMemoryPanel';
+import api from '../../api';
 
 jest.mock('react-router-dom', () => ({
   Link: ({ children }) => <span>{children}</span>
 }), { virtual: true });
 
+jest.mock('../../api', () => ({
+  get: jest.fn()
+}));
+
+jest.mock('../../hooks/useAuthHeaders', () => ({
+  getAuthHeaders: jest.fn(() => ({}))
+}));
+
 describe('WorkingMemoryPanel', () => {
   beforeEach(() => {
     window.localStorage.clear();
+    api.get.mockResolvedValue({ data: [] });
   });
 
   it('is expanded by default and toggles collapsed state', () => {
@@ -24,22 +34,45 @@ describe('WorkingMemoryPanel', () => {
     expect(screen.getByPlaceholderText(/Scratch freely/i)).toBeInTheDocument();
   });
 
-  it('shows promote actions for selected text and promotes to card in scope', () => {
-    const onPromoteToCard = jest.fn().mockResolvedValue(undefined);
+  it('supports multi-select promote for blocks', async () => {
+    const onPromoteBlocks = jest.fn().mockResolvedValue(undefined);
     render(
       <WorkingMemoryPanel
-        items={[]}
-        onPromoteToCard={onPromoteToCard}
-        promotionContext={{ scopeType: 'concept', scopeId: 'Systems Thinking' }}
+        items={[
+          { _id: 'wm-1', textSnippet: 'First memory block', sourceType: 'note', createdAt: new Date().toISOString() },
+          { _id: 'wm-2', textSnippet: 'Second memory block', sourceType: 'note', createdAt: new Date().toISOString() }
+        ]}
+        onPromoteBlocks={onPromoteBlocks}
       />
     );
 
-    const textarea = screen.getByPlaceholderText(/Scratch freely/i);
-    fireEvent.change(textarea, { target: { value: 'Alpha\nBeta\nGamma' } });
-    textarea.setSelectionRange(0, 10);
-    fireEvent.select(textarea);
+    const checkboxes = screen.getAllByRole('checkbox');
+    fireEvent.click(checkboxes[0]);
+    fireEvent.click(checkboxes[1]);
+    fireEvent.click(screen.getByRole('button', { name: 'Promote selected' }));
 
-    fireEvent.click(screen.getByRole('button', { name: 'Make card' }));
-    expect(onPromoteToCard).toHaveBeenCalledWith('Alpha\nBeta');
+    await waitFor(() => {
+      expect(onPromoteBlocks).toHaveBeenCalledWith(expect.objectContaining({
+        target: 'notebook',
+        itemIds: ['wm-1', 'wm-2']
+      }));
+    });
+  });
+
+  it('runs split action for an individual block', async () => {
+    const onSplitItem = jest.fn().mockResolvedValue(undefined);
+    render(
+      <WorkingMemoryPanel
+        items={[
+          { _id: 'wm-1', textSnippet: 'Alpha. Beta.', sourceType: 'note', createdAt: new Date().toISOString() }
+        ]}
+        onSplitItem={onSplitItem}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Split' }));
+    await waitFor(() => {
+      expect(onSplitItem).toHaveBeenCalledWith('wm-1', 'sentence');
+    });
   });
 });

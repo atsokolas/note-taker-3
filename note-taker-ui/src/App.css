@@ -279,7 +279,7 @@ body {
   border: 1px solid var(--border-color);
   border-radius: var(--border-radius);
   background: var(--card-bg-color);
-  padding: 10px;
+  padding: 12px;
   box-shadow: var(--box-shadow-light);
 }
 
@@ -317,7 +317,7 @@ body {
 .working-memory-body {
   margin-top: 10px;
   display: grid;
-  gap: 10px;
+  gap: 12px;
 }
 
 .working-memory-input-row {
@@ -374,26 +374,196 @@ body {
 
 .working-memory-list {
   display: grid;
+  gap: 10px;
+}
+
+.working-memory-list-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.working-memory-select-all {
+  border: 1px solid var(--border-color);
+  background: var(--hover-color);
+  color: var(--text-color);
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+.working-memory-promote-bar {
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  background: var(--hover-color);
+  padding: 10px;
+  display: grid;
+  gap: 10px;
+}
+
+.working-memory-promote-top {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.working-memory-promote-top label,
+.working-memory-promote-details label {
+  display: grid;
+  gap: 4px;
+  font-size: 0.78rem;
+  color: var(--text-color-secondary);
+}
+
+.working-memory-promote-top input,
+.working-memory-promote-top select,
+.working-memory-promote-details input,
+.working-memory-promote-details select {
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  background: var(--card-bg-color);
+  color: var(--text-color);
+  padding: 7px 9px;
+  font: inherit;
+}
+
+.working-memory-promote-buttons {
+  display: flex;
+  align-items: flex-end;
   gap: 8px;
 }
 
-.working-memory-item {
+.working-memory-promote-details {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.working-memory-block {
   border: 1px solid var(--border-color);
   border-radius: var(--border-radius);
-  padding: 8px;
+  padding: 10px;
   background: var(--hover-color);
+  position: relative;
+  display: grid;
+  gap: 8px;
 }
 
-.working-memory-item-text {
-  white-space: pre-wrap;
+.working-memory-block.is-selected {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 2px var(--primary-color-light);
 }
 
-.working-memory-item-meta {
-  margin-top: 6px;
+.working-memory-block-header {
   display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.working-memory-block-check {
+  display: inline-flex;
+  align-items: center;
+}
+
+.working-memory-block-meta {
+  display: inline-flex;
+  flex-wrap: wrap;
   gap: 10px;
   color: var(--text-color-secondary);
-  font-size: 0.8rem;
+  font-size: 0.76rem;
+}
+
+.working-memory-more {
+  margin-left: auto;
+  border: 1px solid var(--border-color);
+  background: var(--card-bg-color);
+  color: var(--text-color);
+  border-radius: 8px;
+  min-width: 34px;
+  height: 30px;
+  cursor: pointer;
+}
+
+.working-memory-block-text {
+  white-space: pre-wrap;
+  line-height: 1.55;
+}
+
+.working-memory-block-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.working-memory-tag {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--border-color);
+  background: var(--card-bg-color);
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-size: 0.72rem;
+  color: var(--text-color-secondary);
+}
+
+.working-memory-block-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  opacity: 0;
+  transform: translateY(-2px);
+  transition: opacity 0.16s ease, transform 0.16s ease;
+}
+
+.working-memory-block:hover .working-memory-block-actions,
+.working-memory-block:focus-within .working-memory-block-actions {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.working-memory-block-actions button,
+.working-memory-menu button {
+  border: 1px solid var(--border-color);
+  background: var(--card-bg-color);
+  color: var(--text-color);
+  border-radius: 999px;
+  padding: 5px 10px;
+  font-size: 0.74rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.working-memory-menu {
+  position: absolute;
+  top: 42px;
+  right: 10px;
+  z-index: 8;
+  min-width: 220px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  background: var(--card-bg-color);
+  box-shadow: var(--box-shadow-medium);
+  padding: 8px;
+  display: grid;
+  gap: 6px;
+}
+
+.working-memory-menu button {
+  border-radius: 8px;
+  text-align: left;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 .upload-actions {

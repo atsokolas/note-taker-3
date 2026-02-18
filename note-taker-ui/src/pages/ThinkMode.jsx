@@ -36,9 +36,10 @@ import { getConnectionsForScope } from '../api/connections';
 import {
   listWorkingMemory,
   createWorkingMemory,
-  deleteWorkingMemory
+  archiveWorkingMemory,
+  promoteWorkingMemory,
+  splitWorkingMemory
 } from '../api/workingMemory';
-import { createBoardItem, getBoardForScope } from '../api/boards';
 
 const THINK_RIGHT_STORAGE_KEY = 'workspace-right-open:/think';
 
@@ -745,14 +746,59 @@ const ThinkMode = () => {
     }
   }, [workingMemoryScope]);
 
-  const handleDeleteWorkingMemoryItem = useCallback(async (itemId) => {
+  const handleArchiveWorkingMemoryItems = useCallback(async (ids) => {
+    const safeIds = Array.isArray(ids) ? ids.map(String).filter(Boolean) : [String(ids || '')].filter(Boolean);
+    if (safeIds.length === 0) return;
     const previous = workingMemoryItems;
-    setWorkingMemoryItems(prev => prev.filter(item => item._id !== itemId));
+    setWorkingMemoryItems(prev => prev.filter(item => !safeIds.includes(String(item._id))));
     try {
-      await deleteWorkingMemory(itemId);
+      await archiveWorkingMemory(safeIds);
+      setWorkingMemoryError('');
     } catch (err) {
       setWorkingMemoryItems(previous);
-      setWorkingMemoryError(err.response?.data?.error || 'Failed to remove item.');
+      setWorkingMemoryError(err.response?.data?.error || 'Failed to archive working memory.');
+      throw err;
+    }
+  }, [workingMemoryItems]);
+
+  const handleSplitWorkingMemoryItem = useCallback(async (itemId, mode = 'sentence') => {
+    const safeItemId = String(itemId || '');
+    if (!safeItemId) return;
+    const previous = workingMemoryItems;
+    setWorkingMemoryItems(prev => prev.filter(item => String(item._id) !== safeItemId));
+    try {
+      const result = await splitWorkingMemory(safeItemId, mode);
+      const created = Array.isArray(result?.created) ? result.created : [];
+      setWorkingMemoryItems(prev => [...created, ...prev]);
+      setWorkingMemoryError('');
+    } catch (err) {
+      setWorkingMemoryItems(previous);
+      setWorkingMemoryError(err.response?.data?.error || 'Failed to split working memory block.');
+      throw err;
+    }
+  }, [workingMemoryItems]);
+
+  const handlePromoteWorkingMemoryBlocks = useCallback(async ({
+    target,
+    itemIds = [],
+    payload = {}
+  }) => {
+    const safeIds = Array.isArray(itemIds) ? itemIds.map(String).filter(Boolean) : [];
+    if (safeIds.length === 0) return null;
+    const previous = workingMemoryItems;
+    setWorkingMemoryItems(prev => prev.filter(item => !safeIds.includes(String(item._id))));
+    try {
+      const result = await promoteWorkingMemory({
+        target,
+        ids: safeIds,
+        ...payload
+      });
+      setWorkingMemoryError('');
+      return result;
+    } catch (err) {
+      setWorkingMemoryItems(previous);
+      setWorkingMemoryError(err.response?.data?.error || 'Failed to promote working memory blocks.');
+      throw err;
     }
   }, [workingMemoryItems]);
 
@@ -812,43 +858,6 @@ const ThinkMode = () => {
     }
     await addWorkingMemoryItem(buildFallbackDump());
   }, [addWorkingMemoryItem, buildFallbackDump]);
-
-  const workingMemoryPromotionScope = useMemo(() => {
-    if (activeView === 'questions' && activeQuestionData?._id) {
-      return { scopeType: 'question', scopeId: activeQuestionData._id };
-    }
-    if (activeView === 'concepts' && concept?.name) {
-      return { scopeType: 'concept', scopeId: concept.name };
-    }
-    if (activeView === 'board' && boardScope.scopeType && boardScope.scopeId) {
-      return { scopeType: boardScope.scopeType, scopeId: boardScope.scopeId };
-    }
-    if (activeView === 'notebook' && activeNotebookEntry?._id) {
-      return { scopeType: 'notebook', scopeId: activeNotebookEntry._id };
-    }
-    return { scopeType: '', scopeId: '' };
-  }, [activeQuestionData?._id, activeNotebookEntry?._id, activeView, boardScope.scopeId, boardScope.scopeType, concept?.name]);
-
-  const handlePromoteToBoardCard = useCallback(async (text) => {
-    const cleanText = String(text || '').trim();
-    if (!cleanText) return;
-    const scopeType = workingMemoryPromotionScope.scopeType;
-    const scopeId = workingMemoryPromotionScope.scopeId;
-    if ((scopeType !== 'concept' && scopeType !== 'question') || !scopeId) return;
-    try {
-      const { board } = await getBoardForScope(scopeType, scopeId);
-      if (!board?._id) throw new Error('Board unavailable.');
-      await createBoardItem(board._id, {
-        type: 'note',
-        text: cleanText,
-        x: 56 + (Math.floor(Date.now() / 1000) % 7) * 22,
-        y: 56 + (Math.floor(Date.now() / 700) % 9) * 16
-      });
-    } catch (err) {
-      setWorkingMemoryError(err.response?.data?.error || 'Failed to promote card.');
-      throw err;
-    }
-  }, [workingMemoryPromotionScope.scopeId, workingMemoryPromotionScope.scopeType]);
 
   useEffect(() => {
     const onKeyDown = (event) => {
@@ -1800,9 +1809,9 @@ const ThinkMode = () => {
       loading={workingMemoryLoading}
       error={workingMemoryError}
       onDumpText={(text) => handleDumpToWorkingMemory(text)}
-      onDeleteItem={handleDeleteWorkingMemoryItem}
-      onPromoteToCard={handlePromoteToBoardCard}
-      promotionContext={workingMemoryPromotionScope}
+      onArchiveItems={handleArchiveWorkingMemoryItems}
+      onSplitItem={handleSplitWorkingMemoryItem}
+      onPromoteBlocks={handlePromoteWorkingMemoryBlocks}
     />
   );
 

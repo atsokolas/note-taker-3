@@ -11,19 +11,43 @@ const buildConceptService = ({ Article, TagMeta, NotebookEntry, ReferenceEdge, m
     ]);
     const meta = await TagMeta.find({ userId: new mongoose.Types.ObjectId(userId) }).lean();
     const metaMap = new Map(meta.map(m => [String(m.name).toLowerCase(), m]));
-    return tagCounts.map(row => {
-      const name = row._id;
-      const found = metaMap.get(String(name).toLowerCase());
-      return {
+    const countsMap = new Map(tagCounts.map(row => [String(row._id).toLowerCase(), row]));
+    const conceptMap = new Map();
+
+    tagCounts.forEach(row => {
+      const name = String(row._id || '').trim();
+      if (!name) return;
+      const key = name.toLowerCase();
+      const found = metaMap.get(key);
+      conceptMap.set(key, {
         name,
-        count: row.count,
+        count: Number(row.count) || 0,
         description: found?.description || '',
         pinnedHighlightIds: found?.pinnedHighlightIds || [],
         pinnedNoteIds: found?.pinnedNoteIds || [],
         isPublic: found?.isPublic || false,
         slug: found?.slug || ''
-      };
+      });
     });
+
+    meta.forEach(found => {
+      const name = String(found?.name || '').trim();
+      if (!name) return;
+      const key = name.toLowerCase();
+      if (conceptMap.has(key)) return;
+      conceptMap.set(key, {
+        name,
+        count: Number(countsMap.get(key)?.count || 0),
+        description: found?.description || '',
+        pinnedHighlightIds: found?.pinnedHighlightIds || [],
+        pinnedNoteIds: found?.pinnedNoteIds || [],
+        isPublic: found?.isPublic || false,
+        slug: found?.slug || ''
+      });
+    });
+
+    return Array.from(conceptMap.values())
+      .sort((a, b) => (b.count - a.count) || a.name.localeCompare(b.name));
   };
 
   const getConceptMeta = async (userId, name) => {

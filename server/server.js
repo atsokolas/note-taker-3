@@ -352,12 +352,17 @@ const workingMemoryItemSchema = new mongoose.Schema({
   sourceType: { type: String, required: true, trim: true },
   sourceId: { type: String, required: true, trim: true },
   textSnippet: { type: String, required: true, trim: true },
+  tags: { type: [String], default: [] },
+  status: { type: String, enum: ['active', 'archived'], default: 'active' },
+  processedAt: { type: Date, default: null },
+  processedReason: { type: String, default: '', trim: true },
   workspaceType: { type: String, default: 'global', trim: true },
   workspaceId: { type: String, default: '', trim: true },
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }
 }, { timestamps: true });
 
 workingMemoryItemSchema.index({ userId: 1, workspaceType: 1, workspaceId: 1, createdAt: -1 });
+workingMemoryItemSchema.index({ userId: 1, workspaceType: 1, workspaceId: 1, status: 1, createdAt: -1 });
 
 const WorkingMemoryItem = mongoose.model('WorkingMemoryItem', workingMemoryItemSchema);
 
@@ -683,6 +688,92 @@ const resolveBoardItemPayload = async ({ userId, type, sourceId, text }) => {
 const ensureBoardOwnership = async (userId, boardId) => {
   if (!mongoose.Types.ObjectId.isValid(boardId)) return null;
   return Board.findOne({ _id: boardId, userId });
+};
+
+const WORKING_MEMORY_STATUSES = new Set(['active', 'archived']);
+const WORKING_MEMORY_PROMOTE_TARGETS = new Set(['notebook', 'concept', 'question']);
+
+const normalizeWorkingMemoryStatus = (value, fallback = 'active') => {
+  const candidate = String(value || '').trim().toLowerCase();
+  if (WORKING_MEMORY_STATUSES.has(candidate)) return candidate;
+  return fallback;
+};
+
+const normalizeWorkingMemoryTarget = (value) => {
+  const candidate = String(value || '').trim().toLowerCase();
+  if (WORKING_MEMORY_PROMOTE_TARGETS.has(candidate)) return candidate;
+  return '';
+};
+
+const normalizeWorkingMemoryIds = (value) => {
+  const values = Array.isArray(value) ? value : [value];
+  const seen = new Set();
+  const ids = [];
+  values.forEach(raw => {
+    const id = String(raw || '').trim();
+    if (!id || seen.has(id) || !mongoose.Types.ObjectId.isValid(id)) return;
+    seen.add(id);
+    ids.push(new mongoose.Types.ObjectId(id));
+  });
+  return ids;
+};
+
+const activeWorkingMemoryStatusFilter = () => ({
+  $or: [
+    { status: 'active' },
+    { status: { $exists: false } }
+  ]
+});
+
+const parseWorkingMemoryTags = (value) => {
+  if (Array.isArray(value)) return normalizeTags(value).slice(0, 20);
+  const text = String(value || '').trim();
+  if (!text) return [];
+  return normalizeTags(text.split(',')).slice(0, 20);
+};
+
+const splitWorkingMemoryText = (value, mode = 'sentence') => {
+  const text = String(value || '').replace(/\r/g, '\n').trim();
+  if (!text) return [];
+  const safeMode = String(mode || 'sentence').trim().toLowerCase();
+  const chunks = safeMode === 'newline'
+    ? text.split(/\n+/)
+    : text.split(/(?<=[.!?])\s+|\n+/);
+  return chunks
+    .map(chunk => String(chunk || '').replace(/\s+/g, ' ').trim())
+    .filter(Boolean)
+    .slice(0, 40);
+};
+
+const buildWorkingMemoryNotebookTitle = (text = '') => {
+  const clean = stripHtml(text || '').replace(/\s+/g, ' ').trim();
+  if (!clean) return 'Working memory extract';
+  const words = clean.split(' ').slice(0, 8).join(' ');
+  return words.length > 80 ? `${words.slice(0, 80).trim()}...` : words;
+};
+
+const archiveWorkingMemoryItems = async ({
+  userId,
+  itemIds = [],
+  reason = 'archived'
+}) => {
+  if (!Array.isArray(itemIds) || itemIds.length === 0) {
+    return { matchedCount: 0, modifiedCount: 0 };
+  }
+  return WorkingMemoryItem.updateMany(
+    {
+      _id: { $in: itemIds },
+      userId,
+      ...activeWorkingMemoryStatusFilter()
+    },
+    {
+      $set: {
+        status: 'archived',
+        processedAt: new Date(),
+        processedReason: String(reason || 'archived').trim().slice(0, 120)
+      }
+    }
+  );
 };
 
 const RETURN_QUEUE_ITEM_TYPES = new Set(['highlight', 'notebook', 'question', 'concept', 'article']);
@@ -2776,8 +2867,18 @@ app.get('/api/working-memory', authenticateToken, async (req, res) => {
     const userId = req.user.id;
     const workspaceType = String(req.query.workspaceType || 'global').trim();
     const workspaceId = String(req.query.workspaceId || '').trim();
+    const requestedStatus = String(req.query.status || 'active').trim().toLowerCase();
+    const limit = Math.min(Math.max(Number(req.query.limit) || 200, 1), 500);
     const query = { userId, workspaceType, workspaceId };
-    const items = await WorkingMemoryItem.find(query).sort({ createdAt: -1 }).limit(200);
+    if (requestedStatus !== 'all') {
+      const safeStatus = normalizeWorkingMemoryStatus(requestedStatus, 'active');
+      if (safeStatus === 'active') {
+        query.$or = activeWorkingMemoryStatusFilter().$or;
+      } else {
+        query.status = safeStatus;
+      }
+    }
+    const items = await WorkingMemoryItem.find(query).sort({ createdAt: -1 }).limit(limit);
     res.status(200).json(items);
   } catch (error) {
     console.error('❌ Error fetching working memory:', error);
@@ -2792,6 +2893,7 @@ app.post('/api/working-memory', authenticateToken, async (req, res) => {
       sourceType = '',
       sourceId = '',
       textSnippet = '',
+      tags = [],
       workspaceType = 'global',
       workspaceId = ''
     } = req.body || {};
@@ -2805,6 +2907,10 @@ app.post('/api/working-memory', authenticateToken, async (req, res) => {
       sourceType: String(sourceType).trim(),
       sourceId: String(sourceId).trim(),
       textSnippet: safeSnippet,
+      tags: parseWorkingMemoryTags(tags),
+      status: 'active',
+      processedAt: null,
+      processedReason: '',
       workspaceType: String(workspaceType || 'global').trim() || 'global',
       workspaceId: String(workspaceId || '').trim(),
       userId
@@ -2813,6 +2919,231 @@ app.post('/api/working-memory', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('❌ Error creating working memory item:', error);
     res.status(500).json({ error: 'Failed to create working memory item.' });
+  }
+});
+
+app.post('/api/working-memory/archive', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const ids = normalizeWorkingMemoryIds(req.body?.ids || []);
+    if (ids.length === 0) {
+      return res.status(400).json({ error: 'ids must include at least one valid item id.' });
+    }
+    const result = await archiveWorkingMemoryItems({
+      userId,
+      itemIds: ids,
+      reason: 'archived'
+    });
+    res.status(200).json({
+      archivedCount: Number(result.modifiedCount || 0),
+      matchedCount: Number(result.matchedCount || 0)
+    });
+  } catch (error) {
+    console.error('❌ Error archiving working memory items:', error);
+    res.status(500).json({ error: 'Failed to archive working memory items.' });
+  }
+});
+
+app.post('/api/working-memory/:id/split', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { id } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ error: 'Invalid working memory id.' });
+    }
+    const mode = String(req.body?.mode || 'sentence').trim().toLowerCase();
+    if (!['sentence', 'newline'].includes(mode)) {
+      return res.status(400).json({ error: "mode must be 'sentence' or 'newline'." });
+    }
+    const item = await WorkingMemoryItem.findOne({
+      _id: id,
+      userId,
+      ...activeWorkingMemoryStatusFilter()
+    });
+    if (!item) {
+      return res.status(404).json({ error: 'Working memory item not found.' });
+    }
+
+    const chunks = splitWorkingMemoryText(item.textSnippet, mode);
+    if (chunks.length < 2) {
+      return res.status(400).json({ error: `Not enough ${mode} chunks to split.` });
+    }
+
+    const created = await WorkingMemoryItem.insertMany(
+      chunks.map(chunk => ({
+        sourceType: item.sourceType || 'working-memory-split',
+        sourceId: item.sourceId || String(item._id),
+        textSnippet: String(chunk).slice(0, 1200),
+        tags: Array.isArray(item.tags) ? item.tags : [],
+        status: 'active',
+        processedAt: null,
+        processedReason: '',
+        workspaceType: item.workspaceType || 'global',
+        workspaceId: item.workspaceId || '',
+        userId
+      }))
+    );
+
+    await archiveWorkingMemoryItems({
+      userId,
+      itemIds: [new mongoose.Types.ObjectId(id)],
+      reason: `split:${mode}`
+    });
+
+    res.status(201).json({
+      mode,
+      archivedId: id,
+      created
+    });
+  } catch (error) {
+    console.error('❌ Error splitting working memory item:', error);
+    res.status(500).json({ error: 'Failed to split working memory item.' });
+  }
+});
+
+app.post('/api/working-memory/promote/:target', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const target = normalizeWorkingMemoryTarget(req.params.target);
+    if (!target) {
+      return res.status(400).json({ error: 'target must be one of: notebook, concept, question.' });
+    }
+
+    const ids = normalizeWorkingMemoryIds(req.body?.ids || []);
+    if (ids.length === 0) {
+      return res.status(400).json({ error: 'ids must include at least one valid item id.' });
+    }
+
+    const tags = parseWorkingMemoryTags(req.body?.tags || []);
+    const items = await WorkingMemoryItem.find({
+      _id: { $in: ids },
+      userId,
+      ...activeWorkingMemoryStatusFilter()
+    }).sort({ createdAt: -1 });
+    if (items.length === 0) {
+      return res.status(404).json({ error: 'No active working memory items found for promotion.' });
+    }
+
+    const texts = items
+      .map(item => String(item.textSnippet || '').trim())
+      .filter(Boolean)
+      .slice(0, 100);
+    if (texts.length === 0) {
+      return res.status(400).json({ error: 'No promotable text found in selected blocks.' });
+    }
+
+    const defaultTitle = buildWorkingMemoryNotebookTitle(texts[0] || '');
+    const requestedTitle = String(req.body?.title || '').trim();
+    const title = (requestedTitle || defaultTitle).slice(0, 140);
+    let resultPayload = {};
+
+    if (target === 'notebook') {
+      const blocks = texts.map(text => ({
+        id: createBlockId(),
+        type: 'paragraph',
+        text: String(text).slice(0, 1200)
+      }));
+      const created = await NotebookEntry.create({
+        title: title || 'Working memory extract',
+        content: '',
+        blocks,
+        tags,
+        userId
+      });
+      await syncNotebookReferences(userId, created._id, blocks);
+      enqueueNotebookEmbedding(created);
+      resultPayload = { notebookEntry: created };
+    }
+
+    if (target === 'concept') {
+      const conceptInput = String(req.body?.conceptName || tags[0] || '').trim();
+      if (!conceptInput) {
+        return res.status(400).json({ error: 'conceptName is required to promote to concept.' });
+      }
+      const conceptRegex = new RegExp(`^${escapeRegExp(conceptInput)}$`, 'i');
+      let concept = await TagMeta.findOne({ name: conceptRegex, userId });
+      if (!concept) {
+        concept = await TagMeta.create({
+          name: conceptInput,
+          description: '',
+          userId
+        });
+      }
+      const conceptContent = tags.length > 0
+        ? `${texts.join('\n\n')}\n\nTags: ${tags.join(', ')}`
+        : texts.join('\n\n');
+      const conceptNote = await ConceptNote.create({
+        tagName: concept.name,
+        title: title || 'Working memory extract',
+        content: conceptContent,
+        userId
+      });
+      resultPayload = {
+        concept: {
+          _id: concept._id,
+          name: concept.name
+        },
+        conceptNote
+      };
+    }
+
+    if (target === 'question') {
+      const requestedQuestionId = String(req.body?.questionId || '').trim();
+      const conceptName = String(req.body?.conceptName || tags[0] || '').trim();
+      const questionText = String(req.body?.questionText || '').trim().slice(0, 400)
+        || `From working memory: ${defaultTitle}`;
+      const blocksToAppend = texts.map(text => ({
+        id: createBlockId(),
+        type: 'paragraph',
+        text: String(text).slice(0, 1200)
+      }));
+
+      if (requestedQuestionId) {
+        if (!mongoose.Types.ObjectId.isValid(requestedQuestionId)) {
+          return res.status(400).json({ error: 'Invalid questionId.' });
+        }
+        const question = await Question.findOne({ _id: requestedQuestionId, userId });
+        if (!question) {
+          return res.status(404).json({ error: 'Question not found.' });
+        }
+        question.blocks = Array.isArray(question.blocks) ? question.blocks : [];
+        question.blocks.push(...blocksToAppend);
+        if (conceptName) {
+          question.conceptName = conceptName;
+          question.linkedTagName = conceptName;
+        }
+        await question.save();
+        enqueueQuestionEmbedding(question);
+        resultPayload = { question };
+      } else {
+        const created = await Question.create({
+          text: questionText,
+          status: 'open',
+          linkedTagName: conceptName || '',
+          conceptName: conceptName || '',
+          blocks: blocksToAppend,
+          userId
+        });
+        enqueueQuestionEmbedding(created);
+        resultPayload = { question: created };
+      }
+    }
+
+    const archived = await archiveWorkingMemoryItems({
+      userId,
+      itemIds: ids,
+      reason: `promoted:${target}`
+    });
+
+    res.status(200).json({
+      promotedTo: target,
+      sourceCount: items.length,
+      archivedCount: Number(archived.modifiedCount || 0),
+      ...resultPayload
+    });
+  } catch (error) {
+    console.error('❌ Error promoting working memory items:', error);
+    res.status(500).json({ error: 'Failed to promote working memory items.' });
   }
 });
 
