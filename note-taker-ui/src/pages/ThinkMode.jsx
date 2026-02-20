@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { Profiler, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { PageTitle, SectionHeader, QuietButton, Button, TagChip } from '../components/ui';
 import useConcepts from '../hooks/useConcepts';
@@ -31,8 +31,10 @@ import WorkingMemoryPanel from '../components/working-memory/WorkingMemoryPanel'
 import ReturnLaterControl from '../components/return-queue/ReturnLaterControl';
 import ConnectionBuilder from '../components/connections/ConnectionBuilder';
 import ConceptPathWorkspace from '../components/paths/ConceptPathWorkspace';
-import StudioBoard from '../components/StudioBoard';
+import ConceptNotebook from '../components/think/concepts/ConceptNotebook';
+import VirtualList from '../components/virtual/VirtualList';
 import { getConnectionsForScope } from '../api/connections';
+import { createProfilerLogger, endPerfTimer, logPerf, startPerfTimer } from '../utils/perf';
 import {
   listWorkingMemory,
   createWorkingMemory,
@@ -43,6 +45,8 @@ import {
 } from '../api/workingMemory';
 
 const THINK_RIGHT_STORAGE_KEY = 'workspace-right-open:/think';
+const THINK_CONCEPT_ROW_HEIGHT = 46;
+const THINK_QUESTION_ROW_HEIGHT = 88;
 
 const formatAiError = (err, fallback = 'Request failed.') => {
   const status = err?.response?.status;
@@ -66,10 +70,53 @@ const formatAiError = (err, fallback = 'Request failed.') => {
   return output;
 };
 
+const SidebarSkeletonRows = React.memo(({ rows = 4 }) => (
+  <div className="library-article-skeletons" aria-hidden="true">
+    {Array.from({ length: rows }).map((_, index) => (
+      <div key={`think-skeleton-${index}`} className="think-list-skeleton-row">
+        <div className="skeleton skeleton-title" style={{ width: `${52 + (index % 3) * 14}%` }} />
+        <div className="skeleton skeleton-text" style={{ width: `${28 + (index % 2) * 16}%` }} />
+      </div>
+    ))}
+  </div>
+));
+
+const ConceptListItem = React.memo(({ conceptItem, isActive, onSelect }) => (
+  <QuietButton
+    className={`list-button ${isActive ? 'is-active' : ''}`}
+    onClick={() => onSelect(conceptItem.name)}
+  >
+    <span>{conceptItem.name}</span>
+    {typeof conceptItem.count === 'number' && (
+      <span className="concept-count">{conceptItem.count}</span>
+    )}
+  </QuietButton>
+));
+
+const QuestionListItem = React.memo(({ question, isActive, onOpen }) => (
+  <div className={`think-question-row ${isActive ? 'is-active' : ''}`}>
+    <button
+      type="button"
+      className={`think-question-row-main list-button ${isActive ? 'is-active' : ''}`}
+      onClick={() => onOpen(question._id)}
+    >
+      <div className="think-question-text">{question.text}</div>
+      <div className="muted small">{question.linkedTagName || 'Uncategorized'}</div>
+    </button>
+    <div className="think-question-row-actions" onClick={(event) => event.stopPropagation()}>
+      <ReturnLaterControl
+        itemType="question"
+        itemId={question._id}
+        defaultReason={question.text || 'Question'}
+      />
+    </div>
+  </div>
+));
+
 const ThinkMode = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const queryConcept = searchParams.get('concept') || '';
-  const allowedViews = useMemo(() => ['notebook', 'concepts', 'questions', 'board', 'paths', 'insights'], []);
+  const allowedViews = useMemo(() => ['notebook', 'concepts', 'questions', 'paths', 'insights'], []);
   const resolveActiveView = (params) => {
     const rawView = params.get('tab') || '';
     if (allowedViews.includes(rawView)) return rawView;
@@ -87,7 +134,8 @@ const ThinkMode = () => {
   const [loadingMore, setLoadingMore] = useState(false);
   const [activeNotebookEntry, setActiveNotebookEntry] = useState(null);
   const [activeQuestion, setActiveQuestion] = useState(null);
-  const { highlightMap, highlights: allHighlights } = useHighlights();
+  const highlightsEnabled = activeView !== 'insights';
+  const { highlightMap, highlights: allHighlights } = useHighlights({ enabled: highlightsEnabled });
   const { tags } = useTags();
   const [addModal, setAddModal] = useState({ open: false, mode: 'highlight' });
   const notebookInsertRef = useRef(null);
@@ -153,6 +201,13 @@ const ThinkMode = () => {
     if (stored === null) return true;
     return stored === 'true';
   });
+  const conceptProfilerLogger = useMemo(() => createProfilerLogger('think.concept.render'), []);
+  const questionListProfilerLogger = useMemo(() => createProfilerLogger('think.question-list.render'), []);
+  const conceptListProfilerLogger = useMemo(() => createProfilerLogger('think.concept-list.render'), []);
+  const leftListHeight = useMemo(() => {
+    const viewport = typeof window !== 'undefined' ? window.innerHeight : 0;
+    return Math.min(420, Math.max(240, viewport ? viewport - 520 : 320));
+  }, []);
 
   const createBlockId = () => {
     if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
@@ -203,33 +258,6 @@ const ThinkMode = () => {
     () => allQuestions.find(q => q._id === activeQuestionId) || null,
     [allQuestions, activeQuestionId]
   );
-
-  const conceptByName = useMemo(() => {
-    const target = String(selectedName || '').trim().toLowerCase();
-    if (!target) return null;
-    return concepts.find(item => String(item.name || '').trim().toLowerCase() === target) || null;
-  }, [concepts, selectedName]);
-
-  const boardScope = useMemo(() => {
-    const paramType = searchParams.get('scopeType');
-    const paramId = searchParams.get('scopeId');
-    if ((paramType === 'concept' || paramType === 'question') && paramId) {
-      return { scopeType: paramType, scopeId: paramId };
-    }
-    if (activeView === 'questions' && activeQuestionData?._id) {
-      return { scopeType: 'question', scopeId: activeQuestionData._id };
-    }
-    if (activeView === 'concepts' && concept?._id) {
-      return { scopeType: 'concept', scopeId: concept._id };
-    }
-    if (conceptByName?._id) {
-      return { scopeType: 'concept', scopeId: conceptByName._id };
-    }
-    if (selectedName) {
-      return { scopeType: 'concept', scopeId: selectedName };
-    }
-    return { scopeType: '', scopeId: '' };
-  }, [activeQuestionData?._id, activeView, concept?._id, conceptByName?._id, searchParams, selectedName]);
 
   const workingMemoryScope = useMemo(() => {
     if (activeView === 'notebook' && activeNotebookEntry?._id) {
@@ -286,29 +314,50 @@ const ThinkMode = () => {
       setConceptRelated({ highlights: [], concepts: [] });
       setConceptRelatedLoading(false);
       setConceptRelatedError('');
+      setConceptSuggestions([]);
+      setConceptSuggestionsLoading(false);
+      setConceptSuggestionsError('');
       return;
     }
     let cancelled = false;
-    const fetchRelated = async () => {
+    const fetchRelatedAndSuggestions = async () => {
+      const startedAt = startPerfTimer();
       setConceptRelatedLoading(true);
       setConceptRelatedError('');
+      setConceptSuggestionsLoading(true);
+      setConceptSuggestionsError('');
       try {
-        const res = await api.get(`/api/concepts/${concept._id}/related`, getAuthHeaders());
+        const [relatedRes, suggestionRes] = await Promise.all([
+          api.get(`/api/concepts/${concept._id}/related`, getAuthHeaders()),
+          api.get(`/api/concepts/${concept._id}/suggestions?limit=12`, getAuthHeaders())
+        ]);
         if (cancelled) return;
-        const items = res.data?.results || [];
+        const items = relatedRes.data?.results || [];
         setConceptRelated({
           highlights: items.filter(item => item.objectType === 'highlight'),
           concepts: items.filter(item => item.objectType === 'concept')
         });
+        setConceptSuggestions(suggestionRes.data?.results || []);
+        logPerf('think.concept.batch-load', {
+          conceptId: concept._id,
+          relatedCount: items.length,
+          suggestionCount: suggestionRes.data?.results?.length || 0,
+          durationMs: endPerfTimer(startedAt)
+        });
       } catch (err) {
         if (!cancelled) {
-          setConceptRelatedError(formatAiError(err, 'Failed to load related items.'));
+          const message = formatAiError(err, 'Failed to load concept context.');
+          setConceptRelatedError(message);
+          setConceptSuggestionsError(message);
         }
       } finally {
-        if (!cancelled) setConceptRelatedLoading(false);
+        if (!cancelled) {
+          setConceptRelatedLoading(false);
+          setConceptSuggestionsLoading(false);
+        }
       }
     };
-    fetchRelated();
+    fetchRelatedAndSuggestions();
     return () => {
       cancelled = true;
     };
@@ -405,36 +454,6 @@ const ThinkMode = () => {
   }, [activeView]);
 
   useEffect(() => {
-    if (activeView !== 'concepts' || !concept?._id) {
-      setConceptSuggestions([]);
-      setConceptSuggestionsLoading(false);
-      setConceptSuggestionsError('');
-      return;
-    }
-    let cancelled = false;
-    const fetchSuggestions = async () => {
-      setConceptSuggestionsLoading(true);
-      setConceptSuggestionsError('');
-      try {
-        const res = await api.get(`/api/concepts/${concept._id}/suggestions?limit=12`, getAuthHeaders());
-        if (!cancelled) {
-          setConceptSuggestions(res.data?.results || []);
-        }
-      } catch (err) {
-        if (!cancelled) {
-          setConceptSuggestionsError(formatAiError(err, 'Failed to load suggestions.'));
-        }
-      } finally {
-        if (!cancelled) setConceptSuggestionsLoading(false);
-      }
-    };
-    fetchSuggestions();
-    return () => {
-      cancelled = true;
-    };
-  }, [activeView, concept?._id]);
-
-  useEffect(() => {
     if (activeView !== 'questions' || !activeQuestion?._id) {
       setQuestionRelated({ highlights: [], concepts: [] });
       setQuestionRelatedLoading(false);
@@ -501,12 +520,17 @@ const ThinkMode = () => {
   }, [connectionScopeType, connectionScopeId]);
 
   const loadNotebookEntries = useCallback(async () => {
+    const startedAt = startPerfTimer();
     setNotebookLoadingList(true);
     setNotebookListError('');
     try {
       const res = await api.get('/api/notebook', getAuthHeaders());
       const data = res.data || [];
       setNotebookEntries(data);
+      logPerf('think.notebook.list.load', {
+        count: data.length,
+        durationMs: endPerfTimer(startedAt)
+      });
       if (data.length === 0) {
         setNotebookActiveId('');
         setActiveNotebookEntry(null);
@@ -524,12 +548,17 @@ const ThinkMode = () => {
 
   const loadNotebookEntry = useCallback(async (entryId) => {
     if (!entryId) return;
+    const startedAt = startPerfTimer();
     setNotebookLoadingEntry(true);
     setNotebookEntryError('');
     try {
       const res = await api.get(`/api/notebook/${entryId}`, getAuthHeaders());
       const entry = res.data || null;
       setActiveNotebookEntry(entry);
+      logPerf('think.notebook.entry.load', {
+        entryId,
+        durationMs: endPerfTimer(startedAt)
+      });
     } catch (err) {
       setNotebookEntryError(err.response?.data?.error || 'Failed to load note.');
       setActiveNotebookEntry(null);
@@ -607,35 +636,11 @@ const ThinkMode = () => {
     if (view !== 'paths') {
       params.delete('pathId');
     }
-    if (view !== 'board') {
-      params.delete('scopeType');
-      params.delete('scopeId');
-    } else {
-      const preferredScope = (activeView === 'questions' && activeQuestionData?._id)
-        ? { scopeType: 'question', scopeId: activeQuestionData._id }
-        : concept?._id
-          ? { scopeType: 'concept', scopeId: concept._id }
-          : boardScope.scopeType && boardScope.scopeId
-            ? boardScope
-            : { scopeType: '', scopeId: '' };
-      if (preferredScope.scopeType && preferredScope.scopeId) {
-        params.set('scopeType', preferredScope.scopeType);
-        params.set('scopeId', preferredScope.scopeId);
-      }
-    }
+    params.delete('scopeType');
+    params.delete('scopeId');
     setActiveView(view);
     setSearchParams(params);
   };
-
-  const openBoardForScope = useCallback((scope) => {
-    if (!scope?.scopeType || !scope?.scopeId) return;
-    const params = new URLSearchParams(searchParams);
-    params.set('tab', 'board');
-    params.set('scopeType', scope.scopeType);
-    params.set('scopeId', scope.scopeId);
-    setActiveView('board');
-    setSearchParams(params);
-  }, [searchParams, setSearchParams]);
 
   const handleSelectPath = useCallback((pathId) => {
     const params = new URLSearchParams(searchParams);
@@ -1249,6 +1254,29 @@ const ThinkMode = () => {
     }
   };
 
+  const handleOpenQuestion = (questionId) => {
+    setActiveQuestionId(questionId);
+    handleSelectView('questions');
+  };
+
+  const renderConceptRow = (conceptItem) => (
+    <ConceptListItem
+      key={conceptItem.name}
+      conceptItem={conceptItem}
+      isActive={conceptItem.name === selectedName}
+      onSelect={handleSelectConcept}
+    />
+  );
+
+  const renderQuestionRow = (question) => (
+    <QuestionListItem
+      key={question._id}
+      question={question}
+      isActive={activeQuestionId === question._id}
+      onOpen={handleOpenQuestion}
+    />
+  );
+
 
   const leftPanel = (
     <div className="section-stack">
@@ -1272,25 +1300,31 @@ const ThinkMode = () => {
           onChange={(e) => setSearch(e.target.value)}
         />
       </label>
-      {conceptsLoading && <p className="muted small">Loading concepts…</p>}
+      {conceptsLoading && <SidebarSkeletonRows rows={5} />}
       {conceptsError && <p className="status-message error-message">{conceptsError}</p>}
-      <div className="concept-list">
-        {filteredConcepts.map(conceptItem => (
-          <QuietButton
-            key={conceptItem.name}
-            className={`list-button ${conceptItem.name === selectedName ? 'is-active' : ''}`}
-            onClick={() => handleSelectConcept(conceptItem.name)}
-          >
-            <span>{conceptItem.name}</span>
-            {typeof conceptItem.count === 'number' && (
-              <span className="concept-count">{conceptItem.count}</span>
-            )}
-          </QuietButton>
-        ))}
-        {!conceptsLoading && filteredConcepts.length === 0 && (
-          <p className="muted small">No concepts found.</p>
-        )}
-      </div>
+      <Profiler id="ThinkConceptList" onRender={conceptListProfilerLogger}>
+        <div className="concept-list">
+          {!conceptsLoading && filteredConcepts.length > 200 ? (
+            <VirtualList
+              items={filteredConcepts}
+              height={leftListHeight}
+              itemSize={THINK_CONCEPT_ROW_HEIGHT}
+              overscan={8}
+              className="think-virtual-list"
+              renderItem={(conceptItem, index) => (
+                <div key={conceptItem.name || index} style={{ paddingBottom: 6 }}>
+                  {renderConceptRow(conceptItem)}
+                </div>
+              )}
+            />
+          ) : (
+            filteredConcepts.map(conceptItem => renderConceptRow(conceptItem))
+          )}
+          {!conceptsLoading && filteredConcepts.length === 0 && (
+            <p className="muted small">No concepts found.</p>
+          )}
+        </div>
+      </Profiler>
 
       <SectionHeader title="Questions" subtitle="Open loops." />
       <div className="think-question-filters">
@@ -1322,37 +1356,30 @@ const ThinkMode = () => {
       </div>
       {allQuestionsError && <p className="status-message error-message">{allQuestionsError}</p>}
       {questionError && <p className="status-message error-message">{questionError}</p>}
-      {allQuestionsLoading && <p className="muted small">Loading questions…</p>}
+      {allQuestionsLoading && <SidebarSkeletonRows rows={4} />}
       {!allQuestionsLoading && allQuestions.length === 0 && (
         <p className="muted small">No questions in this view.</p>
       )}
-      <div className="think-question-list">
-        {allQuestions.map(question => (
-          <div
-            key={question._id}
-            className={`think-question-row ${activeQuestionId === question._id ? 'is-active' : ''}`}
-          >
-            <button
-              type="button"
-              className={`think-question-row-main list-button ${activeQuestionId === question._id ? 'is-active' : ''}`}
-              onClick={() => {
-                setActiveQuestionId(question._id);
-                handleSelectView('questions');
-              }}
-            >
-              <div className="think-question-text">{question.text}</div>
-              <div className="muted small">{question.linkedTagName || 'Uncategorized'}</div>
-            </button>
-            <div className="think-question-row-actions" onClick={(event) => event.stopPropagation()}>
-              <ReturnLaterControl
-                itemType="question"
-                itemId={question._id}
-                defaultReason={question.text || 'Question'}
-              />
-            </div>
-          </div>
-        ))}
-      </div>
+      <Profiler id="ThinkQuestionList" onRender={questionListProfilerLogger}>
+        <div className="think-question-list">
+          {!allQuestionsLoading && allQuestions.length > 200 ? (
+            <VirtualList
+              items={allQuestions}
+              height={leftListHeight}
+              itemSize={THINK_QUESTION_ROW_HEIGHT}
+              overscan={6}
+              className="think-virtual-list"
+              renderItem={(question, index) => (
+                <div key={question._id || index} style={{ paddingBottom: 8 }}>
+                  {renderQuestionRow(question)}
+                </div>
+              )}
+            />
+          ) : (
+            allQuestions.map(question => renderQuestionRow(question))
+          )}
+        </div>
+      </Profiler>
     </div>
   );
 
@@ -1499,17 +1526,6 @@ const ThinkMode = () => {
     window.location.href = `/think?tab=notebook&entryId=${entryId}`;
   }, []);
 
-  const resolveConceptNameFromScope = useCallback((scopeId) => {
-    const safeScopeId = String(scopeId || '').trim();
-    if (!safeScopeId) return '';
-    const byId = concepts.find(item => String(item._id || '') === safeScopeId);
-    if (byId?.name) return byId.name;
-    const byName = concepts.find(
-      item => String(item.name || '').trim().toLowerCase() === safeScopeId.toLowerCase()
-    );
-    return byName?.name || '';
-  }, [concepts]);
-
   const mainPanel = activeView === 'notebook' ? (
     <div className="think-notebook-editor-pane">
       {notebookLoadingEntry && <p className="muted small">Loading note…</p>}
@@ -1541,18 +1557,9 @@ const ThinkMode = () => {
       {activeQuestionData && questionStatus === 'open' && (
         <div className="think-question-actions">
           <QuietButton onClick={() => handleMarkAnswered(activeQuestionData)}>Mark answered</QuietButton>
-          <QuietButton onClick={() => openBoardForScope({ scopeType: 'question', scopeId: activeQuestionData._id })}>
-            Board
-          </QuietButton>
         </div>
       )}
     </div>
-  ) : activeView === 'board' ? (
-    <StudioBoard
-      scopeType={boardScope.scopeType}
-      scopeId={boardScope.scopeId}
-      scopeLabel={boardScope.scopeType === 'concept' ? resolveConceptNameFromScope(boardScope.scopeId) : ''}
-    />
   ) : activeView === 'paths' ? (
     <ConceptPathWorkspace
       selectedPathId={selectedPathId}
@@ -1563,11 +1570,20 @@ const ThinkMode = () => {
       {insightsPanel}
     </div>
   ) : (
-    <div className="section-stack">
+    <Profiler id="ThinkConceptMain" onRender={conceptProfilerLogger}>
+      <div className="section-stack">
       {conceptLoadError && <p className="status-message error-message">{conceptLoadError}</p>}
       {conceptError && <p className="status-message error-message">{conceptError}</p>}
       {relatedError && <p className="status-message error-message">{relatedError}</p>}
-      {conceptLoading && <p className="muted small">Loading concept…</p>}
+      {conceptLoading && (
+        <div className="think-concept-loading" aria-hidden="true">
+          <div className="skeleton skeleton-title" style={{ width: '34%', height: 16 }} />
+          <div className="skeleton skeleton-title" style={{ width: '62%', height: 28 }} />
+          <div className="skeleton skeleton-text" style={{ width: '100%', height: 14 }} />
+          <div className="skeleton skeleton-text" style={{ width: '90%', height: 14 }} />
+          <div className="skeleton skeleton-text" style={{ width: '94%', height: 14 }} />
+        </div>
+      )}
       {!conceptLoading && concept && (
         <>
           <div className="think-concept-hero">
@@ -1623,9 +1639,6 @@ const ThinkMode = () => {
             <Button variant="secondary" onClick={() => openSynthesis('concept', concept._id)}>
               Synthesize
             </Button>
-            <Button variant="secondary" onClick={() => openBoardForScope({ scopeType: 'concept', scopeId: concept._id })}>
-              Board
-            </Button>
             <Button variant="secondary" onClick={handleExportConcept}>
               Export markdown
             </Button>
@@ -1633,12 +1646,7 @@ const ThinkMode = () => {
           </div>
 
           <SectionHeader title="Canvas" subtitle="Move material around and connect ideas." />
-          <StudioBoard
-            scopeType="concept"
-            scopeId={concept._id}
-            scopeLabel={concept.name}
-            embedded
-          />
+          <ConceptNotebook concept={concept} />
 
           <SectionHeader title="Sharing" subtitle="Publish a read-only concept page." />
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -1861,7 +1869,8 @@ const ThinkMode = () => {
           )}
         </>
       )}
-    </div>
+      </div>
+    </Profiler>
   );
 
   const filteredHighlights = useMemo(() => {
@@ -1918,52 +1927,10 @@ const ThinkMode = () => {
     />
   );
 
-  const boardScopeDisplay = boardScope.scopeType === 'concept'
-    ? (resolveConceptNameFromScope(boardScope.scopeId) || boardScope.scopeId)
-    : boardScope.scopeId;
-
   const rightPanel = activeView === 'insights' ? (
     <div className="section-stack">
       <SectionHeader title="Context" subtitle="Insights stay read-only." />
       <p className="muted small">Use themes and connections to decide what to deepen next.</p>
-    </div>
-  ) : activeView === 'board' ? (
-    <div className="section-stack">
-      {workingMemoryDrawer}
-      <SectionHeader title="Board Scope" subtitle="Canonical studio workspace." />
-      {boardScope.scopeType && boardScope.scopeId ? (
-        <p className="muted small">
-          {boardScope.scopeType}: {boardScopeDisplay}
-        </p>
-      ) : (
-        <p className="muted small">Select a concept or question to open a board.</p>
-      )}
-      {boardScope.scopeType === 'concept' && boardScope.scopeId && (
-        <QuietButton
-          onClick={() => {
-            const conceptName = resolveConceptNameFromScope(boardScope.scopeId);
-            if (conceptName) handleSelectConcept(conceptName);
-          }}
-          disabled={!resolveConceptNameFromScope(boardScope.scopeId)}
-        >
-          Open concept page
-        </QuietButton>
-      )}
-      {boardScope.scopeType === 'question' && boardScope.scopeId && (
-        <QuietButton
-          onClick={() => {
-            const params = new URLSearchParams(searchParams);
-            params.set('tab', 'questions');
-            params.set('questionId', boardScope.scopeId);
-            params.delete('scopeType');
-            params.delete('scopeId');
-            setActiveView('questions');
-            setSearchParams(params);
-          }}
-        >
-          Open question page
-        </QuietButton>
-      )}
     </div>
   ) : (
     <div className="section-stack">
@@ -2211,7 +2178,6 @@ const ThinkMode = () => {
           )}
         </div>
       )}
-
     </div>
   );
 
@@ -2247,12 +2213,6 @@ const ThinkMode = () => {
               onClick={() => handleSelectView('questions')}
             >
               Questions
-            </QuietButton>
-            <QuietButton
-              className={`list-button think-main-actions__tab ${activeView === 'board' ? 'is-active' : ''}`}
-              onClick={() => handleSelectView('board')}
-            >
-              Board
             </QuietButton>
             <QuietButton
               className={`list-button think-main-actions__tab ${activeView === 'paths' ? 'is-active' : ''}`}

@@ -259,6 +259,36 @@ const notebookFolderSchema = new mongoose.Schema({
 
 const NotebookFolder = mongoose.model('NotebookFolder', notebookFolderSchema);
 
+const conceptLayoutSectionSchema = new mongoose.Schema({
+  id: { type: String, required: true, trim: true },
+  title: { type: String, required: true, trim: true },
+  description: { type: String, default: '', trim: true },
+  cardIds: { type: [String], default: [] }
+}, { _id: false });
+
+const conceptLayoutCardSchema = new mongoose.Schema({
+  id: { type: String, required: true, trim: true },
+  itemType: { type: String, enum: ['highlight', 'article', 'note'], required: true },
+  itemId: { type: String, required: true, trim: true },
+  title: { type: String, default: '', trim: true },
+  snippet: { type: String, default: '', trim: true },
+  createdAt: { type: Date, default: Date.now }
+}, { _id: false });
+
+const conceptLayoutConnectionSchema = new mongoose.Schema({
+  id: { type: String, required: true, trim: true },
+  fromCardId: { type: String, required: true, trim: true },
+  toCardId: { type: String, required: true, trim: true },
+  type: { type: String, enum: ['supports', 'contradicts', 'related'], required: true },
+  label: { type: String, default: '', trim: true }
+}, { _id: false });
+
+const conceptLayoutSchema = new mongoose.Schema({
+  sections: { type: [conceptLayoutSectionSchema], default: [] },
+  cards: { type: [conceptLayoutCardSchema], default: [] },
+  connections: { type: [conceptLayoutConnectionSchema], default: [] }
+}, { _id: false });
+
 // Tag metadata (concept pages)
 const tagMetaSchema = new mongoose.Schema({
   name: { type: String, required: true, trim: true },
@@ -267,6 +297,7 @@ const tagMetaSchema = new mongoose.Schema({
   pinnedArticleIds: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Article' }],
   pinnedNoteIds: [{ type: mongoose.Schema.Types.ObjectId }],
   dismissedHighlightIds: [{ type: mongoose.Schema.Types.ObjectId }],
+  conceptLayout: { type: conceptLayoutSchema, default: undefined },
   isPublic: { type: Boolean, default: false },
   slug: { type: String, default: '', trim: true },
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }
@@ -903,6 +934,209 @@ const buildQueueSnippet = (...values) => {
 };
 
 const escapeRegExp = (value = '') => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+const CONCEPT_LAYOUT_CARD_TYPES = new Set(['highlight', 'article', 'note']);
+const CONCEPT_LAYOUT_CONNECTION_TYPES = new Set(['supports', 'contradicts', 'related']);
+
+const makeConceptLayoutId = (prefix = 'id') => (
+  `${prefix}-${crypto.randomUUID ? crypto.randomUUID() : `${Math.random().toString(36).slice(2, 9)}-${Date.now()}`}`
+);
+
+const createDefaultConceptLayout = () => ({
+  sections: [
+    { id: makeConceptLayoutId('section'), title: 'Claims', description: '', cardIds: [] },
+    { id: makeConceptLayoutId('section'), title: 'Evidence', description: '', cardIds: [] },
+    { id: makeConceptLayoutId('section'), title: 'Examples', description: '', cardIds: [] },
+    { id: makeConceptLayoutId('section'), title: 'Questions', description: '', cardIds: [] },
+    { id: makeConceptLayoutId('section'), title: 'To verify', description: '', cardIds: [] }
+  ],
+  cards: [],
+  connections: []
+});
+
+const normalizeConceptLayoutCardType = (value) => {
+  const candidate = String(value || '').trim().toLowerCase();
+  if (!CONCEPT_LAYOUT_CARD_TYPES.has(candidate)) return '';
+  return candidate;
+};
+
+const normalizeConceptLayoutConnectionType = (value, fallback = 'related') => {
+  const candidate = String(value || '').trim().toLowerCase();
+  if (CONCEPT_LAYOUT_CONNECTION_TYPES.has(candidate)) return candidate;
+  return fallback;
+};
+
+const normalizeConceptLayout = (input = {}, options = {}) => {
+  const base = options.baseLayout && typeof options.baseLayout === 'object'
+    ? options.baseLayout
+    : createDefaultConceptLayout();
+  const source = input && typeof input === 'object' ? input : {};
+
+  const cards = [];
+  const cardIds = new Set();
+  const incomingCards = Array.isArray(source.cards) ? source.cards : [];
+  incomingCards.forEach((rawCard) => {
+    if (!rawCard || typeof rawCard !== 'object') return;
+    const itemType = normalizeConceptLayoutCardType(rawCard.itemType);
+    const itemId = String(rawCard.itemId || '').trim();
+    if (!itemType || !itemId) return;
+    let id = String(rawCard.id || '').trim() || makeConceptLayoutId('card');
+    if (cardIds.has(id)) id = makeConceptLayoutId('card');
+    cardIds.add(id);
+    cards.push({
+      id,
+      itemType,
+      itemId,
+      title: String(rawCard.title || '').trim().slice(0, 220),
+      snippet: String(rawCard.snippet || '').trim().slice(0, 4000),
+      createdAt: rawCard.createdAt ? new Date(rawCard.createdAt) : new Date()
+    });
+  });
+
+  const sections = [];
+  const sectionIds = new Set();
+  const incomingSections = Array.isArray(source.sections) && source.sections.length > 0
+    ? source.sections
+    : (Array.isArray(base.sections) ? base.sections : []);
+  incomingSections.forEach((rawSection, index) => {
+    if (!rawSection || typeof rawSection !== 'object') return;
+    let id = String(rawSection.id || '').trim() || makeConceptLayoutId('section');
+    if (sectionIds.has(id)) id = makeConceptLayoutId('section');
+    sectionIds.add(id);
+    const fallbackTitle = index === 0 ? 'Section' : `Section ${index + 1}`;
+    const title = String(rawSection.title || '').trim() || fallbackTitle;
+    const description = String(rawSection.description || '').trim().slice(0, 400);
+    const list = Array.isArray(rawSection.cardIds) ? rawSection.cardIds : [];
+    const seenCardInSection = new Set();
+    const cardIdsForSection = [];
+    list.forEach((rawCardId) => {
+      const cardId = String(rawCardId || '').trim();
+      if (!cardId || seenCardInSection.has(cardId) || !cardIds.has(cardId)) return;
+      seenCardInSection.add(cardId);
+      cardIdsForSection.push(cardId);
+    });
+    sections.push({ id, title: title.slice(0, 120), description, cardIds: cardIdsForSection });
+  });
+
+  if (sections.length === 0) {
+    const fallback = createDefaultConceptLayout();
+    fallback.sections.forEach(section => sections.push(section));
+  }
+
+  const assigned = new Set();
+  sections.forEach(section => section.cardIds.forEach(cardId => assigned.add(cardId)));
+  const unassigned = cards.filter(card => !assigned.has(card.id)).map(card => card.id);
+  if (unassigned.length > 0) {
+    sections[0].cardIds = [...sections[0].cardIds, ...unassigned];
+  }
+
+  const connections = [];
+  const seenConnections = new Set();
+  const incomingConnections = Array.isArray(source.connections) ? source.connections : [];
+  incomingConnections.forEach((rawConnection) => {
+    if (!rawConnection || typeof rawConnection !== 'object') return;
+    const fromCardId = String(rawConnection.fromCardId || '').trim();
+    const toCardId = String(rawConnection.toCardId || '').trim();
+    if (!fromCardId || !toCardId || fromCardId === toCardId) return;
+    if (!cardIds.has(fromCardId) || !cardIds.has(toCardId)) return;
+    const type = normalizeConceptLayoutConnectionType(rawConnection.type, '');
+    if (!type) return;
+    const key = `${fromCardId}:${toCardId}:${type}`;
+    if (seenConnections.has(key)) return;
+    seenConnections.add(key);
+    const id = String(rawConnection.id || '').trim() || makeConceptLayoutId('connection');
+    connections.push({
+      id,
+      fromCardId,
+      toCardId,
+      type,
+      label: String(rawConnection.label || '').trim().slice(0, 120)
+    });
+  });
+
+  return { sections, cards, connections };
+};
+
+const resolveConceptByParam = async (userId, rawParam, { createIfMissing = false } = {}) => {
+  const safeParam = String(rawParam || '').trim();
+  if (!safeParam) return null;
+  const userObjectId = new mongoose.Types.ObjectId(userId);
+  if (mongoose.Types.ObjectId.isValid(safeParam)) {
+    const byId = await TagMeta.findOne({ _id: safeParam, userId: userObjectId });
+    if (byId) return byId;
+  }
+  const byName = await TagMeta.findOne({
+    name: new RegExp(`^${escapeRegExp(safeParam)}$`, 'i'),
+    userId: userObjectId
+  });
+  if (byName) return byName;
+  if (!createIfMissing) return null;
+  const created = await TagMeta.findOneAndUpdate(
+    { name: safeParam, userId: userObjectId },
+    { $setOnInsert: { name: safeParam } },
+    { new: true, upsert: true, setDefaultsOnInsert: true }
+  );
+  return created;
+};
+
+const stripInlineHtml = (value = '') => (
+  String(value || '')
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+);
+
+const createConceptLayoutCard = async ({ userId, itemType, itemId, title, snippet }) => {
+  const safeType = normalizeConceptLayoutCardType(itemType);
+  const safeItemId = String(itemId || '').trim();
+  if (!safeType || !safeItemId) return null;
+
+  if (safeType === 'highlight') {
+    const highlight = await findHighlightById(userId, safeItemId);
+    if (!highlight) return null;
+    return {
+      id: makeConceptLayoutId('card'),
+      itemType: safeType,
+      itemId: String(highlight._id),
+      title: String(title || '').trim().slice(0, 220) || highlight.articleTitle || 'Highlight',
+      snippet: String(snippet || '').trim().slice(0, 4000) || String(highlight.text || '').trim(),
+      createdAt: new Date()
+    };
+  }
+
+  if (!mongoose.Types.ObjectId.isValid(safeItemId)) return null;
+  if (safeType === 'article') {
+    const article = await Article.findOne({ _id: safeItemId, userId }).select('title content url').lean();
+    if (!article) return null;
+    const fallbackSnippet = stripInlineHtml(article.content || article.url || '').slice(0, 320);
+    return {
+      id: makeConceptLayoutId('card'),
+      itemType: safeType,
+      itemId: String(article._id),
+      title: String(title || '').trim().slice(0, 220) || article.title || 'Article',
+      snippet: String(snippet || '').trim().slice(0, 4000) || fallbackSnippet,
+      createdAt: new Date()
+    };
+  }
+
+  if (safeType === 'note') {
+    const note = await NotebookEntry.findOne({ _id: safeItemId, userId }).select('title content blocks').lean();
+    if (!note) return null;
+    const blockSnippet = Array.isArray(note.blocks)
+      ? note.blocks.map(block => String(block?.text || '').trim()).filter(Boolean).join(' ')
+      : '';
+    return {
+      id: makeConceptLayoutId('card'),
+      itemType: safeType,
+      itemId: String(note._id),
+      title: String(title || '').trim().slice(0, 220) || note.title || 'Notebook note',
+      snippet: String(snippet || '').trim().slice(0, 4000) || stripInlineHtml(note.content || blockSnippet).slice(0, 320),
+      createdAt: new Date()
+    };
+  }
+
+  return null;
+};
 
 const resolveReturnQueueItem = async (userId, itemType, itemId) => {
   const safeItemId = String(itemId || '').trim();
@@ -5705,6 +5939,114 @@ app.get('/api/concepts/:name/related', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error("❌ Error fetching concept related data:", error);
     res.status(500).json({ error: "Failed to fetch concept related data." });
+  }
+});
+
+app.get('/api/concepts/:id/layout', authenticateToken, async (req, res) => {
+  try {
+    const concept = await resolveConceptByParam(req.user.id, req.params.id, { createIfMissing: true });
+    if (!concept) return res.status(404).json({ error: 'Concept not found.' });
+
+    const hadLayout = concept?.conceptLayout && typeof concept.conceptLayout === 'object';
+    const layout = normalizeConceptLayout(concept?.conceptLayout || {});
+    if (!hadLayout) {
+      concept.conceptLayout = layout;
+      concept.markModified('conceptLayout');
+      await concept.save();
+    }
+
+    res.status(200).json({
+      conceptId: String(concept._id),
+      conceptName: concept.name,
+      layout
+    });
+  } catch (error) {
+    console.error('❌ Error loading concept layout:', error);
+    res.status(500).json({ error: 'Failed to load concept layout.' });
+  }
+});
+
+app.put('/api/concepts/:id/layout', authenticateToken, async (req, res) => {
+  try {
+    const concept = await resolveConceptByParam(req.user.id, req.params.id, { createIfMissing: true });
+    if (!concept) return res.status(404).json({ error: 'Concept not found.' });
+
+    const incomingLayout = req.body?.layout && typeof req.body.layout === 'object'
+      ? req.body.layout
+      : (req.body || {});
+    const layout = normalizeConceptLayout(incomingLayout, { baseLayout: concept.conceptLayout });
+    concept.conceptLayout = layout;
+    concept.markModified('conceptLayout');
+    await concept.save();
+
+    res.status(200).json({
+      conceptId: String(concept._id),
+      conceptName: concept.name,
+      layout
+    });
+  } catch (error) {
+    console.error('❌ Error saving concept layout:', error);
+    res.status(500).json({ error: 'Failed to save concept layout.' });
+  }
+});
+
+app.post('/api/concepts/:id/layout/add-card', authenticateToken, async (req, res) => {
+  try {
+    const concept = await resolveConceptByParam(req.user.id, req.params.id, { createIfMissing: true });
+    if (!concept) return res.status(404).json({ error: 'Concept not found.' });
+
+    const layout = normalizeConceptLayout(concept.conceptLayout || {});
+    const sectionId = String(req.body?.sectionId || '').trim();
+    const itemType = String(req.body?.itemType || '').trim();
+    const itemId = String(req.body?.itemId || '').trim();
+    if (!itemType || !itemId) {
+      return res.status(400).json({ error: 'itemType and itemId are required.' });
+    }
+
+    const createdCard = await createConceptLayoutCard({
+      userId: req.user.id,
+      itemType,
+      itemId,
+      title: req.body?.title,
+      snippet: req.body?.snippet
+    });
+    if (!createdCard) {
+      return res.status(404).json({ error: 'Could not resolve source item for card.' });
+    }
+
+    const duplicate = layout.cards.find(card => (
+      card.itemType === createdCard.itemType && String(card.itemId) === String(createdCard.itemId)
+    ));
+    const card = duplicate || createdCard;
+    if (!duplicate) layout.cards.push(card);
+
+    const targetSection = layout.sections.find(section => section.id === sectionId) || layout.sections[0];
+    if (!targetSection) {
+      return res.status(400).json({ error: 'No sections available for this concept layout.' });
+    }
+
+    layout.sections = layout.sections.map((section) => {
+      const nextCardIds = section.cardIds.filter(cardId => cardId !== card.id);
+      if (section.id === targetSection.id) {
+        nextCardIds.push(card.id);
+      }
+      return { ...section, cardIds: nextCardIds };
+    });
+    const normalized = normalizeConceptLayout(layout);
+
+    concept.conceptLayout = normalized;
+    concept.markModified('conceptLayout');
+    await concept.save();
+
+    res.status(201).json({
+      conceptId: String(concept._id),
+      conceptName: concept.name,
+      card,
+      layout: normalized
+    });
+  } catch (error) {
+    console.error('❌ Error adding concept layout card:', error);
+    res.status(500).json({ error: 'Failed to add concept layout card.' });
   }
 });
 

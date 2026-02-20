@@ -20,6 +20,7 @@ const buildConceptService = ({ Article, TagMeta, NotebookEntry, ReferenceEdge, m
       const key = name.toLowerCase();
       const found = metaMap.get(key);
       conceptMap.set(key, {
+        _id: found?._id ? String(found._id) : '',
         name,
         count: Number(row.count) || 0,
         description: found?.description || '',
@@ -36,6 +37,7 @@ const buildConceptService = ({ Article, TagMeta, NotebookEntry, ReferenceEdge, m
       const key = name.toLowerCase();
       if (conceptMap.has(key)) return;
       conceptMap.set(key, {
+        _id: found?._id ? String(found._id) : '',
         name,
         count: Number(countsMap.get(key)?.count || 0),
         description: found?.description || '',
@@ -104,10 +106,12 @@ const buildConceptService = ({ Article, TagMeta, NotebookEntry, ReferenceEdge, m
     const allHighlightCount = countAgg[0]?.total || 0;
 
     return {
+      _id: meta?._id ? String(meta._id) : '',
       name: cleanName,
       description: meta?.description || '',
       isPublic: meta?.isPublic || false,
       slug: meta?.slug || '',
+      conceptLayout: meta?.conceptLayout || null,
       pinnedHighlightIds,
       pinnedArticleIds,
       pinnedNoteIds,

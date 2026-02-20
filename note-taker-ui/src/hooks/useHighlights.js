@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import api from '../api';
 import { getAuthHeaders } from './useAuthHeaders';
+import { endPerfTimer, logPerf, startPerfTimer } from '../utils/perf';
 
 /**
  * @typedef {Object} Highlight
@@ -21,11 +22,17 @@ const useHighlights = ({ enabled = true } = {}) => {
 
   const fetchHighlights = useCallback(async () => {
     if (!enabled) return;
+    const startedAt = startPerfTimer();
     setLoading(true);
     setError('');
     try {
       const res = await api.get('/api/highlights/all', getAuthHeaders());
-      setHighlights(res.data || []);
+      const next = res.data || [];
+      setHighlights(next);
+      logPerf('think.highlights.load', {
+        count: next.length,
+        durationMs: endPerfTimer(startedAt)
+      });
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to load highlights.');
     } finally {

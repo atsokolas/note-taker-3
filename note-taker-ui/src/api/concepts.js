@@ -40,3 +40,21 @@ export const getConceptRelated = async (name, { limit = 20, offset = 0 } = {}) =
   const res = await api.get(`/api/concepts/${encodeURIComponent(name)}/related?${params.toString()}`, getAuthHeaders());
   return res.data;
 };
+
+export const getConceptLayout = async (conceptIdOrName) => {
+  const safe = encodeURIComponent(String(conceptIdOrName || '').trim());
+  const res = await api.get(`/api/concepts/${safe}/layout`, getAuthHeaders());
+  return res.data || { conceptId: '', conceptName: '', layout: null };
+};
+
+export const updateConceptLayout = async (conceptIdOrName, layout) => {
+  const safe = encodeURIComponent(String(conceptIdOrName || '').trim());
+  const res = await api.put(`/api/concepts/${safe}/layout`, { layout }, getAuthHeaders());
+  return res.data || { conceptId: '', conceptName: '', layout: null };
+};
+
+export const addConceptLayoutCard = async (conceptIdOrName, payload = {}) => {
+  const safe = encodeURIComponent(String(conceptIdOrName || '').trim());
+  const res = await api.post(`/api/concepts/${safe}/layout/add-card`, payload, getAuthHeaders());
+  return res.data || { conceptId: '', conceptName: '', layout: null, card: null };
+};

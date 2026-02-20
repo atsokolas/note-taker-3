@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { getConcepts } from '../api/concepts';
+import { endPerfTimer, logPerf, startPerfTimer } from '../utils/perf';
 
 /**
  * @typedef {Object} Concept
@@ -14,11 +15,17 @@ const useConcepts = () => {
   const [error, setError] = useState('');
 
   const fetchConcepts = useCallback(async () => {
+    const startedAt = startPerfTimer();
     setLoading(true);
     setError('');
     try {
       const data = await getConcepts();
-      setConcepts(data || []);
+      const next = data || [];
+      setConcepts(next);
+      logPerf('think.concepts.load', {
+        count: next.length,
+        durationMs: endPerfTimer(startedAt)
+      });
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to load concepts.');
     } finally {

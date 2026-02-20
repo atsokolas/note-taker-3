@@ -21,6 +21,19 @@ const formatDate = (value) => {
  * }} props
  */
 const ARTICLE_ROW_HEIGHT = 92;
+const SKELETON_ROWS = 6;
+
+const ArticleRowSkeleton = React.memo(() => (
+  <div className="library-article-row" aria-hidden="true">
+    <div style={{ flex: 1 }}>
+      <div className="skeleton skeleton-title" style={{ width: '58%', marginBottom: 8 }} />
+      <div style={{ display: 'flex', gap: 10 }}>
+        <div className="skeleton skeleton-text" style={{ width: 72 }} />
+        <div className="skeleton skeleton-text" style={{ width: 110 }} />
+      </div>
+    </div>
+  </div>
+));
 
 const LibraryArticleRow = React.memo(({
   article,
@@ -72,7 +85,13 @@ const LibraryArticleList = ({
         subtitle="Saved reads and source material."
         className="library-section-head is-articles"
       />
-      {loading && <p className="muted small">Loading articles…</p>}
+      {loading && (
+        <div className="library-article-skeletons">
+          {Array.from({ length: SKELETON_ROWS }).map((_, index) => (
+            <ArticleRowSkeleton key={`article-skeleton-${index}`} />
+          ))}
+        </div>
+      )}
       {error && <p className="status-message error-message">{error}</p>}
       {!loading && !error && articles.length === 0 && (
         <div className="library-empty-state">

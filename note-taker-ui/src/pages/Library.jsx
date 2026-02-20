@@ -10,7 +10,6 @@ import { createQuestion } from '../api/questions';
 import useFolders from '../hooks/useFolders';
 import useLibraryArticles from '../hooks/useLibraryArticles';
 import useArticleDetail from '../hooks/useArticleDetail';
-import useArticleReferences from '../hooks/useArticleReferences';
 import useTags from '../hooks/useTags';
 import { getContextPanelOpen } from '../utils/readingMode';
 import ThreePaneLayout from '../layout/ThreePaneLayout';
@@ -28,6 +27,7 @@ import {
 } from '../api/workingMemory';
 import api from '../api';
 import { getAuthHeaders } from '../hooks/useAuthHeaders';
+import { endPerfTimer, logPerf, startPerfTimer } from '../utils/perf';
 
 const RIGHT_STORAGE_KEY = 'workspace-right-open:/library';
 const CONTEXT_OVERRIDE_KEY = 'library.context.override:/library';
@@ -93,17 +93,13 @@ const Library = () => {
   const {
     article: selectedArticle,
     highlights: articleHighlights,
+    references,
     loading: articleLoading,
     error: articleError,
     addHighlightOptimistic,
     replaceHighlight,
     removeHighlight
   } = useArticleDetail(selectedArticleId, { enabled: Boolean(selectedArticleId) });
-  const {
-    references,
-    loading: referencesLoading,
-    error: referencesError
-  } = useArticleReferences(selectedArticleId, { enabled: Boolean(selectedArticleId) });
 
   const workingMemoryScope = useMemo(() => {
     if (selectedArticleId) {
@@ -344,12 +340,19 @@ const Library = () => {
     }
     let cancelled = false;
     const fetchRelated = async () => {
+      const startedAt = startPerfTimer();
       setRelatedLoading(true);
       setRelatedError('');
       try {
         const res = await api.get(`/api/highlights/${targetId}/related`, getAuthHeaders());
         if (!cancelled) {
-          setRelatedHighlights(res.data?.results || []);
+          const next = res.data?.results || [];
+          setRelatedHighlights(next);
+          logPerf('library.related-highlights.load', {
+            highlightId: targetId,
+            count: next.length,
+            durationMs: endPerfTimer(startedAt)
+          });
         }
       } catch (err) {
         if (!cancelled) {
@@ -759,8 +762,8 @@ const Library = () => {
         articleHighlights={articleHighlights}
         articleLoading={articleLoading}
         references={references}
-        referencesLoading={referencesLoading}
-        referencesError={referencesError}
+        referencesLoading={articleLoading}
+        referencesError={articleError}
         highlightGroups={highlightGroups}
         groupedHighlights={groupedHighlights}
         activeHighlightId={activeHighlightId}

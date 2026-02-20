@@ -44,7 +44,17 @@ const LibraryMain = ({
     return (
       <div className="section-stack">
         {articleError && <p className="status-message error-message">{articleError}</p>}
-        {articleLoading && <p className="muted small">Loading article…</p>}
+        {articleLoading && (
+          <div className="think-concept-loading" aria-hidden="true">
+            <div className="skeleton skeleton-title" style={{ width: '58%', height: 22 }} />
+            <div className="skeleton skeleton-text" style={{ width: '28%' }} />
+            <div className="skeleton skeleton-text" style={{ width: '100%', height: 14 }} />
+            <div className="skeleton skeleton-text" style={{ width: '96%', height: 14 }} />
+            <div className="skeleton skeleton-text" style={{ width: '92%', height: 14 }} />
+            <div className="skeleton skeleton-text" style={{ width: '89%', height: 14 }} />
+            <div className="skeleton skeleton-text" style={{ width: '98%', height: 14 }} />
+          </div>
+        )}
         {!articleLoading && (
           <ArticleReader
             ref={readerRef}
