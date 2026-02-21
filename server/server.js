@@ -309,6 +309,8 @@ const conceptWorkspaceItemSchema = new mongoose.Schema({
   refId: { type: String, required: true, trim: true },
   groupId: { type: String, required: true, trim: true },
   parentId: { type: String, default: '', trim: true },
+  stage: { type: String, enum: ['inbox', 'working', 'claim', 'evidence'], default: 'working' },
+  status: { type: String, enum: ['active', 'archived'], default: 'active' },
   order: { type: Number, default: 0 }
 }, { _id: false });
 

@@ -22,6 +22,19 @@ const TRAY_TABS = [
   { value: 'articles', label: 'Articles' }
 ];
 
+const STAGE_FLOW = ['inbox', 'working', 'claim', 'evidence'];
+const STAGE_FILTERS = [
+  { value: 'all', label: 'All' },
+  { value: 'inbox', label: 'Inbox' },
+  { value: 'working', label: 'Working' },
+  { value: 'claim', label: 'Claim' },
+  { value: 'evidence', label: 'Evidence' }
+];
+const STATUS_FILTERS = [
+  { value: 'active', label: 'Active' },
+  { value: 'archived', label: 'Archived' }
+];
+
 const TYPE_ICON = {
   highlight: '✦',
   article: '▤',
@@ -53,6 +66,18 @@ const clean = (value) => String(value || '').trim();
 const safeOrder = (value, fallback = 0) => {
   const next = Number(value);
   return Number.isFinite(next) ? next : fallback;
+};
+const normalizeStage = (value, fallback = 'working') => {
+  const stage = clean(value).toLowerCase();
+  return STAGE_FLOW.includes(stage) ? stage : fallback;
+};
+const normalizeStatus = (value, fallback = 'active') => {
+  const status = clean(value).toLowerCase();
+  return STATUS_FILTERS.some(entry => entry.value === status) ? status : fallback;
+};
+const formatStageLabel = (value) => {
+  const stage = normalizeStage(value);
+  return stage.charAt(0).toUpperCase() + stage.slice(1);
 };
 
 const normalizeWorkspace = (workspaceInput = {}) => {
@@ -102,6 +127,8 @@ const normalizeWorkspace = (workspaceInput = {}) => {
         refId,
         groupId,
         parentId: clean(item.parentId),
+        stage: normalizeStage(item.stage),
+        status: normalizeStatus(item.status),
         order: safeOrder(item.order, index)
       };
     })
@@ -199,7 +226,25 @@ const applyLocalPatch = (workspaceInput, op, payload = {}) => {
       refId: clean(payload.refId),
       groupId,
       parentId,
+      stage: normalizeStage(payload.stage),
+      status: normalizeStatus(payload.status),
       order: payload.order !== undefined ? safeOrder(payload.order, siblings.length) : siblings.length
+    });
+    return normalizeWorkspace(workspace);
+  }
+
+  if (op === 'updateItem') {
+    const itemId = clean(payload.itemId || payload.id);
+    const patch = payload.patch && typeof payload.patch === 'object' ? payload.patch : payload;
+    workspace.items = workspace.items.map((item) => {
+      if (item.id !== itemId) return item;
+      return {
+        ...item,
+        type: patch.type !== undefined ? clean(patch.type).toLowerCase() : item.type,
+        refId: patch.refId !== undefined ? clean(patch.refId) : item.refId,
+        stage: patch.stage !== undefined ? normalizeStage(patch.stage, item.stage || 'working') : item.stage,
+        status: patch.status !== undefined ? normalizeStatus(patch.status, item.status || 'active') : item.status
+      };
     });
     return normalizeWorkspace(workspace);
   }
@@ -256,6 +301,8 @@ const OutlineItemRow = React.memo(({
   onMoveToGroup,
   onIndent,
   onOutdent,
+  onCycleStage,
+  onToggleArchive,
   onRemove
 }) => {
   const sortableId = toItemSortableId(item.id);
@@ -270,7 +317,12 @@ const OutlineItemRow = React.memo(({
     <div
       ref={setNodeRef}
       style={style}
-      className={`concept-outline__item ${selected ? 'is-selected' : ''} ${isDragging ? 'is-dragging' : ''}`}
+      className={`
+        concept-outline__item
+        ${selected ? 'is-selected' : ''}
+        ${isDragging ? 'is-dragging' : ''}
+        ${normalizeStatus(item.status) === 'archived' ? 'is-archived' : ''}
+      `.trim()}
       onClick={() => onSelect(item.id)}
       onKeyDown={(event) => onKeyDown(event, item)}
       tabIndex={0}
@@ -288,7 +340,19 @@ const OutlineItemRow = React.memo(({
       </button>
       <span className="concept-outline__item-icon" aria-hidden="true">{TYPE_ICON[item.type] || '•'}</span>
       <div className="concept-outline__item-content">
-        <div className="concept-outline__item-title">{materialMeta.title || 'Untitled'}</div>
+        <div className="concept-outline__item-head">
+          <div className="concept-outline__item-title">{materialMeta.title || 'Untitled'}</div>
+          <button
+            type="button"
+            className={`concept-outline__stage-pill is-${normalizeStage(item.stage)}`}
+            onClick={(event) => {
+              event.stopPropagation();
+              onCycleStage(item);
+            }}
+          >
+            {formatStageLabel(item.stage)}
+          </button>
+        </div>
         {materialMeta.snippet && <div className="concept-outline__item-snippet">{materialMeta.snippet}</div>}
       </div>
       <details className="concept-outline__menu" onClick={(event) => event.stopPropagation()}>
@@ -307,6 +371,9 @@ const OutlineItemRow = React.memo(({
           </label>
           <button type="button" onClick={() => onIndent(item)}>Indent</button>
           <button type="button" onClick={() => onOutdent(item)}>Outdent</button>
+          <button type="button" onClick={() => onToggleArchive(item)}>
+            {normalizeStatus(item.status) === 'archived' ? 'Restore' : 'Archive'}
+          </button>
           <button type="button" onClick={() => onRemove(item)} className="danger">Remove</button>
         </div>
       </details>
@@ -330,6 +397,8 @@ const ConceptNotebook = ({ concept }) => {
   } = useConceptMaterial(conceptId, { enabled: Boolean(conceptId) });
 
   const [activeTrayTab, setActiveTrayTab] = useState('highlights');
+  const [stageFilter, setStageFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('active');
   const [selectedGroupId, setSelectedGroupId] = useState('');
   const [selectedItemId, setSelectedItemId] = useState('');
   const [groupTitleDraft, setGroupTitleDraft] = useState('');
@@ -339,6 +408,15 @@ const ConceptNotebook = ({ concept }) => {
   const normalizedWorkspace = useMemo(() => normalizeWorkspace(workspace), [workspace]);
   const groups = normalizedWorkspace.groups;
   const items = normalizedWorkspace.items;
+  const visibleItems = useMemo(
+    () => items.filter((item) => {
+      const itemStatus = normalizeStatus(item.status);
+      if (statusFilter !== itemStatus) return false;
+      if (stageFilter === 'all') return true;
+      return normalizeStage(item.stage) === stageFilter;
+    }),
+    [items, stageFilter, statusFilter]
+  );
 
   useEffect(() => {
     if (!selectedGroupId || !groups.some(group => group.id === selectedGroupId)) {
@@ -347,10 +425,10 @@ const ConceptNotebook = ({ concept }) => {
   }, [groups, selectedGroupId]);
 
   useEffect(() => {
-    if (!selectedItemId || !items.some(item => item.id === selectedItemId)) {
+    if (!selectedItemId || !visibleItems.some(item => item.id === selectedItemId)) {
       setSelectedItemId('');
     }
-  }, [items, selectedItemId]);
+  }, [selectedItemId, visibleItems]);
 
   useEffect(() => {
     if (!toast.message) return undefined;
@@ -367,6 +445,11 @@ const ConceptNotebook = ({ concept }) => {
     items.forEach(item => map.set(item.id, item));
     return map;
   }, [items]);
+  const visibleItemById = useMemo(() => {
+    const map = new Map();
+    visibleItems.forEach(item => map.set(item.id, item));
+    return map;
+  }, [visibleItems]);
 
   const referenceMap = useMemo(() => {
     const map = new Map();
@@ -496,23 +579,53 @@ const ConceptNotebook = ({ concept }) => {
     await performPatch({ op: 'deleteItem', payload, optimisticWorkspace });
   }, [normalizedWorkspace, performPatch]);
 
+  const handleUpdateItem = useCallback(async (item, patch, successMessage = '') => {
+    const payload = {
+      itemId: item.id,
+      patch
+    };
+    const optimisticWorkspace = applyLocalPatch(normalizedWorkspace, 'updateItem', payload);
+    await performPatch({
+      op: 'updateItem',
+      payload,
+      optimisticWorkspace,
+      successMessage
+    });
+  }, [normalizedWorkspace, performPatch]);
+
+  const handleCycleStage = useCallback(async (item) => {
+    const currentStage = normalizeStage(item.stage);
+    const index = STAGE_FLOW.indexOf(currentStage);
+    const nextStage = STAGE_FLOW[(index + 1) % STAGE_FLOW.length];
+    await handleUpdateItem(item, { stage: nextStage });
+  }, [handleUpdateItem]);
+
+  const handleToggleArchive = useCallback(async (item) => {
+    const nextStatus = normalizeStatus(item.status) === 'archived' ? 'active' : 'archived';
+    await handleUpdateItem(
+      item,
+      { status: nextStatus },
+      nextStatus === 'archived' ? 'Item archived.' : 'Item restored.'
+    );
+  }, [handleUpdateItem]);
+
   const handleMoveToGroup = useCallback(async (item, groupId) => {
     if (!groupId || groupId === item.groupId) return;
     await moveItem(item.id, { groupId, parentId: '', order: Number.MAX_SAFE_INTEGER });
   }, [moveItem]);
 
   const handleIndent = useCallback(async (item) => {
-    const siblings = sortSiblings(items, item.groupId, item.parentId || '');
+    const siblings = sortSiblings(visibleItems, item.groupId, item.parentId || '');
     const index = siblings.findIndex(entry => entry.id === item.id);
     if (index <= 0) return;
     const previousSibling = siblings[index - 1];
-    const children = sortSiblings(items, item.groupId, previousSibling.id);
+    const children = sortSiblings(visibleItems, item.groupId, previousSibling.id);
     await moveItem(item.id, {
       groupId: item.groupId,
       parentId: previousSibling.id,
       order: children.length
     });
-  }, [items, moveItem]);
+  }, [moveItem, visibleItems]);
 
   const handleOutdent = useCallback(async (item) => {
     if (!item.parentId) return;
@@ -527,7 +640,7 @@ const ConceptNotebook = ({ concept }) => {
   }, [itemById, moveItem]);
 
   const handleKeyboardReorder = useCallback(async (item, direction) => {
-    const siblings = sortSiblings(items, item.groupId, item.parentId || '');
+    const siblings = sortSiblings(visibleItems, item.groupId, item.parentId || '');
     const index = siblings.findIndex(entry => entry.id === item.id);
     if (index < 0) return;
     const nextIndex = direction === 'up' ? index - 1 : index + 1;
@@ -537,7 +650,7 @@ const ConceptNotebook = ({ concept }) => {
       parentId: item.parentId || '',
       order: nextIndex
     });
-  }, [items, moveItem]);
+  }, [moveItem, visibleItems]);
 
   const handleItemKeyDown = useCallback(async (event, item) => {
     if (event.key === 'Enter') {
@@ -567,14 +680,14 @@ const ConceptNotebook = ({ concept }) => {
 
     const overItemId = fromItemSortableId(event.over?.id);
     const overGroupId = fromGroupDropId(event.over?.id);
-    const activeItem = itemById.get(activeItemId);
+    const activeItem = visibleItemById.get(activeItemId);
     if (!activeItem) return;
 
     if (overItemId) {
       if (overItemId === activeItemId) return;
-      const overItem = itemById.get(overItemId);
+      const overItem = visibleItemById.get(overItemId);
       if (!overItem) return;
-      const siblings = sortSiblings(items, overItem.groupId, overItem.parentId || '');
+      const siblings = sortSiblings(visibleItems, overItem.groupId, overItem.parentId || '');
       const targetOrder = siblings.findIndex(entry => entry.id === overItem.id);
       await moveItem(activeItem.id, {
         groupId: overItem.groupId,
@@ -585,17 +698,17 @@ const ConceptNotebook = ({ concept }) => {
     }
 
     if (overGroupId) {
-      const roots = sortSiblings(items, overGroupId, '');
+      const roots = sortSiblings(visibleItems, overGroupId, '');
       await moveItem(activeItem.id, {
         groupId: overGroupId,
         parentId: '',
         order: roots.length
       });
     }
-  }, [itemById, items, moveItem]);
+  }, [moveItem, visibleItemById, visibleItems]);
 
   function renderBranch(groupId, parentId = '', depth = 0) {
-    const siblings = sortSiblings(items, groupId, parentId);
+    const siblings = sortSiblings(visibleItems, groupId, parentId);
     if (siblings.length === 0) return null;
 
     return (
@@ -619,6 +732,8 @@ const ConceptNotebook = ({ concept }) => {
                 onMoveToGroup={handleMoveToGroup}
                 onIndent={handleIndent}
                 onOutdent={handleOutdent}
+                onCycleStage={handleCycleStage}
+                onToggleArchive={handleToggleArchive}
                 onRemove={handleRemoveItem}
               />
               {children}
@@ -688,6 +803,32 @@ const ConceptNotebook = ({ concept }) => {
 
       <div className="ui-surface-card concept-outline__workspace">
         <SectionHeader title="Workspace" subtitle="Organize ideas as a readable document outline." />
+        <div className="concept-outline__filters">
+          <div className="concept-outline__filter-group" role="tablist" aria-label="Stage filter">
+            {STAGE_FILTERS.map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                className={`ui-quiet-button ${stageFilter === option.value ? 'is-active' : ''}`}
+                onClick={() => setStageFilter(option.value)}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+          <div className="concept-outline__filter-group" role="tablist" aria-label="Status filter">
+            {STATUS_FILTERS.map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                className={`ui-quiet-button ${statusFilter === option.value ? 'is-active' : ''}`}
+                onClick={() => setStatusFilter(option.value)}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+        </div>
         <div className="concept-outline__group-create">
           <input
             type="text"
@@ -719,7 +860,7 @@ const ConceptNotebook = ({ concept }) => {
           >
             <div className="concept-outline__groups">
               {groups.map((group) => {
-                const roots = sortSiblings(items, group.id, '');
+                const roots = sortSiblings(visibleItems, group.id, '');
                 return (
                   <section
                     key={group.id}
@@ -750,7 +891,7 @@ const ConceptNotebook = ({ concept }) => {
                     {!group.collapsed && (
                       <GroupDropZone groupId={group.id}>
                         {renderBranch(group.id, '', 0) || (
-                          <div className="concept-outline__empty">No items in this group.</div>
+                          <div className="concept-outline__empty">No items in this view.</div>
                         )}
                       </GroupDropZone>
                     )}

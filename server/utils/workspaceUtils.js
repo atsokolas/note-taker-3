@@ -3,6 +3,8 @@ const crypto = require('crypto');
 const WORKSPACE_VERSION = 1;
 const DEFAULT_GROUP_TITLE = 'Workspace';
 const WORKSPACE_ITEM_TYPES = new Set(['highlight', 'article', 'note', 'question']);
+const WORKSPACE_ITEM_STAGES = new Set(['inbox', 'working', 'claim', 'evidence']);
+const WORKSPACE_ITEM_STATUSES = new Set(['active', 'archived']);
 
 const makeId = () => (
   typeof crypto.randomUUID === 'function'
@@ -14,6 +16,14 @@ const toSafeString = (value) => String(value || '').trim();
 const toSafeOrder = (value, fallback = 0) => {
   const numeric = Number(value);
   return Number.isFinite(numeric) ? numeric : fallback;
+};
+const toSafeStage = (value, fallback = 'working') => {
+  const stage = toSafeString(value).toLowerCase();
+  return WORKSPACE_ITEM_STAGES.has(stage) ? stage : fallback;
+};
+const toSafeStatus = (value, fallback = 'active') => {
+  const status = toSafeString(value).toLowerCase();
+  return WORKSPACE_ITEM_STATUSES.has(status) ? status : fallback;
 };
 
 const makeDefaultGroup = (order = 0) => ({
@@ -136,6 +146,8 @@ const ensureWorkspace = (concept) => {
         refId,
         groupId,
         parentId: parentId || '',
+        stage: toSafeStage(rawItem.stage),
+        status: toSafeStatus(rawItem.status),
         order: toSafeOrder(rawItem.order, index)
       });
     });
@@ -214,6 +226,16 @@ const validateWorkspacePayload = (workspaceInput) => {
     const order = Number(item?.order);
     if (!Number.isFinite(order)) {
       throw new Error(`items[${index}] has non-numeric order.`);
+    }
+
+    const stageRaw = item?.stage;
+    if (stageRaw !== undefined && !WORKSPACE_ITEM_STAGES.has(toSafeString(stageRaw).toLowerCase())) {
+      throw new Error(`items[${index}] has invalid stage: ${toSafeString(stageRaw) || '(empty)'}`);
+    }
+
+    const statusRaw = item?.status;
+    if (statusRaw !== undefined && !WORKSPACE_ITEM_STATUSES.has(toSafeString(statusRaw).toLowerCase())) {
+      throw new Error(`items[${index}] has invalid status: ${toSafeString(statusRaw) || '(empty)'}`);
     }
 
     itemMap.set(id, {
@@ -351,6 +373,8 @@ const applyPatchOp = (workspaceInput, opInput) => {
       refId,
       groupId,
       parentId: parentId || '',
+      stage: toSafeStage(payload.stage),
+      status: toSafeStatus(payload.status),
       order: requestedOrder
     });
     return normalizeOrders(workspace, { groupId, parentId });
@@ -405,6 +429,12 @@ const applyPatchOp = (workspaceInput, opInput) => {
       if (!refId) throw new Error('updateItem refId cannot be empty.');
       item.refId = refId;
     }
+    if (patch.stage !== undefined) {
+      item.stage = toSafeStage(patch.stage, item.stage || 'working');
+    }
+    if (patch.status !== undefined) {
+      item.status = toSafeStatus(patch.status, item.status || 'active');
+    }
 
     const hasMoveBits = (
       patch.groupId !== undefined
@@ -452,6 +482,8 @@ module.exports = {
   WORKSPACE_VERSION,
   DEFAULT_GROUP_TITLE,
   WORKSPACE_ITEM_TYPES,
+  WORKSPACE_ITEM_STAGES,
+  WORKSPACE_ITEM_STATUSES,
   ensureWorkspace,
   normalizeOrders,
   applyPatchOp,
