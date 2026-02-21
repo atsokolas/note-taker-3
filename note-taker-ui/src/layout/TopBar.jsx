@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 
-const TopBar = ({ navItems = [], rightSlot }) => {
+const TopBar = ({ navItems = [], rightSlot, theme = 'light', onThemeChange = () => {} }) => {
   const navigate = useNavigate();
   const [query, setQuery] = useState('');
 
@@ -35,6 +35,17 @@ const TopBar = ({ navItems = [], rightSlot }) => {
           onChange={(event) => setQuery(event.target.value)}
           onKeyDown={handleKeyDown}
         />
+        <label className="topbar__theme-control" aria-label="Theme">
+          <span>Theme</span>
+          <select
+            className="topbar__theme-select"
+            value={theme}
+            onChange={(event) => onThemeChange(event.target.value)}
+          >
+            <option value="light">Light</option>
+            <option value="dark">Dark</option>
+          </select>
+        </label>
         {rightSlot}
       </div>
     </header>

@@ -278,6 +278,29 @@ html[data-ui-theme='dark'] .topbar__search:-webkit-autofill:focus {
   background: var(--surface-muted);
 }
 
+.topbar__theme-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 999px;
+  padding: 4px 10px;
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  background: var(--surface);
+}
+
+.topbar__theme-select {
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  outline: none;
+  cursor: pointer;
+}
+
 .three-pane {
   display: grid;
   grid-template-columns: 240px minmax(0, 1fr) 320px;

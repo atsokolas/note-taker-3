@@ -286,6 +286,8 @@ function App() {
         topBar={(
           <TopBar
             navItems={navItems}
+            theme={uiSettings.theme}
+            onThemeChange={(nextTheme) => handleUiSettingsChange({ theme: nextTheme })}
             rightSlot={(
               <>
                 <a href="/how-to-use" className="topbar__button" title="How To Use">How To Use</a>
