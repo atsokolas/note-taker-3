@@ -14,12 +14,21 @@ import {
   useSortable,
   verticalListSortingStrategy
 } from '@dnd-kit/sortable';
-import { Button, QuietButton } from '../../ui';
+import api from '../../../api';
+import { getAuthHeaders } from '../../../hooks/useAuthHeaders';
+import { Button, QuietButton, SegmentedNav } from '../../ui';
 import { addConceptLayoutCard, getConceptLayout, updateConceptLayout } from '../../../api/concepts';
 import { searchKeyword } from '../../../api/retrieval';
 
 const CARD_PREFIX = 'card:';
-const SECTION_PREFIX = 'section:';
+const SECTION_DROP_PREFIX = 'section-drop:';
+const SECTION_SORT_PREFIX = 'section-sort:';
+
+const ROLE_OPTIONS = [
+  { value: 'idea', label: 'Idea' },
+  { value: 'claim', label: 'Claim' },
+  { value: 'evidence', label: 'Evidence' }
+];
 
 const RELATION_OPTIONS = [
   { value: 'supports', label: 'Supports' },
@@ -30,12 +39,25 @@ const RELATION_OPTIONS = [
 const ITEM_LABELS = {
   highlight: 'Highlight',
   article: 'Article',
-  note: 'Note'
+  note: 'Note',
+  question: 'Question'
 };
+
+const FILTER_ITEMS = [
+  { value: 'all', label: 'All' },
+  { value: 'claim', label: 'Claims' },
+  { value: 'evidence', label: 'Evidence' }
+];
 
 const buildId = (prefix) => (
   `${prefix}-${typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `${Math.random().toString(36).slice(2, 9)}-${Date.now()}`}`
 );
+
+const normalizeRole = (value, fallback = 'idea') => {
+  const role = String(value || '').trim().toLowerCase();
+  if (role === 'claim' || role === 'evidence' || role === 'idea') return role;
+  return fallback;
+};
 
 const createDefaultLayout = () => ({
   sections: [
@@ -49,16 +71,31 @@ const createDefaultLayout = () => ({
   connections: []
 });
 
+const inferRoleFromSectionTitle = (sectionTitle = '') => {
+  const normalized = String(sectionTitle || '').trim().toLowerCase();
+  if (!normalized) return 'idea';
+  if (normalized.includes('claim')) return 'claim';
+  if (normalized.includes('evidence')) return 'evidence';
+  return 'idea';
+};
+
 const toCardSortableId = (cardId) => `${CARD_PREFIX}${cardId}`;
-const toSectionDroppableId = (sectionId) => `${SECTION_PREFIX}${sectionId}`;
+const toSectionDropId = (sectionId) => `${SECTION_DROP_PREFIX}${sectionId}`;
+const toSectionSortId = (sectionId) => `${SECTION_SORT_PREFIX}${sectionId}`;
+
 const getCardIdFromSortable = (sortableId) => (
   String(sortableId || '').startsWith(CARD_PREFIX)
     ? String(sortableId).slice(CARD_PREFIX.length)
     : ''
 );
-const getSectionIdFromDroppable = (droppableId) => (
-  String(droppableId || '').startsWith(SECTION_PREFIX)
-    ? String(droppableId).slice(SECTION_PREFIX.length)
+const getSectionIdFromDrop = (dropId) => (
+  String(dropId || '').startsWith(SECTION_DROP_PREFIX)
+    ? String(dropId).slice(SECTION_DROP_PREFIX.length)
+    : ''
+);
+const getSectionIdFromSort = (sortableId) => (
+  String(sortableId || '').startsWith(SECTION_SORT_PREFIX)
+    ? String(sortableId).slice(SECTION_SORT_PREFIX.length)
     : ''
 );
 
@@ -74,10 +111,12 @@ const normalizeLayout = (input = {}) => {
         const itemType = String(card.itemType || '').trim().toLowerCase();
         const itemId = String(card.itemId || '').trim();
         if (!id || !itemType || !itemId) return null;
+        if (!['highlight', 'article', 'note', 'question'].includes(itemType)) return null;
         return {
           id,
           itemType,
           itemId,
+          role: normalizeRole(card.role),
           title: String(card.title || '').trim(),
           snippet: String(card.snippet || '').trim(),
           createdAt: card.createdAt || new Date().toISOString()
@@ -168,17 +207,54 @@ const moveCardAcrossSections = (layout, cardId, targetSectionId, targetIndex = n
 const getCardOpenPath = (card) => {
   if (card.itemType === 'article') return `/articles/${encodeURIComponent(card.itemId)}`;
   if (card.itemType === 'note') return `/think?tab=notebook&entryId=${encodeURIComponent(card.itemId)}`;
+  if (card.itemType === 'question') return `/think?tab=questions&questionId=${encodeURIComponent(card.itemId)}`;
   return '/library?scope=highlights';
 };
 
 const SectionDropZone = ({ sectionId, children }) => {
-  const { setNodeRef, isOver } = useDroppable({ id: toSectionDroppableId(sectionId) });
+  const { setNodeRef, isOver } = useDroppable({ id: toSectionDropId(sectionId) });
   return (
     <div ref={setNodeRef} className={`concept-notebook__section-body ${isOver ? 'is-over' : ''}`}>
       {children}
     </div>
   );
 };
+
+const SortableSection = React.memo(({ section, children }) => {
+  const sortableId = toSectionSortId(section.id);
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: sortableId });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition
+  };
+
+  return (
+    <section
+      ref={setNodeRef}
+      style={style}
+      className={`concept-notebook__section ${isDragging ? 'is-dragging' : ''}`}
+    >
+      <header className="concept-notebook__section-head">
+        <div className="concept-notebook__section-head-main">
+          <button
+            type="button"
+            className="concept-notebook__section-drag"
+            aria-label="Drag section"
+            {...attributes}
+            {...listeners}
+          >
+            ⋮⋮
+          </button>
+          <div>
+            <h3>{section.title}</h3>
+            {section.description && <p>{section.description}</p>}
+          </div>
+        </div>
+      </header>
+      {children}
+    </section>
+  );
+});
 
 const SortableCard = React.memo(({
   card,
@@ -189,7 +265,11 @@ const SortableCard = React.memo(({
   onStartConnect,
   onSetLinkTarget,
   canSelectTarget,
-  linkingFromCardId
+  linkingFromCardId,
+  connectMode,
+  connectTargeted,
+  onCardClick,
+  onRoleChange
 }) => {
   const sortableId = toCardSortableId(card.id);
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: sortableId });
@@ -202,7 +282,16 @@ const SortableCard = React.memo(({
     <article
       ref={setNodeRef}
       style={style}
-      className={`concept-notebook__card ${isDragging ? 'is-dragging' : ''}`}
+      className={`concept-notebook__card ${isDragging ? 'is-dragging' : ''} ${connectTargeted ? 'is-connect-target' : ''}`}
+      onClick={connectMode ? () => onCardClick(card.id) : undefined}
+      role={connectMode ? 'button' : undefined}
+      tabIndex={connectMode ? 0 : undefined}
+      onKeyDown={connectMode ? (event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          onCardClick(card.id);
+        }
+      } : undefined}
     >
       <header className="concept-notebook__card-head">
         <button
@@ -211,11 +300,17 @@ const SortableCard = React.memo(({
           aria-label="Drag card"
           {...attributes}
           {...listeners}
+          onClick={(event) => event.stopPropagation()}
         >
           ⋮⋮
         </button>
         <div className="concept-notebook__card-meta">
-          <span className="concept-notebook__card-type">{ITEM_LABELS[card.itemType] || 'Card'}</span>
+          <div className="concept-notebook__card-labels">
+            <span className="concept-notebook__card-type">{ITEM_LABELS[card.itemType] || 'Card'}</span>
+            <span className={`concept-notebook__role-pill is-${card.role || 'idea'}`}>
+              {(card.role || 'idea').charAt(0).toUpperCase() + (card.role || 'idea').slice(1)}
+            </span>
+          </div>
           <h4>{card.title || 'Untitled'}</h4>
         </div>
       </header>
@@ -224,7 +319,16 @@ const SortableCard = React.memo(({
         {card.snippet || 'No preview text.'}
       </p>
 
-      <div className="concept-notebook__card-actions">
+      <div className="concept-notebook__card-actions" onClick={(event) => event.stopPropagation()}>
+        <select
+          className="concept-notebook__role-select"
+          value={normalizeRole(card.role)}
+          onChange={(event) => onRoleChange(card.id, event.target.value)}
+        >
+          {ROLE_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value}>{option.label}</option>
+          ))}
+        </select>
         <QuietButton onClick={() => onToggleExpanded(card.id)}>
           {expanded ? 'Collapse' : 'Expand'}
         </QuietButton>
@@ -232,7 +336,7 @@ const SortableCard = React.memo(({
           Open
         </a>
         <QuietButton onClick={() => onStartConnect(card.id)}>
-          Connect
+          Link
         </QuietButton>
         {canSelectTarget && linkingFromCardId !== card.id && (
           <Button variant="secondary" onClick={() => onSetLinkTarget(card.id)}>
@@ -254,7 +358,7 @@ const SortableCard = React.memo(({
   );
 });
 
-const ConceptNotebook = ({ concept }) => {
+const ConceptNotebook = ({ concept, onLayoutSummaryChange }) => {
   const conceptKey = String(concept?._id || concept?.name || '').trim();
   const [layout, setLayout] = useState(createDefaultLayout());
   const [loading, setLoading] = useState(false);
@@ -263,6 +367,8 @@ const ConceptNotebook = ({ concept }) => {
   const [expandedCards, setExpandedCards] = useState({});
   const [activeCardId, setActiveCardId] = useState('');
   const [linkDraft, setLinkDraft] = useState({ fromCardId: '', toCardId: '', type: 'supports' });
+  const [connectMode, setConnectMode] = useState(false);
+  const [roleFilter, setRoleFilter] = useState('all');
   const [newSectionTitle, setNewSectionTitle] = useState('');
   const [newSectionDescription, setNewSectionDescription] = useState('');
   const [addOpen, setAddOpen] = useState(false);
@@ -293,6 +399,16 @@ const ConceptNotebook = ({ concept }) => {
     return map;
   }, [layout.connections]);
 
+  useEffect(() => {
+    if (!onLayoutSummaryChange) return;
+    onLayoutSummaryChange({
+      connections: layout.connections.length,
+      claims: layout.cards.filter(card => normalizeRole(card.role) === 'claim').length,
+      evidence: layout.cards.filter(card => normalizeRole(card.role) === 'evidence').length,
+      sections: layout.sections.length
+    });
+  }, [layout.cards, layout.connections.length, layout.sections.length, onLayoutSummaryChange]);
+
   const saveLayout = useCallback((nextLayout) => {
     if (!conceptKey) return;
     if (saveTimerRef.current) {
@@ -309,7 +425,7 @@ const ConceptNotebook = ({ concept }) => {
         setSaveState('saved');
       } catch (saveError) {
         setSaveState('error');
-        setError(saveError.response?.data?.error || 'Failed to save concept notebook.');
+        setError(saveError.response?.data?.error || 'Failed to save concept workspace.');
       }
     }, 450);
   }, [conceptKey]);
@@ -336,7 +452,7 @@ const ConceptNotebook = ({ concept }) => {
         setTargetSectionId(nextLayout.sections[0]?.id || '');
       } catch (loadError) {
         if (!cancelled) {
-          setError(loadError.response?.data?.error || 'Failed to load concept notebook.');
+          setError(loadError.response?.data?.error || 'Failed to load concept workspace.');
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -363,11 +479,15 @@ const ConceptNotebook = ({ concept }) => {
       setAddLoading(true);
       setAddError('');
       try {
-        const data = await searchKeyword({
-          q: addQuery.trim(),
-          scope: 'all',
-          type: ['article', 'highlight', 'note']
-        });
+        const [data, questionRes] = await Promise.all([
+          searchKeyword({
+            q: addQuery.trim(),
+            scope: 'all',
+            type: ['article', 'highlight', 'note']
+          }),
+          api.get('/api/questions', getAuthHeaders())
+        ]);
+
         if (cancelled) return;
         const highlights = Array.isArray(data?.highlights)
           ? data.highlights.map((item) => ({
@@ -399,7 +519,20 @@ const ConceptNotebook = ({ concept }) => {
             meta: item.type || 'note'
           }))
           : [];
-        setAddResults([...highlights, ...articles, ...notes]);
+        const questions = Array.isArray(questionRes?.data)
+          ? questionRes.data
+            .filter((item) => String(item?.text || '').toLowerCase().includes(addQuery.trim().toLowerCase()))
+            .slice(0, 20)
+            .map((item) => ({
+              key: `question:${item._id}`,
+              itemType: 'question',
+              itemId: String(item._id),
+              title: item.text || 'Question',
+              snippet: item.linkedTagName || '',
+              meta: item.status || 'open'
+            }))
+          : [];
+        setAddResults([...highlights, ...articles, ...notes, ...questions]);
       } catch (searchError) {
         if (!cancelled) {
           setAddError(searchError.response?.data?.error || 'Failed to search saved items.');
@@ -445,7 +578,31 @@ const ConceptNotebook = ({ concept }) => {
   }, [applyLayout, layout, newSectionDescription, newSectionTitle]);
 
   const handleStartConnect = useCallback((fromCardId) => {
-    setLinkDraft({ fromCardId, toCardId: '', type: 'supports' });
+    setConnectMode(true);
+    setLinkDraft((prev) => ({ ...prev, fromCardId, toCardId: '' }));
+  }, []);
+
+  const handleCardConnectSelect = useCallback((cardId) => {
+    if (!connectMode) return;
+    setLinkDraft((prev) => {
+      if (!prev.fromCardId || prev.toCardId) {
+        return { fromCardId: cardId, toCardId: '', type: prev.type || 'supports' };
+      }
+      if (prev.fromCardId === cardId) {
+        return { ...prev, toCardId: '' };
+      }
+      return { ...prev, toCardId: cardId };
+    });
+  }, [connectMode]);
+
+  const handleToggleConnectMode = useCallback(() => {
+    setConnectMode((prev) => {
+      const next = !prev;
+      if (!next) {
+        setLinkDraft({ fromCardId: '', toCardId: '', type: 'supports' });
+      }
+      return next;
+    });
   }, []);
 
   const handleSaveConnection = useCallback(() => {
@@ -455,7 +612,7 @@ const ConceptNotebook = ({ concept }) => {
       `${connection.fromCardId}:${connection.toCardId}:${connection.type}` === key
     ));
     if (exists) {
-      setLinkDraft({ fromCardId: '', toCardId: '', type: 'supports' });
+      setLinkDraft((prev) => ({ ...prev, toCardId: '' }));
       return;
     }
     const nextLayout = {
@@ -471,13 +628,27 @@ const ConceptNotebook = ({ concept }) => {
         }
       ]
     };
-    setLinkDraft({ fromCardId: '', toCardId: '', type: 'supports' });
+    setLinkDraft((prev) => ({ ...prev, toCardId: '' }));
     applyLayout(nextLayout);
   }, [applyLayout, layout, linkDraft]);
 
+  const handleRoleChange = useCallback((cardId, role) => {
+    const safeRole = normalizeRole(role);
+    const nextLayout = {
+      ...layout,
+      cards: layout.cards.map((card) => (
+        card.id === cardId
+          ? { ...card, role: safeRole }
+          : card
+      ))
+    };
+    applyLayout(nextLayout);
+  }, [applyLayout, layout]);
+
   const handleAddCardToLayout = useCallback(async (item) => {
     const sectionId = targetSectionId || layout.sections[0]?.id || '';
-    if (!conceptKey || !sectionId) return;
+    const targetSection = layout.sections.find(section => section.id === sectionId) || layout.sections[0] || null;
+    if (!conceptKey || !sectionId || !targetSection) return;
     try {
       setAddError('');
       const response = await addConceptLayoutCard(conceptKey, {
@@ -485,7 +656,8 @@ const ConceptNotebook = ({ concept }) => {
         itemId: item.itemId,
         title: item.title,
         snippet: item.snippet,
-        sectionId
+        sectionId,
+        role: inferRoleFromSectionTitle(targetSection.title)
       });
       if (response?.layout) {
         const nextLayout = normalizeLayout(response.layout);
@@ -493,11 +665,16 @@ const ConceptNotebook = ({ concept }) => {
         setTargetSectionId(sectionId || nextLayout.sections[0]?.id || '');
       }
     } catch (addCardError) {
-      setAddError(addCardError.response?.data?.error || 'Failed to add item to concept notebook.');
+      setAddError(addCardError.response?.data?.error || 'Failed to add item to concept workspace.');
     }
   }, [conceptKey, layout.sections, targetSectionId]);
 
   const handleDragStart = useCallback((event) => {
+    const sectionId = getSectionIdFromSort(event.active?.id);
+    if (sectionId) {
+      setActiveCardId('');
+      return;
+    }
     const cardId = getCardIdFromSortable(event.active?.id);
     setActiveCardId(cardId);
   }, []);
@@ -509,7 +686,9 @@ const ConceptNotebook = ({ concept }) => {
     if (!overId) return;
 
     const overCardId = getCardIdFromSortable(overId);
-    const overSectionId = getSectionIdFromDroppable(overId) || findSectionByCardId(layout, overCardId)?.id;
+    const overSectionId = getSectionIdFromDrop(overId)
+      || getSectionIdFromSort(overId)
+      || findSectionByCardId(layout, overCardId)?.id;
     if (!overSectionId) return;
 
     const sourceSection = findSectionByCardId(layout, cardId);
@@ -527,9 +706,27 @@ const ConceptNotebook = ({ concept }) => {
   }, [layout]);
 
   const handleDragEnd = useCallback((event) => {
+    const activeSectionId = getSectionIdFromSort(event.active?.id);
+    const overSectionSortableId = getSectionIdFromSort(event.over?.id);
+
+    if (activeSectionId) {
+      if (overSectionSortableId && activeSectionId !== overSectionSortableId) {
+        const fromIndex = layout.sections.findIndex(section => section.id === activeSectionId);
+        const toIndex = layout.sections.findIndex(section => section.id === overSectionSortableId);
+        if (fromIndex > -1 && toIndex > -1) {
+          applyLayout({
+            ...layout,
+            sections: arrayMove(layout.sections, fromIndex, toIndex)
+          });
+        }
+      }
+      setActiveCardId('');
+      return;
+    }
+
     const cardId = getCardIdFromSortable(event.active?.id);
     const overCardId = getCardIdFromSortable(event.over?.id);
-    const overSectionId = getSectionIdFromDroppable(event.over?.id);
+    const overSectionId = getSectionIdFromDrop(event.over?.id) || getSectionIdFromSort(event.over?.id);
     setActiveCardId('');
     if (!cardId || (!overCardId && !overSectionId)) return;
 
@@ -566,12 +763,33 @@ const ConceptNotebook = ({ concept }) => {
     }
   }, [applyLayout, layout]);
 
+  const getVisibleCardIds = useCallback((section) => (
+    section.cardIds.filter((cardId) => {
+      if (roleFilter === 'all') return true;
+      const card = cardsById.get(cardId);
+      if (!card) return false;
+      return normalizeRole(card.role) === roleFilter;
+    })
+  ), [cardsById, roleFilter]);
+
   if (!conceptKey) return null;
 
   return (
     <section className="concept-notebook">
       <div className="concept-notebook__toolbar">
         <Button variant="secondary" onClick={() => setAddOpen(true)}>Add to concept</Button>
+        <QuietButton
+          className={`concept-notebook__connect-toggle ${connectMode ? 'is-active' : ''}`}
+          onClick={handleToggleConnectMode}
+        >
+          {connectMode ? 'Exit connect' : 'Connect'}
+        </QuietButton>
+        <SegmentedNav
+          className="concept-notebook__filter-nav"
+          items={FILTER_ITEMS}
+          value={roleFilter}
+          onChange={setRoleFilter}
+        />
         <div className="concept-notebook__new-section">
           <input
             type="text"
@@ -594,12 +812,12 @@ const ConceptNotebook = ({ concept }) => {
         </span>
       </div>
 
-      {loading && <p className="muted small">Loading concept notebook...</p>}
+      {loading && <p className="muted small">Loading concept workspace...</p>}
       {error && <p className="status-message error-message">{error}</p>}
 
       {!loading && (
         <>
-          {linkDraft.fromCardId && (
+          {connectMode && linkDraft.fromCardId && (
             <div className="concept-notebook__link-bar">
               <span>
                 Linking from <strong>{cardsById.get(linkDraft.fromCardId)?.title || 'Card'}</strong>
@@ -615,7 +833,7 @@ const ConceptNotebook = ({ concept }) => {
               <span>
                 {linkDraft.toCardId
                   ? `to ${cardsById.get(linkDraft.toCardId)?.title || 'Card'}`
-                  : 'Select target card'}
+                  : 'Click a target card'}
               </span>
               <Button variant="secondary" onClick={handleSaveConnection} disabled={!linkDraft.toCardId}>
                 Save link
@@ -633,46 +851,59 @@ const ConceptNotebook = ({ concept }) => {
             onDragOver={handleDragOver}
             onDragEnd={handleDragEnd}
           >
-            <div className="concept-notebook__sections">
-              {layout.sections.map((section) => (
-                <section key={section.id} className="concept-notebook__section">
-                  <header className="concept-notebook__section-head">
-                    <h3>{section.title}</h3>
-                    {section.description && <p>{section.description}</p>}
-                  </header>
-                  <SectionDropZone sectionId={section.id}>
-                    <SortableContext
-                      items={section.cardIds.map((cardId) => toCardSortableId(cardId))}
-                      strategy={verticalListSortingStrategy}
-                    >
-                      {section.cardIds.map((cardId) => {
-                        const card = cardsById.get(cardId);
-                        if (!card) return null;
-                        return (
-                          <SortableCard
-                            key={card.id}
-                            card={card}
-                            expanded={Boolean(expandedCards[card.id])}
-                            onToggleExpanded={handleToggleExpanded}
-                            sourceConnections={connectionsByFrom.get(card.id) || []}
-                            targetLookup={cardsById}
-                            onStartConnect={handleStartConnect}
-                            onSetLinkTarget={(targetCardId) => setLinkDraft((prev) => ({ ...prev, toCardId: targetCardId }))}
-                            canSelectTarget={Boolean(linkDraft.fromCardId)}
-                            linkingFromCardId={linkDraft.fromCardId}
-                          />
-                        );
-                      })}
-                    </SortableContext>
-                    {section.cardIds.length === 0 && (
-                      <div className="concept-notebook__empty-section">
-                        <span>{activeCardId ? 'Drop card here' : 'No cards yet'}</span>
-                      </div>
-                    )}
-                  </SectionDropZone>
-                </section>
-              ))}
-            </div>
+            <SortableContext
+              items={layout.sections.map((section) => toSectionSortId(section.id))}
+              strategy={verticalListSortingStrategy}
+            >
+              <div className="concept-notebook__sections">
+                {layout.sections.map((section) => {
+                  const visibleCardIds = getVisibleCardIds(section);
+                  return (
+                    <SortableSection key={section.id} section={section}>
+                      <SectionDropZone sectionId={section.id}>
+                        <SortableContext
+                          items={section.cardIds.map((cardId) => toCardSortableId(cardId))}
+                          strategy={verticalListSortingStrategy}
+                        >
+                          {visibleCardIds.map((cardId) => {
+                            const card = cardsById.get(cardId);
+                            if (!card) return null;
+                            return (
+                              <SortableCard
+                                key={card.id}
+                                card={card}
+                                expanded={Boolean(expandedCards[card.id])}
+                                onToggleExpanded={handleToggleExpanded}
+                                sourceConnections={connectionsByFrom.get(card.id) || []}
+                                targetLookup={cardsById}
+                                onStartConnect={handleStartConnect}
+                                onSetLinkTarget={(targetCardId) => setLinkDraft((prev) => ({ ...prev, toCardId: targetCardId }))}
+                                canSelectTarget={Boolean(linkDraft.fromCardId)}
+                                linkingFromCardId={linkDraft.fromCardId}
+                                connectMode={connectMode}
+                                connectTargeted={linkDraft.fromCardId === card.id || linkDraft.toCardId === card.id}
+                                onCardClick={handleCardConnectSelect}
+                                onRoleChange={handleRoleChange}
+                              />
+                            );
+                          })}
+                        </SortableContext>
+                        {section.cardIds.length === 0 && (
+                          <div className="concept-notebook__empty-section">
+                            <span>{activeCardId ? 'Drop card here' : 'No cards yet'}</span>
+                          </div>
+                        )}
+                        {section.cardIds.length > 0 && visibleCardIds.length === 0 && (
+                          <div className="concept-notebook__empty-section">
+                            <span>No {roleFilter} cards in this section</span>
+                          </div>
+                        )}
+                      </SectionDropZone>
+                    </SortableSection>
+                  );
+                })}
+              </div>
+            </SortableContext>
           </DndContext>
         </>
       )}
@@ -681,7 +912,7 @@ const ConceptNotebook = ({ concept }) => {
         <div className="modal-overlay">
           <div className="modal-content modal-content--wide">
             <div className="modal-header">
-              <h3>Add to Concept Notebook</h3>
+              <h3>Add to Workspace</h3>
               <button type="button" className="icon-button" onClick={() => setAddOpen(false)}>×</button>
             </div>
             <div className="concept-notebook__add-controls">
@@ -689,13 +920,14 @@ const ConceptNotebook = ({ concept }) => {
                 type="text"
                 value={addQuery}
                 onChange={(event) => setAddQuery(event.target.value)}
-                placeholder="Search saved highlights, notes, articles..."
+                placeholder="Search saved highlights, notes, articles, questions..."
               />
               <select value={addTypeFilter} onChange={(event) => setAddTypeFilter(event.target.value)}>
                 <option value="all">All</option>
                 <option value="highlight">Highlights</option>
                 <option value="article">Articles</option>
                 <option value="note">Notes</option>
+                <option value="question">Questions</option>
               </select>
               <select value={targetSectionId} onChange={(event) => setTargetSectionId(event.target.value)}>
                 {layout.sections.map((section) => (
@@ -715,7 +947,7 @@ const ConceptNotebook = ({ concept }) => {
                       <div>
                         <p className="concept-notebook__add-type">{ITEM_LABELS[item.itemType]}</p>
                         <h4>{item.title || 'Untitled'}</h4>
-                        <p>{item.snippet || 'No preview text.'}</p>
+                        <p>{item.snippet || item.meta || 'No preview text.'}</p>
                       </div>
                       <Button variant="secondary" onClick={() => handleAddCardToLayout(item)}>
                         Add

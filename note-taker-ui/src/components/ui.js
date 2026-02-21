@@ -11,6 +11,10 @@ export const Card = ({ children, className }) => (
   <div className={cx('ui-card', className)}>{children}</div>
 );
 
+export const SurfaceCard = ({ children, className }) => (
+  <section className={cx('ui-surface-card', className)}>{children}</section>
+);
+
 export const Button = ({ children, variant = 'primary', className, ...rest }) => (
   <button className={cx('ui-button', `ui-button-${variant}`, className)} {...rest}>
     {children}
@@ -71,9 +75,27 @@ export const PanelHeader = ({ title, action, className }) => (
   </div>
 );
 
+export const SegmentedNav = ({ items = [], value = '', onChange = () => {}, className }) => (
+  <div className={cx('ui-segmented-nav', className)} role="tablist" aria-label="Section navigation">
+    {items.map(item => (
+      <button
+        key={item.value}
+        type="button"
+        role="tab"
+        aria-selected={value === item.value}
+        className={cx('ui-segmented-nav__item', value === item.value && 'is-active')}
+        onClick={() => onChange(item.value)}
+      >
+        {item.label}
+      </button>
+    ))}
+  </div>
+);
+
 const ui = {
   Page,
   Card,
+  SurfaceCard,
   Button,
   TagChip,
   PageTitle,
@@ -81,6 +103,7 @@ const ui = {
   SubtleDivider,
   Chip,
   QuietButton,
-  PanelHeader
+  PanelHeader,
+  SegmentedNav
 };
 export default ui;

@@ -268,8 +268,9 @@ const conceptLayoutSectionSchema = new mongoose.Schema({
 
 const conceptLayoutCardSchema = new mongoose.Schema({
   id: { type: String, required: true, trim: true },
-  itemType: { type: String, enum: ['highlight', 'article', 'note'], required: true },
+  itemType: { type: String, enum: ['highlight', 'article', 'note', 'question'], required: true },
   itemId: { type: String, required: true, trim: true },
+  role: { type: String, enum: ['idea', 'claim', 'evidence'], default: 'idea' },
   title: { type: String, default: '', trim: true },
   snippet: { type: String, default: '', trim: true },
   createdAt: { type: Date, default: Date.now }
@@ -935,7 +936,8 @@ const buildQueueSnippet = (...values) => {
 
 const escapeRegExp = (value = '') => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-const CONCEPT_LAYOUT_CARD_TYPES = new Set(['highlight', 'article', 'note']);
+const CONCEPT_LAYOUT_CARD_TYPES = new Set(['highlight', 'article', 'note', 'question']);
+const CONCEPT_LAYOUT_CARD_ROLES = new Set(['idea', 'claim', 'evidence']);
 const CONCEPT_LAYOUT_CONNECTION_TYPES = new Set(['supports', 'contradicts', 'related']);
 
 const makeConceptLayoutId = (prefix = 'id') => (
@@ -958,6 +960,12 @@ const normalizeConceptLayoutCardType = (value) => {
   const candidate = String(value || '').trim().toLowerCase();
   if (!CONCEPT_LAYOUT_CARD_TYPES.has(candidate)) return '';
   return candidate;
+};
+
+const normalizeConceptLayoutCardRole = (value, fallback = 'idea') => {
+  const candidate = String(value || '').trim().toLowerCase();
+  if (CONCEPT_LAYOUT_CARD_ROLES.has(candidate)) return candidate;
+  return fallback;
 };
 
 const normalizeConceptLayoutConnectionType = (value, fallback = 'related') => {
@@ -987,6 +995,7 @@ const normalizeConceptLayout = (input = {}, options = {}) => {
       id,
       itemType,
       itemId,
+      role: normalizeConceptLayoutCardRole(rawCard.role),
       title: String(rawCard.title || '').trim().slice(0, 220),
       snippet: String(rawCard.snippet || '').trim().slice(0, 4000),
       createdAt: rawCard.createdAt ? new Date(rawCard.createdAt) : new Date()
@@ -1086,9 +1095,10 @@ const stripInlineHtml = (value = '') => (
     .trim()
 );
 
-const createConceptLayoutCard = async ({ userId, itemType, itemId, title, snippet }) => {
+const createConceptLayoutCard = async ({ userId, itemType, itemId, title, snippet, role }) => {
   const safeType = normalizeConceptLayoutCardType(itemType);
   const safeItemId = String(itemId || '').trim();
+  const safeRole = normalizeConceptLayoutCardRole(role);
   if (!safeType || !safeItemId) return null;
 
   if (safeType === 'highlight') {
@@ -1098,6 +1108,7 @@ const createConceptLayoutCard = async ({ userId, itemType, itemId, title, snippe
       id: makeConceptLayoutId('card'),
       itemType: safeType,
       itemId: String(highlight._id),
+      role: safeRole,
       title: String(title || '').trim().slice(0, 220) || highlight.articleTitle || 'Highlight',
       snippet: String(snippet || '').trim().slice(0, 4000) || String(highlight.text || '').trim(),
       createdAt: new Date()
@@ -1113,6 +1124,7 @@ const createConceptLayoutCard = async ({ userId, itemType, itemId, title, snippe
       id: makeConceptLayoutId('card'),
       itemType: safeType,
       itemId: String(article._id),
+      role: safeRole,
       title: String(title || '').trim().slice(0, 220) || article.title || 'Article',
       snippet: String(snippet || '').trim().slice(0, 4000) || fallbackSnippet,
       createdAt: new Date()
@@ -1129,8 +1141,25 @@ const createConceptLayoutCard = async ({ userId, itemType, itemId, title, snippe
       id: makeConceptLayoutId('card'),
       itemType: safeType,
       itemId: String(note._id),
+      role: safeRole,
       title: String(title || '').trim().slice(0, 220) || note.title || 'Notebook note',
       snippet: String(snippet || '').trim().slice(0, 4000) || stripInlineHtml(note.content || blockSnippet).slice(0, 320),
+      createdAt: new Date()
+    };
+  }
+
+  if (safeType === 'question') {
+    const question = await Question.findOne({ _id: safeItemId, userId })
+      .select('text linkedTagName')
+      .lean();
+    if (!question) return null;
+    return {
+      id: makeConceptLayoutId('card'),
+      itemType: safeType,
+      itemId: String(question._id),
+      role: safeRole,
+      title: String(title || '').trim().slice(0, 220) || question.text || 'Question',
+      snippet: String(snippet || '').trim().slice(0, 4000) || String(question.linkedTagName || '').trim(),
       createdAt: new Date()
     };
   }
@@ -6008,7 +6037,8 @@ app.post('/api/concepts/:id/layout/add-card', authenticateToken, async (req, res
       itemType,
       itemId,
       title: req.body?.title,
-      snippet: req.body?.snippet
+      snippet: req.body?.snippet,
+      role: req.body?.role
     });
     if (!createdCard) {
       return res.status(404).json({ error: 'Could not resolve source item for card.' });
@@ -6018,6 +6048,9 @@ app.post('/api/concepts/:id/layout/add-card', authenticateToken, async (req, res
       card.itemType === createdCard.itemType && String(card.itemId) === String(createdCard.itemId)
     ));
     const card = duplicate || createdCard;
+    if (duplicate && req.body?.role) {
+      card.role = normalizeConceptLayoutCardRole(req.body.role, card.role || 'idea');
+    }
     if (!duplicate) layout.cards.push(card);
 
     const targetSection = layout.sections.find(section => section.id === sectionId) || layout.sections[0];

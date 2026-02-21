@@ -1,6 +1,6 @@
 import React, { Profiler, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { PageTitle, SectionHeader, QuietButton, Button, TagChip } from '../components/ui';
+import { PageTitle, SectionHeader, QuietButton, Button, TagChip, SegmentedNav, SurfaceCard } from '../components/ui';
 import useConcepts from '../hooks/useConcepts';
 import useConcept from '../hooks/useConcept';
 import useConceptRelated from '../hooks/useConceptRelated';
@@ -32,9 +32,12 @@ import ReturnLaterControl from '../components/return-queue/ReturnLaterControl';
 import ConnectionBuilder from '../components/connections/ConnectionBuilder';
 import ConceptPathWorkspace from '../components/paths/ConceptPathWorkspace';
 import ConceptNotebook from '../components/think/concepts/ConceptNotebook';
+import ThinkHome from '../components/think/ThinkHome';
 import VirtualList from '../components/virtual/VirtualList';
 import { getConnectionsForScope } from '../api/connections';
 import { createProfilerLogger, endPerfTimer, logPerf, startPerfTimer } from '../utils/perf';
+import { listReturnQueue } from '../api/returnQueue';
+import { getArticles } from '../api/articles';
 import {
   listWorkingMemory,
   createWorkingMemory,
@@ -45,8 +48,39 @@ import {
 } from '../api/workingMemory';
 
 const THINK_RIGHT_STORAGE_KEY = 'workspace-right-open:/think';
+const THINK_RECENTS_STORAGE_KEY = 'think.recent.targets';
 const THINK_CONCEPT_ROW_HEIGHT = 46;
 const THINK_QUESTION_ROW_HEIGHT = 88;
+const THINK_HOME_LIMIT = 6;
+const THINK_SUB_NAV_ITEMS = [
+  { value: 'home', label: 'Home' },
+  { value: 'notebook', label: 'Notebook' },
+  { value: 'concepts', label: 'Concepts' },
+  { value: 'questions', label: 'Questions' },
+  { value: 'paths', label: 'Paths' },
+  { value: 'insights', label: 'Insights' }
+];
+
+const readRecentTargets = () => {
+  try {
+    const raw = localStorage.getItem(THINK_RECENTS_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .map((item) => ({
+        id: String(item?.id || '').trim(),
+        type: String(item?.type || '').trim(),
+        title: String(item?.title || '').trim(),
+        path: String(item?.path || '').trim(),
+        openedAt: item?.openedAt || new Date().toISOString()
+      }))
+      .filter(item => item.id && item.type && item.path)
+      .slice(0, 20);
+  } catch (error) {
+    return [];
+  }
+};
 
 const formatAiError = (err, fallback = 'Request failed.') => {
   const status = err?.response?.status;
@@ -116,12 +150,16 @@ const QuestionListItem = React.memo(({ question, isActive, onOpen }) => (
 const ThinkMode = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const queryConcept = searchParams.get('concept') || '';
-  const allowedViews = useMemo(() => ['notebook', 'concepts', 'questions', 'paths', 'insights'], []);
-  const resolveActiveView = (params) => {
+  const allowedViews = useMemo(() => ['home', 'notebook', 'concepts', 'questions', 'paths', 'insights'], []);
+  const resolveActiveView = useCallback((params) => {
     const rawView = params.get('tab') || '';
     if (allowedViews.includes(rawView)) return rawView;
-    return params.get('entryId') ? 'notebook' : 'concepts';
-  };
+    if (params.get('entryId')) return 'notebook';
+    if (params.get('questionId')) return 'questions';
+    if (params.get('concept')) return 'concepts';
+    if (params.get('pathId')) return 'paths';
+    return 'home';
+  }, [allowedViews]);
   const [activeView, setActiveView] = useState(() => resolveActiveView(searchParams));
   const selectedPathId = searchParams.get('pathId') || '';
   const [search, setSearch] = useState('');
@@ -197,6 +235,19 @@ const ThinkMode = () => {
   const [cardsExpanded, setCardsExpanded] = useState(false);
   const [cardsExpandVersion, setCardsExpandVersion] = useState(0);
   const [workspaceMovedNotice, setWorkspaceMovedNotice] = useState('');
+  const [recentTargets, setRecentTargets] = useState(() => readRecentTargets());
+  const [homeReturnQueue, setHomeReturnQueue] = useState([]);
+  const [homeQueueLoading, setHomeQueueLoading] = useState(false);
+  const [homeQueueError, setHomeQueueError] = useState('');
+  const [homeArticles, setHomeArticles] = useState([]);
+  const [homeArticlesLoading, setHomeArticlesLoading] = useState(false);
+  const [homeArticlesError, setHomeArticlesError] = useState('');
+  const [conceptWorkspaceSummary, setConceptWorkspaceSummary] = useState({
+    connections: 0,
+    claims: 0,
+    evidence: 0,
+    sections: 0
+  });
   const [rightOpen, setRightOpen] = useState(() => {
     const stored = localStorage.getItem(THINK_RIGHT_STORAGE_KEY);
     if (stored === null) return true;
@@ -251,7 +302,7 @@ const ThinkMode = () => {
   const questionQuery = useQuestions({
     status: questionStatus,
     tag: questionConceptFilter || undefined,
-    enabled: activeView === 'questions'
+    enabled: true
   });
   const { questions: allQuestions, loading: allQuestionsLoading, error: allQuestionsError, setQuestions: setAllQuestions } = questionQuery;
 
@@ -295,6 +346,23 @@ const ThinkMode = () => {
     return byName?.name || safeScopeId;
   }, [concepts]);
 
+  const rememberRecentTarget = useCallback((target) => {
+    const nextTarget = {
+      id: String(target?.id || '').trim(),
+      type: String(target?.type || '').trim(),
+      title: String(target?.title || '').trim(),
+      path: String(target?.path || '').trim(),
+      openedAt: new Date().toISOString()
+    };
+    if (!nextTarget.id || !nextTarget.type || !nextTarget.path) return;
+    setRecentTargets((prev) => {
+      const deduped = prev.filter(item => !(item.id === nextTarget.id && item.type === nextTarget.type));
+      const next = [nextTarget, ...deduped].slice(0, 20);
+      localStorage.setItem(THINK_RECENTS_STORAGE_KEY, JSON.stringify(next));
+      return next;
+    });
+  }, []);
+
   useEffect(() => {
     if (activeView !== 'questions') return;
     if (allQuestions.length === 0) {
@@ -328,6 +396,7 @@ const ThinkMode = () => {
       setConceptSuggestions([]);
       setConceptSuggestionsLoading(false);
       setConceptSuggestionsError('');
+      setConceptWorkspaceSummary({ connections: 0, claims: 0, evidence: 0, sections: 0 });
       return;
     }
     let cancelled = false;
@@ -610,16 +679,78 @@ const ThinkMode = () => {
       setSearchParams(params, { replace: true });
       return;
     }
-    if (allowedViews.includes(rawView)) {
-      setActiveView(rawView);
-    }
-  }, [searchParams, allowedViews, resolveConceptNameFromScope, setSearchParams]);
+    setActiveView(resolveActiveView(searchParams));
+  }, [searchParams, resolveActiveView, resolveConceptNameFromScope, setSearchParams]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadThinkHomeData = async () => {
+      setHomeQueueLoading(true);
+      setHomeQueueError('');
+      setHomeArticlesLoading(true);
+      setHomeArticlesError('');
+      try {
+        const [queueRows, articleRows] = await Promise.all([
+          listReturnQueue({ filter: 'all' }),
+          getArticles({ sort: 'recent' })
+        ]);
+        if (cancelled) return;
+        setHomeReturnQueue(Array.isArray(queueRows) ? queueRows.slice(0, THINK_HOME_LIMIT) : []);
+        setHomeArticles(Array.isArray(articleRows) ? articleRows.slice(0, THINK_HOME_LIMIT) : []);
+      } catch (homeError) {
+        if (!cancelled) {
+          const message = homeError?.response?.data?.error || 'Failed to load Think home.';
+          setHomeQueueError(message);
+          setHomeArticlesError(message);
+        }
+      } finally {
+        if (!cancelled) {
+          setHomeQueueLoading(false);
+          setHomeArticlesLoading(false);
+        }
+      }
+    };
+    loadThinkHomeData();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     if (!workspaceMovedNotice) return undefined;
     const timer = window.setTimeout(() => setWorkspaceMovedNotice(''), 5000);
     return () => window.clearTimeout(timer);
   }, [workspaceMovedNotice]);
+
+  useEffect(() => {
+    if (activeView !== 'notebook' || !activeNotebookEntry?._id) return;
+    rememberRecentTarget({
+      id: activeNotebookEntry._id,
+      type: 'notebook',
+      title: activeNotebookEntry.title || 'Untitled note',
+      path: `/think?tab=notebook&entryId=${encodeURIComponent(activeNotebookEntry._id)}`
+    });
+  }, [activeNotebookEntry?._id, activeNotebookEntry?.title, activeView, rememberRecentTarget]);
+
+  useEffect(() => {
+    if (activeView !== 'concepts' || !concept?._id) return;
+    rememberRecentTarget({
+      id: concept._id,
+      type: 'concept',
+      title: concept.name || 'Concept',
+      path: `/think?tab=concepts&concept=${encodeURIComponent(concept.name || '')}`
+    });
+  }, [activeView, concept?._id, concept?.name, rememberRecentTarget]);
+
+  useEffect(() => {
+    if (activeView !== 'questions' || !activeQuestionData?._id) return;
+    rememberRecentTarget({
+      id: activeQuestionData._id,
+      type: 'question',
+      title: activeQuestionData.text || 'Question',
+      path: `/think?tab=questions&questionId=${encodeURIComponent(activeQuestionData._id)}`
+    });
+  }, [activeQuestionData?._id, activeQuestionData?.text, activeView, rememberRecentTarget]);
 
   useEffect(() => {
     if (!notebookActiveId || activeView !== 'notebook') return;
@@ -684,6 +815,23 @@ const ThinkMode = () => {
     setActiveView(view);
     setSearchParams(params);
   };
+
+  const handleOpenHomeTarget = useCallback((item) => {
+    const path = String(item?.path || '').trim();
+    if (!path) return;
+    window.location.href = path;
+  }, []);
+
+  const handleOpenReturnQueueEntry = useCallback((entry) => {
+    const openPath = String(entry?.item?.openPath || '').trim();
+    if (!openPath) return;
+    window.location.href = openPath;
+  }, []);
+
+  const handleOpenHomeArticle = useCallback((articleId) => {
+    if (!articleId) return;
+    window.location.href = `/articles/${encodeURIComponent(articleId)}`;
+  }, []);
 
   const handleSelectPath = useCallback((pathId) => {
     const params = new URLSearchParams(searchParams);
@@ -1564,12 +1712,40 @@ const ThinkMode = () => {
     </div>
   );
 
+  const homeHighlights = useMemo(() => (
+    [...allHighlights]
+      .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
+      .slice(0, THINK_HOME_LIMIT)
+  ), [allHighlights]);
+
+  const homeWorkingSet = useMemo(() => ({
+    notebooks: notebookEntries.slice(0, THINK_HOME_LIMIT),
+    concepts: concepts.slice(0, THINK_HOME_LIMIT),
+    questions: allQuestions.filter(item => item.status !== 'answered').slice(0, THINK_HOME_LIMIT)
+  }), [allQuestions, concepts, notebookEntries]);
+
   const openNotebookEntry = useCallback((entryId) => {
     if (!entryId) return;
     window.location.href = `/think?tab=notebook&entryId=${entryId}`;
   }, []);
 
-  const mainPanel = activeView === 'notebook' ? (
+  const mainPanel = activeView === 'home' ? (
+    <ThinkHome
+      recentTargets={recentTargets}
+      workingSet={homeWorkingSet}
+      returnQueue={homeReturnQueue}
+      recentHighlights={homeHighlights}
+      recentArticles={homeArticles}
+      queueLoading={homeQueueLoading}
+      articlesLoading={homeArticlesLoading}
+      onOpenTarget={handleOpenHomeTarget}
+      onOpenNotebook={handleSelectNotebookEntry}
+      onOpenConcept={handleSelectConcept}
+      onOpenQuestion={handleOpenQuestion}
+      onOpenReturnQueueItem={handleOpenReturnQueueEntry}
+      onOpenArticle={handleOpenHomeArticle}
+    />
+  ) : activeView === 'notebook' ? (
     <div className="think-notebook-editor-pane">
       {notebookLoadingEntry && <p className="muted small">Loading note…</p>}
       {!notebookLoadingEntry && (
@@ -1689,7 +1865,10 @@ const ThinkMode = () => {
           </div>
 
           <SectionHeader title="Workspace" subtitle="Move material around and connect ideas." />
-          <ConceptNotebook concept={concept} />
+          <ConceptNotebook
+            concept={concept}
+            onLayoutSummaryChange={(summary) => setConceptWorkspaceSummary(summary)}
+          />
 
           <SectionHeader title="Sharing" subtitle="Publish a read-only concept page." />
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -1970,62 +2149,103 @@ const ThinkMode = () => {
     />
   );
 
-  const rightPanel = activeView === 'insights' ? (
-    <div className="section-stack">
-      <SectionHeader title="Context" subtitle="Insights stay read-only." />
-      <p className="muted small">Use themes and connections to decide what to deepen next.</p>
-    </div>
-  ) : (
+  const rightPanel = (
     <div className="section-stack">
       {workingMemoryDrawer}
-      <SectionHeader title="Insert" subtitle="Search highlights." />
-      <div className="library-highlight-filters">
-        <input
-          type="text"
-          placeholder="Search highlights"
-          value={highlightQuery}
-          onChange={(event) => setHighlightQuery(event.target.value)}
-        />
-        <select value={highlightTag} onChange={(event) => setHighlightTag(event.target.value)}>
-          <option value="">All concepts</option>
-          {tags.map(tag => (
-            <option key={tag.tag} value={tag.tag}>{tag.tag}</option>
-          ))}
-        </select>
-        <select value={highlightArticle} onChange={(event) => setHighlightArticle(event.target.value)}>
-          <option value="">All articles</option>
-          {articleOptions.map(article => (
-            <option key={article} value={article}>{article}</option>
-          ))}
-        </select>
-      </div>
-      <div className="library-highlights-list">
-        {filteredHighlights.slice(0, 8).map(highlight => (
-          <div key={highlight._id} className="library-highlight-row">
-            <HighlightCard
-              highlight={highlight}
-              compact
-              organizable
-              connectionScopeType={connectionScope.scopeType}
-              connectionScopeId={connectionScope.scopeId}
-              forceExpandedState={cardsExpanded}
-              forceExpandedVersion={cardsExpandVersion}
-              onDumpToWorkingMemory={(item) => handleDumpToWorkingMemory(item?.text || '')}
-              onAddNotebook={(item) => setHighlightNotebookModal({ open: true, highlight: item })}
-              onAddConcept={(item) => setHighlightConceptModal({ open: true, highlight: item })}
-              onAddQuestion={(item) => setHighlightQuestionModal({ open: true, highlight: item })}
-            />
-            <div className="library-highlight-row-actions">
-              <QuietButton onClick={() => handleInsertHighlight(highlight)}>
-                {activeView === 'concepts' ? 'Pin to concept' : 'Insert'}
-              </QuietButton>
+      {activeView === 'home' && (
+        <>
+          <SurfaceCard>
+            <SectionHeader title="Recent activity" subtitle="Your latest trails in Think." />
+            <div className="think-home__list">
+              {recentTargets.slice(0, THINK_HOME_LIMIT).map((item) => (
+                <button
+                  key={`${item.type}:${item.id}`}
+                  type="button"
+                  className="think-home__row"
+                  onClick={() => handleOpenHomeTarget(item)}
+                >
+                  <span>{item.title || item.type}</span>
+                  <span className="muted small">{item.type}</span>
+                </button>
+              ))}
+              {recentTargets.length === 0 && <p className="muted small">No recent activity yet.</p>}
             </div>
-          </div>
-        ))}
-        {filteredHighlights.length === 0 && (
-          <p className="muted small">No highlights match.</p>
-        )}
-      </div>
+          </SurfaceCard>
+          <SurfaceCard>
+            <SectionHeader title="Pinned shortcuts" subtitle="Quick jumps into active work." />
+            <div className="think-home__list">
+              <QuietButton onClick={() => handleSelectView('notebook')}>Open notebook</QuietButton>
+              <QuietButton onClick={() => handleSelectView('concepts')}>Open concepts</QuietButton>
+              <QuietButton onClick={() => handleSelectView('questions')}>Open questions</QuietButton>
+              <QuietButton onClick={() => handleSelectView('paths')}>Open paths</QuietButton>
+            </div>
+          </SurfaceCard>
+          {(homeQueueError || homeArticlesError) && (
+            <p className="status-message error-message">{homeQueueError || homeArticlesError}</p>
+          )}
+        </>
+      )}
+      {activeView === 'insights' ? (
+        <>
+          <SectionHeader title="Context" subtitle="Insights stay read-only." />
+          <p className="muted small">Use themes and connections to decide what to deepen next.</p>
+        </>
+      ) : (
+        <>
+          {activeView !== 'home' && (
+            <>
+              <SectionHeader title="Insert" subtitle="Search highlights." />
+              <div className="library-highlight-filters">
+                <input
+                  type="text"
+                  placeholder="Search highlights"
+                  value={highlightQuery}
+                  onChange={(event) => setHighlightQuery(event.target.value)}
+                />
+                <select value={highlightTag} onChange={(event) => setHighlightTag(event.target.value)}>
+                  <option value="">All concepts</option>
+                  {tags.map(tag => (
+                    <option key={tag.tag} value={tag.tag}>{tag.tag}</option>
+                  ))}
+                </select>
+                <select value={highlightArticle} onChange={(event) => setHighlightArticle(event.target.value)}>
+                  <option value="">All articles</option>
+                  {articleOptions.map(article => (
+                    <option key={article} value={article}>{article}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="library-highlights-list">
+                {filteredHighlights.slice(0, 8).map(highlight => (
+                  <div key={highlight._id} className="library-highlight-row">
+                    <HighlightCard
+                      highlight={highlight}
+                      compact
+                      organizable
+                      connectionScopeType={connectionScope.scopeType}
+                      connectionScopeId={connectionScope.scopeId}
+                      forceExpandedState={cardsExpanded}
+                      forceExpandedVersion={cardsExpandVersion}
+                      onDumpToWorkingMemory={(item) => handleDumpToWorkingMemory(item?.text || '')}
+                      onAddNotebook={(item) => setHighlightNotebookModal({ open: true, highlight: item })}
+                      onAddConcept={(item) => setHighlightConceptModal({ open: true, highlight: item })}
+                      onAddQuestion={(item) => setHighlightQuestionModal({ open: true, highlight: item })}
+                    />
+                    <div className="library-highlight-row-actions">
+                      <QuietButton onClick={() => handleInsertHighlight(highlight)}>
+                        {activeView === 'concepts' ? 'Pin to concept' : 'Insert'}
+                      </QuietButton>
+                    </div>
+                  </div>
+                ))}
+                {filteredHighlights.length === 0 && (
+                  <p className="muted small">No highlights match.</p>
+                )}
+              </div>
+            </>
+          )}
+        </>
+      )}
 
       {activeView === 'notebook' && (
         <NotebookContext entry={activeNotebookEntry} />
@@ -2219,6 +2439,27 @@ const ThinkMode = () => {
               <ReferencesPanel targetType="concept" tagName={concept.name} label="Show backlinks" />
             </div>
           )}
+          <SurfaceCard>
+            <SectionHeader title="Connections summary" subtitle="Workspace links in this concept." />
+            <div className="think-home__list">
+              <div className="think-home__row">
+                <span>Connections</span>
+                <span className="muted small">{conceptWorkspaceSummary.connections}</span>
+              </div>
+              <div className="think-home__row">
+                <span>Claims</span>
+                <span className="muted small">{conceptWorkspaceSummary.claims}</span>
+              </div>
+              <div className="think-home__row">
+                <span>Evidence</span>
+                <span className="muted small">{conceptWorkspaceSummary.evidence}</span>
+              </div>
+              <div className="think-home__row">
+                <span>Sections</span>
+                <span className="muted small">{conceptWorkspaceSummary.sections}</span>
+              </div>
+            </div>
+          </SurfaceCard>
         </div>
       )}
     </div>
@@ -2241,39 +2482,15 @@ const ThinkMode = () => {
         leftOpen
         defaultLeftOpen
         defaultRightOpen
-        mainHeader={<PageTitle eyebrow="Mode" title="Think" subtitle="Concepts as structured pages you can return to." />}
+        mainHeader={<PageTitle eyebrow="Mode" title="Think" subtitle="Home for your notebook, concepts, and open questions." />}
         mainActions={(
           <div className="library-main-actions think-main-actions">
-            <QuietButton
-              className={`list-button think-main-actions__tab ${activeView === 'notebook' ? 'is-active' : ''}`}
-              onClick={() => handleSelectView('notebook')}
-            >
-              Notebook
-            </QuietButton>
-            <QuietButton
-              className={`list-button think-main-actions__tab ${activeView === 'concepts' ? 'is-active' : ''}`}
-              onClick={() => handleSelectView('concepts')}
-            >
-              Concepts
-            </QuietButton>
-            <QuietButton
-              className={`list-button think-main-actions__tab ${activeView === 'questions' ? 'is-active' : ''}`}
-              onClick={() => handleSelectView('questions')}
-            >
-              Questions
-            </QuietButton>
-            <QuietButton
-              className={`list-button think-main-actions__tab ${activeView === 'paths' ? 'is-active' : ''}`}
-              onClick={() => handleSelectView('paths')}
-            >
-              Paths
-            </QuietButton>
-            <QuietButton
-              className={`list-button think-main-actions__tab ${activeView === 'insights' ? 'is-active' : ''}`}
-              onClick={() => handleSelectView('insights')}
-            >
-              Insights
-            </QuietButton>
+            <SegmentedNav
+              className="think-main-actions__segments"
+              items={THINK_SUB_NAV_ITEMS}
+              value={activeView}
+              onChange={handleSelectView}
+            />
             <QuietButton className="list-button think-main-actions__utility think-main-actions__utility--first" onClick={handleCreateNotebookEntry}>
               New note
             </QuietButton>
