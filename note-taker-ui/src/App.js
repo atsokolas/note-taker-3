@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useParams } from 'react-router-dom';
 import { Analytics } from '@vercel/analytics/react';
 import ArticleList from './components/ArticleList';
 import ArticleViewer from './components/ArticleViewer';
@@ -16,7 +16,6 @@ import Journey from './pages/Journey';
 import Resurface from './pages/Resurface';
 import Collections from './pages/Collections';
 import CollectionDetail from './pages/CollectionDetail';
-import TagConcept from './pages/TagConcept';
 import Views from './pages/Views';
 import ViewDetail from './pages/ViewDetail';
 import Export from './pages/Export';
@@ -47,7 +46,42 @@ import './styles/tokens.css';
 import './styles/global.css';
 import './App.css';
 import './styles/reading-layout.css';
-import './styles/studio-board.css';
+
+const LegacyConceptRedirect = () => {
+  const { tagName, tag } = useParams();
+  const conceptName = String(tagName || tag || '').trim();
+  if (!conceptName) {
+    return <Navigate to="/think?tab=concepts" replace />;
+  }
+  return <Navigate to={`/think?tab=concepts&concept=${encodeURIComponent(conceptName)}`} replace />;
+};
+
+const LegacyBoardRedirect = () => {
+  const location = useLocation();
+  const params = new URLSearchParams(location.search);
+  let scopeType = String(params.get('scopeType') || '').trim().toLowerCase();
+  let scopeId = String(params.get('scopeId') || '').trim();
+  if (!scopeType && !scopeId) {
+    const parts = String(location.pathname || '').split('/').filter(Boolean);
+    if (parts[0] === 'boards' && parts.length >= 3) {
+      scopeType = String(parts[1] || '').trim().toLowerCase();
+      scopeId = decodeURIComponent(parts.slice(2).join('/'));
+    }
+  }
+  const next = new URLSearchParams();
+  next.set('moved', 'board');
+  if (scopeType === 'question' && scopeId) {
+    next.set('tab', 'questions');
+    next.set('questionId', scopeId);
+  } else {
+    next.set('tab', 'concepts');
+    if (scopeType === 'concept' && scopeId) {
+      next.set('scopeType', 'concept');
+      next.set('scopeId', scopeId);
+    }
+  }
+  return <Navigate to={`/think?${next.toString()}`} replace />;
+};
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -224,7 +258,7 @@ function App() {
           <Route path="/resurface" element={<Resurface />} />
           <Route path="/all-highlights" element={<AllHighlights />} />
           <Route path="/tags" element={<TagBrowser />} />
-          <Route path="/tags/:tagName" element={<TagConcept />} />
+          <Route path="/tags/:tagName" element={<LegacyConceptRedirect />} />
           <Route path="/collections" element={<Collections />} />
           <Route path="/collections/:slug" element={<CollectionDetail />} />
           <Route path="/notebook" element={<Notebook />} />
@@ -232,7 +266,11 @@ function App() {
           <Route path="/views/:id" element={<ViewDetail />} />
           <Route path="/search" element={<Search />} />
           <Route path="/journey" element={<Journey />} />
-          <Route path="/concept/:tag" element={<TagConcept />} />
+          <Route path="/concept/:tag" element={<LegacyConceptRedirect />} />
+          <Route path="/board" element={<LegacyBoardRedirect />} />
+          <Route path="/studio-board" element={<LegacyBoardRedirect />} />
+          <Route path="/boards" element={<LegacyBoardRedirect />} />
+          <Route path="/boards/*" element={<LegacyBoardRedirect />} />
           <Route path="/articles/:id" element={<ArticleViewer onArticleChange={refreshArticleList} />} />
           <Route path="/trending" element={<Trending />} />
           <Route path="/export" element={<Export />} />

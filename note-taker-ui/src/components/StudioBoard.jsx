@@ -313,7 +313,7 @@ const StudioBoard = ({ scopeType, scopeId, scopeLabel = '', embedded = false }) 
       });
       setSaveError('');
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to load board.');
+      setError(err.response?.data?.error || 'Failed to load workspace.');
     } finally {
       setLoading(false);
     }
@@ -390,7 +390,7 @@ const StudioBoard = ({ scopeType, scopeId, scopeLabel = '', embedded = false }) 
         );
         setSaveError('');
       } catch (err) {
-        setSaveError(err.response?.data?.error || 'Failed to save board layout.');
+        setSaveError(err.response?.data?.error || 'Failed to save workspace layout.');
       }
     }, 500);
   }, [board?._id]);
@@ -669,7 +669,7 @@ const StudioBoard = ({ scopeType, scopeId, scopeLabel = '', embedded = false }) 
     setReaderBusy(true);
     try {
       await api.post('/api/notebook', {
-        title: String(currentReaderCard.title || 'Board extract').slice(0, 140),
+        title: String(currentReaderCard.title || 'Workspace extract').slice(0, 140),
         content: bodyText,
         blocks: [{
           id: createLocalBlockId(),
@@ -1025,7 +1025,7 @@ const StudioBoard = ({ scopeType, scopeId, scopeLabel = '', embedded = false }) 
   if (!safeScopeType || !safeScopeId) {
     return (
       <div className="studio-board studio-board--empty">
-        <p className="muted">Select a concept or question to open its Studio Board.</p>
+        <p className="muted">Select a concept or question to open its workspace.</p>
       </div>
     );
   }
@@ -1045,7 +1045,7 @@ const StudioBoard = ({ scopeType, scopeId, scopeLabel = '', embedded = false }) 
             Add text card
           </button>
 
-          {loading && <p className="muted small">Loading board...</p>}
+          {loading && <p className="muted small">Loading workspace...</p>}
           {error && <p className="status-message error-message">{error}</p>}
           {saveError && <p className="status-message error-message">{saveError}</p>}
           {sourceLoading && <p className="muted small">Loading sources...</p>}
@@ -1108,7 +1108,7 @@ const StudioBoard = ({ scopeType, scopeId, scopeLabel = '', embedded = false }) 
 
         <div className="studio-board__canvas-wrap">
           <div className="studio-board__toolbar">
-            <div className="studio-board__view-toggle" role="tablist" aria-label="Studio board view mode">
+            <div className="studio-board__view-toggle" role="tablist" aria-label="Workspace view mode">
               <button
                 type="button"
                 className={`studio-board__view-button ${viewMode === 'canvas' ? 'is-active' : ''}`}

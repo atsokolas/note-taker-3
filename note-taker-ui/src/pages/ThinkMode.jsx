@@ -196,6 +196,7 @@ const ThinkMode = () => {
   const [workingMemoryView, setWorkingMemoryView] = useState('active');
   const [cardsExpanded, setCardsExpanded] = useState(false);
   const [cardsExpandVersion, setCardsExpandVersion] = useState(0);
+  const [workspaceMovedNotice, setWorkspaceMovedNotice] = useState('');
   const [rightOpen, setRightOpen] = useState(() => {
     const stored = localStorage.getItem(THINK_RIGHT_STORAGE_KEY);
     if (stored === null) return true;
@@ -283,6 +284,16 @@ const ThinkMode = () => {
   }, [activeView, concept?._id, activeQuestionData?._id]);
   const connectionScopeType = connectionScope.scopeType;
   const connectionScopeId = connectionScope.scopeId;
+  const resolveConceptNameFromScope = useCallback((scopeId) => {
+    const safeScopeId = String(scopeId || '').trim();
+    if (!safeScopeId) return '';
+    const byId = concepts.find(item => String(item._id || '') === safeScopeId);
+    if (byId?.name) return byId.name;
+    const byName = concepts.find(
+      item => String(item.name || '').trim().toLowerCase() === safeScopeId.toLowerCase()
+    );
+    return byName?.name || safeScopeId;
+  }, [concepts]);
 
   useEffect(() => {
     if (activeView !== 'questions') return;
@@ -573,10 +584,42 @@ const ThinkMode = () => {
 
   useEffect(() => {
     const rawView = searchParams.get('tab');
+    if (rawView === 'board' || searchParams.get('moved') === 'board') {
+      const params = new URLSearchParams(searchParams);
+      const scopeType = String(params.get('scopeType') || '').trim().toLowerCase();
+      const scopeId = String(params.get('scopeId') || '').trim();
+      let nextView = 'concepts';
+
+      if (scopeType === 'question' && scopeId) {
+        nextView = 'questions';
+        params.set('questionId', scopeId);
+        params.delete('concept');
+      } else if (scopeType === 'concept' && scopeId) {
+        nextView = 'concepts';
+        params.set('concept', resolveConceptNameFromScope(scopeId));
+        params.delete('questionId');
+      }
+
+      params.set('tab', nextView);
+      params.delete('scopeType');
+      params.delete('scopeId');
+      params.delete('moved');
+
+      setWorkspaceMovedNotice('Workspace has moved into Concepts. Open a concept to organize and connect material.');
+      setActiveView(nextView);
+      setSearchParams(params, { replace: true });
+      return;
+    }
     if (allowedViews.includes(rawView)) {
       setActiveView(rawView);
     }
-  }, [searchParams, allowedViews]);
+  }, [searchParams, allowedViews, resolveConceptNameFromScope, setSearchParams]);
+
+  useEffect(() => {
+    if (!workspaceMovedNotice) return undefined;
+    const timer = window.setTimeout(() => setWorkspaceMovedNotice(''), 5000);
+    return () => window.clearTimeout(timer);
+  }, [workspaceMovedNotice]);
 
   useEffect(() => {
     if (!notebookActiveId || activeView !== 'notebook') return;
@@ -1645,7 +1688,7 @@ const ThinkMode = () => {
             <ConnectionBuilder itemType="concept" itemId={concept._id} itemTitle={concept.name} />
           </div>
 
-          <SectionHeader title="Canvas" subtitle="Move material around and connect ideas." />
+          <SectionHeader title="Workspace" subtitle="Move material around and connect ideas." />
           <ConceptNotebook concept={concept} />
 
           <SectionHeader title="Sharing" subtitle="Publish a read-only concept page." />
@@ -2183,6 +2226,11 @@ const ThinkMode = () => {
 
   return (
     <>
+      {workspaceMovedNotice && (
+        <div style={{ marginBottom: 8 }}>
+          <p className="status-message success-message">{workspaceMovedNotice}</p>
+        </div>
+      )}
       <ThreePaneLayout
         left={leftPanel}
         main={mainPanel}
