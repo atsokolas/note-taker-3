@@ -54,3 +54,44 @@ Common failure modes:
 
 - Render free tier can sleep/cold start upstream services.
 - Wrong or missing `AI_SERVICE_URL` or `AI_SHARED_SECRET`.
+
+## Concept Workspace (Document Outline)
+
+Concepts now persist a document-outline workspace in `concept.workspace`:
+
+```json
+{
+  "version": 1,
+  "groups": [
+    {
+      "id": "uuid",
+      "title": "Workspace",
+      "description": "",
+      "collapsed": false,
+      "order": 0
+    }
+  ],
+  "items": [
+    {
+      "id": "uuid",
+      "type": "highlight",
+      "refId": "mongo-object-id",
+      "groupId": "group-uuid",
+      "parentId": "",
+      "order": 0
+    }
+  ],
+  "updatedAt": "2026-02-21T00:00:00.000Z"
+}
+```
+
+Workspace endpoints (JWT required):
+
+- `GET /api/concepts/:conceptId/workspace` -> returns workspace and lazily initializes default group if missing
+- `PUT /api/concepts/:conceptId/workspace` -> replaces workspace with validated payload
+- `PATCH /api/concepts/:conceptId/workspace` -> applies operation payload `{ op, payload }`
+
+Patch operations:
+
+- `addGroup`, `updateGroup`, `deleteGroup`
+- `addItem`, `moveItem`, `updateItem`, `deleteItem`

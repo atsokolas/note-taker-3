@@ -112,6 +112,7 @@ const buildConceptService = ({ Article, TagMeta, NotebookEntry, ReferenceEdge, m
       isPublic: meta?.isPublic || false,
       slug: meta?.slug || '',
       conceptLayout: meta?.conceptLayout || null,
+      workspace: meta?.workspace || null,
       pinnedHighlightIds,
       pinnedArticleIds,
       pinnedNoteIds,

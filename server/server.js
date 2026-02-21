@@ -11,6 +11,11 @@ const multer = require('multer');
 const Papa = require('papaparse');
 const path = require('path');
 const crypto = require('crypto');
+const {
+  ensureWorkspace,
+  applyPatchOp,
+  validateWorkspacePayload
+} = require('./utils/workspaceUtils');
 const { checkHealth } = require('./ai/ollamaClient');
 const {
   enqueueArticleEmbedding,
@@ -290,6 +295,30 @@ const conceptLayoutSchema = new mongoose.Schema({
   connections: { type: [conceptLayoutConnectionSchema], default: [] }
 }, { _id: false });
 
+const conceptWorkspaceGroupSchema = new mongoose.Schema({
+  id: { type: String, required: true, trim: true },
+  title: { type: String, required: true, trim: true },
+  description: { type: String, default: '', trim: true },
+  collapsed: { type: Boolean, default: false },
+  order: { type: Number, default: 0 }
+}, { _id: false });
+
+const conceptWorkspaceItemSchema = new mongoose.Schema({
+  id: { type: String, required: true, trim: true },
+  type: { type: String, enum: ['highlight', 'article', 'note', 'question'], required: true },
+  refId: { type: String, required: true, trim: true },
+  groupId: { type: String, required: true, trim: true },
+  parentId: { type: String, default: '', trim: true },
+  order: { type: Number, default: 0 }
+}, { _id: false });
+
+const conceptWorkspaceSchema = new mongoose.Schema({
+  version: { type: Number, default: 1 },
+  groups: { type: [conceptWorkspaceGroupSchema], default: [] },
+  items: { type: [conceptWorkspaceItemSchema], default: [] },
+  updatedAt: { type: String, default: () => new Date().toISOString() }
+}, { _id: false });
+
 // Tag metadata (concept pages)
 const tagMetaSchema = new mongoose.Schema({
   name: { type: String, required: true, trim: true },
@@ -299,6 +328,7 @@ const tagMetaSchema = new mongoose.Schema({
   pinnedNoteIds: [{ type: mongoose.Schema.Types.ObjectId }],
   dismissedHighlightIds: [{ type: mongoose.Schema.Types.ObjectId }],
   conceptLayout: { type: conceptLayoutSchema, default: undefined },
+  workspace: { type: conceptWorkspaceSchema, default: undefined },
   isPublic: { type: Boolean, default: false },
   slug: { type: String, default: '', trim: true },
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }
@@ -5968,6 +5998,105 @@ app.get('/api/concepts/:name/related', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error("❌ Error fetching concept related data:", error);
     res.status(500).json({ error: "Failed to fetch concept related data." });
+  }
+});
+
+const loadWorkspaceConcept = async (userId, conceptId) => {
+  const concept = await resolveConceptByParam(userId, conceptId, { createIfMissing: false });
+  if (!concept) return null;
+  const workspace = ensureWorkspace(concept);
+  const previous = JSON.stringify(concept.workspace || null);
+  const normalized = JSON.stringify(workspace);
+  if (previous !== normalized) {
+    concept.workspace = workspace;
+    concept.markModified('workspace');
+    await concept.save();
+  }
+  return { concept, workspace };
+};
+
+app.get('/api/concepts/:conceptId/workspace', authenticateToken, async (req, res) => {
+  try {
+    const conceptId = String(req.params.conceptId || '').trim();
+    console.log(`[WORKSPACE] GET concept=${conceptId} user=${req.user.id}`);
+    const loaded = await loadWorkspaceConcept(req.user.id, conceptId);
+    if (!loaded) return res.status(404).json({ error: 'Concept not found.' });
+    res.status(200).json({
+      conceptId: String(loaded.concept._id),
+      conceptName: loaded.concept.name,
+      workspace: loaded.workspace
+    });
+  } catch (error) {
+    console.error('❌ Error loading concept workspace:', error);
+    res.status(500).json({ error: 'Failed to load concept workspace.' });
+  }
+});
+
+app.put('/api/concepts/:conceptId/workspace', authenticateToken, async (req, res) => {
+  try {
+    const conceptId = String(req.params.conceptId || '').trim();
+    console.log(`[WORKSPACE] PUT concept=${conceptId} user=${req.user.id}`);
+    const concept = await resolveConceptByParam(req.user.id, conceptId, { createIfMissing: false });
+    if (!concept) return res.status(404).json({ error: 'Concept not found.' });
+
+    const rawWorkspace = req.body?.workspace && typeof req.body.workspace === 'object'
+      ? req.body.workspace
+      : (req.body || {});
+    if (rawWorkspace && typeof rawWorkspace !== 'object') {
+      return res.status(400).json({ error: 'Workspace payload must be an object.' });
+    }
+    if (rawWorkspace.version !== undefined && Number(rawWorkspace.version) !== 1) {
+      return res.status(400).json({ error: 'workspace.version must be 1.' });
+    }
+    try {
+      validateWorkspacePayload(rawWorkspace);
+    } catch (validationError) {
+      return res.status(400).json({ error: validationError.message || 'Invalid workspace payload.' });
+    }
+
+    const workspace = ensureWorkspace({ workspace: rawWorkspace });
+    concept.workspace = workspace;
+    concept.markModified('workspace');
+    await concept.save();
+
+    res.status(200).json({
+      conceptId: String(concept._id),
+      conceptName: concept.name,
+      workspace
+    });
+  } catch (error) {
+    console.error('❌ Error replacing concept workspace:', error);
+    res.status(500).json({ error: 'Failed to save concept workspace.' });
+  }
+});
+
+app.patch('/api/concepts/:conceptId/workspace', authenticateToken, async (req, res) => {
+  try {
+    const conceptId = String(req.params.conceptId || '').trim();
+    const opName = String(req.body?.op || '').trim();
+    console.log(`[WORKSPACE] PATCH concept=${conceptId} user=${req.user.id} op=${opName || 'unknown'}`);
+    const loaded = await loadWorkspaceConcept(req.user.id, conceptId);
+    if (!loaded) return res.status(404).json({ error: 'Concept not found.' });
+
+    let workspace;
+    try {
+      workspace = applyPatchOp(loaded.workspace, req.body || {});
+    } catch (validationError) {
+      return res.status(400).json({ error: validationError.message || 'Invalid workspace patch operation.' });
+    }
+    const concept = loaded.concept;
+    concept.workspace = workspace;
+    concept.markModified('workspace');
+    await concept.save();
+
+    res.status(200).json({
+      conceptId: String(concept._id),
+      conceptName: concept.name,
+      workspace
+    });
+  } catch (error) {
+    console.error('❌ Error patching concept workspace:', error);
+    res.status(500).json({ error: 'Failed to patch concept workspace.' });
   }
 });
 
