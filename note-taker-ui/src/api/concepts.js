@@ -58,3 +58,27 @@ export const addConceptLayoutCard = async (conceptIdOrName, payload = {}) => {
   const res = await api.post(`/api/concepts/${safe}/layout/add-card`, payload, getAuthHeaders());
   return res.data || { conceptId: '', conceptName: '', layout: null, card: null };
 };
+
+export const getConceptWorkspace = async (conceptIdOrName) => {
+  const safe = encodeURIComponent(String(conceptIdOrName || '').trim());
+  const res = await api.get(`/api/concepts/${safe}/workspace`, getAuthHeaders());
+  return res.data || { conceptId: '', conceptName: '', workspace: null };
+};
+
+export const replaceConceptWorkspace = async (conceptIdOrName, workspace) => {
+  const safe = encodeURIComponent(String(conceptIdOrName || '').trim());
+  const res = await api.put(`/api/concepts/${safe}/workspace`, { workspace }, getAuthHeaders());
+  return res.data || { conceptId: '', conceptName: '', workspace: null };
+};
+
+export const patchConceptWorkspace = async (conceptIdOrName, op, payload = {}) => {
+  const safe = encodeURIComponent(String(conceptIdOrName || '').trim());
+  const res = await api.patch(`/api/concepts/${safe}/workspace`, { op, payload }, getAuthHeaders());
+  return res.data || { conceptId: '', conceptName: '', workspace: null };
+};
+
+export const getConceptMaterial = async (conceptIdOrName) => {
+  const safe = encodeURIComponent(String(conceptIdOrName || '').trim());
+  const res = await api.get(`/api/concepts/${safe}/material`, getAuthHeaders());
+  return res.data || { pinnedHighlights: [], recentHighlights: [], linkedArticles: [] };
+};

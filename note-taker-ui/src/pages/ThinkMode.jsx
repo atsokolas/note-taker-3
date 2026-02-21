@@ -242,12 +242,6 @@ const ThinkMode = () => {
   const [homeArticles, setHomeArticles] = useState([]);
   const [homeArticlesLoading, setHomeArticlesLoading] = useState(false);
   const [homeArticlesError, setHomeArticlesError] = useState('');
-  const [conceptWorkspaceSummary, setConceptWorkspaceSummary] = useState({
-    connections: 0,
-    claims: 0,
-    evidence: 0,
-    sections: 0
-  });
   const [rightOpen, setRightOpen] = useState(() => {
     const stored = localStorage.getItem(THINK_RIGHT_STORAGE_KEY);
     if (stored === null) return true;
@@ -396,7 +390,6 @@ const ThinkMode = () => {
       setConceptSuggestions([]);
       setConceptSuggestionsLoading(false);
       setConceptSuggestionsError('');
-      setConceptWorkspaceSummary({ connections: 0, claims: 0, evidence: 0, sections: 0 });
       return;
     }
     let cancelled = false;
@@ -1865,10 +1858,7 @@ const ThinkMode = () => {
           </div>
 
           <SectionHeader title="Workspace" subtitle="Move material around and connect ideas." />
-          <ConceptNotebook
-            concept={concept}
-            onLayoutSummaryChange={(summary) => setConceptWorkspaceSummary(summary)}
-          />
+          <ConceptNotebook concept={concept} />
 
           <SectionHeader title="Sharing" subtitle="Publish a read-only concept page." />
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -2439,27 +2429,6 @@ const ThinkMode = () => {
               <ReferencesPanel targetType="concept" tagName={concept.name} label="Show backlinks" />
             </div>
           )}
-          <SurfaceCard>
-            <SectionHeader title="Connections summary" subtitle="Workspace links in this concept." />
-            <div className="think-home__list">
-              <div className="think-home__row">
-                <span>Connections</span>
-                <span className="muted small">{conceptWorkspaceSummary.connections}</span>
-              </div>
-              <div className="think-home__row">
-                <span>Claims</span>
-                <span className="muted small">{conceptWorkspaceSummary.claims}</span>
-              </div>
-              <div className="think-home__row">
-                <span>Evidence</span>
-                <span className="muted small">{conceptWorkspaceSummary.evidence}</span>
-              </div>
-              <div className="think-home__row">
-                <span>Sections</span>
-                <span className="muted small">{conceptWorkspaceSummary.sections}</span>
-              </div>
-            </div>
-          </SurfaceCard>
         </div>
       )}
     </div>
