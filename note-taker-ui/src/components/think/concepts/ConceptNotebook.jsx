@@ -150,12 +150,12 @@ const buildDescendantSet = (items, rootId) => {
   let changed = true;
   while (changed) {
     changed = false;
-    items.forEach((item) => {
+    for (const item of items) {
       if (item.parentId && toDelete.has(item.parentId) && !toDelete.has(item.id)) {
         toDelete.add(item.id);
         changed = true;
       }
-    });
+    }
   }
   return toDelete;
 };
