@@ -206,23 +206,32 @@ const MapView = () => {
               linkDirectionalParticles={0}
               nodeLabel={(node) => `${node.title || formatItemType(node.itemType)}\n${formatItemType(node.itemType)}`}
               nodeCanvasObject={(node, ctx, globalScale) => {
+                const isDark = document?.documentElement?.dataset?.uiTheme === 'dark';
                 const label = node.title || formatItemType(node.itemType);
                 const fontSize = 11 / globalScale;
-                ctx.font = `${fontSize}px sans-serif`;
+                ctx.font = `600 ${fontSize}px "SF Pro Text", "Segoe UI", Inter, sans-serif`;
                 const textWidth = ctx.measureText(label).width;
                 const bckgDimensions = [textWidth + 10 / globalScale, fontSize + 6 / globalScale];
                 ctx.fillStyle = ITEM_COLORS[node.itemType] || '#334155';
                 ctx.beginPath();
                 ctx.arc(node.x, node.y, 4.5, 0, 2 * Math.PI, false);
                 ctx.fill();
-                ctx.fillStyle = 'rgba(255,255,255,0.9)';
+                ctx.fillStyle = isDark ? 'rgba(19, 29, 47, 0.92)' : 'rgba(255,255,255,0.92)';
                 ctx.fillRect(
                   node.x + 6,
                   node.y - bckgDimensions[1] / 2,
                   bckgDimensions[0],
                   bckgDimensions[1]
                 );
-                ctx.fillStyle = '#0f172a';
+                ctx.strokeStyle = isDark ? 'rgba(52, 73, 102, 0.9)' : 'rgba(220, 226, 238, 0.95)';
+                ctx.lineWidth = 1 / globalScale;
+                ctx.strokeRect(
+                  node.x + 6,
+                  node.y - bckgDimensions[1] / 2,
+                  bckgDimensions[0],
+                  bckgDimensions[1]
+                );
+                ctx.fillStyle = isDark ? '#e5ecf9' : '#0f172a';
                 ctx.textAlign = 'left';
                 ctx.textBaseline = 'middle';
                 ctx.fillText(label, node.x + 10, node.y);

@@ -213,4 +213,26 @@ describe('ConceptNotebook workspace interactions', () => {
     expect(screen.queryByText('Working Source')).not.toBeInTheDocument();
     expect(screen.getByText('Claim Source')).toBeInTheDocument();
   });
+
+  it('creates a connection with the inline relation picker', async () => {
+    render(<ConceptNotebook concept={concept} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Connect' }));
+    fireEvent.change(screen.getByLabelText('Relation'), { target: { value: 'definition' } });
+
+    fireEvent.click(screen.getByText('Working Source'));
+    fireEvent.click(screen.getByText('Claim Source'));
+
+    await waitFor(() => {
+      expect(mockPatchWorkspace).toHaveBeenCalledWith(
+        'addConnection',
+        expect.objectContaining({
+          fromItemId: 'item-working',
+          toItemId: 'item-claim',
+          type: 'definition'
+        }),
+        expect.objectContaining({ optimisticWorkspace: expect.any(Object) })
+      );
+    });
+  });
 });

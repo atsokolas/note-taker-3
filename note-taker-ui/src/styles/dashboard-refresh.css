@@ -890,6 +890,11 @@ select {
   transition: border-color var(--motion-fast) ease, background var(--motion-fast) ease, transform var(--motion-fast) ease;
 }
 
+.return-queue-page .return-queue-row:nth-child(1) { animation: surface-rise-in var(--motion-base) var(--ease-standard) 20ms both; }
+.return-queue-page .return-queue-row:nth-child(2) { animation: surface-rise-in var(--motion-base) var(--ease-standard) 45ms both; }
+.return-queue-page .return-queue-row:nth-child(3) { animation: surface-rise-in var(--motion-base) var(--ease-standard) 70ms both; }
+.return-queue-page .return-queue-row:nth-child(4) { animation: surface-rise-in var(--motion-base) var(--ease-standard) 95ms both; }
+
 .return-queue-page .return-queue-row:hover {
   border-color: var(--line-1);
   background: color-mix(in srgb, var(--surface-2) 44%, var(--surface-0));
@@ -1060,6 +1065,12 @@ select {
   transition: border-color var(--motion-fast) ease, background var(--motion-fast) ease, transform var(--motion-fast) ease;
 }
 
+.review-mode__main-panel .review-resurface-row:nth-child(1) { animation: surface-rise-in var(--motion-base) var(--ease-standard) 20ms both; }
+.review-mode__main-panel .review-resurface-row:nth-child(2) { animation: surface-rise-in var(--motion-base) var(--ease-standard) 45ms both; }
+.review-mode__main-panel .review-resurface-row:nth-child(3) { animation: surface-rise-in var(--motion-base) var(--ease-standard) 70ms both; }
+.review-mode__main-panel .review-resurface-row:nth-child(4) { animation: surface-rise-in var(--motion-base) var(--ease-standard) 95ms both; }
+.review-mode__main-panel .review-resurface-row:nth-child(5) { animation: surface-rise-in var(--motion-base) var(--ease-standard) 120ms both; }
+
 .review-mode__main-panel .review-resurface-row:hover {
   border-color: var(--line-1);
   transform: translateY(-1px);
@@ -1122,11 +1133,13 @@ select {
   .concept-outline__drawer-row,
   .concept-outline__materials-row,
   .return-queue-page .return-queue-section,
+  .return-queue-page .return-queue-row,
   .map-view-page .map-canvas-card,
   .map-view-page .map-side-panel,
   .review-mode__left-panel,
   .review-mode__main-panel,
-  .review-mode__right-panel {
+  .review-mode__right-panel,
+  .review-mode__main-panel .review-resurface-row {
     animation: none !important;
   }
 
@@ -1205,5 +1218,34 @@ select {
 
   .concept-outline__materials-row {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 880px) {
+  .map-view-page .map-toolbar-inline {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .map-view-page .map-toolbar-inline input,
+  .map-view-page .map-toolbar-inline select,
+  .map-view-page .map-toolbar-inline .ui-button {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .map-view-page .map-toolbar-inline .ui-button {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 640px) {
+  .map-view-page .map-toolbar-inline {
+    grid-template-columns: 1fr;
+  }
+
+  .review-mode__right-panel .review-resurface-context-actions {
+    gap: 6px;
   }
 }

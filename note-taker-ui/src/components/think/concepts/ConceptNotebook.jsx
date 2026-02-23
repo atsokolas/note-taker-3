@@ -42,6 +42,10 @@ const DRAWER_FILTERS = [
   { value: 'attached', label: 'Attached' }
 ];
 const CONNECTION_TYPES = ['related', 'supports', 'contradicts', 'extends', 'example', 'definition'];
+const CONNECTION_TYPE_OPTIONS = CONNECTION_TYPES.map((value) => ({
+  value,
+  label: value.charAt(0).toUpperCase() + value.slice(1)
+}));
 
 const ROOT_WINDOW_THRESHOLD = 140;
 const ROOT_ROW_ESTIMATE = 92;
@@ -661,6 +665,7 @@ const ConceptNotebook = ({ concept }) => {
   const [attachingKey, setAttachingKey] = useState('');
   const [connectMode, setConnectMode] = useState(false);
   const [connectFromItemId, setConnectFromItemId] = useState('');
+  const [connectRelationType, setConnectRelationType] = useState('related');
   const [editingInlineItemId, setEditingInlineItemId] = useState('');
   const [groupScrollState, setGroupScrollState] = useState({});
   const [connectionLines, setConnectionLines] = useState([]);
@@ -1221,12 +1226,7 @@ const ConceptNotebook = ({ concept }) => {
       setConnectFromItemId('');
       return;
     }
-    const relationInput = window.prompt(
-      'Connection type: related, supports, contradicts, extends, example, or definition',
-      'related'
-    );
-    if (relationInput === null) return;
-    const relationType = normalizeConnectionType(relationInput, '');
+    const relationType = normalizeConnectionType(connectRelationType, '');
     if (!relationType) {
       setToast({ message: 'Invalid connection type.', tone: 'error' });
       return;
@@ -1244,7 +1244,7 @@ const ConceptNotebook = ({ concept }) => {
       successMessage: 'Connection created.'
     });
     setConnectFromItemId('');
-  }, [connectFromItemId, connectMode, normalizedWorkspace, performPatch]);
+  }, [connectFromItemId, connectMode, connectRelationType, normalizedWorkspace, performPatch]);
 
   const handleDeleteConnection = useCallback((connectionId) => {
     const payload = { id: connectionId };
@@ -1640,10 +1640,37 @@ const ConceptNotebook = ({ concept }) => {
         )}
 
         {connectMode && (
-          <div className="concept-outline__connect-hint">
-            {connectFromItemId
-              ? 'Select a second block to complete the connection.'
-              : 'Select a block to start a connection.'}
+          <div className="concept-outline__connect-bar" role="status" aria-live="polite">
+            <div className="concept-outline__connect-copy">
+              {connectFromItemId
+                ? 'Select a second block to complete the connection.'
+                : 'Select a block to start a connection.'}
+            </div>
+            <div className="concept-outline__connect-controls">
+              <span className="concept-outline__connect-badge">
+                {connectFromItemId ? 'Step 2 of 2' : 'Step 1 of 2'}
+              </span>
+              <label className="concept-outline__drawer-field">
+                <span>Relation</span>
+                <select
+                  value={connectRelationType}
+                  onChange={(event) => setConnectRelationType(event.target.value)}
+                >
+                  {CONNECTION_TYPE_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
+                </select>
+              </label>
+              {connectFromItemId && (
+                <button
+                  type="button"
+                  className="ui-quiet-button"
+                  onClick={() => setConnectFromItemId('')}
+                >
+                  Clear first item
+                </button>
+              )}
+            </div>
           </div>
         )}
 
