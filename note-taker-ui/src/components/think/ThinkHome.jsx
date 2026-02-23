@@ -1,5 +1,5 @@
 import React from 'react';
-import { SectionHeader, SurfaceCard, TagChip, QuietButton } from '../ui';
+import { SectionHeader, SurfaceCard, TagChip, QuietButton, PillButton } from '../ui';
 import SkeletonBlock from '../SkeletonBlock';
 
 const formatRelativeTime = (value) => {
@@ -43,23 +43,37 @@ const ThinkHome = ({
   onOpenConcept = () => {},
   onOpenQuestion = () => {},
   onOpenReturnQueueItem = () => {},
-  onOpenArticle = () => {}
+  onOpenArticle = () => {},
+  onCreateNote = () => {},
+  onCreateConcept = () => {},
+  onCreateQuestion = () => {}
 }) => {
   const continueItem = recentTargets[0] || null;
 
   return (
     <div className="think-home section-stack">
-      <div className="think-home__hero">
-        <h2>Welcome back</h2>
-        <p>Continue where you left off, then decide what to revisit or connect next.</p>
-      </div>
-
       <SurfaceCard className="think-home__continue">
-        <SectionHeader title="Continue" subtitle="Resume your latest active thread." />
+        <SectionHeader
+          title="Continue"
+          subtitle="Pick up your latest thread, or start something new without leaving Think."
+          action={(
+            <div className="think-home__continue-actions">
+              <PillButton onClick={onCreateNote}>New note</PillButton>
+              <PillButton onClick={onCreateConcept}>New concept</PillButton>
+              <PillButton onClick={onCreateQuestion}>New question</PillButton>
+            </div>
+          )}
+        />
         {continueItem ? (
-          <button type="button" className="think-home__row" onClick={() => onOpenTarget(continueItem)}>
+          <button
+            type="button"
+            className="think-home__row think-home__row--continue"
+            onClick={() => onOpenTarget(continueItem)}
+          >
             <span className="think-home__row-title">{continueItem.title || 'Untitled'}</span>
-            <span className="think-home__row-meta muted small">{formatRelativeTime(continueItem.openedAt)}</span>
+            <span className="think-home__row-meta muted small">
+              {continueItem.type ? `${continueItem.type} · ` : ''}{formatRelativeTime(continueItem.openedAt)}
+            </span>
           </button>
         ) : (
           <Empty text="No recent activity yet." />
@@ -74,12 +88,12 @@ const ThinkHome = ({
           <div className="think-home__working-grid">
             <div>
               <p className="think-home__column-title">Notebook</p>
-              <div className="think-home__list">
+              <div className="think-home__list think-home__list--scannable">
                 {workingSet.notebooks.length === 0 ? (
                   <Empty text="No notes yet." />
                 ) : (
                   workingSet.notebooks.map((item) => (
-                    <button key={item._id} type="button" className="think-home__row" onClick={() => onOpenNotebook(item._id)}>
+                    <button key={item._id} type="button" className="think-home__row think-home__row--scannable" onClick={() => onOpenNotebook(item._id)}>
                       <span className="think-home__row-title">{item.title || 'Untitled note'}</span>
                       <span className="think-home__row-meta muted small">{formatRelativeTime(item.updatedAt || item.createdAt)}</span>
                     </button>
@@ -89,12 +103,12 @@ const ThinkHome = ({
             </div>
             <div>
               <p className="think-home__column-title">Concepts</p>
-              <div className="think-home__list">
+              <div className="think-home__list think-home__list--scannable">
                 {workingSet.concepts.length === 0 ? (
                   <Empty text="No concepts yet." />
                 ) : (
                   workingSet.concepts.map((item) => (
-                    <button key={item.name} type="button" className="think-home__row" onClick={() => onOpenConcept(item.name)}>
+                    <button key={item.name} type="button" className="think-home__row think-home__row--scannable" onClick={() => onOpenConcept(item.name)}>
                       <span className="think-home__row-title">{item.name}</span>
                       <span className="think-home__row-meta muted small">{item.count || 0} highlights</span>
                     </button>
@@ -104,12 +118,12 @@ const ThinkHome = ({
             </div>
             <div>
               <p className="think-home__column-title">Questions</p>
-              <div className="think-home__list">
+              <div className="think-home__list think-home__list--scannable">
                 {workingSet.questions.length === 0 ? (
                   <Empty text="No open questions." />
                 ) : (
                   workingSet.questions.map((item) => (
-                    <button key={item._id} type="button" className="think-home__row" onClick={() => onOpenQuestion(item._id)}>
+                    <button key={item._id} type="button" className="think-home__row think-home__row--scannable" onClick={() => onOpenQuestion(item._id)}>
                       <span className="think-home__row-title">{item.text || 'Untitled question'}</span>
                       <span className="think-home__row-meta muted small">{item.linkedTagName || 'Unscoped'}</span>
                     </button>
@@ -124,14 +138,14 @@ const ThinkHome = ({
       <div className="think-home__split-grid">
         <SurfaceCard className="think-home__panel">
           <SectionHeader title="Return queue" subtitle="Items due for re-encounter." />
-          <div className="think-home__list">
+          <div className="think-home__list think-home__list--scannable">
             {queueLoading ? (
               <HomeSkeleton />
             ) : returnQueue.length === 0 ? (
               <Empty text="No return queue items." />
             ) : (
               returnQueue.map((entry) => (
-                <button key={entry._id} type="button" className="think-home__row" onClick={() => onOpenReturnQueueItem(entry)}>
+                <button key={entry._id} type="button" className="think-home__row think-home__row--scannable" onClick={() => onOpenReturnQueueItem(entry)}>
                   <span className="think-home__row-title">{entry.item?.title || `${entry.itemType} item`}</span>
                   <span className="think-home__row-meta muted small">{entry.reason || entry.itemType}</span>
                 </button>
@@ -165,14 +179,14 @@ const ThinkHome = ({
 
           <div className="think-home__material-block">
             <p className="think-home__column-title">Articles</p>
-            <div className="think-home__list">
+            <div className="think-home__list think-home__list--scannable">
               {articlesLoading ? (
                 <HomeSkeleton />
               ) : recentArticles.length === 0 ? (
                 <Empty text="No recent articles." />
               ) : (
                 recentArticles.map((item) => (
-                  <button key={item._id} type="button" className="think-home__row" onClick={() => onOpenArticle(item._id)}>
+                  <button key={item._id} type="button" className="think-home__row think-home__row--scannable" onClick={() => onOpenArticle(item._id)}>
                     <span className="think-home__row-title">{item.title || 'Untitled article'}</span>
                     <span className="think-home__row-meta muted small">{formatRelativeTime(item.createdAt)}</span>
                   </button>

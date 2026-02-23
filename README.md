@@ -116,3 +116,21 @@ The UI shell now uses a shared token-driven layer designed for Think-first navig
 - Primary UI token overrides: `note-taker-ui/src/styles/dashboard-refresh.css`
 - Existing base theme variables/components: `note-taker-ui/src/styles/theme.css`
 - Base spacing/type aliases: `note-taker-ui/src/styles/tokens.css`
+
+### Think Home / Shell polish checklist
+
+- Tokens:
+  - spacing / radii / surface aliases live in `note-taker-ui/src/styles/dashboard-refresh.css` (`--space-*`, `--radius-*`, `--surface-*`, `--text-*`)
+- Shell components:
+  - `note-taker-ui/src/layout/AppShell.jsx`
+  - `note-taker-ui/src/layout/LeftNav.jsx`
+  - `note-taker-ui/src/layout/TopBar.jsx`
+  - `note-taker-ui/src/layout/RightDrawer.jsx`
+- Think page composition:
+  - `note-taker-ui/src/pages/ThinkMode.jsx`
+  - `note-taker-ui/src/components/think/ThinkHome.jsx`
+- Verify after style tweaks:
+  - light + dark mode both preserve contrast hierarchy
+  - right drawer collapses/expands cleanly and main panel reflows
+  - Think Home “Continue” module remains the primary visual CTA
+  - no overflow in nav/topbar/right drawer on smaller widths

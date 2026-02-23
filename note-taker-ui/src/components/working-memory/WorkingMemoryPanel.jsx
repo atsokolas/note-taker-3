@@ -361,6 +361,7 @@ const WorkingMemoryPanel = ({
           className="working-memory-toggle"
           onClick={() => setExpanded(prev => !prev)}
           aria-label={expanded ? 'Collapse Working Memory' : 'Expand Working Memory'}
+          title={expanded ? 'Collapse Working Memory' : 'Expand Working Memory'}
         >
           <span aria-hidden="true" className="working-memory-toggle-icon">{expanded ? '▾' : '▸'}</span>
           <span>{expanded ? 'Collapse' : 'Expand'}</span>

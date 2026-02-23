@@ -1463,7 +1463,7 @@ const ThinkMode = () => {
 
 
   const leftPanel = (
-    <div className="section-stack">
+    <div className="section-stack think-layout__left-panel">
       <SectionHeader title="Notebook" subtitle="Working notes." />
       <NotebookList
         entries={notebookEntries}
@@ -1739,6 +1739,9 @@ const ThinkMode = () => {
       onOpenQuestion={handleOpenQuestion}
       onOpenReturnQueueItem={handleOpenReturnQueueEntry}
       onOpenArticle={handleOpenHomeArticle}
+      onCreateNote={handleCreateNotebookEntry}
+      onCreateConcept={() => handleSelectView('concepts')}
+      onCreateQuestion={handleCreateQuestion}
     />
   ) : activeView === 'notebook' ? (
     <div className="think-notebook-editor-pane">
@@ -2148,11 +2151,11 @@ const ThinkMode = () => {
   );
 
   const rightPanel = (
-    <div className="section-stack">
+    <div className="section-stack think-layout__right-panel">
       {workingMemoryDrawer}
       {activeView === 'home' && (
         <>
-          <SurfaceCard>
+          <SurfaceCard className="think-home__side-card">
             <SectionHeader title="Recent activity" subtitle="Your latest trails in Think." />
             <div className="think-home__list">
               {recentTargets.slice(0, THINK_HOME_LIMIT).map((item) => (
@@ -2162,14 +2165,14 @@ const ThinkMode = () => {
                   className="think-home__row"
                   onClick={() => handleOpenHomeTarget(item)}
                 >
-                  <span>{item.title || item.type}</span>
-                  <span className="muted small">{item.type}</span>
+                  <span className="think-home__row-title">{item.title || item.type}</span>
+                  <span className="think-home__row-meta muted small">{item.type}</span>
                 </button>
               ))}
               {recentTargets.length === 0 && <p className="muted small">No recent activity yet.</p>}
             </div>
           </SurfaceCard>
-          <SurfaceCard>
+          <SurfaceCard className="think-home__side-card">
             <SectionHeader title="Pinned shortcuts" subtitle="Quick jumps into active work." />
             <div className="think-home__list">
               <QuietButton onClick={() => handleSelectView('notebook')}>Open notebook</QuietButton>
@@ -2459,7 +2462,7 @@ const ThinkMode = () => {
         leftOpen
         defaultLeftOpen
         defaultRightOpen
-        mainHeader={<PageTitle eyebrow="Mode" title="Think" subtitle="Home for your notebook, concepts, and open questions." />}
+        mainHeader={<PageTitle className="think-page-title" title="Think" subtitle="Home for your notebook, concepts, and open questions." />}
         mainActions={(
           <div className="library-main-actions think-main-actions">
             <SegmentedNav
