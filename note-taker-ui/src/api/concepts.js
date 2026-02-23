@@ -77,8 +77,34 @@ export const patchConceptWorkspace = async (conceptIdOrName, op, payload = {}) =
   return res.data || { conceptId: '', conceptName: '', workspace: null };
 };
 
+export const createConceptWorkspaceSection = async (conceptIdOrName, payload = {}) => {
+  const safe = encodeURIComponent(String(conceptIdOrName || '').trim());
+  const res = await api.post(`/api/concepts/${safe}/workspace/sections`, payload, getAuthHeaders());
+  return res.data || { conceptId: '', conceptName: '', section: null, workspace: null };
+};
+
+export const updateConceptWorkspaceSection = async (conceptIdOrName, sectionId, payload = {}) => {
+  const safeConcept = encodeURIComponent(String(conceptIdOrName || '').trim());
+  const safeSection = encodeURIComponent(String(sectionId || '').trim());
+  const res = await api.patch(`/api/concepts/${safeConcept}/workspace/sections/${safeSection}`, payload, getAuthHeaders());
+  return res.data || { conceptId: '', conceptName: '', section: null, workspace: null };
+};
+
+export const attachConceptWorkspaceBlock = async (conceptIdOrName, payload = {}) => {
+  const safe = encodeURIComponent(String(conceptIdOrName || '').trim());
+  const res = await api.post(`/api/concepts/${safe}/workspace/blocks/attach`, payload, getAuthHeaders());
+  return res.data || { conceptId: '', conceptName: '', block: null, workspace: null };
+};
+
+export const updateConceptWorkspaceBlock = async (conceptIdOrName, blockId, payload = {}) => {
+  const safeConcept = encodeURIComponent(String(conceptIdOrName || '').trim());
+  const safeBlock = encodeURIComponent(String(blockId || '').trim());
+  const res = await api.patch(`/api/concepts/${safeConcept}/workspace/blocks/${safeBlock}`, payload, getAuthHeaders());
+  return res.data || { conceptId: '', conceptName: '', block: null, workspace: null };
+};
+
 export const getConceptMaterial = async (conceptIdOrName) => {
   const safe = encodeURIComponent(String(conceptIdOrName || '').trim());
   const res = await api.get(`/api/concepts/${safe}/material`, getAuthHeaders());
-  return res.data || { pinnedHighlights: [], recentHighlights: [], linkedArticles: [] };
+  return res.data || { pinnedHighlights: [], recentHighlights: [], linkedArticles: [], linkedNotes: [] };
 };

@@ -1,5 +1,6 @@
 import React from 'react';
-import { SectionHeader, SurfaceCard, TagChip } from '../ui';
+import { SectionHeader, SurfaceCard, TagChip, QuietButton } from '../ui';
+import SkeletonBlock from '../SkeletonBlock';
 
 const formatRelativeTime = (value) => {
   if (!value) return '';
@@ -9,17 +10,24 @@ const formatRelativeTime = (value) => {
   const minute = 60 * 1000;
   const hour = 60 * minute;
   const day = 24 * hour;
-  if (deltaMs < hour) {
-    const mins = Math.max(1, Math.round(deltaMs / minute));
-    return `${mins}m ago`;
-  }
-  if (deltaMs < day) {
-    const hours = Math.max(1, Math.round(deltaMs / hour));
-    return `${hours}h ago`;
-  }
-  const days = Math.max(1, Math.round(deltaMs / day));
-  return `${days}d ago`;
+  if (deltaMs < hour) return `${Math.max(1, Math.round(deltaMs / minute))}m ago`;
+  if (deltaMs < day) return `${Math.max(1, Math.round(deltaMs / hour))}h ago`;
+  return `${Math.max(1, Math.round(deltaMs / day))}d ago`;
 };
+
+const HomeSkeleton = () => (
+  <div className="think-home__skeleton-grid" aria-hidden="true">
+    {Array.from({ length: 4 }).map((_, index) => (
+      <div key={`home-skeleton-${index}`} className="think-home__skeleton-card">
+        <SkeletonBlock width={`${30 + (index % 3) * 12}%`} height={12} />
+        <SkeletonBlock width="100%" height={16} />
+        <SkeletonBlock width="76%" height={12} />
+      </div>
+    ))}
+  </div>
+);
+
+const Empty = ({ text }) => <p className="muted small">{text}</p>;
 
 const ThinkHome = ({
   recentTargets = [],
@@ -29,6 +37,7 @@ const ThinkHome = ({
   recentArticles = [],
   queueLoading = false,
   articlesLoading = false,
+  loading = false,
   onOpenTarget = () => {},
   onOpenNotebook = () => {},
   onOpenConcept = () => {},
@@ -40,82 +49,88 @@ const ThinkHome = ({
 
   return (
     <div className="think-home section-stack">
-      <SurfaceCard>
-        <SectionHeader title="Continue" subtitle="Jump back into your latest thread." />
-        {!continueItem ? (
-          <p className="muted small">No recent activity yet. Open a note, concept, or question to start your trail.</p>
-        ) : (
-          <button type="button" className="think-home__continue" onClick={() => onOpenTarget(continueItem)}>
-            <div>
-              <p className="think-home__kicker">{continueItem.type}</p>
-              <h3>{continueItem.title || 'Untitled'}</h3>
-            </div>
+      <div className="think-home__hero">
+        <h2>Welcome back</h2>
+        <p>Continue where you left off, then decide what to revisit or connect next.</p>
+      </div>
+
+      <SurfaceCard className="think-home__continue">
+        <SectionHeader title="Continue" subtitle="Resume your latest active thread." />
+        {continueItem ? (
+          <button type="button" className="think-home__row" onClick={() => onOpenTarget(continueItem)}>
+            <span>{continueItem.title || 'Untitled'}</span>
             <span className="muted small">{formatRelativeTime(continueItem.openedAt)}</span>
           </button>
+        ) : (
+          <Empty text="No recent activity yet." />
         )}
       </SurfaceCard>
 
-      <SurfaceCard>
-        <SectionHeader title="Working set" subtitle="Recent notes, active concepts, open questions." />
-        <div className="think-home__working-grid">
-          <div>
-            <p className="think-home__column-title">Notebook</p>
-            <div className="think-home__list">
-              {workingSet.notebooks.length === 0 ? (
-                <p className="muted small">No notes yet.</p>
-              ) : (
-                workingSet.notebooks.map(item => (
-                  <button key={item._id} type="button" className="think-home__row" onClick={() => onOpenNotebook(item._id)}>
-                    <span>{item.title || 'Untitled note'}</span>
-                    <span className="muted small">{formatRelativeTime(item.updatedAt || item.createdAt)}</span>
-                  </button>
-                ))
-              )}
+      <SurfaceCard className="think-home__panel">
+        <SectionHeader title="Working set" subtitle="Recent notes, active concepts, and open questions." />
+        {loading ? (
+          <HomeSkeleton />
+        ) : (
+          <div className="think-home__working-grid">
+            <div>
+              <p className="think-home__column-title">Notebook</p>
+              <div className="think-home__list">
+                {workingSet.notebooks.length === 0 ? (
+                  <Empty text="No notes yet." />
+                ) : (
+                  workingSet.notebooks.map((item) => (
+                    <button key={item._id} type="button" className="think-home__row" onClick={() => onOpenNotebook(item._id)}>
+                      <span>{item.title || 'Untitled note'}</span>
+                      <span className="muted small">{formatRelativeTime(item.updatedAt || item.createdAt)}</span>
+                    </button>
+                  ))
+                )}
+              </div>
+            </div>
+            <div>
+              <p className="think-home__column-title">Concepts</p>
+              <div className="think-home__list">
+                {workingSet.concepts.length === 0 ? (
+                  <Empty text="No concepts yet." />
+                ) : (
+                  workingSet.concepts.map((item) => (
+                    <button key={item.name} type="button" className="think-home__row" onClick={() => onOpenConcept(item.name)}>
+                      <span>{item.name}</span>
+                      <span className="muted small">{item.count || 0} highlights</span>
+                    </button>
+                  ))
+                )}
+              </div>
+            </div>
+            <div>
+              <p className="think-home__column-title">Questions</p>
+              <div className="think-home__list">
+                {workingSet.questions.length === 0 ? (
+                  <Empty text="No open questions." />
+                ) : (
+                  workingSet.questions.map((item) => (
+                    <button key={item._id} type="button" className="think-home__row" onClick={() => onOpenQuestion(item._id)}>
+                      <span>{item.text || 'Untitled question'}</span>
+                      <span className="muted small">{item.linkedTagName || 'Unscoped'}</span>
+                    </button>
+                  ))
+                )}
+              </div>
             </div>
           </div>
-          <div>
-            <p className="think-home__column-title">Concepts</p>
-            <div className="think-home__list">
-              {workingSet.concepts.length === 0 ? (
-                <p className="muted small">No concepts yet.</p>
-              ) : (
-                workingSet.concepts.map(item => (
-                  <button key={item.name} type="button" className="think-home__row" onClick={() => onOpenConcept(item.name)}>
-                    <span>{item.name}</span>
-                    <span className="muted small">{item.count || 0} highlights</span>
-                  </button>
-                ))
-              )}
-            </div>
-          </div>
-          <div>
-            <p className="think-home__column-title">Questions</p>
-            <div className="think-home__list">
-              {workingSet.questions.length === 0 ? (
-                <p className="muted small">No open questions.</p>
-              ) : (
-                workingSet.questions.map(item => (
-                  <button key={item._id} type="button" className="think-home__row" onClick={() => onOpenQuestion(item._id)}>
-                    <span>{item.text || 'Untitled question'}</span>
-                    <span className="muted small">{item.linkedTagName || 'Unscoped'}</span>
-                  </button>
-                ))
-              )}
-            </div>
-          </div>
-        </div>
+        )}
       </SurfaceCard>
 
       <div className="think-home__split-grid">
-        <SurfaceCard>
+        <SurfaceCard className="think-home__panel">
           <SectionHeader title="Return queue" subtitle="Items due for re-encounter." />
           <div className="think-home__list">
             {queueLoading ? (
-              <p className="muted small">Loading return queue...</p>
+              <HomeSkeleton />
             ) : returnQueue.length === 0 ? (
-              <p className="muted small">No return queue items.</p>
+              <Empty text="No return queue items." />
             ) : (
-              returnQueue.map(entry => (
+              returnQueue.map((entry) => (
                 <button key={entry._id} type="button" className="think-home__row" onClick={() => onOpenReturnQueueItem(entry)}>
                   <span>{entry.item?.title || `${entry.itemType} item`}</span>
                   <span className="muted small">{entry.reason || entry.itemType}</span>
@@ -125,31 +140,38 @@ const ThinkHome = ({
           </div>
         </SurfaceCard>
 
-        <SurfaceCard>
-          <SectionHeader title="Recent material" subtitle="Fresh highlights and source articles." />
+        <SurfaceCard className="think-home__panel">
+          <SectionHeader title="Recent material" subtitle="Highlights and source articles in motion." />
           <div className="think-home__material-block">
             <p className="think-home__column-title">Highlights</p>
-            <div className="think-home__chips">
+            <div className="think-home__list">
               {recentHighlights.length === 0 ? (
-                <p className="muted small">No highlights yet.</p>
+                <Empty text="No highlights yet." />
               ) : (
-                recentHighlights.map(item => (
-                  <TagChip key={item._id} to={item.articleId ? `/articles/${item.articleId}` : '/library?scope=highlights'}>
-                    {(item.articleTitle || item.text || 'Highlight').slice(0, 46)}
-                  </TagChip>
+                recentHighlights.slice(0, 6).map((item) => (
+                  <div key={item._id} className="think-home__material-card">
+                    <div className="think-home__material-title">{item.articleTitle || 'Highlight'}</div>
+                    <div className="think-home__material-snippet">{(item.text || '').slice(0, 140)}</div>
+                    <div>
+                      <TagChip to={item.articleId ? `/articles/${item.articleId}` : '/library?scope=highlights'}>
+                        Open source
+                      </TagChip>
+                    </div>
+                  </div>
                 ))
               )}
             </div>
           </div>
+
           <div className="think-home__material-block">
             <p className="think-home__column-title">Articles</p>
             <div className="think-home__list">
               {articlesLoading ? (
-                <p className="muted small">Loading articles...</p>
+                <HomeSkeleton />
               ) : recentArticles.length === 0 ? (
-                <p className="muted small">No recent articles.</p>
+                <Empty text="No recent articles." />
               ) : (
-                recentArticles.map(item => (
+                recentArticles.map((item) => (
                   <button key={item._id} type="button" className="think-home__row" onClick={() => onOpenArticle(item._id)}>
                     <span>{item.title || 'Untitled article'}</span>
                     <span className="muted small">{formatRelativeTime(item.createdAt)}</span>
@@ -157,6 +179,9 @@ const ThinkHome = ({
                 ))
               )}
             </div>
+          </div>
+          <div className="think-home__footer-actions">
+            <QuietButton onClick={() => window.location.href = '/library?scope=highlights'}>Open Library</QuietButton>
           </div>
         </SurfaceCard>
       </div>

@@ -12,7 +12,9 @@ const RELATION_TYPES = [
   { value: 'supports', label: 'Supports' },
   { value: 'contradicts', label: 'Contradicts' },
   { value: 'extends', label: 'Extends' },
-  { value: 'related', label: 'Related' }
+  { value: 'related', label: 'Related' },
+  { value: 'example', label: 'Example' },
+  { value: 'definition', label: 'Definition' }
 ];
 const ITEM_FILTERS = [
   { value: 'all', label: 'All' },

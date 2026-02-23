@@ -95,3 +95,24 @@ Patch operations:
 
 - `addGroup`, `updateGroup`, `deleteGroup`
 - `addItem`, `moveItem`, `updateItem`, `deleteItem`
+
+## Design system & layout rules
+
+The UI shell now uses a shared token-driven layer designed for Think-first navigation:
+
+- `Think` is the post-login landing route (`/think?tab=home`).
+- Global chrome is composed from reusable primitives:
+  - `AppShell` (`note-taker-ui/src/layout/AppShell.jsx`)
+  - `LeftNav` (`note-taker-ui/src/layout/LeftNav.jsx`)
+  - `TopBar` (`note-taker-ui/src/layout/TopBar.jsx`)
+  - `RightDrawer` (`note-taker-ui/src/layout/RightDrawer.jsx`)
+  - `SurfaceCard`, `PillButton`, `Chip` (`note-taker-ui/src/components/ui.js`)
+  - `SkeletonBlock` (`note-taker-ui/src/components/SkeletonBlock.jsx`)
+- Think Home + Concept workspace/materials follow a document-first visual hierarchy (not board/kanban).
+- Right column context/working-memory is user-collapsible and persists per route via localStorage keys.
+
+### Where to tweak tokens
+
+- Primary UI token overrides: `note-taker-ui/src/styles/dashboard-refresh.css`
+- Existing base theme variables/components: `note-taker-ui/src/styles/theme.css`
+- Base spacing/type aliases: `note-taker-ui/src/styles/tokens.css`

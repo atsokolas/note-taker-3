@@ -1716,6 +1716,7 @@ const ThinkMode = () => {
     concepts: concepts.slice(0, THINK_HOME_LIMIT),
     questions: allQuestions.filter(item => item.status !== 'answered').slice(0, THINK_HOME_LIMIT)
   }), [allQuestions, concepts, notebookEntries]);
+  const showLegacyConceptCollections = false;
 
   const openNotebookEntry = useCallback((entryId) => {
     if (!entryId) return;
@@ -1729,6 +1730,7 @@ const ThinkMode = () => {
       returnQueue={homeReturnQueue}
       recentHighlights={homeHighlights}
       recentArticles={homeArticles}
+      loading={conceptsLoading || notebookLoadingList || allQuestionsLoading}
       queueLoading={homeQueueLoading}
       articlesLoading={homeArticlesLoading}
       onOpenTarget={handleOpenHomeTarget}
@@ -1854,10 +1856,12 @@ const ThinkMode = () => {
             <Button variant="secondary" onClick={handleExportConcept}>
               Export markdown
             </Button>
+            <Button variant="secondary" onClick={handleToggleSharing} disabled={shareWorking}>
+              {shareWorking ? 'Saving…' : (concept.isPublic ? 'Unshare' : 'Share')}
+            </Button>
             <ConnectionBuilder itemType="concept" itemId={concept._id} itemTitle={concept.name} />
           </div>
 
-          <SectionHeader title="Workspace" subtitle="Move material around and connect ideas." />
           <ConceptNotebook concept={concept} />
 
           <SectionHeader title="Sharing" subtitle="Publish a read-only concept page." />
@@ -1874,209 +1878,213 @@ const ThinkMode = () => {
           {shareStatus && <p className="status-message">{shareStatus}</p>}
           {shareError && <p className="status-message error-message">{shareError}</p>}
 
-          <SectionHeader title="Pinned Highlights" subtitle="Anchor ideas." />
-          <div style={{ display: 'flex', gap: 8 }}>
-            <Button variant="secondary" onClick={() => setAddModal({ open: true, mode: 'highlight' })}>
-              Add Highlights
-            </Button>
-          </div>
-          {pinnedHighlights.length === 0 && <p className="muted small">No pinned highlights yet.</p>}
-          <div className="concept-highlight-grid">
-            {pinnedHighlights.map(h => (
-              <div key={h._id} className="concept-highlight-card">
-                <HighlightCard
-                  highlight={h}
-                  compact
-                  organizable
-                  connectionScopeType={connectionScope.scopeType}
-                  connectionScopeId={connectionScope.scopeId}
-                  forceExpandedState={cardsExpanded}
-                  forceExpandedVersion={cardsExpandVersion}
-                  onDumpToWorkingMemory={(item) => handleDumpToWorkingMemory(item?.text || '')}
-                  onAddNotebook={(item) => setHighlightNotebookModal({ open: true, highlight: item })}
-                  onAddConcept={(item) => setHighlightConceptModal({ open: true, highlight: item })}
-                  onAddQuestion={(item) => setHighlightQuestionModal({ open: true, highlight: item })}
-                />
-                <QuietButton onClick={() => togglePinHighlight(h._id)}>Unpin</QuietButton>
+          {showLegacyConceptCollections && (
+            <>
+              <SectionHeader title="Pinned Highlights" subtitle="Anchor ideas." />
+              <div style={{ display: 'flex', gap: 8 }}>
+                <Button variant="secondary" onClick={() => setAddModal({ open: true, mode: 'highlight' })}>
+                  Add Highlights
+                </Button>
               </div>
-            ))}
-          </div>
-
-          <SectionHeader title="Suggested highlights" subtitle="AI recommendations you can approve." />
-          {conceptSuggestionsLoading && <p className="muted small">Finding suggestions…</p>}
-          {conceptSuggestionsError && <p className="status-message error-message">{conceptSuggestionsError}</p>}
-          {!conceptSuggestionsLoading && !conceptSuggestionsError && (
-            <div className="concept-highlight-grid">
-              {conceptSuggestions.length === 0 ? (
-                <p className="muted small">No suggestions yet.</p>
-              ) : (
-                conceptSuggestions.slice(0, 8).map(item => (
-                  <div key={item.objectId} className="concept-highlight-card">
+              {pinnedHighlights.length === 0 && <p className="muted small">No pinned highlights yet.</p>}
+              <div className="concept-highlight-grid">
+                {pinnedHighlights.map(h => (
+                  <div key={h._id} className="concept-highlight-card">
                     <HighlightCard
-                      highlight={{
-                        _id: item.objectId,
-                        text: item.title,
-                        tags: item.metadata?.tags || [],
-                        articleId: item.metadata?.articleId,
-                        articleTitle: item.metadata?.articleTitle || '',
-                        createdAt: item.metadata?.createdAt
-                      }}
+                      highlight={h}
                       compact
                       organizable
                       connectionScopeType={connectionScope.scopeType}
                       connectionScopeId={connectionScope.scopeId}
                       forceExpandedState={cardsExpanded}
                       forceExpandedVersion={cardsExpandVersion}
-                      onDumpToWorkingMemory={(highlight) => handleDumpToWorkingMemory(highlight?.text || '')}
-                      onAddNotebook={(highlight) => setHighlightNotebookModal({ open: true, highlight })}
-                      onAddConcept={(highlight) => setHighlightConceptModal({ open: true, highlight })}
-                      onAddQuestion={(highlight) => setHighlightQuestionModal({ open: true, highlight })}
+                      onDumpToWorkingMemory={(item) => handleDumpToWorkingMemory(item?.text || '')}
+                      onAddNotebook={(item) => setHighlightNotebookModal({ open: true, highlight: item })}
+                      onAddConcept={(item) => setHighlightConceptModal({ open: true, highlight: item })}
+                      onAddQuestion={(item) => setHighlightQuestionModal({ open: true, highlight: item })}
                     />
-                    <div className="concept-suggestion-actions">
-                      <QuietButton onClick={() => handleAddRelatedHighlight(item.objectId)}>Add to concept</QuietButton>
-                      <QuietButton onClick={() => handleDismissSuggestion(item.objectId)}>Dismiss</QuietButton>
-                    </div>
+                    <QuietButton onClick={() => togglePinHighlight(h._id)}>Unpin</QuietButton>
                   </div>
-                ))
-              )}
-            </div>
-          )}
-
-          <SectionHeader title="Recent Highlights" subtitle="Newest signals." />
-          <div className="concept-highlight-grid">
-            {recentHighlights.map(h => (
-              <div key={h._id} className="concept-highlight-card">
-                <HighlightCard
-                  highlight={h}
-                  compact
-                  organizable
-                  connectionScopeType={connectionScope.scopeType}
-                  connectionScopeId={connectionScope.scopeId}
-                  forceExpandedState={cardsExpanded}
-                  forceExpandedVersion={cardsExpandVersion}
-                  onDumpToWorkingMemory={(item) => handleDumpToWorkingMemory(item?.text || '')}
-                  onAddNotebook={(item) => setHighlightNotebookModal({ open: true, highlight: item })}
-                  onAddConcept={(item) => setHighlightConceptModal({ open: true, highlight: item })}
-                  onAddQuestion={(item) => setHighlightQuestionModal({ open: true, highlight: item })}
-                />
-                <QuietButton onClick={() => togglePinHighlight(h._id)}>
-                  {pinnedHighlightIds.some(id => String(id) === String(h._id)) ? 'Unpin' : 'Pin'}
-                </QuietButton>
+                ))}
               </div>
-            ))}
-            {!relatedLoading && recentHighlights.length === 0 && (
-              <p className="muted small">No highlights yet for this concept.</p>
-            )}
-          </div>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <Button variant="secondary" onClick={loadMoreHighlights} disabled={loadingMore || relatedLoading}>
-              {loadingMore ? 'Loading…' : 'Load more'}
-            </Button>
-          </div>
 
-          <SectionHeader title="Notes referencing this concept" subtitle="Embedded fragments." />
-          {related.notes.length === 0 && !relatedLoading && (
-            <p className="muted small">No linked notes yet.</p>
-          )}
-          <div className="concept-note-grid">
-            {related.notes.map((note, idx) => (
-              <NoteCard
-                key={`${note.notebookEntryId}-${idx}`}
-                id={note.notebookEntryId}
-                title={note.notebookTitle || 'Untitled note'}
-                bodyText={note.blockPreviewText || 'No preview available.'}
-                type="note"
-                tags={note.tags || []}
-                timestamp={note.updatedAt}
-                connectionScopeType={connectionScope.scopeType}
-                connectionScopeId={connectionScope.scopeId}
-                forceExpandedState={cardsExpanded}
-                forceExpandedVersion={cardsExpandVersion}
-                onOrganize={() => openNotebookEntry(note.notebookEntryId)}
-                onDumpToWorkingMemory={() => handleDumpToWorkingMemory(note.blockPreviewText || note.notebookTitle || 'Note')}
-              >
-                <QuietButton onClick={() => togglePinNote(note.notebookEntryId)}>
-                  {(concept.pinnedNoteIds || []).some(id => String(id) === String(note.notebookEntryId))
-                    ? 'Unpin'
-                    : 'Pin'}
-                </QuietButton>
-                <QuietButton onClick={() => openNotebookEntry(note.notebookEntryId)}>
-                  Open note
-                </QuietButton>
-              </NoteCard>
-            ))}
-            {pinnedNotes.map(note => (
-              <NoteCard
-                key={note._id}
-                id={note._id}
-                title={note.title || 'Untitled note'}
-                bodyText={note.content || ''}
-                type={note.type || 'note'}
-                tags={note.tags || []}
-                timestamp={note.updatedAt || note.createdAt}
-                connectionScopeType={connectionScope.scopeType}
-                connectionScopeId={connectionScope.scopeId}
-                forceExpandedState={cardsExpanded}
-                forceExpandedVersion={cardsExpandVersion}
-                onOrganize={() => openNotebookEntry(note._id)}
-                onDumpToWorkingMemory={() => handleDumpToWorkingMemory(note.content || note.title || 'Note')}
-              >
-                <QuietButton onClick={() => togglePinNote(note._id)}>Unpin</QuietButton>
-                <QuietButton onClick={() => openNotebookEntry(note._id)}>
-                  Open note
-                </QuietButton>
-              </NoteCard>
-            ))}
-          </div>
+              <SectionHeader title="Suggested highlights" subtitle="AI recommendations you can approve." />
+              {conceptSuggestionsLoading && <p className="muted small">Finding suggestions…</p>}
+              {conceptSuggestionsError && <p className="status-message error-message">{conceptSuggestionsError}</p>}
+              {!conceptSuggestionsLoading && !conceptSuggestionsError && (
+                <div className="concept-highlight-grid">
+                  {conceptSuggestions.length === 0 ? (
+                    <p className="muted small">No suggestions yet.</p>
+                  ) : (
+                    conceptSuggestions.slice(0, 8).map(item => (
+                      <div key={item.objectId} className="concept-highlight-card">
+                        <HighlightCard
+                          highlight={{
+                            _id: item.objectId,
+                            text: item.title,
+                            tags: item.metadata?.tags || [],
+                            articleId: item.metadata?.articleId,
+                            articleTitle: item.metadata?.articleTitle || '',
+                            createdAt: item.metadata?.createdAt
+                          }}
+                          compact
+                          organizable
+                          connectionScopeType={connectionScope.scopeType}
+                          connectionScopeId={connectionScope.scopeId}
+                          forceExpandedState={cardsExpanded}
+                          forceExpandedVersion={cardsExpandVersion}
+                          onDumpToWorkingMemory={(highlight) => handleDumpToWorkingMemory(highlight?.text || '')}
+                          onAddNotebook={(highlight) => setHighlightNotebookModal({ open: true, highlight })}
+                          onAddConcept={(highlight) => setHighlightConceptModal({ open: true, highlight })}
+                          onAddQuestion={(highlight) => setHighlightQuestionModal({ open: true, highlight })}
+                        />
+                        <div className="concept-suggestion-actions">
+                          <QuietButton onClick={() => handleAddRelatedHighlight(item.objectId)}>Add to concept</QuietButton>
+                          <QuietButton onClick={() => handleDismissSuggestion(item.objectId)}>Dismiss</QuietButton>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
 
-          <SectionHeader title="Source articles" subtitle="Where the highlights live." />
-          <div style={{ display: 'flex', gap: 8 }}>
-            <Button variant="secondary" onClick={() => setAddModal({ open: true, mode: 'article' })}>
-              Add Articles
-            </Button>
-          </div>
-          {pinnedArticles.length > 0 && (
-            <div className="concept-source-list">
-              {pinnedArticles.map(article => (
-                <ArticleCard
-                  key={article._id}
-                  article={article}
-                  connectionScopeType={connectionScope.scopeType}
-                  connectionScopeId={connectionScope.scopeId}
-                  forceExpandedState={cardsExpanded}
-                  forceExpandedVersion={cardsExpandVersion}
-                >
-                  <QuietButton onClick={() => togglePinArticle(article._id)}>Unpin</QuietButton>
-                </ArticleCard>
-              ))}
-            </div>
-          )}
-          {related.articles.length === 0 && !relatedLoading && (
-            <p className="muted small">No source articles yet.</p>
-          )}
-          <div className="concept-source-list">
-            {related.articles.map(article => (
-              <ArticleCard
-                key={article._id}
-                article={article}
-                connectionScopeType={connectionScope.scopeType}
-                connectionScopeId={connectionScope.scopeId}
-                forceExpandedState={cardsExpanded}
-                forceExpandedVersion={cardsExpandVersion}
-              >
-                <QuietButton onClick={() => togglePinArticle(article._id)}>
-                  {pinnedArticleIds.some(id => String(id) === String(article._id)) ? 'Unpin' : 'Pin'}
-                </QuietButton>
-              </ArticleCard>
-            ))}
-          </div>
-          <SectionHeader title="Questions" subtitle="Open loops tied to this concept." />
-          {questionsError && <p className="status-message error-message">{questionsError}</p>}
-          {questionsLoading && <p className="muted small">Loading questions…</p>}
-          {!questionsLoading && (
-            <>
-              <QuestionInput onSubmit={handleAddQuestion} />
-              <QuestionList questions={conceptQuestions} onMarkAnswered={handleMarkAnswered} />
+              <SectionHeader title="Recent Highlights" subtitle="Newest signals." />
+              <div className="concept-highlight-grid">
+                {recentHighlights.map(h => (
+                  <div key={h._id} className="concept-highlight-card">
+                    <HighlightCard
+                      highlight={h}
+                      compact
+                      organizable
+                      connectionScopeType={connectionScope.scopeType}
+                      connectionScopeId={connectionScope.scopeId}
+                      forceExpandedState={cardsExpanded}
+                      forceExpandedVersion={cardsExpandVersion}
+                      onDumpToWorkingMemory={(item) => handleDumpToWorkingMemory(item?.text || '')}
+                      onAddNotebook={(item) => setHighlightNotebookModal({ open: true, highlight: item })}
+                      onAddConcept={(item) => setHighlightConceptModal({ open: true, highlight: item })}
+                      onAddQuestion={(item) => setHighlightQuestionModal({ open: true, highlight: item })}
+                    />
+                    <QuietButton onClick={() => togglePinHighlight(h._id)}>
+                      {pinnedHighlightIds.some(id => String(id) === String(h._id)) ? 'Unpin' : 'Pin'}
+                    </QuietButton>
+                  </div>
+                ))}
+                {!relatedLoading && recentHighlights.length === 0 && (
+                  <p className="muted small">No highlights yet for this concept.</p>
+                )}
+              </div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <Button variant="secondary" onClick={loadMoreHighlights} disabled={loadingMore || relatedLoading}>
+                  {loadingMore ? 'Loading…' : 'Load more'}
+                </Button>
+              </div>
+
+              <SectionHeader title="Notes referencing this concept" subtitle="Embedded fragments." />
+              {related.notes.length === 0 && !relatedLoading && (
+                <p className="muted small">No linked notes yet.</p>
+              )}
+              <div className="concept-note-grid">
+                {related.notes.map((note, idx) => (
+                  <NoteCard
+                    key={`${note.notebookEntryId}-${idx}`}
+                    id={note.notebookEntryId}
+                    title={note.notebookTitle || 'Untitled note'}
+                    bodyText={note.blockPreviewText || 'No preview available.'}
+                    type="note"
+                    tags={note.tags || []}
+                    timestamp={note.updatedAt}
+                    connectionScopeType={connectionScope.scopeType}
+                    connectionScopeId={connectionScope.scopeId}
+                    forceExpandedState={cardsExpanded}
+                    forceExpandedVersion={cardsExpandVersion}
+                    onOrganize={() => openNotebookEntry(note.notebookEntryId)}
+                    onDumpToWorkingMemory={() => handleDumpToWorkingMemory(note.blockPreviewText || note.notebookTitle || 'Note')}
+                  >
+                    <QuietButton onClick={() => togglePinNote(note.notebookEntryId)}>
+                      {(concept.pinnedNoteIds || []).some(id => String(id) === String(note.notebookEntryId))
+                        ? 'Unpin'
+                        : 'Pin'}
+                    </QuietButton>
+                    <QuietButton onClick={() => openNotebookEntry(note.notebookEntryId)}>
+                      Open note
+                    </QuietButton>
+                  </NoteCard>
+                ))}
+                {pinnedNotes.map(note => (
+                  <NoteCard
+                    key={note._id}
+                    id={note._id}
+                    title={note.title || 'Untitled note'}
+                    bodyText={note.content || ''}
+                    type={note.type || 'note'}
+                    tags={note.tags || []}
+                    timestamp={note.updatedAt || note.createdAt}
+                    connectionScopeType={connectionScope.scopeType}
+                    connectionScopeId={connectionScope.scopeId}
+                    forceExpandedState={cardsExpanded}
+                    forceExpandedVersion={cardsExpandVersion}
+                    onOrganize={() => openNotebookEntry(note._id)}
+                    onDumpToWorkingMemory={() => handleDumpToWorkingMemory(note.content || note.title || 'Note')}
+                  >
+                    <QuietButton onClick={() => togglePinNote(note._id)}>Unpin</QuietButton>
+                    <QuietButton onClick={() => openNotebookEntry(note._id)}>
+                      Open note
+                    </QuietButton>
+                  </NoteCard>
+                ))}
+              </div>
+
+              <SectionHeader title="Source articles" subtitle="Where the highlights live." />
+              <div style={{ display: 'flex', gap: 8 }}>
+                <Button variant="secondary" onClick={() => setAddModal({ open: true, mode: 'article' })}>
+                  Add Articles
+                </Button>
+              </div>
+              {pinnedArticles.length > 0 && (
+                <div className="concept-source-list">
+                  {pinnedArticles.map(article => (
+                    <ArticleCard
+                      key={article._id}
+                      article={article}
+                      connectionScopeType={connectionScope.scopeType}
+                      connectionScopeId={connectionScope.scopeId}
+                      forceExpandedState={cardsExpanded}
+                      forceExpandedVersion={cardsExpandVersion}
+                    >
+                      <QuietButton onClick={() => togglePinArticle(article._id)}>Unpin</QuietButton>
+                    </ArticleCard>
+                  ))}
+                </div>
+              )}
+              {related.articles.length === 0 && !relatedLoading && (
+                <p className="muted small">No source articles yet.</p>
+              )}
+              <div className="concept-source-list">
+                {related.articles.map(article => (
+                  <ArticleCard
+                    key={article._id}
+                    article={article}
+                    connectionScopeType={connectionScope.scopeType}
+                    connectionScopeId={connectionScope.scopeId}
+                    forceExpandedState={cardsExpanded}
+                    forceExpandedVersion={cardsExpandVersion}
+                  >
+                    <QuietButton onClick={() => togglePinArticle(article._id)}>
+                      {pinnedArticleIds.some(id => String(id) === String(article._id)) ? 'Unpin' : 'Pin'}
+                    </QuietButton>
+                  </ArticleCard>
+                ))}
+              </div>
+              <SectionHeader title="Questions" subtitle="Open loops tied to this concept." />
+              {questionsError && <p className="status-message error-message">{questionsError}</p>}
+              {questionsLoading && <p className="muted small">Loading questions…</p>}
+              {!questionsLoading && (
+                <>
+                  <QuestionInput onSubmit={handleAddQuestion} />
+                  <QuestionList questions={conceptQuestions} onMarkAnswered={handleMarkAnswered} />
+                </>
+              )}
             </>
           )}
         </>

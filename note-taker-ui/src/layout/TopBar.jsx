@@ -1,51 +1,43 @@
 import React, { useState } from 'react';
-import { NavLink, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 
-const TopBar = ({ navItems = [], rightSlot, theme = 'light', onThemeChange = () => {} }) => {
+const TopBar = ({ rightSlot, theme = 'light', onThemeChange = () => {} }) => {
   const navigate = useNavigate();
   const [query, setQuery] = useState('');
 
-  const handleKeyDown = (event) => {
-    if (event.key !== 'Enter') return;
-    const q = query.trim();
-    if (!q) return;
-    navigate(`/search?mode=keyword&q=${encodeURIComponent(q)}`);
+  const handleSearch = () => {
+    const value = query.trim();
+    if (!value) return;
+    navigate(`/search?mode=keyword&q=${encodeURIComponent(value)}`);
   };
 
   return (
     <header className="topbar">
-      <div className="topbar__brand">Note Taker</div>
-      <nav className="topbar__nav">
-        {navItems.map(item => (
-          <NavLink
-            key={item.to}
-            to={item.to}
-            className={({ isActive }) => `topbar__link ${isActive ? 'is-active' : ''}`}
-          >
-            {item.label}
-          </NavLink>
-        ))}
-      </nav>
+      <div className="topbar__left">
+        <div className="topbar__search-wrap">
+          <span className="topbar__search-icon" aria-hidden="true">⌕</span>
+          <input
+            type="text"
+            className="topbar__search"
+            placeholder="Search notes and highlights..."
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') handleSearch();
+            }}
+          />
+        </div>
+      </div>
       <div className="topbar__right">
-        <input
-          type="text"
-          className="topbar__search"
-          placeholder="Search notes and highlights…"
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-          onKeyDown={handleKeyDown}
-        />
-        <label className="topbar__theme-control" aria-label="Theme">
-          <span>Theme</span>
-          <select
-            className="topbar__theme-select"
-            value={theme}
-            onChange={(event) => onThemeChange(event.target.value)}
-          >
-            <option value="light">Light</option>
-            <option value="dark">Dark</option>
-          </select>
-        </label>
+        <button
+          type="button"
+          className="topbar__button topbar__theme-pill"
+          onClick={() => onThemeChange(theme === 'dark' ? 'light' : 'dark')}
+          aria-label="Toggle theme"
+          title="Toggle theme"
+        >
+          {theme === 'dark' ? 'Light' : 'Dark'}
+        </button>
         {rightSlot}
       </div>
     </header>

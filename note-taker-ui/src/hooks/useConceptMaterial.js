@@ -4,7 +4,8 @@ import { getConceptMaterial } from '../api/concepts';
 const EMPTY_MATERIAL = {
   pinnedHighlights: [],
   recentHighlights: [],
-  linkedArticles: []
+  linkedArticles: [],
+  linkedNotes: []
 };
 
 const useConceptMaterial = (conceptId, options = {}) => {
@@ -22,7 +23,8 @@ const useConceptMaterial = (conceptId, options = {}) => {
       setMaterial({
         pinnedHighlights: Array.isArray(data?.pinnedHighlights) ? data.pinnedHighlights : [],
         recentHighlights: Array.isArray(data?.recentHighlights) ? data.recentHighlights : [],
-        linkedArticles: Array.isArray(data?.linkedArticles) ? data.linkedArticles : []
+        linkedArticles: Array.isArray(data?.linkedArticles) ? data.linkedArticles : [],
+        linkedNotes: Array.isArray(data?.linkedNotes) ? data.linkedNotes : []
       });
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to load concept material.');

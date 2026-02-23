@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import LeftRail from './LeftRail';
 import MainSurface from './MainSurface';
-import RightContextPanel from './RightContextPanel';
+import RightDrawer from './RightDrawer';
 
 const ThreePaneLayout = ({
   left,
@@ -74,13 +74,13 @@ const ThreePaneLayout = ({
       >
         {main}
       </MainSurface>
-      <RightContextPanel
+      <RightDrawer
         title={rightTitle}
         open={hasRight && effectiveRightOpen}
-        onToggle={() => handleToggleRight(false)}
+        onToggle={handleToggleRight}
       >
         {right}
-      </RightContextPanel>
+      </RightDrawer>
     </div>
   );
 };

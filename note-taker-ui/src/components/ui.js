@@ -21,6 +21,12 @@ export const Button = ({ children, variant = 'primary', className, ...rest }) =>
   </button>
 );
 
+export const PillButton = ({ children, variant = 'secondary', className, ...rest }) => (
+  <button className={cx('ui-button', `ui-button-${variant}`, 'ui-pill-button', className)} {...rest}>
+    {children}
+  </button>
+);
+
 export const TagChip = ({ children, className, onClick, to }) => {
   if (to) {
     return (
@@ -58,8 +64,10 @@ export const SubtleDivider = ({ className }) => (
   <hr className={cx('ui-subtle-divider', className)} />
 );
 
-export const Chip = ({ children, className }) => (
-  <span className={cx('ui-chip', className)}>{children}</span>
+export const Chip = ({ children, className, onClick }) => (
+  <span className={cx('ui-chip', className, onClick && 'is-clickable')} onClick={onClick}>
+    {children}
+  </span>
 );
 
 export const QuietButton = ({ children, className, ...rest }) => (
@@ -97,6 +105,7 @@ const ui = {
   Card,
   SurfaceCard,
   Button,
+  PillButton,
   TagChip,
   PageTitle,
   SectionHeader,
@@ -106,4 +115,5 @@ const ui = {
   PanelHeader,
   SegmentedNav
 };
+
 export default ui;

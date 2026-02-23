@@ -41,11 +41,13 @@ import { Page, Card } from './components/ui';
 import AppShell from './layout/AppShell';
 import TopBar from './layout/TopBar';
 import ThreePaneLayout from './layout/ThreePaneLayout';
+import LeftNav from './layout/LeftNav';
 import './styles/theme.css';
 import './styles/tokens.css';
 import './styles/global.css';
 import './App.css';
 import './styles/reading-layout.css';
+import './styles/dashboard-refresh.css';
 
 const LegacyConceptRedirect = () => {
   const { tagName, tag } = useParams();
@@ -192,13 +194,13 @@ function App() {
   }, []);
 
   const navItems = [
-    { label: 'Today', to: '/today' },
-    { label: 'Library', to: '/library' },
     { label: 'Think', to: '/think' },
+    { label: 'Library', to: '/library' },
     { label: 'Map', to: '/map' },
     { label: 'Return Queue', to: '/return-queue' },
     { label: 'Review', to: '/review' },
     { label: 'Settings', to: '/settings' },
+    { label: 'Today', to: '/today' },
     { label: 'How To Use', to: '/how-to-use' }
   ];
 
@@ -233,7 +235,7 @@ function App() {
         <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
         <OnboardingManager />
         <Routes>
-          <Route path="/" element={hasSeenLanding ? <Navigate to="/today" replace /> : <Landing />} />
+          <Route path="/" element={hasSeenLanding ? <Navigate to="/think?tab=home" replace /> : <Landing />} />
           <Route path="/today" element={<TodayMode />} />
           <Route path="/library" element={<Library />} />
           <Route path="/think" element={<ThinkMode />} />
@@ -283,16 +285,18 @@ function App() {
 
     return (
       <AppShell
+        leftNav={<LeftNav items={navItems} />}
         topBar={(
           <TopBar
-            navItems={navItems}
             theme={uiSettings.theme}
             onThemeChange={(nextTheme) => handleUiSettingsChange({ theme: nextTheme })}
             rightSlot={(
               <>
-                <a href="/how-to-use" className="topbar__button" title="How To Use">How To Use</a>
                 <a href={chromeStoreLink} target="_blank" rel="noopener noreferrer" className="topbar__button">
                   Get the Extension
+                </a>
+                <a href="/settings" className="topbar__button" title="Profile and settings">
+                  Profile
                 </a>
                 <button className="topbar__button" onClick={handleLogout}>Logout</button>
               </>

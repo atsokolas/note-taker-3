@@ -5,6 +5,7 @@ const DEFAULT_GROUP_TITLE = 'Workspace';
 const WORKSPACE_ITEM_TYPES = new Set(['highlight', 'article', 'note', 'question']);
 const WORKSPACE_ITEM_STAGES = new Set(['inbox', 'working', 'claim', 'evidence']);
 const WORKSPACE_ITEM_STATUSES = new Set(['active', 'archived']);
+const WORKSPACE_CONNECTION_TYPES = new Set(['supports', 'contradicts', 'related']);
 
 const makeId = () => (
   typeof crypto.randomUUID === 'function'
@@ -25,6 +26,11 @@ const toSafeStatus = (value, fallback = 'active') => {
   const status = toSafeString(value).toLowerCase();
   return WORKSPACE_ITEM_STATUSES.has(status) ? status : fallback;
 };
+const toSafeConnectionType = (value, fallback = 'related') => {
+  const type = toSafeString(value).toLowerCase();
+  return WORKSPACE_CONNECTION_TYPES.has(type) ? type : fallback;
+};
+const toSafeHtml = (value, fallback = '') => String(value ?? fallback).trim().slice(0, 32000);
 
 const makeDefaultGroup = (order = 0) => ({
   id: makeId(),
@@ -45,6 +51,7 @@ const normalizeOrders = (workspaceInput, scope) => {
       version: WORKSPACE_VERSION,
       groups: [makeDefaultGroup(0)],
       items: [],
+      connections: [],
       updatedAt: new Date().toISOString()
     };
 
@@ -53,6 +60,9 @@ const normalizeOrders = (workspaceInput, scope) => {
   }
   if (!Array.isArray(workspace.items)) {
     workspace.items = [];
+  }
+  if (!Array.isArray(workspace.connections)) {
+    workspace.connections = [];
   }
 
   workspace.groups = [...workspace.groups]
@@ -146,6 +156,8 @@ const ensureWorkspace = (concept) => {
         refId,
         groupId,
         parentId: parentId || '',
+        inlineTitle: toSafeString(rawItem.inlineTitle).slice(0, 160),
+        inlineText: toSafeHtml(rawItem.inlineText),
         stage: toSafeStage(rawItem.stage),
         status: toSafeStatus(rawItem.status),
         order: toSafeOrder(rawItem.order, index)
@@ -180,10 +192,35 @@ const ensureWorkspace = (concept) => {
     }
   });
 
+  const connections = [];
+  const seenConnections = new Set();
+  if (Array.isArray(source.connections)) {
+    source.connections.forEach((rawConnection) => {
+      if (!rawConnection || typeof rawConnection !== 'object') return;
+      const fromItemId = toSafeString(rawConnection.fromItemId);
+      const toItemId = toSafeString(rawConnection.toItemId);
+      if (!fromItemId || !toItemId || fromItemId === toItemId) return;
+      if (!itemById.has(fromItemId) || !itemById.has(toItemId)) return;
+      const type = toSafeConnectionType(rawConnection.type, '');
+      if (!type) return;
+      const id = toSafeString(rawConnection.id) || makeId();
+      const key = `${fromItemId}:${toItemId}:${type}`;
+      if (seenConnections.has(key)) return;
+      seenConnections.add(key);
+      connections.push({
+        id,
+        fromItemId,
+        toItemId,
+        type
+      });
+    });
+  }
+
   const workspace = {
     version: WORKSPACE_VERSION,
     groups,
     items,
+    connections,
     updatedAt: new Date().toISOString()
   };
   return normalizeOrders(workspace);
@@ -193,6 +230,7 @@ const validateWorkspacePayload = (workspaceInput) => {
   const source = workspaceInput && typeof workspaceInput === 'object' ? workspaceInput : {};
   const groups = Array.isArray(source.groups) ? source.groups : [];
   const items = Array.isArray(source.items) ? source.items : [];
+  const connections = Array.isArray(source.connections) ? source.connections : [];
 
   const groupIds = new Set();
   groups.forEach((group, index) => {
@@ -238,6 +276,15 @@ const validateWorkspacePayload = (workspaceInput) => {
       throw new Error(`items[${index}] has invalid status: ${toSafeString(statusRaw) || '(empty)'}`);
     }
 
+    const inlineTitleRaw = item?.inlineTitle;
+    if (inlineTitleRaw !== undefined && typeof inlineTitleRaw !== 'string') {
+      throw new Error(`items[${index}] has invalid inlineTitle.`);
+    }
+    const inlineTextRaw = item?.inlineText;
+    if (inlineTextRaw !== undefined && typeof inlineTextRaw !== 'string') {
+      throw new Error(`items[${index}] has invalid inlineText.`);
+    }
+
     itemMap.set(id, {
       id,
       groupId,
@@ -253,6 +300,32 @@ const validateWorkspacePayload = (workspaceInput) => {
     if (parent.groupId !== toSafeString(item?.groupId)) {
       throw new Error(`items[${index}] parentId must be in the same groupId.`);
     }
+  });
+
+  const connectionIds = new Set();
+  const connectionKeys = new Set();
+  connections.forEach((connection, index) => {
+    const id = toSafeString(connection?.id);
+    if (!id) throw new Error(`connections[${index}] is missing id.`);
+    if (connectionIds.has(id)) throw new Error(`Duplicate connection id: ${id}`);
+    connectionIds.add(id);
+
+    const fromItemId = toSafeString(connection?.fromItemId);
+    const toItemId = toSafeString(connection?.toItemId);
+    if (!fromItemId || !toItemId) throw new Error(`connections[${index}] requires fromItemId and toItemId.`);
+    if (fromItemId === toItemId) throw new Error(`connections[${index}] cannot connect an item to itself.`);
+    if (!itemMap.has(fromItemId) || !itemMap.has(toItemId)) {
+      throw new Error(`connections[${index}] references unknown item ids.`);
+    }
+    const type = toSafeString(connection?.type).toLowerCase();
+    if (!WORKSPACE_CONNECTION_TYPES.has(type)) {
+      throw new Error(`connections[${index}] has invalid type.`);
+    }
+    const key = `${fromItemId}:${toItemId}:${type}`;
+    if (connectionKeys.has(key)) {
+      throw new Error(`Duplicate connection between ${fromItemId} and ${toItemId}.`);
+    }
+    connectionKeys.add(key);
   });
 };
 
@@ -291,6 +364,15 @@ const applyPatchOp = (workspaceInput, opInput) => {
 
   const getGroup = (groupId) => workspace.groups.find(group => group.id === groupId);
   const getItem = (itemId) => workspace.items.find(item => item.id === itemId);
+  const pruneConnections = () => {
+    const itemIds = new Set(workspace.items.map(item => item.id));
+    workspace.connections = (workspace.connections || []).filter((connection) => (
+      itemIds.has(connection.fromItemId)
+      && itemIds.has(connection.toItemId)
+      && connection.fromItemId !== connection.toItemId
+      && WORKSPACE_CONNECTION_TYPES.has(toSafeConnectionType(connection.type, ''))
+    ));
+  };
 
   if (operation === 'addGroup') {
     const title = toSafeString(payload.title);
@@ -321,6 +403,26 @@ const applyPatchOp = (workspaceInput, opInput) => {
     return normalizeOrders(workspace);
   }
 
+  if (operation === 'moveGroup') {
+    const groupId = toSafeString(payload.id || payload.groupId);
+    const existing = workspace.groups.find(group => group.id === groupId);
+    if (!existing) throw new Error('Group not found.');
+    const ordered = [...workspace.groups].sort((a, b) => toSafeOrder(a.order) - toSafeOrder(b.order));
+    const sourceIndex = ordered.findIndex(group => group.id === groupId);
+    if (sourceIndex < 0) throw new Error('Group not found.');
+    const requestedOrder = toSafeOrder(payload.order, sourceIndex);
+    const targetIndex = Math.max(0, Math.min(ordered.length - 1, Math.round(requestedOrder)));
+    if (sourceIndex !== targetIndex) {
+      const [moved] = ordered.splice(sourceIndex, 1);
+      ordered.splice(targetIndex, 0, moved);
+      ordered.forEach((group, index) => {
+        group.order = index;
+      });
+      workspace.groups = ordered;
+    }
+    return normalizeOrders(workspace);
+  }
+
   if (operation === 'deleteGroup') {
     const groupId = toSafeString(payload.id);
     const group = getGroup(groupId);
@@ -346,6 +448,7 @@ const applyPatchOp = (workspaceInput, opInput) => {
         item.parentId = '';
       }
     });
+    pruneConnections();
     return normalizeOrders(workspace);
   }
 
@@ -373,6 +476,8 @@ const applyPatchOp = (workspaceInput, opInput) => {
       refId,
       groupId,
       parentId: parentId || '',
+      inlineTitle: toSafeString(payload.inlineTitle).slice(0, 160),
+      inlineText: toSafeHtml(payload.inlineText),
       stage: toSafeStage(payload.stage),
       status: toSafeStatus(payload.status),
       order: requestedOrder
@@ -435,6 +540,12 @@ const applyPatchOp = (workspaceInput, opInput) => {
     if (patch.status !== undefined) {
       item.status = toSafeStatus(patch.status, item.status || 'active');
     }
+    if (patch.inlineTitle !== undefined) {
+      item.inlineTitle = toSafeString(patch.inlineTitle).slice(0, 160);
+    }
+    if (patch.inlineText !== undefined) {
+      item.inlineText = toSafeHtml(patch.inlineText);
+    }
 
     const hasMoveBits = (
       patch.groupId !== undefined
@@ -472,6 +583,57 @@ const applyPatchOp = (workspaceInput, opInput) => {
       });
     }
     workspace.items = workspace.items.filter(item => !toDelete.has(item.id));
+    pruneConnections();
+    return normalizeOrders(workspace);
+  }
+
+  if (operation === 'addConnection') {
+    const fromItemId = toSafeString(payload.fromItemId);
+    const toItemId = toSafeString(payload.toItemId);
+    if (!fromItemId || !toItemId) throw new Error('addConnection requires fromItemId and toItemId.');
+    if (fromItemId === toItemId) throw new Error('Cannot connect an item to itself.');
+    if (!getItem(fromItemId) || !getItem(toItemId)) throw new Error('addConnection references unknown items.');
+    const type = toSafeConnectionType(payload.type, '');
+    if (!type) throw new Error('addConnection requires a valid type.');
+
+    const exists = (workspace.connections || []).some((connection) => (
+      connection.fromItemId === fromItemId
+      && connection.toItemId === toItemId
+      && connection.type === type
+    ));
+    if (exists) return normalizeOrders(workspace);
+    workspace.connections = [
+      ...(workspace.connections || []),
+      {
+        id: makeId(),
+        fromItemId,
+        toItemId,
+        type
+      }
+    ];
+    return normalizeOrders(workspace);
+  }
+
+  if (operation === 'deleteConnection') {
+    const id = toSafeString(payload.id || payload.connectionId);
+    const fromItemId = toSafeString(payload.fromItemId);
+    const toItemId = toSafeString(payload.toItemId);
+    const type = toSafeConnectionType(payload.type, '');
+    const initialLength = (workspace.connections || []).length;
+    workspace.connections = (workspace.connections || []).filter((connection) => {
+      if (id) return connection.id !== id;
+      if (fromItemId && toItemId && type) {
+        return !(
+          connection.fromItemId === fromItemId
+          && connection.toItemId === toItemId
+          && connection.type === type
+        );
+      }
+      return true;
+    });
+    if (workspace.connections.length === initialLength) {
+      throw new Error('Connection not found.');
+    }
     return normalizeOrders(workspace);
   }
 
@@ -484,6 +646,7 @@ module.exports = {
   WORKSPACE_ITEM_TYPES,
   WORKSPACE_ITEM_STAGES,
   WORKSPACE_ITEM_STATUSES,
+  WORKSPACE_CONNECTION_TYPES,
   ensureWorkspace,
   normalizeOrders,
   applyPatchOp,
