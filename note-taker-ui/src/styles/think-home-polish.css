@@ -20,6 +20,17 @@ html[data-ui-theme='dark'] {
   --nt-divider: rgba(112, 132, 170, 0.2);
 }
 
+:root,
+html[data-ui-theme='light'],
+html[data-ui-theme='dark'] {
+  --bg: var(--nt-app-bg);
+  --panel: var(--nt-surface-2);
+  --card: var(--nt-surface-1);
+  --border-subtle: var(--nt-divider);
+  --text-primary: var(--text-0);
+  --text-muted: var(--text-2);
+}
+
 .app-shell-new {
   background:
     radial-gradient(760px 380px at 14% -10%, rgba(76, 70, 229, 0.08), transparent 62%),
@@ -616,6 +627,437 @@ html[data-ui-theme='dark'] {
 
 .working-memory-input-row .ui-button:disabled {
   opacity: 0.65;
+}
+
+.think-concept-hero,
+.think-concept-loading {
+  border: 0;
+  background: var(--nt-surface-1);
+  box-shadow:
+    0 14px 28px rgba(0, 0, 0, 0.16),
+    inset 0 1px 0 rgba(255,255,255,0.02);
+}
+
+.think-concept-hero {
+  padding: 18px 18px 16px;
+  gap: 12px;
+}
+
+.think-concept-kicker {
+  color: color-mix(in srgb, var(--text-muted) 95%, transparent);
+  letter-spacing: 0.11em;
+  font-size: 0.68rem;
+}
+
+.think-concept-hero h1 {
+  font-size: clamp(1.9rem, 1.45rem + 1.2vw, 2.45rem);
+  line-height: 1.03;
+  letter-spacing: -0.03em;
+}
+
+.think-concept-summary,
+.think-concept-summary-editor {
+  border-top-color: var(--nt-divider);
+  padding-top: 12px;
+}
+
+.think-concept-summary p {
+  font-size: 0.98rem;
+  line-height: 1.62;
+  color: var(--text-secondary);
+}
+
+.concept-description {
+  border: 0;
+  background: color-mix(in srgb, var(--nt-surface-2) 82%, transparent);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.02);
+}
+
+.concept-description:focus {
+  outline: none;
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--accent) 28%, transparent),
+    0 0 0 3px color-mix(in srgb, var(--accent-soft) 18%, transparent);
+}
+
+.think-concept-toolbar {
+  gap: 6px;
+}
+
+.think-concept-toolbar .ui-button,
+.think-concept-toolbar .ui-quiet-button {
+  min-height: 30px;
+  padding: 0 11px;
+  border-color: transparent;
+  background: color-mix(in srgb, var(--nt-surface-2) 76%, transparent);
+  box-shadow: none;
+}
+
+.think-concept-toolbar .ui-button:hover,
+.think-concept-toolbar .ui-quiet-button:hover {
+  background: color-mix(in srgb, var(--nt-surface-2) 92%, transparent);
+}
+
+.concept-outline__workspace {
+  border: 0;
+  border-radius: 14px;
+  background: var(--nt-surface-1);
+  box-shadow:
+    0 16px 34px rgba(0, 0, 0, 0.15),
+    inset 0 1px 0 rgba(255,255,255,0.02);
+  padding: 16px;
+  gap: 14px;
+}
+
+.concept-outline__workspace > .ui-section-header {
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--nt-divider);
+}
+
+.concept-outline__workspace > .ui-section-header .ui-section-header__title {
+  font-size: 1.02rem;
+  line-height: 1.08;
+  font-weight: 730;
+}
+
+.concept-outline__workspace > .ui-section-header .ui-section-header__subtitle {
+  font-size: 0.77rem;
+  color: var(--text-muted);
+  max-width: 68ch;
+}
+
+.concept-outline__workspace-actions .ui-button,
+.concept-outline__workspace-actions .ui-quiet-button {
+  min-height: 30px;
+  border-radius: 9px;
+}
+
+.concept-outline__workspace-actions [data-testid='concept-add-material-button'] {
+  border: 0;
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--accent) 20%, var(--nt-surface-2)),
+    color-mix(in srgb, var(--accent) 12%, var(--nt-surface-2))
+  );
+  color: color-mix(in srgb, #ffffff 88%, var(--text-primary));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.03);
+}
+
+.concept-outline__workspace-actions [data-testid='concept-add-material-button']:hover {
+  box-shadow:
+    0 8px 18px rgba(0, 0, 0, 0.16),
+    inset 0 1px 0 rgba(255,255,255,0.04);
+}
+
+.concept-outline__filters {
+  gap: 10px;
+}
+
+.concept-outline__filter-group {
+  border: 0;
+  background: color-mix(in srgb, var(--nt-surface-2) 72%, transparent);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.02);
+  padding: 3px;
+}
+
+.concept-outline__filter-group .ui-quiet-button {
+  min-height: 26px;
+  border: 0;
+  color: var(--text-secondary);
+}
+
+.concept-outline__filter-group .ui-quiet-button.is-active {
+  border: 0;
+  background: color-mix(in srgb, var(--nt-surface-1) 76%, transparent);
+  box-shadow: 0 1px 0 rgba(255,255,255,0.02);
+}
+
+.concept-outline__group-create input {
+  border: 0;
+  background: color-mix(in srgb, var(--nt-surface-2) 84%, transparent);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.02);
+}
+
+.concept-outline__group-create .ui-button {
+  border-color: transparent;
+  background: color-mix(in srgb, var(--nt-surface-2) 78%, transparent);
+}
+
+.concept-outline__group {
+  border: 0;
+  background: color-mix(in srgb, var(--nt-surface-2) 46%, var(--nt-surface-1));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.02);
+}
+
+.concept-outline__group + .concept-outline__group {
+  margin-top: 2px;
+}
+
+.concept-outline__group.is-selected {
+  border: 0;
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--accent) 18%, transparent),
+    inset 0 1px 0 rgba(255,255,255,0.02);
+}
+
+.concept-outline__group-head {
+  padding: 10px 12px 9px;
+  border-bottom: 1px solid color-mix(in srgb, var(--nt-divider) 70%, transparent);
+}
+
+.concept-outline__collapse-toggle,
+.concept-outline__group-action {
+  border: 0;
+  background: color-mix(in srgb, var(--nt-surface-2) 86%, transparent);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.02);
+}
+
+.concept-outline__group-copy h3 {
+  font-size: 0.92rem;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  font-weight: 700;
+}
+
+.concept-outline__group-copy p {
+  font-size: 0.76rem;
+  color: var(--text-muted);
+}
+
+.concept-outline__group-count {
+  border: 0;
+  background: color-mix(in srgb, var(--nt-surface-2) 88%, transparent);
+  color: var(--text-muted);
+}
+
+.concept-outline__group-body {
+  padding: 0 10px 10px;
+}
+
+.concept-outline__branch.is-nested {
+  border-left-color: color-mix(in srgb, var(--nt-divider) 55%, transparent);
+}
+
+.concept-outline__item {
+  border: 0;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--nt-surface-1) 74%, transparent);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.02);
+  padding: 9px 10px;
+}
+
+.concept-outline__item:hover {
+  background: color-mix(in srgb, var(--nt-surface-1) 88%, transparent);
+}
+
+.concept-outline__item.is-selected {
+  border: 0;
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--accent) 22%, transparent),
+    inset 0 1px 0 rgba(255,255,255,0.02);
+}
+
+.concept-outline__item.is-connect-source {
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--accent) 32%, transparent),
+    0 0 0 2px color-mix(in srgb, var(--accent-soft) 18%, transparent);
+}
+
+.concept-outline__item.is-connect-peer {
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, #2dd4bf 26%, transparent),
+    inset 0 1px 0 rgba(255,255,255,0.02);
+}
+
+.concept-outline__item.is-dragging {
+  border: 0;
+  box-shadow:
+    0 12px 22px rgba(0, 0, 0, 0.18),
+    inset 0 0 0 1px color-mix(in srgb, var(--accent) 22%, transparent);
+}
+
+.concept-outline__item-title {
+  font-size: 0.87rem;
+  font-weight: 680;
+  line-height: 1.25;
+}
+
+.concept-outline__item-snippet {
+  font-size: 0.76rem;
+  color: color-mix(in srgb, var(--text-muted) 94%, transparent);
+  line-height: 1.44;
+}
+
+.concept-outline__meta-chip {
+  border: 0;
+  background: color-mix(in srgb, var(--nt-surface-2) 90%, transparent);
+  color: color-mix(in srgb, var(--text-muted) 96%, transparent);
+}
+
+.concept-outline__meta-date {
+  font-size: 0.7rem;
+  color: color-mix(in srgb, var(--text-muted) 94%, transparent);
+}
+
+.concept-outline__stage-pill {
+  border: 0;
+  background: color-mix(in srgb, var(--nt-surface-2) 92%, transparent);
+  color: color-mix(in srgb, var(--text-muted) 96%, transparent);
+}
+
+.concept-outline__workspace .status-message {
+  margin: 0;
+}
+
+.concept-outline__drawer-backdrop {
+  background: rgba(6, 10, 18, 0.38);
+}
+
+.concept-outline__drawer {
+  width: min(480px, 94vw);
+  border-left: 0;
+  background: color-mix(in srgb, var(--nt-surface-1) 94%, rgba(11, 17, 28, 0.88));
+  box-shadow:
+    -18px 0 34px rgba(0, 0, 0, 0.26),
+    inset 1px 0 0 color-mix(in srgb, var(--nt-divider) 50%, transparent);
+  padding: 18px;
+  gap: 14px;
+}
+
+.concept-outline__drawer-head h3 {
+  font-size: 1.02rem;
+  letter-spacing: -0.02em;
+}
+
+.concept-outline__drawer-head p {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.concept-outline__drawer-close {
+  border: 0;
+  background: color-mix(in srgb, var(--nt-surface-2) 82%, transparent);
+}
+
+.concept-outline__drawer-field {
+  gap: 5px;
+}
+
+.concept-outline__drawer-field > span {
+  color: color-mix(in srgb, var(--text-muted) 96%, transparent);
+}
+
+.concept-outline__drawer-field input,
+.concept-outline__drawer-field select {
+  border: 0;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--nt-surface-2) 84%, transparent);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.02);
+}
+
+.concept-outline__drawer-field input:focus,
+.concept-outline__drawer-field select:focus {
+  outline: none;
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--accent) 22%, transparent),
+    0 0 0 3px color-mix(in srgb, var(--accent-soft) 16%, transparent);
+}
+
+.concept-outline__drawer-tabs,
+.concept-outline__drawer-filters {
+  gap: 5px;
+}
+
+.concept-outline__drawer-tabs .ui-quiet-button,
+.concept-outline__drawer-filters .ui-quiet-button {
+  border: 0;
+  min-height: 28px;
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--nt-surface-2) 78%, transparent);
+}
+
+.concept-outline__drawer-tabs .ui-quiet-button.is-active,
+.concept-outline__drawer-filters .ui-quiet-button.is-active {
+  background: color-mix(in srgb, var(--nt-surface-1) 82%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+.concept-outline__drawer-list {
+  gap: 10px;
+}
+
+.concept-outline__drawer-row {
+  border: 0;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--nt-surface-2) 66%, transparent);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.02);
+  padding: 10px;
+}
+
+.concept-outline__drawer-row:hover {
+  border: 0;
+  background: color-mix(in srgb, var(--nt-surface-2) 82%, transparent);
+  box-shadow:
+    0 8px 16px rgba(0, 0, 0, 0.14),
+    inset 0 1px 0 rgba(255,255,255,0.02);
+}
+
+.concept-outline__drawer-title {
+  font-weight: 680;
+  letter-spacing: -0.01em;
+}
+
+.concept-outline__drawer-snippet {
+  color: color-mix(in srgb, var(--text-muted) 94%, transparent);
+  font-size: 0.77rem;
+}
+
+.concept-outline__drawer-row .ui-button {
+  min-height: 30px;
+  border: 0;
+  background: color-mix(in srgb, var(--nt-surface-1) 78%, transparent);
+}
+
+.concept-outline__drawer-row .ui-button:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--nt-surface-1) 94%, transparent);
+}
+
+.concept-outline__materials {
+  border: 0;
+  background: color-mix(in srgb, var(--nt-surface-2) 64%, transparent);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.02);
+}
+
+.concept-outline__materials-row {
+  border: 0;
+  background: color-mix(in srgb, var(--nt-surface-1) 78%, transparent);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.02);
+}
+
+.concept-outline__materials-row.is-in-concept {
+  border: 0;
+  background: color-mix(in srgb, var(--accent-soft) 10%, var(--nt-surface-1));
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--accent) 18%, transparent),
+    inset 0 1px 0 rgba(255,255,255,0.02);
+}
+
+.concept-outline__materials-row:hover {
+  border: 0;
+  background: color-mix(in srgb, var(--nt-surface-1) 92%, transparent);
+}
+
+.concept-outline__connect-bar {
+  border: 0;
+  background: color-mix(in srgb, var(--accent-soft) 10%, var(--nt-surface-2));
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--accent) 18%, transparent),
+    inset 0 1px 0 rgba(255,255,255,0.02);
+}
+
+.concept-outline__item-connection {
+  border: 0;
+  background: color-mix(in srgb, var(--nt-surface-2) 78%, transparent);
 }
 
 .working-memory-list-toolbar,

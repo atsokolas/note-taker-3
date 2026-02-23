@@ -555,6 +555,7 @@ const OutlineItemRow = React.memo(({
       ref={setNodeRef}
       style={style}
       data-item-id={item.id}
+      data-testid={`concept-workspace-item-${item.id}`}
       className={[
         'concept-outline__item',
         selected ? 'is-selected' : '',
@@ -581,7 +582,9 @@ const OutlineItemRow = React.memo(({
       <span className="concept-outline__item-icon" aria-hidden="true">{TYPE_ICON[item.type] || '•'}</span>
       <div className="concept-outline__item-content">
         <div className="concept-outline__item-head">
-          <div className="concept-outline__item-title">{materialMeta.title || 'Untitled'}</div>
+          <div className="concept-outline__item-title" data-testid={`concept-workspace-item-title-${item.id}`}>
+            {materialMeta.title || 'Untitled'}
+          </div>
           <button
             type="button"
             className={`concept-outline__stage-pill is-${normalizeStage(item.stage)}`}
@@ -1453,7 +1456,7 @@ const ConceptNotebook = ({ concept }) => {
   ]);
 
   return (
-    <section className="concept-outline">
+    <section className="concept-outline" data-testid="concept-workspace-surface">
       {toast.message && (
         <p className={`status-message ${toast.tone === 'error' ? 'error-message' : 'success-message'}`}>
           {toast.message}
@@ -1466,7 +1469,13 @@ const ConceptNotebook = ({ concept }) => {
           subtitle="Attached material only. Organize sections and shape your concept as a readable document."
           action={(
             <div className="concept-outline__workspace-actions">
-              <Button variant="secondary" onClick={() => setDrawerOpen(true)}>+ Add</Button>
+              <Button
+                variant="secondary"
+                onClick={() => setDrawerOpen(true)}
+                data-testid="concept-add-material-button"
+              >
+                + Add material
+              </Button>
               <Button variant="secondary" onClick={handleCreateInlineNote}>+ Note</Button>
               <button
                 type="button"
@@ -1633,7 +1642,13 @@ const ConceptNotebook = ({ concept }) => {
             <p>Start by creating a section or adding material.</p>
             <div className="concept-outline__first-section-actions">
               <Button variant="secondary" onClick={handleAddGroup}>Create your first section</Button>
-              <Button variant="secondary" onClick={() => setDrawerOpen(true)}>Open Add drawer</Button>
+              <Button
+                variant="secondary"
+                onClick={() => setDrawerOpen(true)}
+                data-testid="concept-open-add-drawer-empty"
+              >
+                Add material
+              </Button>
             </div>
           </div>
         )}
@@ -1702,11 +1717,19 @@ const ConceptNotebook = ({ concept }) => {
       </div>
 
       {drawerOpen && (
-        <div className="concept-outline__drawer-backdrop" onClick={() => setDrawerOpen(false)}>
-          <aside className="concept-outline__drawer" onClick={(event) => event.stopPropagation()}>
+        <div
+          className="concept-outline__drawer-backdrop"
+          data-testid="concept-add-material-backdrop"
+          onClick={() => setDrawerOpen(false)}
+        >
+          <aside
+            className="concept-outline__drawer"
+            data-testid="concept-add-material-drawer"
+            onClick={(event) => event.stopPropagation()}
+          >
             <div className="concept-outline__drawer-head">
               <div>
-                <h3>Add to Concept</h3>
+                <h3>Add material</h3>
                 <p>Search your library and attach material to this concept workspace.</p>
               </div>
               <button
@@ -1739,6 +1762,7 @@ const ConceptNotebook = ({ concept }) => {
                   value={drawerQuery}
                   onChange={(event) => setDrawerQuery(event.target.value)}
                   placeholder={`Search ${drawerTab}...`}
+                  data-testid="concept-add-material-search"
                 />
               </label>
               <label className="concept-outline__drawer-field">
@@ -1778,7 +1802,11 @@ const ConceptNotebook = ({ concept }) => {
                   const rowKey = `${row.type}:${row.id}`;
                   const alreadyAttached = attachedIdsByType[row.type]?.has(String(row.id));
                   return (
-                    <div key={rowKey} className="concept-outline__drawer-row">
+                    <div
+                      key={rowKey}
+                      className="concept-outline__drawer-row"
+                      data-testid={`concept-add-material-row-${row.type}-${row.id}`}
+                    >
                       <div className="concept-outline__drawer-copy">
                         <p className="concept-outline__drawer-title">{row.title}</p>
                         {row.snippet && <p className="concept-outline__drawer-snippet">{row.snippet}</p>}
@@ -1792,6 +1820,7 @@ const ConceptNotebook = ({ concept }) => {
                         variant="secondary"
                         onClick={() => handleAttachRow(row)}
                         disabled={alreadyAttached || attachingKey === rowKey}
+                        data-testid={`concept-add-material-attach-${row.type}-${row.id}`}
                       >
                         {attachingKey === rowKey ? 'Adding…' : alreadyAttached ? 'Added' : 'Add'}
                       </Button>

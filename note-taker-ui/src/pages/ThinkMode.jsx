@@ -2193,7 +2193,7 @@ const ThinkMode = () => {
         </>
       ) : (
         <>
-          {activeView !== 'home' && (
+          {activeView !== 'home' && activeView !== 'concepts' && (
             <>
               <SectionHeader title="Insert" subtitle="Search highlights." />
               <div className="library-highlight-filters">
