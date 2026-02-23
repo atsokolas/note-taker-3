@@ -127,7 +127,7 @@ const MapView = () => {
   const edgeCount = graphData.links.length;
 
   return (
-    <div className="section-stack map-view-page">
+    <div className="section-stack map-view-page mode-surface-page">
       <PageTitle eyebrow="Mode" title="Map" subtitle="Visualize connected notes, highlights, and ideas." />
 
       <div className="map-toolbar">

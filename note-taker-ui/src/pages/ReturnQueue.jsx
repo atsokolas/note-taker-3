@@ -87,7 +87,7 @@ const ReturnQueue = () => {
   };
 
   const renderSection = (title, subtitle, items, showDoneAction = true) => (
-    <div className="section-stack">
+    <div className="section-stack return-queue-section">
       <SectionHeader title={title} subtitle={subtitle} />
       {items.length === 0 ? (
         <p className="muted small">Nothing here.</p>
@@ -131,7 +131,7 @@ const ReturnQueue = () => {
   );
 
   return (
-    <div className="section-stack">
+    <div className="section-stack return-queue-page mode-surface-page">
       <PageTitle
         eyebrow="Queue"
         title="Return Queue"

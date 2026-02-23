@@ -352,7 +352,7 @@ const ReviewMode = () => {
   }, [location.search, rangeOptions, tabs]);
 
   const leftPanel = (
-    <div className="section-stack">
+    <div className="section-stack review-mode__left-panel">
       <SectionHeader title="Review sections" subtitle="Switch your lens." />
       <div className="section-stack">
         {tabs.map(t => (
@@ -394,13 +394,13 @@ const ReviewMode = () => {
   );
 
   const mainPanel = (
-    <div className="section-stack">
+    <div className="section-stack review-mode__main-panel">
       {renderTab()}
     </div>
   );
 
   const rightPanel = (
-    <div className="section-stack">
+    <div className="section-stack review-mode__right-panel">
       <SectionHeader
         title={active === 'reflections' ? 'Quick actions' : 'Review tools'}
         subtitle={active === 'reflections' ? 'Keep momentum.' : 'Lightweight by design.'}

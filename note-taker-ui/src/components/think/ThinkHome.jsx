@@ -58,8 +58,8 @@ const ThinkHome = ({
         <SectionHeader title="Continue" subtitle="Resume your latest active thread." />
         {continueItem ? (
           <button type="button" className="think-home__row" onClick={() => onOpenTarget(continueItem)}>
-            <span>{continueItem.title || 'Untitled'}</span>
-            <span className="muted small">{formatRelativeTime(continueItem.openedAt)}</span>
+            <span className="think-home__row-title">{continueItem.title || 'Untitled'}</span>
+            <span className="think-home__row-meta muted small">{formatRelativeTime(continueItem.openedAt)}</span>
           </button>
         ) : (
           <Empty text="No recent activity yet." />
@@ -80,8 +80,8 @@ const ThinkHome = ({
                 ) : (
                   workingSet.notebooks.map((item) => (
                     <button key={item._id} type="button" className="think-home__row" onClick={() => onOpenNotebook(item._id)}>
-                      <span>{item.title || 'Untitled note'}</span>
-                      <span className="muted small">{formatRelativeTime(item.updatedAt || item.createdAt)}</span>
+                      <span className="think-home__row-title">{item.title || 'Untitled note'}</span>
+                      <span className="think-home__row-meta muted small">{formatRelativeTime(item.updatedAt || item.createdAt)}</span>
                     </button>
                   ))
                 )}
@@ -95,8 +95,8 @@ const ThinkHome = ({
                 ) : (
                   workingSet.concepts.map((item) => (
                     <button key={item.name} type="button" className="think-home__row" onClick={() => onOpenConcept(item.name)}>
-                      <span>{item.name}</span>
-                      <span className="muted small">{item.count || 0} highlights</span>
+                      <span className="think-home__row-title">{item.name}</span>
+                      <span className="think-home__row-meta muted small">{item.count || 0} highlights</span>
                     </button>
                   ))
                 )}
@@ -110,8 +110,8 @@ const ThinkHome = ({
                 ) : (
                   workingSet.questions.map((item) => (
                     <button key={item._id} type="button" className="think-home__row" onClick={() => onOpenQuestion(item._id)}>
-                      <span>{item.text || 'Untitled question'}</span>
-                      <span className="muted small">{item.linkedTagName || 'Unscoped'}</span>
+                      <span className="think-home__row-title">{item.text || 'Untitled question'}</span>
+                      <span className="think-home__row-meta muted small">{item.linkedTagName || 'Unscoped'}</span>
                     </button>
                   ))
                 )}
@@ -132,8 +132,8 @@ const ThinkHome = ({
             ) : (
               returnQueue.map((entry) => (
                 <button key={entry._id} type="button" className="think-home__row" onClick={() => onOpenReturnQueueItem(entry)}>
-                  <span>{entry.item?.title || `${entry.itemType} item`}</span>
-                  <span className="muted small">{entry.reason || entry.itemType}</span>
+                  <span className="think-home__row-title">{entry.item?.title || `${entry.itemType} item`}</span>
+                  <span className="think-home__row-meta muted small">{entry.reason || entry.itemType}</span>
                 </button>
               ))
             )}
@@ -173,8 +173,8 @@ const ThinkHome = ({
               ) : (
                 recentArticles.map((item) => (
                   <button key={item._id} type="button" className="think-home__row" onClick={() => onOpenArticle(item._id)}>
-                    <span>{item.title || 'Untitled article'}</span>
-                    <span className="muted small">{formatRelativeTime(item.createdAt)}</span>
+                    <span className="think-home__row-title">{item.title || 'Untitled article'}</span>
+                    <span className="think-home__row-meta muted small">{formatRelativeTime(item.createdAt)}</span>
                   </button>
                 ))
               )}

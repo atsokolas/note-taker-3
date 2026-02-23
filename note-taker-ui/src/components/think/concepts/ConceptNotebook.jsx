@@ -41,11 +41,12 @@ const DRAWER_FILTERS = [
   { value: 'all', label: 'All' },
   { value: 'attached', label: 'Attached' }
 ];
-const CONNECTION_TYPES = ['related', 'supports', 'contradicts'];
+const CONNECTION_TYPES = ['related', 'supports', 'contradicts', 'extends', 'example', 'definition'];
 
 const ROOT_WINDOW_THRESHOLD = 140;
 const ROOT_ROW_ESTIMATE = 92;
 const ROOT_OVERSCAN = 6;
+const DRAWER_WINDOW_SIZE = 40;
 
 const TYPE_ICON = {
   highlight: '✦',
@@ -250,6 +251,23 @@ const sortSiblings = (items, groupId, parentId = '') => (
   items
     .filter(item => item.groupId === groupId && (item.parentId || '') === parentId)
     .sort((a, b) => a.order - b.order)
+);
+
+const toScopeKey = (groupId, parentId = '') => `${groupId}::${parentId || ''}`;
+
+const buildSiblingIndex = (items = []) => {
+  const map = new Map();
+  items.forEach((item) => {
+    const key = toScopeKey(item.groupId, item.parentId || '');
+    if (!map.has(key)) map.set(key, []);
+    map.get(key).push(item);
+  });
+  map.forEach((siblings) => siblings.sort((a, b) => a.order - b.order));
+  return map;
+};
+
+const getSiblingsFromIndex = (indexMap, groupId, parentId = '') => (
+  indexMap.get(toScopeKey(groupId, parentId || '')) || []
 );
 
 const buildDescendantSet = (items, rootId) => {
@@ -639,6 +657,7 @@ const ConceptNotebook = ({ concept }) => {
   const [drawerTab, setDrawerTab] = useState('highlights');
   const [drawerFilter, setDrawerFilter] = useState('recent');
   const [drawerQuery, setDrawerQuery] = useState('');
+  const [drawerVisibleCount, setDrawerVisibleCount] = useState(DRAWER_WINDOW_SIZE);
   const [attachingKey, setAttachingKey] = useState('');
   const [connectMode, setConnectMode] = useState(false);
   const [connectFromItemId, setConnectFromItemId] = useState('');
@@ -719,6 +738,10 @@ const ConceptNotebook = ({ concept }) => {
     return () => window.removeEventListener('keydown', handleEscape);
   }, [drawerOpen]);
 
+  useEffect(() => {
+    setDrawerVisibleCount(DRAWER_WINDOW_SIZE);
+  }, [drawerOpen, drawerTab, drawerFilter, drawerQuery]);
+
   useEffect(() => () => {
     if (pendingSaveTimerRef.current) {
       window.clearTimeout(pendingSaveTimerRef.current);
@@ -738,6 +761,8 @@ const ConceptNotebook = ({ concept }) => {
     visibleItems.forEach(item => map.set(item.id, item));
     return map;
   }, [visibleItems]);
+
+  const visibleSiblingIndex = useMemo(() => buildSiblingIndex(visibleItems), [visibleItems]);
 
   const attachedIdsByType = useMemo(() => {
     const registry = {
@@ -799,6 +824,14 @@ const ConceptNotebook = ({ concept }) => {
     return map;
   }, [material.linkedArticles, material.linkedNotes, material.pinnedHighlights, material.recentHighlights]);
 
+  const materialMetaByItemId = useMemo(() => {
+    const map = new Map();
+    items.forEach((item) => {
+      map.set(item.id, resolveMaterialMeta(item, referenceMap, connectionCountByItem.get(item.id) || 0));
+    });
+    return map;
+  }, [connectionCountByItem, items, referenceMap]);
+
   const drawerRows = useMemo(() => {
     const query = clean(drawerQuery).toLowerCase();
     const applyQuery = (rows) => {
@@ -856,6 +889,11 @@ const ConceptNotebook = ({ concept }) => {
   const drawerLoading = (drawerTab === 'highlights' ? highlightsLoading : articlesLoading)
     || (drawerFilter === 'attached' && materialLoading);
   const drawerError = drawerTab === 'highlights' ? highlightsError : articlesError;
+  const visibleDrawerRows = useMemo(
+    () => drawerRows.slice(0, drawerVisibleCount),
+    [drawerRows, drawerVisibleCount]
+  );
+  const hasMoreDrawerRows = drawerRows.length > visibleDrawerRows.length;
 
   const queueWorkspaceSave = useCallback((nextWorkspace, successMessage = '') => {
     const normalizedNext = normalizeWorkspace(nextWorkspace);
@@ -1041,17 +1079,17 @@ const ConceptNotebook = ({ concept }) => {
   }, [moveItem]);
 
   const handleIndent = useCallback((item) => {
-    const siblings = sortSiblings(visibleItems, item.groupId, item.parentId || '');
+    const siblings = getSiblingsFromIndex(visibleSiblingIndex, item.groupId, item.parentId || '');
     const index = siblings.findIndex(entry => entry.id === item.id);
     if (index <= 0) return;
     const previousSibling = siblings[index - 1];
-    const children = sortSiblings(visibleItems, item.groupId, previousSibling.id);
+    const children = getSiblingsFromIndex(visibleSiblingIndex, item.groupId, previousSibling.id);
     moveItem(item.id, {
       groupId: item.groupId,
       parentId: previousSibling.id,
       order: children.length
     });
-  }, [moveItem, visibleItems]);
+  }, [moveItem, visibleSiblingIndex]);
 
   const handleOutdent = useCallback((item) => {
     if (!item.parentId) return;
@@ -1066,7 +1104,7 @@ const ConceptNotebook = ({ concept }) => {
   }, [itemById, moveItem]);
 
   const handleKeyboardReorder = useCallback((item, direction) => {
-    const siblings = sortSiblings(visibleItems, item.groupId, item.parentId || '');
+    const siblings = getSiblingsFromIndex(visibleSiblingIndex, item.groupId, item.parentId || '');
     const index = siblings.findIndex(entry => entry.id === item.id);
     if (index < 0) return;
     const nextIndex = direction === 'up' ? index - 1 : index + 1;
@@ -1076,7 +1114,7 @@ const ConceptNotebook = ({ concept }) => {
       parentId: item.parentId || '',
       order: nextIndex
     });
-  }, [moveItem, visibleItems]);
+  }, [moveItem, visibleSiblingIndex]);
 
   const handleItemKeyDown = useCallback((event, item) => {
     if (event.key === 'Enter') {
@@ -1113,7 +1151,7 @@ const ConceptNotebook = ({ concept }) => {
       if (overItemId === activeItemId) return;
       const overItem = visibleItemById.get(overItemId);
       if (!overItem) return;
-      const siblings = sortSiblings(visibleItems, overItem.groupId, overItem.parentId || '');
+      const siblings = getSiblingsFromIndex(visibleSiblingIndex, overItem.groupId, overItem.parentId || '');
       const targetOrder = siblings.findIndex(entry => entry.id === overItem.id);
       moveItem(activeItem.id, {
         groupId: overItem.groupId,
@@ -1124,14 +1162,14 @@ const ConceptNotebook = ({ concept }) => {
     }
 
     if (overGroupId) {
-      const roots = sortSiblings(visibleItems, overGroupId, '');
+      const roots = getSiblingsFromIndex(visibleSiblingIndex, overGroupId, '');
       moveItem(activeItem.id, {
         groupId: overGroupId,
         parentId: '',
         order: roots.length
       });
     }
-  }, [moveItem, visibleItemById, visibleItems]);
+  }, [moveItem, visibleItemById, visibleSiblingIndex]);
 
   const handleAttachRow = useCallback(async (row) => {
     if (!conceptId) return;
@@ -1183,7 +1221,10 @@ const ConceptNotebook = ({ concept }) => {
       setConnectFromItemId('');
       return;
     }
-    const relationInput = window.prompt('Connection type: related, supports, or contradicts', 'related');
+    const relationInput = window.prompt(
+      'Connection type: related, supports, contradicts, extends, example, or definition',
+      'related'
+    );
     if (relationInput === null) return;
     const relationType = normalizeConnectionType(relationInput, '');
     if (!relationType) {
@@ -1219,7 +1260,7 @@ const ConceptNotebook = ({ concept }) => {
   const rootWindowByGroup = useMemo(() => {
     const map = new Map();
     groups.forEach((group) => {
-      const roots = sortSiblings(visibleItems, group.id, '');
+      const roots = getSiblingsFromIndex(visibleSiblingIndex, group.id, '');
       const state = groupScrollState[group.id] || { scrollTop: 0, clientHeight: 620 };
       if (roots.length <= ROOT_WINDOW_THRESHOLD) {
         map.set(group.id, {
@@ -1246,7 +1287,7 @@ const ConceptNotebook = ({ concept }) => {
       });
     });
     return map;
-  }, [groupScrollState, groups, visibleItems]);
+  }, [groupScrollState, groups, visibleSiblingIndex]);
 
   const connectionPeerIds = useMemo(() => {
     const set = new Set();
@@ -1341,7 +1382,7 @@ const ConceptNotebook = ({ concept }) => {
   }, []);
 
   const renderBranch = useCallback((groupId, parentId = '', depth = 0, rootIdSet = null) => {
-    const siblings = sortSiblings(visibleItems, groupId, parentId);
+    const siblings = getSiblingsFromIndex(visibleSiblingIndex, groupId, parentId);
     const scopedSiblings = depth === 0 && rootIdSet
       ? siblings.filter(item => rootIdSet.has(item.id))
       : siblings;
@@ -1354,7 +1395,7 @@ const ConceptNotebook = ({ concept }) => {
       >
         {scopedSiblings.map((item) => {
           const children = renderBranch(groupId, item.id, depth + 1, null);
-          const meta = resolveMaterialMeta(item, referenceMap, connectionCountByItem.get(item.id) || 0);
+          const meta = materialMetaByItemId.get(item.id) || resolveMaterialMeta(item, referenceMap, 0);
           const isEditing = editingInlineItemId === item.id;
           return (
             <div key={item.id} className={`concept-outline__branch ${depth > 0 ? 'is-nested' : ''}`}>
@@ -1406,9 +1447,10 @@ const ConceptNotebook = ({ concept }) => {
     handleSaveInlineNote,
     handleSelectItem,
     handleToggleArchive,
+    materialMetaByItemId,
     referenceMap,
     selectedItemId,
-    visibleItems
+    visibleSiblingIndex
   ]);
 
   return (
@@ -1542,7 +1584,7 @@ const ConceptNotebook = ({ concept }) => {
                         <h3>{group.title}</h3>
                         {group.description && <p>{group.description}</p>}
                       </div>
-                      <span className="concept-outline__group-count">{sortSiblings(visibleItems, group.id, '').length}</span>
+                      <span className="concept-outline__group-count">{getSiblingsFromIndex(visibleSiblingIndex, group.id, '').length}</span>
                       <div className="concept-outline__group-actions" onClick={(event) => event.stopPropagation()}>
                         <button
                           type="button"
@@ -1612,7 +1654,7 @@ const ConceptNotebook = ({ concept }) => {
               {selectedConnections.map((connection) => {
                 const otherId = connection.fromItemId === selectedItemId ? connection.toItemId : connection.fromItemId;
                 const otherItem = itemById.get(otherId);
-                const otherMeta = resolveMaterialMeta(otherItem || {}, referenceMap, 0);
+                const otherMeta = materialMetaByItemId.get(otherId) || resolveMaterialMeta(otherItem || {}, referenceMap, 0);
                 return (
                   <div key={connection.id} className="concept-outline__connection-row">
                     <span>{connection.type} → {otherMeta.title || 'Item'}</span>
@@ -1706,7 +1748,7 @@ const ConceptNotebook = ({ concept }) => {
               </div>
             ) : (
               <div className="concept-outline__drawer-list">
-                {drawerRows.map((row) => {
+                {visibleDrawerRows.map((row) => {
                   const rowKey = `${row.type}:${row.id}`;
                   const alreadyAttached = attachedIdsByType[row.type]?.has(String(row.id));
                   return (
@@ -1732,6 +1774,17 @@ const ConceptNotebook = ({ concept }) => {
                 })}
                 {!drawerLoading && drawerRows.length === 0 && (
                   <p className="muted small">No results yet. Try a broader search.</p>
+                )}
+                {!drawerLoading && hasMoreDrawerRows && (
+                  <div className="concept-outline__drawer-footer">
+                    <button
+                      type="button"
+                      className="ui-quiet-button"
+                      onClick={() => setDrawerVisibleCount((count) => count + DRAWER_WINDOW_SIZE)}
+                    >
+                      Show more ({drawerRows.length - visibleDrawerRows.length} remaining)
+                    </button>
+                  </div>
                 )}
                 {drawerError && <p className="status-message error-message">{drawerError}</p>}
                 {materialError && <p className="status-message error-message">{materialError}</p>}
