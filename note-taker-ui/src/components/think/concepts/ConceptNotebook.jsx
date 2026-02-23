@@ -1434,7 +1434,6 @@ const ConceptNotebook = ({ concept }) => {
   }, [
     connectFromItemId,
     connectMode,
-    connectionCountByItem,
     connectionPeerIds,
     editingInlineItemId,
     groups,
