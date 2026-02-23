@@ -134,3 +134,10 @@ The UI shell now uses a shared token-driven layer designed for Think-first navig
   - right drawer collapses/expands cleanly and main panel reflows
   - Think Home “Continue” module remains the primary visual CTA
   - no overflow in nav/topbar/right drawer on smaller widths
+
+### Visual Regression Baseline (Think Home)
+
+- Screenshot matrix + capture checklist:
+  - `docs/ui-regression/think-home-baseline.md`
+- Think-specific polish overrides (split out for maintainability):
+  - `note-taker-ui/src/styles/think-home-polish.css`

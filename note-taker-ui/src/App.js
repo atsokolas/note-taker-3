@@ -48,6 +48,7 @@ import './styles/global.css';
 import './App.css';
 import './styles/reading-layout.css';
 import './styles/dashboard-refresh.css';
+import './styles/think-home-polish.css';
 
 const LegacyConceptRedirect = () => {
   const { tagName, tag } = useParams();
