@@ -35,6 +35,20 @@ const buildError = ({ status, message, hint }) => {
 };
 
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+const stripHtml = (value = '') => String(value || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+const safeSnippet = (value = '') => {
+  const text = String(value || '');
+  if (!text) return '';
+  if (/<[a-z][\s\S]*>/i.test(text)) return stripHtml(text).slice(0, 500);
+  return text.slice(0, 500);
+};
+const parseMaybeJson = (text = '') => {
+  try {
+    return JSON.parse(text);
+  } catch (_err) {
+    return null;
+  }
+};
 
 const request = async ({
   path,
@@ -88,8 +102,12 @@ const request = async ({
       clearTimeout(timeout);
       if (!res.ok) {
         const text = await res.text().catch(() => '');
-        const snippet = String(text || '').slice(0, 500);
-        const message = `AI service error ${res.status}: ${snippet || res.statusText}`;
+        const parsed = parseMaybeJson(text);
+        const snippet = safeSnippet(text);
+        const detail = typeof parsed?.detail === 'string'
+          ? parsed.detail
+          : (typeof parsed?.message === 'string' ? parsed.message : '');
+        const message = `AI service error ${res.status}: ${detail || snippet || res.statusText}`;
         console.error('[AI-UPSTREAM] response error', {
           requestId: traceId,
           status: res.status,
@@ -103,6 +121,15 @@ const request = async ({
           attempt += 1;
           continue;
         }
+        if (parsed && typeof parsed === 'object') {
+          const error = new Error(message);
+          error.status = res.status;
+          error.payload = {
+            upstream: 'ai_service',
+            ...parsed
+          };
+          throw error;
+        }
         throw buildError({
           status: 502,
           message,
@@ -112,6 +139,9 @@ const request = async ({
       return res.json();
     } catch (error) {
       clearTimeout(timeout);
+      if (error && error.payload && error.status) {
+        throw error;
+      }
       const isTimeout = error.name === 'AbortError';
       const message = isTimeout
         ? `AI service request timed out after ${timeoutMs}ms`

@@ -7177,7 +7177,7 @@ app.post('/api/ai/synthesize', authenticateToken, async (req, res) => {
             { requestId: req.requestId }
           );
         } catch (error) {
-          return res.status(502).json({
+          return res.status(error.status || 502).json({
             error: 'UPSTREAM_FAILED',
             upstream: 'ai_service',
             message: error.message,
@@ -7292,7 +7292,19 @@ app.post('/api/ai/synthesize', authenticateToken, async (req, res) => {
           });
           clearTimeout(timeout);
           const bodyText = await res.text().catch(() => '');
-          const bodySnippet = String(bodyText || '').slice(0, 200);
+          let parsedBody = null;
+          try {
+            parsedBody = bodyText ? JSON.parse(bodyText) : null;
+          } catch (_err) {
+            parsedBody = null;
+          }
+          const bodySnippet = /<[a-z][\s\S]*>/i.test(String(bodyText || ''))
+            ? String(bodyText || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 200)
+            : String(bodyText || '').slice(0, 200);
+          console.log('[AI-SYNTH] upstream response', {
+            upstream_url: upstreamUrl,
+            status: res.status
+          });
           if (!res.ok) {
             console.error('[AI-SYNTH] upstream error', {
               upstream_url: upstreamUrl,
@@ -7303,11 +7315,15 @@ app.post('/api/ai/synthesize', authenticateToken, async (req, res) => {
               await sleep(backoffs[attempt]);
               continue;
             }
-            synthError = { status: res.status, bodySnippet };
+            synthError = {
+              status: res.status,
+              bodySnippet,
+              body: parsedBody && typeof parsedBody === 'object' ? parsedBody : null
+            };
             break;
           }
           try {
-            synthData = JSON.parse(bodyText);
+            synthData = parsedBody ?? JSON.parse(bodyText);
           } catch (err) {
             synthError = { status: res.status, bodySnippet };
           }
@@ -7328,6 +7344,12 @@ app.post('/api/ai/synthesize', authenticateToken, async (req, res) => {
       }
       if (synthError || !synthData) {
         const status = synthError?.status;
+        if (status && synthError?.body && [400, 401, 403, 409, 422, 429].includes(status)) {
+          return res.status(status).json({
+            upstream: 'ai_service',
+            ...synthError.body
+          });
+        }
         return res.status(502).json({
           error: 'UPSTREAM_FAILED',
           upstream_status: status,
@@ -7362,7 +7384,7 @@ app.post('/api/ai/synthesize', authenticateToken, async (req, res) => {
           limit: 12
         }, { requestId: req.requestId });
       } catch (error) {
-        return res.status(502).json({
+        return res.status(error.status || 502).json({
           error: 'UPSTREAM_FAILED',
           upstream: 'ai_service',
           message: error.message,

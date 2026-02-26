@@ -43,6 +43,7 @@ class TestSynthesizeIntegration(unittest.IsolatedAsyncioTestCase):
     async def test_synthesize_repairs_invalid_output(self):
         original_chat = main.hf_chat_complete
         original_config = main.get_hf_config
+        original_ensure = main._ensure_text_model_supported
         calls = {"count": 0}
 
         async def fake_chat_complete(*args, **kwargs):
@@ -70,9 +71,10 @@ class TestSynthesizeIntegration(unittest.IsolatedAsyncioTestCase):
         def fake_get_hf_config():
             return {
                 "token": "fake-token",
+                "provider": "hf-inference",
                 "embedding_model": "fake-embed",
                 "text_model": "fake-model",
-                "base_url": "https://router.huggingface.co/hf-inference/models",
+                "models_base_url": "https://router.huggingface.co/hf-inference/models",
                 "router_base_url": "https://router.huggingface.co/v1",
                 "timeout_ms": 1000,
             }
@@ -80,6 +82,9 @@ class TestSynthesizeIntegration(unittest.IsolatedAsyncioTestCase):
         try:
             main.hf_chat_complete = fake_chat_complete
             main.get_hf_config = fake_get_hf_config
+            async def fake_ensure(_config):
+                return None
+            main._ensure_text_model_supported = fake_ensure
             req = main.SynthesizeRequest(
                 items=[main.SynthesizeItem(type="note", id="1", text="hello")]
             )
@@ -90,10 +95,12 @@ class TestSynthesizeIntegration(unittest.IsolatedAsyncioTestCase):
         finally:
             main.hf_chat_complete = original_chat
             main.get_hf_config = original_config
+            main._ensure_text_model_supported = original_ensure
 
     async def test_synthesize_fallback_on_unparseable_output(self):
         original_chat = main.hf_chat_complete
         original_config = main.get_hf_config
+        original_ensure = main._ensure_text_model_supported
         calls = {"count": 0}
 
         async def fake_chat_complete(*args, **kwargs):
@@ -110,9 +117,10 @@ class TestSynthesizeIntegration(unittest.IsolatedAsyncioTestCase):
         def fake_get_hf_config():
             return {
                 "token": "fake-token",
+                "provider": "hf-inference",
                 "embedding_model": "fake-embed",
                 "text_model": "fake-model",
-                "base_url": "https://router.huggingface.co/hf-inference/models",
+                "models_base_url": "https://router.huggingface.co/hf-inference/models",
                 "router_base_url": "https://router.huggingface.co/v1",
                 "timeout_ms": 1000,
             }
@@ -120,13 +128,18 @@ class TestSynthesizeIntegration(unittest.IsolatedAsyncioTestCase):
         try:
             main.hf_chat_complete = fake_chat_complete
             main.get_hf_config = fake_get_hf_config
+            async def fake_ensure(_config):
+                return None
+            main._ensure_text_model_supported = fake_ensure
             req = main.SynthesizeRequest(
                 items=[main.SynthesizeItem(type="note", id="1", text="hello")]
             )
             result = await main.synthesize(req)
-            self.assertEqual(result["warning"], "invalid_json")
+            self.assertEqual(set(result.keys()), {"themes", "connections", "questions"})
             self.assertEqual(len(result["themes"]), 3)
             self.assertEqual(result["themes"][0], "(AI unavailable)")
+            self.assertEqual(calls["count"], 3)
         finally:
             main.hf_chat_complete = original_chat
             main.get_hf_config = original_config
+            main._ensure_text_model_supported = original_ensure
