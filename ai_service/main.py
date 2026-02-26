@@ -5,6 +5,8 @@ import re
 import hashlib
 import hmac
 import time
+import math
+import threading
 from typing import List, Optional, Dict, Any, Set
 
 import httpx
@@ -40,6 +42,7 @@ MAX_SYNTH_ITEM_CHARS = int(os.getenv("AI_SYNTH_MAX_ITEM_CHARS", "800"))
 MAX_SYNTH_ITEMS = int(os.getenv("AI_SYNTH_MAX_ITEMS", "40"))
 ENABLE_JSON_SCHEMA = os.getenv("HF_JSON_SCHEMA", "false").lower() == "true"
 HF_MODELS_CACHE_TTL_SEC = int(os.getenv("HF_MODELS_CACHE_TTL_SEC", "300"))
+VECTOR_STORE_PATH = os.getenv("AI_VECTOR_STORE_PATH", "/tmp/note_taker_ai_vectors.json")
 
 
 def _secret_fp(secret: str) -> str:
@@ -87,6 +90,42 @@ class SynthResponse(BaseModel):
     themes: conlist(str, min_length=3, max_length=3)
     connections: conlist(str, min_length=3, max_length=3)
     questions: conlist(str, min_length=3, max_length=3)
+
+
+class EmbeddingUpsertItem(BaseModel):
+    id: str
+    userId: str
+    objectType: str
+    objectId: str
+    subId: Optional[str] = None
+    text: str
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+
+
+class EmbedUpsertRequest(BaseModel):
+    items: List[EmbeddingUpsertItem] = Field(default_factory=list)
+
+
+class EmbedDeleteRequest(BaseModel):
+    ids: List[str] = Field(default_factory=list)
+
+
+class EmbedGetRequest(BaseModel):
+    ids: List[str] = Field(default_factory=list)
+
+
+class SearchRequest(BaseModel):
+    userId: str
+    query: str
+    types: Optional[List[str]] = None
+    limit: Optional[int] = 12
+
+
+class SimilarRequest(BaseModel):
+    userId: str
+    sourceId: str
+    types: Optional[List[str]] = None
+    limit: Optional[int] = 12
 
 
 def get_hf_config() -> Dict[str, Any]:
@@ -444,6 +483,255 @@ def _fallback_synthesis() -> Dict[str, Any]:
     }
 
 
+_VECTOR_STORE_LOCK = threading.RLock()
+_VECTOR_STORE: Dict[str, Dict[str, Any]] = {}
+_VECTOR_STORE_LOADED = False
+
+
+def _safe_float_vector(values: Any) -> Optional[List[float]]:
+    if not isinstance(values, list) or not values:
+        return None
+    out: List[float] = []
+    for value in values:
+        if not isinstance(value, (int, float)):
+            return None
+        out.append(float(value))
+    return out
+
+
+def _load_vector_store_if_needed() -> None:
+    global _VECTOR_STORE_LOADED, _VECTOR_STORE
+    if _VECTOR_STORE_LOADED:
+        return
+    with _VECTOR_STORE_LOCK:
+        if _VECTOR_STORE_LOADED:
+            return
+        try:
+            if os.path.exists(VECTOR_STORE_PATH):
+                with open(VECTOR_STORE_PATH, "r", encoding="utf-8") as fh:
+                    raw = json.load(fh)
+                if isinstance(raw, dict):
+                    loaded: Dict[str, Dict[str, Any]] = {}
+                    for key, value in raw.items():
+                        if not isinstance(key, str) or not isinstance(value, dict):
+                            continue
+                        vec = _safe_float_vector(value.get("embedding"))
+                        if not vec:
+                            continue
+                        loaded[key] = {
+                            "id": str(value.get("id") or key),
+                            "userId": str(value.get("userId") or ""),
+                            "objectType": str(value.get("objectType") or ""),
+                            "objectId": str(value.get("objectId") or ""),
+                            "subId": str(value.get("subId") or ""),
+                            "text": str(value.get("text") or ""),
+                            "metadata": value.get("metadata") if isinstance(value.get("metadata"), dict) else {},
+                            "embedding": vec,
+                            "updatedAtMs": int(value.get("updatedAtMs") or int(time.time() * 1000)),
+                        }
+                    _VECTOR_STORE = loaded
+        except Exception as exc:
+            logger.warning("[AI] failed to load vector store from %s: %s", VECTOR_STORE_PATH, exc)
+            _VECTOR_STORE = {}
+        finally:
+            _VECTOR_STORE_LOADED = True
+
+
+def _persist_vector_store() -> None:
+    _load_vector_store_if_needed()
+    directory = os.path.dirname(VECTOR_STORE_PATH) or "."
+    os.makedirs(directory, exist_ok=True)
+    tmp_path = f"{VECTOR_STORE_PATH}.tmp"
+    with _VECTOR_STORE_LOCK:
+        serializable = {
+            key: {
+                **value,
+                "embedding": list(value.get("embedding") or []),
+            }
+            for key, value in _VECTOR_STORE.items()
+        }
+    with open(tmp_path, "w", encoding="utf-8") as fh:
+        json.dump(serializable, fh)
+    os.replace(tmp_path, VECTOR_STORE_PATH)
+
+
+def _normalize_types(types: Optional[List[str]]) -> Optional[Set[str]]:
+    if not types:
+        return None
+    normalized = {
+        str(t or "").strip().lower()
+        for t in types
+        if str(t or "").strip()
+    }
+    return normalized or None
+
+
+def _clamp_limit(value: Optional[int], default: int = 12, max_limit: int = 50) -> int:
+    try:
+        parsed = int(value if value is not None else default)
+    except Exception:
+        parsed = default
+    if parsed < 1:
+        return 1
+    return min(parsed, max_limit)
+
+
+def _cosine_similarity(a: List[float], b: List[float]) -> float:
+    if not a or not b or len(a) != len(b):
+        return 0.0
+    dot = 0.0
+    norm_a = 0.0
+    norm_b = 0.0
+    for i in range(len(a)):
+        av = float(a[i])
+        bv = float(b[i])
+        dot += av * bv
+        norm_a += av * av
+        norm_b += bv * bv
+    if norm_a <= 0 or norm_b <= 0:
+        return 0.0
+    return dot / (math.sqrt(norm_a) * math.sqrt(norm_b))
+
+
+def _vector_result(record: Dict[str, Any], score: Optional[float] = None) -> Dict[str, Any]:
+    out = {
+        "id": record.get("id", ""),
+        "objectType": record.get("objectType", ""),
+        "objectId": record.get("objectId", ""),
+        "subId": record.get("subId", ""),
+        "metadata": record.get("metadata", {}) if isinstance(record.get("metadata"), dict) else {},
+        "document": record.get("text", ""),
+    }
+    if score is not None:
+        out["score"] = score
+    return out
+
+
+async def _hf_embed_texts(texts: List[str], config: Optional[Dict[str, Any]] = None) -> List[List[float]]:
+    if not texts:
+        return []
+    cfg = config or get_hf_config()
+    if not cfg["token"]:
+        raise HTTPException(status_code=500, detail="HF_TOKEN not configured")
+    try:
+        url = build_models_inference_url(
+            cfg["models_base_url"],
+            cfg["embedding_model"],
+            "pipeline/feature-extraction"
+        )
+        res = await _post_hf(
+            url,
+            cfg["token"],
+            {"inputs": texts},
+            cfg["timeout_ms"],
+        )
+        body = _parse_json_or_text(res)
+        if res.status_code < 200 or res.status_code >= 300:
+            _raise_hf_response_error("embeddings", body, cfg["provider"])
+        return _normalize_embeddings(body, expected_count=len(texts))
+    except Exception as exc:
+        if isinstance(exc, (HTTPException, UpstreamStructuredError)):
+            raise
+        _raise_hf_error("embeddings", exc)
+
+
+def _upsert_vector_records(items: List[EmbeddingUpsertItem], embeddings: List[List[float]]) -> int:
+    if len(items) != len(embeddings):
+        raise HTTPException(status_code=500, detail="embedding count mismatch")
+    _load_vector_store_if_needed()
+    now_ms = int(time.time() * 1000)
+    with _VECTOR_STORE_LOCK:
+        for item, embedding in zip(items, embeddings):
+            clean_id = str(item.id or "").strip()
+            clean_user = str(item.userId or "").strip()
+            clean_type = str(item.objectType or "").strip()
+            clean_object_id = str(item.objectId or "").strip()
+            clean_text = str(item.text or "").strip()
+            if not clean_id or not clean_user or not clean_type or not clean_object_id or not clean_text:
+                raise HTTPException(status_code=400, detail="embedding item missing required fields")
+            _VECTOR_STORE[clean_id] = {
+                "id": clean_id,
+                "userId": clean_user,
+                "objectType": clean_type,
+                "objectId": clean_object_id,
+                "subId": str(item.subId or ""),
+                "text": clean_text,
+                "metadata": item.metadata if isinstance(item.metadata, dict) else {},
+                "embedding": [float(v) for v in embedding],
+                "updatedAtMs": now_ms,
+            }
+    _persist_vector_store()
+    return len(items)
+
+
+def _get_vector_records(ids: List[str]) -> List[Dict[str, Any]]:
+    _load_vector_store_if_needed()
+    with _VECTOR_STORE_LOCK:
+        return [
+            {
+                "id": rec["id"],
+                "userId": rec.get("userId", ""),
+                "embedding": list(rec.get("embedding") or []),
+                "objectType": rec.get("objectType", ""),
+                "objectId": rec.get("objectId", ""),
+                "subId": rec.get("subId", ""),
+                "metadata": rec.get("metadata", {}),
+                "document": rec.get("text", ""),
+            }
+            for key in ids
+            if isinstance(key, str) and key in _VECTOR_STORE
+            for rec in [_VECTOR_STORE[key]]
+        ]
+
+
+def _delete_vector_records(ids: List[str]) -> int:
+    _load_vector_store_if_needed()
+    deleted = 0
+    with _VECTOR_STORE_LOCK:
+        for raw_id in ids:
+            key = str(raw_id or "").strip()
+            if key and key in _VECTOR_STORE:
+                del _VECTOR_STORE[key]
+                deleted += 1
+    if deleted:
+        _persist_vector_store()
+    return deleted
+
+
+def _search_vectors(
+    query_vector: List[float],
+    *,
+    user_id: str,
+    types: Optional[List[str]],
+    limit: int,
+    exclude_id: Optional[str] = None,
+) -> List[Dict[str, Any]]:
+    _load_vector_store_if_needed()
+    types_filter = _normalize_types(types)
+    safe_user_id = str(user_id or "").strip()
+    safe_exclude = str(exclude_id or "").strip()
+    scored: List[Dict[str, Any]] = []
+    with _VECTOR_STORE_LOCK:
+        values = list(_VECTOR_STORE.values())
+    for record in values:
+        if safe_user_id and str(record.get("userId") or "") != safe_user_id:
+            continue
+        if safe_exclude and str(record.get("id") or "") == safe_exclude:
+            continue
+        rec_type = str(record.get("objectType") or "").lower()
+        if types_filter and rec_type not in types_filter:
+            continue
+        embedding = record.get("embedding")
+        if not isinstance(embedding, list):
+            continue
+        score = _cosine_similarity(query_vector, embedding)
+        if score <= 0:
+            continue
+        scored.append(_vector_result(record, score=score))
+    scored.sort(key=lambda item: float(item.get("score") or 0.0), reverse=True)
+    return scored[:limit]
+
+
 def _build_synthesis_schema() -> Dict[str, Any]:
     return {
         "type": "json_schema",
@@ -749,29 +1037,83 @@ async def embed(req: EmbedRequest):
     if not req.texts:
         raise HTTPException(status_code=400, detail="texts are required")
     config = get_hf_config()
-    if not config["token"]:
-        raise HTTPException(status_code=500, detail="HF_TOKEN not configured")
-    try:
-        url = build_models_inference_url(
-            config["models_base_url"],
-            config["embedding_model"],
-            "pipeline/feature-extraction"
-        )
-        res = await _post_hf(
-            url,
-            config["token"],
-            {"inputs": req.texts},
-            config["timeout_ms"],
-        )
-        body = _parse_json_or_text(res)
-        if res.status_code < 200 or res.status_code >= 300:
-            _raise_hf_response_error("embeddings", body, config["provider"])
-        embeddings = _normalize_embeddings(body, expected_count=len(req.texts))
-    except Exception as exc:
-        if isinstance(exc, (HTTPException, UpstreamStructuredError)):
-            raise
-        _raise_hf_error("embeddings", exc)
+    embeddings = await _hf_embed_texts(req.texts, config=config)
     return {"vectors": embeddings, "model": config["embedding_model"]}
+
+
+@app.post("/embed/upsert", dependencies=[Depends(require_shared_secret)])
+async def embed_upsert(req: EmbedUpsertRequest):
+    if not req.items:
+        raise HTTPException(status_code=400, detail="items are required")
+    texts = [str(item.text or "").strip() for item in req.items]
+    if not all(texts):
+        raise HTTPException(status_code=400, detail="embedding item text is empty")
+    config = get_hf_config()
+    embeddings = await _hf_embed_texts(texts, config=config)
+    upserted = _upsert_vector_records(req.items, embeddings)
+    vector_dim = len(embeddings[0]) if embeddings else 0
+    return {
+        "upserted": upserted,
+        "vector_dim": vector_dim,
+        "model": config["embedding_model"],
+    }
+
+
+@app.post("/embed/get", dependencies=[Depends(require_shared_secret)])
+async def embed_get(req: EmbedGetRequest):
+    if not req.ids:
+        return {"results": []}
+    return {"results": _get_vector_records(req.ids)}
+
+
+@app.post("/embed/delete", dependencies=[Depends(require_shared_secret)])
+async def embed_delete(req: EmbedDeleteRequest):
+    if not req.ids:
+        return {"deleted": 0}
+    deleted = _delete_vector_records(req.ids)
+    return {"deleted": deleted}
+
+
+@app.post("/search", dependencies=[Depends(require_shared_secret)])
+async def search(req: SearchRequest):
+    query = str(req.query or "").strip()
+    if not query:
+        raise HTTPException(status_code=400, detail="query is required")
+    safe_limit = _clamp_limit(req.limit, default=12, max_limit=50)
+    query_vector = (await _hf_embed_texts([query], config=get_hf_config()))[0]
+    results = _search_vectors(
+        query_vector,
+        user_id=req.userId,
+        types=req.types,
+        limit=safe_limit,
+    )
+    return {"results": results}
+
+
+@app.post("/similar", dependencies=[Depends(require_shared_secret)])
+async def similar(req: SimilarRequest):
+    source_id = str(req.sourceId or "").strip()
+    user_id = str(req.userId or "").strip()
+    if not source_id or not user_id:
+        raise HTTPException(status_code=400, detail="userId and sourceId are required")
+    source_records = _get_vector_records([source_id])
+    if not source_records:
+        return {"results": [], "source_found": False}
+    source = source_records[0]
+    if str(source.get("userId") or "") and str(source.get("userId")) != user_id:
+        return {"results": [], "source_found": False}
+    query_vector = _safe_float_vector(source.get("embedding")) or []
+    if not query_vector:
+        return {"results": [], "source_found": False}
+    safe_limit = _clamp_limit(req.limit, default=12, max_limit=50)
+    results = _search_vectors(
+        query_vector,
+        user_id=user_id,
+        types=req.types,
+        limit=safe_limit,
+        exclude_id=source_id,
+    )
+    return {"results": results, "source_found": True}
 
 
 @app.post("/synthesize", dependencies=[Depends(require_shared_secret)])
