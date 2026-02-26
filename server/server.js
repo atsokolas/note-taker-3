@@ -5660,14 +5660,32 @@ const normalizeSearchTypes = (types) => {
 
 const normalizeRelatedTypes = (types) => normalizeSearchTypes(types);
 
+const isAiRouteMissingError = (error) => {
+  if (!error || Number(error.status) !== 404) return false;
+  const detail = String(error?.payload?.detail || '').trim();
+  return detail === 'Not Found' && error?.payload?.upstream === 'ai_service';
+};
+
 const fetchSimilarEmbeddings = async ({ userId, sourceId, types, limit, requestId }) => {
-  const response = await aiSimilarTo({
-    userId: String(userId),
-    sourceId: String(sourceId),
-    types,
-    limit
-  }, { requestId });
-  return Array.isArray(response?.results) ? response.results : [];
+  try {
+    const response = await aiSimilarTo({
+      userId: String(userId),
+      sourceId: String(sourceId),
+      types,
+      limit
+    }, { requestId });
+    return Array.isArray(response?.results) ? response.results : [];
+  } catch (error) {
+    if (isAiRouteMissingError(error)) {
+      console.warn('[AI-UPSTREAM] similar endpoint missing on ai_service; returning empty results', {
+        requestId,
+        sourceId: String(sourceId),
+        types: Array.isArray(types) ? types : []
+      });
+      return [];
+    }
+    throw error;
+  }
 };
 
 const filterOutIds = (items, type, ids) => {
@@ -5935,6 +5953,13 @@ const handleSemanticSearch = async (req, res, query, rawTypes, rawLimit) => {
     const results = await hydrateSemanticResults({ matches, userId: req.user.id });
     res.status(200).json({ results });
   } catch (error) {
+    if (isAiRouteMissingError(error)) {
+      console.warn('[AI-UPSTREAM] search endpoint missing on ai_service; returning empty semantic search results', {
+        requestId: req.requestId,
+        query: q.slice(0, 80)
+      });
+      return res.status(200).json({ results: [] });
+    }
     if (error.payload || error instanceof EmbeddingError) {
       return sendEmbeddingError(res, error);
     }
