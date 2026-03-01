@@ -85,6 +85,15 @@ const readRecentTargets = () => {
 const formatAiError = (err, fallback = 'Request failed.') => {
   const status = err?.response?.status;
   const data = err?.response?.data;
+  const detail = typeof data?.detail === 'string' ? data.detail : '';
+  const provider = typeof data?.provider === 'string' ? data.provider : '';
+  const model = typeof data?.model === 'string' ? data.model : '';
+  if (status === 400 && detail === 'HF model not supported by enabled provider') {
+    return `AI model configuration issue (${provider || 'unknown provider'} / ${model || 'unknown model'}). Ask admin to update HF_TEXT_MODEL or HF_PROVIDER.`;
+  }
+  if (status === 429 && detail === 'HF credits depleted') {
+    return 'AI credits are depleted. Buy Hugging Face credits or wait for reset.';
+  }
   const bodySnippet = typeof data === 'string'
     ? data.slice(0, 300)
     : data

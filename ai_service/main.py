@@ -39,6 +39,7 @@ async def handle_upstream_structured_error(
 AI_SHARED_SECRET = os.getenv("AI_SHARED_SECRET", "")
 MAX_SYNTH_TOTAL_CHARS = int(os.getenv("AI_SYNTH_MAX_CHARS", "20000"))
 MAX_SYNTH_ITEM_CHARS = int(os.getenv("AI_SYNTH_MAX_ITEM_CHARS", "800"))
+MAX_SYNTH_OUTPUT_ITEM_CHARS = int(os.getenv("AI_SYNTH_MAX_OUTPUT_ITEM_CHARS", "220"))
 MAX_SYNTH_ITEMS = int(os.getenv("AI_SYNTH_MAX_ITEMS", "40"))
 ENABLE_JSON_SCHEMA = os.getenv("HF_JSON_SCHEMA", "false").lower() == "true"
 HF_MODELS_CACHE_TTL_SEC = int(os.getenv("HF_MODELS_CACHE_TTL_SEC", "300"))
@@ -128,7 +129,30 @@ class SimilarRequest(BaseModel):
     limit: Optional[int] = 12
 
 
+def _parse_model_fallbacks(value: str) -> List[str]:
+    seen: Set[str] = set()
+    out: List[str] = []
+    for raw in str(value or "").split(","):
+        model = raw.strip()
+        if not model or model in seen:
+            continue
+        seen.add(model)
+        out.append(model)
+    return out
+
+
 def get_hf_config() -> Dict[str, Any]:
+    text_model = os.environ.get(
+        "HF_TEXT_MODEL",
+        "Qwen/Qwen2.5-Coder-7B-Instruct"
+    ).strip()
+    fallback_default = (
+        "Qwen/Qwen2.5-Coder-7B-Instruct,"
+        "mistralai/Mistral-7B-Instruct-v0.3"
+    )
+    fallbacks = _parse_model_fallbacks(
+        os.environ.get("HF_TEXT_MODEL_FALLBACKS", fallback_default)
+    )
     return {
         "token": os.environ.get("HF_TOKEN", ""),
         "provider": os.environ.get("HF_PROVIDER", "hf-inference"),
@@ -136,10 +160,8 @@ def get_hf_config() -> Dict[str, Any]:
             "HF_EMBEDDING_MODEL",
             "sentence-transformers/all-MiniLM-L6-v2"
         ),
-        "text_model": os.environ.get(
-            "HF_TEXT_MODEL",
-            "Qwen/Qwen2.5-Coder-7B-Instruct"
-        ),
+        "text_model": text_model,
+        "text_model_fallbacks": [m for m in fallbacks if m != text_model],
         "models_base_url": os.environ.get(
             "HF_MODELS_BASE_URL",
             "https://router.huggingface.co/hf-inference/models"
@@ -375,51 +397,79 @@ def _model_provider_support(models_body: Any, model: str, provider: str) -> Dict
     return {"found": False, "supported": False}
 
 
-async def _ensure_text_model_supported(config: Dict[str, Any]) -> None:
-    model = str(config.get("text_model") or "").strip()
+def _build_candidate_models(config: Dict[str, Any]) -> List[str]:
+    primary = str(config.get("text_model") or "").strip()
+    fallbacks = config.get("text_model_fallbacks") or []
+    out: List[str] = []
+    seen: Set[str] = set()
+    for model in [primary, *fallbacks]:
+        clean = str(model or "").strip()
+        if not clean or clean in seen:
+            continue
+        seen.add(clean)
+        out.append(clean)
+    return out
+
+
+async def _ensure_text_model_supported(config: Dict[str, Any]) -> str:
+    requested_model = str(config.get("text_model") or "").strip()
     provider = str(config.get("provider") or "hf-inference").strip()
     router_base_url = str(config.get("router_base_url") or "").rstrip("/")
     token = str(config.get("token") or "")
     timeout_ms = int(config.get("timeout_ms") or 30000)
+    candidates = _build_candidate_models(config)
 
-    if not model:
+    if not requested_model:
         raise HTTPException(status_code=500, detail="HF_TEXT_MODEL not configured")
     if not router_base_url:
         raise HTTPException(status_code=500, detail="HF_ROUTER_BASE_URL not configured")
+    if not candidates:
+        raise HTTPException(status_code=500, detail="No HF text models configured")
 
-    cache_key = f"{router_base_url}|{provider}|{model}"
     now = time.time()
-    cached = _HF_MODELS_CACHE.get(cache_key)
-    if cached and (now - float(cached.get("ts", 0))) < HF_MODELS_CACHE_TTL_SEC:
+    unresolved: List[str] = []
+    attempted_models: List[str] = []
+    for model in candidates:
+        cache_key = f"{router_base_url}|{provider}|{model}"
+        cached = _HF_MODELS_CACHE.get(cache_key)
+        if not cached or (now - float(cached.get("ts", 0))) >= HF_MODELS_CACHE_TTL_SEC:
+            unresolved.append(model)
+            continue
+        attempted_models.append(model)
         if cached.get("ok"):
-            return
-        raise UpstreamStructuredError(
-            status_code=400,
-            payload={
-                "detail": "HF model not supported by enabled provider",
-                "model": model,
-                "provider": provider,
-            },
-        )
+            return model
 
-    models_url = f"{router_base_url}/models"
-    res = await _get_hf(models_url, token, timeout_ms)
-    body = _parse_json_or_text(res)
-    if res.status_code < 200 or res.status_code >= 300:
-        _raise_hf_response_error("models list", body, provider)
+    if unresolved:
+        models_url = f"{router_base_url}/models"
+        res = await _get_hf(models_url, token, timeout_ms)
+        body = _parse_json_or_text(res)
+        if res.status_code < 200 or res.status_code >= 300:
+            _raise_hf_response_error("models list", body, provider)
+        for model in unresolved:
+            support = _model_provider_support(body, model, provider)
+            ok = bool(support["found"] and support["supported"])
+            _HF_MODELS_CACHE[f"{router_base_url}|{provider}|{model}"] = {"ts": now, "ok": ok}
+            attempted_models.append(model)
+            if ok:
+                if model != requested_model:
+                    logger.warning(
+                        "[HF] primary text model unsupported; using fallback model=%s requested=%s provider=%s",
+                        model,
+                        requested_model,
+                        provider,
+                    )
+                return model
 
-    support = _model_provider_support(body, model, provider)
-    if not support["found"] or not support["supported"]:
-        _HF_MODELS_CACHE[cache_key] = {"ts": now, "ok": False}
-        raise UpstreamStructuredError(
-            status_code=400,
-            payload={
-                "detail": "HF model not supported by enabled provider",
-                "model": model,
-                "provider": provider,
-            },
-        )
-    _HF_MODELS_CACHE[cache_key] = {"ts": now, "ok": True}
+    raise UpstreamStructuredError(
+        status_code=400,
+        payload={
+            "detail": "HF model not supported by enabled provider",
+            "model": requested_model,
+            "provider": provider,
+            "requested_model": requested_model,
+            "attempted_models": attempted_models or candidates,
+        },
+    )
 
 
 def _extract_first_json_object(text: str) -> str:
@@ -451,6 +501,34 @@ def _extract_first_json_object(text: str) -> str:
     return text[start:]
 
 
+def _normalize_synthesis_string(value: Any) -> str:
+    text = str(value or "").strip()
+    text = text.replace("\n", " ")
+    text = re.sub(r"\s+", " ", text)
+    text = re.sub(r"^\s*(?:[-*•]|\d+\.)\s*", "", text)
+    if len(text) > MAX_SYNTH_OUTPUT_ITEM_CHARS:
+        text = text[:MAX_SYNTH_OUTPUT_ITEM_CHARS].rstrip()
+    return text
+
+
+def _normalize_synthesis_payload(data: Any) -> Any:
+    if not isinstance(data, dict):
+        return data
+    normalized: Dict[str, Any] = {}
+    for key in ("themes", "connections", "questions"):
+        value = data.get(key)
+        if not isinstance(value, list):
+            normalized[key] = value
+            continue
+        cleaned = [_normalize_synthesis_string(item) for item in value]
+        cleaned = [item for item in cleaned if item]
+        normalized[key] = cleaned[:3]
+    for key, value in data.items():
+        if key not in normalized:
+            normalized[key] = value
+    return normalized
+
+
 def _is_valid_synthesis_payload(data: Any) -> bool:
     if not isinstance(data, dict):
         return False
@@ -469,6 +547,7 @@ def _parse_and_validate_synthesis(text: str) -> SynthResponse:
     cleaned = _clean_model_output(text)
     cleaned = _extract_first_json_object(cleaned)
     data = json.loads(cleaned)
+    data = _normalize_synthesis_payload(data)
     if not _is_valid_synthesis_payload(data):
         raise ValueError("Synthesis output failed validation.")
     return SynthResponse.model_validate(data)
@@ -886,6 +965,7 @@ def debug_hf():
         "hf_chat_completions_url": f"{config['router_base_url']}/chat/completions",
         "embedding_model": config["embedding_model"],
         "text_model": config["text_model"],
+        "text_model_fallbacks": config["text_model_fallbacks"],
     }
 
 
@@ -926,14 +1006,14 @@ async def debug_hf_generate():
     config = get_hf_config()
     if not config["token"]:
         raise HTTPException(status_code=500, detail="HF_TOKEN not configured")
-    await _ensure_text_model_supported(config)
+    selected_model = await _ensure_text_model_supported(config)
     prompt = (
         "Return JSON only with keys themes, connections, questions; "
         "each array must contain exactly 3 short strings."
     )
     result = await hf_chat_complete(
         prompt,
-        config["text_model"],
+        selected_model,
         config["token"],
         config["timeout_ms"],
         config["router_base_url"],
@@ -944,7 +1024,8 @@ async def debug_hf_generate():
     )
     return {
         "provider": config["provider"],
-        "text_model": result["model"],
+        "text_model_requested": config["text_model"],
+        "text_model_selected": result["model"],
         "method": result["method"],
         "url": result["url"],
         "status": result["status"],
@@ -986,11 +1067,13 @@ async def debug_hf_smoke():
     gen_url = ""
     gen_preview = ""
     gen_status = 200
+    gen_model = config["text_model"]
     try:
-        await _ensure_text_model_supported(config)
+        selected_model = await _ensure_text_model_supported(config)
+        gen_model = selected_model
         gen_result = await hf_chat_complete(
             prompt,
-            config["text_model"],
+            selected_model,
             config["token"],
             config["timeout_ms"],
             config["router_base_url"],
@@ -1015,7 +1098,8 @@ async def debug_hf_smoke():
         "hf_models_base_url": config["models_base_url"],
         "hf_router_base_url": config["router_base_url"],
         "embedding_model": config["embedding_model"],
-        "text_model": config["text_model"],
+        "text_model_requested": config["text_model"],
+        "text_model_selected": gen_model,
         "embedding": {
             "ok": embed_ok,
             "url": embed_url,
@@ -1160,7 +1244,7 @@ async def synthesize(req: SynthesizeRequest):
     )
     response_format = _build_synthesis_schema() if ENABLE_JSON_SCHEMA else None
     try:
-        await _ensure_text_model_supported(config)
+        selected_model = await _ensure_text_model_supported(config)
     except Exception as exc:
         if isinstance(exc, (HTTPException, UpstreamStructuredError)):
             raise
@@ -1190,7 +1274,7 @@ async def synthesize(req: SynthesizeRequest):
         try:
             result = await hf_chat_complete(
                 attempt_prompt,
-                config["text_model"],
+                selected_model,
                 config["token"],
                 config["timeout_ms"],
                 config["router_base_url"],
@@ -1222,7 +1306,7 @@ async def synthesize(req: SynthesizeRequest):
     )
     logger.warning(
         "[HF] synthesize fallback. model=%s provider=%s raw_snippet=%s",
-        config["text_model"],
+        selected_model,
         config["provider"],
         sanitized[:300],
     )
