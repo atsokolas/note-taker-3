@@ -391,10 +391,16 @@ def _collect_provider_names(value: Any) -> Set[str]:
 
 
 def _model_provider_support(models_body: Any, model: str, provider: str) -> Dict[str, bool]:
-    if not isinstance(models_body, list):
+    entries: List[Any]
+    if isinstance(models_body, list):
+        entries = models_body
+    elif isinstance(models_body, dict) and isinstance(models_body.get("data"), list):
+        # HF router can return OpenAI-style list payloads: {"object":"list","data":[...]}.
+        entries = models_body.get("data") or []
+    else:
         return {"found": False, "supported": False}
     provider_name = _normalize_provider_name(provider)
-    for entry in models_body:
+    for entry in entries:
         if not isinstance(entry, dict):
             continue
         entry_model = str(
