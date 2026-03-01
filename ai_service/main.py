@@ -892,6 +892,8 @@ async def hf_chat_complete(
         "max_tokens": max_tokens,
         "stream": False,
     }
+    if provider:
+        chat_payload["provider"] = provider
     if response_format:
         chat_payload["response_format"] = response_format
     res = await _post_hf(chat_url, token, chat_payload, timeout_ms)
@@ -902,6 +904,13 @@ async def hf_chat_complete(
             chat_payload.pop("response_format", None)
             res = await _post_hf(chat_url, token, chat_payload, timeout_ms)
             body = _parse_json_or_text(res)
+        if res.status_code in (400, 422) and provider:
+            body_text = _stringify_error_body(body).lower()
+            if "unknown field" in body_text and "provider" in body_text:
+                logger.warning("[HF] provider field unsupported by upstream; retrying without provider")
+                chat_payload.pop("provider", None)
+                res = await _post_hf(chat_url, token, chat_payload, timeout_ms)
+                body = _parse_json_or_text(res)
         if res.status_code < 200 or res.status_code >= 300:
             _raise_hf_response_error("generation", body, provider)
     text_out = ""
