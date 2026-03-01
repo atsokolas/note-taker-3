@@ -5666,6 +5666,20 @@ const isAiRouteMissingError = (error) => {
   return detail === 'Not Found' && error?.payload?.upstream === 'ai_service';
 };
 
+const isAiTransientCapacityError = (error) => {
+  const status = Number(error?.status);
+  if (![429, 502, 503, 504].includes(status)) return false;
+  const detail = String(error?.payload?.detail || '').toLowerCase();
+  const message = String(error?.message || '').toLowerCase();
+  return (
+    status === 429 ||
+    detail.includes('rate-limited') ||
+    detail.includes('credits depleted') ||
+    message.includes('service error 429') ||
+    message.includes('timed out')
+  );
+};
+
 const fetchSimilarEmbeddings = async ({ userId, sourceId, types, limit, requestId }) => {
   try {
     const response = await aiSimilarTo({
@@ -5681,6 +5695,14 @@ const fetchSimilarEmbeddings = async ({ userId, sourceId, types, limit, requestI
         requestId,
         sourceId: String(sourceId),
         types: Array.isArray(types) ? types : []
+      });
+      return [];
+    }
+    if (isAiTransientCapacityError(error)) {
+      console.warn('[AI-UPSTREAM] similar endpoint transient upstream error; returning empty results', {
+        requestId,
+        sourceId: String(sourceId),
+        status: Number(error?.status) || 0
       });
       return [];
     }
@@ -5957,6 +5979,13 @@ const handleSemanticSearch = async (req, res, query, rawTypes, rawLimit) => {
       console.warn('[AI-UPSTREAM] search endpoint missing on ai_service; returning empty semantic search results', {
         requestId: req.requestId,
         query: q.slice(0, 80)
+      });
+      return res.status(200).json({ results: [] });
+    }
+    if (isAiTransientCapacityError(error)) {
+      console.warn('[AI-UPSTREAM] search endpoint transient upstream error; returning empty semantic search results', {
+        requestId: req.requestId,
+        status: Number(error?.status) || 0
       });
       return res.status(200).json({ results: [] });
     }

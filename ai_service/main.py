@@ -302,6 +302,11 @@ def _stringify_error_body(body: Any) -> str:
         return str(body)
 
 
+def _looks_like_html(value: str) -> bool:
+    text = str(value or "").lower()
+    return "<html" in text or "<!doctype html" in text or "</html>" in text
+
+
 def _hf_credits_depleted(body: Any) -> bool:
     return "credit balance is depleted" in _stringify_error_body(body).lower()
 
@@ -317,6 +322,22 @@ def _raise_hf_response_error(
             payload={
                 "detail": "HF credits depleted",
                 "action": "buy_credits_or_wait",
+                "provider": provider,
+            },
+        )
+    body_text = _stringify_error_body(body)
+    body_lc = body_text.lower()
+    if _looks_like_html(body_text) and (
+        "just a moment" in body_lc
+        or "rate limit" in body_lc
+        or "too many requests" in body_lc
+        or "cloudflare" in body_lc
+    ):
+        raise UpstreamStructuredError(
+            status_code=429,
+            payload={
+                "detail": "HF provider temporarily rate-limited",
+                "action": "retry_later",
                 "provider": provider,
             },
         )

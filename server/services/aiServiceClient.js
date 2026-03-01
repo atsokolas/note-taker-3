@@ -36,9 +36,11 @@ const buildError = ({ status, message, hint }) => {
 
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 const stripHtml = (value = '') => String(value || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+const isLikelyHtml = (value = '') => /<html|<!doctype html|<\/html>/i.test(String(value || ''));
 const safeSnippet = (value = '') => {
   const text = String(value || '');
   if (!text) return '';
+  if (isLikelyHtml(text)) return 'Upstream returned an HTML rate-limit/challenge page.';
   if (/<[a-z][\s\S]*>/i.test(text)) return stripHtml(text).slice(0, 500);
   return text.slice(0, 500);
 };
