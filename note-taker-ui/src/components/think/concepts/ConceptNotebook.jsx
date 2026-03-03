@@ -57,6 +57,7 @@ const TYPE_ICON = {
   note: '✎',
   question: '?'
 };
+const EMPTY_ITEMS = [];
 
 const createId = (prefix = 'id') => (
   `${prefix}-${typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `${Math.random().toString(36).slice(2, 9)}-${Date.now()}`}`
@@ -424,7 +425,10 @@ const ConceptNotebook = ({ concept }) => {
   } = useConceptMaterial(conceptId, { enabled: Boolean(conceptId) });
 
   const normalizedWorkspace = useMemo(() => normalizeWorkspace(workspace), [workspace]);
-  const items = normalizedWorkspace.attachedItems || [];
+  const items = useMemo(
+    () => (Array.isArray(normalizedWorkspace.attachedItems) ? normalizedWorkspace.attachedItems : EMPTY_ITEMS),
+    [normalizedWorkspace.attachedItems]
+  );
 
   const [stageFilter, setStageFilter] = useState('all');
   const [collapsedStages, setCollapsedStages] = useState({
@@ -700,7 +704,7 @@ const ConceptNotebook = ({ concept }) => {
 
   const handleRemoveItem = useCallback(async (item) => {
     const payload = { itemId: item.id };
-    const optimisticItems = (items || []).filter(entry => entry.id !== item.id);
+    const optimisticItems = items.filter(entry => entry.id !== item.id);
     const optimisticWorkspace = normalizeWorkspace({
       ...normalizedWorkspace,
       attachedItems: optimisticItems
