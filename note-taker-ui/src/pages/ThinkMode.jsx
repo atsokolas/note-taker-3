@@ -808,7 +808,7 @@ const ThinkMode = () => {
     return () => window.cancelAnimationFrame(frame);
   }, [conceptComposerAnchor, conceptComposerOpen]);
 
-  const handleSelectConcept = (name) => {
+  const handleSelectConcept = useCallback((name) => {
     const params = new URLSearchParams(searchParams);
     params.set('tab', 'concepts');
     params.set('concept', name);
@@ -816,7 +816,7 @@ const ThinkMode = () => {
     params.delete('scopeId');
     setActiveView('concepts');
     setSearchParams(params);
-  };
+  }, [searchParams, setSearchParams]);
 
   const openConceptComposer = useCallback((anchor = 'header', seed = '') => {
     setConceptComposerAnchor(anchor);
