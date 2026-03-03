@@ -42,6 +42,9 @@ MAX_SYNTH_TOTAL_CHARS = int(os.getenv("AI_SYNTH_MAX_CHARS", "20000"))
 MAX_SYNTH_ITEM_CHARS = int(os.getenv("AI_SYNTH_MAX_ITEM_CHARS", "800"))
 MAX_SYNTH_OUTPUT_ITEM_CHARS = int(os.getenv("AI_SYNTH_MAX_OUTPUT_ITEM_CHARS", "220"))
 MAX_SYNTH_ITEMS = int(os.getenv("AI_SYNTH_MAX_ITEMS", "40"))
+MAX_SYNTH_ATTEMPTS = max(1, int(os.getenv("AI_SYNTH_MAX_ATTEMPTS", "1")))
+MAX_SYNTH_LATENCY_MS = max(2000, int(os.getenv("AI_SYNTH_MAX_LATENCY_MS", "12000")))
+MAX_SYNTH_GENERATION_TOKENS = max(120, int(os.getenv("AI_SYNTH_MAX_TOKENS", "260")))
 ENABLE_JSON_SCHEMA = os.getenv("HF_JSON_SCHEMA", "false").lower() == "true"
 HF_MODELS_CACHE_TTL_SEC = int(os.getenv("HF_MODELS_CACHE_TTL_SEC", "300"))
 VECTOR_STORE_PATH = os.getenv("AI_VECTOR_STORE_PATH", "/tmp/note_taker_ai_vectors.json")
@@ -1305,8 +1308,18 @@ async def synthesize(req: SynthesizeRequest):
         _raise_hf_error("generation", exc)
 
     raw_outputs: List[str] = []
-    attempt_prompts: List[str] = []
-    for attempt in range(3):
+    started_at = time.monotonic()
+    max_attempts = max(1, min(MAX_SYNTH_ATTEMPTS, 3))
+    for attempt in range(max_attempts):
+        elapsed_ms = int((time.monotonic() - started_at) * 1000)
+        if elapsed_ms >= MAX_SYNTH_LATENCY_MS:
+            logger.warning(
+                "[HF] synthesize latency budget exceeded before attempt=%s elapsed_ms=%s budget_ms=%s",
+                attempt + 1,
+                elapsed_ms,
+                MAX_SYNTH_LATENCY_MS,
+            )
+            break
         if attempt == 0:
             attempt_prompt = prompt
         elif attempt == 1:
@@ -1324,18 +1337,17 @@ async def synthesize(req: SynthesizeRequest):
                 "No extra keys. No markdown. No explanation.\n\n"
                 f"Items:\n{items_text}\n\nInstruction: {guidance}"
             )
-        attempt_prompts.append(attempt_prompt)
         try:
             result = await hf_chat_complete(
                 attempt_prompt,
                 selected_model,
                 config["token"],
-                config["timeout_ms"],
+                min(int(config["timeout_ms"]), MAX_SYNTH_LATENCY_MS),
                 config["router_base_url"],
                 provider=config["provider"],
                 system=system_instruction,
                 temperature=0.0,
-                max_tokens=450,
+                max_tokens=MAX_SYNTH_GENERATION_TOKENS,
                 response_format=response_format,
             )
         except Exception as exc:
@@ -1353,8 +1365,9 @@ async def synthesize(req: SynthesizeRequest):
     final_raw = raw_outputs[-1] if raw_outputs else ""
     sanitized = _extract_first_json_object(_clean_model_output(final_raw or first_raw))
     logger.warning(
-        "[HF] synthesize invalid JSON after retries. attempts=%s first_snippet=%s final_snippet=%s",
+        "[HF] synthesize invalid JSON after retries. attempts=%s elapsed_ms=%s first_snippet=%s final_snippet=%s",
         len(raw_outputs),
+        int((time.monotonic() - started_at) * 1000),
         first_raw[:200],
         final_raw[:200],
     )

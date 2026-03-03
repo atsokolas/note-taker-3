@@ -7063,6 +7063,7 @@ app.get('/api/ai/connections', authenticateToken, async (req, res) => {
 // POST /api/ai/synthesize
 app.post('/api/ai/synthesize', authenticateToken, async (req, res) => {
   try {
+    const routeStartedAt = Date.now();
     const userId = req.user.id;
     const {
       scopeType = 'custom',
@@ -7433,8 +7434,15 @@ app.post('/api/ai/synthesize', authenticateToken, async (req, res) => {
         });
       } else {
         const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
-        const timeoutMs = toPositiveInt(process.env.AI_SERVICE_TIMEOUT_MS, 60000);
-        const backoffs = [250, 750];
+        const synthTimeoutEnv = Number(process.env.AI_SYNTH_UPSTREAM_TIMEOUT_MS || 0);
+        const timeoutMs = Number.isFinite(synthTimeoutEnv) && synthTimeoutEnv > 0
+          ? Math.floor(synthTimeoutEnv)
+          : toPositiveInt(process.env.AI_SERVICE_TIMEOUT_MS, 12000);
+        const retryEnv = Number(process.env.AI_SYNTH_UPSTREAM_RETRIES || 0);
+        const maxRetries = Number.isFinite(retryEnv)
+          ? Math.max(0, Math.min(2, Math.floor(retryEnv)))
+          : 0;
+        const backoffs = [250, 750].slice(0, maxRetries);
         let synthData = null;
         let synthError = null;
         for (let attempt = 0; attempt <= backoffs.length; attempt += 1) {
@@ -7597,7 +7605,8 @@ app.post('/api/ai/synthesize', authenticateToken, async (req, res) => {
       draftInsights,
       meta: {
         degraded: synthesisWarnings.length > 0,
-        warnings: synthesisWarnings
+        warnings: synthesisWarnings,
+        latency_ms: Date.now() - routeStartedAt
       }
     });
   } catch (error) {

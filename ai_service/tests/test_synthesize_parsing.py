@@ -44,6 +44,7 @@ class TestSynthesizeIntegration(unittest.IsolatedAsyncioTestCase):
         original_chat = main.hf_chat_complete
         original_config = main.get_hf_config
         original_ensure = main._ensure_text_model_supported
+        original_attempts = main.MAX_SYNTH_ATTEMPTS
         calls = {"count": 0}
 
         async def fake_chat_complete(*args, **kwargs):
@@ -80,6 +81,7 @@ class TestSynthesizeIntegration(unittest.IsolatedAsyncioTestCase):
             }
 
         try:
+            main.MAX_SYNTH_ATTEMPTS = 3
             main.hf_chat_complete = fake_chat_complete
             main.get_hf_config = fake_get_hf_config
             async def fake_ensure(_config):
@@ -96,11 +98,13 @@ class TestSynthesizeIntegration(unittest.IsolatedAsyncioTestCase):
             main.hf_chat_complete = original_chat
             main.get_hf_config = original_config
             main._ensure_text_model_supported = original_ensure
+            main.MAX_SYNTH_ATTEMPTS = original_attempts
 
     async def test_synthesize_fallback_on_unparseable_output(self):
         original_chat = main.hf_chat_complete
         original_config = main.get_hf_config
         original_ensure = main._ensure_text_model_supported
+        original_attempts = main.MAX_SYNTH_ATTEMPTS
         calls = {"count": 0}
 
         async def fake_chat_complete(*args, **kwargs):
@@ -126,6 +130,7 @@ class TestSynthesizeIntegration(unittest.IsolatedAsyncioTestCase):
             }
 
         try:
+            main.MAX_SYNTH_ATTEMPTS = 3
             main.hf_chat_complete = fake_chat_complete
             main.get_hf_config = fake_get_hf_config
             async def fake_ensure(_config):
@@ -143,3 +148,4 @@ class TestSynthesizeIntegration(unittest.IsolatedAsyncioTestCase):
             main.hf_chat_complete = original_chat
             main.get_hf_config = original_config
             main._ensure_text_model_supported = original_ensure
+            main.MAX_SYNTH_ATTEMPTS = original_attempts

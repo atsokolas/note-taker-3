@@ -28,6 +28,9 @@ uvicorn main:app --host 0.0.0.0 --port 8001 --reload
 - `HF_ROUTER_BASE_URL` (default: `https://router.huggingface.co/v1`)
 - `HF_MODELS_BASE_URL` (default: `https://router.huggingface.co/hf-inference/models`)
 - `HF_TIMEOUT_MS` (default: `30000`)
+- `AI_SYNTH_MAX_ATTEMPTS` (default: `1`)
+- `AI_SYNTH_MAX_LATENCY_MS` (default: `12000`)
+- `AI_SYNTH_MAX_TOKENS` (default: `260`)
 
 ## Auth
 
@@ -50,11 +53,12 @@ x-ai-shared-secret: <AI_SHARED_SECRET>
 
 ### Synthesize JSON safety
 
-`/synthesize` uses a sanitize + retry + validate flow:
+`/synthesize` uses a sanitize + retry + validate flow with a latency budget:
 1) sanitize model output (strip `<think>` blocks and code fences)
 2) extract the first JSON object substring
 3) parse and validate against a strict schema (exact keys, 3 strings each)
-4) if invalid, retry up to 2 additional strict attempts, then return a strict fallback payload
+4) if invalid, retry strict attempts up to `AI_SYNTH_MAX_ATTEMPTS` (default 1)
+5) stop early if `AI_SYNTH_MAX_LATENCY_MS` is exceeded, then return a strict fallback payload
 
 ## Example curl
 
