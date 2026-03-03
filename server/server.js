@@ -5813,6 +5813,121 @@ const extractQuestions = (texts = []) => {
   return Array.from(questions).slice(0, 10);
 };
 
+const uniqueStrings = (values = []) => {
+  const seen = new Set();
+  const out = [];
+  values.forEach((value) => {
+    const clean = String(value || '').trim();
+    if (!clean) return;
+    const key = clean.toLowerCase();
+    if (seen.has(key)) return;
+    seen.add(key);
+    out.push(clean);
+  });
+  return out;
+};
+
+const titleCaseWord = (value = '') => {
+  const clean = String(value || '').trim();
+  if (!clean) return '';
+  return clean.charAt(0).toUpperCase() + clean.slice(1);
+};
+
+const inferThemeTitlesFromTexts = (texts = [], limit = 3) => {
+  const counts = new Map();
+  texts.forEach((text) => {
+    const words = stripHtml(String(text || ''))
+      .toLowerCase()
+      .replace(/[^a-z0-9\s]/g, ' ')
+      .split(/\s+/)
+      .filter((word) => word.length > 3 && !stopWords.has(word));
+    words.forEach((word) => {
+      counts.set(word, (counts.get(word) || 0) + 1);
+    });
+  });
+  return Array.from(counts.entries())
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, limit)
+    .map(([word]) => titleCaseWord(word))
+    .filter(Boolean);
+};
+
+const normalizeThemeObjects = (themes = []) => (
+  (Array.isArray(themes) ? themes : [])
+    .map((theme) => {
+      const title = String(theme?.title || '').trim();
+      if (!title) return null;
+      return {
+        title,
+        evidence: Array.isArray(theme?.evidence) ? theme.evidence : [],
+        representative: Array.isArray(theme?.representative) ? theme.representative : []
+      };
+    })
+    .filter(Boolean)
+);
+
+const normalizeConnectionObjects = (connections = []) => (
+  (Array.isArray(connections) ? connections : [])
+    .map((item) => {
+      const description = String(item?.description || '').trim();
+      if (!description) return null;
+      return {
+        description,
+        evidence: Array.isArray(item?.evidence) ? item.evidence : []
+      };
+    })
+    .filter(Boolean)
+);
+
+const ensureBestEffortSynthesis = ({
+  themes = [],
+  connections = [],
+  questions = [],
+  sourceTexts = []
+}) => {
+  const safeThemes = normalizeThemeObjects(themes);
+  const themeTitles = uniqueStrings([
+    ...safeThemes.map((theme) => theme.title),
+    ...inferThemeTitlesFromTexts(sourceTexts, 6)
+  ]);
+  const fallbackThemeTitles = ['Core Pattern', 'Practical Implications', 'Open Risks'];
+  const finalThemeTitles = uniqueStrings([...themeTitles, ...fallbackThemeTitles]).slice(0, 3);
+  const finalThemes = finalThemeTitles.map((title, idx) => (
+    safeThemes[idx] || { title, evidence: [], representative: [] }
+  ));
+
+  const safeConnections = normalizeConnectionObjects(connections);
+  const fallbackConnections = [
+    finalThemeTitles.length >= 2
+      ? `Several excerpts connect ${finalThemeTitles[0]} with ${finalThemeTitles[1]}.`
+      : 'Several excerpts point to recurring links across the material.',
+    'The notes combine concrete examples with broader principles.',
+    'There are signals of trade-offs that may require explicit prioritization.'
+  ];
+  const finalConnections = [
+    ...safeConnections,
+    ...fallbackConnections.map((description) => ({ description, evidence: [] }))
+  ].slice(0, 3);
+
+  const safeQuestions = uniqueStrings((Array.isArray(questions) ? questions : []).map((q) => {
+    const text = String(q || '').trim();
+    if (!text) return '';
+    return text.endsWith('?') ? text : `${text}?`;
+  }));
+  const fallbackQuestions = [
+    `What would strengthen confidence in "${finalThemeTitles[0] || 'this pattern'}"?`,
+    `What assumptions could weaken "${finalThemeTitles[1] || 'the current direction'}"?`,
+    `What is the next small test to validate "${finalThemeTitles[2] || 'the key risk'}"?`
+  ];
+  const finalQuestions = uniqueStrings([...safeQuestions, ...fallbackQuestions]).slice(0, 3);
+
+  return {
+    themes: finalThemes,
+    connections: finalConnections,
+    questions: finalQuestions
+  };
+};
+
 const { parseAiServiceUrl, normalizeAiServiceOrigin, joinUrl } = require('./utils/aiUpstream');
 
 const toPositiveInt = (value, fallback) => {
@@ -7215,6 +7330,7 @@ app.post('/api/ai/synthesize', authenticateToken, async (req, res) => {
 
     const vectors = [];
     const vectorHighlights = [];
+    const synthesisWarnings = [];
 
     if (highlightRecords.length > 0) {
       const embedInputs = highlightRecords
@@ -7231,11 +7347,10 @@ app.post('/api/ai/synthesize', authenticateToken, async (req, res) => {
             { requestId: req.requestId }
           );
         } catch (error) {
-          return res.status(error.status || 502).json({
-            error: 'UPSTREAM_FAILED',
-            upstream: 'ai_service',
-            message: error.message,
-            details: error.payload || error.response?.data || ''
+          synthesisWarnings.push('embed_unavailable');
+          console.warn('[AI-SYNTH] embed unavailable; continuing with text-only synthesis', {
+            requestId: req.requestId,
+            status: Number(error?.status) || 0
           });
         }
         const embedVectors = Array.isArray(embedResponse?.vectors)
@@ -7312,120 +7427,120 @@ app.post('/api/ai/synthesize', authenticateToken, async (req, res) => {
     if (synthItems.length > 0) {
       const aiSecret = String(process.env.AI_SHARED_SECRET || '').trim();
       if (!upstreamUrl || !aiSecret) {
-        return res.status(503).json({
-          error: 'UPSTREAM_FAILED',
-          upstream_status: 503,
-          hint: 'AI service not configured.'
+        synthesisWarnings.push('upstream_not_configured');
+        console.warn('[AI-SYNTH] upstream not configured; continuing with local synthesis', {
+          requestId: req.requestId
         });
-      }
-      const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
-      const timeoutMs = toPositiveInt(process.env.AI_SERVICE_TIMEOUT_MS, 60000);
-      const backoffs = [250, 750];
-      let synthData = null;
-      let synthError = null;
-      for (let attempt = 0; attempt <= backoffs.length; attempt += 1) {
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), timeoutMs);
-        try {
-          console.log('AI upstream URL:', upstreamUrl);
-          const res = await fetch(upstreamUrl, {
-            method: 'POST',
-            headers: {
-              'x-ai-shared-secret': aiSecret,
-              'Content-Type': 'application/json',
-              'X-Request-Id': req.requestId
-            },
-            body: JSON.stringify({
-              items: synthItems.map(item => ({
-                type: item.type,
-                id: item.id,
-                text: item.text
-              }))
-            }),
-            signal: controller.signal
-          });
-          clearTimeout(timeout);
-          const bodyText = await res.text().catch(() => '');
-          let parsedBody = null;
+      } else {
+        const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+        const timeoutMs = toPositiveInt(process.env.AI_SERVICE_TIMEOUT_MS, 60000);
+        const backoffs = [250, 750];
+        let synthData = null;
+        let synthError = null;
+        for (let attempt = 0; attempt <= backoffs.length; attempt += 1) {
+          const controller = new AbortController();
+          const timeout = setTimeout(() => controller.abort(), timeoutMs);
           try {
-            parsedBody = bodyText ? JSON.parse(bodyText) : null;
-          } catch (_err) {
-            parsedBody = null;
-          }
-          const bodySnippet = /<[a-z][\s\S]*>/i.test(String(bodyText || ''))
-            ? String(bodyText || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 200)
-            : String(bodyText || '').slice(0, 200);
-          console.log('[AI-SYNTH] upstream response', {
-            upstream_url: upstreamUrl,
-            status: res.status
-          });
-          if (!res.ok) {
-            console.error('[AI-SYNTH] upstream error', {
-              upstream_url: upstreamUrl,
-              status: res.status,
-              body_snippet: bodySnippet
+            console.log('AI upstream URL:', upstreamUrl);
+            const res = await fetch(upstreamUrl, {
+              method: 'POST',
+              headers: {
+                'x-ai-shared-secret': aiSecret,
+                'Content-Type': 'application/json',
+                'X-Request-Id': req.requestId
+              },
+              body: JSON.stringify({
+                items: synthItems.map(item => ({
+                  type: item.type,
+                  id: item.id,
+                  text: item.text
+                }))
+              }),
+              signal: controller.signal
             });
-            if ([502, 503, 504].includes(res.status) && attempt < backoffs.length) {
+            clearTimeout(timeout);
+            const bodyText = await res.text().catch(() => '');
+            let parsedBody = null;
+            try {
+              parsedBody = bodyText ? JSON.parse(bodyText) : null;
+            } catch (_err) {
+              parsedBody = null;
+            }
+            const bodySnippet = /<[a-z][\s\S]*>/i.test(String(bodyText || ''))
+              ? String(bodyText || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 200)
+              : String(bodyText || '').slice(0, 200);
+            console.log('[AI-SYNTH] upstream response', {
+              upstream_url: upstreamUrl,
+              status: res.status
+            });
+            if (!res.ok) {
+              console.error('[AI-SYNTH] upstream error', {
+                upstream_url: upstreamUrl,
+                status: res.status,
+                body_snippet: bodySnippet
+              });
+              if ([429, 502, 503, 504].includes(res.status) && attempt < backoffs.length) {
+                await sleep(backoffs[attempt]);
+                continue;
+              }
+              synthError = {
+                status: res.status,
+                bodySnippet,
+                body: parsedBody && typeof parsedBody === 'object' ? parsedBody : null
+              };
+              break;
+            }
+            try {
+              synthData = parsedBody ?? JSON.parse(bodyText);
+            } catch (_err) {
+              synthError = { status: res.status, bodySnippet };
+            }
+            break;
+          } catch (err) {
+            clearTimeout(timeout);
+            const isTimeout = err.name === 'AbortError';
+            if (isTimeout && attempt < backoffs.length) {
               await sleep(backoffs[attempt]);
               continue;
             }
             synthError = {
-              status: res.status,
-              bodySnippet,
-              body: parsedBody && typeof parsedBody === 'object' ? parsedBody : null
+              status: isTimeout ? 504 : 502,
+              bodySnippet: ''
             };
             break;
           }
-          try {
-            synthData = parsedBody ?? JSON.parse(bodyText);
-          } catch (err) {
-            synthError = { status: res.status, bodySnippet };
-          }
-          break;
-        } catch (err) {
-          clearTimeout(timeout);
-          const isTimeout = err.name === 'AbortError';
-          if (isTimeout && attempt < backoffs.length) {
-            await sleep(backoffs[attempt]);
-            continue;
-          }
-          synthError = {
-            status: isTimeout ? 504 : 502,
-            bodySnippet: ''
-          };
-          break;
         }
-      }
-      if (synthError || !synthData) {
-        const status = synthError?.status;
-        if (status && synthError?.body && [400, 401, 403, 409, 422, 429].includes(status)) {
-          return res.status(status).json({
-            upstream: 'ai_service',
-            ...synthError.body
+        if (synthError || !synthData) {
+          synthesisWarnings.push('upstream_generate_failed');
+          console.warn('[AI-SYNTH] upstream synthesis failed; continuing with local synthesis', {
+            requestId: req.requestId,
+            status: Number(synthError?.status) || 0,
+            snippet: String(synthError?.bodySnippet || '').slice(0, 120)
           });
+        } else {
+          const upstreamThemes = Array.isArray(synthData.themes) ? synthData.themes : [];
+          const upstreamConnections = Array.isArray(synthData.connections) ? synthData.connections : [];
+          const upstreamQuestions = Array.isArray(synthData.questions) ? synthData.questions : [];
+          themes = upstreamThemes.map(title => ({
+            title,
+            evidence: [],
+            representative: []
+          }));
+          connections = upstreamConnections.map(description => ({ description }));
+          questions = upstreamQuestions;
         }
-        return res.status(502).json({
-          error: 'UPSTREAM_FAILED',
-          upstream_status: status,
-          upstream_body_snippet: synthError?.bodySnippet || '',
-          upstream_url: status === 404 ? upstreamUrl : undefined,
-          message: status === 404 ? 'AI service route mismatch; expected /synthesize' : undefined,
-          hint: status === 404
-            ? 'AI service route mismatch; expected /synthesize'
-            : 'likely payload too large or AI service timeout'
-        });
       }
-      const upstreamThemes = Array.isArray(synthData.themes) ? synthData.themes : [];
-      const upstreamConnections = Array.isArray(synthData.connections) ? synthData.connections : [];
-      const upstreamQuestions = Array.isArray(synthData.questions) ? synthData.questions : [];
-      themes = upstreamThemes.map(title => ({
-        title,
-        evidence: [],
-        representative: []
-      }));
-      connections = upstreamConnections.map(description => ({ description }));
-      questions = upstreamQuestions;
     }
+
+    const ensuredSynthesis = ensureBestEffortSynthesis({
+      themes,
+      connections,
+      questions,
+      sourceTexts
+    });
+    themes = ensuredSynthesis.themes;
+    connections = ensuredSynthesis.connections;
+    questions = ensuredSynthesis.questions;
 
     const queryText = sourceTexts.slice(0, 6).join(' ');
     let suggestedLinks = [];
@@ -7438,12 +7553,12 @@ app.post('/api/ai/synthesize', authenticateToken, async (req, res) => {
           limit: 12
         }, { requestId: req.requestId });
       } catch (error) {
-        return res.status(error.status || 502).json({
-          error: 'UPSTREAM_FAILED',
-          upstream: 'ai_service',
-          message: error.message,
-          details: error.payload || error.response?.data || ''
+        synthesisWarnings.push('semantic_links_unavailable');
+        console.warn('[AI-SYNTH] semantic links unavailable; returning synthesis without suggested links', {
+          requestId: req.requestId,
+          status: Number(error?.status) || 0
         });
+        response = { results: [] };
       }
       const matches = Array.isArray(response?.results) ? response.results : [];
       const hydrated = await hydrateSemanticResults({ matches, userId });
@@ -7479,7 +7594,11 @@ app.post('/api/ai/synthesize', authenticateToken, async (req, res) => {
       connections,
       questions,
       suggestedLinks,
-      draftInsights
+      draftInsights,
+      meta: {
+        degraded: synthesisWarnings.length > 0,
+        warnings: synthesisWarnings
+      }
     });
   } catch (error) {
     if (error.payload || error instanceof EmbeddingError) {

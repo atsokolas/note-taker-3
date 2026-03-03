@@ -1,3 +1,4 @@
+import asyncio
 import json
 import logging
 import os
@@ -902,8 +903,25 @@ async def hf_chat_complete(
         chat_payload["provider"] = provider
     if response_format:
         chat_payload["response_format"] = response_format
-    res = await _post_hf(chat_url, token, chat_payload, timeout_ms)
-    body = _parse_json_or_text(res)
+    retry_delays_sec = [0.0, 0.6, 1.4]
+    transient_statuses = {429, 502, 503, 504}
+    res = None
+    body: Any = None
+    for attempt, delay in enumerate(retry_delays_sec):
+        if delay > 0:
+            await asyncio.sleep(delay)
+        res = await _post_hf(chat_url, token, chat_payload, timeout_ms)
+        body = _parse_json_or_text(res)
+        if res.status_code not in transient_statuses:
+            break
+        if attempt < len(retry_delays_sec) - 1:
+            logger.warning(
+                "[HF] transient generation status=%s attempt=%s/%s; retrying",
+                res.status_code,
+                attempt + 1,
+                len(retry_delays_sec),
+            )
+    assert res is not None
     if res.status_code < 200 or res.status_code >= 300:
         if response_format and res.status_code in (400, 422):
             logger.warning("[HF] response_format unsupported; retrying without schema")
