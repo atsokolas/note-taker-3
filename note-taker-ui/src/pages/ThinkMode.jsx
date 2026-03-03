@@ -47,6 +47,7 @@ import {
 } from '../api/workingMemory';
 
 const THINK_RIGHT_STORAGE_KEY = 'workspace-right-open:/think';
+const THINK_RIGHT_MIGRATION_KEY = 'workspace-right-open:/think:migrated-v2';
 const THINK_RECENTS_STORAGE_KEY = 'think.recent.targets';
 const THINK_CONCEPT_ROW_HEIGHT = 46;
 const THINK_QUESTION_ROW_HEIGHT = 60;
@@ -141,7 +142,7 @@ const CalmEmptyLine = React.memo(({ children }) => (
 const NotebookListItem = React.memo(({ entry, isActive, onSelect }) => (
   <button
     type="button"
-    className={`think-index__row list-button ${isActive ? 'is-active' : ''}`}
+    className={`think-index__row ${isActive ? 'is-active' : ''}`}
     onClick={() => onSelect(entry._id)}
   >
     <span className="think-index__row-title">{entry.title || 'Untitled'}</span>
@@ -152,7 +153,7 @@ const NotebookListItem = React.memo(({ entry, isActive, onSelect }) => (
 const ConceptListItem = React.memo(({ conceptItem, isActive, onSelect }) => (
   <button
     type="button"
-    className={`think-index__row list-button ${isActive ? 'is-active' : ''}`}
+    className={`think-index__row ${isActive ? 'is-active' : ''}`}
     onClick={() => onSelect(conceptItem.name)}
   >
     <span className="think-index__row-title">{conceptItem.name}</span>
@@ -165,7 +166,7 @@ const ConceptListItem = React.memo(({ conceptItem, isActive, onSelect }) => (
 const QuestionListItem = React.memo(({ question, isActive, onOpen }) => (
   <button
     type="button"
-    className={`think-index__row list-button ${isActive ? 'is-active' : ''}`}
+    className={`think-index__row ${isActive ? 'is-active' : ''}`}
     onClick={() => onOpen(question._id)}
   >
     <span className="think-index__row-title">{question.text || 'Untitled question'}</span>
@@ -267,9 +268,19 @@ const ThinkMode = () => {
   const [homeArticlesLoading, setHomeArticlesLoading] = useState(false);
   const [homeArticlesError, setHomeArticlesError] = useState('');
   const [rightOpen, setRightOpen] = useState(() => {
-    const stored = localStorage.getItem(THINK_RIGHT_STORAGE_KEY);
-    if (stored === null) return false;
-    return stored === 'true';
+    try {
+      const migrated = localStorage.getItem(THINK_RIGHT_MIGRATION_KEY) === 'true';
+      if (!migrated) {
+        localStorage.setItem(THINK_RIGHT_STORAGE_KEY, 'false');
+        localStorage.setItem(THINK_RIGHT_MIGRATION_KEY, 'true');
+        return false;
+      }
+      const stored = localStorage.getItem(THINK_RIGHT_STORAGE_KEY);
+      if (stored === null) return false;
+      return stored === 'true';
+    } catch (error) {
+      return false;
+    }
   });
   const conceptProfilerLogger = useMemo(() => createProfilerLogger('think.concept.render'), []);
   const questionListProfilerLogger = useMemo(() => createProfilerLogger('think.question-list.render'), []);
@@ -2261,24 +2272,24 @@ const ThinkMode = () => {
         <NotebookContext entry={activeNotebookEntry} />
       )}
 
-        {activeView === 'questions' && (
-          <div className="section-stack">
-            <SectionHeader title="Context" subtitle="Open loops." />
-            {activeQuestion?.linkedTagName ? (
-              <TagChip to={`/think?tab=concepts&concept=${encodeURIComponent(activeQuestion.linkedTagName)}`}>
-                {activeQuestion.linkedTagName}
-              </TagChip>
-            ) : (
-              <CalmEmptyLine>No concept linked.</CalmEmptyLine>
-            )}
+      {activeView === 'questions' && (
+        <div className="section-stack">
+          <SectionHeader title="Context" subtitle="Open loops." />
+          {activeQuestion?.linkedTagName ? (
+            <TagChip to={`/think?tab=concepts&concept=${encodeURIComponent(activeQuestion.linkedTagName)}`}>
+              {activeQuestion.linkedTagName}
+            </TagChip>
+          ) : (
+            <CalmEmptyLine>No concept linked.</CalmEmptyLine>
+          )}
           <SectionHeader title="Connections in this question" subtitle="Supports, contradictions, extensions." />
           {contextConnectionsLoading && <p className="muted small">Loading connections…</p>}
           {contextConnectionsError && <p className="status-message error-message">{contextConnectionsError}</p>}
-            {!contextConnectionsLoading && !contextConnectionsError && (
-              <div className="context-connection-list">
-                {contextConnections.length === 0 ? (
-                  <CalmEmptyLine>No scoped connections yet.</CalmEmptyLine>
-                ) : (
+          {!contextConnectionsLoading && !contextConnectionsError && (
+            <div className="context-connection-list">
+              {contextConnections.length === 0 ? (
+                <CalmEmptyLine>No scoped connections yet.</CalmEmptyLine>
+              ) : (
                 contextConnections.slice(0, 10).map(row => (
                   <div key={row._id} className="context-connection-row">
                     <span className="context-connection-node">{row.fromItem?.title || row.fromType}</span>
@@ -2325,11 +2336,11 @@ const ThinkMode = () => {
           <SectionHeader title="Related highlights" subtitle="Semantically similar." />
           {questionRelatedLoading && <p className="muted small">Finding related highlights…</p>}
           {questionRelatedError && <p className="status-message error-message">{questionRelatedError}</p>}
-            {!questionRelatedLoading && !questionRelatedError && (
-              <div className="related-embed-list">
-                {questionRelated.highlights.length === 0 ? (
-                  <CalmEmptyLine>No related highlights yet.</CalmEmptyLine>
-                ) : (
+          {!questionRelatedLoading && !questionRelatedError && (
+            <div className="related-embed-list">
+              {questionRelated.highlights.length === 0 ? (
+                <CalmEmptyLine>No related highlights yet.</CalmEmptyLine>
+              ) : (
                 questionRelated.highlights.slice(0, 6).map(item => (
                   <div key={item.objectId} className="related-embed-row">
                     <div>
@@ -2345,11 +2356,11 @@ const ThinkMode = () => {
           <SectionHeader title="Related concepts" subtitle="Neighbors and cousins." />
           {questionRelatedLoading && <p className="muted small">Finding related concepts…</p>}
           {questionRelatedError && <p className="status-message error-message">{questionRelatedError}</p>}
-            {!questionRelatedLoading && !questionRelatedError && (
-              <div className="related-embed-list">
-                {questionRelated.concepts.length === 0 ? (
-                  <CalmEmptyLine>No related concepts yet.</CalmEmptyLine>
-                ) : (
+          {!questionRelatedLoading && !questionRelatedError && (
+            <div className="related-embed-list">
+              {questionRelated.concepts.length === 0 ? (
+                <CalmEmptyLine>No related concepts yet.</CalmEmptyLine>
+              ) : (
                 <div className="concept-related-tags">
                   {questionRelated.concepts.slice(0, 8).map(item => {
                     const name = item.metadata?.name || item.title || '';
@@ -2377,11 +2388,11 @@ const ThinkMode = () => {
           <SectionHeader title="Connections in this concept" subtitle="Supports, contradictions, extensions." />
           {contextConnectionsLoading && <p className="muted small">Loading connections…</p>}
           {contextConnectionsError && <p className="status-message error-message">{contextConnectionsError}</p>}
-            {!contextConnectionsLoading && !contextConnectionsError && (
-              <div className="context-connection-list">
-                {contextConnections.length === 0 ? (
-                  <CalmEmptyLine>No scoped connections yet.</CalmEmptyLine>
-                ) : (
+          {!contextConnectionsLoading && !contextConnectionsError && (
+            <div className="context-connection-list">
+              {contextConnections.length === 0 ? (
+                <CalmEmptyLine>No scoped connections yet.</CalmEmptyLine>
+              ) : (
                 contextConnections.slice(0, 10).map(row => (
                   <div key={row._id} className="context-connection-row">
                     <span className="context-connection-node">{row.fromItem?.title || row.fromType}</span>
@@ -2395,11 +2406,11 @@ const ThinkMode = () => {
           <SectionHeader title="Related highlights" subtitle="Semantically similar." />
           {conceptRelatedLoading && <p className="muted small">Finding related highlights…</p>}
           {conceptRelatedError && <p className="status-message error-message">{conceptRelatedError}</p>}
-            {!conceptRelatedLoading && !conceptRelatedError && (
-              <div className="related-embed-list">
-                {conceptRelated.highlights.length === 0 ? (
-                  <CalmEmptyLine>No related highlights yet.</CalmEmptyLine>
-                ) : (
+          {!conceptRelatedLoading && !conceptRelatedError && (
+            <div className="related-embed-list">
+              {conceptRelated.highlights.length === 0 ? (
+                <CalmEmptyLine>No related highlights yet.</CalmEmptyLine>
+              ) : (
                 conceptRelated.highlights.slice(0, 6).map(item => (
                   <div key={item.objectId} className="related-embed-row">
                     <div>
@@ -2415,8 +2426,8 @@ const ThinkMode = () => {
           <SectionHeader title="Related concepts" subtitle="Neighbors and cousins." />
           {conceptRelatedLoading && <p className="muted small">Finding related concepts…</p>}
           {conceptRelatedError && <p className="status-message error-message">{conceptRelatedError}</p>}
-            {!conceptRelatedLoading && !conceptRelatedError && (
-              conceptRelated.concepts.length > 0 ? (
+          {!conceptRelatedLoading && !conceptRelatedError && (
+            conceptRelated.concepts.length > 0 ? (
               <div className="concept-related-tags">
                 {conceptRelated.concepts.slice(0, 8).map(item => {
                   const name = item.metadata?.name || item.title || '';
@@ -2427,12 +2438,12 @@ const ThinkMode = () => {
                   );
                 })}
               </div>
-              ) : (
-                <CalmEmptyLine>No related concepts yet.</CalmEmptyLine>
-              )
-            )}
+            ) : (
+              <CalmEmptyLine>No related concepts yet.</CalmEmptyLine>
+            )
+          )}
           <SectionHeader title="Tag correlations" subtitle="Co-occuring themes." />
-            {concept?.relatedTags?.length > 0 ? (
+          {concept?.relatedTags?.length > 0 ? (
             <div className="concept-related-tags">
               {concept.relatedTags.slice(0, 8).map(tag => (
                 <TagChip key={`corr-${tag.tag}`} to={`/think?tab=concepts&concept=${encodeURIComponent(tag.tag)}`}>
@@ -2440,9 +2451,9 @@ const ThinkMode = () => {
                 </TagChip>
               ))}
             </div>
-            ) : (
-              <CalmEmptyLine>No correlations yet.</CalmEmptyLine>
-            )}
+          ) : (
+            <CalmEmptyLine>No correlations yet.</CalmEmptyLine>
+          )}
           {concept?.name && (
             <div>
               <SectionHeader title="Used in" subtitle="Backlinks to this concept." />

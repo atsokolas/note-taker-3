@@ -192,15 +192,15 @@ html[data-ui-theme='dark'] {
 }
 
 .think-layout__left-panel.think-index {
-  gap: 24px;
+  gap: 30px;
 }
 
 .think-index__controls {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding-bottom: 8px;
-  border-bottom: 1px solid var(--nt-divider);
+  gap: 14px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid color-mix(in srgb, var(--nt-divider) 70%, transparent);
 }
 
 .think-layout__left-panel .feedback-field.think-index__search {
@@ -219,11 +219,11 @@ html[data-ui-theme='dark'] {
 
 .think-layout__left-panel .feedback-field input,
 .think-index__filter select {
-  min-height: 34px;
-  padding: 0 10px;
-  border: 1px solid color-mix(in srgb, var(--nt-divider) 84%, transparent);
+  min-height: 36px;
+  padding: 0 11px;
+  border: 1px solid color-mix(in srgb, var(--nt-divider) 68%, transparent);
   border-radius: 10px;
-  background: color-mix(in srgb, var(--nt-surface-2) 70%, transparent);
+  background: color-mix(in srgb, var(--nt-surface-2) 52%, transparent);
   color: var(--text-secondary);
   box-shadow: none;
 }
@@ -237,7 +237,7 @@ html[data-ui-theme='dark'] {
 .think-index__control-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 10px;
+  gap: 12px;
   align-items: end;
 }
 
@@ -248,22 +248,23 @@ html[data-ui-theme='dark'] {
 }
 
 .think-layout__left-panel .ui-button.think-index__new-question {
-  min-height: 34px;
-  border: 1px solid color-mix(in srgb, var(--nt-divider) 88%, transparent);
+  min-height: 36px;
+  border: 1px solid color-mix(in srgb, var(--nt-divider) 72%, transparent);
   border-radius: 10px;
-  background: color-mix(in srgb, var(--nt-surface-1) 52%, transparent);
+  background: color-mix(in srgb, var(--nt-surface-1) 40%, transparent);
   box-shadow: none;
   color: var(--text-secondary);
+  font-weight: 560;
 }
 
 .think-layout__left-panel .ui-button.think-index__new-question:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--nt-surface-1) 70%, transparent);
+  background: color-mix(in srgb, var(--nt-surface-1) 56%, transparent);
 }
 
 .think-index__group {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
 }
 
 .think-index__label {
@@ -273,30 +274,53 @@ html[data-ui-theme='dark'] {
 .think-index__list {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 3px;
   min-height: 10px;
 }
 
 .think-index__row {
+  position: relative;
+  appearance: none;
+  display: flex;
   width: 100%;
-  padding: 8px 9px;
+  margin: 0;
+  padding: 8px 6px 8px 14px;
   border: 0;
-  border-radius: 9px;
+  border-radius: 6px;
   background: transparent;
   box-shadow: none;
   align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.think-index__row::before {
+  content: '';
+  position: absolute;
+  left: 3px;
+  top: 6px;
+  bottom: 6px;
+  width: 2px;
+  border-radius: 999px;
+  background: transparent;
 }
 
 .think-index__row:hover {
-  background: color-mix(in srgb, var(--nt-surface-1) 30%, transparent);
+  background: color-mix(in srgb, var(--nt-surface-1) 20%, transparent);
 }
 
 .think-index__row.is-active {
   border: 0;
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 19%, transparent);
-  background: color-mix(in srgb, var(--accent-soft) 9%, var(--nt-surface-1));
+  box-shadow: none;
+  background: color-mix(in srgb, var(--accent-soft) 7%, var(--nt-surface-1));
+}
+
+.think-index__row.is-active::before {
+  background: color-mix(in srgb, var(--accent) 55%, transparent);
 }
 
 .think-index__row-title {
@@ -312,10 +336,11 @@ html[data-ui-theme='dark'] {
 }
 
 .think-index__row-meta {
+  margin-left: auto;
   flex-shrink: 0;
   font-size: 0.71rem;
   line-height: 1.25;
-  color: color-mix(in srgb, var(--text-muted) 92%, transparent);
+  color: color-mix(in srgb, var(--text-muted) 86%, transparent);
 }
 
 .think-index__virtual-row {
@@ -509,15 +534,15 @@ html[data-ui-theme='dark'] {
 }
 
 .think-layout__right-panel {
-  gap: 20px;
+  gap: 24px;
 }
 
 .think-layout__right-panel .section-stack {
-  gap: 14px;
+  gap: 18px;
 }
 
 .think-layout__right-panel .ui-section-header {
-  padding-bottom: 6px;
+  padding-bottom: 7px;
 }
 
 .think-layout__right-panel .ui-section-header__subtitle {
