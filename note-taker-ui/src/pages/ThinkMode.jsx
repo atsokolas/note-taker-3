@@ -247,7 +247,6 @@ const ThinkMode = () => {
   const [workingMemoryView, setWorkingMemoryView] = useState('active');
   const [cardsExpanded, setCardsExpanded] = useState(false);
   const [cardsExpandVersion, setCardsExpandVersion] = useState(0);
-  const [workspaceMovedNotice, setWorkspaceMovedNotice] = useState('');
   const [recentTargets, setRecentTargets] = useState(() => readRecentTargets());
   const [homeReturnQueue, setHomeReturnQueue] = useState([]);
   const [homeQueueLoading, setHomeQueueLoading] = useState(false);
@@ -342,17 +341,6 @@ const ThinkMode = () => {
   }, [activeView, concept?._id, activeQuestionData?._id]);
   const connectionScopeType = connectionScope.scopeType;
   const connectionScopeId = connectionScope.scopeId;
-  const resolveConceptNameFromScope = useCallback((scopeId) => {
-    const safeScopeId = String(scopeId || '').trim();
-    if (!safeScopeId) return '';
-    const byId = concepts.find(item => String(item._id || '') === safeScopeId);
-    if (byId?.name) return byId.name;
-    const byName = concepts.find(
-      item => String(item.name || '').trim().toLowerCase() === safeScopeId.toLowerCase()
-    );
-    return byName?.name || safeScopeId;
-  }, [concepts]);
-
   const rememberRecentTarget = useCallback((target) => {
     const nextTarget = {
       id: String(target?.id || '').trim(),
@@ -658,35 +646,8 @@ const ThinkMode = () => {
   }, [loadNotebookEntries]);
 
   useEffect(() => {
-    const rawView = searchParams.get('tab');
-    if (rawView === 'board' || searchParams.get('moved') === 'board') {
-      const params = new URLSearchParams(searchParams);
-      const scopeType = String(params.get('scopeType') || '').trim().toLowerCase();
-      const scopeId = String(params.get('scopeId') || '').trim();
-      let nextView = 'concepts';
-
-      if (scopeType === 'question' && scopeId) {
-        nextView = 'questions';
-        params.set('questionId', scopeId);
-        params.delete('concept');
-      } else if (scopeType === 'concept' && scopeId) {
-        nextView = 'concepts';
-        params.set('concept', resolveConceptNameFromScope(scopeId));
-        params.delete('questionId');
-      }
-
-      params.set('tab', nextView);
-      params.delete('scopeType');
-      params.delete('scopeId');
-      params.delete('moved');
-
-      setWorkspaceMovedNotice('Workspace has moved into Concepts. Open a concept to organize and connect material.');
-      setActiveView(nextView);
-      setSearchParams(params, { replace: true });
-      return;
-    }
     setActiveView(resolveActiveView(searchParams));
-  }, [searchParams, resolveActiveView, resolveConceptNameFromScope, setSearchParams]);
+  }, [searchParams, resolveActiveView]);
 
   useEffect(() => {
     let cancelled = false;
@@ -721,12 +682,6 @@ const ThinkMode = () => {
       cancelled = true;
     };
   }, []);
-
-  useEffect(() => {
-    if (!workspaceMovedNotice) return undefined;
-    const timer = window.setTimeout(() => setWorkspaceMovedNotice(''), 5000);
-    return () => window.clearTimeout(timer);
-  }, [workspaceMovedNotice]);
 
   useEffect(() => {
     if (activeView !== 'notebook' || !activeNotebookEntry?._id) return;
@@ -2460,11 +2415,6 @@ const ThinkMode = () => {
 
   return (
     <>
-      {workspaceMovedNotice && (
-        <div style={{ marginBottom: 8 }}>
-          <p className="status-message success-message">{workspaceMovedNotice}</p>
-        </div>
-      )}
       <ThreePaneLayout
         left={leftPanel}
         main={mainPanel}

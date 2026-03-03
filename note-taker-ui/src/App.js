@@ -59,33 +59,6 @@ const LegacyConceptRedirect = () => {
   return <Navigate to={`/think?tab=concepts&concept=${encodeURIComponent(conceptName)}`} replace />;
 };
 
-const LegacyBoardRedirect = () => {
-  const location = useLocation();
-  const params = new URLSearchParams(location.search);
-  let scopeType = String(params.get('scopeType') || '').trim().toLowerCase();
-  let scopeId = String(params.get('scopeId') || '').trim();
-  if (!scopeType && !scopeId) {
-    const parts = String(location.pathname || '').split('/').filter(Boolean);
-    if (parts[0] === 'boards' && parts.length >= 3) {
-      scopeType = String(parts[1] || '').trim().toLowerCase();
-      scopeId = decodeURIComponent(parts.slice(2).join('/'));
-    }
-  }
-  const next = new URLSearchParams();
-  next.set('moved', 'board');
-  if (scopeType === 'question' && scopeId) {
-    next.set('tab', 'questions');
-    next.set('questionId', scopeId);
-  } else {
-    next.set('tab', 'concepts');
-    if (scopeType === 'concept' && scopeId) {
-      next.set('scopeType', 'concept');
-      next.set('scopeId', scopeId);
-    }
-  }
-  return <Navigate to={`/think?${next.toString()}`} replace />;
-};
-
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -270,10 +243,10 @@ function App() {
           <Route path="/search" element={<Search />} />
           <Route path="/journey" element={<Journey />} />
           <Route path="/concept/:tag" element={<LegacyConceptRedirect />} />
-          <Route path="/board" element={<LegacyBoardRedirect />} />
-          <Route path="/studio-board" element={<LegacyBoardRedirect />} />
-          <Route path="/boards" element={<LegacyBoardRedirect />} />
-          <Route path="/boards/*" element={<LegacyBoardRedirect />} />
+          <Route path="/board" element={<Navigate to="/think?tab=concepts" replace />} />
+          <Route path="/studio-board" element={<Navigate to="/think?tab=concepts" replace />} />
+          <Route path="/boards" element={<Navigate to="/think?tab=concepts" replace />} />
+          <Route path="/boards/*" element={<Navigate to="/think?tab=concepts" replace />} />
           <Route path="/articles/:id" element={<ArticleViewer onArticleChange={refreshArticleList} />} />
           <Route path="/trending" element={<Trending />} />
           <Route path="/export" element={<Export />} />

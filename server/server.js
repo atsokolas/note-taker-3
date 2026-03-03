@@ -295,6 +295,28 @@ const conceptLayoutSchema = new mongoose.Schema({
   connections: { type: [conceptLayoutConnectionSchema], default: [] }
 }, { _id: false });
 
+const conceptWorkspaceOutlineSectionSchema = new mongoose.Schema({
+  id: { type: String, required: true, trim: true },
+  title: { type: String, required: true, trim: true },
+  description: { type: String, default: '', trim: true },
+  collapsed: { type: Boolean, default: false },
+  order: { type: Number, default: 0 }
+}, { _id: false });
+
+const conceptWorkspaceAttachedItemSchema = new mongoose.Schema({
+  id: { type: String, required: true, trim: true },
+  type: { type: String, enum: ['highlight', 'article', 'note', 'question'], required: true },
+  refId: { type: String, required: true, trim: true },
+  sectionId: { type: String, required: true, trim: true },
+  groupId: { type: String, required: true, trim: true },
+  parentId: { type: String, default: '', trim: true },
+  inlineTitle: { type: String, default: '', trim: true },
+  inlineText: { type: String, default: '', trim: true },
+  stage: { type: String, enum: ['inbox', 'working', 'draft', 'archive'], default: 'working' },
+  status: { type: String, enum: ['active', 'archived'], default: 'active' },
+  order: { type: Number, default: 0 }
+}, { _id: false });
+
 const conceptWorkspaceGroupSchema = new mongoose.Schema({
   id: { type: String, required: true, trim: true },
   title: { type: String, required: true, trim: true },
@@ -311,7 +333,7 @@ const conceptWorkspaceItemSchema = new mongoose.Schema({
   parentId: { type: String, default: '', trim: true },
   inlineTitle: { type: String, default: '', trim: true },
   inlineText: { type: String, default: '', trim: true },
-  stage: { type: String, enum: ['inbox', 'working', 'claim', 'evidence'], default: 'working' },
+  stage: { type: String, enum: ['inbox', 'working', 'draft', 'archive'], default: 'working' },
   status: { type: String, enum: ['active', 'archived'], default: 'active' },
   order: { type: Number, default: 0 }
 }, { _id: false });
@@ -325,6 +347,8 @@ const conceptWorkspaceConnectionSchema = new mongoose.Schema({
 
 const conceptWorkspaceSchema = new mongoose.Schema({
   version: { type: Number, default: 1 },
+  outlineSections: { type: [conceptWorkspaceOutlineSectionSchema], default: [] },
+  attachedItems: { type: [conceptWorkspaceAttachedItemSchema], default: [] },
   groups: { type: [conceptWorkspaceGroupSchema], default: [] },
   items: { type: [conceptWorkspaceItemSchema], default: [] },
   connections: { type: [conceptWorkspaceConnectionSchema], default: [] },

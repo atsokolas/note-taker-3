@@ -19,33 +19,36 @@ const concept = { _id: 'concept-1', name: 'Systems Thinking' };
 
 const createWorkspace = () => ({
   version: 1,
-  groups: [
-    { id: 'workspace', title: 'Workspace', description: '', collapsed: false, order: 0 },
-    { id: 'evidence-section', title: 'Evidence', description: '', collapsed: false, order: 1 }
+  outlineSections: [
+    { id: 'inbox', title: 'Inbox', description: '', collapsed: false, order: 0 },
+    { id: 'working', title: 'Working', description: '', collapsed: false, order: 1 },
+    { id: 'draft', title: 'Draft', description: '', collapsed: true, order: 2 },
+    { id: 'archive', title: 'Archive', description: '', collapsed: true, order: 3 }
   ],
-  items: [
+  attachedItems: [
     {
       id: 'item-working',
       type: 'highlight',
       refId: 'highlight-working',
-      groupId: 'workspace',
+      sectionId: 'working',
+      groupId: 'working',
       parentId: '',
       stage: 'working',
       status: 'active',
       order: 0
     },
     {
-      id: 'item-claim',
+      id: 'item-draft',
       type: 'highlight',
-      refId: 'highlight-claim',
-      groupId: 'workspace',
+      refId: 'highlight-draft',
+      sectionId: 'draft',
+      groupId: 'draft',
       parentId: '',
-      stage: 'claim',
+      stage: 'draft',
       status: 'active',
-      order: 1
+      order: 0
     }
   ],
-  connections: [],
   updatedAt: new Date().toISOString()
 });
 
@@ -84,11 +87,11 @@ describe('ConceptNotebook workspace interactions', () => {
             tags: ['systems']
           },
           {
-            _id: 'highlight-claim',
-            articleTitle: 'Claim Source',
-            text: 'Claim text',
+            _id: 'highlight-draft',
+            articleTitle: 'Draft Source',
+            text: 'Draft text',
             createdAt: new Date().toISOString(),
-            tags: ['claims']
+            tags: ['drafts']
           }
         ],
         recentHighlights: [],
@@ -123,17 +126,18 @@ describe('ConceptNotebook workspace interactions', () => {
     attachConceptWorkspaceBlock.mockResolvedValue({
       workspace: {
         ...createWorkspace(),
-        items: [
-          ...createWorkspace().items,
+        attachedItems: [
+          ...createWorkspace().attachedItems,
           {
             id: 'item-new',
             type: 'highlight',
             refId: 'highlight-new',
-            groupId: 'workspace',
+            sectionId: 'inbox',
+            groupId: 'inbox',
             parentId: '',
             stage: 'inbox',
             status: 'active',
-            order: 2
+            order: 0
           }
         ]
       }
@@ -145,45 +149,46 @@ describe('ConceptNotebook workspace interactions', () => {
     jest.useRealTimers();
   });
 
-  it('loads and renders workspace sections and blocks', () => {
+  it('renders stage sections and attached items', () => {
     render(<ConceptNotebook concept={concept} />);
 
     expect(screen.getByText('Workspace')).toBeInTheDocument();
-    expect(screen.getByText('Evidence')).toBeInTheDocument();
+    expect(screen.getByText('Inbox')).toBeInTheDocument();
+    expect(screen.getByText('Working')).toBeInTheDocument();
     expect(screen.getByText('Working Source')).toBeInTheDocument();
-    expect(screen.getByText('Claim Source')).toBeInTheDocument();
   });
 
-  it('attaches an item through the add drawer', async () => {
+  it('attaches an item through the add drawer into inbox', async () => {
     render(<ConceptNotebook concept={concept} />);
 
-    fireEvent.click(screen.getByRole('button', { name: '+ Add' }));
+    fireEvent.click(screen.getByTestId('concept-add-material-button'));
 
-    expect(screen.getByText('Add to Concept')).toBeInTheDocument();
+    expect(screen.getByText('Add material')).toBeInTheDocument();
     expect(screen.getByText('Search Result')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Add' }));
+
+    const row = screen.getByTestId('concept-add-material-row-highlight-highlight-new');
+    fireEvent.click(within(row).getByRole('button', { name: 'Add' }));
 
     await waitFor(() => {
       expect(attachConceptWorkspaceBlock).toHaveBeenCalledWith('concept-1', expect.objectContaining({
         type: 'highlight',
         refId: 'highlight-new',
         stage: 'inbox',
-        sectionId: 'workspace'
+        sectionId: 'inbox'
       }));
     });
   });
 
-  it('moves a block to another section using section picker', async () => {
+  it('updates stage from item stage selector', async () => {
     render(<ConceptNotebook concept={concept} />);
 
-    const menuButtons = screen.getAllByText('⋯');
-    fireEvent.click(menuButtons[0]);
+    const workingItem = screen.getByTestId('concept-workspace-item-item-working');
+    const stageSelect = within(workingItem).getByLabelText('Stage');
 
-    const moveSelect = screen.getByDisplayValue('Workspace');
-    fireEvent.change(moveSelect, { target: { value: 'evidence-section' } });
+    fireEvent.change(stageSelect, { target: { value: 'draft' } });
 
     await act(async () => {
-      jest.advanceTimersByTime(500);
+      jest.advanceTimersByTime(380);
     });
 
     await waitFor(() => {
@@ -191,48 +196,13 @@ describe('ConceptNotebook workspace interactions', () => {
     });
   });
 
-  it('cycles stage and filters by stage', async () => {
+  it('filters visible items by stage', () => {
     render(<ConceptNotebook concept={concept} />);
 
     const stageFilter = screen.getByRole('tablist', { name: 'Stage filter' });
-    const filterWorkingButton = within(stageFilter).getByRole('button', { name: 'Working' });
-    const workingButtons = screen.getAllByRole('button', { name: 'Working' });
-    const stageWorkingButton = workingButtons.find(button => button !== filterWorkingButton) || filterWorkingButton;
+    fireEvent.click(within(stageFilter).getByRole('button', { name: 'Draft' }));
 
-    fireEvent.click(stageWorkingButton);
-
-    await act(async () => {
-      jest.advanceTimersByTime(500);
-    });
-
-    await waitFor(() => {
-      expect(mockSaveWorkspace).toHaveBeenCalled();
-    });
-
-    fireEvent.click(within(stageFilter).getByRole('button', { name: 'Claim' }));
     expect(screen.queryByText('Working Source')).not.toBeInTheDocument();
-    expect(screen.getByText('Claim Source')).toBeInTheDocument();
-  });
-
-  it('creates a connection with the inline relation picker', async () => {
-    render(<ConceptNotebook concept={concept} />);
-
-    fireEvent.click(screen.getByRole('button', { name: 'Connect' }));
-    fireEvent.change(screen.getByLabelText('Relation'), { target: { value: 'definition' } });
-
-    fireEvent.click(screen.getByText('Working Source'));
-    fireEvent.click(screen.getByText('Claim Source'));
-
-    await waitFor(() => {
-      expect(mockPatchWorkspace).toHaveBeenCalledWith(
-        'addConnection',
-        expect.objectContaining({
-          fromItemId: 'item-working',
-          toItemId: 'item-claim',
-          type: 'definition'
-        }),
-        expect.objectContaining({ optimisticWorkspace: expect.any(Object) })
-      );
-    });
+    expect(screen.getByText('Draft Source')).toBeInTheDocument();
   });
 });

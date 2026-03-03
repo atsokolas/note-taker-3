@@ -3,9 +3,20 @@ const crypto = require('crypto');
 const WORKSPACE_VERSION = 1;
 const DEFAULT_GROUP_TITLE = 'Workspace';
 const WORKSPACE_ITEM_TYPES = new Set(['highlight', 'article', 'note', 'question']);
-const WORKSPACE_ITEM_STAGES = new Set(['inbox', 'working', 'claim', 'evidence']);
+const WORKSPACE_ITEM_STAGES = new Set(['inbox', 'working', 'draft', 'archive']);
+const LEGACY_STAGE_MAP = {
+  claim: 'draft',
+  evidence: 'draft'
+};
 const WORKSPACE_ITEM_STATUSES = new Set(['active', 'archived']);
 const WORKSPACE_CONNECTION_TYPES = new Set(['supports', 'contradicts', 'related']);
+
+const STAGE_SECTION_DEFAULTS = [
+  { id: 'inbox', title: 'Inbox', description: '', collapsed: false },
+  { id: 'working', title: 'Working', description: '', collapsed: false },
+  { id: 'draft', title: 'Draft', description: '', collapsed: true },
+  { id: 'archive', title: 'Archive', description: '', collapsed: true }
+];
 
 const makeId = () => (
   typeof crypto.randomUUID === 'function'
@@ -18,10 +29,6 @@ const toSafeOrder = (value, fallback = 0) => {
   const numeric = Number(value);
   return Number.isFinite(numeric) ? numeric : fallback;
 };
-const toSafeStage = (value, fallback = 'working') => {
-  const stage = toSafeString(value).toLowerCase();
-  return WORKSPACE_ITEM_STAGES.has(stage) ? stage : fallback;
-};
 const toSafeStatus = (value, fallback = 'active') => {
   const status = toSafeString(value).toLowerCase();
   return WORKSPACE_ITEM_STATUSES.has(status) ? status : fallback;
@@ -32,149 +39,152 @@ const toSafeConnectionType = (value, fallback = 'related') => {
 };
 const toSafeHtml = (value, fallback = '') => String(value ?? fallback).trim().slice(0, 32000);
 
-const makeDefaultGroup = (order = 0) => ({
-  id: makeId(),
-  title: DEFAULT_GROUP_TITLE,
-  description: '',
-  collapsed: false,
-  order
+const normalizeStage = (value, fallback = 'working') => {
+  const raw = toSafeString(value).toLowerCase();
+  const stage = LEGACY_STAGE_MAP[raw] || raw;
+  return WORKSPACE_ITEM_STAGES.has(stage) ? stage : fallback;
+};
+
+const defaultSections = () => STAGE_SECTION_DEFAULTS.map((section, index) => ({
+  ...section,
+  order: index
+}));
+
+const toLegacyGroup = (section) => ({
+  id: section.id,
+  title: section.title,
+  description: section.description,
+  collapsed: Boolean(section.collapsed),
+  order: toSafeOrder(section.order)
 });
 
+const toLegacyItem = (item) => ({
+  id: item.id,
+  type: item.type,
+  refId: item.refId,
+  groupId: item.sectionId,
+  parentId: item.parentId || '',
+  inlineTitle: item.inlineTitle || '',
+  inlineText: item.inlineText || '',
+  stage: item.stage,
+  status: item.status,
+  order: toSafeOrder(item.order)
+});
+
+const toCanonicalSection = (group) => ({
+  id: toSafeString(group.id) || makeId(),
+  title: toSafeString(group.title) || DEFAULT_GROUP_TITLE,
+  description: toSafeString(group.description),
+  collapsed: Boolean(group.collapsed),
+  order: toSafeOrder(group.order)
+});
+
+const toCanonicalItem = (item, index = 0) => {
+  const rawStatus = toSafeStatus(item.status, 'active');
+  const fallbackStage = rawStatus === 'archived' ? 'archive' : 'working';
+  const stage = normalizeStage(item.stage, fallbackStage);
+  const status = stage === 'archive' ? 'archived' : rawStatus;
+  return {
+    id: toSafeString(item.id) || makeId(),
+    type: toSafeString(item.type).toLowerCase(),
+    refId: toSafeString(item.refId),
+    sectionId: toSafeString(item.sectionId || item.groupId),
+    parentId: toSafeString(item.parentId),
+    inlineTitle: toSafeString(item.inlineTitle).slice(0, 160),
+    inlineText: toSafeHtml(item.inlineText),
+    stage,
+    status,
+    order: toSafeOrder(item.order, index)
+  };
+};
+
 const cloneWorkspace = (workspace) => JSON.parse(JSON.stringify(workspace || {}));
+const sectionScopeKey = (sectionId, parentId = '') => `${sectionId}::${parentId || ''}`;
 
-const workspaceKey = (groupId, parentId = '') => `${groupId}::${parentId || ''}`;
+const ensureStageSections = (sections) => {
+  const byId = new Map();
+  sections.forEach((section) => {
+    const id = toSafeString(section.id);
+    if (!id || byId.has(id)) return;
+    byId.set(id, section);
+  });
 
-const normalizeOrders = (workspaceInput, scope) => {
+  STAGE_SECTION_DEFAULTS.forEach((defaults) => {
+    if (byId.has(defaults.id)) return;
+    byId.set(defaults.id, {
+      id: defaults.id,
+      title: defaults.title,
+      description: defaults.description,
+      collapsed: defaults.collapsed,
+      order: defaults.id === 'draft' || defaults.id === 'archive' ? 10 : 0
+    });
+  });
+
+  return Array.from(byId.values())
+    .sort((a, b) => toSafeOrder(a.order) - toSafeOrder(b.order))
+    .map((section, index) => ({
+      ...section,
+      order: index
+    }));
+};
+
+const normalizeOrders = (workspaceInput, scopeInput) => {
   const workspace = workspaceInput && typeof workspaceInput === 'object'
     ? workspaceInput
     : {
       version: WORKSPACE_VERSION,
-      groups: [makeDefaultGroup(0)],
-      items: [],
+      outlineSections: defaultSections(),
+      attachedItems: [],
       connections: [],
       updatedAt: new Date().toISOString()
     };
 
-  if (!Array.isArray(workspace.groups) || workspace.groups.length === 0) {
-    workspace.groups = [makeDefaultGroup(0)];
-  }
-  if (!Array.isArray(workspace.items)) {
-    workspace.items = [];
-  }
-  if (!Array.isArray(workspace.connections)) {
-    workspace.connections = [];
-  }
+  const sections = Array.isArray(workspace.outlineSections)
+    ? workspace.outlineSections
+    : (Array.isArray(workspace.groups) ? workspace.groups : []);
 
-  workspace.groups = [...workspace.groups]
-    .sort((a, b) => toSafeOrder(a.order) - toSafeOrder(b.order))
-    .map((group, index) => ({ ...group, order: index }));
+  const items = Array.isArray(workspace.attachedItems)
+    ? workspace.attachedItems
+    : (Array.isArray(workspace.items) ? workspace.items : []);
 
-  const allScopes = new Set();
-  workspace.items.forEach((item) => {
-    allScopes.add(workspaceKey(item.groupId, item.parentId));
+  workspace.outlineSections = ensureStageSections(
+    sections.map(toCanonicalSection)
+  );
+
+  const sectionIds = new Set(workspace.outlineSections.map(section => section.id));
+
+  workspace.attachedItems = items
+    .map((item, index) => toCanonicalItem(item, index))
+    .filter((item) => {
+      if (!WORKSPACE_ITEM_TYPES.has(item.type)) return false;
+      if (!item.refId) return false;
+      if (!sectionIds.has(item.sectionId)) {
+        item.sectionId = sectionIds.has(item.stage) ? item.stage : workspace.outlineSections[0]?.id;
+      }
+      if (!item.sectionId) return false;
+      return true;
+    });
+
+  const itemById = new Map();
+  const dedupedItems = [];
+  workspace.attachedItems.forEach((item) => {
+    let nextId = item.id;
+    while (itemById.has(nextId)) nextId = makeId();
+    if (nextId !== item.id) item.id = nextId;
+    itemById.set(item.id, item);
+    dedupedItems.push(item);
   });
+  workspace.attachedItems = dedupedItems;
 
-  const scoped = Array.isArray(scope) ? scope : (scope ? [scope] : []);
-  if (scoped.length > 0) {
-    scoped.forEach((entry) => {
-      if (!entry || typeof entry !== 'object') return;
-      const groupId = toSafeString(entry.groupId);
-      if (!groupId) return;
-      allScopes.add(workspaceKey(groupId, toSafeString(entry.parentId)));
-    });
-  }
-
-  allScopes.forEach((key) => {
-    const [groupId, parentId = ''] = key.split('::');
-    const siblings = workspace.items
-      .filter(item => item.groupId === groupId && (item.parentId || '') === parentId)
-      .map((item, index) => ({ item, index }));
-    siblings
-      .sort((a, b) => {
-        const delta = toSafeOrder(a.item.order) - toSafeOrder(b.item.order);
-        if (delta !== 0) return delta;
-        return a.index - b.index;
-      })
-      .forEach((entry, index) => {
-        entry.item.order = index;
-      });
-  });
-
-  workspace.updatedAt = new Date().toISOString();
-  return workspace;
-};
-
-const ensureWorkspace = (concept) => {
-  const source = concept && typeof concept === 'object' ? concept.workspace || {} : {};
-
-  const groups = [];
-  const seenGroups = new Set();
-  if (Array.isArray(source.groups)) {
-    source.groups.forEach((rawGroup, index) => {
-      if (!rawGroup || typeof rawGroup !== 'object') return;
-      let id = toSafeString(rawGroup.id) || makeId();
-      while (seenGroups.has(id)) id = makeId();
-      seenGroups.add(id);
-      groups.push({
-        id,
-        title: toSafeString(rawGroup.title) || `Group ${groups.length + 1}`,
-        description: toSafeString(rawGroup.description),
-        collapsed: Boolean(rawGroup.collapsed),
-        order: toSafeOrder(rawGroup.order, index)
-      });
-    });
-  }
-
-  if (groups.length === 0) {
-    groups.push(makeDefaultGroup(0));
-  }
-
-  const groupIdSet = new Set(groups.map(group => group.id));
-  const defaultGroupId = groups[0].id;
-
-  const items = [];
-  const seenItems = new Set();
-  if (Array.isArray(source.items)) {
-    source.items.forEach((rawItem, index) => {
-      if (!rawItem || typeof rawItem !== 'object') return;
-      const type = toSafeString(rawItem.type).toLowerCase();
-      if (!WORKSPACE_ITEM_TYPES.has(type)) return;
-      const refId = toSafeString(rawItem.refId);
-      if (!refId) return;
-
-      let id = toSafeString(rawItem.id) || makeId();
-      while (seenItems.has(id)) id = makeId();
-      seenItems.add(id);
-
-      const requestedGroupId = toSafeString(rawItem.groupId);
-      const groupId = groupIdSet.has(requestedGroupId) ? requestedGroupId : defaultGroupId;
-      const parentId = toSafeString(rawItem.parentId);
-
-      items.push({
-        id,
-        type,
-        refId,
-        groupId,
-        parentId: parentId || '',
-        inlineTitle: toSafeString(rawItem.inlineTitle).slice(0, 160),
-        inlineText: toSafeHtml(rawItem.inlineText),
-        stage: toSafeStage(rawItem.stage),
-        status: toSafeStatus(rawItem.status),
-        order: toSafeOrder(rawItem.order, index)
-      });
-    });
-  }
-
-  const itemById = new Map(items.map(item => [item.id, item]));
-  items.forEach((item) => {
+  workspace.attachedItems.forEach((item) => {
     if (!item.parentId) return;
     const parent = itemById.get(item.parentId);
-    if (!parent || parent.groupId !== item.groupId || parent.id === item.id) {
+    if (!parent || parent.sectionId !== item.sectionId || parent.id === item.id) {
       item.parentId = '';
     }
   });
 
-  items.forEach((item) => {
+  workspace.attachedItems.forEach((item) => {
     let cursor = item.parentId;
     const visited = new Set([item.id]);
     while (cursor) {
@@ -192,140 +202,141 @@ const ensureWorkspace = (concept) => {
     }
   });
 
-  const connections = [];
-  const seenConnections = new Set();
-  if (Array.isArray(source.connections)) {
-    source.connections.forEach((rawConnection) => {
-      if (!rawConnection || typeof rawConnection !== 'object') return;
-      const fromItemId = toSafeString(rawConnection.fromItemId);
-      const toItemId = toSafeString(rawConnection.toItemId);
-      if (!fromItemId || !toItemId || fromItemId === toItemId) return;
-      if (!itemById.has(fromItemId) || !itemById.has(toItemId)) return;
-      const type = toSafeConnectionType(rawConnection.type, '');
-      if (!type) return;
-      const id = toSafeString(rawConnection.id) || makeId();
-      const key = `${fromItemId}:${toItemId}:${type}`;
-      if (seenConnections.has(key)) return;
-      seenConnections.add(key);
-      connections.push({
-        id,
-        fromItemId,
-        toItemId,
-        type
-      });
-    });
-  }
+  const allScopes = new Set();
+  workspace.attachedItems.forEach((item) => {
+    allScopes.add(sectionScopeKey(item.sectionId, item.parentId));
+  });
 
-  const workspace = {
+  const scopeList = Array.isArray(scopeInput) ? scopeInput : (scopeInput ? [scopeInput] : []);
+  scopeList.forEach((entry) => {
+    if (!entry || typeof entry !== 'object') return;
+    const sectionId = toSafeString(entry.sectionId || entry.groupId);
+    if (!sectionId) return;
+    allScopes.add(sectionScopeKey(sectionId, toSafeString(entry.parentId)));
+  });
+
+  allScopes.forEach((scopeKey) => {
+    const [sectionId, parentId = ''] = scopeKey.split('::');
+    const siblings = workspace.attachedItems
+      .filter(item => item.sectionId === sectionId && (item.parentId || '') === parentId)
+      .map((item, index) => ({ item, index }));
+
+    siblings
+      .sort((a, b) => {
+        const delta = toSafeOrder(a.item.order) - toSafeOrder(b.item.order);
+        if (delta !== 0) return delta;
+        return a.index - b.index;
+      })
+      .forEach((entry, index) => {
+        entry.item.order = index;
+      });
+  });
+
+  const seenConnectionKey = new Set();
+  workspace.connections = Array.isArray(workspace.connections)
+    ? workspace.connections
+        .map((connection) => {
+          if (!connection || typeof connection !== 'object') return null;
+          const fromItemId = toSafeString(connection.fromItemId);
+          const toItemId = toSafeString(connection.toItemId);
+          if (!fromItemId || !toItemId || fromItemId === toItemId) return null;
+          if (!itemById.has(fromItemId) || !itemById.has(toItemId)) return null;
+          const type = toSafeConnectionType(connection.type, '');
+          if (!type) return null;
+          const key = `${fromItemId}:${toItemId}:${type}`;
+          if (seenConnectionKey.has(key)) return null;
+          seenConnectionKey.add(key);
+          return {
+            id: toSafeString(connection.id) || makeId(),
+            fromItemId,
+            toItemId,
+            type
+          };
+        })
+        .filter(Boolean)
+    : [];
+
+  workspace.version = WORKSPACE_VERSION;
+  workspace.updatedAt = new Date().toISOString();
+  workspace.groups = workspace.outlineSections.map(toLegacyGroup);
+  workspace.items = workspace.attachedItems.map(toLegacyItem);
+
+  return workspace;
+};
+
+const ensureWorkspace = (concept) => {
+  const source = concept && typeof concept === 'object' ? concept.workspace || {} : {};
+  return normalizeOrders({
     version: WORKSPACE_VERSION,
-    groups,
-    items,
-    connections,
-    updatedAt: new Date().toISOString()
-  };
-  return normalizeOrders(workspace);
+    outlineSections: Array.isArray(source.outlineSections)
+      ? source.outlineSections
+      : (Array.isArray(source.groups) ? source.groups : defaultSections()),
+    attachedItems: Array.isArray(source.attachedItems)
+      ? source.attachedItems
+      : (Array.isArray(source.items) ? source.items : []),
+    connections: Array.isArray(source.connections) ? source.connections : [],
+    updatedAt: source.updatedAt || new Date().toISOString()
+  });
 };
 
 const validateWorkspacePayload = (workspaceInput) => {
   const source = workspaceInput && typeof workspaceInput === 'object' ? workspaceInput : {};
-  const groups = Array.isArray(source.groups) ? source.groups : [];
-  const items = Array.isArray(source.items) ? source.items : [];
-  const connections = Array.isArray(source.connections) ? source.connections : [];
+  if (source.version !== undefined && Number(source.version) !== WORKSPACE_VERSION) {
+    throw new Error(`workspace.version must be ${WORKSPACE_VERSION}.`);
+  }
 
-  const groupIds = new Set();
-  groups.forEach((group, index) => {
-    const id = toSafeString(group?.id);
-    if (!id) throw new Error(`groups[${index}] is missing id.`);
-    if (groupIds.has(id)) throw new Error(`Duplicate group id: ${id}`);
-    groupIds.add(id);
+  const sections = Array.isArray(source.outlineSections)
+    ? source.outlineSections
+    : (Array.isArray(source.groups) ? source.groups : []);
+  const items = Array.isArray(source.attachedItems)
+    ? source.attachedItems
+    : (Array.isArray(source.items) ? source.items : []);
+
+  const sectionIds = new Set();
+  sections.forEach((section, index) => {
+    const id = toSafeString(section?.id);
+    if (!id) throw new Error(`outlineSections[${index}] is missing id.`);
+    if (sectionIds.has(id)) throw new Error(`Duplicate outline section id: ${id}`);
+    sectionIds.add(id);
   });
 
   const itemIds = new Set();
-  const itemMap = new Map();
   items.forEach((item, index) => {
     const id = toSafeString(item?.id);
-    if (!id) throw new Error(`items[${index}] is missing id.`);
-    if (itemIds.has(id)) throw new Error(`Duplicate item id: ${id}`);
+    if (!id) throw new Error(`attachedItems[${index}] is missing id.`);
+    if (itemIds.has(id)) throw new Error(`Duplicate attached item id: ${id}`);
     itemIds.add(id);
 
     const type = toSafeString(item?.type).toLowerCase();
     if (!WORKSPACE_ITEM_TYPES.has(type)) {
-      throw new Error(`items[${index}] has unknown type: ${type || '(empty)'}`);
+      throw new Error(`attachedItems[${index}] has unknown type: ${type || '(empty)'}`);
     }
 
     const refId = toSafeString(item?.refId);
-    if (!refId) throw new Error(`items[${index}] is missing refId.`);
+    if (!refId) throw new Error(`attachedItems[${index}] is missing refId.`);
 
-    const groupId = toSafeString(item?.groupId);
-    if (!groupId || !groupIds.has(groupId)) {
-      throw new Error(`items[${index}] has invalid groupId: ${groupId || '(empty)'}`);
-    }
-
-    const order = Number(item?.order);
-    if (!Number.isFinite(order)) {
-      throw new Error(`items[${index}] has non-numeric order.`);
+    const sectionId = toSafeString(item?.sectionId || item?.groupId);
+    if (sectionId && sections.length > 0 && !sectionIds.has(sectionId)) {
+      throw new Error(`attachedItems[${index}] has invalid sectionId: ${sectionId}`);
     }
 
     const stageRaw = item?.stage;
-    if (stageRaw !== undefined && !WORKSPACE_ITEM_STAGES.has(toSafeString(stageRaw).toLowerCase())) {
-      throw new Error(`items[${index}] has invalid stage: ${toSafeString(stageRaw) || '(empty)'}`);
+    if (stageRaw !== undefined) {
+      const normalized = normalizeStage(stageRaw, '');
+      if (!normalized) {
+        throw new Error(`attachedItems[${index}] has invalid stage: ${toSafeString(stageRaw) || '(empty)'}`);
+      }
     }
 
     const statusRaw = item?.status;
     if (statusRaw !== undefined && !WORKSPACE_ITEM_STATUSES.has(toSafeString(statusRaw).toLowerCase())) {
-      throw new Error(`items[${index}] has invalid status: ${toSafeString(statusRaw) || '(empty)'}`);
+      throw new Error(`attachedItems[${index}] has invalid status: ${toSafeString(statusRaw) || '(empty)'}`);
     }
 
-    const inlineTitleRaw = item?.inlineTitle;
-    if (inlineTitleRaw !== undefined && typeof inlineTitleRaw !== 'string') {
-      throw new Error(`items[${index}] has invalid inlineTitle.`);
+    const order = Number(item?.order);
+    if (!Number.isFinite(order)) {
+      throw new Error(`attachedItems[${index}] has non-numeric order.`);
     }
-    const inlineTextRaw = item?.inlineText;
-    if (inlineTextRaw !== undefined && typeof inlineTextRaw !== 'string') {
-      throw new Error(`items[${index}] has invalid inlineText.`);
-    }
-
-    itemMap.set(id, {
-      id,
-      groupId,
-      parentId: toSafeString(item?.parentId)
-    });
-  });
-
-  items.forEach((item, index) => {
-    const parentId = toSafeString(item?.parentId);
-    if (!parentId) return;
-    const parent = itemMap.get(parentId);
-    if (!parent) throw new Error(`items[${index}] has invalid parentId: ${parentId}`);
-    if (parent.groupId !== toSafeString(item?.groupId)) {
-      throw new Error(`items[${index}] parentId must be in the same groupId.`);
-    }
-  });
-
-  const connectionIds = new Set();
-  const connectionKeys = new Set();
-  connections.forEach((connection, index) => {
-    const id = toSafeString(connection?.id);
-    if (!id) throw new Error(`connections[${index}] is missing id.`);
-    if (connectionIds.has(id)) throw new Error(`Duplicate connection id: ${id}`);
-    connectionIds.add(id);
-
-    const fromItemId = toSafeString(connection?.fromItemId);
-    const toItemId = toSafeString(connection?.toItemId);
-    if (!fromItemId || !toItemId) throw new Error(`connections[${index}] requires fromItemId and toItemId.`);
-    if (fromItemId === toItemId) throw new Error(`connections[${index}] cannot connect an item to itself.`);
-    if (!itemMap.has(fromItemId) || !itemMap.has(toItemId)) {
-      throw new Error(`connections[${index}] references unknown item ids.`);
-    }
-    const type = toSafeString(connection?.type).toLowerCase();
-    if (!WORKSPACE_CONNECTION_TYPES.has(type)) {
-      throw new Error(`connections[${index}] has invalid type.`);
-    }
-    const key = `${fromItemId}:${toItemId}:${type}`;
-    if (connectionKeys.has(key)) {
-      throw new Error(`Duplicate connection between ${fromItemId} and ${toItemId}.`);
-    }
-    connectionKeys.add(key);
   });
 };
 
@@ -362,10 +373,10 @@ const applyPatchOp = (workspaceInput, opInput) => {
     throw new Error('PATCH body must include op.');
   }
 
-  const getGroup = (groupId) => workspace.groups.find(group => group.id === groupId);
-  const getItem = (itemId) => workspace.items.find(item => item.id === itemId);
+  const getSection = (sectionId) => workspace.outlineSections.find(section => section.id === sectionId);
+  const getItem = (itemId) => workspace.attachedItems.find(item => item.id === itemId);
   const pruneConnections = () => {
-    const itemIds = new Set(workspace.items.map(item => item.id));
+    const itemIds = new Set(workspace.attachedItems.map(item => item.id));
     workspace.connections = (workspace.connections || []).filter((connection) => (
       itemIds.has(connection.fromItemId)
       && itemIds.has(connection.toItemId)
@@ -377,77 +388,70 @@ const applyPatchOp = (workspaceInput, opInput) => {
   if (operation === 'addGroup') {
     const title = toSafeString(payload.title);
     if (!title) throw new Error('addGroup requires title.');
-    workspace.groups.push({
+    workspace.outlineSections.push({
       id: makeId(),
       title,
       description: toSafeString(payload.description),
       collapsed: Boolean(payload.collapsed),
-      order: workspace.groups.length
+      order: workspace.outlineSections.length
     });
     return normalizeOrders(workspace);
   }
 
   if (operation === 'updateGroup') {
-    const groupId = toSafeString(payload.id);
-    const group = getGroup(groupId);
-    if (!group) throw new Error('Group not found.');
+    const sectionId = toSafeString(payload.id);
+    const section = getSection(sectionId);
+    if (!section) throw new Error('Section not found.');
     const patch = payload.patch && typeof payload.patch === 'object' ? payload.patch : payload;
+
     if (patch.title !== undefined) {
       const title = toSafeString(patch.title);
-      if (!title) throw new Error('Group title cannot be empty.');
-      group.title = title;
+      if (!title) throw new Error('Section title cannot be empty.');
+      section.title = title;
     }
-    if (patch.description !== undefined) group.description = toSafeString(patch.description);
-    if (patch.collapsed !== undefined) group.collapsed = Boolean(patch.collapsed);
-    if (patch.order !== undefined) group.order = toSafeOrder(patch.order, group.order);
+    if (patch.description !== undefined) section.description = toSafeString(patch.description);
+    if (patch.collapsed !== undefined) section.collapsed = Boolean(patch.collapsed);
+    if (patch.order !== undefined) section.order = toSafeOrder(patch.order, section.order);
+
     return normalizeOrders(workspace);
   }
 
   if (operation === 'moveGroup') {
-    const groupId = toSafeString(payload.id || payload.groupId);
-    const existing = workspace.groups.find(group => group.id === groupId);
-    if (!existing) throw new Error('Group not found.');
-    const ordered = [...workspace.groups].sort((a, b) => toSafeOrder(a.order) - toSafeOrder(b.order));
-    const sourceIndex = ordered.findIndex(group => group.id === groupId);
-    if (sourceIndex < 0) throw new Error('Group not found.');
-    const requestedOrder = toSafeOrder(payload.order, sourceIndex);
-    const targetIndex = Math.max(0, Math.min(ordered.length - 1, Math.round(requestedOrder)));
+    const sectionId = toSafeString(payload.id || payload.groupId);
+    const ordered = [...workspace.outlineSections].sort((a, b) => toSafeOrder(a.order) - toSafeOrder(b.order));
+    const sourceIndex = ordered.findIndex(section => section.id === sectionId);
+    if (sourceIndex < 0) throw new Error('Section not found.');
+    const targetIndex = Math.max(0, Math.min(ordered.length - 1, Math.round(toSafeOrder(payload.order, sourceIndex))));
+
     if (sourceIndex !== targetIndex) {
       const [moved] = ordered.splice(sourceIndex, 1);
       ordered.splice(targetIndex, 0, moved);
-      ordered.forEach((group, index) => {
-        group.order = index;
+      ordered.forEach((section, index) => {
+        section.order = index;
       });
-      workspace.groups = ordered;
+      workspace.outlineSections = ordered;
     }
     return normalizeOrders(workspace);
   }
 
   if (operation === 'deleteGroup') {
-    const groupId = toSafeString(payload.id);
-    const group = getGroup(groupId);
-    if (!group) throw new Error('Group not found.');
+    const sectionId = toSafeString(payload.id);
+    const section = getSection(sectionId);
+    if (!section) throw new Error('Section not found.');
 
-    let targetGroup = workspace.groups.find(entry => entry.id !== groupId);
-    if (!targetGroup) {
-      targetGroup = makeDefaultGroup(0);
-      workspace.groups.push(targetGroup);
+    let target = workspace.outlineSections.find(entry => entry.id !== sectionId);
+    if (!target) {
+      target = defaultSections()[0];
+      workspace.outlineSections.push(target);
     }
 
-    workspace.items.forEach((item) => {
-      if (item.groupId !== groupId) return;
-      item.groupId = targetGroup.id;
-    });
-
-    workspace.groups = workspace.groups.filter(entry => entry.id !== groupId);
-    const itemById = new Map(workspace.items.map(item => [item.id, item]));
-    workspace.items.forEach((item) => {
-      if (!item.parentId) return;
-      const parent = itemById.get(item.parentId);
-      if (!parent || parent.groupId !== item.groupId) {
-        item.parentId = '';
+    workspace.attachedItems.forEach((item) => {
+      if (item.sectionId === sectionId) {
+        item.sectionId = target.id;
       }
     });
+
+    workspace.outlineSections = workspace.outlineSections.filter(entry => entry.id !== sectionId);
     pruneConnections();
     return normalizeOrders(workspace);
   }
@@ -455,34 +459,42 @@ const applyPatchOp = (workspaceInput, opInput) => {
   if (operation === 'addItem') {
     const type = toSafeString(payload.type).toLowerCase();
     if (!WORKSPACE_ITEM_TYPES.has(type)) throw new Error('addItem has unknown type.');
+
     const refId = toSafeString(payload.refId);
     if (!refId) throw new Error('addItem requires refId.');
-    const groupId = toSafeString(payload.groupId);
-    if (!getGroup(groupId)) throw new Error('addItem requires a valid groupId.');
+
+    const requestedStage = normalizeStage(payload.stage, 'inbox');
+    const requestedSectionId = toSafeString(payload.sectionId || payload.groupId) || requestedStage;
+    const sectionId = getSection(requestedSectionId)
+      ? requestedSectionId
+      : (getSection(requestedStage) ? requestedStage : workspace.outlineSections[0]?.id);
+    if (!sectionId) throw new Error('No outline section available.');
+
     const parentId = toSafeString(payload.parentId);
     if (parentId) {
       const parent = getItem(parentId);
-      if (!parent || parent.groupId !== groupId) {
-        throw new Error('addItem parentId must reference an item in the same group.');
+      if (!parent || parent.sectionId !== sectionId) {
+        throw new Error('addItem parentId must reference an item in the same section.');
       }
     }
 
-    const siblings = workspace.items.filter(item => item.groupId === groupId && (item.parentId || '') === parentId);
+    const siblings = workspace.attachedItems.filter(item => item.sectionId === sectionId && (item.parentId || '') === parentId);
     const requestedOrder = payload.order !== undefined ? toSafeOrder(payload.order, siblings.length) : siblings.length;
 
-    workspace.items.push({
+    workspace.attachedItems.push({
       id: makeId(),
       type,
       refId,
-      groupId,
+      sectionId,
       parentId: parentId || '',
       inlineTitle: toSafeString(payload.inlineTitle).slice(0, 160),
       inlineText: toSafeHtml(payload.inlineText),
-      stage: toSafeStage(payload.stage),
-      status: toSafeStatus(payload.status),
+      stage: requestedStage,
+      status: requestedStage === 'archive' ? 'archived' : toSafeStatus(payload.status, 'active'),
       order: requestedOrder
     });
-    return normalizeOrders(workspace, { groupId, parentId });
+
+    return normalizeOrders(workspace, { sectionId, parentId });
   }
 
   if (operation === 'moveItem') {
@@ -490,44 +502,46 @@ const applyPatchOp = (workspaceInput, opInput) => {
     const item = getItem(itemId);
     if (!item) throw new Error('Item not found.');
 
-    const sourceScope = { groupId: item.groupId, parentId: item.parentId || '' };
-    const nextGroupId = toSafeString(payload.groupId) || item.groupId;
-    if (!getGroup(nextGroupId)) throw new Error('moveItem requires a valid groupId.');
+    const sourceScope = { sectionId: item.sectionId, parentId: item.parentId || '' };
+    const nextSectionId = toSafeString(payload.sectionId || payload.groupId) || item.sectionId;
+    if (!getSection(nextSectionId)) throw new Error('moveItem requires a valid sectionId.');
 
     const hasParentChange = Object.prototype.hasOwnProperty.call(payload, 'parentId');
-    let nextParentId = hasParentChange ? toSafeString(payload.parentId) : (nextGroupId === item.groupId ? (item.parentId || '') : '');
+    const nextParentId = hasParentChange
+      ? toSafeString(payload.parentId)
+      : (nextSectionId === item.sectionId ? (item.parentId || '') : '');
 
     if (nextParentId) {
       const parent = getItem(nextParentId);
-      if (!parent || parent.groupId !== nextGroupId) {
-        throw new Error('moveItem parentId must reference an item in the same group.');
+      if (!parent || parent.sectionId !== nextSectionId) {
+        throw new Error('moveItem parentId must reference an item in the same section.');
       }
-      if (parent.id === item.id || isDescendant(workspace.items, parent.id, item.id)) {
+      if (parent.id === item.id || isDescendant(workspace.attachedItems, parent.id, item.id)) {
         throw new Error('moveItem parentId cannot create a cycle.');
       }
     }
 
-    item.groupId = nextGroupId;
+    item.sectionId = nextSectionId;
     item.parentId = nextParentId || '';
     if (payload.order !== undefined) {
       item.order = toSafeOrder(payload.order, item.order);
-    } else if (sourceScope.groupId !== item.groupId || sourceScope.parentId !== item.parentId) {
+    } else if (sourceScope.sectionId !== item.sectionId || sourceScope.parentId !== item.parentId) {
       item.order = Number.MAX_SAFE_INTEGER;
     }
 
-    return normalizeOrders(workspace, [sourceScope, { groupId: item.groupId, parentId: item.parentId }]);
+    return normalizeOrders(workspace, [sourceScope, { sectionId: item.sectionId, parentId: item.parentId }]);
   }
 
   if (operation === 'updateItem') {
     const itemId = toSafeString(payload.itemId || payload.id);
     const item = getItem(itemId);
     if (!item) throw new Error('Item not found.');
-    const patch = payload.patch && typeof payload.patch === 'object' ? payload.patch : payload;
 
+    const patch = payload.patch && typeof payload.patch === 'object' ? payload.patch : payload;
     if (patch.type !== undefined) {
-      const nextType = toSafeString(patch.type).toLowerCase();
-      if (!WORKSPACE_ITEM_TYPES.has(nextType)) throw new Error('updateItem has unknown type.');
-      item.type = nextType;
+      const type = toSafeString(patch.type).toLowerCase();
+      if (!WORKSPACE_ITEM_TYPES.has(type)) throw new Error('updateItem has unknown type.');
+      item.type = type;
     }
     if (patch.refId !== undefined) {
       const refId = toSafeString(patch.refId);
@@ -535,35 +549,44 @@ const applyPatchOp = (workspaceInput, opInput) => {
       item.refId = refId;
     }
     if (patch.stage !== undefined) {
-      item.stage = toSafeStage(patch.stage, item.stage || 'working');
+      item.stage = normalizeStage(patch.stage, item.stage || 'working');
+      item.status = item.stage === 'archive' ? 'archived' : 'active';
+      if (getSection(item.stage)) {
+        item.sectionId = item.stage;
+      }
     }
     if (patch.status !== undefined) {
-      item.status = toSafeStatus(patch.status, item.status || 'active');
+      const status = toSafeStatus(patch.status, item.status || 'active');
+      item.status = status;
+      if (status === 'archived') {
+        item.stage = 'archive';
+        if (getSection('archive')) item.sectionId = 'archive';
+      }
     }
-    if (patch.inlineTitle !== undefined) {
-      item.inlineTitle = toSafeString(patch.inlineTitle).slice(0, 160);
-    }
-    if (patch.inlineText !== undefined) {
-      item.inlineText = toSafeHtml(patch.inlineText);
-    }
+    if (patch.inlineTitle !== undefined) item.inlineTitle = toSafeString(patch.inlineTitle).slice(0, 160);
+    if (patch.inlineText !== undefined) item.inlineText = toSafeHtml(patch.inlineText);
 
     const hasMoveBits = (
-      patch.groupId !== undefined
+      patch.sectionId !== undefined
+      || patch.groupId !== undefined
       || Object.prototype.hasOwnProperty.call(patch, 'parentId')
       || patch.order !== undefined
     );
 
     if (hasMoveBits) {
-      const movePayload = { itemId: item.id };
-      if (patch.groupId !== undefined) movePayload.groupId = patch.groupId;
-      if (Object.prototype.hasOwnProperty.call(patch, 'parentId')) movePayload.parentId = patch.parentId;
-      if (patch.order !== undefined) movePayload.order = patch.order;
       return applyPatchOp(workspace, {
         op: 'moveItem',
-        payload: movePayload
+        payload: {
+          itemId,
+          ...(patch.sectionId !== undefined ? { sectionId: patch.sectionId } : {}),
+          ...(patch.groupId !== undefined ? { groupId: patch.groupId } : {}),
+          ...(Object.prototype.hasOwnProperty.call(patch, 'parentId') ? { parentId: patch.parentId } : {}),
+          ...(patch.order !== undefined ? { order: patch.order } : {})
+        }
       });
     }
-    return normalizeOrders(workspace, { groupId: item.groupId, parentId: item.parentId });
+
+    return normalizeOrders(workspace, { sectionId: item.sectionId, parentId: item.parentId });
   }
 
   if (operation === 'deleteItem') {
@@ -575,14 +598,15 @@ const applyPatchOp = (workspaceInput, opInput) => {
     let changed = true;
     while (changed) {
       changed = false;
-      workspace.items.forEach((item) => {
+      workspace.attachedItems.forEach((item) => {
         if (item.parentId && toDelete.has(item.parentId) && !toDelete.has(item.id)) {
           toDelete.add(item.id);
           changed = true;
         }
       });
     }
-    workspace.items = workspace.items.filter(item => !toDelete.has(item.id));
+
+    workspace.attachedItems = workspace.attachedItems.filter(item => !toDelete.has(item.id));
     pruneConnections();
     return normalizeOrders(workspace);
   }
@@ -602,6 +626,7 @@ const applyPatchOp = (workspaceInput, opInput) => {
       && connection.type === type
     ));
     if (exists) return normalizeOrders(workspace);
+
     workspace.connections = [
       ...(workspace.connections || []),
       {
@@ -620,6 +645,7 @@ const applyPatchOp = (workspaceInput, opInput) => {
     const toItemId = toSafeString(payload.toItemId);
     const type = toSafeConnectionType(payload.type, '');
     const initialLength = (workspace.connections || []).length;
+
     workspace.connections = (workspace.connections || []).filter((connection) => {
       if (id) return connection.id !== id;
       if (fromItemId && toItemId && type) {
@@ -631,6 +657,7 @@ const applyPatchOp = (workspaceInput, opInput) => {
       }
       return true;
     });
+
     if (workspace.connections.length === initialLength) {
       throw new Error('Connection not found.');
     }

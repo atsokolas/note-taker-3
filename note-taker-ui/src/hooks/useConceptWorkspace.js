@@ -7,16 +7,37 @@ import {
 
 const defaultWorkspace = () => ({
   version: 1,
-  groups: [
+  outlineSections: [
     {
-      id: 'default-workspace',
-      title: 'Workspace',
+      id: 'inbox',
+      title: 'Inbox',
       description: '',
       collapsed: false,
       order: 0
+    },
+    {
+      id: 'working',
+      title: 'Working',
+      description: '',
+      collapsed: false,
+      order: 1
+    },
+    {
+      id: 'draft',
+      title: 'Draft',
+      description: '',
+      collapsed: true,
+      order: 2
+    },
+    {
+      id: 'archive',
+      title: 'Archive',
+      description: '',
+      collapsed: true,
+      order: 3
     }
   ],
-  items: [],
+  attachedItems: [],
   updatedAt: new Date().toISOString()
 });
 
