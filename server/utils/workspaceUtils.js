@@ -89,6 +89,7 @@ const toCanonicalItem = (item, index = 0) => {
     type: toSafeString(item.type).toLowerCase(),
     refId: toSafeString(item.refId),
     sectionId: toSafeString(item.sectionId || item.groupId),
+    groupId: toSafeString(item.groupId || item.sectionId),
     parentId: toSafeString(item.parentId),
     inlineTitle: toSafeString(item.inlineTitle).slice(0, 160),
     inlineText: toSafeHtml(item.inlineText),
@@ -162,6 +163,7 @@ const normalizeOrders = (workspaceInput, scopeInput) => {
         item.sectionId = sectionIds.has(item.stage) ? item.stage : workspace.outlineSections[0]?.id;
       }
       if (!item.sectionId) return false;
+      item.groupId = item.sectionId;
       return true;
     });
 
@@ -175,6 +177,9 @@ const normalizeOrders = (workspaceInput, scopeInput) => {
     dedupedItems.push(item);
   });
   workspace.attachedItems = dedupedItems;
+  workspace.attachedItems.forEach((item) => {
+    item.groupId = item.sectionId;
+  });
 
   workspace.attachedItems.forEach((item) => {
     if (!item.parentId) return;
@@ -486,6 +491,7 @@ const applyPatchOp = (workspaceInput, opInput) => {
       type,
       refId,
       sectionId,
+      groupId: sectionId,
       parentId: parentId || '',
       inlineTitle: toSafeString(payload.inlineTitle).slice(0, 160),
       inlineText: toSafeHtml(payload.inlineText),
