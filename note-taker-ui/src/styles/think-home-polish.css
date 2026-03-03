@@ -280,6 +280,90 @@ html[data-ui-theme='dark'] {
   line-height: 1;
 }
 
+.think-index__label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.think-index__label-add {
+  min-width: 24px;
+  height: 24px;
+  border: 1px solid color-mix(in srgb, var(--nt-divider) 72%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--nt-surface-1) 54%, transparent);
+  color: var(--text-secondary);
+  font-size: 0.92rem;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.think-index__label-add:hover {
+  background: color-mix(in srgb, var(--nt-surface-1) 72%, transparent);
+  color: var(--text-primary);
+}
+
+.think-concept-composer-anchor {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.think-concept-composer-popover {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 30;
+  width: min(300px, calc(100vw - 52px));
+  padding: 10px;
+  border: 1px solid color-mix(in srgb, var(--nt-divider) 72%, transparent);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--nt-surface-1) 96%, transparent);
+  box-shadow: 0 16px 28px rgba(0, 0, 0, 0.2);
+}
+
+.think-concept-composer-field {
+  gap: 6px;
+  margin: 0;
+}
+
+.think-concept-composer-field > span {
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-weight: 700;
+  color: color-mix(in srgb, var(--text-muted) 90%, transparent);
+}
+
+.think-concept-composer-field input {
+  min-height: 34px;
+}
+
+.think-concept-composer-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.think-concept-composer-status {
+  margin: 2px 0 0;
+  font-size: 0.76rem;
+  line-height: 1.4;
+}
+
+.think-concept-composer-status.is-success {
+  color: color-mix(in srgb, var(--text-muted) 90%, transparent);
+}
+
+.think-concept-composer-status.is-error {
+  color: color-mix(in srgb, #f97373 80%, var(--text-0));
+}
+
 .think-index__list {
   display: flex;
   flex-direction: column;
@@ -369,6 +453,21 @@ html[data-ui-theme='dark'] {
   font-size: 0.78rem;
   line-height: 1.45;
   color: color-mix(in srgb, var(--text-muted) 90%, transparent);
+}
+
+.think-concepts-empty-state {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.think-concepts-empty-state__actions {
+  width: fit-content;
+}
+
+.think-concepts-empty-state__actions .think-concept-composer-popover {
+  left: 0;
+  right: auto;
 }
 
 .think-home {
@@ -1201,5 +1300,10 @@ html[data-ui-theme='light'] .think-main-actions__segments.ui-segmented-nav .ui-s
 
   .think-main-actions__segments.ui-segmented-nav .ui-segmented-nav__item {
     min-height: 30px;
+  }
+
+  .think-main-actions .think-concept-composer-popover {
+    left: 0;
+    right: auto;
   }
 }

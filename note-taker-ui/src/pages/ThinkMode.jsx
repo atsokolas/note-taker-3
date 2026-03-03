@@ -52,6 +52,7 @@ const THINK_RECENTS_STORAGE_KEY = 'think.recent.targets';
 const THINK_CONCEPT_ROW_HEIGHT = 46;
 const THINK_QUESTION_ROW_HEIGHT = 60;
 const THINK_HOME_LIMIT = 6;
+const CONCEPT_COMPOSER_DEFAULT_STATE = { message: '', tone: 'success' };
 const THINK_SUB_NAV_ITEMS = [
   { value: 'home', label: 'Home' },
   { value: 'notebook', label: 'Notebook' },
@@ -295,7 +296,18 @@ const ThinkMode = () => {
     return `block-${Math.random().toString(36).slice(2, 9)}-${Date.now()}`;
   };
 
-  const { concepts, loading: conceptsLoading, error: conceptsError } = useConcepts();
+  const normalizeConceptName = useCallback((value = '') => (
+    String(value || '').replace(/\s+/g, ' ').trim()
+  ), []);
+
+  const [conceptComposerOpen, setConceptComposerOpen] = useState(false);
+  const [conceptComposerAnchor, setConceptComposerAnchor] = useState('header');
+  const [conceptComposerDraft, setConceptComposerDraft] = useState('');
+  const [conceptComposerSaving, setConceptComposerSaving] = useState(false);
+  const [conceptComposerStatus, setConceptComposerStatus] = useState(CONCEPT_COMPOSER_DEFAULT_STATE);
+  const conceptComposerInputRef = useRef(null);
+
+  const { concepts, loading: conceptsLoading, error: conceptsError, refresh: refreshConcepts } = useConcepts();
   const selectedName = queryConcept || concepts[0]?.name || '';
   const { concept, loading: conceptLoading, error: conceptLoadError, refresh, setConcept } = useConcept(selectedName, {
     enabled: activeView === 'concepts' && Boolean(selectedName)
@@ -321,6 +333,15 @@ const ThinkMode = () => {
     if (!searchQuery) return concepts;
     return concepts.filter(c => c.name.toLowerCase().includes(searchQuery));
   }, [concepts, searchQuery]);
+  const findExistingConcept = useCallback((name) => {
+    const normalized = normalizeConceptName(name).toLowerCase();
+    if (!normalized) return null;
+    return concepts.find((item) => normalizeConceptName(item.name).toLowerCase() === normalized) || null;
+  }, [concepts, normalizeConceptName]);
+  const normalizedConceptDraft = useMemo(
+    () => normalizeConceptName(conceptComposerDraft),
+    [conceptComposerDraft, normalizeConceptName]
+  );
   const filteredNotebookEntries = useMemo(() => {
     if (!searchQuery) return notebookEntries;
     return notebookEntries.filter((entry) =>
@@ -778,6 +799,15 @@ const ThinkMode = () => {
     });
   }, [related]);
 
+  useEffect(() => {
+    if (!conceptComposerOpen) return undefined;
+    const frame = window.requestAnimationFrame(() => {
+      conceptComposerInputRef.current?.focus();
+      conceptComposerInputRef.current?.select();
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [conceptComposerAnchor, conceptComposerOpen]);
+
   const handleSelectConcept = (name) => {
     const params = new URLSearchParams(searchParams);
     params.set('tab', 'concepts');
@@ -787,6 +817,64 @@ const ThinkMode = () => {
     setActiveView('concepts');
     setSearchParams(params);
   };
+
+  const openConceptComposer = useCallback((anchor = 'header', seed = '') => {
+    setConceptComposerAnchor(anchor);
+    setConceptComposerDraft(normalizeConceptName(seed));
+    setConceptComposerStatus(CONCEPT_COMPOSER_DEFAULT_STATE);
+    setConceptComposerOpen(true);
+  }, [normalizeConceptName]);
+
+  const closeConceptComposer = useCallback(() => {
+    setConceptComposerOpen(false);
+    setConceptComposerSaving(false);
+    setConceptComposerDraft('');
+  }, []);
+
+  const submitConceptComposer = useCallback(async (rawName, source = 'manual') => {
+    const candidate = normalizeConceptName(rawName);
+    if (!candidate) {
+      setConceptComposerStatus({ message: 'Enter a concept name.', tone: 'error' });
+      return { ok: false, reason: 'empty' };
+    }
+
+    const existing = findExistingConcept(candidate);
+    if (existing) {
+      handleSelectConcept(existing.name);
+      setConceptComposerStatus({
+        message: `Opened existing concept: ${existing.name}.`,
+        tone: 'success'
+      });
+      setConceptComposerOpen(false);
+      setConceptComposerDraft('');
+      if (source === 'search-enter') setSearch('');
+      return { ok: true, action: 'opened-existing', conceptName: existing.name };
+    }
+
+    setConceptComposerSaving(true);
+    setConceptComposerStatus(CONCEPT_COMPOSER_DEFAULT_STATE);
+    setConceptError('');
+    try {
+      await updateConcept(candidate, { description: '' });
+      await refreshConcepts();
+      handleSelectConcept(candidate);
+      setConceptComposerStatus({
+        message: `Created concept: ${candidate}.`,
+        tone: 'success'
+      });
+      setConceptComposerOpen(false);
+      setConceptComposerDraft('');
+      if (source === 'search-enter') setSearch('');
+      return { ok: true, action: 'created', conceptName: candidate };
+    } catch (err) {
+      const message = err.response?.data?.error || 'Failed to add concept.';
+      setConceptComposerStatus({ message, tone: 'error' });
+      setConceptError(message);
+      return { ok: false, reason: 'error' };
+    } finally {
+      setConceptComposerSaving(false);
+    }
+  }, [findExistingConcept, normalizeConceptName, refreshConcepts, handleSelectConcept]);
 
   const handleSelectView = (view) => {
     const params = new URLSearchParams(searchParams);
@@ -1470,6 +1558,53 @@ const ThinkMode = () => {
     />
   );
 
+  const renderConceptComposer = (anchor) => {
+    if (!conceptComposerOpen || conceptComposerAnchor !== anchor) return null;
+    return (
+      <div className="think-concept-composer-popover" data-testid="think-concept-composer-popover">
+        <label className="feedback-field think-concept-composer-field">
+          <span>Concept name</span>
+          <input
+            ref={conceptComposerInputRef}
+            type="text"
+            value={conceptComposerDraft}
+            data-testid="think-concept-composer-input"
+            placeholder="Type a concept name"
+            onChange={(event) => {
+              setConceptComposerDraft(event.target.value);
+              if (conceptComposerStatus.message) {
+                setConceptComposerStatus(CONCEPT_COMPOSER_DEFAULT_STATE);
+              }
+            }}
+            onKeyDown={(event) => {
+              if (event.key === 'Escape') {
+                event.preventDefault();
+                closeConceptComposer();
+              }
+              if (event.key === 'Enter' && !event.nativeEvent?.isComposing) {
+                event.preventDefault();
+                submitConceptComposer(conceptComposerDraft, 'composer');
+              }
+            }}
+          />
+        </label>
+        <div className="think-concept-composer-actions">
+          <Button
+            variant="secondary"
+            onClick={() => submitConceptComposer(conceptComposerDraft, 'composer')}
+            disabled={conceptComposerSaving || !normalizedConceptDraft}
+            data-testid="think-concept-composer-submit"
+          >
+            {conceptComposerSaving ? 'Creating…' : 'Create'}
+          </Button>
+          <QuietButton onClick={closeConceptComposer} disabled={conceptComposerSaving}>
+            Cancel
+          </QuietButton>
+        </div>
+      </div>
+    );
+  };
+
 
   const leftPanel = (
     <div className="section-stack think-layout__left-panel think-index">
@@ -1480,7 +1615,17 @@ const ThinkMode = () => {
             type="text"
             value={search}
             placeholder="Search notes, concepts, questions"
+            data-testid="think-index-search-input"
             onChange={(event) => setSearch(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key !== 'Enter') return;
+              if (event.nativeEvent?.isComposing) return;
+              if (activeView !== 'concepts') return;
+              const candidate = normalizeConceptName(search);
+              if (!candidate) return;
+              event.preventDefault();
+              submitConceptComposer(candidate, 'search-enter');
+            }}
           />
         </label>
         <div className="think-index__control-row">
@@ -1527,7 +1672,29 @@ const ThinkMode = () => {
       </div>
 
       <div className="think-index__group">
-        <div className="think-index__label">Concepts</div>
+        <div className="think-index__label-row">
+          <div className="think-index__label">Concepts</div>
+          <div className="think-concept-composer-anchor">
+            <button
+              type="button"
+              className="think-index__label-add"
+              onClick={() => openConceptComposer('sidebar', search)}
+              aria-label="Create concept"
+              data-testid="think-new-concept-sidebar-button"
+            >
+              +
+            </button>
+            {renderConceptComposer('sidebar')}
+          </div>
+        </div>
+        {conceptComposerStatus.message && (
+          <p
+            className={`think-concept-composer-status ${conceptComposerStatus.tone === 'error' ? 'is-error' : 'is-success'}`}
+            data-testid="think-concept-composer-status"
+          >
+            {conceptComposerStatus.message}
+          </p>
+        )}
         {conceptsError && <p className="status-message error-message">{conceptsError}</p>}
         <Profiler id="ThinkConceptList" onRender={conceptListProfilerLogger}>
           <div className="think-index__list">
@@ -2112,6 +2279,21 @@ const ThinkMode = () => {
           )}
         </>
       )}
+      {!conceptLoading && !concept && !conceptLoadError && (
+        <SurfaceCard className="think-concepts-empty-state" data-testid="think-concepts-empty-state">
+          <SectionHeader title="No concepts yet" subtitle="Create a concept to start capturing ideas in Think." />
+          <div className="think-concept-composer-anchor think-concepts-empty-state__actions">
+            <Button
+              variant="secondary"
+              onClick={() => openConceptComposer('empty', search)}
+              data-testid="think-concepts-empty-create-button"
+            >
+              Create concept
+            </Button>
+            {renderConceptComposer('empty')}
+          </div>
+        </SurfaceCard>
+      )}
       </div>
     </Profiler>
   );
@@ -2489,6 +2671,16 @@ const ThinkMode = () => {
             <QuietButton className="list-button think-main-actions__utility think-main-actions__utility--first" onClick={handleCreateNotebookEntry}>
               New note
             </QuietButton>
+            <div className="think-concept-composer-anchor">
+              <QuietButton
+                className="list-button think-main-actions__utility"
+                onClick={() => openConceptComposer('header')}
+                data-testid="think-new-concept-header-button"
+              >
+                New concept
+              </QuietButton>
+              {renderConceptComposer('header')}
+            </div>
             <QuietButton className="list-button think-main-actions__utility" onClick={handleToggleExpandAllCards}>
               {cardsExpanded ? 'Collapse all' : 'Expand all'}
             </QuietButton>
