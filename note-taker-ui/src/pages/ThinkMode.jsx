@@ -6,7 +6,6 @@ import useConcept from '../hooks/useConcept';
 import useConceptRelated from '../hooks/useConceptRelated';
 import ReferencesPanel from '../components/ReferencesPanel';
 import { updateConcept, updateConceptPins } from '../api/concepts';
-import NotebookList from '../components/think/notebook/NotebookList';
 import NotebookEditor from '../components/think/notebook/NotebookEditor';
 import NotebookContext from '../components/think/notebook/NotebookContext';
 import useQuestions from '../hooks/useQuestions';
@@ -50,7 +49,7 @@ import {
 const THINK_RIGHT_STORAGE_KEY = 'workspace-right-open:/think';
 const THINK_RECENTS_STORAGE_KEY = 'think.recent.targets';
 const THINK_CONCEPT_ROW_HEIGHT = 46;
-const THINK_QUESTION_ROW_HEIGHT = 88;
+const THINK_QUESTION_ROW_HEIGHT = 60;
 const THINK_HOME_LIMIT = 6;
 const THINK_SUB_NAV_ITEMS = [
   { value: 'home', label: 'Home' },
@@ -128,36 +127,50 @@ const SidebarSkeletonRows = React.memo(({ rows = 4 }) => (
   </div>
 ));
 
+const formatIndexDate = (value) => {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleDateString();
+};
+
+const CalmEmptyLine = React.memo(({ children }) => (
+  <p className="think-calm-empty-line">{children}</p>
+));
+
+const NotebookListItem = React.memo(({ entry, isActive, onSelect }) => (
+  <button
+    type="button"
+    className={`think-index__row list-button ${isActive ? 'is-active' : ''}`}
+    onClick={() => onSelect(entry._id)}
+  >
+    <span className="think-index__row-title">{entry.title || 'Untitled'}</span>
+    <span className="think-index__row-meta">{formatIndexDate(entry.updatedAt)}</span>
+  </button>
+));
+
 const ConceptListItem = React.memo(({ conceptItem, isActive, onSelect }) => (
-  <QuietButton
-    className={`list-button ${isActive ? 'is-active' : ''}`}
+  <button
+    type="button"
+    className={`think-index__row list-button ${isActive ? 'is-active' : ''}`}
     onClick={() => onSelect(conceptItem.name)}
   >
-    <span>{conceptItem.name}</span>
-    {typeof conceptItem.count === 'number' && (
-      <span className="concept-count">{conceptItem.count}</span>
+    <span className="think-index__row-title">{conceptItem.name}</span>
+    {Number.isFinite(conceptItem.count) && (
+      <span className="think-index__row-meta">{conceptItem.count}</span>
     )}
-  </QuietButton>
+  </button>
 ));
 
 const QuestionListItem = React.memo(({ question, isActive, onOpen }) => (
-  <div className={`think-question-row ${isActive ? 'is-active' : ''}`}>
-    <button
-      type="button"
-      className={`think-question-row-main list-button ${isActive ? 'is-active' : ''}`}
-      onClick={() => onOpen(question._id)}
-    >
-      <div className="think-question-text">{question.text}</div>
-      <div className="muted small">{question.linkedTagName || 'Uncategorized'}</div>
-    </button>
-    <div className="think-question-row-actions" onClick={(event) => event.stopPropagation()}>
-      <ReturnLaterControl
-        itemType="question"
-        itemId={question._id}
-        defaultReason={question.text || 'Question'}
-      />
-    </div>
-  </div>
+  <button
+    type="button"
+    className={`think-index__row list-button ${isActive ? 'is-active' : ''}`}
+    onClick={() => onOpen(question._id)}
+  >
+    <span className="think-index__row-title">{question.text || 'Untitled question'}</span>
+    <span className="think-index__row-meta">{question.linkedTagName || 'Uncategorized'}</span>
+  </button>
 ));
 
 const ThinkMode = () => {
@@ -195,7 +208,6 @@ const ThinkMode = () => {
   const [highlightTag, setHighlightTag] = useState('');
   const [highlightArticle, setHighlightArticle] = useState('');
   const [questionStatus, setQuestionStatus] = useState('open');
-  const [questionConceptFilter, setQuestionConceptFilter] = useState('');
   const [activeQuestionId, setActiveQuestionId] = useState('');
   const [questionSaving, setQuestionSaving] = useState(false);
   const [questionError, setQuestionError] = useState('');
@@ -256,7 +268,7 @@ const ThinkMode = () => {
   const [homeArticlesError, setHomeArticlesError] = useState('');
   const [rightOpen, setRightOpen] = useState(() => {
     const stored = localStorage.getItem(THINK_RIGHT_STORAGE_KEY);
-    if (stored === null) return true;
+    if (stored === null) return false;
     return stored === 'true';
   });
   const conceptProfilerLogger = useMemo(() => createProfilerLogger('think.concept.render'), []);
@@ -293,11 +305,17 @@ const ThinkMode = () => {
     enabled: activeView === 'concepts' && Boolean(selectedName)
   });
 
+  const searchQuery = useMemo(() => search.trim().toLowerCase(), [search]);
   const filteredConcepts = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    if (!q) return concepts;
-    return concepts.filter(c => c.name.toLowerCase().includes(q));
-  }, [concepts, search]);
+    if (!searchQuery) return concepts;
+    return concepts.filter(c => c.name.toLowerCase().includes(searchQuery));
+  }, [concepts, searchQuery]);
+  const filteredNotebookEntries = useMemo(() => {
+    if (!searchQuery) return notebookEntries;
+    return notebookEntries.filter((entry) =>
+      (entry.title || 'Untitled').toLowerCase().includes(searchQuery)
+    );
+  }, [notebookEntries, searchQuery]);
 
   const pinnedHighlightIds = concept?.pinnedHighlightIds || [];
   const pinnedArticleIds = concept?.pinnedArticleIds || [];
@@ -307,10 +325,13 @@ const ThinkMode = () => {
 
   const questionQuery = useQuestions({
     status: questionStatus,
-    tag: questionConceptFilter || undefined,
     enabled: true
   });
   const { questions: allQuestions, loading: allQuestionsLoading, error: allQuestionsError, setQuestions: setAllQuestions } = questionQuery;
+  const filteredQuestions = useMemo(() => {
+    if (!searchQuery) return allQuestions;
+    return allQuestions.filter((question) => (question.text || '').toLowerCase().includes(searchQuery));
+  }, [allQuestions, searchQuery]);
 
   const activeQuestionData = useMemo(
     () => allQuestions.find(q => q._id === activeQuestionId) || null,
@@ -1374,7 +1395,7 @@ const ThinkMode = () => {
     try {
       const created = await createQuestion({
         text: 'New question',
-        conceptName: questionConceptFilter || '',
+        conceptName: activeView === 'concepts' ? selectedName : '',
         blocks: [{ id: createBlockId(), type: 'paragraph', text: '' }]
       });
       setAllQuestions(prev => [created, ...prev]);
@@ -1411,11 +1432,20 @@ const ThinkMode = () => {
     handleSelectView('questions');
   };
 
+  const renderNotebookRow = (entry) => (
+    <NotebookListItem
+      key={entry._id}
+      entry={entry}
+      isActive={activeView === 'notebook' && notebookActiveId === entry._id}
+      onSelect={handleSelectNotebookEntry}
+    />
+  );
+
   const renderConceptRow = (conceptItem) => (
     <ConceptListItem
       key={conceptItem.name}
       conceptItem={conceptItem}
-      isActive={conceptItem.name === selectedName}
+      isActive={activeView === 'concepts' && conceptItem.name === selectedName}
       onSelect={handleSelectConcept}
     />
   );
@@ -1431,107 +1461,118 @@ const ThinkMode = () => {
 
 
   const leftPanel = (
-    <div className="section-stack think-layout__left-panel">
-      <SectionHeader title="Notebook" subtitle="Working notes." />
-      <NotebookList
-        entries={notebookEntries}
-        activeId={notebookActiveId}
-        loading={notebookLoadingList}
-        error={notebookListError}
-        onSelect={handleSelectNotebookEntry}
-        onCreate={handleCreateNotebookEntry}
-      />
-
-      <SectionHeader title="Concepts" subtitle="Structured pages." />
-      <label className="feedback-field" style={{ margin: 0 }}>
-        <span>Search</span>
-        <input
-          type="text"
-          value={search}
-          placeholder="Find a concept"
-          onChange={(e) => setSearch(e.target.value)}
-        />
-      </label>
-      {conceptsLoading && <SidebarSkeletonRows rows={5} />}
-      {conceptsError && <p className="status-message error-message">{conceptsError}</p>}
-      <Profiler id="ThinkConceptList" onRender={conceptListProfilerLogger}>
-        <div className="concept-list">
-          {!conceptsLoading && filteredConcepts.length > 200 ? (
-            <VirtualList
-              items={filteredConcepts}
-              height={leftListHeight}
-              itemSize={THINK_CONCEPT_ROW_HEIGHT}
-              overscan={8}
-              className="think-virtual-list"
-              renderItem={(conceptItem, index) => (
-                <div key={conceptItem.name || index} style={{ paddingBottom: 6 }}>
-                  {renderConceptRow(conceptItem)}
-                </div>
-              )}
-            />
-          ) : (
-            filteredConcepts.map(conceptItem => renderConceptRow(conceptItem))
-          )}
-          {!conceptsLoading && filteredConcepts.length === 0 && (
-            <p className="muted small">No concepts found.</p>
-          )}
+    <div className="section-stack think-layout__left-panel think-index">
+      <div className="think-index__controls">
+        <label className="feedback-field think-index__search" style={{ margin: 0 }}>
+          <span>Index</span>
+          <input
+            type="text"
+            value={search}
+            placeholder="Search notes, concepts, questions"
+            onChange={(event) => setSearch(event.target.value)}
+          />
+        </label>
+        <div className="think-index__control-row">
+          <label className="think-index__filter">
+            <span>Question status</span>
+            <select
+              value={questionStatus}
+              onChange={(event) => {
+                setQuestionStatus(event.target.value);
+                handleSelectView('questions');
+              }}
+            >
+              <option value="open">Open</option>
+              <option value="answered">Answered</option>
+            </select>
+          </label>
+          <Button
+            variant="secondary"
+            className="think-index__new-question"
+            onClick={handleCreateQuestion}
+            disabled={questionSaving}
+          >
+            New question
+          </Button>
         </div>
-      </Profiler>
-
-      <SectionHeader title="Questions" subtitle="Open loops." />
-      <div className="think-question-filters">
-        <select
-          value={questionStatus}
-          onChange={(event) => {
-            setQuestionStatus(event.target.value);
-            handleSelectView('questions');
-          }}
-        >
-          <option value="open">Open</option>
-          <option value="answered">Answered</option>
-        </select>
-        <select
-          value={questionConceptFilter}
-          onChange={(event) => {
-            setQuestionConceptFilter(event.target.value);
-            handleSelectView('questions');
-          }}
-        >
-          <option value="">All concepts</option>
-          {concepts.map(concept => (
-            <option key={concept.name} value={concept.name}>{concept.name}</option>
-          ))}
-        </select>
-        <Button variant="secondary" onClick={handleCreateQuestion} disabled={questionSaving}>
-          New
-        </Button>
       </div>
+
+      {notebookListError && <p className="status-message error-message">{notebookListError}</p>}
       {allQuestionsError && <p className="status-message error-message">{allQuestionsError}</p>}
       {questionError && <p className="status-message error-message">{questionError}</p>}
-      {allQuestionsLoading && <SidebarSkeletonRows rows={4} />}
-      {!allQuestionsLoading && allQuestions.length === 0 && (
-        <p className="muted small">No questions in this view.</p>
-      )}
-      <Profiler id="ThinkQuestionList" onRender={questionListProfilerLogger}>
-        <div className="think-question-list">
-          {!allQuestionsLoading && allQuestions.length > 200 ? (
-            <VirtualList
-              items={allQuestions}
-              height={leftListHeight}
-              itemSize={THINK_QUESTION_ROW_HEIGHT}
-              overscan={6}
-              className="think-virtual-list"
-              renderItem={(question, index) => (
-                <div key={question._id || index} style={{ paddingBottom: 8 }}>
-                  {renderQuestionRow(question)}
-                </div>
-              )}
-            />
+
+      <div className="think-index__group">
+        <div className="think-index__label">Notebook</div>
+        <div className="think-index__list">
+          {notebookLoadingList ? (
+            <SidebarSkeletonRows rows={4} />
           ) : (
-            allQuestions.map(question => renderQuestionRow(question))
+            filteredNotebookEntries.map((entry) => renderNotebookRow(entry))
+          )}
+          {!notebookLoadingList && filteredNotebookEntries.length === 0 && (
+            <CalmEmptyLine>No notebook entries match.</CalmEmptyLine>
           )}
         </div>
-      </Profiler>
+      </div>
+
+      <div className="think-index__group">
+        <div className="think-index__label">Concepts</div>
+        {conceptsError && <p className="status-message error-message">{conceptsError}</p>}
+        <Profiler id="ThinkConceptList" onRender={conceptListProfilerLogger}>
+          <div className="think-index__list">
+            {conceptsLoading ? (
+              <SidebarSkeletonRows rows={5} />
+            ) : filteredConcepts.length > 200 ? (
+              <VirtualList
+                items={filteredConcepts}
+                height={leftListHeight}
+                itemSize={THINK_CONCEPT_ROW_HEIGHT}
+                overscan={8}
+                className="think-virtual-list"
+                renderItem={(conceptItem, index) => (
+                  <div key={conceptItem.name || index} className="think-index__virtual-row">
+                    {renderConceptRow(conceptItem)}
+                  </div>
+                )}
+              />
+            ) : (
+              filteredConcepts.map((conceptItem) => renderConceptRow(conceptItem))
+            )}
+            {!conceptsLoading && filteredConcepts.length === 0 && (
+              <CalmEmptyLine>No concepts match.</CalmEmptyLine>
+            )}
+          </div>
+        </Profiler>
+      </div>
+
+      <div className="think-index__group">
+        <div className="think-index__label">Questions</div>
+        <Profiler id="ThinkQuestionList" onRender={questionListProfilerLogger}>
+          <div className="think-index__list">
+            {allQuestionsLoading ? (
+              <SidebarSkeletonRows rows={4} />
+            ) : filteredQuestions.length > 200 ? (
+              <VirtualList
+                items={filteredQuestions}
+                height={leftListHeight}
+                itemSize={THINK_QUESTION_ROW_HEIGHT}
+                overscan={6}
+                className="think-virtual-list"
+                renderItem={(question, index) => (
+                  <div key={question._id || index} className="think-index__virtual-row">
+                    {renderQuestionRow(question)}
+                  </div>
+                )}
+              />
+            ) : (
+              filteredQuestions.map((question) => renderQuestionRow(question))
+            )}
+            {!allQuestionsLoading && filteredQuestions.length === 0 && (
+              <CalmEmptyLine>No questions match.</CalmEmptyLine>
+            )}
+          </div>
+        </Profiler>
+      </div>
     </div>
   );
 
@@ -2220,24 +2261,24 @@ const ThinkMode = () => {
         <NotebookContext entry={activeNotebookEntry} />
       )}
 
-      {activeView === 'questions' && (
-        <div className="section-stack">
-          <SectionHeader title="Context" subtitle="Open loops." />
-          {activeQuestion?.linkedTagName ? (
-            <TagChip to={`/think?tab=concepts&concept=${encodeURIComponent(activeQuestion.linkedTagName)}`}>
-              {activeQuestion.linkedTagName}
-            </TagChip>
-          ) : (
-            <p className="muted small">No concept linked.</p>
-          )}
+        {activeView === 'questions' && (
+          <div className="section-stack">
+            <SectionHeader title="Context" subtitle="Open loops." />
+            {activeQuestion?.linkedTagName ? (
+              <TagChip to={`/think?tab=concepts&concept=${encodeURIComponent(activeQuestion.linkedTagName)}`}>
+                {activeQuestion.linkedTagName}
+              </TagChip>
+            ) : (
+              <CalmEmptyLine>No concept linked.</CalmEmptyLine>
+            )}
           <SectionHeader title="Connections in this question" subtitle="Supports, contradictions, extensions." />
           {contextConnectionsLoading && <p className="muted small">Loading connections…</p>}
           {contextConnectionsError && <p className="status-message error-message">{contextConnectionsError}</p>}
-          {!contextConnectionsLoading && !contextConnectionsError && (
-            <div className="context-connection-list">
-              {contextConnections.length === 0 ? (
-                <p className="muted small">No scoped connections yet.</p>
-              ) : (
+            {!contextConnectionsLoading && !contextConnectionsError && (
+              <div className="context-connection-list">
+                {contextConnections.length === 0 ? (
+                  <CalmEmptyLine>No scoped connections yet.</CalmEmptyLine>
+                ) : (
                 contextConnections.slice(0, 10).map(row => (
                   <div key={row._id} className="context-connection-row">
                     <span className="context-connection-node">{row.fromItem?.title || row.fromType}</span>
@@ -2284,11 +2325,11 @@ const ThinkMode = () => {
           <SectionHeader title="Related highlights" subtitle="Semantically similar." />
           {questionRelatedLoading && <p className="muted small">Finding related highlights…</p>}
           {questionRelatedError && <p className="status-message error-message">{questionRelatedError}</p>}
-          {!questionRelatedLoading && !questionRelatedError && (
-            <div className="related-embed-list">
-              {questionRelated.highlights.length === 0 ? (
-                <p className="muted small">No related highlights yet.</p>
-              ) : (
+            {!questionRelatedLoading && !questionRelatedError && (
+              <div className="related-embed-list">
+                {questionRelated.highlights.length === 0 ? (
+                  <CalmEmptyLine>No related highlights yet.</CalmEmptyLine>
+                ) : (
                 questionRelated.highlights.slice(0, 6).map(item => (
                   <div key={item.objectId} className="related-embed-row">
                     <div>
@@ -2304,11 +2345,11 @@ const ThinkMode = () => {
           <SectionHeader title="Related concepts" subtitle="Neighbors and cousins." />
           {questionRelatedLoading && <p className="muted small">Finding related concepts…</p>}
           {questionRelatedError && <p className="status-message error-message">{questionRelatedError}</p>}
-          {!questionRelatedLoading && !questionRelatedError && (
-            <div className="related-embed-list">
-              {questionRelated.concepts.length === 0 ? (
-                <p className="muted small">No related concepts yet.</p>
-              ) : (
+            {!questionRelatedLoading && !questionRelatedError && (
+              <div className="related-embed-list">
+                {questionRelated.concepts.length === 0 ? (
+                  <CalmEmptyLine>No related concepts yet.</CalmEmptyLine>
+                ) : (
                 <div className="concept-related-tags">
                   {questionRelated.concepts.slice(0, 8).map(item => {
                     const name = item.metadata?.name || item.title || '';
@@ -2336,11 +2377,11 @@ const ThinkMode = () => {
           <SectionHeader title="Connections in this concept" subtitle="Supports, contradictions, extensions." />
           {contextConnectionsLoading && <p className="muted small">Loading connections…</p>}
           {contextConnectionsError && <p className="status-message error-message">{contextConnectionsError}</p>}
-          {!contextConnectionsLoading && !contextConnectionsError && (
-            <div className="context-connection-list">
-              {contextConnections.length === 0 ? (
-                <p className="muted small">No scoped connections yet.</p>
-              ) : (
+            {!contextConnectionsLoading && !contextConnectionsError && (
+              <div className="context-connection-list">
+                {contextConnections.length === 0 ? (
+                  <CalmEmptyLine>No scoped connections yet.</CalmEmptyLine>
+                ) : (
                 contextConnections.slice(0, 10).map(row => (
                   <div key={row._id} className="context-connection-row">
                     <span className="context-connection-node">{row.fromItem?.title || row.fromType}</span>
@@ -2354,11 +2395,11 @@ const ThinkMode = () => {
           <SectionHeader title="Related highlights" subtitle="Semantically similar." />
           {conceptRelatedLoading && <p className="muted small">Finding related highlights…</p>}
           {conceptRelatedError && <p className="status-message error-message">{conceptRelatedError}</p>}
-          {!conceptRelatedLoading && !conceptRelatedError && (
-            <div className="related-embed-list">
-              {conceptRelated.highlights.length === 0 ? (
-                <p className="muted small">No related highlights yet.</p>
-              ) : (
+            {!conceptRelatedLoading && !conceptRelatedError && (
+              <div className="related-embed-list">
+                {conceptRelated.highlights.length === 0 ? (
+                  <CalmEmptyLine>No related highlights yet.</CalmEmptyLine>
+                ) : (
                 conceptRelated.highlights.slice(0, 6).map(item => (
                   <div key={item.objectId} className="related-embed-row">
                     <div>
@@ -2374,8 +2415,8 @@ const ThinkMode = () => {
           <SectionHeader title="Related concepts" subtitle="Neighbors and cousins." />
           {conceptRelatedLoading && <p className="muted small">Finding related concepts…</p>}
           {conceptRelatedError && <p className="status-message error-message">{conceptRelatedError}</p>}
-          {!conceptRelatedLoading && !conceptRelatedError && (
-            conceptRelated.concepts.length > 0 ? (
+            {!conceptRelatedLoading && !conceptRelatedError && (
+              conceptRelated.concepts.length > 0 ? (
               <div className="concept-related-tags">
                 {conceptRelated.concepts.slice(0, 8).map(item => {
                   const name = item.metadata?.name || item.title || '';
@@ -2386,12 +2427,12 @@ const ThinkMode = () => {
                   );
                 })}
               </div>
-            ) : (
-              <p className="muted small">No related concepts yet.</p>
-            )
-          )}
+              ) : (
+                <CalmEmptyLine>No related concepts yet.</CalmEmptyLine>
+              )
+            )}
           <SectionHeader title="Tag correlations" subtitle="Co-occuring themes." />
-          {concept?.relatedTags?.length > 0 ? (
+            {concept?.relatedTags?.length > 0 ? (
             <div className="concept-related-tags">
               {concept.relatedTags.slice(0, 8).map(tag => (
                 <TagChip key={`corr-${tag.tag}`} to={`/think?tab=concepts&concept=${encodeURIComponent(tag.tag)}`}>
@@ -2399,9 +2440,9 @@ const ThinkMode = () => {
                 </TagChip>
               ))}
             </div>
-          ) : (
-            <p className="muted small">No correlations yet.</p>
-          )}
+            ) : (
+              <CalmEmptyLine>No correlations yet.</CalmEmptyLine>
+            )}
           {concept?.name && (
             <div>
               <SectionHeader title="Used in" subtitle="Backlinks to this concept." />
