@@ -306,6 +306,10 @@ const ThinkMode = () => {
   const [conceptComposerSaving, setConceptComposerSaving] = useState(false);
   const [conceptComposerStatus, setConceptComposerStatus] = useState(CONCEPT_COMPOSER_DEFAULT_STATE);
   const conceptComposerInputRef = useRef(null);
+  const [headerNewMenuOpen, setHeaderNewMenuOpen] = useState(false);
+  const [headerActionsMenuOpen, setHeaderActionsMenuOpen] = useState(false);
+  const headerNewMenuRef = useRef(null);
+  const headerActionsMenuRef = useRef(null);
 
   const { concepts, loading: conceptsLoading, error: conceptsError, refresh: refreshConcepts } = useConcepts();
   const selectedName = queryConcept || concepts[0]?.name || '';
@@ -830,6 +834,37 @@ const ThinkMode = () => {
     setConceptComposerSaving(false);
     setConceptComposerDraft('');
   }, []);
+
+  const closeHeaderMenus = useCallback(() => {
+    setHeaderNewMenuOpen(false);
+    setHeaderActionsMenuOpen(false);
+  }, []);
+
+  useEffect(() => {
+    if (!headerNewMenuOpen && !headerActionsMenuOpen) return undefined;
+    const handlePointerDown = (event) => {
+      const target = event.target;
+      if (headerNewMenuRef.current?.contains(target) || headerActionsMenuRef.current?.contains(target)) {
+        return;
+      }
+      closeHeaderMenus();
+    };
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') closeHeaderMenus();
+    };
+    document.addEventListener('mousedown', handlePointerDown);
+    document.addEventListener('touchstart', handlePointerDown, { passive: true });
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown);
+      document.removeEventListener('touchstart', handlePointerDown);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [headerActionsMenuOpen, headerNewMenuOpen, closeHeaderMenus]);
+
+  useEffect(() => {
+    closeHeaderMenus();
+  }, [activeView, closeHeaderMenus]);
 
   const submitConceptComposer = useCallback(async (rawName, source = 'manual') => {
     const candidate = normalizeConceptName(rawName);
@@ -2667,29 +2702,109 @@ const ThinkMode = () => {
               items={THINK_SUB_NAV_ITEMS}
               value={activeView}
               onChange={handleSelectView}
+              appearance="quiet"
             />
-            <QuietButton className="list-button think-main-actions__utility think-main-actions__utility--first" onClick={handleCreateNotebookEntry}>
-              New note
-            </QuietButton>
-            <div className="think-concept-composer-anchor">
-              <QuietButton
-                className="list-button think-main-actions__utility"
-                onClick={() => openConceptComposer('header')}
-                data-testid="think-new-concept-header-button"
-              >
-                New concept
-              </QuietButton>
-              {renderConceptComposer('header')}
+            <div className="think-main-actions__menu-group">
+              <div className="think-concept-composer-anchor think-main-actions__menu" ref={headerNewMenuRef}>
+                <QuietButton
+                  className="list-button think-main-actions__utility think-main-actions__utility--first"
+                  onClick={() => {
+                    setHeaderNewMenuOpen((previous) => {
+                      const next = !previous;
+                      if (next) setHeaderActionsMenuOpen(false);
+                      return next;
+                    });
+                  }}
+                  aria-haspopup="menu"
+                  aria-expanded={headerNewMenuOpen}
+                  data-testid="think-header-new-menu-button"
+                >
+                  + New
+                </QuietButton>
+                {headerNewMenuOpen && (
+                  <div className="think-main-actions__menu-popover" role="menu" data-testid="think-header-new-menu">
+                    <button
+                      type="button"
+                      className="think-main-actions__menu-item"
+                      role="menuitem"
+                      onClick={() => {
+                        closeHeaderMenus();
+                        handleCreateNotebookEntry();
+                      }}
+                    >
+                      New note
+                    </button>
+                    <button
+                      type="button"
+                      className="think-main-actions__menu-item"
+                      role="menuitem"
+                      data-testid="think-new-concept-header-button"
+                      onClick={() => {
+                        closeHeaderMenus();
+                        openConceptComposer('header');
+                      }}
+                    >
+                      New concept
+                    </button>
+                    <button
+                      type="button"
+                      className="think-main-actions__menu-item"
+                      role="menuitem"
+                      onClick={() => {
+                        closeHeaderMenus();
+                        handleCreateQuestion();
+                      }}
+                    >
+                      New question
+                    </button>
+                  </div>
+                )}
+                {renderConceptComposer('header')}
+              </div>
+              <div className="think-main-actions__menu" ref={headerActionsMenuRef}>
+                <QuietButton
+                  className={`list-button think-main-actions__utility ${headerActionsMenuOpen ? 'is-active' : ''}`}
+                  onClick={() => {
+                    setHeaderActionsMenuOpen((previous) => {
+                      const next = !previous;
+                      if (next) setHeaderNewMenuOpen(false);
+                      return next;
+                    });
+                  }}
+                  aria-haspopup="menu"
+                  aria-expanded={headerActionsMenuOpen}
+                  data-testid="think-header-actions-menu-button"
+                >
+                  ••• Actions
+                </QuietButton>
+                {headerActionsMenuOpen && (
+                  <div className="think-main-actions__menu-popover" role="menu" data-testid="think-header-actions-menu">
+                    <button
+                      type="button"
+                      className="think-main-actions__menu-item"
+                      role="menuitem"
+                      onClick={() => {
+                        closeHeaderMenus();
+                        handleToggleExpandAllCards();
+                      }}
+                    >
+                      {cardsExpanded ? 'Collapse all' : 'Expand all'}
+                    </button>
+                    <button
+                      type="button"
+                      className={`think-main-actions__menu-item ${rightOpen ? 'is-active' : ''}`}
+                      role="menuitem"
+                      onClick={() => {
+                        closeHeaderMenus();
+                        handleToggleRight(!rightOpen);
+                      }}
+                    >
+                      {rightOpen ? 'Hide context' : 'Show context'}
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
-            <QuietButton className="list-button think-main-actions__utility" onClick={handleToggleExpandAllCards}>
-              {cardsExpanded ? 'Collapse all' : 'Expand all'}
-            </QuietButton>
-            <QuietButton
-              className={`list-button think-main-actions__utility ${rightOpen ? 'is-active' : ''}`}
-              onClick={() => handleToggleRight(!rightOpen)}
-            >
-              Context
-            </QuietButton>
           </div>
         )}
       />

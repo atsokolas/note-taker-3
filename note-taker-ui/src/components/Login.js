@@ -2,9 +2,9 @@ import React, { useState } from 'react';
 import api from '../api';
 import { useNavigate } from 'react-router-dom';
 import logo from '../assets/logo.png';
+import BrandGradient from './BrandGradient';
 
-// --- 1. Accept the 'chromeStoreLink' prop ---
-const Login = ({ onLoginSuccess, chromeStoreLink }) => {
+const Login = ({ onLoginSuccess, chromeStoreLink, brandEnergy = true }) => {
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [message, setMessage] = useState('');
@@ -47,42 +47,42 @@ const Login = ({ onLoginSuccess, chromeStoreLink }) => {
     };
 
     return (
-        <div className="auth-container">
-            <img src={logo} alt="Note Taker Logo" className="auth-logo" loading="lazy" decoding="async" /> 
-            <h2>Login</h2>
-            
-            {/* --- 2. ENSURE THIS 'a' TAG IS CORRECT --- */}
-            <p className="get-extension-link">
-                This is a web app. To save articles, you need the free 
-                <a href={chromeStoreLink} target="_blank" rel="noopener noreferrer"> Chrome Extension</a>.
-            </p>
-            {/* --- END OF LINK --- */}
+        <div className="auth-shell">
+            <BrandGradient variant="login" enabled={brandEnergy} />
+            <div className="auth-container">
+                <img src={logo} alt="Note Taker Logo" className="auth-logo" loading="lazy" decoding="async" />
+                <h2>Login</h2>
+                <p className="get-extension-link">
+                    This is a web app. To save articles, you need the free
+                    <a href={chromeStoreLink} target="_blank" rel="noopener noreferrer"> Chrome Extension</a>.
+                </p>
 
-            <form onSubmit={handleLogin} className="auth-form">
-                <div className="form-group">
-                    <label htmlFor="username-login">Username:</label>
-                    <input
-                        type="text"
-                        id="username-login"
-                        value={username}
-                        onChange={(e) => setUsername(e.target.value)}
-                        required
-                    />
-                </div>
-                <div className="form-group">
-                    <label htmlFor="password-login">Password:</label>
-                    <input
-                        type="password"
-                        id="password-login"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        required
-                    />
-                </div>
-                <button type="submit" className="auth-button">Login</button>
-            </form>
-            {message && (<p className={`status-message ${isError ? 'error-message' : 'success-message'}`}>{message}</p>)}
-            <p className="auth-link">Don't have an account? <button type="button" className="link-button" onClick={() => navigate('/register')}>Register here</button></p>
+                <form onSubmit={handleLogin} className="auth-form">
+                    <div className="form-group">
+                        <label htmlFor="username-login">Username:</label>
+                        <input
+                            type="text"
+                            id="username-login"
+                            value={username}
+                            onChange={(e) => setUsername(e.target.value)}
+                            required
+                        />
+                    </div>
+                    <div className="form-group">
+                        <label htmlFor="password-login">Password:</label>
+                        <input
+                            type="password"
+                            id="password-login"
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            required
+                        />
+                    </div>
+                    <button type="submit" className="auth-button">Login</button>
+                </form>
+                {message && (<p className={`status-message ${isError ? 'error-message' : 'success-message'}`}>{message}</p>)}
+                <p className="auth-link">Don't have an account? <button type="button" className="link-button" onClick={() => navigate('/register')}>Register here</button></p>
+            </div>
         </div>
     );
 };

@@ -469,6 +469,7 @@ const uiSettingsSchema = new mongoose.Schema({
   density: { type: String, enum: ['comfortable', 'compact'], default: 'comfortable' },
   theme: { type: String, enum: ['light', 'dark'], default: 'light' },
   accent: { type: String, enum: ['blue', 'emerald', 'amber', 'rose'], default: 'blue' },
+  brandEnergy: { type: Boolean, default: true },
   workspaceType: { type: String, default: 'global', trim: true },
   workspaceId: { type: String, default: '', trim: true },
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }
@@ -909,7 +910,8 @@ const UI_SETTINGS_DEFAULTS = Object.freeze({
   typographyScale: 'default',
   density: 'comfortable',
   theme: 'light',
-  accent: 'blue'
+  accent: 'blue',
+  brandEnergy: true
 });
 
 const UI_SETTINGS_TYPOGRAPHY_VALUES = new Set(['small', 'default', 'large']);
@@ -958,7 +960,14 @@ const normalizeUiSettingsPayload = (input = {}) => ({
     input.accent,
     UI_SETTINGS_ACCENT_VALUES,
     UI_SETTINGS_DEFAULTS.accent
-  )
+  ),
+  brandEnergy: typeof input.brandEnergy === 'boolean'
+    ? input.brandEnergy
+    : (String(input.brandEnergy || '').trim().toLowerCase() === 'false'
+      ? false
+      : (String(input.brandEnergy || '').trim().toLowerCase() === 'true'
+        ? true
+        : UI_SETTINGS_DEFAULTS.brandEnergy))
 });
 
 const buildUiSettingsResponse = (doc, scope = { workspaceType: 'global', workspaceId: '' }) => {

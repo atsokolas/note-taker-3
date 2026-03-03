@@ -13,6 +13,8 @@
   --space-4: calc(16px * var(--ui-density-scale));
   --space-5: calc(24px * var(--ui-density-scale));
   --space-6: calc(32px * var(--ui-density-scale));
+  --space-7: calc(40px * var(--ui-density-scale));
+  --space-8: calc(48px * var(--ui-density-scale));
 
   --accent: var(--ui-accent);
   --accent-soft: var(--ui-accent-soft);
@@ -1786,6 +1788,20 @@ body {
     align-items: center;
     min-height: 100vh;
     background-color: var(--bg-color); /* Use the general background color */
+    position: relative;
+    overflow: hidden;
+    isolation: isolate;
+}
+
+.auth-shell {
+    position: relative;
+    width: 100%;
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: var(--space-6) var(--space-4);
+    isolation: isolate;
 }
 
 .auth-container {
@@ -1793,8 +1809,15 @@ body {
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    padding: 20px;
+    padding: var(--space-6);
     box-sizing: border-box;
+    position: relative;
+    z-index: 1;
+    width: min(100%, 560px);
+    border: 1px solid color-mix(in srgb, var(--border-color) 90%, transparent);
+    border-radius: var(--radius-2);
+    background: color-mix(in srgb, var(--card-bg-color) 96%, #ffffff);
+    box-shadow: var(--box-shadow-light);
 }
 
 .auth-container h2 {
@@ -1806,9 +1829,9 @@ body {
 
 .auth-form {
     background-color: var(--card-bg-color);
-    padding: 40px;
+    padding: var(--space-6);
     border-radius: var(--border-radius);
-    box-shadow: var(--box-shadow-light);
+    box-shadow: none;
     width: 100%;
     max-width: 400px;
     display: flex;

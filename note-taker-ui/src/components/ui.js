@@ -83,8 +83,12 @@ export const PanelHeader = ({ title, action, className }) => (
   </div>
 );
 
-export const SegmentedNav = ({ items = [], value = '', onChange = () => {}, className }) => (
-  <div className={cx('ui-segmented-nav', className)} role="tablist" aria-label="Section navigation">
+export const SegmentedNav = ({ items = [], value = '', onChange = () => {}, className, appearance = 'default' }) => (
+  <div
+    className={cx('ui-segmented-nav', appearance === 'quiet' && 'ui-segmented-nav--quiet', className)}
+    role="tablist"
+    aria-label="Section navigation"
+  >
     {items.map(item => (
       <button
         key={item.value}

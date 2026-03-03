@@ -16,7 +16,8 @@ export const DEFAULT_UI_SETTINGS = {
   typographyScale: 'default',
   density: 'comfortable',
   theme: 'light',
-  accent: 'blue'
+  accent: 'blue',
+  brandEnergy: true
 };
 
 const TYPOGRAPHY_VALUES = new Set(['small', 'default', 'large']);
@@ -30,11 +31,19 @@ const normalizeOption = (value, allowedValues, fallbackValue) => {
   return fallbackValue;
 };
 
+const normalizeBoolean = (value, fallbackValue = true) => {
+  if (typeof value === 'boolean') return value;
+  if (value === 'true' || value === '1') return true;
+  if (value === 'false' || value === '0') return false;
+  return fallbackValue;
+};
+
 export const normalizeUiSettings = (input = {}) => ({
   typographyScale: normalizeOption(input.typographyScale, TYPOGRAPHY_VALUES, DEFAULT_UI_SETTINGS.typographyScale),
   density: normalizeOption(input.density, DENSITY_VALUES, DEFAULT_UI_SETTINGS.density),
   theme: normalizeOption(input.theme, THEME_VALUES, DEFAULT_UI_SETTINGS.theme),
-  accent: normalizeOption(input.accent, ACCENT_VALUES, DEFAULT_UI_SETTINGS.accent)
+  accent: normalizeOption(input.accent, ACCENT_VALUES, DEFAULT_UI_SETTINGS.accent),
+  brandEnergy: normalizeBoolean(input.brandEnergy, DEFAULT_UI_SETTINGS.brandEnergy)
 });
 
 export const persistUiSettingsToStorage = (settings, storage = window.localStorage) => {
@@ -63,6 +72,7 @@ export const applyUiSettingsToRoot = (root, settings) => {
   root.setAttribute('data-ui-theme', normalized.theme);
   root.setAttribute('data-ui-density', normalized.density);
   root.setAttribute('data-ui-typography', normalized.typographyScale);
+  root.setAttribute('data-ui-brand-energy', normalized.brandEnergy ? 'on' : 'off');
   root.style.setProperty('--ui-accent', accent.color);
   root.style.setProperty('--ui-accent-soft', accent.soft);
 

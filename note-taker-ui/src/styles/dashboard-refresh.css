@@ -41,7 +41,7 @@ html[data-ui-theme='dark'] {
 }
 
 body {
-  background: radial-gradient(1300px 600px at 10% -5%, color-mix(in srgb, var(--accent-soft) 56%, transparent), transparent 55%), var(--bg-shell);
+  background: var(--bg-shell);
   color: var(--text-0);
 }
 
@@ -1404,7 +1404,7 @@ html[data-ui-theme='dark'] {
 
 .app-shell-new {
   grid-template-columns: 208px minmax(0, 1fr);
-  background: radial-gradient(1100px 560px at -4% -8%, color-mix(in srgb, var(--accent-soft) 30%, transparent), transparent 62%), var(--surface-shell);
+  background: var(--surface-shell);
 }
 
 .app-shell-new__nav {
@@ -2226,4 +2226,30 @@ select {
     width: 100%;
     margin-right: 0;
   }
+}
+
+/* Brand energy layering (sidebar + header only) */
+.app-shell-new__nav {
+  position: sticky;
+  overflow: hidden;
+}
+
+.app-shell-new__nav-content {
+  position: relative;
+  z-index: 1;
+}
+
+.topbar {
+  position: sticky;
+  overflow: hidden;
+}
+
+.topbar__content {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  width: 100%;
 }

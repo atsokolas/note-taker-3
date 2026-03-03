@@ -1,5 +1,5 @@
 import React from 'react';
-import { SectionHeader, SurfaceCard, TagChip, QuietButton, PillButton } from '../ui';
+import { SectionHeader, SurfaceCard, QuietButton, PillButton } from '../ui';
 import SkeletonBlock from '../SkeletonBlock';
 
 const formatRelativeTime = (value) => {
@@ -158,20 +158,26 @@ const ThinkHome = ({
           <SectionHeader title="Recent material" subtitle="Highlights and source articles in motion." />
           <div className="think-home__material-block">
             <p className="think-home__column-title">Highlights</p>
-            <div className="think-home__list">
+            <div className="think-home__list think-home__list--scannable">
               {recentHighlights.length === 0 ? (
                 <Empty text="No highlights yet." />
               ) : (
                 recentHighlights.slice(0, 6).map((item) => (
-                  <div key={item._id} className="think-home__material-card">
+                  <button
+                    key={item._id}
+                    type="button"
+                    className="think-home__material-card"
+                    onClick={() => {
+                      if (item.articleId) {
+                        onOpenArticle(item.articleId);
+                        return;
+                      }
+                      window.location.href = '/library?scope=highlights';
+                    }}
+                  >
                     <div className="think-home__material-title">{item.articleTitle || 'Highlight'}</div>
                     <div className="think-home__material-snippet">{(item.text || '').slice(0, 140)}</div>
-                    <div>
-                      <TagChip to={item.articleId ? `/articles/${item.articleId}` : '/library?scope=highlights'}>
-                        Open source
-                      </TagChip>
-                    </div>
-                  </div>
+                  </button>
                 ))
               )}
             </div>

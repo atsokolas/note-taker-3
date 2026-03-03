@@ -27,7 +27,7 @@ const THEME_OPTIONS = [
 ];
 
 const Settings = ({
-  uiSettings = { typographyScale: 'default', density: 'comfortable', theme: 'light', accent: 'blue' },
+  uiSettings = { typographyScale: 'default', density: 'comfortable', theme: 'light', accent: 'blue', brandEnergy: true },
   uiSettingsSaving = false,
   onUiSettingsChange = () => {}
 }) => {
@@ -167,6 +167,26 @@ const Settings = ({
                 {option.label}
               </button>
             ))}
+          </div>
+        </div>
+
+        <div className="settings-option-group">
+          <p className="muted-label">Brand energy</p>
+          <div className="settings-option-row">
+            <button
+              type="button"
+              className={`settings-option-button${uiSettings.brandEnergy ? ' is-active' : ''}`}
+              onClick={() => onUiSettingsChange({ brandEnergy: true })}
+            >
+              On
+            </button>
+            <button
+              type="button"
+              className={`settings-option-button${!uiSettings.brandEnergy ? ' is-active' : ''}`}
+              onClick={() => onUiSettingsChange({ brandEnergy: false })}
+            >
+              Off
+            </button>
           </div>
         </div>
       </Card>

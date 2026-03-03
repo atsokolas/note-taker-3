@@ -49,6 +49,7 @@ import './App.css';
 import './styles/reading-layout.css';
 import './styles/dashboard-refresh.css';
 import './styles/think-home-polish.css';
+import './styles/brand-energy.css';
 
 const LegacyConceptRedirect = () => {
   const { tagName, tag } = useParams();
@@ -259,10 +260,12 @@ function App() {
 
     return (
       <AppShell
+        brandEnergy={uiSettings.brandEnergy}
         leftNav={<LeftNav items={navItems} />}
         topBar={(
           <TopBar
             theme={uiSettings.theme}
+            brandEnergy={uiSettings.brandEnergy}
             onThemeChange={(nextTheme) => handleUiSettingsChange({ theme: nextTheme })}
             rightSlot={(
               <>
@@ -307,7 +310,13 @@ function App() {
             <Route path="/register" element={<Register chromeStoreLink={chromeStoreLink} />} />
             <Route 
               path="/login" 
-              element={<Login onLoginSuccess={handleLoginSuccess} chromeStoreLink={chromeStoreLink} />} 
+              element={(
+                <Login
+                  onLoginSuccess={handleLoginSuccess}
+                  chromeStoreLink={chromeStoreLink}
+                  brandEnergy={uiSettings.brandEnergy}
+                />
+              )} 
             />
             <Route path="*" element={<Navigate to="/" replace />} /> 
           </Routes>

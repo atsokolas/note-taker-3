@@ -10,6 +10,7 @@ describe('uiPreferences', () => {
     document.documentElement.removeAttribute('data-ui-theme');
     document.documentElement.removeAttribute('data-ui-density');
     document.documentElement.removeAttribute('data-ui-typography');
+    document.documentElement.removeAttribute('data-ui-brand-energy');
     document.documentElement.style.removeProperty('--ui-accent');
     document.documentElement.style.removeProperty('--ui-accent-soft');
   });
@@ -19,7 +20,8 @@ describe('uiPreferences', () => {
       typographyScale: 'large',
       density: 'compact',
       theme: 'dark',
-      accent: 'rose'
+      accent: 'rose',
+      brandEnergy: false
     };
 
     persistUiSettingsToStorage(saved);
@@ -31,6 +33,7 @@ describe('uiPreferences', () => {
     expect(document.documentElement.getAttribute('data-ui-theme')).toBe('dark');
     expect(document.documentElement.getAttribute('data-ui-density')).toBe('compact');
     expect(document.documentElement.getAttribute('data-ui-typography')).toBe('large');
+    expect(document.documentElement.getAttribute('data-ui-brand-energy')).toBe('off');
     expect(document.documentElement.style.getPropertyValue('--ui-accent')).toBe('#be185d');
   });
 });
