@@ -217,7 +217,7 @@ const LibraryHighlights = ({
   }, [displayRows]);
 
   return (
-    <div className="section-stack library-highlights-surface">
+    <div className="section-stack library-highlights-surface" data-tour-anchor="library-highlights-panel">
       <SectionHeader
         title="Highlights"
         subtitle="Thumb through and send them forward."

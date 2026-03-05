@@ -10,6 +10,7 @@ import LibraryNotebookModal from '../components/library/LibraryNotebookModal';
 import LibraryQuestionModal from '../components/library/LibraryQuestionModal';
 import { createQuestion } from '../api/questions';
 import { getAuthHeaders } from '../hooks/useAuthHeaders';
+import SemanticRelatedPanel from '../components/retrieval/SemanticRelatedPanel';
 
 const ReviewMode = () => {
   const tabs = useMemo(() => ([
@@ -425,6 +426,14 @@ const ReviewMode = () => {
                   Add to Question
                 </Button>
               </div>
+              <SemanticRelatedPanel
+                sourceType="highlight"
+                sourceId={selectedHighlight._id}
+                title="AI Related Highlights"
+                limit={6}
+                resultTypes={['highlight']}
+                enabled={Boolean(selectedHighlight?._id)}
+              />
             </div>
           ) : (
             <p className="muted small">Select a highlight to drill in.</p>

@@ -46,6 +46,7 @@ const ThinkHome = ({
   onOpenArticle = () => {},
   onCreateNote = () => {},
   onCreateConcept = () => {},
+  onCreateFromTemplate = () => {},
   onCreateQuestion = () => {}
 }) => {
   const continueItem = recentTargets[0] || null;
@@ -60,6 +61,7 @@ const ThinkHome = ({
             <div className="think-home__continue-actions">
               <PillButton onClick={onCreateNote}>New note</PillButton>
               <PillButton onClick={onCreateConcept}>New concept</PillButton>
+              <PillButton onClick={onCreateFromTemplate}>Use template</PillButton>
               <PillButton onClick={onCreateQuestion}>New question</PillButton>
             </div>
           )}

@@ -365,6 +365,8 @@ const tagMetaSchema = new mongoose.Schema({
   dismissedHighlightIds: [{ type: mongoose.Schema.Types.ObjectId }],
   conceptLayout: { type: conceptLayoutSchema, default: undefined },
   workspace: { type: conceptWorkspaceSchema, default: undefined },
+  workspaceTemplateId: { type: String, default: '', trim: true },
+  workspaceTemplateName: { type: String, default: '', trim: true },
   isPublic: { type: Boolean, default: false },
   slug: { type: String, default: '', trim: true },
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }
@@ -478,6 +480,41 @@ const uiSettingsSchema = new mongoose.Schema({
 uiSettingsSchema.index({ userId: 1, workspaceType: 1, workspaceId: 1 }, { unique: true });
 
 const UiSettings = mongoose.model('UiSettings', uiSettingsSchema);
+
+const tourSignalsSchema = new mongoose.Schema({
+  extensionConnected: { type: Boolean, default: false },
+  firstHighlightCaptured: { type: Boolean, default: false },
+  conceptFromHighlight: { type: Boolean, default: false },
+  workspaceOrganized: { type: Boolean, default: false },
+  semanticSearchUsed: { type: Boolean, default: false }
+}, { _id: false });
+
+const tourEventTimestampsSchema = new mongoose.Schema({
+  extension_connected: { type: Date, default: null },
+  highlight_captured: { type: Date, default: null },
+  concept_from_highlight: { type: Date, default: null },
+  workspace_organized: { type: Date, default: null },
+  semantic_search_used: { type: Date, default: null }
+}, { _id: false });
+
+const tourStateSchema = new mongoose.Schema({
+  status: {
+    type: String,
+    enum: ['not_started', 'in_progress', 'paused', 'completed'],
+    default: 'not_started'
+  },
+  currentStepId: { type: String, default: null },
+  completedStepIds: { type: [String], default: [] },
+  signals: { type: tourSignalsSchema, default: () => ({}) },
+  eventTimestamps: { type: tourEventTimestampsSchema, default: () => ({}) },
+  startedAt: { type: Date, default: null },
+  completedAt: { type: Date, default: null },
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }
+}, { timestamps: true });
+
+tourStateSchema.index({ userId: 1 }, { unique: true });
+
+const TourState = mongoose.model('TourState', tourStateSchema);
 
 const returnQueueEntrySchema = new mongoose.Schema({
   itemType: { type: String, required: true, trim: true },
@@ -608,6 +645,10 @@ referenceEdgeSchema.index({ targetType: 1, targetId: 1, targetTagName: 1 });
 const ReferenceEdge = mongoose.model('ReferenceEdge', referenceEdgeSchema);
 const { buildFolderService } = require('./services/folderService');
 const { getFoldersWithCounts } = buildFolderService({ Folder, Article, mongoose });
+const {
+  listWorkspaceTemplates,
+  getWorkspaceTemplateById
+} = require('./services/workspaceTemplates');
 const { buildConceptService } = require('./services/conceptService');
 const { getConcepts, getConceptMeta, updateConceptMeta, getConceptRelated } = buildConceptService({
   Article,
@@ -651,6 +692,12 @@ const normalizeTags = (input) => {
   });
   return output.slice(0, 40);
 };
+
+const normalizeConceptNameInput = (value) => (
+  String(value || '')
+    .replace(/\s+/g, ' ')
+    .trim()
+);
 
 const parseClaimId = (value) => {
   if (value === null || value === undefined || value === '') return null;
@@ -978,6 +1025,216 @@ const buildUiSettingsResponse = (doc, scope = { workspaceType: 'global', workspa
     workspaceType: scope.workspaceType || 'global',
     workspaceId: scope.workspaceId || ''
   };
+};
+
+const TOUR_STEP_IDS = Object.freeze([
+  'install_extension',
+  'capture_first_highlight',
+  'create_concept_from_highlight',
+  'organize_workspace',
+  'semantic_search'
+]);
+
+const TOUR_STATUSES = new Set(['not_started', 'in_progress', 'paused', 'completed']);
+
+const TOUR_SIGNAL_DEFAULTS = Object.freeze({
+  extensionConnected: false,
+  firstHighlightCaptured: false,
+  conceptFromHighlight: false,
+  workspaceOrganized: false,
+  semanticSearchUsed: false
+});
+
+const TOUR_EVENT_TIMESTAMP_DEFAULTS = Object.freeze({
+  extension_connected: null,
+  highlight_captured: null,
+  concept_from_highlight: null,
+  workspace_organized: null,
+  semantic_search_used: null
+});
+
+const TOUR_SIGNAL_TO_STEP = Object.freeze({
+  extensionConnected: 'install_extension',
+  firstHighlightCaptured: 'capture_first_highlight',
+  conceptFromHighlight: 'create_concept_from_highlight',
+  workspaceOrganized: 'organize_workspace',
+  semanticSearchUsed: 'semantic_search'
+});
+
+const TOUR_EVENT_TO_SIGNAL = Object.freeze({
+  extension_connected: 'extensionConnected',
+  highlight_captured: 'firstHighlightCaptured',
+  concept_from_highlight: 'conceptFromHighlight',
+  workspace_organized: 'workspaceOrganized',
+  semantic_search_used: 'semanticSearchUsed'
+});
+
+const getNextTourStepId = (completedStepIds = []) => {
+  const completed = new Set((completedStepIds || []).map(value => String(value || '').trim()));
+  return TOUR_STEP_IDS.find(stepId => !completed.has(stepId)) || null;
+};
+
+const normalizeTourStatus = (value, fallback = 'not_started') => {
+  const candidate = String(value || '').trim().toLowerCase();
+  return TOUR_STATUSES.has(candidate) ? candidate : fallback;
+};
+
+const normalizeTourCurrentStepId = (value) => {
+  if (value === null || value === undefined || value === '') return null;
+  const candidate = String(value).trim();
+  return TOUR_STEP_IDS.includes(candidate) ? candidate : null;
+};
+
+const normalizeTourSignals = (input = {}) => {
+  const source = input && typeof input === 'object' ? input : {};
+  return {
+    extensionConnected: Boolean(source.extensionConnected),
+    firstHighlightCaptured: Boolean(source.firstHighlightCaptured),
+    conceptFromHighlight: Boolean(source.conceptFromHighlight),
+    workspaceOrganized: Boolean(source.workspaceOrganized),
+    semanticSearchUsed: Boolean(source.semanticSearchUsed)
+  };
+};
+
+const normalizeTourCompletedStepIds = (input = []) => {
+  const source = Array.isArray(input) ? input : [];
+  const unique = new Set();
+  source.forEach((value) => {
+    const candidate = String(value || '').trim();
+    if (TOUR_STEP_IDS.includes(candidate)) {
+      unique.add(candidate);
+    }
+  });
+  return TOUR_STEP_IDS.filter(stepId => unique.has(stepId));
+};
+
+const deriveCompletedStepIdsFromSignals = (signalsInput = {}) => {
+  const signals = normalizeTourSignals(signalsInput);
+  const completed = [];
+  Object.entries(TOUR_SIGNAL_TO_STEP).forEach(([signalKey, stepId]) => {
+    if (signals[signalKey]) completed.push(stepId);
+  });
+  return normalizeTourCompletedStepIds(completed);
+};
+
+const normalizeTourEventTimestamps = (input = {}) => {
+  const source = input && typeof input === 'object' ? input : {};
+  const next = { ...TOUR_EVENT_TIMESTAMP_DEFAULTS };
+  Object.keys(next).forEach((key) => {
+    const value = source[key];
+    if (!value) return;
+    const parsed = new Date(value);
+    if (!Number.isNaN(parsed.getTime())) {
+      next[key] = parsed.toISOString();
+    }
+  });
+  return next;
+};
+
+const isTourStateEmpty = (doc) => {
+  if (!doc) return true;
+  const completed = normalizeTourCompletedStepIds(doc.completedStepIds || []);
+  const signals = normalizeTourSignals(doc.signals || {});
+  const hasAnySignal = Object.values(signals).some(Boolean);
+  const hasCurrentStep = Boolean(normalizeTourCurrentStepId(doc.currentStepId));
+  const status = normalizeTourStatus(doc.status, 'not_started');
+  return !hasAnySignal
+    && completed.length === 0
+    && !hasCurrentStep
+    && !doc.startedAt
+    && !doc.completedAt
+    && status === 'not_started';
+};
+
+const buildTourStateResponse = (doc, options = {}) => {
+  const safeDoc = doc && typeof doc === 'object' ? doc : {};
+  const signals = normalizeTourSignals(safeDoc.signals || {});
+  const completedFromSignals = deriveCompletedStepIdsFromSignals(signals);
+  const completedExplicit = normalizeTourCompletedStepIds(safeDoc.completedStepIds || []);
+  const mergedCompleted = normalizeTourCompletedStepIds([...completedExplicit, ...completedFromSignals]);
+  const completedAll = mergedCompleted.length === TOUR_STEP_IDS.length;
+  const rawStatus = normalizeTourStatus(safeDoc.status, 'not_started');
+  const status = completedAll ? 'completed' : rawStatus;
+  const currentStepId = status === 'completed'
+    ? null
+    : (status === 'not_started'
+      ? null
+      : (normalizeTourCurrentStepId(safeDoc.currentStepId) || getNextTourStepId(mergedCompleted)));
+  const isFirstTimeVisitor = options.isFirstTimeVisitor !== undefined
+    ? Boolean(options.isFirstTimeVisitor)
+    : isTourStateEmpty(safeDoc);
+
+  return {
+    status,
+    currentStepId,
+    completedStepIds: mergedCompleted,
+    isFirstTimeVisitor,
+    signals,
+    eventTimestamps: normalizeTourEventTimestamps(safeDoc.eventTimestamps || {}),
+    startedAt: safeDoc.startedAt ? new Date(safeDoc.startedAt).toISOString() : null,
+    completedAt: safeDoc.completedAt ? new Date(safeDoc.completedAt).toISOString() : null,
+    updatedAt: safeDoc.updatedAt ? new Date(safeDoc.updatedAt).toISOString() : null
+  };
+};
+
+const getOrCreateTourState = async (userId) => {
+  const userObjectId = new mongoose.Types.ObjectId(userId);
+  return TourState.findOneAndUpdate(
+    { userId: userObjectId },
+    {
+      $setOnInsert: {
+        status: 'not_started',
+        currentStepId: null,
+        completedStepIds: [],
+        signals: { ...TOUR_SIGNAL_DEFAULTS },
+        eventTimestamps: { ...TOUR_EVENT_TIMESTAMP_DEFAULTS },
+        startedAt: null,
+        completedAt: null
+      }
+    },
+    {
+      new: true,
+      upsert: true,
+      setDefaultsOnInsert: true
+    }
+  );
+};
+
+const markTourSignal = async (userId, signalKey, eventType = null) => {
+  if (!Object.prototype.hasOwnProperty.call(TOUR_SIGNAL_DEFAULTS, signalKey)) return null;
+  const state = await getOrCreateTourState(userId);
+  const signals = normalizeTourSignals(state.signals || {});
+  const alreadySet = Boolean(signals[signalKey]);
+  if (!alreadySet) {
+    signals[signalKey] = true;
+  }
+  const completedStepIds = deriveCompletedStepIdsFromSignals(signals);
+  const now = new Date();
+  const nextStatus = completedStepIds.length === TOUR_STEP_IDS.length
+    ? 'completed'
+    : (state.status === 'not_started' ? 'in_progress' : normalizeTourStatus(state.status, 'in_progress'));
+  const existingEventTimestamps = state.eventTimestamps?.toObject
+    ? state.eventTimestamps.toObject()
+    : (state.eventTimestamps || {});
+  const nextEventTimestamps = {
+    ...TOUR_EVENT_TIMESTAMP_DEFAULTS,
+    ...existingEventTimestamps
+  };
+  if (eventType && Object.prototype.hasOwnProperty.call(nextEventTimestamps, eventType) && !nextEventTimestamps[eventType]) {
+    nextEventTimestamps[eventType] = now;
+  }
+
+  state.signals = signals;
+  state.completedStepIds = completedStepIds;
+  state.status = nextStatus;
+  state.currentStepId = nextStatus === 'completed'
+    ? null
+    : getNextTourStepId(completedStepIds);
+  state.startedAt = state.startedAt || now;
+  state.completedAt = nextStatus === 'completed' ? (state.completedAt || now) : null;
+  state.eventTimestamps = nextEventTimestamps;
+  await state.save();
+  return state;
 };
 
 const parseDueAt = (value) => {
@@ -3593,6 +3850,139 @@ app.put('/api/ui-settings', authenticateToken, async (req, res) => {
   }
 });
 
+// --- PRODUCT TOUR ---
+app.get('/api/tour/state', authenticateToken, async (req, res) => {
+  try {
+    const userObjectId = new mongoose.Types.ObjectId(req.user.id);
+    const state = await TourState.findOne({ userId: userObjectId }).lean();
+    res.status(200).json(buildTourStateResponse(state, {
+      isFirstTimeVisitor: isTourStateEmpty(state)
+    }));
+  } catch (error) {
+    console.error('❌ Error fetching tour state:', error);
+    res.status(500).json({ error: 'Failed to fetch tour state.' });
+  }
+});
+
+app.put('/api/tour/state', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const body = req.body || {};
+    const shouldReset = Boolean(body.reset);
+
+    if (shouldReset) {
+      const userObjectId = new mongoose.Types.ObjectId(userId);
+      const resetState = await TourState.findOneAndUpdate(
+        { userId: userObjectId },
+        {
+          $set: {
+            status: 'not_started',
+            currentStepId: null,
+            completedStepIds: [],
+            signals: { ...TOUR_SIGNAL_DEFAULTS },
+            eventTimestamps: { ...TOUR_EVENT_TIMESTAMP_DEFAULTS },
+            startedAt: null,
+            completedAt: null
+          }
+        },
+        {
+          new: true,
+          upsert: true,
+          setDefaultsOnInsert: true
+        }
+      );
+      return res.status(200).json(buildTourStateResponse(resetState, {
+        isFirstTimeVisitor: isTourStateEmpty(resetState)
+      }));
+    }
+
+    const state = await getOrCreateTourState(userId);
+    const signals = normalizeTourSignals(state.signals || {});
+    const completedFromSignals = deriveCompletedStepIdsFromSignals(signals);
+    const completedFromBody = body.completedStepIds !== undefined
+      ? normalizeTourCompletedStepIds(body.completedStepIds)
+      : normalizeTourCompletedStepIds(state.completedStepIds || []);
+    const mergedCompleted = normalizeTourCompletedStepIds([...completedFromSignals, ...completedFromBody]);
+    const completedAll = mergedCompleted.length === TOUR_STEP_IDS.length;
+
+    const requestedStatus = body.status !== undefined
+      ? normalizeTourStatus(body.status, state.status)
+      : normalizeTourStatus(state.status, 'not_started');
+    let nextStatus = completedAll ? 'completed' : requestedStatus;
+    if (!completedAll && nextStatus === 'completed') {
+      nextStatus = 'in_progress';
+    }
+
+    let nextCurrentStepId = body.currentStepId !== undefined
+      ? normalizeTourCurrentStepId(body.currentStepId)
+      : normalizeTourCurrentStepId(state.currentStepId);
+    if (nextStatus === 'completed') {
+      nextCurrentStepId = null;
+    } else if (nextStatus === 'not_started') {
+      nextCurrentStepId = null;
+    } else if (!nextCurrentStepId) {
+      nextCurrentStepId = getNextTourStepId(mergedCompleted);
+    }
+
+    const now = new Date();
+    state.signals = signals;
+    state.completedStepIds = mergedCompleted;
+    state.status = nextStatus;
+    state.currentStepId = nextCurrentStepId;
+    if (nextStatus === 'in_progress') {
+      state.startedAt = state.startedAt || now;
+      state.completedAt = null;
+    } else if (nextStatus === 'completed') {
+      state.startedAt = state.startedAt || now;
+      state.completedAt = state.completedAt || now;
+    } else if (nextStatus === 'not_started') {
+      state.startedAt = null;
+      state.completedAt = null;
+    } else {
+      state.completedAt = null;
+    }
+    await state.save();
+    res.status(200).json(buildTourStateResponse(state, {
+      isFirstTimeVisitor: isTourStateEmpty(state)
+    }));
+  } catch (error) {
+    console.error('❌ Error updating tour state:', error);
+    res.status(500).json({ error: 'Failed to update tour state.' });
+  }
+});
+
+app.post('/api/tour/events', authenticateToken, async (req, res) => {
+  try {
+    const eventType = String(req.body?.eventType || '').trim().toLowerCase();
+    const metadata = req.body?.metadata && typeof req.body.metadata === 'object'
+      ? req.body.metadata
+      : {};
+    const signalKey = TOUR_EVENT_TO_SIGNAL[eventType] || '';
+    if (!signalKey) {
+      return res.status(400).json({
+        error: 'Unsupported eventType.',
+        allowed: Object.keys(TOUR_EVENT_TO_SIGNAL)
+      });
+    }
+    const updated = await markTourSignal(req.user.id, signalKey, eventType);
+    if (!updated) {
+      return res.status(400).json({ error: 'Unsupported eventType.' });
+    }
+    res.status(200).json({
+      accepted: true,
+      eventType,
+      signalKey,
+      metadata,
+      state: buildTourStateResponse(updated, {
+        isFirstTimeVisitor: isTourStateEmpty(updated)
+      })
+    });
+  } catch (error) {
+    console.error('❌ Error recording tour event:', error);
+    res.status(500).json({ error: 'Failed to record tour event.' });
+  }
+});
+
 // --- RETURN QUEUE ---
 app.post(['/api/return-queue', '/return-queue'], authenticateToken, async (req, res) => {
   try {
@@ -5692,6 +6082,15 @@ const normalizeSearchTypes = (types) => {
 };
 
 const normalizeRelatedTypes = (types) => normalizeSearchTypes(types);
+const SEMANTIC_RESULT_TYPES = new Set(['highlight', 'concept']);
+
+const parseSemanticResultTypes = (value, fallback = ['highlight']) => {
+  const parsed = parseCsvList(value)
+    .map(type => normalizeConnectionItemType(type))
+    .filter(type => SEMANTIC_RESULT_TYPES.has(type));
+  if (parsed.length === 0) return fallback;
+  return Array.from(new Set(parsed));
+};
 
 const isAiRouteMissingError = (error) => {
   if (!error || Number(error.status) !== 404) return false;
@@ -5713,7 +6112,10 @@ const isAiTransientCapacityError = (error) => {
   );
 };
 
-const fetchSimilarEmbeddings = async ({ userId, sourceId, types, limit, requestId }) => {
+const fetchSimilarEmbeddingsWithAvailability = async ({ userId, sourceId, types, limit, requestId }) => {
+  if (!isAiEnabled()) {
+    return { results: [], modelAvailable: false };
+  }
   try {
     const response = await aiSimilarTo({
       userId: String(userId),
@@ -5721,7 +6123,10 @@ const fetchSimilarEmbeddings = async ({ userId, sourceId, types, limit, requestI
       types,
       limit
     }, { requestId });
-    return Array.isArray(response?.results) ? response.results : [];
+    return {
+      results: Array.isArray(response?.results) ? response.results : [],
+      modelAvailable: true
+    };
   } catch (error) {
     if (isAiRouteMissingError(error)) {
       console.warn('[AI-UPSTREAM] similar endpoint missing on ai_service; returning empty results', {
@@ -5729,7 +6134,7 @@ const fetchSimilarEmbeddings = async ({ userId, sourceId, types, limit, requestI
         sourceId: String(sourceId),
         types: Array.isArray(types) ? types : []
       });
-      return [];
+      return { results: [], modelAvailable: false };
     }
     if (isAiTransientCapacityError(error)) {
       console.warn('[AI-UPSTREAM] similar endpoint transient upstream error; returning empty results', {
@@ -5737,10 +6142,21 @@ const fetchSimilarEmbeddings = async ({ userId, sourceId, types, limit, requestI
         sourceId: String(sourceId),
         status: Number(error?.status) || 0
       });
-      return [];
+      return { results: [], modelAvailable: false };
     }
     throw error;
   }
+};
+
+const fetchSimilarEmbeddings = async ({ userId, sourceId, types, limit, requestId }) => {
+  const { results } = await fetchSimilarEmbeddingsWithAvailability({
+    userId,
+    sourceId,
+    types,
+    limit,
+    requestId
+  });
+  return results;
 };
 
 const filterOutIds = (items, type, ids) => {
@@ -5749,6 +6165,47 @@ const filterOutIds = (items, type, ids) => {
     if (item.objectType !== type) return true;
     return !ids.has(String(item.objectId));
   });
+};
+
+const toSimilarityBand = (score) => {
+  const safeScore = Number(score);
+  if (!Number.isFinite(safeScore) || safeScore <= 0) return 'Low';
+  if (safeScore >= 0.82) return 'High';
+  if (safeScore >= 0.72) return 'Medium';
+  return 'Low';
+};
+
+const buildSemanticSourceId = async (sourceType, sourceId, userId) => {
+  const safeType = normalizeConnectionItemType(sourceType);
+  const safeSourceId = String(sourceId || '').trim();
+  if (!safeType || !safeSourceId) return null;
+  if (safeType === 'highlight') {
+    const highlight = await findHighlightById(userId, safeSourceId);
+    if (!highlight) return null;
+    return {
+      sourceType: 'highlight',
+      sourceObjectId: String(highlight._id),
+      embeddingId: buildEmbeddingId({
+        userId: String(userId),
+        objectType: 'highlight',
+        objectId: String(highlight._id)
+      })
+    };
+  }
+  if (safeType === 'concept') {
+    const concept = await resolveConceptByParam(userId, safeSourceId, { createIfMissing: false });
+    if (!concept) return null;
+    return {
+      sourceType: 'concept',
+      sourceObjectId: String(concept._id),
+      embeddingId: buildEmbeddingId({
+        userId: String(userId),
+        objectType: 'concept',
+        objectId: String(concept._id)
+      })
+    };
+  }
+  return null;
 };
 
 const buildRangeStart = (range) => {
@@ -6121,6 +6578,7 @@ const handleSemanticSearch = async (req, res, query, rawTypes, rawLimit) => {
     }, { requestId: req.requestId });
     const matches = Array.isArray(response?.results) ? response.results : [];
     const results = await hydrateSemanticResults({ matches, userId: req.user.id });
+    await markTourSignal(req.user.id, 'semanticSearchUsed', 'semantic_search_used');
     res.status(200).json({ results });
   } catch (error) {
     if (isAiRouteMissingError(error)) {
@@ -6155,6 +6613,72 @@ app.post('/api/search/semantic', authenticateToken, async (req, res) => {
   await handleSemanticSearch(req, res, query, types, limit);
 });
 
+// GET /api/semantic/related?sourceType=highlight|concept&sourceId=...&limit=6&resultTypes=highlight,concept
+app.get('/api/semantic/related', authenticateToken, async (req, res) => {
+  try {
+    const sourceType = normalizeConnectionItemType(req.query.sourceType);
+    const sourceId = String(req.query.sourceId || '').trim();
+    const limit = normalizeRelatedLimit(req.query.limit, 6);
+    if (!sourceType || !['highlight', 'concept'].includes(sourceType)) {
+      return res.status(400).json({ error: 'sourceType must be highlight or concept.' });
+    }
+    if (!sourceId) {
+      return res.status(400).json({ error: 'sourceId is required.' });
+    }
+
+    const source = await buildSemanticSourceId(sourceType, sourceId, req.user.id);
+    if (!source) {
+      return res.status(404).json({ error: 'Source item not found.' });
+    }
+
+    const requestedTypes = parseSemanticResultTypes(req.query.resultTypes, ['highlight']);
+    const normalizedTypes = normalizeRelatedTypes(requestedTypes);
+    const { results: matches, modelAvailable } = await fetchSimilarEmbeddingsWithAvailability({
+      userId: req.user.id,
+      sourceId: source.embeddingId,
+      types: normalizedTypes,
+      limit: Math.min(limit + 4, 24),
+      requestId: req.requestId
+    });
+    let results = await hydrateSemanticResults({ matches, userId: req.user.id });
+    const allowSet = new Set(requestedTypes);
+    results = results.filter(item => allowSet.has(item.objectType));
+    results = results.filter(item => !(
+      item.objectType === source.sourceType
+      && String(item.objectId) === String(source.sourceObjectId)
+    ));
+    if (source.sourceType === 'concept') {
+      results.sort((a, b) => {
+        if (a.objectType === b.objectType) {
+          return (Number(b.score) || 0) - (Number(a.score) || 0);
+        }
+        if (a.objectType === 'highlight') return -1;
+        if (b.objectType === 'highlight') return 1;
+        return 0;
+      });
+    }
+    results = results.slice(0, limit).map(item => ({
+      ...item,
+      similarityBand: toSimilarityBand(item.score)
+    }));
+
+    res.status(200).json({
+      results,
+      meta: {
+        sourceType: source.sourceType,
+        sourceId: source.sourceObjectId,
+        modelAvailable,
+        explanationVersion: 'v1'
+      }
+    });
+  } catch (error) {
+    if (error.payload || error instanceof EmbeddingError) {
+      return sendEmbeddingError(res, error);
+    }
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // GET /api/tags - list unique tags with counts
 app.get('/api/tags', authenticateToken, async (req, res) => {
   try {
@@ -6170,6 +6694,161 @@ app.get('/api/tags', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error("❌ Error fetching tags:", error);
     res.status(500).json({ error: "Failed to fetch tags." });
+  }
+});
+
+app.get('/api/templates', authenticateToken, async (req, res) => {
+  try {
+    const templates = listWorkspaceTemplates();
+    res.status(200).json(templates);
+  } catch (error) {
+    console.error('❌ Error listing workspace templates:', error);
+    res.status(500).json({ error: 'Failed to list workspace templates.' });
+  }
+});
+
+app.get('/api/templates/:id/create', authenticateToken, async (req, res) => {
+  try {
+    const templateId = String(req.params.id || '').trim().toLowerCase();
+    const template = getWorkspaceTemplateById(templateId);
+    if (!template) return res.status(404).json({ error: 'Template not found.' });
+    res.status(200).json({ template });
+  } catch (error) {
+    console.error('❌ Error loading workspace template definition:', error);
+    res.status(500).json({ error: 'Failed to load workspace template.' });
+  }
+});
+
+app.post('/api/templates/:id/create', authenticateToken, async (req, res) => {
+  const createdSampleEntryIds = [];
+  let userObjectId = null;
+  try {
+    const templateId = String(req.params.id || '').trim().toLowerCase();
+    const template = getWorkspaceTemplateById(templateId);
+    if (!template) return res.status(404).json({ error: 'Template not found.' });
+
+    const defaultConceptName = template.name || '';
+    const hasConceptName = Boolean(
+      req.body
+      && typeof req.body === 'object'
+      && Object.prototype.hasOwnProperty.call(req.body, 'conceptName')
+    );
+    const requestedConceptName = hasConceptName ? req.body.conceptName : defaultConceptName;
+    const conceptName = normalizeConceptNameInput(requestedConceptName);
+    if (!conceptName) {
+      return res.status(400).json({ error: 'conceptName is required.' });
+    }
+
+    userObjectId = new mongoose.Types.ObjectId(req.user.id);
+    const existing = await TagMeta.findOne({
+      userId: userObjectId,
+      name: new RegExp(`^${escapeRegExp(conceptName)}$`, 'i')
+    }).select('_id name').lean();
+    if (existing) {
+      return res.status(409).json({ error: 'Concept already exists.' });
+    }
+
+    const sortedSamples = Array.isArray(template.sampleEntries)
+      ? template.sampleEntries.slice().sort((a, b) => Number(a.order || 0) - Number(b.order || 0))
+      : [];
+
+    const createdItems = [];
+    for (let index = 0; index < sortedSamples.length; index += 1) {
+      const sample = sortedSamples[index];
+      const blocks = [
+        {
+          id: createBlockId(),
+          type: 'paragraph',
+          text: String(sample.content || '').trim()
+        }
+      ];
+      const entry = new NotebookEntry({
+        title: String(sample.title || `Template Note ${index + 1}`).trim() || `Template Note ${index + 1}`,
+        content: String(sample.content || '').trim(),
+        blocks,
+        folder: null,
+        type: 'note',
+        claimId: null,
+        tags: normalizeTags(sample.tags),
+        linkedArticleId: null,
+        userId: req.user.id
+      });
+      await entry.save();
+      await syncNotebookReferences(req.user.id, entry._id, blocks);
+      enqueueNotebookEmbedding(entry);
+
+      const createdId = String(entry._id);
+      createdSampleEntryIds.push(createdId);
+      createdItems.push({
+        id: createBlockId(),
+        type: 'note',
+        refId: createdId,
+        sectionId: String(sample.stage || 'inbox').trim().toLowerCase() || 'inbox',
+        groupId: String(sample.stage || 'inbox').trim().toLowerCase() || 'inbox',
+        parentId: '',
+        inlineTitle: String(sample.title || '').trim().slice(0, 160),
+        inlineText: '',
+        stage: String(sample.stage || 'inbox').trim().toLowerCase() || 'inbox',
+        status: String(sample.stage || '').trim().toLowerCase() === 'archive' ? 'archived' : 'active',
+        order: Number.isFinite(Number(sample.order)) ? Number(sample.order) : index
+      });
+    }
+
+    const workspaceSeed = {
+      version: 1,
+      outlineSections: (template.groups || []).map((group, index) => ({
+        id: String(group.id || '').trim().toLowerCase(),
+        title: String(group.title || '').trim(),
+        description: String(group.description || '').trim(),
+        collapsed: Boolean(group.collapsed),
+        order: Number.isFinite(Number(group.order)) ? Number(group.order) : index
+      })),
+      attachedItems: createdItems,
+      connections: [],
+      updatedAt: new Date().toISOString()
+    };
+    const workspace = ensureWorkspace({ workspace: workspaceSeed });
+
+    const concept = new TagMeta({
+      name: conceptName,
+      description: template.description || '',
+      pinnedHighlightIds: [],
+      pinnedArticleIds: [],
+      pinnedNoteIds: createdSampleEntryIds
+        .map(id => toSafeObjectId(id))
+        .filter(Boolean),
+      workspace,
+      workspaceTemplateId: template.id,
+      workspaceTemplateName: template.name || '',
+      userId: req.user.id
+    });
+    await concept.save();
+
+    res.status(201).json({
+      conceptId: String(concept._id),
+      conceptName: concept.name,
+      template,
+      workspace,
+      createdSampleEntryIds
+    });
+  } catch (error) {
+    if (createdSampleEntryIds.length > 0) {
+      const cleanupIds = createdSampleEntryIds
+        .map(id => toSafeObjectId(id))
+        .filter(Boolean);
+      if (cleanupIds.length > 0) {
+        await Promise.allSettled([
+          NotebookEntry.deleteMany({ _id: { $in: cleanupIds }, userId: req.user.id }),
+          ReferenceEdge.deleteMany({
+            userId: userObjectId || req.user.id,
+            sourceType: 'notebook',
+            sourceId: { $in: cleanupIds }
+          })
+        ]);
+      }
+    }
+    console.error('❌ Error creating workspace from template:', error);
+    res.status(500).json({ error: 'Failed to create workspace from template.' });
   }
 });
 
@@ -6635,6 +7314,7 @@ app.post(['/api/concepts/:conceptId/workspace/blocks/attach', '/api/concepts/:co
     loaded.concept.workspace = workspace;
     loaded.concept.markModified('workspace');
     await loaded.concept.save();
+    await markTourSignal(req.user.id, 'workspaceOrganized', 'workspace_organized');
 
     const block = (workspace.items || []).find(item => !existingIds.has(item.id))
       || (workspace.items || []).find(item =>
@@ -7694,6 +8374,7 @@ app.post('/api/concepts/:id/add-highlight', authenticateToken, async (req, res) 
       new: true,
       upsert: true
     });
+    await markTourSignal(req.user.id, 'conceptFromHighlight', 'concept_from_highlight');
     res.status(200).json(concept);
   } catch (error) {
     console.error("❌ Error adding highlight to concept:", error);
@@ -10224,6 +10905,7 @@ app.post('/articles/:id/highlights', authenticateToken, async (req, res) => {
         'highlight'
       );
       if (highlightItem) queueEmbeddingUpsert([highlightItem]);
+      await markTourSignal(req.user.id, 'firstHighlightCaptured', 'highlight_captured');
     }
     res.status(200).json({ article: updatedArticle, highlight: createdHighlight });
   } catch (error) {

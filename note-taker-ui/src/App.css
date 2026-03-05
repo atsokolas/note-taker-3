@@ -3064,3 +3064,118 @@ body {
   padding: 12px 24px 8px;
   border-bottom: 1px solid var(--border-color);
 }
+
+/* Product Tour */
+.tour-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 3200;
+  pointer-events: none;
+}
+
+.tour-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(9, 16, 28, 0.48);
+}
+
+.tour-spotlight {
+  position: absolute;
+  border-radius: 12px;
+  border: 2px solid rgba(255, 255, 255, 0.82);
+  box-shadow: 0 0 0 9999px rgba(9, 16, 28, 0.24);
+  pointer-events: none;
+}
+
+.tour-card {
+  position: absolute;
+  width: min(340px, calc(100vw - 24px));
+  border: 1px solid var(--border-color);
+  background: var(--card-bg-color);
+  border-radius: 14px;
+  box-shadow: 0 22px 40px rgba(0, 0, 0, 0.32);
+  padding: 14px 14px 12px;
+  pointer-events: auto;
+}
+
+.tour-card--centered {
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.tour-close {
+  position: absolute;
+  right: 8px;
+  top: 8px;
+  border: none;
+  background: transparent;
+  color: var(--text-color-secondary);
+  font-size: 1.2rem;
+  line-height: 1;
+  padding: 2px 6px;
+  cursor: pointer;
+}
+
+.tour-step-label {
+  color: var(--text-color-secondary);
+  font-size: 0.78rem;
+  font-weight: 700;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.tour-card h3 {
+  margin: 0;
+  font-size: 1.02rem;
+}
+
+.tour-card p {
+  margin: 8px 0 10px;
+  color: var(--text-color-secondary);
+  text-align: left;
+  font-size: 0.92rem;
+}
+
+.tour-progress {
+  position: relative;
+  width: 100%;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--hover-color);
+  overflow: hidden;
+  margin-bottom: 12px;
+}
+
+.tour-progress__fill {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, var(--primary-color), #38bdf8);
+}
+
+.tour-cta {
+  width: 100%;
+  margin-bottom: 10px;
+}
+
+.tour-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.tour-actions .ui-button,
+.tour-actions .ui-quiet-button {
+  min-height: 34px;
+}
+
+@media (max-width: 860px) {
+  .tour-card {
+    bottom: 12px;
+    left: 50%;
+    top: auto;
+    transform: translateX(-50%);
+  }
+}

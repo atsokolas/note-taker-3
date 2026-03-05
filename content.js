@@ -204,6 +204,21 @@
         throw new Error(errorData.error || "Server returned an error");
       }
       console.log("Highlight saved.", await response.json());
+      try {
+        await fetch(`${BASE_URL}/api/tour/events`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            eventType: "highlight_captured",
+            metadata: { source: "extension_content" }
+          })
+        });
+      } catch (tourError) {
+        console.warn("Failed to report highlight_captured tour event:", tourError);
+      }
     } catch (err) {
       console.error("Error fetching to save highlight:", err);
     }

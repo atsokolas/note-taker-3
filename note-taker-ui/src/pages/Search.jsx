@@ -241,6 +241,7 @@ const Search = () => {
             onChange={(event) => setQuery(event.target.value)}
             placeholder="Search everything..."
             className="search-input"
+            data-tour-anchor="semantic-search-input"
           />
           <Button type="submit" disabled={loading}>
             {loading ? 'Searching...' : 'Search'}
@@ -254,6 +255,7 @@ const Search = () => {
               type="button"
               className={`ui-quiet-button ${mode === 'semantic' ? 'is-active' : ''}`}
               onClick={() => handleModeChange('semantic')}
+              data-tour-anchor="semantic-mode-button"
             >
               Meaning
             </button>

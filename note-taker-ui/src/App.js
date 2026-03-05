@@ -29,7 +29,6 @@ import Settings from './pages/Settings';
 import HowToUse from './pages/HowToUse';
 import Integrations from './pages/Integrations';
 import CommandPalette from './components/CommandPalette';
-import OnboardingManager from './components/OnboardingManager';
 import { fetchUiSettings, saveUiSettings } from './api/uiSettings';
 import {
   applyUiSettingsToRoot,
@@ -42,6 +41,8 @@ import AppShell from './layout/AppShell';
 import TopBar from './layout/TopBar';
 import ThreePaneLayout from './layout/ThreePaneLayout';
 import LeftNav from './layout/LeftNav';
+import TourProvider, { useTour } from './tour/TourProvider';
+import TourManager from './tour/TourManager';
 import './styles/theme.css';
 import './styles/tokens.css';
 import './styles/global.css';
@@ -185,6 +186,7 @@ function App() {
 
   const AppLayout = () => {
     const location = useLocation();
+    const tour = useTour();
     const hasSeenLanding = localStorage.getItem('hasSeenLanding') === 'true';
     const showLibraryRail = location.pathname.startsWith('/articles/');
     const isLibraryRoute = location.pathname.startsWith('/library');
@@ -208,7 +210,7 @@ function App() {
     const routes = (
       <Page className="page-area">
         <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
-        <OnboardingManager />
+        <TourManager />
         <Routes>
           <Route path="/" element={hasSeenLanding ? <Navigate to="/think?tab=home" replace /> : <Landing />} />
           <Route path="/today" element={<TodayMode />} />
@@ -267,9 +269,21 @@ function App() {
             theme={uiSettings.theme}
             brandEnergy={uiSettings.brandEnergy}
             onThemeChange={(nextTheme) => handleUiSettingsChange({ theme: nextTheme })}
+            helpMenu={{
+              onStart: () => tour.startTour(),
+              onResume: () => tour.resumeTour(),
+              onRestart: () => tour.restartTour(),
+              canResume: tour.state.status !== 'not_started' && tour.state.status !== 'completed'
+            }}
             rightSlot={(
               <>
-                <a href={chromeStoreLink} target="_blank" rel="noopener noreferrer" className="topbar__button">
+                <a
+                  href={chromeStoreLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="topbar__button"
+                  data-tour-anchor="install-extension"
+                >
                   Get the Extension
                 </a>
                 <a href="/settings" className="topbar__button" title="Profile and settings">
@@ -302,7 +316,9 @@ function App() {
     <Router>
       <Analytics /> 
       {isAuthenticated ? (
-        <AppLayout />
+        <TourProvider>
+          <AppLayout />
+        </TourProvider>
       ) : (
         <div className="auth-pages-container">
           <Routes>

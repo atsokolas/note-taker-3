@@ -1,16 +1,44 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import BrandGradient from '../components/BrandGradient';
 
-const TopBar = ({ rightSlot, theme = 'light', onThemeChange = () => {}, brandEnergy = true }) => {
+const TopBar = ({
+  rightSlot,
+  theme = 'light',
+  onThemeChange = () => {},
+  brandEnergy = true,
+  helpMenu = null
+}) => {
   const navigate = useNavigate();
   const [query, setQuery] = useState('');
+  const [helpOpen, setHelpOpen] = useState(false);
+  const helpMenuRef = useRef(null);
 
   const handleSearch = () => {
     const value = query.trim();
     if (!value) return;
     navigate(`/search?mode=keyword&q=${encodeURIComponent(value)}`);
   };
+
+  useEffect(() => {
+    if (!helpOpen) return undefined;
+    const onPointerDown = (event) => {
+      const target = event.target;
+      if (helpMenuRef.current?.contains(target)) return;
+      setHelpOpen(false);
+    };
+    const onKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        setHelpOpen(false);
+      }
+    };
+    window.addEventListener('mousedown', onPointerDown);
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
+      window.removeEventListener('mousedown', onPointerDown);
+      window.removeEventListener('keydown', onKeyDown);
+    };
+  }, [helpOpen]);
 
   return (
     <header className="topbar">
@@ -32,6 +60,57 @@ const TopBar = ({ rightSlot, theme = 'light', onThemeChange = () => {}, brandEne
           </div>
         </div>
         <div className="topbar__right">
+          {helpMenu && (
+            <div className="topbar__menu" ref={helpMenuRef}>
+              <button
+                type="button"
+                className={`topbar__button ${helpOpen ? 'is-active' : ''}`}
+                aria-haspopup="menu"
+                aria-expanded={helpOpen}
+                onClick={() => setHelpOpen(prev => !prev)}
+              >
+                Help
+              </button>
+              {helpOpen && (
+                <div className="topbar__menu-popover" role="menu">
+                  <button
+                    type="button"
+                    className="topbar__menu-item"
+                    role="menuitem"
+                    onClick={() => {
+                      setHelpOpen(false);
+                      helpMenu.onStart?.();
+                    }}
+                  >
+                    Start tour
+                  </button>
+                  <button
+                    type="button"
+                    className="topbar__menu-item"
+                    role="menuitem"
+                    onClick={() => {
+                      setHelpOpen(false);
+                      helpMenu.onResume?.();
+                    }}
+                    disabled={!helpMenu.canResume}
+                  >
+                    Resume tour
+                  </button>
+                  <button
+                    type="button"
+                    className="topbar__menu-item"
+                    role="menuitem"
+                    onClick={() => {
+                      setHelpOpen(false);
+                      helpMenu.onRestart?.();
+                    }}
+                  >
+                    Restart tour
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
           <button
             type="button"
             className="topbar__button topbar__theme-pill"

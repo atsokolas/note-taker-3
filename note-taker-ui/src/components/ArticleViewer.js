@@ -5,6 +5,7 @@ import CitationGenerator from './CitationGenerator'; // <-- 1. IMPORT THE NEW CO
 import { Page, Card } from './ui';
 import ReferencesPanel from './ReferencesPanel';
 import ReadingLayout from '../layout/ReadingLayout';
+import SemanticRelatedPanel from './retrieval/SemanticRelatedPanel';
 
 const getAuthConfig = () => {
     // ... (Your existing code)
@@ -117,6 +118,7 @@ const ArticleViewer = ({ onArticleChange }) => {
     const [folders, setFolders] = useState([]);
     
     const [editingHighlightId, setEditingHighlightId] = useState(null);
+    const [activeHighlightId, setActiveHighlightId] = useState('');
     const [editNote, setEditNote] = useState('');
     const [editTags, setEditTags] = useState('');
 
@@ -474,6 +476,17 @@ const ArticleViewer = ({ onArticleChange }) => {
         setAnnotationDraft({ text: '', note: '', page: '', color: '#f6c244' });
     }, [activePdfId, id]);
 
+    useEffect(() => {
+        const highlights = article?.highlights || [];
+        if (highlights.length === 0) {
+            setActiveHighlightId('');
+            return;
+        }
+        if (!activeHighlightId || !highlights.some(highlight => String(highlight._id) === String(activeHighlightId))) {
+            setActiveHighlightId(String(highlights[0]._id));
+        }
+    }, [article?.highlights, activeHighlightId]);
+
     // ... (Your existing functions: handleHighlightSelectionChange, handleRecommendArticle, saveHighlight, etc.)
     const handleHighlightSelectionChange = (highlightId) => {
         // ...
@@ -673,6 +686,8 @@ const ArticleViewer = ({ onArticleChange }) => {
         ...folders.filter(f => f.name !== 'Uncategorized' && f._id !== 'uncategorized')
     ];
 
+    const semanticHighlightId = activeHighlightId || article.highlights?.[0]?._id || '';
+
     const highlightsPanel = (
         <Card className="article-highlights-card" data-testid="article-context-panel">
             <div className="search-section-header" style={{ marginBottom: 12 }}>
@@ -682,7 +697,10 @@ const ArticleViewer = ({ onArticleChange }) => {
             {article.highlights && article.highlights.length > 0 ? (
                 <ul className="highlights-list">
                     {article.highlights.map(h => (
-                        <li key={h._id} className={`sidebar-highlight-item ${editingHighlightId === h._id ? 'editing' : ''}`}>
+                        <li
+                            key={h._id}
+                            className={`sidebar-highlight-item ${editingHighlightId === h._id ? 'editing' : ''} ${String(activeHighlightId) === String(h._id) ? 'is-active' : ''}`}
+                        >
                             {editingHighlightId === h._id ? (
                                 <>
                                     <textarea 
@@ -705,7 +723,13 @@ const ArticleViewer = ({ onArticleChange }) => {
                                 </>
                             ) : (
                                 <>
-                                    <p className="sidebar-highlight-text" onClick={() => scrollToHighlight(`highlight-${h._id}`)}>
+                                    <p
+                                        className="sidebar-highlight-text"
+                                        onClick={() => {
+                                            setActiveHighlightId(String(h._id));
+                                            scrollToHighlight(`highlight-${h._id}`);
+                                        }}
+                                    >
                                         {h.text}
                                     </p>
                                     {h.note && <p className="sidebar-highlight-note">Note: {h.note}</p>}
@@ -728,6 +752,14 @@ const ArticleViewer = ({ onArticleChange }) => {
             ) : (
                 <p className="no-highlights-message">No highlights for this article yet.</p>
             )}
+            <SemanticRelatedPanel
+                sourceType="highlight"
+                sourceId={semanticHighlightId}
+                title="AI Related Highlights"
+                limit={6}
+                resultTypes={['highlight']}
+                enabled={Boolean(semanticHighlightId)}
+            />
         </Card>
     );
 

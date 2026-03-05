@@ -31,8 +31,10 @@ import ReturnLaterControl from '../components/return-queue/ReturnLaterControl';
 import ConnectionBuilder from '../components/connections/ConnectionBuilder';
 import ConceptPathWorkspace from '../components/paths/ConceptPathWorkspace';
 import ConceptNotebook from '../components/think/concepts/ConceptNotebook';
+import ConceptTemplatePickerModal from '../components/think/concepts/ConceptTemplatePickerModal';
 import ThinkHome from '../components/think/ThinkHome';
 import VirtualList from '../components/virtual/VirtualList';
+import SemanticRelatedPanel from '../components/retrieval/SemanticRelatedPanel';
 import { getConnectionsForScope } from '../api/connections';
 import { createProfilerLogger, endPerfTimer, logPerf, startPerfTimer } from '../utils/perf';
 import { listReturnQueue } from '../api/returnQueue';
@@ -306,6 +308,7 @@ const ThinkMode = () => {
   const [conceptComposerSaving, setConceptComposerSaving] = useState(false);
   const [conceptComposerStatus, setConceptComposerStatus] = useState(CONCEPT_COMPOSER_DEFAULT_STATE);
   const conceptComposerInputRef = useRef(null);
+  const [templatePickerOpen, setTemplatePickerOpen] = useState(false);
   const [headerNewMenuOpen, setHeaderNewMenuOpen] = useState(false);
   const [headerActionsMenuOpen, setHeaderActionsMenuOpen] = useState(false);
   const headerNewMenuRef = useRef(null);
@@ -458,14 +461,20 @@ const ThinkMode = () => {
       setConceptSuggestionsLoading(true);
       setConceptSuggestionsError('');
       try {
+        const relatedParams = new URLSearchParams({
+          sourceType: 'concept',
+          sourceId: String(concept._id),
+          limit: '12',
+          resultTypes: 'concept'
+        });
         const [relatedRes, suggestionRes] = await Promise.all([
-          api.get(`/api/concepts/${concept._id}/related`, getAuthHeaders()),
+          api.get(`/api/semantic/related?${relatedParams.toString()}`, getAuthHeaders()),
           api.get(`/api/concepts/${concept._id}/suggestions?limit=12`, getAuthHeaders())
         ]);
         if (cancelled) return;
         const items = relatedRes.data?.results || [];
         setConceptRelated({
-          highlights: items.filter(item => item.objectType === 'highlight'),
+          highlights: [],
           concepts: items.filter(item => item.objectType === 'concept')
         });
         setConceptSuggestions(suggestionRes.data?.results || []);
@@ -835,10 +844,36 @@ const ThinkMode = () => {
     setConceptComposerDraft('');
   }, []);
 
+  const openTemplatePicker = useCallback(() => {
+    setTemplatePickerOpen(true);
+  }, []);
+
+  const closeTemplatePicker = useCallback(() => {
+    setTemplatePickerOpen(false);
+  }, []);
+
   const closeHeaderMenus = useCallback(() => {
     setHeaderNewMenuOpen(false);
     setHeaderActionsMenuOpen(false);
   }, []);
+
+  const handleTemplateCreated = useCallback(async (created = null) => {
+    const nextConceptName = String(created?.conceptName || '').trim();
+    await refreshConcepts();
+    if (nextConceptName) {
+      handleSelectConcept(nextConceptName);
+    }
+    closeTemplatePicker();
+    closeConceptComposer();
+    closeHeaderMenus();
+    setConceptError('');
+    setConceptComposerStatus({
+      message: nextConceptName
+        ? `Created concept from template: ${nextConceptName}.`
+        : 'Created concept from template.',
+      tone: 'success'
+    });
+  }, [closeConceptComposer, closeHeaderMenus, closeTemplatePicker, handleSelectConcept, refreshConcepts]);
 
   useEffect(() => {
     if (!headerNewMenuOpen && !headerActionsMenuOpen) return undefined;
@@ -1632,6 +1667,15 @@ const ThinkMode = () => {
           >
             {conceptComposerSaving ? 'Creating…' : 'Create'}
           </Button>
+          <QuietButton
+            onClick={() => {
+              closeConceptComposer();
+              openTemplatePicker();
+            }}
+            disabled={conceptComposerSaving}
+          >
+            Use template
+          </QuietButton>
           <QuietButton onClick={closeConceptComposer} disabled={conceptComposerSaving}>
             Cancel
           </QuietButton>
@@ -1963,6 +2007,7 @@ const ThinkMode = () => {
       onOpenArticle={handleOpenHomeArticle}
       onCreateNote={handleCreateNotebookEntry}
       onCreateConcept={() => handleSelectView('concepts')}
+      onCreateFromTemplate={openTemplatePicker}
       onCreateQuestion={handleCreateQuestion}
     />
   ) : activeView === 'notebook' ? (
@@ -2620,26 +2665,17 @@ const ThinkMode = () => {
               )}
             </div>
           )}
-          <SectionHeader title="Related highlights" subtitle="Semantically similar." />
-          {conceptRelatedLoading && <p className="muted small">Finding related highlights…</p>}
-          {conceptRelatedError && <p className="status-message error-message">{conceptRelatedError}</p>}
-          {!conceptRelatedLoading && !conceptRelatedError && (
-            <div className="related-embed-list">
-              {conceptRelated.highlights.length === 0 ? (
-                <CalmEmptyLine>No related highlights yet.</CalmEmptyLine>
-              ) : (
-                conceptRelated.highlights.slice(0, 6).map(item => (
-                  <div key={item.objectId} className="related-embed-row">
-                    <div>
-                      <div className="related-embed-title">{item.title || 'Highlight'}</div>
-                      <div className="muted small">{item.snippet || item.metadata?.articleTitle || ''}</div>
-                    </div>
-                    <QuietButton onClick={() => handleAddRelatedHighlight(item.objectId)}>Add</QuietButton>
-                  </div>
-                ))
-              )}
-            </div>
-          )}
+          <SemanticRelatedPanel
+            sourceType="concept"
+            sourceId={concept?._id || ''}
+            title="AI Related Highlights"
+            limit={6}
+            resultTypes={['highlight']}
+            enabled={Boolean(concept?._id)}
+            renderAction={(item) => (
+              <QuietButton onClick={() => handleAddRelatedHighlight(item.objectId)}>Add</QuietButton>
+            )}
+          />
           <SectionHeader title="Related concepts" subtitle="Neighbors and cousins." />
           {conceptRelatedLoading && <p className="muted small">Finding related concepts…</p>}
           {conceptRelatedError && <p className="status-message error-message">{conceptRelatedError}</p>}
@@ -2750,6 +2786,18 @@ const ThinkMode = () => {
                       type="button"
                       className="think-main-actions__menu-item"
                       role="menuitem"
+                      data-testid="think-new-template-header-button"
+                      onClick={() => {
+                        closeHeaderMenus();
+                        openTemplatePicker();
+                      }}
+                    >
+                      New from template
+                    </button>
+                    <button
+                      type="button"
+                      className="think-main-actions__menu-item"
+                      role="menuitem"
                       onClick={() => {
                         closeHeaderMenus();
                         handleCreateQuestion();
@@ -2846,6 +2894,11 @@ const ThinkMode = () => {
         onAddTheme={handleAddThemeConcept}
         onAddQuestion={handleAddSynthesisQuestion}
         onLinkSuggested={handleLinkSuggested}
+      />
+      <ConceptTemplatePickerModal
+        open={templatePickerOpen}
+        onClose={closeTemplatePicker}
+        onCreated={handleTemplateCreated}
       />
     </>
   );

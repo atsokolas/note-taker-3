@@ -27,7 +27,6 @@ import {
 } from '../api/workingMemory';
 import api from '../api';
 import { getAuthHeaders } from '../hooks/useAuthHeaders';
-import { endPerfTimer, logPerf, startPerfTimer } from '../utils/perf';
 
 const RIGHT_STORAGE_KEY = 'workspace-right-open:/library';
 const CONTEXT_OVERRIDE_KEY = 'library.context.override:/library';
@@ -68,9 +67,6 @@ const Library = () => {
     localStorage.getItem(CABINET_OVERRIDE_KEY) === 'true'
   ));
   const [activeHighlightId, setActiveHighlightId] = useState('');
-  const [relatedHighlights, setRelatedHighlights] = useState([]);
-  const [relatedLoading, setRelatedLoading] = useState(false);
-  const [relatedError, setRelatedError] = useState('');
   const [workingMemoryItems, setWorkingMemoryItems] = useState([]);
   const [workingMemoryLoading, setWorkingMemoryLoading] = useState(false);
   const [workingMemoryError, setWorkingMemoryError] = useState('');
@@ -323,50 +319,6 @@ const Library = () => {
     () => Object.keys(groupedHighlights).sort((a, b) => a.localeCompare(b)),
     [groupedHighlights]
   );
-
-  useEffect(() => {
-    if (!selectedArticleId) {
-      setRelatedHighlights([]);
-      setRelatedLoading(false);
-      setRelatedError('');
-      return;
-    }
-    const targetId = activeHighlightId || articleHighlights[0]?._id;
-    if (!targetId) {
-      setRelatedHighlights([]);
-      setRelatedLoading(false);
-      setRelatedError('');
-      return;
-    }
-    let cancelled = false;
-    const fetchRelated = async () => {
-      const startedAt = startPerfTimer();
-      setRelatedLoading(true);
-      setRelatedError('');
-      try {
-        const res = await api.get(`/api/highlights/${targetId}/related`, getAuthHeaders());
-        if (!cancelled) {
-          const next = res.data?.results || [];
-          setRelatedHighlights(next);
-          logPerf('library.related-highlights.load', {
-            highlightId: targetId,
-            count: next.length,
-            durationMs: endPerfTimer(startedAt)
-          });
-        }
-      } catch (err) {
-        if (!cancelled) {
-          setRelatedError(err.response?.data?.error || 'Failed to load related highlights.');
-        }
-      } finally {
-        if (!cancelled) setRelatedLoading(false);
-      }
-    };
-    fetchRelated();
-    return () => {
-      cancelled = true;
-    };
-  }, [selectedArticleId, activeHighlightId, articleHighlights]);
 
   const loadWorkingMemoryItems = useCallback(async () => {
     setWorkingMemoryLoading(true);
@@ -626,6 +578,7 @@ const Library = () => {
         <QuietButton
           className={`list-button ${scope === 'highlights' ? 'is-active' : ''}`}
           onClick={() => handleSelectScope('highlights')}
+          data-tour-anchor="library-highlights-scope"
         >
           <span>Highlights</span>
         </QuietButton>
@@ -767,9 +720,6 @@ const Library = () => {
         highlightGroups={highlightGroups}
         groupedHighlights={groupedHighlights}
         activeHighlightId={activeHighlightId}
-        relatedHighlights={relatedHighlights}
-        relatedLoading={relatedLoading}
-        relatedError={relatedError}
         onHighlightClick={handleHighlightClick}
         onSelectHighlight={setActiveHighlightId}
         onAddConcept={handleOpenConceptModal}

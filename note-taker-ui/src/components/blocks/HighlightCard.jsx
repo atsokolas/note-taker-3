@@ -229,7 +229,12 @@ const HighlightCard = ({
               <QuietButton onClick={() => onAddNotebook(highlight)}>Add to Notebook</QuietButton>
             )}
             {onAddConcept && (
-              <QuietButton onClick={() => onAddConcept(highlight)}>Add to Concept</QuietButton>
+              <QuietButton
+                onClick={() => onAddConcept(highlight)}
+                data-tour-anchor="highlight-add-concept"
+              >
+                Add to Concept
+              </QuietButton>
             )}
             {onAddQuestion && (
               <QuietButton onClick={() => onAddQuestion(highlight)}>Add to Question</QuietButton>

@@ -2,6 +2,7 @@ import React, { Profiler, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { SectionHeader, QuietButton, TagChip } from '../ui';
 import HighlightCard from '../blocks/HighlightCard';
+import SemanticRelatedPanel from '../retrieval/SemanticRelatedPanel';
 import { createProfilerLogger } from '../../utils/perf';
 
 const LibraryContext = ({
@@ -14,9 +15,6 @@ const LibraryContext = ({
   highlightGroups,
   groupedHighlights,
   activeHighlightId,
-  relatedHighlights,
-  relatedLoading,
-  relatedError,
   onHighlightClick,
   onSelectHighlight,
   onAddConcept,
@@ -32,6 +30,8 @@ const LibraryContext = ({
     setCardsExpanded(next);
     setCardsExpandVersion(prev => prev + 1);
   };
+
+  const semanticHighlightId = activeHighlightId || articleHighlights[0]?._id || '';
 
   if (!selectedArticleId) {
     return (
@@ -142,32 +142,14 @@ const LibraryContext = ({
           )}
         </div>
       )}
-      <SectionHeader title="Related highlights" subtitle="Semantically similar." />
-      {relatedLoading && <p className="muted small">Finding related highlights…</p>}
-      {relatedError && <p className="status-message error-message">{relatedError}</p>}
-      {!relatedLoading && !relatedError && (
-        <div className="library-related-list">
-          {relatedHighlights.length === 0 ? (
-            <p className="muted small">No related highlights yet.</p>
-          ) : (
-            relatedHighlights.map(item => {
-              const meta = item.metadata || {};
-              const articleId = meta.articleId || item.articleId || selectedArticleId;
-              const articleTitle = meta.articleTitle || item.articleTitle || 'Article';
-              return (
-                <Link
-                  key={item.objectId}
-                  to={`/articles/${articleId}`}
-                  className="library-related-item"
-                >
-                  <div className="library-related-title">{item.title || 'Highlight'}</div>
-                  <div className="muted small">{articleTitle}</div>
-                </Link>
-              );
-            })
-          )}
-        </div>
-      )}
+      <SemanticRelatedPanel
+        sourceType="highlight"
+        sourceId={semanticHighlightId}
+        title="AI Related Highlights"
+        limit={6}
+        resultTypes={['highlight']}
+        enabled={Boolean(selectedArticleId && semanticHighlightId)}
+      />
     </div>
   );
 };

@@ -4,6 +4,8 @@ import api from '../api';
 import { Page, Card, Button } from '../components/ui';
 import { Link } from 'react-router-dom';
 import { ACCENT_OPTIONS } from '../settings/uiPreferences';
+import { resetTourState } from '../api/tourApi';
+import { TOUR_CACHE_KEY } from '../tour/tourConfig';
 
 const getAuthConfig = () => {
   const token = localStorage.getItem('token');
@@ -196,13 +198,13 @@ const Settings = ({
         <p className="muted">Need a refresher? Restart the onboarding guide.</p>
         <Button
           variant="secondary"
-          onClick={() => {
-            localStorage.removeItem('onboardingComplete');
-            localStorage.removeItem('onboardingStep');
-            localStorage.removeItem('hasCreatedHighlight');
-            localStorage.removeItem('hasTaggedHighlight');
-            localStorage.removeItem('hasCreatedNote');
-            localStorage.removeItem('hasInsertedHighlightIntoNote');
+          onClick={async () => {
+            try {
+              await resetTourState();
+            } catch (error) {
+              console.error('Failed to reset tour state:', error);
+            }
+            localStorage.removeItem(TOUR_CACHE_KEY);
           }}
         >
           Restart Onboarding

@@ -44,10 +44,26 @@ export const fetchRelatedItems = async ({ itemType, itemId, limit = 8 }) => {
   return response.data;
 };
 
+export const fetchSemanticRelated = async ({ sourceType, sourceId, limit = 6, resultTypes = ['highlight'] }) => {
+  const params = new URLSearchParams();
+  params.set('sourceType', String(sourceType || '').trim());
+  params.set('sourceId', String(sourceId || '').trim());
+  params.set('limit', String(limit));
+  const typeList = Array.isArray(resultTypes)
+    ? resultTypes.map(item => String(item || '').trim()).filter(Boolean)
+    : String(resultTypes || '').split(',').map(item => item.trim()).filter(Boolean);
+  if (typeList.length > 0) {
+    params.set('resultTypes', typeList.join(','));
+  }
+  const response = await api.get(`/api/semantic/related?${params.toString()}`, getAuthHeaders());
+  return response.data;
+};
+
 const retrievalApi = {
   searchKeyword,
   recordItemView,
-  fetchRelatedItems
+  fetchRelatedItems,
+  fetchSemanticRelated
 };
 
 export default retrievalApi;

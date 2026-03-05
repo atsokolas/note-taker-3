@@ -32,6 +32,35 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
     const BASE_URL = "https://note-taker-3-unrg.onrender.com";
+    const TOUR_EXTENSION_SIGNAL_TOKEN_KEY = "tourExtensionSignalToken";
+
+    const reportTourEvent = async (token, eventType, metadata = {}) => {
+        try {
+            const response = await fetch(`${BASE_URL}/api/tour/events`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ eventType, metadata })
+            });
+            return response.ok;
+        } catch (error) {
+            console.warn("[WARN - Popup.js] Failed to report tour event:", error);
+            return false;
+        }
+    };
+
+    const reportExtensionConnected = async (token) => {
+        if (!token) return;
+        const stored = await chrome.storage.local.get(TOUR_EXTENSION_SIGNAL_TOKEN_KEY);
+        const sentForToken = stored?.[TOUR_EXTENSION_SIGNAL_TOKEN_KEY] || '';
+        if (sentForToken === token) return;
+        const ok = await reportTourEvent(token, 'extension_connected', { source: 'extension_popup' });
+        if (ok) {
+            chrome.storage.local.set({ [TOUR_EXTENSION_SIGNAL_TOKEN_KEY]: token });
+        }
+    };
 
     // --- Core Logic ---
 
@@ -42,6 +71,7 @@ document.addEventListener("DOMContentLoaded", () => {
             loggedInView.style.display = 'block';
             loggedOutView.style.display = 'none';
             fetchFolders(token); // Fetch folders now that we know we're logged in
+            reportExtensionConnected(token);
         } else {
             loggedInView.style.display = 'none';
             loggedOutView.style.display = 'block';
@@ -204,7 +234,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Listener for the logout button
     logoutButton.addEventListener("click", () => {
-        chrome.storage.local.remove("token", () => {
+        chrome.storage.local.remove(["token", TOUR_EXTENSION_SIGNAL_TOKEN_KEY], () => {
             console.log("Token removed, user logged out.");
             updatePopupView(); // Switch to the logged-out view
         });
