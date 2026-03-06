@@ -271,6 +271,7 @@ const TourProvider = ({ children }) => {
     completeTour,
     currentIndex,
     currentStep,
+    goToStep,
     nextStep,
     pauseTour,
     prevStep,
