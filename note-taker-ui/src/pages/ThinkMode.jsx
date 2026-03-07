@@ -5,7 +5,11 @@ import useConcepts from '../hooks/useConcepts';
 import useConcept from '../hooks/useConcept';
 import useConceptRelated from '../hooks/useConceptRelated';
 import ReferencesPanel from '../components/ReferencesPanel';
-import { updateConcept, updateConceptPins } from '../api/concepts';
+import {
+  updateConcept,
+  updateConceptPins,
+  suggestConceptWorkspaceFromLibrary
+} from '../api/concepts';
 import NotebookEditor from '../components/think/notebook/NotebookEditor';
 import NotebookContext from '../components/think/notebook/NotebookContext';
 import useQuestions from '../hooks/useQuestions';
@@ -305,6 +309,8 @@ const ThinkMode = () => {
   const [conceptComposerOpen, setConceptComposerOpen] = useState(false);
   const [conceptComposerAnchor, setConceptComposerAnchor] = useState('header');
   const [conceptComposerDraft, setConceptComposerDraft] = useState('');
+  const [conceptComposerDescriptionDraft, setConceptComposerDescriptionDraft] = useState('');
+  const [conceptComposerAutoScout, setConceptComposerAutoScout] = useState(true);
   const [conceptComposerSaving, setConceptComposerSaving] = useState(false);
   const [conceptComposerStatus, setConceptComposerStatus] = useState(CONCEPT_COMPOSER_DEFAULT_STATE);
   const conceptComposerInputRef = useRef(null);
@@ -834,6 +840,8 @@ const ThinkMode = () => {
   const openConceptComposer = useCallback((anchor = 'header', seed = '') => {
     setConceptComposerAnchor(anchor);
     setConceptComposerDraft(normalizeConceptName(seed));
+    setConceptComposerDescriptionDraft('');
+    setConceptComposerAutoScout(true);
     setConceptComposerStatus(CONCEPT_COMPOSER_DEFAULT_STATE);
     setConceptComposerOpen(true);
   }, [normalizeConceptName]);
@@ -842,6 +850,8 @@ const ThinkMode = () => {
     setConceptComposerOpen(false);
     setConceptComposerSaving(false);
     setConceptComposerDraft('');
+    setConceptComposerDescriptionDraft('');
+    setConceptComposerAutoScout(true);
   }, []);
 
   const openTemplatePicker = useCallback(() => {
@@ -903,6 +913,8 @@ const ThinkMode = () => {
 
   const submitConceptComposer = useCallback(async (rawName, source = 'manual') => {
     const candidate = normalizeConceptName(rawName);
+    const description = String(conceptComposerDescriptionDraft || '').trim();
+    const runScout = Boolean(conceptComposerAutoScout);
     if (!candidate) {
       setConceptComposerStatus({ message: 'Enter a concept name.', tone: 'error' });
       return { ok: false, reason: 'empty' };
@@ -925,16 +937,43 @@ const ThinkMode = () => {
     setConceptComposerStatus(CONCEPT_COMPOSER_DEFAULT_STATE);
     setConceptError('');
     try {
-      await updateConcept(candidate, { description: '' });
+      const updatedConcept = await updateConcept(candidate, { description });
       await refreshConcepts();
       handleSelectConcept(candidate);
       setConceptComposerStatus({
-        message: `Created concept: ${candidate}.`,
+        message: runScout
+          ? `Created concept: ${candidate}. Running AI scout...`
+          : `Created concept: ${candidate}.`,
         tone: 'success'
       });
       setConceptComposerOpen(false);
       setConceptComposerDraft('');
+      setConceptComposerDescriptionDraft('');
+      setConceptComposerAutoScout(true);
       if (source === 'search-enter') setSearch('');
+
+      if (runScout) {
+        const conceptRef = String(updatedConcept?._id || candidate);
+        suggestConceptWorkspaceFromLibrary(conceptRef, {
+          mode: 'library_only',
+          maxLoops: 2
+        })
+          .then((response) => {
+            const itemCount = Number(response?.summary?.itemSuggestions || 0);
+            const conceptCount = Number(response?.summary?.conceptSuggestions || 0);
+            setConceptComposerStatus({
+              message: `AI scout ready: ${itemCount} items and ${conceptCount} concepts suggested.`,
+              tone: 'success'
+            });
+          })
+          .catch((scoutError) => {
+            setConceptComposerStatus({
+              message: scoutError?.response?.data?.error || 'Concept created, but AI scout failed.',
+              tone: 'error'
+            });
+          });
+      }
+
       return { ok: true, action: 'created', conceptName: candidate };
     } catch (err) {
       const message = err.response?.data?.error || 'Failed to add concept.';
@@ -944,7 +983,14 @@ const ThinkMode = () => {
     } finally {
       setConceptComposerSaving(false);
     }
-  }, [findExistingConcept, normalizeConceptName, refreshConcepts, handleSelectConcept]);
+  }, [
+    conceptComposerAutoScout,
+    conceptComposerDescriptionDraft,
+    findExistingConcept,
+    normalizeConceptName,
+    refreshConcepts,
+    handleSelectConcept
+  ]);
 
   const handleSelectView = (view) => {
     const params = new URLSearchParams(searchParams);
@@ -1657,6 +1703,28 @@ const ThinkMode = () => {
               }
             }}
           />
+        </label>
+        <label className="feedback-field think-concept-composer-field">
+          <span>Description</span>
+          <textarea
+            value={conceptComposerDescriptionDraft}
+            placeholder="Describe what this concept is about..."
+            rows={3}
+            onChange={(event) => {
+              setConceptComposerDescriptionDraft(event.target.value);
+              if (conceptComposerStatus.message) {
+                setConceptComposerStatus(CONCEPT_COMPOSER_DEFAULT_STATE);
+              }
+            }}
+          />
+        </label>
+        <label className="think-concept-composer-toggle">
+          <input
+            type="checkbox"
+            checked={conceptComposerAutoScout}
+            onChange={(event) => setConceptComposerAutoScout(Boolean(event.target.checked))}
+          />
+          <span>Run AI scout after create</span>
         </label>
         <div className="think-concept-composer-actions">
           <Button

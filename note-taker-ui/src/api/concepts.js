@@ -114,6 +114,39 @@ export const buildConceptWorkspaceFromLibrary = async (conceptIdOrName, payload 
   return res.data || { ok: false, summary: null, conceptId: '' };
 };
 
+export const suggestConceptWorkspaceFromLibrary = async (conceptIdOrName, payload = {}) => {
+  const safe = encodeURIComponent(String(conceptIdOrName || '').trim());
+  const body = {
+    mode: 'library_only',
+    maxLoops: 2,
+    ...(payload && typeof payload === 'object' ? payload : {})
+  };
+  const res = await api.post(`/api/concepts/${safe}/agent/suggest`, body, getAuthHeaders());
+  return res.data || { ok: false, conceptId: '', draftId: '', summary: { itemSuggestions: 0, conceptSuggestions: 0 } };
+};
+
+export const getConceptAgentSuggestions = async (conceptIdOrName) => {
+  const safe = encodeURIComponent(String(conceptIdOrName || '').trim());
+  const res = await api.get(`/api/concepts/${safe}/agent/suggestions`, getAuthHeaders());
+  return res.data || { ok: true, conceptId: '', drafts: [] };
+};
+
+export const acceptConceptAgentSuggestions = async (conceptIdOrName, draftId, payload = {}) => {
+  const safeConcept = encodeURIComponent(String(conceptIdOrName || '').trim());
+  const safeDraft = encodeURIComponent(String(draftId || '').trim());
+  const body = payload && typeof payload === 'object' ? payload : {};
+  const res = await api.post(`/api/concepts/${safeConcept}/agent/suggestions/${safeDraft}/accept`, body, getAuthHeaders());
+  return res.data || { ok: false, conceptId: '', draftId: '', updatedCount: 0, workspaceSummary: null };
+};
+
+export const discardConceptAgentSuggestions = async (conceptIdOrName, draftId, payload = {}) => {
+  const safeConcept = encodeURIComponent(String(conceptIdOrName || '').trim());
+  const safeDraft = encodeURIComponent(String(draftId || '').trim());
+  const body = payload && typeof payload === 'object' ? payload : {};
+  const res = await api.post(`/api/concepts/${safeConcept}/agent/suggestions/${safeDraft}/discard`, body, getAuthHeaders());
+  return res.data || { ok: false, conceptId: '', draftId: '', updatedCount: 0 };
+};
+
 export const getConceptMaterial = async (conceptIdOrName) => {
   const safe = encodeURIComponent(String(conceptIdOrName || '').trim());
   const res = await api.get(`/api/concepts/${safe}/material`, getAuthHeaders());

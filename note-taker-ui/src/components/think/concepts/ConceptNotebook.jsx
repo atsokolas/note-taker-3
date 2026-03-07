@@ -14,8 +14,12 @@ import {
   verticalListSortingStrategy
 } from '@dnd-kit/sortable';
 import {
+  acceptConceptAgentSuggestions,
   attachConceptWorkspaceBlock,
-  buildConceptWorkspaceFromLibrary
+  buildConceptWorkspaceFromLibrary,
+  discardConceptAgentSuggestions,
+  getConceptAgentSuggestions,
+  suggestConceptWorkspaceFromLibrary
 } from '../../../api/concepts';
 import useArticles from '../../../hooks/useArticles';
 import useConceptMaterial from '../../../hooks/useConceptMaterial';
@@ -255,9 +259,11 @@ const resolveMaterialMeta = (item, refMap) => {
   const key = `${safeType}:${safeRefId}`;
   const found = refMap.get(key);
   if (found) return found;
+  const inlineTitle = clean(item?.inlineTitle);
+  const inlineText = clean(item?.inlineText);
   return {
-    title: `${safeType.charAt(0).toUpperCase()}${safeType.slice(1)}`,
-    snippet: safeRefId,
+    title: inlineTitle || `${safeType.charAt(0).toUpperCase()}${safeType.slice(1)}`,
+    snippet: inlineText || safeRefId,
     chips: [safeType],
     dateLabel: ''
   };
@@ -448,6 +454,11 @@ const ConceptNotebook = ({ concept }) => {
   const [selectedDrawerKeys, setSelectedDrawerKeys] = useState(() => new Set());
   const [addingMaterial, setAddingMaterial] = useState(false);
   const [buildingFromLibrary, setBuildingFromLibrary] = useState(false);
+  const [scoutingFromLibrary, setScoutingFromLibrary] = useState(false);
+  const [agentDrafts, setAgentDrafts] = useState([]);
+  const [agentDraftsLoading, setAgentDraftsLoading] = useState(false);
+  const [agentDraftsError, setAgentDraftsError] = useState('');
+  const [agentDraftActionLoading, setAgentDraftActionLoading] = useState(false);
   const [toast, setToast] = useState({ message: '', tone: 'success' });
 
   const pendingWorkspaceRef = useRef(null);
@@ -477,6 +488,29 @@ const ConceptNotebook = ({ concept }) => {
     setDrawerVisibleCount(DRAWER_WINDOW_SIZE);
     setSelectedDrawerKeys(new Set());
   }, [drawerOpen, drawerTab, drawerFilter, drawerQuery]);
+
+  const loadAgentDrafts = useCallback(async () => {
+    if (!conceptId) {
+      setAgentDrafts([]);
+      setAgentDraftsError('');
+      setAgentDraftsLoading(false);
+      return;
+    }
+    setAgentDraftsLoading(true);
+    setAgentDraftsError('');
+    try {
+      const response = await getConceptAgentSuggestions(conceptId);
+      setAgentDrafts(Array.isArray(response?.drafts) ? response.drafts : []);
+    } catch (error) {
+      setAgentDraftsError(error.response?.data?.error || 'Failed to load AI draft suggestions.');
+    } finally {
+      setAgentDraftsLoading(false);
+    }
+  }, [conceptId]);
+
+  useEffect(() => {
+    loadAgentDrafts();
+  }, [loadAgentDrafts]);
 
   useEffect(() => () => {
     if (pendingSaveTimerRef.current) {
@@ -860,6 +894,54 @@ const ConceptNotebook = ({ concept }) => {
     }
   }, [buildingFromLibrary, conceptId, refreshMaterial, refreshWorkspace]);
 
+  const handleRunAiScout = useCallback(async () => {
+    if (!conceptId || scoutingFromLibrary) return;
+    setScoutingFromLibrary(true);
+    setToast({ message: 'Running AI scout on your library...', tone: 'success' });
+    try {
+      const response = await suggestConceptWorkspaceFromLibrary(conceptId, {
+        mode: 'library_only',
+        maxLoops: 2
+      });
+      await loadAgentDrafts();
+      const itemCount = Number(response?.summary?.itemSuggestions || 0);
+      const conceptCount = Number(response?.summary?.conceptSuggestions || 0);
+      setToast({
+        message: `AI draft ready: ${itemCount} items and ${conceptCount} concepts.`,
+        tone: 'success'
+      });
+    } catch (error) {
+      setToast({
+        message: error.response?.data?.error || 'Failed to run AI scout.',
+        tone: 'error'
+      });
+    } finally {
+      setScoutingFromLibrary(false);
+    }
+  }, [conceptId, loadAgentDrafts, scoutingFromLibrary]);
+
+  const handleDraftAction = useCallback(async ({ draftId, action, suggestionIds } = {}) => {
+    if (!conceptId || !draftId || !action || agentDraftActionLoading) return;
+    setAgentDraftActionLoading(true);
+    try {
+      if (action === 'accept') {
+        await acceptConceptAgentSuggestions(conceptId, draftId, suggestionIds ? { suggestionIds } : {});
+        await refreshWorkspace();
+        await refreshMaterial();
+      } else {
+        await discardConceptAgentSuggestions(conceptId, draftId, suggestionIds ? { suggestionIds } : {});
+      }
+      await loadAgentDrafts();
+    } catch (error) {
+      setToast({
+        message: error.response?.data?.error || `Failed to ${action} suggestion.`,
+        tone: 'error'
+      });
+    } finally {
+      setAgentDraftActionLoading(false);
+    }
+  }, [agentDraftActionLoading, conceptId, loadAgentDrafts, refreshMaterial, refreshWorkspace]);
+
   const selectedRows = useMemo(() => {
     const rowsByKey = new Map();
     drawerRows.forEach((row) => {
@@ -873,6 +955,20 @@ const ConceptNotebook = ({ concept }) => {
   const visibleStages = useMemo(() => (
     stageFilter === 'all' ? STAGE_FLOW : [stageFilter]
   ), [stageFilter]);
+
+  const activeDraft = useMemo(() => (
+    Array.isArray(agentDrafts) && agentDrafts.length > 0 ? agentDrafts[agentDrafts.length - 1] : null
+  ), [agentDrafts]);
+  const pendingItemSuggestions = useMemo(() => (
+    Array.isArray(activeDraft?.itemSuggestions)
+      ? activeDraft.itemSuggestions.filter((entry) => String(entry?.state || '').toLowerCase() === 'pending')
+      : []
+  ), [activeDraft?.itemSuggestions]);
+  const visibleConceptSuggestions = useMemo(() => (
+    Array.isArray(activeDraft?.conceptSuggestions)
+      ? activeDraft.conceptSuggestions.filter((entry) => String(entry?.state || '').toLowerCase() !== 'discarded')
+      : []
+  ), [activeDraft?.conceptSuggestions]);
 
   return (
     <section className="concept-outline" data-testid="concept-workspace-surface">
@@ -888,6 +984,14 @@ const ConceptNotebook = ({ concept }) => {
           subtitle="Attached material only. Build a readable outline by moving items through stages."
           action={(
             <div className="concept-outline__workspace-actions">
+              <Button
+                variant="secondary"
+                onClick={handleRunAiScout}
+                disabled={scoutingFromLibrary || workspaceLoading}
+                data-testid="concept-ai-scout-button"
+              >
+                {scoutingFromLibrary ? 'Scouting...' : 'Run AI scout'}
+              </Button>
               <Button
                 variant="secondary"
                 onClick={handleBuildFromLibrary}
@@ -906,6 +1010,141 @@ const ConceptNotebook = ({ concept }) => {
             </div>
           )}
         />
+
+        <div className="concept-outline__ai-draft">
+          <div className="concept-outline__ai-draft-head">
+            <p className="concept-outline__ai-draft-title">AI Draft</p>
+            <span className="concept-outline__meta-chip">AI generated</span>
+          </div>
+          {agentDraftsLoading ? (
+            <p className="muted small">Loading AI suggestions…</p>
+          ) : (
+            <>
+              {!activeDraft && !agentDraftsError && (
+                <p className="muted small">No AI draft suggestions yet. Run AI scout to generate them.</p>
+              )}
+              {!!activeDraft && (
+                <>
+                  {pendingItemSuggestions.length > 0 && (
+                    <div className="concept-outline__ai-draft-group">
+                      <div className="concept-outline__ai-draft-group-head">
+                        <p className="concept-outline__ai-draft-subtitle">Suggested items</p>
+                        <div className="concept-outline__ai-draft-actions">
+                          <button
+                            type="button"
+                            className="ui-quiet-button"
+                            disabled={agentDraftActionLoading}
+                            onClick={() => handleDraftAction({ draftId: activeDraft.id, action: 'accept' })}
+                          >
+                            Accept all
+                          </button>
+                          <button
+                            type="button"
+                            className="ui-quiet-button"
+                            disabled={agentDraftActionLoading}
+                            onClick={() => handleDraftAction({ draftId: activeDraft.id, action: 'discard' })}
+                          >
+                            Discard all
+                          </button>
+                        </div>
+                      </div>
+                      {pendingItemSuggestions.map((entry) => (
+                        <div key={entry.id} className="concept-outline__ai-draft-row">
+                          <div className="concept-outline__drawer-copy">
+                            <p className="concept-outline__drawer-title">{entry.title || entry.type}</p>
+                            {entry.text && <p className="concept-outline__drawer-snippet">{entry.text}</p>}
+                            <div className="concept-outline__drawer-meta">
+                              <span className="concept-outline__meta-chip">{entry.type}</span>
+                              {!!entry.source && <span className="concept-outline__meta-chip">{entry.source}</span>}
+                            </div>
+                          </div>
+                          <div className="concept-outline__ai-draft-actions">
+                            <Button
+                              variant="secondary"
+                              disabled={agentDraftActionLoading}
+                              onClick={() => handleDraftAction({
+                                draftId: activeDraft.id,
+                                action: 'accept',
+                                suggestionIds: [entry.id]
+                              })}
+                            >
+                              Accept
+                            </Button>
+                            <button
+                              type="button"
+                              className="ui-quiet-button"
+                              disabled={agentDraftActionLoading}
+                              onClick={() => handleDraftAction({
+                                draftId: activeDraft.id,
+                                action: 'discard',
+                                suggestionIds: [entry.id]
+                              })}
+                            >
+                              Discard
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {visibleConceptSuggestions.length > 0 && (
+                    <div className="concept-outline__ai-draft-group">
+                      <p className="concept-outline__ai-draft-subtitle">Related concepts</p>
+                      {visibleConceptSuggestions.map((entry) => {
+                        const isAccepted = String(entry.state || '').toLowerCase() === 'accepted';
+                        return (
+                          <div key={entry.id} className="concept-outline__ai-draft-row">
+                            <div className="concept-outline__drawer-copy">
+                              <p className="concept-outline__drawer-title">
+                                <a href={`/think?tab=concepts&concept=${encodeURIComponent(entry.title || '')}`}>
+                                  {entry.title || 'Concept'}
+                                </a>
+                              </p>
+                              {entry.text && <p className="concept-outline__drawer-snippet">{entry.text}</p>}
+                              <div className="concept-outline__drawer-meta">
+                                <span className="concept-outline__meta-chip">concept</span>
+                                {isAccepted && <span className="concept-outline__meta-chip">accepted</span>}
+                              </div>
+                            </div>
+                            <div className="concept-outline__ai-draft-actions">
+                              {!isAccepted && (
+                                <Button
+                                  variant="secondary"
+                                  disabled={agentDraftActionLoading}
+                                  onClick={() => handleDraftAction({
+                                    draftId: activeDraft.id,
+                                    action: 'accept',
+                                    suggestionIds: [entry.id]
+                                  })}
+                                >
+                                  Accept
+                                </Button>
+                              )}
+                              <button
+                                type="button"
+                                className="ui-quiet-button"
+                                disabled={agentDraftActionLoading}
+                                onClick={() => handleDraftAction({
+                                  draftId: activeDraft.id,
+                                  action: 'discard',
+                                  suggestionIds: [entry.id]
+                                })}
+                              >
+                                Discard
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </>
+              )}
+            </>
+          )}
+          {agentDraftsError && <p className="status-message error-message">{agentDraftsError}</p>}
+        </div>
 
         <div className="concept-outline__filters">
           <div className="concept-outline__filter-group" role="tablist" aria-label="Stage filter">

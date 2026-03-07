@@ -665,7 +665,12 @@ const { getReflections } = buildReflectionService({
   TagMeta,
   mongoose
 });
-const { buildConceptWorkspace } = require('./services/conceptAgentService');
+const {
+  buildConceptWorkspace,
+  createConceptSuggestionDraft,
+  getConceptSuggestionDrafts,
+  mutateConceptSuggestionDraft
+} = require('./services/conceptAgentService');
 
 registerBrainSummaryHandler({ Article, BrainSummary });
 
@@ -7014,7 +7019,7 @@ app.get('/api/concepts/:conceptId/material', authenticateToken, async (req, res)
   }
 });
 
-const isAgentBuildAiUnavailableError = (error) => {
+const isAgentAiUnavailableError = (error) => {
   const upstream = String(error?.payload?.upstream || '').toLowerCase();
   if (upstream !== 'ai_service') return false;
   const status = Number(error?.status || 0);
@@ -7028,8 +7033,8 @@ const isAgentBuildAiUnavailableError = (error) => {
 };
 
 app.post('/api/concepts/:conceptId/agent/build', authenticateToken, async (req, res) => {
+  const conceptId = String(req.params.conceptId || '').trim();
   try {
-    const conceptId = String(req.params.conceptId || '').trim();
     const mode = String(req.body?.mode || 'library_only').trim().toLowerCase();
     const maxLoops = req.body?.maxLoops ?? 2;
 
@@ -7068,7 +7073,7 @@ app.post('/api/concepts/:conceptId/agent/build', authenticateToken, async (req, 
     if (Number(error?.status) === 401 || Number(error?.status) === 403) {
       return res.status(Number(error.status)).json({ error: error?.message || 'Unauthorized.' });
     }
-    if (isAgentBuildAiUnavailableError(error)) {
+    if (isAgentAiUnavailableError(error)) {
       console.warn('[AGENT-BUILD] ai_service unavailable', {
         requestId: req.requestId,
         conceptId,
@@ -7080,6 +7085,161 @@ app.post('/api/concepts/:conceptId/agent/build', authenticateToken, async (req, 
 
     console.error('❌ Error building concept workspace with agent:', error);
     return res.status(500).json({ error: 'Failed to build concept workspace.' });
+  }
+});
+
+app.post('/api/concepts/:conceptId/agent/suggest', authenticateToken, async (req, res) => {
+  const conceptId = String(req.params.conceptId || '').trim();
+  try {
+    const mode = String(req.body?.mode || 'library_only').trim().toLowerCase();
+    const maxLoops = req.body?.maxLoops ?? 2;
+
+    if (mode !== 'library_only') {
+      return res.status(400).json({ error: 'mode must be "library_only".' });
+    }
+
+    const concept = await resolveConceptByParam(req.user.id, conceptId, { createIfMissing: false });
+    if (!concept) return res.status(404).json({ error: 'Concept not found.' });
+
+    const summary = await createConceptSuggestionDraft({
+      conceptId: String(concept._id),
+      userId: String(req.user.id),
+      mode,
+      maxLoops
+    });
+
+    return res.status(200).json({
+      ok: true,
+      conceptId: String(concept._id),
+      draftId: String(summary.draftId || ''),
+      summary: summary.summary || { itemSuggestions: 0, conceptSuggestions: 0 }
+    });
+  } catch (error) {
+    if (Number(error?.status) === 400) {
+      return res.status(400).json({ error: error?.message || 'Invalid suggestion request.' });
+    }
+    if (Number(error?.status) === 404) {
+      return res.status(404).json({ error: 'Concept not found.' });
+    }
+    if (Number(error?.status) === 401 || Number(error?.status) === 403) {
+      return res.status(Number(error.status)).json({ error: error?.message || 'Unauthorized.' });
+    }
+    if (isAgentAiUnavailableError(error)) {
+      console.warn('[AGENT-SUGGEST] ai_service unavailable', {
+        requestId: req.requestId,
+        conceptId,
+        userId: String(req.user?.id || ''),
+        status: Number(error?.status) || 0
+      });
+      return res.status(500).json({ error: 'Agent suggestions are temporarily unavailable. Please try again shortly.' });
+    }
+
+    console.error('❌ Error creating concept suggestion draft:', error);
+    return res.status(500).json({ error: 'Failed to generate concept suggestions.' });
+  }
+});
+
+app.get('/api/concepts/:conceptId/agent/suggestions', authenticateToken, async (req, res) => {
+  try {
+    const conceptId = String(req.params.conceptId || '').trim();
+    const concept = await resolveConceptByParam(req.user.id, conceptId, { createIfMissing: false });
+    if (!concept) return res.status(404).json({ error: 'Concept not found.' });
+
+    const data = await getConceptSuggestionDrafts({
+      conceptId: String(concept._id),
+      userId: String(req.user.id)
+    });
+
+    return res.status(200).json({
+      ok: true,
+      conceptId: String(concept._id),
+      drafts: Array.isArray(data?.drafts) ? data.drafts : []
+    });
+  } catch (error) {
+    if (Number(error?.status) === 400) {
+      return res.status(400).json({ error: error?.message || 'Invalid request.' });
+    }
+    if (Number(error?.status) === 404) {
+      return res.status(404).json({ error: 'Concept not found.' });
+    }
+    if (Number(error?.status) === 401 || Number(error?.status) === 403) {
+      return res.status(Number(error.status)).json({ error: error?.message || 'Unauthorized.' });
+    }
+    console.error('❌ Error loading concept suggestion drafts:', error);
+    return res.status(500).json({ error: 'Failed to load concept suggestions.' });
+  }
+});
+
+app.post('/api/concepts/:conceptId/agent/suggestions/:draftId/accept', authenticateToken, async (req, res) => {
+  try {
+    const conceptId = String(req.params.conceptId || '').trim();
+    const draftId = String(req.params.draftId || '').trim();
+    const concept = await resolveConceptByParam(req.user.id, conceptId, { createIfMissing: false });
+    if (!concept) return res.status(404).json({ error: 'Concept not found.' });
+
+    const result = await mutateConceptSuggestionDraft({
+      conceptId: String(concept._id),
+      userId: String(req.user.id),
+      draftId,
+      action: 'accept',
+      suggestionIds: req.body?.suggestionIds
+    });
+
+    return res.status(200).json({
+      ok: true,
+      conceptId: String(concept._id),
+      draftId: String(result?.draftId || draftId),
+      updatedCount: Number(result?.updatedCount || 0),
+      workspaceSummary: result?.workspaceSummary || null
+    });
+  } catch (error) {
+    if (Number(error?.status) === 400) {
+      return res.status(400).json({ error: error?.message || 'Invalid request.' });
+    }
+    if (Number(error?.status) === 404) {
+      return res.status(404).json({ error: error?.message || 'Suggestion draft not found.' });
+    }
+    if (Number(error?.status) === 401 || Number(error?.status) === 403) {
+      return res.status(Number(error.status)).json({ error: error?.message || 'Unauthorized.' });
+    }
+    console.error('❌ Error accepting concept suggestions:', error);
+    return res.status(500).json({ error: 'Failed to accept concept suggestions.' });
+  }
+});
+
+app.post('/api/concepts/:conceptId/agent/suggestions/:draftId/discard', authenticateToken, async (req, res) => {
+  try {
+    const conceptId = String(req.params.conceptId || '').trim();
+    const draftId = String(req.params.draftId || '').trim();
+    const concept = await resolveConceptByParam(req.user.id, conceptId, { createIfMissing: false });
+    if (!concept) return res.status(404).json({ error: 'Concept not found.' });
+
+    const result = await mutateConceptSuggestionDraft({
+      conceptId: String(concept._id),
+      userId: String(req.user.id),
+      draftId,
+      action: 'discard',
+      suggestionIds: req.body?.suggestionIds
+    });
+
+    return res.status(200).json({
+      ok: true,
+      conceptId: String(concept._id),
+      draftId: String(result?.draftId || draftId),
+      updatedCount: Number(result?.updatedCount || 0)
+    });
+  } catch (error) {
+    if (Number(error?.status) === 400) {
+      return res.status(400).json({ error: error?.message || 'Invalid request.' });
+    }
+    if (Number(error?.status) === 404) {
+      return res.status(404).json({ error: error?.message || 'Suggestion draft not found.' });
+    }
+    if (Number(error?.status) === 401 || Number(error?.status) === 403) {
+      return res.status(Number(error.status)).json({ error: error?.message || 'Unauthorized.' });
+    }
+    console.error('❌ Error discarding concept suggestions:', error);
+    return res.status(500).json({ error: 'Failed to discard concept suggestions.' });
   }
 });
 

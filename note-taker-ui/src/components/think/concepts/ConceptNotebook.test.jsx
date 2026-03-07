@@ -1,6 +1,13 @@
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import ConceptNotebook from './ConceptNotebook';
-import { attachConceptWorkspaceBlock, buildConceptWorkspaceFromLibrary } from '../../../api/concepts';
+import {
+  acceptConceptAgentSuggestions,
+  attachConceptWorkspaceBlock,
+  buildConceptWorkspaceFromLibrary,
+  discardConceptAgentSuggestions,
+  getConceptAgentSuggestions,
+  suggestConceptWorkspaceFromLibrary
+} from '../../../api/concepts';
 import useArticles from '../../../hooks/useArticles';
 import useConceptMaterial from '../../../hooks/useConceptMaterial';
 import useConceptWorkspace from '../../../hooks/useConceptWorkspace';
@@ -8,7 +15,11 @@ import useHighlightsQuery from '../../../hooks/useHighlightsQuery';
 
 jest.mock('../../../api/concepts', () => ({
   attachConceptWorkspaceBlock: jest.fn(),
-  buildConceptWorkspaceFromLibrary: jest.fn()
+  buildConceptWorkspaceFromLibrary: jest.fn(),
+  suggestConceptWorkspaceFromLibrary: jest.fn(),
+  getConceptAgentSuggestions: jest.fn(),
+  acceptConceptAgentSuggestions: jest.fn(),
+  discardConceptAgentSuggestions: jest.fn()
 }));
 
 jest.mock('../../../hooks/useArticles', () => jest.fn());
@@ -156,6 +167,55 @@ describe('ConceptNotebook workspace interactions', () => {
         openQuestions: 5
       }
     });
+    suggestConceptWorkspaceFromLibrary.mockResolvedValue({
+      ok: true,
+      conceptId: 'concept-1',
+      draftId: 'draft-1',
+      summary: {
+        itemSuggestions: 2,
+        conceptSuggestions: 1
+      }
+    });
+    getConceptAgentSuggestions.mockResolvedValue({
+      ok: true,
+      conceptId: 'concept-1',
+      drafts: [
+        {
+          id: 'draft-1',
+          itemSuggestions: [
+            {
+              id: 'item:highlight:h1',
+              type: 'highlight',
+              title: 'Highlight title',
+              text: 'Highlight snippet',
+              state: 'pending'
+            }
+          ],
+          conceptSuggestions: [
+            {
+              id: 'concept:c1',
+              type: 'concept',
+              title: 'Related Concept',
+              text: 'Concept context',
+              state: 'pending'
+            }
+          ]
+        }
+      ]
+    });
+    acceptConceptAgentSuggestions.mockResolvedValue({
+      ok: true,
+      conceptId: 'concept-1',
+      draftId: 'draft-1',
+      updatedCount: 1,
+      workspaceSummary: { addedToInbox: 1 }
+    });
+    discardConceptAgentSuggestions.mockResolvedValue({
+      ok: true,
+      conceptId: 'concept-1',
+      draftId: 'draft-1',
+      updatedCount: 1
+    });
   });
 
   afterEach(() => {
@@ -229,6 +289,44 @@ describe('ConceptNotebook workspace interactions', () => {
       expect(buildConceptWorkspaceFromLibrary).toHaveBeenCalledWith('concept-1', {
         mode: 'library_only',
         maxLoops: 2
+      });
+    });
+
+    await waitFor(() => {
+      expect(mockRefreshWorkspace).toHaveBeenCalled();
+      expect(mockRefreshMaterial).toHaveBeenCalled();
+    });
+  });
+
+  it('runs AI scout from library and refreshes drafts', async () => {
+    render(<ConceptNotebook concept={concept} />);
+
+    fireEvent.click(screen.getByTestId('concept-ai-scout-button'));
+
+    await waitFor(() => {
+      expect(suggestConceptWorkspaceFromLibrary).toHaveBeenCalledWith('concept-1', {
+        mode: 'library_only',
+        maxLoops: 2
+      });
+    });
+
+    await waitFor(() => {
+      expect(getConceptAgentSuggestions).toHaveBeenCalled();
+    });
+  });
+
+  it('accepts a pending AI suggestion', async () => {
+    render(<ConceptNotebook concept={concept} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Highlight title')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getAllByRole('button', { name: 'Accept' })[0]);
+
+    await waitFor(() => {
+      expect(acceptConceptAgentSuggestions).toHaveBeenCalledWith('concept-1', 'draft-1', {
+        suggestionIds: ['item:highlight:h1']
       });
     });
 

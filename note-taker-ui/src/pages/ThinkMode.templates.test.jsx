@@ -105,7 +105,8 @@ jest.mock('../components/retrieval/SemanticRelatedPanel', () => () => null);
 
 jest.mock('../api/concepts', () => ({
   updateConcept: jest.fn(),
-  updateConceptPins: jest.fn()
+  updateConceptPins: jest.fn(),
+  suggestConceptWorkspaceFromLibrary: jest.fn()
 }));
 
 jest.mock('../api/questions', () => ({
