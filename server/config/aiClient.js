@@ -46,6 +46,11 @@ const similarTo = (payload, options = {}) => {
   return request({ path: '/similar', body: payload, requestId: options.requestId });
 };
 
+const planConcept = (payload, options = {}) => {
+  ensureEnabled();
+  return request({ path: '/plan/concept', body: payload, requestId: options.requestId });
+};
+
 const checkUpstreamHealth = (options = {}) => {
   ensureEnabled();
   return health({ requestId: options.requestId });
@@ -63,5 +68,6 @@ module.exports = {
   embedTexts,
   semanticSearch,
   similarTo,
+  planConcept,
   checkUpstreamHealth
 };

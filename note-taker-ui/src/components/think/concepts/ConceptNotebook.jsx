@@ -13,7 +13,10 @@ import {
   useSortable,
   verticalListSortingStrategy
 } from '@dnd-kit/sortable';
-import { attachConceptWorkspaceBlock } from '../../../api/concepts';
+import {
+  attachConceptWorkspaceBlock,
+  buildConceptWorkspaceFromLibrary
+} from '../../../api/concepts';
 import useArticles from '../../../hooks/useArticles';
 import useConceptMaterial from '../../../hooks/useConceptMaterial';
 import useConceptWorkspace from '../../../hooks/useConceptWorkspace';
@@ -444,6 +447,7 @@ const ConceptNotebook = ({ concept }) => {
   const [drawerVisibleCount, setDrawerVisibleCount] = useState(DRAWER_WINDOW_SIZE);
   const [selectedDrawerKeys, setSelectedDrawerKeys] = useState(() => new Set());
   const [addingMaterial, setAddingMaterial] = useState(false);
+  const [buildingFromLibrary, setBuildingFromLibrary] = useState(false);
   const [toast, setToast] = useState({ message: '', tone: 'success' });
 
   const pendingWorkspaceRef = useRef(null);
@@ -825,6 +829,37 @@ const ConceptNotebook = ({ concept }) => {
     }
   }, [attachedIdsByType, conceptId, items, itemsByStage.inbox, normalizedWorkspace, refreshMaterial, refreshWorkspace, setWorkspace]);
 
+  const handleBuildFromLibrary = useCallback(async () => {
+    if (!conceptId || buildingFromLibrary) return;
+    setBuildingFromLibrary(true);
+    setToast({ message: 'Building workspace from your library...', tone: 'success' });
+    try {
+      const response = await buildConceptWorkspaceFromLibrary(conceptId, {
+        mode: 'library_only',
+        maxLoops: 2
+      });
+      await refreshWorkspace();
+      await refreshMaterial();
+      const createdGroups = Number(response?.summary?.createdGroups || 0);
+      const linkedItems = Number(response?.summary?.linkedItems || 0);
+      if (createdGroups > 0 || linkedItems > 0) {
+        setToast({
+          message: `Build complete: ${createdGroups} groups, ${linkedItems} items linked.`,
+          tone: 'success'
+        });
+      } else {
+        setToast({ message: 'Build complete.', tone: 'success' });
+      }
+    } catch (error) {
+      setToast({
+        message: error.response?.data?.error || 'Failed to build from library.',
+        tone: 'error'
+      });
+    } finally {
+      setBuildingFromLibrary(false);
+    }
+  }, [buildingFromLibrary, conceptId, refreshMaterial, refreshWorkspace]);
+
   const selectedRows = useMemo(() => {
     const rowsByKey = new Map();
     drawerRows.forEach((row) => {
@@ -853,6 +888,14 @@ const ConceptNotebook = ({ concept }) => {
           subtitle="Attached material only. Build a readable outline by moving items through stages."
           action={(
             <div className="concept-outline__workspace-actions">
+              <Button
+                variant="secondary"
+                onClick={handleBuildFromLibrary}
+                disabled={buildingFromLibrary || workspaceLoading}
+                data-testid="concept-build-library-button"
+              >
+                {buildingFromLibrary ? 'Building...' : 'Build from my library'}
+              </Button>
               <Button
                 variant="secondary"
                 onClick={() => setDrawerOpen(true)}

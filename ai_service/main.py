@@ -8,7 +8,7 @@ import hmac
 import time
 import math
 import threading
-from typing import List, Optional, Dict, Any, Set
+from typing import List, Optional, Dict, Any, Set, Literal
 
 import httpx
 from fastapi import FastAPI, HTTPException, Request, Depends, Header
@@ -45,6 +45,21 @@ MAX_SYNTH_ITEMS = int(os.getenv("AI_SYNTH_MAX_ITEMS", "40"))
 MAX_SYNTH_ATTEMPTS = max(1, int(os.getenv("AI_SYNTH_MAX_ATTEMPTS", "1")))
 MAX_SYNTH_LATENCY_MS = max(2000, int(os.getenv("AI_SYNTH_MAX_LATENCY_MS", "12000")))
 MAX_SYNTH_GENERATION_TOKENS = max(120, int(os.getenv("AI_SYNTH_MAX_TOKENS", "260")))
+CONCEPT_QUERY_MIN = 6
+CONCEPT_QUERY_MAX = 12
+CONCEPT_GROUP_MIN = 3
+CONCEPT_GROUP_MAX = 8
+CONCEPT_GROUP_ITEM_REFS_MAX = 12
+CONCEPT_OUTLINE_MIN = 5
+CONCEPT_OUTLINE_MAX = 12
+CONCEPT_OUTLINE_BULLETS_MAX = 8
+CONCEPT_CLAIMS_MIN = 5
+CONCEPT_CLAIMS_MAX = 12
+CONCEPT_CLAIM_EVIDENCE_MAX = 3
+CONCEPT_OPEN_QUESTIONS_MIN = 5
+CONCEPT_OPEN_QUESTIONS_MAX = 12
+CONCEPT_NEXT_ACTIONS_MIN = 3
+CONCEPT_NEXT_ACTIONS_MAX = 8
 ENABLE_JSON_SCHEMA = os.getenv("HF_JSON_SCHEMA", "false").lower() == "true"
 HF_MODELS_CACHE_TTL_SEC = int(os.getenv("HF_MODELS_CACHE_TTL_SEC", "300"))
 VECTOR_STORE_PATH = os.getenv("AI_VECTOR_STORE_PATH", "/tmp/note_taker_ai_vectors.json")
@@ -95,6 +110,59 @@ class SynthResponse(BaseModel):
     themes: conlist(str, min_length=3, max_length=3)
     connections: conlist(str, min_length=3, max_length=3)
     questions: conlist(str, min_length=3, max_length=3)
+
+
+class ConceptCandidateItem(BaseModel):
+    type: Literal["article", "highlight"]
+    id: str
+    title: Optional[str] = None
+    text: str
+    source: Optional[str] = None
+    score: float
+
+
+class ConceptPlanRequest(BaseModel):
+    concept_title: str
+    concept_description: Optional[str] = None
+    candidate_items: List[ConceptCandidateItem] = Field(default_factory=list)
+
+
+class ConceptPlanItemRef(BaseModel):
+    type: Literal["article", "highlight"]
+    id: str
+    why: str
+
+
+class ConceptPlanGroup(BaseModel):
+    title: str
+    description: str
+    item_refs: List[ConceptPlanItemRef] = Field(default_factory=list)
+
+
+class ConceptPlanOutlineSection(BaseModel):
+    heading: str
+    bullets: List[str] = Field(default_factory=list)
+
+
+class ConceptPlanEvidence(BaseModel):
+    type: Literal["highlight"] = "highlight"
+    id: str
+    quote: str
+
+
+class ConceptPlanClaim(BaseModel):
+    claim: str
+    evidence: List[ConceptPlanEvidence] = Field(default_factory=list)
+    confidence: Literal["low", "medium", "high"]
+
+
+class ConceptPlanResponse(BaseModel):
+    queries: List[str] = Field(default_factory=list)
+    groups: List[ConceptPlanGroup] = Field(default_factory=list)
+    outline: List[ConceptPlanOutlineSection] = Field(default_factory=list)
+    claims: List[ConceptPlanClaim] = Field(default_factory=list)
+    open_questions: List[str] = Field(default_factory=list)
+    next_actions: List[str] = Field(default_factory=list)
 
 
 class EmbeddingUpsertItem(BaseModel):
@@ -590,6 +658,495 @@ def _fallback_synthesis() -> Dict[str, Any]:
         "themes": fallback,
         "connections": fallback,
         "questions": fallback,
+    }
+
+
+def _normalize_concept_plan_string(value: Any, max_chars: int = 260) -> str:
+    text = str(value or "").strip()
+    text = text.replace("\n", " ")
+    text = re.sub(r"\s+", " ", text)
+    text = re.sub(r"^\s*(?:[-*•]|\d+\.)\s*", "", text)
+    if len(text) > max_chars:
+        text = text[:max_chars].rstrip()
+    return text
+
+
+def _dedupe_strings(values: List[str]) -> List[str]:
+    seen: Set[str] = set()
+    out: List[str] = []
+    for value in values:
+        clean = _normalize_concept_plan_string(value)
+        if not clean or clean in seen:
+            continue
+        seen.add(clean)
+        out.append(clean)
+    return out
+
+
+def _pad_strings(values: List[str], minimum: int, maximum: int, fallbacks: List[str]) -> List[str]:
+    out = _dedupe_strings(values)[:maximum]
+    for fallback in fallbacks:
+        if len(out) >= minimum:
+            break
+        clean = _normalize_concept_plan_string(fallback)
+        if clean and clean not in out:
+            out.append(clean)
+    while len(out) < minimum:
+        out.append(f"Placeholder {len(out) + 1}")
+    return out[:maximum]
+
+
+def _collect_candidate_maps(req: ConceptPlanRequest) -> Dict[str, Any]:
+    candidates_by_id: Dict[str, ConceptCandidateItem] = {}
+    ordered_ids: List[str] = []
+    highlight_ids: List[str] = []
+    highlight_text_by_id: Dict[str, str] = {}
+    for item in req.candidate_items:
+        candidate_id = str(item.id or "").strip()
+        if not candidate_id or candidate_id in candidates_by_id:
+            continue
+        candidates_by_id[candidate_id] = item
+        ordered_ids.append(candidate_id)
+        if item.type == "highlight":
+            highlight_ids.append(candidate_id)
+            highlight_text_by_id[candidate_id] = _normalize_concept_plan_string(
+                item.text,
+                max_chars=220,
+            )
+    return {
+        "candidates_by_id": candidates_by_id,
+        "ordered_ids": ordered_ids,
+        "highlight_ids": highlight_ids,
+        "highlight_text_by_id": highlight_text_by_id,
+    }
+
+
+def _build_default_item_refs(
+    req: ConceptPlanRequest,
+    ordered_ids: List[str],
+    candidates_by_id: Dict[str, ConceptCandidateItem],
+    offset: int,
+) -> List[Dict[str, str]]:
+    if not ordered_ids:
+        return []
+    refs: List[Dict[str, str]] = []
+    take = min(len(ordered_ids), 3)
+    for idx in range(take):
+        selected_id = ordered_ids[(offset + idx) % len(ordered_ids)]
+        candidate = candidates_by_id[selected_id]
+        refs.append(
+            {
+                "type": candidate.type,
+                "id": selected_id,
+                "why": _normalize_concept_plan_string(
+                    f"Useful context for {req.concept_title} because it covers a distinct angle.",
+                    max_chars=200,
+                ) or "Useful context for this theme.",
+            }
+        )
+    return refs[:CONCEPT_GROUP_ITEM_REFS_MAX]
+
+
+def _build_concept_plan_prompt(req: ConceptPlanRequest) -> str:
+    title = _normalize_concept_plan_string(req.concept_title, max_chars=140) or "Concept"
+    description = _normalize_concept_plan_string(req.concept_description, max_chars=400)
+    candidate_lines: List[str] = []
+    for item in req.candidate_items:
+        title_text = _normalize_concept_plan_string(item.title, max_chars=120) or "(untitled)"
+        text = _normalize_concept_plan_string(item.text, max_chars=500)
+        source = _normalize_concept_plan_string(item.source, max_chars=140) or "(none)"
+        candidate_lines.append(
+            "- " + json.dumps(
+                {
+                    "type": item.type,
+                    "id": item.id,
+                    "title": title_text,
+                    "source": source,
+                    "score": round(float(item.score), 4),
+                    "text": text,
+                },
+                ensure_ascii=False,
+            )
+        )
+    candidate_block = "\n".join(candidate_lines) if candidate_lines else "- (no candidates)"
+    highlight_ids = [item.id for item in req.candidate_items if item.type == "highlight"]
+    return (
+        "Return ONLY a valid JSON object. No markdown, no prose, no code fences.\n"
+        "Top-level keys must be exactly: queries, groups, outline, claims, open_questions, next_actions.\n"
+        "Hard constraints:\n"
+        "- queries: min 6 max 12 strings.\n"
+        "- groups: min 3 max 8 objects; each object has title, description, item_refs.\n"
+        "- groups.item_refs: each item_ref has type,id,why and max 12 refs per group.\n"
+        "- outline: min 5 max 12 sections; each section has heading and bullets; max 8 bullets per section.\n"
+        "- claims: min 5 max 12; each claim has claim,evidence,confidence.\n"
+        "- claims.evidence: max 3 entries per claim; each entry must be {\"type\":\"highlight\",\"id\":\"<highlight-id>\",\"quote\":\"...\"}.\n"
+        "- claims evidence ids must be from provided highlight IDs only.\n"
+        "- open_questions: min 5 max 12 strings.\n"
+        "- next_actions: min 3 max 8 strings.\n"
+        "- confidence must be one of low, medium, high.\n\n"
+        f"Concept title: {title}\n"
+        f"Concept description: {description or '(none)'}\n"
+        f"Valid highlight IDs for claims.evidence: {json.dumps(highlight_ids)}\n"
+        "Candidate items:\n"
+        f"{candidate_block}\n"
+    )
+
+
+def _parse_concept_plan_json(raw_text: str) -> Dict[str, Any]:
+    cleaned = _clean_model_output(raw_text)
+    cleaned = _extract_first_json_object(cleaned)
+    parsed = json.loads(cleaned)
+    if not isinstance(parsed, dict):
+        raise ValueError("Concept plan output must be a JSON object.")
+    return parsed
+
+
+def _fallback_concept_plan(req: ConceptPlanRequest) -> Dict[str, Any]:
+    meta = _collect_candidate_maps(req)
+    candidates_by_id = meta["candidates_by_id"]
+    ordered_ids = meta["ordered_ids"]
+    highlight_ids = meta["highlight_ids"]
+    highlight_text_by_id = meta["highlight_text_by_id"]
+    concept = _normalize_concept_plan_string(req.concept_title, max_chars=120) or "Concept"
+
+    groups = [
+        {
+            "title": f"{concept} foundations",
+            "description": f"Establishes the core context and framing for {concept}.",
+            "item_refs": _build_default_item_refs(req, ordered_ids, candidates_by_id, offset=0),
+        },
+        {
+            "title": f"{concept} evidence threads",
+            "description": f"Collects evidence that supports or challenges the main assumptions for {concept}.",
+            "item_refs": _build_default_item_refs(req, ordered_ids, candidates_by_id, offset=2),
+        },
+        {
+            "title": f"{concept} practical implications",
+            "description": f"Translates {concept} into implementation and decision impacts.",
+            "item_refs": _build_default_item_refs(req, ordered_ids, candidates_by_id, offset=4),
+        },
+    ]
+
+    claims: List[Dict[str, Any]] = []
+    for idx in range(CONCEPT_CLAIMS_MIN):
+        evidence: List[Dict[str, str]] = []
+        if highlight_ids:
+            highlight_id = highlight_ids[idx % len(highlight_ids)]
+            quote = (
+                highlight_text_by_id.get(highlight_id)
+                or "Relevant highlight evidence."
+            )
+            evidence.append(
+                {
+                    "type": "highlight",
+                    "id": highlight_id,
+                    "quote": quote,
+                }
+            )
+        claims.append(
+            {
+                "claim": f"{concept} claim {idx + 1}: an important relationship should be validated.",
+                "evidence": evidence,
+                "confidence": "medium" if idx < 3 else "low",
+            }
+        )
+
+    return {
+        "queries": [
+            f"{concept} definition and scope",
+            f"{concept} primary mechanisms",
+            f"{concept} supporting evidence",
+            f"{concept} counterarguments",
+            f"{concept} implementation examples",
+            f"{concept} risks and limitations",
+        ],
+        "groups": groups,
+        "outline": [
+            {
+                "heading": "Context and framing",
+                "bullets": [f"Define the core problem addressed by {concept}."],
+            },
+            {
+                "heading": "Evidence landscape",
+                "bullets": ["Summarize strongest supporting and opposing evidence."],
+            },
+            {
+                "heading": "Key themes",
+                "bullets": ["Describe recurring patterns across articles and highlights."],
+            },
+            {
+                "heading": "Claims and confidence",
+                "bullets": ["Map major claims to available supporting highlights."],
+            },
+            {
+                "heading": "Action plan",
+                "bullets": ["List concrete next steps to deepen and validate understanding."],
+            },
+        ],
+        "claims": claims,
+        "open_questions": [
+            f"What assumptions about {concept} remain unverified?",
+            f"Which evidence is strongest for {concept}, and what is missing?",
+            "Where do source materials disagree most significantly?",
+            "What external context is needed to interpret current evidence?",
+            "Which hypothesis should be tested first to reduce uncertainty?",
+        ],
+        "next_actions": [
+            "Run semantic searches using the query set and collect additional candidates.",
+            "Prioritize high-signal highlights and map each one to a claim.",
+            "Draft a first-pass narrative using the outline and resolve open questions.",
+        ],
+    }
+
+
+def _sanitize_concept_plan_payload(data: Any, req: ConceptPlanRequest) -> Dict[str, Any]:
+    payload = data if isinstance(data, dict) else {}
+    meta = _collect_candidate_maps(req)
+    candidates_by_id = meta["candidates_by_id"]
+    candidate_ids = set(meta["ordered_ids"])
+    ordered_candidate_ids = meta["ordered_ids"]
+    highlight_ids = set(meta["highlight_ids"])
+    highlight_ids_ordered = meta["highlight_ids"]
+    highlight_text_by_id = meta["highlight_text_by_id"]
+    concept = _normalize_concept_plan_string(req.concept_title, max_chars=120) or "Concept"
+
+    raw_queries = payload.get("queries") if isinstance(payload.get("queries"), list) else []
+    query_candidates = [
+        _normalize_concept_plan_string(item, max_chars=180)
+        for item in raw_queries
+    ]
+    query_fallbacks = [
+        f"{concept} definition and scope",
+        f"{concept} primary mechanisms",
+        f"{concept} supporting evidence",
+        f"{concept} counterarguments",
+        f"{concept} implementation examples",
+        f"{concept} risks and limitations",
+        f"{concept} historical context",
+        f"{concept} case studies",
+        f"{concept} measurable outcomes",
+        f"{concept} decision framework",
+    ]
+    queries = _pad_strings(
+        query_candidates,
+        CONCEPT_QUERY_MIN,
+        CONCEPT_QUERY_MAX,
+        query_fallbacks,
+    )
+
+    groups: List[Dict[str, Any]] = []
+    raw_groups = payload.get("groups") if isinstance(payload.get("groups"), list) else []
+    for index, group in enumerate(raw_groups[:CONCEPT_GROUP_MAX]):
+        if not isinstance(group, dict):
+            continue
+        title = _normalize_concept_plan_string(group.get("title"), max_chars=120)
+        if not title:
+            title = f"{concept} theme {index + 1}"
+        description = _normalize_concept_plan_string(group.get("description"), max_chars=260)
+        if not description:
+            description = f"This theme captures a relevant angle of {concept}."
+
+        refs: List[Dict[str, str]] = []
+        seen_refs: Set[str] = set()
+        raw_refs = group.get("item_refs") if isinstance(group.get("item_refs"), list) else []
+        for ref in raw_refs:
+            if not isinstance(ref, dict):
+                continue
+            ref_type = str(ref.get("type") or "").strip().lower()
+            ref_id = str(ref.get("id") or "").strip()
+            why = _normalize_concept_plan_string(ref.get("why"), max_chars=220)
+            if ref_id not in candidate_ids:
+                continue
+            candidate = candidates_by_id.get(ref_id)
+            if not candidate:
+                continue
+            candidate_type = str(candidate.type).lower()
+            if ref_type not in {"article", "highlight"}:
+                ref_type = candidate_type
+            if candidate_type != ref_type:
+                ref_type = candidate_type
+            if not why:
+                why = "Relevant supporting context for this theme."
+            ref_key = f"{ref_type}:{ref_id}"
+            if ref_key in seen_refs:
+                continue
+            seen_refs.add(ref_key)
+            refs.append({"type": ref_type, "id": ref_id, "why": why})
+            if len(refs) >= CONCEPT_GROUP_ITEM_REFS_MAX:
+                break
+        groups.append(
+            {
+                "title": title,
+                "description": description,
+                "item_refs": refs,
+            }
+        )
+
+    group_fallback_titles = [
+        f"{concept} foundations",
+        f"{concept} evidence threads",
+        f"{concept} practical implications",
+        f"{concept} strategic choices",
+        f"{concept} unresolved tensions",
+    ]
+    while len(groups) < CONCEPT_GROUP_MIN:
+        idx = len(groups)
+        groups.append(
+            {
+                "title": group_fallback_titles[idx % len(group_fallback_titles)],
+                "description": _normalize_concept_plan_string(
+                    f"This theme organizes a core viewpoint for {concept}.",
+                    max_chars=260,
+                ) or "This theme organizes a core viewpoint.",
+                "item_refs": _build_default_item_refs(
+                    req,
+                    ordered_candidate_ids,
+                    candidates_by_id,
+                    offset=idx * 2,
+                ),
+            }
+        )
+    groups = groups[:CONCEPT_GROUP_MAX]
+
+    outline: List[Dict[str, Any]] = []
+    raw_outline = payload.get("outline") if isinstance(payload.get("outline"), list) else []
+    for idx, section in enumerate(raw_outline[:CONCEPT_OUTLINE_MAX]):
+        if not isinstance(section, dict):
+            continue
+        heading = _normalize_concept_plan_string(section.get("heading"), max_chars=120)
+        if not heading:
+            heading = f"{concept} section {idx + 1}"
+        raw_bullets = section.get("bullets") if isinstance(section.get("bullets"), list) else []
+        bullets = _dedupe_strings(
+            [
+                _normalize_concept_plan_string(item, max_chars=180)
+                for item in raw_bullets
+            ]
+        )[:CONCEPT_OUTLINE_BULLETS_MAX]
+        if not bullets:
+            bullets = [f"Connect this section back to {concept}."]
+        outline.append({"heading": heading, "bullets": bullets})
+
+    outline_fallbacks = [
+        ("Context and framing", [f"Define why {concept} matters in this context."]),
+        ("Evidence landscape", ["Summarize strongest support and strongest objections."]),
+        ("Theme synthesis", ["Identify recurring patterns across candidate items."]),
+        ("Claim mapping", ["Attach claims to specific highlight evidence where possible."]),
+        ("Next steps", ["Translate open questions into concrete actions."]),
+        ("Risks and caveats", ["Document uncertainty and contradictory evidence."]),
+    ]
+    while len(outline) < CONCEPT_OUTLINE_MIN:
+        heading, bullets = outline_fallbacks[len(outline) % len(outline_fallbacks)]
+        outline.append({"heading": heading, "bullets": bullets[:CONCEPT_OUTLINE_BULLETS_MAX]})
+    outline = outline[:CONCEPT_OUTLINE_MAX]
+
+    claims: List[Dict[str, Any]] = []
+    raw_claims = payload.get("claims") if isinstance(payload.get("claims"), list) else []
+    for idx, claim_obj in enumerate(raw_claims[:CONCEPT_CLAIMS_MAX]):
+        if not isinstance(claim_obj, dict):
+            continue
+        claim_text = _normalize_concept_plan_string(claim_obj.get("claim"), max_chars=240)
+        if not claim_text:
+            claim_text = f"{concept} claim {idx + 1} needs validation."
+        confidence = str(claim_obj.get("confidence") or "").strip().lower()
+        if confidence not in {"low", "medium", "high"}:
+            confidence = "medium"
+
+        evidence: List[Dict[str, str]] = []
+        raw_evidence = claim_obj.get("evidence") if isinstance(claim_obj.get("evidence"), list) else []
+        seen_evidence: Set[str] = set()
+        for evidence_obj in raw_evidence:
+            if not isinstance(evidence_obj, dict):
+                continue
+            ev_type = str(evidence_obj.get("type") or "").strip().lower()
+            ev_id = str(evidence_obj.get("id") or "").strip()
+            quote = _normalize_concept_plan_string(evidence_obj.get("quote"), max_chars=240)
+            if ev_type != "highlight":
+                continue
+            if ev_id not in highlight_ids:
+                continue
+            if ev_id in seen_evidence:
+                continue
+            seen_evidence.add(ev_id)
+            if not quote:
+                quote = highlight_text_by_id.get(ev_id) or "Relevant highlight evidence."
+            evidence.append({"type": "highlight", "id": ev_id, "quote": quote})
+            if len(evidence) >= CONCEPT_CLAIM_EVIDENCE_MAX:
+                break
+        claims.append(
+            {
+                "claim": claim_text,
+                "evidence": evidence,
+                "confidence": confidence,
+            }
+        )
+
+    while len(claims) < CONCEPT_CLAIMS_MIN:
+        idx = len(claims)
+        evidence: List[Dict[str, str]] = []
+        if highlight_ids_ordered:
+            highlight_id = highlight_ids_ordered[idx % len(highlight_ids_ordered)]
+            evidence.append(
+                {
+                    "type": "highlight",
+                    "id": highlight_id,
+                    "quote": (
+                        highlight_text_by_id.get(highlight_id)
+                        or "Relevant highlight evidence."
+                    ),
+                }
+            )
+        claims.append(
+            {
+                "claim": f"{concept} claim {idx + 1}: a key relationship requires deeper evidence.",
+                "evidence": evidence,
+                "confidence": "medium" if idx < 3 else "low",
+            }
+        )
+    claims = claims[:CONCEPT_CLAIMS_MAX]
+
+    raw_open_questions = payload.get("open_questions") if isinstance(payload.get("open_questions"), list) else []
+    open_questions = _pad_strings(
+        [
+            _normalize_concept_plan_string(item, max_chars=220)
+            for item in raw_open_questions
+        ],
+        CONCEPT_OPEN_QUESTIONS_MIN,
+        CONCEPT_OPEN_QUESTIONS_MAX,
+        [
+            f"What assumptions about {concept} remain unverified?",
+            "Where does current evidence conflict?",
+            "Which missing source would most reduce uncertainty?",
+            "What edge case could invalidate the current direction?",
+            "What should be tested first?",
+            "What tradeoff is not yet quantified?",
+            "Which stakeholder perspective is missing?",
+        ],
+    )
+
+    raw_next_actions = payload.get("next_actions") if isinstance(payload.get("next_actions"), list) else []
+    next_actions = _pad_strings(
+        [
+            _normalize_concept_plan_string(item, max_chars=220)
+            for item in raw_next_actions
+        ],
+        CONCEPT_NEXT_ACTIONS_MIN,
+        CONCEPT_NEXT_ACTIONS_MAX,
+        [
+            "Run the proposed semantic queries and collect additional candidates.",
+            "Map candidate highlights to top claims and identify weakly supported claims.",
+            "Draft a first-pass synthesis using the outline and resolve open questions.",
+            "Prioritize contradictions and gather targeted follow-up evidence.",
+        ],
+    )
+
+    return {
+        "queries": queries,
+        "groups": groups,
+        "outline": outline,
+        "claims": claims,
+        "open_questions": open_questions,
+        "next_actions": next_actions,
     }
 
 
@@ -1378,3 +1935,86 @@ async def synthesize(req: SynthesizeRequest):
         sanitized[:300],
     )
     return _fallback_synthesis()
+
+
+@app.post("/plan/concept", dependencies=[Depends(require_shared_secret)])
+async def plan_concept(req: ConceptPlanRequest):
+    if not req.candidate_items:
+        raise HTTPException(status_code=400, detail="candidate_items are required")
+    config = get_hf_config()
+    if not config["token"]:
+        raise HTTPException(status_code=500, detail="HF_TOKEN not configured")
+
+    try:
+        selected_model = await _ensure_text_model_supported(config)
+    except Exception as exc:
+        if isinstance(exc, (HTTPException, UpstreamStructuredError)):
+            raise
+        _raise_hf_error("generation", exc)
+
+    system_instruction = (
+        "You MUST output ONLY valid JSON with no markdown, no code fences, "
+        "no explanation, and no extra top-level keys."
+    )
+    first_prompt = _build_concept_plan_prompt(req)
+    max_tokens = max(MAX_SYNTH_GENERATION_TOKENS, 650)
+    first_raw = ""
+    second_raw = ""
+    try:
+        first_result = await hf_chat_complete(
+            first_prompt,
+            selected_model,
+            config["token"],
+            config["timeout_ms"],
+            config["router_base_url"],
+            provider=config["provider"],
+            system=system_instruction,
+            temperature=0.0,
+            max_tokens=max_tokens,
+        )
+        first_raw = first_result["text"]
+    except Exception as exc:
+        if isinstance(exc, (HTTPException, UpstreamStructuredError)):
+            raise
+        _raise_hf_error("generation", exc)
+
+    parsed: Dict[str, Any]
+    try:
+        parsed = _parse_concept_plan_json(first_raw)
+    except Exception:
+        fix_prompt = (
+            "Fix this output into valid JSON only. "
+            "Keep the same intended content if possible. "
+            "Return exactly one JSON object with keys: "
+            "queries, groups, outline, claims, open_questions, next_actions.\n\n"
+            f"Invalid output:\n{first_raw}"
+        )
+        try:
+            second_result = await hf_chat_complete(
+                fix_prompt,
+                selected_model,
+                config["token"],
+                config["timeout_ms"],
+                config["router_base_url"],
+                provider=config["provider"],
+                system=system_instruction,
+                temperature=0.0,
+                max_tokens=max_tokens,
+            )
+        except Exception as exc:
+            if isinstance(exc, (HTTPException, UpstreamStructuredError)):
+                raise
+            _raise_hf_error("generation", exc)
+        second_raw = second_result["text"]
+        try:
+            parsed = _parse_concept_plan_json(second_raw)
+        except Exception:
+            logger.warning(
+                "[HF] plan/concept invalid JSON after fix retry. first_snippet=%s second_snippet=%s",
+                first_raw[:220],
+                second_raw[:220],
+            )
+            parsed = _fallback_concept_plan(req)
+
+    sanitized = _sanitize_concept_plan_payload(parsed, req)
+    return ConceptPlanResponse.model_validate(sanitized).model_dump()

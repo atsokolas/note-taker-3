@@ -103,6 +103,17 @@ export const updateConceptWorkspaceBlock = async (conceptIdOrName, blockId, payl
   return res.data || { conceptId: '', conceptName: '', block: null, workspace: null };
 };
 
+export const buildConceptWorkspaceFromLibrary = async (conceptIdOrName, payload = {}) => {
+  const safe = encodeURIComponent(String(conceptIdOrName || '').trim());
+  const body = {
+    mode: 'library_only',
+    maxLoops: 2,
+    ...(payload && typeof payload === 'object' ? payload : {})
+  };
+  const res = await api.post(`/api/concepts/${safe}/agent/build`, body, getAuthHeaders());
+  return res.data || { ok: false, summary: null, conceptId: '' };
+};
+
 export const getConceptMaterial = async (conceptIdOrName) => {
   const safe = encodeURIComponent(String(conceptIdOrName || '').trim());
   const res = await api.get(`/api/concepts/${safe}/material`, getAuthHeaders());

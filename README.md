@@ -90,6 +90,7 @@ Workspace endpoints (JWT required):
 - `GET /api/concepts/:conceptId/workspace` -> returns workspace and lazily initializes default group if missing
 - `PUT /api/concepts/:conceptId/workspace` -> replaces workspace with validated payload
 - `PATCH /api/concepts/:conceptId/workspace` -> applies operation payload `{ op, payload }`
+- `POST /api/concepts/:conceptId/agent/build` -> runs the library-only concept agent loop, then appends grouped plan output into the concept workspace
 
 Patch operations:
 

@@ -1,13 +1,14 @@
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import ConceptNotebook from './ConceptNotebook';
-import { attachConceptWorkspaceBlock } from '../../../api/concepts';
+import { attachConceptWorkspaceBlock, buildConceptWorkspaceFromLibrary } from '../../../api/concepts';
 import useArticles from '../../../hooks/useArticles';
 import useConceptMaterial from '../../../hooks/useConceptMaterial';
 import useConceptWorkspace from '../../../hooks/useConceptWorkspace';
 import useHighlightsQuery from '../../../hooks/useHighlightsQuery';
 
 jest.mock('../../../api/concepts', () => ({
-  attachConceptWorkspaceBlock: jest.fn()
+  attachConceptWorkspaceBlock: jest.fn(),
+  buildConceptWorkspaceFromLibrary: jest.fn()
 }));
 
 jest.mock('../../../hooks/useArticles', () => jest.fn());
@@ -57,6 +58,7 @@ describe('ConceptNotebook workspace interactions', () => {
   let mockSetWorkspace;
   let mockSaveWorkspace;
   let mockRefreshWorkspace;
+  let mockRefreshMaterial;
 
   beforeEach(() => {
     jest.useFakeTimers();
@@ -65,6 +67,7 @@ describe('ConceptNotebook workspace interactions', () => {
     mockSetWorkspace = jest.fn();
     mockSaveWorkspace = jest.fn().mockResolvedValue(undefined);
     mockRefreshWorkspace = jest.fn().mockResolvedValue(undefined);
+    mockRefreshMaterial = jest.fn().mockResolvedValue(undefined);
 
     useConceptWorkspace.mockReturnValue({
       workspace: createWorkspace(),
@@ -100,7 +103,7 @@ describe('ConceptNotebook workspace interactions', () => {
       },
       loading: false,
       error: '',
-      refresh: jest.fn().mockResolvedValue(undefined)
+      refresh: mockRefreshMaterial
     });
 
     useHighlightsQuery.mockReturnValue({
@@ -140,6 +143,17 @@ describe('ConceptNotebook workspace interactions', () => {
             order: 0
           }
         ]
+      }
+    });
+    buildConceptWorkspaceFromLibrary.mockResolvedValue({
+      ok: true,
+      conceptId: 'concept-1',
+      summary: {
+        createdGroups: 3,
+        linkedItems: 9,
+        outlineHeadings: 6,
+        claims: 5,
+        openQuestions: 5
       }
     });
   });
@@ -204,5 +218,23 @@ describe('ConceptNotebook workspace interactions', () => {
 
     expect(screen.queryByText('Working Source')).not.toBeInTheDocument();
     expect(screen.getByText('Draft Source')).toBeInTheDocument();
+  });
+
+  it('builds workspace from library and refreshes data', async () => {
+    render(<ConceptNotebook concept={concept} />);
+
+    fireEvent.click(screen.getByTestId('concept-build-library-button'));
+
+    await waitFor(() => {
+      expect(buildConceptWorkspaceFromLibrary).toHaveBeenCalledWith('concept-1', {
+        mode: 'library_only',
+        maxLoops: 2
+      });
+    });
+
+    await waitFor(() => {
+      expect(mockRefreshWorkspace).toHaveBeenCalled();
+      expect(mockRefreshMaterial).toHaveBeenCalled();
+    });
   });
 });

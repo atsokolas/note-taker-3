@@ -50,6 +50,7 @@ x-ai-shared-secret: <AI_SHARED_SECRET>
 - `POST /search`
 - `POST /similar`
 - `POST /synthesize`
+- `POST /plan/concept`
 
 ### Synthesize JSON safety
 
@@ -59,6 +60,9 @@ x-ai-shared-secret: <AI_SHARED_SECRET>
 3) parse and validate against a strict schema (exact keys, 3 strings each)
 4) if invalid, retry strict attempts up to `AI_SYNTH_MAX_ATTEMPTS` (default 1)
 5) stop early if `AI_SYNTH_MAX_LATENCY_MS` is exceeded, then return a strict fallback payload
+
+`/plan/concept` also returns strictly sanitized JSON and enforces hard
+list-size and ID-reference constraints before responding.
 
 ## Example curl
 
