@@ -924,8 +924,34 @@ const normalizeStoredSuggestionDraft = (draft, index = 0) => {
   };
 };
 
+const toPlainObject = (value) => {
+  if (!value || typeof value !== 'object') return null;
+  if (typeof value.toObject === 'function') {
+    return value.toObject();
+  }
+  return value;
+};
+
+const ensureAgentMetaWorkspace = (concept) => {
+  const currentMetaRaw = toPlainObject(concept?.get('meta'));
+  const currentMeta = (currentMetaRaw && typeof currentMetaRaw === 'object' && !Array.isArray(currentMetaRaw))
+    ? { ...currentMetaRaw }
+    : {};
+  const currentWorkspaceRaw = toPlainObject(currentMeta.workspace);
+  const currentWorkspace = (currentWorkspaceRaw && typeof currentWorkspaceRaw === 'object' && !Array.isArray(currentWorkspaceRaw))
+    ? { ...currentWorkspaceRaw }
+    : {};
+  currentMeta.workspace = currentWorkspace;
+  concept.set('meta', currentMeta, { strict: false });
+  return currentMeta;
+};
+
 const getStoredSuggestionDrafts = (concept) => {
-  const raw = concept?.get('meta.workspace.agentSuggestionDrafts') || [];
+  const meta = toPlainObject(concept?.get('meta'));
+  const workspace = meta && typeof meta === 'object' && !Array.isArray(meta) ? toPlainObject(meta.workspace) : null;
+  const raw = workspace && typeof workspace === 'object' && !Array.isArray(workspace)
+    ? (workspace.agentSuggestionDrafts || [])
+    : [];
   const drafts = Array.isArray(raw) ? raw : [];
   return drafts.map((draft, index) => normalizeStoredSuggestionDraft(draft, index));
 };
@@ -934,12 +960,15 @@ const setStoredSuggestionDrafts = (concept, drafts) => {
   const safeDrafts = (Array.isArray(drafts) ? drafts : [])
     .map((draft, index) => normalizeStoredSuggestionDraft(draft, index))
     .slice(-MAX_STORED_SUGGESTION_DRAFTS);
-  concept.set('meta.workspace.agentSuggestionDrafts', safeDrafts, { strict: false });
+  const nextMeta = ensureAgentMetaWorkspace(concept);
+  nextMeta.workspace.agentSuggestionDrafts = safeDrafts;
+  concept.set('meta', nextMeta, { strict: false });
   concept.markModified('meta');
 };
 
 const appendAgentWorkspaceMeta = ({ concept, timestampIso, mode, queries, plan, candidateItems }) => {
-  const previousMeta = concept.get('meta.workspace.agentBuilds') || [];
+  const metaDoc = ensureAgentMetaWorkspace(concept);
+  const previousMeta = metaDoc.workspace.agentBuilds || [];
   const nextEntry = {
     createdAt: timestampIso,
     mode,
@@ -950,8 +979,9 @@ const appendAgentWorkspaceMeta = ({ concept, timestampIso, mode, queries, plan, 
     open_questions: Array.isArray(plan?.open_questions) ? plan.open_questions : [],
     next_actions: Array.isArray(plan?.next_actions) ? plan.next_actions : []
   };
-  const nextMeta = [...(Array.isArray(previousMeta) ? previousMeta : []), nextEntry].slice(-20);
-  concept.set('meta.workspace.agentBuilds', nextMeta, { strict: false });
+  const nextBuilds = [...(Array.isArray(previousMeta) ? previousMeta : []), nextEntry].slice(-20);
+  metaDoc.workspace.agentBuilds = nextBuilds;
+  concept.set('meta', metaDoc, { strict: false });
   concept.markModified('meta');
 };
 
