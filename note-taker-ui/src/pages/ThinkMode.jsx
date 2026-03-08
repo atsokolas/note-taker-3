@@ -867,6 +867,27 @@ const ThinkMode = () => {
     setHeaderActionsMenuOpen(false);
   }, []);
 
+  const handleSelectView = useCallback((view) => {
+    const params = new URLSearchParams(searchParams);
+    params.set('tab', view);
+    if (view !== 'notebook') {
+      params.delete('entryId');
+    }
+    if (view !== 'concepts') {
+      params.delete('concept');
+    }
+    if (view !== 'questions') {
+      params.delete('questionId');
+    }
+    if (view !== 'paths') {
+      params.delete('pathId');
+    }
+    params.delete('scopeType');
+    params.delete('scopeId');
+    setActiveView(view);
+    setSearchParams(params);
+  }, [searchParams, setSearchParams]);
+
   const handleTemplateCreated = useCallback(async (created = null) => {
     const nextConceptName = String(created?.conceptName || '').trim();
     const target = String(created?.target || '').trim().toLowerCase();
@@ -1009,27 +1030,6 @@ const ThinkMode = () => {
     refreshConcepts,
     handleSelectConcept
   ]);
-
-  const handleSelectView = (view) => {
-    const params = new URLSearchParams(searchParams);
-    params.set('tab', view);
-    if (view !== 'notebook') {
-      params.delete('entryId');
-    }
-    if (view !== 'concepts') {
-      params.delete('concept');
-    }
-    if (view !== 'questions') {
-      params.delete('questionId');
-    }
-    if (view !== 'paths') {
-      params.delete('pathId');
-    }
-    params.delete('scopeType');
-    params.delete('scopeId');
-    setActiveView(view);
-    setSearchParams(params);
-  };
 
   const handleOpenHomeTarget = useCallback((item) => {
     const path = String(item?.path || '').trim();
