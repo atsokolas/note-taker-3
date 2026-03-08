@@ -1,55 +1,20 @@
-const hfSdk = require('@huggingface/inference');
-const { InferenceClient, HfInference } = hfSdk;
-
 const DEFAULT_MODEL = 'sentence-transformers/all-MiniLM-L6-v2';
 const DEFAULT_TIMEOUT_MS = 30000;
+const DEFAULT_ROUTER_BASE_URL = 'https://router.huggingface.co/hf-inference/models';
 
 const getConfig = () => ({
   token: process.env.HF_TOKEN || '',
   model: process.env.HF_EMBEDDING_MODEL || DEFAULT_MODEL,
-  timeoutMs: Number(process.env.HF_TIMEOUT_MS || DEFAULT_TIMEOUT_MS)
+  timeoutMs: Number(process.env.HF_TIMEOUT_MS || DEFAULT_TIMEOUT_MS),
+  routerBaseUrl: process.env.HF_ROUTER_BASE_URL || DEFAULT_ROUTER_BASE_URL
 });
-
-const createInferenceClient = (token) => {
-  if (typeof InferenceClient === 'function') {
-    return new InferenceClient(token);
-  }
-  if (typeof HfInference === 'function') {
-    return new HfInference(token);
-  }
-  const err = new Error('HF SDK client constructor not found.');
-  err.status = 502;
-  err.payload = {
-    error: 'HF SDK incompatible',
-    message: 'No compatible inference client constructor exported by @huggingface/inference.'
-  };
-  throw err;
-};
 
 const startupConfig = getConfig();
 console.log('[HF] inference client', {
   model: startupConfig.model,
-  timeoutMs: startupConfig.timeoutMs
+  timeoutMs: startupConfig.timeoutMs,
+  routerBaseUrl: startupConfig.routerBaseUrl
 });
-
-const withTimeout = (promise, timeoutMs) =>
-  new Promise((resolve, reject) => {
-    const timer = setTimeout(() => {
-      const err = new Error(`HF request timed out after ${timeoutMs}ms`);
-      err.status = 504;
-      err.code = 'ETIMEDOUT';
-      reject(err);
-    }, timeoutMs);
-    promise
-      .then((value) => {
-        clearTimeout(timer);
-        resolve(value);
-      })
-      .catch((error) => {
-        clearTimeout(timer);
-        reject(error);
-      });
-  });
 
 const toArray = (value) => {
   if (Array.isArray(value)) return value;
@@ -77,30 +42,108 @@ const normalizeEmbeddings = (result, inputCount) => {
   throw new Error('HF embeddings response invalid.');
 };
 
+const readTextSafely = async (response) => {
+  try {
+    return await response.text();
+  } catch (_err) {
+    return '';
+  }
+};
+
+const parseJsonSafely = (text) => {
+  if (!text) return null;
+  try {
+    return JSON.parse(text);
+  } catch (_err) {
+    return null;
+  }
+};
+
+const buildRouterUrl = ({ routerBaseUrl, model }) => {
+  const base = String(routerBaseUrl || DEFAULT_ROUTER_BASE_URL).replace(/\/+$/, '');
+  return `${base}/${encodeURIComponent(model)}`;
+};
+
+const requestRouterEmbeddings = async ({ token, model, timeoutMs, routerBaseUrl, inputs, options = {} }) => {
+  const url = buildRouterUrl({ routerBaseUrl, model });
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+  const payload = {
+    inputs: inputs.length === 1 ? String(inputs[0] || '') : inputs,
+    options: {
+      wait_for_model: true
+    },
+    ...options
+  };
+  if (options && typeof options === 'object' && options.options && typeof options.options === 'object') {
+    payload.options = {
+      wait_for_model: true,
+      ...options.options
+    };
+  }
+
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+        Accept: 'application/json'
+      },
+      body: JSON.stringify(payload),
+      signal: controller.signal
+    });
+
+    const rawText = await readTextSafely(response);
+    const json = parseJsonSafely(rawText);
+
+    if (!response.ok) {
+      const message = typeof json?.error === 'string'
+        ? json.error
+        : rawText || `HF request failed with status ${response.status}`;
+      const err = new Error(message);
+      err.status = response.status;
+      err.response = {
+        status: response.status,
+        data: message,
+        body: rawText
+      };
+      throw err;
+    }
+
+    return json ?? rawText;
+  } catch (error) {
+    if (error?.name === 'AbortError') {
+      const timeoutError = new Error(`HF request timed out after ${timeoutMs}ms`);
+      timeoutError.status = 504;
+      timeoutError.code = 'ETIMEDOUT';
+      throw timeoutError;
+    }
+    throw error;
+  } finally {
+    clearTimeout(timer);
+  }
+};
+
 const embedTexts = async (texts = [], options = {}) => {
-  const { token, model, timeoutMs } = getConfig();
+  const { token, model, timeoutMs, routerBaseUrl } = getConfig();
   if (!token) {
     const err = new Error('HF token missing/invalid');
     err.status = 401;
     throw err;
   }
+
   const inputs = Array.isArray(texts) ? texts : [];
-  const client = createInferenceClient(token);
-  if (typeof client.featureExtraction !== 'function') {
-    const err = new Error('HF SDK missing featureExtraction().');
-    err.status = 502;
-    err.payload = {
-      error: 'HF SDK incompatible',
-      message: 'Inference client does not expose featureExtraction().'
-    };
-    throw err;
-  }
-  const request = client.featureExtraction({
+  const result = await requestRouterEmbeddings({
+    token,
     model,
+    timeoutMs,
+    routerBaseUrl,
     inputs,
-    ...options
+    options
   });
-  const result = await withTimeout(request, timeoutMs);
+
   return normalizeEmbeddings(result, inputs.length);
 };
 

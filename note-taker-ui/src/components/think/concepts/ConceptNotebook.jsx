@@ -349,7 +349,7 @@ const StageDropZone = ({ stage, collapsed, count, onToggle, children }) => {
   );
 };
 
-const OutlineItemRow = ({ item, materialMeta, onStageChange, onRemove }) => {
+const OutlineItemRow = ({ item, materialMeta, onStageChange, onRemove, onOpen }) => {
   const sortableId = toItemSortableId(item.id);
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: sortableId });
 
@@ -403,6 +403,15 @@ const OutlineItemRow = ({ item, materialMeta, onStageChange, onRemove }) => {
             <option key={`${item.id}-${stage}`} value={stage}>{STAGE_LABELS[stage]}</option>
           ))}
         </select>
+        {typeof onOpen === 'function' && (
+          <button
+            type="button"
+            className="ui-quiet-button"
+            onClick={() => onOpen(item)}
+          >
+            Open
+          </button>
+        )}
         <button
           type="button"
           className="ui-quiet-button"
@@ -758,6 +767,18 @@ const ConceptNotebook = ({ concept }) => {
       refreshWorkspace();
     }
   }, [items, normalizedWorkspace, patchWorkspace, refreshWorkspace, setWorkspace]);
+
+  const handleOpenItem = useCallback((item) => {
+    const safeRefId = clean(item?.refId);
+    if (!safeRefId) return;
+    if (item?.type === 'note') {
+      window.location.href = `/think?tab=notebook&entryId=${encodeURIComponent(safeRefId)}`;
+      return;
+    }
+    if (item?.type === 'question') {
+      window.location.href = `/think?tab=questions&questionId=${encodeURIComponent(safeRefId)}`;
+    }
+  }, []);
 
   const handleDragEnd = useCallback((event) => {
     const activeItemId = fromItemSortableId(event.active?.id);
@@ -1201,6 +1222,7 @@ const ConceptNotebook = ({ concept }) => {
                             materialMeta={materialMetaByItemId.get(item.id) || resolveMaterialMeta(item, referenceMap)}
                             onStageChange={handleStageChange}
                             onRemove={handleRemoveItem}
+                            onOpen={(item.type === 'note' || item.type === 'question') ? handleOpenItem : null}
                           />
                         ))}
                       </SortableContext>

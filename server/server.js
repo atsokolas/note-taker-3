@@ -713,6 +713,13 @@ const normalizeConceptNameInput = (value) => (
     .trim()
 );
 
+const decodeTemplateText = (value) => (
+  String(value || '')
+    .replace(/\\r\\n/g, '\n')
+    .replace(/\\n/g, '\n')
+    .trim()
+);
+
 const parseClaimId = (value) => {
   if (value === null || value === undefined || value === '') return null;
   if (!mongoose.Types.ObjectId.isValid(value)) return null;
@@ -6740,6 +6747,83 @@ app.post('/api/templates/:id/create', authenticateToken, async (req, res) => {
     const templateId = String(req.params.id || '').trim().toLowerCase();
     const template = getWorkspaceTemplateById(templateId);
     if (!template) return res.status(404).json({ error: 'Template not found.' });
+    const target = String(req.body?.target || 'concept').trim().toLowerCase();
+    if (target !== 'concept' && target !== 'notebook') {
+      return res.status(400).json({ error: 'target must be "concept" or "notebook".' });
+    }
+
+    userObjectId = new mongoose.Types.ObjectId(req.user.id);
+    const sortedSamples = Array.isArray(template.sampleEntries)
+      ? template.sampleEntries.slice().sort((a, b) => Number(a.order || 0) - Number(b.order || 0))
+      : [];
+
+    if (target === 'notebook') {
+      const requestedNotebookTitle = req.body?.notebookTitle ?? req.body?.conceptName ?? template.name;
+      const notebookTitle = normalizeConceptNameInput(requestedNotebookTitle);
+      if (!notebookTitle) {
+        return res.status(400).json({ error: 'notebookTitle is required.' });
+      }
+
+      const notebookBlocks = [];
+      const pushBlock = (text) => {
+        const value = String(text || '').trim();
+        if (!value) return;
+        notebookBlocks.push({
+          id: createBlockId(),
+          type: 'paragraph',
+          text: value
+        });
+      };
+
+      pushBlock(`${template.icon || '📌'} ${template.name || 'Template'}`);
+      pushBlock(template.description || '');
+
+      if (Array.isArray(template.groups) && template.groups.length > 0) {
+        const sectionText = template.groups
+          .map((group, index) => `${index + 1}. ${String(group.title || '').trim()}${group.description ? ` — ${String(group.description).trim()}` : ''}`)
+          .join('\n');
+        pushBlock(`Sections\n${sectionText}`);
+      }
+
+      sortedSamples.forEach((sample, index) => {
+        const sampleTitle = String(sample.title || `Template Note ${index + 1}`).trim() || `Template Note ${index + 1}`;
+        const sampleText = decodeTemplateText(sample.content);
+        if (!sampleText) return;
+        pushBlock(`${sampleTitle}\n${sampleText}`);
+      });
+
+      if (Array.isArray(template.workflowTips) && template.workflowTips.length > 0) {
+        const tipText = template.workflowTips
+          .map((tip, index) => `${index + 1}. ${String(tip || '').trim()}`)
+          .filter(Boolean)
+          .join('\n');
+        pushBlock(`Workflow tips\n${tipText}`);
+      }
+
+      const notebookContent = notebookBlocks.map(block => String(block.text || '').trim()).filter(Boolean).join('\n\n');
+      const notebookEntry = new NotebookEntry({
+        title: notebookTitle,
+        content: notebookContent,
+        blocks: notebookBlocks,
+        folder: null,
+        type: 'note',
+        claimId: null,
+        tags: normalizeTags([template.id, ...(sortedSamples || []).flatMap(sample => sample.tags || [])]),
+        linkedArticleId: null,
+        userId: req.user.id
+      });
+      await notebookEntry.save();
+      createdSampleEntryIds.push(String(notebookEntry._id));
+      await syncNotebookReferences(req.user.id, notebookEntry._id, notebookBlocks);
+      enqueueNotebookEmbedding(notebookEntry);
+
+      return res.status(201).json({
+        target: 'notebook',
+        template,
+        notebookEntryId: String(notebookEntry._id),
+        notebookEntry
+      });
+    }
 
     const defaultConceptName = template.name || '';
     const hasConceptName = Boolean(
@@ -6753,7 +6837,6 @@ app.post('/api/templates/:id/create', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'conceptName is required.' });
     }
 
-    userObjectId = new mongoose.Types.ObjectId(req.user.id);
     const existing = await TagMeta.findOne({
       userId: userObjectId,
       name: new RegExp(`^${escapeRegExp(conceptName)}$`, 'i')
@@ -6762,23 +6845,20 @@ app.post('/api/templates/:id/create', authenticateToken, async (req, res) => {
       return res.status(409).json({ error: 'Concept already exists.' });
     }
 
-    const sortedSamples = Array.isArray(template.sampleEntries)
-      ? template.sampleEntries.slice().sort((a, b) => Number(a.order || 0) - Number(b.order || 0))
-      : [];
-
     const createdItems = [];
     for (let index = 0; index < sortedSamples.length; index += 1) {
       const sample = sortedSamples[index];
+      const sampleContent = decodeTemplateText(sample.content);
       const blocks = [
         {
           id: createBlockId(),
           type: 'paragraph',
-          text: String(sample.content || '').trim()
+          text: sampleContent
         }
       ];
       const entry = new NotebookEntry({
         title: String(sample.title || `Template Note ${index + 1}`).trim() || `Template Note ${index + 1}`,
-        content: String(sample.content || '').trim(),
+        content: sampleContent,
         blocks,
         folder: null,
         type: 'note',

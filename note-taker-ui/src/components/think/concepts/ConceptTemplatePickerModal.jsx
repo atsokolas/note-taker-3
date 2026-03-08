@@ -7,6 +7,10 @@ import {
 import { Button, QuietButton } from '../../ui';
 
 const toSafeString = (value) => String(value || '').trim();
+const TEMPLATE_TARGETS = {
+  concept: 'concept',
+  notebook: 'notebook'
+};
 
 const ConceptTemplatePickerModal = ({
   open,
@@ -25,6 +29,7 @@ const ConceptTemplatePickerModal = ({
   const [conceptName, setConceptName] = useState('');
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState('');
+  const [createTarget, setCreateTarget] = useState(TEMPLATE_TARGETS.concept);
 
   useEffect(() => {
     if (!open) return;
@@ -38,6 +43,7 @@ const ConceptTemplatePickerModal = ({
     setTemplateError('');
     setCreateError('');
     setConceptName('');
+    setCreateTarget(TEMPLATE_TARGETS.concept);
 
     const load = async () => {
       try {
@@ -108,14 +114,17 @@ const ConceptTemplatePickerModal = ({
 
   const handleCreate = async () => {
     const templateId = toSafeString(selectedTemplateId);
-    const safeConceptName = toSafeString(conceptName);
-    if (!templateId || !safeConceptName) return;
+    const safeName = toSafeString(conceptName);
+    if (!templateId || !safeName) return;
 
     setCreating(true);
     setCreateError('');
     try {
-      const created = await createWorkspaceFromTemplate(templateId, { conceptName: safeConceptName });
-      if (onCreated) onCreated(created);
+      const payload = createTarget === TEMPLATE_TARGETS.notebook
+        ? { target: 'notebook', notebookTitle: safeName }
+        : { target: 'concept', conceptName: safeName };
+      const created = await createWorkspaceFromTemplate(templateId, payload);
+      if (onCreated) onCreated({ target: createTarget, ...(created || {}) });
       if (onClose) onClose();
     } catch (error) {
       setCreateError(error.response?.data?.error || 'Failed to create workspace from template.');
@@ -130,7 +139,7 @@ const ConceptTemplatePickerModal = ({
         <div className="modal-header concept-template-modal__header">
           <div>
             <h3>Start With a Template</h3>
-            <p className="muted small">Create a concept workspace with starter sections and sample notes.</p>
+            <p className="muted small">Create a concept workspace or notebook with starter structure.</p>
           </div>
           <button className="icon-button" onClick={onClose} aria-label="Close template picker">×</button>
         </div>
@@ -172,13 +181,39 @@ const ConceptTemplatePickerModal = ({
                 </div>
                 <p className="muted">{selectedTemplate.description}</p>
 
+                <div className="concept-template-modal__target-section">
+                  <span className="muted-label">Create as</span>
+                  <div className="concept-template-modal__target-toggle" role="tablist" aria-label="Template target type">
+                    <button
+                      type="button"
+                      className={`concept-template-modal__target-button ${createTarget === TEMPLATE_TARGETS.concept ? 'is-active' : ''}`}
+                      role="tab"
+                      aria-selected={createTarget === TEMPLATE_TARGETS.concept}
+                      onClick={() => setCreateTarget(TEMPLATE_TARGETS.concept)}
+                      data-testid="template-target-concept"
+                    >
+                      Concept workspace
+                    </button>
+                    <button
+                      type="button"
+                      className={`concept-template-modal__target-button ${createTarget === TEMPLATE_TARGETS.notebook ? 'is-active' : ''}`}
+                      role="tab"
+                      aria-selected={createTarget === TEMPLATE_TARGETS.notebook}
+                      onClick={() => setCreateTarget(TEMPLATE_TARGETS.notebook)}
+                      data-testid="template-target-notebook"
+                    >
+                      Notebook
+                    </button>
+                  </div>
+                </div>
+
                 <label className="feedback-field concept-template-modal__name-field">
-                  <span>Concept name</span>
+                  <span>{createTarget === TEMPLATE_TARGETS.notebook ? 'Notebook title' : 'Concept name'}</span>
                   <input
                     type="text"
                     value={conceptName}
                     onChange={(event) => setConceptName(event.target.value)}
-                    placeholder="Enter concept name"
+                    placeholder={createTarget === TEMPLATE_TARGETS.notebook ? 'Enter notebook title' : 'Enter concept name'}
                     data-testid="template-concept-name-input"
                   />
                 </label>
@@ -228,7 +263,7 @@ const ConceptTemplatePickerModal = ({
             disabled={creating || !toSafeString(selectedTemplateId) || !toSafeString(conceptName)}
             data-testid="create-template-workspace-button"
           >
-            {creating ? 'Creating…' : 'Create workspace'}
+            {creating ? 'Creating…' : (createTarget === TEMPLATE_TARGETS.notebook ? 'Create notebook' : 'Create workspace')}
           </Button>
         </div>
       </div>

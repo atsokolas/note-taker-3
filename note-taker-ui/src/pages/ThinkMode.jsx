@@ -869,21 +869,39 @@ const ThinkMode = () => {
 
   const handleTemplateCreated = useCallback(async (created = null) => {
     const nextConceptName = String(created?.conceptName || '').trim();
-    await refreshConcepts();
-    if (nextConceptName) {
-      handleSelectConcept(nextConceptName);
+    const target = String(created?.target || '').trim().toLowerCase();
+    const nextNotebookId = String(created?.notebookEntryId || created?.notebookEntry?._id || '').trim();
+
+    if (target === 'notebook' && nextNotebookId) {
+      await loadNotebookEntries();
+      setNotebookActiveId(nextNotebookId);
+      setActiveView('notebook');
+      handleSelectView('notebook');
+    } else {
+      await refreshConcepts();
+      if (nextConceptName) {
+        handleSelectConcept(nextConceptName);
+      }
     }
     closeTemplatePicker();
     closeConceptComposer();
     closeHeaderMenus();
     setConceptError('');
     setConceptComposerStatus({
-      message: nextConceptName
-        ? `Created concept from template: ${nextConceptName}.`
-        : 'Created concept from template.',
+      message: target === 'notebook'
+        ? `Created notebook from template${created?.notebookEntry?.title ? `: ${created.notebookEntry.title}` : '.'}`
+        : (nextConceptName ? `Created concept from template: ${nextConceptName}.` : 'Created concept from template.'),
       tone: 'success'
     });
-  }, [closeConceptComposer, closeHeaderMenus, closeTemplatePicker, handleSelectConcept, refreshConcepts]);
+  }, [
+    closeConceptComposer,
+    closeHeaderMenus,
+    closeTemplatePicker,
+    handleSelectConcept,
+    handleSelectView,
+    loadNotebookEntries,
+    refreshConcepts
+  ]);
 
   useEffect(() => {
     if (!headerNewMenuOpen && !headerActionsMenuOpen) return undefined;

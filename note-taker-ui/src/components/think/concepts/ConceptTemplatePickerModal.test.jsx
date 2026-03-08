@@ -92,11 +92,48 @@ describe('ConceptTemplatePickerModal', () => {
     fireEvent.click(screen.getByTestId('create-template-workspace-button'));
 
     await waitFor(() => {
-      expect(createWorkspaceFromTemplate).toHaveBeenCalledWith('research-paper-analysis', { conceptName: 'My Papers' });
+      expect(createWorkspaceFromTemplate).toHaveBeenCalledWith('research-paper-analysis', {
+        target: 'concept',
+        conceptName: 'My Papers'
+      });
     });
 
-    expect(onCreated).toHaveBeenCalledWith(expect.objectContaining({ conceptName: 'Research Paper Analysis' }));
+    expect(onCreated).toHaveBeenCalledWith(expect.objectContaining({
+      target: 'concept',
+      conceptName: 'Research Paper Analysis'
+    }));
     expect(onClose).toHaveBeenCalled();
+  });
+
+  it('creates notebook from selected template', async () => {
+    const onCreated = jest.fn();
+    createWorkspaceFromTemplate.mockResolvedValueOnce({
+      target: 'notebook',
+      notebookEntryId: 'note-1',
+      notebookEntry: { _id: 'note-1', title: 'Paper review notebook' }
+    });
+
+    render(<ConceptTemplatePickerModal open onClose={jest.fn()} onCreated={onCreated} />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('template-target-notebook')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByTestId('template-target-notebook'));
+    fireEvent.change(screen.getByTestId('template-concept-name-input'), { target: { value: 'Paper review notebook' } });
+    fireEvent.click(screen.getByTestId('create-template-workspace-button'));
+
+    await waitFor(() => {
+      expect(createWorkspaceFromTemplate).toHaveBeenCalledWith('research-paper-analysis', {
+        target: 'notebook',
+        notebookTitle: 'Paper review notebook'
+      });
+    });
+
+    expect(onCreated).toHaveBeenCalledWith(expect.objectContaining({
+      target: 'notebook',
+      notebookEntryId: 'note-1'
+    }));
   });
 
   it('shows create error from API', async () => {

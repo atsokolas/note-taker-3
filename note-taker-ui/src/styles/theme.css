@@ -5312,10 +5312,16 @@ html[data-ui-theme='dark'] .article-reader-header {
 
 .concept-template-modal {
   max-width: 1080px;
+  max-height: min(88vh, 920px);
+  width: min(96vw, 1080px);
+  padding: 18px;
+  overflow: hidden;
 }
 
 .concept-template-modal__header {
   align-items: flex-start;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border-subtle, #d9dbe8);
 }
 
 .concept-template-modal__header h3 {
@@ -5324,14 +5330,15 @@ html[data-ui-theme='dark'] .article-reader-header {
 
 .concept-template-modal__body {
   display: grid;
-  grid-template-columns: minmax(250px, 0.9fr) minmax(0, 1.5fr);
+  grid-template-columns: minmax(260px, 0.88fr) minmax(0, 1.5fr);
   gap: 16px;
-  margin: 16px 0;
-  max-height: 65vh;
+  margin: 12px 0;
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 .concept-template-modal__list {
-  border: 1px solid rgba(99, 102, 241, 0.22);
+  border: 1px solid color-mix(in srgb, var(--accent-500, #4f46e5) 24%, var(--border-subtle, #d9dbe8));
   border-radius: 12px;
   padding: 10px;
   overflow: auto;
@@ -5381,10 +5388,37 @@ html[data-ui-theme='dark'] .article-reader-header {
   padding: 14px;
   overflow: auto;
   background: var(--surface-0, #fff);
+  min-height: 0;
 }
 
 .concept-template-modal__preview-title-row h4 {
   margin: 0;
+}
+
+.concept-template-modal__target-section {
+  margin-top: 12px;
+}
+
+.concept-template-modal__target-toggle {
+  margin-top: 6px;
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.concept-template-modal__target-button {
+  border: 1px solid var(--border-subtle, #d9dbe8);
+  background: var(--surface-0, #fff);
+  color: var(--text, #14172b);
+  border-radius: 999px;
+  padding: 5px 10px;
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+
+.concept-template-modal__target-button.is-active {
+  border-color: var(--accent-500, #4f46e5);
+  background: color-mix(in srgb, var(--accent-500, #4f46e5) 14%, #fff);
 }
 
 .concept-template-modal__name-field {
@@ -5428,20 +5462,23 @@ html[data-ui-theme='dark'] .article-reader-header {
 .concept-template-modal__actions {
   justify-content: flex-end;
   gap: 8px;
+  border-top: 1px solid var(--border-subtle, #d9dbe8);
+  padding-top: 10px;
+  margin-top: 2px;
 }
 
 @media (max-width: 920px) {
   .concept-template-modal {
-    max-width: min(96vw, 720px);
+    max-width: min(96vw, 760px);
+    max-height: min(92vh, 900px);
   }
 
   .concept-template-modal__body {
     grid-template-columns: 1fr;
-    max-height: none;
   }
 
   .concept-template-modal__list,
   .concept-template-modal__preview {
-    max-height: 42vh;
+    max-height: 34vh;
   }
 }

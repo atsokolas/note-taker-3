@@ -571,6 +571,272 @@ const buildSuggestionItems = async ({ queryResults, userId, concept }) => {
   };
 };
 
+const buildKeywordList = ({ title, description }) => {
+  const text = `${toSafeString(title)} ${toSafeString(description)}`.toLowerCase();
+  const seen = new Set();
+  const keywords = [];
+  text
+    .split(/[^a-z0-9]+/g)
+    .map(token => token.trim())
+    .filter(token => token.length >= 3)
+    .forEach((token) => {
+      if (seen.has(token)) return;
+      seen.add(token);
+      keywords.push(token);
+    });
+  return keywords.slice(0, 16);
+};
+
+const scoreTextAgainstKeywords = (text, keywords = [], recencyRank = 0) => {
+  const haystack = toSafeString(text).toLowerCase();
+  let matches = 0;
+  if (haystack && Array.isArray(keywords) && keywords.length > 0) {
+    keywords.forEach((keyword) => {
+      if (keyword && haystack.includes(keyword)) matches += 1;
+    });
+  }
+  const keywordScore = keywords.length > 0 ? (matches / keywords.length) : 0;
+  const recencyBoost = Math.max(0, 1 - (Number(recencyRank) / 50)) * 0.15;
+  const baseline = keywordScore > 0 ? keywordScore : (0.05 + recencyBoost);
+  return Number((baseline + recencyBoost).toFixed(4));
+};
+
+const buildFallbackCandidateItemsFromLibrary = async ({ userId, conceptTitle, conceptDescription }) => {
+  const Article = resolveArticleModel();
+  const userObjectId = new mongoose.Types.ObjectId(String(userId));
+  const keywords = buildKeywordList({ title: conceptTitle, description: conceptDescription });
+
+  const articles = await Article.find({ userId: userObjectId })
+    .select('_id title content url highlights updatedAt createdAt')
+    .sort({ updatedAt: -1, createdAt: -1 })
+    .limit(50)
+    .lean();
+
+  const deduped = new Map();
+  const upsertCandidate = (candidate) => {
+    if (!candidate || !candidate.type || !candidate.id || !candidate.text) return;
+    const key = `${candidate.type}:${candidate.id}`;
+    const existing = deduped.get(key);
+    if (!existing || Number(candidate.score || 0) > Number(existing.score || 0)) {
+      deduped.set(key, candidate);
+      return;
+    }
+    if (!existing.title && candidate.title) existing.title = candidate.title;
+    if ((!existing.text || existing.text.length < candidate.text.length) && candidate.text) existing.text = candidate.text;
+    if (!existing.source && candidate.source) existing.source = candidate.source;
+  };
+
+  articles.forEach((article, articleIndex) => {
+    const articleId = String(article?._id || '');
+    if (!articleId) return;
+    const articleTitle = toSafeString(article?.title) || null;
+    const articleBody = toSafeString(article?.content);
+    const articleUrl = toSafeString(article?.url);
+    const articleText = buildSnippet(articleBody, 420);
+    if (articleText) {
+      upsertCandidate({
+        type: 'article',
+        id: articleId,
+        title: articleTitle,
+        text: articleText,
+        source: articleUrl || extractHost(articleUrl) || null,
+        score: scoreTextAgainstKeywords(`${articleTitle || ''} ${articleBody}`, keywords, articleIndex)
+      });
+    }
+
+    const highlights = Array.isArray(article?.highlights) ? article.highlights : [];
+    const sortedHighlights = highlights
+      .slice()
+      .sort((a, b) => new Date(b?.createdAt || 0) - new Date(a?.createdAt || 0))
+      .slice(0, 4);
+    sortedHighlights.forEach((highlight, highlightIndex) => {
+      const highlightId = toSafeString(highlight?._id);
+      const quote = buildSnippet(toSafeString(highlight?.text), 320);
+      const note = buildSnippet(toSafeString(highlight?.note), 180);
+      if (!highlightId || !quote) return;
+      upsertCandidate({
+        type: 'highlight',
+        id: highlightId,
+        title: articleTitle,
+        text: note ? `${quote} (Note: ${note})` : quote,
+        source: articleUrl || extractHost(articleUrl) || null,
+        score: scoreTextAgainstKeywords(`${quote} ${note}`, keywords, articleIndex + (highlightIndex * 0.1))
+      });
+    });
+  });
+
+  return Array.from(deduped.values())
+    .sort((a, b) => (b.score - a.score) || a.type.localeCompare(b.type))
+    .slice(0, MAX_CANDIDATE_ITEMS);
+};
+
+const buildFallbackSuggestionsFromLibrary = async ({ userId, conceptTitle, conceptDescription, concept }) => {
+  const Article = resolveArticleModel();
+  const NotebookEntry = resolveNotebookModel();
+  const Question = resolveQuestionModel();
+  const TagMeta = resolveConceptModel();
+  const userObjectId = new mongoose.Types.ObjectId(String(userId));
+  const keywords = buildKeywordList({ title: conceptTitle, description: conceptDescription });
+
+  const [articles, notes, questions, concepts] = await Promise.all([
+    Article.find({ userId: userObjectId })
+      .select('_id title content url highlights updatedAt createdAt')
+      .sort({ updatedAt: -1, createdAt: -1 })
+      .limit(40)
+      .lean(),
+    NotebookEntry.find({ userId: userObjectId })
+      .select('_id title content blocks updatedAt createdAt')
+      .sort({ updatedAt: -1, createdAt: -1 })
+      .limit(30)
+      .lean(),
+    Question.find({ userId: userObjectId })
+      .select('_id text conceptName linkedTagName updatedAt createdAt')
+      .sort({ updatedAt: -1, createdAt: -1 })
+      .limit(30)
+      .lean(),
+    TagMeta.find({ userId: userObjectId })
+      .select('_id name description updatedAt createdAt')
+      .sort({ updatedAt: -1, createdAt: -1 })
+      .limit(30)
+      .lean()
+  ]);
+
+  const itemSuggestions = [];
+  const conceptSuggestions = [];
+  const currentConceptId = toSafeString(concept?._id);
+  const currentConceptName = toSafeString(concept?.name).toLowerCase();
+  const seenItem = new Set();
+  const seenConcept = new Set();
+
+  articles.forEach((article, index) => {
+    const id = toSafeString(article?._id);
+    if (!id) return;
+    const title = toSafeString(article?.title) || 'Article';
+    const body = toSafeString(article?.content);
+    const url = toSafeString(article?.url) || null;
+    const articleText = buildSnippet(body, 320);
+    if (articleText) {
+      const key = `article:${id}`;
+      if (!seenItem.has(key)) {
+        seenItem.add(key);
+        itemSuggestions.push({
+          id: `item:article:${id}`,
+          type: 'article',
+          refId: id,
+          title,
+          text: articleText,
+          source: url,
+          score: scoreTextAgainstKeywords(`${title} ${body}`, keywords, index),
+          state: 'pending',
+          generatedBy: 'ai_agent'
+        });
+      }
+    }
+
+    const highlights = Array.isArray(article?.highlights) ? article.highlights : [];
+    highlights
+      .slice()
+      .sort((a, b) => new Date(b?.createdAt || 0) - new Date(a?.createdAt || 0))
+      .slice(0, 3)
+      .forEach((highlight, highlightIndex) => {
+        const highlightId = toSafeString(highlight?._id);
+        const quote = buildSnippet(toSafeString(highlight?.text), 260);
+        const note = buildSnippet(toSafeString(highlight?.note), 120);
+        if (!highlightId || !quote) return;
+        const key = `highlight:${highlightId}`;
+        if (seenItem.has(key)) return;
+        seenItem.add(key);
+        itemSuggestions.push({
+          id: `item:highlight:${highlightId}`,
+          type: 'highlight',
+          refId: highlightId,
+          title,
+          text: note ? `${quote} (Note: ${note})` : quote,
+          source: url,
+          score: scoreTextAgainstKeywords(`${quote} ${note}`, keywords, index + (highlightIndex * 0.1)),
+          state: 'pending',
+          generatedBy: 'ai_agent'
+        });
+      });
+  });
+
+  notes.forEach((note, index) => {
+    const id = toSafeString(note?._id);
+    if (!id) return;
+    const key = `note:${id}`;
+    if (seenItem.has(key)) return;
+    seenItem.add(key);
+    const blockText = Array.isArray(note?.blocks)
+      ? note.blocks.map(block => toSafeString(block?.text)).filter(Boolean).join(' ')
+      : '';
+    const text = buildSnippet(toSafeString(note?.content) || blockText, 320);
+    if (!text) return;
+    itemSuggestions.push({
+      id: `item:note:${id}`,
+      type: 'note',
+      refId: id,
+      title: toSafeString(note?.title) || 'Note',
+      text,
+      source: null,
+      score: scoreTextAgainstKeywords(`${note?.title || ''} ${text}`, keywords, index),
+      state: 'pending',
+      generatedBy: 'ai_agent'
+    });
+  });
+
+  questions.forEach((question, index) => {
+    const id = toSafeString(question?._id);
+    if (!id) return;
+    const key = `question:${id}`;
+    if (seenItem.has(key)) return;
+    seenItem.add(key);
+    const text = toSafeString(question?.text);
+    if (!text) return;
+    itemSuggestions.push({
+      id: `item:question:${id}`,
+      type: 'question',
+      refId: id,
+      title: text,
+      text: toSafeString(question?.conceptName || question?.linkedTagName),
+      source: null,
+      score: scoreTextAgainstKeywords(text, keywords, index),
+      state: 'pending',
+      generatedBy: 'ai_agent'
+    });
+  });
+
+  concepts.forEach((entry, index) => {
+    const id = toSafeString(entry?._id);
+    const name = toSafeString(entry?.name);
+    if (!id || !name) return;
+    if (currentConceptId && id === currentConceptId) return;
+    if (currentConceptName && name.toLowerCase() === currentConceptName) return;
+    const key = `concept:${id}`;
+    if (seenConcept.has(key)) return;
+    seenConcept.add(key);
+    conceptSuggestions.push({
+      id: `concept:${id}`,
+      type: 'concept',
+      refId: id,
+      title: name,
+      text: buildSnippet(toSafeString(entry?.description), 260),
+      source: null,
+      score: scoreTextAgainstKeywords(`${name} ${entry?.description || ''}`, keywords, index),
+      state: 'pending',
+      generatedBy: 'ai_agent'
+    });
+  });
+
+  return {
+    itemSuggestions: itemSuggestions
+      .sort((a, b) => (b.score - a.score) || a.type.localeCompare(b.type))
+      .slice(0, MAX_ITEM_SUGGESTIONS),
+    conceptSuggestions: conceptSuggestions
+      .sort((a, b) => (b.score - a.score) || a.title.localeCompare(b.title))
+      .slice(0, MAX_CONCEPT_SUGGESTIONS)
+  };
+};
+
 const normalizePlan = (plan) => {
   const safe = plan && typeof plan === 'object' ? plan : {};
   return {
@@ -753,14 +1019,22 @@ const attachPlanToWorkspace = ({ workspaceInput, plan, candidateItems, timestamp
 const buildSemanticResultSet = async ({ userId, queries, types }) => {
   const semanticResults = [];
   for (const query of queries) {
-    const response = await semanticSearch({
-      userId,
-      query,
-      types,
-      limit: SEARCH_LIMIT_PER_QUERY
-    });
-    const matches = Array.isArray(response?.results) ? response.results : [];
-    semanticResults.push(...matches);
+    try {
+      const response = await semanticSearch({
+        userId,
+        query,
+        types,
+        limit: SEARCH_LIMIT_PER_QUERY
+      });
+      const matches = Array.isArray(response?.results) ? response.results : [];
+      semanticResults.push(...matches);
+    } catch (error) {
+      console.warn('[CONCEPT-AGENT] semantic search query failed, continuing with fallback', {
+        query,
+        status: error?.status || error?.response?.status || null,
+        message: error?.message || ''
+      });
+    }
   }
   return semanticResults;
 };
@@ -829,6 +1103,17 @@ async function createConceptSuggestionDraft({ conceptId, userId, mode = SUPPORTE
     });
     itemSuggestions = built.itemSuggestions;
     conceptSuggestions = built.conceptSuggestions;
+
+    if (itemSuggestions.length === 0 && conceptSuggestions.length === 0) {
+      const fallback = await buildFallbackSuggestionsFromLibrary({
+        userId: safeUserId,
+        conceptTitle,
+        conceptDescription,
+        concept
+      });
+      itemSuggestions = fallback.itemSuggestions;
+      conceptSuggestions = fallback.conceptSuggestions;
+    }
   }
 
   const draft = {
@@ -1093,6 +1378,14 @@ async function buildConceptWorkspace({ conceptId, userId, mode = SUPPORTED_MODE,
       queryResults: semanticResults,
       userId: safeUserId
     });
+
+    if (candidateItems.length === 0) {
+      candidateItems = await buildFallbackCandidateItemsFromLibrary({
+        userId: safeUserId,
+        conceptTitle,
+        conceptDescription
+      });
+    }
   }
 
   if (loops === 1) {
