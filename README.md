@@ -90,11 +90,12 @@ Workspace endpoints (JWT required):
 - `GET /api/concepts/:conceptId/workspace` -> returns workspace and lazily initializes default group if missing
 - `PUT /api/concepts/:conceptId/workspace` -> replaces workspace with validated payload
 - `PATCH /api/concepts/:conceptId/workspace` -> applies operation payload `{ op, payload }`
-- `POST /api/concepts/:conceptId/agent/build` -> runs the library-only concept agent loop, then appends grouped plan output into the concept workspace
+- `POST /api/concepts/:conceptId/agent/build` -> runs the library-only concept agent loop. Supports `preview: true` for confirm-before-apply, and `applyPreview: true` to apply the latest stored preview.
 - `POST /api/concepts/:conceptId/agent/suggest` -> generates AI draft suggestions from your library for the concept (`library_only`)
 - `GET /api/concepts/:conceptId/agent/suggestions` -> returns active AI-generated draft suggestions (pending + accepted, excluding discarded)
 - `POST /api/concepts/:conceptId/agent/suggestions/:draftId/accept` -> accepts selected or all pending AI draft suggestions; accepted items are added to workspace Inbox
 - `POST /api/concepts/:conceptId/agent/suggestions/:draftId/discard` -> discards selected or all pending AI draft suggestions
+- `GET /api/debug/agent-metrics` -> returns in-memory observability counters for scout/build and AI upstream outcomes
 
 AI draft suggestions are explicitly marked as AI-generated, require user acceptance to enter Inbox, and persist until discarded.
 
