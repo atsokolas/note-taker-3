@@ -148,18 +148,38 @@ const buildConceptService = ({ Article, TagMeta, NotebookEntry, ReferenceEdge, m
     const existing = await TagMeta.findOne({ name: new RegExp(`^${cleanName}$`, 'i'), userId: userObjectId });
     const { description = '', pinnedHighlightIds = [], pinnedArticleIds = [], pinnedNoteIds = [] } = payload;
     const isPublic = payload.isPublic !== undefined ? Boolean(payload.isPublic) : existing?.isPublic || false;
-    let slug = payload.slug !== undefined ? slugify(payload.slug) : (existing?.slug || '');
-    if (isPublic && !slug) {
-      slug = await getUniqueSlug(cleanName, existing?._id);
+
+    // Keep slug only for public concepts. Avoid persisting empty-string slugs,
+    // which conflict with the unique sparse index.
+    let nextSlug = '';
+    if (isPublic) {
+      nextSlug = payload.slug !== undefined ? slugify(payload.slug) : (existing?.slug || '');
+      if (!nextSlug) {
+        nextSlug = await getUniqueSlug(cleanName, existing?._id);
+      } else {
+        nextSlug = await getUniqueSlug(nextSlug, existing?._id);
+      }
     }
-    if (slug) {
-      slug = await getUniqueSlug(slug, existing?._id);
-    }
-    const updated = await TagMeta.findOneAndUpdate(
-      { name: new RegExp(`^${cleanName}$`, 'i'), userId: userObjectId },
-      { name: cleanName, description, pinnedHighlightIds, pinnedArticleIds, pinnedNoteIds, isPublic, slug },
-      { new: true, upsert: true, setDefaultsOnInsert: true }
-    );
+
+    const query = { name: new RegExp(`^${cleanName}$`, 'i'), userId: userObjectId };
+    const setDoc = {
+      name: cleanName,
+      description,
+      pinnedHighlightIds,
+      pinnedArticleIds,
+      pinnedNoteIds,
+      isPublic
+    };
+    if (nextSlug) setDoc.slug = nextSlug;
+    const updateDoc = nextSlug
+      ? { $set: setDoc }
+      : { $set: setDoc, $unset: { slug: '' } };
+
+    const updated = await TagMeta.findOneAndUpdate(query, updateDoc, {
+      new: true,
+      upsert: true,
+      setDefaultsOnInsert: true
+    });
     return updated;
   };
 
