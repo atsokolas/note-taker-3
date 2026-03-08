@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import api from '../api';
 import { useNavigate } from 'react-router-dom';
 import logo from '../assets/logo.png';
@@ -10,6 +10,20 @@ const Login = ({ onLoginSuccess, chromeStoreLink, brandEnergy = true }) => {
     const [message, setMessage] = useState('');
     const [isError, setIsError] = useState(false);
     const navigate = useNavigate();
+
+    useEffect(() => {
+        try {
+            const reason = sessionStorage.getItem('auth_redirect_reason');
+            if (!reason) return;
+            sessionStorage.removeItem('auth_redirect_reason');
+            if (reason === 'expired') {
+                setMessage('Your session expired. Please log in again.');
+                setIsError(true);
+            }
+        } catch (_error) {
+            // ignore storage failures
+        }
+    }, []);
 
     const handleLogin = async (e) => {
         e.preventDefault();
