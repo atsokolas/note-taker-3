@@ -352,10 +352,6 @@ const ThinkMode = () => {
     if (!normalized) return null;
     return concepts.find((item) => normalizeConceptName(item.name).toLowerCase() === normalized) || null;
   }, [concepts, normalizeConceptName]);
-  const normalizedConceptDraft = useMemo(
-    () => normalizeConceptName(conceptComposerDraft),
-    [conceptComposerDraft, normalizeConceptName]
-  );
   const filteredNotebookEntries = useMemo(() => {
     if (!searchQuery) return notebookEntries;
     return notebookEntries.filter((entry) =>
@@ -977,7 +973,10 @@ const ThinkMode = () => {
 
     setConceptComposerSaving(true);
     setConceptComposerScouting(false);
-    setConceptComposerStatus(CONCEPT_COMPOSER_DEFAULT_STATE);
+    setConceptComposerStatus({
+      message: runScout ? 'Creating concept and preparing AI scout...' : 'Creating concept...',
+      tone: 'success'
+    });
     setConceptError('');
     try {
       const updatedConcept = await updateConcept(candidate, { description });
@@ -1759,7 +1758,7 @@ const ThinkMode = () => {
           <Button
             variant="secondary"
             onClick={() => submitConceptComposer(conceptComposerDraft, 'composer')}
-            disabled={conceptComposerSaving || !normalizedConceptDraft}
+            disabled={conceptComposerSaving}
             data-testid="think-concept-composer-submit"
           >
             {conceptComposerSaving ? 'Creating…' : 'Create'}
@@ -1777,6 +1776,14 @@ const ThinkMode = () => {
             Cancel
           </QuietButton>
         </div>
+        {conceptComposerStatus.message && (
+          <p className={`think-concept-composer-status ${conceptComposerStatus.tone === 'error' ? 'is-error' : 'is-success'}`}>
+            {(conceptComposerSaving || conceptComposerScouting) && (
+              <span className="think-inline-spinner" aria-hidden="true" />
+            )}
+            {conceptComposerStatus.message}
+          </p>
+        )}
       </div>
     );
   };
@@ -1863,7 +1870,7 @@ const ThinkMode = () => {
             {renderConceptComposer('sidebar')}
           </div>
         </div>
-        {conceptComposerStatus.message && (
+        {conceptComposerStatus.message && !conceptComposerOpen && (
           <p
             className={`think-concept-composer-status ${conceptComposerStatus.tone === 'error' ? 'is-error' : 'is-success'}`}
             data-testid="think-concept-composer-status"
