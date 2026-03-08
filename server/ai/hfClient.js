@@ -1,4 +1,5 @@
-const { InferenceClient } = require('@huggingface/inference');
+const hfSdk = require('@huggingface/inference');
+const { InferenceClient, HfInference } = hfSdk;
 
 const DEFAULT_MODEL = 'sentence-transformers/all-MiniLM-L6-v2';
 const DEFAULT_TIMEOUT_MS = 30000;
@@ -8,6 +9,22 @@ const getConfig = () => ({
   model: process.env.HF_EMBEDDING_MODEL || DEFAULT_MODEL,
   timeoutMs: Number(process.env.HF_TIMEOUT_MS || DEFAULT_TIMEOUT_MS)
 });
+
+const createInferenceClient = (token) => {
+  if (typeof InferenceClient === 'function') {
+    return new InferenceClient(token);
+  }
+  if (typeof HfInference === 'function') {
+    return new HfInference(token);
+  }
+  const err = new Error('HF SDK client constructor not found.');
+  err.status = 502;
+  err.payload = {
+    error: 'HF SDK incompatible',
+    message: 'No compatible inference client constructor exported by @huggingface/inference.'
+  };
+  throw err;
+};
 
 const startupConfig = getConfig();
 console.log('[HF] inference client', {
@@ -68,7 +85,16 @@ const embedTexts = async (texts = [], options = {}) => {
     throw err;
   }
   const inputs = Array.isArray(texts) ? texts : [];
-  const client = new InferenceClient(token);
+  const client = createInferenceClient(token);
+  if (typeof client.featureExtraction !== 'function') {
+    const err = new Error('HF SDK missing featureExtraction().');
+    err.status = 502;
+    err.payload = {
+      error: 'HF SDK incompatible',
+      message: 'Inference client does not expose featureExtraction().'
+    };
+    throw err;
+  }
   const request = client.featureExtraction({
     model,
     inputs,

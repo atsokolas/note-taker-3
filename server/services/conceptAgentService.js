@@ -1105,12 +1105,6 @@ async function buildConceptWorkspace({ conceptId, userId, mode = SUPPORTED_MODE,
     };
   }
 
-  if (!candidateItems.length) {
-    const error = new Error('Concept agent retrieval produced no candidate items. Try adding more source material before building.');
-    error.status = 422;
-    throw error;
-  }
-
   const planResponse = await planConcept({
     concept_title: conceptTitle,
     concept_description: conceptDescription || null,

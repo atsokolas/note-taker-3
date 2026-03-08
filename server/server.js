@@ -368,7 +368,15 @@ const tagMetaSchema = new mongoose.Schema({
   workspaceTemplateId: { type: String, default: '', trim: true },
   workspaceTemplateName: { type: String, default: '', trim: true },
   isPublic: { type: Boolean, default: false },
-  slug: { type: String, default: '', trim: true },
+  slug: {
+    type: String,
+    trim: true,
+    default: undefined,
+    set: (value) => {
+      const normalized = String(value || '').trim();
+      return normalized || undefined;
+    }
+  },
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }
 }, { timestamps: true });
 
