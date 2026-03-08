@@ -924,6 +924,109 @@ const normalizePlan = (plan) => {
   };
 };
 
+const buildLocalFallbackPlan = ({ conceptTitle, conceptDescription, initialQueries, candidateItems }) => {
+  const title = toSafeString(conceptTitle) || 'Concept';
+  const description = toSafeString(conceptDescription);
+  const ranked = (Array.isArray(candidateItems) ? candidateItems : [])
+    .slice()
+    .sort((a, b) => (toSafeScore(b?.score) - toSafeScore(a?.score)));
+
+  const topRefs = ranked.slice(0, 24);
+  const chunkedRefs = [topRefs.slice(0, 8), topRefs.slice(8, 16), topRefs.slice(16, 24)];
+  const groupTemplates = [
+    {
+      title: `${title} - core signals`,
+      description: 'High-signal sources likely to shape the central argument.'
+    },
+    {
+      title: `${title} - supporting context`,
+      description: 'Background sources that add nuance and counterpoints.'
+    },
+    {
+      title: `${title} - follow-up leads`,
+      description: 'Additional sources worth reviewing after the core narrative is drafted.'
+    }
+  ];
+
+  const groups = groupTemplates.map((template, index) => ({
+    title: template.title,
+    description: template.description,
+    item_refs: chunkedRefs[index].map(item => ({
+      type: item.type === 'highlight' ? 'highlight' : 'article',
+      id: toSafeString(item.id),
+      why: `Matched concept keywords with score ${toSafeScore(item.score).toFixed(3)}.`
+    }))
+  }));
+
+  const topHighlights = ranked
+    .filter(item => item?.type === 'highlight' && toSafeString(item?.id))
+    .slice(0, 5);
+
+  const claims = topHighlights.map((item, index) => ({
+    claim: `${title}: claim candidate ${index + 1}`,
+    evidence: [{
+      type: 'highlight',
+      id: toSafeString(item.id),
+      quote: buildSnippet(item.text || '', 180)
+    }],
+    confidence: 'medium'
+  }));
+
+  const outline = [
+    { heading: `${title} at a glance`, bullets: ['Define the problem and scope.', 'Summarize why this concept matters now.'] },
+    { heading: 'Key themes', bullets: ['Identify recurring ideas across top sources.', 'Highlight key terminology and assumptions.'] },
+    { heading: 'Evidence review', bullets: ['Compare strongest highlights and snippets.', 'Note conflicts and open ambiguities.'] },
+    { heading: 'Synthesis', bullets: ['Draft a coherent narrative from grouped sources.', 'Separate facts, interpretations, and hypotheses.'] },
+    { heading: 'Action plan', bullets: ['Pick immediate follow-up reading.', 'Define next 1-2 concrete experiments.'] }
+  ];
+
+  const openQuestions = [
+    `What is the strongest definition of "${title}" for this workspace?`,
+    `Which sources provide the most credible evidence for "${title}"?`,
+    'Where do the top sources disagree, and why?',
+    `What assumptions about "${title}" still need validation?`,
+    'What evidence is missing for a confident synthesis?'
+  ];
+
+  const nextActions = [
+    'Review top-ranked sources and accept the most relevant items into Inbox.',
+    'Write a short synthesis summary using the grouped evidence.',
+    'Capture unresolved questions and assign follow-up research tasks.'
+  ];
+
+  const queries = (() => {
+    const base = Array.isArray(initialQueries) ? initialQueries.map(entry => toSafeString(entry)).filter(Boolean) : [];
+    const fallbacks = [
+      title,
+      `${title} overview`,
+      `${title} key concepts`,
+      `${title} examples`,
+      `${title} tradeoffs`,
+      description ? `${title} ${description.split(/\s+/).slice(0, 8).join(' ')}` : `${title} deep dive`
+    ];
+    const merged = [...base, ...fallbacks];
+    const seen = new Set();
+    const out = [];
+    merged.forEach((query) => {
+      const clean = toSafeString(query).replace(/\s+/g, ' ');
+      const key = clean.toLowerCase();
+      if (!clean || seen.has(key)) return;
+      seen.add(key);
+      out.push(clean);
+    });
+    return out.slice(0, 12);
+  })();
+
+  return {
+    queries,
+    groups,
+    outline,
+    claims,
+    open_questions: openQuestions,
+    next_actions: nextActions
+  };
+};
+
 const formatGroupTitle = (timestampLabel, title) => {
   const suffix = toSafeString(title) || 'Theme';
   return `${AGENT_BUILD_PREFIX} ${timestampLabel} · ${suffix}`.slice(0, 180);
@@ -1506,11 +1609,28 @@ async function buildConceptWorkspace({ conceptId, userId, mode = SUPPORTED_MODE,
     };
   }
 
-  const planResponse = await planConcept({
-    concept_title: conceptTitle,
-    concept_description: conceptDescription || null,
-    candidate_items: candidateItems
-  });
+  let planResponse;
+  try {
+    planResponse = await planConcept({
+      concept_title: conceptTitle,
+      concept_description: conceptDescription || null,
+      candidate_items: candidateItems
+    });
+  } catch (error) {
+    if (!isTransientSemanticUpstreamError(error)) throw error;
+    console.warn('[AGENT-BUILD] planConcept unavailable, using local fallback plan', {
+      conceptId: safeConceptId,
+      userId: safeUserId,
+      status: error?.status || error?.response?.status || null,
+      message: error?.message || ''
+    });
+    planResponse = buildLocalFallbackPlan({
+      conceptTitle,
+      conceptDescription,
+      initialQueries,
+      candidateItems
+    });
+  }
   const plan = normalizePlan(planResponse);
   const timestampIso = new Date().toISOString();
   const timestampLabel = timestampIso.replace('T', ' ').replace(/\.\d{3}Z$/, ' UTC');
