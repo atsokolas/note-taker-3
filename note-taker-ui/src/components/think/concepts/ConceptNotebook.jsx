@@ -464,6 +464,8 @@ const ConceptNotebook = ({ concept }) => {
   const [addingMaterial, setAddingMaterial] = useState(false);
   const [buildingFromLibrary, setBuildingFromLibrary] = useState(false);
   const [scoutingFromLibrary, setScoutingFromLibrary] = useState(false);
+  const [agentProgressMessage, setAgentProgressMessage] = useState('');
+  const [buildPreview, setBuildPreview] = useState(null);
   const [agentDrafts, setAgentDrafts] = useState([]);
   const [agentDraftsLoading, setAgentDraftsLoading] = useState(false);
   const [agentDraftsError, setAgentDraftsError] = useState('');
@@ -473,6 +475,7 @@ const ConceptNotebook = ({ concept }) => {
   const pendingWorkspaceRef = useRef(null);
   const pendingSaveTimerRef = useRef(null);
   const pendingSaveToastRef = useRef('');
+  const agentProgressTimerRef = useRef(null);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
@@ -525,6 +528,41 @@ const ConceptNotebook = ({ concept }) => {
     if (pendingSaveTimerRef.current) {
       window.clearTimeout(pendingSaveTimerRef.current);
     }
+    if (agentProgressTimerRef.current) {
+      window.clearTimeout(agentProgressTimerRef.current);
+    }
+  }, []);
+
+  const resetAgentProgress = useCallback(() => {
+    if (agentProgressTimerRef.current) {
+      window.clearTimeout(agentProgressTimerRef.current);
+      agentProgressTimerRef.current = null;
+    }
+    setAgentProgressMessage('');
+  }, []);
+
+  const queueAgentProgress = useCallback((messages = []) => {
+    if (agentProgressTimerRef.current) {
+      window.clearTimeout(agentProgressTimerRef.current);
+      agentProgressTimerRef.current = null;
+    }
+    const safeMessages = Array.isArray(messages) ? messages.filter(Boolean) : [];
+    if (!safeMessages.length) {
+      setAgentProgressMessage('');
+      return;
+    }
+    setAgentProgressMessage(String(safeMessages[0]));
+    if (safeMessages.length < 2) return;
+    let index = 1;
+    const step = () => {
+      if (index >= safeMessages.length) return;
+      setAgentProgressMessage(String(safeMessages[index]));
+      index += 1;
+      if (index < safeMessages.length) {
+        agentProgressTimerRef.current = window.setTimeout(step, 1400);
+      }
+    };
+    agentProgressTimerRef.current = window.setTimeout(step, 1400);
   }, []);
 
   const queueWorkspaceSave = useCallback((nextWorkspace, successMessage = '') => {
@@ -887,37 +925,81 @@ const ConceptNotebook = ({ concept }) => {
   const handleBuildFromLibrary = useCallback(async () => {
     if (!conceptId || buildingFromLibrary) return;
     setBuildingFromLibrary(true);
-    setToast({ message: 'Building workspace from your library...', tone: 'success' });
+    queueAgentProgress(['Searching library...', 'Planning workspace...']);
+    setToast({ message: 'Generating build preview from your library...', tone: 'success' });
     try {
       const response = await buildConceptWorkspaceFromLibrary(conceptId, {
         mode: 'library_only',
-        maxLoops: 2
+        maxLoops: 2,
+        preview: true
       });
-      await refreshWorkspace();
-      await refreshMaterial();
-      const createdGroups = Number(response?.summary?.createdGroups || 0);
-      const linkedItems = Number(response?.summary?.linkedItems || 0);
-      if (createdGroups > 0 || linkedItems > 0) {
-        setToast({
-          message: `Build complete: ${createdGroups} groups, ${linkedItems} items linked.`,
-          tone: 'success'
-        });
-      } else {
-        setToast({ message: 'Build complete.', tone: 'success' });
-      }
+      const summary = response?.summary || {};
+      setBuildPreview({
+        createdAt: new Date().toISOString(),
+        candidateItems: Number(summary?.candidateItems || 0),
+        outlineHeadings: Number(summary?.outlineHeadings || 0),
+        claims: Number(summary?.claims || 0),
+        openQuestions: Number(summary?.openQuestions || 0),
+        previewGroupTitles: Array.isArray(summary?.previewGroupTitles) ? summary.previewGroupTitles : [],
+        usedFallbackPlan: Boolean(summary?.usedFallbackPlan),
+        usedFallbackCandidates: Boolean(summary?.usedFallbackCandidates)
+      });
+      const usedFallback = Boolean(summary?.usedFallbackPlan || summary?.usedFallbackCandidates);
+      setToast({
+        message: usedFallback
+          ? 'Preview ready. Using fallback planning due to AI rate limits.'
+          : 'Preview ready. Review and click Apply build.',
+        tone: 'success'
+      });
     } catch (error) {
       setToast({
         message: error.response?.data?.error || 'Failed to build from library.',
         tone: 'error'
       });
     } finally {
+      resetAgentProgress();
       setBuildingFromLibrary(false);
     }
-  }, [buildingFromLibrary, conceptId, refreshMaterial, refreshWorkspace]);
+  }, [buildingFromLibrary, conceptId, queueAgentProgress, resetAgentProgress]);
+
+  const handleApplyBuildPreview = useCallback(async () => {
+    if (!conceptId || buildingFromLibrary || !buildPreview) return;
+    setBuildingFromLibrary(true);
+    queueAgentProgress(['Applying preview to workspace...']);
+    setToast({ message: 'Applying build preview...', tone: 'success' });
+    try {
+      const response = await buildConceptWorkspaceFromLibrary(conceptId, {
+        mode: 'library_only',
+        maxLoops: 2,
+        applyPreview: true
+      });
+      await refreshWorkspace();
+      await refreshMaterial();
+      setBuildPreview(null);
+      const createdGroups = Number(response?.summary?.createdGroups || 0);
+      const linkedItems = Number(response?.summary?.linkedItems || 0);
+      const usedFallback = Boolean(response?.summary?.usedFallbackPlan || response?.summary?.usedFallbackCandidates);
+      setToast({
+        message: usedFallback
+          ? `Build complete (${createdGroups} groups, ${linkedItems} links). Used fallback due to rate limits.`
+          : `Build complete: ${createdGroups} groups, ${linkedItems} items linked.`,
+        tone: 'success'
+      });
+    } catch (error) {
+      setToast({
+        message: error.response?.data?.error || 'Failed to apply build preview.',
+        tone: 'error'
+      });
+    } finally {
+      resetAgentProgress();
+      setBuildingFromLibrary(false);
+    }
+  }, [buildPreview, buildingFromLibrary, conceptId, queueAgentProgress, refreshMaterial, refreshWorkspace, resetAgentProgress]);
 
   const handleRunAiScout = useCallback(async () => {
     if (!conceptId || scoutingFromLibrary) return;
     setScoutingFromLibrary(true);
+    queueAgentProgress(['Searching library...', 'Generating AI draft suggestions...']);
     setToast({ message: 'Running AI scout on your library...', tone: 'success' });
     try {
       const response = await suggestConceptWorkspaceFromLibrary(conceptId, {
@@ -927,8 +1009,11 @@ const ConceptNotebook = ({ concept }) => {
       await loadAgentDrafts();
       const itemCount = Number(response?.summary?.itemSuggestions || 0);
       const conceptCount = Number(response?.summary?.conceptSuggestions || 0);
+      const usedFallback = Boolean(response?.summary?.usedFallbackSuggestions);
       setToast({
-        message: `AI draft ready: ${itemCount} items and ${conceptCount} concepts.`,
+        message: usedFallback
+          ? `AI draft ready: ${itemCount} items and ${conceptCount} concepts (fallback mode).`
+          : `AI draft ready: ${itemCount} items and ${conceptCount} concepts.`,
         tone: 'success'
       });
     } catch (error) {
@@ -940,9 +1025,10 @@ const ConceptNotebook = ({ concept }) => {
         tone: 'error'
       });
     } finally {
+      resetAgentProgress();
       setScoutingFromLibrary(false);
     }
-  }, [conceptId, loadAgentDrafts, scoutingFromLibrary]);
+  }, [conceptId, loadAgentDrafts, queueAgentProgress, resetAgentProgress, scoutingFromLibrary]);
 
   const handleDraftAction = useCallback(async ({ draftId, action, suggestionIds } = {}) => {
     if (!conceptId || !draftId || !action || agentDraftActionLoading) return;
@@ -1022,7 +1108,23 @@ const ConceptNotebook = ({ concept }) => {
                 disabled={buildingFromLibrary || workspaceLoading}
                 data-testid="concept-build-library-button"
               >
-                {buildingFromLibrary ? 'Building...' : 'Build from my library'}
+                {buildingFromLibrary ? 'Building...' : (buildPreview ? 'Refresh preview' : 'Build from my library')}
+              </Button>
+              <Button
+                variant="secondary"
+                onClick={handleApplyBuildPreview}
+                disabled={!buildPreview || buildingFromLibrary || workspaceLoading}
+                data-testid="concept-apply-build-preview-button"
+              >
+                Apply build
+              </Button>
+              <Button
+                variant="secondary"
+                onClick={() => setBuildPreview(null)}
+                disabled={!buildPreview || buildingFromLibrary}
+                data-testid="concept-discard-build-preview-button"
+              >
+                Dismiss preview
               </Button>
               <Button
                 variant="secondary"
@@ -1034,6 +1136,34 @@ const ConceptNotebook = ({ concept }) => {
             </div>
           )}
         />
+
+        {(buildingFromLibrary || scoutingFromLibrary || agentProgressMessage) && (
+          <p className="muted small" aria-live="polite">{agentProgressMessage}</p>
+        )}
+
+        {buildPreview && (
+          <div className="concept-outline__ai-draft-group" data-testid="concept-build-preview-panel">
+            <div className="concept-outline__ai-draft-group-head">
+              <p className="concept-outline__ai-draft-subtitle">Build preview (AI generated)</p>
+              <div className="concept-outline__drawer-meta">
+                <span className="concept-outline__meta-chip">{buildPreview.candidateItems} candidates</span>
+                <span className="concept-outline__meta-chip">{buildPreview.outlineHeadings} outline headings</span>
+                <span className="concept-outline__meta-chip">{buildPreview.claims} claims</span>
+                <span className="concept-outline__meta-chip">{buildPreview.openQuestions} open questions</span>
+                {(buildPreview.usedFallbackPlan || buildPreview.usedFallbackCandidates) && (
+                  <span className="concept-outline__meta-chip">fallback mode</span>
+                )}
+              </div>
+            </div>
+            {Array.isArray(buildPreview.previewGroupTitles) && buildPreview.previewGroupTitles.length > 0 && (
+              <ul className="concept-template-modal__tips">
+                {buildPreview.previewGroupTitles.map((title, index) => (
+                  <li key={`preview-group-${index}`}>{title}</li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
 
         <div className="concept-outline__ai-draft">
           <div className="concept-outline__ai-draft-head">

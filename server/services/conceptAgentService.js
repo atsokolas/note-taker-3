@@ -2,6 +2,7 @@ const crypto = require('crypto');
 const mongoose = require('mongoose');
 const { ensureWorkspace, applyPatchOp } = require('../utils/workspaceUtils');
 const { semanticSearch, planConcept } = require('../config/aiClient');
+const { logAgentMetric } = require('../utils/agentMetrics');
 
 const SUPPORTED_MODE = 'library_only';
 const MAX_INITIAL_QUERIES = 6;
@@ -13,6 +14,10 @@ const SEARCH_LIMIT_PER_QUERY = 20;
 const AGENT_BUILD_PREFIX = 'Agent Build';
 const FALLBACK_MIN_KEYWORD_MATCHES = 1;
 const FALLBACK_MIN_SCORE = 0.35;
+const SEMANTIC_MIN_KEYWORD_SCORE = 0.28;
+const MAX_ITEMS_PER_SOURCE = 4;
+const MAX_HIGHLIGHTS_PER_ARTICLE = 2;
+const AGENT_PREVIEW_MAX_AGE_MS = 30 * 60 * 1000;
 const FALLBACK_STOPWORDS = new Set([
   'the', 'and', 'for', 'with', 'from', 'that', 'this', 'these', 'those',
   'into', 'onto', 'about', 'your', 'you', 'are', 'was', 'were', 'have', 'has',
@@ -77,6 +82,19 @@ const extractHost = (urlValue) => {
     return parsed.hostname || raw;
   } catch (_err) {
     return raw;
+  }
+};
+
+const canonicalSourceKey = (value = '') => {
+  const raw = toSafeString(value);
+  if (!raw) return '';
+  try {
+    const url = new URL(raw);
+    return String(url.hostname || '').toLowerCase().replace(/^www\./, '');
+  } catch (_error) {
+    const withoutProtocol = raw.toLowerCase().replace(/^https?:\/\//, '');
+    const withoutWww = withoutProtocol.replace(/^www\./, '');
+    return withoutWww.split('/')[0].trim();
   }
 };
 
@@ -350,8 +368,9 @@ const fetchConceptDetails = async ({ userId, conceptIds }) => {
   return map;
 };
 
-const buildCandidateItems = async ({ queryResults, userId }) => {
+const buildCandidateItems = async ({ queryResults, userId, conceptTitle, conceptDescription }) => {
   const allParsed = [];
+  const keywords = buildKeywordList({ title: conceptTitle, description: conceptDescription });
   (Array.isArray(queryResults) ? queryResults : []).forEach((result) => {
     const identity = parseSemanticResultIdentity(result, ['article', 'highlight']);
     if (!identity) return;
@@ -402,13 +421,25 @@ const buildCandidateItems = async ({ queryResults, userId }) => {
     }
 
     if (!text) return;
+    const lexicalScore = scoreTextAgainstKeywords(
+      `${title || ''} ${text || ''}`,
+      keywords,
+      0
+    );
+    if (lexicalScore < SEMANTIC_MIN_KEYWORD_SCORE) return;
+    const semanticScore = toSafeScore(entry.score);
+    const blendedScore = Number(((semanticScore * 0.8) + (lexicalScore * 0.2)).toFixed(4));
+
     const candidate = {
       type,
       id,
       title: title || null,
       text,
       source: source || extractHost(linkedArticle?.url || '') || null,
-      score: entry.score
+      score: blendedScore,
+      _semanticScore: semanticScore,
+      _keywordScore: lexicalScore,
+      _articleId: linkedArticleId || id
     };
 
     const existing = deduped.get(key);
@@ -425,9 +456,12 @@ const buildCandidateItems = async ({ queryResults, userId }) => {
     if (!existing.source && candidate.source) existing.source = candidate.source;
   });
 
-  return Array.from(deduped.values())
+  const ranked = Array.from(deduped.values())
     .sort((a, b) => (b.score - a.score) || a.type.localeCompare(b.type))
-    .slice(0, MAX_CANDIDATE_ITEMS);
+    .slice(0, MAX_CANDIDATE_ITEMS * 2);
+
+  return diversifyCandidateItems(ranked, { maxTotal: MAX_CANDIDATE_ITEMS })
+    .map(({ _semanticScore, _keywordScore, _articleId, ...rest }) => rest);
 };
 
 const buildSuggestionItems = async ({ queryResults, userId, concept }) => {
@@ -489,6 +523,7 @@ const buildSuggestionItems = async ({ queryResults, userId, concept }) => {
         title: article.title || 'Article',
         text: buildSnippet(entry.document || article.content, 360),
         source: article.url || extractHost(article.url) || null,
+        _articleId: article.id,
         score,
         state: 'pending',
         generatedBy: 'ai_agent'
@@ -511,6 +546,7 @@ const buildSuggestionItems = async ({ queryResults, userId, concept }) => {
         title: highlight.articleTitle || 'Highlight',
         text: note ? `${quote} (Note: ${note})` : quote,
         source: linkedArticle?.url || null,
+        _articleId: highlight.articleId || highlight.id,
         score,
         state: 'pending',
         generatedBy: 'ai_agent'
@@ -579,10 +615,13 @@ const buildSuggestionItems = async ({ queryResults, userId, concept }) => {
     }
   });
 
+  const rankedItems = Array.from(itemSuggestionsMap.values())
+    .sort((a, b) => (b.score - a.score) || a.type.localeCompare(b.type))
+    .slice(0, MAX_ITEM_SUGGESTIONS * 2);
+
   return {
-    itemSuggestions: Array.from(itemSuggestionsMap.values())
-      .sort((a, b) => (b.score - a.score) || a.type.localeCompare(b.type))
-      .slice(0, MAX_ITEM_SUGGESTIONS),
+    itemSuggestions: diversifyCandidateItems(rankedItems, { maxTotal: MAX_ITEM_SUGGESTIONS })
+      .map(({ _articleId, ...rest }) => rest),
     conceptSuggestions: Array.from(conceptSuggestionsMap.values())
       .sort((a, b) => (b.score - a.score) || a.title.localeCompare(b.title))
       .slice(0, MAX_CONCEPT_SUGGESTIONS)
@@ -648,6 +687,44 @@ const dedupeSuggestionItems = (items = []) => {
     }
   });
   return Array.from(keyed.values());
+};
+
+const diversifyCandidateItems = (
+  items = [],
+  {
+    maxPerSource = MAX_ITEMS_PER_SOURCE,
+    maxHighlightsPerArticle = MAX_HIGHLIGHTS_PER_ARTICLE,
+    maxTotal = MAX_CANDIDATE_ITEMS
+  } = {}
+) => {
+  const sourceCounts = new Map();
+  const articleHighlightCounts = new Map();
+  const selected = [];
+
+  (Array.isArray(items) ? items : []).forEach((item) => {
+    if (selected.length >= maxTotal) return;
+    const sourceKey = canonicalSourceKey(item?.source);
+    const articleKey = toSafeString(item?._articleId || item?.id);
+    const type = toSafeString(item?.type).toLowerCase();
+
+    if (sourceKey) {
+      const sourceCount = sourceCounts.get(sourceKey) || 0;
+      if (sourceCount >= maxPerSource) return;
+    }
+
+    if (type === 'highlight' && articleKey) {
+      const highlightCount = articleHighlightCounts.get(articleKey) || 0;
+      if (highlightCount >= maxHighlightsPerArticle) return;
+    }
+
+    selected.push(item);
+    if (sourceKey) sourceCounts.set(sourceKey, (sourceCounts.get(sourceKey) || 0) + 1);
+    if (type === 'highlight' && articleKey) {
+      articleHighlightCounts.set(articleKey, (articleHighlightCounts.get(articleKey) || 0) + 1);
+    }
+  });
+
+  return selected;
 };
 
 const isTransientSemanticUpstreamError = (error) => {
@@ -730,9 +807,11 @@ const buildFallbackCandidateItemsFromLibrary = async ({ userId, conceptTitle, co
     });
   });
 
-  return Array.from(deduped.values())
+  const ranked = Array.from(deduped.values())
     .sort((a, b) => (b.score - a.score) || a.type.localeCompare(b.type))
-    .slice(0, MAX_CANDIDATE_ITEMS);
+    .slice(0, MAX_CANDIDATE_ITEMS * 2);
+
+  return diversifyCandidateItems(ranked, { maxTotal: MAX_CANDIDATE_ITEMS });
 };
 
 const buildFallbackSuggestionsFromLibrary = async ({ userId, conceptTitle, conceptDescription, concept }) => {
@@ -794,6 +873,7 @@ const buildFallbackSuggestionsFromLibrary = async ({ userId, conceptTitle, conce
           text: articleText,
           source: url,
           score,
+          _articleId: id,
           state: 'pending',
           generatedBy: 'ai_agent'
         });
@@ -823,6 +903,7 @@ const buildFallbackSuggestionsFromLibrary = async ({ userId, conceptTitle, conce
           text: note ? `${quote} (Note: ${note})` : quote,
           source: url,
           score,
+          _articleId: id,
           state: 'pending',
           generatedBy: 'ai_agent'
         });
@@ -902,10 +983,13 @@ const buildFallbackSuggestionsFromLibrary = async ({ userId, conceptTitle, conce
     });
   });
 
+  const rankedItems = dedupeSuggestionItems(itemSuggestions)
+    .sort((a, b) => (b.score - a.score) || a.type.localeCompare(b.type))
+    .slice(0, MAX_ITEM_SUGGESTIONS * 2);
+
   return {
-    itemSuggestions: dedupeSuggestionItems(itemSuggestions)
-      .sort((a, b) => (b.score - a.score) || a.type.localeCompare(b.type))
-      .slice(0, MAX_ITEM_SUGGESTIONS),
+    itemSuggestions: diversifyCandidateItems(rankedItems, { maxTotal: MAX_ITEM_SUGGESTIONS })
+      .map(({ _articleId, ...rest }) => rest),
     conceptSuggestions: dedupeSuggestionItems(conceptSuggestions)
       .sort((a, b) => (b.score - a.score) || a.title.localeCompare(b.title))
       .slice(0, MAX_CONCEPT_SUGGESTIONS)
@@ -1144,6 +1228,50 @@ const setStoredSuggestionDrafts = (concept, drafts) => {
   concept.markModified('meta');
 };
 
+const getStoredBuildPreview = (concept) => {
+  const meta = toPlainObject(concept?.get('meta'));
+  const workspace = meta && typeof meta === 'object' && !Array.isArray(meta) ? toPlainObject(meta.workspace) : null;
+  const raw = workspace && typeof workspace === 'object' && !Array.isArray(workspace)
+    ? workspace.agentBuildPreview
+    : null;
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+  const createdAt = toSafeString(raw.createdAt);
+  const createdAtMs = createdAt ? Date.parse(createdAt) : Number.NaN;
+  if (Number.isNaN(createdAtMs)) return null;
+  if ((Date.now() - createdAtMs) > AGENT_PREVIEW_MAX_AGE_MS) return null;
+  return {
+    createdAt,
+    mode: toSafeString(raw.mode) || SUPPORTED_MODE,
+    queries: Array.isArray(raw.queries) ? raw.queries.map(entry => toSafeString(entry)).filter(Boolean).slice(0, MAX_INITIAL_QUERIES) : [],
+    candidateItems: Array.isArray(raw.candidateItems) ? raw.candidateItems : [],
+    plan: normalizePlan(raw.plan || {}),
+    diagnostics: raw.diagnostics && typeof raw.diagnostics === 'object' ? raw.diagnostics : {}
+  };
+};
+
+const setStoredBuildPreview = (concept, payload = {}) => {
+  const nextMeta = ensureAgentMetaWorkspace(concept);
+  nextMeta.workspace.agentBuildPreview = {
+    createdAt: new Date().toISOString(),
+    mode: toSafeString(payload.mode) || SUPPORTED_MODE,
+    queries: Array.isArray(payload.queries) ? payload.queries.map(entry => toSafeString(entry)).filter(Boolean).slice(0, MAX_INITIAL_QUERIES) : [],
+    candidateItems: Array.isArray(payload.candidateItems) ? payload.candidateItems.slice(0, MAX_CANDIDATE_ITEMS) : [],
+    plan: normalizePlan(payload.plan || {}),
+    diagnostics: payload.diagnostics && typeof payload.diagnostics === 'object' ? payload.diagnostics : {}
+  };
+  concept.set('meta', nextMeta, { strict: false });
+  concept.markModified('meta');
+};
+
+const clearStoredBuildPreview = (concept) => {
+  const nextMeta = ensureAgentMetaWorkspace(concept);
+  if (nextMeta.workspace && Object.prototype.hasOwnProperty.call(nextMeta.workspace, 'agentBuildPreview')) {
+    delete nextMeta.workspace.agentBuildPreview;
+  }
+  concept.set('meta', nextMeta, { strict: false });
+  concept.markModified('meta');
+};
+
 const appendAgentWorkspaceMeta = ({ concept, timestampIso, mode, queries, plan, candidateItems }) => {
   const metaDoc = ensureAgentMetaWorkspace(concept);
   const previousMeta = metaDoc.workspace.agentBuilds || [];
@@ -1255,6 +1383,7 @@ async function createConceptSuggestionDraft({ conceptId, userId, mode = SUPPORTE
   const safeConceptId = toSafeString(conceptId);
   const safeMode = toSafeString(mode || SUPPORTED_MODE).toLowerCase();
   const loops = clampMaxLoops(maxLoops === undefined ? 2 : maxLoops);
+  logAgentMetric('scout.attempt', { mode: safeMode, loops: String(loops) });
 
   if (!safeUserId) {
     const error = new Error('createConceptSuggestionDraft requires userId.');
@@ -1299,6 +1428,7 @@ async function createConceptSuggestionDraft({ conceptId, userId, mode = SUPPORTE
 
   let itemSuggestions = [];
   let conceptSuggestions = [];
+  let usedFallbackSuggestions = false;
 
   if (loops >= 1) {
     const semanticResults = await buildSemanticResultSet({
@@ -1324,6 +1454,8 @@ async function createConceptSuggestionDraft({ conceptId, userId, mode = SUPPORTE
       });
       itemSuggestions = fallback.itemSuggestions;
       conceptSuggestions = fallback.conceptSuggestions;
+      usedFallbackSuggestions = true;
+      logAgentMetric('scout.fallback_suggestions', { mode: safeMode });
     }
   }
 
@@ -1342,13 +1474,21 @@ async function createConceptSuggestionDraft({ conceptId, userId, mode = SUPPORTE
   drafts.push(draft);
   setStoredSuggestionDrafts(concept, drafts);
   await concept.save();
+  logAgentMetric('scout.success', {
+    mode: safeMode,
+    fallback: usedFallbackSuggestions ? 'yes' : 'no'
+  }, {
+    itemSuggestions: draft.itemSuggestions.length,
+    conceptSuggestions: draft.conceptSuggestions.length
+  });
 
   return {
     conceptId: String(concept._id),
     draftId: draft.id,
     summary: {
       itemSuggestions: draft.itemSuggestions.length,
-      conceptSuggestions: draft.conceptSuggestions.length
+      conceptSuggestions: draft.conceptSuggestions.length,
+      usedFallbackSuggestions
     }
   };
 }
@@ -1530,11 +1670,26 @@ async function mutateConceptSuggestionDraft({ conceptId, userId, draftId, action
   };
 }
 
-async function buildConceptWorkspace({ conceptId, userId, mode = SUPPORTED_MODE, maxLoops } = {}) {
+async function buildConceptWorkspace({
+  conceptId,
+  userId,
+  mode = SUPPORTED_MODE,
+  maxLoops,
+  preview = false,
+  applyPreview = false
+} = {}) {
   const safeUserId = toSafeString(userId);
   const safeConceptId = toSafeString(conceptId);
   const safeMode = toSafeString(mode || SUPPORTED_MODE).toLowerCase();
   const loops = clampMaxLoops(maxLoops === undefined ? 2 : maxLoops);
+  const previewOnly = Boolean(preview);
+  const applyStoredPreview = Boolean(applyPreview);
+  logAgentMetric('build.attempt', {
+    mode: safeMode,
+    loops: String(loops),
+    preview: previewOnly ? 'yes' : 'no',
+    applypreview: applyStoredPreview ? 'yes' : 'no'
+  });
 
   if (!safeUserId) {
     const error = new Error('buildConceptWorkspace requires userId.');
@@ -1548,6 +1703,11 @@ async function buildConceptWorkspace({ conceptId, userId, mode = SUPPORTED_MODE,
   }
   if (safeMode !== SUPPORTED_MODE) {
     const error = new Error(`Unsupported mode "${safeMode}". Only "${SUPPORTED_MODE}" is currently supported.`);
+    error.status = 400;
+    throw error;
+  }
+  if (previewOnly && applyStoredPreview) {
+    const error = new Error('preview and applyPreview cannot both be true.');
     error.status = 400;
     throw error;
   }
@@ -1566,8 +1726,7 @@ async function buildConceptWorkspace({ conceptId, userId, mode = SUPPORTED_MODE,
     error.status = 400;
     throw error;
   }
-
-  const initialQueries = buildInitialQueries({
+  let initialQueries = buildInitialQueries({
     title: conceptTitle,
     description: conceptDescription
   });
@@ -1577,29 +1736,7 @@ async function buildConceptWorkspace({ conceptId, userId, mode = SUPPORTED_MODE,
     throw error;
   }
 
-  let candidateItems = [];
-  if (loops >= 1) {
-    const semanticResults = await buildSemanticResultSet({
-      userId: safeUserId,
-      queries: initialQueries,
-      types: ['article', 'highlight']
-    });
-
-    candidateItems = await buildCandidateItems({
-      queryResults: semanticResults,
-      userId: safeUserId
-    });
-
-    if (candidateItems.length === 0) {
-      candidateItems = await buildFallbackCandidateItemsFromLibrary({
-        userId: safeUserId,
-        conceptTitle,
-        conceptDescription
-      });
-    }
-  }
-
-  if (loops === 1) {
+  if (loops === 1 && !previewOnly) {
     return {
       createdGroups: 0,
       linkedItems: 0,
@@ -1608,30 +1745,124 @@ async function buildConceptWorkspace({ conceptId, userId, mode = SUPPORTED_MODE,
       openQuestions: 0
     };
   }
-
-  let planResponse;
-  try {
-    planResponse = await planConcept({
-      concept_title: conceptTitle,
-      concept_description: conceptDescription || null,
-      candidate_items: candidateItems
-    });
-  } catch (error) {
-    if (!isTransientSemanticUpstreamError(error)) throw error;
-    console.warn('[AGENT-BUILD] planConcept unavailable, using local fallback plan', {
-      conceptId: safeConceptId,
-      userId: safeUserId,
-      status: error?.status || error?.response?.status || null,
-      message: error?.message || ''
-    });
-    planResponse = buildLocalFallbackPlan({
-      conceptTitle,
-      conceptDescription,
-      initialQueries,
-      candidateItems
-    });
+  if (loops === 1 && previewOnly) {
+    const error = new Error('preview requires maxLoops >= 2.');
+    error.status = 400;
+    throw error;
   }
-  const plan = normalizePlan(planResponse);
+
+  let candidateItems = [];
+  let plan = null;
+  let usedFallbackCandidates = false;
+  let usedFallbackPlan = false;
+  let usedStoredPreview = false;
+
+  if (applyStoredPreview) {
+    const storedPreview = getStoredBuildPreview(concept);
+    if (!storedPreview) {
+      const error = new Error('No build preview is available. Generate a preview first.');
+      error.status = 400;
+      throw error;
+    }
+    usedStoredPreview = true;
+    initialQueries = Array.isArray(storedPreview.queries) && storedPreview.queries.length > 0
+      ? storedPreview.queries
+      : initialQueries;
+    candidateItems = Array.isArray(storedPreview.candidateItems) ? storedPreview.candidateItems : [];
+    plan = normalizePlan(storedPreview.plan || {});
+    usedFallbackCandidates = Boolean(storedPreview?.diagnostics?.usedFallbackCandidates);
+    usedFallbackPlan = Boolean(storedPreview?.diagnostics?.usedFallbackPlan);
+    logAgentMetric('build.use_stored_preview', { mode: safeMode });
+  } else {
+    const semanticResults = await buildSemanticResultSet({
+      userId: safeUserId,
+      queries: initialQueries,
+      types: ['article', 'highlight']
+    });
+
+    candidateItems = await buildCandidateItems({
+      queryResults: semanticResults,
+      userId: safeUserId,
+      conceptTitle,
+      conceptDescription
+    });
+
+    if (candidateItems.length === 0) {
+      usedFallbackCandidates = true;
+      logAgentMetric('build.fallback_candidates', { mode: safeMode });
+      candidateItems = await buildFallbackCandidateItemsFromLibrary({
+        userId: safeUserId,
+        conceptTitle,
+        conceptDescription
+      });
+    }
+
+    let planResponse;
+    try {
+      planResponse = await planConcept({
+        concept_title: conceptTitle,
+        concept_description: conceptDescription || null,
+        candidate_items: candidateItems
+      });
+    } catch (error) {
+      if (!isTransientSemanticUpstreamError(error)) throw error;
+      usedFallbackPlan = true;
+      logAgentMetric('build.fallback_plan', { mode: safeMode });
+      console.warn('[AGENT-BUILD] planConcept unavailable, using local fallback plan', {
+        conceptId: safeConceptId,
+        userId: safeUserId,
+        status: error?.status || error?.response?.status || null,
+        message: error?.message || ''
+      });
+      planResponse = buildLocalFallbackPlan({
+        conceptTitle,
+        conceptDescription,
+        initialQueries,
+        candidateItems
+      });
+    }
+    plan = normalizePlan(planResponse);
+  }
+
+  if (previewOnly) {
+    setStoredBuildPreview(concept, {
+      mode: safeMode,
+      queries: initialQueries,
+      candidateItems,
+      plan,
+      diagnostics: {
+        usedFallbackCandidates,
+        usedFallbackPlan
+      }
+    });
+    await concept.save();
+    logAgentMetric('build.preview_ready', {
+      mode: safeMode,
+      fallbackplan: usedFallbackPlan ? 'yes' : 'no',
+      fallbackcandidates: usedFallbackCandidates ? 'yes' : 'no'
+    }, {
+      candidateItems: candidateItems.length,
+      groupCount: plan.groups.length
+    });
+    return {
+      createdGroups: 0,
+      linkedItems: 0,
+      outlineHeadings: plan.outline.length,
+      claims: plan.claims.length,
+      openQuestions: plan.open_questions.length,
+      preview: true,
+      previewReady: true,
+      candidateItems: candidateItems.length,
+      previewGroupTitles: (Array.isArray(plan.groups) ? plan.groups : [])
+        .slice(0, 6)
+        .map(group => toSafeString(group?.title))
+        .filter(Boolean),
+      usedFallbackCandidates,
+      usedFallbackPlan,
+      usedStoredPreview: false
+    };
+  }
+
   const timestampIso = new Date().toISOString();
   const timestampLabel = timestampIso.replace('T', ' ').replace(/\.\d{3}Z$/, ' UTC');
 
@@ -1652,14 +1883,31 @@ async function buildConceptWorkspace({ conceptId, userId, mode = SUPPORTED_MODE,
     plan,
     candidateItems
   });
+  if (applyStoredPreview || usedStoredPreview) {
+    clearStoredBuildPreview(concept);
+  }
   await concept.save();
+  logAgentMetric('build.success', {
+    mode: safeMode,
+    fallbackplan: usedFallbackPlan ? 'yes' : 'no',
+    fallbackcandidates: usedFallbackCandidates ? 'yes' : 'no',
+    storedpreview: usedStoredPreview ? 'yes' : 'no'
+  }, {
+    createdGroups: attached.createdGroups,
+    linkedItems: attached.linkedItems
+  });
 
   return {
     createdGroups: attached.createdGroups,
     linkedItems: attached.linkedItems,
     outlineHeadings: attached.outlineHeadings,
     claims: attached.claims,
-    openQuestions: attached.openQuestions
+    openQuestions: attached.openQuestions,
+    preview: false,
+    usedFallbackCandidates,
+    usedFallbackPlan,
+    usedStoredPreview,
+    candidateItems: candidateItems.length
   };
 }
 
@@ -1667,5 +1915,12 @@ module.exports = {
   buildConceptWorkspace,
   createConceptSuggestionDraft,
   getConceptSuggestionDrafts,
-  mutateConceptSuggestionDraft
+  mutateConceptSuggestionDraft,
+  __testables: {
+    buildLocalFallbackPlan,
+    isTransientSemanticUpstreamError,
+    scoreTextAgainstKeywords,
+    diversifyCandidateItems,
+    buildKeywordList
+  }
 };

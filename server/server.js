@@ -679,6 +679,7 @@ const {
   getConceptSuggestionDrafts,
   mutateConceptSuggestionDraft
 } = require('./services/conceptAgentService');
+const { logAgentMetric, getAgentMetricsSnapshot } = require('./utils/agentMetrics');
 
 registerBrainSummaryHandler({ Article, BrainSummary });
 
@@ -7125,9 +7126,18 @@ app.post('/api/concepts/:conceptId/agent/build', authenticateToken, async (req, 
   try {
     const mode = String(req.body?.mode || 'library_only').trim().toLowerCase();
     const maxLoops = req.body?.maxLoops ?? 2;
+    const preview = Boolean(req.body?.preview);
+    const applyPreview = Boolean(req.body?.applyPreview);
+    logAgentMetric('route.build.attempt', {
+      preview: preview ? 'yes' : 'no',
+      applypreview: applyPreview ? 'yes' : 'no'
+    });
 
     if (mode !== 'library_only') {
       return res.status(400).json({ error: 'mode must be "library_only".' });
+    }
+    if (preview && applyPreview) {
+      return res.status(400).json({ error: 'preview and applyPreview cannot both be true.' });
     }
 
     const concept = await resolveConceptByParam(req.user.id, conceptId, { createIfMissing: false });
@@ -7143,7 +7153,9 @@ app.post('/api/concepts/:conceptId/agent/build', authenticateToken, async (req, 
       conceptId: String(concept._id),
       userId: String(req.user.id),
       mode,
-      maxLoops
+      maxLoops,
+      preview,
+      applyPreview
     });
 
     res.status(200).json({
@@ -7151,7 +7163,17 @@ app.post('/api/concepts/:conceptId/agent/build', authenticateToken, async (req, 
       summary,
       conceptId: String(concept._id)
     });
+    logAgentMetric('route.build.success', {
+      preview: preview ? 'yes' : 'no',
+      applypreview: applyPreview ? 'yes' : 'no',
+      fallbackplan: summary?.usedFallbackPlan ? 'yes' : 'no',
+      fallbackcandidates: summary?.usedFallbackCandidates ? 'yes' : 'no'
+    });
   } catch (error) {
+    logAgentMetric('route.build.error', {
+      status: String(Number(error?.status) || 500),
+      upstream: String(error?.payload?.upstream || 'none')
+    });
     if (Number(error?.status) === 400) {
       return res.status(400).json({ error: error?.message || 'Invalid agent build request.' });
     }
@@ -7181,6 +7203,7 @@ app.post('/api/concepts/:conceptId/agent/suggest', authenticateToken, async (req
   try {
     const mode = String(req.body?.mode || 'library_only').trim().toLowerCase();
     const maxLoops = req.body?.maxLoops ?? 2;
+    logAgentMetric('route.scout.attempt', { mode });
 
     if (mode !== 'library_only') {
       return res.status(400).json({ error: 'mode must be "library_only".' });
@@ -7196,13 +7219,22 @@ app.post('/api/concepts/:conceptId/agent/suggest', authenticateToken, async (req
       maxLoops
     });
 
-    return res.status(200).json({
+    const responsePayload = {
       ok: true,
       conceptId: String(concept._id),
       draftId: String(summary.draftId || ''),
       summary: summary.summary || { itemSuggestions: 0, conceptSuggestions: 0 }
+    };
+    logAgentMetric('route.scout.success', {
+      mode,
+      fallback: summary?.summary?.usedFallbackSuggestions ? 'yes' : 'no'
     });
+    return res.status(200).json(responsePayload);
   } catch (error) {
+    logAgentMetric('route.scout.error', {
+      status: String(Number(error?.status) || 500),
+      upstream: String(error?.payload?.upstream || 'none')
+    });
     if (Number(error?.status) === 400) {
       return res.status(400).json({ error: error?.message || 'Invalid suggestion request.' });
     }
@@ -7225,6 +7257,13 @@ app.post('/api/concepts/:conceptId/agent/suggest', authenticateToken, async (req
     console.error('❌ Error creating concept suggestion draft:', error);
     return res.status(500).json({ error: 'Failed to generate concept suggestions.' });
   }
+});
+
+app.get('/api/debug/agent-metrics', authenticateToken, async (_req, res) => {
+  return res.status(200).json({
+    ok: true,
+    metrics: getAgentMetricsSnapshot()
+  });
 });
 
 app.get('/api/concepts/:conceptId/agent/suggestions', authenticateToken, async (req, res) => {
