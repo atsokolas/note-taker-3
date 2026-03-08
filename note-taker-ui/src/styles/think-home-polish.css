@@ -368,6 +368,9 @@ html[data-ui-theme='dark'] {
   margin: 2px 0 0;
   font-size: 0.76rem;
   line-height: 1.4;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .think-concept-composer-status.is-success {
@@ -376,6 +379,22 @@ html[data-ui-theme='dark'] {
 
 .think-concept-composer-status.is-error {
   color: color-mix(in srgb, #f97373 80%, var(--text-0));
+}
+
+.think-inline-spinner {
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+  border: 2px solid color-mix(in srgb, var(--nt-accent) 30%, transparent);
+  border-top-color: var(--nt-accent);
+  animation: think-inline-spinner-spin 0.8s linear infinite;
+  flex: 0 0 auto;
+}
+
+@keyframes think-inline-spinner-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .think-index__list {

@@ -932,8 +932,11 @@ const ConceptNotebook = ({ concept }) => {
         tone: 'success'
       });
     } catch (error) {
+      const status = Number(error?.response?.status || 0);
       setToast({
-        message: error.response?.data?.error || 'Failed to run AI scout.',
+        message: status === 401
+          ? 'Session expired. Please log in again.'
+          : (error.response?.data?.error || 'Failed to run AI scout.'),
         tone: 'error'
       });
     } finally {

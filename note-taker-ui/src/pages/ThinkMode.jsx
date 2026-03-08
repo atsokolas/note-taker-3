@@ -312,6 +312,7 @@ const ThinkMode = () => {
   const [conceptComposerDescriptionDraft, setConceptComposerDescriptionDraft] = useState('');
   const [conceptComposerAutoScout, setConceptComposerAutoScout] = useState(true);
   const [conceptComposerSaving, setConceptComposerSaving] = useState(false);
+  const [conceptComposerScouting, setConceptComposerScouting] = useState(false);
   const [conceptComposerStatus, setConceptComposerStatus] = useState(CONCEPT_COMPOSER_DEFAULT_STATE);
   const conceptComposerInputRef = useRef(null);
   const [templatePickerOpen, setTemplatePickerOpen] = useState(false);
@@ -842,6 +843,7 @@ const ThinkMode = () => {
     setConceptComposerDraft(normalizeConceptName(seed));
     setConceptComposerDescriptionDraft('');
     setConceptComposerAutoScout(true);
+    setConceptComposerScouting(false);
     setConceptComposerStatus(CONCEPT_COMPOSER_DEFAULT_STATE);
     setConceptComposerOpen(true);
   }, [normalizeConceptName]);
@@ -849,6 +851,7 @@ const ThinkMode = () => {
   const closeConceptComposer = useCallback(() => {
     setConceptComposerOpen(false);
     setConceptComposerSaving(false);
+    setConceptComposerScouting(false);
     setConceptComposerDraft('');
     setConceptComposerDescriptionDraft('');
     setConceptComposerAutoScout(true);
@@ -973,6 +976,7 @@ const ThinkMode = () => {
     }
 
     setConceptComposerSaving(true);
+    setConceptComposerScouting(false);
     setConceptComposerStatus(CONCEPT_COMPOSER_DEFAULT_STATE);
     setConceptError('');
     try {
@@ -993,6 +997,7 @@ const ThinkMode = () => {
 
       if (runScout) {
         const conceptRef = String(updatedConcept?._id || candidate);
+        setConceptComposerScouting(true);
         suggestConceptWorkspaceFromLibrary(conceptRef, {
           mode: 'library_only',
           maxLoops: 2
@@ -1006,10 +1011,16 @@ const ThinkMode = () => {
             });
           })
           .catch((scoutError) => {
+            const scoutStatus = Number(scoutError?.response?.status || 0);
             setConceptComposerStatus({
-              message: scoutError?.response?.data?.error || 'Concept created, but AI scout failed.',
+              message: scoutStatus === 401
+                ? 'Concept created, but your session expired before AI scout completed.'
+                : (scoutError?.response?.data?.error || 'Concept created, but AI scout failed.'),
               tone: 'error'
             });
+          })
+          .finally(() => {
+            setConceptComposerScouting(false);
           });
       }
 
@@ -1857,6 +1868,9 @@ const ThinkMode = () => {
             className={`think-concept-composer-status ${conceptComposerStatus.tone === 'error' ? 'is-error' : 'is-success'}`}
             data-testid="think-concept-composer-status"
           >
+            {conceptComposerScouting && (
+              <span className="think-inline-spinner" aria-hidden="true" />
+            )}
             {conceptComposerStatus.message}
           </p>
         )}

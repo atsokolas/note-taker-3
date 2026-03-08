@@ -5467,6 +5467,30 @@ html[data-ui-theme='dark'] .article-reader-header {
   margin-top: 2px;
 }
 
+.concept-template-modal__creating {
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.82rem;
+  color: var(--text-muted, #5f6478);
+}
+
+.concept-template-modal__spinner {
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  border: 2px solid color-mix(in srgb, var(--accent-500, #4f46e5) 24%, transparent);
+  border-top-color: var(--accent-500, #4f46e5);
+  animation: concept-template-spin 0.85s linear infinite;
+}
+
+@keyframes concept-template-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 @media (max-width: 920px) {
   .concept-template-modal {
     max-width: min(96vw, 760px);

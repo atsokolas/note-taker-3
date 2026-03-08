@@ -1,4 +1,10 @@
-const { embedTexts, truncateText } = require('./hfEmbeddingsClient');
+const { embedTexts: embedViaAiService } = require('../config/aiClient');
+
+const MAX_EMBED_TEXT_CHARS = 4000;
+const truncateText = (text, maxChars = MAX_EMBED_TEXT_CHARS) => {
+  const value = String(text || '');
+  return value.length > maxChars ? value.slice(0, maxChars) : value;
+};
 
 class EmbeddingError extends Error {
   constructor(message, status = 503, payload = null) {
@@ -14,7 +20,9 @@ const embedText = async (text) => {
     throw new EmbeddingError('Embedding requires non-empty text.', 400);
   }
   try {
-    const [embedding] = await embedTexts([trimmed], { batchSize: 1 });
+    const response = await embedViaAiService([trimmed], { requestId: 'server-embed-text' });
+    const vectors = Array.isArray(response?.vectors) ? response.vectors : [];
+    const [embedding] = vectors;
     if (!Array.isArray(embedding)) {
       throw new EmbeddingError('Embedding response missing vector.');
     }

@@ -141,7 +141,7 @@ const ConceptTemplatePickerModal = ({
             <h3>Start With a Template</h3>
             <p className="muted small">Create a concept workspace or notebook with starter structure.</p>
           </div>
-          <button className="icon-button" onClick={onClose} aria-label="Close template picker">×</button>
+          <button className="icon-button" onClick={onClose} aria-label="Close template picker" disabled={creating}>×</button>
         </div>
 
         <div className="concept-template-modal__body">
@@ -160,6 +160,7 @@ const ConceptTemplatePickerModal = ({
                   className={`concept-template-modal__template-card ${isActive ? 'is-active' : ''}`}
                   onClick={() => setSelectedTemplateId(String(template.id || ''))}
                   data-testid={`template-card-${template.id}`}
+                  disabled={creating}
                 >
                   <div className="concept-template-modal__template-head">
                     <span className="concept-template-modal__template-icon" aria-hidden="true">{template.icon || '📌'}</span>
@@ -255,6 +256,14 @@ const ConceptTemplatePickerModal = ({
         </div>
 
         {createError && <p className="status-message error-message">{createError}</p>}
+        {creating && (
+          <p className="concept-template-modal__creating" aria-live="polite">
+            <span className="concept-template-modal__spinner" aria-hidden="true" />
+            {createTarget === TEMPLATE_TARGETS.notebook
+              ? 'AI is preparing your notebook template...'
+              : 'AI is preparing your concept workspace...'}
+          </p>
+        )}
 
         <div className="modal-actions concept-template-modal__actions">
           <QuietButton onClick={onClose} disabled={creating}>Cancel</QuietButton>
