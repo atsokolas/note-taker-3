@@ -6,11 +6,21 @@ const { semanticSearch, planConcept } = require('../config/aiClient');
 const SUPPORTED_MODE = 'library_only';
 const MAX_INITIAL_QUERIES = 6;
 const MAX_CANDIDATE_ITEMS = 40;
-const MAX_ITEM_SUGGESTIONS = 40;
-const MAX_CONCEPT_SUGGESTIONS = 12;
+const MAX_ITEM_SUGGESTIONS = 20;
+const MAX_CONCEPT_SUGGESTIONS = 8;
 const MAX_STORED_SUGGESTION_DRAFTS = 20;
 const SEARCH_LIMIT_PER_QUERY = 20;
 const AGENT_BUILD_PREFIX = 'Agent Build';
+const FALLBACK_MIN_KEYWORD_MATCHES = 1;
+const FALLBACK_MIN_SCORE = 0.35;
+const FALLBACK_STOPWORDS = new Set([
+  'the', 'and', 'for', 'with', 'from', 'that', 'this', 'these', 'those',
+  'into', 'onto', 'about', 'your', 'you', 'are', 'was', 'were', 'have', 'has',
+  'had', 'will', 'would', 'could', 'should', 'what', 'when', 'where', 'which',
+  'who', 'whom', 'why', 'how', 'than', 'then', 'them', 'they', 'their', 'there',
+  'concept', 'generate', 'generated', 'based', 'build',
+  'building', 'people', 'overview', 'companies', 'pros', 'cons', 'key'
+]);
 
 const toSafeString = (value) => String(value || '').trim();
 
@@ -33,8 +43,16 @@ const toSafeScore = (value) => {
   return Number.isFinite(numeric) ? numeric : 0;
 };
 
+const stripMarkup = (value = '') => (
+  String(value || '')
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+);
+
 const buildSnippet = (value, limit = 320) => {
-  const clean = toSafeString(value).replace(/\s+/g, ' ');
+  const clean = stripMarkup(value);
   if (!clean) return '';
   if (clean.length <= limit) return clean;
   return `${clean.slice(0, limit).trim()}…`;
@@ -580,25 +598,68 @@ const buildKeywordList = ({ title, description }) => {
     .map(token => token.trim())
     .filter(token => token.length >= 3)
     .forEach((token) => {
+      if (FALLBACK_STOPWORDS.has(token)) return;
       if (seen.has(token)) return;
       seen.add(token);
       keywords.push(token);
+      if (token.endsWith('s') && token.length > 4) {
+        const singular = token.slice(0, -1);
+        if (!seen.has(singular) && !FALLBACK_STOPWORDS.has(singular)) {
+          seen.add(singular);
+          keywords.push(singular);
+        }
+      }
     });
-  return keywords.slice(0, 16);
+  return keywords.slice(0, 12);
 };
 
 const scoreTextAgainstKeywords = (text, keywords = [], recencyRank = 0) => {
-  const haystack = toSafeString(text).toLowerCase();
+  const haystack = stripMarkup(text).toLowerCase();
+  if (!Array.isArray(keywords) || keywords.length === 0) return 0;
   let matches = 0;
-  if (haystack && Array.isArray(keywords) && keywords.length > 0) {
+  if (haystack) {
     keywords.forEach((keyword) => {
       if (keyword && haystack.includes(keyword)) matches += 1;
     });
   }
-  const keywordScore = keywords.length > 0 ? (matches / keywords.length) : 0;
+  const minMatches = keywords.length >= 5 ? 2 : FALLBACK_MIN_KEYWORD_MATCHES;
   const recencyBoost = Math.max(0, 1 - (Number(recencyRank) / 50)) * 0.15;
-  const baseline = keywordScore > 0 ? keywordScore : (0.05 + recencyBoost);
-  return Number((baseline + recencyBoost).toFixed(4));
+  if (matches < minMatches) {
+    return 0;
+  }
+  const keywordScore = matches / keywords.length;
+  return Number((keywordScore + recencyBoost).toFixed(4));
+};
+
+const dedupeSuggestionItems = (items = []) => {
+  const keyed = new Map();
+  (Array.isArray(items) ? items : []).forEach((item) => {
+    const safeType = toSafeString(item?.type).toLowerCase();
+    const refId = toSafeString(item?.refId);
+    const title = toSafeString(item?.title).toLowerCase();
+    const text = buildSnippet(item?.text || '', 160).toLowerCase();
+    const primaryKey = `${safeType}:${refId}`;
+    const semanticKey = `${safeType}:${title}:${text}`;
+    const key = primaryKey || semanticKey;
+    if (!key) return;
+    const existing = keyed.get(key);
+    if (!existing || toSafeScore(item?.score) > toSafeScore(existing?.score)) {
+      keyed.set(key, item);
+    }
+  });
+  return Array.from(keyed.values());
+};
+
+const isTransientSemanticUpstreamError = (error) => {
+  const status = Number(error?.status || error?.response?.status || 0);
+  const message = toSafeString(error?.message).toLowerCase();
+  if ([429, 500, 502, 503, 504].includes(status)) return true;
+  return (
+    message.includes('too many requests')
+    || message.includes('rate-limit')
+    || message.includes('upstream')
+    || message.includes('temporarily unavailable')
+  );
 };
 
 const buildFallbackCandidateItemsFromLibrary = async ({ userId, conceptTitle, conceptDescription }) => {
@@ -634,13 +695,15 @@ const buildFallbackCandidateItemsFromLibrary = async ({ userId, conceptTitle, co
     const articleUrl = toSafeString(article?.url);
     const articleText = buildSnippet(articleBody, 420);
     if (articleText) {
+      const score = scoreTextAgainstKeywords(`${articleTitle || ''} ${articleBody}`, keywords, articleIndex);
+      if (score < FALLBACK_MIN_SCORE) return;
       upsertCandidate({
         type: 'article',
         id: articleId,
         title: articleTitle,
         text: articleText,
         source: articleUrl || extractHost(articleUrl) || null,
-        score: scoreTextAgainstKeywords(`${articleTitle || ''} ${articleBody}`, keywords, articleIndex)
+        score
       });
     }
 
@@ -654,13 +717,15 @@ const buildFallbackCandidateItemsFromLibrary = async ({ userId, conceptTitle, co
       const quote = buildSnippet(toSafeString(highlight?.text), 320);
       const note = buildSnippet(toSafeString(highlight?.note), 180);
       if (!highlightId || !quote) return;
+      const score = scoreTextAgainstKeywords(`${quote} ${note}`, keywords, articleIndex + (highlightIndex * 0.1));
+      if (score < FALLBACK_MIN_SCORE) return;
       upsertCandidate({
         type: 'highlight',
         id: highlightId,
         title: articleTitle,
         text: note ? `${quote} (Note: ${note})` : quote,
         source: articleUrl || extractHost(articleUrl) || null,
-        score: scoreTextAgainstKeywords(`${quote} ${note}`, keywords, articleIndex + (highlightIndex * 0.1))
+        score
       });
     });
   });
@@ -718,6 +783,8 @@ const buildFallbackSuggestionsFromLibrary = async ({ userId, conceptTitle, conce
     if (articleText) {
       const key = `article:${id}`;
       if (!seenItem.has(key)) {
+        const score = scoreTextAgainstKeywords(`${title} ${body}`, keywords, index);
+        if (score < FALLBACK_MIN_SCORE) return;
         seenItem.add(key);
         itemSuggestions.push({
           id: `item:article:${id}`,
@@ -726,7 +793,7 @@ const buildFallbackSuggestionsFromLibrary = async ({ userId, conceptTitle, conce
           title,
           text: articleText,
           source: url,
-          score: scoreTextAgainstKeywords(`${title} ${body}`, keywords, index),
+          score,
           state: 'pending',
           generatedBy: 'ai_agent'
         });
@@ -745,6 +812,8 @@ const buildFallbackSuggestionsFromLibrary = async ({ userId, conceptTitle, conce
         if (!highlightId || !quote) return;
         const key = `highlight:${highlightId}`;
         if (seenItem.has(key)) return;
+        const score = scoreTextAgainstKeywords(`${quote} ${note}`, keywords, index + (highlightIndex * 0.1));
+        if (score < FALLBACK_MIN_SCORE) return;
         seenItem.add(key);
         itemSuggestions.push({
           id: `item:highlight:${highlightId}`,
@@ -753,7 +822,7 @@ const buildFallbackSuggestionsFromLibrary = async ({ userId, conceptTitle, conce
           title,
           text: note ? `${quote} (Note: ${note})` : quote,
           source: url,
-          score: scoreTextAgainstKeywords(`${quote} ${note}`, keywords, index + (highlightIndex * 0.1)),
+          score,
           state: 'pending',
           generatedBy: 'ai_agent'
         });
@@ -771,6 +840,8 @@ const buildFallbackSuggestionsFromLibrary = async ({ userId, conceptTitle, conce
       : '';
     const text = buildSnippet(toSafeString(note?.content) || blockText, 320);
     if (!text) return;
+    const score = scoreTextAgainstKeywords(`${note?.title || ''} ${text}`, keywords, index);
+    if (score < FALLBACK_MIN_SCORE) return;
     itemSuggestions.push({
       id: `item:note:${id}`,
       type: 'note',
@@ -778,7 +849,7 @@ const buildFallbackSuggestionsFromLibrary = async ({ userId, conceptTitle, conce
       title: toSafeString(note?.title) || 'Note',
       text,
       source: null,
-      score: scoreTextAgainstKeywords(`${note?.title || ''} ${text}`, keywords, index),
+      score,
       state: 'pending',
       generatedBy: 'ai_agent'
     });
@@ -792,6 +863,8 @@ const buildFallbackSuggestionsFromLibrary = async ({ userId, conceptTitle, conce
     seenItem.add(key);
     const text = toSafeString(question?.text);
     if (!text) return;
+    const score = scoreTextAgainstKeywords(text, keywords, index);
+    if (score < FALLBACK_MIN_SCORE) return;
     itemSuggestions.push({
       id: `item:question:${id}`,
       type: 'question',
@@ -799,7 +872,7 @@ const buildFallbackSuggestionsFromLibrary = async ({ userId, conceptTitle, conce
       title: text,
       text: toSafeString(question?.conceptName || question?.linkedTagName),
       source: null,
-      score: scoreTextAgainstKeywords(text, keywords, index),
+      score,
       state: 'pending',
       generatedBy: 'ai_agent'
     });
@@ -813,6 +886,8 @@ const buildFallbackSuggestionsFromLibrary = async ({ userId, conceptTitle, conce
     if (currentConceptName && name.toLowerCase() === currentConceptName) return;
     const key = `concept:${id}`;
     if (seenConcept.has(key)) return;
+    const score = scoreTextAgainstKeywords(`${name} ${entry?.description || ''}`, keywords, index);
+    if (score < FALLBACK_MIN_SCORE) return;
     seenConcept.add(key);
     conceptSuggestions.push({
       id: `concept:${id}`,
@@ -821,17 +896,17 @@ const buildFallbackSuggestionsFromLibrary = async ({ userId, conceptTitle, conce
       title: name,
       text: buildSnippet(toSafeString(entry?.description), 260),
       source: null,
-      score: scoreTextAgainstKeywords(`${name} ${entry?.description || ''}`, keywords, index),
+      score,
       state: 'pending',
       generatedBy: 'ai_agent'
     });
   });
 
   return {
-    itemSuggestions: itemSuggestions
+    itemSuggestions: dedupeSuggestionItems(itemSuggestions)
       .sort((a, b) => (b.score - a.score) || a.type.localeCompare(b.type))
       .slice(0, MAX_ITEM_SUGGESTIONS),
-    conceptSuggestions: conceptSuggestions
+    conceptSuggestions: dedupeSuggestionItems(conceptSuggestions)
       .sort((a, b) => (b.score - a.score) || a.title.localeCompare(b.title))
       .slice(0, MAX_CONCEPT_SUGGESTIONS)
   };
@@ -1059,11 +1134,14 @@ const buildSemanticResultSet = async ({ userId, queries, types }) => {
       const matches = Array.isArray(response?.results) ? response.results : [];
       semanticResults.push(...matches);
     } catch (error) {
+      const transientUpstreamError = isTransientSemanticUpstreamError(error);
       console.warn('[CONCEPT-AGENT] semantic search query failed, continuing with fallback', {
         query,
         status: error?.status || error?.response?.status || null,
-        message: error?.message || ''
+        message: error?.message || '',
+        stopEarly: transientUpstreamError
       });
+      if (transientUpstreamError) break;
     }
   }
   return semanticResults;
