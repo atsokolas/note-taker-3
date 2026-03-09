@@ -35,6 +35,7 @@ import ReturnLaterControl from '../components/return-queue/ReturnLaterControl';
 import ConnectionBuilder from '../components/connections/ConnectionBuilder';
 import ConceptPathWorkspace from '../components/paths/ConceptPathWorkspace';
 import ConceptNotebook from '../components/think/concepts/ConceptNotebook';
+import ThoughtPartnerPanel from '../components/agent/ThoughtPartnerPanel';
 import ConceptTemplatePickerModal from '../components/think/concepts/ConceptTemplatePickerModal';
 import ThinkHome from '../components/think/ThinkHome';
 import VirtualList from '../components/virtual/VirtualList';
@@ -43,6 +44,16 @@ import { getConnectionsForScope } from '../api/connections';
 import { createProfilerLogger, endPerfTimer, logPerf, startPerfTimer } from '../utils/perf';
 import { listReturnQueue } from '../api/returnQueue';
 import { getArticles } from '../api/articles';
+import {
+  cancelAgentHandoff,
+  claimAgentHandoff,
+  completeAgentHandoff,
+  createAgentHandoff,
+  createAutoAgentHandoff,
+  listAgentHandoffs,
+  listPersonalAgents,
+  rejectAgentHandoff
+} from '../api/agent';
 import {
   listWorkingMemory,
   createWorkingMemory,
@@ -64,6 +75,7 @@ const THINK_SUB_NAV_ITEMS = [
   { value: 'notebook', label: 'Notebook' },
   { value: 'concepts', label: 'Concepts' },
   { value: 'questions', label: 'Questions' },
+  { value: 'handoffs', label: 'Handoffs' },
   { value: 'paths', label: 'Paths' },
   { value: 'insights', label: 'Insights' }
 ];
@@ -184,18 +196,20 @@ const QuestionListItem = React.memo(({ question, isActive, onOpen }) => (
 const ThinkMode = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const queryConcept = searchParams.get('concept') || '';
-  const allowedViews = useMemo(() => ['home', 'notebook', 'concepts', 'questions', 'paths', 'insights'], []);
+  const allowedViews = useMemo(() => ['home', 'notebook', 'concepts', 'questions', 'handoffs', 'paths', 'insights'], []);
   const resolveActiveView = useCallback((params) => {
     const rawView = params.get('tab') || '';
     if (allowedViews.includes(rawView)) return rawView;
     if (params.get('entryId')) return 'notebook';
     if (params.get('questionId')) return 'questions';
     if (params.get('concept')) return 'concepts';
+    if (params.get('handoffId')) return 'handoffs';
     if (params.get('pathId')) return 'paths';
     return 'home';
   }, [allowedViews]);
   const [activeView, setActiveView] = useState(() => resolveActiveView(searchParams));
   const selectedPathId = searchParams.get('pathId') || '';
+  const selectedHandoffId = searchParams.get('handoffId') || '';
   const [search, setSearch] = useState('');
   const [descriptionDraft, setDescriptionDraft] = useState('');
   const [isEditingSummary, setIsEditingSummary] = useState(false);
@@ -240,6 +254,26 @@ const ThinkMode = () => {
   const [connections, setConnections] = useState([]);
   const [connectionsLoading, setConnectionsLoading] = useState(false);
   const [connectionsError, setConnectionsError] = useState('');
+  const [personalAgents, setPersonalAgents] = useState([]);
+  const [handoffs, setHandoffs] = useState([]);
+  const [handoffsLoading, setHandoffsLoading] = useState(false);
+  const [handoffsError, setHandoffsError] = useState('');
+  const [handoffStatusFilter, setHandoffStatusFilter] = useState('pending');
+  const [queueActorType, setQueueActorType] = useState('user');
+  const [queueActorId, setQueueActorId] = useState('');
+  const [handoffActionBusyId, setHandoffActionBusyId] = useState('');
+  const [handoffActionError, setHandoffActionError] = useState('');
+  const [newHandoffTitle, setNewHandoffTitle] = useState('');
+  const [newHandoffObjective, setNewHandoffObjective] = useState('');
+  const [newHandoffTaskType, setNewHandoffTaskType] = useState('research');
+  const [newHandoffPriority, setNewHandoffPriority] = useState('normal');
+  const [newHandoffDueAt, setNewHandoffDueAt] = useState('');
+  const [newHandoffAutoRoute, setNewHandoffAutoRoute] = useState(true);
+  const [newHandoffRequestedActorType, setNewHandoffRequestedActorType] = useState('native_agent');
+  const [newHandoffRequestedActorId, setNewHandoffRequestedActorId] = useState('');
+  const [handoffCreating, setHandoffCreating] = useState(false);
+  const [handoffCreateError, setHandoffCreateError] = useState('');
+  const [handoffCreateInfo, setHandoffCreateInfo] = useState('');
   const [aiHealthStatus, setAiHealthStatus] = useState('idle');
   const [aiHealthError, setAiHealthError] = useState('');
   const [synthesisOpen, setSynthesisOpen] = useState(false);
@@ -379,6 +413,39 @@ const ThinkMode = () => {
     () => allQuestions.find(q => q._id === activeQuestionId) || null,
     [allQuestions, activeQuestionId]
   );
+  const sortedPersonalAgents = useMemo(() => (
+    [...personalAgents].sort((a, b) => {
+      const aTime = new Date(a?.updatedAt || 0).getTime();
+      const bTime = new Date(b?.updatedAt || 0).getTime();
+      return bTime - aTime;
+    })
+  ), [personalAgents]);
+  const agentNameById = useMemo(() => {
+    const map = new Map();
+    sortedPersonalAgents.forEach((agent) => {
+      map.set(String(agent?._id || ''), String(agent?.name || 'BYO agent'));
+    });
+    return map;
+  }, [sortedPersonalAgents]);
+  const activeHandoffData = useMemo(
+    () => handoffs.find((row) => String(row?.handoffId || '') === selectedHandoffId) || handoffs[0] || null,
+    [handoffs, selectedHandoffId]
+  );
+
+  const formatActor = useCallback((actor = {}) => {
+    const actorType = String(actor?.actorType || '').trim();
+    const actorId = String(actor?.actorId || '').trim();
+    if (actorType === 'user') return 'User';
+    if (actorType === 'native_agent') return actorId ? `Native (${actorId})` : 'Native agent';
+    if (actorType === 'byo_agent') return agentNameById.get(actorId) || `BYO (${actorId || 'unknown'})`;
+    return 'Unknown actor';
+  }, [agentNameById]);
+  const formatDateTime = useCallback((value) => {
+    if (!value) return '';
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) return '';
+    return parsed.toLocaleString();
+  }, []);
 
   const workingMemoryScope = useMemo(() => {
     if (activeView === 'notebook' && activeNotebookEntry?._id) {
@@ -710,9 +777,64 @@ const ThinkMode = () => {
     }
   }, []);
 
+  const loadPersonalAgents = useCallback(async () => {
+    try {
+      const rows = await listPersonalAgents();
+      setPersonalAgents(Array.isArray(rows) ? rows : []);
+    } catch (error) {
+      setPersonalAgents([]);
+    }
+  }, []);
+
+  const loadHandoffs = useCallback(async () => {
+    setHandoffsLoading(true);
+    setHandoffsError('');
+    try {
+      const response = await listAgentHandoffs({
+        status: handoffStatusFilter || 'all',
+        limit: 80
+      });
+      setHandoffs(Array.isArray(response?.handoffs) ? response.handoffs : []);
+    } catch (error) {
+      setHandoffsError(error.response?.data?.error || 'Failed to load handoffs.');
+      setHandoffs([]);
+    } finally {
+      setHandoffsLoading(false);
+    }
+  }, [handoffStatusFilter]);
+
   useEffect(() => {
     loadNotebookEntries();
   }, [loadNotebookEntries]);
+
+  useEffect(() => {
+    if (activeView !== 'handoffs') return;
+    loadPersonalAgents();
+  }, [activeView, loadPersonalAgents]);
+
+  useEffect(() => {
+    if (activeView !== 'handoffs') return;
+    loadHandoffs();
+  }, [activeView, loadHandoffs]);
+
+  useEffect(() => {
+    if (activeView !== 'handoffs') return;
+    if (handoffs.length === 0) {
+      if (!selectedHandoffId) return;
+      const params = new URLSearchParams(searchParams);
+      params.delete('handoffId');
+      setSearchParams(params, { replace: true });
+      return;
+    }
+    const exists = selectedHandoffId && handoffs.some((row) => String(row?.handoffId || '') === selectedHandoffId);
+    if (exists) return;
+    const nextId = String(handoffs[0]?.handoffId || '').trim();
+    if (!nextId) return;
+    const params = new URLSearchParams(searchParams);
+    params.set('tab', 'handoffs');
+    params.set('handoffId', nextId);
+    setSearchParams(params, { replace: true });
+  }, [activeView, handoffs, searchParams, selectedHandoffId, setSearchParams]);
 
   useEffect(() => {
     setActiveView(resolveActiveView(searchParams));
@@ -781,6 +903,16 @@ const ThinkMode = () => {
       path: `/think?tab=questions&questionId=${encodeURIComponent(activeQuestionData._id)}`
     });
   }, [activeQuestionData?._id, activeQuestionData?.text, activeView, rememberRecentTarget]);
+
+  useEffect(() => {
+    if (activeView !== 'handoffs' || !activeHandoffData?.handoffId) return;
+    rememberRecentTarget({
+      id: activeHandoffData.handoffId,
+      type: 'handoff',
+      title: activeHandoffData.title || 'Agent handoff',
+      path: `/think?tab=handoffs&handoffId=${encodeURIComponent(activeHandoffData.handoffId)}`
+    });
+  }, [activeHandoffData?.handoffId, activeHandoffData?.title, activeView, rememberRecentTarget]);
 
   useEffect(() => {
     if (!notebookActiveId || activeView !== 'notebook') return;
@@ -877,6 +1009,9 @@ const ThinkMode = () => {
     }
     if (view !== 'questions') {
       params.delete('questionId');
+    }
+    if (view !== 'handoffs') {
+      params.delete('handoffId');
     }
     if (view !== 'paths') {
       params.delete('pathId');
@@ -1675,6 +1810,163 @@ const ThinkMode = () => {
     handleSelectView('questions');
   };
 
+  const handleOpenHandoff = useCallback((handoffId) => {
+    const safeId = String(handoffId || '').trim();
+    if (!safeId) return;
+    const params = new URLSearchParams(searchParams);
+    params.set('tab', 'handoffs');
+    params.set('handoffId', safeId);
+    params.delete('scopeType');
+    params.delete('scopeId');
+    setActiveView('handoffs');
+    setSearchParams(params);
+  }, [searchParams, setSearchParams]);
+
+  const resolveQueueActorPayload = useCallback(() => {
+    const actorType = String(queueActorType || 'user').trim();
+    if (actorType === 'user') return { actorType: 'user' };
+    if (actorType === 'native_agent') {
+      return { actorType: 'native_agent', actorId: String(queueActorId || '').trim() };
+    }
+    const actorId = String(queueActorId || '').trim();
+    if (!actorId) throw new Error('Select a BYO agent before running this action.');
+    return { actorType: 'byo_agent', actorId };
+  }, [queueActorId, queueActorType]);
+
+  const handleCreateHandoff = useCallback(async () => {
+    const title = String(newHandoffTitle || '').trim();
+    if (!title || handoffCreating) return;
+    if (!newHandoffAutoRoute && newHandoffRequestedActorType === 'byo_agent' && !String(newHandoffRequestedActorId || '').trim()) {
+      setHandoffCreateError('Select a BYO agent before creating this handoff.');
+      return;
+    }
+    setHandoffCreating(true);
+    setHandoffCreateError('');
+    setHandoffCreateInfo('');
+    try {
+      const payload = {
+        title,
+        objective: String(newHandoffObjective || '').trim(),
+        taskType: newHandoffTaskType,
+        priority: newHandoffPriority,
+        dueAt: String(newHandoffDueAt || '').trim() || undefined,
+        context: {},
+        input: {}
+      };
+      let response;
+      if (newHandoffAutoRoute) {
+        response = await createAutoAgentHandoff(payload);
+        const routeSource = String(response?.planner?.routeSource || '').trim();
+        if (routeSource) setHandoffCreateInfo(`Auto-routed via ${routeSource}.`);
+      } else {
+        response = await createAgentHandoff({
+          ...payload,
+          requestedActor: {
+            actorType: newHandoffRequestedActorType,
+            actorId: newHandoffRequestedActorType === 'byo_agent'
+              ? String(newHandoffRequestedActorId || '').trim()
+              : ''
+          }
+        });
+      }
+      setNewHandoffTitle('');
+      setNewHandoffObjective('');
+      setNewHandoffDueAt('');
+      await loadHandoffs();
+      const createdId = String(response?.handoff?.handoffId || '').trim();
+      if (createdId) handleOpenHandoff(createdId);
+      else setHandoffCreateInfo((previous) => previous || 'Handoff created.');
+    } catch (error) {
+      setHandoffCreateError(error.response?.data?.error || error.message || 'Failed to create handoff.');
+    } finally {
+      setHandoffCreating(false);
+    }
+  }, [
+    handoffCreating,
+    handleOpenHandoff,
+    loadHandoffs,
+    newHandoffAutoRoute,
+    newHandoffDueAt,
+    newHandoffObjective,
+    newHandoffPriority,
+    newHandoffRequestedActorId,
+    newHandoffRequestedActorType,
+    newHandoffTaskType,
+    newHandoffTitle
+  ]);
+
+  const handleClaimHandoff = useCallback(async (handoffId) => {
+    const safeId = String(handoffId || '').trim();
+    if (!safeId || handoffActionBusyId) return;
+    setHandoffActionBusyId(safeId);
+    setHandoffActionError('');
+    try {
+      const actor = resolveQueueActorPayload();
+      await claimAgentHandoff(safeId, actor);
+      await loadHandoffs();
+    } catch (error) {
+      setHandoffActionError(error.response?.data?.error || error.message || 'Failed to claim handoff.');
+    } finally {
+      setHandoffActionBusyId('');
+    }
+  }, [handoffActionBusyId, loadHandoffs, resolveQueueActorPayload]);
+
+  const handleCompleteHandoff = useCallback(async (handoffId) => {
+    const safeId = String(handoffId || '').trim();
+    if (!safeId || handoffActionBusyId) return;
+    setHandoffActionBusyId(safeId);
+    setHandoffActionError('');
+    try {
+      const actor = resolveQueueActorPayload();
+      const note = window.prompt('Completion note (optional):', '') || '';
+      await completeAgentHandoff(safeId, {
+        ...actor,
+        note: String(note || '').trim(),
+        output: note ? { summary: String(note).trim() } : {}
+      });
+      await loadHandoffs();
+    } catch (error) {
+      setHandoffActionError(error.response?.data?.error || error.message || 'Failed to complete handoff.');
+    } finally {
+      setHandoffActionBusyId('');
+    }
+  }, [handoffActionBusyId, loadHandoffs, resolveQueueActorPayload]);
+
+  const handleRejectHandoff = useCallback(async (handoffId) => {
+    const safeId = String(handoffId || '').trim();
+    if (!safeId || handoffActionBusyId) return;
+    setHandoffActionBusyId(safeId);
+    setHandoffActionError('');
+    try {
+      const actor = resolveQueueActorPayload();
+      const note = window.prompt('Reject reason (optional):', '') || '';
+      await rejectAgentHandoff(safeId, {
+        ...actor,
+        note: String(note || '').trim()
+      });
+      await loadHandoffs();
+    } catch (error) {
+      setHandoffActionError(error.response?.data?.error || error.message || 'Failed to reject handoff.');
+    } finally {
+      setHandoffActionBusyId('');
+    }
+  }, [handoffActionBusyId, loadHandoffs, resolveQueueActorPayload]);
+
+  const handleCancelHandoff = useCallback(async (handoffId) => {
+    const safeId = String(handoffId || '').trim();
+    if (!safeId || handoffActionBusyId) return;
+    setHandoffActionBusyId(safeId);
+    setHandoffActionError('');
+    try {
+      await cancelAgentHandoff(safeId, {});
+      await loadHandoffs();
+    } catch (error) {
+      setHandoffActionError(error.response?.data?.error || error.message || 'Failed to cancel handoff.');
+    } finally {
+      setHandoffActionBusyId('');
+    }
+  }, [handoffActionBusyId, loadHandoffs]);
+
   const renderNotebookRow = (entry) => (
     <NotebookListItem
       key={entry._id}
@@ -1789,7 +2081,7 @@ const ThinkMode = () => {
   };
 
 
-  const leftPanel = (
+  const defaultLeftPanel = (
     <div className="section-stack think-layout__left-panel think-index">
       <div className="think-index__controls">
         <label className="feedback-field think-index__search" style={{ margin: 0 }}>
@@ -1939,6 +2231,79 @@ const ThinkMode = () => {
       </div>
     </div>
   );
+
+  const handoffLeftPanel = (
+    <div className="section-stack think-layout__left-panel think-index think-handoffs-sidebar" data-testid="think-handoffs-left-panel">
+      <div className="think-index__controls">
+        <label className="think-index__filter">
+          <span>Queue status</span>
+          <select value={handoffStatusFilter} onChange={(event) => setHandoffStatusFilter(event.target.value)} disabled={handoffsLoading}>
+            <option value="all">All</option>
+            <option value="pending">Pending</option>
+            <option value="claimed">Claimed</option>
+            <option value="completed">Completed</option>
+            <option value="rejected">Rejected</option>
+            <option value="cancelled">Cancelled</option>
+          </select>
+        </label>
+        <div className="think-index__filter">
+          <span>Run actions as</span>
+          <div className="think-handoffs-sidebar__actor">
+            <select value={queueActorType} onChange={(event) => setQueueActorType(event.target.value)}>
+              <option value="user">User</option>
+              <option value="native_agent">Native agent</option>
+              <option value="byo_agent">BYO agent</option>
+            </select>
+            {queueActorType === 'byo_agent' && (
+              <select value={queueActorId} onChange={(event) => setQueueActorId(event.target.value)}>
+                <option value="">Select BYO agent</option>
+                {sortedPersonalAgents
+                  .filter(agent => agent.status === 'active')
+                  .map(agent => (
+                    <option key={agent._id} value={agent._id}>{agent.name}</option>
+                  ))}
+              </select>
+            )}
+          </div>
+        </div>
+        <Button variant="secondary" className="think-index__new-question" onClick={loadHandoffs} disabled={handoffsLoading}>
+          {handoffsLoading ? 'Refreshing…' : 'Refresh queue'}
+        </Button>
+      </div>
+
+      {handoffsError && <p className="status-message error-message">{handoffsError}</p>}
+      {handoffActionError && <p className="status-message error-message">{handoffActionError}</p>}
+
+      <div className="think-index__group">
+        <div className="think-index__label">Handoffs</div>
+        <div className="think-index__list">
+          {handoffsLoading ? (
+            <SidebarSkeletonRows rows={5} />
+          ) : handoffs.length === 0 ? (
+            <CalmEmptyLine>No handoffs for this filter.</CalmEmptyLine>
+          ) : (
+            handoffs.map((handoff) => {
+              const handoffId = String(handoff?.handoffId || '');
+              const isActive = handoffId && handoffId === String(activeHandoffData?.handoffId || '');
+              return (
+                <button
+                  key={handoffId}
+                  type="button"
+                  className={`think-index__row ${isActive ? 'is-active' : ''}`}
+                  onClick={() => handleOpenHandoff(handoffId)}
+                >
+                  <span className="think-index__row-title">{handoff.title || 'Untitled handoff'}</span>
+                  <span className="think-index__row-meta">{handoff.status || 'pending'}</span>
+                </button>
+              );
+            })
+          )}
+        </div>
+      </div>
+    </div>
+  );
+
+  const leftPanel = activeView === 'handoffs' ? handoffLeftPanel : defaultLeftPanel;
 
   const insightsPanel = (
     <div className="section-stack">
@@ -2150,6 +2515,177 @@ const ThinkMode = () => {
           <QuietButton onClick={() => handleMarkAnswered(activeQuestionData)}>Mark answered</QuietButton>
         </div>
       )}
+    </div>
+  ) : activeView === 'handoffs' ? (
+    <div className="section-stack think-handoffs-main" data-testid="think-handoffs-main">
+      <SurfaceCard className="think-handoffs-card">
+        <SectionHeader title="Create handoff" subtitle="Delegate work between you, native agent, and BYO agents." />
+        <div className="think-handoffs-form-grid">
+          <label className="feedback-field">
+            <span>Title</span>
+            <input
+              type="text"
+              value={newHandoffTitle}
+              onChange={(event) => setNewHandoffTitle(event.target.value)}
+              placeholder="Investigate contradictions in this workspace"
+              disabled={handoffCreating}
+            />
+          </label>
+          <label className="feedback-field">
+            <span>Objective (optional)</span>
+            <input
+              type="text"
+              value={newHandoffObjective}
+              onChange={(event) => setNewHandoffObjective(event.target.value)}
+              placeholder="Collect sources and propose next steps"
+              disabled={handoffCreating}
+            />
+          </label>
+          <label className="feedback-field">
+            <span>Task type</span>
+            <select value={newHandoffTaskType} onChange={(event) => setNewHandoffTaskType(event.target.value)} disabled={handoffCreating}>
+              <option value="research">Research</option>
+              <option value="synthesis">Synthesis</option>
+              <option value="restructure">Restructure</option>
+              <option value="qa">QA</option>
+              <option value="custom">Custom</option>
+            </select>
+          </label>
+          <label className="feedback-field">
+            <span>Priority</span>
+            <select value={newHandoffPriority} onChange={(event) => setNewHandoffPriority(event.target.value)} disabled={handoffCreating}>
+              <option value="low">Low</option>
+              <option value="normal">Normal</option>
+              <option value="high">High</option>
+            </select>
+          </label>
+          <label className="feedback-field">
+            <span>Due at (optional)</span>
+            <input
+              type="datetime-local"
+              value={newHandoffDueAt}
+              onChange={(event) => setNewHandoffDueAt(event.target.value)}
+              disabled={handoffCreating}
+            />
+          </label>
+        </div>
+        <div className="think-handoffs-form-actions">
+          <label className="muted small" style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
+            <input
+              type="checkbox"
+              checked={newHandoffAutoRoute}
+              onChange={(event) => setNewHandoffAutoRoute(event.target.checked)}
+              disabled={handoffCreating}
+            />
+            Auto route with policy
+          </label>
+          {!newHandoffAutoRoute && (
+            <div className="think-handoffs-form-inline">
+              <select
+                value={newHandoffRequestedActorType}
+                onChange={(event) => setNewHandoffRequestedActorType(event.target.value)}
+                disabled={handoffCreating}
+              >
+                <option value="native_agent">Native agent</option>
+                <option value="user">User</option>
+                <option value="byo_agent">BYO agent</option>
+              </select>
+              {newHandoffRequestedActorType === 'byo_agent' && (
+                <select
+                  value={newHandoffRequestedActorId}
+                  onChange={(event) => setNewHandoffRequestedActorId(event.target.value)}
+                  disabled={handoffCreating}
+                >
+                  <option value="">Select BYO agent</option>
+                  {sortedPersonalAgents
+                    .filter(agent => agent.status === 'active')
+                    .map(agent => (
+                      <option key={agent._id} value={agent._id}>{agent.name}</option>
+                    ))}
+                </select>
+              )}
+            </div>
+          )}
+          <Button variant="secondary" disabled={handoffCreating || !String(newHandoffTitle || '').trim()} onClick={handleCreateHandoff}>
+            {handoffCreating ? 'Creating…' : (newHandoffAutoRoute ? 'Auto plan + create' : 'Create handoff')}
+          </Button>
+        </div>
+        {handoffCreateError && <p className="status-message error-message">{handoffCreateError}</p>}
+        {!handoffCreateError && handoffCreateInfo && <p className="status-message">{handoffCreateInfo}</p>}
+      </SurfaceCard>
+
+      <SurfaceCard className="think-handoffs-card">
+        <SectionHeader title="Selected handoff" subtitle="Track status and close the loop from Think." />
+        {!activeHandoffData ? (
+          <p className="muted small">Select a handoff from the queue.</p>
+        ) : (
+          <div className="section-stack think-handoffs-detail">
+            <div>
+              <p className="think-handoffs-title">{activeHandoffData.title || 'Untitled handoff'}</p>
+              <p className="muted small">
+                {activeHandoffData.status} · {activeHandoffData.taskType} · {activeHandoffData.priority}
+              </p>
+            </div>
+            {activeHandoffData.objective && <p>{activeHandoffData.objective}</p>}
+            <p className="muted small">Requested actor: {formatActor(activeHandoffData.requestedActor)}</p>
+            {activeHandoffData.claimedBy && <p className="muted small">Claimed by: {formatActor(activeHandoffData.claimedBy)}</p>}
+            {activeHandoffData.completedBy && <p className="muted small">Completed by: {formatActor(activeHandoffData.completedBy)}</p>}
+            {activeHandoffData.dueAt && <p className="muted small">Due: {formatDateTime(activeHandoffData.dueAt)}</p>}
+            <div className="think-handoffs-detail-actions">
+              <Button
+                variant="secondary"
+                disabled={handoffActionBusyId === activeHandoffData.handoffId}
+                onClick={() => handleClaimHandoff(activeHandoffData.handoffId)}
+              >
+                {handoffActionBusyId === activeHandoffData.handoffId ? 'Working…' : 'Claim'}
+              </Button>
+              <Button
+                variant="secondary"
+                disabled={handoffActionBusyId === activeHandoffData.handoffId}
+                onClick={() => handleCompleteHandoff(activeHandoffData.handoffId)}
+              >
+                {handoffActionBusyId === activeHandoffData.handoffId ? 'Working…' : 'Complete'}
+              </Button>
+              <Button
+                variant="secondary"
+                disabled={handoffActionBusyId === activeHandoffData.handoffId}
+                onClick={() => handleRejectHandoff(activeHandoffData.handoffId)}
+              >
+                {handoffActionBusyId === activeHandoffData.handoffId ? 'Working…' : 'Reject'}
+              </Button>
+              <Button
+                variant="secondary"
+                disabled={handoffActionBusyId === activeHandoffData.handoffId}
+                onClick={() => handleCancelHandoff(activeHandoffData.handoffId)}
+              >
+                {handoffActionBusyId === activeHandoffData.handoffId ? 'Working…' : 'Cancel'}
+              </Button>
+            </div>
+            {handoffActionError && <p className="status-message error-message">{handoffActionError}</p>}
+            <div>
+              <SectionHeader title="Recent events" subtitle="Latest protocol transitions." />
+              {Array.isArray(activeHandoffData.events) && activeHandoffData.events.length > 0 ? (
+                <div className="think-handoffs-events">
+                  {[...activeHandoffData.events]
+                    .slice(-8)
+                    .reverse()
+                    .map((event, index) => (
+                      <div key={`${event.eventType}-${event.createdAt || index}`} className="think-handoffs-events__row">
+                        <div className="muted small">
+                          {event.eventType} · {formatActor(event.actor)}
+                        </div>
+                        {event.note && <div>{event.note}</div>}
+                        {event.createdAt && <div className="muted small">{formatDateTime(event.createdAt)}</div>}
+                      </div>
+                    ))}
+                </div>
+              ) : (
+                <p className="muted small">No events yet.</p>
+              )}
+            </div>
+          </div>
+        )}
+      </SurfaceCard>
     </div>
   ) : activeView === 'paths' ? (
     <ConceptPathWorkspace
@@ -2539,9 +3075,62 @@ const ThinkMode = () => {
     />
   );
 
+  const thoughtPartnerContext = useMemo(() => {
+    if (activeView === 'concepts' && concept?._id) {
+      return {
+        contextType: 'concept',
+        contextId: concept._id,
+        contextTitle: concept.name || 'Concept',
+        placeholder: 'Ask about this concept, or find connected notes.'
+      };
+    }
+    if (activeView === 'notebook' && activeNotebookEntry?._id) {
+      return {
+        contextType: 'notebook',
+        contextId: activeNotebookEntry._id,
+        contextTitle: activeNotebookEntry.title || 'Notebook note',
+        placeholder: 'Ask about this notebook entry, or find related material.'
+      };
+    }
+    if (activeView === 'questions' && activeQuestion?.linkedTagName) {
+      return {
+        contextType: 'concept',
+        contextId: activeQuestion.linkedTagName,
+        contextTitle: activeQuestion.linkedTagName,
+        placeholder: 'Ask through this question context and related concept.'
+      };
+    }
+    if (activeView === 'handoffs' && activeHandoffData?.handoffId) {
+      return {
+        contextType: 'handoff',
+        contextId: activeHandoffData.handoffId,
+        contextTitle: activeHandoffData.title || 'Agent handoff',
+        placeholder: 'Ask how to refine, route, or unblock this handoff.'
+      };
+    }
+    return null;
+  }, [
+    activeHandoffData?.handoffId,
+    activeHandoffData?.title,
+    activeNotebookEntry?._id,
+    activeNotebookEntry?.title,
+    activeQuestion?.linkedTagName,
+    activeView,
+    concept?._id,
+    concept?.name
+  ]);
+
   const rightPanel = (
     <div className="section-stack think-layout__right-panel">
       {workingMemoryDrawer}
+      {thoughtPartnerContext && (
+        <ThoughtPartnerPanel
+          contextType={thoughtPartnerContext.contextType}
+          contextId={thoughtPartnerContext.contextId}
+          contextTitle={thoughtPartnerContext.contextTitle}
+          placeholder={thoughtPartnerContext.placeholder}
+        />
+      )}
       {activeView === 'home' && (
         <>
           <SurfaceCard className="think-home__side-card">
@@ -2580,9 +3169,19 @@ const ThinkMode = () => {
           <SectionHeader title="Context" subtitle="Insights stay read-only." />
           <p className="muted small">Use themes and connections to decide what to deepen next.</p>
         </>
+      ) : activeView === 'handoffs' ? (
+        <>
+          <SectionHeader title="Queue context" subtitle="Collaboration protocol in Think." />
+          <p className="muted small">
+            Use auto routing for delegation, then claim, complete, reject, or cancel from the selected handoff.
+          </p>
+          <p className="muted small">
+            BYO agents only appear when active personal agent keys exist in Integrations.
+          </p>
+        </>
       ) : (
         <>
-          {activeView !== 'home' && activeView !== 'concepts' && (
+          {activeView !== 'home' && activeView !== 'concepts' && activeView !== 'handoffs' && (
             <>
               <SectionHeader title="Insert" subtitle="Search highlights." />
               <div className="library-highlight-filters">

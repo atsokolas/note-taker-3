@@ -11,6 +11,7 @@ import useTags from '../hooks/useTags';
 import api from '../api';
 import { listReturnQueue } from '../api/returnQueue';
 import { getArticles } from '../api/articles';
+import { listAgentHandoffs, listPersonalAgents } from '../api/agent';
 
 jest.mock('../hooks/useConcepts', () => jest.fn());
 jest.mock('../hooks/useConcept', () => jest.fn());
@@ -36,6 +37,17 @@ jest.mock('../api/returnQueue', () => ({
 
 jest.mock('../api/articles', () => ({
   getArticles: jest.fn()
+}));
+
+jest.mock('../api/agent', () => ({
+  listPersonalAgents: jest.fn(),
+  listAgentHandoffs: jest.fn(),
+  createAgentHandoff: jest.fn(),
+  createAutoAgentHandoff: jest.fn(),
+  claimAgentHandoff: jest.fn(),
+  completeAgentHandoff: jest.fn(),
+  rejectAgentHandoff: jest.fn(),
+  cancelAgentHandoff: jest.fn()
 }));
 
 jest.mock('../hooks/useAuthHeaders', () => ({
@@ -179,6 +191,18 @@ describe('ThinkMode template integration', () => {
 
     listReturnQueue.mockResolvedValue([]);
     getArticles.mockResolvedValue([]);
+    listPersonalAgents.mockResolvedValue([]);
+    listAgentHandoffs.mockResolvedValue({ handoffs: [] });
+  });
+
+  it('shows handoffs in Think segmented navigation', () => {
+    render(
+      <MemoryRouter initialEntries={['/think?tab=home']}>
+        <ThinkMode />
+      </MemoryRouter>
+    );
+
+    expect(screen.getByRole('tab', { name: 'Handoffs' })).toBeInTheDocument();
   });
 
   it('opens template picker from Think home and handles successful create callback', async () => {

@@ -8,6 +8,15 @@ import {
   getConceptAgentSuggestions,
   suggestConceptWorkspaceFromLibrary
 } from '../../../api/concepts';
+import {
+  approveAgentAction,
+  executeAgentActions,
+  listAgentApprovals,
+  listAgentSoftDeletes,
+  rejectAgentAction,
+  restoreAgentSoftDelete,
+  undoLastAgentAction
+} from '../../../api/agent';
 import useArticles from '../../../hooks/useArticles';
 import useConceptMaterial from '../../../hooks/useConceptMaterial';
 import useConceptWorkspace from '../../../hooks/useConceptWorkspace';
@@ -20,6 +29,16 @@ jest.mock('../../../api/concepts', () => ({
   getConceptAgentSuggestions: jest.fn(),
   acceptConceptAgentSuggestions: jest.fn(),
   discardConceptAgentSuggestions: jest.fn()
+}));
+
+jest.mock('../../../api/agent', () => ({
+  executeAgentActions: jest.fn(),
+  listAgentApprovals: jest.fn(),
+  approveAgentAction: jest.fn(),
+  rejectAgentAction: jest.fn(),
+  undoLastAgentAction: jest.fn(),
+  listAgentSoftDeletes: jest.fn(),
+  restoreAgentSoftDelete: jest.fn()
 }));
 
 jest.mock('../../../hooks/useArticles', () => jest.fn());
@@ -216,6 +235,28 @@ describe('ConceptNotebook workspace interactions', () => {
       draftId: 'draft-1',
       updatedCount: 1
     });
+    executeAgentActions.mockResolvedValue({
+      status: 'executed',
+      conceptId: 'concept-1',
+      deleteCount: 1
+    });
+    listAgentApprovals.mockResolvedValue({ approvals: [] });
+    approveAgentAction.mockResolvedValue({
+      approval: { approvalId: 'approval-1', status: 'executed' },
+      execution: { status: 'executed', deleteCount: 1 }
+    });
+    rejectAgentAction.mockResolvedValue({
+      approval: { approvalId: 'approval-1', status: 'rejected' }
+    });
+    undoLastAgentAction.mockResolvedValue({
+      undoneAuditId: 'audit-1',
+      restoredSoftDeleteCount: 1
+    });
+    listAgentSoftDeletes.mockResolvedValue({ retentionDays: 30, records: [] });
+    restoreAgentSoftDelete.mockResolvedValue({
+      recordId: 'record-1',
+      restoredItemId: 'item-1'
+    });
   });
 
   afterEach(() => {
@@ -270,6 +311,28 @@ describe('ConceptNotebook workspace interactions', () => {
     });
   });
 
+  it('removes an item through the agent execution endpoint', async () => {
+    render(<ConceptNotebook concept={concept} />);
+
+    const workingItem = screen.getByTestId('concept-workspace-item-item-working');
+    fireEvent.click(within(workingItem).getByRole('button', { name: 'Remove' }));
+
+    await waitFor(() => {
+      expect(executeAgentActions).toHaveBeenCalledWith({
+        conceptId: 'concept-1',
+        flow: 'direct',
+        explicitUserCommand: true,
+        actorType: 'user',
+        operations: [{ op: 'deleteItem', payload: { itemId: 'item-working' } }]
+      });
+    });
+
+    await waitFor(() => {
+      expect(mockRefreshWorkspace).toHaveBeenCalled();
+      expect(mockRefreshMaterial).toHaveBeenCalled();
+    });
+  });
+
   it('filters visible items by stage', () => {
     render(<ConceptNotebook concept={concept} />);
 
@@ -288,13 +351,9 @@ describe('ConceptNotebook workspace interactions', () => {
     await waitFor(() => {
       expect(buildConceptWorkspaceFromLibrary).toHaveBeenCalledWith('concept-1', {
         mode: 'library_only',
-        maxLoops: 2
+        maxLoops: 2,
+        preview: true
       });
-    });
-
-    await waitFor(() => {
-      expect(mockRefreshWorkspace).toHaveBeenCalled();
-      expect(mockRefreshMaterial).toHaveBeenCalled();
     });
   });
 

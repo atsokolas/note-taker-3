@@ -21,6 +21,15 @@ import {
   getConceptAgentSuggestions,
   suggestConceptWorkspaceFromLibrary
 } from '../../../api/concepts';
+import {
+  approveAgentAction,
+  executeAgentActions,
+  listAgentApprovals,
+  listAgentSoftDeletes,
+  rejectAgentAction,
+  restoreAgentSoftDelete,
+  undoLastAgentAction
+} from '../../../api/agent';
 import useArticles from '../../../hooks/useArticles';
 import useConceptMaterial from '../../../hooks/useConceptMaterial';
 import useConceptWorkspace from '../../../hooks/useConceptWorkspace';
@@ -108,6 +117,13 @@ const formatDate = (value) => {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '';
   return date.toLocaleDateString();
+};
+
+const formatDateTime = (value) => {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleString();
 };
 
 const defaultOutlineSections = () => STAGE_FLOW.map((stage, order) => ({
@@ -349,7 +365,7 @@ const StageDropZone = ({ stage, collapsed, count, onToggle, children }) => {
   );
 };
 
-const OutlineItemRow = ({ item, materialMeta, onStageChange, onRemove, onOpen }) => {
+const OutlineItemRow = ({ item, materialMeta, onStageChange, onRemove, onOpen, actionDisabled = false }) => {
   const sortableId = toItemSortableId(item.id);
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: sortableId });
 
@@ -397,6 +413,7 @@ const OutlineItemRow = ({ item, materialMeta, onStageChange, onRemove, onOpen })
           className="concept-outline__stage-select"
           aria-label="Stage"
           value={normalizeStage(item.stage)}
+          disabled={actionDisabled}
           onChange={(event) => onStageChange(item, event.target.value)}
         >
           {STAGE_FLOW.map(stage => (
@@ -407,6 +424,7 @@ const OutlineItemRow = ({ item, materialMeta, onStageChange, onRemove, onOpen })
           <button
             type="button"
             className="ui-quiet-button"
+            disabled={actionDisabled}
             onClick={() => onOpen(item)}
           >
             Open
@@ -415,9 +433,10 @@ const OutlineItemRow = ({ item, materialMeta, onStageChange, onRemove, onOpen })
         <button
           type="button"
           className="ui-quiet-button"
+          disabled={actionDisabled}
           onClick={() => onRemove(item)}
         >
-          Remove
+          {actionDisabled ? 'Removing…' : 'Remove'}
         </button>
       </div>
     </div>
@@ -430,7 +449,6 @@ const ConceptNotebook = ({ concept }) => {
     workspace,
     loading: workspaceLoading,
     error: workspaceError,
-    patchWorkspace,
     setWorkspace,
     saveWorkspace,
     refresh: refreshWorkspace
@@ -470,6 +488,16 @@ const ConceptNotebook = ({ concept }) => {
   const [agentDraftsLoading, setAgentDraftsLoading] = useState(false);
   const [agentDraftsError, setAgentDraftsError] = useState('');
   const [agentDraftActionLoading, setAgentDraftActionLoading] = useState(false);
+  const [removingItemId, setRemovingItemId] = useState('');
+  const [undoLoading, setUndoLoading] = useState(false);
+  const [approvalActionId, setApprovalActionId] = useState('');
+  const [restoreRecordId, setRestoreRecordId] = useState('');
+  const [agentApprovals, setAgentApprovals] = useState([]);
+  const [agentApprovalsLoading, setAgentApprovalsLoading] = useState(false);
+  const [agentApprovalsError, setAgentApprovalsError] = useState('');
+  const [softDeleteRecords, setSoftDeleteRecords] = useState([]);
+  const [softDeleteLoading, setSoftDeleteLoading] = useState(false);
+  const [softDeleteError, setSoftDeleteError] = useState('');
   const [toast, setToast] = useState({ message: '', tone: 'success' });
 
   const pendingWorkspaceRef = useRef(null);
@@ -520,9 +548,62 @@ const ConceptNotebook = ({ concept }) => {
     }
   }, [conceptId]);
 
+  const loadAgentQueues = useCallback(async () => {
+    if (!conceptId) {
+      setAgentApprovals([]);
+      setAgentApprovalsError('');
+      setAgentApprovalsLoading(false);
+      setSoftDeleteRecords([]);
+      setSoftDeleteError('');
+      setSoftDeleteLoading(false);
+      return;
+    }
+
+    setAgentApprovalsLoading(true);
+    setSoftDeleteLoading(true);
+    setAgentApprovalsError('');
+    setSoftDeleteError('');
+
+    const [approvalsResult, deletionsResult] = await Promise.allSettled([
+      listAgentApprovals({ conceptId, status: 'pending', limit: 20 }),
+      listAgentSoftDeletes({ conceptId, status: 'deleted', limit: 20 })
+    ]);
+
+    if (approvalsResult.status === 'fulfilled') {
+      setAgentApprovals(Array.isArray(approvalsResult.value?.approvals) ? approvalsResult.value.approvals : []);
+      setAgentApprovalsError('');
+    } else {
+      setAgentApprovals([]);
+      setAgentApprovalsError(
+        approvalsResult.reason?.response?.data?.error
+        || approvalsResult.reason?.message
+        || 'Failed to load pending approvals.'
+      );
+    }
+
+    if (deletionsResult.status === 'fulfilled') {
+      setSoftDeleteRecords(Array.isArray(deletionsResult.value?.records) ? deletionsResult.value.records : []);
+      setSoftDeleteError('');
+    } else {
+      setSoftDeleteRecords([]);
+      setSoftDeleteError(
+        deletionsResult.reason?.response?.data?.error
+        || deletionsResult.reason?.message
+        || 'Failed to load deleted items.'
+      );
+    }
+
+    setAgentApprovalsLoading(false);
+    setSoftDeleteLoading(false);
+  }, [conceptId]);
+
   useEffect(() => {
     loadAgentDrafts();
   }, [loadAgentDrafts]);
+
+  useEffect(() => {
+    loadAgentQueues();
+  }, [loadAgentQueues]);
 
   useEffect(() => () => {
     if (pendingSaveTimerRef.current) {
@@ -788,23 +869,45 @@ const ConceptNotebook = ({ concept }) => {
   }, [items, normalizedWorkspace, queueWorkspaceSave]);
 
   const handleRemoveItem = useCallback(async (item) => {
-    const payload = { itemId: item.id };
-    const optimisticItems = items.filter(entry => entry.id !== item.id);
-    const optimisticWorkspace = normalizeWorkspace({
-      ...normalizedWorkspace,
-      attachedItems: optimisticItems
-    });
-
-    setWorkspace(optimisticWorkspace);
+    const itemId = clean(item?.id);
+    if (!conceptId || !itemId) return;
+    setRemovingItemId(itemId);
     try {
-      const saved = await patchWorkspace('deleteItem', payload, { optimisticWorkspace });
-      setWorkspace(normalizeWorkspace(saved?.workspace || saved || optimisticWorkspace));
-      setToast({ message: 'Item removed.', tone: 'success' });
+      const response = await executeAgentActions({
+        conceptId,
+        flow: 'direct',
+        explicitUserCommand: true,
+        actorType: 'user',
+        operations: [{ op: 'deleteItem', payload: { itemId } }]
+      });
+
+      if (String(response?.status || '') === 'approval_required') {
+        setToast({
+          message: `Delete requires approval (${Number(response?.policy?.deleteCount || 0)} items).`,
+          tone: 'success'
+        });
+        await loadAgentQueues();
+        return;
+      }
+
+      await Promise.all([refreshWorkspace(), refreshMaterial(), loadAgentQueues()]);
+      const deleted = Number(response?.deleteCount || 0);
+      setToast({
+        message: deleted > 0
+          ? `Item removed (${deleted} moved to trash).`
+          : 'Item removed.',
+        tone: 'success'
+      });
     } catch (error) {
-      setToast({ message: error.response?.data?.error || 'Failed to remove item.', tone: 'error' });
+      setToast({
+        message: error.response?.data?.error || 'Failed to remove item.',
+        tone: 'error'
+      });
       refreshWorkspace();
+    } finally {
+      setRemovingItemId('');
     }
-  }, [items, normalizedWorkspace, patchWorkspace, refreshWorkspace, setWorkspace]);
+  }, [conceptId, loadAgentQueues, refreshMaterial, refreshWorkspace]);
 
   const handleOpenItem = useCallback((item) => {
     const safeRefId = clean(item?.refId);
@@ -817,6 +920,86 @@ const ConceptNotebook = ({ concept }) => {
       window.location.href = `/think?tab=questions&questionId=${encodeURIComponent(safeRefId)}`;
     }
   }, []);
+
+  const handleUndoLastAgentAction = useCallback(async () => {
+    if (!conceptId || undoLoading) return;
+    setUndoLoading(true);
+    try {
+      const result = await undoLastAgentAction({
+        conceptId,
+        actorType: 'user'
+      });
+      await Promise.all([refreshWorkspace(), refreshMaterial(), loadAgentQueues()]);
+      setToast({
+        message: `Undid last action${result?.restoredSoftDeleteCount ? ` (${result.restoredSoftDeleteCount} restored)` : ''}.`,
+        tone: 'success'
+      });
+    } catch (error) {
+      setToast({
+        message: error.response?.data?.error || 'Failed to undo last action.',
+        tone: 'error'
+      });
+    } finally {
+      setUndoLoading(false);
+    }
+  }, [conceptId, loadAgentQueues, refreshMaterial, refreshWorkspace, undoLoading]);
+
+  const handleApproveAction = useCallback(async (approvalId) => {
+    const safeApprovalId = clean(approvalId);
+    if (!safeApprovalId || approvalActionId) return;
+    setApprovalActionId(safeApprovalId);
+    try {
+      const result = await approveAgentAction(safeApprovalId, { actorType: 'user' });
+      await Promise.all([refreshWorkspace(), refreshMaterial(), loadAgentQueues()]);
+      setToast({
+        message: `Approved and applied${result?.execution?.deleteCount ? ` (${result.execution.deleteCount} deleted)` : ''}.`,
+        tone: 'success'
+      });
+    } catch (error) {
+      setToast({
+        message: error.response?.data?.error || 'Failed to approve action.',
+        tone: 'error'
+      });
+    } finally {
+      setApprovalActionId('');
+    }
+  }, [approvalActionId, loadAgentQueues, refreshMaterial, refreshWorkspace]);
+
+  const handleRejectAction = useCallback(async (approvalId) => {
+    const safeApprovalId = clean(approvalId);
+    if (!safeApprovalId || approvalActionId) return;
+    setApprovalActionId(safeApprovalId);
+    try {
+      await rejectAgentAction(safeApprovalId, { actorType: 'user' });
+      await loadAgentQueues();
+      setToast({ message: 'Approval rejected.', tone: 'success' });
+    } catch (error) {
+      setToast({
+        message: error.response?.data?.error || 'Failed to reject action.',
+        tone: 'error'
+      });
+    } finally {
+      setApprovalActionId('');
+    }
+  }, [approvalActionId, loadAgentQueues]);
+
+  const handleRestoreDeletedItem = useCallback(async (recordId) => {
+    const safeRecordId = clean(recordId);
+    if (!safeRecordId || restoreRecordId) return;
+    setRestoreRecordId(safeRecordId);
+    try {
+      await restoreAgentSoftDelete(safeRecordId, { actorType: 'user' });
+      await Promise.all([refreshWorkspace(), refreshMaterial(), loadAgentQueues()]);
+      setToast({ message: 'Deleted item restored.', tone: 'success' });
+    } catch (error) {
+      setToast({
+        message: error.response?.data?.error || 'Failed to restore item.',
+        tone: 'error'
+      });
+    } finally {
+      setRestoreRecordId('');
+    }
+  }, [loadAgentQueues, refreshMaterial, refreshWorkspace, restoreRecordId]);
 
   const handleDragEnd = useCallback((event) => {
     const activeItemId = fromItemSortableId(event.active?.id);
@@ -1165,6 +1348,131 @@ const ConceptNotebook = ({ concept }) => {
           </div>
         )}
 
+        <div className="concept-outline__ai-draft" data-testid="concept-agent-actions-panel">
+          <div className="concept-outline__ai-draft-head">
+            <p className="concept-outline__ai-draft-title">Agent actions</p>
+            <div className="concept-outline__ai-draft-actions">
+              <Button
+                variant="secondary"
+                onClick={handleUndoLastAgentAction}
+                disabled={undoLoading}
+                data-testid="concept-agent-undo-button"
+              >
+                {undoLoading ? 'Undoing...' : 'Undo last action'}
+              </Button>
+            </div>
+          </div>
+          <p className="muted small">Deletes are soft-deleted for 30 days and can be restored below.</p>
+
+          <div className="concept-outline__ai-draft-group">
+            <div className="concept-outline__ai-draft-group-head">
+              <p className="concept-outline__ai-draft-subtitle">Pending approvals</p>
+              <div className="concept-outline__drawer-meta">
+                <span className="concept-outline__meta-chip">{agentApprovals.length}</span>
+              </div>
+            </div>
+            {agentApprovalsLoading ? (
+              <p className="muted small">Loading approvals…</p>
+            ) : agentApprovals.length === 0 ? (
+              <p className="muted small">No pending delete approvals.</p>
+            ) : (
+              agentApprovals.map((approval, index) => {
+                const approvalId = clean(approval?.approvalId);
+                const previewTargets = Array.isArray(approval?.preview?.deleteTargets)
+                  ? approval.preview.deleteTargets
+                  : [];
+                const previewLabel = previewTargets
+                  .slice(0, 2)
+                  .map(entry => clean(entry?.title) || `${clean(entry?.type)}:${clean(entry?.refId)}`)
+                  .filter(Boolean)
+                  .join(' · ');
+                return (
+                  <div
+                    key={approvalId || `approval-${index}`}
+                    className="concept-outline__ai-draft-row"
+                    data-testid={`concept-agent-approval-${approvalId || 'row'}`}
+                  >
+                    <div className="concept-outline__drawer-copy">
+                      <p className="concept-outline__drawer-title">
+                        {Number(approval?.deleteCount || 0)} delete{Number(approval?.deleteCount || 0) === 1 ? '' : 's'} · {clean(approval?.approvalMode) || 'single_batch'}
+                      </p>
+                      {previewLabel && <p className="concept-outline__drawer-snippet">{previewLabel}</p>}
+                      <div className="concept-outline__drawer-meta">
+                        {clean(approval?.flow) && <span className="concept-outline__meta-chip">{clean(approval.flow)}</span>}
+                        {approval?.createdAt && <span className="concept-outline__meta-date">{formatDateTime(approval.createdAt)}</span>}
+                      </div>
+                    </div>
+                    <div className="concept-outline__ai-draft-actions">
+                      <Button
+                        variant="secondary"
+                        disabled={!approvalId || approvalActionId === approvalId}
+                        onClick={() => handleApproveAction(approvalId)}
+                      >
+                        {approvalActionId === approvalId ? 'Applying…' : 'Approve'}
+                      </Button>
+                      <button
+                        type="button"
+                        className="ui-quiet-button"
+                        disabled={!approvalId || approvalActionId === approvalId}
+                        onClick={() => handleRejectAction(approvalId)}
+                      >
+                        Reject
+                      </button>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+            {agentApprovalsError && <p className="status-message error-message">{agentApprovalsError}</p>}
+          </div>
+
+          <div className="concept-outline__ai-draft-group">
+            <div className="concept-outline__ai-draft-group-head">
+              <p className="concept-outline__ai-draft-subtitle">Recently deleted</p>
+              <div className="concept-outline__drawer-meta">
+                <span className="concept-outline__meta-chip">{softDeleteRecords.length}</span>
+              </div>
+            </div>
+            {softDeleteLoading ? (
+              <p className="muted small">Loading deleted items…</p>
+            ) : softDeleteRecords.length === 0 ? (
+              <p className="muted small">No deleted items in restore window.</p>
+            ) : (
+              softDeleteRecords.map((record, index) => {
+                const recordId = clean(record?.recordId);
+                const snapshotTitle = clean(record?.snapshot?.inlineTitle)
+                  || clean(record?.snapshot?.inlineText).slice(0, 90)
+                  || `${clean(record?.entityType)} ${clean(record?.entityId)}`.trim();
+                return (
+                  <div key={recordId || `delete-${index}`} className="concept-outline__ai-draft-row">
+                    <div className="concept-outline__drawer-copy">
+                      <p className="concept-outline__drawer-title">{snapshotTitle || 'Deleted item'}</p>
+                      <div className="concept-outline__drawer-meta">
+                        {record?.snapshot?.type && <span className="concept-outline__meta-chip">{clean(record.snapshot.type)}</span>}
+                        {record?.restoreUntilAt && (
+                          <span className="concept-outline__meta-date">
+                            Restore by {formatDateTime(record.restoreUntilAt)}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="concept-outline__ai-draft-actions">
+                      <Button
+                        variant="secondary"
+                        disabled={!recordId || restoreRecordId === recordId}
+                        onClick={() => handleRestoreDeletedItem(recordId)}
+                      >
+                        {restoreRecordId === recordId ? 'Restoring…' : 'Restore'}
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+            {softDeleteError && <p className="status-message error-message">{softDeleteError}</p>}
+          </div>
+        </div>
+
         <div className="concept-outline__ai-draft">
           <div className="concept-outline__ai-draft-head">
             <p className="concept-outline__ai-draft-title">AI Draft</p>
@@ -1356,6 +1664,7 @@ const ConceptNotebook = ({ concept }) => {
                             onStageChange={handleStageChange}
                             onRemove={handleRemoveItem}
                             onOpen={(item.type === 'note' || item.type === 'question') ? handleOpenItem : null}
+                            actionDisabled={removingItemId === item.id}
                           />
                         ))}
                       </SortableContext>

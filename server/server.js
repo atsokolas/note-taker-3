@@ -78,9 +78,36 @@ mongoose.connect(process.env.MONGODB_URI) // useNewUrlParser and useUnifiedTopol
 // --- SCHEMA & MODELS ---
 
 // --- AUTHENTICATION ADDITIONS: User Schema and Model ---
+const userAgentProfileSchema = new mongoose.Schema({
+  premiumTier: { type: String, enum: ['free', 'premium'], default: 'free' },
+  webResearchEnabled: { type: Boolean, default: false },
+  webResearchBetaEnabled: { type: Boolean, default: false }
+}, { _id: false });
+
+const userAgentProtocolTaskOverrideSchema = new mongoose.Schema({
+  actorType: { type: String, enum: ['user', 'native_agent', 'byo_agent'], default: '' },
+  actorId: { type: String, default: '', trim: true }
+}, { _id: false });
+
+const userAgentProtocolPolicySchema = new mongoose.Schema({
+  routingMode: { type: String, enum: ['balanced', 'native_first', 'byo_first'], default: 'balanced' },
+  defaultByoAgentId: { type: mongoose.Schema.Types.ObjectId, ref: 'PersonalAgent', default: null },
+  allowByoForResearch: { type: Boolean, default: true },
+  allowByoForSynthesis: { type: Boolean, default: true },
+  taskOverrides: {
+    research: { type: userAgentProtocolTaskOverrideSchema, default: () => ({}) },
+    synthesis: { type: userAgentProtocolTaskOverrideSchema, default: () => ({}) },
+    restructure: { type: userAgentProtocolTaskOverrideSchema, default: () => ({}) },
+    qa: { type: userAgentProtocolTaskOverrideSchema, default: () => ({}) },
+    custom: { type: userAgentProtocolTaskOverrideSchema, default: () => ({}) }
+  }
+}, { _id: false });
+
 const userSchema = new mongoose.Schema({
     username: { type: String, required: true, unique: true, trim: true },
     password: { type: String, required: true }, // Hashed password
+    agentProfile: { type: userAgentProfileSchema, default: () => ({}) },
+    agentProtocolPolicy: { type: userAgentProtocolPolicySchema, default: () => ({}) }
 }, { timestamps: true });
 
 const User = mongoose.model('User', userSchema);
@@ -636,6 +663,168 @@ brainSummarySchema.index({ userId: 1, timeRange: 1, generatedAt: -1 });
 
 const BrainSummary = mongoose.model('BrainSummary', brainSummarySchema);
 
+const personalAgentCapabilitiesSchema = new mongoose.Schema({
+  read: { type: Boolean, default: true },
+  search: { type: Boolean, default: true },
+  proposeChanges: { type: Boolean, default: true },
+  executeWrites: { type: Boolean, default: true },
+  executeDeletes: { type: Boolean, default: true }
+}, { _id: false });
+
+const personalAgentSchema = new mongoose.Schema({
+  name: { type: String, required: true, trim: true },
+  description: { type: String, default: '', trim: true },
+  status: { type: String, enum: ['active', 'disabled'], default: 'active' },
+  capabilities: { type: personalAgentCapabilitiesSchema, default: () => ({}) },
+  apiKeyHash: { type: String, required: true, trim: true },
+  apiKeyPrefix: { type: String, default: '', trim: true },
+  lastUsedAt: { type: Date, default: null },
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }
+}, { timestamps: true });
+
+personalAgentSchema.index({ userId: 1, status: 1, updatedAt: -1 });
+personalAgentSchema.index({ userId: 1, name: 1 });
+personalAgentSchema.index({ apiKeyHash: 1 }, { unique: true });
+
+const PersonalAgent = mongoose.model('PersonalAgent', personalAgentSchema);
+
+const actorIdentitySchema = new mongoose.Schema({
+  actorType: { type: String, enum: ['user', 'native_agent', 'byo_agent'], default: 'native_agent' },
+  actorId: { type: String, default: '', trim: true }
+}, { _id: false });
+
+const approvalPreviewTargetSchema = new mongoose.Schema({
+  itemId: { type: String, default: '', trim: true },
+  type: { type: String, default: '', trim: true },
+  refId: { type: String, default: '', trim: true },
+  title: { type: String, default: '', trim: true },
+  sectionId: { type: String, default: '', trim: true },
+  sectionTitle: { type: String, default: '', trim: true }
+}, { _id: false });
+
+const actionApprovalSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  conceptId: { type: mongoose.Schema.Types.ObjectId, ref: 'TagMeta', required: true },
+  conceptName: { type: String, default: '', trim: true },
+  status: { type: String, enum: ['pending', 'approved', 'rejected', 'executed', 'expired'], default: 'pending' },
+  flow: { type: String, enum: ['direct', 'cleanup', 'restructure'], default: 'direct' },
+  explicitUserCommand: { type: Boolean, default: false },
+  deleteCount: { type: Number, default: 0 },
+  approvalMode: { type: String, enum: ['single_batch', 'batched'], default: 'single_batch' },
+  operations: { type: [mongoose.Schema.Types.Mixed], default: [] },
+  preview: {
+    deleteTargets: { type: [approvalPreviewTargetSchema], default: [] },
+    workspaceSummary: { type: mongoose.Schema.Types.Mixed, default: {} },
+    operationCount: { type: Number, default: 0 }
+  },
+  requestedBy: { type: actorIdentitySchema, default: () => ({}) },
+  approvedBy: { type: actorIdentitySchema, default: undefined },
+  rejectedBy: { type: actorIdentitySchema, default: undefined },
+  approvedAt: { type: Date, default: null },
+  rejectedAt: { type: Date, default: null },
+  executedAt: { type: Date, default: null },
+  auditId: { type: mongoose.Schema.Types.ObjectId, ref: 'AgentActionAudit', default: null }
+}, { timestamps: true });
+
+actionApprovalSchema.index({ userId: 1, status: 1, createdAt: -1 });
+actionApprovalSchema.index({ userId: 1, conceptId: 1, createdAt: -1 });
+
+const AgentActionApproval = mongoose.model('AgentActionApproval', actionApprovalSchema);
+
+const actionAuditSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  conceptId: { type: mongoose.Schema.Types.ObjectId, ref: 'TagMeta', required: true },
+  conceptName: { type: String, default: '', trim: true },
+  actorType: { type: String, enum: ['user', 'native_agent', 'byo_agent'], default: 'native_agent' },
+  actorId: { type: String, default: '', trim: true },
+  flow: { type: String, enum: ['direct', 'cleanup', 'restructure'], default: 'direct' },
+  explicitUserCommand: { type: Boolean, default: false },
+  operationCount: { type: Number, default: 0 },
+  destructiveCount: { type: Number, default: 0 },
+  operations: { type: [mongoose.Schema.Types.Mixed], default: [] },
+  undoable: { type: Boolean, default: true },
+  beforeWorkspace: { type: mongoose.Schema.Types.Mixed, default: {} },
+  afterWorkspace: { type: mongoose.Schema.Types.Mixed, default: {} },
+  approvalId: { type: mongoose.Schema.Types.ObjectId, ref: 'AgentActionApproval', default: null },
+  undoneAt: { type: Date, default: null },
+  undoneBy: { type: actorIdentitySchema, default: undefined }
+}, { timestamps: true });
+
+actionAuditSchema.index({ userId: 1, conceptId: 1, createdAt: -1 });
+actionAuditSchema.index({ userId: 1, undoneAt: 1, createdAt: -1 });
+
+const AgentActionAudit = mongoose.model('AgentActionAudit', actionAuditSchema);
+
+const softDeleteRecordSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  conceptId: { type: mongoose.Schema.Types.ObjectId, ref: 'TagMeta', required: true },
+  conceptName: { type: String, default: '', trim: true },
+  entityType: { type: String, enum: ['workspace_item'], default: 'workspace_item' },
+  entityId: { type: String, required: true, trim: true },
+  snapshot: { type: mongoose.Schema.Types.Mixed, default: {} },
+  status: { type: String, enum: ['deleted', 'restored', 'expired'], default: 'deleted' },
+  deletedAt: { type: Date, default: Date.now },
+  restoreUntilAt: { type: Date, required: true },
+  restoredAt: { type: Date, default: null },
+  auditId: { type: mongoose.Schema.Types.ObjectId, ref: 'AgentActionAudit', default: null },
+  restoredByAuditId: { type: mongoose.Schema.Types.ObjectId, ref: 'AgentActionAudit', default: null }
+}, { timestamps: true });
+
+softDeleteRecordSchema.index({ userId: 1, status: 1, restoreUntilAt: 1 });
+softDeleteRecordSchema.index({ userId: 1, conceptId: 1, deletedAt: -1 });
+softDeleteRecordSchema.index({ userId: 1, auditId: 1 });
+
+const AgentSoftDeleteRecord = mongoose.model('AgentSoftDeleteRecord', softDeleteRecordSchema);
+
+const agentHandoffEventSchema = new mongoose.Schema({
+  eventType: {
+    type: String,
+    enum: ['created', 'claimed', 'completed', 'rejected', 'cancelled', 'note'],
+    required: true
+  },
+  actor: { type: actorIdentitySchema, default: () => ({}) },
+  note: { type: String, default: '', trim: true },
+  payload: { type: mongoose.Schema.Types.Mixed, default: {} },
+  createdAt: { type: Date, default: Date.now }
+}, { _id: false });
+
+const agentHandoffSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  title: { type: String, required: true, trim: true },
+  taskType: {
+    type: String,
+    enum: ['research', 'synthesis', 'restructure', 'qa', 'custom'],
+    default: 'custom'
+  },
+  objective: { type: String, default: '', trim: true },
+  status: {
+    type: String,
+    enum: ['pending', 'claimed', 'completed', 'rejected', 'cancelled'],
+    default: 'pending'
+  },
+  priority: { type: String, enum: ['low', 'normal', 'high'], default: 'normal' },
+  context: { type: mongoose.Schema.Types.Mixed, default: {} },
+  input: { type: mongoose.Schema.Types.Mixed, default: {} },
+  output: { type: mongoose.Schema.Types.Mixed, default: {} },
+  requestedActor: { type: actorIdentitySchema, default: () => ({ actorType: 'native_agent', actorId: '' }) },
+  createdBy: { type: actorIdentitySchema, default: () => ({ actorType: 'user', actorId: '' }) },
+  claimedBy: { type: actorIdentitySchema, default: undefined },
+  completedBy: { type: actorIdentitySchema, default: undefined },
+  rejectedBy: { type: actorIdentitySchema, default: undefined },
+  cancelledBy: { type: actorIdentitySchema, default: undefined },
+  dueAt: { type: Date, default: null },
+  claimedAt: { type: Date, default: null },
+  completedAt: { type: Date, default: null },
+  rejectedAt: { type: Date, default: null },
+  cancelledAt: { type: Date, default: null },
+  events: { type: [agentHandoffEventSchema], default: [] }
+}, { timestamps: true });
+
+agentHandoffSchema.index({ userId: 1, status: 1, updatedAt: -1 });
+agentHandoffSchema.index({ userId: 1, 'requestedActor.actorType': 1, 'requestedActor.actorId': 1, status: 1, updatedAt: -1 });
+
+const AgentHandoff = mongoose.model('AgentHandoff', agentHandoffSchema);
+
 // Reference edges (block-level backlinks)
 const referenceEdgeSchema = new mongoose.Schema({
   sourceType: { type: String, required: true },
@@ -679,6 +868,17 @@ const {
   getConceptSuggestionDrafts,
   mutateConceptSuggestionDraft
 } = require('./services/conceptAgentService');
+const { generateCollaborativeReply } = require('./services/collaborativeAgentService');
+const {
+  DELETE_RETENTION_DAYS: AGENT_DELETE_RETENTION_DAYS,
+  executeWorkspaceActionsWithPolicy,
+  listActionApprovals,
+  approveActionApproval,
+  rejectActionApproval,
+  listSoftDeleteRecords,
+  restoreSoftDeletedWorkspaceItem,
+  undoLastWorkspaceAction
+} = require('./services/agentActionService');
 const { logAgentMetric, getAgentMetricsSnapshot } = require('./utils/agentMetrics');
 
 registerBrainSummaryHandler({ Article, BrainSummary });
@@ -706,6 +906,649 @@ const normalizeTags = (input) => {
     output.push(value);
   });
   return output.slice(0, 40);
+};
+
+const AGENT_ACTOR_TYPES = new Set(['user', 'native_agent', 'byo_agent']);
+const AGENT_ACTION_FLOWS = new Set(['direct', 'cleanup', 'restructure']);
+const PERSONAL_AGENT_STATUSES = new Set(['active', 'disabled']);
+const AGENT_HANDOFF_STATUSES = new Set(['pending', 'claimed', 'completed', 'rejected', 'cancelled']);
+const AGENT_HANDOFF_TASK_TYPES = new Set(['research', 'synthesis', 'restructure', 'qa', 'custom']);
+const AGENT_HANDOFF_PRIORITIES = new Set(['low', 'normal', 'high']);
+const MAX_AGENT_HANDOFF_LIST_LIMIT = 120;
+const AGENT_PROTOCOL_ROUTING_MODES = new Set(['balanced', 'native_first', 'byo_first']);
+const AGENT_BRIDGE_TOKEN_KIND = 'agent_bridge';
+const DEFAULT_BRIDGE_TOKEN_TTL_SECONDS = 30 * 60;
+const MAX_BRIDGE_TOKEN_TTL_SECONDS = 2 * 60 * 60;
+
+const normalizeAgentActorType = (value, fallback = 'native_agent') => {
+  const candidate = String(value || '').trim().toLowerCase();
+  if (AGENT_ACTOR_TYPES.has(candidate)) return candidate;
+  return fallback;
+};
+
+const normalizeAgentActionFlow = (value, fallback = 'direct') => {
+  const candidate = String(value || '').trim().toLowerCase();
+  if (AGENT_ACTION_FLOWS.has(candidate)) return candidate;
+  return fallback;
+};
+
+const normalizePersonalAgentStatus = (value, fallback = 'active') => {
+  const candidate = String(value || '').trim().toLowerCase();
+  if (PERSONAL_AGENT_STATUSES.has(candidate)) return candidate;
+  return fallback;
+};
+
+const normalizeAgentHandoffStatus = (value, fallback = 'pending') => {
+  const candidate = String(value || '').trim().toLowerCase();
+  if (AGENT_HANDOFF_STATUSES.has(candidate)) return candidate;
+  return fallback;
+};
+
+const normalizeAgentHandoffTaskType = (value, fallback = 'custom') => {
+  const candidate = String(value || '').trim().toLowerCase();
+  if (AGENT_HANDOFF_TASK_TYPES.has(candidate)) return candidate;
+  return fallback;
+};
+
+const normalizeAgentHandoffPriority = (value, fallback = 'normal') => {
+  const candidate = String(value || '').trim().toLowerCase();
+  if (AGENT_HANDOFF_PRIORITIES.has(candidate)) return candidate;
+  return fallback;
+};
+
+const normalizeAgentProtocolRoutingMode = (value, fallback = 'balanced') => {
+  const candidate = String(value || '').trim().toLowerCase();
+  if (AGENT_PROTOCOL_ROUTING_MODES.has(candidate)) return candidate;
+  return fallback;
+};
+
+const createPersonalAgentApiKey = () => (
+  `ntk_ag_${crypto.randomBytes(24).toString('hex')}`
+);
+
+const hashPersonalAgentApiKey = (value) => (
+  crypto.createHash('sha256').update(String(value || '')).digest('hex')
+);
+
+const PERSONAL_AGENT_DEFAULT_CAPABILITIES = Object.freeze({
+  read: true,
+  search: true,
+  proposeChanges: true,
+  executeWrites: true,
+  executeDeletes: true
+});
+
+const normalizePersonalAgentCapabilities = (input = {}) => {
+  const source = input && typeof input === 'object' ? input : {};
+  return {
+    read: source.read !== undefined ? Boolean(source.read) : PERSONAL_AGENT_DEFAULT_CAPABILITIES.read,
+    search: source.search !== undefined ? Boolean(source.search) : PERSONAL_AGENT_DEFAULT_CAPABILITIES.search,
+    proposeChanges: source.proposeChanges !== undefined
+      ? Boolean(source.proposeChanges)
+      : PERSONAL_AGENT_DEFAULT_CAPABILITIES.proposeChanges,
+    executeWrites: source.executeWrites !== undefined
+      ? Boolean(source.executeWrites)
+      : PERSONAL_AGENT_DEFAULT_CAPABILITIES.executeWrites,
+    executeDeletes: source.executeDeletes !== undefined
+      ? Boolean(source.executeDeletes)
+      : PERSONAL_AGENT_DEFAULT_CAPABILITIES.executeDeletes
+  };
+};
+
+const USER_AGENT_PREMIUM_TIERS = new Set(['free', 'premium']);
+
+const normalizeUserPremiumTier = (value, fallback = 'free') => {
+  const candidate = String(value || '').trim().toLowerCase();
+  if (USER_AGENT_PREMIUM_TIERS.has(candidate)) return candidate;
+  return fallback;
+};
+
+const normalizeUserAgentProfile = (input = {}) => {
+  const source = input && typeof input === 'object' ? input : {};
+  return {
+    premiumTier: normalizeUserPremiumTier(source.premiumTier, 'free'),
+    webResearchEnabled: Boolean(source.webResearchEnabled),
+    webResearchBetaEnabled: Boolean(source.webResearchBetaEnabled)
+  };
+};
+
+const deriveAgentEntitlements = (agentProfileInput = {}) => {
+  const profile = normalizeUserAgentProfile(agentProfileInput);
+  const premiumWebResearchAvailable = (
+    profile.premiumTier === 'premium'
+    && profile.webResearchEnabled
+  );
+  return {
+    premiumTier: profile.premiumTier,
+    webResearchEnabled: profile.webResearchEnabled,
+    webResearchBetaEnabled: profile.webResearchBetaEnabled,
+    premiumWebResearchAvailable
+  };
+};
+
+const getUserAgentEntitlements = async (userId) => {
+  if (!mongoose.Types.ObjectId.isValid(userId)) {
+    return deriveAgentEntitlements({});
+  }
+  const user = await User.findById(userId).select('agentProfile').lean();
+  return deriveAgentEntitlements(user?.agentProfile || {});
+};
+
+const sanitizePersonalAgent = (doc) => ({
+  _id: String(doc?._id || ''),
+  name: String(doc?.name || ''),
+  description: String(doc?.description || ''),
+  status: normalizePersonalAgentStatus(doc?.status, 'active'),
+  capabilities: normalizePersonalAgentCapabilities(doc?.capabilities || {}),
+  apiKeyPrefix: String(doc?.apiKeyPrefix || ''),
+  lastUsedAt: doc?.lastUsedAt ? new Date(doc.lastUsedAt).toISOString() : null,
+  createdAt: doc?.createdAt ? new Date(doc.createdAt).toISOString() : null,
+  updatedAt: doc?.updatedAt ? new Date(doc.updatedAt).toISOString() : null
+});
+
+const safeAgentHandoffLimit = (value, fallback = 30) => {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.max(1, Math.min(MAX_AGENT_HANDOFF_LIST_LIMIT, Math.trunc(parsed)));
+};
+
+const normalizeActorIdentity = (input = {}, fallbackType = 'user') => ({
+  actorType: normalizeAgentActorType(input?.actorType, fallbackType),
+  actorId: String(input?.actorId || '').trim()
+});
+
+const parseOptionalDate = (value) => {
+  if (!value) return null;
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return parsed;
+};
+
+const getAgentBridgeJwtSecret = () => (
+  String(process.env.AGENT_BRIDGE_SECRET || process.env.JWT_SECRET || '').trim() || 'note-taker-agent-bridge-dev-secret'
+);
+
+const safeBridgeTokenTtlSeconds = (value, fallback = DEFAULT_BRIDGE_TOKEN_TTL_SECONDS) => {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return fallback;
+  const intValue = Math.trunc(parsed);
+  return Math.max(60, Math.min(MAX_BRIDGE_TOKEN_TTL_SECONDS, intValue));
+};
+
+const normalizeProtocolTaskOverride = (input = {}) => {
+  const source = input && typeof input === 'object' ? input : {};
+  const actorTypeRaw = String(source.actorType || '').trim().toLowerCase();
+  const actorType = AGENT_ACTOR_TYPES.has(actorTypeRaw) ? actorTypeRaw : '';
+  const actorId = String(source.actorId || '').trim();
+  if (!actorType) return { actorType: '', actorId: '' };
+  return { actorType, actorId };
+};
+
+const normalizeAgentProtocolPolicy = (input = {}) => {
+  const source = input && typeof input === 'object' ? input : {};
+  const taskOverridesSource = source.taskOverrides && typeof source.taskOverrides === 'object'
+    ? source.taskOverrides
+    : {};
+  const defaultByoAgentIdRaw = String(source.defaultByoAgentId || '').trim();
+  return {
+    routingMode: normalizeAgentProtocolRoutingMode(source.routingMode, 'balanced'),
+    defaultByoAgentId: mongoose.Types.ObjectId.isValid(defaultByoAgentIdRaw) ? defaultByoAgentIdRaw : '',
+    allowByoForResearch: source.allowByoForResearch !== undefined ? Boolean(source.allowByoForResearch) : true,
+    allowByoForSynthesis: source.allowByoForSynthesis !== undefined ? Boolean(source.allowByoForSynthesis) : true,
+    taskOverrides: {
+      research: normalizeProtocolTaskOverride(taskOverridesSource.research),
+      synthesis: normalizeProtocolTaskOverride(taskOverridesSource.synthesis),
+      restructure: normalizeProtocolTaskOverride(taskOverridesSource.restructure),
+      qa: normalizeProtocolTaskOverride(taskOverridesSource.qa),
+      custom: normalizeProtocolTaskOverride(taskOverridesSource.custom)
+    }
+  };
+};
+
+const sanitizeAgentProtocolPolicy = (input = {}) => {
+  const policy = normalizeAgentProtocolPolicy(input);
+  return {
+    routingMode: policy.routingMode,
+    defaultByoAgentId: policy.defaultByoAgentId || '',
+    allowByoForResearch: Boolean(policy.allowByoForResearch),
+    allowByoForSynthesis: Boolean(policy.allowByoForSynthesis),
+    taskOverrides: {
+      research: policy.taskOverrides.research,
+      synthesis: policy.taskOverrides.synthesis,
+      restructure: policy.taskOverrides.restructure,
+      qa: policy.taskOverrides.qa,
+      custom: policy.taskOverrides.custom
+    }
+  };
+};
+
+const toStoredAgentProtocolPolicy = (policy = {}) => ({
+  routingMode: policy.routingMode,
+  defaultByoAgentId: policy.defaultByoAgentId && mongoose.Types.ObjectId.isValid(policy.defaultByoAgentId)
+    ? new mongoose.Types.ObjectId(String(policy.defaultByoAgentId))
+    : null,
+  allowByoForResearch: Boolean(policy.allowByoForResearch),
+  allowByoForSynthesis: Boolean(policy.allowByoForSynthesis),
+  taskOverrides: policy.taskOverrides || {}
+});
+
+const getUserAgentProtocolPolicy = async (userId) => {
+  if (!mongoose.Types.ObjectId.isValid(userId)) {
+    return sanitizeAgentProtocolPolicy({});
+  }
+  const user = await User.findById(userId).select('agentProtocolPolicy').lean();
+  return sanitizeAgentProtocolPolicy(user?.agentProtocolPolicy || {});
+};
+
+const isByoAgentCompatibleForTask = (agent = {}, taskType = 'custom') => {
+  const capabilities = normalizePersonalAgentCapabilities(agent.capabilities || {});
+  const safeTaskType = normalizeAgentHandoffTaskType(taskType, 'custom');
+  if (safeTaskType === 'research') return capabilities.read && capabilities.search;
+  if (safeTaskType === 'synthesis') return capabilities.read && capabilities.proposeChanges;
+  if (safeTaskType === 'restructure') return capabilities.executeWrites;
+  if (safeTaskType === 'qa') return capabilities.read && capabilities.search;
+  return capabilities.proposeChanges || capabilities.executeWrites || capabilities.read;
+};
+
+const listActivePersonalAgentsForUser = async (userId) => {
+  const rows = await PersonalAgent.find({ userId, status: 'active' })
+    .select('_id name capabilities updatedAt')
+    .sort({ updatedAt: -1, createdAt: -1 })
+    .lean();
+  return Array.isArray(rows) ? rows : [];
+};
+
+const selectByoAgentForTask = ({
+  agents = [],
+  taskType = 'custom',
+  preferredAgentId = ''
+}) => {
+  const compatible = agents.filter(agent => isByoAgentCompatibleForTask(agent, taskType));
+  if (!compatible.length) return null;
+  const preferredId = String(preferredAgentId || '').trim();
+  if (preferredId) {
+    const preferred = compatible.find(agent => String(agent._id) === preferredId);
+    if (preferred) return preferred;
+  }
+  return compatible[0];
+};
+
+const resolveAutoHandoffRequestedActor = async ({
+  userId,
+  taskType = 'custom',
+  policy = {}
+}) => {
+  const safeTaskType = normalizeAgentHandoffTaskType(taskType, 'custom');
+  const safePolicy = sanitizeAgentProtocolPolicy(policy);
+  const override = safePolicy.taskOverrides[safeTaskType] || { actorType: '', actorId: '' };
+
+  if (override.actorType) {
+    let overrideActorId = String(override.actorId || '').trim();
+    if (override.actorType === 'user' && !overrideActorId) overrideActorId = String(userId);
+    if (override.actorType === 'byo_agent' && !overrideActorId) overrideActorId = String(safePolicy.defaultByoAgentId || '').trim();
+    if (override.actorType !== 'byo_agent' || overrideActorId) {
+      try {
+        const resolved = await resolveAndValidateActorIdentity({
+          userId,
+          actor: { actorType: override.actorType, actorId: overrideActorId },
+          fallbackType: 'native_agent'
+        });
+        return {
+          requestedActor: resolved,
+          planner: {
+            routeSource: 'task_override',
+            routingMode: safePolicy.routingMode
+          }
+        };
+      } catch (_error) {
+        // fall through to normal routing logic
+      }
+    }
+  }
+
+  const shouldConsiderByo = (
+    safePolicy.routingMode === 'byo_first'
+    || (
+      safePolicy.routingMode === 'balanced'
+      && (
+        (safeTaskType === 'research' && safePolicy.allowByoForResearch)
+        || (safeTaskType === 'synthesis' && safePolicy.allowByoForSynthesis)
+      )
+    )
+  );
+
+  if (shouldConsiderByo) {
+    const agents = await listActivePersonalAgentsForUser(userId);
+    const selectedByo = selectByoAgentForTask({
+      agents,
+      taskType: safeTaskType,
+      preferredAgentId: safePolicy.defaultByoAgentId
+    });
+    if (selectedByo) {
+      return {
+        requestedActor: { actorType: 'byo_agent', actorId: String(selectedByo._id) },
+        planner: {
+          routeSource: safePolicy.routingMode === 'byo_first' ? 'routing_mode_byo_first' : 'balanced_with_capability_match',
+          routingMode: safePolicy.routingMode,
+          selectedByoAgent: {
+            actorId: String(selectedByo._id),
+            name: String(selectedByo.name || '')
+          }
+        }
+      };
+    }
+  }
+
+  return {
+    requestedActor: { actorType: 'native_agent', actorId: '' },
+    planner: {
+      routeSource: safePolicy.routingMode === 'native_first' ? 'routing_mode_native_first' : 'fallback_native',
+      routingMode: safePolicy.routingMode
+    }
+  };
+};
+
+const createSignedBridgeToken = ({
+  userId,
+  actorType = 'user',
+  actorId = '',
+  scope = 'handoff_ops',
+  ttlSeconds = DEFAULT_BRIDGE_TOKEN_TTL_SECONDS
+}) => {
+  const safeTtl = safeBridgeTokenTtlSeconds(ttlSeconds, DEFAULT_BRIDGE_TOKEN_TTL_SECONDS);
+  const payload = {
+    kind: AGENT_BRIDGE_TOKEN_KIND,
+    userId: String(userId),
+    actorType: normalizeAgentActorType(actorType, 'user'),
+    actorId: String(actorId || '').trim(),
+    scope: String(scope || 'handoff_ops').trim() || 'handoff_ops'
+  };
+  const token = jwt.sign(payload, getAgentBridgeJwtSecret(), {
+    expiresIn: safeTtl,
+    issuer: 'note-taker-3-1'
+  });
+  return { token, ttlSeconds: safeTtl };
+};
+
+const sanitizeAgentHandoffDoc = (doc) => {
+  const events = Array.isArray(doc?.events) ? doc.events : [];
+  return {
+    handoffId: String(doc?._id || ''),
+    title: String(doc?.title || ''),
+    taskType: normalizeAgentHandoffTaskType(doc?.taskType, 'custom'),
+    objective: String(doc?.objective || ''),
+    status: normalizeAgentHandoffStatus(doc?.status, 'pending'),
+    priority: normalizeAgentHandoffPriority(doc?.priority, 'normal'),
+    context: doc?.context || {},
+    input: doc?.input || {},
+    output: doc?.output || {},
+    requestedActor: normalizeActorIdentity(doc?.requestedActor || {}, 'native_agent'),
+    createdBy: normalizeActorIdentity(doc?.createdBy || {}, 'user'),
+    claimedBy: doc?.claimedBy ? normalizeActorIdentity(doc.claimedBy, 'native_agent') : null,
+    completedBy: doc?.completedBy ? normalizeActorIdentity(doc.completedBy, 'native_agent') : null,
+    rejectedBy: doc?.rejectedBy ? normalizeActorIdentity(doc.rejectedBy, 'native_agent') : null,
+    cancelledBy: doc?.cancelledBy ? normalizeActorIdentity(doc.cancelledBy, 'user') : null,
+    dueAt: doc?.dueAt ? new Date(doc.dueAt).toISOString() : null,
+    claimedAt: doc?.claimedAt ? new Date(doc.claimedAt).toISOString() : null,
+    completedAt: doc?.completedAt ? new Date(doc.completedAt).toISOString() : null,
+    rejectedAt: doc?.rejectedAt ? new Date(doc.rejectedAt).toISOString() : null,
+    cancelledAt: doc?.cancelledAt ? new Date(doc.cancelledAt).toISOString() : null,
+    createdAt: doc?.createdAt ? new Date(doc.createdAt).toISOString() : null,
+    updatedAt: doc?.updatedAt ? new Date(doc.updatedAt).toISOString() : null,
+    events: events.slice(-50).map((event) => ({
+      eventType: String(event?.eventType || '').trim(),
+      actor: normalizeActorIdentity(event?.actor || {}, 'native_agent'),
+      note: String(event?.note || ''),
+      payload: event?.payload || {},
+      createdAt: event?.createdAt ? new Date(event.createdAt).toISOString() : null
+    }))
+  };
+};
+
+const appendHandoffEvent = (handoff, {
+  eventType,
+  actor = {},
+  note = '',
+  payload = {}
+}) => {
+  if (!handoff) return;
+  const safeEventType = String(eventType || '').trim();
+  if (!safeEventType) return;
+  const events = Array.isArray(handoff.events) ? handoff.events : [];
+  events.push({
+    eventType: safeEventType,
+    actor: normalizeActorIdentity(actor, 'native_agent'),
+    note: String(note || '').trim().slice(0, 1000),
+    payload: payload && typeof payload === 'object' ? payload : {},
+    createdAt: new Date()
+  });
+  handoff.events = events.slice(-200);
+};
+
+const matchesActorIdentity = (target = {}, actor = {}) => {
+  const targetType = normalizeAgentActorType(target?.actorType, '');
+  const actorType = normalizeAgentActorType(actor?.actorType, '');
+  if (!targetType || !actorType || targetType !== actorType) return false;
+  const targetId = String(target?.actorId || '').trim();
+  const actorId = String(actor?.actorId || '').trim();
+  if (!targetId) return true;
+  return targetId === actorId;
+};
+
+const normalizeHandoffPayload = (input = {}) => {
+  const source = input && typeof input === 'object' ? input : {};
+  return source;
+};
+
+const resolveAndValidateActorIdentity = async ({
+  userId,
+  actor = {},
+  fallbackType = 'user'
+}) => {
+  const normalized = normalizeActorIdentity(actor, fallbackType);
+  if (normalized.actorType !== 'byo_agent') return normalized;
+  if (!mongoose.Types.ObjectId.isValid(normalized.actorId)) {
+    const error = new Error('actorId must be a valid personal agent id for byo_agent actors.');
+    error.status = 400;
+    throw error;
+  }
+  const personalAgent = await PersonalAgent.findOne({
+    _id: normalized.actorId,
+    userId,
+    status: 'active'
+  }).select('_id');
+  if (!personalAgent) {
+    const error = new Error('Requested BYO agent was not found or is disabled.');
+    error.status = 404;
+    throw error;
+  }
+  return normalized;
+};
+
+const canActorClaimHandoff = (handoff, actor) => (
+  matchesActorIdentity(handoff?.requestedActor || {}, actor)
+);
+
+const canActorMutateClaimedHandoff = (handoff, actor) => (
+  matchesActorIdentity(handoff?.claimedBy || {}, actor)
+);
+
+const buildHandoffActorFilter = (actor = {}, scope = 'mine') => {
+  const safeScope = String(scope || 'mine').trim().toLowerCase();
+  if (safeScope === 'all') return {};
+  const safeActorType = normalizeAgentActorType(actor?.actorType, '');
+  const safeActorId = String(actor?.actorId || '').trim();
+  if (!safeActorType) return {};
+  if (safeActorId) {
+    return {
+      $or: [
+        { 'requestedActor.actorType': safeActorType, 'requestedActor.actorId': safeActorId },
+        { 'claimedBy.actorType': safeActorType, 'claimedBy.actorId': safeActorId },
+        { 'createdBy.actorType': safeActorType, 'createdBy.actorId': safeActorId }
+      ]
+    };
+  }
+  return {
+    $or: [
+      { 'requestedActor.actorType': safeActorType },
+      { 'claimedBy.actorType': safeActorType },
+      { 'createdBy.actorType': safeActorType }
+    ]
+  };
+};
+
+const runBridgeHandoffOperation = async ({
+  bridgeActor,
+  op,
+  payload = {}
+}) => {
+  const userId = String(bridgeActor?.userId || '').trim();
+  const actor = {
+    actorType: normalizeAgentActorType(bridgeActor?.actorType, 'user'),
+    actorId: String(bridgeActor?.actorId || '').trim()
+  };
+  const operation = String(op || '').trim().toLowerCase();
+  let bridgeByoCapabilities = null;
+  if (actor.actorType === 'byo_agent') {
+    const byAgent = await PersonalAgent.findOne({
+      _id: actor.actorId,
+      userId,
+      status: 'active'
+    }).select('capabilities');
+    if (!byAgent) throw Object.assign(new Error('BYO bridge actor is not active.'), { status: 403 });
+    bridgeByoCapabilities = normalizePersonalAgentCapabilities(byAgent.capabilities || {});
+  }
+
+  if (operation === 'handoffs.list') {
+    const query = { userId };
+    const status = String(payload.status || 'all').trim().toLowerCase();
+    if (status !== 'all') {
+      if (!AGENT_HANDOFF_STATUSES.has(status)) throw Object.assign(new Error('Invalid handoff status filter.'), { status: 400 });
+      query.status = status;
+    }
+    const taskType = String(payload.taskType || '').trim().toLowerCase();
+    if (taskType) {
+      if (!AGENT_HANDOFF_TASK_TYPES.has(taskType)) throw Object.assign(new Error('Invalid taskType filter.'), { status: 400 });
+      query.taskType = taskType;
+    }
+    Object.assign(query, buildHandoffActorFilter(actor, payload.scope || 'mine'));
+    const limit = safeAgentHandoffLimit(payload.limit, 50);
+    const rows = await AgentHandoff.find(query).sort({ updatedAt: -1, createdAt: -1 }).limit(limit);
+    return { handoffs: rows.map(sanitizeAgentHandoffDoc) };
+  }
+
+  if (operation === 'handoffs.create') {
+    if (actor.actorType === 'byo_agent' && !bridgeByoCapabilities?.proposeChanges) {
+      throw Object.assign(new Error('This BYO actor cannot create protocol handoffs.'), { status: 403 });
+    }
+    const title = String(payload.title || '').trim();
+    if (!title) throw Object.assign(new Error('title is required.'), { status: 400 });
+    const taskType = normalizeAgentHandoffTaskType(payload.taskType, 'custom');
+    const priority = normalizeAgentHandoffPriority(payload.priority, 'normal');
+    const objective = String(payload.objective || '').trim().slice(0, 4000);
+    const dueAt = parseOptionalDate(payload.dueAt);
+    if (payload.dueAt && !dueAt) throw Object.assign(new Error('dueAt must be a valid date when provided.'), { status: 400 });
+
+    const requestedActor = await resolveAndValidateActorIdentity({
+      userId,
+      actor: payload.requestedActor || { actorType: 'native_agent', actorId: '' },
+      fallbackType: 'native_agent'
+    });
+    if (requestedActor.actorType === 'user' && !requestedActor.actorId) requestedActor.actorId = String(userId);
+
+    const handoff = await AgentHandoff.create({
+      userId,
+      title: title.slice(0, 200),
+      taskType,
+      objective,
+      status: 'pending',
+      priority,
+      context: payload.context && typeof payload.context === 'object' ? payload.context : {},
+      input: payload.input && typeof payload.input === 'object' ? payload.input : {},
+      output: {},
+      requestedActor,
+      createdBy: actor,
+      dueAt,
+      events: [{
+        eventType: 'created',
+        actor,
+        note: '',
+        payload: { taskType, priority, requestedActor }
+      }]
+    });
+    return { handoff: sanitizeAgentHandoffDoc(handoff) };
+  }
+
+  const handoffId = String(payload.handoffId || '').trim();
+  if (!mongoose.Types.ObjectId.isValid(handoffId)) {
+    throw Object.assign(new Error('Invalid handoff id.'), { status: 400 });
+  }
+  const handoff = await AgentHandoff.findOne({ _id: handoffId, userId });
+  if (!handoff) throw Object.assign(new Error('Handoff not found.'), { status: 404 });
+
+  if (operation === 'handoffs.claim') {
+    if (handoff.status === 'claimed') {
+      if (!canActorMutateClaimedHandoff(handoff, actor)) {
+        throw Object.assign(new Error('Handoff is already claimed by a different actor.'), { status: 409 });
+      }
+      return { handoff: sanitizeAgentHandoffDoc(handoff) };
+    }
+    if (handoff.status !== 'pending') {
+      throw Object.assign(new Error(`Handoff is ${handoff.status || 'not pending'} and cannot be claimed.`), { status: 400 });
+    }
+    if (!canActorClaimHandoff(handoff, actor)) {
+      throw Object.assign(new Error('This actor is not allowed to claim this handoff.'), { status: 403 });
+    }
+    handoff.status = 'claimed';
+    handoff.claimedBy = actor;
+    handoff.claimedAt = new Date();
+    appendHandoffEvent(handoff, { eventType: 'claimed', actor, note: String(payload.note || '').trim() });
+    await handoff.save();
+    return { handoff: sanitizeAgentHandoffDoc(handoff) };
+  }
+
+  if (operation === 'handoffs.complete') {
+    if (actor.actorType === 'byo_agent' && !bridgeByoCapabilities?.proposeChanges && !bridgeByoCapabilities?.executeWrites) {
+      throw Object.assign(new Error('This BYO actor cannot complete protocol handoffs.'), { status: 403 });
+    }
+    if (handoff.status !== 'claimed') throw Object.assign(new Error('Only claimed handoffs can be completed.'), { status: 400 });
+    if (!canActorMutateClaimedHandoff(handoff, actor)) {
+      throw Object.assign(new Error('Only the claiming actor can complete this handoff.'), { status: 403 });
+    }
+    const output = payload.output && typeof payload.output === 'object' ? payload.output : {};
+    handoff.status = 'completed';
+    handoff.output = output;
+    handoff.completedBy = actor;
+    handoff.completedAt = new Date();
+    appendHandoffEvent(handoff, {
+      eventType: 'completed',
+      actor,
+      note: String(payload.note || '').trim(),
+      payload: { hasOutput: Object.keys(output).length > 0 }
+    });
+    await handoff.save();
+    return { handoff: sanitizeAgentHandoffDoc(handoff) };
+  }
+
+  if (operation === 'handoffs.reject') {
+    if (!['pending', 'claimed'].includes(handoff.status)) {
+      throw Object.assign(new Error(`Handoff is ${handoff.status || 'not rejectable'}.`), { status: 400 });
+    }
+    if (handoff.status === 'pending' && !canActorClaimHandoff(handoff, actor)) {
+      throw Object.assign(new Error('This actor cannot reject this handoff.'), { status: 403 });
+    }
+    if (handoff.status === 'claimed' && !canActorMutateClaimedHandoff(handoff, actor)) {
+      throw Object.assign(new Error('Only the claiming actor can reject this handoff.'), { status: 403 });
+    }
+    handoff.status = 'rejected';
+    handoff.rejectedBy = actor;
+    handoff.rejectedAt = new Date();
+    appendHandoffEvent(handoff, { eventType: 'rejected', actor, note: String(payload.note || '').trim() });
+    await handoff.save();
+    return { handoff: sanitizeAgentHandoffDoc(handoff) };
+  }
+
+  throw Object.assign(new Error('Unsupported bridge operation.'), { status: 400 });
 };
 
 const normalizeConceptNameInput = (value) => (
@@ -2155,6 +2998,104 @@ function authenticateToken(req, res, next) {
     };
     next();
   });
+}
+
+async function authenticatePersonalAgentKey(req, res, next) {
+  try {
+    const agentId = String(req.headers['x-agent-id'] || '').trim();
+    const rawApiKey = String(req.headers['x-agent-key'] || '').trim();
+    if (!agentId || !rawApiKey) {
+      return res.status(401).json({ error: 'AGENT_AUTH_REQUIRED' });
+    }
+    if (!mongoose.Types.ObjectId.isValid(agentId)) {
+      return res.status(401).json({ error: 'AGENT_AUTH_INVALID' });
+    }
+
+    const apiKeyHash = hashPersonalAgentApiKey(rawApiKey);
+    const personalAgent = await PersonalAgent.findOne({
+      _id: agentId,
+      apiKeyHash,
+      status: 'active'
+    }).select('_id userId name status capabilities');
+
+    if (!personalAgent) {
+      return res.status(401).json({ error: 'AGENT_AUTH_INVALID' });
+    }
+
+    personalAgent.lastUsedAt = new Date();
+    await personalAgent.save();
+
+    req.personalAgent = {
+      id: String(personalAgent._id),
+      userId: String(personalAgent.userId),
+      name: String(personalAgent.name || ''),
+      capabilities: normalizePersonalAgentCapabilities(personalAgent.capabilities || {})
+    };
+    next();
+  } catch (error) {
+    console.error('❌ Error authenticating personal agent key:', error);
+    return res.status(500).json({ error: 'Failed to authenticate personal agent.' });
+  }
+}
+
+async function authenticateAgentBridgeToken(req, res, next) {
+  try {
+    const header = String(req.headers.authorization || '').trim();
+    const bearer = header.toLowerCase().startsWith('bearer ')
+      ? header.slice(7).trim()
+      : '';
+    const token = bearer || String(req.headers['x-agent-bridge-token'] || '').trim();
+    if (!token) {
+      return res.status(401).json({ error: 'BRIDGE_AUTH_REQUIRED' });
+    }
+
+    const decoded = jwt.verify(token, getAgentBridgeJwtSecret(), {
+      issuer: 'note-taker-3-1'
+    });
+    if (String(decoded?.kind || '') !== AGENT_BRIDGE_TOKEN_KIND) {
+      return res.status(401).json({ error: 'BRIDGE_AUTH_INVALID' });
+    }
+
+    const userId = String(decoded?.userId || '').trim();
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(401).json({ error: 'BRIDGE_AUTH_INVALID' });
+    }
+
+    const actorType = normalizeAgentActorType(decoded?.actorType, '');
+    if (!actorType) return res.status(401).json({ error: 'BRIDGE_AUTH_INVALID' });
+    const actorId = String(decoded?.actorId || '').trim();
+
+    if (actorType === 'user') {
+      const effectiveActorId = actorId || userId;
+      if (effectiveActorId !== userId) {
+        return res.status(401).json({ error: 'BRIDGE_AUTH_INVALID' });
+      }
+    }
+    if (actorType === 'byo_agent') {
+      if (!mongoose.Types.ObjectId.isValid(actorId)) {
+        return res.status(401).json({ error: 'BRIDGE_AUTH_INVALID' });
+      }
+      const personalAgent = await PersonalAgent.findOne({
+        _id: actorId,
+        userId,
+        status: 'active'
+      }).select('_id');
+      if (!personalAgent) return res.status(401).json({ error: 'BRIDGE_AUTH_INVALID' });
+    }
+
+    req.bridgeActor = {
+      userId,
+      actorType,
+      actorId: actorType === 'user' ? userId : actorId,
+      scope: String(decoded?.scope || '').trim() || 'handoff_ops'
+    };
+    next();
+  } catch (error) {
+    if (error?.name === 'TokenExpiredError') {
+      return res.status(401).json({ error: 'BRIDGE_AUTH_EXPIRED' });
+    }
+    return res.status(401).json({ error: 'BRIDGE_AUTH_INVALID' });
+  }
 }
 
 const findRowValue = (row, keys) => {
@@ -7108,6 +8049,1155 @@ app.get('/api/concepts/:conceptId/material', authenticateToken, async (req, res)
   }
 });
 
+// --- AGENT ENTITLEMENTS (billing/feature scaffolding) ---
+app.get('/api/agent/entitlements', authenticateToken, async (req, res) => {
+  try {
+    const entitlements = await getUserAgentEntitlements(String(req.user.id));
+    return res.status(200).json({ entitlements });
+  } catch (error) {
+    console.error('❌ Error loading agent entitlements:', error);
+    return res.status(500).json({ error: 'Failed to load agent entitlements.' });
+  }
+});
+
+app.patch('/api/agent/entitlements/dev', authenticateToken, async (req, res) => {
+  try {
+    if (process.env.NODE_ENV === 'production') {
+      return res.status(403).json({ error: 'Entitlements dev route is disabled in production.' });
+    }
+    const profile = normalizeUserAgentProfile(req.body || {});
+    const updated = await User.findByIdAndUpdate(
+      req.user.id,
+      { agentProfile: profile },
+      { new: true }
+    ).select('agentProfile');
+    if (!updated) return res.status(404).json({ error: 'User not found.' });
+    const entitlements = deriveAgentEntitlements(updated.agentProfile || {});
+    return res.status(200).json({ entitlements });
+  } catch (error) {
+    console.error('❌ Error updating agent entitlements (dev):', error);
+    return res.status(500).json({ error: 'Failed to update agent entitlements.' });
+  }
+});
+
+app.get('/api/agent/protocol/policy', authenticateToken, async (req, res) => {
+  try {
+    const policy = await getUserAgentProtocolPolicy(String(req.user.id));
+    return res.status(200).json({ policy });
+  } catch (error) {
+    console.error('❌ Error loading agent protocol policy:', error);
+    return res.status(500).json({ error: 'Failed to load agent protocol policy.' });
+  }
+});
+
+app.patch('/api/agent/protocol/policy', authenticateToken, async (req, res) => {
+  try {
+    const normalized = normalizeAgentProtocolPolicy(req.body || {});
+    const stored = toStoredAgentProtocolPolicy(normalized);
+    const updated = await User.findByIdAndUpdate(
+      req.user.id,
+      { agentProtocolPolicy: stored },
+      { new: true }
+    ).select('agentProtocolPolicy');
+    if (!updated) return res.status(404).json({ error: 'User not found.' });
+    return res.status(200).json({
+      policy: sanitizeAgentProtocolPolicy(updated.agentProtocolPolicy || {})
+    });
+  } catch (error) {
+    console.error('❌ Error updating agent protocol policy:', error);
+    return res.status(500).json({ error: 'Failed to update agent protocol policy.' });
+  }
+});
+
+// --- PERSONAL AGENTS (per-user BYO registry) ---
+app.get('/api/agents/personal', authenticateToken, async (req, res) => {
+  try {
+    const rows = await PersonalAgent.find({ userId: req.user.id })
+      .sort({ updatedAt: -1, createdAt: -1 });
+    res.status(200).json((rows || []).map(sanitizePersonalAgent));
+  } catch (error) {
+    console.error('❌ Error listing personal agents:', error);
+    res.status(500).json({ error: 'Failed to list personal agents.' });
+  }
+});
+
+app.post('/api/agents/personal', authenticateToken, async (req, res) => {
+  try {
+    const name = String(req.body?.name || '').trim();
+    if (!name) return res.status(400).json({ error: 'name is required.' });
+
+    const description = String(req.body?.description || '').trim();
+    const capabilities = normalizePersonalAgentCapabilities(req.body?.capabilities || {});
+    const apiKey = createPersonalAgentApiKey();
+    const apiKeyHash = hashPersonalAgentApiKey(apiKey);
+    const apiKeyPrefix = `${apiKey.slice(0, 10)}...`;
+
+    const created = await PersonalAgent.create({
+      name: name.slice(0, 80),
+      description: description.slice(0, 600),
+      status: 'active',
+      capabilities,
+      apiKeyHash,
+      apiKeyPrefix,
+      userId: req.user.id
+    });
+
+    res.status(201).json({
+      agent: sanitizePersonalAgent(created),
+      apiKey
+    });
+  } catch (error) {
+    console.error('❌ Error creating personal agent:', error);
+    if (error?.code === 11000) {
+      return res.status(409).json({ error: 'Failed to create unique API key. Try again.' });
+    }
+    res.status(500).json({ error: 'Failed to create personal agent.' });
+  }
+});
+
+app.patch('/api/agents/personal/:id', authenticateToken, async (req, res) => {
+  try {
+    const id = String(req.params.id || '').trim();
+    if (!mongoose.Types.ObjectId.isValid(id)) return res.status(400).json({ error: 'Invalid agent id.' });
+
+    const updates = {};
+    if (req.body?.name !== undefined) {
+      const name = String(req.body.name || '').trim();
+      if (!name) return res.status(400).json({ error: 'name cannot be empty.' });
+      updates.name = name.slice(0, 80);
+    }
+    if (req.body?.description !== undefined) {
+      updates.description = String(req.body.description || '').trim().slice(0, 600);
+    }
+    if (req.body?.status !== undefined) {
+      updates.status = normalizePersonalAgentStatus(req.body.status, '');
+      if (!updates.status) return res.status(400).json({ error: 'status must be active or disabled.' });
+    }
+    if (req.body?.capabilities !== undefined) {
+      updates.capabilities = normalizePersonalAgentCapabilities(req.body.capabilities);
+    }
+    if (Object.keys(updates).length === 0) {
+      return res.status(400).json({ error: 'No updates provided.' });
+    }
+
+    const updated = await PersonalAgent.findOneAndUpdate(
+      { _id: id, userId: req.user.id },
+      updates,
+      { new: true }
+    );
+    if (!updated) return res.status(404).json({ error: 'Personal agent not found.' });
+    res.status(200).json({ agent: sanitizePersonalAgent(updated) });
+  } catch (error) {
+    console.error('❌ Error updating personal agent:', error);
+    res.status(500).json({ error: 'Failed to update personal agent.' });
+  }
+});
+
+app.post('/api/agents/personal/:id/rotate-key', authenticateToken, async (req, res) => {
+  try {
+    const id = String(req.params.id || '').trim();
+    if (!mongoose.Types.ObjectId.isValid(id)) return res.status(400).json({ error: 'Invalid agent id.' });
+    const apiKey = createPersonalAgentApiKey();
+    const apiKeyHash = hashPersonalAgentApiKey(apiKey);
+    const apiKeyPrefix = `${apiKey.slice(0, 10)}...`;
+
+    const updated = await PersonalAgent.findOneAndUpdate(
+      { _id: id, userId: req.user.id },
+      {
+        apiKeyHash,
+        apiKeyPrefix
+      },
+      { new: true }
+    );
+    if (!updated) return res.status(404).json({ error: 'Personal agent not found.' });
+    res.status(200).json({
+      agent: sanitizePersonalAgent(updated),
+      apiKey
+    });
+  } catch (error) {
+    console.error('❌ Error rotating personal agent key:', error);
+    if (error?.code === 11000) {
+      return res.status(409).json({ error: 'Failed to rotate API key. Try again.' });
+    }
+    res.status(500).json({ error: 'Failed to rotate personal agent key.' });
+  }
+});
+
+app.delete('/api/agents/personal/:id', authenticateToken, async (req, res) => {
+  try {
+    const id = String(req.params.id || '').trim();
+    if (!mongoose.Types.ObjectId.isValid(id)) return res.status(400).json({ error: 'Invalid agent id.' });
+    const updated = await PersonalAgent.findOneAndUpdate(
+      { _id: id, userId: req.user.id },
+      { status: 'disabled' },
+      { new: true }
+    );
+    if (!updated) return res.status(404).json({ error: 'Personal agent not found.' });
+    res.status(200).json({ agent: sanitizePersonalAgent(updated) });
+  } catch (error) {
+    console.error('❌ Error disabling personal agent:', error);
+    res.status(500).json({ error: 'Failed to disable personal agent.' });
+  }
+});
+
+// --- AGENT BRIDGE (signed external protocol identity) ---
+app.post('/api/agent/protocol/bridge/token', authenticateToken, async (req, res) => {
+  try {
+    const requestedActor = await resolveAndValidateActorIdentity({
+      userId: req.user.id,
+      actor: {
+        actorType: req.body?.actorType || 'user',
+        actorId: req.body?.actorId || req.user.id
+      },
+      fallbackType: 'user'
+    });
+    if (requestedActor.actorType === 'user' && !requestedActor.actorId) {
+      requestedActor.actorId = String(req.user.id);
+    }
+    const scope = String(req.body?.scope || 'handoff_ops').trim() || 'handoff_ops';
+    const ttlSeconds = safeBridgeTokenTtlSeconds(req.body?.ttlSeconds, DEFAULT_BRIDGE_TOKEN_TTL_SECONDS);
+    const signed = createSignedBridgeToken({
+      userId: String(req.user.id),
+      actorType: requestedActor.actorType,
+      actorId: requestedActor.actorId,
+      scope,
+      ttlSeconds
+    });
+    return res.status(201).json({
+      bridgeToken: signed.token,
+      expiresInSec: signed.ttlSeconds,
+      actor: requestedActor,
+      scope
+    });
+  } catch (error) {
+    if (Number(error?.status) >= 400 && Number(error?.status) < 500) {
+      return res.status(Number(error.status)).json({ error: error.message || 'Invalid bridge token request.' });
+    }
+    console.error('❌ Error creating bridge token:', error);
+    return res.status(500).json({ error: 'Failed to create bridge token.' });
+  }
+});
+
+app.get('/api/agent/protocol/bridge/manifest', authenticateAgentBridgeToken, async (req, res) => {
+  try {
+    return res.status(200).json({
+      protocol: 'note-taker-agent-bridge-v1',
+      adapter: {
+        a2aPath: '/api/agent/protocol/bridge/a2a',
+        mcpPath: '/api/agent/protocol/bridge/mcp'
+      },
+      actor: {
+        actorType: req.bridgeActor.actorType,
+        actorId: req.bridgeActor.actorId
+      },
+      scope: req.bridgeActor.scope,
+      operations: ['handoffs.list', 'handoffs.create', 'handoffs.claim', 'handoffs.complete', 'handoffs.reject'],
+      mcpMethods: ['handoffs/list', 'handoffs/create', 'handoffs/claim', 'handoffs/complete', 'handoffs/reject']
+    });
+  } catch (error) {
+    console.error('❌ Error returning bridge manifest:', error);
+    return res.status(500).json({ error: 'Failed to load bridge manifest.' });
+  }
+});
+
+app.post('/api/agent/protocol/bridge/a2a', authenticateAgentBridgeToken, async (req, res) => {
+  try {
+    const op = String(req.body?.op || '').trim();
+    if (!op) return res.status(400).json({ error: 'op is required.' });
+    const payload = req.body?.payload && typeof req.body.payload === 'object' ? req.body.payload : {};
+    const result = await runBridgeHandoffOperation({
+      bridgeActor: req.bridgeActor,
+      op,
+      payload
+    });
+    return res.status(200).json({ ok: true, op, result });
+  } catch (error) {
+    if (Number(error?.status) >= 400 && Number(error?.status) < 500) {
+      return res.status(Number(error.status)).json({ error: error.message || 'Invalid A2A bridge request.' });
+    }
+    console.error('❌ Error executing A2A bridge operation:', error);
+    return res.status(500).json({ error: 'Failed to execute A2A bridge operation.' });
+  }
+});
+
+app.post('/api/agent/protocol/bridge/mcp', authenticateAgentBridgeToken, async (req, res) => {
+  try {
+    const id = req.body?.id ?? null;
+    const method = String(req.body?.method || '').trim();
+    const params = req.body?.params && typeof req.body.params === 'object' ? req.body.params : {};
+    const methodMap = {
+      'handoffs/list': 'handoffs.list',
+      'handoffs/create': 'handoffs.create',
+      'handoffs/claim': 'handoffs.claim',
+      'handoffs/complete': 'handoffs.complete',
+      'handoffs/reject': 'handoffs.reject'
+    };
+    const op = methodMap[method];
+    if (!op) {
+      return res.status(200).json({
+        jsonrpc: '2.0',
+        id,
+        error: { code: -32601, message: 'Method not found.' }
+      });
+    }
+    const result = await runBridgeHandoffOperation({
+      bridgeActor: req.bridgeActor,
+      op,
+      payload: params
+    });
+    return res.status(200).json({
+      jsonrpc: '2.0',
+      id,
+      result
+    });
+  } catch (error) {
+    if (Number(error?.status) >= 400 && Number(error?.status) < 500) {
+      return res.status(200).json({
+        jsonrpc: '2.0',
+        id: req.body?.id ?? null,
+        error: { code: -32000, message: error.message || 'Bridge operation failed.' }
+      });
+    }
+    console.error('❌ Error executing MCP bridge operation:', error);
+    return res.status(200).json({
+      jsonrpc: '2.0',
+      id: req.body?.id ?? null,
+      error: { code: -32603, message: 'Internal bridge error.' }
+    });
+  }
+});
+
+// --- AGENT PROTOCOL (multi-agent handoffs) ---
+app.post('/api/agent/protocol/handoffs', authenticateToken, async (req, res) => {
+  try {
+    const payload = normalizeHandoffPayload(req.body || {});
+    const title = String(payload.title || '').trim();
+    if (!title) return res.status(400).json({ error: 'title is required.' });
+
+    const taskType = normalizeAgentHandoffTaskType(payload.taskType, 'custom');
+    const priority = normalizeAgentHandoffPriority(payload.priority, 'normal');
+    const objective = String(payload.objective || '').trim().slice(0, 4000);
+    const dueAt = parseOptionalDate(payload.dueAt);
+    if (payload.dueAt && !dueAt) return res.status(400).json({ error: 'dueAt must be a valid date when provided.' });
+
+    const createdBy = await resolveAndValidateActorIdentity({
+      userId: req.user.id,
+      actor: {
+        actorType: payload.createdBy?.actorType || payload.actorType || 'user',
+        actorId: payload.createdBy?.actorId || payload.actorId || req.user.id
+      },
+      fallbackType: 'user'
+    });
+    if (createdBy.actorType === 'user' && !createdBy.actorId) createdBy.actorId = String(req.user.id);
+
+    const requestedActor = await resolveAndValidateActorIdentity({
+      userId: req.user.id,
+      actor: payload.requestedActor || {
+        actorType: payload.requestedActorType || 'native_agent',
+        actorId: payload.requestedActorId || ''
+      },
+      fallbackType: 'native_agent'
+    });
+    if (requestedActor.actorType === 'user' && !requestedActor.actorId) requestedActor.actorId = String(req.user.id);
+
+    const handoff = await AgentHandoff.create({
+      userId: req.user.id,
+      title: title.slice(0, 200),
+      taskType,
+      objective,
+      status: 'pending',
+      priority,
+      context: payload.context && typeof payload.context === 'object' ? payload.context : {},
+      input: payload.input && typeof payload.input === 'object' ? payload.input : {},
+      output: {},
+      requestedActor,
+      createdBy,
+      dueAt,
+      events: [{
+        eventType: 'created',
+        actor: createdBy,
+        note: '',
+        payload: { taskType, priority, requestedActor }
+      }]
+    });
+
+    return res.status(201).json({ handoff: sanitizeAgentHandoffDoc(handoff) });
+  } catch (error) {
+    if (Number(error?.status) >= 400 && Number(error?.status) < 500) {
+      return res.status(Number(error.status)).json({ error: error.message || 'Invalid handoff request.' });
+    }
+    console.error('❌ Error creating agent handoff:', error);
+    return res.status(500).json({ error: 'Failed to create agent handoff.' });
+  }
+});
+
+app.get('/api/agent/protocol/handoffs', authenticateToken, async (req, res) => {
+  try {
+    const query = { userId: req.user.id };
+    const status = String(req.query.status || 'all').trim().toLowerCase();
+    if (status !== 'all') {
+      if (!AGENT_HANDOFF_STATUSES.has(status)) {
+        return res.status(400).json({ error: 'status must be one of pending, claimed, completed, rejected, cancelled, all.' });
+      }
+      query.status = status;
+    }
+
+    const taskType = String(req.query.taskType || '').trim().toLowerCase();
+    if (taskType) {
+      if (!AGENT_HANDOFF_TASK_TYPES.has(taskType)) {
+        return res.status(400).json({ error: 'taskType must be one of research, synthesis, restructure, qa, custom.' });
+      }
+      query.taskType = taskType;
+    }
+
+    const requestedActorType = String(req.query.requestedActorType || '').trim().toLowerCase();
+    const requestedActorId = String(req.query.requestedActorId || '').trim();
+    if (requestedActorType) query['requestedActor.actorType'] = normalizeAgentActorType(requestedActorType, '');
+    if (requestedActorId) query['requestedActor.actorId'] = requestedActorId;
+
+    const mine = String(req.query.mine || '').trim().toLowerCase() === 'true';
+    if (mine) {
+      const actor = await resolveAndValidateActorIdentity({
+        userId: req.user.id,
+        actor: {
+          actorType: req.query.actorType || 'user',
+          actorId: req.query.actorId || req.user.id
+        },
+        fallbackType: 'user'
+      });
+      if (actor.actorId) {
+        query.$or = [
+          { 'requestedActor.actorType': actor.actorType, 'requestedActor.actorId': actor.actorId },
+          { 'claimedBy.actorType': actor.actorType, 'claimedBy.actorId': actor.actorId },
+          { 'createdBy.actorType': actor.actorType, 'createdBy.actorId': actor.actorId }
+        ];
+      } else {
+        query.$or = [
+          { 'requestedActor.actorType': actor.actorType },
+          { 'claimedBy.actorType': actor.actorType },
+          { 'createdBy.actorType': actor.actorType }
+        ];
+      }
+    }
+
+    const limit = safeAgentHandoffLimit(req.query.limit, 40);
+    const rows = await AgentHandoff.find(query).sort({ updatedAt: -1, createdAt: -1 }).limit(limit);
+    return res.status(200).json({ handoffs: rows.map(sanitizeAgentHandoffDoc) });
+  } catch (error) {
+    if (Number(error?.status) >= 400 && Number(error?.status) < 500) {
+      return res.status(Number(error.status)).json({ error: error.message || 'Invalid handoff query.' });
+    }
+    console.error('❌ Error listing agent handoffs:', error);
+    return res.status(500).json({ error: 'Failed to list agent handoffs.' });
+  }
+});
+
+app.post('/api/agent/protocol/handoffs/auto', authenticateToken, async (req, res) => {
+  try {
+    const payload = normalizeHandoffPayload(req.body || {});
+    const title = String(payload.title || '').trim();
+    if (!title) return res.status(400).json({ error: 'title is required.' });
+    const taskType = normalizeAgentHandoffTaskType(payload.taskType, 'custom');
+    const priority = normalizeAgentHandoffPriority(payload.priority, 'normal');
+    const objective = String(payload.objective || '').trim().slice(0, 4000);
+    const dueAt = parseOptionalDate(payload.dueAt);
+    if (payload.dueAt && !dueAt) return res.status(400).json({ error: 'dueAt must be a valid date when provided.' });
+
+    const policy = await getUserAgentProtocolPolicy(String(req.user.id));
+    const plan = await resolveAutoHandoffRequestedActor({
+      userId: String(req.user.id),
+      taskType,
+      policy
+    });
+
+    const createdBy = { actorType: 'user', actorId: String(req.user.id) };
+    const handoff = await AgentHandoff.create({
+      userId: req.user.id,
+      title: title.slice(0, 200),
+      taskType,
+      objective,
+      status: 'pending',
+      priority,
+      context: payload.context && typeof payload.context === 'object' ? payload.context : {},
+      input: payload.input && typeof payload.input === 'object' ? payload.input : {},
+      output: {},
+      requestedActor: plan.requestedActor,
+      createdBy,
+      dueAt,
+      events: [{
+        eventType: 'created',
+        actor: createdBy,
+        note: '',
+        payload: { taskType, priority, requestedActor: plan.requestedActor, planner: plan.planner }
+      }]
+    });
+
+    return res.status(201).json({
+      handoff: sanitizeAgentHandoffDoc(handoff),
+      planner: plan.planner,
+      policy
+    });
+  } catch (error) {
+    if (Number(error?.status) >= 400 && Number(error?.status) < 500) {
+      return res.status(Number(error.status)).json({ error: error.message || 'Invalid auto handoff request.' });
+    }
+    console.error('❌ Error creating auto-routed handoff:', error);
+    return res.status(500).json({ error: 'Failed to create auto-routed handoff.' });
+  }
+});
+
+app.post('/api/agent/protocol/handoffs/:handoffId/claim', authenticateToken, async (req, res) => {
+  try {
+    const handoffId = String(req.params.handoffId || '').trim();
+    if (!mongoose.Types.ObjectId.isValid(handoffId)) return res.status(400).json({ error: 'Invalid handoff id.' });
+
+    const actor = await resolveAndValidateActorIdentity({
+      userId: req.user.id,
+      actor: {
+        actorType: req.body?.actorType || req.body?.actor?.actorType || 'user',
+        actorId: req.body?.actorId || req.body?.actor?.actorId || req.user.id
+      },
+      fallbackType: 'user'
+    });
+    if (actor.actorType === 'user' && !actor.actorId) actor.actorId = String(req.user.id);
+
+    const handoff = await AgentHandoff.findOne({ _id: handoffId, userId: req.user.id });
+    if (!handoff) return res.status(404).json({ error: 'Handoff not found.' });
+
+    if (handoff.status === 'claimed') {
+      if (canActorMutateClaimedHandoff(handoff, actor)) {
+        return res.status(200).json({ handoff: sanitizeAgentHandoffDoc(handoff) });
+      }
+      return res.status(409).json({ error: 'Handoff is already claimed by a different actor.' });
+    }
+    if (handoff.status !== 'pending') {
+      return res.status(400).json({ error: `Handoff is ${handoff.status || 'not pending'} and cannot be claimed.` });
+    }
+    if (!canActorClaimHandoff(handoff, actor)) {
+      return res.status(403).json({ error: 'This actor is not allowed to claim this handoff.' });
+    }
+
+    handoff.status = 'claimed';
+    handoff.claimedBy = actor;
+    handoff.claimedAt = new Date();
+    appendHandoffEvent(handoff, { eventType: 'claimed', actor, note: String(req.body?.note || '').trim() });
+    await handoff.save();
+    return res.status(200).json({ handoff: sanitizeAgentHandoffDoc(handoff) });
+  } catch (error) {
+    if (Number(error?.status) >= 400 && Number(error?.status) < 500) {
+      return res.status(Number(error.status)).json({ error: error.message || 'Failed to claim handoff.' });
+    }
+    console.error('❌ Error claiming agent handoff:', error);
+    return res.status(500).json({ error: 'Failed to claim agent handoff.' });
+  }
+});
+
+app.post('/api/agent/protocol/handoffs/:handoffId/complete', authenticateToken, async (req, res) => {
+  try {
+    const handoffId = String(req.params.handoffId || '').trim();
+    if (!mongoose.Types.ObjectId.isValid(handoffId)) return res.status(400).json({ error: 'Invalid handoff id.' });
+
+    const actor = await resolveAndValidateActorIdentity({
+      userId: req.user.id,
+      actor: {
+        actorType: req.body?.actorType || req.body?.actor?.actorType || 'user',
+        actorId: req.body?.actorId || req.body?.actor?.actorId || req.user.id
+      },
+      fallbackType: 'user'
+    });
+    if (actor.actorType === 'user' && !actor.actorId) actor.actorId = String(req.user.id);
+
+    const handoff = await AgentHandoff.findOne({ _id: handoffId, userId: req.user.id });
+    if (!handoff) return res.status(404).json({ error: 'Handoff not found.' });
+    if (handoff.status !== 'claimed') return res.status(400).json({ error: 'Only claimed handoffs can be completed.' });
+    if (!canActorMutateClaimedHandoff(handoff, actor)) {
+      return res.status(403).json({ error: 'Only the claiming actor can complete this handoff.' });
+    }
+
+    const output = req.body?.output && typeof req.body.output === 'object' ? req.body.output : {};
+    handoff.status = 'completed';
+    handoff.output = output;
+    handoff.completedBy = actor;
+    handoff.completedAt = new Date();
+    appendHandoffEvent(handoff, {
+      eventType: 'completed',
+      actor,
+      note: String(req.body?.note || '').trim(),
+      payload: { hasOutput: Object.keys(output).length > 0 }
+    });
+    await handoff.save();
+    return res.status(200).json({ handoff: sanitizeAgentHandoffDoc(handoff) });
+  } catch (error) {
+    if (Number(error?.status) >= 400 && Number(error?.status) < 500) {
+      return res.status(Number(error.status)).json({ error: error.message || 'Failed to complete handoff.' });
+    }
+    console.error('❌ Error completing agent handoff:', error);
+    return res.status(500).json({ error: 'Failed to complete agent handoff.' });
+  }
+});
+
+app.post('/api/agent/protocol/handoffs/:handoffId/reject', authenticateToken, async (req, res) => {
+  try {
+    const handoffId = String(req.params.handoffId || '').trim();
+    if (!mongoose.Types.ObjectId.isValid(handoffId)) return res.status(400).json({ error: 'Invalid handoff id.' });
+
+    const actor = await resolveAndValidateActorIdentity({
+      userId: req.user.id,
+      actor: {
+        actorType: req.body?.actorType || req.body?.actor?.actorType || 'user',
+        actorId: req.body?.actorId || req.body?.actor?.actorId || req.user.id
+      },
+      fallbackType: 'user'
+    });
+    if (actor.actorType === 'user' && !actor.actorId) actor.actorId = String(req.user.id);
+
+    const handoff = await AgentHandoff.findOne({ _id: handoffId, userId: req.user.id });
+    if (!handoff) return res.status(404).json({ error: 'Handoff not found.' });
+    if (!['pending', 'claimed'].includes(handoff.status)) {
+      return res.status(400).json({ error: `Handoff is ${handoff.status || 'not rejectable'}.` });
+    }
+
+    const actorIsOwnerUser = actor.actorType === 'user' && String(actor.actorId) === String(req.user.id);
+    if (!actorIsOwnerUser) {
+      if (handoff.status === 'pending' && !canActorClaimHandoff(handoff, actor)) {
+        return res.status(403).json({ error: 'This actor cannot reject this handoff.' });
+      }
+      if (handoff.status === 'claimed' && !canActorMutateClaimedHandoff(handoff, actor)) {
+        return res.status(403).json({ error: 'Only the claiming actor can reject this handoff.' });
+      }
+    }
+
+    handoff.status = 'rejected';
+    handoff.rejectedBy = actor;
+    handoff.rejectedAt = new Date();
+    appendHandoffEvent(handoff, { eventType: 'rejected', actor, note: String(req.body?.note || '').trim() });
+    await handoff.save();
+    return res.status(200).json({ handoff: sanitizeAgentHandoffDoc(handoff) });
+  } catch (error) {
+    if (Number(error?.status) >= 400 && Number(error?.status) < 500) {
+      return res.status(Number(error.status)).json({ error: error.message || 'Failed to reject handoff.' });
+    }
+    console.error('❌ Error rejecting agent handoff:', error);
+    return res.status(500).json({ error: 'Failed to reject agent handoff.' });
+  }
+});
+
+app.post('/api/agent/protocol/handoffs/:handoffId/cancel', authenticateToken, async (req, res) => {
+  try {
+    const handoffId = String(req.params.handoffId || '').trim();
+    if (!mongoose.Types.ObjectId.isValid(handoffId)) return res.status(400).json({ error: 'Invalid handoff id.' });
+
+    const handoff = await AgentHandoff.findOne({ _id: handoffId, userId: req.user.id });
+    if (!handoff) return res.status(404).json({ error: 'Handoff not found.' });
+    if (!['pending', 'claimed'].includes(handoff.status)) {
+      return res.status(400).json({ error: `Handoff is ${handoff.status || 'not cancellable'}.` });
+    }
+
+    const actor = { actorType: 'user', actorId: String(req.user.id) };
+    handoff.status = 'cancelled';
+    handoff.cancelledBy = actor;
+    handoff.cancelledAt = new Date();
+    appendHandoffEvent(handoff, { eventType: 'cancelled', actor, note: String(req.body?.note || '').trim() });
+    await handoff.save();
+    return res.status(200).json({ handoff: sanitizeAgentHandoffDoc(handoff) });
+  } catch (error) {
+    if (Number(error?.status) >= 400 && Number(error?.status) < 500) {
+      return res.status(Number(error.status)).json({ error: error.message || 'Failed to cancel handoff.' });
+    }
+    console.error('❌ Error cancelling agent handoff:', error);
+    return res.status(500).json({ error: 'Failed to cancel agent handoff.' });
+  }
+});
+
+app.get('/api/agent/byo/protocol/handoffs', authenticatePersonalAgentKey, async (req, res) => {
+  try {
+    const query = { userId: req.personalAgent.userId };
+    const status = String(req.query.status || 'pending').trim().toLowerCase();
+    if (status !== 'all') {
+      if (!AGENT_HANDOFF_STATUSES.has(status)) {
+        return res.status(400).json({ error: 'status must be one of pending, claimed, completed, rejected, cancelled, all.' });
+      }
+      query.status = status;
+    }
+
+    const taskType = String(req.query.taskType || '').trim().toLowerCase();
+    if (taskType) {
+      if (!AGENT_HANDOFF_TASK_TYPES.has(taskType)) {
+        return res.status(400).json({ error: 'taskType must be one of research, synthesis, restructure, qa, custom.' });
+      }
+      query.taskType = taskType;
+    }
+
+    const scope = String(req.query.scope || 'mine').trim().toLowerCase();
+    if (scope !== 'all') {
+      query.$or = [
+        { 'requestedActor.actorType': 'byo_agent', 'requestedActor.actorId': String(req.personalAgent.id) },
+        { 'claimedBy.actorType': 'byo_agent', 'claimedBy.actorId': String(req.personalAgent.id) },
+        { 'createdBy.actorType': 'byo_agent', 'createdBy.actorId': String(req.personalAgent.id) }
+      ];
+    }
+
+    const limit = safeAgentHandoffLimit(req.query.limit, 60);
+    const rows = await AgentHandoff.find(query).sort({ updatedAt: -1, createdAt: -1 }).limit(limit);
+    return res.status(200).json({ handoffs: rows.map(sanitizeAgentHandoffDoc) });
+  } catch (error) {
+    if (Number(error?.status) >= 400 && Number(error?.status) < 500) {
+      return res.status(Number(error.status)).json({ error: error.message || 'Invalid BYO handoff query.' });
+    }
+    console.error('❌ Error listing BYO handoffs:', error);
+    return res.status(500).json({ error: 'Failed to list BYO handoffs.' });
+  }
+});
+
+app.post('/api/agent/byo/protocol/handoffs', authenticatePersonalAgentKey, async (req, res) => {
+  try {
+    const capabilities = req.personalAgent.capabilities || {};
+    if (!capabilities.proposeChanges) {
+      return res.status(403).json({ error: 'This personal agent cannot create protocol handoffs.' });
+    }
+
+    const payload = normalizeHandoffPayload(req.body || {});
+    const title = String(payload.title || '').trim();
+    if (!title) return res.status(400).json({ error: 'title is required.' });
+
+    const taskType = normalizeAgentHandoffTaskType(payload.taskType, 'custom');
+    const priority = normalizeAgentHandoffPriority(payload.priority, 'normal');
+    const objective = String(payload.objective || '').trim().slice(0, 4000);
+    const dueAt = parseOptionalDate(payload.dueAt);
+    if (payload.dueAt && !dueAt) return res.status(400).json({ error: 'dueAt must be a valid date when provided.' });
+
+    const createdBy = { actorType: 'byo_agent', actorId: String(req.personalAgent.id) };
+    const requestedActorInput = payload.requestedActor || {
+      actorType: payload.requestedActorType || 'native_agent',
+      actorId: payload.requestedActorId || ''
+    };
+    if (String(requestedActorInput?.actorType || '').trim().toLowerCase() === 'byo_agent' && !String(requestedActorInput?.actorId || '').trim()) {
+      requestedActorInput.actorId = String(req.personalAgent.id);
+    }
+    const requestedActor = await resolveAndValidateActorIdentity({
+      userId: req.personalAgent.userId,
+      actor: requestedActorInput,
+      fallbackType: 'native_agent'
+    });
+    if (requestedActor.actorType === 'user' && !requestedActor.actorId) requestedActor.actorId = String(req.personalAgent.userId);
+
+    const handoff = await AgentHandoff.create({
+      userId: req.personalAgent.userId,
+      title: title.slice(0, 200),
+      taskType,
+      objective,
+      status: 'pending',
+      priority,
+      context: payload.context && typeof payload.context === 'object' ? payload.context : {},
+      input: payload.input && typeof payload.input === 'object' ? payload.input : {},
+      output: {},
+      requestedActor,
+      createdBy,
+      dueAt,
+      events: [{
+        eventType: 'created',
+        actor: createdBy,
+        note: '',
+        payload: { taskType, priority, requestedActor }
+      }]
+    });
+
+    return res.status(201).json({ handoff: sanitizeAgentHandoffDoc(handoff) });
+  } catch (error) {
+    if (Number(error?.status) >= 400 && Number(error?.status) < 500) {
+      return res.status(Number(error.status)).json({ error: error.message || 'Invalid BYO handoff request.' });
+    }
+    console.error('❌ Error creating BYO handoff:', error);
+    return res.status(500).json({ error: 'Failed to create BYO handoff.' });
+  }
+});
+
+app.post('/api/agent/byo/protocol/handoffs/:handoffId/claim', authenticatePersonalAgentKey, async (req, res) => {
+  try {
+    const handoffId = String(req.params.handoffId || '').trim();
+    if (!mongoose.Types.ObjectId.isValid(handoffId)) return res.status(400).json({ error: 'Invalid handoff id.' });
+
+    const actor = { actorType: 'byo_agent', actorId: String(req.personalAgent.id) };
+    const handoff = await AgentHandoff.findOne({ _id: handoffId, userId: req.personalAgent.userId });
+    if (!handoff) return res.status(404).json({ error: 'Handoff not found.' });
+
+    if (handoff.status === 'claimed') {
+      if (canActorMutateClaimedHandoff(handoff, actor)) {
+        return res.status(200).json({ handoff: sanitizeAgentHandoffDoc(handoff) });
+      }
+      return res.status(409).json({ error: 'Handoff is already claimed by a different actor.' });
+    }
+    if (handoff.status !== 'pending') return res.status(400).json({ error: `Handoff is ${handoff.status || 'not pending'}.` });
+    if (!canActorClaimHandoff(handoff, actor)) {
+      return res.status(403).json({ error: 'This BYO agent is not the requested actor for this handoff.' });
+    }
+
+    handoff.status = 'claimed';
+    handoff.claimedBy = actor;
+    handoff.claimedAt = new Date();
+    appendHandoffEvent(handoff, { eventType: 'claimed', actor, note: String(req.body?.note || '').trim() });
+    await handoff.save();
+    return res.status(200).json({ handoff: sanitizeAgentHandoffDoc(handoff) });
+  } catch (error) {
+    if (Number(error?.status) >= 400 && Number(error?.status) < 500) {
+      return res.status(Number(error.status)).json({ error: error.message || 'Failed to claim BYO handoff.' });
+    }
+    console.error('❌ Error claiming BYO handoff:', error);
+    return res.status(500).json({ error: 'Failed to claim BYO handoff.' });
+  }
+});
+
+app.post('/api/agent/byo/protocol/handoffs/:handoffId/complete', authenticatePersonalAgentKey, async (req, res) => {
+  try {
+    const capabilities = req.personalAgent.capabilities || {};
+    if (!capabilities.proposeChanges && !capabilities.executeWrites) {
+      return res.status(403).json({ error: 'This personal agent cannot complete protocol handoffs.' });
+    }
+
+    const handoffId = String(req.params.handoffId || '').trim();
+    if (!mongoose.Types.ObjectId.isValid(handoffId)) return res.status(400).json({ error: 'Invalid handoff id.' });
+
+    const actor = { actorType: 'byo_agent', actorId: String(req.personalAgent.id) };
+    const handoff = await AgentHandoff.findOne({ _id: handoffId, userId: req.personalAgent.userId });
+    if (!handoff) return res.status(404).json({ error: 'Handoff not found.' });
+    if (handoff.status !== 'claimed') return res.status(400).json({ error: 'Only claimed handoffs can be completed.' });
+    if (!canActorMutateClaimedHandoff(handoff, actor)) {
+      return res.status(403).json({ error: 'Only the claiming BYO agent can complete this handoff.' });
+    }
+
+    const output = req.body?.output && typeof req.body.output === 'object' ? req.body.output : {};
+    handoff.status = 'completed';
+    handoff.output = output;
+    handoff.completedBy = actor;
+    handoff.completedAt = new Date();
+    appendHandoffEvent(handoff, {
+      eventType: 'completed',
+      actor,
+      note: String(req.body?.note || '').trim(),
+      payload: { hasOutput: Object.keys(output).length > 0 }
+    });
+    await handoff.save();
+    return res.status(200).json({ handoff: sanitizeAgentHandoffDoc(handoff) });
+  } catch (error) {
+    if (Number(error?.status) >= 400 && Number(error?.status) < 500) {
+      return res.status(Number(error.status)).json({ error: error.message || 'Failed to complete BYO handoff.' });
+    }
+    console.error('❌ Error completing BYO handoff:', error);
+    return res.status(500).json({ error: 'Failed to complete BYO handoff.' });
+  }
+});
+
+app.post('/api/agent/byo/protocol/handoffs/:handoffId/reject', authenticatePersonalAgentKey, async (req, res) => {
+  try {
+    const handoffId = String(req.params.handoffId || '').trim();
+    if (!mongoose.Types.ObjectId.isValid(handoffId)) return res.status(400).json({ error: 'Invalid handoff id.' });
+
+    const actor = { actorType: 'byo_agent', actorId: String(req.personalAgent.id) };
+    const handoff = await AgentHandoff.findOne({ _id: handoffId, userId: req.personalAgent.userId });
+    if (!handoff) return res.status(404).json({ error: 'Handoff not found.' });
+    if (!['pending', 'claimed'].includes(handoff.status)) {
+      return res.status(400).json({ error: `Handoff is ${handoff.status || 'not rejectable'}.` });
+    }
+    if (handoff.status === 'pending' && !canActorClaimHandoff(handoff, actor)) {
+      return res.status(403).json({ error: 'This BYO agent cannot reject this handoff.' });
+    }
+    if (handoff.status === 'claimed' && !canActorMutateClaimedHandoff(handoff, actor)) {
+      return res.status(403).json({ error: 'Only the claiming BYO agent can reject this handoff.' });
+    }
+
+    handoff.status = 'rejected';
+    handoff.rejectedBy = actor;
+    handoff.rejectedAt = new Date();
+    appendHandoffEvent(handoff, { eventType: 'rejected', actor, note: String(req.body?.note || '').trim() });
+    await handoff.save();
+    return res.status(200).json({ handoff: sanitizeAgentHandoffDoc(handoff) });
+  } catch (error) {
+    if (Number(error?.status) >= 400 && Number(error?.status) < 500) {
+      return res.status(Number(error.status)).json({ error: error.message || 'Failed to reject BYO handoff.' });
+    }
+    console.error('❌ Error rejecting BYO handoff:', error);
+    return res.status(500).json({ error: 'Failed to reject BYO handoff.' });
+  }
+});
+
+// --- AGENT ACTIONS (policy + approvals + undo + restore) ---
+app.post('/api/agent/actions/execute', authenticateToken, async (req, res) => {
+  try {
+    const rawConcept = String(req.body?.conceptId || '').trim();
+    if (!rawConcept) return res.status(400).json({ error: 'conceptId is required.' });
+    const concept = await resolveConceptByParam(req.user.id, rawConcept, { createIfMissing: false });
+    if (!concept) return res.status(404).json({ error: 'Concept not found.' });
+
+    const result = await executeWorkspaceActionsWithPolicy({
+      userId: String(req.user.id),
+      conceptId: String(concept._id),
+      conceptName: concept.name || '',
+      operations: req.body?.operations,
+      flow: normalizeAgentActionFlow(req.body?.flow, 'direct'),
+      explicitUserCommand: Boolean(req.body?.explicitUserCommand),
+      actorType: normalizeAgentActorType(req.body?.actorType, 'native_agent'),
+      actorId: String(req.body?.actorId || '').trim()
+    });
+
+    if (result.status === 'approval_required') return res.status(202).json(result);
+    return res.status(200).json(result);
+  } catch (error) {
+    if (Number(error?.status) >= 400 && Number(error?.status) < 500) {
+      return res.status(Number(error.status)).json({ error: error.message || 'Invalid agent action request.' });
+    }
+    console.error('❌ Error executing agent actions:', error);
+    return res.status(500).json({ error: 'Failed to execute agent actions.' });
+  }
+});
+
+app.post('/api/agent/byo/actions/execute', authenticatePersonalAgentKey, async (req, res) => {
+  try {
+    const rawConcept = String(req.body?.conceptId || '').trim();
+    if (!rawConcept) return res.status(400).json({ error: 'conceptId is required.' });
+    const concept = await resolveConceptByParam(req.personalAgent.userId, rawConcept, { createIfMissing: false });
+    if (!concept) return res.status(404).json({ error: 'Concept not found.' });
+
+    const capabilities = req.personalAgent.capabilities || {};
+    const operations = Array.isArray(req.body?.operations) ? req.body.operations : [];
+    const hasDelete = operations.some(op => String(op?.op || '').trim() === 'deleteItem' || String(op?.op || '').trim() === 'deleteItems');
+    if (hasDelete && !capabilities.executeDeletes) {
+      return res.status(403).json({ error: 'This personal agent cannot execute deletes.' });
+    }
+    if (!hasDelete && !capabilities.executeWrites) {
+      return res.status(403).json({ error: 'This personal agent cannot execute writes.' });
+    }
+
+    const result = await executeWorkspaceActionsWithPolicy({
+      userId: String(req.personalAgent.userId),
+      conceptId: String(concept._id),
+      conceptName: concept.name || '',
+      operations,
+      flow: normalizeAgentActionFlow(req.body?.flow, 'direct'),
+      explicitUserCommand: Boolean(req.body?.explicitUserCommand),
+      actorType: 'byo_agent',
+      actorId: req.personalAgent.id
+    });
+
+    if (result.status === 'approval_required') return res.status(202).json(result);
+    return res.status(200).json(result);
+  } catch (error) {
+    if (Number(error?.status) >= 400 && Number(error?.status) < 500) {
+      return res.status(Number(error.status)).json({ error: error.message || 'Invalid BYO agent action request.' });
+    }
+    console.error('❌ Error executing BYO agent actions:', error);
+    return res.status(500).json({ error: 'Failed to execute BYO agent actions.' });
+  }
+});
+
+app.get('/api/agent/actions/approvals', authenticateToken, async (req, res) => {
+  try {
+    const conceptParam = String(req.query.conceptId || '').trim();
+    let conceptId = '';
+    if (conceptParam) {
+      const concept = await resolveConceptByParam(req.user.id, conceptParam, { createIfMissing: false });
+      if (!concept) return res.status(404).json({ error: 'Concept not found.' });
+      conceptId = String(concept._id);
+    }
+    const approvals = await listActionApprovals({
+      userId: String(req.user.id),
+      conceptId,
+      status: String(req.query.status || 'pending').trim(),
+      limit: Number(req.query.limit || 30)
+    });
+    return res.status(200).json({ approvals });
+  } catch (error) {
+    if (Number(error?.status) >= 400 && Number(error?.status) < 500) {
+      return res.status(Number(error.status)).json({ error: error.message || 'Invalid approvals request.' });
+    }
+    console.error('❌ Error listing action approvals:', error);
+    return res.status(500).json({ error: 'Failed to list action approvals.' });
+  }
+});
+
+app.post('/api/agent/actions/approvals/:approvalId/approve', authenticateToken, async (req, res) => {
+  try {
+    const result = await approveActionApproval({
+      userId: String(req.user.id),
+      approvalId: String(req.params.approvalId || '').trim(),
+      actorType: normalizeAgentActorType(req.body?.actorType, 'user'),
+      actorId: String(req.body?.actorId || '').trim()
+    });
+    return res.status(200).json(result);
+  } catch (error) {
+    if (Number(error?.status) >= 400 && Number(error?.status) < 500) {
+      return res.status(Number(error.status)).json({ error: error.message || 'Failed to approve action.' });
+    }
+    console.error('❌ Error approving action:', error);
+    return res.status(500).json({ error: 'Failed to approve action.' });
+  }
+});
+
+app.post('/api/agent/actions/approvals/:approvalId/reject', authenticateToken, async (req, res) => {
+  try {
+    const result = await rejectActionApproval({
+      userId: String(req.user.id),
+      approvalId: String(req.params.approvalId || '').trim(),
+      actorType: normalizeAgentActorType(req.body?.actorType, 'user'),
+      actorId: String(req.body?.actorId || '').trim()
+    });
+    return res.status(200).json({ approval: result });
+  } catch (error) {
+    if (Number(error?.status) >= 400 && Number(error?.status) < 500) {
+      return res.status(Number(error.status)).json({ error: error.message || 'Failed to reject action.' });
+    }
+    console.error('❌ Error rejecting action:', error);
+    return res.status(500).json({ error: 'Failed to reject action.' });
+  }
+});
+
+app.post('/api/agent/actions/undo', authenticateToken, async (req, res) => {
+  try {
+    const conceptParam = String(req.body?.conceptId || '').trim();
+    let conceptId = '';
+    if (conceptParam) {
+      const concept = await resolveConceptByParam(req.user.id, conceptParam, { createIfMissing: false });
+      if (!concept) return res.status(404).json({ error: 'Concept not found.' });
+      conceptId = String(concept._id);
+    }
+
+    const result = await undoLastWorkspaceAction({
+      userId: String(req.user.id),
+      conceptId,
+      actorType: normalizeAgentActorType(req.body?.actorType, 'user'),
+      actorId: String(req.body?.actorId || '').trim()
+    });
+    return res.status(200).json(result);
+  } catch (error) {
+    if (Number(error?.status) >= 400 && Number(error?.status) < 500) {
+      return res.status(Number(error.status)).json({ error: error.message || 'Failed to undo action.' });
+    }
+    console.error('❌ Error undoing action:', error);
+    return res.status(500).json({ error: 'Failed to undo action.' });
+  }
+});
+
+app.get('/api/agent/actions/deletions', authenticateToken, async (req, res) => {
+  try {
+    const conceptParam = String(req.query.conceptId || '').trim();
+    let conceptId = '';
+    if (conceptParam) {
+      const concept = await resolveConceptByParam(req.user.id, conceptParam, { createIfMissing: false });
+      if (!concept) return res.status(404).json({ error: 'Concept not found.' });
+      conceptId = String(concept._id);
+    }
+    const records = await listSoftDeleteRecords({
+      userId: String(req.user.id),
+      conceptId,
+      status: String(req.query.status || 'deleted').trim(),
+      limit: Number(req.query.limit || 60)
+    });
+    return res.status(200).json({
+      retentionDays: AGENT_DELETE_RETENTION_DAYS,
+      records
+    });
+  } catch (error) {
+    if (Number(error?.status) >= 400 && Number(error?.status) < 500) {
+      return res.status(Number(error.status)).json({ error: error.message || 'Failed to list deletions.' });
+    }
+    console.error('❌ Error listing soft deletes:', error);
+    return res.status(500).json({ error: 'Failed to list soft deletes.' });
+  }
+});
+
+app.post('/api/agent/actions/deletions/:recordId/restore', authenticateToken, async (req, res) => {
+  try {
+    const result = await restoreSoftDeletedWorkspaceItem({
+      userId: String(req.user.id),
+      recordId: String(req.params.recordId || '').trim(),
+      actorType: normalizeAgentActorType(req.body?.actorType, 'user'),
+      actorId: String(req.body?.actorId || '').trim()
+    });
+    return res.status(200).json(result);
+  } catch (error) {
+    if (Number(error?.status) >= 400 && Number(error?.status) < 500) {
+      return res.status(Number(error.status)).json({ error: error.message || 'Failed to restore deleted item.' });
+    }
+    console.error('❌ Error restoring soft deleted item:', error);
+    return res.status(500).json({ error: 'Failed to restore deleted item.' });
+  }
+});
+
+app.post('/api/agent/chat', authenticateToken, async (req, res) => {
+  try {
+    const entitlements = await getUserAgentEntitlements(String(req.user.id));
+    const result = await generateCollaborativeReply({
+      userId: String(req.user.id),
+      message: req.body?.message,
+      context: req.body?.context,
+      limit: req.body?.limit,
+      premiumWebResearchAvailable: entitlements.premiumWebResearchAvailable
+    });
+    return res.status(200).json({
+      ...result,
+      entitlements
+    });
+  } catch (error) {
+    if (Number(error?.status) >= 400 && Number(error?.status) < 500) {
+      return res.status(Number(error.status)).json({ error: error.message || 'Invalid agent chat request.' });
+    }
+    console.error('❌ Error generating collaborative agent reply:', error);
+    return res.status(500).json({ error: 'Failed to generate agent reply.' });
+  }
+});
+
+app.get('/api/agent/byo/session', authenticatePersonalAgentKey, async (req, res) => {
+  try {
+    const entitlements = await getUserAgentEntitlements(String(req.personalAgent.userId));
+    return res.status(200).json({
+      agent: {
+        id: String(req.personalAgent?.id || ''),
+        name: String(req.personalAgent?.name || ''),
+        capabilities: normalizePersonalAgentCapabilities(req.personalAgent?.capabilities || {})
+      },
+      mode: 'internal_only',
+      premiumWebResearchAvailable: Boolean(entitlements.premiumWebResearchAvailable),
+      entitlements
+    });
+  } catch (error) {
+    console.error('❌ Error loading BYO agent session:', error);
+    return res.status(500).json({ error: 'Failed to load BYO agent session.' });
+  }
+});
+
+app.post('/api/agent/byo/chat', authenticatePersonalAgentKey, async (req, res) => {
+  try {
+    const capabilities = normalizePersonalAgentCapabilities(req.personalAgent?.capabilities || {});
+    if (!capabilities.read || !capabilities.search) {
+      return res.status(403).json({ error: 'This personal agent cannot read/search private workspace content.' });
+    }
+    const entitlements = await getUserAgentEntitlements(String(req.personalAgent.userId));
+
+    const result = await generateCollaborativeReply({
+      userId: String(req.personalAgent.userId),
+      message: req.body?.message,
+      context: req.body?.context,
+      limit: req.body?.limit,
+      premiumWebResearchAvailable: entitlements.premiumWebResearchAvailable
+    });
+
+    return res.status(200).json({
+      ...result,
+      entitlements,
+      actor: {
+        actorType: 'byo_agent',
+        actorId: String(req.personalAgent.id || ''),
+        actorName: String(req.personalAgent.name || '')
+      }
+    });
+  } catch (error) {
+    if (Number(error?.status) >= 400 && Number(error?.status) < 500) {
+      return res.status(Number(error.status)).json({ error: error.message || 'Invalid BYO agent chat request.' });
+    }
+    console.error('❌ Error generating BYO collaborative agent reply:', error);
+    return res.status(500).json({ error: 'Failed to generate BYO agent reply.' });
+  }
+});
+
 const isAgentAiUnavailableError = (error) => {
   const upstream = String(error?.payload?.upstream || '').toLowerCase();
   if (upstream !== 'ai_service') return false;
@@ -7375,13 +9465,23 @@ app.post('/api/concepts/:conceptId/agent/research', authenticateToken, async (re
     const conceptId = String(req.params.conceptId || '').trim();
     const concept = await resolveConceptByParam(req.user.id, conceptId, { createIfMissing: false });
     if (!concept) return res.status(404).json({ error: 'Concept not found.' });
+    const entitlements = await getUserAgentEntitlements(String(req.user.id));
 
-    // TODO(premium): enforce premium entitlement before enabling research scout.
+    if (!entitlements.premiumWebResearchAvailable) {
+      return res.status(402).json({
+        ok: false,
+        error: 'Premium web research is not enabled for this account.',
+        required: 'premium_web_research',
+        entitlements
+      });
+    }
+
     // TODO(research): wire premium web research pipeline and stream progress/results.
     return res.status(501).json({
       ok: false,
       error: 'Research scout not implemented',
-      hint: 'Requires premium + web research pipeline'
+      hint: 'Requires web research pipeline implementation',
+      entitlements
     });
   } catch (error) {
     console.error('❌ Error handling concept research scaffold route:', error);
@@ -7534,6 +9634,42 @@ app.patch('/api/concepts/:conceptId/workspace', authenticateToken, async (req, r
     console.log(`[WORKSPACE] PATCH concept=${conceptId} user=${req.user.id} op=${opName || 'unknown'}`);
     const loaded = await loadWorkspaceConcept(req.user.id, conceptId);
     if (!loaded) return res.status(404).json({ error: 'Concept not found.' });
+
+    if (opName === 'deleteItem' || opName === 'deleteItems') {
+      const execution = await executeWorkspaceActionsWithPolicy({
+        userId: String(req.user.id),
+        conceptId: String(loaded.concept._id),
+        conceptName: loaded.concept.name || '',
+        operations: [{
+          op: opName,
+          payload: req.body?.payload && typeof req.body.payload === 'object' ? req.body.payload : {}
+        }],
+        flow: normalizeAgentActionFlow(req.body?.flow, 'direct'),
+        explicitUserCommand: Boolean(req.body?.explicitUserCommand),
+        actorType: normalizeAgentActorType(req.body?.actorType, 'user'),
+        actorId: String(req.body?.actorId || '').trim()
+      });
+
+      if (execution.status === 'approval_required') {
+        return res.status(202).json({
+          conceptId: String(loaded.concept._id),
+          conceptName: loaded.concept.name,
+          workspace: loaded.workspace,
+          agentAction: execution
+        });
+      }
+
+      const refreshed = await loadWorkspaceConcept(req.user.id, String(loaded.concept._id));
+      if (!refreshed) {
+        return res.status(404).json({ error: 'Concept not found after applying workspace patch.' });
+      }
+      return res.status(200).json({
+        conceptId: String(refreshed.concept._id),
+        conceptName: refreshed.concept.name,
+        workspace: refreshed.workspace,
+        agentAction: execution
+      });
+    }
 
     let workspace;
     try {

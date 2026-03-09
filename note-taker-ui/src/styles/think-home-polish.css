@@ -1692,6 +1692,67 @@ html[data-ui-theme='dark'] {
   gap: var(--think-space-3);
 }
 
+.think-handoffs-sidebar__actor {
+  display: grid;
+  gap: var(--think-space-2);
+}
+
+.think-handoffs-main {
+  gap: var(--think-space-3);
+}
+
+.think-handoffs-card {
+  gap: var(--think-space-3);
+}
+
+.think-handoffs-form-grid {
+  display: grid;
+  gap: var(--think-space-2);
+}
+
+.think-handoffs-form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--think-space-2);
+}
+
+.think-handoffs-form-inline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--think-space-2);
+}
+
+.think-handoffs-detail {
+  gap: var(--think-space-2);
+}
+
+.think-handoffs-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 650;
+}
+
+.think-handoffs-detail-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--think-space-2);
+}
+
+.think-handoffs-events {
+  display: grid;
+  gap: var(--think-space-2);
+}
+
+.think-handoffs-events__row {
+  display: grid;
+  gap: 4px;
+  padding: var(--think-space-2);
+  border: 1px solid color-mix(in srgb, var(--think-card-border) 84%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--nt-surface-2) 46%, transparent);
+}
+
 @media (max-width: 1024px) {
   .think-main-actions__menu-group {
     width: 100%;

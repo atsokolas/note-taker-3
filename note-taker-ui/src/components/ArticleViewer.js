@@ -6,6 +6,7 @@ import { Page, Card } from './ui';
 import ReferencesPanel from './ReferencesPanel';
 import ReadingLayout from '../layout/ReadingLayout';
 import SemanticRelatedPanel from './retrieval/SemanticRelatedPanel';
+import ThoughtPartnerPanel from './agent/ThoughtPartnerPanel';
 
 const getAuthConfig = () => {
     // ... (Your existing code)
@@ -768,7 +769,17 @@ const ArticleViewer = ({ onArticleChange }) => {
             <ReadingLayout
                 rightTitle="Article highlights"
                 rightPanelToggleLabel="Context"
-                rightPanel={highlightsPanel}
+                rightPanel={(
+                    <div className="section-stack">
+                        <ThoughtPartnerPanel
+                            contextType="article"
+                            contextId={article?._id || id}
+                            contextTitle={article?.title || 'Article'}
+                            placeholder="Ask about this article or find related notes."
+                        />
+                        {highlightsPanel}
+                    </div>
+                )}
             >
                 <Card className="article-viewer-card">
                     <div className="article-viewer-main">
