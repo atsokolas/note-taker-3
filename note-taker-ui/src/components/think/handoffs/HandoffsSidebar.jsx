@@ -32,7 +32,7 @@ const HandoffsSidebar = ({
     handoffs,
     activeHandoffData
   } = handoffsModel;
-  const hasActiveByoAgents = sortedPersonalAgents.some(agent => agent.status === 'active');
+  const hasActivePersonalAgents = sortedPersonalAgents.some(agent => agent.status === 'active');
 
   return (
     <div className="section-stack think-layout__left-panel think-index think-handoffs-sidebar" data-testid="think-handoffs-left-panel">
@@ -48,9 +48,9 @@ const HandoffsSidebar = ({
         sortedAgents={sortedPersonalAgents}
         onRefresh={loadHandoffs}
       />
-      {!hasActiveByoAgents && (
+      {!hasActivePersonalAgents && (
         <p className="muted small">
-          No BYO agents set up yet. <Link to="/integrations#personal-agents">Set up an agent</Link>.
+          No personal agents set up yet. <Link to="/integrations#personal-agents">Set up an agent</Link>.
         </p>
       )}
 

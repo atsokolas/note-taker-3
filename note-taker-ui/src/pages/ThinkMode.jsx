@@ -2714,7 +2714,7 @@ const ThinkMode = () => {
             Use auto routing for delegation, then claim, complete, reject, or cancel from the selected handoff.
           </p>
           <p className="muted small">
-            BYO agents only appear when active personal agent keys exist in Integrations.
+            Personal agents only appear when active agent keys exist in Integrations.
           </p>
         </>
       ) : (

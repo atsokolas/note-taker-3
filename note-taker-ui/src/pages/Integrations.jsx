@@ -1,6 +1,7 @@
 import React, { useCallback, useState } from 'react';
 import api from '../api';
 import { Card, Page } from '../components/ui';
+import AgentQuickStartCard from '../components/integrations/AgentQuickStartCard';
 import ExternalBridgeCard from '../components/integrations/ExternalBridgeCard';
 import HandoffQueueCard from '../components/integrations/HandoffQueueCard';
 import OrchestrationPolicyCard from '../components/integrations/OrchestrationPolicyCard';
@@ -20,6 +21,7 @@ const Integrations = () => {
   const [importStatus, setImportStatus] = useState('');
   const [importStats, setImportStats] = useState(null);
   const [importing, setImporting] = useState(false);
+  const [showAdvancedAgentSettings, setShowAdvancedAgentSettings] = useState(false);
 
   const personalAgentsModel = usePersonalAgents();
   const entitlementsModel = useAgentEntitlements();
@@ -70,18 +72,13 @@ const Integrations = () => {
       <div className="page-header">
         <p className="muted-label">Mode</p>
         <h1>Integrations</h1>
-        <p className="muted">Bring your library in, export clean markdown, and share public concepts.</p>
+        <p className="muted">Set up agents fast, then unlock advanced BYO integrations when needed.</p>
       </div>
 
-      <PersonalAgentsCard
+      <AgentQuickStartCard
         agentModel={personalAgentsModel}
-        entitlementsModel={entitlementsModel}
-        formatDate={formatDate}
-      />
-
-      <OrchestrationPolicyCard
-        policyModel={policyModel}
-        sortedAgents={personalAgentsModel.sortedAgents}
+        showAdvanced={showAdvancedAgentSettings}
+        onToggleAdvanced={() => setShowAdvancedAgentSettings((previous) => !previous)}
       />
 
       <HandoffQueueCard
@@ -90,10 +87,25 @@ const Integrations = () => {
         formatDate={formatDate}
       />
 
-      <ExternalBridgeCard
-        bridgeModel={bridgeModel}
-        sortedAgents={personalAgentsModel.sortedAgents}
-      />
+      {showAdvancedAgentSettings && (
+        <>
+          <PersonalAgentsCard
+            agentModel={personalAgentsModel}
+            entitlementsModel={entitlementsModel}
+            formatDate={formatDate}
+          />
+
+          <OrchestrationPolicyCard
+            policyModel={policyModel}
+            sortedAgents={personalAgentsModel.sortedAgents}
+          />
+
+          <ExternalBridgeCard
+            bridgeModel={bridgeModel}
+            sortedAgents={personalAgentsModel.sortedAgents}
+          />
+        </>
+      )}
 
       <ReadwiseImportCard
         importing={importing}

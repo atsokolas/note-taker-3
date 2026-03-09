@@ -54,7 +54,7 @@ const useHandoffs = ({
   const agentNameById = useMemo(() => {
     const map = new Map();
     sortedPersonalAgents.forEach((agent) => {
-      map.set(String(agent?._id || ''), String(agent?.name || 'BYO agent'));
+      map.set(String(agent?._id || ''), String(agent?.name || 'Personal agent'));
     });
     return map;
   }, [sortedPersonalAgents]);
@@ -69,7 +69,7 @@ const useHandoffs = ({
     const actorId = String(actor?.actorId || '').trim();
     if (actorType === 'user') return 'User';
     if (actorType === 'native_agent') return actorId ? `Native (${actorId})` : 'Native agent';
-    if (actorType === 'byo_agent') return agentNameById.get(actorId) || `BYO (${actorId || 'unknown'})`;
+    if (actorType === 'byo_agent') return agentNameById.get(actorId) || `Personal (${actorId || 'unknown'})`;
     return 'Unknown actor';
   }, [agentNameById]);
 
@@ -123,7 +123,7 @@ const useHandoffs = ({
       return { actorType: 'native_agent', actorId: String(queueActorId || '').trim() };
     }
     const actorId = String(queueActorId || '').trim();
-    if (!actorId) throw new Error('Select a BYO agent before running this action.');
+    if (!actorId) throw new Error('Select a personal agent before running this action.');
     return { actorType: 'byo_agent', actorId };
   }, [queueActorId, queueActorType]);
 
@@ -131,7 +131,7 @@ const useHandoffs = ({
     const title = String(newHandoffTitle || '').trim();
     if (!title || handoffCreating) return;
     if (!newHandoffAutoRoute && newHandoffRequestedActorType === 'byo_agent' && !String(newHandoffRequestedActorId || '').trim()) {
-      setHandoffCreateError('Select a BYO agent before creating this handoff.');
+      setHandoffCreateError('Select a personal agent before creating this handoff.');
       return;
     }
     setHandoffCreating(true);

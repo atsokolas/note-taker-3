@@ -15,7 +15,8 @@ const HandoffQueueControls = ({
   setupAgentsHref = '/integrations#personal-agents',
   onRefresh = () => {}
 }) => {
-  const activeByoAgents = sortedAgents.filter(agent => agent.status === 'active');
+  const activePersonalAgents = sortedAgents.filter(agent => agent.status === 'active');
+  const selectedPersonalAgent = activePersonalAgents.find(agent => String(agent?._id || '') === String(queueActorId || ''));
 
   if (mode === 'think') {
     return (
@@ -37,19 +38,22 @@ const HandoffQueueControls = ({
             <select value={queueActorType} onChange={(event) => onQueueActorTypeChange(event.target.value)}>
               <option value="user">User</option>
               <option value="native_agent">Native agent</option>
-              <option value="byo_agent">BYO agent</option>
+              <option value="byo_agent">Personal agent</option>
             </select>
             {queueActorType === 'byo_agent' && (
               <>
                 <select value={queueActorId} onChange={(event) => onQueueActorIdChange(event.target.value)}>
-                  <option value="">Select BYO agent</option>
-                  {activeByoAgents.map(agent => (
+                  <option value="">Select personal agent</option>
+                  {activePersonalAgents.map(agent => (
                     <option key={agent._id} value={agent._id}>{agent.name}</option>
                   ))}
                 </select>
-                {activeByoAgents.length === 0 && (
+                {selectedPersonalAgent && (
+                  <p className="muted small">Selected agent: {selectedPersonalAgent.name}</p>
+                )}
+                {activePersonalAgents.length === 0 && (
                   <p className="muted small">
-                    No active BYO agents yet. <Link to={setupAgentsHref}>Set up an agent</Link>.
+                    No active personal agents yet. <Link to={setupAgentsHref}>Set up an agent</Link>.
                   </p>
                 )}
               </>
@@ -82,19 +86,22 @@ const HandoffQueueControls = ({
           <select value={queueActorType} onChange={(event) => onQueueActorTypeChange(event.target.value)}>
             <option value="user">User</option>
             <option value="native_agent">Native agent</option>
-            <option value="byo_agent">BYO agent</option>
+            <option value="byo_agent">Personal agent</option>
           </select>
           {queueActorType === 'byo_agent' && (
             <>
               <select value={queueActorId} onChange={(event) => onQueueActorIdChange(event.target.value)}>
-                <option value="">Select BYO agent</option>
-                {activeByoAgents.map(agent => (
+                <option value="">Select personal agent</option>
+                {activePersonalAgents.map(agent => (
                   <option key={agent._id} value={agent._id}>{agent.name}</option>
                 ))}
               </select>
-              {activeByoAgents.length === 0 && (
+              {selectedPersonalAgent && (
+                <p className="muted small">Selected agent: {selectedPersonalAgent.name}</p>
+              )}
+              {activePersonalAgents.length === 0 && (
                 <p className="muted small">
-                  No active BYO agents yet. <Link to={setupAgentsHref}>Set up an agent</Link>.
+                  No active personal agents yet. <Link to={setupAgentsHref}>Set up an agent</Link>.
                 </p>
               )}
             </>

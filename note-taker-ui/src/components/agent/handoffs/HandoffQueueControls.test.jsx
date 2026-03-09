@@ -50,7 +50,7 @@ describe('HandoffQueueControls', () => {
       </MemoryRouter>
     );
 
-    fireEvent.change(screen.getByDisplayValue('Select BYO agent'), { target: { value: 'a-1' } });
+    fireEvent.change(screen.getByDisplayValue('Select personal agent'), { target: { value: 'a-1' } });
     fireEvent.click(screen.getByText('Refresh queue'));
 
     expect(onQueueActorIdChange).toHaveBeenCalledWith('a-1');

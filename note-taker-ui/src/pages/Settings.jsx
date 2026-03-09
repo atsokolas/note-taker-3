@@ -211,10 +211,10 @@ const Settings = ({
         </Button>
       </Card>
       <Card className="settings-card">
-        <h2>Integrations</h2>
-        <p className="muted">Import Readwise, export markdown, and manage public sharing.</p>
+        <h2>Agents & integrations</h2>
+        <p className="muted">Set up your personal agent, connect BYO runtimes, and manage import/export tools.</p>
         <Link to="/integrations" className="ui-button ui-button-secondary">
-          Open Integrations
+          Set up agents
         </Link>
       </Card>
       <Card className="settings-card">

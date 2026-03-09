@@ -1,10 +1,13 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import { Button, Card } from '../ui';
 
 const ExternalBridgeCard = ({
   bridgeModel,
   sortedAgents = []
 }) => {
+  const activePersonalAgents = sortedAgents.filter(agent => agent.status === 'active');
+
   const {
     bridgeActorType,
     setBridgeActorType,
@@ -22,9 +25,9 @@ const ExternalBridgeCard = ({
 
   return (
     <Card className="settings-card">
-      <h2>External bridge (A2A + MCP adapter)</h2>
+      <h2>External BYO bridge (A2A + MCP adapter)</h2>
       <p className="muted">
-        Mint signed bridge identities for external agent runtimes and call protocol adapters.
+        Connect external runtimes (OpenClaw, custom agents, MCP/A2A workers). Personal agents you create here appear as selectable BYO actors.
       </p>
       <div className="settings-import-row">
         <div style={{ flex: 1 }}>
@@ -32,23 +35,26 @@ const ExternalBridgeCard = ({
           <select value={bridgeActorType} onChange={(event) => setBridgeActorType(event.target.value)} disabled={bridgeBusy}>
             <option value="user">User</option>
             <option value="native_agent">Native agent</option>
-            <option value="byo_agent">BYO agent</option>
+            <option value="byo_agent">Personal agent (BYO)</option>
           </select>
         </div>
         <div style={{ flex: 1 }}>
-          <p className="muted-label">BYO actor (if selected)</p>
+          <p className="muted-label">Personal agent (if selected)</p>
           <select
             value={bridgeActorId}
             onChange={(event) => setBridgeActorId(event.target.value)}
             disabled={bridgeBusy || bridgeActorType !== 'byo_agent'}
           >
-            <option value="">Select BYO agent</option>
-            {sortedAgents
-              .filter(agent => agent.status === 'active')
-              .map(agent => (
-                <option key={agent._id} value={agent._id}>{agent.name}</option>
-              ))}
+            <option value="">Select personal agent</option>
+            {activePersonalAgents.map(agent => (
+              <option key={agent._id} value={agent._id}>{agent.name}</option>
+            ))}
           </select>
+          {bridgeActorType === 'byo_agent' && activePersonalAgents.length === 0 && (
+            <p className="muted small">
+              No active personal agents yet. <Link to="/integrations#personal-agents">Set up an agent</Link>.
+            </p>
+          )}
         </div>
         <div style={{ flex: 1 }}>
           <p className="muted-label">TTL seconds</p>

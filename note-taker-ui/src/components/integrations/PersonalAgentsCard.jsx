@@ -10,14 +10,8 @@ const PersonalAgentsCard = ({
     sortedAgents,
     agentsLoading,
     agentsError,
-    agentName,
-    setAgentName,
-    agentDescription,
-    setAgentDescription,
     agentBusyId,
-    creatingAgent,
     newAgentKey,
-    handleCreateAgent,
     handleRotateKey,
     handleDisableAgent
   } = agentModel;
@@ -31,40 +25,10 @@ const PersonalAgentsCard = ({
 
   return (
     <Card className="settings-card">
-      <h2 id="personal-agents">Personal agents</h2>
+      <h2>Advanced agent management</h2>
       <p className="muted">
-        Create user-scoped agent keys for BYO agents. These agents only access your private workspace and follow the same
-        delete approval policy.
+        Manage keys and usage for personal agents you created in this workspace.
       </p>
-
-      <div className="settings-import-row">
-        <div style={{ flex: 1 }}>
-          <p className="muted-label">Agent name</p>
-          <input
-            type="text"
-            value={agentName}
-            onChange={(event) => setAgentName(event.target.value)}
-            placeholder="My local research agent"
-            disabled={creatingAgent}
-          />
-        </div>
-        <Button variant="secondary" disabled={creatingAgent || !String(agentName || '').trim()} onClick={handleCreateAgent}>
-          {creatingAgent ? 'Creating…' : 'Create agent'}
-        </Button>
-      </div>
-
-      <div className="settings-import-row">
-        <div style={{ flex: 1 }}>
-          <p className="muted-label">Description (optional)</p>
-          <input
-            type="text"
-            value={agentDescription}
-            onChange={(event) => setAgentDescription(event.target.value)}
-            placeholder="Used from my local automation scripts"
-            disabled={creatingAgent}
-          />
-        </div>
-      </div>
 
       {newAgentKey && (
         <div className="import-summary">
@@ -74,7 +38,7 @@ const PersonalAgentsCard = ({
       )}
 
       <div className="import-summary">
-        <p className="muted-label">BYO agent API (private workspace only)</p>
+        <p className="muted-label">Personal agent API (BYO-compatible, private workspace only)</p>
         <p className="muted small">
           Authenticate with <code>x-agent-id</code> and <code>x-agent-key</code> headers.
         </p>

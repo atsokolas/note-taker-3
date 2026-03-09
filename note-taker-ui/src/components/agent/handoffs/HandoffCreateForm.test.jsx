@@ -4,7 +4,7 @@ import { MemoryRouter } from 'react-router-dom';
 import HandoffCreateForm from './HandoffCreateForm';
 
 describe('HandoffCreateForm', () => {
-  it('shows setup-agent callout when BYO is selected with no active agents', () => {
+  it('shows setup-agent callout when personal-agent routing is selected with no active agents', () => {
     render(
       <MemoryRouter>
         <HandoffCreateForm
@@ -35,7 +35,7 @@ describe('HandoffCreateForm', () => {
       </MemoryRouter>
     );
 
-    expect(screen.getByText('No active BYO agents yet.')).toBeInTheDocument();
+    expect(screen.getByText('No active personal agents yet.')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Set up an agent' })).toHaveAttribute('href', '/integrations#personal-agents');
   });
 });
