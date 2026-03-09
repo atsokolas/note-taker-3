@@ -20,7 +20,7 @@ describe('uiPreferences', () => {
       typographyScale: 'large',
       density: 'compact',
       theme: 'dark',
-      accent: 'rose',
+      accent: 'electric',
       brandEnergy: false
     };
 
@@ -34,6 +34,6 @@ describe('uiPreferences', () => {
     expect(document.documentElement.getAttribute('data-ui-density')).toBe('compact');
     expect(document.documentElement.getAttribute('data-ui-typography')).toBe('large');
     expect(document.documentElement.getAttribute('data-ui-brand-energy')).toBe('off');
-    expect(document.documentElement.style.getPropertyValue('--ui-accent')).toBe('#be185d');
+    expect(document.documentElement.style.getPropertyValue('--ui-accent')).toBe('#36e4ff');
   });
 });

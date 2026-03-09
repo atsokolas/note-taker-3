@@ -4,8 +4,6 @@ import BrandGradient from '../components/BrandGradient';
 
 const TopBar = ({
   rightSlot,
-  theme = 'light',
-  onThemeChange = () => {},
   brandEnergy = true,
   helpMenu = null
 }) => {
@@ -111,15 +109,7 @@ const TopBar = ({
               )}
             </div>
           )}
-          <button
-            type="button"
-            className="topbar__button topbar__theme-pill"
-            onClick={() => onThemeChange(theme === 'dark' ? 'light' : 'dark')}
-            aria-label="Toggle theme"
-            title="Toggle theme"
-          >
-            {theme === 'dark' ? 'Light' : 'Dark'}
-          </button>
+          <span className="topbar__mode-pill" aria-label="Theme mode">Dark</span>
           {rightSlot}
         </div>
       </div>

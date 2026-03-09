@@ -1,10 +1,9 @@
 export const UI_SETTINGS_STORAGE_KEY = 'ui-settings.v1';
 
 export const ACCENT_OPTIONS = [
-  { value: 'blue', label: 'Blue', color: '#0b74ff', soft: 'rgba(11, 116, 255, 0.14)' },
-  { value: 'emerald', label: 'Emerald', color: '#0f9f6e', soft: 'rgba(15, 159, 110, 0.16)' },
-  { value: 'amber', label: 'Amber', color: '#d97706', soft: 'rgba(217, 119, 6, 0.16)' },
-  { value: 'rose', label: 'Rose', color: '#be185d', soft: 'rgba(190, 24, 93, 0.14)' }
+  { value: 'electric', label: 'Electric Cyan', color: '#36e4ff', soft: 'rgba(54, 228, 255, 0.22)' },
+  { value: 'violet', label: 'Ion Violet', color: '#9d84ff', soft: 'rgba(157, 132, 255, 0.22)' },
+  { value: 'indigo', label: 'Arc Indigo', color: '#6f87ff', soft: 'rgba(111, 135, 255, 0.2)' }
 ];
 
 const ACCENT_BY_VALUE = ACCENT_OPTIONS.reduce((accumulator, accent) => {
@@ -15,14 +14,14 @@ const ACCENT_BY_VALUE = ACCENT_OPTIONS.reduce((accumulator, accent) => {
 export const DEFAULT_UI_SETTINGS = {
   typographyScale: 'default',
   density: 'comfortable',
-  theme: 'light',
-  accent: 'blue',
+  theme: 'dark',
+  accent: 'electric',
   brandEnergy: true
 };
 
 const TYPOGRAPHY_VALUES = new Set(['small', 'default', 'large']);
 const DENSITY_VALUES = new Set(['comfortable', 'compact']);
-const THEME_VALUES = new Set(['light', 'dark']);
+const THEME_VALUES = new Set(['dark']);
 const ACCENT_VALUES = new Set(ACCENT_OPTIONS.map(option => option.value));
 
 const normalizeOption = (value, allowedValues, fallbackValue) => {
@@ -69,7 +68,7 @@ export const applyUiSettingsToRoot = (root, settings) => {
   const normalized = normalizeUiSettings(settings);
   const accent = ACCENT_BY_VALUE[normalized.accent] || ACCENT_BY_VALUE[DEFAULT_UI_SETTINGS.accent];
 
-  root.setAttribute('data-ui-theme', normalized.theme);
+  root.setAttribute('data-ui-theme', 'dark');
   root.setAttribute('data-ui-density', normalized.density);
   root.setAttribute('data-ui-typography', normalized.typographyScale);
   root.setAttribute('data-ui-brand-energy', normalized.brandEnergy ? 'on' : 'off');

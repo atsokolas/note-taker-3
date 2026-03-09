@@ -52,6 +52,7 @@ import './styles/reading-layout.css';
 import './styles/dashboard-refresh.css';
 import './styles/think-home-polish.css';
 import './styles/brand-energy.css';
+import './styles/noeis-rebrand.css';
 
 const LegacyConceptRedirect = () => {
   const { tagName, tag } = useParams();
@@ -268,9 +269,7 @@ function App() {
         leftNav={<LeftNav items={navItems} />}
         topBar={(
           <TopBar
-            theme={uiSettings.theme}
             brandEnergy={uiSettings.brandEnergy}
-            onThemeChange={(nextTheme) => handleUiSettingsChange({ theme: nextTheme })}
             helpMenu={{
               onStart: () => tour.startTour(),
               onResume: () => tour.resumeTour(),

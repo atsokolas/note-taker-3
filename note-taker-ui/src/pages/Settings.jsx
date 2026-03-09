@@ -17,13 +17,8 @@ const DENSITY_OPTIONS = [
   { value: 'compact', label: 'Compact' }
 ];
 
-const THEME_OPTIONS = [
-  { value: 'light', label: 'Light' },
-  { value: 'dark', label: 'Dark' }
-];
-
 const Settings = ({
-  uiSettings = { typographyScale: 'default', density: 'comfortable', theme: 'light', accent: 'blue', brandEnergy: true },
+  uiSettings = { typographyScale: 'default', density: 'comfortable', theme: 'dark', accent: 'electric', brandEnergy: true },
   uiSettingsSaving = false,
   onUiSettingsChange = () => {}
 }) => {
@@ -78,17 +73,17 @@ const Settings = ({
         <div className="settings-option-group">
           <p className="muted-label">Theme</p>
           <div className="settings-option-row">
-            {THEME_OPTIONS.map(option => (
-              <button
-                key={option.value}
-                type="button"
-                className={`settings-option-button${uiSettings.theme === option.value ? ' is-active' : ''}`}
-                onClick={() => onUiSettingsChange({ theme: option.value })}
-              >
-                {option.label}
-              </button>
-            ))}
+            <button
+              type="button"
+              className="settings-option-button is-active"
+              onClick={() => onUiSettingsChange({ theme: 'dark' })}
+            >
+              Dark (Noeis)
+            </button>
           </div>
+          <p className="muted small" style={{ marginTop: 8 }}>
+            The rebrand is tuned for deep-focus dark mode only.
+          </p>
         </div>
 
         <div className="settings-option-group">
