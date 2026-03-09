@@ -776,7 +776,38 @@ select:focus {
   }
 }
 
-@media (max-width: 900px) {
+@media (min-width: 761px) {
+  .app-shell-new {
+    display: grid !important;
+    grid-template-columns: 252px minmax(0, 1fr) !important;
+    align-items: start;
+  }
+
+  .app-shell-new__nav {
+    width: 252px !important;
+    flex-basis: 252px !important;
+    margin-bottom: 0 !important;
+  }
+
+  .left-nav {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .left-nav__links {
+    flex-direction: column;
+    overflow: visible;
+    padding-bottom: 0;
+  }
+
+  .left-nav__link {
+    display: grid;
+    grid-template-columns: 20px minmax(0, 1fr);
+    white-space: normal;
+  }
+}
+
+@media (max-width: 760px) {
   .app-shell-new {
     display: block;
   }
@@ -1125,7 +1156,7 @@ select:focus-visible {
   outline-offset: 2px;
 }
 
-@media (max-width: 900px) {
+@media (max-width: 760px) {
   .library-main-actions,
   .think-main-actions,
   .think-index__controls {
