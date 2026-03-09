@@ -1,26 +1,18 @@
 import React, { useCallback, useState } from 'react';
-import api from '../api';
+import { Link } from 'react-router-dom';
 import { Card, Page } from '../components/ui';
 import AgentQuickStartCard from '../components/integrations/AgentQuickStartCard';
 import ExternalBridgeCard from '../components/integrations/ExternalBridgeCard';
 import HandoffQueueCard from '../components/integrations/HandoffQueueCard';
 import OrchestrationPolicyCard from '../components/integrations/OrchestrationPolicyCard';
 import PersonalAgentsCard from '../components/integrations/PersonalAgentsCard';
-import ReadwiseImportCard from '../components/integrations/ReadwiseImportCard';
 import useHandoffs from '../hooks/useHandoffs';
 import useAgentBridge from '../hooks/integrations/useAgentBridge';
 import useAgentEntitlements from '../hooks/integrations/useAgentEntitlements';
 import useAgentProtocolPolicy from '../hooks/integrations/useAgentProtocolPolicy';
 import usePersonalAgents from '../hooks/integrations/usePersonalAgents';
 
-const getAuthConfig = () => ({
-  headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-});
-
 const Integrations = () => {
-  const [importStatus, setImportStatus] = useState('');
-  const [importStats, setImportStats] = useState(null);
-  const [importing, setImporting] = useState(false);
   const [showAdvancedAgentSettings, setShowAdvancedAgentSettings] = useState(false);
 
   const personalAgentsModel = usePersonalAgents();
@@ -40,32 +32,6 @@ const Integrations = () => {
     personalAgentsOverride: personalAgentsModel.sortedAgents,
     initialStatusFilter: 'all'
   });
-
-  const handleReadwiseImport = async (event) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    setImporting(true);
-    setImportStatus('Importing Readwise CSV...');
-    setImportStats(null);
-    try {
-      const formData = new FormData();
-      formData.append('file', file);
-      const res = await api.post('/api/import/readwise', formData, getAuthConfig());
-      setImportStats({
-        importedArticles: res.data.importedArticles || 0,
-        importedHighlights: res.data.importedHighlights || 0,
-        skippedRows: res.data.skippedRows || 0,
-        parseErrors: res.data.parseErrors || 0
-      });
-      setImportStatus('Readwise import complete.');
-    } catch (error) {
-      console.error('Readwise import failed:', error);
-      setImportStatus(error.response?.data?.error || 'Failed to import Readwise CSV.');
-    } finally {
-      setImporting(false);
-      event.target.value = '';
-    }
-  };
 
   return (
     <Page>
@@ -107,23 +73,12 @@ const Integrations = () => {
         </>
       )}
 
-      <ReadwiseImportCard
-        importing={importing}
-        importStatus={importStatus}
-        importStats={importStats}
-        onReadwiseImport={handleReadwiseImport}
-      />
-
       <Card className="settings-card">
-        <h2>Export</h2>
-        <p className="muted">
-          Export notebooks or concepts as markdown directly from Think → Notebook or Think → Concepts.
-        </p>
-      </Card>
-
-      <Card className="settings-card">
-        <h2>Sharing</h2>
-        <p className="muted">Make a concept public and share a read-only link.</p>
+        <h2>Data integrations</h2>
+        <p className="muted">Readwise and markdown imports moved to a separate page.</p>
+        <Link to="/data-integrations" className="ui-button ui-button-secondary">
+          Open data integrations
+        </Link>
       </Card>
     </Page>
   );

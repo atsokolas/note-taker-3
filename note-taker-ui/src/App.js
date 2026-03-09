@@ -28,6 +28,7 @@ import ReturnQueue from './pages/ReturnQueue';
 import Settings from './pages/Settings';
 import HowToUse from './pages/HowToUse';
 import Integrations from './pages/Integrations';
+import DataIntegrations from './pages/DataIntegrations';
 import CommandPalette from './components/CommandPalette';
 import { fetchUiSettings, saveUiSettings } from './api/uiSettings';
 import {
@@ -231,6 +232,7 @@ function App() {
           />
           <Route path="/how-to-use" element={<HowToUse />} />
           <Route path="/integrations" element={<Integrations />} />
+          <Route path="/data-integrations" element={<DataIntegrations />} />
 
           {/* Legacy/feature routes kept for compatibility */}
           <Route path="/brain" element={<Brain />} />
