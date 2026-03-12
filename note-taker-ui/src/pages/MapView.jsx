@@ -2,6 +2,9 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import ForceGraph2D from 'react-force-graph-2d';
 import { Button, QuietButton, SectionHeader, PageTitle } from '../components/ui';
 import { fetchGraphData } from '../api/map';
+import useConcepts from '../hooks/useConcepts';
+import useNotebookEntries from '../hooks/useNotebookEntries';
+import useQuestions from '../hooks/useQuestions';
 
 const RELATION_TYPES = ['supports', 'contradicts', 'extends', 'related'];
 const ITEM_TYPES = ['highlight', 'notebook', 'article', 'concept', 'question'];
@@ -38,6 +41,8 @@ const parseTags = (value = '') => (
     .filter(Boolean)
 );
 
+const normalizeOptionLabel = (value = '') => String(value || '').trim().toLowerCase();
+
 const MapView = () => {
   const graphRef = useRef(null);
   const [graphData, setGraphData] = useState({ nodes: [], links: [] });
@@ -52,10 +57,56 @@ const MapView = () => {
   const [scopeType, setScopeType] = useState('');
   const [scopeId, setScopeId] = useState('');
   const [notebookId, setNotebookId] = useState('');
+  const [scopeLookup, setScopeLookup] = useState('');
+  const [notebookLookup, setNotebookLookup] = useState('');
+
+  const { concepts } = useConcepts();
+  const { entries: notebookEntries } = useNotebookEntries();
+  const { questions } = useQuestions({ status: 'open' });
 
   const relationTypes = useMemo(() => Array.from(relationFilter), [relationFilter]);
   const itemTypes = useMemo(() => Array.from(itemFilter), [itemFilter]);
   const tags = useMemo(() => parseTags(tagsInput), [tagsInput]);
+
+  const conceptOptions = useMemo(() => (
+    (concepts || [])
+      .filter(concept => concept && concept.name)
+      .map(concept => ({
+        id: String(concept._id || concept.id || ''),
+        label: String(concept.name || '').trim()
+      }))
+      .filter(option => option.id && option.label)
+      .sort((a, b) => a.label.localeCompare(b.label))
+  ), [concepts]);
+
+  const questionOptions = useMemo(() => (
+    (questions || [])
+      .filter(question => question && question._id)
+      .map(question => ({
+        id: String(question._id),
+        label: String(question.text || 'Untitled question').trim()
+      }))
+      .filter(option => option.id && option.label)
+  ), [questions]);
+
+  const notebookOptions = useMemo(() => (
+    (notebookEntries || [])
+      .filter(entry => entry && entry._id)
+      .map(entry => ({
+        id: String(entry._id),
+        label: String(entry.title || 'Untitled note').trim()
+      }))
+      .filter(option => option.id && option.label)
+  ), [notebookEntries]);
+
+  const scopeOptions = useMemo(() => {
+    if (scopeType === 'concept') return conceptOptions;
+    if (scopeType === 'question') return questionOptions;
+    return [];
+  }, [scopeType, conceptOptions, questionOptions]);
+
+  const unresolvedScope = Boolean(scopeType && scopeLookup.trim() && !scopeId);
+  const unresolvedNotebook = Boolean(notebookLookup.trim() && !notebookId);
 
   const loadGraph = useCallback(async ({ nextOffset = 0, append = false } = {}) => {
     setLoading(true);
@@ -105,6 +156,33 @@ const MapView = () => {
   useEffect(() => {
     loadGraph({ nextOffset: 0, append: false });
   }, [loadGraph]);
+
+  useEffect(() => {
+    setScopeLookup('');
+    setScopeId('');
+  }, [scopeType]);
+
+  const handleScopeLookupChange = useCallback((value) => {
+    setScopeLookup(value);
+    const normalized = normalizeOptionLabel(value);
+    if (!normalized) {
+      setScopeId('');
+      return;
+    }
+    const exactMatch = scopeOptions.find(option => normalizeOptionLabel(option.label) === normalized);
+    setScopeId(exactMatch ? exactMatch.id : '');
+  }, [scopeOptions]);
+
+  const handleNotebookLookupChange = useCallback((value) => {
+    setNotebookLookup(value);
+    const normalized = normalizeOptionLabel(value);
+    if (!normalized) {
+      setNotebookId('');
+      return;
+    }
+    const exactMatch = notebookOptions.find(option => normalizeOptionLabel(option.label) === normalized);
+    setNotebookId(exactMatch ? exactMatch.id : '');
+  }, [notebookOptions]);
 
   const toggleSetFilter = (setter, value) => {
     setter(prev => {
@@ -169,23 +247,56 @@ const MapView = () => {
             <option value="concept">Concept scope</option>
             <option value="question">Question scope</option>
           </select>
+          {scopeType && (
+            <>
+              <input
+                type="text"
+                value={scopeLookup}
+                onChange={(event) => handleScopeLookupChange(event.target.value)}
+                placeholder={scopeType === 'concept' ? 'Search concept title' : 'Search question text'}
+                list={scopeType === 'concept' ? 'map-scope-concept-options' : 'map-scope-question-options'}
+              />
+              {scopeType === 'concept' ? (
+                <datalist id="map-scope-concept-options">
+                  {conceptOptions.map(option => (
+                    <option key={option.id} value={option.label} />
+                  ))}
+                </datalist>
+              ) : (
+                <datalist id="map-scope-question-options">
+                  {questionOptions.map(option => (
+                    <option key={option.id} value={option.label} />
+                  ))}
+                </datalist>
+              )}
+            </>
+          )}
           <input
             type="text"
-            value={scopeId}
-            onChange={(event) => setScopeId(event.target.value)}
-            placeholder="Scope id"
+            value={notebookLookup}
+            onChange={(event) => handleNotebookLookupChange(event.target.value)}
+            placeholder="Search notebook title"
+            list="map-notebook-options"
           />
-          <input
-            type="text"
-            value={notebookId}
-            onChange={(event) => setNotebookId(event.target.value)}
-            placeholder="Notebook id filter"
-          />
-          <Button onClick={() => loadGraph({ nextOffset: 0, append: false })} disabled={loading}>
+          <datalist id="map-notebook-options">
+            {notebookOptions.map(option => (
+              <option key={option.id} value={option.label} />
+            ))}
+          </datalist>
+          <Button
+            onClick={() => loadGraph({ nextOffset: 0, append: false })}
+            disabled={loading || unresolvedScope || unresolvedNotebook}
+          >
             Apply
           </Button>
         </div>
       </div>
+
+      {(unresolvedScope || unresolvedNotebook) && (
+        <p className="muted small">
+          Select a value from suggestions so the filter can resolve to an item id.
+        </p>
+      )}
 
       {error && <p className="status-message error-message">{error}</p>}
       {loading && nodeCount === 0 && <p className="muted small">Loading graph…</p>}

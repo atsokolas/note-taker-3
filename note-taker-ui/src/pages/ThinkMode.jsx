@@ -614,9 +614,9 @@ const ThinkMode = () => {
         if (cancelled) return;
         const code = err.response?.data?.error;
         if (code === 'AI_DISABLED') {
-          setAiHealthError('AI is disabled. Set AI_ENABLED=true on the server.');
+          setAiHealthError('AI insights are currently disabled. Enable AI on the server to restore this tab.');
         } else {
-          setAiHealthError('AI service unreachable. Check server configuration.');
+          setAiHealthError('AI insights are temporarily unavailable. You can keep working while we reconnect.');
         }
         setAiHealthStatus('error');
       }

@@ -10,7 +10,7 @@ const RightDrawer = ({ title = 'Context', open, onToggle, children }) => (
       aria-label={open ? 'Collapse right panel' : 'Expand right panel'}
       title={open ? `Collapse ${title}` : `Open ${title}`}
     >
-      <span className="right-drawer__edge-toggle-icon" aria-hidden="true">{open ? '›' : '‹'}</span>
+      <span className="right-drawer__edge-toggle-icon" aria-hidden="true">{open ? '‹' : '›'}</span>
       <span className="right-drawer__edge-toggle-label">{title}</span>
     </button>
     {open && (

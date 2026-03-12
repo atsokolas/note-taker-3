@@ -39,7 +39,7 @@ const TopBar = ({
   }, [helpOpen]);
 
   return (
-    <header className="topbar">
+    <header className="topbar topbar--noeis">
       <BrandGradient variant="header" enabled={brandEnergy} />
       <div className="topbar__content">
         <div className="topbar__left">
@@ -109,7 +109,6 @@ const TopBar = ({
               )}
             </div>
           )}
-          <span className="topbar__mode-pill" aria-label="Theme mode">Dark</span>
           {rightSlot}
         </div>
       </div>

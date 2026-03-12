@@ -667,7 +667,7 @@ const Library = () => {
   }, [effectiveRightOpen, handleToggleRight]);
 
   const mainPanel = (
-      <LibraryMain
+    <LibraryMain
       selectedArticleId={selectedArticleId}
       selectedArticle={selectedArticle}
       articleHighlights={articleHighlights}
@@ -731,7 +731,7 @@ const Library = () => {
   );
 
   return (
-    <>
+    <div className={`library-page-shell ${selectedArticleId ? 'is-reading' : ''}`}>
       <ThreePaneLayout
         left={leftPanel}
         main={mainPanel}
@@ -782,7 +782,7 @@ const Library = () => {
         onCreate={handleAddQuestion}
         onAttach={handleAttachQuestion}
       />
-    </>
+    </div>
   );
 };
 
