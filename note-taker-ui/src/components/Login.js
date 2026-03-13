@@ -67,7 +67,8 @@ const Login = ({ onLoginSuccess, chromeStoreLink, brandEnergy = true }) => {
                 <img src={logo} alt="Note Taker Logo" className="auth-logo" loading="lazy" decoding="async" />
                 <h2>Login</h2>
                 <p className="get-extension-link">
-                    This is a web app. To save articles, you need the free
+                    This web app works without extensions using manual notes, direct paste, and CSV/markdown imports.
+                    For one-click web clipping, install the free
                     <a href={chromeStoreLink} target="_blank" rel="noopener noreferrer"> Chrome Extension</a>.
                 </p>
 

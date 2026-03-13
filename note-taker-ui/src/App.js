@@ -174,6 +174,7 @@ function App() {
   const navItems = [
     { label: 'Think', to: '/think' },
     { label: 'Library', to: '/library' },
+    { label: 'Capture', to: '/data-integrations' },
     { label: 'Map', to: '/map' },
     { label: 'Return Queue', to: '/return-queue' },
     { label: 'Review', to: '/review' },
@@ -285,7 +286,7 @@ function App() {
                   className="topbar__button"
                   data-tour-anchor="install-extension"
                 >
-                  Get the Extension
+                  Chrome Extension (Optional)
                 </a>
                 <a href="/settings" className="topbar__button" title="Profile and settings">
                   Profile

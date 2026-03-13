@@ -1523,8 +1523,70 @@ body {
     max-width: 320px;
 }
 
+.capture-form {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.capture-label {
+    font-size: 0.82rem;
+    color: var(--text-color-secondary);
+    font-weight: 600;
+}
+
+.capture-input,
+.capture-textarea {
+    width: 100%;
+    border: 1px solid var(--border-color-light);
+    border-radius: 12px;
+    background: var(--surface-elevated);
+    color: var(--text-color);
+    padding: 10px 12px;
+    font: inherit;
+}
+
+.capture-input:focus,
+.capture-textarea:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary-color) 24%, transparent);
+}
+
+.capture-textarea {
+    resize: vertical;
+    min-height: 140px;
+}
+
+.capture-actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.import-summary .ui-button {
+    margin-top: 10px;
+}
+
 .import-summary p {
     margin: 4px 0;
+}
+
+@media (max-width: 760px) {
+    .settings-import-row {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .settings-import-row input[type="file"] {
+        max-width: none;
+    }
+
+    .capture-actions .ui-button {
+        width: 100%;
+        justify-content: center;
+    }
 }
 
 .sidebar-footer-stack {

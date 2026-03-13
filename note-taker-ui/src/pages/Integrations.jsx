@@ -75,7 +75,7 @@ const Integrations = () => {
 
       <Card className="settings-card">
         <h2>Data integrations</h2>
-        <p className="muted">Readwise and markdown imports moved to a separate page.</p>
+        <p className="muted">Manual notes, direct paste capture, and Readwise/markdown imports live on a dedicated page.</p>
         <Link to="/data-integrations" className="ui-button ui-button-secondary">
           Open data integrations
         </Link>
