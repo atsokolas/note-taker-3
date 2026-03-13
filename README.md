@@ -28,6 +28,29 @@ Endpoints:
 - `GET /api/search/semantic?q=...` → `{ results: [{ type, objectId, title, snippet, score }] }`
 - `GET /api/highlights/:id/related` → `{ results: [...] }`
 
+## Product analytics (backend-only, privacy-safe)
+
+The backend now records critical product events as JSON lines (default) with pseudonymous user IDs.
+No highlight text, note content, usernames, or raw queries are logged.
+
+Tracked events:
+
+- `user_signup`
+- `highlight_captured`
+- `workspace_created`
+- `semantic_search_performed`
+- `ai_draft_generated`
+- `ai_draft_accepted`
+- `related_highlight_clicked`
+
+Environment variables:
+
+- `ANALYTICS_ENABLED` (default: `true`)
+- `ANALYTICS_LOG_PATH` (default: `server/logs/product-events.jsonl`)
+- `ANALYTICS_HASH_SALT` (recommended, used to hash user/object ids)
+- `POSTHOG_HOST` and `POSTHOG_PROJECT_API_KEY` (optional; if set, events are also mirrored to self-hosted PostHog)
+- `POSTHOG_TIMEOUT_MS` (default: `3000`)
+
 ## AI service
 
 AI requests are proxied through the Node backend to a private `ai_service` (FastAPI).
@@ -54,6 +77,15 @@ Common failure modes:
 
 - Render free tier can sleep/cold start upstream services.
 - Wrong or missing `AI_SERVICE_URL` or `AI_SHARED_SECRET`.
+
+
+## Product education page (docs.noeis.io draft)
+
+A publish-ready HTML draft for docs.noeis.io lives at:
+
+- `docs/docs.noeis.io/index.html`
+
+It explains the Think methodology, concept workspace model, and semantic search in SEO-friendly language for organic discovery.
 
 ## Concept Workspace (Document Outline)
 
