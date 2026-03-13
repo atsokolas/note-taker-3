@@ -53,6 +53,7 @@ import './styles/dashboard-refresh.css';
 import './styles/think-home-polish.css';
 import './styles/brand-energy.css';
 import './styles/noeis-rebrand.css';
+import './styles/calm-ui-global.css';
 import './styles/think-calm-d3a.css';
 
 const LegacyConceptRedirect = () => {
@@ -81,6 +82,13 @@ function App() {
       setIsAuthenticated(true);
     }
     setIsLoading(false);
+  }, []);
+
+  useEffect(() => {
+    document.body.classList.add('calm-ui-global');
+    return () => {
+      document.body.classList.remove('calm-ui-global');
+    };
   }, []);
 
   useEffect(() => {

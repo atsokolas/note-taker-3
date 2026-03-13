@@ -1,0 +1,364 @@
+/* App-wide calm baseline to replace legacy dark gradients across all routes. */
+body.calm-ui-global,
+html[data-ui-theme='dark'] body.calm-ui-global,
+html[data-ui-theme='light'] body.calm-ui-global {
+  color-scheme: light;
+
+  --calm-bg-0: #f4efe6;
+  --calm-bg-1: #fbf8f2;
+  --calm-bg-2: #f1eadf;
+  --calm-line: rgba(149, 131, 106, 0.34);
+  --calm-line-soft: rgba(149, 131, 106, 0.22);
+  --calm-text: #3f3428;
+  --calm-text-secondary: #6d5f4d;
+  --calm-muted: #8f806d;
+  --calm-accent: #7c694f;
+  --calm-accent-soft: rgba(124, 105, 79, 0.16);
+  --calm-link: #5c7395;
+  --calm-panel: rgba(251, 248, 242, 0.78);
+  --calm-panel-strong: rgba(251, 248, 242, 0.9);
+
+  /* Override legacy global tokens consumed throughout the app. */
+  --background: var(--calm-bg-0);
+  --surface-base: var(--calm-bg-0);
+  --surface: var(--calm-bg-1);
+  --surface-panel: var(--calm-bg-1);
+  --surface-card: var(--calm-bg-1);
+  --surface-muted: var(--calm-bg-2);
+
+  --border-subtle: var(--calm-line);
+  --border-subtle-2: var(--calm-line-soft);
+
+  --text-primary: var(--calm-text);
+  --text-secondary: var(--calm-text-secondary);
+  --text: var(--calm-text);
+  --muted: var(--calm-muted);
+  --link: var(--calm-link);
+
+  --accent: var(--calm-accent);
+  --accent-soft: var(--calm-accent-soft);
+  --primary-color: var(--calm-accent);
+  --primary-color-light: var(--calm-accent-soft);
+
+  --bg-color: var(--calm-bg-0);
+  --sidebar-bg-color: var(--calm-bg-1);
+  --card-bg-color: var(--calm-bg-1);
+  --border-color: var(--calm-line);
+  --border-color-light: var(--calm-line-soft);
+  --text-color: var(--calm-text);
+  --text-color-secondary: var(--calm-text-secondary);
+  --hover-color: rgba(149, 131, 106, 0.1);
+  --active-color: rgba(149, 131, 106, 0.16);
+
+  --shadow-subtle: none;
+  --shadow: none;
+
+  /* Keep Think polish variables aligned globally too. */
+  --nt-app-bg: var(--calm-bg-0);
+  --nt-surface-1: var(--calm-bg-1);
+  --nt-surface-2: var(--calm-bg-2);
+  --nt-divider: var(--calm-line);
+}
+
+body.calm-ui-global {
+  background:
+    radial-gradient(56rem 28rem at 86% 6%, rgba(216, 200, 170, 0.24), transparent 62%),
+    radial-gradient(36rem 24rem at 8% 88%, rgba(208, 224, 214, 0.2), transparent 66%),
+    var(--calm-bg-0);
+  color: var(--calm-text);
+}
+
+body.calm-ui-global::before,
+body.calm-ui-global::after,
+body.calm-ui-global .app-shell-new::before,
+body.calm-ui-global .app-shell-new::after {
+  display: none !important;
+}
+
+body.calm-ui-global #root,
+body.calm-ui-global .app-shell-new,
+body.calm-ui-global .app-shell-new__main,
+body.calm-ui-global .app-shell-new__body {
+  background: transparent;
+}
+
+body.calm-ui-global .app-shell-new__nav {
+  background: var(--calm-panel-strong);
+  border: 1px solid var(--calm-line);
+  box-shadow: none;
+  backdrop-filter: blur(5px);
+}
+
+body.calm-ui-global .left-nav__brand {
+  background: transparent;
+  border: 1px solid var(--calm-line-soft);
+}
+
+body.calm-ui-global .left-nav__brand-mark {
+  background: #d9ccb6;
+  color: #3d3125;
+  box-shadow: none;
+}
+
+body.calm-ui-global .left-nav__brand-copy {
+  color: var(--calm-text);
+}
+
+body.calm-ui-global .left-nav__link {
+  background: transparent;
+  border-color: transparent;
+  color: var(--calm-muted);
+  transform: none;
+}
+
+body.calm-ui-global .left-nav__link:hover {
+  background: var(--calm-bg-2);
+  border-color: var(--calm-line);
+  color: var(--calm-text);
+  transform: none;
+}
+
+body.calm-ui-global .left-nav__link.is-active {
+  background: color-mix(in srgb, #e9ddc7 58%, transparent);
+  border-color: color-mix(in srgb, var(--calm-line) 95%, transparent);
+  color: var(--calm-text);
+  box-shadow: none;
+}
+
+body.calm-ui-global .topbar {
+  background: var(--calm-panel-strong);
+  border: 1px solid var(--calm-line);
+  box-shadow: none;
+  backdrop-filter: blur(5px);
+}
+
+body.calm-ui-global .topbar__search-wrap {
+  background: transparent;
+  border-color: transparent;
+}
+
+body.calm-ui-global .topbar__search {
+  background: var(--calm-bg-2);
+  border: 1px solid var(--calm-line);
+  color: var(--calm-text);
+}
+
+body.calm-ui-global .topbar__search::placeholder {
+  color: var(--calm-muted);
+}
+
+body.calm-ui-global .topbar__button,
+body.calm-ui-global .topbar__theme-pill,
+body.calm-ui-global .ui-button,
+body.calm-ui-global .ui-quiet-button,
+body.calm-ui-global .ui-pill-button,
+body.calm-ui-global .settings-option-button,
+body.calm-ui-global .library-folder-button,
+body.calm-ui-global button.notebook-button,
+body.calm-ui-global .library-empty-cta,
+body.calm-ui-global .list-button {
+  background: transparent;
+  border: 1px solid var(--calm-line);
+  color: var(--calm-text-secondary);
+  box-shadow: none;
+  transform: none;
+}
+
+body.calm-ui-global .topbar__button:hover,
+body.calm-ui-global .topbar__theme-pill:hover,
+body.calm-ui-global .ui-button:hover,
+body.calm-ui-global .ui-quiet-button:hover,
+body.calm-ui-global .ui-pill-button:hover,
+body.calm-ui-global .settings-option-button:hover,
+body.calm-ui-global .library-folder-button:hover,
+body.calm-ui-global button.notebook-button:hover,
+body.calm-ui-global .library-empty-cta:hover,
+body.calm-ui-global .list-button:hover {
+  background: color-mix(in srgb, var(--calm-bg-2) 56%, transparent);
+  border-color: color-mix(in srgb, var(--calm-line) 100%, transparent);
+  color: var(--calm-text);
+  box-shadow: none;
+  transform: none;
+}
+
+body.calm-ui-global .ui-button-primary {
+  background: color-mix(in srgb, #dcc9ac 58%, var(--calm-bg-1));
+  border-color: color-mix(in srgb, var(--calm-line) 96%, transparent);
+  color: var(--calm-text);
+}
+
+body.calm-ui-global .three-pane__left,
+body.calm-ui-global .three-pane__main,
+body.calm-ui-global .right-drawer__panel,
+body.calm-ui-global .ui-card,
+body.calm-ui-global .ui-surface-card,
+body.calm-ui-global .notebook-pane,
+body.calm-ui-global .search-card,
+body.calm-ui-global .article-reader,
+body.calm-ui-global .working-memory-panel,
+body.calm-ui-global .modal-content,
+body.calm-ui-global .settings-card,
+body.calm-ui-global .feedback-card,
+body.calm-ui-global .upload-card {
+  background: var(--calm-panel);
+  border: 1px solid var(--calm-line);
+  box-shadow: none;
+}
+
+body.calm-ui-global .think-index,
+body.calm-ui-global .think-home__panel,
+body.calm-ui-global .think-home__continue,
+body.calm-ui-global .think-home__side-card,
+body.calm-ui-global .think-home__material-card,
+body.calm-ui-global .think-concept-hero,
+body.calm-ui-global .think-concept-loading,
+body.calm-ui-global .concept-outline__workspace,
+body.calm-ui-global .notebook-editor,
+body.calm-ui-global .think-question-editor,
+body.calm-ui-global .think-notebook-editor,
+body.calm-ui-global .notebook-editor-area,
+body.calm-ui-global .tiptap-editor,
+body.calm-ui-global .ProseMirror,
+body.calm-ui-global .reader,
+body.calm-ui-global .article-reader-content,
+body.calm-ui-global .library-highlight-item,
+body.calm-ui-global .library-reference-item,
+body.calm-ui-global .library-related-item,
+body.calm-ui-global .library-highlight-group,
+body.calm-ui-global .library-main-actions,
+body.calm-ui-global .think-main-actions,
+body.calm-ui-global .library-cabinet-actions,
+body.calm-ui-global .library-search-panel,
+body.calm-ui-global .library-saved-views,
+body.calm-ui-global .think-index__group {
+  background: var(--calm-panel);
+  border: 1px solid var(--calm-line);
+  box-shadow: none;
+}
+
+body.calm-ui-global input,
+body.calm-ui-global textarea,
+body.calm-ui-global select,
+body.calm-ui-global .compact-select,
+body.calm-ui-global .notebook-title-input,
+body.calm-ui-global .working-memory-input,
+body.calm-ui-global .form-group input,
+body.calm-ui-global .notebook-toolbar input,
+body.calm-ui-global .notebook-toolbar select,
+body.calm-ui-global .think-index-search-input,
+body.calm-ui-global .think-index__search {
+  background: var(--calm-bg-2);
+  border: 1px solid var(--calm-line);
+  color: var(--calm-text);
+  box-shadow: none;
+}
+
+body.calm-ui-global input:focus,
+body.calm-ui-global textarea:focus,
+body.calm-ui-global select:focus,
+body.calm-ui-global .compact-select:focus,
+body.calm-ui-global .notebook-title-input:focus,
+body.calm-ui-global .working-memory-input:focus,
+body.calm-ui-global .form-group input:focus,
+body.calm-ui-global .notebook-toolbar input:focus,
+body.calm-ui-global .notebook-toolbar select:focus,
+body.calm-ui-global .think-index-search-input:focus,
+body.calm-ui-global .think-index__search:focus {
+  border-color: color-mix(in srgb, var(--calm-accent) 58%, transparent);
+  box-shadow: 0 0 0 2px var(--calm-accent-soft);
+  outline: none;
+}
+
+body.calm-ui-global .think-index__row,
+body.calm-ui-global .think-home__row,
+body.calm-ui-global .library-article-row,
+body.calm-ui-global .library-highlight-row,
+body.calm-ui-global .notebook-list-item,
+body.calm-ui-global .working-memory-block,
+body.calm-ui-global .search-card {
+  background: transparent;
+  border: 1px solid transparent;
+  box-shadow: none;
+}
+
+body.calm-ui-global .think-index__row:hover,
+body.calm-ui-global .think-home__row:hover,
+body.calm-ui-global .library-article-row:hover,
+body.calm-ui-global .library-highlight-row:hover,
+body.calm-ui-global .notebook-list-item:hover,
+body.calm-ui-global .working-memory-block:hover,
+body.calm-ui-global .search-card:hover {
+  background: color-mix(in srgb, var(--calm-bg-2) 58%, transparent);
+  border-color: var(--calm-line-soft);
+}
+
+body.calm-ui-global .library-article-row.is-active,
+body.calm-ui-global .library-highlight-row.is-active,
+body.calm-ui-global .think-index__row.is-active {
+  background: color-mix(in srgb, #e9ddc7 58%, transparent);
+  border-color: color-mix(in srgb, var(--calm-line) 95%, transparent);
+  color: var(--calm-text);
+}
+
+body.calm-ui-global .ui-tag-chip,
+body.calm-ui-global .tag-chip,
+body.calm-ui-global .notebook-tag-chip,
+body.calm-ui-global .highlight-tag,
+body.calm-ui-global .working-memory-tag {
+  background: transparent;
+  border: 1px solid var(--calm-line-soft);
+  color: var(--calm-text-secondary);
+}
+
+body.calm-ui-global .right-drawer__edge-toggle,
+body.calm-ui-global .right-drawer__header-icon,
+body.calm-ui-global .working-memory-toggle,
+body.calm-ui-global .working-memory-status-toggle {
+  background: transparent;
+  border: 1px solid var(--calm-line);
+  color: var(--calm-text-secondary);
+  box-shadow: none;
+}
+
+body.calm-ui-global .right-drawer__edge-toggle:hover,
+body.calm-ui-global .right-drawer__header-icon:hover {
+  background: color-mix(in srgb, var(--calm-bg-2) 58%, transparent);
+  border-color: color-mix(in srgb, var(--calm-line) 100%, transparent);
+  color: var(--calm-text);
+}
+
+body.calm-ui-global .muted,
+body.calm-ui-global .small,
+body.calm-ui-global .muted-label,
+body.calm-ui-global .think-home__row-meta,
+body.calm-ui-global .think-index__row-meta,
+body.calm-ui-global .ui-section-header__subtitle,
+body.calm-ui-global .ui-page-title__subtitle {
+  color: var(--calm-muted);
+}
+
+body.calm-ui-global .ui-page-title__title,
+body.calm-ui-global .ui-section-header__title,
+body.calm-ui-global .think-home__row-title,
+body.calm-ui-global .think-index__row-title,
+body.calm-ui-global .think-home__material-title,
+body.calm-ui-global .think-question-text,
+body.calm-ui-global .think-handoffs-title,
+body.calm-ui-global .notebook-title,
+body.calm-ui-global .notebook-list-title,
+body.calm-ui-global .concept-path-list-title,
+body.calm-ui-global .concept-path-step-title,
+body.calm-ui-global .library-article-row-title {
+  color: var(--calm-text);
+}
+
+body.calm-ui-global a {
+  color: var(--calm-link);
+}
+
+body.calm-ui-global .tiptap-editor,
+body.calm-ui-global .ProseMirror,
+body.calm-ui-global .reader,
+body.calm-ui-global .article-reader-content {
+  color: var(--calm-text);
+}
