@@ -1,5 +1,24 @@
 # Note Taker
 
+## Product overview (marketing + docs)
+
+Note Taker is a Think-first knowledge workspace for turning reading into reusable insight.
+The user journey is now intentionally page-based and should be described that way in external copy.
+
+Core product flow:
+
+- Login or register (`/login`, `/register`) with optional Chrome extension setup
+- Capture material (manual notes, paste, markdown, Readwise CSV, or extension clipping)
+- Work from the Think main screen (`/think`) across Home, Notebook, Concepts, Questions, Handoffs, Paths, and Insights
+- Configure appearance, onboarding, integrations, and export controls in Settings (`/settings`)
+
+Agentic capabilities (optional, human-in-the-loop):
+
+- Thought Partner in-context chat for concept/notebook/question/handoff workflows
+- Concept suggestions and synthesis helpers sourced from the user's own library
+- Handoff queue shared between user, native agents, and personal BYO agents
+- Orchestration policy + external bridge tokens for advanced A2A/MCP-compatible runtimes
+
 ## Ollama (local LLM)
 
 The backend can talk to a local Ollama server (no paid APIs).
@@ -85,7 +104,13 @@ A publish-ready HTML draft for docs.noeis.io lives at:
 
 - `docs/docs.noeis.io/index.html`
 
-It explains the Think methodology, concept workspace model, and semantic search in SEO-friendly language for organic discovery.
+It documents the current marketing narrative across:
+
+- how the product works end to end
+- Think main screen behavior
+- settings and integrations
+- login/signup messaging
+- agentic capabilities and safety controls
 
 ## Concept Workspace (Document Outline)
 

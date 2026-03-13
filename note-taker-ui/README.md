@@ -1,70 +1,78 @@
-# Getting Started with Create React App
+# Note Taker UI
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+Frontend for the Note Taker web app.
 
-## Available Scripts
+This README is product-oriented so marketing, product, and engineering are aligned on what users actually see.
 
-In the project directory, you can run:
+## What this product does
 
-### `npm start`
+Note Taker helps users capture source material, turn it into structured thinking, and revisit it over time.
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+Primary UX promise:
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+- Capture quickly
+- Think in context
+- Delegate selectively with agents
+- Keep data portable
 
-### `npm test`
+## Core screens to reference in marketing docs
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+### Main screen: Think (`/think`)
 
-### `npm run build`
+Think is the primary workspace after login.
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+Tabs and jobs:
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+- `Home`: continue recent work, working set, return queue, recent highlights/articles
+- `Notebook`: draft and organize notes with inserted evidence
+- `Concepts`: build concept workspaces, pin highlights, share read-only pages, export markdown
+- `Questions`: track open questions and link them to concept scope
+- `Handoffs`: coordinate tasks between user, native agents, and personal BYO agents
+- `Paths`: follow concept-to-concept paths
+- `Insights`: AI themes/connections (when AI service is enabled)
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+Right-side context area includes working memory and a context-aware Thought Partner panel.
 
-### `npm run eject`
+### Settings (`/settings`)
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+Settings combines workspace controls and trust controls:
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+- Appearance: typography scale, density, accent, brand energy
+- Onboarding: restart onboarding flow
+- Agents & integrations: quick setup and advanced BYO controls
+- Data integrations: jump to import workflows
+- Export: JSON and PDF bundle exports
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+### Login + Register (`/login`, `/register`)
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+Messaging on auth pages reflects current onboarding:
 
-## Learn More
+- Chrome extension is optional
+- Manual notes, paste import, markdown, and Readwise CSV are supported without extension
+- Session expiry prompts users to log in again clearly
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+## Agentic capabilities
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+The app supports optional agentic workflows with user control:
 
-### Code Splitting
+- Thought Partner chat scoped to current workspace context
+- AI-supported suggestions in concept workflows
+- Handoff queue with explicit state transitions (claim/complete/reject/cancel)
+- Orchestration policy for routing mode and task-type allowances
+- Personal agent key management and BYO bridge token minting
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+## Related product pages
 
-### Analyzing the Bundle Size
+- `Library` (`/library`): source and highlight retrieval layer
+- `Data integrations` (`/data-integrations`): import and capture alternatives
+- `Map` (`/map`), `Review` (`/review`), `Return Queue` (`/return-queue`), `Today` (`/today`): reinforcement and recall loops
+- `How To Use` (`/how-to-use`): in-app onboarding narrative
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
+## Development scripts
 
-### Making a Progressive Web App
+In `note-taker-ui/`:
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
+- `npm start` - run dev server
+- `npm test` - run tests
+- `npm run build` - create production build
 
-### Advanced Configuration
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
-
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)

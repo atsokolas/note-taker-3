@@ -3,19 +3,19 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Noeis Docs | Think Methodology, Workspaces, and Semantic Search</title>
+    <title>Noeis Docs | Main Screen, Agentic Workflows, Settings, and Login</title>
     <meta
       name="description"
-      content="Learn how Noeis Think methodology helps you move from reading to insight using concept workspaces and semantic search."
+      content="Understand how Noeis works end to end: login, Think main screen, settings, data capture, and agentic collaboration with human approval controls."
     />
     <meta
       name="keywords"
-      content="Noeis docs, Think methodology, concept workspace, semantic search, knowledge management, research workflow"
+      content="Noeis docs, Think main screen, agentic workflow, personal knowledge management, note taking, handoff queue, semantic retrieval"
     />
-    <meta property="og:title" content="Noeis Docs | Think Methodology, Workspaces, and Semantic Search" />
+    <meta property="og:title" content="Noeis Docs | Main Screen, Agentic Workflows, Settings, and Login" />
     <meta
       property="og:description"
-      content="Understand the Noeis workflow: capture source material, organize ideas in concept workspaces, and use semantic retrieval to uncover related evidence."
+      content="A practical walkthrough of Noeis: capture material, work inside Think, collaborate with agents safely, and keep your knowledge base reusable."
     />
     <meta property="og:type" content="website" />
     <meta name="twitter:card" content="summary_large_image" />
@@ -39,7 +39,7 @@
         line-height: 1.6;
       }
       .wrap {
-        width: min(960px, 92vw);
+        width: min(980px, 92vw);
         margin: 0 auto;
         padding: 48px 0 88px;
       }
@@ -56,7 +56,7 @@
       h2 { margin: 0 0 12px; font-size: 1.45rem; }
       p, li { color: var(--muted); }
       strong { color: var(--text); }
-      ul { margin: 10px 0 0; padding-left: 22px; }
+      ul, ol { margin: 10px 0 0; padding-left: 22px; }
       .eyebrow {
         display: inline-block;
         letter-spacing: 0.08em;
@@ -81,84 +81,118 @@
         margin-top: 20px;
         font-size: 0.95rem;
       }
+      code {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        background: rgba(255, 255, 255, 0.08);
+        border-radius: 5px;
+        padding: 0.08rem 0.38rem;
+        color: #d9ecff;
+      }
     </style>
   </head>
   <body>
     <main class="wrap">
       <article class="hero">
         <span class="eyebrow">Noeis Documentation</span>
-        <h1>Think methodology: from information capture to connected insight</h1>
+        <h1>How Noeis works: capture, think, and collaborate with agents</h1>
         <p>
-          Noeis helps researchers, operators, and writers turn scattered reading into usable understanding.
-          The <strong>Think methodology</strong> combines article capture, concept workspaces, and semantic search
-          so each idea is linked to source evidence and can be revisited later.
+          Noeis is a thinking system for people who read heavily and need reliable recall.
+          It combines source capture, structured synthesis, semantic retrieval, and optional agentic workflows
+          so ideas stay grounded in evidence and remain reusable over time.
         </p>
       </article>
 
       <section>
-        <h2>What is the Think methodology?</h2>
-        <p>
-          Think is a structured loop for reasoning over real source material, not just generating summaries.
-          It emphasizes traceability, progressive refinement, and reusable knowledge artifacts.
-        </p>
+        <h2>Workflow in 4 steps</h2>
         <div class="card-grid">
           <div class="card">
             <h3>1) Capture</h3>
-            <p>Save articles, highlights, and notes from the web into your library.</p>
+            <p>Bring material in through manual notes, direct paste, markdown files, Readwise CSV, or one-click clipping.</p>
           </div>
           <div class="card">
-            <h3>2) Connect</h3>
-            <p>Group evidence in concept workspaces to make relationships, gaps, and contradictions visible.</p>
+            <h3>2) Shape in Think</h3>
+            <p>Work in Notebook, Concepts, Questions, and Paths to convert raw highlights into structured thinking.</p>
           </div>
           <div class="card">
-            <h3>3) Compose</h3>
-            <p>Build outlines and narratives from linked material while preserving provenance.</p>
+            <h3>3) Delegate selectively</h3>
+            <p>Use thought-partner prompts, concept suggestions, and handoffs while keeping explicit human approval.</p>
+          </div>
+          <div class="card">
+            <h3>4) Revisit and export</h3>
+            <p>Use return queues, review loops, and full export controls so your knowledge stays portable and useful.</p>
           </div>
         </div>
       </section>
 
       <section>
-        <h2>Concept workspaces: your living map of a topic</h2>
+        <h2>Main screen: Think</h2>
         <p>
-          A concept workspace is a document-oriented environment where idea blocks, highlights, and references are
-          arranged into a coherent argument or research structure.
+          <code>/think</code> is the primary workspace. It is organized for fast continuation, not blank-page starts.
         </p>
         <ul>
-          <li><strong>Outline-first modeling:</strong> Organize content into sections that evolve as your thinking matures.</li>
-          <li><strong>Material attachment:</strong> Add source highlights and notes directly to the relevant part of the concept.</li>
-          <li><strong>Agent-assisted drafting:</strong> Generate suggestions from your library and accept only what is useful.</li>
-          <li><strong>Human-in-the-loop control:</strong> AI suggestions remain optional until explicitly accepted.</li>
+          <li><strong>Home:</strong> Continue panel, working set (notes/concepts/questions), return queue, and recent material.</li>
+          <li><strong>Notebook:</strong> Draft and edit notes, pull in highlights, and move text into working memory.</li>
+          <li><strong>Concepts:</strong> Build concept notebooks, pin evidence, share read-only pages, and export markdown.</li>
+          <li><strong>Questions:</strong> Track open loops and connect them to concept scope.</li>
+          <li><strong>Handoffs:</strong> Route work between user, native agents, and personal BYO agents.</li>
+          <li><strong>Paths:</strong> Follow connected concept paths across a topic.</li>
+          <li><strong>Insights:</strong> AI-generated themes and concept connections when AI service is enabled.</li>
         </ul>
       </section>
 
       <section>
-        <h2>Semantic search: retrieval by meaning, not exact wording</h2>
+        <h2>Agentic capabilities (with guardrails)</h2>
         <p>
-          Traditional search misses relevant evidence when language differs. Noeis semantic search uses embeddings and
-          vector retrieval to find related notes and highlights based on meaning.
+          Noeis supports agentic workflows, but keeps control with the user.
+          Agents are assistive by default, with routing and approval controls exposed in product UI.
         </p>
         <ul>
-          <li><strong>Cross-phrase matching:</strong> Discover sources even when terminology does not exactly match your query.</li>
-          <li><strong>Contextual relevance scores:</strong> Prioritize candidates by conceptual closeness.</li>
-          <li><strong>Faster synthesis:</strong> Pull related evidence into your workspace before drafting or decision-making.</li>
-          <li><strong>Better recall:</strong> Resurface high-value material from your library that would otherwise stay buried.</li>
+          <li><strong>Thought Partner panel:</strong> Context-aware agent chat in Think (concept, notebook, question, or handoff context).</li>
+          <li><strong>Concept suggestions:</strong> AI can propose highlights and drafts from your library; you choose what gets added.</li>
+          <li><strong>Handoff queue:</strong> Create, claim, complete, reject, or cancel handoffs across actors.</li>
+          <li><strong>Orchestration policy:</strong> Set defaults like balanced/native-first/BYO-first and task-type permissions.</li>
+          <li><strong>Personal agents:</strong> Create named agents, rotate keys, and manage availability per workspace.</li>
+          <li><strong>External bridge:</strong> Mint scoped, short-lived bridge tokens for A2A/MCP-compatible runtimes.</li>
         </ul>
       </section>
 
       <section>
-        <h2>Why this improves both learning and output quality</h2>
+        <h2>Settings page</h2>
         <p>
-          The Think + Workspace + Semantic Search stack improves long-term comprehension while reducing repeated work.
-          Instead of re-reading from scratch, you accumulate structured knowledge that compounds over time.
+          <code>/settings</code> is both a workspace-control center and a trust page.
         </p>
+        <ul>
+          <li><strong>Workspace appearance:</strong> Typography scale, density, accent theme, and brand-energy toggle.</li>
+          <li><strong>Onboarding controls:</strong> Restart onboarding and guided tour.</li>
+          <li><strong>Agents & integrations:</strong> Quick setup for personal agents plus advanced integration controls.</li>
+          <li><strong>Data integrations:</strong> Jump to import flows (manual notes, direct paste, markdown, Readwise CSV).</li>
+          <li><strong>Export:</strong> Download JSON exports and PDF bundles to avoid lock-in.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>Login and signup pages</h2>
         <p>
-          This documentation page is optimized for users who search for terms like
-          <em>"how to organize research notes," "semantic search for personal knowledge,"</em> and
-          <em>"AI-assisted concept mapping."</em>
+          Authentication is straightforward and keeps onboarding friction low while still enabling extension workflows.
         </p>
+        <ul>
+          <li><strong>Extension optional:</strong> Login/Register messaging clarifies the app works without browser extensions.</li>
+          <li><strong>Session clarity:</strong> Expired sessions show an explicit relogin message.</li>
+          <li><strong>Fast account flow:</strong> Register -> redirect to login -> enter Think without extra setup requirements.</li>
+          <li><strong>Progressive setup:</strong> Users can start manually, then add extension capture or agents later.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>Other areas that should stay aligned in marketing copy</h2>
+        <ul>
+          <li><strong>Library:</strong> Source inventory and highlight retrieval layer.</li>
+          <li><strong>Capture/Data integrations:</strong> Manual-first and import-first onboarding path.</li>
+          <li><strong>Map + Review + Return Queue:</strong> Reinforcement and pattern-recognition loops after capture.</li>
+          <li><strong>How-To page:</strong> In-app onboarding narrative for first-session behavior.</li>
+        </ul>
         <p class="footer-note">
-          Looking for implementation details? See the project <a href="../../README.md">README</a> for API routes and
-          architecture notes.
+          Need implementation specifics? See <a href="../../README.md">README</a> for architecture and API-level details.
         </p>
       </section>
     </main>

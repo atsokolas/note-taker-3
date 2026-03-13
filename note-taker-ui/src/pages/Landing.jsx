@@ -60,6 +60,10 @@ const Landing = () => {
           <h3>The system brings things back</h3>
           <p>Resurfacing turns “I’ll remember this” into “I actually did.”</p>
         </Card>
+        <Card className="landing-card">
+          <h3>Agentic help when you want it</h3>
+          <p>Use Thought Partner and handoffs for leverage, while keeping human approval on decisions.</p>
+        </Card>
       </div>
 
       <Card className="landing-card" id="tour">
@@ -69,6 +73,7 @@ const Landing = () => {
           <li>Highlight what matters.</li>
           <li>Tag highlights as Concepts.</li>
           <li>Drop highlights into Notes.</li>
+          <li>Optionally ask Thought Partner or create a handoff.</li>
           <li>Come back tomorrow (Today desk + resurfacing).</li>
         </ol>
       </Card>
@@ -78,7 +83,7 @@ const Landing = () => {
         <ul className="landing-list">
           <li>Export your data anytime.</li>
           <li>No dark patterns. No lock‑in.</li>
-          <li>No AI required. Calm by design.</li>
+          <li>AI is optional. Human-in-the-loop by design.</li>
         </ul>
       </Card>
 

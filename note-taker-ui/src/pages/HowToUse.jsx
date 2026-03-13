@@ -18,11 +18,12 @@ const HowToUse = () => {
       <div className="page-header">
         <p className="muted-label">How To Use</p>
         <h1>A calm home for every idea you don’t want to lose.</h1>
-        <p className="muted">Save what you read. Pull the best lines. Turn them into thinking you can use.</p>
+        <p className="muted">Save what you read. Pull the best lines. Turn them into thinking you can use, with optional agent help when you want it.</p>
         <p className="muted">You read a lot. You highlight the good parts. You want those ideas to show up when you need them, not vanish into a folder. This fixes that.</p>
         <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
           <Button onClick={() => navigate('/today')}>Start in Today</Button>
           <Button variant="secondary" onClick={() => navigate('/library')}>Build your Library</Button>
+          <Button variant="secondary" onClick={() => navigate('/settings')}>Open Settings</Button>
           <Button variant="secondary" onClick={handleTourClick}>Take the 5‑minute tour</Button>
         </div>
       </div>
@@ -49,6 +50,9 @@ const HowToUse = () => {
               </li>
               <li>
                 <strong>Write a note.</strong> Think is where you turn raw highlights into your words.
+              </li>
+              <li>
+                <strong>Use agentic assist (optional).</strong> Ask Thought Partner for context, or create a handoff when you want to delegate.
               </li>
               <li>
                 <strong>Come back to Today.</strong> It resurfaces what matters so your brain stays warm.
@@ -113,10 +117,17 @@ const HowToUse = () => {
             },
             {
               title: 'Think',
-              copy: 'Synthesis lives here: notebook, concepts, and questions.',
+              copy: 'Synthesis lives here: notebook, concepts, questions, handoffs, paths, and insights.',
               intent: 'Use this when you want to make sense, not just collect.',
               next: 'Add a question to a concept and answer it in a note.',
               route: '/think'
+            },
+            {
+              title: 'Capture',
+              copy: 'Bring in notes without the extension: manual entry, direct paste, markdown, and Readwise CSV.',
+              intent: 'Use this when you need quick ingest from existing material.',
+              next: 'Paste one source and import it as a note.',
+              route: '/data-integrations'
             },
             {
               title: 'Review',
@@ -124,6 +135,13 @@ const HowToUse = () => {
               intent: 'Use this when you want to see progress and patterns.',
               next: 'Open Reflections and start a weekly note.',
               route: '/review'
+            },
+            {
+              title: 'Settings',
+              copy: 'Tune workspace density/typography, restart onboarding, and configure agents + integrations.',
+              intent: 'Use this when you want your environment and automation setup to fit your workflow.',
+              next: 'Set your preferred density, then open Agents & integrations.',
+              route: '/settings'
             }
           ].map(card => (
             <Card key={card.title} className="search-card">
@@ -150,7 +168,7 @@ const HowToUse = () => {
             <li>Day 1: Save 3 articles, add 10 highlights.</li>
             <li>Day 2: Create 5 concepts, pin 3 key highlights.</li>
             <li>Day 3: Write one synthesis note using 5 highlights.</li>
-            <li>Day 4: Create one saved view (“AI Strategy”, “Behavioral Edges”).</li>
+            <li>Day 4: Set up one personal agent and create one handoff.</li>
             <li>Day 5: Use Today, reshuffle, insert one resurfaced highlight into a note.</li>
             <li>Day 6: Answer one open question.</li>
             <li>Day 7: Export your data (trust ritual).</li>
@@ -190,6 +208,10 @@ const HowToUse = () => {
             <div>
               <strong>Do I need to organize perfectly?</strong>
               <p className="muted">No. Start messy. The system forgives you.</p>
+            </div>
+            <div>
+              <strong>Do I need AI or agents to use this?</strong>
+              <p className="muted">No. Agents are optional. You can run manual-only and still get full value from capture, Think, and review loops.</p>
             </div>
             <div>
               <strong>What if I forget to tag?</strong>
