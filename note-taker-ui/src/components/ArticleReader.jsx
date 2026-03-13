@@ -11,6 +11,24 @@ const processArticleContent = (article, highlights = []) => {
 
   doc.querySelectorAll('script, style, noscript').forEach(node => node.remove());
 
+  // Normalize imported article HTML so external dark-mode inline colors
+  // don't override the app's reading palette.
+  doc.querySelectorAll('[style]').forEach((node) => {
+    const raw = node.getAttribute('style');
+    if (!raw) return;
+    const cleaned = raw
+      .replace(/(?:^|;)\s*color\s*:[^;]*/gi, '')
+      .replace(/(?:^|;)\s*background(?:-color)?\s*:[^;]*/gi, '')
+      .replace(/(?:^|;)\s*font-family\s*:[^;]*/gi, '')
+      .replace(/^\s*;+\s*|\s*;+\s*$/g, '')
+      .trim();
+    if (cleaned) {
+      node.setAttribute('style', cleaned);
+    } else {
+      node.removeAttribute('style');
+    }
+  });
+
   const origin = article.url ? new URL(article.url).origin : '';
   doc.querySelectorAll('img').forEach(img => {
     const src = img.getAttribute('src');

@@ -205,6 +205,18 @@ body.calm-ui-global .upload-card {
   box-shadow: none;
 }
 
+body.calm-ui-global .article-reader-header {
+  background: color-mix(in srgb, var(--calm-bg-1) 82%, transparent);
+  border: 1px solid var(--calm-line);
+  box-shadow: none;
+}
+
+body.calm-ui-global .article-reader-title,
+body.calm-ui-global .article-reader-meta,
+body.calm-ui-global .article-reader-meta a {
+  color: var(--calm-text);
+}
+
 body.calm-ui-global .think-index,
 body.calm-ui-global .think-home__panel,
 body.calm-ui-global .think-home__continue,
@@ -300,6 +312,19 @@ body.calm-ui-global .think-index__row.is-active {
   color: var(--calm-text);
 }
 
+body.calm-ui-global .library-section-head.is-articles,
+body.calm-ui-global .library-section-head.is-highlights {
+  background: color-mix(in srgb, var(--calm-bg-1) 86%, transparent);
+  border-color: var(--calm-line);
+  box-shadow: none;
+}
+
+body.calm-ui-global .library-highlight-group-title--virtual {
+  background: color-mix(in srgb, var(--calm-bg-1) 90%, transparent);
+  color: var(--calm-text-secondary);
+  backdrop-filter: none;
+}
+
 body.calm-ui-global .ui-tag-chip,
 body.calm-ui-global .tag-chip,
 body.calm-ui-global .notebook-tag-chip,
@@ -361,4 +386,13 @@ body.calm-ui-global .ProseMirror,
 body.calm-ui-global .reader,
 body.calm-ui-global .article-reader-content {
   color: var(--calm-text);
+}
+
+body.calm-ui-global .article-reader-content,
+body.calm-ui-global .article-reader-content :is(h1, h2, h3, h4, h5, h6, p, li, blockquote, span, div) {
+  color: var(--calm-text) !important;
+}
+
+body.calm-ui-global .article-reader-content :is(code, pre) {
+  color: #2f3a52 !important;
 }
