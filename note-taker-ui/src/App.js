@@ -53,6 +53,7 @@ import './styles/dashboard-refresh.css';
 import './styles/think-home-polish.css';
 import './styles/brand-energy.css';
 import './styles/noeis-rebrand.css';
+import './styles/think-calm-d3a.css';
 
 const LegacyConceptRedirect = () => {
   const { tagName, tag } = useParams();

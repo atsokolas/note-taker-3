@@ -59,6 +59,7 @@ import {
 const THINK_RIGHT_STORAGE_KEY = 'workspace-right-open:/think';
 const THINK_RIGHT_MIGRATION_KEY = 'workspace-right-open:/think:migrated-v2';
 const THINK_RECENTS_STORAGE_KEY = 'think.recent.targets';
+const THINK_INDEX_GROUPS_STORAGE_KEY = 'think.index.groups.collapsed';
 const THINK_CONCEPT_ROW_HEIGHT = 46;
 const THINK_QUESTION_ROW_HEIGHT = 60;
 const THINK_HOME_LIMIT = 6;
@@ -91,6 +92,23 @@ const readRecentTargets = () => {
       .slice(0, 20);
   } catch (error) {
     return [];
+  }
+};
+
+const readCollapsedIndexGroups = () => {
+  const fallback = { notebook: false, concepts: false, questions: false };
+  try {
+    const raw = localStorage.getItem(THINK_INDEX_GROUPS_STORAGE_KEY);
+    if (!raw) return fallback;
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return fallback;
+    return {
+      notebook: Boolean(parsed.notebook),
+      concepts: Boolean(parsed.concepts),
+      questions: Boolean(parsed.questions)
+    };
+  } catch (error) {
+    return fallback;
   }
 };
 
@@ -281,6 +299,7 @@ const ThinkMode = () => {
   const [homeArticles, setHomeArticles] = useState([]);
   const [homeArticlesLoading, setHomeArticlesLoading] = useState(false);
   const [homeArticlesError, setHomeArticlesError] = useState('');
+  const [collapsedIndexGroups, setCollapsedIndexGroups] = useState(() => readCollapsedIndexGroups());
   const [rightOpen, setRightOpen] = useState(() => {
     try {
       const migrated = localStorage.getItem(THINK_RIGHT_MIGRATION_KEY) === 'true';
@@ -296,6 +315,13 @@ const ThinkMode = () => {
       return false;
     }
   });
+
+  useEffect(() => {
+    document.body.classList.add('think-calm-d3a');
+    return () => {
+      document.body.classList.remove('think-calm-d3a');
+    };
+  }, []);
 
   const handleOpenHandoff = useCallback((handoffId) => {
     const safeId = String(handoffId || '').trim();
@@ -448,6 +474,20 @@ const ThinkMode = () => {
       const deduped = prev.filter(item => !(item.id === nextTarget.id && item.type === nextTarget.type));
       const next = [nextTarget, ...deduped].slice(0, 20);
       localStorage.setItem(THINK_RECENTS_STORAGE_KEY, JSON.stringify(next));
+      return next;
+    });
+  }, []);
+
+  const toggleIndexGroup = useCallback((groupName) => {
+    const key = String(groupName || '').trim();
+    if (!key) return;
+    setCollapsedIndexGroups((previous) => {
+      const next = { ...previous, [key]: !previous[key] };
+      try {
+        localStorage.setItem(THINK_INDEX_GROUPS_STORAGE_KEY, JSON.stringify(next));
+      } catch (_error) {
+        // Ignore localStorage write errors.
+      }
       return next;
     });
   }, []);
@@ -1904,22 +1944,42 @@ const ThinkMode = () => {
       {questionError && <p className="status-message error-message">{questionError}</p>}
 
       <div className="think-index__group">
-        <div className="think-index__label">Notebook</div>
-        <div className="think-index__list">
-          {notebookLoadingList ? (
-            <SidebarSkeletonRows rows={4} />
-          ) : (
-            filteredNotebookEntries.map((entry) => renderNotebookRow(entry))
-          )}
-          {!notebookLoadingList && filteredNotebookEntries.length === 0 && (
-            <CalmEmptyLine>No notebook entries match.</CalmEmptyLine>
-          )}
+        <div className="think-index__label-row">
+          <button
+            type="button"
+            className="think-index__label-toggle"
+            onClick={() => toggleIndexGroup('notebook')}
+            aria-expanded={!collapsedIndexGroups.notebook}
+          >
+            <span className="think-index__label">Notebook</span>
+            <span className="think-index__label-chevron" aria-hidden="true">{collapsedIndexGroups.notebook ? '▸' : '▾'}</span>
+          </button>
         </div>
+        {!collapsedIndexGroups.notebook && (
+          <div className="think-index__list">
+            {notebookLoadingList ? (
+              <SidebarSkeletonRows rows={4} />
+            ) : (
+              filteredNotebookEntries.map((entry) => renderNotebookRow(entry))
+            )}
+            {!notebookLoadingList && filteredNotebookEntries.length === 0 && (
+              <CalmEmptyLine>No notebook entries match.</CalmEmptyLine>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="think-index__group">
         <div className="think-index__label-row">
-          <div className="think-index__label">Concepts</div>
+          <button
+            type="button"
+            className="think-index__label-toggle"
+            onClick={() => toggleIndexGroup('concepts')}
+            aria-expanded={!collapsedIndexGroups.concepts}
+          >
+            <span className="think-index__label">Concepts</span>
+            <span className="think-index__label-chevron" aria-hidden="true">{collapsedIndexGroups.concepts ? '▸' : '▾'}</span>
+          </button>
           <div className="think-concept-composer-anchor">
             <button
               type="button"
@@ -1945,60 +2005,74 @@ const ThinkMode = () => {
           </p>
         )}
         {conceptsError && <p className="status-message error-message">{conceptsError}</p>}
-        <Profiler id="ThinkConceptList" onRender={conceptListProfilerLogger}>
-          <div className="think-index__list">
-            {conceptsLoading ? (
-              <SidebarSkeletonRows rows={5} />
-            ) : filteredConcepts.length > 200 ? (
-              <VirtualList
-                items={filteredConcepts}
-                height={leftListHeight}
-                itemSize={THINK_CONCEPT_ROW_HEIGHT}
-                overscan={8}
-                className="think-virtual-list"
-                renderItem={(conceptItem, index) => (
-                  <div key={conceptItem.name || index} className="think-index__virtual-row">
-                    {renderConceptRow(conceptItem)}
-                  </div>
-                )}
-              />
-            ) : (
-              filteredConcepts.map((conceptItem) => renderConceptRow(conceptItem))
-            )}
-            {!conceptsLoading && filteredConcepts.length === 0 && (
-              <CalmEmptyLine>No concepts match.</CalmEmptyLine>
-            )}
-          </div>
-        </Profiler>
+        {!collapsedIndexGroups.concepts && (
+          <Profiler id="ThinkConceptList" onRender={conceptListProfilerLogger}>
+            <div className="think-index__list">
+              {conceptsLoading ? (
+                <SidebarSkeletonRows rows={5} />
+              ) : filteredConcepts.length > 200 ? (
+                <VirtualList
+                  items={filteredConcepts}
+                  height={leftListHeight}
+                  itemSize={THINK_CONCEPT_ROW_HEIGHT}
+                  overscan={8}
+                  className="think-virtual-list"
+                  renderItem={(conceptItem, index) => (
+                    <div key={conceptItem.name || index} className="think-index__virtual-row">
+                      {renderConceptRow(conceptItem)}
+                    </div>
+                  )}
+                />
+              ) : (
+                filteredConcepts.map((conceptItem) => renderConceptRow(conceptItem))
+              )}
+              {!conceptsLoading && filteredConcepts.length === 0 && (
+                <CalmEmptyLine>No concepts match.</CalmEmptyLine>
+              )}
+            </div>
+          </Profiler>
+        )}
       </div>
 
       <div className="think-index__group">
-        <div className="think-index__label">Questions</div>
-        <Profiler id="ThinkQuestionList" onRender={questionListProfilerLogger}>
-          <div className="think-index__list">
-            {allQuestionsLoading ? (
-              <SidebarSkeletonRows rows={4} />
-            ) : filteredQuestions.length > 200 ? (
-              <VirtualList
-                items={filteredQuestions}
-                height={leftListHeight}
-                itemSize={THINK_QUESTION_ROW_HEIGHT}
-                overscan={6}
-                className="think-virtual-list"
-                renderItem={(question, index) => (
-                  <div key={question._id || index} className="think-index__virtual-row">
-                    {renderQuestionRow(question)}
-                  </div>
-                )}
-              />
-            ) : (
-              filteredQuestions.map((question) => renderQuestionRow(question))
-            )}
-            {!allQuestionsLoading && filteredQuestions.length === 0 && (
-              <CalmEmptyLine>No questions match.</CalmEmptyLine>
-            )}
-          </div>
-        </Profiler>
+        <div className="think-index__label-row">
+          <button
+            type="button"
+            className="think-index__label-toggle"
+            onClick={() => toggleIndexGroup('questions')}
+            aria-expanded={!collapsedIndexGroups.questions}
+          >
+            <span className="think-index__label">Questions</span>
+            <span className="think-index__label-chevron" aria-hidden="true">{collapsedIndexGroups.questions ? '▸' : '▾'}</span>
+          </button>
+        </div>
+        {!collapsedIndexGroups.questions && (
+          <Profiler id="ThinkQuestionList" onRender={questionListProfilerLogger}>
+            <div className="think-index__list">
+              {allQuestionsLoading ? (
+                <SidebarSkeletonRows rows={4} />
+              ) : filteredQuestions.length > 200 ? (
+                <VirtualList
+                  items={filteredQuestions}
+                  height={leftListHeight}
+                  itemSize={THINK_QUESTION_ROW_HEIGHT}
+                  overscan={6}
+                  className="think-virtual-list"
+                  renderItem={(question, index) => (
+                    <div key={question._id || index} className="think-index__virtual-row">
+                      {renderQuestionRow(question)}
+                    </div>
+                  )}
+                />
+              ) : (
+                filteredQuestions.map((question) => renderQuestionRow(question))
+              )}
+              {!allQuestionsLoading && filteredQuestions.length === 0 && (
+                <CalmEmptyLine>No questions match.</CalmEmptyLine>
+              )}
+            </div>
+          </Profiler>
+        )}
       </div>
     </div>
   );
