@@ -25,15 +25,25 @@ html[data-ui-theme='light'] body.calm-ui-global {
   --surface-panel: var(--calm-bg-1);
   --surface-card: var(--calm-bg-1);
   --surface-muted: var(--calm-bg-2);
+  --surface-0: var(--calm-bg-1);
+  --surface-1: color-mix(in srgb, var(--calm-bg-1) 90%, var(--calm-bg-2));
+  --surface-2: var(--calm-bg-2);
+  --bg-shell: var(--calm-bg-0);
+  --bg-chrome: color-mix(in srgb, var(--calm-bg-1) 90%, white);
 
   --border-subtle: var(--calm-line);
   --border-subtle-2: var(--calm-line-soft);
+  --line-0: var(--calm-line);
+  --line-1: color-mix(in srgb, var(--calm-line) 88%, #ad9a82);
 
   --text-primary: var(--calm-text);
   --text-secondary: var(--calm-text-secondary);
   --text: var(--calm-text);
   --muted: var(--calm-muted);
   --link: var(--calm-link);
+  --text-0: var(--calm-text);
+  --text-1: var(--calm-text-secondary);
+  --text-2: var(--calm-muted);
 
   --accent: var(--calm-accent);
   --accent-soft: var(--calm-accent-soft);
@@ -132,19 +142,76 @@ body.calm-ui-global .topbar {
   backdrop-filter: blur(5px);
 }
 
+body.calm-ui-global .topbar__content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+}
+
+body.calm-ui-global .topbar__left {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  align-items: center;
+}
+
 body.calm-ui-global .topbar__search-wrap {
-  background: transparent;
-  border-color: transparent;
+  width: min(560px, 100%);
+  min-height: 38px;
+  border-radius: 999px;
+  border: 1px solid var(--calm-line);
+  background: var(--calm-bg-2);
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  box-shadow: none;
+}
+
+body.calm-ui-global .topbar__search-wrap:focus-within {
+  border-color: color-mix(in srgb, var(--calm-accent) 58%, transparent);
+  box-shadow: 0 0 0 2px var(--calm-accent-soft);
+}
+
+body.calm-ui-global .topbar__search-icon {
+  color: var(--calm-muted);
+  font-size: 0.8rem;
+  line-height: 1;
 }
 
 body.calm-ui-global .topbar__search {
-  background: var(--calm-bg-2);
-  border: 1px solid var(--calm-line);
+  background: transparent;
+  border: 0;
+  min-width: 0;
+  width: 100%;
+  padding: 0;
   color: var(--calm-text);
+  box-shadow: none;
+}
+
+body.calm-ui-global .topbar__search:focus {
+  box-shadow: none;
+  outline: none;
 }
 
 body.calm-ui-global .topbar__search::placeholder {
   color: var(--calm-muted);
+}
+
+body.calm-ui-global .topbar__right {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+body.calm-ui-global .topbar__menu {
+  display: flex;
+  align-items: center;
 }
 
 body.calm-ui-global .topbar__button,
@@ -162,6 +229,13 @@ body.calm-ui-global .list-button {
   color: var(--calm-text-secondary);
   box-shadow: none;
   transform: none;
+}
+
+body.calm-ui-global .topbar__button,
+body.calm-ui-global .topbar__theme-pill {
+  min-height: 32px;
+  padding: 0 12px;
+  border-radius: 999px;
 }
 
 body.calm-ui-global .topbar__button:hover,
@@ -395,4 +469,91 @@ body.calm-ui-global .article-reader-content :is(h1, h2, h3, h4, h5, h6, p, li, b
 
 body.calm-ui-global .article-reader-content :is(code, pre) {
   color: #2f3a52 !important;
+}
+
+body.calm-ui-global .map-view-page .map-toolbar,
+body.calm-ui-global .return-queue-page .return-queue-toolbar {
+  border: 1px solid var(--calm-line);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--calm-bg-1) 88%, white);
+  box-shadow: none;
+}
+
+body.calm-ui-global .map-view-page .map-toolbar-group,
+body.calm-ui-global .map-view-page .map-toolbar-inline {
+  border: 1px solid var(--calm-line-soft);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--calm-bg-1) 82%, transparent);
+  box-shadow: none;
+}
+
+body.calm-ui-global .map-view-page .map-filter-chip {
+  border: 1px solid var(--calm-line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--calm-text-secondary);
+  box-shadow: none;
+}
+
+body.calm-ui-global .map-view-page .map-filter-chip:hover {
+  background: color-mix(in srgb, var(--calm-bg-2) 56%, transparent);
+}
+
+body.calm-ui-global .map-view-page .map-filter-chip.is-active {
+  border-color: color-mix(in srgb, var(--calm-accent) 44%, var(--calm-line));
+  background: color-mix(in srgb, var(--calm-accent-soft) 76%, transparent);
+  color: var(--calm-text);
+}
+
+body.calm-ui-global .map-view-page .map-toolbar-inline input,
+body.calm-ui-global .map-view-page .map-toolbar-inline select,
+body.calm-ui-global .map-view-page .map-detail-card {
+  border: 1px solid var(--calm-line);
+  background: var(--calm-bg-1);
+  color: var(--calm-text);
+}
+
+body.calm-ui-global .map-view-page .map-canvas-card,
+body.calm-ui-global .map-view-page .map-side-panel,
+body.calm-ui-global .return-queue-page .return-queue-section {
+  border: 1px solid var(--calm-line);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--calm-bg-1) 92%, white);
+  box-shadow: none;
+}
+
+body.calm-ui-global .map-view-page .map-canvas-wrap {
+  border: 1px solid var(--calm-line);
+  background:
+    radial-gradient(640px 220px at 8% -10%, rgba(124, 105, 79, 0.1), transparent 60%),
+    color-mix(in srgb, var(--calm-bg-1) 90%, var(--calm-bg-2));
+  box-shadow: none;
+}
+
+body.calm-ui-global .return-queue-page .return-queue-row {
+  border: 1px solid var(--calm-line-soft);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--calm-bg-1) 92%, transparent);
+  box-shadow: none;
+}
+
+body.calm-ui-global .return-queue-page .return-queue-row:hover {
+  border-color: var(--calm-line);
+  background: color-mix(in srgb, var(--calm-bg-2) 50%, var(--calm-bg-1));
+  transform: none;
+}
+
+body.calm-ui-global .return-queue-page .return-queue-title {
+  color: var(--calm-text);
+}
+
+body.calm-ui-global .return-queue-page .return-queue-snippet,
+body.calm-ui-global .return-queue-page .return-queue-meta {
+  color: var(--calm-text-secondary);
+}
+
+body.calm-ui-global .return-queue-page .return-queue-meta span {
+  border: 1px solid var(--calm-line-soft);
+  background: color-mix(in srgb, var(--calm-bg-2) 70%, transparent);
+  color: var(--calm-text-secondary);
 }
