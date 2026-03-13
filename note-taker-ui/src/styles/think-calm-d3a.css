@@ -19,6 +19,20 @@ html[data-ui-theme='light'] body.think-calm-d3a {
   --d3a-card-ghost: rgba(251, 248, 242, 0.42);
   --d3a-card-hover: rgba(239, 228, 208, 0.42);
   --d3a-link: #5c7395;
+  --nt-app-bg: #f4efe6;
+  --nt-surface-1: #fbf8f2;
+  --nt-surface-2: #f1eadf;
+  --nt-divider: #ddd2c0;
+  --surface-panel: #fbf8f2;
+  --surface-card: #fbf8f2;
+  --surface-muted: #f1eadf;
+  --border-subtle: #ddd2c0;
+  --border-subtle-2: #ddd2c0;
+  --text: #3f3428;
+  --text-primary: #3f3428;
+  --text-secondary: #6d5f4d;
+  --text-muted: #8f806d;
+  --muted: #8f806d;
 }
 
 body.think-calm-d3a::before,
@@ -32,6 +46,29 @@ body.think-calm-d3a .ui-card::before {
 
 body.think-calm-d3a .app-shell-new {
   background: transparent;
+}
+
+body.think-calm-d3a .think-index {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+}
+
+body.think-calm-d3a .library-main-actions,
+body.think-calm-d3a .think-main-actions {
+  background: color-mix(in srgb, var(--d3a-bg-1) 82%, transparent);
+  border: 1px solid color-mix(in srgb, var(--d3a-line) 76%, transparent);
+  box-shadow: none;
+  backdrop-filter: none;
+}
+
+body.think-calm-d3a .library-cabinet-actions,
+body.think-calm-d3a .library-search-panel,
+body.think-calm-d3a .library-saved-views,
+body.think-calm-d3a .think-index__group {
+  background: color-mix(in srgb, var(--d3a-bg-1) 72%, transparent);
+  border: 1px solid color-mix(in srgb, var(--d3a-line) 72%, transparent);
+  box-shadow: none;
 }
 
 body.think-calm-d3a .app-shell-new__nav,
@@ -71,6 +108,15 @@ body.think-calm-d3a input,
 body.think-calm-d3a textarea {
   background: var(--d3a-bg-2);
   border: 1px solid var(--d3a-line);
+  color: var(--d3a-text);
+  box-shadow: none;
+}
+
+body.think-calm-d3a .think-layout__left-panel .feedback-field input,
+body.think-calm-d3a .think-index__filter select,
+body.think-calm-d3a .think-index-search-input {
+  background: var(--d3a-bg-2);
+  border: 1px solid color-mix(in srgb, var(--d3a-line) 84%, transparent);
   color: var(--d3a-text);
   box-shadow: none;
 }
@@ -356,6 +402,15 @@ body.think-calm-d3a .think-home__panel,
 body.think-calm-d3a .think-home__side-card,
 body.think-calm-d3a .working-memory-panel,
 body.think-calm-d3a .agent-thought-partner,
+body.think-calm-d3a .think-concept-hero,
+body.think-calm-d3a .think-concept-loading,
+body.think-calm-d3a .concept-outline__workspace,
+body.think-calm-d3a .notebook-editor,
+body.think-calm-d3a .think-question-editor,
+body.think-calm-d3a .think-notebook-editor,
+body.think-calm-d3a .notebook-editor-area,
+body.think-calm-d3a .tiptap-editor,
+body.think-calm-d3a .ProseMirror,
 body.think-calm-d3a .concept-highlight-card,
 body.think-calm-d3a .concept-note-card,
 body.think-calm-d3a .think-handoffs-card {
@@ -570,8 +625,33 @@ body.think-calm-d3a .right-drawer__header-icon:hover {
 
 body.think-calm-d3a .agent-thought-partner__related-link,
 body.think-calm-d3a .ui-tag-chip,
+body.think-calm-d3a .tag-chip,
+body.think-calm-d3a .notebook-tag-chip,
+body.think-calm-d3a .highlight-tag,
 body.think-calm-d3a a {
   color: var(--d3a-link);
+}
+
+body.think-calm-d3a .ui-tag-chip,
+body.think-calm-d3a .tag-chip,
+body.think-calm-d3a .notebook-tag-chip,
+body.think-calm-d3a .highlight-tag {
+  background: transparent;
+  border: 1px solid color-mix(in srgb, var(--d3a-line) 74%, transparent);
+}
+
+body.think-calm-d3a .think-home__material-title,
+body.think-calm-d3a .think-question-text,
+body.think-calm-d3a .think-handoffs-title,
+body.think-calm-d3a .concept-path-list-title,
+body.think-calm-d3a .concept-path-step-title {
+  color: var(--d3a-text);
+}
+
+body.think-calm-d3a .think-question-meta,
+body.think-calm-d3a .think-home__material-snippet,
+body.think-calm-d3a .think-handoffs-meta {
+  color: var(--d3a-muted);
 }
 
 body.think-calm-d3a .status-message.error-message {
