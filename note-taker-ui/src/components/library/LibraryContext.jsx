@@ -93,12 +93,15 @@ const LibraryContext = ({
   if (!selectedArticleId) {
     return (
       <div className="library-context-feed-panel">
-        <div className="library-context-section is-collapsed">
+        <div className="library-context-section is-empty">
           <button type="button" className="library-context-section__header" disabled>
             <span className="library-context-section__title">Highlights Feed</span>
             <span className="library-context-section__meta">Select an article</span>
             <span className="library-context-section__chevron" aria-hidden="true">▸</span>
           </button>
+          <div className="library-context-section__body">
+            <p className="muted small">Open an article to view and organize its highlights.</p>
+          </div>
         </div>
       </div>
     );

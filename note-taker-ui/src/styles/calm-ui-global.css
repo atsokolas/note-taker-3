@@ -392,6 +392,81 @@ body.calm-ui-global .think-index__row.is-active {
   color: var(--calm-text);
 }
 
+body.calm-ui-global .library-cabinet-actions {
+  gap: 6px;
+}
+
+body.calm-ui-global .library-cabinet-actions .list-button {
+  min-height: 36px;
+}
+
+body.calm-ui-global .library-cabinet-nested {
+  gap: 6px;
+  padding-left: 10px;
+}
+
+body.calm-ui-global .library-folder-items,
+body.calm-ui-global .library-folder-tree {
+  gap: 6px;
+}
+
+body.calm-ui-global .library-search-panel,
+body.calm-ui-global .library-saved-views {
+  padding: 10px;
+  border-radius: 12px;
+}
+
+body.calm-ui-global .library-article-list {
+  display: grid;
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid var(--calm-line);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--calm-bg-1) 94%, white);
+  box-shadow: none;
+}
+
+body.calm-ui-global .library-article-list-virtual {
+  padding-right: 2px;
+}
+
+body.calm-ui-global .library-article-row {
+  padding: 10px 12px;
+  border: 0;
+  border-bottom: 1px solid var(--calm-line-soft);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+body.calm-ui-global .library-article-row:last-child {
+  border-bottom: 0;
+}
+
+body.calm-ui-global .library-article-row-main {
+  color: inherit;
+}
+
+body.calm-ui-global .library-article-row-meta {
+  color: var(--calm-muted);
+}
+
+body.calm-ui-global .library-article-row-action {
+  opacity: 1;
+  min-height: 26px;
+  border: 1px solid var(--calm-line-soft);
+  color: var(--calm-text-secondary);
+}
+
+body.calm-ui-global .library-article-row:hover .library-article-row-action {
+  opacity: 1;
+}
+
+body.calm-ui-global .library-article-row-action:hover {
+  border-color: var(--calm-line);
+  color: var(--calm-text);
+}
+
 body.calm-ui-global .library-section-head.is-articles,
 body.calm-ui-global .library-section-head.is-highlights {
   background: color-mix(in srgb, var(--calm-bg-1) 86%, transparent);
@@ -707,6 +782,10 @@ body.calm-ui-global .library-context-section__header {
 
 body.calm-ui-global .library-context-section__header:disabled {
   cursor: default;
+}
+
+body.calm-ui-global .library-context-section.is-empty .library-context-section__header {
+  border-bottom: 0;
 }
 
 body.calm-ui-global .library-context-section__title {
