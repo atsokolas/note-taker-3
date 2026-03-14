@@ -73,13 +73,18 @@ const LibraryArticleList = ({
   onSelectArticle,
   onMoveArticle
 }) => {
+  const hasError = Boolean(error);
+  const isEmpty = !loading && !hasError && articles.length === 0;
   const virtualHeight = useMemo(() => {
     const viewport = typeof window !== 'undefined' ? window.innerHeight : 0;
     return Math.min(680, Math.max(320, viewport ? viewport - 290 : 560));
   }, []);
 
   return (
-    <div className="library-article-list">
+    <div
+      className={`library-article-list ${loading ? 'is-loading' : ''} ${hasError ? 'has-error' : ''} ${isEmpty ? 'is-empty' : ''}`.trim()}
+      data-ui-surface-state={loading ? 'loading' : hasError ? 'error' : isEmpty ? 'empty' : 'ready'}
+    >
       <SectionHeader
         title="Articles"
         subtitle="Saved reads and source material."

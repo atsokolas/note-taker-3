@@ -30,6 +30,8 @@
 		"start": "react-scripts start",
 		"build": "react-scripts build",
 		"test": "react-scripts test",
+		"test:e2e": "playwright test",
+		"test:visual": "playwright test e2e/visual-regression.spec.js",
 		"eject": "react-scripts eject"
 	},
 	"proxy": "http://localhost:5500",

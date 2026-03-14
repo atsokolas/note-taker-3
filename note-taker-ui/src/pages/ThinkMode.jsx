@@ -1894,7 +1894,7 @@ const ThinkMode = () => {
 
   const defaultLeftPanel = (
     <div className="section-stack think-layout__left-panel think-index">
-      <div className="think-index__controls">
+      <div className={`think-index__controls ${(notebookListError || allQuestionsError || questionError || conceptsError) ? 'has-error' : ''}`}>
         <label className="feedback-field think-index__search" style={{ margin: 0 }}>
           <span>Index</span>
           <input
@@ -1943,7 +1943,7 @@ const ThinkMode = () => {
       {allQuestionsError && <p className="status-message error-message">{allQuestionsError}</p>}
       {questionError && <p className="status-message error-message">{questionError}</p>}
 
-      <div className="think-index__group">
+      <div className={`think-index__group ${collapsedIndexGroups.notebook ? 'is-collapsed' : 'is-expanded'} ${notebookLoadingList ? 'is-loading' : ''} ${!notebookLoadingList && filteredNotebookEntries.length === 0 ? 'is-empty' : ''}`.trim()}>
         <div className="think-index__label-row">
           <button
             type="button"
@@ -1969,7 +1969,7 @@ const ThinkMode = () => {
         )}
       </div>
 
-      <div className="think-index__group">
+      <div className={`think-index__group ${collapsedIndexGroups.concepts ? 'is-collapsed' : 'is-expanded'} ${conceptsLoading ? 'is-loading' : ''} ${!conceptsLoading && filteredConcepts.length === 0 ? 'is-empty' : ''}`.trim()}>
         <div className="think-index__label-row">
           <button
             type="button"
@@ -2034,7 +2034,7 @@ const ThinkMode = () => {
         )}
       </div>
 
-      <div className="think-index__group">
+      <div className={`think-index__group ${collapsedIndexGroups.questions ? 'is-collapsed' : 'is-expanded'} ${allQuestionsLoading ? 'is-loading' : ''} ${!allQuestionsLoading && filteredQuestions.length === 0 ? 'is-empty' : ''}`.trim()}>
         <div className="think-index__label-row">
           <button
             type="button"

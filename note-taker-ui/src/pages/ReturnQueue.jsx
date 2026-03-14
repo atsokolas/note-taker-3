@@ -87,14 +87,14 @@ const ReturnQueue = () => {
   };
 
   const renderSection = (title, subtitle, items, showDoneAction = true) => (
-    <div className="section-stack return-queue-section">
+    <div className={`section-stack return-queue-section ${items.length === 0 ? 'is-empty' : 'has-items'}`}>
       <SectionHeader title={title} subtitle={subtitle} />
       {items.length === 0 ? (
         <p className="muted small">Nothing here.</p>
       ) : (
         <div className="return-queue-list">
           {items.map(entry => (
-            <div key={entry._id} className="return-queue-row">
+            <div key={entry._id} className={`return-queue-row ${savingById[entry._id] ? 'is-saving' : ''}`}>
               <div className="return-queue-main">
                 <div className="return-queue-title">{entry.item?.title || `${entry.itemType} item`}</div>
                 <div className="return-queue-snippet">{entry.item?.snippet || entry.itemId}</div>
@@ -130,8 +130,18 @@ const ReturnQueue = () => {
     </div>
   );
 
+  const isQueueEmpty = !loading && !error && entries.length === 0;
+  const queueStateClassName = [
+    'section-stack',
+    'return-queue-page',
+    'mode-surface-page',
+    loading ? 'is-loading' : '',
+    error ? 'has-error' : '',
+    isQueueEmpty ? 'is-empty' : ''
+  ].filter(Boolean).join(' ');
+
   return (
-    <div className="section-stack return-queue-page mode-surface-page">
+    <div className={queueStateClassName} data-ui-surface-state={loading ? 'loading' : error ? 'error' : isQueueEmpty ? 'empty' : 'ready'}>
       <PageTitle
         eyebrow="Queue"
         title="Return Queue"

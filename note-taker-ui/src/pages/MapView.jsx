@@ -203,9 +203,22 @@ const MapView = () => {
 
   const nodeCount = graphData.nodes.length;
   const edgeCount = graphData.links.length;
+  const hasSelection = Boolean(selectedNode || selectedEdge);
+  const isEmpty = !loading && !error && nodeCount === 0;
+  const hasFilterWarning = unresolvedScope || unresolvedNotebook;
+  const mapStateClassName = [
+    'section-stack',
+    'map-view-page',
+    'mode-surface-page',
+    loading ? 'is-loading' : '',
+    error ? 'has-error' : '',
+    isEmpty ? 'is-empty' : '',
+    hasSelection ? 'has-selection' : '',
+    hasFilterWarning ? 'has-filter-warning' : ''
+  ].filter(Boolean).join(' ');
 
   return (
-    <div className="section-stack map-view-page mode-surface-page">
+    <div className={mapStateClassName} data-ui-surface-state={loading ? 'loading' : error ? 'error' : isEmpty ? 'empty' : 'ready'}>
       <PageTitle eyebrow="Mode" title="Map" subtitle="Visualize connected notes, highlights, and ideas." />
 
       <div className="map-toolbar">
@@ -368,7 +381,7 @@ const MapView = () => {
           </div>
         </div>
 
-        <div className="map-side-panel">
+        <div className={`map-side-panel ${hasSelection ? 'has-selection' : 'is-collapsed'}`}>
           <SectionHeader title="Details" subtitle="Click a node to inspect and open." />
           {!selectedNode && !selectedEdge && (
             <p className="muted small">Select a node or edge.</p>

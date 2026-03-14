@@ -29,20 +29,22 @@ const LibraryMain = ({
 }) => {
   if (scope === 'highlights') {
     return (
-      <LibraryHighlights
-        folderOptions={folderOptions}
-        articleOptions={articleOptions}
-        externalQuery={externalQuery}
-        view={highlightView}
-        onQueryChange={onQueryChange}
-        onDumpHighlight={onDumpHighlight}
-      />
+      <div className="library-main-highlights">
+        <LibraryHighlights
+          folderOptions={folderOptions}
+          articleOptions={articleOptions}
+          externalQuery={externalQuery}
+          view={highlightView}
+          onQueryChange={onQueryChange}
+          onDumpHighlight={onDumpHighlight}
+        />
+      </div>
     );
   }
 
   if (selectedArticleId) {
     return (
-      <div className="section-stack">
+      <div className={`section-stack library-main-reading ${articleLoading ? 'is-loading' : ''} ${articleError ? 'has-error' : ''}`.trim()}>
         {articleError && <p className="status-message error-message">{articleError}</p>}
         {articleLoading && (
           <div className="think-concept-loading" aria-hidden="true">
@@ -71,18 +73,20 @@ const LibraryMain = ({
   }
 
   return (
-    <LibraryArticleList
-      articles={articles}
-      loading={articlesLoading}
-      error={articlesError}
-      emptyLabel={scope === 'unfiled'
-        ? 'No unfiled articles right now.'
-        : scope === 'folder'
-          ? `No articles in ${selectedFolderName || 'this folder'} yet.`
-          : 'No articles saved yet.'}
-      onSelectArticle={onSelectArticle}
-      onMoveArticle={onMoveArticle}
-    />
+    <div className="library-main-browse">
+      <LibraryArticleList
+        articles={articles}
+        loading={articlesLoading}
+        error={articlesError}
+        emptyLabel={scope === 'unfiled'
+          ? 'No unfiled articles right now.'
+          : scope === 'folder'
+            ? `No articles in ${selectedFolderName || 'this folder'} yet.`
+            : 'No articles saved yet.'}
+        onSelectArticle={onSelectArticle}
+        onMoveArticle={onMoveArticle}
+      />
+    </div>
   );
 };
 

@@ -1,0 +1,268 @@
+/*
+  Calm UI System
+  Canonical source for cross-page calm styling behavior.
+  This file is intentionally imported last to resolve cascade conflicts.
+*/
+
+body.calm-ui-global {
+  --calm-system-surface-primary: color-mix(in srgb, var(--calm-bg-1) 94%, white);
+  --calm-system-surface-secondary: color-mix(in srgb, var(--calm-bg-2) 46%, transparent);
+  --calm-system-border: var(--calm-line);
+  --calm-system-border-soft: var(--calm-line-soft);
+  --calm-system-title: var(--calm-text);
+  --calm-system-body: var(--calm-text-secondary);
+  --calm-system-muted: var(--calm-muted);
+  --calm-system-row-y: 8px;
+  --calm-system-row-x: 10px;
+  --calm-system-gap: 8px;
+  --calm-system-radius: 12px;
+}
+
+/* State language */
+body.calm-ui-global .status-message.error-message,
+body.think-calm-d3a .status-message.error-message {
+  border: 1px solid color-mix(in srgb, #a15353 42%, var(--calm-system-border));
+  border-radius: 10px;
+  background: color-mix(in srgb, #f4dede 42%, transparent);
+  color: #7d3838;
+  padding: 8px 10px;
+}
+
+body.calm-ui-global [data-ui-surface-state='loading'] .skeleton {
+  opacity: 0.92;
+}
+
+body.calm-ui-global [data-ui-surface-state='empty'] .muted.small {
+  color: var(--calm-system-muted);
+}
+
+/* Hierarchy: secondary panels get lighter weight */
+body.calm-ui-global :is(.library-search-panel, .library-saved-views, .library-context-section) .ui-section-header__title,
+body.calm-ui-global .library-context-section__title,
+body.calm-ui-global .map-canvas-meta,
+body.calm-ui-global .return-queue-meta,
+body.calm-ui-global .return-queue-snippet {
+  color: var(--calm-system-body);
+}
+
+body.calm-ui-global :is(.library-search-panel, .library-saved-views) {
+  background: color-mix(in srgb, var(--calm-bg-1) 90%, white);
+  border: 1px solid var(--calm-system-border);
+  border-radius: var(--calm-system-radius);
+}
+
+/* Standardized list rhythm */
+body.calm-ui-global .library-article-row,
+body.calm-ui-global .library-context-feed-item,
+body.calm-ui-global .return-queue-row,
+body.calm-ui-global .map-detail-card,
+body.think-calm-d3a .think-index__row,
+body.think-calm-d3a .working-memory-block,
+body.think-calm-d3a .agent-thought-partner__message {
+  box-shadow: none;
+}
+
+body.calm-ui-global .library-article-row,
+body.think-calm-d3a .think-index__row {
+  min-height: 40px;
+  padding: var(--calm-system-row-y) var(--calm-system-row-x);
+  border-bottom-width: 1px;
+}
+
+body.calm-ui-global .library-article-row-title,
+body.think-calm-d3a .think-index__row-title,
+body.calm-ui-global .return-queue-title,
+body.calm-ui-global .map-detail-title {
+  color: var(--calm-system-title);
+  font-weight: 620;
+  line-height: 1.34;
+}
+
+body.calm-ui-global .library-article-row-meta,
+body.think-calm-d3a .think-index__row-meta,
+body.calm-ui-global .return-queue-meta,
+body.calm-ui-global .map-detail-snippet {
+  color: var(--calm-system-muted);
+  line-height: 1.38;
+}
+
+/* Library canonical surfaces (prevents dark-mode bleed-through) */
+html[data-ui-theme='dark'] body.calm-ui-global .library-page-shell .library-article-list,
+html[data-ui-theme='light'] body.calm-ui-global .library-page-shell .library-article-list,
+body.calm-ui-global .library-page-shell .library-article-list {
+  border: 1px solid var(--calm-system-border) !important;
+  background: var(--calm-system-surface-primary) !important;
+  border-radius: 14px;
+  box-shadow: none;
+}
+
+body.calm-ui-global .library-page-shell .library-main-actions {
+  gap: 8px;
+  padding: 2px;
+  border: 1px solid var(--calm-system-border-soft);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--calm-bg-1) 88%, transparent);
+}
+
+body.calm-ui-global .library-page-shell .library-main-actions .list-button {
+  min-height: 28px;
+  padding: 0 10px;
+}
+
+body.calm-ui-global .library-page-shell .library-cabinet-actions {
+  gap: 6px;
+}
+
+body.calm-ui-global .library-page-shell .library-cabinet-actions .list-button,
+body.calm-ui-global .library-page-shell .library-folder-button {
+  min-height: 36px;
+  padding: 0 10px;
+}
+
+body.calm-ui-global .library-page-shell .library-cabinet-nested {
+  gap: 6px;
+  padding-left: 10px;
+}
+
+body.calm-ui-global .library-page-shell .library-folder-tree,
+body.calm-ui-global .library-page-shell .library-folder-items {
+  gap: 6px;
+}
+
+body.calm-ui-global .library-page-shell .library-article-list.is-loading .library-article-row {
+  opacity: 0.78;
+}
+
+body.calm-ui-global .library-page-shell .library-article-list.has-error {
+  border-color: color-mix(in srgb, #a15353 44%, var(--calm-system-border));
+}
+
+body.calm-ui-global .library-page-shell .library-article-list.is-empty .library-empty-state {
+  border-style: solid;
+  border-color: var(--calm-system-border-soft);
+  background: color-mix(in srgb, var(--calm-bg-1) 85%, white);
+}
+
+body.calm-ui-global .library-page-shell .library-article-row {
+  border: 0;
+  border-radius: 0;
+  border-bottom: 1px solid var(--calm-system-border-soft);
+  background: transparent;
+}
+
+body.calm-ui-global .library-page-shell .library-article-row:last-child {
+  border-bottom: 0;
+}
+
+body.calm-ui-global .library-page-shell .library-article-row-action {
+  opacity: 1;
+  min-height: 26px;
+  border: 1px solid var(--calm-system-border-soft);
+  color: var(--calm-system-body);
+}
+
+body.calm-ui-global .library-page-shell .library-context-section {
+  border-radius: var(--calm-system-radius);
+}
+
+body.calm-ui-global .library-page-shell .library-context-section.is-collapsed .library-context-section__body {
+  display: none;
+}
+
+body.calm-ui-global .library-page-shell .library-context-section.is-empty .library-context-section__body {
+  border-top: 1px solid var(--calm-system-border-soft);
+}
+
+/* Think state coverage */
+body.think-calm-d3a .think-index__controls.has-error {
+  border-bottom-color: color-mix(in srgb, #a15353 40%, var(--d3a-line));
+}
+
+body.think-calm-d3a .think-index__group.is-collapsed {
+  padding-bottom: 6px;
+}
+
+body.think-calm-d3a .think-index__group.is-loading .think-index__list {
+  opacity: 0.82;
+}
+
+body.think-calm-d3a .think-index__group.is-empty .think-calm-empty-line {
+  border: 1px dashed color-mix(in srgb, var(--d3a-line) 70%, transparent);
+  border-radius: 9px;
+  padding: 7px 8px;
+  color: var(--d3a-muted);
+  margin: 2px 0 0;
+}
+
+body.think-calm-d3a .think-index__label-toggle[aria-expanded='false'] .think-index__label-chevron {
+  opacity: 0.68;
+}
+
+/* Map state coverage */
+body.calm-ui-global .map-view-page.is-loading .map-canvas-wrap {
+  opacity: 0.76;
+}
+
+body.calm-ui-global .map-view-page.has-error .map-toolbar {
+  border-color: color-mix(in srgb, #a15353 40%, var(--calm-system-border));
+}
+
+body.calm-ui-global .map-view-page.is-empty .map-canvas-wrap {
+  position: relative;
+}
+
+body.calm-ui-global .map-view-page.is-empty .map-canvas-wrap::after {
+  content: 'No graph results for this filter set.';
+  position: absolute;
+  inset: auto 12px 12px;
+  color: var(--calm-system-muted);
+  font-size: 0.78rem;
+}
+
+body.calm-ui-global .map-view-page.has-filter-warning .map-toolbar {
+  border-color: color-mix(in srgb, #b08e5f 54%, var(--calm-system-border));
+}
+
+body.calm-ui-global .map-view-page .map-side-panel.is-collapsed {
+  background: color-mix(in srgb, var(--calm-bg-1) 88%, white);
+}
+
+body.calm-ui-global .map-view-page .map-side-panel.has-selection {
+  border-color: var(--calm-system-border);
+}
+
+/* Return queue state coverage */
+body.calm-ui-global .return-queue-page.is-loading .return-queue-toolbar .ui-quiet-button {
+  opacity: 0.78;
+}
+
+body.calm-ui-global .return-queue-page.has-error .return-queue-toolbar {
+  border-color: color-mix(in srgb, #a15353 40%, var(--calm-system-border));
+}
+
+body.calm-ui-global .return-queue-page.is-empty .return-queue-section {
+  min-height: 120px;
+}
+
+body.calm-ui-global .return-queue-section.is-empty {
+  border-style: dashed;
+}
+
+body.calm-ui-global .return-queue-row.is-saving {
+  opacity: 0.7;
+}
+
+body.calm-ui-global .return-queue-row.is-saving .return-queue-actions {
+  pointer-events: none;
+}
+
+@media (max-width: 1100px) {
+  body.calm-ui-global .library-page-shell .library-main-actions {
+    width: 100%;
+  }
+
+  body.calm-ui-global .library-page-shell .library-main-actions .list-button {
+    flex: 1 1 auto;
+    justify-content: center;
+  }
+}
