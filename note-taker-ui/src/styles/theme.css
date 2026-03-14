@@ -266,6 +266,12 @@ html[data-ui-theme='dark'] .topbar__search:-webkit-autofill:focus {
   color: var(--text-secondary);
   border-radius: 999px;
   padding: 6px 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  white-space: nowrap;
+  font-family: inherit;
   font-size: var(--text-xs);
   font-weight: 600;
   cursor: pointer;

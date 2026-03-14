@@ -194,6 +194,7 @@ body.think-calm-d3a .topbar__theme-pill {
   justify-content: center;
   line-height: 1;
   white-space: nowrap;
+  font-family: inherit;
 }
 
 body.think-calm-d3a .left-nav__brand-mark {
@@ -367,25 +368,28 @@ body.think-calm-d3a .topbar__theme-pill:hover {
 
 body.think-calm-d3a .think-index__controls {
   border-bottom: 1px solid var(--d3a-line);
-  gap: 12px;
-  padding-bottom: 12px;
+  gap: 10px;
+  padding-bottom: 10px;
 }
 
 body.think-calm-d3a .think-index__group {
-  gap: 10px;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 12px;
 }
 
 body.think-calm-d3a .think-layout__left-panel.think-index {
-  gap: 18px;
+  gap: 12px;
+  padding: 12px;
 }
 
 body.think-calm-d3a .think-index__control-row {
-  gap: 10px;
+  gap: 8px;
 }
 
 body.think-calm-d3a .think-index__label-row {
   align-items: center;
-  padding: 0 2px;
+  padding: 0 1px;
 }
 
 body.think-calm-d3a .think-index__label,
@@ -402,7 +406,7 @@ body.think-calm-d3a .think-layout__left-panel .ui-button.think-index__new-questi
 
 body.think-calm-d3a .think-index__list {
   gap: 0;
-  padding: 0 2px;
+  padding: 0;
 }
 
 body.think-calm-d3a .think-index__label-toggle {
@@ -433,7 +437,7 @@ body.think-calm-d3a .think-index__label-add {
 }
 
 body.think-calm-d3a .think-index__row {
-  padding: 9px 6px;
+  padding: 8px 4px;
   border-radius: 0;
   border-bottom: 1px solid var(--d3a-line);
 }

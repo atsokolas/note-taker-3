@@ -303,23 +303,6 @@ const Library = () => {
     [allArticles]
   );
 
-  const groupedHighlights = useMemo(() => {
-    const groups = {};
-    (articleHighlights || []).forEach(highlight => {
-      const tags = highlight.tags && highlight.tags.length > 0 ? highlight.tags : ['Untagged'];
-      tags.forEach(tag => {
-        if (!groups[tag]) groups[tag] = [];
-        groups[tag].push(highlight);
-      });
-    });
-    return groups;
-  }, [articleHighlights]);
-
-  const highlightGroups = useMemo(
-    () => Object.keys(groupedHighlights).sort((a, b) => a.localeCompare(b)),
-    [groupedHighlights]
-  );
-
   const loadWorkingMemoryItems = useCallback(async () => {
     setWorkingMemoryLoading(true);
     setWorkingMemoryError('');
@@ -694,7 +677,7 @@ const Library = () => {
   );
 
   const rightPanel = (
-    <div className="section-stack">
+    <div className="section-stack library-context-stack">
       <WorkingMemoryPanel
         items={workingMemoryItems}
         loading={workingMemoryLoading}
@@ -707,9 +690,6 @@ const Library = () => {
         onSplitItem={handleSplitWorkingMemoryItem}
         onPromoteBlocks={handlePromoteWorkingMemoryBlocks}
       />
-      <QuietButton onClick={() => handleDumpToWorkingMemory()}>
-        Dump to Working Memory
-      </QuietButton>
       <LibraryContext
         selectedArticleId={selectedArticleId}
         articleHighlights={articleHighlights}
@@ -717,8 +697,6 @@ const Library = () => {
         references={references}
         referencesLoading={articleLoading}
         referencesError={articleError}
-        highlightGroups={highlightGroups}
-        groupedHighlights={groupedHighlights}
         activeHighlightId={activeHighlightId}
         onHighlightClick={handleHighlightClick}
         onSelectHighlight={setActiveHighlightId}
