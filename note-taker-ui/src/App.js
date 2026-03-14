@@ -1,19 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useParams } from 'react-router-dom';
 import { Analytics } from '@vercel/analytics/react';
-import ArticleList from './components/ArticleList';
-import ArticleViewer from './components/ArticleViewer';
 import Register from './components/Register';
 import Login from './components/Login';
 import Trending from './pages/Trending';
 import Landing from './pages/Landing';
-import Notebook from './pages/Notebook';
 import AllHighlights from './pages/AllHighlights';
 import Search from './pages/Search';
 import TagBrowser from './pages/TagBrowser';
-import Brain from './pages/Brain';
-import Journey from './pages/Journey';
-import Resurface from './pages/Resurface';
 import Collections from './pages/Collections';
 import CollectionDetail from './pages/CollectionDetail';
 import Views from './pages/Views';
@@ -30,6 +24,7 @@ import HowToUse from './pages/HowToUse';
 import Integrations from './pages/Integrations';
 import DataIntegrations from './pages/DataIntegrations';
 import CommandPalette from './components/CommandPalette';
+import { clearStoredTokens, hasUsableStoredToken } from './api';
 import { fetchUiSettings, saveUiSettings } from './api/uiSettings';
 import {
   applyUiSettingsToRoot,
@@ -37,13 +32,14 @@ import {
   normalizeUiSettings,
   persistUiSettingsToStorage
 } from './settings/uiPreferences';
-import { Page, Card } from './components/ui';
+import { Page } from './components/ui';
 import AppShell from './layout/AppShell';
 import TopBar from './layout/TopBar';
 import ThreePaneLayout from './layout/ThreePaneLayout';
 import LeftNav from './layout/LeftNav';
 import TourProvider, { useTour } from './tour/TourProvider';
 import TourManager from './tour/TourManager';
+import { buildCanonicalArticlePath } from './utils/firstInsight';
 import './styles/theme.css';
 import './styles/tokens.css';
 import './styles/global.css';
@@ -65,10 +61,14 @@ const LegacyConceptRedirect = () => {
   return <Navigate to={`/think?tab=concepts&concept=${encodeURIComponent(conceptName)}`} replace />;
 };
 
+const LegacyArticleRedirect = () => {
+  const { id } = useParams();
+  return <Navigate to={buildCanonicalArticlePath(id)} replace />;
+};
+
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const [articleListKey, setArticleListKey] = useState(0);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [uiSettings, setUiSettings] = useState(() => loadUiSettingsFromStorage());
   const [uiSettingsSaving, setUiSettingsSaving] = useState(false);
@@ -77,9 +77,10 @@ function App() {
   const chromeStoreLink = "https://chromewebstore.google.com/detail/note-taker/bekllegjmjbnamphjnkifpijkhoiepaa?hl=en-US&utm_source=ext_sidebar";
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (token) {
+    if (hasUsableStoredToken()) {
       setIsAuthenticated(true);
+    } else {
+      clearStoredTokens();
     }
     setIsLoading(false);
   }, []);
@@ -116,15 +117,10 @@ function App() {
     };
   }, [isAuthenticated]);
 
-  const refreshArticleList = () => {
-    setArticleListKey(prevKey => prevKey + 1);
-  };
-
   const handleLogout = () => {
-    localStorage.removeItem('token');
+    clearStoredTokens();
     setIsAuthenticated(false);
-    // --- CHANGE: Redirect to home (Landing Page) instead of /login ---
-    window.location.href = '/'; 
+    window.location.href = '/';
   };
 
   const handleLoginSuccess = () => {
@@ -200,19 +196,20 @@ function App() {
     const location = useLocation();
     const tour = useTour();
     const hasSeenLanding = localStorage.getItem('hasSeenLanding') === 'true';
-    const showLibraryRail = location.pathname.startsWith('/articles/');
     const isLibraryRoute = location.pathname.startsWith('/library');
     const isThinkRoute = location.pathname.startsWith('/think');
     const isReturnQueueRoute = location.pathname.startsWith('/return-queue');
     const isMapRoute = location.pathname.startsWith('/map');
     const isReviewRoute = location.pathname.startsWith('/review');
     const isTodayRoute = location.pathname.startsWith('/today');
-    const leftPlaceholder = showLibraryRail ? (
-      <Card>
-        <div className="muted-label" style={{ marginBottom: 8 }}>Library</div>
-        <ArticleList key={articleListKey} />
-      </Card>
-    ) : (
+    const isLegacyRedirectRoute = (
+      location.pathname.startsWith('/articles/')
+      || location.pathname === '/journey'
+      || location.pathname === '/resurface'
+      || location.pathname === '/brain'
+      || location.pathname === '/notebook'
+    );
+    const leftPlaceholder = (
       <div className="muted small">Sections will live here.</div>
     );
     const rightPlaceholder = (
@@ -246,24 +243,24 @@ function App() {
           <Route path="/data-integrations" element={<DataIntegrations />} />
 
           {/* Legacy/feature routes kept for compatibility */}
-          <Route path="/brain" element={<Brain />} />
-          <Route path="/resurface" element={<Resurface />} />
+          <Route path="/brain" element={<Navigate to="/review?tab=patterns" replace />} />
+          <Route path="/resurface" element={<Navigate to="/review?tab=resurface" replace />} />
           <Route path="/all-highlights" element={<AllHighlights />} />
           <Route path="/tags" element={<TagBrowser />} />
           <Route path="/tags/:tagName" element={<LegacyConceptRedirect />} />
           <Route path="/collections" element={<Collections />} />
           <Route path="/collections/:slug" element={<CollectionDetail />} />
-          <Route path="/notebook" element={<Notebook />} />
+          <Route path="/notebook" element={<Navigate to="/think?tab=notebook" replace />} />
           <Route path="/views" element={<Views />} />
           <Route path="/views/:id" element={<ViewDetail />} />
           <Route path="/search" element={<Search />} />
-          <Route path="/journey" element={<Journey />} />
+          <Route path="/journey" element={<Navigate to="/review?tab=journey" replace />} />
           <Route path="/concept/:tag" element={<LegacyConceptRedirect />} />
           <Route path="/board" element={<Navigate to="/think?tab=concepts" replace />} />
           <Route path="/studio-board" element={<Navigate to="/think?tab=concepts" replace />} />
           <Route path="/boards" element={<Navigate to="/think?tab=concepts" replace />} />
           <Route path="/boards/*" element={<Navigate to="/think?tab=concepts" replace />} />
-          <Route path="/articles/:id" element={<ArticleViewer onArticleChange={refreshArticleList} />} />
+          <Route path="/articles/:id" element={<LegacyArticleRedirect />} />
           <Route path="/trending" element={<Trending />} />
           <Route path="/export" element={<Export />} />
           {/* Redirect authenticated users away from auth pages */}
@@ -306,7 +303,7 @@ function App() {
           />
         )}
       >
-        {(isLibraryRoute || isThinkRoute || isMapRoute || isReturnQueueRoute || isReviewRoute || isTodayRoute) ? (
+        {(isLibraryRoute || isThinkRoute || isMapRoute || isReturnQueueRoute || isReviewRoute || isTodayRoute || isLegacyRedirectRoute) ? (
           routes
         ) : (
           <ThreePaneLayout
@@ -314,7 +311,7 @@ function App() {
             main={routes}
             right={rightPlaceholder}
             rightTitle="Context"
-            defaultLeftOpen={showLibraryRail}
+            defaultLeftOpen={false}
             defaultRightOpen={false}
             rightToggleLabel="Context"
           />

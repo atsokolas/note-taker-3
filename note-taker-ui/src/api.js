@@ -2,6 +2,12 @@ import axios from 'axios';
 
 const BASE_URL = "https://note-taker-3-unrg.onrender.com";
 let authRedirectInFlight = false;
+const AUTH_ROUTE_PATTERN = /\/api\/auth\/(login|register)$/i;
+
+const isPublicAuthRequest = (config = {}) => {
+  if (config?.skipAuthHandling) return true;
+  return AUTH_ROUTE_PATTERN.test(String(config?.url || ''));
+};
 
 const parseJwtExpiry = (token) => {
   try {
@@ -37,12 +43,24 @@ const redirectToLogin = (reason = 'auth') => {
   window.location.href = '/login';
 };
 
+export const hasUsableStoredToken = () => {
+  const token = localStorage.getItem('token');
+  if (!token) return false;
+  const parts = String(token).split('.');
+  if (parts.length !== 3) return false;
+  const exp = parseJwtExpiry(token);
+  if (!exp) return false;
+  const now = Math.floor(Date.now() / 1000);
+  return exp > now;
+};
+
 // Create a new instance of axios
 const api = axios.create({
   baseURL: BASE_URL,
 });
 
 api.interceptors.request.use((config) => {
+  if (isPublicAuthRequest(config)) return config;
   const token = localStorage.getItem('token');
   if (!token) return config;
 
@@ -68,6 +86,9 @@ api.interceptors.response.use(
   (response) => response,
   // If the response has an error...
   (error) => {
+    if (isPublicAuthRequest(error.config)) {
+      return Promise.reject(error);
+    }
     // Check if the error is a 401 (Unauthorized) or 403 (Forbidden)
     if (error.response && (error.response.status === 401 || error.response.status === 403)) {
       const authError = error.response.data?.error;
@@ -81,3 +102,4 @@ api.interceptors.response.use(
 );
 
 export default api;
+export { clearStoredTokens };

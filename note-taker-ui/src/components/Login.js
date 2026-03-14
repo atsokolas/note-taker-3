@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import api from '../api';
+import api, { clearStoredTokens } from '../api';
 import { useNavigate } from 'react-router-dom';
 import logo from '../assets/logo.png';
 import BrandGradient from './BrandGradient';
@@ -9,6 +9,7 @@ const Login = ({ onLoginSuccess, chromeStoreLink, brandEnergy = true }) => {
     const [password, setPassword] = useState('');
     const [message, setMessage] = useState('');
     const [isError, setIsError] = useState(false);
+    const [submitting, setSubmitting] = useState(false);
     const navigate = useNavigate();
 
     useEffect(() => {
@@ -29,12 +30,22 @@ const Login = ({ onLoginSuccess, chromeStoreLink, brandEnergy = true }) => {
         e.preventDefault();
         setMessage('');
         setIsError(false);
+        setSubmitting(true);
         try {
-            const response = await api.post('/api/auth/login', { username, password });
+            const cleanUsername = username.trim();
+            const cleanPassword = password;
+            if (!cleanUsername || !cleanPassword) {
+                setMessage('Username and password are required.');
+                setIsError(true);
+                return;
+            }
+            clearStoredTokens();
+            const response = await api.post('/api/auth/login', {
+                username: cleanUsername,
+                password: cleanPassword
+            }, { skipAuthHandling: true });
             if (response.data.token) {
-                localStorage.removeItem('token');
-                localStorage.removeItem('authToken');
-                localStorage.removeItem('jwt');
+                clearStoredTokens();
                 localStorage.setItem('token', response.data.token);
                 if (window.chrome && window.chrome.storage && window.chrome.storage.local) {
                     window.chrome.storage.local.remove(['token', 'authToken', 'jwt'], () => {
@@ -57,6 +68,8 @@ const Login = ({ onLoginSuccess, chromeStoreLink, brandEnergy = true }) => {
             const errorMessage = error.response?.data?.error || 'Login failed. Invalid credentials or server error.';
             setMessage(errorMessage);
             setIsError(true);
+        } finally {
+            setSubmitting(false);
         }
     };
 
@@ -80,6 +93,7 @@ const Login = ({ onLoginSuccess, chromeStoreLink, brandEnergy = true }) => {
                             id="username-login"
                             value={username}
                             onChange={(e) => setUsername(e.target.value)}
+                            autoComplete="username"
                             required
                         />
                     </div>
@@ -90,10 +104,13 @@ const Login = ({ onLoginSuccess, chromeStoreLink, brandEnergy = true }) => {
                             id="password-login"
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
+                            autoComplete="current-password"
                             required
                         />
                     </div>
-                    <button type="submit" className="auth-button">Login</button>
+                    <button type="submit" className="auth-button" disabled={submitting}>
+                        {submitting ? 'Logging in…' : 'Login'}
+                    </button>
                 </form>
                 {message && (<p className={`status-message ${isError ? 'error-message' : 'success-message'}`}>{message}</p>)}
                 <p className="auth-link">Don't have an account? <button type="button" className="link-button" onClick={() => navigate('/register')}>Register here</button></p>

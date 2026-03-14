@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import api from '../api';
+import api, { clearStoredTokens } from '../api';
 import { useNavigate } from 'react-router-dom';
 import logo from '../assets/logo.png';
 
@@ -10,19 +10,29 @@ const Register = ({ chromeStoreLink }) => {
     const [confirmPassword, setConfirmPassword] = useState('');
     const [message, setMessage] = useState('');
     const [isError, setIsError] = useState(false);
+    const [submitting, setSubmitting] = useState(false);
     const navigate = useNavigate();
 
     const handleRegister = async (e) => {
         e.preventDefault();
         setMessage('');
         setIsError(false);
+        setSubmitting(true);
         if (password !== confirmPassword) {
             setMessage('Passwords do not match.');
             setIsError(true);
+            setSubmitting(false);
             return;
         }
         try {
-            await api.post('/api/auth/register', { username, password });
+            const cleanUsername = username.trim();
+            if (!cleanUsername || !password) {
+                setMessage('Username and password are required.');
+                setIsError(true);
+                return;
+            }
+            clearStoredTokens();
+            await api.post('/api/auth/register', { username: cleanUsername, password }, { skipAuthHandling: true });
             setMessage('Registration successful! You can now log in.');
             setIsError(false);
             setTimeout(() => {
@@ -33,6 +43,8 @@ const Register = ({ chromeStoreLink }) => {
             const errorMessage = error.response?.data?.error || 'Registration failed. Please try again.';
             setMessage(errorMessage);
             setIsError(true);
+        } finally {
+            setSubmitting(false);
         }
     };
 
@@ -57,6 +69,7 @@ const Register = ({ chromeStoreLink }) => {
                         id="username"
                         value={username}
                         onChange={(e) => setUsername(e.target.value)}
+                        autoComplete="username"
                         required
                     />
                 </div>
@@ -67,6 +80,7 @@ const Register = ({ chromeStoreLink }) => {
                         id="password"
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
+                        autoComplete="new-password"
                         required
                     />
                 </div>
@@ -77,10 +91,13 @@ const Register = ({ chromeStoreLink }) => {
                         id="confirm-password"
                         value={confirmPassword}
                         onChange={(e) => setConfirmPassword(e.target.value)}
+                        autoComplete="new-password"
                         required
                     />
                 </div>
-                <button type="submit" className="auth-button">Register</button>
+                <button type="submit" className="auth-button" disabled={submitting}>
+                    {submitting ? 'Registering…' : 'Register'}
+                </button>
             </form>
             {message && (<p className={`status-message ${isError ? 'error-message' : 'success-message'}`}>{message}</p>)}
             <p className="auth-link">Already have an account? <button type="button" className="link-button" onClick={() => navigate('/login')}>Login here</button></p>
