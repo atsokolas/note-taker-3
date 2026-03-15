@@ -96,6 +96,16 @@ body.calm-ui-global .library-page-shell .library-article-list {
   box-shadow: none;
 }
 
+html[data-ui-theme='dark'] body.calm-ui-global .library-page-shell .library-highlights-surface,
+html[data-ui-theme='light'] body.calm-ui-global .library-page-shell .library-highlights-surface,
+body.calm-ui-global .library-page-shell .library-highlights-surface {
+  border: 1px solid var(--calm-system-border) !important;
+  background: var(--calm-system-surface-primary) !important;
+  border-radius: 14px;
+  box-shadow: none;
+  padding: 10px;
+}
+
 body.calm-ui-global .library-page-shell .library-main-actions {
   gap: 8px;
   padding: 2px;
@@ -171,6 +181,60 @@ body.calm-ui-global .library-page-shell .library-context-section.is-collapsed .l
 
 body.calm-ui-global .library-page-shell .library-context-section.is-empty .library-context-section__body {
   border-top: 1px solid var(--calm-system-border-soft);
+}
+
+body.calm-ui-global .library-page-shell .library-highlight-filters {
+  gap: 10px;
+}
+
+body.calm-ui-global .library-page-shell .library-highlight-filters select,
+body.calm-ui-global .library-page-shell .library-highlight-filters input {
+  min-height: 36px;
+  border: 1px solid var(--calm-system-border);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--calm-bg-1) 96%, white);
+  color: var(--calm-system-title);
+}
+
+body.calm-ui-global .library-page-shell .library-highlights-list,
+body.calm-ui-global .library-page-shell .library-highlights-list-virtual {
+  background: transparent;
+}
+
+body.calm-ui-global .library-page-shell .library-highlight-group-title--virtual {
+  margin: 2px 0 6px;
+  padding: 6px 0 4px;
+  background: transparent;
+  border-bottom: 1px solid var(--calm-system-border-soft);
+  color: var(--calm-system-body);
+}
+
+body.calm-ui-global .library-page-shell .library-highlight-row {
+  border: 1px solid var(--calm-system-border-soft);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--calm-bg-1) 95%, white);
+  box-shadow: none;
+  padding: 12px;
+}
+
+body.calm-ui-global .library-page-shell .library-highlight-row:hover {
+  border-color: var(--calm-system-border);
+  background: color-mix(in srgb, var(--calm-bg-2) 32%, var(--calm-bg-1));
+}
+
+body.calm-ui-global .library-page-shell .library-highlight-row.is-active {
+  border-color: color-mix(in srgb, var(--calm-accent) 42%, var(--calm-system-border));
+  background: color-mix(in srgb, var(--calm-accent-soft) 32%, var(--calm-bg-1));
+}
+
+body.calm-ui-global .library-page-shell .library-highlight-row-actions {
+  margin-top: 2px;
+}
+
+body.calm-ui-global .library-page-shell .library-highlight-row-actions .ui-quiet-button {
+  min-height: 28px;
+  border: 1px solid var(--calm-system-border-soft);
+  color: var(--calm-system-body);
 }
 
 /* Think state coverage */
