@@ -198,6 +198,129 @@ body.think-calm-d3a .think-index__label-toggle[aria-expanded='false'] .think-ind
   opacity: 0.68;
 }
 
+/* Think editor surfaces: remove legacy dark pane stack and restore calm hierarchy */
+body.think-calm-d3a .think-question-editor-pane,
+body.think-calm-d3a .think-notebook-editor-pane {
+  border: 1px solid color-mix(in srgb, var(--d3a-line) 72%, transparent);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--d3a-bg-1) 92%, white);
+  box-shadow: none;
+  padding: 14px;
+}
+
+body.think-calm-d3a .think-question-editor,
+body.think-calm-d3a .think-notebook-editor {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  padding: 0;
+  gap: 12px;
+}
+
+body.think-calm-d3a .think-question-editor-header,
+body.think-calm-d3a .think-notebook-editor-header {
+  gap: 10px;
+}
+
+body.think-calm-d3a .think-question-editor-actions,
+body.think-calm-d3a .think-notebook-editor-actions-right,
+body.think-calm-d3a .think-notebook-editor-actions-left,
+body.think-calm-d3a .think-question-block-toolbar,
+body.think-calm-d3a .think-question-block-actions {
+  gap: 8px;
+}
+
+body.think-calm-d3a .think-question-title-input,
+body.think-calm-d3a .think-notebook-title-input {
+  border: 1px solid color-mix(in srgb, var(--d3a-line) 78%, transparent);
+  border-radius: 12px;
+  padding: 10px 14px;
+  background: color-mix(in srgb, var(--d3a-bg-1) 96%, white);
+  color: var(--d3a-text);
+}
+
+body.think-calm-d3a .think-question-title-input::placeholder,
+body.think-calm-d3a .think-notebook-title-input::placeholder {
+  color: var(--d3a-muted);
+}
+
+body.think-calm-d3a .notebook-insert-group,
+body.think-calm-d3a .notebook-organize-panel,
+body.think-calm-d3a .think-question-block,
+body.think-calm-d3a .think-question-editor--empty,
+body.think-calm-d3a .think-notebook-editor--empty {
+  border: 1px solid color-mix(in srgb, var(--d3a-line) 72%, transparent);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--d3a-bg-1) 88%, white);
+  box-shadow: none;
+}
+
+body.think-calm-d3a .notebook-insert-group,
+body.think-calm-d3a .notebook-organize-panel {
+  padding: 12px;
+}
+
+body.think-calm-d3a .notebook-insert-buttons {
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+body.think-calm-d3a .notebook-insert-group .ui-quiet-button,
+body.think-calm-d3a .think-question-block-toolbar .ui-button,
+body.think-calm-d3a .think-question-block-actions .ui-quiet-button,
+body.think-calm-d3a .think-question-editor-actions .ui-button,
+body.think-calm-d3a .think-question-editor-actions .ui-quiet-button,
+body.think-calm-d3a .think-notebook-editor-actions-right .ui-button,
+body.think-calm-d3a .think-notebook-editor-actions-right .ui-quiet-button,
+body.think-calm-d3a .think-notebook-editor-actions-left .ui-button {
+  min-height: 34px;
+  border: 1px solid color-mix(in srgb, var(--d3a-line) 80%, transparent);
+  background: transparent;
+  color: var(--d3a-muted);
+}
+
+body.think-calm-d3a .notebook-insert-group .ui-quiet-button.is-active {
+  background: color-mix(in srgb, var(--d3a-bg-2) 56%, transparent);
+  border-color: color-mix(in srgb, var(--d3a-line-strong) 76%, transparent);
+  color: var(--d3a-text);
+}
+
+body.think-calm-d3a .think-question-blocks,
+body.think-calm-d3a .think-notebook-editor .tiptap-editor,
+body.think-calm-d3a .think-notebook-editor .ProseMirror {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  padding: 0;
+}
+
+body.think-calm-d3a .think-question-paragraph,
+body.think-calm-d3a .think-notebook-editor-body {
+  border: 1px solid color-mix(in srgb, var(--d3a-line) 76%, transparent);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--d3a-bg-1) 96%, white);
+  color: var(--d3a-text);
+}
+
+body.think-calm-d3a .think-question-paragraph {
+  min-height: 108px;
+  padding: 12px 14px;
+}
+
+body.think-calm-d3a .think-notebook-editor-body {
+  min-height: 420px;
+  padding: 18px 20px;
+}
+
+body.think-calm-d3a .notebook-organize-select,
+body.think-calm-d3a .notebook-organize-row input {
+  border: 1px solid color-mix(in srgb, var(--d3a-line) 76%, transparent);
+  background: color-mix(in srgb, var(--d3a-bg-1) 95%, white);
+  color: var(--d3a-text);
+}
+
 /* Map state coverage */
 body.calm-ui-global .map-view-page.is-loading .map-canvas-wrap {
   opacity: 0.76;
