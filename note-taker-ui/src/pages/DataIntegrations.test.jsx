@@ -4,6 +4,20 @@ import { MemoryRouter } from 'react-router-dom';
 import DataIntegrations from './DataIntegrations';
 import api from '../api';
 import { updateConcept } from '../api/concepts';
+import {
+  checkNotionConnection,
+  checkReadwiseConnection,
+  connectReadwiseToken,
+  createImportSession,
+  getActiveImportSession,
+  listImportConnections,
+  previewNotionConnection,
+  previewReadwiseConnection,
+  startNotionOAuth,
+  syncReadwiseConnection,
+  syncNotionConnection,
+  updateImportSession
+} from '../api/imports';
 import { createReturnQueueEntry } from '../api/returnQueue';
 
 jest.mock('../api', () => ({
@@ -17,6 +31,21 @@ jest.mock('../api/concepts', () => ({
   updateConcept: jest.fn()
 }));
 
+jest.mock('../api/imports', () => ({
+  checkNotionConnection: jest.fn(),
+  checkReadwiseConnection: jest.fn(),
+  connectReadwiseToken: jest.fn(),
+  createImportSession: jest.fn(),
+  getActiveImportSession: jest.fn(),
+  listImportConnections: jest.fn(),
+  previewNotionConnection: jest.fn(),
+  previewReadwiseConnection: jest.fn(),
+  startNotionOAuth: jest.fn(),
+  syncReadwiseConnection: jest.fn(),
+  syncNotionConnection: jest.fn(),
+  updateImportSession: jest.fn()
+}));
+
 jest.mock('../api/returnQueue', () => ({
   createReturnQueueEntry: jest.fn()
 }));
@@ -25,6 +54,32 @@ describe('DataIntegrations first insight workflow', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     localStorage.clear();
+    listImportConnections.mockResolvedValue([]);
+    getActiveImportSession.mockResolvedValue(null);
+    checkReadwiseConnection.mockResolvedValue({});
+    checkNotionConnection.mockResolvedValue({});
+    connectReadwiseToken.mockResolvedValue(null);
+    startNotionOAuth.mockResolvedValue('');
+    previewReadwiseConnection.mockResolvedValue({});
+    previewNotionConnection.mockResolvedValue({});
+    createImportSession.mockResolvedValue({
+      id: 'session-1',
+      provider: 'files',
+      status: 'draft',
+      progress: { stage: 'draft', percent: 0, indexingState: 'not_started' },
+      result: {},
+      activation: {}
+    });
+    updateImportSession.mockImplementation(async (_id, payload) => ({
+      id: 'session-1',
+      provider: 'files',
+      status: payload?.status || 'draft',
+      progress: payload?.progress || { stage: 'draft', percent: 0, indexingState: 'not_started' },
+      result: payload?.result || {},
+      activation: payload?.activation || {}
+    }));
+    syncReadwiseConnection.mockResolvedValue({});
+    syncNotionConnection.mockResolvedValue({});
   });
 
   it('creates a note, then lets the user create a concept and schedule a revisit', async () => {
@@ -48,6 +103,7 @@ describe('DataIntegrations first insight workflow', () => {
       </MemoryRouter>
     );
 
+    fireEvent.click(screen.getByRole('button', { name: /Files and text/i }));
     fireEvent.change(screen.getByLabelText('Title'), { target: { value: 'My working note' } });
     fireEvent.change(screen.getByLabelText('Note text'), { target: { value: 'A useful capture that should become an insight.' } });
     fireEvent.click(screen.getByRole('button', { name: 'Create note' }));
@@ -57,7 +113,11 @@ describe('DataIntegrations first insight workflow', () => {
       '/api/notebook',
       expect.objectContaining({
         title: 'My working note',
-        source: 'manual-note'
+        source: 'manual-note',
+        importMeta: expect.objectContaining({
+          provider: 'files',
+          sourceType: 'manual-note'
+        })
       }),
       expect.any(Object)
     );
@@ -68,6 +128,7 @@ describe('DataIntegrations first insight workflow', () => {
     fireEvent.click(screen.getByTestId('first-insight-create-concept'));
 
     await waitFor(() => expect(updateConcept).toHaveBeenCalledWith('Retrieval systems', { description: '' }));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Open concept' })).toBeInTheDocument());
 
     fireEvent.click(screen.getByTestId('first-insight-schedule-3d'));
 
@@ -77,5 +138,159 @@ describe('DataIntegrations first insight workflow', () => {
       itemId: 'concept-1',
       reason: 'First insight follow-up'
     }));
+  });
+
+  it('previews a Readwise connection before syncing', async () => {
+    listImportConnections.mockImplementation(async ({ provider } = {}) => {
+      if (provider === 'readwise') {
+        return [{
+          id: 'rw-1',
+          provider: 'readwise',
+          accountLabel: 'Reader',
+          status: 'connected',
+          lastSyncAt: null,
+          lastError: ''
+        }];
+      }
+      return [];
+    });
+    createImportSession.mockResolvedValue({
+      id: 'session-readwise',
+      provider: 'readwise',
+      status: 'draft',
+      sourceLabel: 'Reader',
+      progress: { stage: 'draft', percent: 0, indexingState: 'not_started' },
+      result: {},
+      activation: {}
+    });
+    previewReadwiseConnection.mockResolvedValue({
+      preview: {
+        items: 5,
+        articles: 2,
+        highlights: 5,
+        sampleTitles: ['Deep Work', 'Systems Thinking'],
+        warnings: ['Preview is sampled from the first page of your Readwise export.']
+      },
+      session: {
+        id: 'session-readwise',
+        provider: 'readwise',
+        status: 'preview_ready',
+        sourceLabel: 'Reader',
+        preview: {
+          items: 5,
+          articles: 2,
+          highlights: 5,
+          sampleTitles: ['Deep Work', 'Systems Thinking'],
+          warnings: ['Preview is sampled from the first page of your Readwise export.']
+        },
+        progress: { stage: 'preview_ready', percent: 15, indexingState: 'not_started' }
+      }
+    });
+
+    render(
+      <MemoryRouter>
+        <DataIntegrations />
+      </MemoryRouter>
+    );
+
+    await screen.findByText('Label: Reader');
+    fireEvent.click(screen.getByRole('button', { name: 'Preview scope' }));
+
+    await waitFor(() => expect(previewReadwiseConnection).toHaveBeenCalledWith({
+      connectionId: 'rw-1',
+      importSessionId: 'session-readwise'
+    }));
+    expect(await screen.findByText('Preview snapshot')).toBeInTheDocument();
+    expect(screen.getByText(/Deep Work/)).toBeInTheDocument();
+  });
+
+  it('checks a saved Readwise connection without starting sync', async () => {
+    listImportConnections.mockImplementation(async ({ provider } = {}) => {
+      if (provider === 'readwise') {
+        return [{
+          id: 'rw-1',
+          provider: 'readwise',
+          accountLabel: 'Reader',
+          status: 'connected',
+          lastValidatedAt: null,
+          lastSyncAt: null,
+          lastError: ''
+        }];
+      }
+      return [];
+    });
+    checkReadwiseConnection.mockResolvedValue({
+      ok: true,
+      connection: {
+        id: 'rw-1',
+        provider: 'readwise',
+        accountLabel: 'Reader',
+        status: 'connected',
+        lastValidatedAt: '2026-03-17T12:00:00.000Z',
+        lastSyncAt: null,
+        lastError: ''
+      }
+    });
+
+    render(
+      <MemoryRouter>
+        <DataIntegrations />
+      </MemoryRouter>
+    );
+
+    await screen.findByText('Label: Reader');
+    fireEvent.click(screen.getByRole('button', { name: 'Check connection' }));
+
+    await waitFor(() => expect(checkReadwiseConnection).toHaveBeenCalledWith({
+      connectionId: 'rw-1'
+    }));
+    expect(await screen.findByText('Readwise connection is healthy.')).toBeInTheDocument();
+  });
+
+  it('renders source-aware activation guidance for a Readwise import', async () => {
+    localStorage.setItem('first-insight.activation.v1', JSON.stringify({
+      status: 'captured',
+      sourceType: 'readwise-api',
+      title: 'Reader',
+      articleId: 'article-1',
+      counts: {
+        importedArticles: 2,
+        importedHighlights: 5,
+        importedNotes: 0
+      },
+      createdAt: '2026-03-17T12:00:00.000Z',
+      updatedAt: '2026-03-17T12:00:00.000Z'
+    }));
+    getActiveImportSession.mockResolvedValue({
+      id: 'session-readwise',
+      provider: 'readwise',
+      status: 'completed',
+      sourceLabel: 'Reader',
+      preview: {
+        sampleTitles: ['Deep Work'],
+        sampleTags: ['Attention', 'Systems Thinking']
+      },
+      result: {
+        importedArticles: 2,
+        importedHighlights: 5,
+        importedNotes: 0,
+        lastImportedArticleId: 'article-1'
+      },
+      activation: {
+        status: 'captured',
+        primaryAction: 'create_concept'
+      }
+    });
+
+    render(
+      <MemoryRouter>
+        <DataIntegrations />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByText('Activate your Readwise import')).toBeInTheDocument();
+    expect(screen.getByText('Create a concept from books, tags, or highlights')).toBeInTheDocument();
+    expect(screen.getByText('Keep the reading layer active')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('e.g. Deep work and attention')).toBeInTheDocument();
   });
 });

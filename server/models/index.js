@@ -87,6 +87,18 @@ folderSchema.index({ userId: 1, name: 1 });
 
 const Folder = mongoose.model('Folder', folderSchema);
 
+const importMetaSchema = new mongoose.Schema({
+  provider: { type: String, default: '', trim: true },
+  sourceType: { type: String, default: '', trim: true },
+  sourceLabel: { type: String, default: '', trim: true },
+  sourceUrl: { type: String, default: '', trim: true },
+  externalId: { type: String, default: '', trim: true },
+  parentExternalId: { type: String, default: '', trim: true },
+  importSessionId: { type: mongoose.Schema.Types.ObjectId, ref: 'ImportSession', default: null },
+  importedAt: { type: Date, default: null },
+  searchableAt: { type: Date, default: null }
+}, { _id: false });
+
 // Article Schema and Model - MODIFIED TO INCLUDE userId
 const articleSchema = new mongoose.Schema({
   url: { type: String, required: true },
@@ -106,12 +118,14 @@ const articleSchema = new mongoose.Schema({
       suffix: String,
       startOffsetApprox: Number
     },
-    createdAt: { type: Date, default: Date.now }
+    createdAt: { type: Date, default: Date.now },
+    importMeta: { type: importMetaSchema, default: () => ({}) }
   }],
   pdfs: { type: [pdfAttachmentSchema], default: [] },
   author: { type: String, default: '' },
   publicationDate: { type: String, default: '' },
-  siteName: { type: String, default: '' }
+  siteName: { type: String, default: '' },
+  importMeta: { type: importMetaSchema, default: () => ({}) }
 }, { timestamps: true });
 
 articleSchema.index({ url: 1, userId: 1 }, { unique: true });
@@ -187,6 +201,7 @@ const notebookEntrySchema = new mongoose.Schema({
   tags: { type: [String], default: [] },
   linkedArticleId: { type: mongoose.Schema.Types.ObjectId, ref: 'Article', default: null },
   linkedHighlightIds: [{ type: mongoose.Schema.Types.ObjectId }],
+  importMeta: { type: importMetaSchema, default: () => ({}) },
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }
 }, { timestamps: true });
 
@@ -813,6 +828,102 @@ collectionSchema.index({ userId: 1, highlightIds: 1 });
 
 const Collection = mongoose.model('Collection', collectionSchema);
 
+const integrationConnectionSchema = new mongoose.Schema({
+  provider: { type: String, required: true, trim: true },
+  status: { type: String, enum: ['draft', 'connected', 'error', 'revoked'], default: 'draft' },
+  health: { type: String, enum: ['unknown', 'healthy', 'warning', 'error'], default: 'unknown' },
+  accountLabel: { type: String, default: '', trim: true },
+  externalAccountId: { type: String, default: '', trim: true },
+  mode: { type: String, enum: ['api_token', 'oauth', 'file_upload', 'manual'], default: 'manual' },
+  scopes: { type: [String], default: [] },
+  secretVersion: { type: Number, default: 1 },
+  encryptedAccessToken: { type: String, default: '' },
+  encryptedRefreshToken: { type: String, default: '' },
+  encryptedApiToken: { type: String, default: '' },
+  lastSyncAt: { type: Date, default: null },
+  lastValidatedAt: { type: Date, default: null },
+  lastPreviewAt: { type: Date, default: null },
+  lastError: { type: String, default: '', trim: true },
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }
+}, { timestamps: true });
+
+integrationConnectionSchema.index({ userId: 1, provider: 1, updatedAt: -1 });
+
+const IntegrationConnection = mongoose.model('IntegrationConnection', integrationConnectionSchema);
+
+const importSessionSchema = new mongoose.Schema({
+  provider: { type: String, required: true, trim: true },
+  mode: { type: String, default: 'manual', trim: true },
+  status: {
+    type: String,
+    enum: ['draft', 'preview_ready', 'importing', 'imported', 'completed', 'completed_with_warnings', 'failed'],
+    default: 'draft'
+  },
+  sourceLabel: { type: String, default: '', trim: true },
+  connectionId: { type: mongoose.Schema.Types.ObjectId, ref: 'IntegrationConnection', default: null },
+  config: {
+    sourceType: { type: String, default: '', trim: true },
+    importStrategy: { type: String, default: '', trim: true },
+    selectedIds: { type: [String], default: [] },
+    filters: { type: mongoose.Schema.Types.Mixed, default: () => ({}) }
+  },
+  preview: {
+    items: { type: Number, default: 0 },
+    articles: { type: Number, default: 0 },
+    highlights: { type: Number, default: 0 },
+    notes: { type: Number, default: 0 },
+    databases: { type: Number, default: 0 },
+    pages: { type: Number, default: 0 },
+    notebooks: { type: Number, default: 0 },
+    sampleTitles: { type: [String], default: [] },
+    sampleAuthors: { type: [String], default: [] },
+    sampleTags: { type: [String], default: [] },
+    sampleDatabases: { type: [String], default: [] },
+    sampleRows: { type: Number, default: 0 },
+    warningCodes: { type: [String], default: [] },
+    lastPreviewedAt: { type: Date, default: null },
+    warnings: { type: [String], default: [] }
+  },
+  progress: {
+    stage: { type: String, default: 'draft', trim: true },
+    itemsProcessed: { type: Number, default: 0 },
+    itemsTotal: { type: Number, default: 0 },
+    percent: { type: Number, default: 0 },
+    indexingState: { type: String, enum: ['not_started', 'queued', 'partial', 'ready', 'failed'], default: 'not_started' },
+    lastCursor: { type: String, default: '', trim: true }
+  },
+  result: {
+    importedArticles: { type: Number, default: 0 },
+    importedHighlights: { type: Number, default: 0 },
+    importedNotes: { type: Number, default: 0 },
+    skippedRows: { type: Number, default: 0 },
+    duplicateSkips: { type: Number, default: 0 },
+    invalidSkips: { type: Number, default: 0 },
+    parseErrors: { type: Number, default: 0 },
+    indexingAttempts: { type: Number, default: 0 },
+    indexingFailures: { type: Number, default: 0 },
+    indexingQueued: { type: Number, default: 0 },
+    warningCodes: { type: [String], default: [] },
+    warnings: { type: [String], default: [] },
+    lastImportedEntryId: { type: String, default: '', trim: true },
+    lastImportedArticleId: { type: String, default: '', trim: true }
+  },
+  activation: {
+    status: { type: String, default: 'not_started', trim: true },
+    conceptId: { type: mongoose.Schema.Types.ObjectId, ref: 'TagMeta', default: null },
+    conceptName: { type: String, default: '', trim: true },
+    dueAt: { type: Date, default: null },
+    primaryAction: { type: String, default: 'create_concept', trim: true }
+  },
+  lastError: { type: String, default: '', trim: true },
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }
+}, { timestamps: true });
+
+importSessionSchema.index({ userId: 1, updatedAt: -1 });
+importSessionSchema.index({ userId: 1, provider: 1, updatedAt: -1 });
+
+const ImportSession = mongoose.model('ImportSession', importSessionSchema);
+
 module.exports = {
   User,
   Feedback,
@@ -845,5 +956,7 @@ module.exports = {
   ReferenceEdge,
   SavedView,
   Collection,
+  IntegrationConnection,
+  ImportSession,
   dropLegacyConnectionIndex
 };

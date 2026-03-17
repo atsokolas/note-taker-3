@@ -105,6 +105,8 @@ const {
   ReferenceEdge,
   SavedView,
   Collection,
+  IntegrationConnection,
+  ImportSession,
   dropLegacyConnectionIndex
 } = require('./models/index');
 
@@ -150,6 +152,7 @@ const { buildReferenceBacklinkRouter } = require('./routes/referenceBacklinkRout
 const { buildSavedViewRouter } = require('./routes/savedViewRoutes');
 const { buildTodayRouter } = require('./routes/todayRoutes');
 const { buildImportRouter } = require('./routes/importRoutes');
+const { buildImportSessionRouter } = require('./routes/importSessionRoutes');
 const { buildExportPublicRouter } = require('./routes/exportPublicRoutes');
 const { buildBulkExportRouter } = require('./routes/bulkExportRoutes');
 const { buildReflectionRouter } = require('./routes/reflectionRoutes');
@@ -4171,6 +4174,11 @@ app.use(buildTodayRouter({
   NotebookEntry
 }));
 
+app.use(buildImportSessionRouter({
+  authenticateToken,
+  ImportSession
+}));
+
 app.use(buildImportRouter({
   authenticateToken,
   upload,
@@ -4184,7 +4192,12 @@ app.use(buildImportRouter({
   path,
   crypto,
   NotebookEntry,
-  syncNotebookReferences
+  ImportSession,
+  IntegrationConnection,
+  syncNotebookReferences,
+  enqueueArticleEmbedding,
+  enqueueHighlightEmbedding,
+  enqueueNotebookEmbedding
 }));
 
 app.use(buildExportPublicRouter({

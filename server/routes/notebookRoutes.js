@@ -19,6 +19,25 @@ const buildNotebookRouter = ({
 }) => {
   const router = express.Router();
 
+  const normalizeImportMeta = (value = {}) => {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined;
+    const next = {
+      provider: String(value.provider || '').trim(),
+      sourceType: String(value.sourceType || '').trim(),
+      sourceLabel: String(value.sourceLabel || '').trim(),
+      sourceUrl: String(value.sourceUrl || '').trim(),
+      externalId: String(value.externalId || '').trim(),
+      parentExternalId: String(value.parentExternalId || '').trim(),
+      importSessionId: value.importSessionId || null,
+      importedAt: value.importedAt || new Date(),
+      searchableAt: value.searchableAt || null
+    };
+    if (!next.provider && !next.sourceType && !next.sourceLabel && !next.importSessionId) {
+      return undefined;
+    }
+    return next;
+  };
+
   router.get('/api/notebook', authenticateToken, async (req, res) => {
     try {
       const userId = req.user.id;
@@ -41,7 +60,7 @@ const buildNotebookRouter = ({
   router.post('/api/notebook', authenticateToken, async (req, res) => {
     try {
       const userId = req.user.id;
-      const { title, content, blocks, folder, tags, linkedArticleId, type, claimId, source } = req.body;
+      const { title, content, blocks, folder, tags, linkedArticleId, type, claimId, source, importMeta } = req.body;
       const nextBlocks = Array.isArray(blocks)
         ? blocks
         : (stripHtml(content || '') ? [{ id: createBlockId(), type: 'paragraph', text: stripHtml(content || '') }] : []);
@@ -65,6 +84,7 @@ const buildNotebookRouter = ({
         claimId: nextClaimId,
         tags: normalizeTags(tags),
         linkedArticleId: linkedArticleId || null,
+        importMeta: normalizeImportMeta(importMeta),
         userId
       });
       await newEntry.save();
@@ -311,7 +331,7 @@ const buildNotebookRouter = ({
     try {
       const userId = req.user.id;
       const { id } = req.params;
-      const { title, content, blocks, folder, tags, linkedArticleId, type, claimId } = req.body;
+      const { title, content, blocks, folder, tags, linkedArticleId, type, claimId, importMeta } = req.body;
       const updates = {};
       if (title !== undefined) updates.title = title.trim() || 'Untitled';
       if (content !== undefined) updates.content = content;
@@ -324,6 +344,7 @@ const buildNotebookRouter = ({
       if (folder !== undefined) updates.folder = folder || null;
       if (tags !== undefined) updates.tags = normalizeTags(tags);
       if (linkedArticleId !== undefined) updates.linkedArticleId = linkedArticleId || null;
+      if (importMeta !== undefined) updates.importMeta = normalizeImportMeta(importMeta);
       if (type !== undefined) {
         const nextType = normalizeItemType(type, '');
         if (!nextType) {

@@ -6,7 +6,10 @@
   "scripts": {
     "start": "node server/server.js",
     "dev": "nodemon server/server.js",
-    "smoke:server": "node scripts/run_server_smoke.js"
+    "smoke:server": "node scripts/run_server_smoke.js",
+    "smoke:imports": "node scripts/test_import_integrations_smoke.js",
+    "test:import-helpers": "node scripts/test_import_helpers.js",
+    "test:import-session-routes": "node scripts/test_import_session_routes.js"
   },
   "repository": {
     "type": "git",

@@ -3,16 +3,16 @@ import { Link } from 'react-router-dom';
 
 const cx = (...classes) => classes.filter(Boolean).join(' ');
 
-export const Page = ({ children, className }) => (
-  <div className={cx('ui-page', className)}>{children}</div>
+export const Page = ({ children, className, ...rest }) => (
+  <div className={cx('ui-page', className)} {...rest}>{children}</div>
 );
 
-export const Card = ({ children, className }) => (
-  <div className={cx('ui-card', className)}>{children}</div>
+export const Card = ({ children, className, ...rest }) => (
+  <div className={cx('ui-card', className)} {...rest}>{children}</div>
 );
 
-export const SurfaceCard = ({ children, className }) => (
-  <section className={cx('ui-surface-card', className)}>{children}</section>
+export const SurfaceCard = ({ children, className, ...rest }) => (
+  <section className={cx('ui-surface-card', className)} {...rest}>{children}</section>
 );
 
 export const Button = ({ children, variant = 'primary', className, ...rest }) => (
