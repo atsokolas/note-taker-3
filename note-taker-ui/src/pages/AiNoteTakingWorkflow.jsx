@@ -84,6 +84,16 @@ const AiNoteTakingWorkflow = () => {
             </a>.
           </p>
         </section>
+
+        <section className="seo-section">
+          <h2>Related guides</h2>
+          <ul>
+            <li><a href="/ai-second-brain">AI Second Brain</a></li>
+            <li><a href="/second-brain-app">Second Brain App</a></li>
+            <li><a href="/personal-knowledge-management-ai">Personal Knowledge Management AI</a></li>
+            <li><a href="/guides">All guides</a></li>
+          </ul>
+        </section>
       </article>
     </div>
   );

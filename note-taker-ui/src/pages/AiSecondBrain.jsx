@@ -351,7 +351,8 @@ const AiSecondBrain = () => {
           </p>
           <p className="seo-related-guides">
             Related guides: <a href="/second-brain-app">Second Brain App</a> and{' '}
-            <a href="/ai-note-taking-workflow">AI Note-Taking Workflow</a>.
+            <a href="/ai-note-taking-workflow">AI Note-Taking Workflow</a>, plus{' '}
+            <a href="/personal-knowledge-management-ai">Personal Knowledge Management AI</a>.
           </p>
           <div className="seo-cta-row">
             <Link

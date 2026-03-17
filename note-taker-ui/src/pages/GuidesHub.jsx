@@ -45,6 +45,14 @@ const GuidesHub = () => {
               <h2>AI Note-Taking Workflow</h2>
               <p>How to move from saved source material to writing, planning, and reusable insight.</p>
             </a>
+            <a
+              href="/personal-knowledge-management-ai"
+              className="seo-guide-card"
+              onClick={() => trackGuideCta({ page: 'guides', cta: 'card', target: '/personal-knowledge-management-ai' })}
+            >
+              <h2>Personal Knowledge Management AI</h2>
+              <p>How to use AI in a PKM system without creating more clutter than clarity.</p>
+            </a>
           </div>
         </header>
 
@@ -55,6 +63,10 @@ const GuidesHub = () => {
             If you are choosing a tool, move to <a href="/second-brain-app">Second Brain App</a>.
             If you already have a tool and need a better operating model, use
             <a href="/ai-note-taking-workflow"> AI Note-Taking Workflow</a>.
+          </p>
+          <p>
+            If your problem is note sprawl and weak retrieval across your own archive, use
+            <a href="/personal-knowledge-management-ai"> Personal Knowledge Management AI</a>.
           </p>
         </section>
       </article>

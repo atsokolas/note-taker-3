@@ -27,6 +27,7 @@ import AiSecondBrain from './pages/AiSecondBrain';
 import GuidesHub from './pages/GuidesHub';
 import SecondBrainApp from './pages/SecondBrainApp';
 import AiNoteTakingWorkflow from './pages/AiNoteTakingWorkflow';
+import PersonalKnowledgeManagementAi from './pages/PersonalKnowledgeManagementAi';
 import PrivacyPolicy from './pages/PrivacyPolicy';
 import TermsOfUse from './pages/TermsOfUse';
 import CommandPalette from './components/CommandPalette';
@@ -79,6 +80,7 @@ const PublicRoutes = ({ chromeStoreLink, handleLoginSuccess, uiSettings }) => {
     || location.pathname === '/second-brain-app'
     || location.pathname === '/ai-note-taking-workflow'
     || location.pathname === '/guides'
+    || location.pathname === '/personal-knowledge-management-ai'
   );
 
   return (
@@ -89,6 +91,7 @@ const PublicRoutes = ({ chromeStoreLink, handleLoginSuccess, uiSettings }) => {
         <Route path="/ai-second-brain" element={<AiSecondBrain />} />
         <Route path="/second-brain-app" element={<SecondBrainApp />} />
         <Route path="/ai-note-taking-workflow" element={<AiNoteTakingWorkflow />} />
+        <Route path="/personal-knowledge-management-ai" element={<PersonalKnowledgeManagementAi />} />
         <Route path="/privacy" element={<PrivacyPolicy />} />
         <Route path="/terms" element={<TermsOfUse />} />
         <Route path="/register" element={<Register chromeStoreLink={chromeStoreLink} />} />
@@ -249,6 +252,7 @@ function App() {
       || location.pathname === '/second-brain-app'
       || location.pathname === '/ai-note-taking-workflow'
       || location.pathname === '/guides'
+      || location.pathname === '/personal-knowledge-management-ai'
     );
     const isLegacyRedirectRoute = (
       location.pathname.startsWith('/articles/')
@@ -293,6 +297,7 @@ function App() {
           <Route path="/ai-second-brain" element={<AiSecondBrain />} />
           <Route path="/second-brain-app" element={<SecondBrainApp />} />
           <Route path="/ai-note-taking-workflow" element={<AiNoteTakingWorkflow />} />
+          <Route path="/personal-knowledge-management-ai" element={<PersonalKnowledgeManagementAi />} />
           <Route path="/privacy" element={<PrivacyPolicy />} />
           <Route path="/terms" element={<TermsOfUse />} />
 
