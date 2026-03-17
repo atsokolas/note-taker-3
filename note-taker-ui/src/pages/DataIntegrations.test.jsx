@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import DataIntegrations from './DataIntegrations';
 import api from '../api';
@@ -292,5 +292,66 @@ describe('DataIntegrations first insight workflow', () => {
     expect(screen.getByText('Create a concept from books, tags, or highlights')).toBeInTheDocument();
     expect(screen.getByText('Keep the reading layer active')).toBeInTheDocument();
     expect(screen.getByPlaceholderText('e.g. Deep work and attention')).toBeInTheDocument();
+  });
+
+  it('routes csv uploads from the files flow through the Readwise CSV importer', async () => {
+    api.post.mockResolvedValueOnce({
+      data: {
+        importedArticles: 2,
+        importedHighlights: 4,
+        importedNotes: 0,
+        skippedRows: 0,
+        articleIds: ['article-1'],
+        indexingQueued: 2,
+        indexingAttempts: 2,
+        indexingFailures: 0,
+        warningCodes: [],
+        warnings: []
+      }
+    });
+
+    render(
+      <MemoryRouter>
+        <DataIntegrations />
+      </MemoryRouter>
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /Files and text/i }));
+    const fileInput = screen.getByLabelText('Markdown or CSV upload');
+    const csvFile = new File(['title,author\nDeep Work,Cal Newport'], 'readwise-export.csv', { type: 'text/csv' });
+    fireEvent.change(fileInput, { target: { files: [csvFile] } });
+
+    await waitFor(() => expect(api.post).toHaveBeenCalledTimes(1));
+    expect(api.post).toHaveBeenCalledWith(
+      '/api/import/readwise-csv',
+      expect.any(FormData),
+      expect.any(Object)
+    );
+    expect(await screen.findByText('CSV import complete.')).toBeInTheDocument();
+  });
+
+  it('shows an inline setup warning when Notion OAuth is not configured on the server', async () => {
+    startNotionOAuth.mockRejectedValue({
+      response: {
+        data: {
+          error: 'Notion OAuth is not configured on the server. Missing NOTION_CLIENT_ID and NOTION_CLIENT_SECRET.',
+          missingEnv: ['NOTION_CLIENT_ID', 'NOTION_CLIENT_SECRET']
+        }
+      }
+    });
+
+    render(
+      <MemoryRouter>
+        <DataIntegrations />
+      </MemoryRouter>
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /Notion/i }));
+    fireEvent.click(screen.getByRole('button', { name: 'Connect Notion' }));
+
+    const inlineWarning = await screen.findByTestId('notion-setup-warning');
+    expect(inlineWarning).toBeInTheDocument();
+    expect(within(inlineWarning).getByText(/This button is the Notion connection flow/)).toBeInTheDocument();
+    expect(within(inlineWarning).getByText(/NOTION_CLIENT_ID and NOTION_CLIENT_SECRET/)).toBeInTheDocument();
   });
 });

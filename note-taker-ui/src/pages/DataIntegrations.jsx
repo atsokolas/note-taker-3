@@ -166,6 +166,14 @@ const detectPasteMode = (text = '') => {
   return 'plain';
 };
 
+const detectUploadMode = (file) => {
+  const name = String(file?.name || '').trim().toLowerCase();
+  const type = String(file?.type || '').trim().toLowerCase();
+  if (name.endsWith('.csv') || type.includes('csv')) return 'csv';
+  if (name.endsWith('.md') || name.endsWith('.markdown') || type.includes('markdown')) return 'markdown';
+  return '';
+};
+
 const makeSummaryFromCsvResponse = (responseData = {}) => ({
   importedArticles: responseData.importedArticles || 0,
   importedHighlights: responseData.importedHighlights || 0,
@@ -348,6 +356,7 @@ const DataIntegrations = () => {
   const [readwiseChecking, setReadwiseChecking] = useState(false);
   const [readwiseSyncing, setReadwiseSyncing] = useState(false);
   const [notionConnection, setNotionConnection] = useState(null);
+  const [notionSetupMissingEnv, setNotionSetupMissingEnv] = useState([]);
   const [notionChecking, setNotionChecking] = useState(false);
   const [notionConnecting, setNotionConnecting] = useState(false);
   const [notionSyncing, setNotionSyncing] = useState(false);
@@ -797,9 +806,15 @@ const DataIntegrations = () => {
       if (!authUrl) {
         throw new Error('Missing Notion authorization URL.');
       }
+      setNotionSetupMissingEnv([]);
       window.location.href = authUrl;
     } catch (error) {
       console.error('Failed to start Notion OAuth:', error);
+      setNotionSetupMissingEnv(
+        Array.isArray(error.response?.data?.missingEnv)
+          ? error.response.data.missingEnv
+          : []
+      );
       setStatus(error.response?.data?.error || error.message || 'Failed to start Notion OAuth.', 'error');
       setNotionConnecting(false);
     }
@@ -927,29 +942,48 @@ const DataIntegrations = () => {
     }
   };
 
-  const handleMarkdownImport = async (event) => {
+  const handleFileImport = async (event) => {
     const file = event.target.files?.[0];
     if (!file) return;
+    const uploadMode = detectUploadMode(file);
+    if (!uploadMode) {
+      setStatus('Upload a markdown or CSV file.', 'error');
+      event.target.value = '';
+      return;
+    }
     setImporting((previous) => ({ ...previous, md: true }));
-    setStatus('Importing markdown note...');
+    setStatus(uploadMode === 'csv' ? 'Importing CSV file...' : 'Importing markdown note...');
     setImportStats(null);
     try {
       const session = await createSessionForImport({
-        provider: 'files',
+        provider: uploadMode === 'csv' ? 'readwise' : 'files',
         mode: 'file_upload',
-        sourceLabel: file.name || 'Markdown note',
-        sourceType: 'markdown'
+        sourceLabel: file.name || (uploadMode === 'csv' ? 'Readwise CSV' : 'Markdown note'),
+        sourceType: uploadMode
       });
-      const data = await importMarkdownFile(file, session?.id);
-      const summary = makeSummaryFromNoteResponse(data);
-      setImportStats(summary);
-      rememberFirstInsight({
-        sourceType: 'markdown',
-        title: file.name || 'Imported markdown note',
-        notebookEntryId: summary.entryId,
-        counts: summary
-      });
-      setStatus(summary.indexingFailures > 0 ? 'Markdown import complete with indexing warnings.' : 'Markdown import complete.', summary.indexingFailures > 0 ? 'warning' : 'success');
+      if (uploadMode === 'csv') {
+        const data = await importCsvFile(file, session?.id);
+        const summary = makeSummaryFromCsvResponse(data);
+        setImportStats(summary);
+        rememberFirstInsight({
+          sourceType: 'readwise-csv',
+          title: file.name || 'Imported CSV',
+          articleId: summary.articleIds[0] || '',
+          counts: summary
+        });
+        setStatus(summary.indexingFailures > 0 ? 'CSV import complete with indexing warnings.' : 'CSV import complete.', summary.indexingFailures > 0 ? 'warning' : 'success');
+      } else {
+        const data = await importMarkdownFile(file, session?.id);
+        const summary = makeSummaryFromNoteResponse(data);
+        setImportStats(summary);
+        rememberFirstInsight({
+          sourceType: 'markdown',
+          title: file.name || 'Imported markdown note',
+          notebookEntryId: summary.entryId,
+          counts: summary
+        });
+        setStatus(summary.indexingFailures > 0 ? 'Markdown import complete with indexing warnings.' : 'Markdown import complete.', summary.indexingFailures > 0 ? 'warning' : 'success');
+      }
       if (session?.id) {
         await patchSession(session.id, {
           activation: {
@@ -959,8 +993,8 @@ const DataIntegrations = () => {
         });
       }
     } catch (error) {
-      console.error('Markdown import failed:', error);
-      setStatus(error.response?.data?.error || 'Failed to import markdown file.', 'error');
+      console.error('File import failed:', error);
+      setStatus(error.response?.data?.error || 'Failed to import file.', 'error');
     } finally {
       setImporting((previous) => ({ ...previous, md: false }));
       event.target.value = '';
@@ -1667,6 +1701,11 @@ const DataIntegrations = () => {
           <div className="import-callout">
             <p className="muted-label">Planned flow</p>
             <p className="muted small">OAuth connect → fetch pages and data sources shared with the integration → import them into notebook entries → create first concept.</p>
+            {notionSetupMissingEnv.length ? (
+              <p className="status-message error-message" data-testid="notion-setup-warning">
+                This button is the Notion connection flow. It cannot redirect until the server has {notionSetupMissingEnv.join(' and ')} configured.
+              </p>
+            ) : null}
           </div>
           <div className="capture-actions" style={{ marginBottom: 16 }}>
             <Button
@@ -1870,16 +1909,17 @@ const DataIntegrations = () => {
           </Card>
 
           <Card className="settings-card">
-            <h2>Markdown upload</h2>
-            <p className="muted">Upload exported markdown notes into the same import session system.</p>
+            <h2>Markdown or CSV upload</h2>
+            <p className="muted">Upload exported markdown notes or Readwise CSV files into the same import session system.</p>
             <div className="settings-import-row">
               <div>
-                <p className="muted-label">Markdown notes</p>
+                <p className="muted-label">Markdown or CSV files</p>
                 <input
                   ref={mdInputRef}
                   type="file"
-                  accept=".md,text/markdown"
-                  onChange={handleMarkdownImport}
+                  aria-label="Markdown or CSV upload"
+                  accept=".md,.markdown,text/markdown,.csv,text/csv"
+                  onChange={handleFileImport}
                   disabled={busy}
                 />
               </div>
@@ -1889,7 +1929,7 @@ const DataIntegrations = () => {
                 onClick={() => mdInputRef.current?.click()}
                 disabled={busy}
               >
-                {importing.md ? 'Importing…' : 'Upload Markdown'}
+                {importing.md ? 'Importing…' : 'Upload file'}
               </Button>
             </div>
           </Card>

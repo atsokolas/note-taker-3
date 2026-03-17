@@ -866,8 +866,14 @@ const buildImportRouter = ({
     try {
       const clientId = toTrimmedString(process.env.NOTION_CLIENT_ID);
       const clientSecret = toTrimmedString(process.env.NOTION_CLIENT_SECRET);
-      if (!clientId || !clientSecret) {
-        return res.status(400).json({ error: 'Notion OAuth is not configured on the server.' });
+      const missingEnv = [];
+      if (!clientId) missingEnv.push('NOTION_CLIENT_ID');
+      if (!clientSecret) missingEnv.push('NOTION_CLIENT_SECRET');
+      if (missingEnv.length > 0) {
+        return res.status(400).json({
+          error: `Notion OAuth is not configured on the server. Missing ${missingEnv.join(' and ')}.`,
+          missingEnv
+        });
       }
       const redirectUri = getNotionRedirectUri(req);
       const state = createNotionState({ userId: req.user.id });
