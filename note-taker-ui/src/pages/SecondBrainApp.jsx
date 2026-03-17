@@ -1,5 +1,6 @@
 import React from 'react';
 import useSeoMetadata from '../hooks/useSeoMetadata';
+import { trackGuideCta } from '../utils/marketingAnalytics';
 import '../styles/seo-article.css';
 
 const SecondBrainApp = () => {
@@ -21,8 +22,20 @@ const SecondBrainApp = () => {
             plans, or decisions.
           </p>
           <div className="seo-cta-row">
-            <a href="/register" className="ui-button ui-button-primary">Start free</a>
-            <a href="/guides" className="ui-button ui-button-secondary">Browse guides</a>
+            <a
+              href="/register"
+              className="ui-button ui-button-primary"
+              onClick={() => trackGuideCta({ page: 'second-brain-app', cta: 'hero', target: '/register' })}
+            >
+              Start free
+            </a>
+            <a
+              href="/guides"
+              className="ui-button ui-button-secondary"
+              onClick={() => trackGuideCta({ page: 'second-brain-app', cta: 'hero', target: '/guides' })}
+            >
+              Browse guides
+            </a>
           </div>
         </header>
 
@@ -78,7 +91,16 @@ const SecondBrainApp = () => {
             material. It supports capture, retrieval, connected notes, and synthesis in one place, with AI help used
             in context rather than as a detached conversation.
           </p>
-          <p>If that is the job you need from a second brain app, <a href="/register">Try Note Taker</a>.</p>
+          <p>
+            If that is the job you need from a second brain app,
+            {' '}
+            <a
+              href="/register"
+              onClick={() => trackGuideCta({ page: 'second-brain-app', cta: 'body', target: '/register' })}
+            >
+              Try Note Taker
+            </a>.
+          </p>
         </section>
       </article>
     </div>

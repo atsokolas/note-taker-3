@@ -1,5 +1,6 @@
 import React from 'react';
 import useSeoMetadata from '../hooks/useSeoMetadata';
+import { trackGuideCta } from '../utils/marketingAnalytics';
 import '../styles/seo-article.css';
 
 const AiNoteTakingWorkflow = () => {
@@ -20,8 +21,20 @@ const AiNoteTakingWorkflow = () => {
             keep the useful parts, connect them around a question, and write in your own words.
           </p>
           <div className="seo-cta-row">
-            <a href="/register" className="ui-button ui-button-primary">Start free</a>
-            <a href="/guides" className="ui-button ui-button-secondary">Browse guides</a>
+            <a
+              href="/register"
+              className="ui-button ui-button-primary"
+              onClick={() => trackGuideCta({ page: 'ai-note-taking-workflow', cta: 'hero', target: '/register' })}
+            >
+              Start free
+            </a>
+            <a
+              href="/guides"
+              className="ui-button ui-button-secondary"
+              onClick={() => trackGuideCta({ page: 'ai-note-taking-workflow', cta: 'hero', target: '/guides' })}
+            >
+              Browse guides
+            </a>
           </div>
         </header>
 
@@ -60,7 +73,16 @@ const AiNoteTakingWorkflow = () => {
             Note Taker supports capture, connected notes, and writing in one workspace. It is designed for people who
             need to move from saved material to synthesis without losing the source context that makes their notes useful.
           </p>
-          <p>If you want an AI note-taking workflow that stays practical, <a href="/register">Start free</a>.</p>
+          <p>
+            If you want an AI note-taking workflow that stays practical,
+            {' '}
+            <a
+              href="/register"
+              onClick={() => trackGuideCta({ page: 'ai-note-taking-workflow', cta: 'body', target: '/register' })}
+            >
+              Start free
+            </a>.
+          </p>
         </section>
       </article>
     </div>

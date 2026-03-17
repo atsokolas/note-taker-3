@@ -1,27 +1,27 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
-    <loc>https://note-taker-frontend-6nna.onrender.com/</loc>
+    <loc>https://noeis.io/</loc>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
   </url>
   <url>
-    <loc>https://note-taker-frontend-6nna.onrender.com/ai-second-brain</loc>
+    <loc>https://noeis.io/ai-second-brain</loc>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://note-taker-frontend-6nna.onrender.com/guides</loc>
+    <loc>https://noeis.io/guides</loc>
     <changefreq>weekly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://note-taker-frontend-6nna.onrender.com/second-brain-app</loc>
+    <loc>https://noeis.io/second-brain-app</loc>
     <changefreq>weekly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://note-taker-frontend-6nna.onrender.com/ai-note-taking-workflow</loc>
+    <loc>https://noeis.io/ai-note-taking-workflow</loc>
     <changefreq>weekly</changefreq>
     <priority>0.7</priority>
   </url>

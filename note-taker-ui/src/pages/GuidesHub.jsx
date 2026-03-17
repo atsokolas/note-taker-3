@@ -1,5 +1,6 @@
 import React from 'react';
 import useSeoMetadata from '../hooks/useSeoMetadata';
+import { trackGuideCta } from '../utils/marketingAnalytics';
 import '../styles/seo-article.css';
 
 const GuidesHub = () => {
@@ -20,15 +21,27 @@ const GuidesHub = () => {
             note-taking, and personal knowledge management.
           </p>
           <div className="seo-guide-grid">
-            <a href="/ai-second-brain" className="seo-guide-card">
+            <a
+              href="/ai-second-brain"
+              className="seo-guide-card"
+              onClick={() => trackGuideCta({ page: 'guides', cta: 'card', target: '/ai-second-brain' })}
+            >
               <h2>AI Second Brain</h2>
               <p>What the term should mean in practice, what to evaluate, and where Note Taker fits.</p>
             </a>
-            <a href="/second-brain-app" className="seo-guide-card">
+            <a
+              href="/second-brain-app"
+              className="seo-guide-card"
+              onClick={() => trackGuideCta({ page: 'guides', cta: 'card', target: '/second-brain-app' })}
+            >
               <h2>Second Brain App</h2>
               <p>How to compare categories of tools when you need retrieval, connected notes, and synthesis.</p>
             </a>
-            <a href="/ai-note-taking-workflow" className="seo-guide-card">
+            <a
+              href="/ai-note-taking-workflow"
+              className="seo-guide-card"
+              onClick={() => trackGuideCta({ page: 'guides', cta: 'card', target: '/ai-note-taking-workflow' })}
+            >
               <h2>AI Note-Taking Workflow</h2>
               <p>How to move from saved source material to writing, planning, and reusable insight.</p>
             </a>

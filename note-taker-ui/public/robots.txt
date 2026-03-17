@@ -1,4 +1,4 @@
 # https://www.robotstxt.org/robotstxt.html
 User-agent: *
 Disallow:
-Sitemap: https://note-taker-frontend-6nna.onrender.com/sitemap.xml
+Sitemap: https://noeis.io/sitemap.xml

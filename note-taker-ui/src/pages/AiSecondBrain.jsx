@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import useSeoMetadata from '../hooks/useSeoMetadata';
+import { trackGuideCta } from '../utils/marketingAnalytics';
 import '../styles/seo-article.css';
 
 const faqSchema = {
@@ -68,8 +69,20 @@ const AiSecondBrain = () => {
             not just storage.
           </p>
           <div className="seo-cta-row">
-            <Link to="/register" className="ui-button ui-button-primary">Start free</Link>
-            <Link to="/" className="ui-button ui-button-secondary">See Note Taker</Link>
+            <Link
+              to="/register"
+              className="ui-button ui-button-primary"
+              onClick={() => trackGuideCta({ page: 'ai-second-brain', cta: 'hero', target: '/register' })}
+            >
+              Start free
+            </Link>
+            <Link
+              to="/"
+              className="ui-button ui-button-secondary"
+              onClick={() => trackGuideCta({ page: 'ai-second-brain', cta: 'hero', target: '/' })}
+            >
+              See Note Taker
+            </Link>
           </div>
           <nav className="seo-toc" aria-label="On-page sections">
             <a href="#why">Why people look for an AI second brain</a>
@@ -190,7 +203,13 @@ const AiSecondBrain = () => {
             Note Taker is built for that job.
           </p>
           <div className="seo-cta-row">
-            <Link to="/register" className="ui-button ui-button-secondary">Try Note Taker</Link>
+            <Link
+              to="/register"
+              className="ui-button ui-button-secondary"
+              onClick={() => trackGuideCta({ page: 'ai-second-brain', cta: 'mid', target: '/register' })}
+            >
+              Try Note Taker
+            </Link>
           </div>
         </aside>
 
@@ -335,8 +354,20 @@ const AiSecondBrain = () => {
             <a href="/ai-note-taking-workflow">AI Note-Taking Workflow</a>.
           </p>
           <div className="seo-cta-row">
-            <Link to="/register" className="ui-button ui-button-primary">Start free</Link>
-            <Link to="/" className="ui-button ui-button-secondary">See how Note Taker works</Link>
+            <Link
+              to="/register"
+              className="ui-button ui-button-primary"
+              onClick={() => trackGuideCta({ page: 'ai-second-brain', cta: 'footer', target: '/register' })}
+            >
+              Start free
+            </Link>
+            <Link
+              to="/"
+              className="ui-button ui-button-secondary"
+              onClick={() => trackGuideCta({ page: 'ai-second-brain', cta: 'footer', target: '/' })}
+            >
+              See how Note Taker works
+            </Link>
           </div>
         </footer>
       </article>
