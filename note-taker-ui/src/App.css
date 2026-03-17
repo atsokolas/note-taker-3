@@ -1891,6 +1891,11 @@ body {
     isolation: isolate;
 }
 
+.auth-pages-container--scroll {
+    align-items: stretch;
+    overflow-y: auto;
+}
+
 .auth-shell {
     position: relative;
     width: 100%;
@@ -3106,6 +3111,71 @@ body {
 
 .landing-footer {
   text-align: center;
+}
+
+.landing-card-guide p {
+  margin-bottom: 12px;
+  color: var(--text-color-secondary);
+}
+
+.landing-inline-link {
+  color: var(--primary-color);
+  font-weight: 600;
+}
+
+.landing-legal-links {
+  margin-top: 16px;
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.landing-legal-links a {
+  color: var(--text-color-secondary);
+  text-decoration: none;
+}
+
+.landing-legal-links a:hover {
+  color: var(--text-color);
+  text-decoration: underline;
+}
+
+.legal-shell {
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 64px 24px 80px;
+  display: grid;
+  gap: 20px;
+}
+
+.legal-card {
+  padding: 24px;
+}
+
+.legal-eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 0.75rem;
+  color: var(--text-color-secondary);
+  margin-bottom: 8px;
+}
+
+.legal-links {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.legal-links a {
+  color: var(--text-color-secondary);
+  text-decoration: none;
+}
+
+.legal-links a:hover {
+  color: var(--text-color);
+  text-decoration: underline;
 }
 
 /* Onboarding */

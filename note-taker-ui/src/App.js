@@ -23,6 +23,9 @@ import Settings from './pages/Settings';
 import HowToUse from './pages/HowToUse';
 import Integrations from './pages/Integrations';
 import DataIntegrations from './pages/DataIntegrations';
+import AiSecondBrain from './pages/AiSecondBrain';
+import PrivacyPolicy from './pages/PrivacyPolicy';
+import TermsOfUse from './pages/TermsOfUse';
 import CommandPalette from './components/CommandPalette';
 import { clearStoredTokens, hasUsableStoredToken } from './api';
 import { fetchUiSettings, saveUiSettings } from './api/uiSettings';
@@ -64,6 +67,34 @@ const LegacyConceptRedirect = () => {
 const LegacyArticleRedirect = () => {
   const { id } = useParams();
   return <Navigate to={buildCanonicalArticlePath(id)} replace />;
+};
+
+const PublicRoutes = ({ chromeStoreLink, handleLoginSuccess, uiSettings }) => {
+  const location = useLocation();
+  const isLongformRoute = location.pathname === '/ai-second-brain';
+
+  return (
+    <div className={isLongformRoute ? 'auth-pages-container auth-pages-container--scroll' : 'auth-pages-container'}>
+      <Routes>
+        <Route path="/" element={<Landing />} />
+        <Route path="/ai-second-brain" element={<AiSecondBrain />} />
+        <Route path="/privacy" element={<PrivacyPolicy />} />
+        <Route path="/terms" element={<TermsOfUse />} />
+        <Route path="/register" element={<Register chromeStoreLink={chromeStoreLink} />} />
+        <Route
+          path="/login"
+          element={(
+            <Login
+              onLoginSuccess={handleLoginSuccess}
+              chromeStoreLink={chromeStoreLink}
+              brandEnergy={uiSettings.brandEnergy}
+            />
+          )}
+        />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </div>
+  );
 };
 
 function App() {
@@ -202,6 +233,7 @@ function App() {
     const isMapRoute = location.pathname.startsWith('/map');
     const isReviewRoute = location.pathname.startsWith('/review');
     const isTodayRoute = location.pathname.startsWith('/today');
+    const isSeoRoute = location.pathname === '/ai-second-brain';
     const isLegacyRedirectRoute = (
       location.pathname.startsWith('/articles/')
       || location.pathname === '/journey'
@@ -241,6 +273,9 @@ function App() {
           <Route path="/how-to-use" element={<HowToUse />} />
           <Route path="/integrations" element={<Integrations />} />
           <Route path="/data-integrations" element={<DataIntegrations />} />
+          <Route path="/ai-second-brain" element={<AiSecondBrain />} />
+          <Route path="/privacy" element={<PrivacyPolicy />} />
+          <Route path="/terms" element={<TermsOfUse />} />
 
           {/* Legacy/feature routes kept for compatibility */}
           <Route path="/brain" element={<Navigate to="/review?tab=patterns" replace />} />
@@ -303,7 +338,7 @@ function App() {
           />
         )}
       >
-        {(isLibraryRoute || isThinkRoute || isMapRoute || isReturnQueueRoute || isReviewRoute || isTodayRoute || isLegacyRedirectRoute) ? (
+        {(isLibraryRoute || isThinkRoute || isMapRoute || isReturnQueueRoute || isReviewRoute || isTodayRoute || isSeoRoute || isLegacyRedirectRoute) ? (
           routes
         ) : (
           <ThreePaneLayout
@@ -328,23 +363,11 @@ function App() {
           <AppLayout />
         </TourProvider>
       ) : (
-        <div className="auth-pages-container">
-          <Routes>
-            <Route path="/" element={<Landing />} />
-            <Route path="/register" element={<Register chromeStoreLink={chromeStoreLink} />} />
-            <Route 
-              path="/login" 
-              element={(
-                <Login
-                  onLoginSuccess={handleLoginSuccess}
-                  chromeStoreLink={chromeStoreLink}
-                  brandEnergy={uiSettings.brandEnergy}
-                />
-              )} 
-            />
-            <Route path="*" element={<Navigate to="/" replace />} /> 
-          </Routes>
-        </div>
+        <PublicRoutes
+          chromeStoreLink={chromeStoreLink}
+          handleLoginSuccess={handleLoginSuccess}
+          uiSettings={uiSettings}
+        />
       )}
     </Router>
   );

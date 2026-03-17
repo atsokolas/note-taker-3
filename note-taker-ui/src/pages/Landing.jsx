@@ -1,5 +1,5 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Card, Button } from '../components/ui';
 
 const Landing = () => {
@@ -47,6 +47,17 @@ const Landing = () => {
         </ul>
       </Card>
 
+      <Card className="landing-card landing-card-guide">
+        <h2>Evaluating second-brain tools?</h2>
+        <p>
+          Read the practical guide to what an AI second brain should actually do for research,
+          synthesis, and writing.
+        </p>
+        <Link to="/ai-second-brain" className="landing-inline-link">
+          Read the guide
+        </Link>
+      </Card>
+
       <div className="landing-grid">
         <Card className="landing-card">
           <h3>Highlights are the atom</h3>
@@ -92,6 +103,10 @@ const Landing = () => {
           If this sounds like how your brain works, try it. You’ll know within a day if it fits.
         </p>
         <Button onClick={handleEnter}>Enter Note Taker</Button>
+        <div className="landing-legal-links">
+          <Link to="/privacy">Privacy Policy</Link>
+          <Link to="/terms">Terms of Use</Link>
+        </div>
       </Card>
     </div>
   );
