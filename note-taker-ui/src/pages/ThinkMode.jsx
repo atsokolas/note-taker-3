@@ -258,6 +258,7 @@ const ThinkMode = () => {
   const [shareError, setShareError] = useState('');
   const [shareWorking, setShareWorking] = useState(false);
   const [shareSlug, setShareSlug] = useState('');
+  const [autoScoutRefresh, setAutoScoutRefresh] = useState({ conceptName: '', token: 0 });
   const [conceptRelated, setConceptRelated] = useState({ highlights: [], concepts: [] });
   const [conceptRelatedLoading, setConceptRelatedLoading] = useState(false);
   const [conceptRelatedError, setConceptRelatedError] = useState('');
@@ -1114,6 +1115,10 @@ const ThinkMode = () => {
           .then((response) => {
             const itemCount = Number(response?.summary?.itemSuggestions || 0);
             const conceptCount = Number(response?.summary?.conceptSuggestions || 0);
+            setAutoScoutRefresh({
+              conceptName: candidate,
+              token: Date.now()
+            });
             setConceptComposerStatus({
               message: `AI scout ready: ${itemCount} items and ${conceptCount} concepts suggested.`,
               tone: 'success'
@@ -2400,7 +2405,10 @@ const ThinkMode = () => {
             <ConnectionBuilder itemType="concept" itemId={concept._id} itemTitle={concept.name} />
           </div>
 
-          <ConceptNotebook concept={concept} />
+          <ConceptNotebook
+            concept={concept}
+            autoScoutToken={concept?.name === autoScoutRefresh.conceptName ? autoScoutRefresh.token : 0}
+          />
 
           <SectionHeader title="Sharing" subtitle="Publish a read-only concept page." />
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>

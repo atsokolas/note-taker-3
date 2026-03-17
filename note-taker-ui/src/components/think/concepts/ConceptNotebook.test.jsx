@@ -268,8 +268,8 @@ describe('ConceptNotebook workspace interactions', () => {
     render(<ConceptNotebook concept={concept} />);
 
     expect(screen.getByText('Workspace')).toBeInTheDocument();
-    expect(screen.getByText('Inbox')).toBeInTheDocument();
-    expect(screen.getByText('Working')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Inbox' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Working' })).toBeInTheDocument();
     expect(screen.getByText('Working Source')).toBeInTheDocument();
   });
 
@@ -371,6 +371,22 @@ describe('ConceptNotebook workspace interactions', () => {
 
     await waitFor(() => {
       expect(getConceptAgentSuggestions).toHaveBeenCalled();
+    });
+  });
+
+  it('reloads drafts when auto-scout finishes after the concept is already open', async () => {
+    const { rerender } = render(<ConceptNotebook concept={concept} autoScoutToken={0} />);
+
+    await waitFor(() => {
+      expect(getConceptAgentSuggestions).toHaveBeenCalledTimes(1);
+    });
+
+    getConceptAgentSuggestions.mockClear();
+
+    rerender(<ConceptNotebook concept={concept} autoScoutToken={1} />);
+
+    await waitFor(() => {
+      expect(getConceptAgentSuggestions).toHaveBeenCalledTimes(1);
     });
   });
 

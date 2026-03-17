@@ -443,7 +443,7 @@ const OutlineItemRow = ({ item, materialMeta, onStageChange, onRemove, onOpen, a
   );
 };
 
-const ConceptNotebook = ({ concept }) => {
+const ConceptNotebook = ({ concept, autoScoutToken = 0 }) => {
   const conceptId = String(concept?._id || concept?.name || '').trim();
   const {
     workspace,
@@ -600,6 +600,11 @@ const ConceptNotebook = ({ concept }) => {
   useEffect(() => {
     loadAgentDrafts();
   }, [loadAgentDrafts]);
+
+  useEffect(() => {
+    if (!conceptId || !autoScoutToken) return;
+    loadAgentDrafts();
+  }, [autoScoutToken, conceptId, loadAgentDrafts]);
 
   useEffect(() => {
     loadAgentQueues();
