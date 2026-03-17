@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import api from '../api';
 import { searchKeyword } from '../api/retrieval';
 import { Card, Button } from './ui';
+import { buildCanonicalArticlePath } from '../utils/firstInsight';
 
 const EMPTY_GROUPS = {
   notes: [],
@@ -105,11 +106,11 @@ const CommandPalette = ({ open, onClose }) => {
       if (res.data?._id) {
         navigate(`/think?tab=notebook&entryId=${res.data._id}`);
       } else {
-        navigate('/notebook');
+        navigate('/think?tab=notebook');
       }
     } catch (err) {
       console.error('Palette new note failed', err);
-      navigate('/notebook');
+      navigate('/think?tab=notebook');
     }
   }, [navigate]);
 
@@ -144,7 +145,7 @@ const CommandPalette = ({ open, onClose }) => {
         items: (searchGroups.highlights || []).slice(0, 6).map(item => ({
           type: 'Highlight',
           label: buildResultLabel(item, 'Highlight'),
-          path: item.openPath || `/articles/${item.articleId || ''}`
+          path: item.openPath || buildCanonicalArticlePath(item.articleId || '')
         }))
       });
       list.push({
@@ -152,7 +153,7 @@ const CommandPalette = ({ open, onClose }) => {
         items: (searchGroups.claims || []).slice(0, 6).map(item => ({
           type: 'Claim',
           label: buildResultLabel(item, 'Claim'),
-          path: item.openPath || (item.articleId ? `/articles/${item.articleId}` : `/think?tab=notebook&entryId=${item._id}`)
+          path: item.openPath || (item.articleId ? buildCanonicalArticlePath(item.articleId) : `/think?tab=notebook&entryId=${item._id}`)
         }))
       });
       list.push({
@@ -160,7 +161,7 @@ const CommandPalette = ({ open, onClose }) => {
         items: (searchGroups.evidence || []).slice(0, 6).map(item => ({
           type: 'Evidence',
           label: buildResultLabel(item, 'Evidence'),
-          path: item.openPath || (item.articleId ? `/articles/${item.articleId}` : `/think?tab=notebook&entryId=${item._id}`)
+          path: item.openPath || (item.articleId ? buildCanonicalArticlePath(item.articleId) : `/think?tab=notebook&entryId=${item._id}`)
         }))
       });
       list.push({
@@ -168,7 +169,7 @@ const CommandPalette = ({ open, onClose }) => {
         items: articles.slice(0, 5).map(item => ({
           type: 'Article',
           label: buildResultLabel(item, item.title || 'Article'),
-          path: `/articles/${item._id}`
+          path: buildCanonicalArticlePath(item._id)
         }))
       });
     } else {
@@ -177,7 +178,7 @@ const CommandPalette = ({ open, onClose }) => {
         items: concepts.slice(0, 8).map(item => ({
           type: 'Concept',
           label: item.tag,
-          path: `/tags/${encodeURIComponent(item.tag)}`
+          path: `/think?tab=concepts&concept=${encodeURIComponent(item.tag)}`
         }))
       });
       list.push({

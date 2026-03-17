@@ -57,6 +57,9 @@ Tracked events:
 - `user_signup`
 - `highlight_captured`
 - `workspace_created`
+- `capture_completed`
+- `concept_created`
+- `revisit_scheduled`
 - `semantic_search_performed`
 - `ai_draft_generated`
 - `ai_draft_accepted`

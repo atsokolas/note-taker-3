@@ -1573,6 +1573,38 @@ body {
     margin: 4px 0;
 }
 
+.first-insight-card {
+    border: 1px solid color-mix(in srgb, var(--primary-color) 22%, var(--border-color-light));
+    background: linear-gradient(180deg, color-mix(in srgb, var(--surface-elevated) 92%, white 8%), var(--surface-elevated));
+}
+
+.first-insight-summary {
+    margin: 0;
+    color: var(--text-color);
+    font-weight: 600;
+}
+
+.first-insight-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+    margin-top: 16px;
+}
+
+.first-insight-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 14px;
+    border-radius: 14px;
+    border: 1px solid var(--border-color-light);
+    background: color-mix(in srgb, var(--surface-elevated) 88%, transparent);
+}
+
+.first-insight-actions {
+    margin-top: 10px;
+}
+
 @media (max-width: 760px) {
     .settings-import-row {
         flex-direction: column;
@@ -1586,6 +1618,10 @@ body {
     .capture-actions .ui-button {
         width: 100%;
         justify-content: center;
+    }
+
+    .first-insight-grid {
+        grid-template-columns: 1fr;
     }
 }
 

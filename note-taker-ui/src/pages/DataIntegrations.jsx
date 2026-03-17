@@ -2,6 +2,17 @@ import React, { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api';
 import { Button, Card, Page } from '../components/ui';
+import { updateConcept } from '../api/concepts';
+import { createReturnQueueEntry } from '../api/returnQueue';
+import {
+  clearFirstInsightState,
+  getFirstInsightOpenPath,
+  getFirstInsightSummary,
+  isFirstInsightActive,
+  readFirstInsightState,
+  saveFirstInsightState,
+  updateFirstInsightState
+} from '../utils/firstInsight';
 
 const getAuthConfig = () => ({
   headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
@@ -121,6 +132,12 @@ const DataIntegrations = () => {
   const [pasteTitle, setPasteTitle] = useState('');
   const [pasteContent, setPasteContent] = useState('');
   const [pasteMode, setPasteMode] = useState('auto');
+  const [activationState, setActivationState] = useState(() => readFirstInsightState());
+  const [conceptName, setConceptName] = useState(() => readFirstInsightState()?.conceptName || '');
+  const [conceptError, setConceptError] = useState('');
+  const [conceptBusy, setConceptBusy] = useState(false);
+  const [scheduleBusy, setScheduleBusy] = useState(false);
+  const [scheduleError, setScheduleError] = useState('');
   const csvInputRef = useRef(null);
   const mdInputRef = useRef(null);
 
@@ -146,7 +163,7 @@ const DataIntegrations = () => {
     entryId: String(responseData.entryId || responseData._id || '')
   });
 
-  const createNotebookFromText = async ({ title, text, tags = [] }) => {
+  const createNotebookFromText = async ({ title, text, tags = [], sourceType = 'manual-note' }) => {
     const cleanText = String(text || '').trim();
     if (!cleanText) {
       throw new Error('Text is required.');
@@ -160,9 +177,59 @@ const DataIntegrations = () => {
       title: String(title || '').trim() || 'Untitled',
       content,
       blocks,
-      tags
+      tags,
+      source: sourceType
     }, getAuthConfig());
     return response.data;
+  };
+
+  const rememberFirstInsight = ({
+    sourceType,
+    title,
+    notebookEntryId = '',
+    articleId = '',
+    counts = {}
+  }) => {
+    const next = saveFirstInsightState({
+      status: 'captured',
+      sourceType,
+      title: String(title || '').trim() || 'Untitled',
+      notebookEntryId,
+      articleId,
+      counts
+    });
+    setActivationState(next);
+    setConceptName(next.conceptName || '');
+    setConceptError('');
+    setScheduleError('');
+    return next;
+  };
+
+  const getSchedulableTarget = () => {
+    const current = activationState;
+    if (!current) return null;
+    if (current.conceptId) {
+      return {
+        itemType: 'concept',
+        itemId: current.conceptId,
+        label: 'concept'
+      };
+    }
+    if (current.notebookEntryId) {
+      return {
+        itemType: 'notebook',
+        itemId: current.notebookEntryId,
+        label: 'note'
+      };
+    }
+    if (current.articleId) {
+      return {
+        itemType: 'article',
+        itemId: current.articleId,
+        label: 'article'
+      };
+    }
+    return null;
   };
 
   const importCsvFile = async (file) => {
@@ -187,7 +254,13 @@ const DataIntegrations = () => {
     setImportStats(null);
     try {
       const data = await importCsvFile(file);
-      setImportStats(makeSummaryFromCsvResponse(data));
+      const summary = makeSummaryFromCsvResponse(data);
+      setImportStats(summary);
+      rememberFirstInsight({
+        sourceType: 'readwise-csv',
+        title: file.name || 'Readwise import',
+        counts: summary
+      });
       setStatus('Readwise import complete.', 'success');
     } catch (error) {
       console.error('Readwise import failed:', error);
@@ -206,7 +279,14 @@ const DataIntegrations = () => {
     setImportStats(null);
     try {
       const data = await importMarkdownFile(file);
-      setImportStats(makeSummaryFromNoteResponse(data));
+      const summary = makeSummaryFromNoteResponse(data);
+      setImportStats(summary);
+      rememberFirstInsight({
+        sourceType: 'markdown',
+        title: file.name || 'Imported markdown note',
+        notebookEntryId: summary.entryId,
+        counts: summary
+      });
       setStatus('Markdown import complete.', 'success');
     } catch (error) {
       console.error('Markdown import failed:', error);
@@ -232,9 +312,17 @@ const DataIntegrations = () => {
       const data = await createNotebookFromText({
         title: manualTitle,
         text: cleanText,
-        tags: parseTagList(manualTags)
+        tags: parseTagList(manualTags),
+        sourceType: 'manual-note'
       });
-      setImportStats(makeSummaryFromNoteResponse(data));
+      const summary = makeSummaryFromNoteResponse(data);
+      setImportStats(summary);
+      rememberFirstInsight({
+        sourceType: 'manual-note',
+        title: manualTitle || data.title || 'Untitled',
+        notebookEntryId: summary.entryId,
+        counts: summary
+      });
       setStatus('Note created from manual entry.', 'success');
       setManualText('');
       setManualTags('');
@@ -286,20 +374,41 @@ const DataIntegrations = () => {
         const csvName = `${String(pasteTitle || 'pasted-readwise').trim().replace(/\s+/g, '-').toLowerCase() || 'pasted-readwise'}.csv`;
         const csvFile = new File([text], csvName, { type: 'text/csv' });
         const data = await importCsvFile(csvFile);
-        setImportStats(makeSummaryFromCsvResponse(data));
+        const summary = makeSummaryFromCsvResponse(data);
+        setImportStats(summary);
+        rememberFirstInsight({
+          sourceType: 'readwise-csv',
+          title: csvName,
+          counts: summary
+        });
         setStatus('Pasted CSV imported successfully.', 'success');
       } else if (resolvedMode === 'markdown') {
         const markdownName = `${String(pasteTitle || 'pasted-note').trim().replace(/\s+/g, '-').toLowerCase() || 'pasted-note'}.md`;
         const markdownFile = new File([text], markdownName, { type: 'text/markdown' });
         const data = await importMarkdownFile(markdownFile);
-        setImportStats(makeSummaryFromNoteResponse(data));
+        const summary = makeSummaryFromNoteResponse(data);
+        setImportStats(summary);
+        rememberFirstInsight({
+          sourceType: 'markdown',
+          title: pasteTitle || 'Pasted markdown note',
+          notebookEntryId: summary.entryId,
+          counts: summary
+        });
         setStatus('Pasted markdown imported successfully.', 'success');
       } else {
         const data = await createNotebookFromText({
           title: pasteTitle,
-          text
+          text,
+          sourceType: 'paste'
         });
-        setImportStats(makeSummaryFromNoteResponse(data));
+        const summary = makeSummaryFromNoteResponse(data);
+        setImportStats(summary);
+        rememberFirstInsight({
+          sourceType: 'paste',
+          title: pasteTitle || data.title || 'Untitled',
+          notebookEntryId: summary.entryId,
+          counts: summary
+        });
         setStatus('Pasted text saved as a notebook note.', 'success');
       }
     } catch (error) {
@@ -309,6 +418,65 @@ const DataIntegrations = () => {
       setImporting((previous) => ({ ...previous, paste: false }));
     }
   };
+
+  const handleCreateConcept = async () => {
+    const cleanName = String(conceptName || '').trim();
+    if (!cleanName) {
+      setConceptError('Enter a concept name first.');
+      return;
+    }
+    setConceptBusy(true);
+    setConceptError('');
+    try {
+      const updated = await updateConcept(cleanName, { description: '' });
+      const next = updateFirstInsightState({
+        conceptId: String(updated?._id || ''),
+        conceptName: updated?.name || cleanName,
+        status: 'concept-created'
+      });
+      setActivationState(next);
+      setConceptName(next.conceptName || cleanName);
+      setStatus(`Concept "${next.conceptName || cleanName}" is ready.`, 'success');
+    } catch (error) {
+      console.error('Concept creation failed:', error);
+      setConceptError(error.response?.data?.error || 'Failed to create concept.');
+    } finally {
+      setConceptBusy(false);
+    }
+  };
+
+  const handleScheduleRevisit = async (days) => {
+    const target = getSchedulableTarget();
+    if (!target) {
+      setScheduleError('Create a note or concept first so there is something to revisit.');
+      return;
+    }
+    setScheduleBusy(true);
+    setScheduleError('');
+    try {
+      const dueAt = new Date(Date.now() + Number(days || 0) * 24 * 60 * 60 * 1000).toISOString();
+      await createReturnQueueEntry({
+        itemType: target.itemType,
+        itemId: target.itemId,
+        reason: 'First insight follow-up',
+        dueAt
+      });
+      const next = updateFirstInsightState({
+        status: 'scheduled',
+        dueAt
+      });
+      setActivationState(next);
+      setStatus(`Revisit scheduled in ${days} day${days === 1 ? '' : 's'}.`, 'success');
+    } catch (error) {
+      console.error('Failed to schedule revisit:', error);
+      setScheduleError(error.response?.data?.error || 'Failed to schedule revisit.');
+    } finally {
+      setScheduleBusy(false);
+    }
+  };
+
+  const hasActiveInsight = isFirstInsightActive(activationState);
+  const scheduleTarget = getSchedulableTarget();
 
   return (
     <Page>
@@ -481,6 +649,121 @@ const DataIntegrations = () => {
           </div>
         )}
       </Card>
+
+      {hasActiveInsight && (
+        <Card className="settings-card first-insight-card" data-testid="first-insight-card">
+          <h2>First insight workflow</h2>
+          <p className="muted">
+            Don’t stop at import. Turn this capture into something you can continue and revisit.
+          </p>
+          <p className="muted-label">In progress</p>
+          <p className="first-insight-summary">{getFirstInsightSummary(activationState)}</p>
+          <div className="capture-actions first-insight-actions">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => navigate(getFirstInsightOpenPath(activationState))}
+            >
+              {activationState?.conceptName ? 'Open concept in Think' : activationState?.notebookEntryId ? 'Open note in Think' : 'Open current item'}
+            </Button>
+            <Button type="button" variant="secondary" onClick={() => navigate('/today')}>
+              Open Today
+            </Button>
+            <Button type="button" variant="secondary" onClick={() => navigate('/review?tab=reflections')}>
+              Open Review
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => {
+                clearFirstInsightState();
+                setActivationState(null);
+                setConceptName('');
+                setConceptError('');
+                setScheduleError('');
+              }}
+            >
+              Clear
+            </Button>
+          </div>
+
+          <div className="first-insight-grid">
+            <div className="first-insight-panel">
+              <p className="muted-label">Recommended next step</p>
+              <label className="capture-label" htmlFor="first-insight-concept-name">Create or pick a concept</label>
+              <input
+                id="first-insight-concept-name"
+                data-testid="first-insight-concept-input"
+                className="capture-input"
+                type="text"
+                value={conceptName}
+                onChange={(event) => setConceptName(event.target.value)}
+                placeholder="e.g. Retrieval systems"
+                disabled={conceptBusy}
+              />
+              <div className="capture-actions">
+                <Button
+                  type="button"
+                  data-testid="first-insight-create-concept"
+                  onClick={handleCreateConcept}
+                  disabled={conceptBusy}
+                >
+                  {conceptBusy ? 'Creating…' : activationState?.conceptName ? 'Update concept target' : 'Create concept'}
+                </Button>
+                {activationState?.conceptName && (
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={() => navigate(`/think?tab=concepts&concept=${encodeURIComponent(activationState.conceptName)}`)}
+                  >
+                    Open concept
+                  </Button>
+                )}
+              </div>
+              {conceptError && <p className="status-message error-message">{conceptError}</p>}
+            </div>
+
+            <div className="first-insight-panel">
+              <p className="muted-label">Close the loop</p>
+              <p className="muted small">
+                {scheduleTarget
+                  ? `Schedule this ${scheduleTarget.label} back into your queue so it resurfaces automatically.`
+                  : 'Create a note or concept first, then schedule a revisit.'}
+              </p>
+              <div className="capture-actions">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  data-testid="first-insight-schedule-1d"
+                  onClick={() => handleScheduleRevisit(1)}
+                  disabled={scheduleBusy || !scheduleTarget}
+                >
+                  1 day
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  data-testid="first-insight-schedule-3d"
+                  onClick={() => handleScheduleRevisit(3)}
+                  disabled={scheduleBusy || !scheduleTarget}
+                >
+                  3 days
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  data-testid="first-insight-schedule-7d"
+                  onClick={() => handleScheduleRevisit(7)}
+                  disabled={scheduleBusy || !scheduleTarget}
+                >
+                  7 days
+                </Button>
+              </div>
+              {scheduleError && <p className="status-message error-message">{scheduleError}</p>}
+            </div>
+          </div>
+        </Card>
+      )}
 
       <Card className="settings-card">
         <h2>Export</h2>

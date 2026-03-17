@@ -10,6 +10,14 @@ import LibraryConceptModal from '../components/library/LibraryConceptModal';
 import LibraryNotebookModal from '../components/library/LibraryNotebookModal';
 import LibraryQuestionModal from '../components/library/LibraryQuestionModal';
 import { getAuthHeaders } from '../hooks/useAuthHeaders';
+import {
+  buildCanonicalArticlePath,
+  clearFirstInsightState,
+  getFirstInsightOpenPath,
+  getFirstInsightSummary,
+  isFirstInsightActive,
+  readFirstInsightState
+} from '../utils/firstInsight';
 
 const IMPORTANT_TAG = 'important';
 
@@ -25,6 +33,7 @@ const TodayMode = () => {
   const [questionModal, setQuestionModal] = useState({ open: false, highlight: null });
   const [error, setError] = useState('');
   const [focusFilter, setFocusFilter] = useState('today');
+  const [activationState, setActivationState] = useState(() => readFirstInsightState());
   const navigate = useNavigate();
 
   const authHeaders = useCallback(
@@ -154,14 +163,49 @@ const TodayMode = () => {
         </QuietButton>
       </div>
       <SubtleDivider />
-      <SectionHeader title="Saved views" subtitle="Optional shortcuts." />
-      <p className="muted small">Saved views will live here.</p>
+      <SectionHeader title="Canonical areas" subtitle="Stay inside the core flow." />
+      <div className="today-filter-list">
+        <QuietButton className="list-button" onClick={() => navigate('/library')}>
+          Library
+        </QuietButton>
+        <QuietButton className="list-button" onClick={() => navigate('/think?tab=notebook')}>
+          Think notebook
+        </QuietButton>
+        <QuietButton className="list-button" onClick={() => navigate('/think?tab=concepts')}>
+          Think concepts
+        </QuietButton>
+        <QuietButton className="list-button" onClick={() => navigate('/review?tab=reflections')}>
+          Review reflections
+        </QuietButton>
+      </div>
     </div>
   );
 
   const mainPanel = (
     <div className="section-stack">
       {error && <p className="status-message error-message">{error}</p>}
+      {isFirstInsightActive(activationState) && (
+        <Card className="search-section first-insight-card">
+          <SectionHeader title="First insight in progress" subtitle="Continue the thread you just captured." />
+          <p className="first-insight-summary">{getFirstInsightSummary(activationState)}</p>
+          <div className="capture-actions">
+            <Button variant="secondary" onClick={() => navigate(getFirstInsightOpenPath(activationState))}>
+              Open current thread
+            </Button>
+            <Button variant="secondary" onClick={() => navigate('/review?tab=reflections')}>
+              Open Review
+            </Button>
+            <QuietButton
+              onClick={() => {
+                clearFirstInsightState();
+                setActivationState(null);
+              }}
+            >
+              Clear
+            </QuietButton>
+          </div>
+        </Card>
+      )}
       <Card className="search-section" data-onboard-id="today-desk">
         <div className="search-section-header">
           <span className="eyebrow">Resurfaced highlights</span>
@@ -277,7 +321,7 @@ const TodayMode = () => {
           <div className="today-context-title">{selectedItem.data.articleTitle || 'Untitled article'}</div>
           <div className="today-context-text">{selectedItem.data.text}</div>
           <div className="section-stack">
-            <Button variant="secondary" onClick={() => navigate(`/articles/${selectedItem.data.articleId}`)}>
+            <Button variant="secondary" onClick={() => navigate(buildCanonicalArticlePath(selectedItem.data.articleId))}>
               Open source
             </Button>
             <Button variant="secondary" onClick={() => setNotebookModal({ open: true, highlight: selectedItem.data })}>
@@ -327,7 +371,7 @@ const TodayMode = () => {
       {selectedItem?.type === 'article' && (
         <div className="section-stack">
           <div className="today-context-title">{selectedItem.data.title || 'Untitled article'}</div>
-          <Button variant="secondary" onClick={() => navigate(`/articles/${selectedItem.data._id}`)}>
+          <Button variant="secondary" onClick={() => navigate(buildCanonicalArticlePath(selectedItem.data._id))}>
             Open article
           </Button>
         </div>
@@ -335,10 +379,10 @@ const TodayMode = () => {
       <SubtleDivider />
       <SectionHeader title="Quick actions" subtitle="Keep momentum." />
       <div className="section-stack">
-        <QuietButton onClick={() => navigate('/notebook')}>New Note</QuietButton>
+        <QuietButton onClick={() => navigate('/think?tab=notebook')}>New Note</QuietButton>
         <QuietButton onClick={() => navigate('/library')}>Open Library</QuietButton>
         <QuietButton onClick={() => navigate('/review?tab=reflections')}>Open Review → Reflections</QuietButton>
-        <QuietButton onClick={() => navigate('/export')}>Export</QuietButton>
+        <QuietButton onClick={() => navigate('/settings')}>Settings & Export</QuietButton>
       </div>
     </div>
   );

@@ -1,0 +1,44 @@
+<svg width="1600" height="900" viewBox="0 0 1600 900" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1600" height="900" fill="#F4EFE6"/>
+  <rect x="34" y="20" width="1532" height="54" rx="16" fill="#FBF8F2" stroke="#D9CCB6"/>
+  <rect x="210" y="31" width="460" height="31" rx="16" fill="#F1EADF" stroke="#D9CCB6"/>
+  <text x="230" y="50" font-size="14" fill="#8F806D" font-family="Arial">Search notes and highlights...</text>
+  <g font-family="Arial" font-size="13" fill="#3F3428">
+    <rect x="1218" y="30" width="68" height="32" rx="16" fill="#FBF8F2" stroke="#D9CCB6"/><text x="1241" y="50">Help</text>
+    <rect x="1296" y="30" width="84" height="32" rx="16" fill="#FBF8F2" stroke="#D9CCB6"/><text x="1319" y="50">Profile</text>
+    <rect x="1390" y="30" width="72" height="32" rx="16" fill="#FBF8F2" stroke="#D9CCB6"/><text x="1416" y="50">Share</text>
+    <rect x="1472" y="30" width="72" height="32" rx="16" fill="#FBF8F2" stroke="#D9CCB6"/><text x="1499" y="50">Move</text>
+  </g>
+
+  <rect x="34" y="96" width="186" height="770" rx="16" fill="#FBF8F2" stroke="#D9CCB6"/>
+  <text x="56" y="124" font-size="28" fill="#3F3428" font-family="Georgia">Library</text>
+  <g fill="#F1EADF" stroke="#D9CCB6">
+    <rect x="48" y="158" width="158" height="42" rx="10"/><rect x="48" y="208" width="158" height="42" rx="10"/>
+    <rect x="48" y="258" width="158" height="42" rx="10"/><rect x="48" y="308" width="158" height="42" rx="10"/>
+    <rect x="48" y="358" width="158" height="42" rx="10"/><rect x="48" y="408" width="158" height="42" rx="10"/>
+  </g>
+
+  <rect x="1320" y="96" width="246" height="770" rx="16" fill="#FBF8F2" stroke="#D9CCB6"/>
+  <text x="1344" y="124" font-size="12" fill="#8F806D" font-family="Arial" letter-spacing="1.2">CONTEXT</text>
+
+  <rect x="246" y="96" width="1060" height="770" rx="20" fill="#FBF8F2" stroke="#D9CCB6"/>
+  <text x="286" y="146" font-size="58" fill="#3F3428" font-family="Georgia">Flounder Mode</text>
+  <text x="288" y="182" font-size="15" fill="#8F806D" font-family="Arial">Oct 19, 2025  •  Open source</text>
+
+  <rect x="286" y="220" width="982" height="602" rx="14" fill="#FFFDF8" stroke="#DDCFB8"/>
+  <g font-family="Georgia" fill="#3F3428" font-size="22">
+    <text x="352" y="274">Kevin Kelly is not known for one big thing, and that is the point of the work.</text>
+    <text x="352" y="320">He is as intelligent, hard-working, and patient as history's iconic makers.</text>
+    <rect x="350" y="338" width="728" height="30" rx="6" fill="#E6DECB" stroke="#D5C7AD"/>
+    <text x="352" y="362">Instead, in his words, he works Hollywood style in a series of projects.</text>
+    <text x="352" y="410">Kelly was an editor of the Whole Earth Catalog in the early 1980s.</text>
+    <text x="352" y="456">He helped start WELL, one of the first online communities in 1985.</text>
+    <text x="352" y="502">He co-founded WIRED magazine in 1993 and wrote a dozen books.</text>
+    <rect x="350" y="520" width="660" height="30" rx="6" fill="#E6DECB" stroke="#D5C7AD"/>
+    <text x="352" y="544">He rides a bike across the United States and draws deep analogies.</text>
+    <text x="352" y="592">What matters most is his sustained curiosity over long timelines.</text>
+    <text x="352" y="638">This mode emphasizes stillness, margin, and uninterrupted reading.</text>
+  </g>
+
+  <text x="286" y="846" font-size="14" fill="#7C694F" font-family="Arial">Option A  Quiet Reader Focus: narrower text measure, softer paper card, lower UI noise.</text>
+</svg>

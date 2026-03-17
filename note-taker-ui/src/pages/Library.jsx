@@ -40,6 +40,7 @@ const Library = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const scope = searchParams.get('scope') || 'all';
   const folderId = searchParams.get('folderId') || '';
+  const requestedArticleId = searchParams.get('articleId') || '';
   const highlightQuery = searchParams.get('hq') || '';
   const highlightView = searchParams.get('highlightView') || 'concept';
   const [selectedArticleId, setSelectedArticleId] = useState('');
@@ -110,6 +111,13 @@ const Library = () => {
   }, [scope, folderId]);
 
   useEffect(() => {
+    if (!requestedArticleId) return;
+    if (requestedArticleId === selectedArticleId) return;
+    setSelectedArticleId(requestedArticleId);
+    localStorage.setItem('library.lastArticleId', requestedArticleId);
+  }, [requestedArticleId, selectedArticleId]);
+
+  useEffect(() => {
     if (searchParams.get('scope')) return;
     const params = new URLSearchParams(searchParams);
     params.set('scope', 'all');
@@ -128,6 +136,7 @@ const Library = () => {
     const params = new URLSearchParams(searchParams);
     params.set('scope', nextScope);
     params.delete('folderId');
+    params.delete('articleId');
     if (nextScope !== 'highlights') {
       params.delete('hq');
       params.delete('highlightView');
@@ -141,13 +150,21 @@ const Library = () => {
     const params = new URLSearchParams(searchParams);
     params.set('scope', 'folder');
     params.set('folderId', id);
+    params.delete('articleId');
     setSearchParams(params);
   }, [searchParams, setSearchParams]);
 
   const handleSelectArticle = useCallback((id) => {
     setSelectedArticleId(id);
     localStorage.setItem('library.lastArticleId', id);
-  }, []);
+    const params = new URLSearchParams(searchParams);
+    if (id) {
+      params.set('articleId', id);
+    } else {
+      params.delete('articleId');
+    }
+    setSearchParams(params, { replace: false });
+  }, [searchParams, setSearchParams]);
 
   const handleSelectHighlightView = useCallback((view) => {
     const params = new URLSearchParams(searchParams);

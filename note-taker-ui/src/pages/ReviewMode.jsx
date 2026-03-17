@@ -11,6 +11,14 @@ import LibraryQuestionModal from '../components/library/LibraryQuestionModal';
 import { createQuestion } from '../api/questions';
 import { getAuthHeaders } from '../hooks/useAuthHeaders';
 import SemanticRelatedPanel from '../components/retrieval/SemanticRelatedPanel';
+import {
+  buildCanonicalArticlePath,
+  clearFirstInsightState,
+  getFirstInsightOpenPath,
+  getFirstInsightSummary,
+  isFirstInsightActive,
+  readFirstInsightState
+} from '../utils/firstInsight';
 
 const ReviewMode = () => {
   const tabs = useMemo(() => ([
@@ -27,6 +35,7 @@ const ReviewMode = () => {
   const [resurfaceLoading, setResurfaceLoading] = useState(false);
   const [resurfaceError, setResurfaceError] = useState('');
   const [activeHighlightId, setActiveHighlightId] = useState('');
+  const [activationState, setActivationState] = useState(() => readFirstInsightState());
   const [conceptModal, setConceptModal] = useState({ open: false, highlight: null });
   const [notebookModal, setNotebookModal] = useState({ open: false, highlight: null });
   const [questionModal, setQuestionModal] = useState({ open: false, highlight: null });
@@ -402,6 +411,28 @@ const ReviewMode = () => {
 
   const rightPanel = (
     <div className="section-stack review-mode__right-panel">
+      {isFirstInsightActive(activationState) && (
+        <Card className="search-section first-insight-card">
+          <SectionHeader title="First insight" subtitle="Review is where the loop closes." />
+          <p className="first-insight-summary">{getFirstInsightSummary(activationState)}</p>
+          <div className="capture-actions">
+            <Button variant="secondary" onClick={() => navigate(getFirstInsightOpenPath(activationState))}>
+              Open current thread
+            </Button>
+            <Button variant="secondary" onClick={() => navigate('/today')}>
+              Open Today
+            </Button>
+            <QuietButton
+              onClick={() => {
+                clearFirstInsightState();
+                setActivationState(null);
+              }}
+            >
+              Clear
+            </QuietButton>
+          </div>
+        </Card>
+      )}
       <SectionHeader
         title={active === 'reflections' ? 'Quick actions' : 'Review tools'}
         subtitle={active === 'reflections' ? 'Keep momentum.' : 'Lightweight by design.'}
@@ -413,7 +444,7 @@ const ReviewMode = () => {
               <div className="review-resurface-context-title">{selectedHighlight.articleTitle || 'Untitled article'}</div>
               <div className="review-resurface-context-text">{selectedHighlight.text}</div>
               <div className="review-resurface-context-actions">
-                <Button variant="secondary" onClick={() => navigate(`/articles/${selectedHighlight.articleId}`)}>
+                <Button variant="secondary" onClick={() => navigate(buildCanonicalArticlePath(selectedHighlight.articleId))}>
                   Open Article
                 </Button>
                 <Button variant="secondary" onClick={() => setNotebookModal({ open: true, highlight: selectedHighlight })}>

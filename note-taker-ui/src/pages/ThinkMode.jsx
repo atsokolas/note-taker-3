@@ -55,6 +55,12 @@ import {
   promoteWorkingMemory,
   splitWorkingMemory
 } from '../api/workingMemory';
+import {
+  buildCanonicalArticlePath,
+  clearFirstInsightState,
+  getFirstInsightOpenPath,
+  readFirstInsightState
+} from '../utils/firstInsight';
 
 const THINK_RIGHT_STORAGE_KEY = 'workspace-right-open:/think';
 const THINK_RIGHT_MIGRATION_KEY = 'workspace-right-open:/think:migrated-v2';
@@ -229,6 +235,7 @@ const ThinkMode = () => {
   const [highlightOffset, setHighlightOffset] = useState(0);
   const [recentHighlights, setRecentHighlights] = useState([]);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [activationState, setActivationState] = useState(() => readFirstInsightState());
   const [activeNotebookEntry, setActiveNotebookEntry] = useState(null);
   const [activeQuestion, setActiveQuestion] = useState(null);
   const highlightsEnabled = activeView !== 'insights';
@@ -1158,7 +1165,7 @@ const ThinkMode = () => {
 
   const handleOpenHomeArticle = useCallback((articleId) => {
     if (!articleId) return;
-    window.location.href = `/articles/${encodeURIComponent(articleId)}`;
+    window.location.href = buildCanonicalArticlePath(articleId);
   }, []);
 
   const handleSelectPath = useCallback((pathId) => {
@@ -2252,12 +2259,18 @@ const ThinkMode = () => {
       loading={conceptsLoading || notebookLoadingList || allQuestionsLoading}
       queueLoading={homeQueueLoading}
       articlesLoading={homeArticlesLoading}
+      activationState={activationState}
       onOpenTarget={handleOpenHomeTarget}
       onOpenNotebook={handleSelectNotebookEntry}
       onOpenConcept={handleSelectConcept}
       onOpenQuestion={handleOpenQuestion}
       onOpenReturnQueueItem={handleOpenReturnQueueEntry}
       onOpenArticle={handleOpenHomeArticle}
+      onOpenActivation={() => { window.location.href = getFirstInsightOpenPath(activationState); }}
+      onClearActivation={() => {
+        clearFirstInsightState();
+        setActivationState(null);
+      }}
       onCreateNote={handleCreateNotebookEntry}
       onCreateConcept={() => handleSelectView('concepts')}
       onCreateFromTemplate={openTemplatePicker}

@@ -1,6 +1,7 @@
 import React from 'react';
 import { SectionHeader, SurfaceCard, QuietButton, PillButton } from '../ui';
 import SkeletonBlock from '../SkeletonBlock';
+import { getFirstInsightSummary, isFirstInsightActive } from '../../utils/firstInsight';
 
 const formatRelativeTime = (value) => {
   if (!value) return '';
@@ -38,12 +39,15 @@ const ThinkHome = ({
   queueLoading = false,
   articlesLoading = false,
   loading = false,
+  activationState = null,
   onOpenTarget = () => {},
   onOpenNotebook = () => {},
   onOpenConcept = () => {},
   onOpenQuestion = () => {},
   onOpenReturnQueueItem = () => {},
   onOpenArticle = () => {},
+  onOpenActivation = () => {},
+  onClearActivation = () => {},
   onCreateNote = () => {},
   onCreateConcept = () => {},
   onCreateFromTemplate = () => {},
@@ -53,6 +57,22 @@ const ThinkHome = ({
 
   return (
     <div className="think-home section-stack">
+      {isFirstInsightActive(activationState) && (
+        <SurfaceCard className="think-home__panel first-insight-card">
+          <SectionHeader
+            title="First insight in progress"
+            subtitle="Keep the capture-to-revisit loop moving."
+            action={(
+              <div className="think-home__continue-actions">
+                <PillButton onClick={onOpenActivation}>Open thread</PillButton>
+                <PillButton variant="secondary" onClick={onClearActivation}>Clear</PillButton>
+              </div>
+            )}
+          />
+          <p className="first-insight-summary">{getFirstInsightSummary(activationState)}</p>
+        </SurfaceCard>
+      )}
+
       <SurfaceCard className="think-home__continue">
         <SectionHeader
           title="Continue"
