@@ -330,6 +330,10 @@ const AiSecondBrain = () => {
             Start with a small real project, bring in a few sources, connect the notes, and see whether your
             thinking gets clearer.
           </p>
+          <p className="seo-related-guides">
+            Related guides: <a href="/second-brain-app">Second Brain App</a> and{' '}
+            <a href="/ai-note-taking-workflow">AI Note-Taking Workflow</a>.
+          </p>
           <div className="seo-cta-row">
             <Link to="/register" className="ui-button ui-button-primary">Start free</Link>
             <Link to="/" className="ui-button ui-button-secondary">See how Note Taker works</Link>

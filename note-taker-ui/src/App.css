@@ -3118,6 +3118,12 @@ body {
   color: var(--text-color-secondary);
 }
 
+.landing-guide-links {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
 .landing-inline-link {
   color: var(--primary-color);
   font-weight: 600;

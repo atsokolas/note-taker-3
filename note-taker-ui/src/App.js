@@ -24,6 +24,9 @@ import HowToUse from './pages/HowToUse';
 import Integrations from './pages/Integrations';
 import DataIntegrations from './pages/DataIntegrations';
 import AiSecondBrain from './pages/AiSecondBrain';
+import GuidesHub from './pages/GuidesHub';
+import SecondBrainApp from './pages/SecondBrainApp';
+import AiNoteTakingWorkflow from './pages/AiNoteTakingWorkflow';
 import PrivacyPolicy from './pages/PrivacyPolicy';
 import TermsOfUse from './pages/TermsOfUse';
 import CommandPalette from './components/CommandPalette';
@@ -71,13 +74,21 @@ const LegacyArticleRedirect = () => {
 
 const PublicRoutes = ({ chromeStoreLink, handleLoginSuccess, uiSettings }) => {
   const location = useLocation();
-  const isLongformRoute = location.pathname === '/ai-second-brain';
+  const isLongformRoute = (
+    location.pathname === '/ai-second-brain'
+    || location.pathname === '/second-brain-app'
+    || location.pathname === '/ai-note-taking-workflow'
+    || location.pathname === '/guides'
+  );
 
   return (
     <div className={isLongformRoute ? 'auth-pages-container auth-pages-container--scroll' : 'auth-pages-container'}>
       <Routes>
         <Route path="/" element={<Landing />} />
+        <Route path="/guides" element={<GuidesHub />} />
         <Route path="/ai-second-brain" element={<AiSecondBrain />} />
+        <Route path="/second-brain-app" element={<SecondBrainApp />} />
+        <Route path="/ai-note-taking-workflow" element={<AiNoteTakingWorkflow />} />
         <Route path="/privacy" element={<PrivacyPolicy />} />
         <Route path="/terms" element={<TermsOfUse />} />
         <Route path="/register" element={<Register chromeStoreLink={chromeStoreLink} />} />
@@ -233,7 +244,12 @@ function App() {
     const isMapRoute = location.pathname.startsWith('/map');
     const isReviewRoute = location.pathname.startsWith('/review');
     const isTodayRoute = location.pathname.startsWith('/today');
-    const isSeoRoute = location.pathname === '/ai-second-brain';
+    const isSeoRoute = (
+      location.pathname === '/ai-second-brain'
+      || location.pathname === '/second-brain-app'
+      || location.pathname === '/ai-note-taking-workflow'
+      || location.pathname === '/guides'
+    );
     const isLegacyRedirectRoute = (
       location.pathname.startsWith('/articles/')
       || location.pathname === '/journey'
@@ -273,7 +289,10 @@ function App() {
           <Route path="/how-to-use" element={<HowToUse />} />
           <Route path="/integrations" element={<Integrations />} />
           <Route path="/data-integrations" element={<DataIntegrations />} />
+          <Route path="/guides" element={<GuidesHub />} />
           <Route path="/ai-second-brain" element={<AiSecondBrain />} />
+          <Route path="/second-brain-app" element={<SecondBrainApp />} />
+          <Route path="/ai-note-taking-workflow" element={<AiNoteTakingWorkflow />} />
           <Route path="/privacy" element={<PrivacyPolicy />} />
           <Route path="/terms" element={<TermsOfUse />} />
 

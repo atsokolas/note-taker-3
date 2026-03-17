@@ -108,24 +108,36 @@
 .seo-example-grid,
 .seo-compare-grid,
 .seo-mistake-list,
-.seo-faq-list {
+.seo-faq-list,
+.seo-guide-grid {
   display: grid;
   gap: 16px;
 }
 
 .seo-example-grid,
-.seo-compare-grid {
+.seo-compare-grid,
+.seo-guide-grid {
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
 }
 
 .seo-example-card,
 .seo-compare-card,
+.seo-guide-card,
 .seo-mistake-list section,
 .seo-faq-list section {
   padding: 20px;
   border-radius: 18px;
   background: #f5f8fc;
   border: 1px solid rgba(21, 32, 51, 0.08);
+}
+
+.seo-guide-card {
+  text-decoration: none;
+  color: inherit;
+}
+
+.seo-related-guides {
+  color: #425063;
 }
 
 .seo-callout {

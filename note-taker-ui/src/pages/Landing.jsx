@@ -53,9 +53,11 @@ const Landing = () => {
           Read the practical guide to what an AI second brain should actually do for research,
           synthesis, and writing.
         </p>
-        <Link to="/ai-second-brain" className="landing-inline-link">
-          Read the guide
-        </Link>
+        <div className="landing-guide-links">
+          <Link to="/guides" className="landing-inline-link">Browse guides</Link>
+          <Link to="/ai-second-brain" className="landing-inline-link">AI second brain</Link>
+          <Link to="/second-brain-app" className="landing-inline-link">Second brain app</Link>
+        </div>
       </Card>
 
       <div className="landing-grid">
