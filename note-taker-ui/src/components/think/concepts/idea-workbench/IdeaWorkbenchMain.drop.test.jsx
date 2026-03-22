@@ -54,7 +54,17 @@ const createModel = () => ({
       html: '<p>Draft</p>'
     },
     agent: {
-      comments: []
+      comments: [
+        {
+          id: 'comment-1',
+          target: 'hypothesis',
+          tone: 'support',
+          kind: 'hypothesis-suggestion',
+          title: 'Suggested revision kept separate',
+          body: 'Try making the mechanism more explicit.',
+          caption: 'Kept separate from your draft until you choose to use it.'
+        }
+      ]
     }
   },
   counts: {
@@ -81,6 +91,8 @@ const createModel = () => ({
     deleteCard: jest.fn(),
     tagCard: jest.fn(),
     updateHypothesisHtml: jest.fn(),
+    acceptAgentComment: jest.fn(),
+    dismissAgentComment: jest.fn(),
     snapshotHypothesis: jest.fn(),
     runQuickAction: jest.fn(),
     insertCardIntoHypothesis: jest.fn()
@@ -113,5 +125,16 @@ describe('IdeaWorkbenchMain drag drop routing', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Drop to supports' }));
     expect(model.actions.moveCard).toHaveBeenCalledWith('card-1', 'supports');
+  });
+
+  it('lets the user accept or dismiss an agent proposal', () => {
+    const model = createModel();
+    render(<IdeaWorkbenchMain model={model} utilityActions={{}} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Blend into draft' }));
+    expect(model.actions.acceptAgentComment).toHaveBeenCalledWith('comment-1');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Dismiss' }));
+    expect(model.actions.dismissAgentComment).toHaveBeenCalledWith('comment-1');
   });
 });

@@ -278,8 +278,11 @@
 .idea-workbench-card__header,
 .idea-workbench-card__actions,
 .idea-workbench-card__meta,
+.idea-workbench-comment__header,
 .idea-workbench-hypothesis__meta,
 .idea-workbench-rail__comment-header,
+.idea-workbench-rail__comment-badges,
+.idea-workbench-comment__actions,
 .idea-workbench-rail__suggestion-actions {
   display: flex;
   align-items: center;
@@ -454,6 +457,26 @@
   border: 1px solid color-mix(in srgb, var(--border-subtle) 78%, transparent);
 }
 
+.idea-workbench-comment--proposal,
+.idea-workbench-rail__comment--proposal {
+  position: relative;
+  overflow: hidden;
+  background:
+    linear-gradient(135deg, rgba(247, 243, 235, 0.96), rgba(241, 234, 220, 0.88)),
+    rgba(255, 251, 244, 0.74);
+  border-color: rgba(198, 177, 137, 0.72);
+  box-shadow: 0 16px 28px rgba(95, 73, 42, 0.07);
+}
+
+.idea-workbench-comment--proposal::before,
+.idea-workbench-rail__comment--proposal::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  background: linear-gradient(180deg, rgba(178, 145, 88, 0.88), rgba(206, 187, 151, 0.5));
+}
+
 .idea-workbench-comment--warning,
 .idea-workbench-rail__comment--warning {
   background: rgba(250, 240, 228, 0.88);
@@ -468,6 +491,33 @@
   display: flex;
   flex-direction: column;
   gap: 14px;
+}
+
+.idea-workbench-comment__header h4,
+.idea-workbench-rail__comment-header h4 {
+  margin-bottom: 4px;
+}
+
+.idea-workbench-comment__caption,
+.idea-workbench-rail__comment-caption {
+  margin: 0;
+  max-width: 56ch;
+  color: color-mix(in srgb, var(--text-muted) 88%, #71562e);
+  font-size: 0.86rem;
+  line-height: 1.45;
+}
+
+.idea-workbench-comment--proposal > p:last-of-type,
+.idea-workbench-rail__comment--proposal > p:last-of-type {
+  font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif;
+  font-size: 1.02rem;
+  line-height: 1.68;
+  color: color-mix(in srgb, var(--text-primary) 88%, #3e2f1b);
+}
+
+.idea-workbench-comment__actions {
+  justify-content: flex-start;
+  margin-top: 12px;
 }
 
 .idea-workbench-rail__card {

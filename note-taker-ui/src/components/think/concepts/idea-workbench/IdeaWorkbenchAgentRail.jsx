@@ -21,7 +21,9 @@ const EVENT_LABELS = {
   chat_user_message: 'Question sent',
   chat_agent_reply: 'Agent replied',
   chat_agent_fallback: 'Fallback reply',
-  conflict_resolved: 'Conflict resolved'
+  conflict_resolved: 'Conflict resolved',
+  agent_suggestion_accepted: 'Agent suggestion accepted',
+  agent_suggestion_dismissed: 'Agent suggestion dismissed'
 };
 
 const formatEventTime = (value) => {
@@ -75,6 +77,12 @@ const describeEventDetail = (event) => {
       : payload.mode === 'local'
         ? 'Saved the local draft over the newer server copy.'
         : 'Accepted the newer server copy.';
+  }
+  if (event?.type === 'agent_suggestion_accepted') {
+    return 'Folded the agent proposal into the hypothesis so it now reads as part of the draft.';
+  }
+  if (event?.type === 'agent_suggestion_dismissed') {
+    return 'Removed the separate proposal without changing the current hypothesis.';
   }
   return '';
 };
@@ -185,13 +193,32 @@ const IdeaWorkbenchAgentRail = ({ model }) => {
 
         <div className="idea-workbench-rail__comments">
           {comments.map((comment) => (
-            <div key={comment.id} className={`idea-workbench-rail__comment idea-workbench-rail__comment--${comment.tone}`}>
+            <div
+              key={comment.id}
+              className={`idea-workbench-rail__comment idea-workbench-rail__comment--${comment.tone} ${comment.kind === 'hypothesis-suggestion' ? 'idea-workbench-rail__comment--proposal' : ''}`.trim()}
+            >
               <div className="idea-workbench-rail__comment-header">
-                <h4>{comment.title}</h4>
-                <TagChip>{comment.target}</TagChip>
+                <div>
+                  <h4>{comment.title}</h4>
+                  {comment.caption && <p className="idea-workbench-rail__comment-caption">{comment.caption}</p>}
+                </div>
+                <div className="idea-workbench-rail__comment-badges">
+                  {comment.kind === 'hypothesis-suggestion' && <TagChip>Agent proposal</TagChip>}
+                  <TagChip>{comment.target}</TagChip>
+                </div>
               </div>
               {comment.anchorText && <p className="idea-workbench-rail__comment-anchor">“{comment.anchorText}”</p>}
               <p>{comment.body}</p>
+              {comment.kind === 'hypothesis-suggestion' && (
+                <div className="idea-workbench-comment__actions">
+                  <QuietButton type="button" onClick={() => model.actions.acceptAgentComment(comment.id)}>
+                    Blend into draft
+                  </QuietButton>
+                  <QuietButton type="button" onClick={() => model.actions.dismissAgentComment(comment.id)}>
+                    Dismiss
+                  </QuietButton>
+                </div>
+              )}
             </div>
           ))}
         </div>

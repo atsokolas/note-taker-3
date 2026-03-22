@@ -319,10 +319,31 @@ const IdeaWorkbenchMain = ({
               .filter(comment => comment.target === 'hypothesis')
               .slice(0, 3)
               .map((comment) => (
-                <div key={comment.id} className={`idea-workbench-comment idea-workbench-comment--${comment.tone}`}>
-                  <h4>{comment.title}</h4>
+                <div
+                  key={comment.id}
+                  className={`idea-workbench-comment idea-workbench-comment--${comment.tone} ${comment.kind === 'hypothesis-suggestion' ? 'idea-workbench-comment--proposal' : ''}`.trim()}
+                >
+                  <div className="idea-workbench-comment__header">
+                    <div>
+                      <h4>{comment.title}</h4>
+                      {comment.caption && <p className="idea-workbench-comment__caption">{comment.caption}</p>}
+                    </div>
+                    {comment.kind === 'hypothesis-suggestion' && (
+                      <TagChip>Agent proposal</TagChip>
+                    )}
+                  </div>
                   {comment.anchorText && <p className="idea-workbench-comment__anchor">On: “{comment.anchorText}”</p>}
                   <p>{comment.body}</p>
+                  {comment.kind === 'hypothesis-suggestion' && (
+                    <div className="idea-workbench-comment__actions">
+                      <Button type="button" variant="secondary" onClick={() => model.actions.acceptAgentComment(comment.id)}>
+                        Blend into draft
+                      </Button>
+                      <QuietButton type="button" onClick={() => model.actions.dismissAgentComment(comment.id)}>
+                        Dismiss
+                      </QuietButton>
+                    </div>
+                  )}
                 </div>
               ))}
           </div>

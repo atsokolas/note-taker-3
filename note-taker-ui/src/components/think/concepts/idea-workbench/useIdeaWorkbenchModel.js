@@ -9,6 +9,7 @@ import {
 } from '../../../../api/concepts';
 import useConceptMaterial from '../../../../hooks/useConceptMaterial';
 import { mergeWorkbenchStates } from './ideaWorkbenchMerge';
+import { resolveAgentHypothesisSuggestion } from './ideaWorkbenchAgentSuggestion';
 
 const STORAGE_VERSION = 1;
 const STORAGE_PREFIX = 'idea-workbench';
@@ -316,7 +317,18 @@ const buildMaterialLibrary = ({ concept, material, related, questions }) => {
   return cards.slice(0, MATERIAL_LIBRARY_LIMIT);
 };
 
-const createAgentComment = ({ title, body, tone = 'signal', anchorText = '', relatedCardId = '', target = 'hypothesis' }) => ({
+const createAgentComment = ({
+  title,
+  body,
+  tone = 'signal',
+  anchorText = '',
+  relatedCardId = '',
+  target = 'hypothesis',
+  kind = 'note',
+  status = 'active',
+  caption = '',
+  suggestedHtml = ''
+}) => ({
   id: createId('comment'),
   title,
   body,
@@ -324,6 +336,10 @@ const createAgentComment = ({ title, body, tone = 'signal', anchorText = '', rel
   anchorText,
   relatedCardId,
   target,
+  kind,
+  status,
+  caption,
+  suggestedHtml,
   createdAt: new Date().toISOString()
 });
 
@@ -630,33 +646,33 @@ const buildQuickActionResult = (action, state, library) => {
       : action === 'rewrite-clearly'
         ? 'rewrite'
         : 'propose';
-    const nextHtml = buildHypothesisDraft({
+    const suggestedText = stripHtml(buildHypothesisDraft({
       header: state.header,
       cards: state.cards,
       currentHtml: state.hypothesis.html,
       mode
+    }));
+    const suggestion = resolveAgentHypothesisSuggestion({
+      currentHtml: state.hypothesis.html,
+      proposedText: suggestedText,
+      action
     });
-    const summary = action === 'propose-hypothesis'
-      ? 'Agent proposed a more explicit working hypothesis from the current evidence.'
-      : action === 'strengthen-hypothesis'
-        ? 'Agent strengthened the claim by tying it more directly to current supports.'
-        : 'Agent rewrote the draft for clarity and compression.';
     return {
       nextCards: state.cards,
-      nextHypothesisHtml: nextHtml,
-      versionSummary: summary,
+      nextHypothesisHtml: suggestion.nextHypothesisHtml,
+      versionSummary: suggestion.versionSummary,
       comment: createAgentComment({
-        title: action === 'rewrite-clearly' ? 'Clearer phrasing proposed' : 'Hypothesis revision proposed',
-        body: action === 'strengthen-hypothesis'
-          ? 'This revision makes the causal claim more explicit and ties it more directly to the evidence already in support.'
-          : action === 'rewrite-clearly'
-            ? 'This rewrite reduces abstraction so the claim can be challenged more concretely.'
-            : 'This is a proposed draft, not a conclusion. Use it as something to sharpen against support and contradiction.',
+        title: suggestion.commentTitle,
+        body: suggestion.commentBody,
         tone: 'support',
-        anchorText: truncate(stripHtml(nextHtml), 88)
+        anchorText: truncate(stripHtml(state.hypothesis.html), 88),
+        kind: suggestion.applied ? 'note' : 'hypothesis-suggestion',
+        status: suggestion.applied ? 'active' : 'pending',
+        caption: suggestion.commentCaption || '',
+        suggestedHtml: suggestion.applied ? '' : textToHtml(suggestedText)
       }),
       message: createAgentMessage({
-        text: summary,
+        text: suggestion.messageText,
         action
       })
     };
@@ -1122,6 +1138,50 @@ export const useIdeaWorkbenchModel = ({
     }));
   }, []);
 
+  const acceptAgentComment = useCallback((commentId) => {
+    const comment = state.agent.comments.find((entry) => entry.id === commentId);
+    if (!comment?.suggestedHtml) return;
+
+    setState((previous) => ({
+      ...previous,
+      hypothesis: {
+        ...previous.hypothesis,
+        html: `${previous.hypothesis.html || '<p></p>'}${comment.suggestedHtml}`
+      },
+      agent: {
+        ...previous.agent,
+        comments: previous.agent.comments.filter((entry) => entry.id !== commentId)
+      }
+    }));
+
+    appendWorkbenchEvents(createWorkbenchEvent({
+      type: 'agent_suggestion_accepted',
+      actor: 'user',
+      summary: 'Accepted an agent hypothesis suggestion.',
+      payload: { commentId, target: comment.target }
+    }));
+  }, [appendWorkbenchEvents, state.agent.comments]);
+
+  const dismissAgentComment = useCallback((commentId) => {
+    const comment = state.agent.comments.find((entry) => entry.id === commentId);
+    if (!comment) return;
+
+    setState((previous) => ({
+      ...previous,
+      agent: {
+        ...previous.agent,
+        comments: previous.agent.comments.filter((entry) => entry.id !== commentId)
+      }
+    }));
+
+    appendWorkbenchEvents(createWorkbenchEvent({
+      type: 'agent_suggestion_dismissed',
+      actor: 'user',
+      summary: 'Dismissed an agent hypothesis suggestion.',
+      payload: { commentId, target: comment.target }
+    }));
+  }, [appendWorkbenchEvents, state.agent.comments]);
+
   const snapshotHypothesis = useCallback((summary = '') => {
     setState((previous) => {
       const nextMaturity = computeMaturity({ cards: previous.cards, hypothesisHtml: previous.hypothesis.html });
@@ -1315,25 +1375,33 @@ export const useIdeaWorkbenchModel = ({
           setAgentModeLabel('Reasoning');
           const { reply, relatedCards } = await runActionWithAgent(action);
           if (reply) {
-            const createsVersion = ['propose-hypothesis', 'strengthen-hypothesis', 'rewrite-clearly'].includes(action);
+            const suggestion = ['propose-hypothesis', 'strengthen-hypothesis', 'rewrite-clearly'].includes(action)
+              ? resolveAgentHypothesisSuggestion({
+                currentHtml: state.hypothesis.html,
+                proposedText: reply,
+                action
+              })
+              : null;
             appendAgentArtifacts({
               nextCards: relatedCards.length ? [...state.cards, ...relatedCards] : state.cards,
-              nextHypothesisHtml: createsVersion ? textToHtml(reply) : state.hypothesis.html,
-              versionSummary: createsVersion
-                ? action === 'propose-hypothesis'
-                  ? 'Agent proposed a sharper hypothesis using the current evidence.'
-                  : action === 'strengthen-hypothesis'
-                    ? 'Agent strengthened the hypothesis against the current support set.'
-                    : 'Agent rewrote the hypothesis for clarity.'
-                : '',
+              nextHypothesisHtml: suggestion?.nextHypothesisHtml || state.hypothesis.html,
+              versionSummary: suggestion?.versionSummary || '',
               comment: createAgentComment({
-                title: action === 'challenge-hypothesis' ? 'Agent challenge' : action === 'analyze-patterns' ? 'Pattern analysis' : 'Agent reasoning',
-                body: reply,
+                title: action === 'challenge-hypothesis'
+                  ? 'Agent challenge'
+                  : action === 'analyze-patterns'
+                    ? 'Pattern analysis'
+                    : suggestion?.commentTitle || 'Agent reasoning',
+                body: suggestion?.commentBody || reply,
                 tone: action === 'challenge-hypothesis' ? 'warning' : 'signal',
-                anchorText: truncate(stripHtml(state.hypothesis.html), 80)
+                anchorText: truncate(stripHtml(state.hypothesis.html), 80),
+                kind: suggestion?.applied === false ? 'hypothesis-suggestion' : 'note',
+                status: suggestion?.applied === false ? 'pending' : 'active',
+                caption: suggestion?.commentCaption || '',
+                suggestedHtml: suggestion?.applied === false ? textToHtml(reply) : ''
               }),
               message: createAgentMessage({
-                text: reply,
+                text: suggestion?.messageText || reply,
                 action,
                 suggestedCards: relatedCards
               })
@@ -1581,6 +1649,8 @@ export const useIdeaWorkbenchModel = ({
       deleteCard,
       tagCard,
       updateHypothesisHtml,
+      acceptAgentComment,
+      dismissAgentComment,
       snapshotHypothesis,
       runQuickAction,
       sendAgentMessage,
