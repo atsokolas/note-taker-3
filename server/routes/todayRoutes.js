@@ -48,6 +48,7 @@ const buildTodayRouter = ({
             _id: '$highlights._id',
             text: '$highlights.text',
             tags: '$highlights.tags',
+            color: '$highlights.color',
             articleTitle: '$title',
             articleId: '$_id',
             createdAt: '$highlights.createdAt'

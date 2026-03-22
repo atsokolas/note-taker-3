@@ -2,30 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import api from '../api';
 import { getAuthHeaders } from './useAuthHeaders';
 import { endPerfTimer, logPerf, startPerfTimer } from '../utils/perf';
-import { DEFAULT_HIGHLIGHT_COLOR } from '../constants/highlightColors';
-
-/**
- * @typedef {Object} Highlight
- * @property {string} _id
- * @property {string} text
- * @property {string[]} tags
- * @property {string} [createdAt]
- * @property {string} [articleId]
- * @property {string} [articleTitle]
- * @property {Object} [anchor]
- */
-
-const normalizeHighlight = (highlight, article) => ({
-  ...highlight,
-  tags: highlight.tags || [],
-  color: highlight.color || DEFAULT_HIGHLIGHT_COLOR,
-  articleId: highlight.articleId || article?._id,
-  articleTitle: highlight.articleTitle || article?.title
-});
-
-const normalizeHighlights = (highlights = [], article) => (
-  highlights.map(h => normalizeHighlight(h, article))
-);
+import { normalizeHighlights } from '../utils/highlightModel';
 
 const useArticleDetail = (articleId, options = {}) => {
   const { enabled = true } = options;

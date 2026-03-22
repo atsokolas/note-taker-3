@@ -7,6 +7,7 @@ import ReferencesPanel from './ReferencesPanel';
 import ReadingLayout from '../layout/ReadingLayout';
 import SemanticRelatedPanel from './retrieval/SemanticRelatedPanel';
 import ThoughtPartnerPanel from './agent/ThoughtPartnerPanel';
+import { renderArticleContentWithHighlights } from '../utils/highlightMarkup';
 
 const getAuthConfig = () => {
     // ... (Your existing code)
@@ -18,46 +19,10 @@ const getAuthConfig = () => {
 };
 
 const processArticleContent = (articleData) => {
-    // ... (Your existing code)
-    const { content, highlights, url } = articleData;
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(content, 'text/html');
-    const articleOrigin = new URL(url).origin;
-
-    doc.querySelectorAll('img').forEach(img => {
-        const src = img.getAttribute('src');
-        if (src && src.startsWith('/')) {
-            img.src = `${articleOrigin}${src}`;
-        }
-        img.setAttribute('loading', 'lazy');
-        img.setAttribute('decoding', 'async');
-        img.style.maxWidth = '100%';
-        img.style.height = 'auto';
-        img.style.display = 'block';
-    });
-
-    doc.querySelectorAll('video, iframe').forEach(media => {
-        if (media.tagName.toLowerCase() === 'iframe') {
-            media.setAttribute('loading', 'lazy');
-        }
-        media.style.maxWidth = '100%';
-        media.style.width = '100%';
-        media.style.height = media.style.height || 'auto';
-        media.style.display = 'block';
-    });
-    
-    (highlights || []).forEach(h => {
-        const highlightId = `highlight-${h._id}`;
-        const escaped = h.text
-            ?.trim()
-            .replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&')
-            .replace(/\s+/g, '\\s+');
-        if (!escaped) return;
-        const regex = new RegExp(`(?<!<mark[^>]*>)${escaped}(?!<\\/mark>)`, 'gi');
-        doc.body.innerHTML = doc.body.innerHTML.replace(regex, match => `<mark class="highlight" data-highlight-id="${highlightId}">${match}</mark>`);
-    });
-
-    return { ...articleData, content: doc.body.innerHTML };
+    return {
+        ...articleData,
+        content: renderArticleContentWithHighlights(articleData, articleData?.highlights || [])
+    };
 };
 
 const formatDate = (dateString) => {
