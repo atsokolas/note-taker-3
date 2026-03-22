@@ -2,6 +2,7 @@ import React, { Profiler, useEffect, useMemo, useState } from 'react';
 import { QuietButton } from '../ui';
 import SemanticRelatedPanel from '../retrieval/SemanticRelatedPanel';
 import { createProfilerLogger } from '../../utils/perf';
+import { HIGHLIGHT_COLOR_OPTIONS } from '../../constants/highlightColors';
 
 const FEED_EXPANDED_KEY = 'library.context.highlightsFeed.expanded';
 const RELATED_EXPANDED_KEY = 'library.context.moreContext.expanded';
@@ -26,6 +27,8 @@ const LibraryContext = ({
   onAddConcept,
   onAddNotebook,
   onAddQuestion,
+  onUpdateHighlight,
+  onDeleteHighlight,
   onDumpToWorkingMemory
 }) => {
   const [feedExpanded, setFeedExpanded] = useState(() => readStoredExpanded(FEED_EXPANDED_KEY, true));
@@ -169,6 +172,16 @@ const LibraryContext = ({
                           <QuietButton onClick={() => onAddConcept(highlight)}>Concept</QuietButton>
                           <QuietButton onClick={() => onAddQuestion(highlight)}>Question</QuietButton>
                           <QuietButton onClick={() => onDumpToWorkingMemory(highlight)}>Dump</QuietButton>
+                          <select
+                            aria-label={`Color for ${highlight.text}`}
+                            value={highlight.color || HIGHLIGHT_COLOR_OPTIONS[0].value}
+                            onChange={(event) => onUpdateHighlight?.(highlight._id, { color: event.target.value })}
+                          >
+                            {HIGHLIGHT_COLOR_OPTIONS.map(option => (
+                              <option key={`${highlight._id}-${option.value}`} value={option.value}>{option.label}</option>
+                            ))}
+                          </select>
+                          <QuietButton onClick={() => onDeleteHighlight?.(highlight)}>Delete</QuietButton>
                         </div>
                       </article>
                     );

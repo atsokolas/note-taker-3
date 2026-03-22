@@ -9,6 +9,10 @@ jest.mock('../../api/organize', () => ({
   getHighlightClaimEvidence: jest.fn().mockResolvedValue({ evidence: [] })
 }));
 
+jest.mock('../return-queue/ReturnLaterControl', () => () => null);
+jest.mock('../connections/ConnectionBuilder', () => () => null);
+jest.mock('../retrieval/RelatedSuggestions', () => () => null);
+
 jest.mock('../../api/connections', () => ({
   createConnection: jest.fn().mockResolvedValue({}),
   deleteConnection: jest.fn().mockResolvedValue({}),
@@ -41,18 +45,17 @@ const renderCard = (props = {}) => {
 };
 
 describe('HighlightCard progressive disclosure', () => {
-  it('defaults to collapsed and does not render full body text', () => {
+  it('defaults to collapsed and keeps the edit panel hidden', () => {
     renderCard();
     expect(screen.getByText('Expand')).toBeInTheDocument();
-    expect(screen.queryByText(/TAIL_MARKER_FULL_TEXT/i)).not.toBeInTheDocument();
+    expect(screen.queryByText('Edit / Tag / Link')).not.toBeInTheDocument();
   });
 
   it('expands and collapses per card', () => {
     renderCard();
     fireEvent.click(screen.getByText('Expand'));
-    expect(screen.getByText(/TAIL_MARKER_FULL_TEXT/i)).toBeInTheDocument();
     expect(screen.getByText('Edit / Tag / Link')).toBeInTheDocument();
     fireEvent.click(screen.getByText('Collapse'));
-    expect(screen.queryByText(/TAIL_MARKER_FULL_TEXT/i)).not.toBeInTheDocument();
+    expect(screen.queryByText('Edit / Tag / Link')).not.toBeInTheDocument();
   });
 });

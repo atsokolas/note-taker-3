@@ -9,6 +9,7 @@ import {
   organizeHighlightItem,
   searchHighlightClaims
 } from '../../api/organize';
+import { DEFAULT_HIGHLIGHT_COLOR, HIGHLIGHT_COLOR_OPTIONS } from '../../constants/highlightColors';
 
 const ITEM_TYPES = [
   { value: 'note', label: 'Note' },
@@ -45,6 +46,7 @@ const HighlightCard = ({
   onAddQuestion,
   organizable = false,
   onOrganized,
+  onDelete,
   onDumpToWorkingMemory,
   connectionScopeType = '',
   connectionScopeId = '',
@@ -56,6 +58,7 @@ const HighlightCard = ({
   const [organizeOpen, setOrganizeOpen] = useState(false);
   const [itemType, setItemType] = useState(highlight?.type || 'note');
   const [itemTags, setItemTags] = useState(highlight?.tags || []);
+  const [itemColor, setItemColor] = useState(highlight?.color || DEFAULT_HIGHLIGHT_COLOR);
   const [tagInput, setTagInput] = useState('');
   const [claimId, setClaimId] = useState(highlight?.claimId ? String(highlight.claimId) : '');
   const [claimQuery, setClaimQuery] = useState('');
@@ -79,6 +82,7 @@ const HighlightCard = ({
     setExpanded(false);
     setItemType(highlight?.type || 'note');
     setItemTags(Array.isArray(highlight?.tags) ? highlight.tags : []);
+    setItemColor(highlight?.color || DEFAULT_HIGHLIGHT_COLOR);
     setClaimId(highlight?.claimId ? String(highlight.claimId) : '');
     setOrganizeOpen(false);
     setOrganizeError('');
@@ -173,10 +177,12 @@ const HighlightCard = ({
       const updated = await organizeHighlightItem(highlightId, {
         type: itemType,
         tags: itemTags,
-        claimId: itemType === 'evidence' ? (claimId || null) : null
+        claimId: itemType === 'evidence' ? (claimId || null) : null,
+        color: itemColor
       });
       setItemType(updated?.type || itemType);
       setItemTags(updated?.tags || itemTags);
+      setItemColor(updated?.color || itemColor);
       setClaimId(updated?.claimId ? String(updated.claimId) : '');
       onOrganized?.(updated);
     } catch (err) {
@@ -261,6 +267,11 @@ const HighlightCard = ({
                 Dump to Working Memory
               </QuietButton>
             )}
+            {onDelete && highlightId && (
+              <QuietButton onClick={() => onDelete(highlight)}>
+                Delete
+              </QuietButton>
+            )}
           </div>
           <RelatedSuggestions
             itemType="highlight"
@@ -283,6 +294,19 @@ const HighlightCard = ({
                   }}
                 >
                   {ITEM_TYPES.map(option => (
+                    <option key={`${highlightId}-${option.value}`} value={option.value}>{option.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="highlight-organize-row">
+                <label htmlFor={`highlight-color-${highlightId}`} className="highlight-organize-label">Color</label>
+                <select
+                  id={`highlight-color-${highlightId}`}
+                  className="highlight-organize-select"
+                  value={itemColor}
+                  onChange={(event) => setItemColor(event.target.value)}
+                >
+                  {HIGHLIGHT_COLOR_OPTIONS.map(option => (
                     <option key={`${highlightId}-${option.value}`} value={option.value}>{option.label}</option>
                   ))}
                 </select>

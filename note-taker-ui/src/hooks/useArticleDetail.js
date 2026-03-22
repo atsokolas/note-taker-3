@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import api from '../api';
 import { getAuthHeaders } from './useAuthHeaders';
 import { endPerfTimer, logPerf, startPerfTimer } from '../utils/perf';
+import { DEFAULT_HIGHLIGHT_COLOR } from '../constants/highlightColors';
 
 /**
  * @typedef {Object} Highlight
@@ -17,6 +18,7 @@ import { endPerfTimer, logPerf, startPerfTimer } from '../utils/perf';
 const normalizeHighlight = (highlight, article) => ({
   ...highlight,
   tags: highlight.tags || [],
+  color: highlight.color || DEFAULT_HIGHLIGHT_COLOR,
   articleId: highlight.articleId || article?._id,
   articleTitle: highlight.articleTitle || article?.title
 });

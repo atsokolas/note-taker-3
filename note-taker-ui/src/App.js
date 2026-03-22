@@ -54,6 +54,7 @@ import './App.css';
 import './styles/reading-layout.css';
 import './styles/dashboard-refresh.css';
 import './styles/think-home-polish.css';
+import './styles/idea-workbench.css';
 import './styles/brand-energy.css';
 import './styles/calm-ui-global.css';
 import './styles/think-calm-d3a.css';

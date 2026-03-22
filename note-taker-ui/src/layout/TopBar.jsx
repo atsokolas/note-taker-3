@@ -67,7 +67,7 @@ const TopBar = ({
                 aria-expanded={helpOpen}
                 onClick={() => setHelpOpen(prev => !prev)}
               >
-                Help
+                Tour
               </button>
               {helpOpen && (
                 <div className="topbar__menu-popover" role="menu">
@@ -80,7 +80,7 @@ const TopBar = ({
                       helpMenu.onStart?.();
                     }}
                   >
-                    Start tour
+                    Start onboarding
                   </button>
                   <button
                     type="button"
@@ -92,7 +92,7 @@ const TopBar = ({
                     }}
                     disabled={!helpMenu.canResume}
                   >
-                    Resume tour
+                    Resume onboarding
                   </button>
                   <button
                     type="button"
@@ -103,7 +103,7 @@ const TopBar = ({
                       helpMenu.onRestart?.();
                     }}
                   >
-                    Restart tour
+                    Restart onboarding
                   </button>
                 </div>
               )}

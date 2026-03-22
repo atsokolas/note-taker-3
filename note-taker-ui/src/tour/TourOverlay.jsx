@@ -188,6 +188,11 @@ const TourOverlay = ({
         </div>
         <h3 id={`tour-title-${step.id}`}>{step.title}</h3>
         <p id={`tour-body-${step.id}`}>{step.body}</p>
+        {step.signalKey && (
+          <p className="tour-hint">
+            You can interact with the page behind this card. The tour advances automatically when this step is completed.
+          </p>
+        )}
 
         <div
           className="tour-progress"

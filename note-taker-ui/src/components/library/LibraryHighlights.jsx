@@ -13,6 +13,7 @@ import api from '../../api';
 import { getAuthHeaders } from '../../hooks/useAuthHeaders';
 import VirtualList from '../virtual/VirtualList';
 import { createProfilerLogger } from '../../utils/perf';
+import { deleteHighlight } from '../../api/highlights';
 
 const createId = () => {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
@@ -62,7 +63,7 @@ const LibraryHighlights = ({
     articleId: articleId || undefined,
     q: query || undefined
   }), [folderId, tag, articleId, query]);
-  const { highlights, loading, error } = useHighlightsQuery(filters, { debounceMs: 260 });
+  const { highlights, loading, error, setHighlights } = useHighlightsQuery(filters, { debounceMs: 260 });
 
   const rows = useMemo(
     () => highlights.map(h => ({ ...h, tags: h.tags || [] })),
@@ -216,6 +217,20 @@ const LibraryHighlights = ({
     if (index >= 0) setSelectedIndex(index);
   }, [displayRows]);
 
+  const handleHighlightOrganized = useCallback((updated) => {
+    if (!updated?._id) return;
+    setHighlights(prev => prev.map(item => (
+      String(item._id) === String(updated._id) ? { ...item, ...updated } : item
+    )));
+  }, [setHighlights]);
+
+  const handleDeleteHighlight = useCallback(async (highlight) => {
+    if (!highlight?._id || !highlight?.articleId) return;
+    if (!window.confirm('Delete this highlight?')) return;
+    await deleteHighlight({ articleId: highlight.articleId, highlightId: highlight._id });
+    setHighlights(prev => prev.filter(item => String(item._id) !== String(highlight._id)));
+  }, [setHighlights]);
+
   return (
     <div className="section-stack library-highlights-surface" data-tour-anchor="library-highlights-panel">
       <SectionHeader
@@ -295,6 +310,8 @@ const LibraryHighlights = ({
                       organizable
                       forceExpandedState={cardsExpanded}
                       forceExpandedVersion={cardsExpandVersion}
+                      onOrganized={handleHighlightOrganized}
+                      onDelete={handleDeleteHighlight}
                       onDumpToWorkingMemory={onDumpHighlight}
                       onAddConcept={(h) => setConceptModal({ open: true, highlight: h })}
                       onAddNotebook={(h) => setNotebookModal({ open: true, highlight: h })}

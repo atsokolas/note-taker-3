@@ -25,6 +25,7 @@ import {
   promoteWorkingMemory,
   splitWorkingMemory
 } from '../api/workingMemory';
+import { updateHighlight, deleteHighlight } from '../api/highlights';
 import api from '../api';
 import { getAuthHeaders } from '../hooks/useAuthHeaders';
 
@@ -225,6 +226,30 @@ const Library = () => {
     setActiveHighlightId(highlight._id);
     readerRef.current?.scrollToHighlight(highlight._id);
   }, []);
+
+  const handleUpdateHighlight = useCallback(async (highlightId, payload) => {
+    if (!selectedArticleId || !highlightId) return null;
+    const updated = await updateHighlight({
+      articleId: selectedArticleId,
+      highlightId,
+      payload
+    });
+    replaceHighlight(highlightId, updated);
+    return updated;
+  }, [replaceHighlight, selectedArticleId]);
+
+  const handleDeleteHighlight = useCallback(async (highlight) => {
+    if (!highlight?._id || !selectedArticleId) return;
+    if (!window.confirm('Delete this highlight?')) return;
+    await deleteHighlight({
+      articleId: selectedArticleId,
+      highlightId: highlight._id
+    });
+    removeHighlight(highlight._id);
+    if (String(activeHighlightId) === String(highlight._id)) {
+      setActiveHighlightId('');
+    }
+  }, [activeHighlightId, removeHighlight, selectedArticleId]);
 
   const handleToggleRight = useCallback((nextOpen) => {
     if (selectedArticleId && nextOpen && !contextOverride) {
@@ -720,6 +745,8 @@ const Library = () => {
         onAddConcept={handleOpenConceptModal}
         onAddNotebook={handleOpenNotebookModal}
         onAddQuestion={handleOpenQuestionModal}
+        onUpdateHighlight={handleUpdateHighlight}
+        onDeleteHighlight={handleDeleteHighlight}
         onDumpToWorkingMemory={(highlight) => handleDumpToWorkingMemory(highlight?.text || '')}
       />
     </div>

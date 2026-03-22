@@ -1,5 +1,17 @@
 const express = require('express');
 
+const DEFAULT_HIGHLIGHT_COLOR = '#f6e27a';
+
+const normalizeHighlightColor = (value) => {
+  const candidate = String(value || '').trim();
+  if (/^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(candidate)) {
+    return candidate.length === 4
+      ? `#${candidate.slice(1).split('').map(char => `${char}${char}`).join('')}`
+      : candidate.toLowerCase();
+  }
+  return DEFAULT_HIGHLIGHT_COLOR;
+};
+
 const buildFeedbackHighlightRouter = ({
   mongoose,
   authenticateToken,
@@ -111,6 +123,7 @@ const buildFeedbackHighlightRouter = ({
           text: '$highlights.text',
           note: '$highlights.note',
           tags: '$highlights.tags',
+          color: '$highlights.color',
           type: '$highlights.type',
           claimId: '$highlights.claimId',
           createdAt: '$highlights.createdAt'
@@ -175,7 +188,7 @@ const buildFeedbackHighlightRouter = ({
       if (!mongoose.Types.ObjectId.isValid(highlightId)) {
         return res.status(400).json({ error: 'Invalid highlight ID format.' });
       }
-      const { type, tags, claimId } = req.body || {};
+      const { type, tags, claimId, color } = req.body || {};
       const article = await Article.findOne({ userId, 'highlights._id': new mongoose.Types.ObjectId(highlightId) });
       if (!article) {
         return res.status(404).json({ error: 'Highlight not found.' });
@@ -213,6 +226,7 @@ const buildFeedbackHighlightRouter = ({
 
       if (hasType) highlight.type = nextType;
       if (tags !== undefined) highlight.tags = normalizeTags(tags);
+      if (color !== undefined) highlight.color = normalizeHighlightColor(color);
       highlight.claimId = nextClaimId;
       await article.save();
       enqueueHighlightEmbedding({ highlight, article });

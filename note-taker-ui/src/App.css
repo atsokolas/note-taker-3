@@ -3312,6 +3312,13 @@ body {
   font-size: 0.92rem;
 }
 
+.tour-hint {
+  margin: -2px 0 10px;
+  color: var(--text-color-secondary);
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
 .tour-progress {
   position: relative;
   width: 100%;

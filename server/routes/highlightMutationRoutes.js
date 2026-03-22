@@ -1,5 +1,17 @@
 const express = require('express');
 
+const DEFAULT_HIGHLIGHT_COLOR = '#f6e27a';
+
+const normalizeHighlightColor = (value) => {
+  const candidate = String(value || '').trim();
+  if (/^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(candidate)) {
+    return candidate.length === 4
+      ? `#${candidate.slice(1).split('').map(char => `${char}${char}`).join('')}`
+      : candidate.toLowerCase();
+  }
+  return DEFAULT_HIGHLIGHT_COLOR;
+};
+
 const buildHighlightMutationRouter = ({
   mongoose,
   authenticateToken,
@@ -58,7 +70,7 @@ const buildHighlightMutationRouter = ({
   router.post('/articles/:id/highlights', authenticateToken, async (req, res) => {
     try {
       const { id } = req.params;
-      const { text, note, tags, anchor } = req.body;
+      const { text, note, tags, anchor, color } = req.body;
       const userId = req.user.id;
 
       const trimmedText = typeof text === 'string' ? text.trim() : '';
@@ -70,6 +82,7 @@ const buildHighlightMutationRouter = ({
           text: trimmedText,
           note: note || '',
           tags: normalizeTags(tags),
+          color: normalizeHighlightColor(color),
           type: 'note',
           claimId: null,
           anchor: anchor ? {
@@ -117,7 +130,7 @@ const buildHighlightMutationRouter = ({
   router.patch('/articles/:articleId/highlights/:highlightId', authenticateToken, async (req, res) => {
     try {
         const { articleId, highlightId } = req.params;
-        const { note, tags, type, claimId } = req.body;
+        const { note, tags, type, claimId, color } = req.body;
         const userId = req.user.id;
 
         const article = await Article.findOne({ _id: articleId, userId: userId });
@@ -132,6 +145,9 @@ const buildHighlightMutationRouter = ({
 
         highlight.note = note !== undefined ? note : highlight.note;
         highlight.tags = tags !== undefined ? normalizeTags(tags) : highlight.tags;
+        if (color !== undefined) {
+          highlight.color = normalizeHighlightColor(color);
+        }
         if (type !== undefined) {
           const nextType = normalizeItemType(type, '');
           if (!nextType) {
@@ -183,6 +199,7 @@ const buildHighlightMutationRouter = ({
           text: updatedHighlight.text,
           note: updatedHighlight.note,
           tags: updatedHighlight.tags,
+          color: updatedHighlight.color || DEFAULT_HIGHLIGHT_COLOR,
           type: normalizeItemType(updatedHighlight.type, 'note'),
           claimId: updatedHighlight.claimId || null,
           createdAt: updatedHighlight.createdAt

@@ -1,5 +1,33 @@
 const express = require('express');
 
+const PASSWORD_MIN_LENGTH = 8;
+
+const validateRegistration = ({ username, password }) => {
+  const cleanUsername = String(username || '').trim();
+  const rawPassword = String(password || '');
+
+  if (!cleanUsername || !rawPassword) {
+    return { error: 'Username and password are required.' };
+  }
+
+  if (rawPassword.length < PASSWORD_MIN_LENGTH) {
+    return { error: `Password must be at least ${PASSWORD_MIN_LENGTH} characters.` };
+  }
+
+  if (cleanUsername.toLowerCase() === rawPassword.trim().toLowerCase()) {
+    return { error: 'Password cannot match your username.' };
+  }
+
+  if (!/[A-Za-z]/.test(rawPassword) || !/\d/.test(rawPassword)) {
+    return { error: 'Password must include at least one letter and one number.' };
+  }
+
+  return {
+    cleanUsername,
+    password: rawPassword
+  };
+};
+
 const buildAuthDiscoveryRouter = ({
   bcrypt,
   jwt,
@@ -12,20 +40,24 @@ const buildAuthDiscoveryRouter = ({
 
   router.post('/api/auth/register', async (req, res) => {
     try {
-      const { username, password } = req.body;
-      if (!username || !password) {
-        return res.status(400).json({ error: "Username and password are required." });
+      const validation = validateRegistration(req.body || {});
+      if (validation.error) {
+        return res.status(400).json({ error: validation.error });
       }
+      const { cleanUsername, password } = validation;
 
-      const existingUser = await User.findOne({ username });
+      const existingUser = await User.exists({ username: cleanUsername });
       if (existingUser) {
         return res.status(409).json({ error: "Username already exists." });
       }
 
       const hashedPassword = await bcrypt.hash(password, 10);
-      const newUser = new User({ username, password: hashedPassword });
+      const newUser = new User({ username: cleanUsername, password: hashedPassword });
       await newUser.save();
-      res.status(201).json({ message: "User registered successfully." });
+      res.status(201).json({
+        message: "User registered successfully.",
+        loginMessage: "Account created. You can log in now."
+      });
     } catch (error) {
       console.error("❌ Error registering user:", error);
       res.status(500).json({ error: "Internal server error.", details: error.message });

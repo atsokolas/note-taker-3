@@ -110,6 +110,7 @@ const articleSchema = new mongoose.Schema({
     text: String,
     note: String,
     tags: { type: [String], default: [] },
+    color: { type: String, default: '#f6e27a' },
     type: { type: String, enum: ['claim', 'evidence', 'note'], default: 'note' },
     claimId: { type: mongoose.Schema.Types.ObjectId, default: null },
     anchor: {
@@ -339,6 +340,9 @@ const tagMetaSchema = new mongoose.Schema({
   dismissedHighlightIds: [{ type: mongoose.Schema.Types.ObjectId }],
   conceptLayout: { type: conceptLayoutSchema, default: undefined },
   workspace: { type: conceptWorkspaceSchema, default: undefined },
+  ideaWorkbench: { type: mongoose.Schema.Types.Mixed, default: undefined },
+  ideaWorkbenchRevision: { type: Number, default: 0 },
+  ideaWorkbenchEvents: { type: [mongoose.Schema.Types.Mixed], default: [] },
   workspaceTemplateId: { type: String, default: '', trim: true },
   workspaceTemplateName: { type: String, default: '', trim: true },
   isPublic: { type: Boolean, default: false },

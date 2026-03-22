@@ -152,3 +152,26 @@ export const getConceptMaterial = async (conceptIdOrName) => {
   const res = await api.get(`/api/concepts/${safe}/material`, getAuthHeaders());
   return res.data || { pinnedHighlights: [], recentHighlights: [], linkedArticles: [], linkedNotes: [] };
 };
+
+export const getConceptIdeaWorkbench = async (conceptIdOrName) => {
+  const safe = encodeURIComponent(String(conceptIdOrName || '').trim());
+  const res = await api.get(`/api/concepts/${safe}/idea-workbench`, getAuthHeaders());
+  return res.data || { conceptId: '', conceptName: '', ideaWorkbench: null, revision: 0, events: [] };
+};
+
+export const updateConceptIdeaWorkbench = async (conceptIdOrName, ideaWorkbench, options = {}) => {
+  const safe = encodeURIComponent(String(conceptIdOrName || '').trim());
+  const body = {
+    ideaWorkbench,
+    ...(options && typeof options === 'object' ? options : {})
+  };
+  const res = await api.put(`/api/concepts/${safe}/idea-workbench`, body, getAuthHeaders());
+  return res.data || { conceptId: '', conceptName: '', ideaWorkbench: null, revision: 0, events: [] };
+};
+
+export const appendConceptIdeaWorkbenchEvents = async (conceptIdOrName, events) => {
+  const safe = encodeURIComponent(String(conceptIdOrName || '').trim());
+  const payload = Array.isArray(events) ? { events } : { event: events };
+  const res = await api.post(`/api/concepts/${safe}/idea-workbench/events`, payload, getAuthHeaders());
+  return res.data || { conceptId: '', conceptName: '', events: [] };
+};

@@ -1,0 +1,225 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1080" viewBox="0 0 1600 1080" fill="none">
+  <defs>
+    <linearGradient id="paper" x1="0" y1="0" x2="1600" y2="1080" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F8F3EA"/>
+      <stop offset="1" stop-color="#F1E8DA"/>
+    </linearGradient>
+    <linearGradient id="hero" x1="0" y1="0" x2="0" y2="260" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFFDF8"/>
+      <stop offset="1" stop-color="#F7F0E4"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="10" stdDeviation="14" flood-color="#AF9C81" flood-opacity="0.16"/>
+    </filter>
+  </defs>
+
+  <style>
+    .serif { font-family: "Iowan Old Style", "Palatino Linotype", Georgia, serif; }
+    .sans { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    .title { font-size: 18px; font-weight: 700; fill: #624E35; }
+    .label { font-size: 12px; font-weight: 700; letter-spacing: 1.6px; text-transform: uppercase; fill: #8B7356; }
+    .body { font-size: 16px; font-weight: 500; fill: #5E513F; }
+    .small { font-size: 13px; font-weight: 500; fill: #907E67; }
+    .muted { font-size: 14px; font-weight: 500; fill: #A18E74; }
+    .chip { font-size: 13px; font-weight: 700; fill: #6D583E; }
+    .nav { font-size: 15px; font-weight: 600; fill: #6A5945; }
+    .navActive { font-size: 15px; font-weight: 700; fill: #352A1E; }
+    .heroTitle { font-size: 56px; font-weight: 700; fill: #35281B; }
+    .heroSub { font-size: 22px; font-weight: 500; fill: #6A5945; }
+    .sectionTitle { font-size: 28px; font-weight: 700; fill: #433425; }
+    .cardTitle { font-size: 19px; font-weight: 700; fill: #473728; }
+    .outlineTitle { font-size: 18px; font-weight: 700; fill: #4D3D2B; }
+    .outlineBody { font-size: 16px; font-weight: 500; fill: #5E513F; }
+  </style>
+
+  <rect width="1600" height="1080" fill="url(#paper)"/>
+  <rect x="0" y="0" width="1600" height="150" fill="#EDE3D2"/>
+  <path d="M0 120C179 90 332 85 513 106C698 128 893 176 1095 160C1283 145 1433 100 1600 70V0H0V120Z" fill="#F6EFE3"/>
+
+  <rect x="24" y="24" width="1552" height="70" rx="24" fill="#FAF6EE" stroke="#D9C8AF"/>
+  <rect x="44" y="40" width="128" height="38" rx="18" fill="#EFE4D2"/>
+  <text x="64" y="64" class="sans title">Noeis</text>
+  <rect x="220" y="38" width="560" height="42" rx="20" fill="#FFFDF8" stroke="#DCCDB7"/>
+  <text x="244" y="64" class="sans body">Search inside this concept, notebook, and linked material...</text>
+  <rect x="1294" y="38" width="90" height="42" rx="20" fill="#FFFDF8" stroke="#DCCDB7"/>
+  <text x="1324" y="64" class="sans chip">Focus</text>
+  <rect x="1396" y="38" width="90" height="42" rx="20" fill="#FFFDF8" stroke="#DCCDB7"/>
+  <text x="1423" y="64" class="sans chip">Profile</text>
+  <rect x="1498" y="38" width="58" height="42" rx="20" fill="#7D6449"/>
+  <text x="1516" y="64" class="sans" font-size="13" font-weight="700" fill="#FFF9F0">Quit</text>
+
+  <rect x="24" y="120" width="84" height="932" rx="28" fill="#F4EBDD" stroke="#D8C7AF"/>
+  <rect x="40" y="148" width="52" height="52" rx="16" fill="#D8C3A5"/>
+  <text x="58" y="181" class="sans" font-size="26" font-weight="700" fill="#4A3929">T</text>
+  <rect x="40" y="244" width="52" height="52" rx="16" fill="#EFE5D6"/>
+  <text x="58" y="277" class="sans" font-size="24" font-weight="700" fill="#8A7357">L</text>
+  <rect x="40" y="340" width="52" height="52" rx="16" fill="#EFE5D6"/>
+  <text x="55" y="373" class="sans" font-size="24" font-weight="700" fill="#8A7357">C</text>
+  <rect x="40" y="436" width="52" height="52" rx="16" fill="#EFE5D6"/>
+  <text x="52" y="469" class="sans" font-size="24" font-weight="700" fill="#8A7357">M</text>
+  <rect x="40" y="532" width="52" height="52" rx="16" fill="#EFE5D6"/>
+  <text x="58" y="565" class="sans" font-size="24" font-weight="700" fill="#8A7357">R</text>
+  <rect x="40" y="628" width="52" height="52" rx="16" fill="#EFE5D6"/>
+  <text x="58" y="661" class="sans" font-size="24" font-weight="700" fill="#8A7357">S</text>
+
+  <rect x="124" y="120" width="268" height="932" rx="28" fill="#F7F0E4" stroke="#D8C7AF"/>
+  <text x="152" y="164" class="sans label">Think</text>
+  <line x1="152" y1="176" x2="364" y2="176" stroke="#CDBA9D"/>
+
+  <text x="152" y="218" class="sans nav">Home</text>
+  <text x="152" y="256" class="sans nav">Notebook</text>
+  <rect x="144" y="276" width="228" height="260" rx="20" fill="#FBF8F1" stroke="#DCCDB7"/>
+  <text x="164" y="304" class="sans label">Notebook</text>
+  <text x="164" y="338" class="serif" font-size="28" font-weight="700" fill="#4B392A">Raw notes live next door</text>
+  <text x="164" y="372" class="sans small">Use notebook for chronological drafting, loose scraps,</text>
+  <text x="164" y="394" class="sans small">and evidence capture before the frame is clear.</text>
+  <rect x="164" y="426" width="188" height="40" rx="18" fill="#EFE4D2"/>
+  <text x="190" y="451" class="sans chip">Open linked notebook</text>
+  <text x="164" y="498" class="sans small">Recent note</text>
+  <text x="164" y="522" class="sans body">What software feels like an instrument?</text>
+
+  <text x="152" y="584" class="sans label">Concepts</text>
+  <rect x="144" y="604" width="228" height="252" rx="20" fill="#FFFDF8" stroke="#BCA07B" stroke-width="2"/>
+  <text x="164" y="634" class="sans label">Active concept</text>
+  <text x="164" y="676" class="serif" font-size="34" font-weight="700" fill="#302318">Thinking tools as instruments</text>
+  <text x="164" y="712" class="sans small">A concept is a framed line of inquiry.</text>
+  <text x="164" y="734" class="sans small">It starts private, gathers 3-5 materials,</text>
+  <text x="164" y="756" class="sans small">then begins shaping judgment.</text>
+  <rect x="164" y="788" width="74" height="32" rx="16" fill="#F2E7D7"/>
+  <text x="186" y="809" class="sans chip">4 in frame</text>
+  <rect x="246" y="788" width="78" height="32" rx="16" fill="#F2E7D7"/>
+  <text x="267" y="809" class="sans chip">2 tensions</text>
+  <text x="164" y="844" class="sans small">Adjacent concepts</text>
+  <text x="164" y="868" class="sans body">Casual research</text>
+  <text x="164" y="894" class="sans body">Generous software</text>
+
+  <text x="152" y="920" class="sans label">Questions</text>
+  <text x="152" y="952" class="sans body">What is notebook versus concept?</text>
+  <text x="152" y="980" class="sans body">How should AI show up?</text>
+
+  <rect x="416" y="120" width="836" height="932" rx="32" fill="#FBF8F1" stroke="#D8C7AF" filter="url(#shadow)"/>
+  <text x="456" y="164" class="sans small">Think / Concepts / Active frame</text>
+
+  <rect x="456" y="186" width="112" height="40" rx="18" fill="#ECE0CF"/>
+  <text x="492" y="212" class="sans chip">Concept</text>
+  <rect x="582" y="186" width="128" height="40" rx="18" fill="#F7F0E4" stroke="#DCCDB7"/>
+  <text x="618" y="212" class="sans chip">References</text>
+  <rect x="724" y="186" width="100" height="40" rx="18" fill="#F7F0E4" stroke="#DCCDB7"/>
+  <text x="760" y="212" class="sans chip">History</text>
+  <rect x="1020" y="186" width="88" height="40" rx="18" fill="#F7F0E4" stroke="#DCCDB7"/>
+  <text x="1052" y="212" class="sans chip">Share</text>
+  <rect x="1120" y="186" width="92" height="40" rx="18" fill="#F7F0E4" stroke="#DCCDB7"/>
+  <text x="1147" y="212" class="sans chip">Export</text>
+
+  <rect x="456" y="246" width="756" height="188" rx="28" fill="url(#hero)" stroke="#DCCDB7"/>
+  <text x="490" y="286" class="sans label">Concept</text>
+  <text x="490" y="346" class="serif heroTitle">Thinking tools should feel like instruments</text>
+  <text x="490" y="384" class="sans heroSub">Not forms to complete. Not dashboards to manage. A concept page should hold one idea while you shape it.</text>
+  <text x="490" y="418" class="sans small">A concept is the place where highlights, articles, notes, and tensions get pulled into a single frame.</text>
+
+  <rect x="490" y="454" width="108" height="34" rx="17" fill="#EEE2D0"/>
+  <text x="522" y="476" class="sans chip">Question</text>
+  <rect x="608" y="454" width="130" height="34" rx="17" fill="#EEE2D0"/>
+  <text x="635" y="476" class="sans chip">Working thesis</text>
+  <rect x="748" y="454" width="122" height="34" rx="17" fill="#EEE2D0"/>
+  <text x="779" y="476" class="sans chip">Source frame</text>
+  <rect x="880" y="454" width="98" height="34" rx="17" fill="#EEE2D0"/>
+  <text x="910" y="476" class="sans chip">Tensions</text>
+
+  <rect x="456" y="466" width="756" height="530" rx="28" fill="#FFFDF9" stroke="#DCCDB7"/>
+  <text x="490" y="506" class="sans label">Main canvas</text>
+  <text x="490" y="548" class="serif sectionTitle">What painful task becomes visibly easier in two minutes?</text>
+  <text x="490" y="580" class="sans body">Seeing the idea, the evidence, and the open tensions together.</text>
+
+  <line x1="490" y1="608" x2="1178" y2="608" stroke="#E4D7C5"/>
+
+  <text x="490" y="646" class="sans label">Working thesis</text>
+  <text x="490" y="680" class="sans body">Notebook is for raw accumulation. Concept is for arranging an argument, a metaphor, or a point of view.</text>
+  <text x="490" y="706" class="sans body">The concept should make the user feel smarter because the frame is visible, editable, and held in place.</text>
+
+  <rect x="490" y="736" width="206" height="180" rx="20" fill="#F7EFE2" stroke="#DCCDB7"/>
+  <text x="512" y="766" class="sans label">Material in frame</text>
+  <text x="512" y="804" class="serif cardTitle">Bret Victor</text>
+  <text x="512" y="832" class="sans small">Make the invisible visible.</text>
+  <text x="512" y="854" class="sans small">Reduce what the user has to hold</text>
+  <text x="512" y="876" class="sans small">in their head.</text>
+  <rect x="512" y="890" width="90" height="28" rx="14" fill="#ECE0CF"/>
+  <text x="539" y="909" class="sans chip">Highlight</text>
+
+  <rect x="730" y="736" width="206" height="180" rx="20" fill="#F7EFE2" stroke="#DCCDB7"/>
+  <text x="752" y="766" class="sans label">Material in frame</text>
+  <text x="752" y="804" class="serif cardTitle">Are.na interview</text>
+  <text x="752" y="832" class="sans small">A concept starts with 3-5 items.</text>
+  <text x="752" y="854" class="sans small">The fourth item changes the frame.</text>
+  <text x="752" y="876" class="sans small">Collection turns into an essay.</text>
+  <rect x="752" y="890" width="84" height="28" rx="14" fill="#ECE0CF"/>
+  <text x="774" y="909" class="sans chip">Quote</text>
+
+  <rect x="970" y="736" width="206" height="180" rx="20" fill="#F7EFE2" stroke="#DCCDB7"/>
+  <text x="992" y="766" class="sans label">Material in frame</text>
+  <text x="992" y="804" class="serif cardTitle">Chetan Puttagunta</text>
+  <text x="992" y="832" class="sans small">Make the value obvious before</text>
+  <text x="992" y="854" class="sans small">a sales call.</text>
+  <text x="992" y="876" class="sans small">Pain first, feature second.</text>
+  <rect x="992" y="890" width="76" height="28" rx="14" fill="#ECE0CF"/>
+  <text x="1014" y="909" class="sans chip">Note</text>
+
+  <circle cx="630" cy="706" r="5" fill="#A3835A"/>
+  <circle cx="846" cy="706" r="5" fill="#A3835A"/>
+  <circle cx="1064" cy="706" r="5" fill="#A3835A"/>
+  <line x1="630" y1="706" x2="593" y2="736" stroke="#B9A283" stroke-width="2"/>
+  <line x1="846" y1="706" x2="833" y2="736" stroke="#B9A283" stroke-width="2"/>
+  <line x1="1064" y1="706" x2="1073" y2="736" stroke="#B9A283" stroke-width="2"/>
+
+  <rect x="490" y="938" width="688" height="34" rx="17" fill="#F3E9DB"/>
+  <text x="514" y="960" class="sans chip">/add highlight</text>
+  <text x="644" y="960" class="sans chip">/connect tension</text>
+  <text x="800" y="960" class="sans chip">/ask thought partner</text>
+  <text x="997" y="960" class="sans chip">/return later</text>
+
+  <rect x="1276" y="120" width="300" height="932" rx="28" fill="#F7F0E4" stroke="#D8C7AF"/>
+  <text x="1310" y="164" class="sans label">Right dock</text>
+
+  <rect x="1304" y="190" width="82" height="34" rx="17" fill="#E9DDCB"/>
+  <text x="1322" y="212" class="sans chip">Partner</text>
+  <rect x="1394" y="190" width="94" height="34" rx="17" fill="#FFFDF8" stroke="#DCCDB7"/>
+  <text x="1416" y="212" class="sans chip">Memory</text>
+  <rect x="1496" y="190" width="54" height="34" rx="17" fill="#FFFDF8" stroke="#DCCDB7"/>
+  <text x="1510" y="212" class="sans chip">Refs</text>
+
+  <rect x="1304" y="244" width="244" height="342" rx="22" fill="#FFFDF8" stroke="#DCCDB7"/>
+  <text x="1328" y="278" class="serif sectionTitle" font-size="26">Thought partner</text>
+  <text x="1328" y="304" class="sans small">Context: Thinking tools should feel like instruments</text>
+  <line x1="1328" y1="322" x2="1524" y2="322" stroke="#E5D8C6"/>
+  <text x="1328" y="356" class="sans small">Prompts</text>
+  <rect x="1328" y="372" width="196" height="46" rx="18" fill="#F4EBDD"/>
+  <text x="1350" y="401" class="sans chip">Stress-test notebook vs concept</text>
+  <rect x="1328" y="430" width="172" height="46" rx="18" fill="#F4EBDD"/>
+  <text x="1350" y="459" class="sans chip">Find the weakest assumption</text>
+  <rect x="1328" y="488" width="160" height="46" rx="18" fill="#F4EBDD"/>
+  <text x="1350" y="517" class="sans chip">Suggest a stronger metaphor</text>
+
+  <rect x="1328" y="548" width="196" height="74" rx="18" fill="#FFFCF6" stroke="#DCCDB7"/>
+  <text x="1348" y="576" class="sans small">Ask about this concept, or challenge the frame...</text>
+  <rect x="1328" y="634" width="196" height="42" rx="18" fill="#7D6449"/>
+  <text x="1404" y="660" class="sans" font-size="14" font-weight="700" fill="#FFF9F0">Ask</text>
+
+  <rect x="1304" y="610" width="244" height="224" rx="22" fill="#FFFDF8" stroke="#DCCDB7"/>
+  <text x="1328" y="644" class="serif sectionTitle" font-size="26">Working memory</text>
+  <text x="1328" y="670" class="sans small">Quick dump. Temporary. Promote only if it earns a place.</text>
+  <rect x="1328" y="694" width="196" height="86" rx="18" fill="#FFFCF6" stroke="#DCCDB7"/>
+  <text x="1348" y="724" class="sans small">Paste fragments, reactions, stray phrasing,</text>
+  <text x="1348" y="746" class="sans small">or questions without breaking the concept flow.</text>
+  <rect x="1328" y="792" width="196" height="42" rx="18" fill="#EFE4D2"/>
+  <text x="1400" y="818" class="sans chip">Dump</text>
+
+  <rect x="1304" y="858" width="244" height="162" rx="22" fill="#FFFDF8" stroke="#DCCDB7"/>
+  <text x="1328" y="892" class="serif sectionTitle" font-size="26">Visible state</text>
+  <text x="1328" y="922" class="sans small">4 items in frame</text>
+  <text x="1328" y="946" class="sans small">1 linked notebook</text>
+  <text x="1328" y="970" class="sans small">2 open tensions</text>
+  <text x="1328" y="994" class="sans small">1 next decision</text>
+
+  <rect x="456" y="1016" width="1092" height="24" rx="12" fill="#EFE4D2"/>
+  <text x="486" y="1032" class="sans small">Direction G: Concept Studio. One dominant artifact in the center. Notebook remains distinct. Thought partner and working memory support without taking over.</text>
+</svg>

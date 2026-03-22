@@ -1,4 +1,27 @@
 document.addEventListener("DOMContentLoaded", () => {
+    const PASSWORD_MIN_LENGTH = 8;
+
+    const validateRegistration = (username, password, confirmPassword) => {
+        const cleanUsername = String(username || '').trim();
+        const rawPassword = String(password || '');
+        if (!cleanUsername || !rawPassword || !confirmPassword) {
+            return "All fields are required.";
+        }
+        if (rawPassword !== confirmPassword) {
+            return "Passwords do not match.";
+        }
+        if (rawPassword.length < PASSWORD_MIN_LENGTH) {
+            return `Password must be at least ${PASSWORD_MIN_LENGTH} characters.`;
+        }
+        if (cleanUsername.toLowerCase() === rawPassword.trim().toLowerCase()) {
+            return "Password cannot match your username.";
+        }
+        if (!/[A-Za-z]/.test(rawPassword) || !/\d/.test(rawPassword)) {
+            return "Password must include at least one letter and one number.";
+        }
+        return "";
+    };
+
     // --- Element Selectors ---
     const loggedInView = document.getElementById("loggedInView");
     const loggedOutView = document.getElementById("loggedOutView");
@@ -33,6 +56,19 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const BASE_URL = "https://note-taker-3-unrg.onrender.com";
     const TOUR_EXTENSION_SIGNAL_TOKEN_KEY = "tourExtensionSignalToken";
+
+    const readJsonSafe = async (response) => {
+        try {
+            return await response.json();
+        } catch (_error) {
+            return null;
+        }
+    };
+
+    const setStatus = (message, tone = '') => {
+        statusMessage.textContent = message;
+        statusMessage.className = tone ? `status ${tone}` : 'status';
+    };
 
     const reportTourEvent = async (token, eventType, metadata = {}) => {
         try {
@@ -130,15 +166,9 @@ document.addEventListener("DOMContentLoaded", () => {
         const password = registerPasswordInput.value;
         const confirmPassword = confirmPasswordInput.value;
 
-        // --- Client-side Validation ---
-        if (!username || !password || !confirmPassword) {
-            registerStatusMessage.textContent = "All fields are required.";
-            registerStatusMessage.className = 'status error';
-            return;
-        }
-
-        if (password !== confirmPassword) {
-            registerStatusMessage.textContent = "Passwords do not match.";
+        const validationMessage = validateRegistration(username, password, confirmPassword);
+        if (validationMessage) {
+            registerStatusMessage.textContent = validationMessage;
             registerStatusMessage.className = 'status error';
             return;
         }
@@ -158,17 +188,14 @@ document.addEventListener("DOMContentLoaded", () => {
                 throw new Error(data.error || `Error ${response.status}`);
             }
 
-            // --- Success Confirmation ---
-            registerStatusMessage.textContent = "Account created! Please log in.";
-            registerStatusMessage.className = 'status success';
-
-            // After 2 seconds, switch back to the login view
-            setTimeout(() => {
-                registerView.style.display = 'none';
-                loginView.style.display = 'block';
-                registerStatusMessage.textContent = ""; // Clear message
-                registerForm.reset(); // Clear form
-            }, 2000);
+            registerView.style.display = 'none';
+            loginView.style.display = 'block';
+            loginStatusMessage.textContent = data.loginMessage || "Account created. Please log in.";
+            loginStatusMessage.className = 'status success';
+            usernameInput.value = username.trim();
+            passwordInput.value = "";
+            registerStatusMessage.textContent = "";
+            registerForm.reset();
 
         } catch (error) {
             registerStatusMessage.textContent = error.message;
@@ -181,18 +208,17 @@ document.addEventListener("DOMContentLoaded", () => {
     // Fetches folders from the server using a token.
     const fetchFolders = async (token) => {
         try {
-            const response = await fetch(`${BASE_URL}/folders`, {
+            const response = await fetch(`${BASE_URL}/api/folders`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             if (!response.ok) {
-                 const errorData = await response.json();
-                 throw new Error(errorData.error || `Error ${response.status}`);
+                 const errorData = await readJsonSafe(response);
+                 throw new Error(errorData?.error || `Error ${response.status}`);
             }
-            const folders = await response.json();
+            const folders = await readJsonSafe(response) || [];
             populateFoldersDropdown(folders);
         } catch (error) {
-            statusMessage.textContent = error.message;
-            statusMessage.className = 'status error';
+            setStatus(error.message, 'error');
             console.error("[ERROR - Popup.js] Failed to fetch folders:", error);
         }
     };
@@ -200,7 +226,9 @@ document.addEventListener("DOMContentLoaded", () => {
     // Populates the folder dropdown menu.
     const populateFoldersDropdown = (folders) => {
         folderSelect.innerHTML = '<option value="">Uncategorized</option>'; 
-        folders.forEach(folder => {
+        [...folders]
+            .sort((a, b) => String(a?.name || '').localeCompare(String(b?.name || '')))
+            .forEach(folder => {
             const option = document.createElement("option");
             option.value = folder._id;
             option.textContent = folder.name;
@@ -244,14 +272,17 @@ document.addEventListener("DOMContentLoaded", () => {
     createFolderButton.addEventListener("click", async () => {
         const folderName = newFolderNameInput.value.trim();
         if (!folderName) {
-            alert("Please enter a folder name.");
+            setStatus("Enter a folder name first.", 'error');
             return;
         }
+        const originalLabel = createFolderButton.textContent;
+        createFolderButton.disabled = true;
+        createFolderButton.textContent = "…";
         try {
             const { token } = await chrome.storage.local.get("token");
             if (!token) throw new Error("Authentication token not found. Please log in.");
 
-            const response = await fetch(`${BASE_URL}/folders`, {
+            const response = await fetch(`${BASE_URL}/api/folders`, {
                 method: 'POST',
                 headers: { 
                     'Content-Type': 'application/json',
@@ -260,32 +291,29 @@ document.addEventListener("DOMContentLoaded", () => {
                 body: JSON.stringify({ name: folderName })
             });
             if (!response.ok) {
-                 const errorData = await response.json();
-                 throw new Error(errorData.error || "Failed to create folder.");
+                 const errorData = await readJsonSafe(response);
+                 throw new Error(errorData?.error || "Failed to create folder.");
             }
-            const newFolder = await response.json();
-            
-            const option = document.createElement("option");
-            option.value = newFolder._id;
-            option.textContent = newFolder.name;
-            folderSelect.appendChild(option);
+            const newFolder = await readJsonSafe(response);
+            populateFoldersDropdown([...(Array.from(folderSelect.options)
+                .filter(option => option.value)
+                .map(option => ({ _id: option.value, name: option.textContent }))), newFolder]);
             folderSelect.value = newFolder._id;
 
             newFolderNameInput.value = "";
-            statusMessage.textContent = `Folder "${newFolder.name}" created!`;
-            statusMessage.className = 'status success';
+            setStatus(`Folder "${newFolder.name}" created.`, 'success');
         } catch (error) {
-            alert(error.message);
-            statusMessage.textContent = error.message;
-            statusMessage.className = 'status error';
+            setStatus(error.message, 'error');
             console.error("[ERROR - Popup.js] Failed to create folder:", error);
+        } finally {
+            createFolderButton.disabled = false;
+            createFolderButton.textContent = originalLabel;
         }
     });
 
     // Listener for the "Save Article" button
     saveButton.addEventListener("click", async () => {
-        statusMessage.textContent = "Parsing article...";
-        statusMessage.className = 'status';
+        setStatus("Parsing article...");
         
         try {
             const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -300,7 +328,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 throw new Error(articleResponse?.error || "Content script failed.");
             }
             
-            statusMessage.textContent = "Saving article...";
+            setStatus("Saving article...");
             
             // --- MODIFIED MESSAGE PAYLOAD ---
             // Pass all the new data from the article object
@@ -323,11 +351,9 @@ document.addEventListener("DOMContentLoaded", () => {
                 throw new Error(backgroundResponse?.error || "Background service failed.");
             }
 
-            statusMessage.textContent = "Article Saved!";
-            statusMessage.className = 'status success';
+            setStatus("Article saved.", 'success');
         } catch (error) {
-            statusMessage.textContent = error.message;
-            statusMessage.className = 'status error';
+            setStatus(error.message, 'error');
             console.error("[ERROR - Popup.js] Error saving article:", error);
         }
     });

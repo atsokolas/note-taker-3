@@ -15,11 +15,23 @@ const Login = ({ onLoginSuccess, chromeStoreLink, brandEnergy = true }) => {
     useEffect(() => {
         try {
             const reason = sessionStorage.getItem('auth_redirect_reason');
-            if (!reason) return;
+            const registrationNotice = sessionStorage.getItem('registration_notice');
+            const registrationUsername = sessionStorage.getItem('registration_username');
+            if (!reason && !registrationNotice && !registrationUsername) return;
             sessionStorage.removeItem('auth_redirect_reason');
+            sessionStorage.removeItem('registration_notice');
+            sessionStorage.removeItem('registration_username');
             if (reason === 'expired') {
                 setMessage('Your session expired. Please log in again.');
                 setIsError(true);
+                return;
+            }
+            if (registrationNotice) {
+                setMessage(registrationNotice);
+                setIsError(false);
+            }
+            if (registrationUsername) {
+                setUsername(registrationUsername);
             }
         } catch (_error) {
             // ignore storage failures

@@ -34,10 +34,12 @@ import WorkingMemoryPanel from '../components/working-memory/WorkingMemoryPanel'
 import ReturnLaterControl from '../components/return-queue/ReturnLaterControl';
 import ConnectionBuilder from '../components/connections/ConnectionBuilder';
 import ConceptPathWorkspace from '../components/paths/ConceptPathWorkspace';
-import ConceptNotebook from '../components/think/concepts/ConceptNotebook';
 import ThoughtPartnerPanel from '../components/agent/ThoughtPartnerPanel';
 import ConceptTemplatePickerModal from '../components/think/concepts/ConceptTemplatePickerModal';
 import ThinkHome from '../components/think/ThinkHome';
+import IdeaWorkbenchMain from '../components/think/concepts/idea-workbench/IdeaWorkbenchMain';
+import IdeaWorkbenchAgentRail from '../components/think/concepts/idea-workbench/IdeaWorkbenchAgentRail';
+import useIdeaWorkbenchModel from '../components/think/concepts/idea-workbench/useIdeaWorkbenchModel';
 import VirtualList from '../components/virtual/VirtualList';
 import SemanticRelatedPanel from '../components/retrieval/SemanticRelatedPanel';
 import HandoffsSidebar from '../components/think/handoffs/HandoffsSidebar';
@@ -258,7 +260,6 @@ const ThinkMode = () => {
   const [shareError, setShareError] = useState('');
   const [shareWorking, setShareWorking] = useState(false);
   const [shareSlug, setShareSlug] = useState('');
-  const [autoScoutRefresh, setAutoScoutRefresh] = useState({ conceptName: '', token: 0 });
   const [conceptRelated, setConceptRelated] = useState({ highlights: [], concepts: [] });
   const [conceptRelatedLoading, setConceptRelatedLoading] = useState(false);
   const [conceptRelatedError, setConceptRelatedError] = useState('');
@@ -429,6 +430,11 @@ const ThinkMode = () => {
   const pinnedHighlights = concept?.pinnedHighlights || [];
   const pinnedArticles = concept?.pinnedArticles || [];
   const pinnedNotes = concept?.pinnedNotes || [];
+  const ideaWorkbenchModel = useIdeaWorkbenchModel({
+    concept,
+    related,
+    questions: conceptQuestions
+  });
 
   const questionQuery = useQuestions({
     status: questionStatus,
@@ -1115,10 +1121,6 @@ const ThinkMode = () => {
           .then((response) => {
             const itemCount = Number(response?.summary?.itemSuggestions || 0);
             const conceptCount = Number(response?.summary?.conceptSuggestions || 0);
-            setAutoScoutRefresh({
-              conceptName: candidate,
-              token: Date.now()
-            });
             setConceptComposerStatus({
               message: `AI scout ready: ${itemCount} items and ${conceptCount} concepts suggested.`,
               tone: 'success'
@@ -2343,19 +2345,27 @@ const ThinkMode = () => {
       )}
       {!conceptLoading && concept && (
         <>
-          <div className="think-concept-hero">
-            <p className="think-concept-kicker">Concept</p>
-            <h1>{concept.name}</h1>
-            {!isEditingSummary && (
-              <div className="think-concept-summary">
-                {descriptionDraft?.trim() ? (
-                  <p>{descriptionDraft}</p>
-                ) : (
-                  <p className="muted">No summary yet. Capture the core idea in your own words.</p>
-                )}
-              </div>
-            )}
-            {isEditingSummary && (
+          <div className="think-concept-toolbar">
+            <ReturnLaterControl
+              itemType="concept"
+              itemId={concept._id}
+              defaultReason={concept.name || descriptionDraft || 'Concept'}
+            />
+            <ConnectionBuilder itemType="concept" itemId={concept._id} itemTitle={concept.name} />
+            <Button variant="secondary" onClick={() => setAddModal({ open: true, mode: 'highlight' })}>
+              Add pinned material
+            </Button>
+            <Button variant="secondary" onClick={() => setIsEditingSummary((previous) => !previous)}>
+              {isEditingSummary ? 'Hide legacy summary' : 'Edit legacy summary'}
+            </Button>
+          </div>
+
+          {isEditingSummary && (
+            <SurfaceCard className="idea-workbench-panel">
+              <SectionHeader
+                title="Legacy concept summary"
+                subtitle="This still writes to the concept description field while the new workbench remains local-first."
+              />
               <div className="think-concept-summary-editor">
                 <textarea
                   className="concept-description"
@@ -2379,48 +2389,21 @@ const ThinkMode = () => {
                   </QuietButton>
                 </div>
               </div>
-            )}
-          </div>
+            </SurfaceCard>
+          )}
 
-          <div className="think-concept-toolbar">
-            {!isEditingSummary && (
-              <Button variant="secondary" onClick={() => setIsEditingSummary(true)}>
-                Edit summary
-              </Button>
-            )}
-            <ReturnLaterControl
-              itemType="concept"
-              itemId={concept._id}
-              defaultReason={concept.name || descriptionDraft || 'Concept'}
-            />
-            <Button variant="secondary" onClick={() => openSynthesis('concept', concept._id)}>
-              Synthesize
-            </Button>
-            <Button variant="secondary" onClick={handleExportConcept}>
-              Export markdown
-            </Button>
-            <Button variant="secondary" onClick={handleToggleSharing} disabled={shareWorking}>
-              {shareWorking ? 'Saving…' : (concept.isPublic ? 'Unshare' : 'Share')}
-            </Button>
-            <ConnectionBuilder itemType="concept" itemId={concept._id} itemTitle={concept.name} />
-          </div>
-
-          <ConceptNotebook
-            concept={concept}
-            autoScoutToken={concept?.name === autoScoutRefresh.conceptName ? autoScoutRefresh.token : 0}
+          <IdeaWorkbenchMain
+            model={ideaWorkbenchModel}
+            utilityActions={{
+              onSynthesize: () => openSynthesis('concept', concept._id),
+              onExport: handleExportConcept,
+              onShare: handleToggleSharing,
+              shareWorking,
+              shareLabel: concept.isPublic ? 'Unshare' : 'Share',
+              shareSlug
+            }}
           />
 
-          <SectionHeader title="Sharing" subtitle="Publish a read-only concept page." />
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-            <Button variant="secondary" onClick={handleToggleSharing} disabled={shareWorking}>
-              {shareWorking ? 'Saving…' : (concept.isPublic ? 'Disable sharing' : 'Enable sharing')}
-            </Button>
-            {concept.isPublic && shareSlug && (
-              <span className="muted small">
-                Public link: {`${window.location.origin}/public/concepts/${shareSlug}`}
-              </span>
-            )}
-          </div>
           {shareStatus && <p className="status-message">{shareStatus}</p>}
           {shareError && <p className="status-message error-message">{shareError}</p>}
 
@@ -2753,7 +2736,11 @@ const ThinkMode = () => {
     concept?.name
   ]);
 
-  const rightPanel = (
+  const rightPanel = activeView === 'concepts' && concept ? (
+    <div className="section-stack think-layout__right-panel">
+      <IdeaWorkbenchAgentRail model={ideaWorkbenchModel} />
+    </div>
+  ) : (
     <div className="section-stack think-layout__right-panel">
       {workingMemoryDrawer}
       {thoughtPartnerContext && (

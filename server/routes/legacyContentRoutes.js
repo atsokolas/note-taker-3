@@ -274,6 +274,7 @@ const buildLegacyContentRouter = ({
         text: h.text,
         note: h.note || '',
         tags: h.tags || [],
+        color: h.color || '#f6e27a',
         type: normalizeItemType(h.type, 'note'),
         claimId: h.claimId || null,
         anchor: h.anchor,

@@ -896,6 +896,7 @@ const mapHighlightWithArticle = (article, highlight) => ({
   text: highlight.text,
   note: highlight.note,
   tags: highlight.tags || [],
+  color: highlight.color || '#f6e27a',
   type: normalizeItemType(highlight.type, 'note'),
   claimId: highlight.claimId || null,
   createdAt: highlight.createdAt

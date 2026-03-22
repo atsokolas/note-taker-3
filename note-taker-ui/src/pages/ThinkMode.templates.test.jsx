@@ -109,6 +109,41 @@ jest.mock('../components/return-queue/ReturnLaterControl', () => () => null);
 jest.mock('../components/connections/ConnectionBuilder', () => () => null);
 jest.mock('../components/paths/ConceptPathWorkspace', () => () => null);
 jest.mock('../components/think/concepts/ConceptNotebook', () => () => null);
+jest.mock('../components/think/concepts/idea-workbench/IdeaWorkbenchMain', () => () => <div>Idea Workbench</div>);
+jest.mock('../components/think/concepts/idea-workbench/IdeaWorkbenchAgentRail', () => () => <div>Idea Agent Rail</div>);
+jest.mock('../components/think/concepts/idea-workbench/useIdeaWorkbenchModel', () => jest.fn(() => ({
+  state: {
+    header: { label: 'Idea', title: 'Template Concept', prompt: "What's the core insight here?", stage: 'Seed' },
+    workspaceDraft: '',
+    workspaceDraftType: 'Note',
+    importedSourceKeys: [],
+    cards: [],
+    hypothesis: {
+      html: '<p>Draft</p>',
+      versions: [{ id: 'v1', label: 'v1', summary: 'Initial', html: '<p>Draft</p>' }]
+    },
+    agent: { comments: [], messages: [] }
+  },
+  counts: { workspace: 0, supports: 0, contradictions: 0, questions: 0 },
+  currentMaturity: 'Early',
+  hypothesisVersion: { label: 'v1', summary: 'Initial' },
+  importableCounts: { highlights: 0, notes: 0, snippets: 0, concepts: 0 },
+  actions: {
+    setHeaderField: jest.fn(),
+    setWorkspaceDraft: jest.fn(),
+    setWorkspaceDraftType: jest.fn(),
+    addWorkspaceCard: jest.fn(),
+    importMaterialCard: jest.fn(),
+    addSuggestedCard: jest.fn(),
+    moveCard: jest.fn(),
+    deleteCard: jest.fn(),
+    tagCard: jest.fn(),
+    updateHypothesisHtml: jest.fn(),
+    snapshotHypothesis: jest.fn(),
+    runQuickAction: jest.fn(),
+    sendAgentMessage: jest.fn()
+  }
+})));
 jest.mock('../components/virtual/VirtualList', () => ({
   __esModule: true,
   default: ({ items, renderItem }) => <div>{(items || []).map((item, index) => renderItem(item, index))}</div>

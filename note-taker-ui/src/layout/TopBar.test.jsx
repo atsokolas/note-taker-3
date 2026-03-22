@@ -21,12 +21,12 @@ describe('TopBar help menu', () => {
       </MemoryRouter>
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'Help' }));
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Start tour' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Help' }));
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Resume tour' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Help' }));
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Restart tour' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Tour' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Start onboarding' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Tour' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Resume onboarding' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Tour' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Restart onboarding' }));
 
     expect(onStart).toHaveBeenCalledTimes(1);
     expect(onResume).toHaveBeenCalledTimes(1);

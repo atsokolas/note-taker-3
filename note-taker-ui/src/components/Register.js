@@ -3,7 +3,29 @@ import api, { clearStoredTokens } from '../api';
 import { useNavigate } from 'react-router-dom';
 import logo from '../assets/logo.png';
 
-// --- 1. Accept the 'chromeStoreLink' prop ---
+const PASSWORD_MIN_LENGTH = 8;
+
+const validateRegistration = ({ username, password, confirmPassword }) => {
+    const cleanUsername = username.trim();
+
+    if (!cleanUsername || !password) {
+        return 'Username and password are required.';
+    }
+    if (password !== confirmPassword) {
+        return 'Passwords do not match.';
+    }
+    if (password.length < PASSWORD_MIN_LENGTH) {
+        return `Password must be at least ${PASSWORD_MIN_LENGTH} characters.`;
+    }
+    if (cleanUsername.toLowerCase() === password.trim().toLowerCase()) {
+        return 'Password cannot match your username.';
+    }
+    if (!/[A-Za-z]/.test(password) || !/\d/.test(password)) {
+        return 'Password must include at least one letter and one number.';
+    }
+    return '';
+};
+
 const Register = ({ chromeStoreLink }) => {
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
@@ -18,26 +40,24 @@ const Register = ({ chromeStoreLink }) => {
         setMessage('');
         setIsError(false);
         setSubmitting(true);
-        if (password !== confirmPassword) {
-            setMessage('Passwords do not match.');
+        const validationMessage = validateRegistration({ username, password, confirmPassword });
+        if (validationMessage) {
+            setMessage(validationMessage);
             setIsError(true);
             setSubmitting(false);
             return;
         }
         try {
             const cleanUsername = username.trim();
-            if (!cleanUsername || !password) {
-                setMessage('Username and password are required.');
-                setIsError(true);
-                return;
-            }
             clearStoredTokens();
-            await api.post('/api/auth/register', { username: cleanUsername, password }, { skipAuthHandling: true });
-            setMessage('Registration successful! You can now log in.');
-            setIsError(false);
-            setTimeout(() => {
-                navigate('/login');
-            }, 2000);
+            const response = await api.post('/api/auth/register', { username: cleanUsername, password }, { skipAuthHandling: true });
+            try {
+                sessionStorage.setItem('registration_notice', response.data?.loginMessage || 'Account created. You can log in now.');
+                sessionStorage.setItem('registration_username', cleanUsername);
+            } catch (_error) {
+                // ignore storage failures
+            }
+            navigate('/login');
         } catch (error) {
             console.error('Registration error:', error.response?.data || error.message);
             const errorMessage = error.response?.data?.error || 'Registration failed. Please try again.';
@@ -53,13 +73,11 @@ const Register = ({ chromeStoreLink }) => {
             <img src={logo} alt="Note Taker Logo" className="auth-logo" loading="lazy" decoding="async" />
             <h2>Register</h2>
 
-            {/* --- 2. ENSURE THIS 'a' TAG IS CORRECT --- */}
             <p className="get-extension-link">
                 This web app works without extensions using manual notes, direct paste, and CSV/markdown imports.
                 For one-click web clipping, install the free
                 <a href={chromeStoreLink} target="_blank" rel="noopener noreferrer"> Chrome Extension</a>.
             </p>
-            {/* --- END OF LINK --- */}
 
             <form onSubmit={handleRegister} className="auth-form">
                 <div className="form-group">
@@ -83,6 +101,7 @@ const Register = ({ chromeStoreLink }) => {
                         autoComplete="new-password"
                         required
                     />
+                    <p className="muted small">Use at least 8 characters with one letter and one number.</p>
                 </div>
                 <div className="form-group">
                     <label htmlFor="confirm-password">Confirm Password:</label>

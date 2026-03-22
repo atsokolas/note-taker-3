@@ -14,22 +14,22 @@ export const TOUR_STEPS = [
   {
     id: 'capture_first_highlight',
     title: 'Capture your first highlight',
-    body: 'Open an article, save it with the extension, then highlight a passage on the page.',
+    body: 'Open Library, choose any saved article, and highlight one passage in the reading view.',
     route: '/library',
     targetSelector: '[data-tour-anchor="library-highlights-scope"]',
     placement: 'right',
     signalKey: 'firstHighlightCaptured',
-    cta: { label: 'Go to Library', route: '/library' }
+    cta: { label: 'Open Library reading view', route: '/library' }
   },
   {
     id: 'create_concept_from_highlight',
     title: 'Create a concept from a highlight',
-    body: 'In Highlights, expand a card and choose “Add to Concept” to create or attach a concept.',
+    body: 'Open Highlights, expand one card, and choose “Add to Concept” to create or attach a concept.',
     route: '/library?scope=highlights&highlightView=concept',
     targetSelector: '[data-tour-anchor="highlight-add-concept"], [data-tour-anchor="library-highlights-panel"]',
     placement: 'left',
     signalKey: 'conceptFromHighlight',
-    cta: { label: 'Open Highlights', route: '/library?scope=highlights&highlightView=concept' }
+    cta: { label: 'Open Highlights feed', route: '/library?scope=highlights&highlightView=concept' }
   },
   {
     id: 'organize_workspace',
