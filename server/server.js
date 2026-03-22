@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const mongoose = require('mongoose');
+const { serializeHighlightWithArticle } = require('./utils/highlightUtils');
 const dotenv = require('dotenv');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
@@ -889,18 +890,9 @@ const parseClaimId = (value) => {
   return new mongoose.Types.ObjectId(value);
 };
 
-const mapHighlightWithArticle = (article, highlight) => ({
-  _id: highlight._id,
-  articleId: article._id,
-  articleTitle: article.title || 'Untitled article',
-  text: highlight.text,
-  note: highlight.note,
-  tags: highlight.tags || [],
-  color: highlight.color || '#f6e27a',
-  type: normalizeItemType(highlight.type, 'note'),
-  claimId: highlight.claimId || null,
-  createdAt: highlight.createdAt
-});
+const mapHighlightWithArticle = (article, highlight) => (
+  serializeHighlightWithArticle(article, highlight, { normalizeItemType })
+);
 
 const findHighlightById = async (userId, highlightId) => {
   if (!mongoose.Types.ObjectId.isValid(highlightId)) return null;

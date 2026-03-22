@@ -1,4 +1,5 @@
 const express = require('express');
+const { serializeHighlightWithArticle } = require('../utils/highlightUtils');
 
 const buildLegacyContentRouter = ({
   authenticateToken,
@@ -269,19 +270,12 @@ const buildLegacyContentRouter = ({
       if (!article) {
         return res.status(404).json({ error: "Article not found." });
       }
-      const highlights = (article.highlights || []).map(h => ({
-        _id: h._id,
-        text: h.text,
-        note: h.note || '',
-        tags: h.tags || [],
-        color: h.color || '#f6e27a',
-        type: normalizeItemType(h.type, 'note'),
-        claimId: h.claimId || null,
-        anchor: h.anchor,
-        createdAt: h.createdAt,
-        articleId: id,
-        articleTitle: article.title || 'Untitled article'
-      }));
+      const highlights = (article.highlights || []).map(h => (
+        serializeHighlightWithArticle(article, h, {
+          includeAnchor: true,
+          normalizeItemType
+        })
+      ));
       res.status(200).json(highlights);
     } catch (error) {
       console.error("❌ Error fetching article highlights:", error);

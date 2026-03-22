@@ -88,7 +88,7 @@ const HighlightCard = ({
     setOrganizeError('');
     setClaimEvidenceOpen(false);
     setClaimEvidenceItems([]);
-  }, [highlight?._id, highlight?.type, highlight?.claimId, highlight?.tags]);
+  }, [highlight?._id, highlight?.type, highlight?.claimId, highlight?.tags, highlight?.color]);
 
   useEffect(() => {
     if (typeof forceExpandedState === 'boolean') {

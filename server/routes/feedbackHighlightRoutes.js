@@ -1,16 +1,8 @@
 const express = require('express');
-
-const DEFAULT_HIGHLIGHT_COLOR = '#f6e27a';
-
-const normalizeHighlightColor = (value) => {
-  const candidate = String(value || '').trim();
-  if (/^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(candidate)) {
-    return candidate.length === 4
-      ? `#${candidate.slice(1).split('').map(char => `${char}${char}`).join('')}`
-      : candidate.toLowerCase();
-  }
-  return DEFAULT_HIGHLIGHT_COLOR;
-};
+const {
+  HIGHLIGHT_AGGREGATE_PROJECTION,
+  normalizeHighlightColor
+} = require('../utils/highlightUtils');
 
 const buildFeedbackHighlightRouter = ({
   mongoose,
@@ -116,18 +108,7 @@ const buildFeedbackHighlightRouter = ({
       pipeline.push(
         { $sort: { 'highlights.createdAt': -1 } },
         { $limit: Math.min(Number(limit) || 120, 200) },
-        { $project: {
-          _id: '$highlights._id',
-          articleId: '$_id',
-          articleTitle: '$title',
-          text: '$highlights.text',
-          note: '$highlights.note',
-          tags: '$highlights.tags',
-          color: '$highlights.color',
-          type: '$highlights.type',
-          claimId: '$highlights.claimId',
-          createdAt: '$highlights.createdAt'
-        } }
+        { $project: HIGHLIGHT_AGGREGATE_PROJECTION }
       );
 
       const highlights = await Article.aggregate(pipeline);

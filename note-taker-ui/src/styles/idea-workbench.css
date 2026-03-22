@@ -495,10 +495,16 @@
 }
 
 .idea-workbench-rail__event-titles p,
+.idea-workbench-rail__event-detail,
 .idea-workbench-rail__event--empty p {
   margin: 0;
   color: var(--text-secondary);
   line-height: 1.5;
+}
+
+.idea-workbench-rail__event-detail {
+  margin-top: 8px;
+  font-size: 0.92rem;
 }
 
 .idea-workbench-rail__event-meta {

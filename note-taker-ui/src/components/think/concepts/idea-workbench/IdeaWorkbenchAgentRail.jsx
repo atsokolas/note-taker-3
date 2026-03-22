@@ -44,6 +44,35 @@ const describeEventFocus = (event) => {
   return '';
 };
 
+const describeEventDetail = (event) => {
+  const payload = event?.payload || {};
+  if (event?.type === 'agent_scout_completed') {
+    return `Scoped the library${typeof payload.count === 'number' ? ` and surfaced ${payload.count} candidate ${payload.count === 1 ? 'item' : 'items'}` : ''}.`;
+  }
+  if (event?.type === 'agent_reasoning_completed') {
+    return `Completed a reasoning pass${typeof payload.relatedCount === 'number' && payload.relatedCount > 0 ? ` with ${payload.relatedCount} related card suggestion${payload.relatedCount === 1 ? '' : 's'}` : ''}.`;
+  }
+  if (event?.type === 'chat_agent_reply' || event?.type === 'chat_agent_fallback') {
+    return typeof payload.suggestedCount === 'number' && payload.suggestedCount > 0
+      ? `Returned ${payload.suggestedCount} suggested card${payload.suggestedCount === 1 ? '' : 's'} with the reply.`
+      : 'Returned a reply without suggested cards.';
+  }
+  if (event?.type === 'card_moved' && payload.zone) {
+    return `Reclassified material into ${payload.zone}.`;
+  }
+  if (event?.type === 'material_imported' && payload.kind) {
+    return `Pulled a saved ${payload.kind} into the active workspace.`;
+  }
+  if (event?.type === 'conflict_resolved' && payload.mode) {
+    return payload.mode === 'merge'
+      ? 'Saved a merged workbench after reconciling local and server changes.'
+      : payload.mode === 'local'
+        ? 'Saved the local draft over the newer server copy.'
+        : 'Accepted the newer server copy.';
+  }
+  return '';
+};
+
 const IdeaWorkbenchAgentRail = ({ model }) => {
   const [chatDraft, setChatDraft] = useState('');
   const comments = useMemo(
@@ -180,6 +209,7 @@ const IdeaWorkbenchAgentRail = ({ model }) => {
 
           {activity.map((event) => {
             const focus = describeEventFocus(event);
+            const detail = describeEventDetail(event);
             return (
               <div key={event.id} className={`idea-workbench-rail__event idea-workbench-rail__event--${event.actor || 'system'}`}>
                 <div className="idea-workbench-rail__event-header">
@@ -189,6 +219,7 @@ const IdeaWorkbenchAgentRail = ({ model }) => {
                   </div>
                   <TagChip>{event.actor || 'system'}</TagChip>
                 </div>
+                {detail && <p className="idea-workbench-rail__event-detail">{detail}</p>}
                 <div className="idea-workbench-rail__event-meta">
                   {focus && <span>{focus}</span>}
                   <span>{formatEventTime(event.createdAt)}</span>

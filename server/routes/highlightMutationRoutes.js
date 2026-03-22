@@ -1,16 +1,10 @@
 const express = require('express');
-
-const DEFAULT_HIGHLIGHT_COLOR = '#f6e27a';
-
-const normalizeHighlightColor = (value) => {
-  const candidate = String(value || '').trim();
-  if (/^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(candidate)) {
-    return candidate.length === 4
-      ? `#${candidate.slice(1).split('').map(char => `${char}${char}`).join('')}`
-      : candidate.toLowerCase();
-  }
-  return DEFAULT_HIGHLIGHT_COLOR;
-};
+const {
+  DEFAULT_HIGHLIGHT_COLOR,
+  buildHighlightDocument,
+  normalizeHighlightColor,
+  serializeHighlightWithArticle
+} = require('../utils/highlightUtils');
 
 const buildHighlightMutationRouter = ({
   mongoose,
@@ -78,22 +72,14 @@ const buildHighlightMutationRouter = ({
         return res.status(400).json({ error: "Highlight text is required." });
       }
 
-      const newHighlight = {
-          text: trimmedText,
-          note: note || '',
-          tags: normalizeTags(tags),
-          color: normalizeHighlightColor(color),
-          type: 'note',
-          claimId: null,
-          anchor: anchor ? {
-            text: anchor.text || trimmedText,
-            prefix: anchor.prefix || '',
-            suffix: anchor.suffix || '',
-            startOffsetApprox: Number.isFinite(anchor.startOffsetApprox)
-              ? anchor.startOffsetApprox
-              : undefined
-          } : undefined
-      };
+      const newHighlight = buildHighlightDocument({
+        text: trimmedText,
+        note,
+        tags,
+        color,
+        anchor,
+        normalizeTags
+      });
 
       const updatedArticle = await Article.findOneAndUpdate(
         { _id: id, userId: userId },
@@ -192,18 +178,9 @@ const buildHighlightMutationRouter = ({
           'highlight'
         );
         if (highlightItem) queueEmbeddingUpsert([highlightItem]);
-        res.status(200).json({
-          _id: updatedHighlight._id,
-          articleId: refreshed._id,
-          articleTitle: refreshed.title,
-          text: updatedHighlight.text,
-          note: updatedHighlight.note,
-          tags: updatedHighlight.tags,
-          color: updatedHighlight.color || DEFAULT_HIGHLIGHT_COLOR,
-          type: normalizeItemType(updatedHighlight.type, 'note'),
-          claimId: updatedHighlight.claimId || null,
-          createdAt: updatedHighlight.createdAt
-        });
+        res.status(200).json(
+          serializeHighlightWithArticle(refreshed, updatedHighlight, { normalizeItemType })
+        );
     } catch (error) {
         console.error("❌ Error updating highlight:", error);
         if (error.name === 'CastError') {
