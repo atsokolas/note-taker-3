@@ -180,7 +180,10 @@ const buildHighlightMutationRouter = ({
         );
         if (highlightItem) queueEmbeddingUpsert([highlightItem]);
         res.status(200).json(
-          serializeHighlightWithArticle(refreshed, updatedHighlight, { normalizeItemType })
+          serializeHighlightWithArticle(refreshed, updatedHighlight, {
+            includeAnchor: true,
+            normalizeItemType
+          })
         );
     } catch (error) {
         console.error("❌ Error updating highlight:", error);

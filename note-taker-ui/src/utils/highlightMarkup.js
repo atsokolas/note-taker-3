@@ -87,6 +87,7 @@ const wrapTextNodeSegment = (node, start, end, highlightId, color) => {
   const mark = target.ownerDocument.createElement('mark');
   mark.className = 'highlight';
   mark.dataset.highlightId = `highlight-${highlightId}`;
+  mark.style.setProperty('--highlight-color', normalizeHighlightColor(color));
   mark.style.backgroundColor = normalizeHighlightColor(color);
   target.parentNode.replaceChild(mark, target);
   mark.appendChild(target);

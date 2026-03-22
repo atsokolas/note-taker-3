@@ -49,6 +49,15 @@ const DroppableColumn = ({
   );
 };
 
+const DroppableTextBox = ({ id, className = '', children }) => {
+  const { isOver, setNodeRef } = useDroppable({ id });
+  return (
+    <div ref={setNodeRef} className={`${className} ${isOver ? 'is-over' : ''}`.trim()}>
+      {children}
+    </div>
+  );
+};
+
 const IdeaWorkbenchMain = ({
   model,
   utilityActions
@@ -130,7 +139,14 @@ const IdeaWorkbenchMain = ({
         onDragStart={({ active }) => setActiveDragId(String(active.id))}
         onDragEnd={({ active, over }) => {
           if (active?.id && over?.id) {
-            model.actions.moveCard(String(active.id), String(over.id));
+            const nextTarget = String(over.id);
+            if (nextTarget === 'workspace-composer') {
+              model.actions.insertCardIntoWorkspaceDraft(String(active.id));
+            } else if (nextTarget === 'hypothesis-editor') {
+              model.actions.insertCardIntoHypothesis(String(active.id));
+            } else {
+              model.actions.moveCard(String(active.id), nextTarget);
+            }
           }
           setActiveDragId('');
         }}
@@ -147,7 +163,7 @@ const IdeaWorkbenchMain = ({
             </div>
           </div>
 
-          <div className="idea-workbench-composer">
+          <DroppableTextBox id="workspace-composer" className="idea-workbench-composer">
             <textarea
               value={model.state.workspaceDraft}
               onChange={(event) => model.actions.setWorkspaceDraft(event.target.value)}
@@ -171,7 +187,7 @@ const IdeaWorkbenchMain = ({
                 Add to workspace
               </Button>
             </div>
-          </div>
+          </DroppableTextBox>
 
           <div className="idea-workbench-imports">
             <QuietButton type="button" onClick={() => model.actions.importMaterialCard('highlight')}>
@@ -266,6 +282,7 @@ const IdeaWorkbenchMain = ({
           <IdeaWorkbenchHypothesisEditor
             value={model.state.hypothesis.html}
             onChange={model.actions.updateHypothesisHtml}
+            droppableId="hypothesis-editor"
           />
 
           <div className="idea-workbench-hypothesis__actions">

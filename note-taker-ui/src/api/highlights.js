@@ -46,10 +46,10 @@ export const deleteHighlight = async ({ articleId, highlightId }) => {
   return res.data;
 };
 
-export const createHighlight = async ({ articleId, text, tags = [], anchor, color }) => {
+export const createHighlight = async ({ articleId, text, tags = [], note = '', anchor, color }) => {
   const res = await api.post(
     `/articles/${articleId}/highlights`,
-    { text, tags, anchor, color },
+    { text, tags, note, anchor, color },
     getAuthHeaders()
   );
   return res.data?.highlight || res.data?.createdHighlight || res.data;

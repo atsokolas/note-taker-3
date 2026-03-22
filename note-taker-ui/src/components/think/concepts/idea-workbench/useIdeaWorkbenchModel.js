@@ -51,6 +51,9 @@ const sentenceCase = (value = '') => {
   if (!safe) return '';
   return safe.charAt(0).toUpperCase() + safe.slice(1);
 };
+const escapeAttribute = (value = '') => String(value || '')
+  .replace(/&/g, '&amp;')
+  .replace(/"/g, '&quot;');
 const formatScore = (value) => {
   const numeric = Number(value);
   if (!Number.isFinite(numeric)) return '';
@@ -194,6 +197,27 @@ const buildQuestionCard = (question, origin = 'material') => ({
   createdAt: question?.updatedAt || question?.createdAt || ''
 });
 
+const formatCardForWorkspaceDraft = (card) => {
+  if (!card) return '';
+  const source = clean(card.source);
+  const title = clean(card.title);
+  const content = clean(card.content);
+  const prefix = source ? `${source}: ` : title ? `${title}: ` : '';
+  return clean(`${prefix}${content}`);
+};
+
+const formatCardForHypothesisHtml = (card) => {
+  if (!card) return '<p></p>';
+  const source = clean(card.source) || clean(card.title) || 'Source';
+  const content = clean(card.content) || clean(card.title) || 'Material';
+  const whyItMatters = clean(card.whyItMatters);
+  return [
+    `<blockquote data-source-key="${escapeAttribute(clean(card.sourceKey || card.id))}"><p>${escapeHtml(content)}</p></blockquote>`,
+    `<p><em>From ${escapeHtml(source)}.</em></p>`,
+    whyItMatters ? `<p>${escapeHtml(whyItMatters)}</p>` : ''
+  ].filter(Boolean).join('');
+};
+
 const buildAgentDraftSuggestionCard = (suggestion, intent = 'support') => {
   const safeType = clean(suggestion?.type).toLowerCase();
   const typeMap = {
@@ -240,6 +264,31 @@ const buildAgentDraftSuggestionCard = (suggestion, intent = 'support') => {
     tags: ['scout'],
     createdAt: new Date().toISOString()
   };
+};
+
+const scoreMaterialCardForIntent = (card, intent, contextText = '') => {
+  const haystack = `${clean(card?.title)} ${clean(card?.content)} ${clean(card?.source)} ${contextText}`.toLowerCase();
+  const type = clean(card?.type);
+  const typeBase = type === 'Article snippet'
+    ? 3
+    : type === 'Note'
+      ? 3
+      : type === 'Concept'
+        ? 2
+        : type === 'Highlight'
+          ? 1
+          : 0;
+  if (intent === 'contradiction') {
+    const contradictionSignals = /\b(not|however|but|tension|risk|counter|fail|avoid|weak|problem|messy)\b/g;
+    const signalCount = (haystack.match(contradictionSignals) || []).length;
+    return (type === 'Article snippet' ? 2 : 0) + (type === 'Note' ? 2 : 0) + signalCount + typeBase;
+  }
+  if (intent === 'question') {
+    const questionSignals = /\?/g;
+    return (type === 'Open question' ? 5 : 0) + ((haystack.match(questionSignals) || []).length) + typeBase;
+  }
+  const supportSignals = /\b(because|shows|suggests|evidence|example|pattern|supports|indicates)\b/g;
+  return ((haystack.match(supportSignals) || []).length) + typeBase;
 };
 
 const buildMaterialLibrary = ({ concept, material, related, questions }) => {
@@ -982,6 +1031,50 @@ export const useIdeaWorkbenchModel = ({
     }));
   }, []);
 
+  const insertCardIntoWorkspaceDraft = useCallback((cardId) => {
+    setState((previous) => {
+      const card = previous.cards.find((entry) => entry.id === cardId);
+      if (!card) return previous;
+      const insertion = formatCardForWorkspaceDraft(card);
+      if (!insertion) return previous;
+      return {
+        ...previous,
+        workspaceDraft: previous.workspaceDraft
+          ? `${previous.workspaceDraft.trim()}\n\n${insertion}`
+          : insertion,
+        workspaceDraftType: card.type === 'Highlight' ? 'Highlight' : previous.workspaceDraftType
+      };
+    });
+    appendWorkbenchEvents(createWorkbenchEvent({
+      type: 'card_inserted_into_textbox',
+      actor: 'user',
+      summary: 'Dropped material into the workspace text box.',
+      payload: { target: 'workspace-draft', cardId }
+    }));
+  }, [appendWorkbenchEvents]);
+
+  const insertCardIntoHypothesis = useCallback((cardId) => {
+    setState((previous) => {
+      const card = previous.cards.find((entry) => entry.id === cardId);
+      if (!card) return previous;
+      const insertion = formatCardForHypothesisHtml(card);
+      if (!insertion) return previous;
+      return {
+        ...previous,
+        hypothesis: {
+          ...previous.hypothesis,
+          html: `${previous.hypothesis.html || '<p></p>'}${insertion}`
+        }
+      };
+    });
+    appendWorkbenchEvents(createWorkbenchEvent({
+      type: 'card_inserted_into_textbox',
+      actor: 'user',
+      summary: 'Dropped material into the hypothesis text box.',
+      payload: { target: 'hypothesis', cardId }
+    }));
+  }, [appendWorkbenchEvents]);
+
   const moveCard = useCallback((cardId, nextZone) => {
     setState((previous) => ({
       ...previous,
@@ -1098,16 +1191,48 @@ export const useIdeaWorkbenchModel = ({
     });
     const payload = await getConceptAgentSuggestions(conceptKey);
     const latestDraft = Array.isArray(payload?.drafts) ? payload.drafts.at(-1) : null;
-    if (!latestDraft) return [];
-    const itemSuggestions = Array.isArray(latestDraft.itemSuggestions) ? latestDraft.itemSuggestions : [];
-    const conceptSuggestions = Array.isArray(latestDraft.conceptSuggestions) ? latestDraft.conceptSuggestions : [];
+    const draftSourceKeys = new Set();
+    const itemSuggestions = Array.isArray(latestDraft?.itemSuggestions) ? latestDraft.itemSuggestions : [];
+    const conceptSuggestions = Array.isArray(latestDraft?.conceptSuggestions) ? latestDraft.conceptSuggestions : [];
     const ranked = intent === 'contradiction'
-      ? [...conceptSuggestions, ...itemSuggestions.filter(item => ['question', 'note', 'highlight'].includes(item.type))]
+      ? [...conceptSuggestions, ...itemSuggestions.filter(item => ['question', 'note', 'highlight', 'article'].includes(item.type))]
       : intent === 'question'
         ? [...itemSuggestions.filter(item => item.type === 'question'), ...conceptSuggestions]
         : [...itemSuggestions, ...conceptSuggestions];
-    return ranked.slice(0, 3).map((suggestion) => buildAgentDraftSuggestionCard(suggestion, intent));
-  }, [conceptKey]);
+    const draftedCards = ranked
+      .slice(0, 3)
+      .map((suggestion) => buildAgentDraftSuggestionCard(suggestion, intent))
+      .filter(Boolean);
+    draftedCards.forEach((card) => {
+      if (card?.sourceKey) draftSourceKeys.add(card.sourceKey);
+    });
+
+    const contextText = [
+      state.header.title,
+      state.header.prompt,
+      stripHtml(state.hypothesis.html)
+    ].join(' ');
+    const localMaterialCards = materialLibrary
+      .filter((card) => (
+        ['Highlight', 'Article snippet', 'Note', 'Concept'].includes(card.type)
+        && !state.importedSourceKeys.includes(card.sourceKey)
+        && !draftSourceKeys.has(card.sourceKey)
+      ))
+      .sort((left, right) => (
+        scoreMaterialCardForIntent(right, intent, contextText) - scoreMaterialCardForIntent(left, intent, contextText)
+      ))
+      .slice(0, 2)
+      .map((card) => ({
+        ...card,
+        id: createId('card'),
+        zone: intent === 'contradiction' ? 'contradictions' : intent === 'question' ? 'questions' : 'supports',
+        origin: 'agent',
+        agentAnnotation: card.agentAnnotation || 'Surfaced from saved material, not only highlights.',
+        tags: [...new Set([...(card.tags || []), 'material'])]
+      }));
+
+    return [...draftedCards, ...localMaterialCards].slice(0, 5);
+  }, [conceptKey, materialLibrary, state.header.prompt, state.header.title, state.hypothesis.html, state.importedSourceKeys]);
 
   const runActionWithAgent = useCallback(async (action) => {
     const response = await chatWithAgent({
@@ -1446,6 +1571,8 @@ export const useIdeaWorkbenchModel = ({
       addWorkspaceCard,
       importMaterialCard,
       addSuggestedCard,
+      insertCardIntoWorkspaceDraft,
+      insertCardIntoHypothesis,
       moveCard,
       deleteCard,
       tagCard,

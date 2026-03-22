@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import { EditorContent, useEditor } from '@tiptap/react';
+import { useDroppable } from '@dnd-kit/core';
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
 import { QuietButton } from '../../../../components/ui';
@@ -12,8 +13,10 @@ const toolbarItems = [
 
 const IdeaWorkbenchHypothesisEditor = ({
   value,
-  onChange
+  onChange,
+  droppableId = 'hypothesis-editor'
 }) => {
+  const { isOver, setNodeRef } = useDroppable({ id: droppableId });
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
@@ -44,7 +47,7 @@ const IdeaWorkbenchHypothesisEditor = ({
   if (!editor) return null;
 
   return (
-    <div className="idea-workbench-hypothesis__editor-shell">
+    <div ref={setNodeRef} className={`idea-workbench-hypothesis__editor-shell ${isOver ? 'is-over' : ''}`}>
       <div className="idea-workbench-hypothesis__toolbar">
         {toolbarItems.map((item) => (
           <QuietButton

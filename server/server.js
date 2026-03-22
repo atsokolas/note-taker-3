@@ -891,7 +891,10 @@ const parseClaimId = (value) => {
 };
 
 const mapHighlightWithArticle = (article, highlight) => (
-  serializeHighlightWithArticle(article, highlight, { normalizeItemType })
+  serializeHighlightWithArticle(article, highlight, {
+    includeAnchor: true,
+    normalizeItemType
+  })
 );
 
 const findHighlightById = async (userId, highlightId) => {

@@ -133,6 +133,13 @@
   background: rgba(255, 251, 244, 0.72);
 }
 
+.idea-workbench-composer.is-over,
+.idea-workbench-hypothesis__editor-shell.is-over {
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--border-subtle));
+  background: rgba(239, 228, 208, 0.82);
+  box-shadow: inset 0 0 0 1px rgba(187, 155, 106, 0.18);
+}
+
 .idea-workbench-composer textarea,
 .idea-workbench-rail__composer textarea {
   width: 100%;

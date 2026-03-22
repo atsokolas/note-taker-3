@@ -53,7 +53,7 @@ const useArticleDetail = (articleId, options = {}) => {
 
   const replaceHighlight = useCallback((tempId, highlight) => {
     setHighlights(prev => normalizeHighlights(
-      prev.map(item => (item._id === tempId ? highlight : item)),
+      prev.map(item => (item._id === tempId ? { ...item, ...highlight } : item)),
       article
     ));
   }, [article]);

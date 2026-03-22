@@ -709,6 +709,10 @@ const Library = () => {
       onHighlightOptimistic={addHighlightOptimistic}
       onHighlightReplace={replaceHighlight}
       onHighlightRemove={removeHighlight}
+      onOpenConcept={handleOpenConceptModal}
+      onOpenNotebook={handleOpenNotebookModal}
+      onOpenQuestion={handleOpenQuestionModal}
+      onDumpToWorkingMemory={(highlight) => handleDumpToWorkingMemory(highlight?.text || '')}
       folderOptions={folderOptions}
       articleOptions={articleOptions}
       externalQuery={highlightQuery}

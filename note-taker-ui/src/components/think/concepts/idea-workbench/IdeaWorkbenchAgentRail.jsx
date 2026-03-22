@@ -13,6 +13,7 @@ const EVENT_LABELS = {
   workspace_card_added: 'Workspace note added',
   material_imported: 'Material imported',
   card_moved: 'Card reclassified',
+  card_inserted_into_textbox: 'Material inserted into text',
   hypothesis_version_saved: 'Hypothesis version saved',
   quick_action_requested: 'Quick action requested',
   agent_scout_completed: 'Scout completed',
@@ -59,6 +60,11 @@ const describeEventDetail = (event) => {
   }
   if (event?.type === 'card_moved' && payload.zone) {
     return `Reclassified material into ${payload.zone}.`;
+  }
+  if (event?.type === 'card_inserted_into_textbox' && payload.target) {
+    return payload.target === 'hypothesis'
+      ? 'Inserted the dropped material into the current hypothesis draft.'
+      : 'Inserted the dropped material into the workspace note box.';
   }
   if (event?.type === 'material_imported' && payload.kind) {
     return `Pulled a saved ${payload.kind} into the active workspace.`;

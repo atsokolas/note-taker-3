@@ -20,6 +20,10 @@ const LibraryMain = ({
   onHighlightOptimistic,
   onHighlightReplace,
   onHighlightRemove,
+  onOpenConcept,
+  onOpenNotebook,
+  onOpenQuestion,
+  onDumpToWorkingMemory,
   folderOptions,
   articleOptions,
   externalQuery,
@@ -66,6 +70,10 @@ const LibraryMain = ({
             onHighlightOptimistic={onHighlightOptimistic}
             onHighlightReplace={onHighlightReplace}
             onHighlightRemove={onHighlightRemove}
+            onOpenConcept={onOpenConcept}
+            onOpenNotebook={onOpenNotebook}
+            onOpenQuestion={onOpenQuestion}
+            onDumpToWorkingMemory={onDumpToWorkingMemory}
           />
         )}
       </div>
