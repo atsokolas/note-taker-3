@@ -358,7 +358,7 @@ const buildContextBrief = (state) => {
     `Supports: ${supports.length ? supports.map(card => truncate(card.content, 120)).join(' | ') : 'None yet.'}`,
     `Contradictions: ${contradictions.length ? contradictions.map(card => truncate(card.content, 120)).join(' | ') : 'None yet.'}`,
     `Open questions: ${questions.length ? questions.map(card => truncate(card.content, 120)).join(' | ') : 'None yet.'}`,
-    `Open workspace material: ${workspace.length ? workspace.map(card => truncate(card.content, 100)).join(' | ') : 'None.'}`
+    `Material in play: ${workspace.length ? workspace.map(card => truncate(card.content, 100)).join(' | ') : 'None.'}`
   ].join('\n');
 };
 
@@ -1053,14 +1053,18 @@ export const useIdeaWorkbenchModel = ({
     }));
   }, [appendWorkbenchEvents]);
 
-  const insertCardIntoHypothesis = useCallback((cardId) => {
+  const insertCardIntoHypothesis = useCallback((cardId, options = {}) => {
     setState((previous) => {
       const card = previous.cards.find((entry) => entry.id === cardId);
       if (!card) return previous;
       const insertion = formatCardForHypothesisHtml(card);
       if (!insertion) return previous;
+      const removeCard = Boolean(options?.removeCard);
       return {
         ...previous,
+        cards: removeCard
+          ? previous.cards.filter((entry) => entry.id !== cardId)
+          : previous.cards,
         hypothesis: {
           ...previous.hypothesis,
           html: `${previous.hypothesis.html || '<p></p>'}${insertion}`
@@ -1071,7 +1075,7 @@ export const useIdeaWorkbenchModel = ({
       type: 'card_inserted_into_textbox',
       actor: 'user',
       summary: 'Dropped material into the hypothesis text box.',
-      payload: { target: 'hypothesis', cardId }
+      payload: { target: 'hypothesis', cardId, removeCard: Boolean(options?.removeCard) }
     }));
   }, [appendWorkbenchEvents]);
 

@@ -14,7 +14,8 @@ const toolbarItems = [
 const IdeaWorkbenchHypothesisEditor = ({
   value,
   onChange,
-  droppableId = 'hypothesis-editor'
+  droppableId = 'hypothesis-editor',
+  isReceivingDrop = false
 }) => {
   const { isOver, setNodeRef } = useDroppable({ id: droppableId });
   const editor = useEditor({
@@ -47,7 +48,10 @@ const IdeaWorkbenchHypothesisEditor = ({
   if (!editor) return null;
 
   return (
-    <div ref={setNodeRef} className={`idea-workbench-hypothesis__editor-shell ${isOver ? 'is-over' : ''}`}>
+    <div
+      ref={setNodeRef}
+      className={`idea-workbench-hypothesis__editor-shell ${isOver ? 'is-over' : ''} ${isReceivingDrop ? 'is-receiving' : ''}`.trim()}
+    >
       <div className="idea-workbench-hypothesis__toolbar">
         {toolbarItems.map((item) => (
           <QuietButton

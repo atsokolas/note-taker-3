@@ -24,6 +24,7 @@ const IdeaWorkbenchCard = ({
   card,
   compact = false,
   draggable = false,
+  consuming = false,
   expanded = false,
   onToggleExpanded,
   onMove,
@@ -45,7 +46,7 @@ const IdeaWorkbenchCard = ({
   return (
     <article
       ref={setNodeRef}
-      className={`idea-workbench-card idea-workbench-card--${TYPE_CLASS[card.type] || 'generic'} ${compact ? 'is-compact' : ''} ${isDragging ? 'is-dragging' : ''}`}
+      className={`idea-workbench-card idea-workbench-card--${TYPE_CLASS[card.type] || 'generic'} ${compact ? 'is-compact' : ''} ${isDragging ? 'is-dragging' : ''} ${consuming ? 'is-consuming' : ''}`}
       style={transform ? { transform: CSS.Translate.toString(transform) } : undefined}
     >
       <div className="idea-workbench-card__header">

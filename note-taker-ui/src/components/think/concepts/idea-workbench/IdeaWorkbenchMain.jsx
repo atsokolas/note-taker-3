@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { DndContext, DragOverlay, useDroppable } from '@dnd-kit/core';
 import { Button, QuietButton, SurfaceCard, TagChip } from '../../../../components/ui';
 import IdeaWorkbenchCard from './IdeaWorkbenchCard';
@@ -6,7 +6,6 @@ import IdeaWorkbenchHypothesisEditor from './IdeaWorkbenchHypothesisEditor';
 import IdeaWorkbenchConflictModal from './IdeaWorkbenchConflictModal';
 
 const STAGES = ['Seed', 'Gathering', 'Forming', 'Testing', 'Sharpening'];
-const WORKSPACE_TYPES = ['Note', 'Highlight', 'Quote', 'Article snippet', 'Concept', 'Agent suggestion'];
 const EVIDENCE_COLUMNS = [
   {
     id: 'supports',
@@ -49,27 +48,24 @@ const DroppableColumn = ({
   );
 };
 
-const DroppableTextBox = ({ id, className = '', children }) => {
-  const { isOver, setNodeRef } = useDroppable({ id });
-  return (
-    <div ref={setNodeRef} className={`${className} ${isOver ? 'is-over' : ''}`.trim()}>
-      {children}
-    </div>
-  );
-};
-
 const IdeaWorkbenchMain = ({
   model,
   utilityActions
 }) => {
   const [expandedCardIds, setExpandedCardIds] = useState({});
   const [activeDragId, setActiveDragId] = useState('');
+  const [consumingCardIds, setConsumingCardIds] = useState([]);
+  const [isHypothesisReceiving, setIsHypothesisReceiving] = useState(false);
+  const consumeTimeoutRef = useRef(null);
+  const receiveTimeoutRef = useRef(null);
+
   const cardsByZone = useMemo(() => ({
     workspace: model.state.cards.filter(card => card.zone === 'workspace'),
     supports: model.state.cards.filter(card => card.zone === 'supports'),
     contradictions: model.state.cards.filter(card => card.zone === 'contradictions'),
     questions: model.state.cards.filter(card => card.zone === 'questions')
   }), [model.state.cards]);
+
   const activeCard = useMemo(
     () => model.state.cards.find(card => card.id === activeDragId) || null,
     [activeDragId, model.state.cards]
@@ -80,6 +76,30 @@ const IdeaWorkbenchMain = ({
       ...previous,
       [cardId]: !previous[cardId]
     }));
+  };
+
+  useEffect(() => () => {
+    if (consumeTimeoutRef.current) window.clearTimeout(consumeTimeoutRef.current);
+    if (receiveTimeoutRef.current) window.clearTimeout(receiveTimeoutRef.current);
+  }, []);
+
+  const handleDropIntoHypothesis = (cardId) => {
+    if (!cardId) return;
+    setConsumingCardIds((previous) => (
+      previous.includes(cardId) ? previous : [...previous, cardId]
+    ));
+    setIsHypothesisReceiving(true);
+
+    if (receiveTimeoutRef.current) window.clearTimeout(receiveTimeoutRef.current);
+    receiveTimeoutRef.current = window.setTimeout(() => {
+      setIsHypothesisReceiving(false);
+    }, 620);
+
+    if (consumeTimeoutRef.current) window.clearTimeout(consumeTimeoutRef.current);
+    consumeTimeoutRef.current = window.setTimeout(() => {
+      model.actions.insertCardIntoHypothesis(cardId, { removeCard: true });
+      setConsumingCardIds((previous) => previous.filter((entry) => entry !== cardId));
+    }, 220);
   };
 
   return (
@@ -140,10 +160,8 @@ const IdeaWorkbenchMain = ({
         onDragEnd={({ active, over }) => {
           if (active?.id && over?.id) {
             const nextTarget = String(over.id);
-            if (nextTarget === 'workspace-composer') {
-              model.actions.insertCardIntoWorkspaceDraft(String(active.id));
-            } else if (nextTarget === 'hypothesis-editor') {
-              model.actions.insertCardIntoHypothesis(String(active.id));
+            if (nextTarget === 'hypothesis-editor') {
+              handleDropIntoHypothesis(String(active.id));
             } else {
               model.actions.moveCard(String(active.id), nextTarget);
             }
@@ -152,78 +170,99 @@ const IdeaWorkbenchMain = ({
         }}
         onDragCancel={() => setActiveDragId('')}
       >
-        <SurfaceCard className="idea-workbench-panel">
+        <SurfaceCard className="idea-workbench-panel idea-workbench-panel--hypothesis">
           <div className="idea-workbench-section-header">
             <div>
-              <h2>Open workspace</h2>
-              <p>Gather raw material into a flexible space, then sort it when the shape starts to appear.</p>
+              <h2>Emerging Hypothesis</h2>
+              <p>The main drafting surface. Drop evidence directly into the text so the claim grows from material, not beside it.</p>
             </div>
-            <div className="idea-workbench-section-header__counts">
+            <div className="idea-workbench-hypothesis__meta">
+              <TagChip>{model.hypothesisVersion.label}</TagChip>
+              <TagChip>{model.currentMaturity}</TagChip>
+            </div>
+          </div>
+
+          <IdeaWorkbenchHypothesisEditor
+            value={model.state.hypothesis.html}
+            onChange={model.actions.updateHypothesisHtml}
+            droppableId="hypothesis-editor"
+            isReceivingDrop={isHypothesisReceiving}
+          />
+
+          <div className="idea-workbench-hypothesis__actions">
+            <Button type="button" variant="secondary" onClick={() => model.actions.runQuickAction('challenge-hypothesis')}>
+              Ask agent to challenge this
+            </Button>
+            <Button type="button" variant="secondary" onClick={() => model.actions.runQuickAction('strengthen-hypothesis')}>
+              Strengthen this
+            </Button>
+            <Button type="button" variant="secondary" onClick={() => model.actions.runQuickAction('find-supports')}>
+              Find supporting evidence
+            </Button>
+            <Button type="button" variant="secondary" onClick={() => model.actions.runQuickAction('find-contradictions')}>
+              Find contradictions
+            </Button>
+            <Button type="button" variant="secondary" onClick={() => model.actions.runQuickAction('rewrite-clearly')}>
+              Rewrite more clearly
+            </Button>
+            <QuietButton type="button" onClick={() => model.actions.snapshotHypothesis()}>
+              Save version
+            </QuietButton>
+          </div>
+
+          {model.hypothesisVersion.summary && (
+            <div className="idea-workbench-hypothesis__changes">
+              <span>What changed</span>
+              <p>{model.hypothesisVersion.summary}</p>
+            </div>
+          )}
+
+          <div className="idea-workbench-hypothesis__material-shell">
+            <div className="idea-workbench-section-header idea-workbench-section-header--nested">
+              <div>
+                <h3>Material in play</h3>
+                <p>Stage evidence here, then drag it into the hypothesis when it deserves to become part of the argument.</p>
+              </div>
               <TagChip>{model.counts.workspace} cards</TagChip>
             </div>
-          </div>
 
-          <DroppableTextBox id="workspace-composer" className="idea-workbench-composer">
-            <textarea
-              value={model.state.workspaceDraft}
-              onChange={(event) => model.actions.setWorkspaceDraft(event.target.value)}
-              placeholder="Type a note, paste a quote, drop in a highlight, or capture a hunch."
-              rows={4}
-            />
-            <div className="idea-workbench-composer__controls">
-              <div className="idea-workbench-composer__types">
-                {WORKSPACE_TYPES.map((type) => (
-                  <button
-                    key={type}
-                    type="button"
-                    className={model.state.workspaceDraftType === type ? 'is-active' : ''}
-                    onClick={() => model.actions.setWorkspaceDraftType(type)}
-                  >
-                    {type}
-                  </button>
-                ))}
-              </div>
-              <Button type="button" variant="secondary" onClick={model.actions.addWorkspaceCard}>
-                Add to workspace
-              </Button>
+            <div className="idea-workbench-imports">
+              <QuietButton type="button" onClick={() => model.actions.importMaterialCard('highlight')}>
+                Pull highlights {model.importableCounts.highlights > 0 ? `(${model.importableCounts.highlights})` : ''}
+              </QuietButton>
+              <QuietButton type="button" onClick={() => model.actions.importMaterialCard('note')}>
+                Pull notes {model.importableCounts.notes > 0 ? `(${model.importableCounts.notes})` : ''}
+              </QuietButton>
+              <QuietButton type="button" onClick={() => model.actions.importMaterialCard('snippet')}>
+                Pull snippets {model.importableCounts.snippets > 0 ? `(${model.importableCounts.snippets})` : ''}
+              </QuietButton>
+              <QuietButton type="button" onClick={() => model.actions.importMaterialCard('concept')}>
+                Pull concepts {model.importableCounts.concepts > 0 ? `(${model.importableCounts.concepts})` : ''}
+              </QuietButton>
             </div>
-          </DroppableTextBox>
 
-          <div className="idea-workbench-imports">
-            <QuietButton type="button" onClick={() => model.actions.importMaterialCard('highlight')}>
-              Pull highlights {model.importableCounts.highlights > 0 ? `(${model.importableCounts.highlights})` : ''}
-            </QuietButton>
-            <QuietButton type="button" onClick={() => model.actions.importMaterialCard('note')}>
-              Pull notes {model.importableCounts.notes > 0 ? `(${model.importableCounts.notes})` : ''}
-            </QuietButton>
-            <QuietButton type="button" onClick={() => model.actions.importMaterialCard('snippet')}>
-              Pull snippets {model.importableCounts.snippets > 0 ? `(${model.importableCounts.snippets})` : ''}
-            </QuietButton>
-            <QuietButton type="button" onClick={() => model.actions.importMaterialCard('concept')}>
-              Pull concepts {model.importableCounts.concepts > 0 ? `(${model.importableCounts.concepts})` : ''}
-            </QuietButton>
-          </div>
-
-          <div className="idea-workbench-workspace-grid">
-            {cardsByZone.workspace.length === 0 && (
-              <div className="idea-workbench-empty-state">
-                <p>No cards in the workspace yet.</p>
-                <span>Start by adding a note above or pulling in saved material.</span>
-              </div>
-            )}
-            {cardsByZone.workspace.map((card) => (
-              <IdeaWorkbenchCard
-                key={card.id}
-                card={card}
-                draggable
-                expanded={Boolean(expandedCardIds[card.id])}
-                onToggleExpanded={() => toggleExpanded(card.id)}
-                onMove={(zone) => model.actions.moveCard(card.id, zone)}
-                onDelete={() => model.actions.deleteCard(card.id)}
-                onTag={() => model.actions.tagCard(card.id)}
-                showWorkspaceActions
-              />
-            ))}
+            <div className="idea-workbench-workspace-grid">
+              {cardsByZone.workspace.length === 0 && (
+                <div className="idea-workbench-empty-state">
+                  <p>No material is staged right now.</p>
+                  <span>Pull in saved material or ask the agent to surface more evidence.</span>
+                </div>
+              )}
+              {cardsByZone.workspace.map((card) => (
+                <IdeaWorkbenchCard
+                  key={card.id}
+                  card={card}
+                  draggable
+                  consuming={consumingCardIds.includes(card.id)}
+                  expanded={Boolean(expandedCardIds[card.id])}
+                  onToggleExpanded={() => toggleExpanded(card.id)}
+                  onMove={(zone) => model.actions.moveCard(card.id, zone)}
+                  onDelete={() => model.actions.deleteCard(card.id)}
+                  onTag={() => model.actions.tagCard(card.id)}
+                  showWorkspaceActions
+                />
+              ))}
+            </div>
           </div>
         </SurfaceCard>
 
@@ -267,51 +306,13 @@ const IdeaWorkbenchMain = ({
           </div>
         </SurfaceCard>
 
-        <SurfaceCard className="idea-workbench-panel idea-workbench-panel--hypothesis">
+        <SurfaceCard className="idea-workbench-panel">
           <div className="idea-workbench-section-header">
             <div>
-              <h2>Emerging Hypothesis</h2>
-              <p>A living draft shaped by the current evidence and by the agent’s pressure-testing.</p>
-            </div>
-            <div className="idea-workbench-hypothesis__meta">
-              <TagChip>{model.hypothesisVersion.label}</TagChip>
-              <TagChip>{model.currentMaturity}</TagChip>
+              <h2>Agent commentary</h2>
+              <p>Pressure on the current draft, separated from the freeform chat in the rail.</p>
             </div>
           </div>
-
-          <IdeaWorkbenchHypothesisEditor
-            value={model.state.hypothesis.html}
-            onChange={model.actions.updateHypothesisHtml}
-            droppableId="hypothesis-editor"
-          />
-
-          <div className="idea-workbench-hypothesis__actions">
-            <Button type="button" variant="secondary" onClick={() => model.actions.runQuickAction('challenge-hypothesis')}>
-              Ask agent to challenge this
-            </Button>
-            <Button type="button" variant="secondary" onClick={() => model.actions.runQuickAction('strengthen-hypothesis')}>
-              Strengthen this
-            </Button>
-            <Button type="button" variant="secondary" onClick={() => model.actions.runQuickAction('find-supports')}>
-              Find supporting evidence
-            </Button>
-            <Button type="button" variant="secondary" onClick={() => model.actions.runQuickAction('find-contradictions')}>
-              Find contradictions
-            </Button>
-            <Button type="button" variant="secondary" onClick={() => model.actions.runQuickAction('rewrite-clearly')}>
-              Rewrite more clearly
-            </Button>
-            <QuietButton type="button" onClick={() => model.actions.snapshotHypothesis()}>
-              Save version
-            </QuietButton>
-          </div>
-
-          {model.hypothesisVersion.summary && (
-            <div className="idea-workbench-hypothesis__changes">
-              <span>What changed</span>
-              <p>{model.hypothesisVersion.summary}</p>
-            </div>
-          )}
 
           <div className="idea-workbench-hypothesis__comments">
             {model.state.agent.comments

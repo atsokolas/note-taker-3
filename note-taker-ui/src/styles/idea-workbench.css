@@ -104,6 +104,10 @@
   margin-bottom: 16px;
 }
 
+.idea-workbench-section-header--nested {
+  margin-bottom: 12px;
+}
+
 .idea-workbench-section-header h2,
 .idea-workbench-column__header h3 {
   margin: 0 0 4px;
@@ -111,6 +115,13 @@
   line-height: 1.06;
   font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif;
   letter-spacing: -0.03em;
+}
+
+.idea-workbench-section-header h3 {
+  margin: 0 0 4px;
+  font-size: 1.15rem;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
 }
 
 .idea-workbench-section-header p,
@@ -245,6 +256,7 @@
   border: 1px solid rgba(214, 202, 182, 0.95);
   background: linear-gradient(180deg, rgba(255, 252, 247, 0.96), rgba(249, 241, 228, 0.92));
   box-shadow: 0 10px 20px rgba(75, 54, 28, 0.06);
+  transition: transform 180ms ease, opacity 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
 }
 
 .idea-workbench-card.is-compact {
@@ -254,6 +266,13 @@
 .idea-workbench-card.is-dragging,
 .idea-workbench-card-overlay .idea-workbench-card {
   box-shadow: 0 18px 40px rgba(58, 42, 19, 0.16);
+}
+
+.idea-workbench-card.is-consuming {
+  opacity: 0;
+  transform: translateY(-8px) scale(0.97);
+  pointer-events: none;
+  box-shadow: 0 6px 12px rgba(75, 54, 28, 0.04);
 }
 
 .idea-workbench-card__header,
@@ -356,6 +375,12 @@
   border-radius: 20px;
   background: rgba(255, 252, 245, 0.76);
   overflow: hidden;
+  transition: border-color 180ms ease, background 180ms ease, box-shadow 240ms ease, transform 240ms ease;
+}
+
+.idea-workbench-hypothesis__editor-shell.is-receiving {
+  box-shadow: 0 0 0 1px rgba(187, 155, 106, 0.18), 0 18px 34px rgba(111, 86, 48, 0.08);
+  animation: ideaWorkbenchHypothesisReceive 520ms ease;
 }
 
 .idea-workbench-hypothesis__toolbar {
@@ -392,6 +417,14 @@
 
 .idea-workbench-hypothesis__actions {
   margin-top: 14px;
+}
+
+.idea-workbench-hypothesis__material-shell {
+  margin-top: 18px;
+  padding: 18px;
+  border-radius: 20px;
+  background: linear-gradient(180deg, rgba(251, 247, 239, 0.82), rgba(246, 239, 227, 0.72));
+  border: 1px solid color-mix(in srgb, var(--border-subtle) 76%, transparent);
 }
 
 .idea-workbench-hypothesis__changes {
@@ -518,6 +551,21 @@
   margin-top: 10px;
   justify-content: flex-start;
   flex-wrap: wrap;
+}
+
+@keyframes ideaWorkbenchHypothesisReceive {
+  0% {
+    transform: translateY(0);
+    box-shadow: 0 0 0 0 rgba(187, 155, 106, 0);
+  }
+  35% {
+    transform: translateY(-1px);
+    box-shadow: 0 0 0 1px rgba(187, 155, 106, 0.24), 0 22px 38px rgba(111, 86, 48, 0.1);
+  }
+  100% {
+    transform: translateY(0);
+    box-shadow: 0 0 0 1px rgba(187, 155, 106, 0.18), 0 18px 34px rgba(111, 86, 48, 0.08);
+  }
 }
 
 .idea-workbench-rail__event-meta span {

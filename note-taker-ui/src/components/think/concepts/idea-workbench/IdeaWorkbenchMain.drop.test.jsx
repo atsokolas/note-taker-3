@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import IdeaWorkbenchMain from './IdeaWorkbenchMain';
 
 let latestDndProps = null;
@@ -9,9 +9,6 @@ jest.mock('@dnd-kit/core', () => ({
     latestDndProps = props;
     return (
       <div>
-        <button type="button" onClick={() => props.onDragEnd?.({ active: { id: 'card-1' }, over: { id: 'workspace-composer' } })}>
-          Drop to workspace text
-        </button>
         <button type="button" onClick={() => props.onDragEnd?.({ active: { id: 'card-1' }, over: { id: 'hypothesis-editor' } })}>
           Drop to hypothesis text
         </button>
@@ -44,8 +41,6 @@ const createModel = () => ({
       prompt: 'Prompt',
       stage: 'Seed'
     },
-    workspaceDraft: '',
-    workspaceDraftType: 'Note',
     cards: [
       {
         id: 'card-1',
@@ -81,9 +76,6 @@ const createModel = () => ({
   currentMaturity: 'Early',
   actions: {
     setHeaderField: jest.fn(),
-    setWorkspaceDraft: jest.fn(),
-    setWorkspaceDraftType: jest.fn(),
-    addWorkspaceCard: jest.fn(),
     importMaterialCard: jest.fn(),
     moveCard: jest.fn(),
     deleteCard: jest.fn(),
@@ -91,23 +83,33 @@ const createModel = () => ({
     updateHypothesisHtml: jest.fn(),
     snapshotHypothesis: jest.fn(),
     runQuickAction: jest.fn(),
-    insertCardIntoWorkspaceDraft: jest.fn(),
     insertCardIntoHypothesis: jest.fn()
   }
 });
 
 describe('IdeaWorkbenchMain drag drop routing', () => {
-  it('routes card drops into text boxes and evidence zones', () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+  });
+
+  afterEach(() => {
+    act(() => {
+      jest.runOnlyPendingTimers();
+    });
+    jest.useRealTimers();
+  });
+
+  it('routes card drops into the hypothesis editor and evidence zones', () => {
     const model = createModel();
     render(<IdeaWorkbenchMain model={model} utilityActions={{}} />);
 
     expect(latestDndProps).not.toBeNull();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Drop to workspace text' }));
-    expect(model.actions.insertCardIntoWorkspaceDraft).toHaveBeenCalledWith('card-1');
-
     fireEvent.click(screen.getByRole('button', { name: 'Drop to hypothesis text' }));
-    expect(model.actions.insertCardIntoHypothesis).toHaveBeenCalledWith('card-1');
+    act(() => {
+      jest.advanceTimersByTime(250);
+    });
+    expect(model.actions.insertCardIntoHypothesis).toHaveBeenCalledWith('card-1', { removeCard: true });
 
     fireEvent.click(screen.getByRole('button', { name: 'Drop to supports' }));
     expect(model.actions.moveCard).toHaveBeenCalledWith('card-1', 'supports');
