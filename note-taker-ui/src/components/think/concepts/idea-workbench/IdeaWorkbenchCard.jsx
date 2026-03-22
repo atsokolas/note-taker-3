@@ -22,6 +22,8 @@ const zoneActionLabel = (zone) => {
 
 const IdeaWorkbenchCard = ({
   card,
+  layout = 'card',
+  sequence = 0,
   compact = false,
   draggable = false,
   consuming = false,
@@ -46,8 +48,11 @@ const IdeaWorkbenchCard = ({
   return (
     <article
       ref={setNodeRef}
-      className={`idea-workbench-card idea-workbench-card--${TYPE_CLASS[card.type] || 'generic'} ${compact ? 'is-compact' : ''} ${isDragging ? 'is-dragging' : ''} ${consuming ? 'is-consuming' : ''}`}
-      style={transform ? { transform: CSS.Translate.toString(transform) } : undefined}
+      className={`idea-workbench-card idea-workbench-card--${TYPE_CLASS[card.type] || 'generic'} ${layout === 'strip' ? 'is-strip' : ''} ${layout === 'lane' ? 'is-lane' : ''} ${compact ? 'is-compact' : ''} ${isDragging ? 'is-dragging' : ''} ${consuming ? 'is-consuming' : ''}`}
+      style={{
+        ...(transform ? { transform: CSS.Translate.toString(transform) } : {}),
+        '--strip-index': sequence
+      }}
     >
       <div className="idea-workbench-card__header">
         <div className="idea-workbench-card__meta">
@@ -70,6 +75,7 @@ const IdeaWorkbenchCard = ({
 
       <div className="idea-workbench-card__body">
         <h4>{card.title}</h4>
+        {card.source && <span className="idea-workbench-card__source">{card.source}</span>}
         <p>{compact ? card.content : card.content}</p>
       </div>
 
@@ -81,36 +87,39 @@ const IdeaWorkbenchCard = ({
         </div>
       )}
 
-      <div className="idea-workbench-card__actions">
-        {card.sourcePath ? (
-          <a className="idea-workbench-card__link" href={card.sourcePath}>
-            Open
-          </a>
-        ) : (
-          <QuietButton type="button" onClick={onToggleExpanded}>
-            Open
-          </QuietButton>
-        )}
-        <QuietButton type="button" onClick={onTag}>Tag</QuietButton>
-        {showWorkspaceActions && (
-          <>
-            <QuietButton type="button" onClick={() => onMove('supports')}>
-              Support
+      <div className="idea-workbench-card__footer">
+        <div className="idea-workbench-card__actions idea-workbench-card__actions--primary">
+          {showWorkspaceActions ? (
+            <>
+              <QuietButton type="button" onClick={() => onMove('supports')}>
+                Support
+              </QuietButton>
+              <QuietButton type="button" onClick={() => onMove('contradictions')}>
+                Contradict
+              </QuietButton>
+              <QuietButton type="button" onClick={() => onMove('questions')}>
+                Question
+              </QuietButton>
+            </>
+          ) : card.zone !== 'workspace' ? (
+            <QuietButton type="button" onClick={() => onMove('workspace')}>
+              Send back
             </QuietButton>
-            <QuietButton type="button" onClick={() => onMove('contradictions')}>
-              Contradiction
+          ) : null}
+        </div>
+        <div className="idea-workbench-card__actions idea-workbench-card__actions--secondary">
+          {card.sourcePath ? (
+            <a className="idea-workbench-card__link" href={card.sourcePath}>
+              Open
+            </a>
+          ) : (
+            <QuietButton type="button" onClick={onToggleExpanded}>
+              Open
             </QuietButton>
-            <QuietButton type="button" onClick={() => onMove('questions')}>
-              Question
-            </QuietButton>
-          </>
-        )}
-        {!showWorkspaceActions && card.zone !== 'workspace' && (
-          <QuietButton type="button" onClick={() => onMove('workspace')}>
-            Send back
-          </QuietButton>
-        )}
-        <QuietButton type="button" onClick={onDelete}>Remove</QuietButton>
+          )}
+          <QuietButton type="button" onClick={onTag}>Tag</QuietButton>
+          <QuietButton type="button" onClick={onDelete}>Remove</QuietButton>
+        </div>
       </div>
 
       {expanded && (

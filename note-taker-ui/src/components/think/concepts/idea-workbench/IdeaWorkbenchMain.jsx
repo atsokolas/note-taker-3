@@ -65,6 +65,19 @@ const IdeaWorkbenchMain = ({
     contradictions: model.state.cards.filter(card => card.zone === 'contradictions'),
     questions: model.state.cards.filter(card => card.zone === 'questions')
   }), [model.state.cards]);
+  const hypothesisComments = useMemo(
+    () => model.state.agent.comments.filter((comment) => comment.target === 'hypothesis'),
+    [model.state.agent.comments]
+  );
+  const pendingSuggestionCount = useMemo(
+    () => hypothesisComments.filter((comment) => comment.kind === 'hypothesis-suggestion').length,
+    [hypothesisComments]
+  );
+  const latestHypothesisComment = hypothesisComments[0] || null;
+  const secondaryHypothesisComments = hypothesisComments.slice(1, 3);
+  const agentStatusLabel = model.agentBusy
+    ? model.agentModeLabel || 'Working'
+    : model.agentModeLabel || 'Ready';
 
   const activeCard = useMemo(
     () => model.state.cards.find(card => card.id === activeDragId) || null,
@@ -107,7 +120,10 @@ const IdeaWorkbenchMain = ({
       <SurfaceCard className="idea-workbench-panel idea-workbench-panel--header">
         <div className="idea-workbench-header">
           <div className="idea-workbench-header__copy">
-            <span className="idea-workbench-header__eyebrow">{model.state.header.label}</span>
+            <div className="idea-workbench-header__eyebrow-row">
+              <span className="idea-workbench-header__eyebrow">{model.state.header.label}</span>
+              <span className="idea-workbench-header__lede">Workbench</span>
+            </div>
             <input
               className="idea-workbench-header__title"
               value={model.state.header.title}
@@ -120,19 +136,42 @@ const IdeaWorkbenchMain = ({
               onChange={(event) => model.actions.setHeaderField('prompt', event.target.value)}
               aria-label="Idea framing prompt"
             />
+            <div className="idea-workbench-header__meta-strip">
+              <label className="idea-workbench-header__pill idea-workbench-header__pill--stage">
+                <span>Stage</span>
+                <select
+                  value={model.state.header.stage}
+                  onChange={(event) => model.actions.setHeaderField('stage', event.target.value)}
+                >
+                  {STAGES.map((stage) => (
+                    <option key={stage} value={stage}>{stage}</option>
+                  ))}
+                </select>
+              </label>
+              <div className={`idea-workbench-header__pill idea-workbench-header__pill--agent ${model.agentBusy ? 'is-active' : ''}`}>
+                <span>Agent</span>
+                <strong>{agentStatusLabel}</strong>
+              </div>
+              <div className="idea-workbench-header__pill">
+                <span>Hypothesis</span>
+                <strong>{model.hypothesisVersion.label} · {model.currentMaturity}</strong>
+              </div>
+              <div className="idea-workbench-header__pill">
+                <span>Open proposals</span>
+                <strong>{pendingSuggestionCount}</strong>
+              </div>
+            </div>
+            {utilityActions.shareSlug && (
+              <p className="idea-workbench-header__share-link">
+                Public link: {`${window.location.origin}/public/concepts/${utilityActions.shareSlug}`}
+              </p>
+            )}
           </div>
           <div className="idea-workbench-header__controls">
-            <label className="idea-workbench-header__stage">
-              <span>Stage</span>
-              <select
-                value={model.state.header.stage}
-                onChange={(event) => model.actions.setHeaderField('stage', event.target.value)}
-              >
-                {STAGES.map((stage) => (
-                  <option key={stage} value={stage}>{stage}</option>
-                ))}
-              </select>
-            </label>
+            <div className="idea-workbench-header__utility-copy">
+              <span>Utilities</span>
+              <p>Keep secondary actions nearby without competing with the working surface.</p>
+            </div>
             <div className="idea-workbench-header__utilities">
               {utilityActions.onSynthesize && (
                 <QuietButton type="button" onClick={utilityActions.onSynthesize}>Synthesize</QuietButton>
@@ -148,11 +187,6 @@ const IdeaWorkbenchMain = ({
             </div>
           </div>
         </div>
-        {utilityActions.shareSlug && (
-          <p className="idea-workbench-header__share-link">
-            Public link: {`${window.location.origin}/public/concepts/${utilityActions.shareSlug}`}
-          </p>
-        )}
       </SurfaceCard>
 
       <DndContext
@@ -210,6 +244,52 @@ const IdeaWorkbenchMain = ({
             </QuietButton>
           </div>
 
+          {latestHypothesisComment && (
+            <div
+              className={`idea-workbench-hypothesis__agent-response ${latestHypothesisComment.kind === 'hypothesis-suggestion' ? 'is-proposal' : ''}`.trim()}
+            >
+              <div className="idea-workbench-hypothesis__agent-response-header">
+                <div>
+                  <span className="idea-workbench-hypothesis__agent-response-label">Latest agent move</span>
+                  <h3>{latestHypothesisComment.title}</h3>
+                  {latestHypothesisComment.caption && (
+                    <p className="idea-workbench-hypothesis__agent-response-caption">
+                      {latestHypothesisComment.caption}
+                    </p>
+                  )}
+                </div>
+                <div className="idea-workbench-hypothesis__agent-response-badges">
+                  {latestHypothesisComment.kind === 'hypothesis-suggestion' && <TagChip>Proposal</TagChip>}
+                  <TagChip>{latestHypothesisComment.tone}</TagChip>
+                </div>
+              </div>
+              {latestHypothesisComment.anchorText && (
+                <p className="idea-workbench-comment__anchor">On: “{latestHypothesisComment.anchorText}”</p>
+              )}
+              <p className="idea-workbench-hypothesis__agent-response-body">{latestHypothesisComment.body}</p>
+              {latestHypothesisComment.kind === 'hypothesis-suggestion' && (
+                <div className="idea-workbench-comment__actions">
+                  <Button type="button" variant="secondary" onClick={() => model.actions.acceptAgentComment(latestHypothesisComment.id)}>
+                    Blend into draft
+                  </Button>
+                  <QuietButton type="button" onClick={() => model.actions.dismissAgentComment(latestHypothesisComment.id)}>
+                    Dismiss
+                  </QuietButton>
+                </div>
+              )}
+              {secondaryHypothesisComments.length > 0 && (
+                <div className="idea-workbench-hypothesis__agent-response-list">
+                  {secondaryHypothesisComments.map((comment) => (
+                    <div key={comment.id} className="idea-workbench-hypothesis__agent-response-item">
+                      <strong>{comment.title}</strong>
+                      <span>{comment.body}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
           {model.hypothesisVersion.summary && (
             <div className="idea-workbench-hypothesis__changes">
               <span>What changed</span>
@@ -241,17 +321,19 @@ const IdeaWorkbenchMain = ({
               </QuietButton>
             </div>
 
-            <div className="idea-workbench-workspace-grid">
+            <div className="idea-workbench-material-list">
               {cardsByZone.workspace.length === 0 && (
                 <div className="idea-workbench-empty-state">
                   <p>No material is staged right now.</p>
                   <span>Pull in saved material or ask the agent to surface more evidence.</span>
                 </div>
               )}
-              {cardsByZone.workspace.map((card) => (
+              {cardsByZone.workspace.map((card, index) => (
                 <IdeaWorkbenchCard
                   key={card.id}
                   card={card}
+                  layout="strip"
+                  sequence={index}
                   draggable
                   consuming={consumingCardIds.includes(card.id)}
                   expanded={Boolean(expandedCardIds[card.id])}
@@ -266,7 +348,7 @@ const IdeaWorkbenchMain = ({
           </div>
         </SurfaceCard>
 
-        <SurfaceCard className="idea-workbench-panel">
+        <SurfaceCard className="idea-workbench-panel idea-workbench-panel--evidence">
           <div className="idea-workbench-section-header">
             <div>
               <h2>Evidence classification</h2>
@@ -288,10 +370,12 @@ const IdeaWorkbenchMain = ({
                     Drag cards here or use the quick actions.
                   </div>
                 )}
-                {cardsByZone[column.id].map((card) => (
+                {cardsByZone[column.id].map((card, index) => (
                   <IdeaWorkbenchCard
                     key={card.id}
                     card={card}
+                    layout="lane"
+                    sequence={index}
                     compact
                     draggable
                     expanded={Boolean(expandedCardIds[card.id])}
@@ -303,49 +387,6 @@ const IdeaWorkbenchMain = ({
                 ))}
               </DroppableColumn>
             ))}
-          </div>
-        </SurfaceCard>
-
-        <SurfaceCard className="idea-workbench-panel">
-          <div className="idea-workbench-section-header">
-            <div>
-              <h2>Agent commentary</h2>
-              <p>Pressure on the current draft, separated from the freeform chat in the rail.</p>
-            </div>
-          </div>
-
-          <div className="idea-workbench-hypothesis__comments">
-            {model.state.agent.comments
-              .filter(comment => comment.target === 'hypothesis')
-              .slice(0, 3)
-              .map((comment) => (
-                <div
-                  key={comment.id}
-                  className={`idea-workbench-comment idea-workbench-comment--${comment.tone} ${comment.kind === 'hypothesis-suggestion' ? 'idea-workbench-comment--proposal' : ''}`.trim()}
-                >
-                  <div className="idea-workbench-comment__header">
-                    <div>
-                      <h4>{comment.title}</h4>
-                      {comment.caption && <p className="idea-workbench-comment__caption">{comment.caption}</p>}
-                    </div>
-                    {comment.kind === 'hypothesis-suggestion' && (
-                      <TagChip>Agent proposal</TagChip>
-                    )}
-                  </div>
-                  {comment.anchorText && <p className="idea-workbench-comment__anchor">On: “{comment.anchorText}”</p>}
-                  <p>{comment.body}</p>
-                  {comment.kind === 'hypothesis-suggestion' && (
-                    <div className="idea-workbench-comment__actions">
-                      <Button type="button" variant="secondary" onClick={() => model.actions.acceptAgentComment(comment.id)}>
-                        Blend into draft
-                      </Button>
-                      <QuietButton type="button" onClick={() => model.actions.dismissAgentComment(comment.id)}>
-                        Dismiss
-                      </QuietButton>
-                    </div>
-                  )}
-                </div>
-              ))}
           </div>
         </SurfaceCard>
 

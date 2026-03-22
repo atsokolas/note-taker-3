@@ -1,14 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { Button, QuietButton, SectionHeader, SurfaceCard, TagChip } from '../../../../components/ui';
 
-const QUICK_ACTIONS = [
-  { id: 'find-supports', label: 'Find Supports' },
-  { id: 'find-contradictions', label: 'Find Contradictions' },
-  { id: 'analyze-patterns', label: 'Analyze Patterns' },
-  { id: 'propose-hypothesis', label: 'Propose Hypothesis' },
-  { id: 'challenge-hypothesis', label: 'Challenge Hypothesis' }
-];
-
 const EVENT_LABELS = {
   workspace_card_added: 'Workspace note added',
   material_imported: 'Material imported',
@@ -36,230 +28,168 @@ const formatEventTime = (value) => {
   return timestamp.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 };
 
-const describeEventFocus = (event) => {
-  const payload = event?.payload || {};
-  if (payload.action) return payload.action.replace(/-/g, ' ');
-  if (payload.zone) return payload.zone;
-  if (payload.kind) return payload.kind;
-  if (typeof payload.count === 'number') return `${payload.count} items`;
-  if (typeof payload.relatedCount === 'number') return `${payload.relatedCount} related`;
-  if (typeof payload.suggestedCount === 'number') return `${payload.suggestedCount} suggestions`;
-  return '';
-};
-
 const describeEventDetail = (event) => {
   const payload = event?.payload || {};
   if (event?.type === 'agent_scout_completed') {
-    return `Scoped the library${typeof payload.count === 'number' ? ` and surfaced ${payload.count} candidate ${payload.count === 1 ? 'item' : 'items'}` : ''}.`;
+    return `Surfaced ${payload.count || 0} candidate item${payload.count === 1 ? '' : 's'} from the library.`;
   }
   if (event?.type === 'agent_reasoning_completed') {
-    return `Completed a reasoning pass${typeof payload.relatedCount === 'number' && payload.relatedCount > 0 ? ` with ${payload.relatedCount} related card suggestion${payload.relatedCount === 1 ? '' : 's'}` : ''}.`;
-  }
-  if (event?.type === 'chat_agent_reply' || event?.type === 'chat_agent_fallback') {
-    return typeof payload.suggestedCount === 'number' && payload.suggestedCount > 0
-      ? `Returned ${payload.suggestedCount} suggested card${payload.suggestedCount === 1 ? '' : 's'} with the reply.`
-      : 'Returned a reply without suggested cards.';
-  }
-  if (event?.type === 'card_moved' && payload.zone) {
-    return `Reclassified material into ${payload.zone}.`;
-  }
-  if (event?.type === 'card_inserted_into_textbox' && payload.target) {
-    return payload.target === 'hypothesis'
-      ? 'Inserted the dropped material into the current hypothesis draft.'
-      : 'Inserted the dropped material into the workspace note box.';
-  }
-  if (event?.type === 'material_imported' && payload.kind) {
-    return `Pulled a saved ${payload.kind} into the active workspace.`;
-  }
-  if (event?.type === 'conflict_resolved' && payload.mode) {
-    return payload.mode === 'merge'
-      ? 'Saved a merged workbench after reconciling local and server changes.'
-      : payload.mode === 'local'
-        ? 'Saved the local draft over the newer server copy.'
-        : 'Accepted the newer server copy.';
+    return typeof payload.relatedCount === 'number' && payload.relatedCount > 0
+      ? `Reasoning pass returned ${payload.relatedCount} related suggestion${payload.relatedCount === 1 ? '' : 's'}.`
+      : 'Completed a reasoning pass for the current idea.';
   }
   if (event?.type === 'agent_suggestion_accepted') {
-    return 'Folded the agent proposal into the hypothesis so it now reads as part of the draft.';
+    return 'Folded the proposal into the working draft.';
   }
   if (event?.type === 'agent_suggestion_dismissed') {
-    return 'Removed the separate proposal without changing the current hypothesis.';
+    return 'Cleared the proposal without changing the hypothesis.';
   }
-  return '';
+  if (event?.type === 'card_inserted_into_textbox') {
+    return payload.target === 'hypothesis'
+      ? 'Wove evidence directly into the draft.'
+      : 'Inserted dropped material into text.';
+  }
+  return event?.summary || 'Workbench updated.';
 };
 
 const IdeaWorkbenchAgentRail = ({ model }) => {
   const [chatDraft, setChatDraft] = useState('');
-  const comments = useMemo(
-    () => model.state.agent.comments.slice(0, 6),
-    [model.state.agent.comments]
+  const recentMessages = useMemo(
+    () => model.state.agent.messages.slice(-4),
+    [model.state.agent.messages]
   );
-  const activity = useMemo(
-    () => model.eventLog.slice(-10).reverse(),
+  const recentActivity = useMemo(
+    () => model.eventLog
+      .filter((event) => ['agent', 'user'].includes(event.actor))
+      .slice(-5)
+      .reverse(),
     [model.eventLog]
+  );
+  const pendingSuggestionCount = useMemo(
+    () => model.state.agent.comments.filter((comment) => comment.kind === 'hypothesis-suggestion').length,
+    [model.state.agent.comments]
   );
 
   return (
     <div className="idea-workbench-rail">
-      <SurfaceCard className="idea-workbench-rail__card">
+      <SurfaceCard className="idea-workbench-rail__card idea-workbench-rail__card--desk">
         <SectionHeader
-          title="AI agent"
-          subtitle="A collaborator focused on the current idea page."
-        />
-        {model.agentModeLabel && <p className="muted small">{model.agentModeLabel}…</p>}
-        {model.syncError && <p className="status-message error-message">{model.syncError}</p>}
-
-        <div className="idea-workbench-rail__quick-actions">
-          {QUICK_ACTIONS.map((action) => (
-            <Button
-              key={action.id}
-              type="button"
-              variant="secondary"
-              onClick={() => model.actions.runQuickAction(action.id)}
-            >
-              {action.label}
-            </Button>
-          ))}
-        </div>
-      </SurfaceCard>
-
-      <SurfaceCard className="idea-workbench-rail__card">
-        <SectionHeader
-          title="Chat"
-          subtitle="Ask freely in the context of this idea."
+          title="Agent desk"
+          subtitle="Chat, status, and the latest workbench moves in one place."
         />
 
-        <div className="idea-workbench-rail__thread">
-          {model.state.agent.messages.map((message) => (
-            <div
-              key={message.id}
-              className={`idea-workbench-rail__message ${message.role === 'assistant' ? 'is-assistant' : 'is-user'}`}
-            >
-              <span className="idea-workbench-rail__message-role">
-                {message.role === 'assistant' ? 'Agent' : 'You'}
-              </span>
-              <p>{message.text}</p>
-              {Array.isArray(message.suggestedCards) && message.suggestedCards.length > 0 && (
-                <div className="idea-workbench-rail__message-actions">
-                  {message.suggestedCards.map((card) => (
-                    <div key={card.id} className="idea-workbench-rail__suggestion">
-                      <div>
-                        <strong>{card.title}</strong>
-                        <p>{card.content}</p>
-                      </div>
-                      <div className="idea-workbench-rail__suggestion-actions">
-                        <QuietButton type="button" onClick={() => model.actions.addSuggestedCard(card, 'workspace')}>
-                          Add to workspace
-                        </QuietButton>
-                        <QuietButton type="button" onClick={() => model.actions.addSuggestedCard(card, 'supports')}>
-                          Add to supports
-                        </QuietButton>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-
-        <div className="idea-workbench-rail__composer">
-          <textarea
-            value={chatDraft}
-            onChange={(event) => setChatDraft(event.target.value)}
-            placeholder="Ask what is weak, what is missing, what pattern is emerging, or how the hypothesis should change."
-            rows={4}
-          />
-          <Button
-            type="button"
-            variant="secondary"
-            disabled={model.agentBusy || !chatDraft.trim()}
-            onClick={async () => {
-              const nextMessage = chatDraft;
-              setChatDraft('');
-              await model.actions.sendAgentMessage(nextMessage);
-            }}
-          >
-            {model.agentBusy ? 'Thinking…' : 'Send'}
-          </Button>
-        </div>
-        {model.agentError && <p className="status-message error-message">{model.agentError}</p>}
-      </SurfaceCard>
-
-      <SurfaceCard className="idea-workbench-rail__card">
-        <SectionHeader
-          title="Agent comments"
-          subtitle="Comments about weak points, missing evidence, and contradictions."
-        />
-
-        <div className="idea-workbench-rail__comments">
-          {comments.map((comment) => (
-            <div
-              key={comment.id}
-              className={`idea-workbench-rail__comment idea-workbench-rail__comment--${comment.tone} ${comment.kind === 'hypothesis-suggestion' ? 'idea-workbench-rail__comment--proposal' : ''}`.trim()}
-            >
-              <div className="idea-workbench-rail__comment-header">
-                <div>
-                  <h4>{comment.title}</h4>
-                  {comment.caption && <p className="idea-workbench-rail__comment-caption">{comment.caption}</p>}
-                </div>
-                <div className="idea-workbench-rail__comment-badges">
-                  {comment.kind === 'hypothesis-suggestion' && <TagChip>Agent proposal</TagChip>}
-                  <TagChip>{comment.target}</TagChip>
-                </div>
-              </div>
-              {comment.anchorText && <p className="idea-workbench-rail__comment-anchor">“{comment.anchorText}”</p>}
-              <p>{comment.body}</p>
-              {comment.kind === 'hypothesis-suggestion' && (
-                <div className="idea-workbench-comment__actions">
-                  <QuietButton type="button" onClick={() => model.actions.acceptAgentComment(comment.id)}>
-                    Blend into draft
-                  </QuietButton>
-                  <QuietButton type="button" onClick={() => model.actions.dismissAgentComment(comment.id)}>
-                    Dismiss
-                  </QuietButton>
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-      </SurfaceCard>
-
-      <SurfaceCard className="idea-workbench-rail__card">
-        <SectionHeader
-          title="Activity"
-          subtitle="A live trace of how the idea, evidence, and agent interaction evolved."
-        />
-        {model.serverRevision > 0 && (
-          <p className="idea-workbench-rail__activity-status">Server revision {model.serverRevision}</p>
-        )}
-
-        <div className="idea-workbench-rail__activity">
-          {activity.length === 0 && (
-            <div className="idea-workbench-rail__event idea-workbench-rail__event--empty">
-              <p>No activity recorded yet.</p>
+        <div className="idea-workbench-rail__status-row">
+          <div className="idea-workbench-rail__status-pill">
+            <span>State</span>
+            <strong>{model.agentModeLabel || (model.agentBusy ? 'Working' : 'Ready')}</strong>
+          </div>
+          <div className="idea-workbench-rail__status-pill">
+            <span>Pending proposals</span>
+            <strong>{pendingSuggestionCount}</strong>
+          </div>
+          {model.serverRevision > 0 && (
+            <div className="idea-workbench-rail__status-pill">
+              <span>Revision</span>
+              <strong>{model.serverRevision}</strong>
             </div>
           )}
+        </div>
 
-          {activity.map((event) => {
-            const focus = describeEventFocus(event);
-            const detail = describeEventDetail(event);
-            return (
+        {model.syncError && <p className="status-message error-message">{model.syncError}</p>}
+        {model.agentError && <p className="status-message error-message">{model.agentError}</p>}
+
+        <div className="idea-workbench-rail__section">
+          <div className="idea-workbench-rail__section-header">
+            <h3>Conversation</h3>
+            <span>Context-aware chat</span>
+          </div>
+
+          <div className="idea-workbench-rail__thread">
+            {recentMessages.map((message) => (
+              <div
+                key={message.id}
+                className={`idea-workbench-rail__message ${message.role === 'assistant' ? 'is-assistant' : 'is-user'}`}
+              >
+                <span className="idea-workbench-rail__message-role">
+                  {message.role === 'assistant' ? 'Agent' : 'You'}
+                </span>
+                <p>{message.text}</p>
+                {Array.isArray(message.suggestedCards) && message.suggestedCards.length > 0 && (
+                  <div className="idea-workbench-rail__message-actions">
+                    {message.suggestedCards.slice(0, 2).map((card) => (
+                      <div key={card.id} className="idea-workbench-rail__suggestion">
+                        <div>
+                          <strong>{card.title}</strong>
+                          <p>{card.content}</p>
+                        </div>
+                        <div className="idea-workbench-rail__suggestion-actions">
+                          <QuietButton type="button" onClick={() => model.actions.addSuggestedCard(card, 'workspace')}>
+                            Add to material
+                          </QuietButton>
+                          <QuietButton type="button" onClick={() => model.actions.addSuggestedCard(card, 'supports')}>
+                            Support
+                          </QuietButton>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+
+          <div className="idea-workbench-rail__composer">
+            <textarea
+              value={chatDraft}
+              onChange={(event) => setChatDraft(event.target.value)}
+              placeholder="Ask what changed, what is weak, or what the draft should answer next."
+              rows={4}
+            />
+            <Button
+              type="button"
+              variant="secondary"
+              disabled={model.agentBusy || !chatDraft.trim()}
+              onClick={async () => {
+                const nextMessage = chatDraft;
+                setChatDraft('');
+                await model.actions.sendAgentMessage(nextMessage);
+              }}
+            >
+              {model.agentBusy ? 'Thinking…' : 'Send'}
+            </Button>
+          </div>
+        </div>
+
+        <div className="idea-workbench-rail__divider" />
+
+        <div className="idea-workbench-rail__section">
+          <div className="idea-workbench-rail__section-header">
+            <h3>Recent moves</h3>
+            <span>What the agent and workbench just did</span>
+          </div>
+
+          <div className="idea-workbench-rail__activity idea-workbench-rail__activity--compact">
+            {recentActivity.length === 0 && (
+              <div className="idea-workbench-rail__event idea-workbench-rail__event--empty">
+                <p>No activity recorded yet.</p>
+              </div>
+            )}
+
+            {recentActivity.map((event) => (
               <div key={event.id} className={`idea-workbench-rail__event idea-workbench-rail__event--${event.actor || 'system'}`}>
                 <div className="idea-workbench-rail__event-header">
                   <div className="idea-workbench-rail__event-titles">
                     <h4>{EVENT_LABELS[event.type] || 'Workbench update'}</h4>
-                    <p>{event.summary || 'Activity recorded.'}</p>
+                    <p>{describeEventDetail(event)}</p>
                   </div>
                   <TagChip>{event.actor || 'system'}</TagChip>
                 </div>
-                {detail && <p className="idea-workbench-rail__event-detail">{detail}</p>}
                 <div className="idea-workbench-rail__event-meta">
-                  {focus && <span>{focus}</span>}
                   <span>{formatEventTime(event.createdAt)}</span>
                 </div>
               </div>
-            );
-          })}
+            ))}
+          </div>
         </div>
       </SurfaceCard>
     </div>
