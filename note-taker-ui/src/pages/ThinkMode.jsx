@@ -4486,7 +4486,10 @@ const ThinkMode = () => {
         subtitle="Promote the strongest note-driven outputs without leaving the notebook."
         emptyText="No staged drafts yet."
         accent="output"
-        className="editorial-side-rail__section think-draft-staging-panel"
+        className="editorial-side-rail__section editorial-side-rail__drafts think-draft-staging-panel"
+        compact
+        maxPending={3}
+        showPromoted={false}
         onInvokeWorkflowSkill={queueThoughtPartnerPrompt}
         onOpenThreadFromDraft={handleOpenThreadFromDraft}
         onCreateHandoffFromDraft={handleCreateHandoffFromDraft}
@@ -4552,7 +4555,10 @@ const ThinkMode = () => {
         subtitle="Recent agent outputs that are ready to land somewhere in Think."
         emptyText="No staged drafts yet."
         accent="output"
-        className="editorial-side-rail__section think-draft-staging-panel"
+        className="editorial-side-rail__section editorial-side-rail__drafts think-draft-staging-panel"
+        compact
+        maxPending={3}
+        showPromoted={false}
         onInvokeWorkflowSkill={queueThoughtPartnerPrompt}
         onOpenThreadFromDraft={handleOpenThreadFromDraft}
         onCreateHandoffFromDraft={handleCreateHandoffFromDraft}
