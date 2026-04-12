@@ -1,14 +1,16 @@
 import { useCallback, useState } from 'react';
 import { createAgentBridgeToken } from '../../api/agent';
+import useProtocolApprovals from '../useProtocolApprovals';
 
 const useAgentBridge = () => {
   const [bridgeActorType, setBridgeActorType] = useState('user');
   const [bridgeActorId, setBridgeActorId] = useState('');
-  const [bridgeScope, setBridgeScope] = useState('handoff_ops');
+  const [bridgeScope, setBridgeScope] = useState('agent_ops');
   const [bridgeTtl, setBridgeTtl] = useState(1800);
   const [bridgeBusy, setBridgeBusy] = useState(false);
   const [bridgeError, setBridgeError] = useState('');
   const [bridgeToken, setBridgeToken] = useState('');
+  const approvalsModel = useProtocolApprovals({ initialStatus: 'pending', limit: 20, autoLoad: true });
 
   const handleCreateBridgeToken = useCallback(async () => {
     setBridgeBusy(true);
@@ -18,7 +20,7 @@ const useAgentBridge = () => {
       const payload = {
         actorType: bridgeActorType,
         actorId: bridgeActorType === 'byo_agent' ? String(bridgeActorId || '').trim() : '',
-        scope: String(bridgeScope || 'handoff_ops').trim() || 'handoff_ops',
+        scope: String(bridgeScope || 'agent_ops').trim() || 'agent_ops',
         ttlSeconds: Number(bridgeTtl) || 1800
       };
       const response = await createAgentBridgeToken(payload);
@@ -42,7 +44,14 @@ const useAgentBridge = () => {
     bridgeBusy,
     bridgeError,
     bridgeToken,
-    handleCreateBridgeToken
+    protocolApprovals: approvalsModel.protocolApprovals,
+    protocolApprovalsLoading: approvalsModel.protocolApprovalsLoading,
+    protocolApprovalsError: approvalsModel.protocolApprovalsError,
+    protocolApprovalBusyId: approvalsModel.protocolApprovalBusyId,
+    handleCreateBridgeToken,
+    loadProtocolApprovals: approvalsModel.loadProtocolApprovals,
+    handleApproveProtocolApproval: approvalsModel.handleApproveProtocolApproval,
+    handleRejectProtocolApproval: approvalsModel.handleRejectProtocolApproval
   };
 };
 

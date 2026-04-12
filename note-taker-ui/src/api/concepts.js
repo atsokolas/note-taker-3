@@ -156,7 +156,7 @@ export const getConceptMaterial = async (conceptIdOrName) => {
 export const getConceptIdeaWorkbench = async (conceptIdOrName) => {
   const safe = encodeURIComponent(String(conceptIdOrName || '').trim());
   const res = await api.get(`/api/concepts/${safe}/idea-workbench`, getAuthHeaders());
-  return res.data || { conceptId: '', conceptName: '', ideaWorkbench: null, revision: 0, events: [] };
+  return res.data || { conceptId: '', conceptName: '', ideaWorkbench: null, ideaWorkbenchMeta: null, revision: 0, events: [] };
 };
 
 export const updateConceptIdeaWorkbench = async (conceptIdOrName, ideaWorkbench, options = {}) => {
@@ -166,7 +166,41 @@ export const updateConceptIdeaWorkbench = async (conceptIdOrName, ideaWorkbench,
     ...(options && typeof options === 'object' ? options : {})
   };
   const res = await api.put(`/api/concepts/${safe}/idea-workbench`, body, getAuthHeaders());
-  return res.data || { conceptId: '', conceptName: '', ideaWorkbench: null, revision: 0, events: [] };
+  return res.data || { conceptId: '', conceptName: '', ideaWorkbench: null, ideaWorkbenchMeta: null, revision: 0, events: [] };
+};
+
+export const applyConceptIdeaWorkbenchChangeDraft = async (conceptIdOrName, draftId) => {
+  const safeConcept = encodeURIComponent(String(conceptIdOrName || '').trim());
+  const safeDraft = encodeURIComponent(String(draftId || '').trim());
+  const res = await api.post(`/api/concepts/${safeConcept}/idea-workbench/change-drafts/${safeDraft}/apply`, {}, getAuthHeaders());
+  return res.data || { conceptId: '', conceptName: '', ideaWorkbench: null, ideaWorkbenchMeta: null, revision: 0, events: [] };
+};
+
+export const dismissConceptIdeaWorkbenchChangeDraft = async (conceptIdOrName, draftId) => {
+  const safeConcept = encodeURIComponent(String(conceptIdOrName || '').trim());
+  const safeDraft = encodeURIComponent(String(draftId || '').trim());
+  const res = await api.post(`/api/concepts/${safeConcept}/idea-workbench/change-drafts/${safeDraft}/dismiss`, {}, getAuthHeaders());
+  return res.data || { conceptId: '', conceptName: '', ideaWorkbench: null, ideaWorkbenchMeta: null, revision: 0, events: [] };
+};
+
+export const acceptConceptIdeaWorkbenchComment = async (conceptIdOrName, commentId) => {
+  const safeConcept = encodeURIComponent(String(conceptIdOrName || '').trim());
+  const safeComment = encodeURIComponent(String(commentId || '').trim());
+  const res = await api.post(`/api/concepts/${safeConcept}/idea-workbench/comments/${safeComment}/accept`, {}, getAuthHeaders());
+  return res.data || { conceptId: '', conceptName: '', ideaWorkbench: null, ideaWorkbenchMeta: null, revision: 0, events: [] };
+};
+
+export const dismissConceptIdeaWorkbenchComment = async (conceptIdOrName, commentId) => {
+  const safeConcept = encodeURIComponent(String(conceptIdOrName || '').trim());
+  const safeComment = encodeURIComponent(String(commentId || '').trim());
+  const res = await api.post(`/api/concepts/${safeConcept}/idea-workbench/comments/${safeComment}/dismiss`, {}, getAuthHeaders());
+  return res.data || { conceptId: '', conceptName: '', ideaWorkbench: null, ideaWorkbenchMeta: null, revision: 0, events: [] };
+};
+
+export const markConceptIdeaWorkbenchReviewed = async (conceptIdOrName) => {
+  const safeConcept = encodeURIComponent(String(conceptIdOrName || '').trim());
+  const res = await api.post(`/api/concepts/${safeConcept}/idea-workbench/mark-reviewed`, {}, getAuthHeaders());
+  return res.data || { conceptId: '', conceptName: '', ideaWorkbench: null, ideaWorkbenchMeta: null, revision: 0, events: [] };
 };
 
 export const appendConceptIdeaWorkbenchEvents = async (conceptIdOrName, events) => {

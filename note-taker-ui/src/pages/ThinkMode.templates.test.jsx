@@ -12,6 +12,10 @@ import api from '../api';
 import { listReturnQueue } from '../api/returnQueue';
 import { getArticles } from '../api/articles';
 import { listAgentHandoffs, listPersonalAgents } from '../api/agent';
+import { getConnectionsForScope } from '../api/connections';
+import { listWorkingMemory } from '../api/workingMemory';
+
+const mockThoughtPartnerPanel = jest.fn();
 
 jest.mock('../hooks/useConcepts', () => jest.fn());
 jest.mock('../hooks/useConcept', () => jest.fn());
@@ -108,6 +112,13 @@ jest.mock('../components/working-memory/WorkingMemoryPanel', () => () => null);
 jest.mock('../components/return-queue/ReturnLaterControl', () => () => null);
 jest.mock('../components/connections/ConnectionBuilder', () => () => null);
 jest.mock('../components/paths/ConceptPathWorkspace', () => () => null);
+jest.mock('../components/agent/ThoughtPartnerPanel', () => ({
+  __esModule: true,
+  default: (props) => {
+    mockThoughtPartnerPanel(props);
+    return <div data-testid={`thought-partner-${props.title || 'panel'}`}>{props.title || 'Thought partner'}</div>;
+  }
+}));
 jest.mock('../components/think/concepts/ConceptNotebook', () => () => null);
 jest.mock('../components/think/concepts/idea-workbench/IdeaWorkbenchMain', () => () => <div>Idea Workbench</div>);
 jest.mock('../components/think/concepts/idea-workbench/IdeaWorkbenchAgentRail', () => () => <div>Idea Agent Rail</div>);
@@ -175,10 +186,12 @@ jest.mock('../api/workingMemory', () => ({
 }));
 
 const refreshConceptsMock = jest.fn().mockResolvedValue(undefined);
+const pendingRequest = () => new Promise(() => {});
 
 describe('ThinkMode template integration', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockThoughtPartnerPanel.mockClear();
 
     useConcepts.mockReturnValue({
       concepts: [
@@ -218,26 +231,66 @@ describe('ThinkMode template integration', () => {
     useHighlights.mockReturnValue({ highlightMap: new Map(), highlights: [] });
     useTags.mockReturnValue({ tags: [] });
 
-    api.get.mockResolvedValue({ data: [] });
+    api.get.mockImplementation(() => pendingRequest());
     api.post.mockResolvedValue({ data: {} });
     api.put.mockResolvedValue({ data: {} });
     api.patch.mockResolvedValue({ data: {} });
     api.delete.mockResolvedValue({ data: {} });
 
-    listReturnQueue.mockResolvedValue([]);
-    getArticles.mockResolvedValue([]);
-    listPersonalAgents.mockResolvedValue([]);
-    listAgentHandoffs.mockResolvedValue({ handoffs: [] });
+    listReturnQueue.mockImplementation(() => pendingRequest());
+    getArticles.mockImplementation(() => pendingRequest());
+    listPersonalAgents.mockImplementation(() => pendingRequest());
+    listAgentHandoffs.mockImplementation(() => pendingRequest());
+    getConnectionsForScope.mockImplementation(() => pendingRequest());
+    listWorkingMemory.mockImplementation(() => pendingRequest());
   });
 
-  it('shows handoffs in Think segmented navigation', () => {
+  it('defaults Think to the concept workspace and keeps advanced routes in the actions menu', () => {
+    useConcepts.mockReturnValue({
+      concepts: [
+        {
+          _id: 'concept-1',
+          name: 'Template Concept',
+          count: 0,
+          description: '',
+          freshness: {
+            stale: true,
+            statusLabel: '2 newer sources',
+            lastReviewedAt: '2026-04-09T00:00:00.000Z'
+          }
+        },
+        {
+          _id: 'concept-2',
+          name: 'Current Concept',
+          count: 1,
+          description: '',
+          freshness: {
+            stale: false,
+            lastReviewedAt: '2026-04-10T00:00:00.000Z'
+          }
+        }
+      ],
+      loading: false,
+      error: '',
+      refresh: refreshConceptsMock
+    });
+
     render(
-      <MemoryRouter initialEntries={['/think?tab=home']}>
+      <MemoryRouter initialEntries={['/think']}>
         <ThinkMode />
       </MemoryRouter>
     );
 
-    expect(screen.getByRole('tab', { name: 'Handoffs' })).toBeInTheDocument();
+    expect(screen.getByText('Start from the idea, then pull the archive into focus.')).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Concepts' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Review next' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Current threads' })).toBeInTheDocument();
+    expect(screen.getByText('2 newer sources')).toBeInTheDocument();
+    expect(screen.getByText(/Last reviewed/i)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId('think-header-actions-menu-button'));
+
+    expect(screen.getByRole('menuitem', { name: 'Open handoffs' })).toBeInTheDocument();
   });
 
   it('opens template picker from Think home and handles successful create callback', async () => {
@@ -257,6 +310,26 @@ describe('ThinkMode template integration', () => {
       expect(refreshConceptsMock).toHaveBeenCalled();
     });
 
-    expect(screen.getByText('Created concept from template: Template Concept.')).toBeInTheDocument();
+    expect(screen.getByText('Template Concept')).toBeInTheDocument();
   });
+
+  it('opens a visible composer from the concepts index hero when no concepts exist', () => {
+    useConcepts.mockReturnValue({
+      concepts: [],
+      loading: false,
+      error: '',
+      refresh: refreshConceptsMock
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/think?tab=concepts']}>
+        <ThinkMode />
+      </MemoryRouter>
+    );
+
+    fireEvent.click(screen.getByTestId('think-concepts-index-create-button'));
+
+    expect(screen.getByTestId('think-concept-composer-input')).toBeVisible();
+  });
+
 });

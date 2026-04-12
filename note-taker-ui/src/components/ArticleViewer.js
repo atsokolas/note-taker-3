@@ -8,6 +8,7 @@ import ReadingLayout from '../layout/ReadingLayout';
 import SemanticRelatedPanel from './retrieval/SemanticRelatedPanel';
 import ThoughtPartnerPanel from './agent/ThoughtPartnerPanel';
 import { renderArticleContentWithHighlights } from '../utils/highlightMarkup';
+import { buildArticleAmbientContext } from '../utils/ambientAgentContext';
 
 const getAuthConfig = () => {
     // ... (Your existing code)
@@ -101,6 +102,9 @@ const ArticleViewer = ({ onArticleChange }) => {
         if (!pdfs || pdfs.length === 0) return null;
         return pdfs.find(pdf => pdf.id === activePdfId) || pdfs[0];
     }, [pdfs, activePdfId]);
+    const articleContextMetadata = useMemo(() => (
+        buildArticleAmbientContext({ article })
+    ), [article]);
 
     const parseTagInput = (value) => (
         value
@@ -740,6 +744,7 @@ const ArticleViewer = ({ onArticleChange }) => {
                             contextType="article"
                             contextId={article?._id || id}
                             contextTitle={article?.title || 'Article'}
+                            contextMetadata={articleContextMetadata}
                             placeholder="Ask about this article or find related notes."
                         />
                         {highlightsPanel}

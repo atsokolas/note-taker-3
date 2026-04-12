@@ -97,16 +97,16 @@ const ReferencesPanel = ({ targetType, targetId, tagName, label = 'Used in' }) =
 
   return (
     <div className="references-panel">
-      <Button variant="secondary" onClick={toggle}>{open ? 'Hide' : label}</Button>
+      <Button variant="secondary" onClick={toggle}>{open ? 'Hide references' : label}</Button>
       {open && (
-        <div style={{ marginTop: 8 }}>
+        <div className="references-panel__body">
           {loading && <p className="muted small">Loading references…</p>}
           {error && <p className="status-message error-message">{error}</p>}
           {!loading && !error && (
             <>
               {renderNotebookBlocks()}
               {data?.concepts && data.concepts.length > 0 && (
-                <div style={{ marginTop: 12 }}>
+                <div className="references-panel__group">
                   <p className="muted-label">Concepts</p>
                   <div className="section-stack">
                     {data.concepts.map((concept) => (
@@ -130,7 +130,7 @@ const ReferencesPanel = ({ targetType, targetId, tagName, label = 'Used in' }) =
                 </div>
               )}
               {data?.questions && data.questions.length > 0 && (
-                <div style={{ marginTop: 12 }}>
+                <div className="references-panel__group">
                   <p className="muted-label">Questions</p>
                   <div className="section-stack">
                     {data.questions.map((question) => (
@@ -158,7 +158,7 @@ const ReferencesPanel = ({ targetType, targetId, tagName, label = 'Used in' }) =
                 </div>
               )}
               {data?.collections && data.collections.length > 0 && (
-                <div style={{ marginTop: 12 }}>
+                <div className="references-panel__group">
                   <p className="muted-label">Collections</p>
                   {data.collections.map((c) => (
                     <Link key={c._id} to={`/collections/${c.slug}`} className="article-title-link">

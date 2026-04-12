@@ -1,6 +1,18 @@
 import axios from 'axios';
 
-const BASE_URL = "https://note-taker-3-unrg.onrender.com";
+const resolveBaseUrl = () => {
+  const explicit = String(process.env.REACT_APP_API_BASE_URL || '').trim();
+  if (explicit) return explicit;
+  if (typeof window !== 'undefined') {
+    const hostname = String(window.location.hostname || '').trim().toLowerCase();
+    if (hostname === 'localhost' || hostname === '127.0.0.1') {
+      return '';
+    }
+  }
+  return 'https://note-taker-3-unrg.onrender.com';
+};
+
+const BASE_URL = resolveBaseUrl();
 let authRedirectInFlight = false;
 const AUTH_ROUTE_PATTERN = /\/api\/auth\/(login|register)$/i;
 

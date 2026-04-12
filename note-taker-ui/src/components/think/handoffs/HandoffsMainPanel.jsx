@@ -3,12 +3,25 @@ import { SectionHeader, SurfaceCard } from '../../ui';
 import HandoffCreateForm from '../../agent/handoffs/HandoffCreateForm';
 import HandoffDetailBlock from '../../agent/handoffs/HandoffDetailBlock';
 
-const HandoffsMainPanel = ({ handoffsModel }) => {
+const HandoffsMainPanel = ({
+  handoffsModel,
+  relatedApprovalsModel = null,
+  hookRunsModel = null,
+  draftsModel = null,
+  upkeepCyclesModel = null,
+  onOpenThread = null,
+  onOpenHandoff = null,
+  onInvokeWorkflowSkill = null,
+  onOpenThreadFromDraft = null,
+  onCreateHandoffFromDraft = null,
+  onQueueFollowUpLoop = null
+}) => {
   const {
     activeHandoffData,
     sortedPersonalAgents,
     handoffActionBusyId,
     handoffActionError,
+    handoffActionInfo,
     newHandoffTitle,
     setNewHandoffTitle,
     newHandoffObjective,
@@ -34,7 +47,8 @@ const HandoffsMainPanel = ({ handoffsModel }) => {
     handleClaimHandoff,
     handleCompleteHandoff,
     handleRejectHandoff,
-    handleCancelHandoff
+    handleCancelHandoff,
+    handleContinueInThread
   } = handoffsModel;
 
   return (
@@ -77,17 +91,29 @@ const HandoffsMainPanel = ({ handoffsModel }) => {
             formatActor={formatActor}
             formatDateTime={formatDateTime}
             busy={handoffActionBusyId === activeHandoffData.handoffId}
+            onContinueThread={() => handleContinueInThread(activeHandoffData.handoffId)}
             onClaim={() => handleClaimHandoff(activeHandoffData.handoffId)}
             onComplete={() => handleCompleteHandoff(activeHandoffData.handoffId)}
             onReject={() => handleRejectHandoff(activeHandoffData.handoffId)}
             onCancel={() => handleCancelHandoff(activeHandoffData.handoffId)}
             showEvents
+            relatedApprovalsModel={relatedApprovalsModel}
+            hookRunsModel={hookRunsModel}
+            draftsModel={draftsModel}
+            upkeepCyclesModel={upkeepCyclesModel}
+            onOpenThread={onOpenThread}
+            onOpenHandoff={onOpenHandoff}
+            onInvokeWorkflowSkill={onInvokeWorkflowSkill}
+            onOpenThreadFromDraft={onOpenThreadFromDraft}
+            onCreateHandoffFromDraft={onCreateHandoffFromDraft}
+            onQueueFollowUpLoop={onQueueFollowUpLoop}
             variant="think"
             actionClassName="think-handoffs-detail-actions"
             className="section-stack think-handoffs-detail"
           />
         )}
         {handoffActionError && <p className="status-message error-message">{handoffActionError}</p>}
+        {handoffActionInfo && <p className="status-message success-message">{handoffActionInfo}</p>}
       </SurfaceCard>
     </div>
   );

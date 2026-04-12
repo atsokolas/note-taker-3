@@ -15,7 +15,7 @@ const TYPE_CLASS = {
 
 const zoneActionLabel = (zone) => {
   if (zone === 'supports') return 'Support';
-  if (zone === 'contradictions') return 'Contradiction';
+  if (zone === 'contradictions') return 'Tension';
   if (zone === 'questions') return 'Question';
   return 'Workspace';
 };
@@ -48,7 +48,7 @@ const IdeaWorkbenchCard = ({
   return (
     <article
       ref={setNodeRef}
-      className={`idea-workbench-card idea-workbench-card--${TYPE_CLASS[card.type] || 'generic'} ${layout === 'strip' ? 'is-strip' : ''} ${layout === 'lane' ? 'is-lane' : ''} ${compact ? 'is-compact' : ''} ${isDragging ? 'is-dragging' : ''} ${consuming ? 'is-consuming' : ''}`}
+      className={`idea-workbench-card idea-workbench-card--${TYPE_CLASS[card.type] || 'generic'} idea-workbench-card--zone-${card.zone || 'workspace'} ${layout === 'strip' ? 'is-strip' : ''} ${layout === 'lane' ? 'is-lane' : ''} ${compact ? 'is-compact' : ''} ${isDragging ? 'is-dragging' : ''} ${consuming ? 'is-consuming' : ''}`}
       style={{
         ...(transform ? { transform: CSS.Translate.toString(transform) } : {}),
         '--strip-index': sequence
@@ -95,7 +95,7 @@ const IdeaWorkbenchCard = ({
                 Support
               </QuietButton>
               <QuietButton type="button" onClick={() => onMove('contradictions')}>
-                Contradict
+                Tension
               </QuietButton>
               <QuietButton type="button" onClick={() => onMove('questions')}>
                 Question

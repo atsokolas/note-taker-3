@@ -5,6 +5,7 @@ import {
   completeAgentHandoff,
   createAgentHandoff,
   createAutoAgentHandoff,
+  ensureAgentHandoffThread,
   listAgentHandoffs,
   listPersonalAgents,
   rejectAgentHandoff
@@ -14,6 +15,8 @@ const useHandoffs = ({
   enabled = false,
   selectedHandoffId = '',
   onOpenHandoff = null,
+  onOpenThread = null,
+  onProtocolApprovalQueued = null,
   personalAgentsOverride = null,
   initialStatusFilter = 'pending'
 } = {}) => {
@@ -26,6 +29,7 @@ const useHandoffs = ({
   const [queueActorId, setQueueActorId] = useState('');
   const [handoffActionBusyId, setHandoffActionBusyId] = useState('');
   const [handoffActionError, setHandoffActionError] = useState('');
+  const [handoffActionInfo, setHandoffActionInfo] = useState('');
   const [newHandoffTitle, setNewHandoffTitle] = useState('');
   const [newHandoffObjective, setNewHandoffObjective] = useState('');
   const [newHandoffTaskType, setNewHandoffTaskType] = useState('research');
@@ -127,6 +131,25 @@ const useHandoffs = ({
     return { actorType: 'byo_agent', actorId };
   }, [queueActorId, queueActorType]);
 
+  const handleApprovalRequiredResponse = useCallback(async (response, fallbackMessage) => {
+    if (String(response?.status || '').trim().toLowerCase() !== 'approval_required') return false;
+    setHandoffActionInfo(String(response?.reason || fallbackMessage || 'Action queued for approval.'));
+    if (typeof onProtocolApprovalQueued === 'function') {
+      await onProtocolApprovalQueued();
+    }
+    return true;
+  }, [onProtocolApprovalQueued]);
+
+  const applyHandoffWarnings = useCallback((response, fallbackMessage = '') => {
+    const warnings = Array.isArray(response?.hookWarnings) ? response.hookWarnings.filter(Boolean) : [];
+    if (warnings.length > 0) {
+      setHandoffActionInfo(warnings.join(' '));
+      return true;
+    }
+    if (fallbackMessage) setHandoffActionInfo(fallbackMessage);
+    return false;
+  }, []);
+
   const handleCreateHandoff = useCallback(async () => {
     const title = String(newHandoffTitle || '').trim();
     if (!title || handoffCreating) return;
@@ -163,9 +186,17 @@ const useHandoffs = ({
           }
         });
       }
+      if (String(response?.status || '').trim().toLowerCase() === 'approval_required') {
+        setHandoffCreateInfo(String(response?.reason || 'Handoff creation queued for approval.'));
+        if (typeof onProtocolApprovalQueued === 'function') await onProtocolApprovalQueued();
+        return;
+      }
       setNewHandoffTitle('');
       setNewHandoffObjective('');
       setNewHandoffDueAt('');
+      if (Array.isArray(response?.hookWarnings) && response.hookWarnings.length > 0) {
+        setHandoffCreateInfo(response.hookWarnings.join(' '));
+      }
       await loadHandoffs();
       const createdId = String(response?.handoff?.handoffId || '').trim();
       if (createdId && typeof onOpenHandoff === 'function') onOpenHandoff(createdId);
@@ -186,7 +217,8 @@ const useHandoffs = ({
     newHandoffRequestedActorType,
     newHandoffTaskType,
     newHandoffTitle,
-    onOpenHandoff
+    onOpenHandoff,
+    onProtocolApprovalQueued
   ]);
 
   const handleClaimHandoff = useCallback(async (handoffId) => {
@@ -194,63 +226,73 @@ const useHandoffs = ({
     if (!safeId || handoffActionBusyId) return;
     setHandoffActionBusyId(safeId);
     setHandoffActionError('');
+    setHandoffActionInfo('');
     try {
       const actor = resolveQueueActorPayload();
-      await claimAgentHandoff(safeId, actor);
+      const response = await claimAgentHandoff(safeId, actor);
+      if (await handleApprovalRequiredResponse(response, 'Claim queued for approval.')) return;
+      applyHandoffWarnings(response);
       await loadHandoffs();
     } catch (error) {
       setHandoffActionError(error.response?.data?.error || error.message || 'Failed to claim handoff.');
     } finally {
       setHandoffActionBusyId('');
     }
-  }, [handoffActionBusyId, loadHandoffs, resolveQueueActorPayload]);
+  }, [applyHandoffWarnings, handoffActionBusyId, handleApprovalRequiredResponse, loadHandoffs, resolveQueueActorPayload]);
 
   const handleCompleteHandoff = useCallback(async (handoffId) => {
     const safeId = String(handoffId || '').trim();
     if (!safeId || handoffActionBusyId) return;
     setHandoffActionBusyId(safeId);
     setHandoffActionError('');
+    setHandoffActionInfo('');
     try {
       const actor = resolveQueueActorPayload();
       const note = window.prompt('Completion note (optional):', '') || '';
-      await completeAgentHandoff(safeId, {
+      const response = await completeAgentHandoff(safeId, {
         ...actor,
         note: String(note || '').trim(),
         output: note ? { summary: String(note).trim() } : {}
       });
+      if (await handleApprovalRequiredResponse(response, 'Completion queued for approval.')) return;
+      applyHandoffWarnings(response);
       await loadHandoffs();
     } catch (error) {
       setHandoffActionError(error.response?.data?.error || error.message || 'Failed to complete handoff.');
     } finally {
       setHandoffActionBusyId('');
     }
-  }, [handoffActionBusyId, loadHandoffs, resolveQueueActorPayload]);
+  }, [applyHandoffWarnings, handoffActionBusyId, handleApprovalRequiredResponse, loadHandoffs, resolveQueueActorPayload]);
 
   const handleRejectHandoff = useCallback(async (handoffId) => {
     const safeId = String(handoffId || '').trim();
     if (!safeId || handoffActionBusyId) return;
     setHandoffActionBusyId(safeId);
     setHandoffActionError('');
+    setHandoffActionInfo('');
     try {
       const actor = resolveQueueActorPayload();
       const note = window.prompt('Reject reason (optional):', '') || '';
-      await rejectAgentHandoff(safeId, {
+      const response = await rejectAgentHandoff(safeId, {
         ...actor,
         note: String(note || '').trim()
       });
+      if (await handleApprovalRequiredResponse(response, 'Rejection queued for approval.')) return;
+      applyHandoffWarnings(response);
       await loadHandoffs();
     } catch (error) {
       setHandoffActionError(error.response?.data?.error || error.message || 'Failed to reject handoff.');
     } finally {
       setHandoffActionBusyId('');
     }
-  }, [handoffActionBusyId, loadHandoffs, resolveQueueActorPayload]);
+  }, [applyHandoffWarnings, handoffActionBusyId, handleApprovalRequiredResponse, loadHandoffs, resolveQueueActorPayload]);
 
   const handleCancelHandoff = useCallback(async (handoffId) => {
     const safeId = String(handoffId || '').trim();
     if (!safeId || handoffActionBusyId) return;
     setHandoffActionBusyId(safeId);
     setHandoffActionError('');
+    setHandoffActionInfo('');
     try {
       await cancelAgentHandoff(safeId, {});
       await loadHandoffs();
@@ -260,6 +302,29 @@ const useHandoffs = ({
       setHandoffActionBusyId('');
     }
   }, [handoffActionBusyId, loadHandoffs]);
+
+  const handleContinueInThread = useCallback(async (handoffId) => {
+    const safeId = String(handoffId || '').trim();
+    if (!safeId || handoffActionBusyId) return null;
+    setHandoffActionBusyId(safeId);
+    setHandoffActionError('');
+    try {
+      const response = await ensureAgentHandoffThread(safeId);
+      if (response?.handoff) {
+        setHandoffs((previous) => previous.map((row) => (
+          String(row?.handoffId || '') === safeId ? response.handoff : row
+        )));
+      }
+      const nextThreadId = String(response?.thread?.threadId || '').trim();
+      if (nextThreadId && typeof onOpenThread === 'function') onOpenThread(nextThreadId);
+      return response || null;
+    } catch (error) {
+      setHandoffActionError(error.response?.data?.error || error.message || 'Failed to continue in thread.');
+      return null;
+    } finally {
+      setHandoffActionBusyId('');
+    }
+  }, [handoffActionBusyId, onOpenThread]);
 
   return {
     personalAgents,
@@ -276,6 +341,7 @@ const useHandoffs = ({
     setQueueActorId,
     handoffActionBusyId,
     handoffActionError,
+    handoffActionInfo,
     newHandoffTitle,
     setNewHandoffTitle,
     newHandoffObjective,
@@ -302,7 +368,8 @@ const useHandoffs = ({
     handleClaimHandoff,
     handleCompleteHandoff,
     handleRejectHandoff,
-    handleCancelHandoff
+    handleCancelHandoff,
+    handleContinueInThread
   };
 };
 

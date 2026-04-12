@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="900" viewBox="0 0 1440 900">
+  <rect width="1440" height="900" fill="#f7f1e8"/>
+  <rect x="0" y="0" width="1440" height="74" fill="#f2e8d8"/>
+  <text x="54" y="45" font-family="Georgia, serif" font-size="30" fill="#2f261f">Noeis</text>
+
+  <rect x="36" y="112" width="148" height="706" rx="28" fill="#f4ebdd"/>
+  <text x="60" y="172" font-family="Arial, sans-serif" font-size="16" fill="#8d7963">Library</text>
+  <text x="60" y="212" font-family="Arial, sans-serif" font-size="16" fill="#7a6857">Notebook</text>
+  <line x1="60" y1="224" x2="144" y2="224" stroke="#9e8462" stroke-width="2"/>
+  <text x="60" y="252" font-family="Arial, sans-serif" font-size="16" fill="#8d7963">Concepts</text>
+
+  <text x="226" y="140" font-family="Arial, sans-serif" font-size="14" letter-spacing="2" fill="#9e8462">NOTEBOOK ENTRY</text>
+  <text x="226" y="198" font-family="Georgia, serif" font-size="58" fill="#2f261f">Readings</text>
+  <text x="226" y="236" font-family="Arial, sans-serif" font-size="22" fill="#7a6857">Entry first. Tools second. The writing surface should dominate the page.</text>
+
+  <rect x="226" y="280" width="760" height="540" rx="28" fill="#fbf7f0" stroke="#dccbb5"/>
+  <text x="272" y="334" font-family="Arial, sans-serif" font-size="14" letter-spacing="2" fill="#9e8462">ENTRY</text>
+  <text x="272" y="392" font-family="Georgia, serif" font-size="30" fill="#2f261f">How the Readwise-to-Notion export works</text>
+  <line x1="272" y1="420" x2="940" y2="420" stroke="#dbc8b1" stroke-width="2"/>
+  <text x="272" y="470" font-family="Georgia, serif" font-size="25" fill="#56473a">Readwise is now connected to your Notion account.</text>
+  <text x="272" y="514" font-family="Georgia, serif" font-size="25" fill="#56473a">New highlights imported by Readwise will automatically</text>
+  <text x="272" y="548" font-family="Georgia, serif" font-size="25" fill="#56473a">synchronize with Notion.</text>
+  <rect x="272" y="584" width="196" height="34" rx="17" fill="#efe4d2"/>
+  <text x="312" y="606" font-family="Arial, sans-serif" font-size="16" fill="#2f261f">Insert highlight</text>
+  <rect x="486" y="584" width="146" height="34" rx="17" fill="#fbf7f0" stroke="#d8c5ad"/>
+  <text x="532" y="606" font-family="Arial, sans-serif" font-size="16" fill="#7a6857">Tag concept</text>
+  <rect x="650" y="584" width="146" height="34" rx="17" fill="#fbf7f0" stroke="#d8c5ad"/>
+  <text x="694" y="606" font-family="Arial, sans-serif" font-size="16" fill="#7a6857">Ask agent</text>
+
+  <rect x="1020" y="280" width="356" height="540" rx="28" fill="#f4ebdd"/>
+  <text x="1060" y="334" font-family="Arial, sans-serif" font-size="14" letter-spacing="2" fill="#9e8462">CONTEXT STRIP</text>
+  <text x="1060" y="384" font-family="Georgia, serif" font-size="34" fill="#2f261f">Why this matters</text>
+  <text x="1060" y="432" font-family="Arial, sans-serif" font-size="20" fill="#7a6857">Attached to</text>
+  <text x="1060" y="464" font-family="Arial, sans-serif" font-size="22" fill="#2f261f">Question: How people generate insights</text>
+  <text x="1060" y="514" font-family="Arial, sans-serif" font-size="20" fill="#7a6857">Recent reuse</text>
+  <text x="1060" y="546" font-family="Arial, sans-serif" font-size="22" fill="#2f261f">Used in 2 concepts this week</text>
+  <text x="1060" y="596" font-family="Arial, sans-serif" font-size="20" fill="#7a6857">Agent suggestion</text>
+  <text x="1060" y="628" font-family="Arial, sans-serif" font-size="22" fill="#2f261f">Possible contradiction with tacit knowledge note</text>
+  <text x="1060" y="690" font-family="Arial, sans-serif" font-size="20" fill="#7a6857">The current page should feel like a document with a marginalia rail, not a control panel.</text>
+</svg>

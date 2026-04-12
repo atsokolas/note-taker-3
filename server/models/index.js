@@ -12,11 +12,20 @@ const userAgentProtocolTaskOverrideSchema = new mongoose.Schema({
   actorId: { type: String, default: '', trim: true }
 }, { _id: false });
 
+const userAgentProtocolHooksPolicySchema = new mongoose.Schema({
+  beforeThreadOps: { type: String, enum: ['off', 'observe', 'warn', 'require_approval'], default: 'off' },
+  afterThreadOps: { type: String, enum: ['off', 'observe', 'warn', 'require_approval'], default: 'off' },
+  beforeHandoffOps: { type: String, enum: ['off', 'observe', 'warn', 'require_approval'], default: 'observe' },
+  afterHandoffOps: { type: String, enum: ['off', 'observe', 'warn', 'require_approval'], default: 'observe' }
+}, { _id: false });
+
 const userAgentProtocolPolicySchema = new mongoose.Schema({
   routingMode: { type: String, enum: ['balanced', 'native_first', 'byo_first'], default: 'balanced' },
   defaultByoAgentId: { type: mongoose.Schema.Types.ObjectId, ref: 'PersonalAgent', default: null },
   allowByoForResearch: { type: Boolean, default: true },
   allowByoForSynthesis: { type: Boolean, default: true },
+  preferByoSpecialists: { type: Boolean, default: true },
+  hooks: { type: userAgentProtocolHooksPolicySchema, default: () => ({}) },
   taskOverrides: {
     research: { type: userAgentProtocolTaskOverrideSchema, default: () => ({}) },
     synthesis: { type: userAgentProtocolTaskOverrideSchema, default: () => ({}) },
@@ -341,6 +350,7 @@ const tagMetaSchema = new mongoose.Schema({
   conceptLayout: { type: conceptLayoutSchema, default: undefined },
   workspace: { type: conceptWorkspaceSchema, default: undefined },
   ideaWorkbench: { type: mongoose.Schema.Types.Mixed, default: undefined },
+  ideaWorkbenchMeta: { type: mongoose.Schema.Types.Mixed, default: undefined },
   ideaWorkbenchRevision: { type: Number, default: 0 },
   ideaWorkbenchEvents: { type: [mongoose.Schema.Types.Mixed], default: [] },
   workspaceTemplateId: { type: String, default: '', trim: true },
@@ -631,6 +641,7 @@ const personalAgentSchema = new mongoose.Schema({
   description: { type: String, default: '', trim: true },
   status: { type: String, enum: ['active', 'disabled'], default: 'active' },
   capabilities: { type: personalAgentCapabilitiesSchema, default: () => ({}) },
+  preferredWorkerRoles: { type: [String], default: [] },
   apiKeyHash: { type: String, required: true, trim: true },
   apiKeyPrefix: { type: String, default: '', trim: true },
   lastUsedAt: { type: Date, default: null },
@@ -685,6 +696,54 @@ actionApprovalSchema.index({ userId: 1, status: 1, createdAt: -1 });
 actionApprovalSchema.index({ userId: 1, conceptId: 1, createdAt: -1 });
 
 const AgentActionApproval = mongoose.model('AgentActionApproval', actionApprovalSchema);
+
+const protocolApprovalSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  status: { type: String, enum: ['pending', 'approved', 'rejected', 'executed', 'expired'], default: 'pending' },
+  scope: { type: String, default: 'agent_ops', trim: true },
+  op: { type: String, required: true, trim: true },
+  payload: { type: mongoose.Schema.Types.Mixed, default: {} },
+  preview: { type: mongoose.Schema.Types.Mixed, default: {} },
+  reason: { type: String, default: '', trim: true },
+  requestedBy: { type: actorIdentitySchema, default: () => ({}) },
+  approvedBy: { type: actorIdentitySchema, default: undefined },
+  rejectedBy: { type: actorIdentitySchema, default: undefined },
+  approvedAt: { type: Date, default: null },
+  rejectedAt: { type: Date, default: null },
+  executedAt: { type: Date, default: null },
+  result: { type: mongoose.Schema.Types.Mixed, default: {} }
+}, { timestamps: true });
+
+protocolApprovalSchema.index({ userId: 1, status: 1, createdAt: -1 });
+protocolApprovalSchema.index({ userId: 1, op: 1, createdAt: -1 });
+
+const AgentProtocolApproval = mongoose.model('AgentProtocolApproval', protocolApprovalSchema);
+
+const protocolHookRunSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  source: { type: String, enum: ['native', 'bridge', 'approval_replay'], default: 'native' },
+  phase: { type: String, enum: ['before', 'after'], required: true },
+  effect: { type: String, enum: ['observe', 'warn', 'require_approval'], default: 'observe' },
+  status: { type: String, enum: ['passed', 'error'], default: 'passed' },
+  scope: { type: String, default: 'agent_ops', trim: true },
+  op: { type: String, required: true, trim: true },
+  actor: { type: actorIdentitySchema, default: () => ({}) },
+  threadId: { type: String, default: '', trim: true },
+  handoffId: { type: String, default: '', trim: true },
+  approvalId: { type: mongoose.Schema.Types.ObjectId, ref: 'AgentProtocolApproval', default: null },
+  preview: { type: mongoose.Schema.Types.Mixed, default: {} },
+  payload: { type: mongoose.Schema.Types.Mixed, default: {} },
+  result: { type: mongoose.Schema.Types.Mixed, default: {} },
+  warningMessage: { type: String, default: '', trim: true },
+  errorMessage: { type: String, default: '', trim: true }
+}, { timestamps: true });
+
+protocolHookRunSchema.index({ userId: 1, createdAt: -1 });
+protocolHookRunSchema.index({ userId: 1, threadId: 1, createdAt: -1 });
+protocolHookRunSchema.index({ userId: 1, handoffId: 1, createdAt: -1 });
+protocolHookRunSchema.index({ userId: 1, op: 1, phase: 1, createdAt: -1 });
+
+const AgentProtocolHookRun = mongoose.model('AgentProtocolHookRun', protocolHookRunSchema);
 
 const actionAuditSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
@@ -743,6 +802,83 @@ const agentHandoffEventSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now }
 }, { _id: false });
 
+const agentThreadScopeSchema = new mongoose.Schema({
+  type: {
+    type: String,
+    enum: ['global', 'workspace', 'article', 'notebook', 'concept', 'handoff', 'selection'],
+    default: 'global'
+  },
+  id: { type: String, default: '', trim: true },
+  title: { type: String, default: '', trim: true },
+  metadata: { type: mongoose.Schema.Types.Mixed, default: {} }
+}, { _id: false });
+
+const agentThreadMessageSchema = new mongoose.Schema({
+  role: { type: String, enum: ['system', 'user', 'assistant', 'tool'], default: 'assistant' },
+  text: { type: String, default: '', trim: true },
+  actor: { type: actorIdentitySchema, default: () => ({ actorType: 'native_agent', actorId: '' }) },
+  relatedItems: { type: [mongoose.Schema.Types.Mixed], default: [] },
+  citations: { type: [mongoose.Schema.Types.Mixed], default: [] },
+  suggestedActions: { type: [mongoose.Schema.Types.Mixed], default: [] },
+  metadata: { type: mongoose.Schema.Types.Mixed, default: {} },
+  createdAt: { type: Date, default: Date.now }
+}, { _id: false });
+
+const agentThreadPlanStepSchema = new mongoose.Schema({
+  id: { type: String, required: true, trim: true },
+  title: { type: String, default: '', trim: true },
+  status: {
+    type: String,
+    enum: ['pending', 'in_progress', 'completed', 'blocked'],
+    default: 'pending'
+  },
+  kind: { type: String, default: '', trim: true },
+  workerRole: {
+    type: String,
+    enum: ['planner', 'researcher', 'synthesizer', 'critic', 'editor', 'organizer', ''],
+    default: ''
+  },
+  actor: { type: actorIdentitySchema, default: () => ({ actorType: 'native_agent', actorId: '' }) },
+  notes: { type: String, default: '', trim: true }
+}, { _id: false });
+
+const agentThreadPlanSchema = new mongoose.Schema({
+  objective: { type: String, default: '', trim: true },
+  currentStepId: { type: String, default: '', trim: true },
+  successCriteria: { type: [String], default: [] },
+  steps: { type: [agentThreadPlanStepSchema], default: [] },
+  status: { type: String, enum: ['active', 'archived'], default: 'active' }
+}, { _id: false });
+
+const agentThreadCheckpointSchema = new mongoose.Schema({
+  summary: { type: String, default: '', trim: true },
+  openQuestions: { type: [String], default: [] },
+  nextActions: { type: [String], default: [] },
+  updatedBy: { type: actorIdentitySchema, default: () => ({ actorType: 'native_agent', actorId: '' }) },
+  updatedAt: { type: Date, default: Date.now }
+}, { _id: false });
+
+const agentThreadSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  title: { type: String, default: '', trim: true },
+  status: { type: String, enum: ['active', 'archived'], default: 'active' },
+  summary: { type: String, default: '', trim: true },
+  scope: { type: agentThreadScopeSchema, default: () => ({}) },
+  createdBy: { type: actorIdentitySchema, default: () => ({ actorType: 'user', actorId: '' }) },
+  lastActor: { type: actorIdentitySchema, default: undefined },
+  handoffId: { type: mongoose.Schema.Types.ObjectId, ref: 'AgentHandoff', default: null },
+  planner: { type: mongoose.Schema.Types.Mixed, default: {} },
+  plan: { type: agentThreadPlanSchema, default: () => ({}) },
+  checkpoint: { type: agentThreadCheckpointSchema, default: undefined },
+  messages: { type: [agentThreadMessageSchema], default: [] }
+}, { timestamps: true });
+
+agentThreadSchema.index({ userId: 1, status: 1, updatedAt: -1 });
+agentThreadSchema.index({ userId: 1, 'scope.type': 1, 'scope.id': 1, updatedAt: -1 });
+agentThreadSchema.index({ userId: 1, handoffId: 1, updatedAt: -1 });
+
+const AgentThread = mongoose.model('AgentThread', agentThreadSchema);
+
 const agentHandoffSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   title: { type: String, required: true, trim: true },
@@ -761,6 +897,10 @@ const agentHandoffSchema = new mongoose.Schema({
   context: { type: mongoose.Schema.Types.Mixed, default: {} },
   input: { type: mongoose.Schema.Types.Mixed, default: {} },
   output: { type: mongoose.Schema.Types.Mixed, default: {} },
+  threadId: { type: mongoose.Schema.Types.ObjectId, ref: 'AgentThread', default: null },
+  planner: { type: mongoose.Schema.Types.Mixed, default: {} },
+  plan: { type: agentThreadPlanSchema, default: () => ({}) },
+  checkpoint: { type: agentThreadCheckpointSchema, default: undefined },
   requestedActor: { type: actorIdentitySchema, default: () => ({ actorType: 'native_agent', actorId: '' }) },
   createdBy: { type: actorIdentitySchema, default: () => ({ actorType: 'user', actorId: '' }) },
   claimedBy: { type: actorIdentitySchema, default: undefined },
@@ -779,6 +919,76 @@ agentHandoffSchema.index({ userId: 1, status: 1, updatedAt: -1 });
 agentHandoffSchema.index({ userId: 1, 'requestedActor.actorType': 1, 'requestedActor.actorId': 1, status: 1, updatedAt: -1 });
 
 const AgentHandoff = mongoose.model('AgentHandoff', agentHandoffSchema);
+
+const agentArtifactDraftSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  artifactType: { type: String, enum: ['note', 'concept', 'question', 'handoff'], required: true },
+  status: { type: String, enum: ['pending', 'promoted', 'dismissed'], default: 'pending' },
+  title: { type: String, default: '', trim: true },
+  summary: { type: String, default: '', trim: true },
+  body: { type: String, default: '', trim: true },
+  sourceThreadId: { type: mongoose.Schema.Types.ObjectId, ref: 'AgentThread', default: null },
+  sourceHandoffId: { type: mongoose.Schema.Types.ObjectId, ref: 'AgentHandoff', default: null },
+  sourceContext: { type: mongoose.Schema.Types.Mixed, default: {} },
+  skill: { type: mongoose.Schema.Types.Mixed, default: {} },
+  createdBy: { type: actorIdentitySchema, default: () => ({ actorType: 'user', actorId: '' }) },
+  promotedTo: { type: mongoose.Schema.Types.Mixed, default: {} }
+}, { timestamps: true });
+
+agentArtifactDraftSchema.index({ userId: 1, status: 1, updatedAt: -1 });
+agentArtifactDraftSchema.index({ userId: 1, artifactType: 1, status: 1, updatedAt: -1 });
+agentArtifactDraftSchema.index({ userId: 1, sourceThreadId: 1, status: 1, updatedAt: -1 });
+
+const AgentArtifactDraft = mongoose.model('AgentArtifactDraft', agentArtifactDraftSchema);
+
+const agentUpkeepCycleRunSchema = new mongoose.Schema({
+  handoffId: { type: mongoose.Schema.Types.ObjectId, ref: 'AgentHandoff', default: null },
+  threadId: { type: mongoose.Schema.Types.ObjectId, ref: 'AgentThread', default: null },
+  scheduledFor: { type: Date, default: null },
+  startedAt: { type: Date, default: Date.now },
+  status: {
+    type: String,
+    enum: ['scheduled', 'in_progress', 'completed', 'cancelled'],
+    default: 'scheduled'
+  }
+}, { _id: false });
+
+const agentUpkeepCycleSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  title: { type: String, required: true, trim: true },
+  summary: { type: String, default: '', trim: true },
+  status: {
+    type: String,
+    enum: ['active', 'paused', 'completed'],
+    default: 'active'
+  },
+  cadence: { type: String, default: 'recurring', trim: true },
+  taskType: {
+    type: String,
+    enum: ['research', 'synthesis', 'restructure', 'qa', 'custom'],
+    default: 'custom'
+  },
+  workerRole: {
+    type: String,
+    enum: ['planner', 'researcher', 'synthesizer', 'critic', 'editor', 'organizer', ''],
+    default: ''
+  },
+  nextDueAt: { type: Date, default: null },
+  lastRunAt: { type: Date, default: null },
+  lastHandoffId: { type: mongoose.Schema.Types.ObjectId, ref: 'AgentHandoff', default: null },
+  lastThreadId: { type: mongoose.Schema.Types.ObjectId, ref: 'AgentThread', default: null },
+  sourceDraftId: { type: mongoose.Schema.Types.ObjectId, ref: 'AgentArtifactDraft', default: null },
+  sourceContext: { type: mongoose.Schema.Types.Mixed, default: {} },
+  workflow: { type: mongoose.Schema.Types.Mixed, default: {} },
+  seed: { type: mongoose.Schema.Types.Mixed, default: {} },
+  lastOutcome: { type: mongoose.Schema.Types.Mixed, default: {} },
+  runs: { type: [agentUpkeepCycleRunSchema], default: [] }
+}, { timestamps: true });
+
+agentUpkeepCycleSchema.index({ userId: 1, status: 1, nextDueAt: 1, updatedAt: -1 });
+agentUpkeepCycleSchema.index({ userId: 1, sourceDraftId: 1, updatedAt: -1 });
+
+const AgentUpkeepCycle = mongoose.model('AgentUpkeepCycle', agentUpkeepCycleSchema);
 
 // Reference edges (block-level backlinks)
 const referenceEdgeSchema = new mongoose.Schema({
@@ -953,10 +1163,15 @@ module.exports = {
   ConceptPathProgress,
   BrainSummary,
   PersonalAgent,
+  AgentThread,
   AgentActionApproval,
+  AgentProtocolApproval,
+  AgentProtocolHookRun,
   AgentActionAudit,
   AgentSoftDeleteRecord,
   AgentHandoff,
+  AgentArtifactDraft,
+  AgentUpkeepCycle,
   ReferenceEdge,
   SavedView,
   Collection,

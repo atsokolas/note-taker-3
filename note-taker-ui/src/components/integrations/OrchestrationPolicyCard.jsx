@@ -1,6 +1,13 @@
 import React from 'react';
 import { Button, Card } from '../ui';
 
+const HOOK_EFFECT_OPTIONS = [
+  { value: 'off', label: 'Off' },
+  { value: 'observe', label: 'Observe' },
+  { value: 'warn', label: 'Warn' },
+  { value: 'require_approval', label: 'Require approval' }
+];
+
 const OrchestrationPolicyCard = ({
   policyModel,
   sortedAgents = []
@@ -66,9 +73,81 @@ const OrchestrationPolicyCard = ({
               />
               Allow personal agents for synthesis tasks
             </label>
+            <label className="muted small" style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
+              <input
+                type="checkbox"
+                checked={Boolean(protocolPolicy.preferByoSpecialists)}
+                onChange={(event) => setProtocolPolicy((previous) => ({ ...previous, preferByoSpecialists: event.target.checked }))}
+              />
+              Prefer specialist-matched personal agents
+            </label>
             <Button variant="secondary" disabled={policySaving} onClick={handleSaveProtocolPolicy}>
               {policySaving ? 'Saving…' : 'Save policy'}
             </Button>
+          </div>
+          <div className="settings-import-row" style={{ marginTop: 10, alignItems: 'flex-start' }}>
+            <div style={{ flex: 1 }}>
+              <p className="muted-label">Hook phases</p>
+              <p className="muted small">Built-in before/after protocol hooks record durable activity without adding a separate scripting system.</p>
+            </div>
+          </div>
+          <div className="settings-import-row" style={{ marginTop: 4, flexWrap: 'wrap' }}>
+            <div style={{ minWidth: 180 }}>
+              <p className="muted-label">Before thread ops</p>
+              <select
+                value={String(protocolPolicy?.hooks?.beforeThreadOps || 'off')}
+                onChange={(event) => setProtocolPolicy((previous) => ({
+                  ...previous,
+                  hooks: { ...(previous.hooks || {}), beforeThreadOps: event.target.value }
+                }))}
+              >
+                {HOOK_EFFECT_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+              </select>
+            </div>
+            <div style={{ minWidth: 180 }}>
+              <p className="muted-label">After thread ops</p>
+              <select
+                value={String(protocolPolicy?.hooks?.afterThreadOps || 'off')}
+                onChange={(event) => setProtocolPolicy((previous) => ({
+                  ...previous,
+                  hooks: { ...(previous.hooks || {}), afterThreadOps: event.target.value }
+                }))}
+              >
+                {HOOK_EFFECT_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+              </select>
+            </div>
+            <div style={{ minWidth: 180 }}>
+              <p className="muted-label">Before handoff ops</p>
+              <select
+                value={String(protocolPolicy?.hooks?.beforeHandoffOps || 'observe')}
+                onChange={(event) => setProtocolPolicy((previous) => ({
+                  ...previous,
+                  hooks: { ...(previous.hooks || {}), beforeHandoffOps: event.target.value }
+                }))}
+              >
+                {HOOK_EFFECT_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+              </select>
+            </div>
+            <div style={{ minWidth: 180 }}>
+              <p className="muted-label">After handoff ops</p>
+              <select
+                value={String(protocolPolicy?.hooks?.afterHandoffOps || 'observe')}
+                onChange={(event) => setProtocolPolicy((previous) => ({
+                  ...previous,
+                  hooks: { ...(previous.hooks || {}), afterHandoffOps: event.target.value }
+                }))}
+              >
+                {HOOK_EFFECT_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+              </select>
+            </div>
           </div>
         </>
       )}

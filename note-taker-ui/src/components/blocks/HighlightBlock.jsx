@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { TagChip, QuietButton } from '../ui';
+import { buildCanonicalArticlePath } from '../../utils/firstInsight';
 
 /**
  * @typedef {Object} Highlight
@@ -39,7 +40,7 @@ const HighlightBlock = ({ highlight, onOpenArticle, onRemove, removeLabel = 'Rem
           {highlight.articleId ? (
             <Link
               className="highlight-block-title"
-              to={`/articles/${highlight.articleId}`}
+              to={buildCanonicalArticlePath(highlight.articleId)}
               onClick={handleOpenArticle}
             >
               {highlight.articleTitle || 'Open article'}

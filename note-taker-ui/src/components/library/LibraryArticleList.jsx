@@ -7,7 +7,46 @@ import { createProfilerLogger } from '../../utils/perf';
 const formatDate = (value) => {
   if (!value) return '';
   const date = new Date(value);
-  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+};
+
+const getSourceLabel = (article) => {
+  const explicit = article?.source || article?.publication || article?.publisher || article?.siteName;
+  if (explicit) return String(explicit);
+  const url = String(article?.url || '').trim();
+  if (!url) return 'Saved article';
+  try {
+    const host = new URL(url).hostname.replace(/^www\./, '');
+    return host
+      .split('.')
+      .filter(Boolean)
+      .slice(0, -1)
+      .join(' ')
+      .replace(/\b\w/g, (match) => match.toUpperCase()) || host;
+  } catch (error) {
+    return 'Saved article';
+  }
+};
+
+const getArticleTags = (article) => {
+  if (Array.isArray(article?.tags) && article.tags.length > 0) return article.tags.slice(0, 3);
+  if (Array.isArray(article?.concepts) && article.concepts.length > 0) {
+    return article.concepts
+      .map((item) => item?.name || item?.tag || item)
+      .filter(Boolean)
+      .slice(0, 3);
+  }
+  return [];
+};
+
+const getExcerpt = (article) => {
+  const raw = article?.summary || article?.description || article?.excerpt || article?.previewText || article?.snippet || '';
+  const text = String(raw || '').replace(/\s+/g, ' ').trim();
+  if (!text) {
+    return 'Open this source in the reading room and use highlights, notes, and concepts as marginalia.';
+  }
+  if (text.length <= 180) return text;
+  return `${text.slice(0, 177)}...`;
 };
 
 /**
@@ -39,15 +78,27 @@ const LibraryArticleRow = React.memo(({
   article,
   onSelectArticle,
   onMoveArticle
-}) => (
+}) => {
+  const sourceLabel = getSourceLabel(article);
+  const tags = getArticleTags(article);
+  const excerpt = getExcerpt(article);
+
+  return (
   <div className="library-article-row">
+    <div className="library-article-row-date">{formatDate(article.createdAt)}</div>
     <button
       className="library-article-row-main"
       onClick={() => onSelectArticle(article._id)}
     >
       <div className="library-article-row-title">{article.title || 'Untitled article'}</div>
+      <div className="library-article-row-kicker">
+        <span className="library-article-row-source">{sourceLabel}</span>
+        {tags.map((tag) => (
+          <span key={`${article._id}-${tag}`} className="library-article-row-tag">#{tag}</span>
+        ))}
+      </div>
+      <div className="library-article-row-excerpt">{excerpt}</div>
       <div className="library-article-row-meta">
-        <span>{formatDate(article.createdAt)}</span>
         <span>{(article.highlights || []).length} highlights</span>
       </div>
     </button>
@@ -63,7 +114,8 @@ const LibraryArticleRow = React.memo(({
       </button>
     )}
   </div>
-));
+  );
+});
 
 const LibraryArticleList = ({
   articles,

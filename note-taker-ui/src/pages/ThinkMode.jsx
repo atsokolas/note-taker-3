@@ -31,23 +31,31 @@ import LibraryNotebookModal from '../components/library/LibraryNotebookModal';
 import LibraryQuestionModal from '../components/library/LibraryQuestionModal';
 import SynthesisModal from '../components/think/SynthesisModal';
 import WorkingMemoryPanel from '../components/working-memory/WorkingMemoryPanel';
-import ReturnLaterControl from '../components/return-queue/ReturnLaterControl';
-import ConnectionBuilder from '../components/connections/ConnectionBuilder';
 import ConceptPathWorkspace from '../components/paths/ConceptPathWorkspace';
 import ThoughtPartnerPanel from '../components/agent/ThoughtPartnerPanel';
+import AgentSkillDock from '../components/agent/AgentSkillDock';
+import AgentArtifactDraftsPanel from '../components/agent/AgentArtifactDraftsPanel';
+import UpkeepCyclesPanel from '../components/agent/UpkeepCyclesPanel';
+import ProtocolApprovalsPanel from '../components/agent/ProtocolApprovalsPanel';
 import ConceptTemplatePickerModal from '../components/think/concepts/ConceptTemplatePickerModal';
 import ThinkHome from '../components/think/ThinkHome';
-import IdeaWorkbenchMain from '../components/think/concepts/idea-workbench/IdeaWorkbenchMain';
-import IdeaWorkbenchAgentRail from '../components/think/concepts/idea-workbench/IdeaWorkbenchAgentRail';
 import useIdeaWorkbenchModel from '../components/think/concepts/idea-workbench/useIdeaWorkbenchModel';
+import ConceptEvidenceStreamView, {
+  formatEditorialEvidenceHtml,
+  ConceptEvidenceStreamRail,
+  ConceptPartnerRail
+} from '../components/think/concepts/ConceptEvidenceStreamView';
 import VirtualList from '../components/virtual/VirtualList';
 import SemanticRelatedPanel from '../components/retrieval/SemanticRelatedPanel';
 import HandoffsSidebar from '../components/think/handoffs/HandoffsSidebar';
 import HandoffsMainPanel from '../components/think/handoffs/HandoffsMainPanel';
+import ThreadsSidebar from '../components/think/threads/ThreadsSidebar';
+import ThreadsMainPanel from '../components/think/threads/ThreadsMainPanel';
 import { getConnectionsForScope } from '../api/connections';
 import { createProfilerLogger, endPerfTimer, logPerf, startPerfTimer } from '../utils/perf';
 import { listReturnQueue } from '../api/returnQueue';
 import { getArticles } from '../api/articles';
+import { resolveThoughtPartnerContext } from './thinkPartnerContext';
 import useHandoffs from '../hooks/useHandoffs';
 import {
   listWorkingMemory,
@@ -63,6 +71,22 @@ import {
   getFirstInsightOpenPath,
   readFirstInsightState
 } from '../utils/firstInsight';
+import { buildNotebookDraftFromConcept } from '../utils/conceptNotebookDraft';
+import useAgentThreads from '../hooks/useAgentThreads';
+import useProtocolApprovals from '../hooks/useProtocolApprovals';
+import useProtocolHookRuns from '../hooks/useProtocolHookRuns';
+import useAgentArtifactDrafts from '../hooks/useAgentArtifactDrafts';
+import useAgentUpkeepCycles from '../hooks/useAgentUpkeepCycles';
+import { createAgentThread, createAutoAgentHandoff, createAgentUpkeepCycle } from '../api/agent';
+import {
+  buildConceptAmbientContext,
+  buildHandoffAmbientContext,
+  buildHomeAmbientContext,
+  buildNotebookAmbientContext,
+  buildQuestionAmbientContext,
+  makeAmbientRelatedItem
+} from '../utils/ambientAgentContext';
+import { buildQueuedAgentSkillPrompt } from '../utils/agentSkillInvocation';
 
 const THINK_RIGHT_STORAGE_KEY = 'workspace-right-open:/think';
 const THINK_RIGHT_MIGRATION_KEY = 'workspace-right-open:/think:migrated-v2';
@@ -72,11 +96,16 @@ const THINK_CONCEPT_ROW_HEIGHT = 46;
 const THINK_QUESTION_ROW_HEIGHT = 60;
 const THINK_HOME_LIMIT = 6;
 const CONCEPT_COMPOSER_DEFAULT_STATE = { message: '', tone: 'success' };
+const cleanText = (value = '') => String(value || '').trim();
 const THINK_SUB_NAV_ITEMS = [
-  { value: 'home', label: 'Home' },
-  { value: 'notebook', label: 'Notebook' },
   { value: 'concepts', label: 'Concepts' },
-  { value: 'questions', label: 'Questions' },
+  { value: 'notebook', label: 'Notebook' },
+  { value: 'home', label: 'Home' },
+  { value: 'questions', label: 'Questions' }
+];
+
+const THINK_ADVANCED_NAV_ITEMS = [
+  { value: 'threads', label: 'Threads' },
   { value: 'handoffs', label: 'Handoffs' },
   { value: 'paths', label: 'Paths' },
   { value: 'insights', label: 'Insights' }
@@ -173,6 +202,54 @@ const formatIndexDate = (value) => {
   return date.toLocaleDateString();
 };
 
+const formatReviewDate = (value) => {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  const now = new Date();
+  const sameYear = date.getFullYear() === now.getFullYear();
+  return date.toLocaleDateString(undefined, sameYear
+    ? { month: 'short', day: 'numeric' }
+    : { month: 'short', day: 'numeric', year: 'numeric' });
+};
+
+const describeConceptReviewState = (conceptItem = {}) => {
+  const freshness = conceptItem?.freshness || {};
+  const reviewedLabel = formatReviewDate(freshness?.lastReviewedAt);
+  if (freshness?.stale) {
+    if (reviewedLabel && freshness?.statusLabel) {
+      return `Last reviewed ${reviewedLabel}. ${freshness.statusLabel} waiting.`;
+    }
+    if (freshness?.statusLabel) {
+      return `${freshness.statusLabel} waiting in the archive.`;
+    }
+    return 'Newer archive material is waiting on this concept.';
+  }
+  if (reviewedLabel) {
+    return `Reviewed ${reviewedLabel}. Current with the archive you have already pulled through this concept.`;
+  }
+  return 'Open the concept to pull support, tension, and remembered reading back into the draft.';
+};
+
+const compareReviewDates = (left, right) => {
+  const leftTime = left ? new Date(left).getTime() : 0;
+  const rightTime = right ? new Date(right).getTime() : 0;
+  const safeLeft = Number.isFinite(leftTime) ? leftTime : 0;
+  const safeRight = Number.isFinite(rightTime) ? rightTime : 0;
+  return safeLeft - safeRight;
+};
+
+const sortConceptsForIndex = (items = [], { staleFirst = false } = {}) => [...items].sort((left, right) => {
+  if (staleFirst) {
+    const reviewOrder = compareReviewDates(left?.freshness?.lastReviewedAt, right?.freshness?.lastReviewedAt);
+    if (reviewOrder !== 0) return reviewOrder;
+  } else {
+    const reviewOrder = compareReviewDates(right?.freshness?.lastReviewedAt, left?.freshness?.lastReviewedAt);
+    if (reviewOrder !== 0) return reviewOrder;
+  }
+  return String(left?.name || '').localeCompare(String(right?.name || ''));
+});
+
 const CalmEmptyLine = React.memo(({ children }) => (
   <p className="think-calm-empty-line">{children}</p>
 ));
@@ -212,23 +289,112 @@ const QuestionListItem = React.memo(({ question, isActive, onOpen }) => (
   </button>
 ));
 
+const EditorialRail = React.memo(({
+  heroTitle = 'The Partner',
+  heroSubtitle = 'Contextual intelligence',
+  ctaLabel = 'New inquiry',
+  onCta = () => {},
+  ctaDisabled = false,
+  navItems = [],
+  activeNav = '',
+  onChangeNav = () => {},
+  sections = [],
+  footer = null
+}) => {
+  const activeNavIndex = Math.max(0, navItems.findIndex((item) => item.key === activeNav));
+
+  return (
+    <div className="concept-editorial-partner concept-editorial-partner--index">
+      <div className="concept-editorial-partner__hero">
+        <div className="concept-editorial-partner__title-row">
+          <div className="concept-editorial-partner__mark">✦</div>
+          <div className="concept-editorial-partner__title-copy">
+            <h2>{heroTitle}</h2>
+            <p>{heroSubtitle}</p>
+          </div>
+        </div>
+        {ctaLabel ? (
+          <button
+            type="button"
+            className="concept-editorial-partner__new-inquiry"
+            onClick={onCta}
+            disabled={ctaDisabled}
+          >
+            {ctaLabel}
+          </button>
+        ) : null}
+      </div>
+
+      {navItems.length > 0 && (
+        <nav className="concept-editorial-partner__nav" aria-label={`${heroTitle} sections`}>
+          <span
+            className="concept-editorial-partner__nav-indicator"
+            aria-hidden="true"
+            style={{ transform: `translateY(${activeNavIndex * 39}px)` }}
+          />
+          {navItems.map((item) => (
+            <button
+              key={item.key}
+              type="button"
+              className={activeNav === item.key ? 'is-active' : ''}
+              onClick={() => onChangeNav(item.key)}
+            >
+              <span className="concept-editorial-partner__nav-short">{item.short}</span>
+              <span className="concept-editorial-partner__nav-label">{item.label}</span>
+            </button>
+          ))}
+        </nav>
+      )}
+
+      <div className="concept-editorial-partner__sections">
+        {sections.map((section) => (
+          <section
+            key={section.label}
+            className={`concept-editorial-partner__section ${section.flush ? 'concept-editorial-partner__section--flush' : ''}`.trim()}
+          >
+            <span>{section.label}</span>
+            {section.content}
+          </section>
+        ))}
+      </div>
+
+      {footer ? (
+        <div className="concept-editorial-partner__footer">
+          {footer}
+        </div>
+      ) : null}
+    </div>
+  );
+});
+
+const PartnerLineList = React.memo(({ items = [], emptyMessage = 'Nothing here yet.' }) => (
+  items.length > 0 ? <ul>{items}</ul> : <p>{emptyMessage}</p>
+));
+
 const ThinkMode = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const queryConcept = searchParams.get('concept') || '';
-  const allowedViews = useMemo(() => ['home', 'notebook', 'concepts', 'questions', 'handoffs', 'paths', 'insights'], []);
+  const allowedViews = useMemo(() => ['home', 'notebook', 'concepts', 'questions', 'threads', 'handoffs', 'paths', 'insights'], []);
   const resolveActiveView = useCallback((params) => {
     const rawView = params.get('tab') || '';
     if (allowedViews.includes(rawView)) return rawView;
     if (params.get('entryId')) return 'notebook';
     if (params.get('questionId')) return 'questions';
     if (params.get('concept')) return 'concepts';
+    if (params.get('threadId')) return 'threads';
     if (params.get('handoffId')) return 'handoffs';
     if (params.get('pathId')) return 'paths';
-    return 'home';
+    return 'concepts';
   }, [allowedViews]);
-  const [activeView, setActiveView] = useState(() => resolveActiveView(searchParams));
+  const activeView = resolveActiveView(searchParams);
+  const [homeEditorialSection, setHomeEditorialSection] = useState('assistant');
+  const [notebookEditorialSection, setNotebookEditorialSection] = useState('assistant');
+  const [conceptIndexSection, setConceptIndexSection] = useState('assistant');
+  const [questionEditorialSection, setQuestionEditorialSection] = useState('assistant');
+  const [queuedThoughtPartnerPrompt, setQueuedThoughtPartnerPrompt] = useState(null);
   const selectedPathId = searchParams.get('pathId') || '';
   const selectedHandoffId = searchParams.get('handoffId') || '';
+  const selectedThreadId = searchParams.get('threadId') || '';
   const [search, setSearch] = useState('');
   const [descriptionDraft, setDescriptionDraft] = useState('');
   const [isEditingSummary, setIsEditingSummary] = useState(false);
@@ -256,10 +422,6 @@ const ThinkMode = () => {
   const [highlightConceptModal, setHighlightConceptModal] = useState({ open: false, highlight: null });
   const [highlightNotebookModal, setHighlightNotebookModal] = useState({ open: false, highlight: null });
   const [highlightQuestionModal, setHighlightQuestionModal] = useState({ open: false, highlight: null });
-  const [shareStatus, setShareStatus] = useState('');
-  const [shareError, setShareError] = useState('');
-  const [shareWorking, setShareWorking] = useState(false);
-  const [shareSlug, setShareSlug] = useState('');
   const [conceptRelated, setConceptRelated] = useState({ highlights: [], concepts: [] });
   const [conceptRelatedLoading, setConceptRelatedLoading] = useState(false);
   const [conceptRelatedError, setConceptRelatedError] = useState('');
@@ -325,13 +487,6 @@ const ThinkMode = () => {
     }
   });
 
-  useEffect(() => {
-    document.body.classList.add('think-calm-d3a');
-    return () => {
-      document.body.classList.remove('think-calm-d3a');
-    };
-  }, []);
-
   const handleOpenHandoff = useCallback((handoffId) => {
     const safeId = String(handoffId || '').trim();
     if (!safeId) return;
@@ -340,20 +495,90 @@ const ThinkMode = () => {
     params.set('handoffId', safeId);
     params.delete('scopeType');
     params.delete('scopeId');
-    setActiveView('handoffs');
     setSearchParams(params);
   }, [searchParams, setSearchParams]);
+
+  const handleOpenThread = useCallback((threadId) => {
+    const safeId = String(threadId || '').trim();
+    if (!safeId) return;
+    const params = new URLSearchParams(searchParams);
+    params.set('tab', 'threads');
+    params.set('threadId', safeId);
+    params.delete('scopeType');
+    params.delete('scopeId');
+    setSearchParams(params);
+  }, [searchParams, setSearchParams]);
+
+  const threadsModel = useAgentThreads({
+    enabled: activeView === 'threads',
+    selectedThreadId,
+    onOpenThread: handleOpenThread,
+    onProtocolApprovalQueued: async () => {
+      await protocolApprovalsModel.loadProtocolApprovals?.();
+    }
+  });
 
   const handoffsModel = useHandoffs({
     enabled: activeView === 'handoffs',
     selectedHandoffId,
-    onOpenHandoff: handleOpenHandoff
+    onOpenHandoff: handleOpenHandoff,
+    onOpenThread: handleOpenThread,
+    onProtocolApprovalQueued: async () => {
+      await protocolApprovalsModel.loadProtocolApprovals?.();
+    }
   });
+
+  const {
+    threads,
+    activeThreadData
+  } = threadsModel;
 
   const {
     handoffs,
     activeHandoffData,
   } = handoffsModel;
+
+  const handleProtocolApprovalChanged = useCallback(async () => {
+    await Promise.all([
+      threadsModel.loadThreads?.(),
+      handoffsModel.loadHandoffs?.()
+    ]);
+  }, [handoffsModel, threadsModel]);
+
+  const protocolApprovalsModel = useProtocolApprovals({
+    initialStatus: 'pending',
+    limit: 20,
+    autoLoad: activeView === 'threads' || activeView === 'handoffs',
+    onChanged: handleProtocolApprovalChanged
+  });
+
+  const threadApprovalHistoryModel = useProtocolApprovals({
+    initialStatus: 'all',
+    limit: 8,
+    threadId: activeThreadData?.threadId || '',
+    autoLoad: activeView === 'threads' && Boolean(activeThreadData?.threadId),
+    onChanged: handleProtocolApprovalChanged
+  });
+
+  const handoffApprovalHistoryModel = useProtocolApprovals({
+    initialStatus: 'all',
+    limit: 8,
+    handoffId: activeHandoffData?.handoffId || '',
+    autoLoad: activeView === 'handoffs' && Boolean(activeHandoffData?.handoffId),
+    onChanged: handleProtocolApprovalChanged
+  });
+
+  const threadHookRunsModel = useProtocolHookRuns({
+    threadId: activeThreadData?.threadId || '',
+    limit: 8,
+    autoLoad: activeView === 'threads' && Boolean(activeThreadData?.threadId)
+  });
+
+  const handoffHookRunsModel = useProtocolHookRuns({
+    handoffId: activeHandoffData?.handoffId || '',
+    limit: 8,
+    autoLoad: activeView === 'handoffs' && Boolean(activeHandoffData?.handoffId)
+  });
 
   const conceptProfilerLogger = useMemo(() => createProfilerLogger('think.concept.render'), []);
   const questionListProfilerLogger = useMemo(() => createProfilerLogger('think.question-list.render'), []);
@@ -380,6 +605,10 @@ const ThinkMode = () => {
   const [conceptComposerSaving, setConceptComposerSaving] = useState(false);
   const [conceptComposerScouting, setConceptComposerScouting] = useState(false);
   const [conceptComposerStatus, setConceptComposerStatus] = useState(CONCEPT_COMPOSER_DEFAULT_STATE);
+  const [conceptEditorialEditor, setConceptEditorialEditor] = useState(null);
+  const [conceptReceivingDrop, setConceptReceivingDrop] = useState(false);
+  const [conceptEditorialSection, setConceptEditorialSection] = useState('assistant');
+  const [conceptPartnerCollapsed, setConceptPartnerCollapsed] = useState(false);
   const conceptComposerInputRef = useRef(null);
   const [templatePickerOpen, setTemplatePickerOpen] = useState(false);
   const [headerNewMenuOpen, setHeaderNewMenuOpen] = useState(false);
@@ -388,7 +617,7 @@ const ThinkMode = () => {
   const headerActionsMenuRef = useRef(null);
 
   const { concepts, loading: conceptsLoading, error: conceptsError, refresh: refreshConcepts } = useConcepts();
-  const selectedName = queryConcept || concepts[0]?.name || '';
+  const selectedName = queryConcept;
   const { concept, loading: conceptLoading, error: conceptLoadError, refresh, setConcept } = useConcept(selectedName, {
     enabled: activeView === 'concepts' && Boolean(selectedName)
   });
@@ -413,6 +642,30 @@ const ThinkMode = () => {
     if (!searchQuery) return concepts;
     return concepts.filter(c => c.name.toLowerCase().includes(searchQuery));
   }, [concepts, searchQuery]);
+  const conceptIndexSections = useMemo(() => {
+    const staleConcepts = filteredConcepts.filter((item) => item?.freshness?.stale);
+    const currentConcepts = filteredConcepts.filter((item) => !item?.freshness?.stale);
+    const sections = [];
+    if (staleConcepts.length > 0) {
+      sections.push({
+        key: 'review',
+        title: 'Review next',
+        subtitle: 'Concepts with newer material waiting in the archive.',
+        items: sortConceptsForIndex(staleConcepts, { staleFirst: true })
+      });
+    }
+    if (currentConcepts.length > 0) {
+      sections.push({
+        key: 'current',
+        title: staleConcepts.length > 0 ? 'Current threads' : 'All concepts',
+        subtitle: staleConcepts.length > 0
+          ? 'Concepts that are already current with the archive you have pulled through.'
+          : 'Open a concept to draft, recover support, and connect what you already know.',
+        items: sortConceptsForIndex(currentConcepts)
+      });
+    }
+    return sections;
+  }, [filteredConcepts]);
   const findExistingConcept = useCallback((name) => {
     const normalized = normalizeConceptName(name).toLowerCase();
     if (!normalized) return null;
@@ -425,16 +678,98 @@ const ThinkMode = () => {
     );
   }, [notebookEntries, searchQuery]);
 
-  const pinnedHighlightIds = concept?.pinnedHighlightIds || [];
-  const pinnedArticleIds = concept?.pinnedArticleIds || [];
-  const pinnedHighlights = concept?.pinnedHighlights || [];
-  const pinnedArticles = concept?.pinnedArticles || [];
-  const pinnedNotes = concept?.pinnedNotes || [];
+  const pinnedHighlightIds = useMemo(() => concept?.pinnedHighlightIds || [], [concept?.pinnedHighlightIds]);
+  const pinnedArticleIds = useMemo(() => concept?.pinnedArticleIds || [], [concept?.pinnedArticleIds]);
+  const pinnedHighlights = useMemo(() => concept?.pinnedHighlights || [], [concept?.pinnedHighlights]);
+  const pinnedArticles = useMemo(() => concept?.pinnedArticles || [], [concept?.pinnedArticles]);
+  const pinnedNotes = useMemo(() => concept?.pinnedNotes || [], [concept?.pinnedNotes]);
+  const createNotebookEntry = useCallback(async (payload = {}) => {
+    setNotebookSaving(true);
+    setNotebookEntryError('');
+    try {
+      const requestPayload = {
+        title: typeof payload.title === 'string' && payload.title.trim() ? payload.title.trim() : 'Untitled',
+        content: typeof payload.content === 'string' ? payload.content : '',
+        blocks: Array.isArray(payload.blocks) ? payload.blocks : [],
+        ...(Array.isArray(payload.tags) ? { tags: payload.tags } : {}),
+        ...(typeof payload.type === 'string' && payload.type.trim() ? { type: payload.type.trim() } : {}),
+        ...(typeof payload.source === 'string' && payload.source.trim() ? { source: payload.source.trim() } : {}),
+        ...(payload.importMeta && typeof payload.importMeta === 'object' ? { importMeta: payload.importMeta } : {})
+      };
+      const res = await api.post('/api/notebook', requestPayload, getAuthHeaders());
+      const created = res.data;
+      setNotebookEntries(prev => [created, ...prev]);
+      setNotebookActiveId(created._id);
+      setActiveNotebookEntry(created);
+      const params = new URLSearchParams(searchParams);
+      params.set('tab', 'notebook');
+      params.delete('concept');
+      params.delete('questionId');
+      params.delete('threadId');
+      params.delete('handoffId');
+      params.delete('pathId');
+      params.delete('scopeType');
+      params.delete('scopeId');
+      setSearchParams(params);
+      return created;
+    } catch (err) {
+      const message = err.response?.data?.error || 'Failed to create note.';
+      setNotebookEntryError(message);
+      throw err;
+    } finally {
+      setNotebookSaving(false);
+    }
+  }, [searchParams, setSearchParams]);
   const ideaWorkbenchModel = useIdeaWorkbenchModel({
     concept,
     related,
-    questions: conceptQuestions
+    questions: conceptQuestions,
+    onCreateNotebookDraft: ({ concept: activeConcept, state, currentMaturity, hypothesisVersion }) => {
+      const notebookDraft = buildNotebookDraftFromConcept({
+        concept: activeConcept,
+        state,
+        currentMaturity,
+        hypothesisVersion
+      });
+      const { conceptContext: _conceptContext, ...requestPayload } = notebookDraft;
+      return createNotebookEntry(requestPayload);
+    }
   });
+
+  const handleIntegrateConceptCard = useCallback((cardInput, dropEvent = null, editorOverride = null) => {
+    const streamCard = cardInput && typeof cardInput === 'object' ? cardInput : null;
+    const safeId = cleanText(streamCard?.id || cardInput);
+    if (!safeId && !streamCard) return;
+    const existingCard = safeId
+      ? ideaWorkbenchModel.state.cards.find((item) => String(item.id) === safeId)
+      : null;
+    const card = existingCard || streamCard;
+    if (!card) return;
+    if (!existingCard && streamCard) {
+      ideaWorkbenchModel.actions.addSuggestedCard(streamCard, streamCard.zone || 'workspace');
+    }
+    const editor = editorOverride || conceptEditorialEditor;
+    const html = formatEditorialEvidenceHtml(card);
+    if (!editor) {
+      if (existingCard && safeId) {
+        ideaWorkbenchModel.actions.insertCardIntoHypothesis(safeId);
+        return;
+      }
+      ideaWorkbenchModel.actions.updateHypothesisHtml(
+        `${ideaWorkbenchModel.state.hypothesis.html || '<p></p>'}${html}`
+      );
+      return;
+    }
+    setConceptReceivingDrop(Boolean(dropEvent));
+    window.requestAnimationFrame(() => {
+      const coords = dropEvent
+        ? editor.view.posAtCoords({ left: dropEvent.clientX, top: dropEvent.clientY })
+        : null;
+      const targetPos = coords?.pos ?? editor.state.selection.from;
+      editor.chain().focus().insertContentAt(targetPos, html).run();
+      setConceptReceivingDrop(false);
+    });
+  }, [conceptEditorialEditor, ideaWorkbenchModel]);
 
   const questionQuery = useQuestions({
     status: questionStatus,
@@ -799,6 +1134,69 @@ const ThinkMode = () => {
     loadNotebookEntries();
   }, [loadNotebookEntries]);
 
+  const handleArtifactDraftChanged = useCallback(async (result) => {
+    await Promise.all([
+      threadsModel.loadThreads?.(),
+      handoffsModel.loadHandoffs?.()
+    ]);
+
+    const artifactType = String(result?.draft?.artifactType || '').trim().toLowerCase();
+    const promoted = result?.promoted || null;
+    if (!promoted || !artifactType) return;
+
+    if (artifactType === 'note' && promoted?._id) {
+      await loadNotebookEntries();
+      return;
+    }
+
+    if (artifactType === 'concept') {
+      await refreshConcepts();
+      if (selectedName && String(promoted?.name || '').trim().toLowerCase() === String(selectedName).trim().toLowerCase()) {
+        await refresh();
+      }
+      return;
+    }
+
+    if (artifactType === 'question' && promoted?._id) {
+      setAllQuestions((prev) => {
+        const existing = Array.isArray(prev) ? prev : [];
+        const remaining = existing.filter((item) => item?._id !== promoted._id);
+        return [promoted, ...remaining];
+      });
+    }
+  }, [handoffsModel, loadNotebookEntries, refresh, refreshConcepts, selectedName, setAllQuestions, threadsModel]);
+
+  const sharedArtifactDraftsModel = useAgentArtifactDrafts({
+    status: 'all',
+    autoLoad: activeView !== 'threads' && activeView !== 'handoffs',
+    onChanged: handleArtifactDraftChanged
+  });
+
+  const activeProtocolThreadId = activeView === 'threads'
+    ? (activeThreadData?.threadId || '')
+    : activeView === 'handoffs'
+      ? (activeHandoffData?.threadId || '')
+      : '';
+
+  const protocolArtifactDraftsModel = useAgentArtifactDrafts({
+    status: 'all',
+    threadId: activeProtocolThreadId,
+    autoLoad: Boolean(activeProtocolThreadId),
+    onChanged: handleArtifactDraftChanged
+  });
+
+  const upkeepCyclesModel = useAgentUpkeepCycles({
+    status: 'all',
+    limit: 12,
+    autoLoad: activeView === 'home' || activeView === 'threads' || activeView === 'handoffs',
+    onChanged: async () => {
+      await Promise.all([
+        threadsModel.loadThreads?.(),
+        handoffsModel.loadHandoffs?.()
+      ]);
+    }
+  });
+
   useEffect(() => {
     if (activeView !== 'handoffs') return;
     if (handoffs.length === 0) {
@@ -819,8 +1217,25 @@ const ThinkMode = () => {
   }, [activeView, handoffs, searchParams, selectedHandoffId, setSearchParams]);
 
   useEffect(() => {
-    setActiveView(resolveActiveView(searchParams));
-  }, [searchParams, resolveActiveView]);
+    if (activeView !== 'threads') return;
+    const hasSelectedThread = selectedThreadId
+      && (threads.some((row) => String(row?.threadId || '') === selectedThreadId)
+        || String(activeThreadData?.threadId || '') === selectedThreadId);
+    if (threads.length === 0) {
+      if (!selectedThreadId || hasSelectedThread) return;
+      const params = new URLSearchParams(searchParams);
+      params.delete('threadId');
+      setSearchParams(params, { replace: true });
+      return;
+    }
+    if (hasSelectedThread) return;
+    const nextId = String(threads[0]?.threadId || '').trim();
+    if (!nextId) return;
+    const params = new URLSearchParams(searchParams);
+    params.set('tab', 'threads');
+    params.set('threadId', nextId);
+    setSearchParams(params, { replace: true });
+  }, [activeThreadData?.threadId, activeView, searchParams, selectedThreadId, setSearchParams, threads]);
 
   useEffect(() => {
     let cancelled = false;
@@ -897,6 +1312,16 @@ const ThinkMode = () => {
   }, [activeHandoffData?.handoffId, activeHandoffData?.title, activeView, rememberRecentTarget]);
 
   useEffect(() => {
+    if (activeView !== 'threads' || !activeThreadData?.threadId) return;
+    rememberRecentTarget({
+      id: activeThreadData.threadId,
+      type: 'thread',
+      title: activeThreadData.title || 'Shared thread',
+      path: `/think?tab=threads&threadId=${encodeURIComponent(activeThreadData.threadId)}`
+    });
+  }, [activeThreadData?.threadId, activeThreadData?.title, activeView, rememberRecentTarget]);
+
+  useEffect(() => {
     if (!notebookActiveId || activeView !== 'notebook') return;
     loadNotebookEntry(notebookActiveId);
     const params = new URLSearchParams(searchParams);
@@ -908,10 +1333,7 @@ const ThinkMode = () => {
   React.useEffect(() => {
     setDescriptionDraft(concept?.description || '');
     setIsEditingSummary(false);
-    setShareSlug(concept?.slug || '');
-    setShareStatus('');
-    setShareError('');
-  }, [concept?.description, concept?.slug, concept?.isPublic]);
+  }, [concept?.description]);
 
   React.useEffect(() => {
     setHighlightOffset(0);
@@ -944,7 +1366,6 @@ const ThinkMode = () => {
     params.set('concept', name);
     params.delete('scopeType');
     params.delete('scopeId');
-    setActiveView('concepts');
     setSearchParams(params);
   }, [searchParams, setSearchParams]);
 
@@ -992,6 +1413,9 @@ const ThinkMode = () => {
     if (view !== 'questions') {
       params.delete('questionId');
     }
+    if (view !== 'threads') {
+      params.delete('threadId');
+    }
     if (view !== 'handoffs') {
       params.delete('handoffId');
     }
@@ -1000,7 +1424,6 @@ const ThinkMode = () => {
     }
     params.delete('scopeType');
     params.delete('scopeId');
-    setActiveView(view);
     setSearchParams(params);
   }, [searchParams, setSearchParams]);
 
@@ -1012,7 +1435,6 @@ const ThinkMode = () => {
     if (target === 'notebook' && nextNotebookId) {
       await loadNotebookEntries();
       setNotebookActiveId(nextNotebookId);
-      setActiveView('notebook');
       handleSelectView('notebook');
     } else {
       await refreshConcepts();
@@ -1180,7 +1602,6 @@ const ThinkMode = () => {
     params.set('tab', 'paths');
     if (pathId) params.set('pathId', pathId);
     else params.delete('pathId');
-    setActiveView('paths');
     setSearchParams(params, { replace: false });
   }, [searchParams, setSearchParams]);
 
@@ -1189,28 +1610,14 @@ const ThinkMode = () => {
     localStorage.setItem(THINK_RIGHT_STORAGE_KEY, String(nextOpen));
   }, []);
 
-  const handleSelectNotebookEntry = (id) => {
+  const handleSelectNotebookEntry = useCallback((id) => {
     setNotebookActiveId(id);
-    setActiveView('notebook');
     handleSelectView('notebook');
-  };
+  }, [handleSelectView]);
 
-  const handleCreateNotebookEntry = async () => {
-    setNotebookSaving(true);
-    setNotebookEntryError('');
-    try {
-      const res = await api.post('/api/notebook', { title: 'Untitled', content: '', blocks: [] }, getAuthHeaders());
-      const created = res.data;
-      setNotebookEntries(prev => [created, ...prev]);
-      setNotebookActiveId(created._id);
-      setActiveNotebookEntry(created);
-      handleSelectView('notebook');
-    } catch (err) {
-      setNotebookEntryError(err.response?.data?.error || 'Failed to create note.');
-    } finally {
-      setNotebookSaving(false);
-    }
-  };
+  const handleCreateNotebookEntry = useCallback(async () => {
+    await createNotebookEntry({ title: 'Untitled', content: '', blocks: [] });
+  }, [createNotebookEntry]);
 
   const handleSaveNotebookEntry = async (payload) => {
     if (!payload?.id) return;
@@ -1475,50 +1882,6 @@ const ThinkMode = () => {
       setConceptError(err.response?.data?.error || 'Failed to save description.');
     } finally {
       setSavingDescription(false);
-    }
-  };
-
-  const handleToggleSharing = async () => {
-    if (!concept) return;
-    setShareWorking(true);
-    setShareError('');
-    try {
-      const updated = await updateConcept(concept.name, {
-        description: concept.description || '',
-        pinnedHighlightIds: concept.pinnedHighlightIds || [],
-        pinnedArticleIds: concept.pinnedArticleIds || [],
-        pinnedNoteIds: concept.pinnedNoteIds || [],
-        isPublic: !concept.isPublic,
-        slug: shareSlug || concept.slug || ''
-      });
-      setConcept({ ...concept, ...updated });
-      setShareSlug(updated.slug || '');
-      setShareStatus(updated.isPublic ? 'Public link ready.' : 'Sharing disabled.');
-    } catch (err) {
-      setShareError(err.response?.data?.error || 'Failed to update sharing.');
-    } finally {
-      setShareWorking(false);
-    }
-  };
-
-  const handleExportConcept = async () => {
-    if (!concept?.name) return;
-    try {
-      const res = await api.get(`/api/export/concepts/${encodeURIComponent(concept.name)}`, {
-        ...getAuthHeaders(),
-        responseType: 'blob'
-      });
-      const blob = new Blob([res.data], { type: 'text/markdown' });
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `${concept.name}.md`;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.URL.revokeObjectURL(url);
-    } catch (err) {
-      setConceptError(err.response?.data?.error || 'Failed to export concept.');
     }
   };
 
@@ -1787,10 +2150,10 @@ const ThinkMode = () => {
     }
   };
 
-  const handleOpenQuestion = (questionId) => {
+  const handleOpenQuestion = useCallback((questionId) => {
     setActiveQuestionId(questionId);
     handleSelectView('questions');
-  };
+  }, [handleSelectView]);
 
   const renderNotebookRow = (entry) => (
     <NotebookListItem
@@ -1818,6 +2181,78 @@ const ThinkMode = () => {
       onOpen={handleOpenQuestion}
     />
   );
+
+  const renderPartnerConceptList = useCallback((items, emptyMessage = 'No concepts yet.') => (
+    <PartnerLineList
+      emptyMessage={emptyMessage}
+      items={items.map((conceptItem) => {
+        const name = cleanText(conceptItem?.name);
+        if (!name) return null;
+        const count = Number.isFinite(conceptItem?.count) ? conceptItem.count : null;
+        const label = count !== null ? `${name} · ${count}` : name;
+        const isCurrent = name === cleanText(selectedName);
+        return (
+          <li key={name}>
+            {isCurrent ? (
+              <span className="concept-editorial-partner__concept-link is-current">{label}</span>
+            ) : (
+              <button
+                type="button"
+                className="concept-editorial-partner__concept-link"
+                onClick={() => handleSelectConcept(name)}
+              >
+                {label}
+              </button>
+            )}
+          </li>
+        );
+      }).filter(Boolean)}
+    />
+  ), [handleSelectConcept, selectedName]);
+
+  const renderPartnerQuestionList = useCallback((items, emptyMessage = 'No questions yet.') => (
+    <PartnerLineList
+      emptyMessage={emptyMessage}
+      items={items.map((question) => {
+        const id = cleanText(question?._id);
+        const text = cleanText(question?.text) || 'Untitled question';
+        const scope = cleanText(question?.linkedTagName) || 'Uncategorized';
+        return (
+          <li key={id || text}>
+            <button
+              type="button"
+              className="concept-editorial-partner__concept-link"
+              onClick={() => handleOpenQuestion(id)}
+            >
+              {`${text} · ${scope}`}
+            </button>
+          </li>
+        );
+      })}
+    />
+  ), [handleOpenQuestion]);
+
+  const renderPartnerNotebookList = useCallback((items, emptyMessage = 'No notebook entries yet.') => (
+    <PartnerLineList
+      emptyMessage={emptyMessage}
+      items={items.map((entry) => {
+        const id = cleanText(entry?._id);
+        const title = cleanText(entry?.title) || 'Untitled';
+        const date = formatIndexDate(entry?.updatedAt || entry?.createdAt);
+        return (
+          <li key={id || title}>
+            <button
+              type="button"
+              className="concept-editorial-partner__concept-link"
+              onClick={() => handleSelectNotebookEntry(id)}
+            >
+              {date ? `${title} · ${date}` : title}
+            </button>
+          </li>
+        );
+      })}
+    />
+  ), [handleSelectNotebookEntry]);
 
   const renderConceptComposer = (anchor) => {
     if (!conceptComposerOpen || conceptComposerAnchor !== anchor) return null;
@@ -2091,6 +2526,431 @@ const ThinkMode = () => {
     </div>
   );
 
+  const homeWorkingSet = useMemo(() => ({
+    notebooks: notebookEntries.slice(0, THINK_HOME_LIMIT),
+    concepts: concepts.slice(0, THINK_HOME_LIMIT),
+    questions: allQuestions.filter(item => item.status !== 'answered').slice(0, THINK_HOME_LIMIT)
+  }), [allQuestions, concepts, notebookEntries]);
+  const conceptsWithHighlights = useMemo(
+    () => concepts.filter((item) => Number(item?.count || 0) > 0).slice(0, THINK_HOME_LIMIT),
+    [concepts]
+  );
+  const templatePromptLines = [
+    'Use a template when the concept already has a known shape.',
+    'Create directly when the claim is still loose and needs room to move.'
+  ];
+  const partnerRailNavItems = useMemo(() => ([
+    { key: 'assistant', label: 'Assistant', short: 'As' },
+    { key: 'sources', label: 'Sources', short: 'So' },
+    { key: 'highlights', label: 'Highlights', short: 'Hi' },
+    { key: 'annotations', label: 'Annotations', short: 'An' }
+  ]), []);
+
+  const homeEditorialLeftPanel = (
+    <EditorialRail
+      heroTitle="The Partner"
+      heroSubtitle="Contextual intelligence"
+      ctaLabel="New inquiry"
+      onCta={handleCreateNotebookEntry}
+      navItems={partnerRailNavItems}
+      activeNav={homeEditorialSection}
+      onChangeNav={setHomeEditorialSection}
+      sections={
+        homeEditorialSection === 'sources'
+          ? [
+              {
+                label: 'Search and route',
+                content: (
+                  <label className="feedback-field think-index__search" style={{ margin: 0 }}>
+                    <input
+                      type="text"
+                      value={search}
+                      placeholder="Search notes, concepts, questions"
+                      data-testid="think-index-search-input"
+                      onChange={(event) => setSearch(event.target.value)}
+                    />
+                  </label>
+                )
+              },
+              {
+                label: 'Recent material',
+                flush: true,
+                content: (
+                  homeArticlesLoading ? (
+                    <SidebarSkeletonRows rows={6} />
+                  ) : (
+                    <PartnerLineList
+                      emptyMessage="No source material yet."
+                      items={homeArticles.slice(0, 6).map((article) => (
+                        <li key={article._id}>
+                          <button
+                            type="button"
+                            className="concept-editorial-partner__concept-link"
+                            onClick={() => handleOpenHomeArticle(article._id)}
+                          >
+                            {article.title || 'Untitled article'}{article.createdAt ? ` · ${formatIndexDate(article.createdAt)}` : ''}
+                          </button>
+                        </li>
+                      ))}
+                    />
+                  )
+                )
+              },
+              {
+                label: 'Working concepts',
+                flush: true,
+                content: conceptsLoading
+                  ? <SidebarSkeletonRows rows={4} />
+                  : renderPartnerConceptList(homeWorkingSet.concepts.slice(0, 4), 'No concepts yet.')
+              }
+            ]
+          : homeEditorialSection === 'highlights'
+            ? [
+              {
+                label: 'Working concepts',
+                flush: true,
+                content: conceptsLoading
+                  ? <SidebarSkeletonRows rows={6} />
+                  : renderPartnerConceptList(conceptsWithHighlights, 'No concepts have highlights yet.')
+              },
+              {
+                label: 'Open questions',
+                flush: true,
+                content: allQuestionsLoading
+                  ? <SidebarSkeletonRows rows={4} />
+                  : renderPartnerQuestionList(homeWorkingSet.questions.slice(0, 4), 'No open questions yet.')
+              }
+            ]
+            : homeEditorialSection === 'annotations'
+              ? [
+                  {
+                    label: 'Return queue',
+                    flush: true,
+                    content: (
+                      homeQueueLoading ? (
+                        <SidebarSkeletonRows rows={4} />
+                      ) : (
+                        <PartnerLineList
+                          emptyMessage="No return queue items."
+                          items={homeReturnQueue.slice(0, 5).map((entry) => (
+                            <li key={entry._id}>
+                              <button
+                                type="button"
+                                className="concept-editorial-partner__concept-link"
+                                onClick={() => handleOpenReturnQueueEntry(entry)}
+                              >
+                                {(entry.item?.title || `${entry.itemType} item`)}{entry.reason ? ` · ${entry.reason}` : ''}
+                              </button>
+                            </li>
+                          ))}
+                        />
+                      )
+                    )
+                  },
+                  {
+                    label: 'Quick moves',
+                    content: (
+                      <div className="think-home-rail__actions">
+                        <QuietButton onClick={() => handleSelectView('paths')}>Open paths</QuietButton>
+                        <QuietButton onClick={() => handleSelectView('concepts')}>Open concepts</QuietButton>
+                        <QuietButton onClick={() => handleSelectView('questions')}>Open questions</QuietButton>
+                      </div>
+                    )
+                  }
+                ]
+              : [
+                  {
+                    label: 'Notebook',
+                    flush: true,
+                    content: notebookLoadingList
+                      ? <SidebarSkeletonRows rows={6} />
+                      : renderPartnerNotebookList(homeWorkingSet.notebooks, 'No notebook entries yet.')
+                  },
+                  {
+                    label: 'Working concepts',
+                    flush: true,
+                    content: conceptsLoading
+                      ? <SidebarSkeletonRows rows={4} />
+                      : renderPartnerConceptList(homeWorkingSet.concepts.slice(0, 4), 'No concepts yet.')
+                  },
+                  {
+                    label: 'Open questions',
+                    flush: true,
+                    content: allQuestionsLoading
+                      ? <SidebarSkeletonRows rows={4} />
+                      : renderPartnerQuestionList(homeWorkingSet.questions.slice(0, 4), 'No open questions yet.')
+                  }
+                ]
+      }
+      footer={
+        homeQueueError || homeArticlesError ? (
+          <p className="status-message error-message">{homeQueueError || homeArticlesError}</p>
+        ) : (
+          <button type="button" onClick={() => handleSelectView('questions')}>Feedback</button>
+        )
+      }
+    />
+  );
+
+  const conceptIndexLeftPanel = (
+    <EditorialRail
+      heroTitle="The Partner"
+      heroSubtitle="Contextual intelligence"
+      ctaLabel="New inquiry"
+      onCta={() => openConceptComposer('sidebar', search)}
+      navItems={partnerRailNavItems}
+      activeNav={conceptIndexSection}
+      onChangeNav={setConceptIndexSection}
+      sections={
+        conceptIndexSection === 'sources'
+          ? [
+              {
+                label: 'Search or create',
+                content: (
+                  <>
+                    <label className="feedback-field think-index__search" style={{ margin: 0 }}>
+                      <input
+                        type="text"
+                        value={search}
+                        placeholder="Search or create a concept"
+                        data-testid="think-concept-index-search-input"
+                        onChange={(event) => setSearch(event.target.value)}
+                        onKeyDown={(event) => {
+                          if (event.key !== 'Enter') return;
+                          if (event.nativeEvent?.isComposing) return;
+                          const candidate = normalizeConceptName(search);
+                          if (!candidate) return;
+                          event.preventDefault();
+                          submitConceptComposer(candidate, 'search-enter');
+                        }}
+                      />
+                    </label>
+                    {renderConceptComposer('sidebar')}
+                    {conceptComposerStatus.message && !conceptComposerOpen && (
+                      <p
+                        className={`think-concept-composer-status ${conceptComposerStatus.tone === 'error' ? 'is-error' : 'is-success'}`}
+                        data-testid="think-concept-composer-status"
+                      >
+                        {conceptComposerScouting && (
+                          <span className="think-inline-spinner" aria-hidden="true" />
+                        )}
+                        {conceptComposerStatus.message}
+                      </p>
+                    )}
+                    {conceptsError && <p className="status-message error-message">{conceptsError}</p>}
+                  </>
+                )
+              },
+              {
+                label: 'Search results',
+                flush: true,
+                content: conceptsLoading
+                  ? <SidebarSkeletonRows rows={8} />
+                  : renderPartnerConceptList(filteredConcepts.slice(0, 8), 'No concepts match.')
+              },
+              {
+                label: 'Working concepts',
+                content: (
+                  conceptsLoading
+                    ? <SidebarSkeletonRows rows={4} />
+                    : renderPartnerConceptList(conceptsWithHighlights.slice(0, 4), 'No concepts have evidence yet.')
+                )
+              }
+            ]
+          : conceptIndexSection === 'highlights'
+            ? [
+                {
+                  label: 'Concepts with evidence',
+                  flush: true,
+                  content: conceptsLoading
+                    ? <SidebarSkeletonRows rows={6} />
+                    : renderPartnerConceptList(conceptsWithHighlights, 'No concepts have highlights yet.')
+                },
+                {
+                  label: 'Search or create',
+                  content: (
+                    <label className="feedback-field think-index__search" style={{ margin: 0 }}>
+                      <input
+                        type="text"
+                        value={search}
+                        placeholder="Search or create a concept"
+                        onChange={(event) => setSearch(event.target.value)}
+                      />
+                    </label>
+                  )
+                },
+                {
+                  label: 'Template moves',
+                  content: <p>Use templates when the shape is already known and you only need to gather support.</p>
+                }
+              ]
+            : conceptIndexSection === 'annotations'
+              ? [
+                  {
+                    label: 'Template cues',
+                    content: (
+                      <>
+                        {templatePromptLines.map((line) => (
+                          <p key={line}>{line}</p>
+                        ))}
+                        <div className="think-home-rail__actions">
+                          <QuietButton onClick={openTemplatePicker}>Open templates</QuietButton>
+                          <QuietButton onClick={() => openConceptComposer('sidebar', search)}>Create directly</QuietButton>
+                        </div>
+                      </>
+                    )
+                  },
+                  {
+                    label: 'Working concepts',
+                    flush: true,
+                    content: conceptsLoading
+                      ? <SidebarSkeletonRows rows={5} />
+                      : renderPartnerConceptList(filteredConcepts.slice(0, 5), 'No concepts yet.')
+                  }
+                ]
+              : [
+                {
+                  label: 'Working concepts',
+                  flush: true,
+                  content: (
+                    <Profiler id="ThinkConceptIndexList" onRender={conceptListProfilerLogger}>
+                      {conceptsLoading ? (
+                        <SidebarSkeletonRows rows={8} />
+                      ) : (
+                        renderPartnerConceptList(filteredConcepts, 'No concepts match.')
+                      )}
+                    </Profiler>
+                  )
+                },
+                  {
+                    label: 'Search or create',
+                    content: (
+                      <label className="feedback-field think-index__search" style={{ margin: 0 }}>
+                        <input
+                          type="text"
+                          value={search}
+                          placeholder="Search or create a concept"
+                          onChange={(event) => setSearch(event.target.value)}
+                        />
+                      </label>
+                    )
+                  },
+                  {
+                    label: 'Concept posture',
+                    content: <p>Choose the claim before opening the manuscript. Keep contradiction visible from the start.</p>
+                  }
+                ]
+      }
+      footer={<button type="button" onClick={openTemplatePicker}>Feedback</button>}
+    />
+  );
+
+  const notebookEditorialLeftPanel = (
+    <EditorialRail
+      heroTitle="The Partner"
+      heroSubtitle="Contextual intelligence"
+      ctaLabel={null}
+      onCta={handleCreateNotebookEntry}
+      navItems={partnerRailNavItems}
+      activeNav={notebookEditorialSection}
+      onChangeNav={setNotebookEditorialSection}
+      sections={
+        notebookEditorialSection === 'sources'
+          ? [
+              {
+                label: 'Search and route',
+                content: (
+                  <label className="feedback-field think-index__search" style={{ margin: 0 }}>
+                    <input
+                      type="text"
+                      value={search}
+                      placeholder="Search notebook pages"
+                      data-testid="think-notebook-index-search-input"
+                      onChange={(event) => setSearch(event.target.value)}
+                    />
+                  </label>
+                )
+              },
+              {
+                label: 'Working notebook',
+                flush: true,
+                content: notebookLoadingList
+                  ? <SidebarSkeletonRows rows={8} />
+                  : renderPartnerNotebookList(filteredNotebookEntries, 'No notebook entries match.')
+              },
+              {
+                label: 'Open questions',
+                flush: true,
+                content: allQuestionsLoading
+                  ? <SidebarSkeletonRows rows={4} />
+                  : renderPartnerQuestionList(homeWorkingSet.questions.slice(0, 4), 'No open questions yet.')
+              }
+            ]
+          : notebookEditorialSection === 'highlights'
+            ? [
+                {
+                  label: 'Working notebook',
+                  flush: true,
+                  content: notebookLoadingList
+                    ? <SidebarSkeletonRows rows={6} />
+                    : renderPartnerNotebookList(notebookEntries.slice(0, 6), 'No notebook entries yet.')
+                },
+                {
+                  label: 'Concepts with evidence',
+                  flush: true,
+                  content: conceptsLoading
+                    ? <SidebarSkeletonRows rows={4} />
+                    : renderPartnerConceptList(conceptsWithHighlights.slice(0, 4), 'No concepts have evidence yet.')
+                }
+              ]
+            : notebookEditorialSection === 'annotations'
+              ? [
+                  {
+                    label: 'Question posture',
+                    content: <p>Keep notebook pages loose until the structure is clear enough to promote into claims, concepts, or questions.</p>
+                  },
+                  {
+                    label: 'Open questions',
+                    flush: true,
+                    content: allQuestionsLoading
+                      ? <SidebarSkeletonRows rows={5} />
+                      : renderPartnerQuestionList(filteredQuestions.slice(0, 5), 'No questions match.')
+                  }
+                ]
+              : [
+                  {
+                    label: 'Working notebook',
+                    flush: true,
+                    content: notebookLoadingList
+                      ? <SidebarSkeletonRows rows={8} />
+                      : renderPartnerNotebookList(filteredNotebookEntries, 'No notebook entries match.')
+                  },
+                  {
+                    label: 'Working concepts',
+                    flush: true,
+                    content: conceptsLoading
+                      ? <SidebarSkeletonRows rows={4} />
+                      : renderPartnerConceptList(homeWorkingSet.concepts.slice(0, 4), 'No concepts yet.')
+                  },
+                  {
+                    label: 'Search and route',
+                    content: (
+                      <label className="feedback-field think-index__search" style={{ margin: 0 }}>
+                        <input
+                          type="text"
+                          value={search}
+                          placeholder="Search notebook pages"
+                          onChange={(event) => setSearch(event.target.value)}
+                        />
+                      </label>
+                    )
+                  }
+                ]
+      }
+      footer={<button type="button" onClick={handleCreateNotebookEntry}>New page</button>}
+    />
+  );
+
   const handoffLeftPanel = (
     <HandoffsSidebar
       handoffsModel={handoffsModel}
@@ -2098,7 +2958,52 @@ const ThinkMode = () => {
     />
   );
 
-  const leftPanel = activeView === 'handoffs' ? handoffLeftPanel : defaultLeftPanel;
+  const threadLeftPanel = (
+    <ThreadsSidebar
+      threadsModel={threadsModel}
+      onOpenThread={handleOpenThread}
+    />
+  );
+
+  const isConceptWorkbenchView = activeView === 'concepts' && Boolean(selectedName) && Boolean(concept);
+  const isQuestionEditorialView = activeView === 'questions';
+
+  useEffect(() => {
+    if (!isConceptWorkbenchView) return;
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+  }, [isConceptWorkbenchView, selectedName]);
+
+  useEffect(() => {
+    if (!isQuestionEditorialView) return;
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+  }, [isQuestionEditorialView, activeQuestionData?._id]);
+
+  useEffect(() => {
+    setConceptEditorialSection('assistant');
+    setConceptPartnerCollapsed(false);
+  }, [selectedName]);
+
+  const leftPanel = isConceptWorkbenchView
+    ? (
+      <ConceptPartnerRail
+        concept={concept}
+        concepts={concepts}
+        selectedConceptName={selectedName}
+        model={ideaWorkbenchModel}
+        activeSection={conceptEditorialSection}
+        onChangeSection={setConceptEditorialSection}
+        onOpenConcept={handleSelectConcept}
+      />
+    )
+    : (activeView === 'threads'
+      ? threadLeftPanel
+      : activeView === 'handoffs'
+      ? handoffLeftPanel
+      : activeView === 'notebook'
+        ? notebookEditorialLeftPanel
+        : activeView === 'concepts'
+        ? conceptIndexLeftPanel
+        : defaultLeftPanel);
 
   const insightsPanel = (
     <div className="section-stack">
@@ -2244,11 +3149,6 @@ const ThinkMode = () => {
       .slice(0, THINK_HOME_LIMIT)
   ), [allHighlights]);
 
-  const homeWorkingSet = useMemo(() => ({
-    notebooks: notebookEntries.slice(0, THINK_HOME_LIMIT),
-    concepts: concepts.slice(0, THINK_HOME_LIMIT),
-    questions: allQuestions.filter(item => item.status !== 'answered').slice(0, THINK_HOME_LIMIT)
-  }), [allQuestions, concepts, notebookEntries]);
   const showLegacyConceptCollections = false;
 
   const openNotebookEntry = useCallback((entryId) => {
@@ -2256,8 +3156,289 @@ const ThinkMode = () => {
     window.location.href = `/think?tab=notebook&entryId=${entryId}`;
   }, []);
 
+  const hasExplicitConceptSelection = activeView === 'concepts' && Boolean(selectedName);
+  const thoughtPartnerContext = useMemo(() => resolveThoughtPartnerContext({
+    activeView,
+    concept,
+    activeNotebookEntry,
+    activeQuestionData,
+    activeHandoffData
+  }), [
+    activeHandoffData,
+    activeNotebookEntry,
+    activeQuestionData,
+    activeView,
+    concept
+  ]);
+  const thoughtPartnerContextMetadata = useMemo(() => {
+    if (activeView === 'concepts' && concept?._id) {
+      return buildConceptAmbientContext({
+        concept,
+        conceptQuestions,
+        conceptSuggestions,
+        conceptRelated,
+        pinnedArticles,
+        pinnedNotes
+      });
+    }
+    if (activeView === 'notebook' && activeNotebookEntry?._id) {
+      return buildNotebookAmbientContext({ entry: activeNotebookEntry });
+    }
+    if (activeView === 'questions' && activeQuestionData?._id) {
+      return buildQuestionAmbientContext({
+        question: activeQuestionData,
+        questionRelated
+      });
+    }
+    if (activeView === 'handoffs' && activeHandoffData?.handoffId) {
+      return buildHandoffAmbientContext({ handoff: activeHandoffData });
+    }
+    if (activeView === 'home') {
+      return buildHomeAmbientContext({
+        homeWorkingSet,
+        recentTargets
+      });
+    }
+    return {
+      summary: '',
+      primaryText: '',
+      openQuestions: [],
+      nextActions: [],
+      relatedItems: []
+    };
+  }, [
+    activeView,
+    activeHandoffData,
+    activeNotebookEntry,
+    activeQuestionData,
+    concept,
+    conceptQuestions,
+    conceptRelated,
+    conceptSuggestions,
+    homeWorkingSet,
+    pinnedArticles,
+    pinnedNotes,
+    questionRelated,
+    recentTargets
+  ]);
+  const queueThoughtPartnerPrompt = useCallback((queuedPrompt) => {
+    if (!queuedPrompt?.prompt) return;
+    setQueuedThoughtPartnerPrompt(queuedPrompt);
+  }, []);
+
+  const reloadProtocolCanvasState = useCallback(async () => {
+    await Promise.all([
+      threadsModel.loadThreads?.(),
+      handoffsModel.loadHandoffs?.(),
+      protocolApprovalsModel.loadProtocolApprovals?.(),
+      sharedArtifactDraftsModel.loadArtifactDrafts?.(),
+      protocolArtifactDraftsModel.loadArtifactDrafts?.(),
+      upkeepCyclesModel.loadUpkeepCycles?.()
+    ]);
+  }, [
+    handoffsModel,
+    protocolApprovalsModel,
+    protocolArtifactDraftsModel,
+    sharedArtifactDraftsModel,
+    threadsModel,
+    upkeepCyclesModel
+  ]);
+
+  const resolveDraftScope = useCallback((draft) => {
+    const sourceType = cleanText(draft?.sourceContext?.type).toLowerCase();
+    const sourceId = cleanText(draft?.sourceContext?.id);
+    const sourceTitle = cleanText(draft?.sourceContext?.title) || cleanText(draft?.title) || 'Workspace';
+
+    if (sourceType === 'article') return { type: 'article', id: sourceId, title: sourceTitle };
+    if (sourceType === 'notebook') return { type: 'notebook', id: sourceId, title: sourceTitle };
+    if (sourceType === 'concept') return { type: 'concept', id: sourceId, title: sourceTitle };
+    if (sourceType === 'handoff') return { type: 'handoff', id: sourceId, title: sourceTitle };
+    if (sourceType === 'selection') return { type: 'selection', id: sourceId, title: sourceTitle };
+    return { type: 'workspace', id: sourceId, title: sourceTitle };
+  }, []);
+
+  const buildDraftSeedText = useCallback((draft) => {
+    const title = cleanText(draft?.title) || 'Untitled draft';
+    const summary = cleanText(draft?.summary);
+    const body = cleanText(draft?.body);
+    const sourceTitle = cleanText(draft?.sourceContext?.title);
+    return [
+      'Use this draft as the working brief for the next pass.',
+      `Draft title: ${title}`,
+      sourceTitle ? `Source context: ${sourceTitle}` : '',
+      summary ? `Summary: ${summary}` : '',
+      body ? `Body:\n${body}` : ''
+    ].filter(Boolean).join('\n\n');
+  }, []);
+
+  const inferDraftHandoffTaskType = useCallback((draft, { followUpLoop = false } = {}) => {
+    if (followUpLoop) return 'custom';
+    const outputType = cleanText(draft?.skill?.outputType).toLowerCase();
+    const track = cleanText(draft?.skill?.workflow?.track).toLowerCase();
+    if (track === 'maintenance' || outputType.includes('report')) return 'restructure';
+    if (outputType.includes('synthesis') || outputType.includes('slide')) return 'synthesis';
+    if (outputType.includes('brief') || outputType.includes('question')) return 'research';
+    return 'custom';
+  }, []);
+
+  const buildFollowUpDueAt = useCallback((draft) => {
+    const cadence = cleanText(draft?.skill?.workflow?.cadence).toLowerCase();
+    const dueAt = new Date();
+    dueAt.setHours(dueAt.getHours() + 1);
+    if (cadence === 'recurring') {
+      dueAt.setDate(dueAt.getDate() + 7);
+    } else {
+      dueAt.setDate(dueAt.getDate() + 2);
+    }
+    return dueAt.toISOString();
+  }, []);
+
+  const handleOpenThreadFromDraft = useCallback(async (draft) => {
+    const scope = resolveDraftScope(draft);
+    const response = await createAgentThread({
+      title: cleanText(draft?.title) || `${scope.title} thread`,
+      summary: cleanText(draft?.summary).slice(0, 280),
+      scope: {
+        type: scope.type,
+        id: scope.id,
+        title: scope.title,
+        metadata: {
+          seedDraftId: cleanText(draft?.draftId),
+          seedOutputType: cleanText(draft?.skill?.outputType),
+          sourceContextType: cleanText(draft?.sourceContext?.type)
+        }
+      },
+      checkpoint: {
+        summary: cleanText(draft?.summary) || `Turn ${cleanText(draft?.title) || 'this draft'} into active working state.`,
+        openQuestions: [],
+        nextActions: [
+          'Pressure-test the current framing.',
+          'Decide whether to refine, promote, or delegate the draft.'
+        ]
+      },
+      initialMessage: {
+        role: 'user',
+        text: buildDraftSeedText(draft)
+      }
+    });
+
+    await reloadProtocolCanvasState();
+    if (cleanText(response?.status).toLowerCase() === 'approval_required') return response;
+    const nextThreadId = cleanText(response?.thread?.threadId);
+    if (nextThreadId) handleOpenThread(nextThreadId);
+    return response;
+  }, [buildDraftSeedText, handleOpenThread, reloadProtocolCanvasState, resolveDraftScope]);
+
+  const handleCreateHandoffFromDraft = useCallback(async (draft) => {
+    const scope = resolveDraftScope(draft);
+    const response = await createAutoAgentHandoff({
+      title: `Delegate: ${cleanText(draft?.title) || scope.title}`,
+      objective: cleanText(draft?.summary) || `Drive the next pass for ${cleanText(draft?.title) || scope.title}.`,
+      taskType: inferDraftHandoffTaskType(draft),
+      priority: 'normal',
+      context: {
+        sourceDraftId: cleanText(draft?.draftId),
+        sourceContextType: cleanText(draft?.sourceContext?.type),
+        sourceContextId: cleanText(draft?.sourceContext?.id),
+        sourceContextTitle: scope.title,
+        workflow: draft?.skill?.workflow || null
+      },
+      input: {
+        seedDraft: {
+          title: cleanText(draft?.title),
+          summary: cleanText(draft?.summary),
+          body: cleanText(draft?.body),
+          outputType: cleanText(draft?.skill?.outputType)
+        }
+      },
+      planner: {
+        activeWorkerRole: cleanText(draft?.skill?.workerRole) || 'planner'
+      }
+    });
+
+    await reloadProtocolCanvasState();
+    if (cleanText(response?.status).toLowerCase() === 'approval_required') return response;
+    const nextHandoffId = cleanText(response?.handoff?.handoffId);
+    if (nextHandoffId) handleOpenHandoff(nextHandoffId);
+    return response;
+  }, [handleOpenHandoff, inferDraftHandoffTaskType, reloadProtocolCanvasState, resolveDraftScope]);
+
+  const handleQueueFollowUpLoopFromDraft = useCallback(async (draft) => {
+    const scope = resolveDraftScope(draft);
+    const loopSkill = {
+      id: 'draft_recurring_hygiene_summary',
+      title: 'Recurring hygiene summary',
+      workerRole: 'planner',
+      outputType: 'recurring_hygiene_report',
+      instruction: 'Draft a recurring hygiene summary. Turn the current maintenance findings into a repeatable cycle with focus areas, cadence, and the next recurring pass.',
+      workflow: {
+        id: 'recurring_hygiene_flow',
+        label: 'Recurring upkeep loop',
+        track: 'maintenance',
+        cadence: 'recurring',
+        loop: true,
+        steps: [
+          'Summarize the current maintenance state.',
+          'Define the next recurring upkeep pass.',
+          'Schedule the follow-up cycle and its focus areas.'
+        ]
+      }
+    };
+
+    const response = await createAgentUpkeepCycle({
+      title: `Scheduled upkeep: ${cleanText(draft?.title) || scope.title}`,
+      summary: cleanText(draft?.summary) || `Run the next recurring upkeep cycle for ${scope.title}.`,
+      status: 'active',
+      cadence: cleanText(draft?.skill?.workflow?.cadence) || 'recurring',
+      taskType: inferDraftHandoffTaskType(draft, { followUpLoop: true }),
+      workerRole: 'planner',
+      nextDueAt: buildFollowUpDueAt(draft),
+      sourceDraftId: cleanText(draft?.draftId),
+      sourceContext: {
+        sourceDraftId: cleanText(draft?.draftId),
+        sourceContextType: cleanText(draft?.sourceContext?.type),
+        sourceContextId: cleanText(draft?.sourceContext?.id),
+        sourceContextTitle: scope.title,
+        followUpLoop: true,
+        workflow: draft?.skill?.workflow || loopSkill.workflow
+      },
+      workflow: draft?.skill?.workflow || loopSkill.workflow,
+      seed: {
+        priority: 'high',
+        seedDraft: {
+          title: cleanText(draft?.title),
+          summary: cleanText(draft?.summary),
+          body: cleanText(draft?.body),
+          outputType: cleanText(draft?.skill?.outputType)
+        },
+        recurringPrompt: buildQueuedAgentSkillPrompt(loopSkill, {
+          contextType: cleanText(draft?.sourceContext?.type) || 'think',
+          contextId: cleanText(draft?.sourceContext?.id) || activeView,
+          contextTitle: cleanText(draft?.sourceContext?.title) || cleanText(draft?.title) || 'Think',
+          mode: 'submit'
+        })
+      },
+    });
+
+    await reloadProtocolCanvasState();
+    const nextHandoffId = cleanText(response?.handoff?.handoffId);
+    if (nextHandoffId) handleOpenHandoff(nextHandoffId);
+    return response;
+  }, [
+    activeView,
+    buildFollowUpDueAt,
+    handleOpenHandoff,
+    inferDraftHandoffTaskType,
+    reloadProtocolCanvasState,
+    resolveDraftScope
+  ]);
+
   const mainPanel = activeView === 'home' ? (
     <ThinkHome
+      showHero
+      heroEyebrow="Workspace orientation"
+      heroTitle="Think"
+      heroSubtitle="Home for your notebook, concepts, and open questions."
       recentTargets={recentTargets}
       workingSet={homeWorkingSet}
       returnQueue={homeReturnQueue}
@@ -2298,6 +3479,10 @@ const ThinkMode = () => {
           onSynthesize={(entry) => openSynthesis('notebook', entry?._id)}
           onDump={() => handleDumpToWorkingMemory()}
           claimCandidates={notebookEntries.filter(item => (item.type || 'note') === 'claim')}
+          onInvokeAgentSkill={queueThoughtPartnerPrompt}
+          agentContextType={thoughtPartnerContext?.contextType || 'notebook'}
+          agentContextId={thoughtPartnerContext?.contextId || activeNotebookEntry?._id || ''}
+          agentContextTitle={thoughtPartnerContext?.contextTitle || activeNotebookEntry?.title || 'Notebook'}
         />
       )}
     </div>
@@ -2310,6 +3495,10 @@ const ThinkMode = () => {
         onSave={handleSaveQuestion}
         onRegisterInsert={(fn) => { questionInsertRef.current = fn; }}
         onSynthesize={(question) => openSynthesis('question', question?._id)}
+        onInvokeAgentSkill={queueThoughtPartnerPrompt}
+        agentContextType={thoughtPartnerContext?.contextType || 'question'}
+        agentContextId={thoughtPartnerContext?.contextId || activeQuestionData?._id || ''}
+        agentContextTitle={activeQuestionData?.text || thoughtPartnerContext?.contextTitle || 'Question'}
       />
       {activeQuestionData && questionStatus === 'open' && (
         <div className="think-question-actions">
@@ -2317,8 +3506,34 @@ const ThinkMode = () => {
         </div>
       )}
     </div>
+  ) : activeView === 'threads' ? (
+    <ThreadsMainPanel
+      threadsModel={threadsModel}
+      relatedApprovalsModel={threadApprovalHistoryModel}
+      hookRunsModel={threadHookRunsModel}
+      draftsModel={protocolArtifactDraftsModel}
+      upkeepCyclesModel={upkeepCyclesModel}
+      onOpenHandoff={handleOpenHandoff}
+      onOpenThread={handleOpenThread}
+      onInvokeWorkflowSkill={queueThoughtPartnerPrompt}
+      onOpenThreadFromDraft={handleOpenThreadFromDraft}
+      onCreateHandoffFromDraft={handleCreateHandoffFromDraft}
+      onQueueFollowUpLoop={handleQueueFollowUpLoopFromDraft}
+    />
   ) : activeView === 'handoffs' ? (
-    <HandoffsMainPanel handoffsModel={handoffsModel} />
+    <HandoffsMainPanel
+      handoffsModel={handoffsModel}
+      relatedApprovalsModel={handoffApprovalHistoryModel}
+      hookRunsModel={handoffHookRunsModel}
+      draftsModel={protocolArtifactDraftsModel}
+      upkeepCyclesModel={upkeepCyclesModel}
+      onOpenThread={handleOpenThread}
+      onOpenHandoff={handleOpenHandoff}
+      onInvokeWorkflowSkill={queueThoughtPartnerPrompt}
+      onOpenThreadFromDraft={handleOpenThreadFromDraft}
+      onCreateHandoffFromDraft={handleCreateHandoffFromDraft}
+      onQueueFollowUpLoop={handleQueueFollowUpLoopFromDraft}
+    />
   ) : activeView === 'paths' ? (
     <ConceptPathWorkspace
       selectedPathId={selectedPathId}
@@ -2327,6 +3542,98 @@ const ThinkMode = () => {
   ) : activeView === 'insights' ? (
     <div className="section-stack">
       {insightsPanel}
+    </div>
+  ) : activeView === 'concepts' && !hasExplicitConceptSelection ? (
+    <div className="think-concepts-index-surface">
+      <div className="think-concepts-index-hero">
+        <div className="think-concepts-index-hero__eyebrow">Concept workspace</div>
+        <h1 className="think-concepts-index-hero__title">Start from the idea, then pull the archive into focus.</h1>
+        <p className="think-concepts-index-hero__subtitle">
+          Open an existing concept when you already know the thread. Create a new one when you need a calm page to think against before the evidence arrives.
+        </p>
+        <div className="think-concepts-index-hero__actions">
+          <div className="think-concept-composer-anchor">
+            <Button
+              variant="secondary"
+              onClick={() => openConceptComposer('hero', search)}
+              data-testid="think-concepts-index-create-button"
+            >
+              Create concept
+            </Button>
+            {renderConceptComposer('hero')}
+          </div>
+          <QuietButton onClick={openTemplatePicker}>
+            Use template
+          </QuietButton>
+        </div>
+      </div>
+      {conceptsError && <p className="status-message error-message">{conceptsError}</p>}
+      {conceptsLoading ? (
+        <div className="think-concept-loading" aria-hidden="true">
+          <div className="skeleton skeleton-title" style={{ width: '34%', height: 16 }} />
+          <div className="skeleton skeleton-title" style={{ width: '62%', height: 28 }} />
+          <div className="skeleton skeleton-text" style={{ width: '96%', height: 14 }} />
+          <div className="skeleton skeleton-text" style={{ width: '88%', height: 14 }} />
+          <div className="skeleton skeleton-text" style={{ width: '92%', height: 14 }} />
+        </div>
+      ) : filteredConcepts.length > 0 ? (
+        <div className="think-concepts-index-list">
+          {conceptIndexSections.map((section) => (
+            <section key={section.key} className="think-concepts-index-section" aria-label={section.title}>
+              <div className="think-concepts-index-section__header">
+                <div>
+                  <h2 className="think-concepts-index-section__title">{section.title}</h2>
+                  <p className="think-concepts-index-section__subtitle">{section.subtitle}</p>
+                </div>
+                <span className="think-concepts-index-section__count">{section.items.length}</span>
+              </div>
+              <div className="think-concepts-index-section__list">
+                {section.items.map((conceptItem) => (
+                  <button
+                    key={conceptItem.name}
+                    type="button"
+                    className={`think-concepts-index-card ${conceptItem?.freshness?.stale ? 'is-stale' : ''}`.trim()}
+                    onClick={() => handleSelectConcept(conceptItem.name)}
+                  >
+                    <div className="think-concepts-index-card__meta">
+                      <span>Concept</span>
+                      {Number.isFinite(conceptItem.count) && <span>{conceptItem.count} highlights</span>}
+                      {conceptItem?.freshness?.stale && (
+                        <span className="think-concepts-index-card__status" data-testid={`think-concept-status-${encodeURIComponent(conceptItem.name)}`}>
+                          {conceptItem?.freshness?.statusLabel || 'Needs review'}
+                        </span>
+                      )}
+                      <span className="think-concepts-index-card__open">Open</span>
+                    </div>
+                    <h3 className="think-concepts-index-card__title">{conceptItem.name}</h3>
+                    <p className="think-concepts-index-card__body">
+                      {String(conceptItem.description || '').trim()
+                        || 'Use the concept page to draft the live thought, recover old reading, and keep support and tension close to the writing.'}
+                    </p>
+                    <p className={`think-concepts-index-card__review ${conceptItem?.freshness?.stale ? 'is-stale' : ''}`.trim()}>
+                      {describeConceptReviewState(conceptItem)}
+                    </p>
+                  </button>
+                ))}
+              </div>
+            </section>
+          ))}
+        </div>
+      ) : (
+        <SurfaceCard className="think-concepts-empty-state" data-testid="think-concepts-empty-state">
+          <SectionHeader title="No concepts yet" subtitle="Create one concept and let it become the place where old reading turns back into usable thought." />
+          <div className="think-concept-composer-anchor think-concepts-empty-state__actions">
+            <Button
+              variant="secondary"
+              onClick={() => openConceptComposer('empty', search)}
+              data-testid="think-concepts-empty-create-button"
+            >
+              Create concept
+            </Button>
+            {renderConceptComposer('empty')}
+          </div>
+        </SurfaceCard>
+      )}
     </div>
   ) : (
     <Profiler id="ThinkConceptMain" onRender={conceptProfilerLogger}>
@@ -2345,22 +3652,7 @@ const ThinkMode = () => {
       )}
       {!conceptLoading && concept && (
         <>
-          <div className="think-concept-toolbar">
-            <ReturnLaterControl
-              itemType="concept"
-              itemId={concept._id}
-              defaultReason={concept.name || descriptionDraft || 'Concept'}
-            />
-            <ConnectionBuilder itemType="concept" itemId={concept._id} itemTitle={concept.name} />
-            <Button variant="secondary" onClick={() => setAddModal({ open: true, mode: 'highlight' })}>
-              Add pinned material
-            </Button>
-            <Button variant="secondary" onClick={() => setIsEditingSummary((previous) => !previous)}>
-              {isEditingSummary ? 'Hide legacy summary' : 'Edit legacy summary'}
-            </Button>
-          </div>
-
-          {isEditingSummary && (
+          {!isConceptWorkbenchView && isEditingSummary && (
             <SurfaceCard className="idea-workbench-panel">
               <SectionHeader
                 title="Legacy concept summary"
@@ -2392,20 +3684,10 @@ const ThinkMode = () => {
             </SurfaceCard>
           )}
 
-          <IdeaWorkbenchMain
+          <ConceptEvidenceStreamView
+            concept={concept}
             model={ideaWorkbenchModel}
-            utilityActions={{
-              onSynthesize: () => openSynthesis('concept', concept._id),
-              onExport: handleExportConcept,
-              onShare: handleToggleSharing,
-              shareWorking,
-              shareLabel: concept.isPublic ? 'Unshare' : 'Share',
-              shareSlug
-            }}
           />
-
-          {shareStatus && <p className="status-message">{shareStatus}</p>}
-          {shareError && <p className="status-message error-message">{shareError}</p>}
 
           {showLegacyConceptCollections && (
             <>
@@ -2618,21 +3900,6 @@ const ThinkMode = () => {
           )}
         </>
       )}
-      {!conceptLoading && !concept && !conceptLoadError && (
-        <SurfaceCard className="think-concepts-empty-state" data-testid="think-concepts-empty-state">
-          <SectionHeader title="No concepts yet" subtitle="Create a concept to start capturing ideas in Think." />
-          <div className="think-concept-composer-anchor think-concepts-empty-state__actions">
-            <Button
-              variant="secondary"
-              onClick={() => openConceptComposer('empty', search)}
-              data-testid="think-concepts-empty-create-button"
-            >
-              Create concept
-            </Button>
-            {renderConceptComposer('empty')}
-          </div>
-        </SurfaceCard>
-      )}
       </div>
     </Profiler>
   );
@@ -2691,54 +3958,67 @@ const ThinkMode = () => {
     />
   );
 
-  const thoughtPartnerContext = useMemo(() => {
-    if (activeView === 'concepts' && concept?._id) {
-      return {
-        contextType: 'concept',
-        contextId: concept._id,
-        contextTitle: concept.name || 'Concept',
-        placeholder: 'Ask about this concept, or find connected notes.'
-      };
-    }
-    if (activeView === 'notebook' && activeNotebookEntry?._id) {
-      return {
-        contextType: 'notebook',
-        contextId: activeNotebookEntry._id,
-        contextTitle: activeNotebookEntry.title || 'Notebook note',
-        placeholder: 'Ask about this notebook entry, or find related material.'
-      };
-    }
-    if (activeView === 'questions' && activeQuestion?.linkedTagName) {
-      return {
-        contextType: 'concept',
-        contextId: activeQuestion.linkedTagName,
-        contextTitle: activeQuestion.linkedTagName,
-        placeholder: 'Ask through this question context and related concept.'
-      };
-    }
-    if (activeView === 'handoffs' && activeHandoffData?.handoffId) {
-      return {
-        contextType: 'handoff',
-        contextId: activeHandoffData.handoffId,
-        contextTitle: activeHandoffData.title || 'Agent handoff',
-        placeholder: 'Ask how to refine, route, or unblock this handoff.'
-      };
-    }
-    return null;
-  }, [
-    activeHandoffData?.handoffId,
-    activeHandoffData?.title,
-    activeNotebookEntry?._id,
-    activeNotebookEntry?.title,
-    activeQuestion?.linkedTagName,
-    activeView,
-    concept?._id,
-    concept?.name
-  ]);
-
-  const rightPanel = activeView === 'concepts' && concept ? (
+  const rightPanel = isConceptWorkbenchView ? (
+    <ConceptEvidenceStreamRail concept={concept} model={ideaWorkbenchModel} />
+  ) : activeView === 'concepts' ? (
     <div className="section-stack think-layout__right-panel">
-      <IdeaWorkbenchAgentRail model={ideaWorkbenchModel} />
+      <div className="think-concepts-index-rail">
+        <SectionHeader title="Concept posture" subtitle="Keep the page quiet until the idea needs more structure." />
+        <p className="muted small">
+          Start with a concept name, then let the archive come in behind it. The point of search, suggestions, and support is to improve the active concept, not to create another results surface.
+        </p>
+        <div className="think-concepts-index-rail__actions">
+          <QuietButton onClick={() => openConceptComposer('header', search)}>
+            New concept
+          </QuietButton>
+          <QuietButton onClick={openTemplatePicker}>
+            Use template
+          </QuietButton>
+        </div>
+      </div>
+      <ThoughtPartnerPanel
+        contextType="think"
+        contextId="concept-index"
+        contextTitle="Concepts"
+        contextMetadata={{
+          summary: `You have ${concepts.length} concepts in the workspace.`,
+          nextActions: concepts.slice(0, 5).map((item) => item?.name).filter(Boolean),
+          relatedItems: concepts.slice(0, 5).map((item) => makeAmbientRelatedItem({
+            type: 'concept',
+            id: item?._id,
+            title: item?.name,
+            snippet: item?.description
+          })).filter(Boolean)
+        }}
+        queuedPrompt={queuedThoughtPartnerPrompt}
+        title="Ask the index"
+        subtitle="Use this for naming, framing, and deciding which concept to deepen next."
+        placeholder="Ask which concept to open, create, or refine next."
+        promptTemplates={[
+          'Which concept should I deepen next?',
+          'Suggest a sharper name for a new concept.',
+          'What concept is missing from this workspace?'
+        ]}
+        emptyStateText="Use the concept route to choose what deserves a page, then deepen it without clutter."
+        submitLabel="Send"
+      />
+    </div>
+  ) : activeView === 'threads' || activeView === 'handoffs' ? (
+    <div className="section-stack think-layout__right-panel">
+      {workingMemoryDrawer}
+      <SurfaceCard className="think-threads-card think-protocol-rail">
+        <SectionHeader
+          title={activeView === 'threads' ? 'Thread protocol' : 'Handoff protocol'}
+          subtitle="The main canvas now owns live state, drafts, upkeep loops, and operating history."
+        />
+        <p className="muted small">
+          Use this rail for working memory and approval actions. Planner state, specialist context, upkeep loops, artifacts, and execution history now stay together in the central operating canvas.
+        </p>
+      </SurfaceCard>
+      <ProtocolApprovalsPanel
+        approvalsModel={protocolApprovalsModel}
+        className="think-threads-card"
+      />
     </div>
   ) : (
     <div className="section-stack think-layout__right-panel">
@@ -2748,12 +4028,28 @@ const ThinkMode = () => {
           contextType={thoughtPartnerContext.contextType}
           contextId={thoughtPartnerContext.contextId}
           contextTitle={thoughtPartnerContext.contextTitle}
+          contextMetadata={thoughtPartnerContextMetadata}
           placeholder={thoughtPartnerContext.placeholder}
+          queuedPrompt={queuedThoughtPartnerPrompt}
         />
       )}
+      <AgentArtifactDraftsPanel
+        draftsModel={sharedArtifactDraftsModel}
+        title="Draft staging"
+        subtitle="Agent-created outputs waiting for a human decision."
+        emptyText="No staged drafts yet."
+        className="think-draft-staging-panel"
+        onInvokeWorkflowSkill={queueThoughtPartnerPrompt}
+        onOpenThreadFromDraft={handleOpenThreadFromDraft}
+        onCreateHandoffFromDraft={handleCreateHandoffFromDraft}
+        onQueueFollowUpLoop={handleQueueFollowUpLoopFromDraft}
+        contextType={thoughtPartnerContext?.contextType || 'think'}
+        contextId={thoughtPartnerContext?.contextId || activeView}
+        contextTitle={thoughtPartnerContext?.contextTitle || 'Think'}
+      />
       {activeView === 'home' && (
-        <>
-          <SurfaceCard className="think-home__side-card">
+        <div className="think-home-rail">
+          <div className="think-home-rail__section">
             <SectionHeader title="Recent activity" subtitle="Your latest trails in Think." />
             <div className="think-home__list">
               {recentTargets.slice(0, THINK_HOME_LIMIT).map((item) => (
@@ -2769,20 +4065,20 @@ const ThinkMode = () => {
               ))}
               {recentTargets.length === 0 && <p className="muted small">No recent activity yet.</p>}
             </div>
-          </SurfaceCard>
-          <SurfaceCard className="think-home__side-card">
-            <SectionHeader title="Pinned shortcuts" subtitle="Quick jumps into active work." />
-            <div className="think-home__list">
+          </div>
+          <div className="think-home-rail__section">
+            <SectionHeader title="Next move" subtitle="Quick jumps into active work." />
+            <div className="think-home-rail__actions">
               <QuietButton onClick={() => handleSelectView('notebook')}>Open notebook</QuietButton>
               <QuietButton onClick={() => handleSelectView('concepts')}>Open concepts</QuietButton>
               <QuietButton onClick={() => handleSelectView('questions')}>Open questions</QuietButton>
               <QuietButton onClick={() => handleSelectView('paths')}>Open paths</QuietButton>
             </div>
-          </SurfaceCard>
+          </div>
           {(homeQueueError || homeArticlesError) && (
             <p className="status-message error-message">{homeQueueError || homeArticlesError}</p>
           )}
-        </>
+        </div>
       )}
       {activeView === 'insights' ? (
         <>
@@ -2854,10 +4150,6 @@ const ThinkMode = () => {
             </>
           )}
         </>
-      )}
-
-      {activeView === 'notebook' && (
-        <NotebookContext entry={activeNotebookEntry} />
       )}
 
       {activeView === 'questions' && (
@@ -2971,7 +4263,7 @@ const ThinkMode = () => {
         </div>
       )}
 
-      {activeView === 'concepts' && (
+      {activeView === 'concepts' && !isConceptWorkbenchView && (
         <div className="section-stack">
           <SectionHeader title="Connections in this concept" subtitle="Supports, contradictions, extensions." />
           {contextConnectionsLoading && <p className="muted small">Loading connections…</p>}
@@ -3044,144 +4336,916 @@ const ThinkMode = () => {
     </div>
   );
 
-  return (
-    <>
-      <ThreePaneLayout
-        left={leftPanel}
-        main={mainPanel}
-        right={rightPanel}
-        rightTitle="Context"
-        rightOpen={rightOpen}
-        onToggleRight={handleToggleRight}
-        leftOpen
-        defaultLeftOpen
-        defaultRightOpen
-        mainHeader={<PageTitle className="think-page-title" title="Think" subtitle="Home for your notebook, concepts, and open questions." />}
-        mainActions={(
-          <div className="library-main-actions think-main-actions">
-            <SegmentedNav
-              className="think-main-actions__segments"
-              items={THINK_SUB_NAV_ITEMS}
-              value={activeView}
-              onChange={handleSelectView}
-              appearance="quiet"
-            />
-            <div className="think-main-actions__menu-group">
-              <div className="think-concept-composer-anchor think-main-actions__menu" ref={headerNewMenuRef}>
-                <QuietButton
-                  className="list-button think-main-actions__utility think-main-actions__utility--first"
-                  onClick={() => {
-                    setHeaderNewMenuOpen((previous) => {
-                      const next = !previous;
-                      if (next) setHeaderActionsMenuOpen(false);
-                      return next;
-                    });
-                  }}
-                  aria-haspopup="menu"
-                  aria-expanded={headerNewMenuOpen}
-                  data-testid="think-header-new-menu-button"
-                >
-                  + New
-                </QuietButton>
-                {headerNewMenuOpen && (
-                  <div className="think-main-actions__menu-popover" role="menu" data-testid="think-header-new-menu">
-                    <button
-                      type="button"
-                      className="think-main-actions__menu-item"
-                      role="menuitem"
-                      onClick={() => {
-                        closeHeaderMenus();
-                        handleCreateNotebookEntry();
-                      }}
-                    >
-                      New note
-                    </button>
-                    <button
-                      type="button"
-                      className="think-main-actions__menu-item"
-                      role="menuitem"
-                      data-testid="think-new-concept-header-button"
-                      onClick={() => {
-                        closeHeaderMenus();
-                        openConceptComposer('header');
-                      }}
-                    >
-                      New concept
-                    </button>
-                    <button
-                      type="button"
-                      className="think-main-actions__menu-item"
-                      role="menuitem"
-                      data-testid="think-new-template-header-button"
-                      onClick={() => {
-                        closeHeaderMenus();
-                        openTemplatePicker();
-                      }}
-                    >
-                      New from template
-                    </button>
-                    <button
-                      type="button"
-                      className="think-main-actions__menu-item"
-                      role="menuitem"
-                      onClick={() => {
-                        closeHeaderMenus();
-                        handleCreateQuestion();
-                      }}
-                    >
-                      New question
-                    </button>
-                  </div>
-                )}
-                {renderConceptComposer('header')}
+  const selectedConceptLayout = isConceptWorkbenchView ? (
+    <div className="concept-editorial-shell-page">
+      <div className={`concept-editorial-shell ${conceptPartnerCollapsed ? 'is-partner-collapsed' : ''}`.trim()}>
+        <aside className={`concept-editorial-shell__partner ${conceptPartnerCollapsed ? 'is-collapsed' : ''}`.trim()}>
+          <ConceptPartnerRail
+            concept={concept}
+            concepts={concepts}
+            selectedConceptName={selectedName}
+            model={ideaWorkbenchModel}
+            activeSection={conceptEditorialSection}
+            onChangeSection={setConceptEditorialSection}
+            onOpenConcept={handleSelectConcept}
+            collapsed={conceptPartnerCollapsed}
+            onToggleCollapse={() => setConceptPartnerCollapsed((current) => !current)}
+          />
+        </aside>
+        <main className="concept-editorial-shell__main">
+          {conceptLoadError && <p className="status-message error-message">{conceptLoadError}</p>}
+          {conceptError && <p className="status-message error-message">{conceptError}</p>}
+          {relatedError && <p className="status-message error-message">{relatedError}</p>}
+          {conceptLoading ? (
+            <div className="think-concept-loading concept-editorial-loading" aria-hidden="true">
+              <div className="concept-editorial-loading__head">
+                <span className="concept-editorial-loading__eyebrow">Active reasoning draft</span>
+                <p className="concept-editorial-loading__note">
+                  Gathering the draft, fresh pressure, and nearby source memory from the archive.
+                </p>
               </div>
-              <div className="think-main-actions__menu" ref={headerActionsMenuRef}>
-                <QuietButton
-                  className={`list-button think-main-actions__utility ${headerActionsMenuOpen ? 'is-active' : ''}`}
-                  onClick={() => {
-                    setHeaderActionsMenuOpen((previous) => {
-                      const next = !previous;
-                      if (next) setHeaderNewMenuOpen(false);
-                      return next;
-                    });
-                  }}
-                  aria-haspopup="menu"
-                  aria-expanded={headerActionsMenuOpen}
-                  data-testid="think-header-actions-menu-button"
-                >
-                  ••• Actions
-                </QuietButton>
-                {headerActionsMenuOpen && (
-                  <div className="think-main-actions__menu-popover" role="menu" data-testid="think-header-actions-menu">
-                    <button
-                      type="button"
-                      className="think-main-actions__menu-item"
-                      role="menuitem"
-                      onClick={() => {
-                        closeHeaderMenus();
-                        handleToggleExpandAllCards();
-                      }}
-                    >
-                      {cardsExpanded ? 'Collapse all' : 'Expand all'}
-                    </button>
-                    <button
-                      type="button"
-                      className={`think-main-actions__menu-item ${rightOpen ? 'is-active' : ''}`}
-                      role="menuitem"
-                      onClick={() => {
-                        closeHeaderMenus();
-                        handleToggleRight(!rightOpen);
-                      }}
-                    >
-                      {rightOpen ? 'Hide context' : 'Show context'}
-                    </button>
-                  </div>
-                )}
+              <div className="concept-editorial-loading__hero">
+                <div className="skeleton skeleton-title" style={{ width: '26%', height: 12 }} />
+                <div className="skeleton skeleton-title" style={{ width: '54%', height: 32 }} />
+                <div className="skeleton skeleton-text" style={{ width: '66%', height: 16 }} />
+              </div>
+              <div className="concept-editorial-loading__editor">
+                <div className="skeleton skeleton-text" style={{ width: '18%', height: 12 }} />
+                <div className="concept-editorial-loading__toolbar">
+                  <div className="skeleton skeleton-text" style={{ width: 70, height: 10 }} />
+                  <div className="skeleton skeleton-text" style={{ width: 78, height: 10 }} />
+                  <div className="skeleton skeleton-text" style={{ width: 58, height: 10 }} />
+                  <div className="skeleton skeleton-text" style={{ width: 84, height: 10 }} />
+                </div>
+                <div className="concept-editorial-loading__manuscript">
+                  <div className="skeleton skeleton-text" style={{ width: '100%', height: 18 }} />
+                  <div className="skeleton skeleton-text" style={{ width: '96%', height: 18 }} />
+                  <div className="skeleton skeleton-text" style={{ width: '92%', height: 18 }} />
+                  <div className="skeleton skeleton-text" style={{ width: '84%', height: 18 }} />
+                  <div className="skeleton skeleton-text" style={{ width: '88%', height: 18 }} />
+                </div>
               </div>
             </div>
+          ) : (
+            <ConceptEvidenceStreamView
+              concept={concept}
+              model={ideaWorkbenchModel}
+              onEditorReady={setConceptEditorialEditor}
+              onDropCard={handleIntegrateConceptCard}
+              isReceivingDrop={conceptReceivingDrop}
+              onRunAction={setConceptEditorialSection}
+            />
+          )}
+        </main>
+        <aside className="concept-editorial-shell__stream">
+          <ConceptEvidenceStreamRail
+            concept={concept}
+            model={ideaWorkbenchModel}
+            onIntegrateCard={handleIntegrateConceptCard}
+            activeSection={conceptEditorialSection}
+          />
+        </aside>
+      </div>
+    </div>
+  ) : null;
+
+  const conceptIndexEditorialRightPanel = (
+    <div className="editorial-side-rail">
+      <ThoughtPartnerPanel
+        className="editorial-side-rail__partner"
+        variant="stream"
+        contextType="concept-index"
+        contextId="concept-index"
+        contextTitle="Concept index"
+        contextMetadata={{
+          summary: `The concept index currently contains ${concepts.length} concepts.`,
+          nextActions: concepts.slice(0, 5).map((item) => item?.name).filter(Boolean),
+          relatedItems: concepts.slice(0, 5).map((item) => makeAmbientRelatedItem({
+            type: 'concept',
+            id: item?._id,
+            title: item?.name,
+            snippet: item?.description
+          })).filter(Boolean)
+        }}
+        queuedPrompt={queuedThoughtPartnerPrompt}
+        title="Evidence stream"
+        subtitle="Concept contextualization"
+        placeholder="Ask which concept to open, create, or refine next."
+        promptTemplates={[
+          'Which concept should I deepen next?',
+          'Suggest a sharper name for a new concept.',
+          'What concept is missing from this workspace?'
+        ]}
+        emptyStateText="Use the index rail to choose what to develop before you open the manuscript."
+        submitLabel="↗"
+      />
+      <div className="editorial-side-rail__section">
+        <SectionHeader title="Workbench posture" subtitle="How to use this rail." />
+        <p className="muted small">
+          Name the concept first. Pull support, contradiction, and related material only after the page has somewhere calm for them to land.
+        </p>
+        <div className="think-home-rail__actions">
+          <div className="think-concept-composer-anchor">
+            <QuietButton onClick={() => openConceptComposer('index-rail', search)} data-testid="think-concepts-index-rail-create-button">
+              New concept
+            </QuietButton>
+            {renderConceptComposer('index-rail')}
+          </div>
+          <QuietButton onClick={openTemplatePicker}>
+            Use template
+          </QuietButton>
+        </div>
+      </div>
+    </div>
+  );
+
+  const notebookEditorialRightPanel = (
+    <div className="editorial-side-rail notebook-editorial-context">
+      <ThoughtPartnerPanel
+        className="editorial-side-rail__partner"
+        variant="stream"
+        contextType={thoughtPartnerContext?.contextType || 'notebook'}
+        contextId={thoughtPartnerContext?.contextId || activeNotebookEntry?._id || 'notebook'}
+        contextTitle={thoughtPartnerContext?.contextTitle || activeNotebookEntry?.title || 'Notebook'}
+        contextMetadata={thoughtPartnerContextMetadata}
+        queuedPrompt={queuedThoughtPartnerPrompt}
+        title="Evidence stream"
+        subtitle="Notebook contextualization"
+        placeholder="Ask what this page should keep, connect, or promote next."
+        promptTemplates={[
+          'What matters most on this page?',
+          'Which concept is forming here?',
+          'What should move from notebook into concept or question?'
+        ]}
+        emptyStateText="Use the notebook rail to clarify what should stay loose and what should be promoted."
+        submitLabel="↗"
+      />
+      <AgentArtifactDraftsPanel
+        draftsModel={sharedArtifactDraftsModel}
+        title="Draft staging"
+        subtitle="Promote the strongest note-driven outputs without leaving the notebook."
+        emptyText="No staged drafts yet."
+        accent="output"
+        className="editorial-side-rail__section think-draft-staging-panel"
+        onInvokeWorkflowSkill={queueThoughtPartnerPrompt}
+        onOpenThreadFromDraft={handleOpenThreadFromDraft}
+        onCreateHandoffFromDraft={handleCreateHandoffFromDraft}
+        onQueueFollowUpLoop={handleQueueFollowUpLoopFromDraft}
+        contextType={thoughtPartnerContext?.contextType || 'notebook'}
+        contextId={thoughtPartnerContext?.contextId || activeNotebookEntry?._id || 'notebook'}
+        contextTitle={thoughtPartnerContext?.contextTitle || activeNotebookEntry?.title || 'Notebook'}
+      />
+      <AgentSkillDock
+        surface="notebook"
+        contextType="notebook"
+        category="output"
+        contextId={activeNotebookEntry?._id || 'notebook'}
+        targetContextType={thoughtPartnerContext?.contextType || 'notebook'}
+        targetContextId={thoughtPartnerContext?.contextId || activeNotebookEntry?._id || ''}
+        contextTitle={thoughtPartnerContext?.contextTitle || activeNotebookEntry?.title || 'Notebook'}
+        title="Output studio"
+        subtitle="Spin active notes into briefs, synthesis docs, and deck-ready outlines."
+        className="editorial-side-rail__section agent-skill-dock--output"
+        maxVisible={4}
+        onInvoke={queueThoughtPartnerPrompt}
+      />
+
+      <div className="editorial-side-rail__section">
+        <SectionHeader title="Notebook posture" subtitle="How to use this page." />
+        <p className="muted small">
+          Keep the page exploratory. Promote only when a note has enough shape to become a concept, question, or draft.
+        </p>
+        <div className="think-home-rail__actions">
+          <QuietButton onClick={handleCreateNotebookEntry}>New page</QuietButton>
+          <QuietButton onClick={() => handleSelectView('concepts')}>Open concepts</QuietButton>
+        </div>
+      </div>
+
+      <NotebookContext entry={activeNotebookEntry} />
+    </div>
+  );
+
+  const homeEditorialRightPanel = (
+    <div className="editorial-side-rail">
+      <ThoughtPartnerPanel
+        className="editorial-side-rail__partner"
+        variant="stream"
+        contextType="think"
+        contextId="think-home"
+        contextTitle="Think home"
+        contextMetadata={thoughtPartnerContextMetadata}
+        queuedPrompt={queuedThoughtPartnerPrompt}
+        title="Evidence stream"
+        subtitle="Workspace contextualization"
+        placeholder="Ask what to resume, refine, or gather next."
+        promptTemplates={[
+          'What should I resume first?',
+          'Which concept has the strongest motion right now?',
+          'What question is still most unresolved?'
+        ]}
+        emptyStateText="Use the stream to sort the notebook, concepts, and open questions before diving deeper."
+        submitLabel="↗"
+      />
+      <AgentArtifactDraftsPanel
+        draftsModel={sharedArtifactDraftsModel}
+        title="Draft staging"
+        subtitle="Recent agent outputs that are ready to land somewhere in Think."
+        emptyText="No staged drafts yet."
+        accent="output"
+        className="editorial-side-rail__section think-draft-staging-panel"
+        onInvokeWorkflowSkill={queueThoughtPartnerPrompt}
+        onOpenThreadFromDraft={handleOpenThreadFromDraft}
+        onCreateHandoffFromDraft={handleCreateHandoffFromDraft}
+        onQueueFollowUpLoop={handleQueueFollowUpLoopFromDraft}
+        contextType="think"
+        contextId="think-home"
+        contextTitle="Think home"
+      />
+      <UpkeepCyclesPanel
+        upkeepCyclesModel={upkeepCyclesModel}
+        className="editorial-side-rail__section"
+        onOpenThread={handleOpenThread}
+        onOpenHandoff={handleOpenHandoff}
+      />
+      <AgentSkillDock
+        surface="workspace"
+        contextType="think"
+        category="output"
+        contextId="think-home"
+        targetContextType="think"
+        targetContextId="think-home"
+        contextTitle="Think home"
+        title="Output studio"
+        subtitle="Package the workspace into briefs, synthesis docs, and presentation-ready outlines."
+        className="editorial-side-rail__section agent-skill-dock--output"
+        maxVisible={4}
+        onInvoke={queueThoughtPartnerPrompt}
+      />
+      <AgentSkillDock
+        surface="workspace"
+        contextType="think"
+        category="maintain"
+        contextId="think-home"
+        targetContextType="think"
+        targetContextId="think-home"
+        contextTitle="Think home"
+        title="Workspace maintenance"
+        subtitle="Scan the workspace for gaps, duplicates, stale framing, contradictions, missing links, concept health, and hygiene drift."
+        className="editorial-side-rail__section agent-skill-dock--maintenance"
+        maxVisible={10}
+        onInvoke={queueThoughtPartnerPrompt}
+      />
+
+      <div className="editorial-side-rail__section">
+        <SectionHeader title="Updated stream" subtitle="Recent motion in Think." />
+        <div className="think-home__list">
+          {recentTargets.length > 0 ? (
+            recentTargets.slice(0, 5).map((item) => (
+              <button
+                key={`${item.type}:${item.id}`}
+                type="button"
+                className="think-home__row"
+                onClick={() => handleOpenHomeTarget(item)}
+              >
+                <span className="think-home__row-title">{item.title || item.type}</span>
+                <span className="think-home__row-meta muted small">{item.type}</span>
+              </button>
+            ))
+          ) : (
+            <p className="muted small">No recent activity yet.</p>
+          )}
+        </div>
+      </div>
+
+      <div className="editorial-side-rail__section">
+        <SectionHeader title="Next move" subtitle="Jump back into active work." />
+        <div className="think-home-rail__actions">
+          <QuietButton onClick={() => handleSelectView('notebook')}>Open notebook</QuietButton>
+          <QuietButton onClick={() => handleSelectView('concepts')}>Open concepts</QuietButton>
+          <QuietButton onClick={() => handleSelectView('questions')}>Open questions</QuietButton>
+          <QuietButton onClick={() => handleSelectView('paths')}>Open paths</QuietButton>
+        </div>
+      </div>
+
+      {(homeQueueError || homeArticlesError) && (
+        <p className="status-message error-message">{homeQueueError || homeArticlesError}</p>
+      )}
+    </div>
+  );
+
+  const homeEditorialLayout = activeView === 'home' ? (
+    <div className="think-home-editorial-shell-page">
+      <div className="think-home-editorial-shell">
+        <aside className="think-home-editorial-shell__left">
+          {homeEditorialLeftPanel}
+        </aside>
+        <main className="think-home-editorial-shell__main">
+          {mainPanel}
+        </main>
+        <aside className="think-home-editorial-shell__right">
+          {homeEditorialRightPanel}
+        </aside>
+      </div>
+    </div>
+  ) : null;
+
+  const notebookEditorialLayout = activeView === 'notebook' ? (
+    <div className="notebook-editorial-shell-page">
+      <div className="notebook-editorial-shell">
+        <aside className="notebook-editorial-shell__left">
+          {notebookEditorialLeftPanel}
+        </aside>
+        <main className="notebook-editorial-shell__main">
+          {mainPanel}
+        </main>
+        <aside className="notebook-editorial-shell__right">
+          {notebookEditorialRightPanel}
+        </aside>
+      </div>
+    </div>
+  ) : null;
+
+  const questionScopedArtifactDraftsModel = useMemo(() => {
+    if (!sharedArtifactDraftsModel || typeof sharedArtifactDraftsModel !== 'object') return sharedArtifactDraftsModel;
+    const activeQuestionId = cleanText(
+      thoughtPartnerContext?.contextType === 'question'
+        ? thoughtPartnerContext?.contextId
+        : activeQuestionData?._id
+    );
+    if (!activeQuestionId) {
+      return {
+        ...sharedArtifactDraftsModel,
+        artifactDrafts: [],
+        pendingCount: 0
+      };
+    }
+    const filteredDrafts = (Array.isArray(sharedArtifactDraftsModel.artifactDrafts)
+      ? sharedArtifactDraftsModel.artifactDrafts
+      : []
+    ).filter((draft) => (
+      cleanText(draft?.sourceContext?.type).toLowerCase() === 'question'
+      && cleanText(draft?.sourceContext?.id) === activeQuestionId
+    ));
+    return {
+      ...sharedArtifactDraftsModel,
+      artifactDrafts: filteredDrafts,
+      pendingCount: filteredDrafts.filter((draft) => cleanText(draft?.status).toLowerCase() === 'pending').length
+    };
+  }, [
+    activeQuestionData?._id,
+    sharedArtifactDraftsModel,
+    thoughtPartnerContext?.contextId,
+    thoughtPartnerContext?.contextType
+  ]);
+
+  const conceptIndexEditorialLayout = activeView === 'concepts' && !hasExplicitConceptSelection ? (
+    <div className="concept-index-editorial-shell-page">
+      <div className="concept-index-editorial-shell">
+        <aside className="concept-index-editorial-shell__left">
+          <div className="concept-index-editorial-rail concept-index-editorial-rail--left">
+            {conceptIndexLeftPanel}
+          </div>
+        </aside>
+        <main className="concept-index-editorial-shell__main">
+          <div className="concept-index-editorial-main">
+            {mainPanel}
+          </div>
+        </main>
+        <aside className="concept-index-editorial-shell__right">
+          {conceptIndexEditorialRightPanel}
+        </aside>
+      </div>
+    </div>
+  ) : null;
+
+  const questionEditorialLeftPanel = (
+    <EditorialRail
+      heroTitle="The Partner"
+      heroSubtitle="Contextual intelligence"
+      ctaLabel="New inquiry"
+      onCta={handleCreateQuestion}
+      ctaDisabled={questionSaving}
+      navItems={partnerRailNavItems}
+      activeNav={questionEditorialSection}
+      onChangeNav={setQuestionEditorialSection}
+      sections={
+        questionEditorialSection === 'sources'
+          ? [
+              {
+                label: 'Search and status',
+                content: (
+                  <>
+                    <label className="feedback-field think-index__search" style={{ margin: 0 }}>
+                      <input
+                        type="text"
+                        value={search}
+                        placeholder="Search questions"
+                        data-testid="question-index-search-input"
+                        onChange={(event) => setSearch(event.target.value)}
+                      />
+                    </label>
+                    <label className="think-index__filter">
+                      <select
+                        value={questionStatus}
+                        onChange={(event) => setQuestionStatus(event.target.value)}
+                      >
+                        <option value="open">Open</option>
+                        <option value="answered">Answered</option>
+                      </select>
+                    </label>
+                    {allQuestionsError && <p className="status-message error-message">{allQuestionsError}</p>}
+                    {questionError && <p className="status-message error-message">{questionError}</p>}
+                  </>
+                )
+              },
+              {
+                label: 'Working questions',
+                flush: true,
+                content: allQuestionsLoading
+                  ? <SidebarSkeletonRows rows={6} />
+                  : renderPartnerQuestionList(filteredQuestions.slice(0, 6), 'No questions match.')
+              }
+            ]
+          : questionEditorialSection === 'highlights'
+            ? [
+                {
+                  label: 'Working questions',
+                  flush: true,
+                  content: allQuestionsLoading
+                    ? <SidebarSkeletonRows rows={5} />
+                    : renderPartnerQuestionList(filteredQuestions.slice(0, 5), 'No questions match.')
+                },
+                {
+                  label: 'Question context',
+                  content: questionRelated.concepts.length > 0 ? (
+                    <div className="concept-related-tags">
+                      {questionRelated.concepts.slice(0, 6).map((item) => {
+                        const name = item.metadata?.name || item.title || '';
+                        return (
+                          <TagChip key={item.objectId} to={`/think?tab=concepts&concept=${encodeURIComponent(name)}`}>
+                            {name || 'Concept'}
+                          </TagChip>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <CalmEmptyLine>No related concepts yet.</CalmEmptyLine>
+                  )
+                }
+              ]
+            : questionEditorialSection === 'annotations'
+              ? [
+                  {
+                    label: 'Related highlights',
+                    flush: true,
+                    content: (
+                      <div className="related-embed-list">
+                        {questionRelated.highlights.length === 0 ? (
+                          <CalmEmptyLine>No related highlights yet.</CalmEmptyLine>
+                        ) : (
+                          questionRelated.highlights.slice(0, 5).map((item) => (
+                            <div key={item.objectId} className="related-embed-row">
+                              <div>
+                                <div className="related-embed-title">{item.title || 'Highlight'}</div>
+                                <div className="muted small">{item.snippet || item.metadata?.articleTitle || ''}</div>
+                              </div>
+                              <QuietButton onClick={() => handleAttachRelatedHighlight(item.objectId)}>Add</QuietButton>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    )
+                  },
+                  {
+                    label: 'Related concepts',
+                    content: questionRelated.concepts.length > 0 ? (
+                      <div className="concept-related-tags">
+                        {questionRelated.concepts.slice(0, 6).map((item) => {
+                          const name = item.metadata?.name || item.title || '';
+                          return (
+                            <TagChip key={item.objectId} to={`/think?tab=concepts&concept=${encodeURIComponent(name)}`}>
+                              {name || 'Concept'}
+                            </TagChip>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <CalmEmptyLine>No related concepts yet.</CalmEmptyLine>
+                    )
+                  }
+                ]
+              : [
+                  {
+                    label: 'Working questions',
+                    flush: true,
+                    content: allQuestionsLoading
+                      ? <SidebarSkeletonRows rows={6} />
+                      : renderPartnerQuestionList(filteredQuestions, 'No questions match.')
+                  },
+                  {
+                    label: 'Question context',
+                    content: (
+                      activeQuestion?.linkedTagName ? (
+                        <div className="concept-related-tags">
+                          <TagChip to={`/think?tab=concepts&concept=${encodeURIComponent(activeQuestion.linkedTagName)}`}>
+                            {activeQuestion.linkedTagName}
+                          </TagChip>
+                        </div>
+                      ) : (
+                        <CalmEmptyLine>No concept linked.</CalmEmptyLine>
+                      )
+                    )
+                  },
+                  {
+                    label: 'Search and status',
+                    content: (
+                      <>
+                        <label className="feedback-field think-index__search" style={{ margin: 0 }}>
+                          <input
+                            type="text"
+                            value={search}
+                            placeholder="Search questions"
+                            onChange={(event) => setSearch(event.target.value)}
+                          />
+                        </label>
+                        <label className="think-index__filter">
+                          <select
+                            value={questionStatus}
+                            onChange={(event) => setQuestionStatus(event.target.value)}
+                          >
+                            <option value="open">Open</option>
+                            <option value="answered">Answered</option>
+                          </select>
+                        </label>
+                      </>
+                    )
+                  },
+                  {
+                    label: 'Question posture',
+                    content: <p>Keep the loop open until the evidence is tight enough to answer it without flattening the tension too early.</p>
+                  }
+                ]
+      }
+      footer={<button type="button" onClick={handleCreateQuestion}>Feedback</button>}
+    />
+  );
+
+  const questionEditorialMainPanel = (
+    <div className="question-editorial-main">
+      <div className="question-editorial-main__hero">
+        <div className="question-editorial-main__eyebrow">Question refinement</div>
+        <p className="question-editorial-main__subtitle">
+          {activeQuestionData?.linkedTagName
+            ? `Open loop inside ${activeQuestionData.linkedTagName}. Clarify the question before deciding what evidence belongs.`
+            : 'Clarify the question before deciding what evidence belongs.'}
+        </p>
+      </div>
+
+      {questionError && <p className="status-message error-message">{questionError}</p>}
+
+      <div className="question-editorial-main__editor">
+        <QuestionEditor
+          question={activeQuestionData}
+          saving={questionSaving}
+          error={questionError}
+          onSave={handleSaveQuestion}
+          onRegisterInsert={(fn) => { questionInsertRef.current = fn; }}
+          onSynthesize={(question) => openSynthesis('question', question?._id)}
+          variant="editorial"
+          onInvokeAgentSkill={queueThoughtPartnerPrompt}
+          agentContextType={thoughtPartnerContext?.contextType || 'question'}
+          agentContextId={thoughtPartnerContext?.contextId || activeQuestionData?._id || ''}
+          agentContextTitle={activeQuestionData?.text || thoughtPartnerContext?.contextTitle || 'Question'}
+        />
+        {activeQuestionData && questionStatus === 'open' && (
+          <div className="think-question-actions">
+            <QuietButton onClick={() => handleMarkAnswered(activeQuestionData)}>Mark answered</QuietButton>
           </div>
         )}
+      </div>
+    </div>
+  );
+
+  const questionEditorialRightPanel = (
+    <div className="editorial-side-rail question-editorial-context">
+      <ThoughtPartnerPanel
+        className="editorial-side-rail__partner question-editorial-context__agent"
+        variant="stream"
+        contextType={thoughtPartnerContext?.contextType || 'question'}
+        contextId={thoughtPartnerContext?.contextId || activeQuestionData?._id || 'question'}
+        contextTitle={thoughtPartnerContext?.contextTitle || activeQuestionData?.text || 'Question'}
+        contextMetadata={thoughtPartnerContextMetadata}
+        queuedPrompt={queuedThoughtPartnerPrompt}
+        title="Evidence stream"
+        subtitle="Question contextualization"
+        placeholder="Ask what this question should prove, gather, or test next."
+        promptTemplates={[
+          'What is this question really asking?',
+          'What evidence would answer this best?',
+          'What concept should this question connect to?'
+        ]}
+        emptyStateText="Use the question rail to clarify, connect, and tighten open loops."
+        submitLabel="↗"
       />
+      {questionScopedArtifactDraftsModel?.pendingCount > 0 && (
+        <AgentArtifactDraftsPanel
+          draftsModel={questionScopedArtifactDraftsModel}
+          title="Draft queue"
+          subtitle="Question-specific output waiting for review."
+          emptyText="No staged drafts yet."
+          className="editorial-side-rail__section think-draft-staging-panel question-editorial-context__drafts"
+          onInvokeWorkflowSkill={queueThoughtPartnerPrompt}
+          onOpenThreadFromDraft={handleOpenThreadFromDraft}
+          onCreateHandoffFromDraft={handleCreateHandoffFromDraft}
+          onQueueFollowUpLoop={handleQueueFollowUpLoopFromDraft}
+          contextType={thoughtPartnerContext?.contextType || 'question'}
+          contextId={thoughtPartnerContext?.contextId || activeQuestionData?._id || 'question'}
+          contextTitle={thoughtPartnerContext?.contextTitle || activeQuestionData?.text || 'Question'}
+          maxPending={1}
+          showPromoted={false}
+          compact
+        />
+      )}
+
+      <div className="editorial-side-rail__section question-editorial-context__section">
+        <SectionHeader title="Question context" subtitle="What this question is attached to." />
+        {activeQuestion?.linkedTagName ? (
+          <TagChip to={`/think?tab=concepts&concept=${encodeURIComponent(activeQuestion.linkedTagName)}`}>
+            {activeQuestion.linkedTagName}
+          </TagChip>
+        ) : (
+          <CalmEmptyLine>No concept linked.</CalmEmptyLine>
+        )}
+      </div>
+
+      <div className="editorial-side-rail__section question-editorial-context__section">
+        <SectionHeader title="Connections" subtitle="Supports, contradictions, and extensions." />
+        {contextConnectionsLoading && <p className="muted small">Loading connections…</p>}
+        {contextConnectionsError && <p className="status-message error-message">{contextConnectionsError}</p>}
+        {!contextConnectionsLoading && !contextConnectionsError && (
+          <div className="context-connection-list">
+            {contextConnections.length === 0 ? (
+              <CalmEmptyLine>No scoped connections yet.</CalmEmptyLine>
+            ) : (
+              contextConnections.slice(0, 8).map(row => (
+                <div key={row._id} className="context-connection-row">
+                  <span className="context-connection-node">{row.fromItem?.title || row.fromType}</span>
+                  <span className="context-connection-relation">{row.relationType}</span>
+                  <span className="context-connection-node">{row.toItem?.title || row.toType}</span>
+                </div>
+              ))
+            )}
+          </div>
+        )}
+      </div>
+
+      <div className="editorial-side-rail__section question-editorial-context__section">
+        <SectionHeader title="Related highlights" subtitle="Relevant material to embed." />
+        {questionRelatedLoading && <p className="muted small">Finding related highlights…</p>}
+        {questionRelatedError && <p className="status-message error-message">{questionRelatedError}</p>}
+        {!questionRelatedLoading && !questionRelatedError && (
+          <div className="related-embed-list">
+            {questionRelated.highlights.length === 0 ? (
+              <CalmEmptyLine>No related highlights yet.</CalmEmptyLine>
+            ) : (
+              questionRelated.highlights.slice(0, 6).map(item => (
+                <div key={item.objectId} className="related-embed-row">
+                  <div>
+                    <div className="related-embed-title">{item.title || 'Highlight'}</div>
+                    <div className="muted small">{item.snippet || item.metadata?.articleTitle || ''}</div>
+                  </div>
+                  <QuietButton onClick={() => handleAttachRelatedHighlight(item.objectId)}>Add</QuietButton>
+                </div>
+              ))
+            )}
+          </div>
+        )}
+      </div>
+
+      <div className="editorial-side-rail__section question-editorial-context__section">
+        <SectionHeader title="Related concepts" subtitle="Neighboring ideas." />
+        {questionRelatedLoading && <p className="muted small">Finding related concepts…</p>}
+        {questionRelatedError && <p className="status-message error-message">{questionRelatedError}</p>}
+        {!questionRelatedLoading && !questionRelatedError && (
+          <div className="related-embed-list">
+            {questionRelated.concepts.length === 0 ? (
+              <CalmEmptyLine>No related concepts yet.</CalmEmptyLine>
+            ) : (
+              <div className="concept-related-tags">
+                {questionRelated.concepts.slice(0, 8).map(item => {
+                  const name = item.metadata?.name || item.title || '';
+                  return (
+                    <TagChip key={item.objectId} to={`/think?tab=concepts&concept=${encodeURIComponent(name)}`}>
+                      {name || 'Concept'}
+                    </TagChip>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {activeQuestion?._id && (
+        <div className="editorial-side-rail__section question-editorial-context__section">
+          <SectionHeader title="Used in" subtitle="Backlinks to this question." />
+          <ReferencesPanel targetType="question" targetId={activeQuestion._id} label="Show backlinks" />
+        </div>
+      )}
+    </div>
+  );
+
+  const questionEditorialLayout = isQuestionEditorialView ? (
+    <div className="question-editorial-shell-page">
+      <div className="question-editorial-shell">
+        <aside className="question-editorial-shell__left">
+          {questionEditorialLeftPanel}
+        </aside>
+        <main className="question-editorial-shell__main">
+          {questionEditorialMainPanel}
+        </main>
+        <aside className="question-editorial-shell__right">
+          {questionEditorialRightPanel}
+        </aside>
+      </div>
+    </div>
+  ) : null;
+  const useLegacyEditorialShell = searchParams.get('legacyShell') === '1';
+  const activePrimaryNavValue = THINK_SUB_NAV_ITEMS.some((item) => item.value === activeView) ? activeView : '';
+
+  return (
+    <>
+      {isConceptWorkbenchView ? (
+        selectedConceptLayout
+      ) : useLegacyEditorialShell && activeView === 'home' ? (
+        homeEditorialLayout
+      ) : useLegacyEditorialShell && activeView === 'notebook' ? (
+        notebookEditorialLayout
+      ) : useLegacyEditorialShell && activeView === 'concepts' && !hasExplicitConceptSelection ? (
+        conceptIndexEditorialLayout
+      ) : isQuestionEditorialView ? (
+        questionEditorialLayout
+      ) : (
+        <ThreePaneLayout
+          className={`three-pane--editorial ${
+            activeView === 'concepts'
+              ? 'three-pane--concepts-index three-pane--concepts'
+              : activeView === 'notebook'
+                ? 'three-pane--notebook'
+              : 'three-pane--think'
+          }`}
+          left={leftPanel}
+          main={mainPanel}
+          right={rightPanel}
+          rightTitle="Context"
+          rightOpen={rightOpen}
+          onToggleRight={handleToggleRight}
+          leftOpen={!isConceptWorkbenchView}
+          defaultLeftOpen={!isConceptWorkbenchView}
+          defaultRightOpen
+          mainHeader={(activeView === 'notebook')
+            ? null
+            : <PageTitle className="think-page-title" title="Think" subtitle="Concepts first. Notebook and questions stay close." />}
+          mainActions={isConceptWorkbenchView ? null : (
+            <div className="library-main-actions think-main-actions">
+              <SegmentedNav
+                className="think-main-actions__segments"
+                items={THINK_SUB_NAV_ITEMS}
+                value={activePrimaryNavValue}
+                onChange={handleSelectView}
+                appearance="quiet"
+              />
+              <div className="think-main-actions__menu-group">
+                <div className="think-concept-composer-anchor think-main-actions__menu" ref={headerNewMenuRef}>
+                  <QuietButton
+                    className="list-button think-main-actions__utility think-main-actions__utility--first"
+                    onClick={() => {
+                      setHeaderNewMenuOpen((previous) => {
+                        const next = !previous;
+                        if (next) setHeaderActionsMenuOpen(false);
+                        return next;
+                      });
+                    }}
+                    aria-haspopup="menu"
+                    aria-expanded={headerNewMenuOpen}
+                    data-testid="think-header-new-menu-button"
+                  >
+                    + New
+                  </QuietButton>
+                  {headerNewMenuOpen && (
+                    <div className="think-main-actions__menu-popover" role="menu" data-testid="think-header-new-menu">
+                      <button
+                        type="button"
+                        className="think-main-actions__menu-item"
+                        role="menuitem"
+                        onClick={() => {
+                          closeHeaderMenus();
+                          handleCreateNotebookEntry();
+                        }}
+                      >
+                        New note
+                      </button>
+                      <button
+                        type="button"
+                        className="think-main-actions__menu-item"
+                        role="menuitem"
+                        data-testid="think-new-concept-header-button"
+                        onClick={() => {
+                          closeHeaderMenus();
+                          openConceptComposer('header');
+                        }}
+                      >
+                        New concept
+                      </button>
+                      <button
+                        type="button"
+                        className="think-main-actions__menu-item"
+                        role="menuitem"
+                        data-testid="think-new-template-header-button"
+                        onClick={() => {
+                          closeHeaderMenus();
+                          openTemplatePicker();
+                        }}
+                      >
+                        New from template
+                      </button>
+                      <button
+                        type="button"
+                        className="think-main-actions__menu-item"
+                        role="menuitem"
+                        onClick={() => {
+                          closeHeaderMenus();
+                          handleCreateQuestion();
+                        }}
+                      >
+                        New question
+                      </button>
+                    </div>
+                  )}
+                  {renderConceptComposer('header')}
+                </div>
+                <div className="think-main-actions__menu" ref={headerActionsMenuRef}>
+                  <QuietButton
+                    className={`list-button think-main-actions__utility ${headerActionsMenuOpen ? 'is-active' : ''}`}
+                    onClick={() => {
+                      setHeaderActionsMenuOpen((previous) => {
+                        const next = !previous;
+                        if (next) setHeaderNewMenuOpen(false);
+                        return next;
+                      });
+                    }}
+                    aria-haspopup="menu"
+                    aria-expanded={headerActionsMenuOpen}
+                    data-testid="think-header-actions-menu-button"
+                  >
+                    ••• Actions
+                  </QuietButton>
+                  {headerActionsMenuOpen && (
+                    <div className="think-main-actions__menu-popover" role="menu" data-testid="think-header-actions-menu">
+                      <button
+                        type="button"
+                        className="think-main-actions__menu-item"
+                        role="menuitem"
+                        onClick={() => {
+                          closeHeaderMenus();
+                          handleToggleExpandAllCards();
+                        }}
+                      >
+                        {cardsExpanded ? 'Collapse all' : 'Expand all'}
+                      </button>
+                      <button
+                        type="button"
+                        className={`think-main-actions__menu-item ${rightOpen ? 'is-active' : ''}`}
+                        role="menuitem"
+                        onClick={() => {
+                          closeHeaderMenus();
+                          handleToggleRight(!rightOpen);
+                        }}
+                      >
+                        {rightOpen ? 'Hide context' : 'Show context'}
+                      </button>
+                      {THINK_ADVANCED_NAV_ITEMS.map((item) => (
+                        <button
+                          key={item.value}
+                          type="button"
+                          className={`think-main-actions__menu-item ${activeView === item.value ? 'is-active' : ''}`}
+                          role="menuitem"
+                          onClick={() => {
+                            closeHeaderMenus();
+                            handleSelectView(item.value);
+                          }}
+                        >
+                          Open {item.label.toLowerCase()}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+        />
+      )}
       <AddToConceptModal
         open={addModal.open}
         mode={addModal.mode}

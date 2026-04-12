@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Noeis | Concepts - The Architecture of Silence</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,200..800;1,6..72,200..800&amp;family=Inter:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "surface-container-highest": "#eae8de",
+                        "on-primary-fixed": "#413f3d",
+                        "tertiary-fixed": "#fee4c6",
+                        "background": "#fffcf7",
+                        "surface-container-lowest": "#ffffff",
+                        "surface-container-high": "#f0eee5",
+                        "primary-dim": "#55524f",
+                        "tertiary": "#74614a",
+                        "tertiary-dim": "#67553e",
+                        "surface-bright": "#fffcf7",
+                        "on-secondary": "#ffffff",
+                        "primary-fixed": "#e7e1de",
+                        "on-secondary-fixed": "#413f3c",
+                        "secondary-container": "#e7e1dd",
+                        "on-background": "#383831",
+                        "on-primary": "#fcf7f3",
+                        "secondary": "#676461",
+                        "on-secondary-container": "#54514e",
+                        "on-tertiary-fixed-variant": "#6f5c45",
+                        "primary-container": "#e7e1de",
+                        "secondary-dim": "#5b5855",
+                        "on-tertiary-fixed": "#51402b",
+                        "secondary-fixed": "#e7e1dd",
+                        "on-surface-variant": "#65655c",
+                        "on-tertiary-container": "#64523c",
+                        "surface": "#fffcf7",
+                        "primary": "#615e5b",
+                        "surface-container": "#f6f4ec",
+                        "inverse-primary": "#ffffff",
+                        "surface-variant": "#eae8de",
+                        "on-surface": "#383831",
+                        "outline": "#818178",
+                        "on-error-container": "#742410",
+                        "secondary-fixed-dim": "#d9d3cf",
+                        "tertiary-fixed-dim": "#f0d6b9",
+                        "error-container": "#fe8b70",
+                        "on-primary-fixed-variant": "#5e5b58",
+                        "on-secondary-fixed-variant": "#5e5b58",
+                        "inverse-on-surface": "#9e9d98",
+                        "outline-variant": "#babab0",
+                        "primary-fixed-dim": "#d9d3d0",
+                        "on-tertiary": "#ffffff",
+                        "inverse-surface": "#0e0e0c",
+                        "on-error": "#ffffff",
+                        "error-dim": "#5c1202",
+                        "surface-tint": "#615e5b",
+                        "error": "#a54731",
+                        "surface-dim": "#e4e3d7",
+                        "surface-container-low": "#fcf9f3",
+                        "tertiary-container": "#fee4c6",
+                        "on-primary-container": "#54514f"
+                    },
+                    fontFamily: {
+                        "headline": ["Newsreader"],
+                        "body": ["Newsreader"],
+                        "label": ["Inter"]
+                    },
+                    borderRadius: {"DEFAULT": "0rem", "lg": "0rem", "xl": "0rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        body {
+            background-color: #fffcf7;
+            color: #383831;
+            font-family: 'Newsreader', serif;
+            -webkit-font-smoothing: antialiased;
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24;
+        }
+        .writing-surface {
+            max-width: 720px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        /* Custom selection color */
+        ::selection {
+            background: #eae8de;
+            color: #1a1918;
+        }
+    </style>
+</head>
+<body class="min-h-screen selection:bg-surface-container-highest overflow-x-hidden">
+<!-- TopNavBar -->
+<nav class="flex justify-between items-center w-full px-8 py-4 max-w-none fixed top-0 bg-[#fffcf7] z-50">
+<div class="flex items-center gap-12">
+<span class="text-2xl font-serif italic text-[#1a1918]">Noeis</span>
+<div class="hidden md:flex items-center gap-8">
+<a class="font-serif newsreader tracking-tight text-[#615e5b]/60 hover:text-[#1a1918] transition-colors duration-300" href="#">Library</a>
+<a class="font-serif newsreader tracking-tight text-[#1a1918] font-semibold border-b border-[#615e5b]" href="#">Concepts</a>
+<a class="font-serif newsreader tracking-tight text-[#615e5b]/60 hover:text-[#1a1918] transition-colors duration-300" href="#">Questions</a>
+</div>
+</div>
+<div class="flex items-center gap-6">
+<button class="material-symbols-outlined text-[#615e5b]">search</button>
+<button class="material-symbols-outlined text-[#615e5b]">account_circle</button>
+</div>
+</nav>
+<!-- SideNavBar (Right-aligned Marginalia Layer) -->
+<aside class="fixed right-0 top-0 h-full flex flex-col pt-20 z-40 bg-[#fcf9f3] w-80 border-l border-outline-variant/10">
+<div class="px-6 py-8">
+<div class="flex flex-col gap-1 mb-12">
+<span class="text-sm font-bold text-[#615e5b] uppercase tracking-widest font-sans inter text-xs">Intelligence</span>
+<span class="font-sans inter text-[10px] uppercase tracking-widest opacity-60">Marginalia Layer</span>
+</div>
+<nav class="flex flex-col gap-1">
+<button class="flex items-center gap-4 px-4 py-3 text-[#615e5b]/50 hover:bg-[#eae8de]/50 transition-all font-sans inter text-xs uppercase tracking-widest">
+<span class="material-symbols-outlined text-sm">menu_book</span>
+                    Context
+                </button>
+<button class="flex items-center gap-4 px-4 py-3 text-[#615e5b]/50 hover:bg-[#eae8de]/50 transition-all font-sans inter text-xs uppercase tracking-widest">
+<span class="material-symbols-outlined text-sm">auto_fix_high</span>
+                    Refinement
+                </button>
+<button class="flex items-center gap-4 px-4 py-3 text-[#615e5b]/50 hover:bg-[#eae8de]/50 transition-all font-sans inter text-xs uppercase tracking-widest">
+<span class="material-symbols-outlined text-sm">history_edu</span>
+                    Sources
+                </button>
+<button class="flex items-center gap-4 px-4 py-3 text-[#1a1918] bg-[#eae8de] font-bold translate-x-1 transition-transform font-sans inter text-xs uppercase tracking-widest">
+<span class="material-symbols-outlined text-sm">insights</span>
+                    Synthesis
+                </button>
+</nav>
+<!-- Marginalia Content -->
+<div class="mt-16 space-y-12">
+<section>
+<h4 class="font-sans inter text-[10px] font-bold uppercase tracking-widest text-primary mb-6">Active Tensions</h4>
+<div class="space-y-6">
+<div class="group">
+<p class="text-sm leading-relaxed text-on-surface italic border-l-2 border-tertiary/30 pl-4 py-1">
+                                The friction between "functional void" and "theological silence."
+                            </p>
+<span class="block mt-2 font-sans inter text-[9px] uppercase tracking-widest text-outline">Conflict #04</span>
+</div>
+<div class="group">
+<p class="text-sm leading-relaxed text-on-surface italic border-l-2 border-tertiary/30 pl-4 py-1">
+                                Minimalist utility vs. the atmospheric weight of negative space.
+                            </p>
+<span class="block mt-2 font-sans inter text-[9px] uppercase tracking-widest text-outline">Conflict #07</span>
+</div>
+</div>
+</section>
+<section>
+<h4 class="font-sans inter text-[10px] font-bold uppercase tracking-widest text-primary mb-6">Unresolved Questions</h4>
+<ul class="space-y-4 font-sans inter text-xs text-on-surface-variant">
+<li class="flex items-start gap-3">
+<span class="mt-1 w-1 h-1 bg-tertiary shrink-0"></span>
+                            How does the material choice (concrete vs wood) alter the 'frequency' of the silence?
+                        </li>
+<li class="flex items-start gap-3">
+<span class="mt-1 w-1 h-1 bg-tertiary shrink-0"></span>
+                            Is silence a physical property or a cognitive interpretation of rhythm?
+                        </li>
+</ul>
+</section>
+</div>
+</div>
+</aside>
+<!-- Main Content Canvas -->
+<main class="mr-80 pt-32 pb-40 px-8">
+<article class="writing-surface">
+<!-- Header Section -->
+<header class="mb-20">
+<div class="flex items-center gap-3 mb-6">
+<span class="font-sans inter text-[10px] uppercase tracking-[0.2em] text-outline px-2 py-1 bg-surface-container-high">Concept Refinement</span>
+<span class="font-sans inter text-[10px] uppercase tracking-[0.2em] text-outline">V.01.24</span>
+</div>
+<h1 class="text-6xl font-headline font-extrabold tracking-tight text-on-surface leading-[1.1]">
+                    The Architecture of Silence
+                </h1>
+<p class="mt-8 text-xl text-primary font-body italic leading-relaxed max-w-xl">
+                    Investigating the deliberate orchestration of negative space as a structural material in post-secular design.
+                </p>
+</header>
+<!-- Body Content with Fragments -->
+<div class="space-y-16">
+<!-- Section 1 -->
+<div class="relative">
+<p class="text-lg font-body leading-[1.8] text-on-surface mb-8">
+                        Silence is rarely the absence of noise; rather, it is a curated state of acoustic and visual stillness. In architectural terms, it is the threshold where the material world ceases its demand for attention. We see this not as a vacuum, but as a deliberate volume.
+                    </p>
+<!-- Library Fragment Integration -->
+<div class="relative my-12 py-8 px-10 bg-surface-container-low border-l border-tertiary/20">
+<div class="absolute -left-3 top-8 flex flex-col items-center">
+<span class="material-symbols-outlined text-tertiary text-sm">link</span>
+</div>
+<span class="font-sans inter text-[9px] uppercase tracking-widest text-tertiary block mb-4">Evidence Fragment: Zumthor (1998)</span>
+<blockquote class="text-lg font-headline italic leading-relaxed text-tertiary-dim">
+                            "Architecture is not about making boxes, it is about the spaces within them. The silence of a room must be constructed with the same precision as its walls."
+                        </blockquote>
+<div class="mt-6 flex gap-4">
+<span class="px-2 py-1 bg-surface-container-highest text-[10px] font-sans inter uppercase tracking-widest text-primary-dim">Phenomenology</span>
+<span class="px-2 py-1 bg-surface-container-highest text-[10px] font-sans inter uppercase tracking-widest text-primary-dim">Tonal Weight</span>
+</div>
+</div>
+<p class="text-lg font-body leading-[1.8] text-on-surface">
+                        When we analyze the 'Arch of Silence', we must look at the transition points. The foyer, the corridor, the cloister—these are the 'valleys' of attention that allow the mind to decompress from the 'peaks' of urban stimulation.
+                    </p>
+</div>
+<!-- Section 2: Interactive Synthesis Zone -->
+<div class="py-16 mt-20 border-t border-outline-variant/10">
+<h2 class="text-3xl font-headline font-bold mb-10 text-on-surface">Synthesizing the Voids</h2>
+<div class="grid grid-cols-12 gap-10">
+<div class="col-span-7 space-y-8">
+<div class="p-8 bg-surface-container-highest/40 border-b border-tertiary/10">
+<h3 class="font-sans inter text-[10px] font-bold uppercase tracking-widest mb-4 opacity-60">Working Thesis Segment</h3>
+<p class="text-xl font-headline leading-relaxed">
+                                    The "Architecture of Silence" operates as a counter-narrative to digital saturation. It is a physical manifestation of the 'Un-Interrupted' state.
+                                </p>
+</div>
+<p class="text-lg font-body leading-[1.8] text-on-surface">
+                                This suggests that silence is not a passive quality but an active intervention. It requires a rejection of the 'decorative' in favor of the 'elemental'.
+                            </p>
+</div>
+<div class="col-span-5 pt-4">
+<!-- Linked Evidence Visual -->
+<div class="group cursor-pointer">
+<div class="aspect-[4/5] bg-surface-container-high relative overflow-hidden mb-4">
+<img alt="Minimalist concrete interior with light beam" class="object-cover w-full h-full grayscale opacity-80 group-hover:opacity-100 transition-opacity duration-700" data-alt="Abstract minimalist concrete room with sunlight beam" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB0GW8J8YzxKgWMMO0ZZUI6XQrvNsyWpU2L7P2ELgSWa3JKeJC1GOwYAf8eqhUB3Ce8pJwPgebnaoFo6uS10y8dE34Ps_8Ckm0mKt8wOQZ-ZLtOjDWrCMGyAikZtoUwl5x2u-ss-kx-fqIGeGI5dBK0uoYbtmmTYa5u0wMS2y2cZNWMZCbwMGlDZpphBdF-kA_k5aFmfkIw25x7BWtThzIz63znNuIGcnKgwriPNJd42lP5ncp8af86EUM9B-AQDNZz4s6vpEDvjvkK"/>
+<div class="absolute inset-0 bg-primary/5"></div>
+</div>
+<div class="flex flex-col">
+<span class="font-sans inter text-[9px] uppercase tracking-widest text-outline">Ref 204: Monastic Minimal</span>
+<span class="text-sm font-headline italic mt-1">"The study of light as an instrument of quietness."</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Final Thought Buffer -->
+<div class="relative py-20 bg-surface-container-low -mx-12 px-12">
+<div class="writing-surface">
+<div class="flex items-center gap-2 mb-8 text-tertiary">
+<span class="material-symbols-outlined text-sm">auto_awesome</span>
+<span class="font-sans inter text-[10px] uppercase tracking-widest font-bold">AI Synthesis Node</span>
+</div>
+<p class="text-2xl font-headline leading-snug text-on-surface-variant">
+                            "If silence is structural, then the 'unbuilt' becomes the primary asset of the architect. Your draft is currently missing a bridge between the <span class="text-tertiary underline decoration-tertiary/30 underline-offset-4">physicality of light</span> and the <span class="text-tertiary underline decoration-tertiary/30 underline-offset-4">psychology of isolation</span>."
+                        </p>
+<div class="mt-10 flex gap-6">
+<button class="px-6 py-3 bg-primary text-on-primary font-sans inter text-[10px] uppercase tracking-widest hover:bg-primary-dim transition-colors">
+                                Explore This Connection
+                            </button>
+<button class="px-6 py-3 border border-outline-variant text-primary font-sans inter text-[10px] uppercase tracking-widest hover:bg-surface-container-high transition-colors">
+                                Dismiss Insight
+                            </button>
+</div>
+</div>
+</div>
+</div>
+</article>
+</main>
+<!-- Floating Action Element -->
+<div class="fixed bottom-12 left-12 flex flex-col gap-4">
+<button class="w-12 h-12 flex items-center justify-center bg-primary text-on-primary hover:bg-primary-dim transition-transform hover:-translate-y-1">
+<span class="material-symbols-outlined">add</span>
+</button>
+<button class="w-12 h-12 flex items-center justify-center bg-surface-container-highest text-primary hover:bg-surface-container-high transition-transform hover:-translate-y-1">
+<span class="material-symbols-outlined">save</span>
+</button>
+</div>
+<!-- Status Bar -->
+<footer class="fixed bottom-0 left-0 w-full bg-surface-container-low px-8 py-2 flex justify-between items-center z-50 border-t border-outline-variant/5">
+<div class="flex gap-8 font-sans inter text-[9px] uppercase tracking-widest text-outline">
+<span>Words: 1,402</span>
+<span>Focus: 84%</span>
+<span>Ref: 12 Active</span>
+</div>
+<div class="flex gap-4 font-sans inter text-[9px] uppercase tracking-widest text-outline">
+<span class="text-primary font-bold">Noeis Cloud Synced</span>
+<span>Last Edit: 2m ago</span>
+</div>
+</footer>
+</body></html>

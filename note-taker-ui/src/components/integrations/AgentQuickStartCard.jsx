@@ -1,5 +1,6 @@
 import React from 'react';
 import { Button, Card } from '../ui';
+import { AGENT_WORKER_ROLE_OPTIONS } from '../../constants/agentWorkerRoles';
 
 const AgentQuickStartCard = ({
   agentModel,
@@ -12,6 +13,8 @@ const AgentQuickStartCard = ({
     agentsError,
     agentName,
     setAgentName,
+    agentWorkerRoles,
+    setAgentWorkerRoles,
     creatingAgent,
     newAgentKey,
     handleCreateAgent
@@ -41,6 +44,37 @@ const AgentQuickStartCard = ({
         <Button variant="secondary" disabled={creatingAgent || !String(agentName || '').trim()} onClick={handleCreateAgent}>
           {creatingAgent ? 'Creating…' : 'Create agent'}
         </Button>
+      </div>
+      <div className="settings-import-row" style={{ marginTop: 8, flexWrap: 'wrap' }}>
+        <div style={{ flex: 1, minWidth: 240 }}>
+          <p className="muted-label">Specialist roles</p>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            {AGENT_WORKER_ROLE_OPTIONS.map((option) => {
+              const active = Array.isArray(agentWorkerRoles) && agentWorkerRoles.includes(option.role);
+              return (
+                <label key={option.role} className="muted small" style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
+                  <input
+                    type="checkbox"
+                    checked={active}
+                    disabled={creatingAgent}
+                    onChange={(event) => {
+                      const checked = event.target.checked;
+                      setAgentWorkerRoles((previous) => {
+                        const next = Array.isArray(previous) ? previous.filter(Boolean) : [];
+                        if (checked) return Array.from(new Set([...next, option.role]));
+                        return next.filter((role) => role !== option.role);
+                      });
+                    }}
+                  />
+                  {option.label}
+                </label>
+              );
+            })}
+          </div>
+          <p className="muted small" style={{ marginTop: 6 }}>
+            These tell the native orchestrator which kinds of work this BYO agent should be preferred for.
+          </p>
+        </div>
       </div>
 
       {agentsLoading ? (

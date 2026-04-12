@@ -30,6 +30,7 @@ import AiNoteTakingWorkflow from './pages/AiNoteTakingWorkflow';
 import PersonalKnowledgeManagementAi from './pages/PersonalKnowledgeManagementAi';
 import PrivacyPolicy from './pages/PrivacyPolicy';
 import TermsOfUse from './pages/TermsOfUse';
+import DesignPreview from './pages/DesignPreview';
 import CommandPalette from './components/CommandPalette';
 import { clearStoredTokens, hasUsableStoredToken } from './api';
 import { fetchUiSettings, saveUiSettings } from './api/uiSettings';
@@ -42,8 +43,6 @@ import {
 import { Page } from './components/ui';
 import AppShell from './layout/AppShell';
 import TopBar from './layout/TopBar';
-import ThreePaneLayout from './layout/ThreePaneLayout';
-import LeftNav from './layout/LeftNav';
 import TourProvider, { useTour } from './tour/TourProvider';
 import TourManager from './tour/TourManager';
 import { buildCanonicalArticlePath } from './utils/firstInsight';
@@ -59,6 +58,24 @@ import './styles/brand-energy.css';
 import './styles/calm-ui-global.css';
 import './styles/think-calm-d3a.css';
 import './styles/calm-ui-system.css';
+import './styles/design-preview.css';
+import './styles/stitch-editorial.css';
+
+const bootstrapDevTokenFromLocation = () => {
+  if (process.env.NODE_ENV !== 'development') return false;
+  if (typeof window === 'undefined') return false;
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const devToken = params.get('devToken');
+    if (!devToken) return false;
+    localStorage.setItem('token', devToken);
+    localStorage.setItem('authToken', devToken);
+    localStorage.setItem('jwt', devToken);
+    return true;
+  } catch (_error) {
+    return false;
+  }
+};
 
 const LegacyConceptRedirect = () => {
   const { tagName, tag } = useParams();
@@ -82,10 +99,22 @@ const PublicRoutes = ({ chromeStoreLink, handleLoginSuccess, uiSettings }) => {
     || location.pathname === '/ai-note-taking-workflow'
     || location.pathname === '/guides'
     || location.pathname === '/personal-knowledge-management-ai'
+    || location.pathname === '/design-preview'
   );
+  const isEditorialPublicRoute = (
+    location.pathname === '/'
+    || location.pathname === '/privacy'
+    || location.pathname === '/terms'
+    || isLongformRoute
+  );
+  const publicContainerClassName = [
+    'auth-pages-container',
+    isLongformRoute ? 'auth-pages-container--scroll' : '',
+    isEditorialPublicRoute ? 'auth-pages-container--public' : ''
+  ].filter(Boolean).join(' ');
 
   return (
-    <div className={isLongformRoute ? 'auth-pages-container auth-pages-container--scroll' : 'auth-pages-container'}>
+    <div className={publicContainerClassName}>
       <Routes>
         <Route path="/" element={<Landing />} />
         <Route path="/guides" element={<GuidesHub />} />
@@ -95,6 +124,7 @@ const PublicRoutes = ({ chromeStoreLink, handleLoginSuccess, uiSettings }) => {
         <Route path="/personal-knowledge-management-ai" element={<PersonalKnowledgeManagementAi />} />
         <Route path="/privacy" element={<PrivacyPolicy />} />
         <Route path="/terms" element={<TermsOfUse />} />
+        <Route path="/design-preview" element={<DesignPreview />} />
         <Route path="/register" element={<Register chromeStoreLink={chromeStoreLink} />} />
         <Route
           path="/login"
@@ -113,7 +143,9 @@ const PublicRoutes = ({ chromeStoreLink, handleLoginSuccess, uiSettings }) => {
 };
 
 function App() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(() => (
+    bootstrapDevTokenFromLocation() || hasUsableStoredToken()
+  ));
   const [isLoading, setIsLoading] = useState(true);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [uiSettings, setUiSettings] = useState(() => loadUiSettingsFromStorage());
@@ -123,7 +155,23 @@ function App() {
   const chromeStoreLink = "https://chromewebstore.google.com/detail/note-taker/bekllegjmjbnamphjnkifpijkhoiepaa?hl=en-US&utm_source=ext_sidebar";
 
   useEffect(() => {
-    if (hasUsableStoredToken()) {
+    if (process.env.NODE_ENV !== 'development') return;
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const devToken = params.get('devToken');
+      if (!devToken) return;
+      params.delete('devToken');
+      const nextQuery = params.toString();
+      const nextUrl = `${window.location.pathname}${nextQuery ? `?${nextQuery}` : ''}${window.location.hash || ''}`;
+      window.history.replaceState({}, '', nextUrl);
+      setIsAuthenticated(true);
+    } catch (_error) {
+      // Ignore malformed dev bootstrap parameters.
+    }
+  }, []);
+
+  useEffect(() => {
+    if (bootstrapDevTokenFromLocation() || hasUsableStoredToken()) {
       setIsAuthenticated(true);
     } else {
       clearStoredTokens();
@@ -132,9 +180,13 @@ function App() {
   }, []);
 
   useEffect(() => {
-    document.body.classList.add('calm-ui-global');
+    const root = document.documentElement;
+    const previousColorScheme = root.style.colorScheme;
+    document.body.classList.add('noeis-editorial');
+    root.style.colorScheme = 'light';
     return () => {
-      document.body.classList.remove('calm-ui-global');
+      document.body.classList.remove('noeis-editorial');
+      root.style.colorScheme = previousColorScheme;
     };
   }, []);
 
@@ -222,16 +274,70 @@ function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  const navItems = [
-    { label: 'Think', to: '/think' },
-    { label: 'Library', to: '/library' },
-    { label: 'Capture', to: '/data-integrations' },
-    { label: 'Map', to: '/map' },
-    { label: 'Return Queue', to: '/return-queue' },
-    { label: 'Review', to: '/review' },
-    { label: 'Settings', to: '/settings' },
-    { label: 'Today', to: '/today' },
-    { label: 'How To Use', to: '/how-to-use' }
+  const primaryNavItems = [
+    {
+      label: 'Library',
+      to: '/library',
+      match: (location) => location.pathname.startsWith('/library')
+    },
+    {
+      label: 'Notebook',
+      to: '/think?tab=notebook',
+      match: (location) => location.pathname.startsWith('/think') && new URLSearchParams(location.search).get('tab') === 'notebook'
+    },
+    {
+      label: 'Concepts',
+      to: '/think?tab=concepts',
+      match: (location) => location.pathname.startsWith('/think') && new URLSearchParams(location.search).get('tab') === 'concepts'
+    },
+    {
+      label: 'Questions',
+      to: '/think?tab=questions',
+      match: (location) => location.pathname.startsWith('/think') && new URLSearchParams(location.search).get('tab') === 'questions'
+    }
+  ];
+
+  const secondaryNavItems = [
+    {
+      label: 'Think Home',
+      to: '/think?tab=home',
+      match: (location) => location.pathname.startsWith('/think') && new URLSearchParams(location.search).get('tab') === 'home'
+    },
+    {
+      label: 'Today',
+      to: '/today',
+      match: (location) => location.pathname.startsWith('/today')
+    },
+    {
+      label: 'Review',
+      to: '/review',
+      match: (location) => location.pathname.startsWith('/review')
+    },
+    {
+      label: 'Capture',
+      to: '/data-integrations',
+      match: (location) => location.pathname.startsWith('/data-integrations')
+    },
+    {
+      label: 'Map',
+      to: '/map',
+      match: (location) => location.pathname.startsWith('/map')
+    },
+    {
+      label: 'Return Queue',
+      to: '/return-queue',
+      match: (location) => location.pathname.startsWith('/return-queue')
+    },
+    {
+      label: 'Settings',
+      to: '/settings',
+      match: (location) => location.pathname.startsWith('/settings')
+    },
+    {
+      label: 'How To Use',
+      to: '/how-to-use',
+      match: (location) => location.pathname.startsWith('/how-to-use')
+    }
   ];
 
   if (isLoading) {
@@ -241,33 +347,28 @@ function App() {
   const AppLayout = () => {
     const location = useLocation();
     const tour = useTour();
+    const locationSearch = new URLSearchParams(location.search);
     const hasSeenLanding = localStorage.getItem('hasSeenLanding') === 'true';
-    const isLibraryRoute = location.pathname.startsWith('/library');
-    const isThinkRoute = location.pathname.startsWith('/think');
-    const isReturnQueueRoute = location.pathname.startsWith('/return-queue');
-    const isMapRoute = location.pathname.startsWith('/map');
-    const isReviewRoute = location.pathname.startsWith('/review');
-    const isTodayRoute = location.pathname.startsWith('/today');
-    const isSeoRoute = (
-      location.pathname === '/ai-second-brain'
-      || location.pathname === '/second-brain-app'
-      || location.pathname === '/ai-note-taking-workflow'
-      || location.pathname === '/guides'
-      || location.pathname === '/personal-knowledge-management-ai'
+    const isConceptRoute = (
+      location.pathname.startsWith('/think')
+      && locationSearch.get('tab') === 'concepts'
     );
-    const isLegacyRedirectRoute = (
-      location.pathname.startsWith('/articles/')
-      || location.pathname === '/journey'
-      || location.pathname === '/resurface'
-      || location.pathname === '/brain'
-      || location.pathname === '/notebook'
-    );
-    const leftPlaceholder = (
-      <div className="muted small">Sections will live here.</div>
-    );
-    const rightPlaceholder = (
-      <div className="muted small">Context will live here.</div>
-    );
+    const topBarSecondaryNav = isConceptRoute ? [] : secondaryNavItems;
+    const topBarAccountMenuItems = [
+      {
+        label: 'Settings',
+        onClick: () => { window.location.href = '/settings'; }
+      },
+      {
+        label: 'Chrome Extension',
+        href: chromeStoreLink,
+        external: true
+      },
+      {
+        label: 'Logout',
+        onClick: handleLogout
+      }
+    ];
 
     const routes = (
       <Page className="page-area">
@@ -301,6 +402,7 @@ function App() {
           <Route path="/personal-knowledge-management-ai" element={<PersonalKnowledgeManagementAi />} />
           <Route path="/privacy" element={<PrivacyPolicy />} />
           <Route path="/terms" element={<TermsOfUse />} />
+          <Route path="/design-preview" element={<DesignPreview />} />
 
           {/* Legacy/feature routes kept for compatibility */}
           <Route path="/brain" element={<Navigate to="/review?tab=patterns" replace />} />
@@ -333,49 +435,24 @@ function App() {
     return (
       <AppShell
         brandEnergy={uiSettings.brandEnergy}
-        leftNav={<LeftNav items={navItems} />}
         topBar={(
           <TopBar
             brandEnergy={uiSettings.brandEnergy}
-            helpMenu={{
+            primaryNav={primaryNavItems}
+            secondaryNav={topBarSecondaryNav}
+            searchMode={isConceptRoute ? 'icon' : 'field'}
+            helpMenu={isConceptRoute ? null : {
               onStart: () => tour.startTour(),
               onResume: () => tour.resumeTour(),
               onRestart: () => tour.restartTour(),
               canResume: tour.state.status !== 'not_started' && tour.state.status !== 'completed'
             }}
-            rightSlot={(
-              <>
-                <a
-                  href={chromeStoreLink}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="topbar__button"
-                  data-tour-anchor="install-extension"
-                >
-                  Chrome Extension (Optional)
-                </a>
-                <a href="/settings" className="topbar__button" title="Profile and settings">
-                  Profile
-                </a>
-                <button className="topbar__button" onClick={handleLogout}>Logout</button>
-              </>
-            )}
+            accountMenuItems={topBarAccountMenuItems}
+            className={isConceptRoute ? 'topbar--manuscript' : ''}
           />
         )}
       >
-        {(isLibraryRoute || isThinkRoute || isMapRoute || isReturnQueueRoute || isReviewRoute || isTodayRoute || isSeoRoute || isLegacyRedirectRoute) ? (
-          routes
-        ) : (
-          <ThreePaneLayout
-            left={leftPlaceholder}
-            main={routes}
-            right={rightPlaceholder}
-            rightTitle="Context"
-            defaultLeftOpen={false}
-            defaultRightOpen={false}
-            rightToggleLabel="Context"
-          />
-        )}
+        {routes}
       </AppShell>
     );
   };

@@ -8,6 +8,7 @@ const ThreePaneLayout = ({
   left,
   main,
   right,
+  className = '',
   rightTitle = 'Context',
   leftOpen,
   rightOpen,
@@ -55,7 +56,7 @@ const ThreePaneLayout = ({
 
   return (
     <div
-      className={`three-pane ${(!hasLeft || !effectiveLeftOpen) ? 'three-pane--left-collapsed' : ''} ${(!hasRight || !effectiveRightOpen) ? 'three-pane--right-collapsed' : ''}`}
+      className={`three-pane ${className} ${(!hasLeft || !effectiveLeftOpen) ? 'three-pane--left-collapsed' : ''} ${(!hasRight || !effectiveRightOpen) ? 'three-pane--right-collapsed' : ''}`}
     >
       <LeftRail collapsed={!hasLeft || !effectiveLeftOpen}>
         {left}

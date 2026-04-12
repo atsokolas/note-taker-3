@@ -22,8 +22,14 @@ const useConcept = (name, options = {}) => {
   }, [enabled, name]);
 
   useEffect(() => {
+    if (!enabled || !name) {
+      setConcept(null);
+      setLoading(false);
+      setError('');
+      return;
+    }
     fetchConcept();
-  }, [fetchConcept]);
+  }, [enabled, fetchConcept, name]);
 
   return { concept, loading, error, refresh: fetchConcept, setConcept };
 };

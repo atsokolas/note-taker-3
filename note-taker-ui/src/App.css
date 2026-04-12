@@ -1893,6 +1893,7 @@ body {
 
 .auth-pages-container--scroll {
     align-items: stretch;
+    justify-content: stretch;
     overflow-y: auto;
 }
 

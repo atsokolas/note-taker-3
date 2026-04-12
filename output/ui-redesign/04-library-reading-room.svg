@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="900" viewBox="0 0 1440 900">
+  <rect width="1440" height="900" fill="#f7f1e8"/>
+  <rect x="0" y="0" width="1440" height="74" fill="#f2e8d8"/>
+  <text x="54" y="45" font-family="Georgia, serif" font-size="30" fill="#2f261f">Noeis</text>
+
+  <rect x="34" y="110" width="280" height="710" rx="28" fill="#f4ebdd"/>
+  <text x="70" y="168" font-family="Arial, sans-serif" font-size="14" letter-spacing="2" fill="#9e8462">CABINET</text>
+  <text x="70" y="216" font-family="Georgia, serif" font-size="34" fill="#2f261f">Saved views</text>
+  <line x1="70" y1="244" x2="272" y2="244" stroke="#d8c5ad" stroke-width="2"/>
+  <text x="70" y="292" font-family="Arial, sans-serif" font-size="22" fill="#2f261f">All Articles</text>
+  <text x="236" y="292" font-family="Arial, sans-serif" font-size="18" fill="#8d7963">15</text>
+  <text x="70" y="334" font-family="Arial, sans-serif" font-size="22" fill="#2f261f">Robots</text>
+  <text x="236" y="334" font-family="Arial, sans-serif" font-size="18" fill="#8d7963">8</text>
+  <text x="70" y="376" font-family="Arial, sans-serif" font-size="22" fill="#2f261f">People</text>
+  <text x="236" y="376" font-family="Arial, sans-serif" font-size="18" fill="#8d7963">3</text>
+  <text x="70" y="460" font-family="Arial, sans-serif" font-size="20" fill="#7a6857">The left side should feel like shelving, not a filter matrix.</text>
+
+  <text x="350" y="140" font-family="Arial, sans-serif" font-size="14" letter-spacing="2" fill="#9e8462">LIBRARY</text>
+  <text x="350" y="198" font-family="Georgia, serif" font-size="58" fill="#2f261f">Inside China's robotics revolution</text>
+  <text x="350" y="234" font-family="Arial, sans-serif" font-size="22" fill="#7a6857">Make the article the room. Metadata and reuse sit in the margins.</text>
+
+  <rect x="350" y="280" width="760" height="540" rx="28" fill="#fbf7f0" stroke="#dccbb5"/>
+  <text x="410" y="352" font-family="Georgia, serif" font-size="30" fill="#56473a">Chen Liang, the founder of Guchi Robotics, an automation company headquartered</text>
+  <text x="410" y="394" font-family="Georgia, serif" font-size="30" fill="#56473a">in Shanghai, is a tall, heavy-set man in his mid-40s with square-rimmed glasses.</text>
+  <text x="410" y="436" font-family="Georgia, serif" font-size="30" fill="#56473a">His everyday manner is calm and understated, but when he is in his element</text>
+  <text x="410" y="478" font-family="Georgia, serif" font-size="30" fill="#56473a">up close with the technology he builds he wears an exuberant smile.</text>
+  <rect x="406" y="520" width="308" height="112" rx="18" fill="#efe4d2"/>
+  <text x="438" y="570" font-family="Arial, sans-serif" font-size="20" fill="#2f261f">Highlight selected</text>
+  <text x="438" y="602" font-family="Arial, sans-serif" font-size="18" fill="#7a6857">Tag to concept or attach to question</text>
+
+  <rect x="1140" y="280" width="236" height="540" rx="28" fill="#f4ebdd"/>
+  <text x="1172" y="332" font-family="Arial, sans-serif" font-size="14" letter-spacing="2" fill="#9e8462">MARGINALIA</text>
+  <text x="1172" y="382" font-family="Georgia, serif" font-size="30" fill="#2f261f">Context</text>
+  <text x="1172" y="430" font-family="Arial, sans-serif" font-size="20" fill="#7a6857">Used by</text>
+  <text x="1172" y="462" font-family="Arial, sans-serif" font-size="20" fill="#2f261f">Concept: Labor substitution</text>
+  <text x="1172" y="508" font-family="Arial, sans-serif" font-size="20" fill="#7a6857">Recent highlights</text>
+  <text x="1172" y="540" font-family="Arial, sans-serif" font-size="20" fill="#2f261f">2 surfaced this week</text>
+  <text x="1172" y="586" font-family="Arial, sans-serif" font-size="20" fill="#7a6857">Ask</text>
+  <text x="1172" y="618" font-family="Arial, sans-serif" font-size="20" fill="#2f261f">What weakens the current thesis?</text>
+  <text x="350" y="848" font-family="Arial, sans-serif" font-size="20" fill="#a38258">Layout change: keep the long-form reading experience intact and move all utility into shelf and margin behaviors.</text>
+</svg>

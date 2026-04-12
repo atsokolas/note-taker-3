@@ -4,6 +4,7 @@ import QuestionBlocksEditor from './QuestionBlocksEditor';
 import InsertHighlightModal from '../notebook/InsertHighlightModal';
 import ReturnLaterControl from '../../return-queue/ReturnLaterControl';
 import useHighlights from '../../../hooks/useHighlights';
+import AgentSkillDock from '../../agent/AgentSkillDock';
 
 const createId = () => {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
@@ -22,7 +23,20 @@ const normalizeBlocks = (blocks = []) => {
   }));
 };
 
-const QuestionEditor = ({ question, saving, error, onSave, onRegisterInsert, onSynthesize }) => {
+const QuestionEditor = ({
+  question,
+  saving,
+  error,
+  onSave,
+  onRegisterInsert,
+  onSynthesize,
+  variant = 'default',
+  showTitleField = true,
+  onInvokeAgentSkill = null,
+  agentContextType = 'question',
+  agentContextId = '',
+  agentContextTitle = ''
+}) => {
   const [titleDraft, setTitleDraft] = useState('');
   const [blocksDraft, setBlocksDraft] = useState([]);
   const [insertOpen, setInsertOpen] = useState(false);
@@ -70,15 +84,17 @@ const QuestionEditor = ({ question, saving, error, onSave, onRegisterInsert, onS
   }
 
   return (
-    <div className="think-question-editor">
+    <div className={`think-question-editor${variant === 'editorial' ? ' is-editorial' : ''}`}>
       <div className="think-question-editor-header">
-        <input
-          type="text"
-          className="think-question-title-input"
-          value={titleDraft}
-          onChange={(event) => setTitleDraft(event.target.value)}
-          placeholder="Untitled question"
-        />
+        {showTitleField && (
+          <input
+            type="text"
+            className="think-question-title-input"
+            value={titleDraft}
+            onChange={(event) => setTitleDraft(event.target.value)}
+            placeholder="Untitled question"
+          />
+        )}
         <div className="think-question-editor-actions">
           <ReturnLaterControl
             itemType="question"
@@ -91,6 +107,18 @@ const QuestionEditor = ({ question, saving, error, onSave, onRegisterInsert, onS
           <Button onClick={handleSave} disabled={saving}>{saving ? 'Saving…' : 'Save'}</Button>
         </div>
       </div>
+      <AgentSkillDock
+        surface="question"
+        contextType="question"
+        contextId={question?._id}
+        targetContextType={agentContextType}
+        targetContextId={agentContextId || question?._id}
+        contextTitle={agentContextTitle || titleDraft || question?.text || 'Question'}
+        subtitle="Use a draft-first move to clarify what this question should prove or unlock."
+        className={`think-question-editor__skills${variant === 'editorial' ? ' agent-skill-dock--inline' : ''}`}
+        maxVisible={variant === 'editorial' ? 4 : 6}
+        onInvoke={onInvokeAgentSkill}
+      />
       {error && <p className="status-message error-message">{error}</p>}
       <QuestionBlocksEditor
         blocks={blocksDraft}

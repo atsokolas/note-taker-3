@@ -3,3 +3,5 @@
 node_modules/
 .tools/
 server/logs/
+.vercel
+.gstack/

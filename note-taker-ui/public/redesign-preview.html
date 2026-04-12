@@ -1,0 +1,869 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Noeis Redesign Preview</title>
+    <style>
+      :root {
+        --bg: #dfc7aa;
+        --bg-soft: #eadcca;
+        --paper: #f7efe4;
+        --paper-2: #f3e7d5;
+        --line: rgba(86, 63, 37, 0.16);
+        --line-strong: rgba(86, 63, 37, 0.28);
+        --ink: #2c231c;
+        --muted: #73614f;
+        --accent: #8f6a41;
+        --accent-soft: rgba(143, 106, 65, 0.12);
+      }
+
+      * { box-sizing: border-box; }
+
+      html, body {
+        margin: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background:
+          radial-gradient(circle at top left, rgba(255, 246, 231, 0.72), transparent 32%),
+          radial-gradient(circle at top right, rgba(232, 212, 182, 0.6), transparent 26%),
+          linear-gradient(180deg, #e7d7c4 0%, #d8c1a1 100%);
+        color: var(--ink);
+        font-family: "Avenir Next", "Helvetica Neue", Arial, sans-serif;
+      }
+
+      body::before {
+        content: "";
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        background:
+          repeating-linear-gradient(0deg, rgba(76, 50, 20, 0.02) 0 1px, transparent 1px 11px),
+          linear-gradient(90deg, rgba(255, 255, 255, 0.06) 0, rgba(255,255,255,0) 32%);
+      }
+
+      .screen {
+        display: none;
+        width: 100vw;
+        height: 100vh;
+        padding: 20px;
+      }
+
+      .screen.is-active {
+        display: block;
+      }
+
+      .frame {
+        width: 100%;
+        height: 100%;
+        border-radius: 30px;
+        overflow: hidden;
+        background: rgba(248, 240, 230, 0.94);
+        border: 1px solid rgba(89, 64, 37, 0.14);
+        box-shadow:
+          0 28px 90px rgba(71, 44, 16, 0.18),
+          inset 0 1px 0 rgba(255,255,255,0.62);
+      }
+
+      .topbar {
+        display: grid;
+        grid-template-columns: 220px 1fr auto;
+        gap: 20px;
+        align-items: center;
+        padding: 18px 24px;
+        border-bottom: 1px solid var(--line);
+        background: rgba(251, 246, 239, 0.84);
+      }
+
+      .brand, .brand-block {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+      }
+
+      .brand-mark {
+        width: 38px;
+        height: 38px;
+        border-radius: 12px;
+        display: grid;
+        place-items: center;
+        background: linear-gradient(145deg, #bf9965 0%, #7c5630 100%);
+        color: #fff9ef;
+        font-weight: 800;
+      }
+
+      .brand-name, .left-brand-title, .page-title, h1, h2, h3, h4, .hero-line, .big-claim {
+        font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif;
+        letter-spacing: -0.03em;
+      }
+
+      .brand-name {
+        font-size: 28px;
+        font-weight: 700;
+      }
+
+      .search {
+        height: 52px;
+        display: flex;
+        align-items: center;
+        padding: 0 20px;
+        border-radius: 999px;
+        background: rgba(255,255,255,0.74);
+        border: 1px solid var(--line);
+        color: rgba(115, 97, 79, 0.8);
+        font-size: 15px;
+      }
+
+      .pills, .tabs, .actions, .state-row {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+
+      .pill, .tab, .action, .state {
+        padding: 10px 14px;
+        border-radius: 999px;
+        border: 1px solid var(--line-strong);
+        background: rgba(252, 248, 242, 0.76);
+        color: var(--ink);
+        font-size: 13px;
+      }
+
+      .pill.strong, .action.strong {
+        background: linear-gradient(180deg, #a77b48 0%, #8e693d 100%);
+        border-color: rgba(126, 90, 46, 0.36);
+        color: #fff7ed;
+      }
+
+      .shell {
+        display: grid;
+        grid-template-columns: 230px 1fr 330px;
+        height: calc(100% - 89px);
+      }
+
+      .left, .right {
+        padding: 20px 18px;
+        background: rgba(244, 233, 218, 0.7);
+      }
+
+      .left { border-right: 1px solid var(--line); }
+      .right { border-left: 1px solid var(--line); }
+
+      .left-brand-title {
+        font-size: 30px;
+        font-weight: 700;
+      }
+
+      .left-brand-subtitle {
+        font-size: 13px;
+        color: var(--muted);
+      }
+
+      .nav {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        margin-top: 22px;
+      }
+
+      .nav-item {
+        display: grid;
+        grid-template-columns: 14px 1fr;
+        gap: 12px;
+        align-items: center;
+        padding: 12px 10px;
+        border-radius: 16px;
+        color: var(--muted);
+        font-size: 14px;
+      }
+
+      .nav-item.active {
+        background: rgba(255,255,255,0.52);
+        color: var(--ink);
+      }
+
+      .dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 999px;
+        background: rgba(91, 64, 36, 0.4);
+      }
+
+      .nav-item.active .dot {
+        background: var(--accent);
+      }
+
+      .left-note, .context-card, .panel, .paper, .shelf, .dispatch, .return-panel {
+        border-radius: 24px;
+        border: 1px solid var(--line);
+        background: rgba(251, 246, 239, 0.76);
+        box-shadow: inset 0 1px 0 rgba(255,255,255,0.5);
+      }
+
+      .left-note {
+        margin-top: 24px;
+        padding: 16px;
+        font-size: 13px;
+        line-height: 1.6;
+        color: var(--muted);
+      }
+
+      .main {
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+      }
+
+      .main-header {
+        padding: 28px 32px 22px;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .kicker {
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        color: rgba(88, 65, 38, 0.62);
+      }
+
+      .page-title {
+        margin-top: 8px;
+        font-size: 64px;
+        line-height: 0.96;
+      }
+
+      .subtitle {
+        margin-top: 10px;
+        max-width: 760px;
+        color: var(--muted);
+        font-size: 16px;
+      }
+
+      .tabs { margin-top: 20px; }
+      .tab.active { background: rgba(255,255,255,0.84); }
+
+      .content {
+        padding: 30px 32px 34px;
+        flex: 1;
+        min-height: 0;
+      }
+
+      .context {
+        display: flex;
+        flex-direction: column;
+        gap: 18px;
+      }
+
+      .context h3 {
+        font-size: 38px;
+        line-height: 0.98;
+        margin: 0;
+      }
+
+      .context p, .mini-copy {
+        color: var(--muted);
+        font-size: 15px;
+        line-height: 1.6;
+        margin: 0;
+      }
+
+      .mini-label {
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        color: rgba(88, 65, 38, 0.62);
+        margin-bottom: 6px;
+      }
+
+      .stack {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+      }
+
+      .home-grid {
+        display: grid;
+        grid-template-rows: auto auto;
+        gap: 24px;
+        height: 100%;
+      }
+
+      .lead, .queue, .claim-panel, .draft-paper, .document-paper, .reader-paper {
+        border-radius: 24px;
+        border: 1px solid var(--line);
+        background: rgba(251, 246, 239, 0.78);
+      }
+
+      .lead {
+        padding: 28px 30px;
+      }
+
+      .hero-line {
+        margin-top: 14px;
+        font-size: 52px;
+        line-height: 0.98;
+      }
+
+      .lead p {
+        max-width: 900px;
+        margin-top: 14px;
+        font-size: 17px;
+        line-height: 1.6;
+        color: var(--muted);
+      }
+
+      .thread-footer {
+        display: flex;
+        gap: 18px;
+        flex-wrap: wrap;
+        margin-top: 22px;
+        padding-top: 18px;
+        border-top: 1px solid var(--line);
+      }
+
+      .thread-stat span {
+        display: block;
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.14em;
+        color: rgba(109, 86, 59, 0.68);
+      }
+
+      .thread-stat strong {
+        display: block;
+        margin-top: 8px;
+        font-size: 16px;
+      }
+
+      .queue {
+        padding: 24px 26px;
+      }
+
+      .panel-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: end;
+        gap: 16px;
+        margin-bottom: 8px;
+      }
+
+      .panel-title {
+        font-size: 34px;
+        margin-top: 6px;
+      }
+
+      .rows, .return-list {
+        display: flex;
+        flex-direction: column;
+      }
+
+      .row {
+        display: flex;
+        justify-content: space-between;
+        gap: 14px;
+        padding: 18px 0;
+        border-top: 1px solid var(--line);
+      }
+
+      .row:first-child { border-top: none; }
+
+      .row strong, .return-item strong, .shelf-item span:first-child {
+        display: block;
+        font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif;
+        font-size: 23px;
+        letter-spacing: -0.02em;
+      }
+
+      .row span, .row-meta, .shelf-item span:last-child {
+        color: var(--muted);
+        font-size: 14px;
+      }
+
+      .row-meta { white-space: nowrap; }
+
+      .doc-layout {
+        display: grid;
+        grid-template-rows: 1fr auto;
+        gap: 20px;
+        height: 100%;
+      }
+
+      .document-paper, .reader-paper {
+        padding: 36px 40px;
+      }
+
+      .paper-title {
+        margin: 18px 0 24px;
+        font-size: 48px;
+        line-height: 0.98;
+      }
+
+      .document-paper p, .reader-paper p, .draft-paper p {
+        margin: 0 0 22px;
+        font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif;
+        font-size: 28px;
+        line-height: 1.58;
+        color: rgba(71, 56, 44, 0.92);
+      }
+
+      blockquote {
+        margin: 24px 0;
+        padding: 18px 24px;
+        border-left: 4px solid rgba(155, 115, 65, 0.48);
+        background: rgba(155, 115, 65, 0.08);
+        border-radius: 0 18px 18px 0;
+        font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif;
+        font-size: 30px;
+        line-height: 1.5;
+      }
+
+      .concept-stack {
+        display: flex;
+        flex-direction: column;
+        gap: 22px;
+        height: 100%;
+      }
+
+      .claim-panel, .draft-paper, .dispatch, .return-panel, .shelf {
+        padding: 24px 26px;
+      }
+
+      .big-claim {
+        margin-top: 14px;
+        font-size: 46px;
+        line-height: 1.02;
+      }
+
+      .draft-grid {
+        display: grid;
+        grid-template-columns: 1fr 300px;
+        gap: 18px;
+        flex: 1;
+      }
+
+      .evidence {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      }
+
+      .evidence-card, .context-card, .return-item {
+        padding: 16px 18px;
+        border-radius: 18px;
+        border: 1px solid var(--line);
+        background: rgba(255,255,255,0.5);
+      }
+
+      .evidence-card.warning {
+        background: rgba(165, 102, 47, 0.08);
+        border-color: rgba(165, 102, 47, 0.22);
+      }
+
+      .evidence-card p { font-size: 15px; margin: 10px 0 0; color: var(--muted); }
+
+      .library-grid {
+        display: grid;
+        grid-template-columns: 240px 1fr;
+        gap: 20px;
+        height: 100%;
+      }
+
+      .shelf-list {
+        display: flex;
+        flex-direction: column;
+        margin-top: 10px;
+      }
+
+      .shelf-item {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 18px 0;
+        border-top: 1px solid var(--line);
+      }
+
+      .shelf-item:first-child { border-top: none; }
+      .highlight-callout {
+        margin-top: 28px;
+        padding: 18px 20px;
+        border-radius: 18px;
+        background: rgba(155, 115, 65, 0.09);
+        border: 1px solid rgba(155, 115, 65, 0.2);
+      }
+
+      .handoff-grid {
+        display: grid;
+        grid-template-columns: 350px 1fr;
+        gap: 20px;
+        height: 100%;
+      }
+
+      .dispatch-stack {
+        display: grid;
+        grid-template-rows: auto 1fr;
+        gap: 20px;
+      }
+
+      .return-list { gap: 16px; margin-top: 18px; }
+      .return-item span { display:block; margin-top: 8px; color: var(--muted); font-size: 15px; line-height: 1.6; }
+    </style>
+  </head>
+  <body>
+    <section class="screen" data-screen="home">
+      <div class="frame">
+        <div class="topbar">
+          <div class="brand"><div class="brand-mark">N</div><div class="brand-name">Noeis</div></div>
+          <div class="search">Search notes, questions, concepts, and highlights</div>
+          <div class="pills"><div class="pill">Tour</div><div class="pill">Extensions</div><div class="pill strong">Profile</div></div>
+        </div>
+        <div class="shell">
+          <aside class="left">
+            <div class="brand-block"><div class="brand-mark">N</div><div><div class="left-brand-title">Noeis</div><div class="left-brand-subtitle">Thinking system</div></div></div>
+            <div class="nav">
+              <div class="nav-item active"><span class="dot"></span><span>Think</span></div>
+              <div class="nav-item"><span class="dot"></span><span>Library</span></div>
+              <div class="nav-item"><span class="dot"></span><span>Capture</span></div>
+              <div class="nav-item"><span class="dot"></span><span>Map</span></div>
+              <div class="nav-item"><span class="dot"></span><span>Return Queue</span></div>
+              <div class="nav-item"><span class="dot"></span><span>Review</span></div>
+              <div class="nav-item"><span class="dot"></span><span>Today</span></div>
+              <div class="nav-item"><span class="dot"></span><span>How To Use</span></div>
+            </div>
+            <div class="left-note">What matters here: one open thread, one queue, one recommendation.</div>
+          </aside>
+          <main class="main">
+            <div class="main-header">
+              <div class="kicker">WORK IN MOTION</div>
+              <div class="page-title">Think</div>
+              <div class="subtitle">Resume the active thread, see what changed, and move directly into the next judgment.</div>
+              <div class="tabs">
+                <div class="tab active">Home</div><div class="tab">Notebook</div><div class="tab">Concepts</div><div class="tab">Questions</div><div class="tab">Handoffs</div>
+              </div>
+            </div>
+            <div class="content">
+              <div class="home-grid">
+                <section class="lead">
+                  <div class="kicker">CURRENT THREAD</div>
+                  <div class="hero-line">Why do durable organizations decay after success?</div>
+                  <p>Last move: the agent found two contradictions, one historical analogue, and a stronger causal phrase for the current argument.</p>
+                  <div class="actions"><div class="action strong">Open thread</div><div class="action">Challenge claim</div><div class="action">Pull evidence</div></div>
+                  <div class="thread-footer">
+                    <div class="thread-stat"><span>Revision</span><strong>13</strong></div>
+                    <div class="thread-stat"><span>Support attached</span><strong>12 sources</strong></div>
+                    <div class="thread-stat"><span>Open tension</span><strong>1 contradiction</strong></div>
+                  </div>
+                </section>
+                <section class="queue">
+                  <div class="panel-head"><div><div class="kicker">QUESTIONS IN MOTION</div><div class="panel-title">Active queue</div></div><div class="row-meta">View all</div></div>
+                  <div class="rows">
+                    <div class="row"><div><strong>How do people generate non-obvious insights?</strong><span>2 contradictions open</span></div><div class="row-meta">Open</div></div>
+                    <div class="row"><div><strong>Why did Intel lose architectural momentum?</strong><span>12 sources attached</span></div><div class="row-meta">New support</div></div>
+                    <div class="row"><div><strong>What weakens organizational memory?</strong><span>Needs a first framing pass</span></div><div class="row-meta">Draft</div></div>
+                  </div>
+                </section>
+              </div>
+            </div>
+          </main>
+          <aside class="right">
+            <div class="context">
+              <div class="kicker">NEXT MOVE</div>
+              <h3>Pressure-test the founder transition clause.</h3>
+              <p>One contradiction remains unresolved. Open the Intel note and compare it to the current claim.</p>
+              <div class="stack">
+                <div><div class="mini-label">What changed</div><div class="mini-copy">Causal language tightened. Two supports added.</div></div>
+                <div><div class="mini-label">Support</div><div class="mini-copy">3 excerpts now attached to the argument.</div></div>
+              </div>
+            </div>
+          </aside>
+        </div>
+      </div>
+    </section>
+
+    <section class="screen" data-screen="notebook">
+      <div class="frame">
+        <div class="topbar">
+          <div class="brand"><div class="brand-mark">N</div><div class="brand-name">Noeis</div></div>
+          <div class="search">Search notes, questions, concepts, and highlights</div>
+          <div class="pills"><div class="pill">Tour</div><div class="pill">Extensions</div><div class="pill strong">Profile</div></div>
+        </div>
+        <div class="shell">
+          <aside class="left">
+            <div class="brand-block"><div class="brand-mark">N</div><div><div class="left-brand-title">Noeis</div><div class="left-brand-subtitle">Thinking system</div></div></div>
+            <div class="nav">
+              <div class="nav-item active"><span class="dot"></span><span>Think</span></div>
+              <div class="nav-item"><span class="dot"></span><span>Library</span></div>
+              <div class="nav-item"><span class="dot"></span><span>Capture</span></div>
+              <div class="nav-item"><span class="dot"></span><span>Map</span></div>
+              <div class="nav-item"><span class="dot"></span><span>Return Queue</span></div>
+              <div class="nav-item"><span class="dot"></span><span>Review</span></div>
+              <div class="nav-item"><span class="dot"></span><span>Today</span></div>
+              <div class="nav-item"><span class="dot"></span><span>How To Use</span></div>
+            </div>
+            <div class="left-note">Notebook should feel like reading, not administration.</div>
+          </aside>
+          <main class="main">
+            <div class="main-header">
+              <div class="kicker">NOTEBOOK ENTRY</div>
+              <div class="page-title">Readings</div>
+              <div class="subtitle">The writing surface dominates. Tools appear only when they sharpen recall or reuse.</div>
+              <div class="tabs">
+                <div class="tab">Home</div><div class="tab active">Notebook</div><div class="tab">Concepts</div><div class="tab">Questions</div><div class="tab">Handoffs</div>
+              </div>
+            </div>
+            <div class="content">
+              <div class="doc-layout">
+                <article class="document-paper">
+                  <div class="kicker">Imported from Readwise · Updated 2 days ago · 4 highlights attached</div>
+                  <div class="paper-title">How the Readwise-to-Notion export works</div>
+                  <p>Readwise is now connected to your Notion account. New highlights imported by Readwise will automatically synchronize with Notion.</p>
+                  <p>The deeper issue is not capture. It is whether saved material can return at the moment of use, with enough structure that it can support or challenge an emerging idea.</p>
+                  <blockquote>The archive matters only if it can re-enter the work when judgment is happening.</blockquote>
+                  <p>This is where the notebook stops being storage and starts acting like a living reference layer. Material is not merely preserved; it is made available for retrieval, reuse, contradiction, and synthesis.</p>
+                </article>
+                <div class="actions"><div class="action strong">Insert highlight</div><div class="action">Attach to concept</div><div class="action">Ask agent</div></div>
+              </div>
+            </div>
+          </main>
+          <aside class="right">
+            <div class="context">
+              <div class="kicker">MARGINALIA</div>
+              <h3>Why this source matters</h3>
+              <p>This note has been used twice in the “How people generate insights” concept and once in a question about tacit knowledge.</p>
+              <div class="stack">
+                <div class="context-card"><div class="mini-label">Connected question</div><div class="mini-copy">How do people generate non-obvious insights?</div></div>
+                <div class="context-card"><div class="mini-label">Agent suggestion</div><div class="mini-copy">Compare this with the tacit knowledge fragment for tension.</div></div>
+              </div>
+            </div>
+          </aside>
+        </div>
+      </div>
+    </section>
+
+    <section class="screen" data-screen="concept">
+      <div class="frame">
+        <div class="topbar">
+          <div class="brand"><div class="brand-mark">N</div><div class="brand-name">Noeis</div></div>
+          <div class="search">Search notes, questions, concepts, and highlights</div>
+          <div class="pills"><div class="pill">Tour</div><div class="pill">Extensions</div><div class="pill strong">Profile</div></div>
+        </div>
+        <div class="shell">
+          <aside class="left">
+            <div class="brand-block"><div class="brand-mark">N</div><div><div class="left-brand-title">Noeis</div><div class="left-brand-subtitle">Thinking system</div></div></div>
+            <div class="nav">
+              <div class="nav-item active"><span class="dot"></span><span>Think</span></div>
+              <div class="nav-item"><span class="dot"></span><span>Library</span></div>
+              <div class="nav-item"><span class="dot"></span><span>Capture</span></div>
+              <div class="nav-item"><span class="dot"></span><span>Map</span></div>
+              <div class="nav-item"><span class="dot"></span><span>Return Queue</span></div>
+              <div class="nav-item"><span class="dot"></span><span>Review</span></div>
+              <div class="nav-item"><span class="dot"></span><span>Today</span></div>
+              <div class="nav-item"><span class="dot"></span><span>How To Use</span></div>
+            </div>
+            <div class="left-note">The page should show what you believe, why, and what still resists it.</div>
+          </aside>
+          <main class="main">
+            <div class="main-header">
+              <div class="kicker">CONCEPT WORKBENCH</div>
+              <div class="page-title">Organizational decay</div>
+              <div class="subtitle">Make the argument visible, then keep uncertainty attached until it is resolved or accepted.</div>
+              <div class="tabs">
+                <div class="tab">Home</div><div class="tab">Notebook</div><div class="tab active">Concepts</div><div class="tab">Questions</div><div class="tab">Handoffs</div>
+              </div>
+            </div>
+            <div class="content">
+              <div class="concept-stack">
+                <section class="claim-panel">
+                  <div class="kicker">CURRENT CLAIM</div>
+                  <div class="big-claim">Organizations decay when earlier success hardens the filters that once made them adaptive.</div>
+                  <div class="state-row"><div class="state">Revision 13</div><div class="state">12 supports</div><div class="state">1 contradiction open</div></div>
+                </section>
+                <div class="draft-grid">
+                  <section class="draft-paper">
+                    <div class="kicker">DRAFT SURFACE</div>
+                    <p>Durable organizations usually fail for the same reason they once succeeded: the practices that sharpen judgment at one stage can later narrow perception, freeze incentives, and make external change look like noise.</p>
+                    <p>The argument needs to stay close to evidence. Each source should arrive beside the prose it strengthens or weakens, rather than living in a detached retrieval pane.</p>
+                    <p>When contradiction appears, it should remain visible until the draft either absorbs it, reframes it, or accepts it as a boundary condition.</p>
+                  </section>
+                  <aside class="evidence">
+                    <div class="evidence-card"><div class="mini-label">Support</div><strong>Intel note</strong><p>Describes how prior strengths became filters against new architectural bets.</p></div>
+                    <div class="evidence-card warning"><div class="mini-label">Contradiction</div><strong>Founder transition</strong><p>Leadership change may co-occur with decline without causing it.</p></div>
+                  </aside>
+                </div>
+                <div class="actions"><div class="action strong">Challenge claim</div><div class="action">Find evidence</div><div class="action">Save version</div></div>
+              </div>
+            </div>
+          </main>
+          <aside class="right">
+            <div class="context">
+              <div class="kicker">PROVENANCE</div>
+              <h3>Latest pass</h3>
+              <p>Clarified the causal clause, attached two supports, and left one open counterexample visible.</p>
+              <div class="stack">
+                <div class="context-card"><div class="mini-label">Support added</div><div class="mini-copy">Intel notebook, Christensen excerpt</div></div>
+                <div class="context-card"><div class="mini-label">Open tension</div><div class="mini-copy">Founder transition may be correlation, not mechanism.</div></div>
+              </div>
+            </div>
+          </aside>
+        </div>
+      </div>
+    </section>
+
+    <section class="screen" data-screen="library">
+      <div class="frame">
+        <div class="topbar">
+          <div class="brand"><div class="brand-mark">N</div><div class="brand-name">Noeis</div></div>
+          <div class="search">Search notes, questions, concepts, and highlights</div>
+          <div class="pills"><div class="pill">Tour</div><div class="pill">Extensions</div><div class="pill strong">Profile</div></div>
+        </div>
+        <div class="shell">
+          <aside class="left">
+            <div class="brand-block"><div class="brand-mark">N</div><div><div class="left-brand-title">Noeis</div><div class="left-brand-subtitle">Thinking system</div></div></div>
+            <div class="nav">
+              <div class="nav-item"><span class="dot"></span><span>Think</span></div>
+              <div class="nav-item active"><span class="dot"></span><span>Library</span></div>
+              <div class="nav-item"><span class="dot"></span><span>Capture</span></div>
+              <div class="nav-item"><span class="dot"></span><span>Map</span></div>
+              <div class="nav-item"><span class="dot"></span><span>Return Queue</span></div>
+              <div class="nav-item"><span class="dot"></span><span>Review</span></div>
+              <div class="nav-item"><span class="dot"></span><span>Today</span></div>
+              <div class="nav-item"><span class="dot"></span><span>How To Use</span></div>
+            </div>
+            <div class="left-note">The shelf is left. The room is center. The marginalia rail is right.</div>
+          </aside>
+          <main class="main">
+            <div class="main-header">
+              <div class="kicker">READING ROOM</div>
+              <div class="page-title">Library</div>
+              <div class="subtitle">Long-form material remains readable, while the archive and agent quietly stay available around it.</div>
+              <div class="tabs">
+                <div class="tab">Cabinet</div><div class="tab active">Context</div><div class="tab">Highlights</div><div class="tab">Views</div>
+              </div>
+            </div>
+            <div class="content">
+              <div class="library-grid">
+                <aside class="shelf">
+                  <div class="kicker">CABINET</div>
+                  <div class="panel-title">Saved views</div>
+                  <div class="shelf-list">
+                    <div class="shelf-item"><span>Robots</span><span>8</span></div>
+                    <div class="shelf-item"><span>People</span><span>3</span></div>
+                    <div class="shelf-item"><span>China</span><span>5</span></div>
+                    <div class="shelf-item"><span>Open source</span><span>4</span></div>
+                  </div>
+                </aside>
+                <article class="reader-paper">
+                  <div class="kicker">Mar 19, 2026 · Open source · 18 min read</div>
+                  <div class="paper-title">Inside China’s robotics revolution</div>
+                  <p>Chen Liang, the founder of Guchi Robotics, an automation company headquartered in Shanghai, is a calm and understated builder whose enthusiasm comes through most clearly when he is up close with the technology.</p>
+                  <p>For the better part of two decades, he has tried to solve what is, to him, an engineering problem: how to eliminate or liberate as many workers in car factories as technologically possible.</p>
+                  <p>At present, his robots can mount wheels, dashboards, and windows on a car without any human intervention, but the real significance lies in what this reveals about how automation migrates from spectacle into system.</p>
+                  <div class="highlight-callout"><div class="mini-label">Selected highlight</div><div class="mini-copy">Tag this to “Labor substitution” or attach it to an open question.</div></div>
+                </article>
+              </div>
+            </div>
+          </main>
+          <aside class="right">
+            <div class="context">
+              <div class="kicker">CONTEXT</div>
+              <h3>Marginalia</h3>
+              <p>This article has produced 6 highlights, 2 linked concepts, and one unresolved question about labor substitution.</p>
+              <div class="stack">
+                <div class="context-card"><div class="mini-label">Used by</div><div class="mini-copy">Concept: Labor substitution</div></div>
+                <div class="context-card"><div class="mini-label">Prompt</div><div class="mini-copy">What weakens the current robotics thesis?</div></div>
+              </div>
+            </div>
+          </aside>
+        </div>
+      </div>
+    </section>
+
+    <section class="screen" data-screen="handoffs">
+      <div class="frame">
+        <div class="topbar">
+          <div class="brand"><div class="brand-mark">N</div><div class="brand-name">Noeis</div></div>
+          <div class="search">Search notes, questions, concepts, and highlights</div>
+          <div class="pills"><div class="pill">Tour</div><div class="pill">Extensions</div><div class="pill strong">Profile</div></div>
+        </div>
+        <div class="shell">
+          <aside class="left">
+            <div class="brand-block"><div class="brand-mark">N</div><div><div class="left-brand-title">Noeis</div><div class="left-brand-subtitle">Thinking system</div></div></div>
+            <div class="nav">
+              <div class="nav-item"><span class="dot"></span><span>Think</span></div>
+              <div class="nav-item"><span class="dot"></span><span>Library</span></div>
+              <div class="nav-item"><span class="dot"></span><span>Capture</span></div>
+              <div class="nav-item"><span class="dot"></span><span>Map</span></div>
+              <div class="nav-item active"><span class="dot"></span><span>Return Queue</span></div>
+              <div class="nav-item"><span class="dot"></span><span>Review</span></div>
+              <div class="nav-item"><span class="dot"></span><span>Today</span></div>
+              <div class="nav-item"><span class="dot"></span><span>How To Use</span></div>
+            </div>
+            <div class="left-note">Dispatch should feel like routing work, not filling out bureaucracy.</div>
+          </aside>
+          <main class="main">
+            <div class="main-header">
+              <div class="kicker">COLLABORATION</div>
+              <div class="page-title">Handoffs</div>
+              <div class="subtitle">Assign work between you, native agents, and personal agents without making delegation feel administrative.</div>
+              <div class="tabs">
+                <div class="tab">Home</div><div class="tab">Notebook</div><div class="tab">Concepts</div><div class="tab">Questions</div><div class="tab active">Handoffs</div>
+              </div>
+            </div>
+            <div class="content">
+              <div class="handoff-grid">
+                <section class="queue">
+                  <div class="panel-head"><div><div class="kicker">QUEUE</div><div class="panel-title">Pending</div></div></div>
+                  <div class="rows">
+                    <div class="row"><div><strong>Investigate contradictions</strong><span>Research · Normal priority</span></div></div>
+                    <div class="row"><div><strong>Pull support excerpts</strong><span>Retrieval · Ready to assign</span></div></div>
+                  </div>
+                </section>
+                <div class="dispatch-stack">
+                  <section class="dispatch">
+                    <div class="kicker">NEW HANDOFF</div>
+                    <div class="panel-title">Investigate contradictions in this workspace</div>
+                    <p style="margin:12px 0 0; color:var(--muted); font-size:17px; line-height:1.6;">Collect opposing evidence and return the top three pressure points.</p>
+                    <div class="actions" style="margin-top:18px;"><div class="state">Research</div><div class="state">Normal</div><div class="action strong">Create handoff</div></div>
+                  </section>
+                  <section class="return-panel">
+                    <div class="kicker">RETURNED WORK</div>
+                    <div class="panel-title">Contradictions in workspace</div>
+                    <div class="return-list">
+                      <div class="return-item"><strong>Historical counterexample from Intel notebook</strong><span>Suggests that leadership change may not explain the shift.</span></div>
+                      <div class="return-item"><strong>Weak causal link between scale and ossification</strong><span>Current draft needs a stronger intermediate mechanism.</span></div>
+                      <div class="return-item"><strong>Missing founder-transition support</strong><span>No direct evidence yet that the transition itself caused rigidity.</span></div>
+                    </div>
+                  </section>
+                </div>
+              </div>
+            </div>
+          </main>
+          <aside class="right">
+            <div class="context">
+              <div class="kicker">QUEUE STATUS</div>
+              <h3>2 pending</h3>
+              <p>One contradiction scan is in progress. One evidence pull is awaiting triage.</p>
+              <div class="stack">
+                <div class="context-card"><div class="mini-label">Auto route</div><div class="mini-copy">Native agent by default unless a personal agent has the better skill match.</div></div>
+              </div>
+            </div>
+          </aside>
+        </div>
+      </div>
+    </section>
+
+    <script>
+      (function () {
+        var raw = (window.location.hash || '#home').slice(1);
+        var name = raw || 'home';
+        var screens = document.querySelectorAll('.screen');
+        screens.forEach(function (screen) {
+          screen.classList.toggle('is-active', screen.getAttribute('data-screen') === name);
+        });
+      }());
+    </script>
+  </body>
+</html>

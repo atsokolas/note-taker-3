@@ -1,5 +1,30 @@
 const buildConceptService = ({ Article, TagMeta, NotebookEntry, ReferenceEdge, mongoose }) => {
   const normalizeName = (name) => String(name || '').trim();
+  const summarizeConceptFreshness = (workbench = null) => {
+    const meta = workbench?.meta && typeof workbench.meta === 'object' ? workbench.meta : {};
+    const changeDrafts = Array.isArray(workbench?.changeDrafts) ? workbench.changeDrafts : [];
+    const stale = Boolean(meta?.stale);
+    const pendingDrafts = changeDrafts.filter((draft) => String(draft?.status || '').trim().toLowerCase() === 'pending');
+    const freshDraft = pendingDrafts.find((draft) => String(draft?.kind || '').trim().toLowerCase() === 'refresh');
+    return {
+      stale,
+      lastReviewedAt: meta?.lastReviewedAt || '',
+      staleReason: meta?.staleReason || '',
+      staleSignature: meta?.staleSignature || '',
+      pendingDraftCount: pendingDrafts.length,
+      freshSourceCount: Array.isArray(freshDraft?.cards) ? freshDraft.cards.length : 0,
+      statusLabel: stale
+        ? (Array.isArray(freshDraft?.cards) && freshDraft.cards.length > 0
+          ? `${freshDraft.cards.length} newer ${freshDraft.cards.length === 1 ? 'source' : 'sources'}`
+          : 'Needs review')
+        : 'Current'
+    };
+  };
+  const resolveConceptFreshness = (meta = {}) => (
+    meta?.ideaWorkbenchMeta && typeof meta.ideaWorkbenchMeta === 'object'
+      ? meta.ideaWorkbenchMeta
+      : summarizeConceptFreshness(meta?.ideaWorkbench)
+  );
 
   const getConcepts = async (userId) => {
     const tagCounts = await Article.aggregate([
@@ -27,7 +52,8 @@ const buildConceptService = ({ Article, TagMeta, NotebookEntry, ReferenceEdge, m
         pinnedHighlightIds: found?.pinnedHighlightIds || [],
         pinnedNoteIds: found?.pinnedNoteIds || [],
         isPublic: found?.isPublic || false,
-        slug: found?.slug || ''
+        slug: found?.slug || '',
+        freshness: resolveConceptFreshness(found)
       });
     });
 
@@ -44,7 +70,8 @@ const buildConceptService = ({ Article, TagMeta, NotebookEntry, ReferenceEdge, m
         pinnedHighlightIds: found?.pinnedHighlightIds || [],
         pinnedNoteIds: found?.pinnedNoteIds || [],
         isPublic: found?.isPublic || false,
-        slug: found?.slug || ''
+        slug: found?.slug || '',
+        freshness: resolveConceptFreshness(found)
       });
     });
 
@@ -113,6 +140,7 @@ const buildConceptService = ({ Article, TagMeta, NotebookEntry, ReferenceEdge, m
       slug: meta?.slug || '',
       conceptLayout: meta?.conceptLayout || null,
       workspace: meta?.workspace || null,
+      freshness: resolveConceptFreshness(meta),
       pinnedHighlightIds,
       pinnedArticleIds,
       pinnedNoteIds,

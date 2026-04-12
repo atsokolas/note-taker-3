@@ -16,15 +16,7 @@ import ThreePaneLayout from '../layout/ThreePaneLayout';
 import LibraryConceptModal from '../components/library/LibraryConceptModal';
 import LibraryNotebookModal from '../components/library/LibraryNotebookModal';
 import LibraryQuestionModal from '../components/library/LibraryQuestionModal';
-import WorkingMemoryPanel from '../components/working-memory/WorkingMemoryPanel';
-import {
-  listWorkingMemory,
-  createWorkingMemory,
-  archiveWorkingMemory,
-  unarchiveWorkingMemory,
-  promoteWorkingMemory,
-  splitWorkingMemory
-} from '../api/workingMemory';
+import { createWorkingMemory } from '../api/workingMemory';
 import { updateHighlight, deleteHighlight } from '../api/highlights';
 import api from '../api';
 import { getAuthHeaders } from '../hooks/useAuthHeaders';
@@ -69,10 +61,6 @@ const Library = () => {
     localStorage.getItem(CABINET_OVERRIDE_KEY) === 'true'
   ));
   const [activeHighlightId, setActiveHighlightId] = useState('');
-  const [workingMemoryItems, setWorkingMemoryItems] = useState([]);
-  const [workingMemoryLoading, setWorkingMemoryLoading] = useState(false);
-  const [workingMemoryError, setWorkingMemoryError] = useState('');
-  const [workingMemoryView, setWorkingMemoryView] = useState('active');
   const readerRef = useRef(null);
 
   const { folders, loading: foldersLoading, error: foldersError } = useFolders();
@@ -119,19 +107,23 @@ const Library = () => {
   }, [requestedArticleId, selectedArticleId]);
 
   useEffect(() => {
+    if (!selectedArticleId) return;
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+  }, [selectedArticleId]);
+
+  useEffect(() => {
+    if (requestedArticleId) return;
+    if (!selectedArticleId) return;
+    setSelectedArticleId('');
+    setActiveHighlightId('');
+  }, [requestedArticleId, selectedArticleId]);
+
+  useEffect(() => {
     if (searchParams.get('scope')) return;
     const params = new URLSearchParams(searchParams);
     params.set('scope', 'all');
     setSearchParams(params, { replace: true });
   }, [searchParams, setSearchParams]);
-
-  useEffect(() => {
-    if (scope !== 'all' || selectedArticleId) return;
-    const saved = localStorage.getItem('library.lastArticleId');
-    if (saved && allArticles.some(article => article._id === saved)) {
-      setSelectedArticleId(saved);
-    }
-  }, [allArticles, scope, selectedArticleId]);
 
   const handleSelectScope = useCallback((nextScope) => {
     const params = new URLSearchParams(searchParams);
@@ -345,26 +337,6 @@ const Library = () => {
     [allArticles]
   );
 
-  const loadWorkingMemoryItems = useCallback(async () => {
-    setWorkingMemoryLoading(true);
-    setWorkingMemoryError('');
-    try {
-      const items = await listWorkingMemory({
-        ...workingMemoryScope,
-        status: workingMemoryView
-      });
-      setWorkingMemoryItems(items);
-    } catch (err) {
-      setWorkingMemoryError(err.response?.data?.error || 'Failed to load working memory.');
-    } finally {
-      setWorkingMemoryLoading(false);
-    }
-  }, [workingMemoryScope, workingMemoryView]);
-
-  useEffect(() => {
-    loadWorkingMemoryItems();
-  }, [loadWorkingMemoryItems]);
-
   const addWorkingMemoryItem = useCallback(async ({
     sourceType,
     sourceId,
@@ -372,114 +344,17 @@ const Library = () => {
   }) => {
     const cleanText = String(textSnippet || '').trim();
     if (!cleanText) return;
-    if (workingMemoryView !== 'active') {
-      try {
-        await createWorkingMemory({
-          ...workingMemoryScope,
-          sourceType,
-          sourceId: String(sourceId || ''),
-          textSnippet: cleanText
-        });
-        setWorkingMemoryView('active');
-      } catch (err) {
-        setWorkingMemoryError(err.response?.data?.error || 'Failed to dump to working memory.');
-      }
-      return;
-    }
-    const optimistic = {
-      _id: `tmp-${Date.now()}`,
-      sourceType,
-      sourceId: String(sourceId || ''),
-      textSnippet: cleanText.slice(0, 1200),
-      createdAt: new Date().toISOString()
-    };
-    setWorkingMemoryItems(prev => [optimistic, ...prev]);
     try {
-      const created = await createWorkingMemory({
+      await createWorkingMemory({
         ...workingMemoryScope,
         sourceType,
         sourceId: String(sourceId || ''),
         textSnippet: cleanText
       });
-      setWorkingMemoryItems(prev => prev.map(item => (
-        item._id === optimistic._id ? created : item
-      )));
     } catch (err) {
-      setWorkingMemoryItems(prev => prev.filter(item => item._id !== optimistic._id));
-      setWorkingMemoryError(err.response?.data?.error || 'Failed to dump to working memory.');
+      console.error(err.response?.data?.error || 'Failed to dump to working memory.');
     }
-  }, [workingMemoryScope, workingMemoryView]);
-
-  const handleArchiveWorkingMemoryItems = useCallback(async (ids) => {
-    const safeIds = Array.isArray(ids) ? ids.map(String).filter(Boolean) : [String(ids || '')].filter(Boolean);
-    if (safeIds.length === 0) return;
-    const previous = workingMemoryItems;
-    setWorkingMemoryItems(prev => prev.filter(item => !safeIds.includes(String(item._id))));
-    try {
-      await archiveWorkingMemory(safeIds);
-      setWorkingMemoryError('');
-    } catch (err) {
-      setWorkingMemoryItems(previous);
-      setWorkingMemoryError(err.response?.data?.error || 'Failed to archive working memory.');
-      throw err;
-    }
-  }, [workingMemoryItems]);
-
-  const handleRestoreWorkingMemoryItems = useCallback(async (ids) => {
-    const safeIds = Array.isArray(ids) ? ids.map(String).filter(Boolean) : [String(ids || '')].filter(Boolean);
-    if (safeIds.length === 0) return;
-    const previous = workingMemoryItems;
-    setWorkingMemoryItems(prev => prev.filter(item => !safeIds.includes(String(item._id))));
-    try {
-      await unarchiveWorkingMemory(safeIds);
-      setWorkingMemoryError('');
-    } catch (err) {
-      setWorkingMemoryItems(previous);
-      setWorkingMemoryError(err.response?.data?.error || 'Failed to restore working memory.');
-      throw err;
-    }
-  }, [workingMemoryItems]);
-
-  const handleSplitWorkingMemoryItem = useCallback(async (itemId, mode = 'sentence') => {
-    const safeItemId = String(itemId || '');
-    if (!safeItemId) return;
-    const previous = workingMemoryItems;
-    setWorkingMemoryItems(prev => prev.filter(item => String(item._id) !== safeItemId));
-    try {
-      const result = await splitWorkingMemory(safeItemId, mode);
-      const created = Array.isArray(result?.created) ? result.created : [];
-      setWorkingMemoryItems(prev => [...created, ...prev]);
-      setWorkingMemoryError('');
-    } catch (err) {
-      setWorkingMemoryItems(previous);
-      setWorkingMemoryError(err.response?.data?.error || 'Failed to split working memory block.');
-      throw err;
-    }
-  }, [workingMemoryItems]);
-
-  const handlePromoteWorkingMemoryBlocks = useCallback(async ({
-    target,
-    itemIds = [],
-    payload = {}
-  }) => {
-    const safeIds = Array.isArray(itemIds) ? itemIds.map(String).filter(Boolean) : [];
-    if (safeIds.length === 0) return null;
-    const previous = workingMemoryItems;
-    setWorkingMemoryItems(prev => prev.filter(item => !safeIds.includes(String(item._id))));
-    try {
-      const result = await promoteWorkingMemory({
-        target,
-        ids: safeIds,
-        ...payload
-      });
-      setWorkingMemoryError('');
-      return result;
-    } catch (err) {
-      setWorkingMemoryItems(previous);
-      setWorkingMemoryError(err.response?.data?.error || 'Failed to promote working memory blocks.');
-      throw err;
-    }
-  }, [workingMemoryItems]);
+  }, [workingMemoryScope]);
 
   const handleHighlightQueryChange = useCallback((value) => {
     const params = new URLSearchParams(searchParams);
@@ -669,12 +544,37 @@ const Library = () => {
     </div>
   );
 
+  const isReadingView = Boolean(selectedArticleId);
+  const topThemeTags = useMemo(
+    () => (Array.isArray(tags) ? tags.slice(0, 3).map((tag) => String(tag?.tag || '')).filter(Boolean) : []),
+    [tags]
+  );
+  const browseRailActions = useMemo(() => ([
+    {
+      label: 'Highlights',
+      isActive: scope === 'highlights',
+      onClick: () => handleSelectScope('highlights')
+    },
+    {
+      label: 'Notebook',
+      to: '/think?tab=notebook'
+    },
+    {
+      label: 'Concepts',
+      to: '/think?tab=concepts'
+    },
+    {
+      label: 'Questions',
+      to: '/think?tab=questions'
+    }
+  ]), [handleSelectScope, scope]);
+
   const effectiveRightOpen = getContextPanelOpen({
     hasSelection: Boolean(selectedArticleId),
     storedOpen: rightOpen,
     userOverride: contextOverride
   });
-  const effectiveLeftOpen = getContextPanelOpen({
+  const effectiveLeftOpen = isReadingView ? false : getContextPanelOpen({
     hasSelection: Boolean(selectedArticleId),
     storedOpen: leftOpen,
     userOverride: cabinetOverride
@@ -722,20 +622,8 @@ const Library = () => {
     />
   );
 
-  const rightPanel = (
-    <div className="section-stack library-context-stack">
-      <WorkingMemoryPanel
-        items={workingMemoryItems}
-        loading={workingMemoryLoading}
-        error={workingMemoryError}
-        viewMode={workingMemoryView}
-        onViewModeChange={setWorkingMemoryView}
-        onDumpText={(text) => handleDumpToWorkingMemory(text)}
-        onArchiveItems={handleArchiveWorkingMemoryItems}
-        onRestoreItems={handleRestoreWorkingMemoryItems}
-        onSplitItem={handleSplitWorkingMemoryItem}
-        onPromoteBlocks={handlePromoteWorkingMemoryBlocks}
-      />
+  const rightPanel = isReadingView ? (
+    <div className="section-stack library-context-stack library-context-stack--reading">
       <LibraryContext
         selectedArticleId={selectedArticleId}
         articleHighlights={articleHighlights}
@@ -754,22 +642,89 @@ const Library = () => {
         onDumpToWorkingMemory={(highlight) => handleDumpToWorkingMemory(highlight?.text || '')}
       />
     </div>
+  ) : (
+    <div className="section-stack library-context-stack library-context-stack--browse">
+      <section className="library-browse-rail">
+        <div className="library-browse-rail__header">
+          <span>Marginalia</span>
+          <p>Active reasoning</p>
+        </div>
+
+        <nav className="library-browse-rail__nav" aria-label="Library marginalia">
+          {browseRailActions.map((item) => (
+            item.to ? (
+              <Link
+                key={item.label}
+                to={item.to}
+                className="library-browse-rail__nav-item"
+              >
+                {item.label}
+              </Link>
+            ) : (
+              <button
+                key={item.label}
+                type="button"
+                className={`library-browse-rail__nav-item ${item.isActive ? 'is-active' : ''}`}
+                onClick={item.onClick}
+              >
+                {item.label}
+              </button>
+            )
+          ))}
+        </nav>
+
+        <div className="library-browse-rail__section">
+          <div className="library-browse-rail__section-head">
+            <h3>Current shelf</h3>
+            <span>{scope === 'folder' && selectedFolderName ? selectedFolderName : scope}</span>
+          </div>
+          <p>
+            Open a source to move from cabinet into reading room. Use highlights and notes as the active margin once a text is selected.
+          </p>
+        </div>
+
+        <div className="library-browse-rail__section">
+          <div className="library-browse-rail__section-head">
+            <h3>Curated theme</h3>
+            <span>{allArticles.length} sources</span>
+          </div>
+          <p>
+            {topThemeTags.length > 0
+              ? `Your library currently trends toward ${topThemeTags.join(', ')}.`
+              : 'Tag a few highlights to let recurring themes emerge here.'}
+          </p>
+        </div>
+
+        <div className="library-browse-rail__section">
+          <div className="library-browse-rail__section-head">
+            <h3>Next move</h3>
+            <span>{selectedArticleId ? 'Reading room' : 'Browse mode'}</span>
+          </div>
+          <p>
+            {selectedArticleId
+              ? 'Stay in the reading room to capture highlights, send them into notebook, and attach them to concepts or questions.'
+              : 'Use the quick links above to sort highlights, deepen a concept, or turn an open loop into a working question.'}
+          </p>
+        </div>
+      </section>
+    </div>
   );
 
   return (
-    <div className={`library-page-shell ${selectedArticleId ? 'is-reading' : ''}`}>
+    <div className={`library-page-shell ${isReadingView ? 'is-reading' : 'is-browse'}`}>
       <ThreePaneLayout
+        className={`three-pane--editorial three-pane--library ${isReadingView ? 'three-pane--library-reading' : 'three-pane--library-browse'}`}
         left={leftPanel}
         main={mainPanel}
         right={rightPanel}
-        rightTitle="Context"
+        rightTitle={isReadingView ? 'Evidence stream' : 'Context'}
         rightOpen={effectiveRightOpen}
         onToggleRight={handleToggleRight}
         leftOpen={effectiveLeftOpen}
         onToggleLeft={handleToggleLeft}
         rightToggleLabel="Context"
-        mainHeader={<PageTitle eyebrow="Mode" title="Library" subtitle="Reading room for your saved work." />}
-        mainActions={(
+        mainHeader={isReadingView ? null : <PageTitle eyebrow="Mode" title="Library" subtitle="Reading room for your saved work." />}
+        mainActions={isReadingView ? null : (
           <div className="library-main-actions">
             <QuietButton className="list-button" onClick={() => handleToggleLeft(!effectiveLeftOpen)}>
               Cabinet

@@ -19,17 +19,17 @@ const NotebookList = ({ entries, activeId, loading, error, onSelect, onCreate })
   <aside className="think-notebook-list">
     <div className="think-notebook-list-header">
       <div>
-        <div className="muted-label">Notebook</div>
-        <div className="think-notebook-list-title">Your pages</div>
+        <div className="muted-label">Notebook index</div>
+        <div className="think-notebook-list-title">Pages</div>
       </div>
-      <Button variant="secondary" onClick={onCreate}>New</Button>
+      <Button variant="secondary" onClick={onCreate}>New page</Button>
     </div>
     {loading && <p className="muted small">Loading notes…</p>}
     {error && <p className="status-message error-message">{error}</p>}
     {!loading && entries.length === 0 && (
       <div className="think-notebook-empty">
         <p className="muted small">No notes yet.</p>
-        <Button variant="secondary" onClick={onCreate}>Create your first note</Button>
+        <Button variant="secondary" onClick={onCreate}>Create your first page</Button>
       </div>
     )}
     <div className="think-notebook-list-items">

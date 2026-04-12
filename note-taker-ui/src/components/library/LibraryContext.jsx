@@ -98,7 +98,7 @@ const LibraryContext = ({
       <div className="library-context-feed-panel">
         <div className="library-context-section is-empty">
           <button type="button" className="library-context-section__header" disabled>
-            <span className="library-context-section__title">Highlights Feed</span>
+            <span className="library-context-section__title">Highlights</span>
             <span className="library-context-section__meta">Select an article</span>
             <span className="library-context-section__chevron" aria-hidden="true">▸</span>
           </button>
@@ -119,7 +119,7 @@ const LibraryContext = ({
           onClick={toggleFeedExpanded}
           aria-expanded={feedExpanded}
         >
-          <span className="library-context-section__title">Highlights Feed</span>
+          <span className="library-context-section__title">Highlights</span>
           <span className="library-context-section__meta">{articleHighlights.length} total</span>
           <span className="library-context-section__chevron" aria-hidden="true">
             {feedExpanded ? '▾' : '▸'}
@@ -200,7 +200,7 @@ const LibraryContext = ({
           onClick={toggleRelatedExpanded}
           aria-expanded={relatedExpanded}
         >
-          <span className="library-context-section__title">More Context</span>
+          <span className="library-context-section__title">Marginalia</span>
           <span className="library-context-section__meta">
             {notebookBlocks.length} notes
           </span>
@@ -211,7 +211,7 @@ const LibraryContext = ({
         {relatedExpanded && (
           <div className="library-context-section__body library-context-section__body--related">
             <div className="library-context-related">
-              <div className="library-context-related__title">Used in Notes</div>
+              <div className="library-context-related__title">Used in notes</div>
               {referencesLoading && <p className="muted small">Loading references...</p>}
               {referencesError && <p className="status-message error-message">{referencesError}</p>}
               {!referencesLoading && !referencesError && (

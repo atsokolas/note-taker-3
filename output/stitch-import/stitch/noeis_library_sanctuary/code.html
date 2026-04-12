@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Noeis Library — Sanctuary for Captured Fragments</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,200..800;1,6..72,200..800&amp;family=Inter:wght@300;400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "on-error-container": "#742410",
+              "primary-fixed": "#e7e1de",
+              "secondary": "#676461",
+              "on-secondary-container": "#54514e",
+              "secondary-fixed-dim": "#d9d3cf",
+              "background": "#fffcf7",
+              "surface-container-lowest": "#ffffff",
+              "on-secondary": "#ffffff",
+              "inverse-surface": "#0e0e0c",
+              "primary": "#615e5b",
+              "primary-dim": "#55524f",
+              "on-tertiary-container": "#64523c",
+              "inverse-primary": "#ffffff",
+              "on-background": "#383831",
+              "error-container": "#fe8b70",
+              "on-secondary-fixed-variant": "#5e5b58",
+              "on-error": "#ffffff",
+              "on-tertiary-fixed-variant": "#6f5c45",
+              "on-primary-container": "#54514f",
+              "error": "#a54731",
+              "surface": "#fffcf7",
+              "secondary-fixed": "#e7e1dd",
+              "on-surface-variant": "#65655c",
+              "tertiary-fixed-dim": "#f0d6b9",
+              "surface-tint": "#615e5b",
+              "on-tertiary-fixed": "#51402b",
+              "primary-fixed-dim": "#d9d3d0",
+              "surface-container-highest": "#eae8de",
+              "tertiary-fixed": "#fee4c6",
+              "on-surface": "#383831",
+              "secondary-dim": "#5b5855",
+              "outline": "#818178",
+              "tertiary": "#74614a",
+              "on-tertiary": "#ffffff",
+              "surface-dim": "#e4e3d7",
+              "surface-container-high": "#f0eee5",
+              "outline-variant": "#babab0",
+              "primary-container": "#e7e1de",
+              "surface-container": "#f6f4ec",
+              "on-secondary-fixed": "#413f3c",
+              "surface-variant": "#eae8de",
+              "secondary-container": "#e7e1dd",
+              "on-primary-fixed-variant": "#5e5b58",
+              "tertiary-dim": "#67553e",
+              "surface-container-low": "#fcf9f3",
+              "on-primary": "#fcf7f3",
+              "inverse-on-surface": "#9e9d98",
+              "on-primary-fixed": "#413f3d",
+              "error-dim": "#5c1202",
+              "tertiary-container": "#fee4c6",
+              "surface-bright": "#fffcf7"
+            },
+            fontFamily: {
+              "headline": ["Newsreader", "serif"],
+              "body": ["Newsreader", "serif"],
+              "label": ["Inter", "sans-serif"]
+            },
+            borderRadius: {"DEFAULT": "0px", "lg": "0px", "xl": "0px", "full": "9999px"},
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24;
+            font-size: 20px;
+        }
+        body {
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+        .editorial-shadow {
+            box-shadow: 0px 24px 48px rgba(56, 56, 49, 0.06);
+        }
+    </style>
+</head>
+<body class="bg-background text-on-surface selection:bg-primary-container">
+<!-- TopNavBar -->
+<header class="fixed top-0 left-0 right-0 z-50 bg-[#fffcf7] transition-colors duration-300">
+<div class="flex justify-between items-center w-full px-8 py-4 max-w-screen-2xl mx-auto">
+<div class="flex items-center gap-12">
+<span class="text-2xl font-serif italic text-[#1A1918]">Noeis</span>
+<nav class="hidden md:flex items-center gap-8">
+<a class="font-serif font-medium tracking-tight text-lg text-[#1A1918] border-b-2 border-[#615e5b] pb-1" href="#">Library</a>
+<a class="font-serif font-medium tracking-tight text-lg text-[#615e5b]/60 hover:text-[#1A1918] transition-opacity" href="#">Concepts</a>
+<a class="font-serif font-medium tracking-tight text-lg text-[#615e5b]/60 hover:text-[#1A1918] transition-opacity" href="#">Questions</a>
+</nav>
+</div>
+<div class="flex items-center gap-6">
+<div class="flex items-center bg-surface-container-low px-4 py-2 text-[#615e5b]/60">
+<span class="material-symbols-outlined mr-2">search</span>
+<span class="font-label text-sm uppercase tracking-widest">Search fragments</span>
+</div>
+<button class="text-[#615e5b] hover:text-[#1A1918] transition-all duration-200">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">account_circle</span>
+</button>
+</div>
+</div>
+</header>
+<!-- Main Content Layout -->
+<main class="pt-32 pb-24 px-8 max-w-screen-2xl mx-auto flex">
+<!-- Center Reading Column (Asymmetric Grid) -->
+<div class="w-full lg:w-3/4 pr-0 lg:pr-16">
+<!-- Header Section -->
+<header class="mb-20">
+<h1 class="font-headline text-5xl md:text-6xl font-light tracking-tight text-on-surface mb-4">The Library</h1>
+<p class="font-body italic text-xl text-on-surface-variant max-w-xl">A sanctuary for captured fragments, evolving thoughts, and the slow accumulation of wisdom.</p>
+</header>
+<!-- Library List (Cardless) -->
+<div class="space-y-16">
+<!-- Entry 01 -->
+<article class="group relative py-8 transition-all duration-300">
+<div class="flex flex-col md:flex-row md:items-baseline gap-4 md:gap-8">
+<div class="w-24 shrink-0 font-label text-[10px] uppercase tracking-[0.2em] text-outline-variant py-1">
+                            Jan 24, 2024
+                        </div>
+<div class="flex-1">
+<h2 class="font-headline text-3xl font-medium text-on-surface group-hover:text-primary transition-colors cursor-pointer mb-3 leading-snug">
+                                The Ethics of Artificial Agency in Personal Knowledge Management Systems
+                            </h2>
+<div class="flex flex-wrap gap-x-6 gap-y-2 mb-4">
+<span class="font-label text-xs uppercase tracking-widest text-primary font-semibold">The Paris Review</span>
+<div class="flex gap-4">
+<span class="font-label text-[11px] uppercase tracking-widest text-on-surface-variant">#epistemology</span>
+<span class="font-label text-[11px] uppercase tracking-widest text-on-surface-variant">#philosophy</span>
+<span class="font-label text-[11px] uppercase tracking-widest text-on-surface-variant">#ai</span>
+</div>
+</div>
+<p class="font-body text-lg text-on-surface-variant leading-relaxed max-w-2xl">
+                                "...the transition from a static archive to an active reasoning partner requires a redefinition of what we consider 'original' thought..."
+                            </p>
+</div>
+</div>
+</article>
+<!-- Entry 02 -->
+<article class="group relative py-8 transition-all duration-300">
+<div class="flex flex-col md:flex-row md:items-baseline gap-4 md:gap-8">
+<div class="w-24 shrink-0 font-label text-[10px] uppercase tracking-[0.2em] text-outline-variant py-1">
+                            Jan 19, 2024
+                        </div>
+<div class="flex-1">
+<h2 class="font-headline text-3xl font-medium text-on-surface group-hover:text-primary transition-colors cursor-pointer mb-3 leading-snug">
+                                On the Permanence of Digital Ink: A Critique of Modern Web Archiving
+                            </h2>
+<div class="flex flex-wrap gap-x-6 gap-y-2 mb-4">
+<span class="font-label text-xs uppercase tracking-widest text-primary font-semibold">Aeon Magazine</span>
+<div class="flex gap-4">
+<span class="font-label text-[11px] uppercase tracking-widest text-on-surface-variant">#digital-culture</span>
+<span class="font-label text-[11px] uppercase tracking-widest text-on-surface-variant">#preservation</span>
+</div>
+</div>
+<p class="font-body text-lg text-on-surface-variant leading-relaxed max-w-2xl">
+                                Fragments of the web are vanishing daily. How do we build systems that outlive the platforms they were born upon?
+                            </p>
+</div>
+</div>
+</article>
+<!-- Entry 03 -->
+<article class="group relative py-8 transition-all duration-300">
+<div class="flex flex-col md:flex-row md:items-baseline gap-4 md:gap-8">
+<div class="w-24 shrink-0 font-label text-[10px] uppercase tracking-[0.2em] text-outline-variant py-1">
+                            Jan 12, 2024
+                        </div>
+<div class="flex-1">
+<h2 class="font-headline text-3xl font-medium text-on-surface group-hover:text-primary transition-colors cursor-pointer mb-3 leading-snug">
+                                Marginalia and the Art of Critical Reading
+                            </h2>
+<div class="flex flex-wrap gap-x-6 gap-y-2 mb-4">
+<span class="font-label text-xs uppercase tracking-widest text-primary font-semibold">Personal Note</span>
+<div class="flex gap-4">
+<span class="font-label text-[11px] uppercase tracking-widest text-on-surface-variant">#methodology</span>
+<span class="font-label text-[11px] uppercase tracking-widest text-on-surface-variant">#education</span>
+</div>
+</div>
+<p class="font-body text-lg text-on-surface-variant leading-relaxed max-w-2xl">
+                                To read is to write. My notes on the margins of 'Speculum Mentis' indicate a shifting perspective on cognitive offloading.
+                            </p>
+</div>
+</div>
+</article>
+<!-- Entry 04 -->
+<article class="group relative py-8 transition-all duration-300">
+<div class="flex flex-col md:flex-row md:items-baseline gap-4 md:gap-8">
+<div class="w-24 shrink-0 font-label text-[10px] uppercase tracking-[0.2em] text-outline-variant py-1">
+                            Jan 05, 2024
+                        </div>
+<div class="flex-1">
+<h2 class="font-headline text-3xl font-medium text-on-surface group-hover:text-primary transition-colors cursor-pointer mb-3 leading-snug">
+                                Recursive Thinking: Building Knowledge Blocks
+                            </h2>
+<div class="flex flex-wrap gap-x-6 gap-y-2 mb-4">
+<span class="font-label text-xs uppercase tracking-widest text-primary font-semibold">Quanta Magazine</span>
+<div class="flex gap-4">
+<span class="font-label text-[11px] uppercase tracking-widest text-on-surface-variant">#logic</span>
+<span class="font-label text-[11px] uppercase tracking-widest text-on-surface-variant">#complexity</span>
+</div>
+</div>
+<p class="font-body text-lg text-on-surface-variant leading-relaxed max-w-2xl">
+                                Understanding how small conceptual modules stack into grand unified theories of biological information systems.
+                            </p>
+</div>
+</div>
+</article>
+</div>
+</div>
+<!-- Sidebar / SideNavBar -->
+<aside class="hidden lg:flex fixed right-0 top-0 h-full w-80 flex-col pt-32 pb-8 px-8 z-40 bg-[#fcf9f3] transition-transform duration-300">
+<div class="mb-12">
+<span class="font-label text-xs uppercase tracking-widest text-[#615e5b] block mb-1">Marginalia</span>
+<span class="font-label text-[10px] uppercase tracking-[0.15em] text-[#615e5b]/70">Active Reasoning</span>
+</div>
+<nav class="flex flex-col gap-2">
+<button class="flex items-center gap-4 px-4 py-3 text-[#1A1918] font-bold bg-[#eae8de] translate-x-1 transition-transform duration-300">
+<span class="material-symbols-outlined">stylus_note</span>
+<span class="font-label text-xs uppercase tracking-widest">Highlights</span>
+</button>
+<button class="flex items-center gap-4 px-4 py-3 text-[#615e5b]/70 hover:bg-[#eae8de]/50 transition-all">
+<span class="material-symbols-outlined">smart_toy</span>
+<span class="font-label text-xs uppercase tracking-widest">Agent Insights</span>
+</button>
+<button class="flex items-center gap-4 px-4 py-3 text-[#615e5b]/70 hover:bg-[#eae8de]/50 transition-all">
+<span class="material-symbols-outlined">format_quote</span>
+<span class="font-label text-xs uppercase tracking-widest">Citations</span>
+</button>
+<button class="flex items-center gap-4 px-4 py-3 text-[#615e5b]/70 hover:bg-[#eae8de]/50 transition-all">
+<span class="material-symbols-outlined">edit_note</span>
+<span class="font-label text-xs uppercase tracking-widest">Drafts</span>
+</button>
+</nav>
+<div class="mt-auto">
+<div class="bg-surface-container-highest p-6 space-y-4">
+<h3 class="font-headline italic text-lg text-on-surface">Curated Theme</h3>
+<p class="font-label text-[11px] leading-relaxed text-on-surface-variant uppercase tracking-wider">
+                        Your library currently trends toward <span class="text-primary font-bold">Phenomenology</span> and <span class="text-primary font-bold">Cybernetics</span>.
+                    </p>
+<div class="pt-4 border-t border-outline-variant/20 flex justify-between items-center">
+<span class="font-label text-[10px] uppercase tracking-widest text-outline">128 Fragments</span>
+<span class="material-symbols-outlined text-primary">auto_awesome</span>
+</div>
+</div>
+</div>
+</aside>
+</main>
+<!-- Contextual FAB (Only for major actions on specific screens) -->
+<div class="fixed bottom-12 left-8 z-50">
+<button class="bg-primary text-on-primary flex items-center gap-3 px-6 py-4 editorial-shadow hover:bg-primary-dim transition-colors group">
+<span class="material-symbols-outlined">add</span>
+<span class="font-label text-xs uppercase tracking-[0.2em] font-medium">Capture Fragment</span>
+</button>
+</div>
+<!-- Decorative Texture Layer (Subtle Noise or Gradient handled by CSS/Tonal shifts) -->
+<div class="fixed inset-0 pointer-events-none opacity-[0.03] z-[100]" data-alt="Subtle paper fiber texture overlay" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuD89mz69B5-Mq4kP1nn4WpPTHVIa1ZyJXT4IZsmkMZSmJIJDkp-KXGJJXyEKbXXabu6ZcOSuh5C5XegCs6dzDFAV-wIM8w8X37lqUQ3dWqdAsZAIlrGNmq1yDNBesX2V56pkWOlTh6SBluJVyzt0hDSe5UUu_v-zNYMOOK8ED77D5MfG-T2xPJqd_LdNkKIhNUMxyjVZ0JP02dPhHJTYJ7gsEP2x5MH1EYQOFpFWjR5dEyOXHp7Qj_mWtmra4uTaOLU2qOGkFtjuhV7');"></div>
+</body></html>

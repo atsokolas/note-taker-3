@@ -99,10 +99,15 @@ const {
   ConceptPathProgress,
   BrainSummary,
   PersonalAgent,
+  AgentThread,
   AgentActionApproval,
+  AgentProtocolApproval,
+  AgentProtocolHookRun,
   AgentActionAudit,
   AgentSoftDeleteRecord,
   AgentHandoff,
+  AgentArtifactDraft,
+  AgentUpkeepCycle,
   ReferenceEdge,
   SavedView,
   Collection,
@@ -137,9 +142,12 @@ const { buildConceptMaterialRouter } = require('./routes/conceptMaterialRoutes')
 const { buildAgentSettingsRouter } = require('./routes/agentSettingsRoutes');
 const { buildPersonalAgentRouter } = require('./routes/personalAgentRoutes');
 const { buildAgentBridgeRouter } = require('./routes/agentBridgeRoutes');
+const { buildAgentThreadRouter } = require('./routes/agentThreadRoutes');
 const { buildAgentHandoffRouter } = require('./routes/agentHandoffRoutes');
 const { buildAgentActionRouter } = require('./routes/agentActionRoutes');
 const { buildAgentChatRouter } = require('./routes/agentChatRoutes');
+const { buildAgentArtifactDraftRouter } = require('./routes/agentArtifactDraftRoutes');
+const { buildAgentUpkeepCycleRouter } = require('./routes/agentUpkeepCycleRoutes');
 const { buildConceptAgentRouter } = require('./routes/conceptAgentRoutes');
 const { buildConceptWorkspaceRouter } = require('./routes/conceptWorkspaceRoutes');
 const { buildConceptLayoutRouter } = require('./routes/conceptLayoutRoutes');
@@ -189,6 +197,34 @@ const {
   mutateConceptSuggestionDraft
 } = require('./services/conceptAgentService');
 const { generateCollaborativeReply } = require('./services/collaborativeAgentService');
+const { listAgentSkills } = require('./services/agentSkillCatalog');
+const {
+  buildAgentPlanner,
+  inferWorkerRole,
+  listWorkerRoles,
+  normalizeWorkerRole,
+  sanitizeAgentPlanner
+} = require('./services/agentWorkerRoles');
+const {
+  sanitizeAgentArtifactDraftDoc,
+  createAgentArtifactDraftFromSkillReply,
+  createAgentArtifactDraftRecord,
+  promoteAgentArtifactDraftRecord
+} = require('./services/agentArtifactDrafts');
+const {
+  normalizeActor: normalizeThreadActor,
+  normalizeThreadStatus,
+  normalizeThreadScope,
+  normalizeThreadMessage,
+  normalizeThreadPlan,
+  normalizeThreadCheckpoint,
+  normalizeThreadPlanner,
+  appendThreadMessage,
+  compactThreadState,
+  threadMessagesToHistory,
+  sanitizeAgentThreadDoc,
+  truncate: truncateThreadText
+} = require('./services/agentThreadState');
 const {
   DELETE_RETENTION_DAYS: AGENT_DELETE_RETENTION_DAYS,
   executeWorkspaceActionsWithPolicy,
@@ -297,6 +333,9 @@ const PERSONAL_AGENT_DEFAULT_CAPABILITIES = Object.freeze({
   executeWrites: true,
   executeDeletes: true
 });
+const WORKER_ROLE_VALUES = new Set(
+  listWorkerRoles().map((entry) => String(entry?.role || '').trim().toLowerCase()).filter(Boolean)
+);
 
 const normalizePersonalAgentCapabilities = (input = {}) => {
   const source = input && typeof input === 'object' ? input : {};
@@ -313,6 +352,20 @@ const normalizePersonalAgentCapabilities = (input = {}) => {
       ? Boolean(source.executeDeletes)
       : PERSONAL_AGENT_DEFAULT_CAPABILITIES.executeDeletes
   };
+};
+
+const normalizePersonalAgentWorkerRoles = (input = []) => {
+  const source = Array.isArray(input) ? input : [input];
+  const seen = new Set();
+  return source
+    .map((value) => normalizeWorkerRole(value))
+    .filter((value) => value && WORKER_ROLE_VALUES.has(value))
+    .filter((value) => {
+      if (seen.has(value)) return false;
+      seen.add(value);
+      return true;
+    })
+    .slice(0, 4);
 };
 
 const USER_AGENT_PREMIUM_TIERS = new Set(['free', 'premium']);
@@ -360,6 +413,7 @@ const sanitizePersonalAgent = (doc) => ({
   description: String(doc?.description || ''),
   status: normalizePersonalAgentStatus(doc?.status, 'active'),
   capabilities: normalizePersonalAgentCapabilities(doc?.capabilities || {}),
+  preferredWorkerRoles: normalizePersonalAgentWorkerRoles(doc?.preferredWorkerRoles || []),
   apiKeyPrefix: String(doc?.apiKeyPrefix || ''),
   lastUsedAt: doc?.lastUsedAt ? new Date(doc.lastUsedAt).toISOString() : null,
   createdAt: doc?.createdAt ? new Date(doc.createdAt).toISOString() : null,
@@ -370,6 +424,143 @@ const safeAgentHandoffLimit = (value, fallback = 30) => {
   const parsed = Number(value);
   if (!Number.isFinite(parsed)) return fallback;
   return Math.max(1, Math.min(MAX_AGENT_HANDOFF_LIST_LIMIT, Math.trunc(parsed)));
+};
+
+const buildDefaultThreadTitle = (text = '', fallback = 'Agent thread') => (
+  truncateThreadText(text || fallback, 120) || fallback
+);
+
+const buildDefaultHandoffPlan = ({
+  taskType = 'custom',
+  title = '',
+  objective = ''
+}) => {
+  const safeTaskType = normalizeAgentHandoffTaskType(taskType, 'custom');
+  const safeObjective = String(objective || '').trim();
+  const plansByTaskType = {
+    research: {
+      successCriteria: [
+        'Clarify the research question.',
+        'Surface the strongest relevant sources.',
+        'Deliver a concise findings summary with follow-up directions.'
+      ],
+      steps: [
+        { id: 'clarify', title: 'Clarify the research target', status: 'pending', kind: 'analysis', workerRole: 'planner' },
+        { id: 'gather', title: 'Gather supporting material', status: 'pending', kind: 'retrieval', workerRole: 'researcher' },
+        { id: 'synthesize', title: 'Summarize findings and next moves', status: 'pending', kind: 'delivery', workerRole: 'synthesizer' }
+      ]
+    },
+    synthesis: {
+      successCriteria: [
+        'Assemble the relevant source material.',
+        'Produce a structured synthesis rather than scattered notes.',
+        'Return a clean output the user can reuse.'
+      ],
+      steps: [
+        { id: 'review', title: 'Review the current material', status: 'pending', kind: 'analysis', workerRole: 'researcher' },
+        { id: 'draft', title: 'Draft the synthesis', status: 'pending', kind: 'writing', workerRole: 'synthesizer' },
+        { id: 'tighten', title: 'Tighten the final output', status: 'pending', kind: 'editing', workerRole: 'editor' }
+      ]
+    },
+    restructure: {
+      successCriteria: [
+        'Inspect the current structure before editing.',
+        'Make the reorganization legible and reversible.',
+        'Return the updated state with a short explanation.'
+      ],
+      steps: [
+        { id: 'inspect', title: 'Inspect the current structure', status: 'pending', kind: 'analysis', workerRole: 'organizer' },
+        { id: 'propose', title: 'Propose the restructure', status: 'pending', kind: 'planning', workerRole: 'planner' },
+        { id: 'apply', title: 'Apply approved changes', status: 'pending', kind: 'execution', workerRole: 'editor' }
+      ]
+    },
+    qa: {
+      successCriteria: [
+        'Review the target surface closely.',
+        'Call out concrete gaps or risks.',
+        'Return prioritized findings.'
+      ],
+      steps: [
+        { id: 'inspect', title: 'Inspect the target surface', status: 'pending', kind: 'analysis', workerRole: 'critic' },
+        { id: 'verify', title: 'Verify expected behavior', status: 'pending', kind: 'testing', workerRole: 'critic' },
+        { id: 'report', title: 'Report prioritized findings', status: 'pending', kind: 'delivery', workerRole: 'editor' }
+      ]
+    },
+    custom: {
+      successCriteria: [
+        'Clarify the task.',
+        'Complete the requested work.',
+        'Return a concrete result or blocker.'
+      ],
+      steps: [
+        { id: 'clarify', title: 'Clarify the task', status: 'pending', kind: 'analysis', workerRole: 'planner' },
+        { id: 'execute', title: 'Execute the work', status: 'pending', kind: 'execution', workerRole: 'synthesizer' },
+        { id: 'deliver', title: 'Deliver the result', status: 'pending', kind: 'delivery', workerRole: 'editor' }
+      ]
+    }
+  };
+  const basePlan = plansByTaskType[safeTaskType] || plansByTaskType.custom;
+  return normalizeThreadPlan({
+    objective: safeObjective || title,
+    currentStepId: basePlan.steps[0]?.id || '',
+    successCriteria: basePlan.successCriteria,
+    steps: basePlan.steps
+  });
+};
+
+const buildDefaultHandoffCheckpoint = ({
+  title = '',
+  requestedActor = {}
+}) => normalizeThreadCheckpoint({
+  summary: `Handoff created and waiting for ${normalizeAgentActorType(requestedActor?.actorType, 'native_agent')}.`,
+  openQuestions: [],
+  nextActions: ['Claim the handoff and start the first plan step.'],
+  updatedBy: normalizeThreadActor(requestedActor, 'native_agent')
+});
+
+const createThreadForHandoff = async ({
+  userId,
+  title = '',
+  objective = '',
+  taskType = 'custom',
+  requestedActor = {},
+  planner = null,
+  createdBy = {},
+  handoffId = null
+}) => {
+  const nextPlanner = sanitizeAgentPlanner(
+    planner || buildAgentPlanner({ taskType, requestedActor })
+  );
+  const thread = await AgentThread.create({
+    userId,
+    title: buildDefaultThreadTitle(title || objective || 'Handoff thread'),
+    status: 'active',
+    summary: truncateThreadText(objective || title, 280),
+    scope: normalizeThreadScope({
+      type: 'handoff',
+      id: String(handoffId || ''),
+      title: title || 'Agent handoff'
+    }),
+    createdBy: normalizeThreadActor(createdBy, 'user'),
+    lastActor: normalizeThreadActor(createdBy, 'user'),
+    handoffId,
+    planner: nextPlanner,
+    plan: buildDefaultHandoffPlan({ taskType, title, objective }),
+    checkpoint: buildDefaultHandoffCheckpoint({ title, requestedActor }),
+    messages: []
+  });
+  appendThreadMessage(thread, {
+    role: 'system',
+    text: `Handoff thread opened for ${title || 'untitled handoff'}.`,
+    actor: normalizeThreadActor(createdBy, 'user'),
+    metadata: {
+      taskType: normalizeAgentHandoffTaskType(taskType, 'custom'),
+      requestedActor: normalizeActorIdentity(requestedActor || {}, 'native_agent'),
+      planner: nextPlanner
+    }
+  });
+  await thread.save();
+  return thread;
 };
 
 const normalizeActorIdentity = (input = {}, fallbackType = 'user') => ({
@@ -404,6 +595,27 @@ const normalizeProtocolTaskOverride = (input = {}) => {
   return { actorType, actorId };
 };
 
+const PROTOCOL_HOOK_EFFECTS = new Set(['off', 'observe', 'warn', 'require_approval']);
+
+const normalizeProtocolHookEffect = (value, fallback = 'off') => {
+  if (typeof value === 'boolean') return value ? 'observe' : 'off';
+  const safeValue = String(value || '').trim().toLowerCase();
+  if (PROTOCOL_HOOK_EFFECTS.has(safeValue)) return safeValue;
+  return PROTOCOL_HOOK_EFFECTS.has(String(fallback || '').trim().toLowerCase())
+    ? String(fallback).trim().toLowerCase()
+    : 'off';
+};
+
+const normalizeAgentProtocolHooksPolicy = (input = {}) => {
+  const source = input && typeof input === 'object' ? input : {};
+  return {
+    beforeThreadOps: normalizeProtocolHookEffect(source.beforeThreadOps, 'off'),
+    afterThreadOps: normalizeProtocolHookEffect(source.afterThreadOps, 'off'),
+    beforeHandoffOps: normalizeProtocolHookEffect(source.beforeHandoffOps, 'observe'),
+    afterHandoffOps: normalizeProtocolHookEffect(source.afterHandoffOps, 'observe')
+  };
+};
+
 const normalizeAgentProtocolPolicy = (input = {}) => {
   const source = input && typeof input === 'object' ? input : {};
   const taskOverridesSource = source.taskOverrides && typeof source.taskOverrides === 'object'
@@ -415,6 +627,8 @@ const normalizeAgentProtocolPolicy = (input = {}) => {
     defaultByoAgentId: mongoose.Types.ObjectId.isValid(defaultByoAgentIdRaw) ? defaultByoAgentIdRaw : '',
     allowByoForResearch: source.allowByoForResearch !== undefined ? Boolean(source.allowByoForResearch) : true,
     allowByoForSynthesis: source.allowByoForSynthesis !== undefined ? Boolean(source.allowByoForSynthesis) : true,
+    preferByoSpecialists: source.preferByoSpecialists !== undefined ? Boolean(source.preferByoSpecialists) : true,
+    hooks: normalizeAgentProtocolHooksPolicy(source.hooks || {}),
     taskOverrides: {
       research: normalizeProtocolTaskOverride(taskOverridesSource.research),
       synthesis: normalizeProtocolTaskOverride(taskOverridesSource.synthesis),
@@ -432,6 +646,8 @@ const sanitizeAgentProtocolPolicy = (input = {}) => {
     defaultByoAgentId: policy.defaultByoAgentId || '',
     allowByoForResearch: Boolean(policy.allowByoForResearch),
     allowByoForSynthesis: Boolean(policy.allowByoForSynthesis),
+    preferByoSpecialists: policy.preferByoSpecialists !== false,
+    hooks: normalizeAgentProtocolHooksPolicy(policy.hooks || {}),
     taskOverrides: {
       research: policy.taskOverrides.research,
       synthesis: policy.taskOverrides.synthesis,
@@ -449,6 +665,8 @@ const toStoredAgentProtocolPolicy = (policy = {}) => ({
     : null,
   allowByoForResearch: Boolean(policy.allowByoForResearch),
   allowByoForSynthesis: Boolean(policy.allowByoForSynthesis),
+  preferByoSpecialists: Boolean(policy.preferByoSpecialists),
+  hooks: normalizeAgentProtocolHooksPolicy(policy.hooks || {}),
   taskOverrides: policy.taskOverrides || {}
 });
 
@@ -481,25 +699,37 @@ const listActivePersonalAgentsForUser = async (userId) => {
 const selectByoAgentForTask = ({
   agents = [],
   taskType = 'custom',
-  preferredAgentId = ''
+  preferredAgentId = '',
+  preferredWorkerRole = ''
 }) => {
   const compatible = agents.filter(agent => isByoAgentCompatibleForTask(agent, taskType));
   if (!compatible.length) return null;
+  const safeWorkerRole = normalizeWorkerRole(preferredWorkerRole);
+  const roleMatched = safeWorkerRole
+    ? compatible.filter(agent => normalizePersonalAgentWorkerRoles(agent?.preferredWorkerRoles || []).includes(safeWorkerRole))
+    : [];
+  const pool = roleMatched.length > 0 ? roleMatched : compatible;
   const preferredId = String(preferredAgentId || '').trim();
   if (preferredId) {
-    const preferred = compatible.find(agent => String(agent._id) === preferredId);
+    const preferred = pool.find(agent => String(agent._id) === preferredId)
+      || compatible.find(agent => String(agent._id) === preferredId);
     if (preferred) return preferred;
   }
-  return compatible[0];
+  return pool[0];
 };
 
 const resolveAutoHandoffRequestedActor = async ({
   userId,
   taskType = 'custom',
-  policy = {}
+  policy = {},
+  workerRole = ''
 }) => {
   const safeTaskType = normalizeAgentHandoffTaskType(taskType, 'custom');
   const safePolicy = sanitizeAgentProtocolPolicy(policy);
+  const preferredWorkerRole = normalizeWorkerRole(
+    workerRole || inferWorkerRole({ taskType: safeTaskType }),
+    ''
+  );
   const override = safePolicy.taskOverrides[safeTaskType] || { actorType: '', actorId: '' };
 
   if (override.actorType) {
@@ -542,18 +772,23 @@ const resolveAutoHandoffRequestedActor = async ({
     const selectedByo = selectByoAgentForTask({
       agents,
       taskType: safeTaskType,
-      preferredAgentId: safePolicy.defaultByoAgentId
+      preferredAgentId: safePolicy.defaultByoAgentId,
+      preferredWorkerRole: safePolicy.preferByoSpecialists ? preferredWorkerRole : ''
     });
     if (selectedByo) {
+      const selectedWorkerRoles = normalizePersonalAgentWorkerRoles(selectedByo.preferredWorkerRoles || []);
       return {
         requestedActor: { actorType: 'byo_agent', actorId: String(selectedByo._id) },
         planner: {
           routeSource: safePolicy.routingMode === 'byo_first' ? 'routing_mode_byo_first' : 'balanced_with_capability_match',
           routingMode: safePolicy.routingMode,
+          activeWorkerRole: preferredWorkerRole || undefined,
           selectedByoAgent: {
             actorId: String(selectedByo._id),
-            name: String(selectedByo.name || '')
-          }
+            name: String(selectedByo.name || ''),
+            preferredWorkerRoles: selectedWorkerRoles
+          },
+          specialistMatch: Boolean(preferredWorkerRole && selectedWorkerRoles.includes(preferredWorkerRole))
         }
       };
     }
@@ -572,7 +807,7 @@ const createSignedBridgeToken = ({
   userId,
   actorType = 'user',
   actorId = '',
-  scope = 'handoff_ops',
+  scope = 'agent_ops',
   ttlSeconds = DEFAULT_BRIDGE_TOKEN_TTL_SECONDS
 }) => {
   const safeTtl = safeBridgeTokenTtlSeconds(ttlSeconds, DEFAULT_BRIDGE_TOKEN_TTL_SECONDS);
@@ -581,7 +816,7 @@ const createSignedBridgeToken = ({
     userId: String(userId),
     actorType: normalizeAgentActorType(actorType, 'user'),
     actorId: String(actorId || '').trim(),
-    scope: String(scope || 'handoff_ops').trim() || 'handoff_ops'
+    scope: String(scope || 'agent_ops').trim() || 'agent_ops'
   };
   const token = jwt.sign(payload, getAgentBridgeJwtSecret(), {
     expiresIn: safeTtl,
@@ -590,10 +825,263 @@ const createSignedBridgeToken = ({
   return { token, ttlSeconds: safeTtl };
 };
 
+const sanitizeProtocolApprovalDoc = (doc) => ({
+  approvalId: String(doc?._id || ''),
+  status: String(doc?.status || '').trim(),
+  scope: String(doc?.scope || '').trim() || 'agent_ops',
+  op: String(doc?.op || '').trim(),
+  payload: doc?.payload && typeof doc.payload === 'object' ? doc.payload : {},
+  preview: doc?.preview && typeof doc.preview === 'object' ? doc.preview : {},
+  reason: String(doc?.reason || '').trim(),
+  requestedBy: normalizeActorIdentity(doc?.requestedBy || {}, 'native_agent'),
+  approvedBy: doc?.approvedBy ? normalizeActorIdentity(doc.approvedBy, 'user') : null,
+  rejectedBy: doc?.rejectedBy ? normalizeActorIdentity(doc.rejectedBy, 'user') : null,
+  approvedAt: doc?.approvedAt ? new Date(doc.approvedAt).toISOString() : null,
+  rejectedAt: doc?.rejectedAt ? new Date(doc.rejectedAt).toISOString() : null,
+  executedAt: doc?.executedAt ? new Date(doc.executedAt).toISOString() : null,
+  createdAt: doc?.createdAt ? new Date(doc.createdAt).toISOString() : null,
+  updatedAt: doc?.updatedAt ? new Date(doc.updatedAt).toISOString() : null,
+  result: doc?.result && typeof doc.result === 'object' ? doc.result : {}
+});
+
+const sanitizeProtocolHookRunDoc = (doc) => ({
+  hookRunId: String(doc?._id || ''),
+  effect: normalizeProtocolHookEffect(doc?.effect, 'observe'),
+  status: String(doc?.status || '').trim() || 'passed',
+  source: String(doc?.source || '').trim() || 'native',
+  phase: String(doc?.phase || '').trim(),
+  scope: String(doc?.scope || '').trim() || 'agent_ops',
+  op: String(doc?.op || '').trim(),
+  actor: normalizeActorIdentity(doc?.actor || {}, 'native_agent'),
+  threadId: String(doc?.threadId || '').trim(),
+  handoffId: String(doc?.handoffId || '').trim(),
+  approvalId: String(doc?.approvalId || '').trim(),
+  preview: doc?.preview && typeof doc.preview === 'object' ? doc.preview : {},
+  payload: doc?.payload && typeof doc.payload === 'object' ? doc.payload : {},
+  result: doc?.result && typeof doc.result === 'object' ? doc.result : {},
+  warningMessage: String(doc?.warningMessage || '').trim(),
+  errorMessage: String(doc?.errorMessage || '').trim(),
+  createdAt: doc?.createdAt ? new Date(doc.createdAt).toISOString() : null,
+  updatedAt: doc?.updatedAt ? new Date(doc.updatedAt).toISOString() : null
+});
+
+const BRIDGE_APPROVAL_REQUIRED_OPS = new Set([
+  'threads.create',
+  'threads.update',
+  'threads.convert_to_handoff',
+  'artifacts.drafts.create',
+  'artifacts.drafts.promote',
+  'artifacts.drafts.dismiss',
+  'handoffs.create',
+  'handoffs.claim',
+  'handoffs.complete',
+  'handoffs.reject'
+]);
+
+const shouldRequireProtocolApproval = ({
+  op = '',
+  actor = {},
+  source = 'bridge',
+  policy = {}
+} = {}) => {
+  const safeOp = String(op || '').trim();
+  const safeSource = String(source || 'bridge').trim().toLowerCase();
+  if (!safeOp || !['bridge', 'native'].includes(safeSource)) return { requiresApproval: false, reason: '' };
+  const beforeHookEffect = getProtocolHookEffect({ policy, phase: 'before', op: safeOp });
+  if (beforeHookEffect === 'require_approval') {
+    return {
+      requiresApproval: true,
+      reason: `Before hook for ${safeOp} requires approval.`
+    };
+  }
+  if (String(actor?.actorType || '').trim().toLowerCase() === 'user') {
+    return { requiresApproval: false, reason: '' };
+  }
+  if (!BRIDGE_APPROVAL_REQUIRED_OPS.has(safeOp)) {
+    return { requiresApproval: false, reason: '' };
+  }
+  if (safeOp === 'threads.convert_to_handoff') {
+    return {
+      requiresApproval: true,
+      reason: 'Agent-triggered conversion from thread to handoff requires approval.'
+    };
+  }
+  if (safeOp === 'handoffs.complete' || safeOp === 'handoffs.reject') {
+    return {
+      requiresApproval: true,
+      reason: 'Agent-driven handoff resolution requires approval.'
+    };
+  }
+  return {
+    requiresApproval: true,
+    reason: 'Bridge-issued write operation requires approval.'
+  };
+};
+
+const requestProtocolApproval = async ({
+  userId,
+  scope = 'agent_ops',
+  op = '',
+  payload = {},
+  preview = {},
+  reason = '',
+  requestedBy = {}
+} = {}) => {
+  const approval = await AgentProtocolApproval.create({
+    userId,
+    status: 'pending',
+    scope: String(scope || 'agent_ops').trim() || 'agent_ops',
+    op: String(op || '').trim(),
+    payload: payload && typeof payload === 'object' ? payload : {},
+    preview: {
+      title: String(
+        preview?.title
+        || payload?.draft?.title
+        || payload?.title
+        || payload?.message?.text
+        || payload?.objective
+        || ''
+      ).trim(),
+      threadId: String(preview?.threadId || payload?.threadId || '').trim(),
+      handoffId: String(preview?.handoffId || payload?.handoffId || '').trim(),
+      draftId: String(preview?.draftId || payload?.draftId || '').trim()
+    },
+    reason: String(reason || '').trim(),
+    requestedBy: normalizeActorIdentity(requestedBy || {}, 'native_agent')
+  });
+  return sanitizeProtocolApprovalDoc(approval);
+};
+
+const getProtocolHookEffect = ({
+  policy = {},
+  phase = 'before',
+  op = ''
+} = {}) => {
+  const safePhase = String(phase || 'before').trim().toLowerCase();
+  const safeOp = String(op || '').trim().toLowerCase();
+  const hooks = normalizeAgentProtocolHooksPolicy(policy?.hooks || {});
+  if (safeOp.startsWith('threads.')) {
+    return safePhase === 'before' ? hooks.beforeThreadOps : hooks.afterThreadOps;
+  }
+  if (safeOp.startsWith('handoffs.')) {
+    return safePhase === 'before' ? hooks.beforeHandoffOps : hooks.afterHandoffOps;
+  }
+  if (safeOp.startsWith('artifacts.')) {
+    return safePhase === 'before' ? hooks.beforeThreadOps : hooks.afterThreadOps;
+  }
+  return 'off';
+};
+
+const buildProtocolHookWarningMessage = ({
+  phase = 'before',
+  op = ''
+} = {}) => {
+  const safePhase = String(phase || 'before').trim().toLowerCase();
+  const safeOp = String(op || '').trim();
+  return `${safePhase} hook warning for ${safeOp || 'protocol operation'}.`;
+};
+
+const collectHookWarnings = (...runs) => (
+  runs
+    .filter(Boolean)
+    .map((run) => String(run?.warningMessage || '').trim())
+    .filter(Boolean)
+);
+
+const buildProtocolHookPreview = ({
+  payload = {},
+  result = {},
+  errorMessage = ''
+} = {}) => ({
+  title: String(
+    payload?.title
+    || result?.draft?.title
+    || result?.thread?.title
+    || result?.handoff?.title
+    || payload?.message?.text
+    || payload?.objective
+    || ''
+  ).trim(),
+  threadId: String(
+    payload?.threadId
+    || result?.thread?.threadId
+    || result?.approval?.preview?.threadId
+    || ''
+  ).trim(),
+  handoffId: String(
+    payload?.handoffId
+    || result?.handoff?.handoffId
+    || result?.approval?.preview?.handoffId
+    || ''
+  ).trim(),
+  draftId: String(
+    payload?.draftId
+    || result?.draft?.draftId
+    || result?.approval?.preview?.draftId
+    || ''
+  ).trim(),
+  summary: String(errorMessage || payload?.note || '').trim()
+});
+
+const triggerProtocolHookPhase = async ({
+  userId,
+  actor = {},
+  source = 'native',
+  phase = 'before',
+  scope = 'agent_ops',
+  op = '',
+  payload = {},
+  result = {},
+  approvalId = '',
+  errorMessage = ''
+} = {}) => {
+  try {
+    const policy = await getUserAgentProtocolPolicy(String(userId));
+    const effect = getProtocolHookEffect({ policy, phase, op });
+    if (effect === 'off') return null;
+    const warningMessage = effect === 'warn'
+      ? buildProtocolHookWarningMessage({ phase, op })
+      : '';
+    const hookRun = await AgentProtocolHookRun.create({
+      userId,
+      source: ['bridge', 'approval_replay'].includes(String(source || '').trim()) ? source : 'native',
+      phase: String(phase || 'before').trim().toLowerCase() === 'after' ? 'after' : 'before',
+      effect,
+      status: errorMessage ? 'error' : 'passed',
+      scope: String(scope || 'agent_ops').trim() || 'agent_ops',
+      op: String(op || '').trim().toLowerCase(),
+      actor: normalizeActorIdentity(actor || {}, 'native_agent'),
+      threadId: String(
+        payload?.threadId
+        || result?.thread?.threadId
+        || result?.approval?.preview?.threadId
+        || ''
+      ).trim(),
+      handoffId: String(
+        payload?.handoffId
+        || result?.handoff?.handoffId
+        || result?.approval?.preview?.handoffId
+        || ''
+      ).trim(),
+      approvalId: mongoose.Types.ObjectId.isValid(approvalId) ? new mongoose.Types.ObjectId(String(approvalId)) : null,
+      preview: buildProtocolHookPreview({ payload, result, errorMessage }),
+      payload: payload && typeof payload === 'object' ? payload : {},
+      result: result && typeof result === 'object' ? result : {},
+      warningMessage,
+      errorMessage: String(errorMessage || '').trim()
+    });
+    return sanitizeProtocolHookRunDoc(hookRun);
+  } catch (error) {
+    console.error('❌ Error recording protocol hook run:', error);
+    return null;
+  }
+};
+
 const sanitizeAgentHandoffDoc = (doc) => {
   const events = Array.isArray(doc?.events) ? doc.events : [];
   return {
     handoffId: String(doc?._id || ''),
+    threadId: String(doc?.threadId || ''),
     title: String(doc?.title || ''),
     taskType: normalizeAgentHandoffTaskType(doc?.taskType, 'custom'),
     objective: String(doc?.objective || ''),
@@ -602,6 +1090,9 @@ const sanitizeAgentHandoffDoc = (doc) => {
     context: doc?.context || {},
     input: doc?.input || {},
     output: doc?.output || {},
+    planner: doc?.planner ? sanitizeAgentPlanner(doc.planner) : null,
+    plan: normalizeThreadPlan(doc?.plan || {}),
+    checkpoint: doc?.checkpoint ? normalizeThreadCheckpoint(doc.checkpoint) : null,
     requestedActor: normalizeActorIdentity(doc?.requestedActor || {}, 'native_agent'),
     createdBy: normalizeActorIdentity(doc?.createdBy || {}, 'user'),
     claimedBy: doc?.claimedBy ? normalizeActorIdentity(doc.claimedBy, 'native_agent') : null,
@@ -720,9 +1211,12 @@ const buildHandoffActorFilter = (actor = {}, scope = 'mine') => {
 const runBridgeHandoffOperation = async ({
   bridgeActor,
   op,
-  payload = {}
+  payload = {},
+  executionSource = 'bridge',
+  approvalId = ''
 }) => {
   const userId = String(bridgeActor?.userId || '').trim();
+  const policy = await getUserAgentProtocolPolicy(String(userId));
   const actor = {
     actorType: normalizeAgentActorType(bridgeActor?.actorType, 'user'),
     actorId: String(bridgeActor?.actorId || '').trim()
@@ -737,6 +1231,384 @@ const runBridgeHandoffOperation = async ({
     }).select('capabilities');
     if (!byAgent) throw Object.assign(new Error('BYO bridge actor is not active.'), { status: 403 });
     bridgeByoCapabilities = normalizePersonalAgentCapabilities(byAgent.capabilities || {});
+  }
+
+  const bypassProtocolApproval = Boolean(payload?.__bypassProtocolApproval);
+  const approvalPolicy = shouldRequireProtocolApproval({
+    op: operation,
+    actor,
+    source: 'bridge',
+    policy
+  });
+  if (approvalPolicy.requiresApproval && !bypassProtocolApproval) {
+    const approval = await requestProtocolApproval({
+      userId,
+      scope: String(bridgeActor?.scope || 'agent_ops').trim() || 'agent_ops',
+      op: operation,
+      payload,
+      reason: approvalPolicy.reason,
+      requestedBy: actor
+    });
+    return {
+      status: 'approval_required',
+      reason: approvalPolicy.reason,
+      approval
+    };
+  }
+
+  const beforeHookRun = await triggerProtocolHookPhase({
+    userId,
+    actor,
+    source: executionSource,
+    phase: 'before',
+    scope: String(bridgeActor?.scope || 'agent_ops').trim() || 'agent_ops',
+    op: operation,
+    payload,
+    approvalId
+  });
+
+  const finalizeOperation = async (result) => {
+    const afterHookRun = await triggerProtocolHookPhase({
+      userId,
+      actor,
+      source: executionSource,
+      phase: 'after',
+      scope: String(bridgeActor?.scope || 'agent_ops').trim() || 'agent_ops',
+      op: operation,
+      payload,
+      result,
+      approvalId
+    });
+    const warnings = collectHookWarnings(beforeHookRun, afterHookRun);
+    if (warnings.length > 0 && result && typeof result === 'object') {
+      return { ...result, hookWarnings: warnings };
+    }
+    return result;
+  };
+
+  if (operation === 'threads.list') {
+    const query = { userId };
+    const status = String(payload.status || 'active').trim().toLowerCase();
+    if (status !== 'all') query.status = normalizeThreadStatus(status, 'active');
+    const scopeType = String(payload.scopeType || '').trim().toLowerCase();
+    const scopeId = String(payload.scopeId || '').trim();
+    const handoffId = String(payload.handoffId || '').trim();
+    if (scopeType) query['scope.type'] = scopeType;
+    if (scopeId) query['scope.id'] = scopeId;
+    if (handoffId && mongoose.Types.ObjectId.isValid(handoffId)) query.handoffId = handoffId;
+    const limit = safeAgentHandoffLimit(payload.limit, 50);
+    const rows = await AgentThread.find(query).sort({ updatedAt: -1, createdAt: -1 }).limit(limit);
+    return finalizeOperation({ threads: rows.map(sanitizeAgentThreadDoc) });
+  }
+
+  if (operation === 'threads.get') {
+    const threadId = String(payload.threadId || '').trim();
+    if (!mongoose.Types.ObjectId.isValid(threadId)) {
+      throw Object.assign(new Error('Invalid thread id.'), { status: 400 });
+    }
+    const thread = await AgentThread.findOne({ _id: threadId, userId });
+    if (!thread) throw Object.assign(new Error('Thread not found.'), { status: 404 });
+    return finalizeOperation({ thread: sanitizeAgentThreadDoc(thread) });
+  }
+
+  if (operation === 'threads.create') {
+    if (actor.actorType === 'byo_agent' && !bridgeByoCapabilities?.proposeChanges) {
+      throw Object.assign(new Error('This BYO actor cannot create shared threads.'), { status: 403 });
+    }
+    const planner = payload.planner && typeof payload.planner === 'object'
+      ? sanitizeAgentPlanner(payload.planner)
+      : buildAgentPlanner({
+          taskType: payload?.scope?.metadata?.taskType || 'custom',
+          requestedActor: actor
+        });
+    const thread = await AgentThread.create({
+      userId,
+      title: buildDefaultThreadTitle(payload.title || payload?.initialMessage?.text || 'Agent thread'),
+      status: normalizeThreadStatus(payload.status, 'active'),
+      summary: String(payload.summary || '').trim().slice(0, 280),
+      scope: normalizeThreadScope(payload.scope || {}),
+      createdBy: actor,
+      lastActor: actor,
+      handoffId: mongoose.Types.ObjectId.isValid(payload.handoffId) ? payload.handoffId : null,
+      planner,
+      plan: normalizeThreadPlan(payload.plan || {}),
+      checkpoint: payload.checkpoint ? normalizeThreadCheckpoint({ ...(payload.checkpoint || {}), updatedBy: actor }) : undefined,
+      messages: []
+    });
+    if (payload.initialMessage) {
+      appendThreadMessage(thread, {
+        ...normalizeThreadMessage(payload.initialMessage, payload.initialMessage?.role || 'user'),
+        actor
+      });
+      compactThreadState(thread, { actor });
+      await thread.save();
+    }
+    return finalizeOperation({ thread: sanitizeAgentThreadDoc(thread) });
+  }
+
+  if (operation === 'threads.update' || operation === 'threads.append_message') {
+    if (actor.actorType === 'byo_agent' && !bridgeByoCapabilities?.proposeChanges) {
+      throw Object.assign(new Error('This BYO actor cannot update shared threads.'), { status: 403 });
+    }
+    const threadId = String(payload.threadId || '').trim();
+    if (!mongoose.Types.ObjectId.isValid(threadId)) {
+      throw Object.assign(new Error('Invalid thread id.'), { status: 400 });
+    }
+    const thread = await AgentThread.findOne({ _id: threadId, userId });
+    if (!thread) throw Object.assign(new Error('Thread not found.'), { status: 404 });
+
+    if (operation === 'threads.update') {
+      if (payload.title !== undefined) thread.title = String(payload.title || '').trim().slice(0, 200);
+      if (payload.status !== undefined) thread.status = normalizeThreadStatus(payload.status, thread.status || 'active');
+      if (payload.summary !== undefined) thread.summary = String(payload.summary || '').trim().slice(0, 280);
+      if (payload.plan !== undefined) thread.plan = normalizeThreadPlan(payload.plan || {});
+      if (payload.planner !== undefined) thread.planner = payload.planner ? normalizeThreadPlanner(payload.planner) : undefined;
+      if (payload.checkpoint !== undefined) {
+        thread.checkpoint = payload.checkpoint ? normalizeThreadCheckpoint({ ...(payload.checkpoint || {}), updatedBy: actor }) : undefined;
+      }
+      thread.lastActor = actor;
+      await thread.save();
+      return finalizeOperation({ thread: sanitizeAgentThreadDoc(thread) });
+    }
+
+    appendThreadMessage(thread, {
+      ...normalizeThreadMessage(payload.message || {}, payload?.message?.role || 'assistant'),
+      actor
+    });
+    if (payload.plan !== undefined) thread.plan = normalizeThreadPlan(payload.plan || {});
+    if (payload.planner !== undefined) thread.planner = payload.planner ? normalizeThreadPlanner(payload.planner) : thread.planner;
+    if (payload.checkpoint !== undefined) {
+      thread.checkpoint = payload.checkpoint ? normalizeThreadCheckpoint({ ...(payload.checkpoint || {}), updatedBy: actor }) : undefined;
+    }
+    compactThreadState(thread, { actor });
+    await thread.save();
+    return finalizeOperation({ thread: sanitizeAgentThreadDoc(thread) });
+  }
+
+  if (operation === 'threads.convert_to_handoff') {
+    if (actor.actorType === 'byo_agent' && !bridgeByoCapabilities?.proposeChanges) {
+      throw Object.assign(new Error('This BYO actor cannot convert shared threads to handoffs.'), { status: 403 });
+    }
+    const threadId = String(payload.threadId || '').trim();
+    if (!mongoose.Types.ObjectId.isValid(threadId)) {
+      throw Object.assign(new Error('Invalid thread id.'), { status: 400 });
+    }
+    const thread = await AgentThread.findOne({ _id: threadId, userId });
+    if (!thread) throw Object.assign(new Error('Thread not found.'), { status: 404 });
+
+    if (thread.handoffId && mongoose.Types.ObjectId.isValid(String(thread.handoffId))) {
+      const existingHandoff = await AgentHandoff.findOne({ _id: thread.handoffId, userId });
+      if (existingHandoff) {
+        return finalizeOperation({
+          thread: sanitizeAgentThreadDoc(thread),
+          handoff: sanitizeAgentHandoffDoc(existingHandoff),
+          reused: true
+        });
+      }
+    }
+
+    const title = String(payload.title || thread.title || thread?.scope?.title || 'Thread handoff').trim().slice(0, 200);
+    const taskType = normalizeAgentHandoffTaskType(payload.taskType || thread?.scope?.metadata?.taskType || 'custom', 'custom');
+    const priority = normalizeAgentHandoffPriority(payload.priority, 'normal');
+    const objective = String(
+      payload.objective
+      || thread?.checkpoint?.summary
+      || thread?.summary
+      || thread?.plan?.objective
+      || title
+    ).trim().slice(0, 4000);
+    let requestedActor = null;
+    let planner = null;
+    const autoRoute = payload.autoRoute !== false;
+    if (autoRoute) {
+      const policy = await getUserAgentProtocolPolicy(String(userId));
+      const routingPlan = await resolveAutoHandoffRequestedActor({
+        userId: String(userId),
+        taskType,
+        policy,
+        workerRole: payload?.planner?.activeWorkerRole || thread?.planner?.activeWorkerRole || ''
+      });
+      requestedActor = routingPlan.requestedActor;
+      planner = routingPlan.planner;
+    } else {
+      requestedActor = await resolveAndValidateActorIdentity({
+        userId,
+        actor: payload.requestedActor || { actorType: 'native_agent', actorId: '' },
+        fallbackType: 'native_agent'
+      });
+    }
+    if (requestedActor.actorType === 'user' && !requestedActor.actorId) requestedActor.actorId = String(userId);
+    const plan = normalizeThreadPlan(
+      Array.isArray(thread?.plan?.steps) && thread.plan.steps.length > 0
+        ? thread.plan
+        : buildDefaultHandoffPlan({ taskType, title, objective })
+    );
+    const checkpoint = thread?.checkpoint
+      ? normalizeThreadCheckpoint({ ...(thread.checkpoint || {}), updatedBy: actor })
+      : buildDefaultHandoffCheckpoint({ title, requestedActor });
+    const handoffPlanner = sanitizeAgentPlanner(
+      payload.planner
+      || planner
+      || thread?.planner
+      || buildAgentPlanner({ taskType, requestedActor, routePlanner: planner })
+    );
+    const handoff = await AgentHandoff.create({
+      userId,
+      title,
+      taskType,
+      objective,
+      status: 'pending',
+      priority,
+      context: {
+        ...(payload.context && typeof payload.context === 'object' ? payload.context : {}),
+        sourceThread: {
+          threadId: String(thread._id),
+          scope: normalizeThreadScope(thread.scope || {}),
+          summary: String(thread.summary || '').trim().slice(0, 280)
+        }
+      },
+      input: {
+        ...(payload.input && typeof payload.input === 'object' ? payload.input : {}),
+        threadCheckpoint: checkpoint,
+        threadPlan: plan
+      },
+      output: {},
+      threadId: thread._id,
+      planner: handoffPlanner,
+      plan,
+      checkpoint,
+      requestedActor,
+      createdBy: actor,
+      events: [{
+        eventType: 'created',
+        actor,
+        note: 'Converted from shared thread.',
+        payload: { sourceThreadId: String(thread._id), requestedActor, planner: handoffPlanner }
+      }]
+    });
+    thread.handoffId = handoff._id;
+    thread.planner = handoffPlanner;
+    appendThreadMessage(thread, {
+      role: 'system',
+      text: `Converted to handoff "${title}".`,
+      actor,
+      metadata: { eventType: 'handoff_created', handoffId: String(handoff._id), planner: handoffPlanner }
+    });
+    thread.checkpoint = normalizeThreadCheckpoint({
+      summary: checkpoint.summary || thread.summary || `Linked to handoff "${title}".`,
+      openQuestions: Array.isArray(checkpoint.openQuestions) ? checkpoint.openQuestions : [],
+      nextActions: [`Open the linked handoff "${title}".`],
+      updatedBy: actor
+    });
+    await thread.save();
+    return finalizeOperation({
+      thread: sanitizeAgentThreadDoc(thread),
+      handoff: sanitizeAgentHandoffDoc(handoff),
+      planner: handoffPlanner
+    });
+  }
+
+  if (operation === 'artifacts.drafts.list') {
+    if (actor.actorType === 'byo_agent' && !bridgeByoCapabilities?.read && !bridgeByoCapabilities?.search) {
+      throw Object.assign(new Error('This BYO actor cannot inspect shared artifact drafts.'), { status: 403 });
+    }
+    const query = { userId };
+    const status = String(payload.status || 'pending').trim().toLowerCase();
+    if (status && status !== 'all') {
+      if (!['pending', 'promoted', 'dismissed'].includes(status)) {
+        throw Object.assign(new Error('Invalid draft status filter.'), { status: 400 });
+      }
+      query.status = status;
+    }
+    const artifactType = String(payload.artifactType || '').trim().toLowerCase();
+    if (artifactType) {
+      if (!['note', 'concept', 'question', 'handoff'].includes(artifactType)) {
+        throw Object.assign(new Error('Invalid artifactType filter.'), { status: 400 });
+      }
+      query.artifactType = artifactType;
+    }
+    const threadId = String(payload.threadId || '').trim();
+    const handoffId = String(payload.handoffId || '').trim();
+    if (threadId) query.sourceThreadId = threadId;
+    if (handoffId) query.sourceHandoffId = handoffId;
+    const limit = safeAgentHandoffLimit(payload.limit, 50);
+    const rows = await AgentArtifactDraft.find(query).sort({ updatedAt: -1, createdAt: -1 }).limit(limit);
+    return finalizeOperation({ drafts: rows.map(sanitizeAgentArtifactDraftDoc) });
+  }
+
+  if (operation === 'artifacts.drafts.create') {
+    if (actor.actorType === 'byo_agent' && !bridgeByoCapabilities?.proposeChanges) {
+      throw Object.assign(new Error('This BYO actor cannot create artifact drafts.'), { status: 403 });
+    }
+    const sourceThreadId = String(payload.sourceThreadId || payload.threadId || '').trim();
+    const sourceHandoffId = String(payload.sourceHandoffId || payload.handoffId || '').trim();
+    if (sourceThreadId) {
+      if (!mongoose.Types.ObjectId.isValid(sourceThreadId)) {
+        throw Object.assign(new Error('Invalid sourceThreadId.'), { status: 400 });
+      }
+      const thread = await AgentThread.findOne({ _id: sourceThreadId, userId });
+      if (!thread) throw Object.assign(new Error('Source thread not found.'), { status: 404 });
+    }
+    if (sourceHandoffId) {
+      if (!mongoose.Types.ObjectId.isValid(sourceHandoffId)) {
+        throw Object.assign(new Error('Invalid sourceHandoffId.'), { status: 400 });
+      }
+      const handoff = await AgentHandoff.findOne({ _id: sourceHandoffId, userId });
+      if (!handoff) throw Object.assign(new Error('Source handoff not found.'), { status: 404 });
+    }
+    const draft = await createAgentArtifactDraftRecord({
+      AgentArtifactDraft,
+      userId,
+      actor,
+      payload
+    });
+    if (!draft) {
+      throw Object.assign(new Error('artifactType and body are required to create a draft.'), { status: 400 });
+    }
+    return finalizeOperation({ draft: sanitizeAgentArtifactDraftDoc(draft) });
+  }
+
+  if (operation === 'artifacts.drafts.promote' || operation === 'artifacts.drafts.dismiss') {
+    if (actor.actorType === 'byo_agent' && !bridgeByoCapabilities?.proposeChanges && !bridgeByoCapabilities?.executeWrites) {
+      throw Object.assign(new Error('This BYO actor cannot mutate artifact drafts.'), { status: 403 });
+    }
+    const draftId = String(payload.draftId || '').trim();
+    if (!mongoose.Types.ObjectId.isValid(draftId)) {
+      throw Object.assign(new Error('Invalid draft id.'), { status: 400 });
+    }
+    const draft = await AgentArtifactDraft.findOne({ _id: draftId, userId });
+    if (!draft) throw Object.assign(new Error('Draft not found.'), { status: 404 });
+
+    if (operation === 'artifacts.drafts.dismiss') {
+      draft.status = 'dismissed';
+      await draft.save();
+      return finalizeOperation({ draft: sanitizeAgentArtifactDraftDoc(draft) });
+    }
+
+    if (String(draft.status || '') === 'promoted') {
+      return finalizeOperation({ draft: sanitizeAgentArtifactDraftDoc(draft), reused: true });
+    }
+
+    const result = await promoteAgentArtifactDraftRecord({
+      draft,
+      userId,
+      NotebookEntry,
+      Question,
+      updateConceptMeta,
+      syncNotebookReferences,
+      enqueueNotebookEmbedding,
+      enqueueQuestionEmbedding,
+      createBlockId,
+      AgentHandoff,
+      buildDefaultHandoffPlan,
+      buildDefaultHandoffCheckpoint,
+      createThreadForHandoff,
+      sanitizeAgentHandoffDoc
+    });
+    return finalizeOperation({
+      draft: sanitizeAgentArtifactDraftDoc(result.draft),
+      promoted: result.promoted
+    });
   }
 
   if (operation === 'handoffs.list') {
@@ -754,7 +1626,7 @@ const runBridgeHandoffOperation = async ({
     Object.assign(query, buildHandoffActorFilter(actor, payload.scope || 'mine'));
     const limit = safeAgentHandoffLimit(payload.limit, 50);
     const rows = await AgentHandoff.find(query).sort({ updatedAt: -1, createdAt: -1 }).limit(limit);
-    return { handoffs: rows.map(sanitizeAgentHandoffDoc) };
+    return finalizeOperation({ handoffs: rows.map(sanitizeAgentHandoffDoc) });
   }
 
   if (operation === 'handoffs.create') {
@@ -776,6 +1648,11 @@ const runBridgeHandoffOperation = async ({
     });
     if (requestedActor.actorType === 'user' && !requestedActor.actorId) requestedActor.actorId = String(userId);
 
+    const plan = buildDefaultHandoffPlan({ taskType, title, objective });
+    const checkpoint = buildDefaultHandoffCheckpoint({ title, requestedActor });
+    const handoffPlanner = sanitizeAgentPlanner(
+      payload.planner || buildAgentPlanner({ taskType, requestedActor })
+    );
     const handoff = await AgentHandoff.create({
       userId,
       title: title.slice(0, 200),
@@ -786,6 +1663,9 @@ const runBridgeHandoffOperation = async ({
       context: payload.context && typeof payload.context === 'object' ? payload.context : {},
       input: payload.input && typeof payload.input === 'object' ? payload.input : {},
       output: {},
+      planner: handoffPlanner,
+      plan,
+      checkpoint,
       requestedActor,
       createdBy: actor,
       dueAt,
@@ -793,10 +1673,22 @@ const runBridgeHandoffOperation = async ({
         eventType: 'created',
         actor,
         note: '',
-        payload: { taskType, priority, requestedActor }
+        payload: { taskType, priority, requestedActor, planner: handoffPlanner }
       }]
     });
-    return { handoff: sanitizeAgentHandoffDoc(handoff) };
+    const thread = await createThreadForHandoff({
+      userId,
+      title,
+      objective,
+      taskType,
+      requestedActor,
+      planner: handoffPlanner,
+      createdBy: actor,
+      handoffId: handoff._id
+    });
+    handoff.threadId = thread._id;
+    await handoff.save();
+    return finalizeOperation({ handoff: sanitizeAgentHandoffDoc(handoff) });
   }
 
   const handoffId = String(payload.handoffId || '').trim();
@@ -806,12 +1698,54 @@ const runBridgeHandoffOperation = async ({
   const handoff = await AgentHandoff.findOne({ _id: handoffId, userId });
   if (!handoff) throw Object.assign(new Error('Handoff not found.'), { status: 404 });
 
+  if (operation === 'handoffs.ensure_thread') {
+    if (actor.actorType === 'byo_agent' && !bridgeByoCapabilities?.proposeChanges) {
+      throw Object.assign(new Error('This BYO actor cannot continue handoffs in shared threads.'), { status: 403 });
+    }
+    let thread = null;
+    if (handoff.threadId && mongoose.Types.ObjectId.isValid(String(handoff.threadId))) {
+      thread = await AgentThread.findOne({ _id: handoff.threadId, userId });
+    }
+    if (!thread) {
+      thread = await createThreadForHandoff({
+        userId,
+        title: handoff.title || 'Handoff thread',
+        objective: handoff.objective || handoff.checkpoint?.summary || '',
+        taskType: handoff.taskType || 'custom',
+        requestedActor: handoff.requestedActor || {},
+        planner: handoff.planner || buildAgentPlanner({
+          taskType: handoff.taskType || 'custom',
+          requestedActor: handoff.requestedActor || {}
+        }),
+        createdBy: actor,
+        handoffId: handoff._id
+      });
+      if (handoff.plan) thread.plan = handoff.plan;
+      if (handoff.planner) thread.planner = handoff.planner;
+      if (handoff.checkpoint) {
+        thread.checkpoint = normalizeThreadCheckpoint({ ...(handoff.checkpoint || {}), updatedBy: actor });
+      }
+      await thread.save();
+      handoff.threadId = thread._id;
+      appendHandoffEvent(handoff, {
+        eventType: 'note',
+        actor,
+        note: 'Continued in linked thread.'
+      });
+      await handoff.save();
+    }
+    return finalizeOperation({
+      handoff: sanitizeAgentHandoffDoc(handoff),
+      thread: sanitizeAgentThreadDoc(thread)
+    });
+  }
+
   if (operation === 'handoffs.claim') {
     if (handoff.status === 'claimed') {
       if (!canActorMutateClaimedHandoff(handoff, actor)) {
         throw Object.assign(new Error('Handoff is already claimed by a different actor.'), { status: 409 });
       }
-      return { handoff: sanitizeAgentHandoffDoc(handoff) };
+      return finalizeOperation({ handoff: sanitizeAgentHandoffDoc(handoff) });
     }
     if (handoff.status !== 'pending') {
       throw Object.assign(new Error(`Handoff is ${handoff.status || 'not pending'} and cannot be claimed.`), { status: 400 });
@@ -822,9 +1756,31 @@ const runBridgeHandoffOperation = async ({
     handoff.status = 'claimed';
     handoff.claimedBy = actor;
     handoff.claimedAt = new Date();
+    handoff.checkpoint = normalizeThreadCheckpoint({
+      summary: `Claimed by ${actor.actorType}.`,
+      nextActions: ['Continue the active plan step.'],
+      updatedBy: actor
+    });
     appendHandoffEvent(handoff, { eventType: 'claimed', actor, note: String(payload.note || '').trim() });
     await handoff.save();
-    return { handoff: sanitizeAgentHandoffDoc(handoff) };
+    if (handoff.threadId) {
+      const thread = await AgentThread.findOne({ _id: handoff.threadId, userId });
+      if (thread) {
+        appendThreadMessage(thread, {
+          role: 'assistant',
+          text: `Claimed handoff "${handoff.title || 'Untitled handoff'}".`,
+          actor,
+          metadata: { eventType: 'claimed' }
+        });
+        thread.checkpoint = normalizeThreadCheckpoint({
+          summary: `Claimed by ${actor.actorType}.`,
+          nextActions: ['Continue the active plan step.'],
+          updatedBy: actor
+        });
+        await thread.save();
+      }
+    }
+    return finalizeOperation({ handoff: sanitizeAgentHandoffDoc(handoff) });
   }
 
   if (operation === 'handoffs.complete') {
@@ -840,6 +1796,11 @@ const runBridgeHandoffOperation = async ({
     handoff.output = output;
     handoff.completedBy = actor;
     handoff.completedAt = new Date();
+    handoff.checkpoint = normalizeThreadCheckpoint({
+      summary: `Completed with ${Object.keys(output).length > 0 ? 'an output artifact' : 'no structured artifact'}.`,
+      nextActions: [],
+      updatedBy: actor
+    });
     appendHandoffEvent(handoff, {
       eventType: 'completed',
       actor,
@@ -847,7 +1808,25 @@ const runBridgeHandoffOperation = async ({
       payload: { hasOutput: Object.keys(output).length > 0 }
     });
     await handoff.save();
-    return { handoff: sanitizeAgentHandoffDoc(handoff) };
+    if (handoff.threadId) {
+      const thread = await AgentThread.findOne({ _id: handoff.threadId, userId });
+      if (thread) {
+        appendThreadMessage(thread, {
+          role: 'assistant',
+          text: String(payload.note || '').trim() || `Completed handoff "${handoff.title || 'Untitled handoff'}".`,
+          actor,
+          metadata: { eventType: 'completed', output }
+        });
+        thread.checkpoint = normalizeThreadCheckpoint({
+          summary: `Completed by ${actor.actorType}.`,
+          nextActions: [],
+          updatedBy: actor
+        });
+        thread.status = 'archived';
+        await thread.save();
+      }
+    }
+    return finalizeOperation({ handoff: sanitizeAgentHandoffDoc(handoff) });
   }
 
   if (operation === 'handoffs.reject') {
@@ -863,12 +1842,168 @@ const runBridgeHandoffOperation = async ({
     handoff.status = 'rejected';
     handoff.rejectedBy = actor;
     handoff.rejectedAt = new Date();
+    handoff.checkpoint = normalizeThreadCheckpoint({
+      summary: `Rejected by ${actor.actorType}.`,
+      nextActions: ['Review the rejection note and reroute if needed.'],
+      updatedBy: actor
+    });
     appendHandoffEvent(handoff, { eventType: 'rejected', actor, note: String(payload.note || '').trim() });
     await handoff.save();
-    return { handoff: sanitizeAgentHandoffDoc(handoff) };
+    if (handoff.threadId) {
+      const thread = await AgentThread.findOne({ _id: handoff.threadId, userId });
+      if (thread) {
+        appendThreadMessage(thread, {
+          role: 'assistant',
+          text: String(payload.note || '').trim() || `Rejected handoff "${handoff.title || 'Untitled handoff'}".`,
+          actor,
+          metadata: { eventType: 'rejected' }
+        });
+        thread.checkpoint = normalizeThreadCheckpoint({
+          summary: `Rejected by ${actor.actorType}.`,
+          nextActions: ['Review the rejection note and reroute if needed.'],
+          updatedBy: actor
+        });
+        await thread.save();
+      }
+    }
+    return finalizeOperation({ handoff: sanitizeAgentHandoffDoc(handoff) });
   }
 
   throw Object.assign(new Error('Unsupported bridge operation.'), { status: 400 });
+};
+
+const listProtocolApprovals = async ({
+  userId,
+  status = 'pending',
+  limit = 30,
+  threadId = '',
+  handoffId = '',
+  op = ''
+}) => {
+  const userObjectId = mongoose.Types.ObjectId.isValid(userId) ? new mongoose.Types.ObjectId(String(userId)) : null;
+  if (!userObjectId) throw Object.assign(new Error('userId must be a valid ObjectId.'), { status: 400 });
+  const query = { userId: userObjectId };
+  const safeStatus = String(status || 'pending').trim().toLowerCase();
+  if (safeStatus && safeStatus !== 'all') {
+    query.status = safeStatus;
+  }
+  const safeThreadId = String(threadId || '').trim();
+  const safeHandoffId = String(handoffId || '').trim();
+  const safeOp = String(op || '').trim().toLowerCase();
+  if (safeThreadId) query['preview.threadId'] = safeThreadId;
+  if (safeHandoffId) query['preview.handoffId'] = safeHandoffId;
+  if (safeOp) query.op = safeOp;
+  const safeLimit = safeAgentHandoffLimit(limit, 30);
+  const rows = await AgentProtocolApproval.find(query).sort({ createdAt: -1 }).limit(safeLimit);
+  return rows.map(sanitizeProtocolApprovalDoc);
+};
+
+const listProtocolHookRuns = async ({
+  userId,
+  phase = '',
+  op = '',
+  threadId = '',
+  handoffId = '',
+  limit = 30
+}) => {
+  const userObjectId = mongoose.Types.ObjectId.isValid(userId) ? new mongoose.Types.ObjectId(String(userId)) : null;
+  if (!userObjectId) throw Object.assign(new Error('userId must be a valid ObjectId.'), { status: 400 });
+  const query = { userId: userObjectId };
+  const safePhase = String(phase || '').trim().toLowerCase();
+  const safeOp = String(op || '').trim().toLowerCase();
+  const safeThreadId = String(threadId || '').trim();
+  const safeHandoffId = String(handoffId || '').trim();
+  if (safePhase) query.phase = safePhase;
+  if (safeOp) query.op = safeOp;
+  if (safeThreadId) query.threadId = safeThreadId;
+  if (safeHandoffId) query.handoffId = safeHandoffId;
+  const safeLimit = safeAgentHandoffLimit(limit, 30);
+  const rows = await AgentProtocolHookRun.find(query).sort({ createdAt: -1 }).limit(safeLimit);
+  return rows.map(sanitizeProtocolHookRunDoc);
+};
+
+const approveProtocolApproval = async ({
+  userId,
+  approvalId,
+  actorType = 'user',
+  actorId = ''
+}) => {
+  const userObjectId = mongoose.Types.ObjectId.isValid(userId) ? new mongoose.Types.ObjectId(String(userId)) : null;
+  const approvalObjectId = mongoose.Types.ObjectId.isValid(approvalId) ? new mongoose.Types.ObjectId(String(approvalId)) : null;
+  if (!userObjectId) throw Object.assign(new Error('userId must be a valid ObjectId.'), { status: 400 });
+  if (!approvalObjectId) throw Object.assign(new Error('approvalId must be a valid ObjectId.'), { status: 400 });
+
+  const approval = await AgentProtocolApproval.findOne({ _id: approvalObjectId, userId: userObjectId });
+  if (!approval) throw Object.assign(new Error('Protocol approval request not found.'), { status: 404 });
+  if (String(approval.status || '') !== 'pending') {
+    throw Object.assign(new Error(`Protocol approval request is ${approval.status || 'not pending'}.`), { status: 400 });
+  }
+
+  approval.status = 'approved';
+  approval.approvedAt = new Date();
+  approval.approvedBy = {
+    actorType: normalizeAgentActorType(actorType, 'user'),
+    actorId: String(actorId || userId || '').trim()
+  };
+  await approval.save();
+
+  try {
+    const result = await runBridgeHandoffOperation({
+      bridgeActor: {
+        userId: String(userId),
+        actorType: approval.requestedBy?.actorType || 'native_agent',
+        actorId: approval.requestedBy?.actorId || '',
+        scope: String(approval.scope || 'agent_ops')
+      },
+      op: String(approval.op || '').trim(),
+      payload: {
+        ...(approval.payload && typeof approval.payload === 'object' ? approval.payload : {}),
+        __bypassProtocolApproval: true
+      },
+      executionSource: 'approval_replay',
+      approvalId: String(approval._id || '')
+    });
+    approval.status = 'executed';
+    approval.executedAt = new Date();
+    approval.result = result && typeof result === 'object' ? result : {};
+    await approval.save();
+    return {
+      approval: sanitizeProtocolApprovalDoc(approval),
+      result
+    };
+  } catch (error) {
+    approval.status = 'pending';
+    approval.approvedAt = null;
+    approval.approvedBy = undefined;
+    await approval.save();
+    throw error;
+  }
+};
+
+const rejectProtocolApproval = async ({
+  userId,
+  approvalId,
+  actorType = 'user',
+  actorId = ''
+}) => {
+  const userObjectId = mongoose.Types.ObjectId.isValid(userId) ? new mongoose.Types.ObjectId(String(userId)) : null;
+  const approvalObjectId = mongoose.Types.ObjectId.isValid(approvalId) ? new mongoose.Types.ObjectId(String(approvalId)) : null;
+  if (!userObjectId) throw Object.assign(new Error('userId must be a valid ObjectId.'), { status: 400 });
+  if (!approvalObjectId) throw Object.assign(new Error('approvalId must be a valid ObjectId.'), { status: 400 });
+
+  const approval = await AgentProtocolApproval.findOne({ _id: approvalObjectId, userId: userObjectId });
+  if (!approval) throw Object.assign(new Error('Protocol approval request not found.'), { status: 404 });
+  if (String(approval.status || '') !== 'pending') {
+    throw Object.assign(new Error(`Protocol approval request is ${approval.status || 'not pending'}.`), { status: 400 });
+  }
+  approval.status = 'rejected';
+  approval.rejectedAt = new Date();
+  approval.rejectedBy = {
+    actorType: normalizeAgentActorType(actorType, 'user'),
+    actorId: String(actorId || userId || '').trim()
+  };
+  await approval.save();
+  return sanitizeProtocolApprovalDoc(approval);
 };
 
 const normalizeConceptNameInput = (value) => (
@@ -2301,7 +3436,7 @@ async function authenticatePersonalAgentKey(req, res, next) {
       _id: agentId,
       apiKeyHash,
       status: 'active'
-    }).select('_id userId name status capabilities');
+    }).select('_id userId name status capabilities preferredWorkerRoles');
 
     if (!personalAgent) {
       return res.status(401).json({ error: 'AGENT_AUTH_INVALID' });
@@ -2314,7 +3449,8 @@ async function authenticatePersonalAgentKey(req, res, next) {
       id: String(personalAgent._id),
       userId: String(personalAgent.userId),
       name: String(personalAgent.name || ''),
-      capabilities: normalizePersonalAgentCapabilities(personalAgent.capabilities || {})
+      capabilities: normalizePersonalAgentCapabilities(personalAgent.capabilities || {}),
+      preferredWorkerRoles: normalizePersonalAgentWorkerRoles(personalAgent.preferredWorkerRoles || [])
     };
     next();
   } catch (error) {
@@ -2372,7 +3508,7 @@ async function authenticateAgentBridgeToken(req, res, next) {
       userId,
       actorType,
       actorId: actorType === 'user' ? userId : actorId,
-      scope: String(decoded?.scope || '').trim() || 'handoff_ops'
+      scope: String(decoded?.scope || '').trim() || 'agent_ops'
     };
     next();
   } catch (error) {
@@ -3942,9 +5078,42 @@ app.use(buildPersonalAgentRouter({
   PersonalAgent,
   sanitizePersonalAgent,
   normalizePersonalAgentCapabilities,
+  normalizePersonalAgentWorkerRoles,
   createPersonalAgentApiKey,
   hashPersonalAgentApiKey,
   normalizePersonalAgentStatus
+}));
+
+app.use(buildAgentThreadRouter({
+  mongoose,
+  authenticateToken,
+  authenticatePersonalAgentKey,
+  AgentThread,
+  AgentHandoff,
+  normalizePersonalAgentCapabilities,
+  normalizeThreadScope,
+  normalizeThreadStatus,
+  normalizeThreadPlan,
+  normalizeThreadCheckpoint,
+  normalizeThreadPlanner,
+  normalizeThreadMessage,
+  sanitizeAgentThreadDoc,
+  appendThreadMessage,
+  compactThreadState,
+  normalizeAgentHandoffTaskType,
+  normalizeAgentHandoffPriority,
+  resolveAndValidateActorIdentity,
+  getUserAgentProtocolPolicy,
+  resolveAutoHandoffRequestedActor,
+  shouldRequireProtocolApproval,
+  requestProtocolApproval,
+  triggerProtocolHookPhase,
+  sanitizeAgentHandoffDoc,
+  buildDefaultHandoffPlan,
+  buildDefaultHandoffCheckpoint,
+  buildAgentPlanner,
+  appendHandoffEvent,
+  truncate: truncateThreadText
 }));
 
 app.use(buildAgentBridgeRouter({
@@ -3954,7 +5123,13 @@ app.use(buildAgentBridgeRouter({
   safeBridgeTokenTtlSeconds,
   DEFAULT_BRIDGE_TOKEN_TTL_SECONDS,
   createSignedBridgeToken,
-  runBridgeHandoffOperation
+  runBridgeHandoffOperation,
+  listAgentSkills,
+  listWorkerRoles,
+  listProtocolApprovals,
+  listProtocolHookRuns,
+  approveProtocolApproval,
+  rejectProtocolApproval
 }));
 
 app.use(buildAgentHandoffRouter({
@@ -3967,16 +5142,27 @@ app.use(buildAgentHandoffRouter({
   parseOptionalDate,
   resolveAndValidateActorIdentity,
   AgentHandoff,
+  AgentThread,
   sanitizeAgentHandoffDoc,
+  sanitizeAgentThreadDoc,
   AGENT_HANDOFF_STATUSES,
   AGENT_HANDOFF_TASK_TYPES,
   normalizeAgentActorType,
   safeAgentHandoffLimit,
   getUserAgentProtocolPolicy,
   resolveAutoHandoffRequestedActor,
+  shouldRequireProtocolApproval,
+  requestProtocolApproval,
+  triggerProtocolHookPhase,
   canActorMutateClaimedHandoff,
   canActorClaimHandoff,
-  appendHandoffEvent
+  appendHandoffEvent,
+  buildDefaultHandoffPlan,
+  buildDefaultHandoffCheckpoint,
+  buildAgentPlanner,
+  createThreadForHandoff,
+  normalizeThreadCheckpoint,
+  appendThreadMessage
 }));
 
 app.use(buildAgentActionRouter({
@@ -4000,7 +5186,56 @@ app.use(buildAgentChatRouter({
   authenticatePersonalAgentKey,
   getUserAgentEntitlements,
   generateCollaborativeReply,
-  normalizePersonalAgentCapabilities
+  normalizePersonalAgentCapabilities,
+  mongoose,
+  AgentThread,
+  normalizeThreadScope,
+  appendThreadMessage,
+  compactThreadState,
+  normalizeThreadPlanner,
+  sanitizeAgentThreadDoc,
+  AgentArtifactDraft,
+  createAgentArtifactDraftFromSkillReply,
+  sanitizeAgentArtifactDraftDoc,
+  threadMessagesToHistory,
+  truncate: truncateThreadText
+}));
+
+app.use(buildAgentArtifactDraftRouter({
+  authenticateToken,
+  AgentArtifactDraft,
+  NotebookEntry,
+  Question,
+  updateConceptMeta,
+  syncNotebookReferences,
+  enqueueNotebookEmbedding,
+  enqueueQuestionEmbedding,
+  createBlockId,
+  AgentHandoff,
+  buildDefaultHandoffPlan,
+  buildDefaultHandoffCheckpoint,
+  createThreadForHandoff,
+  sanitizeAgentHandoffDoc,
+  sanitizeAgentArtifactDraftDoc,
+  promoteAgentArtifactDraftRecord
+}));
+
+app.use(buildAgentUpkeepCycleRouter({
+  mongoose,
+  authenticateToken,
+  AgentUpkeepCycle,
+  AgentHandoff,
+  sanitizeAgentHandoffDoc,
+  sanitizeAgentThreadDoc,
+  resolveAutoHandoffRequestedActor,
+  getUserAgentProtocolPolicy,
+  buildAgentPlanner,
+  buildDefaultHandoffPlan,
+  buildDefaultHandoffCheckpoint,
+  createThreadForHandoff,
+  normalizeAgentHandoffTaskType,
+  normalizeAgentHandoffPriority,
+  parseOptionalDate
 }));
 
 app.use(buildConceptAgentRouter({

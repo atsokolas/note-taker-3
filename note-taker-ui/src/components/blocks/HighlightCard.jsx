@@ -10,6 +10,7 @@ import {
   searchHighlightClaims
 } from '../../api/organize';
 import { DEFAULT_HIGHLIGHT_COLOR, HIGHLIGHT_COLOR_OPTIONS } from '../../constants/highlightColors';
+import { buildCanonicalArticlePath } from '../../utils/firstInsight';
 
 const ITEM_TYPES = [
   { value: 'note', label: 'Note' },
@@ -246,7 +247,7 @@ const HighlightCard = ({
               <QuietButton onClick={() => onAddQuestion(highlight)}>Add to Question</QuietButton>
             )}
             {highlight?.articleId && (
-              <QuietButton onClick={() => { window.location.href = `/articles/${highlight.articleId}`; }}>
+              <QuietButton onClick={() => { window.location.href = buildCanonicalArticlePath(highlight.articleId); }}>
                 Link to Source
               </QuietButton>
             )}

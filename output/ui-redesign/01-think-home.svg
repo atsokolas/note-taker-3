@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="900" viewBox="0 0 1440 900">
+  <rect width="1440" height="900" fill="#f7f1e8"/>
+  <rect x="0" y="0" width="1440" height="74" fill="#f2e8d8"/>
+  <text x="54" y="45" font-family="Georgia, serif" font-size="30" fill="#2f261f">Noeis</text>
+  <rect x="228" y="22" width="420" height="34" rx="17" fill="#fbf7f0" stroke="#dbc8b1"/>
+  <text x="260" y="44" font-family="Arial, sans-serif" font-size="16" fill="#8d7963">Search notes, claims, and questions</text>
+
+  <rect x="30" y="110" width="160" height="710" rx="28" fill="#f4ebdd"/>
+  <text x="58" y="170" font-family="Arial, sans-serif" font-size="16" fill="#7a6857">Think</text>
+  <line x1="56" y1="182" x2="160" y2="182" stroke="#9e8462" stroke-width="2"/>
+  <text x="58" y="220" font-family="Arial, sans-serif" font-size="16" fill="#8d7963">Library</text>
+  <text x="58" y="260" font-family="Arial, sans-serif" font-size="16" fill="#8d7963">Capture</text>
+  <text x="58" y="300" font-family="Arial, sans-serif" font-size="16" fill="#8d7963">Map</text>
+  <text x="58" y="340" font-family="Arial, sans-serif" font-size="16" fill="#8d7963">Review</text>
+
+  <text x="238" y="136" font-family="Arial, sans-serif" font-size="14" letter-spacing="2" fill="#9e8462">WORK IN MOTION</text>
+  <text x="238" y="194" font-family="Georgia, serif" font-size="60" fill="#2f261f">Resume the live thread.</text>
+  <text x="238" y="232" font-family="Arial, sans-serif" font-size="22" fill="#7a6857">The home screen should open directly onto the active claim, open question, and most useful next move.</text>
+
+  <rect x="238" y="280" width="860" height="200" rx="28" fill="#fbf7f0" stroke="#dccbb5"/>
+  <text x="276" y="324" font-family="Arial, sans-serif" font-size="14" letter-spacing="2" fill="#9e8462">CURRENT THREAD</text>
+  <text x="276" y="386" font-family="Georgia, serif" font-size="42" fill="#2f261f">Why do durable organizations decay after success?</text>
+  <text x="276" y="428" font-family="Arial, sans-serif" font-size="22" fill="#7a6857">Last move: agent surfaced two contradictions and one historical analogue.</text>
+  <rect x="276" y="450" width="148" height="34" rx="17" fill="#efe4d2"/>
+  <text x="312" y="472" font-family="Arial, sans-serif" font-size="16" fill="#2f261f">Open thread</text>
+  <rect x="442" y="450" width="148" height="34" rx="17" fill="#fbf7f0" stroke="#d8c5ad"/>
+  <text x="486" y="472" font-family="Arial, sans-serif" font-size="16" fill="#7a6857">New question</text>
+
+  <rect x="238" y="520" width="540" height="260" rx="28" fill="#fbf7f0" stroke="#dccbb5"/>
+  <text x="276" y="564" font-family="Arial, sans-serif" font-size="14" letter-spacing="2" fill="#9e8462">OPEN QUESTIONS</text>
+  <text x="276" y="614" font-family="Georgia, serif" font-size="34" fill="#2f261f">Questions in motion</text>
+  <line x1="276" y1="650" x2="740" y2="650" stroke="#dbc8b1" stroke-width="2"/>
+  <text x="276" y="692" font-family="Arial, sans-serif" font-size="22" fill="#2f261f">Why did Intel lose architectural momentum?</text>
+  <text x="650" y="692" font-family="Arial, sans-serif" font-size="18" fill="#8d7963">12 sources attached</text>
+  <text x="276" y="734" font-family="Arial, sans-serif" font-size="22" fill="#2f261f">How do people generate non-obvious insights?</text>
+  <text x="645" y="734" font-family="Arial, sans-serif" font-size="18" fill="#8d7963">2 contradictions open</text>
+
+  <rect x="810" y="520" width="288" height="260" rx="28" fill="#f4ebdd"/>
+  <text x="846" y="564" font-family="Arial, sans-serif" font-size="14" letter-spacing="2" fill="#9e8462">RIGHT RAIL</text>
+  <text x="846" y="614" font-family="Georgia, serif" font-size="34" fill="#2f261f">Next move</text>
+  <text x="846" y="662" font-family="Arial, sans-serif" font-size="20" fill="#7a6857">Show one recommendation only.</text>
+  <text x="846" y="696" font-family="Arial, sans-serif" font-size="20" fill="#7a6857">What changed</text>
+  <text x="846" y="726" font-family="Arial, sans-serif" font-size="20" fill="#7a6857">Why it matters</text>
+  <text x="846" y="756" font-family="Arial, sans-serif" font-size="20" fill="#7a6857">Open supporting evidence</text>
+  <text x="238" y="848" font-family="Arial, sans-serif" font-size="20" fill="#a38258">Layout change: replace the dashboard collage with one lead thread, one queue, one tiny rail.</text>
+</svg>

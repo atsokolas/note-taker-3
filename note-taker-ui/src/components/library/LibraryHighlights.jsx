@@ -14,6 +14,7 @@ import { getAuthHeaders } from '../../hooks/useAuthHeaders';
 import VirtualList from '../virtual/VirtualList';
 import { createProfilerLogger } from '../../utils/perf';
 import { deleteHighlight } from '../../api/highlights';
+import { buildCanonicalArticlePath } from '../../utils/firstInsight';
 
 const createId = () => {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
@@ -163,7 +164,7 @@ const LibraryHighlights = ({
       if (event.metaKey || event.ctrlKey) {
         setNotebookModal({ open: true, highlight: selectedHighlight });
       } else if (selectedHighlight.articleId) {
-        window.location.href = `/articles/${selectedHighlight.articleId}`;
+        window.location.href = buildCanonicalArticlePath(selectedHighlight.articleId);
       }
     }
   }, [displayRows.length, selectedHighlight]);
@@ -216,6 +217,12 @@ const LibraryHighlights = ({
     const index = displayRows.findIndex(item => String(item._id) === String(highlightId));
     if (index >= 0) setSelectedIndex(index);
   }, [displayRows]);
+
+  const handleOpenSource = useCallback((highlight) => {
+    const articleId = String(highlight?.articleId || '').trim();
+    if (!articleId) return;
+    window.location.href = buildCanonicalArticlePath(articleId);
+  }, []);
 
   const handleHighlightOrganized = useCallback((updated) => {
     if (!updated?._id) return;
@@ -318,7 +325,7 @@ const LibraryHighlights = ({
                       onAddQuestion={(h) => setQuestionModal({ open: true, highlight: h })}
                     />
                     <div className="library-highlight-row-actions">
-                      <QuietButton onClick={() => window.location.href = `/articles/${highlight.articleId}`}>
+                      <QuietButton onClick={() => handleOpenSource(highlight)}>
                         Open Source
                       </QuietButton>
                     </div>

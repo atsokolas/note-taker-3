@@ -6,6 +6,7 @@ const buildPersonalAgentRouter = ({
   PersonalAgent,
   sanitizePersonalAgent,
   normalizePersonalAgentCapabilities,
+  normalizePersonalAgentWorkerRoles,
   createPersonalAgentApiKey,
   hashPersonalAgentApiKey,
   normalizePersonalAgentStatus
@@ -30,6 +31,7 @@ const buildPersonalAgentRouter = ({
 
       const description = String(req.body?.description || '').trim();
       const capabilities = normalizePersonalAgentCapabilities(req.body?.capabilities || {});
+      const preferredWorkerRoles = normalizePersonalAgentWorkerRoles(req.body?.preferredWorkerRoles || []);
       const apiKey = createPersonalAgentApiKey();
       const apiKeyHash = hashPersonalAgentApiKey(apiKey);
       const apiKeyPrefix = `${apiKey.slice(0, 10)}...`;
@@ -39,6 +41,7 @@ const buildPersonalAgentRouter = ({
         description: description.slice(0, 600),
         status: 'active',
         capabilities,
+        preferredWorkerRoles,
         apiKeyHash,
         apiKeyPrefix,
         userId: req.user.id
@@ -77,6 +80,9 @@ const buildPersonalAgentRouter = ({
       }
       if (req.body?.capabilities !== undefined) {
         updates.capabilities = normalizePersonalAgentCapabilities(req.body.capabilities);
+      }
+      if (req.body?.preferredWorkerRoles !== undefined) {
+        updates.preferredWorkerRoles = normalizePersonalAgentWorkerRoles(req.body.preferredWorkerRoles);
       }
       if (Object.keys(updates).length === 0) {
         return res.status(400).json({ error: 'No updates provided.' });

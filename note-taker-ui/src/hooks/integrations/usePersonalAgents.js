@@ -3,6 +3,7 @@ import {
   createPersonalAgent,
   disablePersonalAgent,
   listPersonalAgents,
+  updatePersonalAgent,
   rotatePersonalAgentKey
 } from '../../api/agent';
 
@@ -12,6 +13,7 @@ const usePersonalAgents = () => {
   const [agentsError, setAgentsError] = useState('');
   const [agentName, setAgentName] = useState('');
   const [agentDescription, setAgentDescription] = useState('');
+  const [agentWorkerRoles, setAgentWorkerRoles] = useState([]);
   const [agentBusyId, setAgentBusyId] = useState('');
   const [creatingAgent, setCreatingAgent] = useState(false);
   const [newAgentKey, setNewAgentKey] = useState('');
@@ -51,18 +53,37 @@ const usePersonalAgents = () => {
     try {
       const response = await createPersonalAgent({
         name,
-        description: String(agentDescription || '').trim()
+        description: String(agentDescription || '').trim(),
+        preferredWorkerRoles: Array.isArray(agentWorkerRoles) ? agentWorkerRoles : []
       });
       await loadAgents();
       setAgentName('');
       setAgentDescription('');
+      setAgentWorkerRoles([]);
       setNewAgentKey(String(response?.apiKey || '').trim());
     } catch (error) {
       setAgentsError(error.response?.data?.error || 'Failed to create personal agent.');
     } finally {
       setCreatingAgent(false);
     }
-  }, [agentDescription, agentName, creatingAgent, loadAgents]);
+  }, [agentDescription, agentName, agentWorkerRoles, creatingAgent, loadAgents]);
+
+  const handleUpdateAgent = useCallback(async (agentId, payload = {}) => {
+    const safeId = String(agentId || '').trim();
+    if (!safeId || agentBusyId) return null;
+    setAgentBusyId(safeId);
+    setAgentsError('');
+    try {
+      const response = await updatePersonalAgent(safeId, payload);
+      await loadAgents();
+      return response?.agent || null;
+    } catch (error) {
+      setAgentsError(error.response?.data?.error || 'Failed to update personal agent.');
+      return null;
+    } finally {
+      setAgentBusyId('');
+    }
+  }, [agentBusyId, loadAgents]);
 
   const handleRotateKey = useCallback(async (agentId) => {
     const safeId = String(agentId || '').trim();
@@ -105,10 +126,13 @@ const usePersonalAgents = () => {
     setAgentName,
     agentDescription,
     setAgentDescription,
+    agentWorkerRoles,
+    setAgentWorkerRoles,
     agentBusyId,
     creatingAgent,
     newAgentKey,
     handleCreateAgent,
+    handleUpdateAgent,
     handleRotateKey,
     handleDisableAgent
   };

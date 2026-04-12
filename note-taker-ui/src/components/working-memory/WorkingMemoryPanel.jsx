@@ -335,7 +335,10 @@ const WorkingMemoryPanel = ({
   return (
     <div className="working-memory-panel" ref={panelRef}>
       <div className="working-memory-header-row">
-        <div className="working-memory-title">Working Memory</div>
+        <div className="working-memory-heading">
+          <div className="working-memory-eyebrow">Marginalia</div>
+          <div className="working-memory-title">Working memory</div>
+        </div>
         <div className="working-memory-status-toggle" role="tablist" aria-label="Working memory status">
           <button
             type="button"
@@ -405,7 +408,7 @@ const WorkingMemoryPanel = ({
                     <button type="button" className="working-memory-select-all" onClick={toggleSelectAll}>
                       {allSelected ? 'Clear all' : 'Select all'}
                     </button>
-                    <span className="muted small">{selectedCount} selected</span>
+                    <span className="muted small">{selectedCount} in play</span>
                   </div>
 
                   {isArchivedView && selectedCount > 0 && (
@@ -438,10 +441,10 @@ const WorkingMemoryPanel = ({
                         </label>
                         <div className="working-memory-promote-buttons">
                           <Button disabled={busy} onClick={() => handlePromote(selectedIds)}>
-                            Promote selected
+                            Promote
                           </Button>
                           <QuietButton disabled={busy} onClick={() => handleArchive(selectedIds, 'Archived selected blocks.')}>
-                            Archive selected
+                            Archive
                           </QuietButton>
                         </div>
                       </div>

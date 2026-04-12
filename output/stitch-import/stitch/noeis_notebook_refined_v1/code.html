@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,200..800;1,6..72,200..800&amp;family=Inter:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "surface-container-highest": "#eae8de",
+                        "on-primary-fixed": "#413f3d",
+                        "tertiary-fixed": "#fee4c6",
+                        "background": "#fffcf7",
+                        "surface-container-lowest": "#ffffff",
+                        "surface-container-high": "#f0eee5",
+                        "primary-dim": "#55524f",
+                        "tertiary": "#74614a",
+                        "tertiary-dim": "#67553e",
+                        "surface-bright": "#fffcf7",
+                        "on-secondary": "#ffffff",
+                        "primary-fixed": "#e7e1de",
+                        "on-secondary-fixed": "#413f3c",
+                        "secondary-container": "#e7e1dd",
+                        "on-background": "#383831",
+                        "on-primary": "#fcf7f3",
+                        "secondary": "#676461",
+                        "on-secondary-container": "#54514e",
+                        "on-tertiary-fixed-variant": "#6f5c45",
+                        "primary-container": "#e7e1de",
+                        "secondary-dim": "#5b5855",
+                        "on-tertiary-fixed": "#51402b",
+                        "secondary-fixed": "#e7e1dd",
+                        "on-surface-variant": "#65655c",
+                        "on-tertiary-container": "#64523c",
+                        "surface": "#fffcf7",
+                        "primary": "#615e5b",
+                        "surface-container": "#f6f4ec",
+                        "inverse-primary": "#ffffff",
+                        "surface-variant": "#eae8de",
+                        "on-surface": "#383831",
+                        "outline": "#818178",
+                        "on-error-container": "#742410",
+                        "secondary-fixed-dim": "#d9d3cf",
+                        "tertiary-fixed-dim": "#f0d6b9",
+                        "error-container": "#fe8b70",
+                        "on-primary-fixed-variant": "#5e5b58",
+                        "on-secondary-fixed-variant": "#5e5b58",
+                        "inverse-on-surface": "#9e9d98",
+                        "outline-variant": "#babab0",
+                        "primary-fixed-dim": "#d9d3d0",
+                        "on-tertiary": "#ffffff",
+                        "inverse-surface": "#0e0e0c",
+                        "on-error": "#ffffff",
+                        "error-dim": "#5c1202",
+                        "surface-tint": "#615e5b",
+                        "error": "#a54731",
+                        "surface-dim": "#e4e3d7",
+                        "surface-container-low": "#fcf9f3",
+                        "tertiary-container": "#fee4c6",
+                        "on-primary-container": "#54514f"
+                    },
+                    fontFamily: {
+                        "headline": ["Newsreader"],
+                        "body": ["Newsreader"],
+                        "label": ["Inter"]
+                    },
+                    borderRadius: {"DEFAULT": "0px", "lg": "0px", "xl": "0px", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        .newsreader { font-family: 'Newsreader', serif; }
+        .inter { font-family: 'Inter', sans-serif; }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24;
+        }
+        .digital-vellum-texture {
+            background-color: #fffcf7;
+            background-image: radial-gradient(#383831 0.5px, transparent 0.5px);
+            background-size: 24px 24px;
+            background-attachment: fixed;
+            opacity: 0.03;
+            pointer-events: none;
+            position: absolute;
+            inset: 0;
+            z-index: 0;
+        }
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #eae8de; }
+    </style>
+</head>
+<body class="bg-surface text-on-surface selection:bg-tertiary-container selection:text-on-tertiary-container overflow-x-hidden">
+<div class="digital-vellum-texture"></div>
+<!-- TopNavBar Implementation -->
+<nav class="flex justify-between items-center w-full px-8 py-4 max-w-none fixed top-0 z-50 bg-[#fffcf7] dark:bg-[#1a1918] no-border">
+<div class="text-2xl font-serif italic text-[#1a1918] dark:text-[#fffcf7]">Noeis</div>
+<div class="hidden md:flex items-center space-x-12">
+<a class="text-[#615e5b]/60 dark:text-[#eae8de]/60 font-serif newsreader tracking-tight hover:text-[#1a1918] dark:hover:text-white transition-colors duration-300" href="#">Library</a>
+<a class="text-[#1a1918] dark:text-white font-semibold border-b border-[#615e5b] font-serif newsreader tracking-tight" href="#">Concepts</a>
+<a class="text-[#615e5b]/60 dark:text-[#eae8de]/60 font-serif newsreader tracking-tight hover:text-[#1a1918] dark:hover:text-white transition-colors duration-300" href="#">Questions</a>
+</div>
+<div class="flex items-center space-x-6">
+<button class="material-symbols-outlined text-[#615e5b] dark:text-[#eae8de] Active: opacity-80 transition-opacity" data-icon="account_circle">account_circle</button>
+</div>
+</nav>
+<!-- SideNavBar (Right Marginalia Control) -->
+<aside class="fixed right-0 top-0 h-full flex flex-col pt-20 z-40 bg-[#fcf9f3] dark:bg-[#1a1918] w-64 no-border translate-x-1 transition-transform">
+<div class="px-6 py-8">
+<div class="text-sm font-bold text-[#615e5b] font-sans inter text-xs uppercase tracking-widest">Intelligence</div>
+<div class="text-[10px] text-[#615e5b]/50 uppercase tracking-[0.2em] mt-1">Marginalia Layer</div>
+</div>
+<div class="flex flex-col flex-grow mt-4">
+<button class="flex items-center space-x-4 px-6 py-4 text-[#1a1918] dark:text-white bg-[#eae8de] dark:bg-[#252422] font-bold font-sans inter text-xs uppercase tracking-widest">
+<span class="material-symbols-outlined text-lg" data-icon="menu_book">menu_book</span>
+<span>Context</span>
+</button>
+<button class="flex items-center space-x-4 px-6 py-4 text-[#615e5b]/50 dark:text-[#eae8de]/40 hover:bg-[#eae8de]/50 dark:hover:bg-[#252422]/50 font-sans inter text-xs uppercase tracking-widest transition-colors">
+<span class="material-symbols-outlined text-lg" data-icon="auto_fix_high">auto_fix_high</span>
+<span>Refinement</span>
+</button>
+<button class="flex items-center space-x-4 px-6 py-4 text-[#615e5b]/50 dark:text-[#eae8de]/40 hover:bg-[#eae8de]/50 dark:hover:bg-[#252422]/50 font-sans inter text-xs uppercase tracking-widest transition-colors">
+<span class="material-symbols-outlined text-lg" data-icon="history_edu">history_edu</span>
+<span>Sources</span>
+</button>
+<button class="flex items-center space-x-4 px-6 py-4 text-[#615e5b]/50 dark:text-[#eae8de]/40 hover:bg-[#eae8de]/50 dark:hover:bg-[#252422]/50 font-sans inter text-xs uppercase tracking-widest transition-colors">
+<span class="material-symbols-outlined text-lg" data-icon="insights">insights</span>
+<span>Synthesis</span>
+</button>
+</div>
+<div class="p-6 mt-auto">
+<div class="p-4 bg-surface-container-highest/30 space-y-3">
+<div class="font-label text-[10px] uppercase tracking-tighter text-outline">Active Fragment</div>
+<div class="font-headline italic text-xs leading-relaxed text-on-surface-variant">
+                    "The architect should be equipped with knowledge of many branches of study and varied kinds of learning..."
+                </div>
+<div class="font-label text-[9px] text-tertiary">Vitruvius, De Architectura</div>
+</div>
+</div>
+</aside>
+<!-- Main Workspace -->
+<main class="relative min-h-screen pt-32 pb-40 px-8 md:pr-[320px] md:pl-32 max-w-7xl mx-auto flex flex-col md:flex-row gap-16">
+<!-- Left Margin (Metadata & Flow) -->
+<aside class="hidden lg:block w-32 flex-shrink-0 pt-4">
+<div class="sticky top-40 space-y-12">
+<div class="space-y-1">
+<span class="block font-label text-[10px] uppercase tracking-widest text-outline">Date</span>
+<span class="block font-headline text-sm font-medium">Oct 24, 2023</span>
+</div>
+<div class="space-y-1">
+<span class="block font-label text-[10px] uppercase tracking-widest text-outline">Focus</span>
+<span class="block font-headline text-sm italic">Architectural Logic</span>
+</div>
+<div class="space-y-1">
+<span class="block font-label text-[10px] uppercase tracking-widest text-outline">Words</span>
+<span class="block font-headline text-sm">1,240</span>
+</div>
+</div>
+</aside>
+<!-- Central Manuscript Surface -->
+<article class="flex-grow max-w-2xl relative z-10">
+<header class="mb-20">
+<h1 class="font-headline text-5xl md:text-6xl text-primary font-extralight tracking-tight leading-none mb-6">
+                    On the Nature of Digital Vellum
+                </h1>
+<div class="h-[1px] w-12 bg-outline-variant/30 mb-8"></div>
+<p class="font-headline text-xl italic text-on-surface-variant/80 max-w-lg leading-relaxed">
+                    Exploring the intersection of high-fidelity thought and the ephemeral nature of binary surfaces.
+                </p>
+</header>
+<section class="space-y-12">
+<div class="relative group">
+<!-- Marginalia Reference Indicator -->
+<div class="absolute -left-8 top-1 opacity-0 group-hover:opacity-100 transition-opacity">
+<span class="material-symbols-outlined text-sm text-tertiary" data-icon="link">link</span>
+</div>
+<p class="font-body text-lg leading-[1.8] text-on-surface first-letter:text-4xl first-letter:font-serif first-letter:mr-2 first-letter:float-left">
+                        To write on digital vellum is to acknowledge the weight of every stroke. Unlike the frantic scrolling of a modern dashboard, this surface demands a pause. We seek a medium that bridges the gap between the permanence of the printed word and the agility of the machine. It is here, in the quiet expanses of negative space, that synthesis truly occurs.
+                    </p>
+</div>
+<div class="relative group">
+<div class="absolute -left-8 top-1 opacity-0 group-hover:opacity-100 transition-opacity">
+<span class="material-symbols-outlined text-sm text-tertiary" data-icon="auto_fix_high">auto_fix_high</span>
+</div>
+<p class="font-body text-lg leading-[1.8] text-on-surface">
+                        The fragments we collect are not merely data points; they are intellectual ghosts. They hover at the edge of our vision, waiting for the moment they can be woven into the tapestry of a larger argument. The role of the interface, then, is to facilitate this weaving without becoming the center of attention. It must be a "thought partner" that observes, remembers, and occasionally whispers, but never interrupts.
+                    </p>
+</div>
+<div class="py-16">
+<div class="flex items-center space-x-4 mb-8">
+<div class="w-8 h-[1px] bg-outline-variant/50"></div>
+<span class="font-label text-[10px] uppercase tracking-[0.3em] text-outline-variant">A New Section</span>
+<div class="flex-grow h-[1px] bg-outline-variant/50"></div>
+</div>
+<textarea class="w-full bg-transparent border-none focus:ring-0 font-body text-lg leading-[1.8] text-on-surface/50 placeholder:text-outline/30 min-h-[400px] resize-none p-0" placeholder="Continue the inquiry..."></textarea>
+</div>
+</section>
+</article>
+<!-- Dynamic Marginalia (Floating Fragments) -->
+<aside class="hidden xl:block w-72 flex-shrink-0 relative">
+<div class="sticky top-40 space-y-20">
+<!-- Marginalia Fragment 1 -->
+<div class="relative">
+<div class="absolute -left-12 top-0 h-full w-[1px] bg-surface-container-highest"></div>
+<div class="space-y-3">
+<div class="flex items-center justify-between">
+<span class="font-label text-[9px] uppercase tracking-widest text-tertiary">Library Fragment</span>
+<span class="material-symbols-outlined text-xs text-outline/40" data-icon="close">close</span>
+</div>
+<div class="bg-surface-container-low p-4 hover:bg-surface-container transition-colors cursor-pointer group">
+<p class="font-headline text-sm italic leading-relaxed text-on-surface-variant">
+                                "The blank page is not an absence, but a potentiality of structured thought."
+                            </p>
+<div class="mt-4 flex items-center justify-between opacity-0 group-hover:opacity-100 transition-opacity">
+<span class="text-[9px] font-label text-outline uppercase tracking-tighter">Baudrillard, 1981</span>
+<span class="material-symbols-outlined text-xs" data-icon="arrow_forward">arrow_forward</span>
+</div>
+</div>
+</div>
+</div>
+<!-- AI Intelligence Prompt -->
+<div class="relative pt-8">
+<div class="absolute -left-12 top-0 h-full w-[1px] bg-tertiary/20"></div>
+<div class="space-y-4">
+<div class="flex items-center space-x-2">
+<span class="material-symbols-outlined text-sm text-tertiary" data-icon="auto_awesome" data-weight="fill" style="font-variation-settings: 'FILL' 1;">auto_awesome</span>
+<span class="font-label text-[9px] uppercase tracking-widest text-tertiary font-bold">Inference Engine</span>
+</div>
+<p class="font-headline text-sm text-on-surface-variant/70 leading-relaxed italic">
+                            Your argument regarding "ephemeral surfaces" mirrors the late 20th-century discourse on media theory. Shall I pull the core tenets of the McLuhan archives?
+                        </p>
+<div class="flex space-x-4 pt-2">
+<button class="text-[10px] font-label uppercase tracking-widest border-b border-primary/20 pb-0.5 text-primary hover:border-primary transition-all">Retrieve</button>
+<button class="text-[10px] font-label uppercase tracking-widest text-outline/60 hover:text-on-surface">Dismiss</button>
+</div>
+</div>
+</div>
+<!-- Image Fragment -->
+<div class="relative group">
+<div class="absolute -left-12 top-0 h-full w-[1px] bg-surface-container-highest"></div>
+<div class="space-y-3">
+<div class="flex items-center justify-between">
+<span class="font-label text-[9px] uppercase tracking-widest text-outline">Visual Reference</span>
+</div>
+<div class="grayscale hover:grayscale-0 transition-all duration-700">
+<img class="w-full h-40 object-cover opacity-80" data-alt="Close up of aged parchment paper texture" src="https://lh3.googleusercontent.com/aida-public/AB6AXuA0QFE89x7p4liL5U5KoQfKcx5tm8ZzDXzYwAnLLjX_jtHKjlU7lFLhaVOPocxgINIkopOU_9z0o6xzpOET7x8Rz3Fb7EukTFyThXCr3xy3sHw5k_5pQJGYZtSkeetoUIPxtbJV3QsrOd5snlG7GaD9AP9G2CINVzcb8LqhUO36f_8UQbyiWhCedWdIcSUEHEzl3RLdVhrAL3trWsDTcupxCQVjX12SUbf37v28-tlZX2vJSGVJY6JAEm_M_h28uwqmCfomd63QCFYd"/>
+</div>
+<div class="text-[9px] font-label text-outline uppercase tracking-tighter mt-1">Study of Texture, Plate 04</div>
+</div>
+</div>
+</div>
+</aside>
+</main>
+<!-- Context Floating Bar (Minimalist Tool) -->
+<div class="fixed bottom-12 left-1/2 -translate-x-1/2 z-50 flex items-center bg-surface-container-highest/80 backdrop-blur-md px-6 py-3 shadow-[0px_24px_48px_rgba(56,56,49,0.06)] space-x-8">
+<button class="group flex flex-col items-center">
+<span class="material-symbols-outlined text-on-surface-variant group-hover:text-primary transition-colors" data-icon="edit">edit</span>
+<span class="font-label text-[8px] uppercase tracking-[0.2em] mt-1 text-outline-variant group-hover:text-primary">Draft</span>
+</button>
+<div class="w-[1px] h-4 bg-outline-variant/30"></div>
+<button class="group flex flex-col items-center">
+<span class="material-symbols-outlined text-on-surface-variant group-hover:text-primary transition-colors" data-icon="search">search</span>
+<span class="font-label text-[8px] uppercase tracking-[0.2em] mt-1 text-outline-variant group-hover:text-primary">Explore</span>
+</button>
+<div class="w-[1px] h-4 bg-outline-variant/30"></div>
+<button class="group flex flex-col items-center">
+<span class="material-symbols-outlined text-on-surface-variant group-hover:text-primary transition-colors" data-icon="share">share</span>
+<span class="font-label text-[8px] uppercase tracking-[0.2em] mt-1 text-outline-variant group-hover:text-primary">Export</span>
+</button>
+<div class="w-[1px] h-4 bg-outline-variant/30"></div>
+<button class="group flex flex-col items-center">
+<span class="material-symbols-outlined text-tertiary" data-icon="auto_awesome" data-weight="fill" style="font-variation-settings: 'FILL' 1;">auto_awesome</span>
+<span class="font-label text-[8px] uppercase tracking-[0.2em] mt-1 text-tertiary">Synthesize</span>
+</button>
+</div>
+</body></html>

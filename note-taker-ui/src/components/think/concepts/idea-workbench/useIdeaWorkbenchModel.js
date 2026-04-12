@@ -2,7 +2,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { chatWithAgent } from '../../../../api/agent';
 import {
   appendConceptIdeaWorkbenchEvents,
+  acceptConceptIdeaWorkbenchComment,
+  applyConceptIdeaWorkbenchChangeDraft,
+  dismissConceptIdeaWorkbenchComment,
+  dismissConceptIdeaWorkbenchChangeDraft,
   getConceptIdeaWorkbench,
+  markConceptIdeaWorkbenchReviewed,
   updateConceptIdeaWorkbench,
   getConceptAgentSuggestions,
   suggestConceptWorkspaceFromLibrary
@@ -10,6 +15,17 @@ import {
 import useConceptMaterial from '../../../../hooks/useConceptMaterial';
 import { mergeWorkbenchStates } from './ideaWorkbenchMerge';
 import { resolveAgentHypothesisSuggestion } from './ideaWorkbenchAgentSuggestion';
+import { dispatchConceptAction as dispatchTypedConceptAction } from './conceptActionDispatch';
+import {
+  buildWorkbenchChatReply,
+  buildWorkbenchDraftMessage,
+  buildWorkbenchRestructureReply
+} from './ideaWorkbenchPartnerCopy';
+import {
+  buildConceptChangeDraft,
+  computeConceptFreshness,
+  mergeConceptChangeDrafts
+} from './conceptChangeDrafts';
 
 const STORAGE_VERSION = 1;
 const STORAGE_PREFIX = 'idea-workbench';
@@ -249,7 +265,12 @@ const buildAgentDraftSuggestionCard = (suggestion, intent = 'support') => {
     zone,
     type: typeMap[safeType] || 'Agent suggestion',
     title: clean(suggestion?.title) || sentenceCase(safeType || 'suggestion'),
-    content: clean(suggestion?.text) || clean(suggestion?.title) || 'Suggested by the concept agent.',
+    content: clean(suggestion?.text)
+      || clean(suggestion?.summary)
+      || clean(suggestion?.snippet)
+      || clean(suggestion?.description)
+      || clean(suggestion?.title)
+      || 'Suggested by the concept agent.',
     source: clean(suggestion?.source) || 'Concept scout',
     sourcePath,
     whyItMatters: zone === 'contradictions'
@@ -351,6 +372,173 @@ const createAgentMessage = ({ role = 'assistant', text, action = '', suggestedCa
   suggestedCards
 });
 
+const SHORT_FOLLOW_UP_PATTERN = /^(yes|yep|yeah|ok|okay|sure|please|please do that|yes please|yes please do that|do that|go ahead|sounds good|that one|those|use that|pull them in|bring them in|continue)$/i;
+const isShortFollowUpMessage = (value = '') => {
+  const safe = clean(value);
+  if (!safe) return false;
+  return safe.length <= 24 || SHORT_FOLLOW_UP_PATTERN.test(safe);
+};
+const getLastAgentMessageByRole = (messages = [], role = 'assistant') => (
+  [...(Array.isArray(messages) ? messages : [])]
+    .reverse()
+    .find((message) => clean(message?.role) === role && clean(message?.text))
+);
+const getLastSubstantiveUserMessage = (messages = []) => (
+  [...(Array.isArray(messages) ? messages : [])]
+    .reverse()
+    .find((message) => clean(message?.role) === 'user' && clean(message?.text) && !isShortFollowUpMessage(message.text))
+);
+export const sanitizeAgentReplyText = (value = '') => {
+  const original = clean(value);
+  if (!original) return '';
+
+  let safe = original
+    .replace(/^You are currently in concept:[\s\S]*?Context summary:\s*/i, '')
+    .replace(/^You asked:\s*".*?"\s*/i, '')
+    .replace(/^Context summary:\s*/i, '')
+    .trim();
+
+  safe = safe
+    .replace(/^You are currently in concept:[^.]*(?:\.\s*)?/i, '')
+    .replace(/^You asked:\s*"?[^"]*"?\s*/i, '')
+    .trim();
+
+  safe = safe
+    .replace(/^.*?\b(I found \d+ related items?.*)$/i, '$1')
+    .replace(/^.*?\b(Found one relevant piece\..*)$/i, '$1')
+    .replace(/^.*?\b(Found \d+ relevant pieces\..*)$/i, '$1')
+    .replace(/^.*?\b(Pulled in \d+ promising pieces\..*)$/i, '$1')
+    .replace(/^.*?\b(Found one clean hit:.*)$/i, '$1')
+    .replace(/^.*?\b(Kept going from the last move\..*)$/i, '$1')
+    .replace(/^.*?\b(The strongest footing.*)$/i, '$1')
+    .replace(/^.*?\b(The biggest weak point.*)$/i, '$1')
+    .replace(/^.*?\b(Here is the pressure point.*)$/i, '$1')
+    .replace(/^.*?\b(Nothing strong lit up.*)$/i, '$1')
+    .replace(/^.*?\b(A few things lit up.*)$/i, '$1')
+    .trim();
+
+  safe = safe.replace(
+    /I found (\d+) related items? in your library\.\s*If you want, I can now restructure these into inbox\/working\/draft buckets\.?/i,
+    (_match, count) => (
+      Number(count) === 1
+        ? 'Found one strong lead. Want me to sort it into support, tension, or an open question?'
+        : `Found ${count} strong leads. Want me to sort them into support, tension, and open questions?`
+    )
+  );
+
+  safe = safe.replace(
+    /I found (\d+) related items? in your library\.?/i,
+    (_match, count) => (
+      Number(count) === 1
+        ? 'Found one strong lead.'
+        : `Found ${count} strong leads.`
+    )
+  );
+
+  safe = safe.replace(
+    /If you want, I can now restructure these into inbox\/working\/draft buckets\.?/i,
+    'I can sort them into support, tension, and open questions next.'
+  );
+
+  safe = safe.replace(
+    /^[^.?!]*\bFound one relevant piece\.\s*/i,
+    'Found one strong lead. '
+  );
+
+  safe = safe.replace(
+    /^[^.?!]*\bFound (\d+) relevant pieces\.\s*/i,
+    (_match, count) => `Found ${count} strong leads. `
+  );
+
+  safe = safe.replace(
+    /\bContext summary:\s*/i,
+    ''
+  ).trim();
+
+  return safe || original;
+};
+const inferPartnerFollowUpAction = ({ text = '', suggestedCards = [], action = '' }) => {
+  const safeAction = clean(action);
+  if (safeAction && safeAction !== 'chat' && safeAction !== 'continue') return safeAction;
+
+  const safeText = sanitizeAgentReplyText(text).toLowerCase();
+  if (!safeText) return safeAction || 'chat';
+
+  if (
+    /want me to sort|sort them into support|sort it into support|open questions next|sorted the fresh leads|tucked .* into support|kept .* nearby as pressure|usable working set/i.test(safeText)
+  ) {
+    return 'restructure-offer';
+  }
+
+  if (
+    Array.isArray(suggestedCards) && suggestedCards.length > 0
+    && /found one strong lead|found \d+ strong leads|found one clean hit|pulled in \d+ promising pieces|strong footing|best next material|moved it to the top of the stream|strong hit|strong leads/i.test(safeText)
+  ) {
+    return 'retrieve-offer';
+  }
+
+  return safeAction || 'chat';
+};
+const buildAgentRequestMessage = ({ message, messages = [] }) => {
+  const safe = clean(message);
+  if (!isShortFollowUpMessage(safe)) {
+    return [
+      'Stay in the current concept conversation.',
+      'Reply naturally, do not repeat the user question, and do not restate the context summary.',
+      `User message: ${safe}`
+    ].join('\n');
+  }
+
+  const lastUser = getLastSubstantiveUserMessage(messages);
+  const lastAssistant = getLastAgentMessageByRole(messages, 'assistant');
+  if (!lastUser && !lastAssistant) return safe;
+
+  return [
+    'Continue the existing concept conversation instead of starting over.',
+    'Reply naturally and briefly. Do not say "You asked" or "Context summary".',
+    lastUser ? `Prior user request: ${lastUser.text}` : '',
+    lastAssistant ? `Latest partner reply: ${truncate(lastAssistant.text, 260)}` : '',
+    `Follow-up: ${safe}`
+  ].filter(Boolean).join('\n');
+};
+const resolveFollowUpQuickAction = ({ message, messages = [] }) => {
+  if (!isShortFollowUpMessage(message)) return '';
+  const lastAssistant = sanitizeAgentReplyText(
+    getLastAgentMessageByRole(messages, 'assistant')?.text
+  ).toLowerCase();
+  const lastAssistantAction = clean(getLastAgentMessageByRole(messages, 'assistant')?.action).toLowerCase();
+  if (lastAssistantAction === 'restructure-offer') return 'restructure-stream';
+  if (lastAssistantAction === 'retrieve-offer') return 'find-supports';
+  if (!lastAssistant) return '';
+  if (
+    /want me to sort it into support, tension, or an open question|want me to sort them into support, tension, and open questions|i can sort them into support, tension, and open questions next|restructure these into inbox\/working\/draft buckets|restructure them|sort the next pass/i.test(lastAssistant)
+  ) {
+    return 'restructure-stream';
+  }
+  if (
+    /found \d+ relevant pieces|found one relevant piece|pulled in \d+ promising pieces|kept going from the last move|give me a sharper keyword|give me one source name or phrase/i.test(lastAssistant)
+  ) {
+    return 'find-supports';
+  }
+  return '';
+};
+
+const buildAgentChatHistory = (messages = []) => {
+  const normalized = Array.isArray(messages)
+    ? messages
+      .map((message) => ({
+        role: clean(message?.role) === 'user' ? 'user' : 'assistant',
+        text: clean(message?.role) === 'user'
+          ? clean(message?.text)
+          : sanitizeAgentReplyText(message?.text),
+        action: clean(message?.action)
+      }))
+      .filter((message) => message.text)
+    : [];
+
+  return normalized.slice(-14);
+};
+
 const createWorkbenchEvent = ({ type, actor = 'user', summary = '', payload = {} }) => ({
   id: createId('event'),
   type,
@@ -414,9 +602,17 @@ const buildSeedState = ({ concept, material, related, questions }) => {
     workspaceDraftType: 'Note',
     importedSourceKeys: cards.map(card => card.sourceKey).filter(Boolean),
     cards,
+    changeDrafts: [],
     hypothesis: {
       html: seededHypothesis,
       versions: [initialVersion]
+    },
+    meta: {
+      lastReviewedAt: initialVersion.createdAt,
+      stale: false,
+      staleReason: '',
+      staleSignature: '',
+      dismissedFreshnessSignature: ''
     },
     agent: {
       comments: [
@@ -445,6 +641,7 @@ const normalizeLoadedState = (value, fallbackState) => {
   const versions = Array.isArray(value?.hypothesis?.versions) && value.hypothesis.versions.length > 0
     ? value.hypothesis.versions
     : fallbackState.hypothesis.versions;
+  const lastReviewedAt = clean(value?.meta?.lastReviewedAt) || clean(versions.at(-1)?.createdAt) || fallbackState.meta.lastReviewedAt;
   return {
     version: STORAGE_VERSION,
     header: {
@@ -457,13 +654,28 @@ const normalizeLoadedState = (value, fallbackState) => {
     workspaceDraftType: clean(value?.workspaceDraftType) || 'Note',
     importedSourceKeys: Array.isArray(value?.importedSourceKeys) ? value.importedSourceKeys : fallbackState.importedSourceKeys,
     cards,
+    changeDrafts: Array.isArray(value?.changeDrafts) ? value.changeDrafts : fallbackState.changeDrafts,
     hypothesis: {
       html: clean(value?.hypothesis?.html) ? value.hypothesis.html : fallbackState.hypothesis.html,
       versions
     },
+    meta: {
+      lastReviewedAt,
+      stale: Boolean(value?.meta?.stale),
+      staleReason: clean(value?.meta?.staleReason),
+      staleSignature: clean(value?.meta?.staleSignature),
+      dismissedFreshnessSignature: clean(value?.meta?.dismissedFreshnessSignature)
+    },
     agent: {
       comments: Array.isArray(value?.agent?.comments) ? value.agent.comments : fallbackState.agent.comments,
-      messages: Array.isArray(value?.agent?.messages) ? value.agent.messages : fallbackState.agent.messages
+      messages: Array.isArray(value?.agent?.messages)
+        ? value.agent.messages.map((message) => ({
+          ...message,
+          text: clean(message?.role) === 'user'
+            ? clean(message?.text)
+            : sanitizeAgentReplyText(message?.text)
+        }))
+        : fallbackState.agent.messages
     }
   };
 };
@@ -723,17 +935,138 @@ const buildQuickActionResult = (action, state, library) => {
   };
 };
 
+const buildChangeDraftResult = (kind, cards = [], messageText = '', caption = '', reason = '') => {
+  const safeCards = Array.isArray(cards) ? cards.filter(Boolean) : [];
+  if (safeCards.length === 0) return null;
+  const changeDraft = buildConceptChangeDraft({
+    kind,
+    cards: safeCards,
+    caption,
+    reason
+  });
+  return {
+    changeDrafts: [changeDraft],
+    message: createAgentMessage({
+      text: clean(messageText) || changeDraft.summary,
+      action: 'review-change-draft',
+      suggestedCards: safeCards
+    }),
+    comment: createAgentComment({
+      title: changeDraft.title,
+      body: changeDraft.summary,
+      tone: kind === 'contradiction' ? 'warning' : kind === 'refresh' ? 'signal' : 'support'
+    })
+  };
+};
+
+const buildLocalDraftFallbackMessage = ({
+  action,
+  cards = [],
+  unavailableReason = 'The richer scout pass was unavailable.'
+} = {}) => {
+  const safeCards = Array.isArray(cards) ? cards.filter(Boolean) : [];
+  if (!safeCards.length) return '';
+  if (action === 'find-supports') {
+    return buildWorkbenchDraftMessage({
+      kind: 'support',
+      cards: safeCards,
+      provenance: 'local concept material',
+      unavailableReason
+    });
+  }
+  if (action === 'find-contradictions' || action === 'challenge-hypothesis') {
+    return buildWorkbenchDraftMessage({
+      kind: 'contradiction',
+      cards: safeCards,
+      provenance: 'local concept material',
+      unavailableReason
+    });
+  }
+  if (action === 'find-question' || action === 'suggest-open-questions') {
+    return buildWorkbenchDraftMessage({
+      kind: 'question',
+      cards: safeCards,
+      provenance: 'local concept material',
+      unavailableReason
+    });
+  }
+  return '';
+};
+
+const buildLocalRelatedSourceCards = ({ library = [], state }) => {
+  const contextText = [
+    state.header.title,
+    state.header.prompt,
+    stripHtml(state.hypothesis.html)
+  ].join(' ');
+  return library
+    .filter((card) => (
+      ['Article snippet', 'Note', 'Concept'].includes(card.type)
+      && !state.importedSourceKeys.includes(card.sourceKey)
+    ))
+    .sort((left, right) => (
+      scoreMaterialCardForIntent(right, 'support', contextText) - scoreMaterialCardForIntent(left, 'support', contextText)
+    ))
+    .slice(0, 3)
+    .map((card) => ({
+      ...card,
+      id: createId('card'),
+      zone: 'workspace',
+      origin: 'agent',
+      agentAnnotation: card.agentAnnotation || 'Pulled in as related source memory for the current concept.',
+      tags: [...new Set([...(card.tags || []), 'related'])]
+    }));
+};
+
+const buildLocalQuestionCards = ({ library = [], state }) => {
+  const existingQuestions = new Set(
+    state.cards
+      .filter((card) => card.zone === 'questions')
+      .map((card) => clean(card.sourceKey || card.content || card.title))
+  );
+  return library
+    .filter((card) => (
+      card.type === 'Open question'
+      && !state.importedSourceKeys.includes(card.sourceKey)
+      && !existingQuestions.has(clean(card.sourceKey || card.content || card.title))
+    ))
+    .slice(0, 3)
+    .map((card) => ({
+      ...card,
+      id: createId('card'),
+      zone: 'questions',
+      origin: 'agent',
+      agentAnnotation: card.agentAnnotation || 'Surfaced as an unresolved question worth keeping beside the draft.',
+      tags: [...new Set([...(card.tags || []), 'question'])]
+    }));
+};
+
+const extractNewCards = (previousCards = [], nextCards = []) => {
+  const seen = new Set((Array.isArray(previousCards) ? previousCards : []).map((card) => clean(card?.sourceKey || card?.id)));
+  return (Array.isArray(nextCards) ? nextCards : []).filter((card) => {
+    const key = clean(card?.sourceKey || card?.id);
+    if (!key) return true;
+    return !seen.has(key);
+  });
+};
+
 const buildLocalChatReply = ({ message, state, library }) => {
   const lower = clean(message).toLowerCase();
   if (lower.includes('support')) {
     return {
-      reply: `The strongest current support is that ${truncate((state.cards.find(card => card.zone === 'supports') || state.cards.find(card => card.zone === 'workspace'))?.content || 'the workspace keeps suggesting visibility and structure matter.', 150)}`,
+      reply: buildWorkbenchChatReply({
+        intent: 'support',
+        card: state.cards.find(card => card.zone === 'supports') || state.cards.find(card => card.zone === 'workspace')
+      }),
       suggestedCards: []
     };
   }
   if (lower.includes('contradiction') || lower.includes('challenge')) {
     return {
-      reply: `The biggest weak point is that ${truncate((state.cards.find(card => card.zone === 'contradictions') || { content: 'the draft has not yet answered when structure helps versus when it constrains discovery.' }).content, 150)}`,
+      reply: buildWorkbenchChatReply({
+        intent: 'contradiction',
+        card: state.cards.find(card => card.zone === 'contradictions') || { content: 'the draft has not yet answered when structure helps versus when it constrains discovery.' }
+      }),
       suggestedCards: []
     };
   }
@@ -755,6 +1088,27 @@ const buildLocalChatReply = ({ message, state, library }) => {
   return {
     reply: 'The next useful move is to pull one more concrete piece of material into the workspace, then classify it before rewriting the hypothesis.',
     suggestedCards: suggestionCards
+  };
+};
+
+const buildRestructuredCards = (cards = []) => {
+  if (!Array.isArray(cards) || cards.length === 0) return { nextCards: [], reply: '' };
+  const uniqueCards = cards.filter(Boolean);
+  const nextCards = uniqueCards.map((card, index) => ({
+    ...card,
+    zone: index === 0 ? 'supports' : index === 1 ? 'contradictions' : 'questions',
+    whyItMatters:
+      index === 0
+        ? 'Slotted into support so the draft has firmer footing.'
+        : index === 1
+          ? 'Held aside as pressure that should sharpen the next revision.'
+          : 'Left open as the next question worth answering.',
+    origin: clean(card.origin) || 'agent'
+  }));
+
+  return {
+    nextCards,
+    reply: buildWorkbenchRestructureReply(nextCards)
   };
 };
 
@@ -781,7 +1135,8 @@ const buildAgentPromptForAction = ({ action, state }) => {
 export const useIdeaWorkbenchModel = ({
   concept,
   related,
-  questions
+  questions,
+  onCreateNotebookDraft
 }) => {
   const conceptKey = clean(concept?._id || concept?.name);
   const storageKey = conceptKey ? `${STORAGE_PREFIX}:${conceptKey}` : '';
@@ -799,16 +1154,33 @@ export const useIdeaWorkbenchModel = ({
     conceptId: conceptKey,
     conceptName: concept?.name || '',
     description: concept?.description || '',
-    materialCount: materialLibrary.length,
-    questionCount: Array.isArray(questions) ? questions.length : 0
-  }), [concept?.description, concept?.name, conceptKey, materialLibrary.length, questions]);
-
-  const [state, setState] = useState(() => buildSeedState({
+    materialSignature: materialLibrary
+      .slice(0, MATERIAL_LIBRARY_LIMIT)
+      .map((card) => [
+        clean(card?.sourceKey),
+        clean(card?.type),
+        clean(card?.title),
+        clean(card?.content),
+        clean(card?.createdAt)
+      ].join('::'))
+      .join('|'),
+    questionSignature: (Array.isArray(questions) ? questions : [])
+      .slice(0, 8)
+      .map((item) => [
+        clean(item?._id),
+        clean(item?.text),
+        clean(item?.updatedAt || item?.createdAt)
+      ].join('::'))
+      .join('|')
+  }), [concept?.description, concept?.name, conceptKey, materialLibrary, questions]);
+  const latestSeedStateRef = useRef(buildSeedState({
     concept,
     material,
     related,
     questions
   }));
+
+  const [state, setState] = useState(() => latestSeedStateRef.current);
   const [hydratedKey, setHydratedKey] = useState('');
   const [agentBusy, setAgentBusy] = useState(false);
   const [agentError, setAgentError] = useState('');
@@ -818,10 +1190,40 @@ export const useIdeaWorkbenchModel = ({
   const [eventLog, setEventLog] = useState([]);
   const [conflictState, setConflictState] = useState(null);
   const lastPersistedStateRef = useRef('');
+  const latestStateRef = useRef(latestSeedStateRef.current);
+
+  useEffect(() => {
+    latestSeedStateRef.current = buildSeedState({
+      concept,
+      material,
+      related,
+      questions
+    });
+  }, [concept, material, questions, related, seedSignature]);
+
+  useEffect(() => {
+    latestStateRef.current = state;
+  }, [state]);
+
+  const commitServerWorkbench = useCallback((response, fallbackState) => {
+    const nextFallbackState = fallbackState || latestStateRef.current;
+    const nextState = response?.ideaWorkbench
+      ? normalizeLoadedState(response.ideaWorkbench, nextFallbackState)
+      : nextFallbackState;
+    const serialized = JSON.stringify(nextState);
+    lastPersistedStateRef.current = serialized;
+    setState(nextState);
+    setSyncError('');
+    setServerRevision(Number(response?.revision || 0));
+    if (Array.isArray(response?.events)) {
+      setEventLog(response.events);
+    }
+    return nextState;
+  }, []);
 
   useEffect(() => {
     if (!storageKey) return;
-    const fallback = buildSeedState({ concept, material, related, questions });
+    const fallback = latestSeedStateRef.current;
     let cancelled = false;
     setConflictState(null);
     const hydrate = async () => {
@@ -841,12 +1243,8 @@ export const useIdeaWorkbenchModel = ({
           ? normalizeLoadedState(remote.ideaWorkbench, localState)
           : localState;
         if (cancelled) return;
-        setState(remoteState);
-        setSyncError('');
-        setServerRevision(Number(remote?.revision || 0));
-        setEventLog(Array.isArray(remote?.events) ? remote.events : []);
+        commitServerWorkbench(remote, remoteState);
         setHydratedKey(storageKey);
-        lastPersistedStateRef.current = JSON.stringify(remoteState);
       } catch (_error) {
         if (cancelled) return;
         setState(localState);
@@ -861,7 +1259,7 @@ export const useIdeaWorkbenchModel = ({
     return () => {
       cancelled = true;
     };
-  }, [concept, conceptKey, material, questions, related, seedSignature, storageKey]);
+  }, [commitServerWorkbench, conceptKey, seedSignature, storageKey]);
 
   useEffect(() => {
     if (!storageKey || hydratedKey !== storageKey) return;
@@ -936,6 +1334,66 @@ export const useIdeaWorkbenchModel = ({
       concepts: remaining.filter(card => card.type === 'Concept').length
     };
   }, [materialLibrary, state.importedSourceKeys]);
+  const freshness = useMemo(
+    () => computeConceptFreshness({
+      materialLibrary,
+      importedSourceKeys: state.importedSourceKeys,
+      lastReviewedAt: state.meta?.lastReviewedAt
+    }),
+    [materialLibrary, state.importedSourceKeys, state.meta?.lastReviewedAt]
+  );
+  const pendingChangeDrafts = useMemo(
+    () => (Array.isArray(state.changeDrafts) ? state.changeDrafts : []).filter((draft) => clean(draft?.status).toLowerCase() === 'pending'),
+    [state.changeDrafts]
+  );
+
+  useEffect(() => {
+    setState((previous) => {
+      const nextMeta = {
+        ...previous.meta,
+        stale: freshness.isStale,
+        staleReason: freshness.isStale ? freshness.summary : '',
+        staleSignature: freshness.signature || ''
+      };
+      const hasPendingRefreshDraft = previous.changeDrafts.some((draft) => (
+        clean(draft?.kind) === 'refresh'
+        && clean(draft?.signature) === clean(freshness.signature)
+        && clean(draft?.status).toLowerCase() === 'pending'
+      ));
+      const shouldQueueRefreshDraft = freshness.isStale
+        && freshness.freshCards.length > 0
+        && !hasPendingRefreshDraft
+        && clean(previous.meta?.dismissedFreshnessSignature) !== clean(freshness.signature);
+
+      const metaChanged = (
+        previous.meta?.stale !== nextMeta.stale
+        || clean(previous.meta?.staleReason) !== clean(nextMeta.staleReason)
+        || clean(previous.meta?.staleSignature) !== clean(nextMeta.staleSignature)
+      );
+
+      if (!shouldQueueRefreshDraft) {
+        return metaChanged ? { ...previous, meta: nextMeta } : previous;
+      }
+
+      const refreshDraft = buildConceptChangeDraft({
+        kind: 'refresh',
+        cards: freshness.freshCards,
+        summary: freshness.summary,
+        caption: 'Newer library material is waiting. Review it before it changes the concept.'
+      });
+
+      return {
+        ...previous,
+        meta: {
+          ...nextMeta,
+          dismissedFreshnessSignature: clean(previous.meta?.dismissedFreshnessSignature) === clean(freshness.signature)
+            ? ''
+            : previous.meta?.dismissedFreshnessSignature || ''
+        },
+        changeDrafts: mergeConceptChangeDrafts(previous.changeDrafts, [refreshDraft])
+      };
+    });
+  }, [freshness.freshCards, freshness.isStale, freshness.signature, freshness.summary]);
 
   const appendWorkbenchEvents = useCallback(async (eventsInput) => {
     if (!conceptKey) return;
@@ -1138,49 +1596,63 @@ export const useIdeaWorkbenchModel = ({
     }));
   }, []);
 
-  const acceptAgentComment = useCallback((commentId) => {
+  const acceptAgentComment = useCallback(async (commentId) => {
     const comment = state.agent.comments.find((entry) => entry.id === commentId);
     if (!comment?.suggestedHtml) return;
+    if (!conceptKey) return;
+    try {
+      const response = await acceptConceptIdeaWorkbenchComment(conceptKey, commentId);
+      commitServerWorkbench(response);
+    } catch (error) {
+      setSyncError(error?.response?.data?.error || 'Failed to apply revision.');
+    }
+  }, [commitServerWorkbench, conceptKey, state.agent.comments]);
 
-    setState((previous) => ({
-      ...previous,
-      hypothesis: {
-        ...previous.hypothesis,
-        html: `${previous.hypothesis.html || '<p></p>'}${comment.suggestedHtml}`
-      },
-      agent: {
-        ...previous.agent,
-        comments: previous.agent.comments.filter((entry) => entry.id !== commentId)
-      }
-    }));
-
-    appendWorkbenchEvents(createWorkbenchEvent({
-      type: 'agent_suggestion_accepted',
-      actor: 'user',
-      summary: 'Accepted an agent hypothesis suggestion.',
-      payload: { commentId, target: comment.target }
-    }));
-  }, [appendWorkbenchEvents, state.agent.comments]);
-
-  const dismissAgentComment = useCallback((commentId) => {
+  const dismissAgentComment = useCallback(async (commentId) => {
     const comment = state.agent.comments.find((entry) => entry.id === commentId);
     if (!comment) return;
+    if (!conceptKey) return;
+    try {
+      const response = await dismissConceptIdeaWorkbenchComment(conceptKey, commentId);
+      commitServerWorkbench(response);
+    } catch (error) {
+      setSyncError(error?.response?.data?.error || 'Failed to dismiss revision.');
+    }
+  }, [commitServerWorkbench, conceptKey, state.agent.comments]);
 
-    setState((previous) => ({
-      ...previous,
-      agent: {
-        ...previous.agent,
-        comments: previous.agent.comments.filter((entry) => entry.id !== commentId)
-      }
-    }));
+  const applyChangeDraft = useCallback(async (draftId) => {
+    const draft = state.changeDrafts.find((entry) => entry.id === draftId);
+    if (!draft) return;
+    if (!conceptKey) return;
+    try {
+      const response = await applyConceptIdeaWorkbenchChangeDraft(conceptKey, draftId);
+      commitServerWorkbench(response);
+    } catch (error) {
+      setSyncError(error?.response?.data?.error || 'Failed to apply change draft.');
+    }
+  }, [commitServerWorkbench, conceptKey, state.changeDrafts]);
 
-    appendWorkbenchEvents(createWorkbenchEvent({
-      type: 'agent_suggestion_dismissed',
-      actor: 'user',
-      summary: 'Dismissed an agent hypothesis suggestion.',
-      payload: { commentId, target: comment.target }
-    }));
-  }, [appendWorkbenchEvents, state.agent.comments]);
+  const dismissChangeDraft = useCallback(async (draftId) => {
+    const draft = state.changeDrafts.find((entry) => entry.id === draftId);
+    if (!draft) return;
+    if (!conceptKey) return;
+    try {
+      const response = await dismissConceptIdeaWorkbenchChangeDraft(conceptKey, draftId);
+      commitServerWorkbench(response);
+    } catch (error) {
+      setSyncError(error?.response?.data?.error || 'Failed to dismiss change draft.');
+    }
+  }, [commitServerWorkbench, conceptKey, state.changeDrafts]);
+
+  const markReviewed = useCallback(async () => {
+    if (!conceptKey) return;
+    try {
+      const response = await markConceptIdeaWorkbenchReviewed(conceptKey);
+      commitServerWorkbench(response);
+    } catch (error) {
+      setSyncError(error?.response?.data?.error || 'Failed to mark concept reviewed.');
+    }
+  }, [commitServerWorkbench, conceptKey]);
 
   const snapshotHypothesis = useCallback((summary = '') => {
     setState((previous) => {
@@ -1197,6 +1669,14 @@ export const useIdeaWorkbenchModel = ({
         hypothesis: {
           ...previous.hypothesis,
           versions
+        },
+        meta: {
+          ...previous.meta,
+          lastReviewedAt: versions.at(-1)?.createdAt || new Date().toISOString(),
+          stale: false,
+          staleReason: '',
+          staleSignature: '',
+          dismissedFreshnessSignature: ''
         }
       };
     });
@@ -1227,12 +1707,19 @@ export const useIdeaWorkbenchModel = ({
       return {
         ...previous,
         cards: nextCards,
+        changeDrafts: Array.isArray(result?.changeDrafts)
+          ? mergeConceptChangeDrafts(previous.changeDrafts, result.changeDrafts)
+          : previous.changeDrafts,
         importedSourceKeys: [
           ...new Set([
             ...previous.importedSourceKeys,
             ...(Array.isArray(result?.nextCards) ? result.nextCards.map(card => card.sourceKey).filter(Boolean) : [])
           ])
         ],
+        meta: {
+          ...previous.meta,
+          ...(result?.metaPatch && typeof result.metaPatch === 'object' ? result.metaPatch : {})
+        },
         hypothesis: {
           ...previous.hypothesis,
           html: nextHypothesisHtml,
@@ -1301,6 +1788,7 @@ export const useIdeaWorkbenchModel = ({
   const runActionWithAgent = useCallback(async (action) => {
     const response = await chatWithAgent({
       message: buildAgentPromptForAction({ action, state }),
+      history: buildAgentChatHistory(state.agent.messages),
       context: concept?._id ? { type: 'concept', id: concept._id } : null,
       limit: 6
     });
@@ -1343,24 +1831,16 @@ export const useIdeaWorkbenchModel = ({
           const intent = action === 'find-contradictions' ? 'contradiction' : 'support';
           const scoutCards = await scoutLibrarySuggestions(intent);
           if (scoutCards.length > 0) {
-            appendAgentArtifacts({
-              nextCards: [...state.cards, ...scoutCards],
-              comment: createAgentComment({
-                title: action === 'find-supports' ? 'Scout surfaced evidence' : 'Scout surfaced tension',
-                body: action === 'find-supports'
-                  ? 'I used the concept scout to pull in relevant support material from your library.'
-                  : 'I used the concept scout to surface relevant contradictions and adjacent pressure points.',
-                tone: action === 'find-supports' ? 'support' : 'warning',
-                relatedCardId: scoutCards[0]?.id || ''
+            appendAgentArtifacts(buildChangeDraftResult(
+              intent,
+              scoutCards,
+              buildWorkbenchDraftMessage({
+                kind: intent,
+                cards: scoutCards,
+                provenance: 'your archive'
               }),
-              message: createAgentMessage({
-                text: action === 'find-supports'
-                  ? 'I inserted library-scouted support material into the workbench.'
-                  : 'I inserted library-scouted contradictions into the workbench.',
-                action,
-                suggestedCards: scoutCards
-              })
-            });
+              'Keep the draft quiet until you decide what belongs in the concept.'
+            ));
             appendWorkbenchEvents(createWorkbenchEvent({
               type: 'agent_scout_completed',
               actor: 'agent',
@@ -1369,6 +1849,87 @@ export const useIdeaWorkbenchModel = ({
             }));
             return;
           }
+        }
+
+        if (action === 'retrieve-related-sources') {
+          const relatedCards = buildLocalRelatedSourceCards({ library: materialLibrary, state });
+          if (relatedCards.length > 0) {
+            appendAgentArtifacts(buildChangeDraftResult(
+              'related',
+              relatedCards,
+              buildWorkbenchDraftMessage({
+                kind: 'related',
+                cards: relatedCards,
+                provenance: 'your archive'
+              }),
+              'Bring these in only if they sharpen the current concept.'
+            ));
+            appendWorkbenchEvents(createWorkbenchEvent({
+              type: 'agent_related_sources_prepared',
+              actor: 'agent',
+              summary: 'Prepared related sources for the current concept.',
+              payload: { action, count: relatedCards.length }
+            }));
+            return;
+          }
+        }
+
+        if (action === 'suggest-open-questions') {
+          const questionCards = await scoutLibrarySuggestions('question');
+          if (questionCards.length > 0) {
+            appendAgentArtifacts(buildChangeDraftResult(
+              'question',
+              questionCards,
+              buildWorkbenchDraftMessage({
+                kind: 'question',
+                cards: questionCards,
+                provenance: 'your archive'
+              }),
+              'Use these to keep the concept from hardening too early.'
+            ));
+            appendWorkbenchEvents(createWorkbenchEvent({
+              type: 'agent_questions_prepared',
+              actor: 'agent',
+              summary: 'Prepared open questions for the current concept.',
+              payload: { action, count: questionCards.length }
+            }));
+            return;
+          }
+        }
+
+        if (action === 'refresh-concept') {
+          if (freshness.isStale && freshness.freshCards.length > 0) {
+            appendAgentArtifacts(buildChangeDraftResult(
+              'refresh',
+              freshness.freshCards,
+              buildWorkbenchDraftMessage({
+                kind: 'refresh',
+                cards: freshness.freshCards,
+                provenance: 'newer library material'
+              }),
+              'Review the fresh material before it changes the concept.',
+              freshness.summary
+            ));
+            appendWorkbenchEvents(createWorkbenchEvent({
+              type: 'concept_refresh_prepared',
+              actor: 'agent',
+              summary: 'Prepared a concept refresh draft from newer material.',
+              payload: { action, count: freshness.freshCards.length }
+            }));
+            return;
+          }
+          appendAgentArtifacts({
+            comment: createAgentComment({
+              title: 'Concept is current',
+              body: 'No newer library material is waiting on this concept right now.',
+              tone: 'signal'
+            }),
+            message: createAgentMessage({
+              text: 'This concept looks current with the reviewed material in the archive.',
+              action
+            })
+          });
+          return;
         }
 
         if (['propose-hypothesis', 'strengthen-hypothesis', 'challenge-hypothesis', 'rewrite-clearly', 'analyze-patterns'].includes(action)) {
@@ -1402,7 +1963,11 @@ export const useIdeaWorkbenchModel = ({
               }),
               message: createAgentMessage({
                 text: suggestion?.messageText || reply,
-                action,
+                action: inferPartnerFollowUpAction({
+                  text: suggestion?.messageText || reply,
+                  suggestedCards: relatedCards,
+                  action
+                }),
                 suggestedCards: relatedCards
               })
             });
@@ -1416,17 +1981,127 @@ export const useIdeaWorkbenchModel = ({
           }
         }
 
-        appendAgentArtifacts(buildQuickActionResult(action, state, materialLibrary));
+        if (action === 'suggest-open-questions') {
+          const localQuestions = buildLocalQuestionCards({ library: materialLibrary, state });
+          if (localQuestions.length > 0) {
+            appendAgentArtifacts(buildChangeDraftResult(
+              'question',
+              localQuestions,
+              buildWorkbenchDraftMessage({
+                kind: 'question',
+                cards: localQuestions,
+                provenance: 'material already in the archive'
+              }),
+              'Review them before adding them to the concept.'
+            ));
+            return;
+          }
+        }
+
+        const fallbackResult = buildQuickActionResult(action, state, materialLibrary);
+        if (['find-supports', 'find-contradictions', 'challenge-hypothesis', 'find-question'].includes(action)) {
+          const additions = extractNewCards(state.cards, fallbackResult?.nextCards);
+          const fallbackDraft = buildChangeDraftResult(
+            action === 'find-contradictions' || action === 'challenge-hypothesis'
+              ? 'contradiction'
+              : action === 'find-question'
+                ? 'question'
+                : 'support',
+            additions,
+            buildLocalDraftFallbackMessage({ action, cards: additions }),
+            action === 'find-question'
+              ? 'Keep it beside the concept until it earns the next pass.'
+              : 'Prepared locally because the richer scout pass was unavailable.'
+          );
+          if (fallbackDraft) {
+            appendAgentArtifacts(fallbackDraft);
+            return;
+          }
+        }
+        if (action === 'retrieve-related-sources') {
+          const localRelated = buildLocalRelatedSourceCards({ library: materialLibrary, state });
+          const fallbackDraft = buildChangeDraftResult(
+            'related',
+            localRelated,
+            buildWorkbenchDraftMessage({
+              kind: 'related',
+              cards: localRelated,
+              provenance: 'the local concept material'
+            }),
+            'Review them before adding them to the concept.'
+          );
+          if (fallbackDraft) {
+            appendAgentArtifacts(fallbackDraft);
+            return;
+          }
+        }
+        appendAgentArtifacts(fallbackResult);
       } catch (error) {
         setAgentError(error?.response?.data?.error || 'Agent action failed, falling back to local reasoning.');
-        appendAgentArtifacts(buildQuickActionResult(action, state, materialLibrary));
+        if (action === 'retrieve-related-sources') {
+          const relatedCards = buildLocalRelatedSourceCards({ library: materialLibrary, state });
+          const fallbackDraft = buildChangeDraftResult(
+            'related',
+            relatedCards,
+            buildWorkbenchDraftMessage({
+              kind: 'related',
+              cards: relatedCards,
+              provenance: 'local material',
+              unavailableReason: 'The richer scout pass was unavailable.'
+            }),
+            'Review them before adding them to the concept.'
+          );
+          if (fallbackDraft) {
+            appendAgentArtifacts(fallbackDraft);
+            return;
+          }
+        }
+        if (action === 'suggest-open-questions') {
+          const localQuestions = buildLocalQuestionCards({ library: materialLibrary, state });
+          const fallbackDraft = buildChangeDraftResult(
+            'question',
+            localQuestions,
+            buildWorkbenchDraftMessage({
+              kind: 'question',
+              cards: localQuestions,
+              provenance: 'local material',
+              unavailableReason: 'The richer scout pass was unavailable.'
+            }),
+            'Review them before adding them to the concept.'
+          );
+          if (fallbackDraft) {
+            appendAgentArtifacts(fallbackDraft);
+            return;
+          }
+        }
+        const fallbackResult = buildQuickActionResult(action, state, materialLibrary);
+        if (['find-supports', 'find-contradictions', 'challenge-hypothesis', 'find-question'].includes(action)) {
+          const additions = extractNewCards(state.cards, fallbackResult?.nextCards);
+          const fallbackDraft = buildChangeDraftResult(
+            action === 'find-contradictions' || action === 'challenge-hypothesis'
+              ? 'contradiction'
+              : action === 'find-question'
+                ? 'question'
+                : 'support',
+            additions,
+            buildLocalDraftFallbackMessage({ action, cards: additions }),
+            action === 'find-question'
+              ? 'Keep it beside the concept until it earns the next pass.'
+              : 'Prepared locally because the richer scout pass was unavailable.'
+          );
+          if (fallbackDraft) {
+            appendAgentArtifacts(fallbackDraft);
+            return;
+          }
+        }
+        appendAgentArtifacts(fallbackResult);
       } finally {
         setAgentModeLabel('');
         setAgentBusy(false);
       }
     };
-    execute();
-  }, [appendAgentArtifacts, appendWorkbenchEvents, materialLibrary, runActionWithAgent, scoutLibrarySuggestions, state]);
+    return execute();
+  }, [appendAgentArtifacts, appendWorkbenchEvents, freshness.freshCards, freshness.isStale, freshness.summary, materialLibrary, runActionWithAgent, scoutLibrarySuggestions, state]);
 
   const sendAgentMessage = useCallback(async (message) => {
     const safeMessage = clean(message);
@@ -1450,12 +2125,128 @@ export const useIdeaWorkbenchModel = ({
     }));
 
     try {
-      const response = await chatWithAgent({
+      const continuationAction = resolveFollowUpQuickAction({
         message: safeMessage,
+        messages: state.agent.messages
+      });
+      if (continuationAction === 'restructure-stream') {
+        const lastAssistant = getLastAgentMessageByRole(state.agent.messages, 'assistant');
+        const recentCards = Array.isArray(lastAssistant?.suggestedCards) && lastAssistant.suggestedCards.length > 0
+          ? lastAssistant.suggestedCards
+          : state.cards.filter((card) => clean(card.origin).toLowerCase() === 'agent').slice(-3);
+        const { nextCards, reply } = buildRestructuredCards(recentCards.slice(0, 3));
+
+        setState((previous) => {
+          if (!nextCards.length) {
+            return {
+              ...previous,
+              agent: {
+                ...previous.agent,
+                messages: [
+                  ...previous.agent.messages,
+                  createAgentMessage({
+                    text: 'I tried to sort the last pass, but there is not enough fresh material in the stream yet. Ask me to pull in more and I will keep going.',
+                    action: 'continue'
+                  })
+                ]
+              }
+            };
+          }
+
+          const replacementMap = new Map(nextCards.map((card) => [String(card.id), card]));
+          const mergedCards = previous.cards.map((card) => replacementMap.get(String(card.id)) || card);
+
+          return {
+            ...previous,
+            cards: mergedCards,
+            importedSourceKeys: [
+              ...new Set([
+                ...previous.importedSourceKeys,
+                ...nextCards.map((card) => card.sourceKey).filter(Boolean)
+              ])
+            ],
+            agent: {
+              ...previous.agent,
+              messages: [
+                ...previous.agent.messages,
+                createAgentMessage({
+                  text: reply,
+                  action: inferPartnerFollowUpAction({
+                    text: reply,
+                    suggestedCards: nextCards,
+                    action: 'continue'
+                  }),
+                  suggestedCards: nextCards
+                })
+              ]
+            }
+          };
+        });
+        appendWorkbenchEvents(createWorkbenchEvent({
+          type: 'chat_agent_reply',
+          actor: 'agent',
+          summary: 'Sorted the latest agent suggestions into workbench lanes.',
+          payload: { text: truncate(reply, 240), suggestedCount: nextCards.length }
+        }));
+        return;
+      }
+      if (continuationAction === 'find-supports') {
+        const scoutCards = await scoutLibrarySuggestions('support');
+        const reply = scoutCards.length > 0
+          ? buildWorkbenchDraftMessage({
+            kind: 'support',
+            cards: scoutCards,
+            provenance: 'your archive'
+          })
+          : 'I kept digging, but this pass did not surface anything sharp enough to move. Give me one source name or phrase and I will keep going.';
+
+        if (scoutCards.length > 0) {
+          appendAgentArtifacts(buildChangeDraftResult(
+            'support',
+            scoutCards,
+            reply,
+            'Review them before they land in the concept.'
+          ));
+        } else {
+          setState((previous) => ({
+            ...previous,
+            agent: {
+              ...previous.agent,
+              messages: [
+                ...previous.agent.messages,
+                createAgentMessage({
+                  text: reply,
+                  action: inferPartnerFollowUpAction({
+                    text: reply,
+                    suggestedCards: scoutCards,
+                    action: 'continue'
+                  }),
+                  suggestedCards: scoutCards
+                })
+              ]
+            }
+          }));
+        }
+        appendWorkbenchEvents(createWorkbenchEvent({
+          type: 'chat_agent_reply',
+          actor: 'agent',
+          summary: 'Continued the previous retrieval thread.',
+          payload: { text: truncate(reply, 240), suggestedCount: scoutCards.length }
+        }));
+        return;
+      }
+
+      const history = buildAgentChatHistory(state.agent.messages);
+      const response = await chatWithAgent({
+        message: buildAgentRequestMessage({
+          message: safeMessage,
+          messages: state.agent.messages
+        }),
+        history,
         context: concept?._id ? { type: 'concept', id: concept._id } : null,
         limit: 6
       });
-      const reply = clean(response?.reply) || 'No reply generated.';
+      const reply = sanitizeAgentReplyText(response?.reply) || 'No reply generated.';
       const suggestedCards = Array.isArray(response?.relatedItems)
         ? response.relatedItems.slice(0, 3).map((item) => ({
           id: createId('card'),
@@ -1485,7 +2276,11 @@ export const useIdeaWorkbenchModel = ({
             ...previous.agent.messages,
             createAgentMessage({
               text: reply,
-              action: 'chat',
+              action: inferPartnerFollowUpAction({
+                text: reply,
+                suggestedCards,
+                action: 'chat'
+              }),
               suggestedCards
             })
           ]
@@ -1511,8 +2306,12 @@ export const useIdeaWorkbenchModel = ({
           messages: [
             ...previous.agent.messages,
             createAgentMessage({
-              text: fallback.reply,
-              action: 'chat-fallback',
+              text: sanitizeAgentReplyText(fallback.reply),
+              action: inferPartnerFollowUpAction({
+                text: fallback.reply,
+                suggestedCards: fallback.suggestedCards,
+                action: 'chat-fallback'
+              }),
               suggestedCards: fallback.suggestedCards
             })
           ]
@@ -1528,7 +2327,7 @@ export const useIdeaWorkbenchModel = ({
       setAgentModeLabel('');
       setAgentBusy(false);
     }
-  }, [appendWorkbenchEvents, concept?._id, materialLibrary, state]);
+  }, [appendAgentArtifacts, appendWorkbenchEvents, concept?._id, materialLibrary, scoutLibrarySuggestions, state]);
 
   const setConflictChoice = useCallback((section, value) => {
     setConflictState((previous) => {
@@ -1619,6 +2418,35 @@ export const useIdeaWorkbenchModel = ({
     setConflictState(null);
   }, [conflictState]);
 
+  const dispatchConceptAction = useCallback((type, payload = {}) => (
+    dispatchTypedConceptAction({
+      type,
+      payload,
+      modelActions: {
+        runQuickAction,
+        snapshotHypothesis
+      },
+      createNotebookDraft: (nextPayload = {}) => {
+        if (typeof onCreateNotebookDraft !== 'function') return undefined;
+        return onCreateNotebookDraft({
+          ...nextPayload,
+          concept,
+          state,
+          currentMaturity,
+          hypothesisVersion
+        });
+      }
+    })
+  ), [
+    concept,
+    currentMaturity,
+    hypothesisVersion,
+    onCreateNotebookDraft,
+    runQuickAction,
+    snapshotHypothesis,
+    state
+  ]);
+
   return {
     conceptKey,
     materialLoading,
@@ -1636,6 +2464,8 @@ export const useIdeaWorkbenchModel = ({
     currentMaturity,
     hypothesisVersion,
     importableCounts,
+    freshness,
+    changeDrafts: pendingChangeDrafts,
     actions: {
       setHeaderField,
       setWorkspaceDraft,
@@ -1651,7 +2481,11 @@ export const useIdeaWorkbenchModel = ({
       updateHypothesisHtml,
       acceptAgentComment,
       dismissAgentComment,
+      applyChangeDraft,
+      dismissChangeDraft,
+      markReviewed,
       snapshotHypothesis,
+      dispatchConceptAction,
       runQuickAction,
       sendAgentMessage,
       setConflictChoice,

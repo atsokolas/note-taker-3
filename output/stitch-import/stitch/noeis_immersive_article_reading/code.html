@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,200..800;1,6..72,200..800&amp;family=Inter:wght@300;400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "on-error-container": "#742410",
+              "primary-fixed": "#e7e1de",
+              "secondary": "#676461",
+              "on-secondary-container": "#54514e",
+              "secondary-fixed-dim": "#d9d3cf",
+              "background": "#fffcf7",
+              "surface-container-lowest": "#ffffff",
+              "on-secondary": "#ffffff",
+              "inverse-surface": "#0e0e0c",
+              "primary": "#615e5b",
+              "primary-dim": "#55524f",
+              "on-tertiary-container": "#64523c",
+              "inverse-primary": "#ffffff",
+              "on-background": "#383831",
+              "error-container": "#fe8b70",
+              "on-secondary-fixed-variant": "#5e5b58",
+              "on-error": "#ffffff",
+              "on-tertiary-fixed-variant": "#6f5c45",
+              "on-primary-container": "#54514f",
+              "error": "#a54731",
+              "surface": "#fffcf7",
+              "secondary-fixed": "#e7e1dd",
+              "on-surface-variant": "#65655c",
+              "tertiary-fixed-dim": "#f0d6b9",
+              "surface-tint": "#615e5b",
+              "on-tertiary-fixed": "#51402b",
+              "primary-fixed-dim": "#d9d3d0",
+              "surface-container-highest": "#eae8de",
+              "tertiary-fixed": "#fee4c6",
+              "on-surface": "#383831",
+              "secondary-dim": "#5b5855",
+              "outline": "#818178",
+              "tertiary": "#74614a",
+              "on-tertiary": "#ffffff",
+              "surface-dim": "#e4e3d7",
+              "surface-container-high": "#f0eee5",
+              "outline-variant": "#babab0",
+              "primary-container": "#e7e1de",
+              "surface-container": "#f6f4ec",
+              "on-secondary-fixed": "#413f3c",
+              "surface-variant": "#eae8de",
+              "secondary-container": "#e7e1dd",
+              "on-primary-fixed-variant": "#5e5b58",
+              "tertiary-dim": "#67553e",
+              "surface-container-low": "#fcf9f3",
+              "on-primary": "#fcf7f3",
+              "inverse-on-surface": "#9e9d98",
+              "on-primary-fixed": "#413f3d",
+              "error-dim": "#5c1202",
+              "tertiary-container": "#fee4c6",
+              "surface-bright": "#fffcf7"
+            },
+            fontFamily: {
+              "headline": ["Newsreader", "serif"],
+              "body": ["Newsreader", "serif"],
+              "label": ["Inter", "sans-serif"]
+            },
+            borderRadius: {"DEFAULT": "0rem", "lg": "0rem", "xl": "0rem", "full": "9999px"},
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24;
+            font-size: 20px;
+        }
+        body {
+            background-color: #fffcf7;
+            color: #383831;
+            font-family: 'Newsreader', serif;
+        }
+        ::selection {
+            background-color: #eae8de;
+            color: #1A1918;
+        }
+    </style>
+</head>
+<body class="bg-background text-on-surface">
+<!-- TopNavBar -->
+<header class="fixed top-0 left-0 w-full z-50 bg-[#fffcf7] dark:bg-[#1A1918] transition-colors duration-300">
+<div class="flex justify-between items-center w-full px-8 py-4 max-w-screen-2xl mx-auto">
+<div class="flex items-center gap-12">
+<span class="text-2xl font-serif italic text-[#1A1918] dark:text-[#fffcf7]">Noeis</span>
+<nav class="hidden md:flex items-center gap-8">
+<a class="text-[#1A1918] dark:text-white border-b-2 border-[#615e5b] pb-1 font-serif font-medium tracking-tight text-lg" href="#">Library</a>
+<a class="text-[#615e5b]/60 dark:text-[#eae8de]/60 hover:text-[#1A1918] dark:hover:text-white transition-opacity font-serif font-medium tracking-tight text-lg" href="#">Concepts</a>
+<a class="text-[#615e5b]/60 dark:text-[#eae8de]/60 hover:text-[#1A1918] dark:hover:text-white transition-opacity font-serif font-medium tracking-tight text-lg" href="#">Questions</a>
+</nav>
+</div>
+<div class="flex items-center gap-4">
+<button class="material-symbols-outlined text-[#615e5b]">search</button>
+<span class="material-symbols-outlined text-[#615e5b]">account_circle</span>
+</div>
+</div>
+</header>
+<!-- SideNavBar (Marginalia) -->
+<aside class="fixed right-0 top-0 h-full flex flex-col pt-24 pb-8 px-6 z-40 bg-[#fcf9f3] dark:bg-[#252423] w-80">
+<div class="mb-12">
+<h2 class="font-label text-xs uppercase tracking-widest text-[#615e5b] dark:text-[#eae8de] font-bold">Marginalia</h2>
+<p class="font-label text-[10px] uppercase tracking-tighter text-[#615e5b]/50">Active Reasoning</p>
+</div>
+<nav class="flex flex-col gap-1 mb-12">
+<button class="flex items-center gap-4 py-3 px-4 text-[#1A1918] dark:text-white font-bold bg-[#eae8de] dark:bg-[#323130] translate-x-1 transition-transform duration-300">
+<span class="material-symbols-outlined">stylus_note</span>
+<span class="font-label text-xs uppercase tracking-widest">Highlights</span>
+</button>
+<button class="flex items-center gap-4 py-3 px-4 text-[#615e5b]/70 dark:text-[#eae8de]/70 hover:bg-[#eae8de]/50 dark:hover:bg-[#323130]/50 transition-all">
+<span class="material-symbols-outlined">smart_toy</span>
+<span class="font-label text-xs uppercase tracking-widest">Agent Insights</span>
+</button>
+<button class="flex items-center gap-4 py-3 px-4 text-[#615e5b]/70 dark:text-[#eae8de]/70 hover:bg-[#eae8de]/50 dark:hover:bg-[#323130]/50 transition-all">
+<span class="material-symbols-outlined">format_quote</span>
+<span class="font-label text-xs uppercase tracking-widest">Citations</span>
+</button>
+<button class="flex items-center gap-4 py-3 px-4 text-[#615e5b]/70 dark:text-[#eae8de]/70 hover:bg-[#eae8de]/50 dark:hover:bg-[#323130]/50 transition-all">
+<span class="material-symbols-outlined">edit_note</span>
+<span class="font-label text-xs uppercase tracking-widest">Drafts</span>
+</button>
+</nav>
+<!-- Contextual Content -->
+<div class="mt-4 flex flex-col gap-6 overflow-y-auto pr-2">
+<div class="p-4 bg-surface-container-highest border-l-2 border-primary">
+<span class="font-label text-[10px] uppercase font-bold text-primary block mb-2">Agent Insight</span>
+<p class="font-body text-sm leading-relaxed italic text-on-surface">"The author's premise regarding tectonic shifts correlates 94% with recent peer-reviewed data from the Alpine project."</p>
+</div>
+<div class="p-4 bg-surface-container-low">
+<span class="font-label text-[10px] uppercase font-bold text-on-surface-variant block mb-2">Saved Highlight</span>
+<p class="font-body text-sm leading-relaxed text-on-surface">"...architecture of the digital mind must prioritize the tactile over the transactional..."</p>
+</div>
+</div>
+</aside>
+<!-- Main Content Canvas -->
+<main class="mr-80 pt-32 pb-40 px-8 min-h-screen">
+<article class="max-w-3xl mx-auto">
+<header class="mb-20">
+<div class="flex items-center gap-4 mb-6">
+<span class="font-label text-[11px] uppercase tracking-widest text-primary font-semibold">Manuscript #402</span>
+<span class="w-8 h-[1px] bg-outline-variant/30"></span>
+<span class="font-label text-[11px] uppercase tracking-widest text-on-surface-variant">November 2024</span>
+</div>
+<h1 class="text-6xl font-headline font-light leading-tight text-on-surface tracking-tight mb-8">
+                    The Epistemology of Digital Vellum: Architecture of Focused Thought
+                </h1>
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 bg-surface-container-highest flex items-center justify-center">
+<span class="font-serif italic text-lg">E</span>
+</div>
+<div>
+<p class="font-label text-xs font-semibold uppercase tracking-wider">Elias Thorne</p>
+<p class="font-label text-[10px] text-on-surface-variant uppercase tracking-tighter">Principal Investigator</p>
+</div>
+</div>
+</header>
+<section class="space-y-12">
+<p class="text-2xl font-body leading-relaxed text-on-surface first-letter:text-7xl first-letter:font-serif first-letter:mr-3 first-letter:float-left first-letter:leading-none">
+                    To build a sanctuary for reasoning, we must first dismantle the machinery of distraction. The modern interface is an ecosystem of noise, a cacophony of notifications and high-contrast prompts that treat attention as a resource to be harvested rather than a vessel to be filled.
+                </p>
+<p class="text-xl font-body leading-relaxed text-on-surface">
+                    We propose a return to the tactile—the <span class="bg-primary-container/40 px-1">digital vellum</span>. This is not merely an aesthetic choice; it is a cognitive imperative. When we interact with surfaces that mimic the weight and response of physical media, our neuroplasticity adapts. We move from the 'skimming' behavior of the web toward the 'deep processing' of the library.
+                </p>
+<div class="my-20 relative">
+<div class="aspect-[16/9] w-full bg-surface-container-low overflow-hidden">
+<img alt="Abstract textural composition" class="w-full h-full object-cover mix-blend-multiply opacity-80" data-alt="Abstract paper textures and ink patterns for aesthetic background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAVAlnhWbHLMMaGGmvSY29ebRy_DJnwHKT3nx-8mNJ72ww2iLVORzy_JDudMSdAL_PnAneOA0td7u5M-H33cXQJmN_7HZrSbCMQDH15l7zfRd4uXDFyYJTal0O2UtaY1guY60D4gzkR0TeyzTxYl_vnpMxkmQczNj9zHgUJPYhWcw4p9milmk85abQdW8MqtVaoUfT38SSCjRmmgbSDJw0qBeIuW4QT3Dm8pxWoGOEIVE_Ee_rWNe9GSxa5cMOyZAxptzdKN1j8B8rh"/>
+</div>
+<p class="font-label text-[10px] uppercase tracking-widest mt-4 text-on-surface-variant italic">Fig 1.1 — The mapping of neural pathways during long-form manuscript engagement.</p>
+</div>
+<p class="text-xl font-body leading-relaxed text-on-surface">
+                    The marginalia on this page acts as a cognitive scaffold. It is a dialogue between the reader and a curated intelligence—an 'Agent Insight' layer that doesn't dictate truth, but surfaces evidence. It is the digital equivalent of a ghost writing in the margins of a borrowed book.
+                </p>
+<h3 class="text-3xl font-headline font-medium mt-16 mb-6">The Geometry of Silence</h3>
+<p class="text-xl font-body leading-relaxed text-on-surface">
+                    Every pixel in this system is a decision to withhold information. By using tonal shifts instead of borders, we reduce visual friction. The eye is guided by the weight of typography and the expansive use of negative space. We are not just designing a layout; we are designing a silence.
+                </p>
+</section>
+<!-- Connected Concepts Section (Bento Grid Style) -->
+<section class="mt-32 pt-20 border-t border-outline-variant/10">
+<div class="mb-12">
+<h4 class="font-label text-xs uppercase tracking-widest text-primary font-bold mb-2">Connected Concepts</h4>
+<p class="font-body text-on-surface-variant italic">Synthesized from your current library focus.</p>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+<!-- Concept 1 -->
+<div class="col-span-1 md:col-span-2 p-8 bg-surface-container-low flex flex-col justify-between aspect-video md:aspect-auto">
+<div>
+<span class="font-label text-[10px] uppercase tracking-widest text-on-surface-variant">Relational Map</span>
+<h5 class="text-2xl font-headline mt-4 mb-4">Neural Linguistics in Scholarly Writing</h5>
+<p class="font-body text-sm text-on-surface-variant leading-relaxed">An exploration of how serif typography impacts cognitive retention in academic environments.</p>
+</div>
+<div class="flex items-center gap-4 mt-8">
+<span class="font-label text-[10px] px-2 py-1 bg-surface-container-highest">CORE THEORY</span>
+<span class="font-label text-[10px] px-2 py-1 bg-surface-container-highest">8 MIN READ</span>
+</div>
+</div>
+<!-- Concept 2 -->
+<div class="p-8 bg-surface-container-highest flex flex-col justify-between min-h-[300px]">
+<div class="w-12 h-12 bg-primary/10 flex items-center justify-center mb-6">
+<span class="material-symbols-outlined text-primary">auto_stories</span>
+</div>
+<div>
+<h5 class="text-xl font-headline mb-4">The Paper Archive</h5>
+<p class="font-body text-sm text-on-surface-variant">A collection of 45 digitized manuscripts from the 18th century.</p>
+</div>
+<button class="mt-8 font-label text-xs uppercase tracking-widest text-primary font-bold flex items-center gap-2">
+                            Explore <span class="material-symbols-outlined !text-xs">arrow_forward</span>
+</button>
+</div>
+<!-- Concept 3 -->
+<div class="p-8 bg-surface-container border border-outline-variant/10 flex flex-col justify-between">
+<div>
+<span class="font-label text-[10px] uppercase tracking-widest text-on-surface-variant">Citation Link</span>
+<h5 class="text-xl font-headline mt-4 mb-4">Tactile Computing</h5>
+<p class="font-body text-sm text-on-surface-variant italic">"We touch the screen but do we feel the data?"</p>
+</div>
+<div class="flex -space-x-2 mt-6">
+<div class="w-6 h-6 rounded-full bg-primary-container border-2 border-background"></div>
+<div class="w-6 h-6 rounded-full bg-secondary-container border-2 border-background"></div>
+<div class="w-6 h-6 rounded-full bg-tertiary-container border-2 border-background"></div>
+</div>
+</div>
+<!-- Concept 4 -->
+<div class="p-8 bg-on-surface text-surface flex flex-col justify-center items-center text-center">
+<span class="font-label text-[10px] uppercase tracking-[0.2em] mb-4 opacity-60">Deep Dive</span>
+<h5 class="text-3xl font-headline italic mb-6">The Noeis Philosophy</h5>
+<p class="font-body text-sm opacity-80 max-w-[200px]">A manifesto on the future of intellectual labor.</p>
+</div>
+<!-- Concept 5 -->
+<div class="p-8 bg-surface-container-low border border-outline-variant/10 flex flex-col justify-between">
+<div class="h-20 w-full overflow-hidden bg-outline-variant/5">
+<div class="w-full h-full bg-gradient-to-br from-primary/10 to-transparent"></div>
+</div>
+<h5 class="text-lg font-headline mt-4">Semantic Web 3.0</h5>
+<p class="font-label text-[10px] uppercase text-on-surface-variant">Archive Category</p>
+</div>
+</div>
+</section>
+</article>
+</main>
+<!-- Floating Minimal Controls (The "UI Silence" Essential) -->
+<div class="fixed bottom-12 left-1/2 -translate-x-1/2 flex items-center gap-1 p-1 bg-surface-container-highest/80 backdrop-blur-xl border border-outline-variant/15 z-50">
+<button class="p-3 hover:bg-surface-container-low transition-colors"><span class="material-symbols-outlined">text_increase</span></button>
+<div class="w-[1px] h-6 bg-outline-variant/20 mx-1"></div>
+<button class="p-3 hover:bg-surface-container-low transition-colors"><span class="material-symbols-outlined">dark_mode</span></button>
+<button class="p-3 hover:bg-surface-container-low transition-colors"><span class="material-symbols-outlined">share</span></button>
+<div class="w-[1px] h-6 bg-outline-variant/20 mx-1"></div>
+<button class="p-3 hover:bg-surface-container-low transition-colors"><span class="material-symbols-outlined">bookmarks</span></button>
+</div>
+<!-- Scroll Indicator -->
+<div class="fixed left-8 bottom-0 h-40 w-[1px] bg-outline-variant/10">
+<div class="absolute top-0 left-0 w-full bg-primary h-1/3"></div>
+</div>
+<div class="fixed left-6 bottom-44 -rotate-90 origin-left">
+<span class="font-label text-[9px] uppercase tracking-widest text-on-surface-variant">32% Read</span>
+</div>
+</body></html>

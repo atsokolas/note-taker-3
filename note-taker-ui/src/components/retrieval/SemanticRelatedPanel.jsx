@@ -1,12 +1,13 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import useSemanticRelated from '../../hooks/useSemanticRelated';
+import { buildCanonicalArticlePath } from '../../utils/firstInsight';
 
 const buildOpenPath = (item) => {
   if (!item) return '/search';
   if (item.objectType === 'highlight') {
     const articleId = item.metadata?.articleId;
-    if (articleId) return `/articles/${encodeURIComponent(articleId)}`;
+    if (articleId) return buildCanonicalArticlePath(articleId);
     return '/library?scope=highlights';
   }
   if (item.objectType === 'concept') {

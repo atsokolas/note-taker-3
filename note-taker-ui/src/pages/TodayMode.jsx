@@ -390,6 +390,7 @@ const TodayMode = () => {
   return (
     <>
       <ThreePaneLayout
+        className="three-pane--editorial three-pane--today"
         left={leftPanel}
         main={mainPanel}
         right={rightPanel}

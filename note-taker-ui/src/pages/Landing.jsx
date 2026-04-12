@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Card, Button } from '../components/ui';
+import { Button } from '../components/ui';
 
 const Landing = () => {
   const navigate = useNavigate();
@@ -20,96 +20,121 @@ const Landing = () => {
   };
 
   return (
-    <div className="landing-shell">
-      <div className="landing-hero">
-        <p className="landing-eyebrow">Note Taker</p>
-        <h1>A calm home for everything you read, highlight, and think about.</h1>
-        <p className="landing-subhead">
-          Stop losing ideas in bookmarks and screenshots. Note Taker turns reading into something
-          you can actually come back to.
-        </p>
-        <div className="landing-cta">
-          <Button onClick={() => { markLandingSeen(); navigate('/register'); }}>Get started</Button>
-          <Button variant="secondary" onClick={() => document.getElementById('tour')?.scrollIntoView({ behavior: 'smooth' })}>
-            See how it works (2 minutes)
-          </Button>
+    <div className="landing-public">
+      <header className="landing-public__masthead">
+        <div className="landing-public__brand-block">
+          <Link to="/" className="landing-public__brand">Noeis</Link>
+          <p className="landing-public__brand-copy">Notebook for reading, concepts, and open questions.</p>
         </div>
-      </div>
+        <nav className="landing-public__nav" aria-label="Public navigation">
+          <Link to="/guides">Guides</Link>
+          <Link to="/ai-second-brain">AI second brain</Link>
+          <Link to="/privacy">Privacy</Link>
+          <Link to="/login">Login</Link>
+        </nav>
+      </header>
 
-      <Card className="landing-card">
-        <h2>This is for you if…</h2>
-        <ul className="landing-list">
-          <li>You read a lot and actually want to remember it later.</li>
-          <li>You highlight the good stuff, then it disappears.</li>
-          <li>You’re tired of messy folders and endless tabs.</li>
-          <li>You want your thinking to build on itself over time.</li>
-          <li>You’d love to find that idea in 10 seconds six months later.</li>
-        </ul>
-      </Card>
-
-      <Card className="landing-card landing-card-guide">
-        <h2>Evaluating second-brain tools?</h2>
-        <p>
-          Read the practical guide to what an AI second brain should actually do for research,
-          synthesis, and writing.
-        </p>
-        <div className="landing-guide-links">
-          <Link to="/guides" className="landing-inline-link">Browse guides</Link>
-          <Link to="/ai-second-brain" className="landing-inline-link">AI second brain</Link>
-          <Link to="/second-brain-app" className="landing-inline-link">Second brain app</Link>
+      <section className="landing-public__hero">
+        <div className="landing-public__rail">
+          <div className="landing-public__eyebrow">AI-assisted second brain</div>
+          <p>
+            A reading room for people who save too much, think in fragments, and want their notes
+            to accumulate into actual judgment.
+          </p>
         </div>
-      </Card>
 
-      <div className="landing-grid">
-        <Card className="landing-card">
-          <h3>Highlights are the atom</h3>
-          <p>Every highlight is a tiny brick. You can reuse it anywhere.</p>
-        </Card>
-        <Card className="landing-card">
-          <h3>Notes are where thinking happens</h3>
-          <p>Pull highlights into notes and say it in your own words.</p>
-        </Card>
-        <Card className="landing-card">
-          <h3>The system brings things back</h3>
-          <p>Resurfacing turns “I’ll remember this” into “I actually did.”</p>
-        </Card>
-        <Card className="landing-card">
-          <h3>Agentic help when you want it</h3>
-          <p>Use Thought Partner and handoffs for leverage, while keeping human approval on decisions.</p>
-        </Card>
-      </div>
+        <div className="landing-public__main">
+          <h1>Reading becomes notes. Notes become concepts. Questions stay open until they are answered.</h1>
+          <p className="landing-public__lede">
+            Note Taker keeps highlights, working drafts, concepts, and question threads in one
+            calm workspace so your thinking can compound instead of disappearing into tabs,
+            folders, and screenshots.
+          </p>
+          <div className="landing-public__actions">
+            <Button onClick={() => { markLandingSeen(); navigate('/register'); }}>Get started</Button>
+            <Button variant="secondary" onClick={() => document.getElementById('tour')?.scrollIntoView({ behavior: 'smooth' })}>
+              See the tour
+            </Button>
+          </div>
+        </div>
 
-      <Card className="landing-card" id="tour">
-        <h2>The 5‑minute tour</h2>
-        <ol className="landing-steps">
-          <li>Save an article.</li>
-          <li>Highlight what matters.</li>
-          <li>Tag highlights as Concepts.</li>
-          <li>Drop highlights into Notes.</li>
-          <li>Optionally ask Thought Partner or create a handoff.</li>
-          <li>Come back tomorrow (Today desk + resurfacing).</li>
-        </ol>
-      </Card>
+        <aside className="landing-public__aside">
+          <div className="landing-public__eyebrow">What changes</div>
+          <ul className="landing-public__mini-list">
+            <li>Highlights stay attached to source and context.</li>
+            <li>Concepts gather evidence before they become manuscripts.</li>
+            <li>Questions stay visible until something actually resolves them.</li>
+          </ul>
+        </aside>
+      </section>
 
-      <Card className="landing-card">
-        <h2>Your brain stays yours</h2>
-        <ul className="landing-list">
-          <li>Export your data anytime.</li>
-          <li>No dark patterns. No lock‑in.</li>
-          <li>AI is optional. Human-in-the-loop by design.</li>
-        </ul>
-      </Card>
+      <section className="landing-public__strip">
+        <div>
+          <span>Capture</span>
+          <p>Save articles, highlights, and notes without losing provenance.</p>
+        </div>
+        <div>
+          <span>Shape</span>
+          <p>Turn fragments into notebook drafts and concept workbenches.</p>
+        </div>
+        <div>
+          <span>Clarify</span>
+          <p>Keep open questions, related evidence, and contradictions in view.</p>
+        </div>
+      </section>
 
-      <Card className="landing-footer">
-        <p>
-          If this sounds like how your brain works, try it. You’ll know within a day if it fits.
-        </p>
-        <Button onClick={handleEnter}>Enter Note Taker</Button>
-        <div className="landing-legal-links">
+      <section className="landing-public__details" id="tour">
+        <div className="landing-public__column">
+          <div className="landing-public__section-kicker">For people who read seriously</div>
+          <h2>The system is built for return, not just capture.</h2>
+          <ul className="landing-public__detail-list">
+            <li>You read a lot and want to find the right idea again fast.</li>
+            <li>You highlight constantly, then lose what the highlight was for.</li>
+            <li>You want concepts and questions to evolve instead of reset every week.</li>
+            <li>You want AI support without giving up human judgment.</li>
+          </ul>
+        </div>
+
+        <div className="landing-public__column">
+          <div className="landing-public__section-kicker">Five-minute tour</div>
+          <ol className="landing-public__detail-list landing-public__detail-list--ordered">
+            <li>Save an article into the library.</li>
+            <li>Highlight what matters and keep the text attached to source.</li>
+            <li>Pull useful fragments into notes, concepts, or questions.</li>
+            <li>Ask the partner to sort, challenge, or contextualize the evidence.</li>
+            <li>Come back later through the return queue instead of starting over.</li>
+          </ol>
+        </div>
+      </section>
+
+      <section className="landing-public__support">
+        <div>
+          <div className="landing-public__section-kicker">Research guides</div>
+          <p>Read the practical guide to what an AI second brain should actually do.</p>
+          <div className="landing-public__inline-links">
+            <Link to="/guides">Browse guides</Link>
+            <Link to="/ai-second-brain">AI second brain</Link>
+            <Link to="/second-brain-app">Second brain app</Link>
+          </div>
+        </div>
+        <div>
+          <div className="landing-public__section-kicker">Ownership</div>
+          <p>Export your data anytime. No lock-in. AI stays optional and reviewable.</p>
+        </div>
+        <div>
+          <div className="landing-public__section-kicker">Enter</div>
+          <p>If the workflow fits your brain, you should know quickly.</p>
+          <Button onClick={handleEnter}>Enter Note Taker</Button>
+        </div>
+      </section>
+
+      <footer className="landing-public__footer">
+        <p>If this looks like how you already work, the product should feel legible on the first day.</p>
+        <div className="landing-public__footer-links">
           <Link to="/privacy">Privacy Policy</Link>
           <Link to="/terms">Terms of Use</Link>
         </div>
-      </Card>
+      </footer>
     </div>
   );
 };

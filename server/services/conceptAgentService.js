@@ -63,6 +63,38 @@ const buildSnippet = (value, limit = 320) => {
   return `${clean.slice(0, limit).trim()}…`;
 };
 
+const isLowSignalSuggestionText = (text = '', title = '') => {
+  const safeText = toSafeString(text).replace(/\s+/g, ' ').toLowerCase();
+  const safeTitle = toSafeString(title).replace(/\s+/g, ' ').toLowerCase();
+  if (!safeText) return true;
+  return safeText === safeTitle || safeText === `${safeTitle}.`;
+};
+
+const buildQuestionSuggestionText = ({
+  questionText = '',
+  conceptName = '',
+  document = ''
+} = {}) => {
+  const lead = buildSnippet(questionText || document, 220);
+  const linked = toSafeString(conceptName);
+  if (!lead) return '';
+  if (!linked) return lead;
+  const lowerLead = lead.toLowerCase();
+  const lowerLinked = linked.toLowerCase();
+  if (lowerLead.includes(lowerLinked)) return lead;
+  return buildSnippet(`${lead} Linked concept: ${linked}.`, 260);
+};
+
+const buildConceptSuggestionText = ({
+  document = '',
+  description = '',
+  title = ''
+} = {}) => {
+  const snippet = buildSnippet(document || description, 260);
+  if (isLowSignalSuggestionText(snippet, title)) return '';
+  return snippet;
+};
+
 const parseEmbeddingId = (value = '') => {
   const parts = String(value || '').split(':');
   if (parts.length < 3) return {};
@@ -578,17 +610,23 @@ const buildSuggestionItems = async ({ queryResults, userId, concept }) => {
     if (entry.objectType === 'question') {
       const question = questionMap.get(entry.objectId);
       if (!question) return;
+      const text = buildQuestionSuggestionText({
+        questionText: question.text,
+        conceptName: question.conceptName,
+        document: entry.document
+      });
       const suggestion = {
         id: `item:question:${question.id}`,
         type: 'question',
         refId: question.id,
         title: question.text || 'Question',
-        text: question.conceptName || '',
+        text,
         source: null,
         score,
         state: 'pending',
         generatedBy: 'ai_agent'
       };
+      if (!suggestion.text) return;
       const existing = itemSuggestionsMap.get(suggestion.id);
       if (!existing || suggestion.score > existing.score) itemSuggestionsMap.set(suggestion.id, suggestion);
       return;
@@ -599,12 +637,18 @@ const buildSuggestionItems = async ({ queryResults, userId, concept }) => {
       if (!relatedConcept) return;
       if (currentConceptId && relatedConcept.id === currentConceptId) return;
       if (currentConceptName && relatedConcept.name.toLowerCase() === currentConceptName) return;
+      const text = buildConceptSuggestionText({
+        document: entry.document,
+        description: relatedConcept.description,
+        title: relatedConcept.name
+      });
+      if (!text) return;
       const suggestion = {
         id: `concept:${relatedConcept.id}`,
         type: 'concept',
         refId: relatedConcept.id,
         title: relatedConcept.name || 'Concept',
-        text: buildSnippet(relatedConcept.description, 260),
+        text,
         source: null,
         score,
         state: 'pending',
@@ -942,7 +986,10 @@ const buildFallbackSuggestionsFromLibrary = async ({ userId, conceptTitle, conce
     const key = `question:${id}`;
     if (seenItem.has(key)) return;
     seenItem.add(key);
-    const text = toSafeString(question?.text);
+    const text = buildQuestionSuggestionText({
+      questionText: question?.text,
+      conceptName: question?.conceptName || question?.linkedTagName
+    });
     if (!text) return;
     const score = scoreTextAgainstKeywords(text, keywords, index);
     if (score < FALLBACK_MIN_SCORE) return;
@@ -950,8 +997,8 @@ const buildFallbackSuggestionsFromLibrary = async ({ userId, conceptTitle, conce
       id: `item:question:${id}`,
       type: 'question',
       refId: id,
-      title: text,
-      text: toSafeString(question?.conceptName || question?.linkedTagName),
+      title: toSafeString(question?.text) || 'Question',
+      text,
       source: null,
       score,
       state: 'pending',
@@ -969,13 +1016,18 @@ const buildFallbackSuggestionsFromLibrary = async ({ userId, conceptTitle, conce
     if (seenConcept.has(key)) return;
     const score = scoreTextAgainstKeywords(`${name} ${entry?.description || ''}`, keywords, index);
     if (score < FALLBACK_MIN_SCORE) return;
+    const text = buildConceptSuggestionText({
+      description: entry?.description,
+      title: name
+    });
+    if (!text) return;
     seenConcept.add(key);
     conceptSuggestions.push({
       id: `concept:${id}`,
       type: 'concept',
       refId: id,
       title: name,
-      text: buildSnippet(toSafeString(entry?.description), 260),
+      text,
       source: null,
       score,
       state: 'pending',
@@ -1921,6 +1973,8 @@ module.exports = {
     isTransientSemanticUpstreamError,
     scoreTextAgainstKeywords,
     diversifyCandidateItems,
-    buildKeywordList
+    buildKeywordList,
+    buildQuestionSuggestionText,
+    buildConceptSuggestionText
   }
 };

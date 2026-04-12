@@ -105,6 +105,53 @@ export const createAgentHandoff = async (payload = {}) => {
   return res.data || {};
 };
 
+export const listAgentThreads = async ({
+  status = 'active',
+  scopeType = '',
+  scopeId = '',
+  handoffId = '',
+  limit = 40
+} = {}) => {
+  const params = new URLSearchParams();
+  if (status) params.set('status', String(status).trim());
+  if (scopeType) params.set('scopeType', String(scopeType).trim());
+  if (scopeId) params.set('scopeId', String(scopeId).trim());
+  if (handoffId) params.set('handoffId', String(handoffId).trim());
+  if (limit) params.set('limit', String(limit));
+  const suffix = params.toString();
+  const res = await api.get(`/api/agent/threads${suffix ? `?${suffix}` : ''}`, getAuthHeaders());
+  return res.data || { threads: [] };
+};
+
+export const createAgentThread = async (payload = {}) => {
+  const res = await api.post('/api/agent/threads', payload, getAuthHeaders());
+  return res.data || {};
+};
+
+export const getAgentThread = async (threadId) => {
+  const safeId = encodeURIComponent(String(threadId || '').trim());
+  const res = await api.get(`/api/agent/threads/${safeId}`, getAuthHeaders());
+  return res.data || {};
+};
+
+export const updateAgentThread = async (threadId, payload = {}) => {
+  const safeId = encodeURIComponent(String(threadId || '').trim());
+  const res = await api.patch(`/api/agent/threads/${safeId}`, payload, getAuthHeaders());
+  return res.data || {};
+};
+
+export const appendAgentThreadMessage = async (threadId, payload = {}) => {
+  const safeId = encodeURIComponent(String(threadId || '').trim());
+  const res = await api.post(`/api/agent/threads/${safeId}/messages`, payload, getAuthHeaders());
+  return res.data || {};
+};
+
+export const convertAgentThreadToHandoff = async (threadId, payload = {}) => {
+  const safeId = encodeURIComponent(String(threadId || '').trim());
+  const res = await api.post(`/api/agent/threads/${safeId}/convert-to-handoff`, payload, getAuthHeaders());
+  return res.data || {};
+};
+
 export const listAgentHandoffs = async ({
   status = 'all',
   taskType = '',
@@ -153,8 +200,44 @@ export const cancelAgentHandoff = async (handoffId, payload = {}) => {
   return res.data || {};
 };
 
+export const ensureAgentHandoffThread = async (handoffId) => {
+  const safeId = encodeURIComponent(String(handoffId || '').trim());
+  const res = await api.post(`/api/agent/protocol/handoffs/${safeId}/thread`, {}, getAuthHeaders());
+  return res.data || {};
+};
+
 export const createAutoAgentHandoff = async (payload = {}) => {
   const res = await api.post('/api/agent/protocol/handoffs/auto', payload, getAuthHeaders());
+  return res.data || {};
+};
+
+export const listAgentUpkeepCycles = async ({
+  status = 'active',
+  limit = 12
+} = {}) => {
+  const params = new URLSearchParams();
+  if (status) params.set('status', String(status).trim());
+  if (limit) params.set('limit', String(limit));
+  const suffix = params.toString();
+  const res = await api.get(`/api/agent/protocol/upkeep-cycles${suffix ? `?${suffix}` : ''}`, getAuthHeaders());
+  return res.data || { cycles: [] };
+};
+
+export const createAgentUpkeepCycle = async (payload = {}) => {
+  const res = await api.post('/api/agent/protocol/upkeep-cycles', payload, getAuthHeaders());
+  return res.data || {};
+};
+
+export const updateAgentUpkeepCycle = async (cycleId, payload = {}) => {
+  const safeId = encodeURIComponent(String(cycleId || '').trim());
+  const res = await api.patch(`/api/agent/protocol/upkeep-cycles/${safeId}`, payload, getAuthHeaders());
+  return res.data || {};
+};
+
+export const resumeAgentUpkeepCycle = async (cycleId, options = {}) => {
+  const safeId = encodeURIComponent(String(cycleId || '').trim());
+  const payload = options?.force ? { force: true } : {};
+  const res = await api.post(`/api/agent/protocol/upkeep-cycles/${safeId}/resume`, payload, getAuthHeaders());
   return res.data || {};
 };
 
@@ -170,5 +253,99 @@ export const updateAgentProtocolPolicy = async (payload = {}) => {
 
 export const createAgentBridgeToken = async (payload = {}) => {
   const res = await api.post('/api/agent/protocol/bridge/token', payload, getAuthHeaders());
+  return res.data || {};
+};
+
+export const listAgentSkills = async ({
+  surface = '',
+  contextType = '',
+  category = ''
+} = {}) => {
+  const params = new URLSearchParams();
+  if (surface) params.set('surface', String(surface).trim());
+  if (contextType) params.set('contextType', String(contextType).trim());
+  if (category) params.set('category', String(category).trim());
+  const suffix = params.toString();
+  const res = await api.get(`/api/agent/protocol/skills${suffix ? `?${suffix}` : ''}`, getAuthHeaders());
+  return res.data || { skills: [] };
+};
+
+export const listAgentArtifactDrafts = async ({
+  status = 'pending',
+  threadId = '',
+  artifactType = ''
+} = {}) => {
+  const params = new URLSearchParams();
+  if (status) params.set('status', String(status).trim());
+  if (threadId) params.set('threadId', String(threadId).trim());
+  if (artifactType) params.set('artifactType', String(artifactType).trim());
+  const suffix = params.toString();
+  const res = await api.get(`/api/agent/artifacts/drafts${suffix ? `?${suffix}` : ''}`, getAuthHeaders());
+  return res.data || { drafts: [] };
+};
+
+export const promoteAgentArtifactDraft = async (draftId) => {
+  const safeId = encodeURIComponent(String(draftId || '').trim());
+  const res = await api.post(`/api/agent/artifacts/drafts/${safeId}/promote`, {}, getAuthHeaders());
+  return res.data || {};
+};
+
+export const updateAgentArtifactDraft = async (draftId, payload = {}) => {
+  const safeId = encodeURIComponent(String(draftId || '').trim());
+  const res = await api.patch(`/api/agent/artifacts/drafts/${safeId}`, payload, getAuthHeaders());
+  return res.data || {};
+};
+
+export const dismissAgentArtifactDraft = async (draftId) => {
+  const safeId = encodeURIComponent(String(draftId || '').trim());
+  const res = await api.post(`/api/agent/artifacts/drafts/${safeId}/dismiss`, {}, getAuthHeaders());
+  return res.data || {};
+};
+
+export const listAgentProtocolApprovals = async ({
+  status = 'pending',
+  limit = 30,
+  threadId = '',
+  handoffId = '',
+  op = ''
+} = {}) => {
+  const params = new URLSearchParams();
+  if (status) params.set('status', String(status).trim());
+  if (limit) params.set('limit', String(limit));
+  if (threadId) params.set('threadId', String(threadId).trim());
+  if (handoffId) params.set('handoffId', String(handoffId).trim());
+  if (op) params.set('op', String(op).trim());
+  const suffix = params.toString();
+  const res = await api.get(`/api/agent/protocol/approvals${suffix ? `?${suffix}` : ''}`, getAuthHeaders());
+  return res.data || { approvals: [] };
+};
+
+export const listAgentProtocolHookRuns = async ({
+  phase = '',
+  op = '',
+  threadId = '',
+  handoffId = '',
+  limit = 30
+} = {}) => {
+  const params = new URLSearchParams();
+  if (phase) params.set('phase', String(phase).trim());
+  if (op) params.set('op', String(op).trim());
+  if (threadId) params.set('threadId', String(threadId).trim());
+  if (handoffId) params.set('handoffId', String(handoffId).trim());
+  if (limit) params.set('limit', String(limit));
+  const suffix = params.toString();
+  const res = await api.get(`/api/agent/protocol/hooks${suffix ? `?${suffix}` : ''}`, getAuthHeaders());
+  return res.data || { hookRuns: [] };
+};
+
+export const approveAgentProtocolApproval = async (approvalId, payload = {}) => {
+  const safeId = encodeURIComponent(String(approvalId || '').trim());
+  const res = await api.post(`/api/agent/protocol/approvals/${safeId}/approve`, payload, getAuthHeaders());
+  return res.data || {};
+};
+
+export const rejectAgentProtocolApproval = async (approvalId, payload = {}) => {
+  const safeId = encodeURIComponent(String(approvalId || '').trim());
+  const res = await api.post(`/api/agent/protocol/approvals/${safeId}/reject`, payload, getAuthHeaders());
   return res.data || {};
 };

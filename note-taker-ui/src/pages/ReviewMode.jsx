@@ -508,6 +508,7 @@ const ReviewMode = () => {
   return (
     <>
       <ThreePaneLayout
+        className="three-pane--editorial three-pane--review"
         left={leftPanel}
         main={mainPanel}
         right={rightPanel}

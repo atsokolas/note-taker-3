@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="900" viewBox="0 0 1440 900">
+  <rect width="1440" height="900" fill="#f7f1e8"/>
+  <rect x="0" y="0" width="1440" height="74" fill="#f2e8d8"/>
+  <text x="54" y="45" font-family="Georgia, serif" font-size="30" fill="#2f261f">Noeis</text>
+
+  <rect x="34" y="110" width="210" height="710" rx="28" fill="#f4ebdd"/>
+  <text x="66" y="172" font-family="Arial, sans-serif" font-size="14" letter-spacing="2" fill="#9e8462">QUEUE</text>
+  <text x="66" y="218" font-family="Georgia, serif" font-size="34" fill="#2f261f">Pending</text>
+  <line x1="66" y1="244" x2="194" y2="244" stroke="#d8c5ad" stroke-width="2"/>
+  <text x="66" y="290" font-family="Arial, sans-serif" font-size="20" fill="#2f261f">Find contradictions</text>
+  <text x="66" y="330" font-family="Arial, sans-serif" font-size="20" fill="#2f261f">Pull relevant notes</text>
+  <text x="66" y="370" font-family="Arial, sans-serif" font-size="20" fill="#2f261f">Draft summary</text>
+
+  <text x="278" y="140" font-family="Arial, sans-serif" font-size="14" letter-spacing="2" fill="#9e8462">HANDOFFS</text>
+  <text x="278" y="198" font-family="Georgia, serif" font-size="58" fill="#2f261f">Assign work without form fatigue.</text>
+  <text x="278" y="234" font-family="Arial, sans-serif" font-size="22" fill="#7a6857">This page should feel like dispatch, not administration.</text>
+
+  <rect x="278" y="280" width="1098" height="204" rx="28" fill="#fbf7f0" stroke="#dccbb5"/>
+  <text x="322" y="332" font-family="Arial, sans-serif" font-size="14" letter-spacing="2" fill="#9e8462">NEW HANDOFF</text>
+  <text x="322" y="392" font-family="Georgia, serif" font-size="38" fill="#2f261f">Investigate contradictions in this workspace</text>
+  <text x="322" y="434" font-family="Arial, sans-serif" font-size="22" fill="#7a6857">Objective: collect opposing evidence and return the top three pressure points.</text>
+  <rect x="322" y="450" width="146" height="32" rx="16" fill="#efe4d2"/>
+  <text x="366" y="471" font-family="Arial, sans-serif" font-size="15" fill="#2f261f">Research</text>
+  <rect x="484" y="450" width="128" height="32" rx="16" fill="#fbf7f0" stroke="#d8c5ad"/>
+  <text x="526" y="471" font-family="Arial, sans-serif" font-size="15" fill="#7a6857">Normal</text>
+  <rect x="1120" y="440" width="208" height="36" rx="18" fill="#efe4d2"/>
+  <text x="1170" y="463" font-family="Arial, sans-serif" font-size="16" fill="#2f261f">Create handoff</text>
+
+  <rect x="278" y="520" width="1098" height="300" rx="28" fill="#fbf7f0" stroke="#dccbb5"/>
+  <text x="322" y="570" font-family="Arial, sans-serif" font-size="14" letter-spacing="2" fill="#9e8462">SELECTED HANDOFF</text>
+  <text x="322" y="620" font-family="Georgia, serif" font-size="34" fill="#2f261f">Contradictions in workspace</text>
+  <text x="322" y="668" font-family="Arial, sans-serif" font-size="22" fill="#7a6857">Assigned to native agent. Returns in-thread with evidence cards and a revision note.</text>
+  <line x1="322" y1="700" x2="1328" y2="700" stroke="#d8c5ad" stroke-width="2"/>
+  <text x="322" y="748" font-family="Arial, sans-serif" font-size="22" fill="#2f261f">1. Historical counterexample from Intel notebook</text>
+  <text x="322" y="784" font-family="Arial, sans-serif" font-size="22" fill="#2f261f">2. Weak causal link between scale and ossification</text>
+  <text x="322" y="820" font-family="Arial, sans-serif" font-size="22" fill="#2f261f">3. Missing founder-transition evidence</text>
+</svg>

@@ -8,6 +8,7 @@ import HighlightBlock from '../../blocks/HighlightBlock';
 import ReturnLaterControl from '../../return-queue/ReturnLaterControl';
 import InsertHighlightModal from './InsertHighlightModal';
 import InsertReferenceModal from './InsertReferenceModal';
+import AgentSkillDock from '../../agent/AgentSkillDock';
 import useHighlights from '../../../hooks/useHighlights';
 import useArticles from '../../../hooks/useArticles';
 import useConcepts from '../../../hooks/useConcepts';
@@ -25,6 +26,13 @@ const ITEM_TYPES = [
   { value: 'claim', label: 'Claim' },
   { value: 'evidence', label: 'Evidence' }
 ];
+
+const formatImportedDate = (value) => {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleDateString();
+};
 
 const ListIndentExtension = Extension.create({
   name: 'listIndent',
@@ -260,7 +268,11 @@ const NotebookEditor = ({
   onCreate,
   onSynthesize,
   onDump,
-  claimCandidates = []
+  claimCandidates = [],
+  onInvokeAgentSkill = null,
+  agentContextType = 'notebook',
+  agentContextId = '',
+  agentContextTitle = ''
 }) => {
   const [titleDraft, setTitleDraft] = useState(entry?.title || '');
   const [insertMode, setInsertMode] = useState('');
@@ -417,6 +429,18 @@ const NotebookEditor = ({
     };
   }, [organizeOpen, claimEvidenceOpen, entryType, entry?._id, entry?.type]);
 
+  const notebookSourceMeta = useMemo(() => {
+    const sourceType = String(entry?.importMeta?.sourceType || '').trim().toLowerCase();
+    if (sourceType !== 'concept') return null;
+    const sourceLabel = String(entry?.importMeta?.sourceLabel || '').trim() || 'Source concept';
+    return {
+      label: sourceLabel,
+      href: String(entry?.importMeta?.sourceUrl || '').trim()
+        || `/think?tab=concepts&concept=${encodeURIComponent(sourceLabel)}`,
+      importedAt: formatImportedDate(entry?.importMeta?.importedAt)
+    };
+  }, [entry]);
+
   const addTag = () => {
     const nextTag = tagInput.trim();
     if (!nextTag) return;
@@ -535,7 +559,7 @@ const NotebookEditor = ({
         <p className="muted small">Select a note to start editing.</p>
         {onCreate && (
           <Button variant="secondary" onClick={onCreate}>
-            New note
+            New page
           </Button>
         )}
       </div>
@@ -552,16 +576,33 @@ const NotebookEditor = ({
           onChange={(event) => setTitleDraft(event.target.value)}
           placeholder="Untitled note"
         />
+        {notebookSourceMeta && (
+          <div className="think-notebook-editor-provenance">
+            <span className="think-notebook-editor-provenance__eyebrow">Derived from concept</span>
+            <div className="think-notebook-editor-provenance__body">
+              <div>
+                <a href={notebookSourceMeta.href}>{notebookSourceMeta.label}</a>
+                <p>
+                  Keep drafting here. Return to the concept when the underlying idea shifts, new support appears, or the tension changes.
+                  {notebookSourceMeta.importedAt ? ` Started here on ${notebookSourceMeta.importedAt}.` : ''}
+                </p>
+              </div>
+              <a className="ui-quiet-button think-notebook-editor-provenance__link" href={notebookSourceMeta.href}>
+                Open concept
+              </a>
+            </div>
+          </div>
+        )}
         <div className="think-notebook-editor-actions">
           <div className="think-notebook-editor-actions-left">
             {onCreate && (
               <Button variant="secondary" onClick={onCreate}>
-                New note
+                New page
               </Button>
             )}
             <div className="notebook-insert-group">
               <div className="notebook-insert-labels">
-                <span className="notebook-insert-label">Insert blocks</span>
+                <span className="notebook-insert-label">Insert</span>
                 <span className="notebook-insert-hint">Highlights, articles, concepts, questions</span>
               </div>
               <div className="notebook-insert-buttons">
@@ -594,7 +635,7 @@ const NotebookEditor = ({
           </div>
           <div className="think-notebook-editor-actions-right">
             <QuietButton onClick={() => setOrganizeOpen(prev => !prev)}>
-              {organizeOpen ? 'Close Organize' : 'Organize'}
+              {organizeOpen ? 'Close structure' : 'Structure'}
             </QuietButton>
             <QuietButton onClick={handleExport}>Export</QuietButton>
             <ReturnLaterControl
@@ -603,7 +644,7 @@ const NotebookEditor = ({
               defaultReason={titleDraft || entry?.title || 'Notebook entry'}
             />
             {onDump && (
-              <QuietButton onClick={onDump}>Dump to Working Memory</QuietButton>
+              <QuietButton onClick={onDump}>Dump</QuietButton>
             )}
             {onSynthesize && (
               <QuietButton onClick={() => onSynthesize(entry)}>Synthesize</QuietButton>
@@ -613,6 +654,19 @@ const NotebookEditor = ({
           </div>
         </div>
       </div>
+      <AgentSkillDock
+        surface="notebook"
+        contextType="notebook"
+        contextId={entry?._id}
+        targetContextType={agentContextType}
+        targetContextId={agentContextId || entry?._id}
+        contextTitle={agentContextTitle || titleDraft || entry?.title || 'Notebook note'}
+        headline="Draft what this page can become"
+        title="Notebook agent"
+        subtitle="Use the current page as raw material for a brief, critique, concept lead, or question."
+        className="think-notebook-editor__skills agent-skill-dock--inline"
+        onInvoke={onInvokeAgentSkill}
+      />
       {error && <p className="status-message error-message">{error}</p>}
       {organizeOpen && (
         <div className="notebook-organize-panel">

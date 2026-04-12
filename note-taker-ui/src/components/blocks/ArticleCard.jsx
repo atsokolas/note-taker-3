@@ -3,6 +3,7 @@ import { QuietButton } from '../ui';
 import ReturnLaterControl from '../return-queue/ReturnLaterControl';
 import ConnectionBuilder from '../connections/ConnectionBuilder';
 import RelatedSuggestions from '../retrieval/RelatedSuggestions';
+import { buildCanonicalArticlePath } from '../../utils/firstInsight';
 
 const summarize = (text, max = 170) => {
   const raw = String(text || '').replace(/\s+/g, ' ').trim();
@@ -62,7 +63,7 @@ const ArticleCard = ({
         <div className="article-card-expanded">
           {article?.url && <div className="article-card-url">{article.url}</div>}
           <div className="article-card-actions">
-            <QuietButton onClick={() => { window.location.href = `/articles/${articleId}`; }}>
+            <QuietButton onClick={() => { window.location.href = buildCanonicalArticlePath(articleId); }}>
               Open article
             </QuietButton>
             <ReturnLaterControl

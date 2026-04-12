@@ -6,7 +6,9 @@ const {
   isTransientSemanticUpstreamError,
   scoreTextAgainstKeywords,
   diversifyCandidateItems,
-  buildKeywordList
+  buildKeywordList,
+  buildQuestionSuggestionText,
+  buildConceptSuggestionText
 } = __testables;
 
 const run = async () => {
@@ -47,6 +49,27 @@ const run = async () => {
   assert.ok(Array.isArray(fallbackPlan.groups) && fallbackPlan.groups.length >= 3, 'Fallback plan should include group structure.');
   assert.ok(Array.isArray(fallbackPlan.outline) && fallbackPlan.outline.length >= 5, 'Fallback plan should include outline.');
   assert.ok(Array.isArray(fallbackPlan.open_questions) && fallbackPlan.open_questions.length >= 5, 'Fallback plan should include open questions.');
+
+  const questionText = buildQuestionSuggestionText({
+    questionText: 'What evidence would weaken this claim?',
+    conceptName: 'Systems Thinking'
+  });
+  assert.ok(questionText.includes('What evidence would weaken this claim?'), 'Question suggestions should keep the question itself as the lead text.');
+  assert.ok(questionText.includes('Linked concept: Systems Thinking.'), 'Question suggestions should keep the linked concept as context, not replace the question body.');
+
+  const conceptText = buildConceptSuggestionText({
+    document: 'Delayed feedback can make stable systems look calm right up until they break.',
+    description: '',
+    title: 'Delayed Feedback'
+  });
+  assert.strictEqual(conceptText, 'Delayed feedback can make stable systems look calm right up until they break.', 'Concept suggestions should preserve descriptive semantic text.');
+
+  const emptyConceptText = buildConceptSuggestionText({
+    document: 'Delayed Feedback',
+    description: '',
+    title: 'Delayed Feedback'
+  });
+  assert.strictEqual(emptyConceptText, '', 'Concept suggestions should drop title-only payloads.');
 };
 
 if (require.main === module) {
