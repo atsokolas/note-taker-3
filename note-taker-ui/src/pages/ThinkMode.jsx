@@ -5070,18 +5070,18 @@ const ThinkMode = () => {
       </div>
     </div>
   ) : null;
-  const useLegacyEditorialShell = searchParams.get('legacyShell') === '1';
+  const disableEditorialShell = searchParams.get('legacyShell') === '0';
   const activePrimaryNavValue = THINK_SUB_NAV_ITEMS.some((item) => item.value === activeView) ? activeView : '';
 
   return (
     <>
       {isConceptWorkbenchView ? (
         selectedConceptLayout
-      ) : useLegacyEditorialShell && activeView === 'home' ? (
+      ) : !disableEditorialShell && activeView === 'home' ? (
         homeEditorialLayout
-      ) : useLegacyEditorialShell && activeView === 'notebook' ? (
+      ) : !disableEditorialShell && activeView === 'notebook' ? (
         notebookEditorialLayout
-      ) : useLegacyEditorialShell && activeView === 'concepts' && !hasExplicitConceptSelection ? (
+      ) : !disableEditorialShell && activeView === 'concepts' && !hasExplicitConceptSelection ? (
         conceptIndexEditorialLayout
       ) : isQuestionEditorialView ? (
         questionEditorialLayout
