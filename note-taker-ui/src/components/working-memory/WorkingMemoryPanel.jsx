@@ -339,36 +339,38 @@ const WorkingMemoryPanel = ({
           <div className="working-memory-eyebrow">Marginalia</div>
           <div className="working-memory-title">Working memory</div>
         </div>
-        <div className="working-memory-status-toggle" role="tablist" aria-label="Working memory status">
+        <div className="working-memory-header-controls">
+          <div className="working-memory-status-toggle" role="tablist" aria-label="Working memory status">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={!isArchivedView}
+              className={!isArchivedView ? 'is-active' : ''}
+              onClick={() => onViewModeChange?.('active')}
+            >
+              Active
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={isArchivedView}
+              className={isArchivedView ? 'is-active' : ''}
+              onClick={() => onViewModeChange?.('archived')}
+            >
+              Archived
+            </button>
+          </div>
           <button
             type="button"
-            role="tab"
-            aria-selected={!isArchivedView}
-            className={!isArchivedView ? 'is-active' : ''}
-            onClick={() => onViewModeChange?.('active')}
+            className="working-memory-toggle"
+            onClick={() => setExpanded(prev => !prev)}
+            aria-label={expanded ? 'Collapse Working Memory' : 'Expand Working Memory'}
+            title={expanded ? 'Collapse Working Memory' : 'Expand Working Memory'}
           >
-            Active
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={isArchivedView}
-            className={isArchivedView ? 'is-active' : ''}
-            onClick={() => onViewModeChange?.('archived')}
-          >
-            Archived
+            <span aria-hidden="true" className="working-memory-toggle-icon">{expanded ? '▾' : '▸'}</span>
+            <span>{expanded ? 'Collapse' : 'Expand'}</span>
           </button>
         </div>
-        <button
-          type="button"
-          className="working-memory-toggle"
-          onClick={() => setExpanded(prev => !prev)}
-          aria-label={expanded ? 'Collapse Working Memory' : 'Expand Working Memory'}
-          title={expanded ? 'Collapse Working Memory' : 'Expand Working Memory'}
-        >
-          <span aria-hidden="true" className="working-memory-toggle-icon">{expanded ? '▾' : '▸'}</span>
-          <span>{expanded ? 'Collapse' : 'Expand'}</span>
-        </button>
       </div>
 
       {expanded && (

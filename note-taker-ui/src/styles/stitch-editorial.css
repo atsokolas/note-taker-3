@@ -4981,9 +4981,9 @@ body.noeis-editorial .working-memory-panel {
 
 body.noeis-editorial .working-memory-header-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
-  gap: 12px;
-  align-items: baseline;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 14px;
+  align-items: start;
   padding-top: 14px;
   border-top: 1px solid var(--vellum-line);
 }
@@ -4991,6 +4991,14 @@ body.noeis-editorial .working-memory-header-row {
 body.noeis-editorial .working-memory-heading {
   display: grid;
   gap: 4px;
+}
+
+body.noeis-editorial .working-memory-header-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
 }
 
 body.noeis-editorial .working-memory-title,
@@ -5004,6 +5012,7 @@ body.noeis-editorial .notebook-context__title {
 body.noeis-editorial .working-memory-status-toggle {
   display: flex;
   gap: 8px;
+  flex-wrap: wrap;
 }
 
 body.noeis-editorial .working-memory-status-toggle button,
@@ -5027,7 +5036,8 @@ body.noeis-editorial .working-memory-toggle:hover {
 }
 
 body.noeis-editorial .working-memory-toggle {
-  justify-self: end;
+  margin-left: auto;
+  white-space: nowrap;
 }
 
 body.noeis-editorial .working-memory-toggle-icon,
@@ -5508,6 +5518,11 @@ body.noeis-editorial a:hover {
   body.noeis-editorial .topbar__brand-nav {
     flex-wrap: wrap;
     gap: 16px;
+  }
+
+  body.noeis-editorial .working-memory-header-controls {
+    flex-direction: column;
+    align-items: flex-start;
   }
 
   body.noeis-editorial .topbar__primary-nav {
