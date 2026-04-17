@@ -6,6 +6,7 @@ const {
   buildTokenRegex,
   buildReply,
   buildOutputArtifactReply,
+  buildPartnerChatMessages,
   prepareRelatedItemsForReply,
   pruneRelatedItemsForContext
 } = __testables;
@@ -201,6 +202,65 @@ const run = () => {
   assert.ok(summaryBrief.startsWith('# Summary Brief: World Models'), 'Summary brief artifacts should render as structured drafts.');
   assert.ok(summaryBrief.includes('## Core claim'), 'Summary brief artifacts should include an explicit core claim section.');
   assert.ok(summaryBrief.includes('## Next move'), 'Summary brief artifacts should include a next move section.');
+
+  const hfMessages = buildPartnerChatMessages({
+    message: 'What do you think needs to be rethought?',
+    conversationState: {
+      resolvedMessage: 'What do you think needs to be rethought?',
+      history: [
+        { role: 'user', text: 'Can you pull in more investing material?' },
+        { role: 'assistant', text: 'I found a few source leads around world models and market structure.' }
+      ]
+    },
+    context: {
+      type: 'concept',
+      id: 'c1',
+      title: 'Investing',
+      metadata: {
+        summary: 'The active concept is trying to connect world models, investing, and decision quality.',
+        openQuestions: ['What kind of evidence would show whether this belongs in investing or only in AI systems?']
+      }
+    },
+    contextItem: {
+      type: 'concept',
+      id: 'c1',
+      title: 'Investing',
+      snippet: 'A concept draft about investing, world models, and decision quality.'
+    },
+    relatedItems: [
+      {
+        type: 'article',
+        id: 'a1',
+        title: 'World Models: Computing the Uncomputable',
+        snippet: 'World models matter because agents can plan in imagination before they act.'
+      },
+      {
+        type: 'notebook',
+        id: 'n1',
+        title: 'White Collar PEDs',
+        snippet: 'The draft risks grabbing fashionable abstractions without naming the investing edge.'
+      }
+    ]
+  });
+  assert.ok(Array.isArray(hfMessages), 'HF partner messages should be built as an array.');
+  assert.ok(hfMessages.length >= 4, 'HF partner messages should include grounding, history, and the active prompt.');
+  assert.ok(
+    hfMessages.some((entry) => entry.role === 'system' && entry.content.includes('grounded thought partner')),
+    'HF partner messages should include a grounding system instruction.'
+  );
+  assert.ok(
+    hfMessages.some((entry) => entry.role === 'user' && entry.content.includes('Retrieved internal material')),
+    'HF partner messages should include the retrieved internal material block.'
+  );
+  assert.ok(
+    hfMessages.some((entry) => entry.role === 'assistant' && entry.content.includes('world models and market structure')),
+    'HF partner messages should carry forward recent conversation turns.'
+  );
+  assert.strictEqual(
+    hfMessages.at(-1)?.content,
+    'What do you think needs to be rethought?',
+    'HF partner messages should end with the current user request.'
+  );
 };
 
 if (require.main === module) {

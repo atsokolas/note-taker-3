@@ -1,11 +1,13 @@
 const mongoose = require('mongoose');
 const { buildAgentPlanner } = require('./agentWorkerRoles');
+const { chatComplete, isTextGenerationConfigured } = require('../ai/hfTextClient');
 
 const MAX_LIMIT = 12;
 const DEFAULT_LIMIT = 6;
 const MAX_MESSAGE_LENGTH = 2000;
 const MAX_HISTORY_ITEMS = 16;
 const SEARCH_MODEL_LIMIT = 6;
+const MODEL_HISTORY_LIMIT = 6;
 const SEARCH_STOPWORDS = new Set([
   'the', 'and', 'for', 'with', 'from', 'that', 'this', 'these', 'those',
   'your', 'you', 'are', 'was', 'were', 'have', 'has', 'had', 'will',
@@ -570,6 +572,113 @@ const formatOrderedLines = (items = [], fallback = 'No sequence proposed yet.') 
   return lines.map((line, index) => `${index + 1}. ${line}`);
 };
 
+const formatPartnerMaterialLines = (items = []) => {
+  const safeItems = Array.isArray(items) ? items : [];
+  if (safeItems.length === 0) return ['- none'];
+  return safeItems.slice(0, 4).map((item) => {
+    const title = toSafeString(item?.title) || toSafeString(item?.type) || 'Untitled item';
+    const snippet = truncate(item?.snippet || '', 120);
+    return `- [${toSafeString(item?.type).toLowerCase() || 'item'}] ${title}${snippet ? ` — ${snippet}` : ''}`;
+  });
+};
+
+const buildPartnerSystemPrompt = ({ intent = '', contextItem = null } = {}) => {
+  const contextLabel = toSafeString(contextItem?.title) || 'the active workspace';
+  const intentHint = intent ? `Current reply mode: ${intent}.` : '';
+  return [
+    'You are a grounded thought partner inside a private research workspace.',
+    'Use only the workspace context, retrieved internal material, and conversation history provided to you.',
+    'Do not invent sources, titles, quotes, or facts that are not present in the provided material.',
+    'If the evidence is thin, say that directly and suggest the sharpest next move.',
+    'Keep the tone concise, specific, and editorial rather than generic assistant chatter.',
+    'Prefer 2 to 4 sentences unless the user explicitly asks for a longer artifact.',
+    contextLabel ? `Stay anchored to ${contextLabel}.` : '',
+    intentHint
+  ].filter(Boolean).join(' ');
+};
+
+const buildPartnerGroundingBlock = ({
+  message = '',
+  context = {},
+  contextItem = null,
+  relatedItems = [],
+  conversationState = {}
+} = {}) => {
+  const metadata = normalizeAmbientContextMetadata(context?.metadata);
+  const activeTitle = toSafeString(contextItem?.title) || toSafeString(context?.title) || 'Workspace';
+  const activeType = toSafeString(contextItem?.type || context?.type) || 'workspace';
+  const summary = truncate(
+    contextItem?.snippet || metadata.summary || metadata.primaryText || '',
+    260
+  );
+  const openQuestions = metadata.openQuestions.slice(0, 3);
+  const nextActions = metadata.nextActions.slice(0, 2);
+  const anchorUserText = truncate(conversationState?.anchorUserMessage?.text || '', 160);
+
+  return [
+    `Active surface: ${activeType}`,
+    `Active title: ${activeTitle}`,
+    summary ? `Active summary: ${summary}` : '',
+    anchorUserText ? `Anchor request: ${anchorUserText}` : '',
+    'Retrieved internal material:',
+    ...formatPartnerMaterialLines(relatedItems),
+    'Open questions:',
+    ...formatPartnerMaterialLines(openQuestions.map((text, index) => ({
+      type: 'question',
+      title: `Question ${index + 1}`,
+      snippet: text
+    }))),
+    'Next actions in the workspace:',
+    ...formatPartnerMaterialLines(nextActions.map((text, index) => ({
+      type: 'action',
+      title: `Action ${index + 1}`,
+      snippet: text
+    }))),
+    `Current user request: ${message}`
+  ].filter(Boolean).join('\n');
+};
+
+const buildPartnerChatMessages = ({
+  message = '',
+  conversationState = {},
+  context = {},
+  contextItem = null,
+  relatedItems = []
+} = {}) => {
+  const intent = inferReplyIntent({ message, conversationState });
+  const messages = [
+    {
+      role: 'system',
+      content: buildPartnerSystemPrompt({ intent, contextItem })
+    },
+    {
+      role: 'user',
+      content: buildPartnerGroundingBlock({
+        message,
+        conversationState,
+        context,
+        contextItem,
+        relatedItems
+      })
+    }
+  ];
+
+  const history = Array.isArray(conversationState?.history)
+    ? conversationState.history.slice(-MODEL_HISTORY_LIMIT)
+    : [];
+  history.forEach((entry) => {
+    const role = toSafeString(entry?.role).toLowerCase();
+    const text = truncate(entry?.text || '', 320);
+    if (!text || !['user', 'assistant'].includes(role)) return;
+    messages.push({ role, content: text });
+  });
+  messages.push({
+    role: 'user',
+    content: toSafeString(message)
+  });
+  return messages;
+};
+
 const leadDetailFromItems = (items = []) => {
   const firstItem = Array.isArray(items) ? items[0] : null;
   return firstItem?.snippet || firstItem?.title || '';
@@ -890,7 +999,7 @@ const inferReplyIntent = ({ message = '', conversationState = {} }) => {
 
   if (/\b(summarize|summary|distill|what matters|key claim|brief|synthesis)\b/i.test(lower)) return 'summarize';
   if (/\b(what is this question really asking|really asking|what is the real question|what is this actually asking)\b/i.test(lower)) return 'summarize';
-  if (/\b(challenge|push back|pressure|weak|hole|counter|falsif)/i.test(lower)) return 'challenge';
+  if (/\b(challenge|push back|pressure|weak|hole|counter|falsif|rethink|rethought)\b/i.test(lower)) return 'challenge';
   if (/\b(clarify|rewrite|clean up|sharper|clearer|polish)\b/i.test(lower)) return 'clarify';
   if (/\b(strengthen|support|make it stronger|firm up)\b/i.test(lower)) return 'strengthen';
   if (/\b(bring|pull|find|surface|get me|show me|notes|highlights|sources|articles|material)\b/i.test(lower)) return 'retrieve';
@@ -1339,13 +1448,51 @@ const generateCollaborativeReply = async ({
     relatedItems,
     conversationState,
     message: conversationState.resolvedMessage || safeMessage
-  }) || buildReply({
+  });
+  const fallbackReply = buildReply({
     message: conversationState.resolvedMessage || safeMessage,
     conversationState,
     contextItem,
     context,
     relatedItems
   });
+  let finalReply = reply || fallbackReply;
+  let mode = 'internal_only';
+  let model = '';
+  let provider = '';
+  if (!reply && isTextGenerationConfigured()) {
+    try {
+      const completion = await chatComplete({
+        messages: buildPartnerChatMessages({
+          message: conversationState.resolvedMessage || safeMessage,
+          conversationState,
+          context,
+          contextItem,
+          relatedItems
+        }),
+        temperature: 0.25,
+        maxTokens: 180,
+        reasoningEffort: 'low',
+        fallbackModels: [
+          'Qwen/Qwen2.5-7B-Instruct-1M',
+          'mistralai/Mistral-7B-Instruct-v0.3'
+        ],
+        preferFallbackModels: true
+      });
+      if (toSafeString(completion?.text)) {
+        finalReply = toSafeString(completion.text);
+        mode = 'hf_chat';
+        model = toSafeString(completion?.model);
+        provider = toSafeString(completion?.provider);
+      }
+    } catch (error) {
+      console.warn('[agent-chat] HF chat fallback engaged', {
+        status: error?.status,
+        message: error?.message,
+        detail: error?.payload?.detail || ''
+      });
+    }
+  }
   const planner = buildAgentPlanner({
     taskType: context?.metadata?.taskType || 'custom',
     skillInvocation,
@@ -1353,9 +1500,11 @@ const generateCollaborativeReply = async ({
   });
 
   return {
-    mode: 'internal_only',
+    mode,
+    model: model || undefined,
+    provider: provider || undefined,
     premiumWebResearchAvailable: Boolean(premiumWebResearchAvailable),
-    reply,
+    reply: finalReply,
     planner,
     context: contextItem || null,
     relatedItems: relatedItems.map((item) => ({
@@ -1396,6 +1545,7 @@ module.exports = {
     tokenize,
     buildTokenRegex,
     buildReply,
+    buildPartnerChatMessages,
     buildOutputArtifactReply,
     prepareRelatedItemsForReply,
     pruneRelatedItemsForContext
