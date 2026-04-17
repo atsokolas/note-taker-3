@@ -1,4 +1,7 @@
-import { buildNotebookDraftFromConcept } from './conceptNotebookDraft';
+import {
+  buildNotebookDraftFromConcept,
+  getConceptNotebookDraftTemplate
+} from './conceptNotebookDraft';
 
 describe('buildNotebookDraftFromConcept', () => {
   it('builds a notebook payload seeded from concept state', () => {
@@ -40,6 +43,8 @@ describe('buildNotebookDraftFromConcept', () => {
       sourceType: 'concept',
       sourceLabel: 'Template Concept',
       sourceUrl: '/think?tab=concepts&concept=Template%20Concept',
+      draftTemplate: 'default',
+      draftTemplateLabel: 'Notebook draft',
       externalId: 'concept-1'
     }));
     expect(payload.blocks).toEqual(expect.arrayContaining([
@@ -53,7 +58,41 @@ describe('buildNotebookDraftFromConcept', () => {
       conceptId: 'concept-1',
       conceptName: 'Template Concept',
       maturity: 'Forming',
-      hypothesisVersion: 'v3'
+      hypothesisVersion: 'v3',
+      draftTemplate: 'default'
     });
+  });
+
+  it('builds a template-specific notebook payload', () => {
+    const payload = buildNotebookDraftFromConcept({
+      concept: { _id: 'concept-1', name: 'Template Concept', description: 'What should we publish?' },
+      state: {
+        header: { prompt: 'Fallback framing question' },
+        hypothesis: { html: '<p>A claim worth expanding.</p>' },
+        cards: []
+      },
+      template: 'essay',
+      createBlockId: () => 'block-id'
+    });
+
+    expect(payload.title).toBe('Template Concept essay draft');
+    expect(payload.blocks).toEqual(expect.arrayContaining([
+      expect.objectContaining({ type: 'paragraph', text: 'Long-form draft promoted from the concept so the argument can breathe outside the workspace.' }),
+      expect.objectContaining({ type: 'heading', text: 'Central question' }),
+      expect.objectContaining({ type: 'heading', text: 'Thesis in progress' })
+    ]));
+    expect(payload.importMeta).toEqual(expect.objectContaining({
+      draftTemplate: 'essay',
+      draftTemplateLabel: 'Essay draft'
+    }));
+    expect(payload.conceptContext).toEqual(expect.objectContaining({
+      draftTemplate: 'essay'
+    }));
+  });
+
+  it('falls back to the default template for unknown ids', () => {
+    expect(getConceptNotebookDraftTemplate('unknown-template')).toEqual(
+      expect.objectContaining({ id: 'default', label: 'Notebook draft' })
+    );
   });
 });

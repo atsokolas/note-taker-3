@@ -435,6 +435,7 @@ const NotebookEditor = ({
     const sourceLabel = String(entry?.importMeta?.sourceLabel || '').trim() || 'Source concept';
     return {
       label: sourceLabel,
+      draftTemplateLabel: String(entry?.importMeta?.draftTemplateLabel || '').trim(),
       href: String(entry?.importMeta?.sourceUrl || '').trim()
         || `/think?tab=concepts&concept=${encodeURIComponent(sourceLabel)}`,
       importedAt: formatImportedDate(entry?.importMeta?.importedAt)
@@ -578,11 +579,18 @@ const NotebookEditor = ({
         />
         {notebookSourceMeta && (
           <div className="think-notebook-editor-provenance">
-            <span className="think-notebook-editor-provenance__eyebrow">Derived from concept</span>
+            <span className="think-notebook-editor-provenance__eyebrow">
+              {notebookSourceMeta.draftTemplateLabel
+                ? `Derived from concept · ${notebookSourceMeta.draftTemplateLabel}`
+                : 'Derived from concept'}
+            </span>
             <div className="think-notebook-editor-provenance__body">
               <div>
                 <a href={notebookSourceMeta.href}>{notebookSourceMeta.label}</a>
                 <p>
+                  {notebookSourceMeta.draftTemplateLabel
+                    ? `${notebookSourceMeta.draftTemplateLabel} spun out from the concept. `
+                    : ''}
                   Keep drafting here. Return to the concept when the underlying idea shifts, new support appears, or the tension changes.
                   {notebookSourceMeta.importedAt ? ` Started here on ${notebookSourceMeta.importedAt}.` : ''}
                 </p>
@@ -602,8 +610,8 @@ const NotebookEditor = ({
             )}
             <div className="notebook-insert-group">
               <div className="notebook-insert-labels">
-                <span className="notebook-insert-label">Insert</span>
-                <span className="notebook-insert-hint">Highlights, articles, concepts, questions</span>
+                <span className="notebook-insert-label">Insert from library</span>
+                <span className="notebook-insert-hint">Bring saved material onto the page.</span>
               </div>
               <div className="notebook-insert-buttons">
                 <QuietButton

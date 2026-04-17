@@ -100,7 +100,6 @@ const cleanText = (value = '') => String(value || '').trim();
 const THINK_SUB_NAV_ITEMS = [
   { value: 'concepts', label: 'Concepts' },
   { value: 'notebook', label: 'Notebook' },
-  { value: 'home', label: 'Home' },
   { value: 'questions', label: 'Questions' }
 ];
 
@@ -150,6 +149,9 @@ const readCollapsedIndexGroups = () => {
 };
 
 const formatAiError = (err, fallback = 'Request failed.') => {
+  if (!err?.response && /network error/i.test(String(err?.message || ''))) {
+    return 'Could not reach the server.';
+  }
   const status = err?.response?.status;
   const data = err?.response?.data;
   const detail = typeof data?.detail === 'string' ? data.detail : '';
@@ -373,6 +375,7 @@ const PartnerLineList = React.memo(({ items = [], emptyMessage = 'Nothing here y
 
 const ThinkMode = () => {
   const [searchParams, setSearchParams] = useSearchParams();
+  const rawTabParam = searchParams.get('tab') || '';
   const queryConcept = searchParams.get('concept') || '';
   const allowedViews = useMemo(() => ['home', 'notebook', 'concepts', 'questions', 'threads', 'handoffs', 'paths', 'insights'], []);
   const resolveActiveView = useCallback((params) => {
@@ -724,12 +727,19 @@ const ThinkMode = () => {
     concept,
     related,
     questions: conceptQuestions,
-    onCreateNotebookDraft: ({ concept: activeConcept, state, currentMaturity, hypothesisVersion }) => {
+    onCreateNotebookDraft: ({
+      concept: activeConcept,
+      state,
+      currentMaturity,
+      hypothesisVersion,
+      template = ''
+    }) => {
       const notebookDraft = buildNotebookDraftFromConcept({
         concept: activeConcept,
         state,
         currentMaturity,
-        hypothesisVersion
+        hypothesisVersion,
+        template
       });
       const { conceptContext: _conceptContext, ...requestPayload } = notebookDraft;
       return createNotebookEntry(requestPayload);
@@ -995,9 +1005,14 @@ const ThinkMode = () => {
       setAiHealthStatus('loading');
       setAiHealthError('');
       try {
-        await api.get('/api/ai/health', getAuthHeaders());
+        const response = await api.get('/api/ai/health', getAuthHeaders());
         if (!cancelled) {
-          setAiHealthStatus('ok');
+          if (response?.data?.status === 'disabled' || response?.data?.error === 'AI_DISABLED') {
+            setAiHealthError('AI insights are currently disabled. Use themes and connections later, but keep working in concepts, notebook, and questions now.');
+            setAiHealthStatus('disabled');
+          } else {
+            setAiHealthStatus('ok');
+          }
         }
       } catch (err) {
         if (cancelled) return;
@@ -1070,7 +1085,10 @@ const ThinkMode = () => {
         }
       } catch (err) {
         if (!cancelled) {
-          setContextConnectionsError(err.response?.data?.error || 'Failed to load scoped connections.');
+          setContextConnectionsError(
+            err?.response?.data?.error
+            || (!err?.response && /network error/i.test(String(err?.message || '')) ? 'Could not reach the server.' : 'Failed to load scoped connections.')
+          );
         }
       } finally {
         if (!cancelled) setContextConnectionsLoading(false);
@@ -1369,6 +1387,14 @@ const ThinkMode = () => {
     setSearchParams(params);
   }, [searchParams, setSearchParams]);
 
+  useEffect(() => {
+    if (rawTabParam) return;
+    if (activeView !== 'concepts' || selectedName) return;
+    const recentConcept = recentTargets.find((item) => item.type === 'concept' && cleanText(item.title));
+    if (!recentConcept?.title) return;
+    handleSelectConcept(recentConcept.title);
+  }, [activeView, handleSelectConcept, rawTabParam, recentTargets, selectedName]);
+
   const openConceptComposer = useCallback((anchor = 'header', seed = '') => {
     setConceptComposerAnchor(anchor);
     setConceptComposerDraft(normalizeConceptName(seed));
@@ -1426,6 +1452,11 @@ const ThinkMode = () => {
     params.delete('scopeId');
     setSearchParams(params);
   }, [searchParams, setSearchParams]);
+
+  const handleCreateConceptFromHome = useCallback(() => {
+    handleSelectView('concepts');
+    openConceptComposer('hero', search);
+  }, [handleSelectView, openConceptComposer, search]);
 
   const handleTemplateCreated = useCallback(async (created = null) => {
     const nextConceptName = String(created?.conceptName || '').trim();
@@ -3011,9 +3042,28 @@ const ThinkMode = () => {
       {aiHealthStatus === 'loading' && (
         <p className="muted small">Checking AI service…</p>
       )}
-      {aiHealthStatus === 'error' && (
+      {(aiHealthStatus === 'error' || aiHealthStatus === 'disabled') && (
         <p className="status-message error-message">{aiHealthError}</p>
       )}
+      {aiHealthStatus === 'disabled' && (
+        <div className="think-insights-fallback">
+          <div className="think-insights-fallback__copy">
+            <span className="think-insights-fallback__eyebrow">Insights paused</span>
+            <h3>Keep the work moving in the core surfaces.</h3>
+            <p>
+              The AI insight layer is offline right now, so this tab stays read-only instead of pretending to be live.
+              Use concept pressure, notebook handoffs, and question tracking until the service comes back.
+            </p>
+          </div>
+          <div className="think-insights-fallback__actions">
+            <QuietButton type="button" onClick={() => handleSelectView('concepts')}>Open concepts</QuietButton>
+            <QuietButton type="button" onClick={() => handleSelectView('notebook')}>Open notebook</QuietButton>
+            <QuietButton type="button" onClick={() => handleSelectView('questions')}>Open questions</QuietButton>
+          </div>
+        </div>
+      )}
+      {aiHealthStatus === 'disabled' ? null : (
+        <>
       <div className="library-highlight-filters">
         <button
           type="button"
@@ -3138,6 +3188,8 @@ const ThinkMode = () => {
               )}
             </div>
           )}
+        </>
+      )}
         </>
       )}
     </div>
@@ -3460,7 +3512,7 @@ const ThinkMode = () => {
         setActivationState(null);
       }}
       onCreateNote={handleCreateNotebookEntry}
-      onCreateConcept={() => handleSelectView('concepts')}
+      onCreateConcept={handleCreateConceptFromHome}
       onCreateFromTemplate={openTemplatePicker}
       onCreateQuestion={handleCreateQuestion}
     />
@@ -4394,6 +4446,7 @@ const ThinkMode = () => {
               onDropCard={handleIntegrateConceptCard}
               isReceivingDrop={conceptReceivingDrop}
               onRunAction={setConceptEditorialSection}
+              onOpenTemplatePicker={openTemplatePicker}
             />
           )}
         </main>
@@ -4403,6 +4456,7 @@ const ThinkMode = () => {
             model={ideaWorkbenchModel}
             onIntegrateCard={handleIntegrateConceptCard}
             activeSection={conceptEditorialSection}
+            onOpenTemplatePicker={openTemplatePicker}
           />
         </aside>
       </div>
@@ -5229,6 +5283,17 @@ const ThinkMode = () => {
                         }}
                       >
                         {rightOpen ? 'Hide context' : 'Show context'}
+                      </button>
+                      <button
+                        type="button"
+                        className={`think-main-actions__menu-item ${activeView === 'home' ? 'is-active' : ''}`}
+                        role="menuitem"
+                        onClick={() => {
+                          closeHeaderMenus();
+                          handleSelectView('home');
+                        }}
+                      >
+                        Open desk
                       </button>
                       {THINK_ADVANCED_NAV_ITEMS.map((item) => (
                         <button

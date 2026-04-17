@@ -1442,6 +1442,64 @@ html[data-ui-theme='dark'] .topbar__search:-webkit-autofill:focus {
   gap: 10px;
 }
 
+.concept-path-hero {
+  border: 1px solid var(--border-subtle);
+  border-radius: 14px;
+  padding: 16px;
+  background: linear-gradient(180deg, var(--surface), color-mix(in srgb, var(--accent-soft) 38%, var(--surface)));
+  display: grid;
+  gap: 14px;
+}
+
+.concept-path-hero__copy {
+  display: grid;
+  gap: 8px;
+}
+
+.concept-path-hero__copy h2 {
+  margin: 0;
+  font-size: 1.4rem;
+  line-height: 1.15;
+  color: var(--text);
+}
+
+.concept-path-hero__copy p {
+  margin: 0;
+  color: var(--text-secondary);
+}
+
+.concept-path-hero__eyebrow {
+  font-size: 0.72rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.concept-path-hero__stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.concept-path-hero__stats div {
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: color-mix(in srgb, var(--surface) 85%, white);
+  display: grid;
+  gap: 4px;
+}
+
+.concept-path-hero__stats strong {
+  font-size: 1.2rem;
+  color: var(--text);
+}
+
+.concept-path-hero__stats span {
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
 .concept-path-list {
   display: grid;
   gap: 8px;
@@ -1477,6 +1535,11 @@ html[data-ui-theme='dark'] .topbar__search:-webkit-autofill:focus {
 .concept-path-detail {
   display: grid;
   gap: 12px;
+}
+
+.concept-path-detail__intro {
+  display: grid;
+  gap: 4px;
 }
 
 .concept-path-meta-grid {
@@ -1535,6 +1598,12 @@ html[data-ui-theme='dark'] .topbar__search:-webkit-autofill:focus {
   color: var(--text);
 }
 
+.concept-path-step-summary {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
 .concept-path-step-actions {
   display: flex;
   gap: 8px;
@@ -1584,6 +1653,67 @@ html[data-ui-theme='dark'] .topbar__search:-webkit-autofill:focus {
 .concept-path-search-meta {
   color: var(--muted);
   font-size: 0.8rem;
+}
+
+.concept-path-empty {
+  border: 1px dashed var(--border-subtle);
+  border-radius: 12px;
+  padding: 14px;
+  display: grid;
+  gap: 12px;
+  background: color-mix(in srgb, var(--surface) 86%, white);
+}
+
+.concept-path-empty__copy {
+  display: grid;
+  gap: 4px;
+}
+
+.concept-path-empty__copy p {
+  margin: 0;
+  color: var(--muted);
+}
+
+@media (max-width: 720px) {
+  .concept-path-hero__stats {
+    grid-template-columns: 1fr;
+  }
+}
+
+.think-insights-fallback {
+  border: 1px solid var(--border-subtle);
+  border-radius: 14px;
+  padding: 16px;
+  background: color-mix(in srgb, var(--surface) 88%, white);
+  display: grid;
+  gap: 12px;
+}
+
+.think-insights-fallback__copy {
+  display: grid;
+  gap: 8px;
+}
+
+.think-insights-fallback__copy h3,
+.think-insights-fallback__copy p {
+  margin: 0;
+}
+
+.think-insights-fallback__copy p {
+  color: var(--text-secondary);
+}
+
+.think-insights-fallback__eyebrow {
+  font-size: 0.72rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.think-insights-fallback__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .concept-path-steps {

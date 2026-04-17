@@ -286,9 +286,9 @@ test('stale concept can surface freshness, apply a related-source draft, and ope
   await expect(page.locator('li').filter({ hasText: 'Hidden Support' }).first()).toBeVisible();
 
   await page.getByRole('button', { name: 'Related sources' }).click();
-  await page.getByRole('button', { name: 'Apply change' }).click();
+  await page.getByRole('button', { name: 'Attach sources' }).click();
 
-  await page.getByRole('button', { name: 'Open notebook draft' }).click();
+  await page.getByRole('button', { name: /Essay draft/i }).click();
 
   await expect(page).toHaveURL(/tab=notebook/);
   await expect(page.getByText('Derived from concept')).toBeVisible();

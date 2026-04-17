@@ -1,6 +1,6 @@
 import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
-import { ConceptEvidenceStreamRail, ConceptPartnerRail } from './ConceptEvidenceStreamView';
+import ConceptEvidenceStreamView, { ConceptEvidenceStreamRail, ConceptPartnerRail } from './ConceptEvidenceStreamView';
 import { CONCEPT_ACTIONS } from './idea-workbench/conceptActionDispatch';
 
 jest.mock('./idea-workbench/useIdeaWorkbenchModel', () => ({
@@ -87,6 +87,9 @@ const buildModel = () => ({
     }
   },
   agentBusy: false,
+  hypothesisVersion: {
+    label: 'v1'
+  },
   freshness: {
     isStale: true,
     unreviewedCount: 2,
@@ -96,11 +99,12 @@ const buildModel = () => ({
   changeDrafts: [
     {
       id: 'draft-1',
+      kind: 'support',
       title: 'Support pull prepared',
       summary: 'Ready to attach 2 supports from your archive.',
       caption: 'Keep the draft quiet until you decide what belongs in the concept.',
       cards: [
-        { id: 'draft-card-1', title: 'Support card' }
+        { id: 'draft-card-1', title: 'Support card', zone: 'supports', source: 'Article A' }
       ]
     }
   ],
@@ -160,22 +164,65 @@ describe('Concept evidence shell surfaces', () => {
     expect(screen.getByRole('button', { name: 'Open questions' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Clarify draft' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Review freshness' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Open notebook draft' })).toBeInTheDocument();
-    expect(screen.getByText('Fresh pulls')).toBeInTheDocument();
+    expect(screen.getByText('Notebook handoff')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Essay draft Open the idea into a longer argument with room for counterpoints.' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Memo Turn the concept into a decision-ready brief with risks in view.' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Research notes Carry evidence, contradictions, and open questions into a lighter note.' })).toBeInTheDocument();
+    expect(screen.getByText('Pulled material')).toBeInTheDocument();
     expect(screen.getByText('Fresh material waiting')).toBeInTheDocument();
     expect(screen.getByText('Support pull prepared')).toBeInTheDocument();
+    expect(screen.getByText('Concept support')).toBeInTheDocument();
     expect(screen.getByText('Pending revision')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Mark current' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Apply revision' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Add support' })).toBeInTheDocument();
+    expect(screen.getByText('Source note')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Pull support' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Essay draft Open the idea into a longer argument with room for counterpoints.' }));
     fireEvent.click(screen.getByRole('button', { name: 'Mark current' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Apply change' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add support' }));
     fireEvent.click(screen.getByRole('button', { name: 'Apply revision' }));
 
     expect(model.actions.dispatchConceptAction).toHaveBeenCalledWith(CONCEPT_ACTIONS.PULL_SUPPORT);
+    expect(model.actions.dispatchConceptAction).toHaveBeenCalledWith(
+      CONCEPT_ACTIONS.CREATE_NOTEBOOK_DRAFT,
+      { template: 'essay' }
+    );
     expect(model.actions.markReviewed).toHaveBeenCalled();
     expect(model.actions.applyChangeDraft).toHaveBeenCalledWith('draft-1');
     expect(model.actions.acceptAgentComment).toHaveBeenCalledWith('comment-1');
+  });
+
+  it('removes pulled workspace material from the rail after integrating it into the draft', () => {
+    const model = buildModel();
+
+    render(
+      <ConceptEvidenceStreamRail
+        concept={{ _id: 'concept-1', name: 'Template Concept' }}
+        model={model}
+        activeSection="assistant"
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Integrate' }));
+
+    expect(model.actions.insertCardIntoHypothesis).toHaveBeenCalledWith('source-1', { removeCard: true });
+  });
+
+  it('keeps the top contradiction visible in the manuscript', () => {
+    const model = buildModel();
+
+    render(
+      <ConceptEvidenceStreamView
+        concept={{ _id: 'concept-1', name: 'Template Concept' }}
+        model={model}
+      />
+    );
+
+    expect(screen.getByTestId('concept-inline-contradiction')).toBeInTheDocument();
+    expect(screen.getByText('Pressure point')).toBeInTheDocument();
+    expect(screen.getByText('A source that pushes back on the current claim.')).toBeInTheDocument();
+    expect(screen.getByText('Article B')).toBeInTheDocument();
   });
 });

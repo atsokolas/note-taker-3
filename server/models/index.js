@@ -101,6 +101,8 @@ const importMetaSchema = new mongoose.Schema({
   sourceType: { type: String, default: '', trim: true },
   sourceLabel: { type: String, default: '', trim: true },
   sourceUrl: { type: String, default: '', trim: true },
+  draftTemplate: { type: String, default: '', trim: true },
+  draftTemplateLabel: { type: String, default: '', trim: true },
   externalId: { type: String, default: '', trim: true },
   parentExternalId: { type: String, default: '', trim: true },
   importSessionId: { type: mongoose.Schema.Types.ObjectId, ref: 'ImportSession', default: null },

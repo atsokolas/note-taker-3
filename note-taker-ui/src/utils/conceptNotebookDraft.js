@@ -42,13 +42,84 @@ const buildBulletSection = (title, rows, createBlockId, emptyMessage) => {
   ];
 };
 
+export const CONCEPT_NOTEBOOK_DRAFT_TEMPLATES = Object.freeze([
+  {
+    id: 'default',
+    label: 'Notebook draft',
+    description: 'A plain working page spun out from the concept.',
+    titleSuffix: 'notebook draft',
+    intro: 'Concept draft promoted from the active concept workspace.',
+    framingTitle: 'Framing question',
+    workingTitle: 'Working claim',
+    supportTitle: 'Support to keep in view',
+    supportEmpty: 'No supporting material has been promoted yet.',
+    contradictionTitle: 'Tensions to test',
+    contradictionEmpty: 'No contradiction has been promoted yet.',
+    questionTitle: 'Open questions',
+    questionEmpty: 'No open question has been promoted yet.'
+  },
+  {
+    id: 'essay',
+    label: 'Essay draft',
+    description: 'Open the idea into a longer argument with room for counterpoints.',
+    titleSuffix: 'essay draft',
+    intro: 'Long-form draft promoted from the concept so the argument can breathe outside the workspace.',
+    framingTitle: 'Central question',
+    workingTitle: 'Thesis in progress',
+    supportTitle: 'Support to develop',
+    supportEmpty: 'No supporting material has been promoted yet.',
+    contradictionTitle: 'Counter-arguments to answer',
+    contradictionEmpty: 'No tension has been promoted yet.',
+    questionTitle: 'Open threads before drafting',
+    questionEmpty: 'No open thread has been promoted yet.'
+  },
+  {
+    id: 'memo',
+    label: 'Memo',
+    description: 'Turn the concept into a decision-ready brief with risks in view.',
+    titleSuffix: 'memo',
+    intro: 'Decision-ready memo promoted from the concept workspace.',
+    framingTitle: 'Decision or recommendation',
+    workingTitle: 'Current position',
+    supportTitle: 'Reasons to carry forward',
+    supportEmpty: 'No supporting reasons have been promoted yet.',
+    contradictionTitle: 'Risks and pressure points',
+    contradictionEmpty: 'No risk or tension has been promoted yet.',
+    questionTitle: 'Questions before circulation',
+    questionEmpty: 'No open question has been promoted yet.'
+  },
+  {
+    id: 'research',
+    label: 'Research notes',
+    description: 'Carry evidence, contradictions, and open questions into a lighter note.',
+    titleSuffix: 'research notes',
+    intro: 'Research note promoted from the concept so evidence and uncertainty stay easy to extend.',
+    framingTitle: 'Research question',
+    workingTitle: 'Current claim',
+    supportTitle: 'Signals worth keeping',
+    supportEmpty: 'No supporting signals have been promoted yet.',
+    contradictionTitle: 'Contradictions in play',
+    contradictionEmpty: 'No contradiction has been promoted yet.',
+    questionTitle: 'Open questions',
+    questionEmpty: 'No open question has been promoted yet.'
+  }
+]);
+
+export const getConceptNotebookDraftTemplate = (templateId = '') => {
+  const safeTemplateId = clean(templateId).toLowerCase();
+  return CONCEPT_NOTEBOOK_DRAFT_TEMPLATES.find((template) => template.id === safeTemplateId)
+    || CONCEPT_NOTEBOOK_DRAFT_TEMPLATES[0];
+};
+
 export const buildNotebookDraftFromConcept = ({
   concept,
   state,
   currentMaturity = '',
   hypothesisVersion = {},
+  template = '',
   createBlockId = createDefaultBlockId
 }) => {
+  const notebookTemplate = getConceptNotebookDraftTemplate(template);
   const conceptName = clean(concept?.name) || clean(state?.header?.title) || 'Untitled concept';
   const framingLine = clean(concept?.description) || clean(state?.header?.prompt) || "What's the core insight here?";
   const workingClaim = stripHtml(state?.hypothesis?.html || '');
@@ -59,43 +130,45 @@ export const buildNotebookDraftFromConcept = ({
 
   const blocks = [
     createHeading(conceptName, 1, createBlockId),
-    createParagraph(`Concept draft promoted from the active concept workspace.`, createBlockId),
-    createHeading('Framing question', 2, createBlockId),
+    createParagraph(notebookTemplate.intro, createBlockId),
+    createHeading(notebookTemplate.framingTitle, 2, createBlockId),
     createParagraph(framingLine, createBlockId),
-    createHeading('Working claim', 2, createBlockId),
+    createHeading(notebookTemplate.workingTitle, 2, createBlockId),
     createParagraph(workingClaim || 'No explicit draft yet.', createBlockId),
     ...buildBulletSection(
-      'Support to keep in view',
+      notebookTemplate.supportTitle,
       supports.map((card) => clean(card.title || card.content)),
       createBlockId,
-      'No supporting material has been promoted yet.'
+      notebookTemplate.supportEmpty
     ),
     ...buildBulletSection(
-      'Tensions to test',
+      notebookTemplate.contradictionTitle,
       contradictions.map((card) => clean(card.title || card.content)),
       createBlockId,
-      'No contradiction has been promoted yet.'
+      notebookTemplate.contradictionEmpty
     ),
     ...buildBulletSection(
-      'Open questions',
+      notebookTemplate.questionTitle,
       questions.map((card) => clean(card.title || card.content)),
       createBlockId,
-      'No open question has been promoted yet.'
+      notebookTemplate.questionEmpty
     )
   ];
 
-  const titleSuffix = clean(hypothesisVersion?.label) ? ` ${clean(hypothesisVersion.label)}` : '';
+  const versionLabel = clean(hypothesisVersion?.label) ? ` ${clean(hypothesisVersion.label)}` : '';
   return {
-    title: `${conceptName}${titleSuffix} notebook draft`,
+    title: `${conceptName}${versionLabel} ${notebookTemplate.titleSuffix}`.trim(),
     content: blocks.map((block) => clean(block.text)).filter(Boolean).join('\n\n'),
     blocks,
     type: 'note',
-    tags: [conceptName, 'concept-draft'],
+    tags: [conceptName, 'concept-draft'].filter(Boolean),
     source: 'concept',
     importMeta: {
       provider: 'noeis',
       sourceType: 'concept',
       sourceLabel: conceptName,
+      draftTemplate: notebookTemplate.id,
+      draftTemplateLabel: notebookTemplate.label,
       sourceUrl: clean(conceptName)
         ? `/think?tab=concepts&concept=${encodeURIComponent(conceptName)}`
         : '',
@@ -106,7 +179,8 @@ export const buildNotebookDraftFromConcept = ({
       conceptId: clean(concept?._id),
       conceptName,
       maturity: clean(currentMaturity),
-      hypothesisVersion: clean(hypothesisVersion?.label)
+      hypothesisVersion: clean(hypothesisVersion?.label),
+      draftTemplate: notebookTemplate.id
     }
   };
 };

@@ -329,6 +329,8 @@ body.noeis-editorial .topbar__primary-link.is-active {
 
 body.noeis-editorial .topbar__search-wrap {
   position: relative;
+  display: flex;
+  align-items: center;
   width: 100%;
   min-width: 0;
   background: var(--vellum-panel) !important;
@@ -338,29 +340,54 @@ body.noeis-editorial .topbar__search-wrap {
 body.noeis-editorial .topbar__search-icon {
   position: absolute;
   top: 50%;
-  left: 14px;
+  left: 15px;
+  width: 14px;
+  height: 14px;
   transform: translateY(-50%);
   color: rgba(97, 94, 91, 0.55);
+}
+
+body.noeis-editorial .topbar__search-icon::before,
+body.noeis-editorial .topbar__search-icon::after {
+  content: "";
+  position: absolute;
+  box-sizing: border-box;
+}
+
+body.noeis-editorial .topbar__search-icon::before {
+  inset: 0 3px 3px 0;
+  border: 1.4px solid rgba(97, 94, 91, 0.72);
+  border-radius: 999px;
+}
+
+body.noeis-editorial .topbar__search-icon::after {
+  right: 0;
+  bottom: 0;
+  width: 6px;
+  height: 1.4px;
+  background: rgba(97, 94, 91, 0.72);
+  transform: rotate(45deg);
+  transform-origin: right center;
 }
 
 body.noeis-editorial .topbar__search {
   width: 100%;
   height: 44px;
-  padding: 0 14px 0 36px;
+  padding: 0 16px 0 42px;
   border: 0;
   border-radius: 0;
   box-shadow: none;
   background: var(--vellum-panel);
   color: var(--vellum-ink);
   font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
-  font-size: 0.78rem;
-  letter-spacing: 0.16em;
+  font-size: 0.74rem;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
   -webkit-text-fill-color: var(--vellum-ink);
 }
 
 body.noeis-editorial .topbar__search::placeholder {
-  color: rgba(97, 94, 91, 0.5);
+  color: rgba(97, 94, 91, 0.54);
 }
 
 body.noeis-editorial .topbar__search:focus {
@@ -2628,6 +2655,61 @@ body.noeis-editorial .concept-editorial-view__editor-meta button {
   color: rgba(56, 56, 49, 0.76);
 }
 
+body.noeis-editorial .concept-editorial-view.is-fresh .concept-editorial-view__editor-meta {
+  padding-bottom: 14px;
+}
+
+body.noeis-editorial .concept-editorial-view__starter {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 16px;
+  max-width: 39rem;
+  padding: 14px 0 0;
+  border-top: 1px solid rgba(186, 186, 176, 0.24);
+}
+
+body.noeis-editorial .concept-editorial-view__starter-copy {
+  display: grid;
+  gap: 6px;
+  max-width: 30rem;
+}
+
+body.noeis-editorial .concept-editorial-view__starter-copy span {
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 0.58rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(97, 94, 91, 0.62);
+}
+
+body.noeis-editorial .concept-editorial-view__starter-copy p {
+  margin: 0;
+  font-family: "Newsreader", Georgia, serif;
+  font-size: 0.94rem;
+  line-height: 1.5;
+  color: rgba(79, 74, 70, 0.82);
+}
+
+body.noeis-editorial .concept-editorial-view__starter-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: start;
+}
+
+body.noeis-editorial .concept-editorial-view__starter-actions button {
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 0.62rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(56, 56, 49, 0.76);
+}
+
 body.noeis-editorial .concept-editorial-view__editor-shell .idea-workbench-hypothesis__editor-shell {
   padding: 0;
   border: 0;
@@ -2700,6 +2782,24 @@ body.noeis-editorial .concept-editorial-view__synthesis-point p {
   color: rgba(97, 94, 91, 0.88);
 }
 
+body.noeis-editorial .concept-editorial-view__pressure-point {
+  display: grid;
+  gap: 10px;
+  max-width: 34rem;
+  margin: 0;
+  padding: 18px 24px;
+  border-left: 3px solid rgba(160, 96, 74, 0.56);
+  background: rgba(248, 239, 232, 0.78);
+}
+
+body.noeis-editorial .concept-editorial-view__pressure-point p {
+  margin: 0;
+  font-family: "Newsreader", Georgia, serif;
+  font-size: 1rem;
+  line-height: 1.56;
+  color: rgba(97, 94, 91, 0.9);
+}
+
 body.noeis-editorial .concept-editorial-view__dropzone {
   display: grid;
   place-items: center;
@@ -2741,11 +2841,82 @@ body.noeis-editorial .concept-editorial-evidence__header {
   border-bottom: 1px solid var(--vellum-line);
 }
 
+body.noeis-editorial .concept-editorial-evidence__starter-block {
+  display: grid;
+  gap: 12px;
+  padding: 18px 0 0;
+}
+
+body.noeis-editorial .concept-editorial-evidence__starter-copy {
+  display: grid;
+  gap: 6px;
+}
+
+body.noeis-editorial .concept-editorial-evidence__starter-copy span {
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 0.58rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(97, 94, 91, 0.62);
+}
+
+body.noeis-editorial .concept-editorial-evidence__starter-copy p {
+  margin: 0;
+  font-family: "Newsreader", Georgia, serif;
+  font-size: 0.92rem;
+  line-height: 1.48;
+  color: rgba(79, 74, 70, 0.82);
+}
+
+body.noeis-editorial .concept-editorial-evidence__starter-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+body.noeis-editorial .concept-editorial-evidence__starter-actions button {
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 0.62rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--vellum-accent);
+}
+
 body.noeis-editorial .concept-editorial-evidence__prompt-block {
   display: grid;
   gap: 12px;
   padding: 18px 0 18px;
   border-bottom: 1px solid var(--vellum-line);
+}
+
+body.noeis-editorial .concept-editorial-evidence__section {
+  display: grid;
+  gap: 10px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(186, 186, 176, 0.24);
+}
+
+body.noeis-editorial .concept-editorial-evidence__section-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 0.58rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(97, 94, 91, 0.62);
+}
+
+body.noeis-editorial .concept-editorial-evidence__section-copy {
+  margin: 0;
+  font-family: "Newsreader", Georgia, serif;
+  font-size: 0.9rem;
+  line-height: 1.46;
+  color: rgba(79, 74, 70, 0.78);
 }
 
 body.noeis-editorial .concept-editorial-evidence__prompt-note {
@@ -2828,9 +2999,9 @@ body.noeis-editorial .concept-editorial-evidence__stack {
 body.noeis-editorial .concept-editorial-evidence__messages {
   display: grid;
   gap: 10px;
-  padding-top: 14px;
+  padding-top: 0;
   min-width: 0;
-  border-top: 1px solid rgba(186, 186, 176, 0.24);
+  border-top: 0;
 }
 
 body.noeis-editorial .concept-editorial-evidence__result {
@@ -2888,6 +3059,41 @@ body.noeis-editorial .concept-editorial-evidence__proposal-note {
   color: rgba(97, 94, 91, 0.76);
 }
 
+body.noeis-editorial .concept-editorial-evidence__proposal-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+body.noeis-editorial .concept-editorial-evidence__proposal-list li {
+  display: grid;
+  gap: 4px;
+}
+
+body.noeis-editorial .concept-editorial-evidence__proposal-list span,
+body.noeis-editorial .concept-editorial-view__pressure-point > span {
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 0.58rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: rgba(97, 94, 91, 0.54);
+}
+
+body.noeis-editorial .concept-editorial-evidence__proposal-list strong {
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: rgba(58, 52, 47, 0.92);
+}
+
+body.noeis-editorial .concept-editorial-evidence__proposal-list em,
+body.noeis-editorial .concept-editorial-view__pressure-point div {
+  font-style: normal;
+  font-size: 0.76rem;
+  color: rgba(97, 94, 91, 0.72);
+}
+
 body.noeis-editorial .concept-editorial-evidence__proposal-actions {
   display: flex;
   flex-wrap: wrap;
@@ -2906,6 +3112,39 @@ body.noeis-editorial .concept-editorial-evidence__proposal-actions button {
   color: var(--vellum-accent);
 }
 
+body.noeis-editorial .concept-editorial-evidence__result--handoff {
+  gap: 12px;
+}
+
+body.noeis-editorial .concept-editorial-evidence__handoff-options {
+  display: grid;
+  gap: 10px;
+}
+
+body.noeis-editorial .concept-editorial-evidence__handoff-options button {
+  display: grid;
+  gap: 4px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  text-align: left;
+}
+
+body.noeis-editorial .concept-editorial-evidence__handoff-options strong {
+  font-family: "Newsreader", Georgia, serif;
+  font-size: 1rem;
+  font-weight: 500;
+  line-height: 1.22;
+  color: rgba(56, 56, 49, 0.92);
+}
+
+body.noeis-editorial .concept-editorial-evidence__handoff-options span {
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 0.68rem;
+  line-height: 1.5;
+  color: rgba(97, 94, 91, 0.74);
+}
+
 body.noeis-editorial .concept-editorial-evidence__status {
   padding: 8px 0 10px;
   border: 0;
@@ -2919,6 +3158,13 @@ body.noeis-editorial .concept-editorial-evidence__status {
 
 body.noeis-editorial .concept-editorial-evidence__status.is-error {
   color: #8c3b28;
+}
+
+body.noeis-editorial .concept-editorial-evidence__empty {
+  margin: 0;
+  font-size: 0.82rem;
+  line-height: 1.48;
+  color: rgba(97, 94, 91, 0.76);
 }
 
 body.noeis-editorial .concept-editorial-evidence__message {
@@ -3213,6 +3459,54 @@ body.noeis-editorial .question-editorial-shell .agent-thought-partner__thread {
   body.noeis-editorial .question-editorial-shell__left,
   body.noeis-editorial .question-editorial-shell__right {
     position: static;
+  }
+
+  body.noeis-editorial .concept-editorial-shell-page {
+    width: min(100vw - 32px, 100%);
+    padding: 32px 0 40px;
+  }
+
+  body.noeis-editorial .concept-editorial-shell,
+  body.noeis-editorial .concept-editorial-shell.is-partner-collapsed {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 24px;
+  }
+
+  body.noeis-editorial .concept-editorial-shell__partner,
+  body.noeis-editorial .concept-editorial-shell__stream {
+    position: static;
+    top: auto;
+  }
+
+  body.noeis-editorial .concept-editorial-shell__main {
+    order: 1;
+  }
+
+  body.noeis-editorial .concept-editorial-shell__stream {
+    order: 2;
+  }
+
+  body.noeis-editorial .concept-editorial-shell__partner {
+    order: 3;
+  }
+
+  body.noeis-editorial .concept-editorial-partner,
+  body.noeis-editorial .concept-editorial-evidence {
+    min-height: 0;
+    padding: 0;
+    background: transparent;
+  }
+
+  body.noeis-editorial .concept-editorial-partner {
+    gap: 18px;
+    border-top: 1px solid var(--vellum-line);
+    padding-top: 18px;
+  }
+
+  body.noeis-editorial .concept-editorial-evidence {
+    gap: 18px;
+    border-top: 1px solid var(--vellum-line);
+    padding-top: 18px;
   }
 }
 
@@ -5318,7 +5612,7 @@ body.noeis-editorial .notebook-insert-group {
 
 body.noeis-editorial .notebook-insert-labels {
   display: grid;
-  gap: 4px;
+  gap: 2px;
 }
 
 body.noeis-editorial .notebook-insert-label {
@@ -5330,9 +5624,10 @@ body.noeis-editorial .notebook-insert-label {
 }
 
 body.noeis-editorial .notebook-insert-hint {
-  font-size: 0.96rem;
-  line-height: 1.5;
-  color: var(--vellum-muted);
+  max-width: 22rem;
+  font-size: 0.84rem;
+  line-height: 1.42;
+  color: rgba(97, 94, 91, 0.78);
 }
 
 body.noeis-editorial .notebook-insert-buttons {

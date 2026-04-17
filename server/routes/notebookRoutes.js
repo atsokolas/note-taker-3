@@ -26,13 +26,22 @@ const buildNotebookRouter = ({
       sourceType: String(value.sourceType || '').trim(),
       sourceLabel: String(value.sourceLabel || '').trim(),
       sourceUrl: String(value.sourceUrl || '').trim(),
+      draftTemplate: String(value.draftTemplate || '').trim(),
+      draftTemplateLabel: String(value.draftTemplateLabel || '').trim(),
       externalId: String(value.externalId || '').trim(),
       parentExternalId: String(value.parentExternalId || '').trim(),
       importSessionId: value.importSessionId || null,
       importedAt: value.importedAt || new Date(),
       searchableAt: value.searchableAt || null
     };
-    if (!next.provider && !next.sourceType && !next.sourceLabel && !next.importSessionId) {
+    if (
+      !next.provider
+      && !next.sourceType
+      && !next.sourceLabel
+      && !next.draftTemplate
+      && !next.draftTemplateLabel
+      && !next.importSessionId
+    ) {
       return undefined;
     }
     return next;

@@ -2,6 +2,13 @@ import { useEffect, useState } from 'react';
 import { listAgentSkills } from '../api/agent';
 
 const clean = (value) => String(value || '').trim();
+const formatAgentSkillError = (error) => {
+  if (error?.response?.data?.error) return error.response.data.error;
+  if (!error?.response && /network error/i.test(String(error?.message || ''))) {
+    return 'Could not reach the server.';
+  }
+  return 'Failed to load agent skills.';
+};
 
 const useAgentSkills = ({
   surface = '',
@@ -36,7 +43,7 @@ const useAgentSkills = ({
       } catch (nextError) {
         if (cancelled) return;
         setSkills([]);
-        setError(nextError.response?.data?.error || 'Failed to load agent skills.');
+        setError(formatAgentSkillError(nextError));
       } finally {
         if (!cancelled) setLoading(false);
       }

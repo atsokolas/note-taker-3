@@ -95,6 +95,12 @@ const ConceptPathWorkspace = ({ selectedPathId = '', onSelectPath }) => {
 
   const currentIndex = activePath?.progress?.currentIndex || 0;
   const currentStep = activePath?.itemRefs?.[currentIndex] || null;
+  const stepCount = Array.isArray(activePath?.itemRefs) ? activePath.itemRefs.length : 0;
+  const understoodCount = useMemo(
+    () => (activePath?.progress?.understoodItemRefIds || []).length,
+    [activePath?.progress?.understoodItemRefIds]
+  );
+  const remainingCount = Math.max(stepCount - understoodCount, 0);
   const understoodSet = useMemo(
     () => new Set((activePath?.progress?.understoodItemRefIds || []).map(value => String(value))),
     [activePath?.progress?.understoodItemRefIds]
@@ -360,7 +366,35 @@ const ConceptPathWorkspace = ({ selectedPathId = '', onSelectPath }) => {
 
   return (
     <div className="section-stack">
-      <SectionHeader title="Concept Paths" subtitle="Curated sequences through connected ideas." />
+      <div className="concept-path-hero">
+        <div className="concept-path-hero__copy">
+          <span className="concept-path-hero__eyebrow">Concept paths</span>
+          <h2>{activePath?.title || 'Curated sequences through connected ideas.'}</h2>
+          <p>
+            {activePath?.description
+              || 'Build a deliberate route through notes, concepts, questions, and evidence so the next move is always obvious.'}
+          </p>
+        </div>
+        <div className="concept-path-hero__stats">
+          <div>
+            <strong>{stepCount || paths.length || 0}</strong>
+            <span>{activePath ? 'Steps in path' : 'Paths in workspace'}</span>
+          </div>
+          <div>
+            <strong>{understoodCount}</strong>
+            <span>Marked understood</span>
+          </div>
+          <div>
+            <strong>{remainingCount}</strong>
+            <span>Still to work through</span>
+          </div>
+        </div>
+      </div>
+
+      <SectionHeader
+        title="Path library"
+        subtitle="Keep a few deliberate routes instead of one endless list."
+      />
       <div className="concept-path-toolbar">
         <Button onClick={handleCreatePath} disabled={working}>New path</Button>
         {pathsLoading && <p className="muted small">Loading paths…</p>}
@@ -382,7 +416,13 @@ const ConceptPathWorkspace = ({ selectedPathId = '', onSelectPath }) => {
           </button>
         ))}
         {!pathsLoading && paths.length === 0 && (
-          <p className="muted small">No paths yet.</p>
+          <div className="concept-path-empty">
+            <div className="concept-path-empty__copy">
+              <strong>No paths yet.</strong>
+              <p>Start with one reading route, one argument route, or one open-question route.</p>
+            </div>
+            <Button onClick={handleCreatePath} disabled={working}>Create first path</Button>
+          </div>
         )}
       </div>
 
@@ -390,6 +430,15 @@ const ConceptPathWorkspace = ({ selectedPathId = '', onSelectPath }) => {
       {pathLoading && <p className="muted small">Loading selected path…</p>}
       {!pathLoading && activePath && (
         <div className="concept-path-detail">
+          <div className="concept-path-detail__intro">
+            <SectionHeader
+              title="Path editor"
+              subtitle="Shape the route, then walk it one step at a time."
+            />
+            <p className="muted small">
+              Use the current step to stay focused; use the builder below to keep the sequence intentional.
+            </p>
+          </div>
           <div className="concept-path-meta-grid">
             <input
               type="text"
@@ -427,6 +476,11 @@ const ConceptPathWorkspace = ({ selectedPathId = '', onSelectPath }) => {
               </div>
               <div className="concept-path-step-title">{currentStep.item?.title || formatItemType(currentStep.type)}</div>
               <div className="muted small">{formatItemType(currentStep.type)} · {currentStep.item?.snippet || 'No preview.'}</div>
+              <p className="concept-path-step-summary">
+                {understoodSet.has(String(currentStep._id))
+                  ? 'This step is already marked understood. Keep moving or reopen it if the path needs more pressure.'
+                  : 'Treat this as the next thing to resolve before you widen the path again.'}
+              </p>
               <div className="concept-path-step-actions">
                 <QuietButton onClick={() => handleSetCurrentStep(currentIndex - 1)} disabled={currentIndex <= 0}>Previous</QuietButton>
                 <QuietButton onClick={() => handleSetCurrentStep(currentIndex + 1)} disabled={currentIndex >= activePath.itemRefs.length - 1}>Next</QuietButton>

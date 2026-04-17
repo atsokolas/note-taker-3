@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import IdeaWorkbenchHypothesisEditor from './idea-workbench/IdeaWorkbenchHypothesisEditor';
 import { sanitizeAgentReplyText } from './idea-workbench/useIdeaWorkbenchModel';
 import { CONCEPT_ACTIONS } from './idea-workbench/conceptActionDispatch';
+import { CONCEPT_NOTEBOOK_DRAFT_TEMPLATES } from '../../../utils/conceptNotebookDraft';
 
 const clean = (value) => String(value || '').trim();
 const escapeHtml = (value = '') => String(value || '')
@@ -16,6 +17,7 @@ const truncate = (value = '', limit = 220) => {
   if (safe.length <= limit) return safe;
   return `${safe.slice(0, Math.max(0, limit - 1)).trimEnd()}…`;
 };
+const stripHtml = (value = '') => clean(String(value || '').replace(/<[^>]+>/g, ' '));
 const formatStreamMessage = (message) => {
   const role = clean(message?.role);
   const text = role === 'user'
@@ -48,6 +50,29 @@ const PARTNER_SECTIONS = [
 
 const cardExcerpt = (card, limit = 220) => truncate(card?.content || card?.title || '', limit);
 const isAgentCard = (card) => clean(card?.origin).toLowerCase() === 'agent';
+const zoneLabel = (zone = '') => {
+  const safe = clean(zone).toLowerCase();
+  if (safe === 'supports') return 'Support';
+  if (safe === 'contradictions') return 'Tension';
+  if (safe === 'questions') return 'Open question';
+  return 'Related source';
+};
+const getDraftTargetLabel = (draft = {}) => {
+  const safe = clean(draft?.kind).toLowerCase();
+  if (safe === 'support') return 'Concept support';
+  if (safe === 'contradiction') return 'Visible tension';
+  if (safe === 'question') return 'Open pressure';
+  if (safe === 'refresh') return 'Fresh material';
+  return 'Concept margin';
+};
+const getDraftApplyLabel = (draft = {}) => {
+  const safe = clean(draft?.kind).toLowerCase();
+  if (safe === 'support') return 'Add support';
+  if (safe === 'contradiction') return 'Stage tension';
+  if (safe === 'question') return 'Keep question open';
+  if (safe === 'refresh') return 'Review fresh material';
+  return 'Attach sources';
+};
 
 export const formatEditorialEvidenceHtml = (card) => {
   if (!card) return '<p></p>';
@@ -315,10 +340,15 @@ const ConceptEvidenceStreamView = ({
   onEditorReady,
   onDropCard,
   isReceivingDrop = false,
-  onRunAction
+  onRunAction,
+  onOpenTemplatePicker
 }) => {
   const supportCards = useMemo(
     () => model.state.cards.filter((card) => card.zone === 'supports'),
+    [model.state.cards]
+  );
+  const contradictionCards = useMemo(
+    () => model.state.cards.filter((card) => card.zone === 'contradictions'),
     [model.state.cards]
   );
   const workspaceCards = useMemo(
@@ -326,6 +356,12 @@ const ConceptEvidenceStreamView = ({
     [model.state.cards]
   );
   const framingLine = clean(concept?.description) || clean(model.state.header.prompt) || "What's the core insight here?";
+  const hasMeaningfulDraft = stripHtml(model.state.hypothesis.html).length > 0;
+  const hasStagedMaterial = model.state.cards.length > 0;
+  const hasAgentTrail = model.state.agent.messages.length > 0
+    || model.state.agent.comments.length > 0
+    || (Array.isArray(model.changeDrafts) && model.changeDrafts.length > 0);
+  const isFreshConcept = !hasMeaningfulDraft && !hasStagedMaterial && !hasAgentTrail;
   const workingClaim = useMemo(() => {
     const nonAgentSupport = supportCards.find((card) => !isAgentCard(card));
     if (nonAgentSupport) return nonAgentSupport;
@@ -337,32 +373,45 @@ const ConceptEvidenceStreamView = ({
     if (workspace && !isAgentCard(workspace)) return workspace;
     return null;
   }, [supportCards, workspaceCards]);
+  const pressurePoint = useMemo(() => {
+    const nonAgentContradiction = contradictionCards.find((card) => !isAgentCard(card));
+    if (nonAgentContradiction) return nonAgentContradiction;
+    return contradictionCards[0] || null;
+  }, [contradictionCards]);
   const runAction = async (action) => {
     onRunAction?.('assistant');
     await model.actions.dispatchConceptAction(action);
   };
 
   return (
-    <div className="concept-editorial-view">
-      <div className="concept-editorial-view__meta">
-        <span>Active reasoning draft / {model.hypothesisVersion.label || 'v1'}</span>
-      </div>
+    <div className={`concept-editorial-view ${isFreshConcept ? 'is-fresh' : ''}`.trim()}>
+      {!isFreshConcept && (
+        <div className="concept-editorial-view__meta">
+          <span>Active reasoning draft / {model.hypothesisVersion.label || 'v1'}</span>
+        </div>
+      )}
 
       <header className="concept-editorial-view__header">
         <h1>{model.state.header.title || concept?.name || 'Untitled idea'}</h1>
-        <p>{framingLine}</p>
+        <p>
+          {isFreshConcept
+            ? 'Start with the claim in your own words. Pull support, tension, and remembered sources into the rail when the page has something worth testing.'
+            : framingLine}
+        </p>
       </header>
 
       <article className="concept-editorial-view__manuscript">
         <div className="concept-editorial-view__editor-shell">
           <div className="concept-editorial-view__editor-meta">
-            <span>Working draft</span>
-            <div>
-              <button type="button" disabled={model.agentBusy} onClick={() => runAction(CONCEPT_ACTIONS.STRENGTHEN_DRAFT)}>Strengthen</button>
-              <button type="button" disabled={model.agentBusy} onClick={() => model.actions.dispatchConceptAction(CONCEPT_ACTIONS.CHALLENGE_DRAFT)}>Challenge</button>
-              <button type="button" disabled={model.agentBusy} onClick={() => model.actions.dispatchConceptAction(CONCEPT_ACTIONS.CLARIFY_DRAFT)}>Clarify</button>
-              <button type="button" disabled={model.agentBusy} onClick={() => model.actions.dispatchConceptAction(CONCEPT_ACTIONS.SAVE_VERSION)}>Save version</button>
-            </div>
+            <span>{isFreshConcept ? 'Fresh concept' : 'Working draft'}</span>
+            {!isFreshConcept && (
+              <div>
+                <button type="button" disabled={model.agentBusy} onClick={() => runAction(CONCEPT_ACTIONS.STRENGTHEN_DRAFT)}>Strengthen</button>
+                <button type="button" disabled={model.agentBusy} onClick={() => model.actions.dispatchConceptAction(CONCEPT_ACTIONS.CHALLENGE_DRAFT)}>Challenge</button>
+                <button type="button" disabled={model.agentBusy} onClick={() => model.actions.dispatchConceptAction(CONCEPT_ACTIONS.CLARIFY_DRAFT)}>Clarify</button>
+                <button type="button" disabled={model.agentBusy} onClick={() => model.actions.dispatchConceptAction(CONCEPT_ACTIONS.SAVE_VERSION)}>Save version</button>
+              </div>
+            )}
           </div>
           <IdeaWorkbenchHypothesisEditor
             value={clean(model.state.hypothesis.html) || '<p></p>'}
@@ -371,10 +420,31 @@ const ConceptEvidenceStreamView = ({
             isReceivingDrop={isReceivingDrop}
             onEditorReady={onEditorReady}
             onDropCard={onDropCard}
+            hideToolbar={isFreshConcept}
+            placeholder={isFreshConcept
+              ? 'Write the live claim, question, or hunch here. Keep it provisional.'
+              : 'Write the current hypothesis here. Let it stay provisional and editable.'}
           />
         </div>
 
-        {workingClaim && (
+        {isFreshConcept && (
+          <div className="concept-editorial-view__starter">
+            <div className="concept-editorial-view__starter-copy">
+              <span>Start options</span>
+              <p>Stay blank and write, or bring in a light scaffold if you want help starting.</p>
+            </div>
+            <div className="concept-editorial-view__starter-actions">
+              <button type="button" onClick={() => onOpenTemplatePicker?.()}>
+                Use starter scaffold
+              </button>
+              <button type="button" disabled={model.agentBusy} onClick={() => runAction(CONCEPT_ACTIONS.PULL_RELATED_SOURCES)}>
+                Pull remembered sources
+              </button>
+            </div>
+          </div>
+        )}
+
+        {!isFreshConcept && workingClaim && (
           <blockquote className="concept-editorial-view__synthesis-point">
             <span>Synthesis point</span>
             <p>{cardExcerpt(workingClaim, 240)}</p>
@@ -382,24 +452,40 @@ const ConceptEvidenceStreamView = ({
           </blockquote>
         )}
 
-        <div className="concept-editorial-view__dropzone">
-          <span>⊕</span>
-          <p>Drag evidence here to integrate</p>
-        </div>
+        {!isFreshConcept && pressurePoint && (
+          <aside className="concept-editorial-view__pressure-point" data-testid="concept-inline-contradiction">
+            <span>Pressure point</span>
+            <p>{cardExcerpt(pressurePoint, 220)}</p>
+            <div>{clean(pressurePoint.source) || clean(pressurePoint.type) || 'Contradiction in play'}</div>
+          </aside>
+        )}
+
+        {!isFreshConcept && (
+          <div className="concept-editorial-view__dropzone">
+            <span>⊕</span>
+            <p>Drag evidence here to integrate</p>
+          </div>
+        )}
       </article>
     </div>
   );
 };
 
-export const ConceptEvidenceStreamRail = ({ concept, model, onIntegrateCard, activeSection = 'assistant' }) => {
+export const ConceptEvidenceStreamRail = ({ concept, model, onIntegrateCard, activeSection = 'assistant', onOpenTemplatePicker }) => {
+  const contradictionCards = model.state.cards.filter((card) => card.zone === 'contradictions');
   const supportCards = model.state.cards.filter((card) => card.zone === 'supports');
   const workspaceCards = model.state.cards.filter((card) => card.zone === 'workspace');
+  const questionCards = model.state.cards.filter((card) => card.zone === 'questions');
+  const conceptServingCards = useMemo(
+    () => [...contradictionCards, ...supportCards, ...workspaceCards, ...questionCards],
+    [contradictionCards, questionCards, supportCards, workspaceCards]
+  );
   const allEvidenceCards = useMemo(
-    () => [...supportCards, ...workspaceCards],
-    [supportCards, workspaceCards]
+    () => [...contradictionCards, ...supportCards, ...workspaceCards, ...questionCards],
+    [contradictionCards, questionCards, supportCards, workspaceCards]
   );
   const highlightCards = allEvidenceCards.filter(isHighlightCard);
-  const sourceCards = allEvidenceCards.filter((card) => !isHighlightCard(card));
+  const sourceCards = allEvidenceCards.filter(isSourceCard);
   const recentMessages = useMemo(
     () => model.state.agent.messages
       .filter((message) => clean(message?.text))
@@ -429,9 +515,9 @@ export const ConceptEvidenceStreamRail = ({ concept, model, onIntegrateCard, act
         ? (highlightCards.length > 0 ? highlightCards : allEvidenceCards)
         : activeSection === 'sources'
           ? (sourceCards.length > 0 ? sourceCards : allEvidenceCards)
-          : activeSection === 'annotations'
+        : activeSection === 'annotations'
             ? (sourceCards.length > 0 ? sourceCards : allEvidenceCards)
-            : (supportCards.length > 0 ? supportCards : workspaceCards);
+            : (conceptServingCards.length > 0 ? conceptServingCards : allEvidenceCards);
     const seen = new Set();
     return [...suggestedCardsFirst, ...base]
       .filter((card) => {
@@ -441,7 +527,7 @@ export const ConceptEvidenceStreamRail = ({ concept, model, onIntegrateCard, act
         return true;
       })
       .slice(0, activeSection === 'annotations' ? 4 : 4);
-  }, [activeSection, allEvidenceCards, highlightCards, sourceCards, suggestedCardsFirst, supportCards, workspaceCards]);
+  }, [activeSection, allEvidenceCards, conceptServingCards, highlightCards, sourceCards, suggestedCardsFirst]);
   const hypothesisComments = useMemo(
     () => model.state.agent.comments.filter((comment) => comment.target === 'hypothesis'),
     [model.state.agent.comments]
@@ -459,28 +545,37 @@ export const ConceptEvidenceStreamRail = ({ concept, model, onIntegrateCard, act
     [model.changeDrafts]
   );
   const freshness = model.freshness || { isStale: false, summary: '', preview: [] };
-  const streamHeading = useMemo(() => {
-    if (activeSection === 'sources') {
-      return { title: 'Context margin', subtitle: 'Source memory close to the draft' };
-    }
-    if (activeSection === 'highlights') {
-      return { title: 'Context margin', subtitle: 'Quoted fragments worth pulling in' };
-    }
-    if (activeSection === 'annotations') {
-      return { title: 'Context margin', subtitle: 'Notes about pressure, gaps, and revisions' };
-    }
-    return { title: 'Context margin', subtitle: 'Support, contradiction, and open pressure' };
-  }, [activeSection]);
   const [partnerInput, setPartnerInput] = useState('');
+  const isFreshConcept = stripHtml(model.state.hypothesis.html).length === 0
+    && model.state.cards.length === 0
+    && model.state.agent.messages.length === 0
+    && model.state.agent.comments.length === 0
+    && (!Array.isArray(model.changeDrafts) || model.changeDrafts.length === 0);
   const quickActions = [
     { id: CONCEPT_ACTIONS.PULL_SUPPORT, label: 'Pull support' },
     { id: CONCEPT_ACTIONS.FIND_TENSION, label: 'Find tension' },
     { id: CONCEPT_ACTIONS.PULL_RELATED_SOURCES, label: 'Related sources' },
     { id: CONCEPT_ACTIONS.SURFACE_OPEN_QUESTIONS, label: 'Open questions' },
     { id: CONCEPT_ACTIONS.CLARIFY_DRAFT, label: 'Clarify draft' },
-    { id: CONCEPT_ACTIONS.PREPARE_UPDATE, label: 'Review freshness' },
-    { id: CONCEPT_ACTIONS.CREATE_NOTEBOOK_DRAFT, label: 'Open notebook draft' }
+    { id: CONCEPT_ACTIONS.PREPARE_UPDATE, label: 'Review freshness' }
   ];
+  const notebookHandoffTemplates = useMemo(
+    () => CONCEPT_NOTEBOOK_DRAFT_TEMPLATES.filter((template) => template.id !== 'default'),
+    []
+  );
+  const pulledMaterialCards = useMemo(() => {
+    const suggestedWorkspaceCards = suggestedCardsFirst.filter(
+      (card) => clean(card?.zone).toLowerCase() === 'workspace'
+    );
+    if (suggestedWorkspaceCards.length > 0) {
+      return suggestedWorkspaceCards.slice(0, 4);
+    }
+    return streamCards
+      .filter((card) => clean(card?.zone).toLowerCase() === 'workspace')
+      .slice(0, 4);
+  }, [streamCards, suggestedCardsFirst]);
+  const hasConversation = model.agentBusy || model.agentError || recentMessages.length > 0 || Boolean(latestComment);
+  const hasPreparedMoves = freshness.isStale || pendingChangeDrafts.length > 0 || Boolean(pendingRevision);
 
   const handleSend = async () => {
     const next = clean(partnerInput);
@@ -497,25 +592,38 @@ export const ConceptEvidenceStreamRail = ({ concept, model, onIntegrateCard, act
   return (
     <div className="concept-editorial-evidence">
       <div className="concept-editorial-evidence__header">
-        <h3>{streamHeading.title}</h3>
-        <p>{streamHeading.subtitle}</p>
+        <h3>Partner</h3>
+        <p>Prompt first, then review the conversation, then decide what pulled material belongs on the page.</p>
       </div>
 
+      {isFreshConcept && (
+        <div className="concept-editorial-evidence__starter-block">
+          <div className="concept-editorial-evidence__starter-copy">
+            <span>Fresh concept</span>
+            <p>Ask the rail to recover old material, or open a light scaffold without turning the page into a form.</p>
+          </div>
+          <div className="concept-editorial-evidence__starter-actions">
+            <button type="button" onClick={() => onOpenTemplatePicker?.()}>
+              Starter scaffold
+            </button>
+            <button type="button" disabled={model.agentBusy} onClick={() => model.actions.dispatchConceptAction(CONCEPT_ACTIONS.PULL_RELATED_SOURCES)}>
+              Remembered sources
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="concept-editorial-evidence__prompt-block">
-        <p className="concept-editorial-evidence__prompt-note">
-          Ask for support, contradiction, a cleaner draft, or the piece of prior reading you know is somewhere in the archive.
-        </p>
-        <div className="concept-editorial-evidence__composer">
-          <textarea
-            value={partnerInput}
-            onChange={(event) => setPartnerInput(event.target.value)}
-            onKeyDown={handleComposerKeyDown}
-            placeholder="Ask for what this page needs next."
-          />
-          <button type="button" onClick={handleSend} disabled={!clean(partnerInput) || model.agentBusy}>↗</button>
+        <div className="concept-editorial-evidence__section-head">
+          <span>Prompt set</span>
+          <span>{isFreshConcept ? 'Start light' : 'Pre-defined moves'}</span>
         </div>
         <div className="concept-editorial-evidence__quick-actions">
-          {quickActions.map((action) => (
+          {(isFreshConcept ? quickActions.filter((action) => [
+            CONCEPT_ACTIONS.PULL_RELATED_SOURCES,
+            CONCEPT_ACTIONS.FIND_TENSION,
+            CONCEPT_ACTIONS.SURFACE_OPEN_QUESTIONS
+          ].includes(action.id)) : quickActions).map((action) => (
             <button
               key={action.id}
               type="button"
@@ -526,81 +634,32 @@ export const ConceptEvidenceStreamRail = ({ concept, model, onIntegrateCard, act
             </button>
           ))}
         </div>
+        <p className="concept-editorial-evidence__prompt-note">
+          {isFreshConcept
+            ? 'Ask for support, contradiction, or the buried source you half-remember. The rail does the digging so the page can stay focused.'
+            : 'Ask for support, contradiction, a cleaner draft, or the piece of prior reading you know is somewhere in the archive.'}
+        </p>
+        <div className="concept-editorial-evidence__composer">
+          <textarea
+            value={partnerInput}
+            onChange={(event) => setPartnerInput(event.target.value)}
+            onKeyDown={handleComposerKeyDown}
+            placeholder="Ask for what this page needs next."
+          />
+          <button type="button" onClick={handleSend} disabled={!clean(partnerInput) || model.agentBusy}>↗</button>
+        </div>
       </div>
 
-      {freshness.isStale && (
-        <div className="concept-editorial-evidence__result concept-editorial-evidence__result--proposal">
-          <div className="concept-editorial-evidence__result-head">
-            <span>Fresh material waiting</span>
-            <span>{freshness.unreviewedCount || 0} newer</span>
-          </div>
-          <p>{freshness.summary}</p>
-          {Array.isArray(freshness.preview) && freshness.preview.length > 0 && (
-            <ul>
-              {freshness.preview.slice(0, 3).map((item) => (
-                <li key={`freshness-${item}`}>{item}</li>
-              ))}
-            </ul>
-          )}
-          <div className="concept-editorial-evidence__proposal-actions">
-            <button type="button" onClick={() => model.actions.markReviewed?.()}>
-              Mark current
-            </button>
-          </div>
+      <section className="concept-editorial-evidence__section">
+        <div className="concept-editorial-evidence__section-head">
+          <span>Conversation</span>
+          <span>{model.agentBusy ? 'Thinking' : 'Agent + chat'}</span>
         </div>
-      )}
-
-      {pendingChangeDrafts.map((draft) => (
-        <div key={draft.id} className="concept-editorial-evidence__result concept-editorial-evidence__result--proposal">
-          <div className="concept-editorial-evidence__result-head">
-            <span>{draft.title}</span>
-            <span>{draft.cards?.length || 0} queued</span>
-          </div>
-          <p>{draft.summary}</p>
-          {clean(draft.caption) && (
-            <p className="concept-editorial-evidence__proposal-note">{draft.caption}</p>
-          )}
-          {Array.isArray(draft.cards) && draft.cards.length > 0 && (
-            <ul>
-              {draft.cards.slice(0, 3).map((card) => (
-                <li key={`${draft.id}-${card.id}`}>{card.title || truncate(card.content, 64) || 'Untitled source'}</li>
-              ))}
-            </ul>
-          )}
-          <div className="concept-editorial-evidence__proposal-actions">
-            <button type="button" onClick={() => model.actions.applyChangeDraft(draft.id)}>
-              Apply change
-            </button>
-            <button type="button" onClick={() => model.actions.dismissChangeDraft(draft.id)}>
-              Dismiss
-            </button>
-          </div>
-        </div>
-      ))}
-
-      {pendingRevision && (
-        <div className="concept-editorial-evidence__result concept-editorial-evidence__result--proposal">
-          <div className="concept-editorial-evidence__result-head">
-            <span>Pending revision</span>
-            <span>Approval required</span>
-          </div>
-          <p>{pendingRevision.body}</p>
-          {clean(pendingRevision.caption) && (
-            <p className="concept-editorial-evidence__proposal-note">{pendingRevision.caption}</p>
-          )}
-          <div className="concept-editorial-evidence__proposal-actions">
-            <button type="button" onClick={() => model.actions.acceptAgentComment(pendingRevision.id)}>
-              Apply revision
-            </button>
-            <button type="button" onClick={() => model.actions.dismissAgentComment(pendingRevision.id)}>
-              Dismiss
-            </button>
-          </div>
-        </div>
-      )}
-
-      {(model.agentBusy || model.agentError || recentMessages.length > 0) && (
-        <div className="concept-editorial-evidence__messages" aria-live="polite">
+        <p className="concept-editorial-evidence__section-copy">
+          Keep the exchange simple here. Ask, read the reply, then pull only the material that earns space in the draft.
+        </p>
+        {hasConversation ? (
+          <div className="concept-editorial-evidence__messages" aria-live="polite">
           {model.agentBusy && (
             <div className="concept-editorial-evidence__status">
               {model.agentModeLabel ? `${model.agentModeLabel}…` : 'The Partner is thinking…'}
@@ -611,79 +670,180 @@ export const ConceptEvidenceStreamRail = ({ concept, model, onIntegrateCard, act
               {model.agentError}
             </div>
           )}
-            {recentMessages.map((message) => (
-              <article
-                key={message.id}
-                className={`concept-editorial-evidence__message concept-editorial-evidence__message--${clean(message.role) || 'assistant'}`}
-              >
-                <div className="concept-editorial-evidence__message-meta">
-                  <span>{clean(message.role) === 'user' ? 'You' : 'Partner'}</span>
-                </div>
-                <p>{formatStreamMessage(message)}</p>
-              </article>
-            ))}
-        </div>
-      )}
-
-      {suggestedCardsFirst.length > 0 && (
-        <div className="concept-editorial-evidence__result">
-          <div className="concept-editorial-evidence__result-head">
-            <span>Fresh pulls</span>
-            <span>{suggestedCardsFirst.length} attached</span>
+          {recentMessages.map((message) => (
+            <article
+              key={message.id}
+              className={`concept-editorial-evidence__message concept-editorial-evidence__message--${clean(message.role) || 'assistant'}`}
+            >
+              <div className="concept-editorial-evidence__message-meta">
+                <span>{clean(message.role) === 'user' ? 'You' : 'Partner'}</span>
+              </div>
+              <p>{formatStreamMessage(message)}</p>
+            </article>
+          ))}
+          {!recentMessages.length && latestComment && (
+            <article className="concept-editorial-evidence__message">
+              <div className="concept-editorial-evidence__message-meta">
+                <span>Partner</span>
+              </div>
+              <p>{latestComment.body}</p>
+            </article>
+          )}
           </div>
-          <p>
-            The newest material is surfaced first so you can decide what belongs in the draft.
-          </p>
-          <ul>
-            {suggestedCardsFirst.slice(0, 3).map((card) => (
-              <li key={`result-${card.id}`}>{card.title || truncate(card.content, 64) || 'Untitled evidence'}</li>
-            ))}
-          </ul>
+        ) : (
+          <p className="concept-editorial-evidence__empty">No conversation yet. Start with one prompt above.</p>
+        )}
+      </section>
+
+      <section className="concept-editorial-evidence__section">
+        <div className="concept-editorial-evidence__section-head">
+          <span>Pulled material</span>
+          <span>{pulledMaterialCards.length > 0 ? `${pulledMaterialCards.length} ready` : 'Waiting'}</span>
         </div>
+        <p className="concept-editorial-evidence__section-copy">
+          Articles, highlights, and source leads the partner surfaced for this concept.
+        </p>
+        {pulledMaterialCards.length > 0 ? (
+          <div className="concept-editorial-evidence__stack">
+            {pulledMaterialCards.map((card) => (
+              <DraggableEvidenceCard
+                key={card.id}
+                card={card}
+                onIntegrate={(nextCard) => {
+                  if (onIntegrateCard) {
+                    onIntegrateCard(nextCard);
+                    return;
+                  }
+                  if (model.state.cards.some((item) => String(item.id) === String(nextCard?.id))) {
+                    model.actions.insertCardIntoHypothesis(String(nextCard.id), { removeCard: true });
+                    return;
+                  }
+                  model.actions.addSuggestedCard(nextCard, 'workspace');
+                  model.actions.updateHypothesisHtml(
+                    `${model.state.hypothesis.html || '<p></p>'}${formatEditorialEvidenceHtml(nextCard)}`
+                  );
+                }}
+              />
+            ))}
+          </div>
+        ) : (
+          <p className="concept-editorial-evidence__empty">Pulled sources and highlights will collect here after the next agent move.</p>
+        )}
+      </section>
+
+      {hasPreparedMoves && (
+        <section className="concept-editorial-evidence__section">
+          <div className="concept-editorial-evidence__section-head">
+            <span>Prepared moves</span>
+            <span>Apply or hold</span>
+          </div>
+          <p className="concept-editorial-evidence__section-copy">
+            Staged support, tension, and revision work waiting for your call.
+          </p>
+
+          {freshness.isStale && (
+            <div className="concept-editorial-evidence__result concept-editorial-evidence__result--proposal">
+              <div className="concept-editorial-evidence__result-head">
+                <span>Fresh material waiting</span>
+                <span>{freshness.unreviewedCount || 0} newer</span>
+              </div>
+              <p>{freshness.summary}</p>
+              {Array.isArray(freshness.preview) && freshness.preview.length > 0 && (
+                <ul>
+                  {freshness.preview.slice(0, 3).map((item) => (
+                    <li key={`freshness-${item}`}>{item}</li>
+                  ))}
+                </ul>
+              )}
+              <div className="concept-editorial-evidence__proposal-actions">
+                <button type="button" onClick={() => model.actions.markReviewed?.()}>
+                  Mark current
+                </button>
+              </div>
+            </div>
+          )}
+
+          {pendingChangeDrafts.map((draft) => (
+            <div key={draft.id} className="concept-editorial-evidence__result concept-editorial-evidence__result--proposal">
+              <div className="concept-editorial-evidence__result-head">
+                <span>{draft.title}</span>
+                <span>{getDraftTargetLabel(draft)}</span>
+              </div>
+              <p>{draft.summary}</p>
+              {clean(draft.caption) && (
+                <p className="concept-editorial-evidence__proposal-note">{draft.caption}</p>
+              )}
+              {Array.isArray(draft.cards) && draft.cards.length > 0 && (
+                <ul className="concept-editorial-evidence__proposal-list">
+                  {draft.cards.slice(0, 3).map((card) => (
+                    <li key={`${draft.id}-${card.id}`}>
+                      <span>{zoneLabel(card.zone)}</span>
+                      <strong>{card.title || truncate(card.content, 64) || 'Untitled source'}</strong>
+                      {clean(card.source) && <em>{card.source}</em>}
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <div className="concept-editorial-evidence__proposal-actions">
+                <button type="button" onClick={() => model.actions.applyChangeDraft(draft.id)}>
+                  {getDraftApplyLabel(draft)}
+                </button>
+                <button type="button" onClick={() => model.actions.dismissChangeDraft(draft.id)}>
+                  Not now
+                </button>
+              </div>
+            </div>
+          ))}
+
+          {pendingRevision && (
+            <div className="concept-editorial-evidence__result concept-editorial-evidence__result--proposal">
+              <div className="concept-editorial-evidence__result-head">
+                <span>Pending revision</span>
+                <span>Approval required</span>
+              </div>
+              <p>{pendingRevision.body}</p>
+              {clean(pendingRevision.caption) && (
+                <p className="concept-editorial-evidence__proposal-note">{pendingRevision.caption}</p>
+              )}
+              <div className="concept-editorial-evidence__proposal-actions">
+                <button type="button" onClick={() => model.actions.acceptAgentComment(pendingRevision.id)}>
+                  Apply revision
+                </button>
+                <button type="button" onClick={() => model.actions.dismissAgentComment(pendingRevision.id)}>
+                  Dismiss
+                </button>
+              </div>
+            </div>
+          )}
+        </section>
       )}
 
-      <div className="concept-editorial-evidence__stack">
-        {activeSection === 'annotations' && latestComment && (
-          <article className="concept-editorial-evidence__item concept-editorial-evidence__item--agent">
-            <div className="concept-editorial-evidence__item-meta">
-              <span>Recent signal</span>
-              <span>{latestComment.tone || 'signal'}</span>
-            </div>
-            <p>{latestComment.body}</p>
-          </article>
-        )}
-
-        {streamCards.map((card) => (
-          <DraggableEvidenceCard
-            key={card.id}
-            card={card}
-            onIntegrate={(nextCard) => {
-              if (onIntegrateCard) {
-                onIntegrateCard(nextCard);
-                return;
-              }
-              if (model.state.cards.some((item) => String(item.id) === String(nextCard?.id))) {
-                model.actions.insertCardIntoHypothesis(String(nextCard.id));
-                return;
-              }
-              model.actions.addSuggestedCard(nextCard, 'workspace');
-              model.actions.updateHypothesisHtml(
-                `${model.state.hypothesis.html || '<p></p>'}${formatEditorialEvidenceHtml(nextCard)}`
-              );
-            }}
-          />
-        ))}
-
-        {activeSection !== 'annotations' && latestComment && (
-          <article className="concept-editorial-evidence__item concept-editorial-evidence__item--agent">
-            <div className="concept-editorial-evidence__item-meta">
-              <span>Recent signal</span>
-              <span>{latestComment.tone || 'signal'}</span>
-            </div>
-            <p>{latestComment.body}</p>
-          </article>
-        )}
-      </div>
+      {!isFreshConcept && (
+        <section className="concept-editorial-evidence__section concept-editorial-evidence__section--handoff">
+          <div className="concept-editorial-evidence__section-head">
+            <span>Notebook handoff</span>
+            <span>Downstream draft</span>
+          </div>
+          <p className="concept-editorial-evidence__section-copy">
+            Spin the concept into a downstream draft without losing the concept as the source of truth.
+          </p>
+          <div className="concept-editorial-evidence__handoff-options">
+            {notebookHandoffTemplates.map((template) => (
+              <button
+                key={template.id}
+                type="button"
+                onClick={() => model.actions.dispatchConceptAction(CONCEPT_ACTIONS.CREATE_NOTEBOOK_DRAFT, {
+                  template: template.id
+                })}
+                disabled={model.agentBusy}
+              >
+                <strong>{template.label}</strong>
+                <span>{template.description}</span>
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
     </div>
   );
 };

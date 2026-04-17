@@ -15,6 +15,7 @@ describe('NotebookContext', () => {
             sourceType: 'concept',
             sourceLabel: 'Template Concept',
             sourceUrl: '/think?tab=concepts&concept=Template%20Concept',
+            draftTemplateLabel: 'Essay draft',
             importedAt: '2026-04-10T00:00:00.000Z'
           },
           blocks: [
@@ -29,7 +30,8 @@ describe('NotebookContext', () => {
       'href',
       '/think?tab=concepts&concept=Template%20Concept'
     );
-    expect(screen.getByText('Concept handoff')).toBeInTheDocument();
+    expect(screen.getByText('Concept handoff · Essay draft')).toBeInTheDocument();
+    expect(screen.getByText(/Essay draft spun out from the concept/i)).toBeInTheDocument();
     expect(screen.getByText(/Bring the draft forward here, then return to the concept/i)).toBeInTheDocument();
   });
 });

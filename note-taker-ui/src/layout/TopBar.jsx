@@ -86,7 +86,7 @@ const TopBar = ({
         {searchMode === 'field' ? (
           <div className="topbar__search-slot">
             <div className="topbar__search-wrap">
-              <span className="topbar__search-icon" aria-hidden="true">⌕</span>
+              <span className="topbar__search-icon" aria-hidden="true" />
               <input
                 type="text"
                 className="topbar__search"

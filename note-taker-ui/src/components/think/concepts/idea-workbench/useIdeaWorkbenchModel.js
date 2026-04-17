@@ -577,15 +577,16 @@ const buildSeedState = ({ concept, material, related, questions }) => {
     }));
   const questionCards = library.filter(card => card.zone === 'questions').slice(0, 2);
   const cards = [...workspaceCards, ...questionCards];
-  const seededHypothesis = clean(concept?.description)
+  const hasSeededDescription = Boolean(clean(concept?.description));
+  const seededHypothesis = hasSeededDescription
     ? textToHtml(concept.description)
-    : '<p>Use this panel to turn the raw material above into a claim worth testing.</p>';
+    : '<p></p>';
   const maturity = computeMaturity({ cards, hypothesisHtml: seededHypothesis });
   const initialVersion = createVersion(
     seededHypothesis,
-    clean(concept?.description)
+    hasSeededDescription
       ? 'Seeded from the previous concept summary.'
-      : 'Initialized a fresh hypothesis draft scaffold.',
+      : 'Initialized a calm concept surface.',
     1,
     maturity
   );
@@ -615,22 +616,24 @@ const buildSeedState = ({ concept, material, related, questions }) => {
       dismissedFreshnessSignature: ''
     },
     agent: {
-      comments: [
-        createAgentComment({
-          title: 'A working claim is starting to appear',
-          body: clean(concept?.description)
-            ? 'The prior concept summary is a useful starting point, but it still needs evidence sorted into support, tension, and unanswered questions.'
-            : 'Start by dragging two or three cards into support or contradiction so the hypothesis has visible pressure around it.',
-          tone: 'signal',
-          anchorText: clean(concept?.description) ? truncate(concept.description, 80) : ''
-        })
-      ],
-      messages: [
-        createAgentMessage({
-          text: 'I can help sort evidence, propose a sharper hypothesis, or challenge the draft once you have a few cards in place.',
-          action: 'seed'
-        })
-      ]
+      comments: hasSeededDescription
+        ? [
+          createAgentComment({
+            title: 'A working claim is starting to appear',
+            body: 'The prior concept summary is a useful starting point, but it still needs evidence sorted into support, tension, and unanswered questions.',
+            tone: 'signal',
+            anchorText: truncate(concept.description, 80)
+          })
+        ]
+        : [],
+      messages: hasSeededDescription
+        ? [
+          createAgentMessage({
+            text: 'I can help sort evidence, propose a sharper hypothesis, or challenge the draft once you have a few cards in place.',
+            action: 'seed'
+          })
+        ]
+        : []
     }
   };
 };
@@ -1259,7 +1262,7 @@ export const useIdeaWorkbenchModel = ({
     return () => {
       cancelled = true;
     };
-  }, [commitServerWorkbench, conceptKey, seedSignature, storageKey]);
+  }, [commitServerWorkbench, conceptKey, storageKey]);
 
   useEffect(() => {
     if (!storageKey || hydratedKey !== storageKey) return;
@@ -1872,6 +1875,8 @@ export const useIdeaWorkbenchModel = ({
             }));
             return;
           }
+          setAgentError('No remembered sources matched this concept yet.');
+          return;
         }
 
         if (action === 'suggest-open-questions') {

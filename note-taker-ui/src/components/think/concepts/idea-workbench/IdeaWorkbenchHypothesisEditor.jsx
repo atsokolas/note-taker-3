@@ -17,7 +17,9 @@ const IdeaWorkbenchHypothesisEditor = ({
   droppableId = 'hypothesis-editor',
   isReceivingDrop = false,
   onEditorReady,
-  onDropCard
+  onDropCard,
+  hideToolbar = false,
+  placeholder = 'Write the current hypothesis here. Let it stay provisional and editable.'
 }) => {
   const { isOver, setNodeRef } = useDroppable({ id: droppableId });
   const onDropCardRef = useRef(onDropCard);
@@ -44,7 +46,7 @@ const IdeaWorkbenchHypothesisEditor = ({
         heading: { levels: [2, 3] }
       }),
       Placeholder.configure({
-        placeholder: 'Write the current hypothesis here. Let it stay provisional and editable.'
+        placeholder
       })
     ],
     content: value,
@@ -110,18 +112,20 @@ const IdeaWorkbenchHypothesisEditor = ({
       onDragOver={handleDragOver}
       onDrop={handleDrop}
     >
-      <div className="idea-workbench-hypothesis__toolbar">
-        {toolbarItems.map((item) => (
-          <QuietButton
-            key={item.label}
-            type="button"
-            className={item.isActive(editor) ? 'is-active' : ''}
-            onClick={() => item.run(editor)}
-          >
-            {item.label}
-          </QuietButton>
-        ))}
-      </div>
+      {!hideToolbar && (
+        <div className="idea-workbench-hypothesis__toolbar">
+          {toolbarItems.map((item) => (
+            <QuietButton
+              key={item.label}
+              type="button"
+              className={item.isActive(editor) ? 'is-active' : ''}
+              onClick={() => item.run(editor)}
+            >
+              {item.label}
+            </QuietButton>
+          ))}
+        </div>
+      )}
       <EditorContent editor={editor} />
     </div>
   );

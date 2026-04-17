@@ -102,7 +102,8 @@ const buildAiMaintenanceRouter = ({
 
   router.get('/api/ai/health', authenticateToken, async (req, res) => {
     if (!isAiEnabled()) {
-      return res.status(503).json({
+      return res.status(200).json({
+        status: 'disabled',
         error: 'AI_DISABLED',
         hint: 'Set AI_ENABLED=true to enable AI features.'
       });

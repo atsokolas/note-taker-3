@@ -80,7 +80,7 @@ const CHANGE_DRAFT_META = {
     zone: 'questions'
   },
   refresh: {
-    title: 'Fresh material waiting',
+    title: 'Freshness pull prepared',
     summary: (_count, cards) => buildChangeDraftSummary('refresh', cards),
     applyLabel: 'fresh source',
     zone: 'workspace'
