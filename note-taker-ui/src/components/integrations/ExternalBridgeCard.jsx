@@ -2,6 +2,18 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { Button, Card } from '../ui';
 
+const CAPABILITY_LABELS = {
+  sharedSkills: 'Shared skills',
+  sharedThreads: 'Shared threads',
+  sharedArtifactDrafts: 'Shared artifact drafts',
+  protocolHandoffs: 'Protocol handoffs',
+  supportsPlans: 'Plans',
+  supportsCheckpoints: 'Checkpoints',
+  supportsThreadHandoffConversion: 'Thread to handoff conversion',
+  supportsWorkerRoles: 'Worker roles',
+  supportsSpecialistWorkers: 'Specialist workers'
+};
+
 const buildAuthHeaderSnippet = (bridgeToken = '') => (
   bridgeToken ? `Authorization: Bearer ${bridgeToken}` : 'Authorization: Bearer <BRIDGE_TOKEN>'
 );
@@ -36,6 +48,41 @@ const buildWorkflowExample = () => `Recommended specialist-worker loop
 7. artifacts/drafts/promote
 8. handoffs/complete`;
 
+const resolveBridgeBaseUrl = () => {
+  const configured = String(process.env.REACT_APP_API_BASE_URL || '').trim();
+  if (configured) return configured.replace(/\/$/, '');
+  if (typeof window !== 'undefined' && window.location?.origin) {
+    return String(window.location.origin).replace(/\/$/, '');
+  }
+  return 'http://localhost:5500';
+};
+
+const buildOpenClawConfig = ({
+  bridgeToken = '',
+  scope = 'agent_ops',
+  actorType = 'user',
+  actorName = '',
+  expiresInSec = 1800
+}) => {
+  const baseUrl = resolveBridgeBaseUrl();
+  return JSON.stringify({
+    name: actorName || (actorType === 'native_agent' ? 'Native agent' : actorType === 'byo_agent' ? 'BYO agent' : 'User bridge'),
+    protocol: 'note-taker-agent-bridge-v1',
+    scope,
+    expires_in_sec: expiresInSec,
+    manifest_url: `${baseUrl}/api/agent/protocol/bridge/manifest`,
+    a2a_url: `${baseUrl}/api/agent/protocol/bridge/a2a`,
+    mcp_url: `${baseUrl}/api/agent/protocol/bridge/mcp`,
+    headers: {
+      Authorization: `Bearer ${bridgeToken}`
+    }
+  }, null, 2);
+};
+
+const listEnabledCapabilities = (capabilities = {}) => Object.entries(capabilities)
+  .filter(([, enabled]) => Boolean(enabled))
+  .map(([key]) => CAPABILITY_LABELS[key] || key);
+
 const ExternalBridgeCard = ({
   bridgeModel,
   sortedAgents = []
@@ -54,14 +101,32 @@ const ExternalBridgeCard = ({
     bridgeBusy,
     bridgeError,
     bridgeToken,
+    bridgeManifestLoading,
+    bridgeManifestError,
+    bridgeManifest,
+    bridgeCopyStatus,
+    bridgeMeta,
     protocolApprovals,
     protocolApprovalsLoading,
     protocolApprovalsError,
     protocolApprovalBusyId,
     handleCreateBridgeToken,
+    handleTestBridgeConnection,
+    handleCopyBridgeConfig,
     handleApproveProtocolApproval,
     handleRejectProtocolApproval
   } = bridgeModel;
+
+  const selectedAgent = activePersonalAgents.find(agent => agent._id === bridgeActorId);
+  const selectedAgentName = selectedAgent?.name || '';
+  const manifestCapabilities = listEnabledCapabilities(bridgeManifest?.capabilities);
+  const bridgeConfigPreview = bridgeToken ? buildOpenClawConfig({
+    bridgeToken,
+    scope: bridgeMeta?.scope || bridgeScope,
+    actorType: bridgeActorType,
+    actorName: selectedAgentName,
+    expiresInSec: bridgeMeta?.expiresInSec || bridgeTtl
+  }) : '';
 
   return (
     <Card className="settings-card">
@@ -149,6 +214,43 @@ const ExternalBridgeCard = ({
         <div className="import-summary">
           <p className="muted-label">Bridge token (shown once)</p>
           <p style={{ wordBreak: 'break-all' }}>{bridgeToken}</p>
+          <div style={{ marginTop: 16 }}>
+            <p className="muted-label">Bridge quickstart</p>
+            <p className="muted small">
+              Copy a ready-to-paste OpenClaw config, then verify the manifest before handing the bridge to an external runtime.
+            </p>
+            <div className="settings-import-row" style={{ marginTop: 8 }}>
+              <Button variant="secondary" disabled={bridgeManifestLoading} onClick={handleTestBridgeConnection}>
+                {bridgeManifestLoading ? 'Testing…' : 'Test bridge connection'}
+              </Button>
+              <Button variant="secondary" onClick={() => handleCopyBridgeConfig(selectedAgentName)}>
+                Copy OpenClaw config
+              </Button>
+            </div>
+            {bridgeCopyStatus && (
+              <p className={`status-message ${/copied/i.test(bridgeCopyStatus) ? 'success-message' : 'error-message'}`}>
+                {bridgeCopyStatus}
+              </p>
+            )}
+            {bridgeManifestError && <p className="status-message error-message">{bridgeManifestError}</p>}
+            {bridgeManifest && (
+              <div style={{ marginTop: 10 }}>
+                <p className="status-message success-message">Bridge verified</p>
+                <p className="muted small" style={{ marginTop: 6 }}>
+                  {bridgeManifest.protocol} for {bridgeManifest.actor?.actorType || bridgeActorType} on {bridgeManifest.scope || bridgeScope}.
+                </p>
+                {manifestCapabilities.length > 0 && (
+                  <p className="muted small" style={{ marginTop: 6 }}>
+                    {manifestCapabilities.join(' • ')}
+                  </p>
+                )}
+              </div>
+            )}
+            <div style={{ marginTop: 12 }}>
+              <p className="muted-label">OpenClaw config</p>
+              <pre style={{ whiteSpace: 'pre-wrap', margin: '8px 0 0' }}>{bridgeConfigPreview}</pre>
+            </div>
+          </div>
           <pre style={{ whiteSpace: 'pre-wrap', margin: '8px 0 0' }}>
 {`Bridge endpoints:
 GET  /api/agent/protocol/bridge/manifest

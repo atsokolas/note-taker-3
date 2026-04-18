@@ -9,6 +9,13 @@ import ReturnLaterControl from '../../return-queue/ReturnLaterControl';
 import InsertHighlightModal from './InsertHighlightModal';
 import InsertReferenceModal from './InsertReferenceModal';
 import AgentSkillDock from '../../agent/AgentSkillDock';
+import RichTextToolbar from '../editor/RichTextToolbar';
+import SlashCommandMenu from '../editor/SlashCommandMenu';
+import DraftBlockTray from '../editor/DraftBlockTray';
+import useSlashCommands from '../editor/useSlashCommands';
+import { createArtifactSlashItems } from '../editor/editorArtifacts';
+import { handleEditorStructureShortcut } from '../editor/editorShortcuts';
+import { moveCurrentBlock } from '../editor/blockMovement';
 import useHighlights from '../../../hooks/useHighlights';
 import useArticles from '../../../hooks/useArticles';
 import useConcepts from '../../../hooks/useConcepts';
@@ -26,6 +33,8 @@ const ITEM_TYPES = [
   { value: 'claim', label: 'Claim' },
   { value: 'evidence', label: 'Evidence' }
 ];
+
+const EMPTY_CLAIM_CANDIDATES = [];
 
 const formatImportedDate = (value) => {
   if (!value) return '';
@@ -268,12 +277,14 @@ const NotebookEditor = ({
   onCreate,
   onSynthesize,
   onDump,
-  claimCandidates = [],
+  claimCandidates = EMPTY_CLAIM_CANDIDATES,
   onInvokeAgentSkill = null,
   agentContextType = 'notebook',
   agentContextId = '',
   agentContextTitle = ''
 }) => {
+  const slashSurfaceRef = useRef(null);
+  const slashKeyDownRef = useRef(() => false);
   const [titleDraft, setTitleDraft] = useState(entry?.title || '');
   const [insertMode, setInsertMode] = useState('');
   const [organizeOpen, setOrganizeOpen] = useState(false);
@@ -293,6 +304,44 @@ const NotebookEditor = ({
   const { concepts } = useConcepts();
   const { questions } = useQuestions({ status: 'open', enabled: insertMode === 'question' });
   const highlightLookupRef = useRef((id) => highlightMap.get(String(id)));
+  const slashActionItems = useMemo(() => ([
+    ...createArtifactSlashItems(),
+    {
+      id: 'insertHighlight',
+      label: 'Insert highlight',
+      description: 'Bring a saved highlight onto the page.',
+      keywords: ['highlight', 'quote', 'evidence'],
+      intent: 'artifact',
+      artifactType: 'evidence',
+      onSelect: () => setInsertMode('highlight')
+    },
+    {
+      id: 'insertArticle',
+      label: 'Insert article',
+      description: 'Reference a saved article.',
+      keywords: ['article', 'source', 'read'],
+      intent: 'artifact',
+      onSelect: () => setInsertMode('article')
+    },
+    {
+      id: 'insertConcept',
+      label: 'Insert concept',
+      description: 'Link a concept into the draft.',
+      keywords: ['concept', 'idea', 'topic'],
+      intent: 'artifact',
+      artifactType: 'concept',
+      onSelect: () => setInsertMode('concept')
+    },
+    {
+      id: 'insertQuestion',
+      label: 'Insert question',
+      description: 'Pull in an open question.',
+      keywords: ['question', 'prompt', 'open'],
+      intent: 'artifact',
+      artifactType: 'question',
+      onSelect: () => setInsertMode('question')
+    }
+  ]), []);
 
   useEffect(() => {
     highlightLookupRef.current = (id) => highlightMap.get(String(id));
@@ -308,7 +357,7 @@ const NotebookEditor = ({
   const editor = useEditor({
     extensions: [
       StarterKit.configure({ heading: { levels: [1, 2, 3] } }),
-      Placeholder.configure({ placeholder: 'Write freely…' }),
+      Placeholder.configure({ placeholder: 'Write freely… Type / for commands.' }),
       ListIndentExtension,
       BlockIdExtension,
       highlightExtension,
@@ -318,9 +367,25 @@ const NotebookEditor = ({
     ],
     content: entry?.blocks?.length ? buildDocFromBlocks(entry.blocks) : (entry?.content || '<p></p>'),
     editorProps: {
-      attributes: { class: 'think-notebook-editor-body' }
+      attributes: { class: 'think-notebook-editor-body' },
+      handleKeyDown: (view, event) => (
+        slashKeyDownRef.current?.(view, event)
+        || handleEditorStructureShortcut({ editor, event, allowTitle: true })
+        || false
+      )
     }
   });
+
+  const slashCommands = useSlashCommands({
+    editor,
+    variant: 'full',
+    containerRef: slashSurfaceRef,
+    extraItems: slashActionItems
+  });
+
+  useEffect(() => {
+    slashKeyDownRef.current = slashCommands.onKeyDown;
+  }, [slashCommands.onKeyDown]);
 
   useEffect(() => {
     if (!onRegisterInsert) return;
@@ -570,13 +635,19 @@ const NotebookEditor = ({
   return (
     <div className="think-notebook-editor">
       <div className="think-notebook-editor-header">
-        <input
-          type="text"
-          className="think-notebook-title-input"
-          value={titleDraft}
-          onChange={(event) => setTitleDraft(event.target.value)}
-          placeholder="Untitled note"
-        />
+        <div className="think-notebook-title-block">
+          <span className="think-notebook-title-kicker">Document title</span>
+          <input
+            type="text"
+            className="think-notebook-title-input"
+            value={titleDraft}
+            onChange={(event) => setTitleDraft(event.target.value)}
+            placeholder="Title"
+          />
+          <p className="think-notebook-title-hint">
+            Start with a title, then shape the document with headings, lists, quotes, and inline emphasis.
+          </p>
+        </div>
         {notebookSourceMeta && (
           <div className="think-notebook-editor-provenance">
             <span className="think-notebook-editor-provenance__eyebrow">
@@ -609,11 +680,8 @@ const NotebookEditor = ({
               </Button>
             )}
             <div className="notebook-insert-group">
-              <div className="notebook-insert-labels">
-                <span className="notebook-insert-label">Insert from library</span>
-                <span className="notebook-insert-hint">Bring saved material onto the page.</span>
-              </div>
-              <div className="notebook-insert-buttons">
+              <span className="notebook-insert-label">Library</span>
+              <div className="notebook-insert-buttons" role="group" aria-label="Insert from library">
                 <QuietButton
                   className={insertMode === 'highlight' ? 'is-active' : ''}
                   onClick={() => setInsertMode('highlight')}
@@ -785,7 +853,27 @@ const NotebookEditor = ({
           {organizeError && <p className="status-message error-message">{organizeError}</p>}
         </div>
       )}
-      {editor && <EditorContent editor={editor} />}
+      <div className="think-editor-draft-surface" ref={slashSurfaceRef}>
+        <div className="think-editor-slash-hint">
+          <span className="think-editor-slash-hint__token">/</span>
+          <span>Type / for commands. Use arrows to choose and Enter to apply.</span>
+          <div className="think-editor-block-controls">
+            <QuietButton type="button" onClick={() => moveCurrentBlock(editor, 'up')}>Move up</QuietButton>
+            <QuietButton type="button" onClick={() => moveCurrentBlock(editor, 'down')}>Move down</QuietButton>
+          </div>
+        </div>
+        <DraftBlockTray editor={editor} />
+        <RichTextToolbar editor={editor} variant="full" className="think-notebook-editor-formatting" />
+        {editor && <EditorContent editor={editor} />}
+        <SlashCommandMenu
+          open={slashCommands.menu.open}
+          items={slashCommands.menu.items}
+          activeIndex={slashCommands.menu.activeIndex}
+          query={slashCommands.menu.query}
+          position={slashCommands.menu.position}
+          onSelect={slashCommands.selectCommand}
+        />
+      </div>
       <InsertHighlightModal
         open={insertMode === 'highlight'}
         highlights={highlights}

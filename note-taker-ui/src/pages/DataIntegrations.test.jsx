@@ -9,6 +9,7 @@ import {
   checkReadwiseConnection,
   connectReadwiseToken,
   createImportSession,
+  exportToNotionPage,
   getActiveImportSession,
   listImportConnections,
   previewNotionConnection,
@@ -36,6 +37,7 @@ jest.mock('../api/imports', () => ({
   checkReadwiseConnection: jest.fn(),
   connectReadwiseToken: jest.fn(),
   createImportSession: jest.fn(),
+  exportToNotionPage: jest.fn(),
   getActiveImportSession: jest.fn(),
   listImportConnections: jest.fn(),
   previewNotionConnection: jest.fn(),
@@ -60,6 +62,14 @@ describe('DataIntegrations first insight workflow', () => {
     checkNotionConnection.mockResolvedValue({});
     connectReadwiseToken.mockResolvedValue(null);
     startNotionOAuth.mockResolvedValue('');
+    exportToNotionPage.mockResolvedValue({
+      ok: true,
+      page: {
+        id: 'notion-page-1',
+        url: 'https://notion.so/notion-page-1',
+        title: 'My working note'
+      }
+    });
     previewReadwiseConnection.mockResolvedValue({});
     previewNotionConnection.mockResolvedValue({});
     createImportSession.mockResolvedValue({
@@ -291,7 +301,59 @@ describe('DataIntegrations first insight workflow', () => {
     expect(await screen.findByText('Activate your Readwise import')).toBeInTheDocument();
     expect(screen.getByText('Create a concept from books, tags, or highlights')).toBeInTheDocument();
     expect(screen.getByText('Keep the reading layer active')).toBeInTheDocument();
-    expect(screen.getByPlaceholderText('e.g. Deep work and attention')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('e.g. Attention')).toBeInTheDocument();
+  });
+
+  it('exports the active note to Notion when a workspace is connected', async () => {
+    localStorage.setItem('first-insight.activation.v1', JSON.stringify({
+      status: 'captured',
+      sourceType: 'manual-note',
+      title: 'My working note',
+      notebookEntryId: 'note-1',
+      conceptId: '',
+      conceptName: '',
+      articleId: '',
+      dueAt: '',
+      createdAt: '2026-04-17T10:00:00.000Z',
+      updatedAt: '2026-04-17T10:00:00.000Z',
+      counts: {
+        importedArticles: 0,
+        importedHighlights: 0,
+        importedNotes: 1
+      }
+    }));
+
+    listImportConnections.mockImplementation(async ({ provider } = {}) => {
+      if (provider === 'notion') {
+        return [{
+          id: 'notion-1',
+          provider: 'notion',
+          accountLabel: 'Product HQ',
+          status: 'connected',
+          lastValidatedAt: null,
+          lastSyncAt: null,
+          lastError: ''
+        }];
+      }
+      return [];
+    });
+
+    render(
+      <MemoryRouter>
+        <DataIntegrations />
+      </MemoryRouter>
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Export note to Notion' }));
+
+    await waitFor(() => expect(exportToNotionPage).toHaveBeenCalledWith({
+      connectionId: 'notion-1',
+      entityType: 'notebook',
+      conceptName: '',
+      notebookEntryId: 'note-1'
+    }));
+    expect(await screen.findByText('Exported "My working note" to Notion.')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'My working note' })).toHaveAttribute('href', 'https://notion.so/notion-page-1');
   });
 
   it('routes csv uploads from the files flow through the Readwise CSV importer', async () => {

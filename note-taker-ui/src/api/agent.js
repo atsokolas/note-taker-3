@@ -256,6 +256,16 @@ export const createAgentBridgeToken = async (payload = {}) => {
   return res.data || {};
 };
 
+export const getAgentBridgeManifest = async (bridgeToken) => {
+  const safeBridgeToken = String(bridgeToken || '').trim();
+  const res = await api.get('/api/agent/protocol/bridge/manifest', {
+    headers: {
+      Authorization: `Bearer ${safeBridgeToken}`
+    }
+  });
+  return res.data || {};
+};
+
 export const listAgentSkills = async ({
   surface = '',
   contextType = '',

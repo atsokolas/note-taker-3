@@ -8,6 +8,7 @@ import {
   checkReadwiseConnection,
   connectReadwiseToken,
   createImportSession,
+  exportToNotionPage,
   getActiveImportSession,
   listImportConnections,
   previewNotionConnection,
@@ -360,6 +361,8 @@ const DataIntegrations = () => {
   const [notionChecking, setNotionChecking] = useState(false);
   const [notionConnecting, setNotionConnecting] = useState(false);
   const [notionSyncing, setNotionSyncing] = useState(false);
+  const [notionExporting, setNotionExporting] = useState(false);
+  const [notionExportResult, setNotionExportResult] = useState(null);
   const [evernoteFile, setEvernoteFile] = useState(null);
   const [manualTitle, setManualTitle] = useState('');
   const [manualText, setManualText] = useState('');
@@ -1400,6 +1403,45 @@ const DataIntegrations = () => {
     }
   };
 
+  const handleExportCurrentToNotion = async () => {
+    if (!notionConnection?.id) {
+      setStatus('Connect Notion first so there is a workspace to export into.', 'error');
+      return;
+    }
+
+    const activeState = activationState || readFirstInsightState() || {};
+    const conceptTarget = String(activeState?.conceptName || '').trim();
+    const notebookTarget = String(activeState?.notebookEntryId || '').trim();
+    const entityType = conceptTarget ? 'concept' : (notebookTarget ? 'notebook' : '');
+
+    if (!entityType) {
+      setStatus('Create a note or concept first, then export it to Notion.', 'error');
+      return;
+    }
+
+    setNotionExporting(true);
+    try {
+      const result = await exportToNotionPage({
+        connectionId: notionConnection.id,
+        entityType,
+        conceptName: conceptTarget,
+        notebookEntryId: notebookTarget
+      });
+      setNotionExportResult(result?.page || null);
+      setStatus(
+        result?.page?.url
+          ? `Exported "${result.page.title}" to Notion.`
+          : 'Exported the current item to Notion.',
+        'success'
+      );
+    } catch (error) {
+      console.error('Failed to export current item to Notion:', error);
+      setStatus(error.response?.data?.error || 'Failed to export to Notion.', 'error');
+    } finally {
+      setNotionExporting(false);
+    }
+  };
+
   const persistedActivationState = activationState || readFirstInsightState();
   const importStatsActivationState = importStats
     ? {
@@ -1439,6 +1481,10 @@ const DataIntegrations = () => {
     || ['completed', 'completed_with_warnings'].includes(currentSession?.status)
     || ['captured', 'concept_created', 'scheduled'].includes(currentSession?.activation?.status);
   const scheduleTarget = getSchedulableTarget(derivedActivationState);
+  const canExportCurrentToNotion = Boolean(
+    notionConnection?.id
+    && (String(derivedActivationState?.conceptName || '').trim() || String(derivedActivationState?.notebookEntryId || '').trim())
+  );
   const busy = importing.manual
     || importing.paste
     || importing.csv
@@ -1452,7 +1498,8 @@ const DataIntegrations = () => {
     || readwiseSyncing
     || notionChecking
     || notionConnecting
-    || notionSyncing;
+    || notionSyncing
+    || notionExporting;
   const sessionTone = getSessionTone(currentSession);
   const sessionMessage = getSessionMessage(currentSession);
   const selectedSourcePreview = getPreviewForSource(currentSession, selectedSource);
@@ -1750,6 +1797,30 @@ const DataIntegrations = () => {
               <p>Last preview: {notionConnection.lastPreviewAt ? new Date(notionConnection.lastPreviewAt).toLocaleString() : 'Never'}</p>
               <p>Last sync: {notionConnection.lastSyncAt ? new Date(notionConnection.lastSyncAt).toLocaleString() : 'Never'}</p>
               {notionConnection.lastError ? <p className="muted small">{notionConnection.lastError}</p> : null}
+              {canExportCurrentToNotion ? (
+                <div className="capture-actions" style={{ marginTop: 12 }}>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={handleExportCurrentToNotion}
+                    disabled={busy}
+                  >
+                    {notionExporting
+                      ? 'Exporting…'
+                      : (String(derivedActivationState?.conceptName || '').trim()
+                        ? 'Export current concept to Notion'
+                        : 'Export current note to Notion')}
+                  </Button>
+                </div>
+              ) : null}
+              {notionExportResult?.url ? (
+                <p className="muted small" style={{ marginTop: 8 }}>
+                  Latest export:{' '}
+                  <a href={notionExportResult.url} target="_blank" rel="noopener noreferrer">
+                    {notionExportResult.title || 'Open in Notion'}
+                  </a>
+                </p>
+              ) : null}
             </div>
           ) : (
             <p className="muted small">Share pages or databases with the integration after connecting so they can be discovered by Notion search.</p>
@@ -1956,6 +2027,20 @@ const DataIntegrations = () => {
             <Button type="button" variant="secondary" onClick={() => navigate('/review?tab=reflections')}>
               Open Review
             </Button>
+            {canExportCurrentToNotion && (
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={handleExportCurrentToNotion}
+                disabled={busy}
+              >
+                {notionExporting
+                  ? 'Exporting…'
+                  : (String(derivedActivationState?.conceptName || '').trim()
+                    ? 'Export concept to Notion'
+                    : 'Export note to Notion')}
+              </Button>
+            )}
             <Button
               type="button"
               variant="secondary"
@@ -1965,11 +2050,20 @@ const DataIntegrations = () => {
                 setConceptName('');
                 setConceptError('');
                 setScheduleError('');
+                setNotionExportResult(null);
               }}
             >
               Clear
             </Button>
           </div>
+          {notionExportResult?.url ? (
+            <p className="muted small">
+              Latest Notion export:{' '}
+              <a href={notionExportResult.url} target="_blank" rel="noopener noreferrer">
+                {notionExportResult.title || 'Open page'}
+              </a>
+            </p>
+          ) : null}
 
           <div className="first-insight-grid">
             <div className="first-insight-panel">

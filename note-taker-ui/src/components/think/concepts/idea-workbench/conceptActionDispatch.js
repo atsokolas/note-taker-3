@@ -8,7 +8,8 @@ export const CONCEPT_ACTIONS = Object.freeze({
   CLARIFY_DRAFT: 'clarify-draft',
   CHALLENGE_DRAFT: 'challenge-draft',
   SAVE_VERSION: 'save-version',
-  CREATE_NOTEBOOK_DRAFT: 'create-notebook-draft'
+  CREATE_NOTEBOOK_DRAFT: 'create-notebook-draft',
+  CREATE_AGENT_HANDOFF: 'create-agent-handoff'
 });
 
 const ACTION_EXECUTORS = {
@@ -21,14 +22,16 @@ const ACTION_EXECUTORS = {
   [CONCEPT_ACTIONS.CLARIFY_DRAFT]: ({ modelActions }) => modelActions.runQuickAction('rewrite-clearly'),
   [CONCEPT_ACTIONS.CHALLENGE_DRAFT]: ({ modelActions }) => modelActions.runQuickAction('challenge-hypothesis'),
   [CONCEPT_ACTIONS.SAVE_VERSION]: ({ modelActions, payload }) => modelActions.snapshotHypothesis(payload?.summary || ''),
-  [CONCEPT_ACTIONS.CREATE_NOTEBOOK_DRAFT]: ({ createNotebookDraft, payload }) => createNotebookDraft(payload || {})
+  [CONCEPT_ACTIONS.CREATE_NOTEBOOK_DRAFT]: ({ createNotebookDraft, payload }) => createNotebookDraft(payload || {}),
+  [CONCEPT_ACTIONS.CREATE_AGENT_HANDOFF]: ({ createConceptHandoff, payload }) => createConceptHandoff(payload || {})
 };
 
 export const dispatchConceptAction = ({
   type,
   payload = {},
   modelActions,
-  createNotebookDraft
+  createNotebookDraft,
+  createConceptHandoff
 }) => {
   const executor = ACTION_EXECUTORS[type];
   if (!executor) {
@@ -40,7 +43,10 @@ export const dispatchConceptAction = ({
   if (type === CONCEPT_ACTIONS.CREATE_NOTEBOOK_DRAFT && typeof createNotebookDraft !== 'function') {
     throw new Error('dispatchConceptAction requires createNotebookDraft for notebook actions.');
   }
-  return executor({ payload, modelActions, createNotebookDraft });
+  if (type === CONCEPT_ACTIONS.CREATE_AGENT_HANDOFF && typeof createConceptHandoff !== 'function') {
+    throw new Error('dispatchConceptAction requires createConceptHandoff for handoff actions.');
+  }
+  return executor({ payload, modelActions, createNotebookDraft, createConceptHandoff });
 };
 
 export default dispatchConceptAction;

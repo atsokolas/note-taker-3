@@ -87,6 +87,7 @@ import {
   makeAmbientRelatedItem
 } from '../utils/ambientAgentContext';
 import { buildQueuedAgentSkillPrompt } from '../utils/agentSkillInvocation';
+import { buildConceptAgentHandoffPayload } from '../utils/conceptAgentHandoff';
 
 const THINK_RIGHT_STORAGE_KEY = 'workspace-right-open:/think';
 const THINK_RIGHT_MIGRATION_KEY = 'workspace-right-open:/think:migrated-v2';
@@ -743,6 +744,24 @@ const ThinkMode = () => {
       });
       const { conceptContext: _conceptContext, ...requestPayload } = notebookDraft;
       return createNotebookEntry(requestPayload);
+    },
+    onCreateConceptHandoff: ({
+      concept: activeConcept,
+      state,
+      currentMaturity,
+      hypothesisVersion,
+      requestedActorId = '',
+      requestedActorName = ''
+    }) => {
+      const payload = buildConceptAgentHandoffPayload({
+        concept: activeConcept,
+        state,
+        currentMaturity,
+        hypothesisVersion,
+        requestedActorId,
+        requestedActorName
+      });
+      return handoffsModel.handleCreateScopedHandoff(payload);
     }
   });
 
@@ -3739,6 +3758,7 @@ const ThinkMode = () => {
           <ConceptEvidenceStreamView
             concept={concept}
             model={ideaWorkbenchModel}
+            personalAgents={handoffsModel.sortedPersonalAgents}
           />
 
           {showLegacyConceptCollections && (
@@ -4442,6 +4462,7 @@ const ThinkMode = () => {
             <ConceptEvidenceStreamView
               concept={concept}
               model={ideaWorkbenchModel}
+              personalAgents={handoffsModel.sortedPersonalAgents}
               onEditorReady={setConceptEditorialEditor}
               onDropCard={handleIntegrateConceptCard}
               isReceivingDrop={conceptReceivingDrop}
@@ -4454,6 +4475,7 @@ const ThinkMode = () => {
           <ConceptEvidenceStreamRail
             concept={concept}
             model={ideaWorkbenchModel}
+            personalAgents={handoffsModel.sortedPersonalAgents}
             onIntegrateCard={handleIntegrateConceptCard}
             activeSection={conceptEditorialSection}
             onOpenTemplatePicker={openTemplatePicker}

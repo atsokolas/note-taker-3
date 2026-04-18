@@ -285,15 +285,9 @@
 }
 
 .idea-workbench-hypothesis__toolbar {
-  display: flex;
-  gap: 8px;
   padding: 12px 14px;
   border-bottom: 1px solid rgba(219, 205, 181, 0.7);
   background: rgba(255, 251, 244, 0.78);
-}
-
-.idea-workbench-hypothesis__toolbar .ui-quiet-button {
-  border-radius: 999px;
 }
 
 .idea-workbench-hypothesis__toolbar .ui-quiet-button.is-active {

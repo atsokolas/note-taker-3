@@ -5422,6 +5422,7 @@ app.use(buildImportRouter({
   EVENT_NAMES,
   path,
   crypto,
+  TagMeta,
   NotebookEntry,
   ImportSession,
   IntegrationConnection,

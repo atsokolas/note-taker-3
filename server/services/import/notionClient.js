@@ -5,6 +5,7 @@ const NOTION_TOKEN_URL = 'https://api.notion.com/v1/oauth/token';
 const NOTION_SEARCH_URL = 'https://api.notion.com/v1/search';
 const NOTION_BLOCK_CHILDREN_BASE_URL = 'https://api.notion.com/v1/blocks';
 const NOTION_DATA_SOURCE_BASE_URL = 'https://api.notion.com/v1/data_sources';
+const NOTION_PAGES_URL = 'https://api.notion.com/v1/pages';
 const NOTION_VERSION = '2025-09-03';
 
 const toTrimmedString = (value = '') => String(value || '').trim();
@@ -139,8 +140,38 @@ const queryNotionDataSourcePreviewPages = async ({ token, dataSourceId, pageSize
   };
 };
 
+const createNotionPage = async ({
+  token,
+  title,
+  children = [],
+  parentPageId = ''
+}) => {
+  const safeChildren = Array.isArray(children) ? children.slice(0, 100) : [];
+  const response = await axios.post(NOTION_PAGES_URL, {
+    parent: toTrimmedString(parentPageId)
+      ? { type: 'page_id', page_id: toTrimmedString(parentPageId) }
+      : { type: 'workspace', workspace: true },
+    properties: {
+      title: {
+        title: [{
+          type: 'text',
+          text: {
+            content: toTrimmedString(title) || 'Untitled'
+          }
+        }]
+      }
+    },
+    children: safeChildren
+  }, {
+    headers: notionHeaders(token),
+    timeout: 20000
+  });
+  return response.data || {};
+};
+
 module.exports = {
   NOTION_AUTHORIZE_URL,
+  createNotionPage,
   exchangeNotionCode,
   fetchNotionBlockChildren,
   queryNotionDataSourcePages,

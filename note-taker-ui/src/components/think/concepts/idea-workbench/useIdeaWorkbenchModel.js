@@ -1139,7 +1139,8 @@ export const useIdeaWorkbenchModel = ({
   concept,
   related,
   questions,
-  onCreateNotebookDraft
+  onCreateNotebookDraft,
+  onCreateConceptHandoff
 }) => {
   const conceptKey = clean(concept?._id || concept?.name);
   const storageKey = conceptKey ? `${STORAGE_PREFIX}:${conceptKey}` : '';
@@ -2440,12 +2441,23 @@ export const useIdeaWorkbenchModel = ({
           currentMaturity,
           hypothesisVersion
         });
+      },
+      createConceptHandoff: (nextPayload = {}) => {
+        if (typeof onCreateConceptHandoff !== 'function') return undefined;
+        return onCreateConceptHandoff({
+          ...nextPayload,
+          concept,
+          state,
+          currentMaturity,
+          hypothesisVersion
+        });
       }
     })
   ), [
     concept,
     currentMaturity,
     hypothesisVersion,
+    onCreateConceptHandoff,
     onCreateNotebookDraft,
     runQuickAction,
     snapshotHypothesis,

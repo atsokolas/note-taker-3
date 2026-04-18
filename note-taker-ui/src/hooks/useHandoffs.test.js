@@ -38,6 +38,19 @@ const HookProbe = ({ overrideAgents = [], initialStatusFilter = 'all' }) => {
       <button type="button" onClick={model.handleCreateHandoff}>
         create
       </button>
+      <button
+        type="button"
+        onClick={() => model.handleCreateScopedHandoff({
+          title: 'Concept handoff: Template Concept',
+          objective: 'Pressure-test the active concept and propose the next pass.',
+          taskType: 'synthesis',
+          requestedActor: { actorType: 'byo_agent', actorId: 'agent-1' },
+          context: { sourceContextType: 'concept', sourceContextId: 'concept-1' },
+          input: { seedDraft: { title: 'Template Concept working claim' } }
+        })}
+      >
+        scoped-create
+      </button>
     </div>
   );
 };
@@ -85,5 +98,25 @@ describe('useHandoffs', () => {
     expect(createAgentHandoff).not.toHaveBeenCalled();
     expect(screen.getByTestId('create-info')).toHaveTextContent('Auto-routed via balanced.');
     expect(listAgentHandoffs.mock.calls.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('creates a scoped handoff for a selected personal agent', async () => {
+    render(
+      <HookProbe
+        overrideAgents={[{ _id: 'agent-1', name: 'OpenClaw Researcher', status: 'active', updatedAt: '2026-04-17T00:00:00Z' }]}
+      />
+    );
+
+    fireEvent.click(screen.getByText('scoped-create'));
+
+    await waitFor(() => {
+      expect(createAgentHandoff).toHaveBeenCalledWith(expect.objectContaining({
+        title: 'Concept handoff: Template Concept',
+        taskType: 'synthesis',
+        requestedActor: { actorType: 'byo_agent', actorId: 'agent-1' },
+        context: expect.objectContaining({ sourceContextType: 'concept', sourceContextId: 'concept-1' })
+      }));
+    });
+    expect(createAutoAgentHandoff).not.toHaveBeenCalled();
   });
 });

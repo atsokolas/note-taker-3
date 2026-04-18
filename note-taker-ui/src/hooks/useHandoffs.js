@@ -221,6 +221,50 @@ const useHandoffs = ({
     onProtocolApprovalQueued
   ]);
 
+  const handleCreateScopedHandoff = useCallback(async (payload = {}) => {
+    const title = String(payload?.title || '').trim();
+    if (!title || handoffCreating) return null;
+    const requestedActorType = String(payload?.requestedActor?.actorType || '').trim().toLowerCase();
+    const requestedActorId = String(payload?.requestedActor?.actorId || '').trim();
+    if (requestedActorType === 'byo_agent' && !requestedActorId) {
+      setHandoffCreateError('Select a personal agent before creating this handoff.');
+      return null;
+    }
+    setHandoffCreating(true);
+    setHandoffCreateError('');
+    setHandoffCreateInfo('');
+    try {
+      const response = await createAgentHandoff({
+        title,
+        objective: String(payload?.objective || '').trim(),
+        taskType: String(payload?.taskType || 'custom').trim() || 'custom',
+        priority: String(payload?.priority || 'normal').trim() || 'normal',
+        dueAt: String(payload?.dueAt || '').trim() || undefined,
+        requestedActor: payload?.requestedActor || {},
+        context: payload?.context && typeof payload.context === 'object' ? payload.context : {},
+        input: payload?.input && typeof payload.input === 'object' ? payload.input : {}
+      });
+      if (String(response?.status || '').trim().toLowerCase() === 'approval_required') {
+        setHandoffCreateInfo(String(response?.reason || 'Handoff creation queued for approval.'));
+        if (typeof onProtocolApprovalQueued === 'function') await onProtocolApprovalQueued();
+        return response;
+      }
+      if (Array.isArray(response?.hookWarnings) && response.hookWarnings.length > 0) {
+        setHandoffCreateInfo(response.hookWarnings.join(' '));
+      }
+      await loadHandoffs();
+      const createdId = String(response?.handoff?.handoffId || '').trim();
+      if (createdId && typeof onOpenHandoff === 'function') onOpenHandoff(createdId);
+      else setHandoffCreateInfo((previous) => previous || 'Handoff created.');
+      return response;
+    } catch (error) {
+      setHandoffCreateError(error.response?.data?.error || error.message || 'Failed to create handoff.');
+      return null;
+    } finally {
+      setHandoffCreating(false);
+    }
+  }, [handoffCreating, loadHandoffs, onOpenHandoff, onProtocolApprovalQueued]);
+
   const handleClaimHandoff = useCallback(async (handoffId) => {
     const safeId = String(handoffId || '').trim();
     if (!safeId || handoffActionBusyId) return;
@@ -365,6 +409,7 @@ const useHandoffs = ({
     formatDateTime,
     loadHandoffs,
     handleCreateHandoff,
+    handleCreateScopedHandoff,
     handleClaimHandoff,
     handleCompleteHandoff,
     handleRejectHandoff,

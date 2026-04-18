@@ -94,3 +94,20 @@ export const previewNotionConnection = async ({ connectionId, importSessionId = 
   }, getAuthHeaders());
   return response.data || {};
 };
+
+export const exportToNotionPage = async ({
+  connectionId,
+  entityType,
+  notebookEntryId = '',
+  conceptName = '',
+  parentPageId = ''
+} = {}) => {
+  const response = await api.post('/api/export/notion/page', {
+    connectionId,
+    entityType,
+    notebookEntryId,
+    conceptName,
+    parentPageId
+  }, getAuthHeaders());
+  return response.data || {};
+};

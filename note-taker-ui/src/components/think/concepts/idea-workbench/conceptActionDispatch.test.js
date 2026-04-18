@@ -50,6 +50,20 @@ describe('dispatchConceptAction', () => {
     expect(createNotebookDraft).toHaveBeenCalledWith({ destination: 'notebook' });
   });
 
+  it('routes concept handoff creation through the provided handoff handler', () => {
+    const modelActions = buildModelActions();
+    const createConceptHandoff = jest.fn();
+
+    dispatchConceptAction({
+      type: CONCEPT_ACTIONS.CREATE_AGENT_HANDOFF,
+      modelActions,
+      createConceptHandoff,
+      payload: { requestedActorId: 'agent-1' }
+    });
+
+    expect(createConceptHandoff).toHaveBeenCalledWith({ requestedActorId: 'agent-1' });
+  });
+
   it('throws for unsupported actions', () => {
     expect(() => dispatchConceptAction({
       type: 'unsupported',

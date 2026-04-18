@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import IdeaWorkbenchHypothesisEditor from './idea-workbench/IdeaWorkbenchHypothesisEditor';
+import { createArtifactSlashItems } from '../editor/editorArtifacts';
 import { sanitizeAgentReplyText } from './idea-workbench/useIdeaWorkbenchModel';
 import { CONCEPT_ACTIONS } from './idea-workbench/conceptActionDispatch';
 import { CONCEPT_NOTEBOOK_DRAFT_TEMPLATES } from '../../../utils/conceptNotebookDraft';
@@ -378,6 +379,24 @@ const ConceptEvidenceStreamView = ({
     if (nonAgentContradiction) return nonAgentContradiction;
     return contradictionCards[0] || null;
   }, [contradictionCards]);
+  const slashItems = useMemo(() => (
+    [
+      ...createArtifactSlashItems(),
+      ...model.state.cards
+      .filter((card) => card && card.id)
+      .slice(0, 6)
+      .map((card) => ({
+        id: `stream-card-${card.id}`,
+        label: `Insert ${zoneLabel(card.zone)}: ${truncate(card.title || card.content || 'Source', 44)}`,
+        description: truncate(card.whyItMatters || card.source || card.type || 'Bring this source into the draft.', 80),
+        keywords: [clean(card.zone), clean(card.type), 'evidence', 'concept'].filter(Boolean),
+        intent: 'artifact',
+        artifactType: clean(card.zone) === 'questions' ? 'question' : 'evidence',
+        prioritizeForQuery: clean(card.zone) === 'questions' ? ['question'] : ['evidence', 'support', 'tension'],
+        onSelect: ({ editor }) => onDropCard?.(card, null, editor)
+      }))
+    ]
+  ), [model.state.cards, onDropCard]);
   const runAction = async (action) => {
     onRunAction?.('assistant');
     await model.actions.dispatchConceptAction(action);
@@ -420,6 +439,7 @@ const ConceptEvidenceStreamView = ({
             isReceivingDrop={isReceivingDrop}
             onEditorReady={onEditorReady}
             onDropCard={onDropCard}
+            slashItems={slashItems}
             hideToolbar={isFreshConcept}
             placeholder={isFreshConcept
               ? 'Write the live claim, question, or hunch here. Keep it provisional.'
@@ -471,7 +491,14 @@ const ConceptEvidenceStreamView = ({
   );
 };
 
-export const ConceptEvidenceStreamRail = ({ concept, model, onIntegrateCard, activeSection = 'assistant', onOpenTemplatePicker }) => {
+export const ConceptEvidenceStreamRail = ({
+  concept,
+  model,
+  onIntegrateCard,
+  activeSection = 'assistant',
+  onOpenTemplatePicker,
+  personalAgents = []
+}) => {
   const contradictionCards = model.state.cards.filter((card) => card.zone === 'contradictions');
   const supportCards = model.state.cards.filter((card) => card.zone === 'supports');
   const workspaceCards = model.state.cards.filter((card) => card.zone === 'workspace');
@@ -562,6 +589,10 @@ export const ConceptEvidenceStreamRail = ({ concept, model, onIntegrateCard, act
   const notebookHandoffTemplates = useMemo(
     () => CONCEPT_NOTEBOOK_DRAFT_TEMPLATES.filter((template) => template.id !== 'default'),
     []
+  );
+  const activePersonalAgents = useMemo(
+    () => (Array.isArray(personalAgents) ? personalAgents : []).filter((agent) => clean(agent?.status).toLowerCase() === 'active'),
+    [personalAgents]
   );
   const pulledMaterialCards = useMemo(() => {
     const suggestedWorkspaceCards = suggestedCardsFirst.filter(
@@ -842,6 +873,40 @@ export const ConceptEvidenceStreamRail = ({ concept, model, onIntegrateCard, act
               </button>
             ))}
           </div>
+          <div className="concept-editorial-evidence__section-head" style={{ marginTop: 18 }}>
+            <span>Agent handoff</span>
+            <span>Scoped delegation</span>
+          </div>
+          <p className="concept-editorial-evidence__section-copy">
+            Send the live concept to a personal agent with the current claim, support, tension, and open questions already attached.
+          </p>
+          {activePersonalAgents.length > 0 ? (
+            <div className="concept-editorial-evidence__handoff-options">
+              {activePersonalAgents.map((agent) => {
+                const roleLabel = Array.isArray(agent?.preferredWorkerRoles) && agent.preferredWorkerRoles.length > 0
+                  ? agent.preferredWorkerRoles[0]
+                  : 'specialist';
+                return (
+                  <button
+                    key={agent._id}
+                    type="button"
+                    onClick={() => model.actions.dispatchConceptAction(CONCEPT_ACTIONS.CREATE_AGENT_HANDOFF, {
+                      requestedActorId: String(agent._id || ''),
+                      requestedActorName: String(agent.name || '')
+                    })}
+                    disabled={model.agentBusy}
+                  >
+                    <strong>{agent.name || 'Personal agent'}</strong>
+                    <span>{roleLabel}</span>
+                  </button>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="concept-editorial-evidence__empty">
+              No active personal agents yet. <a href="/integrations#personal-agents">Set one up</a>.
+            </p>
+          )}
         </section>
       )}
     </div>

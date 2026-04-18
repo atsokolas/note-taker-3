@@ -27,6 +27,7 @@ const {
 } = require('../services/import/readwiseTransform');
 const {
   NOTION_AUTHORIZE_URL,
+  createNotionPage,
   exchangeNotionCode,
   fetchNotionBlockChildren,
   queryNotionDataSourcePages,
@@ -49,6 +50,7 @@ const buildImportRouter = ({
   EVENT_NAMES,
   path,
   crypto,
+  TagMeta,
   NotebookEntry,
   ImportSession,
   IntegrationConnection,
@@ -197,6 +199,159 @@ const buildImportRouter = ({
     connection.lastValidatedAt = new Date();
     connection.lastError = toTrimmedString(message);
     await connection.save();
+  };
+
+  const truncateNotionText = (value = '', limit = 1900) => {
+    const safe = String(value || '').trim().replace(/\s+/g, ' ');
+    if (safe.length <= limit) return safe;
+    return `${safe.slice(0, Math.max(0, limit - 1)).trimEnd()}…`;
+  };
+
+  const textToRichText = (value = '') => {
+    const safe = truncateNotionText(value);
+    if (!safe) return [];
+    return [{
+      type: 'text',
+      text: {
+        content: safe
+      }
+    }];
+  };
+
+  const buildParagraphBlock = (value = '') => ({
+    object: 'block',
+    type: 'paragraph',
+    paragraph: {
+      rich_text: textToRichText(value)
+    }
+  });
+
+  const buildHeadingBlock = (value = '', level = 2) => {
+    const type = level === 1 ? 'heading_1' : (level === 3 ? 'heading_3' : 'heading_2');
+    return {
+      object: 'block',
+      type,
+      [type]: {
+        rich_text: textToRichText(value)
+      }
+    };
+  };
+
+  const buildBulletBlock = (value = '') => ({
+    object: 'block',
+    type: 'bulleted_list_item',
+    bulleted_list_item: {
+      rich_text: textToRichText(value)
+    }
+  });
+
+  const stripHtmlTags = (value = '') => (
+    String(value || '')
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/&nbsp;/gi, ' ')
+      .replace(/&amp;/gi, '&')
+      .replace(/&lt;/gi, '<')
+      .replace(/&gt;/gi, '>')
+      .replace(/\s+/g, ' ')
+      .trim()
+  );
+
+  const buildNotebookExportBlocks = (entry) => {
+    const blocks = Array.isArray(entry?.blocks) ? entry.blocks : [];
+    const notionBlocks = blocks.map((block) => {
+      const text = truncateNotionText(block?.text || '');
+      if (!text) return null;
+      if (String(block?.type || '').trim().toLowerCase() === 'bullet') {
+        return buildBulletBlock(text);
+      }
+      return buildParagraphBlock(text);
+    }).filter(Boolean);
+    if (notionBlocks.length > 0) return notionBlocks.slice(0, 100);
+
+    const fallback = stripHtmlTags(entry?.content || '');
+    return fallback ? [buildParagraphBlock(fallback)] : [];
+  };
+
+  const buildConceptExportBlocks = async ({ userId, conceptName }) => {
+    const safeName = toTrimmedString(conceptName);
+    if (!safeName) return { concept: null, children: [] };
+
+    const concept = await TagMeta.findOne({
+      userId,
+      name: new RegExp(`^${safeName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i')
+    }).lean();
+    if (!concept) return { concept: null, children: [] };
+
+    const children = [];
+    const description = toTrimmedString(concept.description);
+    if (description) {
+      children.push(buildParagraphBlock(description));
+    } else {
+      children.push(buildParagraphBlock('Created in Noeis as a maintained concept. Add a sharper summary here once the concept hardens.'));
+    }
+
+    const pinnedArticleIds = Array.isArray(concept.pinnedArticleIds) ? concept.pinnedArticleIds : [];
+    const pinnedNoteIds = Array.isArray(concept.pinnedNoteIds) ? concept.pinnedNoteIds : [];
+    const pinnedHighlightIds = Array.isArray(concept.pinnedHighlightIds) ? concept.pinnedHighlightIds : [];
+
+    if (pinnedArticleIds.length > 0) {
+      const articles = await Article.find({ userId, _id: { $in: pinnedArticleIds } })
+        .select('title url')
+        .limit(5)
+        .lean();
+      if (articles.length > 0) {
+        children.push(buildHeadingBlock('Pinned articles'));
+        articles.forEach((article) => {
+          const line = article?.url
+            ? `${article.title || 'Untitled article'} — ${article.url}`
+            : (article?.title || 'Untitled article');
+          children.push(buildBulletBlock(line));
+        });
+      }
+    }
+
+    if (pinnedNoteIds.length > 0) {
+      const notes = await NotebookEntry.find({ userId, _id: { $in: pinnedNoteIds } })
+        .select('title content')
+        .limit(5)
+        .lean();
+      if (notes.length > 0) {
+        children.push(buildHeadingBlock('Pinned notes'));
+        notes.forEach((note) => {
+          children.push(buildBulletBlock(`${note?.title || 'Untitled note'} — ${truncateNotionText(stripHtmlTags(note?.content || ''), 280)}`));
+        });
+      }
+    }
+
+    if (pinnedHighlightIds.length > 0) {
+      const sourceArticles = await Article.find({
+        userId,
+        'highlights._id': { $in: pinnedHighlightIds }
+      }).select('title highlights').lean();
+      const highlightIdSet = new Set(pinnedHighlightIds.map((id) => String(id)));
+      const highlights = [];
+      sourceArticles.forEach((article) => {
+        (Array.isArray(article?.highlights) ? article.highlights : []).forEach((highlight) => {
+          if (highlights.length >= 5) return;
+          if (!highlightIdSet.has(String(highlight?._id || ''))) return;
+          highlights.push({
+            text: highlight?.text || '',
+            articleTitle: article?.title || 'Source'
+          });
+        });
+      });
+      if (highlights.length > 0) {
+        children.push(buildHeadingBlock('Pinned highlights'));
+        highlights.forEach((highlight) => {
+          children.push(buildBulletBlock(`${highlight?.articleTitle || 'Source'} — ${truncateNotionText(highlight?.text || '', 280)}`));
+        });
+      }
+    }
+
+    return {
+      concept,
+      children: children.filter((block) => Array.isArray(block?.[block.type]?.rich_text) && block[block.type].rich_text.length > 0).slice(0, 100)
+    };
   };
 
   const buildNotebookEntryFromNotionPage = async ({
@@ -1292,6 +1447,91 @@ const buildImportRouter = ({
         }
       });
       res.status(500).json({ error: 'Failed to sync from Notion.' });
+    }
+  });
+
+  router.post('/api/export/notion/page', authenticateToken, async (req, res) => {
+    try {
+      const userId = req.user.id;
+      const connectionId = toTrimmedString(req.body?.connectionId);
+      const entityType = toTrimmedString(req.body?.entityType).toLowerCase();
+      const parentPageId = toTrimmedString(req.body?.parentPageId);
+
+      if (!connectionId) {
+        return res.status(400).json({ error: 'connectionId is required.' });
+      }
+      if (!['notebook', 'concept'].includes(entityType)) {
+        return res.status(400).json({ error: 'entityType must be notebook or concept.' });
+      }
+
+      const connection = await IntegrationConnection.findOne({
+        _id: connectionId,
+        userId,
+        provider: 'notion'
+      });
+      if (!connection) {
+        return res.status(404).json({ error: 'Notion connection not found.' });
+      }
+      if (!connection.encryptedAccessToken) {
+        return res.status(400).json({ error: 'Notion access token is missing for this connection.' });
+      }
+
+      const accessToken = decryptSecret(connection.encryptedAccessToken);
+      let title = '';
+      let children = [];
+
+      if (entityType === 'notebook') {
+        const notebookEntryId = toTrimmedString(req.body?.notebookEntryId);
+        if (!notebookEntryId) {
+          return res.status(400).json({ error: 'notebookEntryId is required for notebook export.' });
+        }
+        const entry = await NotebookEntry.findOne({ _id: notebookEntryId, userId }).lean();
+        if (!entry) {
+          return res.status(404).json({ error: 'Notebook entry not found.' });
+        }
+        title = toTrimmedString(entry.title) || 'Untitled note';
+        children = buildNotebookExportBlocks(entry);
+      }
+
+      if (entityType === 'concept') {
+        const conceptName = toTrimmedString(req.body?.conceptName);
+        if (!conceptName) {
+          return res.status(400).json({ error: 'conceptName is required for concept export.' });
+        }
+        const exported = await buildConceptExportBlocks({ userId, conceptName });
+        if (!exported?.concept) {
+          return res.status(404).json({ error: 'Concept not found.' });
+        }
+        title = toTrimmedString(exported.concept.name) || conceptName;
+        children = exported.children;
+      }
+
+      if (!title) {
+        return res.status(400).json({ error: 'Could not build a Notion page title for export.' });
+      }
+
+      const notionPage = await createNotionPage({
+        token: accessToken,
+        title,
+        children,
+        parentPageId
+      });
+
+      connection.lastSyncAt = new Date();
+      await markConnectionHealthy(connection);
+
+      return res.status(201).json({
+        ok: true,
+        page: {
+          id: toTrimmedString(notionPage?.id),
+          url: toTrimmedString(notionPage?.url),
+          title
+        },
+        connection: sanitizeConnection(connection.toObject())
+      });
+    } catch (error) {
+      console.error('Notion export failed:', error);
+      return res.status(500).json({ error: 'Failed to export to Notion.' });
     }
   });
 

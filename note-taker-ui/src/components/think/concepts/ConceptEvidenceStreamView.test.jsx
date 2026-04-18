@@ -154,6 +154,7 @@ describe('Concept evidence shell surfaces', () => {
         concept={{ _id: 'concept-1', name: 'Template Concept' }}
         model={model}
         activeSection="assistant"
+        personalAgents={[{ _id: 'agent-1', name: 'OpenClaw Researcher', status: 'active', preferredWorkerRoles: ['researcher'] }]}
       />
     );
 
@@ -165,9 +166,11 @@ describe('Concept evidence shell surfaces', () => {
     expect(screen.getByRole('button', { name: 'Clarify draft' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Review freshness' })).toBeInTheDocument();
     expect(screen.getByText('Notebook handoff')).toBeInTheDocument();
+    expect(screen.getByText('Agent handoff')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Essay draft Open the idea into a longer argument with room for counterpoints.' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Memo Turn the concept into a decision-ready brief with risks in view.' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Research notes Carry evidence, contradictions, and open questions into a lighter note.' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'OpenClaw Researcher researcher' })).toBeInTheDocument();
     expect(screen.getByText('Pulled material')).toBeInTheDocument();
     expect(screen.getByText('Fresh material waiting')).toBeInTheDocument();
     expect(screen.getByText('Support pull prepared')).toBeInTheDocument();
@@ -180,6 +183,7 @@ describe('Concept evidence shell surfaces', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Pull support' }));
     fireEvent.click(screen.getByRole('button', { name: 'Essay draft Open the idea into a longer argument with room for counterpoints.' }));
+    fireEvent.click(screen.getByRole('button', { name: 'OpenClaw Researcher researcher' }));
     fireEvent.click(screen.getByRole('button', { name: 'Mark current' }));
     fireEvent.click(screen.getByRole('button', { name: 'Add support' }));
     fireEvent.click(screen.getByRole('button', { name: 'Apply revision' }));
@@ -188,6 +192,10 @@ describe('Concept evidence shell surfaces', () => {
     expect(model.actions.dispatchConceptAction).toHaveBeenCalledWith(
       CONCEPT_ACTIONS.CREATE_NOTEBOOK_DRAFT,
       { template: 'essay' }
+    );
+    expect(model.actions.dispatchConceptAction).toHaveBeenCalledWith(
+      CONCEPT_ACTIONS.CREATE_AGENT_HANDOFF,
+      { requestedActorId: 'agent-1', requestedActorName: 'OpenClaw Researcher' }
     );
     expect(model.actions.markReviewed).toHaveBeenCalled();
     expect(model.actions.applyChangeDraft).toHaveBeenCalledWith('draft-1');
