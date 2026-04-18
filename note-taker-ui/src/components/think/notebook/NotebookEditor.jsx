@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { EditorContent, NodeViewWrapper, ReactNodeViewRenderer, useEditor } from '@tiptap/react';
+import { NodeViewWrapper, ReactNodeViewRenderer, useEditor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
 import { Extension, Node, mergeAttributes } from '@tiptap/core';
@@ -9,13 +9,10 @@ import ReturnLaterControl from '../../return-queue/ReturnLaterControl';
 import InsertHighlightModal from './InsertHighlightModal';
 import InsertReferenceModal from './InsertReferenceModal';
 import AgentSkillDock from '../../agent/AgentSkillDock';
-import RichTextToolbar from '../editor/RichTextToolbar';
-import SlashCommandMenu from '../editor/SlashCommandMenu';
-import DraftBlockTray from '../editor/DraftBlockTray';
+import EditorDraftShell from '../editor/EditorDraftShell';
 import useSlashCommands from '../editor/useSlashCommands';
 import { createArtifactSlashItems } from '../editor/editorArtifacts';
 import { handleEditorStructureShortcut } from '../editor/editorShortcuts';
-import { moveCurrentBlock } from '../editor/blockMovement';
 import useHighlights from '../../../hooks/useHighlights';
 import useArticles from '../../../hooks/useArticles';
 import useConcepts from '../../../hooks/useConcepts';
@@ -713,19 +710,24 @@ const NotebookEditor = ({
             <QuietButton onClick={() => setOrganizeOpen(prev => !prev)}>
               {organizeOpen ? 'Close structure' : 'Structure'}
             </QuietButton>
-            <QuietButton onClick={handleExport}>Export</QuietButton>
-            <ReturnLaterControl
-              itemType="notebook"
-              itemId={entry?._id}
-              defaultReason={titleDraft || entry?.title || 'Notebook entry'}
-            />
             {onDump && (
               <QuietButton onClick={onDump}>Dump</QuietButton>
             )}
             {onSynthesize && (
               <QuietButton onClick={() => onSynthesize(entry)}>Synthesize</QuietButton>
             )}
-            <QuietButton onClick={() => onDelete(entry)} disabled={saving}>Delete</QuietButton>
+            <details className="think-notebook-editor-actions-overflow">
+              <summary className="ui-quiet-button">More</summary>
+              <div className="think-notebook-editor-actions-overflow__menu">
+                <QuietButton onClick={handleExport}>Export</QuietButton>
+                <ReturnLaterControl
+                  itemType="notebook"
+                  itemId={entry?._id}
+                  defaultReason={titleDraft || entry?.title || 'Notebook entry'}
+                />
+                <QuietButton onClick={() => onDelete(entry)} disabled={saving}>Delete</QuietButton>
+              </div>
+            </details>
             <Button onClick={handleSave} disabled={saving}>{saving ? 'Saving…' : 'Save'}</Button>
           </div>
         </div>
@@ -853,27 +855,15 @@ const NotebookEditor = ({
           {organizeError && <p className="status-message error-message">{organizeError}</p>}
         </div>
       )}
-      <div className="think-editor-draft-surface" ref={slashSurfaceRef}>
-        <div className="think-editor-slash-hint">
-          <span className="think-editor-slash-hint__token">/</span>
-          <span>Type / for commands. Use arrows to choose and Enter to apply.</span>
-          <div className="think-editor-block-controls">
-            <QuietButton type="button" onClick={() => moveCurrentBlock(editor, 'up')}>Move up</QuietButton>
-            <QuietButton type="button" onClick={() => moveCurrentBlock(editor, 'down')}>Move down</QuietButton>
-          </div>
-        </div>
-        <DraftBlockTray editor={editor} />
-        <RichTextToolbar editor={editor} variant="full" className="think-notebook-editor-formatting" />
-        {editor && <EditorContent editor={editor} />}
-        <SlashCommandMenu
-          open={slashCommands.menu.open}
-          items={slashCommands.menu.items}
-          activeIndex={slashCommands.menu.activeIndex}
-          query={slashCommands.menu.query}
-          position={slashCommands.menu.position}
-          onSelect={slashCommands.selectCommand}
-        />
-      </div>
+      <EditorDraftShell
+        editor={editor}
+        surfaceRef={slashSurfaceRef}
+        toolbarVariant="full"
+        toolbarClassName="think-notebook-editor-formatting"
+        helperCopy="Type / for commands. Use arrows to choose and Enter to apply."
+        trayItems={['evidence', 'concept', 'question']}
+        slashCommands={slashCommands}
+      />
       <InsertHighlightModal
         open={insertMode === 'highlight'}
         highlights={highlights}

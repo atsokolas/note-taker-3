@@ -5412,6 +5412,44 @@ html[data-ui-theme='dark'] .article-reader-header {
   white-space: nowrap;
 }
 
+.think-notebook-editor-actions-overflow {
+  position: relative;
+}
+
+.think-notebook-editor-actions-overflow summary {
+  list-style: none;
+}
+
+.think-notebook-editor-actions-overflow summary::-webkit-details-marker {
+  display: none;
+}
+
+.think-notebook-editor-actions-overflow[open] .ui-quiet-button {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.think-notebook-editor-actions-overflow__menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 10;
+  min-width: 176px;
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--surface-card) 97%, white);
+  box-shadow: 0 16px 40px rgba(28, 24, 18, 0.14);
+}
+
+.think-notebook-editor-actions-overflow__menu .ui-quiet-button,
+.think-notebook-editor-actions-overflow__menu .ui-button,
+.think-notebook-editor-actions-overflow__menu .return-later-control {
+  width: 100%;
+}
+
 .notebook-organize-panel {
   border: 1px solid var(--border-subtle);
   border-radius: 12px;

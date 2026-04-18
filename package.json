@@ -6,6 +6,7 @@
   "scripts": {
     "start": "node server/server.js",
     "dev": "nodemon server/server.js",
+    "qa:seed": "node scripts/seed_editor_qa.js",
     "smoke:server": "node scripts/run_server_smoke.js",
     "smoke:imports": "node scripts/test_import_integrations_smoke.js",
     "test:import-helpers": "node scripts/test_import_helpers.js",

@@ -1,14 +1,11 @@
 import React, { useEffect, useRef } from 'react';
-import { EditorContent, useEditor } from '@tiptap/react';
+import { useEditor } from '@tiptap/react';
 import { useDroppable } from '@dnd-kit/core';
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
-import RichTextToolbar from '../../editor/RichTextToolbar';
-import SlashCommandMenu from '../../editor/SlashCommandMenu';
-import DraftBlockTray from '../../editor/DraftBlockTray';
+import EditorDraftShell from '../../editor/EditorDraftShell';
 import useSlashCommands from '../../editor/useSlashCommands';
 import { handleEditorStructureShortcut } from '../../editor/editorShortcuts';
-import { moveCurrentBlock } from '../../editor/blockMovement';
 
 const IdeaWorkbenchHypothesisEditor = ({
   value,
@@ -130,37 +127,20 @@ const IdeaWorkbenchHypothesisEditor = ({
       onDragOver={handleDragOver}
       onDrop={handleDrop}
     >
-      <div className="think-editor-draft-surface think-editor-draft-surface--concept" ref={slashSurfaceRef}>
-        {!hideToolbar && (
-          <RichTextToolbar editor={editor} variant="slim" className="idea-workbench-hypothesis__toolbar" />
-        )}
-        <div className="think-editor-slash-hint think-editor-slash-hint--slim">
-          <span className="think-editor-slash-hint__token">/</span>
-          <span>Type / for commands.</span>
-          <div className="think-editor-block-controls think-editor-block-controls--slim">
-            <button type="button" className="ui-quiet-button" onClick={() => moveCurrentBlock(editor, 'up')}>Move up</button>
-            <button type="button" className="ui-quiet-button" onClick={() => moveCurrentBlock(editor, 'down')}>Move down</button>
-          </div>
-        </div>
-        <DraftBlockTray
-          editor={editor}
-          items={['evidence', 'question']}
-          className="think-draft-block-tray--slim"
-        />
-        {!hideToolbar && (
-          <>
-          </>
-        )}
-        <EditorContent editor={editor} />
-        <SlashCommandMenu
-          open={slashCommands.menu.open}
-          items={slashCommands.menu.items}
-          activeIndex={slashCommands.menu.activeIndex}
-          query={slashCommands.menu.query}
-          position={slashCommands.menu.position}
-          onSelect={slashCommands.selectCommand}
-        />
-      </div>
+      <EditorDraftShell
+        editor={editor}
+        surfaceRef={slashSurfaceRef}
+        className="think-editor-draft-surface--concept"
+        toolbarVariant="slim"
+        toolbarClassName="idea-workbench-hypothesis__toolbar"
+        hideToolbar={hideToolbar}
+        helperCopy="Type / for commands."
+        helperClassName="think-editor-slash-hint--slim"
+        blockControlsClassName="think-editor-block-controls--slim"
+        trayItems={['evidence', 'question']}
+        trayClassName="think-draft-block-tray--slim"
+        slashCommands={slashCommands}
+      />
     </div>
   );
 };
