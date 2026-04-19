@@ -329,11 +329,6 @@ function App() {
       match: (location) => location.pathname.startsWith('/return-queue')
     },
     {
-      label: 'Settings',
-      to: '/settings',
-      match: (location) => location.pathname.startsWith('/settings')
-    },
-    {
       label: 'How To Use',
       to: '/how-to-use',
       match: (location) => location.pathname.startsWith('/how-to-use')
@@ -353,12 +348,14 @@ function App() {
       location.pathname.startsWith('/think')
       && locationSearch.get('tab') === 'concepts'
     );
-    const topBarSecondaryNav = isConceptRoute ? [] : secondaryNavItems;
-    const topBarAccountMenuItems = [
+    const topBarUtilityNav = [
       {
         label: 'Settings',
-        onClick: () => { window.location.href = '/settings'; }
-      },
+        to: '/settings',
+        match: (currentLocation) => currentLocation.pathname.startsWith('/settings')
+      }
+    ];
+    const topBarAccountMenuItems = [
       {
         label: 'Chrome Extension',
         href: chromeStoreLink,
@@ -439,9 +436,10 @@ function App() {
           <TopBar
             brandEnergy={uiSettings.brandEnergy}
             primaryNav={primaryNavItems}
-            secondaryNav={topBarSecondaryNav}
+            utilityNav={topBarUtilityNav}
+            secondaryNav={secondaryNavItems}
             searchMode={isConceptRoute ? 'icon' : 'field'}
-            helpMenu={isConceptRoute ? null : {
+            helpMenu={{
               onStart: () => tour.startTour(),
               onResume: () => tour.resumeTour(),
               onRestart: () => tour.restartTour(),

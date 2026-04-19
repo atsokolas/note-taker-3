@@ -7,6 +7,7 @@ const TopBar = ({
   brandEnergy = true,
   helpMenu = null,
   primaryNav = [],
+  utilityNav = [],
   secondaryNav = [],
   searchMode = 'field',
   accountMenuItems = [],
@@ -112,6 +113,36 @@ const TopBar = ({
               <span aria-hidden="true">⌕</span>
             </button>
           )}
+          {utilityNav.map((item) => (
+            item.href ? (
+              <a
+                key={item.label}
+                className={`topbar__button ${isNavItemActive(item) ? 'is-active' : ''}`.trim()}
+                href={item.href}
+                target={item.external ? '_blank' : undefined}
+                rel={item.external ? 'noopener noreferrer' : undefined}
+              >
+                {item.label}
+              </a>
+            ) : item.to ? (
+              <NavLink
+                key={item.label}
+                to={item.to}
+                className={`topbar__button ${isNavItemActive(item) ? 'is-active' : ''}`.trim()}
+              >
+                {item.label}
+              </NavLink>
+            ) : (
+              <button
+                key={item.label}
+                type="button"
+                className={`topbar__button ${isNavItemActive(item) ? 'is-active' : ''}`.trim()}
+                onClick={() => item.onClick?.()}
+              >
+                {item.label}
+              </button>
+            )
+          ))}
           {secondaryNav.length > 0 && (
             <div className="topbar__menu" ref={moreMenuRef}>
               <button
