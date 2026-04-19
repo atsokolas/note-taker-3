@@ -105,6 +105,85 @@ export const createAgentHandoff = async (payload = {}) => {
   return res.data || {};
 };
 
+export const listAgentRuns = async ({
+  threadId = '',
+  status = 'all',
+  limit = 30
+} = {}) => {
+  const params = new URLSearchParams();
+  if (threadId) params.set('threadId', String(threadId).trim());
+  if (status) params.set('status', String(status).trim());
+  if (limit) params.set('limit', String(limit));
+  const suffix = params.toString();
+  const res = await api.get(`/api/agent/runs${suffix ? `?${suffix}` : ''}`, getAuthHeaders());
+  return res.data || { runs: [] };
+};
+
+export const createAgentRun = async (payload = {}) => {
+  const res = await api.post('/api/agent/runs', payload, getAuthHeaders());
+  return res.data || {};
+};
+
+export const resumeAgentRun = async (runId, payload = {}) => {
+  const safeId = encodeURIComponent(String(runId || '').trim());
+  const res = await api.post(`/api/agent/runs/${safeId}/resume`, payload, getAuthHeaders());
+  return res.data || {};
+};
+
+export const listAgentProposedChanges = async ({
+  threadId = '',
+  runId = '',
+  status = 'all',
+  targetType = '',
+  targetId = '',
+  limit = 40
+} = {}) => {
+  const params = new URLSearchParams();
+  if (threadId) params.set('threadId', String(threadId).trim());
+  if (runId) params.set('runId', String(runId).trim());
+  if (status) params.set('status', String(status).trim());
+  if (targetType) params.set('targetType', String(targetType).trim());
+  if (targetId) params.set('targetId', String(targetId).trim());
+  if (limit) params.set('limit', String(limit));
+  const suffix = params.toString();
+  const res = await api.get(`/api/agent/proposed-changes${suffix ? `?${suffix}` : ''}`, getAuthHeaders());
+  return res.data || { proposedChanges: [] };
+};
+
+export const updateAgentProposedChange = async (proposedChangeId, payload = {}) => {
+  const safeId = encodeURIComponent(String(proposedChangeId || '').trim());
+  const res = await api.patch(`/api/agent/proposed-changes/${safeId}`, payload, getAuthHeaders());
+  return res.data || {};
+};
+
+export const acceptAgentProposedChange = async (proposedChangeId) => {
+  const safeId = encodeURIComponent(String(proposedChangeId || '').trim());
+  const res = await api.post(`/api/agent/proposed-changes/${safeId}/accept`, {}, getAuthHeaders());
+  return res.data || {};
+};
+
+export const rejectAgentProposedChange = async (proposedChangeId) => {
+  const safeId = encodeURIComponent(String(proposedChangeId || '').trim());
+  const res = await api.post(`/api/agent/proposed-changes/${safeId}/reject`, {}, getAuthHeaders());
+  return res.data || {};
+};
+
+export const rollbackAgentProposedChange = async (proposedChangeId) => {
+  const safeId = encodeURIComponent(String(proposedChangeId || '').trim());
+  const res = await api.post(`/api/agent/proposed-changes/${safeId}/rollback`, {}, getAuthHeaders());
+  return res.data || {};
+};
+
+export const getAgentHarnessMetrics = async ({
+  threadId = ''
+} = {}) => {
+  const params = new URLSearchParams();
+  if (threadId) params.set('threadId', String(threadId).trim());
+  const suffix = params.toString();
+  const res = await api.get(`/api/agent/harness-metrics${suffix ? `?${suffix}` : ''}`, getAuthHeaders());
+  return res.data || { metrics: null };
+};
+
 export const listAgentThreads = async ({
   status = 'active',
   scopeType = '',

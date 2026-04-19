@@ -1,14 +1,23 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  acceptAgentProposedChange,
   chatWithAgent,
   dismissAgentArtifactDraft,
+  getAgentHarnessMetrics,
+  listAgentProposedChanges,
+  listAgentRuns,
   listAgentArtifactDrafts,
   promoteAgentArtifactDraft,
+  rejectAgentProposedChange,
+  rollbackAgentProposedChange,
+  updateAgentProposedChange,
   updateAgentArtifactDraft
 } from '../../api/agent';
 import { Button, QuietButton, SectionHeader, SurfaceCard } from '../ui';
 import { buildCanonicalArticlePath } from '../../utils/firstInsight';
 import { buildQueuedAgentSkillPrompt } from '../../utils/agentSkillInvocation';
+import useProtocolApprovals from '../../hooks/useProtocolApprovals';
+import ProtocolApprovalsPanel from './ProtocolApprovalsPanel';
 
 const clean = (value) => String(value || '').trim();
 const truncate = (value, limit = 320) => {
@@ -99,6 +108,9 @@ const mapThreadMessages = (thread = null) => (
         text: clean(message?.text),
         relatedItems: Array.isArray(message?.relatedItems) ? message.relatedItems : [],
         premiumWebResearchAvailable: message?.metadata?.premiumWebResearchAvailable,
+        proposalBundle: message?.proposalBundle && typeof message.proposalBundle === 'object'
+          ? message.proposalBundle
+          : null,
         planner: message?.metadata?.planner && typeof message.metadata.planner === 'object'
           ? message.metadata.planner
           : null
@@ -159,6 +171,73 @@ const mapDraft = (draft = {}) => ({
     : null
 });
 
+const mapRun = (run = {}) => ({
+  runId: clean(run?.runId),
+  title: clean(run?.title),
+  status: clean(run?.status) || 'pending',
+  completedStepCount: Number(run?.completedStepCount) || 0,
+  steps: Array.isArray(run?.steps)
+    ? run.steps.map((step = {}) => ({
+        opId: clean(step?.opId),
+        title: clean(step?.title),
+        status: clean(step?.status) || 'pending',
+        result: step?.metadata?.result && typeof step.metadata.result === 'object' ? step.metadata.result : null
+      }))
+    : []
+});
+
+const describeRunStepResult = (step = {}) => {
+  const result = step?.result && typeof step.result === 'object' ? step.result : null;
+  if (!result) return '';
+  if (clean(result?.type) === 'related_material') {
+    const itemCount = Math.max(0, Number(result?.itemCount) || 0);
+    return itemCount > 0
+      ? `Staged ${itemCount} related ${itemCount === 1 ? 'item' : 'items'}.`
+      : 'Checked for related material.';
+  }
+  if (clean(result?.type) === 'handoff') {
+    return clean(result?.handoff?.title)
+      ? `Created handoff: ${result.handoff.title}.`
+      : 'Created a routed handoff.';
+  }
+  return '';
+};
+
+const mapProposedChange = (change = {}) => ({
+  proposedChangeId: clean(change?.proposedChangeId),
+  targetType: clean(change?.targetType),
+  targetId: clean(change?.targetId),
+  targetTitle: clean(change?.targetTitle),
+  status: clean(change?.status) || 'pending',
+  summary: clean(change?.summary),
+  diffSummary: change?.diffSummary && typeof change.diffSummary === 'object' ? change.diffSummary : {},
+  currentSnapshot: change?.currentSnapshot && typeof change.currentSnapshot === 'object' ? change.currentSnapshot : {},
+  proposedSnapshot: change?.proposedSnapshot && typeof change.proposedSnapshot === 'object' ? change.proposedSnapshot : {},
+  acceptedAt: clean(change?.acceptedAt),
+  rejectedAt: clean(change?.rejectedAt),
+  rolledBackAt: clean(change?.rolledBackAt)
+});
+
+const getSnapshotText = (snapshot = {}) => truncate(snapshot?.description || snapshot?.content || '', 360);
+const formatStatusLabel = (status = '') => clean(status).replace(/_/g, ' ') || 'pending';
+const formatDateTime = (value = '') => {
+  const safe = clean(value);
+  if (!safe) return '';
+  const parsed = new Date(safe);
+  if (Number.isNaN(parsed.getTime())) return '';
+  return parsed.toLocaleString([], {
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit'
+  });
+};
+const formatPercent = (value) => {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return '0%';
+  return `${Math.round(numeric * 100)}%`;
+};
+
 const ThoughtPartnerPanel = ({
   contextType = '',
   contextId = '',
@@ -183,6 +262,13 @@ const ThoughtPartnerPanel = ({
   const [messages, setMessages] = useState([]);
   const [threadId, setThreadId] = useState('');
   const [artifactDrafts, setArtifactDrafts] = useState([]);
+  const [proposalBundles, setProposalBundles] = useState([]);
+  const [runs, setRuns] = useState([]);
+  const [proposedChanges, setProposedChanges] = useState([]);
+  const [harnessMetrics, setHarnessMetrics] = useState(null);
+  const [proposedChangeLoadingId, setProposedChangeLoadingId] = useState('');
+  const [editingProposedChangeId, setEditingProposedChangeId] = useState('');
+  const [editingProposedChangeText, setEditingProposedChangeText] = useState('');
   const [artifactDraftLoadingId, setArtifactDraftLoadingId] = useState('');
   const [editingDraftId, setEditingDraftId] = useState('');
   const [editingDraftTitle, setEditingDraftTitle] = useState('');
@@ -190,6 +276,7 @@ const ThoughtPartnerPanel = ({
   const [editingDraftBody, setEditingDraftBody] = useState('');
   const [pendingSkillInvocation, setPendingSkillInvocation] = useState(null);
   const handledQueuedPromptIdRef = useRef('');
+  const activeThreadId = clean(threadId || thread?.threadId);
 
   const context = useMemo(
     () => toContext(contextType, contextId, contextTitle, contextMetadata),
@@ -210,6 +297,11 @@ const ThoughtPartnerPanel = ({
     if (!safeThreadId) return;
     setThreadId(safeThreadId);
     setMessages(mapThreadMessages(nextThread));
+    setProposalBundles(
+      Array.isArray(nextThread?.proposalBundles)
+        ? nextThread.proposalBundles.filter((bundle) => clean(bundle?.bundleId))
+        : []
+    );
   }, []);
 
   const loadArtifactDrafts = useCallback(async (nextThreadId) => {
@@ -225,6 +317,62 @@ const ThoughtPartnerPanel = ({
       // Keep the panel usable even if draft hydration fails.
     }
   }, []);
+
+  const loadProposedChanges = useCallback(async (nextThreadId) => {
+    const safeThreadId = clean(nextThreadId);
+    if (!safeThreadId) {
+      setProposedChanges([]);
+      return;
+    }
+    try {
+      const result = await listAgentProposedChanges({ threadId: safeThreadId, status: 'all' });
+      setProposedChanges(Array.isArray(result?.proposedChanges) ? result.proposedChanges.map(mapProposedChange) : []);
+    } catch (_error) {
+      // Keep the panel usable even if proposed change hydration fails.
+    }
+  }, []);
+
+  const loadHarnessMetrics = useCallback(async (nextThreadId) => {
+    const safeThreadId = clean(nextThreadId);
+    if (!safeThreadId) {
+      setHarnessMetrics(null);
+      return;
+    }
+    try {
+      const result = await getAgentHarnessMetrics({ threadId: safeThreadId });
+      setHarnessMetrics(result?.metrics && typeof result.metrics === 'object' ? result.metrics : null);
+    } catch (_error) {
+      // Keep the panel usable even if metrics hydration fails.
+    }
+  }, []);
+
+  const loadRuns = useCallback(async (nextThreadId) => {
+    const safeThreadId = clean(nextThreadId);
+    if (!safeThreadId) {
+      setRuns([]);
+      return;
+    }
+    try {
+      const result = await listAgentRuns({ threadId: safeThreadId, status: 'all' });
+      setRuns(Array.isArray(result?.runs) ? result.runs.map(mapRun) : []);
+    } catch (_error) {
+      // Keep the panel usable even if run hydration fails.
+    }
+  }, []);
+
+  const runApprovalModel = useProtocolApprovals({
+    initialStatus: 'pending',
+    limit: 12,
+    threadId: activeThreadId,
+    op: 'runs.resume',
+    autoLoad: Boolean(activeThreadId),
+    onChanged: async () => {
+      if (!activeThreadId) return;
+      await loadRuns(activeThreadId);
+      await loadProposedChanges(activeThreadId);
+      await loadHarnessMetrics(activeThreadId);
+    }
+  });
 
   const submitMessage = useCallback(async (rawMessage, options = {}) => {
     const message = clean(rawMessage);
@@ -264,6 +412,9 @@ const ThoughtPartnerPanel = ({
       if (result?.thread?.threadId) {
         hydrateFromThread(result.thread);
         loadArtifactDrafts(result.thread.threadId);
+        loadRuns(result.thread.threadId);
+        loadProposedChanges(result.thread.threadId);
+        loadHarnessMetrics(result.thread.threadId);
         if (typeof onThreadChange === 'function') onThreadChange(result.thread);
       }
       const assistantMessage = {
@@ -272,6 +423,9 @@ const ThoughtPartnerPanel = ({
         text: clean(result?.reply) || 'No reply generated.',
         relatedItems: Array.isArray(result?.relatedItems) ? result.relatedItems : [],
         premiumWebResearchAvailable: Boolean(result?.premiumWebResearchAvailable),
+        proposalBundle: result?.proposalBundle && typeof result.proposalBundle === 'object'
+          ? result.proposalBundle
+          : null,
         planner: result?.planner && typeof result.planner === 'object' ? result.planner : null
       };
       if (!didHydrateThread) {
@@ -290,7 +444,7 @@ const ThoughtPartnerPanel = ({
     } finally {
       setLoading(false);
     }
-  }, [context, contextTitle, disabled, hydrateFromThread, loadArtifactDrafts, loading, messages, onThreadChange, pendingSkillInvocation, thread?.threadId, thread?.title, threadId, title]);
+  }, [context, contextTitle, disabled, hydrateFromThread, loadArtifactDrafts, loadHarnessMetrics, loadProposedChanges, loadRuns, loading, messages, onThreadChange, pendingSkillInvocation, thread?.threadId, thread?.title, threadId, title]);
 
   useEffect(() => {
     if (clean(thread?.threadId)) {
@@ -301,6 +455,13 @@ const ThoughtPartnerPanel = ({
     setMessages([]);
     setThreadId('');
     setArtifactDrafts([]);
+    setProposalBundles([]);
+    setRuns([]);
+    setProposedChanges([]);
+    setHarnessMetrics(null);
+    setProposedChangeLoadingId('');
+    setEditingProposedChangeId('');
+    setEditingProposedChangeText('');
     setEditingDraftId('');
     setEditingDraftTitle('');
     setEditingDraftSummary('');
@@ -310,10 +471,12 @@ const ThoughtPartnerPanel = ({
   }, [contextId, contextType, hydrateFromThread, thread]);
 
   useEffect(() => {
-    const activeThreadId = clean(threadId || thread?.threadId);
     if (!activeThreadId) return;
     loadArtifactDrafts(activeThreadId);
-  }, [loadArtifactDrafts, thread?.threadId, threadId]);
+    loadRuns(activeThreadId);
+    loadProposedChanges(activeThreadId);
+    loadHarnessMetrics(activeThreadId);
+  }, [activeThreadId, loadArtifactDrafts, loadHarnessMetrics, loadProposedChanges, loadRuns]);
 
   useEffect(() => {
     const queuedId = clean(queuedPrompt?.id);
@@ -442,6 +605,121 @@ const ThoughtPartnerPanel = ({
     }
   }, []);
 
+  const handleStartEditProposedChange = useCallback((change) => {
+    const safeId = clean(change?.proposedChangeId);
+    if (!safeId) return;
+    setEditingProposedChangeId(safeId);
+    setEditingProposedChangeText(
+      clean(change?.proposedSnapshot?.description || change?.proposedSnapshot?.content)
+    );
+  }, []);
+
+  const handleCancelEditProposedChange = useCallback(() => {
+    setEditingProposedChangeId('');
+    setEditingProposedChangeText('');
+  }, []);
+
+  const handleSaveProposedChangeEdit = useCallback(async (change) => {
+    const safeId = clean(change?.proposedChangeId);
+    if (!safeId) return;
+    setProposedChangeLoadingId(safeId);
+    try {
+      const isConcept = clean(change?.targetType).toLowerCase() === 'concept';
+      const result = await updateAgentProposedChange(safeId, {
+        proposedSnapshot: isConcept
+          ? {
+              description: editingProposedChangeText
+            }
+          : {
+              content: editingProposedChangeText,
+              blocks: clean(editingProposedChangeText)
+                ? [{ id: 'agent-proposed-block-edit', type: 'paragraph', text: editingProposedChangeText }]
+                : []
+            }
+      });
+      if (result?.proposedChange) {
+        const nextChange = mapProposedChange(result.proposedChange);
+        setProposedChanges(prev => prev.map((entry) => (
+          entry.proposedChangeId === nextChange.proposedChangeId ? nextChange : entry
+        )));
+        handleCancelEditProposedChange();
+      }
+    } catch (updateError) {
+      setError(updateError.response?.data?.error || 'Failed to update proposed change.');
+    } finally {
+      setProposedChangeLoadingId('');
+    }
+  }, [editingProposedChangeText, handleCancelEditProposedChange]);
+
+  const handleAcceptProposedChange = useCallback(async (proposedChangeId) => {
+    const safeId = clean(proposedChangeId);
+    if (!safeId) return;
+    setProposedChangeLoadingId(safeId);
+    try {
+      const result = await acceptAgentProposedChange(safeId);
+      if (result?.proposedChange) {
+        const nextChange = mapProposedChange(result.proposedChange);
+        setProposedChanges(prev => prev.map((entry) => (
+          entry.proposedChangeId === nextChange.proposedChangeId ? nextChange : entry
+        )));
+        if (activeThreadId) {
+          await loadRuns(activeThreadId);
+          await loadHarnessMetrics(activeThreadId);
+        }
+      }
+    } catch (acceptError) {
+      setError(acceptError.response?.data?.error || 'Failed to accept proposed change.');
+    } finally {
+      setProposedChangeLoadingId('');
+    }
+  }, [activeThreadId, loadHarnessMetrics, loadRuns]);
+
+  const handleRejectProposedChange = useCallback(async (proposedChangeId) => {
+    const safeId = clean(proposedChangeId);
+    if (!safeId) return;
+    setProposedChangeLoadingId(safeId);
+    try {
+      const result = await rejectAgentProposedChange(safeId);
+      if (result?.proposedChange) {
+        const nextChange = mapProposedChange(result.proposedChange);
+        setProposedChanges(prev => prev.map((entry) => (
+          entry.proposedChangeId === nextChange.proposedChangeId ? nextChange : entry
+        )));
+        if (activeThreadId) {
+          await loadRuns(activeThreadId);
+          await loadHarnessMetrics(activeThreadId);
+        }
+      }
+    } catch (rejectError) {
+      setError(rejectError.response?.data?.error || 'Failed to reject proposed change.');
+    } finally {
+      setProposedChangeLoadingId('');
+    }
+  }, [activeThreadId, loadHarnessMetrics, loadRuns]);
+
+  const handleRollbackProposedChange = useCallback(async (proposedChangeId) => {
+    const safeId = clean(proposedChangeId);
+    if (!safeId) return;
+    setProposedChangeLoadingId(safeId);
+    try {
+      const result = await rollbackAgentProposedChange(safeId);
+      if (result?.proposedChange) {
+        const nextChange = mapProposedChange(result.proposedChange);
+        setProposedChanges(prev => prev.map((entry) => (
+          entry.proposedChangeId === nextChange.proposedChangeId ? nextChange : entry
+        )));
+        if (activeThreadId) {
+          await loadRuns(activeThreadId);
+          await loadHarnessMetrics(activeThreadId);
+        }
+      }
+    } catch (rollbackError) {
+      setError(rollbackError.response?.data?.error || 'Failed to roll back proposed change.');
+    } finally {
+      setProposedChangeLoadingId('');
+    }
+  }, [activeThreadId, loadHarnessMetrics, loadRuns]);
+
   const lastAssistantMessage = useMemo(() => (
     [...messages].reverse().find(entry => entry.role === 'assistant') || null
   ), [messages]);
@@ -462,6 +740,39 @@ const ThoughtPartnerPanel = ({
     () => artifactDrafts.filter((draft) => draft.status !== 'dismissed'),
     [artifactDrafts]
   );
+  const pendingProposedChanges = useMemo(
+    () => proposedChanges.filter((change) => clean(change.status).toLowerCase() === 'pending'),
+    [proposedChanges]
+  );
+  const resolvedProposedChanges = useMemo(
+    () => proposedChanges.filter((change) => clean(change.status).toLowerCase() !== 'pending'),
+    [proposedChanges]
+  );
+  const harnessStats = useMemo(() => {
+    if (!harnessMetrics || typeof harnessMetrics !== 'object') return [];
+    return [
+      {
+        label: 'Resolution',
+        value: formatPercent(harnessMetrics?.rates?.bundleResolutionSuccessRate),
+        detail: `${Number(harnessMetrics?.funnel?.executionIntentMatched || 0)} matched approvals`
+      },
+      {
+        label: 'Run completion',
+        value: formatPercent(harnessMetrics?.rates?.runCompletionRate),
+        detail: `${Number(harnessMetrics?.runStatuses?.completed || 0)} completed runs`
+      },
+      {
+        label: 'Review queue',
+        value: String(Number(harnessMetrics?.proposedChangeStatuses?.pending || 0)),
+        detail: 'Pending user-owned edits'
+      },
+      {
+        label: 'Draft fallback',
+        value: String(Number(harnessMetrics?.funnel?.draftFallbacks || 0)),
+        detail: 'Replies that still staged drafts'
+      }
+    ];
+  }, [harnessMetrics]);
   const isStreamVariant = variant === 'stream';
   const partnerSubtitle = subtitle || (contextTitle ? `Context: ${contextTitle}` : 'Ask about your notes, concepts, and articles.');
 
@@ -479,6 +790,12 @@ const ThoughtPartnerPanel = ({
               setMessages([]);
               setThreadId('');
               setArtifactDrafts([]);
+              setProposalBundles([]);
+              setRuns([]);
+              setProposedChanges([]);
+              setProposedChangeLoadingId('');
+              setEditingProposedChangeId('');
+              setEditingProposedChangeText('');
               setEditingDraftId('');
               setEditingDraftTitle('');
               setEditingDraftSummary('');
@@ -501,6 +818,12 @@ const ThoughtPartnerPanel = ({
                 setMessages([]);
                 setThreadId('');
                 setArtifactDrafts([]);
+                setProposalBundles([]);
+                setRuns([]);
+                setProposedChanges([]);
+                setProposedChangeLoadingId('');
+                setEditingProposedChangeId('');
+                setEditingProposedChangeText('');
                 setEditingDraftId('');
                 setEditingDraftTitle('');
                 setEditingDraftSummary('');
@@ -543,6 +866,18 @@ const ThoughtPartnerPanel = ({
         </div>
       )}
 
+      {harnessStats.length > 0 && (
+        <div className="agent-thought-partner__scorecard">
+          {harnessStats.map((stat) => (
+            <article key={stat.label} className="agent-thought-partner__scorecard-item">
+              <span className="agent-thought-partner__scorecard-label">{stat.label}</span>
+              <strong>{stat.value}</strong>
+              <p>{stat.detail}</p>
+            </article>
+          ))}
+        </div>
+      )}
+
       <div className={`agent-thought-partner__composer ${isStreamVariant ? 'agent-thought-partner__composer--stream' : ''}`.trim()}>
         <textarea
           value={input}
@@ -575,6 +910,24 @@ const ThoughtPartnerPanel = ({
           >
             <p className="agent-thought-partner__message-role">{message.role === 'assistant' ? 'Agent' : 'You'}</p>
             <p>{message.text}</p>
+            {message.role === 'assistant' && message.proposalBundle && (
+              <div className="agent-thought-partner__draft-workflow">
+                <div className="agent-thought-partner__draft-workflow-head">
+                  <span>{message.proposalBundle.title || 'Proposed bundle'}</span>
+                  <span>{message.proposalBundle.status || 'pending'}</span>
+                </div>
+                {clean(message.proposalBundle.summary) && (
+                  <p className="agent-thought-partner__draft-summary">{message.proposalBundle.summary}</p>
+                )}
+                <ol className="agent-thought-partner__draft-workflow-steps">
+                  {(Array.isArray(message.proposalBundle.operations) ? message.proposalBundle.operations : []).map((operation) => (
+                    <li key={`${message.id}-${operation.opId || operation.title}`}>
+                      {operation.title}
+                    </li>
+                  ))}
+                </ol>
+              </div>
+            )}
             {message.role === 'assistant' && Array.isArray(message.relatedItems) && message.relatedItems.length > 0 && (
               <div className="agent-thought-partner__related-items">
                 {message.relatedItems.slice(0, 6).map((item) => {
@@ -595,6 +948,237 @@ const ThoughtPartnerPanel = ({
           </div>
         ))}
       </div>
+
+      {proposalBundles.length > 0 && (
+        <div className="agent-thought-partner__drafts">
+          <div className="agent-thought-partner__drafts-head">
+            <h4>Pending proposal bundles</h4>
+            <p>Executable bundles the agent has proposed and the thread is still holding onto.</p>
+          </div>
+          {proposalBundles.map((bundle) => (
+            <article key={bundle.bundleId} className={`agent-thought-partner__draft-card is-${bundle.status || 'pending'}`}>
+              <div className="agent-thought-partner__draft-meta">
+                <span>proposal bundle</span>
+                <span>{bundle.status || 'pending'}</span>
+              </div>
+              <h4>{bundle.title || 'Untitled proposal bundle'}</h4>
+              {clean(bundle.summary) && (
+                <p className="agent-thought-partner__draft-summary">{bundle.summary}</p>
+              )}
+              <ol className="agent-thought-partner__draft-workflow-steps">
+                {(Array.isArray(bundle.operations) ? bundle.operations : []).map((operation) => (
+                  <li key={`${bundle.bundleId}-${operation.opId || operation.title}`}>
+                    {operation.title}
+                  </li>
+                ))}
+              </ol>
+            </article>
+          ))}
+        </div>
+      )}
+
+      {runs.length > 0 && (
+        <div className="agent-thought-partner__drafts">
+          <div className="agent-thought-partner__drafts-head">
+            <h4>Runs</h4>
+            <p>Completed and in-flight execution runs for this thread.</p>
+          </div>
+          {runs.map((run) => (
+            <article key={run.runId} className={`agent-thought-partner__draft-card is-${run.status || 'pending'}`}>
+              <div className="agent-thought-partner__draft-meta">
+                <span>run</span>
+                <span>{run.status || 'pending'}</span>
+              </div>
+              <h4>{run.title || 'Untitled run'}</h4>
+              <p className="agent-thought-partner__draft-summary">
+                {run.completedStepCount} of {run.steps.length} steps applied.
+              </p>
+              <ol className="agent-thought-partner__draft-workflow-steps">
+                {run.steps.map((step) => (
+                  <li key={`${run.runId}-${step.opId || step.title}`}>
+                    <strong>{step.title}</strong>
+                    {step.status ? ` (${step.status})` : ''}
+                    {clean(describeRunStepResult(step)) ? ` ${describeRunStepResult(step)}` : ''}
+                  </li>
+                ))}
+              </ol>
+            </article>
+          ))}
+        </div>
+      )}
+
+      {(runApprovalModel.protocolApprovalsLoading
+        || clean(runApprovalModel.protocolApprovalsError)
+        || (Array.isArray(runApprovalModel.protocolApprovals) && runApprovalModel.protocolApprovals.length > 0)) && (
+        <ProtocolApprovalsPanel
+          approvalsModel={runApprovalModel}
+          title="Run approvals"
+          subtitle="Risky run steps pause here until you approve or reject them."
+          emptyText="No pending run approvals."
+          className="agent-thought-partner__drafts"
+        />
+      )}
+
+      {pendingProposedChanges.length > 0 && (
+        <div className="agent-thought-partner__drafts agent-thought-partner__drafts--review">
+          <div className="agent-thought-partner__drafts-head">
+            <h4>Review stage</h4>
+            <p>Agent-authored patches waiting on your decision before they become part of the live workspace.</p>
+          </div>
+          {pendingProposedChanges.map((change) => (
+            <article key={change.proposedChangeId} className={`agent-thought-partner__review-card is-${change.status || 'pending'}`}>
+              <div className="agent-thought-partner__review-head">
+                <div>
+                  <div className="agent-thought-partner__draft-meta">
+                    <span>{change.targetType || 'change'}</span>
+                    <span>{formatStatusLabel(change.status)}</span>
+                  </div>
+                  <h4>{change.targetTitle || 'Untitled target'}</h4>
+                </div>
+                {Array.isArray(change?.diffSummary?.changedFields) && change.diffSummary.changedFields.length > 0 && (
+                  <div className="agent-thought-partner__draft-meta">
+                    {change.diffSummary.changedFields.map((field) => (
+                      <span key={`${change.proposedChangeId}-${field}`}>{field}</span>
+                    ))}
+                  </div>
+                )}
+              </div>
+              {clean(change.summary) && (
+                <p className="agent-thought-partner__draft-summary">{change.summary}</p>
+              )}
+              {editingProposedChangeId === change.proposedChangeId ? (
+                <div className="agent-thought-partner__draft-editor">
+                  <label className="agent-thought-partner__draft-field">
+                    <span>Proposed text</span>
+                    <textarea
+                      value={editingProposedChangeText}
+                      onChange={(event) => setEditingProposedChangeText(event.target.value)}
+                      rows={6}
+                      disabled={proposedChangeLoadingId === change.proposedChangeId}
+                    />
+                  </label>
+                  <div className="agent-thought-partner__draft-actions">
+                    <Button
+                      variant="secondary"
+                      type="button"
+                      disabled={proposedChangeLoadingId === change.proposedChangeId}
+                      onClick={() => handleSaveProposedChangeEdit(change)}
+                    >
+                      {proposedChangeLoadingId === change.proposedChangeId ? 'Saving…' : 'Save edit'}
+                    </Button>
+                    <QuietButton
+                      type="button"
+                      disabled={proposedChangeLoadingId === change.proposedChangeId}
+                      onClick={handleCancelEditProposedChange}
+                    >
+                      Cancel
+                    </QuietButton>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div className="agent-thought-partner__snapshot-grid">
+                    <section className="agent-thought-partner__snapshot-card">
+                      <span className="agent-thought-partner__snapshot-label">Current</span>
+                      <p>{getSnapshotText(change.currentSnapshot) || 'No existing text on this object.'}</p>
+                    </section>
+                    <section className="agent-thought-partner__snapshot-card is-proposed">
+                      <span className="agent-thought-partner__snapshot-label">Proposed</span>
+                      <p>{getSnapshotText(change.proposedSnapshot) || 'No proposed text.'}</p>
+                    </section>
+                  </div>
+                  <div className="agent-thought-partner__draft-actions">
+                    <Button
+                      variant="secondary"
+                      type="button"
+                      disabled={proposedChangeLoadingId === change.proposedChangeId || clean(change.status).toLowerCase() !== 'pending'}
+                      onClick={() => handleAcceptProposedChange(change.proposedChangeId)}
+                    >
+                      {proposedChangeLoadingId === change.proposedChangeId ? 'Applying…' : 'Accept'}
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      type="button"
+                      disabled={proposedChangeLoadingId === change.proposedChangeId || clean(change.status).toLowerCase() !== 'pending'}
+                      onClick={() => handleStartEditProposedChange(change)}
+                    >
+                      Edit before accept
+                    </Button>
+                    <QuietButton
+                      type="button"
+                      disabled={proposedChangeLoadingId === change.proposedChangeId || clean(change.status).toLowerCase() !== 'pending'}
+                      onClick={() => handleRejectProposedChange(change.proposedChangeId)}
+                    >
+                      Reject
+                    </QuietButton>
+                  </div>
+                </>
+              )}
+            </article>
+          ))}
+        </div>
+      )}
+
+      {resolvedProposedChanges.length > 0 && (
+        <div className="agent-thought-partner__drafts agent-thought-partner__drafts--history">
+          <div className="agent-thought-partner__drafts-head">
+            <h4>Applied history</h4>
+            <p>Accepted changes stay reversible here, so agent edits remain visible after they land.</p>
+          </div>
+          {resolvedProposedChanges.map((change) => {
+            const status = clean(change.status).toLowerCase();
+            const isApplied = status === 'applied';
+            const timelineLabel = change.rolledBackAt
+              ? `Rolled back ${formatDateTime(change.rolledBackAt)}`
+              : change.acceptedAt
+                ? `Applied ${formatDateTime(change.acceptedAt)}`
+                : change.rejectedAt
+                  ? `Rejected ${formatDateTime(change.rejectedAt)}`
+                  : '';
+            return (
+              <article key={change.proposedChangeId} className={`agent-thought-partner__review-card is-history is-${change.status || 'pending'}`}>
+                <div className="agent-thought-partner__review-head">
+                  <div>
+                    <div className="agent-thought-partner__draft-meta">
+                      <span>{change.targetType || 'change'}</span>
+                      <span>{formatStatusLabel(change.status)}</span>
+                    </div>
+                    <h4>{change.targetTitle || 'Untitled target'}</h4>
+                  </div>
+                  {timelineLabel && (
+                    <p className="agent-thought-partner__history-timestamp">{timelineLabel}</p>
+                  )}
+                </div>
+                {clean(change.summary) && (
+                  <p className="agent-thought-partner__draft-summary">{change.summary}</p>
+                )}
+                <div className="agent-thought-partner__snapshot-grid">
+                  <section className="agent-thought-partner__snapshot-card">
+                    <span className="agent-thought-partner__snapshot-label">Before</span>
+                    <p>{getSnapshotText(change.currentSnapshot) || 'No stored pre-change text.'}</p>
+                  </section>
+                  <section className="agent-thought-partner__snapshot-card is-proposed">
+                    <span className="agent-thought-partner__snapshot-label">Applied</span>
+                    <p>{getSnapshotText(change.proposedSnapshot) || 'No applied text.'}</p>
+                  </section>
+                </div>
+                {isApplied && (
+                  <div className="agent-thought-partner__draft-actions">
+                    <Button
+                      variant="secondary"
+                      type="button"
+                      disabled={proposedChangeLoadingId === change.proposedChangeId}
+                      onClick={() => handleRollbackProposedChange(change.proposedChangeId)}
+                    >
+                      {proposedChangeLoadingId === change.proposedChangeId ? 'Rolling back…' : 'Roll back'}
+                    </Button>
+                  </div>
+                )}
+              </article>
+            );
+          })}
+        </div>
+      )}
 
       {visibleArtifactDrafts.length > 0 && (
         <div className="agent-thought-partner__drafts">

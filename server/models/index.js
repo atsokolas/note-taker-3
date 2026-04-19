@@ -822,6 +822,7 @@ const agentThreadMessageSchema = new mongoose.Schema({
   relatedItems: { type: [mongoose.Schema.Types.Mixed], default: [] },
   citations: { type: [mongoose.Schema.Types.Mixed], default: [] },
   suggestedActions: { type: [mongoose.Schema.Types.Mixed], default: [] },
+  proposalBundle: { type: mongoose.Schema.Types.Mixed, default: null },
   metadata: { type: mongoose.Schema.Types.Mixed, default: {} },
   createdAt: { type: Date, default: Date.now }
 }, { _id: false });
@@ -872,6 +873,7 @@ const agentThreadSchema = new mongoose.Schema({
   planner: { type: mongoose.Schema.Types.Mixed, default: {} },
   plan: { type: agentThreadPlanSchema, default: () => ({}) },
   checkpoint: { type: agentThreadCheckpointSchema, default: undefined },
+  proposalBundles: { type: [mongoose.Schema.Types.Mixed], default: [] },
   messages: { type: [agentThreadMessageSchema], default: [] }
 }, { timestamps: true });
 
@@ -942,6 +944,84 @@ agentArtifactDraftSchema.index({ userId: 1, artifactType: 1, status: 1, updatedA
 agentArtifactDraftSchema.index({ userId: 1, sourceThreadId: 1, status: 1, updatedAt: -1 });
 
 const AgentArtifactDraft = mongoose.model('AgentArtifactDraft', agentArtifactDraftSchema);
+
+const agentRunStepSchema = new mongoose.Schema({
+  opId: { type: String, required: true, trim: true },
+  type: { type: String, default: '', trim: true },
+  title: { type: String, default: '', trim: true },
+  executionMode: { type: String, enum: ['direct', 'proposed_change'], default: 'direct' },
+  riskLevel: { type: String, enum: ['low', 'medium', 'high'], default: 'low' },
+  requiresApproval: { type: Boolean, default: false },
+  target: { type: mongoose.Schema.Types.Mixed, default: {} },
+  metadata: { type: mongoose.Schema.Types.Mixed, default: {} },
+  status: {
+    type: String,
+    enum: ['pending', 'in_progress', 'applied', 'blocked', 'dismissed', 'invalidated', 'failed'],
+    default: 'pending'
+  },
+  appliedAt: { type: Date, default: null },
+  blockedAt: { type: Date, default: null }
+}, { _id: false });
+
+const agentRunSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  threadId: { type: mongoose.Schema.Types.ObjectId, ref: 'AgentThread', default: null },
+  sourceBundleId: { type: String, required: true, trim: true },
+  title: { type: String, default: '', trim: true },
+  status: {
+    type: String,
+    enum: ['pending', 'in_progress', 'paused_for_approval', 'awaiting_review', 'completed', 'cancelled', 'failed'],
+    default: 'pending'
+  },
+  createdBy: { type: actorIdentitySchema, default: () => ({ actorType: 'user', actorId: '' }) },
+  lastActor: { type: actorIdentitySchema, default: undefined },
+  currentOpId: { type: String, default: '', trim: true },
+  blockedOpId: { type: String, default: '', trim: true },
+  steps: { type: [agentRunStepSchema], default: [] },
+  completedStepCount: { type: Number, default: 0 },
+  startedAt: { type: Date, default: null },
+  pausedAt: { type: Date, default: null },
+  completedAt: { type: Date, default: null }
+}, { timestamps: true });
+
+agentRunSchema.index({ userId: 1, threadId: 1, updatedAt: -1 });
+agentRunSchema.index({ userId: 1, sourceBundleId: 1, updatedAt: -1 });
+agentRunSchema.index({ userId: 1, status: 1, updatedAt: -1 });
+
+const AgentRun = mongoose.model('AgentRun', agentRunSchema);
+
+const agentProposedChangeSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  targetType: { type: String, enum: ['concept', 'notebook'], required: true },
+  targetId: { type: mongoose.Schema.Types.ObjectId, required: true },
+  targetTitle: { type: String, default: '', trim: true },
+  status: {
+    type: String,
+    enum: ['pending', 'accepted', 'rejected', 'applied', 'rolled_back', 'invalidated'],
+    default: 'pending'
+  },
+  summary: { type: String, default: '', trim: true },
+  diffSummary: { type: mongoose.Schema.Types.Mixed, default: {} },
+  sourceThreadId: { type: mongoose.Schema.Types.ObjectId, ref: 'AgentThread', default: null },
+  sourceRunId: { type: mongoose.Schema.Types.ObjectId, ref: 'AgentRun', default: null },
+  sourceBundleId: { type: String, default: '', trim: true },
+  sourceOpId: { type: String, default: '', trim: true },
+  currentSnapshot: { type: mongoose.Schema.Types.Mixed, default: {} },
+  proposedSnapshot: { type: mongoose.Schema.Types.Mixed, default: {} },
+  createdBy: { type: actorIdentitySchema, default: () => ({ actorType: 'user', actorId: '' }) },
+  acceptedBy: { type: actorIdentitySchema, default: undefined },
+  rejectedBy: { type: actorIdentitySchema, default: undefined },
+  rolledBackBy: { type: actorIdentitySchema, default: undefined },
+  acceptedAt: { type: Date, default: null },
+  rejectedAt: { type: Date, default: null },
+  rolledBackAt: { type: Date, default: null }
+}, { timestamps: true });
+
+agentProposedChangeSchema.index({ userId: 1, targetType: 1, targetId: 1, updatedAt: -1 });
+agentProposedChangeSchema.index({ userId: 1, sourceRunId: 1, updatedAt: -1 });
+agentProposedChangeSchema.index({ userId: 1, sourceThreadId: 1, status: 1, updatedAt: -1 });
+
+const AgentProposedChange = mongoose.model('AgentProposedChange', agentProposedChangeSchema);
 
 const agentUpkeepCycleRunSchema = new mongoose.Schema({
   handoffId: { type: mongoose.Schema.Types.ObjectId, ref: 'AgentHandoff', default: null },
@@ -1173,6 +1253,8 @@ module.exports = {
   AgentSoftDeleteRecord,
   AgentHandoff,
   AgentArtifactDraft,
+  AgentRun,
+  AgentProposedChange,
   AgentUpkeepCycle,
   ReferenceEdge,
   SavedView,

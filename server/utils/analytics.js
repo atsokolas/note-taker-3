@@ -13,7 +13,24 @@ const EVENT_NAMES = Object.freeze({
   SEMANTIC_SEARCH_PERFORMED: 'semantic_search_performed',
   AI_DRAFT_GENERATED: 'ai_draft_generated',
   AI_DRAFT_ACCEPTED: 'ai_draft_accepted',
-  RELATED_HIGHLIGHT_CLICKED: 'related_highlight_clicked'
+  RELATED_HIGHLIGHT_CLICKED: 'related_highlight_clicked',
+  AGENT_PROPOSAL_BUNDLE_STAGED: 'agent_proposal_bundle_staged',
+  AGENT_EXECUTION_INTENT_MATCHED: 'agent_execution_intent_matched',
+  AGENT_EXECUTION_INTENT_AMBIGUOUS: 'agent_execution_intent_ambiguous',
+  AGENT_EXECUTION_INTENT_NO_MATCH: 'agent_execution_intent_no_match',
+  AGENT_RUN_STARTED: 'agent_run_started',
+  AGENT_RUN_COMPLETED: 'agent_run_completed',
+  AGENT_RUN_PAUSED_FOR_APPROVAL: 'agent_run_paused_for_approval',
+  AGENT_RUN_AWAITING_REVIEW: 'agent_run_awaiting_review',
+  AGENT_RUN_FAILED: 'agent_run_failed',
+  AGENT_PROPOSED_CHANGE_ACCEPTED: 'agent_proposed_change_accepted',
+  AGENT_PROPOSED_CHANGE_REJECTED: 'agent_proposed_change_rejected',
+  AGENT_PROPOSED_CHANGE_ROLLED_BACK: 'agent_proposed_change_rolled_back',
+  AGENT_ARTIFACT_DRAFT_STAGED: 'agent_artifact_draft_staged',
+  AGENT_ARTIFACT_DRAFT_PROMOTED: 'agent_artifact_draft_promoted',
+  AGENT_ARTIFACT_DRAFT_DISMISSED: 'agent_artifact_draft_dismissed',
+  AGENT_RUN_APPROVAL_APPROVED: 'agent_run_approval_approved',
+  AGENT_RUN_APPROVAL_REJECTED: 'agent_run_approval_rejected'
 });
 
 const VALID_EVENT_NAMES = new Set(Object.values(EVENT_NAMES));

@@ -107,6 +107,8 @@ const {
   AgentSoftDeleteRecord,
   AgentHandoff,
   AgentArtifactDraft,
+  AgentRun,
+  AgentProposedChange,
   AgentUpkeepCycle,
   ReferenceEdge,
   SavedView,
@@ -145,8 +147,11 @@ const { buildAgentBridgeRouter } = require('./routes/agentBridgeRoutes');
 const { buildAgentThreadRouter } = require('./routes/agentThreadRoutes');
 const { buildAgentHandoffRouter } = require('./routes/agentHandoffRoutes');
 const { buildAgentActionRouter } = require('./routes/agentActionRoutes');
+const { buildAgentRunRouter } = require('./routes/agentRunRoutes');
+const { buildAgentProposedChangeRouter } = require('./routes/agentProposedChangeRoutes');
 const { buildAgentChatRouter } = require('./routes/agentChatRoutes');
 const { buildAgentArtifactDraftRouter } = require('./routes/agentArtifactDraftRoutes');
+const { buildAgentHarnessMetricsRouter } = require('./routes/agentHarnessMetricsRoutes');
 const { buildAgentUpkeepCycleRouter } = require('./routes/agentUpkeepCycleRoutes');
 const { buildConceptAgentRouter } = require('./routes/conceptAgentRoutes');
 const { buildConceptWorkspaceRouter } = require('./routes/conceptWorkspaceRoutes');
@@ -211,6 +216,41 @@ const {
   createAgentArtifactDraftRecord,
   promoteAgentArtifactDraftRecord
 } = require('./services/agentArtifactDrafts');
+const {
+  sanitizeAgentRunDoc,
+  createRunFromProposalBundle,
+  applyProposalBundleRunOutcome
+} = require('./services/agentRuns');
+const {
+  executeAgentRun
+} = require('./services/agentRunExecution');
+const {
+  trackHarnessEvent,
+  trackRunLifecycleEvents
+} = require('./services/agentHarnessEvents');
+const {
+  requestRunStepApproval
+} = require('./services/agentRunProtocolApprovals');
+const {
+  shouldResolveExecutionIntent,
+  resolveExecutableProposalBundle,
+  applyProposalBundleInvalidations
+} = require('./services/agentBundleResolution');
+const {
+  sanitizeAgentProposedChangeDoc,
+  createProposedChangesForRun,
+  updateProposedChangeDraft,
+  acceptProposedChange,
+  rejectProposedChange,
+  rollbackProposedChange
+} = require('./services/agentProposedChanges');
+const {
+  getAgentHarnessMetricsSnapshot
+} = require('./services/agentHarnessMetrics');
+const {
+  dismissBlockedRunStep,
+  reconcileAgentRunState
+} = require('./services/agentRunReviewState');
 const {
   normalizeActor: normalizeThreadActor,
   normalizeThreadStatus,
@@ -1948,6 +1988,120 @@ const approveProtocolApproval = async ({
   await approval.save();
 
   try {
+    const approvalOp = String(approval.op || '').trim().toLowerCase();
+    if (approvalOp === 'runs.resume') {
+      const runId = String(approval.payload?.runId || '').trim();
+      if (!mongoose.Types.ObjectId.isValid(runId)) {
+        throw Object.assign(new Error('Run approval payload is missing a valid run id.'), { status: 400 });
+      }
+      const runDoc = await AgentRun.findOne({ _id: runId, userId: userObjectId });
+      if (!runDoc) throw Object.assign(new Error('Run not found for approval replay.'), { status: 404 });
+      const thread = await AgentThread.findOne({ _id: runDoc.threadId, userId: userObjectId });
+      if (!thread) throw Object.assign(new Error('Thread not found for run approval replay.'), { status: 404 });
+
+      const advanced = await executeAgentRun({
+        run: {
+          ...runDoc.toObject({ getters: false, virtuals: false }),
+          runId: String(runDoc._id)
+        },
+        thread,
+        userId: String(userId),
+        actor: {
+          actorType: approval.requestedBy?.actorType || 'native_agent',
+          actorId: approval.requestedBy?.actorId || ''
+        },
+        approveBlockedStep: true,
+        AgentHandoff,
+        buildDefaultHandoffPlan,
+        buildDefaultHandoffCheckpoint,
+        createThreadForHandoff,
+        sanitizeAgentHandoffDoc,
+        requestStepApproval: ({ run, step, thread: runThread, actor }) => requestRunStepApproval({
+          AgentProtocolApproval,
+          userId: String(userId),
+          run,
+          step,
+          thread: runThread,
+          actor
+        })
+      });
+
+      runDoc.status = advanced.status;
+      runDoc.lastActor = advanced.lastActor;
+      runDoc.currentOpId = advanced.currentOpId;
+      runDoc.blockedOpId = advanced.blockedOpId;
+      runDoc.steps = advanced.steps;
+      runDoc.completedStepCount = advanced.completedStepCount;
+      runDoc.startedAt = advanced.startedAt;
+      runDoc.pausedAt = advanced.pausedAt;
+      runDoc.completedAt = advanced.completedAt;
+      await runDoc.save();
+
+      await createProposedChangesForRun({
+        AgentProposedChange,
+        TagMeta,
+        NotebookEntry,
+        userId: String(userId),
+        thread,
+        run: {
+          ...advanced,
+          runId: String(runDoc._id)
+        },
+        actor: {
+          actorType: approval.requestedBy?.actorType || 'native_agent',
+          actorId: approval.requestedBy?.actorId || ''
+        }
+      });
+
+      const reconciledRun = await reconcileAgentRunState({
+        AgentRun,
+        AgentProposedChange,
+        userId: String(userId),
+        runId: String(runDoc._id)
+      });
+
+      applyProposalBundleRunOutcome({
+        thread,
+        run: {
+          ...(reconciledRun?.toObject ? reconciledRun.toObject({ getters: false, virtuals: false }) : reconciledRun || advanced),
+          runId: String(runDoc._id)
+        }
+      });
+      await thread.save();
+
+      const result = {
+        run: sanitizeAgentRunDoc(reconciledRun || runDoc),
+        thread: sanitizeAgentThreadDoc(thread)
+      };
+      trackHarnessEvent({
+        trackEvent,
+        event: EVENT_NAMES.AGENT_RUN_APPROVAL_APPROVED,
+        userId: String(userId),
+        properties: {
+          threadId: String(thread?._id || ''),
+          approvalId: String(approval._id || ''),
+          runId: String(runDoc._id || '')
+        }
+      });
+      trackRunLifecycleEvents({
+        trackEvent,
+        EVENT_NAMES,
+        userId: String(userId),
+        threadId: String(thread?._id || ''),
+        run: reconciledRun || runDoc,
+        source: 'protocol_approval_resume',
+        includeStarted: false
+      });
+      approval.status = 'executed';
+      approval.executedAt = new Date();
+      approval.result = result;
+      await approval.save();
+      return {
+        approval: sanitizeProtocolApprovalDoc(approval),
+        result
+      };
+    }
+
     const result = await runBridgeHandoffOperation({
       bridgeActor: {
         userId: String(userId),
@@ -2002,6 +2156,75 @@ const rejectProtocolApproval = async ({
     actorType: normalizeAgentActorType(actorType, 'user'),
     actorId: String(actorId || userId || '').trim()
   };
+  const approvalOp = String(approval.op || '').trim().toLowerCase();
+  if (approvalOp === 'runs.resume') {
+    const runId = String(approval.payload?.runId || '').trim();
+    if (!mongoose.Types.ObjectId.isValid(runId)) {
+      throw Object.assign(new Error('Run approval payload is missing a valid run id.'), { status: 400 });
+    }
+    const runDoc = await AgentRun.findOne({ _id: runId, userId: userObjectId });
+    if (!runDoc) throw Object.assign(new Error('Run not found for approval rejection.'), { status: 404 });
+
+    const dismissed = dismissBlockedRunStep({
+      run: {
+        ...runDoc.toObject({ getters: false, virtuals: false }),
+        runId: String(runDoc._id)
+      },
+      approvalId: String(approval._id)
+    });
+
+    runDoc.status = dismissed.status;
+    runDoc.lastActor = dismissed.lastActor;
+    runDoc.currentOpId = dismissed.currentOpId;
+    runDoc.blockedOpId = dismissed.blockedOpId;
+    runDoc.steps = dismissed.steps;
+    runDoc.completedStepCount = dismissed.completedStepCount;
+    runDoc.startedAt = dismissed.startedAt;
+    runDoc.pausedAt = dismissed.pausedAt;
+    runDoc.completedAt = dismissed.completedAt;
+    await runDoc.save();
+
+    const reconciledRun = await reconcileAgentRunState({
+      AgentRun,
+      AgentProposedChange,
+      userId: String(userId),
+      runId: String(runDoc._id)
+    });
+
+    const thread = await AgentThread.findOne({ _id: runDoc.threadId, userId: userObjectId });
+    if (thread) {
+      applyProposalBundleRunOutcome({
+        thread,
+        run: {
+          ...(reconciledRun?.toObject ? reconciledRun.toObject({ getters: false, virtuals: false }) : runDoc.toObject({ getters: false, virtuals: false })),
+          runId: String(runDoc._id)
+        }
+      });
+      await thread.save();
+    }
+    trackHarnessEvent({
+      trackEvent,
+      event: EVENT_NAMES.AGENT_RUN_APPROVAL_REJECTED,
+      userId: String(userId),
+      properties: {
+        threadId: String(thread?._id || ''),
+        approvalId: String(approval._id || ''),
+        runId: String(runDoc._id || '')
+      }
+    });
+    trackRunLifecycleEvents({
+      trackEvent,
+      EVENT_NAMES,
+      userId: String(userId),
+      threadId: String(thread?._id || ''),
+      run: reconciledRun || runDoc,
+      source: 'protocol_approval_rejection',
+      includeStarted: false
+    });
+    approval.result = {
+      run: sanitizeAgentRunDoc(reconciledRun || runDoc)
+    };
+  }
   await approval.save();
   return sanitizeProtocolApprovalDoc(approval);
 };
@@ -5181,6 +5404,48 @@ app.use(buildAgentActionRouter({
   restoreSoftDeletedWorkspaceItem
 }));
 
+app.use(buildAgentRunRouter({
+  mongoose,
+  authenticateToken,
+  AgentRun,
+  AgentThread,
+  AgentHandoff,
+  AgentProtocolApproval,
+  AgentProposedChange,
+  TagMeta,
+  NotebookEntry,
+  createRunFromProposalBundle,
+  executeAgentRun,
+  applyProposalBundleRunOutcome,
+  createProposedChangesForRun,
+  requestRunStepApproval,
+  reconcileAgentRunState,
+  buildDefaultHandoffPlan,
+  buildDefaultHandoffCheckpoint,
+  createThreadForHandoff,
+  sanitizeAgentHandoffDoc,
+  sanitizeAgentRunDoc,
+  sanitizeAgentThreadDoc,
+  trackEvent,
+  EVENT_NAMES
+}));
+
+app.use(buildAgentProposedChangeRouter({
+  authenticateToken,
+  AgentRun,
+  AgentProposedChange,
+  TagMeta,
+  NotebookEntry,
+  updateProposedChangeDraft,
+  acceptProposedChange,
+  rejectProposedChange,
+  rollbackProposedChange,
+  reconcileAgentRunState,
+  sanitizeAgentProposedChangeDoc,
+  trackEvent,
+  EVENT_NAMES
+}));
+
 app.use(buildAgentChatRouter({
   authenticateToken,
   authenticatePersonalAgentKey,
@@ -5189,16 +5454,38 @@ app.use(buildAgentChatRouter({
   normalizePersonalAgentCapabilities,
   mongoose,
   AgentThread,
+  AgentRun,
+  AgentHandoff,
+  AgentProtocolApproval,
+  AgentProposedChange,
+  TagMeta,
+  NotebookEntry,
   normalizeThreadScope,
   appendThreadMessage,
   compactThreadState,
   normalizeThreadPlanner,
   sanitizeAgentThreadDoc,
+  sanitizeAgentRunDoc,
   AgentArtifactDraft,
   createAgentArtifactDraftFromSkillReply,
+  createRunFromProposalBundle,
+  executeAgentRun,
+  applyProposalBundleRunOutcome,
+  createProposedChangesForRun,
+  requestRunStepApproval,
+  reconcileAgentRunState,
+  buildDefaultHandoffPlan,
+  buildDefaultHandoffCheckpoint,
+  createThreadForHandoff,
+  sanitizeAgentHandoffDoc,
+  shouldResolveExecutionIntent,
+  resolveExecutableProposalBundle,
+  applyProposalBundleInvalidations,
   sanitizeAgentArtifactDraftDoc,
   threadMessagesToHistory,
-  truncate: truncateThreadText
+  truncate: truncateThreadText,
+  trackEvent,
+  EVENT_NAMES
 }));
 
 app.use(buildAgentArtifactDraftRouter({
@@ -5217,7 +5504,19 @@ app.use(buildAgentArtifactDraftRouter({
   createThreadForHandoff,
   sanitizeAgentHandoffDoc,
   sanitizeAgentArtifactDraftDoc,
-  promoteAgentArtifactDraftRecord
+  promoteAgentArtifactDraftRecord,
+  trackEvent,
+  EVENT_NAMES
+}));
+
+app.use(buildAgentHarnessMetricsRouter({
+  authenticateToken,
+  AgentThread,
+  AgentRun,
+  AgentProposedChange,
+  AgentArtifactDraft,
+  AgentProtocolApproval,
+  getAgentHarnessMetricsSnapshot
 }));
 
 app.use(buildAgentUpkeepCycleRouter({
