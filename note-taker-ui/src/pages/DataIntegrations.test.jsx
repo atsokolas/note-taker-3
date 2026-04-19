@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import DataIntegrations from './DataIntegrations';
 import api from '../api';
@@ -415,5 +415,51 @@ describe('DataIntegrations first insight workflow', () => {
     expect(inlineWarning).toBeInTheDocument();
     expect(within(inlineWarning).getByText(/This button is the Notion connection flow/)).toBeInTheDocument();
     expect(within(inlineWarning).getByText(/NOTION_CLIENT_ID and NOTION_CLIENT_SECRET/)).toBeInTheDocument();
+  });
+
+  it('polls an importing session until a terminal status is available', async () => {
+    jest.useFakeTimers();
+    getActiveImportSession
+      .mockResolvedValueOnce({
+        id: 'session-notion',
+        provider: 'notion',
+        status: 'importing',
+        sourceLabel: 'Product HQ',
+        progress: { stage: 'fetching_notion', percent: 0, indexingState: 'not_started' },
+        result: {},
+        activation: {}
+      })
+      .mockResolvedValueOnce({
+        id: 'session-notion',
+        provider: 'notion',
+        status: 'completed',
+        sourceLabel: 'Product HQ',
+        progress: { stage: 'import_complete', percent: 100, indexingState: 'queued' },
+        result: {
+          importedNotes: 2,
+          lastImportedEntryId: 'note-1'
+        },
+        activation: {
+          status: 'captured',
+          primaryAction: 'create_concept'
+        }
+      });
+
+    render(
+      <MemoryRouter>
+        <DataIntegrations />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByText('fetching_notion')).toBeInTheDocument();
+
+    await act(async () => {
+      jest.advanceTimersByTime(3000);
+    });
+
+    await waitFor(() => expect(getActiveImportSession).toHaveBeenCalledTimes(2));
+    expect(await screen.findByText(/Notion import complete\./)).toBeInTheDocument();
+
+    jest.useRealTimers();
   });
 });

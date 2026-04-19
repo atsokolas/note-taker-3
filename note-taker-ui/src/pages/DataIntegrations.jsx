@@ -404,6 +404,34 @@ const DataIntegrations = () => {
   }, []);
 
   useEffect(() => {
+    if (currentSession?.status !== 'importing') {
+      return undefined;
+    }
+
+    let cancelled = false;
+    const refreshImportSession = async () => {
+      try {
+        const session = await getActiveImportSession();
+        if (cancelled) return;
+        setCurrentSession(session);
+        if (session?.provider && SOURCE_OPTIONS.some(option => option.key === session.provider)) {
+          setSelectedSource(session.provider);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          console.error('Failed to refresh active import session:', error);
+        }
+      }
+    };
+
+    const intervalId = window.setInterval(refreshImportSession, 3000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+    };
+  }, [currentSession?.status]);
+
+  useEffect(() => {
     let cancelled = false;
     const loadReadwiseConnection = async () => {
       try {
@@ -754,16 +782,30 @@ const DataIntegrations = () => {
       setStatus('Connect Readwise first.', 'error');
       return;
     }
+    let session = null;
     setReadwiseSyncing(true);
     setImportStats(null);
     setStatus('Syncing from Readwise...');
     try {
-      const session = await ensureSessionForSource({
+      session = await ensureSessionForSource({
         provider: 'readwise',
         mode: 'api_token',
         sourceLabel: readwiseConnection.accountLabel || 'Readwise',
         sourceType: 'api'
       });
+      if (session?.id) {
+        setCurrentSession({
+          ...session,
+          status: 'importing',
+          sourceLabel: readwiseConnection.accountLabel || session.sourceLabel || 'Readwise',
+          progress: {
+            ...(session.progress || {}),
+            stage: 'fetching_readwise',
+            percent: Math.max(session.progress?.percent || 0, 5),
+            indexingState: 'not_started'
+          }
+        });
+      }
       const data = await syncReadwiseConnection({
         connectionId: readwiseConnection.id,
         importSessionId: session?.id
@@ -796,6 +838,19 @@ const DataIntegrations = () => {
       }
     } catch (error) {
       console.error('Readwise sync failed:', error);
+      if (session?.id) {
+        setCurrentSession((previous) => {
+          if (!previous || previous.id !== session.id) return previous;
+          return {
+            ...previous,
+            status: 'failed',
+            progress: {
+              ...(previous.progress || {}),
+              stage: 'failed'
+            }
+          };
+        });
+      }
       setStatus(error.response?.data?.error || 'Failed to sync from Readwise.', 'error');
     } finally {
       setReadwiseSyncing(false);
@@ -888,16 +943,30 @@ const DataIntegrations = () => {
       setStatus('Connect Notion first.', 'error');
       return;
     }
+    let session = null;
     setNotionSyncing(true);
     setImportStats(null);
     setStatus('Syncing from Notion...');
     try {
-      const session = await ensureSessionForSource({
+      session = await ensureSessionForSource({
         provider: 'notion',
         mode: 'oauth',
         sourceLabel: notionConnection.accountLabel || 'Notion',
         sourceType: 'oauth'
       });
+      if (session?.id) {
+        setCurrentSession({
+          ...session,
+          status: 'importing',
+          sourceLabel: notionConnection.accountLabel || session.sourceLabel || 'Notion',
+          progress: {
+            ...(session.progress || {}),
+            stage: 'fetching_notion',
+            percent: Math.max(session.progress?.percent || 0, 5),
+            indexingState: 'not_started'
+          }
+        });
+      }
       const data = await syncNotionConnection({
         connectionId: notionConnection.id,
         importSessionId: session?.id
@@ -939,6 +1008,19 @@ const DataIntegrations = () => {
       }
     } catch (error) {
       console.error('Notion sync failed:', error);
+      if (session?.id) {
+        setCurrentSession((previous) => {
+          if (!previous || previous.id !== session.id) return previous;
+          return {
+            ...previous,
+            status: 'failed',
+            progress: {
+              ...(previous.progress || {}),
+              stage: 'failed'
+            }
+          };
+        });
+      }
       setStatus(error.response?.data?.error || 'Failed to sync from Notion.', 'error');
     } finally {
       setNotionSyncing(false);

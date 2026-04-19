@@ -276,6 +276,7 @@ const NotebookEditor = ({
   onDump,
   claimCandidates = EMPTY_CLAIM_CANDIDATES,
   onInvokeAgentSkill = null,
+  showInlineAgentDock = true,
   agentContextType = 'notebook',
   agentContextId = '',
   agentContextTitle = ''
@@ -284,6 +285,7 @@ const NotebookEditor = ({
   const slashKeyDownRef = useRef(() => false);
   const [titleDraft, setTitleDraft] = useState(entry?.title || '');
   const [insertMode, setInsertMode] = useState('');
+  const [insertMenuOpen, setInsertMenuOpen] = useState(false);
   const [organizeOpen, setOrganizeOpen] = useState(false);
   const [entryType, setEntryType] = useState(entry?.type || 'note');
   const [entryTags, setEntryTags] = useState(entry?.tags || []);
@@ -592,6 +594,11 @@ const NotebookEditor = ({
     });
   };
 
+  const handleSelectInsertMode = (mode) => {
+    setInsertMenuOpen(false);
+    setInsertMode(mode);
+  };
+
   const handleExport = async () => {
     if (!entry?._id) return;
     try {
@@ -677,32 +684,54 @@ const NotebookEditor = ({
               </Button>
             )}
             <div className="notebook-insert-group">
-              <span className="notebook-insert-label">Library</span>
-              <div className="notebook-insert-buttons" role="group" aria-label="Insert from library">
+              <div className="notebook-insert-labels">
+                <span className="notebook-insert-label">Reuse actions</span>
+                <span className="notebook-insert-hint">
+                  Pull saved material onto the page only when it sharpens the draft.
+                </span>
+              </div>
+              <div className="notebook-insert-menu">
                 <QuietButton
-                  className={insertMode === 'highlight' ? 'is-active' : ''}
-                  onClick={() => setInsertMode('highlight')}
+                  className={insertMenuOpen ? 'is-active' : ''}
+                  aria-expanded={insertMenuOpen}
+                  aria-controls="notebook-insert-options"
+                  onClick={() => setInsertMenuOpen((previous) => !previous)}
                 >
-                  Highlight
+                  Insert material
                 </QuietButton>
-                <QuietButton
-                  className={insertMode === 'article' ? 'is-active' : ''}
-                  onClick={() => setInsertMode('article')}
-                >
-                  Article
-                </QuietButton>
-                <QuietButton
-                  className={insertMode === 'concept' ? 'is-active' : ''}
-                  onClick={() => setInsertMode('concept')}
-                >
-                  Concept
-                </QuietButton>
-                <QuietButton
-                  className={insertMode === 'question' ? 'is-active' : ''}
-                  onClick={() => setInsertMode('question')}
-                >
-                  Question
-                </QuietButton>
+                {insertMenuOpen && (
+                  <div
+                    id="notebook-insert-options"
+                    className="notebook-insert-buttons"
+                    role="group"
+                    aria-label="Insert from library"
+                  >
+                    <QuietButton
+                      className={insertMode === 'highlight' ? 'is-active' : ''}
+                      onClick={() => handleSelectInsertMode('highlight')}
+                    >
+                      Highlight
+                    </QuietButton>
+                    <QuietButton
+                      className={insertMode === 'article' ? 'is-active' : ''}
+                      onClick={() => handleSelectInsertMode('article')}
+                    >
+                      Article
+                    </QuietButton>
+                    <QuietButton
+                      className={insertMode === 'concept' ? 'is-active' : ''}
+                      onClick={() => handleSelectInsertMode('concept')}
+                    >
+                      Concept
+                    </QuietButton>
+                    <QuietButton
+                      className={insertMode === 'question' ? 'is-active' : ''}
+                      onClick={() => handleSelectInsertMode('question')}
+                    >
+                      Question
+                    </QuietButton>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -732,19 +761,21 @@ const NotebookEditor = ({
           </div>
         </div>
       </div>
-      <AgentSkillDock
-        surface="notebook"
-        contextType="notebook"
-        contextId={entry?._id}
-        targetContextType={agentContextType}
-        targetContextId={agentContextId || entry?._id}
-        contextTitle={agentContextTitle || titleDraft || entry?.title || 'Notebook note'}
-        headline="Draft what this page can become"
-        title="Notebook agent"
-        subtitle="Use the current page as raw material for a brief, critique, concept lead, or question."
-        className="think-notebook-editor__skills agent-skill-dock--inline"
-        onInvoke={onInvokeAgentSkill}
-      />
+      {showInlineAgentDock ? (
+        <AgentSkillDock
+          surface="notebook"
+          contextType="notebook"
+          contextId={entry?._id}
+          targetContextType={agentContextType}
+          targetContextId={agentContextId || entry?._id}
+          contextTitle={agentContextTitle || titleDraft || entry?.title || 'Notebook note'}
+          headline="Draft what this page can become"
+          title="Notebook agent"
+          subtitle="Use the current page as raw material for a brief, critique, concept lead, or question."
+          className="think-notebook-editor__skills agent-skill-dock--inline"
+          onInvoke={onInvokeAgentSkill}
+        />
+      ) : null}
       {error && <p className="status-message error-message">{error}</p>}
       {organizeOpen && (
         <div className="notebook-organize-panel">

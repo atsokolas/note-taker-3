@@ -3551,6 +3551,7 @@ const ThinkMode = () => {
           onDump={() => handleDumpToWorkingMemory()}
           claimCandidates={notebookEntries.filter(item => (item.type || 'note') === 'claim')}
           onInvokeAgentSkill={queueThoughtPartnerPrompt}
+          showInlineAgentDock={false}
           agentContextType={thoughtPartnerContext?.contextType || 'notebook'}
           agentContextId={thoughtPartnerContext?.contextId || activeNotebookEntry?._id || ''}
           agentContextTitle={thoughtPartnerContext?.contextTitle || activeNotebookEntry?.title || 'Notebook'}

@@ -18,12 +18,18 @@ const mockChain = {
 const mockEditor = {
   chain: jest.fn(() => mockChain),
   isActive: jest.fn(() => false),
+  on: jest.fn(),
+  off: jest.fn(),
   state: {
     selection: {
+      from: 0,
       $from: {
         index: jest.fn(() => 0)
       }
     }
+  },
+  view: {
+    coordsAtPos: jest.fn(() => ({ left: 0, right: 0 }))
   },
   commands: {
     setContent: jest.fn(),
@@ -61,6 +67,17 @@ jest.mock('../../../api/organize', () => ({
   searchNotebookClaims: jest.fn(async () => [])
 }));
 
+jest.mock('../../../hooks/useCssMagneticLerp', () => () => ({
+  elRef: { current: null },
+  setTarget: jest.fn(),
+  reset: jest.fn()
+}));
+
+jest.mock('../../../hooks/useMotionPreferences', () => ({
+  useFinePointer: () => false,
+  usePrefersReducedMotion: () => true
+}));
+
 describe('NotebookEditor', () => {
   beforeEach(() => {
     mockUseEditor.mockReturnValue(mockEditor);
@@ -79,8 +96,12 @@ describe('NotebookEditor', () => {
     mockChain.toggleBlockquote.mockReturnValue(mockChain);
     mockChain.run.mockReturnValue(true);
     mockEditor.chain.mockClear();
+    mockEditor.on.mockClear();
+    mockEditor.off.mockClear();
+    mockEditor.view.coordsAtPos.mockClear();
     mockEditor.commands.setContent.mockClear();
     mockEditor.commands.insertContent.mockClear();
+    mockEditor.state.selection.from = 0;
     mockEditor.state.selection.$from.index.mockReturnValue(0);
   });
 
@@ -130,6 +151,46 @@ describe('NotebookEditor', () => {
     expect(mockEditor.chain).toHaveBeenCalled();
     expect(mockChain.toggleBold).toHaveBeenCalled();
     expect(mockChain.toggleBlockquote).toHaveBeenCalled();
+  });
+
+  it('keeps insert actions collapsed until requested', () => {
+    render(
+      <NotebookEditor
+        entry={{ _id: 'note-1', title: 'Draft', content: '<p>Draft</p>', blocks: [], type: 'note', tags: [] }}
+        saving={false}
+        error=""
+        onSave={jest.fn()}
+        onDelete={jest.fn()}
+      />
+    );
+
+    expect(screen.getByRole('button', { name: 'Insert material' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Highlight' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Article' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Concept' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Question' })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Insert material' }));
+
+    expect(screen.getByRole('button', { name: 'Highlight' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Article' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Concept' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Question' })).toBeInTheDocument();
+  });
+
+  it('can hide the inline notebook agent surface when the shell provides it elsewhere', () => {
+    render(
+      <NotebookEditor
+        entry={{ _id: 'note-1', title: 'Draft', content: '<p>Draft</p>', blocks: [], type: 'note', tags: [] }}
+        saving={false}
+        error=""
+        onSave={jest.fn()}
+        onDelete={jest.fn()}
+        showInlineAgentDock={false}
+      />
+    );
+
+    expect(screen.queryByTestId('agent-skill-dock')).not.toBeInTheDocument();
   });
 
   it('moves the current block down from the helper controls', () => {
