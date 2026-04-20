@@ -28,6 +28,7 @@ import {
   saveFirstInsightState,
   updateFirstInsightState
 } from '../utils/firstInsight';
+import { trackActivationMilestone } from '../utils/marketingAnalytics';
 
 const SOURCE_OPTIONS = [
   {
@@ -591,6 +592,14 @@ const DataIntegrations = () => {
     setConceptName(next.conceptName || '');
     setConceptError('');
     setScheduleError('');
+    trackActivationMilestone({
+      milestone: 'first_insight_captured',
+      sourceType,
+      title: next.title,
+      importedArticles: next.counts.importedArticles,
+      importedHighlights: next.counts.importedHighlights,
+      importedNotes: next.counts.importedNotes
+    });
     return next;
   };
 
@@ -1426,6 +1435,15 @@ const DataIntegrations = () => {
       setActivationState(next);
       setConceptName(next.conceptName || cleanName);
       setStatus(`Concept "${next.conceptName || cleanName}" is ready.`, 'success');
+      trackActivationMilestone({
+        milestone: 'first_concept_created',
+        sourceType: next.sourceType,
+        title: next.title,
+        conceptName: next.conceptName || cleanName,
+        importedArticles: next.counts?.importedArticles || 0,
+        importedHighlights: next.counts?.importedHighlights || 0,
+        importedNotes: next.counts?.importedNotes || 0
+      });
       if (currentSession?.id) {
         await patchSession(currentSession.id, {
           activation: {
@@ -1466,6 +1484,16 @@ const DataIntegrations = () => {
       });
       setActivationState(next);
       setStatus(`Revisit scheduled in ${days} day${days === 1 ? '' : 's'}.`, 'success');
+      trackActivationMilestone({
+        milestone: 'revisit_scheduled',
+        sourceType: next.sourceType,
+        title: next.title,
+        conceptName: next.conceptName,
+        dueInDays: days,
+        importedArticles: next.counts?.importedArticles || 0,
+        importedHighlights: next.counts?.importedHighlights || 0,
+        importedNotes: next.counts?.importedNotes || 0
+      });
       if (currentSession?.id) {
         await patchSession(currentSession.id, {
           activation: {

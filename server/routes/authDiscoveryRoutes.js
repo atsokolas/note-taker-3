@@ -1,6 +1,7 @@
 const express = require('express');
 
 const PASSWORD_MIN_LENGTH = 8;
+const { sanitizeAttribution } = require('./marketingAnalyticsRoutes');
 
 const validateRegistration = ({ username, password }) => {
   const cleanUsername = String(username || '').trim();
@@ -34,7 +35,9 @@ const buildAuthDiscoveryRouter = ({
   User,
   authenticateToken,
   Recommendation,
-  Article
+  Article,
+  trackEvent = () => {},
+  EVENT_NAMES = {}
 }) => {
   const router = express.Router();
 
@@ -54,6 +57,13 @@ const buildAuthDiscoveryRouter = ({
       const hashedPassword = await bcrypt.hash(password, 10);
       const newUser = new User({ username: cleanUsername, password: hashedPassword });
       await newUser.save();
+      const marketingAttribution = sanitizeAttribution(req.body?.marketingAttribution);
+      trackEvent({
+        event: EVENT_NAMES.USER_SIGNUP,
+        userId: newUser._id,
+        requestId: req.requestId,
+        properties: marketingAttribution
+      });
       res.status(201).json({
         message: "User registered successfully.",
         loginMessage: "Account created. You can log in now."

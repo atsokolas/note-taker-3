@@ -1,0 +1,2641 @@
+{
+  "site": {
+    "name": "Noeis",
+    "host": "https://www.noeis.io",
+    "lastUpdated": "2026-04-19",
+    "authorName": "Anthony Tsokolas",
+    "authorTitle": "Founder, Noeis",
+    "editorialMethodology": [
+      "This guide is based on direct testing of Noeis workflows, review of current note-taking and second-brain patterns, and practical evaluation of what helps serious readers retrieve and reuse their own material.",
+      "The goal is not to produce generic listicle SEO copy. It is to make the decision criteria explicit enough that a reader can judge whether the workflow will actually improve recall, synthesis, and output."
+    ],
+    "description": "Noeis is a concept-centered thinking workspace for serious readers who want to turn highlights, notes, and saved reading into maintained concepts and reusable insight."
+  },
+  "home": {
+    "eyebrow": "Concept-centered thinking workspace for serious readers",
+    "railEyebrow": "Built for reliable recall",
+    "railCopy": "A reading room for people who save too much, think in fragments, and want their notes to accumulate into actual judgment.",
+    "headline": "Reading becomes notes. Notes become concepts. Questions stay open until they are answered.",
+    "lede": "Noeis keeps highlights, working drafts, concepts, and question threads in one calm workspace so your thinking can compound instead of disappearing into tabs, folders, and screenshots.",
+    "primaryCta": {
+      "label": "Get started",
+      "href": "/register"
+    },
+    "secondaryCta": {
+      "label": "Browse guides",
+      "href": "/guides"
+    },
+    "proofPoints": [
+      "Highlights stay attached to source and context.",
+      "Concepts gather evidence before they become manuscripts.",
+      "Questions stay visible until something actually resolves them."
+    ],
+    "guideLinks": [
+      {
+        "label": "Browse guides",
+        "href": "/guides"
+      },
+      {
+        "label": "AI second brain",
+        "href": "/ai-second-brain"
+      },
+      {
+        "label": "Second brain app",
+        "href": "/second-brain-app"
+      }
+    ]
+  },
+  "guides": [
+    {
+      "slug": "ai-second-brain",
+      "title": "AI Second Brain",
+      "pageTitle": "AI Second Brain for Serious Readers | Noeis",
+      "description": "What the term should mean in practice, what to evaluate, and where Noeis fits.",
+      "heroTitle": "AI Second Brain for Research, Writing, and Knowledge Work",
+      "heroDescription": "A practical guide to what an AI second brain should do for research, synthesis, and writing.",
+      "eyebrow": "Guide",
+      "heroIntro": [
+        "Most people start looking for an AI second brain when their current system stops being useful. Notes are spread across docs, bookmarks, screenshots, and chat threads. Good ideas get captured, but they do not come back when needed. Research piles up faster than it turns into writing.",
+        "In plain English, an AI second brain is not a robot that thinks for you. It is a workspace outside your head where your notes, highlights, questions, and source material stay connected, so you can actually use what you saved later. A good one should help with retrieval, synthesis, and writing, not just storage."
+      ],
+      "ctas": [
+        {
+          "label": "Start free",
+          "href": "/register",
+          "variant": "primary",
+          "track": "hero"
+        },
+        {
+          "label": "See Noeis",
+          "href": "/",
+          "variant": "secondary",
+          "track": "hero"
+        }
+      ],
+      "toc": [
+        {
+          "id": "why",
+          "label": "Why people look for an AI second brain"
+        },
+        {
+          "id": "criteria",
+          "label": "What to look for in a second brain app"
+        },
+        {
+          "id": "workflow",
+          "label": "A practical AI note-taking workflow"
+        },
+        {
+          "id": "comparison",
+          "label": "How it compares to other tools"
+        },
+        {
+          "id": "mistakes",
+          "label": "Common mistakes"
+        },
+        {
+          "id": "faq",
+          "label": "FAQ"
+        }
+      ],
+      "faq": [
+        {
+          "question": "What is an AI second brain?",
+          "answer": "An AI second brain is a workspace that helps you capture, organize, connect, and reuse notes, ideas, and source material. The practical version helps with retrieval and synthesis, not just storage."
+        },
+        {
+          "question": "How is an AI second brain different from a notes app?",
+          "answer": "A notes app stores information. An AI second brain should help you work across your notes, questions, and sources so you can turn saved material into writing, plans, or decisions."
+        },
+        {
+          "question": "Who is an AI second brain for?",
+          "answer": "It fits founders, researchers, writers, students, operators, and other knowledge workers who need to revisit ideas and turn them into outputs."
+        },
+        {
+          "question": "What should I look for in a second brain app?",
+          "answer": "Look for capture with source context, connected notes, support for synthesis, and a workflow that helps you write or plan from your own material instead of starting from scratch each time."
+        }
+      ],
+      "sections": [
+        {
+          "id": "why",
+          "title": "Why people start looking for an AI second brain",
+          "blocks": [
+            {
+              "type": "paragraph",
+              "text": "If you are searching for a second brain app, you are probably dealing with at least one familiar problem: you save plenty of material, but it rarely turns into a memo, plan, article, or decision. Your notes may be technically organized, yet they are not connected in a way that helps you think. You may use chat tools to summarize what you read, but the useful context disappears as soon as the conversation ends."
+            },
+            {
+              "type": "paragraph",
+              "text": "This is where terms like AI second mind or AI thinking partner only become useful if they stay concrete. In practice, they should mean software that helps you work across your own material. It should help you surface related notes, compare source material, and move toward synthesis while keeping the original context close by."
+            }
+          ]
+        },
+        {
+          "id": "criteria",
+          "title": "What to look for in a second brain app",
+          "blocks": [
+            {
+              "type": "paragraph",
+              "text": "Not every note-taking tool is a real second brain. If your goal is better research, clearer writing, and stronger knowledge management, these are the decision criteria that matter."
+            },
+            {
+              "type": "subsections",
+              "items": [
+                {
+                  "title": "Capture without losing context",
+                  "paragraphs": [
+                    "A note without context is hard to reuse. When you save an article, highlight a passage, or jot down an idea, you should be able to keep the source attached. That makes later synthesis much easier, especially when you need to defend a point, cite a source, or revisit the exact framing that shaped your thinking."
+                  ],
+                  "orderedList": [
+                    "Save source material while you read.",
+                    "Pull only the highlights or notes worth keeping.",
+                    "Keep those items linked back to the original source.",
+                    "Reuse them inside a writing or planning workspace."
+                  ]
+                },
+                {
+                  "title": "Connected notes beat isolated documents",
+                  "paragraphs": [
+                    "A useful personal knowledge management AI workflow is not a pile of saved text. It should let ideas relate to each other. If you are researching pricing strategy, for example, you may want one place where you can see customer call notes, highlights from market analysis, your own questions, and a working memo. Those should not live in five disconnected tabs."
+                  ]
+                },
+                {
+                  "title": "Synthesis matters more than storage",
+                  "paragraphs": [
+                    "The real test is simple: after one week in the tool, do you have better outputs, or just more saved inputs? For founders, the output may be a strategy memo. For writers, a draft. For students, a study note. For operators, a plan. A real AI note-taking workflow should help you move from source material to your own words."
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "workflow",
+          "title": "A practical AI note-taking workflow",
+          "blocks": [
+            {
+              "type": "paragraph",
+              "text": "A useful workflow should be simple enough to repeat and structured enough to build on itself. The job of an AI second brain is not to replace judgment. It is to reduce the friction between reading, remembering, and producing."
+            },
+            {
+              "type": "orderedList",
+              "items": [
+                "Capture source material as you read.",
+                "Highlight only the parts you may want to reuse.",
+                "Group related ideas around a theme, question, or project.",
+                "Write a short synthesis note in your own words.",
+                "Expand that note into a draft, plan, or decision document."
+              ]
+            },
+            {
+              "type": "cards",
+              "variant": "example",
+              "items": [
+                {
+                  "title": "Example: research to memo",
+                  "paragraphs": [
+                    "A founder is researching customer retention. They save three articles, one interview transcript, and internal notes from support calls. They highlight recurring patterns like onboarding friction, unclear setup, and weak activation triggers. Then they create one workspace around the question, Why do new users stall after signup?",
+                    "From there, they write a synthesis note with three hypotheses and supporting evidence. That note becomes a one-page action memo for the team. The value is not that the material was stored. The value is that it became usable."
+                  ]
+                },
+                {
+                  "title": "Example: reading to draft",
+                  "paragraphs": [
+                    "A writer is collecting material for an essay on attention and productivity. They save five sources over two weeks, highlight passages about distraction and tool overload, and connect those notes around two themes. They then draft a short synthesis note arguing that better systems should reduce noise instead of increasing collection.",
+                    "That note becomes the opening section of the essay. If your second brain app does not make this kind of workflow easier, it is probably just a storage layer."
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "style": "callout",
+          "title": "Looking for a cleaner way to do this?",
+          "blocks": [
+            {
+              "type": "paragraph",
+              "text": "If you want a workspace where notes, ideas, and sources stay connected while you write and synthesize, Noeis is built for that job."
+            },
+            {
+              "type": "ctas",
+              "items": [
+                {
+                  "label": "Try Noeis",
+                  "href": "/register",
+                  "variant": "secondary",
+                  "track": "mid"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "comparison",
+          "title": "AI second brain vs other tool categories",
+          "blocks": [
+            {
+              "type": "cards",
+              "variant": "compare",
+              "items": [
+                {
+                  "title": "Static notes apps",
+                  "paragraphs": [
+                    "Good at storing information, often weak at helping you connect highlights, source material, and writing in one workflow."
+                  ]
+                },
+                {
+                  "title": "Fragmented docs systems",
+                  "paragraphs": [
+                    "Useful for team documentation, but they often create sprawl. Notes end up split across folders, pages, and project docs with no clear thinking loop."
+                  ]
+                },
+                {
+                  "title": "Chat-only AI tools",
+                  "paragraphs": [
+                    "Fast for summaries or brainstorming, but poor systems for long-term knowledge work when the useful context disappears after the conversation."
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "paragraph",
+              "text": "What many people actually want is a middle path: a clean workspace that supports capture, retrieval, and synthesis together. That is where Noeis fits. It is designed for thinking across notes, ideas, and source material, with AI assistance used in context rather than as a detached chat box."
+            }
+          ]
+        },
+        {
+          "id": "mistakes",
+          "title": "Common mistakes when building a second brain",
+          "blocks": [
+            {
+              "type": "cards",
+              "variant": "mistake",
+              "items": [
+                {
+                  "title": "Capturing everything",
+                  "paragraphs": [
+                    "If you save too much and never distill it, your system becomes a warehouse. Keep what you expect to reuse, question, or develop."
+                  ]
+                },
+                {
+                  "title": "Organizing before thinking",
+                  "paragraphs": [
+                    "Perfect folders do not create insight. The job is to make ideas easier to retrieve and combine when you are writing or planning."
+                  ]
+                },
+                {
+                  "title": "Treating AI output as finished thinking",
+                  "paragraphs": [
+                    "AI can help you compare, summarize, or retrieve, but your judgment still matters. The useful pattern is collaboration with your material, not blind acceptance."
+                  ]
+                },
+                {
+                  "title": "Keeping notes and writing separate",
+                  "paragraphs": [
+                    "If research lives in one tool and drafting happens somewhere else, synthesis becomes harder than it needs to be."
+                  ]
+                },
+                {
+                  "title": "Choosing novelty over workflow",
+                  "paragraphs": [
+                    "The right question is not how advanced the AI sounds. It is whether the tool helps you go from notes to better work."
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "title": "Why Noeis fits this workflow",
+          "blocks": [
+            {
+              "type": "paragraph",
+              "text": "Noeis is a clean workspace for thinking, with an AI agent that helps connect notes, ideas, and source material. It supports research, synthesis, writing, planning, and knowledge management workflows in concrete terms. You can capture what matters, organize it for retrieval, and develop it into drafts or decisions without losing the source context that made the idea useful in the first place."
+            },
+            {
+              "type": "paragraph",
+              "text": "That makes it especially relevant for researchers, founders, writers, students, and operators who need a practical second brain app instead of another inbox for saved content."
+            }
+          ]
+        },
+        {
+          "title": "Further reading",
+          "blocks": [
+            {
+              "type": "externalLinks",
+              "items": [
+                {
+                  "label": "Building a Second Brain",
+                  "href": "https://www.buildingasecondbrain.com/"
+                },
+                {
+                  "label": "The PARA Method",
+                  "href": "https://fortelabs.com/para/"
+                },
+                {
+                  "label": "Zettelkasten Method",
+                  "href": "https://zettelkasten.de/"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "faq",
+          "title": "FAQ",
+          "blocks": [
+            {
+              "type": "faqCards",
+              "items": [
+                {
+                  "title": "What is an AI second brain?",
+                  "paragraphs": [
+                    "A practical AI second brain is a workspace that helps you capture, connect, and reuse notes, ideas, and sources so you can turn them into outputs."
+                  ]
+                },
+                {
+                  "title": "What makes a second brain app useful?",
+                  "paragraphs": [
+                    "The useful ones support capture, connected notes, retrieval, and synthesis. Storage alone is not enough."
+                  ]
+                },
+                {
+                  "title": "Who benefits most from an AI second brain?",
+                  "paragraphs": [
+                    "Founders, researchers, writers, operators, students, and other knowledge workers who need to revisit ideas and turn them into output."
+                  ]
+                },
+                {
+                  "title": "Is Noeis just for note storage?",
+                  "paragraphs": [
+                    "No. It is built to support research, synthesis, writing, planning, and knowledge management workflows, with AI assistance used in the context of your material."
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "style": "footer",
+          "title": "If your current system stores a lot but helps very little, this is the next step.",
+          "blocks": [
+            {
+              "type": "paragraph",
+              "text": "Start with a small real project, bring in a few sources, connect the notes, and see whether your thinking gets clearer."
+            },
+            {
+              "type": "relatedGuides",
+              "items": [
+                "second-brain-app",
+                "ai-note-taking-workflow",
+                "personal-knowledge-management-ai"
+              ]
+            },
+            {
+              "type": "ctas",
+              "items": [
+                {
+                  "label": "Start free",
+                  "href": "/register",
+                  "variant": "primary",
+                  "track": "footer"
+                },
+                {
+                  "label": "See how Noeis works",
+                  "href": "/",
+                  "variant": "secondary",
+                  "track": "footer"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "second-brain-app",
+      "title": "Second Brain App",
+      "pageTitle": "Best Second Brain App Criteria for Serious Readers | Noeis",
+      "description": "How to compare categories of tools when you need retrieval, connected notes, and synthesis.",
+      "heroTitle": "How to Choose a Second Brain App",
+      "heroDescription": "Decision criteria for serious readers who care about recall, synthesis, and real output.",
+      "eyebrow": "Guide",
+      "heroIntro": [
+        "Most people do not need another place to dump notes. They need a second brain app that helps them find useful material again, connect related ideas, and turn collected inputs into writing, plans, or decisions."
+      ],
+      "ctas": [
+        {
+          "label": "Start free",
+          "href": "/register",
+          "variant": "primary",
+          "track": "hero"
+        },
+        {
+          "label": "Browse guides",
+          "href": "/guides",
+          "variant": "secondary",
+          "track": "hero"
+        }
+      ],
+      "sections": [
+        {
+          "title": "What a second brain app should actually do",
+          "blocks": [
+            {
+              "type": "paragraph",
+              "text": "A useful second brain app should help you keep source context, structure your notes around themes or questions, and make it easier to synthesize what you have already collected. If the app mostly stores disconnected text, it is acting like an archive, not a second brain."
+            }
+          ]
+        },
+        {
+          "title": "Decision criteria",
+          "blocks": [
+            {
+              "type": "cards",
+              "variant": "mistake",
+              "items": [
+                {
+                  "title": "Can you capture source material with context?",
+                  "paragraphs": [
+                    "Research notes become much more useful when highlights and notes stay tied to where they came from."
+                  ]
+                },
+                {
+                  "title": "Can related ideas live together?",
+                  "paragraphs": [
+                    "A second brain app should support connected notes, not just folders."
+                  ]
+                },
+                {
+                  "title": "Does it help you write?",
+                  "paragraphs": [
+                    "The real test is whether your workflow gets shorter between research and output."
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "title": "Category comparison",
+          "blocks": [
+            {
+              "type": "cards",
+              "variant": "compare",
+              "items": [
+                {
+                  "title": "Traditional notes apps",
+                  "paragraphs": [
+                    "Good for storage and quick capture. Often weak on retrieval and cross-source synthesis."
+                  ]
+                },
+                {
+                  "title": "Docs and wiki tools",
+                  "paragraphs": [
+                    "Strong for documentation. Less effective when you need a compact personal thinking workspace."
+                  ]
+                },
+                {
+                  "title": "Chat-only AI tools",
+                  "paragraphs": [
+                    "Useful in the moment, but poor at preserving structured context for future work."
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "title": "Where Noeis fits",
+          "blocks": [
+            {
+              "type": "paragraph",
+              "text": "Noeis is built for people who need a clean workspace for thinking across notes, ideas, and source material. It supports capture, retrieval, connected notes, and synthesis in one place, with AI help used in context rather than as a detached conversation."
+            },
+            {
+              "type": "ctas",
+              "items": [
+                {
+                  "label": "Try Noeis",
+                  "href": "/register",
+                  "variant": "secondary",
+                  "track": "body"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "title": "Related guides",
+          "blocks": [
+            {
+              "type": "relatedGuides",
+              "items": [
+                "ai-second-brain",
+                "ai-note-taking-workflow",
+                "personal-knowledge-management-ai"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "ai-note-taking-workflow",
+      "title": "AI Note-Taking Workflow",
+      "pageTitle": "AI Note-Taking Workflow for Serious Readers | Noeis",
+      "description": "How to move from saved source material to writing, planning, and reusable insight.",
+      "heroTitle": "A Practical AI Note-Taking Workflow",
+      "heroDescription": "A practical workflow for capturing sources, connecting notes, and turning research into writing.",
+      "eyebrow": "Guide",
+      "heroIntro": [
+        "The best note-taking workflows start with a simple loop: capture source material, keep the useful parts, connect them around a question, and write in your own words."
+      ],
+      "ctas": [
+        {
+          "label": "Start free",
+          "href": "/register",
+          "variant": "primary",
+          "track": "hero"
+        },
+        {
+          "label": "Browse guides",
+          "href": "/guides",
+          "variant": "secondary",
+          "track": "hero"
+        }
+      ],
+      "sections": [
+        {
+          "title": "The workflow in five steps",
+          "blocks": [
+            {
+              "type": "orderedList",
+              "items": [
+                "Capture the source while you read or research.",
+                "Highlight only what you expect to reuse.",
+                "Group related notes around a theme, concept, or open question.",
+                "Write a short synthesis note in plain language.",
+                "Expand that synthesis into a draft, memo, or plan."
+              ]
+            }
+          ]
+        },
+        {
+          "title": "What AI should do in this workflow",
+          "blocks": [
+            {
+              "type": "cards",
+              "variant": "mistake",
+              "items": [
+                {
+                  "title": "Retrieve context",
+                  "paragraphs": [
+                    "AI is useful when it helps surface related notes, highlights, and source material you might miss manually."
+                  ]
+                },
+                {
+                  "title": "Support synthesis",
+                  "paragraphs": [
+                    "It can help compare ideas, summarize patterns, or organize material into a working structure."
+                  ]
+                },
+                {
+                  "title": "Stay grounded",
+                  "paragraphs": [
+                    "The output should stay close to your notes and sources."
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "title": "Why Noeis fits this pattern",
+          "blocks": [
+            {
+              "type": "paragraph",
+              "text": "Noeis supports capture, connected notes, and writing in one workspace. It is designed for people who need to move from saved material to synthesis without losing the source context that makes their notes useful."
+            },
+            {
+              "type": "ctas",
+              "items": [
+                {
+                  "label": "Start free",
+                  "href": "/register",
+                  "variant": "secondary",
+                  "track": "body"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "title": "Related guides",
+          "blocks": [
+            {
+              "type": "relatedGuides",
+              "items": [
+                "ai-second-brain",
+                "second-brain-app",
+                "personal-knowledge-management-ai"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "personal-knowledge-management-ai",
+      "title": "Personal Knowledge Management AI",
+      "pageTitle": "Personal Knowledge Management AI for Serious Readers | Noeis",
+      "description": "How to use AI in a PKM system without creating more clutter than clarity.",
+      "heroTitle": "How to Use AI in Personal Knowledge Management",
+      "heroDescription": "How to use AI in personal knowledge management without losing the thread of your own thinking.",
+      "eyebrow": "Guide",
+      "heroIntro": [
+        "Personal knowledge management gets harder when capture is easy but synthesis is weak. You can save hundreds of ideas and still have a system that rarely helps you think, write, or decide. AI is useful here only when it improves retrieval, connection, and synthesis across your own material."
+      ],
+      "ctas": [
+        {
+          "label": "Start free",
+          "href": "/register",
+          "variant": "primary",
+          "track": "hero"
+        },
+        {
+          "label": "Browse guides",
+          "href": "/guides",
+          "variant": "secondary",
+          "track": "hero"
+        }
+      ],
+      "sections": [
+        {
+          "title": "What AI should do in a PKM system",
+          "blocks": [
+            {
+              "type": "cards",
+              "variant": "mistake",
+              "items": [
+                {
+                  "title": "Help you retrieve the right context",
+                  "paragraphs": [
+                    "AI should help surface related notes, highlights, and open questions when you are writing or making a decision, not just generate generic summaries on demand."
+                  ]
+                },
+                {
+                  "title": "Support connection across notes",
+                  "paragraphs": [
+                    "A useful system helps you see that one note from last month matters to a draft, research thread, or question you are working on today."
+                  ]
+                },
+                {
+                  "title": "Stay grounded in your material",
+                  "paragraphs": [
+                    "The best use of AI in personal knowledge management is not autonomous writing. It is helping you work faster and more clearly with your own notes and sources."
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "title": "What usually goes wrong",
+          "blocks": [
+            {
+              "type": "unorderedList",
+              "items": [
+                "Using AI to create more notes without improving the quality of thinking.",
+                "Keeping source material separate from the notes that depend on it.",
+                "Treating summaries as a replacement for synthesis.",
+                "Building a large archive that is hard to revisit when you actually need it."
+              ]
+            }
+          ]
+        },
+        {
+          "title": "A practical standard",
+          "blocks": [
+            {
+              "type": "paragraph",
+              "text": "A strong personal knowledge management AI workflow should help you go from saved material to something usable: a draft, memo, brief, or plan. That means the system needs capture, connected notes, retrieval, and a place to synthesize in your own words."
+            },
+            {
+              "type": "paragraph",
+              "text": "Noeis fits that pattern because it gives you a clean workspace for thinking across notes, ideas, and source material, with AI help used in context rather than as a detached output engine."
+            },
+            {
+              "type": "ctas",
+              "items": [
+                {
+                  "label": "Try Noeis",
+                  "href": "/register",
+                  "variant": "secondary",
+                  "track": "body"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "title": "Related guides",
+          "blocks": [
+            {
+              "type": "relatedGuides",
+              "items": [
+                "ai-second-brain",
+                "second-brain-app",
+                "ai-note-taking-workflow"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "most-note-apps-solve-capture-not-recall",
+      "title": "Most Note Apps Solve Capture, Not Recall",
+      "pageTitle": "Most Note Apps Solve Capture, Not Recall | Noeis",
+      "description": "Why note-taking software feels productive at capture time but still fails when you need retrieval, synthesis, and recall.",
+      "heroTitle": "Most Note Apps Solve Capture, Not Recall",
+      "heroDescription": "Why serious readers outgrow note apps that make saving easy but remembering hard.",
+      "eyebrow": "Core wedge",
+      "heroIntro": [
+        "Most note apps feel good in the moment because they reduce friction at capture time. You can clip an article, save a quote, highlight a paragraph, or jot down an idea in seconds. The problem shows up later. When you actually need the material again, the system does not help much.",
+        "This is the category mistake behind a lot of personal knowledge software. Capture is treated as the job. Recall is treated as a search problem. In practice, the hard part is not getting information into the system. It is building a workspace where the important parts come back with enough context to help you think, write, and decide."
+      ],
+      "methodology": [
+        "This page is based on direct comparison of common note-taking workflows against the retrieval and synthesis demands of real reading, writing, and strategy work.",
+        "The argument here is intentionally opinionated: if a system is optimized around inbox growth instead of reliable reuse, it is not solving the main problem."
+      ],
+      "ctas": [
+        {
+          "label": "Start free",
+          "href": "/register",
+          "variant": "primary",
+          "track": "hero"
+        },
+        {
+          "label": "Browse guides",
+          "href": "/guides",
+          "variant": "secondary",
+          "track": "hero"
+        }
+      ],
+      "toc": [
+        {
+          "id": "capture",
+          "label": "Why capture feels like progress"
+        },
+        {
+          "id": "recall",
+          "label": "What recall actually requires"
+        },
+        {
+          "id": "failure-modes",
+          "label": "Where note apps break down"
+        },
+        {
+          "id": "better-standard",
+          "label": "A better standard"
+        },
+        {
+          "id": "faq",
+          "label": "FAQ"
+        }
+      ],
+      "faq": [
+        {
+          "question": "Why do most note apps feel useful at first?",
+          "answer": "They make capture fast and tidy, which creates a strong feeling of progress even before the material has been revisited or used."
+        },
+        {
+          "question": "What is the difference between capture and recall?",
+          "answer": "Capture gets information into a system. Recall is the ability to surface the right idea, source, or question later with enough context to make it useful."
+        },
+        {
+          "question": "What should a better system optimize for?",
+          "answer": "A better system should optimize for retrieval, connection across notes, and synthesis into outputs like drafts, plans, and decisions."
+        }
+      ],
+      "sections": [
+        {
+          "id": "capture",
+          "title": "Why capture feels like progress",
+          "blocks": [
+            {
+              "type": "paragraph",
+              "text": "Capture produces visible activity. Your inbox fills up. Your tags look organized. The app shows hundreds of saved notes. That makes it easy to mistake accumulation for learning. But capture is only the first move. It tells you almost nothing about whether the material will still matter two weeks later."
+            },
+            {
+              "type": "paragraph",
+              "text": "This is why many people have a notes archive they respect but do not rely on. They know they saved good material. They just do not trust the system to bring it back at the right moment. That gap is where most note apps quietly fail."
+            }
+          ]
+        },
+        {
+          "id": "recall",
+          "title": "What recall actually requires",
+          "blocks": [
+            {
+              "type": "subsections",
+              "items": [
+                {
+                  "title": "Context has to survive capture",
+                  "paragraphs": [
+                    "A quote without source, timing, or surrounding argument is hard to reuse well. Reliable recall means bringing back the note and the reason it mattered."
+                  ]
+                },
+                {
+                  "title": "Ideas need to gather around questions",
+                  "paragraphs": [
+                    "People do not retrieve notes in the abstract. They retrieve them while drafting a memo, evaluating a decision, or trying to answer a question. Systems that keep notes isolated from projects and open questions make recall harder."
+                  ]
+                },
+                {
+                  "title": "You need synthesis, not just search",
+                  "paragraphs": [
+                    "Search is useful when you know exactly what you are looking for. Recall is broader. It often means noticing the note from six weeks ago that suddenly clarifies what you are writing now."
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "failure-modes",
+          "title": "Where most note apps break down",
+          "blocks": [
+            {
+              "type": "cards",
+              "variant": "mistake",
+              "items": [
+                {
+                  "title": "Inbox growth becomes the product",
+                  "paragraphs": [
+                    "The product feels successful when you save more, even if the archive becomes less usable over time."
+                  ]
+                },
+                {
+                  "title": "Retrieval is reduced to keyword search",
+                  "paragraphs": [
+                    "Search helps only if you remember the right term. It does not help much with adjacent ideas, partial memory, or question-driven synthesis."
+                  ]
+                },
+                {
+                  "title": "Writing happens somewhere else",
+                  "paragraphs": [
+                    "When notes live in one tool and thinking happens in another, you lose the loop that turns saved material into output."
+                  ]
+                },
+                {
+                  "title": "There is no concept layer",
+                  "paragraphs": [
+                    "Useful systems need a place where related evidence can accumulate into an idea, not just a folder full of fragments."
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "style": "callout",
+          "title": "The standard should be recall you can act on.",
+          "blocks": [
+            {
+              "type": "paragraph",
+              "text": "If the system does not help you recover the right material while you are actually thinking, it is solving the easy part of the job."
+            }
+          ]
+        },
+        {
+          "id": "better-standard",
+          "title": "A better standard for personal knowledge tools",
+          "blocks": [
+            {
+              "type": "orderedList",
+              "items": [
+                "Keep source context attached to the note.",
+                "Let ideas gather around a concept, question, or project.",
+                "Support retrieval across related material, not just exact search.",
+                "Make it easy to turn notes into synthesis in the same workspace."
+              ]
+            },
+            {
+              "type": "paragraph",
+              "text": "That is the wedge Noeis is built around. It is not trying to win by making capture feel addictive. It is trying to make your archive more usable when you need to think with it."
+            },
+            {
+              "type": "ctas",
+              "items": [
+                {
+                  "label": "Try Noeis",
+                  "href": "/register",
+                  "variant": "secondary",
+                  "track": "body"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "faq",
+          "title": "FAQ",
+          "blocks": [
+            {
+              "type": "faqCards",
+              "items": [
+                {
+                  "title": "Are note apps bad?",
+                  "paragraphs": [
+                    "No. Many are useful for quick capture. The problem is treating capture as the full job when the harder problem is later retrieval and reuse."
+                  ]
+                },
+                {
+                  "title": "What does recall mean in this context?",
+                  "paragraphs": [
+                    "It means being able to find and reuse the right material later with enough context to support thinking, writing, or decision-making."
+                  ]
+                },
+                {
+                  "title": "What makes Noeis different?",
+                  "paragraphs": [
+                    "It is designed around connected notes, source-backed concepts, and synthesis rather than just saving more text."
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "style": "footer",
+          "title": "Capture matters. Recall matters more.",
+          "blocks": [
+            {
+              "type": "relatedGuides",
+              "items": [
+                "readwise-is-not-a-second-brain",
+                "highlights-into-concepts",
+                "second-brain-app"
+              ]
+            },
+            {
+              "type": "ctas",
+              "items": [
+                {
+                  "label": "Start free",
+                  "href": "/register",
+                  "variant": "primary",
+                  "track": "footer"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "readwise-is-not-a-second-brain",
+      "title": "Readwise Is Not a Second Brain",
+      "pageTitle": "Readwise Is Not a Second Brain | Noeis",
+      "description": "Why Readwise is useful for resurfacing highlights but still does not solve the full problem of recall, concept formation, and synthesis.",
+      "heroTitle": "Readwise Is Not a Second Brain",
+      "heroDescription": "Readwise is helpful for resurfacing highlights. That is not the same thing as building a usable thinking system.",
+      "eyebrow": "Core wedge",
+      "heroIntro": [
+        "Readwise solves a real problem. It helps you keep highlights from disappearing into Kindle, articles, and PDFs, and it gives those highlights a second life. That is valuable. But people often overstate what category it belongs to.",
+        "Readwise is a resurfacing and review product. A second brain is a broader thinking system. It needs to support context, concept formation, open questions, synthesis, and output. Those are different jobs. Confusing them leads people to feel like they have a knowledge system when they mostly have a highlight feed."
+      ],
+      "methodology": [
+        "This page is grounded in direct comparison between highlight-resurfacing workflows and concept-centered research workflows.",
+        "The point is not to dismiss Readwise. It is to draw a more useful category boundary so readers can choose tools for the actual job."
+      ],
+      "ctas": [
+        {
+          "label": "Start free",
+          "href": "/register",
+          "variant": "primary",
+          "track": "hero"
+        },
+        {
+          "label": "Browse guides",
+          "href": "/guides",
+          "variant": "secondary",
+          "track": "hero"
+        }
+      ],
+      "toc": [
+        {
+          "id": "what-readwise-does",
+          "label": "What Readwise does well"
+        },
+        {
+          "id": "why-not-second-brain",
+          "label": "Why it is not a second brain"
+        },
+        {
+          "id": "missing-layer",
+          "label": "The missing layer"
+        },
+        {
+          "id": "faq",
+          "label": "FAQ"
+        }
+      ],
+      "faq": [
+        {
+          "question": "Is Readwise useful?",
+          "answer": "Yes. It is useful for collecting and resurfacing highlights across sources."
+        },
+        {
+          "question": "Why is Readwise not a second brain?",
+          "answer": "Because resurfacing highlights is only one part of the job. A second brain also needs concept formation, retrieval in context, and a place to synthesize into outputs."
+        },
+        {
+          "question": "Can Readwise still be part of a good workflow?",
+          "answer": "Yes. It can be an input layer. It just is not the full thinking environment on its own."
+        }
+      ],
+      "sections": [
+        {
+          "id": "what-readwise-does",
+          "title": "What Readwise does well",
+          "blocks": [
+            {
+              "type": "paragraph",
+              "text": "Readwise is strong at aggregation and resurfacing. It gathers highlights from multiple reading environments, keeps them from vanishing, and reintroduces them later. That solves a real memory problem. It is especially helpful for people whose highlights were previously trapped in closed systems."
+            },
+            {
+              "type": "paragraph",
+              "text": "If your main failure mode is that your best highlights disappear, Readwise improves your situation immediately. It deserves credit for that."
+            }
+          ]
+        },
+        {
+          "id": "why-not-second-brain",
+          "title": "Why that still does not make it a second brain",
+          "blocks": [
+            {
+              "type": "cards",
+              "variant": "compare",
+              "items": [
+                {
+                  "title": "Resurfacing is not concept formation",
+                  "paragraphs": [
+                    "Seeing an old highlight again can be useful, but it does not automatically accumulate into an argument, model, or decision."
+                  ]
+                },
+                {
+                  "title": "Highlight feeds are not question-driven workspaces",
+                  "paragraphs": [
+                    "Most serious reading happens in service of a question or project. A second brain should let evidence gather around that work."
+                  ]
+                },
+                {
+                  "title": "Review is not synthesis",
+                  "paragraphs": [
+                    "Review helps refresh memory. Synthesis means writing in your own words, comparing sources, and developing a point of view."
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "missing-layer",
+          "title": "The missing layer is a place where highlights become concepts",
+          "blocks": [
+            {
+              "type": "paragraph",
+              "text": "A serious reader eventually needs a layer above highlights. That layer should let a recurring idea pull together evidence from multiple sources, hold unresolved questions, and grow into a draft. Without that layer, the workflow stays stuck at collection and review."
+            },
+            {
+              "type": "paragraph",
+              "text": "That is the distinction Noeis is built around. You can import and work with source material, but the center of gravity is not the feed. It is the concept, the question, and the synthesis that emerges from them."
+            },
+            {
+              "type": "orderedList",
+              "items": [
+                "Collect the source material worth keeping.",
+                "Pull forward the highlights that still matter.",
+                "Group them around one idea or question.",
+                "Write the synthesis note that makes the material usable."
+              ]
+            }
+          ]
+        },
+        {
+          "style": "callout",
+          "title": "Use Readwise as an input layer, not as the full system.",
+          "blocks": [
+            {
+              "type": "paragraph",
+              "text": "The category becomes clearer once you separate resurfacing from synthesis."
+            }
+          ]
+        },
+        {
+          "title": "Where Noeis fits",
+          "blocks": [
+            {
+              "type": "paragraph",
+              "text": "Noeis is for the next step: turning saved reading into source-backed concepts, maintained questions, and reusable insight. It is not trying to replace the value of resurfacing. It is trying to give that material somewhere better to go."
+            },
+            {
+              "type": "ctas",
+              "items": [
+                {
+                  "label": "Try Noeis",
+                  "href": "/register",
+                  "variant": "secondary",
+                  "track": "body"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "faq",
+          "title": "FAQ",
+          "blocks": [
+            {
+              "type": "faqCards",
+              "items": [
+                {
+                  "title": "Should I stop using Readwise?",
+                  "paragraphs": [
+                    "Not necessarily. It is useful if resurfacing highlights helps you. The stronger move is to pair it with a system built for concept formation and synthesis."
+                  ]
+                },
+                {
+                  "title": "What is the core distinction?",
+                  "paragraphs": [
+                    "Readwise helps useful passages come back. A second brain helps useful passages turn into connected thinking and output."
+                  ]
+                },
+                {
+                  "title": "What does Noeis add?",
+                  "paragraphs": [
+                    "A place to connect evidence, questions, and writing so highlights become more than a review stream."
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "style": "footer",
+          "title": "Resurfacing is helpful. Synthesis is the real leverage.",
+          "blocks": [
+            {
+              "type": "relatedGuides",
+              "items": [
+                "highlights-into-concepts",
+                "ai-reading-without-losing-judgment",
+                "personal-knowledge-management-ai"
+              ]
+            },
+            {
+              "type": "ctas",
+              "items": [
+                {
+                  "label": "Start free",
+                  "href": "/register",
+                  "variant": "primary",
+                  "track": "footer"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "highlights-into-concepts",
+      "title": "How Serious Readers Turn Highlights Into Concepts",
+      "pageTitle": "How Serious Readers Turn Highlights Into Concepts | Noeis",
+      "description": "A practical workflow for moving from saved passages to clearer concepts, reusable notes, and stronger drafts.",
+      "heroTitle": "How Serious Readers Turn Highlights Into Concepts",
+      "heroDescription": "Highlights become valuable when they accumulate into concepts you can test, revise, and write from.",
+      "eyebrow": "Core wedge",
+      "heroIntro": [
+        "Most highlight systems stop too early. They help you collect passages that felt important, but they do not help you decide what those passages mean together. The result is familiar: a library of fragments that still leaves you starting from scratch when you need to write.",
+        "Serious readers need a middle layer between highlight and draft. That layer is the concept. A concept is where recurring evidence, tension, examples, and open questions start to gather around one idea in your own words."
+      ],
+      "methodology": [
+        "This guide reflects the workflow standard Noeis is built around: source material remains close at hand, but the unit of progress is a concept you can revisit and develop.",
+        "The emphasis here is on durability. The goal is not to summarize faster. It is to create ideas that remain usable later."
+      ],
+      "ctas": [
+        {
+          "label": "Start free",
+          "href": "/register",
+          "variant": "primary",
+          "track": "hero"
+        },
+        {
+          "label": "Browse guides",
+          "href": "/guides",
+          "variant": "secondary",
+          "track": "hero"
+        }
+      ],
+      "toc": [
+        {
+          "id": "why-highlights-stall",
+          "label": "Why highlights stall"
+        },
+        {
+          "id": "concept-layer",
+          "label": "What the concept layer does"
+        },
+        {
+          "id": "workflow",
+          "label": "A repeatable workflow"
+        },
+        {
+          "id": "faq",
+          "label": "FAQ"
+        }
+      ],
+      "faq": [
+        {
+          "question": "What is the concept layer?",
+          "answer": "It is the workspace where related highlights, examples, and questions gather into an idea expressed in your own words."
+        },
+        {
+          "question": "Why are highlights alone not enough?",
+          "answer": "Because fragments are hard to reuse. Concepts compress what the highlights mean and why they matter."
+        },
+        {
+          "question": "Who benefits most from this workflow?",
+          "answer": "Writers, founders, researchers, students, and operators who read widely and need their reading to compound into better judgment."
+        }
+      ],
+      "sections": [
+        {
+          "id": "why-highlights-stall",
+          "title": "Why highlights stall out",
+          "blocks": [
+            {
+              "type": "paragraph",
+              "text": "A highlight is evidence that something caught your attention. It is not yet evidence that you know what to do with it. Most workflows treat the act of highlighting as progress, but the real work begins after the page is closed."
+            },
+            {
+              "type": "paragraph",
+              "text": "This is why people can export thousands of highlights and still feel intellectually disorganized. The fragments exist, but the concepts that would make them reusable have not been formed."
+            }
+          ]
+        },
+        {
+          "id": "concept-layer",
+          "title": "What the concept layer does",
+          "blocks": [
+            {
+              "type": "subsections",
+              "items": [
+                {
+                  "title": "It forces translation into your own language",
+                  "paragraphs": [
+                    "A concept is not just a quote collection. It requires you to say what the material means in your own terms."
+                  ]
+                },
+                {
+                  "title": "It gathers supporting and conflicting evidence",
+                  "paragraphs": [
+                    "Strong concepts get sharper as more sources join them. The right workspace should make it easy to hold agreement, tension, and uncertainty together."
+                  ]
+                },
+                {
+                  "title": "It gives drafting a real starting point",
+                  "paragraphs": [
+                    "When you have concepts instead of isolated highlights, you are no longer starting from a blank page. You are starting from developed thinking."
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "workflow",
+          "title": "A repeatable workflow from highlights to concepts",
+          "blocks": [
+            {
+              "type": "orderedList",
+              "items": [
+                "Save only the highlights that still feel reusable after the reading session.",
+                "Group related passages under one emerging idea or question.",
+                "Write a short synthesis note that explains the pattern in plain language.",
+                "Add supporting examples, tensions, and unresolved questions.",
+                "Revisit the concept when you draft, decide, or research further."
+              ]
+            },
+            {
+              "type": "cards",
+              "variant": "example",
+              "items": [
+                {
+                  "title": "Example: attention as environment design",
+                  "paragraphs": [
+                    "A reader saves highlights from three books and two essays about distraction. The passages are not identical, but they all point toward one recurring claim: attention is shaped by environment more than by willpower alone.",
+                    "That becomes a concept note. New evidence gets added over time, along with counterexamples and questions. Later, the concept becomes the backbone of an essay or strategy memo."
+                  ]
+                },
+                {
+                  "title": "Example: activation before retention",
+                  "paragraphs": [
+                    "A founder collects onboarding notes, product metrics, and customer quotes. The concept that emerges is not just 'retention is low.' It is a sharper claim: teams often misdiagnose retention problems that are really activation problems.",
+                    "Once that concept exists, the notes stop being scattered evidence and start becoming a position the team can work from."
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "style": "callout",
+          "title": "Highlights are inputs. Concepts are assets.",
+          "blocks": [
+            {
+              "type": "paragraph",
+              "text": "The compounding effect comes from building ideas you can revisit, not from accumulating more fragments."
+            }
+          ]
+        },
+        {
+          "title": "Why Noeis is built around this step",
+          "blocks": [
+            {
+              "type": "paragraph",
+              "text": "Noeis is designed so highlights and source material can stay close to the concept that grows from them. That makes it easier to preserve evidence, refine language, and move into drafting without losing the thread."
+            },
+            {
+              "type": "ctas",
+              "items": [
+                {
+                  "label": "Try Noeis",
+                  "href": "/register",
+                  "variant": "secondary",
+                  "track": "body"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "faq",
+          "title": "FAQ",
+          "blocks": [
+            {
+              "type": "faqCards",
+              "items": [
+                {
+                  "title": "Do I need to turn every highlight into a concept?",
+                  "paragraphs": [
+                    "No. Only the material that keeps returning, supports a question, or seems reusable should graduate into a concept."
+                  ]
+                },
+                {
+                  "title": "What makes a concept good?",
+                  "paragraphs": [
+                    "It is stated in your own words, has enough evidence attached to stay grounded, and is useful later when you need to write or decide."
+                  ]
+                },
+                {
+                  "title": "How is this different from tagging?",
+                  "paragraphs": [
+                    "Tags classify. Concepts develop meaning. You can tag a fragment, but a concept is a growing unit of thought."
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "style": "footer",
+          "title": "The right next step after highlighting is not more storage. It is concept formation.",
+          "blocks": [
+            {
+              "type": "relatedGuides",
+              "items": [
+                "most-note-apps-solve-capture-not-recall",
+                "ai-reading-without-losing-judgment",
+                "ai-note-taking-workflow"
+              ]
+            },
+            {
+              "type": "ctas",
+              "items": [
+                {
+                  "label": "Start free",
+                  "href": "/register",
+                  "variant": "primary",
+                  "track": "footer"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "ai-reading-without-losing-judgment",
+      "title": "AI for Reading Without Losing Judgment",
+      "pageTitle": "AI for Reading Without Losing Judgment | Noeis",
+      "description": "How to use AI while reading and synthesizing without outsourcing the actual judgment that makes the work valuable.",
+      "heroTitle": "AI for Reading Without Losing Judgment",
+      "heroDescription": "AI should help you read, retrieve, and synthesize more clearly without flattening your own point of view.",
+      "eyebrow": "Core wedge",
+      "heroIntro": [
+        "AI is most dangerous in reading workflows when it offers the feeling of understanding before understanding has actually happened. A fast summary can sound clear enough to skip the slower work of interpretation. That is useful sometimes, but it is a poor default if you care about judgment.",
+        "The better use of AI is narrower and more demanding. It should help you retrieve context, compare evidence, surface patterns, and reduce clerical friction while keeping you close to the source material and responsible for the conclusions."
+      ],
+      "methodology": [
+        "This guide is based on the principle that AI should stay inside a human-led reading and synthesis workflow, not replace it.",
+        "The recommendations here prioritize preserving source contact, concept formation, and explicit uncertainty over polished but detached output."
+      ],
+      "ctas": [
+        {
+          "label": "Start free",
+          "href": "/register",
+          "variant": "primary",
+          "track": "hero"
+        },
+        {
+          "label": "Browse guides",
+          "href": "/guides",
+          "variant": "secondary",
+          "track": "hero"
+        }
+      ],
+      "toc": [
+        {
+          "id": "bad-default",
+          "label": "The bad default"
+        },
+        {
+          "id": "better-uses",
+          "label": "Better uses of AI"
+        },
+        {
+          "id": "workflow",
+          "label": "A safer workflow"
+        },
+        {
+          "id": "faq",
+          "label": "FAQ"
+        }
+      ],
+      "faq": [
+        {
+          "question": "Can AI help with reading without making me lazier?",
+          "answer": "Yes, if it is used to retrieve context, compare evidence, and reduce friction rather than replace interpretation."
+        },
+        {
+          "question": "What is the main risk?",
+          "answer": "The main risk is mistaking fluent output for understanding and slowly outsourcing your own judgment."
+        },
+        {
+          "question": "What is the better standard?",
+          "answer": "Use AI where it keeps you closer to your notes and sources, not where it encourages you to skip them."
+        }
+      ],
+      "sections": [
+        {
+          "id": "bad-default",
+          "title": "The bad default is summary first, judgment later",
+          "blocks": [
+            {
+              "type": "paragraph",
+              "text": "The easiest way to misuse AI in reading is to ask for a summary before you have formed your own encounter with the text. That often compresses the material into the model's phrasing instead of your own. Once that happens, it becomes harder to tell whether you actually understood the source or just accepted a competent paraphrase."
+            },
+            {
+              "type": "paragraph",
+              "text": "This matters more for ambitious reading than for simple information extraction. If you are trying to build a perspective, argument, or model, the friction of interpretation is part of the work."
+            }
+          ]
+        },
+        {
+          "id": "better-uses",
+          "title": "Better uses of AI in a serious reading workflow",
+          "blocks": [
+            {
+              "type": "cards",
+              "variant": "mistake",
+              "items": [
+                {
+                  "title": "Use it to retrieve adjacent context",
+                  "paragraphs": [
+                    "AI is useful when it helps surface related notes, competing sources, or prior concepts you might otherwise miss."
+                  ]
+                },
+                {
+                  "title": "Use it to compare evidence",
+                  "paragraphs": [
+                    "It can help organize similarities, conflicts, and patterns across sources without pretending that the conclusion belongs to it."
+                  ]
+                },
+                {
+                  "title": "Use it to reduce clerical work",
+                  "paragraphs": [
+                    "Formatting, grouping, and recall support are good uses because they preserve your attention for the judgment call."
+                  ]
+                },
+                {
+                  "title": "Do not use it as a substitute for contact with the source",
+                  "paragraphs": [
+                    "When the summary becomes the main thing you read, your own thinking gets thinner over time."
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "workflow",
+          "title": "A safer workflow for reading with AI",
+          "blocks": [
+            {
+              "type": "orderedList",
+              "items": [
+                "Read the source first and mark only the passages that actually move your thinking.",
+                "Write a short note in your own language about what seems important or unresolved.",
+                "Use AI to pull related notes, competing examples, or source-backed comparisons.",
+                "Return to the concept and refine it yourself.",
+                "Use the resulting synthesis as the basis for writing or decision-making."
+              ]
+            },
+            {
+              "type": "paragraph",
+              "text": "This keeps the model in a supporting role. It can make your archive more reachable and your comparisons faster, but it does not get to silently replace interpretation."
+            }
+          ]
+        },
+        {
+          "style": "callout",
+          "title": "AI should compress friction, not compress thought.",
+          "blocks": [
+            {
+              "type": "paragraph",
+              "text": "The goal is not to prove that you used AI. The goal is to preserve judgment while moving faster."
+            }
+          ]
+        },
+        {
+          "title": "Why Noeis fits this model",
+          "blocks": [
+            {
+              "type": "paragraph",
+              "text": "Noeis treats AI as support inside a concept-centered workspace. Notes, source material, concepts, and writing stay connected, which makes it easier to use AI for retrieval and synthesis without losing the underlying evidence."
+            },
+            {
+              "type": "ctas",
+              "items": [
+                {
+                  "label": "Try Noeis",
+                  "href": "/register",
+                  "variant": "secondary",
+                  "track": "body"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "faq",
+          "title": "FAQ",
+          "blocks": [
+            {
+              "type": "faqCards",
+              "items": [
+                {
+                  "title": "Should I avoid AI summaries entirely?",
+                  "paragraphs": [
+                    "No. They can be useful, especially later in a workflow. The problem is making them the first and main encounter with the material."
+                  ]
+                },
+                {
+                  "title": "What is a good test for whether AI is helping?",
+                  "paragraphs": [
+                    "A good test is whether you are ending the workflow with clearer source-backed thinking in your own words, not just faster polished output."
+                  ]
+                },
+                {
+                  "title": "How does Noeis help?",
+                  "paragraphs": [
+                    "It keeps the reading, note, concept, and synthesis layers close enough that AI assistance stays grounded in your material."
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "style": "footer",
+          "title": "The point of AI in reading is stronger judgment, not less of it.",
+          "blocks": [
+            {
+              "type": "relatedGuides",
+              "items": [
+                "readwise-is-not-a-second-brain",
+                "highlights-into-concepts",
+                "ai-second-brain"
+              ]
+            },
+            {
+              "type": "ctas",
+              "items": [
+                {
+                  "label": "Start free",
+                  "href": "/register",
+                  "variant": "primary",
+                  "track": "footer"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "best-second-brain-app-for-founders",
+      "title": "Best Second Brain App for Founders",
+      "pageTitle": "Best Second Brain App for Founders | Noeis",
+      "description": "What founders should actually optimize for when choosing a second brain app, and why most tools over-index on capture instead of recall and synthesis.",
+      "heroTitle": "Best Second Brain App for Founders",
+      "heroDescription": "Founders do not need a prettier note archive. They need a system that turns reading, customer evidence, and open questions into decisions.",
+      "eyebrow": "Founder workflow",
+      "heroIntro": [
+        "Founders are usually not looking for a second brain because they enjoy knowledge management as a hobby. They are looking because strategy, customer evidence, market research, and product thinking are scattered across tabs, docs, highlights, and chat threads. The cost is not aesthetic. The cost is slower decisions and weaker recall.",
+        "The best second brain app for founders is the one that makes evidence reusable. It should help you retrieve what matters from reading, connect it to product and customer questions, and turn that material into clear memos, decisions, and drafts."
+      ],
+      "methodology": [
+        "This guide is written from the perspective of founder workflows where decisions must stay tied to source material, not just polished summaries.",
+        "The evaluation criteria prioritize recall, synthesis, and decision support over collection volume or novelty."
+      ],
+      "directAnswer": {
+        "label": "Direct answer",
+        "title": "The best second brain app for founders is one that keeps evidence reachable.",
+        "text": "Founders need a system that turns saved reading, customer notes, and unresolved questions into reusable proof for decisions. The right tool should shorten the path from evidence to memo, not just improve collection.",
+        "points": [
+          "Source material should stay reachable from concepts and memos.",
+          "Research and customer evidence should live close enough to compare.",
+          "The workflow should improve strategy output, not just archive size."
+        ]
+      },
+      "ctas": [
+        {
+          "label": "Start free",
+          "href": "/register",
+          "variant": "primary",
+          "track": "hero"
+        },
+        {
+          "label": "Browse guides",
+          "href": "/guides",
+          "variant": "secondary",
+          "track": "hero"
+        }
+      ],
+      "toc": [
+        {
+          "id": "what-founders-need",
+          "label": "What founders actually need"
+        },
+        {
+          "id": "criteria",
+          "label": "Selection criteria"
+        },
+        {
+          "id": "why-noeis",
+          "label": "Why Noeis fits"
+        },
+        {
+          "id": "faq",
+          "label": "FAQ"
+        }
+      ],
+      "faq": [
+        {
+          "question": "What makes a second brain app good for founders?",
+          "answer": "It should help founders retrieve prior evidence, keep source context intact, and turn notes and research into decisions or writing."
+        },
+        {
+          "question": "Why is normal note-taking not enough?",
+          "answer": "Because founders rarely fail to capture information. They fail to resurface and connect it when a strategy or product question is live."
+        },
+        {
+          "question": "What should I evaluate first?",
+          "answer": "Evaluate whether the tool improves recall, synthesis, and memo-writing from your own material rather than just storing more of it."
+        }
+      ],
+      "sections": [
+        {
+          "id": "what-founders-need",
+          "title": "What founders actually need from a second brain",
+          "blocks": [
+            {
+              "type": "claimEvidence",
+              "claim": "Founder workflows improve when the second brain acts like a decision workspace rather than a capture bucket.",
+              "evidence": [
+                "The real failure mode is decision latency, not lack of saved information.",
+                "Founders need to recover prior customer evidence, reading, and hypotheses quickly when a choice is live.",
+                "A useful system keeps the supporting material close enough to become a memo or brief."
+              ],
+              "whyItMatters": "If the archive cannot help you justify a decision or recover the reasoning behind it, it is not doing the highest-value founder work."
+            },
+            {
+              "type": "paragraph",
+              "text": "The founder problem is rarely capture. It is decision latency. You remember that you saw something relevant in a customer interview, a saved article, a strategy memo, or a pricing thread, but you cannot pull it back together quickly enough when the decision is live."
+            },
+            {
+              "type": "paragraph",
+              "text": "A good founder system keeps source material reachable. It makes it easier to answer questions like: What did customers keep repeating? What evidence do we have for this bet? Where have we seen this pattern before? What did I already think about this three weeks ago?"
+            }
+          ]
+        },
+        {
+          "id": "criteria",
+          "title": "How to evaluate the best second brain app for founders",
+          "blocks": [
+            {
+              "type": "cards",
+              "variant": "compare",
+              "items": [
+                {
+                  "title": "Can it preserve source context?",
+                  "paragraphs": [
+                    "Founders should be able to move from a memo or concept back to the original highlight, article, or note that supports it."
+                  ]
+                },
+                {
+                  "title": "Can it connect research to decisions?",
+                  "paragraphs": [
+                    "The system should help customer notes, market reading, and strategic questions live in the same workspace instead of separate tools."
+                  ]
+                },
+                {
+                  "title": "Does it help with synthesis, not just storage?",
+                  "paragraphs": [
+                    "The value is whether it helps produce a better strategy note, decision memo, or product brief in your own words."
+                  ]
+                },
+                {
+                  "title": "Can it keep open questions visible?",
+                  "paragraphs": [
+                    "Founders benefit from systems that keep unresolved questions alive until evidence actually closes them."
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "paragraph",
+              "text": "Many tools look impressive in a demo because they are good at capture, search, or AI summarization. Those are useful features, but they are not the main test. The main test is whether the tool improves the quality and speed of founder judgment."
+            },
+            {
+              "type": "comparison",
+              "items": [
+                {
+                  "title": "What most tools do",
+                  "paragraphs": [
+                    "They make it easier to save more information, search a larger archive, or generate a quick summary detached from the evidence."
+                  ]
+                },
+                {
+                  "title": "What stronger workflow looks like",
+                  "paragraphs": [
+                    "The archive becomes a working layer for decisions: evidence is reachable, concepts stay alive, and strategy notes can point back to the material that supports them."
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "style": "callout",
+          "title": "Founder workflows break when evidence is scattered.",
+          "blocks": [
+            {
+              "type": "paragraph",
+              "text": "The best system is the one that keeps your notes, saved reading, and strategic questions close enough to become decisions."
+            }
+          ]
+        },
+        {
+          "id": "why-noeis",
+          "title": "Why Noeis fits founder work",
+          "blocks": [
+            {
+              "type": "paragraph",
+              "text": "Noeis is built around concept formation and source-backed synthesis. That makes it a better fit for founders who read heavily, collect evidence across different surfaces, and need to turn that material into strategy rather than just archive it."
+            },
+            {
+              "type": "unorderedList",
+              "items": [
+                "Saved reading stays tied to source and context.",
+                "Concepts can gather customer evidence, highlights, and working notes in one place.",
+                "Questions stay open until they are actually resolved.",
+                "AI can support retrieval and comparison without replacing judgment."
+              ]
+            },
+            {
+              "type": "ctas",
+              "items": [
+                {
+                  "label": "Create your first concept",
+                  "href": "/register",
+                  "variant": "secondary",
+                  "track": "body"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "faq",
+          "title": "FAQ",
+          "blocks": [
+            {
+              "type": "faqCards",
+              "items": [
+                {
+                  "title": "Should founders optimize for AI summaries?",
+                  "paragraphs": [
+                    "Only partly. The bigger opportunity is retrieval and synthesis from your own evidence, not faster generic summaries."
+                  ]
+                },
+                {
+                  "title": "What output should a good tool improve?",
+                  "paragraphs": [
+                    "It should improve strategy memos, product briefs, decision docs, and founder writing that depends on prior reading and evidence."
+                  ]
+                },
+                {
+                  "title": "Why Noeis over a standard notes app?",
+                  "paragraphs": [
+                    "Because it is built around maintained concepts, linked source material, and workflows that move toward synthesis rather than storage."
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "style": "footer",
+          "title": "Founders need better recall, not just better capture.",
+          "blocks": [
+            {
+              "type": "relatedGuides",
+              "items": [
+                "most-note-apps-solve-capture-not-recall",
+                "ai-second-brain",
+                "highlights-into-concepts"
+              ]
+            },
+            {
+              "type": "ctas",
+              "items": [
+                {
+                  "label": "Start free",
+                  "href": "/register",
+                  "variant": "primary",
+                  "track": "footer"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "best-second-brain-app-for-researchers",
+      "title": "Best Second Brain App for Researchers",
+      "pageTitle": "Best Second Brain App for Researchers | Noeis",
+      "description": "A practical guide to choosing a second brain app for research-heavy workflows where source traceability, comparison, and synthesis matter more than capture volume.",
+      "heroTitle": "Best Second Brain App for Researchers",
+      "heroDescription": "Researchers need a system that keeps sources, questions, and synthesis tightly linked enough to survive long arcs of thought.",
+      "eyebrow": "Research workflow",
+      "heroIntro": [
+        "Researchers live with a specific failure mode: the archive grows faster than interpretation. Reading gets saved. Highlights accumulate. Notes multiply. But when it is time to compare sources, trace a claim, or draft an argument, too much of the relevant context is stuck in fragments.",
+        "The best second brain app for researchers is not the one that captures the most. It is the one that helps maintain traceability from source to concept to synthesis."
+      ],
+      "methodology": [
+        "This guide evaluates research tools based on source traceability, concept formation, and long-arc synthesis rather than general productivity features.",
+        "The intended reader is someone doing serious reading, evidence comparison, or writing that depends on returning to prior material accurately."
+      ],
+      "directAnswer": {
+        "label": "Direct answer",
+        "title": "The best second brain app for researchers preserves traceability from source to concept to synthesis.",
+        "text": "Researchers need more than storage. They need a system that keeps original passages, evolving questions, and argument drafts close enough that claims can be checked and ideas can keep compounding.",
+        "points": [
+          "Source context should stay attached to notes and concepts.",
+          "Comparison across evidence should be easier than in a folder-based archive.",
+          "The workflow should lead naturally toward synthesis and drafting."
+        ]
+      },
+      "ctas": [
+        {
+          "label": "Start free",
+          "href": "/register",
+          "variant": "primary",
+          "track": "hero"
+        },
+        {
+          "label": "Browse guides",
+          "href": "/guides",
+          "variant": "secondary",
+          "track": "hero"
+        }
+      ],
+      "toc": [
+        {
+          "id": "research-problem",
+          "label": "The research problem"
+        },
+        {
+          "id": "criteria",
+          "label": "Selection criteria"
+        },
+        {
+          "id": "workflow",
+          "label": "What a better workflow looks like"
+        },
+        {
+          "id": "faq",
+          "label": "FAQ"
+        }
+      ],
+      "faq": [
+        {
+          "question": "What makes a second brain app good for researchers?",
+          "answer": "It should preserve source context, support comparison across material, and help turn evidence into maintained concepts or arguments."
+        },
+        {
+          "question": "Why is traceability important?",
+          "answer": "Because research work often depends on returning from a claim or synthesis note back to the original source and exact supporting passage."
+        },
+        {
+          "question": "What usually goes wrong?",
+          "answer": "Researchers capture plenty of material, but the archive becomes too fragmented to support serious comparison and writing."
+        }
+      ],
+      "sections": [
+        {
+          "id": "research-problem",
+          "title": "The research problem is fragmentation, not just overload",
+          "blocks": [
+            {
+              "type": "claimEvidence",
+              "claim": "Researchers struggle more from fragmented traceability than from a lack of capture tools.",
+              "evidence": [
+                "Reading, highlights, notes, and questions often end up split across tools and folders.",
+                "Serious research requires returning from a claim back to the exact source or passage.",
+                "Interpretation gets weaker when the archive cannot support comparison or revision."
+              ],
+              "whyItMatters": "A research system that loses provenance forces you to rebuild context every time you write, compare, or revisit an argument."
+            },
+            {
+              "type": "paragraph",
+              "text": "Researchers usually do not need encouragement to save more. They need a way to keep highlights, notes, questions, and claims connected across time. Without that, the archive becomes a graveyard of half-remembered relevance."
+            },
+            {
+              "type": "paragraph",
+              "text": "The right system should let you move from a developing concept to the sources underneath it, compare similar passages across texts, and keep unresolved questions attached to the evidence that might answer them."
+            }
+          ]
+        },
+        {
+          "id": "criteria",
+          "title": "How researchers should evaluate a second brain app",
+          "blocks": [
+            {
+              "type": "comparison",
+              "items": [
+                {
+                  "title": "What most tools do",
+                  "paragraphs": [
+                    "They optimize for capture, search, or summarization, but leave the researcher to reconstruct provenance and comparison by hand."
+                  ]
+                },
+                {
+                  "title": "What stronger workflow looks like",
+                  "paragraphs": [
+                    "The system keeps evidence, concepts, and drafts connected so arguments can be revised without losing sight of the source material underneath them."
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "cards",
+              "variant": "compare",
+              "items": [
+                {
+                  "title": "Source-backed notes",
+                  "paragraphs": [
+                    "You should be able to move from a note or concept back to the original article, paper, or passage that generated it."
+                  ]
+                },
+                {
+                  "title": "Comparison across sources",
+                  "paragraphs": [
+                    "The app should make it easier to compare competing sources, overlapping themes, and contradictory evidence."
+                  ]
+                },
+                {
+                  "title": "Concept maintenance",
+                  "paragraphs": [
+                    "Research ideas evolve. A good tool helps you keep concepts alive and revisable as evidence accumulates."
+                  ]
+                },
+                {
+                  "title": "Writing-adjacent workflow",
+                  "paragraphs": [
+                    "The tool should shorten the path from reading and note-making to synthesis, outlines, and argument drafts."
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "workflow",
+          "title": "What a better research workflow looks like",
+          "blocks": [
+            {
+              "type": "orderedList",
+              "items": [
+                "Save and annotate source material while reading.",
+                "Pull only the passages that matter into a concept or question workspace.",
+                "Compare related evidence across multiple sources.",
+                "Write a short synthesis note in your own language.",
+                "Expand that synthesis into a draft, memo, or argument."
+              ]
+            },
+            {
+              "type": "paragraph",
+              "text": "This is where Noeis fits well. It keeps reading, concept formation, and source-backed synthesis close enough that the archive can keep compounding instead of dissolving into folders and tabs."
+            },
+            {
+              "type": "ctas",
+              "items": [
+                {
+                  "label": "Import your reading archive",
+                  "href": "/register",
+                  "variant": "secondary",
+                  "track": "body"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "faq",
+          "title": "FAQ",
+          "blocks": [
+            {
+              "type": "faqCards",
+              "items": [
+                {
+                  "title": "Is this only for academic researchers?",
+                  "paragraphs": [
+                    "No. The same criteria apply to market researchers, analysts, writers, and anyone doing serious source-backed thinking."
+                  ]
+                },
+                {
+                  "title": "What should AI do in a research workflow?",
+                  "paragraphs": [
+                    "AI should help retrieve context, compare evidence, and reduce clerical work without replacing your contact with the source."
+                  ]
+                },
+                {
+                  "title": "Why does Noeis fit research-heavy work?",
+                  "paragraphs": [
+                    "Because it is built around connected concepts, evidence-rich notes, and synthesis rather than isolated storage."
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "style": "footer",
+          "title": "Researchers need systems that preserve traceability as ideas evolve.",
+          "blocks": [
+            {
+              "type": "relatedGuides",
+              "items": [
+                "ai-second-brain",
+                "highlights-into-concepts",
+                "ai-reading-without-losing-judgment"
+              ]
+            },
+            {
+              "type": "ctas",
+              "items": [
+                {
+                  "label": "Start free",
+                  "href": "/register",
+                  "variant": "primary",
+                  "track": "footer"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "source-backed-synthesis-workflow",
+      "title": "Source-Backed Synthesis Workflow",
+      "pageTitle": "Source-Backed Synthesis Workflow in Noeis | Noeis",
+      "description": "A practical workflow for turning saved reading, highlights, and notes into synthesis that stays traceable to source material.",
+      "heroTitle": "Source-Backed Synthesis Workflow in Noeis",
+      "heroDescription": "How to move from reading and highlights to a source-backed concept and then to a usable draft without losing provenance.",
+      "eyebrow": "Proof layer",
+      "heroIntro": [
+        "Most synthesis workflows break at exactly the point where the work becomes valuable. Reading gets captured. Highlights get saved. Notes pile up. Then, when it is time to write, compare sources, or make a decision, the relationship between the output and the original evidence is weak or lost.",
+        "A source-backed synthesis workflow solves that problem by keeping each layer close together: source material, highlights, concepts, open questions, and the draft that emerges from them. That is the workflow Noeis is designed to support."
+      ],
+      "methodology": [
+        "This page documents the actual workflow Noeis is trying to make easier: keep evidence attached, keep questions visible, and only synthesize from material you can return to.",
+        "The aim is not summarization for its own sake. The aim is traceable synthesis that can survive revision, disagreement, and later reuse."
+      ],
+      "directAnswer": {
+        "label": "Direct answer",
+        "title": "A source-backed synthesis workflow keeps your draft connected to the evidence that created it.",
+        "text": "Instead of treating summaries as the end product, the workflow keeps sources, highlights, concepts, and drafts close enough that you can compare, revise, and defend the output later.",
+        "points": [
+          "You can move from a draft back to the supporting material.",
+          "Open questions stay visible until the evidence resolves them.",
+          "Revision is easier because provenance is still intact."
+        ]
+      },
+      "ctas": [
+        {
+          "label": "Start free",
+          "href": "/register",
+          "variant": "primary",
+          "track": "hero"
+        },
+        {
+          "label": "Browse guides",
+          "href": "/guides",
+          "variant": "secondary",
+          "track": "hero"
+        }
+      ],
+      "toc": [
+        {
+          "id": "why",
+          "label": "Why synthesis breaks"
+        },
+        {
+          "id": "workflow",
+          "label": "The workflow"
+        },
+        {
+          "id": "proof",
+          "label": "What good output looks like"
+        },
+        {
+          "id": "faq",
+          "label": "FAQ"
+        }
+      ],
+      "faq": [
+        {
+          "question": "What is source-backed synthesis?",
+          "answer": "It is synthesis where the output stays traceable to the original sources, highlights, and notes that support it."
+        },
+        {
+          "question": "Why does this matter?",
+          "answer": "Because synthesis becomes much more reusable when you can return to the evidence behind it instead of trusting a detached summary."
+        },
+        {
+          "question": "How does Noeis help?",
+          "answer": "Noeis keeps sources, concepts, and writing close enough that synthesis remains grounded in the material that created it."
+        }
+      ],
+      "sections": [
+        {
+          "id": "why",
+          "title": "Why synthesis breaks in most note systems",
+          "blocks": [
+            {
+              "type": "claimEvidence",
+              "claim": "Synthesis gets brittle when the draft becomes detached from the sources, highlights, and questions underneath it.",
+              "evidence": [
+                "Capture is easy in most systems, but comparison and provenance are weak.",
+                "People often remember seeing something important without being able to recover why it mattered.",
+                "Detached summaries are hard to revise or defend later."
+              ],
+              "whyItMatters": "If you cannot revisit the evidence beneath a conclusion, the synthesis is much less reusable and much easier to mistrust."
+            },
+            {
+              "type": "paragraph",
+              "text": "Most systems make capture easy and synthesis fragile. The result is a familiar failure mode: you remember that you saw something important, but you cannot recover the exact source, compare it against adjacent evidence, or explain why the conclusion seemed convincing in the first place."
+            },
+            {
+              "type": "paragraph",
+              "text": "This is not only a research problem. It affects founders writing strategy memos, analysts building briefs, writers shaping an argument, and anyone who wants their notes to become stronger output rather than a larger archive."
+            }
+          ]
+        },
+        {
+          "id": "workflow",
+          "title": "A practical source-backed synthesis workflow",
+          "blocks": [
+            {
+              "type": "orderedList",
+              "items": [
+                "Save the source material while reading.",
+                "Keep only the highlights or notes that seem reusable.",
+                "Group those items under a concept or active question.",
+                "Write a short synthesis note in your own language.",
+                "Expand that note into a draft while preserving links back to the evidence."
+              ]
+            },
+            {
+              "type": "cards",
+              "variant": "example",
+              "items": [
+                {
+                  "title": "Example: founder memo",
+                  "paragraphs": [
+                    "A founder saves three articles on activation, two customer interview snippets, and one internal product note. They group the strongest evidence under a concept about onboarding friction, write a short synthesis note, and turn that into a decision memo.",
+                    "The important part is that the memo remains traceable. If someone challenges the conclusion, the source material is still one step away."
+                  ]
+                },
+                {
+                  "title": "Example: research note to draft",
+                  "paragraphs": [
+                    "A researcher compares overlapping claims across several sources, turns them into a maintained concept, then drafts a short argument in their own words. The synthesis is faster because the evidence is already gathered and legible."
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "style": "callout",
+          "title": "Good synthesis survives disagreement because it stays connected to evidence.",
+          "blocks": [
+            {
+              "type": "paragraph",
+              "text": "If the conclusion changes, the workflow still holds. You can revisit the sources, compare them differently, and revise the concept without starting from zero."
+            }
+          ]
+        },
+        {
+          "id": "proof",
+          "title": "What a stronger output layer looks like",
+          "blocks": [
+            {
+              "type": "comparison",
+              "items": [
+                {
+                  "title": "What most tools do",
+                  "paragraphs": [
+                    "They produce notes and summaries that feel useful in the moment but weaken the connection between the final output and the original evidence."
+                  ]
+                },
+                {
+                  "title": "What stronger workflow looks like",
+                  "paragraphs": [
+                    "Sources remain one step away, related evidence stays visible during drafting, and the final output can survive disagreement because the support is still legible."
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "unorderedList",
+              "items": [
+                "Claims can be traced back to the passages or notes that support them.",
+                "Related sources stay visible during drafting.",
+                "Open questions remain attached to the concept until they are resolved.",
+                "The draft reflects your judgment, not a detached summary."
+              ]
+            },
+            {
+              "type": "paragraph",
+              "text": "This is the real standard Noeis should be judged against. Not whether it stores more information, but whether it makes source-backed output easier to produce and easier to trust."
+            },
+            {
+              "type": "ctas",
+              "items": [
+                {
+                  "label": "Build your first synthesis",
+                  "href": "/register",
+                  "variant": "secondary",
+                  "track": "body"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "faq",
+          "title": "FAQ",
+          "blocks": [
+            {
+              "type": "faqCards",
+              "items": [
+                {
+                  "title": "Is this just for researchers?",
+                  "paragraphs": [
+                    "No. It is useful for founders, writers, analysts, and anyone whose output depends on returning to prior reading accurately."
+                  ]
+                },
+                {
+                  "title": "How is this different from AI summaries?",
+                  "paragraphs": [
+                    "AI summaries can be helpful, but they often weaken provenance. Source-backed synthesis keeps the model in a supporting role and keeps your evidence close."
+                  ]
+                },
+                {
+                  "title": "Why does Noeis fit this workflow?",
+                  "paragraphs": [
+                    "Because it is organized around concepts, questions, and source-backed notes rather than isolated capture."
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "style": "footer",
+          "title": "The point is not more notes. It is stronger output with visible evidence underneath it.",
+          "blocks": [
+            {
+              "type": "relatedGuides",
+              "items": [
+                "highlights-into-concepts",
+                "ai-reading-without-losing-judgment",
+                "best-second-brain-app-for-researchers"
+              ]
+            },
+            {
+              "type": "ctas",
+              "items": [
+                {
+                  "label": "Start free",
+                  "href": "/register",
+                  "variant": "primary",
+                  "track": "footer"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+    ,
+    {
+      "slug": "import-reading-archive-into-noeis",
+      "title": "Import Reading Archive into Noeis",
+      "pageTitle": "Import Reading Archive into Noeis | Noeis",
+      "description": "A practical guide to moving a reading archive into Noeis as a proof layer for source-grounded synthesis and Readwise-adjacent workflows.",
+      "heroTitle": "Import Reading Archive into Noeis",
+      "heroDescription": "How to bring a reading archive into Noeis so saved articles, highlights, and notes become concepts with proof attached.",
+      "eyebrow": "Proof layer",
+      "heroIntro": [
+        "A reading archive is only useful if it can do more than accumulate. If your highlights live in one place, your notes live in another, and your actual thinking happens somewhere else, the archive stays passive. It looks organized, but it does not help you prove or reuse what you have learned.",
+        "Noeis is built to turn imported reading into a proof layer. That means the material you bring in stays connected to sources, concepts, and open questions so it can support drafting, decisions, and synthesis instead of sitting in a detached vault."
+      ],
+      "methodology": [
+        "This guide focuses on migration mechanics: preserve provenance, keep highlights queryable, and turn imported reading into evidence that can be reused later.",
+        "The goal is not to recreate a prettier archive. The goal is to move reading into a source-grounded workspace where imported material can support claims, decisions, and drafts."
+      ],
+      "directAnswer": {
+        "label": "Direct answer",
+        "title": "Importing a reading archive only matters if the material becomes reusable proof.",
+        "text": "The archive should not stop at storage. Imported highlights and notes need to stay connected to source context, concepts, and active questions so they can support drafts, decisions, and synthesis later.",
+        "points": [
+          "Preserve metadata and provenance during import.",
+          "Turn reusable passages into concepts or active questions.",
+          "Judge the workflow by whether the imported material becomes usable evidence."
+        ]
+      },
+      "ctas": [
+        {
+          "label": "Start free",
+          "href": "/register",
+          "variant": "primary",
+          "track": "hero"
+        },
+        {
+          "label": "Browse guides",
+          "href": "/guides",
+          "variant": "secondary",
+          "track": "hero"
+        }
+      ],
+      "toc": [
+        {
+          "id": "why-import",
+          "label": "Why import matters"
+        },
+        {
+          "id": "migration-path",
+          "label": "A practical migration path"
+        },
+        {
+          "id": "proof-layer",
+          "label": "What proof layer behavior looks like"
+        },
+        {
+          "id": "faq",
+          "label": "FAQ"
+        }
+      ],
+      "faq": [
+        {
+          "question": "What is the point of importing a reading archive?",
+          "answer": "The point is to make prior reading usable again by keeping it attached to the sources, highlights, and concepts that support later work."
+        },
+        {
+          "question": "Why is a proof layer better than a storage layer?",
+          "answer": "Because proof layer pages help you return from a conclusion or draft to the evidence underneath it, which makes the archive more trustworthy and reusable."
+        },
+        {
+          "question": "Does this matter for Readwise-adjacent workflows?",
+          "answer": "Yes. If you already save a lot of reading, the next step is not more capture. It is turning imported material into connected evidence you can act on."
+        }
+      ],
+      "sections": [
+        {
+          "id": "why-import",
+          "title": "Why import matters for a reading archive",
+          "blocks": [
+            {
+              "type": "claimEvidence",
+              "claim": "Import-heavy users should optimize for reuse, not for a prettier archive.",
+              "evidence": [
+                "Most reading archives capture attention but do not help answer live questions with prior material.",
+                "Imported highlights lose value quickly when provenance or concept context is missing.",
+                "The point of migration is to turn old reading into current evidence."
+              ],
+              "whyItMatters": "A migration that only reproduces storage patterns will not change the quality of your writing, decisions, or synthesis."
+            },
+            {
+              "type": "paragraph",
+              "text": "Most reading archives fail at reuse. They collect articles, ebooks, notes, and highlights, but they do not make it easy to answer a live question with the material you already saved. The archive becomes a record of attention instead of a source of proof."
+            },
+            {
+              "type": "paragraph",
+              "text": "That is the difference Noeis is trying to make visible. When you import reading into a source-grounded workspace, the archive can stop being a passive pile and start acting like evidence you can organize, compare, and cite in your own thinking."
+            }
+          ]
+        },
+        {
+          "style": "callout",
+          "title": "Imported reading is only valuable when you can point back to it later.",
+          "blocks": [
+            {
+              "type": "paragraph",
+              "text": "If a highlight cannot be traced to a source or attached to an active concept, it is still just saved material. Proof begins when the material can support a claim."
+            }
+          ]
+        },
+        {
+          "id": "migration-path",
+          "title": "A practical path from archive to workspace",
+          "blocks": [
+            {
+              "type": "orderedList",
+              "items": [
+                "Import the reading archive first, before trying to organize everything into a final structure.",
+                "Keep source metadata intact so each item can still be traced back to the original reading.",
+                "Trim or tag the imported material until the reusable highlights are easy to find again.",
+                "Group the most relevant imports under a concept or active question instead of leaving them as isolated records.",
+                "Write a short synthesis note that states what the evidence means in your own words."
+              ]
+            },
+            {
+              "type": "cards",
+              "variant": "example",
+              "items": [
+                {
+                  "title": "Example: Readwise-adjacent archive",
+                  "paragraphs": [
+                    "A user imports a large set of saved articles and highlights, then keeps only the passages that repeatedly show up in customer research, market reading, or product planning. Those items are grouped into a concept so they can keep compounding instead of disappearing into the archive."
+                  ]
+                },
+                {
+                  "title": "Example: proof for a decision memo",
+                  "paragraphs": [
+                    "A founder imports old reading on pricing, activation, and retention, then pulls the strongest evidence into a decision workspace. The result is not a summary of the archive. It is a memo with visible proof underneath it."
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "proof-layer",
+          "title": "What proof-layer behavior should look like",
+          "blocks": [
+            {
+              "type": "comparison",
+              "items": [
+                {
+                  "title": "What import-heavy users should optimize for",
+                  "paragraphs": [
+                    "Preserved source context, reusable concepts, and retrieval that surfaces evidence rather than only titles, tags, or generic summaries."
+                  ]
+                },
+                {
+                  "title": "What weaker migrations produce",
+                  "paragraphs": [
+                    "A larger archive that still leaves the user reconstructing provenance and meaning by hand every time they need to write or decide."
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "unorderedList",
+              "items": [
+                "Imported highlights remain linked to their original source material.",
+                "Concepts can gather reading, notes, and open questions in one place.",
+                "Search and retrieval surface evidence, not just filenames or generic summaries.",
+                "Drafts can be checked against the imported material they were built from."
+              ]
+            },
+            {
+              "type": "paragraph",
+              "text": "That is the standard to use when evaluating Noeis for import-heavy workflows. The archive should become more than a collection system. It should become an evidence layer that helps you write, decide, and revisit prior thinking with confidence."
+            },
+            {
+              "type": "ctas",
+              "items": [
+                {
+                  "label": "Import your archive",
+                  "href": "/register",
+                  "variant": "secondary",
+                  "track": "body"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "faq",
+          "title": "FAQ",
+          "blocks": [
+            {
+              "type": "faqCards",
+              "items": [
+                {
+                  "title": "Do I need a perfect archive before importing?",
+                  "paragraphs": [
+                    "No. Import first, then shape the imported material into concepts and evidence groups that match how you actually think and work."
+                  ]
+                },
+                {
+                  "title": "What should I preserve during import?",
+                  "paragraphs": [
+                    "Preserve source context, titles, links, and any metadata that helps you return to the original material later."
+                  ]
+                },
+                {
+                  "title": "Why use Noeis instead of another notes app?",
+                  "paragraphs": [
+                    "Because Noeis is organized around source-grounded concepts and proof-rich workflow, not just around storing more reading."
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "style": "footer",
+          "title": "The point of import is not accumulation. It is reusable proof.",
+          "blocks": [
+            {
+              "type": "relatedGuides",
+              "items": [
+                "source-backed-synthesis-workflow",
+                "highlights-into-concepts",
+                "ai-reading-without-losing-judgment"
+              ]
+            },
+            {
+              "type": "ctas",
+              "items": [
+                {
+                  "label": "Start free",
+                  "href": "/register",
+                  "variant": "primary",
+                  "track": "footer"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

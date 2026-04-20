@@ -43,6 +43,62 @@
   color: #425063;
 }
 
+.seo-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 0 0 14px;
+  color: #5f6b7a;
+  font-size: 0.88rem;
+}
+
+.seo-meta span {
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(232, 238, 247, 0.9);
+}
+
+.seo-trust-panel {
+  margin-top: 24px;
+  padding-top: 24px;
+  border-top: 1px solid rgba(21, 32, 51, 0.08);
+}
+
+.seo-answer-panel {
+  margin-top: 24px;
+  padding: 22px 24px;
+  border-radius: 22px;
+  background:
+    linear-gradient(180deg, rgba(21, 94, 239, 0.08), rgba(255, 255, 255, 0.98)),
+    #ffffff;
+  border: 1px solid rgba(21, 32, 51, 0.08);
+}
+
+.seo-answer-panel h2 {
+  margin: 0 0 10px;
+  font-size: clamp(1.45rem, 2vw, 1.8rem);
+}
+
+.seo-answer-text {
+  font-size: 1.04rem;
+  color: #1f2d40;
+}
+
+.seo-answer-points {
+  margin: 14px 0 0;
+  padding-left: 22px;
+}
+
+.seo-trust-panel h2 {
+  margin: 0 0 10px;
+  font-size: 1.15rem;
+}
+
+.seo-trust-byline {
+  font-weight: 600;
+  color: #1f2d40;
+}
+
 .seo-cta-row {
   display: flex;
   flex-wrap: wrap;
@@ -134,6 +190,38 @@
 .seo-guide-card {
   text-decoration: none;
   color: inherit;
+}
+
+.seo-structured-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+}
+
+.seo-structured-card {
+  padding: 20px;
+  border-radius: 18px;
+  background: #f5f8fc;
+  border: 1px solid rgba(21, 32, 51, 0.08);
+}
+
+.seo-structured-label {
+  margin: 0 0 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-size: 0.74rem;
+  color: #5f6b7a;
+  font-weight: 700;
+}
+
+.seo-structured-card p,
+.seo-structured-card ul {
+  margin-top: 0;
+}
+
+.seo-comparison-block {
+  display: grid;
+  gap: 14px;
 }
 
 .seo-related-guides {

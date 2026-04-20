@@ -27,6 +27,10 @@
 		"web-vitals": "^2.1.4"
 	},
 	"scripts": {
+		"prestart": "node scripts/seo/generate.js",
+		"prebuild": "node scripts/seo/generate.js",
+		"generate:seo": "node scripts/seo/generate.js",
+		"indexnow:submit": "node scripts/seo/indexnow.js",
 		"start": "react-scripts start",
 		"build": "react-scripts build",
 		"test": "react-scripts test",

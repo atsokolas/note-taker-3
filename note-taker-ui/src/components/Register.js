@@ -1,7 +1,14 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import api, { clearStoredTokens } from '../api';
 import { Button } from './ui';
+import {
+  trackSignupFailed,
+  trackSignupStarted,
+  trackSignupSucceeded,
+  trackSignupViewed
+} from '../utils/marketingAnalytics';
+import { readMarketingAttribution } from '../utils/marketingAttribution';
 
 const PASSWORD_MIN_LENGTH = 8;
 
@@ -35,6 +42,10 @@ const Register = ({ chromeStoreLink }) => {
   const [submitting, setSubmitting] = useState(false);
   const navigate = useNavigate();
 
+  useEffect(() => {
+    trackSignupViewed();
+  }, []);
+
   const handleRegister = async (event) => {
     event.preventDefault();
     setMessage('');
@@ -45,23 +56,37 @@ const Register = ({ chromeStoreLink }) => {
       setMessage(validationMessage);
       setIsError(true);
       setSubmitting(false);
+      trackSignupFailed({
+        reason: 'validation',
+        error: validationMessage
+      });
       return;
     }
     try {
       const cleanUsername = username.trim();
+      trackSignupStarted();
       clearStoredTokens();
-      const response = await api.post('/api/auth/register', { username: cleanUsername, password }, { skipAuthHandling: true });
+      const response = await api.post('/api/auth/register', {
+        username: cleanUsername,
+        password,
+        marketingAttribution: readMarketingAttribution()
+      }, { skipAuthHandling: true });
       try {
         sessionStorage.setItem('registration_notice', response.data?.loginMessage || 'Account created. You can log in now.');
         sessionStorage.setItem('registration_username', cleanUsername);
       } catch (_error) {
         // ignore storage failures
       }
+      trackSignupSucceeded({ username: cleanUsername });
       navigate('/login');
     } catch (error) {
       const errorMessage = error.response?.data?.error || 'Registration failed. Please try again.';
       setMessage(errorMessage);
       setIsError(true);
+      trackSignupFailed({
+        reason: 'request',
+        error: errorMessage
+      });
     } finally {
       setSubmitting(false);
     }

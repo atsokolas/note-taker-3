@@ -1,6 +1,8 @@
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '../components/ui';
+import { trackMarketingCta } from '../utils/marketingAnalytics';
+import { buildMarketingHref } from '../utils/marketingAttribution';
 
 const Landing = () => {
   const navigate = useNavigate();
@@ -24,7 +26,7 @@ const Landing = () => {
       <header className="landing-public__masthead">
         <div className="landing-public__brand-block">
           <Link to="/" className="landing-public__brand">Noeis</Link>
-          <p className="landing-public__brand-copy">Notebook for reading, concepts, and open questions.</p>
+          <p className="landing-public__brand-copy">Concept-centered thinking workspace for serious readers.</p>
         </div>
         <nav className="landing-public__nav" aria-label="Public navigation">
           <Link to="/guides">Guides</Link>
@@ -36,7 +38,7 @@ const Landing = () => {
 
       <section className="landing-public__hero">
         <div className="landing-public__rail">
-          <div className="landing-public__eyebrow">AI-assisted second brain</div>
+          <div className="landing-public__eyebrow">Concept-centered thinking workspace</div>
           <p>
             A reading room for people who save too much, think in fragments, and want their notes
             to accumulate into actual judgment.
@@ -46,12 +48,24 @@ const Landing = () => {
         <div className="landing-public__main">
           <h1>Reading becomes notes. Notes become concepts. Questions stay open until they are answered.</h1>
           <p className="landing-public__lede">
-            Note Taker keeps highlights, working drafts, concepts, and question threads in one
-            calm workspace so your thinking can compound instead of disappearing into tabs,
-            folders, and screenshots.
+            Noeis keeps highlights, working drafts, concepts, and question threads in one calm
+            workspace so your thinking can compound instead of disappearing into tabs, folders,
+            and screenshots.
           </p>
           <div className="landing-public__actions">
-            <Button onClick={() => { markLandingSeen(); navigate('/register'); }}>Get started</Button>
+            <Button
+              onClick={() => {
+                markLandingSeen();
+                trackMarketingCta({ page: 'home', cta: 'hero', target: '/register', pageType: 'home' });
+                navigate(buildMarketingHref('/register', {
+                  entry: 'home',
+                  cta: 'hero',
+                  pageType: 'home'
+                }));
+              }}
+            >
+              Get started
+            </Button>
             <Button variant="secondary" onClick={() => document.getElementById('tour')?.scrollIntoView({ behavior: 'smooth' })}>
               See the tour
             </Button>
@@ -124,7 +138,16 @@ const Landing = () => {
         <div>
           <div className="landing-public__section-kicker">Enter</div>
           <p>If the workflow fits your brain, you should know quickly.</p>
-          <Button onClick={handleEnter}>Enter Note Taker</Button>
+          <Button
+            onClick={() => {
+              if (!hasToken) {
+                trackMarketingCta({ page: 'home', cta: 'footer', target: '/login', pageType: 'home' });
+              }
+              handleEnter();
+            }}
+          >
+            Enter Noeis
+          </Button>
         </div>
       </section>
 

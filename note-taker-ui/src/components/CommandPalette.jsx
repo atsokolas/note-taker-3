@@ -37,6 +37,8 @@ const CommandPalette = ({ open, onClose }) => {
     { label: 'Think', path: '/think' },
     { label: 'Review', path: '/review' },
     { label: 'Map', path: '/map' },
+    { label: 'Marketing Analytics', path: '/marketing-analytics' },
+    { label: 'Search Console Opportunities', path: '/search-console-opportunities' },
     { label: 'Settings', path: '/settings' }
   ]), []);
 

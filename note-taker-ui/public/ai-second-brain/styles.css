@@ -134,6 +134,29 @@ a {
   text-decoration: none;
 }
 
+.answer-panel {
+  margin-top: 24px;
+  padding: 22px 24px;
+  border-radius: 22px;
+  background: linear-gradient(180deg, rgba(21, 94, 239, 0.08), rgba(255, 255, 255, 0.98));
+  border: 1px solid var(--border);
+}
+
+.answer-panel h2 {
+  margin: 0 0 10px;
+  font-size: clamp(1.45rem, 2vw, 1.8rem);
+}
+
+.answer-text {
+  font-size: 1.04rem;
+  color: #1f2d40;
+}
+
+.answer-points {
+  margin: 14px 0 0;
+  padding-left: 22px;
+}
+
 h2 {
   margin: 0 0 14px;
   font-size: clamp(1.65rem, 2.3vw, 2.1rem);
@@ -175,6 +198,38 @@ ul {
 
 .subcard h3 {
   margin-top: 0;
+}
+
+.seo-structured-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+}
+
+.seo-structured-card {
+  padding: 20px;
+  border-radius: 18px;
+  background: var(--surface-soft);
+  border: 1px solid var(--border);
+}
+
+.seo-structured-label {
+  margin: 0 0 10px;
+  font-size: 0.74rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted-2);
+  font-weight: 700;
+}
+
+.seo-structured-card p,
+.seo-structured-card ul {
+  margin-top: 0;
+}
+
+.seo-comparison-block {
+  display: grid;
+  gap: 14px;
 }
 
 .callout {

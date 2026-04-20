@@ -1,4 +1,9 @@
 import { useEffect } from 'react';
+import {
+  DEFAULT_SOCIAL_IMAGE_PATH,
+  SITE_NAME,
+  buildCanonicalUrl
+} from '../seo/siteMetadata';
 
 const ensureMetaTag = (selector, createTag) => {
   let node = document.head.querySelector(selector);
@@ -38,16 +43,12 @@ const ensureCanonicalLink = () => ensureMetaTag(
   }
 );
 
-const buildAbsoluteUrl = (canonicalPath = '/') => {
-  if (typeof window === 'undefined') return canonicalPath;
-  return new URL(canonicalPath, window.location.origin).toString();
-};
-
 const useSeoMetadata = ({
   title,
   description,
   canonicalPath = '/',
-  schema = null
+  schema = null,
+  ogType = 'article'
 }) => {
   useEffect(() => {
     if (typeof document === 'undefined') return undefined;
@@ -61,9 +62,12 @@ const useSeoMetadata = ({
     const ogTypeMeta = ensurePropertyMeta('og:type');
     const ogUrlMeta = ensurePropertyMeta('og:url');
     const ogSiteNameMeta = ensurePropertyMeta('og:site_name');
+    const ogImageMeta = ensurePropertyMeta('og:image');
     const twitterCardMeta = ensureNamedMeta('twitter:card');
     const twitterTitleMeta = ensureNamedMeta('twitter:title');
     const twitterDescriptionMeta = ensureNamedMeta('twitter:description');
+    const twitterImageMeta = ensureNamedMeta('twitter:image');
+    const robotsMeta = ensureNamedMeta('robots');
     const canonicalLink = ensureCanonicalLink();
 
     const managedNodes = [
@@ -73,9 +77,12 @@ const useSeoMetadata = ({
       ogTypeMeta,
       ogUrlMeta,
       ogSiteNameMeta,
+      ogImageMeta,
       twitterCardMeta,
       twitterTitleMeta,
       twitterDescriptionMeta,
+      twitterImageMeta,
+      robotsMeta,
       canonicalLink
     ];
 
@@ -86,26 +93,30 @@ const useSeoMetadata = ({
       href: node.getAttribute('href')
     }));
 
-    const canonicalUrl = buildAbsoluteUrl(canonicalPath);
+    const canonicalUrl = buildCanonicalUrl(canonicalPath);
+    const socialImageUrl = buildCanonicalUrl(DEFAULT_SOCIAL_IMAGE_PATH);
 
     descriptionMeta.node.setAttribute('content', description);
     ogTitleMeta.node.setAttribute('content', title);
     ogDescriptionMeta.node.setAttribute('content', description);
-    ogTypeMeta.node.setAttribute('content', 'article');
+    ogTypeMeta.node.setAttribute('content', ogType);
     ogUrlMeta.node.setAttribute('content', canonicalUrl);
-    ogSiteNameMeta.node.setAttribute('content', 'Note Taker');
+    ogSiteNameMeta.node.setAttribute('content', SITE_NAME);
+    ogImageMeta.node.setAttribute('content', socialImageUrl);
     twitterCardMeta.node.setAttribute('content', 'summary');
     twitterTitleMeta.node.setAttribute('content', title);
     twitterDescriptionMeta.node.setAttribute('content', description);
+    twitterImageMeta.node.setAttribute('content', socialImageUrl);
+    robotsMeta.node.setAttribute('content', 'index,follow');
     canonicalLink.node.setAttribute('href', canonicalUrl);
 
     let schemaNode = null;
     if (schema) {
-      schemaNode = document.getElementById('seo-faq-schema');
+      schemaNode = document.getElementById('seo-schema');
       if (!schemaNode) {
         schemaNode = document.createElement('script');
         schemaNode.type = 'application/ld+json';
-        schemaNode.id = 'seo-faq-schema';
+        schemaNode.id = 'seo-schema';
         document.head.appendChild(schemaNode);
       }
       schemaNode.textContent = JSON.stringify(schema);
@@ -133,7 +144,7 @@ const useSeoMetadata = ({
         schemaNode.remove();
       }
     };
-  }, [canonicalPath, description, schema, title]);
+  }, [canonicalPath, description, ogType, schema, title]);
 };
 
 export default useSeoMetadata;
