@@ -5,6 +5,10 @@ const axios = require('axios');
 
 const EVENT_NAMES = Object.freeze({
   USER_SIGNUP: 'user_signup',
+  MARKETING_CTA_CLICKED: 'marketing_cta_clicked',
+  MARKETING_SIGNUP_VIEWED: 'marketing_signup_viewed',
+  MARKETING_SIGNUP_STARTED: 'marketing_signup_started',
+  MARKETING_SIGNUP_FAILED: 'marketing_signup_failed',
   HIGHLIGHT_CAPTURED: 'highlight_captured',
   WORKSPACE_CREATED: 'workspace_created',
   CAPTURE_COMPLETED: 'capture_completed',

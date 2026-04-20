@@ -1,13 +1,25 @@
 import React from 'react';
 import useSeoMetadata from '../hooks/useSeoMetadata';
+import { CANONICAL_HOST, DEFAULT_AUTHOR_NAME, DEFAULT_LAST_UPDATED, DEFAULT_LAST_UPDATED_LABEL } from '../seo/siteMetadata';
+import publishingContent from '../seo/publishingContent.json';
 import { trackGuideCta } from '../utils/marketingAnalytics';
 import '../styles/seo-article.css';
 
+const guidesHubSchema = {
+  '@context': 'https://schema.org',
+  '@type': 'CollectionPage',
+  name: 'Noeis Guides for Thinking, Reading, and Knowledge Work',
+  url: `${CANONICAL_HOST}/guides`,
+  description: 'Opinionated guides on reliable recall, concept formation, reading workflows, and AI-assisted synthesis for serious readers.'
+};
+
 const GuidesHub = () => {
   useSeoMetadata({
-    title: 'Note Taker Guides for Research and Knowledge Work',
-    description: 'Practical guides on AI second-brain workflows, connected notes, writing, and knowledge management with Note Taker.',
-    canonicalPath: '/guides'
+    title: 'Noeis Guides for Thinking, Reading, and Knowledge Work',
+    description: 'Opinionated guides on reliable recall, concept formation, reading workflows, and AI-assisted synthesis for serious readers.',
+    canonicalPath: '/guides',
+    ogType: 'website',
+    schema: guidesHubSchema
   });
 
   return (
@@ -15,44 +27,28 @@ const GuidesHub = () => {
       <article className="seo-article">
         <header className="seo-hero">
           <p className="seo-eyebrow">Guides</p>
+          <div className="seo-meta">
+            <span>By {DEFAULT_AUTHOR_NAME}</span>
+            <span>Updated {DEFAULT_LAST_UPDATED_LABEL}</span>
+            <span>Publishing system refreshed {DEFAULT_LAST_UPDATED}</span>
+          </div>
           <h1>Practical Guides for Thinking, Writing, and Knowledge Work</h1>
           <p className="seo-lede">
-            These guides are built for people evaluating better workflows for research, synthesis,
-            note-taking, and personal knowledge management.
+            These guides are built for founders, writers, researchers, analysts, and serious readers
+            evaluating better workflows for recall, synthesis, and concept formation.
           </p>
           <div className="seo-guide-grid">
-            <a
-              href="/ai-second-brain"
-              className="seo-guide-card"
-              onClick={() => trackGuideCta({ page: 'guides', cta: 'card', target: '/ai-second-brain' })}
-            >
-              <h2>AI Second Brain</h2>
-              <p>What the term should mean in practice, what to evaluate, and where Note Taker fits.</p>
-            </a>
-            <a
-              href="/second-brain-app"
-              className="seo-guide-card"
-              onClick={() => trackGuideCta({ page: 'guides', cta: 'card', target: '/second-brain-app' })}
-            >
-              <h2>Second Brain App</h2>
-              <p>How to compare categories of tools when you need retrieval, connected notes, and synthesis.</p>
-            </a>
-            <a
-              href="/ai-note-taking-workflow"
-              className="seo-guide-card"
-              onClick={() => trackGuideCta({ page: 'guides', cta: 'card', target: '/ai-note-taking-workflow' })}
-            >
-              <h2>AI Note-Taking Workflow</h2>
-              <p>How to move from saved source material to writing, planning, and reusable insight.</p>
-            </a>
-            <a
-              href="/personal-knowledge-management-ai"
-              className="seo-guide-card"
-              onClick={() => trackGuideCta({ page: 'guides', cta: 'card', target: '/personal-knowledge-management-ai' })}
-            >
-              <h2>Personal Knowledge Management AI</h2>
-              <p>How to use AI in a PKM system without creating more clutter than clarity.</p>
-            </a>
+            {publishingContent.guides.map((guide) => (
+              <a
+                key={guide.slug}
+                href={`/${guide.slug}`}
+                className="seo-guide-card"
+                onClick={() => trackGuideCta({ page: 'guides', cta: 'card', target: `/${guide.slug}` })}
+              >
+                <h2>{guide.title}</h2>
+                <p>{guide.description}</p>
+              </a>
+            ))}
           </div>
         </header>
 
@@ -67,6 +63,15 @@ const GuidesHub = () => {
           <p>
             If your problem is note sprawl and weak retrieval across your own archive, use
             <a href="/personal-knowledge-management-ai"> Personal Knowledge Management AI</a>.
+          </p>
+        </section>
+
+        <section className="seo-section">
+          <h2>What makes these pages worth citing</h2>
+          <p>
+            Noeis publishes these guides as working operator notes, not generic SEO filler. Each page is meant
+            to define a term clearly, show the workflow in plain language, and tie the concept back to real
+            research and writing work.
           </p>
         </section>
       </article>

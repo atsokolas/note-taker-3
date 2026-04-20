@@ -136,6 +136,8 @@ const { buildConceptPathRouter } = require('./routes/conceptPathRoutes');
 const { buildFeedbackHighlightRouter } = require('./routes/feedbackHighlightRoutes');
 const { buildLegacyContentRouter } = require('./routes/legacyContentRoutes');
 const { buildAuthDiscoveryRouter } = require('./routes/authDiscoveryRoutes');
+const { buildMarketingAnalyticsRouter } = require('./routes/marketingAnalyticsRoutes');
+const { buildMarketingFunnelRouter } = require('./routes/marketingFunnelRoutes');
 const { buildSearchRetrievalRouter } = require('./routes/searchRetrievalRoutes');
 const { buildSemanticSearchRouter } = require('./routes/semanticSearchRoutes');
 const { buildTagTemplateRouter } = require('./routes/tagTemplateRoutes');
@@ -247,6 +249,10 @@ const {
 const {
   getAgentHarnessMetricsSnapshot
 } = require('./services/agentHarnessMetrics');
+const {
+  buildMarketingFunnelSnapshot,
+  buildMarketingFunnelSeries
+} = require('./services/marketingFunnelMetrics');
 const {
   dismissBlockedRunStep,
   reconcileAgentRunState
@@ -4025,7 +4031,20 @@ app.use(buildAuthDiscoveryRouter({
   User,
   authenticateToken,
   Recommendation,
-  Article
+  Article,
+  trackEvent,
+  EVENT_NAMES
+}));
+
+app.use(buildMarketingAnalyticsRouter({
+  trackEvent,
+  EVENT_NAMES
+}));
+
+app.use(buildMarketingFunnelRouter({
+  authenticateToken,
+  buildMarketingFunnelSnapshot,
+  buildMarketingFunnelSeries
 }));
 
 const normalizeChecklist = (checklist = []) => {

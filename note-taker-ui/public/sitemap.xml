@@ -1,33 +1,59 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
-    <loc>https://noeis.io/</loc>
-    <changefreq>weekly</changefreq>
-    <priority>1.0</priority>
+    <loc>https://www.noeis.io/</loc>
+    <lastmod>2026-04-19</lastmod>
   </url>
   <url>
-    <loc>https://noeis.io/ai-second-brain</loc>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
+    <loc>https://www.noeis.io/guides</loc>
+    <lastmod>2026-04-19</lastmod>
   </url>
   <url>
-    <loc>https://noeis.io/guides</loc>
-    <changefreq>weekly</changefreq>
-    <priority>0.7</priority>
+    <loc>https://www.noeis.io/ai-second-brain</loc>
+    <lastmod>2026-04-19</lastmod>
   </url>
   <url>
-    <loc>https://noeis.io/second-brain-app</loc>
-    <changefreq>weekly</changefreq>
-    <priority>0.7</priority>
+    <loc>https://www.noeis.io/second-brain-app</loc>
+    <lastmod>2026-04-19</lastmod>
   </url>
   <url>
-    <loc>https://noeis.io/ai-note-taking-workflow</loc>
-    <changefreq>weekly</changefreq>
-    <priority>0.7</priority>
+    <loc>https://www.noeis.io/ai-note-taking-workflow</loc>
+    <lastmod>2026-04-19</lastmod>
   </url>
   <url>
-    <loc>https://noeis.io/personal-knowledge-management-ai</loc>
-    <changefreq>weekly</changefreq>
-    <priority>0.7</priority>
+    <loc>https://www.noeis.io/personal-knowledge-management-ai</loc>
+    <lastmod>2026-04-19</lastmod>
+  </url>
+  <url>
+    <loc>https://www.noeis.io/most-note-apps-solve-capture-not-recall</loc>
+    <lastmod>2026-04-19</lastmod>
+  </url>
+  <url>
+    <loc>https://www.noeis.io/readwise-is-not-a-second-brain</loc>
+    <lastmod>2026-04-19</lastmod>
+  </url>
+  <url>
+    <loc>https://www.noeis.io/highlights-into-concepts</loc>
+    <lastmod>2026-04-19</lastmod>
+  </url>
+  <url>
+    <loc>https://www.noeis.io/ai-reading-without-losing-judgment</loc>
+    <lastmod>2026-04-19</lastmod>
+  </url>
+  <url>
+    <loc>https://www.noeis.io/best-second-brain-app-for-founders</loc>
+    <lastmod>2026-04-19</lastmod>
+  </url>
+  <url>
+    <loc>https://www.noeis.io/best-second-brain-app-for-researchers</loc>
+    <lastmod>2026-04-19</lastmod>
+  </url>
+  <url>
+    <loc>https://www.noeis.io/source-backed-synthesis-workflow</loc>
+    <lastmod>2026-04-19</lastmod>
+  </url>
+  <url>
+    <loc>https://www.noeis.io/import-reading-archive-into-noeis</loc>
+    <lastmod>2026-04-19</lastmod>
   </url>
 </urlset>

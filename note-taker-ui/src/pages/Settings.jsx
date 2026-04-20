@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import Export from './Export';
 import { Page, Card, Button } from '../components/ui';
 import { Link } from 'react-router-dom';
 import { ACCENT_OPTIONS } from '../settings/uiPreferences';
 import { resetTourState } from '../api/tourApi';
+import { getMarketingFunnelSnapshot } from '../api/marketingAnalytics';
 import { TOUR_CACHE_KEY } from '../tour/tourConfig';
 
 const TYPOGRAPHY_OPTIONS = [
@@ -17,11 +18,58 @@ const DENSITY_OPTIONS = [
   { value: 'compact', label: 'Compact' }
 ];
 
+const formatEntryLabel = (value = '') => {
+  const cleaned = String(value || '').trim();
+  if (!cleaned || cleaned === '(unknown)') return 'Unknown entry';
+  return cleaned
+    .split('-')
+    .filter(Boolean)
+    .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
+    .join(' ');
+};
+
 const Settings = ({
   uiSettings = { typographyScale: 'default', density: 'comfortable', theme: 'dark', accent: 'electric', brandEnergy: true },
   uiSettingsSaving = false,
   onUiSettingsChange = () => {}
 }) => {
+  const [marketingFunnel, setMarketingFunnel] = useState(null);
+  const [marketingLoading, setMarketingLoading] = useState(true);
+  const [marketingError, setMarketingError] = useState('');
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadMarketingFunnel = async () => {
+      setMarketingLoading(true);
+      setMarketingError('');
+      try {
+        const snapshot = await getMarketingFunnelSnapshot({ days: 30 });
+        if (!cancelled) {
+          setMarketingFunnel(snapshot);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setMarketingError(error?.response?.data?.error || 'Failed to load funnel snapshot.');
+        }
+      } finally {
+        if (!cancelled) {
+          setMarketingLoading(false);
+        }
+      }
+    };
+    loadMarketingFunnel();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const funnelTotals = marketingFunnel?.totals || {
+    signupViewed: 0,
+    signupStarted: 0,
+    signupsCompleted: 0,
+    activatedUsers: 0
+  };
+
   return (
     <Page>
       <div className="page-header">
@@ -154,6 +202,91 @@ const Settings = ({
         <Link to="/data-integrations" className="ui-button ui-button-secondary">
           Open data integrations
         </Link>
+      </Card>
+      <Card className="settings-card">
+        <h2>Organic funnel</h2>
+        <p className="muted">Last 30 days of SEO/AEO traffic progressing from signup view to activated user.</p>
+        {marketingLoading && <p className="muted">Loading funnel snapshot…</p>}
+        {!marketingLoading && marketingError && <p className="status-message error-message">{marketingError}</p>}
+        {!marketingLoading && !marketingError && (
+          <>
+            <div className="settings-option-row" style={{ alignItems: 'stretch', flexWrap: 'wrap' }}>
+              <div className="settings-option-button is-active" style={{ minWidth: 140 }}>
+                <span className="muted-label">Viewed</span>
+                <div>{funnelTotals.signupViewed}</div>
+              </div>
+              <div className="settings-option-button is-active" style={{ minWidth: 140 }}>
+                <span className="muted-label">Started</span>
+                <div>{funnelTotals.signupStarted}</div>
+              </div>
+              <div className="settings-option-button is-active" style={{ minWidth: 140 }}>
+                <span className="muted-label">Signed up</span>
+                <div>{funnelTotals.signupsCompleted}</div>
+              </div>
+              <div className="settings-option-button is-active" style={{ minWidth: 140 }}>
+                <span className="muted-label">Activated</span>
+                <div>{funnelTotals.activatedUsers}</div>
+              </div>
+            </div>
+
+            <div className="settings-option-group">
+              <p className="muted-label">Top entry pages</p>
+              {(marketingFunnel?.byEntry || []).length === 0 ? (
+                <p className="muted small">No attributed marketing entries yet.</p>
+              ) : (
+                <div className="settings-option-row" style={{ flexDirection: 'column', alignItems: 'stretch' }}>
+                  {marketingFunnel.byEntry.slice(0, 5).map((row) => (
+                    <div key={row.entry} className="settings-option-button" style={{ justifyContent: 'space-between' }}>
+                      <span>{formatEntryLabel(row.entry)}</span>
+                      <span className="muted small">
+                        {row.signupsCompleted} signups · {row.activatedUsers} activated
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="settings-option-group">
+              <p className="muted-label">Top sources</p>
+              {(marketingFunnel?.bySource || []).length === 0 ? (
+                <p className="muted small">No source data yet.</p>
+              ) : (
+                <div className="settings-option-row" style={{ flexDirection: 'column', alignItems: 'stretch' }}>
+                  {marketingFunnel.bySource.slice(0, 5).map((row) => (
+                    <div key={`${row.utmSource}-${row.utmMedium}`} className="settings-option-button" style={{ justifyContent: 'space-between' }}>
+                      <span>{`${row.utmSource} / ${row.utmMedium}`}</span>
+                      <span className="muted small">
+                        {row.activatedUsers} activated
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="settings-option-row" style={{ marginTop: 16 }}>
+              <Link to="/marketing-analytics" className="ui-button ui-button-secondary">
+                Open full analytics
+              </Link>
+              <Link to="/search-console-opportunities" className="ui-button ui-button-secondary">
+                Open Search Console importer
+              </Link>
+            </div>
+          </>
+        )}
+      </Card>
+      <Card className="settings-card">
+        <h2>Growth ops</h2>
+        <p className="muted">Turn Search Console exports into concrete page actions and keep the editorial backlog query-driven.</p>
+        <div className="settings-option-row">
+          <Link to="/search-console-opportunities" className="ui-button ui-button-secondary">
+            Review opportunities
+          </Link>
+          <Link to="/marketing-analytics" className="ui-button ui-button-secondary">
+            Review funnel performance
+          </Link>
+        </div>
       </Card>
       <Export />
     </Page>

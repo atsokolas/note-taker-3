@@ -1,0 +1,61 @@
+{
+  "routes": [
+    {
+      "route": "/",
+      "file": "/index.html"
+    },
+    {
+      "route": "/guides",
+      "file": "/guides/index.html"
+    },
+    {
+      "route": "/ai-second-brain",
+      "file": "/ai-second-brain/index.html"
+    },
+    {
+      "route": "/second-brain-app",
+      "file": "/second-brain-app/index.html"
+    },
+    {
+      "route": "/ai-note-taking-workflow",
+      "file": "/ai-note-taking-workflow/index.html"
+    },
+    {
+      "route": "/personal-knowledge-management-ai",
+      "file": "/personal-knowledge-management-ai/index.html"
+    },
+    {
+      "route": "/most-note-apps-solve-capture-not-recall",
+      "file": "/most-note-apps-solve-capture-not-recall/index.html"
+    },
+    {
+      "route": "/readwise-is-not-a-second-brain",
+      "file": "/readwise-is-not-a-second-brain/index.html"
+    },
+    {
+      "route": "/highlights-into-concepts",
+      "file": "/highlights-into-concepts/index.html"
+    },
+    {
+      "route": "/ai-reading-without-losing-judgment",
+      "file": "/ai-reading-without-losing-judgment/index.html"
+    },
+    {
+      "route": "/best-second-brain-app-for-founders",
+      "file": "/best-second-brain-app-for-founders/index.html"
+    },
+    {
+      "route": "/best-second-brain-app-for-researchers",
+      "file": "/best-second-brain-app-for-researchers/index.html"
+    },
+    {
+      "route": "/source-backed-synthesis-workflow",
+      "file": "/source-backed-synthesis-workflow/index.html"
+    },
+    {
+      "route": "/import-reading-archive-into-noeis",
+      "file": "/import-reading-archive-into-noeis/index.html"
+    }
+  ],
+  "spaFallback": "/index.html"
+}

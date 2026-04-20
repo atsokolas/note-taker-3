@@ -28,6 +28,16 @@ import GuidesHub from './pages/GuidesHub';
 import SecondBrainApp from './pages/SecondBrainApp';
 import AiNoteTakingWorkflow from './pages/AiNoteTakingWorkflow';
 import PersonalKnowledgeManagementAi from './pages/PersonalKnowledgeManagementAi';
+import MostNoteAppsSolveCaptureNotRecall from './pages/MostNoteAppsSolveCaptureNotRecall';
+import ReadwiseIsNotASecondBrain from './pages/ReadwiseIsNotASecondBrain';
+import HighlightsIntoConcepts from './pages/HighlightsIntoConcepts';
+import AiReadingWithoutLosingJudgment from './pages/AiReadingWithoutLosingJudgment';
+import BestSecondBrainAppForFounders from './pages/BestSecondBrainAppForFounders';
+import BestSecondBrainAppForResearchers from './pages/BestSecondBrainAppForResearchers';
+import ImportReadingArchiveIntoNoeis from './pages/ImportReadingArchiveIntoNoeis';
+import SourceBackedSynthesisWorkflow from './pages/SourceBackedSynthesisWorkflow';
+import MarketingAnalytics from './pages/MarketingAnalytics';
+import SearchConsoleOpportunities from './pages/SearchConsoleOpportunities';
 import PrivacyPolicy from './pages/PrivacyPolicy';
 import TermsOfUse from './pages/TermsOfUse';
 import DesignPreview from './pages/DesignPreview';
@@ -99,6 +109,14 @@ const PublicRoutes = ({ chromeStoreLink, handleLoginSuccess, uiSettings }) => {
     || location.pathname === '/ai-note-taking-workflow'
     || location.pathname === '/guides'
     || location.pathname === '/personal-knowledge-management-ai'
+    || location.pathname === '/most-note-apps-solve-capture-not-recall'
+    || location.pathname === '/readwise-is-not-a-second-brain'
+    || location.pathname === '/highlights-into-concepts'
+    || location.pathname === '/ai-reading-without-losing-judgment'
+    || location.pathname === '/best-second-brain-app-for-founders'
+    || location.pathname === '/best-second-brain-app-for-researchers'
+    || location.pathname === '/import-reading-archive-into-noeis'
+    || location.pathname === '/source-backed-synthesis-workflow'
     || location.pathname === '/design-preview'
   );
   const isEditorialPublicRoute = (
@@ -122,6 +140,14 @@ const PublicRoutes = ({ chromeStoreLink, handleLoginSuccess, uiSettings }) => {
         <Route path="/second-brain-app" element={<SecondBrainApp />} />
         <Route path="/ai-note-taking-workflow" element={<AiNoteTakingWorkflow />} />
         <Route path="/personal-knowledge-management-ai" element={<PersonalKnowledgeManagementAi />} />
+        <Route path="/most-note-apps-solve-capture-not-recall" element={<MostNoteAppsSolveCaptureNotRecall />} />
+        <Route path="/readwise-is-not-a-second-brain" element={<ReadwiseIsNotASecondBrain />} />
+        <Route path="/highlights-into-concepts" element={<HighlightsIntoConcepts />} />
+        <Route path="/ai-reading-without-losing-judgment" element={<AiReadingWithoutLosingJudgment />} />
+        <Route path="/best-second-brain-app-for-founders" element={<BestSecondBrainAppForFounders />} />
+        <Route path="/best-second-brain-app-for-researchers" element={<BestSecondBrainAppForResearchers />} />
+        <Route path="/import-reading-archive-into-noeis" element={<ImportReadingArchiveIntoNoeis />} />
+        <Route path="/source-backed-synthesis-workflow" element={<SourceBackedSynthesisWorkflow />} />
         <Route path="/privacy" element={<PrivacyPolicy />} />
         <Route path="/terms" element={<TermsOfUse />} />
         <Route path="/design-preview" element={<DesignPreview />} />
@@ -329,6 +355,11 @@ function App() {
       match: (location) => location.pathname.startsWith('/return-queue')
     },
     {
+      label: 'Growth',
+      to: '/marketing-analytics',
+      match: (location) => location.pathname.startsWith('/marketing-analytics') || location.pathname.startsWith('/search-console-opportunities')
+    },
+    {
       label: 'How To Use',
       to: '/how-to-use',
       match: (location) => location.pathname.startsWith('/how-to-use')
@@ -349,6 +380,11 @@ function App() {
       && locationSearch.get('tab') === 'concepts'
     );
     const topBarUtilityNav = [
+      {
+        label: 'Growth',
+        to: '/marketing-analytics',
+        match: (currentLocation) => currentLocation.pathname.startsWith('/marketing-analytics') || currentLocation.pathname.startsWith('/search-console-opportunities')
+      },
       {
         label: 'Settings',
         to: '/settings',
@@ -392,11 +428,21 @@ function App() {
           <Route path="/how-to-use" element={<HowToUse />} />
           <Route path="/integrations" element={<Integrations />} />
           <Route path="/data-integrations" element={<DataIntegrations />} />
+          <Route path="/marketing-analytics" element={<MarketingAnalytics />} />
+          <Route path="/search-console-opportunities" element={<SearchConsoleOpportunities />} />
           <Route path="/guides" element={<GuidesHub />} />
           <Route path="/ai-second-brain" element={<AiSecondBrain />} />
           <Route path="/second-brain-app" element={<SecondBrainApp />} />
           <Route path="/ai-note-taking-workflow" element={<AiNoteTakingWorkflow />} />
           <Route path="/personal-knowledge-management-ai" element={<PersonalKnowledgeManagementAi />} />
+          <Route path="/most-note-apps-solve-capture-not-recall" element={<MostNoteAppsSolveCaptureNotRecall />} />
+          <Route path="/readwise-is-not-a-second-brain" element={<ReadwiseIsNotASecondBrain />} />
+          <Route path="/highlights-into-concepts" element={<HighlightsIntoConcepts />} />
+          <Route path="/ai-reading-without-losing-judgment" element={<AiReadingWithoutLosingJudgment />} />
+          <Route path="/best-second-brain-app-for-founders" element={<BestSecondBrainAppForFounders />} />
+          <Route path="/best-second-brain-app-for-researchers" element={<BestSecondBrainAppForResearchers />} />
+          <Route path="/import-reading-archive-into-noeis" element={<ImportReadingArchiveIntoNoeis />} />
+          <Route path="/source-backed-synthesis-workflow" element={<SourceBackedSynthesisWorkflow />} />
           <Route path="/privacy" element={<PrivacyPolicy />} />
           <Route path="/terms" element={<TermsOfUse />} />
           <Route path="/design-preview" element={<DesignPreview />} />

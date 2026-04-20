@@ -1,0 +1,65 @@
+const {
+  renderHomeFallback,
+  renderSitemap,
+  renderPrerenderManifest,
+  renderStaticRedirects,
+  renderVercelConfig,
+  renderBingSiteAuthXml
+} = require('../../scripts/seo/renderers');
+const publishingContent = require('./publishingContent.json');
+
+describe('publishing renderers', () => {
+  it('renders a server-visible homepage fallback from the publishing registry', () => {
+    const html = renderHomeFallback(publishingContent);
+
+    expect(html).toContain('Concept-centered thinking workspace for serious readers');
+    expect(html).toContain('Reading becomes notes. Notes become concepts. Questions stay open until they are answered.');
+    expect(html).toContain('href="/guides"');
+    expect(html).toContain('href="/ai-second-brain"');
+  });
+
+  it('renders a sitemap with canonical www URLs and lastmod values', () => {
+    const xml = renderSitemap(publishingContent);
+
+    expect(xml).toContain('<loc>https://www.noeis.io/</loc>');
+    expect(xml).toContain('<loc>https://www.noeis.io/guides</loc>');
+    expect(xml).toContain('<loc>https://www.noeis.io/ai-second-brain</loc>');
+    expect(xml).toContain('<lastmod>2026-04-19</lastmod>');
+  });
+
+  it('renders a prerender manifest for marketing routes', () => {
+    const manifest = JSON.parse(renderPrerenderManifest(publishingContent));
+
+    expect(manifest.routes).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ route: '/', file: '/index.html' }),
+        expect.objectContaining({ route: '/guides', file: '/guides/index.html' }),
+        expect.objectContaining({ route: '/source-backed-synthesis-workflow', file: '/source-backed-synthesis-workflow/index.html' })
+      ])
+    );
+    expect(manifest.spaFallback).toBe('/index.html');
+  });
+
+  it('renders deployment rewrites that prefer prerendered marketing pages over the SPA fallback', () => {
+    const redirects = renderStaticRedirects(publishingContent);
+    const vercel = JSON.parse(renderVercelConfig(publishingContent));
+
+    expect(redirects).toContain('/guides /guides/index.html 200');
+    expect(redirects).toContain('/import-reading-archive-into-noeis /import-reading-archive-into-noeis/index.html 200');
+    expect(redirects.trim().endsWith('/* /index.html 200')).toBe(true);
+
+    expect(vercel.cleanUrls).toBe(true);
+    expect(vercel.rewrites).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ source: '/guides', destination: '/guides/index.html' }),
+        expect.objectContaining({ source: '/best-second-brain-app-for-founders', destination: '/best-second-brain-app-for-founders/index.html' }),
+        expect.objectContaining({ source: '/(.*)', destination: '/index.html' })
+      ])
+    );
+  });
+
+  it('renders a Bing verification XML payload from a token', () => {
+    expect(renderBingSiteAuthXml('bing-verification-token')).toContain('<user>bing-verification-token</user>');
+    expect(renderBingSiteAuthXml('bing-verification-token')).toContain('<users>');
+  });
+});
