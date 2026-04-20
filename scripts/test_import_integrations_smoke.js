@@ -12,6 +12,25 @@ const notionConnectionId = String(process.env.NOTION_CONNECTION_ID || '').trim()
 const cleanupImportedNote = String(process.env.CLEANUP_IMPORTED_NOTE || '1').trim() !== '0';
 const cleanupImportSessions = String(process.env.CLEANUP_IMPORT_SESSIONS || '1').trim() !== '0';
 const shouldStartServer = process.argv.includes('--start-server') || String(process.env.START_SERVER || '').trim() === '1';
+const showHelp = process.argv.includes('--help') || process.argv.includes('-h');
+
+if (showHelp) {
+  console.log(`Usage: node scripts/test_import_integrations_smoke.js [--start-server]
+
+Required environment:
+  AUTH_TOKEN                  Bearer token for the API under test
+
+Optional environment:
+  API_BASE_URL                Override API base URL (default: http://127.0.0.1:5500)
+  WEB_APP_URL                 Alternate base URL fallback
+  READWISE_CONNECTION_ID      Run Readwise check/preview smoke
+  NOTION_CONNECTION_ID        Run Notion check/preview smoke
+  CLEANUP_IMPORTED_NOTE=0     Keep the Evernote smoke note after import
+  CLEANUP_IMPORT_SESSIONS=0   Keep import sessions after the run
+  START_SERVER=1              Start server/server.js before running
+`);
+  process.exit(0);
+}
 
 if (!authToken) {
   console.error('AUTH_TOKEN is required.');
@@ -132,8 +151,11 @@ const buildEnexFormData = (xml, fileName, importSessionId) => {
   return form;
 };
 
+const stripFileExtension = (value = '') => String(value || '').replace(/\.[^./\\]+$/, '');
+
 const runEvernoteSmoke = async () => {
   const fixture = buildEnexFixture();
+  const expectedSourcePath = stripFileExtension(fixture.fileName);
   const session = await createImportSession('evernote', 'enex', fixture.fileName);
   const previewForm = buildEnexFormData(fixture.xml, fixture.fileName, session.id);
   const previewResult = await requestJson(`${baseUrl}/api/import/evernote-enex/preview`, {
@@ -173,6 +195,42 @@ const runEvernoteSmoke = async () => {
   );
   assert.strictEqual(sessionResult.body?.session?.status, 'completed', 'expected Evernote session to complete');
 
+  const entryResult = await requestJson(`${baseUrl}/api/notebook/${encodeURIComponent(importResult.body.entryId)}`, {
+    method: 'GET',
+    headers
+  });
+  assert.strictEqual(
+    entryResult.response.status,
+    200,
+    `fetch imported notebook failed status=${entryResult.response.status} body=${entryResult.text}`
+  );
+  const importedEntry = entryResult.body || {};
+  assert.ok(importedEntry?.folder, 'expected imported Evernote note to be assigned to a mirrored notebook folder');
+  assert.strictEqual(importedEntry?.importMeta?.provider, 'evernote', 'expected imported notebook metadata to preserve provider');
+  assert.strictEqual(importedEntry?.importMeta?.sourceType, 'enex', 'expected imported notebook metadata to preserve sourceType');
+  assert.strictEqual(importedEntry?.importMeta?.sourceLabel, fixture.fileName, 'expected imported notebook metadata to preserve source label');
+  assert.strictEqual(importedEntry?.importMeta?.sourcePath, expectedSourcePath, 'expected imported notebook metadata to preserve mirrored source path');
+  assert.strictEqual(importedEntry?.importMeta?.folderOwnership, 'import_mirror', 'expected imported notebook metadata to mark mirrored folder ownership');
+
+  const foldersResult = await requestJson(`${baseUrl}/api/notebook/folders`, {
+    method: 'GET',
+    headers
+  });
+  assert.strictEqual(
+    foldersResult.response.status,
+    200,
+    `fetch notebook folders failed status=${foldersResult.response.status} body=${foldersResult.text}`
+  );
+  const mirroredFolder = (Array.isArray(foldersResult.body) ? foldersResult.body : []).find((folder) => (
+    String(folder?._id || '') === String(importedEntry.folder || '')
+  ));
+  assert.ok(mirroredFolder, 'expected mirrored notebook folder to exist for the imported Evernote note');
+  assert.strictEqual(mirroredFolder.name, expectedSourcePath, 'expected mirrored notebook folder name to match the ENEX source label');
+  assert.strictEqual(mirroredFolder?.importMeta?.provider, 'evernote', 'expected mirrored notebook folder metadata to preserve provider');
+  assert.strictEqual(mirroredFolder?.importMeta?.sourceType, 'enex', 'expected mirrored notebook folder metadata to preserve sourceType');
+  assert.strictEqual(mirroredFolder?.importMeta?.sourcePath, expectedSourcePath, 'expected mirrored notebook folder metadata to preserve source path');
+  assert.strictEqual(mirroredFolder?.importMeta?.folderOwnership, 'import_mirror', 'expected mirrored notebook folder metadata to remain import-owned');
+
   if (cleanupImportedNote) {
     const deleteResult = await requestJson(`${baseUrl}/api/notebook/${encodeURIComponent(importResult.body.entryId)}`, {
       method: 'DELETE',
@@ -193,6 +251,15 @@ const runEvernoteSmoke = async () => {
       skippedRows: importResult.body.skippedRows,
       indexingQueued: importResult.body.indexingQueued,
       entryId: importResult.body.entryId
+    },
+    importedEntry: {
+      folder: importedEntry.folder,
+      importMeta: importedEntry.importMeta || {}
+    },
+    mirroredFolder: {
+      id: mirroredFolder._id,
+      name: mirroredFolder.name,
+      importMeta: mirroredFolder.importMeta || {}
     },
     finalSession: sessionResult.body.session
   };

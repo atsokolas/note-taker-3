@@ -26,6 +26,9 @@ const {
   buildReadwisePreviewSummary
 } = require('../services/import/readwiseTransform');
 const {
+  ensureNotebookImportFolderPath
+} = require('../services/notebookImportTreeService');
+const {
   NOTION_AUTHORIZE_URL,
   createNotionPage,
   exchangeNotionCode,
@@ -37,6 +40,17 @@ const {
 } = require('../services/import/notionClient');
 
 const toTrimmedString = (value = '') => String(value || '').trim();
+const normalizeSourcePath = (value = '') => {
+  if (Array.isArray(value)) {
+    return value
+      .map(segment => String(segment || '').trim())
+      .filter(Boolean)
+      .join(' / ');
+  }
+  return toTrimmedString(value);
+};
+const NOTEBOOK_IMPORT_FOLDER_OWNERSHIP = 'import_mirror';
+const NOTEBOOK_USER_FOLDER_OWNERSHIP = 'user_owned';
 
 const buildImportRouter = ({
   authenticateToken,
@@ -256,6 +270,135 @@ const buildImportRouter = ({
       .trim()
   );
 
+  const snapshotImportMeta = (value = {}) => {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+    return typeof value.toObject === 'function'
+      ? value.toObject()
+      : { ...value };
+  };
+
+  const upsertImportedNotebookEntry = async ({
+    userId,
+    provider,
+    externalId,
+    title,
+    content,
+    blocks,
+    tags = [],
+    folderPlacement,
+    importMeta,
+    createdAt,
+    updatedAt
+  }) => {
+    const existing = await NotebookEntry.findOne({
+      userId,
+      'importMeta.provider': provider,
+      'importMeta.externalId': externalId
+    });
+    const existingImportMeta = snapshotImportMeta(existing?.importMeta);
+    const preserveUserOwnedFolder = toTrimmedString(existingImportMeta.folderOwnership) === NOTEBOOK_USER_FOLDER_OWNERSHIP;
+    const nextImportMeta = {
+      ...existingImportMeta,
+      ...(importMeta || {}),
+      sourcePath: normalizeSourcePath(folderPlacement?.sourcePath || importMeta?.sourcePath || existingImportMeta.sourcePath),
+      folderOwnership: preserveUserOwnedFolder
+        ? NOTEBOOK_USER_FOLDER_OWNERSHIP
+        : (toTrimmedString(importMeta?.folderOwnership) || NOTEBOOK_IMPORT_FOLDER_OWNERSHIP),
+      importedAt: importMeta?.importedAt || existingImportMeta.importedAt || new Date(),
+      searchableAt: importMeta?.searchableAt || existingImportMeta.searchableAt || null
+    };
+    const nextFolder = preserveUserOwnedFolder
+      ? (existing?.folder || null)
+      : (folderPlacement?.folder?._id || null);
+
+    if (existing) {
+      existing.title = title;
+      existing.content = content;
+      existing.blocks = blocks;
+      existing.folder = nextFolder;
+      existing.tags = Array.isArray(tags) ? tags : [];
+      existing.importMeta = nextImportMeta;
+      if (createdAt) existing.createdAt = createdAt;
+      if (updatedAt) existing.updatedAt = updatedAt;
+      await existing.save();
+      await syncNotebookReferences(userId, existing._id, blocks);
+      return { entry: existing, created: false, updated: true };
+    }
+
+    const entry = new NotebookEntry({
+      title,
+      content,
+      blocks,
+      folder: nextFolder,
+      tags: Array.isArray(tags) ? tags : [],
+      userId,
+      importMeta: nextImportMeta
+    });
+    if (createdAt) entry.createdAt = createdAt;
+    if (updatedAt) entry.updatedAt = updatedAt;
+    await entry.save();
+    await syncNotebookReferences(userId, entry._id, blocks);
+    return { entry, created: true, updated: false };
+  };
+
+  const stripFileExtension = (value = '') => {
+    const safeValue = toTrimmedString(value);
+    if (!safeValue) return '';
+    return safeValue.replace(/\.[^.]+$/, '').trim();
+  };
+
+  const extractNotionParentRef = (item = {}) => {
+    const parent = item?.parent;
+    if (!parent || typeof parent !== 'object') {
+      return { id: '', type: '' };
+    }
+    const type = toTrimmedString(parent.type);
+    const parentId = /_id$/.test(type) ? toTrimmedString(parent[type]) : '';
+    return {
+      id: parentId,
+      type
+    };
+  };
+
+  const buildNotionImportIndex = ({ pages = [], dataSources = [] } = {}) => {
+    const index = new Map();
+    [...pages, ...dataSources].forEach((item) => {
+      const id = toTrimmedString(item?.id);
+      if (!id) return;
+      const { id: parentId, type: parentType } = extractNotionParentRef(item);
+      const title = item?.object === 'data_source'
+        ? (toTrimmedString(flattenNotionRichText(item?.title)) || extractNotionTitle(item))
+        : extractNotionTitle(item);
+      index.set(id, {
+        title,
+        parentId,
+        parentType
+      });
+    });
+    return index;
+  };
+
+  const resolveNotionFolderPath = ({ item, importIndex }) => {
+    const segments = [];
+    const seen = new Set();
+    let current = extractNotionParentRef(item);
+
+    while (current.id && importIndex.has(current.id) && !seen.has(current.id)) {
+      seen.add(current.id);
+      const node = importIndex.get(current.id) || {};
+      const title = toTrimmedString(node.title);
+      if (title) {
+        segments.unshift(title);
+      }
+      current = {
+        id: toTrimmedString(node.parentId),
+        type: toTrimmedString(node.parentType)
+      };
+    }
+
+    return segments;
+  };
+
   const buildNotebookExportBlocks = (entry) => {
     const blocks = Array.isArray(entry?.blocks) ? entry.blocks : [];
     const notionBlocks = blocks.map((block) => {
@@ -360,18 +503,11 @@ const buildImportRouter = ({
     userId,
     importSessionId,
     sourceLabel,
-    parentExternalId = ''
+    parentExternalId = '',
+    folderPathSegments = []
   }) => {
     const externalId = toTrimmedString(page?.id);
     if (!externalId) return { entry: null, created: false };
-    const existing = await NotebookEntry.findOne({
-      userId,
-      'importMeta.provider': 'notion',
-      'importMeta.externalId': externalId
-    });
-    if (existing) {
-      return { entry: existing, created: false };
-    }
 
     const title = extractNotionTitle(page);
     const propertyLines = buildNotionPropertyLines(page);
@@ -389,26 +525,36 @@ const buildImportRouter = ({
           text: title
         }];
     const content = blocks.map(block => `<p>${block.text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p>`).join('');
-    const entry = new NotebookEntry({
+    const folderPlacement = await ensureNotebookImportFolderPath({
+      userId,
+      provider: 'notion',
+      sourceType: 'oauth',
+      sourceLabel,
+      folderOwnership: NOTEBOOK_IMPORT_FOLDER_OWNERSHIP,
+      sourcePath: folderPathSegments
+    });
+    return upsertImportedNotebookEntry({
+      userId,
+      provider: 'notion',
+      externalId,
       title,
       content,
       blocks,
       tags: ['notion-import'],
-      userId,
+      folderPlacement,
       importMeta: {
         provider: 'notion',
         sourceType: 'oauth',
         sourceLabel,
+        sourcePath: folderPlacement.sourcePath,
         sourceUrl: toTrimmedString(page?.url),
+        folderOwnership: NOTEBOOK_IMPORT_FOLDER_OWNERSHIP,
         externalId,
         parentExternalId,
         importSessionId: importSessionId || null,
         importedAt: new Date()
       }
     });
-    await entry.save();
-    await syncNotebookReferences(userId, entry._id, blocks);
-    return { entry, created: true };
   };
 
   const handleReadwiseImport = async (req, res) => {
@@ -1294,26 +1440,32 @@ const buildImportRouter = ({
       const accessToken = decryptSecret(connection.encryptedAccessToken);
       const pages = await searchNotionItems({ token: accessToken, filterValue: 'page', pageSize: 100 });
       const dataSources = await searchNotionItems({ token: accessToken, filterValue: 'data_source', pageSize: 100 });
+      const notionImportIndex = buildNotionImportIndex({ pages, dataSources });
 
       let importedNotes = 0;
       let skippedRows = 0;
-      const createdEntries = [];
+      const syncedEntries = [];
       const indexing = buildIndexingSummary();
       const sourceLabel = connection.accountLabel || 'Notion';
 
       for (const page of pages) {
-        const { entry, created } = await buildNotebookEntryFromNotionPage({
+        const { entry, created, updated } = await buildNotebookEntryFromNotionPage({
           token: accessToken,
           page,
           userId,
           importSessionId,
-          sourceLabel
+          sourceLabel,
+          parentExternalId: extractNotionParentRef(page).id,
+          folderPathSegments: resolveNotionFolderPath({
+            item: page,
+            importIndex: notionImportIndex
+          })
         });
-        if (!entry || !created) {
+        if (!entry || (!created && !updated)) {
           skippedRows += 1;
           continue;
         }
-        createdEntries.push(entry);
+        syncedEntries.push(entry);
         importedNotes += 1;
       }
 
@@ -1325,24 +1477,28 @@ const buildImportRouter = ({
           dataSourceId
         });
         for (const rowPage of rowPages) {
-          const { entry, created } = await buildNotebookEntryFromNotionPage({
+          const { entry, created, updated } = await buildNotebookEntryFromNotionPage({
             token: accessToken,
             page: rowPage,
             userId,
             importSessionId,
             sourceLabel,
-            parentExternalId: dataSourceId
+            parentExternalId: extractNotionParentRef(rowPage).id || dataSourceId,
+            folderPathSegments: resolveNotionFolderPath({
+              item: rowPage,
+              importIndex: notionImportIndex
+            })
           });
-          if (!entry || !created) {
+          if (!entry || (!created && !updated)) {
             skippedRows += 1;
             continue;
           }
-          createdEntries.push(entry);
+          syncedEntries.push(entry);
           importedNotes += 1;
         }
       }
 
-      createdEntries.forEach((entry) => {
+      syncedEntries.forEach((entry) => {
         queueIndexingAttempt(indexing, () => enqueueNotebookEmbedding(entry), `Notebook indexing failed for ${entry.title || entry._id}`);
       });
 
@@ -1371,7 +1527,7 @@ const buildImportRouter = ({
         invalidSkips: 0,
         warningCodes: warningSummary.warningCodes,
         warnings: warningSummary.warnings,
-        entryId: createdEntries[0] ? String(createdEntries[0]._id) : '',
+        entryId: syncedEntries[0] ? String(syncedEntries[0]._id) : '',
         pageCount: pages.length,
         dataSourceCount: dataSources.length,
         connection: sanitizeConnection(connection.toObject()),
@@ -1633,56 +1789,62 @@ const buildImportRouter = ({
       let skippedRows = 0;
       let duplicateSkips = 0;
       let invalidSkips = 0;
-      const createdEntries = [];
+      const syncedEntries = [];
       const indexing = buildIndexingSummary();
       const sourceLabel = req.file.originalname || 'Evernote ENEX';
+      const folderSourceLabel = stripFileExtension(sourceLabel) || 'Evernote ENEX';
 
       for (let index = 0; index < notes.length; index += 1) {
         const note = notes[index];
         const externalId = `${slugify(note.title || 'note')}-${index + 1}`;
-        const existing = await NotebookEntry.findOne({
-          userId,
-          'importMeta.provider': 'evernote',
-          'importMeta.externalId': externalId
-        });
-        if (existing) {
-          skippedRows += 1;
-          duplicateSkips += 1;
-          continue;
-        }
         const { blocks, content } = buildNotebookPayloadFromLines({
           title: note.title,
           lines: note.contentLines,
           createId: () => crypto.randomUUID()
         });
-        const entryPayload = {
+        const folderPlacement = await ensureNotebookImportFolderPath({
+          userId,
+          provider: 'evernote',
+          sourceType: 'enex',
+          sourceLabel: folderSourceLabel,
+          folderOwnership: NOTEBOOK_IMPORT_FOLDER_OWNERSHIP,
+          sourcePath: []
+        });
+        const parsedCreatedAt = parseEvernoteDate(note.created);
+        const parsedUpdatedAt = parseEvernoteDate(note.updated);
+        const { entry, created, updated } = await upsertImportedNotebookEntry({
+          userId,
+          provider: 'evernote',
+          externalId,
           title: note.title,
           content,
           blocks,
           tags: note.tags,
-          userId,
+          folderPlacement,
           importMeta: {
             provider: 'evernote',
             sourceType: 'enex',
             sourceLabel,
+            sourcePath: folderPlacement.sourcePath,
             sourceUrl: note.sourceUrl,
+            folderOwnership: NOTEBOOK_IMPORT_FOLDER_OWNERSHIP,
             externalId,
             importSessionId: importSessionId || null,
             importedAt: new Date()
-          }
-        };
-        const parsedCreatedAt = parseEvernoteDate(note.created);
-        const parsedUpdatedAt = parseEvernoteDate(note.updated);
-        if (parsedCreatedAt) entryPayload.createdAt = parsedCreatedAt;
-        if (parsedUpdatedAt) entryPayload.updatedAt = parsedUpdatedAt;
-        const entry = new NotebookEntry(entryPayload);
-        await entry.save();
-        await syncNotebookReferences(userId, entry._id, blocks);
-        createdEntries.push(entry);
+          },
+          createdAt: parsedCreatedAt,
+          updatedAt: parsedUpdatedAt
+        });
+        if (!entry || (!created && !updated)) {
+          skippedRows += 1;
+          duplicateSkips += 1;
+          continue;
+        }
+        syncedEntries.push(entry);
         importedNotes += 1;
       }
 
-      createdEntries.forEach((entry) => {
+      syncedEntries.forEach((entry) => {
         queueIndexingAttempt(indexing, () => enqueueNotebookEmbedding(entry), `Notebook indexing failed for ${entry.title || entry._id}`);
       });
 
@@ -1708,7 +1870,7 @@ const buildImportRouter = ({
         indexingQueued: indexing.indexingQueued,
         warningCodes: warningSummary.warningCodes,
         warnings: warningSummary.warnings,
-        entryId: createdEntries[0] ? String(createdEntries[0]._id) : '',
+        entryId: syncedEntries[0] ? String(syncedEntries[0]._id) : '',
         indexingState: indexing.indexingFailures > 0 ? 'partial' : (indexing.indexingQueued > 0 ? 'queued' : 'not_started')
       };
 

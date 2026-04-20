@@ -100,7 +100,9 @@ const importMetaSchema = new mongoose.Schema({
   provider: { type: String, default: '', trim: true },
   sourceType: { type: String, default: '', trim: true },
   sourceLabel: { type: String, default: '', trim: true },
+  sourcePath: { type: String, default: '', trim: true },
   sourceUrl: { type: String, default: '', trim: true },
+  folderOwnership: { type: String, default: '', trim: true },
   draftTemplate: { type: String, default: '', trim: true },
   draftTemplateLabel: { type: String, default: '', trim: true },
   externalId: { type: String, default: '', trim: true },
@@ -243,10 +245,13 @@ const NotebookEntry = mongoose.model('NotebookEntry', notebookEntrySchema);
 
 const notebookFolderSchema = new mongoose.Schema({
   name: { type: String, required: true, trim: true },
-  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  parentFolderId: { type: mongoose.Schema.Types.ObjectId, ref: 'NotebookFolder', default: null },
+  sortOrder: { type: Number, default: 0 },
+  importMeta: { type: importMetaSchema, default: () => ({}) }
 }, { timestamps: true });
 
-notebookFolderSchema.index({ userId: 1, name: 1 });
+notebookFolderSchema.index({ userId: 1, parentFolderId: 1, sortOrder: 1, name: 1 });
 
 const NotebookFolder = mongoose.model('NotebookFolder', notebookFolderSchema);
 

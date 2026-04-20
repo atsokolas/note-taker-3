@@ -12,6 +12,8 @@ import {
 } from '../api/concepts';
 import NotebookEditor from '../components/think/notebook/NotebookEditor';
 import NotebookContext from '../components/think/notebook/NotebookContext';
+import NotebookFolderTree from '../components/think/notebook/NotebookFolderTree';
+import NotebookMoveEntryModal from '../components/think/notebook/NotebookMoveEntryModal';
 import useQuestions from '../hooks/useQuestions';
 import { createQuestion, updateQuestion } from '../api/questions';
 import QuestionInput from '../components/think/questions/QuestionInput';
@@ -455,12 +457,18 @@ const ThinkMode = () => {
   const [contextConnectionsError, setContextConnectionsError] = useState('');
 
   const [notebookEntries, setNotebookEntries] = useState([]);
+  const [notebookFolders, setNotebookFolders] = useState([]);
   const [notebookActiveId, setNotebookActiveId] = useState('');
   const [notebookLoadingList, setNotebookLoadingList] = useState(false);
+  const [notebookFoldersLoading, setNotebookFoldersLoading] = useState(false);
   const [notebookLoadingEntry, setNotebookLoadingEntry] = useState(false);
   const [notebookSaving, setNotebookSaving] = useState(false);
   const [notebookListError, setNotebookListError] = useState('');
+  const [notebookFoldersError, setNotebookFoldersError] = useState('');
   const [notebookEntryError, setNotebookEntryError] = useState('');
+  const [notebookMoveModalEntry, setNotebookMoveModalEntry] = useState(null);
+  const [notebookMovePendingId, setNotebookMovePendingId] = useState('');
+  const [notebookMoveError, setNotebookMoveError] = useState('');
   const [workingMemoryItems, setWorkingMemoryItems] = useState([]);
   const [workingMemoryLoading, setWorkingMemoryLoading] = useState(false);
   const [workingMemoryError, setWorkingMemoryError] = useState('');
@@ -1171,6 +1179,24 @@ const ThinkMode = () => {
     loadNotebookEntries();
   }, [loadNotebookEntries]);
 
+  const loadNotebookFolders = useCallback(async () => {
+    setNotebookFoldersLoading(true);
+    setNotebookFoldersError('');
+    try {
+      const res = await api.get('/api/notebook/folders', getAuthHeaders());
+      setNotebookFolders(Array.isArray(res.data) ? res.data : []);
+    } catch (err) {
+      setNotebookFoldersError(err.response?.data?.error || 'Failed to load notebook folders.');
+      setNotebookFolders([]);
+    } finally {
+      setNotebookFoldersLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadNotebookFolders();
+  }, [loadNotebookFolders]);
+
   const handleArtifactDraftChanged = useCallback(async (result) => {
     await Promise.all([
       threadsModel.loadThreads?.(),
@@ -1669,6 +1695,12 @@ const ThinkMode = () => {
     await createNotebookEntry({ title: 'Untitled', content: '', blocks: [] });
   }, [createNotebookEntry]);
 
+  const applyNotebookEntryUpdate = useCallback((updated) => {
+    if (!updated?._id) return;
+    setNotebookEntries(prev => prev.map(entry => entry._id === updated._id ? updated : entry));
+    setActiveNotebookEntry(prev => (prev?._id === updated._id ? updated : prev));
+  }, []);
+
   const handleSaveNotebookEntry = async (payload) => {
     if (!payload?.id) return;
     setNotebookSaving(true);
@@ -1676,14 +1708,43 @@ const ThinkMode = () => {
     try {
       const res = await api.put(`/api/notebook/${payload.id}`, payload, getAuthHeaders());
       const updated = res.data;
-      setNotebookEntries(prev => prev.map(entry => entry._id === updated._id ? updated : entry));
-      setActiveNotebookEntry(updated);
+      applyNotebookEntryUpdate(updated);
     } catch (err) {
       setNotebookEntryError(err.response?.data?.error || 'Failed to save note.');
     } finally {
       setNotebookSaving(false);
     }
   };
+
+  const handleOpenNotebookMoveModal = useCallback((entry) => {
+    if (!entry?._id) return;
+    setNotebookMoveError('');
+    setNotebookMoveModalEntry(entry);
+  }, []);
+
+  const handleCloseNotebookMoveModal = useCallback(() => {
+    if (notebookMovePendingId) return;
+    setNotebookMoveError('');
+    setNotebookMoveModalEntry(null);
+  }, [notebookMovePendingId]);
+
+  const handleMoveNotebookEntry = useCallback(async (entry, folderId) => {
+    const entryId = cleanText(entry?._id);
+    if (!entryId || cleanText(entry?.folder) === cleanText(folderId)) return;
+    setNotebookMovePendingId(entryId);
+    setNotebookMoveError('');
+    try {
+      const res = await api.put(`/api/notebook/${entryId}`, { folder: folderId || null }, getAuthHeaders());
+      const updated = res.data;
+      applyNotebookEntryUpdate(updated);
+      setNotebookMoveModalEntry(prev => (prev?._id === updated?._id ? updated : prev));
+      setNotebookMoveModalEntry(null);
+    } catch (err) {
+      setNotebookMoveError(err.response?.data?.error || 'Failed to move note.');
+    } finally {
+      setNotebookMovePendingId('');
+    }
+  }, [applyNotebookEntryUpdate]);
 
   const handleDeleteNotebookEntry = async (entry) => {
     if (!entry?._id) return;
@@ -2303,6 +2364,48 @@ const ThinkMode = () => {
       })}
     />
   ), [handleSelectNotebookEntry]);
+
+  const renderNotebookFolderList = useCallback((items, {
+    emptyMessage = 'No notebook entries yet.',
+    skeletonRows = 8
+  } = {}) => {
+    if (notebookLoadingList || notebookFoldersLoading) {
+      return <SidebarSkeletonRows rows={skeletonRows} />;
+    }
+
+    return (
+      <div className="think-notebook-folder-tree-panel">
+        {notebookFoldersError ? (
+          <p className="muted small think-notebook-folder-tree-panel__status">{notebookFoldersError}</p>
+        ) : null}
+        {!notebookMoveModalEntry && notebookMoveError ? (
+          <p className="muted small think-notebook-folder-tree-panel__status">{notebookMoveError}</p>
+        ) : null}
+        <NotebookFolderTree
+          folders={notebookFolders}
+          entries={items}
+          activeEntryId={notebookActiveId}
+          emptyMessage={emptyMessage}
+          movingEntryId={notebookMovePendingId}
+          onSelectEntry={handleSelectNotebookEntry}
+          onRequestMoveEntry={handleOpenNotebookMoveModal}
+          onMoveEntry={handleMoveNotebookEntry}
+        />
+      </div>
+    );
+  }, [
+    handleMoveNotebookEntry,
+    handleOpenNotebookMoveModal,
+    handleSelectNotebookEntry,
+    notebookActiveId,
+    notebookFolders,
+    notebookFoldersError,
+    notebookFoldersLoading,
+    notebookLoadingList,
+    notebookMoveError,
+    notebookMoveModalEntry,
+    notebookMovePendingId
+  ]);
 
   const renderConceptComposer = (anchor) => {
     if (!conceptComposerOpen || conceptComposerAnchor !== anchor) return null;
@@ -2924,9 +3027,10 @@ const ThinkMode = () => {
               {
                 label: 'Working notebook',
                 flush: true,
-                content: notebookLoadingList
-                  ? <SidebarSkeletonRows rows={8} />
-                  : renderPartnerNotebookList(filteredNotebookEntries, 'No notebook entries match.')
+                content: renderNotebookFolderList(filteredNotebookEntries, {
+                  emptyMessage: 'No notebook entries match.',
+                  skeletonRows: 8
+                })
               },
               {
                 label: 'Open questions',
@@ -2938,13 +3042,14 @@ const ThinkMode = () => {
             ]
           : notebookEditorialSection === 'highlights'
             ? [
-                {
-                  label: 'Working notebook',
-                  flush: true,
-                  content: notebookLoadingList
-                    ? <SidebarSkeletonRows rows={6} />
-                    : renderPartnerNotebookList(notebookEntries.slice(0, 6), 'No notebook entries yet.')
-                },
+                  {
+                    label: 'Working notebook',
+                    flush: true,
+                    content: renderNotebookFolderList(notebookEntries, {
+                      emptyMessage: 'No notebook entries yet.',
+                      skeletonRows: 6
+                    })
+                  },
                 {
                   label: 'Concepts with evidence',
                   flush: true,
@@ -2971,9 +3076,10 @@ const ThinkMode = () => {
                   {
                     label: 'Working notebook',
                     flush: true,
-                    content: notebookLoadingList
-                      ? <SidebarSkeletonRows rows={8} />
-                      : renderPartnerNotebookList(filteredNotebookEntries, 'No notebook entries match.')
+                    content: renderNotebookFolderList(filteredNotebookEntries, {
+                      emptyMessage: 'No notebook entries match.',
+                      skeletonRows: 8
+                    })
                   },
                   {
                     label: 'Working concepts',
@@ -4529,7 +4635,7 @@ const ThinkMode = () => {
             {renderConceptComposer('index-rail')}
           </div>
           <QuietButton onClick={openTemplatePicker}>
-            Use template
+            Browse templates
           </QuietButton>
         </div>
       </div>
@@ -4791,6 +4897,43 @@ const ThinkMode = () => {
         </aside>
         <main className="concept-index-editorial-shell__main">
           <div className="concept-index-editorial-main">
+            <div className="sr-only">
+              <SegmentedNav
+                items={THINK_SUB_NAV_ITEMS}
+                value="concepts"
+                onChange={handleSelectView}
+                appearance="quiet"
+              />
+              <div className="think-main-actions__menu">
+                <QuietButton
+                  className={`list-button think-main-actions__utility ${headerActionsMenuOpen ? 'is-active' : ''}`}
+                  onClick={() => setHeaderActionsMenuOpen((previous) => !previous)}
+                  aria-haspopup="menu"
+                  aria-expanded={headerActionsMenuOpen}
+                  data-testid="think-header-actions-menu-button"
+                >
+                  ••• Actions
+                </QuietButton>
+                {headerActionsMenuOpen && (
+                  <div className="think-main-actions__menu-popover" role="menu" data-testid="think-header-actions-menu">
+                    {THINK_ADVANCED_NAV_ITEMS.map((item) => (
+                      <button
+                        key={item.value}
+                        type="button"
+                        className={`think-main-actions__menu-item ${activeView === item.value ? 'is-active' : ''}`}
+                        role="menuitem"
+                        onClick={() => {
+                          closeHeaderMenus();
+                          handleSelectView(item.value);
+                        }}
+                      >
+                        Open {item.label.toLowerCase()}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
             {mainPanel}
           </div>
         </main>
@@ -5383,6 +5526,15 @@ const ThinkMode = () => {
         open={templatePickerOpen}
         onClose={closeTemplatePicker}
         onCreated={handleTemplateCreated}
+      />
+      <NotebookMoveEntryModal
+        open={Boolean(notebookMoveModalEntry)}
+        entry={notebookMoveModalEntry}
+        folders={notebookFolders}
+        loading={Boolean(notebookMovePendingId)}
+        error={notebookMoveError}
+        onClose={handleCloseNotebookMoveModal}
+        onMove={(folderId) => handleMoveNotebookEntry(notebookMoveModalEntry, folderId)}
       />
     </>
   );

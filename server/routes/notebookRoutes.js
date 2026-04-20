@@ -1,5 +1,7 @@
 const express = require('express');
 
+const NOTEBOOK_USER_FOLDER_OWNERSHIP = 'user_owned';
+
 const buildNotebookRouter = ({
   authenticateToken,
   NotebookEntry,
@@ -19,13 +21,25 @@ const buildNotebookRouter = ({
 }) => {
   const router = express.Router();
 
+  const normalizeSourcePath = (value = '') => {
+    if (Array.isArray(value)) {
+      return value
+        .map(segment => String(segment || '').trim())
+        .filter(Boolean)
+        .join(' / ');
+    }
+    return String(value || '').trim();
+  };
+
   const normalizeImportMeta = (value = {}) => {
     if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined;
     const next = {
       provider: String(value.provider || '').trim(),
       sourceType: String(value.sourceType || '').trim(),
       sourceLabel: String(value.sourceLabel || '').trim(),
+      sourcePath: normalizeSourcePath(value.sourcePath),
       sourceUrl: String(value.sourceUrl || '').trim(),
+      folderOwnership: String(value.folderOwnership || '').trim(),
       draftTemplate: String(value.draftTemplate || '').trim(),
       draftTemplateLabel: String(value.draftTemplateLabel || '').trim(),
       externalId: String(value.externalId || '').trim(),
@@ -38,13 +52,31 @@ const buildNotebookRouter = ({
       !next.provider
       && !next.sourceType
       && !next.sourceLabel
+      && !next.sourcePath
+      && !next.sourceUrl
+      && !next.folderOwnership
       && !next.draftTemplate
       && !next.draftTemplateLabel
+      && !next.externalId
+      && !next.parentExternalId
       && !next.importSessionId
     ) {
       return undefined;
     }
     return next;
+  };
+
+  const normalizeNotebookFolder = (folder) => {
+    if (!folder) return null;
+    const plain = typeof folder.toObject === 'function'
+      ? folder.toObject()
+      : { ...folder };
+    return {
+      ...plain,
+      parentFolderId: plain.parentFolderId ? String(plain.parentFolderId) : null,
+      sortOrder: Number.isFinite(Number(plain.sortOrder)) ? Number(plain.sortOrder) : 0,
+      importMeta: plain.importMeta && typeof plain.importMeta === 'object' ? plain.importMeta : {}
+    };
   };
 
   router.get('/api/notebook', authenticateToken, async (req, res) => {
@@ -152,6 +184,57 @@ const buildNotebookRouter = ({
     } catch (error) {
       console.error("❌ Error fetching notebook claims:", error);
       res.status(500).json({ error: 'Failed to fetch claims.' });
+    }
+  });
+
+  router.get('/api/notebook/folders', authenticateToken, async (req, res) => {
+    try {
+      const userId = req.user.id;
+      const folders = await NotebookFolder.find({ userId })
+        .sort({ parentFolderId: 1, sortOrder: 1, name: 1 })
+        .lean();
+      res.status(200).json(folders.map(normalizeNotebookFolder));
+    } catch (error) {
+      console.error("❌ Error fetching notebook folders:", error);
+      res.status(500).json({ error: "Failed to fetch folders." });
+    }
+  });
+
+  router.post('/api/notebook/folders', authenticateToken, async (req, res) => {
+    try {
+      const userId = req.user.id;
+      const { name, parentFolderId, sortOrder, importMeta } = req.body;
+      if (!name || !name.trim()) {
+        return res.status(400).json({ error: "Folder name is required." });
+      }
+      const folder = new NotebookFolder({
+        name: name.trim(),
+        userId,
+        parentFolderId: parentFolderId || null,
+        sortOrder: Number.isFinite(Number(sortOrder)) ? Number(sortOrder) : 0,
+        importMeta: normalizeImportMeta(importMeta)
+      });
+      await folder.save();
+      res.status(201).json(normalizeNotebookFolder(folder));
+    } catch (error) {
+      console.error("❌ Error creating notebook folder:", error);
+      res.status(500).json({ error: "Failed to create folder." });
+    }
+  });
+
+  router.delete('/api/notebook/folders/:id', authenticateToken, async (req, res) => {
+    try {
+      const userId = req.user.id;
+      const { id } = req.params;
+      const deleted = await NotebookFolder.findOneAndDelete({ _id: id, userId });
+      if (!deleted) {
+        return res.status(404).json({ error: "Folder not found." });
+      }
+      await NotebookEntry.updateMany({ userId, folder: id }, { $set: { folder: null } });
+      res.status(200).json({ message: "Folder deleted." });
+    } catch (error) {
+      console.error("❌ Error deleting notebook folder:", error);
+      res.status(500).json({ error: "Failed to delete folder." });
     }
   });
 
@@ -341,6 +424,10 @@ const buildNotebookRouter = ({
       const userId = req.user.id;
       const { id } = req.params;
       const { title, content, blocks, folder, tags, linkedArticleId, type, claimId, importMeta } = req.body;
+      const existing = await NotebookEntry.findOne({ _id: id, userId });
+      if (!existing) {
+        return res.status(404).json({ error: "Notebook entry not found." });
+      }
       const updates = {};
       if (title !== undefined) updates.title = title.trim() || 'Untitled';
       if (content !== undefined) updates.content = content;
@@ -374,10 +461,6 @@ const buildNotebookRouter = ({
 
       let effectiveType = updates.type;
       if (!effectiveType) {
-        const existing = await NotebookEntry.findOne({ _id: id, userId }).select('type');
-        if (!existing) {
-          return res.status(404).json({ error: "Notebook entry not found." });
-        }
         effectiveType = normalizeItemType(existing.type, 'note');
       }
       if (effectiveType !== 'evidence') {
@@ -397,22 +480,35 @@ const buildNotebookRouter = ({
           if (!linkedClaim || normalizeItemType(linkedClaim.type, 'note') !== 'claim') {
             return res.status(400).json({ error: 'claimId must reference one of your claim notes.' });
           }
-          if (String(linkedClaim._id) === String(id)) {
+          if (String(linkedClaim._id) === String(existing._id)) {
             return res.status(400).json({ error: 'An evidence note cannot link to itself as a claim.' });
           }
         }
       }
 
-      const updated = await NotebookEntry.findOneAndUpdate(
-        { _id: id, userId },
-        updates,
-        { new: true }
+      const existingImportMeta = (
+        existing.importMeta && typeof existing.importMeta === 'object'
+          ? (typeof existing.importMeta.toObject === 'function' ? existing.importMeta.toObject() : { ...existing.importMeta })
+          : undefined
       );
-      if (!updated) {
-        return res.status(404).json({ error: "Notebook entry not found." });
+      const nextFolder = updates.folder !== undefined ? updates.folder : existing.folder || null;
+      const folderChanged = updates.folder !== undefined && String(existing.folder || '') !== String(nextFolder || '');
+      const hasStableImportIdentity = Boolean(
+        String(existingImportMeta?.provider || '').trim()
+        && String(existingImportMeta?.externalId || '').trim()
+      );
+      if (folderChanged && hasStableImportIdentity) {
+        updates.importMeta = normalizeImportMeta({
+          ...(existingImportMeta || {}),
+          ...(updates.importMeta || {}),
+          folderOwnership: NOTEBOOK_USER_FOLDER_OWNERSHIP
+        });
       }
-      if (Array.isArray(blocks)) {
-        await syncNotebookReferences(userId, updated._id, blocks);
+
+      Object.assign(existing, updates);
+      const updated = await existing.save();
+      if (updates.blocks !== undefined) {
+        await syncNotebookReferences(userId, updated._id, updated.blocks || []);
       }
       enqueueNotebookEmbedding(updated);
       res.status(200).json(updated);
@@ -435,49 +531,6 @@ const buildNotebookRouter = ({
     } catch (error) {
       console.error("❌ Error deleting notebook entry:", error);
       res.status(500).json({ error: "Failed to delete notebook entry." });
-    }
-  });
-
-  router.get('/api/notebook/folders', authenticateToken, async (req, res) => {
-    try {
-      const userId = req.user.id;
-      const folders = await NotebookFolder.find({ userId }).sort({ name: 1 });
-      res.status(200).json(folders);
-    } catch (error) {
-      console.error("❌ Error fetching notebook folders:", error);
-      res.status(500).json({ error: "Failed to fetch folders." });
-    }
-  });
-
-  router.post('/api/notebook/folders', authenticateToken, async (req, res) => {
-    try {
-      const userId = req.user.id;
-      const { name } = req.body;
-      if (!name || !name.trim()) {
-        return res.status(400).json({ error: "Folder name is required." });
-      }
-      const folder = new NotebookFolder({ name: name.trim(), userId });
-      await folder.save();
-      res.status(201).json(folder);
-    } catch (error) {
-      console.error("❌ Error creating notebook folder:", error);
-      res.status(500).json({ error: "Failed to create folder." });
-    }
-  });
-
-  router.delete('/api/notebook/folders/:id', authenticateToken, async (req, res) => {
-    try {
-      const userId = req.user.id;
-      const { id } = req.params;
-      const deleted = await NotebookFolder.findOneAndDelete({ _id: id, userId });
-      if (!deleted) {
-        return res.status(404).json({ error: "Folder not found." });
-      }
-      await NotebookEntry.updateMany({ userId, folder: id }, { $set: { folder: null } });
-      res.status(200).json({ message: "Folder deleted." });
-    } catch (error) {
-      console.error("❌ Error deleting notebook folder:", error);
-      res.status(500).json({ error: "Failed to delete folder." });
     }
   });
 
