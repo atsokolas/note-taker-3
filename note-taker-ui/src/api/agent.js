@@ -174,6 +174,50 @@ export const rollbackAgentProposedChange = async (proposedChangeId) => {
   return res.data || {};
 };
 
+export const listAgentStructureProposals = async ({
+  threadId = '',
+  runId = '',
+  status = 'all',
+  scope = '',
+  scopeRef = '',
+  limit = 40
+} = {}) => {
+  const params = new URLSearchParams();
+  if (threadId) params.set('threadId', String(threadId).trim());
+  if (runId) params.set('runId', String(runId).trim());
+  if (status) params.set('status', String(status).trim());
+  if (scope) params.set('scope', String(scope).trim());
+  if (scopeRef) params.set('scopeRef', String(scopeRef).trim());
+  if (limit) params.set('limit', String(limit));
+  const suffix = params.toString();
+  const res = await api.get(`/api/agent/structure-proposals${suffix ? `?${suffix}` : ''}`, getAuthHeaders());
+  return res.data || { proposals: [] };
+};
+
+export const updateAgentStructureProposal = async (structureProposalId, payload = {}) => {
+  const safeId = encodeURIComponent(String(structureProposalId || '').trim());
+  const res = await api.patch(`/api/agent/structure-proposals/${safeId}`, payload, getAuthHeaders());
+  return res.data || {};
+};
+
+export const applyAgentStructureProposal = async (structureProposalId) => {
+  const safeId = encodeURIComponent(String(structureProposalId || '').trim());
+  const res = await api.post(`/api/agent/structure-proposals/${safeId}/apply`, {}, getAuthHeaders());
+  return res.data || {};
+};
+
+export const rejectAgentStructureProposal = async (structureProposalId) => {
+  const safeId = encodeURIComponent(String(structureProposalId || '').trim());
+  const res = await api.post(`/api/agent/structure-proposals/${safeId}/reject`, {}, getAuthHeaders());
+  return res.data || {};
+};
+
+export const rollbackAgentStructureProposal = async (structureProposalId) => {
+  const safeId = encodeURIComponent(String(structureProposalId || '').trim());
+  const res = await api.post(`/api/agent/structure-proposals/${safeId}/rollback`, {}, getAuthHeaders());
+  return res.data || {};
+};
+
 export const getAgentHarnessMetrics = async ({
   threadId = ''
 } = {}) => {

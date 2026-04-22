@@ -3,6 +3,7 @@ import { act, fireEvent, render, screen, waitFor, within } from '@testing-librar
 import { MemoryRouter } from 'react-router-dom';
 import DataIntegrations from './DataIntegrations';
 import api from '../api';
+import { chatWithAgent } from '../api/agent';
 import { updateConcept } from '../api/concepts';
 import {
   checkNotionConnection,
@@ -52,6 +53,10 @@ jest.mock('../api/returnQueue', () => ({
   createReturnQueueEntry: jest.fn()
 }));
 
+jest.mock('../api/agent', () => ({
+  chatWithAgent: jest.fn()
+}));
+
 describe('DataIntegrations first insight workflow', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -90,6 +95,40 @@ describe('DataIntegrations first insight workflow', () => {
     }));
     syncReadwiseConnection.mockResolvedValue({});
     syncNotionConnection.mockResolvedValue({});
+    chatWithAgent.mockResolvedValue({});
+  });
+
+  it('shows organize this import action after a completed import session', async () => {
+    getActiveImportSession.mockResolvedValue({
+      id: 'session-1',
+      provider: 'notion',
+      status: 'completed',
+      sourceLabel: 'Workspace import',
+      recommendedNextAction: 'organize_import'
+    });
+    chatWithAgent.mockResolvedValue({
+      thread: {
+        threadId: 'thread-1'
+      }
+    });
+
+    render(
+      <MemoryRouter>
+        <DataIntegrations />
+      </MemoryRouter>
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Organize this import' }));
+
+    await waitFor(() => expect(chatWithAgent).toHaveBeenCalledWith(expect.objectContaining({
+      message: 'Organize this import for me and stage a reviewable cleanup plan.',
+      persistThread: true,
+      context: {
+        type: 'import_session',
+        id: 'session-1',
+        title: 'notion import'
+      }
+    })));
   });
 
   it('creates a note, then lets the user create a concept and schedule a revisit', async () => {
@@ -132,13 +171,13 @@ describe('DataIntegrations first insight workflow', () => {
       expect.any(Object)
     );
 
-    await waitFor(() => expect(screen.getByTestId('first-insight-card')).toBeInTheDocument());
+    expect(await screen.findByTestId('first-insight-card')).toBeInTheDocument();
 
     fireEvent.change(screen.getByTestId('first-insight-concept-input'), { target: { value: 'Retrieval systems' } });
     fireEvent.click(screen.getByTestId('first-insight-create-concept'));
 
     await waitFor(() => expect(updateConcept).toHaveBeenCalledWith('Retrieval systems', { description: '' }));
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Open concept' })).toBeInTheDocument());
+    expect(await screen.findByRole('button', { name: 'Open concept' })).toBeInTheDocument();
 
     fireEvent.click(screen.getByTestId('first-insight-schedule-3d'));
 

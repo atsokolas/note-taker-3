@@ -109,6 +109,7 @@ const {
   AgentArtifactDraft,
   AgentRun,
   AgentProposedChange,
+  AgentStructureProposal,
   AgentUpkeepCycle,
   ReferenceEdge,
   SavedView,
@@ -151,6 +152,7 @@ const { buildAgentHandoffRouter } = require('./routes/agentHandoffRoutes');
 const { buildAgentActionRouter } = require('./routes/agentActionRoutes');
 const { buildAgentRunRouter } = require('./routes/agentRunRoutes');
 const { buildAgentProposedChangeRouter } = require('./routes/agentProposedChangeRoutes');
+const { buildAgentStructureProposalRouter } = require('./routes/agentStructureProposalRoutes');
 const { buildAgentChatRouter } = require('./routes/agentChatRoutes');
 const { buildAgentArtifactDraftRouter } = require('./routes/agentArtifactDraftRoutes');
 const { buildAgentHarnessMetricsRouter } = require('./routes/agentHarnessMetricsRoutes');
@@ -246,6 +248,14 @@ const {
   rejectProposedChange,
   rollbackProposedChange
 } = require('./services/agentProposedChanges');
+const {
+  sanitizeAgentStructureProposalDoc,
+  listStructureProposals,
+  updateStructureProposalDraft,
+  applyStoredStructureProposal,
+  rejectStructureProposal,
+  rollbackStoredStructureProposal
+} = require('./services/agentStructureProposals');
 const {
   getAgentHarnessMetricsSnapshot
 } = require('./services/agentHarnessMetrics');
@@ -5465,6 +5475,24 @@ app.use(buildAgentProposedChangeRouter({
   EVENT_NAMES
 }));
 
+app.use(buildAgentStructureProposalRouter({
+  authenticateToken,
+  AgentRun,
+  AgentProposedChange,
+  AgentStructureProposal,
+  NotebookFolder,
+  NotebookEntry,
+  listStructureProposals,
+  updateStructureProposalDraft,
+  applyStoredStructureProposal,
+  rejectStructureProposal,
+  rollbackStoredStructureProposal,
+  reconcileAgentRunState,
+  sanitizeAgentStructureProposalDoc,
+  trackEvent,
+  EVENT_NAMES
+}));
+
 app.use(buildAgentChatRouter({
   authenticateToken,
   authenticatePersonalAgentKey,
@@ -5533,6 +5561,7 @@ app.use(buildAgentHarnessMetricsRouter({
   AgentThread,
   AgentRun,
   AgentProposedChange,
+  AgentStructureProposal,
   AgentArtifactDraft,
   AgentProtocolApproval,
   getAgentHarnessMetricsSnapshot
@@ -5832,7 +5861,14 @@ app.use(buildAiMaintenanceRouter({
 app.use(buildSystemRouter({
   authenticateToken,
   parseAiServiceUrl,
-  joinUrl
+  joinUrl,
+  allowDebugFixtures: process.env.NODE_ENV !== 'production',
+  IntegrationConnection,
+  ImportSession,
+  NotebookFolder,
+  NotebookEntry,
+  AgentThread,
+  AgentStructureProposal
 }));
 
 startServer({

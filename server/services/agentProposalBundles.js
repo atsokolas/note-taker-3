@@ -10,6 +10,7 @@ const PROPOSAL_STATUS_VALUES = new Set(['pending', 'partially_applied', 'applied
 const PROPOSAL_OP_STATUS_VALUES = new Set(['pending', 'blocked', 'applied', 'dismissed', 'invalidated']);
 const EXECUTION_MODE_VALUES = new Set(['direct', 'proposed_change']);
 const RISK_LEVEL_VALUES = new Set(['low', 'medium', 'high']);
+const ORGANIZATION_INTENTS = new Set(['organize', 'cleanup_structure', 'organize_import']);
 
 const normalizeTarget = (input = {}) => {
   const source = input && typeof input === 'object' ? input : {};
@@ -65,6 +66,33 @@ const supportsProposedChangeLayer = (target = {}) => (
   ['concept', 'notebook', 'note', 'question', 'article', 'selection'].includes(clean(target.type).toLowerCase())
 );
 
+const buildOrganizationOperation = ({ safeIntent = '', target = {}, context = {}, contextItem = null } = {}) => {
+  const targetType = clean(target.type).toLowerCase();
+  const isImportScope = safeIntent === 'organize_import' || targetType === 'import_session';
+  const scopeType = clean(context?.type || contextItem?.type || target.type || 'workspace').toLowerCase() || 'workspace';
+  const scopeId = clean(context?.id || contextItem?.id || target.id);
+  const targetLabel = target.title || target.type || 'workspace';
+
+  return {
+    opId: 'organize-workspace',
+    type: 'organize_workspace',
+    title: isImportScope ? 'Organize this import' : `Clean up ${targetLabel}`,
+    summary: isImportScope
+      ? 'Analyze this imported structure and stage folder moves, merges, and cleanup steps for approval before anything changes.'
+      : 'Analyze folder structure, then stage moves, merges, and cleanup steps for approval before anything changes.',
+    executionMode: 'direct',
+    riskLevel: 'medium',
+    requiresApproval: true,
+    target,
+    metadata: {
+      intent: safeIntent,
+      scopeType,
+      scopeId,
+      isImportScope
+    }
+  };
+};
+
 const buildProposalBundle = ({
   intent = '',
   context = {},
@@ -83,6 +111,15 @@ const buildProposalBundle = ({
   const relatedCount = Array.isArray(relatedItems) ? relatedItems.length : 0;
   const outputType = clean(skillInvocation?.outputType).toLowerCase();
   const targetLabel = target.title || target.type || 'workspace';
+
+  if (ORGANIZATION_INTENTS.has(safeIntent)) {
+    operations.push(buildOrganizationOperation({
+      safeIntent,
+      target,
+      context,
+      contextItem
+    }));
+  }
 
   if (supportsProposedChangeLayer(target) && ['clarify', 'strengthen', 'summarize', 'restructure'].includes(safeIntent)) {
     const actionByIntent = {

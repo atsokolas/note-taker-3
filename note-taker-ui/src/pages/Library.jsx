@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { PageTitle, SectionHeader, TagChip, QuietButton } from '../components/ui';
 import LibraryMain from '../components/library/LibraryMain';
 import LibraryContext from '../components/library/LibraryContext';
@@ -20,6 +20,7 @@ import { createWorkingMemory } from '../api/workingMemory';
 import { updateHighlight, deleteHighlight } from '../api/highlights';
 import api from '../api';
 import { getAuthHeaders } from '../hooks/useAuthHeaders';
+import { chatWithAgent } from '../api/agent';
 
 const RIGHT_STORAGE_KEY = 'workspace-right-open:/library';
 const CONTEXT_OVERRIDE_KEY = 'library.context.override:/library';
@@ -30,6 +31,7 @@ const CABINET_OVERRIDE_KEY = 'library.cabinet.override:/library';
 // Articles reference folders via `article.folder` (populated Folder) or null for unfiled.
 
 const Library = () => {
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const scope = searchParams.get('scope') || 'all';
   const folderId = searchParams.get('folderId') || '';
@@ -61,6 +63,7 @@ const Library = () => {
     localStorage.getItem(CABINET_OVERRIDE_KEY) === 'true'
   ));
   const [activeHighlightId, setActiveHighlightId] = useState('');
+  const [organizeLaunching, setOrganizeLaunching] = useState(false);
   const readerRef = useRef(null);
 
   const { folders, loading: foldersLoading, error: foldersError } = useFolders();
@@ -260,6 +263,31 @@ const Library = () => {
     setLeftOpen(nextOpen);
     localStorage.setItem(LEFT_STORAGE_KEY, String(nextOpen));
   }, [cabinetOverride, selectedArticleId]);
+
+  const handleOrganizeLibrary = useCallback(async () => {
+    if (organizeLaunching) return;
+    setOrganizeLaunching(true);
+    try {
+      const result = await chatWithAgent({
+        message: 'Clean up library structure and stage a reviewable organization plan.',
+        persistThread: true,
+        threadTitle: 'Library cleanup',
+        context: {
+          type: 'workspace',
+          id: 'library',
+          title: 'Library'
+        }
+      });
+      const nextThreadId = String(result?.thread?.threadId || '').trim();
+      navigate(nextThreadId
+        ? `/think?tab=threads&threadId=${encodeURIComponent(nextThreadId)}`
+        : '/think?tab=threads');
+    } catch (error) {
+      console.error('Failed to start library cleanup thread:', error);
+    } finally {
+      setOrganizeLaunching(false);
+    }
+  }, [navigate, organizeLaunching]);
 
   const createId = useCallback(() => {
     if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
@@ -726,6 +754,13 @@ const Library = () => {
         mainHeader={isReadingView ? null : <PageTitle eyebrow="Mode" title="Library" subtitle="Reading room for your saved work." />}
         mainActions={isReadingView ? null : (
           <div className="library-main-actions">
+            <QuietButton
+              className="list-button"
+              onClick={handleOrganizeLibrary}
+              disabled={organizeLaunching}
+            >
+              {organizeLaunching ? 'Starting…' : 'Clean up structure'}
+            </QuietButton>
             <QuietButton className="list-button" onClick={() => handleToggleLeft(!effectiveLeftOpen)}>
               Cabinet
             </QuietButton>

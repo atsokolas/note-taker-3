@@ -1,16 +1,8 @@
 const { test, expect } = require('@playwright/test');
+const { buildDevJwt, installDevAuth } = require('./helpers/session');
 
 const normalizeConceptName = (value = '') => String(value || '').replace(/\s+/g, ' ').trim();
 const conceptKey = (value = '') => normalizeConceptName(value).toLowerCase();
-const buildDevJwt = () => {
-  const encode = (value) => Buffer.from(JSON.stringify(value)).toString('base64url');
-  const header = encode({ alg: 'HS256', typ: 'JWT' });
-  const payload = encode({
-    sub: 'playwright-user',
-    exp: Math.floor(Date.now() / 1000) + 60 * 60
-  });
-  return `${header}.${payload}.signature`;
-};
 
 const json = (route, body, status = 200) => route.fulfill({
   status,
@@ -266,13 +258,10 @@ const setupThinkConceptAgentFlowMocks = async (page) => {
 
 test('stale concept can surface freshness, apply a related-source draft, and open a notebook draft', async ({ page }) => {
   const token = buildDevJwt();
-  await page.addInitScript((bootToken) => {
-    window.localStorage.setItem('token', bootToken);
-    window.localStorage.setItem('authToken', bootToken);
-    window.localStorage.setItem('jwt', bootToken);
-    window.localStorage.setItem('hasSeenLanding', 'true');
-    window.localStorage.setItem('workspace-right-open:/think', 'true');
-  }, token);
+  await installDevAuth(page, {
+    token,
+    workspacePanels: ['/think']
+  });
 
   await setupThinkConceptAgentFlowMocks(page);
 

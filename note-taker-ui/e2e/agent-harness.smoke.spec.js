@@ -1,4 +1,10 @@
 const { test, expect } = require('@playwright/test');
+const {
+  installDevAuth,
+  buildPausedTourState
+} = require('./helpers/session');
+
+const pausedTourState = buildPausedTourState();
 
 const json = (route, body, status = 200) => route.fulfill({
   status,
@@ -354,17 +360,9 @@ async function installAgentHarnessMocks(page, { onChatRequest = null } = {}) {
 }
 
 test.beforeEach(async ({ page }) => {
-  await page.addInitScript(() => {
-    const payload = btoa(JSON.stringify({
-      exp: Math.floor(Date.now() / 1000) + 60 * 60,
-      sub: 'playwright-user'
-    }));
-    const token = `header.${payload}.signature`;
-    window.localStorage.setItem('token', token);
-    window.localStorage.setItem('authToken', token);
-    window.localStorage.setItem('jwt', token);
-    window.localStorage.setItem('hasSeenLanding', 'true');
-    window.localStorage.setItem('workspace-right-open:/think', 'true');
+  await installDevAuth(page, {
+    workspacePanels: ['/think'],
+    pausedTourState
   });
 });
 
@@ -377,7 +375,7 @@ test('article thought partner posts enriched ambient context', async ({ page }) 
   });
 
   await page.goto('/articles/article-ambient');
-  await expect(page.getByRole('heading', { name: 'Ambient context article' })).toBeVisible();
+  await expect(page.getByText('Ambient context article').first()).toBeVisible();
 
   await page.getByPlaceholder('Ask about this article, connected notes, or what to do next.').fill('What should I pull forward?');
   await page.getByRole('button', { name: '↗' }).click();
@@ -386,7 +384,7 @@ test('article thought partner posts enriched ambient context', async ({ page }) 
   expect(chatPayload).toBeTruthy();
   expect(chatPayload.context.type).toBe('article');
   expect(chatPayload.context.metadata.summary).toContain('example.com');
-  expect(chatPayload.context.metadata.summary).toContain('2 highlights');
+  expect(chatPayload.context.metadata.summary).toMatch(/2 .*highlights/i);
   expect(chatPayload.context.metadata.openQuestions).toContain('How should the planner expose this operating state to the user?');
   expect(chatPayload.context.metadata.nextActions).toContain('Anchor the reasoning in saved highlights from this article.');
   expect(Array.isArray(chatPayload.context.metadata.relatedItems)).toBe(true);

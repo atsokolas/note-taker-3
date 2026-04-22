@@ -1,6 +1,7 @@
 import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
+import * as ReactRouterDom from 'react-router-dom';
 import ThinkMode from './ThinkMode';
 import useConcepts from '../hooks/useConcepts';
 import useConcept from '../hooks/useConcept';
@@ -16,6 +17,8 @@ import { getConnectionsForScope } from '../api/connections';
 import { listWorkingMemory } from '../api/workingMemory';
 
 const mockThoughtPartnerPanel = jest.fn();
+const mockSetSearchParams = jest.fn();
+const useSearchParamsMock = jest.spyOn(ReactRouterDom, 'useSearchParams');
 
 jest.mock('../hooks/useConcepts', () => jest.fn());
 jest.mock('../hooks/useConcept', () => jest.fn());
@@ -192,6 +195,12 @@ describe('ThinkMode template integration', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockThoughtPartnerPanel.mockClear();
+    mockSetSearchParams.mockReset();
+    window.scrollTo = jest.fn();
+    useSearchParamsMock.mockReturnValue([
+      new URLSearchParams('tab=concepts'),
+      mockSetSearchParams
+    ]);
 
     useConcepts.mockReturnValue({
       concepts: [
@@ -330,6 +339,50 @@ describe('ThinkMode template integration', () => {
     fireEvent.click(screen.getByTestId('think-concepts-index-create-button'));
 
     expect(screen.getByTestId('think-concept-composer-input')).toBeVisible();
+  });
+
+  it.each([
+    ['tab=notebook', 'Clean up notebook structure and stage a reviewable organization plan.', 'think-notebook', 'Notebook'],
+    ['tab=concepts', 'Clean up concepts structure and stage a reviewable organization plan.', 'think-concepts', 'Concepts'],
+    ['tab=questions', 'Clean up questions structure and stage a reviewable organization plan.', 'think-questions', 'Questions']
+  ])('queues a structure cleanup prompt from %s', async (search, prompt, contextId, contextTitle) => {
+    useSearchParamsMock.mockReturnValue([
+      new URLSearchParams(search),
+      mockSetSearchParams
+    ]);
+    if (search === 'tab=questions') {
+      useQuestions.mockReturnValue({
+        questions: [
+          {
+            _id: 'question-1',
+            text: 'What evidence changes the thesis?',
+            status: 'open',
+            linkedTagName: ''
+          }
+        ],
+        loading: false,
+        error: '',
+        setQuestions: jest.fn()
+      });
+    }
+
+    render(
+      <MemoryRouter initialEntries={['/think']}>
+        <ThinkMode />
+      </MemoryRouter>
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Clean up structure' }));
+
+    await waitFor(() => {
+      const lastProps = mockThoughtPartnerPanel.mock.calls.at(-1)?.[0] || {};
+      expect(lastProps.queuedPrompt).toMatchObject({
+        prompt,
+        contextType: 'workspace',
+        contextId,
+        contextTitle
+      });
+    });
   });
 
 });

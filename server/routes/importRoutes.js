@@ -51,6 +51,7 @@ const normalizeSourcePath = (value = '') => {
 };
 const NOTEBOOK_IMPORT_FOLDER_OWNERSHIP = 'import_mirror';
 const NOTEBOOK_USER_FOLDER_OWNERSHIP = 'user_owned';
+const IMPORT_ORGANIZATION_SUGGESTION_TYPE = 'organize_import';
 
 const buildImportRouter = ({
   authenticateToken,
@@ -118,6 +119,60 @@ const buildImportRouter = ({
   const readImportSessionId = (req) => (
     toTrimmedString(req.body?.importSessionId || req.query?.importSessionId)
   );
+
+  const clearImportOrganizationOffer = (session) => {
+    if (!session || typeof session !== 'object') return;
+    if (toTrimmedString(session.recommendedNextAction) === IMPORT_ORGANIZATION_SUGGESTION_TYPE) {
+      session.recommendedNextAction = '';
+    }
+    if (Array.isArray(session.agentSuggestions)) {
+      session.agentSuggestions = session.agentSuggestions.filter(
+        (suggestion) => toTrimmedString(suggestion?.type) !== IMPORT_ORGANIZATION_SUGGESTION_TYPE
+      );
+    } else {
+      session.agentSuggestions = [];
+    }
+  };
+
+  const applyImportOrganizationOffer = (session) => {
+    if (!session || typeof session !== 'object') return;
+    const sourceLabel = toTrimmedString(session.sourceLabel) || 'this import';
+    const preview = session.preview && typeof session.preview === 'object' ? session.preview : {};
+    const result = session.result && typeof session.result === 'object' ? session.result : {};
+    const importedCount = [
+      result.importedArticles,
+      result.importedHighlights,
+      result.importedNotes,
+      preview.items
+    ].reduce((max, value) => {
+      const parsed = Number(value);
+      if (!Number.isFinite(parsed)) return max;
+      return Math.max(max, parsed);
+    }, 0);
+
+    const suggestion = {
+      type: IMPORT_ORGANIZATION_SUGGESTION_TYPE,
+      intent: 'organize_import',
+      operationType: 'organize_workspace',
+      status: 'pending',
+      label: 'Organize this import',
+      summary: importedCount > 0
+        ? `Review and organize ${importedCount} imported ${importedCount === 1 ? 'item' : 'items'} from ${sourceLabel}.`
+        : `Review and organize imported material from ${sourceLabel}.`,
+      scopeType: 'import_session',
+      scopeId: String(session._id || ''),
+      suggestedAt: new Date()
+    };
+
+    const existingSuggestions = Array.isArray(session.agentSuggestions)
+      ? session.agentSuggestions.filter(
+        (entry) => toTrimmedString(entry?.type) !== IMPORT_ORGANIZATION_SUGGESTION_TYPE
+      )
+      : [];
+
+    session.recommendedNextAction = IMPORT_ORGANIZATION_SUGGESTION_TYPE;
+    session.agentSuggestions = [...existingSuggestions, suggestion];
+  };
 
   const sanitizeConnection = (connection) => {
     if (!connection) return null;
@@ -572,6 +627,7 @@ const buildImportRouter = ({
         mutate: (session) => {
           session.status = 'importing';
           session.sourceLabel = session.sourceLabel || req.file.originalname || 'Readwise CSV';
+          clearImportOrganizationOffer(session);
           session.progress = {
             ...(session.progress || {}),
             stage: 'upload_received',
@@ -736,6 +792,7 @@ const buildImportRouter = ({
             lastImportedArticleId: resultPayload.articleIds[0] || ''
           };
           session.lastError = '';
+          applyImportOrganizationOffer(session);
         }
       });
 
@@ -760,6 +817,7 @@ const buildImportRouter = ({
         userId,
         mutate: (session) => {
           session.status = 'failed';
+          clearImportOrganizationOffer(session);
           session.progress = {
             ...(session.progress || {}),
             stage: 'failed',
@@ -955,6 +1013,7 @@ const buildImportRouter = ({
         mutate: (session) => {
           session.status = 'importing';
           session.sourceLabel = connection.accountLabel || 'Readwise';
+          clearImportOrganizationOffer(session);
           session.progress = {
             ...(session.progress || {}),
             stage: 'fetching_readwise',
@@ -1131,6 +1190,7 @@ const buildImportRouter = ({
             lastImportedArticleId: resultPayload.articleIds[0] || ''
           };
           session.lastError = '';
+          applyImportOrganizationOffer(session);
         }
       });
 
@@ -1154,6 +1214,7 @@ const buildImportRouter = ({
         userId,
         mutate: (session) => {
           session.status = 'failed';
+          clearImportOrganizationOffer(session);
           session.progress = {
             ...(session.progress || {}),
             stage: 'failed'
@@ -1429,6 +1490,7 @@ const buildImportRouter = ({
         mutate: (session) => {
           session.status = 'importing';
           session.sourceLabel = connection.accountLabel || 'Notion';
+          clearImportOrganizationOffer(session);
           session.progress = {
             ...(session.progress || {}),
             stage: 'fetching_notion',
@@ -1573,6 +1635,7 @@ const buildImportRouter = ({
             lastImportedEntryId: resultPayload.entryId
           };
           session.lastError = '';
+          applyImportOrganizationOffer(session);
         }
       });
 
@@ -1597,6 +1660,7 @@ const buildImportRouter = ({
         userId,
         mutate: (session) => {
           session.status = 'failed';
+          clearImportOrganizationOffer(session);
           session.progress = {
             ...(session.progress || {}),
             stage: 'failed'
@@ -1775,6 +1839,7 @@ const buildImportRouter = ({
         mutate: (session) => {
           session.status = 'importing';
           session.sourceLabel = session.sourceLabel || req.file.originalname || 'Evernote ENEX';
+          clearImportOrganizationOffer(session);
           session.progress = {
             ...(session.progress || {}),
             stage: 'upload_received',
@@ -1912,6 +1977,7 @@ const buildImportRouter = ({
             lastImportedEntryId: resultPayload.entryId
           };
           session.lastError = '';
+          applyImportOrganizationOffer(session);
         }
       });
 
@@ -1934,6 +2000,7 @@ const buildImportRouter = ({
         userId,
         mutate: (session) => {
           session.status = 'failed';
+          clearImportOrganizationOffer(session);
           session.progress = {
             ...(session.progress || {}),
             stage: 'failed'
@@ -1960,6 +2027,7 @@ const buildImportRouter = ({
         mutate: (session) => {
           session.status = 'importing';
           session.sourceLabel = session.sourceLabel || req.file.originalname || 'Imported markdown note';
+          clearImportOrganizationOffer(session);
           session.progress = {
             ...(session.progress || {}),
             stage: 'upload_received',
@@ -2083,6 +2151,7 @@ const buildImportRouter = ({
             lastImportedEntryId: String(entry._id)
           };
           session.lastError = '';
+          applyImportOrganizationOffer(session);
         }
       });
 
@@ -2117,6 +2186,7 @@ const buildImportRouter = ({
         userId,
         mutate: (session) => {
           session.status = 'failed';
+          clearImportOrganizationOffer(session);
           session.progress = {
             ...(session.progress || {}),
             stage: 'failed'

@@ -1,14 +1,11 @@
 const { test, expect } = require('@playwright/test');
+const {
+  buildDevJwt,
+  buildPausedTourState,
+  installDevAuth
+} = require('./helpers/session');
 
-const buildDevJwt = () => {
-  const encode = (value) => Buffer.from(JSON.stringify(value)).toString('base64url');
-  const header = encode({ alg: 'HS256', typ: 'JWT' });
-  const payload = encode({
-    sub: 'playwright-user',
-    exp: Math.floor(Date.now() / 1000) + 60 * 60
-  });
-  return `${header}.${payload}.signature`;
-};
+const pausedTourState = buildPausedTourState();
 
 const json = (route, body, status = 200) => route.fulfill({
   status,
@@ -94,7 +91,7 @@ async function setupLibraryAgentMocks(page) {
 
     if (path === '/api/folders' && method === 'GET') return json(route, []);
     if (path === '/api/ui-settings' && method === 'GET') return json(route, {});
-    if (path === '/api/tour/state' && method === 'GET') return json(route, {});
+    if (path === '/api/tour/state' && method === 'GET') return json(route, pausedTourState);
     if (path === '/api/tags' && method === 'GET') return json(route, []);
     if (path.startsWith('/api/') && method === 'GET') return json(route, {});
     if (path.startsWith('/api/')) return json(route, { ok: true });
@@ -266,7 +263,7 @@ async function setupConceptQuickActionMocks(page) {
     if (path === '/api/folders' && method === 'GET') return json(route, []);
     if (path === '/api/return-queue' && method === 'GET') return json(route, []);
     if (path === '/api/working-memory' && method === 'GET') return json(route, []);
-    if (path === '/api/tour/state' && method === 'GET') return json(route, {});
+    if (path === '/api/tour/state' && method === 'GET') return json(route, pausedTourState);
     if (path === '/api/ui-settings' && method === 'GET') return json(route, {});
     if (path === '/api/tags' && method === 'GET') return json(route, []);
     if (path === '/api/connections/scope' && method === 'GET') return json(route, { connections: [] });
@@ -387,7 +384,7 @@ async function setupQuestionPartnerMocks(page) {
     if (path === '/api/return-queue' && method === 'GET') return json(route, []);
     if (path === '/api/working-memory' && method === 'GET') return json(route, []);
     if (path === '/api/concepts' && method === 'GET') return json(route, []);
-    if (path === '/api/tour/state' && method === 'GET') return json(route, {});
+    if (path === '/api/tour/state' && method === 'GET') return json(route, pausedTourState);
     if (path === '/api/ui-settings' && method === 'GET') return json(route, {});
     if (path === '/api/tags' && method === 'GET') return json(route, []);
     if (path.startsWith('/api/') && method === 'GET') return json(route, {});
@@ -399,14 +396,11 @@ async function setupQuestionPartnerMocks(page) {
 
 test.beforeEach(async ({ page }) => {
   const token = buildDevJwt();
-  await page.addInitScript((bootToken) => {
-    window.localStorage.setItem('token', bootToken);
-    window.localStorage.setItem('authToken', bootToken);
-    window.localStorage.setItem('jwt', bootToken);
-    window.localStorage.setItem('hasSeenLanding', 'true');
-    window.localStorage.setItem('workspace-right-open:/library', 'true');
-    window.localStorage.setItem('workspace-right-open:/think', 'true');
-  }, token);
+  await installDevAuth(page, {
+    token,
+    workspacePanels: ['/library', '/think'],
+    pausedTourState
+  });
 });
 
 test('library partner renders a single hydrated reply after a quick prompt', async ({ page }) => {

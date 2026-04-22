@@ -5,6 +5,7 @@ const buildAgentHarnessMetricsRouter = ({
   AgentThread,
   AgentRun,
   AgentProposedChange,
+  AgentStructureProposal,
   AgentArtifactDraft,
   AgentProtocolApproval,
   getAgentHarnessMetricsSnapshot
@@ -21,6 +22,7 @@ const buildAgentHarnessMetricsRouter = ({
         AgentThread,
         AgentRun,
         AgentProposedChange,
+        AgentStructureProposal,
         AgentArtifactDraft,
         AgentProtocolApproval
       });

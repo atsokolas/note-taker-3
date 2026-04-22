@@ -2,8 +2,10 @@ const {
   inferWorkerRoleFromPlanKind,
   sanitizeAgentPlanner
 } = require('./agentWorkerRoles');
+const { normalizeProposalBundle } = require('./agentProposalBundles');
 
 const MAX_THREAD_MESSAGE_COUNT = 120;
+const MAX_THREAD_PROPOSAL_BUNDLE_COUNT = 24;
 
 const THREAD_STATUS_VALUES = new Set(['active', 'archived']);
 const THREAD_SCOPE_VALUES = new Set(['global', 'workspace', 'article', 'notebook', 'concept', 'handoff', 'selection']);
@@ -53,9 +55,27 @@ const normalizeThreadMessage = (input = {}, fallbackRole = 'assistant') => {
     relatedItems: Array.isArray(source.relatedItems) ? source.relatedItems : [],
     citations: Array.isArray(source.citations) ? source.citations : [],
     suggestedActions: Array.isArray(source.suggestedActions) ? source.suggestedActions : [],
+    proposalBundle: normalizeProposalBundle(source.proposalBundle || null),
     metadata: source.metadata && typeof source.metadata === 'object' ? source.metadata : {},
     createdAt: source.createdAt ? new Date(source.createdAt) : new Date()
   };
+};
+
+const normalizeThreadProposalBundles = (bundles = []) => (
+  (Array.isArray(bundles) ? bundles : [])
+    .map((bundle) => normalizeProposalBundle(bundle))
+    .filter(Boolean)
+    .slice(-MAX_THREAD_PROPOSAL_BUNDLE_COUNT)
+);
+
+const upsertThreadProposalBundle = (thread, proposalBundle = null) => {
+  if (!thread) return;
+  const safeBundle = normalizeProposalBundle(proposalBundle);
+  if (!safeBundle) return;
+  const bundles = normalizeThreadProposalBundles(thread.proposalBundles || []);
+  const nextBundles = bundles.filter((bundle) => bundle.bundleId !== safeBundle.bundleId);
+  nextBundles.unshift(safeBundle);
+  thread.proposalBundles = nextBundles.slice(0, MAX_THREAD_PROPOSAL_BUNDLE_COUNT);
 };
 
 const normalizeThreadPlanStep = (input = {}, index = 0) => {
@@ -115,6 +135,7 @@ const appendThreadMessage = (thread, message = {}) => {
   const messages = Array.isArray(thread.messages) ? thread.messages : [];
   messages.push(safeMessage);
   thread.messages = messages.slice(-MAX_THREAD_MESSAGE_COUNT);
+  if (safeMessage.proposalBundle) upsertThreadProposalBundle(thread, safeMessage.proposalBundle);
   thread.lastActor = safeMessage.actor;
   if (safeMessage.role === 'assistant' && safeMessage.text) {
     thread.summary = truncate(safeMessage.text, 280);
@@ -231,6 +252,7 @@ const sanitizeAgentThreadDoc = (doc) => {
   const plan = normalizeThreadPlan(doc?.plan || {});
   const checkpoint = doc?.checkpoint ? normalizeThreadCheckpoint(doc.checkpoint) : null;
   const planner = doc?.planner ? normalizeThreadPlanner(doc.planner) : null;
+  const proposalBundles = normalizeThreadProposalBundles(doc?.proposalBundles || []);
   return {
     threadId: clean(doc?._id),
     title: clean(doc?.title),
@@ -243,6 +265,10 @@ const sanitizeAgentThreadDoc = (doc) => {
     planner,
     plan,
     checkpoint,
+    proposalBundles: proposalBundles.map((bundle) => ({
+      ...bundle,
+      createdAt: bundle.createdAt ? new Date(bundle.createdAt).toISOString() : null
+    })),
     messages: messages.slice(-40).map((message) => {
       const safeMessage = normalizeThreadMessage(message);
       return {
@@ -252,6 +278,14 @@ const sanitizeAgentThreadDoc = (doc) => {
         relatedItems: safeMessage.relatedItems,
         citations: safeMessage.citations,
         suggestedActions: safeMessage.suggestedActions,
+        proposalBundle: safeMessage.proposalBundle
+          ? {
+              ...safeMessage.proposalBundle,
+              createdAt: safeMessage.proposalBundle.createdAt
+                ? new Date(safeMessage.proposalBundle.createdAt).toISOString()
+                : null
+            }
+          : null,
         metadata: safeMessage.metadata,
         createdAt: safeMessage.createdAt ? new Date(safeMessage.createdAt).toISOString() : null
       };
@@ -270,6 +304,7 @@ module.exports = {
   normalizeThreadPlan,
   normalizeThreadCheckpoint,
   normalizeThreadPlanner,
+  normalizeThreadProposalBundles,
   appendThreadMessage,
   compactThreadState,
   threadMessagesToHistory,

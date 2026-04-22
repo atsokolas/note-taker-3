@@ -80,6 +80,12 @@ const writeAnalyticsLog = async ({ filePath, userId, threadId }) => {
       properties: { threadId, proposedChangeId: 'change-2' }
     },
     {
+      event: 'agent_structure_plan_rejected',
+      timestamp: '2026-04-18T12:09:30.000Z',
+      actor: { userIdHash: userHash },
+      properties: { threadId, structureProposalId: 'plan-2' }
+    },
+    {
       event: 'agent_run_started',
       timestamp: '2026-04-18T12:10:00.000Z',
       actor: { userIdHash: otherUserHash },
@@ -126,13 +132,18 @@ const run = async () => {
       { _id: 'change-2', userId, sourceThreadId: threadId, status: 'rejected' },
       { _id: 'change-3', userId, sourceThreadId: threadId, status: 'pending' }
     ]),
+    AgentStructureProposal: createFindModel([
+      { _id: 'plan-1', userId, sourceThreadId: threadId, status: 'applied' },
+      { _id: 'plan-2', userId, sourceThreadId: threadId, status: 'rejected' }
+    ]),
     AgentArtifactDraft: createFindModel([
       { _id: 'draft-1', userId, sourceThreadId: threadId, status: 'pending' },
       { _id: 'draft-2', userId, sourceThreadId: threadId, status: 'dismissed' }
     ]),
     AgentProtocolApproval: createFindModel([
-      { _id: 'approval-1', userId, status: 'rejected', op: 'runs.resume' },
-      { _id: 'approval-2', userId, status: 'approved', op: 'runs.resume' }
+      { _id: 'approval-1', userId, status: 'rejected', op: 'runs.resume', preview: { threadId } },
+      { _id: 'approval-2', userId, status: 'approved', op: 'runs.resume', preview: { threadId } },
+      { _id: 'approval-3', userId, status: 'rejected', op: 'runs.resume', preview: { threadId: 'thread-other' } }
     ])
   });
 
@@ -145,8 +156,11 @@ const run = async () => {
   assert.strictEqual(snapshot.bundleStatuses.total, 3, 'Bundle status counts should come from current thread state.');
   assert.strictEqual(snapshot.runStatuses.awaiting_review, 1, 'Run status counts should include awaiting review runs.');
   assert.strictEqual(snapshot.proposedChangeStatuses.rejected, 1, 'Rejected proposed changes should be counted.');
-  assert.strictEqual(snapshot.undoSignals.total, 3, 'Undo/rejection signals should combine rejected changes, rejected approvals, and dismissed drafts.');
+  assert.strictEqual(snapshot.structureProposalStatuses.rejected, 1, 'Rejected structure proposals should be counted.');
+  assert.strictEqual(snapshot.undoSignals.total, 4, 'Undo/rejection signals should combine rejected structure plans, rejected changes, rejected approvals, and dismissed drafts.');
+  assert.strictEqual(snapshot.undoSignals.runApprovalRejected, 1, 'Thread-scoped metrics should ignore rejected approvals from other threads.');
   assert.ok(snapshot.rates.bundleResolutionSuccessRate > 0 && snapshot.rates.bundleResolutionSuccessRate < 1, 'Resolution success rate should be derived from execution-intent outcomes.');
+  assert.strictEqual(snapshot.rates.structureProposalAcceptanceRate, 0.5, 'Structure proposal acceptance rate should use applied vs rejected structure proposals.');
   assert.ok(snapshot.rates.draftFallbackRate > 0 && snapshot.rates.draftFallbackRate < 1, 'Draft fallback rate should be derived from run starts vs draft fallbacks.');
 };
 

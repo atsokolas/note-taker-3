@@ -17,6 +17,9 @@ const HARNESS_EVENT_NAMES = new Set([
   EVENT_NAMES.AGENT_PROPOSED_CHANGE_ACCEPTED,
   EVENT_NAMES.AGENT_PROPOSED_CHANGE_REJECTED,
   EVENT_NAMES.AGENT_PROPOSED_CHANGE_ROLLED_BACK,
+  EVENT_NAMES.AGENT_STRUCTURE_PLAN_APPLIED,
+  EVENT_NAMES.AGENT_STRUCTURE_PLAN_REJECTED,
+  EVENT_NAMES.AGENT_STRUCTURE_PLAN_ROLLED_BACK,
   EVENT_NAMES.AGENT_ARTIFACT_DRAFT_STAGED,
   EVENT_NAMES.AGENT_ARTIFACT_DRAFT_PROMOTED,
   EVENT_NAMES.AGENT_ARTIFACT_DRAFT_DISMISSED,
@@ -99,6 +102,13 @@ const flattenProposalBundles = (threads = []) => (
   ))
 );
 
+const extractApprovalThreadId = (approval = {}) => (
+  clean(approval?.threadId)
+  || clean(approval?.preview?.threadId)
+  || clean(approval?.payload?.threadId)
+  || clean(approval?.result?.threadId)
+);
+
 const getAgentHarnessMetricsSnapshot = async ({
   userId = '',
   threadId = '',
@@ -106,6 +116,7 @@ const getAgentHarnessMetricsSnapshot = async ({
   AgentThread,
   AgentRun,
   AgentProposedChange,
+  AgentStructureProposal,
   AgentArtifactDraft,
   AgentProtocolApproval
 } = {}) => {
@@ -123,10 +134,14 @@ const getAgentHarnessMetricsSnapshot = async ({
   const draftQuery = { userId: safeUserId };
   if (safeThreadId) draftQuery.sourceThreadId = safeThreadId;
 
-  const [threads, runs, proposedChanges, drafts, protocolApprovals, harnessEvents] = await Promise.all([
+  const structureProposalQuery = { userId: safeUserId };
+  if (safeThreadId) structureProposalQuery.sourceThreadId = safeThreadId;
+
+  const [threads, runs, proposedChanges, structureProposals, drafts, protocolApprovals, harnessEvents] = await Promise.all([
     loadRows(AgentThread, threadQuery),
     loadRows(AgentRun, runQuery),
     loadRows(AgentProposedChange, proposedChangeQuery),
+    loadRows(AgentStructureProposal, structureProposalQuery),
     loadRows(AgentArtifactDraft, draftQuery),
     loadRows(AgentProtocolApproval, { userId: safeUserId, op: 'runs.resume' }),
     loadHarnessEvents({ analyticsLogPath, userId: safeUserId, threadId: safeThreadId })
@@ -146,12 +161,20 @@ const getAgentHarnessMetricsSnapshot = async ({
     proposedChanges,
     ['pending', 'applied', 'rolled_back', 'rejected']
   );
+  const structureProposalStatuses = countByStatus(
+    structureProposals,
+    ['pending', 'applied', 'partially_applied', 'skipped', 'failed', 'rolled_back', 'rejected']
+  );
   const draftStatuses = countByStatus(
     drafts,
     ['pending', 'promoted', 'dismissed']
   );
 
-  const rejectedRunApprovals = protocolApprovals.filter((approval) => clean(approval?.status).toLowerCase() === 'rejected').length;
+  const scopedProtocolApprovals = (Array.isArray(protocolApprovals) ? protocolApprovals : []).filter((approval) => {
+    if (!safeThreadId) return true;
+    return extractApprovalThreadId(approval) === safeThreadId;
+  });
+  const rejectedRunApprovals = scopedProtocolApprovals.filter((approval) => clean(approval?.status).toLowerCase() === 'rejected').length;
   const proposalBundlesStaged = eventCounts[EVENT_NAMES.AGENT_PROPOSAL_BUNDLE_STAGED] || 0;
   const executionIntentMatched = eventCounts[EVENT_NAMES.AGENT_EXECUTION_INTENT_MATCHED] || 0;
   const executionIntentAmbiguous = eventCounts[EVENT_NAMES.AGENT_EXECUTION_INTENT_AMBIGUOUS] || 0;
@@ -173,13 +196,21 @@ const getAgentHarnessMetricsSnapshot = async ({
     bundleStatuses,
     runStatuses,
     proposedChangeStatuses,
+    structureProposalStatuses,
     draftStatuses,
     undoSignals: {
       proposedChangeRejected: proposedChangeStatuses.rejected,
       proposedChangeRolledBack: proposedChangeStatuses.rolled_back,
+      structureProposalRejected: structureProposalStatuses.rejected,
+      structureProposalRolledBack: structureProposalStatuses.rolled_back,
       runApprovalRejected: rejectedRunApprovals,
       draftDismissed: draftStatuses.dismissed,
-      total: proposedChangeStatuses.rejected + proposedChangeStatuses.rolled_back + rejectedRunApprovals + draftStatuses.dismissed
+      total: proposedChangeStatuses.rejected
+        + proposedChangeStatuses.rolled_back
+        + structureProposalStatuses.rejected
+        + structureProposalStatuses.rolled_back
+        + rejectedRunApprovals
+        + draftStatuses.dismissed
     },
     rates: {
       bundleResolutionSuccessRate: rate(
@@ -190,6 +221,10 @@ const getAgentHarnessMetricsSnapshot = async ({
       proposedChangeAcceptanceRate: rate(
         proposedChangeStatuses.applied,
         proposedChangeStatuses.applied + proposedChangeStatuses.rejected
+      ),
+      structureProposalAcceptanceRate: rate(
+        structureProposalStatuses.applied,
+        structureProposalStatuses.applied + structureProposalStatuses.rejected
       ),
       draftFallbackRate: rate(draftFallbacks, draftFallbacks + runsStarted)
     }

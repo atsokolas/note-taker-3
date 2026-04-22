@@ -1,15 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  acceptAgentProposedChange,
   chatWithAgent,
   dismissAgentArtifactDraft,
   getAgentHarnessMetrics,
-  listAgentProposedChanges,
   listAgentRuns,
   listAgentArtifactDrafts,
   promoteAgentArtifactDraft,
-  rejectAgentProposedChange,
-  rollbackAgentProposedChange,
   updateAgentProposedChange,
   updateAgentArtifactDraft
 } from '../../api/agent';
@@ -18,6 +14,8 @@ import { buildCanonicalArticlePath } from '../../utils/firstInsight';
 import { buildQueuedAgentSkillPrompt } from '../../utils/agentSkillInvocation';
 import useProtocolApprovals from '../../hooks/useProtocolApprovals';
 import ProtocolApprovalsPanel from './ProtocolApprovalsPanel';
+import StructureProposalReview from './StructureProposalReview';
+import useAgentReviewState from './useAgentReviewState';
 
 const clean = (value) => String(value || '').trim();
 const truncate = (value, limit = 320) => {
@@ -218,6 +216,37 @@ const mapProposedChange = (change = {}) => ({
   rolledBackAt: clean(change?.rolledBackAt)
 });
 
+const mapStructureProposal = (proposal = {}) => ({
+  structureProposalId: clean(proposal?.structureProposalId),
+  sourceThreadId: clean(proposal?.sourceThreadId),
+  sourceRunId: clean(proposal?.sourceRunId),
+  status: clean(proposal?.status) || 'pending',
+  scope: clean(proposal?.scope),
+  scopeRef: clean(proposal?.scopeRef),
+  title: clean(proposal?.title),
+  summary: clean(proposal?.summary),
+  rationale: clean(proposal?.rationale),
+  acceptedAt: clean(proposal?.acceptedAt),
+  rejectedAt: clean(proposal?.rejectedAt),
+  rolledBackAt: clean(proposal?.rolledBackAt),
+  executionResult: proposal?.executionResult && typeof proposal.executionResult === 'object'
+    ? proposal.executionResult
+    : null,
+  operations: Array.isArray(proposal?.operations)
+    ? proposal.operations.map((operation = {}) => ({
+        opId: clean(operation?.opId),
+        type: clean(operation?.type),
+        targetDomain: clean(operation?.targetDomain),
+        status: clean(operation?.status) || 'pending',
+        payload: operation?.payload && typeof operation.payload === 'object' ? operation.payload : {},
+        preview: operation?.preview && typeof operation.preview === 'object' ? operation.preview : {},
+        risk: clean(operation?.risk),
+        isActionable: operation?.isActionable !== false,
+        invalidFields: Array.isArray(operation?.invalidFields) ? operation.invalidFields.map((value) => clean(value)).filter(Boolean) : []
+      }))
+    : []
+});
+
 const getSnapshotText = (snapshot = {}) => truncate(snapshot?.description || snapshot?.content || '', 360);
 const formatStatusLabel = (status = '') => clean(status).replace(/_/g, ' ') || 'pending';
 const formatDateTime = (value = '') => {
@@ -264,9 +293,7 @@ const ThoughtPartnerPanel = ({
   const [artifactDrafts, setArtifactDrafts] = useState([]);
   const [proposalBundles, setProposalBundles] = useState([]);
   const [runs, setRuns] = useState([]);
-  const [proposedChanges, setProposedChanges] = useState([]);
   const [harnessMetrics, setHarnessMetrics] = useState(null);
-  const [proposedChangeLoadingId, setProposedChangeLoadingId] = useState('');
   const [editingProposedChangeId, setEditingProposedChangeId] = useState('');
   const [editingProposedChangeText, setEditingProposedChangeText] = useState('');
   const [artifactDraftLoadingId, setArtifactDraftLoadingId] = useState('');
@@ -318,20 +345,6 @@ const ThoughtPartnerPanel = ({
     }
   }, []);
 
-  const loadProposedChanges = useCallback(async (nextThreadId) => {
-    const safeThreadId = clean(nextThreadId);
-    if (!safeThreadId) {
-      setProposedChanges([]);
-      return;
-    }
-    try {
-      const result = await listAgentProposedChanges({ threadId: safeThreadId, status: 'all' });
-      setProposedChanges(Array.isArray(result?.proposedChanges) ? result.proposedChanges.map(mapProposedChange) : []);
-    } catch (_error) {
-      // Keep the panel usable even if proposed change hydration fails.
-    }
-  }, []);
-
   const loadHarnessMetrics = useCallback(async (nextThreadId) => {
     const safeThreadId = clean(nextThreadId);
     if (!safeThreadId) {
@@ -360,6 +373,35 @@ const ThoughtPartnerPanel = ({
     }
   }, []);
 
+  const {
+    proposedChangeLoadingId,
+    structureProposalLoadingId,
+    structureProposalOperationLoadingId,
+    setProposedChangeLoadingId,
+    pendingProposedChanges,
+    resolvedProposedChanges,
+    pendingStructureProposals,
+    resolvedStructureProposals,
+    clearReviewState,
+    replaceProposedChange,
+    loadProposedChanges,
+    loadStructureProposals,
+    handleAcceptProposedChange,
+    handleRejectProposedChange,
+    handleRollbackProposedChange,
+    handleUpdateStructureProposalOperationStatus,
+    handleApplyStructureProposal,
+    handleRejectStructureProposal,
+    handleRollbackStructureProposal
+  } = useAgentReviewState({
+    activeThreadId,
+    mapProposedChange,
+    mapStructureProposal,
+    loadRuns,
+    loadHarnessMetrics,
+    setError
+  });
+
   const runApprovalModel = useProtocolApprovals({
     initialStatus: 'pending',
     limit: 12,
@@ -370,6 +412,7 @@ const ThoughtPartnerPanel = ({
       if (!activeThreadId) return;
       await loadRuns(activeThreadId);
       await loadProposedChanges(activeThreadId);
+      await loadStructureProposals(activeThreadId);
       await loadHarnessMetrics(activeThreadId);
     }
   });
@@ -414,6 +457,7 @@ const ThoughtPartnerPanel = ({
         loadArtifactDrafts(result.thread.threadId);
         loadRuns(result.thread.threadId);
         loadProposedChanges(result.thread.threadId);
+        loadStructureProposals(result.thread.threadId);
         loadHarnessMetrics(result.thread.threadId);
         if (typeof onThreadChange === 'function') onThreadChange(result.thread);
       }
@@ -444,7 +488,7 @@ const ThoughtPartnerPanel = ({
     } finally {
       setLoading(false);
     }
-  }, [context, contextTitle, disabled, hydrateFromThread, loadArtifactDrafts, loadHarnessMetrics, loadProposedChanges, loadRuns, loading, messages, onThreadChange, pendingSkillInvocation, thread?.threadId, thread?.title, threadId, title]);
+  }, [context, contextTitle, disabled, hydrateFromThread, loadArtifactDrafts, loadHarnessMetrics, loadProposedChanges, loadRuns, loadStructureProposals, loading, messages, onThreadChange, pendingSkillInvocation, thread?.threadId, thread?.title, threadId, title]);
 
   useEffect(() => {
     if (clean(thread?.threadId)) {
@@ -457,9 +501,8 @@ const ThoughtPartnerPanel = ({
     setArtifactDrafts([]);
     setProposalBundles([]);
     setRuns([]);
-    setProposedChanges([]);
     setHarnessMetrics(null);
-    setProposedChangeLoadingId('');
+    clearReviewState();
     setEditingProposedChangeId('');
     setEditingProposedChangeText('');
     setEditingDraftId('');
@@ -468,15 +511,16 @@ const ThoughtPartnerPanel = ({
     setEditingDraftBody('');
     setPendingSkillInvocation(null);
     setError('');
-  }, [contextId, contextType, hydrateFromThread, thread]);
+  }, [clearReviewState, contextId, contextType, hydrateFromThread, thread]);
 
   useEffect(() => {
     if (!activeThreadId) return;
     loadArtifactDrafts(activeThreadId);
     loadRuns(activeThreadId);
     loadProposedChanges(activeThreadId);
+    loadStructureProposals(activeThreadId);
     loadHarnessMetrics(activeThreadId);
-  }, [activeThreadId, loadArtifactDrafts, loadHarnessMetrics, loadProposedChanges, loadRuns]);
+  }, [activeThreadId, loadArtifactDrafts, loadHarnessMetrics, loadProposedChanges, loadRuns, loadStructureProposals]);
 
   useEffect(() => {
     const queuedId = clean(queuedPrompt?.id);
@@ -638,10 +682,7 @@ const ThoughtPartnerPanel = ({
             }
       });
       if (result?.proposedChange) {
-        const nextChange = mapProposedChange(result.proposedChange);
-        setProposedChanges(prev => prev.map((entry) => (
-          entry.proposedChangeId === nextChange.proposedChangeId ? nextChange : entry
-        )));
+        replaceProposedChange(result.proposedChange);
         handleCancelEditProposedChange();
       }
     } catch (updateError) {
@@ -649,76 +690,7 @@ const ThoughtPartnerPanel = ({
     } finally {
       setProposedChangeLoadingId('');
     }
-  }, [editingProposedChangeText, handleCancelEditProposedChange]);
-
-  const handleAcceptProposedChange = useCallback(async (proposedChangeId) => {
-    const safeId = clean(proposedChangeId);
-    if (!safeId) return;
-    setProposedChangeLoadingId(safeId);
-    try {
-      const result = await acceptAgentProposedChange(safeId);
-      if (result?.proposedChange) {
-        const nextChange = mapProposedChange(result.proposedChange);
-        setProposedChanges(prev => prev.map((entry) => (
-          entry.proposedChangeId === nextChange.proposedChangeId ? nextChange : entry
-        )));
-        if (activeThreadId) {
-          await loadRuns(activeThreadId);
-          await loadHarnessMetrics(activeThreadId);
-        }
-      }
-    } catch (acceptError) {
-      setError(acceptError.response?.data?.error || 'Failed to accept proposed change.');
-    } finally {
-      setProposedChangeLoadingId('');
-    }
-  }, [activeThreadId, loadHarnessMetrics, loadRuns]);
-
-  const handleRejectProposedChange = useCallback(async (proposedChangeId) => {
-    const safeId = clean(proposedChangeId);
-    if (!safeId) return;
-    setProposedChangeLoadingId(safeId);
-    try {
-      const result = await rejectAgentProposedChange(safeId);
-      if (result?.proposedChange) {
-        const nextChange = mapProposedChange(result.proposedChange);
-        setProposedChanges(prev => prev.map((entry) => (
-          entry.proposedChangeId === nextChange.proposedChangeId ? nextChange : entry
-        )));
-        if (activeThreadId) {
-          await loadRuns(activeThreadId);
-          await loadHarnessMetrics(activeThreadId);
-        }
-      }
-    } catch (rejectError) {
-      setError(rejectError.response?.data?.error || 'Failed to reject proposed change.');
-    } finally {
-      setProposedChangeLoadingId('');
-    }
-  }, [activeThreadId, loadHarnessMetrics, loadRuns]);
-
-  const handleRollbackProposedChange = useCallback(async (proposedChangeId) => {
-    const safeId = clean(proposedChangeId);
-    if (!safeId) return;
-    setProposedChangeLoadingId(safeId);
-    try {
-      const result = await rollbackAgentProposedChange(safeId);
-      if (result?.proposedChange) {
-        const nextChange = mapProposedChange(result.proposedChange);
-        setProposedChanges(prev => prev.map((entry) => (
-          entry.proposedChangeId === nextChange.proposedChangeId ? nextChange : entry
-        )));
-        if (activeThreadId) {
-          await loadRuns(activeThreadId);
-          await loadHarnessMetrics(activeThreadId);
-        }
-      }
-    } catch (rollbackError) {
-      setError(rollbackError.response?.data?.error || 'Failed to roll back proposed change.');
-    } finally {
-      setProposedChangeLoadingId('');
-    }
-  }, [activeThreadId, loadHarnessMetrics, loadRuns]);
+  }, [editingProposedChangeText, handleCancelEditProposedChange, replaceProposedChange, setProposedChangeLoadingId]);
 
   const lastAssistantMessage = useMemo(() => (
     [...messages].reverse().find(entry => entry.role === 'assistant') || null
@@ -740,16 +712,10 @@ const ThoughtPartnerPanel = ({
     () => artifactDrafts.filter((draft) => draft.status !== 'dismissed'),
     [artifactDrafts]
   );
-  const pendingProposedChanges = useMemo(
-    () => proposedChanges.filter((change) => clean(change.status).toLowerCase() === 'pending'),
-    [proposedChanges]
-  );
-  const resolvedProposedChanges = useMemo(
-    () => proposedChanges.filter((change) => clean(change.status).toLowerCase() !== 'pending'),
-    [proposedChanges]
-  );
   const harnessStats = useMemo(() => {
     if (!harnessMetrics || typeof harnessMetrics !== 'object') return [];
+    const reviewQueueCount = Number(harnessMetrics?.proposedChangeStatuses?.pending || 0)
+      + Number(harnessMetrics?.structureProposalStatuses?.pending || 0);
     return [
       {
         label: 'Resolution',
@@ -763,8 +729,8 @@ const ThoughtPartnerPanel = ({
       },
       {
         label: 'Review queue',
-        value: String(Number(harnessMetrics?.proposedChangeStatuses?.pending || 0)),
-        detail: 'Pending user-owned edits'
+        value: String(reviewQueueCount),
+        detail: 'Pending edits and structure plans'
       },
       {
         label: 'Draft fallback',
@@ -775,6 +741,21 @@ const ThoughtPartnerPanel = ({
   }, [harnessMetrics]);
   const isStreamVariant = variant === 'stream';
   const partnerSubtitle = subtitle || (contextTitle ? `Context: ${contextTitle}` : 'Ask about your notes, concepts, and articles.');
+  const handleClearPanel = useCallback(() => {
+    setMessages([]);
+    setThreadId('');
+    setArtifactDrafts([]);
+    setProposalBundles([]);
+    setRuns([]);
+    clearReviewState();
+    setEditingProposedChangeId('');
+    setEditingProposedChangeText('');
+    setEditingDraftId('');
+    setEditingDraftTitle('');
+    setEditingDraftSummary('');
+    setEditingDraftBody('');
+    setPendingSkillInvocation(null);
+  }, [clearReviewState]);
 
   return (
     <SurfaceCard className={`agent-thought-partner ${isStreamVariant ? 'agent-thought-partner--stream' : ''} ${className}`.trim()} data-testid="thought-partner-panel">
@@ -786,22 +767,7 @@ const ThoughtPartnerPanel = ({
           </div>
           <QuietButton
             type="button"
-            onClick={() => {
-              setMessages([]);
-              setThreadId('');
-              setArtifactDrafts([]);
-              setProposalBundles([]);
-              setRuns([]);
-              setProposedChanges([]);
-              setProposedChangeLoadingId('');
-              setEditingProposedChangeId('');
-              setEditingProposedChangeText('');
-              setEditingDraftId('');
-              setEditingDraftTitle('');
-              setEditingDraftSummary('');
-              setEditingDraftBody('');
-              setPendingSkillInvocation(null);
-            }}
+            onClick={handleClearPanel}
             disabled={loading || disabled || messages.length === 0}
           >
             Clear
@@ -814,22 +780,7 @@ const ThoughtPartnerPanel = ({
           action={(
             <QuietButton
               type="button"
-              onClick={() => {
-                setMessages([]);
-                setThreadId('');
-                setArtifactDrafts([]);
-                setProposalBundles([]);
-                setRuns([]);
-                setProposedChanges([]);
-                setProposedChangeLoadingId('');
-                setEditingProposedChangeId('');
-                setEditingProposedChangeText('');
-                setEditingDraftId('');
-                setEditingDraftTitle('');
-                setEditingDraftSummary('');
-                setEditingDraftBody('');
-                setPendingSkillInvocation(null);
-              }}
+              onClick={handleClearPanel}
               disabled={loading || messages.length === 0}
             >
               Clear
@@ -1019,12 +970,23 @@ const ThoughtPartnerPanel = ({
         />
       )}
 
-      {pendingProposedChanges.length > 0 && (
+      {(pendingProposedChanges.length > 0 || pendingStructureProposals.length > 0) && (
         <div className="agent-thought-partner__drafts agent-thought-partner__drafts--review">
           <div className="agent-thought-partner__drafts-head">
             <h4>Review stage</h4>
-            <p>Agent-authored patches waiting on your decision before they become part of the live workspace.</p>
+            <p>Agent-authored edits and organization plans waiting on your decision before they become part of the live workspace.</p>
           </div>
+          {pendingStructureProposals.map((proposal) => (
+            <StructureProposalReview
+              key={proposal.structureProposalId}
+              proposal={proposal}
+              isLoading={structureProposalLoadingId === proposal.structureProposalId}
+              activeOperationId={structureProposalOperationLoadingId}
+              onApply={handleApplyStructureProposal}
+              onReject={handleRejectStructureProposal}
+              onUpdateOperationStatus={handleUpdateStructureProposalOperationStatus}
+            />
+          ))}
           {pendingProposedChanges.map((change) => (
             <article key={change.proposedChangeId} className={`agent-thought-partner__review-card is-${change.status || 'pending'}`}>
               <div className="agent-thought-partner__review-head">
@@ -1119,12 +1081,21 @@ const ThoughtPartnerPanel = ({
         </div>
       )}
 
-      {resolvedProposedChanges.length > 0 && (
+      {(resolvedProposedChanges.length > 0 || resolvedStructureProposals.length > 0) && (
         <div className="agent-thought-partner__drafts agent-thought-partner__drafts--history">
           <div className="agent-thought-partner__drafts-head">
             <h4>Applied history</h4>
-            <p>Accepted changes stay reversible here, so agent edits remain visible after they land.</p>
+            <p>Accepted changes and structure plans stay reversible here, so agent work remains visible after it lands.</p>
           </div>
+          {resolvedStructureProposals.map((proposal) => (
+            <StructureProposalReview
+              key={proposal.structureProposalId}
+              proposal={proposal}
+              isLoading={structureProposalLoadingId === proposal.structureProposalId}
+              activeOperationId={structureProposalOperationLoadingId}
+              onRollback={handleRollbackStructureProposal}
+            />
+          ))}
           {resolvedProposedChanges.map((change) => {
             const status = clean(change.status).toLowerCase();
             const isApplied = status === 'applied';

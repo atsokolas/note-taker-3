@@ -63,10 +63,21 @@ const run = async () => {
       }
     ]
   });
+  const AgentStructureProposal = createMemoryModel({
+    rows: [
+      {
+        _id: 'sp-1',
+        userId: 'user-1',
+        sourceRunId: 'run-1',
+        status: 'pending'
+      }
+    ]
+  });
 
   const awaitingReview = await reconcileAgentRunState({
     AgentRun,
     AgentProposedChange,
+    AgentStructureProposal,
     userId: 'user-1',
     runId: 'run-1'
   });
@@ -77,9 +88,11 @@ const run = async () => {
   );
 
   AgentProposedChange.state[0].status = 'applied';
+  AgentStructureProposal.state[0].status = 'applied';
   const completed = await reconcileAgentRunState({
     AgentRun,
     AgentProposedChange,
+    AgentStructureProposal,
     userId: 'user-1',
     runId: 'run-1'
   });
@@ -87,6 +100,34 @@ const run = async () => {
     completed.status,
     'completed',
     'Runs should complete after every proposed change tied to the run is resolved.'
+  );
+
+  AgentStructureProposal.state[0].status = 'pending';
+  const awaitingStructureReview = await reconcileAgentRunState({
+    AgentRun,
+    AgentProposedChange,
+    AgentStructureProposal,
+    userId: 'user-1',
+    runId: 'run-1'
+  });
+  assert.strictEqual(
+    awaitingStructureReview.status,
+    'awaiting_review',
+    'Runs with pending structure proposals should remain in review instead of completing.'
+  );
+
+  AgentStructureProposal.state[0].status = 'applied';
+  const completedAfterStructureResolution = await reconcileAgentRunState({
+    AgentRun,
+    AgentProposedChange,
+    AgentStructureProposal,
+    userId: 'user-1',
+    runId: 'run-1'
+  });
+  assert.strictEqual(
+    completedAfterStructureResolution.status,
+    'completed',
+    'Runs should complete after pending structure proposals tied to the run are resolved.'
   );
 
   const dismissed = dismissBlockedRunStep({

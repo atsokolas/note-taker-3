@@ -1,6 +1,11 @@
 const { test, expect } = require('@playwright/test');
+const {
+  buildDevJwt,
+  buildPausedTourState,
+  installDevAuth
+} = require('./helpers/session');
 
-const VALID_TOKEN = 'eyJhbGciOiAiSFMyNTYiLCAidHlwIjogIkpXVCJ9.eyJleHAiOiA0MTAyNDQ0ODAwLCAic3ViIjogInBsYXl3cmlnaHQifQ.signature';
+const VALID_TOKEN = buildDevJwt({ expiresInSeconds: 60 * 60 * 24 * 365 });
 const NOTE_ID = 'note-imported';
 const MIRROR_ROOT_ID = 'folder-mirror-root';
 const MIRROR_CHILD_ID = 'folder-mirror-child';
@@ -22,18 +27,7 @@ const readJsonBody = (request) => {
   }
 };
 
-const buildTourState = () => ({
-  status: 'paused',
-  currentStepId: null,
-  completedStepIds: [],
-  isFirstTimeVisitor: false,
-  signals: {
-    extensionConnected: false,
-    firstHighlightCaptured: false,
-    conceptFromHighlight: false,
-    workspaceOrganized: false,
-    semanticSearchUsed: false
-  },
+const buildTourState = () => buildPausedTourState({
   startedAt: '2026-04-19T12:00:00.000Z',
   completedAt: null,
   updatedAt: '2026-04-19T12:00:00.000Z'
@@ -350,11 +344,11 @@ const folderNode = (page, label) => page.locator('.notebook-folder-tree__node').
 test('import-backed notebook tree survives moves and mocked notion resync', async ({ page }) => {
   const state = buildState();
 
-  await page.addInitScript((token) => {
-    window.localStorage.setItem('token', token);
-    window.localStorage.setItem('hasSeenLanding', 'true');
-    window.localStorage.setItem('workspace-right-open:/think', 'true');
-  }, VALID_TOKEN);
+  await installDevAuth(page, {
+    token: VALID_TOKEN,
+    workspacePanels: ['/think'],
+    pausedTourState: state.tour
+  });
 
   await installMocks(page, state);
 

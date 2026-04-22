@@ -74,6 +74,7 @@ const dismissBlockedRunStep = ({
 const reconcileAgentRunState = async ({
   AgentRun,
   AgentProposedChange,
+  AgentStructureProposal,
   userId = '',
   runId = '',
   runOverride = null
@@ -92,10 +93,19 @@ const reconcileAgentRunState = async ({
         sourceRunId: safeRunId
       })
     : [];
+  const structureProposals = AgentStructureProposal && typeof AgentStructureProposal.find === 'function'
+    ? await AgentStructureProposal.find({
+        userId,
+        sourceRunId: safeRunId
+      })
+    : [];
 
   const nextStatus = deriveRunLifecycleState({
     run: runDoc,
-    proposedChanges
+    proposedChanges: [
+      ...(Array.isArray(proposedChanges) ? proposedChanges : []),
+      ...(Array.isArray(structureProposals) ? structureProposals : [])
+    ]
   });
 
   if (typeof runDoc.save === 'function') {

@@ -1,3 +1,4 @@
+const path = require('path');
 const { defineConfig } = require('@playwright/test');
 
 module.exports = defineConfig({
@@ -17,11 +18,20 @@ module.exports = defineConfig({
       maxDiffPixelRatio: 0.02
     }
   },
-  webServer: {
-    command: 'npm start',
-    cwd: __dirname,
-    url: 'http://127.0.0.1:3000',
-    reuseExistingServer: !process.env.CI,
-    timeout: 180000
-  }
+  webServer: [
+    {
+      command: 'npm start',
+      cwd: path.resolve(__dirname, '..'),
+      url: 'http://127.0.0.1:5500/health',
+      reuseExistingServer: !process.env.CI,
+      timeout: 180000
+    },
+    {
+      command: 'npm start',
+      cwd: __dirname,
+      url: 'http://127.0.0.1:3000',
+      reuseExistingServer: !process.env.CI,
+      timeout: 180000
+    }
+  ]
 });

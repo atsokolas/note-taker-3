@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const { buildAgentPlanner } = require('./agentWorkerRoles');
+const { buildProposalBundle } = require('./agentProposalBundles');
 const { chatComplete, isTextGenerationConfigured } = require('../ai/hfTextClient');
 
 const MAX_LIMIT = 12;
@@ -1498,6 +1499,18 @@ const generateCollaborativeReply = async ({
     skillInvocation,
     message: conversationState.resolvedMessage || safeMessage
   });
+  const intent = inferReplyIntent({
+    message: conversationState.resolvedMessage || safeMessage,
+    conversationState
+  });
+  const proposalBundle = buildProposalBundle({
+    intent,
+    context,
+    contextItem,
+    relatedItems,
+    skillInvocation,
+    planner
+  });
 
   return {
     mode,
@@ -1506,6 +1519,7 @@ const generateCollaborativeReply = async ({
     premiumWebResearchAvailable: Boolean(premiumWebResearchAvailable),
     reply: finalReply,
     planner,
+    proposalBundle,
     context: contextItem || null,
     relatedItems: relatedItems.map((item) => ({
       type: item.type,
@@ -1545,6 +1559,7 @@ module.exports = {
     tokenize,
     buildTokenRegex,
     buildReply,
+    inferReplyIntent,
     buildPartnerChatMessages,
     buildOutputArtifactReply,
     prepareRelatedItemsForReply,

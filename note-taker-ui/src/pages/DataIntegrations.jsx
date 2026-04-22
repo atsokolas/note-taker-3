@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api';
 import { Button, Card, Page } from '../components/ui';
+import { chatWithAgent } from '../api/agent';
 import { updateConcept } from '../api/concepts';
 import {
   checkNotionConnection,
@@ -242,6 +243,14 @@ const getPreviewForSource = (session, sourceKey) => {
   return preview;
 };
 
+const hasPendingOrganizeImportSuggestion = (session = null) => (
+  Array.isArray(session?.agentSuggestions)
+    && session.agentSuggestions.some((suggestion) => (
+      String(suggestion?.type || '').trim().toLowerCase() === 'organize_import'
+      && String(suggestion?.status || '').trim().toLowerCase() === 'pending'
+    ))
+);
+
 const getActivationProvider = (state, session) => {
   const raw = `${session?.provider || ''} ${state?.sourceType || ''}`.toLowerCase();
   if (raw.includes('readwise')) return 'readwise';
@@ -349,6 +358,7 @@ const DataIntegrations = () => {
   const [importStats, setImportStats] = useState(null);
   const [currentSession, setCurrentSession] = useState(null);
   const [sessionLoading, setSessionLoading] = useState(true);
+  const [organizeLaunching, setOrganizeLaunching] = useState(false);
   const [importing, setImporting] = useState({ csv: false, md: false, enex: false, manual: false, paste: false });
   const [previewing, setPreviewing] = useState({ readwise: false, notion: false, evernote: false });
   const [readwiseToken, setReadwiseToken] = useState('');
@@ -490,6 +500,35 @@ const DataIntegrations = () => {
 
   const setStatus = (message, tone = 'info') => {
     setImportStatus({ message, tone });
+  };
+
+  const handleOrganizeImport = async () => {
+    const safeSessionId = String(currentSession?.id || currentSession?._id || '').trim();
+    if (!safeSessionId || organizeLaunching) return;
+
+    setOrganizeLaunching(true);
+    setStatus('Starting an organization review thread…');
+    try {
+      const result = await chatWithAgent({
+        message: 'Organize this import for me and stage a reviewable cleanup plan.',
+        persistThread: true,
+        threadTitle: `${String(currentSession?.provider || 'Import').trim() || 'Import'} cleanup`,
+        context: {
+          type: 'import_session',
+          id: safeSessionId,
+          title: `${String(currentSession?.provider || 'Import').trim() || 'Import'} import`
+        }
+      });
+      const nextThreadId = String(result?.thread?.threadId || '').trim();
+      setStatus('Organization review thread is ready.', 'success');
+      navigate(nextThreadId
+        ? `/think?tab=threads&threadId=${encodeURIComponent(nextThreadId)}`
+        : '/think?tab=threads');
+    } catch (error) {
+      setStatus(error.response?.data?.error || 'Failed to start the organization review thread.', 'error');
+    } finally {
+      setOrganizeLaunching(false);
+    }
   };
 
   const createSessionForImport = async ({ provider, mode, sourceLabel, sourceType }) => {
@@ -1612,6 +1651,14 @@ const DataIntegrations = () => {
     || notionExporting;
   const sessionTone = getSessionTone(currentSession);
   const sessionMessage = getSessionMessage(currentSession);
+  const showOrganizeImportCta = Boolean(
+    currentSession
+    && ['completed', 'completed_with_warnings'].includes(currentSession.status)
+    && (
+      currentSession.recommendedNextAction === 'organize_import'
+      || hasPendingOrganizeImportSuggestion(currentSession)
+    )
+  );
   const selectedSourcePreview = getPreviewForSource(currentSession, selectedSource);
   const activationCopy = getActivationCopy({
     state: derivedActivationState,
@@ -1748,6 +1795,22 @@ const DataIntegrations = () => {
                   Open note in Think
                 </Button>
               ) : null}
+            </div>
+          ) : null}
+          {showOrganizeImportCta ? (
+            <div className="import-callout">
+              <p className="muted-label">Agent next step</p>
+              <p className="muted small">
+                Imported text is ready. If you want, the agent can stage a folder cleanup plan before anything moves.
+              </p>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={handleOrganizeImport}
+                disabled={organizeLaunching}
+              >
+                {organizeLaunching ? 'Starting…' : 'Organize this import'}
+              </Button>
             </div>
           ) : null}
         </Card>

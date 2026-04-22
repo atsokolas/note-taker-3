@@ -1028,6 +1028,60 @@ agentProposedChangeSchema.index({ userId: 1, sourceThreadId: 1, status: 1, updat
 
 const AgentProposedChange = mongoose.model('AgentProposedChange', agentProposedChangeSchema);
 
+const agentStructureProposalOperationSchema = new mongoose.Schema({
+  opId: { type: String, required: true, trim: true },
+  type: {
+    type: String,
+    enum: ['create_folder', 'rename_folder', 'move_item', 'merge_folder', 'delete_folder'],
+    required: true
+  },
+  targetDomain: {
+    type: String,
+    enum: ['library', 'notebook', 'concepts', 'questions'],
+    required: true
+  },
+  status: {
+    type: String,
+    enum: ['pending', 'approved', 'rejected', 'applied', 'skipped'],
+    default: 'pending'
+  },
+  payload: { type: mongoose.Schema.Types.Mixed, default: {} },
+  preview: { type: mongoose.Schema.Types.Mixed, default: {} },
+  risk: { type: String, enum: ['low', 'medium'], default: 'low' },
+  undoPayload: { type: mongoose.Schema.Types.Mixed, default: {} }
+}, { _id: false });
+
+const agentStructureProposalSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  sourceThreadId: { type: mongoose.Schema.Types.ObjectId, ref: 'AgentThread', default: null },
+  sourceRunId: { type: mongoose.Schema.Types.ObjectId, ref: 'AgentRun', default: null },
+  sourceBundleId: { type: String, default: '', trim: true },
+  scope: { type: String, enum: ['workspace', 'import_session', 'surface'], default: 'workspace' },
+  scopeRef: { type: String, default: '', trim: true },
+  status: {
+    type: String,
+    enum: ['pending', 'applied', 'partially_applied', 'skipped', 'failed', 'rejected', 'rolled_back', 'invalidated'],
+    default: 'pending'
+  },
+  title: { type: String, default: '', trim: true },
+  summary: { type: String, default: '', trim: true },
+  rationale: { type: String, default: '', trim: true },
+  operations: { type: [agentStructureProposalOperationSchema], default: [] },
+  executionResult: { type: mongoose.Schema.Types.Mixed, default: null },
+  createdBy: { type: mongoose.Schema.Types.Mixed, default: {} },
+  acceptedBy: { type: mongoose.Schema.Types.Mixed, default: null },
+  rejectedBy: { type: mongoose.Schema.Types.Mixed, default: null },
+  rolledBackBy: { type: mongoose.Schema.Types.Mixed, default: null },
+  acceptedAt: { type: Date, default: null },
+  rejectedAt: { type: Date, default: null },
+  rolledBackAt: { type: Date, default: null }
+}, { timestamps: true });
+
+agentStructureProposalSchema.index({ userId: 1, sourceThreadId: 1, status: 1, updatedAt: -1 });
+agentStructureProposalSchema.index({ userId: 1, scope: 1, scopeRef: 1, updatedAt: -1 });
+
+const AgentStructureProposal = mongoose.model('AgentStructureProposal', agentStructureProposalSchema);
+
 const agentUpkeepCycleRunSchema = new mongoose.Schema({
   handoffId: { type: mongoose.Schema.Types.ObjectId, ref: 'AgentHandoff', default: null },
   threadId: { type: mongoose.Schema.Types.ObjectId, ref: 'AgentThread', default: null },
@@ -1216,6 +1270,21 @@ const importSessionSchema = new mongoose.Schema({
     dueAt: { type: Date, default: null },
     primaryAction: { type: String, default: 'create_concept', trim: true }
   },
+  recommendedNextAction: { type: String, default: '', trim: true },
+  agentSuggestions: {
+    type: [{
+      type: { type: String, default: '', trim: true },
+      intent: { type: String, default: '', trim: true },
+      operationType: { type: String, default: '', trim: true },
+      status: { type: String, default: 'pending', trim: true },
+      label: { type: String, default: '', trim: true },
+      summary: { type: String, default: '', trim: true },
+      scopeType: { type: String, default: '', trim: true },
+      scopeId: { type: String, default: '', trim: true },
+      suggestedAt: { type: Date, default: null }
+    }],
+    default: []
+  },
   lastError: { type: String, default: '', trim: true },
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }
 }, { timestamps: true });
@@ -1260,6 +1329,7 @@ module.exports = {
   AgentArtifactDraft,
   AgentRun,
   AgentProposedChange,
+  AgentStructureProposal,
   AgentUpkeepCycle,
   ReferenceEdge,
   SavedView,

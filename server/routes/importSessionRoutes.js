@@ -3,6 +3,8 @@ const express = require('express');
 const TERMINAL_STATUSES = new Set(['completed', 'completed_with_warnings', 'failed']);
 const SESSION_STATUSES = new Set(['draft', 'preview_ready', 'importing', 'imported', 'completed', 'completed_with_warnings', 'failed']);
 const INDEXING_STATES = new Set(['not_started', 'queued', 'partial', 'ready', 'failed']);
+const NEXT_ACTIONS = new Set(['organize_import']);
+const AGENT_SUGGESTION_STATUSES = new Set(['pending', 'accepted', 'dismissed', 'applied']);
 
 const toTrimmedString = (value = '') => String(value || '').trim();
 
@@ -34,26 +36,97 @@ const sanitizeUniqueStringList = (value) => {
   });
 };
 
+const parseOptionalDate = (value) => {
+  if (!value) return null;
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
+
+const normalizeAgentSuggestionForStorage = (suggestion) => {
+  const safe = suggestion && typeof suggestion === 'object' ? suggestion : {};
+  const status = toTrimmedString(safe.status).toLowerCase();
+  return {
+    type: toTrimmedString(safe.type),
+    intent: toTrimmedString(safe.intent),
+    operationType: toTrimmedString(safe.operationType),
+    status: AGENT_SUGGESTION_STATUSES.has(status) ? status : 'pending',
+    label: toTrimmedString(safe.label),
+    summary: toTrimmedString(safe.summary),
+    scopeType: toTrimmedString(safe.scopeType),
+    scopeId: toTrimmedString(safe.scopeId),
+    suggestedAt: parseOptionalDate(safe.suggestedAt)
+  };
+};
+
+const sanitizeAgentSuggestion = (suggestion) => {
+  const safe = normalizeAgentSuggestionForStorage(suggestion);
+  return {
+    ...safe,
+    suggestedAt: safe.suggestedAt ? safe.suggestedAt.toISOString() : null
+  };
+};
+
+const getPendingNextAction = (session) => {
+  const suggestions = (Array.isArray(session?.agentSuggestions) ? session.agentSuggestions : [])
+    .map(normalizeAgentSuggestionForStorage);
+  const hasPendingOrganizeImport = suggestions.some((suggestion) => (
+    suggestion.type === 'organize_import'
+    && suggestion.status === 'pending'
+  ));
+  return hasPendingOrganizeImport ? 'organize_import' : '';
+};
+
+const syncAgentSuggestionsState = (session) => {
+  if (!session || typeof session !== 'object') return session;
+  session.agentSuggestions = (Array.isArray(session.agentSuggestions) ? session.agentSuggestions : [])
+    .map(normalizeAgentSuggestionForStorage)
+    .filter((suggestion) => suggestion.type);
+  session.recommendedNextAction = getPendingNextAction(session);
+  return session;
+};
+
+const findActiveImportSession = async ({ ImportSession, userId }) => {
+  let session = await ImportSession.findOne({
+    userId,
+    status: { $nin: Array.from(TERMINAL_STATUSES) }
+  }).sort({ updatedAt: -1, createdAt: -1 }).lean();
+
+  if (session) return syncAgentSuggestionsState(session);
+
+  const completedSessions = await ImportSession.find({
+    userId,
+    status: { $in: ['completed', 'completed_with_warnings'] }
+  }).sort({ updatedAt: -1, createdAt: -1 }).limit(10).lean();
+
+  return (Array.isArray(completedSessions) ? completedSessions : [])
+    .map((entry) => syncAgentSuggestionsState(entry))
+    .find((entry) => entry?.recommendedNextAction === 'organize_import')
+    || null;
+};
+
 const sanitizeSession = (session) => {
   if (!session) return null;
+  const safeSession = syncAgentSuggestionsState({ ...session });
   return {
-    id: String(session._id || ''),
-    provider: toTrimmedString(session.provider),
-    mode: toTrimmedString(session.mode),
-    status: toTrimmedString(session.status),
-    sourceLabel: toTrimmedString(session.sourceLabel),
-    connectionId: session.connectionId ? String(session.connectionId) : '',
-    config: session.config || {},
-    preview: session.preview || {},
-    progress: session.progress || {},
-    result: session.result || {},
+    id: String(safeSession._id || ''),
+    provider: toTrimmedString(safeSession.provider),
+    mode: toTrimmedString(safeSession.mode),
+    status: toTrimmedString(safeSession.status),
+    sourceLabel: toTrimmedString(safeSession.sourceLabel),
+    connectionId: safeSession.connectionId ? String(safeSession.connectionId) : '',
+    config: safeSession.config || {},
+    preview: safeSession.preview || {},
+    progress: safeSession.progress || {},
+    result: safeSession.result || {},
     activation: {
-      ...(session.activation || {}),
-      conceptId: session?.activation?.conceptId ? String(session.activation.conceptId) : ''
+      ...(safeSession.activation || {}),
+      conceptId: safeSession?.activation?.conceptId ? String(safeSession.activation.conceptId) : ''
     },
-    lastError: toTrimmedString(session.lastError),
-    createdAt: session.createdAt ? new Date(session.createdAt).toISOString() : null,
-    updatedAt: session.updatedAt ? new Date(session.updatedAt).toISOString() : null
+    recommendedNextAction: safeSession.recommendedNextAction,
+    agentSuggestions: (Array.isArray(safeSession.agentSuggestions) ? safeSession.agentSuggestions : []).map(sanitizeAgentSuggestion),
+    lastError: toTrimmedString(safeSession.lastError),
+    createdAt: safeSession.createdAt ? new Date(safeSession.createdAt).toISOString() : null,
+    updatedAt: safeSession.updatedAt ? new Date(safeSession.updatedAt).toISOString() : null
   };
 };
 
@@ -71,8 +144,10 @@ const buildImportSessionRouter = ({
       const query = { userId: req.user.id };
       if (provider) query.provider = provider;
       if (status === 'active') {
-        query.status = { $nin: Array.from(TERMINAL_STATUSES) };
-      } else if (status && SESSION_STATUSES.has(status)) {
+        const activeSession = await findActiveImportSession({ ImportSession, userId: req.user.id });
+        return res.status(200).json({ sessions: activeSession ? [sanitizeSession(activeSession)] : [] });
+      }
+      if (status && SESSION_STATUSES.has(status)) {
         query.status = status;
       }
       const rows = await ImportSession.find(query).sort({ updatedAt: -1, createdAt: -1 }).limit(limit).lean();
@@ -85,10 +160,7 @@ const buildImportSessionRouter = ({
 
   router.get('/api/import/sessions/active', authenticateToken, async (req, res) => {
     try {
-      const session = await ImportSession.findOne({
-        userId: req.user.id,
-        status: { $nin: Array.from(TERMINAL_STATUSES) }
-      }).sort({ updatedAt: -1, createdAt: -1 }).lean();
+      const session = await findActiveImportSession({ ImportSession, userId: req.user.id });
       res.status(200).json({ session: sanitizeSession(session) });
     } catch (error) {
       console.error('Failed to fetch active import session:', error);
@@ -135,8 +207,15 @@ const buildImportSessionRouter = ({
           dueAt: payload?.activation?.dueAt || null,
           primaryAction: toTrimmedString(payload?.activation?.primaryAction) || 'create_concept'
         },
+        recommendedNextAction: NEXT_ACTIONS.has(toTrimmedString(payload.recommendedNextAction))
+          ? toTrimmedString(payload.recommendedNextAction)
+          : '',
+        agentSuggestions: Array.isArray(payload.agentSuggestions)
+          ? payload.agentSuggestions.map(normalizeAgentSuggestionForStorage).filter((suggestion) => suggestion.type)
+          : [],
         userId: req.user.id
       });
+      syncAgentSuggestionsState(session);
 
       res.status(201).json({ session: sanitizeSession(session.toObject()) });
     } catch (error) {
@@ -281,6 +360,16 @@ const buildImportSessionRouter = ({
             : session.activation?.primaryAction
         };
       }
+      if (payload.recommendedNextAction !== undefined) {
+        const nextAction = toTrimmedString(payload.recommendedNextAction);
+        session.recommendedNextAction = NEXT_ACTIONS.has(nextAction) ? nextAction : '';
+      }
+      if (payload.agentSuggestions !== undefined) {
+        session.agentSuggestions = Array.isArray(payload.agentSuggestions)
+          ? payload.agentSuggestions.map(normalizeAgentSuggestionForStorage).filter((suggestion) => suggestion.type)
+          : [];
+      }
+      syncAgentSuggestionsState(session);
 
       await session.save();
       res.status(200).json({ session: sanitizeSession(session.toObject()) });

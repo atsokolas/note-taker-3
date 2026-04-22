@@ -100,6 +100,7 @@ const THINK_QUESTION_ROW_HEIGHT = 60;
 const THINK_HOME_LIMIT = 6;
 const CONCEPT_COMPOSER_DEFAULT_STATE = { message: '', tone: 'success' };
 const cleanText = (value = '') => String(value || '').trim();
+const normalizeNotebookFolderId = (value = '') => String(value || '').trim();
 const THINK_SUB_NAV_ITEMS = [
   { value: 'concepts', label: 'Concepts' },
   { value: 'notebook', label: 'Notebook' },
@@ -1728,6 +1729,36 @@ const ThinkMode = () => {
     setNotebookMoveModalEntry(null);
   }, [notebookMovePendingId]);
 
+  const handleCreateNotebookFolder = useCallback(async (name, options = {}) => {
+    const candidate = cleanText(name);
+    if (!candidate) throw new Error('Folder name is required.');
+
+    const parentFolderId = normalizeNotebookFolderId(options?.parentFolderId) || null;
+    const siblingFolders = notebookFolders.filter(
+      (folder) => normalizeNotebookFolderId(folder?.parentFolderId) === normalizeNotebookFolderId(parentFolderId)
+    );
+    const nextSortOrder = siblingFolders.reduce((maxSort, folder) => {
+      const sortOrder = Number(folder?.sortOrder);
+      return Number.isFinite(sortOrder) ? Math.max(maxSort, sortOrder) : maxSort;
+    }, -1) + 1;
+
+    const res = await api.post('/api/notebook/folders', {
+      name: candidate,
+      parentFolderId,
+      sortOrder: nextSortOrder
+    }, getAuthHeaders());
+
+    const created = res.data;
+    setNotebookFolders((prev) => {
+      const existing = Array.isArray(prev) ? prev : [];
+      if (!created?._id) return existing;
+      const remaining = existing.filter((folder) => folder?._id !== created._id);
+      return [...remaining, created];
+    });
+    setNotebookFoldersError('');
+    return created;
+  }, [notebookFolders]);
+
   const handleMoveNotebookEntry = useCallback(async (entry, folderId) => {
     const entryId = cleanText(entry?._id);
     if (!entryId || cleanText(entry?.folder) === cleanText(folderId)) return;
@@ -2390,10 +2421,12 @@ const ThinkMode = () => {
           onSelectEntry={handleSelectNotebookEntry}
           onRequestMoveEntry={handleOpenNotebookMoveModal}
           onMoveEntry={handleMoveNotebookEntry}
+          onCreateFolder={handleCreateNotebookFolder}
         />
       </div>
     );
   }, [
+    handleCreateNotebookFolder,
     handleMoveNotebookEntry,
     handleOpenNotebookMoveModal,
     handleSelectNotebookEntry,
@@ -2890,6 +2923,9 @@ const ThinkMode = () => {
                         {conceptComposerStatus.message}
                       </p>
                     )}
+                    <div className="think-home-rail__actions">
+                      <QuietButton onClick={handleQueueOrganizationPrompt}>Clean up structure</QuietButton>
+                    </div>
                     {conceptsError && <p className="status-message error-message">{conceptsError}</p>}
                   </>
                 )
@@ -3402,6 +3438,42 @@ const ThinkMode = () => {
     if (!queuedPrompt?.prompt) return;
     setQueuedThoughtPartnerPrompt(queuedPrompt);
   }, []);
+
+  const organizationPrompt = useMemo(() => {
+    if (activeView === 'notebook') {
+      return {
+        id: 'organize-notebook-structure',
+        prompt: 'Clean up notebook structure and stage a reviewable organization plan.',
+        contextType: 'workspace',
+        contextId: 'think-notebook',
+        contextTitle: 'Notebook'
+      };
+    }
+    if (activeView === 'concepts') {
+      return {
+        id: 'organize-concepts-structure',
+        prompt: 'Clean up concepts structure and stage a reviewable organization plan.',
+        contextType: 'workspace',
+        contextId: 'think-concepts',
+        contextTitle: 'Concepts'
+      };
+    }
+    if (activeView === 'questions') {
+      return {
+        id: 'organize-questions-structure',
+        prompt: 'Clean up questions structure and stage a reviewable organization plan.',
+        contextType: 'workspace',
+        contextId: 'think-questions',
+        contextTitle: 'Questions'
+      };
+    }
+    return null;
+  }, [activeView]);
+
+  function handleQueueOrganizationPrompt() {
+    if (!organizationPrompt) return;
+    queueThoughtPartnerPrompt(organizationPrompt);
+  }
 
   const reloadProtocolCanvasState = useCallback(async () => {
     await Promise.all([
@@ -4634,6 +4706,7 @@ const ThinkMode = () => {
             </QuietButton>
             {renderConceptComposer('index-rail')}
           </div>
+          <QuietButton onClick={handleQueueOrganizationPrompt}>Clean up structure</QuietButton>
           <QuietButton onClick={openTemplatePicker}>
             Browse templates
           </QuietButton>
@@ -4703,6 +4776,7 @@ const ThinkMode = () => {
         </p>
         <div className="think-home-rail__actions">
           <QuietButton onClick={handleCreateNotebookEntry}>New page</QuietButton>
+          <QuietButton onClick={handleQueueOrganizationPrompt}>Clean up structure</QuietButton>
           <QuietButton onClick={() => handleSelectView('concepts')}>Open concepts</QuietButton>
         </div>
       </div>
@@ -5145,6 +5219,7 @@ const ThinkMode = () => {
         />
         {activeQuestionData && questionStatus === 'open' && (
           <div className="think-question-actions">
+            <QuietButton onClick={handleQueueOrganizationPrompt}>Clean up structure</QuietButton>
             <QuietButton onClick={() => handleMarkAnswered(activeQuestionData)}>Mark answered</QuietButton>
           </div>
         )}
@@ -5341,6 +5416,14 @@ const ThinkMode = () => {
                 onChange={handleSelectView}
                 appearance="quiet"
               />
+              {organizationPrompt ? (
+                <QuietButton
+                  className="list-button think-main-actions__utility"
+                  onClick={() => queueThoughtPartnerPrompt(organizationPrompt)}
+                >
+                  Clean up structure
+                </QuietButton>
+              ) : null}
               <div className="think-main-actions__menu-group">
                 <div className="think-concept-composer-anchor think-main-actions__menu" ref={headerNewMenuRef}>
                   <QuietButton
@@ -5534,6 +5617,7 @@ const ThinkMode = () => {
         loading={Boolean(notebookMovePendingId)}
         error={notebookMoveError}
         onClose={handleCloseNotebookMoveModal}
+        onCreateFolder={handleCreateNotebookFolder}
         onMove={(folderId) => handleMoveNotebookEntry(notebookMoveModalEntry, folderId)}
       />
     </>

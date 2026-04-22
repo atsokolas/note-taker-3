@@ -4,33 +4,42 @@ import ThoughtPartnerPanel from './ThoughtPartnerPanel';
 
 jest.mock('../../api/agent', () => ({
   acceptAgentProposedChange: jest.fn(),
+  applyAgentStructureProposal: jest.fn(),
   approveAgentProtocolApproval: jest.fn(),
   chatWithAgent: jest.fn(),
   dismissAgentArtifactDraft: jest.fn(),
   getAgentHarnessMetrics: jest.fn(),
   listAgentProposedChanges: jest.fn(),
+  listAgentStructureProposals: jest.fn(),
   listAgentProtocolApprovals: jest.fn(),
   listAgentRuns: jest.fn(),
   listAgentArtifactDrafts: jest.fn(),
   promoteAgentArtifactDraft: jest.fn(),
   rejectAgentProtocolApproval: jest.fn(),
   rejectAgentProposedChange: jest.fn(),
+  rejectAgentStructureProposal: jest.fn(),
   rollbackAgentProposedChange: jest.fn(),
+  rollbackAgentStructureProposal: jest.fn(),
+  updateAgentStructureProposal: jest.fn(),
   updateAgentProposedChange: jest.fn(),
   updateAgentArtifactDraft: jest.fn()
 }));
 
 const {
   acceptAgentProposedChange,
+  applyAgentStructureProposal,
   approveAgentProtocolApproval,
   chatWithAgent,
   getAgentHarnessMetrics,
   listAgentArtifactDrafts,
   listAgentProposedChanges,
+  listAgentStructureProposals,
   listAgentProtocolApprovals,
   listAgentRuns,
   rejectAgentProtocolApproval,
-  rollbackAgentProposedChange
+  rollbackAgentProposedChange,
+  rollbackAgentStructureProposal,
+  updateAgentStructureProposal
 } = require('../../api/agent');
 
 describe('ThoughtPartnerPanel', () => {
@@ -41,6 +50,7 @@ describe('ThoughtPartnerPanel', () => {
     listAgentProtocolApprovals.mockResolvedValue({ approvals: [] });
     listAgentRuns.mockResolvedValue({ runs: [] });
     listAgentProposedChanges.mockResolvedValue({ proposedChanges: [] });
+    listAgentStructureProposals.mockResolvedValue({ proposals: [] });
     approveAgentProtocolApproval.mockResolvedValue({});
     rejectAgentProtocolApproval.mockResolvedValue({});
   });
@@ -130,7 +140,7 @@ describe('ThoughtPartnerPanel', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Accept' }));
 
     await waitFor(() => expect(acceptAgentProposedChange).toHaveBeenCalledWith('pc-1'));
-    await waitFor(() => expect(screen.getByText('applied')).toBeInTheDocument());
+    await screen.findByText('applied');
   });
 
   it('shows applied change history and rolls back accepted changes', async () => {
@@ -188,12 +198,221 @@ describe('ThoughtPartnerPanel', () => {
       />
     );
 
-    await waitFor(() => expect(screen.getByText('Applied history')).toBeInTheDocument());
+    await screen.findByText('Applied history');
     expect(screen.getByText('Sharper notebook content')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Roll back' }));
 
     await waitFor(() => expect(rollbackAgentProposedChange).toHaveBeenCalledWith('pc-2'));
-    await waitFor(() => expect(screen.getByText('rolled back')).toBeInTheDocument());
+    await screen.findByText('rolled back');
+  });
+
+  it('renders structure proposals, updates rejected steps, and applies the plan', async () => {
+    listAgentStructureProposals.mockResolvedValue({
+      proposals: [
+        {
+          structureProposalId: 'plan-1',
+          status: 'pending',
+          scope: 'surface',
+          scopeRef: 'notebook',
+          title: 'Clean up notebook structure',
+          summary: 'Move imported notes into stronger folders.',
+          rationale: 'Mirror folders are weaker than your notebook hierarchy.',
+          operations: [
+            {
+              opId: 'move-1',
+              type: 'move_item',
+              status: 'approved',
+              targetDomain: 'notebook',
+              payload: { itemId: 'note-1', destinationFolderName: 'Research' },
+              preview: { itemTitle: 'World Models notes' },
+              isActionable: true
+            }
+          ]
+        }
+      ]
+    });
+    updateAgentStructureProposal.mockResolvedValue({
+      proposal: {
+        structureProposalId: 'plan-1',
+        status: 'pending',
+        scope: 'surface',
+        scopeRef: 'notebook',
+        title: 'Clean up notebook structure',
+        summary: 'Move imported notes into stronger folders.',
+        rationale: 'Mirror folders are weaker than your notebook hierarchy.',
+        operations: [
+          {
+            opId: 'move-1',
+            type: 'move_item',
+            status: 'rejected',
+            targetDomain: 'notebook',
+            payload: { itemId: 'note-1', destinationFolderName: 'Research' },
+            preview: { itemTitle: 'World Models notes' },
+            isActionable: true
+          }
+        ]
+      }
+    });
+    applyAgentStructureProposal.mockResolvedValue({
+      proposal: {
+        structureProposalId: 'plan-1',
+        status: 'applied',
+        scope: 'surface',
+        scopeRef: 'notebook',
+        title: 'Clean up notebook structure',
+        summary: 'Move imported notes into stronger folders.',
+        rationale: 'Mirror folders are weaker than your notebook hierarchy.',
+        acceptedAt: '2026-04-20T16:00:00.000Z',
+        executionResult: {
+          appliedCount: 1,
+          skippedCount: 0,
+          failedCount: 0
+        },
+        operations: [
+          {
+            opId: 'move-1',
+            type: 'move_item',
+            status: 'applied',
+            targetDomain: 'notebook',
+            payload: { itemId: 'note-1', destinationFolderName: 'Research' },
+            preview: { itemTitle: 'World Models notes' },
+            isActionable: true
+          }
+        ]
+      }
+    });
+
+    render(
+      <ThoughtPartnerPanel
+        contextType="notebook"
+        contextId="notebook-1"
+        contextTitle="Research"
+        thread={{
+          threadId: 'thread-1',
+          messages: []
+        }}
+      />
+    );
+
+    await waitFor(() => expect(listAgentStructureProposals).toHaveBeenCalledWith({ threadId: 'thread-1', status: 'all' }));
+    await screen.findByText('Clean up notebook structure');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Reject step' }));
+    await waitFor(() => expect(updateAgentStructureProposal).toHaveBeenCalledWith('plan-1', {
+      operations: [{ opId: 'move-1', status: 'rejected' }]
+    }));
+    await screen.findByRole('button', { name: 'Restore step' });
+
+    updateAgentStructureProposal.mockResolvedValueOnce({
+      proposal: {
+        structureProposalId: 'plan-1',
+        status: 'pending',
+        scope: 'surface',
+        scopeRef: 'notebook',
+        title: 'Clean up notebook structure',
+        summary: 'Move imported notes into stronger folders.',
+        rationale: 'Mirror folders are weaker than your notebook hierarchy.',
+        operations: [
+          {
+            opId: 'move-1',
+            type: 'move_item',
+            status: 'approved',
+            targetDomain: 'notebook',
+            payload: { itemId: 'note-1', destinationFolderName: 'Research' },
+            preview: { itemTitle: 'World Models notes' },
+            isActionable: true
+          }
+        ]
+      }
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Restore step' }));
+    await waitFor(() => expect(updateAgentStructureProposal).toHaveBeenCalledWith('plan-1', {
+      operations: [{ opId: 'move-1', status: 'approved' }]
+    }));
+
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Apply approved changes' })).not.toBeDisabled());
+    fireEvent.click(screen.getByRole('button', { name: 'Apply approved changes' }));
+    await waitFor(() => expect(applyAgentStructureProposal).toHaveBeenCalledWith('plan-1'));
+    await screen.findByText('Applied history');
+    await screen.findByRole('button', { name: 'Roll back' });
+  });
+
+  it('shows applied structure plan history and rolls it back', async () => {
+    listAgentStructureProposals.mockResolvedValue({
+      proposals: [
+        {
+          structureProposalId: 'plan-2',
+          status: 'applied',
+          scope: 'import_session',
+          scopeRef: 'readwise',
+          title: 'Organize import',
+          summary: 'Merged the import mirror into Research.',
+          acceptedAt: '2026-04-20T16:00:00.000Z',
+          executionResult: {
+            appliedCount: 2,
+            skippedCount: 0,
+            failedCount: 0
+          },
+          operations: [
+            {
+              opId: 'merge-1',
+              type: 'merge_folder',
+              status: 'applied',
+              targetDomain: 'notebook',
+              payload: { sourceFolderId: 'folder-readwise', destinationFolderName: 'Research' },
+              preview: { sourceFolderName: 'Readwise import' },
+              isActionable: true
+            }
+          ]
+        }
+      ]
+    });
+    rollbackAgentStructureProposal.mockResolvedValue({
+      proposal: {
+        structureProposalId: 'plan-2',
+        status: 'rolled_back',
+        scope: 'import_session',
+        scopeRef: 'readwise',
+        title: 'Organize import',
+        summary: 'Merged the import mirror into Research.',
+        acceptedAt: '2026-04-20T16:00:00.000Z',
+        rolledBackAt: '2026-04-20T16:05:00.000Z',
+        executionResult: {
+          appliedCount: 2,
+          skippedCount: 0,
+          failedCount: 0
+        },
+        operations: [
+          {
+            opId: 'merge-1',
+            type: 'merge_folder',
+            status: 'rolled_back',
+            targetDomain: 'notebook',
+            payload: { sourceFolderId: 'folder-readwise', destinationFolderName: 'Research' },
+            preview: { sourceFolderName: 'Readwise import' },
+            isActionable: true
+          }
+        ]
+      }
+    });
+
+    render(
+      <ThoughtPartnerPanel
+        contextType="notebook"
+        contextId="notebook-1"
+        contextTitle="Research"
+        thread={{
+          threadId: 'thread-1',
+          messages: []
+        }}
+      />
+    );
+
+    await screen.findByText('Organize import');
+    fireEvent.click(screen.getByRole('button', { name: 'Roll back' }));
+    await waitFor(() => expect(rollbackAgentStructureProposal).toHaveBeenCalledWith('plan-2'));
+    await screen.findByText(/Rolled back/);
   });
 
   it('renders run outcomes for the active thread', async () => {
@@ -247,7 +466,7 @@ describe('ThoughtPartnerPanel', () => {
     );
 
     await waitFor(() => expect(listAgentRuns).toHaveBeenCalledWith({ threadId: 'thread-1', status: 'all' }));
-    await waitFor(() => expect(screen.getByText('Runs')).toBeInTheDocument());
+    await screen.findByText('Runs');
     expect(screen.getByText((content) => content.includes('Staged 2 related items.'))).toBeInTheDocument();
     expect(screen.getByText((content) => content.includes('Created handoff: World Models: routed handoff.'))).toBeInTheDocument();
   });
@@ -291,6 +510,6 @@ describe('ThoughtPartnerPanel', () => {
       op: 'runs.resume'
     }));
     expect(screen.getByText('Run approvals')).toBeInTheDocument();
-    await waitFor(() => expect(screen.getByText('Remove weak source requires approval before the run can continue.')).toBeInTheDocument());
+    await screen.findByText('Remove weak source requires approval before the run can continue.');
   });
 });
