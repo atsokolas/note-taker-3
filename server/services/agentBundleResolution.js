@@ -12,7 +12,7 @@ const tokenize = (value = '') => (
 );
 
 const EXECUTION_INTENT_PATTERNS = [
-  /^(do it|do that|apply that|apply it|go ahead|yes|yes please|okay|ok|sure|pull that in|pull them in|bring that in|bring them in|rewrite it|rewrite that|use that|continue)$/i,
+  /^(do it|do that|apply that|apply it|go ahead|yes|yes please|okay|ok|sure|pull that in|pull them in|bring that in|bring them in|rewrite it|rewrite that|use that)$/i,
   /\b(do it|apply that|apply it|go ahead|rewrite it|rewrite that|pull that in|bring that in)\b/i
 ];
 

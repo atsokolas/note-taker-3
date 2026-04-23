@@ -102,6 +102,7 @@ const buildThread = () => ({
 const run = () => {
   assert.strictEqual(shouldResolveExecutionIntent('do it'), true, 'Short execution confirmations should trigger bundle resolution.');
   assert.strictEqual(shouldResolveExecutionIntent('rewrite it'), true, 'Verb-led execution approvals should trigger bundle resolution.');
+  assert.strictEqual(shouldResolveExecutionIntent('continue'), false, 'Bare continue should fall back to normal chat so thread follow-ups still work.');
   assert.strictEqual(shouldResolveExecutionIntent('what do you think?'), false, 'Normal chat should not trigger execution resolution.');
 
   const thread = buildThread();

@@ -512,4 +512,96 @@ describe('ThoughtPartnerPanel', () => {
     expect(screen.getByText('Run approvals')).toBeInTheDocument();
     await screen.findByText('Remove weak source requires approval before the run can continue.');
   });
+
+  it('prioritizes stream review state and submits continue prompts through the composer', async () => {
+    let observedPayload = null;
+    chatWithAgent.mockImplementation(async (payload) => {
+      observedPayload = payload;
+      return {
+        reply: 'The cleanup thread is ready for the next move.',
+        thread: {
+          threadId: 'thread-1',
+          messages: []
+        }
+      };
+    });
+    listAgentStructureProposals.mockResolvedValue({
+      proposals: [
+        {
+          structureProposalId: 'plan-stream',
+          status: 'pending',
+          scope: 'surface',
+          scopeRef: 'library',
+          title: 'Clean up library structure',
+          summary: 'Group adjacent articles before expanding the archive.',
+          rationale: 'Start with a small move set before broader cleanup.',
+          operations: [
+            {
+              opId: 'move-1',
+              type: 'move_item',
+              status: 'approved',
+              targetDomain: 'library',
+              payload: { itemId: 'article-1', destinationFolderName: 'Company News' },
+              preview: { itemTitle: 'Company update' },
+              isActionable: true
+            }
+          ]
+        }
+      ]
+    });
+    getAgentHarnessMetrics.mockResolvedValue({
+      metrics: {
+        proposedChangeStatuses: { pending: 0 },
+        structureProposalStatuses: { pending: 1 },
+        funnel: { draftFallbacks: 0, executionIntentMatched: 0 },
+        runStatuses: { completed: 0 },
+        rates: { bundleResolutionSuccessRate: 0, runCompletionRate: 0 }
+      }
+    });
+
+    render(
+      <ThoughtPartnerPanel
+        contextType="library"
+        contextId="library-root"
+        contextTitle="Library"
+        variant="stream"
+        submitLabel="Continue"
+        thread={{
+          threadId: 'thread-1',
+          title: 'Library cleanup',
+          planner: {
+            activeWorkerRole: 'editor',
+            activeWorkerLabel: 'Editor',
+            rationale: 'Tighten the cleanup plan before you run the next move.'
+          },
+          plan: {
+            objective: 'Restructure the library into clearer clusters.',
+            steps: [
+              { id: 'step-1', title: 'Sort company updates', status: 'in_progress' }
+            ]
+          },
+          checkpoint: {
+            nextActions: ['Review the staged organization plan.']
+          },
+          messages: []
+        }}
+      />
+    );
+
+    await screen.findAllByText('Organization plan');
+    expect(screen.queryByText('Runs')).not.toBeInTheDocument();
+    expect(screen.queryByText('Run approvals')).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByPlaceholderText('Ask your thought partner…'), {
+      target: { value: 'Continue with the library cleanup.' }
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+
+    await waitFor(() => expect(chatWithAgent).toHaveBeenCalledTimes(1));
+    expect(observedPayload).toMatchObject({
+      message: 'Continue with the library cleanup.',
+      threadId: 'thread-1'
+    });
+    await screen.findByText('The cleanup thread is ready for the next move.');
+  });
 });

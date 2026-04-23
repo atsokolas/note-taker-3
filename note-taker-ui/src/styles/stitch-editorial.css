@@ -15,6 +15,10 @@ body.noeis-editorial {
   --vellum-warm: #74614a;
   --vellum-error: #a54731;
   --vellum-shadow: 0 24px 48px rgba(56, 56, 49, 0.06);
+  --vellum-scrollbar-thumb: rgba(97, 94, 91, 0.18);
+  --vellum-scrollbar-thumb-hover: rgba(97, 94, 91, 0.34);
+  --vellum-scrollbar-thumb-active: rgba(97, 94, 91, 0.46);
+  --vellum-scrollbar-track: rgba(97, 94, 91, 0.06);
   color-scheme: light;
   background: var(--vellum-bg) !important;
   color: var(--vellum-ink);
@@ -159,6 +163,12 @@ body.noeis-editorial .app-shell-new__body {
   color: var(--vellum-ink);
 }
 
+body.noeis-editorial .ui-page,
+body.noeis-editorial .page-area {
+  height: 100%;
+  min-height: 0;
+}
+
 body.noeis-editorial .auth-pages-container--public {
   align-items: stretch;
   justify-content: stretch;
@@ -240,9 +250,11 @@ body.noeis-editorial .app-shell-new--stitch .app-shell-new__main {
 }
 
 body.noeis-editorial .app-shell-new--stitch .app-shell-new__body {
+  height: 100vh;
   max-width: 1500px;
   margin: 0 auto;
-  padding: 112px 40px 56px;
+  padding: 112px 40px 40px;
+  overflow: hidden;
 }
 
 body.noeis-editorial .topbar {
@@ -556,6 +568,9 @@ body.noeis-editorial .three-pane {
   display: grid;
   grid-template-columns: minmax(220px, 252px) minmax(0, 1fr) minmax(252px, 292px);
   gap: 0;
+  height: 100%;
+  min-height: 0;
+  align-items: stretch;
 }
 
 body.noeis-editorial .three-pane--left-collapsed {
@@ -619,10 +634,18 @@ body.noeis-editorial .three-pane--left-collapsed.three-pane--right-collapsed .th
 body.noeis-editorial .three-pane__left {
   padding-right: 28px;
   border-right: 1px solid var(--vellum-line);
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 body.noeis-editorial .three-pane__main {
   min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 0 36px;
 }
 
@@ -643,10 +666,14 @@ body.noeis-editorial .three-pane__main-actions {
 body.noeis-editorial .right-drawer {
   position: relative;
   min-width: 26px;
+  min-height: 0;
 }
 
 body.noeis-editorial .right-drawer__panel {
-  min-height: calc(100vh - 128px);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
   padding-left: 28px;
   border-left: 1px solid var(--vellum-line);
   background: var(--vellum-panel) !important;
@@ -659,6 +686,12 @@ body.noeis-editorial .three-pane__right-header {
   padding: 12px 0 20px;
   margin-bottom: 20px;
   border-bottom: 1px solid var(--vellum-line);
+}
+
+body.noeis-editorial .three-pane__right-body {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 body.noeis-editorial .right-drawer__title,
@@ -1895,6 +1928,8 @@ body.noeis-editorial .notebook-editorial-shell-page {
   width: min(1500px, calc(100vw - 64px));
   margin: 0 auto;
   padding: 78px 0 56px;
+  height: 100%;
+  min-height: 0;
 }
 
 body.noeis-editorial .think-home-editorial-shell,
@@ -1903,8 +1938,10 @@ body.noeis-editorial .notebook-editorial-shell {
   display: grid;
   grid-template-columns: 280px minmax(0, 1fr) 360px;
   gap: 34px;
-  align-items: start;
+  align-items: stretch;
   justify-content: center;
+  height: 100%;
+  min-height: 0;
 }
 
 body.noeis-editorial .think-home-editorial-shell__left,
@@ -1938,8 +1975,10 @@ body.noeis-editorial .question-editorial-shell {
   display: grid;
   grid-template-columns: 280px minmax(0, 1fr) 360px;
   gap: 34px;
-  align-items: start;
+  align-items: stretch;
   justify-content: center;
+  height: 100%;
+  min-height: 0;
 }
 
 body.noeis-editorial .question-editorial-shell__left,
@@ -1952,6 +1991,205 @@ body.noeis-editorial .question-editorial-shell__left,
 body.noeis-editorial .question-editorial-shell__main,
 body.noeis-editorial .question-editorial-shell__right {
   min-width: 0;
+  min-height: 0;
+}
+
+body.noeis-editorial .think-home-editorial-shell__left,
+body.noeis-editorial .think-home-editorial-shell__main,
+body.noeis-editorial .think-home-editorial-shell__right,
+body.noeis-editorial .concept-index-editorial-shell__left,
+body.noeis-editorial .concept-index-editorial-shell__main,
+body.noeis-editorial .concept-index-editorial-shell__right,
+body.noeis-editorial .notebook-editorial-shell__left,
+body.noeis-editorial .notebook-editorial-shell__main,
+body.noeis-editorial .notebook-editorial-shell__right {
+  min-height: 0;
+}
+
+body.noeis-editorial .think-home-editorial-shell__left,
+body.noeis-editorial .think-home-editorial-shell__right,
+body.noeis-editorial .concept-index-editorial-shell__left,
+body.noeis-editorial .concept-index-editorial-shell__right,
+body.noeis-editorial .notebook-editorial-shell__left,
+body.noeis-editorial .notebook-editorial-shell__right,
+body.noeis-editorial .question-editorial-shell__left,
+body.noeis-editorial .question-editorial-shell__right {
+  max-height: calc(100vh - 148px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+body.noeis-editorial .think-home-editorial-shell__main,
+body.noeis-editorial .concept-index-editorial-shell__main,
+body.noeis-editorial .notebook-editorial-shell__main,
+body.noeis-editorial .question-editorial-shell__main {
+  max-height: calc(100vh - 148px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+body.noeis-editorial .three-pane__left,
+body.noeis-editorial .three-pane__main,
+body.noeis-editorial .three-pane__right-body,
+body.noeis-editorial .think-home-editorial-shell__left,
+body.noeis-editorial .think-home-editorial-shell__main,
+body.noeis-editorial .think-home-editorial-shell__right,
+body.noeis-editorial .concept-index-editorial-shell__left,
+body.noeis-editorial .concept-index-editorial-shell__main,
+body.noeis-editorial .concept-index-editorial-shell__right,
+body.noeis-editorial .notebook-editorial-shell__left,
+body.noeis-editorial .notebook-editorial-shell__main,
+body.noeis-editorial .notebook-editorial-shell__right,
+body.noeis-editorial .question-editorial-shell__left,
+body.noeis-editorial .question-editorial-shell__main,
+body.noeis-editorial .question-editorial-shell__right {
+  scrollbar-width: thin;
+  scrollbar-color: var(--vellum-scrollbar-thumb) transparent;
+}
+
+body.noeis-editorial .three-pane__left::-webkit-scrollbar,
+body.noeis-editorial .three-pane__main::-webkit-scrollbar,
+body.noeis-editorial .three-pane__right-body::-webkit-scrollbar,
+body.noeis-editorial .think-home-editorial-shell__left::-webkit-scrollbar,
+body.noeis-editorial .think-home-editorial-shell__main::-webkit-scrollbar,
+body.noeis-editorial .think-home-editorial-shell__right::-webkit-scrollbar,
+body.noeis-editorial .concept-index-editorial-shell__left::-webkit-scrollbar,
+body.noeis-editorial .concept-index-editorial-shell__main::-webkit-scrollbar,
+body.noeis-editorial .concept-index-editorial-shell__right::-webkit-scrollbar,
+body.noeis-editorial .notebook-editorial-shell__left::-webkit-scrollbar,
+body.noeis-editorial .notebook-editorial-shell__main::-webkit-scrollbar,
+body.noeis-editorial .notebook-editorial-shell__right::-webkit-scrollbar,
+body.noeis-editorial .question-editorial-shell__left::-webkit-scrollbar,
+body.noeis-editorial .question-editorial-shell__main::-webkit-scrollbar,
+body.noeis-editorial .question-editorial-shell__right::-webkit-scrollbar {
+  width: 11px;
+  height: 11px;
+}
+
+body.noeis-editorial .three-pane__left::-webkit-scrollbar-track,
+body.noeis-editorial .three-pane__main::-webkit-scrollbar-track,
+body.noeis-editorial .three-pane__right-body::-webkit-scrollbar-track,
+body.noeis-editorial .think-home-editorial-shell__left::-webkit-scrollbar-track,
+body.noeis-editorial .think-home-editorial-shell__main::-webkit-scrollbar-track,
+body.noeis-editorial .think-home-editorial-shell__right::-webkit-scrollbar-track,
+body.noeis-editorial .concept-index-editorial-shell__left::-webkit-scrollbar-track,
+body.noeis-editorial .concept-index-editorial-shell__main::-webkit-scrollbar-track,
+body.noeis-editorial .concept-index-editorial-shell__right::-webkit-scrollbar-track,
+body.noeis-editorial .notebook-editorial-shell__left::-webkit-scrollbar-track,
+body.noeis-editorial .notebook-editorial-shell__main::-webkit-scrollbar-track,
+body.noeis-editorial .notebook-editorial-shell__right::-webkit-scrollbar-track,
+body.noeis-editorial .question-editorial-shell__left::-webkit-scrollbar-track,
+body.noeis-editorial .question-editorial-shell__main::-webkit-scrollbar-track,
+body.noeis-editorial .question-editorial-shell__right::-webkit-scrollbar-track {
+  background: linear-gradient(180deg, transparent, var(--vellum-scrollbar-track), transparent);
+}
+
+body.noeis-editorial .three-pane__left::-webkit-scrollbar-thumb,
+body.noeis-editorial .three-pane__main::-webkit-scrollbar-thumb,
+body.noeis-editorial .three-pane__right-body::-webkit-scrollbar-thumb,
+body.noeis-editorial .think-home-editorial-shell__left::-webkit-scrollbar-thumb,
+body.noeis-editorial .think-home-editorial-shell__main::-webkit-scrollbar-thumb,
+body.noeis-editorial .think-home-editorial-shell__right::-webkit-scrollbar-thumb,
+body.noeis-editorial .concept-index-editorial-shell__left::-webkit-scrollbar-thumb,
+body.noeis-editorial .concept-index-editorial-shell__main::-webkit-scrollbar-thumb,
+body.noeis-editorial .concept-index-editorial-shell__right::-webkit-scrollbar-thumb,
+body.noeis-editorial .notebook-editorial-shell__left::-webkit-scrollbar-thumb,
+body.noeis-editorial .notebook-editorial-shell__main::-webkit-scrollbar-thumb,
+body.noeis-editorial .notebook-editorial-shell__right::-webkit-scrollbar-thumb,
+body.noeis-editorial .question-editorial-shell__left::-webkit-scrollbar-thumb,
+body.noeis-editorial .question-editorial-shell__main::-webkit-scrollbar-thumb,
+body.noeis-editorial .question-editorial-shell__right::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  border: 3px solid transparent;
+  background-clip: padding-box;
+  background-color: var(--vellum-scrollbar-thumb);
+  min-height: 44px;
+}
+
+body.noeis-editorial .three-pane__left:hover,
+body.noeis-editorial .three-pane__left:focus-within,
+body.noeis-editorial .three-pane__main:hover,
+body.noeis-editorial .three-pane__main:focus-within,
+body.noeis-editorial .three-pane__right-body:hover,
+body.noeis-editorial .three-pane__right-body:focus-within,
+body.noeis-editorial .think-home-editorial-shell__left:hover,
+body.noeis-editorial .think-home-editorial-shell__left:focus-within,
+body.noeis-editorial .think-home-editorial-shell__main:hover,
+body.noeis-editorial .think-home-editorial-shell__main:focus-within,
+body.noeis-editorial .think-home-editorial-shell__right:hover,
+body.noeis-editorial .think-home-editorial-shell__right:focus-within,
+body.noeis-editorial .concept-index-editorial-shell__left:hover,
+body.noeis-editorial .concept-index-editorial-shell__left:focus-within,
+body.noeis-editorial .concept-index-editorial-shell__main:hover,
+body.noeis-editorial .concept-index-editorial-shell__main:focus-within,
+body.noeis-editorial .concept-index-editorial-shell__right:hover,
+body.noeis-editorial .concept-index-editorial-shell__right:focus-within,
+body.noeis-editorial .notebook-editorial-shell__left:hover,
+body.noeis-editorial .notebook-editorial-shell__left:focus-within,
+body.noeis-editorial .notebook-editorial-shell__main:hover,
+body.noeis-editorial .notebook-editorial-shell__main:focus-within,
+body.noeis-editorial .notebook-editorial-shell__right:hover,
+body.noeis-editorial .notebook-editorial-shell__right:focus-within,
+body.noeis-editorial .question-editorial-shell__left:hover,
+body.noeis-editorial .question-editorial-shell__left:focus-within,
+body.noeis-editorial .question-editorial-shell__main:hover,
+body.noeis-editorial .question-editorial-shell__main:focus-within,
+body.noeis-editorial .question-editorial-shell__right:hover,
+body.noeis-editorial .question-editorial-shell__right:focus-within {
+  scrollbar-color: var(--vellum-scrollbar-thumb-hover) transparent;
+}
+
+body.noeis-editorial .three-pane__left:hover::-webkit-scrollbar-thumb,
+body.noeis-editorial .three-pane__left:focus-within::-webkit-scrollbar-thumb,
+body.noeis-editorial .three-pane__main:hover::-webkit-scrollbar-thumb,
+body.noeis-editorial .three-pane__main:focus-within::-webkit-scrollbar-thumb,
+body.noeis-editorial .three-pane__right-body:hover::-webkit-scrollbar-thumb,
+body.noeis-editorial .three-pane__right-body:focus-within::-webkit-scrollbar-thumb,
+body.noeis-editorial .think-home-editorial-shell__left:hover::-webkit-scrollbar-thumb,
+body.noeis-editorial .think-home-editorial-shell__left:focus-within::-webkit-scrollbar-thumb,
+body.noeis-editorial .think-home-editorial-shell__main:hover::-webkit-scrollbar-thumb,
+body.noeis-editorial .think-home-editorial-shell__main:focus-within::-webkit-scrollbar-thumb,
+body.noeis-editorial .think-home-editorial-shell__right:hover::-webkit-scrollbar-thumb,
+body.noeis-editorial .think-home-editorial-shell__right:focus-within::-webkit-scrollbar-thumb,
+body.noeis-editorial .concept-index-editorial-shell__left:hover::-webkit-scrollbar-thumb,
+body.noeis-editorial .concept-index-editorial-shell__left:focus-within::-webkit-scrollbar-thumb,
+body.noeis-editorial .concept-index-editorial-shell__main:hover::-webkit-scrollbar-thumb,
+body.noeis-editorial .concept-index-editorial-shell__main:focus-within::-webkit-scrollbar-thumb,
+body.noeis-editorial .concept-index-editorial-shell__right:hover::-webkit-scrollbar-thumb,
+body.noeis-editorial .concept-index-editorial-shell__right:focus-within::-webkit-scrollbar-thumb,
+body.noeis-editorial .notebook-editorial-shell__left:hover::-webkit-scrollbar-thumb,
+body.noeis-editorial .notebook-editorial-shell__left:focus-within::-webkit-scrollbar-thumb,
+body.noeis-editorial .notebook-editorial-shell__main:hover::-webkit-scrollbar-thumb,
+body.noeis-editorial .notebook-editorial-shell__main:focus-within::-webkit-scrollbar-thumb,
+body.noeis-editorial .notebook-editorial-shell__right:hover::-webkit-scrollbar-thumb,
+body.noeis-editorial .notebook-editorial-shell__right:focus-within::-webkit-scrollbar-thumb,
+body.noeis-editorial .question-editorial-shell__left:hover::-webkit-scrollbar-thumb,
+body.noeis-editorial .question-editorial-shell__left:focus-within::-webkit-scrollbar-thumb,
+body.noeis-editorial .question-editorial-shell__main:hover::-webkit-scrollbar-thumb,
+body.noeis-editorial .question-editorial-shell__main:focus-within::-webkit-scrollbar-thumb,
+body.noeis-editorial .question-editorial-shell__right:hover::-webkit-scrollbar-thumb,
+body.noeis-editorial .question-editorial-shell__right:focus-within::-webkit-scrollbar-thumb {
+  background-color: var(--vellum-scrollbar-thumb-hover);
+}
+
+body.noeis-editorial .three-pane__left::-webkit-scrollbar-thumb:active,
+body.noeis-editorial .three-pane__main::-webkit-scrollbar-thumb:active,
+body.noeis-editorial .three-pane__right-body::-webkit-scrollbar-thumb:active,
+body.noeis-editorial .think-home-editorial-shell__left::-webkit-scrollbar-thumb:active,
+body.noeis-editorial .think-home-editorial-shell__main::-webkit-scrollbar-thumb:active,
+body.noeis-editorial .think-home-editorial-shell__right::-webkit-scrollbar-thumb:active,
+body.noeis-editorial .concept-index-editorial-shell__left::-webkit-scrollbar-thumb:active,
+body.noeis-editorial .concept-index-editorial-shell__main::-webkit-scrollbar-thumb:active,
+body.noeis-editorial .concept-index-editorial-shell__right::-webkit-scrollbar-thumb:active,
+body.noeis-editorial .notebook-editorial-shell__left::-webkit-scrollbar-thumb:active,
+body.noeis-editorial .notebook-editorial-shell__main::-webkit-scrollbar-thumb:active,
+body.noeis-editorial .notebook-editorial-shell__right::-webkit-scrollbar-thumb:active,
+body.noeis-editorial .question-editorial-shell__left::-webkit-scrollbar-thumb:active,
+body.noeis-editorial .question-editorial-shell__main::-webkit-scrollbar-thumb:active,
+body.noeis-editorial .question-editorial-shell__right::-webkit-scrollbar-thumb:active {
+  background-color: var(--vellum-scrollbar-thumb-active);
 }
 
 body.noeis-editorial .question-editorial-context,
@@ -2537,6 +2775,66 @@ body.noeis-editorial .think-notebook-folder-tree-panel {
   gap: 10px;
 }
 
+body.noeis-editorial .notebook-folder-tree__toolbar {
+  display: grid;
+  gap: 10px;
+  padding-bottom: 6px;
+}
+
+body.noeis-editorial .notebook-folder-tree__toolbar-header,
+body.noeis-editorial .notebook-folder-tree__toolbar-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+body.noeis-editorial .notebook-folder-tree__toolbar-label,
+body.noeis-editorial .notebook-folder-tree__toolbar-action {
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif !important;
+  font-size: 0.68rem !important;
+  font-weight: 600;
+  line-height: 1.45 !important;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+body.noeis-editorial .notebook-folder-tree__toolbar-label {
+  color: rgba(97, 94, 91, 0.68);
+}
+
+body.noeis-editorial .notebook-folder-tree__toolbar-action {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: rgba(97, 94, 91, 0.74);
+}
+
+body.noeis-editorial .notebook-folder-tree__toolbar-action.is-primary,
+body.noeis-editorial .notebook-folder-tree__toolbar-action:hover,
+body.noeis-editorial .notebook-folder-tree__toolbar-action:focus-visible {
+  color: var(--vellum-accent);
+  outline: none;
+}
+
+body.noeis-editorial .notebook-folder-tree__toolbar-form {
+  display: grid;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--vellum-line);
+  border-radius: 18px;
+  background: rgba(246, 244, 236, 0.64);
+}
+
+body.noeis-editorial .notebook-folder-tree__toolbar-field input {
+  width: 100%;
+}
+
+body.noeis-editorial .notebook-folder-tree__toolbar-field {
+  display: grid;
+  gap: 6px;
+}
+
 body.noeis-editorial .think-notebook-folder-tree-panel__status {
   margin: 0;
 }
@@ -2571,36 +2869,49 @@ body.noeis-editorial .notebook-folder-tree .library-folder-toggle-spacer {
 body.noeis-editorial .notebook-folder-tree .library-folder-button {
   width: 100%;
   justify-content: space-between;
-  padding: 0 0 6px !important;
-  border-bottom: 1px solid transparent !important;
+  align-items: center;
+  gap: 12px;
+  padding: 7px 10px !important;
+  border-radius: 999px !important;
   color: rgba(56, 56, 49, 0.84) !important;
 }
 
 body.noeis-editorial .notebook-folder-tree .library-folder-button:hover,
 body.noeis-editorial .notebook-folder-tree .library-folder-row.is-selected .library-folder-button {
   color: var(--vellum-ink) !important;
-  border-bottom-color: var(--vellum-line) !important;
-}
-
-body.noeis-editorial .notebook-folder-tree .library-folder-name,
-body.noeis-editorial .notebook-folder-tree .library-folder-count,
-body.noeis-editorial .notebook-folder-tree__root-label,
-body.noeis-editorial .notebook-folder-tree__entry-meta {
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif !important;
-  font-size: 0.72rem !important;
-  line-height: 1.45 !important;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  background: rgba(246, 244, 236, 0.92) !important;
 }
 
 body.noeis-editorial .notebook-folder-tree .library-folder-name,
 body.noeis-editorial .notebook-folder-tree__root-label {
-  color: rgba(97, 94, 91, 0.84);
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif !important;
+  font-size: 0.82rem !important;
+  line-height: 1.45 !important;
+  letter-spacing: 0.01em;
+  text-transform: none;
+}
+
+body.noeis-editorial .notebook-folder-tree .library-folder-name,
+body.noeis-editorial .notebook-folder-tree__root-label {
+  color: rgba(56, 56, 49, 0.84);
 }
 
 body.noeis-editorial .notebook-folder-tree .library-folder-count,
 body.noeis-editorial .notebook-folder-tree__entry-meta {
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif !important;
+  font-size: 0.66rem !important;
+  line-height: 1.45 !important;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
   color: rgba(97, 94, 91, 0.6);
+}
+
+body.noeis-editorial .notebook-folder-tree .library-folder-count {
+  min-width: 1.8em;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: rgba(97, 94, 91, 0.08);
+  text-align: center;
 }
 
 body.noeis-editorial .notebook-folder-tree__root {
@@ -2664,9 +2975,8 @@ body.noeis-editorial .notebook-folder-tree__entry.is-active .notebook-folder-tre
 
 body.noeis-editorial .notebook-folder-tree__entry-move {
   align-self: center;
-  padding: 0 0 8px;
+  padding: 5px 0 8px;
   border: 0;
-  border-bottom: 1px solid transparent;
   background: transparent;
   color: rgba(97, 94, 91, 0.68);
   font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
@@ -2674,12 +2984,16 @@ body.noeis-editorial .notebook-folder-tree__entry-move {
   font-weight: 600;
   letter-spacing: 0.14em;
   text-transform: uppercase;
+  opacity: 0;
+  transition: opacity 140ms ease, color 140ms ease;
 }
 
+body.noeis-editorial .notebook-folder-tree__entry-row:hover .notebook-folder-tree__entry-move,
+body.noeis-editorial .notebook-folder-tree__entry-row:focus-within .notebook-folder-tree__entry-move,
 body.noeis-editorial .notebook-folder-tree__entry-move:hover:not(:disabled),
 body.noeis-editorial .notebook-folder-tree__entry-move:focus-visible {
+  opacity: 1;
   color: var(--vellum-accent);
-  border-bottom-color: var(--vellum-line-strong);
   outline: none;
 }
 
@@ -2742,6 +3056,33 @@ body.noeis-editorial .notebook-move-entry-modal__search {
   display: grid;
   gap: 8px;
   padding-top: 18px;
+}
+
+body.noeis-editorial .notebook-move-entry-modal__create-row {
+  display: grid;
+  gap: 10px;
+  padding: 10px 24px 0;
+}
+
+body.noeis-editorial .notebook-move-entry-modal__create-copy {
+  margin: 0;
+  color: rgba(97, 94, 91, 0.8);
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+
+body.noeis-editorial .notebook-move-entry-modal__create-field {
+  display: grid;
+  gap: 6px;
+}
+
+body.noeis-editorial .notebook-move-entry-modal__create-action {
+  justify-self: flex-start;
+}
+
+body.noeis-editorial .notebook-move-entry-modal__create-note {
+  margin: 0;
 }
 
 body.noeis-editorial .notebook-move-entry-modal__destinations {
@@ -4552,6 +4893,12 @@ body.noeis-editorial .three-pane--library .three-pane__main-header {
   align-items: start;
 }
 
+body.noeis-editorial .library-page-shell,
+body.noeis-editorial .library-page-shell .three-pane--library {
+  height: 100%;
+  min-height: 0;
+}
+
 body.noeis-editorial .three-pane--library-browse .three-pane__right-header {
   display: none !important;
 }
@@ -5093,15 +5440,16 @@ body.noeis-editorial .agent-skill-dock--inline .agent-skill-dock__footer {
 
 body.noeis-editorial .agent-thought-partner--stream {
   display: grid;
-  gap: 14px;
+  gap: 18px;
   padding: 0;
 }
 
 body.noeis-editorial .agent-thought-partner__stream-head {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 14px;
-  padding-bottom: 16px;
+  gap: 12px;
+  align-items: end;
+  padding-bottom: 12px;
   border-bottom: 1px solid var(--vellum-line);
 }
 
@@ -5125,7 +5473,7 @@ body.noeis-editorial .agent-thought-partner__stream-copy p {
 body.noeis-editorial .agent-thought-partner__quick-prompts .ui-quiet-button {
   justify-content: flex-start;
   min-height: 0;
-  padding: 0;
+  padding: 0 0 8px;
   border: 0 !important;
   border-bottom: 1px solid transparent !important;
   background: transparent !important;
@@ -5153,7 +5501,7 @@ body.noeis-editorial .agent-thought-partner__composer--stream {
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 10px;
   align-items: end;
-  padding: 18px 0 18px;
+  padding: 0 0 18px;
   border-bottom: 1px solid var(--vellum-line);
 }
 
@@ -5179,9 +5527,9 @@ body.noeis-editorial .agent-thought-partner__composer--stream textarea {
 }
 
 body.noeis-editorial .agent-thought-partner__submit {
-  min-width: 42px;
-  min-height: 42px;
-  padding: 0;
+  min-width: 112px;
+  min-height: 44px;
+  padding: 0 16px;
   border: 0 !important;
   background: #4f4a46 !important;
   color: #fffaf5 !important;
@@ -5195,8 +5543,53 @@ body.noeis-editorial .agent-thought-partner__submit:hover {
 body.noeis-editorial .agent-thought-partner__thread {
   display: grid;
   gap: 0;
-  max-height: 420px;
+  max-height: 380px;
+  padding-right: 4px;
   overflow-y: auto;
+}
+
+body.noeis-editorial .agent-thought-partner__plan-preview {
+  gap: 12px;
+  padding: 16px 18px;
+  border: 1px solid rgba(120, 110, 98, 0.14) !important;
+  border-radius: 22px;
+  background:
+    linear-gradient(180deg, rgba(252, 249, 243, 0.98), rgba(247, 242, 234, 0.92)) !important;
+  box-shadow: none !important;
+}
+
+body.noeis-editorial .agent-thought-partner__plan-preview h4 {
+  margin: 0;
+  font-family: "Newsreader", Georgia, serif;
+  font-size: 1.22rem;
+  line-height: 1.1;
+  color: var(--vellum-ink);
+}
+
+body.noeis-editorial .agent-thought-partner__plan-preview p {
+  margin: 0;
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 0.78rem;
+  line-height: 1.58;
+  color: rgba(79, 74, 70, 0.78);
+}
+
+body.noeis-editorial .agent-thought-partner__plan-preview-meta span {
+  background: rgba(255, 251, 246, 0.9) !important;
+  border-color: rgba(120, 110, 98, 0.14) !important;
+  color: rgba(97, 94, 91, 0.72);
+}
+
+body.noeis-editorial .agent-thought-partner__plan-preview-list {
+  gap: 6px;
+  padding-left: 1rem;
+}
+
+body.noeis-editorial .agent-thought-partner__plan-preview-list li {
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 0.78rem;
+  line-height: 1.5;
+  color: rgba(56, 56, 49, 0.82);
 }
 
 body.noeis-editorial .agent-thought-partner__message {
@@ -5297,9 +5690,9 @@ body.noeis-editorial .agent-thought-partner__related-label {
 
 body.noeis-editorial .agent-thought-partner__drafts {
   display: grid;
-  gap: 16px;
-  margin-top: 8px;
-  padding-top: 18px;
+  gap: 14px;
+  margin-top: 0;
+  padding-top: 16px;
   border-top: 1px solid var(--vellum-line);
 }
 
@@ -5322,11 +5715,26 @@ body.noeis-editorial .agent-thought-partner__drafts-head p {
 body.noeis-editorial .agent-thought-partner__draft-card {
   display: grid;
   gap: 14px;
-  padding: 18px 20px 20px;
+  padding: 16px 18px 18px;
   border: 1px solid var(--vellum-line) !important;
-  border-radius: 24px;
-  background: linear-gradient(180deg, rgba(255, 252, 247, 0.96), rgba(248, 245, 238, 0.92)) !important;
+  border-radius: 20px;
+  background: rgba(255, 252, 247, 0.9) !important;
   box-shadow: none !important;
+}
+
+body.noeis-editorial .agent-thought-partner__review-card,
+body.noeis-editorial .agent-thought-partner__review-card--structure,
+body.noeis-editorial .agent-thought-partner__snapshot-card,
+body.noeis-editorial .agent-thought-partner__structure-step,
+body.noeis-editorial .agent-thought-partner__structure-summary-chip {
+  border-color: rgba(120, 110, 98, 0.14) !important;
+  background: rgba(255, 252, 247, 0.9) !important;
+  box-shadow: none !important;
+}
+
+body.noeis-editorial .agent-thought-partner__review-card,
+body.noeis-editorial .agent-thought-partner__review-card--structure {
+  border-radius: 20px;
 }
 
 body.noeis-editorial .agent-thought-partner__draft-card.is-promoted {

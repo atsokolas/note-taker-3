@@ -98,6 +98,25 @@ const formatWorkflowCadence = (workflow = null) => {
   return safeCadence.replace(/_/g, ' ');
 };
 
+const describeStructureOperationPreview = (operation = {}) => {
+  const payload = operation?.payload && typeof operation.payload === 'object' ? operation.payload : {};
+  const preview = operation?.preview && typeof operation.preview === 'object' ? operation.preview : {};
+  switch (clean(operation?.type)) {
+    case 'create_folder':
+      return `Create ${clean(payload.name || preview.folderName || 'folder')}`;
+    case 'rename_folder':
+      return `Rename ${clean(preview.from || payload.folderId || 'folder')} to ${clean(payload.name || preview.to || 'new name')}`;
+    case 'move_item':
+      return `Move ${clean(preview.itemTitle || payload.itemTitle || payload.itemId || 'item')} into ${clean(preview.destinationFolderName || payload.destinationFolderName || payload.destinationFolderId || 'a better folder')}`;
+    case 'merge_folder':
+      return `Merge ${clean(preview.sourceFolderName || payload.sourceFolderId || 'folder')} into ${clean(preview.destinationFolderName || payload.destinationFolderName || payload.destinationFolderId || 'the destination folder')}`;
+    case 'delete_folder':
+      return `Delete ${clean(preview.folderName || payload.folderId || 'obsolete folder')}`;
+    default:
+      return clean(operation?.title) || formatStatusLabel(operation?.type || 'step');
+  }
+};
+
 const mapThreadMessages = (thread = null) => (
   Array.isArray(thread?.messages)
     ? thread.messages.map((message, index) => ({
@@ -303,6 +322,7 @@ const ThoughtPartnerPanel = ({
   const [editingDraftBody, setEditingDraftBody] = useState('');
   const [pendingSkillInvocation, setPendingSkillInvocation] = useState(null);
   const handledQueuedPromptIdRef = useRef('');
+  const threadViewportRef = useRef(null);
   const activeThreadId = clean(threadId || thread?.threadId);
 
   const context = useMemo(
@@ -450,17 +470,6 @@ const ThoughtPartnerPanel = ({
         })),
         limit: 6
       });
-      const hydratedMessages = result?.thread?.threadId ? mapThreadMessages(result.thread) : [];
-      const didHydrateThread = Boolean(result?.thread?.threadId && hydratedMessages.length > 0);
-      if (result?.thread?.threadId) {
-        hydrateFromThread(result.thread);
-        loadArtifactDrafts(result.thread.threadId);
-        loadRuns(result.thread.threadId);
-        loadProposedChanges(result.thread.threadId);
-        loadStructureProposals(result.thread.threadId);
-        loadHarnessMetrics(result.thread.threadId);
-        if (typeof onThreadChange === 'function') onThreadChange(result.thread);
-      }
       const assistantMessage = {
         id: `assistant-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
         role: 'assistant',
@@ -472,7 +481,34 @@ const ThoughtPartnerPanel = ({
           : null,
         planner: result?.planner && typeof result.planner === 'object' ? result.planner : null
       };
-      if (!didHydrateThread) {
+      const hydratedMessages = result?.thread?.threadId ? mapThreadMessages(result.thread) : [];
+      const didHydrateThread = Boolean(result?.thread?.threadId && hydratedMessages.length > 0);
+      if (result?.thread?.threadId) {
+        const threadForUi = didHydrateThread
+          ? result.thread
+          : {
+              ...result.thread,
+              messages: [...messages, userMessage, assistantMessage].map((entry) => ({
+                role: entry.role,
+                text: entry.text,
+                relatedItems: Array.isArray(entry.relatedItems) ? entry.relatedItems : [],
+                metadata: {
+                  premiumWebResearchAvailable: entry.premiumWebResearchAvailable,
+                  planner: entry.planner && typeof entry.planner === 'object' ? entry.planner : undefined
+                },
+                proposalBundle: entry.proposalBundle && typeof entry.proposalBundle === 'object'
+                  ? entry.proposalBundle
+                  : undefined
+              }))
+            };
+        hydrateFromThread(threadForUi);
+        loadArtifactDrafts(result.thread.threadId);
+        loadRuns(result.thread.threadId);
+        loadProposedChanges(result.thread.threadId);
+        loadStructureProposals(result.thread.threadId);
+        loadHarnessMetrics(result.thread.threadId);
+        if (typeof onThreadChange === 'function') onThreadChange(threadForUi);
+      } else {
         setMessages(prev => [...prev, assistantMessage]);
       }
       if (result?.draftArtifact?.draftId) {
@@ -484,6 +520,7 @@ const ThoughtPartnerPanel = ({
       }
       setPendingSkillInvocation(null);
     } catch (chatError) {
+      setInput(message);
       setError(chatError.response?.data?.error || 'Failed to ask agent.');
     } finally {
       setLoading(false);
@@ -521,6 +558,11 @@ const ThoughtPartnerPanel = ({
     loadStructureProposals(activeThreadId);
     loadHarnessMetrics(activeThreadId);
   }, [activeThreadId, loadArtifactDrafts, loadHarnessMetrics, loadProposedChanges, loadRuns, loadStructureProposals]);
+
+  useEffect(() => {
+    if (!threadViewportRef.current || messages.length === 0) return;
+    threadViewportRef.current.scrollTop = threadViewportRef.current.scrollHeight;
+  }, [messages]);
 
   useEffect(() => {
     const queuedId = clean(queuedPrompt?.id);
@@ -740,7 +782,67 @@ const ThoughtPartnerPanel = ({
     ];
   }, [harnessMetrics]);
   const isStreamVariant = variant === 'stream';
+  const isThreadStreamVariant = isStreamVariant && Boolean(activeThreadId);
   const partnerSubtitle = subtitle || (contextTitle ? `Context: ${contextTitle}` : 'Ask about your notes, concepts, and articles.');
+  const streamPlanPreview = useMemo(() => {
+    if (!isThreadStreamVariant) return null;
+    const primaryStructureProposal = pendingStructureProposals[0] || null;
+    if (primaryStructureProposal) {
+      const activeOperations = (Array.isArray(primaryStructureProposal.operations) ? primaryStructureProposal.operations : [])
+        .filter((operation) => clean(operation?.status).toLowerCase() !== 'rejected')
+        .slice(0, 2)
+        .map((operation) => describeStructureOperationPreview(operation))
+        .filter(Boolean);
+      return {
+        eyebrow: 'Organization plan',
+        title: clean(primaryStructureProposal.title) || 'Pending organization plan',
+        summary: truncate(primaryStructureProposal.summary || primaryStructureProposal.rationale, 150)
+          || 'The agent staged a cleanup plan for review before anything moves.',
+        meta: [
+          primaryStructureProposal.scopeRef ? `scope ${clean(primaryStructureProposal.scopeRef)}` : '',
+          Array.isArray(primaryStructureProposal.operations) ? `${primaryStructureProposal.operations.length} planned steps` : ''
+        ].filter(Boolean),
+        bullets: activeOperations
+      };
+    }
+
+    const planObjective = clean(thread?.plan?.objective);
+    const plannerRationale = clean(thread?.planner?.rationale || activePlanner?.rationale);
+    const planSteps = (Array.isArray(thread?.plan?.steps) ? thread.plan.steps : [])
+      .slice(0, 2)
+      .map((step) => clean(step?.title))
+      .filter(Boolean);
+    const checkpointActions = (Array.isArray(thread?.checkpoint?.nextActions) ? thread.checkpoint.nextActions : [])
+      .slice(0, 2)
+      .map((step) => clean(step))
+      .filter(Boolean);
+    const bullets = planSteps.length > 0 ? planSteps : checkpointActions;
+    if (!planObjective && !plannerRationale && bullets.length === 0) return null;
+    return {
+      eyebrow: 'Plan at a glance',
+      title: planObjective || 'Continue the working plan',
+      summary: truncate(plannerRationale
+        || clean(contextMetadata?.summary)
+        || 'Use the current plan to pick the next sharp move.', 150),
+      meta: [
+        clean(thread?.planner?.activeWorkerLabel || activePlanner?.activeWorkerLabel)
+          ? `specialist ${clean(thread?.planner?.activeWorkerLabel || activePlanner?.activeWorkerLabel)}`
+          : '',
+        Array.isArray(thread?.plan?.steps) && thread.plan.steps.length > 0 ? `${thread.plan.steps.length} plan steps` : ''
+      ].filter(Boolean),
+      bullets
+    };
+  }, [activePlanner?.activeWorkerLabel, activePlanner?.rationale, contextMetadata?.summary, isThreadStreamVariant, pendingStructureProposals, thread?.checkpoint?.nextActions, thread?.plan?.objective, thread?.plan?.steps, thread?.planner?.activeWorkerLabel, thread?.planner?.rationale]);
+  const handleComposerSubmit = useCallback((event) => {
+    if (event?.preventDefault) event.preventDefault();
+    submitMessage(input);
+  }, [input, submitMessage]);
+  const handleComposerKeyDown = useCallback((event) => {
+    if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
+      event.preventDefault();
+      submitMessage(input);
+    }
+  }, [input, submitMessage]);
   const handleClearPanel = useCallback(() => {
     setMessages([]);
     setThreadId('');
@@ -756,6 +858,467 @@ const ThoughtPartnerPanel = ({
     setEditingDraftBody('');
     setPendingSkillInvocation(null);
   }, [clearReviewState]);
+
+  const quickPromptsSection = (
+    <div className="agent-thought-partner__quick-prompts">
+      {promptTemplates.map((template) => {
+        const prompt = buildPrompt(template, contextTitle || contextId);
+        return (
+          <QuietButton
+            key={template}
+            type="button"
+            disabled={loading || disabled}
+            onClick={() => submitMessage(prompt, { allowPendingSkillInvocation: false })}
+          >
+            {prompt}
+          </QuietButton>
+        );
+      })}
+    </div>
+  );
+
+  const plannerStripSection = !isThreadStreamVariant && activePlanner ? (
+    <div className="agent-thought-partner__planner-strip">
+      <div className="agent-thought-partner__planner-pill">
+        <span className="agent-thought-partner__planner-label">Active specialist</span>
+        <strong>{activePlanner.activeWorkerLabel || formatWorkerRole(activePlanner.activeWorkerRole) || 'Planner'}</strong>
+      </div>
+      {clean(activePlanner.rationale) && (
+        <p className="agent-thought-partner__planner-copy">{activePlanner.rationale}</p>
+      )}
+    </div>
+  ) : null;
+
+  const scorecardSection = !isThreadStreamVariant && harnessStats.length > 0 ? (
+    <div className="agent-thought-partner__scorecard">
+      {harnessStats.map((stat) => (
+        <article key={stat.label} className="agent-thought-partner__scorecard-item">
+          <span className="agent-thought-partner__scorecard-label">{stat.label}</span>
+          <strong>{stat.value}</strong>
+          <p>{stat.detail}</p>
+        </article>
+      ))}
+    </div>
+  ) : null;
+
+  const streamPlanPreviewSection = isThreadStreamVariant && streamPlanPreview ? (
+    <section className="agent-thought-partner__plan-preview">
+      <div className="agent-thought-partner__plan-preview-head">
+        <span className="agent-thought-partner__plan-preview-eyebrow">{streamPlanPreview.eyebrow}</span>
+        {streamPlanPreview.meta.length > 0 && (
+          <div className="agent-thought-partner__plan-preview-meta">
+            {streamPlanPreview.meta.map((item) => (
+              <span key={`${streamPlanPreview.title}-${item}`}>{item}</span>
+            ))}
+          </div>
+        )}
+      </div>
+      <h4>{streamPlanPreview.title}</h4>
+      {clean(streamPlanPreview.summary) && <p>{streamPlanPreview.summary}</p>}
+      {streamPlanPreview.bullets.length > 0 && (
+        <ul className="agent-thought-partner__plan-preview-list">
+          {streamPlanPreview.bullets.map((item) => (
+            <li key={`${streamPlanPreview.title}-${item}`}>{item}</li>
+          ))}
+        </ul>
+      )}
+    </section>
+  ) : null;
+
+  const proposalBundlesSection = !isThreadStreamVariant && proposalBundles.length > 0 ? (
+    <div className="agent-thought-partner__drafts">
+      <div className="agent-thought-partner__drafts-head">
+        <h4>Pending proposal bundles</h4>
+        <p>Executable bundles the agent has proposed and the thread is still holding onto.</p>
+      </div>
+      {proposalBundles.map((bundle) => (
+        <article key={bundle.bundleId} className={`agent-thought-partner__draft-card is-${bundle.status || 'pending'}`}>
+          <div className="agent-thought-partner__draft-meta">
+            <span>proposal bundle</span>
+            <span>{bundle.status || 'pending'}</span>
+          </div>
+          <h4>{bundle.title || 'Untitled proposal bundle'}</h4>
+          {clean(bundle.summary) && (
+            <p className="agent-thought-partner__draft-summary">{bundle.summary}</p>
+          )}
+          <ol className="agent-thought-partner__draft-workflow-steps">
+            {(Array.isArray(bundle.operations) ? bundle.operations : []).map((operation) => (
+              <li key={`${bundle.bundleId}-${operation.opId || operation.title}`}>
+                {operation.title}
+              </li>
+            ))}
+          </ol>
+        </article>
+      ))}
+    </div>
+  ) : null;
+
+  const runsSection = !isThreadStreamVariant && runs.length > 0 ? (
+    <div className="agent-thought-partner__drafts">
+      <div className="agent-thought-partner__drafts-head">
+        <h4>Runs</h4>
+        <p>Completed and in-flight execution runs for this thread.</p>
+      </div>
+      {runs.map((run) => (
+        <article key={run.runId} className={`agent-thought-partner__draft-card is-${run.status || 'pending'}`}>
+          <div className="agent-thought-partner__draft-meta">
+            <span>run</span>
+            <span>{run.status || 'pending'}</span>
+          </div>
+          <h4>{run.title || 'Untitled run'}</h4>
+          <p className="agent-thought-partner__draft-summary">
+            {run.completedStepCount} of {run.steps.length} steps applied.
+          </p>
+          <ol className="agent-thought-partner__draft-workflow-steps">
+            {run.steps.map((step) => (
+              <li key={`${run.runId}-${step.opId || step.title}`}>
+                <strong>{step.title}</strong>
+                {step.status ? ` (${step.status})` : ''}
+                {clean(describeRunStepResult(step)) ? ` ${describeRunStepResult(step)}` : ''}
+              </li>
+            ))}
+          </ol>
+        </article>
+      ))}
+    </div>
+  ) : null;
+
+  const protocolApprovalsSection = (runApprovalModel.protocolApprovalsLoading
+    || clean(runApprovalModel.protocolApprovalsError)
+    || (Array.isArray(runApprovalModel.protocolApprovals) && runApprovalModel.protocolApprovals.length > 0)) ? (
+      <ProtocolApprovalsPanel
+        approvalsModel={runApprovalModel}
+        title="Run approvals"
+        subtitle="Risky run steps pause here until you approve or reject them."
+        emptyText="No pending run approvals."
+        className="agent-thought-partner__drafts"
+      />
+    ) : null;
+
+  const reviewStageSection = (pendingProposedChanges.length > 0 || pendingStructureProposals.length > 0) ? (
+    <div className="agent-thought-partner__drafts agent-thought-partner__drafts--review">
+      <div className="agent-thought-partner__drafts-head">
+        <h4>{pendingStructureProposals.length > 0 ? 'Organization plan' : 'Review stage'}</h4>
+        <p>
+          {pendingStructureProposals.length > 0
+            ? 'Review the cleanup plan before the agent changes the workspace structure.'
+            : 'Agent-authored edits waiting on your decision before they become live workspace changes.'}
+        </p>
+      </div>
+      {pendingStructureProposals.map((proposal) => (
+        <StructureProposalReview
+          key={proposal.structureProposalId}
+          proposal={proposal}
+          isLoading={structureProposalLoadingId === proposal.structureProposalId}
+          activeOperationId={structureProposalOperationLoadingId}
+          onApply={handleApplyStructureProposal}
+          onReject={handleRejectStructureProposal}
+          onUpdateOperationStatus={handleUpdateStructureProposalOperationStatus}
+        />
+      ))}
+      {pendingProposedChanges.map((change) => (
+        <article key={change.proposedChangeId} className={`agent-thought-partner__review-card is-${change.status || 'pending'}`}>
+          <div className="agent-thought-partner__review-head">
+            <div>
+              <div className="agent-thought-partner__draft-meta">
+                <span>{change.targetType || 'change'}</span>
+                <span>{formatStatusLabel(change.status)}</span>
+              </div>
+              <h4>{change.targetTitle || 'Untitled target'}</h4>
+            </div>
+            {Array.isArray(change?.diffSummary?.changedFields) && change.diffSummary.changedFields.length > 0 && (
+              <div className="agent-thought-partner__draft-meta">
+                {change.diffSummary.changedFields.map((field) => (
+                  <span key={`${change.proposedChangeId}-${field}`}>{field}</span>
+                ))}
+              </div>
+            )}
+          </div>
+          {clean(change.summary) && (
+            <p className="agent-thought-partner__draft-summary">{change.summary}</p>
+          )}
+          {editingProposedChangeId === change.proposedChangeId ? (
+            <div className="agent-thought-partner__draft-editor">
+              <label className="agent-thought-partner__draft-field">
+                <span>Proposed text</span>
+                <textarea
+                  value={editingProposedChangeText}
+                  onChange={(event) => setEditingProposedChangeText(event.target.value)}
+                  rows={6}
+                  disabled={proposedChangeLoadingId === change.proposedChangeId}
+                />
+              </label>
+              <div className="agent-thought-partner__draft-actions">
+                <Button
+                  variant="secondary"
+                  type="button"
+                  disabled={proposedChangeLoadingId === change.proposedChangeId}
+                  onClick={() => handleSaveProposedChangeEdit(change)}
+                >
+                  {proposedChangeLoadingId === change.proposedChangeId ? 'Saving…' : 'Save edit'}
+                </Button>
+                <QuietButton
+                  type="button"
+                  disabled={proposedChangeLoadingId === change.proposedChangeId}
+                  onClick={handleCancelEditProposedChange}
+                >
+                  Cancel
+                </QuietButton>
+              </div>
+            </div>
+          ) : (
+            <>
+              <div className="agent-thought-partner__snapshot-grid">
+                <section className="agent-thought-partner__snapshot-card">
+                  <span className="agent-thought-partner__snapshot-label">Current</span>
+                  <p>{getSnapshotText(change.currentSnapshot) || 'No existing text on this object.'}</p>
+                </section>
+                <section className="agent-thought-partner__snapshot-card is-proposed">
+                  <span className="agent-thought-partner__snapshot-label">Proposed</span>
+                  <p>{getSnapshotText(change.proposedSnapshot) || 'No proposed text.'}</p>
+                </section>
+              </div>
+              <div className="agent-thought-partner__draft-actions">
+                <Button
+                  variant="secondary"
+                  type="button"
+                  disabled={proposedChangeLoadingId === change.proposedChangeId || clean(change.status).toLowerCase() !== 'pending'}
+                  onClick={() => handleAcceptProposedChange(change.proposedChangeId)}
+                >
+                  {proposedChangeLoadingId === change.proposedChangeId ? 'Applying…' : 'Accept'}
+                </Button>
+                <Button
+                  variant="secondary"
+                  type="button"
+                  disabled={proposedChangeLoadingId === change.proposedChangeId || clean(change.status).toLowerCase() !== 'pending'}
+                  onClick={() => handleStartEditProposedChange(change)}
+                >
+                  Edit before accept
+                </Button>
+                <QuietButton
+                  type="button"
+                  disabled={proposedChangeLoadingId === change.proposedChangeId || clean(change.status).toLowerCase() !== 'pending'}
+                  onClick={() => handleRejectProposedChange(change.proposedChangeId)}
+                >
+                  Reject
+                </QuietButton>
+              </div>
+            </>
+          )}
+        </article>
+      ))}
+    </div>
+  ) : null;
+
+  const appliedHistorySection = (resolvedProposedChanges.length > 0 || resolvedStructureProposals.length > 0) ? (
+    <div className="agent-thought-partner__drafts agent-thought-partner__drafts--history">
+      <div className="agent-thought-partner__drafts-head">
+        <h4>Applied history</h4>
+        <p>Accepted changes and structure plans stay reversible here, so agent work remains visible after it lands.</p>
+      </div>
+      {resolvedStructureProposals.map((proposal) => (
+        <StructureProposalReview
+          key={proposal.structureProposalId}
+          proposal={proposal}
+          isLoading={structureProposalLoadingId === proposal.structureProposalId}
+          activeOperationId={structureProposalOperationLoadingId}
+          onRollback={handleRollbackStructureProposal}
+        />
+      ))}
+      {resolvedProposedChanges.map((change) => {
+        const status = clean(change.status).toLowerCase();
+        const isApplied = status === 'applied';
+        const timelineLabel = change.rolledBackAt
+          ? `Rolled back ${formatDateTime(change.rolledBackAt)}`
+          : change.acceptedAt
+            ? `Applied ${formatDateTime(change.acceptedAt)}`
+            : change.rejectedAt
+              ? `Rejected ${formatDateTime(change.rejectedAt)}`
+              : '';
+        return (
+          <article key={change.proposedChangeId} className={`agent-thought-partner__review-card is-history is-${change.status || 'pending'}`}>
+            <div className="agent-thought-partner__review-head">
+              <div>
+                <div className="agent-thought-partner__draft-meta">
+                  <span>{change.targetType || 'change'}</span>
+                  <span>{formatStatusLabel(change.status)}</span>
+                </div>
+                <h4>{change.targetTitle || 'Untitled target'}</h4>
+              </div>
+              {timelineLabel && (
+                <p className="agent-thought-partner__history-timestamp">{timelineLabel}</p>
+              )}
+            </div>
+            {clean(change.summary) && (
+              <p className="agent-thought-partner__draft-summary">{change.summary}</p>
+            )}
+            <div className="agent-thought-partner__snapshot-grid">
+              <section className="agent-thought-partner__snapshot-card">
+                <span className="agent-thought-partner__snapshot-label">Before</span>
+                <p>{getSnapshotText(change.currentSnapshot) || 'No stored pre-change text.'}</p>
+              </section>
+              <section className="agent-thought-partner__snapshot-card is-proposed">
+                <span className="agent-thought-partner__snapshot-label">Applied</span>
+                <p>{getSnapshotText(change.proposedSnapshot) || 'No applied text.'}</p>
+              </section>
+            </div>
+            {isApplied && (
+              <div className="agent-thought-partner__draft-actions">
+                <Button
+                  variant="secondary"
+                  type="button"
+                  disabled={proposedChangeLoadingId === change.proposedChangeId}
+                  onClick={() => handleRollbackProposedChange(change.proposedChangeId)}
+                >
+                  {proposedChangeLoadingId === change.proposedChangeId ? 'Rolling back…' : 'Roll back'}
+                </Button>
+              </div>
+            )}
+          </article>
+        );
+      })}
+    </div>
+  ) : null;
+
+  const artifactDraftsSection = !isThreadStreamVariant && visibleArtifactDrafts.length > 0 ? (
+    <div className="agent-thought-partner__drafts">
+      <div className="agent-thought-partner__drafts-head">
+        <h4>Draft artifacts</h4>
+        <p>Agent-created outputs you can promote into real workspace objects.</p>
+      </div>
+      {visibleArtifactDrafts.map((draft) => {
+        const isLoadingDraft = artifactDraftLoadingId === draft.draftId;
+        const workflowSteps = Array.isArray(draft?.skill?.workflow?.steps) ? draft.skill.workflow.steps.slice(0, 4) : [];
+        const nextSkills = Array.isArray(draft?.skill?.workflow?.nextSkills) ? draft.skill.workflow.nextSkills.slice(0, 3) : [];
+        return (
+          <article key={draft.draftId} className={`agent-thought-partner__draft-card is-${draft.status || 'pending'}`}>
+            <div className="agent-thought-partner__draft-meta">
+              <span>{draft.artifactType || 'draft'}</span>
+              <span>{draft.status || 'pending'}</span>
+            </div>
+            <h4>{draft.title || 'Untitled draft'}</h4>
+            <p className="agent-thought-partner__draft-summary">{draft.summary || draft.body.slice(0, 220)}</p>
+            {workflowSteps.length > 0 && (
+              <div className="agent-thought-partner__draft-workflow">
+                <div className="agent-thought-partner__draft-workflow-head">
+                  <span>{clean(draft?.skill?.workflow?.label) || 'Workflow'}</span>
+                  <span>{workflowSteps.length} steps</span>
+                </div>
+                {(formatWorkflowTrack(draft?.skill?.workflow) || formatWorkflowCadence(draft?.skill?.workflow)) && (
+                  <div className="agent-thought-partner__draft-meta">
+                    {formatWorkflowTrack(draft?.skill?.workflow) && <span>{formatWorkflowTrack(draft?.skill?.workflow)}</span>}
+                    {formatWorkflowCadence(draft?.skill?.workflow) && <span>{formatWorkflowCadence(draft?.skill?.workflow)}</span>}
+                  </div>
+                )}
+                <ol className="agent-thought-partner__draft-workflow-steps">
+                  {workflowSteps.map((step, index) => (
+                    <li key={`${draft.draftId}-workflow-${index}`}>{step}</li>
+                  ))}
+                </ol>
+              </div>
+            )}
+            {editingDraftId === draft.draftId && draft.status !== 'promoted' && (
+              <div className="agent-thought-partner__draft-editor">
+                <label className="agent-thought-partner__draft-field">
+                  <span>Title</span>
+                  <input
+                    type="text"
+                    value={editingDraftTitle}
+                    onChange={(event) => setEditingDraftTitle(event.target.value)}
+                    disabled={isLoadingDraft}
+                  />
+                </label>
+                <label className="agent-thought-partner__draft-field">
+                  <span>Summary</span>
+                  <textarea
+                    value={editingDraftSummary}
+                    onChange={(event) => setEditingDraftSummary(event.target.value)}
+                    rows={2}
+                    disabled={isLoadingDraft}
+                  />
+                </label>
+                <label className="agent-thought-partner__draft-field">
+                  <span>Body</span>
+                  <textarea
+                    value={editingDraftBody}
+                    onChange={(event) => setEditingDraftBody(event.target.value)}
+                    rows={8}
+                    disabled={isLoadingDraft}
+                  />
+                </label>
+                <div className="agent-thought-partner__draft-actions">
+                  <Button
+                    variant="secondary"
+                    type="button"
+                    disabled={isLoadingDraft || !clean(editingDraftTitle) || !clean(editingDraftBody)}
+                    onClick={() => handleSaveEditDraft(draft.draftId)}
+                  >
+                    {isLoadingDraft ? 'Saving…' : 'Save revision'}
+                  </Button>
+                  <QuietButton
+                    type="button"
+                    disabled={isLoadingDraft}
+                    onClick={handleCancelEditDraft}
+                  >
+                    Cancel
+                  </QuietButton>
+                </div>
+              </div>
+            )}
+            {draft.promotedTo?.path ? (
+              <a href={draft.promotedTo.path} className="agent-thought-partner__related-link">
+                Open {draft.promotedTo.title || draft.promotedTo.type || 'artifact'}
+              </a>
+            ) : editingDraftId !== draft.draftId ? (
+              <div className="agent-thought-partner__draft-actions">
+                <Button
+                  variant="secondary"
+                  type="button"
+                  disabled={isLoadingDraft}
+                  onClick={() => handleStartEditDraft(draft)}
+                >
+                  {isLoadingDraft ? 'Working…' : 'Revise'}
+                </Button>
+                <Button
+                  variant="secondary"
+                  type="button"
+                  disabled={isLoadingDraft}
+                  onClick={() => handlePromoteDraft(draft.draftId)}
+                >
+                  {isLoadingDraft ? 'Applying…' : 'Promote'}
+                </Button>
+                <QuietButton
+                  type="button"
+                  disabled={isLoadingDraft}
+                  onClick={() => handleDismissDraft(draft.draftId)}
+                >
+                  Dismiss
+                </QuietButton>
+              </div>
+            ) : null}
+            {editingDraftId !== draft.draftId && nextSkills.length > 0 && (
+              <div className="agent-thought-partner__draft-continuations">
+                <span className="agent-thought-partner__draft-continuations-label">Continue with</span>
+                <div className="agent-thought-partner__draft-actions">
+                  {nextSkills.map((skill) => (
+                    <Button
+                      key={`${draft.draftId}-${skill.id}`}
+                      variant="secondary"
+                      type="button"
+                      disabled={isLoadingDraft}
+                      onClick={() => handleContinueWorkflowDraft(draft, skill)}
+                    >
+                      {skill.title}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </article>
+        );
+      })}
+    </div>
+  ) : null;
 
   return (
     <SurfaceCard className={`agent-thought-partner ${isStreamVariant ? 'agent-thought-partner--stream' : ''} ${className}`.trim()} data-testid="thought-partner-panel">
@@ -789,71 +1352,36 @@ const ThoughtPartnerPanel = ({
         />
       )}
 
-      <div className="agent-thought-partner__quick-prompts">
-        {promptTemplates.map((template) => {
-          const prompt = buildPrompt(template, contextTitle || contextId);
-          return (
-            <QuietButton
-              key={template}
-              type="button"
-              disabled={loading || disabled}
-              onClick={() => submitMessage(prompt, { allowPendingSkillInvocation: false })}
-            >
-              {prompt}
-            </QuietButton>
-          );
-        })}
-      </div>
+      {!isThreadStreamVariant && quickPromptsSection}
+      {plannerStripSection}
+      {scorecardSection}
+      {streamPlanPreviewSection}
 
-      {activePlanner && (
-        <div className="agent-thought-partner__planner-strip">
-          <div className="agent-thought-partner__planner-pill">
-            <span className="agent-thought-partner__planner-label">Active specialist</span>
-            <strong>{activePlanner.activeWorkerLabel || formatWorkerRole(activePlanner.activeWorkerRole) || 'Planner'}</strong>
-          </div>
-          {clean(activePlanner.rationale) && (
-            <p className="agent-thought-partner__planner-copy">{activePlanner.rationale}</p>
-          )}
-        </div>
-      )}
-
-      {harnessStats.length > 0 && (
-        <div className="agent-thought-partner__scorecard">
-          {harnessStats.map((stat) => (
-            <article key={stat.label} className="agent-thought-partner__scorecard-item">
-              <span className="agent-thought-partner__scorecard-label">{stat.label}</span>
-              <strong>{stat.value}</strong>
-              <p>{stat.detail}</p>
-            </article>
-          ))}
-        </div>
-      )}
-
-      <div className={`agent-thought-partner__composer ${isStreamVariant ? 'agent-thought-partner__composer--stream' : ''}`.trim()}>
+      <form className={`agent-thought-partner__composer ${isStreamVariant ? 'agent-thought-partner__composer--stream' : ''}`.trim()} onSubmit={handleComposerSubmit}>
         <textarea
           value={input}
           onChange={(event) => setInput(event.target.value)}
+          onKeyDown={handleComposerKeyDown}
           placeholder={placeholder}
           rows={3}
           disabled={loading || disabled}
         />
         <Button
           variant="secondary"
-          type="button"
+          type="submit"
           className={isStreamVariant ? 'agent-thought-partner__submit' : ''}
-          onClick={() => submitMessage(input)}
           disabled={loading || disabled || !clean(input)}
         >
           {loading ? 'Thinking…' : submitLabel}
         </Button>
-      </div>
+      </form>
 
       {error && <p className="status-message error-message">{error}</p>}
       {!error && messages.length === 0 && (
         <p className="muted small">{emptyStateText}</p>
       )}
 
-      <div className="agent-thought-partner__thread">
+      <div className="agent-thought-partner__thread" ref={threadViewportRef}>
         {messages.map((message) => (
           <div
             key={message.id}
@@ -900,396 +1428,16 @@ const ThoughtPartnerPanel = ({
         ))}
       </div>
 
-      {proposalBundles.length > 0 && (
-        <div className="agent-thought-partner__drafts">
-          <div className="agent-thought-partner__drafts-head">
-            <h4>Pending proposal bundles</h4>
-            <p>Executable bundles the agent has proposed and the thread is still holding onto.</p>
-          </div>
-          {proposalBundles.map((bundle) => (
-            <article key={bundle.bundleId} className={`agent-thought-partner__draft-card is-${bundle.status || 'pending'}`}>
-              <div className="agent-thought-partner__draft-meta">
-                <span>proposal bundle</span>
-                <span>{bundle.status || 'pending'}</span>
-              </div>
-              <h4>{bundle.title || 'Untitled proposal bundle'}</h4>
-              {clean(bundle.summary) && (
-                <p className="agent-thought-partner__draft-summary">{bundle.summary}</p>
-              )}
-              <ol className="agent-thought-partner__draft-workflow-steps">
-                {(Array.isArray(bundle.operations) ? bundle.operations : []).map((operation) => (
-                  <li key={`${bundle.bundleId}-${operation.opId || operation.title}`}>
-                    {operation.title}
-                  </li>
-                ))}
-              </ol>
-            </article>
-          ))}
-        </div>
-      )}
-
-      {runs.length > 0 && (
-        <div className="agent-thought-partner__drafts">
-          <div className="agent-thought-partner__drafts-head">
-            <h4>Runs</h4>
-            <p>Completed and in-flight execution runs for this thread.</p>
-          </div>
-          {runs.map((run) => (
-            <article key={run.runId} className={`agent-thought-partner__draft-card is-${run.status || 'pending'}`}>
-              <div className="agent-thought-partner__draft-meta">
-                <span>run</span>
-                <span>{run.status || 'pending'}</span>
-              </div>
-              <h4>{run.title || 'Untitled run'}</h4>
-              <p className="agent-thought-partner__draft-summary">
-                {run.completedStepCount} of {run.steps.length} steps applied.
-              </p>
-              <ol className="agent-thought-partner__draft-workflow-steps">
-                {run.steps.map((step) => (
-                  <li key={`${run.runId}-${step.opId || step.title}`}>
-                    <strong>{step.title}</strong>
-                    {step.status ? ` (${step.status})` : ''}
-                    {clean(describeRunStepResult(step)) ? ` ${describeRunStepResult(step)}` : ''}
-                  </li>
-                ))}
-              </ol>
-            </article>
-          ))}
-        </div>
-      )}
-
-      {(runApprovalModel.protocolApprovalsLoading
-        || clean(runApprovalModel.protocolApprovalsError)
-        || (Array.isArray(runApprovalModel.protocolApprovals) && runApprovalModel.protocolApprovals.length > 0)) && (
-        <ProtocolApprovalsPanel
-          approvalsModel={runApprovalModel}
-          title="Run approvals"
-          subtitle="Risky run steps pause here until you approve or reject them."
-          emptyText="No pending run approvals."
-          className="agent-thought-partner__drafts"
-        />
-      )}
-
-      {(pendingProposedChanges.length > 0 || pendingStructureProposals.length > 0) && (
-        <div className="agent-thought-partner__drafts agent-thought-partner__drafts--review">
-          <div className="agent-thought-partner__drafts-head">
-            <h4>Review stage</h4>
-            <p>Agent-authored edits and organization plans waiting on your decision before they become part of the live workspace.</p>
-          </div>
-          {pendingStructureProposals.map((proposal) => (
-            <StructureProposalReview
-              key={proposal.structureProposalId}
-              proposal={proposal}
-              isLoading={structureProposalLoadingId === proposal.structureProposalId}
-              activeOperationId={structureProposalOperationLoadingId}
-              onApply={handleApplyStructureProposal}
-              onReject={handleRejectStructureProposal}
-              onUpdateOperationStatus={handleUpdateStructureProposalOperationStatus}
-            />
-          ))}
-          {pendingProposedChanges.map((change) => (
-            <article key={change.proposedChangeId} className={`agent-thought-partner__review-card is-${change.status || 'pending'}`}>
-              <div className="agent-thought-partner__review-head">
-                <div>
-                  <div className="agent-thought-partner__draft-meta">
-                    <span>{change.targetType || 'change'}</span>
-                    <span>{formatStatusLabel(change.status)}</span>
-                  </div>
-                  <h4>{change.targetTitle || 'Untitled target'}</h4>
-                </div>
-                {Array.isArray(change?.diffSummary?.changedFields) && change.diffSummary.changedFields.length > 0 && (
-                  <div className="agent-thought-partner__draft-meta">
-                    {change.diffSummary.changedFields.map((field) => (
-                      <span key={`${change.proposedChangeId}-${field}`}>{field}</span>
-                    ))}
-                  </div>
-                )}
-              </div>
-              {clean(change.summary) && (
-                <p className="agent-thought-partner__draft-summary">{change.summary}</p>
-              )}
-              {editingProposedChangeId === change.proposedChangeId ? (
-                <div className="agent-thought-partner__draft-editor">
-                  <label className="agent-thought-partner__draft-field">
-                    <span>Proposed text</span>
-                    <textarea
-                      value={editingProposedChangeText}
-                      onChange={(event) => setEditingProposedChangeText(event.target.value)}
-                      rows={6}
-                      disabled={proposedChangeLoadingId === change.proposedChangeId}
-                    />
-                  </label>
-                  <div className="agent-thought-partner__draft-actions">
-                    <Button
-                      variant="secondary"
-                      type="button"
-                      disabled={proposedChangeLoadingId === change.proposedChangeId}
-                      onClick={() => handleSaveProposedChangeEdit(change)}
-                    >
-                      {proposedChangeLoadingId === change.proposedChangeId ? 'Saving…' : 'Save edit'}
-                    </Button>
-                    <QuietButton
-                      type="button"
-                      disabled={proposedChangeLoadingId === change.proposedChangeId}
-                      onClick={handleCancelEditProposedChange}
-                    >
-                      Cancel
-                    </QuietButton>
-                  </div>
-                </div>
-              ) : (
-                <>
-                  <div className="agent-thought-partner__snapshot-grid">
-                    <section className="agent-thought-partner__snapshot-card">
-                      <span className="agent-thought-partner__snapshot-label">Current</span>
-                      <p>{getSnapshotText(change.currentSnapshot) || 'No existing text on this object.'}</p>
-                    </section>
-                    <section className="agent-thought-partner__snapshot-card is-proposed">
-                      <span className="agent-thought-partner__snapshot-label">Proposed</span>
-                      <p>{getSnapshotText(change.proposedSnapshot) || 'No proposed text.'}</p>
-                    </section>
-                  </div>
-                  <div className="agent-thought-partner__draft-actions">
-                    <Button
-                      variant="secondary"
-                      type="button"
-                      disabled={proposedChangeLoadingId === change.proposedChangeId || clean(change.status).toLowerCase() !== 'pending'}
-                      onClick={() => handleAcceptProposedChange(change.proposedChangeId)}
-                    >
-                      {proposedChangeLoadingId === change.proposedChangeId ? 'Applying…' : 'Accept'}
-                    </Button>
-                    <Button
-                      variant="secondary"
-                      type="button"
-                      disabled={proposedChangeLoadingId === change.proposedChangeId || clean(change.status).toLowerCase() !== 'pending'}
-                      onClick={() => handleStartEditProposedChange(change)}
-                    >
-                      Edit before accept
-                    </Button>
-                    <QuietButton
-                      type="button"
-                      disabled={proposedChangeLoadingId === change.proposedChangeId || clean(change.status).toLowerCase() !== 'pending'}
-                      onClick={() => handleRejectProposedChange(change.proposedChangeId)}
-                    >
-                      Reject
-                    </QuietButton>
-                  </div>
-                </>
-              )}
-            </article>
-          ))}
-        </div>
-      )}
-
-      {(resolvedProposedChanges.length > 0 || resolvedStructureProposals.length > 0) && (
-        <div className="agent-thought-partner__drafts agent-thought-partner__drafts--history">
-          <div className="agent-thought-partner__drafts-head">
-            <h4>Applied history</h4>
-            <p>Accepted changes and structure plans stay reversible here, so agent work remains visible after it lands.</p>
-          </div>
-          {resolvedStructureProposals.map((proposal) => (
-            <StructureProposalReview
-              key={proposal.structureProposalId}
-              proposal={proposal}
-              isLoading={structureProposalLoadingId === proposal.structureProposalId}
-              activeOperationId={structureProposalOperationLoadingId}
-              onRollback={handleRollbackStructureProposal}
-            />
-          ))}
-          {resolvedProposedChanges.map((change) => {
-            const status = clean(change.status).toLowerCase();
-            const isApplied = status === 'applied';
-            const timelineLabel = change.rolledBackAt
-              ? `Rolled back ${formatDateTime(change.rolledBackAt)}`
-              : change.acceptedAt
-                ? `Applied ${formatDateTime(change.acceptedAt)}`
-                : change.rejectedAt
-                  ? `Rejected ${formatDateTime(change.rejectedAt)}`
-                  : '';
-            return (
-              <article key={change.proposedChangeId} className={`agent-thought-partner__review-card is-history is-${change.status || 'pending'}`}>
-                <div className="agent-thought-partner__review-head">
-                  <div>
-                    <div className="agent-thought-partner__draft-meta">
-                      <span>{change.targetType || 'change'}</span>
-                      <span>{formatStatusLabel(change.status)}</span>
-                    </div>
-                    <h4>{change.targetTitle || 'Untitled target'}</h4>
-                  </div>
-                  {timelineLabel && (
-                    <p className="agent-thought-partner__history-timestamp">{timelineLabel}</p>
-                  )}
-                </div>
-                {clean(change.summary) && (
-                  <p className="agent-thought-partner__draft-summary">{change.summary}</p>
-                )}
-                <div className="agent-thought-partner__snapshot-grid">
-                  <section className="agent-thought-partner__snapshot-card">
-                    <span className="agent-thought-partner__snapshot-label">Before</span>
-                    <p>{getSnapshotText(change.currentSnapshot) || 'No stored pre-change text.'}</p>
-                  </section>
-                  <section className="agent-thought-partner__snapshot-card is-proposed">
-                    <span className="agent-thought-partner__snapshot-label">Applied</span>
-                    <p>{getSnapshotText(change.proposedSnapshot) || 'No applied text.'}</p>
-                  </section>
-                </div>
-                {isApplied && (
-                  <div className="agent-thought-partner__draft-actions">
-                    <Button
-                      variant="secondary"
-                      type="button"
-                      disabled={proposedChangeLoadingId === change.proposedChangeId}
-                      onClick={() => handleRollbackProposedChange(change.proposedChangeId)}
-                    >
-                      {proposedChangeLoadingId === change.proposedChangeId ? 'Rolling back…' : 'Roll back'}
-                    </Button>
-                  </div>
-                )}
-              </article>
-            );
-          })}
-        </div>
-      )}
-
-      {visibleArtifactDrafts.length > 0 && (
-        <div className="agent-thought-partner__drafts">
-          <div className="agent-thought-partner__drafts-head">
-            <h4>Draft artifacts</h4>
-            <p>Agent-created outputs you can promote into real workspace objects.</p>
-          </div>
-          {visibleArtifactDrafts.map((draft) => {
-            const isLoadingDraft = artifactDraftLoadingId === draft.draftId;
-            const workflowSteps = Array.isArray(draft?.skill?.workflow?.steps) ? draft.skill.workflow.steps.slice(0, 4) : [];
-            const nextSkills = Array.isArray(draft?.skill?.workflow?.nextSkills) ? draft.skill.workflow.nextSkills.slice(0, 3) : [];
-            return (
-              <article key={draft.draftId} className={`agent-thought-partner__draft-card is-${draft.status || 'pending'}`}>
-                <div className="agent-thought-partner__draft-meta">
-                  <span>{draft.artifactType || 'draft'}</span>
-                  <span>{draft.status || 'pending'}</span>
-                </div>
-                <h4>{draft.title || 'Untitled draft'}</h4>
-                <p className="agent-thought-partner__draft-summary">{draft.summary || draft.body.slice(0, 220)}</p>
-                {workflowSteps.length > 0 && (
-                  <div className="agent-thought-partner__draft-workflow">
-                    <div className="agent-thought-partner__draft-workflow-head">
-                      <span>{clean(draft?.skill?.workflow?.label) || 'Workflow'}</span>
-                      <span>{workflowSteps.length} steps</span>
-                    </div>
-                    {(formatWorkflowTrack(draft?.skill?.workflow) || formatWorkflowCadence(draft?.skill?.workflow)) && (
-                      <div className="agent-thought-partner__draft-meta">
-                        {formatWorkflowTrack(draft?.skill?.workflow) && <span>{formatWorkflowTrack(draft?.skill?.workflow)}</span>}
-                        {formatWorkflowCadence(draft?.skill?.workflow) && <span>{formatWorkflowCadence(draft?.skill?.workflow)}</span>}
-                      </div>
-                    )}
-                    <ol className="agent-thought-partner__draft-workflow-steps">
-                      {workflowSteps.map((step, index) => (
-                        <li key={`${draft.draftId}-workflow-${index}`}>{step}</li>
-                      ))}
-                    </ol>
-                  </div>
-                )}
-                {editingDraftId === draft.draftId && draft.status !== 'promoted' && (
-                  <div className="agent-thought-partner__draft-editor">
-                    <label className="agent-thought-partner__draft-field">
-                      <span>Title</span>
-                      <input
-                        type="text"
-                        value={editingDraftTitle}
-                        onChange={(event) => setEditingDraftTitle(event.target.value)}
-                        disabled={isLoadingDraft}
-                      />
-                    </label>
-                    <label className="agent-thought-partner__draft-field">
-                      <span>Summary</span>
-                      <textarea
-                        value={editingDraftSummary}
-                        onChange={(event) => setEditingDraftSummary(event.target.value)}
-                        rows={2}
-                        disabled={isLoadingDraft}
-                      />
-                    </label>
-                    <label className="agent-thought-partner__draft-field">
-                      <span>Body</span>
-                      <textarea
-                        value={editingDraftBody}
-                        onChange={(event) => setEditingDraftBody(event.target.value)}
-                        rows={8}
-                        disabled={isLoadingDraft}
-                      />
-                    </label>
-                    <div className="agent-thought-partner__draft-actions">
-                      <Button
-                        variant="secondary"
-                        type="button"
-                        disabled={isLoadingDraft || !clean(editingDraftTitle) || !clean(editingDraftBody)}
-                        onClick={() => handleSaveEditDraft(draft.draftId)}
-                      >
-                        {isLoadingDraft ? 'Saving…' : 'Save revision'}
-                      </Button>
-                      <QuietButton
-                        type="button"
-                        disabled={isLoadingDraft}
-                        onClick={handleCancelEditDraft}
-                      >
-                        Cancel
-                      </QuietButton>
-                    </div>
-                  </div>
-                )}
-                {draft.promotedTo?.path ? (
-                  <a href={draft.promotedTo.path} className="agent-thought-partner__related-link">
-                    Open {draft.promotedTo.title || draft.promotedTo.type || 'artifact'}
-                  </a>
-                ) : editingDraftId !== draft.draftId ? (
-                  <div className="agent-thought-partner__draft-actions">
-                    <Button
-                      variant="secondary"
-                      type="button"
-                      disabled={isLoadingDraft}
-                      onClick={() => handleStartEditDraft(draft)}
-                    >
-                      {isLoadingDraft ? 'Working…' : 'Revise'}
-                    </Button>
-                    <Button
-                      variant="secondary"
-                      type="button"
-                      disabled={isLoadingDraft}
-                      onClick={() => handlePromoteDraft(draft.draftId)}
-                    >
-                      {isLoadingDraft ? 'Applying…' : 'Promote'}
-                    </Button>
-                    <QuietButton
-                      type="button"
-                      disabled={isLoadingDraft}
-                      onClick={() => handleDismissDraft(draft.draftId)}
-                    >
-                      Dismiss
-                    </QuietButton>
-                  </div>
-                ) : null}
-                {editingDraftId !== draft.draftId && nextSkills.length > 0 && (
-                  <div className="agent-thought-partner__draft-continuations">
-                    <span className="agent-thought-partner__draft-continuations-label">Continue with</span>
-                    <div className="agent-thought-partner__draft-actions">
-                      {nextSkills.map((skill) => (
-                        <Button
-                          key={`${draft.draftId}-${skill.id}`}
-                          variant="secondary"
-                          type="button"
-                          disabled={isLoadingDraft}
-                          onClick={() => handleContinueWorkflowDraft(draft, skill)}
-                        >
-                          {skill.title}
-                        </Button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </article>
-            );
-          })}
-        </div>
-      )}
+      {isThreadStreamVariant && reviewStageSection}
+      {isThreadStreamVariant && protocolApprovalsSection}
+      {isThreadStreamVariant && quickPromptsSection}
+      {isThreadStreamVariant && appliedHistorySection}
+      {!isThreadStreamVariant && proposalBundlesSection}
+      {!isThreadStreamVariant && runsSection}
+      {!isThreadStreamVariant && protocolApprovalsSection}
+      {!isThreadStreamVariant && reviewStageSection}
+      {!isThreadStreamVariant && appliedHistorySection}
+      {!isThreadStreamVariant && artifactDraftsSection}
 
       {lastAssistantMessage && lastAssistantMessage.premiumWebResearchAvailable === false && (
         <p className="muted small">

@@ -1,3 +1,4 @@
+/* eslint-disable testing-library/prefer-screen-queries */
 const { test, expect } = require('@playwright/test');
 const {
   installDevAuth,
@@ -270,7 +271,7 @@ async function installAgentHarnessMocks(page, { onChatRequest = null } = {}) {
           rationale: 'The article is still in evidence-gathering mode.'
         },
         thread: {
-          threadId: 'article-thread-1',
+          threadId: payload.threadId || 'article-thread-1',
           title: 'Ambient article thread',
           messages: []
         }
@@ -392,15 +393,33 @@ test('article thought partner posts enriched ambient context', async ({ page }) 
 });
 
 test('think thread and handoff surfaces render the operating loop', async ({ page }) => {
-  await installAgentHarnessMocks(page);
+  let chatPayload = null;
+  await installAgentHarnessMocks(page, {
+    onChatRequest: (payload) => {
+      chatPayload = payload;
+    }
+  });
 
   await page.goto('/think?tab=threads&threadId=thread-1');
   await expect(page.getByRole('heading', { name: 'Agentic reading loop' })).toBeVisible();
+  await expect(page.getByText('Plan at a glance')).toBeVisible();
+  await expect(page.getByText('Organization plan')).not.toBeVisible();
   await expect(page.locator('.think-planner-callout__eyebrow').first()).toHaveText('Planner');
   await expect(page.getByText('Researcher').first()).toBeVisible();
   await expect(page.getByText('Operating log').first()).toBeVisible();
   await expect(page.getByText(/Planner aligned the thread around Researcher/)).toBeVisible();
   await expect(page.getByText(/Agentic reading synthesis/).first()).toBeVisible();
+  await page.getByPlaceholder('Ask the next question or move the plan forward.').fill('Continue with the source-backed synthesis.');
+  await page.getByRole('button', { name: 'Continue' }).click();
+  await expect(
+    page
+      .getByTestId('thought-partner-panel')
+      .locator('.agent-thought-partner__thread')
+      .getByText('The article context is grounded and ready for the next move.')
+  ).toBeVisible();
+  expect(chatPayload).toBeTruthy();
+  expect(chatPayload.threadId).toBe('thread-1');
+  expect(chatPayload.context.type).toBe('article');
   const upkeepPanel = page.getByTestId('upkeep-cycles-panel');
   if (!(await upkeepPanel.isVisible().catch(() => false))) {
     const expandRightPanel = page.getByLabel('Expand right panel');

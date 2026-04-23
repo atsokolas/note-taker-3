@@ -192,53 +192,6 @@ const ThreadsMainPanel = ({
         <div className="think-threads-dual">
           <SurfaceCard className="think-threads-card">
             <SectionHeader
-              title="Checkpoint"
-              subtitle="Make the working state explicit before another actor picks it up. It also tightens automatically as the thread grows."
-              action={(
-                <Button
-                  type="button"
-                  variant="secondary"
-                  onClick={handleCheckpointSubmit}
-                  disabled={isBusy || isConverting}
-                >
-                  {isBusy ? 'Saving…' : 'Save checkpoint'}
-                </Button>
-              )}
-            />
-
-            <div className="think-threads-checkpoint-grid">
-              <label className="feedback-field">
-                <span>Summary</span>
-                <textarea
-                  rows={4}
-                  value={checkpointSummary}
-                  onChange={(event) => setCheckpointSummary(event.target.value)}
-                  placeholder="Summarize the current state of the thread."
-                />
-              </label>
-              <label className="feedback-field">
-                <span>Open questions</span>
-                <textarea
-                  rows={5}
-                  value={checkpointQuestions}
-                  onChange={(event) => setCheckpointQuestions(event.target.value)}
-                  placeholder="One question per line"
-                />
-              </label>
-              <label className="feedback-field">
-                <span>Next actions</span>
-                <textarea
-                  rows={5}
-                  value={checkpointActions}
-                  onChange={(event) => setCheckpointActions(event.target.value)}
-                  placeholder="One action per line"
-                />
-              </label>
-            </div>
-          </SurfaceCard>
-
-          <SurfaceCard className="think-threads-card">
-            <SectionHeader
               title="Plan"
               subtitle="The executable shape of the thread."
             />
@@ -291,6 +244,53 @@ const ThreadsMainPanel = ({
                   </div>
                 )}
               </div>
+            </div>
+          </SurfaceCard>
+
+          <SurfaceCard className="think-threads-card">
+            <SectionHeader
+              title="Checkpoint"
+              subtitle="Make the working state explicit before another actor picks it up. It also tightens automatically as the thread grows."
+              action={(
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={handleCheckpointSubmit}
+                  disabled={isBusy || isConverting}
+                >
+                  {isBusy ? 'Saving…' : 'Save checkpoint'}
+                </Button>
+              )}
+            />
+
+            <div className="think-threads-checkpoint-grid">
+              <label className="feedback-field">
+                <span>Summary</span>
+                <textarea
+                  rows={4}
+                  value={checkpointSummary}
+                  onChange={(event) => setCheckpointSummary(event.target.value)}
+                  placeholder="Summarize the current state of the thread."
+                />
+              </label>
+              <label className="feedback-field">
+                <span>Open questions</span>
+                <textarea
+                  rows={5}
+                  value={checkpointQuestions}
+                  onChange={(event) => setCheckpointQuestions(event.target.value)}
+                  placeholder="One question per line"
+                />
+              </label>
+              <label className="feedback-field">
+                <span>Next actions</span>
+                <textarea
+                  rows={5}
+                  value={checkpointActions}
+                  onChange={(event) => setCheckpointActions(event.target.value)}
+                  placeholder="One action per line"
+                />
+              </label>
             </div>
           </SurfaceCard>
         </div>
