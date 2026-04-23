@@ -189,116 +189,117 @@ const ThreadsMainPanel = ({
         </SurfaceCard>
       )}
       main={(
-        <div className="think-threads-dual">
-          <SurfaceCard className="think-threads-card">
-            <SectionHeader
-              title="Plan"
-              subtitle="The executable shape of the thread."
-            />
-            {clean(activeThreadData?.planner?.rationale) && (
-              <div className="think-planner-callout">
-                <span className="think-planner-callout__eyebrow">Planner</span>
-                <p>{activeThreadData.planner.rationale}</p>
-              </div>
-            )}
-            <div className="think-threads-plan">
-              <div className="think-threads-plan__objective">
-                <div className="think-threads-plan__label">Objective</div>
-                <p>{clean(activeThreadData?.plan?.objective) || 'No explicit objective yet.'}</p>
-              </div>
-
-              {successCriteria.length > 0 && (
-                <div className="think-threads-plan__criteria">
-                  <div className="think-threads-plan__label">Success criteria</div>
-                  <ul className="think-threads-plan__list">
-                    {successCriteria.map((item) => (
-                      <li key={item}>{item}</li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
-              <div className="think-threads-plan__steps">
-                <div className="think-threads-plan__label">Steps</div>
-                {planSteps.length === 0 ? (
-                  <p className="muted small">No plan steps saved yet.</p>
-                ) : (
-                  <div className="think-threads-steps">
-                    {planSteps.map((step) => (
-                      <div key={step.id} className={`think-threads-step is-${clean(step.status).toLowerCase() || 'pending'}`}>
-                        <div className="think-threads-step__row">
-                          <span className="think-threads-step__title">{step.title || 'Untitled step'}</span>
-                          <span className="think-threads-step__status">{step.status || 'pending'}</span>
-                        </div>
-                        {(step.notes || step.actor?.actorType || step.workerRole) && (
-                          <div className="think-threads-step__meta">
-                            {step.actor?.actorType ? formatActor(step.actor) : ''}
-                            {step.actor?.actorType && (step.notes || step.workerRole) ? ' · ' : ''}
-                            {step.workerRole ? `${formatWorkerRole(null, step.workerRole)} specialist` : ''}
-                            {step.workerRole && step.notes ? ' · ' : ''}
-                            {step.notes || ''}
-                          </div>
-                        )}
-                      </div>
-                    ))}
+        <div className="think-threads-workbench">
+          <div className="think-threads-workbench__primary">
+            <div className="think-threads-dual">
+              <SurfaceCard className="think-threads-card">
+                <SectionHeader
+                  title="Plan"
+                  subtitle="The executable shape of the thread."
+                />
+                {clean(activeThreadData?.planner?.rationale) && (
+                  <div className="think-planner-callout">
+                    <span className="think-planner-callout__eyebrow">Planner</span>
+                    <p>{activeThreadData.planner.rationale}</p>
                   </div>
                 )}
-              </div>
-            </div>
-          </SurfaceCard>
+                <div className="think-threads-plan">
+                  <div className="think-threads-plan__objective">
+                    <div className="think-threads-plan__label">Objective</div>
+                    <p>{clean(activeThreadData?.plan?.objective) || 'No explicit objective yet.'}</p>
+                  </div>
 
-          <SurfaceCard className="think-threads-card">
-            <SectionHeader
-              title="Checkpoint"
-              subtitle="Make the working state explicit before another actor picks it up. It also tightens automatically as the thread grows."
-              action={(
-                <Button
-                  type="button"
-                  variant="secondary"
-                  onClick={handleCheckpointSubmit}
-                  disabled={isBusy || isConverting}
-                >
-                  {isBusy ? 'Saving…' : 'Save checkpoint'}
-                </Button>
-              )}
-            />
+                  {successCriteria.length > 0 && (
+                    <div className="think-threads-plan__criteria">
+                      <div className="think-threads-plan__label">Success criteria</div>
+                      <ul className="think-threads-plan__list">
+                        {successCriteria.map((item) => (
+                          <li key={item}>{item}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
 
-            <div className="think-threads-checkpoint-grid">
-              <label className="feedback-field">
-                <span>Summary</span>
-                <textarea
-                  rows={4}
-                  value={checkpointSummary}
-                  onChange={(event) => setCheckpointSummary(event.target.value)}
-                  placeholder="Summarize the current state of the thread."
+                  <div className="think-threads-plan__steps">
+                    <div className="think-threads-plan__label">Steps</div>
+                    {planSteps.length === 0 ? (
+                      <p className="muted small">No plan steps saved yet.</p>
+                    ) : (
+                      <div className="think-threads-steps">
+                        {planSteps.map((step) => (
+                          <div key={step.id} className={`think-threads-step is-${clean(step.status).toLowerCase() || 'pending'}`}>
+                            <div className="think-threads-step__row">
+                              <span className="think-threads-step__title">{step.title || 'Untitled step'}</span>
+                              <span className="think-threads-step__status">{step.status || 'pending'}</span>
+                            </div>
+                            {(step.notes || step.actor?.actorType || step.workerRole) && (
+                              <div className="think-threads-step__meta">
+                                {step.actor?.actorType ? formatActor(step.actor) : ''}
+                                {step.actor?.actorType && (step.notes || step.workerRole) ? ' · ' : ''}
+                                {step.workerRole ? `${formatWorkerRole(null, step.workerRole)} specialist` : ''}
+                                {step.workerRole && step.notes ? ' · ' : ''}
+                                {step.notes || ''}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </SurfaceCard>
+
+              <SurfaceCard className="think-threads-card">
+                <SectionHeader
+                  title="Checkpoint"
+                  subtitle="Make the working state explicit before another actor picks it up. It also tightens automatically as the thread grows."
+                  action={(
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      onClick={handleCheckpointSubmit}
+                      disabled={isBusy || isConverting}
+                    >
+                      {isBusy ? 'Saving…' : 'Save checkpoint'}
+                    </Button>
+                  )}
                 />
-              </label>
-              <label className="feedback-field">
-                <span>Open questions</span>
-                <textarea
-                  rows={5}
-                  value={checkpointQuestions}
-                  onChange={(event) => setCheckpointQuestions(event.target.value)}
-                  placeholder="One question per line"
-                />
-              </label>
-              <label className="feedback-field">
-                <span>Next actions</span>
-                <textarea
-                  rows={5}
-                  value={checkpointActions}
-                  onChange={(event) => setCheckpointActions(event.target.value)}
-                  placeholder="One action per line"
-                />
-              </label>
+
+                <div className="think-threads-checkpoint-grid">
+                  <label className="feedback-field">
+                    <span>Summary</span>
+                    <textarea
+                      rows={4}
+                      value={checkpointSummary}
+                      onChange={(event) => setCheckpointSummary(event.target.value)}
+                      placeholder="Summarize the current state of the thread."
+                    />
+                  </label>
+                  <label className="feedback-field">
+                    <span>Open questions</span>
+                    <textarea
+                      rows={5}
+                      value={checkpointQuestions}
+                      onChange={(event) => setCheckpointQuestions(event.target.value)}
+                      placeholder="One question per line"
+                    />
+                  </label>
+                  <label className="feedback-field">
+                    <span>Next actions</span>
+                    <textarea
+                      rows={5}
+                      value={checkpointActions}
+                      onChange={(event) => setCheckpointActions(event.target.value)}
+                      placeholder="One action per line"
+                    />
+                  </label>
+                </div>
+              </SurfaceCard>
             </div>
-          </SurfaceCard>
-        </div>
-      )}
-      aside={(
-        <>
+          </div>
+
           <ThoughtPartnerPanel
-            className="think-threads-partner"
+            className="think-threads-card think-threads-partner think-threads-partner--main"
             contextType={activeThreadData?.scope?.type || 'global'}
             contextId={activeThreadData?.scope?.id || activeThreadData?.threadId}
             contextTitle={activeThreadData?.scope?.title || activeThreadData?.title}
@@ -322,7 +323,10 @@ const ThreadsMainPanel = ({
             onThreadChange={hydrateThread}
             disabled={isArchived}
           />
-
+        </div>
+      )}
+      aside={(
+        <>
           <AgentArtifactDraftsPanel
             draftsModel={draftsModel}
             title="Protocol drafts"

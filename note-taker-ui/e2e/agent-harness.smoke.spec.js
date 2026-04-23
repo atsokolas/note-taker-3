@@ -417,6 +417,12 @@ test('think thread and handoff surfaces render the operating loop', async ({ pag
       .locator('.agent-thought-partner__thread')
       .getByText('The article context is grounded and ready for the next move.')
   ).toBeVisible();
+  await expect(
+    page
+      .locator('.protocol-activity-log__item.is-assistant')
+      .filter({ hasText: 'The article context is grounded and ready for the next move.' })
+      .first()
+  ).toBeVisible();
   expect(chatPayload).toBeTruthy();
   expect(chatPayload.threadId).toBe('thread-1');
   expect(chatPayload.context.type).toBe('article');

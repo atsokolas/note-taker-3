@@ -168,8 +168,8 @@ const useAgentThreads = ({
   const activeThreadData = useMemo(() => {
     const safeSelectedId = clean(selectedThreadId);
     if (safeSelectedId) {
-      return threads.find((row) => String(row?.threadId || '') === safeSelectedId)
-        || (selectedThreadOverride?.threadId === safeSelectedId ? selectedThreadOverride : null);
+      if (selectedThreadOverride?.threadId === safeSelectedId) return selectedThreadOverride;
+      return threads.find((row) => String(row?.threadId || '') === safeSelectedId) || null;
     }
     return threads[0] || null;
   }, [selectedThreadId, selectedThreadOverride, threads]);
