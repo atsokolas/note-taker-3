@@ -404,7 +404,8 @@ test('think thread and handoff surfaces render the operating loop', async ({ pag
   await expect(page.getByRole('heading', { name: 'Agentic reading loop' })).toBeVisible();
   await expect(page.getByText('Plan at a glance')).toBeVisible();
   await expect(page.getByText('Organization plan')).not.toBeVisible();
-  await expect(page.locator('.think-planner-callout__eyebrow').first()).toHaveText('Planner');
+  await expect(page.getByText('Checkpoint').first()).toBeVisible();
+  await expect(page.getByText('Plan objective').first()).toBeVisible();
   await expect(page.getByText('Researcher').first()).toBeVisible();
   await expect(page.getByText('Operating log').first()).toBeVisible();
   await expect(page.getByText(/Planner aligned the thread around Researcher/)).toBeVisible();

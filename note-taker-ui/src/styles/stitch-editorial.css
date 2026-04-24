@@ -5498,9 +5498,9 @@ body.noeis-editorial .agent-thought-partner__composer {
 }
 
 body.noeis-editorial .agent-thought-partner__composer--stream {
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 10px;
-  align-items: end;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+  align-items: stretch;
   padding: 0 0 18px;
   border-bottom: 1px solid var(--vellum-line);
 }
@@ -5527,7 +5527,7 @@ body.noeis-editorial .agent-thought-partner__composer--stream textarea {
 }
 
 body.noeis-editorial .agent-thought-partner__submit {
-  min-width: 112px;
+  width: 100%;
   min-height: 44px;
   padding: 0 16px;
   border: 0 !important;
@@ -5543,18 +5543,18 @@ body.noeis-editorial .agent-thought-partner__submit:hover {
 body.noeis-editorial .agent-thought-partner__thread {
   display: grid;
   gap: 0;
-  max-height: 380px;
+  max-height: 520px;
   padding-right: 4px;
   overflow-y: auto;
 }
 
 body.noeis-editorial .agent-thought-partner__plan-preview {
-  gap: 12px;
-  padding: 16px 18px;
-  border: 1px solid rgba(120, 110, 98, 0.14) !important;
-  border-radius: 22px;
-  background:
-    linear-gradient(180deg, rgba(252, 249, 243, 0.98), rgba(247, 242, 234, 0.92)) !important;
+  gap: 10px;
+  padding: 0 0 14px;
+  border: 0 !important;
+  border-bottom: 1px solid var(--vellum-line) !important;
+  border-radius: 0;
+  background: transparent !important;
   box-shadow: none !important;
 }
 
@@ -5803,7 +5803,7 @@ body.noeis-editorial .agent-thought-partner__draft-actions .ui-quiet-button {
 }
 
 body.noeis-editorial .think-threads-workbench {
-  grid-template-columns: minmax(0, 1.08fr) minmax(320px, 0.92fr);
+  grid-template-columns: minmax(0, 1fr) !important;
   align-items: start;
 }
 
@@ -5812,10 +5812,6 @@ body.noeis-editorial .think-threads-partner--main {
   border: 1px solid rgba(120, 110, 98, 0.12) !important;
   background: rgba(255, 252, 247, 0.88) !important;
   box-shadow: none !important;
-}
-
-body.noeis-editorial .think-threads-partner--main {
-  top: 72px;
 }
 
 body.noeis-editorial .protocol-activity-log {

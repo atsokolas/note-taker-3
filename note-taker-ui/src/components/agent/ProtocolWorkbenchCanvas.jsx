@@ -6,19 +6,25 @@ const ProtocolWorkbenchCanvas = ({
   aside = null,
   timeline = null,
   className = ''
-}) => (
-  <div className={`section-stack think-protocol-canvas ${className}`.trim()}>
-    {hero}
-    <div className="think-protocol-canvas__body">
-      <div className="think-protocol-canvas__main">
-        {main}
+}) => {
+  const hasAside = Boolean(aside);
+
+  return (
+    <div className={`section-stack think-protocol-canvas ${hasAside ? 'has-aside' : 'has-no-aside'} ${className}`.trim()}>
+      {hero}
+      <div className="think-protocol-canvas__body">
+        <div className="think-protocol-canvas__main">
+          {main}
+        </div>
+        {hasAside && (
+          <div className="think-protocol-canvas__aside">
+            {aside}
+          </div>
+        )}
       </div>
-      <div className="think-protocol-canvas__aside">
-        {aside}
-      </div>
+      {timeline}
     </div>
-    {timeline}
-  </div>
-);
+  );
+};
 
 export default ProtocolWorkbenchCanvas;

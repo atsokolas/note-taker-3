@@ -8,6 +8,36 @@ import {
 } from '../api/agent';
 
 const clean = (value) => String(value || '').trim();
+const toTimestamp = (value) => {
+  const parsed = Date.parse(value || '');
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+const countItems = (value) => (Array.isArray(value) ? value.length : 0);
+const pickPreferredThread = (currentThread = null, nextThread = null) => {
+  if (!currentThread?.threadId) return nextThread;
+  if (!nextThread?.threadId) return currentThread;
+
+  const currentUpdatedAt = toTimestamp(currentThread.updatedAt);
+  const nextUpdatedAt = toTimestamp(nextThread.updatedAt);
+  const currentMessageCount = countItems(currentThread.messages);
+  const nextMessageCount = countItems(nextThread.messages);
+  const currentBundleCount = countItems(currentThread.proposalBundles);
+  const nextBundleCount = countItems(nextThread.proposalBundles);
+
+  if (nextMessageCount > currentMessageCount) return nextThread;
+  if (currentMessageCount > nextMessageCount) return currentThread;
+  if (nextBundleCount > currentBundleCount) return nextThread;
+  if (currentBundleCount > nextBundleCount) return currentThread;
+  if (nextUpdatedAt > currentUpdatedAt) return nextThread;
+  if (currentUpdatedAt > nextUpdatedAt) return currentThread;
+
+  return {
+    ...currentThread,
+    ...nextThread,
+    messages: nextMessageCount >= currentMessageCount ? nextThread.messages : currentThread.messages,
+    proposalBundles: nextBundleCount >= currentBundleCount ? nextThread.proposalBundles : currentThread.proposalBundles
+  };
+};
 
 const THREAD_SCOPE_LABELS = {
   global: 'Global',
@@ -45,7 +75,7 @@ const upsertThreadRow = (rows = [], nextThread = null) => {
   const nextId = String(nextThread.threadId);
   const existingIndex = safeRows.findIndex((row) => String(row?.threadId || '') === nextId);
   if (existingIndex === -1) return [nextThread, ...safeRows];
-  return safeRows.map((row, index) => (index === existingIndex ? nextThread : row));
+  return safeRows.map((row, index) => (index === existingIndex ? pickPreferredThread(row, nextThread) : row));
 };
 
 const useAgentThreads = ({
@@ -108,7 +138,7 @@ const useAgentThreads = ({
     if (!thread?.threadId) return null;
     setThreads((previous) => upsertThreadRow(previous, thread));
     if (String(thread.threadId) === String(selectedThreadId || '')) {
-      setSelectedThreadOverride(thread);
+      setSelectedThreadOverride((previous) => pickPreferredThread(previous, thread));
     }
     return thread;
   }, [selectedThreadId]);
@@ -128,11 +158,11 @@ const useAgentThreads = ({
       if (safeSelectedId) {
         const selectedFromRows = rows.find((row) => String(row?.threadId || '') === safeSelectedId) || null;
         if (selectedFromRows) {
-          setSelectedThreadOverride(selectedFromRows);
+          setSelectedThreadOverride((previous) => pickPreferredThread(previous, selectedFromRows));
         } else {
           try {
             const selectedResponse = await getAgentThread(safeSelectedId);
-            setSelectedThreadOverride(selectedResponse?.thread || null);
+            setSelectedThreadOverride((previous) => pickPreferredThread(previous, selectedResponse?.thread || null));
           } catch (threadError) {
             setSelectedThreadOverride(null);
           }
@@ -161,15 +191,18 @@ const useAgentThreads = ({
     }
     const selectedFromRows = threads.find((row) => String(row?.threadId || '') === String(selectedThreadId)) || null;
     if (selectedFromRows) {
-      setSelectedThreadOverride(selectedFromRows);
+      setSelectedThreadOverride((previous) => pickPreferredThread(previous, selectedFromRows));
     }
   }, [selectedThreadId, threads]);
 
   const activeThreadData = useMemo(() => {
     const safeSelectedId = clean(selectedThreadId);
     if (safeSelectedId) {
-      if (selectedThreadOverride?.threadId === safeSelectedId) return selectedThreadOverride;
-      return threads.find((row) => String(row?.threadId || '') === safeSelectedId) || null;
+      const selectedRow = threads.find((row) => String(row?.threadId || '') === safeSelectedId) || null;
+      if (selectedThreadOverride?.threadId === safeSelectedId) {
+        return pickPreferredThread(selectedRow, selectedThreadOverride);
+      }
+      return selectedRow;
     }
     return threads[0] || null;
   }, [selectedThreadId, selectedThreadOverride, threads]);

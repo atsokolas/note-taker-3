@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import ThoughtPartnerPanel from '../../agent/ThoughtPartnerPanel';
 import AgentArtifactDraftsPanel from '../../agent/AgentArtifactDraftsPanel';
 import ProtocolActivityTimeline from '../../agent/ProtocolActivityTimeline';
@@ -61,7 +61,8 @@ const ThreadsMainPanel = ({
     handleConvertToHandoff,
     handleSaveCheckpoint,
     handleToggleArchive,
-    hydrateThread
+    hydrateThread,
+    refreshThread
   } = threadsModel;
   const [checkpointSummary, setCheckpointSummary] = useState('');
   const [checkpointQuestions, setCheckpointQuestions] = useState('');
@@ -77,6 +78,14 @@ const ThreadsMainPanel = ({
   const isConverting = threadConvertBusyId === String(activeThreadData?.threadId || '');
   const isArchived = clean(activeThreadData?.status).toLowerCase() === 'archived';
   const promptTemplates = useMemo(() => buildThreadPromptTemplates(activeThreadData), [activeThreadData]);
+  const handleThreadPanelChange = useCallback((nextThread) => {
+    const safeThreadId = clean(nextThread?.threadId);
+    if (!safeThreadId) return;
+    hydrateThread(nextThread);
+    if (typeof refreshThread === 'function') {
+      Promise.resolve(refreshThread(safeThreadId)).catch(() => {});
+    }
+  }, [hydrateThread, refreshThread]);
 
   const handleCheckpointSubmit = async () => {
     if (!activeThreadData?.threadId || isBusy) return;
@@ -112,6 +121,26 @@ const ThreadsMainPanel = ({
 
   const planSteps = Array.isArray(activeThreadData?.plan?.steps) ? activeThreadData.plan.steps : [];
   const successCriteria = Array.isArray(activeThreadData?.plan?.successCriteria) ? activeThreadData.plan.successCriteria : [];
+  const visibleThreadDrafts = Array.isArray(draftsModel?.artifactDrafts)
+    ? draftsModel.artifactDrafts.filter((draft) => clean(draft?.status).toLowerCase() !== 'dismissed')
+    : [];
+  const showDraftsPanel = Boolean(draftsModel?.artifactDraftsLoading || draftsModel?.artifactDraftsError || visibleThreadDrafts.length > 0);
+  const visibleUpkeepCycles = Array.isArray(upkeepCyclesModel?.upkeepCycles)
+    ? upkeepCyclesModel.upkeepCycles.filter((cycle) => {
+      const cycleThreadId = clean(cycle?.lastThreadId);
+      const cycleHandoffId = clean(cycle?.lastHandoffId);
+      const runs = Array.isArray(cycle?.runs) ? cycle.runs : [];
+      return (
+        cycleThreadId === clean(activeThreadData?.threadId)
+        || cycleHandoffId === clean(activeThreadData?.handoffId)
+        || runs.some((run) => (
+          clean(run?.threadId) === clean(activeThreadData?.threadId)
+          || clean(run?.handoffId) === clean(activeThreadData?.handoffId)
+        ))
+      );
+    })
+    : [];
+  const showUpkeepPanel = Boolean(upkeepCyclesModel?.upkeepCyclesLoading || upkeepCyclesModel?.upkeepCyclesError || visibleUpkeepCycles.length > 0);
 
   return (
     <>
@@ -189,115 +218,7 @@ const ThreadsMainPanel = ({
         </SurfaceCard>
       )}
       main={(
-        <div className="think-threads-workbench">
-          <div className="think-threads-workbench__primary">
-            <div className="think-threads-dual">
-              <SurfaceCard className="think-threads-card">
-                <SectionHeader
-                  title="Plan"
-                  subtitle="The executable shape of the thread."
-                />
-                {clean(activeThreadData?.planner?.rationale) && (
-                  <div className="think-planner-callout">
-                    <span className="think-planner-callout__eyebrow">Planner</span>
-                    <p>{activeThreadData.planner.rationale}</p>
-                  </div>
-                )}
-                <div className="think-threads-plan">
-                  <div className="think-threads-plan__objective">
-                    <div className="think-threads-plan__label">Objective</div>
-                    <p>{clean(activeThreadData?.plan?.objective) || 'No explicit objective yet.'}</p>
-                  </div>
-
-                  {successCriteria.length > 0 && (
-                    <div className="think-threads-plan__criteria">
-                      <div className="think-threads-plan__label">Success criteria</div>
-                      <ul className="think-threads-plan__list">
-                        {successCriteria.map((item) => (
-                          <li key={item}>{item}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-
-                  <div className="think-threads-plan__steps">
-                    <div className="think-threads-plan__label">Steps</div>
-                    {planSteps.length === 0 ? (
-                      <p className="muted small">No plan steps saved yet.</p>
-                    ) : (
-                      <div className="think-threads-steps">
-                        {planSteps.map((step) => (
-                          <div key={step.id} className={`think-threads-step is-${clean(step.status).toLowerCase() || 'pending'}`}>
-                            <div className="think-threads-step__row">
-                              <span className="think-threads-step__title">{step.title || 'Untitled step'}</span>
-                              <span className="think-threads-step__status">{step.status || 'pending'}</span>
-                            </div>
-                            {(step.notes || step.actor?.actorType || step.workerRole) && (
-                              <div className="think-threads-step__meta">
-                                {step.actor?.actorType ? formatActor(step.actor) : ''}
-                                {step.actor?.actorType && (step.notes || step.workerRole) ? ' · ' : ''}
-                                {step.workerRole ? `${formatWorkerRole(null, step.workerRole)} specialist` : ''}
-                                {step.workerRole && step.notes ? ' · ' : ''}
-                                {step.notes || ''}
-                              </div>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </SurfaceCard>
-
-              <SurfaceCard className="think-threads-card">
-                <SectionHeader
-                  title="Checkpoint"
-                  subtitle="Make the working state explicit before another actor picks it up. It also tightens automatically as the thread grows."
-                  action={(
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      onClick={handleCheckpointSubmit}
-                      disabled={isBusy || isConverting}
-                    >
-                      {isBusy ? 'Saving…' : 'Save checkpoint'}
-                    </Button>
-                  )}
-                />
-
-                <div className="think-threads-checkpoint-grid">
-                  <label className="feedback-field">
-                    <span>Summary</span>
-                    <textarea
-                      rows={4}
-                      value={checkpointSummary}
-                      onChange={(event) => setCheckpointSummary(event.target.value)}
-                      placeholder="Summarize the current state of the thread."
-                    />
-                  </label>
-                  <label className="feedback-field">
-                    <span>Open questions</span>
-                    <textarea
-                      rows={5}
-                      value={checkpointQuestions}
-                      onChange={(event) => setCheckpointQuestions(event.target.value)}
-                      placeholder="One question per line"
-                    />
-                  </label>
-                  <label className="feedback-field">
-                    <span>Next actions</span>
-                    <textarea
-                      rows={5}
-                      value={checkpointActions}
-                      onChange={(event) => setCheckpointActions(event.target.value)}
-                      placeholder="One action per line"
-                    />
-                  </label>
-                </div>
-              </SurfaceCard>
-            </div>
-          </div>
-
+        <div className="think-threads-workbench think-threads-workbench--stack">
           <ThoughtPartnerPanel
             className="think-threads-card think-threads-partner think-threads-partner--main"
             contextType={activeThreadData?.scope?.type || 'global'}
@@ -320,40 +241,133 @@ const ThreadsMainPanel = ({
             submitLabel="Continue"
             variant="stream"
             thread={activeThreadData}
-            onThreadChange={hydrateThread}
+            onThreadChange={handleThreadPanelChange}
             disabled={isArchived}
           />
+
+          <div className="think-threads-support-grid">
+            <SurfaceCard className="think-threads-card">
+              <SectionHeader
+                title="Checkpoint"
+                subtitle="Keep the working state explicit so the next turn and the next actor start from the same place."
+                action={(
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={handleCheckpointSubmit}
+                    disabled={isBusy || isConverting}
+                  >
+                    {isBusy ? 'Saving…' : 'Save checkpoint'}
+                  </Button>
+                )}
+              />
+
+              {(clean(activeThreadData?.plan?.objective) || successCriteria.length > 0 || planSteps.length > 0) && (
+                <div className="think-threads-plan think-threads-plan--summary">
+                  {clean(activeThreadData?.plan?.objective) && (
+                    <div className="think-threads-plan__objective">
+                      <div className="think-threads-plan__label">Plan objective</div>
+                      <p>{clean(activeThreadData.plan.objective)}</p>
+                    </div>
+                  )}
+
+                  {successCriteria.length > 0 && (
+                    <div className="think-threads-plan__criteria">
+                      <div className="think-threads-plan__label">Success criteria</div>
+                      <ul className="think-threads-plan__list">
+                        {successCriteria.slice(0, 3).map((item) => (
+                          <li key={item}>{item}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {planSteps.length > 0 && (
+                    <div className="think-threads-plan__steps">
+                      <div className="think-threads-plan__label">Current steps</div>
+                      <div className="think-threads-steps">
+                        {planSteps.slice(0, 3).map((step) => (
+                          <div key={step.id} className={`think-threads-step is-${clean(step.status).toLowerCase() || 'pending'}`}>
+                            <div className="think-threads-step__row">
+                              <span className="think-threads-step__title">{step.title || 'Untitled step'}</span>
+                              <span className="think-threads-step__status">{step.status || 'pending'}</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div className="think-threads-checkpoint-grid">
+                <label className="feedback-field">
+                  <span>Summary</span>
+                  <textarea
+                    rows={4}
+                    value={checkpointSummary}
+                    onChange={(event) => setCheckpointSummary(event.target.value)}
+                    placeholder="Summarize the current state of the thread."
+                  />
+                </label>
+                <label className="feedback-field">
+                  <span>Open questions</span>
+                  <textarea
+                    rows={5}
+                    value={checkpointQuestions}
+                    onChange={(event) => setCheckpointQuestions(event.target.value)}
+                    placeholder="One question per line"
+                  />
+                </label>
+                <label className="feedback-field">
+                  <span>Next actions</span>
+                  <textarea
+                    rows={5}
+                    value={checkpointActions}
+                    onChange={(event) => setCheckpointActions(event.target.value)}
+                    placeholder="One action per line"
+                  />
+                </label>
+              </div>
+            </SurfaceCard>
+          </div>
+
+          {(showDraftsPanel || showUpkeepPanel) && (
+            <div className="think-threads-secondary">
+              {showDraftsPanel && (
+                <AgentArtifactDraftsPanel
+                  draftsModel={draftsModel}
+                  title="Protocol drafts"
+                  subtitle="Artifacts staged from this thread stay inside the same operating canvas."
+                  emptyText="No drafts staged from this thread yet."
+                  className="think-draft-staging-panel"
+                  onInvokeWorkflowSkill={onInvokeWorkflowSkill}
+                  onOpenThreadFromDraft={onOpenThreadFromDraft}
+                  onCreateHandoffFromDraft={onCreateHandoffFromDraft}
+                  onQueueFollowUpLoop={onQueueFollowUpLoop}
+                  contextType={activeThreadData?.scope?.type || 'thread'}
+                  contextId={activeThreadData?.scope?.id || activeThreadData?.threadId}
+                  contextTitle={activeThreadData?.scope?.title || activeThreadData?.title || 'Thread'}
+                />
+              )}
+
+              {showUpkeepPanel && (
+                <UpkeepCyclesPanel
+                  upkeepCyclesModel={upkeepCyclesModel}
+                  title="Related upkeep loops"
+                  subtitle="Recurring cycles attached to this thread and its delegated runs."
+                  emptyText="No upkeep cycles linked to this thread yet."
+                  className="think-threads-card"
+                  threadId={activeThreadData?.threadId}
+                  onOpenThread={onOpenThread}
+                  onOpenHandoff={onOpenHandoff}
+                />
+              )}
+            </div>
+          )}
         </div>
       )}
-      aside={(
-        <>
-          <AgentArtifactDraftsPanel
-            draftsModel={draftsModel}
-            title="Protocol drafts"
-            subtitle="Artifacts staged from this thread stay inside the same operating canvas."
-            emptyText="No drafts staged from this thread yet."
-            className="think-draft-staging-panel"
-            onInvokeWorkflowSkill={onInvokeWorkflowSkill}
-            onOpenThreadFromDraft={onOpenThreadFromDraft}
-            onCreateHandoffFromDraft={onCreateHandoffFromDraft}
-            onQueueFollowUpLoop={onQueueFollowUpLoop}
-            contextType={activeThreadData?.scope?.type || 'thread'}
-            contextId={activeThreadData?.scope?.id || activeThreadData?.threadId}
-            contextTitle={activeThreadData?.scope?.title || activeThreadData?.title || 'Thread'}
-          />
-
-          <UpkeepCyclesPanel
-            upkeepCyclesModel={upkeepCyclesModel}
-            title="Related upkeep loops"
-            subtitle="Recurring cycles attached to this thread and its delegated runs."
-            emptyText="No upkeep cycles linked to this thread yet."
-            className="think-threads-card"
-            threadId={activeThreadData?.threadId}
-            onOpenThread={onOpenThread}
-            onOpenHandoff={onOpenHandoff}
-          />
-        </>
-      )}
+      aside={null}
       timeline={(
         <ProtocolActivityTimeline
           entityType="thread"
