@@ -2632,6 +2632,7 @@ html[data-ui-theme='dark'] .topbar__search:-webkit-autofill:focus {
 
 .selection-menu {
   position: fixed;
+  --selection-menu-x: 0px;
   transform: translate(-50%, -100%);
   background: var(--surface);
   border: 1px solid var(--border-subtle);
@@ -2647,6 +2648,19 @@ html[data-ui-theme='dark'] .topbar__search:-webkit-autofill:focus {
     transform 200ms cubic-bezier(0.22, 1, 0.36, 1),
     top 200ms cubic-bezier(0.22, 1, 0.36, 1),
     left 200ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.selection-menu.is-magnetic {
+  transform: translate(calc(-50% + var(--selection-menu-x, 0px)), -100%);
+  transition:
+    top 200ms cubic-bezier(0.22, 1, 0.36, 1),
+    left 200ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .selection-menu.is-magnetic {
+    transform: translate(-50%, -100%);
+  }
 }
 
 .selection-menu__actions,
