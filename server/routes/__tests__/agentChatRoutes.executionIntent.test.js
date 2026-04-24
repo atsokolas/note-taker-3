@@ -18,6 +18,7 @@ const listen = (app) => new Promise((resolve) => {
 const run = async () => {
   const trackedEvents = [];
   const savedThreads = [];
+  let observedExecuteArgs = null;
   const thread = {
     _id: 'thread-1',
     scope: { type: 'concept', id: 'concept-1', title: 'World Models' },
@@ -152,16 +153,19 @@ const run = async () => {
       pausedAt: null,
       completedAt: null
     }),
-    executeAgentRun: async ({ run }) => ({
-      ...run,
-      status: 'completed',
-      completedStepCount: 1,
-      steps: run.steps.map((step) => ({
-        ...step,
-        status: 'applied'
-      })),
-      completedAt: new Date('2026-04-18T12:01:00.000Z')
-    }),
+    executeAgentRun: async (args = {}) => {
+      observedExecuteArgs = args;
+      return {
+        ...args.run,
+        status: 'completed',
+        completedStepCount: 1,
+        steps: args.run.steps.map((step) => ({
+          ...step,
+          status: 'applied'
+        })),
+        completedAt: new Date('2026-04-18T12:01:00.000Z')
+      };
+    },
     applyProposalBundleRunOutcome: () => {},
     createProposedChangesForRun: async () => {},
     requestRunStepApproval: async () => ({ approvalId: 'approval-1' }),
@@ -219,6 +223,7 @@ const run = async () => {
     assert.strictEqual(payload.mode, 'execution_intent', 'The chat route should stay in execution-intent mode.');
     assert.strictEqual(payload.proposalResolution?.status, 'matched', 'The execution intent should resolve to the pending bundle.');
     assert.strictEqual(payload.run?.status, 'completed', 'The resolved bundle should execute through the run engine.');
+    assert.strictEqual(observedExecuteArgs?.approvePendingApprovalSteps, true, 'Explicit chat execution should approve the matched pending bundle.');
     assert.ok(savedThreads.length > 0, 'The thread should be persisted after the execution-intent turn.');
     assert.deepStrictEqual(
       trackedEvents.map((entry) => entry.event),

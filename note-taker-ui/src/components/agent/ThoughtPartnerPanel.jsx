@@ -324,6 +324,8 @@ const ThoughtPartnerPanel = ({
   const handledQueuedPromptIdRef = useRef('');
   const threadViewportRef = useRef(null);
   const activeThreadId = clean(threadId || thread?.threadId);
+  const isStreamVariant = variant === 'stream';
+  const isThreadStreamVariant = isStreamVariant && Boolean(activeThreadId);
 
   const context = useMemo(
     () => toContext(contextType, contextId, contextTitle, contextMetadata),
@@ -561,8 +563,8 @@ const ThoughtPartnerPanel = ({
 
   useEffect(() => {
     if (!threadViewportRef.current || messages.length === 0) return;
-    threadViewportRef.current.scrollTop = threadViewportRef.current.scrollHeight;
-  }, [messages]);
+    threadViewportRef.current.scrollTop = isThreadStreamVariant ? 0 : threadViewportRef.current.scrollHeight;
+  }, [isThreadStreamVariant, messages]);
 
   useEffect(() => {
     const queuedId = clean(queuedPrompt?.id);
@@ -737,6 +739,9 @@ const ThoughtPartnerPanel = ({
   const lastAssistantMessage = useMemo(() => (
     [...messages].reverse().find(entry => entry.role === 'assistant') || null
   ), [messages]);
+  const visibleMessages = useMemo(() => (
+    isThreadStreamVariant ? [...messages].reverse() : messages
+  ), [isThreadStreamVariant, messages]);
   const activePlanner = useMemo(() => (
     (lastAssistantMessage?.planner && typeof lastAssistantMessage.planner === 'object'
       ? lastAssistantMessage.planner
@@ -781,8 +786,6 @@ const ThoughtPartnerPanel = ({
       }
     ];
   }, [harnessMetrics]);
-  const isStreamVariant = variant === 'stream';
-  const isThreadStreamVariant = isStreamVariant && Boolean(activeThreadId);
   const partnerSubtitle = subtitle || (contextTitle ? `Context: ${contextTitle}` : 'Ask about your notes, concepts, and articles.');
   const streamPlanPreview = useMemo(() => {
     if (!isThreadStreamVariant) return null;
@@ -1382,7 +1385,7 @@ const ThoughtPartnerPanel = ({
       )}
 
       <div className="agent-thought-partner__thread" ref={threadViewportRef}>
-        {messages.map((message) => (
+        {visibleMessages.map((message) => (
           <div
             key={message.id}
             className={`agent-thought-partner__message ${message.role === 'assistant' ? 'is-assistant' : 'is-user'}`}

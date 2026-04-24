@@ -54,6 +54,22 @@ const executeAttachRelatedMaterialStep = ({
   };
 };
 
+const executeOrganizeWorkspaceStep = ({
+  step = {},
+  thread = null,
+  run = {}
+} = {}) => {
+  const scope = thread?.scope && typeof thread.scope === 'object' ? thread.scope : {};
+  return {
+    type: 'organization_plan',
+    status: 'staged',
+    scopeType: clean(step?.metadata?.scopeType || scope?.type || step?.target?.type || 'workspace'),
+    scopeId: clean(step?.metadata?.scopeId || scope?.id || step?.target?.id),
+    sourceBundleId: clean(run?.sourceBundleId),
+    summary: clean(step?.summary) || 'Staged workspace organization work from the thread plan.'
+  };
+};
+
 const executeCreateHandoffStep = async ({
   step = {},
   thread = null,
@@ -172,6 +188,9 @@ const executeStepOperation = async ({
   if (type === 'attach_related_material') {
     return executeAttachRelatedMaterialStep({ step, thread, run });
   }
+  if (type === 'organize_workspace') {
+    return executeOrganizeWorkspaceStep({ step, thread, run });
+  }
   if (type === 'create_handoff') {
     return executeCreateHandoffStep({
       step,
@@ -195,6 +214,7 @@ const executeAgentRun = async ({
   userId = '',
   actor = {},
   approveBlockedStep = false,
+  approvePendingApprovalSteps = false,
   requestStepApproval = null,
   AgentHandoff,
   buildDefaultHandoffPlan,
@@ -225,8 +245,9 @@ const executeAgentRun = async ({
     }
 
     const requiresApproval = Boolean(step.requiresApproval);
-    const allowBlockedApproval = approveBlockedStep && step.status === 'blocked';
-    if (requiresApproval && !allowBlockedApproval) {
+    const allowExplicitApproval = (approveBlockedStep && step.status === 'blocked')
+      || (approvePendingApprovalSteps && step.status === 'pending');
+    if (requiresApproval && !allowExplicitApproval) {
       let approval = null;
       if (typeof requestStepApproval === 'function') {
         approval = await requestStepApproval({

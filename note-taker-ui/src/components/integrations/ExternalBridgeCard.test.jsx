@@ -87,4 +87,19 @@ describe('ExternalBridgeCard', () => {
     expect(screen.getByText(/note-taker-agent-bridge-v1 for/i)).toBeInTheDocument();
     expect(screen.getByText(/shared skills .* shared threads .* protocol handoffs/i)).toBeInTheDocument();
   });
+
+  it('moves long examples into the Reference tab', () => {
+    const bridgeModel = buildBridgeModel();
+
+    render(
+      <MemoryRouter>
+        <ExternalBridgeCard bridgeModel={bridgeModel} sortedAgents={sortedAgents} />
+      </MemoryRouter>
+    );
+
+    expect(screen.queryByText('Bridge methods')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('tab', { name: 'Reference' }));
+    expect(screen.getByText('Bridge methods')).toBeInTheDocument();
+    expect(screen.getByText(/threads\/list/i)).toBeInTheDocument();
+  });
 });

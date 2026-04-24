@@ -1001,12 +1001,15 @@ const inferReplyIntent = ({ message = '', conversationState = {} }) => {
   if (/\b(summarize|summary|distill|what matters|key claim|brief|synthesis)\b/i.test(lower)) return 'summarize';
   if (/\b(what is this question really asking|really asking|what is the real question|what is this actually asking)\b/i.test(lower)) return 'summarize';
   if (/\b(challenge|push back|pressure|weak|hole|counter|falsif|rethink|rethought)\b/i.test(lower)) return 'challenge';
+  if (/\b(organize|organise|reorganize|reorganise|cleanup structure|clean up structure|clean up library|cleanup library|library cleanup|folder cleanup|folder structure|workspace cleanup|organize library|organize notebook|organize workspace|stage a reviewable organization plan)\b/i.test(lower)) return 'cleanup_structure';
+  if (/\b(restructure|bucket|sort|cluster)\b/i.test(lower)) return 'restructure';
   if (/\b(clarify|rewrite|clean up|sharper|clearer|polish)\b/i.test(lower)) return 'clarify';
   if (/\b(strengthen|support|make it stronger|firm up)\b/i.test(lower)) return 'strengthen';
   if (/\b(bring|pull|find|surface|get me|show me|notes|highlights|sources|articles|material)\b/i.test(lower)) return 'retrieve';
 
   if (conversationState?.continuation && /\b(yes|yep|yeah|ok|okay|sure|do that|please do that|go ahead|sounds good|use that|pull them in|bring them in|continue)\b/i.test(lower)) {
-    if (/\b(restructure|bucket|sort|organize|cluster)\b/i.test(assistantLower)) return 'restructure';
+    if (/\b(clean up|cleanup|organization plan|organize|folder structure|workspace structure)\b/i.test(assistantLower)) return 'cleanup_structure';
+    if (/\b(restructure|bucket|sort|cluster)\b/i.test(assistantLower)) return 'restructure';
     if (/\b(pull|bring|find|surface|related item|matches|library)\b/i.test(assistantLower)) return 'retrieve';
     if (/\b(strengthen)\b/i.test(assistantLower)) return 'strengthen';
     if (/\b(challenge|contradiction)\b/i.test(assistantLower)) return 'challenge';
@@ -1473,12 +1476,7 @@ const generateCollaborativeReply = async ({
         }),
         temperature: 0.25,
         maxTokens: 180,
-        reasoningEffort: 'low',
-        fallbackModels: [
-          'Qwen/Qwen2.5-7B-Instruct-1M',
-          'mistralai/Mistral-7B-Instruct-v0.3'
-        ],
-        preferFallbackModels: true
+        reasoningEffort: 'low'
       });
       if (toSafeString(completion?.text)) {
         finalReply = toSafeString(completion.text);

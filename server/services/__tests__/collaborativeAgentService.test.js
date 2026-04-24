@@ -6,6 +6,7 @@ const {
   buildTokenRegex,
   buildReply,
   buildOutputArtifactReply,
+  inferReplyIntent,
   buildPartnerChatMessages,
   prepareRelatedItemsForReply,
   pruneRelatedItemsForContext
@@ -22,6 +23,25 @@ const run = () => {
   assert.ok(regex instanceof RegExp, 'Expected regex instance.');
   assert.ok(regex.test('hello beta world'), 'Regex should match token text.');
   assert.strictEqual(buildTokenRegex([]), null, 'Empty token list should yield null regex.');
+
+  assert.strictEqual(
+    inferReplyIntent({ message: 'Clean up library structure and stage a reviewable organization plan.' }),
+    'cleanup_structure',
+    'Library cleanup requests should stage organization work instead of falling into copy-polish clarification.'
+  );
+  assert.strictEqual(
+    inferReplyIntent({
+      message: 'Ok do that',
+      conversationState: {
+        continuation: true,
+        previousAssistantMessage: {
+          text: 'I can clean up the library and stage an organization plan.'
+        }
+      }
+    }),
+    'cleanup_structure',
+    'Continuation approvals after an organization plan should keep the cleanup execution intent.'
+  );
 
   const prepared = prepareRelatedItemsForReply([
     { type: 'source', id: 'u1', title: 'example.com', snippet: 'https://example.com/world-models' },

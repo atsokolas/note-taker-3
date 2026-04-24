@@ -242,6 +242,104 @@ const run = async () => {
     'approval-1',
     'Blocked run steps should retain the approval record that can resume them later.'
   );
+
+  const explicitlyApproved = await executeAgentRun({
+    run: {
+      runId: 'run-approved-1',
+      threadId: 'thread-1',
+      sourceBundleId: 'bundle-organization',
+      title: 'Clean up Library',
+      status: 'pending',
+      createdBy: { actorType: 'user', actorId: 'user-1' },
+      lastActor: { actorType: 'user', actorId: 'user-1' },
+      currentOpId: 'organize-workspace',
+      blockedOpId: '',
+      completedStepCount: 0,
+      steps: [
+        {
+          opId: 'organize-workspace',
+          type: 'organize_workspace',
+          title: 'Clean up Library',
+          executionMode: 'direct',
+          riskLevel: 'medium',
+          requiresApproval: true,
+          target: {
+            type: 'library',
+            id: 'library-root',
+            title: 'Library'
+          },
+          metadata: {
+            scopeType: 'library',
+            scopeId: 'library-root'
+          }
+        }
+      ]
+    },
+    thread: {
+      ...thread,
+      scope: { type: 'library', id: 'library-root', title: 'Library' }
+    },
+    userId: 'user-1',
+    actor: { actorType: 'user', actorId: 'user-1' },
+    approvePendingApprovalSteps: true
+  });
+  assert.strictEqual(
+    explicitlyApproved.status,
+    'completed',
+    'Explicit execute commands should count as approval for pending review-gated organization work.'
+  );
+  assert.strictEqual(
+    explicitlyApproved.steps[0]?.metadata?.result?.type,
+    'organization_plan',
+    'Organization work should persist an execution result instead of being applied as a no-op.'
+  );
+
+  const resumedRun = await executeAgentRun({
+    run: {
+      runId: 'run-resume-1',
+      threadId: 'thread-1',
+      sourceBundleId: 'bundle-risky-resume',
+      title: 'Remove weak sources',
+      status: 'paused_for_approval',
+      createdBy: { actorType: 'user', actorId: 'user-1' },
+      lastActor: { actorType: 'user', actorId: 'user-1' },
+      currentOpId: 'delete-source-1',
+      blockedOpId: 'delete-source-1',
+      completedStepCount: 0,
+      steps: [
+        {
+          opId: 'delete-source-1',
+          type: 'delete_attached_material',
+          title: 'Remove weak source 1',
+          executionMode: 'direct',
+          riskLevel: 'high',
+          requiresApproval: true,
+          status: 'blocked'
+        },
+        {
+          opId: 'delete-source-2',
+          type: 'delete_attached_material',
+          title: 'Remove weak source 2',
+          executionMode: 'direct',
+          riskLevel: 'high',
+          requiresApproval: true,
+          status: 'pending'
+        }
+      ]
+    },
+    thread,
+    userId: 'user-1',
+    actor: { actorType: 'user', actorId: 'user-1' },
+    approveBlockedStep: true,
+    requestStepApproval: async ({ step }) => ({
+      approvalId: `${step.opId}-approval`
+    })
+  });
+  assert.strictEqual(
+    resumedRun.blockedOpId,
+    'delete-source-2',
+    'Approving one blocked run step should not auto-approve later pending risky steps.'
+  );
 };
 
 if (require.main === module) {

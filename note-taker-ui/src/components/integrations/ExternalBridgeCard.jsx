@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useCallback, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Button, Card } from '../ui';
+import { Button, Card, SegmentedNav } from '../ui';
 
 const CAPABILITY_LABELS = {
   sharedSkills: 'Shared skills',
@@ -83,10 +83,30 @@ const listEnabledCapabilities = (capabilities = {}) => Object.entries(capabiliti
   .filter(([, enabled]) => Boolean(enabled))
   .map(([key]) => CAPABILITY_LABELS[key] || key);
 
+const BRIDGE_METHODS_LIST = `threads/list
+threads/get
+threads/create
+threads/update
+threads/append_message
+threads/convert_to_handoff
+artifacts/drafts/list
+artifacts/drafts/create
+artifacts/drafts/promote
+artifacts/drafts/dismiss
+handoffs/list
+handoffs/create
+handoffs/ensure_thread
+handoffs/claim
+handoffs/complete
+handoffs/reject`;
+
 const ExternalBridgeCard = ({
   bridgeModel,
   sortedAgents = []
 }) => {
+  const [postMintTab, setPostMintTab] = useState('config');
+  const [tokenCopyStatus, setTokenCopyStatus] = useState('');
+
   const activePersonalAgents = sortedAgents.filter(agent => agent.status === 'active');
 
   const {
@@ -128,8 +148,20 @@ const ExternalBridgeCard = ({
     expiresInSec: bridgeMeta?.expiresInSec || bridgeTtl
   }) : '';
 
+  const handleCopyToken = useCallback(async () => {
+    if (!bridgeToken) return;
+    try {
+      await navigator.clipboard.writeText(bridgeToken);
+      setTokenCopyStatus('copied');
+      window.setTimeout(() => setTokenCopyStatus(''), 2200);
+    } catch (_err) {
+      setTokenCopyStatus('error');
+      window.setTimeout(() => setTokenCopyStatus(''), 3200);
+    }
+  }, [bridgeToken]);
+
   return (
-    <Card className="settings-card">
+    <Card className="settings-card external-bridge-card">
       <h2>External BYO bridge (A2A + MCP adapter)</h2>
       <p className="muted">
         Connect external runtimes (OpenClaw, custom agents, MCP/A2A workers). Bridge actors now plug into the native orchestrator as specialist workers that read shared threads, continue handoffs, and stage artifact drafts without becoming a second control plane.
@@ -138,11 +170,11 @@ const ExternalBridgeCard = ({
         Use `agent_ops` for the full shared workflow: role-aware handoff routing, thread continuation, artifact draft staging, conversion into handoffs, and reopening handoffs back into threads.
       </p>
       {activePersonalAgents.length > 0 && (
-        <div className="import-summary" style={{ marginBottom: 14 }}>
+        <div className="import-summary external-bridge-agent-block">
           <p className="muted-label">Active specialist workers</p>
-          <div style={{ display: 'grid', gap: 8 }}>
+          <div className="external-bridge-agent-grid">
             {activePersonalAgents.map((agent) => (
-              <div key={agent._id} className="settings-import-row">
+              <div key={agent._id} className="settings-import-row external-bridge-agent-row">
                 <strong>{agent.name}</strong>
                 <span className="muted small">
                   {(Array.isArray(agent.preferredWorkerRoles) && agent.preferredWorkerRoles.length > 0)
@@ -154,8 +186,8 @@ const ExternalBridgeCard = ({
           </div>
         </div>
       )}
-      <div className="settings-import-row">
-        <div style={{ flex: 1 }}>
+      <div className="settings-import-row external-bridge-mint-row">
+        <div className="settings-import-field">
           <p className="muted-label">Actor type</p>
           <select value={bridgeActorType} onChange={(event) => setBridgeActorType(event.target.value)} disabled={bridgeBusy}>
             <option value="user">User</option>
@@ -163,7 +195,7 @@ const ExternalBridgeCard = ({
             <option value="byo_agent">Personal agent (BYO)</option>
           </select>
         </div>
-        <div style={{ flex: 1 }}>
+        <div className="settings-import-field">
           <p className="muted-label">Personal agent (if selected)</p>
           <select
             value={bridgeActorId}
@@ -181,7 +213,7 @@ const ExternalBridgeCard = ({
             </p>
           )}
         </div>
-        <div style={{ flex: 1 }}>
+        <div className="settings-import-field">
           <p className="muted-label">TTL seconds</p>
           <input
             type="number"
@@ -196,8 +228,8 @@ const ExternalBridgeCard = ({
           {bridgeBusy ? 'Minting…' : 'Mint bridge token'}
         </Button>
       </div>
-      <div className="settings-import-row">
-        <div style={{ flex: 1 }}>
+      <div className="settings-import-row external-bridge-scope-row">
+        <div className="settings-import-field settings-import-field--grow">
           <p className="muted-label">Scope</p>
           <input
             type="text"
@@ -211,90 +243,103 @@ const ExternalBridgeCard = ({
       {bridgeError && <p className="status-message error-message">{bridgeError}</p>}
       {protocolApprovalsError && <p className="status-message error-message">{protocolApprovalsError}</p>}
       {bridgeToken && (
-        <div className="import-summary">
-          <p className="muted-label">Bridge token (shown once)</p>
-          <p style={{ wordBreak: 'break-all' }}>{bridgeToken}</p>
-          <div style={{ marginTop: 16 }}>
-            <p className="muted-label">Bridge quickstart</p>
-            <p className="muted small">
-              Copy a ready-to-paste OpenClaw config, then verify the manifest before handing the bridge to an external runtime.
+        <div className="import-summary external-bridge-post-mint">
+          <div className="external-bridge-token-well" role="region" aria-label="Bridge token">
+            <div className="external-bridge-token-well__header">
+              <p className="muted-label external-bridge-token-well__label">Bridge token (shown once)</p>
+              <Button type="button" variant="secondary" onClick={handleCopyToken}>
+                {tokenCopyStatus === 'copied' ? 'Copied' : 'Copy token'}
+              </Button>
+            </div>
+            <p className="external-bridge-token-well__warn">
+              Store this outside the app if you need it later. It will not be shown again after you leave this page.
             </p>
-            <div className="settings-import-row" style={{ marginTop: 8 }}>
-              <Button variant="secondary" disabled={bridgeManifestLoading} onClick={handleTestBridgeConnection}>
-                {bridgeManifestLoading ? 'Testing…' : 'Test bridge connection'}
-              </Button>
-              <Button variant="secondary" onClick={() => handleCopyBridgeConfig(selectedAgentName)}>
-                Copy OpenClaw config
-              </Button>
-            </div>
-            {bridgeCopyStatus && (
-              <p className={`status-message ${/copied/i.test(bridgeCopyStatus) ? 'success-message' : 'error-message'}`}>
-                {bridgeCopyStatus}
-              </p>
+            <pre className="external-bridge-pre external-bridge-token-well__value">{bridgeToken}</pre>
+            {tokenCopyStatus === 'error' && (
+              <p className="status-message error-message external-bridge-token-well__copy-err">Clipboard unavailable. Select the token and copy manually.</p>
             )}
-            {bridgeManifestError && <p className="status-message error-message">{bridgeManifestError}</p>}
-            {bridgeManifest && (
-              <div style={{ marginTop: 10 }}>
-                <p className="status-message success-message">Bridge verified</p>
-                <p className="muted small" style={{ marginTop: 6 }}>
-                  {bridgeManifest.protocol} for {bridgeManifest.actor?.actorType || bridgeActorType} on {bridgeManifest.scope || bridgeScope}.
-                </p>
-                {manifestCapabilities.length > 0 && (
-                  <p className="muted small" style={{ marginTop: 6 }}>
-                    {manifestCapabilities.join(' • ')}
-                  </p>
-                )}
-              </div>
-            )}
-            <div style={{ marginTop: 12 }}>
-              <p className="muted-label">OpenClaw config</p>
-              <pre style={{ whiteSpace: 'pre-wrap', margin: '8px 0 0' }}>{bridgeConfigPreview}</pre>
-            </div>
           </div>
-          <pre style={{ whiteSpace: 'pre-wrap', margin: '8px 0 0' }}>
-{`Bridge endpoints:
+
+          <div className="external-bridge-primary-actions" role="group" aria-label="Bridge actions">
+            <Button variant="secondary" disabled={bridgeManifestLoading} onClick={handleTestBridgeConnection}>
+              {bridgeManifestLoading ? 'Testing…' : 'Test bridge connection'}
+            </Button>
+            <Button variant="secondary" onClick={() => handleCopyBridgeConfig(selectedAgentName)}>
+              Copy OpenClaw config
+            </Button>
+          </div>
+          {bridgeCopyStatus && (
+            <p className={`status-message ${/copied/i.test(bridgeCopyStatus) ? 'success-message' : 'error-message'}`}>
+              {bridgeCopyStatus}
+            </p>
+          )}
+          {bridgeManifestError && <p className="status-message error-message">{bridgeManifestError}</p>}
+          {bridgeManifest && (
+            <div className="external-bridge-verify-banner">
+              <p className="status-message success-message">Bridge verified</p>
+              <p className="muted small">
+                {bridgeManifest.protocol} for {bridgeManifest.actor?.actorType || bridgeActorType} on {bridgeManifest.scope || bridgeScope}.
+              </p>
+              {manifestCapabilities.length > 0 && (
+                <p className="muted small">
+                  {manifestCapabilities.join(' • ')}
+                </p>
+              )}
+            </div>
+          )}
+
+          <SegmentedNav
+            className="external-bridge-tabs"
+            appearance="quiet"
+            items={[
+              { value: 'config', label: 'Config' },
+              { value: 'reference', label: 'Reference' }
+            ]}
+            value={postMintTab}
+            onChange={setPostMintTab}
+          />
+
+          {postMintTab === 'config' && (
+            <div className="external-bridge-panel" role="tabpanel">
+              <p className="muted-label">Bridge quickstart</p>
+              <p className="muted small">
+                Copy a ready-to-paste OpenClaw config, then verify the manifest before handing the bridge to an external runtime.
+              </p>
+              <p className="muted-label external-bridge-panel__pre-label">OpenClaw config</p>
+              <pre className="external-bridge-pre">{bridgeConfigPreview}</pre>
+            </div>
+          )}
+
+          {postMintTab === 'reference' && (
+            <div className="external-bridge-panel external-bridge-panel--reference" role="tabpanel">
+              <pre className="external-bridge-pre external-bridge-pre--tight">{`Bridge endpoints:
 GET  /api/agent/protocol/bridge/manifest
 POST /api/agent/protocol/bridge/a2a
 POST /api/agent/protocol/bridge/mcp`}
-          </pre>
-          <div style={{ marginTop: 16, display: 'grid', gap: 14 }}>
-            <div>
-              <p className="muted-label">A2A example: claim routed work as a specialist worker</p>
-              <pre style={{ whiteSpace: 'pre-wrap', margin: '8px 0 0' }}>{buildA2aExample(bridgeToken)}</pre>
-            </div>
-            <div>
-              <p className="muted-label">MCP example: promote a draft</p>
-              <pre style={{ whiteSpace: 'pre-wrap', margin: '8px 0 0' }}>{buildMcpExample()}</pre>
-            </div>
-            <div>
-              <p className="muted-label">Shared workflow</p>
-              <pre style={{ whiteSpace: 'pre-wrap', margin: '8px 0 0' }}>{buildWorkflowExample()}</pre>
-            </div>
-            <div>
-              <p className="muted-label">Bridge methods</p>
-              <pre style={{ whiteSpace: 'pre-wrap', margin: '8px 0 0' }}>
-{`threads/list
-threads/get
-threads/create
-threads/update
-threads/append_message
-threads/convert_to_handoff
-artifacts/drafts/list
-artifacts/drafts/create
-artifacts/drafts/promote
-artifacts/drafts/dismiss
-handoffs/list
-handoffs/create
-handoffs/ensure_thread
-handoffs/claim
-handoffs/complete
-handoffs/reject`}
               </pre>
+              <div className="external-bridge-reference-grid">
+                <div>
+                  <p className="muted-label">A2A example: claim routed work as a specialist worker</p>
+                  <pre className="external-bridge-pre">{buildA2aExample(bridgeToken)}</pre>
+                </div>
+                <div>
+                  <p className="muted-label">MCP example: promote a draft</p>
+                  <pre className="external-bridge-pre">{buildMcpExample()}</pre>
+                </div>
+                <div>
+                  <p className="muted-label">Shared workflow</p>
+                  <pre className="external-bridge-pre">{buildWorkflowExample()}</pre>
+                </div>
+                <div>
+                  <p className="muted-label">Bridge methods</p>
+                  <pre className="external-bridge-pre">{BRIDGE_METHODS_LIST}</pre>
+                </div>
+              </div>
             </div>
-          </div>
+          )}
         </div>
       )}
-      <div className="import-summary" style={{ marginTop: 18 }}>
+      <div className="import-summary external-bridge-approvals">
         <p className="muted-label">Pending protocol approvals</p>
         <p className="muted small">
           Bridge-issued writes from non-user specialist workers pause here before they can mutate shared threads or handoffs.
@@ -304,21 +349,21 @@ handoffs/reject`}
         ) : protocolApprovals.length === 0 ? (
           <p className="muted small">No pending protocol approvals.</p>
         ) : (
-          <div style={{ display: 'grid', gap: 12 }}>
+          <div className="external-bridge-approval-list">
             {protocolApprovals.map((approval) => {
               const approvalId = String(approval?.approvalId || '');
               const busy = protocolApprovalBusyId === approvalId;
               return (
-                <div key={approvalId} style={{ borderTop: '1px solid var(--border-subtle, rgba(255,255,255,0.1))', paddingTop: 12 }}>
-                  <p style={{ margin: 0, fontWeight: 600 }}>{approval.op || 'Protocol action'}</p>
-                  {approval.reason && <p className="muted small" style={{ margin: '4px 0 0' }}>{approval.reason}</p>}
-                  <div className="settings-import-row" style={{ marginTop: 8 }}>
+                <div key={approvalId} className="external-bridge-approval-item">
+                  <p className="external-bridge-approval-title">{approval.op || 'Protocol action'}</p>
+                  {approval.reason && <p className="muted small external-bridge-approval-reason">{approval.reason}</p>}
+                  <div className="settings-import-row external-bridge-approval-meta">
                     {approval.preview?.title && <span className="muted small">{approval.preview.title}</span>}
                     {approval.preview?.threadId && <span className="muted small">thread {approval.preview.threadId}</span>}
                     {approval.preview?.handoffId && <span className="muted small">handoff {approval.preview.handoffId}</span>}
                     <span className="muted small">{approval.requestedBy?.actorType || 'agent'}</span>
                   </div>
-                  <div className="settings-import-row" style={{ marginTop: 8 }}>
+                  <div className="settings-import-row external-bridge-approval-actions">
                     <Button
                       variant="secondary"
                       disabled={busy}

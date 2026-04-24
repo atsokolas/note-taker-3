@@ -103,7 +103,19 @@ const DraggableEvidenceCard = ({ card, onIntegrate }) => {
     >
       <div className="concept-editorial-evidence__item-meta">
         <span>{clean(card.type) || 'Evidence'}</span>
-        <span>⋮</span>
+        <span
+          className="concept-editorial-evidence__item-grip"
+          role="img"
+          aria-label="Drag this evidence into the draft"
+          title="Drag into the draft"
+        >
+          <span aria-hidden="true" />
+          <span aria-hidden="true" />
+          <span aria-hidden="true" />
+          <span aria-hidden="true" />
+          <span aria-hidden="true" />
+          <span aria-hidden="true" />
+        </span>
       </div>
       <h4>{card.title || 'Untitled evidence'}</h4>
       <p>{cardExcerpt(card, 160)}</p>

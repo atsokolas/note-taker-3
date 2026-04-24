@@ -102,6 +102,8 @@ const buildThread = () => ({
 const run = () => {
   assert.strictEqual(shouldResolveExecutionIntent('do it'), true, 'Short execution confirmations should trigger bundle resolution.');
   assert.strictEqual(shouldResolveExecutionIntent('rewrite it'), true, 'Verb-led execution approvals should trigger bundle resolution.');
+  assert.strictEqual(shouldResolveExecutionIntent('Ok execute it'), true, 'Explicit execute language should trigger bundle resolution.');
+  assert.strictEqual(shouldResolveExecutionIntent('run it'), true, 'Run language should trigger bundle resolution.');
   assert.strictEqual(shouldResolveExecutionIntent('continue'), false, 'Bare continue should fall back to normal chat so thread follow-ups still work.');
   assert.strictEqual(shouldResolveExecutionIntent('what do you think?'), false, 'Normal chat should not trigger execution resolution.');
 
@@ -135,6 +137,19 @@ const run = () => {
   });
   assert.strictEqual(latestGeneric.status, 'matched', 'Generic do-it approvals should resolve when the latest pending bundle is the conversational anchor.');
   assert.strictEqual(latestGeneric.bundle?.bundleId, 'bundle-latest', 'The latest pending bundle should win for a plain do-it.');
+
+  const latestExecute = resolveExecutableProposalBundle({
+    thread,
+    message: 'Ok execute it',
+    context: {
+      type: 'concept',
+      id: 'concept-1',
+      title: 'World Models'
+    },
+    now: new Date('2026-04-18T16:00:00.000Z')
+  });
+  assert.strictEqual(latestExecute.status, 'matched', 'Execute-it approvals should resolve the latest conversational bundle.');
+  assert.strictEqual(latestExecute.bundle?.bundleId, 'bundle-latest', 'Execute-it should target the latest pending bundle.');
 
   const ambiguous = resolveExecutableProposalBundle({
     thread: {

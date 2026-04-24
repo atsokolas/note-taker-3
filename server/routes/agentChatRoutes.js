@@ -1,4 +1,8 @@
 const express = require('express');
+const {
+  trackHarnessEvent,
+  trackRunLifecycleEvents
+} = require('../services/agentHarnessEvents');
 
 const buildAgentChatRouter = ({
   authenticateToken,
@@ -8,16 +12,38 @@ const buildAgentChatRouter = ({
   normalizePersonalAgentCapabilities,
   mongoose,
   AgentThread,
+  AgentRun,
+  AgentHandoff,
+  AgentProtocolApproval,
+  AgentProposedChange,
+  TagMeta,
+  NotebookEntry,
   AgentArtifactDraft,
   normalizeThreadScope,
   appendThreadMessage,
   compactThreadState,
   normalizeThreadPlanner,
   sanitizeAgentThreadDoc,
+  sanitizeAgentRunDoc,
   createAgentArtifactDraftFromSkillReply,
+  createRunFromProposalBundle,
+  executeAgentRun,
+  applyProposalBundleRunOutcome,
+  createProposedChangesForRun,
+  requestRunStepApproval,
+  reconcileAgentRunState,
+  buildDefaultHandoffPlan,
+  buildDefaultHandoffCheckpoint,
+  createThreadForHandoff,
+  sanitizeAgentHandoffDoc,
+  shouldResolveExecutionIntent,
+  resolveExecutableProposalBundle,
+  applyProposalBundleInvalidations,
   sanitizeAgentArtifactDraftDoc,
   threadMessagesToHistory,
-  truncate
+  truncate,
+  trackEvent,
+  EVENT_NAMES
 }) => {
   const router = express.Router();
 
@@ -64,6 +90,7 @@ const buildAgentChatRouter = ({
       relatedItems: Array.isArray(result?.relatedItems) ? result.relatedItems : [],
       citations: Array.isArray(result?.citations) ? result.citations : [],
       suggestedActions: Array.isArray(result?.suggestedActions) ? result.suggestedActions : [],
+      proposalBundle: result?.proposalBundle || null,
       metadata: {
         premiumWebResearchAvailable: Boolean(result?.premiumWebResearchAvailable),
         planner: result?.planner ? normalizeThreadPlanner(result.planner) : undefined
@@ -79,9 +106,293 @@ const buildAgentChatRouter = ({
     return targetThread;
   };
 
+  const summarizeRunExecution = ({
+    bundle = null,
+    run = null
+  } = {}) => {
+    const safeBundleTitle = String(bundle?.title || '').trim() || 'that proposal';
+    const safeRun = run && typeof run === 'object' ? run : {};
+    const proposedChangeCount = Array.isArray(safeRun.steps)
+      ? safeRun.steps.filter((step) => String(step?.type || '').trim().toLowerCase() === 'propose_content_change').length
+      : 0;
+    if (String(safeRun.status || '').trim().toLowerCase() === 'paused_for_approval') {
+      const blockedTitle = String(safeRun?.blockedStep?.title || '').trim() || 'the next risky step';
+      return `Resolved this to "${safeBundleTitle}". I executed the safe steps and paused on "${blockedTitle}" for approval.`;
+    }
+    if (String(safeRun.status || '').trim().toLowerCase() === 'awaiting_review') {
+      return `Resolved this to "${safeBundleTitle}". I executed the operational steps and staged ${proposedChangeCount || 1} reviewable content ${proposedChangeCount === 1 ? 'change' : 'changes'}.`;
+    }
+    if (String(safeRun.status || '').trim().toLowerCase() === 'completed') {
+      return `Resolved this to "${safeBundleTitle}" and executed it.`;
+    }
+    return `Resolved this to "${safeBundleTitle}" and started the run.`;
+  };
+
+  const summarizeAmbiguousResolution = (candidates = []) => {
+    const labels = candidates
+      .map((candidate) => String(candidate?.bundle?.title || '').trim())
+      .filter(Boolean)
+      .slice(0, 3);
+    if (labels.length === 0) {
+      return 'I found more than one pending proposal here. Tell me which one to execute.';
+    }
+    return `I still have multiple pending bundles here: ${labels.map((label) => `"${label}"`).join(', ')}. Say which one to execute.`;
+  };
+
+  const summarizeNoMatchResolution = ({ invalidatedBundleIds = [] } = {}) => (
+    invalidatedBundleIds.length > 0
+      ? 'I found older pending proposals here, but they are stale now, so I did not execute them. Tell me the next move explicitly and I will restage it.'
+      : 'I do not have a still-pending executable proposal in this thread.'
+  );
+
+  const executeResolvedProposalBundle = async ({
+    userId,
+    thread,
+    bundle,
+    actor
+  }) => {
+    const created = createRunFromProposalBundle({
+      thread,
+      bundleId: bundle?.bundleId,
+      actor
+    });
+    const runDoc = await AgentRun.create({
+      userId,
+      threadId: thread._id,
+      sourceBundleId: created.sourceBundleId,
+      title: created.title,
+      status: created.status,
+      createdBy: created.createdBy,
+      lastActor: created.lastActor,
+      currentOpId: created.currentOpId,
+      blockedOpId: created.blockedOpId,
+      steps: created.steps,
+      completedStepCount: created.completedStepCount,
+      startedAt: created.startedAt,
+      pausedAt: created.pausedAt,
+      completedAt: created.completedAt
+    });
+
+    const advanced = await executeAgentRun({
+      run: {
+        ...created,
+        runId: String(runDoc._id)
+      },
+      thread,
+      userId,
+      actor,
+      AgentHandoff,
+      buildDefaultHandoffPlan,
+      buildDefaultHandoffCheckpoint,
+      createThreadForHandoff,
+      sanitizeAgentHandoffDoc,
+      approvePendingApprovalSteps: true,
+      requestStepApproval: ({ run, step, thread: runThread, actor: requestActor }) => requestRunStepApproval({
+        AgentProtocolApproval,
+        userId,
+        run,
+        step,
+        thread: runThread,
+        actor: requestActor
+      })
+    });
+
+    runDoc.status = advanced.status;
+    runDoc.lastActor = advanced.lastActor;
+    runDoc.currentOpId = advanced.currentOpId;
+    runDoc.blockedOpId = advanced.blockedOpId;
+    runDoc.steps = advanced.steps;
+    runDoc.completedStepCount = advanced.completedStepCount;
+    runDoc.startedAt = advanced.startedAt;
+    runDoc.pausedAt = advanced.pausedAt;
+    runDoc.completedAt = advanced.completedAt;
+    await runDoc.save();
+
+    await createProposedChangesForRun({
+      AgentProposedChange,
+      TagMeta,
+      NotebookEntry,
+      userId,
+      thread,
+      run: {
+        ...advanced,
+        runId: String(runDoc._id)
+      },
+      actor
+    });
+
+    const reconciledRun = await reconcileAgentRunState({
+      AgentRun,
+      AgentProposedChange,
+      userId,
+      runId: String(runDoc._id)
+    });
+
+    applyProposalBundleRunOutcome({
+      thread,
+      run: {
+        ...(reconciledRun?.toObject ? reconciledRun.toObject({ getters: false, virtuals: false }) : reconciledRun || advanced),
+        runId: String(runDoc._id)
+      }
+    });
+
+    return reconciledRun || runDoc;
+  };
+
+  const emitHarnessEvent = ({
+    event,
+    userId,
+    requestId,
+    properties = {}
+  } = {}) => trackHarnessEvent({
+    trackEvent,
+    event,
+    userId,
+    requestId,
+    properties
+  });
+
   router.post('/api/agent/chat', authenticateToken, async (req, res) => {
     try {
       const thread = await loadThread(String(req.user.id), req.body?.threadId);
+      const actor = { actorType: 'user', actorId: String(req.user.id) };
+      if (thread && shouldResolveExecutionIntent(req.body?.message)) {
+        const resolution = resolveExecutableProposalBundle({
+          thread,
+          message: req.body?.message,
+          context: req.body?.context || thread?.scope || null
+        });
+
+        if (Array.isArray(resolution?.invalidatedBundleIds) && resolution.invalidatedBundleIds.length > 0) {
+          applyProposalBundleInvalidations({
+            thread,
+            bundleIds: resolution.invalidatedBundleIds
+          });
+        }
+
+        if (resolution?.status === 'matched' && resolution?.bundle) {
+          const run = await executeResolvedProposalBundle({
+            userId: String(req.user.id),
+            thread,
+            bundle: resolution.bundle,
+            actor
+          });
+          emitHarnessEvent({
+            event: EVENT_NAMES?.AGENT_EXECUTION_INTENT_MATCHED,
+            userId: String(req.user.id),
+            requestId: req.requestId,
+            properties: {
+              threadId: String(thread?._id || ''),
+              bundleId: String(resolution.bundle?.bundleId || ''),
+              source: 'chat'
+            }
+          });
+          trackRunLifecycleEvents({
+            trackEvent,
+            EVENT_NAMES,
+            userId: String(req.user.id),
+            requestId: req.requestId,
+            threadId: String(thread?._id || ''),
+            run,
+            source: 'chat_execution_intent',
+            includeStarted: true
+          });
+          const executionResult = {
+            mode: 'execution_intent',
+            reply: summarizeRunExecution({
+              bundle: resolution.bundle,
+              run: run?.toObject ? run.toObject({ getters: false, virtuals: false }) : run
+            }),
+            proposalResolution: {
+              status: 'matched',
+              bundleId: String(resolution.bundle?.bundleId || '').trim(),
+              title: String(resolution.bundle?.title || '').trim()
+            },
+            run: sanitizeAgentRunDoc(run)
+          };
+          const persistedThread = await persistChatTurn({
+            userId: String(req.user.id),
+            actor,
+            payload: req.body || {},
+            result: executionResult,
+            thread
+          });
+          return res.status(200).json({
+            ...executionResult,
+            thread: persistedThread ? sanitizeAgentThreadDoc(persistedThread) : undefined
+          });
+        }
+
+        if (resolution?.status === 'ambiguous') {
+          emitHarnessEvent({
+            event: EVENT_NAMES?.AGENT_EXECUTION_INTENT_AMBIGUOUS,
+            userId: String(req.user.id),
+            requestId: req.requestId,
+            properties: {
+              threadId: String(thread?._id || ''),
+              candidateCount: Array.isArray(resolution?.candidates) ? resolution.candidates.length : 0,
+              source: 'chat'
+            }
+          });
+          const ambiguousResult = {
+            mode: 'execution_intent',
+            reply: summarizeAmbiguousResolution(resolution.candidates || []),
+            proposalResolution: {
+              status: 'ambiguous',
+              candidates: (Array.isArray(resolution.candidates) ? resolution.candidates : []).map((candidate) => ({
+                bundleId: String(candidate?.bundle?.bundleId || '').trim(),
+                title: String(candidate?.bundle?.title || '').trim()
+              }))
+            }
+          };
+          const persistedThread = await persistChatTurn({
+            userId: String(req.user.id),
+            actor,
+            payload: req.body || {},
+            result: ambiguousResult,
+            thread
+          });
+          return res.status(200).json({
+            ...ambiguousResult,
+            thread: persistedThread ? sanitizeAgentThreadDoc(persistedThread) : undefined
+          });
+        }
+
+        if (resolution?.status === 'none') {
+          emitHarnessEvent({
+            event: EVENT_NAMES?.AGENT_EXECUTION_INTENT_NO_MATCH,
+            userId: String(req.user.id),
+            requestId: req.requestId,
+            properties: {
+              threadId: String(thread?._id || ''),
+              invalidatedBundleCount: Array.isArray(resolution?.invalidatedBundleIds) ? resolution.invalidatedBundleIds.length : 0,
+              source: 'chat'
+            }
+          });
+          const noMatchResult = {
+            mode: 'execution_intent',
+            reply: summarizeNoMatchResolution({
+              invalidatedBundleIds: resolution.invalidatedBundleIds || []
+            }),
+            proposalResolution: {
+              status: 'none',
+              invalidatedBundleIds: resolution.invalidatedBundleIds || []
+            }
+          };
+          const persistedThread = await persistChatTurn({
+            userId: String(req.user.id),
+            actor,
+            payload: req.body || {},
+            result: noMatchResult,
+            thread
+          });
+          return res.status(200).json({
+            ...noMatchResult,
+            thread: persistedThread ? sanitizeAgentThreadDoc(persistedThread) : undefined
+          });
+        }
+      }
+
       const entitlements = await getUserAgentEntitlements(String(req.user.id));
       const result = await generateCollaborativeReply({
         userId: String(req.user.id),
@@ -94,20 +405,45 @@ const buildAgentChatRouter = ({
       });
       const persistedThread = await persistChatTurn({
         userId: String(req.user.id),
-        actor: { actorType: 'user', actorId: String(req.user.id) },
+        actor,
         payload: req.body || {},
         result,
         thread
       });
+      if (result?.proposalBundle) {
+        emitHarnessEvent({
+          event: EVENT_NAMES?.AGENT_PROPOSAL_BUNDLE_STAGED,
+          userId: String(req.user.id),
+          requestId: req.requestId,
+          properties: {
+            threadId: String(persistedThread?._id || thread?._id || ''),
+            bundleId: String(result?.proposalBundle?.bundleId || ''),
+            source: 'native_chat'
+          }
+        });
+      }
       const draftArtifact = await createAgentArtifactDraftFromSkillReply({
         AgentArtifactDraft,
         userId: String(req.user.id),
-        actor: { actorType: 'user', actorId: String(req.user.id) },
+        actor,
         reply: result?.reply,
         thread: persistedThread,
         context: req.body?.context || thread?.scope || null,
         skillInvocation: req.body?.skillInvocation || {}
       });
+      if (draftArtifact?._id) {
+        emitHarnessEvent({
+          event: EVENT_NAMES?.AGENT_ARTIFACT_DRAFT_STAGED,
+          userId: String(req.user.id),
+          requestId: req.requestId,
+          properties: {
+            threadId: String(persistedThread?._id || thread?._id || ''),
+            draftId: String(draftArtifact?._id || ''),
+            artifactType: String(draftArtifact?.artifactType || ''),
+            source: 'native_chat'
+          }
+        });
+      }
       return res.status(200).json({
         ...result,
         entitlements,
@@ -170,6 +506,18 @@ const buildAgentChatRouter = ({
         result,
         thread
       });
+      if (result?.proposalBundle) {
+        emitHarnessEvent({
+          event: EVENT_NAMES?.AGENT_PROPOSAL_BUNDLE_STAGED,
+          userId: String(req.personalAgent.userId),
+          requestId: req.requestId,
+          properties: {
+            threadId: String(persistedThread?._id || thread?._id || ''),
+            bundleId: String(result?.proposalBundle?.bundleId || ''),
+            source: 'byo_chat'
+          }
+        });
+      }
       const draftArtifact = await createAgentArtifactDraftFromSkillReply({
         AgentArtifactDraft,
         userId: String(req.personalAgent.userId),
@@ -182,6 +530,19 @@ const buildAgentChatRouter = ({
         context: req.body?.context || thread?.scope || null,
         skillInvocation: req.body?.skillInvocation || {}
       });
+      if (draftArtifact?._id) {
+        emitHarnessEvent({
+          event: EVENT_NAMES?.AGENT_ARTIFACT_DRAFT_STAGED,
+          userId: String(req.personalAgent.userId),
+          requestId: req.requestId,
+          properties: {
+            threadId: String(persistedThread?._id || thread?._id || ''),
+            draftId: String(draftArtifact?._id || ''),
+            artifactType: String(draftArtifact?.artifactType || ''),
+            source: 'byo_chat'
+          }
+        });
+      }
 
       return res.status(200).json({
         ...result,

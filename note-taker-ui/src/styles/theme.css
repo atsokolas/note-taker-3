@@ -7,6 +7,7 @@
   --surface-panel: #f9fbff;
   --surface-card: #ffffff;
   --border-subtle: #e3e6ed;
+  --surface-elevated: #ffffff;
   --text-primary: #1b2430;
   --text-secondary: #667085;
   --space-1: 4px;
@@ -352,6 +353,7 @@ html[data-ui-theme='dark'] .topbar__search:-webkit-autofill:focus {
   grid-template-columns: 240px minmax(0, 1fr) 320px;
   gap: var(--space-4);
   align-items: start;
+  min-height: 0;
 }
 
 .three-pane--left-collapsed {
@@ -370,6 +372,7 @@ html[data-ui-theme='dark'] .topbar__search:-webkit-autofill:focus {
 .three-pane__main,
 .three-pane__right {
   min-width: 0;
+  min-height: 0;
 }
 
 .three-pane__left,
@@ -378,6 +381,8 @@ html[data-ui-theme='dark'] .topbar__search:-webkit-autofill:focus {
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius);
   padding: var(--space-4);
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .three-pane__left.is-collapsed,
@@ -395,6 +400,8 @@ html[data-ui-theme='dark'] .topbar__search:-webkit-autofill:focus {
   border-radius: var(--radius);
   padding: var(--space-4);
   min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .three-pane__main-header {
@@ -424,6 +431,9 @@ html[data-ui-theme='dark'] .topbar__search:-webkit-autofill:focus {
 .three-pane__right-body {
   display: grid;
   gap: var(--space-3);
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 .ui-page {
   width: 100%;
@@ -2541,6 +2551,8 @@ html[data-ui-theme='dark'] .topbar__search:-webkit-autofill:focus {
   display: grid;
   gap: 16px;
   position: relative;
+  --magnetic-rail-left: 16px;
+  --magnetic-rail-width: min(820px, calc(100vw - 32px));
 }
 
 .article-reader-header {
@@ -2631,6 +2643,10 @@ html[data-ui-theme='dark'] .topbar__search:-webkit-autofill:focus {
   min-width: 360px;
   max-width: min(520px, calc(100vw - 24px));
   z-index: 1200;
+  transition:
+    transform 200ms cubic-bezier(0.22, 1, 0.36, 1),
+    top 200ms cubic-bezier(0.22, 1, 0.36, 1),
+    left 200ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .selection-menu__actions,
@@ -5630,6 +5646,17 @@ html[data-ui-theme='dark'] .article-reader-header {
   margin-bottom: 0;
 }
 
+.think-rich-text-toolbar-magnet {
+  --caret-magnet-x: 0px;
+  transform: translate3d(var(--caret-magnet-x), 0, 0);
+  will-change: transform;
+}
+
+.think-rich-text-toolbar-magnet:not(.is-motion) {
+  transform: none;
+  will-change: auto;
+}
+
 .think-rich-text-toolbar {
   display: flex;
   flex-wrap: wrap;
@@ -6021,4 +6048,177 @@ html[data-ui-theme='dark'] .article-reader-header {
 .agent-thought-partner__related-link:hover {
   border-color: var(--accent);
   color: var(--accent);
+}
+
+.magnetic-reading-rail {
+  position: fixed;
+  left: var(--magnetic-rail-left);
+  width: var(--magnetic-rail-width);
+  bottom: 18px;
+  z-index: 1180;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.magnetic-reading-rail__track {
+  width: min(360px, 100%);
+  height: 3px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--border-subtle) 88%, transparent);
+  overflow: hidden;
+  opacity: 0.85;
+}
+
+.magnetic-reading-rail__fill {
+  height: 100%;
+  width: 100%;
+  border-radius: inherit;
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--accent) 55%, transparent),
+    color-mix(in srgb, var(--accent) 88%, #0b74ff)
+  );
+  transform-origin: left center;
+  transform: scaleX(var(--reading-progress, 0));
+  transition: transform 320ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.magnetic-reading-rail__pill-outer {
+  pointer-events: auto;
+  display: flex;
+  justify-content: center;
+  width: min(420px, 100%);
+}
+
+.magnetic-reading-rail__pill {
+  --magnetic-x: 0px;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--border-subtle) 70%, transparent);
+  background: color-mix(in srgb, var(--surface-card) 78%, transparent);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  box-shadow: 0 12px 40px rgba(15, 23, 42, 0.12);
+  transform: translate3d(var(--magnetic-x, 0px), 0, 0);
+  will-change: transform;
+}
+
+.magnetic-reading-rail:not(.is-motion) .magnetic-reading-rail__pill {
+  transform: none;
+  will-change: auto;
+}
+
+.magnetic-reading-rail__btn {
+  border: none;
+  background: color-mix(in srgb, var(--accent-soft) 92%, transparent);
+  color: var(--accent);
+  font-weight: 700;
+  font-size: 0.78rem;
+  padding: 6px 12px;
+  border-radius: 999px;
+  cursor: pointer;
+  font-family: var(--font-sans);
+  transition: transform 160ms ease, background 160ms ease;
+}
+
+.magnetic-reading-rail__btn:hover {
+  background: color-mix(in srgb, var(--accent-soft) 100%, white 8%);
+  transform: translateY(-1px);
+}
+
+.magnetic-reading-rail__btn:active {
+  transform: translateY(0);
+}
+
+.magnetic-reading-rail__hint {
+  font-size: 0.72rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  font-weight: 700;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .selection-menu {
+    transition: none;
+  }
+
+  .magnetic-reading-rail__fill {
+    transition: none;
+  }
+
+  .magnetic-reading-rail__btn {
+    transition: none;
+  }
+}
+
+/* Dark surface polish
+   The Noeis rebrand makes the whole app dark-by-default, but a handful of
+   floating surfaces still read washed out because they were tuned against the
+   original light palette. These rules lift the four surfaces the user flagged
+   without touching layout. */
+html[data-ui-theme='dark'] .selection-menu,
+:root .selection-menu {
+  box-shadow: 0 16px 48px rgba(2, 6, 23, 0.58);
+}
+
+html[data-ui-theme='dark'] .selection-menu {
+  background: color-mix(in srgb, var(--surface-card) 96%, white 4%);
+  border-color: color-mix(in srgb, var(--border-subtle) 100%, white 6%);
+}
+
+html[data-ui-theme='dark'] .selection-menu-button:hover {
+  background: color-mix(in srgb, var(--surface-muted) 85%, white 6%);
+}
+
+html[data-ui-theme='dark'] .selection-menu-divider {
+  background: color-mix(in srgb, var(--border-subtle) 100%, white 6%);
+}
+
+html[data-ui-theme='dark'] .magnetic-reading-rail__track {
+  background: color-mix(in srgb, var(--border-subtle) 90%, white 8%);
+  opacity: 0.92;
+}
+
+html[data-ui-theme='dark'] .magnetic-reading-rail__pill {
+  background: color-mix(in srgb, var(--surface-card) 82%, white 4%);
+  border-color: color-mix(in srgb, var(--border-subtle) 100%, white 8%);
+  box-shadow: 0 16px 44px rgba(2, 6, 23, 0.55);
+}
+
+html[data-ui-theme='dark'] .magnetic-reading-rail__btn {
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
+  color: color-mix(in srgb, var(--accent) 72%, white 28%);
+}
+
+html[data-ui-theme='dark'] .magnetic-reading-rail__btn:hover {
+  background: color-mix(in srgb, var(--accent) 32%, transparent);
+}
+
+html[data-ui-theme='dark'] .external-bridge-token-well {
+  border-color: color-mix(in srgb, var(--accent) 38%, var(--border-subtle));
+  background: color-mix(in srgb, var(--surface-elevated) 88%, var(--accent) 6%);
+}
+
+html[data-ui-theme='dark'] .external-bridge-pre {
+  background: color-mix(in srgb, var(--surface-card) 92%, white 3%);
+  border-color: color-mix(in srgb, var(--border-subtle) 100%, white 4%);
+}
+
+/* Editorial workbench borders read a half-step too soft on the Noeis
+   rebrand’s near-black panels. Nudge the single token without rewriting the
+   editorial palette. */
+html[data-ui-theme='dark'] body.noeis-editorial {
+  --vellum-line: rgba(210, 220, 255, 0.22);
+}
+
+html[data-ui-theme='dark'] body.noeis-editorial .concept-editorial-evidence__item {
+  border-color: color-mix(in srgb, var(--vellum-line) 100%, white 6%);
+  background: color-mix(in srgb, var(--surface-card) 94%, white 3%);
 }

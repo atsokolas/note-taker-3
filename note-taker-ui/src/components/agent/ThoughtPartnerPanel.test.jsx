@@ -87,6 +87,31 @@ describe('ThoughtPartnerPanel', () => {
     });
   });
 
+  it('renders stream thread messages newest first', () => {
+    const { container } = render(
+      <ThoughtPartnerPanel
+        contextType="library"
+        contextId="library-root"
+        contextTitle="Library"
+        variant="stream"
+        thread={{
+          threadId: 'thread-1',
+          title: 'Library cleanup',
+          messages: [
+            { role: 'user', text: 'Oldest request.' },
+            { role: 'assistant', text: 'Middle plan.' },
+            { role: 'user', text: 'Newest execute command.' }
+          ]
+        }}
+      />
+    );
+
+    const renderedMessages = [...container.querySelectorAll('.agent-thought-partner__message')]
+      .map((node) => node.textContent);
+    expect(renderedMessages[0]).toContain('Newest execute command.');
+    expect(renderedMessages[2]).toContain('Oldest request.');
+  });
+
   it('renders thread proposed changes and accepts them', async () => {
     listAgentProposedChanges.mockResolvedValue({
       proposedChanges: [

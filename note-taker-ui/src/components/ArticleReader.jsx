@@ -3,6 +3,7 @@ import { QuietButton } from './ui';
 import { createHighlight } from '../api/highlights';
 import useTextSelection from './reader/useTextSelection';
 import SelectionMenu from './reader/SelectionMenu';
+import MagneticReadingRail from './reader/MagneticReadingRail';
 import { DEFAULT_HIGHLIGHT_COLOR } from '../constants/highlightColors';
 import { renderArticleContentWithHighlights } from '../utils/highlightMarkup';
 import ThoughtPartnerPanel from './agent/ThoughtPartnerPanel';
@@ -42,6 +43,7 @@ const ArticleReader = forwardRef(({
   onDumpToWorkingMemory
 }, ref) => {
   const contentRef = useRef(null);
+  const readerRootRef = useRef(null);
   const menuRef = useRef(null);
   const [saveError, setSaveError] = useState('');
   const [draftColor, setDraftColor] = useState(DEFAULT_HIGHLIGHT_COLOR);
@@ -150,7 +152,7 @@ const ArticleReader = forwardRef(({
   };
 
   return (
-    <div className="article-reader">
+    <div className="article-reader" ref={readerRootRef}>
       {selectionState.isOpen && (
         <SelectionMenu
           ref={menuRef}
@@ -227,6 +229,7 @@ const ArticleReader = forwardRef(({
         />
       </div>
       <div className="article-reader-content reader" ref={contentRef} dangerouslySetInnerHTML={contentMarkup} />
+      <MagneticReadingRail rootRef={readerRootRef} contentRef={contentRef} />
       {saveError && <p className="status-message error-message">{saveError}</p>}
     </div>
   );
