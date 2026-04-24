@@ -5589,20 +5589,35 @@ body.noeis-editorial .agent-thought-partner__thread {
 }
 
 body.noeis-editorial .agent-thought-partner__plan-preview {
-  gap: 10px;
-  padding: 0 0 14px;
-  border: 0 !important;
-  border-bottom: 1px solid var(--vellum-line) !important;
-  border-radius: 0;
-  background: transparent !important;
+  gap: 14px;
+  padding: 16px 18px 18px 22px;
+  border: 1px solid rgba(120, 110, 98, 0.14) !important;
+  border-radius: 24px;
+  background:
+    radial-gradient(circle at 8% 0%, rgba(207, 184, 139, 0.16), transparent 38%),
+    linear-gradient(135deg, rgba(255, 252, 247, 0.94), rgba(247, 243, 234, 0.9)) !important;
   box-shadow: none !important;
+}
+
+body.noeis-editorial .agent-thought-partner__plan-preview::before {
+  width: 3px;
+  background: linear-gradient(180deg, rgba(47, 70, 72, 0.82), rgba(181, 124, 71, 0.62));
+}
+
+body.noeis-editorial .agent-thought-partner__plan-preview-status {
+  margin-top: 5px;
+  font-family: "Newsreader", Georgia, serif;
+  font-size: 0.94rem;
+  line-height: 1.22;
+  color: rgba(56, 56, 49, 0.9);
 }
 
 body.noeis-editorial .agent-thought-partner__plan-preview h4 {
   margin: 0;
   font-family: "Newsreader", Georgia, serif;
-  font-size: 1.22rem;
-  line-height: 1.1;
+  font-size: clamp(1.55rem, 2.4vw, 2.2rem);
+  line-height: 0.98;
+  letter-spacing: -0.045em;
   color: var(--vellum-ink);
 }
 
@@ -5621,15 +5636,49 @@ body.noeis-editorial .agent-thought-partner__plan-preview-meta span {
 }
 
 body.noeis-editorial .agent-thought-partner__plan-preview-list {
-  gap: 6px;
-  padding-left: 1rem;
+  gap: 10px;
+  padding-left: 0;
 }
 
 body.noeis-editorial .agent-thought-partner__plan-preview-list li {
+  grid-template-columns: 30px minmax(0, 1fr);
+  gap: 10px;
   font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
-  font-size: 0.78rem;
+  font-size: 0.82rem;
   line-height: 1.5;
   color: rgba(56, 56, 49, 0.82);
+}
+
+body.noeis-editorial .agent-thought-partner__plan-preview-list li::before {
+  width: 30px;
+  height: 30px;
+  border: 1px solid rgba(120, 110, 98, 0.14);
+  background: rgba(255, 251, 246, 0.9);
+  color: rgba(47, 70, 72, 0.8);
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+body.noeis-editorial .agent-thought-partner__plan-preview-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+  padding-top: 4px;
+}
+
+body.noeis-editorial .agent-thought-partner__plan-preview-actions .ui-button {
+  min-height: 38px;
+  padding: 0 16px;
+  border: 0 !important;
+  background: #4f4a46 !important;
+  color: #fffaf5 !important;
+}
+
+body.noeis-editorial .agent-thought-partner__plan-preview-actions .ui-quiet-button {
+  min-height: 38px;
+  padding: 0 14px;
+  border: 1px solid rgba(120, 110, 98, 0.18) !important;
+  background: rgba(255, 251, 246, 0.72) !important;
 }
 
 body.noeis-editorial .agent-thought-partner__message {

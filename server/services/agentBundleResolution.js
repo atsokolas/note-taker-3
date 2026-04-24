@@ -12,8 +12,9 @@ const tokenize = (value = '') => (
 );
 
 const EXECUTION_INTENT_PATTERNS = [
-  /^(do it|do that|apply that|apply it|execute it|execute that|run it|run that|start it|start that|approve it|approve that|go ahead|yes|yes please|okay|ok|sure|pull that in|pull them in|bring that in|bring them in|rewrite it|rewrite that|use that)$/i,
-  /\b(do it|apply that|apply it|execute it|execute that|run it|run that|start it|start that|approve it|approve that|go ahead|rewrite it|rewrite that|pull that in|bring that in)\b/i
+  /^(ok|okay|yes|sure)?[\s,]*(please\s+)?(do it|do that|apply that|apply it|execute it|execute that|run it|run that|start it|start that|approve it|approve that|go ahead|pull that in|pull them in|bring that in|bring them in|rewrite it|rewrite that|use that)$/i,
+  /^(ok|okay|yes|sure)?[\s,]*(please\s+)?(execute|run|apply|approve|start)\s+(.+)$/i,
+  /\b((please\s+)?do that|do it|apply that|apply it|execute it|execute that|run it|run that|start it|start that|approve it|approve that|go ahead|rewrite it|rewrite that|pull that in|bring that in)\b/i
 ];
 
 const shouldResolveExecutionIntent = (message = '') => {
@@ -154,7 +155,7 @@ const scoreBundleCandidate = ({
     reasons.push('context_target_match');
   }
 
-  const genericExecutionOnly = messageTokens.size === 0 || [...messageTokens].every((token) => ['do', 'it', 'that', 'go', 'ahead', 'apply', 'execute', 'run', 'start', 'approve', 'approved', 'yes', 'ok', 'okay', 'sure', 'continue', 'use', 'pull', 'bring', 'rewrite'].includes(token));
+  const genericExecutionOnly = messageTokens.size === 0 || [...messageTokens].every((token) => ['do', 'it', 'that', 'this', 'the', 'plan', 'proposal', 'bundle', 'please', 'go', 'ahead', 'apply', 'execute', 'run', 'start', 'approve', 'approved', 'yes', 'ok', 'okay', 'sure', 'continue', 'use', 'pull', 'bring', 'rewrite'].includes(token));
   if (genericExecutionOnly && !referencedByWords && clean(lastAssistantWithBundle?.proposalBundle?.bundleId) !== clean(safeBundle.bundleId)) {
     score -= 5;
   }
@@ -213,7 +214,7 @@ const resolveExecutableProposalBundle = ({
     };
   }
 
-  const genericExecutionOnly = tokenize(safeMessage).every((token) => ['do', 'it', 'that', 'go', 'ahead', 'apply', 'execute', 'run', 'start', 'approve', 'approved', 'yes', 'ok', 'okay', 'sure', 'continue', 'use', 'pull', 'bring', 'rewrite'].includes(token));
+  const genericExecutionOnly = tokenize(safeMessage).every((token) => ['do', 'it', 'that', 'this', 'the', 'plan', 'proposal', 'bundle', 'please', 'go', 'ahead', 'apply', 'execute', 'run', 'start', 'approve', 'approved', 'yes', 'ok', 'okay', 'sure', 'continue', 'use', 'pull', 'bring', 'rewrite'].includes(token));
   const lastUserIndex = Array.isArray(thread?.messages)
     ? [...thread.messages].map((entry) => clean(entry?.role).toLowerCase()).lastIndexOf('user')
     : -1;

@@ -98,9 +98,9 @@ describe('ThoughtPartnerPanel', () => {
           threadId: 'thread-1',
           title: 'Library cleanup',
           messages: [
-            { role: 'user', text: 'Oldest request.' },
-            { role: 'assistant', text: 'Middle plan.' },
-            { role: 'user', text: 'Newest execute command.' }
+            { role: 'user', text: 'Oldest request.', createdAt: '2026-04-18T12:00:00.000Z' },
+            { role: 'assistant', text: 'Middle plan.', createdAt: '2026-04-18T12:01:00.000Z' },
+            { role: 'user', text: 'Newest execute command.', createdAt: '2026-04-18T12:02:00.000Z' }
           ]
         }}
       />
@@ -110,6 +110,81 @@ describe('ThoughtPartnerPanel', () => {
       .map((node) => node.textContent);
     expect(renderedMessages[0]).toContain('Newest execute command.');
     expect(renderedMessages[2]).toContain('Oldest request.');
+  });
+
+  it('submits an explicit execution command from a pending proposal bundle', async () => {
+    let observedPayload = null;
+    chatWithAgent.mockImplementation(async (payload) => {
+      observedPayload = payload;
+      return {
+        reply: 'Resolved this to "Clean up Library" and executed it.',
+        thread: {
+          threadId: 'thread-1',
+          messages: [
+            {
+              role: 'assistant',
+              text: 'I can clean up the library structure.',
+              createdAt: '2026-04-18T12:00:00.000Z',
+              proposalBundle: {
+                bundleId: 'bundle-cleanup',
+                title: 'Clean up Library',
+                status: 'pending',
+                operations: [
+                  { opId: 'organize-workspace', title: 'Clean up Library' }
+                ]
+              }
+            },
+            {
+              role: 'user',
+              text: 'Execute Clean up Library',
+              createdAt: '2026-04-18T12:01:00.000Z'
+            },
+            {
+              role: 'assistant',
+              text: 'Resolved this to "Clean up Library" and executed it.',
+              createdAt: '2026-04-18T12:02:00.000Z'
+            }
+          ]
+        }
+      };
+    });
+
+    render(
+      <ThoughtPartnerPanel
+        contextType="library"
+        contextId="library-root"
+        contextTitle="Library"
+        variant="stream"
+        thread={{
+          threadId: 'thread-1',
+          title: 'Library cleanup',
+          messages: [
+            {
+              role: 'assistant',
+              text: 'I can clean up the library structure.',
+              createdAt: '2026-04-18T12:00:00.000Z',
+              proposalBundle: {
+                bundleId: 'bundle-cleanup',
+                title: 'Clean up Library',
+                status: 'pending',
+                operations: [
+                  { opId: 'organize-workspace', title: 'Clean up Library' }
+                ]
+              }
+            }
+          ]
+        }}
+      />
+    );
+
+    fireEvent.click(screen.getAllByRole('button', { name: 'Execute plan' })[0]);
+
+    await waitFor(() => expect(chatWithAgent).toHaveBeenCalledTimes(1));
+    expect(observedPayload).toMatchObject({
+      message: 'Execute Clean up Library',
+      threadId: 'thread-1'
+    });
+    await screen.findByText('Resolved this to "Clean up Library" and executed it.');
   });
 
   it('renders thread proposed changes and accepts them', async () => {
@@ -159,7 +234,7 @@ describe('ThoughtPartnerPanel', () => {
     );
 
     await waitFor(() => expect(listAgentProposedChanges).toHaveBeenCalledWith({ threadId: 'thread-1', status: 'all' }));
-    expect(screen.getByText('Review stage')).toBeInTheDocument();
+    await screen.findByText('Review stage');
     expect(screen.getByText('Sharper concept description')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Accept' }));

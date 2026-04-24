@@ -432,13 +432,24 @@ html[data-ui-theme='dark'] {
 }
 
 .agent-thought-partner__plan-preview {
+  position: relative;
+  overflow: hidden;
   display: grid;
-  gap: 10px;
-  padding: 16px 18px;
-  border-radius: 20px;
-  border: 1px solid color-mix(in srgb, #2f5f6b 14%, var(--nt-divider));
+  gap: 14px;
+  padding: 18px 20px 20px;
+  border-radius: 24px;
+  border: 1px solid color-mix(in srgb, #2f5f6b 18%, var(--nt-divider));
   background:
-    linear-gradient(135deg, color-mix(in srgb, #eef7f4 90%, var(--nt-surface-1)) 0%, color-mix(in srgb, #fbf5eb 84%, var(--nt-surface-1)) 100%);
+    radial-gradient(circle at 12% 0%, color-mix(in srgb, #d7eee9 56%, transparent) 0, transparent 34%),
+    linear-gradient(135deg, color-mix(in srgb, #eef7f4 92%, var(--nt-surface-1)) 0%, color-mix(in srgb, #fbf5eb 86%, var(--nt-surface-1)) 100%);
+}
+
+.agent-thought-partner__plan-preview::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 4px;
+  background: linear-gradient(180deg, #2f5f6b, #c79555);
 }
 
 .agent-thought-partner__plan-preview-head {
@@ -450,11 +461,19 @@ html[data-ui-theme='dark'] {
 }
 
 .agent-thought-partner__plan-preview-eyebrow {
+  display: block;
   font-size: 0.7rem;
   letter-spacing: 0.1em;
   text-transform: uppercase;
   font-weight: 700;
   color: color-mix(in srgb, #355964 72%, var(--text-secondary));
+}
+
+.agent-thought-partner__plan-preview-status {
+  display: block;
+  margin-top: 4px;
+  font-size: 0.8rem;
+  color: var(--text-primary);
 }
 
 .agent-thought-partner__plan-preview-meta {
@@ -479,7 +498,7 @@ html[data-ui-theme='dark'] {
 
 .agent-thought-partner__plan-preview h4 {
   margin: 0;
-  font-size: 1.06rem;
+  font-size: clamp(1.18rem, 2vw, 1.7rem);
   letter-spacing: -0.03em;
 }
 
@@ -490,15 +509,46 @@ html[data-ui-theme='dark'] {
 }
 
 .agent-thought-partner__plan-preview-list {
+  counter-reset: plan-step;
   display: grid;
-  gap: 8px;
+  gap: 10px;
   margin: 0;
-  padding-left: 1.1rem;
+  padding: 0;
+  list-style: none;
   color: var(--text-primary);
 }
 
 .agent-thought-partner__plan-preview-list li {
+  position: relative;
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
   line-height: 1.5;
+}
+
+.agent-thought-partner__plan-preview-list li::before {
+  counter-increment: plan-step;
+  content: counter(plan-step, decimal-leading-zero);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  background: color-mix(in srgb, #2f5f6b 12%, var(--nt-surface-1));
+  color: color-mix(in srgb, #2f5f6b 82%, var(--text-primary));
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.agent-thought-partner__plan-preview-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+  padding-top: 2px;
 }
 
 .agent-thought-partner__drafts-head h4 {

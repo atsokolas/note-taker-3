@@ -103,6 +103,8 @@ const run = () => {
   assert.strictEqual(shouldResolveExecutionIntent('do it'), true, 'Short execution confirmations should trigger bundle resolution.');
   assert.strictEqual(shouldResolveExecutionIntent('rewrite it'), true, 'Verb-led execution approvals should trigger bundle resolution.');
   assert.strictEqual(shouldResolveExecutionIntent('Ok execute it'), true, 'Explicit execute language should trigger bundle resolution.');
+  assert.strictEqual(shouldResolveExecutionIntent('Ok, please do that'), true, 'Polite do-that approvals should trigger bundle resolution.');
+  assert.strictEqual(shouldResolveExecutionIntent('Execute Clean up Library'), true, 'Execute buttons that include the bundle title should trigger bundle resolution.');
   assert.strictEqual(shouldResolveExecutionIntent('run it'), true, 'Run language should trigger bundle resolution.');
   assert.strictEqual(shouldResolveExecutionIntent('continue'), false, 'Bare continue should fall back to normal chat so thread follow-ups still work.');
   assert.strictEqual(shouldResolveExecutionIntent('what do you think?'), false, 'Normal chat should not trigger execution resolution.');
@@ -150,6 +152,19 @@ const run = () => {
   });
   assert.strictEqual(latestExecute.status, 'matched', 'Execute-it approvals should resolve the latest conversational bundle.');
   assert.strictEqual(latestExecute.bundle?.bundleId, 'bundle-latest', 'Execute-it should target the latest pending bundle.');
+
+  const latestPoliteApproval = resolveExecutableProposalBundle({
+    thread,
+    message: 'Ok, please do that',
+    context: {
+      type: 'concept',
+      id: 'concept-1',
+      title: 'World Models'
+    },
+    now: new Date('2026-04-18T16:00:00.000Z')
+  });
+  assert.strictEqual(latestPoliteApproval.status, 'matched', 'Polite do-that approvals should resolve the latest conversational bundle.');
+  assert.strictEqual(latestPoliteApproval.bundle?.bundleId, 'bundle-latest', 'Polite do-that approvals should target the latest pending bundle.');
 
   const ambiguous = resolveExecutableProposalBundle({
     thread: {

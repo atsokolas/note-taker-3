@@ -123,6 +123,7 @@ const mapThreadMessages = (thread = null) => (
         id: `${clean(thread?.threadId) || 'thread'}-${message?.createdAt || index}-${index}`,
         role: clean(message?.role).toLowerCase() === 'assistant' ? 'assistant' : 'user',
         text: clean(message?.text),
+        createdAt: clean(message?.createdAt),
         relatedItems: Array.isArray(message?.relatedItems) ? message.relatedItems : [],
         premiumWebResearchAvailable: message?.metadata?.premiumWebResearchAvailable,
         proposalBundle: message?.proposalBundle && typeof message.proposalBundle === 'object'
@@ -449,7 +450,8 @@ const ThoughtPartnerPanel = ({
     const userMessage = {
       id: `user-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       role: 'user',
-      text: message
+      text: message,
+      createdAt: new Date().toISOString()
     };
     setMessages(prev => [...prev, userMessage]);
 
@@ -476,6 +478,7 @@ const ThoughtPartnerPanel = ({
         id: `assistant-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
         role: 'assistant',
         text: clean(result?.reply) || 'No reply generated.',
+        createdAt: new Date().toISOString(),
         relatedItems: Array.isArray(result?.relatedItems) ? result.relatedItems : [],
         premiumWebResearchAvailable: Boolean(result?.premiumWebResearchAvailable),
         proposalBundle: result?.proposalBundle && typeof result.proposalBundle === 'object'
@@ -493,6 +496,7 @@ const ThoughtPartnerPanel = ({
               messages: [...messages, userMessage, assistantMessage].map((entry) => ({
                 role: entry.role,
                 text: entry.text,
+                createdAt: entry.createdAt,
                 relatedItems: Array.isArray(entry.relatedItems) ? entry.relatedItems : [],
                 metadata: {
                   premiumWebResearchAvailable: entry.premiumWebResearchAvailable,
@@ -528,6 +532,13 @@ const ThoughtPartnerPanel = ({
       setLoading(false);
     }
   }, [context, contextTitle, disabled, hydrateFromThread, loadArtifactDrafts, loadHarnessMetrics, loadProposedChanges, loadRuns, loadStructureProposals, loading, messages, onThreadChange, pendingSkillInvocation, thread?.threadId, thread?.title, threadId, title]);
+
+  const handleExecuteProposalBundle = useCallback((bundle = {}) => {
+    const title = clean(bundle?.title);
+    submitMessage(title ? `Execute ${title}` : 'Execute it', {
+      allowPendingSkillInvocation: false
+    });
+  }, [submitMessage]);
 
   useEffect(() => {
     if (clean(thread?.threadId)) {
@@ -740,8 +751,19 @@ const ThoughtPartnerPanel = ({
     [...messages].reverse().find(entry => entry.role === 'assistant') || null
   ), [messages]);
   const visibleMessages = useMemo(() => (
-    isThreadStreamVariant ? [...messages].reverse() : messages
-  ), [isThreadStreamVariant, messages]);
+    isStreamVariant
+      ? messages
+          .map((message, index) => ({ message, index }))
+          .sort((left, right) => {
+            const leftTime = Date.parse(left.message.createdAt || '');
+            const rightTime = Date.parse(right.message.createdAt || '');
+            const safeLeft = Number.isFinite(leftTime) ? leftTime : left.index;
+            const safeRight = Number.isFinite(rightTime) ? rightTime : right.index;
+            return safeRight - safeLeft || right.index - left.index;
+          })
+          .map(({ message }) => message)
+      : messages
+  ), [isStreamVariant, messages]);
   const activePlanner = useMemo(() => (
     (lastAssistantMessage?.planner && typeof lastAssistantMessage.planner === 'object'
       ? lastAssistantMessage.planner
@@ -759,6 +781,16 @@ const ThoughtPartnerPanel = ({
     () => artifactDrafts.filter((draft) => draft.status !== 'dismissed'),
     [artifactDrafts]
   );
+  const latestPendingProposalBundle = useMemo(() => {
+    const fromThread = [...proposalBundles]
+      .reverse()
+      .find((bundle) => clean(bundle?.status).toLowerCase() === 'pending') || null;
+    if (fromThread) return fromThread;
+    return [...messages]
+      .reverse()
+      .map((message) => (message?.proposalBundle && typeof message.proposalBundle === 'object' ? message.proposalBundle : null))
+      .find((bundle) => bundle && clean(bundle?.status).toLowerCase() === 'pending') || null;
+  }, [messages, proposalBundles]);
   const harnessStats = useMemo(() => {
     if (!harnessMetrics || typeof harnessMetrics !== 'object') return [];
     const reviewQueueCount = Number(harnessMetrics?.proposedChangeStatuses?.pending || 0)
@@ -787,6 +819,12 @@ const ThoughtPartnerPanel = ({
     ];
   }, [harnessMetrics]);
   const partnerSubtitle = subtitle || (contextTitle ? `Context: ${contextTitle}` : 'Ask about your notes, concepts, and articles.');
+  const handleFocusReviewStage = useCallback(() => {
+    const reviewNode = document.querySelector('.agent-thought-partner__review-card--structure, .agent-thought-partner__review-card');
+    if (reviewNode && typeof reviewNode.scrollIntoView === 'function') {
+      reviewNode.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }, []);
   const streamPlanPreview = useMemo(() => {
     if (!isThreadStreamVariant) return null;
     const primaryStructureProposal = pendingStructureProposals[0] || null;
@@ -802,10 +840,33 @@ const ThoughtPartnerPanel = ({
         summary: truncate(primaryStructureProposal.summary || primaryStructureProposal.rationale, 150)
           || 'The agent staged a cleanup plan for review before anything moves.',
         meta: [
+          latestPendingProposalBundle ? 'ready to execute' : 'reviewable',
           primaryStructureProposal.scopeRef ? `scope ${clean(primaryStructureProposal.scopeRef)}` : '',
           Array.isArray(primaryStructureProposal.operations) ? `${primaryStructureProposal.operations.length} planned steps` : ''
         ].filter(Boolean),
-        bullets: activeOperations
+        bullets: activeOperations,
+        proposalBundle: latestPendingProposalBundle,
+        hasReviewStage: true
+      };
+    }
+
+    if (latestPendingProposalBundle) {
+      const bundleSteps = (Array.isArray(latestPendingProposalBundle.operations) ? latestPendingProposalBundle.operations : [])
+        .slice(0, 3)
+        .map((operation) => clean(operation?.title))
+        .filter(Boolean);
+      return {
+        eyebrow: 'Proposed work',
+        title: clean(latestPendingProposalBundle.title) || 'Pending agent proposal',
+        summary: truncate(latestPendingProposalBundle.summary, 170)
+          || 'The agent has staged work and is waiting for your approval before it changes anything.',
+        meta: [
+          'ready to execute',
+          bundleSteps.length > 0 ? `${bundleSteps.length} planned steps` : ''
+        ].filter(Boolean),
+        bullets: bundleSteps,
+        proposalBundle: latestPendingProposalBundle,
+        hasReviewStage: pendingStructureProposals.length > 0
       };
     }
 
@@ -828,14 +889,17 @@ const ThoughtPartnerPanel = ({
         || clean(contextMetadata?.summary)
         || 'Use the current plan to pick the next sharp move.', 150),
       meta: [
+        latestPendingProposalBundle ? 'ready to execute' : '',
         clean(thread?.planner?.activeWorkerLabel || activePlanner?.activeWorkerLabel)
           ? `specialist ${clean(thread?.planner?.activeWorkerLabel || activePlanner?.activeWorkerLabel)}`
           : '',
         Array.isArray(thread?.plan?.steps) && thread.plan.steps.length > 0 ? `${thread.plan.steps.length} plan steps` : ''
       ].filter(Boolean),
-      bullets
+      bullets,
+      proposalBundle: latestPendingProposalBundle,
+      hasReviewStage: pendingStructureProposals.length > 0
     };
-  }, [activePlanner?.activeWorkerLabel, activePlanner?.rationale, contextMetadata?.summary, isThreadStreamVariant, pendingStructureProposals, thread?.checkpoint?.nextActions, thread?.plan?.objective, thread?.plan?.steps, thread?.planner?.activeWorkerLabel, thread?.planner?.rationale]);
+  }, [activePlanner?.activeWorkerLabel, activePlanner?.rationale, contextMetadata?.summary, isThreadStreamVariant, latestPendingProposalBundle, pendingStructureProposals, thread?.checkpoint?.nextActions, thread?.plan?.objective, thread?.plan?.steps, thread?.planner?.activeWorkerLabel, thread?.planner?.rationale]);
   const handleComposerSubmit = useCallback((event) => {
     if (event?.preventDefault) event.preventDefault();
     submitMessage(input);
@@ -907,7 +971,12 @@ const ThoughtPartnerPanel = ({
   const streamPlanPreviewSection = isThreadStreamVariant && streamPlanPreview ? (
     <section className="agent-thought-partner__plan-preview">
       <div className="agent-thought-partner__plan-preview-head">
-        <span className="agent-thought-partner__plan-preview-eyebrow">{streamPlanPreview.eyebrow}</span>
+        <div>
+          <span className="agent-thought-partner__plan-preview-eyebrow">{streamPlanPreview.eyebrow}</span>
+          <strong className="agent-thought-partner__plan-preview-status">
+            {streamPlanPreview.proposalBundle ? 'Waiting for your approval' : 'Working plan'}
+          </strong>
+        </div>
         {streamPlanPreview.meta.length > 0 && (
           <div className="agent-thought-partner__plan-preview-meta">
             {streamPlanPreview.meta.map((item) => (
@@ -919,11 +988,34 @@ const ThoughtPartnerPanel = ({
       <h4>{streamPlanPreview.title}</h4>
       {clean(streamPlanPreview.summary) && <p>{streamPlanPreview.summary}</p>}
       {streamPlanPreview.bullets.length > 0 && (
-        <ul className="agent-thought-partner__plan-preview-list">
+        <ol className="agent-thought-partner__plan-preview-list">
           {streamPlanPreview.bullets.map((item) => (
             <li key={`${streamPlanPreview.title}-${item}`}>{item}</li>
           ))}
-        </ul>
+        </ol>
+      )}
+      {(streamPlanPreview.proposalBundle || streamPlanPreview.hasReviewStage) && (
+        <div className="agent-thought-partner__plan-preview-actions">
+          {streamPlanPreview.hasReviewStage && (
+            <QuietButton
+              type="button"
+              onClick={handleFocusReviewStage}
+              disabled={loading || disabled}
+            >
+              Review/edit plan
+            </QuietButton>
+          )}
+          {streamPlanPreview.proposalBundle && (
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => handleExecuteProposalBundle(streamPlanPreview.proposalBundle)}
+              disabled={loading || disabled}
+            >
+              Execute plan
+            </Button>
+          )}
+        </div>
       )}
     </section>
   ) : null;
@@ -951,6 +1043,18 @@ const ThoughtPartnerPanel = ({
               </li>
             ))}
           </ol>
+          {clean(bundle.status).toLowerCase() === 'pending' && (
+            <div className="agent-thought-partner__draft-actions">
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => handleExecuteProposalBundle(bundle)}
+                disabled={loading || disabled}
+              >
+                Execute plan
+              </Button>
+            </div>
+          )}
         </article>
       ))}
     </div>
@@ -1408,6 +1512,18 @@ const ThoughtPartnerPanel = ({
                     </li>
                   ))}
                 </ol>
+                {clean(message.proposalBundle.status).toLowerCase() === 'pending' && (
+                  <div className="agent-thought-partner__draft-actions">
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      onClick={() => handleExecuteProposalBundle(message.proposalBundle)}
+                      disabled={loading || disabled}
+                    >
+                      Execute plan
+                    </Button>
+                  </div>
+                )}
               </div>
             )}
             {message.role === 'assistant' && Array.isArray(message.relatedItems) && message.relatedItems.length > 0 && (
