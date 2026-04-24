@@ -3451,11 +3451,32 @@ body.noeis-editorial .concept-editorial-view__dropzone {
   max-width: 30rem;
   border: 1px dashed rgba(129, 129, 120, 0.32);
   background: rgba(252, 249, 243, 0.9);
+  transition: border-color 180ms ease-out, background-color 180ms ease-out, transform 180ms ease-out, box-shadow 180ms ease-out;
+}
+
+body.noeis-editorial .concept-editorial-view__dropzone.is-active {
+  border-color: rgba(129, 129, 120, 0.72);
+  background: rgba(252, 249, 243, 1);
+  box-shadow: inset 0 0 0 1px rgba(129, 129, 120, 0.18);
+}
+
+body.noeis-editorial .concept-editorial-view__dropzone.is-hovering {
+  border-style: solid;
+  border-color: rgba(97, 94, 91, 0.85);
+  background: rgba(247, 240, 226, 1);
+  box-shadow: 0 6px 18px rgba(97, 94, 91, 0.14), inset 0 0 0 1px rgba(97, 94, 91, 0.32);
+  transform: translateY(-1px);
 }
 
 body.noeis-editorial .concept-editorial-view__dropzone span {
   color: rgba(129, 129, 120, 0.68);
   font-size: 1.8rem;
+  transition: color 180ms ease-out, transform 180ms ease-out;
+}
+
+body.noeis-editorial .concept-editorial-view__dropzone.is-hovering span {
+  color: rgba(97, 94, 91, 0.95);
+  transform: scale(1.06);
 }
 
 body.noeis-editorial .concept-editorial-view__dropzone p {
@@ -3465,6 +3486,25 @@ body.noeis-editorial .concept-editorial-view__dropzone p {
   letter-spacing: 0.2em;
   text-transform: uppercase;
   color: rgba(97, 94, 91, 0.56);
+  transition: color 180ms ease-out;
+}
+
+body.noeis-editorial .concept-editorial-view__dropzone.is-hovering p {
+  color: rgba(97, 94, 91, 0.95);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body.noeis-editorial .concept-editorial-view__dropzone,
+  body.noeis-editorial .concept-editorial-view__dropzone span,
+  body.noeis-editorial .concept-editorial-view__dropzone p {
+    transition: none;
+  }
+  body.noeis-editorial .concept-editorial-view__dropzone.is-hovering {
+    transform: none;
+  }
+  body.noeis-editorial .concept-editorial-view__dropzone.is-hovering span {
+    transform: none;
+  }
 }
 
 body.noeis-editorial .concept-editorial-evidence {
