@@ -19,15 +19,23 @@ const mockEditor = {
   isActive: jest.fn(() => false),
   state: {
     selection: {
+      from: 0,
       $from: {
         index: jest.fn(() => 0)
       }
     }
   },
+  view: {
+    coordsAtPos: jest.fn(() => ({ left: 0, right: 0, top: 0, bottom: 0 }))
+  },
   commands: {
     setContent: jest.fn(),
     insertContent: jest.fn()
   },
+  // EditorDraftShell's magnetCaretToolbar effect subscribes to TipTap events;
+  // the mock needs the on/off listener API or those tests crash on mount.
+  on: jest.fn(),
+  off: jest.fn(),
   getHTML: jest.fn(() => '<p>Draft</p>'),
   getJSON: jest.fn(() => ({ type: 'doc', content: [] }))
 };
