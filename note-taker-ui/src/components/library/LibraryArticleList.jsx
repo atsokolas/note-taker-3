@@ -83,8 +83,27 @@ const LibraryArticleRow = React.memo(({
   const tags = getArticleTags(article);
   const excerpt = getExcerpt(article);
 
+  // Cursor-following bloom — same vocabulary as ThinkHome primary action,
+  // applied lightly here because rows are dense and many. CSS-only fallback
+  // (no JS state) keeps the virtualized list cheap.
+  const handlePointerMove = (event) => {
+    const target = event.currentTarget;
+    const rect = target.getBoundingClientRect();
+    target.style.setProperty('--row-bloom-x', `${event.clientX - rect.left}px`);
+    target.style.setProperty('--row-bloom-y', `${event.clientY - rect.top}px`);
+  };
+  const handlePointerLeave = (event) => {
+    const target = event.currentTarget;
+    target.style.removeProperty('--row-bloom-x');
+    target.style.removeProperty('--row-bloom-y');
+  };
+
   return (
-  <div className="library-article-row">
+  <div
+    className="library-article-row is-magnetic"
+    onPointerMove={handlePointerMove}
+    onPointerLeave={handlePointerLeave}
+  >
     <div className="library-article-row-date">{formatDate(article.createdAt)}</div>
     <button
       className="library-article-row-main"

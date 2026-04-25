@@ -154,14 +154,76 @@ body.calm-ui-global .library-page-shell .library-article-list.is-empty .library-
 }
 
 body.calm-ui-global .library-page-shell .library-article-row {
+  position: relative;
   border: 0;
   border-radius: 0;
   border-bottom: 1px solid var(--calm-system-border-soft);
   background: transparent;
+  isolation: isolate;
+  transition: background-color 220ms ease-out, transform 220ms ease-out;
 }
 
 body.calm-ui-global .library-page-shell .library-article-row:last-child {
   border-bottom: 0;
+}
+
+/* Magnetic row hover — cursor-following bloom + thin left-edge accent.
+   Pairs with the ThinkHome primary action and reading rail vocabulary;
+   density-aware (much lighter than primary buttons since rows are many). */
+body.calm-ui-global .library-page-shell .library-article-row.is-magnetic::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: -1;
+  background: radial-gradient(
+    180px circle at var(--row-bloom-x, 50%) var(--row-bloom-y, 50%),
+    color-mix(in srgb, var(--calm-bg-1) 70%, transparent),
+    transparent 70%
+  );
+  opacity: 0;
+  transition: opacity 220ms ease-out;
+}
+
+body.calm-ui-global .library-page-shell .library-article-row.is-magnetic::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 6px;
+  bottom: 6px;
+  width: 2px;
+  background: var(--calm-system-title);
+  border-radius: 2px;
+  opacity: 0;
+  transform: translateX(-3px);
+  transition: opacity 220ms ease-out, transform 220ms ease-out;
+}
+
+body.calm-ui-global .library-page-shell .library-article-row.is-magnetic:hover::before,
+body.calm-ui-global .library-page-shell .library-article-row.is-magnetic:focus-within::before {
+  opacity: 1;
+}
+
+body.calm-ui-global .library-page-shell .library-article-row.is-magnetic:hover::after,
+body.calm-ui-global .library-page-shell .library-article-row.is-magnetic:focus-within::after {
+  opacity: 0.55;
+  transform: translateX(0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body.calm-ui-global .library-page-shell .library-article-row,
+  body.calm-ui-global .library-page-shell .library-article-row.is-magnetic::before,
+  body.calm-ui-global .library-page-shell .library-article-row.is-magnetic::after {
+    transition: none;
+  }
+}
+
+/* Coarse pointer (touch) — bloom is meaningless without fine pointer; hide it
+   to avoid flash on tap. Left accent still appears on focus-within. */
+@media (pointer: coarse) {
+  body.calm-ui-global .library-page-shell .library-article-row.is-magnetic::before {
+    display: none;
+  }
 }
 
 body.calm-ui-global .library-page-shell .library-article-row-action {
