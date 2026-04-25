@@ -5283,6 +5283,148 @@ html[data-ui-theme='dark'] .article-reader-header {
   display: flex;
   justify-content: flex-end;
 }
+
+/* Insert modal variant — aligns notebook insert flows with the
+   reading-rail / slash-menu glass vocabulary. Scoped via --insert
+   modifiers so other modals are untouched. */
+.modal-overlay--insert {
+  background-color: rgba(28, 24, 18, 0.42);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+.modal-content--insert {
+  border: 1px solid color-mix(in srgb, var(--border-subtle) 70%, transparent);
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--surface-card) 90%, transparent);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  box-shadow: 0 22px 56px rgba(28, 24, 18, 0.22);
+  padding: 22px 22px 14px;
+  gap: 14px;
+}
+
+.modal-content--insert .modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 4px;
+}
+
+.modal-content--insert .modal-header h3 {
+  margin: 0 0 4px;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.modal-content--insert .icon-button {
+  background: transparent;
+  border: 0;
+  font-size: 1.4rem;
+  line-height: 1;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 8px;
+  transition: background 160ms ease-out, color 160ms ease-out;
+}
+
+.modal-content--insert .icon-button:hover {
+  background: color-mix(in srgb, var(--accent-soft) 32%, transparent);
+  color: var(--text);
+}
+
+.insert-modal__search {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--border-subtle) 80%, transparent);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  color: var(--text);
+  font-size: 0.92rem;
+  transition: border-color 180ms ease-out, box-shadow 180ms ease-out;
+}
+
+.insert-modal__search:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-soft) 60%, transparent);
+}
+
+.modal-content--insert .modal-highlight-list {
+  margin-top: 6px;
+  gap: 8px;
+}
+
+.modal-content--insert .modal-highlight-item {
+  border: 1px solid color-mix(in srgb, var(--border-subtle) 70%, transparent);
+  border-radius: 12px;
+  padding: 12px 14px;
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  transition: border-color 180ms ease-out, background-color 180ms ease-out, transform 180ms ease-out, box-shadow 180ms ease-out;
+}
+
+.modal-content--insert .modal-highlight-item.is-clickable {
+  cursor: pointer;
+  text-align: left;
+}
+
+.modal-content--insert .modal-highlight-item.is-clickable:hover,
+.modal-content--insert .modal-highlight-item.is-clickable:focus-visible {
+  border-color: color-mix(in srgb, var(--border-subtle) 100%, var(--accent) 18%);
+  background: color-mix(in srgb, var(--surface) 96%, var(--accent-soft) 8%);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(28, 24, 18, 0.10);
+  outline: none;
+}
+
+.insert-modal__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 10px;
+  margin-top: 4px;
+  border-top: 1px solid color-mix(in srgb, var(--border-subtle) 60%, transparent);
+}
+
+.insert-modal__footer-hint {
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.insert-modal__footer-hint kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 18px;
+  padding: 0 6px;
+  border: 1px solid color-mix(in srgb, var(--border-subtle) 80%, transparent);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 0.68rem;
+  line-height: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .modal-content--insert .modal-highlight-item,
+  .modal-content--insert .icon-button,
+  .insert-modal__search {
+    transition: none;
+  }
+  .modal-content--insert .modal-highlight-item.is-clickable:hover,
+  .modal-content--insert .modal-highlight-item.is-clickable:focus-visible {
+    transform: none;
+  }
+}
 .think-notebook-layout {
   display: grid;
   grid-template-columns: 260px minmax(0, 1fr);
