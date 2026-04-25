@@ -18,27 +18,41 @@ const InsertHighlightModal = ({ open, highlights, loading, error, onClose, onSel
   if (!open) return null;
 
   return (
-    <div className="modal-overlay">
-      <div className="modal-content">
+    <div className="modal-overlay modal-overlay--insert">
+      <div className="modal-content modal-content--insert">
         <div className="modal-header">
           <div>
             <h3>Insert Highlight</h3>
             <p className="muted small">Search by text, tag, or article.</p>
           </div>
-          <button className="icon-button" onClick={onClose}>×</button>
+          <button className="icon-button" onClick={onClose} aria-label="Close">×</button>
         </div>
         <input
           type="text"
+          className="insert-modal__search"
           placeholder="Search highlights..."
           value={query}
           onChange={(event) => setQuery(event.target.value)}
+          autoFocus
         />
         {loading && <p className="muted small">Loading highlights…</p>}
         {error && <p className="status-message error-message">{error}</p>}
         {!loading && !error && (
           <div className="modal-highlight-list">
             {filtered.map(h => (
-              <div key={h._id} className="modal-highlight-item">
+              <div
+                key={h._id}
+                className="modal-highlight-item is-clickable"
+                role="button"
+                tabIndex={0}
+                onClick={() => onSelect(h)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    onSelect(h);
+                  }
+                }}
+              >
                 <div className="modal-highlight-title">{h.articleTitle || 'Untitled article'}</div>
                 <p className="modal-highlight-text">{h.text}</p>
                 <div className="modal-highlight-tags">
@@ -51,14 +65,17 @@ const InsertHighlightModal = ({ open, highlights, loading, error, onClose, onSel
                   )}
                 </div>
                 <div className="modal-highlight-actions">
-                  <Button variant="secondary" onClick={() => onSelect(h)}>Insert</Button>
+                  <Button variant="secondary" onClick={(event) => { event.stopPropagation(); onSelect(h); }}>Insert</Button>
                 </div>
               </div>
             ))}
             {filtered.length === 0 && <p className="muted small">No highlights found.</p>}
           </div>
         )}
-        <div className="modal-footer">
+        <div className="modal-footer insert-modal__footer">
+          <span className="insert-modal__footer-hint">
+            <kbd>esc</kbd> to close
+          </span>
           <QuietButton onClick={onClose}>Close</QuietButton>
         </div>
       </div>

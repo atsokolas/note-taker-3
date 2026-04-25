@@ -63,12 +63,18 @@ const IdeaWorkbenchCard = ({
         {draggable && (
           <button
             type="button"
-            className="idea-workbench-card__drag-handle"
+            className="idea-workbench-card__drag-handle idea-workbench-card__grip"
             {...attributes}
             {...listeners}
             aria-label={`Drag ${card.title}`}
+            title="Drag into a column"
           >
-            Drag
+            <span aria-hidden="true" />
+            <span aria-hidden="true" />
+            <span aria-hidden="true" />
+            <span aria-hidden="true" />
+            <span aria-hidden="true" />
+            <span aria-hidden="true" />
           </button>
         )}
       </div>
