@@ -443,7 +443,41 @@
 }
 
 .idea-workbench-column.is-over {
-  background: rgba(241, 230, 208, 0.32);
+  background: rgba(241, 230, 208, 0.42);
+  border-right-color: rgba(155, 130, 80, 0.65);
+  box-shadow: inset 2px 0 0 rgba(155, 130, 80, 0.55);
+}
+
+.idea-workbench-column__drop-hint {
+  position: sticky;
+  bottom: 6px;
+  margin-top: 12px;
+  align-self: center;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgba(252, 249, 243, 0.92);
+  border: 1px solid rgba(155, 130, 80, 0.45);
+  color: rgba(72, 50, 21, 0.86);
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 0.62rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  text-align: center;
+  width: max-content;
+  max-width: 100%;
+  box-shadow: 0 6px 14px rgba(72, 50, 21, 0.10);
+  animation: ideaWorkbenchDropHintIn 220ms ease-out both;
+}
+
+@keyframes ideaWorkbenchDropHintIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .idea-workbench-column__drop-hint {
+    animation: none;
+  }
 }
 
 .idea-workbench-column__header h3 {
@@ -502,7 +536,8 @@
 }
 
 .idea-workbench-card.is-lane {
-  padding: 14px 0 16px;
+  padding: 12px 0 12px;
+  gap: 8px;
   border-bottom: 1px solid rgba(219, 205, 181, 0.7);
   background: transparent;
   animation: ideaWorkbenchSlideIn 220ms ease both;
@@ -566,6 +601,47 @@
   cursor: grab;
   padding: 0;
   text-decoration: none;
+}
+
+/* 6-dot drag grip — matches the evidence-card grip from Iter 2 so the
+   drag affordance reads the same across the workbench and the concept
+   evidence stream. */
+.idea-workbench-card__grip {
+  display: inline-grid;
+  grid-template-columns: repeat(2, 3px);
+  grid-template-rows: repeat(3, 3px);
+  gap: 2px;
+  width: 12px;
+  height: 16px;
+  align-content: center;
+  justify-content: center;
+  cursor: grab;
+  opacity: 0.55;
+  transition: opacity 180ms ease-out;
+}
+
+.idea-workbench-card__grip:hover,
+.idea-workbench-card__grip:focus-visible {
+  opacity: 0.95;
+  outline: none;
+}
+
+.idea-workbench-card__grip:active {
+  cursor: grabbing;
+}
+
+.idea-workbench-card__grip > span {
+  display: block;
+  width: 3px;
+  height: 3px;
+  border-radius: 999px;
+  background: currentColor;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .idea-workbench-card__grip {
+    transition: none;
+  }
 }
 
 .idea-workbench-card__expanded {

@@ -55,7 +55,11 @@ const DroppableColumn = ({
   const { isOver, setNodeRef } = useDroppable({ id });
 
   return (
-    <section ref={setNodeRef} className={`idea-workbench-column ${isOver ? 'is-over' : ''}`}>
+    <section
+      ref={setNodeRef}
+      className={`idea-workbench-column ${isOver ? 'is-over' : ''}`}
+      data-testid={`workbench-column-${id}`}
+    >
       <div className="idea-workbench-column__header">
         <div>
           <h3>{title}</h3>
@@ -65,6 +69,11 @@ const DroppableColumn = ({
       </div>
       <div className="idea-workbench-column__body">
         {children}
+        {isOver && (
+          <div className="idea-workbench-column__drop-hint" aria-hidden="true">
+            Drop to {String(title || '').toLowerCase()}
+          </div>
+        )}
       </div>
     </section>
   );
