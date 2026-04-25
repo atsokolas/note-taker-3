@@ -1,8 +1,10 @@
 const { normalizeAgentRun } = require('./agentRuns');
+const { applyStructureProposal } = require('./agentStructureExecution');
 
 const clean = (value) => String(value || '').trim();
 
 const clone = (value) => JSON.parse(JSON.stringify(value || null));
+const STRUCTURE_OPERATION_STATUS_VALUES = new Set(['pending', 'approved', 'rejected', 'applied', 'skipped']);
 
 const normalizeActor = (input = {}, fallbackType = 'user') => ({
   actorType: clean(input?.actorType).toLowerCase() || fallbackType,
@@ -32,6 +34,165 @@ const sanitizeRelatedItem = (item = {}) => ({
   snippet: clean(item?.snippet)
 });
 
+const toPlainObject = (value) => {
+  if (!value || typeof value !== 'object') return {};
+  if (typeof value.toObject === 'function') return value.toObject({ getters: false, virtuals: false });
+  return { ...value };
+};
+
+const inferOrganizationFolderName = (item = {}) => {
+  const text = `${clean(item?.title)} ${clean(item?.snippet)}`.toLowerCase();
+  if (/\b(shinkansen|rail|transport|train|mobility)\b/.test(text)) return 'Transportation';
+  if (/\b(crypto|blockchain|exchange|hyperliquid|bitcoin|ethereum)\b/.test(text)) return 'Blockchain and Crypto';
+  if (/\b(ai|artificial intelligence|startup|technology|innovation|model|gpt)\b/.test(text)) return 'Technology and Innovation';
+  if (/\b(company|earnings|letter|ceo|executive|business|market|berkshire|update|news)\b/.test(text)) return 'Company News and Updates';
+  if (/\b(personal|career|story|profile|memoir)\b/.test(text)) return 'Personal and Professional Updates';
+  return 'Curated Research';
+};
+
+const resolveOrganizationDomain = (type = '') => {
+  const safeType = clean(type).toLowerCase();
+  if (['article', 'library'].includes(safeType)) return 'library';
+  if (['notebook', 'note', 'notebook_entry'].includes(safeType)) return 'notebook';
+  return '';
+};
+
+const buildGeneratedStructureOperations = ({ items = [] } = {}) => {
+  const folderOpsByKey = new Map();
+  const operations = [];
+  const seenMoves = new Set();
+
+  items.forEach((item) => {
+    const id = clean(item?.id);
+    const targetDomain = resolveOrganizationDomain(item?.type);
+    if (!id || !targetDomain) return;
+
+    const folderName = inferOrganizationFolderName(item);
+    const folderKey = `${targetDomain}:${folderName.toLowerCase()}`;
+    if (!folderOpsByKey.has(folderKey)) {
+      const createOp = {
+        opId: `create-${targetDomain}-${folderOpsByKey.size + 1}`,
+        type: 'create_folder',
+        targetDomain,
+        status: 'approved',
+        payload: { name: folderName },
+        preview: { folderName },
+        risk: 'low'
+      };
+      folderOpsByKey.set(folderKey, createOp);
+      operations.push(createOp);
+    }
+
+    const moveKey = `${targetDomain}:${id}`;
+    if (seenMoves.has(moveKey)) return;
+    seenMoves.add(moveKey);
+    operations.push({
+      opId: `move-${targetDomain}-${seenMoves.size}`,
+      type: 'move_item',
+      targetDomain,
+      status: 'approved',
+      payload: {
+        itemId: id,
+        destinationFolderName: folderName
+      },
+      preview: {
+        itemTitle: clean(item?.title) || id,
+        destinationFolderName: folderName
+      },
+      risk: 'low'
+    });
+  });
+
+  return operations;
+};
+
+const toPersistedStructureOperation = (operation = {}) => {
+  const status = clean(operation?.status).toLowerCase();
+  const preview = operation?.preview && typeof operation.preview === 'object' ? clone(operation.preview) : {};
+  return {
+    opId: clean(operation?.opId),
+    type: clean(operation?.type).toLowerCase() || 'create_folder',
+    targetDomain: clean(operation?.targetDomain).toLowerCase() || 'library',
+    status: STRUCTURE_OPERATION_STATUS_VALUES.has(status) ? status : 'skipped',
+    payload: operation?.payload && typeof operation.payload === 'object' ? clone(operation.payload) : {},
+    preview: {
+      ...preview,
+      executionResult: {
+        status: status || 'skipped',
+        error: clean(operation?.error),
+        executionIndex: Number.isFinite(Number(operation?.executionIndex)) ? Number(operation.executionIndex) : null
+      }
+    },
+    risk: clean(operation?.risk).toLowerCase() === 'medium' ? 'medium' : 'low',
+    undoPayload: operation?.undoPayload && typeof operation.undoPayload === 'object' ? clone(operation.undoPayload) : {}
+  };
+};
+
+const findPendingStructureProposal = async ({
+  AgentStructureProposal,
+  userId = '',
+  thread = null,
+  run = {}
+} = {}) => {
+  if (!AgentStructureProposal || typeof AgentStructureProposal.findOne !== 'function') return null;
+  const threadId = clean(thread?._id || run?.threadId);
+  const sourceBundleId = clean(run?.sourceBundleId);
+  if (!threadId && !sourceBundleId) return null;
+
+  const query = {
+    userId,
+    status: 'pending'
+  };
+  if (threadId) query.sourceThreadId = threadId;
+  if (sourceBundleId) query.sourceBundleId = sourceBundleId;
+
+  return AgentStructureProposal.findOne(query);
+};
+
+const persistAppliedStructureProposal = async ({
+  AgentStructureProposal,
+  proposal = {},
+  executed = {},
+  userId = '',
+  actor = {}
+} = {}) => {
+  const now = new Date();
+  const acceptedBy = normalizeActor(actor || {}, 'user');
+  const operations = Array.isArray(executed?.operations)
+    ? executed.operations.map(toPersistedStructureOperation)
+    : proposal.operations;
+  if (proposal && typeof proposal.save === 'function') {
+    proposal.status = clean(executed?.status).toLowerCase() || 'applied';
+    proposal.acceptedBy = acceptedBy;
+    proposal.acceptedAt = now;
+    proposal.operations = operations;
+    proposal.executionResult = executed?.executionResult || null;
+    await proposal.save();
+    return proposal;
+  }
+
+  if (AgentStructureProposal && typeof AgentStructureProposal.create === 'function') {
+    return AgentStructureProposal.create({
+      ...proposal,
+      userId,
+      status: clean(executed?.status).toLowerCase() || 'applied',
+      acceptedBy,
+      acceptedAt: now,
+      operations,
+      executionResult: executed?.executionResult || null
+    });
+  }
+
+  return {
+    ...proposal,
+    status: clean(executed?.status).toLowerCase() || 'applied',
+    acceptedBy,
+    acceptedAt: now,
+    operations,
+    executionResult: executed?.executionResult || null
+  };
+};
+
 const buildHandoffTitle = ({ step = {}, thread = null } = {}) => {
   const targetTitle = clean(step?.target?.title || thread?.scope?.title);
   if (targetTitle) return `${targetTitle}: routed handoff`;
@@ -57,17 +218,91 @@ const executeAttachRelatedMaterialStep = ({
 const executeOrganizeWorkspaceStep = ({
   step = {},
   thread = null,
-  run = {}
+  run = {},
+  userId = '',
+  actor = {},
+  AgentStructureProposal,
+  Folder,
+  Article,
+  NotebookFolder,
+  NotebookEntry
 } = {}) => {
   const scope = thread?.scope && typeof thread.scope === 'object' ? thread.scope : {};
-  return {
-    type: 'organization_plan',
-    status: 'staged',
-    scopeType: clean(step?.metadata?.scopeType || scope?.type || step?.target?.type || 'workspace'),
-    scopeId: clean(step?.metadata?.scopeId || scope?.id || step?.target?.id),
-    sourceBundleId: clean(run?.sourceBundleId),
-    summary: clean(step?.summary) || 'Staged workspace organization work from the thread plan.'
+  const execute = async () => {
+    const existingProposal = await findPendingStructureProposal({
+      AgentStructureProposal,
+      userId,
+      thread,
+      run
+    });
+    const bundleMessage = findBundleMessage({ thread, bundleId: run?.sourceBundleId });
+    const relatedItems = Array.isArray(bundleMessage?.relatedItems)
+      ? bundleMessage.relatedItems.map(sanitizeRelatedItem)
+      : [];
+    const generatedOperations = existingProposal
+      ? []
+      : buildGeneratedStructureOperations({ items: relatedItems });
+
+    const proposal = existingProposal || {
+      userId,
+      sourceThreadId: clean(thread?._id || run?.threadId),
+      sourceRunId: clean(run?.runId || run?._id),
+      sourceBundleId: clean(run?.sourceBundleId),
+      scope: clean(step?.metadata?.isImportScope) ? 'import_session' : 'workspace',
+      scopeRef: clean(step?.metadata?.scopeId || scope?.id || step?.target?.id),
+      title: clean(step?.title) || 'Clean up Library',
+      summary: clean(step?.summary) || 'Apply the thread cleanup plan to the library structure.',
+      rationale: 'The user explicitly approved execution from the thread.',
+      operations: generatedOperations,
+      createdBy: normalizeActor(actor || {}, 'user')
+    };
+    const plainProposal = toPlainObject(proposal);
+    const operations = Array.isArray(plainProposal.operations) ? plainProposal.operations : [];
+    if (operations.length === 0) {
+      const error = new Error('No concrete folder moves were available to execute. Stage or edit a structure proposal with specific folders and items first.');
+      error.status = 400;
+      throw error;
+    }
+
+    const executed = await applyStructureProposal({
+      models: {
+        Folder,
+        Article,
+        NotebookFolder,
+        NotebookEntry
+      },
+      proposal: plainProposal,
+      userId
+    });
+    const result = executed?.executionResult || {};
+    if (Number(result.appliedCount || 0) <= 0) {
+      const error = new Error('The organization plan did not change any library or notebook items. Check that the proposed items still exist and try again.');
+      error.status = 400;
+      throw error;
+    }
+    const storedProposal = await persistAppliedStructureProposal({
+      AgentStructureProposal,
+      proposal,
+      executed,
+      userId,
+      actor
+    });
+    return {
+      type: 'organization_plan',
+      status: clean(result.status || executed?.status) || 'applied',
+      scopeType: clean(step?.metadata?.scopeType || scope?.type || step?.target?.type || 'workspace'),
+      scopeId: clean(step?.metadata?.scopeId || scope?.id || step?.target?.id),
+      sourceBundleId: clean(run?.sourceBundleId),
+      structureProposalId: clean(storedProposal?._id || storedProposal?.structureProposalId),
+      appliedCount: Number(result.appliedCount || 0),
+      skippedCount: Number(result.skippedCount || 0),
+      failedCount: Number(result.failedCount || 0),
+      totalCount: Number(result.totalCount || operations.length),
+      summary: clean(step?.summary) || 'Applied workspace organization work from the thread plan.'
+    };
   };
+
+  return execute();
 };
 
 const executeCreateHandoffStep = async ({
@@ -179,6 +414,11 @@ const executeStepOperation = async ({
   userId = '',
   actor = {},
   AgentHandoff,
+  AgentStructureProposal,
+  Folder,
+  Article,
+  NotebookFolder,
+  NotebookEntry,
   buildDefaultHandoffPlan,
   buildDefaultHandoffCheckpoint,
   createThreadForHandoff,
@@ -189,7 +429,18 @@ const executeStepOperation = async ({
     return executeAttachRelatedMaterialStep({ step, thread, run });
   }
   if (type === 'organize_workspace') {
-    return executeOrganizeWorkspaceStep({ step, thread, run });
+    return executeOrganizeWorkspaceStep({
+      step,
+      thread,
+      run,
+      userId,
+      actor,
+      AgentStructureProposal,
+      Folder,
+      Article,
+      NotebookFolder,
+      NotebookEntry
+    });
   }
   if (type === 'create_handoff') {
     return executeCreateHandoffStep({
@@ -217,6 +468,11 @@ const executeAgentRun = async ({
   approvePendingApprovalSteps = false,
   requestStepApproval = null,
   AgentHandoff,
+  AgentStructureProposal,
+  Folder,
+  Article,
+  NotebookFolder,
+  NotebookEntry,
   buildDefaultHandoffPlan,
   buildDefaultHandoffCheckpoint,
   createThreadForHandoff,
@@ -282,6 +538,11 @@ const executeAgentRun = async ({
         userId,
         actor: safeRun.lastActor,
         AgentHandoff,
+        AgentStructureProposal,
+        Folder,
+        Article,
+        NotebookFolder,
+        NotebookEntry,
         buildDefaultHandoffPlan,
         buildDefaultHandoffCheckpoint,
         createThreadForHandoff,

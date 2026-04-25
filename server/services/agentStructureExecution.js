@@ -174,7 +174,89 @@ const resolveNotebookAdapter = (models = {}) => {
   };
 };
 
+const resolveLibraryAdapter = (models = {}) => {
+  const folders = pickModel(models, ['folders', 'Folder']);
+  const articles = pickModel(models, ['articles', 'Article']);
+  if (!folders || !articles) return null;
+
+  return {
+    targetDomain: 'library',
+    async findFolderById({ userId, folderId }) {
+      const safeFolderId = clean(folderId);
+      if (!safeFolderId) return null;
+      const folder = await folders.findOne({ _id: safeFolderId, userId });
+      return folder ? toPlainObject(folder) : null;
+    },
+    async createFolder({ userId, name }) {
+      const existing = typeof folders.findOne === 'function'
+        ? await folders.findOne({ userId, name })
+        : null;
+      if (existing) return { ...toPlainObject(existing), __wasExisting: true };
+
+      const folder = await folders.create({ userId, name });
+      ensureWriteSucceeded(folder, 'create_folder');
+      return toPlainObject(folder);
+    },
+    async renameFolder({ userId, folderId, name }) {
+      const result = await folders.updateOne(
+        { _id: folderId, userId },
+        { $set: { name } }
+      );
+      return ensureWriteSucceeded(result, 'rename_folder');
+    },
+    async deleteFolder({ userId, folderId, operationName = 'delete_folder' }) {
+      const deleted = await folders.findOneAndDelete({ _id: folderId, userId });
+      if (!deleted) return null;
+      ensureWriteSucceeded(deleted, operationName);
+      return toPlainObject(deleted);
+    },
+    async countChildFolders() {
+      return 0;
+    },
+    async countEntriesInFolder({ userId, folderId }) {
+      return articles.countDocuments({ userId, folder: folderId });
+    },
+    async findEntryById({ userId, itemId }) {
+      const article = await articles.findOne({ _id: itemId, userId });
+      return article ? toPlainObject(article) : null;
+    },
+    async listEntriesByFolder({ userId, folderId }) {
+      if (typeof articles.find !== 'function') return [];
+      const rows = await articles.find({ userId, folder: folderId });
+      return Array.isArray(rows) ? rows.map((article) => toPlainObject(article)) : [];
+    },
+    async moveEntry({ userId, itemId, folderId, operationName = 'move_item' }) {
+      const result = await articles.updateOne(
+        { _id: itemId, userId },
+        { $set: { folder: folderId } }
+      );
+      return ensureWriteSucceeded(result, operationName);
+    },
+    async moveEntriesInFolder({ userId, sourceFolderId, destinationFolderId, entries = [] }) {
+      if (!Array.isArray(entries) || entries.length === 0) return null;
+      if (typeof articles.updateMany === 'function') {
+        const result = await articles.updateMany(
+          { userId, folder: sourceFolderId },
+          { $set: { folder: destinationFolderId } }
+        );
+        return ensureWriteSucceeded(result, 'merge_folder.item_move');
+      }
+
+      for (const entry of entries) {
+        await this.moveEntry({
+          userId,
+          itemId: clean(entry?._id),
+          folderId: destinationFolderId,
+          operationName: 'merge_folder.item_move'
+        });
+      }
+      return { matchedCount: entries.length, modifiedCount: entries.length };
+    }
+  };
+};
+
 const resolveStructureDomainAdapters = (models = {}) => ({
+  library: resolveLibraryAdapter(models),
   notebook: resolveNotebookAdapter(models)
 });
 
@@ -239,7 +321,9 @@ const applyCreateFolder = async ({ adapter, operation, userId, context, targetDo
 
   operation.status = 'applied';
   operation.executionIndex = context.nextExecutionIndex++;
-  operation.undoPayload = { type: 'delete_folder', folderId, targetDomain };
+  operation.undoPayload = folder.__wasExisting
+    ? { type: 'noop', reason: 'Folder already existed before execution.', targetDomain }
+    : { type: 'delete_folder', folderId, targetDomain };
   recordOperationStats(context, 'appliedCount');
 };
 

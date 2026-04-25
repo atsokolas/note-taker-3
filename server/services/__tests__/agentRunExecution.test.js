@@ -20,6 +20,90 @@ const createCreateModel = (prefix) => {
   };
 };
 
+const createLibraryModels = (state) => ({
+  Folder: {
+    async create(payload = {}) {
+      const folder = {
+        _id: payload._id || `folder-${state.folders.length + 1}`,
+        userId: payload.userId,
+        name: payload.name
+      };
+      state.folders.push(folder);
+      return { ...folder };
+    },
+    async findOne(query = {}) {
+      const found = state.folders.find((folder) => (
+        (!query._id || String(folder._id) === String(query._id))
+        && (!query.userId || String(folder.userId) === String(query.userId))
+        && (!query.name || String(folder.name) === String(query.name))
+      ));
+      return found ? { ...found } : null;
+    },
+    async findOneAndDelete(query = {}) {
+      const index = state.folders.findIndex((folder) => (
+        (!query._id || String(folder._id) === String(query._id))
+        && (!query.userId || String(folder.userId) === String(query.userId))
+      ));
+      if (index < 0) return null;
+      const [deleted] = state.folders.splice(index, 1);
+      return { ...deleted };
+    },
+    async updateOne(query = {}, update = {}) {
+      const folder = state.folders.find((entry) => (
+        (!query._id || String(entry._id) === String(query._id))
+        && (!query.userId || String(entry.userId) === String(query.userId))
+      ));
+      if (!folder) return { matchedCount: 0, modifiedCount: 0 };
+      if (update?.$set?.name) folder.name = update.$set.name;
+      return { matchedCount: 1, modifiedCount: 1 };
+    }
+  },
+  Article: {
+    async findOne(query = {}) {
+      const found = state.articles.find((article) => (
+        (!query._id || String(article._id) === String(query._id))
+        && (!query.userId || String(article.userId) === String(query.userId))
+      ));
+      return found ? { ...found } : null;
+    },
+    async find(query = {}) {
+      return state.articles.filter((article) => (
+        (!query.userId || String(article.userId) === String(query.userId))
+        && String(article.folder || '') === String(query.folder || '')
+      )).map((article) => ({ ...article }));
+    },
+    async countDocuments(query = {}) {
+      return state.articles.filter((article) => (
+        (!query.userId || String(article.userId) === String(query.userId))
+        && String(article.folder || '') === String(query.folder || '')
+      )).length;
+    },
+    async updateOne(query = {}, update = {}) {
+      const article = state.articles.find((entry) => (
+        (!query._id || String(entry._id) === String(query._id))
+        && (!query.userId || String(entry.userId) === String(query.userId))
+      ));
+      if (!article) return { matchedCount: 0, modifiedCount: 0 };
+      if (update?.$set && Object.prototype.hasOwnProperty.call(update.$set, 'folder')) {
+        article.folder = update.$set.folder;
+      }
+      return { matchedCount: 1, modifiedCount: 1 };
+    },
+    async updateMany(query = {}, update = {}) {
+      const matches = state.articles.filter((article) => (
+        (!query.userId || String(article.userId) === String(query.userId))
+        && String(article.folder || '') === String(query.folder || '')
+      ));
+      matches.forEach((article) => {
+        if (update?.$set && Object.prototype.hasOwnProperty.call(update.$set, 'folder')) {
+          article.folder = update.$set.folder;
+        }
+      });
+      return { matchedCount: matches.length, modifiedCount: matches.length };
+    }
+  }
+});
+
 const run = async () => {
   const AgentHandoff = createCreateModel('handoff');
   const createdThreads = [];
@@ -243,6 +327,18 @@ const run = async () => {
     'Blocked run steps should retain the approval record that can resume them later.'
   );
 
+  const libraryState = {
+    folders: [],
+    articles: [
+      {
+        _id: 'article-1',
+        userId: 'user-1',
+        title: 'The culture, people, and quirks behind the first pre-GPT company to become AI-native',
+        folder: null
+      }
+    ]
+  };
+  const libraryModels = createLibraryModels(libraryState);
   const explicitlyApproved = await executeAgentRun({
     run: {
       runId: 'run-approved-1',
@@ -277,11 +373,32 @@ const run = async () => {
     },
     thread: {
       ...thread,
-      scope: { type: 'library', id: 'library-root', title: 'Library' }
+      scope: { type: 'library', id: 'library-root', title: 'Library' },
+      messages: [
+        {
+          role: 'assistant',
+          text: 'I can clean up the library structure.',
+          relatedItems: [
+            {
+              type: 'article',
+              id: 'article-1',
+              title: 'The culture, people, and quirks behind the first pre-GPT company to become AI-native',
+              snippet: 'AI-native company profile.'
+            }
+          ],
+          proposalBundle: {
+            bundleId: 'bundle-organization',
+            title: 'Clean up Library',
+            status: 'pending'
+          }
+        }
+      ]
     },
     userId: 'user-1',
     actor: { actorType: 'user', actorId: 'user-1' },
-    approvePendingApprovalSteps: true
+    approvePendingApprovalSteps: true,
+    Folder: libraryModels.Folder,
+    Article: libraryModels.Article
   });
   assert.strictEqual(
     explicitlyApproved.status,
@@ -291,7 +408,16 @@ const run = async () => {
   assert.strictEqual(
     explicitlyApproved.steps[0]?.metadata?.result?.type,
     'organization_plan',
-    'Organization work should persist an execution result instead of being applied as a no-op.'
+    'Organization work should persist a concrete execution result.'
+  );
+  assert.ok(
+    libraryState.folders.some((folder) => folder.name === 'Technology and Innovation'),
+    'Explicit organization execution should create an inferred library folder.'
+  );
+  assert.strictEqual(
+    libraryState.articles[0].folder,
+    libraryState.folders.find((folder) => folder.name === 'Technology and Innovation')._id,
+    'Explicit organization execution should move the related article into the inferred folder.'
   );
 
   const resumedRun = await executeAgentRun({
