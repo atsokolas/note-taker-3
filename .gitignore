@@ -5,3 +5,21 @@ node_modules/
 server/logs/
 .vercel
 .gstack/
+
+# Local tool caches and test artifacts
+.playwright-cli/
+test-results/
+tmp/
+.cursor/hooks/state/
+
+# Sync-conflict copies (iCloud / Dropbox " 2.ext" artifacts)
+*\ [0-9].js
+*\ [0-9].jsx
+*\ [0-9].ts
+*\ [0-9].tsx
+*\ [0-9].md
+*\ [0-9].css
+*\ [0-9].json
+*\ [0-9].log
+*\ [0-9].html
+
