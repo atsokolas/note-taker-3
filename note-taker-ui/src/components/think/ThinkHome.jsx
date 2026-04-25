@@ -36,6 +36,37 @@ const HomeRow = ({ title, meta, onClick, className = '' }) => (
   </button>
 );
 
+const TYPE_LABELS = {
+  notebook: 'Notebook',
+  concept: 'Concept',
+  question: 'Question',
+  article: 'Article',
+  highlight: 'Highlight'
+};
+
+const ContinueHero = ({ item, meta, onResume }) => {
+  const typeLabel = TYPE_LABELS[item?.type] || (item?.type ? item.type.charAt(0).toUpperCase() + item.type.slice(1) : 'Recent');
+  return (
+    <div className="think-home-editorial__continue-hero">
+      <div className="think-home-editorial__continue-hero-copy">
+        <span className="think-home-editorial__continue-hero-eyebrow">{typeLabel}</span>
+        <button
+          type="button"
+          className="think-home-editorial__continue-hero-title-button"
+          onClick={onResume}
+          aria-label={`Resume ${item?.title || 'untitled'}`}
+        >
+          {item?.title || 'Untitled'}
+        </button>
+        {meta ? <span className="think-home-editorial__continue-hero-meta muted small">{meta}</span> : null}
+      </div>
+      <div className="think-home-editorial__continue-hero-cta">
+        <QuietButton variant="primary" onClick={onResume}>Resume</QuietButton>
+      </div>
+    </div>
+  );
+};
+
 const MaterialRow = ({ title, snippet, meta, onClick }) => (
   <button type="button" className="think-home__material-row think-home-editorial-material-row" onClick={onClick}>
     <div className="think-home__material-copy think-home-editorial-material-row__copy">
@@ -100,21 +131,28 @@ const ThinkHome = ({
         </section>
       )}
 
-      <div className="think-home-editorial__launchpad" role="toolbar" aria-label="Think actions">
-        <QuietButton onClick={onCreateNote}>New note</QuietButton>
-        <QuietButton onClick={onCreateConcept}>New concept</QuietButton>
-        <QuietButton onClick={onCreateFromTemplate}>Use template</QuietButton>
-        <QuietButton onClick={onCreateQuestion}>New question</QuietButton>
+      <div
+        className="think-home-editorial__launchpad think-home-editorial__launchpad--split"
+        role="toolbar"
+        aria-label="Think actions"
+      >
+        <div className="think-home-editorial__launchpad-primary">
+          <QuietButton variant="primary" onClick={onCreateNote}>New note</QuietButton>
+        </div>
+        <div className="think-home-editorial__launchpad-secondary">
+          <QuietButton onClick={onCreateConcept}>New concept</QuietButton>
+          <QuietButton onClick={onCreateFromTemplate}>Use template</QuietButton>
+          <QuietButton onClick={onCreateQuestion}>New question</QuietButton>
+        </div>
       </div>
 
       <section className="think-home__continue think-home-editorial__section">
         <SectionHeader title="Continue" subtitle="Pick up your latest thread, or start something new without leaving Think." />
         {continueItem ? (
-          <HomeRow
-            title={continueItem.title || 'Untitled'}
+          <ContinueHero
+            item={continueItem}
             meta={continueMeta}
-            className="think-home__row--continue"
-            onClick={() => onOpenTarget(continueItem)}
+            onResume={() => onOpenTarget(continueItem)}
           />
         ) : (
           <Empty text="No recent activity yet." />

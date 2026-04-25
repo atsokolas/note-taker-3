@@ -70,11 +70,36 @@ export const Chip = ({ children, className, onClick }) => (
   </span>
 );
 
-export const QuietButton = ({ children, className, ...rest }) => (
-  <button className={cx('ui-quiet-button', className)} {...rest}>
-    {children}
-  </button>
-);
+export const QuietButton = ({ children, className, variant, onPointerMove, onPointerLeave, ...rest }) => {
+  const isPrimary = variant === 'primary';
+  const handlePointerMove = isPrimary
+    ? (event) => {
+        const target = event.currentTarget;
+        const rect = target.getBoundingClientRect();
+        target.style.setProperty('--bloom-x', `${event.clientX - rect.left}px`);
+        target.style.setProperty('--bloom-y', `${event.clientY - rect.top}px`);
+        if (onPointerMove) onPointerMove(event);
+      }
+    : onPointerMove;
+  const handlePointerLeave = isPrimary
+    ? (event) => {
+        const target = event.currentTarget;
+        target.style.removeProperty('--bloom-x');
+        target.style.removeProperty('--bloom-y');
+        if (onPointerLeave) onPointerLeave(event);
+      }
+    : onPointerLeave;
+  return (
+    <button
+      className={cx('ui-quiet-button', isPrimary && 'ui-quiet-button--primary', className)}
+      onPointerMove={handlePointerMove}
+      onPointerLeave={handlePointerLeave}
+      {...rest}
+    >
+      {children}
+    </button>
+  );
+};
 
 export const PanelHeader = ({ title, action, className }) => (
   <div className={cx('ui-panel-header', className)}>

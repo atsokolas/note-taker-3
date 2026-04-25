@@ -1287,6 +1287,172 @@ body.noeis-editorial .think-home-rail__actions .ui-quiet-button:hover {
   border-bottom-color: var(--vellum-line-strong) !important;
 }
 
+/* Split launchpad: primary action lifted from the secondary cluster */
+body.noeis-editorial .think-home-editorial__launchpad--split {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+body.noeis-editorial .think-home-editorial__launchpad-primary {
+  display: flex;
+}
+
+body.noeis-editorial .think-home-editorial__launchpad-secondary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+/* Primary action variant — magnetic-bloom hover. Pairs with rail/toolbar/selection
+   motion language. CSS-only fallback uses centered bloom; pointer handler
+   in QuietButton sets --bloom-x/y for cursor follow. */
+body.noeis-editorial .ui-quiet-button--primary {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  padding: 10px 22px !important;
+  border: 1px solid var(--vellum-line-strong) !important;
+  border-radius: 999px !important;
+  background: var(--vellum-page) !important;
+  color: var(--vellum-ink) !important;
+  font-size: 0.72rem !important;
+  letter-spacing: 0.18em !important;
+  text-transform: uppercase;
+  font-weight: 500;
+  transition: border-color 220ms ease-out, color 220ms ease-out, transform 220ms ease-out, box-shadow 220ms ease-out;
+}
+
+body.noeis-editorial .ui-quiet-button--primary::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(
+    140px circle at var(--bloom-x, 50%) var(--bloom-y, 50%),
+    rgba(247, 240, 226, 0.95),
+    rgba(247, 240, 226, 0) 65%
+  );
+  opacity: 0;
+  transition: opacity 220ms ease-out;
+  z-index: -1;
+}
+
+body.noeis-editorial .ui-quiet-button--primary:hover {
+  border-color: var(--vellum-ink) !important;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(97, 94, 91, 0.10);
+}
+
+body.noeis-editorial .ui-quiet-button--primary:hover::before {
+  opacity: 1;
+}
+
+body.noeis-editorial .ui-quiet-button--primary:focus-visible {
+  outline: 2px solid var(--vellum-ink);
+  outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body.noeis-editorial .ui-quiet-button--primary,
+  body.noeis-editorial .ui-quiet-button--primary::before {
+    transition: none;
+  }
+  body.noeis-editorial .ui-quiet-button--primary:hover {
+    transform: none;
+  }
+}
+
+/* Override launchpad's flat-link styling for the primary button only */
+body.noeis-editorial .think-home-editorial__launchpad .ui-quiet-button--primary {
+  min-height: 0;
+  border-bottom: 1px solid var(--vellum-line-strong) !important;
+  font-size: 0.72rem !important;
+}
+
+body.noeis-editorial .think-home-editorial__launchpad .ui-quiet-button--primary:hover {
+  border-bottom-color: var(--vellum-ink) !important;
+}
+
+/* Continue hero — replaces the bare row; gives the primary continuation real weight */
+body.noeis-editorial .think-home-editorial__continue-hero {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 32px;
+  padding: 18px 0 22px;
+  border-bottom: 1px solid var(--vellum-line);
+}
+
+body.noeis-editorial .think-home-editorial__continue-hero-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+body.noeis-editorial .think-home-editorial__continue-hero-eyebrow {
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 0.62rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: rgba(97, 94, 91, 0.62);
+}
+
+body.noeis-editorial .think-home-editorial__continue-hero-title-button {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  text-align: left;
+  font-family: "Newsreader", Georgia, serif;
+  font-size: clamp(1.9rem, 2.3vw, 2.6rem);
+  line-height: 1.15;
+  color: var(--vellum-ink);
+  cursor: pointer;
+  transition: color 180ms ease-out;
+}
+
+body.noeis-editorial .think-home-editorial__continue-hero-title-button:hover {
+  color: rgba(35, 30, 26, 1);
+}
+
+body.noeis-editorial .think-home-editorial__continue-hero-title-button:focus-visible {
+  outline: 2px solid var(--vellum-ink);
+  outline-offset: 4px;
+  border-radius: 2px;
+}
+
+body.noeis-editorial .think-home-editorial__continue-hero-meta {
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 0.78rem;
+  color: rgba(97, 94, 91, 0.78);
+}
+
+body.noeis-editorial .think-home-editorial__continue-hero-cta {
+  flex-shrink: 0;
+}
+
+@media (max-width: 760px) {
+  body.noeis-editorial .think-home-editorial__continue-hero {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 16px;
+  }
+  body.noeis-editorial .think-home-editorial__continue-hero-cta .ui-quiet-button--primary {
+    width: 100%;
+  }
+  body.noeis-editorial .think-home-editorial__launchpad--split {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  body.noeis-editorial .think-home-editorial__launchpad-primary .ui-quiet-button--primary {
+    width: 100%;
+  }
+}
+
 body.noeis-editorial .think-home-editorial__working-grid,
 body.noeis-editorial .think-home-editorial__split-grid {
   display: grid;
