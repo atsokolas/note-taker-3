@@ -86,6 +86,7 @@ const LibraryMain = ({
         articles={articles}
         loading={articlesLoading}
         error={articlesError}
+        scope={scope}
         emptyLabel={scope === 'unfiled'
           ? 'No unfiled articles right now.'
           : scope === 'folder'

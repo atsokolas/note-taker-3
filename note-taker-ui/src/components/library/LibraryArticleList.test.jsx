@@ -69,9 +69,20 @@ describe('LibraryArticleList', () => {
     expect(onSelect).not.toHaveBeenCalled();
   });
 
-  it('shows empty state with CTA when no articles', () => {
-    renderList({ articles: [] });
+  it('shows the first-run empty state with extension CTA when scope=all and no articles', () => {
+    const { container } = renderList({ articles: [], scope: 'all' });
+    expect(container.querySelector('[data-testid="library-empty-first-run"]')).not.toBeNull();
+    expect(screen.getByText('Save your first article')).toBeInTheDocument();
+    const cta = screen.getByText('Install browser extension');
+    expect(cta).toBeInTheDocument();
+    expect(cta.getAttribute('href')).toMatch(/chromewebstore\.google\.com/);
+    expect(cta.getAttribute('target')).toBe('_blank');
+  });
+
+  it('shows the legacy empty state with move CTA when scope=folder and no articles', () => {
+    renderList({ articles: [], scope: 'folder' });
     expect(screen.getByText('None')).toBeInTheDocument();
     expect(screen.getByText('Move articles into this folder')).toBeInTheDocument();
+    expect(screen.queryByText('Save your first article')).not.toBeInTheDocument();
   });
 });
