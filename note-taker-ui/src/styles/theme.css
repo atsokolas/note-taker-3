@@ -5504,6 +5504,10 @@ html[data-ui-theme='dark'] .article-reader-header {
   display: grid;
   gap: 12px;
   padding: 4px;
+  /* Grid items default to min-content sizing; without min-width: 0 a long
+     <input value> will blow the column wider than its share and the title
+     ends up clipped by/leaking into the right rail. */
+  min-width: 0;
 }
 
 .think-notebook-editor--empty {
@@ -5516,11 +5520,13 @@ html[data-ui-theme='dark'] .article-reader-header {
 .think-notebook-editor-header {
   display: grid;
   gap: 12px;
+  min-width: 0;
 }
 
 .think-notebook-title-block {
   display: grid;
   gap: 6px;
+  min-width: 0;
 }
 
 .think-notebook-title-kicker {
@@ -5533,6 +5539,8 @@ html[data-ui-theme='dark'] .article-reader-header {
 
 .think-notebook-title-input {
   width: 100%;
+  max-width: 100%;
+  min-width: 0;
   border: none;
   border-bottom: 1px solid var(--border-subtle);
   font-size: clamp(2.25rem, 1.9rem + 0.8vw, 3rem);
@@ -5544,6 +5552,7 @@ html[data-ui-theme='dark'] .article-reader-header {
   color: var(--text);
   outline: none;
   font-family: var(--font-serif);
+  text-overflow: ellipsis;
 }
 
 .think-notebook-title-hint {

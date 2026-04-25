@@ -19,6 +19,18 @@ body.noeis-editorial {
   --vellum-scrollbar-thumb-hover: rgba(97, 94, 91, 0.34);
   --vellum-scrollbar-thumb-active: rgba(97, 94, 91, 0.46);
   --vellum-scrollbar-track: rgba(97, 94, 91, 0.06);
+  /* noeis-rebrand.css forces a dark palette on :root and BOTH theme attributes,
+     including --surface-muted: #17265a (dark navy). The editorial body class
+     overrides the obvious surface tokens but missed --surface-muted, so 20+
+     elements (REUSE ACTIONS card, working notebook skeleton blocks, modal
+     surfaces, etc.) leak dark navy onto the cream page. Pin the muted/elevated
+     surfaces to vellum-panel equivalents so the editorial palette is internally
+     consistent. */
+  --surface-muted: var(--vellum-panel-strong);
+  --surface-elevated: var(--vellum-panel);
+  --surface-card: var(--vellum-bg);
+  --surface-panel: var(--vellum-panel);
+  --surface: var(--vellum-bg);
   color-scheme: light;
   background: var(--vellum-bg) !important;
   color: var(--vellum-ink);
@@ -2053,6 +2065,13 @@ body.noeis-editorial .concept-editorial-shell-page {
   width: min(1500px, calc(100vw - 64px));
   margin: 0 auto;
   padding: 78px 0 56px;
+  /* App shell body is height:100vh; overflow:hidden — without an explicit
+     scroller here, the concept layout has no ancestor that scrolls and the
+     whole page locks once content exceeds the viewport. The sticky partner
+     rail (top: 98px) resolves to this scroller, which is the desired behavior. */
+  height: 100%;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 body.noeis-editorial .concept-editorial-shell {
@@ -5648,6 +5667,20 @@ body.noeis-editorial .agent-thought-partner--stream {
   display: grid;
   gap: 18px;
   padding: 0;
+  /* Without min-width: 0 the long prompt buttons / long copy push beyond the
+     rail column and get clipped at the screen edge. */
+  min-width: 0;
+}
+
+body.noeis-editorial .agent-thought-partner--stream .agent-thought-partner__quick-prompts {
+  min-width: 0;
+}
+
+body.noeis-editorial .agent-thought-partner--stream .agent-thought-partner__quick-prompts .ui-quiet-button {
+  width: 100%;
+  min-width: 0;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 body.noeis-editorial .agent-thought-partner__stream-head {
@@ -5736,14 +5769,33 @@ body.noeis-editorial .agent-thought-partner__submit {
   width: 100%;
   min-height: 44px;
   padding: 0 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
   border: 0 !important;
   background: #4f4a46 !important;
   color: #fffaf5 !important;
   box-shadow: none !important;
+  font-size: 1.15rem;
+  letter-spacing: 0;
+  line-height: 1;
+  transition: background-color 180ms ease-out, opacity 180ms ease-out;
 }
 
-body.noeis-editorial .agent-thought-partner__submit:hover {
+body.noeis-editorial .agent-thought-partner__submit:hover:not(:disabled) {
   background: #3f3b38 !important;
+}
+
+body.noeis-editorial .agent-thought-partner__submit:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body.noeis-editorial .agent-thought-partner__submit {
+    transition: none;
+  }
 }
 
 body.noeis-editorial .agent-thought-partner__thread {
