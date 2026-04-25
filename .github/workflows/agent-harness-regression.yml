@@ -1,0 +1,158 @@
+name: Agent Harness Regression
+
+on:
+  pull_request:
+    paths:
+      - 'server/agentHarness/**'
+      - 'server/ai/**'
+      - 'server/services/agentHarness**'
+      - 'server/routes/agentHarness**'
+      - 'scripts/run_agent_harness*.js'
+      - 'scripts/run_agent_model_bakeoff*.js'
+      - 'scripts/run_agent_memory_approval_smoke*.js'
+      - 'package*.json'
+      - '.github/workflows/agent-harness-regression.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'server/agentHarness/**'
+      - 'server/ai/**'
+      - 'server/services/agentHarness**'
+      - 'server/routes/agentHarness**'
+      - 'scripts/run_agent_harness*.js'
+      - 'scripts/run_agent_model_bakeoff*.js'
+      - 'scripts/run_agent_memory_approval_smoke*.js'
+      - 'package*.json'
+      - '.github/workflows/agent-harness-regression.yml'
+  schedule:
+    - cron: '0 11 * * *'
+  workflow_dispatch:
+    inputs:
+      include_live:
+        description: 'Run live Hugging Face model regression suite'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'false'
+          - 'true'
+      run_approval_smoke:
+        description: 'Run live memory approval smoke test against deployed API'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'false'
+          - 'true'
+      approval_smoke_action:
+        description: 'Memory approval smoke action; reject is safe, approve commits test memory rows'
+        required: false
+        default: 'reject'
+        type: choice
+        options:
+          - 'reject'
+          - 'create'
+          - 'approve'
+
+jobs:
+  deterministic:
+    name: Deterministic Harness Gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npm run agent:harness:ci
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: agent-harness-regression
+          path: |
+            tmp/agent-harness-runs/**
+            tmp/agent-harness-regression-runs/**
+          if-no-files-found: ignore
+
+  live:
+    name: Live Model Harness Gate
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'schedule' || inputs.include_live == 'true' }}
+    env:
+      HF_TOKEN: ${{ secrets.HF_TOKEN }}
+      HF_PROVIDER: ${{ vars.HF_PROVIDER || 'groq' }}
+      HF_TEXT_MODEL: ${{ vars.HF_TEXT_MODEL || 'openai/gpt-oss-120b' }}
+      HF_AGENT_CHAT_ROUTES: ${{ vars.HF_AGENT_CHAT_ROUTES }}
+      HF_AGENT_TOOL_ROUTES: ${{ vars.HF_AGENT_TOOL_ROUTES }}
+      HF_AGENT_STRUCTURE_ROUTES: ${{ vars.HF_AGENT_STRUCTURE_ROUTES }}
+      HF_AGENT_ARTIFACT_ROUTES: ${{ vars.HF_AGENT_ARTIFACT_ROUTES }}
+      HF_AGENT_CRITIQUE_ROUTES: ${{ vars.HF_AGENT_CRITIQUE_ROUTES }}
+      HF_AGENT_HYGIENE_ROUTES: ${{ vars.HF_AGENT_HYGIENE_ROUTES }}
+      HF_AGENT_DEEP_AUDIT_ROUTES: ${{ vars.HF_AGENT_DEEP_AUDIT_ROUTES }}
+      HF_AGENT_MODEL_ROUTES_JSON: ${{ vars.HF_AGENT_MODEL_ROUTES_JSON }}
+      AGENT_BAKEOFF_FIXTURE_SET: ${{ vars.AGENT_BAKEOFF_FIXTURE_SET || 'realistic' }}
+      AGENT_BAKEOFF_WORKFLOWS: ${{ vars.AGENT_BAKEOFF_WORKFLOWS }}
+      AGENT_BAKEOFF_ROUTES: ${{ vars.AGENT_BAKEOFF_ROUTES }}
+      AGENT_BAKEOFF_CANDIDATES: ${{ vars.AGENT_BAKEOFF_CANDIDATES }}
+      AGENT_BAKEOFF_OUTCOME_TELEMETRY_URL: ${{ vars.AGENT_BAKEOFF_OUTCOME_TELEMETRY_URL }}
+      AGENT_BAKEOFF_OUTCOME_TELEMETRY_TOKEN: ${{ secrets.AGENT_BAKEOFF_OUTCOME_TELEMETRY_TOKEN }}
+      AGENT_BAKEOFF_PROMOTION_MIN_PASS_RATE: ${{ vars.AGENT_BAKEOFF_PROMOTION_MIN_PASS_RATE || '1' }}
+      AGENT_BAKEOFF_PROMOTION_MAX_AVG_LATENCY_MS: ${{ vars.AGENT_BAKEOFF_PROMOTION_MAX_AVG_LATENCY_MS || '30000' }}
+      AGENT_BAKEOFF_PROMOTION_MIN_CASES: ${{ vars.AGENT_BAKEOFF_PROMOTION_MIN_CASES || '1' }}
+      AGENT_BAKEOFF_PROMOTION_MAX_OVERPREDICTING: ${{ vars.AGENT_BAKEOFF_PROMOTION_MAX_OVERPREDICTING || '0' }}
+      AGENT_BAKEOFF_FAIL_ON_ALERT: ${{ vars.AGENT_BAKEOFF_FAIL_ON_ALERT || 'false' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Skip live gate when HF_TOKEN is missing
+        if: ${{ env.HF_TOKEN == '' }}
+        run: echo "HF_TOKEN is not configured; skipping live model harness gate."
+      - run: npm run agent:harness:ci:live
+        if: ${{ env.HF_TOKEN != '' }}
+      - name: Scheduled model bakeoff
+        if: ${{ env.HF_TOKEN != '' }}
+        continue-on-error: true
+        run: npm run agent:bakeoff
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: agent-harness-live-regression
+          path: |
+            tmp/agent-harness-runs/**
+            tmp/agent-harness-regression-runs/**
+            tmp/agent-model-bakeoff-runs/**
+          if-no-files-found: ignore
+
+  approval-smoke:
+    name: Live Memory Approval Smoke
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_approval_smoke == 'true' }}
+    env:
+      AGENT_APPROVAL_SMOKE_BASE_URL: ${{ vars.AGENT_APPROVAL_SMOKE_BASE_URL }}
+      AGENT_APPROVAL_SMOKE_TOKEN: ${{ secrets.AGENT_APPROVAL_SMOKE_TOKEN }}
+      AGENT_APPROVAL_SMOKE_ACTION: ${{ inputs.approval_smoke_action || 'reject' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Skip smoke when API URL or token is missing
+        if: ${{ env.AGENT_APPROVAL_SMOKE_BASE_URL == '' || env.AGENT_APPROVAL_SMOKE_TOKEN == '' }}
+        run: echo "AGENT_APPROVAL_SMOKE_BASE_URL or AGENT_APPROVAL_SMOKE_TOKEN is not configured; skipping approval smoke."
+      - name: Run approval smoke
+        if: ${{ env.AGENT_APPROVAL_SMOKE_BASE_URL != '' && env.AGENT_APPROVAL_SMOKE_TOKEN != '' }}
+        run: npm run agent:approval-smoke
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: agent-approval-smoke
+          path: tmp/agent-approval-smoke-runs/**
+          if-no-files-found: ignore

@@ -1,4 +1,5 @@
 const express = require('express');
+const { trackHarnessEvent } = require('../services/agentHarnessEvents');
 
 const buildAgentArtifactDraftRouter = ({
   authenticateToken,
@@ -16,7 +17,9 @@ const buildAgentArtifactDraftRouter = ({
   createThreadForHandoff,
   sanitizeAgentHandoffDoc,
   sanitizeAgentArtifactDraftDoc,
-  promoteAgentArtifactDraftRecord
+  promoteAgentArtifactDraftRecord,
+  trackEvent,
+  EVENT_NAMES
 }) => {
   const router = express.Router();
 
@@ -83,6 +86,17 @@ const buildAgentArtifactDraftRouter = ({
       if (!draft) return res.status(404).json({ error: 'Draft not found.' });
       draft.status = 'dismissed';
       await draft.save();
+      trackHarnessEvent({
+        trackEvent,
+        event: EVENT_NAMES?.AGENT_ARTIFACT_DRAFT_DISMISSED,
+        userId: String(req.user.id),
+        requestId: req.requestId,
+        properties: {
+          threadId: clean(draft?.sourceThreadId),
+          draftId: clean(draft?._id),
+          artifactType: clean(draft?.artifactType)
+        }
+      });
       return res.status(200).json({ draft: sanitizeAgentArtifactDraftDoc(draft) });
     } catch (error) {
       console.error('❌ Error dismissing artifact draft:', error);
@@ -113,6 +127,17 @@ const buildAgentArtifactDraftRouter = ({
         buildDefaultHandoffCheckpoint,
         createThreadForHandoff,
         sanitizeAgentHandoffDoc
+      });
+      trackHarnessEvent({
+        trackEvent,
+        event: EVENT_NAMES?.AGENT_ARTIFACT_DRAFT_PROMOTED,
+        userId: String(req.user.id),
+        requestId: req.requestId,
+        properties: {
+          threadId: clean(result?.draft?.sourceThreadId),
+          draftId: clean(result?.draft?._id),
+          artifactType: clean(result?.draft?.artifactType)
+        }
       });
 
       return res.status(200).json({

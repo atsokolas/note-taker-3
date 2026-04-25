@@ -8,7 +8,9 @@ const buildAgentHarnessMetricsRouter = ({
   AgentStructureProposal,
   AgentArtifactDraft,
   AgentProtocolApproval,
-  getAgentHarnessMetricsSnapshot
+  getAgentHarnessMetricsSnapshot,
+  getAgentHarnessRunHistorySnapshot,
+  getAgentOutcomeTelemetrySnapshot
 }) => {
   const router = express.Router();
 
@@ -26,7 +28,27 @@ const buildAgentHarnessMetricsRouter = ({
         AgentArtifactDraft,
         AgentProtocolApproval
       });
-      return res.status(200).json({ metrics });
+      const runHistory = typeof getAgentHarnessRunHistorySnapshot === 'function'
+        ? await getAgentHarnessRunHistorySnapshot({
+            mode: clean(req.query.mode || 'all'),
+            limit: req.query.limit || 20
+          })
+        : null;
+      const outcomeTelemetry = typeof getAgentOutcomeTelemetrySnapshot === 'function'
+        ? await getAgentOutcomeTelemetrySnapshot({
+            userId: String(req.user.id),
+            threadId: clean(req.query.threadId),
+            runHistory,
+            AgentRun,
+            AgentProposedChange,
+            AgentStructureProposal,
+            AgentArtifactDraft
+          })
+        : null;
+      const metricsWithRunHistory = metrics && typeof metrics === 'object'
+        ? { ...metrics, runHistory, outcomeTelemetry }
+        : metrics;
+      return res.status(200).json({ metrics: metricsWithRunHistory, runHistory, outcomeTelemetry });
     } catch (error) {
       console.error('❌ Error loading agent harness metrics:', error);
       return res.status(500).json({ error: 'Failed to load agent harness metrics.' });

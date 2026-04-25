@@ -3,6 +3,7 @@ import {
   chatWithAgent,
   dismissAgentArtifactDraft,
   getAgentHarnessMetrics,
+  getAgentWriteBoundary,
   listAgentRuns,
   listAgentArtifactDrafts,
   promoteAgentArtifactDraft,
@@ -22,6 +23,23 @@ const truncate = (value, limit = 320) => {
   const safe = clean(value);
   if (safe.length <= limit) return safe;
   return `${safe.slice(0, Math.max(0, limit - 1)).trimEnd()}…`;
+};
+
+const formatComparisonKey = (key = '') => {
+  const parts = clean(key).split('|').map(clean).filter(Boolean);
+  if (parts.length >= 3) {
+    return `${parts[0]} · ${parts[1]}:${parts[2]}`;
+  }
+  if (parts.length === 2) return `${parts[0]} · ${parts[1]}`;
+  return clean(key) || 'unknown';
+};
+
+const formatTelemetryStatus = (status = '') => {
+  const safe = clean(status);
+  if (safe === 'real_world_underperforming') return 'Underperforming';
+  if (safe === 'real_world_outperforming') return 'Outperforming';
+  if (safe === 'insufficient_data') return 'Needs data';
+  return 'Aligned';
 };
 
 const normalizeContextMetadata = (metadata = {}) => {
@@ -314,6 +332,7 @@ const ThoughtPartnerPanel = ({
   const [proposalBundles, setProposalBundles] = useState([]);
   const [runs, setRuns] = useState([]);
   const [harnessMetrics, setHarnessMetrics] = useState(null);
+  const [writeBoundarySummary, setWriteBoundarySummary] = useState(null);
   const [editingProposedChangeId, setEditingProposedChangeId] = useState('');
   const [editingProposedChangeText, setEditingProposedChangeText] = useState('');
   const [artifactDraftLoadingId, setArtifactDraftLoadingId] = useState('');
@@ -382,6 +401,25 @@ const ThoughtPartnerPanel = ({
     }
   }, []);
 
+  const loadWriteBoundary = useCallback(async (nextThreadId) => {
+    const safeThreadId = clean(nextThreadId);
+    if (!safeThreadId) {
+      setWriteBoundarySummary(null);
+      return;
+    }
+    try {
+      const result = await getAgentWriteBoundary({
+        threadId: safeThreadId,
+        workspaceType: context?.type || '',
+        workspaceId: context?.id || '',
+        limit: 4
+      });
+      setWriteBoundarySummary(result?.summary && typeof result.summary === 'object' ? result.summary : null);
+    } catch (_error) {
+      // Keep the panel usable even if write-boundary hydration fails.
+    }
+  }, [context?.id, context?.type]);
+
   const loadRuns = useCallback(async (nextThreadId) => {
     const safeThreadId = clean(nextThreadId);
     if (!safeThreadId) {
@@ -437,6 +475,19 @@ const ThoughtPartnerPanel = ({
       await loadProposedChanges(activeThreadId);
       await loadStructureProposals(activeThreadId);
       await loadHarnessMetrics(activeThreadId);
+      await loadWriteBoundary(activeThreadId);
+    }
+  });
+  const memoryApprovalModel = useProtocolApprovals({
+    initialStatus: 'pending',
+    limit: 12,
+    threadId: activeThreadId,
+    op: 'memory.commit',
+    autoLoad: Boolean(activeThreadId),
+    onChanged: async () => {
+      if (!activeThreadId) return;
+      await loadHarnessMetrics(activeThreadId);
+      await loadWriteBoundary(activeThreadId);
     }
   });
 
@@ -513,6 +564,7 @@ const ThoughtPartnerPanel = ({
         loadProposedChanges(result.thread.threadId);
         loadStructureProposals(result.thread.threadId);
         loadHarnessMetrics(result.thread.threadId);
+        loadWriteBoundary(result.thread.threadId);
         if (typeof onThreadChange === 'function') onThreadChange(threadForUi);
       } else {
         setMessages(prev => [...prev, assistantMessage]);
@@ -531,7 +583,7 @@ const ThoughtPartnerPanel = ({
     } finally {
       setLoading(false);
     }
-  }, [context, contextTitle, disabled, hydrateFromThread, loadArtifactDrafts, loadHarnessMetrics, loadProposedChanges, loadRuns, loadStructureProposals, loading, messages, onThreadChange, pendingSkillInvocation, thread?.threadId, thread?.title, threadId, title]);
+  }, [context, contextTitle, disabled, hydrateFromThread, loadArtifactDrafts, loadHarnessMetrics, loadProposedChanges, loadRuns, loadStructureProposals, loadWriteBoundary, loading, messages, onThreadChange, pendingSkillInvocation, thread?.threadId, thread?.title, threadId, title]);
 
   const handleExecuteProposalBundle = useCallback((bundle = {}) => {
     const title = clean(bundle?.title);
@@ -552,6 +604,7 @@ const ThoughtPartnerPanel = ({
     setProposalBundles([]);
     setRuns([]);
     setHarnessMetrics(null);
+    setWriteBoundarySummary(null);
     clearReviewState();
     setEditingProposedChangeId('');
     setEditingProposedChangeText('');
@@ -570,7 +623,8 @@ const ThoughtPartnerPanel = ({
     loadProposedChanges(activeThreadId);
     loadStructureProposals(activeThreadId);
     loadHarnessMetrics(activeThreadId);
-  }, [activeThreadId, loadArtifactDrafts, loadHarnessMetrics, loadProposedChanges, loadRuns, loadStructureProposals]);
+    loadWriteBoundary(activeThreadId);
+  }, [activeThreadId, loadArtifactDrafts, loadHarnessMetrics, loadProposedChanges, loadRuns, loadStructureProposals, loadWriteBoundary]);
 
   useEffect(() => {
     if (!threadViewportRef.current || messages.length === 0) return;
@@ -795,7 +849,7 @@ const ThoughtPartnerPanel = ({
     if (!harnessMetrics || typeof harnessMetrics !== 'object') return [];
     const reviewQueueCount = Number(harnessMetrics?.proposedChangeStatuses?.pending || 0)
       + Number(harnessMetrics?.structureProposalStatuses?.pending || 0);
-    return [
+    const stats = [
       {
         label: 'Resolution',
         value: formatPercent(harnessMetrics?.rates?.bundleResolutionSuccessRate),
@@ -817,6 +871,78 @@ const ThoughtPartnerPanel = ({
         detail: 'Replies that still staged drafts'
       }
     ];
+    const latestHarnessRun = harnessMetrics?.runHistory?.latestRun;
+    if (latestHarnessRun && typeof latestHarnessRun === 'object') {
+      const fixtureLabel = latestHarnessRun.fixtureSet ? ` ${latestHarnessRun.fixtureSet}` : '';
+      stats.push({
+        label: 'Harness live',
+        value: formatPercent(latestHarnessRun.passRate),
+        detail: `${Number(latestHarnessRun.passed || 0)}/${Number(latestHarnessRun.total || 0)} latest ${latestHarnessRun.mode || 'run'}${fixtureLabel}`
+      });
+    }
+    return stats;
+  }, [harnessMetrics]);
+  const harnessModelComparisons = useMemo(() => {
+    const comparisons = harnessMetrics?.runHistory?.aggregates?.comparisons || {};
+    const liveRows = Array.isArray(comparisons.byLiveRouteModelProvider) ? comparisons.byLiveRouteModelProvider : [];
+    const rows = liveRows.length > 0 ? liveRows : comparisons.byRouteModelProvider;
+    if (!Array.isArray(rows)) return [];
+    return rows
+      .filter((row) => Number(row.total || 0) > 0)
+      .slice(0, 3)
+      .map((row) => ({
+        key: row.key,
+        label: formatComparisonKey(row.key),
+        passRate: formatPercent(row.passRate),
+        detail: `${Number(row.passed || 0)}/${Number(row.total || 0)} · ${Number(row.avgLatencyMs || 0)}ms avg`
+      }));
+  }, [harnessMetrics]);
+  const writeBoundaryCards = useMemo(() => {
+    if (!writeBoundarySummary || typeof writeBoundarySummary !== 'object') return [];
+    const memoryTotal = Number(writeBoundarySummary?.memoryCommits?.total || 0);
+    const pendingMemoryApprovals = Array.isArray(memoryApprovalModel.protocolApprovals)
+      ? memoryApprovalModel.protocolApprovals.length
+      : 0;
+    const pendingStructure = Number(writeBoundarySummary?.structureProposals?.pending || 0);
+    const appliedStructure = Number(writeBoundarySummary?.structureProposals?.applied || 0);
+    return [
+      {
+        label: 'Memory commits',
+        value: String(memoryTotal),
+        detail: pendingMemoryApprovals > 0
+          ? `${pendingMemoryApprovals} pending approval · ${memoryTotal} committed`
+          : memoryTotal === 1
+            ? '1 approved working-memory write'
+            : `${memoryTotal} approved working-memory writes`
+      },
+      {
+        label: 'Structure review',
+        value: String(pendingStructure),
+        detail: `${pendingStructure} pending · ${appliedStructure} applied`
+      }
+    ];
+  }, [memoryApprovalModel.protocolApprovals, writeBoundarySummary]);
+  const outcomeTelemetryRows = useMemo(() => {
+    const buckets = harnessMetrics?.outcomeTelemetry?.buckets;
+    if (!Array.isArray(buckets)) return [];
+    return [...buckets]
+      .sort((left, right) => {
+        const priority = {
+          real_world_underperforming: 0,
+          insufficient_data: 1,
+          aligned: 2,
+          real_world_outperforming: 3
+        };
+        return Number(priority[clean(left.status)] ?? 4) - Number(priority[clean(right.status)] ?? 4);
+      })
+      .slice(0, 2)
+      .map((bucket) => ({
+        id: bucket.id,
+        label: bucket.label || bucket.id,
+        status: formatTelemetryStatus(bucket.status),
+        value: formatPercent(bucket.observed?.acceptanceRate),
+        detail: `real ${Number(bucket.observed?.resolved || 0)} resolved · harness ${formatPercent(bucket.harness?.passRate)}`
+      }));
   }, [harnessMetrics]);
   const partnerSubtitle = subtitle || (contextTitle ? `Context: ${contextTitle}` : 'Ask about your notes, concepts, and articles.');
   const handleFocusReviewStage = useCallback(() => {
@@ -968,6 +1094,56 @@ const ThoughtPartnerPanel = ({
     </div>
   ) : null;
 
+  const modelComparisonSection = !isThreadStreamVariant && harnessModelComparisons.length > 0 ? (
+    <div className="agent-thought-partner__scorecard agent-thought-partner__scorecard--models" aria-label="Model route comparison">
+      {harnessModelComparisons.map((row) => (
+        <article key={row.key} className="agent-thought-partner__scorecard-item">
+          <span className="agent-thought-partner__scorecard-label">Model route</span>
+          <strong>{row.passRate}</strong>
+          <p>{row.label}</p>
+          <p>{row.detail}</p>
+        </article>
+      ))}
+    </div>
+  ) : null;
+
+  const writeBoundarySection = !isThreadStreamVariant && writeBoundaryCards.length > 0 ? (
+    <section className="agent-thought-partner__write-boundary" aria-label="Agent write boundary">
+      <div className="agent-thought-partner__drafts-head">
+        <h4>Write boundary</h4>
+        <p>{writeBoundarySummary?.safetyBoundary?.posture || 'Memory commits stay visible; structure changes stay reviewable.'}</p>
+      </div>
+      <div className="agent-thought-partner__scorecard">
+        {writeBoundaryCards.map((card) => (
+          <article key={card.label} className="agent-thought-partner__scorecard-item">
+            <span className="agent-thought-partner__scorecard-label">{card.label}</span>
+            <strong>{card.value}</strong>
+            <p>{card.detail}</p>
+          </article>
+        ))}
+      </div>
+    </section>
+  ) : null;
+
+  const outcomeTelemetrySection = !isThreadStreamVariant && outcomeTelemetryRows.length > 0 ? (
+    <section className="agent-thought-partner__write-boundary" aria-label="Agent outcome telemetry">
+      <div className="agent-thought-partner__drafts-head">
+        <h4>Outcome telemetry</h4>
+        <p>Real accept/reject behavior compared with the harness expectation.</p>
+      </div>
+      <div className="agent-thought-partner__scorecard">
+        {outcomeTelemetryRows.map((row) => (
+          <article key={row.id} className="agent-thought-partner__scorecard-item">
+            <span className="agent-thought-partner__scorecard-label">{row.label}</span>
+            <strong>{row.value}</strong>
+            <p>{row.status}</p>
+            <p>{row.detail}</p>
+          </article>
+        ))}
+      </div>
+    </section>
+  ) : null;
+
   const streamPlanPreviewSection = isThreadStreamVariant && streamPlanPreview ? (
     <section className="agent-thought-partner__plan-preview">
       <div className="agent-thought-partner__plan-preview-head">
@@ -1098,6 +1274,18 @@ const ThoughtPartnerPanel = ({
         title="Run approvals"
         subtitle="Risky run steps pause here until you approve or reject them."
         emptyText="No pending run approvals."
+        className="agent-thought-partner__drafts"
+      />
+    ) : null;
+
+  const memoryApprovalsSection = (memoryApprovalModel.protocolApprovalsLoading
+    || clean(memoryApprovalModel.protocolApprovalsError)
+    || (Array.isArray(memoryApprovalModel.protocolApprovals) && memoryApprovalModel.protocolApprovals.length > 0)) ? (
+      <ProtocolApprovalsPanel
+        approvalsModel={memoryApprovalModel}
+        title="Memory approvals"
+        subtitle="Memory steward updates wait here before they become working-memory commits."
+        emptyText="No pending memory approvals."
         className="agent-thought-partner__drafts"
       />
     ) : null;
@@ -1462,6 +1650,9 @@ const ThoughtPartnerPanel = ({
       {!isThreadStreamVariant && quickPromptsSection}
       {plannerStripSection}
       {scorecardSection}
+      {modelComparisonSection}
+      {writeBoundarySection}
+      {outcomeTelemetrySection}
       {streamPlanPreviewSection}
 
       <form className={`agent-thought-partner__composer ${isStreamVariant ? 'agent-thought-partner__composer--stream' : ''}`.trim()} onSubmit={handleComposerSubmit}>
@@ -1549,11 +1740,13 @@ const ThoughtPartnerPanel = ({
 
       {isThreadStreamVariant && reviewStageSection}
       {isThreadStreamVariant && protocolApprovalsSection}
+      {isThreadStreamVariant && memoryApprovalsSection}
       {isThreadStreamVariant && quickPromptsSection}
       {isThreadStreamVariant && appliedHistorySection}
       {!isThreadStreamVariant && proposalBundlesSection}
       {!isThreadStreamVariant && runsSection}
       {!isThreadStreamVariant && protocolApprovalsSection}
+      {!isThreadStreamVariant && memoryApprovalsSection}
       {!isThreadStreamVariant && reviewStageSection}
       {!isThreadStreamVariant && appliedHistorySection}
       {!isThreadStreamVariant && artifactDraftsSection}

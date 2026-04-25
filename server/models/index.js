@@ -712,6 +712,7 @@ const protocolApprovalSchema = new mongoose.Schema({
   payload: { type: mongoose.Schema.Types.Mixed, default: {} },
   preview: { type: mongoose.Schema.Types.Mixed, default: {} },
   reason: { type: String, default: '', trim: true },
+  decisionNote: { type: String, default: '', trim: true },
   requestedBy: { type: actorIdentitySchema, default: () => ({}) },
   approvedBy: { type: actorIdentitySchema, default: undefined },
   rejectedBy: { type: actorIdentitySchema, default: undefined },

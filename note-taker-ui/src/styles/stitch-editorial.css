@@ -37,6 +37,50 @@ body.noeis-editorial {
   font-family: "Newsreader", Georgia, serif;
 }
 
+/* Workbench / concept-editorial palette — extracted from raw rgba() literals
+   scattered across idea-workbench.css and the concept dropzone. Layered as a
+   second editorial rule so it merges cleanly with other token additions and
+   gives html[data-ui-theme='dark'] one place to swap the palette. */
+body.noeis-editorial {
+  --workbench-border-strong: rgba(219, 205, 181, 0.78);
+  --workbench-border: rgba(219, 205, 181, 0.72);
+  --workbench-border-soft: rgba(219, 205, 181, 0.46);
+  --workbench-surface: rgba(255, 252, 247, 0.96);
+  --workbench-surface-soft: rgba(255, 252, 247, 0.72);
+  --workbench-surface-tinted: rgba(252, 249, 243, 0.92);
+  --workbench-surface-active: rgba(247, 240, 226, 1);
+  --workbench-shadow-soft: 0 6px 14px rgba(72, 50, 21, 0.10);
+  --workbench-shadow-strong: 0 18px 36px rgba(72, 50, 21, 0.12);
+  --workbench-ink: rgba(72, 50, 21, 0.86);
+  --workbench-tint: rgba(155, 130, 80, 0.45);
+  --workbench-tint-strong: rgba(155, 130, 80, 0.65);
+  --workbench-gradient-from: rgba(255, 253, 249, 0.98);
+  --workbench-gradient-to: rgba(248, 241, 230, 0.94);
+  --workbench-card-edge: rgba(255, 255, 255, 0.7);
+}
+
+/* Dark-mode editorial. The base palette is warm-cream; dark mode flips
+   surfaces to deep warm-charcoal while keeping the tan tint family so the
+   workbench reads as the same surface, just unlit. Activated by the existing
+   html[data-ui-theme='dark'] mechanism so app-level theme toggle works. */
+html[data-ui-theme='dark'] body.noeis-editorial {
+  --workbench-border-strong: rgba(170, 145, 100, 0.34);
+  --workbench-border: rgba(170, 145, 100, 0.28);
+  --workbench-border-soft: rgba(170, 145, 100, 0.18);
+  --workbench-surface: rgba(38, 30, 22, 0.92);
+  --workbench-surface-soft: rgba(38, 30, 22, 0.62);
+  --workbench-surface-tinted: rgba(48, 38, 26, 0.82);
+  --workbench-surface-active: rgba(60, 47, 30, 0.92);
+  --workbench-shadow-soft: 0 6px 14px rgba(0, 0, 0, 0.45);
+  --workbench-shadow-strong: 0 18px 36px rgba(0, 0, 0, 0.55);
+  --workbench-ink: rgba(245, 232, 208, 0.94);
+  --workbench-tint: rgba(170, 145, 100, 0.5);
+  --workbench-tint-strong: rgba(190, 165, 120, 0.72);
+  --workbench-gradient-from: rgba(48, 38, 26, 0.96);
+  --workbench-gradient-to: rgba(38, 30, 22, 0.94);
+  --workbench-card-edge: rgba(255, 245, 218, 0.06);
+}
+
 body.noeis-editorial .think-home-editorial-ledger {
   gap: 42px;
 }

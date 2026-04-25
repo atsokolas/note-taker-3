@@ -8,7 +8,7 @@ import hmac
 import time
 import math
 import threading
-from typing import List, Optional, Dict, Any, Set, Literal
+from typing import List, Optional, Dict, Any, Set, Literal, Tuple
 
 import httpx
 from fastapi import FastAPI, HTTPException, Request, Depends, Header
@@ -213,21 +213,32 @@ def _parse_model_fallbacks(value: str) -> List[str]:
     return out
 
 
+def _split_model_provider(model: str, default_provider: str = "") -> Tuple[str, str]:
+    raw = str(model or "").strip()
+    provider = str(default_provider or "").strip()
+    if ":" in raw:
+        model_part, provider_part = raw.rsplit(":", 1)
+        if model_part and provider_part:
+            return model_part.strip(), provider_part.strip()
+    return raw, provider
+
+
 def get_hf_config() -> Dict[str, Any]:
     text_model = os.environ.get(
         "HF_TEXT_MODEL",
-        "Qwen/Qwen2.5-Coder-7B-Instruct"
+        "openai/gpt-oss-120b"
     ).strip()
     fallback_default = (
-        "Qwen/Qwen2.5-Coder-7B-Instruct,"
-        "mistralai/Mistral-7B-Instruct-v0.3"
+        "openai/gpt-oss-120b:cerebras,"
+        "openai/gpt-oss-120b:fireworks-ai,"
+        "Qwen/Qwen3-Next-80B-A3B-Instruct:novita"
     )
     fallbacks = _parse_model_fallbacks(
         os.environ.get("HF_TEXT_MODEL_FALLBACKS", fallback_default)
     )
     return {
         "token": os.environ.get("HF_TOKEN", ""),
-        "provider": os.environ.get("HF_PROVIDER", "hf-inference"),
+        "provider": os.environ.get("HF_PROVIDER", "groq"),
         "embedding_model": os.environ.get(
             "HF_EMBEDDING_MODEL",
             "sentence-transformers/all-MiniLM-L6-v2"
@@ -529,7 +540,8 @@ async def _ensure_text_model_supported(config: Dict[str, Any]) -> str:
     unresolved: List[str] = []
     attempted_models: List[str] = []
     for model in candidates:
-        cache_key = f"{router_base_url}|{provider}|{model}"
+        model_id, model_provider = _split_model_provider(model, provider)
+        cache_key = f"{router_base_url}|{model_provider}|{model_id}"
         cached = _HF_MODELS_CACHE.get(cache_key)
         if not cached or (now - float(cached.get("ts", 0))) >= HF_MODELS_CACHE_TTL_SEC:
             unresolved.append(model)
@@ -545,9 +557,10 @@ async def _ensure_text_model_supported(config: Dict[str, Any]) -> str:
         if res.status_code < 200 or res.status_code >= 300:
             _raise_hf_response_error("models list", body, provider)
         for model in unresolved:
-            support = _model_provider_support(body, model, provider)
+            model_id, model_provider = _split_model_provider(model, provider)
+            support = _model_provider_support(body, model_id, model_provider)
             ok = bool(support["found"] and support["supported"])
-            _HF_MODELS_CACHE[f"{router_base_url}|{provider}|{model}"] = {"ts": now, "ok": ok}
+            _HF_MODELS_CACHE[f"{router_base_url}|{model_provider}|{model_id}"] = {"ts": now, "ok": ok}
             attempted_models.append(model)
             if ok:
                 if model != requested_model:
@@ -555,7 +568,7 @@ async def _ensure_text_model_supported(config: Dict[str, Any]) -> str:
                         "[HF] primary text model unsupported; using fallback model=%s requested=%s provider=%s",
                         model,
                         requested_model,
-                        provider,
+                        model_provider,
                     )
                 return model
 
@@ -1445,7 +1458,8 @@ async def hf_chat_complete(
     max_tokens: int = 500,
     response_format: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
-    if not model:
+    model_id, resolved_provider = _split_model_provider(model, provider)
+    if not model_id:
         raise HTTPException(status_code=500, detail="HF_TEXT_MODEL not configured")
     chat_url = f"{router_base_url}/chat/completions"
     messages: List[Dict[str, str]] = []
@@ -1453,14 +1467,14 @@ async def hf_chat_complete(
         messages.append({"role": "system", "content": system})
     messages.append({"role": "user", "content": prompt})
     chat_payload = {
-        "model": model,
+        "model": model_id,
         "messages": messages,
         "temperature": temperature,
         "max_tokens": max_tokens,
         "stream": False,
     }
-    if provider:
-        chat_payload["provider"] = provider
+    if resolved_provider:
+        chat_payload["provider"] = resolved_provider
     if response_format:
         chat_payload["response_format"] = response_format
     retry_delays_sec = [0.0, 0.6, 1.4]
@@ -1488,7 +1502,7 @@ async def hf_chat_complete(
             chat_payload.pop("response_format", None)
             res = await _post_hf(chat_url, token, chat_payload, timeout_ms)
             body = _parse_json_or_text(res)
-        if res.status_code in (400, 422) and provider:
+        if res.status_code in (400, 422) and resolved_provider:
             body_text = _stringify_error_body(body).lower()
             if "unknown field" in body_text and "provider" in body_text:
                 logger.warning("[HF] provider field unsupported by upstream; retrying without provider")
@@ -1496,7 +1510,7 @@ async def hf_chat_complete(
                 res = await _post_hf(chat_url, token, chat_payload, timeout_ms)
                 body = _parse_json_or_text(res)
         if res.status_code < 200 or res.status_code >= 300:
-            _raise_hf_response_error("generation", body, provider)
+            _raise_hf_response_error("generation", body, resolved_provider)
     text_out = ""
     if isinstance(body, dict):
         text_out = (
@@ -1509,9 +1523,10 @@ async def hf_chat_complete(
     if not text_out:
         raise HTTPException(status_code=502, detail="HF text response empty")
     text_out = _strip_think_blocks(text_out).strip()
-    logger.info("[HF] chat model used=%s", model)
+    logger.info("[HF] chat model used=%s provider=%s", model_id, resolved_provider)
     return {
-        "model": model,
+        "model": model_id,
+        "provider": resolved_provider,
         "text": text_out,
         "method": "chat",
         "url": chat_url,

@@ -228,6 +228,22 @@ export const getAgentHarnessMetrics = async ({
   return res.data || { metrics: null };
 };
 
+export const getAgentWriteBoundary = async ({
+  threadId = '',
+  workspaceType = '',
+  workspaceId = '',
+  limit = 5
+} = {}) => {
+  const params = new URLSearchParams();
+  if (threadId) params.set('threadId', String(threadId).trim());
+  if (workspaceType) params.set('workspaceType', String(workspaceType).trim());
+  if (workspaceId) params.set('workspaceId', String(workspaceId).trim());
+  if (limit) params.set('limit', String(limit));
+  const suffix = params.toString();
+  const res = await api.get(`/api/agent/write-boundary${suffix ? `?${suffix}` : ''}`, getAuthHeaders());
+  return res.data || { summary: null };
+};
+
 export const listAgentThreads = async ({
   status = 'active',
   scopeType = '',

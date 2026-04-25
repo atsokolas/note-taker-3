@@ -9,6 +9,7 @@ jest.mock('../../api/agent', () => ({
   chatWithAgent: jest.fn(),
   dismissAgentArtifactDraft: jest.fn(),
   getAgentHarnessMetrics: jest.fn(),
+  getAgentWriteBoundary: jest.fn(),
   listAgentProposedChanges: jest.fn(),
   listAgentStructureProposals: jest.fn(),
   listAgentProtocolApprovals: jest.fn(),
@@ -31,6 +32,7 @@ const {
   approveAgentProtocolApproval,
   chatWithAgent,
   getAgentHarnessMetrics,
+  getAgentWriteBoundary,
   listAgentArtifactDrafts,
   listAgentProposedChanges,
   listAgentStructureProposals,
@@ -47,6 +49,7 @@ describe('ThoughtPartnerPanel', () => {
     jest.clearAllMocks();
     listAgentArtifactDrafts.mockResolvedValue({ drafts: [] });
     getAgentHarnessMetrics.mockResolvedValue({ metrics: null });
+    getAgentWriteBoundary.mockResolvedValue({ summary: null });
     listAgentProtocolApprovals.mockResolvedValue({ approvals: [] });
     listAgentRuns.mockResolvedValue({ runs: [] });
     listAgentProposedChanges.mockResolvedValue({ proposedChanges: [] });
@@ -572,22 +575,27 @@ describe('ThoughtPartnerPanel', () => {
   });
 
   it('shows pending run approvals for the active thread', async () => {
-    listAgentProtocolApprovals.mockResolvedValue({
-      approvals: [
-        {
-          approvalId: 'approval-1',
-          status: 'pending',
-          op: 'runs.resume',
-          reason: 'Remove weak source requires approval before the run can continue.',
-          preview: {
-            title: 'Remove weak source',
-            threadId: 'thread-1'
-          },
-          requestedBy: {
-            actorType: 'native_agent'
-          }
-        }
-      ]
+    listAgentProtocolApprovals.mockImplementation(async ({ op }) => {
+      if (op === 'runs.resume') {
+        return {
+          approvals: [
+            {
+              approvalId: 'approval-1',
+              status: 'pending',
+              op: 'runs.resume',
+              reason: 'Remove weak source requires approval before the run can continue.',
+              preview: {
+                title: 'Remove weak source',
+                threadId: 'thread-1'
+              },
+              requestedBy: {
+                actorType: 'native_agent'
+              }
+            }
+          ]
+        };
+      }
+      return { approvals: [] };
     });
 
     render(
@@ -611,6 +619,235 @@ describe('ThoughtPartnerPanel', () => {
     }));
     expect(screen.getByText('Run approvals')).toBeInTheDocument();
     await screen.findByText('Remove weak source requires approval before the run can continue.');
+  });
+
+  it('shows pending memory approvals separately from run approvals', async () => {
+    listAgentProtocolApprovals.mockImplementation(async ({ op }) => {
+      if (op === 'memory.commit') {
+        return {
+          approvals: [
+            {
+              approvalId: 'memory-approval-1',
+              status: 'pending',
+              op: 'memory.commit',
+              reason: 'Memory steward updates require approval before committing to working memory.',
+              preview: {
+                title: 'Commit 3 memory updates',
+                threadId: 'thread-1',
+                itemCount: 3,
+                snippets: ['Current focus: verify memory approvals.', 'Next move: revise weak source links.']
+              },
+              requestedBy: {
+                actorType: 'native_agent'
+              }
+            }
+          ]
+        };
+      }
+      return { approvals: [] };
+    });
+
+    render(
+      <ThoughtPartnerPanel
+        contextType="concept"
+        contextId="concept-1"
+        contextTitle="World Models"
+        thread={{
+          threadId: 'thread-1',
+          messages: []
+        }}
+      />
+    );
+
+    await waitFor(() => expect(listAgentProtocolApprovals).toHaveBeenCalledWith({
+      status: 'pending',
+      limit: 12,
+      threadId: 'thread-1',
+      handoffId: '',
+      op: 'memory.commit'
+    }));
+    expect(screen.getByText('Memory approvals')).toBeInTheDocument();
+    await screen.findByText('Memory steward updates require approval before committing to working memory.');
+    expect(screen.getByText('Current focus: verify memory approvals.')).toBeInTheDocument();
+    expect(screen.getByText('3 items')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Approve' }));
+    await waitFor(() => expect(approveAgentProtocolApproval).toHaveBeenCalledWith('memory-approval-1'));
+  });
+
+  it('sends a rejection note for memory approvals', async () => {
+    listAgentProtocolApprovals.mockImplementation(async ({ op }) => {
+      if (op === 'memory.commit') {
+        return {
+          approvals: [
+            {
+              approvalId: 'memory-approval-1',
+              status: 'pending',
+              op: 'memory.commit',
+              reason: 'Memory steward updates require approval before committing to working memory.',
+              preview: {
+                title: 'Commit 1 memory update',
+                threadId: 'thread-1',
+                itemCount: 1,
+                snippets: ['Current focus: weakly framed memory.']
+              },
+              requestedBy: {
+                actorType: 'native_agent'
+              }
+            }
+          ]
+        };
+      }
+      return { approvals: [] };
+    });
+
+    render(
+      <ThoughtPartnerPanel
+        contextType="concept"
+        contextId="concept-1"
+        contextTitle="World Models"
+        thread={{
+          threadId: 'thread-1',
+          messages: []
+        }}
+      />
+    );
+
+    await screen.findByText('Current focus: weakly framed memory.');
+    fireEvent.click(screen.getByRole('button', { name: 'Reject' }));
+    fireEvent.change(screen.getByLabelText('Rejection note'), {
+      target: { value: 'Too broad; narrow this to the active concept.' }
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm reject' }));
+    await waitFor(() => expect(rejectAgentProtocolApproval).toHaveBeenCalledWith(
+      'memory-approval-1',
+      { note: 'Too broad; narrow this to the active concept.' }
+    ));
+  });
+
+  it('renders harness model route comparison rows', async () => {
+    getAgentHarnessMetrics.mockResolvedValue({
+      metrics: {
+        proposedChangeStatuses: { pending: 0 },
+        structureProposalStatuses: { pending: 0 },
+        funnel: { draftFallbacks: 0, executionIntentMatched: 0 },
+        runStatuses: { completed: 1 },
+        rates: { bundleResolutionSuccessRate: 1, runCompletionRate: 1 },
+        runHistory: {
+          latestRun: {
+            mode: 'live',
+            fixtureSet: 'realistic',
+            passed: 10,
+            total: 10,
+            passRate: 1
+          },
+          aggregates: {
+            comparisons: {
+              byLiveRouteModelProvider: [
+                {
+                  key: 'critique | moonshotai/Kimi-K2 | together',
+                  total: 2,
+                  passed: 2,
+                  failed: 0,
+                  passRate: 1,
+                  avgLatencyMs: 610
+                }
+              ],
+              byRouteModelProvider: [
+                {
+                  key: 'structure_planner | openai/gpt-oss-120b | groq',
+                  total: 3,
+                  passed: 3,
+                  failed: 0,
+                  passRate: 1,
+                  avgLatencyMs: 420
+                }
+              ]
+            }
+          }
+        }
+      }
+    });
+
+    render(
+      <ThoughtPartnerPanel
+        contextType="library"
+        contextId="library-root"
+        contextTitle="Library"
+        thread={{
+          threadId: 'thread-1',
+          messages: []
+        }}
+      />
+    );
+
+    await screen.findByLabelText('Model route comparison');
+    expect(screen.getByText('critique · moonshotai/Kimi-K2:together')).toBeInTheDocument();
+    expect(screen.getByText('2/2 · 610ms avg')).toBeInTheDocument();
+    expect(screen.queryByText('structure_planner · openai/gpt-oss-120b:groq')).not.toBeInTheDocument();
+  });
+
+  it('renders the write boundary between memory commits and structure review', async () => {
+    getAgentWriteBoundary.mockResolvedValue({
+      summary: {
+        memoryCommits: { total: 3, recent: [] },
+        structureProposals: { pending: 2, applied: 1, rejected: 0, recent: [] },
+        safetyBoundary: {
+          posture: 'Workspace structure changes are staged for review; memory updates may be direct commits.'
+        }
+      }
+    });
+
+    render(
+      <ThoughtPartnerPanel
+        contextType="workspace"
+        contextId="workspace-1"
+        contextTitle="Workspace"
+        thread={{ threadId: 'thread-1', messages: [] }}
+      />
+    );
+
+    await screen.findByLabelText('Agent write boundary');
+    expect(screen.getByText('Memory commits')).toBeInTheDocument();
+    expect(screen.getByText('3 approved working-memory writes')).toBeInTheDocument();
+    expect(screen.getByText('Structure review')).toBeInTheDocument();
+    expect(screen.getByText('2 pending · 1 applied')).toBeInTheDocument();
+  });
+
+  it('renders outcome telemetry comparing real outcomes to harness expectations', async () => {
+    getAgentHarnessMetrics.mockResolvedValue({
+      metrics: {
+        proposedChangeStatuses: { pending: 0 },
+        structureProposalStatuses: { pending: 0 },
+        funnel: { draftFallbacks: 0, executionIntentMatched: 0 },
+        runStatuses: { completed: 1 },
+        rates: { bundleResolutionSuccessRate: 1, runCompletionRate: 1 },
+        outcomeTelemetry: {
+          buckets: [
+            {
+              id: 'content_edits',
+              label: 'Content edits',
+              observed: { acceptanceRate: 0.25, resolved: 4 },
+              harness: { passRate: 1, source: 'live:realistic' },
+              status: 'real_world_underperforming'
+            }
+          ]
+        }
+      }
+    });
+
+    render(
+      <ThoughtPartnerPanel
+        contextType="workspace"
+        contextId="workspace-1"
+        contextTitle="Workspace"
+        thread={{ threadId: 'thread-1', messages: [] }}
+      />
+    );
+
+    await screen.findByLabelText('Agent outcome telemetry');
+    expect(screen.getByText('Content edits')).toBeInTheDocument();
+    expect(screen.getByText('Underperforming')).toBeInTheDocument();
+    expect(screen.getByText('real 4 resolved · harness 100%')).toBeInTheDocument();
   });
 
   it('prioritizes stream review state and submits continue prompts through the composer', async () => {

@@ -1467,6 +1467,7 @@ const generateCollaborativeReply = async ({
   if (!reply && isTextGenerationConfigured()) {
     try {
       const completion = await chatComplete({
+        route: 'partner_chat',
         messages: buildPartnerChatMessages({
           message: conversationState.resolvedMessage || safeMessage,
           conversationState,

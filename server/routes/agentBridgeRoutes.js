@@ -307,7 +307,8 @@ const buildAgentBridgeRouter = ({
         userId: String(req.user.id),
         approvalId: String(req.params.approvalId || '').trim(),
         actorType: req.body?.actorType || 'user',
-        actorId: String(req.body?.actorId || req.user.id || '').trim()
+        actorId: String(req.body?.actorId || req.user.id || '').trim(),
+        note: String(req.body?.note || req.body?.reason || '').trim()
       });
       return res.status(200).json({ approval });
     } catch (error) {

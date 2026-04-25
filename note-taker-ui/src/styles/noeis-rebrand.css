@@ -13,6 +13,7 @@ html[data-ui-theme='light'] {
   --surface-panel: #101a3d;
   --surface-card: #121f49;
   --surface-muted: #17265a;
+  --surface-elevated: #182358;
 
   --border-subtle: rgba(130, 152, 230, 0.28);
   --border-subtle-2: rgba(96, 122, 204, 0.24);
