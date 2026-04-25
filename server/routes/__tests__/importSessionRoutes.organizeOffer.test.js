@@ -117,7 +117,8 @@ const run = async () => {
           type: 'organize_import',
           status: 'pending',
           label: 'Organize this import',
-          summary: 'Clean up imported material.'
+          summary: 'Clean up imported material.',
+          structureProposalId: 'proposal-1'
         }
       ]
     }
@@ -140,6 +141,7 @@ const run = async () => {
     assert.strictEqual(activeResponse.status, 200);
     assert.strictEqual(activePayload.session.id, 'session-pending');
     assert.strictEqual(activePayload.session.recommendedNextAction, 'organize_import');
+    assert.strictEqual(activePayload.session.agentSuggestions[0].structureProposalId, 'proposal-1');
 
     const activeListResponse = await fetch(`${url}/api/import/sessions?status=active`);
     const activeListPayload = await activeListResponse.json();

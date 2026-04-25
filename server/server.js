@@ -260,6 +260,9 @@ const {
   getAgentHarnessMetricsSnapshot
 } = require('./services/agentHarnessMetrics');
 const {
+  getAgentHarnessRunHistorySnapshot
+} = require('./services/agentHarnessRunArtifacts');
+const {
   buildMarketingFunnelSnapshot,
   buildMarketingFunnelSeries
 } = require('./services/marketingFunnelMetrics');
@@ -5572,7 +5575,8 @@ app.use(buildAgentHarnessMetricsRouter({
   AgentStructureProposal,
   AgentArtifactDraft,
   AgentProtocolApproval,
-  getAgentHarnessMetricsSnapshot
+  getAgentHarnessMetricsSnapshot,
+  getAgentHarnessRunHistorySnapshot
 }));
 
 app.use(buildAgentUpkeepCycleRouter({
@@ -5779,6 +5783,7 @@ app.use(buildImportRouter({
   crypto,
   TagMeta,
   NotebookEntry,
+  AgentStructureProposal,
   ImportSession,
   IntegrationConnection,
   syncNotebookReferences,

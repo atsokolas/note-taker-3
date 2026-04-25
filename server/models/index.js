@@ -1261,7 +1261,9 @@ const importSessionSchema = new mongoose.Schema({
     warningCodes: { type: [String], default: [] },
     warnings: { type: [String], default: [] },
     lastImportedEntryId: { type: String, default: '', trim: true },
-    lastImportedArticleId: { type: String, default: '', trim: true }
+    lastImportedArticleId: { type: String, default: '', trim: true },
+    importedEntryIds: { type: [String], default: [] },
+    importedArticleIds: { type: [String], default: [] }
   },
   activation: {
     status: { type: String, default: 'not_started', trim: true },
@@ -1281,6 +1283,7 @@ const importSessionSchema = new mongoose.Schema({
       summary: { type: String, default: '', trim: true },
       scopeType: { type: String, default: '', trim: true },
       scopeId: { type: String, default: '', trim: true },
+      structureProposalId: { type: String, default: '', trim: true },
       suggestedAt: { type: Date, default: null }
     }],
     default: []

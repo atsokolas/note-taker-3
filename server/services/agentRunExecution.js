@@ -132,12 +132,16 @@ const findPendingStructureProposal = async ({
   AgentStructureProposal,
   userId = '',
   thread = null,
-  run = {}
+  run = {},
+  step = {}
 } = {}) => {
   if (!AgentStructureProposal || typeof AgentStructureProposal.findOne !== 'function') return null;
   const threadId = clean(thread?._id || run?.threadId);
   const sourceBundleId = clean(run?.sourceBundleId);
-  if (!threadId && !sourceBundleId) return null;
+  const metadata = step?.metadata && typeof step.metadata === 'object' ? step.metadata : {};
+  const scopeType = clean(metadata.scopeType || thread?.scope?.type || step?.target?.type).toLowerCase();
+  const scopeRef = clean(metadata.scopeId || thread?.scope?.id || step?.target?.id);
+  if (!threadId && !sourceBundleId && !scopeRef) return null;
 
   const query = {
     userId,
@@ -146,7 +150,18 @@ const findPendingStructureProposal = async ({
   if (threadId) query.sourceThreadId = threadId;
   if (sourceBundleId) query.sourceBundleId = sourceBundleId;
 
-  return AgentStructureProposal.findOne(query);
+  const threadProposal = (threadId || sourceBundleId)
+    ? await AgentStructureProposal.findOne(query)
+    : null;
+  if (threadProposal) return threadProposal;
+
+  if (!scopeRef) return null;
+  return AgentStructureProposal.findOne({
+    userId,
+    status: 'pending',
+    scope: scopeType === 'import_session' ? 'import_session' : 'workspace',
+    scopeRef
+  });
 };
 
 const persistAppliedStructureProposal = async ({
@@ -233,7 +248,8 @@ const executeOrganizeWorkspaceStep = ({
       AgentStructureProposal,
       userId,
       thread,
-      run
+      run,
+      step
     });
     const bundleMessage = findBundleMessage({ thread, bundleId: run?.sourceBundleId });
     const relatedItems = Array.isArray(bundleMessage?.relatedItems)

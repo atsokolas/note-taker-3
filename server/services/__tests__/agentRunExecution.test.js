@@ -420,6 +420,116 @@ const run = async () => {
     'Explicit organization execution should move the related article into the inferred folder.'
   );
 
+  const importLibraryState = {
+    folders: [],
+    articles: [
+      { _id: 'article-import-1', userId: 'user-1', title: 'Imported article', folder: null }
+    ]
+  };
+  const importModels = createLibraryModels(importLibraryState);
+  const structureProposalQueries = [];
+  const scopedProposalDoc = {
+    _id: 'structure-import-1',
+    userId: 'user-1',
+    status: 'pending',
+    scope: 'import_session',
+    scopeRef: 'session-1',
+    operations: [
+      {
+        opId: 'create-import-folder',
+        type: 'create_folder',
+        targetDomain: 'library',
+        status: 'pending',
+        payload: { name: 'Readwise articles' },
+        preview: {},
+        risk: 'low'
+      },
+      {
+        opId: 'move-import-article',
+        type: 'move_item',
+        targetDomain: 'library',
+        status: 'pending',
+        payload: {
+          itemId: 'article-import-1',
+          destinationFolderName: 'Readwise articles'
+        },
+        preview: {},
+        risk: 'low'
+      }
+    ],
+    async save() {
+      return this;
+    },
+    toObject() {
+      return {
+        ...this,
+        save: undefined,
+        toObject: undefined
+      };
+    }
+  };
+
+  const scopedProposalRun = await executeAgentRun({
+    run: {
+      runId: 'run-import-1',
+      threadId: 'thread-import-1',
+      sourceBundleId: 'bundle-import-1',
+      title: 'Organize this import',
+      status: 'pending',
+      createdBy: { actorType: 'user', actorId: 'user-1' },
+      lastActor: { actorType: 'user', actorId: 'user-1' },
+      currentOpId: 'organize-workspace',
+      blockedOpId: '',
+      completedStepCount: 0,
+      steps: [
+        {
+          opId: 'organize-workspace',
+          type: 'organize_workspace',
+          title: 'Organize this import',
+          executionMode: 'direct',
+          riskLevel: 'medium',
+          requiresApproval: true,
+          target: { type: 'import_session', id: 'session-1', title: 'Readwise import' },
+          metadata: {
+            scopeType: 'import_session',
+            scopeId: 'session-1'
+          }
+        }
+      ]
+    },
+    thread: {
+      _id: 'thread-import-1',
+      scope: { type: 'import_session', id: 'session-1', title: 'Readwise import' },
+      messages: []
+    },
+    userId: 'user-1',
+    actor: { actorType: 'user', actorId: 'user-1' },
+    approvePendingApprovalSteps: true,
+    Folder: importModels.Folder,
+    Article: importModels.Article,
+    AgentStructureProposal: {
+      async findOne(query = {}) {
+        structureProposalQueries.push(query);
+        if (query.scope === 'import_session' && query.scopeRef === 'session-1') {
+          return scopedProposalDoc;
+        }
+        return null;
+      }
+    }
+  });
+
+  assert.strictEqual(scopedProposalRun.status, 'completed');
+  assert.ok(
+    structureProposalQueries.some((query) => query.scope === 'import_session' && query.scopeRef === 'session-1'),
+    'Organization execution should look up pending import-session structure proposals by scope.'
+  );
+  assert.strictEqual(scopedProposalDoc.status, 'applied');
+  assert.strictEqual(
+    importLibraryState.articles[0].folder,
+    importLibraryState.folders.find((folder) => folder.name === 'Readwise articles')._id,
+    'Scoped import proposals should apply through the same library executor.'
+  );
+
   const resumedRun = await executeAgentRun({
     run: {
       runId: 'run-resume-1',

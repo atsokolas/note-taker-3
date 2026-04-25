@@ -29,6 +29,9 @@ const {
   ensureNotebookImportFolderPath
 } = require('../services/notebookImportTreeService');
 const {
+  stageImportStructureProposal
+} = require('../services/importStructureProposals');
+const {
   NOTION_AUTHORIZE_URL,
   createNotionPage,
   exchangeNotionCode,
@@ -67,6 +70,7 @@ const buildImportRouter = ({
   crypto,
   TagMeta,
   NotebookEntry,
+  AgentStructureProposal,
   ImportSession,
   IntegrationConnection,
   syncNotebookReferences,
@@ -161,6 +165,7 @@ const buildImportRouter = ({
         : `Review and organize imported material from ${sourceLabel}.`,
       scopeType: 'import_session',
       scopeId: String(session._id || ''),
+      structureProposalId: '',
       suggestedAt: new Date()
     };
 
@@ -172,6 +177,57 @@ const buildImportRouter = ({
 
     session.recommendedNextAction = IMPORT_ORGANIZATION_SUGGESTION_TYPE;
     session.agentSuggestions = [...existingSuggestions, suggestion];
+  };
+
+  const attachImportStructureProposalToSession = async ({
+    sessionId,
+    userId,
+    structureProposalId
+  } = {}) => {
+    const safeProposalId = toTrimmedString(structureProposalId);
+    if (!safeProposalId) return null;
+    return patchImportSession({
+      sessionId,
+      userId,
+      mutate: (session) => {
+        const suggestions = Array.isArray(session.agentSuggestions) ? session.agentSuggestions : [];
+        session.agentSuggestions = suggestions.map((suggestion) => (
+          toTrimmedString(suggestion?.type) === IMPORT_ORGANIZATION_SUGGESTION_TYPE
+            ? {
+                ...suggestion,
+                structureProposalId: safeProposalId
+              }
+            : suggestion
+        ));
+      }
+    });
+  };
+
+  const stageImportOrganizationProposalForSession = async ({
+    session,
+    userId,
+    articleIds = [],
+    notebookEntryIds = []
+  } = {}) => {
+    if (!session || !AgentStructureProposal) return null;
+    try {
+      const proposal = await stageImportStructureProposal({
+        AgentStructureProposal,
+        userId,
+        importSession: session,
+        articleIds,
+        notebookEntryIds
+      });
+      await attachImportStructureProposalToSession({
+        sessionId: session?._id,
+        userId,
+        structureProposalId: proposal?._id
+      });
+      return proposal;
+    } catch (error) {
+      console.error('Failed staging import structure proposal:', error);
+      return null;
+    }
   };
 
   const sanitizeConnection = (connection) => {
@@ -753,10 +809,11 @@ const buildImportRouter = ({
         warningCodes: warningSummary.warningCodes,
         warnings: warningSummary.warnings,
         articleIds: Array.from(dirtyArticles).map(article => String(article._id || '')),
+        importedArticleIds: Array.from(dirtyArticles).map(article => String(article._id || '')),
         indexingState: indexing.indexingFailures > 0 ? 'partial' : (indexing.indexingQueued > 0 ? 'queued' : 'not_started')
       };
 
-      await patchImportSession({
+      const completedSession = await patchImportSession({
         sessionId: importSessionId,
         userId,
         mutate: (session) => {
@@ -789,11 +846,17 @@ const buildImportRouter = ({
             indexingQueued: indexing.indexingQueued,
             warningCodes: warningSummary.warningCodes,
             warnings: warningSummary.warnings,
-            lastImportedArticleId: resultPayload.articleIds[0] || ''
+            lastImportedArticleId: resultPayload.articleIds[0] || '',
+            importedArticleIds: resultPayload.importedArticleIds
           };
           session.lastError = '';
           applyImportOrganizationOffer(session);
         }
+      });
+      await stageImportOrganizationProposalForSession({
+        session: completedSession,
+        userId,
+        articleIds: resultPayload.importedArticleIds
       });
 
       trackEvent({
@@ -1149,12 +1212,13 @@ const buildImportRouter = ({
         warningCodes: warningSummary.warningCodes,
         warnings: warningSummary.warnings,
         articleIds: Array.from(dirtyArticles).map(article => String(article._id || '')),
+        importedArticleIds: Array.from(dirtyArticles).map(article => String(article._id || '')),
         updatedAfter,
         connection: sanitizeConnection(connection.toObject()),
         indexingState: indexing.indexingFailures > 0 ? 'partial' : (indexing.indexingQueued > 0 ? 'queued' : 'not_started')
       };
 
-      await patchImportSession({
+      const completedSession = await patchImportSession({
         sessionId: importSessionId,
         userId,
         mutate: (session) => {
@@ -1187,11 +1251,17 @@ const buildImportRouter = ({
             indexingQueued: indexing.indexingQueued,
             warningCodes: warningSummary.warningCodes,
             warnings: warningSummary.warnings,
-            lastImportedArticleId: resultPayload.articleIds[0] || ''
+            lastImportedArticleId: resultPayload.articleIds[0] || '',
+            importedArticleIds: resultPayload.importedArticleIds
           };
           session.lastError = '';
           applyImportOrganizationOffer(session);
         }
+      });
+      await stageImportOrganizationProposalForSession({
+        session: completedSession,
+        userId,
+        articleIds: resultPayload.importedArticleIds
       });
 
       trackEvent({
@@ -1590,13 +1660,15 @@ const buildImportRouter = ({
         warningCodes: warningSummary.warningCodes,
         warnings: warningSummary.warnings,
         entryId: syncedEntries[0] ? String(syncedEntries[0]._id) : '',
+        entryIds: syncedEntries.map(entry => String(entry._id || '')),
+        importedEntryIds: syncedEntries.map(entry => String(entry._id || '')),
         pageCount: pages.length,
         dataSourceCount: dataSources.length,
         connection: sanitizeConnection(connection.toObject()),
         indexingState: indexing.indexingFailures > 0 ? 'partial' : (indexing.indexingQueued > 0 ? 'queued' : 'not_started')
       };
 
-      await patchImportSession({
+      const completedSession = await patchImportSession({
         sessionId: importSessionId,
         userId,
         mutate: (session) => {
@@ -1632,11 +1704,17 @@ const buildImportRouter = ({
             indexingQueued: indexing.indexingQueued,
             warningCodes: warningSummary.warningCodes,
             warnings: warningSummary.warnings,
-            lastImportedEntryId: resultPayload.entryId
+            lastImportedEntryId: resultPayload.entryId,
+            importedEntryIds: resultPayload.importedEntryIds
           };
           session.lastError = '';
           applyImportOrganizationOffer(session);
         }
+      });
+      await stageImportOrganizationProposalForSession({
+        session: completedSession,
+        userId,
+        notebookEntryIds: resultPayload.importedEntryIds
       });
 
       trackEvent({
@@ -1936,10 +2014,12 @@ const buildImportRouter = ({
         warningCodes: warningSummary.warningCodes,
         warnings: warningSummary.warnings,
         entryId: syncedEntries[0] ? String(syncedEntries[0]._id) : '',
+        entryIds: syncedEntries.map(entry => String(entry._id || '')),
+        importedEntryIds: syncedEntries.map(entry => String(entry._id || '')),
         indexingState: indexing.indexingFailures > 0 ? 'partial' : (indexing.indexingQueued > 0 ? 'queued' : 'not_started')
       };
 
-      await patchImportSession({
+      const completedSession = await patchImportSession({
         sessionId: importSessionId,
         userId,
         mutate: (session) => {
@@ -1974,11 +2054,17 @@ const buildImportRouter = ({
             indexingQueued: indexing.indexingQueued,
             warningCodes: warningSummary.warningCodes,
             warnings: warningSummary.warnings,
-            lastImportedEntryId: resultPayload.entryId
+            lastImportedEntryId: resultPayload.entryId,
+            importedEntryIds: resultPayload.importedEntryIds
           };
           session.lastError = '';
           applyImportOrganizationOffer(session);
         }
+      });
+      await stageImportOrganizationProposalForSession({
+        session: completedSession,
+        userId,
+        notebookEntryIds: resultPayload.importedEntryIds
       });
 
       trackEvent({
@@ -2117,11 +2203,13 @@ const buildImportRouter = ({
       const resultPayload = {
         importedNotes: 1,
         entryId: entry._id,
+        entryIds: [String(entry._id)],
+        importedEntryIds: [String(entry._id)],
         ...indexing,
         indexingState: indexing.indexingFailures > 0 ? 'failed' : (indexing.indexingQueued > 0 ? 'queued' : 'not_started')
       };
 
-      await patchImportSession({
+      const completedSession = await patchImportSession({
         sessionId: importSessionId,
         userId,
         mutate: (session) => {
@@ -2148,11 +2236,17 @@ const buildImportRouter = ({
             indexingFailures: indexing.indexingFailures,
             indexingQueued: indexing.indexingQueued,
             warnings: indexing.warnings,
-            lastImportedEntryId: String(entry._id)
+            lastImportedEntryId: String(entry._id),
+            importedEntryIds: resultPayload.importedEntryIds
           };
           session.lastError = '';
           applyImportOrganizationOffer(session);
         }
+      });
+      await stageImportOrganizationProposalForSession({
+        session: completedSession,
+        userId,
+        notebookEntryIds: resultPayload.importedEntryIds
       });
 
       trackEvent({

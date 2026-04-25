@@ -54,6 +54,7 @@ const normalizeAgentSuggestionForStorage = (suggestion) => {
     summary: toTrimmedString(safe.summary),
     scopeType: toTrimmedString(safe.scopeType),
     scopeId: toTrimmedString(safe.scopeId),
+    structureProposalId: toTrimmedString(safe.structureProposalId),
     suggestedAt: parseOptionalDate(safe.suggestedAt)
   };
 };
@@ -337,7 +338,13 @@ const buildImportSessionRouter = ({
             : session.result?.lastImportedEntryId,
           lastImportedArticleId: payload.result.lastImportedArticleId !== undefined
             ? toTrimmedString(payload.result.lastImportedArticleId)
-            : session.result?.lastImportedArticleId
+            : session.result?.lastImportedArticleId,
+          importedEntryIds: payload.result.importedEntryIds !== undefined
+            ? sanitizeUniqueStringList(payload.result.importedEntryIds)
+            : sanitizeUniqueStringList(session.result?.importedEntryIds),
+          importedArticleIds: payload.result.importedArticleIds !== undefined
+            ? sanitizeUniqueStringList(payload.result.importedArticleIds)
+            : sanitizeUniqueStringList(session.result?.importedArticleIds)
         };
       }
       if (payload.activation && typeof payload.activation === 'object') {

@@ -95,9 +95,11 @@ const buildConnectionStore = () => {
 
 const createArticleModel = () => {
   const byUrl = new Map();
+  let nextId = 1;
 
   function Article(payload = {}) {
     Object.assign(this, payload);
+    this._id = this._id || `article-${nextId++}`;
     this.highlights = Array.isArray(this.highlights) ? this.highlights : [];
   }
 
@@ -120,6 +122,7 @@ const run = async () => {
   const importSessions = buildImportSessionStore();
   const connections = buildConnectionStore();
   const Article = createArticleModel();
+  const structureProposals = [];
 
   axios.get = async (url) => {
     if (String(url) === 'https://readwise.io/api/v2/export/') {
@@ -167,6 +170,19 @@ const run = async () => {
     crypto: require('crypto'),
     TagMeta: {},
     NotebookEntry: {},
+    AgentStructureProposal: {
+      async findOne() {
+        return null;
+      },
+      async create(payload = {}) {
+        const proposal = {
+          _id: `structure-${structureProposals.length + 1}`,
+          ...payload
+        };
+        structureProposals.push(proposal);
+        return proposal;
+      }
+    },
     ImportSession: importSessions,
     IntegrationConnection: connections,
     syncNotebookReferences: async () => {},
@@ -195,6 +211,16 @@ const run = async () => {
     assert.strictEqual(payload.invalidSkips, 1, 'Readwise sync should count invalid highlights instead of crashing.');
     assert.strictEqual(importSessions.session.status, 'completed', 'The import session should finish successfully.');
     assert.strictEqual(importSessions.session.result.invalidSkips, 1, 'The session result should persist invalid skip counts.');
+    assert.deepStrictEqual(importSessions.session.result.importedArticleIds, ['article-1'], 'The session should retain imported article IDs for cleanup.');
+    assert.strictEqual(structureProposals.length, 1, 'Readwise imports should stage a concrete structure proposal.');
+    assert.strictEqual(structureProposals[0].scope, 'import_session');
+    assert.strictEqual(structureProposals[0].operations[0].type, 'create_folder');
+    assert.strictEqual(structureProposals[0].operations[1].payload.itemId, 'article-1');
+    assert.strictEqual(
+      importSessions.session.agentSuggestions[0].structureProposalId,
+      'structure-1',
+      'The import cleanup suggestion should point at the staged structure proposal.'
+    );
   } finally {
     axios.get = originalAxiosGet;
     await new Promise((resolve) => server.close(resolve));
