@@ -156,7 +156,15 @@ const { buildAgentStructureProposalRouter } = require('./routes/agentStructurePr
 const { buildAgentChatRouter } = require('./routes/agentChatRoutes');
 const { buildAgentArtifactDraftRouter } = require('./routes/agentArtifactDraftRoutes');
 const { buildAgentHarnessMetricsRouter } = require('./routes/agentHarnessMetricsRoutes');
+const { buildAgentWriteBoundaryRouter } = require('./routes/agentWriteBoundaryRoutes');
+const { buildAgentMemoryApprovalRouter } = require('./routes/agentMemoryApprovalRoutes');
 const { buildAgentUpkeepCycleRouter } = require('./routes/agentUpkeepCycleRoutes');
+const { getAgentOutcomeTelemetrySnapshot } = require('./services/agentOutcomeTelemetry');
+const {
+  createMemoryCommitApproval,
+  executeMemoryCommitApproval,
+  MEMORY_APPROVAL_OP
+} = require('./services/agentMemoryApprovals');
 const { buildConceptAgentRouter } = require('./routes/conceptAgentRoutes');
 const { buildConceptWorkspaceRouter } = require('./routes/conceptWorkspaceRoutes');
 const { buildConceptLayoutRouter } = require('./routes/conceptLayoutRoutes');
@@ -892,6 +900,7 @@ const sanitizeProtocolApprovalDoc = (doc) => ({
   payload: doc?.payload && typeof doc.payload === 'object' ? doc.payload : {},
   preview: doc?.preview && typeof doc.preview === 'object' ? doc.preview : {},
   reason: String(doc?.reason || '').trim(),
+  decisionNote: String(doc?.decisionNote || '').trim(),
   requestedBy: normalizeActorIdentity(doc?.requestedBy || {}, 'native_agent'),
   approvedBy: doc?.approvedBy ? normalizeActorIdentity(doc.approvedBy, 'user') : null,
   rejectedBy: doc?.rejectedBy ? normalizeActorIdentity(doc.rejectedBy, 'user') : null,
@@ -2008,6 +2017,26 @@ const approveProtocolApproval = async ({
 
   try {
     const approvalOp = String(approval.op || '').trim().toLowerCase();
+    if (approvalOp === MEMORY_APPROVAL_OP) {
+      const result = await executeMemoryCommitApproval({
+        WorkingMemoryItem,
+        approval
+      });
+      approval.status = 'executed';
+      approval.executedAt = new Date();
+      approval.result = result && typeof result === 'object'
+        ? {
+            createdCount: Number(result.createdCount || 0),
+            skippedExistingCount: Number(result.skippedExistingCount || 0),
+            itemCount: Number(result.itemCount || 0)
+          }
+        : {};
+      await approval.save();
+      return {
+        approval: sanitizeProtocolApprovalDoc(approval),
+        result: approval.result
+      };
+    }
     if (approvalOp === 'runs.resume') {
       const runId = String(approval.payload?.runId || '').trim();
       if (!mongoose.Types.ObjectId.isValid(runId)) {
@@ -2157,7 +2186,8 @@ const rejectProtocolApproval = async ({
   userId,
   approvalId,
   actorType = 'user',
-  actorId = ''
+  actorId = '',
+  note = ''
 }) => {
   const userObjectId = mongoose.Types.ObjectId.isValid(userId) ? new mongoose.Types.ObjectId(String(userId)) : null;
   const approvalObjectId = mongoose.Types.ObjectId.isValid(approvalId) ? new mongoose.Types.ObjectId(String(approvalId)) : null;
@@ -2175,6 +2205,7 @@ const rejectProtocolApproval = async ({
     actorType: normalizeAgentActorType(actorType, 'user'),
     actorId: String(actorId || userId || '').trim()
   };
+  approval.decisionNote = String(note || '').trim().slice(0, 1000);
   const approvalOp = String(approval.op || '').trim().toLowerCase();
   if (approvalOp === 'runs.resume') {
     const runId = String(approval.payload?.runId || '').trim();
@@ -5500,6 +5531,20 @@ app.use(buildAgentStructureProposalRouter({
   EVENT_NAMES
 }));
 
+const { getAgentWriteBoundarySummary } = require('./services/agentWriteBoundarySummary');
+app.use(buildAgentWriteBoundaryRouter({
+  authenticateToken,
+  WorkingMemoryItem,
+  AgentStructureProposal,
+  getAgentWriteBoundarySummary
+}));
+
+app.use(buildAgentMemoryApprovalRouter({
+  authenticateToken,
+  AgentProtocolApproval,
+  createMemoryCommitApproval
+}));
+
 app.use(buildAgentChatRouter({
   authenticateToken,
   authenticatePersonalAgentKey,
@@ -5576,7 +5621,8 @@ app.use(buildAgentHarnessMetricsRouter({
   AgentArtifactDraft,
   AgentProtocolApproval,
   getAgentHarnessMetricsSnapshot,
-  getAgentHarnessRunHistorySnapshot
+  getAgentHarnessRunHistorySnapshot,
+  getAgentOutcomeTelemetrySnapshot
 }));
 
 app.use(buildAgentUpkeepCycleRouter({

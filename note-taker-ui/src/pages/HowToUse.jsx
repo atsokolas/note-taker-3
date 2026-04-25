@@ -238,7 +238,7 @@ const HowToUse = () => {
           </div>
           <p className="muted">
             You read great stuff. You highlight it. Then it disappears into a folder you never open.
-            Note Taker is the opposite of that. It gives your reading a real home and keeps it warm.
+            Noeis is the opposite of that. It gives your reading a real home and keeps it warm.
             So six months from now you can find the exact idea in 10 seconds and get on with your day.
           </p>
         </Card>

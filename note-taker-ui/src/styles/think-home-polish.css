@@ -3221,6 +3221,39 @@ html[data-ui-theme='dark'] {
   background: color-mix(in srgb, #c4a24d 10%, var(--nt-surface-2));
 }
 
+.think-protocol-approval__preview {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 8px 10px 8px 24px;
+  border: 1px solid color-mix(in srgb, var(--nt-divider) 58%, transparent);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--nt-surface-2) 54%, transparent);
+  color: color-mix(in srgb, var(--text-primary) 86%, transparent);
+  font-size: 0.82rem;
+}
+
+.think-protocol-approval__reject-note {
+  display: grid;
+  gap: 6px;
+  color: color-mix(in srgb, var(--text-secondary) 90%, transparent);
+  font-size: 0.78rem;
+  font-weight: 650;
+}
+
+.think-protocol-approval__reject-note textarea {
+  width: 100%;
+  resize: vertical;
+  min-height: 76px;
+  border: 1px solid color-mix(in srgb, var(--nt-divider) 72%, transparent);
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: var(--nt-surface);
+  color: var(--text-primary);
+  font: inherit;
+  font-weight: 400;
+}
+
 .think-hook-run {
   display: grid;
   gap: 8px;

@@ -57,13 +57,13 @@ const useProtocolApprovals = ({
     }
   }, [loadProtocolApprovals, onChanged, protocolApprovalBusyId]);
 
-  const handleRejectProtocolApproval = useCallback(async (approvalId) => {
+  const handleRejectProtocolApproval = useCallback(async (approvalId, payload = {}) => {
     const safeId = String(approvalId || '').trim();
     if (!safeId || protocolApprovalBusyId) return null;
     setProtocolApprovalBusyId(safeId);
     setProtocolApprovalsError('');
     try {
-      const response = await rejectAgentProtocolApproval(safeId);
+      const response = await rejectAgentProtocolApproval(safeId, payload);
       await loadProtocolApprovals();
       if (typeof onChanged === 'function') await onChanged(response || null);
       return response || null;

@@ -21,9 +21,9 @@ uvicorn main:app --host 0.0.0.0 --port 8001 --reload
 
 - `AI_SHARED_SECRET` (required)
 - `HF_TOKEN` (required)
-- `HF_PROVIDER` (default: `hf-inference`)
+- `HF_PROVIDER` (default: `groq`)
 - `HF_EMBEDDING_MODEL` (default: `sentence-transformers/all-MiniLM-L6-v2`)
-- `HF_TEXT_MODEL` (default: `Qwen/Qwen2.5-Coder-7B-Instruct`)
+- `HF_TEXT_MODEL` (default: `openai/gpt-oss-120b`)
 - `HF_TEXT_MODEL_FALLBACKS` (optional comma-separated list)
 - `HF_ROUTER_BASE_URL` (default: `https://router.huggingface.co/v1`)
 - `HF_MODELS_BASE_URL` (default: `https://router.huggingface.co/hf-inference/models`)

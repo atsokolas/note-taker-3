@@ -44,6 +44,42 @@ const compareFolders = (left, right) => {
   return String(left?.name || '').localeCompare(String(right?.name || ''));
 };
 
+const flattenFolderOptions = (folders = [], rootLabel = 'Top level') => {
+  const folderMap = new Map();
+  folders.forEach((folder) => {
+    const id = normalizeId(folder?._id);
+    if (!id) return;
+    folderMap.set(id, {
+      ...folder,
+      _id: id,
+      parentFolderId: normalizeId(folder?.parentFolderId) || null,
+      children: []
+    });
+  });
+
+  folderMap.forEach((folder) => {
+    if (!folder.parentFolderId) return;
+    const parent = folderMap.get(folder.parentFolderId);
+    if (parent) parent.children.push(folder);
+  });
+
+  folderMap.forEach((folder) => {
+    folder.children.sort(compareFolders);
+  });
+
+  const roots = [...folderMap.values()]
+    .filter((folder) => !folder.parentFolderId || !folderMap.has(folder.parentFolderId))
+    .sort(compareFolders);
+
+  const options = [{ id: '', name: rootLabel, depth: 0 }];
+  const visit = (folder, depth) => {
+    options.push({ id: folder._id, name: folder.name, depth });
+    folder.children.forEach((child) => visit(child, depth + 1));
+  };
+  roots.forEach((folder) => visit(folder, 0));
+  return options;
+};
+
 const buildFolderTree = (folders = [], entries = []) => {
   const folderMap = new Map();
   folders.forEach((folder) => {
@@ -172,12 +208,23 @@ const NotebookFolderTree = ({
   movingEntryId = '',
   onSelectEntry = () => {},
   onRequestMoveEntry = null,
-  onMoveEntry = () => {}
+  onMoveEntry = () => {},
+  onCreateFolder = null
 }) => {
   const [openState, setOpenState] = useState(readOpenState);
   const [draggedEntryId, setDraggedEntryId] = useState('');
   const [dropTargetId, setDropTargetId] = useState('');
+  const [folderComposerOpen, setFolderComposerOpen] = useState(false);
+  const [folderDraft, setFolderDraft] = useState('');
+  const [folderParentId, setFolderParentId] = useState('');
+  const [folderCreatePending, setFolderCreatePending] = useState(false);
+  const [folderCreateError, setFolderCreateError] = useState('');
   const { roots, rootEntries } = useMemo(() => buildFolderTree(folders, entries), [folders, entries]);
+  const folderParentOptions = useMemo(() => flattenFolderOptions(folders), [folders]);
+  const activeFolderId = useMemo(() => {
+    const activeEntry = entries.find((entry) => normalizeId(entry?._id) === normalizeId(activeEntryId));
+    return normalizeId(activeEntry?.folder);
+  }, [entries, activeEntryId]);
   const activeFolderAncestors = useMemo(
     () => collectFolderAncestors(folders, activeEntryId, entries),
     [folders, activeEntryId, entries]
@@ -217,6 +264,40 @@ const NotebookFolderTree = ({
   const clearDragState = () => {
     setDraggedEntryId('');
     setDropTargetId('');
+  };
+
+  const closeFolderComposer = () => {
+    setFolderComposerOpen(false);
+    setFolderDraft('');
+    setFolderParentId('');
+    setFolderCreateError('');
+  };
+
+  const handleCreateFolder = async (event) => {
+    event?.preventDefault?.();
+    const candidate = String(folderDraft || '').trim();
+    if (!candidate || typeof onCreateFolder !== 'function') return;
+    const nextParentFolderId = normalizeId(folderParentId) || null;
+    setFolderCreatePending(true);
+    setFolderCreateError('');
+    try {
+      await onCreateFolder(candidate, { parentFolderId: nextParentFolderId });
+      if (nextParentFolderId) {
+        setOpenState((prev) => {
+          const next = { ...prev, [nextParentFolderId]: true };
+          writeOpenState(next);
+          return next;
+        });
+      }
+      setFolderComposerOpen(false);
+      setFolderDraft('');
+      setFolderParentId('');
+      setFolderCreateError('');
+    } catch (error) {
+      setFolderCreateError(error?.response?.data?.error || error?.message || 'Failed to create folder.');
+    } finally {
+      setFolderCreatePending(false);
+    }
   };
 
   const isSameTarget = (entry, targetFolderId) => normalizeId(entry?.folder) === normalizeId(targetFolderId);
@@ -280,8 +361,8 @@ const NotebookFolderTree = ({
           <FolderRow
             id={node._id}
             name={node.name}
-            count={childCount}
-            selected={activeFolderAncestors.has(node._id)}
+            count={childCount > 0 ? childCount : undefined}
+            selected={activeFolderId === node._id}
             depth={depth}
             isExpanded={isExpanded}
             hasChildren={hasChildren}
@@ -312,12 +393,83 @@ const NotebookFolderTree = ({
     );
   };
 
-  if (entries.length === 0 && roots.length === 0) {
-    return <p className="think-calm-empty-line">{emptyMessage}</p>;
-  }
-
   return (
     <div className="notebook-folder-tree">
+      {typeof onCreateFolder === 'function' ? (
+        <div className="notebook-folder-tree__toolbar">
+          <div className="notebook-folder-tree__toolbar-header">
+            <span className="notebook-folder-tree__toolbar-label">Folders</span>
+            {!folderComposerOpen ? (
+              <button
+                type="button"
+                className="notebook-folder-tree__toolbar-action"
+                onClick={() => {
+                  setFolderComposerOpen(true);
+                  setFolderParentId(activeFolderId || '');
+                  setFolderCreateError('');
+                }}
+              >
+                New folder
+              </button>
+            ) : null}
+          </div>
+          {folderComposerOpen ? (
+            <form className="notebook-folder-tree__toolbar-form" onSubmit={handleCreateFolder}>
+              <label className="notebook-folder-tree__toolbar-field">
+                <span className="sr-only">Folder name</span>
+                <input
+                  type="text"
+                  value={folderDraft}
+                  placeholder="Name a folder"
+                  onChange={(event) => {
+                    setFolderDraft(event.target.value);
+                    if (folderCreateError) setFolderCreateError('');
+                  }}
+                  disabled={folderCreatePending}
+                  autoFocus
+                />
+              </label>
+              <label className="feedback-field notebook-folder-tree__toolbar-field">
+                <span>Parent folder</span>
+                <select
+                  value={folderParentId}
+                  onChange={(event) => setFolderParentId(event.target.value)}
+                  disabled={folderCreatePending}
+                >
+                  {folderParentOptions.map((option) => (
+                    <option key={option.id || 'root'} value={option.id}>
+                      {`${option.depth > 0 ? `${'  '.repeat(option.depth)}↳ ` : ''}${option.name}`}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <div className="notebook-folder-tree__toolbar-actions">
+                <button
+                  type="submit"
+                  className="notebook-folder-tree__toolbar-action is-primary"
+                  disabled={folderCreatePending || !String(folderDraft || '').trim()}
+                >
+                  {folderCreatePending ? 'Creating…' : 'Create'}
+                </button>
+                <button
+                  type="button"
+                  className="notebook-folder-tree__toolbar-action"
+                  onClick={closeFolderComposer}
+                  disabled={folderCreatePending}
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          ) : null}
+          {folderCreateError ? (
+            <p className="status-message error-message think-notebook-folder-tree-panel__status">{folderCreateError}</p>
+          ) : null}
+        </div>
+      ) : null}
+      {entries.length === 0 && roots.length === 0 ? (
+        <p className="think-calm-empty-line">{emptyMessage}</p>
+      ) : null}
       {roots.map((node) => renderFolderNode(node))}
       <div
         className={`notebook-folder-tree__root ${dropTargetId === 'root' ? 'is-drop-target' : ''}`.trim()}

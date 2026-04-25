@@ -25,8 +25,47 @@ const toTimestamp = (...values) => {
 };
 
 const humanize = (value = '') => clean(value)
-  .replace(/[_-]+/g, ' ')
+  .replace(/[._-]+/g, ' ')
   .replace(/\b\w/g, (letter) => letter.toUpperCase());
+
+const approvalLifecycleLabel = (approval = {}) => {
+  const status = clean(approval?.status).toLowerCase() || 'pending';
+  const op = humanize(approval?.op || 'protocol action');
+  if (status === 'pending') return `${op} queued for review`;
+  if (status === 'approved') return `${op} approved`;
+  if (status === 'executed') return `${op} executed`;
+  if (status === 'rejected') return `${op} rejected`;
+  return `${op} ${status}`;
+};
+
+const buildApprovalMeta = (approval = {}) => {
+  const result = approval?.result && typeof approval.result === 'object' ? approval.result : {};
+  const preview = approval?.preview && typeof approval.preview === 'object' ? approval.preview : {};
+  const meta = [
+    approval?.requestedBy?.actorType ? `requested by ${approval.requestedBy.actorType}` : '',
+    approval?.approvedBy?.actorType ? `approved by ${approval.approvedBy.actorType}` : '',
+    approval?.rejectedBy?.actorType ? `rejected by ${approval.rejectedBy.actorType}` : '',
+    preview.threadId ? `thread ${preview.threadId}` : '',
+    preview.handoffId ? `handoff ${preview.handoffId}` : ''
+  ];
+  if (Number(preview.itemCount || 0) > 0) meta.push(`${Number(preview.itemCount)} proposed items`);
+  if (Number(result.createdCount || 0) > 0) meta.push(`${Number(result.createdCount)} committed`);
+  if (Number(result.skippedExistingCount || 0) > 0) meta.push(`${Number(result.skippedExistingCount)} skipped duplicate`);
+  return meta.filter(Boolean);
+};
+
+const buildApprovalBody = (approval = {}) => {
+  const preview = approval?.preview && typeof approval.preview === 'object' ? approval.preview : {};
+  const snippets = Array.isArray(preview.snippets) ? preview.snippets.map(clean).filter(Boolean) : [];
+  const decisionNote = clean(approval?.decisionNote);
+  const pieces = [
+    decisionNote ? `Decision note: ${decisionNote}` : '',
+    clean(approval?.reason),
+    snippets.length > 0 ? snippets.slice(0, 3).join(' ') : '',
+    clean(preview.title)
+  ].filter(Boolean);
+  return truncate(pieces.join(' '), 260);
+};
 
 const buildDraftEntries = ({
   drafts = [],
@@ -72,13 +111,9 @@ const buildApprovalEntries = ({
     return {
       id: `approval-${clean(approval?.approvalId)}`,
       category: 'approval',
-      title: `${humanize(approval?.op || 'protocol action')} ${status === 'pending' ? 'queued' : status}`,
-      body: clean(approval?.reason) || clean(approval?.preview?.title),
-      meta: [
-        approval?.requestedBy?.actorType ? `requested by ${approval.requestedBy.actorType}` : '',
-        approval?.preview?.threadId ? `thread ${approval.preview.threadId}` : '',
-        approval?.preview?.handoffId ? `handoff ${approval.preview.handoffId}` : ''
-      ].filter(Boolean),
+      title: approvalLifecycleLabel(approval),
+      body: buildApprovalBody(approval),
+      meta: buildApprovalMeta(approval),
       timestamp,
       timestampLabel: timestamp ? formatDateTime(timestamp) : '',
       state: status

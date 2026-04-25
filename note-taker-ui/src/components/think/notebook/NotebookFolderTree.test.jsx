@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import NotebookFolderTree from './NotebookFolderTree';
 
 describe('NotebookFolderTree', () => {
@@ -88,5 +88,52 @@ describe('NotebookFolderTree', () => {
     fireEvent.dragOver(screen.getByTestId('folder-drop-target-root'), { dataTransfer });
     fireEvent.drop(screen.getByTestId('folder-drop-target-root'), { dataTransfer });
     expect(onMoveEntry).toHaveBeenCalledWith(expect.objectContaining({ _id: 'note-1' }), null);
+  });
+
+  it('creates a folder from the left rail toolbar', async () => {
+    const onCreateFolder = jest.fn().mockResolvedValue({ _id: 'folder-new', name: 'Drafts' });
+
+    render(
+      <NotebookFolderTree
+        folders={[
+          { _id: 'folder-1', title: 'Projects', name: 'Projects', parentFolderId: null, sortOrder: 0 }
+        ]}
+        entries={[
+          { _id: 'note-1', title: 'Weekly synthesis', folder: 'folder-1', updatedAt: '2026-04-19T12:00:00.000Z' }
+        ]}
+        activeEntryId="note-1"
+        onSelectEntry={jest.fn()}
+        onCreateFolder={onCreateFolder}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /New folder/i }));
+    fireEvent.change(screen.getByPlaceholderText(/Name a folder/i), { target: { value: 'Drafts' } });
+    fireEvent.click(screen.getByRole('button', { name: /^Create$/i }));
+
+    await waitFor(() => {
+      expect(onCreateFolder).toHaveBeenCalledWith('Drafts', { parentFolderId: 'folder-1' });
+    });
+  });
+
+  it('keeps the folder composer available when the tree is empty', async () => {
+    const onCreateFolder = jest.fn().mockResolvedValue({ _id: 'folder-new', name: 'Archive' });
+
+    render(
+      <NotebookFolderTree
+        folders={[]}
+        entries={[]}
+        onSelectEntry={jest.fn()}
+        onCreateFolder={onCreateFolder}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /New folder/i }));
+    fireEvent.change(screen.getByPlaceholderText(/Name a folder/i), { target: { value: 'Archive' } });
+    fireEvent.click(screen.getByRole('button', { name: /^Create$/i }));
+
+    await waitFor(() => {
+      expect(onCreateFolder).toHaveBeenCalledWith('Archive', { parentFolderId: null });
+    });
   });
 });

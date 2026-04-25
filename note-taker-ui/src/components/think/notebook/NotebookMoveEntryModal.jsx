@@ -47,7 +47,12 @@ const flattenFolderOptions = (folders = []) => {
 
   const options = [{ id: '', name: ROOT_TARGET_LABEL, depth: 0 }];
   const visit = (folder, depth) => {
-    options.push({ id: folder._id, name: folder.name, depth });
+    options.push({
+      id: folder._id,
+      name: folder.name,
+      depth,
+      parentFolderId: folder.parentFolderId || null
+    });
     folder.children.forEach((child) => visit(child, depth + 1));
   };
   roots.forEach((folder) => visit(folder, 0));
@@ -60,21 +65,42 @@ const NotebookMoveEntryModal = ({
   folders = [],
   onClose = () => {},
   onMove = () => {},
+  onCreateFolder = async () => null,
   loading = false,
   error = ''
 }) => {
   const currentFolderId = normalizeId(entry?.folder);
   const [query, setQuery] = useState('');
   const [selectedFolderId, setSelectedFolderId] = useState(currentFolderId);
+  const [createParentFolderId, setCreateParentFolderId] = useState(currentFolderId);
+  const [createParentTouched, setCreateParentTouched] = useState(false);
+  const [createPending, setCreatePending] = useState(false);
+  const [createError, setCreateError] = useState('');
 
   useEffect(() => {
     if (!open) return;
     setQuery('');
     setSelectedFolderId(currentFolderId);
+    setCreateParentFolderId(currentFolderId);
+    setCreateParentTouched(false);
+    setCreatePending(false);
+    setCreateError('');
   }, [currentFolderId, open]);
 
   const folderOptions = useMemo(() => flattenFolderOptions(folders), [folders]);
+  const parentFolderOptions = useMemo(() => flattenFolderOptions(folders, 'Top level'), [folders]);
   const normalizedQuery = query.trim().toLowerCase();
+  const effectiveCreateParentFolderId = createParentTouched
+    ? normalizeId(createParentFolderId)
+    : normalizeId(selectedFolderId);
+  const exactMatch = useMemo(
+    () => folderOptions.find((option) => (
+      option.id
+      && normalizeId(option.parentFolderId) === effectiveCreateParentFolderId
+      && option.name.trim().toLowerCase() === normalizedQuery
+    )) || null,
+    [folderOptions, normalizedQuery, effectiveCreateParentFolderId]
+  );
   const filteredOptions = useMemo(() => {
     if (!normalizedQuery) return folderOptions;
     return folderOptions.filter((option) => option.name.toLowerCase().includes(normalizedQuery));
@@ -84,6 +110,37 @@ const NotebookMoveEntryModal = ({
 
   const title = String(entry?.title || '').trim() || 'Untitled';
   const destinationChanged = normalizeId(selectedFolderId) !== currentFolderId;
+  const showCreateRow = Boolean(normalizedQuery);
+  const canCreateFolder = showCreateRow && !exactMatch;
+  const modalError = createError || error;
+  const busy = loading || createPending;
+  const selectedParentOption = parentFolderOptions.find(
+    (option) => normalizeId(option.id) === effectiveCreateParentFolderId
+  ) || parentFolderOptions[0];
+
+  const handleCreateAndMove = async () => {
+    const candidate = query.trim();
+    if (!candidate || !canCreateFolder) return;
+    setCreatePending(true);
+    setCreateError('');
+    try {
+      const created = await onCreateFolder(candidate, {
+        parentFolderId: effectiveCreateParentFolderId || null
+      });
+      const createdFolderId = normalizeId(created?._id);
+      if (!createdFolderId) {
+        throw new Error('Folder was created without an id.');
+      }
+      setSelectedFolderId(createdFolderId);
+      setCreateParentFolderId(createdFolderId);
+      setCreateParentTouched(true);
+      await onMove(createdFolderId);
+    } catch (createFolderError) {
+      setCreateError(createFolderError?.response?.data?.error || createFolderError?.message || 'Failed to create folder.');
+    } finally {
+      setCreatePending(false);
+    }
+  };
 
   return (
     <div className="modal-overlay">
@@ -110,9 +167,61 @@ const NotebookMoveEntryModal = ({
             type="text"
             value={query}
             placeholder="Search folders…"
-            onChange={(event) => setQuery(event.target.value)}
+            onChange={(event) => {
+              setQuery(event.target.value);
+              if (createError) setCreateError('');
+            }}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' && canCreateFolder) {
+                event.preventDefault();
+                handleCreateAndMove();
+              }
+            }}
+            disabled={busy}
           />
         </label>
+
+        {showCreateRow ? (
+          <div className="notebook-move-entry-modal__create-row">
+            <p className="notebook-move-entry-modal__create-copy">
+              {effectiveCreateParentFolderId
+                ? `Create “${query.trim()}” inside “${selectedParentOption?.name || 'Selected folder'}”, then move this note there.`
+                : `Create “${query.trim()}” at top level, then move this note there.`}
+            </p>
+            <label className="feedback-field notebook-move-entry-modal__create-field">
+              <span>Parent folder</span>
+              <select
+                value={effectiveCreateParentFolderId}
+                onChange={(event) => {
+                  setCreateParentFolderId(event.target.value);
+                  setCreateParentTouched(true);
+                }}
+                disabled={busy}
+              >
+                {parentFolderOptions.map((option) => (
+                  <option key={option.id || 'root'} value={option.id}>
+                    {`${option.depth > 0 ? `${'  '.repeat(option.depth)}↳ ` : ''}${option.name}`}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <Button
+              type="button"
+              variant="secondary"
+              className="notebook-move-entry-modal__create-action"
+              onClick={handleCreateAndMove}
+              disabled={busy || !canCreateFolder}
+              data-testid="notebook-move-entry-create-folder"
+            >
+              {createPending ? 'Creating…' : 'Create folder and move'}
+            </Button>
+            {exactMatch ? (
+              <p className="muted small notebook-move-entry-modal__create-note">
+                A folder with that name already exists in the selected parent.
+              </p>
+            ) : null}
+          </div>
+        ) : null}
 
         <div className="notebook-move-entry-modal__destinations" aria-label="Notebook move destinations">
           {filteredOptions.map((option) => {
@@ -121,7 +230,12 @@ const NotebookMoveEntryModal = ({
               <QuietButton
                 key={option.id || 'root'}
                 className={`notebook-move-entry-modal__destination ${isActive ? 'is-active' : ''}`.trim()}
-                onClick={() => setSelectedFolderId(option.id)}
+                onClick={() => {
+                  setSelectedFolderId(option.id);
+                  setCreateParentFolderId(option.id);
+                  setCreateParentTouched(false);
+                }}
+                disabled={busy}
               >
                 <span
                   className="notebook-move-entry-modal__destination-name"
@@ -129,7 +243,7 @@ const NotebookMoveEntryModal = ({
                 >
                   {option.name}
                 </span>
-                {isActive ? <span className="notebook-move-entry-modal__destination-state">Current</span> : null}
+                {isActive ? <span className="notebook-move-entry-modal__destination-state">Selected</span> : null}
               </QuietButton>
             );
           })}
@@ -138,11 +252,11 @@ const NotebookMoveEntryModal = ({
           ) : null}
         </div>
 
-        {error ? <p className="status-message error-message notebook-move-entry-modal__error">{error}</p> : null}
+        {modalError ? <p className="status-message error-message notebook-move-entry-modal__error">{modalError}</p> : null}
 
         <div className="modal-actions notebook-move-entry-modal__actions" style={{ justifyContent: 'flex-end', gap: 8 }}>
-          <Button variant="secondary" onClick={onClose} disabled={loading}>Cancel</Button>
-          <Button onClick={() => onMove(selectedFolderId || null)} disabled={loading || !destinationChanged}>
+          <Button variant="secondary" onClick={onClose} disabled={busy}>Cancel</Button>
+          <Button onClick={() => onMove(selectedFolderId || null)} disabled={busy || !destinationChanged}>
             {loading ? 'Moving…' : 'Move'}
           </Button>
         </div>
