@@ -2473,6 +2473,88 @@ html[data-ui-theme='dark'] .topbar__search:-webkit-autofill:focus {
   text-decoration: underline;
 }
 
+/* First-run empty state — when the library has zero articles globally,
+   show a meaningful onboarding step instead of a flat "no articles" message.
+   Reuses the .ui-quiet-button--primary vocabulary from ThinkHome (Iter 7). */
+.library-empty-state--first-run {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 18px;
+  padding: 32px 28px;
+  border: 1px dashed var(--border-subtle);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--surface) 92%, var(--accent-soft) 6%);
+  max-width: 640px;
+}
+
+.library-empty-state__copy {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.library-empty-state__eyebrow {
+  font-size: 0.66rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.library-empty-state__title {
+  margin: 0;
+  font-size: 1.4rem;
+  line-height: 1.2;
+  color: var(--text);
+}
+
+.library-empty-state__body {
+  margin: 0;
+  font-size: 0.92rem;
+  line-height: 1.55;
+  color: var(--text-secondary);
+  max-width: 52ch;
+}
+
+.library-empty-state__actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.library-empty-state__primary {
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+}
+
+.library-empty-state__secondary {
+  color: var(--text-secondary);
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  transition: color 180ms ease-out, border-color 180ms ease-out;
+}
+
+.library-empty-state__secondary:hover {
+  color: var(--text);
+  border-bottom-color: var(--border-subtle);
+}
+
+@media (max-width: 640px) {
+  .library-empty-state--first-run {
+    padding: 24px 18px;
+  }
+  .library-empty-state__primary {
+    width: 100%;
+    justify-content: center;
+  }
+  .library-empty-state__actions {
+    width: 100%;
+  }
+}
+
 .library-saved-views {
   display: grid;
   gap: 8px;

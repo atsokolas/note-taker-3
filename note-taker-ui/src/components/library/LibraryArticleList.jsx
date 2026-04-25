@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { SectionHeader } from '../ui';
 import VirtualList from '../virtual/VirtualList';
 import { createProfilerLogger } from '../../utils/perf';
+import { TOUR_EXTENSION_URL } from '../../tour/tourConfig';
 
 const formatDate = (value) => {
   if (!value) return '';
@@ -142,7 +143,8 @@ const LibraryArticleList = ({
   error,
   emptyLabel,
   onSelectArticle,
-  onMoveArticle
+  onMoveArticle,
+  scope = 'all'
 }) => {
   const hasError = Boolean(error);
   const isEmpty = !loading && !hasError && articles.length === 0;
@@ -170,12 +172,38 @@ const LibraryArticleList = ({
       )}
       {error && <p className="status-message error-message">{error}</p>}
       {!loading && !error && articles.length === 0 && (
-        <div className="library-empty-state">
-          <p className="muted">{emptyLabel || 'No articles here yet.'}</p>
-          <Link className="library-empty-cta" to="/library?scope=all">
-            Move articles into this folder
-          </Link>
-        </div>
+        scope === 'all' || scope === 'unfiled' ? (
+          <div className="library-empty-state library-empty-state--first-run" data-testid="library-empty-first-run">
+            <div className="library-empty-state__copy">
+              <span className="library-empty-state__eyebrow">Library</span>
+              <h3 className="library-empty-state__title">Save your first article</h3>
+              <p className="library-empty-state__body">
+                Use the browser extension to save and highlight from any page on the web.
+                Articles you save show up here, ready to read, highlight, and turn into concepts.
+              </p>
+            </div>
+            <div className="library-empty-state__actions">
+              <a
+                className="ui-quiet-button ui-quiet-button--primary library-empty-state__primary"
+                href={TOUR_EXTENSION_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Install browser extension
+              </a>
+              <Link className="library-empty-state__secondary muted small" to="/how-to-use">
+                See the full walkthrough
+              </Link>
+            </div>
+          </div>
+        ) : (
+          <div className="library-empty-state">
+            <p className="muted">{emptyLabel || 'No articles here yet.'}</p>
+            <Link className="library-empty-cta" to="/library?scope=all">
+              Move articles into this folder
+            </Link>
+          </div>
+        )
       )}
       {!loading && !error && (
         <Profiler id="LibraryArticleRows" onRender={createProfilerLogger('library.article-list')}>
