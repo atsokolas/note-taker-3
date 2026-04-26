@@ -29,6 +29,27 @@ const HomeSkeleton = () => (
 
 const Empty = ({ text }) => <p className="muted small">{text}</p>;
 
+/**
+ * EmptyAction — column-level empty state with a single inline action.
+ * Used in the working-set columns so a fresh user always has one obvious
+ * next step from the home page (instead of staring at "No X yet.").
+ */
+const EmptyAction = ({ text, actionLabel, onAction, testId }) => (
+  <div className="think-home-editorial-column__empty" data-testid={testId}>
+    <p className="muted small">{text}</p>
+    {actionLabel && onAction ? (
+      <button
+        type="button"
+        className="think-home-editorial-column__empty-action"
+        onClick={onAction}
+      >
+        {actionLabel}
+        <span aria-hidden="true">→</span>
+      </button>
+    ) : null}
+  </div>
+);
+
 const HomeRow = ({ title, meta, onClick, className = '' }) => (
   <button type="button" className={`think-home__row think-home-editorial-row ${className}`.trim()} onClick={onClick}>
     <span className="think-home__row-title think-home-editorial-row__title">{title}</span>
@@ -169,7 +190,12 @@ const ThinkHome = ({
               <p className="think-home__column-title">Notebook</p>
               <div className="think-home__list think-home__list--scannable think-home-editorial-list">
                 {workingSet.notebooks.length === 0 ? (
-                  <Empty text="No notes yet." />
+                  <EmptyAction
+                    text="No notes yet."
+                    actionLabel="Start your first note"
+                    onAction={onCreateNote}
+                    testId="think-home-empty-notebooks"
+                  />
                 ) : (
                   workingSet.notebooks.slice(0, 5).map((item) => (
                     <HomeRow
@@ -188,7 +214,12 @@ const ThinkHome = ({
               <p className="think-home__column-title">Concepts</p>
               <div className="think-home__list think-home__list--scannable think-home-editorial-list">
                 {workingSet.concepts.length === 0 ? (
-                  <Empty text="No concepts yet." />
+                  <EmptyAction
+                    text="No concepts yet."
+                    actionLabel="Create your first concept"
+                    onAction={onCreateConcept}
+                    testId="think-home-empty-concepts"
+                  />
                 ) : (
                   workingSet.concepts.slice(0, 5).map((item) => (
                     <HomeRow
@@ -207,7 +238,12 @@ const ThinkHome = ({
               <p className="think-home__column-title">Questions</p>
               <div className="think-home__list think-home__list--scannable think-home-editorial-list">
                 {workingSet.questions.length === 0 ? (
-                  <Empty text="No open questions." />
+                  <EmptyAction
+                    text="No open questions."
+                    actionLabel="Capture your first question"
+                    onAction={onCreateQuestion}
+                    testId="think-home-empty-questions"
+                  />
                 ) : (
                   workingSet.questions.slice(0, 5).map((item) => (
                     <HomeRow

@@ -88,4 +88,48 @@ describe('ThinkHome', () => {
     expect(screen.getByText('No recent activity yet.')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Resume' })).not.toBeInTheDocument();
   });
+
+  it('shows column-level empty actions and wires them to the create handlers', () => {
+    const onCreateNote = jest.fn();
+    const onCreateConcept = jest.fn();
+    const onCreateQuestion = jest.fn();
+    render(
+      <ThinkHome
+        {...baseProps}
+        onCreateNote={onCreateNote}
+        onCreateConcept={onCreateConcept}
+        onCreateQuestion={onCreateQuestion}
+      />
+    );
+
+    // Each empty column shows its action.
+    expect(screen.getByTestId('think-home-empty-notebooks')).toBeInTheDocument();
+    expect(screen.getByTestId('think-home-empty-concepts')).toBeInTheDocument();
+    expect(screen.getByTestId('think-home-empty-questions')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /Start your first note/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Create your first concept/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Capture your first question/ }));
+
+    expect(onCreateNote).toHaveBeenCalledTimes(1);
+    expect(onCreateConcept).toHaveBeenCalledTimes(1);
+    expect(onCreateQuestion).toHaveBeenCalledTimes(1);
+  });
+
+  it('hides the column empty action once the column has items', () => {
+    render(
+      <ThinkHome
+        {...baseProps}
+        workingSet={{
+          notebooks: [{ _id: 'n1', title: 'A note', updatedAt: new Date().toISOString() }],
+          concepts: [],
+          questions: []
+        }}
+      />
+    );
+
+    expect(screen.queryByTestId('think-home-empty-notebooks')).not.toBeInTheDocument();
+    expect(screen.getByTestId('think-home-empty-concepts')).toBeInTheDocument();
+    expect(screen.getByTestId('think-home-empty-questions')).toBeInTheDocument();
+  });
 });
