@@ -1,6 +1,8 @@
-/* App-wide calm baseline to replace legacy dark gradients across all routes. */
+/* App-wide calm baseline to replace legacy dark gradients across all routes.
+   Note the selector intentionally does NOT include html[data-ui-theme='dark'] —
+   dark mode gets its own override block below so notebook / library / every
+   other calm surface can theme cleanly via the existing --calm-* tokens. */
 body.calm-ui-global,
-html[data-ui-theme='dark'] body.calm-ui-global,
 html[data-ui-theme='light'] body.calm-ui-global {
   color-scheme: light;
 
@@ -68,6 +70,88 @@ html[data-ui-theme='light'] body.calm-ui-global {
   --nt-surface-1: var(--calm-bg-1);
   --nt-surface-2: var(--calm-bg-2);
   --nt-divider: var(--calm-line);
+}
+
+/* Dark-mode calm baseline. The same warm-neutral hue family (tan / brown)
+   gets flipped to deep warm-charcoal surfaces and warm-cream text. Because
+   the mappings to legacy global tokens (--surface, --text, --border-subtle,
+   etc.) reference --calm-* via var(), a single token swap here cascades
+   through the notebook, library, and every other calm surface — no
+   per-surface dark CSS needed. */
+html[data-ui-theme='dark'] body.calm-ui-global {
+  color-scheme: dark;
+
+  --calm-bg-0: #1c1812;
+  --calm-bg-1: #261f17;
+  --calm-bg-2: #322a20;
+  --calm-line: rgba(190, 165, 120, 0.28);
+  --calm-line-soft: rgba(190, 165, 120, 0.18);
+  --calm-text: #f3ead6;
+  --calm-text-secondary: #c8b894;
+  --calm-muted: #9f8e6f;
+  --calm-accent: #d8c190;
+  --calm-accent-soft: rgba(216, 193, 144, 0.18);
+  --calm-link: #8aa6d8;
+  --calm-panel: rgba(38, 31, 23, 0.82);
+  --calm-panel-strong: rgba(50, 42, 32, 0.92);
+
+  --background: var(--calm-bg-0);
+  --surface-base: var(--calm-bg-0);
+  --surface: var(--calm-bg-1);
+  --surface-panel: var(--calm-bg-1);
+  --surface-card: var(--calm-bg-1);
+  --surface-muted: var(--calm-bg-2);
+  --surface-0: var(--calm-bg-1);
+  --surface-1: color-mix(in srgb, var(--calm-bg-1) 90%, var(--calm-bg-2));
+  --surface-2: var(--calm-bg-2);
+  --bg-shell: var(--calm-bg-0);
+  --bg-chrome: color-mix(in srgb, var(--calm-bg-1) 90%, black);
+
+  --border-subtle: var(--calm-line);
+  --border-subtle-2: var(--calm-line-soft);
+  --line-0: var(--calm-line);
+  --line-1: color-mix(in srgb, var(--calm-line) 88%, #d8c190);
+
+  --text-primary: var(--calm-text);
+  --text-secondary: var(--calm-text-secondary);
+  --text: var(--calm-text);
+  --muted: var(--calm-muted);
+  --link: var(--calm-link);
+  --text-0: var(--calm-text);
+  --text-1: var(--calm-text-secondary);
+  --text-2: var(--calm-muted);
+
+  --accent: var(--calm-accent);
+  --accent-soft: var(--calm-accent-soft);
+  --primary-color: var(--calm-accent);
+  --primary-color-light: var(--calm-accent-soft);
+
+  --bg-color: var(--calm-bg-0);
+  --sidebar-bg-color: var(--calm-bg-1);
+  --card-bg-color: var(--calm-bg-1);
+  --border-color: var(--calm-line);
+  --border-color-light: var(--calm-line-soft);
+  --text-color: var(--calm-text);
+  --text-color-secondary: var(--calm-text-secondary);
+  --hover-color: rgba(216, 193, 144, 0.10);
+  --active-color: rgba(216, 193, 144, 0.18);
+
+  --shadow-subtle: 0 1px 2px rgba(0, 0, 0, 0.45);
+  --shadow: 0 6px 18px rgba(0, 0, 0, 0.55);
+
+  --nt-app-bg: var(--calm-bg-0);
+  --nt-surface-1: var(--calm-bg-1);
+  --nt-surface-2: var(--calm-bg-2);
+  --nt-divider: var(--calm-line);
+}
+
+/* Dark body background — replaces the warm radial-gradient washes with
+   deeper warm-charcoal washes so the page doesn't go flat-black. */
+html[data-ui-theme='dark'] body.calm-ui-global {
+  background:
+    radial-gradient(56rem 28rem at 86% 6%, rgba(80, 60, 30, 0.34), transparent 62%),
+    radial-gradient(36rem 24rem at 8% 88%, rgba(40, 60, 56, 0.28), transparent 66%),
+    var(--calm-bg-0);
 }
 
 body.calm-ui-global {
