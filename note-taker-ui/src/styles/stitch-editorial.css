@@ -40,7 +40,10 @@ body.noeis-editorial {
 /* Workbench / concept-editorial palette — extracted from raw rgba() literals
    scattered across idea-workbench.css and the concept dropzone. Layered as a
    second editorial rule so it merges cleanly with other token additions and
-   gives html[data-ui-theme='dark'] one place to swap the palette. */
+   gives html[data-ui-theme='dark'] one place to swap the palette.
+
+   Dropzone palette uses gray-ink tones (vellum-ink family) rather than the
+   tan workbench tones, which is why it's a distinct family. */
 body.noeis-editorial {
   --workbench-border-strong: rgba(219, 205, 181, 0.78);
   --workbench-border: rgba(219, 205, 181, 0.72);
@@ -48,7 +51,7 @@ body.noeis-editorial {
   --workbench-surface: rgba(255, 252, 247, 0.96);
   --workbench-surface-soft: rgba(255, 252, 247, 0.72);
   --workbench-surface-tinted: rgba(252, 249, 243, 0.92);
-  --workbench-surface-active: rgba(247, 240, 226, 1);
+  --workbench-surface-active: var(--dropzone-surface-hover);
   --workbench-shadow-soft: 0 6px 14px rgba(72, 50, 21, 0.10);
   --workbench-shadow-strong: 0 18px 36px rgba(72, 50, 21, 0.12);
   --workbench-ink: rgba(72, 50, 21, 0.86);
@@ -57,6 +60,23 @@ body.noeis-editorial {
   --workbench-gradient-from: rgba(255, 253, 249, 0.98);
   --workbench-gradient-to: rgba(248, 241, 230, 0.94);
   --workbench-card-edge: rgba(255, 255, 255, 0.7);
+
+  /* Dropzone palette — gray-ink tones for the concept evidence dropzone
+     (Iter 5/C). Uses the vellum-ink family rather than the workbench tan
+     family so the dropzone reads as a quieter "drop slot" rather than a
+     warm card. */
+  --dropzone-border-idle: var(--dropzone-border-idle);
+  --dropzone-border-active: var(--dropzone-border-active);
+  --dropzone-border-hover: var(--dropzone-border-hover);
+  --dropzone-surface-idle: var(--dropzone-surface-idle);
+  --dropzone-surface-active: var(--dropzone-surface-active);
+  --dropzone-surface-hover: var(--dropzone-surface-hover);
+  --dropzone-shadow-hover: var(--dropzone-shadow-hover);
+  --dropzone-inset-active: var(--dropzone-inset-active);
+  --dropzone-inset-hover: var(--dropzone-inset-hover);
+  --dropzone-ink-idle: var(--dropzone-ink-idle);
+  --dropzone-ink-hover: var(--dropzone-ink-hover);
+  --dropzone-text-quiet: var(--dropzone-text-quiet);
 }
 
 /* Dark-mode editorial. The base palette is warm-cream; dark mode flips
@@ -79,6 +99,21 @@ html[data-ui-theme='dark'] body.noeis-editorial {
   --workbench-gradient-from: rgba(48, 38, 26, 0.96);
   --workbench-gradient-to: rgba(38, 30, 22, 0.94);
   --workbench-card-edge: rgba(255, 245, 218, 0.06);
+
+  /* Dropzone dark — keep the same gray-ink hue family but flip lightness
+     so the dropzone stays visible against the dark surface. */
+  --dropzone-border-idle: rgba(190, 190, 178, 0.22);
+  --dropzone-border-active: rgba(210, 210, 198, 0.55);
+  --dropzone-border-hover: rgba(232, 222, 198, 0.78);
+  --dropzone-surface-idle: rgba(38, 30, 22, 0.62);
+  --dropzone-surface-active: rgba(48, 38, 26, 0.86);
+  --dropzone-surface-hover: rgba(60, 47, 30, 0.92);
+  --dropzone-shadow-hover: 0 6px 18px rgba(0, 0, 0, 0.55);
+  --dropzone-inset-active: inset 0 0 0 1px rgba(210, 210, 198, 0.18);
+  --dropzone-inset-hover: inset 0 0 0 1px rgba(232, 222, 198, 0.32);
+  --dropzone-ink-idle: rgba(190, 190, 178, 0.62);
+  --dropzone-ink-hover: rgba(232, 222, 198, 0.95);
+  --dropzone-text-quiet: rgba(190, 190, 178, 0.5);
 }
 
 body.noeis-editorial .think-home-editorial-ledger {
@@ -956,7 +991,7 @@ body.noeis-editorial .library-article-row-date {
   font-size: 0.66rem;
   letter-spacing: 0.18em;
   text-transform: uppercase;
-  color: rgba(129, 129, 120, 0.72);
+  color: var(--dropzone-border-active);
 }
 
 body.noeis-editorial .library-article-row-main {
@@ -2788,7 +2823,7 @@ body.noeis-editorial .concept-editorial-evidence__header p {
   font-size: 0.58rem;
   letter-spacing: 0.22em;
   text-transform: uppercase;
-  color: rgba(97, 94, 91, 0.56);
+  color: var(--dropzone-text-quiet);
 }
 
 body.noeis-editorial .concept-editorial-partner__new-inquiry {
@@ -3446,7 +3481,7 @@ body.noeis-editorial .concept-editorial-loading__eyebrow {
   font-size: 0.58rem;
   letter-spacing: 0.2em;
   text-transform: uppercase;
-  color: rgba(97, 94, 91, 0.56);
+  color: var(--dropzone-text-quiet);
 }
 
 body.noeis-editorial .concept-editorial-loading__note {
@@ -3717,33 +3752,33 @@ body.noeis-editorial .concept-editorial-view__dropzone {
   gap: 8px;
   min-height: 138px;
   max-width: 30rem;
-  border: 1px dashed rgba(129, 129, 120, 0.32);
-  background: rgba(252, 249, 243, 0.9);
+  border: 1px dashed var(--dropzone-border-idle);
+  background: var(--dropzone-surface-idle);
   transition: border-color 180ms ease-out, background-color 180ms ease-out, transform 180ms ease-out, box-shadow 180ms ease-out;
 }
 
 body.noeis-editorial .concept-editorial-view__dropzone.is-active {
-  border-color: rgba(129, 129, 120, 0.72);
-  background: rgba(252, 249, 243, 1);
-  box-shadow: inset 0 0 0 1px rgba(129, 129, 120, 0.18);
+  border-color: var(--dropzone-border-active);
+  background: var(--dropzone-surface-active);
+  box-shadow: var(--dropzone-inset-active);
 }
 
 body.noeis-editorial .concept-editorial-view__dropzone.is-hovering {
   border-style: solid;
-  border-color: rgba(97, 94, 91, 0.85);
-  background: rgba(247, 240, 226, 1);
-  box-shadow: 0 6px 18px rgba(97, 94, 91, 0.14), inset 0 0 0 1px rgba(97, 94, 91, 0.32);
+  border-color: var(--dropzone-border-hover);
+  background: var(--dropzone-surface-hover);
+  box-shadow: var(--dropzone-shadow-hover), var(--dropzone-inset-hover);
   transform: translateY(-1px);
 }
 
 body.noeis-editorial .concept-editorial-view__dropzone span {
-  color: rgba(129, 129, 120, 0.68);
+  color: var(--dropzone-ink-idle);
   font-size: 1.8rem;
   transition: color 180ms ease-out, transform 180ms ease-out;
 }
 
 body.noeis-editorial .concept-editorial-view__dropzone.is-hovering span {
-  color: rgba(97, 94, 91, 0.95);
+  color: var(--dropzone-ink-hover);
   transform: scale(1.06);
 }
 
@@ -3753,12 +3788,12 @@ body.noeis-editorial .concept-editorial-view__dropzone p {
   font-size: 0.6rem;
   letter-spacing: 0.2em;
   text-transform: uppercase;
-  color: rgba(97, 94, 91, 0.56);
+  color: var(--dropzone-text-quiet);
   transition: color 180ms ease-out;
 }
 
 body.noeis-editorial .concept-editorial-view__dropzone.is-hovering p {
-  color: rgba(97, 94, 91, 0.95);
+  color: var(--dropzone-ink-hover);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -5596,7 +5631,7 @@ body.noeis-editorial .agent-skill-dock__eyebrow {
   font-size: 0.56rem;
   letter-spacing: 0.2em;
   text-transform: uppercase;
-  color: rgba(97, 94, 91, 0.56);
+  color: var(--dropzone-text-quiet);
 }
 
 body.noeis-editorial .agent-skill-dock__head h3 {
@@ -5669,7 +5704,7 @@ body.noeis-editorial .agent-skill-dock__skill-summary {
 body.noeis-editorial .agent-skill-dock__skill-meta {
   font-size: 0.56rem;
   letter-spacing: 0.16em;
-  color: rgba(97, 94, 91, 0.56);
+  color: var(--dropzone-text-quiet);
 }
 
 body.noeis-editorial .agent-skill-dock__footer .ui-quiet-button {
@@ -5789,7 +5824,7 @@ body.noeis-editorial .agent-thought-partner__stream-copy p {
   font-size: 0.58rem;
   letter-spacing: 0.22em;
   text-transform: uppercase;
-  color: rgba(97, 94, 91, 0.56);
+  color: var(--dropzone-text-quiet);
 }
 
 body.noeis-editorial .agent-thought-partner__quick-prompts .ui-quiet-button {
@@ -6434,7 +6469,7 @@ body.noeis-editorial .library-context-section__meta {
   font-size: 0.66rem;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: rgba(97, 94, 91, 0.56);
+  color: var(--dropzone-text-quiet);
 }
 
 body.noeis-editorial .library-context-section__chevron {
