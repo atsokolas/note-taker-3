@@ -1,5 +1,5 @@
 import React, { Profiler, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { PageTitle, SectionHeader, QuietButton, Button, TagChip, SegmentedNav, SurfaceCard } from '../components/ui';
 import useConcepts from '../hooks/useConcepts';
 import useConcept from '../hooks/useConcept';
@@ -3877,9 +3877,38 @@ const ThinkMode = () => {
             </section>
           ))}
         </div>
+      ) : concepts.length === 0 ? (
+        // True first-run: user has zero concepts in the workspace.
+        // Mirrors the Library first-run empty state (PR #7) — strong primary
+        // CTA + secondary link to the broader walkthrough.
+        <SurfaceCard className="think-concepts-empty-state think-concepts-empty-state--first-run" data-testid="think-concepts-empty-first-run">
+          <div className="think-concepts-empty-state__copy">
+            <span className="think-concepts-empty-state__eyebrow">Concepts</span>
+            <h3 className="think-concepts-empty-state__title">Create your first concept</h3>
+            <p className="think-concepts-empty-state__body">
+              A concept is the page where old reading turns back into usable thought.
+              Create one to gather support, tension, and open questions around an idea
+              you keep returning to.
+            </p>
+          </div>
+          <div className="think-concept-composer-anchor think-concepts-empty-state__actions">
+            <Button
+              variant="primary"
+              onClick={() => openConceptComposer('empty', search)}
+              data-testid="think-concepts-empty-create-button"
+            >
+              Create your first concept
+            </Button>
+            <Link className="think-concepts-empty-state__secondary muted small" to="/how-to-use">
+              See the full walkthrough
+            </Link>
+            {renderConceptComposer('empty')}
+          </div>
+        </SurfaceCard>
       ) : (
+        // Filtered to empty: user has concepts but the current search/filter excludes them.
         <SurfaceCard className="think-concepts-empty-state" data-testid="think-concepts-empty-state">
-          <SectionHeader title="No concepts yet" subtitle="Create one concept and let it become the place where old reading turns back into usable thought." />
+          <SectionHeader title="No concepts match" subtitle="Try a different search term, or clear the filter to see everything." />
           <div className="think-concept-composer-anchor think-concepts-empty-state__actions">
             <Button
               variant="secondary"
