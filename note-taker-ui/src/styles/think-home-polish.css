@@ -1480,6 +1480,78 @@ html[data-ui-theme='dark'] {
   right: auto;
 }
 
+/* First-run variant — when the user has zero concepts globally.
+   Matches the Library first-run shell from PR #7 so the growth
+   onboarding surfaces share one visual vocabulary. */
+.think-concepts-empty-state--first-run {
+  align-items: flex-start;
+  gap: 18px;
+  padding: 32px 28px;
+  border: 1px dashed var(--border-subtle);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--surface) 92%, var(--accent-soft) 6%);
+  max-width: 640px;
+}
+
+.think-concepts-empty-state--first-run .think-concepts-empty-state__copy {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.think-concepts-empty-state--first-run .think-concepts-empty-state__eyebrow {
+  font-size: 0.66rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.think-concepts-empty-state--first-run .think-concepts-empty-state__title {
+  margin: 0;
+  font-size: 1.4rem;
+  line-height: 1.2;
+  color: var(--text);
+}
+
+.think-concepts-empty-state--first-run .think-concepts-empty-state__body {
+  margin: 0;
+  font-size: 0.92rem;
+  line-height: 1.55;
+  color: var(--text-secondary);
+  max-width: 52ch;
+}
+
+.think-concepts-empty-state--first-run .think-concepts-empty-state__actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+  width: 100%;
+}
+
+.think-concepts-empty-state--first-run .think-concepts-empty-state__secondary {
+  color: var(--text-secondary);
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  transition: color 180ms ease-out, border-color 180ms ease-out;
+}
+
+.think-concepts-empty-state--first-run .think-concepts-empty-state__secondary:hover {
+  color: var(--text);
+  border-bottom-color: var(--border-subtle);
+}
+
+@media (max-width: 640px) {
+  .think-concepts-empty-state--first-run {
+    padding: 24px 18px;
+  }
+  .think-concepts-empty-state--first-run .think-concepts-empty-state__actions .ui-button {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
 .think-home {
   gap: 18px;
 }
