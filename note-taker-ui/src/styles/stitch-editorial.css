@@ -2145,6 +2145,23 @@ body.noeis-editorial .concept-editorial-shell__main {
   min-width: 0;
 }
 
+/* Right column (ConceptEvidenceStreamRail) was missing min-width: 0, so its
+   uppercase long-form copy ("PROMPT FIRST, THEN REVIEW THE CONVERSATION...")
+   would push past the 336px column edge. Combined with overflow: hidden on
+   .concept-editorial-evidence, the trailing words got clipped. */
+body.noeis-editorial .concept-editorial-shell__stream {
+  min-width: 0;
+}
+
+/* Letter-spaced uppercase eyebrows balloon in width; force wrap so they fit
+   inside the 336px column instead of clipping under overflow: hidden. */
+body.noeis-editorial .concept-editorial-evidence__header p,
+body.noeis-editorial .concept-editorial-partner__title-row p,
+body.noeis-editorial .concept-editorial-evidence__section-head span {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
 body.noeis-editorial .question-editorial-shell-page {
   width: min(1500px, calc(100vw - 64px));
   margin: 0 auto;
@@ -2159,6 +2176,12 @@ body.noeis-editorial .notebook-editorial-shell-page {
   padding: 78px 0 56px;
   height: 100%;
   min-height: 0;
+  /* Same root cause as the concept-editorial-shell-page fix from PR #6:
+     app shell body is height:100vh; overflow:hidden, so without an explicit
+     scroller here the page locks once content exceeds the viewport. The
+     sticky left/right rails (top: 98px) anchor against this scroller. */
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 body.noeis-editorial .think-home-editorial-shell,
