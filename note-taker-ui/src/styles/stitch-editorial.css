@@ -2108,7 +2108,10 @@ body.noeis-editorial .three-pane--concept-editorial {
 body.noeis-editorial .concept-editorial-shell-page {
   width: min(1500px, calc(100vw - 64px));
   margin: 0 auto;
-  padding: 78px 0 56px;
+  /* Match the home/notebook editorial shell padding (PR for that bug):
+     68px top removes the cream gap below the topbar; 36px bottom keeps
+     the Mac dock from clipping the last items. */
+  padding: 68px 0 36px;
   /* App shell body is height:100vh; overflow:hidden — without an explicit
      scroller here, the concept layout has no ancestor that scrolls and the
      whole page locks once content exceeds the viewport. The sticky partner
@@ -2135,6 +2138,15 @@ body.noeis-editorial .concept-editorial-shell__partner,
 body.noeis-editorial .concept-editorial-shell__stream {
   position: sticky;
   top: 98px;
+  /* Without an internal scroller, long content (concept index, evidence
+     stream prompts) extends past the viewport and gets clipped at the
+     bottom of the screen. The non-concept editorial shells already have
+     this same calc(100vh - 148px) treatment (line ~2246 below); concept
+     was missing it. */
+  max-height: calc(100vh - 118px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
 }
 
 body.noeis-editorial .concept-editorial-shell__partner {
@@ -2173,7 +2185,11 @@ body.noeis-editorial .concept-index-editorial-shell-page,
 body.noeis-editorial .notebook-editorial-shell-page {
   width: min(1500px, calc(100vw - 64px));
   margin: 0 auto;
-  padding: 78px 0 56px;
+  /* Topbar is ~64px tall (22+18 padding + ~24px content). 78px left a
+     ~14px cream gap below the topbar that read as a "white bar". 68px
+     keeps small breathing space without the dead gap. Bottom dropped
+     from 56px to 36px to prevent the long lists from feeling cut off. */
+  padding: 68px 0 36px;
   height: 100%;
   min-height: 0;
   /* Same root cause as the concept-editorial-shell-page fix from PR #6:
