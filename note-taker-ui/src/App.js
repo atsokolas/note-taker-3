@@ -42,6 +42,7 @@ import PrivacyPolicy from './pages/PrivacyPolicy';
 import TermsOfUse from './pages/TermsOfUse';
 import DesignPreview from './pages/DesignPreview';
 import CommandPalette from './components/CommandPalette';
+import KeyboardShortcutOverlay from './components/KeyboardShortcutOverlay';
 import { clearStoredTokens, hasUsableStoredToken } from './api';
 import { fetchUiSettings, saveUiSettings } from './api/uiSettings';
 import {
@@ -174,6 +175,7 @@ function App() {
   ));
   const [isLoading, setIsLoading] = useState(true);
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [shortcutOverlayOpen, setShortcutOverlayOpen] = useState(false);
   const [uiSettings, setUiSettings] = useState(() => loadUiSettingsFromStorage());
   const [uiSettingsSaving, setUiSettingsSaving] = useState(false);
 
@@ -279,6 +281,17 @@ function App() {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault();
         setPaletteOpen(true);
+        return;
+      }
+
+      // ? opens the shortcut overlay. Bare key — no modifiers — and only
+      // outside text inputs (already filtered above). Shift+/ on US layouts
+      // gives '?'; on layouts where '?' needs another modifier, the user
+      // can still discover the overlay via the topbar Cmd-K hint or the
+      // CommandPalette itself.
+      if (e.key === '?' && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        e.preventDefault();
+        setShortcutOverlayOpen(true);
         return;
       }
 
@@ -406,6 +419,7 @@ function App() {
     const routes = (
       <Page className="page-area">
         <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
+        <KeyboardShortcutOverlay open={shortcutOverlayOpen} onClose={() => setShortcutOverlayOpen(false)} />
         <TourManager />
         <Routes>
           <Route path="/" element={hasSeenLanding ? <Navigate to="/think?tab=home" replace /> : <Landing />} />
