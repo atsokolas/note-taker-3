@@ -285,6 +285,37 @@ html[data-ui-theme='dark'] .topbar__search:-webkit-autofill:focus {
   background: var(--surface-muted);
 }
 
+/* Tour button with inline progress chip — surfaces the user's tour
+   progress (e.g. "2/5") in the topbar so they always know where they
+   stand in the onboarding flow. Only renders when the tour is in
+   progress / paused; hidden once completed. */
+.topbar__tour-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.topbar__tour-progress {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  height: 18px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent-soft, rgba(0, 0, 0, 0.06)) 80%, transparent);
+  color: var(--accent, var(--text));
+  font-family: -apple-system, BlinkMacSystemFont, "Inter", sans-serif;
+  font-size: 0.7rem;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: 0;
+}
+
+.topbar__tour-button.has-progress:not(:hover):not(.is-active) {
+  border-color: color-mix(in srgb, var(--accent, currentColor) 32%, var(--border-subtle));
+}
+
 .topbar__menu {
   position: relative;
 }
