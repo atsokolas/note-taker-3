@@ -127,6 +127,55 @@ body.noeis-editorial .think-home-editorial-column {
   align-content: start;
 }
 
+/* Column-level empty state with an inline action — used when a working-set
+   column (notebook / concepts / questions) has nothing to show. Always
+   gives the user one obvious next move from home. */
+body.noeis-editorial .think-home-editorial-column__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 4px 0;
+}
+
+body.noeis-editorial .think-home-editorial-column__empty p {
+  margin: 0;
+}
+
+body.noeis-editorial .think-home-editorial-column__empty-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--vellum-ink, var(--text));
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 0.78rem;
+  font-weight: 500;
+  cursor: pointer;
+  border-bottom: 1px solid transparent;
+  transition: color 180ms ease-out, border-color 180ms ease-out, transform 180ms ease-out;
+}
+
+body.noeis-editorial .think-home-editorial-column__empty-action:hover,
+body.noeis-editorial .think-home-editorial-column__empty-action:focus-visible {
+  color: var(--vellum-accent, var(--accent));
+  border-bottom-color: currentColor;
+  transform: translateX(2px);
+  outline: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body.noeis-editorial .think-home-editorial-column__empty-action {
+    transition: color 180ms ease-out, border-color 180ms ease-out;
+  }
+  body.noeis-editorial .think-home-editorial-column__empty-action:hover,
+  body.noeis-editorial .think-home-editorial-column__empty-action:focus-visible {
+    transform: none;
+  }
+}
+
 body.noeis-editorial .think-home-editorial-list {
   display: grid;
   gap: 0;
