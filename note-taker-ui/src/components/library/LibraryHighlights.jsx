@@ -13,6 +13,7 @@ import api from '../../api';
 import { getAuthHeaders } from '../../hooks/useAuthHeaders';
 import VirtualList from '../virtual/VirtualList';
 import { createProfilerLogger } from '../../utils/perf';
+import useTourSignal from '../../tour/useTourSignal';
 import { deleteHighlight } from '../../api/highlights';
 import { buildCanonicalArticlePath } from '../../utils/firstInsight';
 
@@ -51,6 +52,7 @@ const LibraryHighlights = ({
   const [conceptModal, setConceptModal] = useState({ open: false, highlight: null });
   const [notebookModal, setNotebookModal] = useState({ open: false, highlight: null });
   const [questionModal, setQuestionModal] = useState({ open: false, highlight: null });
+  const fireTourSignal = useTourSignal();
   const virtualListRef = useRef(null);
   const virtualHeight = useMemo(() => {
     const viewport = typeof window !== 'undefined' ? window.innerHeight : 0;
@@ -179,6 +181,7 @@ const LibraryHighlights = ({
       highlightId: highlight._id
     }, getAuthHeaders());
     setConceptModal({ open: false, highlight: null });
+    fireTourSignal('concept_from_highlight', { highlightId: highlight._id, conceptName });
   };
 
   const handleAddQuestion = async (highlight, conceptName, text) => {

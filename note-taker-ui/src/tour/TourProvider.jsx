@@ -15,7 +15,7 @@ import {
 } from './tourConfig';
 import tourReducer, { createInitialTourState, tourActionTypes } from './tourReducer';
 
-const TourContext = createContext(null);
+export const TourContext = createContext(null);
 
 const safeParse = (value) => {
   try {

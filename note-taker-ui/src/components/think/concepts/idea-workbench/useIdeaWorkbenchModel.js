@@ -14,6 +14,7 @@ import {
 } from '../../../../api/concepts';
 import useConceptMaterial from '../../../../hooks/useConceptMaterial';
 import { mergeWorkbenchStates } from './ideaWorkbenchMerge';
+import useTourSignal from '../../../../tour/useTourSignal';
 import { resolveAgentHypothesisSuggestion } from './ideaWorkbenchAgentSuggestion';
 import { dispatchConceptAction as dispatchTypedConceptAction } from './conceptActionDispatch';
 import {
@@ -1144,6 +1145,7 @@ export const useIdeaWorkbenchModel = ({
 }) => {
   const conceptKey = clean(concept?._id || concept?.name);
   const storageKey = conceptKey ? `${STORAGE_PREFIX}:${conceptKey}` : '';
+  const fireTourSignal = useTourSignal();
   const {
     material,
     loading: materialLoading,
@@ -1570,7 +1572,11 @@ export const useIdeaWorkbenchModel = ({
       summary: `Moved a card to ${nextZone}.`,
       payload: { cardId, zone: nextZone }
     }));
-  }, [appendWorkbenchEvents]);
+    // Tour signal — moving any card from workspace into a structured zone counts.
+    if (nextZone !== 'workspace') {
+      fireTourSignal('workspace_organized', { cardId, zone: nextZone });
+    }
+  }, [appendWorkbenchEvents, fireTourSignal]);
 
   const deleteCard = useCallback((cardId) => {
     setState((previous) => ({

@@ -1,6 +1,7 @@
 import React, { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { QuietButton } from './ui';
 import { createHighlight } from '../api/highlights';
+import useTourSignal from '../tour/useTourSignal';
 import useTextSelection from './reader/useTextSelection';
 import SelectionMenu from './reader/SelectionMenu';
 import MagneticReadingRail from './reader/MagneticReadingRail';
@@ -50,6 +51,7 @@ const ArticleReader = forwardRef(({
   const [draftTagsInput, setDraftTagsInput] = useState('');
   const [saving, setSaving] = useState(false);
   const [queuedPrompt, setQueuedPrompt] = useState(null);
+  const fireTourSignal = useTourSignal();
   const html = useMemo(
     () => renderArticleContentWithHighlights(article, highlights),
     [article, highlights]
@@ -128,6 +130,8 @@ const ArticleReader = forwardRef(({
         };
         onHighlightReplace?.(tempId, normalizedCreated);
         afterSave?.(normalizedCreated);
+        // Tour signal — best-effort, won't fail the save flow.
+        fireTourSignal('highlight_captured', { highlightId: created._id });
       } else {
         onHighlightRemove?.(tempId);
       }
