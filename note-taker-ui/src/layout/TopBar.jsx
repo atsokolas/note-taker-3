@@ -209,9 +209,20 @@ const TopBar = ({
             <div className="topbar__menu" ref={helpMenuRef}>
               <button
                 type="button"
-                className={`topbar__button ${helpOpen ? 'is-active' : ''}`}
+                className={`topbar__button topbar__tour-button ${helpOpen ? 'is-active' : ''} ${helpMenu.progress?.status === 'in_progress' || helpMenu.progress?.status === 'paused' ? 'has-progress' : ''}`.trim()}
                 aria-haspopup="menu"
                 aria-expanded={helpOpen}
+                aria-label={
+                  helpMenu.progress && (helpMenu.progress.status === 'in_progress' || helpMenu.progress.status === 'paused')
+                    ? `Tour: ${helpMenu.progress.completed} of ${helpMenu.progress.total} steps complete`
+                    : 'Tour'
+                }
+                title={
+                  helpMenu.progress && (helpMenu.progress.status === 'in_progress' || helpMenu.progress.status === 'paused')
+                    ? `Tour: ${helpMenu.progress.completed} of ${helpMenu.progress.total} steps complete`
+                    : 'Tour'
+                }
+                data-testid="topbar-tour-button"
                 onClick={() => {
                   setHelpOpen(prev => {
                     const next = !prev;
@@ -221,7 +232,12 @@ const TopBar = ({
                   });
                 }}
               >
-                Tour
+                <span>Tour</span>
+                {helpMenu.progress && (helpMenu.progress.status === 'in_progress' || helpMenu.progress.status === 'paused') && (
+                  <span className="topbar__tour-progress" aria-hidden="true">
+                    {helpMenu.progress.completed}/{helpMenu.progress.total}
+                  </span>
+                )}
               </button>
               {helpOpen && (
                 <div className="topbar__menu-popover" role="menu">

@@ -489,7 +489,12 @@ function App() {
               onStart: () => tour.startTour(),
               onResume: () => tour.resumeTour(),
               onRestart: () => tour.restartTour(),
-              canResume: tour.state.status !== 'not_started' && tour.state.status !== 'completed'
+              canResume: tour.state.status !== 'not_started' && tour.state.status !== 'completed',
+              progress: {
+                completed: (tour.state.completedStepIds || []).length,
+                total: tour.totalSteps,
+                status: tour.state.status
+              }
             }}
             accountMenuItems={topBarAccountMenuItems}
             className={isConceptRoute ? 'topbar--manuscript' : ''}

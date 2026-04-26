@@ -41,6 +41,62 @@ describe('TopBar help menu', () => {
     expect(screen.getByRole('menuitem', { name: 'How To Use' })).toBeInTheDocument();
   });
 
+  it('renders an inline progress chip on the Tour button when the tour is in progress', () => {
+    render(
+      <MemoryRouter>
+        <TopBar
+          helpMenu={{
+            onStart: () => {},
+            onResume: () => {},
+            onRestart: () => {},
+            canResume: true,
+            progress: { completed: 2, total: 5, status: 'in_progress' }
+          }}
+        />
+      </MemoryRouter>
+    );
+    const tourButton = screen.getByTestId('topbar-tour-button');
+    expect(tourButton.className).toMatch(/has-progress/);
+    expect(tourButton).toHaveAttribute('aria-label', 'Tour: 2 of 5 steps complete');
+    expect(tourButton.textContent).toContain('2/5');
+  });
+
+  it('omits the progress chip when the tour has not started or is completed', () => {
+    const { rerender } = render(
+      <MemoryRouter>
+        <TopBar
+          helpMenu={{
+            onStart: () => {},
+            onResume: () => {},
+            onRestart: () => {},
+            canResume: false,
+            progress: { completed: 0, total: 5, status: 'not_started' }
+          }}
+        />
+      </MemoryRouter>
+    );
+    let tourButton = screen.getByTestId('topbar-tour-button');
+    expect(tourButton.className).not.toMatch(/has-progress/);
+    expect(tourButton.textContent).not.toContain('0/5');
+
+    rerender(
+      <MemoryRouter>
+        <TopBar
+          helpMenu={{
+            onStart: () => {},
+            onResume: () => {},
+            onRestart: () => {},
+            canResume: false,
+            progress: { completed: 5, total: 5, status: 'completed' }
+          }}
+        />
+      </MemoryRouter>
+    );
+    tourButton = screen.getByTestId('topbar-tour-button');
+    expect(tourButton.className).not.toMatch(/has-progress/);
+    expect(tourButton.textContent).not.toContain('5/5');
+  });
+
   it('exposes start, resume, and restart tour actions', () => {
     const onStart = jest.fn();
     const onResume = jest.fn();
