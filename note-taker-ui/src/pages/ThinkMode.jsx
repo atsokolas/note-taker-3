@@ -631,8 +631,16 @@ const ThinkMode = () => {
 
   const { concepts, loading: conceptsLoading, error: conceptsError, refresh: refreshConcepts } = useConcepts();
   const selectedName = queryConcept;
+  // Seed useConcept with the row from the already-loaded concepts list so the
+  // manuscript renders its title immediately on click instead of showing a
+  // full skeleton for the duration of the network round-trip.
+  const cachedConceptForName = useMemo(
+    () => (selectedName ? (concepts || []).find((c) => c?.name === selectedName) || null : null),
+    [concepts, selectedName]
+  );
   const { concept, loading: conceptLoading, error: conceptLoadError, refresh, setConcept } = useConcept(selectedName, {
-    enabled: activeView === 'concepts' && Boolean(selectedName)
+    enabled: activeView === 'concepts' && Boolean(selectedName),
+    initial: cachedConceptForName
   });
   const { related, loading: relatedLoading, error: relatedError } = useConceptRelated(selectedName, {
     enabled: activeView === 'concepts' && Boolean(selectedName),
@@ -4607,7 +4615,7 @@ const ThinkMode = () => {
           {conceptLoadError && <p className="status-message error-message">{conceptLoadError}</p>}
           {conceptError && <p className="status-message error-message">{conceptError}</p>}
           {relatedError && <p className="status-message error-message">{relatedError}</p>}
-          {conceptLoading ? (
+          {conceptLoading && !concept ? (
             <div className="think-concept-loading concept-editorial-loading" aria-hidden="true">
               <div className="concept-editorial-loading__head">
                 <span className="concept-editorial-loading__eyebrow">Active reasoning draft</span>
