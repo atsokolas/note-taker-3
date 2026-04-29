@@ -41,6 +41,7 @@ import SearchConsoleOpportunities from './pages/SearchConsoleOpportunities';
 import PrivacyPolicy from './pages/PrivacyPolicy';
 import TermsOfUse from './pages/TermsOfUse';
 import DesignPreview from './pages/DesignPreview';
+import SharedConcept from './pages/SharedConcept';
 import CommandPalette from './components/CommandPalette';
 import { clearStoredTokens, hasUsableStoredToken } from './api';
 import { fetchUiSettings, saveUiSettings } from './api/uiSettings';
@@ -151,6 +152,7 @@ const PublicRoutes = ({ chromeStoreLink, handleLoginSuccess, uiSettings }) => {
         <Route path="/privacy" element={<PrivacyPolicy />} />
         <Route path="/terms" element={<TermsOfUse />} />
         <Route path="/design-preview" element={<DesignPreview />} />
+        <Route path="/share/concepts/:slug" element={<SharedConcept />} />
         <Route path="/register" element={<Register chromeStoreLink={chromeStoreLink} />} />
         <Route
           path="/login"
@@ -446,6 +448,7 @@ function App() {
           <Route path="/privacy" element={<PrivacyPolicy />} />
           <Route path="/terms" element={<TermsOfUse />} />
           <Route path="/design-preview" element={<DesignPreview />} />
+          <Route path="/share/concepts/:slug" element={<SharedConcept />} />
 
           {/* Legacy/feature routes kept for compatibility */}
           <Route path="/brain" element={<Navigate to="/review?tab=patterns" replace />} />

@@ -354,7 +354,8 @@ const ConceptEvidenceStreamView = ({
   onDropCard,
   isReceivingDrop = false,
   onRunAction,
-  onOpenTemplatePicker
+  onOpenTemplatePicker,
+  onShareConcept
 }) => {
   const supportCards = useMemo(
     () => model.state.cards.filter((card) => card.zone === 'supports'),
@@ -467,6 +468,16 @@ const ConceptEvidenceStreamView = ({
       {!isFreshConcept && (
         <div className="concept-editorial-view__meta">
           <span>Active reasoning draft / {model.hypothesisVersion.label || 'v1'}</span>
+          {onShareConcept ? (
+            <button
+              type="button"
+              className="concept-editorial-view__share-button"
+              onClick={onShareConcept}
+              data-testid="concept-editorial-view-share-button"
+            >
+              Share
+            </button>
+          ) : null}
         </div>
       )}
 

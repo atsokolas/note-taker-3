@@ -6569,3 +6569,259 @@ html[data-ui-theme='dark'] body.noeis-editorial .concept-editorial-evidence__ite
   border-color: color-mix(in srgb, var(--vellum-line) 100%, white 6%);
   background: color-mix(in srgb, var(--surface-card) 94%, white 3%);
 }
+
+/* Concept share button + modal ------------------------------------------- */
+
+.concept-editorial-view__meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.concept-editorial-view__share-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 0.72rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: color 180ms ease-out, border-color 180ms ease-out, background-color 180ms ease-out;
+}
+
+.concept-editorial-view__share-button:hover,
+.concept-editorial-view__share-button:focus-visible {
+  color: var(--text);
+  border-color: color-mix(in srgb, var(--accent) 50%, var(--border-subtle));
+  background: color-mix(in srgb, var(--accent-soft) 12%, transparent);
+  outline: none;
+}
+
+.concept-share-modal {
+  max-width: 540px;
+  width: min(540px, 92vw);
+}
+
+.concept-share-modal__active,
+.concept-share-modal__inactive {
+  display: grid;
+  gap: 14px;
+}
+
+.concept-share-modal__pitch {
+  margin: 0;
+  font-size: 0.95rem;
+  line-height: 1.55;
+  color: var(--text);
+}
+
+.concept-share-modal__label {
+  display: block;
+  font-size: 0.66rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.concept-share-modal__url-row {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+}
+
+.concept-share-modal__url {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 12px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "SF Mono", Menlo, monospace;
+  font-size: 0.84rem;
+}
+
+.concept-share-modal__revoke {
+  color: #a54731 !important;
+  border-color: color-mix(in srgb, #a54731 32%, var(--border-subtle));
+}
+
+.concept-share-modal__revoke:hover:not(:disabled) {
+  background: color-mix(in srgb, #a54731 8%, transparent);
+}
+
+/* Public read-only shared concept page ----------------------------------- */
+
+.shared-concept-page {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 56px 28px 96px;
+  font-family: "Newsreader", Georgia, serif;
+  color: var(--text);
+}
+
+.shared-concept-page--loading,
+.shared-concept-page--error {
+  text-align: center;
+}
+
+.shared-concept-page__error-title {
+  margin: 24px 0 12px;
+  font-size: 1.6rem;
+}
+
+.shared-concept-page__home-link {
+  color: var(--accent);
+}
+
+.shared-concept-page__header {
+  margin-bottom: 32px;
+}
+
+.shared-concept-page__eyebrow {
+  display: inline-block;
+  margin-bottom: 14px;
+  padding: 4px 10px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 999px;
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 0.62rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.shared-concept-page__title {
+  margin: 0;
+  font-size: clamp(2rem, 1.6rem + 1.6vw, 2.8rem);
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+}
+
+.shared-concept-page__framing {
+  margin: 12px 0 0;
+  font-size: 1.04rem;
+  line-height: 1.5;
+  font-style: italic;
+  color: var(--text-secondary);
+}
+
+.shared-concept-page__description {
+  margin: 12px 0 0;
+  font-size: 1rem;
+  line-height: 1.6;
+  color: var(--text);
+}
+
+.shared-concept-page__meta {
+  margin: 16px 0 0;
+}
+
+.shared-concept-page__section-title {
+  margin: 0 0 16px;
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 0.66rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  font-weight: 700;
+}
+
+.shared-concept-page__hypothesis,
+.shared-concept-page__group,
+.shared-concept-page__note {
+  margin-top: 36px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.shared-concept-page__prose {
+  font-family: "Newsreader", Georgia, serif;
+  font-size: 1.08rem;
+  line-height: 1.7;
+  color: var(--text);
+}
+
+.shared-concept-page__prose p {
+  margin: 0 0 1em;
+}
+
+.shared-concept-page__cards {
+  display: grid;
+  gap: 14px;
+}
+
+.shared-concept__card {
+  padding: 16px 18px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+}
+
+.shared-concept__card header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 0.62rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.shared-concept__card-eyebrow {
+  font-weight: 600;
+}
+
+.shared-concept__card-title {
+  margin: 0 0 6px;
+  font-family: "Newsreader", Georgia, serif;
+  font-size: 1.08rem;
+  line-height: 1.3;
+}
+
+.shared-concept__card-content {
+  margin: 0 0 8px;
+  font-size: 0.96rem;
+  line-height: 1.55;
+}
+
+.shared-concept__card-why {
+  margin: 0;
+  font-size: 0.86rem;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+.shared-concept__card--tension {
+  border-color: color-mix(in srgb, #a54731 36%, var(--border-subtle));
+}
+
+.shared-concept__card--question {
+  background: color-mix(in srgb, var(--accent-soft) 14%, var(--surface));
+}
+
+.shared-concept-page__footer {
+  margin-top: 56px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border-subtle);
+  text-align: center;
+}
+
+@media (max-width: 640px) {
+  .shared-concept-page {
+    padding: 40px 18px 80px;
+  }
+  .concept-share-modal__url-row {
+    flex-direction: column;
+  }
+}

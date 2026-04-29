@@ -42,6 +42,7 @@ import ProtocolApprovalsPanel from '../components/agent/ProtocolApprovalsPanel';
 import ConceptTemplatePickerModal from '../components/think/concepts/ConceptTemplatePickerModal';
 import ThinkHome from '../components/think/ThinkHome';
 import useIdeaWorkbenchModel from '../components/think/concepts/idea-workbench/useIdeaWorkbenchModel';
+import ConceptShareModal from '../components/think/concepts/ConceptShareModal';
 import ConceptEvidenceStreamView, {
   formatEditorialEvidenceHtml,
   ConceptEvidenceStreamRail,
@@ -622,6 +623,7 @@ const ThinkMode = () => {
   const [conceptReceivingDrop, setConceptReceivingDrop] = useState(false);
   const [conceptEditorialSection, setConceptEditorialSection] = useState('assistant');
   const [conceptPartnerCollapsed, setConceptPartnerCollapsed] = useState(false);
+  const [conceptShareModalOpen, setConceptShareModalOpen] = useState(false);
   const conceptComposerInputRef = useRef(null);
   const [templatePickerOpen, setTemplatePickerOpen] = useState(false);
   const [headerNewMenuOpen, setHeaderNewMenuOpen] = useState(false);
@@ -4684,6 +4686,7 @@ const ThinkMode = () => {
               isReceivingDrop={conceptReceivingDrop}
               onRunAction={setConceptEditorialSection}
               onOpenTemplatePicker={openTemplatePicker}
+              onShareConcept={() => setConceptShareModalOpen(true)}
             />
           )}
         </main>
@@ -4698,6 +4701,11 @@ const ThinkMode = () => {
           />
         </aside>
       </div>
+      <ConceptShareModal
+        open={conceptShareModalOpen}
+        conceptName={concept?.name || selectedName || ''}
+        onClose={() => setConceptShareModalOpen(false)}
+      />
     </div>
   ) : null;
 
