@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import api from '../api';
 import { Page, Button, SectionHeader, QuietButton } from '../components/ui';
+import EmptyState, { ErrorState } from '../components/EmptyState';
 
 const ranges = [
   { label: '7d', value: '7d' },
@@ -107,43 +108,65 @@ const Brain = () => {
       </div>
 
       {loading && <p className="status-message">Loading insights...</p>}
-      {error && <p className="status-message error-message">{error}</p>}
+      {error && (
+        <ErrorState
+          message={error}
+          onRetry={loadSummary}
+          testId="brain-error"
+        />
+      )}
 
       {summary && (
-        <div className="section-stack">
-          <SectionHeader title="Themes" subtitle="Recurring threads and ideas." />
-          {themes.length === 0 ? (
-            <p className="muted small">No themes yet.</p>
-          ) : (
-            <div className="brain-list">
-              {themes.map((item, idx) => (
-                <div key={`${item}-${idx}`} className="brain-row">{item}</div>
-              ))}
-            </div>
-          )}
+        themes.length === 0 && connections.length === 0 && questions.length === 0 ? (
+          // First-run: not enough data to generate insights yet. Single panel
+          // beats three "No X yet." lines stacked vertically.
+          <EmptyState
+            variant="panel"
+            eyebrow="Brain"
+            title="Not enough data yet"
+            text="Highlight more passages and create concepts so the brain can find recurring themes, connections, and open questions across your reading."
+            actionLabel="Browse articles"
+            actionHref="/library"
+            secondaryLabel="See the walkthrough"
+            secondaryHref="/how-to-use"
+            testId="brain-empty-first-run"
+          />
+        ) : (
+          <div className="section-stack">
+            <SectionHeader title="Themes" subtitle="Recurring threads and ideas." />
+            {themes.length === 0 ? (
+              <EmptyState text="No themes yet." testId="brain-empty-themes" />
+            ) : (
+              <div className="brain-list">
+                {themes.map((item, idx) => (
+                  <div key={`${item}-${idx}`} className="brain-row">{item}</div>
+                ))}
+              </div>
+            )}
 
-          <SectionHeader title="Connections" subtitle="Links across concepts." />
-          {connections.length === 0 ? (
-            <p className="muted small">No connections yet.</p>
-          ) : (
-            <div className="brain-list">
-              {connections.map((item, idx) => (
-                <div key={`${item}-${idx}`} className="brain-row">{item}</div>
-              ))}
-            </div>
-          )}
+            <SectionHeader title="Connections" subtitle="Links across concepts." />
+            {connections.length === 0 ? (
+              <EmptyState text="No connections yet." testId="brain-empty-connections" />
+            ) : (
+              <div className="brain-list">
+                {connections.map((item, idx) => (
+                  <div key={`${item}-${idx}`} className="brain-row">{item}</div>
+                ))}
+              </div>
+            )}
 
-          <SectionHeader title="Open questions" subtitle="What to chase next." />
-          {questions.length === 0 ? (
-            <p className="muted small">No questions yet.</p>
-          ) : (
-            <div className="brain-list">
-              {questions.map((item, idx) => (
-                <div key={`${item}-${idx}`} className="brain-row">{item}</div>
-              ))}
-            </div>
-          )}
-        </div>
+            <SectionHeader title="Open questions" subtitle="What to chase next." />
+            {questions.length === 0 ? (
+              <EmptyState text="No questions yet." testId="brain-empty-questions" />
+            ) : (
+              <div className="brain-list">
+                {questions.map((item, idx) => (
+                  <div key={`${item}-${idx}`} className="brain-row">{item}</div>
+                ))}
+              </div>
+            )}
+          </div>
+        )
       )}
     </Page>
   );
