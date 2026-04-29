@@ -662,6 +662,26 @@ const SKILLS = Object.freeze([
       ]
     },
     priority: 98
+  },
+  {
+    // Tool skill — when invoked, the agent runtime calls
+    // POST /api/agent/tools/notion-fetch instead of generating prose. The
+    // skill is exposed to the chat agent so users can say "fetch my Notion
+    // pages" and have it execute. Per the PR #20 brief: user-triggered only,
+    // skip-if-unchanged via Notion's last_edited_time, source tag + backlink.
+    id: 'fetch_from_notion',
+    title: 'Fetch from Notion',
+    summary: 'Pull your Notion pages into Noeis as notebook entries. Skips pages that haven\'t changed since the last fetch.',
+    category: 'integrate',
+    workerRole: 'librarian',
+    outputType: 'integration_fetch',
+    surfaces: ['workspace', 'notebook', 'concept'],
+    contextTypes: ['think', 'notebook', 'concept'],
+    instruction: 'Fetch the user\'s Notion pages and import them into the notebook. Only refresh pages whose Notion last_edited_time has changed.',
+    isToolSkill: true,
+    toolName: 'notion_fetch',
+    toolEndpoint: '/api/agent/tools/notion-fetch',
+    priority: 99
   }
 ]);
 
@@ -704,7 +724,13 @@ const sanitizeSkill = (skill = {}) => ({
   instruction: String(skill.instruction || '').trim(),
   workflow: sanitizeWorkflow(skill.workflow),
   surfaces: Array.isArray(skill.surfaces) ? skill.surfaces : [],
-  contextTypes: Array.isArray(skill.contextTypes) ? skill.contextTypes : []
+  contextTypes: Array.isArray(skill.contextTypes) ? skill.contextTypes : [],
+  // Tool-skill metadata. When isToolSkill is true, the agent runtime should
+  // POST to toolEndpoint instead of running an LLM completion. Optional
+  // fields — non-tool skills get false / empty strings.
+  isToolSkill: Boolean(skill.isToolSkill),
+  toolName: String(skill.toolName || '').trim(),
+  toolEndpoint: String(skill.toolEndpoint || '').trim()
 });
 
 const listAgentSkills = ({

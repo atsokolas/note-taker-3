@@ -136,6 +136,7 @@ const { buildConnectionsRouter } = require('./routes/connectionsRoutes');
 const { buildConceptPathRouter } = require('./routes/conceptPathRoutes');
 const { buildFeedbackHighlightRouter } = require('./routes/feedbackHighlightRoutes');
 const { buildLegacyContentRouter } = require('./routes/legacyContentRoutes');
+const { buildMobileApiRouter } = require('./routes/mobileApiRoutes');
 const { buildAuthDiscoveryRouter } = require('./routes/authDiscoveryRoutes');
 const { buildMarketingAnalyticsRouter } = require('./routes/marketingAnalyticsRoutes');
 const { buildMarketingFunnelRouter } = require('./routes/marketingFunnelRoutes');
@@ -144,6 +145,11 @@ const { buildSemanticSearchRouter } = require('./routes/semanticSearchRoutes');
 const { buildTagTemplateRouter } = require('./routes/tagTemplateRoutes');
 const { buildConceptMetaRouter } = require('./routes/conceptMetaRoutes');
 const { buildConceptMaterialRouter } = require('./routes/conceptMaterialRoutes');
+const { buildAgentNotionFetchRouter } = require('./routes/agentNotionFetchRoutes');
+const { fetchNotionPagesForAgent } = require('./services/agentTools/notionFetchTool');
+const notionClientForAgent = require('./services/import/notionClient');
+const notionTransformForAgent = require('./services/import/notionTransform');
+const { decryptSecret: decryptIntegrationSecretForAgent } = require('./utils/integrationSecrets');
 const { buildAgentSettingsRouter } = require('./routes/agentSettingsRoutes');
 const { buildPersonalAgentRouter } = require('./routes/personalAgentRoutes');
 const { buildAgentBridgeRouter } = require('./routes/agentBridgeRoutes');
@@ -4172,6 +4178,35 @@ app.use(buildNotebookRouter({
   findHighlightById
 }));
 
+app.use(buildMobileApiRouter({
+  authenticateToken,
+  mongoose,
+  NotebookEntry,
+  NotebookFolder,
+  ReferenceEdge,
+  Folder,
+  Article,
+  ensureNotebookBlocks,
+  createBlockId,
+  stripHtml,
+  normalizeItemType,
+  parseClaimId,
+  normalizeTags,
+  normalizePdfs,
+  syncNotebookReferences,
+  enqueueNotebookEmbedding,
+  enqueueArticleEmbedding,
+  enqueueHighlightEmbedding,
+  safeMapEmbedding,
+  articleToEmbeddingItems,
+  highlightToEmbeddingItem,
+  queueEmbeddingUpsert,
+  queueEmbeddingDelete,
+  buildEmbeddingId,
+  markTourSignal,
+  findHighlightById
+}));
+
 app.use(buildWorkingMemoryRouter({
   mongoose,
   authenticateToken,
@@ -5336,6 +5371,16 @@ app.use(buildConceptMetaRouter({
   escapeRegExp,
   trackEvent,
   EVENT_NAMES
+}));
+
+app.use(buildAgentNotionFetchRouter({
+  authenticateToken,
+  fetchNotionPagesForAgent,
+  notionClient: notionClientForAgent,
+  notionTransform: notionTransformForAgent,
+  IntegrationConnection,
+  NotebookEntry,
+  decryptSecret: decryptIntegrationSecretForAgent
 }));
 
 app.use(buildConceptMaterialRouter({
