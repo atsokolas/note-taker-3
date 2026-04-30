@@ -209,3 +209,26 @@ export const appendConceptIdeaWorkbenchEvents = async (conceptIdOrName, events) 
   const res = await api.post(`/api/concepts/${safe}/idea-workbench/events`, payload, getAuthHeaders());
   return res.data || { conceptId: '', conceptName: '', events: [] };
 };
+
+// Public concept share -------------------------------------------------------
+
+export const getConceptShare = async (name) => {
+  const res = await api.get(`/api/concepts/${encodeURIComponent(name)}/share`, getAuthHeaders());
+  return res.data || { shared: false };
+};
+
+export const mintConceptShare = async (name) => {
+  const res = await api.post(`/api/concepts/${encodeURIComponent(name)}/share`, {}, getAuthHeaders());
+  return res.data || {};
+};
+
+export const revokeConceptShare = async (name) => {
+  const res = await api.delete(`/api/concepts/${encodeURIComponent(name)}/share`, getAuthHeaders());
+  return res.data || { revoked: true };
+};
+
+// Public read — no auth headers; readable while unauthenticated.
+export const getPublicConcept = async (slug) => {
+  const res = await api.get(`/api/public/concepts/${encodeURIComponent(slug)}`);
+  return res.data;
+};
