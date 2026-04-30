@@ -52,6 +52,10 @@ const LibraryHighlights = ({
   const [conceptModal, setConceptModal] = useState({ open: false, highlight: null });
   const [notebookModal, setNotebookModal] = useState({ open: false, highlight: null });
   const [questionModal, setQuestionModal] = useState({ open: false, highlight: null });
+  const [bulkSelected, setBulkSelected] = useState(() => new Set());
+  const [bulkConceptModal, setBulkConceptModal] = useState(false);
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const [bulkError, setBulkError] = useState('');
   const fireTourSignal = useTourSignal();
   const virtualListRef = useRef(null);
   const virtualHeight = useMemo(() => {
@@ -241,6 +245,103 @@ const LibraryHighlights = ({
     setHighlights(prev => prev.filter(item => String(item._id) !== String(highlight._id)));
   }, [setHighlights]);
 
+  // Bulk selection helpers --------------------------------------------------
+  // Selection is a Set of highlight ids. We keep it independent of filter state
+  // so users can build a selection across pages of filters; selection is only
+  // explicitly cleared by the user or after a bulk action completes.
+
+  const toggleBulkSelected = useCallback((highlightId) => {
+    setBulkSelected(prev => {
+      const next = new Set(prev);
+      if (next.has(highlightId)) next.delete(highlightId);
+      else next.add(highlightId);
+      return next;
+    });
+  }, []);
+
+  const handleSelectAllInView = useCallback(() => {
+    setBulkSelected(new Set(displayRows.map(row => String(row._id))));
+  }, [displayRows]);
+
+  const handleClearBulkSelection = useCallback(() => {
+    setBulkSelected(new Set());
+  }, []);
+
+  const selectedHighlightObjects = useMemo(() => (
+    displayRows.filter(row => bulkSelected.has(String(row._id)))
+  ), [displayRows, bulkSelected]);
+
+  const handleBulkDelete = useCallback(async () => {
+    if (bulkSelected.size === 0) return;
+    if (!window.confirm(`Delete ${bulkSelected.size} highlight${bulkSelected.size === 1 ? '' : 's'}? This cannot be undone.`)) return;
+    setBulkBusy(true);
+    setBulkError('');
+    const idsByArticle = new Map();
+    selectedHighlightObjects.forEach(highlight => {
+      if (!highlight?.articleId) return;
+      const list = idsByArticle.get(highlight.articleId) || [];
+      list.push(highlight._id);
+      idsByArticle.set(highlight.articleId, list);
+    });
+    let succeeded = 0;
+    let failed = 0;
+    // Iterate single-delete endpoints. No server bulk route exists yet — once
+    // it does, swap this for a single call. Sequential keeps the error
+    // surface predictable and avoids hammering the API on slow connections.
+    for (const [articleId, highlightIds] of idsByArticle.entries()) {
+      for (const highlightId of highlightIds) {
+        try {
+          await deleteHighlight({ articleId, highlightId });
+          succeeded += 1;
+        } catch (_err) {
+          failed += 1;
+        }
+      }
+    }
+    setHighlights(prev => prev.filter(item => !bulkSelected.has(String(item._id))));
+    setBulkSelected(new Set());
+    setBulkBusy(false);
+    if (failed > 0) {
+      setBulkError(`Deleted ${succeeded}, failed ${failed}.`);
+    }
+  }, [bulkSelected, selectedHighlightObjects, setHighlights]);
+
+  const handleOpenBulkConceptModal = useCallback(() => {
+    if (bulkSelected.size === 0) return;
+    setBulkConceptModal(true);
+  }, [bulkSelected.size]);
+
+  const handleBulkAddToConcept = useCallback(async (_highlight, conceptName) => {
+    // LibraryConceptModal calls this with (highlight, conceptName); ignore the
+    // highlight arg here — we apply to every selected highlight.
+    if (!conceptName || bulkSelected.size === 0) return;
+    setBulkBusy(true);
+    setBulkError('');
+    let succeeded = 0;
+    let failed = 0;
+    for (const highlight of selectedHighlightObjects) {
+      try {
+        await api.post(
+          `/api/concepts/${encodeURIComponent(conceptName)}/add-highlight`,
+          { highlightId: highlight._id },
+          getAuthHeaders()
+        );
+        succeeded += 1;
+      } catch (_err) {
+        failed += 1;
+      }
+    }
+    setBulkConceptModal(false);
+    setBulkSelected(new Set());
+    setBulkBusy(false);
+    if (succeeded > 0) {
+      fireTourSignal('concept_from_highlight', { conceptName, count: succeeded });
+    }
+    if (failed > 0) {
+      setBulkError(`Added ${succeeded} to "${conceptName}", failed ${failed}.`);
+    }
+  }, [bulkSelected.size, selectedHighlightObjects, fireTourSignal]);
+
   return (
     <div className="section-stack library-highlights-surface" data-tour-anchor="library-highlights-panel">
       <SectionHeader
@@ -305,15 +406,28 @@ const LibraryHighlights = ({
                   );
                 }
                 const highlight = row.highlight;
+                const highlightIdStr = String(highlight._id);
+                const isBulkSelected = bulkSelected.has(highlightIdStr);
                 return (
                   <div
                     key={row.id}
                     data-highlight-id={highlight._id}
-                    className={`library-highlight-row ${selectedHighlight?._id === highlight._id ? 'is-active' : ''}`}
+                    className={`library-highlight-row ${selectedHighlight?._id === highlight._id ? 'is-active' : ''} ${isBulkSelected ? 'is-bulk-selected' : ''}`.trim()}
                     role="button"
                     tabIndex={0}
                     onClick={() => handleSelectRow(highlight._id)}
                   >
+                    <label
+                      className="library-highlight-row__bulk-check"
+                      onClick={(event) => event.stopPropagation()}
+                      aria-label={isBulkSelected ? 'Deselect this highlight' : 'Select this highlight'}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isBulkSelected}
+                        onChange={() => toggleBulkSelected(highlightIdStr)}
+                      />
+                    </label>
                     <HighlightCard
                       highlight={highlight}
                       compact
@@ -343,11 +457,61 @@ const LibraryHighlights = ({
         </div>
       </Profiler>
 
+      {bulkSelected.size > 0 && (
+        <div
+          className="library-highlights-bulk-bar"
+          role="region"
+          aria-label="Bulk highlight actions"
+          data-testid="library-highlights-bulk-bar"
+        >
+          <div className="library-highlights-bulk-bar__count">
+            <strong>{bulkSelected.size}</strong> selected
+          </div>
+          <div className="library-highlights-bulk-bar__actions">
+            <QuietButton
+              onClick={handleSelectAllInView}
+              disabled={bulkBusy || displayRows.length === 0 || bulkSelected.size === displayRows.length}
+            >
+              Select all in view
+            </QuietButton>
+            <QuietButton onClick={handleOpenBulkConceptModal} disabled={bulkBusy}>
+              Add to concept…
+            </QuietButton>
+            <QuietButton
+              className="library-highlights-bulk-bar__danger"
+              onClick={handleBulkDelete}
+              disabled={bulkBusy}
+            >
+              {bulkBusy ? 'Working…' : 'Delete'}
+            </QuietButton>
+            <QuietButton onClick={handleClearBulkSelection} disabled={bulkBusy}>
+              Clear
+            </QuietButton>
+          </div>
+          {bulkError && (
+            <p className="status-message error-message library-highlights-bulk-bar__error">
+              {bulkError}
+            </p>
+          )}
+        </div>
+      )}
+
       <LibraryConceptModal
         open={conceptModal.open}
         highlight={conceptModal.highlight}
         onClose={() => setConceptModal({ open: false, highlight: null })}
         onSelect={handleAddConcept}
+      />
+
+      {/* Bulk add-to-concept reuses LibraryConceptModal; we feed it a synthetic
+          "highlight" representing the selection so the modal's title slot reads
+          right, then onSelect routes to handleBulkAddToConcept which iterates
+          over the actual selected highlights. */}
+      <LibraryConceptModal
+        open={bulkConceptModal}
+        highlight={{ _id: 'bulk', text: `${bulkSelected.size} highlight${bulkSelected.size === 1 ? '' : 's'}` }}
+        onClose={() => setBulkConceptModal(false)}
+        onSelect={handleBulkAddToConcept}
       />
 
       <LibraryNotebookModal

@@ -116,6 +116,7 @@ const {
   Collection,
   IntegrationConnection,
   ImportSession,
+  SharedConcept,
   dropLegacyConnectionIndex
 } = require('./models/index');
 
@@ -143,6 +144,7 @@ const { buildSearchRetrievalRouter } = require('./routes/searchRetrievalRoutes')
 const { buildSemanticSearchRouter } = require('./routes/semanticSearchRoutes');
 const { buildTagTemplateRouter } = require('./routes/tagTemplateRoutes');
 const { buildConceptMetaRouter } = require('./routes/conceptMetaRoutes');
+const { buildSharedConceptRouter } = require('./routes/sharedConceptRoutes');
 const { buildConceptMaterialRouter } = require('./routes/conceptMaterialRoutes');
 const { buildAgentSettingsRouter } = require('./routes/agentSettingsRoutes');
 const { buildPersonalAgentRouter } = require('./routes/personalAgentRoutes');
@@ -5336,6 +5338,16 @@ app.use(buildConceptMetaRouter({
   escapeRegExp,
   trackEvent,
   EVENT_NAMES
+}));
+
+app.use(buildSharedConceptRouter({
+  authenticateToken,
+  SharedConcept,
+  TagMeta,
+  ConceptNote,
+  User,
+  escapeRegExp,
+  getConceptRelated
 }));
 
 app.use(buildConceptMaterialRouter({

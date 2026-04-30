@@ -98,6 +98,13 @@ const TopBar = ({
                   if (event.key === 'Enter') handleSearch();
                 }}
               />
+              <kbd
+                className="topbar__search-kbd"
+                aria-hidden="true"
+                title="Open command palette (⌘K)"
+              >
+                ⌘K
+              </kbd>
             </div>
           </div>
         ) : null}
