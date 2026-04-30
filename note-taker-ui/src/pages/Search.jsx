@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import api from '../api';
 import { searchKeyword } from '../api/retrieval';
 import { Page, Card, TagChip, Button } from '../components/ui';
+import EmptyState, { ErrorState } from '../components/EmptyState';
 
 const stripHtml = (input = '') => {
   if (!input) return '';
@@ -309,7 +310,7 @@ const Search = () => {
           </div>
         )}
 
-        {error && <p className="status-message error-message">{error}</p>}
+        {error && <ErrorState message={error} testId="search-error" />}
 
         <div className="section-stack">
           {mode === 'semantic' ? (
@@ -349,7 +350,12 @@ const Search = () => {
                 </div>
               ))
             ) : (
-              !loading && <p className="muted small">No semantic results yet.</p>
+              !loading && (
+                <EmptyState
+                  text={query.trim() ? `No semantic matches for "${query.trim()}".` : 'Type a query to start a semantic search.'}
+                  testId="search-empty-semantic"
+                />
+              )
             )
           ) : (
             <>
@@ -378,7 +384,10 @@ const Search = () => {
                       ))}
                     </div>
                   ) : (
-                    <p className="muted small">No {section.title.toLowerCase()} match.</p>
+                    <EmptyState
+                      text={`No ${section.title.toLowerCase()} match.`}
+                      testId={`search-empty-${section.title.toLowerCase()}`}
+                    />
                   )}
                 </Card>
               ))}
@@ -400,7 +409,7 @@ const Search = () => {
                     ))}
                   </div>
                 ) : (
-                  <p className="muted small">No articles match.</p>
+                  <EmptyState text="No articles match." testId="search-empty-articles" />
                 )}
               </Card>
             </>

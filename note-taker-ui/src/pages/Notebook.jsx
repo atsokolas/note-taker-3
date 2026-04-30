@@ -8,6 +8,7 @@ import Placeholder from '@tiptap/extension-placeholder';
 import { Extension } from '@tiptap/core';
 import ReferencesPanel from '../components/ReferencesPanel';
 import WorkingMemoryPanel from '../components/working-memory/WorkingMemoryPanel';
+import EmptyState, { ErrorState } from '../components/EmptyState';
 import {
   listWorkingMemory,
   createWorkingMemory,
@@ -667,7 +668,12 @@ const Notebook = () => {
         <h1 className="notebook-title">Notebook</h1>
       </div>
       {status && <p className="status-message success-message">{status}</p>}
-      {error && <p className="status-message error-message">{error}</p>}
+      {error && (
+        <ErrorState
+          message={error}
+          testId="notebook-error"
+        />
+      )}
       <div className="notebook-toolbar">
         <div className="left">
           <Button variant="secondary" onClick={createEntry} disabled={saving} data-onboard-id="new-note">New</Button>
@@ -705,7 +711,14 @@ const Notebook = () => {
               ))}
             </div>
             {loading && <p className="status-message">Loading entries...</p>}
-            {!loading && filteredEntries.length === 0 && <p className="muted small">No entries yet. Create one to start writing.</p>}
+            {!loading && filteredEntries.length === 0 && (
+              <EmptyState
+                text="Your notebook is empty."
+                actionLabel="Start your first entry"
+                onAction={createEntry}
+                testId="notebook-empty"
+              />
+            )}
             <ul className="notebook-list">
               {filteredEntries.map(e => (
                 <li
@@ -837,7 +850,12 @@ const Notebook = () => {
                   <p className="search-snippet">{h.note ? h.note.slice(0, 100) + (h.note.length > 100 ? '…' : '') : <span className="muted small">No note</span>}</p>
                 </div>
               ))}
-              {filteredHighlights.length === 0 && <p className="muted small">No highlights found.</p>}
+              {filteredHighlights.length === 0 && (
+                <EmptyState
+                  text="No highlights match the current search."
+                  testId="notebook-highlight-search-empty"
+                />
+              )}
             </div>
             <div className="modal-actions" style={{ marginTop: '12px', display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
               <Button variant="secondary" onClick={() => setHighlightModalOpen(false)}>Close</Button>

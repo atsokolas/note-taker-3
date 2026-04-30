@@ -6,6 +6,7 @@ import QuestionModal from '../components/QuestionModal';
 import { SkeletonCard } from '../components/Skeleton';
 import { fetchWithCache, setCached } from '../utils/cache';
 import ReferencesPanel from '../components/ReferencesPanel';
+import EmptyState, { ErrorState } from '../components/EmptyState';
 
 const PAGE_SIZE = 20;
 
@@ -261,10 +262,38 @@ const AllHighlights = ({ embedded = false, filters = {} }) => {
             ))}
           </div>
         )}
-        {error && <p className="status-message error-message">{error}</p>}
+        {error && (
+          <ErrorState
+            message={error}
+            onRetry={() => fetchData(true)}
+            testId="all-highlights-error"
+          />
+        )}
         {saveMessage && <p className="status-message success-message">{saveMessage}</p>}
 
         <div className="section-stack">
+          {!loading && !error && pagedHighlights.length === 0 && (
+            highlights.length === 0 ? (
+              <EmptyState
+                variant="panel"
+                eyebrow="Highlights"
+                title="No highlights yet"
+                text="Highlight passages from any article in the Library and they'll appear here for filtering, tagging, and quick access."
+                actionLabel="Open Library"
+                actionHref="/library"
+                secondaryLabel="See the walkthrough"
+                secondaryHref="/how-to-use"
+                testId="all-highlights-empty-first-run"
+              />
+            ) : (
+              <EmptyState
+                text="No highlights match the current filters."
+                actionLabel="Clear filters"
+                actionHref="/all-highlights"
+                testId="all-highlights-empty-filtered"
+              />
+            )
+          )}
           {!loading && !error && pagedHighlights.map((h) => (
             <HighlightListItem
               key={h._id}
