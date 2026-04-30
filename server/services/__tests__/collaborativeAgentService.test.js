@@ -219,9 +219,9 @@ const run = () => {
       { type: 'notebook', id: 'n1', title: 'Ground truth checks', snippet: 'Planning only helps if the model keeps checking itself against the world.' }
     ]
   });
-  assert.ok(summaryBrief.startsWith('# Summary Brief: World Models'), 'Summary brief artifacts should render as structured drafts.');
-  assert.ok(summaryBrief.includes('## Core claim'), 'Summary brief artifacts should include an explicit core claim section.');
-  assert.ok(summaryBrief.includes('## Next move'), 'Summary brief artifacts should include a next move section.');
+  assert.ok(summaryBrief.startsWith('# World Models'), 'Article summary artifacts should use the article title directly.');
+  assert.ok(!summaryBrief.includes('## Core claim'), 'Article summary artifacts should avoid robotic brief headings.');
+  assert.ok(!summaryBrief.includes('## Next move'), 'Article summary artifacts should avoid next-move scaffolding.');
 
   const longArticleSummaryBrief = buildOutputArtifactReply({
     skillInvocation: { outputType: 'summary_brief' },
@@ -255,15 +255,15 @@ const run = () => {
     relatedItems: []
   });
   assert.ok(
-    longArticleSummaryBrief.includes('exceptional milieus'),
-    'Long article summary briefs should include later section-level claims, not only the intro.'
+    /intellectual ecolog/i.test(longArticleSummaryBrief),
+    'Long article summary briefs should synthesize the article-specific mechanism, not only the intro.'
   );
   assert.ok(
-    longArticleSummaryBrief.includes('self-directed learning'),
+    /self-directed exploration/i.test(longArticleSummaryBrief),
     'Long article summary briefs should preserve the article structure across sections.'
   );
   assert.ok(
-    longArticleSummaryBrief.includes('Cognitive apprenticeships'),
+    /apprenticeship/i.test(longArticleSummaryBrief),
     'Long article summary briefs should include late article sections.'
   );
   assert.ok(
@@ -274,6 +274,36 @@ const run = () => {
     !longArticleSummaryBrief.includes('Virginia Woolf and her sister'),
     'Long article summary briefs should not promote image captions as summary claims.'
   );
+  assert.ok(
+    !longArticleSummaryBrief.includes('## Core claim'),
+    'Long article summary briefs should read as flowing prose, not a robotic template.'
+  );
+
+  const fallbackArticleSummaryBrief = buildOutputArtifactReply({
+    skillInvocation: { outputType: 'summary_brief' },
+    context: {
+      type: 'article',
+      title: 'Childhoods of exceptional people',
+      metadata: {
+        summary: 'Source host: henrikkarlsson.xyz.',
+        primaryText: 'That list is to me a good first approximation of what an exceptional result in the field of child-rearing looks like. As children, they were integrated with exceptional adults—and were taken seriously by them. But this is not what parents usually do when they think about how to educate their kids.'
+      }
+    },
+    contextItem: {
+      type: 'article',
+      title: 'Childhoods of exceptional people',
+      snippet: 'That list is to me a good first approximation of what an exceptional result in the field of child-rearing looks like.'
+    },
+    relatedItems: [
+      { type: 'article', id: 'a2', title: 'Jeffrey Yan turned down $100 million, airdropped billions to strangers, and can’t travel without a bodyguard.', snippet: 'Unrelated retrieved item.' }
+    ]
+  });
+  assert.ok(fallbackArticleSummaryBrief.startsWith('# Childhoods of exceptional people'), 'Fallback article summary should still title the article.');
+  assert.ok(!fallbackArticleSummaryBrief.includes('## Core claim'), 'Fallback article summary should not use robotic headings.');
+  assert.ok(!fallbackArticleSummaryBrief.includes('Source host: henrikkarlsson.xyz.'), 'Fallback article summary should not surface host metadata.');
+  assert.ok(!fallbackArticleSummaryBrief.includes('Jeffrey Yan'), 'Fallback article summary should not append unrelated retrieval as a next move.');
+  assert.ok(/ecology|milieu/i.test(fallbackArticleSummaryBrief), 'Fallback article summary should name the article-specific mechanism.');
+  assert.ok(/gifted/i.test(fallbackArticleSummaryBrief), 'Fallback article summary should retain the main caveat, not end with generic advice.');
 
   const hfMessages = buildPartnerChatMessages({
     message: 'What do you think needs to be rethought?',
