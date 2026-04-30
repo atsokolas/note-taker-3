@@ -3191,6 +3191,112 @@ html[data-ui-theme='dark'] .topbar__search:-webkit-autofill:focus {
   flex-wrap: wrap;
 }
 
+/* Bulk-selection checkbox in the row's left margin. Sits absolute so the
+   existing grid layout stays untouched; gains opacity on row hover or when
+   selected so it doesn't clutter the default view. */
+.library-highlight-row {
+  position: relative;
+}
+
+.library-highlight-row__bulk-check {
+  position: absolute;
+  top: 12px;
+  left: -28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 160ms ease-out;
+}
+
+.library-highlight-row:hover .library-highlight-row__bulk-check,
+.library-highlight-row:focus-within .library-highlight-row__bulk-check,
+.library-highlight-row.is-bulk-selected .library-highlight-row__bulk-check {
+  opacity: 1;
+}
+
+.library-highlight-row__bulk-check input {
+  cursor: pointer;
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+.library-highlight-row.is-bulk-selected {
+  border-color: color-mix(in srgb, var(--accent) 50%, var(--border-subtle));
+  background: color-mix(in srgb, var(--accent-soft) 28%, var(--surface-card));
+}
+
+/* Sticky bottom bar revealed when one or more highlights are selected. */
+.library-highlights-bulk-bar {
+  position: sticky;
+  bottom: 12px;
+  z-index: 10;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px;
+  margin-top: 12px;
+  padding: 10px 14px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--surface-card) 88%, transparent);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow: 0 12px 28px rgba(28, 24, 18, 0.14);
+  animation: libraryHighlightsBulkBarIn 220ms ease-out both;
+}
+
+@keyframes libraryHighlightsBulkBarIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.library-highlights-bulk-bar__count {
+  font-size: 0.92rem;
+  color: var(--text);
+  flex-shrink: 0;
+}
+
+.library-highlights-bulk-bar__count strong {
+  font-weight: 700;
+  color: var(--accent);
+  margin-right: 2px;
+}
+
+.library-highlights-bulk-bar__actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  flex: 1;
+  justify-content: flex-end;
+}
+
+.library-highlights-bulk-bar__danger {
+  color: #a54731 !important;
+  border-color: color-mix(in srgb, #a54731 32%, var(--border-subtle));
+}
+
+.library-highlights-bulk-bar__danger:hover:not(:disabled) {
+  background: color-mix(in srgb, #a54731 8%, transparent);
+  border-color: color-mix(in srgb, #a54731 60%, var(--border-subtle));
+}
+
+.library-highlights-bulk-bar__error {
+  flex-basis: 100%;
+  margin: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .library-highlight-row__bulk-check { transition: none; }
+  .library-highlights-bulk-bar { animation: none; }
+}
+
 .library-highlight-group-block {
   display: grid;
   gap: 8px;
