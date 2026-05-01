@@ -498,3 +498,15 @@ export const rejectAgentProtocolApproval = async (approvalId, payload = {}) => {
   const res = await api.post(`/api/agent/protocol/approvals/${safeId}/reject`, payload, getAuthHeaders());
   return res.data || {};
 };
+
+// Notion agent fetch — POSTs the Notion fetch tool and returns the
+// structured summary { status, fetched, created, updated, skipped, failed,
+// errors, summary }. Per the design, this is user-triggered only.
+export const fetchNotionPagesViaAgent = async ({ connectionId, limit } = {}) => {
+  const res = await api.post(
+    '/api/agent/tools/notion-fetch',
+    { connectionId, limit },
+    getAuthHeaders()
+  );
+  return res.data || {};
+};

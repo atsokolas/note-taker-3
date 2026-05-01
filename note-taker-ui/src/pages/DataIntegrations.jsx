@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api';
 import { Button, Card, Page } from '../components/ui';
-import { chatWithAgent } from '../api/agent';
+import { chatWithAgent, fetchNotionPagesViaAgent } from '../api/agent';
 import { updateConcept } from '../api/concepts';
 import {
   checkNotionConnection,
@@ -374,6 +374,8 @@ const DataIntegrations = () => {
   const [notionSyncing, setNotionSyncing] = useState(false);
   const [notionExporting, setNotionExporting] = useState(false);
   const [notionExportResult, setNotionExportResult] = useState(null);
+  const [notionAgentFetching, setNotionAgentFetching] = useState(false);
+  const [notionAgentResult, setNotionAgentResult] = useState(null);
   const [evernoteFile, setEvernoteFile] = useState(null);
   const [manualTitle, setManualTitle] = useState('');
   const [manualText, setManualText] = useState('');
@@ -983,6 +985,36 @@ const DataIntegrations = () => {
       setStatus(error.response?.data?.error || 'Failed to check Notion connection.', 'error');
     } finally {
       setNotionChecking(false);
+    }
+  };
+
+  // Agent-mediated Notion fetch — uses the agent's skip-if-unchanged path.
+  // Different from handleNotionSync (manual import) in two ways:
+  //  1. Doesn't open a preview / picker; fetches up to N pages directly.
+  //  2. Skips pages whose Notion last_edited_time matches the cached value,
+  //     so re-running this is cheap.
+  // Same backing connection as the manual sync.
+  const handleNotionAgentFetch = async () => {
+    if (!notionConnection?.id) {
+      setStatus('Connect Notion first.', 'error');
+      return;
+    }
+    setNotionAgentFetching(true);
+    setNotionAgentResult(null);
+    setStatus('Asking the agent to fetch your Notion pages…');
+    try {
+      const result = await fetchNotionPagesViaAgent({ connectionId: notionConnection.id });
+      setNotionAgentResult(result);
+      setStatus(result?.summary || 'Agent finished fetching from Notion.', result?.failed ? 'warning' : 'success');
+    } catch (error) {
+      console.error('Agent Notion fetch failed:', error);
+      const message = error?.response?.data?.summary
+        || error?.response?.data?.error
+        || error?.message
+        || 'Agent fetch failed.';
+      setStatus(message, 'error');
+    } finally {
+      setNotionAgentFetching(false);
     }
   };
 
@@ -1959,7 +1991,21 @@ const DataIntegrations = () => {
             >
               {previewing.notion ? 'Previewing…' : 'Preview scope'}
             </Button>
+            <Button
+              type="button"
+              variant="primary"
+              onClick={handleNotionAgentFetch}
+              disabled={busy || notionConnecting || notionChecking || notionSyncing || notionAgentFetching || !notionConnection?.id}
+              title="The agent skips pages that haven't changed since the last fetch."
+            >
+              {notionAgentFetching ? 'Agent fetching…' : 'Let agent fetch'}
+            </Button>
           </div>
+          {notionAgentResult ? (
+            <p className="muted small" data-testid="notion-agent-fetch-result">
+              {notionAgentResult.summary || 'Done.'}
+            </p>
+          ) : null}
           {notionConnection ? (
             <div className="import-summary">
               <p className="muted-label">Connected workspace</p>

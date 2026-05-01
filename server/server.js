@@ -146,6 +146,11 @@ const { buildTagTemplateRouter } = require('./routes/tagTemplateRoutes');
 const { buildConceptMetaRouter } = require('./routes/conceptMetaRoutes');
 const { buildSharedConceptRouter } = require('./routes/sharedConceptRoutes');
 const { buildConceptMaterialRouter } = require('./routes/conceptMaterialRoutes');
+const { buildAgentNotionFetchRouter } = require('./routes/agentNotionFetchRoutes');
+const { fetchNotionPagesForAgent } = require('./services/agentTools/notionFetchTool');
+const notionClientForAgent = require('./services/import/notionClient');
+const notionTransformForAgent = require('./services/import/notionTransform');
+const { decryptSecret: decryptIntegrationSecretForAgent } = require('./utils/integrationSecrets');
 const { buildAgentSettingsRouter } = require('./routes/agentSettingsRoutes');
 const { buildPersonalAgentRouter } = require('./routes/personalAgentRoutes');
 const { buildAgentBridgeRouter } = require('./routes/agentBridgeRoutes');
@@ -5348,6 +5353,16 @@ app.use(buildSharedConceptRouter({
   User,
   escapeRegExp,
   getConceptRelated
+}));
+
+app.use(buildAgentNotionFetchRouter({
+  authenticateToken,
+  fetchNotionPagesForAgent,
+  notionClient: notionClientForAgent,
+  notionTransform: notionTransformForAgent,
+  IntegrationConnection,
+  NotebookEntry,
+  decryptSecret: decryptIntegrationSecretForAgent
 }));
 
 app.use(buildConceptMaterialRouter({
