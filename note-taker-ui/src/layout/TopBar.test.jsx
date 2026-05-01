@@ -126,4 +126,67 @@ describe('TopBar help menu', () => {
     expect(onResume).toHaveBeenCalledTimes(1);
     expect(onRestart).toHaveBeenCalledTimes(1);
   });
+
+  it('hides the theme toggle when no onThemeChange handler is provided', () => {
+    render(
+      <MemoryRouter>
+        <TopBar />
+      </MemoryRouter>
+    );
+    expect(screen.queryByTestId('topbar-theme-toggle')).toBeNull();
+  });
+
+  it('renders the theme pill with the current preference label', () => {
+    render(
+      <MemoryRouter>
+        <TopBar theme="auto" onThemeChange={() => {}} />
+      </MemoryRouter>
+    );
+    const pill = screen.getByTestId('topbar-theme-toggle');
+    expect(pill.textContent).toContain('Auto');
+    expect(pill.getAttribute('aria-label')).toMatch(/Theme: Auto/);
+  });
+
+  it('cycles through auto → light → dark on click', () => {
+    const onThemeChange = jest.fn();
+    const { rerender } = render(
+      <MemoryRouter>
+        <TopBar theme="auto" onThemeChange={onThemeChange} />
+      </MemoryRouter>
+    );
+    fireEvent.click(screen.getByTestId('topbar-theme-toggle'));
+    expect(onThemeChange).toHaveBeenLastCalledWith('light');
+
+    rerender(
+      <MemoryRouter>
+        <TopBar theme="light" onThemeChange={onThemeChange} />
+      </MemoryRouter>
+    );
+    fireEvent.click(screen.getByTestId('topbar-theme-toggle'));
+    expect(onThemeChange).toHaveBeenLastCalledWith('dark');
+
+    rerender(
+      <MemoryRouter>
+        <TopBar theme="dark" onThemeChange={onThemeChange} />
+      </MemoryRouter>
+    );
+    fireEvent.click(screen.getByTestId('topbar-theme-toggle'));
+    expect(onThemeChange).toHaveBeenLastCalledWith('auto');
+  });
+
+  it('opens a popover with all three theme options on right-click', () => {
+    const onThemeChange = jest.fn();
+    render(
+      <MemoryRouter>
+        <TopBar theme="light" onThemeChange={onThemeChange} />
+      </MemoryRouter>
+    );
+    fireEvent.contextMenu(screen.getByTestId('topbar-theme-toggle'));
+    expect(screen.getByRole('menuitemradio', { name: /Auto/ })).toBeInTheDocument();
+    expect(screen.getByRole('menuitemradio', { name: /Light/ })).toBeInTheDocument();
+    expect(screen.getByRole('menuitemradio', { name: /Dark/ })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('menuitemradio', { name: /Dark/ }));
+    expect(onThemeChange).toHaveBeenCalledWith('dark');
+  });
 });

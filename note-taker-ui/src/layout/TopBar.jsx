@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import BrandGradient from '../components/BrandGradient';
+import { THEME_OPTIONS } from '../settings/uiPreferences';
 
 const TopBar = ({
   rightSlot,
@@ -11,8 +12,26 @@ const TopBar = ({
   secondaryNav = [],
   searchMode = 'field',
   accountMenuItems = [],
-  className = ''
+  className = '',
+  theme = 'auto',
+  onThemeChange = null,
+  themeSaving = false
 }) => {
+  // Theme cycling: auto → light → dark → auto. Single click on the pill
+  // advances; popover under the pill exposes all 3 options for users who
+  // want to pick directly.
+  const [themeMenuOpen, setThemeMenuOpen] = useState(false);
+  const themeMenuRef = useRef(null);
+  const cycleTheme = () => {
+    if (!onThemeChange) return;
+    const idx = THEME_OPTIONS.findIndex((option) => option.value === theme);
+    const next = THEME_OPTIONS[(idx + 1) % THEME_OPTIONS.length] || THEME_OPTIONS[0];
+    onThemeChange(next.value);
+  };
+  const currentThemeOption = useMemo(
+    () => THEME_OPTIONS.find((option) => option.value === theme) || THEME_OPTIONS[0],
+    [theme]
+  );
   const navigate = useNavigate();
   const location = useLocation();
   const [query, setQuery] = useState('');
@@ -35,6 +54,23 @@ const TopBar = ({
     if (!value) return;
     navigate(`/search?mode=keyword&q=${encodeURIComponent(value)}`);
   };
+
+  useEffect(() => {
+    if (!themeMenuOpen) return undefined;
+    const onPointerDown = (event) => {
+      if (themeMenuRef.current?.contains(event.target)) return;
+      setThemeMenuOpen(false);
+    };
+    const onKeyDown = (event) => {
+      if (event.key === 'Escape') setThemeMenuOpen(false);
+    };
+    window.addEventListener('mousedown', onPointerDown);
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
+      window.removeEventListener('mousedown', onPointerDown);
+      window.removeEventListener('keydown', onKeyDown);
+    };
+  }, [themeMenuOpen]);
 
   useEffect(() => {
     if (!helpOpen) return undefined;
@@ -120,6 +156,48 @@ const TopBar = ({
               <span aria-hidden="true">⌕</span>
             </button>
           )}
+          {onThemeChange ? (
+            <div className="topbar__menu topbar__theme-menu" ref={themeMenuRef}>
+              <button
+                type="button"
+                className={`topbar__theme-pill ${themeSaving ? 'is-busy' : ''}`}
+                aria-haspopup="menu"
+                aria-expanded={themeMenuOpen}
+                aria-label={`Theme: ${currentThemeOption.label}. Click to cycle, right-click for options.`}
+                title={`Theme: ${currentThemeOption.label} — click to cycle`}
+                data-testid="topbar-theme-toggle"
+                onClick={cycleTheme}
+                onContextMenu={(event) => {
+                  event.preventDefault();
+                  setThemeMenuOpen((prev) => !prev);
+                }}
+              >
+                <span aria-hidden="true" className={`topbar__theme-icon topbar__theme-icon--${currentThemeOption.value}`} />
+                <span className="topbar__theme-label">{currentThemeOption.shortLabel}</span>
+              </button>
+              {themeMenuOpen && (
+                <div className="topbar__menu-popover topbar__theme-popover" role="menu">
+                  {THEME_OPTIONS.map((option) => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      role="menuitemradio"
+                      aria-checked={option.value === theme}
+                      className={`topbar__menu-item ${option.value === theme ? 'is-active' : ''}`}
+                      onClick={() => {
+                        onThemeChange(option.value);
+                        setThemeMenuOpen(false);
+                      }}
+                    >
+                      <span aria-hidden="true" className={`topbar__theme-icon topbar__theme-icon--${option.value}`} />
+                      {option.label}
+                      {option.value === 'auto' ? <span className="muted small" style={{ marginLeft: 'auto' }}>System</span> : null}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : null}
           {utilityNav.map((item) => (
             item.href ? (
               <a
