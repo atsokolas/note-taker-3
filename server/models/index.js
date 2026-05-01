@@ -1303,6 +1303,31 @@ importSessionSchema.index({ userId: 1, provider: 1, updatedAt: -1 });
 
 const ImportSession = mongoose.model('ImportSession', importSessionSchema);
 
+/**
+ * SharedConcept — public read-only snapshot of a concept.
+ *
+ * Concepts live virtually (assembled from highlights + ConceptNote + workbench
+ * state at read-time), so a "share" is really a slug → (userId, conceptName)
+ * pointer. The public route resolves the pointer and assembles the read-only
+ * snapshot at request time using the same loaders the owner sees.
+ *
+ * One row per (userId, conceptName) — toggling share off deletes the row,
+ * toggling back on mints a fresh slug. We don't keep historical slugs because
+ * regenerating is the de-facto revocation flow.
+ */
+const sharedConceptSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  conceptName: { type: String, required: true, trim: true },
+  slug: { type: String, required: true, unique: true, index: true },
+  // Owner display name shown to public viewers; cached at mint time so we can
+  // surface "Shared by X" without joining User on the public read path.
+  ownerDisplayName: { type: String, default: '' }
+}, { timestamps: true });
+
+sharedConceptSchema.index({ userId: 1, conceptName: 1 }, { unique: true });
+
+const SharedConcept = mongoose.model('SharedConcept', sharedConceptSchema);
+
 module.exports = {
   User,
   Feedback,
@@ -1345,5 +1370,6 @@ module.exports = {
   Collection,
   IntegrationConnection,
   ImportSession,
+  SharedConcept,
   dropLegacyConnectionIndex
 };

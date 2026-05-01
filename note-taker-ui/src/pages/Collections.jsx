@@ -4,6 +4,7 @@ import api from '../api';
 import { Page, Card, Button } from '../components/ui';
 import { SkeletonCard } from '../components/Skeleton';
 import { fetchWithCache, setCached } from '../utils/cache';
+import EmptyState, { ErrorState } from '../components/EmptyState';
 
 const Collections = ({ embedded = false, filters = {} }) => {
   const [collections, setCollections] = useState([]);
@@ -88,10 +89,36 @@ const Collections = ({ embedded = false, filters = {} }) => {
           ))}
         </div>
       )}
-      {error && <p className="status-message error-message">{error}</p>}
+      {error && (
+        <ErrorState
+          message={error}
+          onRetry={() => loadCollections(true)}
+          testId="collections-error"
+        />
+      )}
+
+      {!loading && !error && filteredCollections.length === 0 && (
+        collections.length === 0 ? (
+          <EmptyState
+            variant="panel"
+            eyebrow="Collections"
+            title="Start curating"
+            text="Collections group related articles and highlights so you can revisit a research thread without combing through your library."
+            actionLabel="New collection"
+            onAction={() => setShowModal(true)}
+            secondaryLabel="Browse articles"
+            secondaryHref="/library"
+            testId="collections-empty-first-run"
+          />
+        ) : (
+          <EmptyState
+            text="No collections match the current filter."
+            testId="collections-empty-filtered"
+          />
+        )
+      )}
 
       <div className="search-card-grid">
-        {filteredCollections.length === 0 && !loading && <p className="muted small">No collections yet.</p>}
         {filteredCollections.map(c => (
           <Card key={c._id} className="search-card">
             <div className="search-card-top">

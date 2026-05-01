@@ -116,6 +116,7 @@ const {
   Collection,
   IntegrationConnection,
   ImportSession,
+  SharedConcept,
   dropLegacyConnectionIndex
 } = require('./models/index');
 
@@ -143,6 +144,7 @@ const { buildSearchRetrievalRouter } = require('./routes/searchRetrievalRoutes')
 const { buildSemanticSearchRouter } = require('./routes/semanticSearchRoutes');
 const { buildTagTemplateRouter } = require('./routes/tagTemplateRoutes');
 const { buildConceptMetaRouter } = require('./routes/conceptMetaRoutes');
+const { buildSharedConceptRouter } = require('./routes/sharedConceptRoutes');
 const { buildConceptMaterialRouter } = require('./routes/conceptMaterialRoutes');
 const { buildAgentNotionFetchRouter } = require('./routes/agentNotionFetchRoutes');
 const { fetchNotionPagesForAgent } = require('./services/agentTools/notionFetchTool');
@@ -5341,6 +5343,16 @@ app.use(buildConceptMetaRouter({
   escapeRegExp,
   trackEvent,
   EVENT_NAMES
+}));
+
+app.use(buildSharedConceptRouter({
+  authenticateToken,
+  SharedConcept,
+  TagMeta,
+  ConceptNote,
+  User,
+  escapeRegExp,
+  getConceptRelated
 }));
 
 app.use(buildAgentNotionFetchRouter({

@@ -248,10 +248,13 @@ body.calm-ui-global .topbar__search-wrap {
   border: 1px solid var(--calm-line);
   background: var(--calm-bg-2);
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
+  /* third column hosts the ⌘K hint (PR for Cmd-K discoverability). When the
+     hint isn't rendered (e.g. searchMode='icon' surfaces), the auto column
+     collapses to 0 so layout is unchanged. */
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   gap: 8px;
-  padding: 0 12px;
+  padding: 0 6px 0 12px;
   box-shadow: none;
 }
 

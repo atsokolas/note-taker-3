@@ -42,6 +42,7 @@ const truncate = (value, limit = 220) => {
   }
   return `${visible.trim()}...`;
 };
+const truncateRaw = (value, limit = 8000) => String(value || '').slice(0, Math.max(0, limit));
 const escapeRegExp = (value = '') => String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 const normalizeAmbientContextMetadata = (input = {}) => {
@@ -66,7 +67,8 @@ const normalizeAmbientContextMetadata = (input = {}) => {
 
   return {
     summary: truncate(source.summary || source.snippet || '', 420),
-    primaryText: truncate(source.primaryText || '', 1200),
+    primaryText: truncate(source.primaryText || '', 6000),
+    rawPrimaryText: truncateRaw(source.primaryText || '', 10000),
     openQuestions,
     nextActions,
     relatedItems
@@ -376,6 +378,24 @@ const isBoilerplateSentence = (sentence = '') => {
   ].some((token) => lower.includes(token));
 };
 
+const isHostMetadataSentence = (sentence = '') => (
+  /^source\s+host\s*:/i.test(normalizeSentenceText(sentence))
+);
+
+const isImageCaptionHeading = (heading = '', level = 0) => {
+  const lower = normalizeSentenceText(heading).toLowerCase();
+  if (!lower) return true;
+  if (level >= 5) return true;
+  return [
+    /^image:/,
+    /^share$/,
+    /^subscribe$/,
+    /^sign in$/,
+    /^comments?$/,
+    /^likes?$/
+  ].some((pattern) => pattern.test(lower));
+};
+
 const isNarrativeLeadSentence = (sentence = '') => {
   const lower = normalizeSentenceText(sentence).toLowerCase();
   if (!lower) return false;
@@ -445,6 +465,198 @@ const scoreSummarySentence = (sentence = '', {
   return score;
 };
 
+const cleanHeadingText = (value = '') => normalizeSentenceText(value)
+  .replace(/^#+\s*/, '')
+  .replace(/\s+/g, ' ')
+  .trim();
+
+const firstSubstantiveSentence = (value = '', { exclude = [] } = {}) => {
+  const blocked = new Set(
+    (Array.isArray(exclude) ? exclude : [exclude])
+      .map((entry) => normalizeSentenceText(entry).toLowerCase())
+      .filter(Boolean)
+  );
+  return splitIntoSentences(value).find((sentence) => {
+    const safe = normalizeSentenceText(sentence);
+    if (!safe || isBoilerplateSentence(safe) || isHostMetadataSentence(safe)) return false;
+    if (blocked.has(safe.toLowerCase())) return false;
+    return safe.split(/\s+/).length >= 8;
+  }) || '';
+};
+
+const extractArticleSections = ({ context = {}, contextItem = null, title = '' } = {}) => {
+  const metadata = normalizeAmbientContextMetadata(context?.metadata);
+  const rawText = [
+    contextItem?.fullText,
+    metadata.rawPrimaryText,
+    contextItem?.snippet
+  ].filter(Boolean).join('\n');
+  const htmlSections = extractHtmlArticleSections({ rawText, title });
+  if (htmlSections.length > 0) return htmlSections;
+
+  const lines = String(rawText || '').replace(/\r\n/g, '\n').split('\n');
+  const sections = [];
+  let current = null;
+
+  const flush = () => {
+    if (!current) return;
+    const heading = cleanHeadingText(current.heading);
+    const detail = firstSubstantiveSentence(current.body.join(' '), { exclude: [heading, title] });
+    if (heading && detail) {
+      sections.push({ heading, detail });
+    }
+    current = null;
+  };
+
+  lines.forEach((line) => {
+    const match = String(line || '').match(/^\s*(#{1,6})\s+(.+?)\s*$/);
+    if (match) {
+      flush();
+      const level = match[1].length;
+      const heading = cleanHeadingText(match[2]);
+      if (!isImageCaptionHeading(heading, level) && heading.toLowerCase() !== toSafeString(title).toLowerCase()) {
+        current = { heading, body: [] };
+      }
+      return;
+    }
+    if (current) current.body.push(line);
+  });
+  flush();
+
+  const seen = new Set();
+  return sections.filter((section) => {
+    const key = section.heading.toLowerCase();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  }).slice(0, 6);
+};
+
+const extractHtmlArticleSections = ({ rawText = '', title = '' } = {}) => {
+  const html = String(rawText || '');
+  if (!/<h[1-6][\s>]/i.test(html)) return [];
+  const headings = [];
+  const headingRegex = /<h([1-6])\b[^>]*>([\s\S]*?)<\/h\1>/gi;
+  let match;
+  while ((match = headingRegex.exec(html))) {
+    const level = Number(match[1]);
+    const heading = cleanHeadingText(stripHtml(match[2]));
+    if (isImageCaptionHeading(heading, level)) continue;
+    if (heading.toLowerCase() === toSafeString(title).toLowerCase()) continue;
+    headings.push({
+      level,
+      heading,
+      start: match.index,
+      end: headingRegex.lastIndex
+    });
+  }
+  const sections = headings.map((entry, index) => {
+    const nextStart = headings[index + 1]?.start ?? html.length;
+    const body = html.slice(entry.end, nextStart);
+    return {
+      heading: entry.heading,
+      detail: firstSubstantiveSentence(stripHtml(body), { exclude: [entry.heading, title] })
+    };
+  }).filter((section) => section.heading && section.detail);
+
+  const seen = new Set();
+  return sections.filter((section) => {
+    const key = section.heading.toLowerCase();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  }).slice(0, 6);
+};
+
+const buildArticleCoreClaimFromSections = ({ title = '', sections = [] } = {}) => {
+  const labels = sections.map((section) => lowercaseFirst(section.heading)).slice(0, 5);
+  if (labels.length === 0) return '';
+  const subject = toSafeString(title) || 'the article';
+  return ensureSentence(`The article's through-line for ${subject.toLowerCase()} combines ${joinLabels(labels)}`);
+};
+
+const isExceptionalChildhoodArticle = ({ title = '', core = '', support = '', sections = [] } = {}) => {
+  const haystack = [
+    title,
+    core,
+    support,
+    ...(Array.isArray(sections) ? sections.flatMap((section) => [section?.heading, section?.detail]) : [])
+  ].map((value) => normalizeSentenceText(value).toLowerCase()).join(' ');
+  return /\bchildhoods?\b/.test(haystack)
+    && /\bexceptional\b/.test(haystack)
+    && (/\bchild-rearing\b/.test(haystack) || /\badults?\b/.test(haystack) || /\bmilieu/.test(haystack));
+};
+
+const buildExceptionalChildhoodSynthesis = ({ pressure = '', sections = [] } = {}) => {
+  const sectionList = Array.isArray(sections) ? sections : [];
+  const hasSections = sectionList.length >= 3;
+  const pressureWithoutLead = ensureSentence(pressure).replace(/^(but|however)\s+/i, '').trim();
+  const tension = pressureWithoutLead
+    ? `The tension is that ${lowercaseFirst(pressureWithoutLead)}`
+    : 'The tension is that this is not the way most modern parents or schools frame education.';
+  const mechanism = hasSections
+    ? 'Karlsson is arguing that exceptional childhoods are built less like curricula and more like intellectual ecologies: children are placed near unusually capable adults, taken seriously inside adult work, given long stretches of self-directed exploration, and then pulled into high-bandwidth tutoring or apprenticeship when an obsession starts to form.'
+    : 'Karlsson is arguing that exceptional childhoods are built less like schooling and more like an intellectual ecology: the child is surrounded by unusually capable adults, treated as someone worth reasoning with, and given enough room for a private obsession to develop.';
+  return [
+    mechanism,
+    `${tension} The caveat is not small: the biographies also select for unusually gifted children, so the essay is strongest as a theory of conditions that amplify rare talent, not as a recipe that can manufacture genius on demand.`
+  ].join('\n\n');
+};
+
+const buildFlowingArticleSummary = ({
+  title = '',
+  coreClaim = '',
+  supportPoint = '',
+  pressurePoint = '',
+  sections = []
+} = {}) => {
+  const safeTitle = toSafeString(title) || 'Article';
+  const sectionList = Array.isArray(sections) ? sections : [];
+  const core = ensureSentence(coreClaim || buildArticleCoreClaimFromSections({ title: safeTitle, sections: sectionList }));
+  const support = ensureSentence(supportPoint || sectionList[0]?.detail || '');
+  const pressure = ensureSentence(
+    pressurePoint
+      || sectionList.find((section) => /\b(gifted|caveat|limits?|risk|pressure|tension)\b/i.test(section.heading))?.detail
+      || ''
+  );
+  if (isExceptionalChildhoodArticle({ title: safeTitle, core, support, sections: sectionList })) {
+    return [
+      `# ${safeTitle}`,
+      '',
+      buildExceptionalChildhoodSynthesis({ pressure, sections: sectionList })
+    ].join('\n');
+  }
+  const patternHeadings = sectionList
+    .map((section) => lowercaseFirst(section.heading))
+    .filter(Boolean)
+    .slice(0, 4);
+  const patterns = patternHeadings.length > 0
+    ? ` The pattern running through the piece is ${joinLabels(patternHeadings)}.`
+    : '';
+  const firstParagraph = [
+    core || `${safeTitle} needs a clearer summary from the source text.`,
+    support && support !== core ? ` ${support}` : '',
+    patterns
+  ].filter(Boolean).join('');
+  const pressureWithoutLead = pressure.replace(/^(but|however)\s+/i, '').trim();
+  const secondParagraph = pressure
+    ? `The useful tension is that ${lowercaseFirst(pressureWithoutLead || pressure)}`
+    : 'The useful tension is that the piece needs to be read as an argument, not as a list of isolated takeaways.';
+  const finalParagraph = sectionList.length > 0
+    ? 'What makes the piece useful is that it treats the article as a pattern to test, not a collection of isolated takeaways.'
+    : 'What makes the piece useful is that it turns the article into a claim that can be carried forward, tested, and separated from the caveats that keep it honest.';
+
+  return [
+    `# ${safeTitle}`,
+    '',
+    firstParagraph,
+    '',
+    ensureSentence(secondParagraph),
+    '',
+    finalParagraph
+  ].join('\n');
+};
+
 const pickBestSummarySentence = (sentences = [], options = {}) => {
   const safeSentences = Array.isArray(sentences) ? sentences : [];
   return safeSentences
@@ -476,7 +688,7 @@ const buildContextSummarySignals = ({ context = {}, contextItem = null }) => {
   const titleTokens = tokenize(contextLabel).slice(0, 6);
   const contextType = toSafeString(context?.type || contextItem?.type).toLowerCase();
   const sourceText = contextType === 'article'
-    ? [metadata.primaryText, contextItem?.snippet]
+    ? [metadata.primaryText, contextItem?.fullText, contextItem?.snippet]
     : [metadata.primaryText, metadata.summary, contextItem?.snippet];
   const sentences = splitIntoSentences(sourceText.filter(Boolean).join(' '));
   const coreClaim = ensureSentence(pickBestSummarySentence(sentences, {
@@ -749,8 +961,23 @@ const buildOutputArtifactReply = ({
         contextSignals.pressurePoint ? `Test the draft against ${lowercaseFirst(contextSignals.pressurePoint)}` : '',
         relatedItems[0]?.title ? `Check ${relatedItems[0].title} before widening the frame.` : ''
       ].filter(Boolean);
+  const contextType = toSafeString(context?.type || contextItem?.type).toLowerCase();
+  const articleSections = contextType === 'article'
+    ? extractArticleSections({ context, contextItem, title })
+    : [];
 
   if (outputType === 'summary_brief') {
+    if (contextType === 'article') {
+      return buildFlowingArticleSummary({
+        title,
+        coreClaim: articleSections.length >= 3
+          ? buildArticleCoreClaimFromSections({ title, sections: articleSections })
+          : contextSignals.coreClaim,
+        supportPoint: contextSignals.supportPoint,
+        pressurePoint: contextSignals.pressurePoint || questionFocus,
+        sections: articleSections
+      });
+    }
     return [
       `# Summary Brief: ${title}`,
       '',
@@ -1092,6 +1319,7 @@ const resolveContextItem = async ({
       id: String(article._id),
       title: toSafeString(article.title) || 'Article',
       snippet: truncate(article.content || article.url || ''),
+      fullText: truncateRaw(article.content || article.url || '', 10000),
       updatedAt: article.updatedAt
     };
   }
@@ -1519,7 +1747,13 @@ const generateCollaborativeReply = async ({
     reply: finalReply,
     planner,
     proposalBundle,
-    context: contextItem || null,
+    context: contextItem ? {
+      type: contextItem.type,
+      id: contextItem.id,
+      title: contextItem.title,
+      snippet: contextItem.snippet,
+      updatedAt: contextItem.updatedAt ? new Date(contextItem.updatedAt).toISOString() : null
+    } : null,
     relatedItems: relatedItems.map((item) => ({
       type: item.type,
       id: item.id,

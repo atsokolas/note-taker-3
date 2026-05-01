@@ -41,7 +41,9 @@ import SearchConsoleOpportunities from './pages/SearchConsoleOpportunities';
 import PrivacyPolicy from './pages/PrivacyPolicy';
 import TermsOfUse from './pages/TermsOfUse';
 import DesignPreview from './pages/DesignPreview';
+import SharedConcept from './pages/SharedConcept';
 import CommandPalette from './components/CommandPalette';
+import KeyboardShortcutOverlay from './components/KeyboardShortcutOverlay';
 import { clearStoredTokens, hasUsableStoredToken } from './api';
 import { fetchUiSettings, saveUiSettings } from './api/uiSettings';
 import {
@@ -151,6 +153,7 @@ const PublicRoutes = ({ chromeStoreLink, handleLoginSuccess, uiSettings }) => {
         <Route path="/privacy" element={<PrivacyPolicy />} />
         <Route path="/terms" element={<TermsOfUse />} />
         <Route path="/design-preview" element={<DesignPreview />} />
+        <Route path="/share/concepts/:slug" element={<SharedConcept />} />
         <Route path="/register" element={<Register chromeStoreLink={chromeStoreLink} />} />
         <Route
           path="/login"
@@ -174,6 +177,7 @@ function App() {
   ));
   const [isLoading, setIsLoading] = useState(true);
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [shortcutOverlayOpen, setShortcutOverlayOpen] = useState(false);
   const [uiSettings, setUiSettings] = useState(() => loadUiSettingsFromStorage());
   const [uiSettingsSaving, setUiSettingsSaving] = useState(false);
 
@@ -279,6 +283,17 @@ function App() {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault();
         setPaletteOpen(true);
+        return;
+      }
+
+      // ? opens the shortcut overlay. Bare key — no modifiers — and only
+      // outside text inputs (already filtered above). Shift+/ on US layouts
+      // gives '?'; on layouts where '?' needs another modifier, the user
+      // can still discover the overlay via the topbar Cmd-K hint or the
+      // CommandPalette itself.
+      if (e.key === '?' && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        e.preventDefault();
+        setShortcutOverlayOpen(true);
         return;
       }
 
@@ -406,6 +421,7 @@ function App() {
     const routes = (
       <Page className="page-area">
         <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
+        <KeyboardShortcutOverlay open={shortcutOverlayOpen} onClose={() => setShortcutOverlayOpen(false)} />
         <TourManager />
         <Routes>
           <Route path="/" element={hasSeenLanding ? <Navigate to="/think?tab=home" replace /> : <Landing />} />
@@ -446,6 +462,7 @@ function App() {
           <Route path="/privacy" element={<PrivacyPolicy />} />
           <Route path="/terms" element={<TermsOfUse />} />
           <Route path="/design-preview" element={<DesignPreview />} />
+          <Route path="/share/concepts/:slug" element={<SharedConcept />} />
 
           {/* Legacy/feature routes kept for compatibility */}
           <Route path="/brain" element={<Navigate to="/review?tab=patterns" replace />} />
