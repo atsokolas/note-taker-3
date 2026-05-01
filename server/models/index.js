@@ -109,7 +109,12 @@ const importMetaSchema = new mongoose.Schema({
   parentExternalId: { type: String, default: '', trim: true },
   importSessionId: { type: mongoose.Schema.Types.ObjectId, ref: 'ImportSession', default: null },
   importedAt: { type: Date, default: null },
-  searchableAt: { type: Date, default: null }
+  searchableAt: { type: Date, default: null },
+  // Provider-side "last modified" timestamp used for skip-if-unchanged logic
+  // (PR #20 Notion agent fetch). Stored as a string because Notion returns
+  // an ISO 8601 string and we compare via string equality — coercing to
+  // Date and back loses millisecond fidelity in some clients.
+  lastNotionEditedAt: { type: String, default: '', trim: true }
 }, { _id: false });
 
 // Article Schema and Model - MODIFIED TO INCLUDE userId

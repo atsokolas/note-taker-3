@@ -38,8 +38,14 @@ const buildAgentNotionFetchRouter = ({
         }
       });
       // Map non-success statuses to appropriate HTTP codes for the client.
+      // NB: token_invalid uses 409 (Conflict), NOT 401. The shared axios
+      // interceptor treats 401/403 as a Noeis auth failure and bounces the
+      // user to /login — but a stale Notion token only means "reconnect
+      // Notion in Data Integrations", not "log out of Noeis". 409 keeps the
+      // session intact and lets the caller surface a targeted reconnect
+      // prompt.
       if (result.status === 'no_connection') return res.status(412).json(result);
-      if (result.status === 'token_invalid') return res.status(401).json(result);
+      if (result.status === 'token_invalid') return res.status(409).json(result);
       if (result.status === 'search_failed') return res.status(502).json(result);
       return res.status(200).json(result);
     } catch (error) {

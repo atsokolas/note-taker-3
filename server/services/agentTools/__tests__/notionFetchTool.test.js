@@ -108,3 +108,35 @@ describe('fetchNotionPagesForAgent', () => {
     expect(result.fetched).toBe(0);
   });
 });
+
+// Schema-boundary regression: the importMetaSchema has to define
+// lastNotionEditedAt or Mongoose's strict mode silently drops it on save,
+// which would defeat skip-if-unchanged on the next run. This test loads the
+// real schema (no mocks) and confirms the field round-trips. If someone
+// removes the field from the schema, this test fails.
+describe('importMetaSchema lastNotionEditedAt persistence', () => {
+  it('round-trips lastNotionEditedAt through the real Mongoose schema', () => {
+    const mongoose = require('mongoose');
+    const path = require('path');
+    // Load the model once, isolated. mongoose caches models by name so
+    // subsequent imports in the same process are fine.
+    const modelsPath = path.resolve(__dirname, '../../../models/index.js');
+    // eslint-disable-next-line global-require, import/no-dynamic-require
+    const { NotebookEntry } = require(modelsPath);
+    const doc = new NotebookEntry({
+      title: 'X',
+      content: '',
+      blocks: [],
+      userId: new mongoose.Types.ObjectId(),
+      importMeta: {
+        provider: 'notion',
+        externalId: 'page-1',
+        lastNotionEditedAt: '2026-04-01T00:00:00Z'
+      }
+    });
+    // .toObject() reflects what mongoose persists — strict mode would have
+    // dropped the field by now if the schema didn't define it.
+    const serialized = doc.toObject();
+    expect(serialized.importMeta.lastNotionEditedAt).toBe('2026-04-01T00:00:00Z');
+  });
+});

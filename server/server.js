@@ -136,7 +136,6 @@ const { buildConnectionsRouter } = require('./routes/connectionsRoutes');
 const { buildConceptPathRouter } = require('./routes/conceptPathRoutes');
 const { buildFeedbackHighlightRouter } = require('./routes/feedbackHighlightRoutes');
 const { buildLegacyContentRouter } = require('./routes/legacyContentRoutes');
-const { buildMobileApiRouter } = require('./routes/mobileApiRoutes');
 const { buildAuthDiscoveryRouter } = require('./routes/authDiscoveryRoutes');
 const { buildMarketingAnalyticsRouter } = require('./routes/marketingAnalyticsRoutes');
 const { buildMarketingFunnelRouter } = require('./routes/marketingFunnelRoutes');
@@ -4175,35 +4174,6 @@ app.use(buildNotebookRouter({
   enqueueNotebookEmbedding,
   trackEvent,
   EVENT_NAMES,
-  findHighlightById
-}));
-
-app.use(buildMobileApiRouter({
-  authenticateToken,
-  mongoose,
-  NotebookEntry,
-  NotebookFolder,
-  ReferenceEdge,
-  Folder,
-  Article,
-  ensureNotebookBlocks,
-  createBlockId,
-  stripHtml,
-  normalizeItemType,
-  parseClaimId,
-  normalizeTags,
-  normalizePdfs,
-  syncNotebookReferences,
-  enqueueNotebookEmbedding,
-  enqueueArticleEmbedding,
-  enqueueHighlightEmbedding,
-  safeMapEmbedding,
-  articleToEmbeddingItems,
-  highlightToEmbeddingItem,
-  queueEmbeddingUpsert,
-  queueEmbeddingDelete,
-  buildEmbeddingId,
-  markTourSignal,
   findHighlightById
 }));
 
