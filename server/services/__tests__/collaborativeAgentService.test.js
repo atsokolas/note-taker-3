@@ -305,6 +305,72 @@ const run = () => {
   assert.ok(/ecology|milieu/i.test(fallbackArticleSummaryBrief), 'Fallback article summary should name the article-specific mechanism.');
   assert.ok(/gifted/i.test(fallbackArticleSummaryBrief), 'Fallback article summary should retain the main caveat, not end with generic advice.');
 
+  const childhoodArtifactBase = {
+    context: {
+      type: 'article',
+      title: 'Childhoods of exceptional people',
+      metadata: {
+        summary: 'Source host: henrikkarlsson.xyz.',
+        primaryText: 'That list is to me a good first approximation of what an exceptional result in the field of child-rearing looks like. As children, they were integrated with exceptional adults—and were taken seriously by them. But this is not what parents usually do when they think about how to educate their kids.'
+      }
+    },
+    contextItem: {
+      type: 'article',
+      title: 'Childhoods of exceptional people',
+      snippet: 'That list is to me a good first approximation of what an exceptional result in the field of child-rearing looks like.'
+    },
+    relatedItems: [
+      { type: 'article', id: 'a2', title: 'Jeffrey Yan turned down $100 million, airdropped billions to strangers, and can’t travel without a bodyguard.', snippet: 'Unrelated retrieved item.' }
+    ]
+  };
+
+  const childhoodCritique = buildOutputArtifactReply({
+    skillInvocation: { outputType: 'critique_brief' },
+    ...childhoodArtifactBase
+  });
+  assert.ok(/survivorship bias/i.test(childhoodCritique), 'Article critique should name survivorship bias.');
+  assert.ok(/gifted/i.test(childhoodCritique), 'Article critique should preserve the gifted-child caveat.');
+  assert.ok(/caus/i.test(childhoodCritique), 'Article critique should pressure-test causality.');
+  assert.ok(!childhoodCritique.includes('## Claim under test'), 'Article critique should not use the robotic critique template.');
+  assert.ok(!childhoodCritique.includes('Jeffrey Yan'), 'Article critique should not import unrelated retrieval noise.');
+
+  const childhoodQuestions = buildOutputArtifactReply({
+    skillInvocation: { outputType: 'question_set' },
+    ...childhoodArtifactBase
+  });
+  assert.ok(/Which part of the ecology/i.test(childhoodQuestions), 'Article questions should ask about the causal mechanism.');
+  assert.ok(/adult seriousness/i.test(childhoodQuestions), 'Article questions should name adult seriousness.');
+  assert.ok(/inherited ability|gifted/i.test(childhoodQuestions), 'Article questions should name inherited ability or giftedness.');
+  assert.ok(!childhoodQuestions.includes('What evidence would answer this pressure directly'), 'Article questions should avoid generic evidence prompts.');
+
+  const childhoodConnections = buildOutputArtifactReply({
+    skillInvocation: { outputType: 'connection_map' },
+    ...childhoodArtifactBase
+  });
+  assert.ok(/Cognitive apprenticeship/i.test(childhoodConnections), 'Article connections should identify cognitive apprenticeship as a specific connection.');
+  assert.ok(/Self-directed exploration/i.test(childhoodConnections), 'Article connections should identify self-directed exploration as a specific connection.');
+  assert.ok(/support|tension|counterexample/i.test(childhoodConnections), 'Article connections should classify connection types.');
+  assert.ok(!childhoodConnections.includes('Jeffrey Yan'), 'Article connections should not include unrelated retrieval noise.');
+
+  const childhoodNote = buildOutputArtifactReply({
+    skillInvocation: { outputType: 'note_draft' },
+    ...childhoodArtifactBase
+  });
+  assert.ok(childhoodNote.startsWith('# Exceptional Childhood as Intellectual Ecology'), 'Article note draft should have a strong synthesized title.');
+  assert.ok(/intellectual ecology/i.test(childhoodNote), 'Article note draft should synthesize the mechanism.');
+  assert.ok(/survivorship bias|gifted/i.test(childhoodNote), 'Article note draft should carry the caveat.');
+  assert.ok(!childhoodNote.includes('Source host'), 'Article note draft should not leak host metadata.');
+
+  const childhoodConcept = buildOutputArtifactReply({
+    skillInvocation: { outputType: 'concept_draft' },
+    ...childhoodArtifactBase
+  });
+  assert.ok(childhoodConcept.startsWith('# Concept Candidate: Intellectual Ecology of Childhood'), 'Article concept draft should name the concept.');
+  assert.ok(/Thesis:/i.test(childhoodConcept), 'Article concept draft should include a thesis.');
+  assert.ok(/Starting evidence:/i.test(childhoodConcept), 'Article concept draft should include starting evidence.');
+  assert.ok(/Boundary:/i.test(childhoodConcept), 'Article concept draft should include a boundary/caveat.');
+  assert.ok(!childhoodConcept.includes('Jeffrey Yan'), 'Article concept draft should not include unrelated retrieval noise.');
+
   const hfMessages = buildPartnerChatMessages({
     message: 'What do you think needs to be rethought?',
     conversationState: {
