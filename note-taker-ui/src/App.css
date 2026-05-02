@@ -705,7 +705,7 @@ body {
   display: grid;
   place-items: center;
   padding: 24px;
-  background: rgba(17, 24, 39, 0.34);
+  background: rgba(56, 56, 49, 0.34);
 }
 
 .product-feedback-modal__dialog {
@@ -715,10 +715,11 @@ body {
   display: flex;
   flex-direction: column;
   gap: 14px;
-  border: 1px solid var(--border-color);
+  border: 1px solid rgba(129, 129, 120, 0.22);
   border-radius: 8px;
-  background: var(--card-bg-color);
-  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.24);
+  background: #fcf9f3;
+  color: #383831;
+  box-shadow: 0 24px 70px rgba(56, 50, 43, 0.18);
   padding: 20px;
 }
 
@@ -736,7 +737,7 @@ body {
 
 .product-feedback-modal__header p {
   margin: 0;
-  color: var(--muted-text-color);
+  color: #65655c;
   font-size: 0.9rem;
 }
 
@@ -748,25 +749,46 @@ body {
 
 .product-feedback-modal__type-button {
   min-height: 40px;
-  border: 1px solid var(--border-color);
+  border: 1px solid rgba(129, 129, 120, 0.22);
   border-radius: 8px;
-  background: var(--hover-color);
-  color: var(--text-color);
+  background: #f6f4ec;
+  color: #383831;
   font: inherit;
   font-size: 0.88rem;
   cursor: pointer;
 }
 
 .product-feedback-modal__type-button.is-active {
-  border-color: var(--primary-color);
-  background: color-mix(in srgb, var(--primary-color) 12%, var(--card-bg-color));
-  color: var(--primary-color);
+  border-color: #615e5b;
+  background: #eae8de;
+  color: #383831;
   font-weight: 700;
 }
 
 .product-feedback-modal__actions {
   display: flex;
   justify-content: flex-end;
+}
+
+.product-feedback-modal .feedback-field span {
+  color: #65655c;
+}
+
+body.noeis-editorial .product-feedback-modal .feedback-field input,
+body.noeis-editorial .product-feedback-modal .feedback-field textarea,
+.product-feedback-modal .feedback-field input,
+.product-feedback-modal .feedback-field textarea {
+  border: 1px solid rgba(129, 129, 120, 0.24) !important;
+  border-radius: 2px !important;
+  background: #fffcf7 !important;
+  color: #383831 !important;
+}
+
+body.noeis-editorial .product-feedback-modal .feedback-field input::placeholder,
+body.noeis-editorial .product-feedback-modal .feedback-field textarea::placeholder,
+.product-feedback-modal .feedback-field input::placeholder,
+.product-feedback-modal .feedback-field textarea::placeholder {
+  color: #9b988f;
 }
 
 .feedback-list {
