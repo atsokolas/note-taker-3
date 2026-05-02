@@ -101,6 +101,7 @@ const THINK_QUESTION_ROW_HEIGHT = 60;
 const THINK_HOME_LIMIT = 6;
 const CONCEPT_COMPOSER_DEFAULT_STATE = { message: '', tone: 'success' };
 const cleanText = (value = '') => String(value || '').trim();
+const previewText = (value = '') => cleanText(String(value || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' '));
 const normalizeNotebookFolderId = (value = '') => String(value || '').trim();
 const THINK_SUB_NAV_ITEMS = [
   { value: 'concepts', label: 'Concepts' },
@@ -380,7 +381,6 @@ const PartnerLineList = React.memo(({ items = [], emptyMessage = 'Nothing here y
 
 const ThinkMode = () => {
   const [searchParams, setSearchParams] = useSearchParams();
-  const rawTabParam = searchParams.get('tab') || '';
   const queryConcept = searchParams.get('concept') || '';
   const allowedViews = useMemo(() => ['home', 'notebook', 'concepts', 'questions', 'threads', 'handoffs', 'paths', 'insights'], []);
   const resolveActiveView = useCallback((params) => {
@@ -903,9 +903,14 @@ const ThinkMode = () => {
       setActiveQuestion(target);
       return;
     }
-    if (!activeQuestionId || !allQuestions.some(q => q._id === activeQuestionId)) {
-      setActiveQuestionId(allQuestions[0]._id);
-      setActiveQuestion(allQuestions[0]);
+    if (requestedId && !target) {
+      setActiveQuestionId('');
+      setActiveQuestion(null);
+      return;
+    }
+    if (activeQuestionId && !allQuestions.some(q => q._id === activeQuestionId)) {
+      setActiveQuestionId('');
+      setActiveQuestion(null);
     }
   }, [activeView, allQuestions, activeQuestionId, searchParams]);
 
@@ -1156,7 +1161,8 @@ const ThinkMode = () => {
       } else if (searchParams.get('entryId') && data.some(entry => entry._id === searchParams.get('entryId'))) {
         setNotebookActiveId(searchParams.get('entryId'));
       } else if (!searchParams.get('entryId')) {
-        setNotebookActiveId(data[0]._id);
+        setNotebookActiveId('');
+        setActiveNotebookEntry(null);
       }
     } catch (err) {
       setNotebookListError(err.response?.data?.error || 'Failed to load notebook.');
@@ -1442,14 +1448,6 @@ const ThinkMode = () => {
     params.delete('scopeId');
     setSearchParams(params);
   }, [searchParams, setSearchParams]);
-
-  useEffect(() => {
-    if (rawTabParam) return;
-    if (activeView !== 'concepts' || selectedName) return;
-    const recentConcept = recentTargets.find((item) => item.type === 'concept' && cleanText(item.title));
-    if (!recentConcept?.title) return;
-    handleSelectConcept(recentConcept.title);
-  }, [activeView, handleSelectConcept, rawTabParam, recentTargets, selectedName]);
 
   const openConceptComposer = useCallback((anchor = 'header', seed = '') => {
     setConceptComposerAnchor(anchor);
@@ -1796,12 +1794,8 @@ const ThinkMode = () => {
       await api.delete(`/api/notebook/${entry._id}`, getAuthHeaders());
       setNotebookEntries(prev => {
         const remaining = prev.filter(item => item._id !== entry._id);
-        if (remaining.length > 0) {
-          setNotebookActiveId(remaining[0]._id);
-        } else {
-          setNotebookActiveId('');
-          setActiveNotebookEntry(null);
-        }
+        setNotebookActiveId('');
+        setActiveNotebookEntry(null);
         return remaining;
       });
     } catch (err) {
@@ -3724,48 +3718,110 @@ const ThinkMode = () => {
       onCreateQuestion={handleCreateQuestion}
     />
   ) : activeView === 'notebook' ? (
-    <div className="think-notebook-editor-pane">
-      {notebookLoadingEntry && <p className="muted small">Loading note…</p>}
-      {!notebookLoadingEntry && (
-        <NotebookEditor
-          entry={activeNotebookEntry}
-          saving={notebookSaving}
-          error={notebookEntryError}
-          onSave={handleSaveNotebookEntry}
-          onDelete={handleDeleteNotebookEntry}
-          onCreate={handleCreateNotebookEntry}
-          onRegisterInsert={(fn) => { notebookInsertRef.current = fn; }}
-          onSynthesize={(entry) => openSynthesis('notebook', entry?._id)}
-          onDump={() => handleDumpToWorkingMemory()}
-          claimCandidates={notebookEntries.filter(item => (item.type || 'note') === 'claim')}
-          onInvokeAgentSkill={queueThoughtPartnerPrompt}
-          showInlineAgentDock={false}
-          agentContextType={thoughtPartnerContext?.contextType || 'notebook'}
-          agentContextId={thoughtPartnerContext?.contextId || activeNotebookEntry?._id || ''}
-          agentContextTitle={thoughtPartnerContext?.contextTitle || activeNotebookEntry?.title || 'Notebook'}
-        />
-      )}
-    </div>
-  ) : activeView === 'questions' ? (
-    <div className="think-question-editor-pane">
-      <QuestionEditor
-        question={activeQuestionData}
-        saving={questionSaving}
-        error={questionError}
-        onSave={handleSaveQuestion}
-        onRegisterInsert={(fn) => { questionInsertRef.current = fn; }}
-        onSynthesize={(question) => openSynthesis('question', question?._id)}
-        onInvokeAgentSkill={queueThoughtPartnerPrompt}
-        agentContextType={thoughtPartnerContext?.contextType || 'question'}
-        agentContextId={thoughtPartnerContext?.contextId || activeQuestionData?._id || ''}
-        agentContextTitle={activeQuestionData?.text || thoughtPartnerContext?.contextTitle || 'Question'}
-      />
-      {activeQuestionData && questionStatus === 'open' && (
-        <div className="think-question-actions">
-          <QuietButton onClick={() => handleMarkAnswered(activeQuestionData)}>Mark answered</QuietButton>
+    !activeNotebookEntry ? (
+      <div className="think-section-home think-section-home--notebook">
+        <div className="think-section-home__hero">
+          <span className="think-section-home__eyebrow">Notebook</span>
+          <h1>Choose a page when you are ready to write.</h1>
+          <p>
+            The notebook opens as a workspace first. Pick a page from the rail, create a fresh note, or use search to find the loose thread you want to continue.
+          </p>
+          <div className="think-section-home__actions">
+            <Button variant="primary" onClick={handleCreateNotebookEntry}>New page</Button>
+            <QuietButton onClick={handleQueueOrganizationPrompt}>Clean up structure</QuietButton>
+          </div>
         </div>
-      )}
-    </div>
+        <div className="think-section-home__grid">
+          {filteredNotebookEntries.slice(0, 6).map((entry) => (
+            <button
+              key={entry._id}
+              type="button"
+              className="think-section-home__card"
+              onClick={() => handleSelectNotebookEntry(entry._id)}
+            >
+              <span>Notebook page</span>
+              <strong>{entry.title || 'Untitled'}</strong>
+              <p>{previewText(entry.content).slice(0, 140) || 'Open this page to keep writing.'}</p>
+            </button>
+          ))}
+        </div>
+      </div>
+    ) : (
+      <div className="think-notebook-editor-pane">
+        {notebookLoadingEntry && <p className="muted small">Loading note…</p>}
+        {!notebookLoadingEntry && (
+          <NotebookEditor
+            entry={activeNotebookEntry}
+            saving={notebookSaving}
+            error={notebookEntryError}
+            onSave={handleSaveNotebookEntry}
+            onDelete={handleDeleteNotebookEntry}
+            onCreate={handleCreateNotebookEntry}
+            onRegisterInsert={(fn) => { notebookInsertRef.current = fn; }}
+            onSynthesize={(entry) => openSynthesis('notebook', entry?._id)}
+            onDump={() => handleDumpToWorkingMemory()}
+            claimCandidates={notebookEntries.filter(item => (item.type || 'note') === 'claim')}
+            onInvokeAgentSkill={queueThoughtPartnerPrompt}
+            showInlineAgentDock={false}
+            agentContextType={thoughtPartnerContext?.contextType || 'notebook'}
+            agentContextId={thoughtPartnerContext?.contextId || activeNotebookEntry?._id || ''}
+            agentContextTitle={thoughtPartnerContext?.contextTitle || activeNotebookEntry?.title || 'Notebook'}
+          />
+        )}
+      </div>
+    )
+  ) : activeView === 'questions' ? (
+    !activeQuestionData ? (
+      <div className="think-section-home think-section-home--questions">
+        <div className="think-section-home__hero">
+          <span className="think-section-home__eyebrow">Questions</span>
+          <h1>Start with the open loop, not the first item in the list.</h1>
+          <p>
+            Questions stay at the workspace level until you select one. Create a new inquiry or open an existing one when it is ready for evidence.
+          </p>
+          <div className="think-section-home__actions">
+            <Button variant="primary" onClick={handleCreateQuestion} disabled={questionSaving}>
+              {questionSaving ? 'Creating...' : 'New inquiry'}
+            </Button>
+            <QuietButton onClick={handleQueueOrganizationPrompt}>Clean up structure</QuietButton>
+          </div>
+        </div>
+        <div className="think-section-home__grid">
+          {filteredQuestions.slice(0, 6).map((question) => (
+            <button
+              key={question._id}
+              type="button"
+              className="think-section-home__card"
+              onClick={() => handleOpenQuestion(question._id)}
+            >
+              <span>{question.status || 'open'}</span>
+              <strong>{question.text || 'Untitled question'}</strong>
+              <p>{question.linkedTagName || 'No concept linked yet.'}</p>
+            </button>
+          ))}
+        </div>
+      </div>
+    ) : (
+      <div className="think-question-editor-pane">
+        <QuestionEditor
+          question={activeQuestionData}
+          saving={questionSaving}
+          error={questionError}
+          onSave={handleSaveQuestion}
+          onRegisterInsert={(fn) => { questionInsertRef.current = fn; }}
+          onSynthesize={(question) => openSynthesis('question', question?._id)}
+          onInvokeAgentSkill={queueThoughtPartnerPrompt}
+          agentContextType={thoughtPartnerContext?.contextType || 'question'}
+          agentContextId={thoughtPartnerContext?.contextId || activeQuestionData?._id || ''}
+          agentContextTitle={activeQuestionData?.text || thoughtPartnerContext?.contextTitle || 'Question'}
+        />
+        {activeQuestionData && questionStatus === 'open' && (
+          <div className="think-question-actions">
+            <QuietButton onClick={() => handleMarkAnswered(activeQuestionData)}>Mark answered</QuietButton>
+          </div>
+        )}
+      </div>
+    )
   ) : activeView === 'threads' ? (
     <ThreadsMainPanel
       threadsModel={threadsModel}

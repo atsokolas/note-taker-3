@@ -67,6 +67,10 @@ const feedbackSchema = new mongoose.Schema({
   message: { type: String, required: true, trim: true },
   rating: { type: Number, min: 1, max: 5, default: null },
   email: { type: String, default: '' },
+  kind: { type: String, enum: ['feedback', 'feature', 'bug'], default: 'feedback', index: true },
+  title: { type: String, default: '', trim: true },
+  pageUrl: { type: String, default: '', trim: true },
+  userAgent: { type: String, default: '', trim: true },
   source: { type: String, default: 'web-app' },
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null }
 }, { timestamps: true });

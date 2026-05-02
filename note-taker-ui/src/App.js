@@ -44,6 +44,7 @@ import DesignPreview from './pages/DesignPreview';
 import SharedConcept from './pages/SharedConcept';
 import CommandPalette from './components/CommandPalette';
 import KeyboardShortcutOverlay from './components/KeyboardShortcutOverlay';
+import ProductFeedbackModal from './components/ProductFeedbackModal';
 import { clearStoredTokens, hasUsableStoredToken } from './api';
 import { fetchUiSettings, saveUiSettings } from './api/uiSettings';
 import {
@@ -178,6 +179,7 @@ function App() {
   const [isLoading, setIsLoading] = useState(true);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [shortcutOverlayOpen, setShortcutOverlayOpen] = useState(false);
+  const [productFeedbackOpen, setProductFeedbackOpen] = useState(false);
   const [uiSettings, setUiSettings] = useState(() => loadUiSettingsFromStorage());
   const [uiSettingsSaving, setUiSettingsSaving] = useState(false);
 
@@ -396,6 +398,11 @@ function App() {
     );
     const topBarUtilityNav = [
       {
+        label: 'Feedback',
+        onClick: () => setProductFeedbackOpen(true),
+        match: () => false
+      },
+      {
         label: 'Growth',
         to: '/marketing-analytics',
         match: (currentLocation) => currentLocation.pathname.startsWith('/marketing-analytics') || currentLocation.pathname.startsWith('/search-console-opportunities')
@@ -419,10 +426,11 @@ function App() {
     ];
 
     const routes = (
-      <Page className="page-area">
-        <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
-        <KeyboardShortcutOverlay open={shortcutOverlayOpen} onClose={() => setShortcutOverlayOpen(false)} />
-        <TourManager />
+        <Page className="page-area">
+          <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
+          <KeyboardShortcutOverlay open={shortcutOverlayOpen} onClose={() => setShortcutOverlayOpen(false)} />
+          <ProductFeedbackModal open={productFeedbackOpen} onClose={() => setProductFeedbackOpen(false)} />
+          <TourManager />
         <Routes>
           <Route path="/" element={hasSeenLanding ? <Navigate to="/think?tab=home" replace /> : <Landing />} />
           <Route path="/today" element={<TodayMode />} />
