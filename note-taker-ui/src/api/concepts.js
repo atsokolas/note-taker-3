@@ -1,5 +1,6 @@
 import api from '../api';
 import { getAuthHeaders } from '../hooks/useAuthHeaders';
+import { clearCached, fetchWithCache } from '../utils/cache';
 
 /**
  * @typedef {Object} Concept
@@ -13,10 +14,19 @@ import { getAuthHeaders } from '../hooks/useAuthHeaders';
  * @property {Array<{ _id: string, title: string, url?: string, createdAt?: string }>} [pinnedArticles]
  */
 
-export const getConcepts = async () => {
-  const res = await api.get('/api/concepts', getAuthHeaders());
-  return res.data || [];
-};
+const CONCEPTS_CACHE_KEY = 'concepts.list';
+const CONCEPTS_CACHE_TTL_MS = 30_000;
+
+export const clearConceptsCache = () => clearCached(CONCEPTS_CACHE_KEY);
+
+export const getConcepts = async ({ force = false } = {}) => fetchWithCache(
+  CONCEPTS_CACHE_KEY,
+  async () => {
+    const res = await api.get('/api/concepts', getAuthHeaders());
+    return res.data || [];
+  },
+  { force, ttlMs: CONCEPTS_CACHE_TTL_MS }
+);
 
 export const getConcept = async (name) => {
   const res = await api.get(`/api/concepts/${encodeURIComponent(name)}`, getAuthHeaders());
@@ -25,11 +35,13 @@ export const getConcept = async (name) => {
 
 export const updateConcept = async (name, payload) => {
   const res = await api.put(`/api/concepts/${encodeURIComponent(name)}`, payload, getAuthHeaders());
+  clearConceptsCache();
   return res.data;
 };
 
 export const updateConceptPins = async (name, payload) => {
   const res = await api.put(`/api/concepts/${encodeURIComponent(name)}/pins`, payload, getAuthHeaders());
+  clearConceptsCache();
   return res.data;
 };
 
@@ -136,6 +148,7 @@ export const acceptConceptAgentSuggestions = async (conceptIdOrName, draftId, pa
   const safeDraft = encodeURIComponent(String(draftId || '').trim());
   const body = payload && typeof payload === 'object' ? payload : {};
   const res = await api.post(`/api/concepts/${safeConcept}/agent/suggestions/${safeDraft}/accept`, body, getAuthHeaders());
+  clearConceptsCache();
   return res.data || { ok: false, conceptId: '', draftId: '', updatedCount: 0, workspaceSummary: null };
 };
 

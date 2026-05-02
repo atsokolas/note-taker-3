@@ -83,6 +83,7 @@ const LibraryArticleRow = React.memo(({
   const sourceLabel = getSourceLabel(article);
   const tags = getArticleTags(article);
   const excerpt = getExcerpt(article);
+  const highlightCount = Number(article?.highlightCount ?? article?.highlights?.length ?? 0);
 
   // Cursor-following bloom — same vocabulary as ThinkHome primary action,
   // applied lightly here because rows are dense and many. CSS-only fallback
@@ -119,7 +120,7 @@ const LibraryArticleRow = React.memo(({
       </div>
       <div className="library-article-row-excerpt">{excerpt}</div>
       <div className="library-article-row-meta">
-        <span>{(article.highlights || []).length} highlights</span>
+        <span>{highlightCount} highlights</span>
       </div>
     </button>
     {onMoveArticle && (

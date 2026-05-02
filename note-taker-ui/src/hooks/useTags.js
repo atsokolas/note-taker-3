@@ -9,32 +9,35 @@ import { fetchWithCache } from '../utils/cache';
  * @property {number} count
  */
 
-const useTags = () => {
+const useTags = ({ enabled = true } = {}) => {
   const [tags, setTags] = useState(/** @type {TagStat[]} */ ([]));
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const fetchTags = useCallback(async () => {
+  const fetchTags = useCallback(async ({ force = false } = {}) => {
+    if (!enabled) return;
     setLoading(true);
     setError('');
     try {
       const data = await fetchWithCache('tags.list', async () => {
         const res = await api.get('/api/tags', getAuthHeaders());
         return res.data || [];
-      });
+      }, { force, ttlMs: 30_000 });
       setTags(data || []);
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to load tags.');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [enabled]);
 
   useEffect(() => {
     fetchTags();
   }, [fetchTags]);
 
-  return { tags, loading, error, refresh: fetchTags };
+  const refresh = useCallback(() => fetchTags({ force: true }), [fetchTags]);
+
+  return { tags, loading, error, refresh };
 };
 
 export default useTags;

@@ -39,6 +39,7 @@ const useLibraryArticles = ({ scope, folderId, query = '', sort = 'recent' }) =>
   }, [fetchArticles]);
 
   const articles = useMemo(() => {
+    const getHighlightCount = (article) => Number(article?.highlightCount ?? article?.highlights?.length ?? 0);
     let next = allArticles;
     if (scope === 'folder' && !folderId) {
       next = [];
@@ -56,7 +57,7 @@ const useLibraryArticles = ({ scope, folderId, query = '', sort = 'recent' }) =>
     if (sort === 'oldest') {
       next = [...next].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
     } else if (sort === 'most-highlighted') {
-      next = [...next].sort((a, b) => (b.highlights?.length || 0) - (a.highlights?.length || 0));
+      next = [...next].sort((a, b) => getHighlightCount(b) - getHighlightCount(a));
     } else {
       next = [...next].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
     }

@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import api from '../../api';
 import { getAuthHeaders } from '../../hooks/useAuthHeaders';
+import { getConcepts } from '../../api/concepts';
 import { Button, QuietButton } from '../ui';
 
 const WM_DRAFT_KEY = 'wm.draft';
@@ -137,12 +138,12 @@ const WorkingMemoryPanel = ({
     let cancelled = false;
     const loadTargets = async () => {
       try {
-        const [conceptRes, questionRes] = await Promise.all([
-          api.get('/api/concepts', getAuthHeaders()),
+        const [conceptRows, questionRes] = await Promise.all([
+          getConcepts(),
           api.get('/api/questions?status=open', getAuthHeaders())
         ]);
         if (cancelled) return;
-        const concepts = Array.isArray(conceptRes.data) ? conceptRes.data : [];
+        const concepts = Array.isArray(conceptRows) ? conceptRows : [];
         const questions = Array.isArray(questionRes.data) ? questionRes.data : [];
         setConceptOptions(concepts);
         setQuestionOptions(questions);

@@ -779,25 +779,31 @@ const Library = () => {
         loading={moving}
         error={moveError}
       />
-      <LibraryConceptModal
-        open={conceptModal.open}
-        highlight={conceptModal.highlight}
-        onClose={() => setConceptModal({ open: false, highlight: null })}
-        onSelect={handleAddConcept}
-      />
-      <LibraryNotebookModal
-        open={notebookModal.open}
-        highlight={notebookModal.highlight}
-        onClose={() => setNotebookModal({ open: false, highlight: null })}
-        onSend={handleSendToNotebook}
-      />
-      <LibraryQuestionModal
-        open={questionModal.open}
-        highlight={questionModal.highlight}
-        onClose={() => setQuestionModal({ open: false, highlight: null })}
-        onCreate={handleAddQuestion}
-        onAttach={handleAttachQuestion}
-      />
+      {conceptModal.open && (
+        <LibraryConceptModal
+          open={conceptModal.open}
+          highlight={conceptModal.highlight}
+          onClose={() => setConceptModal({ open: false, highlight: null })}
+          onSelect={handleAddConcept}
+        />
+      )}
+      {notebookModal.open && (
+        <LibraryNotebookModal
+          open={notebookModal.open}
+          highlight={notebookModal.highlight}
+          onClose={() => setNotebookModal({ open: false, highlight: null })}
+          onSend={handleSendToNotebook}
+        />
+      )}
+      {questionModal.open && (
+        <LibraryQuestionModal
+          open={questionModal.open}
+          highlight={questionModal.highlight}
+          onClose={() => setQuestionModal({ open: false, highlight: null })}
+          onCreate={handleAddQuestion}
+          onAttach={handleAttachQuestion}
+        />
+      )}
     </div>
   );
 };

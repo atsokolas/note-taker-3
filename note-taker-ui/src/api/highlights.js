@@ -1,5 +1,6 @@
 import api from '../api';
 import { getAuthHeaders } from '../hooks/useAuthHeaders';
+import { clearCached, fetchWithCache } from '../utils/cache';
 
 /**
  * @typedef {Object} Highlight
@@ -13,6 +14,20 @@ import { getAuthHeaders } from '../hooks/useAuthHeaders';
  * @property {string} [articleTitle]
  * @property {string} [createdAt]
  */
+
+const ALL_HIGHLIGHTS_CACHE_KEY = 'highlights.all';
+const ALL_HIGHLIGHTS_CACHE_TTL_MS = 30_000;
+
+export const clearHighlightsCache = () => clearCached(ALL_HIGHLIGHTS_CACHE_KEY);
+
+export const getAllHighlights = async ({ force = false } = {}) => fetchWithCache(
+  ALL_HIGHLIGHTS_CACHE_KEY,
+  async () => {
+    const res = await api.get('/api/highlights/all', getAuthHeaders());
+    return res.data || [];
+  },
+  { force, ttlMs: ALL_HIGHLIGHTS_CACHE_TTL_MS }
+);
 
 export const getHighlights = async ({ folderId, tag, articleId, q, cursor, limit } = {}) => {
   const params = new URLSearchParams();
@@ -29,6 +44,7 @@ export const getHighlights = async ({ folderId, tag, articleId, q, cursor, limit
 
 export const updateHighlightTags = async ({ articleId, highlightId, tags = [] }) => {
   const res = await api.patch(`/articles/${articleId}/highlights/${highlightId}`, { tags }, getAuthHeaders());
+  clearHighlightsCache();
   return res.data?.highlight || res.data;
 };
 
@@ -38,11 +54,13 @@ export const updateHighlight = async ({ articleId, highlightId, payload = {} }) 
     payload,
     getAuthHeaders()
   );
+  clearHighlightsCache();
   return res.data?.highlight || res.data;
 };
 
 export const deleteHighlight = async ({ articleId, highlightId }) => {
   const res = await api.delete(`/articles/${articleId}/highlights/${highlightId}`, getAuthHeaders());
+  clearHighlightsCache();
   return res.data;
 };
 
@@ -52,5 +70,6 @@ export const createHighlight = async ({ articleId, text, tags = [], note = '', a
     { text, tags, note, anchor, color },
     getAuthHeaders()
   );
+  clearHighlightsCache();
   return res.data?.highlight || res.data?.createdHighlight || res.data;
 };

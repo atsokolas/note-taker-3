@@ -17,11 +17,11 @@ const useFolders = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const fetchFolders = useCallback(async () => {
+  const fetchFolders = useCallback(async ({ force = false } = {}) => {
     setLoading(true);
     setError('');
     try {
-      const data = await getFolders();
+      const data = await getFolders({ force });
       setFolders(data || []);
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to load folders.');
@@ -34,7 +34,9 @@ const useFolders = () => {
     fetchFolders();
   }, [fetchFolders]);
 
-  return { folders, loading, error, refresh: fetchFolders };
+  const refresh = useCallback(() => fetchFolders({ force: true }), [fetchFolders]);
+
+  return { folders, loading, error, refresh };
 };
 
 export default useFolders;

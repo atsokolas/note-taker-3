@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import api from '../../../api';
 import { getAuthHeaders } from '../../../hooks/useAuthHeaders';
+import { getNotebookSummaries } from '../../../api/notebook';
 import NotebookList from './NotebookList';
 import NotebookEditor from './NotebookEditor';
 
@@ -21,8 +22,7 @@ const NotebookView = ({ onActiveEntryChange }) => {
     setLoadingList(true);
     setError('');
     try {
-      const res = await api.get('/api/notebook', getAuthHeaders());
-      const data = res.data || [];
+      const data = await getNotebookSummaries();
       setEntries(data);
       if (data.length === 0) {
         setActiveId('');
