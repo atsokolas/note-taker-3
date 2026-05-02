@@ -719,11 +719,20 @@ struct ConceptsDatabaseView: View {
             splitView
         } else {
             NavigationStack {
-                conceptList { concept in
-                    NavigationLink {
-                        ConceptDetail(concept: concept)
-                    } label: {
-                        ConceptRow(concept: concept)
+                List {
+                    ForEach(filteredConcepts) { concept in
+                        NavigationLink {
+                            ConceptDetail(concept: concept)
+                        } label: {
+                            ConceptRow(concept: concept)
+                        }
+                    }
+                }
+                .searchable(text: $query, prompt: "Search concepts")
+                .navigationTitle("Concepts")
+                .overlay {
+                    if filteredConcepts.isEmpty {
+                        ContentUnavailableView("No concepts", systemImage: "brain.head.profile", description: Text(store.message.isEmpty ? "Concepts will appear here." : store.message))
                     }
                 }
             }
@@ -1073,77 +1082,111 @@ struct PageDetail: View {
     @EnvironmentObject private var store: WorkspaceStore
     @State private var detail: NotebookEntry?
     @State private var message = ""
-    @State private var isEditing = false
+    @State private var editorTitle = ""
+    @State private var editorContent = ""
+    @State private var editorFolderId = ""
+    @State private var isSaving = false
+    @State private var hasInitializedEditor = false
 
     private var displayPage: NotebookEntry {
         detail ?? page
     }
 
-    private var paragraphs: [String] {
-        if let content = displayPage.content, !content.formattedParagraphs.isEmpty {
-            return content.formattedParagraphs
-        }
-        return displayPage.previewText.isEmpty ? [] : [displayPage.previewText]
+    private var hasChanges: Bool {
+        editorTitle != displayPage.title ||
+            editorContent != (displayPage.content?.asPlainText ?? displayPage.previewText) ||
+            editorFolderId != (displayPage.folder?.id ?? "")
     }
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
-                WorkspaceHeader(title: displayPage.title, subtitle: displayPage.folder?.name ?? "Notebook page")
-                if !paragraphs.isEmpty {
-                    VStack(alignment: .leading, spacing: 12) {
-                        ForEach(Array(paragraphs.enumerated()), id: \.offset) { _, paragraph in
-                            Text(paragraph)
-                                .font(.body)
-                                .lineSpacing(5)
-                                .frame(maxWidth: .infinity, alignment: .leading)
+                WorkspaceHeader(title: "Notebook", subtitle: displayPage.folder?.name ?? "Notebook page")
+
+                VStack(alignment: .leading, spacing: 12) {
+                    TextField("Title", text: $editorTitle)
+                        .font(.title2.weight(.semibold))
+                        .textFieldStyle(.roundedBorder)
+
+                    Picker("Folder", selection: $editorFolderId) {
+                        Text("Unfiled").tag("")
+                        ForEach(store.notebookFolders) { folder in
+                            Text(folder.name).tag(folder.id)
                         }
                     }
-                } else if !message.isEmpty {
+
+                    TextEditor(text: $editorContent)
+                        .font(.body)
+                        .lineSpacing(5)
+                        .frame(minHeight: 280)
+                        .padding(8)
+                        .background(NoeisDesign.panel)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8)
+                                .stroke(NoeisDesign.border, lineWidth: 0.5)
+                        )
+                }
+
+                if !message.isEmpty {
                     Text(message)
-                        .font(.callout)
+                        .font(.caption)
                         .foregroundStyle(NoeisDesign.muted)
-                } else {
-                    ProgressView()
+                }
+
+                if hasChanges {
+                    Button {
+                        Task { await save() }
+                    } label: {
+                        Label(isSaving ? "Saving" : "Save Changes", systemImage: "checkmark.circle")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(isSaving || editorTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
 
                 AgentChatPanel(
                     title: "Agent",
                     contextType: "notebook",
                     contextId: displayPage.id,
-                    contextTitle: displayPage.title
+                    contextTitle: editorTitle.isEmpty ? displayPage.title : editorTitle
                 )
             }
             .padding()
         }
         .background(NoeisDesign.background)
-        .navigationTitle(displayPage.title)
-        .toolbar {
-            Button("Edit") {
-                isEditing = true
-            }
-        }
-        .sheet(isPresented: $isEditing) {
-            NotebookEditorSheet(page: displayPage) { updated in
-                detail = updated
-                store.replacePage(updated)
-            }
-            .environmentObject(store)
-        }
+        .navigationTitle(editorTitle.isEmpty ? displayPage.title : editorTitle)
         .task(id: page.id) {
+            initializeEditorIfNeeded(from: page)
             await load()
         }
     }
 
+    private func initializeEditorIfNeeded(from page: NotebookEntry) {
+        guard !hasInitializedEditor else { return }
+        editorTitle = page.title
+        editorContent = page.content?.asPlainText ?? page.previewText
+        editorFolderId = page.folder?.id ?? ""
+        hasInitializedEditor = true
+    }
+
+    private func applyLoadedPage(_ page: NotebookEntry) {
+        detail = page
+        editorTitle = page.title
+        editorContent = page.content?.asPlainText ?? page.previewText
+        editorFolderId = page.folder?.id ?? ""
+        hasInitializedEditor = true
+    }
+
     private func load() async {
         if page.content?.isEmpty == false {
-            detail = page
+            applyLoadedPage(page)
             return
         }
 
         do {
-            detail = try await NoeisAPI.shared.fetchNotebookEntry(id: page.id)
-            if paragraphs.isEmpty {
+            let loaded = try await NoeisAPI.shared.fetchNotebookEntry(id: page.id)
+            applyLoadedPage(loaded)
+            if editorContent.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 message = "No content yet."
             }
         } catch {
@@ -1154,65 +1197,6 @@ struct PageDetail: View {
             }
         }
     }
-}
-
-struct NotebookEditorSheet: View {
-    let page: NotebookEntry
-    let onSaved: (NotebookEntry) -> Void
-    @EnvironmentObject private var store: WorkspaceStore
-    @Environment(\.dismiss) private var dismiss
-    @State private var title: String
-    @State private var content: String
-    @State private var folderId: String
-    @State private var isSaving = false
-    @State private var message = ""
-
-    init(page: NotebookEntry, onSaved: @escaping (NotebookEntry) -> Void) {
-        self.page = page
-        self.onSaved = onSaved
-        _title = State(initialValue: page.title)
-        _content = State(initialValue: page.content?.asPlainText ?? page.previewText)
-        _folderId = State(initialValue: page.folder?.id ?? "")
-    }
-
-    var body: some View {
-        NavigationStack {
-            Form {
-                Section("Page") {
-                    TextField("Title", text: $title)
-                    TextEditor(text: $content)
-                        .frame(minHeight: 220)
-                }
-
-                Section("Folder") {
-                    Picker("Folder", selection: $folderId) {
-                        Text("Unfiled").tag("")
-                        ForEach(store.notebookFolders) { folder in
-                            Text(folder.name).tag(folder.id)
-                        }
-                    }
-                }
-
-                if !message.isEmpty {
-                    Text(message)
-                        .font(.caption)
-                        .foregroundStyle(NoeisDesign.muted)
-                }
-            }
-            .navigationTitle("Edit Page")
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button(isSaving ? "Saving" : "Save") {
-                        Task { await save() }
-                    }
-                    .disabled(isSaving || title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                }
-            }
-        }
-    }
 
     private func save() async {
         isSaving = true
@@ -1220,13 +1204,14 @@ struct NotebookEditorSheet: View {
 
         do {
             let updated = try await NoeisAPI.shared.updateNotebookEntry(
-                id: page.id,
-                title: title,
-                content: content,
-                folderId: folderId.isEmpty ? nil : folderId
+                id: displayPage.id,
+                title: editorTitle,
+                content: editorContent,
+                folderId: editorFolderId.isEmpty ? nil : editorFolderId
             )
-            onSaved(updated)
-            dismiss()
+            applyLoadedPage(updated)
+            store.replacePage(updated)
+            message = "Saved."
         } catch {
             message = error.localizedDescription
         }
@@ -1276,7 +1261,7 @@ struct ConceptDetail: View {
 
     private func load() async {
         do {
-            material = try await NoeisAPI.shared.fetchConceptMaterial(conceptIdOrName: concept.id)
+            material = try await NoeisAPI.shared.fetchConceptMaterial(conceptIdOrName: concept.name)
         } catch {
             message = error.localizedDescription
         }
