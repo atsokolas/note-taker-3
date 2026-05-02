@@ -83,7 +83,8 @@ const buildNotebookRouter = ({
   router.get('/api/notebook', authenticateToken, async (req, res) => {
     try {
       const userId = req.user.id;
-      const summaryOnly = String(req.query.summary || '').trim() === '1';
+      const summaryParam = String(req.query.summary || '').trim().toLowerCase();
+      const summaryOnly = summaryParam === '1' || summaryParam === 'true';
       if (summaryOnly) {
         const entries = await NotebookEntry.aggregate([
           { $match: { userId: new mongoose.Types.ObjectId(userId) } },
@@ -109,7 +110,7 @@ const buildNotebookRouter = ({
                     ]
                   },
                   0,
-                  180
+                  240
                 ]
               }
             }
