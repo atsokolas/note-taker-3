@@ -1515,6 +1515,13 @@ body {
     margin-bottom: 24px;
 }
 
+.settings-page {
+    height: auto;
+    min-height: calc(100vh - 96px);
+    overflow: visible;
+    padding-bottom: 56px;
+}
+
 .settings-appearance-header {
     display: flex;
     align-items: flex-start;
@@ -2138,9 +2145,11 @@ body {
     justify-content: center;
     align-items: center;
     min-height: 100vh;
+    min-height: 100dvh;
     background-color: var(--bg-color); /* Use the general background color */
     position: relative;
-    overflow: hidden;
+    overflow-x: hidden;
+    overflow-y: auto;
     isolation: isolate;
 }
 
@@ -3274,21 +3283,21 @@ body {
   flex-direction: column;
   gap: 8px;
   text-align: left;
-  border: 1px solid var(--border-color);
+  border: 1px solid rgba(129, 129, 120, 0.18);
   border-radius: 8px;
-  background: var(--card-bg-color);
-  color: var(--text-color);
+  background: var(--vellum-panel, var(--card-bg-color));
+  color: var(--vellum-ink, var(--text-color));
   padding: 16px;
   cursor: pointer;
 }
 
 .think-section-home__card:hover {
-  border-color: var(--primary-color);
-  box-shadow: var(--box-shadow-light);
+  border-color: var(--vellum-ink-soft, var(--primary-color));
+  box-shadow: 0 14px 34px rgba(56, 50, 43, 0.08);
 }
 
 .think-section-home__card span {
-  color: var(--muted-text-color);
+  color: var(--vellum-muted, var(--muted-text-color));
   font-size: 0.75rem;
   font-weight: 800;
   text-transform: uppercase;
@@ -3301,7 +3310,7 @@ body {
 
 .think-section-home__card p {
   margin: 0;
-  color: var(--muted-text-color);
+  color: var(--vellum-muted, var(--muted-text-color));
   font-size: 0.88rem;
   line-height: 1.45;
 }
