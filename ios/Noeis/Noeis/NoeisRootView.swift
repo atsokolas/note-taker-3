@@ -166,7 +166,9 @@ struct NoeisMainView: View {
 @MainActor
 final class WorkspaceStore: ObservableObject {
     @Published var articles: [ArticleSummary] = []
+    @Published var folders: [FolderSummary] = []
     @Published var pages: [NotebookEntry] = []
+    @Published var notebookFolders: [FolderSummary] = []
     @Published var concepts: [ConceptSummary] = []
     @Published var isLoading = false
     @Published var message = ""
@@ -181,10 +183,12 @@ final class WorkspaceStore: ObservableObject {
 
         var failures: [String] = []
         async let articleResult = Self.captureResult { try await NoeisAPI.shared.fetchArticles() }
+        async let folderResult = Self.captureResult { try await NoeisAPI.shared.fetchFolders() }
         async let pageResult = Self.captureResult { try await NoeisAPI.shared.fetchNotebookEntries() }
+        async let notebookFolderResult = Self.captureResult { try await NoeisAPI.shared.fetchNotebookFolders() }
         async let conceptResult = Self.captureResult { try await NoeisAPI.shared.fetchConcepts() }
 
-        let results = await (articleResult, pageResult, conceptResult)
+        let results = await (articleResult, folderResult, pageResult, notebookFolderResult, conceptResult)
 
         switch results.0 {
         case .success(let value):
@@ -195,12 +199,26 @@ final class WorkspaceStore: ObservableObject {
 
         switch results.1 {
         case .success(let value):
+            folders = value
+        case .failure(let error):
+            failures.append("Library folders: \(error.localizedDescription)")
+        }
+
+        switch results.2 {
+        case .success(let value):
             pages = value
         case .failure(let error):
             failures.append("Notebook: \(error.localizedDescription)")
         }
 
-        switch results.2 {
+        switch results.3 {
+        case .success(let value):
+            notebookFolders = value
+        case .failure(let error):
+            failures.append("Notebook folders: \(error.localizedDescription)")
+        }
+
+        switch results.4 {
         case .success(let value):
             concepts = value
         case .failure(let error):
@@ -210,12 +228,20 @@ final class WorkspaceStore: ObservableObject {
         message = failures.joined(separator: "\n")
     }
 
-    func createPage(title: String, content: String) async {
+    func createPage(title: String, content: String, folderId: String? = nil) async {
         do {
-            try await NoeisAPI.shared.createNotebookEntry(title: title, content: content)
+            try await NoeisAPI.shared.createNotebookEntry(title: title, content: content, folderId: folderId)
             await load()
         } catch {
             message = error.localizedDescription
+        }
+    }
+
+    func replacePage(_ page: NotebookEntry) {
+        if let index = pages.firstIndex(where: { $0.id == page.id }) {
+            pages[index] = page
+        } else {
+            pages.insert(page, at: 0)
         }
     }
 
@@ -262,6 +288,18 @@ enum WorkspaceRoute: String, CaseIterable, Identifiable {
         case .settings: return "gearshape"
         }
     }
+}
+
+struct ArticleFolderSection: Identifiable {
+    let id: String
+    let title: String
+    let articles: [ArticleSummary]
+}
+
+struct NotebookFolderSection: Identifiable {
+    let id: String
+    let title: String
+    let pages: [NotebookEntry]
 }
 
 struct WorkspaceTabShell: View {
@@ -427,6 +465,7 @@ struct CaptureView: View {
     @EnvironmentObject private var store: WorkspaceStore
     @State private var title = ""
     @State private var content = ""
+    @State private var folderId = ""
     @State private var status = ""
 
     var body: some View {
@@ -436,6 +475,12 @@ struct CaptureView: View {
                     TextField("Title", text: $title)
                     TextEditor(text: $content)
                         .frame(minHeight: 180)
+                    Picker("Folder", selection: $folderId) {
+                        Text("Unfiled").tag("")
+                        ForEach(store.notebookFolders) { folder in
+                            Text(folder.name).tag(folder.id)
+                        }
+                    }
                     Button("Save Page") {
                         Task { await save() }
                     }
@@ -453,9 +498,10 @@ struct CaptureView: View {
     }
 
     private func save() async {
-        await store.createPage(title: title, content: content)
+        await store.createPage(title: title, content: content, folderId: folderId.isEmpty ? nil : folderId)
         title = ""
         content = ""
+        folderId = ""
         status = store.message.isEmpty ? "Saved" : store.message
     }
 }
@@ -475,6 +521,37 @@ struct LibraryDatabaseView: View {
                 (article.siteName ?? "").localizedCaseInsensitiveContains(query) ||
                 (article.url ?? "").localizedCaseInsensitiveContains(query)
         }
+    }
+
+    private var articleSections: [ArticleFolderSection] {
+        if !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return [ArticleFolderSection(id: "search", title: "Results", articles: filteredArticles)]
+        }
+
+        var sections: [ArticleFolderSection] = []
+        let folderOrder = store.folders.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+        for folder in folderOrder {
+            let articles = filteredArticles.filter { $0.folder?.id == folder.id }
+            if !articles.isEmpty {
+                sections.append(ArticleFolderSection(id: folder.id, title: folder.name, articles: articles))
+            }
+        }
+
+        let unfiled = filteredArticles.filter { ($0.folder?.id ?? "").isEmpty }
+        if !unfiled.isEmpty {
+            sections.append(ArticleFolderSection(id: "unfiled", title: "Unfiled", articles: unfiled))
+        }
+
+        let knownIds = Set(folderOrder.map(\.id))
+        let orphaned = filteredArticles.filter {
+            guard let id = $0.folder?.id, !id.isEmpty else { return false }
+            return !knownIds.contains(id)
+        }
+        if !orphaned.isEmpty {
+            sections.append(ArticleFolderSection(id: "other", title: "Other folders", articles: orphaned))
+        }
+
+        return sections
     }
 
     var body: some View {
@@ -510,8 +587,14 @@ struct LibraryDatabaseView: View {
 
     private func articleList<Row: View>(@ViewBuilder row: @escaping (ArticleSummary) -> Row) -> some View {
         Group {
-            List(filteredArticles, selection: $selectedArticle) { article in
-                row(article)
+            List(selection: $selectedArticle) {
+                ForEach(articleSections) { section in
+                    Section(section.title) {
+                        ForEach(section.articles) { article in
+                            row(article)
+                        }
+                    }
+                }
             }
             .searchable(text: $query, prompt: "Search articles")
             .navigationTitle("Library")
@@ -538,6 +621,28 @@ struct NotebookDatabaseView: View {
             page.title.localizedCaseInsensitiveContains(query) ||
                 page.previewText.localizedCaseInsensitiveContains(query)
         }
+    }
+
+    private var pageSections: [NotebookFolderSection] {
+        if !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return [NotebookFolderSection(id: "search", title: "Results", pages: filteredPages)]
+        }
+
+        var sections: [NotebookFolderSection] = []
+        let folderOrder = store.notebookFolders.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+        for folder in folderOrder {
+            let pages = filteredPages.filter { $0.folder?.id == folder.id }
+            if !pages.isEmpty {
+                sections.append(NotebookFolderSection(id: folder.id, title: folder.name, pages: pages))
+            }
+        }
+
+        let unfiled = filteredPages.filter { ($0.folder?.id ?? "").isEmpty }
+        if !unfiled.isEmpty {
+            sections.append(NotebookFolderSection(id: "unfiled", title: "Unfiled", pages: unfiled))
+        }
+
+        return sections
     }
 
     var body: some View {
@@ -573,8 +678,14 @@ struct NotebookDatabaseView: View {
 
     private func pageList<Row: View>(@ViewBuilder row: @escaping (NotebookEntry) -> Row) -> some View {
         Group {
-            List(filteredPages, selection: $selectedPage) { page in
-                row(page)
+            List(selection: $selectedPage) {
+                ForEach(pageSections) { section in
+                    Section(section.title) {
+                        ForEach(section.pages) { page in
+                            row(page)
+                        }
+                    }
+                }
             }
             .searchable(text: $query, prompt: "Search pages")
             .navigationTitle("Notebook")
@@ -959,8 +1070,10 @@ struct HighlightRow: View {
 
 struct PageDetail: View {
     let page: NotebookEntry
+    @EnvironmentObject private var store: WorkspaceStore
     @State private var detail: NotebookEntry?
     @State private var message = ""
+    @State private var isEditing = false
 
     private var displayPage: NotebookEntry {
         detail ?? page
@@ -976,7 +1089,7 @@ struct PageDetail: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
-                WorkspaceHeader(title: displayPage.title, subtitle: "Notebook page")
+                WorkspaceHeader(title: displayPage.title, subtitle: displayPage.folder?.name ?? "Notebook page")
                 if !paragraphs.isEmpty {
                     VStack(alignment: .leading, spacing: 12) {
                         ForEach(Array(paragraphs.enumerated()), id: \.offset) { _, paragraph in
@@ -993,11 +1106,30 @@ struct PageDetail: View {
                 } else {
                     ProgressView()
                 }
+
+                AgentChatPanel(
+                    title: "Agent",
+                    contextType: "notebook",
+                    contextId: displayPage.id,
+                    contextTitle: displayPage.title
+                )
             }
             .padding()
         }
         .background(NoeisDesign.background)
         .navigationTitle(displayPage.title)
+        .toolbar {
+            Button("Edit") {
+                isEditing = true
+            }
+        }
+        .sheet(isPresented: $isEditing) {
+            NotebookEditorSheet(page: displayPage) { updated in
+                detail = updated
+                store.replacePage(updated)
+            }
+            .environmentObject(store)
+        }
         .task(id: page.id) {
             await load()
         }
@@ -1024,8 +1156,87 @@ struct PageDetail: View {
     }
 }
 
+struct NotebookEditorSheet: View {
+    let page: NotebookEntry
+    let onSaved: (NotebookEntry) -> Void
+    @EnvironmentObject private var store: WorkspaceStore
+    @Environment(\.dismiss) private var dismiss
+    @State private var title: String
+    @State private var content: String
+    @State private var folderId: String
+    @State private var isSaving = false
+    @State private var message = ""
+
+    init(page: NotebookEntry, onSaved: @escaping (NotebookEntry) -> Void) {
+        self.page = page
+        self.onSaved = onSaved
+        _title = State(initialValue: page.title)
+        _content = State(initialValue: page.content?.asPlainText ?? page.previewText)
+        _folderId = State(initialValue: page.folder?.id ?? "")
+    }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("Page") {
+                    TextField("Title", text: $title)
+                    TextEditor(text: $content)
+                        .frame(minHeight: 220)
+                }
+
+                Section("Folder") {
+                    Picker("Folder", selection: $folderId) {
+                        Text("Unfiled").tag("")
+                        ForEach(store.notebookFolders) { folder in
+                            Text(folder.name).tag(folder.id)
+                        }
+                    }
+                }
+
+                if !message.isEmpty {
+                    Text(message)
+                        .font(.caption)
+                        .foregroundStyle(NoeisDesign.muted)
+                }
+            }
+            .navigationTitle("Edit Page")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(isSaving ? "Saving" : "Save") {
+                        Task { await save() }
+                    }
+                    .disabled(isSaving || title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
+            }
+        }
+    }
+
+    private func save() async {
+        isSaving = true
+        defer { isSaving = false }
+
+        do {
+            let updated = try await NoeisAPI.shared.updateNotebookEntry(
+                id: page.id,
+                title: title,
+                content: content,
+                folderId: folderId.isEmpty ? nil : folderId
+            )
+            onSaved(updated)
+            dismiss()
+        } catch {
+            message = error.localizedDescription
+        }
+    }
+}
+
 struct ConceptDetail: View {
     let concept: ConceptSummary
+    @State private var material: ConceptMaterial?
+    @State private var message = ""
 
     var body: some View {
         ScrollView {
@@ -1036,11 +1247,227 @@ struct ConceptDetail: View {
                 Divider()
                 Label("\(concept.count ?? 0) linked items", systemImage: "link")
                     .foregroundStyle(.secondary)
+
+                if let material {
+                    ConceptMaterialSection(material: material)
+                } else if !message.isEmpty {
+                    Text(message)
+                        .font(.callout)
+                        .foregroundStyle(NoeisDesign.muted)
+                } else {
+                    ProgressView()
+                }
+
+                AgentChatPanel(
+                    title: "Agent",
+                    contextType: "concept",
+                    contextId: concept.id,
+                    contextTitle: concept.name
+                )
             }
             .padding()
         }
         .background(NoeisDesign.background)
         .navigationTitle(concept.name)
+        .task(id: concept.id) {
+            await load()
+        }
+    }
+
+    private func load() async {
+        do {
+            material = try await NoeisAPI.shared.fetchConceptMaterial(conceptIdOrName: concept.id)
+        } catch {
+            message = error.localizedDescription
+        }
+    }
+}
+
+struct ConceptMaterialSection: View {
+    let material: ConceptMaterial
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            SectionBlock(title: "Pinned Highlights") {
+                if material.pinnedHighlights.isEmpty {
+                    EmptyRow(text: "No pinned highlights yet.")
+                } else {
+                    ForEach(material.pinnedHighlights) { highlight in
+                        ConceptHighlightRow(highlight: highlight)
+                    }
+                }
+            }
+
+            SectionBlock(title: "Recent Material") {
+                ForEach(material.recentHighlights.prefix(8)) { highlight in
+                    ConceptHighlightRow(highlight: highlight)
+                }
+                if material.recentHighlights.isEmpty {
+                    EmptyRow(text: "No recent highlights found.")
+                }
+            }
+
+            SectionBlock(title: "Linked Notes") {
+                ForEach(material.linkedNotes.prefix(8)) { note in
+                    PageRow(page: note)
+                }
+                if material.linkedNotes.isEmpty {
+                    EmptyRow(text: "No linked notes yet.")
+                }
+            }
+
+            SectionBlock(title: "Linked Articles") {
+                ForEach(material.linkedArticles.prefix(8)) { article in
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(article.title)
+                            .font(.headline)
+                        Text("\(article.highlightCount ?? 0) highlights")
+                            .font(.caption)
+                            .foregroundStyle(NoeisDesign.muted)
+                    }
+                    .padding()
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                if material.linkedArticles.isEmpty {
+                    EmptyRow(text: "No linked articles yet.")
+                }
+            }
+        }
+    }
+}
+
+struct ConceptHighlightRow: View {
+    let highlight: ConceptMaterialHighlight
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(highlight.articleTitle ?? "Highlight")
+                .font(.caption)
+                .foregroundStyle(NoeisDesign.muted)
+            Text(highlight.text.asPlainText)
+                .font(.callout)
+                .lineSpacing(3)
+            if let note = highlight.note, !note.asPlainText.isEmpty {
+                Text(note.asPlainText)
+                    .font(.footnote)
+                    .foregroundStyle(NoeisDesign.muted)
+            }
+        }
+        .padding()
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+struct EmptyRow: View {
+    let text: String
+
+    var body: some View {
+        Text(text)
+            .font(.caption)
+            .foregroundStyle(NoeisDesign.muted)
+            .padding()
+            .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+struct AgentChatPanel: View {
+    let title: String
+    let contextType: String
+    let contextId: String
+    let contextTitle: String
+    @State private var messages: [AgentChatMessage] = []
+    @State private var draft = ""
+    @State private var isSending = false
+    @State private var errorMessage = ""
+
+    var body: some View {
+        SectionBlock(title: title) {
+            VStack(alignment: .leading, spacing: 12) {
+                if messages.isEmpty {
+                    Text("Ask the agent to pull related material, critique the note, summarize the concept, or suggest next steps.")
+                        .font(.caption)
+                        .foregroundStyle(NoeisDesign.muted)
+                        .padding(.horizontal)
+                        .padding(.top)
+                } else {
+                    ForEach(messages) { message in
+                        AgentMessageRow(message: message)
+                    }
+                }
+
+                if !errorMessage.isEmpty {
+                    Text(errorMessage)
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                        .padding(.horizontal)
+                }
+
+                HStack(alignment: .bottom, spacing: 8) {
+                    TextField("Ask about this \(contextType)", text: $draft, axis: .vertical)
+                        .textFieldStyle(.roundedBorder)
+                        .lineLimit(1...4)
+                    Button {
+                        Task { await send() }
+                    } label: {
+                        Image(systemName: isSending ? "hourglass" : "paperplane.fill")
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(isSending || draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
+                .padding()
+            }
+        }
+    }
+
+    private func send() async {
+        let text = draft.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else { return }
+
+        draft = ""
+        errorMessage = ""
+        let userMessage = AgentChatMessage(role: "user", text: text)
+        messages.append(userMessage)
+        isSending = true
+        defer { isSending = false }
+
+        do {
+            let response = try await NoeisAPI.shared.chatWithAgent(
+                message: text,
+                history: messages,
+                contextType: contextType,
+                contextId: contextId,
+                contextTitle: contextTitle
+            )
+            messages.append(AgentChatMessage(role: "assistant", text: response.reply?.isEmpty == false ? response.reply! : "No reply generated."))
+            if let related = response.relatedItems, !related.isEmpty {
+                let relatedText = related.prefix(4).compactMap { item in
+                    item.title ?? item.snippet
+                }.joined(separator: "\n")
+                if !relatedText.isEmpty {
+                    messages.append(AgentChatMessage(role: "assistant", text: "Related material:\n\(relatedText)"))
+                }
+            }
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+}
+
+struct AgentMessageRow: View {
+    let message: AgentChatMessage
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(message.role == "user" ? "You" : "Agent")
+                .font(.caption.bold())
+                .foregroundStyle(NoeisDesign.muted)
+            Text(message.text)
+                .font(.callout)
+                .lineSpacing(3)
+        }
+        .padding()
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(message.role == "user" ? NoeisDesign.background : Color(.tertiarySystemGroupedBackground))
     }
 }
 

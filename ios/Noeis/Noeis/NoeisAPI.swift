@@ -40,6 +40,43 @@ struct SessionResponse: Decodable {
     let user: NoeisSessionSummary?
 }
 
+struct FolderSummary: Decodable, Identifiable, Hashable {
+    let id: String
+    let name: String
+    let parentFolderId: String?
+    let articleCount: Int?
+
+    enum CodingKeys: String, CodingKey {
+        case id = "_id"
+        case name
+        case parentFolderId
+        case articleCount
+    }
+
+    init(id: String, name: String, parentFolderId: String? = nil, articleCount: Int? = nil) {
+        self.id = id
+        self.name = name
+        self.parentFolderId = parentFolderId
+        self.articleCount = articleCount
+    }
+
+    init(from decoder: Decoder) throws {
+        if let value = try? decoder.singleValueContainer().decode(String.self) {
+            id = value
+            name = "Folder"
+            parentFolderId = nil
+            articleCount = nil
+            return
+        }
+
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decodeIfPresent(String.self, forKey: .id) ?? ""
+        name = try container.decodeIfPresent(String.self, forKey: .name) ?? "Folder"
+        parentFolderId = try container.decodeIfPresent(String.self, forKey: .parentFolderId)
+        articleCount = try container.decodeIfPresent(Int.self, forKey: .articleCount)
+    }
+}
+
 struct ArticleHighlight: Decodable, Identifiable, Hashable {
     let id: String
     let text: String
@@ -63,6 +100,7 @@ struct ArticleSummary: Decodable, Identifiable, Hashable {
     let title: String
     let url: String?
     let siteName: String?
+    let folder: FolderSummary?
     let highlights: [ArticleHighlight]
 
     enum CodingKeys: String, CodingKey {
@@ -70,6 +108,7 @@ struct ArticleSummary: Decodable, Identifiable, Hashable {
         case title
         case url
         case siteName
+        case folder
         case highlights
     }
 
@@ -79,6 +118,7 @@ struct ArticleSummary: Decodable, Identifiable, Hashable {
         title = try container.decodeIfPresent(String.self, forKey: .title) ?? "Untitled article"
         url = try container.decodeIfPresent(String.self, forKey: .url)
         siteName = try container.decodeIfPresent(String.self, forKey: .siteName)
+        folder = try container.decodeIfPresent(FolderSummary.self, forKey: .folder)
         highlights = try container.decodeIfPresent([ArticleHighlight].self, forKey: .highlights) ?? []
     }
 }
@@ -88,6 +128,7 @@ struct ArticleDetailData: Decodable, Identifiable, Hashable {
     let title: String
     let url: String?
     let siteName: String?
+    let folder: FolderSummary?
     let content: String?
     let highlights: [ArticleHighlight]
 
@@ -96,6 +137,7 @@ struct ArticleDetailData: Decodable, Identifiable, Hashable {
         case title
         case url
         case siteName
+        case folder
         case content
         case highlights
     }
@@ -106,6 +148,7 @@ struct ArticleDetailData: Decodable, Identifiable, Hashable {
         title = try container.decodeIfPresent(String.self, forKey: .title) ?? "Untitled article"
         url = try container.decodeIfPresent(String.self, forKey: .url)
         siteName = try container.decodeIfPresent(String.self, forKey: .siteName)
+        folder = try container.decodeIfPresent(FolderSummary.self, forKey: .folder)
         content = try container.decodeIfPresent(String.self, forKey: .content)
         highlights = try container.decodeIfPresent([ArticleHighlight].self, forKey: .highlights) ?? []
     }
@@ -115,6 +158,7 @@ struct NotebookEntry: Decodable, Identifiable, Hashable {
     let id: String
     let title: String
     let content: String?
+    let folder: FolderSummary?
     let snippet: String?
     let blockCount: Int?
     let updatedAt: String?
@@ -123,11 +167,86 @@ struct NotebookEntry: Decodable, Identifiable, Hashable {
         case id = "_id"
         case title
         case content
+        case folder
         case snippet
         case blockCount
         case updatedAt
     }
 
+}
+
+struct ConceptMaterial: Decodable {
+    let pinnedHighlights: [ConceptMaterialHighlight]
+    let recentHighlights: [ConceptMaterialHighlight]
+    let linkedArticles: [ConceptMaterialArticle]
+    let linkedNotes: [NotebookEntry]
+}
+
+struct ConceptMaterialHighlight: Decodable, Identifiable, Hashable {
+    let id: String
+    let articleId: String?
+    let articleTitle: String?
+    let text: String
+    let note: String?
+    let tags: [String]
+    let type: String?
+
+    enum CodingKeys: String, CodingKey {
+        case id = "_id"
+        case articleId
+        case articleTitle
+        case text
+        case note
+        case tags
+        case type
+    }
+}
+
+struct ConceptMaterialArticle: Decodable, Identifiable, Hashable {
+    let id: String
+    let title: String
+    let url: String?
+    let highlightCount: Int?
+
+    enum CodingKeys: String, CodingKey {
+        case id = "_id"
+        case title
+        case url
+        case highlightCount
+    }
+}
+
+struct AgentChatMessage: Identifiable, Hashable {
+    let id = UUID()
+    let role: String
+    let text: String
+}
+
+struct AgentChatResponse: Decodable {
+    let reply: String?
+    let relatedItems: [AgentRelatedItem]?
+}
+
+struct AgentRelatedItem: Decodable, Identifiable, Hashable {
+    let id: String
+    let type: String?
+    let title: String?
+    let snippet: String?
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case type
+        case title
+        case snippet
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        type = try container.decodeIfPresent(String.self, forKey: .type)
+        title = try container.decodeIfPresent(String.self, forKey: .title)
+        snippet = try container.decodeIfPresent(String.self, forKey: .snippet)
+        id = try container.decodeIfPresent(String.self, forKey: .id) ?? [type, title, snippet].compactMap { $0 }.joined(separator: "-")
+    }
 }
 
 struct ConceptSummary: Decodable, Identifiable, Hashable {
@@ -190,6 +309,10 @@ struct NoeisAPI {
         try await request("/get-articles")
     }
 
+    func fetchFolders() async throws -> [FolderSummary] {
+        try await request("/api/folders?includeCounts=true")
+    }
+
     func fetchArticle(id: String) async throws -> ArticleDetailData {
         try await request("/articles/\(id)")
     }
@@ -198,19 +321,57 @@ struct NoeisAPI {
         try await request("/api/notebook?summary=1")
     }
 
+    func fetchNotebookFolders() async throws -> [FolderSummary] {
+        try await request("/api/notebook/folders")
+    }
+
     func fetchNotebookEntry(id: String) async throws -> NotebookEntry {
         try await request("/api/notebook/\(id)")
     }
 
-    func createNotebookEntry(title: String, content: String) async throws {
-        let _: NotebookEntry = try await request("/api/notebook", method: "POST", body: ["title": title, "content": content])
+    func createNotebookEntry(title: String, content: String, folderId: String? = nil) async throws {
+        let _: NotebookEntry = try await request("/api/notebook", method: "POST", body: [
+            "title": title,
+            "content": content,
+            "folder": folderId ?? ""
+        ])
+    }
+
+    func updateNotebookEntry(id: String, title: String, content: String, folderId: String?) async throws -> NotebookEntry {
+        try await request("/api/notebook/\(id)", method: "PUT", body: [
+            "title": title,
+            "content": content,
+            "folder": folderId ?? ""
+        ])
     }
 
     func fetchConcepts() async throws -> [ConceptSummary] {
         try await request("/api/concepts")
     }
 
-    private func request<Response: Decodable>(_ path: String, method: String = "GET", body: [String: String]? = nil, requiresAuth: Bool = true) async throws -> Response {
+    func fetchConceptMaterial(conceptIdOrName: String) async throws -> ConceptMaterial {
+        let safe = conceptIdOrName.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? conceptIdOrName
+        return try await request("/api/concepts/\(safe)/material")
+    }
+
+    func chatWithAgent(message: String, history: [AgentChatMessage], contextType: String, contextId: String, contextTitle: String) async throws -> AgentChatResponse {
+        let context: [String: Any] = [
+            "type": contextType,
+            "id": contextId,
+            "title": contextTitle
+        ]
+        let historyPayload = history.map { ["role": $0.role, "text": $0.text] }
+        return try await request("/api/agent/chat", method: "POST", body: [
+            "message": message,
+            "threadTitle": contextTitle,
+            "persistThread": true,
+            "context": context,
+            "history": historyPayload,
+            "limit": 6
+        ])
+    }
+
+    private func request<Response: Decodable>(_ path: String, method: String = "GET", body: [String: Any]? = nil, requiresAuth: Bool = true) async throws -> Response {
         var request = URLRequest(url: url(for: path))
         request.httpMethod = method
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
