@@ -20,6 +20,20 @@ const buildLegacyContentRouter = ({
 }) => {
   const router = express.Router();
 
+  const clampListLimit = (value, fallback = 1000, max = 1000) => {
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed) || parsed <= 0) return fallback;
+    return Math.min(Math.floor(parsed), max);
+  };
+
+  const buildArticleSort = (sort = 'recent') => {
+    if (sort === 'oldest') return { createdAt: 1, _id: 1 };
+    if (sort === 'most-highlighted') return { highlightCount: -1, createdAt: -1, _id: -1 };
+    return { createdAt: -1, _id: -1 };
+  };
+
+  const escapeRegex = (value = '') => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
   router.get('/api/notes', authenticateToken, async (req, res) => {
     try {
       const userId = req.user.id;
@@ -240,6 +254,90 @@ const buildLegacyContentRouter = ({
       res.json(articles);
     } catch (err) {
       console.error("❌ Failed to fetch articles:", err);
+      res.status(500).json({ error: "Failed to fetch articles" });
+    }
+  });
+
+  router.get('/api/articles', authenticateToken, async (req, res) => {
+    try {
+      const userId = new mongoose.Types.ObjectId(req.user.id);
+      const {
+        scope = 'all',
+        folderId = '',
+        q = '',
+        query = '',
+        sort = 'recent',
+        limit
+      } = req.query;
+      const match = { userId };
+      const normalizedScope = String(scope || 'all').trim();
+      if (normalizedScope === 'unfiled') {
+        match.$or = [{ folder: null }, { folder: { $exists: false } }];
+      } else if (normalizedScope === 'folder' && folderId) {
+        match.folder = new mongoose.Types.ObjectId(folderId);
+      }
+
+      const normalizedQuery = String(q || query || '').trim();
+      if (normalizedQuery) {
+        const regex = new RegExp(escapeRegex(normalizedQuery), 'i');
+        match.$and = [
+          ...(match.$and || []),
+          { $or: [{ title: regex }, { url: regex }, { siteName: regex }] }
+        ];
+      }
+
+      const rows = await Article.aggregate([
+        { $match: match },
+        {
+          $project: {
+            title: 1,
+            url: 1,
+            createdAt: 1,
+            updatedAt: 1,
+            folder: 1,
+            author: 1,
+            publicationDate: 1,
+            siteName: 1,
+            highlightCount: { $size: { $ifNull: ['$highlights', []] } }
+          }
+        },
+        { $sort: buildArticleSort(sort) },
+        { $limit: clampListLimit(limit) },
+        {
+          $lookup: {
+            from: 'folders',
+            localField: 'folder',
+            foreignField: '_id',
+            as: 'folderDoc'
+          }
+        },
+        {
+          $addFields: {
+            folder: {
+              $let: {
+                vars: { folder: { $arrayElemAt: ['$folderDoc', 0] } },
+                in: {
+                  $cond: [
+                    { $ifNull: ['$$folder', false] },
+                    {
+                      _id: '$$folder._id',
+                      name: '$$folder.name',
+                      createdAt: '$$folder.createdAt',
+                      updatedAt: '$$folder.updatedAt'
+                    },
+                    null
+                  ]
+                }
+              }
+            }
+          }
+        },
+        { $project: { folderDoc: 0 } }
+      ]);
+
+      res.json(rows);
+    } catch (err) {
+      console.error("❌ Failed to fetch article summaries:", err);
       res.status(500).json({ error: "Failed to fetch articles" });
     }
   });

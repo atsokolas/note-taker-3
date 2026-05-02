@@ -11,6 +11,10 @@ import {
   updateBoardItems
 } from '../api/boards';
 import { createConnection } from '../api/connections';
+import { getConcepts } from '../api/concepts';
+import { getArticles } from '../api/articles';
+import { getAllHighlights } from '../api/highlights';
+import { getNotebookSummaries } from '../api/notebook';
 import { createProfilerLogger, endPerfTimer, logPerf, startPerfTimer } from '../utils/perf';
 
 const MIN_CARD_WIDTH = 220;
@@ -323,17 +327,17 @@ const StudioBoard = ({ scopeType, scopeId, scopeLabel = '', embedded = false }) 
     setSourceLoading(true);
     setSourceError('');
     try {
-      const [notesRes, highlightsRes, articlesRes, conceptsRes] = await Promise.all([
-        api.get('/api/notebook', getAuthHeaders()),
-        api.get('/api/highlights/all', getAuthHeaders()),
-        api.get('/get-articles', getAuthHeaders()),
-        api.get('/api/concepts', getAuthHeaders())
+      const [notes, highlights, articles, concepts] = await Promise.all([
+        getNotebookSummaries(),
+        getAllHighlights(),
+        getArticles(),
+        getConcepts()
       ]);
       setSources({
-        notes: Array.isArray(notesRes.data) ? notesRes.data : [],
-        highlights: Array.isArray(highlightsRes.data) ? highlightsRes.data : [],
-        articles: Array.isArray(articlesRes.data) ? articlesRes.data : [],
-        concepts: Array.isArray(conceptsRes.data) ? conceptsRes.data : []
+        notes: Array.isArray(notes) ? notes : [],
+        highlights: Array.isArray(highlights) ? highlights : [],
+        articles: Array.isArray(articles) ? articles : [],
+        concepts: Array.isArray(concepts) ? concepts : []
       });
     } catch (err) {
       setSourceError(err.response?.data?.error || 'Failed to load source items.');

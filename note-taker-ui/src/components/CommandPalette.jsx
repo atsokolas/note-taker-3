@@ -4,6 +4,7 @@ import api from '../api';
 import { searchKeyword } from '../api/retrieval';
 import { Card, Button } from './ui';
 import { buildCanonicalArticlePath } from '../utils/firstInsight';
+import { getNotebookSummaries } from '../api/notebook';
 
 const EMPTY_GROUPS = {
   notes: [],
@@ -52,12 +53,12 @@ const CommandPalette = ({ open, onClose }) => {
       try {
         const token = localStorage.getItem('token');
         const headers = { Authorization: `Bearer ${token}` };
-        const [nbRes, colRes, tagRes] = await Promise.all([
-          api.get('/api/notebook', { headers }),
+        const [notebookRows, colRes, tagRes] = await Promise.all([
+          getNotebookSummaries(),
           api.get('/api/collections', { headers }),
           api.get('/api/tags', { headers })
         ]);
-        setNotebook(nbRes.data || []);
+        setNotebook(notebookRows || []);
         setCollections(colRes.data || []);
         setConcepts(tagRes.data || []);
       } catch (err) {

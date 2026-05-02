@@ -1,4 +1,4 @@
-import React, { Profiler, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { Profiler, Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { PageTitle, SectionHeader, QuietButton, Button, TagChip, SegmentedNav, SurfaceCard } from '../components/ui';
 import useConcepts from '../hooks/useConcepts';
@@ -10,10 +10,6 @@ import {
   updateConceptPins,
   suggestConceptWorkspaceFromLibrary
 } from '../api/concepts';
-import NotebookEditor from '../components/think/notebook/NotebookEditor';
-import NotebookContext from '../components/think/notebook/NotebookContext';
-import NotebookFolderTree from '../components/think/notebook/NotebookFolderTree';
-import NotebookMoveEntryModal from '../components/think/notebook/NotebookMoveEntryModal';
 import useQuestions from '../hooks/useQuestions';
 import { createQuestion, updateQuestion } from '../api/questions';
 import QuestionInput from '../components/think/questions/QuestionInput';
@@ -22,42 +18,19 @@ import HighlightCard from '../components/blocks/HighlightCard';
 import NoteCard from '../components/blocks/NoteCard';
 import ArticleCard from '../components/blocks/ArticleCard';
 import AddToConceptModal from '../components/think/concepts/AddToConceptModal';
-import QuestionEditor from '../components/think/questions/QuestionEditor';
 import ThreePaneLayout from '../layout/ThreePaneLayout';
 import useHighlights from '../hooks/useHighlights';
 import useTags from '../hooks/useTags';
 import api from '../api';
 import { getAuthHeaders } from '../hooks/useAuthHeaders';
-import LibraryConceptModal from '../components/library/LibraryConceptModal';
-import LibraryNotebookModal from '../components/library/LibraryNotebookModal';
-import LibraryQuestionModal from '../components/library/LibraryQuestionModal';
-import SynthesisModal from '../components/think/SynthesisModal';
-import WorkingMemoryPanel from '../components/working-memory/WorkingMemoryPanel';
-import ConceptPathWorkspace from '../components/paths/ConceptPathWorkspace';
-import ThoughtPartnerPanel from '../components/agent/ThoughtPartnerPanel';
-import AgentSkillDock from '../components/agent/AgentSkillDock';
-import AgentArtifactDraftsPanel from '../components/agent/AgentArtifactDraftsPanel';
-import UpkeepCyclesPanel from '../components/agent/UpkeepCyclesPanel';
-import ProtocolApprovalsPanel from '../components/agent/ProtocolApprovalsPanel';
-import ConceptTemplatePickerModal from '../components/think/concepts/ConceptTemplatePickerModal';
-import ThinkHome from '../components/think/ThinkHome';
 import useIdeaWorkbenchModel from '../components/think/concepts/idea-workbench/useIdeaWorkbenchModel';
-import ConceptShareModal from '../components/think/concepts/ConceptShareModal';
-import ConceptEvidenceStreamView, {
-  formatEditorialEvidenceHtml,
-  ConceptEvidenceStreamRail,
-  ConceptPartnerRail
-} from '../components/think/concepts/ConceptEvidenceStreamView';
+import { formatEditorialEvidenceHtml } from '../components/think/concepts/formatEditorialEvidenceHtml';
 import VirtualList from '../components/virtual/VirtualList';
-import SemanticRelatedPanel from '../components/retrieval/SemanticRelatedPanel';
-import HandoffsSidebar from '../components/think/handoffs/HandoffsSidebar';
-import HandoffsMainPanel from '../components/think/handoffs/HandoffsMainPanel';
-import ThreadsSidebar from '../components/think/threads/ThreadsSidebar';
-import ThreadsMainPanel from '../components/think/threads/ThreadsMainPanel';
 import { getConnectionsForScope } from '../api/connections';
 import { createProfilerLogger, endPerfTimer, logPerf, startPerfTimer } from '../utils/perf';
 import { listReturnQueue } from '../api/returnQueue';
 import { getArticles } from '../api/articles';
+import { getNotebookFolders, getNotebookSummaries } from '../api/notebook';
 import { resolveThoughtPartnerContext } from './thinkPartnerContext';
 import useHandoffs from '../hooks/useHandoffs';
 import {
@@ -91,6 +64,36 @@ import {
 } from '../utils/ambientAgentContext';
 import { buildQueuedAgentSkillPrompt } from '../utils/agentSkillInvocation';
 import { buildConceptAgentHandoffPayload } from '../utils/conceptAgentHandoff';
+
+const NotebookEditor = lazy(() => import('../components/think/notebook/NotebookEditor'));
+const NotebookContext = lazy(() => import('../components/think/notebook/NotebookContext'));
+const NotebookFolderTree = lazy(() => import('../components/think/notebook/NotebookFolderTree'));
+const NotebookMoveEntryModal = lazy(() => import('../components/think/notebook/NotebookMoveEntryModal'));
+const QuestionEditor = lazy(() => import('../components/think/questions/QuestionEditor'));
+const LibraryConceptModal = lazy(() => import('../components/library/LibraryConceptModal'));
+const LibraryNotebookModal = lazy(() => import('../components/library/LibraryNotebookModal'));
+const LibraryQuestionModal = lazy(() => import('../components/library/LibraryQuestionModal'));
+const SynthesisModal = lazy(() => import('../components/think/SynthesisModal'));
+const WorkingMemoryPanel = lazy(() => import('../components/working-memory/WorkingMemoryPanel'));
+const ConceptPathWorkspace = lazy(() => import('../components/paths/ConceptPathWorkspace'));
+const ThoughtPartnerPanel = lazy(() => import('../components/agent/ThoughtPartnerPanel'));
+const AgentSkillDock = lazy(() => import('../components/agent/AgentSkillDock'));
+const AgentArtifactDraftsPanel = lazy(() => import('../components/agent/AgentArtifactDraftsPanel'));
+const UpkeepCyclesPanel = lazy(() => import('../components/agent/UpkeepCyclesPanel'));
+const ProtocolApprovalsPanel = lazy(() => import('../components/agent/ProtocolApprovalsPanel'));
+const ConceptTemplatePickerModal = lazy(() => import('../components/think/concepts/ConceptTemplatePickerModal'));
+const ConceptEvidenceStreamView = lazy(() => import('../components/think/concepts/ConceptEvidenceStreamView'));
+const ConceptEvidenceStreamRail = lazy(() => import('../components/think/concepts/ConceptEvidenceStreamView')
+  .then((module) => ({ default: module.ConceptEvidenceStreamRail })));
+const ConceptPartnerRail = lazy(() => import('../components/think/concepts/ConceptEvidenceStreamView')
+  .then((module) => ({ default: module.ConceptPartnerRail })));
+const ThinkHome = lazy(() => import('../components/think/ThinkHome'));
+const ConceptShareModal = lazy(() => import('../components/think/concepts/ConceptShareModal'));
+const SemanticRelatedPanel = lazy(() => import('../components/retrieval/SemanticRelatedPanel'));
+const HandoffsSidebar = lazy(() => import('../components/think/handoffs/HandoffsSidebar'));
+const HandoffsMainPanel = lazy(() => import('../components/think/handoffs/HandoffsMainPanel'));
+const ThreadsSidebar = lazy(() => import('../components/think/threads/ThreadsSidebar'));
+const ThreadsMainPanel = lazy(() => import('../components/think/threads/ThreadsMainPanel'));
 
 const THINK_RIGHT_STORAGE_KEY = 'workspace-right-open:/think';
 const THINK_RIGHT_MIGRATION_KEY = 'workspace-right-open:/think:migrated-v2';
@@ -378,6 +381,12 @@ const PartnerLineList = React.memo(({ items = [], emptyMessage = 'Nothing here y
   items.length > 0 ? <ul>{items}</ul> : <p>{emptyMessage}</p>
 ));
 
+const ThinkPanelFallback = () => (
+  <div className="section-stack">
+    <p className="muted small">Loading workspace…</p>
+  </div>
+);
+
 const ThinkMode = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const rawTabParam = searchParams.get('tab') || '';
@@ -414,9 +423,20 @@ const ThinkMode = () => {
   const [activationState, setActivationState] = useState(() => readFirstInsightState());
   const [activeNotebookEntry, setActiveNotebookEntry] = useState(null);
   const [activeQuestion, setActiveQuestion] = useState(null);
-  const highlightsEnabled = activeView !== 'insights';
+  const highlightSearchEnabled = (
+    activeView === 'notebook'
+    || activeView === 'questions'
+    || activeView === 'paths'
+    || activeView === 'insights'
+  );
+  const highlightsEnabled = activeView === 'home' || highlightSearchEnabled;
+  const questionsListEnabled = activeView === 'home' || activeView === 'questions';
+  const notebookListEnabled = activeView === 'home' || activeView === 'notebook';
+  const notebookFoldersEnabled = activeView === 'notebook';
+  const conceptsListEnabled = activeView === 'home' || activeView === 'concepts';
+  const workingMemoryEnabled = activeView !== 'concepts';
   const { highlightMap, highlights: allHighlights } = useHighlights({ enabled: highlightsEnabled });
-  const { tags } = useTags();
+  const { tags } = useTags({ enabled: highlightSearchEnabled });
   const [addModal, setAddModal] = useState({ open: false, mode: 'highlight' });
   const notebookInsertRef = useRef(null);
   const questionInsertRef = useRef(null);
@@ -631,7 +651,7 @@ const ThinkMode = () => {
   const headerNewMenuRef = useRef(null);
   const headerActionsMenuRef = useRef(null);
 
-  const { concepts, loading: conceptsLoading, error: conceptsError, refresh: refreshConcepts } = useConcepts();
+  const { concepts, loading: conceptsLoading, error: conceptsError, refresh: refreshConcepts } = useConcepts({ enabled: conceptsListEnabled });
   const selectedName = queryConcept;
   // Seed useConcept with the row from the already-loaded concepts list so the
   // manuscript renders its title immediately on click instead of showing a
@@ -821,7 +841,7 @@ const ThinkMode = () => {
 
   const questionQuery = useQuestions({
     status: questionStatus,
-    enabled: true
+    enabled: questionsListEnabled
   });
   const { questions: allQuestions, loading: allQuestionsLoading, error: allQuestionsError, setQuestions: setAllQuestions } = questionQuery;
   const filteredQuestions = useMemo(() => {
@@ -1138,13 +1158,12 @@ const ThinkMode = () => {
     };
   }, [connectionScopeType, connectionScopeId]);
 
-  const loadNotebookEntries = useCallback(async () => {
+  const loadNotebookEntries = useCallback(async ({ force = false } = {}) => {
     const startedAt = startPerfTimer();
     setNotebookLoadingList(true);
     setNotebookListError('');
     try {
-      const res = await api.get('/api/notebook', getAuthHeaders());
-      const data = res.data || [];
+      const data = await getNotebookSummaries({ force });
       setNotebookEntries(data);
       logPerf('think.notebook.list.load', {
         count: data.length,
@@ -1187,15 +1206,16 @@ const ThinkMode = () => {
   }, []);
 
   useEffect(() => {
+    if (!notebookListEnabled) return;
     loadNotebookEntries();
-  }, [loadNotebookEntries]);
+  }, [loadNotebookEntries, notebookListEnabled]);
 
-  const loadNotebookFolders = useCallback(async () => {
+  const loadNotebookFolders = useCallback(async ({ force = false } = {}) => {
     setNotebookFoldersLoading(true);
     setNotebookFoldersError('');
     try {
-      const res = await api.get('/api/notebook/folders', getAuthHeaders());
-      setNotebookFolders(Array.isArray(res.data) ? res.data : []);
+      const data = await getNotebookFolders({ force });
+      setNotebookFolders(Array.isArray(data) ? data : []);
     } catch (err) {
       setNotebookFoldersError(err.response?.data?.error || 'Failed to load notebook folders.');
       setNotebookFolders([]);
@@ -1205,8 +1225,9 @@ const ThinkMode = () => {
   }, []);
 
   useEffect(() => {
+    if (!notebookFoldersEnabled) return;
     loadNotebookFolders();
-  }, [loadNotebookFolders]);
+  }, [loadNotebookFolders, notebookFoldersEnabled]);
 
   const handleArtifactDraftChanged = useCallback(async (result) => {
     await Promise.all([
@@ -1219,7 +1240,7 @@ const ThinkMode = () => {
     if (!promoted || !artifactType) return;
 
     if (artifactType === 'note' && promoted?._id) {
-      await loadNotebookEntries();
+      await loadNotebookEntries({ force: true });
       return;
     }
 
@@ -1242,7 +1263,7 @@ const ThinkMode = () => {
 
   const sharedArtifactDraftsModel = useAgentArtifactDrafts({
     status: 'all',
-    autoLoad: activeView !== 'threads' && activeView !== 'handoffs',
+    autoLoad: activeView !== 'threads' && activeView !== 'handoffs' && activeView !== 'concepts',
     onChanged: handleArtifactDraftChanged
   });
 
@@ -1312,6 +1333,7 @@ const ThinkMode = () => {
   }, [activeThreadData?.threadId, activeView, searchParams, selectedThreadId, setSearchParams, threads]);
 
   useEffect(() => {
+    if (activeView !== 'home') return;
     let cancelled = false;
     const loadThinkHomeData = async () => {
       setHomeQueueLoading(true);
@@ -1321,7 +1343,7 @@ const ThinkMode = () => {
       try {
         const [queueRows, articleRows] = await Promise.all([
           listReturnQueue({ filter: 'all' }),
-          getArticles({ sort: 'recent' })
+          getArticles({ sort: 'recent', limit: THINK_HOME_LIMIT })
         ]);
         if (cancelled) return;
         setHomeReturnQueue(Array.isArray(queueRows) ? queueRows.slice(0, THINK_HOME_LIMIT) : []);
@@ -1343,7 +1365,7 @@ const ThinkMode = () => {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [activeView]);
 
   useEffect(() => {
     if (activeView !== 'notebook' || !activeNotebookEntry?._id) return;
@@ -1398,11 +1420,16 @@ const ThinkMode = () => {
   useEffect(() => {
     if (!notebookActiveId || activeView !== 'notebook') return;
     loadNotebookEntry(notebookActiveId);
+  }, [notebookActiveId, activeView, loadNotebookEntry]);
+
+  useEffect(() => {
+    if (!notebookActiveId || activeView !== 'notebook') return;
+    if (searchParams.get('tab') === 'notebook' && searchParams.get('entryId') === notebookActiveId) return;
     const params = new URLSearchParams(searchParams);
     params.set('tab', 'notebook');
     params.set('entryId', notebookActiveId);
     setSearchParams(params, { replace: true });
-  }, [notebookActiveId, activeView, loadNotebookEntry, searchParams, setSearchParams]);
+  }, [notebookActiveId, activeView, searchParams, setSearchParams]);
 
   React.useEffect(() => {
     setDescriptionDraft(concept?.description || '');
@@ -1520,7 +1547,7 @@ const ThinkMode = () => {
     const nextNotebookId = String(created?.notebookEntryId || created?.notebookEntry?._id || '').trim();
 
     if (target === 'notebook' && nextNotebookId) {
-      await loadNotebookEntries();
+      await loadNotebookEntries({ force: true });
       setNotebookActiveId(nextNotebookId);
       handleSelectView('notebook');
     } else {
@@ -1828,8 +1855,9 @@ const ThinkMode = () => {
   }, [workingMemoryScope, workingMemoryView]);
 
   useEffect(() => {
+    if (!workingMemoryEnabled) return;
     loadWorkingMemoryItems();
-  }, [loadWorkingMemoryItems]);
+  }, [loadWorkingMemoryItems, workingMemoryEnabled]);
 
   const addWorkingMemoryItem = useCallback(async ({
     sourceType,
@@ -5420,7 +5448,7 @@ const ThinkMode = () => {
   const activePrimaryNavValue = THINK_SUB_NAV_ITEMS.some((item) => item.value === activeView) ? activeView : '';
 
   return (
-    <>
+    <Suspense fallback={<ThinkPanelFallback />}>
       {isConceptWorkbenchView ? (
         selectedConceptLayout
       ) : !disableEditorialShell && activeView === 'home' ? (
@@ -5620,52 +5648,64 @@ const ThinkMode = () => {
         onAddHighlights={handleAddHighlights}
         onAddArticles={handleAddArticles}
       />
-      <LibraryConceptModal
-        open={highlightConceptModal.open}
-        highlight={highlightConceptModal.highlight}
-        onClose={() => setHighlightConceptModal({ open: false, highlight: null })}
-        onSelect={handleAddHighlightToConcept}
-      />
-      <LibraryNotebookModal
-        open={highlightNotebookModal.open}
-        highlight={highlightNotebookModal.highlight}
-        onClose={() => setHighlightNotebookModal({ open: false, highlight: null })}
-        onSend={handleSendHighlightToNotebook}
-      />
-      <LibraryQuestionModal
-        open={highlightQuestionModal.open}
-        highlight={highlightQuestionModal.highlight}
-        onClose={() => setHighlightQuestionModal({ open: false, highlight: null })}
-        onCreate={handleCreateQuestionFromHighlight}
-        onAttach={handleAttachHighlightToQuestion}
-      />
-      <SynthesisModal
-        open={synthesisOpen}
-        title="Synthesis"
-        loading={synthesisLoading}
-        error={synthesisError}
-        data={synthesisData}
-        onClose={() => setSynthesisOpen(false)}
-        onAddTheme={handleAddThemeConcept}
-        onAddQuestion={handleAddSynthesisQuestion}
-        onLinkSuggested={handleLinkSuggested}
-      />
-      <ConceptTemplatePickerModal
-        open={templatePickerOpen}
-        onClose={closeTemplatePicker}
-        onCreated={handleTemplateCreated}
-      />
-      <NotebookMoveEntryModal
-        open={Boolean(notebookMoveModalEntry)}
-        entry={notebookMoveModalEntry}
-        folders={notebookFolders}
-        loading={Boolean(notebookMovePendingId)}
-        error={notebookMoveError}
-        onClose={handleCloseNotebookMoveModal}
-        onCreateFolder={handleCreateNotebookFolder}
-        onMove={(folderId) => handleMoveNotebookEntry(notebookMoveModalEntry, folderId)}
-      />
-    </>
+      {highlightConceptModal.open && (
+        <LibraryConceptModal
+          open={highlightConceptModal.open}
+          highlight={highlightConceptModal.highlight}
+          onClose={() => setHighlightConceptModal({ open: false, highlight: null })}
+          onSelect={handleAddHighlightToConcept}
+        />
+      )}
+      {highlightNotebookModal.open && (
+        <LibraryNotebookModal
+          open={highlightNotebookModal.open}
+          highlight={highlightNotebookModal.highlight}
+          onClose={() => setHighlightNotebookModal({ open: false, highlight: null })}
+          onSend={handleSendHighlightToNotebook}
+        />
+      )}
+      {highlightQuestionModal.open && (
+        <LibraryQuestionModal
+          open={highlightQuestionModal.open}
+          highlight={highlightQuestionModal.highlight}
+          onClose={() => setHighlightQuestionModal({ open: false, highlight: null })}
+          onCreate={handleCreateQuestionFromHighlight}
+          onAttach={handleAttachHighlightToQuestion}
+        />
+      )}
+      {synthesisOpen && (
+        <SynthesisModal
+          open={synthesisOpen}
+          title="Synthesis"
+          loading={synthesisLoading}
+          error={synthesisError}
+          data={synthesisData}
+          onClose={() => setSynthesisOpen(false)}
+          onAddTheme={handleAddThemeConcept}
+          onAddQuestion={handleAddSynthesisQuestion}
+          onLinkSuggested={handleLinkSuggested}
+        />
+      )}
+      {templatePickerOpen && (
+        <ConceptTemplatePickerModal
+          open={templatePickerOpen}
+          onClose={closeTemplatePicker}
+          onCreated={handleTemplateCreated}
+        />
+      )}
+      {notebookMoveModalEntry && (
+        <NotebookMoveEntryModal
+          open={Boolean(notebookMoveModalEntry)}
+          entry={notebookMoveModalEntry}
+          folders={notebookFolders}
+          loading={Boolean(notebookMovePendingId)}
+          error={notebookMoveError}
+          onClose={handleCloseNotebookMoveModal}
+          onCreateFolder={handleCreateNotebookFolder}
+          onMove={(folderId) => handleMoveNotebookEntry(notebookMoveModalEntry, folderId)}
+        />
+      )}
+    </Suspense>
   );
 };
 

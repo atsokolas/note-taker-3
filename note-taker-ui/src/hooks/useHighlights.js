@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import api from '../api';
-import { getAuthHeaders } from './useAuthHeaders';
+import { getAllHighlights } from '../api/highlights';
 import { endPerfTimer, logPerf, startPerfTimer } from '../utils/perf';
 
 /**
@@ -20,14 +19,13 @@ const useHighlights = ({ enabled = true } = {}) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const fetchHighlights = useCallback(async () => {
+  const fetchHighlights = useCallback(async ({ force = false } = {}) => {
     if (!enabled) return;
     const startedAt = startPerfTimer();
     setLoading(true);
     setError('');
     try {
-      const res = await api.get('/api/highlights/all', getAuthHeaders());
-      const next = res.data || [];
+      const next = await getAllHighlights({ force });
       setHighlights(next);
       logPerf('think.highlights.load', {
         count: next.length,
@@ -52,7 +50,9 @@ const useHighlights = ({ enabled = true } = {}) => {
     return map;
   }, [highlights]);
 
-  return { highlights, highlightMap, loading, error, refresh: fetchHighlights };
+  const refresh = useCallback(() => fetchHighlights({ force: true }), [fetchHighlights]);
+
+  return { highlights, highlightMap, loading, error, refresh };
 };
 
 export default useHighlights;

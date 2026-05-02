@@ -1,5 +1,6 @@
 import api from '../api';
 import { getAuthHeaders } from '../hooks/useAuthHeaders';
+import { clearCachedPrefix, fetchWithCache } from '../utils/cache';
 
 /**
  * @typedef {Object} Article
@@ -18,39 +19,33 @@ import { getAuthHeaders } from '../hooks/useAuthHeaders';
  * @param {string} [params.query]
  * @param {'recent'|'oldest'|'most-highlighted'} [params.sort]
  * @param {string} [params.cursor]
+ * @param {number} [params.limit]
  */
 export const getArticles = async ({
   scope = 'all',
   folderId = '',
   query = '',
   sort = 'recent',
-  cursor
+  cursor,
+  limit
 } = {}) => {
-  const res = await api.get('/get-articles', getAuthHeaders());
-  let articles = res.data || [];
-
-  if (scope === 'unfiled') {
-    articles = articles.filter(article => !article.folder);
-  } else if (scope === 'folder' && folderId) {
-    articles = articles.filter(article => article.folder?._id === folderId);
-  }
-
-  const normalizedQuery = query.trim().toLowerCase();
-  if (normalizedQuery) {
-    articles = articles.filter(article =>
-      `${article.title || ''} ${article.url || ''}`.toLowerCase().includes(normalizedQuery)
-    );
-  }
-
-  if (sort === 'oldest') {
-    articles = [...articles].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
-  } else if (sort === 'most-highlighted') {
-    articles = [...articles].sort((a, b) => (b.highlights?.length || 0) - (a.highlights?.length || 0));
-  } else {
-    articles = [...articles].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-  }
-
-  return articles;
+  const params = new URLSearchParams();
+  if (scope) params.set('scope', scope);
+  if (folderId) params.set('folderId', folderId);
+  if (query) params.set('query', query);
+  if (sort) params.set('sort', sort);
+  if (cursor) params.set('cursor', cursor);
+  if (limit) params.set('limit', String(limit));
+  const suffix = params.toString();
+  const path = `/api/articles${suffix ? `?${suffix}` : ''}`;
+  return fetchWithCache(
+    `articles:${path}`,
+    async () => {
+      const res = await api.get(path, getAuthHeaders());
+      return res.data || [];
+    },
+    { ttlMs: 30_000 }
+  );
 };
 
 export const moveArticleToFolder = async (articleId, folderId) => {
@@ -59,5 +54,6 @@ export const moveArticleToFolder = async (articleId, folderId) => {
     { folderId: folderId || 'uncategorized' },
     getAuthHeaders()
   );
+  clearCachedPrefix('articles:');
   return res.data;
 };

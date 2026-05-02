@@ -4,15 +4,9 @@ import { createArtifactSlashItems } from '../editor/editorArtifacts';
 import { sanitizeAgentReplyText } from './idea-workbench/useIdeaWorkbenchModel';
 import { CONCEPT_ACTIONS } from './idea-workbench/conceptActionDispatch';
 import { CONCEPT_NOTEBOOK_DRAFT_TEMPLATES } from '../../../utils/conceptNotebookDraft';
+import { formatEditorialEvidenceHtml } from './formatEditorialEvidenceHtml';
 
 const clean = (value) => String(value || '').trim();
-const escapeHtml = (value = '') => String(value || '')
-  .replace(/&/g, '&amp;')
-  .replace(/</g, '&lt;')
-  .replace(/>/g, '&gt;');
-const escapeAttribute = (value = '') => String(value || '')
-  .replace(/&/g, '&amp;')
-  .replace(/"/g, '&quot;');
 const truncate = (value = '', limit = 220) => {
   const safe = clean(value);
   if (safe.length <= limit) return safe;
@@ -73,18 +67,6 @@ const getDraftApplyLabel = (draft = {}) => {
   if (safe === 'question') return 'Keep question open';
   if (safe === 'refresh') return 'Review fresh material';
   return 'Attach sources';
-};
-
-export const formatEditorialEvidenceHtml = (card) => {
-  if (!card) return '<p></p>';
-  const source = clean(card.source) || clean(card.title) || 'Source';
-  const content = clean(card.content) || clean(card.title) || 'Material';
-  const whyItMatters = clean(card.whyItMatters);
-  return [
-    `<blockquote data-source-key="${escapeAttribute(clean(card.sourceKey || card.id))}"><p>${escapeHtml(content)}</p></blockquote>`,
-    `<p><em>From ${escapeHtml(source)}.</em></p>`,
-    whyItMatters ? `<p>${escapeHtml(whyItMatters)}</p>` : ''
-  ].filter(Boolean).join('');
 };
 
 const DraggableEvidenceCard = ({ card, onIntegrate }) => {

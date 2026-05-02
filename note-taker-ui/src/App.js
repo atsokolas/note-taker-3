@@ -1,47 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { Suspense, lazy, useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useParams } from 'react-router-dom';
 import { Analytics } from '@vercel/analytics/react';
 import Register from './components/Register';
 import Login from './components/Login';
-import Trending from './pages/Trending';
 import Landing from './pages/Landing';
-import AllHighlights from './pages/AllHighlights';
-import Search from './pages/Search';
-import TagBrowser from './pages/TagBrowser';
-import Collections from './pages/Collections';
-import CollectionDetail from './pages/CollectionDetail';
-import Views from './pages/Views';
-import ViewDetail from './pages/ViewDetail';
-import Export from './pages/Export';
-import TodayMode from './pages/TodayMode';
-import Library from './pages/Library';
-import ThinkMode from './pages/ThinkMode';
-import MapView from './pages/MapView';
-import ReviewMode from './pages/ReviewMode';
-import ReturnQueue from './pages/ReturnQueue';
-import Settings from './pages/Settings';
-import HowToUse from './pages/HowToUse';
-import Integrations from './pages/Integrations';
-import DataIntegrations from './pages/DataIntegrations';
-import AiSecondBrain from './pages/AiSecondBrain';
-import GuidesHub from './pages/GuidesHub';
-import SecondBrainApp from './pages/SecondBrainApp';
-import AiNoteTakingWorkflow from './pages/AiNoteTakingWorkflow';
-import PersonalKnowledgeManagementAi from './pages/PersonalKnowledgeManagementAi';
-import MostNoteAppsSolveCaptureNotRecall from './pages/MostNoteAppsSolveCaptureNotRecall';
-import ReadwiseIsNotASecondBrain from './pages/ReadwiseIsNotASecondBrain';
-import HighlightsIntoConcepts from './pages/HighlightsIntoConcepts';
-import AiReadingWithoutLosingJudgment from './pages/AiReadingWithoutLosingJudgment';
-import BestSecondBrainAppForFounders from './pages/BestSecondBrainAppForFounders';
-import BestSecondBrainAppForResearchers from './pages/BestSecondBrainAppForResearchers';
-import ImportReadingArchiveIntoNoeis from './pages/ImportReadingArchiveIntoNoeis';
-import SourceBackedSynthesisWorkflow from './pages/SourceBackedSynthesisWorkflow';
-import MarketingAnalytics from './pages/MarketingAnalytics';
-import SearchConsoleOpportunities from './pages/SearchConsoleOpportunities';
-import PrivacyPolicy from './pages/PrivacyPolicy';
-import TermsOfUse from './pages/TermsOfUse';
-import DesignPreview from './pages/DesignPreview';
-import SharedConcept from './pages/SharedConcept';
 import CommandPalette from './components/CommandPalette';
 import KeyboardShortcutOverlay from './components/KeyboardShortcutOverlay';
 import { clearStoredTokens, hasUsableStoredToken } from './api';
@@ -72,6 +34,49 @@ import './styles/think-calm-d3a.css';
 import './styles/calm-ui-system.css';
 import './styles/design-preview.css';
 import './styles/stitch-editorial.css';
+
+const Trending = lazy(() => import('./pages/Trending'));
+const AllHighlights = lazy(() => import('./pages/AllHighlights'));
+const Search = lazy(() => import('./pages/Search'));
+const TagBrowser = lazy(() => import('./pages/TagBrowser'));
+const Collections = lazy(() => import('./pages/Collections'));
+const CollectionDetail = lazy(() => import('./pages/CollectionDetail'));
+const Views = lazy(() => import('./pages/Views'));
+const ViewDetail = lazy(() => import('./pages/ViewDetail'));
+const Export = lazy(() => import('./pages/Export'));
+const TodayMode = lazy(() => import('./pages/TodayMode'));
+const Library = lazy(() => import('./pages/Library'));
+const ThinkMode = lazy(() => import('./pages/ThinkMode'));
+const MapView = lazy(() => import('./pages/MapView'));
+const ReviewMode = lazy(() => import('./pages/ReviewMode'));
+const ReturnQueue = lazy(() => import('./pages/ReturnQueue'));
+const Settings = lazy(() => import('./pages/Settings'));
+const HowToUse = lazy(() => import('./pages/HowToUse'));
+const Integrations = lazy(() => import('./pages/Integrations'));
+const DataIntegrations = lazy(() => import('./pages/DataIntegrations'));
+const AiSecondBrain = lazy(() => import('./pages/AiSecondBrain'));
+const GuidesHub = lazy(() => import('./pages/GuidesHub'));
+const SecondBrainApp = lazy(() => import('./pages/SecondBrainApp'));
+const AiNoteTakingWorkflow = lazy(() => import('./pages/AiNoteTakingWorkflow'));
+const PersonalKnowledgeManagementAi = lazy(() => import('./pages/PersonalKnowledgeManagementAi'));
+const MostNoteAppsSolveCaptureNotRecall = lazy(() => import('./pages/MostNoteAppsSolveCaptureNotRecall'));
+const ReadwiseIsNotASecondBrain = lazy(() => import('./pages/ReadwiseIsNotASecondBrain'));
+const HighlightsIntoConcepts = lazy(() => import('./pages/HighlightsIntoConcepts'));
+const AiReadingWithoutLosingJudgment = lazy(() => import('./pages/AiReadingWithoutLosingJudgment'));
+const BestSecondBrainAppForFounders = lazy(() => import('./pages/BestSecondBrainAppForFounders'));
+const BestSecondBrainAppForResearchers = lazy(() => import('./pages/BestSecondBrainAppForResearchers'));
+const ImportReadingArchiveIntoNoeis = lazy(() => import('./pages/ImportReadingArchiveIntoNoeis'));
+const SourceBackedSynthesisWorkflow = lazy(() => import('./pages/SourceBackedSynthesisWorkflow'));
+const MarketingAnalytics = lazy(() => import('./pages/MarketingAnalytics'));
+const SearchConsoleOpportunities = lazy(() => import('./pages/SearchConsoleOpportunities'));
+const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy'));
+const TermsOfUse = lazy(() => import('./pages/TermsOfUse'));
+const DesignPreview = lazy(() => import('./pages/DesignPreview'));
+const SharedConcept = lazy(() => import('./pages/SharedConcept'));
+
+const RouteLoadingFallback = () => (
+  <div className="page-loading" role="status" aria-live="polite">Loading...</div>
+);
 
 const bootstrapDevTokenFromLocation = () => {
   if (process.env.NODE_ENV !== 'development') return false;
@@ -135,38 +140,40 @@ const PublicRoutes = ({ chromeStoreLink, handleLoginSuccess, uiSettings }) => {
 
   return (
     <div className={publicContainerClassName}>
-      <Routes>
-        <Route path="/" element={<Landing />} />
-        <Route path="/guides" element={<GuidesHub />} />
-        <Route path="/ai-second-brain" element={<AiSecondBrain />} />
-        <Route path="/second-brain-app" element={<SecondBrainApp />} />
-        <Route path="/ai-note-taking-workflow" element={<AiNoteTakingWorkflow />} />
-        <Route path="/personal-knowledge-management-ai" element={<PersonalKnowledgeManagementAi />} />
-        <Route path="/most-note-apps-solve-capture-not-recall" element={<MostNoteAppsSolveCaptureNotRecall />} />
-        <Route path="/readwise-is-not-a-second-brain" element={<ReadwiseIsNotASecondBrain />} />
-        <Route path="/highlights-into-concepts" element={<HighlightsIntoConcepts />} />
-        <Route path="/ai-reading-without-losing-judgment" element={<AiReadingWithoutLosingJudgment />} />
-        <Route path="/best-second-brain-app-for-founders" element={<BestSecondBrainAppForFounders />} />
-        <Route path="/best-second-brain-app-for-researchers" element={<BestSecondBrainAppForResearchers />} />
-        <Route path="/import-reading-archive-into-noeis" element={<ImportReadingArchiveIntoNoeis />} />
-        <Route path="/source-backed-synthesis-workflow" element={<SourceBackedSynthesisWorkflow />} />
-        <Route path="/privacy" element={<PrivacyPolicy />} />
-        <Route path="/terms" element={<TermsOfUse />} />
-        <Route path="/design-preview" element={<DesignPreview />} />
-        <Route path="/share/concepts/:slug" element={<SharedConcept />} />
-        <Route path="/register" element={<Register chromeStoreLink={chromeStoreLink} />} />
-        <Route
-          path="/login"
-          element={(
-            <Login
-              onLoginSuccess={handleLoginSuccess}
-              chromeStoreLink={chromeStoreLink}
-              brandEnergy={uiSettings.brandEnergy}
-            />
-          )}
-        />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+      <Suspense fallback={<RouteLoadingFallback />}>
+        <Routes>
+          <Route path="/" element={<Landing />} />
+          <Route path="/guides" element={<GuidesHub />} />
+          <Route path="/ai-second-brain" element={<AiSecondBrain />} />
+          <Route path="/second-brain-app" element={<SecondBrainApp />} />
+          <Route path="/ai-note-taking-workflow" element={<AiNoteTakingWorkflow />} />
+          <Route path="/personal-knowledge-management-ai" element={<PersonalKnowledgeManagementAi />} />
+          <Route path="/most-note-apps-solve-capture-not-recall" element={<MostNoteAppsSolveCaptureNotRecall />} />
+          <Route path="/readwise-is-not-a-second-brain" element={<ReadwiseIsNotASecondBrain />} />
+          <Route path="/highlights-into-concepts" element={<HighlightsIntoConcepts />} />
+          <Route path="/ai-reading-without-losing-judgment" element={<AiReadingWithoutLosingJudgment />} />
+          <Route path="/best-second-brain-app-for-founders" element={<BestSecondBrainAppForFounders />} />
+          <Route path="/best-second-brain-app-for-researchers" element={<BestSecondBrainAppForResearchers />} />
+          <Route path="/import-reading-archive-into-noeis" element={<ImportReadingArchiveIntoNoeis />} />
+          <Route path="/source-backed-synthesis-workflow" element={<SourceBackedSynthesisWorkflow />} />
+          <Route path="/privacy" element={<PrivacyPolicy />} />
+          <Route path="/terms" element={<TermsOfUse />} />
+          <Route path="/design-preview" element={<DesignPreview />} />
+          <Route path="/share/concepts/:slug" element={<SharedConcept />} />
+          <Route path="/register" element={<Register chromeStoreLink={chromeStoreLink} />} />
+          <Route
+            path="/login"
+            element={(
+              <Login
+                onLoginSuccess={handleLoginSuccess}
+                chromeStoreLink={chromeStoreLink}
+                brandEnergy={uiSettings.brandEnergy}
+              />
+            )}
+          />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </Suspense>
     </div>
   );
 };
@@ -423,72 +430,74 @@ function App() {
         <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
         <KeyboardShortcutOverlay open={shortcutOverlayOpen} onClose={() => setShortcutOverlayOpen(false)} />
         <TourManager />
-        <Routes>
-          <Route path="/" element={hasSeenLanding ? <Navigate to="/think?tab=home" replace /> : <Landing />} />
-          <Route path="/today" element={<TodayMode />} />
-          <Route path="/library" element={<Library />} />
-          <Route path="/think" element={<ThinkMode />} />
-          <Route path="/map" element={<MapView />} />
-          <Route path="/return-queue" element={<ReturnQueue />} />
-          <Route path="/review" element={<ReviewMode />} />
-          <Route
-            path="/settings"
-            element={(
-              <Settings
-                uiSettings={uiSettings}
-                uiSettingsSaving={uiSettingsSaving}
-                onUiSettingsChange={handleUiSettingsChange}
-              />
-            )}
-          />
-          <Route path="/how-to-use" element={<HowToUse />} />
-          <Route path="/integrations" element={<Integrations />} />
-          <Route path="/data-integrations" element={<DataIntegrations />} />
-          <Route path="/marketing-analytics" element={<MarketingAnalytics />} />
-          <Route path="/search-console-opportunities" element={<SearchConsoleOpportunities />} />
-          <Route path="/guides" element={<GuidesHub />} />
-          <Route path="/ai-second-brain" element={<AiSecondBrain />} />
-          <Route path="/second-brain-app" element={<SecondBrainApp />} />
-          <Route path="/ai-note-taking-workflow" element={<AiNoteTakingWorkflow />} />
-          <Route path="/personal-knowledge-management-ai" element={<PersonalKnowledgeManagementAi />} />
-          <Route path="/most-note-apps-solve-capture-not-recall" element={<MostNoteAppsSolveCaptureNotRecall />} />
-          <Route path="/readwise-is-not-a-second-brain" element={<ReadwiseIsNotASecondBrain />} />
-          <Route path="/highlights-into-concepts" element={<HighlightsIntoConcepts />} />
-          <Route path="/ai-reading-without-losing-judgment" element={<AiReadingWithoutLosingJudgment />} />
-          <Route path="/best-second-brain-app-for-founders" element={<BestSecondBrainAppForFounders />} />
-          <Route path="/best-second-brain-app-for-researchers" element={<BestSecondBrainAppForResearchers />} />
-          <Route path="/import-reading-archive-into-noeis" element={<ImportReadingArchiveIntoNoeis />} />
-          <Route path="/source-backed-synthesis-workflow" element={<SourceBackedSynthesisWorkflow />} />
-          <Route path="/privacy" element={<PrivacyPolicy />} />
-          <Route path="/terms" element={<TermsOfUse />} />
-          <Route path="/design-preview" element={<DesignPreview />} />
-          <Route path="/share/concepts/:slug" element={<SharedConcept />} />
+        <Suspense fallback={<RouteLoadingFallback />}>
+          <Routes>
+            <Route path="/" element={hasSeenLanding ? <Navigate to="/think?tab=home" replace /> : <Landing />} />
+            <Route path="/today" element={<TodayMode />} />
+            <Route path="/library" element={<Library />} />
+            <Route path="/think" element={<ThinkMode />} />
+            <Route path="/map" element={<MapView />} />
+            <Route path="/return-queue" element={<ReturnQueue />} />
+            <Route path="/review" element={<ReviewMode />} />
+            <Route
+              path="/settings"
+              element={(
+                <Settings
+                  uiSettings={uiSettings}
+                  uiSettingsSaving={uiSettingsSaving}
+                  onUiSettingsChange={handleUiSettingsChange}
+                />
+              )}
+            />
+            <Route path="/how-to-use" element={<HowToUse />} />
+            <Route path="/integrations" element={<Integrations />} />
+            <Route path="/data-integrations" element={<DataIntegrations />} />
+            <Route path="/marketing-analytics" element={<MarketingAnalytics />} />
+            <Route path="/search-console-opportunities" element={<SearchConsoleOpportunities />} />
+            <Route path="/guides" element={<GuidesHub />} />
+            <Route path="/ai-second-brain" element={<AiSecondBrain />} />
+            <Route path="/second-brain-app" element={<SecondBrainApp />} />
+            <Route path="/ai-note-taking-workflow" element={<AiNoteTakingWorkflow />} />
+            <Route path="/personal-knowledge-management-ai" element={<PersonalKnowledgeManagementAi />} />
+            <Route path="/most-note-apps-solve-capture-not-recall" element={<MostNoteAppsSolveCaptureNotRecall />} />
+            <Route path="/readwise-is-not-a-second-brain" element={<ReadwiseIsNotASecondBrain />} />
+            <Route path="/highlights-into-concepts" element={<HighlightsIntoConcepts />} />
+            <Route path="/ai-reading-without-losing-judgment" element={<AiReadingWithoutLosingJudgment />} />
+            <Route path="/best-second-brain-app-for-founders" element={<BestSecondBrainAppForFounders />} />
+            <Route path="/best-second-brain-app-for-researchers" element={<BestSecondBrainAppForResearchers />} />
+            <Route path="/import-reading-archive-into-noeis" element={<ImportReadingArchiveIntoNoeis />} />
+            <Route path="/source-backed-synthesis-workflow" element={<SourceBackedSynthesisWorkflow />} />
+            <Route path="/privacy" element={<PrivacyPolicy />} />
+            <Route path="/terms" element={<TermsOfUse />} />
+            <Route path="/design-preview" element={<DesignPreview />} />
+            <Route path="/share/concepts/:slug" element={<SharedConcept />} />
 
-          {/* Legacy/feature routes kept for compatibility */}
-          <Route path="/brain" element={<Navigate to="/review?tab=patterns" replace />} />
-          <Route path="/resurface" element={<Navigate to="/review?tab=resurface" replace />} />
-          <Route path="/all-highlights" element={<AllHighlights />} />
-          <Route path="/tags" element={<TagBrowser />} />
-          <Route path="/tags/:tagName" element={<LegacyConceptRedirect />} />
-          <Route path="/collections" element={<Collections />} />
-          <Route path="/collections/:slug" element={<CollectionDetail />} />
-          <Route path="/notebook" element={<Navigate to="/think?tab=notebook" replace />} />
-          <Route path="/views" element={<Views />} />
-          <Route path="/views/:id" element={<ViewDetail />} />
-          <Route path="/search" element={<Search />} />
-          <Route path="/journey" element={<Navigate to="/review?tab=journey" replace />} />
-          <Route path="/concept/:tag" element={<LegacyConceptRedirect />} />
-          <Route path="/board" element={<Navigate to="/think?tab=concepts" replace />} />
-          <Route path="/studio-board" element={<Navigate to="/think?tab=concepts" replace />} />
-          <Route path="/boards" element={<Navigate to="/think?tab=concepts" replace />} />
-          <Route path="/boards/*" element={<Navigate to="/think?tab=concepts" replace />} />
-          <Route path="/articles/:id" element={<LegacyArticleRedirect />} />
-          <Route path="/trending" element={<Trending />} />
-          <Route path="/export" element={<Export />} />
-          {/* Redirect authenticated users away from auth pages */}
-          <Route path="/login" element={<Navigate to="/" replace />} />
-          <Route path="/register" element={<Navigate to="/" replace />} />
-        </Routes>
+            {/* Legacy/feature routes kept for compatibility */}
+            <Route path="/brain" element={<Navigate to="/review?tab=patterns" replace />} />
+            <Route path="/resurface" element={<Navigate to="/review?tab=resurface" replace />} />
+            <Route path="/all-highlights" element={<AllHighlights />} />
+            <Route path="/tags" element={<TagBrowser />} />
+            <Route path="/tags/:tagName" element={<LegacyConceptRedirect />} />
+            <Route path="/collections" element={<Collections />} />
+            <Route path="/collections/:slug" element={<CollectionDetail />} />
+            <Route path="/notebook" element={<Navigate to="/think?tab=notebook" replace />} />
+            <Route path="/views" element={<Views />} />
+            <Route path="/views/:id" element={<ViewDetail />} />
+            <Route path="/search" element={<Search />} />
+            <Route path="/journey" element={<Navigate to="/review?tab=journey" replace />} />
+            <Route path="/concept/:tag" element={<LegacyConceptRedirect />} />
+            <Route path="/board" element={<Navigate to="/think?tab=concepts" replace />} />
+            <Route path="/studio-board" element={<Navigate to="/think?tab=concepts" replace />} />
+            <Route path="/boards" element={<Navigate to="/think?tab=concepts" replace />} />
+            <Route path="/boards/*" element={<Navigate to="/think?tab=concepts" replace />} />
+            <Route path="/articles/:id" element={<LegacyArticleRedirect />} />
+            <Route path="/trending" element={<Trending />} />
+            <Route path="/export" element={<Export />} />
+            {/* Redirect authenticated users away from auth pages */}
+            <Route path="/login" element={<Navigate to="/" replace />} />
+            <Route path="/register" element={<Navigate to="/" replace />} />
+          </Routes>
+        </Suspense>
       </Page>
     );
 

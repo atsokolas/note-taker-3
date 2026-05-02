@@ -1,4 +1,5 @@
 const express = require('express');
+const mongoose = require('mongoose');
 
 const NOTEBOOK_USER_FOLDER_OWNERSHIP = 'user_owned';
 
@@ -82,6 +83,42 @@ const buildNotebookRouter = ({
   router.get('/api/notebook', authenticateToken, async (req, res) => {
     try {
       const userId = req.user.id;
+      const summaryOnly = String(req.query.summary || '').trim() === '1';
+      if (summaryOnly) {
+        const entries = await NotebookEntry.aggregate([
+          { $match: { userId: new mongoose.Types.ObjectId(userId) } },
+          {
+            $project: {
+              title: 1,
+              folder: 1,
+              type: 1,
+              claimId: 1,
+              tags: 1,
+              linkedArticleId: 1,
+              linkedHighlightIds: 1,
+              importMeta: 1,
+              createdAt: 1,
+              updatedAt: 1,
+              blockCount: { $size: { $ifNull: ['$blocks', []] } },
+              snippet: {
+                $substrCP: [
+                  {
+                    $ifNull: [
+                      { $arrayElemAt: ['$blocks.text', 0] },
+                      { $ifNull: ['$content', ''] }
+                    ]
+                  },
+                  0,
+                  180
+                ]
+              }
+            }
+          },
+          { $sort: { updatedAt: -1, _id: -1 } }
+        ]);
+        res.status(200).json(entries);
+        return;
+      }
       const entries = await NotebookEntry.find({ userId }).sort({ updatedAt: -1 });
       const normalized = await Promise.all(entries.map(async entry => {
         const hadBlocks = Array.isArray(entry.blocks) && entry.blocks.length > 0;
