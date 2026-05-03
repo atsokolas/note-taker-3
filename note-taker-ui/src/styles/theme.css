@@ -7189,3 +7189,189 @@ html[data-ui-theme='dark'] body.noeis-editorial .concept-editorial-evidence__ite
     flex-direction: column;
   }
 }
+
+/* SharedConcept top bar + sticky attribution + grid polish ---------------- */
+
+.shared-concept-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 28px;
+  margin: 0 auto 24px;
+  max-width: 920px;
+  border-bottom: 1px solid var(--border-subtle);
+  background: transparent;
+}
+
+.shared-concept-topbar__brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+  color: var(--text);
+  font-family: "Newsreader", Georgia, serif;
+  font-size: 1.05rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.shared-concept-topbar__brand-mark {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  background: linear-gradient(135deg, var(--accent, #36e4ff), color-mix(in srgb, var(--accent, #36e4ff) 50%, var(--text-secondary)));
+  display: inline-block;
+}
+
+.shared-concept-topbar__actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.shared-concept-topbar__copy {
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: color 160ms ease-out, border-color 160ms ease-out, background-color 160ms ease-out;
+}
+
+.shared-concept-topbar__copy:hover,
+.shared-concept-topbar__copy:focus-visible {
+  color: var(--text);
+  border-color: color-mix(in srgb, var(--accent) 50%, var(--border-subtle));
+  background: color-mix(in srgb, var(--accent-soft) 14%, transparent);
+  outline: none;
+}
+
+.shared-concept-topbar__cta {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: var(--text);
+  color: var(--surface);
+  text-decoration: none;
+  font-size: 0.78rem;
+  font-weight: 600;
+  transition: opacity 160ms ease-out;
+}
+
+.shared-concept-topbar__cta:hover,
+.shared-concept-topbar__cta:focus-visible {
+  opacity: 0.85;
+  outline: none;
+}
+
+/* Sticky attribution bar — fades in once the visitor has scrolled past
+   the hero so author + actions stay reachable in long shares. */
+.shared-concept-page__sticky-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 28px;
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border-subtle);
+  opacity: 0;
+  transform: translateY(-100%);
+  pointer-events: none;
+  transition: opacity 220ms ease-out, transform 220ms ease-out;
+}
+
+.shared-concept-page__sticky-bar.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+.shared-concept-page__sticky-title {
+  font-family: "Newsreader", Georgia, serif;
+  font-weight: 600;
+  font-size: 0.96rem;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+  min-width: 0;
+}
+
+.shared-concept-page__sticky-meta {
+  display: none;
+  white-space: nowrap;
+}
+
+@media (min-width: 720px) {
+  .shared-concept-page__sticky-meta {
+    display: inline;
+  }
+}
+
+.shared-concept-page__sticky-copy {
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  border-radius: 999px;
+  padding: 5px 12px;
+  font-size: 0.74rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: color 160ms ease-out, border-color 160ms ease-out, background-color 160ms ease-out;
+}
+
+.shared-concept-page__sticky-copy:hover,
+.shared-concept-page__sticky-copy:focus-visible {
+  color: var(--text);
+  border-color: color-mix(in srgb, var(--accent) 50%, var(--border-subtle));
+  background: color-mix(in srgb, var(--accent-soft) 14%, transparent);
+  outline: none;
+}
+
+/* Two-column card grid for support / tension on wider viewports — questions
+   stay single-column because they read better full-width. */
+.shared-concept-page__cards--grid {
+  display: grid;
+  gap: 14px;
+}
+
+@media (min-width: 720px) {
+  .shared-concept-page__cards--grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shared-concept-page__sticky-bar,
+  .shared-concept-topbar__copy,
+  .shared-concept-topbar__cta,
+  .shared-concept-page__sticky-copy {
+    transition: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .shared-concept-topbar {
+    padding: 12px 18px;
+    flex-wrap: wrap;
+  }
+  .shared-concept-topbar__actions {
+    margin-left: auto;
+  }
+  .shared-concept-page__sticky-bar {
+    padding: 8px 18px;
+  }
+}
