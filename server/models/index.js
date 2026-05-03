@@ -67,6 +67,10 @@ const feedbackSchema = new mongoose.Schema({
   message: { type: String, required: true, trim: true },
   rating: { type: Number, min: 1, max: 5, default: null },
   email: { type: String, default: '' },
+  kind: { type: String, enum: ['feedback', 'feature', 'bug'], default: 'feedback', index: true },
+  title: { type: String, default: '', trim: true },
+  pageUrl: { type: String, default: '', trim: true },
+  userAgent: { type: String, default: '', trim: true },
   source: { type: String, default: 'web-app' },
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null }
 }, { timestamps: true });
@@ -259,6 +263,89 @@ const notebookFolderSchema = new mongoose.Schema({
 notebookFolderSchema.index({ userId: 1, parentFolderId: 1, sortOrder: 1, name: 1 });
 
 const NotebookFolder = mongoose.model('NotebookFolder', notebookFolderSchema);
+
+const WIKI_PAGE_TYPES = ['topic', 'question', 'project', 'source', 'person', 'synthesis'];
+const WIKI_PAGE_STATUSES = ['draft', 'published', 'archived'];
+const WIKI_VISIBILITY_VALUES = ['private', 'shared'];
+const WIKI_SOURCE_SCOPES = ['entire_library', 'current_item', 'selected_sources'];
+
+const wikiCreatedFromSchema = new mongoose.Schema({
+  type: {
+    type: String,
+    enum: ['wiki_index', 'idea', 'question', 'highlight', 'article', 'notebook', 'concept', 'sources', 'paste', 'search', 'thought_partner'],
+    default: 'wiki_index'
+  },
+  objectId: { type: mongoose.Schema.Types.ObjectId, default: null },
+  objectIds: [{ type: mongoose.Schema.Types.ObjectId }],
+  text: { type: String, default: '', trim: true },
+  label: { type: String, default: '', trim: true }
+}, { _id: false });
+
+const wikiSourceRefSchema = new mongoose.Schema({
+  type: {
+    type: String,
+    enum: ['article', 'highlight', 'notebook', 'concept', 'question', 'memory', 'external'],
+    required: true
+  },
+  objectId: { type: mongoose.Schema.Types.ObjectId, default: null },
+  title: { type: String, default: '', trim: true },
+  snippet: { type: String, default: '', trim: true },
+  url: { type: String, default: '', trim: true },
+  citationLabel: { type: String, default: '', trim: true },
+  addedBy: { type: String, enum: ['user', 'ai'], default: 'user' },
+  createdAt: { type: Date, default: Date.now }
+}, { _id: true });
+
+const wikiAiStateSchema = new mongoose.Schema({
+  draftStatus: { type: String, enum: ['idle', 'drafting', 'ready', 'error'], default: 'idle' },
+  draftRequestedAt: { type: Date, default: null },
+  draftStartedAt: { type: Date, default: null },
+  draftCompletedAt: { type: Date, default: null },
+  lastDraftedAt: { type: Date, default: null },
+  lastError: { type: String, default: '', trim: true },
+  errorCode: { type: String, default: '', trim: true },
+  model: { type: String, default: '', trim: true },
+  sourceScopeAtDraft: { type: String, enum: WIKI_SOURCE_SCOPES, default: 'entire_library' },
+  sourceRefIdsAtDraft: { type: [mongoose.Schema.Types.ObjectId], default: [] },
+  suggestions: {
+    type: [{
+      id: { type: String, required: true, trim: true },
+      type: { type: String, enum: ['outline', 'claim', 'gap', 'edit'], default: 'edit' },
+      title: { type: String, default: '', trim: true },
+      text: { type: String, default: '', trim: true },
+      sourceRefIds: { type: [mongoose.Schema.Types.ObjectId], default: [] },
+      appliedAt: { type: Date, default: null },
+      dismissedAt: { type: Date, default: null },
+      createdAt: { type: Date, default: Date.now }
+    }],
+    default: []
+  }
+}, { _id: false });
+
+const wikiPageSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+  title: { type: String, required: true, trim: true, default: 'Untitled Wiki Page' },
+  slug: { type: String, required: true, trim: true },
+  pageType: { type: String, enum: WIKI_PAGE_TYPES, default: 'topic' },
+  status: { type: String, enum: WIKI_PAGE_STATUSES, default: 'draft', index: true },
+  visibility: { type: String, enum: WIKI_VISIBILITY_VALUES, default: 'private', index: true },
+  sourceScope: { type: String, enum: WIKI_SOURCE_SCOPES, default: 'entire_library' },
+  createdFrom: { type: wikiCreatedFromSchema, default: () => ({}) },
+  body: {
+    type: mongoose.Schema.Types.Mixed,
+    default: () => ({ type: 'doc', content: [{ type: 'paragraph' }] })
+  },
+  plainText: { type: String, default: '', trim: true },
+  sourceRefs: { type: [wikiSourceRefSchema], default: [] },
+  aiState: { type: wikiAiStateSchema, default: () => ({}) }
+}, { timestamps: true });
+
+wikiPageSchema.index({ userId: 1, updatedAt: -1 });
+wikiPageSchema.index({ userId: 1, status: 1, updatedAt: -1 });
+wikiPageSchema.index({ userId: 1, visibility: 1, updatedAt: -1 });
+wikiPageSchema.index({ userId: 1, slug: 1 }, { unique: true });
+
+const WikiPage = mongoose.model('WikiPage', wikiPageSchema);
 
 const conceptLayoutSectionSchema = new mongoose.Schema({
   id: { type: String, required: true, trim: true },
@@ -1337,6 +1424,7 @@ module.exports = {
   Note,
   NotebookEntry,
   NotebookFolder,
+  WikiPage,
   TagMeta,
   ConceptNote,
   Question,

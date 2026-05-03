@@ -117,6 +117,7 @@ const {
   IntegrationConnection,
   ImportSession,
   SharedConcept,
+  WikiPage,
   dropLegacyConnectionIndex
 } = require('./models/index');
 
@@ -130,6 +131,7 @@ if (mongoose.connection.readyState === 1) {
 const { buildFolderService } = require('./services/folderService');
 const { getFoldersWithCounts } = buildFolderService({ Folder, Article, mongoose });
 const { buildNotebookRouter } = require('./routes/notebookRoutes');
+const { buildWikiRouter } = require('./routes/wikiRoutes');
 const { buildWorkingMemoryRouter } = require('./routes/workingMemoryRoutes');
 const { buildUiTourRouter } = require('./routes/uiTourRoutes');
 const { buildReturnQueueRouter } = require('./routes/returnQueueRoutes');
@@ -4177,6 +4179,11 @@ app.use(buildNotebookRouter({
   trackEvent,
   EVENT_NAMES,
   findHighlightById
+}));
+
+app.use(buildWikiRouter({
+  authenticateToken,
+  WikiPage
 }));
 
 app.use(buildWorkingMemoryRouter({

@@ -17,9 +17,15 @@ const buildFeedbackHighlightRouter = ({
 }) => {
   const router = express.Router();
 
+  const normalizeFeedbackKind = (value) => {
+    const kind = String(value || '').trim().toLowerCase();
+    if (['feature', 'bug', 'feedback'].includes(kind)) return kind;
+    return 'feedback';
+  };
+
   router.post('/api/feedback', async (req, res) => {
     try {
-      const { message, rating, email, source } = req.body || {};
+      const { message, rating, email, source, kind, title, pageUrl, userAgent } = req.body || {};
       const trimmedMessage = (message || '').trim();
       if (!trimmedMessage) {
         return res.status(400).json({ error: "Feedback message is required." });
@@ -29,6 +35,10 @@ const buildFeedbackHighlightRouter = ({
         message: trimmedMessage,
         rating: safeRating,
         email: (email || '').trim(),
+        kind: normalizeFeedbackKind(kind),
+        title: String(title || '').trim().slice(0, 180),
+        pageUrl: String(pageUrl || '').trim().slice(0, 500),
+        userAgent: String(userAgent || '').trim().slice(0, 500),
         source: source || 'web-app',
         userId: req.user?.id || null
       });
@@ -50,11 +60,61 @@ const buildFeedbackHighlightRouter = ({
         return res.status(403).json({ error: "Not authorized to view feedback." });
       }
 
-      const feedback = await Feedback.find().sort({ createdAt: -1 }).limit(200);
+      const query = {};
+      const kind = normalizeFeedbackKind(req.query.kind);
+      if (req.query.kind) query.kind = kind;
+      const days = Number(req.query.days || 0);
+      if (Number.isFinite(days) && days > 0) {
+        query.createdAt = { $gte: new Date(Date.now() - Math.min(days, 365) * 24 * 60 * 60 * 1000) };
+      }
+      const limit = Math.min(Math.max(Number(req.query.limit) || 200, 1), 500);
+      const feedback = await Feedback.find(query).sort({ createdAt: -1 }).limit(limit);
       res.status(200).json(feedback);
     } catch (error) {
       console.error("❌ Error fetching feedback:", error);
       res.status(500).json({ error: "Failed to fetch feedback." });
+    }
+  });
+
+  router.get('/api/feedback/weekly-review', authenticateToken, async (req, res) => {
+    try {
+      const adminList = (process.env.FEEDBACK_ADMIN_USERNAMES || '')
+        .split(',')
+        .map(x => x.trim())
+        .filter(Boolean);
+      if (adminList.length > 0 && !adminList.includes(req.user?.username)) {
+        return res.status(403).json({ error: "Not authorized to view feedback." });
+      }
+
+      const days = Math.min(Math.max(Number(req.query.days) || 7, 1), 90);
+      const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+      const items = await Feedback.find({ createdAt: { $gte: since } }).sort({ createdAt: -1 }).limit(500);
+      const counts = items.reduce((acc, item) => {
+        const key = normalizeFeedbackKind(item.kind);
+        acc[key] = (acc[key] || 0) + 1;
+        return acc;
+      }, { feature: 0, bug: 0, feedback: 0 });
+
+      res.status(200).json({
+        since,
+        through: new Date(),
+        total: items.length,
+        counts,
+        items: items.map(item => ({
+          id: item._id,
+          kind: normalizeFeedbackKind(item.kind),
+          title: item.title || '',
+          message: item.message || '',
+          rating: item.rating,
+          email: item.email || '',
+          pageUrl: item.pageUrl || '',
+          source: item.source || '',
+          createdAt: item.createdAt
+        }))
+      });
+    } catch (error) {
+      console.error("❌ Error building feedback weekly review:", error);
+      res.status(500).json({ error: "Failed to build feedback weekly review." });
     }
   });
 

@@ -71,7 +71,7 @@ const Settings = ({
   };
 
   return (
-    <Page>
+    <Page className="settings-page">
       <div className="page-header">
         <p className="muted-label">Mode</p>
         <h1>Settings</h1>

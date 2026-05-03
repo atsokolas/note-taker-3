@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import api from '../api';
 import { Button, Card, Page } from '../components/ui';
 import { chatWithAgent, fetchNotionPagesViaAgent } from '../api/agent';
+import NotionAgentFetchCard from '../components/integrations/NotionAgentFetchCard';
 import { updateConcept } from '../api/concepts';
 import {
   checkNotionConnection,
@@ -1991,21 +1992,19 @@ const DataIntegrations = () => {
             >
               {previewing.notion ? 'Previewing…' : 'Preview scope'}
             </Button>
-            <Button
-              type="button"
-              variant="primary"
-              onClick={handleNotionAgentFetch}
-              disabled={busy || notionConnecting || notionChecking || notionSyncing || notionAgentFetching || !notionConnection?.id}
-              title="The agent skips pages that haven't changed since the last fetch."
-            >
-              {notionAgentFetching ? 'Agent fetching…' : 'Let agent fetch'}
-            </Button>
           </div>
-          {notionAgentResult ? (
-            <p className="muted small" data-testid="notion-agent-fetch-result">
-              {notionAgentResult.summary || 'Done.'}
-            </p>
-          ) : null}
+          {/* Agent-mediated Notion fetch lives in its own card so the
+              status, counts, last-fetched timestamp, and error list have
+              room to breathe. The card stays compact when there's no
+              result yet — it's a single button + body copy in that
+              state. */}
+          <NotionAgentFetchCard
+            connected={Boolean(notionConnection?.id)}
+            fetching={notionAgentFetching}
+            result={notionAgentResult}
+            disabled={busy || notionConnecting || notionChecking || notionSyncing}
+            onFetch={handleNotionAgentFetch}
+          />
           {notionConnection ? (
             <div className="import-summary">
               <p className="muted-label">Connected workspace</p>

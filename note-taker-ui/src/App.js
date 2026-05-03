@@ -6,6 +6,7 @@ import Login from './components/Login';
 import Landing from './pages/Landing';
 import CommandPalette from './components/CommandPalette';
 import KeyboardShortcutOverlay from './components/KeyboardShortcutOverlay';
+import ProductFeedbackModal from './components/ProductFeedbackModal';
 import { clearStoredTokens, hasUsableStoredToken } from './api';
 import { fetchUiSettings, saveUiSettings } from './api/uiSettings';
 import {
@@ -51,6 +52,7 @@ const MapView = lazy(() => import('./pages/MapView'));
 const ReviewMode = lazy(() => import('./pages/ReviewMode'));
 const ReturnQueue = lazy(() => import('./pages/ReturnQueue'));
 const Settings = lazy(() => import('./pages/Settings'));
+const Wiki = lazy(() => import('./pages/Wiki'));
 const HowToUse = lazy(() => import('./pages/HowToUse'));
 const Integrations = lazy(() => import('./pages/Integrations'));
 const DataIntegrations = lazy(() => import('./pages/DataIntegrations'));
@@ -185,6 +187,7 @@ function App() {
   const [isLoading, setIsLoading] = useState(true);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [shortcutOverlayOpen, setShortcutOverlayOpen] = useState(false);
+  const [productFeedbackOpen, setProductFeedbackOpen] = useState(false);
   const [uiSettings, setUiSettings] = useState(() => loadUiSettingsFromStorage());
   const [uiSettingsSaving, setUiSettingsSaving] = useState(false);
 
@@ -230,6 +233,24 @@ function App() {
   useEffect(() => {
     const normalized = applyUiSettingsToRoot(document.documentElement, uiSettings);
     persistUiSettingsToStorage(normalized);
+  }, [uiSettings]);
+
+  // Live-update on system theme change when user preference is 'auto'.
+  // No-op for explicit 'light' or 'dark'.
+  useEffect(() => {
+    if (uiSettings?.theme !== 'auto') return undefined;
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return undefined;
+    const mq = window.matchMedia('(prefers-color-scheme: dark)');
+    const handle = () => {
+      // Re-apply with the same settings; resolveActiveTheme will re-read mq.
+      applyUiSettingsToRoot(document.documentElement, uiSettings);
+    };
+    if (mq.addEventListener) mq.addEventListener('change', handle);
+    else if (mq.addListener) mq.addListener(handle);
+    return () => {
+      if (mq.removeEventListener) mq.removeEventListener('change', handle);
+      else if (mq.removeListener) mq.removeListener(handle);
+    };
   }, [uiSettings]);
 
   useEffect(() => {
@@ -342,6 +363,11 @@ function App() {
       label: 'Questions',
       to: '/think?tab=questions',
       match: (location) => location.pathname.startsWith('/think') && new URLSearchParams(location.search).get('tab') === 'questions'
+    },
+    {
+      label: 'Wiki',
+      to: '/wiki',
+      match: (location) => location.pathname.startsWith('/wiki')
     }
   ];
 
@@ -403,6 +429,11 @@ function App() {
     );
     const topBarUtilityNav = [
       {
+        label: 'Feedback',
+        onClick: () => setProductFeedbackOpen(true),
+        match: () => false
+      },
+      {
         label: 'Growth',
         to: '/marketing-analytics',
         match: (currentLocation) => currentLocation.pathname.startsWith('/marketing-analytics') || currentLocation.pathname.startsWith('/search-console-opportunities')
@@ -429,6 +460,7 @@ function App() {
       <Page className="page-area">
         <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
         <KeyboardShortcutOverlay open={shortcutOverlayOpen} onClose={() => setShortcutOverlayOpen(false)} />
+        <ProductFeedbackModal open={productFeedbackOpen} onClose={() => setProductFeedbackOpen(false)} />
         <TourManager />
         <Suspense fallback={<RouteLoadingFallback />}>
           <Routes>
@@ -439,6 +471,8 @@ function App() {
             <Route path="/map" element={<MapView />} />
             <Route path="/return-queue" element={<ReturnQueue />} />
             <Route path="/review" element={<ReviewMode />} />
+            <Route path="/wiki" element={<Wiki />} />
+            <Route path="/wiki/:id" element={<Wiki />} />
             <Route
               path="/settings"
               element={(
@@ -511,6 +545,9 @@ function App() {
             utilityNav={topBarUtilityNav}
             secondaryNav={secondaryNavItems}
             searchMode={isConceptRoute ? 'icon' : 'field'}
+            theme={uiSettings.theme}
+            onThemeChange={(nextTheme) => handleUiSettingsChange({ theme: nextTheme })}
+            themeSaving={uiSettingsSaving}
             helpMenu={{
               onStart: () => tour.startTour(),
               onResume: () => tour.resumeTour(),

@@ -1,9 +1,11 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import api from '../api';
 import { searchKeyword } from '../api/retrieval';
+import { createWikiPage } from '../api/wiki';
 import { Page, Card, TagChip, Button } from '../components/ui';
 import EmptyState, { ErrorState } from '../components/EmptyState';
+import { buildWikiCreatePayload, openWikiDraft } from '../utils/wikiCreate';
 
 const stripHtml = (input = '') => {
   if (!input) return '';
@@ -75,6 +77,7 @@ const parseCsvParam = (value = '') => (
 );
 
 const Search = () => {
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const mode = searchParams.get('mode') || 'keyword';
   const [query, setQuery] = useState(searchParams.get('q') || '');
@@ -89,6 +92,7 @@ const Search = () => {
     semantic: []
   });
   const [loading, setLoading] = useState(false);
+  const [wikiCreatingId, setWikiCreatingId] = useState('');
   const [error, setError] = useState('');
 
   const getAuthHeaders = () => {
@@ -227,6 +231,40 @@ const Search = () => {
     setSearchParams(params);
   };
 
+  const createWikiFromResult = async ({ item, sourceType, fallbackTitle }) => {
+    const objectId = item.objectId || item._id || item.id || null;
+    const title = item.title || item.text || fallbackTitle || query || 'Search result';
+    const text = item.snippet || item.content || item.text || query;
+    const normalizedSourceType = sourceType === 'notebook_entry' || sourceType === 'notebook_block'
+      ? 'notebook'
+      : sourceType;
+    const creatingId = `${sourceType}-${objectId || title}`;
+    setWikiCreatingId(creatingId);
+    setError('');
+    try {
+      const page = await createWikiPage(buildWikiCreatePayload({
+        type: sourceType === 'search' ? 'search' : normalizedSourceType,
+        objectId,
+        title,
+        text,
+        label: title,
+        pageType: normalizedSourceType === 'question' ? 'question' : normalizedSourceType === 'article' ? 'source' : 'topic',
+        source: sourceType === 'search' ? null : {
+          type: normalizedSourceType,
+          objectId,
+          title,
+          snippet: text,
+          url: item.url || ''
+        }
+      }));
+      openWikiDraft({ navigate, pageId: page._id });
+    } catch (err) {
+      setError(formatApiError(err, 'Failed to create Wiki page.'));
+    } finally {
+      setWikiCreatingId('');
+    }
+  };
+
   return (
     <Page>
       <div className="page-header">
@@ -340,10 +378,20 @@ const Search = () => {
                         return '/search';
                       })();
                       return (
-                        <Link key={`${type}-${item.objectId}`} to={to} className="semantic-row">
-                          <div className="semantic-title">{item.title || 'Untitled'}</div>
-                          <div className="semantic-snippet muted small">{item.snippet || '—'}</div>
-                        </Link>
+                        <div key={`${type}-${item.objectId}`} className="semantic-row semantic-row--with-action">
+                          <Link to={to} className="semantic-row__main">
+                            <div className="semantic-title">{item.title || 'Untitled'}</div>
+                            <div className="semantic-snippet muted small">{item.snippet || '—'}</div>
+                          </Link>
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            onClick={() => createWikiFromResult({ item, sourceType: resolvedType, fallbackTitle: item.title })}
+                            disabled={wikiCreatingId === `${resolvedType}-${item.objectId || item.title}`}
+                          >
+                            Wiki
+                          </Button>
+                        </div>
                       );
                     })}
                   </div>
@@ -373,6 +421,18 @@ const Search = () => {
                             {item.title || item.text || `Untitled ${section.title.slice(0, -1).toLowerCase()}`}
                           </Link>
                           <p className="search-snippet">{snippet(item.snippet || item.content || item.text || '', query)}</p>
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            onClick={() => createWikiFromResult({
+                              item,
+                              sourceType: section.title === 'Highlights' ? 'highlight' : section.title === 'Notes' ? 'notebook' : 'question',
+                              fallbackTitle: section.title
+                            })}
+                            disabled={wikiCreatingId === `${section.title === 'Highlights' ? 'highlight' : section.title === 'Notes' ? 'notebook' : 'question'}-${item._id || item.title}`}
+                          >
+                            Create Wiki
+                          </Button>
                           {Array.isArray(item.tags) && item.tags.length > 0 && (
                             <div className="highlight-tag-chips" style={{ marginTop: 8 }}>
                               {item.tags.slice(0, 4).map(tag => (
@@ -405,6 +465,14 @@ const Search = () => {
                           {article.title || 'Untitled article'}
                         </Link>
                         <p className="search-snippet">{snippet(article.content || '', query)}</p>
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          onClick={() => createWikiFromResult({ item: article, sourceType: 'article', fallbackTitle: 'Article' })}
+                          disabled={wikiCreatingId === `article-${article._id || article.title}`}
+                        >
+                          Create Wiki
+                        </Button>
                       </div>
                     ))}
                   </div>

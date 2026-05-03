@@ -5,6 +5,7 @@ node_modules/
 server/logs/
 .vercel
 .gstack/
+.superpowers/
 
 # Local tool caches and test artifacts
 .playwright-cli/

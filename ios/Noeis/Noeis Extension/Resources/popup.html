@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Note Taker</title>
+    <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+
+    <div id="loggedOutView" class="container" style="display: none;">
+
+        <div id="loginView">
+            <h2>Welcome</h2>
+            <div class="cta-panel">
+                <p class="cta-title">New: Web workspace</p>
+                <p class="cta-text">Open the full app to browse, highlight, and organize everything.</p>
+                <a class="cta-link" href="https://noeis.io" target="_blank" rel="noreferrer">Go to noeis.io</a>
+            </div>
+            <form id="loginForm">
+                <div class="form-group">
+                    <label for="username">Username:</label>
+                    <input type="text" id="username" required>
+                </div>
+                <div class="form-group">
+                    <label for="password">Password:</label>
+                    <input type="password" id="password" required>
+                </div>
+                <button type="submit" id="loginButton" class="primary-button">Login</button>
+            </form>
+            <p id="loginStatusMessage" class="status"></p>
+            <p class="toggle-link">
+                Don't have an account? <a href="#" id="showRegisterLink">Sign Up</a>
+            </p>
+        </div>
+
+        <div id="registerView" style="display: none;">
+            <h2>Create Account</h2>
+            <form id="registerForm">
+                <div class="form-group">
+                    <label for="registerUsername">Username:</label>
+                    <input type="text" id="registerUsername" required>
+                </div>
+                <div class="form-group">
+                    <label for="registerPassword">Password:</label>
+                    <input type="password" id="registerPassword" required>
+                </div>
+                <div class="form-group">
+                    <label for="confirmPassword">Confirm Password:</label>
+                    <input type="password" id="confirmPassword" required>
+                </div>
+                <button type="submit" class="primary-button">Create Account</button>
+            </form>
+            <p id="registerStatusMessage" class="status"></p>
+            <p class="toggle-link">
+                Already have an account? <a href="#" id="showLoginLink">Log In</a>
+            </p>
+        </div>
+
+    </div>
+    <div id="loggedInView" class="container" style="display: none;">
+        <h1 class="title">Save Article</h1>
+        <div class="cta-panel">
+            <p class="cta-title">Visit the web app</p>
+            <p class="cta-text">View your highlights, notebooks, and PDFs in one calm workspace.</p>
+            <a class="cta-link" href="https://noeis.io" target="_blank" rel="noreferrer">Open noeis.io</a>
+            <a class="cta-link" href="https://noeis.io/search?tour=resume" target="_blank" rel="noreferrer" style="margin-left: 8px;">Continue tour</a>
+        </div>
+        
+        <div class="form-group">
+            <label for="folderSelect">Choose a Folder:</label>
+            <select id="folderSelect">
+                <option value="">Uncategorized</option>
+            </select>
+        </div>
+
+        <div class="form-group folder-creation">
+            <input type="text" id="newFolderName" placeholder="Or create a new folder...">
+            <button id="createFolderButton">+</button>
+        </div>
+
+        <button id="saveArticleButton">Save Article</button>
+        
+        <hr>
+        <button id="logoutButton" class="secondary-button">Logout</button>
+
+        <div id="statusMessage"></div>
+    </div>
+
+    <script src="popup.js"></script>
+</body>
+</html>

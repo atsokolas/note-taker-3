@@ -1,0 +1,1880 @@
+import SwiftUI
+
+enum NoeisDesign {
+    static let background = Color(red: 1.000, green: 0.988, blue: 0.969)
+    static let panel = Color(red: 0.988, green: 0.976, blue: 0.953)
+    static let panelStrong = Color(red: 0.965, green: 0.957, blue: 0.925)
+    static let panelStronger = Color(red: 0.918, green: 0.910, blue: 0.871)
+    static let ink = Color(red: 0.220, green: 0.220, blue: 0.192)
+    static let muted = Color(red: 0.396, green: 0.396, blue: 0.361)
+    static let subtle = Color(red: 0.506, green: 0.506, blue: 0.471)
+    static let accent = Color(red: 0.380, green: 0.369, blue: 0.357)
+    static let warm = Color(red: 0.455, green: 0.380, blue: 0.290)
+    static let border = Color(red: 0.506, green: 0.506, blue: 0.471).opacity(0.22)
+    static let borderStrong = Color(red: 0.506, green: 0.506, blue: 0.471).opacity(0.32)
+    static let radius: CGFloat = 8
+    static let pageMaxWidth: CGFloat = 920
+}
+
+struct NoeisInputStyle: TextFieldStyle {
+    func _body(configuration: TextField<Self._Label>) -> some View {
+        configuration
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .background(NoeisDesign.background)
+            .foregroundStyle(NoeisDesign.ink)
+            .overlay(
+                RoundedRectangle(cornerRadius: 2)
+                    .stroke(NoeisDesign.borderStrong, lineWidth: 1)
+            )
+    }
+}
+
+extension View {
+    func noeisPanel(cornerRadius: CGFloat = NoeisDesign.radius) -> some View {
+        self
+            .background(NoeisDesign.panel)
+            .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
+            .overlay(
+                RoundedRectangle(cornerRadius: cornerRadius)
+                    .stroke(NoeisDesign.border, lineWidth: 1)
+            )
+    }
+
+    func noeisListRow() -> some View {
+        self
+            .tint(NoeisDesign.ink)
+            .listRowBackground(NoeisDesign.background)
+            .listRowSeparatorTint(NoeisDesign.border)
+    }
+
+    func noeisListChrome() -> some View {
+        self
+            .scrollContentBackground(.hidden)
+            .background(NoeisDesign.background)
+            .environment(\.defaultMinListRowHeight, 48)
+    }
+}
+
+@MainActor
+final class NoeisSession: ObservableObject {
+    @Published var isAuthenticated = NoeisAuthStore.shared.token != nil
+    @Published var username = ""
+
+    func refresh() {
+        isAuthenticated = NoeisAuthStore.shared.token != nil
+        Task {
+            if let session = try? await NoeisAPI.shared.session() {
+                username = session.user?.username ?? ""
+            }
+        }
+    }
+
+    func logout() {
+        NoeisAuthStore.shared.clearToken()
+        username = ""
+        isAuthenticated = false
+    }
+}
+
+struct NoeisRootView: View {
+    @StateObject private var session = NoeisSession()
+
+    var body: some View {
+        Group {
+            if session.isAuthenticated {
+                NoeisMainView()
+                    .environmentObject(session)
+            } else {
+                LoginView()
+                    .environmentObject(session)
+            }
+        }
+        .tint(NoeisDesign.accent)
+        .task {
+            session.refresh()
+        }
+    }
+}
+
+struct LoginView: View {
+    @EnvironmentObject private var session: NoeisSession
+    @State private var username = ""
+    @State private var password = ""
+    @State private var confirmPassword = ""
+    @State private var isRegistering = false
+    @State private var isLoading = false
+    @State private var message = ""
+
+    var body: some View {
+        ZStack {
+            NoeisDesign.background.ignoresSafeArea()
+            VStack(alignment: .leading, spacing: 18) {
+                Text("Noeis")
+                    .font(.system(size: 48, weight: .medium, design: .serif))
+                    .foregroundStyle(NoeisDesign.ink)
+                Text("Read, highlight, and turn notes into working knowledge.")
+                    .font(.callout)
+                    .foregroundStyle(NoeisDesign.muted)
+
+                TextField("Email or username", text: $username)
+                    .textInputAutocapitalization(.never)
+                    .keyboardType(.emailAddress)
+                    .textContentType(.username)
+                    .textFieldStyle(NoeisInputStyle())
+
+                SecureField("Password", text: $password)
+                    .textContentType(isRegistering ? .newPassword : .password)
+                    .textFieldStyle(NoeisInputStyle())
+
+                if isRegistering {
+                    SecureField("Confirm password", text: $confirmPassword)
+                        .textContentType(.newPassword)
+                        .textFieldStyle(NoeisInputStyle())
+                }
+
+                if !message.isEmpty {
+                    Text(message)
+                        .font(.footnote)
+                        .foregroundStyle(NoeisDesign.muted)
+                }
+
+                Button {
+                    Task { await submit() }
+                } label: {
+                    HStack {
+                        if isLoading {
+                            ProgressView()
+                        }
+                        Text(isRegistering ? "Create Account" : "Sign In")
+                            .fontWeight(.semibold)
+                    }
+                    .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.large)
+                .disabled(isLoading || username.isEmpty || password.isEmpty)
+
+                Button(isRegistering ? "Already have an account?" : "Create a Noeis account") {
+                    isRegistering.toggle()
+                    message = ""
+                }
+                .font(.footnote.weight(.medium))
+                .foregroundStyle(NoeisDesign.accent)
+            }
+            .padding(26)
+            .frame(maxWidth: 520)
+            .noeisPanel()
+            .padding()
+        }
+    }
+
+    private func submit() async {
+        isLoading = true
+        defer { isLoading = false }
+
+        do {
+            if isRegistering {
+                guard password == confirmPassword else {
+                    message = "Passwords do not match."
+                    return
+                }
+                try await NoeisAPI.shared.register(username: username, password: password)
+            }
+
+            let token = try await NoeisAPI.shared.login(username: username, password: password)
+            try NoeisAuthStore.shared.saveToken(token)
+            session.refresh()
+        } catch {
+            message = error.localizedDescription
+        }
+    }
+}
+
+struct NoeisMainView: View {
+    @StateObject private var store = WorkspaceStore()
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+
+    var body: some View {
+        Group {
+            if horizontalSizeClass == .regular {
+                WorkspaceSidebarShell()
+            } else {
+                WorkspaceTabShell()
+            }
+        }
+        .environmentObject(store)
+        .task {
+            await store.load()
+        }
+        .refreshable {
+            await store.load()
+        }
+    }
+}
+
+@MainActor
+final class WorkspaceStore: ObservableObject {
+    @Published var articles: [ArticleSummary] = []
+    @Published var folders: [FolderSummary] = []
+    @Published var pages: [NotebookEntry] = []
+    @Published var notebookFolders: [FolderSummary] = []
+    @Published var concepts: [ConceptSummary] = []
+    @Published var wikiPages: [WikiPageSummary] = []
+    @Published var isLoading = false
+    @Published var message = ""
+
+    var totalCount: Int {
+        articles.count + pages.count + concepts.count + wikiPages.count
+    }
+
+    func load() async {
+        isLoading = true
+        defer { isLoading = false }
+
+        var failures: [String] = []
+        async let articleResult = Self.captureResult { try await NoeisAPI.shared.fetchArticles() }
+        async let folderResult = Self.captureResult { try await NoeisAPI.shared.fetchFolders() }
+        async let pageResult = Self.captureResult { try await NoeisAPI.shared.fetchNotebookEntries() }
+        async let notebookFolderResult = Self.captureResult { try await NoeisAPI.shared.fetchNotebookFolders() }
+        async let conceptResult = Self.captureResult { try await NoeisAPI.shared.fetchConcepts() }
+        async let wikiResult = Self.captureResult { try await NoeisAPI.shared.fetchWikiPages() }
+
+        let results = await (articleResult, folderResult, pageResult, notebookFolderResult, conceptResult, wikiResult)
+
+        switch results.0 {
+        case .success(let value):
+            articles = value
+        case .failure(let error):
+            failures.append("Library: \(error.localizedDescription)")
+        }
+
+        switch results.1 {
+        case .success(let value):
+            folders = value
+        case .failure(let error):
+            failures.append("Library folders: \(error.localizedDescription)")
+        }
+
+        switch results.2 {
+        case .success(let value):
+            pages = value
+        case .failure(let error):
+            failures.append("Notebook: \(error.localizedDescription)")
+        }
+
+        switch results.3 {
+        case .success(let value):
+            notebookFolders = value
+        case .failure(let error):
+            failures.append("Notebook folders: \(error.localizedDescription)")
+        }
+
+        switch results.4 {
+        case .success(let value):
+            concepts = value
+        case .failure(let error):
+            failures.append("Concepts: \(error.localizedDescription)")
+        }
+
+        switch results.5 {
+        case .success(let value):
+            wikiPages = value
+        case .failure(let error):
+            failures.append("Wiki: \(error.localizedDescription)")
+        }
+
+        message = failures.joined(separator: "\n")
+    }
+
+    func createPage(title: String, content: String, folderId: String? = nil) async {
+        do {
+            try await NoeisAPI.shared.createNotebookEntry(title: title, content: content, folderId: folderId)
+            await load()
+        } catch {
+            message = error.localizedDescription
+        }
+    }
+
+    func replacePage(_ page: NotebookEntry) {
+        if let index = pages.firstIndex(where: { $0.id == page.id }) {
+            pages[index] = page
+        } else {
+            pages.insert(page, at: 0)
+        }
+    }
+
+    func createWikiPage(title: String, seedText: String = "") async -> WikiPageSummary? {
+        do {
+            let created = try await NoeisAPI.shared.createWikiPage(title: title, seedText: seedText)
+            wikiPages.insert(created, at: 0)
+            return created
+        } catch {
+            message = error.localizedDescription
+            return nil
+        }
+    }
+
+    nonisolated private static func captureResult<Value>(_ operation: @escaping () async throws -> Value) async -> Result<Value, Error> {
+        do {
+            return .success(try await operation())
+        } catch {
+            return .failure(error)
+        }
+    }
+}
+
+enum WorkspaceRoute: String, CaseIterable, Identifiable {
+    case home
+    case search
+    case capture
+    case library
+    case notebook
+    case concepts
+    case wiki
+    case settings
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .home: return "Home"
+        case .search: return "Search"
+        case .capture: return "Capture"
+        case .library: return "Library"
+        case .notebook: return "Notebook"
+        case .concepts: return "Concepts"
+        case .wiki: return "Wiki"
+        case .settings: return "Settings"
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .home: return "house"
+        case .search: return "magnifyingglass"
+        case .capture: return "plus.square"
+        case .library: return "books.vertical"
+        case .notebook: return "doc.text"
+        case .concepts: return "brain.head.profile"
+        case .wiki: return "rectangle.stack"
+        case .settings: return "gearshape"
+        }
+    }
+}
+
+struct ArticleFolderSection: Identifiable {
+    let id: String
+    let title: String
+    let articles: [ArticleSummary]
+}
+
+struct NotebookFolderSection: Identifiable {
+    let id: String
+    let title: String
+    let pages: [NotebookEntry]
+}
+
+struct WorkspaceTabShell: View {
+    var body: some View {
+        TabView {
+            HomeView()
+                .tabItem { Label("Home", systemImage: "house") }
+            SearchWorkspaceView()
+                .tabItem { Label("Search", systemImage: "magnifyingglass") }
+            CaptureView()
+                .tabItem { Label("New", systemImage: "plus.square") }
+            LibraryDatabaseView()
+                .tabItem { Label("Library", systemImage: "books.vertical") }
+            WorkspaceStackView()
+                .tabItem { Label("Workspace", systemImage: "rectangle.3.group") }
+        }
+    }
+}
+
+struct WorkspaceSidebarShell: View {
+    @State private var route: WorkspaceRoute? = .home
+
+    var body: some View {
+        NavigationSplitView {
+            List(selection: $route) {
+                Section("Noeis") {
+                    ForEach([WorkspaceRoute.home, .search, .capture]) { item in
+                        Label(item.title, systemImage: item.icon)
+                            .tag(item)
+                    }
+                }
+
+                Section("Workspace") {
+                    ForEach([WorkspaceRoute.library, .notebook, .concepts, .wiki]) { item in
+                        Label(item.title, systemImage: item.icon)
+                            .tag(item)
+                    }
+                }
+
+                Section {
+                    Label(WorkspaceRoute.settings.title, systemImage: WorkspaceRoute.settings.icon)
+                        .tag(WorkspaceRoute.settings)
+                }
+            }
+            .listStyle(.sidebar)
+            .navigationTitle("Noeis")
+            .noeisListChrome()
+        } detail: {
+            switch route ?? .home {
+            case .home:
+                HomeView()
+            case .search:
+                SearchWorkspaceView()
+            case .capture:
+                CaptureView()
+            case .library:
+                LibraryDatabaseView()
+            case .notebook:
+                NotebookDatabaseView()
+            case .concepts:
+                ConceptsDatabaseView()
+            case .wiki:
+                WikiDatabaseView()
+            case .settings:
+                SettingsView()
+            }
+        }
+    }
+}
+
+struct HomeView: View {
+    @EnvironmentObject private var store: WorkspaceStore
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 18) {
+                    WorkspaceHeader(title: "Home", subtitle: "\(store.totalCount) items in your workspace")
+
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 12)], spacing: 12) {
+                        MetricTile(title: "Library", value: "\(store.articles.count)", icon: "books.vertical")
+                        MetricTile(title: "Pages", value: "\(store.pages.count)", icon: "doc.text")
+                        MetricTile(title: "Concepts", value: "\(store.concepts.count)", icon: "brain.head.profile")
+                        MetricTile(title: "Wiki", value: "\(store.wikiPages.count)", icon: "rectangle.stack")
+                    }
+
+                    SectionBlock(title: "Recent Pages") {
+                        ForEach(store.pages.prefix(5)) { page in
+                            NavigationLink {
+                                PageDetail(page: page)
+                            } label: {
+                                PageRow(page: page)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+
+                    SectionBlock(title: "Active Concepts") {
+                        ForEach(store.concepts.prefix(5)) { concept in
+                            NavigationLink {
+                                ConceptDetail(concept: concept)
+                            } label: {
+                                ConceptRow(concept: concept)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+
+                    SectionBlock(title: "Wiki Pages") {
+                        ForEach(store.wikiPages.prefix(5)) { page in
+                            NavigationLink {
+                                WikiDetail(page: page)
+                            } label: {
+                                WikiRow(page: page)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+
+                    SectionBlock(title: "Saved Articles") {
+                        ForEach(store.articles.prefix(5)) { article in
+                            NavigationLink {
+                                ArticleDetail(article: article)
+                            } label: {
+                                ArticleRow(article: article)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+
+                    if !store.message.isEmpty {
+                        Text(store.message)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .padding()
+                .frame(maxWidth: NoeisDesign.pageMaxWidth, alignment: .leading)
+            }
+            .background(NoeisDesign.background)
+            .navigationTitle("Home")
+        }
+    }
+}
+
+struct WorkspaceStackView: View {
+    @State private var mode = WorkspaceMode.notebook
+
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 0) {
+                Picker("Workspace", selection: $mode) {
+                    ForEach(WorkspaceMode.allCases) { mode in
+                        Text(mode.title).tag(mode)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .padding()
+
+                switch mode {
+                case .notebook:
+                    NotebookDatabaseView()
+                case .concepts:
+                    ConceptsDatabaseView()
+                case .wiki:
+                    WikiDatabaseView()
+                }
+            }
+            .navigationTitle("Workspace")
+        }
+    }
+}
+
+enum WorkspaceMode: String, CaseIterable, Identifiable {
+    case notebook
+    case concepts
+    case wiki
+
+    var id: String { rawValue }
+    var title: String {
+        switch self {
+        case .notebook: return "Notebook"
+        case .concepts: return "Concepts"
+        case .wiki: return "Wiki"
+        }
+    }
+}
+
+struct CaptureView: View {
+    @EnvironmentObject private var store: WorkspaceStore
+    @State private var title = ""
+    @State private var content = ""
+    @State private var folderId = ""
+    @State private var status = ""
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 18) {
+                    WorkspaceHeader(title: "New", subtitle: "Capture a notebook page")
+                    TextField("Title", text: $title)
+                        .textFieldStyle(NoeisInputStyle())
+                    TextEditor(text: $content)
+                        .frame(minHeight: 180)
+                        .scrollContentBackground(.hidden)
+                        .padding(8)
+                        .noeisPanel(cornerRadius: 2)
+                    Picker("Folder", selection: $folderId) {
+                        Text("Unfiled").tag("")
+                        ForEach(store.notebookFolders) { folder in
+                            Text(folder.name).tag(folder.id)
+                        }
+                    }
+
+                    Button {
+                        Task { await save() }
+                    } label: {
+                        Label("Save Page", systemImage: "checkmark.circle")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(title.isEmpty)
+
+                    if !status.isEmpty {
+                        Text(status)
+                            .font(.caption)
+                            .foregroundStyle(NoeisDesign.muted)
+                    }
+                }
+                .padding()
+                .frame(maxWidth: NoeisDesign.pageMaxWidth, alignment: .leading)
+            }
+            .background(NoeisDesign.background)
+            .navigationTitle("New")
+        }
+    }
+
+    private func save() async {
+        await store.createPage(title: title, content: content, folderId: folderId.isEmpty ? nil : folderId)
+        title = ""
+        content = ""
+        folderId = ""
+        status = store.message.isEmpty ? "Saved" : store.message
+    }
+}
+
+struct LibraryDatabaseView: View {
+    @EnvironmentObject private var store: WorkspaceStore
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @State private var selectedArticle: ArticleSummary?
+    @State private var query = ""
+
+    private var filteredArticles: [ArticleSummary] {
+        guard !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            return store.articles
+        }
+        return store.articles.filter { article in
+            article.title.localizedCaseInsensitiveContains(query) ||
+                (article.siteName ?? "").localizedCaseInsensitiveContains(query) ||
+                (article.url ?? "").localizedCaseInsensitiveContains(query)
+        }
+    }
+
+    private var articleSections: [ArticleFolderSection] {
+        if !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return [ArticleFolderSection(id: "search", title: "Results", articles: filteredArticles)]
+        }
+
+        var sections: [ArticleFolderSection] = []
+        let folderOrder = store.folders.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+        for folder in folderOrder {
+            let articles = filteredArticles.filter { $0.folder?.id == folder.id }
+            if !articles.isEmpty {
+                sections.append(ArticleFolderSection(id: folder.id, title: folder.name, articles: articles))
+            }
+        }
+
+        let unfiled = filteredArticles.filter { ($0.folder?.id ?? "").isEmpty }
+        if !unfiled.isEmpty {
+            sections.append(ArticleFolderSection(id: "unfiled", title: "Unfiled", articles: unfiled))
+        }
+
+        let knownIds = Set(folderOrder.map(\.id))
+        let orphaned = filteredArticles.filter {
+            guard let id = $0.folder?.id, !id.isEmpty else { return false }
+            return !knownIds.contains(id)
+        }
+        if !orphaned.isEmpty {
+            sections.append(ArticleFolderSection(id: "other", title: "Other folders", articles: orphaned))
+        }
+
+        return sections
+    }
+
+    var body: some View {
+        if horizontalSizeClass == .regular {
+            splitView
+        } else {
+            NavigationStack {
+                articleList { article in
+                    NavigationLink {
+                        ArticleDetail(article: article)
+                    } label: {
+                        ArticleRow(article: article)
+                    }
+                }
+            }
+        }
+    }
+
+    private var splitView: some View {
+        NavigationSplitView {
+            articleList { article in
+                ArticleRow(article: article)
+                    .tag(article)
+            }
+        } detail: {
+            if let selectedArticle {
+                ArticleDetail(article: selectedArticle)
+            } else {
+                ContentUnavailableView("Select an article", systemImage: "books.vertical")
+            }
+        }
+    }
+
+    private func articleList<Row: View>(@ViewBuilder row: @escaping (ArticleSummary) -> Row) -> some View {
+        Group {
+            List(selection: $selectedArticle) {
+                ForEach(articleSections) { section in
+                    Section(section.title) {
+                        ForEach(section.articles) { article in
+                            row(article)
+                                .noeisListRow()
+                        }
+                    }
+                }
+            }
+            .noeisListChrome()
+            .searchable(text: $query, prompt: "Search articles")
+            .navigationTitle("Library")
+            .overlay {
+                if filteredArticles.isEmpty {
+                    ContentUnavailableView("No articles", systemImage: "books.vertical", description: Text(store.message.isEmpty ? "Saved articles will appear here." : store.message))
+                }
+            }
+        }
+    }
+}
+
+struct NotebookDatabaseView: View {
+    @EnvironmentObject private var store: WorkspaceStore
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @State private var selectedPage: NotebookEntry?
+    @State private var query = ""
+
+    private var filteredPages: [NotebookEntry] {
+        guard !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            return store.pages
+        }
+        return store.pages.filter { page in
+            page.title.localizedCaseInsensitiveContains(query) ||
+                page.previewText.localizedCaseInsensitiveContains(query)
+        }
+    }
+
+    private var pageSections: [NotebookFolderSection] {
+        if !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return [NotebookFolderSection(id: "search", title: "Results", pages: filteredPages)]
+        }
+
+        var sections: [NotebookFolderSection] = []
+        let folderOrder = store.notebookFolders.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+        for folder in folderOrder {
+            let pages = filteredPages.filter { $0.folder?.id == folder.id }
+            if !pages.isEmpty {
+                sections.append(NotebookFolderSection(id: folder.id, title: folder.name, pages: pages))
+            }
+        }
+
+        let unfiled = filteredPages.filter { ($0.folder?.id ?? "").isEmpty }
+        if !unfiled.isEmpty {
+            sections.append(NotebookFolderSection(id: "unfiled", title: "Unfiled", pages: unfiled))
+        }
+
+        return sections
+    }
+
+    var body: some View {
+        if horizontalSizeClass == .regular {
+            splitView
+        } else {
+            NavigationStack {
+                pageList { page in
+                    NavigationLink {
+                        PageDetail(page: page)
+                    } label: {
+                        PageRow(page: page)
+                    }
+                }
+            }
+        }
+    }
+
+    private var splitView: some View {
+        NavigationSplitView {
+            pageList { page in
+                PageRow(page: page)
+                    .tag(page)
+            }
+        } detail: {
+            if let selectedPage {
+                PageDetail(page: selectedPage)
+            } else {
+                ContentUnavailableView("Select a page", systemImage: "doc.text")
+            }
+        }
+    }
+
+    private func pageList<Row: View>(@ViewBuilder row: @escaping (NotebookEntry) -> Row) -> some View {
+        Group {
+            List(selection: $selectedPage) {
+                ForEach(pageSections) { section in
+                    Section(section.title) {
+                        ForEach(section.pages) { page in
+                            row(page)
+                                .noeisListRow()
+                        }
+                    }
+                }
+            }
+            .noeisListChrome()
+            .searchable(text: $query, prompt: "Search pages")
+            .navigationTitle("Notebook")
+            .overlay {
+                if filteredPages.isEmpty {
+                    ContentUnavailableView("No pages", systemImage: "doc.text", description: Text(store.message.isEmpty ? "Notebook pages will appear here." : store.message))
+                }
+            }
+        }
+    }
+}
+
+struct ConceptsDatabaseView: View {
+    @EnvironmentObject private var store: WorkspaceStore
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @State private var selectedConcept: ConceptSummary?
+    @State private var query = ""
+
+    private var filteredConcepts: [ConceptSummary] {
+        guard !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            return store.concepts
+        }
+        return store.concepts.filter { concept in
+            concept.name.localizedCaseInsensitiveContains(query) ||
+                (concept.description ?? "").localizedCaseInsensitiveContains(query)
+        }
+    }
+
+    var body: some View {
+        if horizontalSizeClass == .regular {
+            splitView
+        } else {
+            NavigationStack {
+                List {
+                    ForEach(filteredConcepts) { concept in
+                        NavigationLink {
+                            ConceptDetail(concept: concept)
+                        } label: {
+                            ConceptRow(concept: concept)
+                        }
+                        .noeisListRow()
+                    }
+                }
+                .noeisListChrome()
+                .searchable(text: $query, prompt: "Search concepts")
+                .navigationTitle("Concepts")
+                .overlay {
+                    if filteredConcepts.isEmpty {
+                        ContentUnavailableView("No concepts", systemImage: "brain.head.profile", description: Text(store.message.isEmpty ? "Concepts will appear here." : store.message))
+                    }
+                }
+            }
+        }
+    }
+
+    private var splitView: some View {
+        NavigationSplitView {
+            conceptList { concept in
+                ConceptRow(concept: concept)
+                    .tag(concept)
+            }
+        } detail: {
+            if let selectedConcept {
+                ConceptDetail(concept: selectedConcept)
+            } else {
+                ContentUnavailableView("Select a concept", systemImage: "brain.head.profile")
+            }
+        }
+    }
+
+    private func conceptList<Row: View>(@ViewBuilder row: @escaping (ConceptSummary) -> Row) -> some View {
+        Group {
+            List(filteredConcepts, selection: $selectedConcept) { concept in
+                row(concept)
+                    .noeisListRow()
+            }
+            .noeisListChrome()
+            .searchable(text: $query, prompt: "Search concepts")
+            .navigationTitle("Concepts")
+            .overlay {
+                if filteredConcepts.isEmpty {
+                    ContentUnavailableView("No concepts", systemImage: "brain.head.profile", description: Text(store.message.isEmpty ? "Concepts will appear here." : store.message))
+                }
+            }
+        }
+    }
+}
+
+struct WikiDatabaseView: View {
+    @EnvironmentObject private var store: WorkspaceStore
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @State private var selectedPage: WikiPageSummary?
+    @State private var query = ""
+    @State private var isCreating = false
+    @State private var draftTitle = ""
+
+    private var filteredPages: [WikiPageSummary] {
+        guard !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            return store.wikiPages
+        }
+        return store.wikiPages.filter { page in
+            page.title.localizedCaseInsensitiveContains(query) ||
+                (page.plainText ?? "").localizedCaseInsensitiveContains(query) ||
+                (page.pageType ?? "").localizedCaseInsensitiveContains(query)
+        }
+    }
+
+    var body: some View {
+        if horizontalSizeClass == .regular {
+            splitView
+        } else {
+            NavigationStack {
+                wikiList { page in
+                    NavigationLink {
+                        WikiDetail(page: page)
+                    } label: {
+                        WikiRow(page: page)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+    }
+
+    private var splitView: some View {
+        NavigationSplitView {
+            wikiList { page in
+                WikiRow(page: page)
+                    .tag(page)
+            }
+        } detail: {
+            if let selectedPage {
+                WikiDetail(page: selectedPage)
+            } else {
+                ContentUnavailableView("Select a wiki page", systemImage: "rectangle.stack")
+            }
+        }
+    }
+
+    private func wikiList<Row: View>(@ViewBuilder row: @escaping (WikiPageSummary) -> Row) -> some View {
+        List(selection: $selectedPage) {
+            Section {
+                HStack(spacing: 8) {
+                    TextField("New wiki page", text: $draftTitle)
+                        .textFieldStyle(NoeisInputStyle())
+                    Button {
+                        Task { await createPage() }
+                    } label: {
+                        Image(systemName: isCreating ? "hourglass" : "plus")
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(isCreating || draftTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
+                .padding(.vertical, 4)
+                .noeisListRow()
+            }
+
+            Section("Pages") {
+                ForEach(filteredPages) { page in
+                    row(page)
+                        .noeisListRow()
+                }
+            }
+        }
+        .noeisListChrome()
+        .searchable(text: $query, prompt: "Search wiki")
+        .navigationTitle("Wiki")
+        .overlay {
+            if filteredPages.isEmpty && !isCreating {
+                ContentUnavailableView("No wiki pages", systemImage: "rectangle.stack", description: Text(store.message.isEmpty ? "Create a wiki page from concepts, notes, sources, or search." : store.message))
+            }
+        }
+    }
+
+    private func createPage() async {
+        isCreating = true
+        defer { isCreating = false }
+        let title = draftTitle
+        if let created = await store.createWikiPage(title: title) {
+            selectedPage = created
+            draftTitle = ""
+        }
+    }
+}
+
+struct SearchWorkspaceView: View {
+    @EnvironmentObject private var store: WorkspaceStore
+    @State private var query = ""
+
+    private var articleResults: [ArticleSummary] {
+        guard !query.isEmpty else { return [] }
+        return store.articles.filter { $0.title.localizedCaseInsensitiveContains(query) || ($0.siteName ?? "").localizedCaseInsensitiveContains(query) }
+    }
+
+    private var pageResults: [NotebookEntry] {
+        guard !query.isEmpty else { return [] }
+        return store.pages.filter { $0.title.localizedCaseInsensitiveContains(query) || $0.previewText.localizedCaseInsensitiveContains(query) }
+    }
+
+    private var conceptResults: [ConceptSummary] {
+        guard !query.isEmpty else { return [] }
+        return store.concepts.filter { $0.name.localizedCaseInsensitiveContains(query) || ($0.description ?? "").localizedCaseInsensitiveContains(query) }
+    }
+
+    private var wikiResults: [WikiPageSummary] {
+        guard !query.isEmpty else { return [] }
+        return store.wikiPages.filter { $0.title.localizedCaseInsensitiveContains(query) || ($0.plainText ?? "").localizedCaseInsensitiveContains(query) }
+    }
+
+    var body: some View {
+        NavigationStack {
+            List {
+                if query.isEmpty {
+                    ContentUnavailableView("Search Noeis", systemImage: "magnifyingglass", description: Text("Find articles, pages, concepts, and wiki entries."))
+                } else {
+                    Section("Pages") {
+                        ForEach(pageResults) { page in
+                            NavigationLink {
+                                PageDetail(page: page)
+                            } label: {
+                                PageRow(page: page)
+                            }
+                        }
+                    }
+                    Section("Concepts") {
+                        ForEach(conceptResults) { concept in
+                            NavigationLink {
+                                ConceptDetail(concept: concept)
+                            } label: {
+                                ConceptRow(concept: concept)
+                            }
+                        }
+                    }
+                    Section("Wiki") {
+                        ForEach(wikiResults) { page in
+                            NavigationLink {
+                                WikiDetail(page: page)
+                            } label: {
+                                WikiRow(page: page)
+                            }
+                        }
+                    }
+                    Section("Articles") {
+                        ForEach(articleResults) { article in
+                            NavigationLink {
+                                ArticleDetail(article: article)
+                            } label: {
+                                ArticleRow(article: article)
+                            }
+                        }
+                    }
+                }
+            }
+            .noeisListChrome()
+            .searchable(text: $query, prompt: "Search workspace")
+            .navigationTitle("Search")
+        }
+    }
+}
+
+struct WorkspaceHeader: View {
+    let title: String
+    let subtitle: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(title)
+                .font(.system(size: 38, weight: .medium, design: .serif))
+                .foregroundStyle(NoeisDesign.ink)
+            Text(subtitle)
+                .font(.callout)
+                .foregroundStyle(NoeisDesign.muted)
+        }
+    }
+}
+
+struct MetricTile: View {
+    let title: String
+    let value: String
+    let icon: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Image(systemName: icon)
+                .foregroundStyle(NoeisDesign.accent)
+            Text(value)
+                .font(.system(.title2, design: .serif).weight(.semibold))
+                .foregroundStyle(NoeisDesign.ink)
+            Text(title)
+                .font(.caption)
+                .foregroundStyle(NoeisDesign.muted)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding()
+        .noeisPanel()
+    }
+}
+
+struct SectionBlock<Content: View>: View {
+    let title: String
+    @ViewBuilder let content: Content
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(title)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(NoeisDesign.ink)
+            VStack(spacing: 0) {
+                content
+            }
+            .noeisPanel()
+        }
+    }
+}
+
+struct ArticleRow: View {
+    let article: ArticleSummary
+
+    var body: some View {
+        Label {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(article.title)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(NoeisDesign.ink)
+                    .lineLimit(2)
+                Text(article.siteName ?? article.url ?? "Saved article")
+                    .font(.caption)
+                    .foregroundStyle(NoeisDesign.muted)
+                    .lineLimit(1)
+                if !article.highlights.isEmpty {
+                    Label("\(article.highlights.count) highlights", systemImage: "highlighter")
+                        .font(.caption2)
+                        .foregroundStyle(NoeisDesign.accent)
+                }
+            }
+        } icon: {
+            Image(systemName: "doc.richtext")
+                .foregroundStyle(NoeisDesign.accent)
+        }
+        .padding(.vertical, 6)
+        .tint(NoeisDesign.ink)
+        .contentShape(Rectangle())
+    }
+}
+
+struct PageRow: View {
+    let page: NotebookEntry
+
+    var body: some View {
+        Label {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(page.title)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(NoeisDesign.ink)
+                    .lineLimit(2)
+                Text(page.previewText)
+                    .font(.caption)
+                    .foregroundStyle(NoeisDesign.muted)
+                    .lineLimit(2)
+            }
+        } icon: {
+            Image(systemName: "doc.text")
+                .foregroundStyle(NoeisDesign.accent)
+        }
+        .padding(.vertical, 6)
+        .tint(NoeisDesign.ink)
+        .contentShape(Rectangle())
+    }
+}
+
+struct ConceptRow: View {
+    let concept: ConceptSummary
+
+    var body: some View {
+        Label {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(concept.name)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(NoeisDesign.ink)
+                    .lineLimit(2)
+                Text(concept.description?.isEmpty == false ? concept.description! : "\(concept.count ?? 0) linked items")
+                    .font(.caption)
+                    .foregroundStyle(NoeisDesign.muted)
+                    .lineLimit(2)
+            }
+        } icon: {
+            Image(systemName: "brain.head.profile")
+                .foregroundStyle(NoeisDesign.accent)
+        }
+        .padding(.vertical, 6)
+        .tint(NoeisDesign.ink)
+        .contentShape(Rectangle())
+    }
+}
+
+struct WikiRow: View {
+    let page: WikiPageSummary
+
+    var body: some View {
+        Label {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(page.title)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(NoeisDesign.ink)
+                    .lineLimit(2)
+                Text(page.plainText?.isEmpty == false ? page.plainText! : "\(page.pageType?.capitalized ?? "Topic") · \(page.status?.capitalized ?? "Draft")")
+                    .font(.caption)
+                    .foregroundStyle(NoeisDesign.muted)
+                    .lineLimit(2)
+                if page.sourceCount > 0 {
+                    Label("\(page.sourceCount) sources", systemImage: "link")
+                        .font(.caption2)
+                        .foregroundStyle(NoeisDesign.accent)
+                }
+            }
+        } icon: {
+            Image(systemName: "rectangle.stack")
+                .foregroundStyle(NoeisDesign.accent)
+        }
+        .padding(.vertical, 6)
+        .tint(NoeisDesign.ink)
+        .contentShape(Rectangle())
+    }
+}
+
+struct ArticleDetail: View {
+    let article: ArticleSummary
+    @State private var detail: ArticleDetailData?
+    @State private var message = ""
+
+    private var paragraphs: [String] {
+        detail?.content?.formattedParagraphs ?? []
+    }
+
+    private var highlights: [ArticleHighlight] {
+        let loadedHighlights = detail?.highlights ?? []
+        return loadedHighlights.isEmpty ? article.highlights : loadedHighlights
+    }
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                WorkspaceHeader(title: detail?.title ?? article.title, subtitle: detail?.siteName ?? article.siteName ?? "Saved article")
+                if let url = detail?.url ?? article.url, let link = URL(string: url) {
+                    Link(url, destination: link)
+                        .font(.footnote)
+                }
+                if !highlights.isEmpty {
+                    SectionBlock(title: "Highlights") {
+                        ForEach(highlights) { highlight in
+                            HighlightRow(highlight: highlight)
+                        }
+                    }
+                }
+                Divider()
+                if !paragraphs.isEmpty {
+                    VStack(alignment: .leading, spacing: 12) {
+                        ForEach(Array(paragraphs.enumerated()), id: \.offset) { _, paragraph in
+                            Text(paragraph)
+                                .font(.body)
+                                .foregroundStyle(NoeisDesign.ink)
+                                .lineSpacing(5)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                    }
+                } else if !message.isEmpty {
+                    Text(message)
+                        .font(.callout)
+                        .foregroundStyle(NoeisDesign.muted)
+                } else {
+                    ProgressView()
+                }
+            }
+            .padding()
+            .frame(maxWidth: NoeisDesign.pageMaxWidth, alignment: .leading)
+        }
+        .background(NoeisDesign.background)
+        .navigationTitle("Article")
+        .task(id: article.id) {
+            await load()
+        }
+    }
+
+    private func load() async {
+        do {
+            detail = try await NoeisAPI.shared.fetchArticle(id: article.id)
+            if detail?.content?.formattedParagraphs.isEmpty != false {
+                message = "No article body was saved for this item."
+            }
+        } catch {
+            message = error.localizedDescription
+        }
+    }
+}
+
+struct HighlightRow: View {
+    let highlight: ArticleHighlight
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                Circle()
+                    .fill(color)
+                    .frame(width: 10, height: 10)
+                Text(highlight.type?.capitalized ?? "Highlight")
+                    .font(.caption)
+                    .foregroundStyle(NoeisDesign.muted)
+                Spacer()
+            }
+
+            Text(highlight.text.asPlainText)
+                .font(.callout)
+                .foregroundStyle(NoeisDesign.ink)
+                .lineSpacing(3)
+
+            if let note = highlight.note, !note.asPlainText.isEmpty {
+                Text(note.asPlainText)
+                    .font(.footnote)
+                    .foregroundStyle(NoeisDesign.muted)
+                    .lineSpacing(2)
+            }
+
+            if !highlight.tags.isEmpty {
+                Text(highlight.tags.map { "#\($0)" }.joined(separator: " "))
+                    .font(.caption2)
+                    .foregroundStyle(NoeisDesign.accent)
+                    .lineLimit(2)
+            }
+        }
+        .padding()
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(NoeisDesign.background)
+        .overlay(
+            RoundedRectangle(cornerRadius: NoeisDesign.radius)
+                .stroke(NoeisDesign.border, lineWidth: 0.5)
+        )
+    }
+
+    private var color: Color {
+        Color(hex: highlight.color ?? "") ?? Color(red: 0.965, green: 0.886, blue: 0.478)
+    }
+}
+
+struct PageDetail: View {
+    let page: NotebookEntry
+    @EnvironmentObject private var store: WorkspaceStore
+    @State private var detail: NotebookEntry?
+    @State private var message = ""
+    @State private var editorTitle = ""
+    @State private var editorContent = ""
+    @State private var editorFolderId = ""
+    @State private var isSaving = false
+    @State private var hasInitializedEditor = false
+
+    private var displayPage: NotebookEntry {
+        detail ?? page
+    }
+
+    private var hasChanges: Bool {
+        editorTitle != displayPage.title ||
+            editorContent != (displayPage.content?.asPlainText ?? displayPage.previewText) ||
+            editorFolderId != (displayPage.folder?.id ?? "")
+    }
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 18) {
+                WorkspaceHeader(title: "Notebook", subtitle: displayPage.folder?.name ?? "Notebook page")
+
+                VStack(alignment: .leading, spacing: 12) {
+                    TextField("Title", text: $editorTitle)
+                        .font(.system(.title2, design: .serif).weight(.semibold))
+                        .textFieldStyle(NoeisInputStyle())
+
+                    Picker("Folder", selection: $editorFolderId) {
+                        Text("Unfiled").tag("")
+                        ForEach(store.notebookFolders) { folder in
+                            Text(folder.name).tag(folder.id)
+                        }
+                    }
+
+                    TextEditor(text: $editorContent)
+                        .font(.body)
+                        .lineSpacing(5)
+                        .frame(minHeight: 280)
+                        .scrollContentBackground(.hidden)
+                        .padding(8)
+                        .noeisPanel(cornerRadius: 2)
+                }
+
+                if !message.isEmpty {
+                    Text(message)
+                        .font(.caption)
+                        .foregroundStyle(NoeisDesign.muted)
+                }
+
+                if hasChanges {
+                    Button {
+                        Task { await save() }
+                    } label: {
+                        Label(isSaving ? "Saving" : "Save Changes", systemImage: "checkmark.circle")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(isSaving || editorTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
+
+                AgentChatPanel(
+                    title: "Agent",
+                    contextType: "notebook",
+                    contextId: displayPage.id,
+                    contextTitle: editorTitle.isEmpty ? displayPage.title : editorTitle
+                )
+            }
+            .padding()
+            .frame(maxWidth: NoeisDesign.pageMaxWidth, alignment: .leading)
+        }
+        .background(NoeisDesign.background)
+        .navigationTitle(editorTitle.isEmpty ? displayPage.title : editorTitle)
+        .task(id: page.id) {
+            initializeEditorIfNeeded(from: page)
+            await load()
+        }
+    }
+
+    private func initializeEditorIfNeeded(from page: NotebookEntry) {
+        guard !hasInitializedEditor else { return }
+        editorTitle = page.title
+        editorContent = page.content?.asPlainText ?? page.previewText
+        editorFolderId = page.folder?.id ?? ""
+        hasInitializedEditor = true
+    }
+
+    private func applyLoadedPage(_ page: NotebookEntry) {
+        detail = page
+        editorTitle = page.title
+        editorContent = page.content?.asPlainText ?? page.previewText
+        editorFolderId = page.folder?.id ?? ""
+        hasInitializedEditor = true
+    }
+
+    private func load() async {
+        if page.content?.isEmpty == false {
+            applyLoadedPage(page)
+            return
+        }
+
+        do {
+            let loaded = try await NoeisAPI.shared.fetchNotebookEntry(id: page.id)
+            applyLoadedPage(loaded)
+            if editorContent.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                message = "No content yet."
+            }
+        } catch {
+            if !page.previewText.isEmpty {
+                message = ""
+            } else {
+                message = error.localizedDescription
+            }
+        }
+    }
+
+    private func save() async {
+        isSaving = true
+        defer { isSaving = false }
+
+        do {
+            let updated = try await NoeisAPI.shared.updateNotebookEntry(
+                id: displayPage.id,
+                title: editorTitle,
+                content: editorContent,
+                folderId: editorFolderId.isEmpty ? nil : editorFolderId
+            )
+            applyLoadedPage(updated)
+            store.replacePage(updated)
+            message = "Saved."
+        } catch {
+            message = error.localizedDescription
+        }
+    }
+}
+
+struct ConceptDetail: View {
+    let concept: ConceptSummary
+    @State private var material: ConceptMaterial?
+    @State private var message = ""
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 18) {
+                WorkspaceHeader(title: concept.name, subtitle: "Concept")
+                Text(concept.description?.isEmpty == false ? concept.description! : "No description yet.")
+                    .lineSpacing(5)
+                    .foregroundStyle(NoeisDesign.ink)
+                Divider()
+                Label("\(concept.count ?? 0) linked items", systemImage: "link")
+                    .foregroundStyle(NoeisDesign.muted)
+
+                if let material {
+                    ConceptMaterialSection(material: material)
+                } else if !message.isEmpty {
+                    Text(message)
+                        .font(.callout)
+                        .foregroundStyle(NoeisDesign.muted)
+                } else {
+                    ProgressView()
+                }
+
+                AgentChatPanel(
+                    title: "Agent",
+                    contextType: "concept",
+                    contextId: concept.id,
+                    contextTitle: concept.name
+                )
+            }
+            .padding()
+            .frame(maxWidth: NoeisDesign.pageMaxWidth, alignment: .leading)
+        }
+        .background(NoeisDesign.background)
+        .navigationTitle(concept.name)
+        .task(id: concept.id) {
+            await load()
+        }
+    }
+
+    private func load() async {
+        do {
+            material = try await NoeisAPI.shared.fetchConceptMaterial(conceptIdOrName: concept.name)
+        } catch {
+            message = error.localizedDescription
+        }
+    }
+}
+
+struct WikiDetail: View {
+    let page: WikiPageSummary
+    @State private var detail: WikiPageSummary?
+    @State private var message = ""
+
+    private var displayPage: WikiPageSummary {
+        detail ?? page
+    }
+
+    private var bodyParagraphs: [String] {
+        displayPage.plainText?.formattedParagraphs ?? []
+    }
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 18) {
+                WorkspaceHeader(title: displayPage.title, subtitle: "\(displayPage.pageType?.capitalized ?? "Topic") · \(displayPage.status?.capitalized ?? "Draft")")
+
+                HStack(spacing: 10) {
+                    Label(displayPage.visibility?.capitalized ?? "Private", systemImage: "lock")
+                    Label("\(displayPage.sourceCount) sources", systemImage: "link")
+                }
+                .font(.caption)
+                .foregroundStyle(NoeisDesign.muted)
+
+                SectionBlock(title: "Draft") {
+                    if bodyParagraphs.isEmpty {
+                        EmptyRow(text: message.isEmpty ? "No wiki draft text yet." : message)
+                    } else {
+                        VStack(alignment: .leading, spacing: 12) {
+                            ForEach(Array(bodyParagraphs.enumerated()), id: \.offset) { _, paragraph in
+                                Text(paragraph)
+                                    .font(.body)
+                                    .foregroundStyle(NoeisDesign.ink)
+                                    .lineSpacing(5)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                            }
+                        }
+                        .padding()
+                    }
+                }
+
+                AgentChatPanel(
+                    title: "Wiki Agent",
+                    contextType: "wiki",
+                    contextId: displayPage.id,
+                    contextTitle: displayPage.title
+                )
+            }
+            .padding()
+            .frame(maxWidth: NoeisDesign.pageMaxWidth, alignment: .leading)
+        }
+        .background(NoeisDesign.background)
+        .navigationTitle(displayPage.title)
+        .task(id: page.id) {
+            await load()
+        }
+    }
+
+    private func load() async {
+        do {
+            detail = try await NoeisAPI.shared.fetchWikiPage(id: page.id)
+        } catch {
+            message = error.localizedDescription
+        }
+    }
+}
+
+struct ConceptMaterialSection: View {
+    let material: ConceptMaterial
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            SectionBlock(title: "Pinned Highlights") {
+                if material.pinnedHighlights.isEmpty {
+                    EmptyRow(text: "No pinned highlights yet.")
+                } else {
+                    ForEach(material.pinnedHighlights) { highlight in
+                        ConceptHighlightRow(highlight: highlight)
+                    }
+                }
+            }
+
+            SectionBlock(title: "Recent Material") {
+                ForEach(material.recentHighlights.prefix(8)) { highlight in
+                    ConceptHighlightRow(highlight: highlight)
+                }
+                if material.recentHighlights.isEmpty {
+                    EmptyRow(text: "No recent highlights found.")
+                }
+            }
+
+            SectionBlock(title: "Linked Notes") {
+                ForEach(material.linkedNotes.prefix(8)) { note in
+                    PageRow(page: note)
+                }
+                if material.linkedNotes.isEmpty {
+                    EmptyRow(text: "No linked notes yet.")
+                }
+            }
+
+            SectionBlock(title: "Linked Articles") {
+                ForEach(material.linkedArticles.prefix(8)) { article in
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(article.title)
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(NoeisDesign.ink)
+                        Text("\(article.highlightCount ?? 0) highlights")
+                            .font(.caption)
+                            .foregroundStyle(NoeisDesign.muted)
+                    }
+                    .padding()
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                if material.linkedArticles.isEmpty {
+                    EmptyRow(text: "No linked articles yet.")
+                }
+            }
+        }
+    }
+}
+
+struct ConceptHighlightRow: View {
+    let highlight: ConceptMaterialHighlight
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(highlight.articleTitle ?? "Highlight")
+                .font(.caption)
+                .foregroundStyle(NoeisDesign.muted)
+            Text(highlight.text.asPlainText)
+                .font(.callout)
+                .lineSpacing(3)
+            if let note = highlight.note, !note.asPlainText.isEmpty {
+                Text(note.asPlainText)
+                    .font(.footnote)
+                    .foregroundStyle(NoeisDesign.muted)
+            }
+        }
+        .padding()
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+struct EmptyRow: View {
+    let text: String
+
+    var body: some View {
+        Text(text)
+            .font(.caption)
+            .foregroundStyle(NoeisDesign.muted)
+            .padding()
+            .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+struct AgentChatPanel: View {
+    let title: String
+    let contextType: String
+    let contextId: String
+    let contextTitle: String
+    @State private var messages: [AgentChatMessage] = []
+    @State private var draft = ""
+    @State private var isSending = false
+    @State private var errorMessage = ""
+
+    var body: some View {
+        SectionBlock(title: title) {
+            VStack(alignment: .leading, spacing: 12) {
+                if messages.isEmpty {
+                    Text("Ask the agent to pull related material, critique the note, summarize the concept, or suggest next steps.")
+                        .font(.caption)
+                        .foregroundStyle(NoeisDesign.muted)
+                        .padding(.horizontal)
+                        .padding(.top)
+                } else {
+                    ForEach(messages) { message in
+                        AgentMessageRow(message: message)
+                    }
+                }
+
+                if !errorMessage.isEmpty {
+                    Text(errorMessage)
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                        .padding(.horizontal)
+                }
+
+                HStack(alignment: .bottom, spacing: 8) {
+                    TextField("Ask about this \(contextType)", text: $draft, axis: .vertical)
+                        .textFieldStyle(NoeisInputStyle())
+                        .lineLimit(1...4)
+                    Button {
+                        Task { await send() }
+                    } label: {
+                        Image(systemName: isSending ? "hourglass" : "paperplane.fill")
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(isSending || draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
+                .padding()
+            }
+        }
+    }
+
+    private func send() async {
+        let text = draft.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else { return }
+
+        draft = ""
+        errorMessage = ""
+        let userMessage = AgentChatMessage(role: "user", text: text)
+        messages.append(userMessage)
+        isSending = true
+        defer { isSending = false }
+
+        do {
+            let response = try await NoeisAPI.shared.chatWithAgent(
+                message: text,
+                history: messages,
+                contextType: contextType,
+                contextId: contextId,
+                contextTitle: contextTitle
+            )
+            messages.append(AgentChatMessage(role: "assistant", text: response.reply?.isEmpty == false ? response.reply! : "No reply generated."))
+            if let related = response.relatedItems, !related.isEmpty {
+                let relatedText = related.prefix(4).compactMap { item in
+                    item.title ?? item.snippet
+                }.joined(separator: "\n")
+                if !relatedText.isEmpty {
+                    messages.append(AgentChatMessage(role: "assistant", text: "Related material:\n\(relatedText)"))
+                }
+            }
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+}
+
+struct AgentMessageRow: View {
+    let message: AgentChatMessage
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(message.role == "user" ? "You" : "Agent")
+                .font(.caption.bold())
+                .foregroundStyle(NoeisDesign.muted)
+            Text(message.text)
+                .font(.callout)
+                .lineSpacing(3)
+        }
+        .padding()
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(message.role == "user" ? NoeisDesign.background : NoeisDesign.panelStrong)
+    }
+}
+
+private extension String {
+    var asPlainText: String {
+        formattedParagraphs.joined(separator: " ")
+    }
+
+    var formattedParagraphs: [String] {
+        var value = self
+            .replacingOccurrences(of: "(?i)<\\s*br\\s*/?\\s*>", with: "\n", options: .regularExpression)
+            .replacingOccurrences(of: "(?i)</\\s*(p|div|section|article|blockquote|h[1-6]|li)\\s*>", with: "\n\n", options: .regularExpression)
+            .replacingOccurrences(of: "(?i)<\\s*li[^>]*>", with: "\n- ", options: .regularExpression)
+            .replacingOccurrences(of: "<[^>]+>", with: " ", options: .regularExpression)
+            .replacingOccurrences(of: "&nbsp;", with: " ")
+            .replacingOccurrences(of: "&amp;", with: "&")
+            .replacingOccurrences(of: "&quot;", with: "\"")
+            .replacingOccurrences(of: "&#39;", with: "'")
+            .replacingOccurrences(of: "&apos;", with: "'")
+            .replacingOccurrences(of: "&lt;", with: "<")
+            .replacingOccurrences(of: "&gt;", with: ">")
+
+        value = value.replacingOccurrences(of: "[ \\t\\u{00a0}]+", with: " ", options: .regularExpression)
+        value = value.replacingOccurrences(of: "\\n[ \\t]+", with: "\n", options: .regularExpression)
+        value = value.replacingOccurrences(of: "\\n{3,}", with: "\n\n", options: .regularExpression)
+
+        return value
+            .components(separatedBy: .newlines)
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+    }
+}
+
+private extension NotebookEntry {
+    var previewText: String {
+        let text = (snippet?.isEmpty == false ? snippet : content) ?? ""
+        return text.asPlainText
+    }
+}
+
+private extension Color {
+    init?(hex: String) {
+        let cleaned = hex.trimmingCharacters(in: CharacterSet(charactersIn: "#"))
+        let expanded: String
+        if cleaned.count == 3 {
+            expanded = cleaned.map { "\($0)\($0)" }.joined()
+        } else {
+            expanded = cleaned
+        }
+
+        guard expanded.count == 6, let value = Int(expanded, radix: 16) else {
+            return nil
+        }
+
+        self.init(
+            red: Double((value >> 16) & 0xff) / 255,
+            green: Double((value >> 8) & 0xff) / 255,
+            blue: Double(value & 0xff) / 255
+        )
+    }
+}
+
+struct SettingsView: View {
+    @EnvironmentObject private var session: NoeisSession
+
+    var body: some View {
+        NavigationStack {
+            List {
+                Section("Account") {
+                    Text(session.username.isEmpty ? "Signed in" : session.username)
+                    Button("Log Out", role: .destructive) {
+                        session.logout()
+                    }
+                }
+                Section("Safari Extension") {
+                    Text("Enable Noeis in Settings > Safari > Extensions.")
+                }
+                Section("Legal") {
+                    Link("Privacy Policy", destination: URL(string: "https://noeis.io/privacy")!)
+                    Link("Terms of Use", destination: URL(string: "https://noeis.io/terms")!)
+                    Link("Support and Guides", destination: URL(string: "https://noeis.io/guides")!)
+                }
+            }
+            .navigationTitle("Settings")
+        }
+    }
+}

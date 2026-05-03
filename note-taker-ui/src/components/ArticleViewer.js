@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import api from '../api';
+import { createWikiPage } from '../api/wiki';
 import { useParams, useNavigate } from 'react-router-dom';
 import CitationGenerator from './CitationGenerator'; // <-- 1. IMPORT THE NEW COMPONENT
 import { Page, Card } from './ui';
@@ -9,6 +10,7 @@ import SemanticRelatedPanel from './retrieval/SemanticRelatedPanel';
 import ThoughtPartnerPanel from './agent/ThoughtPartnerPanel';
 import { renderArticleContentWithHighlights } from '../utils/highlightMarkup';
 import { buildArticleAmbientContext } from '../utils/ambientAgentContext';
+import { buildWikiCreatePayload, openWikiDraft } from '../utils/wikiCreate';
 
 const getAuthConfig = () => {
     // ... (Your existing code)
@@ -98,6 +100,7 @@ const ArticleViewer = ({ onArticleChange }) => {
     const [annotationDraft, setAnnotationDraft] = useState({ text: '', note: '', page: '', color: '#f6c244' });
     const [pdfSaving, setPdfSaving] = useState(false);
     const [pdfStatus, setPdfStatus] = useState('');
+    const [wikiCreating, setWikiCreating] = useState(false);
     const activePdf = useMemo(() => {
         if (!pdfs || pdfs.length === 0) return null;
         return pdfs.find(pdf => pdf.id === activePdfId) || pdfs[0];
@@ -112,6 +115,34 @@ const ArticleViewer = ({ onArticleChange }) => {
             .map(tag => tag.trim())
             .filter(Boolean)
     );
+
+    const handleCreateWikiPage = async () => {
+        if (!article) return;
+        setWikiCreating(true);
+        try {
+            const text = `${article.title || 'Article'}\n\n${String(article.excerpt || article.content || '').replace(/<[^>]*>/g, ' ').slice(0, 1000)}`;
+            const page = await createWikiPage(buildWikiCreatePayload({
+                type: 'article',
+                objectId: article._id || id,
+                title: article.title || 'Untitled article',
+                text,
+                label: article.title || 'Article',
+                pageType: 'source',
+                source: {
+                    type: 'article',
+                    objectId: article._id || id,
+                    title: article.title || 'Untitled article',
+                    snippet: text,
+                    url: article.url || ''
+                }
+            }));
+            openWikiDraft({ navigate, pageId: page._id });
+        } catch (err) {
+            console.error('Create Wiki page from article failed:', err);
+        } finally {
+            setWikiCreating(false);
+        }
+    };
 
     const toggleTagSelection = (tag) => {
         setSelectedTags(prev => (
@@ -761,6 +792,14 @@ const ArticleViewer = ({ onArticleChange }) => {
                                 title="Recommend Article"
                             >
                                 Recommend
+                            </button>
+                            <button
+                                className="management-button"
+                                onClick={handleCreateWikiPage}
+                                disabled={wikiCreating}
+                                title="Create Wiki page from this article"
+                            >
+                                {wikiCreating ? 'Creating Wiki...' : 'Create Wiki'}
                             </button>
                             <button 
                                 className="management-button delete-button" 

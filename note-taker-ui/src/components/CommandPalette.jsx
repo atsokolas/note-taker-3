@@ -2,9 +2,11 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api';
 import { searchKeyword } from '../api/retrieval';
+import { createWikiPage } from '../api/wiki';
 import { Card, Button } from './ui';
 import { buildCanonicalArticlePath } from '../utils/firstInsight';
 import { getNotebookSummaries } from '../api/notebook';
+import { buildWikiCreatePayload, openWikiDraft } from '../utils/wikiCreate';
 
 const EMPTY_GROUPS = {
   notes: [],
@@ -117,6 +119,24 @@ const CommandPalette = ({ open, onClose }) => {
     }
   }, [navigate]);
 
+  const createWiki = useCallback(async () => {
+    const seed = query.trim();
+    try {
+      const page = await createWikiPage(buildWikiCreatePayload({
+        type: seed ? 'search' : 'wiki_index',
+        title: seed || 'Untitled Wiki Page',
+        text: seed,
+        label: seed || 'Command palette'
+      }));
+      onClose?.();
+      openWikiDraft({ navigate, pageId: page._id });
+    } catch (err) {
+      console.error('Palette new wiki page failed', err);
+      onClose?.();
+      navigate('/wiki');
+    }
+  }, [navigate, onClose, query]);
+
   const sections = useMemo(() => {
     const q = query.trim();
     const list = [];
@@ -125,6 +145,7 @@ const CommandPalette = ({ open, onClose }) => {
       title: 'Actions',
       items: [
         { type: 'Action', label: 'New note', action: createNote },
+        { type: 'Action', label: q ? `New Wiki page from "${q.slice(0, 48)}"` : 'New Wiki page', action: createWiki },
         { type: 'Action', label: 'New collection', path: '/library?tab=collections' }
       ]
     });
@@ -205,7 +226,7 @@ const CommandPalette = ({ open, onClose }) => {
     return list
       .map(section => ({ ...section, items: section.items.filter(Boolean) }))
       .filter(section => section.items.length > 0);
-  }, [articles, collections, concepts, createNote, notebook, pages, query, searchGroups]);
+  }, [articles, collections, concepts, createNote, createWiki, notebook, pages, query, searchGroups]);
 
   const selectableItems = useMemo(
     () => sections.flatMap(section => section.items),
