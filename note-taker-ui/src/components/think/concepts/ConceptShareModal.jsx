@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Button, QuietButton } from '../../ui';
 import { getConceptShare, mintConceptShare, revokeConceptShare } from '../../../api/concepts';
 
@@ -19,6 +19,58 @@ const buildShareUrl = (slug) => {
   if (typeof window === 'undefined') return `/share/concepts/${slug}`;
   return `${window.location.origin}/share/concepts/${slug}`;
 };
+
+const buildShareHostLabel = () => {
+  if (typeof window === 'undefined') return 'noeis';
+  try {
+    return window.location.host.replace(/^www\./, '') || 'noeis';
+  } catch (_err) {
+    return 'noeis';
+  }
+};
+
+// Mini "what your share will look like" card. Intentionally does not fetch
+// real concept content — it's a brand reassurance, not a true preview.
+const ShareLinkPreviewCard = ({ conceptName, host }) => (
+  <div className="concept-share-modal__preview" aria-hidden="true">
+    <div className="concept-share-modal__preview-bar">
+      <span className="concept-share-modal__preview-dot" />
+      <span className="concept-share-modal__preview-dot" />
+      <span className="concept-share-modal__preview-dot" />
+      <span className="concept-share-modal__preview-host">{host}/share/concepts/…</span>
+    </div>
+    <div className="concept-share-modal__preview-body">
+      <span className="concept-share-modal__preview-brand">
+        <span className="concept-share-modal__preview-mark" />
+        Noeis
+      </span>
+      <span className="concept-share-modal__preview-eyebrow">Shared concept</span>
+      <span className="concept-share-modal__preview-title">{conceptName || 'Your concept'}</span>
+      <span className="concept-share-modal__preview-meta">A read-only snapshot · Updated just now</span>
+    </div>
+  </div>
+);
+
+const ShareIncludesList = () => (
+  <ul className="concept-share-modal__includes" aria-label="What's included">
+    <li>
+      <span className="concept-share-modal__includes-icon" aria-hidden="true">✓</span>
+      Working hypothesis, support, tension, and open questions
+    </li>
+    <li>
+      <span className="concept-share-modal__includes-icon" aria-hidden="true">✓</span>
+      Optional concept note (read-only)
+    </li>
+    <li>
+      <span className="concept-share-modal__includes-icon concept-share-modal__includes-icon--neg" aria-hidden="true">—</span>
+      No agent, no editor, no comments
+    </li>
+    <li>
+      <span className="concept-share-modal__includes-icon concept-share-modal__includes-icon--neg" aria-hidden="true">—</span>
+      Revoke any time — the link stops working immediately
+    </li>
+  </ul>
+);
 
 const ConceptShareModal = ({ open, conceptName, onClose }) => {
   const [state, setState] = useState({ shared: false });
@@ -78,9 +130,9 @@ const ConceptShareModal = ({ open, conceptName, onClose }) => {
 
   const handleCopy = async () => {
     if (!state.slug) return;
-    const url = buildShareUrl(state.slug);
+    const shareUrl = buildShareUrl(state.slug);
     try {
-      await navigator.clipboard.writeText(url);
+      await navigator.clipboard.writeText(shareUrl);
       setCopyStatus('Link copied to clipboard.');
       setTimeout(() => setCopyStatus(''), 2400);
     } catch (_err) {
@@ -88,6 +140,7 @@ const ConceptShareModal = ({ open, conceptName, onClose }) => {
     }
   };
 
+  const host = useMemo(() => buildShareHostLabel(), []);
   if (!open) return null;
 
   const url = state.slug ? buildShareUrl(state.slug) : '';
@@ -101,10 +154,11 @@ const ConceptShareModal = ({ open, conceptName, onClose }) => {
       }}
     >
       <div className="modal-content modal-content--insert concept-share-modal" role="dialog" aria-label="Share concept">
-        <div className="modal-header">
-          <div>
+        <div className="modal-header concept-share-modal__header">
+          <div className="concept-share-modal__heading">
+            <span className="concept-share-modal__eyebrow">Public share</span>
             <h3>Share this concept</h3>
-            <p className="muted small">
+            <p className="muted small concept-share-modal__lede">
               Anyone with the link can read a snapshot of the working hypothesis,
               support, tension, and open questions. No agent, no editor.
             </p>
@@ -113,25 +167,38 @@ const ConceptShareModal = ({ open, conceptName, onClose }) => {
         </div>
 
         {loading ? (
-          <p className="muted small">Loading…</p>
+          <p className="muted small concept-share-modal__loading">Loading…</p>
         ) : error ? (
           <p className="status-message error-message">{error}</p>
         ) : state.shared ? (
           <div className="concept-share-modal__active">
-            <label className="concept-share-modal__label" htmlFor="concept-share-url">Public link</label>
-            <div className="concept-share-modal__url-row">
-              <input
-                id="concept-share-url"
-                className="concept-share-modal__url"
-                type="text"
-                value={url}
-                readOnly
-                onFocus={(event) => event.target.select()}
-              />
-              <Button variant="secondary" onClick={handleCopy} disabled={busy}>Copy link</Button>
+            <ShareLinkPreviewCard conceptName={conceptName} host={host} />
+            <div className="concept-share-modal__active-controls">
+              <label className="concept-share-modal__label" htmlFor="concept-share-url">Public link</label>
+              <div className="concept-share-modal__url-row">
+                <input
+                  id="concept-share-url"
+                  className="concept-share-modal__url"
+                  type="text"
+                  value={url}
+                  readOnly
+                  onFocus={(event) => event.target.select()}
+                />
+                <Button variant="secondary" onClick={handleCopy} disabled={busy}>Copy link</Button>
+              </div>
+              <div className="concept-share-modal__active-actions">
+                <a
+                  href={url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="concept-share-modal__open-link"
+                >
+                  Open in new tab ↗
+                </a>
+                {copyStatus ? <span className="muted small">{copyStatus}</span> : null}
+              </div>
             </div>
-            {copyStatus ? <p className="muted small">{copyStatus}</p> : null}
-            <p className="muted small">
+            <p className="muted small concept-share-modal__fineprint">
               Visit it any time, or send to anyone. Revoking ends access — minting again gives a new link.
             </p>
             <div className="modal-footer insert-modal__footer">
@@ -149,13 +216,17 @@ const ConceptShareModal = ({ open, conceptName, onClose }) => {
           </div>
         ) : (
           <div className="concept-share-modal__inactive">
+            <ShareLinkPreviewCard conceptName={conceptName} host={host} />
             <p className="concept-share-modal__pitch">
               Create a public link to share your thinking on <strong>{conceptName}</strong>.
               You can revoke any time.
             </p>
-            <Button variant="primary" onClick={handleMint} disabled={busy}>
-              {busy ? 'Creating link…' : 'Create public link'}
-            </Button>
+            <ShareIncludesList />
+            <div className="concept-share-modal__cta-row">
+              <Button variant="primary" onClick={handleMint} disabled={busy}>
+                {busy ? 'Creating link…' : 'Create public link'}
+              </Button>
+            </div>
             <div className="modal-footer insert-modal__footer">
               <span className="insert-modal__footer-hint">
                 <kbd>esc</kbd> to close
