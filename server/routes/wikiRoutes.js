@@ -79,6 +79,94 @@ const buildDraftDoc = ({ title, seedText }) => ({
   ]
 });
 
+const serializeWikiPage = (page) => {
+  if (!page) return page;
+  const raw = typeof page.toObject === 'function'
+    ? page.toObject({ virtuals: false })
+    : { ...page };
+  return {
+    ...raw,
+    body: raw.body || emptyDoc(),
+    createdFrom: raw.createdFrom || { type: 'wiki_index', objectIds: [], text: '', label: '' },
+    sourceRefs: Array.isArray(raw.sourceRefs) ? raw.sourceRefs : [],
+    aiState: {
+      draftStatus: raw.aiState?.draftStatus || 'idle',
+      draftRequestedAt: raw.aiState?.draftRequestedAt || null,
+      draftStartedAt: raw.aiState?.draftStartedAt || null,
+      draftCompletedAt: raw.aiState?.draftCompletedAt || null,
+      lastDraftedAt: raw.aiState?.lastDraftedAt || null,
+      lastError: raw.aiState?.lastError || '',
+      errorCode: raw.aiState?.errorCode || '',
+      model: raw.aiState?.model || '',
+      sourceScopeAtDraft: raw.aiState?.sourceScopeAtDraft || raw.sourceScope || 'entire_library',
+      sourceRefIdsAtDraft: Array.isArray(raw.aiState?.sourceRefIdsAtDraft) ? raw.aiState.sourceRefIdsAtDraft : [],
+      suggestions: Array.isArray(raw.aiState?.suggestions) ? raw.aiState.suggestions : []
+    }
+  };
+};
+
+const buildWikiDraftSuggestions = ({ page }) => {
+  const sourceIds = Array.isArray(page.sourceRefs)
+    ? page.sourceRefs.map(source => source._id).filter(Boolean)
+    : [];
+  const stamp = Date.now();
+  const seedText = String(page.createdFrom?.text || '').trim();
+  return [
+    {
+      id: `outline-${stamp}`,
+      type: 'outline',
+      title: 'Suggested outline',
+      text: `Turn "${page.title}" into a short page with context, source-backed claims, and open questions.`,
+      sourceRefIds: sourceIds
+    },
+    {
+      id: `edit-${stamp}`,
+      type: 'edit',
+      title: 'Next edit',
+      text: seedText || 'Add a concise working thesis, then attach the sources that support or challenge it.',
+      sourceRefIds: sourceIds
+    },
+    {
+      id: `gap-${stamp}`,
+      type: 'gap',
+      title: 'Evidence gap',
+      text: sourceIds.length > 0
+        ? 'Review each attached source and cite the strongest claim before publishing.'
+        : 'Attach at least one source so the page has a traceable evidence trail.',
+      sourceRefIds: []
+    }
+  ];
+};
+
+const buildWikiDraftState = ({ page, now = new Date(), model = 'local-stub', error = null }) => {
+  if (error) {
+    return {
+      ...(page.aiState?.toObject ? page.aiState.toObject() : page.aiState || {}),
+      draftStatus: 'error',
+      lastError: String(error.message || error || 'Draft failed.'),
+      errorCode: String(error.code || 'DRAFT_FAILED'),
+      model,
+      sourceScopeAtDraft: page.sourceScope
+    };
+  }
+
+  return {
+    draftStatus: 'ready',
+    draftRequestedAt: page.aiState?.draftRequestedAt || now,
+    draftStartedAt: page.aiState?.draftStartedAt || now,
+    draftCompletedAt: now,
+    lastDraftedAt: now,
+    lastError: '',
+    errorCode: '',
+    model,
+    sourceScopeAtDraft: page.sourceScope,
+    sourceRefIdsAtDraft: Array.isArray(page.sourceRefs)
+      ? page.sourceRefs.map(source => source._id).filter(Boolean)
+      : [],
+    suggestions: buildWikiDraftSuggestions({ page })
+  };
+};
+
 const validateEnumField = (field, value, allowedValues) => {
   if (value === undefined) return null;
   const normalized = String(value || '').trim();
@@ -175,7 +263,7 @@ const buildWikiRouter = ({ authenticateToken, WikiPage }) => {
       }
 
       const pages = await WikiPage.find(query).sort({ updatedAt: -1 }).limit(100).lean();
-      res.status(200).json(pages);
+      res.status(200).json(pages.map(serializeWikiPage));
     } catch (error) {
       console.error('Error listing wiki pages:', error);
       res.status(500).json({ error: 'Failed to list wiki pages.' });
@@ -188,6 +276,10 @@ const buildWikiRouter = ({ authenticateToken, WikiPage }) => {
       const sourceScope = validateEnumField('sourceScope', req.body?.sourceScope, SOURCE_SCOPES);
       if (pageType?.error) return res.status(400).json({ error: pageType.error });
       if (sourceScope?.error) return res.status(400).json({ error: sourceScope.error });
+      const initialSourceRef = req.body?.initialSourceRef
+        ? normalizeSourceRef(req.body.initialSourceRef)
+        : null;
+      if (initialSourceRef?.error) return res.status(400).json({ error: initialSourceRef.error });
 
       const createdFrom = normalizeCreatedFrom(req.body?.createdFrom);
       const title = normalizeTitle(req.body?.title || createdFrom.label);
@@ -204,10 +296,11 @@ const buildWikiRouter = ({ authenticateToken, WikiPage }) => {
         sourceScope: sourceScope?.value || 'entire_library',
         createdFrom,
         body,
-        plainText: extractPlainText(body)
+        plainText: extractPlainText(body),
+        sourceRefs: initialSourceRef?.value ? [initialSourceRef.value] : []
       });
       await page.save();
-      res.status(201).json(page);
+      res.status(201).json(serializeWikiPage(page));
     } catch (error) {
       console.error('Error creating wiki page:', error);
       res.status(500).json({ error: 'Failed to create wiki page.' });
@@ -218,7 +311,7 @@ const buildWikiRouter = ({ authenticateToken, WikiPage }) => {
     try {
       const page = await findOwnedPage(req).lean();
       if (!page) return res.status(404).json({ error: 'Wiki page not found.' });
-      res.status(200).json(page);
+      res.status(200).json(serializeWikiPage(page));
     } catch (_error) {
       res.status(400).json({ error: 'Invalid wiki page id.' });
     }
@@ -255,7 +348,7 @@ const buildWikiRouter = ({ authenticateToken, WikiPage }) => {
       }
 
       await page.save();
-      res.status(200).json(page);
+      res.status(200).json(serializeWikiPage(page));
     } catch (error) {
       console.error('Error updating wiki page:', error);
       res.status(500).json({ error: 'Failed to update wiki page.' });
@@ -270,7 +363,7 @@ const buildWikiRouter = ({ authenticateToken, WikiPage }) => {
         { new: true }
       );
       if (!page) return res.status(404).json({ error: 'Wiki page not found.' });
-      res.status(200).json(page);
+      res.status(200).json(serializeWikiPage(page));
     } catch (_error) {
       res.status(400).json({ error: 'Invalid wiki page id.' });
     }
@@ -282,13 +375,7 @@ const buildWikiRouter = ({ authenticateToken, WikiPage }) => {
       if (!page) return res.status(404).json({ error: 'Wiki page not found.' });
 
       const hasPlainText = Boolean(String(page.plainText || '').trim());
-      page.aiState = {
-        draftStatus: 'ready',
-        lastDraftedAt: new Date(),
-        lastError: '',
-        model: 'local-stub',
-        sourceScopeAtDraft: page.sourceScope
-      };
+      page.aiState = buildWikiDraftState({ page });
       if (!hasPlainText) {
         const seedText = String(page.createdFrom?.text || '').trim();
         page.body = buildDraftDoc({ title: page.title, seedText });
@@ -296,7 +383,7 @@ const buildWikiRouter = ({ authenticateToken, WikiPage }) => {
       }
 
       await page.save();
-      res.status(200).json(page);
+      res.status(200).json(serializeWikiPage(page));
     } catch (error) {
       console.error('Error drafting wiki page:', error);
       res.status(500).json({ error: 'Failed to draft wiki page.' });
@@ -313,7 +400,7 @@ const buildWikiRouter = ({ authenticateToken, WikiPage }) => {
 
       page.sourceRefs.push(sourceRef.value);
       await page.save();
-      res.status(201).json(page);
+      res.status(201).json(serializeWikiPage(page));
     } catch (error) {
       console.error('Error adding wiki source:', error);
       res.status(500).json({ error: 'Failed to add wiki source.' });
@@ -330,7 +417,7 @@ const buildWikiRouter = ({ authenticateToken, WikiPage }) => {
 
       source.deleteOne();
       await page.save();
-      res.status(200).json(page);
+      res.status(200).json(serializeWikiPage(page));
     } catch (error) {
       console.error('Error removing wiki source:', error);
       res.status(500).json({ error: 'Failed to remove wiki source.' });
@@ -342,8 +429,10 @@ const buildWikiRouter = ({ authenticateToken, WikiPage }) => {
 
 module.exports = {
   buildWikiRouter,
+  buildWikiDraftState,
   extractPlainText,
   normalizeCreatedFrom,
   normalizeSourceRef,
+  serializeWikiPage,
   slugify
 };

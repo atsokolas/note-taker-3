@@ -17,7 +17,9 @@ const buildQueryString = (params = {}) => {
 
 export const listWikiPages = async (params = {}) => {
   const res = await api.get(`${WIKI_PAGES_PATH}${buildQueryString(params)}`, getAuthHeaders());
-  return Array.isArray(res.data) ? res.data : [];
+  if (Array.isArray(res.data)) return res.data;
+  if (Array.isArray(res.data?.pages)) return res.data.pages;
+  return [];
 };
 
 export const createWikiPage = async (payload = {}) => {

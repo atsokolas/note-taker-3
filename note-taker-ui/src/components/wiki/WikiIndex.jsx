@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button, SurfaceCard } from '../ui';
-import { createWikiPage, draftWikiPage, listWikiPages } from '../../api/wiki';
+import { createWikiPage, listWikiPages } from '../../api/wiki';
+import { buildWikiCreatePayload, openWikiDraft } from '../../utils/wikiCreate';
 
 const PAGE_TYPES = ['all', 'topic', 'question', 'project', 'source', 'person', 'synthesis'];
 const VISIBILITIES = ['all', 'private', 'shared'];
@@ -16,19 +17,6 @@ const formatDate = (value) => {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '';
   return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-};
-
-const buildCreatePayload = (seed = '') => {
-  const text = seed.trim();
-  const title = text ? text.slice(0, 120) : 'Untitled Wiki Page';
-  return {
-    title,
-    createdFrom: {
-      type: text ? 'idea' : 'wiki_index',
-      text,
-      label: title
-    }
-  };
 };
 
 const WikiPageCard = ({ page, onOpen }) => {
@@ -105,9 +93,12 @@ const WikiIndex = () => {
     setCreating(true);
     setError('');
     try {
-      const page = await createWikiPage(buildCreatePayload(seed));
-      navigate(`/wiki/${page._id}`);
-      draftWikiPage(page._id).catch(() => {});
+      const page = await createWikiPage(buildWikiCreatePayload({
+        type: seed.trim() ? 'idea' : 'wiki_index',
+        text: seed,
+        title: seed
+      }));
+      openWikiDraft({ navigate, pageId: page._id });
     } catch (_error) {
       setError('Failed to create Wiki page.');
       setCreating(false);

@@ -2,11 +2,12 @@ import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import WikiPageEditor from './WikiPageEditor';
-import { draftWikiPage, getWikiPage, updateWikiPage } from '../../api/wiki';
+import { addWikiSource, draftWikiPage, getWikiPage, removeWikiSource, updateWikiPage } from '../../api/wiki';
 
 const mockUseEditor = jest.fn();
 const mockEditor = {
   commands: {
+    insertContent: jest.fn(),
     setContent: jest.fn()
   },
   getJSON: jest.fn(() => ({ type: 'doc', content: [{ type: 'paragraph' }] }))
@@ -24,8 +25,10 @@ jest.mock('@tiptap/extension-placeholder', () => ({
 }));
 
 jest.mock('../../api/wiki', () => ({
+  addWikiSource: jest.fn(),
   draftWikiPage: jest.fn(),
   getWikiPage: jest.fn(),
+  removeWikiSource: jest.fn(),
   updateWikiPage: jest.fn()
 }));
 
@@ -37,8 +40,15 @@ const page = {
   visibility: 'private',
   sourceScope: 'entire_library',
   body: { type: 'doc', content: [{ type: 'paragraph' }] },
-  sourceRefs: [],
-  aiState: { draftStatus: 'idle' }
+  sourceRefs: [
+    { _id: 'source-1', type: 'article', title: 'Memory article', snippet: 'Source snippet' }
+  ],
+  aiState: {
+    draftStatus: 'idle',
+    suggestions: [
+      { id: 'suggestion-1', type: 'edit', title: 'Next edit', text: 'Insert this next edit.' }
+    ]
+  }
 };
 
 describe('WikiPageEditor', () => {
@@ -47,9 +57,11 @@ describe('WikiPageEditor', () => {
     mockUseEditor.mockReturnValue(mockEditor);
     getWikiPage.mockResolvedValue(page);
     updateWikiPage.mockResolvedValue(page);
+    addWikiSource.mockResolvedValue(page);
+    removeWikiSource.mockResolvedValue({ ...page, sourceRefs: [] });
     draftWikiPage.mockResolvedValue({
       ...page,
-      aiState: { draftStatus: 'ready' }
+      aiState: { ...page.aiState, draftStatus: 'ready' }
     });
   });
 
@@ -90,10 +102,34 @@ describe('WikiPageEditor', () => {
     );
 
     await screen.findByDisplayValue('Enterprise AI Memory');
-    fireEvent.click(screen.getByRole('button', { name: 'Refresh' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Generate draft' }));
 
     await waitFor(() => {
       expect(draftWikiPage).toHaveBeenCalledWith('wiki-1');
+    });
+  });
+
+  it('adds, removes, and applies sources and suggestions', async () => {
+    render(
+      <MemoryRouter>
+        <WikiPageEditor pageId="wiki-1" />
+      </MemoryRouter>
+    );
+
+    await screen.findByDisplayValue('Enterprise AI Memory');
+    fireEvent.click(screen.getByRole('button', { name: 'Insert' }));
+    expect(mockEditor.commands.insertContent).toHaveBeenCalled();
+
+    fireEvent.change(screen.getByLabelText('Source title'), { target: { value: 'New source' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Attach source' }));
+
+    await waitFor(() => {
+      expect(addWikiSource).toHaveBeenCalledWith('wiki-1', expect.objectContaining({ title: 'New source' }));
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Remove' }));
+    await waitFor(() => {
+      expect(removeWikiSource).toHaveBeenCalledWith('wiki-1', 'source-1');
     });
   });
 });

@@ -13,7 +13,15 @@ const labels = {
 
 const labelFor = (value = '') => labels[value] || String(value || '').replace(/_/g, ' ');
 
-const WikiPageMetaBar = ({ page, onChange, saving }) => (
+const saveCopy = {
+  idle: 'Loaded',
+  dirty: 'Unsaved changes',
+  saving: 'Saving...',
+  saved: 'Saved just now',
+  failed: 'Save failed'
+};
+
+const WikiPageMetaBar = ({ page, onChange, saveStatus = 'idle' }) => (
   <div className="wiki-meta-bar" aria-label="Wiki page metadata">
     <label>
       Type
@@ -39,7 +47,9 @@ const WikiPageMetaBar = ({ page, onChange, saving }) => (
         {SOURCE_SCOPES.map(value => <option key={value} value={value}>{labelFor(value)}</option>)}
       </select>
     </label>
-    <span className="wiki-meta-bar__save-state" aria-live="polite">{saving ? 'Saving...' : 'Saved'}</span>
+    <span className={`wiki-meta-bar__save-state wiki-meta-bar__save-state--${saveStatus}`} aria-live="polite">
+      {saveCopy[saveStatus] || saveCopy.idle}
+    </span>
   </div>
 );
 

@@ -298,10 +298,28 @@ const wikiSourceRefSchema = new mongoose.Schema({
 
 const wikiAiStateSchema = new mongoose.Schema({
   draftStatus: { type: String, enum: ['idle', 'drafting', 'ready', 'error'], default: 'idle' },
+  draftRequestedAt: { type: Date, default: null },
+  draftStartedAt: { type: Date, default: null },
+  draftCompletedAt: { type: Date, default: null },
   lastDraftedAt: { type: Date, default: null },
   lastError: { type: String, default: '', trim: true },
+  errorCode: { type: String, default: '', trim: true },
   model: { type: String, default: '', trim: true },
-  sourceScopeAtDraft: { type: String, enum: WIKI_SOURCE_SCOPES, default: 'entire_library' }
+  sourceScopeAtDraft: { type: String, enum: WIKI_SOURCE_SCOPES, default: 'entire_library' },
+  sourceRefIdsAtDraft: { type: [mongoose.Schema.Types.ObjectId], default: [] },
+  suggestions: {
+    type: [{
+      id: { type: String, required: true, trim: true },
+      type: { type: String, enum: ['outline', 'claim', 'gap', 'edit'], default: 'edit' },
+      title: { type: String, default: '', trim: true },
+      text: { type: String, default: '', trim: true },
+      sourceRefIds: { type: [mongoose.Schema.Types.ObjectId], default: [] },
+      appliedAt: { type: Date, default: null },
+      dismissedAt: { type: Date, default: null },
+      createdAt: { type: Date, default: Date.now }
+    }],
+    default: []
+  }
 }, { _id: false });
 
 const wikiPageSchema = new mongoose.Schema({
