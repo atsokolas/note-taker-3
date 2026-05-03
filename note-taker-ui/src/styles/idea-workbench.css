@@ -276,7 +276,7 @@
   border-color: rgba(187, 155, 106, 0.8);
   background:
     linear-gradient(180deg, rgba(251, 244, 232, 1), rgba(246, 236, 218, 0.98)),
-    rgba(255, 252, 247, 0.98);
+    color-mix(in srgb, var(--vellum-bg) 98%, transparent);
 }
 
 .idea-workbench-hypothesis__editor-shell.is-receiving {
@@ -825,7 +825,7 @@
   border-radius: 28px;
   border: 1px solid rgba(216, 201, 175, 0.86);
   background:
-    linear-gradient(180deg, rgba(255, 252, 247, 0.98), rgba(247, 240, 230, 0.96)),
+    linear-gradient(180deg, color-mix(in srgb, var(--vellum-bg) 98%, transparent), color-mix(in srgb, var(--vellum-panel-strong) 96%, transparent)),
     rgba(255, 251, 244, 0.98);
   box-shadow: 0 26px 60px rgba(46, 31, 12, 0.18);
 }
