@@ -220,13 +220,14 @@ function App() {
   }, []);
 
   useEffect(() => {
-    const root = document.documentElement;
-    const previousColorScheme = root.style.colorScheme;
+    // Add the editorial body class. Don't pin color-scheme inline — that
+    // overrides the dark/light selectors in theme.css and stitch-editorial.css
+    // and was part of why the dark mode toggle appeared to do nothing.
+    // color-scheme is now set inside the theme CSS itself, gated on
+    // data-ui-theme, so flipping the theme attribute carries it along.
     document.body.classList.add('noeis-editorial');
-    root.style.colorScheme = 'light';
     return () => {
       document.body.classList.remove('noeis-editorial');
-      root.style.colorScheme = previousColorScheme;
     };
   }, []);
 
