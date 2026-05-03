@@ -317,6 +317,15 @@ body.noeis-editorial .app-shell-new--stitch .app-shell-new__body:has(.settings-p
   overflow: visible;
 }
 
+body.noeis-editorial .app-shell-new--stitch .app-shell-new__body:has(.wiki-page) {
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+body.noeis-editorial .page-area:has(.wiki-page) {
+  min-height: 100%;
+}
+
 body.noeis-editorial .auth-pages-container--public {
   align-items: stretch;
   justify-content: stretch;
