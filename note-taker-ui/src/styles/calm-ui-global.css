@@ -31,7 +31,7 @@ html[data-ui-theme='light'] body.calm-ui-global {
   --surface-1: color-mix(in srgb, var(--calm-bg-1) 90%, var(--calm-bg-2));
   --surface-2: var(--calm-bg-2);
   --bg-shell: var(--calm-bg-0);
-  --bg-chrome: color-mix(in srgb, var(--calm-bg-1) 90%, white);
+  --bg-chrome: color-mix(in srgb, var(--calm-bg-1) 90%, var(--mix-lift));
 
   --border-subtle: var(--calm-line);
   --border-subtle-2: var(--calm-line-soft);
@@ -509,7 +509,7 @@ body.calm-ui-global .library-article-list {
   padding: 10px;
   border: 1px solid var(--calm-line);
   border-radius: 14px;
-  background: color-mix(in srgb, var(--calm-bg-1) 94%, white);
+  background: color-mix(in srgb, var(--calm-bg-1) 94%, var(--mix-lift));
   box-shadow: none;
 }
 
@@ -726,7 +726,7 @@ body.calm-ui-global .map-view-page .map-toolbar,
 body.calm-ui-global .return-queue-page .return-queue-toolbar {
   border: 1px solid var(--calm-line);
   border-radius: 14px;
-  background: color-mix(in srgb, var(--calm-bg-1) 88%, white);
+  background: color-mix(in srgb, var(--calm-bg-1) 88%, var(--mix-lift));
   box-shadow: none;
 }
 
@@ -769,7 +769,7 @@ body.calm-ui-global .map-view-page .map-side-panel,
 body.calm-ui-global .return-queue-page .return-queue-section {
   border: 1px solid var(--calm-line);
   border-radius: 14px;
-  background: color-mix(in srgb, var(--calm-bg-1) 92%, white);
+  background: color-mix(in srgb, var(--calm-bg-1) 92%, var(--mix-lift));
   box-shadow: none;
 }
 
@@ -822,7 +822,7 @@ body.calm-ui-global .library-context-stack {
 body.calm-ui-global .library-context-stack .working-memory-panel {
   border: 1px solid var(--calm-line);
   border-radius: 12px;
-  background: color-mix(in srgb, var(--calm-bg-1) 92%, white);
+  background: color-mix(in srgb, var(--calm-bg-1) 92%, var(--mix-lift));
   box-shadow: none;
 }
 
@@ -847,7 +847,7 @@ body.calm-ui-global .library-context-feed-panel {
 body.calm-ui-global .library-context-section {
   border: 1px solid var(--calm-line);
   border-radius: 12px;
-  background: color-mix(in srgb, var(--calm-bg-1) 94%, white);
+  background: color-mix(in srgb, var(--calm-bg-1) 94%, var(--mix-lift));
   box-shadow: none;
   overflow: hidden;
 }

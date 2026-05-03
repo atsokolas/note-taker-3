@@ -107,7 +107,7 @@
   gap: 8px;
   padding: 8px;
   border-bottom: 1px solid var(--surface-border);
-  background: color-mix(in srgb, var(--surface-bg) 90%, white);
+  background: color-mix(in srgb, var(--surface-bg) 90%, var(--mix-lift));
 }
 
 .studio-board__toolbar-actions {

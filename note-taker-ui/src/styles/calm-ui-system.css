@@ -5,7 +5,7 @@
 */
 
 body.calm-ui-global {
-  --calm-system-surface-primary: color-mix(in srgb, var(--calm-bg-1) 94%, white);
+  --calm-system-surface-primary: color-mix(in srgb, var(--calm-bg-1) 94%, var(--mix-lift));
   --calm-system-surface-secondary: color-mix(in srgb, var(--calm-bg-2) 46%, transparent);
   --calm-system-border: var(--calm-line);
   --calm-system-border-soft: var(--calm-line-soft);
@@ -46,7 +46,7 @@ body.calm-ui-global .return-queue-snippet {
 }
 
 body.calm-ui-global :is(.library-search-panel, .library-saved-views) {
-  background: color-mix(in srgb, var(--calm-bg-1) 90%, white);
+  background: color-mix(in srgb, var(--calm-bg-1) 90%, var(--mix-lift));
   border: 1px solid var(--calm-system-border);
   border-radius: var(--calm-system-radius);
 }
@@ -150,7 +150,7 @@ body.calm-ui-global .library-page-shell .library-article-list.has-error {
 body.calm-ui-global .library-page-shell .library-article-list.is-empty .library-empty-state {
   border-style: solid;
   border-color: var(--calm-system-border-soft);
-  background: color-mix(in srgb, var(--calm-bg-1) 85%, white);
+  background: color-mix(in srgb, var(--calm-bg-1) 85%, var(--mix-lift));
 }
 
 body.calm-ui-global .library-page-shell .library-article-row {
@@ -254,7 +254,7 @@ body.calm-ui-global .library-page-shell .library-highlight-filters input {
   min-height: 36px;
   border: 1px solid var(--calm-system-border);
   border-radius: 12px;
-  background: color-mix(in srgb, var(--calm-bg-1) 96%, white);
+  background: color-mix(in srgb, var(--calm-bg-1) 96%, var(--mix-lift));
   color: var(--calm-system-title);
 }
 
@@ -274,7 +274,7 @@ body.calm-ui-global .library-page-shell .library-highlight-group-title--virtual 
 body.calm-ui-global .library-page-shell .library-highlight-row {
   border: 1px solid var(--calm-system-border-soft);
   border-radius: 14px;
-  background: color-mix(in srgb, var(--calm-bg-1) 95%, white);
+  background: color-mix(in srgb, var(--calm-bg-1) 95%, var(--mix-lift));
   box-shadow: none;
   padding: 12px;
 }
@@ -329,7 +329,7 @@ body.think-calm-d3a .think-question-editor-pane,
 body.think-calm-d3a .think-notebook-editor-pane {
   border: 1px solid color-mix(in srgb, var(--d3a-line) 72%, transparent);
   border-radius: 16px;
-  background: color-mix(in srgb, var(--d3a-bg-1) 92%, white);
+  background: color-mix(in srgb, var(--d3a-bg-1) 92%, var(--mix-lift));
   box-shadow: none;
   padding: 14px;
 }
@@ -362,7 +362,7 @@ body.think-calm-d3a .think-notebook-title-input {
   border: 1px solid color-mix(in srgb, var(--d3a-line) 78%, transparent);
   border-radius: 12px;
   padding: 10px 14px;
-  background: color-mix(in srgb, var(--d3a-bg-1) 96%, white);
+  background: color-mix(in srgb, var(--d3a-bg-1) 96%, var(--mix-lift));
   color: var(--d3a-text);
 }
 
@@ -378,7 +378,7 @@ body.think-calm-d3a .think-question-editor--empty,
 body.think-calm-d3a .think-notebook-editor--empty {
   border: 1px solid color-mix(in srgb, var(--d3a-line) 72%, transparent);
   border-radius: 14px;
-  background: color-mix(in srgb, var(--d3a-bg-1) 88%, white);
+  background: color-mix(in srgb, var(--d3a-bg-1) 88%, var(--mix-lift));
   box-shadow: none;
 }
 
@@ -426,7 +426,7 @@ body.think-calm-d3a .think-question-paragraph,
 body.think-calm-d3a .think-notebook-editor-body {
   border: 1px solid color-mix(in srgb, var(--d3a-line) 76%, transparent);
   border-radius: 14px;
-  background: color-mix(in srgb, var(--d3a-bg-1) 96%, white);
+  background: color-mix(in srgb, var(--d3a-bg-1) 96%, var(--mix-lift));
   color: var(--d3a-text);
 }
 
@@ -443,7 +443,7 @@ body.think-calm-d3a .think-notebook-editor-body {
 body.think-calm-d3a .notebook-organize-select,
 body.think-calm-d3a .notebook-organize-row input {
   border: 1px solid color-mix(in srgb, var(--d3a-line) 76%, transparent);
-  background: color-mix(in srgb, var(--d3a-bg-1) 95%, white);
+  background: color-mix(in srgb, var(--d3a-bg-1) 95%, var(--mix-lift));
   color: var(--d3a-text);
 }
 
@@ -473,7 +473,7 @@ body.calm-ui-global .map-view-page.has-filter-warning .map-toolbar {
 }
 
 body.calm-ui-global .map-view-page .map-side-panel.is-collapsed {
-  background: color-mix(in srgb, var(--calm-bg-1) 88%, white);
+  background: color-mix(in srgb, var(--calm-bg-1) 88%, var(--mix-lift));
 }
 
 body.calm-ui-global .map-view-page .map-side-panel.has-selection {
