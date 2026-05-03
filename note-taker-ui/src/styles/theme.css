@@ -30,6 +30,11 @@
   --accent: #0b74ff;
   --accent-soft: rgba(11, 116, 255, 0.08);
   --surface-muted: #f8fafc;
+  /* color-mix(in srgb, var(--surface) X%, var(--mix-lift)) is used in 30+
+     places to "lift" a surface a bit lighter than its base. In light mode
+     the lift target is white. In dark mode lifting toward white blows out
+     the contrast — override --mix-lift below so dark stays dark. */
+  --mix-lift: #ffffff;
   --border: var(--border-subtle);
   --text: var(--text-primary);
   --muted: var(--text-secondary);
@@ -38,10 +43,28 @@
   --spacing: var(--space-4);
 }
 
+/* Dark mode token overrides --------------------------------------------------
+   Before: only --surface-base/-panel/-card flipped, leaving --background,
+   --surface, --text-primary, --text-secondary, --border-subtle, etc. at
+   their light values. Result: flipping the toggle changed almost nothing
+   visible because the foundational tokens stayed light.
+   After: the full foundational set flips, and the aliases (--text, --border,
+   --bg, --muted, --shadow) cascade because they're var() pointers. */
 html[data-ui-theme='dark'] {
+  --background: #0a0e17;
+  --surface: #141a26;
   --surface-base: #0b1220;
   --surface-panel: #111a2a;
   --surface-card: #172132;
+  --surface-elevated: #1d2a40;
+  --surface-muted: #0f1623;
+  --border-subtle: rgba(255, 255, 255, 0.08);
+  --text-primary: #e7ecf3;
+  --text-secondary: #94a3b8;
+  --accent-soft: rgba(54, 228, 255, 0.14);
+  --shadow-subtle: 0 10px 26px rgba(0, 0, 0, 0.4);
+  --mix-lift: #2c3a55;
+  color-scheme: dark;
 }
 
 .skeleton {
@@ -1730,7 +1753,7 @@ html[data-ui-theme='dark'] .topbar__search:-webkit-autofill:focus {
   border: 1px solid var(--border-subtle);
   border-radius: 12px;
   padding: 10px 12px;
-  background: color-mix(in srgb, var(--surface) 85%, white);
+  background: color-mix(in srgb, var(--surface) 85%, var(--mix-lift));
   display: grid;
   gap: 4px;
 }
@@ -1906,7 +1929,7 @@ html[data-ui-theme='dark'] .topbar__search:-webkit-autofill:focus {
   padding: 14px;
   display: grid;
   gap: 12px;
-  background: color-mix(in srgb, var(--surface) 86%, white);
+  background: color-mix(in srgb, var(--surface) 86%, var(--mix-lift));
 }
 
 .concept-path-empty__copy {
@@ -1929,7 +1952,7 @@ html[data-ui-theme='dark'] .topbar__search:-webkit-autofill:focus {
   border: 1px solid var(--border-subtle);
   border-radius: 14px;
   padding: 16px;
-  background: color-mix(in srgb, var(--surface) 88%, white);
+  background: color-mix(in srgb, var(--surface) 88%, var(--mix-lift));
   display: grid;
   gap: 12px;
 }
@@ -6044,7 +6067,7 @@ html[data-ui-theme='dark'] .article-reader-header {
   padding: 10px;
   border: 1px solid var(--border-subtle);
   border-radius: 14px;
-  background: color-mix(in srgb, var(--surface-card) 97%, white);
+  background: color-mix(in srgb, var(--surface-card) 97%, var(--mix-lift));
   box-shadow: 0 16px 40px rgba(28, 24, 18, 0.14);
 }
 
@@ -6145,7 +6168,7 @@ html[data-ui-theme='dark'] .article-reader-header {
   border: 1px solid var(--border-subtle);
   border-radius: 18px;
   background:
-    linear-gradient(180deg, color-mix(in srgb, var(--surface-card) 96%, white) 0%, color-mix(in srgb, var(--surface) 97%, white) 100%);
+    linear-gradient(180deg, color-mix(in srgb, var(--surface-card) 96%, var(--mix-lift)) 0%, color-mix(in srgb, var(--surface) 97%, var(--mix-lift)) 100%);
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.44);
 }
 
@@ -6649,7 +6672,7 @@ html[data-ui-theme='dark'] .article-reader-header {
   border: 1px solid var(--border-subtle);
   border-radius: 10px;
   padding: 10px;
-  background: color-mix(in srgb, var(--surface-panel) 92%, white 8%);
+  background: color-mix(in srgb, var(--surface-panel) 92%, var(--mix-lift) 8%);
   color: inherit;
   resize: vertical;
 }
@@ -6664,7 +6687,7 @@ html[data-ui-theme='dark'] .article-reader-header {
   border: 1px solid var(--border-subtle);
   border-radius: 10px;
   padding: 10px;
-  background: color-mix(in srgb, var(--surface-panel) 90%, white 10%);
+  background: color-mix(in srgb, var(--surface-panel) 90%, var(--mix-lift) 10%);
 }
 
 .agent-thought-partner__message.is-user {
@@ -6785,7 +6808,7 @@ html[data-ui-theme='dark'] .article-reader-header {
 }
 
 .magnetic-reading-rail__btn:hover {
-  background: color-mix(in srgb, var(--accent-soft) 100%, white 8%);
+  background: color-mix(in srgb, var(--accent-soft) 100%, var(--mix-lift) 8%);
   transform: translateY(-1px);
 }
 
@@ -6826,32 +6849,32 @@ html[data-ui-theme='dark'] .selection-menu,
 }
 
 html[data-ui-theme='dark'] .selection-menu {
-  background: color-mix(in srgb, var(--surface-card) 96%, white 4%);
-  border-color: color-mix(in srgb, var(--border-subtle) 100%, white 6%);
+  background: color-mix(in srgb, var(--surface-card) 96%, var(--mix-lift) 4%);
+  border-color: color-mix(in srgb, var(--border-subtle) 100%, var(--mix-lift) 6%);
 }
 
 html[data-ui-theme='dark'] .selection-menu-button:hover {
-  background: color-mix(in srgb, var(--surface-muted) 85%, white 6%);
+  background: color-mix(in srgb, var(--surface-muted) 85%, var(--mix-lift) 6%);
 }
 
 html[data-ui-theme='dark'] .selection-menu-divider {
-  background: color-mix(in srgb, var(--border-subtle) 100%, white 6%);
+  background: color-mix(in srgb, var(--border-subtle) 100%, var(--mix-lift) 6%);
 }
 
 html[data-ui-theme='dark'] .magnetic-reading-rail__track {
-  background: color-mix(in srgb, var(--border-subtle) 90%, white 8%);
+  background: color-mix(in srgb, var(--border-subtle) 90%, var(--mix-lift) 8%);
   opacity: 0.92;
 }
 
 html[data-ui-theme='dark'] .magnetic-reading-rail__pill {
-  background: color-mix(in srgb, var(--surface-card) 82%, white 4%);
-  border-color: color-mix(in srgb, var(--border-subtle) 100%, white 8%);
+  background: color-mix(in srgb, var(--surface-card) 82%, var(--mix-lift) 4%);
+  border-color: color-mix(in srgb, var(--border-subtle) 100%, var(--mix-lift) 8%);
   box-shadow: 0 16px 44px rgba(2, 6, 23, 0.55);
 }
 
 html[data-ui-theme='dark'] .magnetic-reading-rail__btn {
   background: color-mix(in srgb, var(--accent) 22%, transparent);
-  color: color-mix(in srgb, var(--accent) 72%, white 28%);
+  color: color-mix(in srgb, var(--accent) 72%, var(--mix-lift) 28%);
 }
 
 html[data-ui-theme='dark'] .magnetic-reading-rail__btn:hover {
@@ -6864,8 +6887,8 @@ html[data-ui-theme='dark'] .external-bridge-token-well {
 }
 
 html[data-ui-theme='dark'] .external-bridge-pre {
-  background: color-mix(in srgb, var(--surface-card) 92%, white 3%);
-  border-color: color-mix(in srgb, var(--border-subtle) 100%, white 4%);
+  background: color-mix(in srgb, var(--surface-card) 92%, var(--mix-lift) 3%);
+  border-color: color-mix(in srgb, var(--border-subtle) 100%, var(--mix-lift) 4%);
 }
 
 /* Editorial workbench borders read a half-step too soft on the Noeis
@@ -6876,8 +6899,8 @@ html[data-ui-theme='dark'] body.noeis-editorial {
 }
 
 html[data-ui-theme='dark'] body.noeis-editorial .concept-editorial-evidence__item {
-  border-color: color-mix(in srgb, var(--vellum-line) 100%, white 6%);
-  background: color-mix(in srgb, var(--surface-card) 94%, white 3%);
+  border-color: color-mix(in srgb, var(--vellum-line) 100%, var(--mix-lift) 6%);
+  background: color-mix(in srgb, var(--surface-card) 94%, var(--mix-lift) 3%);
 }
 
 /* Shared EmptyState + ErrorState ------------------------------------------ */
