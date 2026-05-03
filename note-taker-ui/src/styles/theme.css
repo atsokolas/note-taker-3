@@ -7105,6 +7105,204 @@ html[data-ui-theme='dark'] body.noeis-editorial .concept-editorial-evidence__ite
   background: color-mix(in srgb, #a54731 8%, transparent);
 }
 
+/* ConceptShareModal — modern polish (preview card, bullets, refined CTA) -- */
+
+.concept-share-modal__header {
+  align-items: flex-start;
+}
+
+.concept-share-modal__heading {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.concept-share-modal__eyebrow {
+  display: inline-block;
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 0.6rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.concept-share-modal__lede {
+  margin: 2px 0 0;
+  max-width: 52ch;
+}
+
+.concept-share-modal__loading {
+  padding: 24px 0;
+  text-align: center;
+}
+
+/* Mini "what your link will look like" preview card. Pure presentational —
+   does not fetch real content, just reassures the owner before they mint. */
+.concept-share-modal__preview {
+  display: grid;
+  gap: 0;
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--surface) 96%, var(--accent-soft) 4%);
+  overflow: hidden;
+}
+
+.concept-share-modal__preview-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  background: color-mix(in srgb, var(--surface-muted) 50%, var(--surface));
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.concept-share-modal__preview-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--text-secondary) 30%, transparent);
+}
+
+.concept-share-modal__preview-host {
+  margin-left: 8px;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Mono", Menlo, monospace;
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.concept-share-modal__preview-body {
+  display: grid;
+  gap: 4px;
+  padding: 16px 18px 18px;
+}
+
+.concept-share-modal__preview-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: "Newsreader", Georgia, serif;
+  font-weight: 600;
+  font-size: 0.92rem;
+  color: var(--text);
+  margin-bottom: 4px;
+}
+
+.concept-share-modal__preview-mark {
+  width: 16px;
+  height: 16px;
+  border-radius: 5px;
+  background: linear-gradient(135deg, var(--accent, #36e4ff), color-mix(in srgb, var(--accent, #36e4ff) 50%, var(--text-secondary)));
+  display: inline-block;
+}
+
+.concept-share-modal__preview-eyebrow {
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 0.58rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.concept-share-modal__preview-title {
+  font-family: "Newsreader", Georgia, serif;
+  font-size: 1.18rem;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+  color: var(--text);
+}
+
+.concept-share-modal__preview-meta {
+  margin-top: 4px;
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+}
+
+/* What's-included bullet list */
+.concept-share-modal__includes {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+  font-size: 0.88rem;
+  color: var(--text);
+}
+
+.concept-share-modal__includes li {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.concept-share-modal__includes-icon {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--accent-soft) 60%, transparent);
+  color: color-mix(in srgb, var(--accent) 80%, var(--text));
+  font-size: 0.7rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.concept-share-modal__includes-icon--neg {
+  background: color-mix(in srgb, var(--surface-muted) 70%, transparent);
+  color: var(--text-secondary);
+}
+
+.concept-share-modal__cta-row {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.concept-share-modal__cta-row .ui-button {
+  min-width: 180px;
+  border-radius: 999px;
+}
+
+.concept-share-modal__pitch {
+  margin: 0;
+}
+
+.concept-share-modal__active-controls {
+  display: grid;
+  gap: 10px;
+}
+
+.concept-share-modal__active-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.concept-share-modal__open-link {
+  font-size: 0.82rem;
+  color: var(--accent);
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.concept-share-modal__open-link:hover,
+.concept-share-modal__open-link:focus-visible {
+  text-decoration: underline;
+  outline: none;
+}
+
+.concept-share-modal__fineprint {
+  margin: 0;
+}
+
 /* Public read-only shared concept page ----------------------------------- */
 
 .shared-concept-page {
