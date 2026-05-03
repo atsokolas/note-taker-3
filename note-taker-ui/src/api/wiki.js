@@ -42,10 +42,12 @@ export const archiveWikiPage = async (id) => {
   return res.data;
 };
 
-export const draftWikiPage = async (id) => {
-  const res = await api.post(`${WIKI_PAGES_PATH}/${safeId(id)}/ai/draft`, {}, getAuthHeaders());
+export const maintainWikiPage = async (id, options = {}) => {
+  const res = await api.post(`${WIKI_PAGES_PATH}/${safeId(id)}/ai/draft`, options, getAuthHeaders());
   return res.data;
 };
+
+export const draftWikiPage = maintainWikiPage;
 
 export const addWikiSource = async (id, source = {}) => {
   const res = await api.post(`${WIKI_PAGES_PATH}/${safeId(id)}/sources`, source, getAuthHeaders());
@@ -63,6 +65,7 @@ const wikiApi = {
   getWikiPage,
   updateWikiPage,
   archiveWikiPage,
+  maintainWikiPage,
   draftWikiPage,
   addWikiSource,
   removeWikiSource

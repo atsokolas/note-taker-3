@@ -1,5 +1,6 @@
 const express = require('express');
 const mongoose = require('mongoose');
+const { maintainWikiPage: defaultMaintainWikiPage } = require('../services/wikiMaintenanceService');
 
 const PAGE_TYPES = new Set(['topic', 'question', 'project', 'source', 'person', 'synthesis']);
 const STATUSES = new Set(['draft', 'published', 'archived']);
@@ -98,8 +99,18 @@ const serializeWikiPage = (page) => {
       lastError: raw.aiState?.lastError || '',
       errorCode: raw.aiState?.errorCode || '',
       model: raw.aiState?.model || '',
+      provider: raw.aiState?.provider || '',
       sourceScopeAtDraft: raw.aiState?.sourceScopeAtDraft || raw.sourceScope || 'entire_library',
       sourceRefIdsAtDraft: Array.isArray(raw.aiState?.sourceRefIdsAtDraft) ? raw.aiState.sourceRefIdsAtDraft : [],
+      maintenanceSummary: raw.aiState?.maintenanceSummary || '',
+      health: raw.aiState?.health || {
+        newItems: [],
+        unsupportedClaims: [],
+        missingCitations: [],
+        staleSections: [],
+        contradictions: [],
+        relatedPages: []
+      },
       suggestions: Array.isArray(raw.aiState?.suggestions) ? raw.aiState.suggestions : []
     }
   };
@@ -213,7 +224,15 @@ const normalizeSourceRef = (value = {}) => {
   return { value: sourceRef };
 };
 
-const buildWikiRouter = ({ authenticateToken, WikiPage }) => {
+const buildWikiRouter = ({
+  authenticateToken,
+  WikiPage,
+  Article = null,
+  NotebookEntry = null,
+  TagMeta = null,
+  Question = null,
+  maintainWikiPage = defaultMaintainWikiPage
+}) => {
   const router = express.Router();
 
   const buildUniqueSlug = async (userId, title, existingId = null) => {
@@ -374,19 +393,31 @@ const buildWikiRouter = ({ authenticateToken, WikiPage }) => {
       const page = await findOwnedPage(req);
       if (!page) return res.status(404).json({ error: 'Wiki page not found.' });
 
-      const hasPlainText = Boolean(String(page.plainText || '').trim());
-      page.aiState = buildWikiDraftState({ page });
-      if (!hasPlainText) {
-        const seedText = String(page.createdFrom?.text || '').trim();
-        page.body = buildDraftDoc({ title: page.title, seedText });
-        page.plainText = extractPlainText(page.body);
-      }
+      page.aiState = {
+        ...(page.aiState?.toObject ? page.aiState.toObject() : page.aiState || {}),
+        draftStatus: 'maintaining',
+        draftRequestedAt: new Date(),
+        draftStartedAt: new Date(),
+        lastError: '',
+        errorCode: ''
+      };
+
+      await maintainWikiPage({
+        page,
+        userId: req.user.id,
+        models: {
+          Article,
+          NotebookEntry,
+          TagMeta,
+          Question
+        }
+      });
 
       await page.save();
       res.status(200).json(serializeWikiPage(page));
     } catch (error) {
-      console.error('Error drafting wiki page:', error);
-      res.status(500).json({ error: 'Failed to draft wiki page.' });
+      console.error('Error maintaining wiki page:', error);
+      res.status(500).json({ error: 'Failed to maintain wiki page.' });
     }
   });
 

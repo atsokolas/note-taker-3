@@ -6,8 +6,8 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '../ui';
 import {
   addWikiSource,
-  draftWikiPage,
   getWikiPage,
+  maintainWikiPage,
   removeWikiSource,
   updateWikiPage
 } from '../../api/wiki';
@@ -22,7 +22,7 @@ const WikiPageEditor = ({ pageId }) => {
   const [page, setPage] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saveStatus, setSaveStatus] = useState('idle');
-  const [drafting, setDrafting] = useState(false);
+  const [maintaining, setMaintaining] = useState(false);
   const [sourcePanelOpen, setSourcePanelOpen] = useState(true);
   const [error, setError] = useState('');
   const saveTimer = useRef(null);
@@ -103,38 +103,38 @@ const WikiPageEditor = ({ pageId }) => {
     savePage(updates);
   };
 
-  const handleDraft = async () => {
-      setDrafting(true);
+  const handleMaintain = async () => {
+      setMaintaining(true);
       setError('');
       setPage(current => current ? ({
         ...current,
         aiState: {
           ...(current.aiState || {}),
-          draftStatus: 'drafting',
+          draftStatus: 'maintaining',
           draftRequestedAt: new Date().toISOString()
         }
       }) : current);
       try {
-        const drafted = await draftWikiPage(pageId);
-        latestPageRef.current = drafted;
-        setPage(drafted);
-        editor?.commands?.setContent(drafted.body || emptyDoc, false);
+        const maintained = await maintainWikiPage(pageId);
+        latestPageRef.current = maintained;
+        setPage(maintained);
+        editor?.commands?.setContent(maintained.body || emptyDoc, false);
     } catch (_error) {
-      setError('Failed to draft Wiki page.');
+      setError('Failed to maintain Wiki page.');
     } finally {
-      setDrafting(false);
+      setMaintaining(false);
     }
   };
 
   useEffect(() => {
     if (!page || draftTriggeredRef.current || searchParams.get('draft') !== '1') return;
     draftTriggeredRef.current = true;
-    handleDraft().finally(() => {
+    handleMaintain().finally(() => {
       const next = new URLSearchParams(searchParams);
       next.delete('draft');
       setSearchParams(next, { replace: true });
     });
-    // handleDraft intentionally omitted so the URL flag triggers once per page load.
+    // handleMaintain intentionally omitted so the URL flag triggers once per page load.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page, searchParams, setSearchParams]);
 
@@ -158,17 +158,6 @@ const WikiPageEditor = ({ pageId }) => {
     } catch (_error) {
       setError('Failed to remove source.');
     }
-  };
-
-  const handleApplySuggestion = (suggestion) => {
-    const text = String(suggestion?.text || '').trim();
-    if (!text || !editor) return;
-    editor.commands?.insertContent?.({
-      type: 'paragraph',
-      content: [{ type: 'text', text }]
-    });
-    const body = editor.getJSON ? editor.getJSON() : null;
-    if (body) savePage({ body });
   };
 
   if (loading) {
@@ -214,11 +203,10 @@ const WikiPageEditor = ({ pageId }) => {
           <WikiAiSourcePanel
             id="wiki-source-panel"
             page={page}
-            drafting={drafting}
-            onDraft={handleDraft}
+            maintaining={maintaining}
+            onMaintain={handleMaintain}
             onAddSource={handleAddSource}
             onRemoveSource={handleRemoveSource}
-            onApplySuggestion={handleApplySuggestion}
           />
         ) : null}
       </div>

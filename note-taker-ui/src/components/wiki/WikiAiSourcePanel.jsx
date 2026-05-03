@@ -2,23 +2,33 @@ import React, { useState } from 'react';
 import { Button, SurfaceCard } from '../ui';
 
 const sourceScopeCopy = {
-  entire_library: 'Drafting uses your entire library.',
-  current_item: 'Drafting is limited to the current item.',
-  selected_sources: 'Drafting is limited to selected sources.'
+  entire_library: 'Maintenance uses your entire library.',
+  current_item: 'Maintenance will expand beyond the seed item when relevant.',
+  selected_sources: 'Maintenance uses attached sources and relevant library items.'
 };
 
 const statusCopy = {
-  idle: 'Not drafted',
-  drafting: 'Drafting now',
-  ready: 'Draft ready',
-  error: 'Draft failed'
+  idle: 'Not maintained',
+  drafting: 'Maintaining now',
+  maintaining: 'Maintaining now',
+  ready: 'Page maintained',
+  error: 'Maintenance failed'
 };
 
 const suggestionCopy = {
-  outline: 'Suggested outline',
-  claim: 'Claim to cite',
-  gap: 'Gap',
-  edit: 'Next edit'
+  outline: 'Structure update',
+  claim: 'Claim update',
+  gap: 'Health flag',
+  edit: 'Applied edit'
+};
+
+const healthCopy = {
+  newItems: 'New items affecting this page',
+  unsupportedClaims: 'Unsupported claims',
+  missingCitations: 'Missing citations',
+  staleSections: 'Stale sections',
+  contradictions: 'Contradictions',
+  relatedPages: 'Related pages'
 };
 
 const emptySourceForm = {
@@ -31,15 +41,21 @@ const emptySourceForm = {
 const WikiAiSourcePanel = ({
   id,
   page,
-  drafting,
-  onDraft,
+  maintaining,
+  onMaintain,
   onAddSource,
-  onRemoveSource,
-  onApplySuggestion
+  onRemoveSource
 }) => {
   const sources = Array.isArray(page?.sourceRefs) ? page.sourceRefs : [];
   const aiState = page?.aiState || {};
   const suggestions = Array.isArray(aiState.suggestions) ? aiState.suggestions : [];
+  const health = aiState.health || {};
+  const healthEntries = Object.entries(healthCopy).map(([key, label]) => ({
+    key,
+    label,
+    items: Array.isArray(health[key]) ? health[key] : []
+  }));
+  const issueCount = healthEntries.reduce((count, entry) => count + entry.items.length, 0);
   const [sourceForm, setSourceForm] = useState(emptySourceForm);
   const [adding, setAdding] = useState(false);
 
@@ -68,45 +84,71 @@ const WikiAiSourcePanel = ({
       <SurfaceCard className="wiki-source-panel__section">
         <div className="wiki-source-panel__header">
           <div>
-            <h2>AI draft</h2>
-            <p>{drafting ? statusCopy.drafting : (statusCopy[aiState.draftStatus] || statusCopy.idle)}</p>
+            <h2>Maintenance</h2>
+            <p>{maintaining ? statusCopy.maintaining : (statusCopy[aiState.draftStatus] || statusCopy.idle)}</p>
           </div>
-          <Button type="button" variant="secondary" onClick={onDraft} disabled={drafting}>
-            {drafting ? 'Drafting...' : aiState.draftStatus === 'ready' ? 'Regenerate' : 'Generate draft'}
+          <Button type="button" variant="secondary" onClick={onMaintain} disabled={maintaining}>
+            {maintaining ? 'Maintaining...' : aiState.draftStatus === 'ready' ? 'Run again' : 'Maintain page'}
           </Button>
         </div>
         {aiState.lastError ? <p className="wiki-source-panel__error">{aiState.lastError}</p> : null}
+        {aiState.maintenanceSummary ? (
+          <p className="wiki-source-panel__note">{aiState.maintenanceSummary}</p>
+        ) : null}
         <p className="wiki-source-panel__note">
-          {sourceScopeCopy[page?.sourceScope] || 'Drafting uses the selected source scope.'}
+          {sourceScopeCopy[page?.sourceScope] || 'Maintenance uses relevant library material.'}
         </p>
         {aiState.lastDraftedAt ? (
-          <p className="wiki-source-panel__note">Last drafted {new Date(aiState.lastDraftedAt).toLocaleString()}</p>
+          <p className="wiki-source-panel__note">Last maintained {new Date(aiState.lastDraftedAt).toLocaleString()}</p>
+        ) : null}
+        {aiState.model ? (
+          <p className="wiki-source-panel__note">Model {aiState.model}</p>
         ) : null}
       </SurfaceCard>
 
       <SurfaceCard className="wiki-source-panel__section">
         <div className="wiki-source-panel__header">
           <div>
-            <h2>AI suggestions</h2>
-            <p>{suggestions.length} available</p>
+            <h2>Page health</h2>
+            <p>{issueCount} signal{issueCount === 1 ? '' : 's'}</p>
+          </div>
+        </div>
+        {issueCount === 0 ? (
+          <p className="wiki-source-panel__note">Run maintenance to check new material, support, citations, staleness, contradictions, and related pages.</p>
+        ) : null}
+        <div className="wiki-source-panel__list">
+          {healthEntries.map(entry => entry.items.length > 0 ? (
+            <article key={entry.key} className="wiki-source-panel__source">
+              <div className="wiki-source-panel__source-type">{entry.label}</div>
+              {entry.items.slice(0, 5).map((item, index) => (
+                <p key={`${entry.key}-${index}`}>
+                  {item.text || item.title || item.summary}
+                  {item.sourceTitle ? ` - ${item.sourceTitle}` : ''}
+                </p>
+              ))}
+            </article>
+          ) : null)}
+        </div>
+      </SurfaceCard>
+
+      <SurfaceCard className="wiki-source-panel__section">
+        <div className="wiki-source-panel__header">
+          <div>
+            <h2>Applied updates</h2>
+            <p>{suggestions.length} recorded</p>
           </div>
         </div>
         {suggestions.length === 0 ? (
-          <p className="wiki-source-panel__note">Generate a draft to get outline, gap, and next-edit suggestions.</p>
+          <p className="wiki-source-panel__note">Maintenance updates will appear here after the page is rebuilt.</p>
         ) : null}
         <div className="wiki-source-panel__list">
           {suggestions.map(suggestion => (
             <article key={suggestion.id || `${suggestion.type}-${suggestion.title}`} className="wiki-source-panel__source">
               <div className="wiki-source-panel__source-type">
-                {suggestionCopy[suggestion.type] || 'Suggestion'}
+                {suggestionCopy[suggestion.type] || 'Applied update'}
               </div>
-              <h3>{suggestion.title || suggestionCopy[suggestion.type] || 'Suggestion'}</h3>
+              <h3>{suggestion.title || suggestionCopy[suggestion.type] || 'Applied update'}</h3>
               {suggestion.text ? <p>{suggestion.text}</p> : null}
-              <div className="wiki-source-panel__actions">
-                <Button type="button" variant="secondary" onClick={() => onApplySuggestion?.(suggestion)}>
-                  Insert
-                </Button>
-              </div>
             </article>
           ))}
         </div>

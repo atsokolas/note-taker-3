@@ -4183,7 +4183,11 @@ app.use(buildNotebookRouter({
 
 app.use(buildWikiRouter({
   authenticateToken,
-  WikiPage
+  WikiPage,
+  Article,
+  NotebookEntry,
+  TagMeta,
+  Question
 }));
 
 app.use(buildWorkingMemoryRouter({

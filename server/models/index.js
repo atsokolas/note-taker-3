@@ -297,7 +297,7 @@ const wikiSourceRefSchema = new mongoose.Schema({
 }, { _id: true });
 
 const wikiAiStateSchema = new mongoose.Schema({
-  draftStatus: { type: String, enum: ['idle', 'drafting', 'ready', 'error'], default: 'idle' },
+  draftStatus: { type: String, enum: ['idle', 'drafting', 'maintaining', 'ready', 'error'], default: 'idle' },
   draftRequestedAt: { type: Date, default: null },
   draftStartedAt: { type: Date, default: null },
   draftCompletedAt: { type: Date, default: null },
@@ -305,8 +305,21 @@ const wikiAiStateSchema = new mongoose.Schema({
   lastError: { type: String, default: '', trim: true },
   errorCode: { type: String, default: '', trim: true },
   model: { type: String, default: '', trim: true },
+  provider: { type: String, default: '', trim: true },
   sourceScopeAtDraft: { type: String, enum: WIKI_SOURCE_SCOPES, default: 'entire_library' },
   sourceRefIdsAtDraft: { type: [mongoose.Schema.Types.ObjectId], default: [] },
+  maintenanceSummary: { type: String, default: '', trim: true },
+  health: {
+    type: mongoose.Schema.Types.Mixed,
+    default: () => ({
+      newItems: [],
+      unsupportedClaims: [],
+      missingCitations: [],
+      staleSections: [],
+      contradictions: [],
+      relatedPages: []
+    })
+  },
   suggestions: {
     type: [{
       id: { type: String, required: true, trim: true },
