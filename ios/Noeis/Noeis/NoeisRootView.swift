@@ -1,12 +1,58 @@
 import SwiftUI
 
 enum NoeisDesign {
-    static let background = Color(.systemGroupedBackground)
-    static let panel = Color(.secondarySystemGroupedBackground)
-    static let ink = Color(.label)
-    static let muted = Color(.secondaryLabel)
-    static let accent = Color(red: 0.200, green: 0.254, blue: 0.333)
-    static let border = Color(.separator)
+    static let background = Color(red: 1.000, green: 0.988, blue: 0.969)
+    static let panel = Color(red: 0.988, green: 0.976, blue: 0.953)
+    static let panelStrong = Color(red: 0.965, green: 0.957, blue: 0.925)
+    static let panelStronger = Color(red: 0.918, green: 0.910, blue: 0.871)
+    static let ink = Color(red: 0.220, green: 0.220, blue: 0.192)
+    static let muted = Color(red: 0.396, green: 0.396, blue: 0.361)
+    static let subtle = Color(red: 0.506, green: 0.506, blue: 0.471)
+    static let accent = Color(red: 0.380, green: 0.369, blue: 0.357)
+    static let warm = Color(red: 0.455, green: 0.380, blue: 0.290)
+    static let border = Color(red: 0.506, green: 0.506, blue: 0.471).opacity(0.22)
+    static let borderStrong = Color(red: 0.506, green: 0.506, blue: 0.471).opacity(0.32)
+    static let radius: CGFloat = 8
+    static let pageMaxWidth: CGFloat = 920
+}
+
+struct NoeisInputStyle: TextFieldStyle {
+    func _body(configuration: TextField<Self._Label>) -> some View {
+        configuration
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .background(NoeisDesign.background)
+            .foregroundStyle(NoeisDesign.ink)
+            .overlay(
+                RoundedRectangle(cornerRadius: 2)
+                    .stroke(NoeisDesign.borderStrong, lineWidth: 1)
+            )
+    }
+}
+
+extension View {
+    func noeisPanel(cornerRadius: CGFloat = NoeisDesign.radius) -> some View {
+        self
+            .background(NoeisDesign.panel)
+            .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
+            .overlay(
+                RoundedRectangle(cornerRadius: cornerRadius)
+                    .stroke(NoeisDesign.border, lineWidth: 1)
+            )
+    }
+
+    func noeisListRow() -> some View {
+        self
+            .listRowBackground(NoeisDesign.background)
+            .listRowSeparatorTint(NoeisDesign.border)
+    }
+
+    func noeisListChrome() -> some View {
+        self
+            .scrollContentBackground(.hidden)
+            .background(NoeisDesign.background)
+            .environment(\.defaultMinListRowHeight, 48)
+    }
 }
 
 @MainActor
@@ -62,27 +108,28 @@ struct LoginView: View {
     var body: some View {
         ZStack {
             NoeisDesign.background.ignoresSafeArea()
-            VStack(alignment: .leading, spacing: 20) {
+            VStack(alignment: .leading, spacing: 18) {
                 Text("Noeis")
-                    .font(.system(size: 44, weight: .semibold, design: .serif))
+                    .font(.system(size: 48, weight: .medium, design: .serif))
                     .foregroundStyle(NoeisDesign.ink)
                 Text("Read, highlight, and turn notes into working knowledge.")
+                    .font(.callout)
                     .foregroundStyle(NoeisDesign.muted)
 
                 TextField("Email or username", text: $username)
                     .textInputAutocapitalization(.never)
                     .keyboardType(.emailAddress)
                     .textContentType(.username)
-                    .textFieldStyle(.roundedBorder)
+                    .textFieldStyle(NoeisInputStyle())
 
                 SecureField("Password", text: $password)
                     .textContentType(isRegistering ? .newPassword : .password)
-                    .textFieldStyle(.roundedBorder)
+                    .textFieldStyle(NoeisInputStyle())
 
                 if isRegistering {
                     SecureField("Confirm password", text: $confirmPassword)
                         .textContentType(.newPassword)
-                        .textFieldStyle(.roundedBorder)
+                        .textFieldStyle(NoeisInputStyle())
                 }
 
                 if !message.isEmpty {
@@ -104,17 +151,19 @@ struct LoginView: View {
                     .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
+                .controlSize(.large)
                 .disabled(isLoading || username.isEmpty || password.isEmpty)
 
                 Button(isRegistering ? "Already have an account?" : "Create a Noeis account") {
                     isRegistering.toggle()
                     message = ""
                 }
+                .font(.footnote.weight(.medium))
+                .foregroundStyle(NoeisDesign.accent)
             }
             .padding(26)
             .frame(maxWidth: 520)
-            .background(NoeisDesign.panel)
-            .clipShape(RoundedRectangle(cornerRadius: 8))
+            .noeisPanel()
             .padding()
         }
     }
@@ -344,9 +393,9 @@ struct WorkspaceSidebarShell: View {
                         .tag(WorkspaceRoute.settings)
                 }
             }
+            .listStyle(.sidebar)
             .navigationTitle("Noeis")
-            .scrollContentBackground(.hidden)
-            .background(NoeisDesign.background)
+            .noeisListChrome()
         } detail: {
             switch route ?? .home {
             case .home:
@@ -420,6 +469,7 @@ struct HomeView: View {
                     }
                 }
                 .padding()
+                .frame(maxWidth: NoeisDesign.pageMaxWidth, alignment: .leading)
             }
             .background(NoeisDesign.background)
             .navigationTitle("Home")
@@ -470,29 +520,42 @@ struct CaptureView: View {
 
     var body: some View {
         NavigationStack {
-            Form {
-                Section("New Page") {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 18) {
+                    WorkspaceHeader(title: "New", subtitle: "Capture a notebook page")
                     TextField("Title", text: $title)
+                        .textFieldStyle(NoeisInputStyle())
                     TextEditor(text: $content)
                         .frame(minHeight: 180)
+                        .scrollContentBackground(.hidden)
+                        .padding(8)
+                        .noeisPanel(cornerRadius: 2)
                     Picker("Folder", selection: $folderId) {
                         Text("Unfiled").tag("")
                         ForEach(store.notebookFolders) { folder in
                             Text(folder.name).tag(folder.id)
                         }
                     }
-                    Button("Save Page") {
-                        Task { await save() }
-                    }
-                    .disabled(title.isEmpty)
-                }
 
-                if !status.isEmpty {
-                    Text(status)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                    Button {
+                        Task { await save() }
+                    } label: {
+                        Label("Save Page", systemImage: "checkmark.circle")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(title.isEmpty)
+
+                    if !status.isEmpty {
+                        Text(status)
+                            .font(.caption)
+                            .foregroundStyle(NoeisDesign.muted)
+                    }
                 }
+                .padding()
+                .frame(maxWidth: NoeisDesign.pageMaxWidth, alignment: .leading)
             }
+            .background(NoeisDesign.background)
             .navigationTitle("New")
         }
     }
@@ -592,10 +655,12 @@ struct LibraryDatabaseView: View {
                     Section(section.title) {
                         ForEach(section.articles) { article in
                             row(article)
+                                .noeisListRow()
                         }
                     }
                 }
             }
+            .noeisListChrome()
             .searchable(text: $query, prompt: "Search articles")
             .navigationTitle("Library")
             .overlay {
@@ -683,10 +748,12 @@ struct NotebookDatabaseView: View {
                     Section(section.title) {
                         ForEach(section.pages) { page in
                             row(page)
+                                .noeisListRow()
                         }
                     }
                 }
             }
+            .noeisListChrome()
             .searchable(text: $query, prompt: "Search pages")
             .navigationTitle("Notebook")
             .overlay {
@@ -726,8 +793,10 @@ struct ConceptsDatabaseView: View {
                         } label: {
                             ConceptRow(concept: concept)
                         }
+                        .noeisListRow()
                     }
                 }
+                .noeisListChrome()
                 .searchable(text: $query, prompt: "Search concepts")
                 .navigationTitle("Concepts")
                 .overlay {
@@ -758,7 +827,9 @@ struct ConceptsDatabaseView: View {
         Group {
             List(filteredConcepts, selection: $selectedConcept) { concept in
                 row(concept)
+                    .noeisListRow()
             }
+            .noeisListChrome()
             .searchable(text: $query, prompt: "Search concepts")
             .navigationTitle("Concepts")
             .overlay {
@@ -824,6 +895,7 @@ struct SearchWorkspaceView: View {
                     }
                 }
             }
+            .noeisListChrome()
             .searchable(text: $query, prompt: "Search workspace")
             .navigationTitle("Search")
         }
@@ -837,9 +909,10 @@ struct WorkspaceHeader: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(title)
-                .font(.system(size: 38, weight: .semibold, design: .serif))
+                .font(.system(size: 38, weight: .medium, design: .serif))
                 .foregroundStyle(NoeisDesign.ink)
             Text(subtitle)
+                .font(.callout)
                 .foregroundStyle(NoeisDesign.muted)
         }
     }
@@ -855,7 +928,7 @@ struct MetricTile: View {
             Image(systemName: icon)
                 .foregroundStyle(NoeisDesign.accent)
             Text(value)
-                .font(.title2.bold())
+                .font(.system(.title2, design: .serif).weight(.semibold))
                 .foregroundStyle(NoeisDesign.ink)
             Text(title)
                 .font(.caption)
@@ -863,12 +936,7 @@ struct MetricTile: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding()
-        .background(NoeisDesign.panel)
-        .overlay(
-            RoundedRectangle(cornerRadius: 8)
-                .stroke(NoeisDesign.border, lineWidth: 0.5)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: 8))
+        .noeisPanel()
     }
 }
 
@@ -879,12 +947,12 @@ struct SectionBlock<Content: View>: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text(title)
-                .font(.headline)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(NoeisDesign.ink)
             VStack(spacing: 0) {
                 content
             }
-            .background(NoeisDesign.panel)
-            .clipShape(RoundedRectangle(cornerRadius: 8))
+            .noeisPanel()
         }
     }
 }
@@ -896,7 +964,8 @@ struct ArticleRow: View {
         Label {
             VStack(alignment: .leading, spacing: 4) {
                 Text(article.title)
-                    .font(.headline)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(NoeisDesign.ink)
                     .lineLimit(2)
                 Text(article.siteName ?? article.url ?? "Saved article")
                     .font(.caption)
@@ -913,6 +982,7 @@ struct ArticleRow: View {
                 .foregroundStyle(NoeisDesign.accent)
         }
         .padding(.vertical, 6)
+        .contentShape(Rectangle())
     }
 }
 
@@ -923,7 +993,8 @@ struct PageRow: View {
         Label {
             VStack(alignment: .leading, spacing: 4) {
                 Text(page.title)
-                    .font(.headline)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(NoeisDesign.ink)
                     .lineLimit(2)
                 Text(page.previewText)
                     .font(.caption)
@@ -935,6 +1006,7 @@ struct PageRow: View {
                 .foregroundStyle(NoeisDesign.accent)
         }
         .padding(.vertical, 6)
+        .contentShape(Rectangle())
     }
 }
 
@@ -945,7 +1017,8 @@ struct ConceptRow: View {
         Label {
             VStack(alignment: .leading, spacing: 4) {
                 Text(concept.name)
-                    .font(.headline)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(NoeisDesign.ink)
                     .lineLimit(2)
                 Text(concept.description?.isEmpty == false ? concept.description! : "\(concept.count ?? 0) linked items")
                     .font(.caption)
@@ -957,6 +1030,7 @@ struct ConceptRow: View {
                 .foregroundStyle(NoeisDesign.accent)
         }
         .padding(.vertical, 6)
+        .contentShape(Rectangle())
     }
 }
 
@@ -1009,6 +1083,7 @@ struct ArticleDetail: View {
                 }
             }
             .padding()
+            .frame(maxWidth: NoeisDesign.pageMaxWidth, alignment: .leading)
         }
         .background(NoeisDesign.background)
         .navigationTitle("Article")
@@ -1067,7 +1142,7 @@ struct HighlightRow: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(NoeisDesign.background)
         .overlay(
-            RoundedRectangle(cornerRadius: 8)
+            RoundedRectangle(cornerRadius: NoeisDesign.radius)
                 .stroke(NoeisDesign.border, lineWidth: 0.5)
         )
     }
@@ -1105,8 +1180,8 @@ struct PageDetail: View {
 
                 VStack(alignment: .leading, spacing: 12) {
                     TextField("Title", text: $editorTitle)
-                        .font(.title2.weight(.semibold))
-                        .textFieldStyle(.roundedBorder)
+                        .font(.system(.title2, design: .serif).weight(.semibold))
+                        .textFieldStyle(NoeisInputStyle())
 
                     Picker("Folder", selection: $editorFolderId) {
                         Text("Unfiled").tag("")
@@ -1119,12 +1194,9 @@ struct PageDetail: View {
                         .font(.body)
                         .lineSpacing(5)
                         .frame(minHeight: 280)
+                        .scrollContentBackground(.hidden)
                         .padding(8)
-                        .background(NoeisDesign.panel)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 8)
-                                .stroke(NoeisDesign.border, lineWidth: 0.5)
-                        )
+                        .noeisPanel(cornerRadius: 2)
                 }
 
                 if !message.isEmpty {
@@ -1152,6 +1224,7 @@ struct PageDetail: View {
                 )
             }
             .padding()
+            .frame(maxWidth: NoeisDesign.pageMaxWidth, alignment: .leading)
         }
         .background(NoeisDesign.background)
         .navigationTitle(editorTitle.isEmpty ? displayPage.title : editorTitle)
@@ -1229,9 +1302,10 @@ struct ConceptDetail: View {
                 WorkspaceHeader(title: concept.name, subtitle: "Concept")
                 Text(concept.description?.isEmpty == false ? concept.description! : "No description yet.")
                     .lineSpacing(5)
+                    .foregroundStyle(NoeisDesign.ink)
                 Divider()
                 Label("\(concept.count ?? 0) linked items", systemImage: "link")
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(NoeisDesign.muted)
 
                 if let material {
                     ConceptMaterialSection(material: material)
@@ -1251,6 +1325,7 @@ struct ConceptDetail: View {
                 )
             }
             .padding()
+            .frame(maxWidth: NoeisDesign.pageMaxWidth, alignment: .leading)
         }
         .background(NoeisDesign.background)
         .navigationTitle(concept.name)
@@ -1305,7 +1380,8 @@ struct ConceptMaterialSection: View {
                 ForEach(material.linkedArticles.prefix(8)) { article in
                     VStack(alignment: .leading, spacing: 4) {
                         Text(article.title)
-                            .font(.headline)
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(NoeisDesign.ink)
                         Text("\(article.highlightCount ?? 0) highlights")
                             .font(.caption)
                             .foregroundStyle(NoeisDesign.muted)
@@ -1389,7 +1465,7 @@ struct AgentChatPanel: View {
 
                 HStack(alignment: .bottom, spacing: 8) {
                     TextField("Ask about this \(contextType)", text: $draft, axis: .vertical)
-                        .textFieldStyle(.roundedBorder)
+                        .textFieldStyle(NoeisInputStyle())
                         .lineLimit(1...4)
                     Button {
                         Task { await send() }
@@ -1452,7 +1528,7 @@ struct AgentMessageRow: View {
         }
         .padding()
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(message.role == "user" ? NoeisDesign.background : Color(.tertiarySystemGroupedBackground))
+        .background(message.role == "user" ? NoeisDesign.background : NoeisDesign.panelStrong)
     }
 }
 
