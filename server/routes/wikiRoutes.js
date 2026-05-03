@@ -273,6 +273,7 @@ const buildWikiRouter = ({
       const invalidEnum = [status, visibility, pageType].find(result => result?.error);
       if (invalidEnum) return res.status(400).json({ error: invalidEnum.error });
       if (status?.value) query.status = status.value;
+      else query.status = { $ne: 'archived' };
       if (visibility?.value) query.visibility = visibility.value;
       if (pageType?.value) query.pageType = pageType.value;
 

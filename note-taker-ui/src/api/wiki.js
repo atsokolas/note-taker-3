@@ -42,6 +42,8 @@ export const archiveWikiPage = async (id) => {
   return res.data;
 };
 
+export const deleteWikiPage = archiveWikiPage;
+
 export const maintainWikiPage = async (id, options = {}) => {
   const res = await api.post(`${WIKI_PAGES_PATH}/${safeId(id)}/ai/draft`, options, getAuthHeaders());
   return res.data;
@@ -65,6 +67,7 @@ const wikiApi = {
   getWikiPage,
   updateWikiPage,
   archiveWikiPage,
+  deleteWikiPage,
   maintainWikiPage,
   draftWikiPage,
   addWikiSource,

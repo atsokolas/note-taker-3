@@ -6,6 +6,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '../ui';
 import {
   addWikiSource,
+  deleteWikiPage,
   getWikiPage,
   maintainWikiPage,
   removeWikiSource,
@@ -23,6 +24,7 @@ const WikiPageEditor = ({ pageId }) => {
   const [loading, setLoading] = useState(true);
   const [saveStatus, setSaveStatus] = useState('idle');
   const [maintaining, setMaintaining] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [sourcePanelOpen, setSourcePanelOpen] = useState(true);
   const [error, setError] = useState('');
   const saveTimer = useRef(null);
@@ -160,6 +162,21 @@ const WikiPageEditor = ({ pageId }) => {
     }
   };
 
+  const handleDeletePage = async () => {
+    const title = page?.title || 'Untitled Wiki Page';
+    if (!window.confirm(`Delete "${title}"?`)) return;
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    setDeleting(true);
+    setError('');
+    try {
+      await deleteWikiPage(pageId);
+      navigate('/wiki');
+    } catch (_error) {
+      setError('Failed to delete Wiki page.');
+      setDeleting(false);
+    }
+  };
+
   if (loading) {
     return <main className="wiki-page"><p className="wiki-index__status">Loading Wiki page...</p></main>;
   }
@@ -184,6 +201,9 @@ const WikiPageEditor = ({ pageId }) => {
           aria-controls="wiki-source-panel"
         >
           {sourcePanelOpen ? 'Hide AI/Sources' : 'Show AI/Sources'}
+        </Button>
+        <Button type="button" variant="secondary" onClick={handleDeletePage} disabled={deleting}>
+          {deleting ? 'Deleting...' : 'Delete Wiki'}
         </Button>
         {error ? <span className="wiki-editor__error" role="alert">{error}</span> : null}
       </div>

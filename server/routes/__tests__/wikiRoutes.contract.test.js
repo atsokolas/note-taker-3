@@ -259,6 +259,15 @@ const run = async () => {
     const archived = await request(url, `/api/wiki/pages/${created.body._id}`, { method: 'DELETE' });
     assert.strictEqual(archived.res.status, 200, archived.text);
     assert.strictEqual(archived.body.status, 'archived');
+
+    const activeAfterArchive = await request(url, '/api/wiki/pages');
+    assert.strictEqual(activeAfterArchive.res.status, 200, activeAfterArchive.text);
+    assert.strictEqual(activeAfterArchive.body.length, 0);
+
+    const archivedList = await request(url, '/api/wiki/pages?status=archived');
+    assert.strictEqual(archivedList.res.status, 200, archivedList.text);
+    assert.strictEqual(archivedList.body.length, 1);
+    assert.strictEqual(archivedList.body[0]._id, created.body._id);
   } finally {
     await new Promise((resolve, reject) => server.close(error => (error ? reject(error) : resolve())));
   }

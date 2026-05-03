@@ -2,7 +2,7 @@ import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import WikiPageEditor from './WikiPageEditor';
-import { addWikiSource, getWikiPage, maintainWikiPage, removeWikiSource, updateWikiPage } from '../../api/wiki';
+import { addWikiSource, deleteWikiPage, getWikiPage, maintainWikiPage, removeWikiSource, updateWikiPage } from '../../api/wiki';
 
 const mockUseEditor = jest.fn();
 const mockEditor = {
@@ -26,6 +26,7 @@ jest.mock('@tiptap/extension-placeholder', () => ({
 
 jest.mock('../../api/wiki', () => ({
   addWikiSource: jest.fn(),
+  deleteWikiPage: jest.fn(),
   getWikiPage: jest.fn(),
   maintainWikiPage: jest.fn(),
   removeWikiSource: jest.fn(),
@@ -67,6 +68,7 @@ describe('WikiPageEditor', () => {
     getWikiPage.mockResolvedValue(page);
     updateWikiPage.mockResolvedValue(page);
     addWikiSource.mockResolvedValue(page);
+    deleteWikiPage.mockResolvedValue({ ...page, status: 'archived' });
     removeWikiSource.mockResolvedValue({ ...page, sourceRefs: [] });
     maintainWikiPage.mockResolvedValue({
       ...page,
@@ -154,5 +156,23 @@ describe('WikiPageEditor', () => {
     await waitFor(() => {
       expect(removeWikiSource).toHaveBeenCalledWith('wiki-1', 'source-1');
     });
+  });
+
+  it('deletes the current Wiki page after confirmation', async () => {
+    const confirmSpy = jest.spyOn(window, 'confirm').mockReturnValue(true);
+    render(
+      <MemoryRouter>
+        <WikiPageEditor pageId="wiki-1" />
+      </MemoryRouter>
+    );
+
+    await screen.findByDisplayValue('Enterprise AI Memory');
+    fireEvent.click(screen.getByRole('button', { name: 'Delete Wiki' }));
+
+    await waitFor(() => {
+      expect(deleteWikiPage).toHaveBeenCalledWith('wiki-1');
+    });
+    expect(confirmSpy).toHaveBeenCalledWith('Delete "Enterprise AI Memory"?');
+    confirmSpy.mockRestore();
   });
 });

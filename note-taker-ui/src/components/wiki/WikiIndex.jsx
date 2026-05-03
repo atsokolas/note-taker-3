@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button, SurfaceCard } from '../ui';
-import { createWikiPage, listWikiPages } from '../../api/wiki';
+import { createWikiPage, deleteWikiPage, listWikiPages } from '../../api/wiki';
 import { buildWikiCreatePayload, openWikiDraft } from '../../utils/wikiCreate';
 
 const PAGE_TYPES = ['all', 'topic', 'question', 'project', 'source', 'person', 'synthesis'];
@@ -19,7 +19,7 @@ const formatDate = (value) => {
   return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 };
 
-const WikiPageCard = ({ page, onOpen }) => {
+const WikiPageCard = ({ deleting, page, onDelete, onOpen }) => {
   const snippet = String(page.plainText || '').trim();
   return (
     <SurfaceCard
@@ -45,6 +45,20 @@ const WikiPageCard = ({ page, onOpen }) => {
         <span>{Array.isArray(page.sourceRefs) ? page.sourceRefs.length : 0} sources</span>
         <span>{formatDate(page.updatedAt)}</span>
       </div>
+      <div className="wiki-index__page-actions">
+        <Button
+          type="button"
+          variant="secondary"
+          disabled={deleting}
+          onClick={(event) => {
+            event.stopPropagation();
+            onDelete();
+          }}
+          onKeyDown={(event) => event.stopPropagation()}
+        >
+          {deleting ? 'Deleting...' : 'Delete'}
+        </Button>
+      </div>
     </SurfaceCard>
   );
 };
@@ -59,6 +73,7 @@ const WikiIndex = () => {
   const [seed, setSeed] = useState('');
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
+  const [deletingId, setDeletingId] = useState('');
   const [error, setError] = useState('');
 
   const requestParams = useMemo(() => {
@@ -102,6 +117,22 @@ const WikiIndex = () => {
     } catch (_error) {
       setError('Failed to create Wiki page.');
       setCreating(false);
+    }
+  };
+
+  const handleDelete = async (page) => {
+    if (!page?._id) return;
+    const title = page.title || 'Untitled Wiki Page';
+    if (!window.confirm(`Delete "${title}"?`)) return;
+    setDeletingId(page._id);
+    setError('');
+    try {
+      await deleteWikiPage(page._id);
+      setPages(current => current.filter(item => item._id !== page._id));
+    } catch (_error) {
+      setError('Failed to delete Wiki page.');
+    } finally {
+      setDeletingId('');
     }
   };
 
@@ -161,7 +192,9 @@ const WikiIndex = () => {
           <WikiPageCard
             key={page._id}
             page={page}
+            deleting={deletingId === page._id}
             onOpen={() => navigate(`/wiki/${page._id}`)}
+            onDelete={() => handleDelete(page)}
           />
         ))}
       </section>
