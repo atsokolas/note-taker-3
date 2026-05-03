@@ -115,6 +115,10 @@ const createFakeWikiPageModel = () => {
   return WikiPage;
 };
 
+const createFakeLibraryModel = (records = []) => ({
+  find: (query = {}) => new Query(records.filter(record => matches(record, query)))
+});
+
 const request = async (url, path, options = {}) => {
   const res = await fetch(`${url}${path}`, {
     ...options,
@@ -136,6 +140,24 @@ const request = async (url, path, options = {}) => {
 
 const run = async () => {
   const WikiPage = createFakeWikiPageModel();
+  const Article = createFakeLibraryModel([
+    {
+      _id: new mongoose.Types.ObjectId().toString(),
+      userId: 'user-1',
+      title: 'Enterprise AI memory article',
+      url: 'https://example.com/memory',
+      content: 'Enterprise AI memory needs maintained claims, source-backed sections, and fresh evidence review.',
+      highlights: [
+        {
+          _id: new mongoose.Types.ObjectId().toString(),
+          text: 'Maintained claims keep AI memory pages alive.',
+          tags: ['memory']
+        }
+      ],
+      createdAt: new Date(),
+      updatedAt: new Date()
+    }
+  ]);
   const app = express();
   app.use(express.json());
   app.use(buildWikiRouter({
@@ -143,7 +165,8 @@ const run = async () => {
       req.user = { id: req.headers['x-test-user'] || 'user-1' };
       next();
     },
-    WikiPage
+    WikiPage,
+    Article
   }));
 
   const server = await listen(app);
@@ -206,14 +229,19 @@ const run = async () => {
     assert.strictEqual(patched.body.title, 'Contract Page Updated');
     assert.ok(patched.body.plainText.includes('Updated contract body'));
 
-    const drafted = await request(url, `/api/wiki/pages/${created.body._id}/ai/draft`, { method: 'POST' });
-    assert.strictEqual(drafted.res.status, 200, drafted.text);
-    assert.strictEqual(drafted.body.aiState.draftStatus, 'ready');
-    assert.ok(drafted.body.aiState.draftRequestedAt);
-    assert.ok(drafted.body.aiState.draftStartedAt);
-    assert.ok(drafted.body.aiState.draftCompletedAt);
-    assert.strictEqual(drafted.body.aiState.sourceRefIdsAtDraft.length, 1);
-    assert.ok(drafted.body.aiState.suggestions.length >= 3);
+    const maintained = await request(url, `/api/wiki/pages/${created.body._id}/ai/draft`, { method: 'POST' });
+    assert.strictEqual(maintained.res.status, 200, maintained.text);
+    assert.strictEqual(maintained.body.aiState.draftStatus, 'ready');
+    assert.ok(maintained.body.aiState.draftRequestedAt);
+    assert.ok(maintained.body.aiState.draftStartedAt);
+    assert.ok(maintained.body.aiState.draftCompletedAt);
+    assert.strictEqual(maintained.body.sourceScope, 'entire_library');
+    assert.ok(maintained.body.plainText.includes('Enterprise AI memory article'));
+    assert.ok(!maintained.body.plainText.includes('Updated contract body'));
+    assert.ok(maintained.body.sourceRefs.some(source => source.title === 'Enterprise AI memory article'));
+    assert.ok(maintained.body.aiState.maintenanceSummary);
+    assert.ok(Array.isArray(maintained.body.aiState.health.newItems));
+    assert.ok(maintained.body.aiState.suggestions.length >= 1);
 
     const invalidSource = await request(url, `/api/wiki/pages/${created.body._id}/sources`, {
       method: 'POST',
