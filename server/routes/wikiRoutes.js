@@ -1,0 +1,349 @@
+const express = require('express');
+const mongoose = require('mongoose');
+
+const PAGE_TYPES = new Set(['topic', 'question', 'project', 'source', 'person', 'synthesis']);
+const STATUSES = new Set(['draft', 'published', 'archived']);
+const VISIBILITIES = new Set(['private', 'shared']);
+const SOURCE_SCOPES = new Set(['entire_library', 'current_item', 'selected_sources']);
+const CREATED_FROM_TYPES = new Set([
+  'wiki_index',
+  'idea',
+  'question',
+  'highlight',
+  'article',
+  'notebook',
+  'concept',
+  'sources',
+  'paste',
+  'search',
+  'thought_partner'
+]);
+const SOURCE_REF_TYPES = new Set(['article', 'highlight', 'notebook', 'concept', 'question', 'memory', 'external']);
+const SOURCE_REF_ADDED_BY = new Set(['user', 'ai']);
+
+const emptyDoc = () => ({ type: 'doc', content: [{ type: 'paragraph' }] });
+
+const slugify = (value = '') => {
+  const base = String(value || 'untitled-wiki-page')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 80);
+  return base || 'untitled-wiki-page';
+};
+
+const escapeRegExp = (value = '') => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+const extractPlainText = (node) => {
+  if (!node) return '';
+  if (typeof node === 'string') return node.trim();
+  if (Array.isArray(node)) return node.map(extractPlainText).filter(Boolean).join(' ').trim();
+  if (typeof node !== 'object') return '';
+  const ownText = typeof node.text === 'string' ? node.text : '';
+  const childText = Array.isArray(node.content) ? extractPlainText(node.content) : '';
+  return [ownText, childText].filter(Boolean).join(' ').trim();
+};
+
+const normalizeTitle = (value = '') => (
+  String(value || 'Untitled Wiki Page').trim().slice(0, 180) || 'Untitled Wiki Page'
+);
+
+const normalizeObjectId = (value) => {
+  const id = String(value || '').trim();
+  return mongoose.Types.ObjectId.isValid(id) ? id : null;
+};
+
+const normalizeCreatedFrom = (value = {}) => {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return { type: 'wiki_index' };
+  const type = CREATED_FROM_TYPES.has(String(value.type || '')) ? String(value.type) : 'wiki_index';
+  return {
+    type,
+    objectId: normalizeObjectId(value.objectId),
+    objectIds: Array.isArray(value.objectIds)
+      ? value.objectIds.map(normalizeObjectId).filter(Boolean).slice(0, 50)
+      : [],
+    text: String(value.text || '').trim().slice(0, 8000),
+    label: String(value.label || '').trim().slice(0, 240)
+  };
+};
+
+const buildDraftDoc = ({ title, seedText }) => ({
+  type: 'doc',
+  content: [
+    { type: 'heading', attrs: { level: 1 }, content: [{ type: 'text', text: title }] },
+    {
+      type: 'paragraph',
+      content: [{ type: 'text', text: seedText || 'Start writing. AI can help expand this page from your sources.' }]
+    }
+  ]
+});
+
+const validateEnumField = (field, value, allowedValues) => {
+  if (value === undefined) return null;
+  const normalized = String(value || '').trim();
+  if (!allowedValues.has(normalized)) {
+    return { error: `${field} must be one of: ${Array.from(allowedValues).join(', ')}.` };
+  }
+  return { value: normalized };
+};
+
+const normalizeSourceRef = (value = {}) => {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return { error: 'sourceRef payload must be an object.' };
+  }
+
+  const type = String(value.type || '').trim();
+  if (!SOURCE_REF_TYPES.has(type)) {
+    return { error: `type must be one of: ${Array.from(SOURCE_REF_TYPES).join(', ')}.` };
+  }
+
+  const addedBy = String(value.addedBy || 'user').trim();
+  if (!SOURCE_REF_ADDED_BY.has(addedBy)) {
+    return { error: "addedBy must be one of: user, ai." };
+  }
+
+  const objectId = normalizeObjectId(value.objectId);
+  if (value.objectId && !objectId) {
+    return { error: 'objectId must be a valid id.' };
+  }
+
+  const sourceRef = {
+    type,
+    objectId,
+    title: String(value.title || '').trim().slice(0, 240),
+    snippet: String(value.snippet || '').trim().slice(0, 1000),
+    url: String(value.url || '').trim().slice(0, 1000),
+    citationLabel: String(value.citationLabel || '').trim().slice(0, 120),
+    addedBy
+  };
+
+  if (!sourceRef.objectId && !sourceRef.title && !sourceRef.snippet && !sourceRef.url) {
+    return { error: 'sourceRef must include objectId, title, snippet, or url.' };
+  }
+
+  return { value: sourceRef };
+};
+
+const buildWikiRouter = ({ authenticateToken, WikiPage }) => {
+  const router = express.Router();
+
+  const buildUniqueSlug = async (userId, title, existingId = null) => {
+    const base = slugify(title);
+    for (let i = 0; i < 25; i += 1) {
+      const slug = i === 0 ? base : `${base}-${i + 1}`;
+      const query = { userId, slug };
+      if (existingId) query._id = { $ne: existingId };
+      const existing = await WikiPage.findOne(query).select('_id').lean();
+      if (!existing) return slug;
+    }
+    return `${base}-${Date.now()}`;
+  };
+
+  const findOwnedPage = (req) => WikiPage.findOne({ _id: req.params.id, userId: req.user.id });
+
+  router.param('id', (req, res, next, id) => {
+    if (!mongoose.Types.ObjectId.isValid(String(id || ''))) {
+      return res.status(400).json({ error: 'Invalid wiki page id.' });
+    }
+    return next();
+  });
+
+  router.param('sourceRefId', (req, res, next, sourceRefId) => {
+    if (!mongoose.Types.ObjectId.isValid(String(sourceRefId || ''))) {
+      return res.status(400).json({ error: 'Invalid wiki source id.' });
+    }
+    return next();
+  });
+
+  router.get('/api/wiki/pages', authenticateToken, async (req, res) => {
+    try {
+      const query = { userId: req.user.id };
+      const status = validateEnumField('status', req.query.status, STATUSES);
+      const visibility = validateEnumField('visibility', req.query.visibility, VISIBILITIES);
+      const pageType = validateEnumField('pageType', req.query.pageType, PAGE_TYPES);
+      const invalidEnum = [status, visibility, pageType].find(result => result?.error);
+      if (invalidEnum) return res.status(400).json({ error: invalidEnum.error });
+      if (status?.value) query.status = status.value;
+      if (visibility?.value) query.visibility = visibility.value;
+      if (pageType?.value) query.pageType = pageType.value;
+
+      const q = String(req.query.q || '').trim();
+      if (q) {
+        const regex = new RegExp(escapeRegExp(q), 'i');
+        query.$or = [{ title: regex }, { plainText: regex }];
+      }
+
+      const pages = await WikiPage.find(query).sort({ updatedAt: -1 }).limit(100).lean();
+      res.status(200).json(pages);
+    } catch (error) {
+      console.error('Error listing wiki pages:', error);
+      res.status(500).json({ error: 'Failed to list wiki pages.' });
+    }
+  });
+
+  router.post('/api/wiki/pages', authenticateToken, async (req, res) => {
+    try {
+      const pageType = validateEnumField('pageType', req.body?.pageType, PAGE_TYPES);
+      const sourceScope = validateEnumField('sourceScope', req.body?.sourceScope, SOURCE_SCOPES);
+      if (pageType?.error) return res.status(400).json({ error: pageType.error });
+      if (sourceScope?.error) return res.status(400).json({ error: sourceScope.error });
+
+      const createdFrom = normalizeCreatedFrom(req.body?.createdFrom);
+      const title = normalizeTitle(req.body?.title || createdFrom.label);
+      const body = req.body?.body && typeof req.body.body === 'object' && !Array.isArray(req.body.body)
+        ? req.body.body
+        : emptyDoc();
+      const page = new WikiPage({
+        userId: req.user.id,
+        title,
+        slug: await buildUniqueSlug(req.user.id, title),
+        pageType: pageType?.value || 'topic',
+        status: 'draft',
+        visibility: 'private',
+        sourceScope: sourceScope?.value || 'entire_library',
+        createdFrom,
+        body,
+        plainText: extractPlainText(body)
+      });
+      await page.save();
+      res.status(201).json(page);
+    } catch (error) {
+      console.error('Error creating wiki page:', error);
+      res.status(500).json({ error: 'Failed to create wiki page.' });
+    }
+  });
+
+  router.get('/api/wiki/pages/:id', authenticateToken, async (req, res) => {
+    try {
+      const page = await findOwnedPage(req).lean();
+      if (!page) return res.status(404).json({ error: 'Wiki page not found.' });
+      res.status(200).json(page);
+    } catch (_error) {
+      res.status(400).json({ error: 'Invalid wiki page id.' });
+    }
+  });
+
+  router.patch('/api/wiki/pages/:id', authenticateToken, async (req, res) => {
+    try {
+      const enumChecks = [
+        validateEnumField('pageType', req.body?.pageType, PAGE_TYPES),
+        validateEnumField('status', req.body?.status, STATUSES),
+        validateEnumField('visibility', req.body?.visibility, VISIBILITIES),
+        validateEnumField('sourceScope', req.body?.sourceScope, SOURCE_SCOPES)
+      ];
+      const invalidEnum = enumChecks.find(result => result?.error);
+      if (invalidEnum) return res.status(400).json({ error: invalidEnum.error });
+
+      const page = await findOwnedPage(req);
+      if (!page) return res.status(404).json({ error: 'Wiki page not found.' });
+
+      if (req.body?.title !== undefined) {
+        page.title = normalizeTitle(req.body.title);
+        page.slug = await buildUniqueSlug(req.user.id, page.title, page._id);
+      }
+      if (enumChecks[0]?.value) page.pageType = enumChecks[0].value;
+      if (enumChecks[1]?.value) page.status = enumChecks[1].value;
+      if (enumChecks[2]?.value) page.visibility = enumChecks[2].value;
+      if (enumChecks[3]?.value) page.sourceScope = enumChecks[3].value;
+      if (req.body?.body !== undefined) {
+        if (!req.body.body || typeof req.body.body !== 'object' || Array.isArray(req.body.body)) {
+          return res.status(400).json({ error: 'body must be a TipTap JSON object.' });
+        }
+        page.body = req.body.body;
+        page.plainText = extractPlainText(req.body.body);
+      }
+
+      await page.save();
+      res.status(200).json(page);
+    } catch (error) {
+      console.error('Error updating wiki page:', error);
+      res.status(500).json({ error: 'Failed to update wiki page.' });
+    }
+  });
+
+  router.delete('/api/wiki/pages/:id', authenticateToken, async (req, res) => {
+    try {
+      const page = await WikiPage.findOneAndUpdate(
+        { _id: req.params.id, userId: req.user.id },
+        { status: 'archived' },
+        { new: true }
+      );
+      if (!page) return res.status(404).json({ error: 'Wiki page not found.' });
+      res.status(200).json(page);
+    } catch (_error) {
+      res.status(400).json({ error: 'Invalid wiki page id.' });
+    }
+  });
+
+  router.post('/api/wiki/pages/:id/ai/draft', authenticateToken, async (req, res) => {
+    try {
+      const page = await findOwnedPage(req);
+      if (!page) return res.status(404).json({ error: 'Wiki page not found.' });
+
+      const hasPlainText = Boolean(String(page.plainText || '').trim());
+      page.aiState = {
+        draftStatus: 'ready',
+        lastDraftedAt: new Date(),
+        lastError: '',
+        model: 'local-stub',
+        sourceScopeAtDraft: page.sourceScope
+      };
+      if (!hasPlainText) {
+        const seedText = String(page.createdFrom?.text || '').trim();
+        page.body = buildDraftDoc({ title: page.title, seedText });
+        page.plainText = extractPlainText(page.body);
+      }
+
+      await page.save();
+      res.status(200).json(page);
+    } catch (error) {
+      console.error('Error drafting wiki page:', error);
+      res.status(500).json({ error: 'Failed to draft wiki page.' });
+    }
+  });
+
+  router.post('/api/wiki/pages/:id/sources', authenticateToken, async (req, res) => {
+    try {
+      const sourceRef = normalizeSourceRef(req.body);
+      if (sourceRef.error) return res.status(400).json({ error: sourceRef.error });
+
+      const page = await findOwnedPage(req);
+      if (!page) return res.status(404).json({ error: 'Wiki page not found.' });
+
+      page.sourceRefs.push(sourceRef.value);
+      await page.save();
+      res.status(201).json(page);
+    } catch (error) {
+      console.error('Error adding wiki source:', error);
+      res.status(500).json({ error: 'Failed to add wiki source.' });
+    }
+  });
+
+  router.delete('/api/wiki/pages/:id/sources/:sourceRefId', authenticateToken, async (req, res) => {
+    try {
+      const page = await findOwnedPage(req);
+      if (!page) return res.status(404).json({ error: 'Wiki page not found.' });
+
+      const source = page.sourceRefs.id(req.params.sourceRefId);
+      if (!source) return res.status(404).json({ error: 'Wiki source not found.' });
+
+      source.deleteOne();
+      await page.save();
+      res.status(200).json(page);
+    } catch (error) {
+      console.error('Error removing wiki source:', error);
+      res.status(500).json({ error: 'Failed to remove wiki source.' });
+    }
+  });
+
+  return router;
+};
+
+module.exports = {
+  buildWikiRouter,
+  extractPlainText,
+  normalizeCreatedFrom,
+  normalizeSourceRef,
+  slugify
+};
