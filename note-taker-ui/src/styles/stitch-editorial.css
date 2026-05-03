@@ -14,11 +14,11 @@ body.noeis-editorial {
   --vellum-accent-dim: #55524f;
   --vellum-warm: #74614a;
   --vellum-error: #a54731;
-  --vellum-shadow: 0 24px 48px rgba(56, 56, 49, 0.06);
-  --vellum-scrollbar-thumb: rgba(97, 94, 91, 0.18);
-  --vellum-scrollbar-thumb-hover: rgba(97, 94, 91, 0.34);
-  --vellum-scrollbar-thumb-active: rgba(97, 94, 91, 0.46);
-  --vellum-scrollbar-track: rgba(97, 94, 91, 0.06);
+  --vellum-shadow: 0 24px 48px color-mix(in srgb, var(--vellum-ink) 6%, transparent);
+  --vellum-scrollbar-thumb: color-mix(in srgb, var(--vellum-ink) 18%, transparent);
+  --vellum-scrollbar-thumb-hover: color-mix(in srgb, var(--vellum-ink) 34%, transparent);
+  --vellum-scrollbar-thumb-active: color-mix(in srgb, var(--vellum-ink) 46%, transparent);
+  --vellum-scrollbar-track: color-mix(in srgb, var(--vellum-ink) 6%, transparent);
   /* noeis-rebrand.css forces a dark palette on :root and BOTH theme attributes,
      including --surface-muted: #17265a (dark navy). The editorial body class
      overrides the obvious surface tokens but missed --surface-muted, so 20+
@@ -48,9 +48,9 @@ body.noeis-editorial {
   --workbench-border-strong: rgba(219, 205, 181, 0.78);
   --workbench-border: rgba(219, 205, 181, 0.72);
   --workbench-border-soft: rgba(219, 205, 181, 0.46);
-  --workbench-surface: rgba(255, 252, 247, 0.96);
-  --workbench-surface-soft: rgba(255, 252, 247, 0.72);
-  --workbench-surface-tinted: rgba(252, 249, 243, 0.92);
+  --workbench-surface: color-mix(in srgb, var(--vellum-bg) 96%, transparent);
+  --workbench-surface-soft: color-mix(in srgb, var(--vellum-bg) 72%, transparent);
+  --workbench-surface-tinted: color-mix(in srgb, var(--vellum-panel) 92%, transparent);
   --workbench-surface-active: var(--dropzone-surface-hover);
   --workbench-shadow-soft: 0 6px 14px rgba(72, 50, 21, 0.10);
   --workbench-shadow-strong: 0 18px 36px rgba(72, 50, 21, 0.12);
@@ -244,7 +244,7 @@ body.noeis-editorial .think-home-editorial-row__meta {
   font-size: 0.72rem !important;
   line-height: 1.45 !important;
   letter-spacing: 0.03em;
-  color: rgba(97, 94, 91, 0.72) !important;
+  color: color-mix(in srgb, var(--vellum-ink) 72%, transparent) !important;
   text-align: right;
 }
 
@@ -295,7 +295,7 @@ body.noeis-editorial .think-home-editorial-material-row__snippet {
   font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif !important;
   font-size: 0.82rem !important;
   line-height: 1.55 !important;
-  color: rgba(97, 94, 91, 0.76) !important;
+  color: color-mix(in srgb, var(--vellum-ink) 76%, transparent) !important;
 }
 
 body.noeis-editorial .think-home-editorial-material-row__meta {
@@ -303,7 +303,7 @@ body.noeis-editorial .think-home-editorial-material-row__meta {
   font-size: 0.72rem !important;
   line-height: 1.45 !important;
   letter-spacing: 0.03em;
-  color: rgba(97, 94, 91, 0.72) !important;
+  color: color-mix(in srgb, var(--vellum-ink) 72%, transparent) !important;
   text-align: right;
 }
 
@@ -454,7 +454,7 @@ body.noeis-editorial .topbar {
   border-bottom: 1px solid var(--vellum-line);
   border-radius: 0;
   box-shadow: none;
-  background: rgba(255, 252, 247, 0.94) !important;
+  background: color-mix(in srgb, var(--vellum-bg) 94%, transparent) !important;
   backdrop-filter: blur(14px);
 }
 
@@ -511,7 +511,7 @@ body.noeis-editorial .topbar__search-slot {
 }
 
 body.noeis-editorial .topbar__primary-link {
-  color: rgba(97, 94, 91, 0.72);
+  color: color-mix(in srgb, var(--vellum-ink) 72%, transparent);
   font-family: "Newsreader", Georgia, serif;
   font-size: 1.04rem;
   line-height: 1;
@@ -545,7 +545,7 @@ body.noeis-editorial .topbar__search-icon {
   width: 14px;
   height: 14px;
   transform: translateY(-50%);
-  color: rgba(97, 94, 91, 0.55);
+  color: color-mix(in srgb, var(--vellum-ink) 55%, transparent);
 }
 
 body.noeis-editorial .topbar__search-icon::before,
@@ -557,7 +557,7 @@ body.noeis-editorial .topbar__search-icon::after {
 
 body.noeis-editorial .topbar__search-icon::before {
   inset: 0 3px 3px 0;
-  border: 1.4px solid rgba(97, 94, 91, 0.72);
+  border: 1.4px solid color-mix(in srgb, var(--vellum-ink) 72%, transparent);
   border-radius: 999px;
 }
 
@@ -566,7 +566,7 @@ body.noeis-editorial .topbar__search-icon::after {
   bottom: 0;
   width: 6px;
   height: 1.4px;
-  background: rgba(97, 94, 91, 0.72);
+  background: color-mix(in srgb, var(--vellum-ink) 72%, transparent);
   transform: rotate(45deg);
   transform-origin: right center;
 }
@@ -588,7 +588,7 @@ body.noeis-editorial .topbar__search {
 }
 
 body.noeis-editorial .topbar__search::placeholder {
-  color: rgba(97, 94, 91, 0.54);
+  color: color-mix(in srgb, var(--vellum-ink) 54%, transparent);
 }
 
 body.noeis-editorial .topbar__search:focus {
@@ -616,7 +616,7 @@ body.noeis-editorial .topbar__icon-button {
   border: 0;
   border-radius: 999px;
   background: transparent;
-  color: rgba(97, 94, 91, 0.72);
+  color: color-mix(in srgb, var(--vellum-ink) 72%, transparent);
 }
 
 body.noeis-editorial .topbar__icon-button:hover,
@@ -713,7 +713,7 @@ body.noeis-editorial .topbar__menu-popover {
   padding: 8px;
   border: 0;
   border-radius: 0;
-  background: rgba(255, 252, 247, 0.98);
+  background: color-mix(in srgb, var(--vellum-bg) 98%, transparent);
   box-shadow: var(--vellum-shadow);
 }
 
@@ -747,7 +747,7 @@ body.noeis-editorial .topbar--manuscript .topbar__primary-nav {
 
 body.noeis-editorial .topbar--manuscript .topbar__primary-link {
   font-size: 0.96rem;
-  color: rgba(97, 94, 91, 0.64);
+  color: color-mix(in srgb, var(--vellum-ink) 64%, transparent);
 }
 
 body.noeis-editorial .topbar--manuscript .topbar__right {
@@ -1015,7 +1015,7 @@ body.noeis-editorial .think-main-actions .ui-quiet-button {
   border: 0 !important;
   border-bottom: 1px solid transparent !important;
   background: transparent !important;
-  color: rgba(97, 94, 91, 0.72) !important;
+  color: color-mix(in srgb, var(--vellum-ink) 72%, transparent) !important;
   box-shadow: none !important;
   font-size: 0.7rem;
   letter-spacing: 0.16em;
@@ -1161,7 +1161,7 @@ body.noeis-editorial .library-article-row-tag {
   font-size: 0.68rem;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: rgba(97, 94, 91, 0.7);
+  color: color-mix(in srgb, var(--vellum-ink) 70%, transparent);
 }
 
 body.noeis-editorial .library-article-row-excerpt {
@@ -1177,7 +1177,7 @@ body.noeis-editorial .library-article-row-meta {
   font-size: 0.7rem;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: rgba(97, 94, 91, 0.6);
+  color: color-mix(in srgb, var(--vellum-ink) 60%, transparent);
 }
 
 body.noeis-editorial .library-article-row-action {
@@ -1414,7 +1414,7 @@ body.noeis-editorial .three-pane--think .think-home__column-title {
   font-size: 0.68rem;
   letter-spacing: 0.18em;
   text-transform: uppercase;
-  color: rgba(97, 94, 91, 0.62);
+  color: color-mix(in srgb, var(--vellum-ink) 62%, transparent);
 }
 
 body.noeis-editorial .three-pane--think .think-home__row-title,
@@ -1471,7 +1471,7 @@ body.noeis-editorial .think-home-editorial__hero-subtitle {
   font-size: 1.08rem;
   line-height: 1.5;
   font-style: italic;
-  color: rgba(97, 94, 91, 0.82);
+  color: color-mix(in srgb, var(--vellum-ink) 82%, transparent);
 }
 
 body.noeis-editorial .think-home-editorial__notice,
@@ -1506,7 +1506,7 @@ body.noeis-editorial .think-home-rail__actions .ui-quiet-button {
   border: 0 !important;
   border-bottom: 1px solid transparent !important;
   background: transparent !important;
-  color: rgba(97, 94, 91, 0.72) !important;
+  color: color-mix(in srgb, var(--vellum-ink) 72%, transparent) !important;
   font-size: 0.68rem;
   letter-spacing: 0.18em;
   text-transform: uppercase;
@@ -1575,7 +1575,7 @@ body.noeis-editorial .ui-quiet-button--primary::before {
 body.noeis-editorial .ui-quiet-button--primary:hover {
   border-color: var(--vellum-ink) !important;
   transform: translateY(-1px);
-  box-shadow: 0 6px 18px rgba(97, 94, 91, 0.10);
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--vellum-ink) 10%, transparent);
 }
 
 body.noeis-editorial .ui-quiet-button--primary:hover::before {
@@ -1630,7 +1630,7 @@ body.noeis-editorial .think-home-editorial__continue-hero-eyebrow {
   font-size: 0.62rem;
   letter-spacing: 0.22em;
   text-transform: uppercase;
-  color: rgba(97, 94, 91, 0.62);
+  color: color-mix(in srgb, var(--vellum-ink) 62%, transparent);
 }
 
 body.noeis-editorial .think-home-editorial__continue-hero-title-button {
@@ -1660,7 +1660,7 @@ body.noeis-editorial .think-home-editorial__continue-hero-title-button:focus-vis
 body.noeis-editorial .think-home-editorial__continue-hero-meta {
   font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
   font-size: 0.78rem;
-  color: rgba(97, 94, 91, 0.78);
+  color: color-mix(in srgb, var(--vellum-ink) 78%, transparent);
 }
 
 body.noeis-editorial .think-home-editorial__continue-hero-cta {
@@ -1726,7 +1726,7 @@ body.noeis-editorial .think-home__material-meta {
   font-size: 0.72rem !important;
   line-height: 1.45 !important;
   letter-spacing: 0.03em;
-  color: rgba(97, 94, 91, 0.72) !important;
+  color: color-mix(in srgb, var(--vellum-ink) 72%, transparent) !important;
   text-align: right;
 }
 
@@ -1813,7 +1813,7 @@ body.noeis-editorial .think-home__material-snippet {
   font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
   font-size: 0.82rem;
   line-height: 1.55;
-  color: rgba(97, 94, 91, 0.76);
+  color: color-mix(in srgb, var(--vellum-ink) 76%, transparent);
 }
 
 body.noeis-editorial .think-home__material-row:hover {
@@ -1898,7 +1898,7 @@ body.noeis-editorial .landing-public__footer p {
   margin: 0;
   font-size: 0.98rem;
   line-height: 1.55;
-  color: rgba(56, 56, 49, 0.78);
+  color: color-mix(in srgb, var(--vellum-ink) 78%, transparent);
 }
 
 body.noeis-editorial .landing-public__nav,
@@ -1916,7 +1916,7 @@ body.noeis-editorial .landing-public__footer-links a {
   font-size: 0.72rem;
   letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: rgba(97, 94, 91, 0.78);
+  color: color-mix(in srgb, var(--vellum-ink) 78%, transparent);
   text-decoration: none;
 }
 
@@ -1959,7 +1959,7 @@ body.noeis-editorial .landing-public__column li {
   margin: 0;
   font-size: 1rem;
   line-height: 1.62;
-  color: rgba(56, 56, 49, 0.82);
+  color: color-mix(in srgb, var(--vellum-ink) 82%, transparent);
 }
 
 body.noeis-editorial .landing-public__main {
@@ -1985,7 +1985,7 @@ body.noeis-editorial .landing-public__lede {
   font-size: 1.28rem;
   line-height: 1.58;
   font-style: italic;
-  color: rgba(56, 56, 49, 0.88);
+  color: color-mix(in srgb, var(--vellum-ink) 88%, transparent);
 }
 
 body.noeis-editorial .landing-public__actions {
@@ -2139,7 +2139,7 @@ body.noeis-editorial .auth-editorial__panel-head p {
   font-size: 1.12rem;
   line-height: 1.58;
   font-style: italic;
-  color: rgba(56, 56, 49, 0.88);
+  color: color-mix(in srgb, var(--vellum-ink) 88%, transparent);
 }
 
 body.noeis-editorial .auth-editorial__notes {
@@ -2170,7 +2170,7 @@ body.noeis-editorial .auth-editorial__note p {
   margin: 0;
   font-size: 1rem;
   line-height: 1.62;
-  color: rgba(56, 56, 49, 0.82);
+  color: color-mix(in srgb, var(--vellum-ink) 82%, transparent);
 }
 
 body.noeis-editorial .auth-editorial__note a {
@@ -2228,7 +2228,7 @@ body.noeis-editorial .auth-editorial__switch-button {
   border: 0;
   border-bottom: 1px solid transparent;
   background: transparent;
-  color: rgba(97, 94, 91, 0.76);
+  color: color-mix(in srgb, var(--vellum-ink) 76%, transparent);
   font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
   font-size: 0.72rem;
   letter-spacing: 0.16em;
@@ -2723,7 +2723,7 @@ body.noeis-editorial .question-editorial-main__subtitle {
   font-size: 1.12rem;
   line-height: 1.55;
   font-style: italic;
-  color: rgba(97, 94, 91, 0.88);
+  color: color-mix(in srgb, var(--vellum-ink) 88%, transparent);
 }
 
 body.noeis-editorial .question-editorial-main__editor {
@@ -2793,7 +2793,7 @@ body.noeis-editorial .editorial-side-rail__drafts .think-artifact-drafts-panel__
   padding: 0;
   border-radius: 0;
   background: transparent;
-  color: rgba(97, 94, 91, 0.46);
+  color: color-mix(in srgb, var(--vellum-ink) 46%, transparent);
   font-size: 0.68rem;
   font-weight: 500;
   letter-spacing: 0.16em;
@@ -3017,7 +3017,7 @@ body.noeis-editorial .concept-editorial-partner__collapse-toggle {
   font-size: 0.54rem;
   letter-spacing: 0.18em;
   text-transform: uppercase;
-  color: rgba(97, 94, 91, 0.58);
+  color: color-mix(in srgb, var(--vellum-ink) 58%, transparent);
 }
 
 body.noeis-editorial .concept-editorial-partner__nav {
@@ -3049,7 +3049,7 @@ body.noeis-editorial .concept-editorial-partner__footer button {
   padding: 10px 12px;
   border: 0;
   background: transparent;
-  color: rgba(97, 94, 91, 0.58);
+  color: color-mix(in srgb, var(--vellum-ink) 58%, transparent);
   text-align: left;
   font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
   font-size: 0.62rem;
@@ -3135,7 +3135,7 @@ body.noeis-editorial .concept-editorial-evidence__item-footer span {
   font-size: 0.58rem;
   letter-spacing: 0.2em;
   text-transform: uppercase;
-  color: rgba(97, 94, 91, 0.58);
+  color: color-mix(in srgb, var(--vellum-ink) 58%, transparent);
 }
 
 .concept-editorial-evidence__item-meta {
@@ -3188,7 +3188,7 @@ body.noeis-editorial .concept-editorial-partner__section p {
   font-family: "Newsreader", Georgia, serif;
   font-size: 0.84rem;
   line-height: 1.56;
-  color: rgba(56, 56, 49, 0.82);
+  color: color-mix(in srgb, var(--vellum-ink) 82%, transparent);
 }
 
 body.noeis-editorial .concept-editorial-partner__section li button.concept-editorial-partner__concept-link {
@@ -3244,14 +3244,14 @@ body.noeis-editorial .notebook-folder-tree__toolbar-action {
 }
 
 body.noeis-editorial .notebook-folder-tree__toolbar-label {
-  color: rgba(97, 94, 91, 0.68);
+  color: color-mix(in srgb, var(--vellum-ink) 68%, transparent);
 }
 
 body.noeis-editorial .notebook-folder-tree__toolbar-action {
   padding: 0;
   border: 0;
   background: transparent;
-  color: rgba(97, 94, 91, 0.74);
+  color: color-mix(in srgb, var(--vellum-ink) 74%, transparent);
 }
 
 body.noeis-editorial .notebook-folder-tree__toolbar-action.is-primary,
@@ -3267,7 +3267,7 @@ body.noeis-editorial .notebook-folder-tree__toolbar-form {
   padding: 12px 14px;
   border: 1px solid var(--vellum-line);
   border-radius: 18px;
-  background: rgba(246, 244, 236, 0.64);
+  background: color-mix(in srgb, var(--vellum-panel-strong) 64%, transparent);
 }
 
 body.noeis-editorial .notebook-folder-tree__toolbar-field input {
@@ -3307,7 +3307,7 @@ body.noeis-editorial .notebook-folder-tree .library-folder-toggle,
 body.noeis-editorial .notebook-folder-tree .library-folder-toggle-spacer {
   width: 18px;
   min-width: 18px;
-  color: rgba(97, 94, 91, 0.72);
+  color: color-mix(in srgb, var(--vellum-ink) 72%, transparent);
 }
 
 body.noeis-editorial .notebook-folder-tree .library-folder-button {
@@ -3317,13 +3317,13 @@ body.noeis-editorial .notebook-folder-tree .library-folder-button {
   gap: 12px;
   padding: 7px 10px !important;
   border-radius: 999px !important;
-  color: rgba(56, 56, 49, 0.84) !important;
+  color: color-mix(in srgb, var(--vellum-ink) 84%, transparent) !important;
 }
 
 body.noeis-editorial .notebook-folder-tree .library-folder-button:hover,
 body.noeis-editorial .notebook-folder-tree .library-folder-row.is-selected .library-folder-button {
   color: var(--vellum-ink) !important;
-  background: rgba(246, 244, 236, 0.92) !important;
+  background: color-mix(in srgb, var(--vellum-panel-strong) 92%, transparent) !important;
 }
 
 body.noeis-editorial .notebook-folder-tree .library-folder-name,
@@ -3337,7 +3337,7 @@ body.noeis-editorial .notebook-folder-tree__root-label {
 
 body.noeis-editorial .notebook-folder-tree .library-folder-name,
 body.noeis-editorial .notebook-folder-tree__root-label {
-  color: rgba(56, 56, 49, 0.84);
+  color: color-mix(in srgb, var(--vellum-ink) 84%, transparent);
 }
 
 body.noeis-editorial .notebook-folder-tree .library-folder-count,
@@ -3347,14 +3347,14 @@ body.noeis-editorial .notebook-folder-tree__entry-meta {
   line-height: 1.45 !important;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: rgba(97, 94, 91, 0.6);
+  color: color-mix(in srgb, var(--vellum-ink) 60%, transparent);
 }
 
 body.noeis-editorial .notebook-folder-tree .library-folder-count {
   min-width: 1.8em;
   padding: 2px 7px;
   border-radius: 999px;
-  background: rgba(97, 94, 91, 0.08);
+  background: color-mix(in srgb, var(--vellum-ink) 8%, transparent);
   text-align: center;
 }
 
@@ -3422,7 +3422,7 @@ body.noeis-editorial .notebook-folder-tree__entry-move {
   padding: 5px 0 8px;
   border: 0;
   background: transparent;
-  color: rgba(97, 94, 91, 0.68);
+  color: color-mix(in srgb, var(--vellum-ink) 68%, transparent);
   font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
   font-size: 0.66rem;
   font-weight: 600;
@@ -3449,7 +3449,7 @@ body.noeis-editorial .notebook-folder-tree__entry-move:disabled {
 body.noeis-editorial .notebook-folder-tree__root-empty {
   padding: 2px 0 10px 24px;
   border-bottom: 1px solid var(--vellum-line);
-  color: rgba(97, 94, 91, 0.62);
+  color: color-mix(in srgb, var(--vellum-ink) 62%, transparent);
   font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
   font-size: 0.72rem;
   line-height: 1.5;
@@ -3510,7 +3510,7 @@ body.noeis-editorial .notebook-move-entry-modal__create-row {
 
 body.noeis-editorial .notebook-move-entry-modal__create-copy {
   margin: 0;
-  color: rgba(97, 94, 91, 0.8);
+  color: color-mix(in srgb, var(--vellum-ink) 80%, transparent);
   font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
   font-size: 0.78rem;
   line-height: 1.5;
@@ -3569,7 +3569,7 @@ body.noeis-editorial .notebook-move-entry-modal__destination-state {
   font-weight: 600;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: rgba(97, 94, 91, 0.72);
+  color: color-mix(in srgb, var(--vellum-ink) 72%, transparent);
 }
 
 body.noeis-editorial .notebook-move-entry-modal__empty,
@@ -3632,7 +3632,7 @@ body.noeis-editorial .concept-editorial-loading__note {
   font-size: 0.98rem;
   line-height: 1.46;
   font-style: italic;
-  color: rgba(97, 94, 91, 0.78);
+  color: color-mix(in srgb, var(--vellum-ink) 78%, transparent);
 }
 
 body.noeis-editorial .concept-editorial-loading__toolbar {
@@ -3652,9 +3652,9 @@ body.noeis-editorial .concept-editorial-loading__manuscript {
 body.noeis-editorial .concept-editorial-loading .skeleton {
   background: linear-gradient(
     90deg,
-    rgba(97, 94, 91, 0.08) 18%,
-    rgba(97, 94, 91, 0.14) 42%,
-    rgba(97, 94, 91, 0.08) 70%
+    color-mix(in srgb, var(--vellum-ink) 8%, transparent) 18%,
+    color-mix(in srgb, var(--vellum-ink) 14%, transparent) 42%,
+    color-mix(in srgb, var(--vellum-ink) 8%, transparent) 70%
   );
   border-radius: 999px;
 }
@@ -3685,7 +3685,7 @@ body.noeis-editorial .concept-editorial-view__header p {
   font-size: 1rem;
   line-height: 1.38;
   font-style: italic;
-  color: rgba(97, 94, 91, 0.82);
+  color: color-mix(in srgb, var(--vellum-ink) 82%, transparent);
 }
 
 body.noeis-editorial .concept-editorial-view__manuscript {
@@ -3696,7 +3696,7 @@ body.noeis-editorial .concept-editorial-view__manuscript {
 body.noeis-editorial .concept-editorial-view__agent-feedback {
   padding: 12px 14px;
   border: 1px solid rgba(186, 186, 176, 0.42);
-  background: rgba(252, 249, 243, 0.92);
+  background: color-mix(in srgb, var(--vellum-panel) 92%, transparent);
   font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
   font-size: 0.64rem;
   letter-spacing: 0.16em;
@@ -3739,7 +3739,7 @@ body.noeis-editorial .concept-editorial-view__editor-meta button {
   font-size: 0.62rem;
   letter-spacing: 0.18em;
   text-transform: uppercase;
-  color: rgba(56, 56, 49, 0.76);
+  color: color-mix(in srgb, var(--vellum-ink) 76%, transparent);
 }
 
 body.noeis-editorial .concept-editorial-view.is-fresh .concept-editorial-view__editor-meta {
@@ -3767,7 +3767,7 @@ body.noeis-editorial .concept-editorial-view__starter-copy span {
   font-size: 0.58rem;
   letter-spacing: 0.18em;
   text-transform: uppercase;
-  color: rgba(97, 94, 91, 0.62);
+  color: color-mix(in srgb, var(--vellum-ink) 62%, transparent);
 }
 
 body.noeis-editorial .concept-editorial-view__starter-copy p {
@@ -3794,7 +3794,7 @@ body.noeis-editorial .concept-editorial-view__starter-actions button {
   font-size: 0.62rem;
   letter-spacing: 0.18em;
   text-transform: uppercase;
-  color: rgba(56, 56, 49, 0.76);
+  color: color-mix(in srgb, var(--vellum-ink) 76%, transparent);
 }
 
 body.noeis-editorial .concept-editorial-view__editor-shell .idea-workbench-hypothesis__editor-shell {
@@ -3817,7 +3817,7 @@ body.noeis-editorial .concept-editorial-view__editor-shell .idea-workbench-hypot
   font-size: 0.62rem;
   letter-spacing: 0.18em;
   text-transform: uppercase;
-  color: rgba(56, 56, 49, 0.76);
+  color: color-mix(in srgb, var(--vellum-ink) 76%, transparent);
 }
 
 body.noeis-editorial .concept-editorial-view__editor-shell .idea-workbench-hypothesis__toolbar .ui-quiet-button.is-active {
@@ -3831,7 +3831,7 @@ body.noeis-editorial .concept-editorial-view__editor-shell .idea-workbench-hypot
   font-family: "Newsreader", Georgia, serif !important;
   font-size: 1.04rem;
   line-height: 1.72;
-  color: rgba(56, 56, 49, 0.94) !important;
+  color: color-mix(in srgb, var(--vellum-ink) 94%, transparent) !important;
 }
 
 body.noeis-editorial .concept-editorial-view__editor-shell .idea-workbench-hypothesis__editor p {
@@ -3847,7 +3847,7 @@ body.noeis-editorial .concept-editorial-view__editor-shell .idea-workbench-hypot
 }
 
 body.noeis-editorial .concept-editorial-view__editor-shell .idea-workbench-hypothesis__editor .is-editor-empty:first-child::before {
-  color: rgba(97, 94, 91, 0.48);
+  color: color-mix(in srgb, var(--vellum-ink) 48%, transparent);
 }
 
 body.noeis-editorial .concept-editorial-view__synthesis-point {
@@ -3857,7 +3857,7 @@ body.noeis-editorial .concept-editorial-view__synthesis-point {
   margin: 0;
   padding: 22px 24px;
   border-left: 3px solid var(--vellum-accent);
-  background: rgba(246, 244, 236, 0.82);
+  background: color-mix(in srgb, var(--vellum-panel-strong) 82%, transparent);
 }
 
 body.noeis-editorial .concept-editorial-view__synthesis-point p {
@@ -3866,7 +3866,7 @@ body.noeis-editorial .concept-editorial-view__synthesis-point p {
   font-size: 1.04rem;
   line-height: 1.56;
   font-style: italic;
-  color: rgba(97, 94, 91, 0.88);
+  color: color-mix(in srgb, var(--vellum-ink) 88%, transparent);
 }
 
 body.noeis-editorial .concept-editorial-view__pressure-point {
@@ -3884,7 +3884,7 @@ body.noeis-editorial .concept-editorial-view__pressure-point p {
   font-family: "Newsreader", Georgia, serif;
   font-size: 1rem;
   line-height: 1.56;
-  color: rgba(97, 94, 91, 0.9);
+  color: color-mix(in srgb, var(--vellum-ink) 90%, transparent);
 }
 
 body.noeis-editorial .concept-editorial-view__dropzone {
@@ -3984,7 +3984,7 @@ body.noeis-editorial .concept-editorial-evidence__starter-copy span {
   font-size: 0.58rem;
   letter-spacing: 0.18em;
   text-transform: uppercase;
-  color: rgba(97, 94, 91, 0.62);
+  color: color-mix(in srgb, var(--vellum-ink) 62%, transparent);
 }
 
 body.noeis-editorial .concept-editorial-evidence__starter-copy p {
@@ -4035,7 +4035,7 @@ body.noeis-editorial .concept-editorial-evidence__section-head {
   font-size: 0.58rem;
   letter-spacing: 0.18em;
   text-transform: uppercase;
-  color: rgba(97, 94, 91, 0.62);
+  color: color-mix(in srgb, var(--vellum-ink) 62%, transparent);
 }
 
 body.noeis-editorial .concept-editorial-evidence__section-copy {
@@ -4072,7 +4072,7 @@ body.noeis-editorial .concept-editorial-evidence__composer textarea {
   min-height: 64px;
   padding: 10px 12px;
   border: 1px solid rgba(186, 186, 176, 0.64);
-  background: rgba(255, 252, 247, 0.84);
+  background: color-mix(in srgb, var(--vellum-bg) 84%, transparent);
   resize: vertical;
   box-sizing: border-box;
   overflow-x: hidden;
@@ -4149,7 +4149,7 @@ body.noeis-editorial .concept-editorial-evidence__result-head {
   font-size: 0.58rem;
   letter-spacing: 0.18em;
   text-transform: uppercase;
-  color: rgba(97, 94, 91, 0.62);
+  color: color-mix(in srgb, var(--vellum-ink) 62%, transparent);
 }
 
 body.noeis-editorial .concept-editorial-evidence__result p {
@@ -4157,7 +4157,7 @@ body.noeis-editorial .concept-editorial-evidence__result p {
   font-family: "Newsreader", Georgia, serif;
   font-size: 0.88rem;
   line-height: 1.5;
-  color: rgba(56, 56, 49, 0.84);
+  color: color-mix(in srgb, var(--vellum-ink) 84%, transparent);
 }
 
 body.noeis-editorial .concept-editorial-evidence__result ul {
@@ -4183,7 +4183,7 @@ body.noeis-editorial .concept-editorial-evidence__result--proposal {
 
 body.noeis-editorial .concept-editorial-evidence__proposal-note {
   font-size: 0.82rem;
-  color: rgba(97, 94, 91, 0.76);
+  color: color-mix(in srgb, var(--vellum-ink) 76%, transparent);
 }
 
 body.noeis-editorial .concept-editorial-evidence__proposal-list {
@@ -4205,7 +4205,7 @@ body.noeis-editorial .concept-editorial-view__pressure-point > span {
   font-size: 0.58rem;
   letter-spacing: 0.2em;
   text-transform: uppercase;
-  color: rgba(97, 94, 91, 0.54);
+  color: color-mix(in srgb, var(--vellum-ink) 54%, transparent);
 }
 
 body.noeis-editorial .concept-editorial-evidence__proposal-list strong {
@@ -4218,7 +4218,7 @@ body.noeis-editorial .concept-editorial-evidence__proposal-list em,
 body.noeis-editorial .concept-editorial-view__pressure-point div {
   font-style: normal;
   font-size: 0.76rem;
-  color: rgba(97, 94, 91, 0.72);
+  color: color-mix(in srgb, var(--vellum-ink) 72%, transparent);
 }
 
 body.noeis-editorial .concept-editorial-evidence__proposal-actions {
@@ -4262,14 +4262,14 @@ body.noeis-editorial .concept-editorial-evidence__handoff-options strong {
   font-size: 1rem;
   font-weight: 500;
   line-height: 1.22;
-  color: rgba(56, 56, 49, 0.92);
+  color: color-mix(in srgb, var(--vellum-ink) 92%, transparent);
 }
 
 body.noeis-editorial .concept-editorial-evidence__handoff-options span {
   font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
   font-size: 0.68rem;
   line-height: 1.5;
-  color: rgba(97, 94, 91, 0.74);
+  color: color-mix(in srgb, var(--vellum-ink) 74%, transparent);
 }
 
 body.noeis-editorial .concept-editorial-evidence__status {
@@ -4291,7 +4291,7 @@ body.noeis-editorial .concept-editorial-evidence__empty {
   margin: 0;
   font-size: 0.82rem;
   line-height: 1.48;
-  color: rgba(97, 94, 91, 0.76);
+  color: color-mix(in srgb, var(--vellum-ink) 76%, transparent);
 }
 
 body.noeis-editorial .concept-editorial-evidence__message {
@@ -4317,7 +4317,7 @@ body.noeis-editorial .concept-editorial-evidence__message--user::before {
   top: 3px;
   bottom: 14px;
   width: 1px;
-  background: rgba(97, 94, 91, 0.54);
+  background: color-mix(in srgb, var(--vellum-ink) 54%, transparent);
 }
 
 body.noeis-editorial .concept-editorial-evidence__message + .concept-editorial-evidence__message {
@@ -4332,7 +4332,7 @@ body.noeis-editorial .concept-editorial-evidence__message-meta {
   font-size: 0.52rem;
   letter-spacing: 0.18em;
   text-transform: uppercase;
-  color: rgba(97, 94, 91, 0.42);
+  color: color-mix(in srgb, var(--vellum-ink) 42%, transparent);
 }
 
 body.noeis-editorial .concept-editorial-evidence__message p {
@@ -4340,7 +4340,7 @@ body.noeis-editorial .concept-editorial-evidence__message p {
   font-family: "Newsreader", Georgia, serif;
   font-size: 0.9rem;
   line-height: 1.62;
-  color: rgba(56, 56, 49, 0.86);
+  color: color-mix(in srgb, var(--vellum-ink) 86%, transparent);
   overflow-wrap: anywhere;
   word-break: break-word;
 }
@@ -4354,7 +4354,7 @@ body.noeis-editorial .concept-editorial-evidence__item {
   display: grid;
   gap: 10px;
   padding: 14px 14px 16px;
-  background: rgba(255, 252, 247, 0.84);
+  background: color-mix(in srgb, var(--vellum-bg) 84%, transparent);
   border: 1px solid rgba(186, 186, 176, 0.46);
   border-radius: 10px;
 }
@@ -4382,7 +4382,7 @@ body.noeis-editorial .concept-editorial-evidence__item p {
   font-family: "Newsreader", Georgia, serif;
   font-size: 0.92rem;
   line-height: 1.58;
-  color: rgba(56, 56, 49, 0.82);
+  color: color-mix(in srgb, var(--vellum-ink) 82%, transparent);
   overflow-wrap: anywhere;
   word-break: break-word;
 }
@@ -4449,7 +4449,7 @@ body.noeis-editorial .think-question-title-input {
 }
 
 body.noeis-editorial .think-question-title-input::placeholder {
-  color: rgba(97, 94, 91, 0.42);
+  color: color-mix(in srgb, var(--vellum-ink) 42%, transparent);
 }
 
 body.noeis-editorial .think-question-editor.is-editorial .think-question-title-input {
@@ -4722,7 +4722,7 @@ body.noeis-editorial .three-pane--concept-workbench .idea-workbench-head__path {
   display: flex;
   align-items: center;
   gap: 14px;
-  color: rgba(97, 94, 91, 0.68);
+  color: color-mix(in srgb, var(--vellum-ink) 68%, transparent);
   font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
   font-size: 0.64rem;
   letter-spacing: 0.22em;
@@ -4757,7 +4757,7 @@ body.noeis-editorial .three-pane--concept-workbench .idea-workbench-head__meta-i
   font-size: 0.68rem;
   letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: rgba(97, 94, 91, 0.66);
+  color: color-mix(in srgb, var(--vellum-ink) 66%, transparent);
 }
 
 body.noeis-editorial .three-pane--concept-workbench .idea-workbench-head__meta-inline-item strong {
@@ -4799,7 +4799,7 @@ body.noeis-editorial .three-pane--concept-workbench .idea-workbench-claim__eyebr
   font-size: 0.64rem;
   letter-spacing: 0.22em;
   text-transform: uppercase;
-  color: rgba(97, 94, 91, 0.66);
+  color: color-mix(in srgb, var(--vellum-ink) 66%, transparent);
 }
 
 body.noeis-editorial .three-pane--concept-workbench .idea-workbench-claim blockquote {
@@ -4820,7 +4820,7 @@ body.noeis-editorial .three-pane--concept-workbench .idea-workbench-claim__meta 
   font-size: 0.68rem;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: rgba(97, 94, 91, 0.62);
+  color: color-mix(in srgb, var(--vellum-ink) 62%, transparent);
 }
 
 body.noeis-editorial .three-pane--concept-workbench .idea-workbench-claim__marks {
@@ -4909,7 +4909,7 @@ body.noeis-editorial .three-pane--concept-workbench .idea-workbench-sheet__propo
   font-size: 0.64rem;
   letter-spacing: 0.22em;
   text-transform: uppercase;
-  color: rgba(97, 94, 91, 0.66);
+  color: color-mix(in srgb, var(--vellum-ink) 66%, transparent);
 }
 
 body.noeis-editorial .three-pane--concept-workbench .idea-workbench-sheet__proposal p {
@@ -4989,11 +4989,11 @@ body.noeis-editorial .three-pane--concept-workbench .idea-workbench-stream__card
   font-size: 0.62rem;
   letter-spacing: 0.2em;
   text-transform: uppercase;
-  color: rgba(97, 94, 91, 0.62);
+  color: color-mix(in srgb, var(--vellum-ink) 62%, transparent);
 }
 
 body.noeis-editorial .three-pane--concept-workbench .idea-workbench-stream__kicker {
-  color: rgba(97, 94, 91, 0.48);
+  color: color-mix(in srgb, var(--vellum-ink) 48%, transparent);
 }
 
 body.noeis-editorial .three-pane--concept-workbench .idea-workbench-stream__card,
@@ -5001,7 +5001,7 @@ body.noeis-editorial .three-pane--concept-workbench .idea-workbench-stream__note
   display: grid;
   gap: 8px;
   padding: 16px 18px;
-  background: rgba(255, 252, 247, 0.72);
+  background: color-mix(in srgb, var(--vellum-bg) 72%, transparent);
   border: 1px solid var(--vellum-line);
   border-radius: 18px;
 }
@@ -5020,7 +5020,7 @@ body.noeis-editorial .three-pane--concept-workbench .idea-workbench-stream__note
   font-family: "Newsreader", Georgia, serif;
   font-size: 0.92rem;
   line-height: 1.48;
-  color: rgba(56, 56, 49, 0.84);
+  color: color-mix(in srgb, var(--vellum-ink) 84%, transparent);
 }
 
 body.noeis-editorial .three-pane--concept-workbench .idea-workbench-stream__tags {
@@ -5036,7 +5036,7 @@ body.noeis-editorial .three-pane--concept-workbench .idea-workbench-stream__tags
   font-size: 0.58rem;
   letter-spacing: 0.18em;
   text-transform: uppercase;
-  color: rgba(97, 94, 91, 0.72);
+  color: color-mix(in srgb, var(--vellum-ink) 72%, transparent);
 }
 
 body.noeis-editorial .three-pane--concept-workbench .idea-workbench-stream__note.is-tension {
@@ -5057,7 +5057,7 @@ body.noeis-editorial .three-pane--concept-workbench .idea-workbench-rail__header
   font-size: 0.64rem;
   letter-spacing: 0.22em;
   text-transform: uppercase;
-  color: rgba(97, 94, 91, 0.5);
+  color: color-mix(in srgb, var(--vellum-ink) 50%, transparent);
 }
 
 body.noeis-editorial .three-pane--concept-workbench .idea-workbench-rail__nav {
@@ -5078,7 +5078,7 @@ body.noeis-editorial .three-pane--concept-workbench .idea-workbench-rail__nav-it
   font-size: 0.7rem;
   letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: rgba(97, 94, 91, 0.54);
+  color: color-mix(in srgb, var(--vellum-ink) 54%, transparent);
 }
 
 body.noeis-editorial .three-pane--concept-workbench .idea-workbench-rail__nav-item.is-active {
@@ -5159,7 +5159,7 @@ body.noeis-editorial .think-concept-manuscript-rail__section-head span {
   font-size: 0.62rem;
   letter-spacing: 0.2em;
   text-transform: uppercase;
-  color: rgba(97, 94, 91, 0.62);
+  color: color-mix(in srgb, var(--vellum-ink) 62%, transparent);
 }
 
 body.noeis-editorial .think-concept-manuscript-rail__header p {
@@ -5168,7 +5168,7 @@ body.noeis-editorial .think-concept-manuscript-rail__header p {
   font-size: 0.62rem;
   letter-spacing: 0.2em;
   text-transform: uppercase;
-  color: rgba(97, 94, 91, 0.46);
+  color: color-mix(in srgb, var(--vellum-ink) 46%, transparent);
 }
 
 body.noeis-editorial .think-concept-manuscript-rail__section {
@@ -5177,7 +5177,7 @@ body.noeis-editorial .think-concept-manuscript-rail__section {
   padding: 16px 18px;
   border: 1px solid var(--vellum-line);
   border-radius: 18px;
-  background: rgba(255, 252, 247, 0.68);
+  background: color-mix(in srgb, var(--vellum-bg) 68%, transparent);
 }
 
 body.noeis-editorial .think-concept-manuscript-rail__section-head {
@@ -5201,7 +5201,7 @@ body.noeis-editorial .think-concept-manuscript-rail__list li {
   font-family: "Newsreader", Georgia, serif;
   font-size: 0.92rem;
   line-height: 1.5;
-  color: rgba(56, 56, 49, 0.84);
+  color: color-mix(in srgb, var(--vellum-ink) 84%, transparent);
 }
 
 body.noeis-editorial .think-concept-manuscript-rail__list {
@@ -5233,7 +5233,7 @@ body.noeis-editorial .think-concepts-index-card__meta {
   font-size: 0.64rem;
   letter-spacing: 0.22em;
   text-transform: uppercase;
-  color: rgba(97, 94, 91, 0.64);
+  color: color-mix(in srgb, var(--vellum-ink) 64%, transparent);
 }
 
 body.noeis-editorial .think-concepts-index-hero__title {
@@ -5299,7 +5299,7 @@ body.noeis-editorial .think-concepts-index-card__review {
   margin: 0;
   font-size: 0.78rem;
   line-height: 1.55;
-  color: rgba(97, 94, 91, 0.74);
+  color: color-mix(in srgb, var(--vellum-ink) 74%, transparent);
 }
 
 body.noeis-editorial .think-concepts-index-card__review.is-stale {
@@ -5341,12 +5341,12 @@ body.noeis-editorial .think-concepts-index-section__title {
   font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: rgba(97, 94, 91, 0.78);
+  color: color-mix(in srgb, var(--vellum-ink) 78%, transparent);
 }
 
 body.noeis-editorial .think-concepts-index-section__subtitle,
 body.noeis-editorial .think-concepts-index-section__count {
-  color: rgba(97, 94, 91, 0.72);
+  color: color-mix(in srgb, var(--vellum-ink) 72%, transparent);
 }
 
 body.noeis-editorial .think-concepts-index-section__subtitle {
@@ -5483,7 +5483,7 @@ body.noeis-editorial .three-pane--library .library-folder-button {
   width: 100%;
   padding: 0 0 8px !important;
   border-bottom: 1px solid transparent !important;
-  color: rgba(97, 94, 91, 0.82) !important;
+  color: color-mix(in srgb, var(--vellum-ink) 82%, transparent) !important;
 }
 
 body.noeis-editorial .three-pane--library .library-cabinet-actions .list-button:hover,
@@ -5496,7 +5496,7 @@ body.noeis-editorial .three-pane--library .library-folder-row.is-selected .libra
 
 body.noeis-editorial .three-pane--library .library-cabinet-count,
 body.noeis-editorial .three-pane--library .library-folder-count {
-  color: rgba(97, 94, 91, 0.54) !important;
+  color: color-mix(in srgb, var(--vellum-ink) 54%, transparent) !important;
 }
 
 body.noeis-editorial .three-pane--library .library-article-list > .library-section-head {
@@ -5546,7 +5546,7 @@ body.noeis-editorial .three-pane--library .library-highlight-row {
 }
 
 body.noeis-editorial .three-pane--library .library-highlight-row.is-active {
-  border-bottom-color: rgba(56, 56, 49, 0.32);
+  border-bottom-color: color-mix(in srgb, var(--vellum-ink) 32%, transparent);
   background: transparent !important;
   box-shadow: none !important;
 }
@@ -5574,7 +5574,7 @@ body.noeis-editorial .three-pane--library .library-highlight-row .highlight-card
 body.noeis-editorial .three-pane--library .library-highlight-row .highlight-card-collapsed-title {
   font-size: 0.66rem;
   letter-spacing: 0.18em;
-  color: rgba(97, 94, 91, 0.58);
+  color: color-mix(in srgb, var(--vellum-ink) 58%, transparent);
 }
 
 body.noeis-editorial .three-pane--library .library-highlight-row .highlight-card-collapsed-text {
@@ -5631,7 +5631,7 @@ body.noeis-editorial .three-pane--library .library-highlight-row .highlight-orga
   border-radius: 0 !important;
   background: transparent !important;
   box-shadow: none !important;
-  color: rgba(56, 56, 49, 0.78) !important;
+  color: color-mix(in srgb, var(--vellum-ink) 78%, transparent) !important;
   letter-spacing: 0.16em;
   text-transform: uppercase;
 }
@@ -5753,7 +5753,7 @@ body.noeis-editorial .agent-skill-dock {
   padding: 18px 18px 20px;
   border: 1px solid var(--vellum-line) !important;
   border-radius: 26px;
-  background: linear-gradient(180deg, rgba(252, 249, 243, 0.98), rgba(246, 244, 236, 0.9)) !important;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--vellum-panel) 98%, transparent), color-mix(in srgb, var(--vellum-panel-strong) 90%, transparent)) !important;
   box-shadow: none !important;
 }
 
@@ -5796,7 +5796,7 @@ body.noeis-editorial .agent-skill-dock__selection-pill {
   align-self: start;
   padding: 5px 9px;
   border: 1px solid var(--vellum-line) !important;
-  background: rgba(255, 252, 247, 0.82) !important;
+  background: color-mix(in srgb, var(--vellum-bg) 82%, transparent) !important;
   color: rgba(79, 74, 70, 0.78);
   font-size: 0.56rem;
   letter-spacing: 0.16em;
@@ -5815,7 +5815,7 @@ body.noeis-editorial .agent-skill-dock__skill {
   padding: 15px 16px;
   border: 1px solid var(--vellum-line) !important;
   border-radius: 18px;
-  background: rgba(255, 252, 247, 0.92) !important;
+  background: color-mix(in srgb, var(--vellum-bg) 92%, transparent) !important;
   color: var(--vellum-ink) !important;
   box-shadow: none !important;
   text-align: left;
@@ -5825,7 +5825,7 @@ body.noeis-editorial .agent-skill-dock__skill {
 body.noeis-editorial .agent-skill-dock__skill:hover {
   transform: none;
   border-color: var(--vellum-line-strong) !important;
-  background: rgba(246, 244, 236, 0.96) !important;
+  background: color-mix(in srgb, var(--vellum-panel-strong) 96%, transparent) !important;
 }
 
 body.noeis-editorial .agent-skill-dock__skill-title {
@@ -6007,7 +6007,7 @@ body.noeis-editorial .agent-thought-partner__composer textarea {
   min-height: 88px;
   padding: 12px 14px;
   border: 1px solid var(--vellum-line) !important;
-  background: rgba(255, 252, 247, 0.84) !important;
+  background: color-mix(in srgb, var(--vellum-bg) 84%, transparent) !important;
   color: var(--vellum-ink) !important;
   font-family: "Newsreader", Georgia, serif;
   font-size: 0.9rem;
@@ -6016,12 +6016,12 @@ body.noeis-editorial .agent-thought-partner__composer textarea {
 }
 
 body.noeis-editorial .agent-thought-partner__composer textarea::placeholder {
-  color: rgba(97, 94, 91, 0.52);
+  color: color-mix(in srgb, var(--vellum-ink) 52%, transparent);
 }
 
 body.noeis-editorial .agent-thought-partner__composer--stream textarea {
   min-height: 64px;
-  background: rgba(255, 252, 247, 0.84) !important;
+  background: color-mix(in srgb, var(--vellum-bg) 84%, transparent) !important;
 }
 
 body.noeis-editorial .agent-thought-partner__submit {
@@ -6072,7 +6072,7 @@ body.noeis-editorial .agent-thought-partner__plan-preview {
   border-radius: 24px;
   background:
     radial-gradient(circle at 8% 0%, rgba(207, 184, 139, 0.16), transparent 38%),
-    linear-gradient(135deg, rgba(255, 252, 247, 0.94), rgba(247, 243, 234, 0.9)) !important;
+    linear-gradient(135deg, color-mix(in srgb, var(--vellum-bg) 94%, transparent), rgba(247, 243, 234, 0.9)) !important;
   box-shadow: none !important;
 }
 
@@ -6086,7 +6086,7 @@ body.noeis-editorial .agent-thought-partner__plan-preview-status {
   font-family: "Newsreader", Georgia, serif;
   font-size: 0.94rem;
   line-height: 1.22;
-  color: rgba(56, 56, 49, 0.9);
+  color: color-mix(in srgb, var(--vellum-ink) 90%, transparent);
 }
 
 body.noeis-editorial .agent-thought-partner__plan-preview h4 {
@@ -6109,7 +6109,7 @@ body.noeis-editorial .agent-thought-partner__plan-preview p {
 body.noeis-editorial .agent-thought-partner__plan-preview-meta span {
   background: rgba(255, 251, 246, 0.9) !important;
   border-color: rgba(120, 110, 98, 0.14) !important;
-  color: rgba(97, 94, 91, 0.72);
+  color: color-mix(in srgb, var(--vellum-ink) 72%, transparent);
 }
 
 body.noeis-editorial .agent-thought-partner__plan-preview-list {
@@ -6123,7 +6123,7 @@ body.noeis-editorial .agent-thought-partner__plan-preview-list li {
   font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
   font-size: 0.82rem;
   line-height: 1.5;
-  color: rgba(56, 56, 49, 0.82);
+  color: color-mix(in srgb, var(--vellum-ink) 82%, transparent);
 }
 
 body.noeis-editorial .agent-thought-partner__plan-preview-list li::before {
@@ -6180,7 +6180,7 @@ body.noeis-editorial .agent-thought-partner__message.is-user::before {
   top: 3px;
   bottom: 14px;
   width: 1px;
-  background: rgba(97, 94, 91, 0.54);
+  background: color-mix(in srgb, var(--vellum-ink) 54%, transparent);
 }
 
 body.noeis-editorial .agent-thought-partner__message-role {
@@ -6189,7 +6189,7 @@ body.noeis-editorial .agent-thought-partner__message-role {
   font-size: 0.52rem;
   letter-spacing: 0.18em;
   text-transform: uppercase;
-  color: rgba(97, 94, 91, 0.42);
+  color: color-mix(in srgb, var(--vellum-ink) 42%, transparent);
 }
 
 body.noeis-editorial .agent-thought-partner__message p:last-child {
@@ -6197,7 +6197,7 @@ body.noeis-editorial .agent-thought-partner__message p:last-child {
   font-family: "Newsreader", Georgia, serif;
   font-size: 0.9rem;
   line-height: 1.62;
-  color: rgba(56, 56, 49, 0.86);
+  color: color-mix(in srgb, var(--vellum-ink) 86%, transparent);
 }
 
 body.noeis-editorial .agent-thought-partner__message.is-user p:last-child {
@@ -6215,7 +6215,7 @@ body.noeis-editorial .agent-thought-partner__message {
 
 body.noeis-editorial .agent-thought-partner__message.is-user {
   padding-left: 10px;
-  border-left: 2px solid rgba(97, 94, 91, 0.18);
+  border-left: 2px solid color-mix(in srgb, var(--vellum-ink) 18%, transparent);
   background: transparent !important;
 }
 
@@ -6225,7 +6225,7 @@ body.noeis-editorial .agent-thought-partner__message-role {
   font-size: 0.62rem;
   letter-spacing: 0.18em;
   text-transform: uppercase;
-  color: rgba(97, 94, 91, 0.58);
+  color: color-mix(in srgb, var(--vellum-ink) 58%, transparent);
 }
 
 body.noeis-editorial .agent-thought-partner__message p {
@@ -6284,7 +6284,7 @@ body.noeis-editorial .agent-thought-partner__draft-card {
   padding: 16px 18px 18px;
   border: 1px solid var(--vellum-line) !important;
   border-radius: 20px;
-  background: rgba(255, 252, 247, 0.9) !important;
+  background: color-mix(in srgb, var(--vellum-bg) 90%, transparent) !important;
   box-shadow: none !important;
 }
 
@@ -6294,7 +6294,7 @@ body.noeis-editorial .agent-thought-partner__snapshot-card,
 body.noeis-editorial .agent-thought-partner__structure-step,
 body.noeis-editorial .agent-thought-partner__structure-summary-chip {
   border-color: rgba(120, 110, 98, 0.14) !important;
-  background: rgba(255, 252, 247, 0.9) !important;
+  background: color-mix(in srgb, var(--vellum-bg) 90%, transparent) !important;
   box-shadow: none !important;
 }
 
@@ -6304,8 +6304,8 @@ body.noeis-editorial .agent-thought-partner__review-card--structure {
 }
 
 body.noeis-editorial .agent-thought-partner__draft-card.is-promoted {
-  border-color: rgba(97, 94, 91, 0.24) !important;
-  background: rgba(246, 244, 236, 0.9) !important;
+  border-color: color-mix(in srgb, var(--vellum-ink) 24%, transparent) !important;
+  background: color-mix(in srgb, var(--vellum-panel-strong) 90%, transparent) !important;
 }
 
 body.noeis-editorial .agent-thought-partner__draft-meta {
@@ -6325,7 +6325,7 @@ body.noeis-editorial .agent-thought-partner__draft-meta span {
   font-size: 0.56rem;
   letter-spacing: 0.18em;
   text-transform: uppercase;
-  color: rgba(97, 94, 91, 0.72);
+  color: color-mix(in srgb, var(--vellum-ink) 72%, transparent);
 }
 
 body.noeis-editorial .agent-thought-partner__draft-card h4 {
@@ -6349,7 +6349,7 @@ body.noeis-editorial .agent-thought-partner__draft-workflow {
   gap: 10px;
   padding: 12px 14px;
   border-radius: 18px;
-  background: rgba(255, 252, 247, 0.82) !important;
+  background: color-mix(in srgb, var(--vellum-bg) 82%, transparent) !important;
   border: 1px solid rgba(163, 153, 146, 0.16) !important;
 }
 
@@ -6376,7 +6376,7 @@ body.noeis-editorial .think-threads-workbench {
 body.noeis-editorial .think-threads-card,
 body.noeis-editorial .think-threads-partner--main {
   border: 1px solid rgba(120, 110, 98, 0.12) !important;
-  background: rgba(255, 252, 247, 0.88) !important;
+  background: color-mix(in srgb, var(--vellum-bg) 88%, transparent) !important;
   box-shadow: none !important;
 }
 
@@ -6415,7 +6415,7 @@ body.noeis-editorial .protocol-activity-log__eyebrow {
   font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
   font-size: 0.58rem;
   letter-spacing: 0.18em;
-  color: rgba(97, 94, 91, 0.54);
+  color: color-mix(in srgb, var(--vellum-ink) 54%, transparent);
 }
 
 body.noeis-editorial .protocol-activity-log__body h4 {
@@ -6494,7 +6494,7 @@ body.noeis-editorial .library-browse-rail__section-head span {
 }
 
 body.noeis-editorial .library-browse-rail__header span {
-  color: rgba(97, 94, 91, 0.62);
+  color: color-mix(in srgb, var(--vellum-ink) 62%, transparent);
 }
 
 body.noeis-editorial .library-browse-rail__header p {
@@ -6503,7 +6503,7 @@ body.noeis-editorial .library-browse-rail__header p {
   font-size: 0.62rem;
   letter-spacing: 0.2em;
   text-transform: uppercase;
-  color: rgba(97, 94, 91, 0.46);
+  color: color-mix(in srgb, var(--vellum-ink) 46%, transparent);
 }
 
 body.noeis-editorial .library-browse-rail__nav {
@@ -6518,7 +6518,7 @@ body.noeis-editorial .library-browse-rail__nav-item {
   padding: 9px 10px;
   border: 0;
   background: transparent;
-  color: rgba(97, 94, 91, 0.54);
+  color: color-mix(in srgb, var(--vellum-ink) 54%, transparent);
   text-align: left;
   text-decoration: none;
 }
@@ -6555,7 +6555,7 @@ body.noeis-editorial .library-browse-rail__section p {
   font-family: "Newsreader", Georgia, serif;
   font-size: 0.88rem;
   line-height: 1.48;
-  color: rgba(56, 56, 49, 0.8);
+  color: color-mix(in srgb, var(--vellum-ink) 80%, transparent);
 }
 
 body.noeis-editorial .right-drawer__panel {
@@ -6571,7 +6571,7 @@ body.noeis-editorial .library-context-related__title {
   font-size: 0.64rem;
   letter-spacing: 0.22em;
   text-transform: uppercase;
-  color: rgba(97, 94, 91, 0.72);
+  color: color-mix(in srgb, var(--vellum-ink) 72%, transparent);
 }
 
 body.noeis-editorial .three-pane__right-header {
@@ -6614,7 +6614,7 @@ body.noeis-editorial .library-context-section__meta {
 }
 
 body.noeis-editorial .library-context-section__chevron {
-  color: rgba(97, 94, 91, 0.52);
+  color: color-mix(in srgb, var(--vellum-ink) 52%, transparent);
 }
 
 body.noeis-editorial .library-context-section__body {
@@ -6659,7 +6659,7 @@ body.noeis-editorial .notebook-context .muted-label {
   font-size: 0.66rem;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: rgba(97, 94, 91, 0.6);
+  color: color-mix(in srgb, var(--vellum-ink) 60%, transparent);
 }
 
 body.noeis-editorial .library-context-feed-item__actions {
@@ -6730,7 +6730,7 @@ body.noeis-editorial .working-memory-toggle {
   font-size: 0.68rem;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: rgba(97, 94, 91, 0.58);
+  color: color-mix(in srgb, var(--vellum-ink) 58%, transparent);
 }
 
 body.noeis-editorial .working-memory-status-toggle button.is-active,
@@ -6803,7 +6803,7 @@ body.noeis-editorial .working-memory-promote-bar label > span {
   font-size: 0.64rem;
   letter-spacing: 0.18em;
   text-transform: uppercase;
-  color: rgba(97, 94, 91, 0.58);
+  color: color-mix(in srgb, var(--vellum-ink) 58%, transparent);
 }
 
 body.noeis-editorial .working-memory-promote-buttons {
@@ -6837,7 +6837,7 @@ body.noeis-editorial .working-memory-more {
   border: 0;
   background: transparent;
   font-size: 1.1rem;
-  color: rgba(97, 94, 91, 0.58);
+  color: color-mix(in srgb, var(--vellum-ink) 58%, transparent);
 }
 
 body.noeis-editorial .working-memory-block-text {
@@ -6972,14 +6972,14 @@ body.noeis-editorial .notebook-insert-label {
   font-size: 0.64rem;
   letter-spacing: 0.22em;
   text-transform: uppercase;
-  color: rgba(97, 94, 91, 0.72);
+  color: color-mix(in srgb, var(--vellum-ink) 72%, transparent);
 }
 
 body.noeis-editorial .notebook-insert-hint {
   max-width: 22rem;
   font-size: 0.84rem;
   line-height: 1.42;
-  color: rgba(97, 94, 91, 0.78);
+  color: color-mix(in srgb, var(--vellum-ink) 78%, transparent);
 }
 
 body.noeis-editorial .notebook-insert-buttons {
@@ -7021,7 +7021,7 @@ body.noeis-editorial .notebook-insert-buttons .ui-quiet-button {
   border-bottom: 1px solid transparent !important;
   background: transparent !important;
   box-shadow: none !important;
-  color: rgba(97, 94, 91, 0.72) !important;
+  color: color-mix(in srgb, var(--vellum-ink) 72%, transparent) !important;
   font-size: 0.72rem;
   letter-spacing: 0.16em;
   text-transform: uppercase;
@@ -7068,7 +7068,7 @@ body.noeis-editorial .notebook-context__source-kicker {
   font-size: 0.62rem;
   letter-spacing: 0.18em;
   text-transform: uppercase;
-  color: rgba(97, 94, 91, 0.68);
+  color: color-mix(in srgb, var(--vellum-ink) 68%, transparent);
 }
 
 body.noeis-editorial .notebook-context__source-link,
@@ -7098,7 +7098,7 @@ body.noeis-editorial .think-notebook-editor-provenance__eyebrow {
   font-size: 0.62rem;
   letter-spacing: 0.18em;
   text-transform: uppercase;
-  color: rgba(97, 94, 91, 0.68);
+  color: color-mix(in srgb, var(--vellum-ink) 68%, transparent);
 }
 
 body.noeis-editorial .think-notebook-editor-provenance__body {
@@ -7113,7 +7113,7 @@ body.noeis-editorial .think-notebook-editor-provenance__body p {
   font-family: "Newsreader", Georgia, serif;
   font-size: 0.92rem;
   line-height: 1.56;
-  color: rgba(56, 56, 49, 0.78);
+  color: color-mix(in srgb, var(--vellum-ink) 78%, transparent);
 }
 
 body.noeis-editorial .think-notebook-editor-provenance__link {
