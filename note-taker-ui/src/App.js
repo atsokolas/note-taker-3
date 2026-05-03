@@ -52,6 +52,7 @@ const MapView = lazy(() => import('./pages/MapView'));
 const ReviewMode = lazy(() => import('./pages/ReviewMode'));
 const ReturnQueue = lazy(() => import('./pages/ReturnQueue'));
 const Settings = lazy(() => import('./pages/Settings'));
+const Wiki = lazy(() => import('./pages/Wiki'));
 const HowToUse = lazy(() => import('./pages/HowToUse'));
 const Integrations = lazy(() => import('./pages/Integrations'));
 const DataIntegrations = lazy(() => import('./pages/DataIntegrations'));
@@ -344,6 +345,11 @@ function App() {
       label: 'Questions',
       to: '/think?tab=questions',
       match: (location) => location.pathname.startsWith('/think') && new URLSearchParams(location.search).get('tab') === 'questions'
+    },
+    {
+      label: 'Wiki',
+      to: '/wiki',
+      match: (location) => location.pathname.startsWith('/wiki')
     }
   ];
 
@@ -447,6 +453,8 @@ function App() {
             <Route path="/map" element={<MapView />} />
             <Route path="/return-queue" element={<ReturnQueue />} />
             <Route path="/review" element={<ReviewMode />} />
+            <Route path="/wiki" element={<Wiki />} />
+            <Route path="/wiki/:id" element={<Wiki />} />
             <Route
               path="/settings"
               element={(
