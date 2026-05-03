@@ -425,12 +425,13 @@ body.noeis-editorial .topbar {
 
 body.noeis-editorial .topbar__content {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(280px, 460px) auto;
+  grid-template-columns: max-content minmax(220px, 360px) max-content;
   align-items: center;
-  gap: 28px;
+  gap: 18px;
   width: min(1500px, calc(100vw - 64px));
   margin: 0 auto;
   padding: 22px 0 18px;
+  overflow: visible;
 }
 
 body.noeis-editorial .topbar__left {
@@ -442,18 +443,19 @@ body.noeis-editorial .topbar__left {
 body.noeis-editorial .topbar__brand-nav {
   display: flex;
   align-items: center;
-  gap: 28px;
+  gap: 22px;
   min-width: 0;
 }
 
 body.noeis-editorial .topbar__brand {
   color: #1a1918;
   font-family: "Newsreader", Georgia, serif;
-  font-size: 2rem;
+  font-size: 1.82rem;
   font-style: italic;
   line-height: 1;
   letter-spacing: -0.04em;
   text-decoration: none;
+  white-space: nowrap;
 }
 
 body.noeis-editorial .topbar__brand:hover {
@@ -463,8 +465,9 @@ body.noeis-editorial .topbar__brand:hover {
 body.noeis-editorial .topbar__primary-nav {
   display: flex;
   align-items: center;
-  gap: 22px;
+  gap: 18px;
   min-width: 0;
+  white-space: nowrap;
 }
 
 body.noeis-editorial .topbar__search-slot {
@@ -475,7 +478,7 @@ body.noeis-editorial .topbar__search-slot {
 body.noeis-editorial .topbar__primary-link {
   color: rgba(97, 94, 91, 0.72);
   font-family: "Newsreader", Georgia, serif;
-  font-size: 1.18rem;
+  font-size: 1.04rem;
   line-height: 1;
   padding: 4px 0 7px;
   border-bottom: 1px solid transparent;
@@ -503,7 +506,7 @@ body.noeis-editorial .topbar__search-wrap {
 body.noeis-editorial .topbar__search-icon {
   position: absolute;
   top: 50%;
-  left: 15px;
+  left: 14px;
   width: 14px;
   height: 14px;
   transform: translateY(-50%);
@@ -535,16 +538,16 @@ body.noeis-editorial .topbar__search-icon::after {
 
 body.noeis-editorial .topbar__search {
   width: 100%;
-  height: 44px;
-  padding: 0 16px 0 42px;
+  height: 38px;
+  padding: 0 48px 0 38px;
   border: 0;
   border-radius: 0;
   box-shadow: none;
   background: var(--vellum-panel);
   color: var(--vellum-ink);
   font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
-  font-size: 0.74rem;
-  letter-spacing: 0.14em;
+  font-size: 0.68rem;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
   -webkit-text-fill-color: var(--vellum-ink);
 }
@@ -562,8 +565,10 @@ body.noeis-editorial .topbar__right {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 10px;
-  flex-wrap: wrap;
+  gap: 6px;
+  flex-wrap: nowrap;
+  min-width: 0;
+  white-space: nowrap;
 }
 
 body.noeis-editorial .topbar__icon-button {
@@ -637,11 +642,11 @@ body.noeis-editorial .list-button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 36px;
-  padding: 8px 12px;
-  font-size: 0.72rem;
+  min-height: 32px;
+  padding: 7px 9px;
+  font-size: 0.66rem;
   font-weight: 600;
-  letter-spacing: 0.16em;
+  letter-spacing: 0.13em;
   text-transform: uppercase;
 }
 
@@ -684,8 +689,8 @@ body.noeis-editorial .topbar__menu-popover .topbar__menu-item {
 }
 
 body.noeis-editorial .topbar--manuscript .topbar__content {
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 22px;
+  grid-template-columns: max-content max-content;
+  gap: 18px;
   padding: 16px 0 14px;
 }
 
@@ -698,21 +703,62 @@ body.noeis-editorial .topbar--manuscript .topbar__brand {
 }
 
 body.noeis-editorial .topbar--manuscript .topbar__brand-nav {
-  gap: 24px;
+  gap: 20px;
 }
 
 body.noeis-editorial .topbar--manuscript .topbar__primary-nav {
-  gap: 18px;
+  gap: 16px;
 }
 
 body.noeis-editorial .topbar--manuscript .topbar__primary-link {
-  font-size: 1rem;
+  font-size: 0.96rem;
   color: rgba(97, 94, 91, 0.64);
 }
 
 body.noeis-editorial .topbar--manuscript .topbar__right {
   gap: 6px;
   flex-wrap: nowrap;
+}
+
+@media (max-width: 1480px) {
+  body.noeis-editorial .topbar__content {
+    grid-template-columns: max-content minmax(180px, 1fr) max-content;
+    gap: 14px;
+    width: min(1500px, calc(100vw - 40px));
+  }
+
+  body.noeis-editorial .topbar__brand-nav {
+    gap: 18px;
+  }
+
+  body.noeis-editorial .topbar__primary-nav {
+    gap: 14px;
+  }
+
+  body.noeis-editorial .topbar__primary-link {
+    font-size: 0.98rem;
+  }
+
+  body.noeis-editorial .topbar__right {
+    gap: 4px;
+  }
+
+  body.noeis-editorial .topbar__button,
+  body.noeis-editorial .topbar__theme-pill {
+    padding-inline: 7px;
+    letter-spacing: 0.1em;
+  }
+}
+
+@media (max-width: 1320px) and (min-width: 1241px) {
+  body.noeis-editorial .topbar__content {
+    grid-template-columns: max-content max-content;
+    justify-content: space-between;
+  }
+
+  body.noeis-editorial .topbar__search-slot {
+    display: none;
+  }
 }
 
 body.noeis-editorial .three-pane {
