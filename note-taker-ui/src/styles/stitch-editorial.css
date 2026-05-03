@@ -82,8 +82,34 @@ body.noeis-editorial {
 /* Dark-mode editorial. The base palette is warm-cream; dark mode flips
    surfaces to deep warm-charcoal while keeping the tan tint family so the
    workbench reads as the same surface, just unlit. Activated by the existing
-   html[data-ui-theme='dark'] mechanism so app-level theme toggle works. */
+   html[data-ui-theme='dark'] mechanism so app-level theme toggle works.
+
+   Foundational vellum tokens MUST be redefined here — body.noeis-editorial
+   sets `background: var(--vellum-bg) !important` so without these the page
+   stays cream regardless of theme. (This was the actual bug the user hit —
+   foundational --background/--surface/--text in theme.css were being
+   painted over by the unconditional body.noeis-editorial cream surface.) */
 html[data-ui-theme='dark'] body.noeis-editorial {
+  --vellum-bg: #14110d;
+  --vellum-panel: #1c1813;
+  --vellum-panel-strong: #221d16;
+  --vellum-panel-stronger: #2a241c;
+  --vellum-ink: #efe6d4;
+  --vellum-muted: #b9b0a0;
+  --vellum-subtle: #948b7d;
+  --vellum-line: rgba(232, 222, 198, 0.10);
+  --vellum-line-strong: rgba(232, 222, 198, 0.18);
+  --vellum-accent: #d2c4ac;
+  --vellum-accent-dim: #b9ad96;
+  --vellum-warm: #e0bf91;
+  --vellum-error: #d97a5e;
+  --vellum-shadow: 0 24px 48px rgba(0, 0, 0, 0.45);
+  --vellum-scrollbar-thumb: rgba(232, 222, 198, 0.22);
+  --vellum-scrollbar-thumb-hover: rgba(232, 222, 198, 0.36);
+  --vellum-scrollbar-thumb-active: rgba(232, 222, 198, 0.48);
+  --vellum-scrollbar-track: rgba(232, 222, 198, 0.06);
+  color-scheme: dark;
+
   --workbench-border-strong: rgba(170, 145, 100, 0.34);
   --workbench-border: rgba(170, 145, 100, 0.28);
   --workbench-border-soft: rgba(170, 145, 100, 0.18);
