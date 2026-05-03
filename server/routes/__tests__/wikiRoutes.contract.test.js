@@ -146,7 +146,7 @@ const run = async () => {
       userId: 'user-1',
       title: 'Enterprise AI memory article',
       url: 'https://example.com/memory',
-      content: 'Enterprise AI memory needs maintained claims, source-backed sections, and fresh evidence review.',
+      content: '<p>Name: Enterprise AI memory article</p><p>URL: https://example.com/memory</p><p>Enterprise AI memory needs maintained claims, source-backed sections, and fresh evidence review.</p>',
       highlights: [
         {
           _id: new mongoose.Types.ObjectId().toString(),
@@ -236,11 +236,18 @@ const run = async () => {
     assert.ok(maintained.body.aiState.draftStartedAt);
     assert.ok(maintained.body.aiState.draftCompletedAt);
     assert.strictEqual(maintained.body.sourceScope, 'entire_library');
-    assert.ok(maintained.body.plainText.includes('Enterprise AI memory article'));
+    assert.ok(maintained.body.plainText.includes('Enterprise AI memory'));
+    assert.ok(maintained.body.plainText.includes('Key Signals'));
     assert.ok(!maintained.body.plainText.includes('Updated contract body'));
+    assert.ok(!maintained.body.plainText.includes('<p>'));
+    assert.ok(!maintained.body.plainText.includes('</p>'));
+    assert.ok(!maintained.body.plainText.includes('https://example.com/memory'));
+    assert.ok(!maintained.body.plainText.includes('contributes evidence for this page'));
+    assert.ok(!maintained.body.plainText.includes('(supported)'));
     assert.ok(maintained.body.sourceRefs.some(source => source.title === 'Enterprise AI memory article'));
     assert.ok(maintained.body.aiState.maintenanceSummary);
     assert.ok(Array.isArray(maintained.body.aiState.health.newItems));
+    assert.ok(maintained.body.aiState.changeLog.length >= 1);
     assert.ok(maintained.body.aiState.suggestions.length >= 1);
 
     const invalidSource = await request(url, `/api/wiki/pages/${created.body._id}/sources`, {

@@ -141,7 +141,7 @@ describe('WikiPageEditor', () => {
     );
 
     await screen.findByDisplayValue('Enterprise AI Memory');
-    expect(screen.getByText('Rewrote the evidence section.')).toBeInTheDocument();
+    expect(screen.getAllByText('Rewrote the evidence section.').length).toBeGreaterThan(0);
 
     fireEvent.change(screen.getByLabelText('Source title'), { target: { value: 'New source' } });
     fireEvent.click(screen.getByRole('button', { name: 'Attach source' }));

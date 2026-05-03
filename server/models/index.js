@@ -320,6 +320,17 @@ const wikiAiStateSchema = new mongoose.Schema({
       relatedPages: []
     })
   },
+  changeLog: {
+    type: [{
+      id: { type: String, default: '', trim: true },
+      type: { type: String, default: 'edit', trim: true },
+      title: { type: String, default: '', trim: true },
+      text: { type: String, default: '', trim: true },
+      sourceRefIds: { type: [mongoose.Schema.Types.ObjectId], default: [] },
+      createdAt: { type: Date, default: Date.now }
+    }],
+    default: []
+  },
   suggestions: {
     type: [{
       id: { type: String, required: true, trim: true },

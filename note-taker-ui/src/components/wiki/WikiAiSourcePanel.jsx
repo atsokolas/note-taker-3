@@ -38,6 +38,18 @@ const emptySourceForm = {
   url: ''
 };
 
+const cleanPanelText = (value = '') => String(value || '')
+  .replace(/&lt;/gi, '<')
+  .replace(/&gt;/gi, '>')
+  .replace(/<\/(p|div|li|br)>/gi, ' ')
+  .replace(/<[^>]+>/g, ' ')
+  .replace(/&nbsp;/gi, ' ')
+  .replace(/&amp;/gi, '&')
+  .replace(/&quot;/gi, '"')
+  .replace(/&#39;/gi, "'")
+  .replace(/\s+/g, ' ')
+  .trim();
+
 const WikiAiSourcePanel = ({
   id,
   page,
@@ -48,7 +60,11 @@ const WikiAiSourcePanel = ({
 }) => {
   const sources = Array.isArray(page?.sourceRefs) ? page.sourceRefs : [];
   const aiState = page?.aiState || {};
-  const suggestions = Array.isArray(aiState.suggestions) ? aiState.suggestions : [];
+  const changeLog = Array.isArray(aiState.changeLog) && aiState.changeLog.length > 0
+    ? aiState.changeLog
+    : Array.isArray(aiState.suggestions)
+      ? aiState.suggestions
+      : [];
   const health = aiState.health || {};
   const healthEntries = Object.entries(healthCopy).map(([key, label]) => ({
     key,
@@ -93,7 +109,17 @@ const WikiAiSourcePanel = ({
         </div>
         {aiState.lastError ? <p className="wiki-source-panel__error">{aiState.lastError}</p> : null}
         {aiState.maintenanceSummary ? (
-          <p className="wiki-source-panel__note">{aiState.maintenanceSummary}</p>
+          <p className="wiki-source-panel__note">{cleanPanelText(aiState.maintenanceSummary)}</p>
+        ) : null}
+        {changeLog.length > 0 ? (
+          <div className="wiki-source-panel__list">
+            <article className="wiki-source-panel__source">
+              <div className="wiki-source-panel__source-type">What changed this run</div>
+              {changeLog.slice(0, 3).map((item, index) => (
+                <p key={`change-summary-${item.id || index}`}>{cleanPanelText(item.text || item.title)}</p>
+              ))}
+            </article>
+          </div>
         ) : null}
         <p className="wiki-source-panel__note">
           {sourceScopeCopy[page?.sourceScope] || 'Maintenance uses relevant library material.'}
@@ -122,8 +148,8 @@ const WikiAiSourcePanel = ({
               <div className="wiki-source-panel__source-type">{entry.label}</div>
               {entry.items.slice(0, 5).map((item, index) => (
                 <p key={`${entry.key}-${index}`}>
-                  {item.text || item.title || item.summary}
-                  {item.sourceTitle ? ` - ${item.sourceTitle}` : ''}
+                  {cleanPanelText(item.text || item.title || item.summary)}
+                  {item.sourceTitle ? ` - ${cleanPanelText(item.sourceTitle)}` : ''}
                 </p>
               ))}
             </article>
@@ -134,21 +160,21 @@ const WikiAiSourcePanel = ({
       <SurfaceCard className="wiki-source-panel__section">
         <div className="wiki-source-panel__header">
           <div>
-            <h2>Applied updates</h2>
-            <p>{suggestions.length} recorded</p>
+            <h2>Changelog</h2>
+            <p>{changeLog.length} recorded</p>
           </div>
         </div>
-        {suggestions.length === 0 ? (
+        {changeLog.length === 0 ? (
           <p className="wiki-source-panel__note">Maintenance updates will appear here after the page is rebuilt.</p>
         ) : null}
         <div className="wiki-source-panel__list">
-          {suggestions.map(suggestion => (
+          {changeLog.map(suggestion => (
             <article key={suggestion.id || `${suggestion.type}-${suggestion.title}`} className="wiki-source-panel__source">
               <div className="wiki-source-panel__source-type">
                 {suggestionCopy[suggestion.type] || 'Applied update'}
               </div>
-              <h3>{suggestion.title || suggestionCopy[suggestion.type] || 'Applied update'}</h3>
-              {suggestion.text ? <p>{suggestion.text}</p> : null}
+              <h3>{cleanPanelText(suggestion.title || suggestionCopy[suggestion.type] || 'Applied update')}</h3>
+              {suggestion.text ? <p>{cleanPanelText(suggestion.text)}</p> : null}
             </article>
           ))}
         </div>
@@ -166,8 +192,8 @@ const WikiAiSourcePanel = ({
           {sources.map(source => (
             <article key={source._id || `${source.type}-${source.objectId}-${source.title}`} className="wiki-source-panel__source">
               <div className="wiki-source-panel__source-type">{source.type || 'source'}</div>
-              <h3>{source.title || 'Untitled source'}</h3>
-              {source.snippet ? <p>{source.snippet}</p> : null}
+              <h3>{cleanPanelText(source.title || 'Untitled source')}</h3>
+              {source.snippet ? <p>{cleanPanelText(source.snippet)}</p> : null}
               <div className="wiki-source-panel__actions">
                 {source.url ? (
                   <a href={source.url} target="_blank" rel="noreferrer" className="wiki-source-panel__link">Open</a>

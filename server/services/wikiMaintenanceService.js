@@ -13,7 +13,42 @@ const HEALTH_KEYS = [
 
 const asString = (value = '') => String(value || '').trim();
 
+const decodeHtmlEntities = (value = '') => (
+  asString(value)
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+);
+
+const stripHtml = (value = '') => (
+  decodeHtmlEntities(value)
+    .replace(/<\/(p|div|li|h[1-6]|br|section|article)>/gi, '\n')
+    .replace(/<(script|style)[\s\S]*?<\/\1>/gi, ' ')
+    .replace(/<[^>]+>/g, ' ')
+);
+
+const cleanWikiText = (value = '') => {
+  const lines = stripHtml(value)
+    .replace(/\((?:attr\(href\)|href|url)\)/gi, ' ')
+    .replace(/\bhttps?:\/\/\S+/gi, ' ')
+    .split(/\n|(?=\b(?:Name|URL|Title|Author|Source):\s)/i)
+    .map(line => line.trim())
+    .filter(Boolean)
+    .filter(line => !/^(name|url|source|title|author):\s*/i.test(line))
+    .map(line => line.replace(/\s+/g, ' ').trim())
+    .filter(Boolean);
+  return lines.join(' ').replace(/\s+/g, ' ').trim();
+};
+
 const truncate = (value = '', limit = 1000) => {
+  const text = cleanWikiText(value).replace(/\s+/g, ' ');
+  return text.length > limit ? `${text.slice(0, limit - 1).trim()}...` : text;
+};
+
+const truncateRaw = (value = '', limit = 1000) => {
   const text = asString(value).replace(/\s+/g, ' ');
   return text.length > limit ? `${text.slice(0, limit - 1).trim()}...` : text;
 };
@@ -111,6 +146,21 @@ const sourceObjectId = (value) => {
   return id || null;
 };
 
+const isLikelyGeneratedPage = (page) => Boolean(
+  page?.aiState?.lastDraftedAt
+  || page?.aiState?.maintenanceSummary
+  || page?.aiState?.model
+  || page?.aiState?.draftStatus === 'ready'
+);
+
+const extractManualNotes = (page) => {
+  const text = truncate(page?.plainText || toPlainText(page?.body), 1800);
+  if (!text || text.length < 80 || isLikelyGeneratedPage(page)) return '';
+  const title = asString(page?.title).toLowerCase();
+  const withoutTitle = text.toLowerCase() === title ? '' : text;
+  return withoutTitle;
+};
+
 const collectLibrarySources = async ({ userId, models = {} }) => {
   const [articles, notebooks, concepts, questions] = await Promise.all([
     runFind(models.Article, { userId }, 250),
@@ -123,7 +173,7 @@ const collectLibrarySources = async ({ userId, models = {} }) => {
 
   articles.forEach((article) => {
     const articleId = sourceObjectId(article);
-    const title = asString(article.title) || 'Untitled article';
+    const title = truncate(article.title, 220) || 'Untitled article';
     const highlightText = Array.isArray(article.highlights)
       ? article.highlights.map(h => [h.text, h.note].filter(Boolean).join(' - ')).filter(Boolean).join('\n')
       : '';
@@ -131,7 +181,7 @@ const collectLibrarySources = async ({ userId, models = {} }) => {
       type: 'article',
       objectId: articleId,
       title,
-      url: asString(article.url),
+      url: truncateRaw(article.url, 1000),
       text: truncate([article.content, highlightText].filter(Boolean).join('\n'), MAX_SOURCE_TEXT),
       tags: Array.isArray(article.highlights) ? article.highlights.flatMap(h => h.tags || []) : [],
       createdAt: article.createdAt,
@@ -144,8 +194,8 @@ const collectLibrarySources = async ({ userId, models = {} }) => {
         type: 'highlight',
         objectId: sourceObjectId(highlight),
         parentObjectId: articleId,
-        title: `${title} highlight`,
-        url: asString(article.url),
+        title: truncate(`${title} highlight`, 220),
+        url: truncateRaw(article.url, 1000),
         text: truncate(text, 900),
         tags: Array.isArray(highlight.tags) ? highlight.tags : [],
         createdAt: highlight.createdAt || article.createdAt,
@@ -161,7 +211,7 @@ const collectLibrarySources = async ({ userId, models = {} }) => {
     sources.push({
       type: 'notebook',
       objectId: sourceObjectId(entry),
-      title: asString(entry.title) || 'Untitled notebook entry',
+      title: truncate(entry.title, 220) || 'Untitled notebook entry',
       text: truncate([entry.content, blockText].filter(Boolean).join('\n'), MAX_SOURCE_TEXT),
       tags: Array.isArray(entry.tags) ? entry.tags : [],
       createdAt: entry.createdAt,
@@ -170,7 +220,7 @@ const collectLibrarySources = async ({ userId, models = {} }) => {
   });
 
   concepts.forEach((concept) => {
-    const name = asString(concept.name || concept.title || concept.slug);
+    const name = truncate(concept.name || concept.title || concept.slug, 220);
     if (!name) return;
     const workspaceText = concept.workspace ? JSON.stringify(concept.workspace).slice(0, 1200) : '';
     sources.push({
@@ -191,7 +241,7 @@ const collectLibrarySources = async ({ userId, models = {} }) => {
     sources.push({
       type: 'question',
       objectId: sourceObjectId(question),
-      title: asString(question.text).slice(0, 180) || 'Untitled question',
+      title: truncate(question.text, 180) || 'Untitled question',
       text: truncate([question.text, blockText].filter(Boolean).join('\n'), MAX_SOURCE_TEXT),
       tags: [question.linkedTagName, question.conceptName].filter(Boolean),
       createdAt: question.createdAt,
@@ -218,20 +268,29 @@ const selectCandidateSources = ({ page, sources, limit = DEFAULT_SOURCE_LIMIT })
     .map((source, index) => ({ ...source, index: index + 1 }));
 };
 
-const buildPrompt = ({ page, candidates }) => {
+const buildPrompt = ({ page, candidates, manualNotes = '' }) => {
   const sourceBlock = candidates.map(source => (
     `[${source.index}] ${source.type.toUpperCase()}: ${source.title}\n` +
     `Updated: ${source.updatedAt || source.createdAt || 'unknown'}\n` +
     `Text: ${truncate(source.text, 1300)}`
   )).join('\n\n');
 
-  return `Maintain this Wiki page by directly rewriting it from the user's library. Use section-level structure and claim-level support. Do not return generic advice. If evidence is weak, keep the claim but mark it in health instead of pretending it is supported.
+  return `Maintain this Wiki page by directly rewriting it into a clean, durable Wiki article.
+
+Hard rules:
+- The article body must read like a Wiki page, not a maintenance report and not a source dump.
+- Do not include HTML tags, JSON, raw URLs, scraped metadata labels, source indexes as prose, support labels, or sentences like "X contributes evidence for this page."
+- Use source titles only as evidence behind the writing. The page should say the idea, not list the source title as the idea.
+- Keep lightweight citation indexes only at the end of factual paragraphs or bullets, e.g. [1] or [1, 3].
+- Put evidence gaps, new items, contradictions, stale sections, and changelog entries only in maintenance.
+- Preserve likely user-authored notes when they are not duplicate, contradicted, navigation text, or metadata.
 
 Page:
 Title: ${page.title}
 Type: ${page.pageType || 'topic'}
 Existing text: ${truncate(page.plainText || toPlainText(page.body), 2400)}
 Creation seed: ${truncate(page.createdFrom?.text || page.createdFrom?.label || '', 1200)}
+Manual notes to preserve when useful: ${manualNotes || 'None detected.'}
 
 Candidate library sources:
 ${sourceBlock || 'No library sources were found.'}
@@ -239,27 +298,38 @@ ${sourceBlock || 'No library sources were found.'}
 Return strict JSON only:
 {
   "title": "page title",
-  "maintenanceSummary": "specific summary of what changed",
-  "sections": [
-    {
-      "heading": "section name",
-      "body": "one or two grounded paragraphs",
-      "claims": [
-        { "text": "claim text", "support": "supported|unsupported|conflict|new_evidence", "sourceIndexes": [1] }
-      ]
-    }
-  ],
-  "health": {
-    "newItems": [{ "text": "new item affecting this page", "sourceTitle": "source" }],
-    "unsupportedClaims": [{ "text": "claim needing support", "section": "section" }],
-    "missingCitations": [{ "text": "citation gap", "section": "section" }],
-    "staleSections": [{ "text": "stale section", "section": "section" }],
-    "contradictions": [{ "text": "contradiction", "sourceTitle": "source" }],
-    "relatedPages": [{ "text": "related topic or page" }]
+  "article": {
+    "summary": { "text": "one clean introductory paragraph", "citationIndexes": [1] },
+    "sections": [
+      {
+        "heading": "What It Means",
+        "paragraphs": [
+          { "text": "clean wiki paragraph", "citationIndexes": [1, 2] }
+        ],
+        "bullets": [
+          { "text": "optional clean article bullet", "citationIndexes": [3] }
+        ]
+      }
+    ],
+    "preservedUserContent": [
+      { "text": "preserved user note", "placement": "section name", "reason": "why preserved" }
+    ]
   },
-  "operations": [
-    { "type": "rewrite_section|support_claim|attach_source|flag_new_item|link_page", "target": "section or claim", "summary": "specific action applied", "sourceIndexes": [1] }
-  ]
+  "maintenance": {
+    "summary": "specific summary of what changed",
+    "changelog": [
+      { "type": "preserved|rewrote|removed_metadata|attached_source|flagged_gap|merged_new_evidence", "target": "section, claim, or source", "summary": "specific action applied", "sourceIndexes": [1] }
+    ],
+    "health": {
+      "newItems": [{ "text": "new item affecting this page", "sourceTitle": "source" }],
+      "unsupportedClaims": [{ "text": "claim needing support", "section": "section" }],
+      "missingCitations": [{ "text": "citation gap", "section": "section" }],
+      "staleSections": [{ "text": "stale section", "section": "section" }],
+      "contradictions": [{ "text": "contradiction", "sourceTitle": "source" }],
+      "relatedPages": [{ "text": "related topic or page" }]
+    }
+  },
+  "sourceIndexesUsed": [1, 2]
 }`;
 };
 
@@ -295,7 +365,7 @@ const sourceRefFromCandidate = (candidate) => ({
   objectId: candidate.objectId || null,
   title: truncate(candidate.title, 240),
   snippet: truncate(candidate.text, 1000),
-  url: truncate(candidate.url, 1000),
+  url: truncateRaw(candidate.url, 1000),
   citationLabel: `[${candidate.index}]`,
   addedBy: 'ai'
 });
@@ -315,7 +385,7 @@ const normalizeOperations = (operations = []) => {
   return operations
     .map((operation, index) => ({
       id: `maintenance-${Date.now()}-${index}`,
-      type: ['support_claim', 'flag_new_item'].includes(operation?.type) ? 'claim' : 'edit',
+      type: ['support_claim', 'flag_new_item', 'flagged_gap', 'merged_new_evidence'].includes(operation?.type) ? 'claim' : 'edit',
       title: truncate(operation?.target || operation?.type || 'Maintenance update', 120),
       text: truncate(operation?.summary || '', 800),
       sourceRefIds: []
@@ -324,121 +394,246 @@ const normalizeOperations = (operations = []) => {
     .slice(0, 12);
 };
 
-const docFromSections = ({ title, sections = [], sourceRefs = [] }) => {
+const normalizeCitationIndexes = (value = []) => (
+  Array.isArray(value)
+    ? value.map(Number).filter(Number.isFinite).filter(index => index > 0).slice(0, 8)
+    : []
+);
+
+const citationSuffix = (indexes = []) => {
+  const clean = normalizeCitationIndexes(indexes);
+  return clean.length ? ` [${clean.join(', ')}]` : '';
+};
+
+const normalizeArticleTextBlock = (value = {}) => {
+  if (typeof value === 'string') {
+    return { text: truncate(value, 1000), citationIndexes: [] };
+  }
+  if (!value || typeof value !== 'object') return null;
+  const text = truncate(value.text || value.body || value.summary || '', 1000);
+  if (!text) return null;
+  return {
+    text,
+    citationIndexes: normalizeCitationIndexes(value.citationIndexes || value.sourceIndexes || value.sources)
+  };
+};
+
+const normalizeArticle = ({ rawArticle = {}, page, manualNotes = '', candidates = [] }) => {
+  const fallback = fallbackMaintenance({ page, candidates, manualNotes });
+  const source = rawArticle && typeof rawArticle === 'object' ? rawArticle : {};
+  const summary = normalizeArticleTextBlock(source.summary) || fallback.article.summary;
+  const sections = Array.isArray(source.sections) && source.sections.length
+    ? source.sections.map((section) => {
+        const headingText = truncate(section?.heading || section?.title || '', 140);
+        const paragraphs = Array.isArray(section?.paragraphs)
+          ? section.paragraphs.map(normalizeArticleTextBlock).filter(Boolean).slice(0, 5)
+          : [normalizeArticleTextBlock(section?.body || section?.summary)].filter(Boolean);
+        const bullets = Array.isArray(section?.bullets)
+          ? section.bullets.map(normalizeArticleTextBlock).filter(Boolean).slice(0, 8)
+          : [];
+        return {
+          heading: headingText || 'Key Ideas',
+          paragraphs,
+          bullets
+        };
+      }).filter(section => section.heading && (section.paragraphs.length || section.bullets.length)).slice(0, 8)
+    : fallback.article.sections;
+  const preservedUserContent = Array.isArray(source.preservedUserContent)
+    ? source.preservedUserContent.map((entry) => ({
+        text: truncate(entry?.text || '', 800),
+        placement: truncate(entry?.placement || '', 120),
+        reason: truncate(entry?.reason || '', 240)
+      })).filter(entry => entry.text).slice(0, 8)
+    : fallback.article.preservedUserContent;
+
+  return {
+    summary,
+    sections,
+    preservedUserContent
+  };
+};
+
+const docFromArticle = ({ title, article = {} }) => {
   const content = [heading(title, 1)];
-  sections.forEach((section) => {
-    const sectionTitle = asString(section.heading || section.title);
-    const body = asString(section.body || section.summary);
-    const claims = Array.isArray(section.claims) ? section.claims : [];
+  const summary = normalizeArticleTextBlock(article.summary);
+  if (summary?.text) content.push(paragraph(`${summary.text}${citationSuffix(summary.citationIndexes)}`));
+  (article.sections || []).forEach((section) => {
+    const sectionTitle = truncate(section.heading || section.title, 140);
     if (sectionTitle) content.push(heading(sectionTitle, 2));
-    if (body) content.push(paragraph(body));
-    const claimLines = claims
-      .map((claim) => {
-        const support = asString(claim.support);
-        const citation = Array.isArray(claim.sourceIndexes) && claim.sourceIndexes.length
-          ? ` [${claim.sourceIndexes.join(', ')}]`
-          : '';
-        return `${asString(claim.text)}${support ? ` (${support})` : ''}${citation}`;
-      })
-      .filter(Boolean);
-    if (claimLines.length) content.push(bulletList(claimLines));
+    (section.paragraphs || []).forEach((item) => {
+      const block = normalizeArticleTextBlock(item);
+      if (block?.text) content.push(paragraph(`${block.text}${citationSuffix(block.citationIndexes)}`));
+    });
+    const bulletLines = (section.bullets || [])
+      .map(normalizeArticleTextBlock)
+      .filter(Boolean)
+      .map(block => `${block.text}${citationSuffix(block.citationIndexes)}`);
+    if (bulletLines.length) content.push(bulletList(bulletLines));
   });
-  if (sourceRefs.length) {
-    content.push(heading('Sources', 2));
-    content.push(bulletList(sourceRefs.map(source => `${source.citationLabel || ''} ${source.title || source.url || 'Source'}`.trim())));
+  const preserved = Array.isArray(article.preservedUserContent) ? article.preservedUserContent : [];
+  if (preserved.length) {
+    content.push(heading('Notes', 2));
+    preserved.forEach((entry) => {
+      const text = truncate(entry.text || '', 800);
+      if (text) content.push(paragraph(text));
+    });
   }
   return { type: 'doc', content };
 };
 
-const fallbackMaintenance = ({ page, candidates }) => {
+const fallbackMaintenance = ({ page, candidates, manualNotes = '' }) => {
   const top = candidates.slice(0, 6);
   const newItems = top
     .filter(source => source.updatedAt || source.createdAt)
     .slice(0, 4)
-    .map(source => ({ text: `${source.title} may affect this page.`, sourceTitle: source.title }));
-  const sections = [
-    {
-      heading: 'Working Thesis',
-      body: top.length
-        ? `${page.title} is currently best understood through ${top.map(source => source.title).slice(0, 3).join(', ')}. This page has been rebuilt from the most relevant library items available.`
-        : `${page.title} needs source material before it can become a reliable Wiki page.`,
-      claims: top.slice(0, 3).map(source => ({
-        text: `${source.title} contributes evidence for this page.`,
-        support: 'supported',
-        sourceIndexes: [source.index]
-      }))
+    .map(source => ({ text: `${source.title} may change this page.`, sourceTitle: source.title }));
+  const leadSources = top.slice(0, 3);
+  const topic = truncate(page.title, 120) || 'This topic';
+  const article = {
+    summary: {
+      text: leadSources.length
+        ? `${topic} is a living synthesis built from the strongest related material in the library. The current evidence points to a set of working ideas rather than a finished answer.`
+        : `${topic} is a draft Wiki page waiting for source-backed evidence.`,
+      citationIndexes: leadSources.map(source => source.index)
     },
+    sections: [
+      {
+        heading: 'Core Idea',
+        paragraphs: [
+          {
+            text: leadSources.length
+              ? `The page should explain the concept in terms of the ideas that recur across the relevant sources, then separate durable claims from open questions.`
+              : `Add sources or notes so this page can move from a placeholder into a source-backed Wiki article.`,
+            citationIndexes: leadSources.map(source => source.index)
+          }
+        ],
+        bullets: []
+      },
+      {
+        heading: 'Key Signals',
+        paragraphs: top.length
+          ? [{ text: 'The strongest current signals from the library are:', citationIndexes: [] }]
+          : [],
+        bullets: top.slice(0, 5).map(source => ({
+          text: truncate(source.text || source.title, 220),
+          citationIndexes: [source.index]
+        }))
+      },
+      {
+        heading: 'Open Questions',
+        paragraphs: [
+          {
+            text: newItems.length
+              ? 'New or recently touched material should be reviewed before this page is treated as settled.'
+              : 'No newly relevant material was found during this maintenance run.',
+            citationIndexes: newItems.map((_item, index) => top[index]?.index).filter(Boolean)
+          }
+        ],
+        bullets: []
+      }
+    ],
+    preservedUserContent: manualNotes
+      ? [{ text: manualNotes, placement: 'Notes', reason: 'Existing page text looked user-authored.' }]
+      : []
+  };
+  const changelog = [
     {
-      heading: 'Claims To Nail',
-      body: 'These claims should stay explicit so the page can be maintained at claim level as new sources arrive.',
-      claims: top.slice(0, 5).map(source => ({
-        text: truncate(source.text || source.title, 180),
-        support: source.text ? 'supported' : 'unsupported',
-        sourceIndexes: [source.index]
-      }))
+      type: 'rewrote',
+      target: 'Article body',
+      summary: top.length
+        ? `Rebuilt the page into article sections from ${top.length} relevant library source${top.length === 1 ? '' : 's'}.`
+        : 'Created a source-ready article structure.',
+      sourceIndexes: top.map(source => source.index)
     },
-    {
-      heading: 'New Material To Review',
-      body: newItems.length
-        ? 'Recent or relevant library items are listed below so this page can keep moving as the library changes.'
-        : 'No newly relevant library items were found during this maintenance run.',
-      claims: newItems.map((item, index) => ({
-        text: item.text,
-        support: 'new_evidence',
-        sourceIndexes: [top[index]?.index].filter(Boolean)
-      }))
-    }
-  ];
-  return {
-    title: page.title,
-    maintenanceSummary: top.length
-      ? `Rebuilt from ${top.length} relevant library source${top.length === 1 ? '' : 's'}.`
-      : 'Rebuilt with no matching library sources available yet.',
-    sections,
-    health: normalizeHealth({
-      newItems,
-      unsupportedClaims: top.length ? [] : [{ text: 'No library evidence found for this page.' }],
-      missingCitations: [],
-      staleSections: [],
-      contradictions: [],
-      relatedPages: []
-    }),
-    operations: top.map(source => ({
-      type: 'attach_source',
+    ...(manualNotes ? [{
+      type: 'preserved',
+      target: 'Notes',
+      summary: 'Preserved likely user-authored notes in the article.',
+      sourceIndexes: []
+    }] : []),
+    ...top.slice(0, 6).map(source => ({
+      type: 'attached_source',
       target: source.title,
-      summary: `Attached ${source.title} as page evidence.`,
+      summary: `Attached ${source.title} as supporting context.`,
       sourceIndexes: [source.index]
     }))
+  ];
+  return {
+    title: topic,
+    article,
+    maintenance: {
+      summary: top.length
+        ? `Rebuilt as a Wiki article from ${top.length} relevant library source${top.length === 1 ? '' : 's'}.`
+        : 'Created a Wiki article shell with no matching library sources available yet.',
+      changelog,
+      health: normalizeHealth({
+        newItems,
+        unsupportedClaims: top.length ? [] : [{ text: 'No library evidence found for this page.' }],
+        missingCitations: [],
+        staleSections: [],
+        contradictions: [],
+        relatedPages: []
+      })
+    },
+    sourceIndexesUsed: top.map(source => source.index)
   };
 };
 
-const normalizeModelResult = ({ raw, page, candidates }) => {
-  const fallback = fallbackMaintenance({ page, candidates });
-  if (!raw || typeof raw !== 'object') return fallback;
-  const sections = Array.isArray(raw.sections) && raw.sections.length
-    ? raw.sections.map((section) => ({
-        heading: truncate(section.heading || section.title || 'Section', 160),
-        body: truncate(section.body || section.summary || '', 1600),
-        claims: Array.isArray(section.claims)
-          ? section.claims.map(claim => ({
-              text: truncate(claim.text || claim.claim || '', 600),
-              support: ['supported', 'unsupported', 'conflict', 'new_evidence'].includes(claim.support)
-                ? claim.support
-                : 'unsupported',
-              sourceIndexes: Array.isArray(claim.sourceIndexes)
-                ? claim.sourceIndexes.map(Number).filter(Number.isFinite).slice(0, 6)
-                : []
-            })).filter(claim => claim.text)
-          : []
-      })).filter(section => section.heading || section.body || section.claims.length)
-    : fallback.sections;
+const normalizeSourceIndexesUsed = ({ rawIndexes = [], article = {}, changelog = [], candidates = [] }) => {
+  const used = new Set();
+  normalizeCitationIndexes(rawIndexes).forEach(index => used.add(index));
+  const addBlock = (block = {}) => normalizeCitationIndexes(block.citationIndexes || block.sourceIndexes)
+    .forEach(index => used.add(index));
+  addBlock(article.summary);
+  (article.sections || []).forEach((section) => {
+    (section.paragraphs || []).forEach(addBlock);
+    (section.bullets || []).forEach(addBlock);
+  });
+  (changelog || []).forEach((entry) => normalizeCitationIndexes(entry.sourceIndexes).forEach(index => used.add(index)));
+  if (used.size === 0) candidates.slice(0, 6).forEach(source => used.add(source.index));
+  return Array.from(used).filter(index => candidates.some(source => source.index === index)).slice(0, 16);
+};
 
+const normalizeModelResult = ({ raw, page, candidates, manualNotes = '' }) => {
+  const fallback = fallbackMaintenance({ page, candidates, manualNotes });
+  if (!raw || typeof raw !== 'object') return fallback;
+  const rawMaintenance = raw.maintenance && typeof raw.maintenance === 'object'
+    ? raw.maintenance
+    : {
+        summary: raw.maintenanceSummary,
+        changelog: raw.operations,
+        health: raw.health
+      };
+  const article = normalizeArticle({
+    rawArticle: raw.article || {
+      summary: raw.summary,
+      sections: raw.sections,
+      preservedUserContent: raw.preservedUserContent
+    },
+    page,
+    manualNotes,
+    candidates
+  });
+  const changelog = Array.isArray(rawMaintenance.changelog)
+    ? rawMaintenance.changelog
+    : Array.isArray(rawMaintenance.operations)
+      ? rawMaintenance.operations
+      : fallback.maintenance.changelog;
+  const maintenance = {
+    summary: truncate(rawMaintenance.summary || fallback.maintenance.summary, 900),
+    changelog,
+    health: normalizeHealth(rawMaintenance.health || fallback.maintenance.health)
+  };
   return {
     title: truncate(raw.title || page.title, 180),
-    maintenanceSummary: truncate(raw.maintenanceSummary || fallback.maintenanceSummary, 900),
-    sections,
-    health: normalizeHealth(raw.health || fallback.health),
-    operations: Array.isArray(raw.operations) ? raw.operations : fallback.operations
+    article,
+    maintenance,
+    sourceIndexesUsed: normalizeSourceIndexesUsed({
+      rawIndexes: raw.sourceIndexesUsed || raw.sourceIndexes || [],
+      article,
+      changelog,
+      candidates
+    })
   };
 };
 
@@ -452,6 +647,7 @@ const maintainWikiPage = async ({
 }) => {
   const allSources = await collectLibrarySources({ userId, models });
   const candidates = selectCandidateSources({ page, sources: allSources });
+  const manualNotes = extractManualNotes(page);
   let modelInfo = { model: 'local-maintainer', provider: '' };
   let result = null;
 
@@ -470,7 +666,7 @@ const maintainWikiPage = async ({
           },
           {
             role: 'user',
-            content: buildPrompt({ page, candidates })
+            content: buildPrompt({ page, candidates, manualNotes })
           }
         ]
       });
@@ -485,27 +681,15 @@ const maintainWikiPage = async ({
     }
   }
 
-  const normalized = normalizeModelResult({ raw: result, page, candidates });
-  const usedIndexes = new Set();
-  normalized.sections.forEach((section) => {
-    (section.claims || []).forEach((claim) => {
-      (claim.sourceIndexes || []).forEach(index => usedIndexes.add(Number(index)));
-    });
-  });
-  (normalized.operations || []).forEach((operation) => {
-    (operation.sourceIndexes || []).forEach(index => usedIndexes.add(Number(index)));
-  });
-  if (usedIndexes.size === 0) candidates.slice(0, 6).forEach(source => usedIndexes.add(source.index));
-
-  const sourceRefs = Array.from(usedIndexes)
+  const normalized = normalizeModelResult({ raw: result, page, candidates, manualNotes });
+  const sourceRefs = normalized.sourceIndexesUsed
     .map(index => candidates.find(source => source.index === index))
     .filter(Boolean)
     .map(sourceRefFromCandidate);
   const mergedSourceRefs = dedupeSourceRefs(page.sourceRefs || [], sourceRefs);
-  const body = docFromSections({
+  const body = docFromArticle({
     title: normalized.title || page.title,
-    sections: normalized.sections,
-    sourceRefs
+    article: normalized.article
   });
 
   page.title = normalized.title || page.title;
@@ -526,9 +710,10 @@ const maintainWikiPage = async ({
     provider: modelInfo.provider || '',
     sourceScopeAtDraft: 'entire_library',
     sourceRefIdsAtDraft: [],
-    maintenanceSummary: normalized.maintenanceSummary,
-    health: normalized.health,
-    suggestions: normalizeOperations(normalized.operations)
+    maintenanceSummary: normalized.maintenance.summary,
+    health: normalized.maintenance.health,
+    changeLog: normalizeOperations(normalized.maintenance.changelog),
+    suggestions: normalizeOperations(normalized.maintenance.changelog)
   };
 
   return page;
@@ -541,8 +726,9 @@ module.exports = {
   fallbackMaintenance,
   __testables: {
     extractJson,
-    docFromSections,
+    docFromArticle,
     normalizeHealth,
+    cleanWikiText,
     toPlainText
   }
 };

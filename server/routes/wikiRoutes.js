@@ -111,6 +111,7 @@ const serializeWikiPage = (page) => {
         contradictions: [],
         relatedPages: []
       },
+      changeLog: Array.isArray(raw.aiState?.changeLog) ? raw.aiState.changeLog : [],
       suggestions: Array.isArray(raw.aiState?.suggestions) ? raw.aiState.suggestions : []
     }
   };
