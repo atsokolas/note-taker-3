@@ -235,6 +235,24 @@ function App() {
     persistUiSettingsToStorage(normalized);
   }, [uiSettings]);
 
+  // Live-update on system theme change when user preference is 'auto'.
+  // No-op for explicit 'light' or 'dark'.
+  useEffect(() => {
+    if (uiSettings?.theme !== 'auto') return undefined;
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return undefined;
+    const mq = window.matchMedia('(prefers-color-scheme: dark)');
+    const handle = () => {
+      // Re-apply with the same settings; resolveActiveTheme will re-read mq.
+      applyUiSettingsToRoot(document.documentElement, uiSettings);
+    };
+    if (mq.addEventListener) mq.addEventListener('change', handle);
+    else if (mq.addListener) mq.addListener(handle);
+    return () => {
+      if (mq.removeEventListener) mq.removeEventListener('change', handle);
+      else if (mq.removeListener) mq.removeListener(handle);
+    };
+  }, [uiSettings]);
+
   useEffect(() => {
     if (!isAuthenticated) return;
     let cancelled = false;
@@ -527,6 +545,9 @@ function App() {
             utilityNav={topBarUtilityNav}
             secondaryNav={secondaryNavItems}
             searchMode={isConceptRoute ? 'icon' : 'field'}
+            theme={uiSettings.theme}
+            onThemeChange={(nextTheme) => handleUiSettingsChange({ theme: nextTheme })}
+            themeSaving={uiSettingsSaving}
             helpMenu={{
               onStart: () => tour.startTour(),
               onResume: () => tour.resumeTour(),

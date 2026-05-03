@@ -14,14 +14,24 @@ const ACCENT_BY_VALUE = ACCENT_OPTIONS.reduce((accumulator, accent) => {
 export const DEFAULT_UI_SETTINGS = {
   typographyScale: 'default',
   density: 'comfortable',
-  theme: 'dark',
+  theme: 'auto',
   accent: 'electric',
   brandEnergy: true
 };
 
 const TYPOGRAPHY_VALUES = new Set(['small', 'default', 'large']);
 const DENSITY_VALUES = new Set(['comfortable', 'compact']);
-const THEME_VALUES = new Set(['dark']);
+
+// Theme accepts three real values now. 'auto' tracks OS via prefers-color-
+// scheme so a user who never opens settings still gets the right look.
+// Persisted values from before this PR ('dark') still normalize cleanly.
+export const THEME_VALUES = new Set(['auto', 'light', 'dark']);
+export const THEME_OPTIONS = [
+  { value: 'auto', label: 'Auto', shortLabel: 'Auto' },
+  { value: 'light', label: 'Light', shortLabel: 'Light' },
+  { value: 'dark', label: 'Dark', shortLabel: 'Dark' }
+];
+
 const ACCENT_VALUES = new Set(ACCENT_OPTIONS.map(option => option.value));
 
 const normalizeOption = (value, allowedValues, fallbackValue) => {
@@ -63,12 +73,35 @@ export const loadUiSettingsFromStorage = (storage = window.localStorage) => {
   }
 };
 
+/**
+ * resolveActiveTheme — given the user's preference, resolve the concrete
+ * theme attribute that should land on <html>. 'auto' tracks the OS via the
+ * standard prefers-color-scheme media query.
+ */
+export const resolveActiveTheme = (preferredTheme, mediaQuery) => {
+  const pref = THEME_VALUES.has(preferredTheme) ? preferredTheme : DEFAULT_UI_SETTINGS.theme;
+  if (pref === 'light' || pref === 'dark') return pref;
+  // auto: defer to OS. Tests can pass a stub mediaQuery.
+  if (mediaQuery && typeof mediaQuery.matches === 'boolean') {
+    return mediaQuery.matches ? 'dark' : 'light';
+  }
+  if (typeof window !== 'undefined' && typeof window.matchMedia === 'function') {
+    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  }
+  return 'light';
+};
+
 export const applyUiSettingsToRoot = (root, settings) => {
   if (!root) return normalizeUiSettings(settings);
   const normalized = normalizeUiSettings(settings);
   const accent = ACCENT_BY_VALUE[normalized.accent] || ACCENT_BY_VALUE[DEFAULT_UI_SETTINGS.accent];
+  const activeTheme = resolveActiveTheme(normalized.theme);
 
-  root.setAttribute('data-ui-theme', 'dark');
+  // data-ui-theme is the resolved theme ('light' | 'dark') — that's what CSS
+  // selectors gate on. data-ui-theme-pref preserves the user's preference
+  // including 'auto' so settings UI can render the right toggle state.
+  root.setAttribute('data-ui-theme', activeTheme);
+  root.setAttribute('data-ui-theme-pref', normalized.theme);
   root.setAttribute('data-ui-density', normalized.density);
   root.setAttribute('data-ui-typography', normalized.typographyScale);
   root.setAttribute('data-ui-brand-energy', normalized.brandEnergy ? 'on' : 'off');
