@@ -43,6 +43,7 @@ extension View {
 
     func noeisListRow() -> some View {
         self
+            .tint(NoeisDesign.ink)
             .listRowBackground(NoeisDesign.background)
             .listRowSeparatorTint(NoeisDesign.border)
     }
@@ -219,11 +220,12 @@ final class WorkspaceStore: ObservableObject {
     @Published var pages: [NotebookEntry] = []
     @Published var notebookFolders: [FolderSummary] = []
     @Published var concepts: [ConceptSummary] = []
+    @Published var wikiPages: [WikiPageSummary] = []
     @Published var isLoading = false
     @Published var message = ""
 
     var totalCount: Int {
-        articles.count + pages.count + concepts.count
+        articles.count + pages.count + concepts.count + wikiPages.count
     }
 
     func load() async {
@@ -236,8 +238,9 @@ final class WorkspaceStore: ObservableObject {
         async let pageResult = Self.captureResult { try await NoeisAPI.shared.fetchNotebookEntries() }
         async let notebookFolderResult = Self.captureResult { try await NoeisAPI.shared.fetchNotebookFolders() }
         async let conceptResult = Self.captureResult { try await NoeisAPI.shared.fetchConcepts() }
+        async let wikiResult = Self.captureResult { try await NoeisAPI.shared.fetchWikiPages() }
 
-        let results = await (articleResult, folderResult, pageResult, notebookFolderResult, conceptResult)
+        let results = await (articleResult, folderResult, pageResult, notebookFolderResult, conceptResult, wikiResult)
 
         switch results.0 {
         case .success(let value):
@@ -274,6 +277,13 @@ final class WorkspaceStore: ObservableObject {
             failures.append("Concepts: \(error.localizedDescription)")
         }
 
+        switch results.5 {
+        case .success(let value):
+            wikiPages = value
+        case .failure(let error):
+            failures.append("Wiki: \(error.localizedDescription)")
+        }
+
         message = failures.joined(separator: "\n")
     }
 
@@ -294,6 +304,17 @@ final class WorkspaceStore: ObservableObject {
         }
     }
 
+    func createWikiPage(title: String, seedText: String = "") async -> WikiPageSummary? {
+        do {
+            let created = try await NoeisAPI.shared.createWikiPage(title: title, seedText: seedText)
+            wikiPages.insert(created, at: 0)
+            return created
+        } catch {
+            message = error.localizedDescription
+            return nil
+        }
+    }
+
     nonisolated private static func captureResult<Value>(_ operation: @escaping () async throws -> Value) async -> Result<Value, Error> {
         do {
             return .success(try await operation())
@@ -310,6 +331,7 @@ enum WorkspaceRoute: String, CaseIterable, Identifiable {
     case library
     case notebook
     case concepts
+    case wiki
     case settings
 
     var id: String { rawValue }
@@ -322,6 +344,7 @@ enum WorkspaceRoute: String, CaseIterable, Identifiable {
         case .library: return "Library"
         case .notebook: return "Notebook"
         case .concepts: return "Concepts"
+        case .wiki: return "Wiki"
         case .settings: return "Settings"
         }
     }
@@ -334,6 +357,7 @@ enum WorkspaceRoute: String, CaseIterable, Identifiable {
         case .library: return "books.vertical"
         case .notebook: return "doc.text"
         case .concepts: return "brain.head.profile"
+        case .wiki: return "rectangle.stack"
         case .settings: return "gearshape"
         }
     }
@@ -382,7 +406,7 @@ struct WorkspaceSidebarShell: View {
                 }
 
                 Section("Workspace") {
-                    ForEach([WorkspaceRoute.library, .notebook, .concepts]) { item in
+                    ForEach([WorkspaceRoute.library, .notebook, .concepts, .wiki]) { item in
                         Label(item.title, systemImage: item.icon)
                             .tag(item)
                     }
@@ -410,6 +434,8 @@ struct WorkspaceSidebarShell: View {
                 NotebookDatabaseView()
             case .concepts:
                 ConceptsDatabaseView()
+            case .wiki:
+                WikiDatabaseView()
             case .settings:
                 SettingsView()
             }
@@ -430,6 +456,7 @@ struct HomeView: View {
                         MetricTile(title: "Library", value: "\(store.articles.count)", icon: "books.vertical")
                         MetricTile(title: "Pages", value: "\(store.pages.count)", icon: "doc.text")
                         MetricTile(title: "Concepts", value: "\(store.concepts.count)", icon: "brain.head.profile")
+                        MetricTile(title: "Wiki", value: "\(store.wikiPages.count)", icon: "rectangle.stack")
                     }
 
                     SectionBlock(title: "Recent Pages") {
@@ -439,6 +466,7 @@ struct HomeView: View {
                             } label: {
                                 PageRow(page: page)
                             }
+                            .buttonStyle(.plain)
                         }
                     }
 
@@ -449,6 +477,18 @@ struct HomeView: View {
                             } label: {
                                 ConceptRow(concept: concept)
                             }
+                            .buttonStyle(.plain)
+                        }
+                    }
+
+                    SectionBlock(title: "Wiki Pages") {
+                        ForEach(store.wikiPages.prefix(5)) { page in
+                            NavigationLink {
+                                WikiDetail(page: page)
+                            } label: {
+                                WikiRow(page: page)
+                            }
+                            .buttonStyle(.plain)
                         }
                     }
 
@@ -459,6 +499,7 @@ struct HomeView: View {
                             } label: {
                                 ArticleRow(article: article)
                             }
+                            .buttonStyle(.plain)
                         }
                     }
 
@@ -496,6 +537,8 @@ struct WorkspaceStackView: View {
                     NotebookDatabaseView()
                 case .concepts:
                     ConceptsDatabaseView()
+                case .wiki:
+                    WikiDatabaseView()
                 }
             }
             .navigationTitle("Workspace")
@@ -506,9 +549,16 @@ struct WorkspaceStackView: View {
 enum WorkspaceMode: String, CaseIterable, Identifiable {
     case notebook
     case concepts
+    case wiki
 
     var id: String { rawValue }
-    var title: String { self == .notebook ? "Notebook" : "Concepts" }
+    var title: String {
+        switch self {
+        case .notebook: return "Notebook"
+        case .concepts: return "Concepts"
+        case .wiki: return "Wiki"
+        }
+    }
 }
 
 struct CaptureView: View {
@@ -841,6 +891,103 @@ struct ConceptsDatabaseView: View {
     }
 }
 
+struct WikiDatabaseView: View {
+    @EnvironmentObject private var store: WorkspaceStore
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @State private var selectedPage: WikiPageSummary?
+    @State private var query = ""
+    @State private var isCreating = false
+    @State private var draftTitle = ""
+
+    private var filteredPages: [WikiPageSummary] {
+        guard !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            return store.wikiPages
+        }
+        return store.wikiPages.filter { page in
+            page.title.localizedCaseInsensitiveContains(query) ||
+                (page.plainText ?? "").localizedCaseInsensitiveContains(query) ||
+                (page.pageType ?? "").localizedCaseInsensitiveContains(query)
+        }
+    }
+
+    var body: some View {
+        if horizontalSizeClass == .regular {
+            splitView
+        } else {
+            NavigationStack {
+                wikiList { page in
+                    NavigationLink {
+                        WikiDetail(page: page)
+                    } label: {
+                        WikiRow(page: page)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+    }
+
+    private var splitView: some View {
+        NavigationSplitView {
+            wikiList { page in
+                WikiRow(page: page)
+                    .tag(page)
+            }
+        } detail: {
+            if let selectedPage {
+                WikiDetail(page: selectedPage)
+            } else {
+                ContentUnavailableView("Select a wiki page", systemImage: "rectangle.stack")
+            }
+        }
+    }
+
+    private func wikiList<Row: View>(@ViewBuilder row: @escaping (WikiPageSummary) -> Row) -> some View {
+        List(selection: $selectedPage) {
+            Section {
+                HStack(spacing: 8) {
+                    TextField("New wiki page", text: $draftTitle)
+                        .textFieldStyle(NoeisInputStyle())
+                    Button {
+                        Task { await createPage() }
+                    } label: {
+                        Image(systemName: isCreating ? "hourglass" : "plus")
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(isCreating || draftTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
+                .padding(.vertical, 4)
+                .noeisListRow()
+            }
+
+            Section("Pages") {
+                ForEach(filteredPages) { page in
+                    row(page)
+                        .noeisListRow()
+                }
+            }
+        }
+        .noeisListChrome()
+        .searchable(text: $query, prompt: "Search wiki")
+        .navigationTitle("Wiki")
+        .overlay {
+            if filteredPages.isEmpty && !isCreating {
+                ContentUnavailableView("No wiki pages", systemImage: "rectangle.stack", description: Text(store.message.isEmpty ? "Create a wiki page from concepts, notes, sources, or search." : store.message))
+            }
+        }
+    }
+
+    private func createPage() async {
+        isCreating = true
+        defer { isCreating = false }
+        let title = draftTitle
+        if let created = await store.createWikiPage(title: title) {
+            selectedPage = created
+            draftTitle = ""
+        }
+    }
+}
+
 struct SearchWorkspaceView: View {
     @EnvironmentObject private var store: WorkspaceStore
     @State private var query = ""
@@ -860,11 +1007,16 @@ struct SearchWorkspaceView: View {
         return store.concepts.filter { $0.name.localizedCaseInsensitiveContains(query) || ($0.description ?? "").localizedCaseInsensitiveContains(query) }
     }
 
+    private var wikiResults: [WikiPageSummary] {
+        guard !query.isEmpty else { return [] }
+        return store.wikiPages.filter { $0.title.localizedCaseInsensitiveContains(query) || ($0.plainText ?? "").localizedCaseInsensitiveContains(query) }
+    }
+
     var body: some View {
         NavigationStack {
             List {
                 if query.isEmpty {
-                    ContentUnavailableView("Search Noeis", systemImage: "magnifyingglass", description: Text("Find articles, pages, and concepts."))
+                    ContentUnavailableView("Search Noeis", systemImage: "magnifyingglass", description: Text("Find articles, pages, concepts, and wiki entries."))
                 } else {
                     Section("Pages") {
                         ForEach(pageResults) { page in
@@ -881,6 +1033,15 @@ struct SearchWorkspaceView: View {
                                 ConceptDetail(concept: concept)
                             } label: {
                                 ConceptRow(concept: concept)
+                            }
+                        }
+                    }
+                    Section("Wiki") {
+                        ForEach(wikiResults) { page in
+                            NavigationLink {
+                                WikiDetail(page: page)
+                            } label: {
+                                WikiRow(page: page)
                             }
                         }
                     }
@@ -982,6 +1143,7 @@ struct ArticleRow: View {
                 .foregroundStyle(NoeisDesign.accent)
         }
         .padding(.vertical, 6)
+        .tint(NoeisDesign.ink)
         .contentShape(Rectangle())
     }
 }
@@ -1006,6 +1168,7 @@ struct PageRow: View {
                 .foregroundStyle(NoeisDesign.accent)
         }
         .padding(.vertical, 6)
+        .tint(NoeisDesign.ink)
         .contentShape(Rectangle())
     }
 }
@@ -1030,6 +1193,37 @@ struct ConceptRow: View {
                 .foregroundStyle(NoeisDesign.accent)
         }
         .padding(.vertical, 6)
+        .tint(NoeisDesign.ink)
+        .contentShape(Rectangle())
+    }
+}
+
+struct WikiRow: View {
+    let page: WikiPageSummary
+
+    var body: some View {
+        Label {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(page.title)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(NoeisDesign.ink)
+                    .lineLimit(2)
+                Text(page.plainText?.isEmpty == false ? page.plainText! : "\(page.pageType?.capitalized ?? "Topic") · \(page.status?.capitalized ?? "Draft")")
+                    .font(.caption)
+                    .foregroundStyle(NoeisDesign.muted)
+                    .lineLimit(2)
+                if page.sourceCount > 0 {
+                    Label("\(page.sourceCount) sources", systemImage: "link")
+                        .font(.caption2)
+                        .foregroundStyle(NoeisDesign.accent)
+                }
+            }
+        } icon: {
+            Image(systemName: "rectangle.stack")
+                .foregroundStyle(NoeisDesign.accent)
+        }
+        .padding(.vertical, 6)
+        .tint(NoeisDesign.ink)
         .contentShape(Rectangle())
     }
 }
@@ -1337,6 +1531,74 @@ struct ConceptDetail: View {
     private func load() async {
         do {
             material = try await NoeisAPI.shared.fetchConceptMaterial(conceptIdOrName: concept.name)
+        } catch {
+            message = error.localizedDescription
+        }
+    }
+}
+
+struct WikiDetail: View {
+    let page: WikiPageSummary
+    @State private var detail: WikiPageSummary?
+    @State private var message = ""
+
+    private var displayPage: WikiPageSummary {
+        detail ?? page
+    }
+
+    private var bodyParagraphs: [String] {
+        displayPage.plainText?.formattedParagraphs ?? []
+    }
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 18) {
+                WorkspaceHeader(title: displayPage.title, subtitle: "\(displayPage.pageType?.capitalized ?? "Topic") · \(displayPage.status?.capitalized ?? "Draft")")
+
+                HStack(spacing: 10) {
+                    Label(displayPage.visibility?.capitalized ?? "Private", systemImage: "lock")
+                    Label("\(displayPage.sourceCount) sources", systemImage: "link")
+                }
+                .font(.caption)
+                .foregroundStyle(NoeisDesign.muted)
+
+                SectionBlock(title: "Draft") {
+                    if bodyParagraphs.isEmpty {
+                        EmptyRow(text: message.isEmpty ? "No wiki draft text yet." : message)
+                    } else {
+                        VStack(alignment: .leading, spacing: 12) {
+                            ForEach(Array(bodyParagraphs.enumerated()), id: \.offset) { _, paragraph in
+                                Text(paragraph)
+                                    .font(.body)
+                                    .foregroundStyle(NoeisDesign.ink)
+                                    .lineSpacing(5)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                            }
+                        }
+                        .padding()
+                    }
+                }
+
+                AgentChatPanel(
+                    title: "Wiki Agent",
+                    contextType: "wiki",
+                    contextId: displayPage.id,
+                    contextTitle: displayPage.title
+                )
+            }
+            .padding()
+            .frame(maxWidth: NoeisDesign.pageMaxWidth, alignment: .leading)
+        }
+        .background(NoeisDesign.background)
+        .navigationTitle(displayPage.title)
+        .task(id: page.id) {
+            await load()
+        }
+    }
+
+    private func load() async {
+        do {
+            detail = try await NoeisAPI.shared.fetchWikiPage(id: page.id)
         } catch {
             message = error.localizedDescription
         }

@@ -279,6 +279,45 @@ struct ConceptSummary: Decodable, Identifiable, Hashable {
     }
 }
 
+struct WikiPageSummary: Decodable, Identifiable, Hashable {
+    let id: String
+    let title: String
+    let slug: String?
+    let pageType: String?
+    let status: String?
+    let visibility: String?
+    let plainText: String?
+    let updatedAt: String?
+    let sourceCount: Int
+
+    enum CodingKeys: String, CodingKey {
+        case id = "_id"
+        case title
+        case slug
+        case pageType
+        case status
+        case visibility
+        case plainText
+        case updatedAt
+        case sourceRefs
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(String.self, forKey: .id)
+        title = try container.decodeIfPresent(String.self, forKey: .title) ?? "Untitled Wiki Page"
+        slug = try container.decodeIfPresent(String.self, forKey: .slug)
+        pageType = try container.decodeIfPresent(String.self, forKey: .pageType)
+        status = try container.decodeIfPresent(String.self, forKey: .status)
+        visibility = try container.decodeIfPresent(String.self, forKey: .visibility)
+        plainText = try container.decodeIfPresent(String.self, forKey: .plainText)
+        updatedAt = try container.decodeIfPresent(String.self, forKey: .updatedAt)
+        sourceCount = (try? container.decodeIfPresent([LooseJSON].self, forKey: .sourceRefs)?.count) ?? 0
+    }
+}
+
+private struct LooseJSON: Decodable {}
+
 struct NoeisAPI {
     static let shared = NoeisAPI()
 
@@ -352,6 +391,44 @@ struct NoeisAPI {
     func fetchConceptMaterial(conceptIdOrName: String) async throws -> ConceptMaterial {
         let safe = conceptIdOrName.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? conceptIdOrName
         return try await request("/api/concepts/\(safe)/material")
+    }
+
+    func fetchWikiPages(query: String? = nil) async throws -> [WikiPageSummary] {
+        let trimmed = query?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let suffix = trimmed.isEmpty ? "" : "?q=\(trimmed.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? trimmed)"
+        return try await request("/api/wiki/pages\(suffix)")
+    }
+
+    func fetchWikiPage(id: String) async throws -> WikiPageSummary {
+        let safe = id.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? id
+        return try await request("/api/wiki/pages/\(safe)")
+    }
+
+    func createWikiPage(title: String, seedText: String = "", pageType: String = "topic") async throws -> WikiPageSummary {
+        let cleanTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        let cleanSeed = seedText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let resolvedTitle = cleanTitle.isEmpty ? "Untitled Wiki Page" : cleanTitle
+        let body: [String: Any] = [
+            "type": "doc",
+            "content": [
+                [
+                    "type": "heading",
+                    "attrs": ["level": 1],
+                    "content": [["type": "text", "text": resolvedTitle]]
+                ],
+                [
+                    "type": "paragraph",
+                    "content": [["type": "text", "text": cleanSeed.isEmpty ? "Start writing. AI can help expand this page from your sources." : cleanSeed]]
+                ]
+            ]
+        ]
+        return try await request("/api/wiki/pages", method: "POST", body: [
+            "title": resolvedTitle,
+            "pageType": pageType,
+            "sourceScope": "entire_library",
+            "createdFrom": ["type": "wiki_index", "label": resolvedTitle],
+            "body": body
+        ])
     }
 
     func chatWithAgent(message: String, history: [AgentChatMessage], contextType: String, contextId: String, contextTitle: String) async throws -> AgentChatResponse {
