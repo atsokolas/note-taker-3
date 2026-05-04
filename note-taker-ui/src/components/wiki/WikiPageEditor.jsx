@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { EditorContent, useEditor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
@@ -14,6 +14,8 @@ import {
 } from '../../api/wiki';
 import WikiAiSourcePanel from './WikiAiSourcePanel';
 import WikiPageMetaBar from './WikiPageMetaBar';
+import ClaimCitationPopover from './ClaimCitationPopover';
+import Claim, { SUPPORT_STATES } from './extensions/Claim';
 
 const emptyDoc = { type: 'doc', content: [{ type: 'paragraph' }] };
 
@@ -54,15 +56,61 @@ const WikiPageEditor = ({ pageId }) => {
     }, 650);
   };
 
+  // Hovered/focused claim → drives the citation popover. Stored as the claim
+  // attributes plus the anchor rect so the popover can position against it.
+  const [activeClaim, setActiveClaim] = useState(null);
+
+  const handleClaimHover = useCallback((event) => {
+    const target = event.target.closest?.('span.wiki-claim');
+    if (!target) return;
+    const claimId = target.getAttribute('data-claim-id') || '';
+    const support = target.getAttribute('data-support') || 'supported';
+    const indexes = (target.getAttribute('data-citation-indexes') || '')
+      .split(',')
+      .map(token => Number(token.trim()))
+      .filter(Number.isFinite);
+    setActiveClaim({
+      claimId,
+      support: SUPPORT_STATES.has(support) ? support : 'supported',
+      citationIndexes: indexes,
+      anchorRect: target.getBoundingClientRect()
+    });
+  }, []);
+
+  const handleClaimLeave = useCallback((event) => {
+    // Don't dismiss if the cursor moved into the popover itself.
+    const next = event.relatedTarget;
+    if (next && (
+      next.closest?.('.wiki-claim-popover') ||
+      next.closest?.('span.wiki-claim')
+    )) return;
+    setActiveClaim(null);
+  }, []);
+
   const editor = useEditor({
     extensions: [
       StarterKit,
-      Placeholder.configure({ placeholder: 'Write the page. Use the AI/source panel for support.' })
+      Placeholder.configure({ placeholder: 'Write the page. Use the AI/source panel for support.' }),
+      Claim
     ],
     content: emptyDoc,
     editorProps: {
       attributes: {
         class: 'tiptap-editor wiki-editor__body'
+      },
+      handleDOMEvents: {
+        mouseover: (_view, event) => {
+          handleClaimHover(event);
+          return false;
+        },
+        mouseout: (_view, event) => {
+          handleClaimLeave(event);
+          return false;
+        },
+        focusin: (_view, event) => {
+          handleClaimHover(event);
+          return false;
+        }
       }
     },
     onUpdate: ({ editor: activeEditor }) => {
@@ -177,6 +225,18 @@ const WikiPageEditor = ({ pageId }) => {
     }
   };
 
+  // Resolve the active claim's citation indexes into the page's sourceRefs.
+  // citationIndex is 1-based to match the agent's convention.
+  const resolvedActiveSources = useMemo(() => {
+    if (!activeClaim || !page?.sourceRefs?.length) return [];
+    return activeClaim.citationIndexes
+      .map((index) => {
+        const source = page.sourceRefs[index - 1];
+        return source ? { ...source, citationIndex: index } : null;
+      })
+      .filter(Boolean);
+  }, [activeClaim, page]);
+
   if (loading) {
     return <main className="wiki-page"><p className="wiki-index__status">Loading Wiki page...</p></main>;
   }
@@ -218,6 +278,14 @@ const WikiPageEditor = ({ pageId }) => {
           />
           <WikiPageMetaBar page={page} onChange={handleMetaChange} saveStatus={saveStatus} />
           <EditorContent editor={editor} />
+          {activeClaim ? (
+            <ClaimCitationPopover
+              anchorRect={activeClaim.anchorRect}
+              support={activeClaim.support}
+              sources={resolvedActiveSources}
+              onClose={() => setActiveClaim(null)}
+            />
+          ) : null}
         </section>
         {sourcePanelOpen ? (
           <WikiAiSourcePanel

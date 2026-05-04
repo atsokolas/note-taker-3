@@ -4074,3 +4074,204 @@ html[data-ui-theme='dark'] {
     grid-template-columns: 1fr;
   }
 }
+
+/* Wiki claim atoms + citation popover ------------------------------------
+   Inline marks the agent applies to source-backed claims. Underline color
+   = support state (green/amber/red/gray). Hover/focus opens a Wikipedia-
+   style footnote popover anchored to the claim. */
+
+.wiki-claim {
+  text-decoration: none;
+  background-image: linear-gradient(
+    to bottom,
+    transparent calc(100% - 2px),
+    var(--wiki-claim-color, color-mix(in srgb, var(--vellum-accent) 60%, transparent)) calc(100% - 2px)
+  );
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
+  cursor: help;
+  transition: background-color 140ms ease-out;
+  border-radius: 2px;
+  padding: 0 1px;
+}
+
+.wiki-claim:hover,
+.wiki-claim:focus-visible {
+  background-color: color-mix(in srgb, var(--wiki-claim-color, var(--vellum-accent)) 14%, transparent);
+  outline: none;
+}
+
+.wiki-claim[data-support='supported'] {
+  --wiki-claim-color: #4f8c5a;  /* moss green */
+}
+
+.wiki-claim[data-support='partial'] {
+  --wiki-claim-color: #b1862e;  /* warm amber */
+}
+
+.wiki-claim[data-support='unsupported'] {
+  --wiki-claim-color: color-mix(in srgb, var(--vellum-subtle) 80%, transparent);
+}
+
+.wiki-claim[data-support='contradicted'] {
+  --wiki-claim-color: #b54a32;  /* burnt sienna */
+}
+
+html[data-ui-theme='dark'] .wiki-claim[data-support='supported'] {
+  --wiki-claim-color: #7fb088;
+}
+
+html[data-ui-theme='dark'] .wiki-claim[data-support='partial'] {
+  --wiki-claim-color: #d6a86b;
+}
+
+html[data-ui-theme='dark'] .wiki-claim[data-support='contradicted'] {
+  --wiki-claim-color: #e08770;
+}
+
+/* Citation popover --------------------------------------------------------
+   Fixed-positioned by JS. Anchors above the claim by default; flips below
+   if it would clip the viewport top. */
+
+.wiki-claim-popover {
+  background: var(--vellum-bg);
+  border: 1px solid var(--vellum-line-strong);
+  border-radius: 12px;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.16), 0 2px 6px rgba(0, 0, 0, 0.06);
+  padding: 14px 16px 12px;
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 0.86rem;
+  line-height: 1.5;
+  color: var(--vellum-ink);
+  animation: wikiClaimPopIn 140ms ease-out;
+}
+
+html[data-ui-theme='dark'] .wiki-claim-popover {
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.6), 0 2px 6px rgba(0, 0, 0, 0.4);
+}
+
+@keyframes wikiClaimPopIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.wiki-claim-popover__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.wiki-claim-popover__pill {
+  display: inline-flex;
+  align-items: center;
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 0.62rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 999px;
+  border: 1px solid currentColor;
+  color: var(--vellum-subtle);
+}
+
+.wiki-claim-popover__pill--supported    { color: #4f8c5a; }
+.wiki-claim-popover__pill--partial      { color: #b1862e; }
+.wiki-claim-popover__pill--unsupported  { color: var(--vellum-subtle); }
+.wiki-claim-popover__pill--contradicted { color: #b54a32; }
+
+html[data-ui-theme='dark'] .wiki-claim-popover__pill--supported    { color: #7fb088; }
+html[data-ui-theme='dark'] .wiki-claim-popover__pill--partial      { color: #d6a86b; }
+html[data-ui-theme='dark'] .wiki-claim-popover__pill--contradicted { color: #e08770; }
+
+.wiki-claim-popover__count {
+  font-size: 0.74rem;
+  color: var(--vellum-subtle);
+}
+
+.wiki-claim-popover__blurb {
+  margin: 0 0 10px;
+  font-size: 0.84rem;
+  color: var(--vellum-muted);
+}
+
+.wiki-claim-popover__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+  max-height: 340px;
+  overflow-y: auto;
+}
+
+.wiki-claim-popover__item {
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--vellum-panel) 80%, transparent);
+  border: 1px solid var(--vellum-line);
+}
+
+.wiki-claim-popover__item-head {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.wiki-claim-popover__item-index {
+  font-family: -apple-system, BlinkMacSystemFont, "SF Mono", Menlo, monospace;
+  font-size: 0.72rem;
+  color: var(--vellum-subtle);
+  flex-shrink: 0;
+}
+
+.wiki-claim-popover__item-title {
+  font-weight: 600;
+  font-size: 0.88rem;
+  color: var(--vellum-ink);
+  line-height: 1.35;
+}
+
+.wiki-claim-popover__item-snippet {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--vellum-muted);
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.wiki-claim-popover__item-link {
+  color: var(--vellum-accent);
+  font-size: 0.78rem;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.wiki-claim-popover__item-link:hover,
+.wiki-claim-popover__item-link:focus-visible {
+  text-decoration: underline;
+  outline: none;
+}
+
+.wiki-claim-popover__empty {
+  margin: 0;
+  font-size: 0.84rem;
+  color: var(--vellum-subtle);
+  font-style: italic;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wiki-claim-popover {
+    animation: none;
+  }
+  .wiki-claim {
+    transition: none;
+  }
+}
