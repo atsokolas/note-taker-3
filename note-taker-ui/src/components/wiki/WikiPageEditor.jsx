@@ -13,6 +13,7 @@ import {
   updateWikiPage
 } from '../../api/wiki';
 import WikiAiSourcePanel from './WikiAiSourcePanel';
+import WikiAgentPresence from './WikiAgentPresence';
 import WikiPageMetaBar from './WikiPageMetaBar';
 import ClaimCitationPopover from './ClaimCitationPopover';
 import Claim, { SUPPORT_STATES } from './extensions/Claim';
@@ -269,6 +270,11 @@ const WikiPageEditor = ({ pageId }) => {
       </div>
       <div className={`wiki-editor__layout ${sourcePanelOpen ? '' : 'wiki-editor__layout--panel-collapsed'}`}>
         <section className="wiki-editor__main" aria-label="Wiki page editor">
+          <WikiAgentPresence
+            page={page}
+            isMaintaining={maintaining}
+            onMaintain={handleMaintain}
+          />
           <input
             className="wiki-editor__title"
             value={page.title || ''}

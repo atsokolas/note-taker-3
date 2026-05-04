@@ -103,9 +103,6 @@ const WikiAiSourcePanel = ({
             <h2>Maintenance</h2>
             <p>{maintaining ? statusCopy.maintaining : (statusCopy[aiState.draftStatus] || statusCopy.idle)}</p>
           </div>
-          <Button type="button" variant="secondary" onClick={onMaintain} disabled={maintaining}>
-            {maintaining ? 'Maintaining...' : aiState.draftStatus === 'ready' ? 'Run again' : 'Maintain page'}
-          </Button>
         </div>
         {aiState.lastError ? <p className="wiki-source-panel__error">{aiState.lastError}</p> : null}
         {aiState.maintenanceSummary ? (
