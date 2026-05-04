@@ -63,7 +63,41 @@ const toPlainText = (node) => {
   return [ownText, childText].filter(Boolean).join(' ').trim();
 };
 
-const textNode = (text = '') => ({ type: 'text', text: asString(text) || ' ' });
+const textNode = (text = '', { marks } = {}) => {
+  const node = { type: 'text', text: asString(text) || ' ' };
+  if (Array.isArray(marks) && marks.length) node.marks = marks;
+  return node;
+};
+
+const inferClaimSupport = (citationIndexes = []) => {
+  if (!Array.isArray(citationIndexes) || citationIndexes.length === 0) return 'unsupported';
+  if (citationIndexes.length === 1) return 'partial';
+  return 'supported';
+};
+
+let claimSeed = 0;
+const buildClaimMark = (citationIndexes = [], support = null) => {
+  claimSeed += 1;
+  const indexes = Array.isArray(citationIndexes)
+    ? citationIndexes.map(Number).filter(Number.isFinite).filter(index => index > 0).slice(0, 8)
+    : [];
+  return {
+    type: 'claim',
+    attrs: {
+      claimId: `claim-${Date.now()}-${claimSeed}`,
+      support: support || inferClaimSupport(indexes),
+      citationIndexes: indexes
+    }
+  };
+};
+
+// Wrap the text in a claim mark so the editor can render the colored
+// underline + citation popover. Falls back to a plain paragraph if the
+// text is empty.
+const claimParagraph = (text = '', citationIndexes = [], support = null) => ({
+  type: 'paragraph',
+  content: [textNode(text, { marks: [buildClaimMark(citationIndexes, support)] })]
+});
 
 const paragraph = (text = '') => ({
   type: 'paragraph',
@@ -78,10 +112,18 @@ const heading = (text = '', level = 2) => ({
 
 const bulletList = (items = []) => ({
   type: 'bulletList',
-  content: items.map((item) => ({
-    type: 'listItem',
-    content: [paragraph(item)]
-  }))
+  content: items.map((item) => {
+    if (item && typeof item === 'object' && (item.text || item.citationIndexes)) {
+      return {
+        type: 'listItem',
+        content: [claimParagraph(item.text, item.citationIndexes, item.support)]
+      };
+    }
+    return {
+      type: 'listItem',
+      content: [paragraph(item)]
+    };
+  })
 });
 
 const normalizeList = (value) => {
@@ -456,19 +498,19 @@ const normalizeArticle = ({ rawArticle = {}, page, manualNotes = '', candidates 
 const docFromArticle = ({ title, article = {} }) => {
   const content = [heading(title, 1)];
   const summary = normalizeArticleTextBlock(article.summary);
-  if (summary?.text) content.push(paragraph(`${summary.text}${citationSuffix(summary.citationIndexes)}`));
+  if (summary?.text) content.push(claimParagraph(summary.text, summary.citationIndexes));
   (article.sections || []).forEach((section) => {
     const sectionTitle = truncate(section.heading || section.title, 140);
     if (sectionTitle) content.push(heading(sectionTitle, 2));
     (section.paragraphs || []).forEach((item) => {
       const block = normalizeArticleTextBlock(item);
-      if (block?.text) content.push(paragraph(`${block.text}${citationSuffix(block.citationIndexes)}`));
+      if (block?.text) content.push(claimParagraph(block.text, block.citationIndexes));
     });
-    const bulletLines = (section.bullets || [])
+    const bulletItems = (section.bullets || [])
       .map(normalizeArticleTextBlock)
       .filter(Boolean)
-      .map(block => `${block.text}${citationSuffix(block.citationIndexes)}`);
-    if (bulletLines.length) content.push(bulletList(bulletLines));
+      .map(block => ({ text: block.text, citationIndexes: block.citationIndexes }));
+    if (bulletItems.length) content.push(bulletList(bulletItems));
   });
   const preserved = Array.isArray(article.preservedUserContent) ? article.preservedUserContent : [];
   if (preserved.length) {
@@ -643,7 +685,8 @@ const maintainWikiPage = async ({
   models = {},
   chat = chatComplete,
   isConfigured = isTextGenerationConfigured,
-  now = new Date()
+  now = new Date(),
+  trigger = 'manual'
 }) => {
   const allSources = await collectLibrarySources({ userId, models });
   const candidates = selectCandidateSources({ page, sources: allSources });
@@ -697,6 +740,15 @@ const maintainWikiPage = async ({
   page.body = body;
   page.plainText = toPlainText(body);
   page.sourceRefs = mergedSourceRefs;
+  page.freshness = {
+    ...(page.freshness?.toObject ? page.freshness.toObject() : page.freshness || {}),
+    status: trigger === 'source_event' ? 'updated_from_source' : 'current',
+    reason: trigger === 'source_event'
+      ? 'Updated from new source material.'
+      : 'Page maintained against current library sources.',
+    lastReviewedAt: now,
+    lastDirectUpdateAt: now
+  };
   page.aiState = {
     ...(page.aiState?.toObject ? page.aiState.toObject() : page.aiState || {}),
     draftStatus: 'ready',
