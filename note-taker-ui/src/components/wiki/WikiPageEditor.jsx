@@ -14,9 +14,11 @@ import {
 } from '../../api/wiki';
 import WikiAiSourcePanel from './WikiAiSourcePanel';
 import WikiAgentPresence from './WikiAgentPresence';
+import WikiChangesSinceLastVisit from './WikiChangesSinceLastVisit';
 import WikiPageMetaBar from './WikiPageMetaBar';
 import ClaimCitationPopover from './ClaimCitationPopover';
 import Claim, { SUPPORT_STATES } from './extensions/Claim';
+import { diffClaimSnapshots, extractClaimTexts, getLastVisitState, recordVisit } from './wikiVisitTracker';
 
 const emptyDoc = { type: 'doc', content: [{ type: 'paragraph' }] };
 
@@ -30,6 +32,11 @@ const WikiPageEditor = ({ pageId }) => {
   const [deleting, setDeleting] = useState(false);
   const [sourcePanelOpen, setSourcePanelOpen] = useState(true);
   const [error, setError] = useState('');
+  // Snapshot from the previous visit, captured on first page load. We hold
+  // this in a ref + state so subsequent edits within the visit don't clear
+  // the banner — only "Mark reviewed" or a fresh page load should.
+  const [lastVisit, setLastVisit] = useState(null);
+  const lastVisitCapturedRef = useRef(false);
   const saveTimer = useRef(null);
   const latestPageRef = useRef(null);
   const draftTriggeredRef = useRef(false);
@@ -130,6 +137,13 @@ const WikiPageEditor = ({ pageId }) => {
         latestPageRef.current = loaded;
         setPage(loaded);
         editor?.commands?.setContent(loaded.body || emptyDoc, false);
+        // Capture the previous-visit snapshot ONCE per page load. Subsequent
+        // page state updates (e.g. live saves) must not move the comparison
+        // baseline — that would dismiss the banner mid-visit.
+        if (!lastVisitCapturedRef.current) {
+          lastVisitCapturedRef.current = true;
+          setLastVisit(getLastVisitState(pageId));
+        }
       } catch (_error) {
         if (!cancelled) setError('Failed to load Wiki page.');
       } finally {
@@ -226,6 +240,28 @@ const WikiPageEditor = ({ pageId }) => {
     }
   };
 
+  // Reset the visit-snapshot capture flag when the user navigates to a
+  // different page, so the banner re-evaluates against that page's history.
+  useEffect(() => {
+    lastVisitCapturedRef.current = false;
+    setLastVisit(null);
+  }, [pageId]);
+
+  // Diff the previous visit's snapshot against the page's current claim
+  // texts. We diff once per page state change so the banner stays accurate
+  // as the live page updates (e.g., right after a maintenance run).
+  const visitDiff = useMemo(() => {
+    if (!lastVisit?.lastViewedAt) return { added: [], removed: [] };
+    const currentClaims = extractClaimTexts(page?.body);
+    return diffClaimSnapshots(lastVisit.claimSnapshot, currentClaims);
+  }, [lastVisit, page]);
+
+  const handleMarkReviewed = useCallback(() => {
+    if (!page) return;
+    const next = recordVisit(pageId, page.body);
+    setLastVisit(next);
+  }, [page, pageId]);
+
   // Resolve the active claim's citation indexes into the page's sourceRefs.
   // citationIndex is 1-based to match the agent's convention.
   const resolvedActiveSources = useMemo(() => {
@@ -274,6 +310,12 @@ const WikiPageEditor = ({ pageId }) => {
             page={page}
             isMaintaining={maintaining}
             onMaintain={handleMaintain}
+          />
+          <WikiChangesSinceLastVisit
+            lastViewedAt={lastVisit?.lastViewedAt}
+            added={visitDiff.added}
+            removed={visitDiff.removed}
+            onMarkReviewed={handleMarkReviewed}
           />
           <input
             className="wiki-editor__title"
