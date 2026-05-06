@@ -6,14 +6,18 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '../ui';
 import {
   addWikiSource,
+  askWikiPage,
   deleteWikiPage,
   getWikiPage,
   maintainWikiPage,
+  removeWikiDiscussion,
   removeWikiSource,
   updateWikiPage
 } from '../../api/wiki';
 import WikiAiSourcePanel from './WikiAiSourcePanel';
 import WikiAgentPresence from './WikiAgentPresence';
+import WikiAskComposer from './WikiAskComposer';
+import WikiDiscussions from './WikiDiscussions';
 import WikiPageMetaBar from './WikiPageMetaBar';
 import ClaimCitationPopover from './ClaimCitationPopover';
 import Claim, { SUPPORT_STATES } from './extensions/Claim';
@@ -29,6 +33,7 @@ const WikiPageEditor = ({ pageId }) => {
   const [maintaining, setMaintaining] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [sourcePanelOpen, setSourcePanelOpen] = useState(true);
+  const [asking, setAsking] = useState(false);
   const [error, setError] = useState('');
   const saveTimer = useRef(null);
   const latestPageRef = useRef(null);
@@ -211,6 +216,29 @@ const WikiPageEditor = ({ pageId }) => {
     }
   };
 
+  const handleAsk = async (question) => {
+    setAsking(true);
+    setError('');
+    try {
+      const updated = await askWikiPage(pageId, question);
+      latestPageRef.current = updated;
+      setPage(updated);
+    } finally {
+      setAsking(false);
+    }
+  };
+
+  const handleRemoveDiscussion = async (discussionId) => {
+    setError('');
+    try {
+      const updated = await removeWikiDiscussion(pageId, discussionId);
+      latestPageRef.current = updated;
+      setPage(updated);
+    } catch (_error) {
+      setError('Failed to remove discussion.');
+    }
+  };
+
   const handleDeletePage = async () => {
     const title = page?.title || 'Untitled Wiki Page';
     if (!window.confirm(`Delete "${title}"?`)) return;
@@ -269,7 +297,13 @@ const WikiPageEditor = ({ pageId }) => {
         {error ? <span className="wiki-editor__error" role="alert">{error}</span> : null}
       </div>
       <div className={`wiki-editor__layout ${sourcePanelOpen ? '' : 'wiki-editor__layout--panel-collapsed'}`}>
-        <section className="wiki-editor__main" aria-label="Wiki page editor">
+        <section
+          className="wiki-editor__main"
+          aria-label="Wiki page editor"
+          onMouseOver={handleClaimHover}
+          onMouseOut={handleClaimLeave}
+          onFocus={handleClaimHover}
+        >
           <WikiAgentPresence
             page={page}
             isMaintaining={maintaining}
@@ -284,6 +318,11 @@ const WikiPageEditor = ({ pageId }) => {
           />
           <WikiPageMetaBar page={page} onChange={handleMetaChange} saveStatus={saveStatus} />
           <EditorContent editor={editor} />
+          <WikiDiscussions
+            discussions={page.discussions || []}
+            onRemove={handleRemoveDiscussion}
+          />
+          <WikiAskComposer onAsk={handleAsk} busy={asking} />
           {activeClaim ? (
             <ClaimCitationPopover
               anchorRect={activeClaim.anchorRect}
