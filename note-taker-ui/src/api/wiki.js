@@ -71,6 +71,11 @@ export const removeWikiDiscussion = async (id, discussionId) => {
   return res.data;
 };
 
+export const getWikiBriefing = async () => {
+  const res = await api.get('/api/wiki/briefing', getAuthHeaders());
+  return res.data;
+};
+
 const wikiApi = {
   listWikiPages,
   createWikiPage,
@@ -83,7 +88,8 @@ const wikiApi = {
   addWikiSource,
   removeWikiSource,
   askWikiPage,
-  removeWikiDiscussion
+  removeWikiDiscussion,
+  getWikiBriefing
 };
 
 export default wikiApi;

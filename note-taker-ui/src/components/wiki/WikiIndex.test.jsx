@@ -2,12 +2,16 @@ import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import WikiIndex from './WikiIndex';
-import { createWikiPage, deleteWikiPage, listWikiPages } from '../../api/wiki';
+import { createWikiPage, deleteWikiPage, getWikiBriefing, listWikiPages } from '../../api/wiki';
 
 jest.mock('../../api/wiki', () => ({
   createWikiPage: jest.fn(),
   deleteWikiPage: jest.fn(),
-  listWikiPages: jest.fn()
+  listWikiPages: jest.fn(),
+  // WikiIndex now mounts <WikiBriefing /> at the top, which calls
+  // getWikiBriefing() in a useEffect. Stub it so the test environment
+  // doesn't 404 on the unmocked endpoint.
+  getWikiBriefing: jest.fn(() => Promise.reject(new Error('not relevant in WikiIndex tests')))
 }));
 
 const pages = [
@@ -41,6 +45,10 @@ describe('WikiIndex', () => {
     createWikiPage.mockResolvedValue(pages[0]);
     deleteWikiPage.mockResolvedValue({ ...pages[0], status: 'archived' });
     listWikiPages.mockResolvedValue(pages);
+    // jest.clearAllMocks wipes implementations too — re-arm the briefing
+    // stub so the WikiBriefing child mounted at the top of WikiIndex
+    // doesn't crash on `(undefined).then()`.
+    getWikiBriefing.mockRejectedValue(new Error('not relevant in WikiIndex tests'));
   });
 
   it('deletes a Wiki page from the menu after confirmation', async () => {
