@@ -76,6 +76,35 @@ export const getWikiBacklinks = async (id) => {
   return res.data;
 };
 
+export const getWikiBriefing = async () => {
+  const res = await api.get('/api/wiki/briefing', getAuthHeaders());
+  return res.data;
+};
+
+export const listWikiSourceEvents = async (params = {}) => {
+  const res = await api.get(`/api/wiki/source-events${buildQueryString(params)}`, getAuthHeaders());
+  if (Array.isArray(res.data)) return res.data;
+  if (Array.isArray(res.data?.events)) return res.data.events;
+  return [];
+};
+
+export const processWikiSourceEvent = async (sourceEventId) => {
+  const res = await api.post(`/api/wiki/source-events/${safeId(sourceEventId)}/process`, {}, getAuthHeaders());
+  return res.data;
+};
+
+export const processPendingWikiSourceEvents = async () => {
+  const res = await api.post('/api/wiki/source-events/process-pending', {}, getAuthHeaders());
+  return res.data;
+};
+
+export const listWikiRevisions = async (id) => {
+  const res = await api.get(`${WIKI_PAGES_PATH}/${safeId(id)}/revisions`, getAuthHeaders());
+  if (Array.isArray(res.data)) return res.data;
+  if (Array.isArray(res.data?.revisions)) return res.data.revisions;
+  return [];
+};
+
 const wikiApi = {
   listWikiPages,
   createWikiPage,
@@ -89,7 +118,12 @@ const wikiApi = {
   removeWikiSource,
   askWikiPage,
   removeWikiDiscussion,
-  getWikiBacklinks
+  getWikiBacklinks,
+  getWikiBriefing,
+  listWikiSourceEvents,
+  processWikiSourceEvent,
+  processPendingWikiSourceEvents,
+  listWikiRevisions
 };
 
 export default wikiApi;

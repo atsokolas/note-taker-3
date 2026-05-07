@@ -2,6 +2,7 @@ const express = require('express');
 const mongoose = require('mongoose');
 const { maintainWikiPage: defaultMaintainWikiPage } = require('../services/wikiMaintenanceService');
 const { askWikiPage: defaultAskWikiPage } = require('../services/wikiAskService');
+const { buildWikiBriefing: defaultBuildWikiBriefing } = require('../services/wikiBriefingService');
 const { findWikiBacklinks: defaultFindWikiBacklinks } = require('../services/wikiBacklinkService');
 
 const PAGE_TYPES = new Set(['topic', 'question', 'project', 'source', 'person', 'synthesis']);
@@ -237,6 +238,7 @@ const buildWikiRouter = ({
   Question = null,
   maintainWikiPage = defaultMaintainWikiPage,
   askWikiPage = defaultAskWikiPage,
+  buildWikiBriefing = defaultBuildWikiBriefing,
   findWikiBacklinks = defaultFindWikiBacklinks
 }) => {
   const router = express.Router();
@@ -508,6 +510,22 @@ const buildWikiRouter = ({
     } catch (error) {
       console.error('Error removing wiki discussion:', error);
       res.status(500).json({ error: 'Failed to remove discussion.' });
+    }
+  });
+
+  // Daily wiki briefing for the index page. The route is intentionally
+  // computed on demand rather than scheduled — the user's signal volume
+  // doesn't justify a cron and on-demand keeps the data fresh.
+  router.get('/api/wiki/briefing', authenticateToken, async (req, res) => {
+    try {
+      const briefing = await buildWikiBriefing({
+        userId: req.user.id,
+        models: { WikiPage, Article, NotebookEntry, TagMeta, Question }
+      });
+      res.status(200).json(briefing);
+    } catch (error) {
+      console.error('Error building wiki briefing:', error);
+      res.status(500).json({ error: 'Failed to build wiki briefing.' });
     }
   });
 

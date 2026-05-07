@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Button, SurfaceCard } from '../ui';
 import { createWikiPage, deleteWikiPage, listWikiPages } from '../../api/wiki';
 import { buildWikiCreatePayload, openWikiDraft } from '../../utils/wikiCreate';
+import WikiBriefing from './WikiBriefing';
 
 const PAGE_TYPES = ['all', 'topic', 'question', 'project', 'source', 'person', 'synthesis'];
 const VISIBILITIES = ['all', 'private', 'shared'];
@@ -138,6 +139,7 @@ const WikiIndex = () => {
 
   return (
     <main className="wiki-page wiki-index">
+      <WikiBriefing />
       <section className="wiki-index__header">
         <div className="wiki-index__title-block">
           <p className="wiki-index__eyebrow">Wiki</p>
