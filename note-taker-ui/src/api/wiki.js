@@ -61,6 +61,16 @@ export const removeWikiSource = async (id, sourceRefId) => {
   return res.data;
 };
 
+export const askWikiPage = async (id, question) => {
+  const res = await api.post(`${WIKI_PAGES_PATH}/${safeId(id)}/ask`, { question }, getAuthHeaders());
+  return res.data;
+};
+
+export const removeWikiDiscussion = async (id, discussionId) => {
+  const res = await api.delete(`${WIKI_PAGES_PATH}/${safeId(id)}/discussions/${safeId(discussionId)}`, getAuthHeaders());
+  return res.data;
+};
+
 const wikiApi = {
   listWikiPages,
   createWikiPage,
@@ -71,7 +81,9 @@ const wikiApi = {
   maintainWikiPage,
   draftWikiPage,
   addWikiSource,
-  removeWikiSource
+  removeWikiSource,
+  askWikiPage,
+  removeWikiDiscussion
 };
 
 export default wikiApi;

@@ -4646,3 +4646,262 @@ html[data-ui-theme='dark'] .wiki-changes-banner__group--removed .wiki-changes-ba
     flex: 1;
   }
 }
+/* Wiki ask + discussions --------------------------------------------------
+   Composer at the bottom of the editor lets the reader ask the agent a
+   question; answers land into the discussions log directly above. The
+   answer body re-uses .wiki-claim markup so the same hover popover
+   already mounted on the editor lights up on hover. */
+
+.wiki-discussions {
+  margin: 32px 0 24px;
+  padding: 20px 22px 4px;
+  border: 1px solid var(--vellum-line);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--vellum-panel) 60%, transparent);
+}
+
+.wiki-discussions__header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.wiki-discussions__title {
+  margin: 0;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--vellum-subtle);
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+.wiki-discussions__count {
+  font-size: 0.78rem;
+  color: var(--vellum-subtle);
+}
+
+.wiki-discussions__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 18px;
+}
+
+.wiki-discussions__item {
+  display: grid;
+  gap: 8px;
+  padding: 14px 16px 16px;
+  border-radius: 10px;
+  background: var(--vellum-bg);
+  border: 1px solid var(--vellum-line);
+}
+
+.wiki-discussions__item--failed {
+  border-color: color-mix(in srgb, #b54a32 30%, var(--vellum-line));
+}
+
+.wiki-discussions__item-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.wiki-discussions__item-meta {
+  font-size: 0.74rem;
+  color: var(--vellum-subtle);
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+.wiki-discussions__remove {
+  background: transparent;
+  border: 0;
+  padding: 0;
+  font-size: 0.74rem;
+  color: var(--vellum-subtle);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.wiki-discussions__remove:hover,
+.wiki-discussions__remove:focus-visible {
+  color: var(--vellum-ink);
+  outline: none;
+}
+
+.wiki-discussions__question {
+  margin: 0;
+  font-family: "Newsreader", Georgia, serif;
+  font-size: 1.04rem;
+  font-style: italic;
+  color: var(--vellum-ink);
+  line-height: 1.45;
+}
+
+.wiki-discussions__answer {
+  font-family: "Newsreader", Georgia, serif;
+  font-size: 1rem;
+  color: var(--vellum-ink);
+  line-height: 1.6;
+}
+
+.wiki-discussions__answer p {
+  margin: 0 0 10px;
+}
+
+.wiki-discussions__answer p:last-child {
+  margin-bottom: 0;
+}
+
+.wiki-discussions__answer ul,
+.wiki-discussions__answer ol {
+  margin: 0 0 10px;
+  padding-left: 22px;
+}
+
+.wiki-discussions__error {
+  margin: 0;
+  font-size: 0.84rem;
+  color: #b54a32;
+}
+
+/* Composer ---------------------------------------------------------------- */
+
+.wiki-ask-composer {
+  display: grid;
+  gap: 10px;
+  margin: 8px 0 32px;
+  padding: 18px 20px;
+  border: 1px solid var(--vellum-line-strong);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--vellum-panel-strong) 70%, transparent);
+}
+
+.wiki-ask-composer__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.wiki-ask-composer__eyebrow {
+  font-size: 0.62rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  font-weight: 700;
+  color: var(--vellum-accent);
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+.wiki-ask-composer__hint {
+  font-size: 0.74rem;
+  color: var(--vellum-subtle);
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+.wiki-ask-composer__input {
+  width: 100%;
+  resize: vertical;
+  border: 1px solid var(--vellum-line);
+  border-radius: 10px;
+  padding: 12px 14px;
+  background: var(--vellum-bg);
+  color: var(--vellum-ink);
+  font-family: "Newsreader", Georgia, serif;
+  font-size: 1rem;
+  line-height: 1.5;
+  transition: border-color 140ms ease-out;
+}
+
+.wiki-ask-composer__input:focus-visible {
+  border-color: var(--vellum-accent);
+  outline: none;
+}
+
+.wiki-ask-composer__input:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.wiki-ask-composer__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.wiki-ask-composer__suggestions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.wiki-ask-composer__suggestion {
+  background: color-mix(in srgb, var(--vellum-bg) 80%, transparent);
+  border: 1px solid var(--vellum-line);
+  border-radius: 999px;
+  padding: 5px 12px;
+  font-size: 0.78rem;
+  color: var(--vellum-muted);
+  cursor: pointer;
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  transition: color 140ms ease-out, border-color 140ms ease-out;
+}
+
+.wiki-ask-composer__suggestion:hover:not(:disabled),
+.wiki-ask-composer__suggestion:focus-visible:not(:disabled) {
+  color: var(--vellum-ink);
+  border-color: color-mix(in srgb, var(--vellum-accent) 40%, var(--vellum-line));
+  outline: none;
+}
+
+.wiki-ask-composer__suggestion:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.wiki-ask-composer__submit {
+  background: var(--vellum-ink);
+  color: var(--vellum-bg);
+  border: 0;
+  border-radius: 999px;
+  padding: 8px 18px;
+  font-size: 0.86rem;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  transition: opacity 140ms ease-out;
+}
+
+.wiki-ask-composer__submit:hover:not(:disabled),
+.wiki-ask-composer__submit:focus-visible:not(:disabled) {
+  opacity: 0.9;
+  outline: none;
+}
+
+.wiki-ask-composer__submit:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.wiki-ask-composer__error {
+  margin: 0;
+  font-size: 0.82rem;
+  color: #b54a32;
+}
+
+@media (max-width: 640px) {
+  .wiki-ask-composer__row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .wiki-ask-composer__submit {
+    width: 100%;
+  }
+}

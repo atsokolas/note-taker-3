@@ -346,6 +346,22 @@ const wikiAiStateSchema = new mongoose.Schema({
   }
 }, { _id: false });
 
+// Each entry is one Q&A turn against the page. answer is a TipTap doc that
+// re-uses the existing claim mark schema so the editor's inline citation
+// popover works on the answer text without extra plumbing.
+const wikiDiscussionSchema = new mongoose.Schema({
+  question: { type: String, required: true, trim: true },
+  answer: {
+    type: mongoose.Schema.Types.Mixed,
+    default: () => ({ type: 'doc', content: [{ type: 'paragraph' }] })
+  },
+  citationIndexesUsed: { type: [Number], default: [] },
+  model: { type: String, default: '', trim: true },
+  status: { type: String, enum: ['answered', 'failed'], default: 'answered' },
+  errorMessage: { type: String, default: '', trim: true },
+  askedAt: { type: Date, default: Date.now }
+});
+
 const wikiPageSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
   title: { type: String, required: true, trim: true, default: 'Untitled Wiki Page' },
@@ -361,6 +377,7 @@ const wikiPageSchema = new mongoose.Schema({
   },
   plainText: { type: String, default: '', trim: true },
   sourceRefs: { type: [wikiSourceRefSchema], default: [] },
+  discussions: { type: [wikiDiscussionSchema], default: [] },
   aiState: { type: wikiAiStateSchema, default: () => ({}) }
 }, { timestamps: true });
 

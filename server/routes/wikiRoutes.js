@@ -1,6 +1,7 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const { maintainWikiPage: defaultMaintainWikiPage } = require('../services/wikiMaintenanceService');
+const { askWikiPage: defaultAskWikiPage } = require('../services/wikiAskService');
 
 const PAGE_TYPES = new Set(['topic', 'question', 'project', 'source', 'person', 'synthesis']);
 const STATUSES = new Set(['draft', 'published', 'archived']);
@@ -90,6 +91,7 @@ const serializeWikiPage = (page) => {
     body: raw.body || emptyDoc(),
     createdFrom: raw.createdFrom || { type: 'wiki_index', objectIds: [], text: '', label: '' },
     sourceRefs: Array.isArray(raw.sourceRefs) ? raw.sourceRefs : [],
+    discussions: Array.isArray(raw.discussions) ? raw.discussions : [],
     aiState: {
       draftStatus: raw.aiState?.draftStatus || 'idle',
       draftRequestedAt: raw.aiState?.draftRequestedAt || null,
@@ -232,7 +234,8 @@ const buildWikiRouter = ({
   NotebookEntry = null,
   TagMeta = null,
   Question = null,
-  maintainWikiPage = defaultMaintainWikiPage
+  maintainWikiPage = defaultMaintainWikiPage,
+  askWikiPage = defaultAskWikiPage
 }) => {
   const router = express.Router();
 
@@ -454,6 +457,55 @@ const buildWikiRouter = ({
     } catch (error) {
       console.error('Error removing wiki source:', error);
       res.status(500).json({ error: 'Failed to remove wiki source.' });
+    }
+  });
+
+  // Ask the agent a question about this page. The answer is appended to
+  // the page's discussions array and the updated page is returned so the
+  // editor can re-render the discussions section.
+  router.post('/api/wiki/pages/:id/ask', authenticateToken, async (req, res) => {
+    try {
+      const question = String(req.body?.question || '').trim();
+      if (!question) return res.status(400).json({ error: 'Question is required.' });
+      if (question.length > 1000) return res.status(400).json({ error: 'Question is too long.' });
+
+      const page = await findOwnedPage(req);
+      if (!page) return res.status(404).json({ error: 'Wiki page not found.' });
+
+      const result = await askWikiPage({ page, question });
+
+      page.discussions.push({
+        question,
+        answer: result.answer,
+        citationIndexesUsed: result.citationIndexesUsed || [],
+        model: result.model || '',
+        status: result.status || 'answered',
+        errorMessage: result.errorMessage || '',
+        askedAt: new Date()
+      });
+      await page.save();
+
+      res.status(200).json(serializeWikiPage(page));
+    } catch (error) {
+      console.error('Error asking wiki page:', error);
+      res.status(500).json({ error: 'Failed to ask wiki page.' });
+    }
+  });
+
+  router.delete('/api/wiki/pages/:id/discussions/:discussionId', authenticateToken, async (req, res) => {
+    try {
+      const page = await findOwnedPage(req);
+      if (!page) return res.status(404).json({ error: 'Wiki page not found.' });
+
+      const discussion = page.discussions.id(req.params.discussionId);
+      if (!discussion) return res.status(404).json({ error: 'Discussion not found.' });
+
+      discussion.deleteOne();
+      await page.save();
+      res.status(200).json(serializeWikiPage(page));
+    } catch (error) {
+      console.error('Error removing wiki discussion:', error);
+      res.status(500).json({ error: 'Failed to remove discussion.' });
     }
   });
 
