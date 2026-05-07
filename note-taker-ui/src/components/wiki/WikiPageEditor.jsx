@@ -17,6 +17,7 @@ import {
 import WikiAiSourcePanel from './WikiAiSourcePanel';
 import WikiAgentPresence from './WikiAgentPresence';
 import WikiAskComposer from './WikiAskComposer';
+import WikiBacklinkPanel from './WikiBacklinkPanel';
 import WikiChangesSinceLastVisit from './WikiChangesSinceLastVisit';
 import WikiDiscussions from './WikiDiscussions';
 import WikiPageMetaBar from './WikiPageMetaBar';
@@ -375,14 +376,17 @@ const WikiPageEditor = ({ pageId }) => {
           ) : null}
         </section>
         {sourcePanelOpen ? (
-          <WikiAiSourcePanel
-            id="wiki-source-panel"
-            page={page}
-            maintaining={maintaining}
-            onMaintain={handleMaintain}
-            onAddSource={handleAddSource}
-            onRemoveSource={handleRemoveSource}
-          />
+          <aside className="wiki-editor__rail" aria-label="AI, sources, and backlinks">
+            <WikiAiSourcePanel
+              id="wiki-source-panel"
+              page={page}
+              maintaining={maintaining}
+              onMaintain={handleMaintain}
+              onAddSource={handleAddSource}
+              onRemoveSource={handleRemoveSource}
+            />
+            <WikiBacklinkPanel pageId={pageId} pageTitle={page.title} />
+          </aside>
         ) : null}
       </div>
     </main>

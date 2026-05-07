@@ -71,6 +71,11 @@ export const removeWikiDiscussion = async (id, discussionId) => {
   return res.data;
 };
 
+export const getWikiBacklinks = async (id) => {
+  const res = await api.get(`${WIKI_PAGES_PATH}/${safeId(id)}/backlinks`, getAuthHeaders());
+  return res.data;
+};
+
 const wikiApi = {
   listWikiPages,
   createWikiPage,
@@ -83,7 +88,8 @@ const wikiApi = {
   addWikiSource,
   removeWikiSource,
   askWikiPage,
-  removeWikiDiscussion
+  removeWikiDiscussion,
+  getWikiBacklinks
 };
 
 export default wikiApi;

@@ -2,6 +2,7 @@ const express = require('express');
 const mongoose = require('mongoose');
 const { maintainWikiPage: defaultMaintainWikiPage } = require('../services/wikiMaintenanceService');
 const { askWikiPage: defaultAskWikiPage } = require('../services/wikiAskService');
+const { findWikiBacklinks: defaultFindWikiBacklinks } = require('../services/wikiBacklinkService');
 
 const PAGE_TYPES = new Set(['topic', 'question', 'project', 'source', 'person', 'synthesis']);
 const STATUSES = new Set(['draft', 'published', 'archived']);
@@ -235,7 +236,8 @@ const buildWikiRouter = ({
   TagMeta = null,
   Question = null,
   maintainWikiPage = defaultMaintainWikiPage,
-  askWikiPage = defaultAskWikiPage
+  askWikiPage = defaultAskWikiPage,
+  findWikiBacklinks = defaultFindWikiBacklinks
 }) => {
   const router = express.Router();
 
@@ -506,6 +508,25 @@ const buildWikiRouter = ({
     } catch (error) {
       console.error('Error removing wiki discussion:', error);
       res.status(500).json({ error: 'Failed to remove discussion.' });
+    }
+  });
+
+  // Backlinks for a single page — "Mentioned in N other pages." Computed
+  // on demand by scanning the user's other pages' plainText for substring
+  // matches against this page's title.
+  router.get('/api/wiki/pages/:id/backlinks', authenticateToken, async (req, res) => {
+    try {
+      const targetPage = await findOwnedPage(req).lean();
+      if (!targetPage) return res.status(404).json({ error: 'Wiki page not found.' });
+      const result = await findWikiBacklinks({
+        targetPage,
+        userId: req.user.id,
+        models: { WikiPage }
+      });
+      res.status(200).json(result);
+    } catch (error) {
+      console.error('Error finding wiki backlinks:', error);
+      res.status(500).json({ error: 'Failed to compute wiki backlinks.' });
     }
   });
 

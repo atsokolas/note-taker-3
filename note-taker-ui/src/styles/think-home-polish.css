@@ -4905,3 +4905,126 @@ html[data-ui-theme='dark'] .wiki-changes-banner__group--removed .wiki-changes-ba
     width: 100%;
   }
 }
+
+/* Wiki editor rail + backlink panel ------------------------------------- */
+
+.wiki-editor__rail {
+  display: grid;
+  gap: 14px;
+  align-self: start;
+  min-width: 0;
+}
+
+.wiki-backlinks {
+  display: grid;
+  gap: 12px;
+  padding: 16px 18px;
+  border: 1px solid var(--vellum-line);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--vellum-panel) 70%, transparent);
+}
+
+.wiki-backlinks__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.wiki-backlinks__title {
+  margin: 0;
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 0.66rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  font-weight: 700;
+  color: var(--vellum-subtle);
+}
+
+.wiki-backlinks__count {
+  font-size: 0.74rem;
+  color: var(--vellum-subtle);
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+.wiki-backlinks__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.wiki-backlinks__item {
+  margin: 0;
+}
+
+.wiki-backlinks__link {
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--vellum-bg);
+  border: 1px solid color-mix(in srgb, var(--vellum-line) 60%, transparent);
+  text-decoration: none;
+  color: var(--vellum-ink);
+  transition: background-color 140ms ease-out, border-color 140ms ease-out;
+}
+
+.wiki-backlinks__link:hover,
+.wiki-backlinks__link:focus-visible {
+  background: color-mix(in srgb, var(--vellum-warm) 5%, var(--vellum-bg));
+  border-color: color-mix(in srgb, var(--vellum-warm) 30%, var(--vellum-line));
+  outline: none;
+}
+
+.wiki-backlinks__link-title {
+  font-family: "Newsreader", Georgia, serif;
+  font-weight: 600;
+  font-size: 0.96rem;
+  color: var(--vellum-ink);
+  line-height: 1.3;
+}
+
+.wiki-backlinks__link-meta {
+  font-size: 0.74rem;
+  color: var(--vellum-subtle);
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+.wiki-backlinks__link-snippet {
+  font-size: 0.84rem;
+  color: var(--vellum-muted);
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.wiki-backlinks__skeleton {
+  display: grid;
+  gap: 8px;
+}
+
+.wiki-backlinks__skeleton-line {
+  height: 14px;
+  border-radius: 6px;
+  background: linear-gradient(90deg,
+    color-mix(in srgb, var(--vellum-line) 60%, transparent) 0%,
+    color-mix(in srgb, var(--vellum-line) 30%, transparent) 50%,
+    color-mix(in srgb, var(--vellum-line) 60%, transparent) 100%);
+  background-size: 220% 100%;
+  animation: wikiBacklinksShimmer 1.4s ease-in-out infinite;
+}
+
+.wiki-backlinks__skeleton-line--short { width: 55%; }
+
+@keyframes wikiBacklinksShimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -50% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wiki-backlinks__skeleton-line { animation: none; }
+}
