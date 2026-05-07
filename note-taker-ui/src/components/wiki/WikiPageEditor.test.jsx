@@ -2,7 +2,7 @@ import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import WikiPageEditor from './WikiPageEditor';
-import { addWikiSource, deleteWikiPage, getWikiPage, maintainWikiPage, removeWikiSource, updateWikiPage } from '../../api/wiki';
+import { addWikiSource, deleteWikiPage, getWikiBacklinks, getWikiPage, listWikiRevisions, maintainWikiPage, removeWikiSource, updateWikiPage } from '../../api/wiki';
 
 const mockUseEditor = jest.fn();
 const mockEditor = {
@@ -26,9 +26,13 @@ jest.mock('@tiptap/extension-placeholder', () => ({
 
 jest.mock('../../api/wiki', () => ({
   addWikiSource: jest.fn(),
+  askWikiPage: jest.fn(),
   deleteWikiPage: jest.fn(),
+  getWikiBacklinks: jest.fn(),
   getWikiPage: jest.fn(),
+  listWikiRevisions: jest.fn(),
   maintainWikiPage: jest.fn(),
+  removeWikiDiscussion: jest.fn(),
   removeWikiSource: jest.fn(),
   updateWikiPage: jest.fn()
 }));
@@ -66,6 +70,8 @@ describe('WikiPageEditor', () => {
     jest.clearAllMocks();
     mockUseEditor.mockReturnValue(mockEditor);
     getWikiPage.mockResolvedValue(page);
+    getWikiBacklinks.mockResolvedValue({ count: 0, backlinks: [] });
+    listWikiRevisions.mockResolvedValue([]);
     updateWikiPage.mockResolvedValue(page);
     addWikiSource.mockResolvedValue(page);
     deleteWikiPage.mockResolvedValue({ ...page, status: 'archived' });

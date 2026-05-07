@@ -31,6 +31,7 @@
 const DEFAULT_LIMIT = 25;
 const PROVIDER = 'notion';
 const NOTION_TAG = 'notion';
+const { createWikiSourceEvent } = require('../wikiSourceEventService');
 
 const trimString = (value) => String(value || '').trim();
 
@@ -85,7 +86,8 @@ const buildEntryFromNotionPage = async ({
 const upsertNotebookEntryFromNotion = async ({
   userId,
   payload,
-  NotebookEntry
+  NotebookEntry,
+  WikiSourceEvent = null
 }) => {
   const existing = await NotebookEntry.findOne({
     userId,
@@ -120,6 +122,18 @@ const upsertNotebookEntryFromNotion = async ({
       importedAt: existing.importMeta?.importedAt || payload.importMeta.importedAt
     };
     await existing.save();
+    await createWikiSourceEvent({
+      WikiSourceEvent,
+      userId,
+      sourceType: 'notebook',
+      sourceObjectId: existing._id,
+      provider: PROVIDER,
+      eventType: 'updated',
+      title: existing.title,
+      summary: existing.content,
+      sourceUpdatedAt: existing.updatedAt || new Date(),
+      metadata: { source: 'agent-notion-fetch', importMeta: existing.importMeta }
+    });
     return { entry: existing, status: 'updated' };
   }
 
@@ -132,6 +146,18 @@ const upsertNotebookEntryFromNotion = async ({
     importMeta: payload.importMeta
   });
   await entry.save();
+  await createWikiSourceEvent({
+    WikiSourceEvent,
+    userId,
+    sourceType: 'notebook',
+    sourceObjectId: entry._id,
+    provider: PROVIDER,
+    eventType: 'imported',
+    title: entry.title,
+    summary: entry.content,
+    sourceUpdatedAt: entry.updatedAt || new Date(),
+    metadata: { source: 'agent-notion-fetch', importMeta: entry.importMeta }
+  });
   return { entry, status: 'created' };
 };
 
@@ -149,7 +175,9 @@ const fetchNotionPagesForAgent = async ({
     notionTransform,
     IntegrationConnection,
     NotebookEntry,
-    decryptSecret
+    decryptSecret,
+    WikiSourceEvent = null,
+    ConnectorActionLog = null
   } = deps;
 
   if (!notionClient || !notionTransform || !IntegrationConnection || !NotebookEntry || !decryptSecret) {
@@ -241,7 +269,7 @@ const fetchNotionPagesForAgent = async ({
         notionTransform,
         token
       });
-      const result = await upsertNotebookEntryFromNotion({ userId, payload, NotebookEntry });
+      const result = await upsertNotebookEntryFromNotion({ userId, payload, NotebookEntry, WikiSourceEvent });
       counters[result.status] += 1;
     } catch (err) {
       counters.failed += 1;
@@ -261,6 +289,24 @@ const fetchNotionPagesForAgent = async ({
     if (counters.failed) parts.push(`${counters.failed} failed`);
     return parts.length ? parts.join(', ') + '.' : 'No changes.';
   })();
+
+  if (ConnectorActionLog) {
+    try {
+      const log = new ConnectorActionLog({
+        userId,
+        connector: PROVIDER,
+        action: 'agent_fetch_pages',
+        direction: 'read',
+        status: counters.failed ? 'failed' : 'completed',
+        targetType: 'notion_pages',
+        summary,
+        metadata: { ...counters }
+      });
+      await log.save();
+    } catch (_error) {
+      // Connector action logs should never fail the user-triggered fetch.
+    }
+  }
 
   return { status, ...counters, errors, summary };
 };

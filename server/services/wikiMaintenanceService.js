@@ -523,6 +523,26 @@ const docFromArticle = ({ title, article = {} }) => {
   return { type: 'doc', content };
 };
 
+const collectClaimsFromDoc = (node, section = '') => {
+  if (!node) return [];
+  if (Array.isArray(node)) return node.flatMap(child => collectClaimsFromDoc(child, section));
+  if (typeof node !== 'object') return [];
+  const nextSection = node.type === 'heading' ? toPlainText(node) || section : section;
+  const ownText = typeof node.text === 'string' ? node.text.trim() : '';
+  const claimMark = Array.isArray(node.marks)
+    ? node.marks.find(mark => mark?.type === 'claim')
+    : null;
+  const own = claimMark && ownText ? [{
+    claimId: claimMark.attrs?.claimId || `claim-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+    text: ownText,
+    section,
+    support: claimMark.attrs?.support || inferClaimSupport(claimMark.attrs?.citationIndexes || []),
+    citationIds: [],
+    lastReviewedAt: new Date()
+  }] : [];
+  return [...own, ...collectClaimsFromDoc(node.content, nextSection)];
+};
+
 const fallbackMaintenance = ({ page, candidates, manualNotes = '' }) => {
   const top = candidates.slice(0, 6);
   const newItems = top
@@ -740,9 +760,25 @@ const maintainWikiPage = async ({
   page.body = body;
   page.plainText = toPlainText(body);
   page.sourceRefs = mergedSourceRefs;
+  page.citations = mergedSourceRefs.map(source => ({
+    sourceRefId: source._id || null,
+    sourceType: source.type || '',
+    sourceObjectId: source.objectId || null,
+    sourceTitle: source.title || '',
+    quote: source.snippet || '',
+    url: source.url || '',
+    confidence: source.addedBy === 'ai' ? 0.72 : 0.9,
+    createdAt: now
+  }));
+  page.claims = collectClaimsFromDoc(body).slice(0, 80).map(claim => ({
+    ...claim,
+    citationIds: []
+  }));
   page.freshness = {
     ...(page.freshness?.toObject ? page.freshness.toObject() : page.freshness || {}),
-    status: trigger === 'source_event' ? 'updated_from_source' : 'current',
+    status: Array.isArray(normalized.maintenance.health?.contradictions) && normalized.maintenance.health.contradictions.length
+      ? 'conflicted'
+      : 'fresh',
     reason: trigger === 'source_event'
       ? 'Updated from new source material.'
       : 'Page maintained against current library sources.',

@@ -1,5 +1,7 @@
 const express = require('express');
 const mongoose = require('mongoose');
+const { createWikiSourceEvent } = require('../services/wikiSourceEventService');
+const { processWikiSourceEvent } = require('../services/wikiMaintenanceOrchestrator');
 
 const NOTEBOOK_USER_FOLDER_OWNERSHIP = 'user_owned';
 
@@ -18,9 +20,36 @@ const buildNotebookRouter = ({
   enqueueNotebookEmbedding,
   trackEvent,
   EVENT_NAMES,
-  findHighlightById
+  findHighlightById,
+  WikiPage = null,
+  WikiRevision = null,
+  WikiSourceEvent = null,
+  WikiMaintenanceRun = null,
+  Article = null,
+  TagMeta = null,
+  Question = null
 }) => {
   const router = express.Router();
+
+  const blockSummary = (entry) => [
+    entry?.content,
+    ...(Array.isArray(entry?.blocks) ? entry.blocks.map(block => block.text) : [])
+  ].filter(Boolean).join(' ').replace(/\s+/g, ' ').trim();
+
+  const emitWikiSourceEvent = async (payload = {}) => {
+    try {
+      const event = await createWikiSourceEvent({ WikiSourceEvent, ...payload });
+      if (event && WikiPage) {
+        processWikiSourceEvent({
+          sourceEvent: event,
+          userId: payload.userId,
+          models: { WikiSourceEvent, WikiPage, WikiRevision, WikiMaintenanceRun, Article, NotebookEntry, TagMeta, Question }
+        }).catch(error => console.error('Failed processing wiki source event:', error));
+      }
+    } catch (error) {
+      console.error('Failed creating wiki source event:', error);
+    }
+  };
 
   const normalizeSourcePath = (value = '') => {
     if (Array.isArray(value)) {
@@ -171,6 +200,17 @@ const buildNotebookRouter = ({
         await syncNotebookReferences(userId, newEntry._id, nextBlocks);
       }
       enqueueNotebookEmbedding(newEntry);
+      await emitWikiSourceEvent({
+        userId,
+        sourceType: 'notebook',
+        sourceObjectId: newEntry._id,
+        provider: newEntry.importMeta?.provider || 'notebook',
+        eventType: 'created',
+        title: newEntry.title,
+        summary: blockSummary(newEntry),
+        sourceUpdatedAt: newEntry.updatedAt || new Date(),
+        metadata: { route: 'create-notebook' }
+      });
       trackEvent({
         event: EVENT_NAMES.WORKSPACE_CREATED,
         userId,
@@ -450,6 +490,17 @@ const buildNotebookRouter = ({
       }
       await entry.save();
       await syncNotebookReferences(userId, entry._id, entry.blocks || []);
+      await emitWikiSourceEvent({
+        userId,
+        sourceType: 'notebook',
+        sourceObjectId: entry._id,
+        provider: entry.importMeta?.provider || 'notebook',
+        eventType: 'updated',
+        title: entry.title,
+        summary: blockSummary(entry),
+        sourceUpdatedAt: entry.updatedAt || new Date(),
+        metadata: { route: 'append-highlight', highlightId }
+      });
       res.status(200).json(entry);
     } catch (error) {
       console.error("❌ Error appending highlight to notebook:", error);
@@ -549,6 +600,17 @@ const buildNotebookRouter = ({
         await syncNotebookReferences(userId, updated._id, updated.blocks || []);
       }
       enqueueNotebookEmbedding(updated);
+      await emitWikiSourceEvent({
+        userId,
+        sourceType: 'notebook',
+        sourceObjectId: updated._id,
+        provider: updated.importMeta?.provider || 'notebook',
+        eventType: 'updated',
+        title: updated.title,
+        summary: blockSummary(updated),
+        sourceUpdatedAt: updated.updatedAt || new Date(),
+        metadata: { route: 'update-notebook' }
+      });
       res.status(200).json(updated);
     } catch (error) {
       console.error("❌ Error updating notebook entry:", error);

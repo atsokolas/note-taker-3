@@ -19,6 +19,8 @@ const buildAgentNotionFetchRouter = ({
   notionTransform,
   IntegrationConnection,
   NotebookEntry,
+  WikiSourceEvent = null,
+  ConnectorActionLog = null,
   decryptSecret
 }) => {
   const router = express.Router();
@@ -34,6 +36,8 @@ const buildAgentNotionFetchRouter = ({
           notionTransform,
           IntegrationConnection,
           NotebookEntry,
+          WikiSourceEvent,
+          ConnectorActionLog,
           decryptSecret
         }
       });

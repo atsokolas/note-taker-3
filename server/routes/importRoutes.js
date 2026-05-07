@@ -41,6 +41,8 @@ const {
   searchNotionItems,
   searchNotionPreviewItems
 } = require('../services/import/notionClient');
+const { createWikiSourceEvent } = require('../services/wikiSourceEventService');
+const { processWikiSourceEvent: defaultProcessWikiSourceEvent } = require('../services/wikiMaintenanceOrchestrator');
 
 const toTrimmedString = (value = '') => String(value || '').trim();
 const normalizeSourcePath = (value = '') => {
@@ -70,6 +72,12 @@ const buildImportRouter = ({
   crypto,
   TagMeta,
   NotebookEntry,
+  WikiPage = null,
+  WikiRevision = null,
+  WikiSourceEvent = null,
+  WikiMaintenanceRun = null,
+  ConnectorActionLog = null,
+  Question = null,
   AgentStructureProposal,
   ImportSession,
   IntegrationConnection,
@@ -79,6 +87,59 @@ const buildImportRouter = ({
   enqueueNotebookEmbedding
 }) => {
   const router = express.Router();
+
+  const emitWikiSourceEvent = async (payload = {}) => {
+    try {
+      const event = await createWikiSourceEvent({
+        WikiSourceEvent,
+        userId: payload.userId,
+        sourceType: payload.sourceType,
+        sourceObjectId: payload.sourceObjectId,
+        parentObjectId: payload.parentObjectId,
+        provider: payload.provider,
+        eventType: payload.eventType || 'imported',
+        title: payload.title,
+        summary: payload.summary,
+        url: payload.url,
+        sourceUpdatedAt: payload.sourceUpdatedAt,
+        metadata: payload.metadata
+      });
+      if (event && WikiPage) {
+        defaultProcessWikiSourceEvent({
+          sourceEvent: event,
+          userId: payload.userId,
+          models: { WikiSourceEvent, WikiPage, WikiRevision, WikiMaintenanceRun, Article, NotebookEntry, TagMeta, Question }
+        }).catch(error => console.error('Failed processing wiki source event:', error));
+      }
+      return event;
+    } catch (error) {
+      console.error('Failed creating wiki source event:', error);
+      return null;
+    }
+  };
+
+  const logConnectorAction = async (payload = {}) => {
+    if (!ConnectorActionLog || !payload.userId || !payload.connector || !payload.action) return null;
+    try {
+      const log = new ConnectorActionLog({
+        userId: payload.userId,
+        connector: payload.connector,
+        action: payload.action,
+        direction: payload.direction || 'read',
+        status: payload.status || 'completed',
+        targetType: payload.targetType || '',
+        targetId: payload.targetId || '',
+        summary: payload.summary || '',
+        errorMessage: payload.errorMessage || '',
+        metadata: payload.metadata || {}
+      });
+      await log.save();
+      return log;
+    } catch (error) {
+      console.error('Failed writing connector action log:', error);
+      return null;
+    }
+  };
 
   const patchImportSession = async ({ sessionId, userId, mutate }) => {
     const safeSessionId = toTrimmedString(sessionId);
@@ -433,6 +494,17 @@ const buildImportRouter = ({
       if (updatedAt) existing.updatedAt = updatedAt;
       await existing.save();
       await syncNotebookReferences(userId, existing._id, blocks);
+      await emitWikiSourceEvent({
+        userId,
+        sourceType: 'notebook',
+        sourceObjectId: existing._id,
+        provider,
+        eventType: 'updated',
+        title,
+        summary: content,
+        sourceUpdatedAt: updatedAt || new Date(),
+        metadata: { importMeta: nextImportMeta }
+      });
       return { entry: existing, created: false, updated: true };
     }
 
@@ -449,6 +521,17 @@ const buildImportRouter = ({
     if (updatedAt) entry.updatedAt = updatedAt;
     await entry.save();
     await syncNotebookReferences(userId, entry._id, blocks);
+    await emitWikiSourceEvent({
+      userId,
+      sourceType: 'notebook',
+      sourceObjectId: entry._id,
+      provider,
+      eventType: 'imported',
+      title,
+      summary: content,
+      sourceUpdatedAt: updatedAt || createdAt || new Date(),
+      metadata: { importMeta: nextImportMeta }
+    });
     return { entry, created: true, updated: false };
   };
 
@@ -780,6 +863,40 @@ const buildImportRouter = ({
       }
 
       await Promise.all(Array.from(dirtyArticles).map(article => article.save()));
+      await Promise.all(Array.from(dirtyArticles).map(article => emitWikiSourceEvent({
+        userId,
+        sourceType: 'article',
+        sourceObjectId: article._id,
+        provider: 'readwise',
+        eventType: 'imported',
+        title: article.title,
+        summary: article.content || '',
+        url: article.url,
+        sourceUpdatedAt: article.updatedAt || new Date(),
+        metadata: { source: 'readwise-csv', importSessionId }
+      })));
+      await Promise.all(pendingHighlightRefs.map(({ article, highlight }) => emitWikiSourceEvent({
+        userId,
+        sourceType: 'highlight',
+        sourceObjectId: highlight._id,
+        parentObjectId: article._id,
+        provider: 'readwise',
+        eventType: 'imported',
+        title: article.title,
+        summary: [highlight.text, highlight.note].filter(Boolean).join(' - '),
+        url: article.url,
+        sourceUpdatedAt: highlight.createdAt || article.updatedAt || new Date(),
+        metadata: { source: 'readwise-csv', importSessionId }
+      })));
+      await logConnectorAction({
+        userId,
+        connector: 'readwise',
+        action: 'import_csv',
+        targetType: 'import_session',
+        targetId: importSessionId || '',
+        summary: `Imported ${importedHighlights} Readwise highlights.`,
+        metadata: { importedArticles, importedHighlights, skippedRows }
+      });
 
       const indexing = buildIndexingSummary();
       Array.from(dirtyArticles).forEach((article) => {
@@ -1182,6 +1299,40 @@ const buildImportRouter = ({
       }
 
       await Promise.all(Array.from(dirtyArticles).map(article => article.save()));
+      await Promise.all(Array.from(dirtyArticles).map(article => emitWikiSourceEvent({
+        userId,
+        sourceType: 'article',
+        sourceObjectId: article._id,
+        provider: 'readwise',
+        eventType: 'synced',
+        title: article.title,
+        summary: article.content || '',
+        url: article.url,
+        sourceUpdatedAt: article.updatedAt || new Date(),
+        metadata: { source: 'readwise-api', importSessionId }
+      })));
+      await Promise.all(pendingHighlightRefs.map(({ article, highlight }) => emitWikiSourceEvent({
+        userId,
+        sourceType: 'highlight',
+        sourceObjectId: highlight._id,
+        parentObjectId: article._id,
+        provider: 'readwise',
+        eventType: 'synced',
+        title: article.title,
+        summary: [highlight.text, highlight.note].filter(Boolean).join(' - '),
+        url: article.url,
+        sourceUpdatedAt: highlight.createdAt || article.updatedAt || new Date(),
+        metadata: { source: 'readwise-api', importSessionId }
+      })));
+      await logConnectorAction({
+        userId,
+        connector: 'readwise',
+        action: 'sync',
+        targetType: 'import_session',
+        targetId: importSessionId || '',
+        summary: `Synced ${importedHighlights} Readwise highlights.`,
+        metadata: { importedArticles, importedHighlights, skippedRows }
+      });
 
       const indexing = buildIndexingSummary();
       Array.from(dirtyArticles).forEach((article) => {

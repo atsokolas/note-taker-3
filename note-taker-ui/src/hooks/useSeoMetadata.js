@@ -119,7 +119,11 @@ const useSeoMetadata = ({
         schemaNode.id = 'seo-schema';
         document.head.appendChild(schemaNode);
       }
-      schemaNode.textContent = JSON.stringify(schema);
+      schemaNode.textContent = JSON.stringify(
+        Array.isArray(schema)
+          ? { '@context': 'https://schema.org', '@graph': schema.map(({ '@context': _context, ...entry }) => entry) }
+          : schema
+      );
     }
 
     return () => {

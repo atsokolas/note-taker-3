@@ -5,6 +5,8 @@ const {
   normalizeHighlightColor,
   serializeHighlightWithArticle
 } = require('../utils/highlightUtils');
+const { createWikiSourceEvent } = require('../services/wikiSourceEventService');
+const { processWikiSourceEvent } = require('../services/wikiMaintenanceOrchestrator');
 
 const buildHighlightMutationRouter = ({
   mongoose,
@@ -19,9 +21,31 @@ const buildHighlightMutationRouter = ({
   normalizeItemType,
   parseClaimId,
   buildEmbeddingId,
-  queueEmbeddingDelete
+  queueEmbeddingDelete,
+  WikiPage = null,
+  WikiRevision = null,
+  WikiSourceEvent = null,
+  WikiMaintenanceRun = null,
+  NotebookEntry = null,
+  TagMeta = null,
+  Question = null
 }) => {
   const router = express.Router();
+
+  const emitWikiSourceEvent = async (payload = {}) => {
+    try {
+      const event = await createWikiSourceEvent({ WikiSourceEvent, ...payload });
+      if (event && WikiPage) {
+        processWikiSourceEvent({
+          sourceEvent: event,
+          userId: payload.userId,
+          models: { WikiSourceEvent, WikiPage, WikiRevision, WikiMaintenanceRun, Article, NotebookEntry, TagMeta, Question }
+        }).catch(error => console.error('Failed processing wiki source event:', error));
+      }
+    } catch (error) {
+      console.error('Failed creating wiki source event:', error);
+    }
+  };
 
   router.get('/api/resurface', authenticateToken, async (req, res) => {
     try {
@@ -103,6 +127,19 @@ const buildHighlightMutationRouter = ({
         );
         if (highlightItem) queueEmbeddingUpsert([highlightItem]);
         await markTourSignal(req.user.id, 'firstHighlightCaptured', 'highlight_captured');
+        await emitWikiSourceEvent({
+          userId,
+          sourceType: 'highlight',
+          sourceObjectId: createdHighlight._id,
+          parentObjectId: updatedArticle._id,
+          provider: 'library',
+          eventType: 'created',
+          title: updatedArticle.title,
+          summary: [createdHighlight.text, createdHighlight.note].filter(Boolean).join(' - '),
+          url: updatedArticle.url,
+          sourceUpdatedAt: createdHighlight.createdAt || updatedArticle.updatedAt || new Date(),
+          metadata: { route: 'add-highlight' }
+        });
       }
       res.status(200).json({ article: updatedArticle, highlight: createdHighlight });
     } catch (error) {
@@ -179,6 +216,19 @@ const buildHighlightMutationRouter = ({
           'highlight'
         );
         if (highlightItem) queueEmbeddingUpsert([highlightItem]);
+        await emitWikiSourceEvent({
+          userId,
+          sourceType: 'highlight',
+          sourceObjectId: updatedHighlight._id,
+          parentObjectId: refreshed._id,
+          provider: 'library',
+          eventType: 'updated',
+          title: refreshed.title,
+          summary: [updatedHighlight.text, updatedHighlight.note].filter(Boolean).join(' - '),
+          url: refreshed.url,
+          sourceUpdatedAt: refreshed.updatedAt || new Date(),
+          metadata: { route: 'update-highlight' }
+        });
         res.status(200).json(
           serializeHighlightWithArticle(refreshed, updatedHighlight, {
             includeAnchor: true,

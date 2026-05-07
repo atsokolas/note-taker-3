@@ -296,6 +296,36 @@ const wikiSourceRefSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now }
 }, { _id: true });
 
+const wikiCitationSchema = new mongoose.Schema({
+  sourceRefId: { type: mongoose.Schema.Types.ObjectId, default: null },
+  sourceType: { type: String, default: '', trim: true },
+  sourceObjectId: { type: mongoose.Schema.Types.ObjectId, default: null },
+  sourceTitle: { type: String, default: '', trim: true },
+  quote: { type: String, default: '', trim: true },
+  url: { type: String, default: '', trim: true },
+  confidence: { type: Number, min: 0, max: 1, default: 0.5 },
+  createdAt: { type: Date, default: Date.now }
+}, { _id: true });
+
+const wikiClaimSchema = new mongoose.Schema({
+  claimId: { type: String, required: true, trim: true },
+  text: { type: String, required: true, trim: true },
+  section: { type: String, default: '', trim: true },
+  support: { type: String, enum: ['supported', 'partial', 'unsupported', 'conflicted'], default: 'unsupported' },
+  citationIds: { type: [mongoose.Schema.Types.ObjectId], default: [] },
+  lastReviewedAt: { type: Date, default: null },
+  createdAt: { type: Date, default: Date.now }
+}, { _id: false });
+
+const wikiFreshnessSchema = new mongoose.Schema({
+  status: { type: String, enum: ['fresh', 'needs_review', 'stale', 'conflicted'], default: 'fresh' },
+  lastSourceEventAt: { type: Date, default: null },
+  lastMaintainedAt: { type: Date, default: null },
+  pendingSourceEventIds: { type: [mongoose.Schema.Types.ObjectId], default: [] },
+  conflictCount: { type: Number, default: 0 },
+  staleSectionCount: { type: Number, default: 0 }
+}, { _id: false });
+
 const wikiAiStateSchema = new mongoose.Schema({
   draftStatus: { type: String, enum: ['idle', 'drafting', 'maintaining', 'ready', 'error'], default: 'idle' },
   draftRequestedAt: { type: Date, default: null },
@@ -377,6 +407,9 @@ const wikiPageSchema = new mongoose.Schema({
   },
   plainText: { type: String, default: '', trim: true },
   sourceRefs: { type: [wikiSourceRefSchema], default: [] },
+  claims: { type: [wikiClaimSchema], default: [] },
+  citations: { type: [wikiCitationSchema], default: [] },
+  freshness: { type: wikiFreshnessSchema, default: () => ({}) },
   discussions: { type: [wikiDiscussionSchema], default: [] },
   aiState: { type: wikiAiStateSchema, default: () => ({}) }
 }, { timestamps: true });
@@ -387,6 +420,79 @@ wikiPageSchema.index({ userId: 1, visibility: 1, updatedAt: -1 });
 wikiPageSchema.index({ userId: 1, slug: 1 }, { unique: true });
 
 const WikiPage = mongoose.model('WikiPage', wikiPageSchema);
+
+const wikiRevisionSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+  pageId: { type: mongoose.Schema.Types.ObjectId, ref: 'WikiPage', required: true, index: true },
+  reason: { type: String, enum: ['created', 'user_edit', 'agent_maintenance', 'source_event', 'archived'], default: 'user_edit' },
+  actorType: { type: String, enum: ['user', 'agent', 'system'], default: 'user' },
+  sourceEventId: { type: mongoose.Schema.Types.ObjectId, ref: 'WikiSourceEvent', default: null },
+  maintenanceRunId: { type: mongoose.Schema.Types.ObjectId, ref: 'WikiMaintenanceRun', default: null },
+  before: { type: mongoose.Schema.Types.Mixed, default: null },
+  after: { type: mongoose.Schema.Types.Mixed, default: null },
+  summary: { type: String, default: '', trim: true }
+}, { timestamps: true });
+
+wikiRevisionSchema.index({ userId: 1, pageId: 1, createdAt: -1 });
+
+const WikiRevision = mongoose.model('WikiRevision', wikiRevisionSchema);
+
+const wikiSourceEventSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+  sourceType: { type: String, enum: ['article', 'highlight', 'notebook', 'concept', 'question', 'memory', 'external'], required: true },
+  sourceObjectId: { type: mongoose.Schema.Types.ObjectId, default: null, index: true },
+  parentObjectId: { type: mongoose.Schema.Types.ObjectId, default: null },
+  provider: { type: String, default: '', trim: true, index: true },
+  eventType: { type: String, enum: ['created', 'updated', 'deleted', 'imported', 'synced'], default: 'updated' },
+  title: { type: String, default: '', trim: true },
+  summary: { type: String, default: '', trim: true },
+  url: { type: String, default: '', trim: true },
+  sourceUpdatedAt: { type: Date, default: null },
+  status: { type: String, enum: ['pending', 'processing', 'processed', 'failed', 'ignored'], default: 'pending', index: true },
+  affectedPageIds: { type: [mongoose.Schema.Types.ObjectId], default: [] },
+  processedAt: { type: Date, default: null },
+  errorMessage: { type: String, default: '', trim: true },
+  metadata: { type: mongoose.Schema.Types.Mixed, default: () => ({}) }
+}, { timestamps: true });
+
+wikiSourceEventSchema.index({ userId: 1, status: 1, createdAt: -1 });
+wikiSourceEventSchema.index({ userId: 1, sourceType: 1, sourceObjectId: 1, eventType: 1 });
+
+const WikiSourceEvent = mongoose.model('WikiSourceEvent', wikiSourceEventSchema);
+
+const wikiMaintenanceRunSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+  pageId: { type: mongoose.Schema.Types.ObjectId, ref: 'WikiPage', default: null, index: true },
+  sourceEventId: { type: mongoose.Schema.Types.ObjectId, ref: 'WikiSourceEvent', default: null, index: true },
+  status: { type: String, enum: ['queued', 'running', 'completed', 'failed', 'needs_review'], default: 'queued', index: true },
+  trigger: { type: String, enum: ['manual', 'source_event', 'batch'], default: 'manual' },
+  summary: { type: String, default: '', trim: true },
+  errorMessage: { type: String, default: '', trim: true },
+  startedAt: { type: Date, default: null },
+  completedAt: { type: Date, default: null },
+  metadata: { type: mongoose.Schema.Types.Mixed, default: () => ({}) }
+}, { timestamps: true });
+
+wikiMaintenanceRunSchema.index({ userId: 1, status: 1, createdAt: -1 });
+
+const WikiMaintenanceRun = mongoose.model('WikiMaintenanceRun', wikiMaintenanceRunSchema);
+
+const connectorActionLogSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+  connector: { type: String, required: true, trim: true, index: true },
+  action: { type: String, required: true, trim: true },
+  direction: { type: String, enum: ['read', 'write'], default: 'read' },
+  status: { type: String, enum: ['pending', 'completed', 'failed', 'skipped'], default: 'completed', index: true },
+  targetType: { type: String, default: '', trim: true },
+  targetId: { type: String, default: '', trim: true },
+  summary: { type: String, default: '', trim: true },
+  errorMessage: { type: String, default: '', trim: true },
+  metadata: { type: mongoose.Schema.Types.Mixed, default: () => ({}) }
+}, { timestamps: true });
+
+connectorActionLogSchema.index({ userId: 1, connector: 1, createdAt: -1 });
+
+const ConnectorActionLog = mongoose.model('ConnectorActionLog', connectorActionLogSchema);
 
 const conceptLayoutSectionSchema = new mongoose.Schema({
   id: { type: String, required: true, trim: true },
@@ -1466,6 +1572,10 @@ module.exports = {
   NotebookEntry,
   NotebookFolder,
   WikiPage,
+  WikiRevision,
+  WikiSourceEvent,
+  WikiMaintenanceRun,
+  ConnectorActionLog,
   TagMeta,
   ConceptNote,
   Question,

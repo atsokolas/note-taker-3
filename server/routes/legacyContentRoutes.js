@@ -1,5 +1,7 @@
 const express = require('express');
 const { serializeHighlightWithArticle } = require('../utils/highlightUtils');
+const { createWikiSourceEvent } = require('../services/wikiSourceEventService');
+const { processWikiSourceEvent } = require('../services/wikiMaintenanceOrchestrator');
 
 const buildLegacyContentRouter = ({
   authenticateToken,
@@ -16,9 +18,31 @@ const buildLegacyContentRouter = ({
   getFoldersWithCounts,
   normalizeItemType,
   buildEmbeddingId,
-  queueEmbeddingDelete
+  queueEmbeddingDelete,
+  WikiPage = null,
+  WikiRevision = null,
+  WikiSourceEvent = null,
+  WikiMaintenanceRun = null,
+  NotebookEntry = null,
+  TagMeta = null,
+  Question = null
 }) => {
   const router = express.Router();
+
+  const emitWikiSourceEvent = async (payload = {}) => {
+    try {
+      const event = await createWikiSourceEvent({ WikiSourceEvent, ...payload });
+      if (event && WikiPage) {
+        processWikiSourceEvent({
+          sourceEvent: event,
+          userId: payload.userId,
+          models: { WikiSourceEvent, WikiPage, WikiRevision, WikiMaintenanceRun, Article, NotebookEntry, TagMeta, Question }
+        }).catch(error => console.error('Failed processing wiki source event:', error));
+      }
+    } catch (error) {
+      console.error('Failed creating wiki source event:', error);
+    }
+  };
 
   const clampListLimit = (value, fallback = 1000, max = 1000) => {
     const parsed = Number(value);
@@ -166,6 +190,18 @@ const buildLegacyContentRouter = ({
       if (Array.isArray(articleItems)) {
         queueEmbeddingUpsert(articleItems);
       }
+      await emitWikiSourceEvent({
+        userId,
+        sourceType: 'article',
+        sourceObjectId: updatedArticle._id,
+        provider: 'library',
+        eventType: 'updated',
+        title: updatedArticle.title,
+        summary: updatedArticle.content || '',
+        url: updatedArticle.url,
+        sourceUpdatedAt: updatedArticle.updatedAt || new Date(),
+        metadata: { route: 'save-article' }
+      });
       res.status(200).json(updatedArticle);
     } catch (error) {
       console.error("❌ Error in /save-article:", error);
@@ -479,6 +515,18 @@ const buildLegacyContentRouter = ({
       if (!updatedArticle) {
         return res.status(404).json({ error: "Article not found or you do not have permission to modify it." });
       }
+      await emitWikiSourceEvent({
+        userId,
+        sourceType: 'article',
+        sourceObjectId: updatedArticle._id,
+        provider: 'library',
+        eventType: 'updated',
+        title: updatedArticle.title,
+        summary: `${normalizedPdfs.length} PDFs attached.`,
+        url: updatedArticle.url,
+        sourceUpdatedAt: updatedArticle.updatedAt || new Date(),
+        metadata: { route: 'article-pdfs', pdfCount: normalizedPdfs.length }
+      });
 
       res.status(200).json(updatedArticle);
     } catch (error) {

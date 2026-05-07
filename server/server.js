@@ -118,6 +118,10 @@ const {
   ImportSession,
   SharedConcept,
   WikiPage,
+  WikiRevision,
+  WikiSourceEvent,
+  WikiMaintenanceRun,
+  ConnectorActionLog,
   dropLegacyConnectionIndex
 } = require('./models/index');
 
@@ -4161,7 +4165,14 @@ app.use(buildLegacyContentRouter({
   getFoldersWithCounts,
   normalizeItemType,
   buildEmbeddingId,
-  queueEmbeddingDelete
+  queueEmbeddingDelete,
+  WikiPage,
+  WikiRevision,
+  WikiSourceEvent,
+  WikiMaintenanceRun,
+  NotebookEntry,
+  TagMeta,
+  Question
 }));
 app.use(buildNotebookRouter({
   authenticateToken,
@@ -4178,12 +4189,23 @@ app.use(buildNotebookRouter({
   enqueueNotebookEmbedding,
   trackEvent,
   EVENT_NAMES,
-  findHighlightById
+  findHighlightById,
+  WikiPage,
+  WikiRevision,
+  WikiSourceEvent,
+  WikiMaintenanceRun,
+  Article,
+  TagMeta,
+  Question
 }));
 
 app.use(buildWikiRouter({
   authenticateToken,
   WikiPage,
+  WikiRevision,
+  WikiSourceEvent,
+  WikiMaintenanceRun,
+  ConnectorActionLog,
   Article,
   NotebookEntry,
   TagMeta,
@@ -5373,6 +5395,8 @@ app.use(buildAgentNotionFetchRouter({
   notionTransform: notionTransformForAgent,
   IntegrationConnection,
   NotebookEntry,
+  WikiSourceEvent,
+  ConnectorActionLog,
   decryptSecret: decryptIntegrationSecretForAgent
 }));
 
@@ -5867,6 +5891,12 @@ app.use(buildImportRouter({
   crypto,
   TagMeta,
   NotebookEntry,
+  WikiPage,
+  WikiRevision,
+  WikiSourceEvent,
+  WikiMaintenanceRun,
+  ConnectorActionLog,
+  Question,
   AgentStructureProposal,
   ImportSession,
   IntegrationConnection,
@@ -5933,7 +5963,14 @@ app.use(buildHighlightMutationRouter({
   normalizeItemType,
   parseClaimId,
   buildEmbeddingId,
-  queueEmbeddingDelete
+  queueEmbeddingDelete,
+  WikiPage,
+  WikiRevision,
+  WikiSourceEvent,
+  WikiMaintenanceRun,
+  NotebookEntry,
+  TagMeta,
+  Question
 }));
 
 app.use(buildAiMaintenanceRouter({

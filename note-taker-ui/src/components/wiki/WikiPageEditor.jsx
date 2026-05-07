@@ -21,6 +21,7 @@ import WikiBacklinkPanel from './WikiBacklinkPanel';
 import WikiChangesSinceLastVisit from './WikiChangesSinceLastVisit';
 import WikiDiscussions from './WikiDiscussions';
 import WikiPageMetaBar from './WikiPageMetaBar';
+import WikiPageActivityRail from './WikiPageActivityRail';
 import ClaimCitationPopover from './ClaimCitationPopover';
 import Claim, { SUPPORT_STATES } from './extensions/Claim';
 import { diffClaimSnapshots, extractClaimTexts, getLastVisitState, recordVisit } from './wikiVisitTracker';
@@ -377,6 +378,7 @@ const WikiPageEditor = ({ pageId }) => {
         </section>
         {sourcePanelOpen ? (
           <aside className="wiki-editor__rail" aria-label="AI, sources, and backlinks">
+            <WikiPageActivityRail pageId={pageId} page={page} />
             <WikiAiSourcePanel
               id="wiki-source-panel"
               page={page}
