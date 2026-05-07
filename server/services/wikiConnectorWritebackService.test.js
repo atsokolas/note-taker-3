@@ -34,6 +34,13 @@ const createLogModel = () => {
     ConnectorActionLog.records.push({ ...this });
     return this;
   };
+  ConnectorActionLog.findOne = () => ({
+    sort: () => ({
+      lean: async () => ConnectorActionLog.records
+        .filter(record => record.connector === 'notion' && record.status === 'completed')
+        .at(-1) || null
+    })
+  });
   return ConnectorActionLog;
 };
 
@@ -91,7 +98,34 @@ const run = async () => {
   });
   assert.strictEqual(result.ok, true);
   assert.strictEqual(result.page.id, 'notion-page-1');
+  assert.strictEqual(result.writeMode, 'created');
   assert.strictEqual(ConnectorActionLog.records.at(-1).status, 'completed');
+
+  let appendedTo = '';
+  let updatedTitle = '';
+  const updateResult = await writeWikiPageToConnector({
+    page,
+    userId: 'user-1',
+    connector: 'notion',
+    connectionId: 'conn-1',
+    models: { IntegrationConnection, ConnectorActionLog },
+    decryptSecret: (value) => `decrypted:${value}`,
+    createNotionPage: async () => {
+      throw new Error('should update existing page instead of creating');
+    },
+    updateNotionPageTitle: async ({ pageId, title }) => {
+      updatedTitle = `${pageId}:${title}`;
+      return {};
+    },
+    appendNotionBlockChildren: async ({ blockId, children }) => {
+      appendedTo = blockId;
+      assert.ok(children.length >= 3);
+      return {};
+    }
+  });
+  assert.strictEqual(updateResult.writeMode, 'updated');
+  assert.strictEqual(appendedTo, 'notion-page-1');
+  assert.strictEqual(updatedTitle, 'notion-page-1:Investing');
 };
 
 if (require.main === module) {

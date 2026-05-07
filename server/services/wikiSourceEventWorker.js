@@ -57,7 +57,46 @@ const processPendingWikiSourceEvents = async ({
   return results;
 };
 
+const dueSourceEventQuery = () => ({
+  status: { $in: ['pending', 'failed'] },
+  $or: [
+    { nextAttemptAt: null },
+    { nextAttemptAt: { $exists: false } },
+    { nextAttemptAt: { $lte: now() } }
+  ]
+});
+
+const drainWikiSourceEventQueue = async ({
+  models = {},
+  limit = 20,
+  perUserLimit = 5,
+  buildUniqueSlug = null
+} = {}) => {
+  const { WikiSourceEvent } = models;
+  if (!WikiSourceEvent) return { processed: 0, failed: 0, results: [] };
+  const max = Math.max(1, Math.min(Number(limit) || 20, 100));
+  const userIds = await WikiSourceEvent.distinct('userId', dueSourceEventQuery());
+  const results = [];
+  for (const userId of userIds) {
+    if (results.length >= max) break;
+    const remaining = max - results.length;
+    const next = await processPendingWikiSourceEvents({
+      userId,
+      models,
+      limit: Math.min(Math.max(1, Number(perUserLimit) || 5), remaining),
+      buildUniqueSlug
+    });
+    results.push(...next);
+  }
+  return {
+    processed: results.filter(result => !result.error).length,
+    failed: results.filter(result => result.error).length,
+    results
+  };
+};
+
 module.exports = {
   claimPendingWikiSourceEvents,
+  drainWikiSourceEventQueue,
   processPendingWikiSourceEvents
 };

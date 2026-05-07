@@ -169,13 +169,49 @@ const createNotionPage = async ({
   return response.data || {};
 };
 
+const updateNotionPageTitle = async ({ token, pageId, title }) => {
+  const safePageId = toTrimmedString(pageId);
+  if (!safePageId) return {};
+  const response = await axios.patch(`${NOTION_PAGES_URL}/${encodeURIComponent(safePageId)}`, {
+    properties: {
+      title: {
+        title: [{
+          type: 'text',
+          text: {
+            content: toTrimmedString(title) || 'Untitled'
+          }
+        }]
+      }
+    }
+  }, {
+    headers: notionHeaders(token),
+    timeout: 20000
+  });
+  return response.data || {};
+};
+
+const appendNotionBlockChildren = async ({ token, blockId, children = [] }) => {
+  const safeBlockId = toTrimmedString(blockId);
+  if (!safeBlockId) return {};
+  const safeChildren = Array.isArray(children) ? children.slice(0, 100) : [];
+  const response = await axios.patch(`${NOTION_BLOCK_CHILDREN_BASE_URL}/${encodeURIComponent(safeBlockId)}/children`, {
+    children: safeChildren
+  }, {
+    headers: notionHeaders(token),
+    timeout: 20000
+  });
+  return response.data || {};
+};
+
 module.exports = {
   NOTION_AUTHORIZE_URL,
+  appendNotionBlockChildren,
   createNotionPage,
   exchangeNotionCode,
   fetchNotionBlockChildren,
   queryNotionDataSourcePages,
   queryNotionDataSourcePreviewPages,
   searchNotionItems,
-  searchNotionPreviewItems
+  searchNotionPreviewItems,
+  updateNotionPageTitle
 };

@@ -124,6 +124,7 @@ const {
   ConnectorActionLog,
   dropLegacyConnectionIndex
 } = require('./models/index');
+const { drainWikiSourceEventQueue } = require('./services/wikiSourceEventWorker');
 
 if (mongoose.connection.readyState === 1) {
   dropLegacyConnectionIndex();
@@ -131,6 +132,50 @@ if (mongoose.connection.readyState === 1) {
   mongoose.connection.once('open', () => {
     dropLegacyConnectionIndex();
   });
+}
+
+let wikiSourceEventWorkerTimer = null;
+let wikiSourceEventWorkerRunning = false;
+
+const runWikiSourceEventWorker = async () => {
+  if (wikiSourceEventWorkerRunning || mongoose.connection.readyState !== 1) return;
+  wikiSourceEventWorkerRunning = true;
+  try {
+    const result = await drainWikiSourceEventQueue({
+      models: {
+        WikiSourceEvent,
+        WikiPage,
+        WikiRevision,
+        WikiMaintenanceRun,
+        Article,
+        NotebookEntry,
+        TagMeta,
+        Question
+      },
+      limit: Number(process.env.WIKI_SOURCE_EVENT_WORKER_BATCH_SIZE || 10),
+      perUserLimit: Number(process.env.WIKI_SOURCE_EVENT_WORKER_PER_USER || 3)
+    });
+    if (result.processed || result.failed) {
+      console.log(`[wiki-worker] processed=${result.processed} failed=${result.failed}`);
+    }
+  } catch (error) {
+    console.error('[wiki-worker] failed to drain source events:', error);
+  } finally {
+    wikiSourceEventWorkerRunning = false;
+  }
+};
+
+const startWikiSourceEventWorker = () => {
+  if (process.env.WIKI_SOURCE_EVENT_WORKER_DISABLED === 'true' || wikiSourceEventWorkerTimer) return;
+  const intervalMs = Math.max(15000, Number(process.env.WIKI_SOURCE_EVENT_WORKER_INTERVAL_MS || 60000));
+  wikiSourceEventWorkerTimer = setInterval(runWikiSourceEventWorker, intervalMs);
+  runWikiSourceEventWorker();
+};
+
+if (mongoose.connection.readyState === 1) {
+  startWikiSourceEventWorker();
+} else {
+  mongoose.connection.once('open', startWikiSourceEventWorker);
 }
 const { buildFolderService } = require('./services/folderService');
 const { getFoldersWithCounts } = buildFolderService({ Folder, Article, mongoose });
@@ -4212,6 +4257,8 @@ app.use(buildWikiRouter({
   TagMeta,
   Question,
   createNotionPage: notionClientForAgent.createNotionPage,
+  appendNotionBlockChildren: notionClientForAgent.appendNotionBlockChildren,
+  updateNotionPageTitle: notionClientForAgent.updateNotionPageTitle,
   decryptSecret: decryptIntegrationSecretForAgent
 }));
 

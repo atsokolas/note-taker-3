@@ -90,8 +90,11 @@ const writeWikiPageToConnector = async ({
   connector,
   connectionId = '',
   parentPageId = '',
+  notionPageId = '',
   models = {},
   createNotionPage,
+  appendNotionBlockChildren,
+  updateNotionPageTitle,
   decryptSecret
 } = {}) => {
   const {
@@ -144,18 +147,46 @@ const writeWikiPageToConnector = async ({
   }
 
   const bodyBlocks = tiptapToNotionBlocks(page.body).slice(0, 90);
+  const syncStamp = new Date().toISOString();
   const children = [
-    notionBlock('paragraph', `Synced from Noeis Wiki. Status: ${page.status || 'draft'}.`),
+    notionBlock('paragraph', `Synced from Noeis Wiki at ${syncStamp}. Status: ${page.status || 'draft'}.`),
     ...bodyBlocks
   ].filter(block => Array.isArray(block?.[block.type]?.rich_text) && block[block.type].rich_text.length > 0).slice(0, 100);
 
   try {
-    const notionPage = await createNotionPage({
-      token: decryptSecret(connection.encryptedAccessToken),
-      title: page.title || 'Untitled Wiki Page',
-      children,
-      parentPageId
-    });
+    const token = decryptSecret(connection.encryptedAccessToken);
+    const explicitPageId = String(notionPageId || '').trim();
+    let existingPageId = explicitPageId;
+    if (!existingPageId && ConnectorActionLog?.findOne) {
+      const previous = await ConnectorActionLog.findOne({
+        userId,
+        connector: 'notion',
+        action: 'wiki_writeback',
+        status: 'completed',
+        targetType: 'wiki_page',
+        targetId: String(page._id || ''),
+        'metadata.notionPageId': { $nin: ['', null] }
+      }).sort({ createdAt: -1 }).lean();
+      existingPageId = String(previous?.metadata?.notionPageId || '').trim();
+    }
+
+    let notionPage = null;
+    let writeMode = 'created';
+    if (existingPageId && appendNotionBlockChildren) {
+      if (updateNotionPageTitle) {
+        await updateNotionPageTitle({ token, pageId: existingPageId, title: page.title || 'Untitled Wiki Page' });
+      }
+      await appendNotionBlockChildren({ token, blockId: existingPageId, children });
+      notionPage = { id: existingPageId, url: `https://www.notion.so/${existingPageId.replace(/-/g, '')}` };
+      writeMode = 'updated';
+    } else {
+      notionPage = await createNotionPage({
+        token,
+        title: page.title || 'Untitled Wiki Page',
+        children,
+        parentPageId
+      });
+    }
     connection.lastSyncAt = new Date();
     connection.health = 'healthy';
     connection.status = 'connected';
@@ -169,12 +200,13 @@ const writeWikiPageToConnector = async ({
       status: 'completed',
       targetType: 'wiki_page',
       targetId: String(page._id || ''),
-      summary: `Wrote "${page.title || 'Untitled Wiki Page'}" to Notion.`,
-      metadata: { notionPageId: notionPage?.id || '', notionUrl: notionPage?.url || '' }
+      summary: `${writeMode === 'updated' ? 'Updated' : 'Wrote'} "${page.title || 'Untitled Wiki Page'}" in Notion.`,
+      metadata: { notionPageId: notionPage?.id || '', notionUrl: notionPage?.url || '', writeMode }
     });
     return {
       ok: true,
       connector: 'notion',
+      writeMode,
       page: {
         id: notionPage?.id || '',
         url: notionPage?.url || '',

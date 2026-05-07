@@ -247,6 +247,8 @@ const buildWikiRouter = ({
   TagMeta = null,
   Question = null,
   createNotionPage = null,
+  appendNotionBlockChildren = null,
+  updateNotionPageTitle = null,
   decryptSecret = null,
   maintainWikiPage = defaultMaintainWikiPage,
   askWikiPage = defaultAskWikiPage,
@@ -716,8 +718,11 @@ const buildWikiRouter = ({
         connector: req.params.connector,
         connectionId: req.body?.connectionId,
         parentPageId: req.body?.parentPageId,
+        notionPageId: req.body?.notionPageId,
         models: { IntegrationConnection, ConnectorActionLog },
         createNotionPage,
+        appendNotionBlockChildren,
+        updateNotionPageTitle,
         decryptSecret
       });
       res.status(201).json(result);
