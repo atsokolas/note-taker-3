@@ -4905,3 +4905,178 @@ html[data-ui-theme='dark'] .wiki-changes-banner__group--removed .wiki-changes-ba
     width: 100%;
   }
 }
+
+/* Wiki daily briefing card -----------------------------------------------
+   Top-of-index editorial briefing. Shows a 1-3 sentence agent summary,
+   three signal chips, and (when populated) the drifting / recently-
+   updated rails as one-tap shortcuts. */
+
+.wiki-briefing {
+  display: grid;
+  gap: 14px;
+  margin: 0 auto 28px;
+  padding: 22px 24px;
+  border: 1px solid var(--vellum-line-strong);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--vellum-warm) 4%, var(--vellum-panel));
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  max-width: 920px;
+  width: min(920px, calc(100% - 0px));
+}
+
+.wiki-briefing--loading {
+  min-height: 116px;
+}
+
+.wiki-briefing__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.wiki-briefing__eyebrow {
+  font-size: 0.62rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  font-weight: 700;
+  color: var(--vellum-warm);
+}
+
+.wiki-briefing__meta {
+  font-size: 0.74rem;
+  color: var(--vellum-subtle);
+}
+
+.wiki-briefing__summary {
+  margin: 0;
+  font-family: "Newsreader", Georgia, serif;
+  font-size: 1.18rem;
+  line-height: 1.45;
+  color: var(--vellum-ink);
+  letter-spacing: -0.005em;
+}
+
+.wiki-briefing__chips {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.wiki-briefing__chip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: var(--vellum-bg);
+  border: 1px solid var(--vellum-line);
+  font-size: 0.78rem;
+  color: var(--vellum-muted);
+}
+
+.wiki-briefing__chip strong {
+  font-weight: 700;
+  color: var(--vellum-ink);
+  font-family: -apple-system, BlinkMacSystemFont, "SF Mono", Menlo, monospace;
+  font-size: 0.84rem;
+}
+
+.wiki-briefing__chip--positive { border-color: color-mix(in srgb, #4f8c5a 30%, var(--vellum-line)); }
+.wiki-briefing__chip--positive strong { color: #4f8c5a; }
+.wiki-briefing__chip--warning  { border-color: color-mix(in srgb, #b1862e 35%, var(--vellum-line)); }
+.wiki-briefing__chip--warning strong { color: #b1862e; }
+
+html[data-ui-theme='dark'] .wiki-briefing__chip--positive strong { color: #7fb088; }
+html[data-ui-theme='dark'] .wiki-briefing__chip--warning  strong { color: #d6a86b; }
+
+.wiki-briefing__group {
+  display: grid;
+  gap: 8px;
+  padding: 14px 16px;
+  border-radius: 10px;
+  background: var(--vellum-bg);
+  border: 1px solid var(--vellum-line);
+}
+
+.wiki-briefing__group-title {
+  margin: 0;
+  font-size: 0.66rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  font-weight: 700;
+  color: var(--vellum-subtle);
+}
+
+.wiki-briefing__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.wiki-briefing__preview {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--vellum-panel) 60%, transparent);
+  border: 1px solid color-mix(in srgb, var(--vellum-line) 60%, transparent);
+  text-decoration: none;
+  color: var(--vellum-ink);
+  transition: background-color 140ms ease-out, border-color 140ms ease-out;
+}
+
+.wiki-briefing__preview:hover,
+.wiki-briefing__preview:focus-visible {
+  background: color-mix(in srgb, var(--vellum-warm) 6%, var(--vellum-panel));
+  border-color: color-mix(in srgb, var(--vellum-warm) 30%, var(--vellum-line));
+  outline: none;
+}
+
+.wiki-briefing__preview--static {
+  cursor: default;
+}
+
+.wiki-briefing__preview-title {
+  font-family: "Newsreader", Georgia, serif;
+  font-weight: 600;
+  font-size: 0.98rem;
+  color: var(--vellum-ink);
+  line-height: 1.3;
+}
+
+.wiki-briefing__preview-sub {
+  font-size: 0.78rem;
+  color: var(--vellum-muted);
+}
+
+.wiki-briefing__skeleton {
+  display: grid;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.wiki-briefing__skeleton-line {
+  height: 16px;
+  border-radius: 6px;
+  background: linear-gradient(90deg,
+    color-mix(in srgb, var(--vellum-line) 60%, transparent) 0%,
+    color-mix(in srgb, var(--vellum-line) 30%, transparent) 50%,
+    color-mix(in srgb, var(--vellum-line) 60%, transparent) 100%);
+  background-size: 220% 100%;
+  animation: wikiBriefingShimmer 1.4s ease-in-out infinite;
+}
+
+.wiki-briefing__skeleton-line--short { width: 60%; }
+
+@keyframes wikiBriefingShimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -50% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wiki-briefing__skeleton-line { animation: none; }
+}
