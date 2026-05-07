@@ -12,7 +12,7 @@ const pageMatchesEvent = (page, event) => {
     page.createdFrom?.text,
     ...(Array.isArray(page.sourceRefs) ? page.sourceRefs.flatMap(source => [source.title, source.snippet]) : [])
   ].filter(Boolean).join(' ').toLowerCase();
-  const terms = [event.title, event.summary]
+  const terms = [event.title, event.summary, event.text]
     .join(' ')
     .toLowerCase()
     .split(/[^a-z0-9]+/)
@@ -192,6 +192,8 @@ const processWikiSourceEvent = async ({
   } catch (error) {
     event.status = 'failed';
     event.errorMessage = error.message || 'Failed to process wiki source event.';
+    event.lockedAt = null;
+    event.nextAttemptAt = new Date(Date.now() + Math.min(60, Math.max(5, Number(event.attemptCount || 1) * 10)) * 60 * 1000);
     await event.save();
     if (run) {
       run.status = 'failed';

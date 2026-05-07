@@ -4,6 +4,11 @@ const { maintainWikiPage: defaultMaintainWikiPage } = require('../services/wikiM
 const { askWikiPage: defaultAskWikiPage } = require('../services/wikiAskService');
 const { buildWikiBriefing: defaultBuildWikiBriefing } = require('../services/wikiBriefingService');
 const { findWikiBacklinks: defaultFindWikiBacklinks } = require('../services/wikiBacklinkService');
+const { createWikiRevision, snapshotPage } = require('../services/wikiRevisionService');
+const { listWikiSourceEvents } = require('../services/wikiSourceEventService');
+const { processWikiSourceEvent } = require('../services/wikiMaintenanceOrchestrator');
+const { processPendingWikiSourceEvents } = require('../services/wikiSourceEventWorker');
+const { writeWikiPageToConnector } = require('../services/wikiConnectorWritebackService');
 
 const PAGE_TYPES = new Set(['topic', 'question', 'project', 'source', 'person', 'synthesis']);
 const STATUSES = new Set(['draft', 'published', 'archived']);
@@ -232,10 +237,17 @@ const normalizeSourceRef = (value = {}) => {
 const buildWikiRouter = ({
   authenticateToken,
   WikiPage,
+  WikiRevision = null,
+  WikiSourceEvent = null,
+  WikiMaintenanceRun = null,
+  ConnectorActionLog = null,
+  IntegrationConnection = null,
   Article = null,
   NotebookEntry = null,
   TagMeta = null,
   Question = null,
+  createNotionPage = null,
+  decryptSecret = null,
   maintainWikiPage = defaultMaintainWikiPage,
   askWikiPage = defaultAskWikiPage,
   buildWikiBriefing = defaultBuildWikiBriefing,
@@ -269,6 +281,24 @@ const buildWikiRouter = ({
       return res.status(400).json({ error: 'Invalid wiki source id.' });
     }
     return next();
+  });
+
+  router.param('sourceEventId', (req, res, next, sourceEventId) => {
+    if (!mongoose.Types.ObjectId.isValid(String(sourceEventId || ''))) {
+      return res.status(400).json({ error: 'Invalid wiki source event id.' });
+    }
+    return next();
+  });
+
+  const wikiModels = () => ({
+    WikiSourceEvent,
+    WikiPage,
+    WikiRevision,
+    WikiMaintenanceRun,
+    Article,
+    NotebookEntry,
+    TagMeta,
+    Question
   });
 
   router.get('/api/wiki/pages', authenticateToken, async (req, res) => {
@@ -328,6 +358,14 @@ const buildWikiRouter = ({
         sourceRefs: initialSourceRef?.value ? [initialSourceRef.value] : []
       });
       await page.save();
+      await createWikiRevision({
+        WikiRevision,
+        userId: req.user.id,
+        page,
+        reason: 'created',
+        actorType: 'user',
+        summary: `Created "${page.title}".`
+      });
       res.status(201).json(serializeWikiPage(page));
     } catch (error) {
       console.error('Error creating wiki page:', error);
@@ -358,6 +396,7 @@ const buildWikiRouter = ({
 
       const page = await findOwnedPage(req);
       if (!page) return res.status(404).json({ error: 'Wiki page not found.' });
+      const before = snapshotPage(page);
 
       if (req.body?.title !== undefined) {
         page.title = normalizeTitle(req.body.title);
@@ -376,6 +415,15 @@ const buildWikiRouter = ({
       }
 
       await page.save();
+      await createWikiRevision({
+        WikiRevision,
+        userId: req.user.id,
+        page,
+        before,
+        reason: 'user_edit',
+        actorType: 'user',
+        summary: `Updated "${page.title}".`
+      });
       res.status(200).json(serializeWikiPage(page));
     } catch (error) {
       console.error('Error updating wiki page:', error);
@@ -385,12 +433,20 @@ const buildWikiRouter = ({
 
   router.delete('/api/wiki/pages/:id', authenticateToken, async (req, res) => {
     try {
-      const page = await WikiPage.findOneAndUpdate(
-        { _id: req.params.id, userId: req.user.id },
-        { status: 'archived' },
-        { new: true }
-      );
+      const page = await WikiPage.findOne({ _id: req.params.id, userId: req.user.id });
       if (!page) return res.status(404).json({ error: 'Wiki page not found.' });
+      const before = snapshotPage(page);
+      page.status = 'archived';
+      await page.save();
+      await createWikiRevision({
+        WikiRevision,
+        userId: req.user.id,
+        page,
+        before,
+        reason: 'archived',
+        actorType: 'user',
+        summary: `Archived "${page.title}".`
+      });
       res.status(200).json(serializeWikiPage(page));
     } catch (_error) {
       res.status(400).json({ error: 'Invalid wiki page id.' });
@@ -401,6 +457,7 @@ const buildWikiRouter = ({
     try {
       const page = await findOwnedPage(req);
       if (!page) return res.status(404).json({ error: 'Wiki page not found.' });
+      const before = snapshotPage(page);
 
       page.aiState = {
         ...(page.aiState?.toObject ? page.aiState.toObject() : page.aiState || {}),
@@ -423,6 +480,15 @@ const buildWikiRouter = ({
       });
 
       await page.save();
+      await createWikiRevision({
+        WikiRevision,
+        userId: req.user.id,
+        page,
+        before,
+        reason: 'agent_maintenance',
+        actorType: 'agent',
+        summary: page.aiState?.maintenanceSummary || `Maintained "${page.title}".`
+      });
       res.status(200).json(serializeWikiPage(page));
     } catch (error) {
       console.error('Error maintaining wiki page:', error);
@@ -440,6 +506,14 @@ const buildWikiRouter = ({
 
       page.sourceRefs.push(sourceRef.value);
       await page.save();
+      await createWikiRevision({
+        WikiRevision,
+        userId: req.user.id,
+        page,
+        reason: 'user_edit',
+        actorType: 'user',
+        summary: `Attached a source to "${page.title}".`
+      });
       res.status(201).json(serializeWikiPage(page));
     } catch (error) {
       console.error('Error adding wiki source:', error);
@@ -457,6 +531,14 @@ const buildWikiRouter = ({
 
       source.deleteOne();
       await page.save();
+      await createWikiRevision({
+        WikiRevision,
+        userId: req.user.id,
+        page,
+        reason: 'user_edit',
+        actorType: 'user',
+        summary: `Removed a source from "${page.title}".`
+      });
       res.status(200).json(serializeWikiPage(page));
     } catch (error) {
       console.error('Error removing wiki source:', error);
@@ -545,6 +627,108 @@ const buildWikiRouter = ({
     } catch (error) {
       console.error('Error finding wiki backlinks:', error);
       res.status(500).json({ error: 'Failed to compute wiki backlinks.' });
+    }
+  });
+
+  router.get('/api/wiki/source-events', authenticateToken, async (req, res) => {
+    try {
+      const status = String(req.query.status || '').trim();
+      if (status && !['pending', 'processing', 'processed', 'failed', 'ignored'].includes(status)) {
+        return res.status(400).json({ error: 'Invalid source event status.' });
+      }
+      const events = await listWikiSourceEvents({
+        WikiSourceEvent,
+        userId: req.user.id,
+        status,
+        limit: req.query.limit
+      });
+      res.status(200).json({ events });
+    } catch (error) {
+      console.error('Error listing wiki source events:', error);
+      res.status(500).json({ error: 'Failed to list wiki source events.' });
+    }
+  });
+
+  router.post('/api/wiki/source-events/process-pending', authenticateToken, async (req, res) => {
+    try {
+      const results = await processPendingWikiSourceEvents({
+        userId: req.user.id,
+        models: wikiModels(),
+        limit: req.body?.limit,
+        buildUniqueSlug
+      });
+      res.status(200).json({
+        processed: results.filter(result => !result.error).length,
+        failed: results.filter(result => result.error).length,
+        results: results.map(result => ({
+          eventId: result.event?._id || null,
+          status: result.event?.status || (result.error ? 'failed' : ''),
+          pageIds: Array.isArray(result.pages) ? result.pages.map(page => page._id).filter(Boolean) : [],
+          error: result.error || ''
+        }))
+      });
+    } catch (error) {
+      console.error('Error processing pending wiki source events:', error);
+      res.status(500).json({ error: 'Failed to process pending wiki source events.' });
+    }
+  });
+
+  router.post('/api/wiki/source-events/:sourceEventId/process', authenticateToken, async (req, res) => {
+    try {
+      const result = await processWikiSourceEvent({
+        sourceEventId: req.params.sourceEventId,
+        userId: req.user.id,
+        models: wikiModels(),
+        buildUniqueSlug
+      });
+      res.status(200).json({
+        event: result.event,
+        pages: Array.isArray(result.pages) ? result.pages.map(serializeWikiPage) : [],
+        run: result.run || null
+      });
+    } catch (error) {
+      if (error.code === 'SOURCE_EVENT_NOT_FOUND') return res.status(404).json({ error: 'Wiki source event not found.' });
+      console.error('Error processing wiki source event:', error);
+      res.status(500).json({ error: 'Failed to process wiki source event.' });
+    }
+  });
+
+  router.get('/api/wiki/pages/:id/revisions', authenticateToken, async (req, res) => {
+    try {
+      const page = await findOwnedPage(req).select('_id').lean();
+      if (!page) return res.status(404).json({ error: 'Wiki page not found.' });
+      if (!WikiRevision) return res.status(200).json({ revisions: [] });
+      const revisions = await WikiRevision.find({ userId: req.user.id, pageId: req.params.id }).sort({ createdAt: -1 }).limit(50).lean();
+      res.status(200).json({ revisions });
+    } catch (error) {
+      console.error('Error listing wiki revisions:', error);
+      res.status(500).json({ error: 'Failed to list wiki revisions.' });
+    }
+  });
+
+  router.post('/api/wiki/pages/:id/write-back/:connector', authenticateToken, async (req, res) => {
+    try {
+      const page = await findOwnedPage(req);
+      if (!page) return res.status(404).json({ error: 'Wiki page not found.' });
+      const result = await writeWikiPageToConnector({
+        page,
+        userId: req.user.id,
+        connector: req.params.connector,
+        connectionId: req.body?.connectionId,
+        parentPageId: req.body?.parentPageId,
+        models: { IntegrationConnection, ConnectorActionLog },
+        createNotionPage,
+        decryptSecret
+      });
+      res.status(201).json(result);
+    } catch (error) {
+      if (error.code === 'CONNECTOR_CONNECTION_NOT_FOUND') return res.status(404).json({ error: error.message });
+      if (error.code === 'CONNECTOR_WRITEBACK_UNSUPPORTED') return res.status(400).json({ error: error.message });
+      if (error.code === 'CONNECTOR_TOKEN_MISSING' || error.code === 'CONNECTOR_WRITEBACK_NOT_CONFIGURED') {
+        return res.status(400).json({ error: error.message });
+      }
+      console.error('Error writing wiki page to connector:', error);
+      res.status(500).json({ error: 'Failed to write wiki page to connector.' });
     }
   });
 

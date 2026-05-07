@@ -4206,10 +4206,13 @@ app.use(buildWikiRouter({
   WikiSourceEvent,
   WikiMaintenanceRun,
   ConnectorActionLog,
+  IntegrationConnection,
   Article,
   NotebookEntry,
   TagMeta,
-  Question
+  Question,
+  createNotionPage: notionClientForAgent.createNotionPage,
+  decryptSecret: decryptIntegrationSecretForAgent
 }));
 
 app.use(buildWorkingMemoryRouter({

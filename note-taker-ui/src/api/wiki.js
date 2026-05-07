@@ -105,6 +105,11 @@ export const listWikiRevisions = async (id) => {
   return [];
 };
 
+export const writeWikiPageToConnector = async (id, connector, payload = {}) => {
+  const res = await api.post(`${WIKI_PAGES_PATH}/${safeId(id)}/write-back/${safeId(connector)}`, payload, getAuthHeaders());
+  return res.data || {};
+};
+
 const wikiApi = {
   listWikiPages,
   createWikiPage,
@@ -123,7 +128,8 @@ const wikiApi = {
   listWikiSourceEvents,
   processWikiSourceEvent,
   processPendingWikiSourceEvents,
-  listWikiRevisions
+  listWikiRevisions,
+  writeWikiPageToConnector
 };
 
 export default wikiApi;

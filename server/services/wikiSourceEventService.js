@@ -13,6 +13,14 @@ const normalizeObjectId = (value) => {
   return mongoose.Types.ObjectId.isValid(id) ? id : null;
 };
 
+const statusRank = (status = '') => {
+  if (status === 'failed') return 0;
+  if (status === 'pending') return 1;
+  if (status === 'processing') return 2;
+  if (status === 'processed') return 3;
+  return 4;
+};
+
 const createWikiSourceEvent = async ({
   WikiSourceEvent,
   userId,
@@ -20,9 +28,12 @@ const createWikiSourceEvent = async ({
   sourceObjectId = null,
   parentObjectId = null,
   provider = '',
+  externalId = '',
+  importSessionId = null,
   eventType = 'updated',
   title = '',
   summary = '',
+  text = '',
   url = '',
   sourceUpdatedAt = null,
   affectedPageIds = [],
@@ -38,9 +49,12 @@ const createWikiSourceEvent = async ({
     sourceObjectId: normalizeObjectId(sourceObjectId),
     parentObjectId: normalizeObjectId(parentObjectId),
     provider: trim(provider, 80),
+    externalId: trim(externalId, 240),
+    importSessionId: normalizeObjectId(importSessionId),
     eventType: normalizedEventType,
     title: trim(title, 240),
     summary: trim(summary, 1200),
+    text: trim(text, 8000),
     url: trim(url, 1000),
     sourceUpdatedAt: sourceUpdatedAt ? new Date(sourceUpdatedAt) : null,
     affectedPageIds: Array.isArray(affectedPageIds)
@@ -57,7 +71,9 @@ const listWikiSourceEvents = async ({ WikiSourceEvent, userId, status = '', limi
   const query = { userId };
   if (status) query.status = status;
   const result = WikiSourceEvent.find(query).sort({ createdAt: -1 }).limit(Math.max(1, Math.min(Number(limit) || 40, 100))).lean();
-  return Array.isArray(await result) ? await result : [];
+  const events = Array.isArray(await result) ? await result : [];
+  if (status) return events;
+  return events.sort((a, b) => statusRank(a.status) - statusRank(b.status) || new Date(b.createdAt) - new Date(a.createdAt));
 };
 
 module.exports = {
