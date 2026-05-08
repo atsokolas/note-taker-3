@@ -3938,6 +3938,13 @@ html[data-ui-theme='dark'] {
   background: color-mix(in srgb, var(--surface) 88%, transparent);
 }
 
+.wiki-source-panel__source--active,
+.wiki-source-panel__source:focus {
+  border-color: color-mix(in srgb, var(--vellum-accent) 58%, var(--nt-divider));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--vellum-accent) 16%, transparent);
+  outline: none;
+}
+
 .wiki-source-panel__source-type {
   color: color-mix(in srgb, var(--text-muted) 88%, transparent);
   font-size: 0.72rem;
@@ -4260,10 +4267,22 @@ html[data-ui-theme='dark'] .wiki-agent-presence[data-status='error'] .wiki-agent
   );
   background-repeat: no-repeat;
   background-size: 100% 100%;
-  cursor: help;
+  cursor: pointer;
   transition: background-color 140ms ease-out;
   border-radius: 2px;
   padding: 0 1px;
+}
+
+.wiki-claim[data-citation-indexes]:not([data-citation-indexes=''])::after {
+  content: '[' attr(data-citation-indexes) ']';
+  display: inline;
+  margin-left: 0.18em;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Mono", Menlo, monospace;
+  font-size: 0.72em;
+  font-weight: 600;
+  color: var(--wiki-claim-color, var(--vellum-accent));
+  vertical-align: super;
+  white-space: nowrap;
 }
 
 .wiki-claim:hover,

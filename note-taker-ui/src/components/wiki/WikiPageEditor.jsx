@@ -37,6 +37,7 @@ const WikiPageEditor = ({ pageId }) => {
   const [maintaining, setMaintaining] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [sourcePanelOpen, setSourcePanelOpen] = useState(true);
+  const [activeSourceIndex, setActiveSourceIndex] = useState(null);
   const [asking, setAsking] = useState(false);
   const [error, setError] = useState('');
   // Snapshot from the previous visit, captured on first page load. We hold
@@ -102,6 +103,30 @@ const WikiPageEditor = ({ pageId }) => {
     setActiveClaim(null);
   }, []);
 
+  const focusSourceByIndex = useCallback((citationIndex) => {
+    if (!Number.isFinite(citationIndex) || citationIndex < 1) return;
+    setActiveSourceIndex(citationIndex);
+    setSourcePanelOpen(true);
+    window.setTimeout(() => {
+      const sourceNode = document.getElementById(`wiki-source-ref-${citationIndex}`);
+      if (!sourceNode) return;
+      sourceNode.scrollIntoView?.({ block: 'center', behavior: 'smooth' });
+      sourceNode.focus?.({ preventScroll: true });
+    }, 0);
+  }, []);
+
+  const handleClaimClick = useCallback((event) => {
+    const target = event.target.closest?.('span.wiki-claim');
+    if (!target) return false;
+    const [firstIndex] = (target.getAttribute('data-citation-indexes') || '')
+      .split(',')
+      .map(token => Number(token.trim()))
+      .filter(Number.isFinite);
+    if (!firstIndex) return false;
+    focusSourceByIndex(firstIndex);
+    return true;
+  }, [focusSourceByIndex]);
+
   const editor = useEditor({
     extensions: [
       StarterKit,
@@ -124,6 +149,10 @@ const WikiPageEditor = ({ pageId }) => {
         },
         focusin: (_view, event) => {
           handleClaimHover(event);
+          return false;
+        },
+        click: (_view, event) => {
+          handleClaimClick(event);
           return false;
         }
       }
@@ -341,6 +370,7 @@ const WikiPageEditor = ({ pageId }) => {
           onMouseOver={handleClaimHover}
           onMouseOut={handleClaimLeave}
           onFocus={handleClaimHover}
+          onClick={handleClaimClick}
         >
           <WikiAgentPresence
             page={page}
@@ -386,6 +416,7 @@ const WikiPageEditor = ({ pageId }) => {
               onMaintain={handleMaintain}
               onAddSource={handleAddSource}
               onRemoveSource={handleRemoveSource}
+              activeSourceIndex={activeSourceIndex}
             />
             <WikiBacklinkPanel pageId={pageId} pageTitle={page.title} />
           </aside>

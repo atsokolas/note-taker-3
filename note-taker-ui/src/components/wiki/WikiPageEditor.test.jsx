@@ -14,7 +14,11 @@ const mockEditor = {
 };
 
 jest.mock('@tiptap/react', () => ({
-  EditorContent: ({ editor }) => <div data-testid="wiki-editor-content">{editor ? 'ready' : 'missing'}</div>,
+  EditorContent: ({ editor }) => (
+    <div data-testid="wiki-editor-content">
+      {editor?.renderTestContent || (editor ? 'ready' : 'missing')}
+    </div>
+  ),
   useEditor: (...args) => mockUseEditor(...args)
 }));
 
@@ -68,6 +72,7 @@ const page = {
 describe('WikiPageEditor', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockEditor.renderTestContent = null;
     mockUseEditor.mockReturnValue(mockEditor);
     getWikiPage.mockResolvedValue(page);
     getWikiBacklinks.mockResolvedValue({ count: 0, backlinks: [] });
@@ -161,6 +166,34 @@ describe('WikiPageEditor', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Remove' }));
     await waitFor(() => {
       expect(removeWikiSource).toHaveBeenCalledWith('wiki-1', 'source-1');
+    });
+  });
+
+  it('focuses the matching source when a cited claim is clicked', async () => {
+    mockEditor.renderTestContent = (
+      <span
+        className="wiki-claim"
+        data-claim-id="claim-1"
+        data-support="supported"
+        data-citation-indexes="1"
+        data-testid="inline-citation-claim"
+      >
+        Source-backed sentence.
+      </span>
+    );
+
+    render(
+      <MemoryRouter>
+        <WikiPageEditor pageId="wiki-1" />
+      </MemoryRouter>
+    );
+
+    await screen.findByDisplayValue('Enterprise AI Memory');
+    const sourceCard = screen.getByTestId('wiki-source-ref-1');
+    fireEvent.click(screen.getByTestId('inline-citation-claim'));
+
+    await waitFor(() => {
+      expect(sourceCard).toHaveFocus();
     });
   });
 
