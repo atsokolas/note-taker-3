@@ -4,6 +4,7 @@ import { Button, SurfaceCard } from '../ui';
 import { createWikiPage, deleteWikiPage, listWikiPages } from '../../api/wiki';
 import { buildWikiCreatePayload, openWikiDraft } from '../../utils/wikiCreate';
 import WikiBriefing from './WikiBriefing';
+import WikiEmergingProposals from './WikiEmergingProposals';
 import WikiInbox from './WikiInbox';
 
 const PAGE_TYPES = ['all', 'topic', 'question', 'project', 'source', 'person', 'synthesis'];
@@ -141,6 +142,7 @@ const WikiIndex = () => {
   return (
     <main className="wiki-page wiki-index">
       <WikiBriefing />
+      <WikiEmergingProposals />
       <WikiInbox />
       <section className="wiki-index__header">
         <div className="wiki-index__title-block">

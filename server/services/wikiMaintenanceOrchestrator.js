@@ -1,24 +1,40 @@
 const { maintainWikiPage } = require('./wikiMaintenanceService');
 const { createWikiRevision, snapshotPage } = require('./wikiRevisionService');
+const { createProposalFromSourceEvent } = require('./wikiProposalService');
 
 const escapeRegExp = (value = '') => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 const asText = (value = '') => String(value || '').replace(/\s+/g, ' ').trim();
 
-const pageMatchesEvent = (page, event) => {
+const sourceRefMatchesEvent = (source, event) => {
+  if (!source || !event) return false;
+  if (event.sourceObjectId && source.objectId && String(source.objectId) === String(event.sourceObjectId)) return true;
+  if (event.url && source.url && String(source.url).trim() === String(event.url).trim()) return true;
+  return false;
+};
+
+const scorePageForEvent = (page, event) => {
   const haystack = [
     page.title,
     page.plainText,
     page.createdFrom?.text,
-    ...(Array.isArray(page.sourceRefs) ? page.sourceRefs.flatMap(source => [source.title, source.snippet]) : [])
+    ...(Array.isArray(page.sourceRefs) ? page.sourceRefs.flatMap(source => [source.title, source.snippet, source.url]) : []),
+    ...(Array.isArray(page.claims) ? page.claims.map(claim => claim.text) : [])
   ].filter(Boolean).join(' ').toLowerCase();
+  let score = 0;
+  if ((page.sourceRefs || []).some(source => sourceRefMatchesEvent(source, event))) score += 1;
   const terms = [event.title, event.summary, event.text]
     .join(' ')
     .toLowerCase()
     .split(/[^a-z0-9]+/)
     .filter(term => term.length > 4)
-    .slice(0, 16);
-  return terms.some(term => haystack.includes(term));
+    .slice(0, 20);
+  terms.forEach(term => {
+    if (haystack.includes(term)) score += 0.08;
+  });
+  const title = asText(event.title).toLowerCase();
+  if (title && asText(page.title).toLowerCase().includes(title)) score += 0.35;
+  return score;
 };
 
 const findAffectedPages = async ({ WikiPage, userId, event, limit = 8 }) => {
@@ -42,7 +58,20 @@ const findAffectedPages = async ({ WikiPage, userId, event, limit = 8 }) => {
   }
 
   const recent = await WikiPage.find({ userId, status: { $ne: 'archived' } }).sort({ updatedAt: -1 }).limit(40);
-  return (Array.isArray(recent) ? recent : []).filter(page => pageMatchesEvent(page, event)).slice(0, limit);
+  return (Array.isArray(recent) ? recent : [])
+    .map(page => ({ page, score: scorePageForEvent(page, event) }))
+    .filter(item => item.score >= 0.18)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, limit)
+    .map(item => item.page);
+};
+
+const shouldCreateDraftPageForEvent = (event) => {
+  if (event.metadata?.allowPageCreation === false) return false;
+  if (event.metadata?.allowPageCreation === true) return true;
+  if (event.sourceType === 'highlight') return false;
+  const textLength = [event.title, event.summary, event.text].join(' ').length;
+  return ['article', 'notebook'].includes(event.sourceType) && textLength >= 320;
 };
 
 const createPageForEvent = async ({ WikiPage, userId, event, buildUniqueSlug }) => {
@@ -94,6 +123,7 @@ const processWikiSourceEvent = async ({
     WikiPage,
     WikiRevision,
     WikiMaintenanceRun,
+    WikiProposal,
     Article,
     NotebookEntry,
     TagMeta,
@@ -123,22 +153,28 @@ const processWikiSourceEvent = async ({
 
   try {
     let pages = await findAffectedPages({ WikiPage, userId: event.userId, event });
-    const mayCreateDraftPage = event.sourceType !== 'highlight' && event.metadata?.allowPageCreation !== false;
+    const mayCreateDraftPage = shouldCreateDraftPageForEvent(event);
     if (!pages.length && mayCreateDraftPage) {
       pages = [await createPageForEvent({ WikiPage, userId: event.userId, event, buildUniqueSlug })];
     }
     if (!pages.length) {
+      const proposal = await createProposalFromSourceEvent({ WikiProposal, event });
       event.status = 'ignored';
       event.processedAt = new Date();
       event.errorMessage = '';
+      event.metadata = {
+        ...(event.metadata?.toObject ? event.metadata.toObject() : event.metadata || {}),
+        proposalId: proposal?._id || null,
+        ignoredReason: proposal ? 'created_low_confidence_proposal' : 'no_matching_wiki_page'
+      };
       await event.save();
       if (run) {
         run.status = 'completed';
-        run.summary = 'No matching wiki page found.';
+        run.summary = proposal ? 'Created a low-confidence wiki proposal.' : 'No matching wiki page found.';
         run.completedAt = new Date();
         await run.save();
       }
-      return { event, pages: [], run };
+      return { event, pages: [], run, proposal };
     }
 
     for (const page of pages) {

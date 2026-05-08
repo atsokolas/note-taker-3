@@ -266,6 +266,9 @@ const NotebookFolder = mongoose.model('NotebookFolder', notebookFolderSchema);
 
 const WIKI_PAGE_TYPES = ['topic', 'question', 'project', 'source', 'person', 'synthesis'];
 const WIKI_PAGE_STATUSES = ['draft', 'published', 'archived'];
+const WIKI_PROPOSAL_TYPES = ['repeated_theme', 'bridge_idea'];
+const WIKI_PROPOSAL_STATUSES = ['pending', 'watched', 'accepted', 'dismissed', 'merged'];
+const WIKI_PROPOSAL_SIGNAL_TYPES = ['phrase', 'tag', 'highlight', 'note', 'wiki_page', 'concept', 'question'];
 const WIKI_VISIBILITY_VALUES = ['private', 'shared'];
 const WIKI_SOURCE_SCOPES = ['entire_library', 'current_item', 'selected_sources'];
 
@@ -288,6 +291,7 @@ const wikiSourceRefSchema = new mongoose.Schema({
     required: true
   },
   objectId: { type: mongoose.Schema.Types.ObjectId, default: null },
+  parentObjectId: { type: mongoose.Schema.Types.ObjectId, default: null },
   title: { type: String, default: '', trim: true },
   snippet: { type: String, default: '', trim: true },
   url: { type: String, default: '', trim: true },
@@ -420,6 +424,58 @@ wikiPageSchema.index({ userId: 1, visibility: 1, updatedAt: -1 });
 wikiPageSchema.index({ userId: 1, slug: 1 }, { unique: true });
 
 const WikiPage = mongoose.model('WikiPage', wikiPageSchema);
+
+const wikiProposalSignalSchema = new mongoose.Schema({
+  type: { type: String, enum: WIKI_PROPOSAL_SIGNAL_TYPES, required: true },
+  label: { type: String, default: '', trim: true },
+  weight: { type: Number, default: 1 },
+  sourceType: { type: String, default: '', trim: true },
+  sourceObjectId: { type: mongoose.Schema.Types.ObjectId, default: null },
+  snippet: { type: String, default: '', trim: true }
+}, { _id: true });
+
+const wikiProposalRefSchema = new mongoose.Schema({
+  type: { type: String, enum: ['article', 'highlight', 'notebook', 'concept', 'question', 'wiki_page', 'memory', 'external'], required: true },
+  objectId: { type: mongoose.Schema.Types.ObjectId, default: null },
+  title: { type: String, default: '', trim: true },
+  snippet: { type: String, default: '', trim: true },
+  url: { type: String, default: '', trim: true },
+  reason: { type: String, default: '', trim: true }
+}, { _id: true });
+
+const wikiProposalSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+  proposalType: { type: String, enum: WIKI_PROPOSAL_TYPES, required: true, index: true },
+  status: { type: String, enum: WIKI_PROPOSAL_STATUSES, default: 'pending', index: true },
+  title: { type: String, required: true, trim: true },
+  slugCandidate: { type: String, required: true, trim: true },
+  summary: { type: String, default: '', trim: true },
+  thesis: { type: String, default: '', trim: true },
+  whyNow: { type: String, default: '', trim: true },
+  confidence: { type: Number, min: 0, max: 1, default: 0 },
+  clusterKey: { type: String, required: true, trim: true },
+  sourceRefs: { type: [wikiProposalRefSchema], default: [] },
+  connectedPageRefs: { type: [wikiProposalRefSchema], default: [] },
+  connectedConceptRefs: { type: [wikiProposalRefSchema], default: [] },
+  signals: { type: [wikiProposalSignalSchema], default: [] },
+  starterClaims: { type: [String], default: [] },
+  openQuestions: { type: [String], default: [] },
+  createdPageId: { type: mongoose.Schema.Types.ObjectId, ref: 'WikiPage', default: null },
+  mergedIntoPageId: { type: mongoose.Schema.Types.ObjectId, ref: 'WikiPage', default: null },
+  dismissedReason: { type: String, default: '', trim: true },
+  generation: {
+    source: { type: String, enum: ['deterministic', 'ai_shaped'], default: 'deterministic' },
+    generatedAt: { type: Date, default: Date.now },
+    materialHash: { type: String, default: '', trim: true },
+    signalCount: { type: Number, default: 0 }
+  }
+}, { timestamps: true });
+
+wikiProposalSchema.index({ userId: 1, status: 1, updatedAt: -1 });
+wikiProposalSchema.index({ userId: 1, clusterKey: 1 }, { unique: true });
+wikiProposalSchema.index({ userId: 1, proposalType: 1, confidence: -1 });
+
+const WikiProposal = mongoose.model('WikiProposal', wikiProposalSchema);
 
 const wikiRevisionSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
@@ -1578,6 +1634,7 @@ module.exports = {
   NotebookEntry,
   NotebookFolder,
   WikiPage,
+  WikiProposal,
   WikiRevision,
   WikiSourceEvent,
   WikiMaintenanceRun,

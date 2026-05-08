@@ -9,6 +9,11 @@ const { listWikiSourceEvents } = require('../services/wikiSourceEventService');
 const { processWikiSourceEvent } = require('../services/wikiMaintenanceOrchestrator');
 const { processPendingWikiSourceEvents } = require('../services/wikiSourceEventWorker');
 const { writeWikiPageToConnector } = require('../services/wikiConnectorWritebackService');
+const {
+  buildArchiveSignals,
+  buildProposalCandidates,
+  createDraftPageFromProposal
+} = require('../services/wikiProposalService');
 
 const PAGE_TYPES = new Set(['topic', 'question', 'project', 'source', 'person', 'synthesis']);
 const STATUSES = new Set(['draft', 'published', 'archived']);
@@ -216,10 +221,15 @@ const normalizeSourceRef = (value = {}) => {
   if (value.objectId && !objectId) {
     return { error: 'objectId must be a valid id.' };
   }
+  const parentObjectId = normalizeObjectId(value.parentObjectId);
+  if (value.parentObjectId && !parentObjectId) {
+    return { error: 'parentObjectId must be a valid id.' };
+  }
 
   const sourceRef = {
     type,
     objectId,
+    parentObjectId,
     title: String(value.title || '').trim().slice(0, 240),
     snippet: String(value.snippet || '').trim().slice(0, 1000),
     url: String(value.url || '').trim().slice(0, 1000),
@@ -234,9 +244,35 @@ const normalizeSourceRef = (value = {}) => {
   return { value: sourceRef };
 };
 
+const serializeWikiProposal = (proposal) => {
+  if (!proposal) return proposal;
+  const raw = typeof proposal.toObject === 'function'
+    ? proposal.toObject({ virtuals: false })
+    : { ...proposal };
+  return {
+    ...raw,
+    sourceRefs: Array.isArray(raw.sourceRefs) ? raw.sourceRefs : [],
+    connectedPageRefs: Array.isArray(raw.connectedPageRefs) ? raw.connectedPageRefs : [],
+    connectedConceptRefs: Array.isArray(raw.connectedConceptRefs) ? raw.connectedConceptRefs : [],
+    signals: Array.isArray(raw.signals) ? raw.signals : [],
+    starterClaims: Array.isArray(raw.starterClaims) ? raw.starterClaims : [],
+    openQuestions: Array.isArray(raw.openQuestions) ? raw.openQuestions : []
+  };
+};
+
+const proposalsAreStale = (proposals = [], maxAgeMs = 24 * 60 * 60 * 1000) => {
+  if (!Array.isArray(proposals) || proposals.length === 0) return true;
+  const latest = proposals.reduce((max, proposal) => {
+    const t = new Date(proposal?.generation?.generatedAt || proposal?.updatedAt || 0).getTime();
+    return Number.isFinite(t) ? Math.max(max, t) : max;
+  }, 0);
+  return Date.now() - latest > maxAgeMs;
+};
+
 const buildWikiRouter = ({
   authenticateToken,
   WikiPage,
+  WikiProposal = null,
   WikiRevision = null,
   WikiSourceEvent = null,
   WikiMaintenanceRun = null,
@@ -271,6 +307,67 @@ const buildWikiRouter = ({
 
   const findOwnedPage = (req) => WikiPage.findOne({ _id: req.params.id, userId: req.user.id });
 
+  const refreshWikiProposals = async ({ userId, force = false } = {}) => {
+    if (!WikiProposal) return { proposals: [], generated: false };
+    const activeStatuses = ['pending', 'watched'];
+    const existing = await WikiProposal.find({ userId, status: { $in: activeStatuses } })
+      .sort({ confidence: -1, updatedAt: -1 })
+      .limit(20);
+    if (!force && !proposalsAreStale(existing)) {
+      return { proposals: existing.map(serializeWikiProposal), generated: false };
+    }
+
+    const [articles, notebooks, concepts, pages, questions] = await Promise.all([
+      Article?.find ? Article.find({ userId }).sort({ updatedAt: -1 }).limit(400).lean() : [],
+      NotebookEntry?.find ? NotebookEntry.find({ userId }).sort({ updatedAt: -1 }).limit(300).lean() : [],
+      TagMeta?.find ? TagMeta.find({ userId }).sort({ updatedAt: -1 }).limit(200).lean() : [],
+      WikiPage.find({ userId, status: { $ne: 'archived' } }).sort({ updatedAt: -1 }).limit(300).lean(),
+      Question?.find ? Question.find({ userId }).sort({ updatedAt: -1 }).limit(200).lean() : []
+    ]);
+
+    const signals = buildArchiveSignals({ articles, notebooks, concepts, pages, questions });
+    const candidates = buildProposalCandidates({ signals, existingPages: pages });
+    for (const candidate of candidates) {
+      const prior = await WikiProposal.findOne({ userId, clusterKey: candidate.clusterKey });
+      if (prior && ['dismissed', 'accepted', 'merged'].includes(prior.status)) continue;
+      await WikiProposal.findOneAndUpdate(
+        { userId, clusterKey: candidate.clusterKey },
+        { $set: { ...candidate, userId } },
+        { upsert: true, new: true, setDefaultsOnInsert: true }
+      );
+    }
+
+    const proposals = await WikiProposal.find({ userId, status: { $in: activeStatuses } })
+      .sort({ confidence: -1, updatedAt: -1 })
+      .limit(8);
+    return { proposals: proposals.map(serializeWikiProposal), generated: true };
+  };
+
+  const maintainProposalDraftSoon = ({ page, userId }) => {
+    setImmediate(async () => {
+      try {
+        await maintainWikiPage({
+          page,
+          userId,
+          models: { Article, NotebookEntry, TagMeta, Question }
+        });
+        await page.save();
+      } catch (maintenanceError) {
+        try {
+          page.aiState = {
+            ...(page.aiState?.toObject ? page.aiState.toObject() : page.aiState || {}),
+            draftStatus: 'error',
+            lastError: String(maintenanceError.message || 'Draft maintenance failed.'),
+            errorCode: 'PROPOSAL_DRAFT_FAILED'
+          };
+          await page.save();
+        } catch (saveError) {
+          console.error('Error saving failed proposal draft state:', saveError);
+        }
+      }
+    });
+  };
+
   router.param('id', (req, res, next, id) => {
     if (!mongoose.Types.ObjectId.isValid(String(id || ''))) {
       return res.status(400).json({ error: 'Invalid wiki page id.' });
@@ -292,9 +389,17 @@ const buildWikiRouter = ({
     return next();
   });
 
+  router.param('proposalId', (req, res, next, proposalId) => {
+    if (!mongoose.Types.ObjectId.isValid(String(proposalId || ''))) {
+      return res.status(400).json({ error: 'Invalid wiki proposal id.' });
+    }
+    return next();
+  });
+
   const wikiModels = () => ({
     WikiSourceEvent,
     WikiPage,
+    WikiProposal,
     WikiRevision,
     WikiMaintenanceRun,
     Article,
@@ -632,6 +737,96 @@ const buildWikiRouter = ({
     }
   });
 
+  router.get('/api/wiki/proposals', authenticateToken, async (req, res) => {
+    try {
+      const result = await refreshWikiProposals({ userId: req.user.id, force: false });
+      res.status(200).json(result);
+    } catch (error) {
+      console.error('Error listing wiki proposals:', error);
+      res.status(500).json({ error: 'Failed to list wiki proposals.' });
+    }
+  });
+
+  router.post('/api/wiki/proposals/generate-background', authenticateToken, async (req, res) => {
+    try {
+      const result = await refreshWikiProposals({ userId: req.user.id, force: Boolean(req.body?.force) });
+      res.status(200).json(result);
+    } catch (error) {
+      console.error('Error refreshing wiki proposals:', error);
+      res.status(500).json({ error: 'Failed to refresh wiki proposals.' });
+    }
+  });
+
+  router.post('/api/wiki/proposals/:proposalId/watch', authenticateToken, async (req, res) => {
+    try {
+      if (!WikiProposal) return res.status(404).json({ error: 'Wiki proposal not found.' });
+      const proposal = await WikiProposal.findOneAndUpdate(
+        { _id: req.params.proposalId, userId: req.user.id, status: 'pending' },
+        { status: 'watched' },
+        { new: true }
+      );
+      if (!proposal) return res.status(404).json({ error: 'Wiki proposal not found.' });
+      res.status(200).json(serializeWikiProposal(proposal));
+    } catch (error) {
+      console.error('Error watching wiki proposal:', error);
+      res.status(500).json({ error: 'Failed to watch wiki proposal.' });
+    }
+  });
+
+  router.post('/api/wiki/proposals/:proposalId/dismiss', authenticateToken, async (req, res) => {
+    try {
+      if (!WikiProposal) return res.status(404).json({ error: 'Wiki proposal not found.' });
+      const proposal = await WikiProposal.findOneAndUpdate(
+        { _id: req.params.proposalId, userId: req.user.id, status: { $in: ['pending', 'watched'] } },
+        { status: 'dismissed', dismissedReason: String(req.body?.reason || '').trim().slice(0, 500) },
+        { new: true }
+      );
+      if (!proposal) return res.status(404).json({ error: 'Wiki proposal not found.' });
+      res.status(200).json(serializeWikiProposal(proposal));
+    } catch (error) {
+      console.error('Error dismissing wiki proposal:', error);
+      res.status(500).json({ error: 'Failed to dismiss wiki proposal.' });
+    }
+  });
+
+  router.post('/api/wiki/proposals/:proposalId/merge', authenticateToken, async (req, res) => {
+    try {
+      if (!WikiProposal) return res.status(404).json({ error: 'Wiki proposal not found.' });
+      const pageId = normalizeObjectId(req.body?.pageId);
+      if (!pageId) return res.status(400).json({ error: 'pageId must be a valid id.' });
+      const targetPage = await WikiPage.findOne({ _id: pageId, userId: req.user.id }).select('_id').lean();
+      if (!targetPage) return res.status(404).json({ error: 'Merge target page not found.' });
+      const proposal = await WikiProposal.findOneAndUpdate(
+        { _id: req.params.proposalId, userId: req.user.id, status: { $in: ['pending', 'watched'] } },
+        { status: 'merged', mergedIntoPageId: pageId },
+        { new: true }
+      );
+      if (!proposal) return res.status(404).json({ error: 'Wiki proposal not found.' });
+      res.status(200).json(serializeWikiProposal(proposal));
+    } catch (error) {
+      console.error('Error merging wiki proposal:', error);
+      res.status(500).json({ error: 'Failed to merge wiki proposal.' });
+    }
+  });
+
+  router.post('/api/wiki/proposals/:proposalId/accept', authenticateToken, async (req, res) => {
+    try {
+      if (!WikiProposal) return res.status(404).json({ error: 'Wiki proposal not found.' });
+      const proposal = await WikiProposal.findOne({
+        _id: req.params.proposalId,
+        userId: req.user.id,
+        status: { $in: ['pending', 'watched'] }
+      });
+      if (!proposal) return res.status(404).json({ error: 'Wiki proposal not found.' });
+      const page = await createDraftPageFromProposal({ proposal, WikiPage, buildUniqueSlug });
+      maintainProposalDraftSoon({ page, userId: req.user.id });
+      res.status(201).json({ proposal: serializeWikiProposal(proposal), page: serializeWikiPage(page) });
+    } catch (error) {
+      console.error('Error accepting wiki proposal:', error);
+      res.status(500).json({ error: 'Failed to accept wiki proposal.' });
+    }
+  });
+
   router.get('/api/wiki/source-events', authenticateToken, async (req, res) => {
     try {
       const status = String(req.query.status || '').trim();
@@ -705,6 +900,50 @@ const buildWikiRouter = ({
     } catch (error) {
       console.error('Error listing wiki revisions:', error);
       res.status(500).json({ error: 'Failed to list wiki revisions.' });
+    }
+  });
+
+  router.get('/api/wiki/pages/:id/connector-actions', authenticateToken, async (req, res) => {
+    try {
+      const page = await findOwnedPage(req).select('_id').lean();
+      if (!page) return res.status(404).json({ error: 'Wiki page not found.' });
+      if (!ConnectorActionLog) return res.status(200).json({ actions: [] });
+      const actions = await ConnectorActionLog.find({
+        userId: req.user.id,
+        targetType: 'wiki_page',
+        targetId: String(req.params.id)
+      }).sort({ createdAt: -1 }).limit(20).lean();
+      res.status(200).json({ actions });
+    } catch (error) {
+      console.error('Error listing wiki connector actions:', error);
+      res.status(500).json({ error: 'Failed to list wiki connector actions.' });
+    }
+  });
+
+  router.post('/api/wiki/pages/:id/freshness/review', authenticateToken, async (req, res) => {
+    try {
+      const page = await findOwnedPage(req);
+      if (!page) return res.status(404).json({ error: 'Wiki page not found.' });
+      page.freshness = {
+        ...(page.freshness?.toObject ? page.freshness.toObject() : page.freshness || {}),
+        status: 'fresh',
+        conflictCount: 0,
+        staleSectionCount: 0,
+        reviewedAt: new Date()
+      };
+      await page.save();
+      await createWikiRevision({
+        WikiRevision,
+        userId: req.user.id,
+        page,
+        reason: 'user_edit',
+        actorType: 'user',
+        summary: `Marked "${page.title}" freshness reviewed.`
+      });
+      res.status(200).json(serializeWikiPage(page));
+    } catch (error) {
+      console.error('Error reviewing wiki freshness:', error);
+      res.status(500).json({ error: 'Failed to mark wiki freshness reviewed.' });
     }
   });
 

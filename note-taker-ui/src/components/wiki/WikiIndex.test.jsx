@@ -8,6 +8,11 @@ jest.mock('../../api/wiki', () => ({
   createWikiPage: jest.fn(),
   deleteWikiPage: jest.fn(),
   listWikiPages: jest.fn(),
+  listWikiProposals: jest.fn(() => Promise.resolve({ proposals: [], generated: false })),
+  acceptWikiProposal: jest.fn(),
+  watchWikiProposal: jest.fn(),
+  dismissWikiProposal: jest.fn(),
+  mergeWikiProposal: jest.fn(),
   // WikiIndex now mounts <WikiBriefing /> at the top, which calls
   // getWikiBriefing() in a useEffect. Stub it so the test environment
   // doesn't 404 on the unmocked endpoint.

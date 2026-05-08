@@ -3787,6 +3787,91 @@ html[data-ui-theme='dark'] {
   color: var(--danger, #b42318);
 }
 
+.wiki-emerging {
+  display: grid;
+  gap: 16px;
+  margin: 0 0 24px;
+}
+
+.wiki-emerging__head {
+  display: grid;
+  gap: 4px;
+}
+
+.wiki-emerging__eyebrow {
+  color: color-mix(in srgb, var(--text-muted) 88%, transparent);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.wiki-emerging__head h2 {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 1.05rem;
+}
+
+.wiki-emerging__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 12px;
+}
+
+.wiki-emerging__card {
+  display: grid;
+  gap: 10px;
+}
+
+.wiki-emerging__meta,
+.wiki-emerging__signals,
+.wiki-emerging__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.wiki-emerging__meta span,
+.wiki-emerging__signals span {
+  color: color-mix(in srgb, var(--text-muted) 88%, transparent);
+  font-size: 0.82rem;
+}
+
+.wiki-emerging__card h3,
+.wiki-emerging__card p {
+  margin: 0;
+}
+
+.wiki-emerging__card h3 {
+  color: var(--text-primary);
+  font-size: 1.05rem;
+  line-height: 1.25;
+}
+
+.wiki-emerging__card p,
+.wiki-emerging__claims {
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.wiki-emerging__claims {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.wiki-emerging__merge-select {
+  min-height: 34px;
+  max-width: 180px;
+  border: 1px solid var(--surface-border, rgba(130, 152, 230, 0.28));
+  border-radius: 8px;
+  background: var(--surface-raised, #121f49);
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 0.86rem;
+  padding: 0 10px;
+}
+
 .wiki-editor__topline {
   display: flex;
   gap: 12px;
@@ -4254,68 +4339,72 @@ html[data-ui-theme='dark'] .wiki-agent-presence[data-status='error'] .wiki-agent
 }
 
 /* Wiki claim atoms + citation popover ------------------------------------
-   Inline marks the agent applies to source-backed claims. Underline color
-   = support state (green/amber/red/gray). Hover/focus opens a Wikipedia-
-   style footnote popover anchored to the claim. */
+   Inline marks the agent applies to source-backed claims. Source numbers
+   carry the backlink affordance and open the citation popover. */
 
 .wiki-claim {
   text-decoration: none;
-  background-image: linear-gradient(
-    to bottom,
-    transparent calc(100% - 2px),
-    var(--wiki-claim-color, color-mix(in srgb, var(--vellum-accent) 60%, transparent)) calc(100% - 2px)
-  );
-  background-repeat: no-repeat;
-  background-size: 100% 100%;
-  cursor: pointer;
-  transition: background-color 140ms ease-out;
-  border-radius: 2px;
-  padding: 0 1px;
+  background: none;
+  cursor: text;
 }
 
-.wiki-claim[data-citation-indexes]:not([data-citation-indexes=''])::after {
-  content: '[' attr(data-citation-indexes) ']';
+.wiki-claim-citation {
+  appearance: none;
   display: inline;
-  margin-left: 0.18em;
+  margin: 0 0 0 0.18em;
+  padding: 0 0.12em;
+  border: 0;
+  border-bottom: 1px solid currentColor;
+  background: transparent;
+  color: var(--wiki-claim-color, var(--vellum-accent));
   font-family: -apple-system, BlinkMacSystemFont, "SF Mono", Menlo, monospace;
   font-size: 0.72em;
-  font-weight: 600;
-  color: var(--wiki-claim-color, var(--vellum-accent));
+  font-weight: 700;
+  line-height: 1;
   vertical-align: super;
   white-space: nowrap;
+  cursor: pointer;
 }
 
-.wiki-claim:hover,
-.wiki-claim:focus-visible {
-  background-color: color-mix(in srgb, var(--wiki-claim-color, var(--vellum-accent)) 14%, transparent);
+.wiki-claim-citation:hover,
+.wiki-claim-citation:focus-visible {
+  background-color: color-mix(in srgb, currentColor 12%, transparent);
+  border-radius: 3px;
   outline: none;
 }
 
-.wiki-claim[data-support='supported'] {
+.wiki-claim[data-support='supported'],
+.wiki-claim-citation[data-support='supported'] {
   --wiki-claim-color: #4f8c5a;  /* moss green */
 }
 
-.wiki-claim[data-support='partial'] {
+.wiki-claim[data-support='partial'],
+.wiki-claim-citation[data-support='partial'] {
   --wiki-claim-color: #b1862e;  /* warm amber */
 }
 
-.wiki-claim[data-support='unsupported'] {
+.wiki-claim[data-support='unsupported'],
+.wiki-claim-citation[data-support='unsupported'] {
   --wiki-claim-color: color-mix(in srgb, var(--vellum-subtle) 80%, transparent);
 }
 
-.wiki-claim[data-support='contradicted'] {
+.wiki-claim[data-support='contradicted'],
+.wiki-claim-citation[data-support='contradicted'] {
   --wiki-claim-color: #b54a32;  /* burnt sienna */
 }
 
-html[data-ui-theme='dark'] .wiki-claim[data-support='supported'] {
+html[data-ui-theme='dark'] .wiki-claim[data-support='supported'],
+html[data-ui-theme='dark'] .wiki-claim-citation[data-support='supported'] {
   --wiki-claim-color: #7fb088;
 }
 
-html[data-ui-theme='dark'] .wiki-claim[data-support='partial'] {
+html[data-ui-theme='dark'] .wiki-claim[data-support='partial'],
+html[data-ui-theme='dark'] .wiki-claim-citation[data-support='partial'] {
   --wiki-claim-color: #d6a86b;
 }
 
-html[data-ui-theme='dark'] .wiki-claim[data-support='contradicted'] {
+html[data-ui-theme='dark'] .wiki-claim[data-support='contradicted'],
+html[data-ui-theme='dark'] .wiki-claim-citation[data-support='contradicted'] {
   --wiki-claim-color: #e08770;
 }
 
@@ -5339,6 +5428,28 @@ html[data-ui-theme='dark'] .wiki-briefing__chip--warning  strong { color: #d6a86
   display: flex;
   gap: 12px;
   flex-wrap: wrap;
+}
+
+.wiki-activity-rail__review,
+.wiki-activity-rail__connectors {
+  display: grid;
+  gap: 8px;
+  padding: 10px 0;
+  border-top: 1px solid color-mix(in srgb, var(--vellum-line) 60%, transparent);
+}
+
+.wiki-activity-rail__review p {
+  margin: 0;
+  color: var(--vellum-muted);
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.wiki-activity-rail__connectors > strong {
+  color: var(--vellum-ink);
+  font-size: 0.78rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
 }
 
 .wiki-activity-rail__list li {

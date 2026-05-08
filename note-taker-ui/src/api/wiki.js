@@ -81,6 +81,42 @@ export const getWikiBriefing = async () => {
   return res.data;
 };
 
+export const listWikiProposals = async () => {
+  const res = await api.get('/api/wiki/proposals', getAuthHeaders());
+  return {
+    proposals: Array.isArray(res.data?.proposals) ? res.data.proposals : [],
+    generated: Boolean(res.data?.generated)
+  };
+};
+
+export const refreshWikiProposals = async ({ force = false } = {}) => {
+  const res = await api.post('/api/wiki/proposals/generate-background', { force }, getAuthHeaders());
+  return {
+    proposals: Array.isArray(res.data?.proposals) ? res.data.proposals : [],
+    generated: Boolean(res.data?.generated)
+  };
+};
+
+export const acceptWikiProposal = async (proposalId) => {
+  const res = await api.post(`/api/wiki/proposals/${safeId(proposalId)}/accept`, {}, getAuthHeaders());
+  return res.data;
+};
+
+export const watchWikiProposal = async (proposalId) => {
+  const res = await api.post(`/api/wiki/proposals/${safeId(proposalId)}/watch`, {}, getAuthHeaders());
+  return res.data;
+};
+
+export const dismissWikiProposal = async (proposalId, reason = '') => {
+  const res = await api.post(`/api/wiki/proposals/${safeId(proposalId)}/dismiss`, { reason }, getAuthHeaders());
+  return res.data;
+};
+
+export const mergeWikiProposal = async (proposalId, pageId) => {
+  const res = await api.post(`/api/wiki/proposals/${safeId(proposalId)}/merge`, { pageId }, getAuthHeaders());
+  return res.data;
+};
+
 export const listWikiSourceEvents = async (params = {}) => {
   const res = await api.get(`/api/wiki/source-events${buildQueryString(params)}`, getAuthHeaders());
   if (Array.isArray(res.data)) return res.data;
@@ -105,6 +141,18 @@ export const listWikiRevisions = async (id) => {
   return [];
 };
 
+export const listWikiConnectorActions = async (id) => {
+  const res = await api.get(`${WIKI_PAGES_PATH}/${safeId(id)}/connector-actions`, getAuthHeaders());
+  if (Array.isArray(res.data)) return res.data;
+  if (Array.isArray(res.data?.actions)) return res.data.actions;
+  return [];
+};
+
+export const reviewWikiFreshness = async (id) => {
+  const res = await api.post(`${WIKI_PAGES_PATH}/${safeId(id)}/freshness/review`, {}, getAuthHeaders());
+  return res.data;
+};
+
 export const writeWikiPageToConnector = async (id, connector, payload = {}) => {
   const res = await api.post(`${WIKI_PAGES_PATH}/${safeId(id)}/write-back/${safeId(connector)}`, payload, getAuthHeaders());
   return res.data || {};
@@ -125,10 +173,18 @@ const wikiApi = {
   removeWikiDiscussion,
   getWikiBacklinks,
   getWikiBriefing,
+  listWikiProposals,
+  refreshWikiProposals,
+  acceptWikiProposal,
+  watchWikiProposal,
+  dismissWikiProposal,
+  mergeWikiProposal,
   listWikiSourceEvents,
   processWikiSourceEvent,
   processPendingWikiSourceEvents,
   listWikiRevisions,
+  listWikiConnectorActions,
+  reviewWikiFreshness,
   writeWikiPageToConnector
 };
 

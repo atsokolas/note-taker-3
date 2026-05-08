@@ -42,6 +42,7 @@ describe('WikiDiscussions', () => {
     expect(claim.getAttribute('data-claim-id')).toBe('c1');
     expect(claim.getAttribute('data-support')).toBe('supported');
     expect(claim.getAttribute('data-citation-indexes')).toBe('1,2');
+    expect(screen.getByRole('button', { name: 'Backlink to sources 1, 2' })).toHaveTextContent('[1,2]');
   });
 
   it('shows the failed-state error message when status is failed', () => {

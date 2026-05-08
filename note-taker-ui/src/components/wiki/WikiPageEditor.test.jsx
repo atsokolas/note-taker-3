@@ -2,7 +2,7 @@ import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import WikiPageEditor from './WikiPageEditor';
-import { addWikiSource, deleteWikiPage, getWikiBacklinks, getWikiPage, listWikiRevisions, maintainWikiPage, removeWikiSource, updateWikiPage } from '../../api/wiki';
+import { addWikiSource, deleteWikiPage, getWikiBacklinks, getWikiPage, listWikiConnectorActions, listWikiRevisions, maintainWikiPage, removeWikiSource, reviewWikiFreshness, updateWikiPage } from '../../api/wiki';
 
 const mockUseEditor = jest.fn();
 const mockEditor = {
@@ -34,10 +34,12 @@ jest.mock('../../api/wiki', () => ({
   deleteWikiPage: jest.fn(),
   getWikiBacklinks: jest.fn(),
   getWikiPage: jest.fn(),
+  listWikiConnectorActions: jest.fn(),
   listWikiRevisions: jest.fn(),
   maintainWikiPage: jest.fn(),
   removeWikiDiscussion: jest.fn(),
   removeWikiSource: jest.fn(),
+  reviewWikiFreshness: jest.fn(),
   updateWikiPage: jest.fn()
 }));
 
@@ -50,7 +52,7 @@ const page = {
   sourceScope: 'entire_library',
   body: { type: 'doc', content: [{ type: 'paragraph' }] },
   sourceRefs: [
-    { _id: 'source-1', type: 'article', title: 'Memory article', snippet: 'Source snippet' }
+    { _id: 'source-1', type: 'article', objectId: 'article-1', title: 'Memory article', snippet: 'Source snippet' }
   ],
   aiState: {
     draftStatus: 'idle',
@@ -76,7 +78,9 @@ describe('WikiPageEditor', () => {
     mockUseEditor.mockReturnValue(mockEditor);
     getWikiPage.mockResolvedValue(page);
     getWikiBacklinks.mockResolvedValue({ count: 0, backlinks: [] });
+    listWikiConnectorActions.mockResolvedValue([]);
     listWikiRevisions.mockResolvedValue([]);
+    reviewWikiFreshness.mockResolvedValue(page);
     updateWikiPage.mockResolvedValue(page);
     addWikiSource.mockResolvedValue(page);
     deleteWikiPage.mockResolvedValue({ ...page, status: 'archived' });
@@ -169,17 +173,27 @@ describe('WikiPageEditor', () => {
     });
   });
 
-  it('focuses the matching source when a cited claim is clicked', async () => {
+  it('focuses the matching source only when a claim citation number is clicked', async () => {
     mockEditor.renderTestContent = (
-      <span
-        className="wiki-claim"
-        data-claim-id="claim-1"
-        data-support="supported"
-        data-citation-indexes="1"
-        data-testid="inline-citation-claim"
-      >
-        Source-backed sentence.
-      </span>
+      <>
+        <span
+          className="wiki-claim"
+          data-claim-id="claim-1"
+          data-support="supported"
+          data-citation-indexes="1"
+          data-testid="inline-citation-claim"
+        >
+          Source-backed sentence.
+        </span>
+        <button
+          type="button"
+          className="wiki-claim-citation"
+          data-citation-indexes="1"
+          data-testid="inline-citation-number"
+        >
+          [1]
+        </button>
+      </>
     );
 
     render(
@@ -191,10 +205,42 @@ describe('WikiPageEditor', () => {
     await screen.findByDisplayValue('Enterprise AI Memory');
     const sourceCard = screen.getByTestId('wiki-source-ref-1');
     fireEvent.click(screen.getByTestId('inline-citation-claim'));
+    await new Promise(resolve => setTimeout(resolve, 20));
+    expect(sourceCard).not.toHaveFocus();
+
+    fireEvent.click(screen.getByTestId('inline-citation-number'));
 
     await waitFor(() => {
       expect(sourceCard).toHaveFocus();
     });
+  });
+
+  it('links highlight sources back to the original article and highlight', async () => {
+    getWikiPage.mockResolvedValueOnce({
+      ...page,
+      sourceRefs: [
+        {
+          _id: 'source-highlight-1',
+          type: 'highlight',
+          objectId: 'highlight-1',
+          parentObjectId: 'article-1',
+          title: 'Memory article highlight',
+          snippet: 'A key highlighted passage.'
+        }
+      ]
+    });
+
+    render(
+      <MemoryRouter>
+        <WikiPageEditor pageId="wiki-1" />
+      </MemoryRouter>
+    );
+
+    await screen.findByDisplayValue('Enterprise AI Memory');
+    expect(screen.getByRole('link', { name: 'Open' })).toHaveAttribute(
+      'href',
+      '/library?articleId=article-1&highlightId=highlight-1'
+    );
   });
 
   it('deletes the current Wiki page after confirmation', async () => {

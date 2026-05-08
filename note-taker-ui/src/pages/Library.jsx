@@ -36,6 +36,7 @@ const Library = () => {
   const scope = searchParams.get('scope') || 'all';
   const folderId = searchParams.get('folderId') || '';
   const requestedArticleId = searchParams.get('articleId') || '';
+  const requestedHighlightId = searchParams.get('highlightId') || '';
   const highlightQuery = searchParams.get('hq') || '';
   const highlightView = searchParams.get('highlightView') || 'concept';
   const [selectedArticleId, setSelectedArticleId] = useState('');
@@ -115,6 +116,14 @@ const Library = () => {
   }, [selectedArticleId]);
 
   useEffect(() => {
+    if (!requestedHighlightId || !selectedArticleId) return;
+    setActiveHighlightId(requestedHighlightId);
+    window.setTimeout(() => {
+      readerRef.current?.scrollToHighlight(requestedHighlightId);
+    }, 0);
+  }, [requestedHighlightId, selectedArticleId, articleHighlights]);
+
+  useEffect(() => {
     if (requestedArticleId) return;
     if (!selectedArticleId) return;
     setSelectedArticleId('');
@@ -133,6 +142,7 @@ const Library = () => {
     params.set('scope', nextScope);
     params.delete('folderId');
     params.delete('articleId');
+    params.delete('highlightId');
     if (nextScope !== 'highlights') {
       params.delete('hq');
       params.delete('highlightView');
@@ -147,6 +157,7 @@ const Library = () => {
     params.set('scope', 'folder');
     params.set('folderId', id);
     params.delete('articleId');
+    params.delete('highlightId');
     setSearchParams(params);
   }, [searchParams, setSearchParams]);
 
@@ -159,6 +170,7 @@ const Library = () => {
     } else {
       params.delete('articleId');
     }
+    params.delete('highlightId');
     setSearchParams(params, { replace: false });
   }, [searchParams, setSearchParams]);
 

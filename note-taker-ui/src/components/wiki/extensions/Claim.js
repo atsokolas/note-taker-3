@@ -1,4 +1,6 @@
 import { Mark, mergeAttributes } from '@tiptap/core';
+import { Plugin } from '@tiptap/pm/state';
+import { Decoration, DecorationSet } from '@tiptap/pm/view';
 
 /**
  * Claim — a TipTap mark that wraps a span of prose representing one
@@ -33,6 +35,21 @@ const sanitizeIndexes = (value) => {
 };
 
 const sanitizeSupport = (value) => (SUPPORT_STATES.has(value) ? value : 'supported');
+
+const citationLabel = (indexes = []) => `[${indexes.join(',')}]`;
+
+const buildCitationMarker = ({ claimId, support, citationIndexes }) => {
+  const marker = document.createElement('button');
+  marker.type = 'button';
+  marker.className = 'wiki-claim-citation';
+  marker.contentEditable = 'false';
+  marker.dataset.claimId = claimId || '';
+  marker.dataset.support = sanitizeSupport(support);
+  marker.dataset.citationIndexes = citationIndexes.join(',');
+  marker.setAttribute('aria-label', `Backlink to source${citationIndexes.length === 1 ? '' : 's'} ${citationIndexes.join(', ')}`);
+  marker.textContent = citationLabel(citationIndexes);
+  return marker;
+};
 
 let claimIdCounter = 0;
 const generateClaimId = () => {
@@ -99,6 +116,36 @@ const Claim = Mark.create({
       }),
       unsetClaim: () => ({ commands }) => commands.unsetMark(this.name)
     };
+  },
+
+  addProseMirrorPlugins() {
+    return [
+      new Plugin({
+        props: {
+          decorations: (state) => {
+            const decorations = [];
+            state.doc.descendants((node, pos) => {
+              if (!node.isText) return;
+              const claimMark = node.marks.find(mark => mark.type.name === this.name);
+              if (!claimMark) return;
+              const citationIndexes = sanitizeIndexes(claimMark.attrs?.citationIndexes);
+              if (!citationIndexes.length) return;
+              const claimId = claimMark.attrs?.claimId || '';
+              const support = sanitizeSupport(claimMark.attrs?.support);
+              decorations.push(Decoration.widget(
+                pos + node.nodeSize,
+                () => buildCitationMarker({ claimId, support, citationIndexes }),
+                {
+                  key: `${claimId || pos}-${citationIndexes.join(',')}`,
+                  side: 1
+                }
+              ));
+            });
+            return DecorationSet.create(state.doc, decorations);
+          }
+        }
+      })
+    ];
   }
 });
 

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Button, SurfaceCard } from '../ui';
+import { buildCanonicalArticlePath } from '../../utils/firstInsight';
 
 const sourceScopeCopy = {
   entire_library: 'Maintenance uses your entire library.',
@@ -36,6 +37,25 @@ const emptySourceForm = {
   title: '',
   snippet: '',
   url: ''
+};
+
+const appendQueryParam = (path, key, value) => {
+  const cleanValue = String(value || '').trim();
+  if (!path || !cleanValue) return path || '';
+  return `${path}${path.includes('?') ? '&' : '?'}${encodeURIComponent(key)}=${encodeURIComponent(cleanValue)}`;
+};
+
+export const buildWikiSourceOpenHref = (source = {}) => {
+  const type = String(source?.type || '').trim();
+  const objectId = String(source?.objectId || '').trim();
+  const parentObjectId = String(source?.parentObjectId || '').trim();
+  if (type === 'highlight' && parentObjectId) {
+    return appendQueryParam(buildCanonicalArticlePath(parentObjectId), 'highlightId', objectId);
+  }
+  if (type === 'article' && objectId) {
+    return buildCanonicalArticlePath(objectId);
+  }
+  return String(source?.url || '').trim();
 };
 
 const cleanPanelText = (value = '') => String(value || '')
@@ -189,6 +209,7 @@ const WikiAiSourcePanel = ({
         <div className="wiki-source-panel__list">
           {sources.map((source, index) => {
             const citationIndex = index + 1;
+            const openHref = buildWikiSourceOpenHref(source);
             return (
               <article
                 key={source._id || `${source.type}-${source.objectId}-${source.title}`}
@@ -201,8 +222,15 @@ const WikiAiSourcePanel = ({
                 <h3>{cleanPanelText(source.title || 'Untitled source')}</h3>
                 {source.snippet ? <p>{cleanPanelText(source.snippet)}</p> : null}
                 <div className="wiki-source-panel__actions">
-                  {source.url ? (
-                    <a href={source.url} target="_blank" rel="noreferrer" className="wiki-source-panel__link">Open</a>
+                  {openHref ? (
+                    <a
+                      href={openHref}
+                      target={openHref.startsWith('/') ? undefined : '_blank'}
+                      rel={openHref.startsWith('/') ? undefined : 'noreferrer'}
+                      className="wiki-source-panel__link"
+                    >
+                      Open
+                    </a>
                   ) : null}
                   {source._id ? (
                     <Button type="button" variant="secondary" onClick={() => onRemoveSource?.(source._id)}>

@@ -405,6 +405,7 @@ const extractJson = (value = '') => {
 const sourceRefFromCandidate = (candidate) => ({
   type: candidate.type,
   objectId: candidate.objectId || null,
+  parentObjectId: candidate.parentObjectId || null,
   title: truncate(candidate.title, 240),
   snippet: truncate(candidate.text, 1000),
   url: truncateRaw(candidate.url, 1000),

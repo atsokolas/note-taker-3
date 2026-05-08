@@ -26,6 +26,8 @@ const claimAttrs = (mark) => {
   };
 };
 
+const citationText = (indexes = []) => `[${indexes.join(',')}]`;
+
 const renderTextNode = (node, key) => {
   const text = node?.text || '';
   if (!text) return null;
@@ -33,10 +35,26 @@ const renderTextNode = (node, key) => {
     ? node.marks.find(mark => mark?.type === 'claim')
     : null;
   if (claimMark) {
+    const attrs = claimAttrs(claimMark);
+    const indexes = attrs['data-citation-indexes'];
     return (
-      <span key={key} className="wiki-claim" {...claimAttrs(claimMark)}>
-        {text}
-      </span>
+      <React.Fragment key={key}>
+        <span className="wiki-claim" {...attrs}>
+          {text}
+        </span>
+        {indexes ? (
+          <button
+            type="button"
+            className="wiki-claim-citation"
+            data-claim-id={attrs['data-claim-id']}
+            data-support={attrs['data-support']}
+            data-citation-indexes={indexes}
+            aria-label={`Backlink to source${indexes.includes(',') ? 's' : ''} ${indexes.split(',').join(', ')}`}
+          >
+            {citationText(indexes.split(','))}
+          </button>
+        ) : null}
+      </React.Fragment>
     );
   }
   return <React.Fragment key={key}>{text}</React.Fragment>;

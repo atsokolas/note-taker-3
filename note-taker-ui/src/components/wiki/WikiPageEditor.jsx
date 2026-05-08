@@ -77,7 +77,7 @@ const WikiPageEditor = ({ pageId }) => {
   const [activeClaim, setActiveClaim] = useState(null);
 
   const handleClaimHover = useCallback((event) => {
-    const target = event.target.closest?.('span.wiki-claim');
+    const target = event.target.closest?.('.wiki-claim-citation');
     if (!target) return;
     const claimId = target.getAttribute('data-claim-id') || '';
     const support = target.getAttribute('data-support') || 'supported';
@@ -98,6 +98,7 @@ const WikiPageEditor = ({ pageId }) => {
     const next = event.relatedTarget;
     if (next && (
       next.closest?.('.wiki-claim-popover') ||
+      next.closest?.('.wiki-claim-citation') ||
       next.closest?.('span.wiki-claim')
     )) return;
     setActiveClaim(null);
@@ -116,7 +117,7 @@ const WikiPageEditor = ({ pageId }) => {
   }, []);
 
   const handleClaimClick = useCallback((event) => {
-    const target = event.target.closest?.('span.wiki-claim');
+    const target = event.target.closest?.('.wiki-claim-citation');
     if (!target) return false;
     const [firstIndex] = (target.getAttribute('data-citation-indexes') || '')
       .split(',')
@@ -408,7 +409,7 @@ const WikiPageEditor = ({ pageId }) => {
         </section>
         {sourcePanelOpen ? (
           <aside className="wiki-editor__rail" aria-label="AI, sources, and backlinks">
-            <WikiPageActivityRail pageId={pageId} page={page} />
+            <WikiPageActivityRail pageId={pageId} page={page} onPageUpdate={setPage} />
             <WikiAiSourcePanel
               id="wiki-source-panel"
               page={page}

@@ -27,6 +27,7 @@ const normalizeType = (value, fallback, allowed) => {
 export const buildWikiSourceRef = (source = {}) => ({
   type: normalizeType(source.type || source.sourceType, 'external', SOURCE_TYPES),
   objectId: source.objectId || source._id || source.id || null,
+  parentObjectId: source.parentObjectId || source.parentId || source.articleId || null,
   title: titleFromText(source.title || source.label, ''),
   snippet: String(source.snippet || source.text || source.content || '').trim().slice(0, 1000),
   url: String(source.url || source.href || '').trim(),
