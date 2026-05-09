@@ -12,6 +12,22 @@ import {
 
 const labelForType = (type) => (type === 'bridge_idea' ? 'Bridge idea' : 'Recurring theme');
 
+const cleanText = (value = '', fallback = '') => {
+  const text = String(value || '')
+    .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return text || fallback;
+};
+
 const confidenceLabel = (value) => {
   const pct = Math.round(Math.max(0, Math.min(1, Number(value) || 0)) * 100);
   return `${pct}% confidence`;
@@ -132,52 +148,65 @@ const WikiEmergingProposals = () => {
       </header>
       {error ? <div className="wiki-index__error" role="alert">{error}</div> : null}
       <div className="wiki-emerging__grid">
-        {proposals.map(proposal => (
-          <SurfaceCard key={proposal._id} className="wiki-emerging__card">
-            <div className="wiki-emerging__meta">
-              <span>{labelForType(proposal.proposalType)}</span>
-              <span>{confidenceLabel(proposal.confidence)}</span>
-            </div>
-            <h3>{proposal.title}</h3>
-            <p>{proposal.whyNow || proposal.summary}</p>
-            <div className="wiki-emerging__signals">
-              <span>{(proposal.sourceRefs || []).length} sources</span>
-              <span>{((proposal.connectedPageRefs || []).length + (proposal.connectedConceptRefs || []).length)} connections</span>
-            </div>
-            {(proposal.starterClaims || []).length ? (
-              <ul className="wiki-emerging__claims">
-                {(proposal.starterClaims || []).slice(0, 2).map((claim, index) => (
-                  <li key={`${proposal._id}-claim-${index}`}>{claim}</li>
-                ))}
-              </ul>
-            ) : null}
-            <div className="wiki-emerging__actions">
-              <Button type="button" onClick={() => handleCreate(proposal)} disabled={busyId === proposal._id}>
-                {busyId === proposal._id ? 'Creating...' : 'Create'}
-              </Button>
-              <Button type="button" variant="secondary" onClick={() => handleWatch(proposal)} disabled={busyId === proposal._id}>
-                Watch
-              </Button>
-              <select
-                className="wiki-emerging__merge-select"
-                value={proposal.mergeTargetId || ''}
-                onChange={(event) => setMergeTarget(proposal._id, event.target.value)}
-                aria-label={`Merge target for ${proposal.title}`}
-              >
-                <option value="">Merge into...</option>
-                {pages.map(page => (
-                  <option key={page._id} value={page._id}>{page.title || 'Untitled Wiki Page'}</option>
-                ))}
-              </select>
-              <Button type="button" variant="secondary" onClick={() => handleMerge(proposal)} disabled={busyId === proposal._id || !proposal.mergeTargetId}>
-                Merge
-              </Button>
-              <Button type="button" variant="secondary" onClick={() => handleDismiss(proposal)} disabled={busyId === proposal._id}>
-                Dismiss
-              </Button>
-            </div>
-          </SurfaceCard>
-        ))}
+        {proposals.map((proposal) => {
+          const title = cleanText(proposal.title, 'Untitled emerging wiki');
+          const body = cleanText(proposal.whyNow || proposal.summary, 'Noeis found repeated signals for this idea in your archive.');
+          const starterClaims = (proposal.starterClaims || [])
+            .map(claim => cleanText(claim))
+            .filter(Boolean)
+            .slice(0, 2);
+
+          return (
+            <SurfaceCard key={proposal._id} className="wiki-emerging__card">
+              <div className="wiki-emerging__meta">
+                <span>{labelForType(proposal.proposalType)}</span>
+                <span>{confidenceLabel(proposal.confidence)}</span>
+              </div>
+              <h3>{title}</h3>
+              <p>{body}</p>
+              <div className="wiki-emerging__signals">
+                <span>{(proposal.sourceRefs || []).length} sources</span>
+                <span>{((proposal.connectedPageRefs || []).length + (proposal.connectedConceptRefs || []).length)} connections</span>
+              </div>
+              {starterClaims.length ? (
+                <ul className="wiki-emerging__claims">
+                  {starterClaims.map((claim, index) => (
+                    <li key={`${proposal._id}-claim-${index}`}>{claim}</li>
+                  ))}
+                </ul>
+              ) : null}
+              <div className="wiki-emerging__actions">
+                <div className="wiki-emerging__primary-actions">
+                  <Button type="button" onClick={() => handleCreate(proposal)} disabled={busyId === proposal._id}>
+                    {busyId === proposal._id ? 'Creating...' : 'Create'}
+                  </Button>
+                  <Button type="button" variant="secondary" onClick={() => handleWatch(proposal)} disabled={busyId === proposal._id}>
+                    Watch
+                  </Button>
+                  <Button type="button" variant="secondary" onClick={() => handleDismiss(proposal)} disabled={busyId === proposal._id}>
+                    Dismiss
+                  </Button>
+                </div>
+                <div className="wiki-emerging__merge-actions">
+                  <select
+                    className="wiki-emerging__merge-select"
+                    value={proposal.mergeTargetId || ''}
+                    onChange={(event) => setMergeTarget(proposal._id, event.target.value)}
+                    aria-label={`Merge target for ${title}`}
+                  >
+                    <option value="">Merge into...</option>
+                    {pages.map(page => (
+                      <option key={page._id} value={page._id}>{page.title || 'Untitled Wiki Page'}</option>
+                    ))}
+                  </select>
+                  <Button type="button" variant="secondary" onClick={() => handleMerge(proposal)} disabled={busyId === proposal._id || !proposal.mergeTargetId}>
+                    Merge
+                  </Button>
+                </div>
+              </div>
+            </SurfaceCard>
+          );
+        })}
       </div>
     </section>
   );

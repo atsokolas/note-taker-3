@@ -43,6 +43,48 @@ const run = async () => {
   }
 
   {
+    const signals = buildArchiveSignals({
+      articles: [
+        {
+          _id: 'article-1',
+          title: '<p>Berkshire Hathaway</p>',
+          content: '<p>Owner earnings matter for Berkshire Hathaway investors.</p>',
+          highlights: [
+            {
+              _id: 'h1',
+              text: '<p>Name: To the Shareholders of Berkshire Hathaway Inc</p><p>Owner earnings should be calculated carefully.</p>',
+              tags: ['Berkshire Hathaway']
+            }
+          ]
+        },
+        {
+          _id: 'article-2',
+          title: '<p>Berkshire Hathaway letters</p>',
+          content: '<p>Berkshire Hathaway annual letters return to owner earnings.</p>',
+          highlights: [
+            {
+              _id: 'h2',
+              text: '<p>Owner earnings are a recurring investing lens.</p>',
+              tags: ['Berkshire Hathaway']
+            }
+          ]
+        }
+      ],
+      notebooks: [
+        { _id: 'note-1', title: '<p>Berkshire Hathaway notes</p>', content: '<p>Owner earnings and Berkshire Hathaway.</p>' }
+      ],
+      concepts: [],
+      pages: [],
+      questions: []
+    });
+    const proposals = buildProposalCandidates({ signals, existingPages: [] });
+    const serialized = JSON.stringify(proposals);
+    assert.ok(proposals.length > 0);
+    assert.ok(!serialized.includes('<p>'));
+    assert.ok(serialized.includes('Berkshire Hathaway'));
+  }
+
+  {
     const existingPages = [
       { _id: 'page-1', title: 'Personal Agents', plainText: 'Agents can adapt to users over time.' },
       { _id: 'page-2', title: 'Education Software', plainText: 'Learning interfaces need adaptive feedback.' }

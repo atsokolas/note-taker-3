@@ -66,6 +66,27 @@ describe('WikiEmergingProposals', () => {
     expect(screen.getByText('Bridge idea')).toBeInTheDocument();
   });
 
+  it('strips imported markup from proposal copy before rendering', async () => {
+    listWikiProposals.mockResolvedValue({
+      proposals: [{
+        ...proposals[0],
+        title: '<p>Berkshire Hathaway</p>',
+        whyNow: '<p>Noeis found <strong>5</strong> separate signals.</p>',
+        starterClaims: [
+          '<p>Name: To the Shareholders of Berkshire Hathaway Inc</p><p>https://www.berkshirehathaway.com/letters/</p>'
+        ]
+      }],
+      generated: true
+    });
+
+    render(<MemoryRouter><WikiEmergingProposals /></MemoryRouter>);
+
+    expect(await screen.findByText('Berkshire Hathaway')).toBeInTheDocument();
+    expect(screen.getByText('Noeis found 5 separate signals.')).toBeInTheDocument();
+    expect(screen.getByText(/Name: To the Shareholders of Berkshire Hathaway Inc/)).toBeInTheDocument();
+    expect(screen.queryByText(/<p>/)).not.toBeInTheDocument();
+  });
+
   it('watches a proposal', async () => {
     render(<MemoryRouter><WikiEmergingProposals /></MemoryRouter>);
     await screen.findByText('AI Tutors and Motivation');
