@@ -1,9 +1,18 @@
 const crypto = require('crypto');
 
 const STOPWORDS = new Set([
-  'about', 'after', 'again', 'against', 'also', 'because', 'before', 'being', 'between', 'could',
+  'about', 'after', 'again', 'against', 'also', 'and', 'because', 'before', 'being', 'between', 'by', 'could',
   'every', 'from', 'have', 'into', 'more', 'most', 'over', 'should', 'that', 'their', 'there',
-  'these', 'this', 'through', 'under', 'what', 'when', 'where', 'which', 'while', 'with', 'would'
+  'the', 'these', 'this', 'through', 'under', 'what', 'when', 'where', 'which', 'while', 'with', 'would'
+]);
+
+const TITLE_NOISE = new Set([
+  'article', 'author', 'blog', 'com', 'content', 'html', 'http', 'https', 'name', 'newsletter',
+  'page', 'shareholder', 'shareholders', 'source', 'title', 'url', 'www'
+]);
+
+const CORPORATE_SUFFIXES = new Set([
+  'co', 'company', 'corp', 'corporation', 'inc', 'incorporated', 'llc', 'ltd', 'limited', 'plc'
 ]);
 
 const toText = (value = '') => String(value || '')
@@ -38,6 +47,71 @@ const titleize = (value = '') => normalizeKey(value)
 
 const materialHash = (value = '') => crypto.createHash('sha1').update(String(value || '')).digest('hex').slice(0, 16);
 
+const hostFromUrl = (value = '') => {
+  const raw = toText(value);
+  if (!raw) return '';
+  try {
+    return new URL(raw).hostname.replace(/^www\./, '').toLowerCase();
+  } catch (_error) {
+    const match = raw.match(/(?:https?:\/\/)?(?:www\.)?([a-z0-9-]+\.[a-z]{2,})(?:\/|$)/i);
+    return match ? match[1].toLowerCase() : '';
+  }
+};
+
+const compactToken = (value = '') => String(value || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+
+const normalizeTopicTokens = (value = '') => normalizeKey(value)
+  .split(/\s+/)
+  .map(token => (token.length > 4 && token.endsWith('s') ? token.slice(0, -1) : token))
+  .filter(token => token && !TITLE_NOISE.has(token) && !CORPORATE_SUFFIXES.has(token));
+
+const canonicalTopicKey = (value = '') => {
+  const tokens = normalizeTopicTokens(value);
+  if (!tokens.length) return '';
+  const compactTokens = new Set(tokens.map(compactToken));
+  const deduped = tokens.filter((token) => {
+    const compact = compactToken(token);
+    return ![...compactTokens].some(other => other !== compact && other.length > compact.length + 2 && other.includes(compact));
+  });
+  const ordered = [];
+  deduped.forEach((token) => {
+    if (!ordered.includes(token)) ordered.push(token);
+  });
+  return ordered.join(' ');
+};
+
+const tokenSet = (value = '') => new Set(canonicalTopicKey(value).split(/\s+/).filter(Boolean));
+
+const tokenOverlap = (left = '', right = '') => {
+  const a = tokenSet(left);
+  const b = tokenSet(right);
+  if (!a.size || !b.size) return 0;
+  let shared = 0;
+  a.forEach(token => {
+    if (b.has(token)) shared += 1;
+  });
+  return shared / Math.min(a.size, b.size);
+};
+
+const isUglyTopicKey = (key = '') => {
+  const tokens = normalizeTopicTokens(key);
+  if (tokens.length < 2 || tokens.length > 5) return true;
+  if (tokens.some(token => token.length > 24)) return true;
+  if (tokens.every(token => TITLE_NOISE.has(token) || CORPORATE_SUFFIXES.has(token))) return true;
+  return false;
+};
+
+const sourceFamilyFor = ({ sourceType = '', sourceObjectId = '', title = '', url = '' } = {}) => {
+  const host = hostFromUrl(url);
+  if (host) {
+    const pathMatch = toText(url).match(/^https?:\/\/[^/]+\/([^?#]+)/i);
+    const path = pathMatch ? pathMatch[1].replace(/\/index\.[a-z0-9]+$/i, '').replace(/\/$/, '') : '';
+    return `${sourceType || 'source'}:${host}${path ? `/${path}` : ''}`;
+  }
+  if (sourceType && sourceObjectId) return `${sourceType}:${sourceObjectId}`;
+  return `${sourceType || 'source'}:${canonicalTopicKey(title) || materialHash(title)}`;
+};
+
 const addSignal = (signals, {
   type,
   label,
@@ -46,7 +120,8 @@ const addSignal = (signals, {
   sourceObjectId = null,
   title = '',
   snippet = '',
-  url = ''
+  url = '',
+  sourceFamily = ''
 }) => {
   const normalized = normalizeKey(label);
   if (!normalized) return;
@@ -63,6 +138,8 @@ const addSignal = (signals, {
     weight,
     sourceType,
     sourceObjectId,
+    sourceFamily: sourceFamily || sourceFamilyFor({ sourceType, sourceObjectId, title, url }),
+    sourceHost: hostFromUrl(url),
     title: toText(title || label).slice(0, 240),
     snippet: toText(snippet || label).slice(0, 600),
     url: toText(url).slice(0, 1000)
@@ -78,6 +155,12 @@ const buildArchiveSignals = ({
 } = {}) => {
   const signals = [];
   articles.forEach(article => {
+    const articleSourceFamily = sourceFamilyFor({
+      sourceType: 'article',
+      sourceObjectId: article._id,
+      title: article.title,
+      url: article.url || ''
+    });
     addSignal(signals, {
       type: 'phrase',
       label: article.title,
@@ -86,7 +169,8 @@ const buildArchiveSignals = ({
       sourceObjectId: article._id,
       title: article.title,
       snippet: article.content || article.summary || '',
-      url: article.url || ''
+      url: article.url || '',
+      sourceFamily: articleSourceFamily
     });
     (article.highlights || []).forEach(highlight => {
       addSignal(signals, {
@@ -97,7 +181,8 @@ const buildArchiveSignals = ({
         sourceObjectId: highlight._id,
         title: article.title,
         snippet: highlight.text || highlight.note || '',
-        url: article.url || ''
+        url: article.url || '',
+        sourceFamily: articleSourceFamily
       });
       (highlight.tags || []).forEach(tag => addSignal(signals, {
         type: 'tag',
@@ -106,7 +191,9 @@ const buildArchiveSignals = ({
         sourceType: 'highlight',
         sourceObjectId: highlight._id,
         title: article.title,
-        snippet: highlight.text || ''
+        snippet: highlight.text || '',
+        url: article.url || '',
+        sourceFamily: articleSourceFamily
       }));
     });
   });
@@ -155,30 +242,124 @@ const candidateRef = (signal, reason = '') => ({
   title: signal.title || signal.label,
   snippet: signal.snippet || '',
   url: signal.url || '',
+  sourceHost: signal.sourceHost || hostFromUrl(signal.url),
   reason
 });
 
+const representativeTitleFor = (bucket = [], fallbackKey = '') => {
+  if (fallbackKey && !isUglyTopicKey(fallbackKey)) return titleize(fallbackKey);
+  const options = [
+    ...bucket.map(signal => signal.label),
+    ...bucket.map(signal => signal.title),
+    fallbackKey
+  ]
+    .map(canonicalTopicKey)
+    .filter(key => key && !isUglyTopicKey(key));
+  const scored = options.map((key) => {
+    const support = bucket.filter(signal => tokenOverlap(key, `${signal.key} ${signal.title} ${signal.snippet}`) >= 0.8).length;
+    return { key, score: (support * 10) + Math.min(key.split(/\s+/).length, 4) };
+  }).sort((a, b) => b.score - a.score || a.key.length - b.key.length);
+  return titleize(scored[0]?.key || canonicalTopicKey(fallbackKey));
+};
+
+const dedupeCandidates = (candidates = []) => {
+  const kept = [];
+  const dominantHosts = new Set();
+  candidates
+    .sort((a, b) => b.confidence - a.confidence || (b.sourceRefs?.length || 0) - (a.sourceRefs?.length || 0))
+    .forEach((candidate) => {
+      const key = canonicalTopicKey(candidate.title || candidate.slugCandidate);
+      if (!key) return;
+      const hosts = (candidate.sourceRefs || []).map(ref => ref.sourceHost).filter(Boolean);
+      const hostCounts = hosts.reduce((counts, host) => {
+        counts.set(host, (counts.get(host) || 0) + 1);
+        return counts;
+      }, new Map());
+      const dominantHost = [...hostCounts.entries()].find(([, count]) => hosts.length && count / hosts.length >= 0.8)?.[0] || '';
+      if (dominantHost && dominantHosts.has(dominantHost)) return;
+      const duplicate = kept.some(existing => (
+        tokenOverlap(key, existing.canonicalKey || existing.title) >= 0.8
+        || tokenOverlap(candidate.clusterKey, existing.clusterKey) >= 0.8
+      ));
+      if (!duplicate) {
+        if (dominantHost) dominantHosts.add(dominantHost);
+        kept.push({ ...candidate, canonicalKey: key });
+      }
+    });
+  return kept.map(({ canonicalKey, ...candidate }) => candidate);
+};
+
+const shouldRetireActiveProposal = (proposal = {}, candidates = []) => {
+  const status = String(proposal.status || '').toLowerCase();
+  if (!['pending', 'watched'].includes(status)) return false;
+  const candidateKeys = new Set(candidates.map(candidate => candidate.clusterKey).filter(Boolean));
+  if (candidateKeys.has(proposal.clusterKey)) return false;
+  const proposalKey = canonicalTopicKey(proposal.title || proposal.slugCandidate || proposal.clusterKey);
+  if (!proposalKey || isUglyTopicKey(proposalKey)) return true;
+  return candidates.some(candidate => (
+    tokenOverlap(proposalKey, candidate.title || candidate.slugCandidate) >= 0.5
+    || tokenOverlap(proposal.clusterKey, candidate.clusterKey) >= 0.5
+  ));
+};
+
+const retireStaleActiveProposals = async ({ WikiProposal, userId, candidates = [] } = {}) => {
+  if (!WikiProposal || !userId) return 0;
+  const active = await WikiProposal.find({ userId, status: { $in: ['pending', 'watched'] } });
+  let retired = 0;
+  for (const proposal of active) {
+    const source = typeof proposal.toObject === 'function' ? proposal.toObject() : proposal;
+    if (!shouldRetireActiveProposal(source, candidates)) continue;
+    proposal.status = 'dismissed';
+    proposal.dismissedReason = 'Superseded by cleaner wiki proposal clustering.';
+    await proposal.save();
+    retired += 1;
+  }
+  return retired;
+};
+
+const activeProposalsNeedClusteringRefresh = (proposals = []) => {
+  const active = (Array.isArray(proposals) ? proposals : [])
+    .filter(proposal => ['pending', 'watched'].includes(String(proposal?.status || '').toLowerCase()));
+  if (active.some(proposal => {
+    const key = canonicalTopicKey(proposal.title || proposal.slugCandidate || proposal.clusterKey);
+    return !key || isUglyTopicKey(key);
+  })) return true;
+  for (let i = 0; i < active.length; i += 1) {
+    for (let j = i + 1; j < active.length; j += 1) {
+      if (tokenOverlap(active[i].title || active[i].clusterKey, active[j].title || active[j].clusterKey) >= 0.5) {
+        return true;
+      }
+    }
+  }
+  return false;
+};
+
 const buildProposalCandidates = ({ signals = [], existingPages = [] } = {}) => {
-  const existingKeys = new Set(existingPages.map(page => normalizeKey(page.title)).filter(Boolean));
+  const existingKeys = existingPages.map(page => canonicalTopicKey(page.title)).filter(Boolean);
   const byKey = new Map();
   signals.forEach(signal => {
-    if (!signal.key || existingKeys.has(signal.key)) return;
-    const bucket = byKey.get(signal.key) || [];
+    const key = canonicalTopicKey(signal.key);
+    if (!key || isUglyTopicKey(key)) return;
+    if (existingKeys.some(existingKey => tokenOverlap(key, existingKey) >= 0.8)) return;
+    const bucketKey = [...byKey.keys()].find(existingKey => tokenOverlap(key, existingKey) >= 0.5) || key;
+    const bucket = byKey.get(bucketKey) || [];
     bucket.push(signal);
-    byKey.set(signal.key, bucket);
+    byKey.set(bucketKey, bucket);
   });
 
   const candidates = [];
   byKey.forEach((bucket, key) => {
-    const uniqueSources = new Map(bucket.map(signal => [`${signal.sourceType}:${signal.sourceObjectId || signal.title}`, signal]));
+    const title = representativeTitleFor(bucket, key);
+    if (!title) return;
+    const uniqueSources = new Map(bucket.map(signal => [signal.sourceFamily || `${signal.sourceType}:${signal.sourceObjectId || signal.title}`, signal]));
     const sourceRefs = Array.from(uniqueSources.values()).filter(signal => signal.sourceType !== 'wiki_page').slice(0, 6);
     if (sourceRefs.length >= 2) {
       candidates.push({
         proposalType: 'repeated_theme',
-        title: titleize(key),
+        title,
         slugCandidate: slugify(key),
         summary: `Recurring theme found across ${sourceRefs.length} archive sources.`,
-        thesis: `${titleize(key)} appears repeatedly enough to deserve a maintained page.`,
+        thesis: `${title} appears repeatedly enough to deserve a maintained page.`,
         whyNow: `Noeis found ${sourceRefs.length} separate signals for this idea in your archive.`,
         confidence: Math.min(0.92, 0.48 + (sourceRefs.length * 0.11)),
         clusterKey: `theme:${key}`,
@@ -194,7 +375,7 @@ const buildProposalCandidates = ({ signals = [], existingPages = [] } = {}) => {
           snippet: signal.snippet
         })),
         starterClaims: sourceRefs.slice(0, 3).map(signal => signal.snippet || signal.title).filter(Boolean),
-        openQuestions: [`What would make ${titleize(key)} actionable or false?`],
+        openQuestions: [`What would make ${title} actionable or false?`],
         generation: {
           source: 'deterministic',
           generatedAt: new Date(),
@@ -205,16 +386,16 @@ const buildProposalCandidates = ({ signals = [], existingPages = [] } = {}) => {
     }
 
     const connectedPages = existingPages.filter(page => {
-      const pageKey = normalizeKey(`${page.title} ${page.plainText || ''}`);
+      const pageKey = canonicalTopicKey(`${page.title} ${page.plainText || ''}`);
       return key.split(' ').some(token => token.length > 3 && pageKey.includes(token));
     }).slice(0, 4);
     if (connectedPages.length >= 2 && sourceRefs.length >= 1) {
       candidates.push({
         proposalType: 'bridge_idea',
-        title: titleize(key),
+        title,
         slugCandidate: slugify(key),
         summary: `Bridge idea connecting ${connectedPages.length} existing wiki pages.`,
-        thesis: `${titleize(key)} may connect pages that are currently separate.`,
+        thesis: `${title} may connect pages that are currently separate.`,
         whyNow: `Noeis found this idea touching ${connectedPages.map(page => page.title).join(', ')}.`,
         confidence: Math.min(0.88, 0.56 + (connectedPages.length * 0.08) + (sourceRefs.length * 0.04)),
         clusterKey: `bridge:${key}`,
@@ -236,7 +417,7 @@ const buildProposalCandidates = ({ signals = [], existingPages = [] } = {}) => {
           snippet: signal.snippet
         })),
         starterClaims: sourceRefs.slice(0, 2).map(signal => signal.snippet || signal.title).filter(Boolean),
-        openQuestions: [`Does ${titleize(key)} actually unify these pages, or only share vocabulary?`],
+        openQuestions: [`Does ${title} actually unify these pages, or only share vocabulary?`],
         generation: {
           source: 'deterministic',
           generatedAt: new Date(),
@@ -246,11 +427,12 @@ const buildProposalCandidates = ({ signals = [], existingPages = [] } = {}) => {
       });
     }
   });
-  return candidates.sort((a, b) => b.confidence - a.confidence).slice(0, 12);
+  return dedupeCandidates(candidates).slice(0, 12);
 };
 
 const upsertProposalCandidates = async ({ WikiProposal, userId, candidates = [] } = {}) => {
   if (!WikiProposal || !userId) return [];
+  await retireStaleActiveProposals({ WikiProposal, userId, candidates });
   const proposals = [];
   for (const candidate of candidates) {
     const proposal = await WikiProposal.findOneAndUpdate(
@@ -367,8 +549,10 @@ module.exports = {
   buildProposalCandidates,
   createDraftPageFromProposal,
   createProposalFromSourceEvent,
+  activeProposalsNeedClusteringRefresh,
   normalizeKey,
   refreshWikiProposals,
+  retireStaleActiveProposals,
   slugify,
   upsertProposalCandidates
 };

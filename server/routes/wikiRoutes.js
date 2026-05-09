@@ -17,9 +17,11 @@ const {
   syncWikiPageGraphConnections
 } = require('../services/wikiGraphConnectionService');
 const {
+  activeProposalsNeedClusteringRefresh,
   buildArchiveSignals,
   buildProposalCandidates,
-  createDraftPageFromProposal
+  createDraftPageFromProposal,
+  retireStaleActiveProposals
 } = require('../services/wikiProposalService');
 
 const PAGE_TYPES = new Set(['topic', 'question', 'project', 'source', 'person', 'synthesis']);
@@ -321,7 +323,7 @@ const buildWikiRouter = ({
     const existing = await WikiProposal.find({ userId, status: { $in: activeStatuses } })
       .sort({ confidence: -1, updatedAt: -1 })
       .limit(20);
-    if (!force && !proposalsAreStale(existing)) {
+    if (!force && !proposalsAreStale(existing) && !activeProposalsNeedClusteringRefresh(existing)) {
       return { proposals: existing.map(serializeWikiProposal), generated: false };
     }
 
@@ -335,6 +337,7 @@ const buildWikiRouter = ({
 
     const signals = buildArchiveSignals({ articles, notebooks, concepts, pages, questions });
     const candidates = buildProposalCandidates({ signals, existingPages: pages });
+    await retireStaleActiveProposals({ WikiProposal, userId, candidates });
     for (const candidate of candidates) {
       const prior = await WikiProposal.findOne({ userId, clusterKey: candidate.clusterKey });
       if (prior && ['dismissed', 'accepted', 'merged'].includes(prior.status)) continue;

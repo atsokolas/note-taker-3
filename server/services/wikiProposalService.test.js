@@ -3,7 +3,9 @@ const {
   buildArchiveSignals,
   buildProposalCandidates,
   createDraftPageFromProposal,
-  normalizeKey
+  activeProposalsNeedClusteringRefresh,
+  normalizeKey,
+  retireStaleActiveProposals
 } = require('./wikiProposalService');
 
 const run = async () => {
@@ -85,6 +87,44 @@ const run = async () => {
   }
 
   {
+    const letters = [1992, 1993, 1994, 1995, 1996, 1997].map((year, index) => ({
+      _id: `berkshire-${year}`,
+      title: 'Name: To the Shareholders of Berkshire Hathaway Inc.: by berkshirehathaway.com',
+      url: `https://www.berkshirehathaway.com/letters/${year}.html`,
+      content: `Berkshire Hathaway owner earnings and capital allocation letter ${year}.`,
+      highlights: [{
+        _id: `berkshire-highlight-${index}`,
+        text: `Name: To the Shareholders of Berkshire Hathaway Inc. Owner earnings and Berkshire Hathaway investing lessons from ${year}.`,
+        tags: ['Berkshire Hathaway']
+      }]
+    }));
+    const proposals = buildProposalCandidates({
+      signals: buildArchiveSignals({ articles: letters }),
+      existingPages: []
+    });
+    assert.deepStrictEqual(proposals.map(item => item.title), ['Berkshire Hathaway']);
+    assert.strictEqual(proposals[0].sourceRefs.length, 6);
+  }
+
+  {
+    const letters = [1992, 1993, 1994].map((year, index) => ({
+      _id: `berkshire-existing-${year}`,
+      title: 'To the Shareholders of Berkshire Hathaway Inc.',
+      url: `https://www.berkshirehathaway.com/letters/${year}.html`,
+      highlights: [{
+        _id: `berkshire-existing-highlight-${index}`,
+        text: 'Berkshire Hathaway shareholder letters repeat owner earnings themes.',
+        tags: ['Berkshire Hathaway']
+      }]
+    }));
+    const proposals = buildProposalCandidates({
+      signals: buildArchiveSignals({ articles: letters }),
+      existingPages: [{ _id: 'page-berkshire', title: 'Berkshire Hathaway', plainText: 'Existing page.' }]
+    });
+    assert.strictEqual(proposals.some(item => /berkshire/i.test(item.title)), false);
+  }
+
+  {
     const existingPages = [
       { _id: 'page-1', title: 'Personal Agents', plainText: 'Agents can adapt to users over time.' },
       { _id: 'page-2', title: 'Education Software', plainText: 'Learning interfaces need adaptive feedback.' }
@@ -106,6 +146,67 @@ const run = async () => {
 
     const proposals = buildProposalCandidates({ signals, existingPages });
     assert.ok(proposals.some(item => item.proposalType === 'bridge_idea'));
+  }
+
+  {
+    const docs = [
+      {
+        userId: 'user-1',
+        status: 'pending',
+        title: 'Hathaway Inc Berkshirehathaway',
+        clusterKey: 'theme:hathaway inc berkshirehathaway',
+        saveCalls: 0,
+        async save() {
+          this.saveCalls += 1;
+          return this;
+        }
+      },
+      {
+        userId: 'user-1',
+        status: 'pending',
+        title: 'Berkshire Hathaway',
+        clusterKey: 'theme:berkshire hathaway',
+        saveCalls: 0,
+        async save() {
+          this.saveCalls += 1;
+          return this;
+        }
+      },
+      {
+        userId: 'user-1',
+        status: 'pending',
+        title: 'AI Tutors and Motivation',
+        clusterKey: 'theme:tutors motivation',
+        saveCalls: 0,
+        async save() {
+          this.saveCalls += 1;
+          return this;
+        }
+      }
+    ];
+    const WikiProposal = {
+      find: async () => docs
+    };
+    const retired = await retireStaleActiveProposals({
+      WikiProposal,
+      userId: 'user-1',
+      candidates: [{ title: 'Berkshire Hathaway', clusterKey: 'theme:berkshire hathaway' }]
+    });
+    assert.strictEqual(retired, 1);
+    assert.strictEqual(docs[0].status, 'dismissed');
+    assert.strictEqual(docs[1].status, 'pending');
+    assert.strictEqual(docs[2].status, 'pending');
+  }
+
+  {
+    assert.strictEqual(activeProposalsNeedClusteringRefresh([
+      { status: 'pending', title: 'Inc Berkshirehathaway', clusterKey: 'theme:inc berkshirehathaway' },
+      { status: 'pending', title: 'Hathaway Inc Berkshirehathaway', clusterKey: 'theme:hathaway inc berkshirehathaway' }
+    ]), true);
+    assert.strictEqual(activeProposalsNeedClusteringRefresh([
+      { status: 'pending', title: 'AI Tutors and Motivation', clusterKey: 'theme:tutors motivation' },
+      { status: 'pending', title: 'Long-Term Writing Habits', clusterKey: 'theme:long term writing habits' }
+    ]), false);
   }
 
   {

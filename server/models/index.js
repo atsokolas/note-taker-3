@@ -440,6 +440,7 @@ const wikiProposalRefSchema = new mongoose.Schema({
   title: { type: String, default: '', trim: true },
   snippet: { type: String, default: '', trim: true },
   url: { type: String, default: '', trim: true },
+  sourceHost: { type: String, default: '', trim: true },
   reason: { type: String, default: '', trim: true }
 }, { _id: true });
 
