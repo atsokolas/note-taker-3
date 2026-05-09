@@ -71,6 +71,37 @@ describe('fetchNotionPagesForAgent', () => {
     expect(savedDocs[0].tags).toContain('notion');
   });
 
+  it('auto-applies wiki maintenance when wiki deps are available', async () => {
+    const savedEvents = [];
+    deps.WikiSourceEvent = jest.fn().mockImplementation((data) => {
+      const event = {
+        ...data,
+        _id: 'event-1',
+        status: data.status || 'pending',
+        save: jest.fn().mockResolvedValue()
+      };
+      savedEvents.push(event);
+      return event;
+    });
+    deps.WikiPage = {
+      findOne: jest.fn().mockReturnValue({
+        then: (resolve) => resolve(null)
+      }),
+      find: jest.fn().mockReturnValue({
+        sort: () => ({
+          limit: () => Promise.resolve([])
+        }),
+        limit: () => Promise.resolve([])
+      })
+    };
+    deps.notionClient.searchNotionItems.mockResolvedValueOnce([
+      { id: 'page-1', last_edited_time: '2026-04-01T00:00:00Z', properties: { title: { title: [{ plain_text: 'A' }] } } }
+    ]);
+    await fetchNotionPagesForAgent({ userId: 'u1', deps });
+    expect(savedEvents[0].status).toBe('ignored');
+    expect(savedEvents[0].processedAt).toBeTruthy();
+  });
+
   it('skips pages whose last_edited_time matches the cached value', async () => {
     deps.notionClient.searchNotionItems.mockResolvedValueOnce([
       { id: 'page-1', last_edited_time: '2026-04-01T00:00:00Z', properties: { title: { title: [{ plain_text: 'A' }] } } }

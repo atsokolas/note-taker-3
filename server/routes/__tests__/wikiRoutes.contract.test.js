@@ -119,6 +119,49 @@ const createFakeLibraryModel = (records = []) => ({
   find: (query = {}) => new Query(records.filter(record => matches(record, query)))
 });
 
+const createFakeConnectionModel = () => {
+  const records = [];
+  const matchesDeleteCondition = (record, condition = {}) => {
+    if (condition.fromType?.$in && !condition.fromType.$in.includes(record.fromType)) return false;
+    else if (condition.fromType && String(record.fromType || '') !== String(condition.fromType)) return false;
+    if (condition.fromId?.$regex && !(new RegExp(condition.fromId.$regex).test(String(record.fromId || '')))) return false;
+    else if (condition.fromId && String(record.fromId || '') !== String(condition.fromId)) return false;
+    if (condition.toType && String(record.toType || '') !== String(condition.toType)) return false;
+    if (condition.toId?.$regex && !(new RegExp(condition.toId.$regex).test(String(record.toId || '')))) return false;
+    else if (condition.toId && String(record.toId || '') !== String(condition.toId)) return false;
+    if (condition.relationType?.$in && !condition.relationType.$in.includes(record.relationType)) return false;
+    else if (condition.relationType && String(record.relationType || '') !== String(condition.relationType)) return false;
+    return true;
+  };
+  return {
+    records,
+    deleteMany: async (query = {}) => {
+      const before = records.length;
+      for (let index = records.length - 1; index >= 0; index -= 1) {
+        const record = records[index];
+        if (String(record.userId || '') !== String(query.userId || '')) continue;
+        if ((query.$or || []).some(condition => matchesDeleteCondition(record, condition))) {
+          records.splice(index, 1);
+        }
+      }
+      return { deletedCount: before - records.length };
+    },
+    findOneAndUpdate: async (query = {}, updates = {}, options = {}) => {
+      let found = records.find(record => matches(record, query));
+      if (!found && options.upsert) {
+        found = {
+          _id: new mongoose.Types.ObjectId().toString(),
+          ...(updates.$setOnInsert || query),
+          createdAt: new Date(),
+          updatedAt: new Date()
+        };
+        records.push(found);
+      }
+      return found ? clone(found) : null;
+    }
+  };
+};
+
 const request = async (url, path, options = {}) => {
   const res = await fetch(`${url}${path}`, {
     ...options,
@@ -158,6 +201,7 @@ const run = async () => {
       updatedAt: new Date()
     }
   ]);
+  const Connection = createFakeConnectionModel();
   const app = express();
   app.use(express.json());
   app.use(buildWikiRouter({
@@ -166,6 +210,7 @@ const run = async () => {
       next();
     },
     WikiPage,
+    Connection,
     Article
   }));
 
@@ -250,6 +295,104 @@ const run = async () => {
     assert.ok(maintained.body.aiState.changeLog.length >= 1);
     assert.ok(maintained.body.aiState.suggestions.length >= 1);
 
+    const linkedPage = new WikiPage({
+      userId: 'user-1',
+      title: 'Enterprise AI memory',
+      slug: 'enterprise-ai-memory',
+      pageType: 'topic',
+      status: 'published',
+      plainText: 'A destination page for Enterprise AI memory.'
+    });
+    await linkedPage.save();
+    const sourceRecord = WikiPage.records.find(record => String(record._id) === String(created.body._id));
+    sourceRecord.body = {
+      type: 'doc',
+      content: [{
+        type: 'paragraph',
+        content: [{ type: 'text', text: 'This draft should link Enterprise AI memory inside the body.' }]
+      }]
+    };
+    sourceRecord.plainText = 'This draft should link Enterprise AI memory inside the body.';
+
+    const autolinks = await request(url, `/api/wiki/pages/${created.body._id}/autolinks`);
+    assert.strictEqual(autolinks.res.status, 200, autolinks.text);
+    assert.ok(autolinks.body.suggestions.some(suggestion => suggestion.pageId === linkedPage._id));
+
+    const appliedAutolink = await request(url, `/api/wiki/pages/${created.body._id}/autolinks/${linkedPage._id}/apply`, { method: 'POST' });
+    assert.strictEqual(appliedAutolink.res.status, 200, appliedAutolink.text);
+    const linkedText = appliedAutolink.body.body.content[0].content.find(node => node.text === 'Enterprise AI memory');
+    assert.strictEqual(linkedText.marks[0].type, 'wikiLink');
+    assert.strictEqual(linkedText.marks[0].attrs.pageId, String(linkedPage._id));
+    const pageToPageEdge = Connection.records.find(record => (
+      record.fromType === 'wiki_page'
+      && record.fromId === String(created.body._id)
+      && record.toType === 'wiki_page'
+      && record.toId === String(linkedPage._id)
+    ));
+    assert.ok(pageToPageEdge);
+    const edgeCountAfterApply = Connection.records.length;
+
+    const duplicateAutolink = await request(url, `/api/wiki/pages/${created.body._id}/autolinks/${linkedPage._id}/apply`, { method: 'POST' });
+    assert.strictEqual(duplicateAutolink.res.status, 409, duplicateAutolink.text);
+    assert.strictEqual(Connection.records.length, edgeCountAfterApply);
+
+    const sourceArticleId = new mongoose.Types.ObjectId().toString();
+    const attachedSource = await request(url, `/api/wiki/pages/${created.body._id}/sources`, {
+      method: 'POST',
+      body: JSON.stringify({
+        type: 'article',
+        objectId: sourceArticleId,
+        title: 'Graph source'
+      })
+    });
+    assert.strictEqual(attachedSource.res.status, 201, attachedSource.text);
+    assert.ok(Connection.records.some(record => (
+      record.fromType === 'article'
+      && record.fromId === sourceArticleId
+      && record.toType === 'wiki_page'
+      && record.toId === String(created.body._id)
+      && record.relationType === 'supports'
+    )));
+
+    const rebuiltPageGraph = await request(url, `/api/wiki/pages/${created.body._id}/graph/rebuild`, { method: 'POST' });
+    assert.strictEqual(rebuiltPageGraph.res.status, 200, rebuiltPageGraph.text);
+    assert.ok(rebuiltPageGraph.body.createdCount >= 2);
+
+    const rebuiltGraph = await request(url, '/api/wiki/graph/rebuild', {
+      method: 'POST',
+      body: JSON.stringify({ limit: 25 })
+    });
+    assert.strictEqual(rebuiltGraph.res.status, 200, rebuiltGraph.text);
+    assert.ok(rebuiltGraph.body.pagesProcessed >= 2);
+
+    const addedSourceIndex = attachedSource.body.sourceRefs.length;
+    const pageWithClaim = {
+      type: 'doc',
+      content: [{
+        type: 'paragraph',
+        content: [{
+          type: 'text',
+          text: 'Graph source supports this claim.',
+          marks: [{ type: 'claim', attrs: { claimId: 'claim-route-1', support: 'supported', citationIndexes: [addedSourceIndex] } }]
+        }]
+      }]
+    };
+    const patchedClaim = await request(url, `/api/wiki/pages/${created.body._id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ body: pageWithClaim })
+    });
+    assert.strictEqual(patchedClaim.res.status, 200, patchedClaim.text);
+    assert.strictEqual(patchedClaim.body.claims.length, 1);
+    assert.strictEqual(patchedClaim.body.claims[0].claimId, 'claim-route-1');
+    assert.strictEqual(patchedClaim.body.claims[0].citationIds.length, 1);
+    assert.ok(Connection.records.some(record => (
+      record.fromType === 'article'
+      && String(record.fromId) === sourceArticleId
+      && record.toType === 'wiki_claim'
+      && record.toId === `${created.body._id}:claim-route-1`
+      && record.relationType === 'supports'
+    )));
+
     const invalidSource = await request(url, `/api/wiki/pages/${created.body._id}/sources`, {
       method: 'POST',
       body: JSON.stringify({ type: 'bad-source' })
@@ -262,7 +405,8 @@ const run = async () => {
 
     const activeAfterArchive = await request(url, '/api/wiki/pages');
     assert.strictEqual(activeAfterArchive.res.status, 200, activeAfterArchive.text);
-    assert.strictEqual(activeAfterArchive.body.length, 0);
+    assert.strictEqual(activeAfterArchive.body.length, 1);
+    assert.strictEqual(activeAfterArchive.body[0]._id, linkedPage._id);
 
     const archivedList = await request(url, '/api/wiki/pages?status=archived');
     assert.strictEqual(archivedList.res.status, 200, archivedList.text);

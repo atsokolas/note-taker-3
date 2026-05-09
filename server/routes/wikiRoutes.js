@@ -1,6 +1,7 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const { maintainWikiPage: defaultMaintainWikiPage } = require('../services/wikiMaintenanceService');
+const { deriveClaimsFromDoc } = require('../services/wikiMaintenanceService');
 const { askWikiPage: defaultAskWikiPage } = require('../services/wikiAskService');
 const { buildWikiBriefing: defaultBuildWikiBriefing } = require('../services/wikiBriefingService');
 const { findWikiBacklinks: defaultFindWikiBacklinks } = require('../services/wikiBacklinkService');
@@ -9,6 +10,12 @@ const { listWikiSourceEvents } = require('../services/wikiSourceEventService');
 const { processWikiSourceEvent } = require('../services/wikiMaintenanceOrchestrator');
 const { processPendingWikiSourceEvents } = require('../services/wikiSourceEventWorker');
 const { writeWikiPageToConnector } = require('../services/wikiConnectorWritebackService');
+const { findAutolinkSuggestions } = require('../services/wikiAutolinkService');
+const { applyWikiAutolinkToDoc } = require('../services/wikiAutolinkApplyService');
+const {
+  rebuildWikiGraphConnections,
+  syncWikiPageGraphConnections
+} = require('../services/wikiGraphConnectionService');
 const {
   buildArchiveSignals,
   buildProposalCandidates,
@@ -276,6 +283,7 @@ const buildWikiRouter = ({
   WikiRevision = null,
   WikiSourceEvent = null,
   WikiMaintenanceRun = null,
+  Connection = null,
   ConnectorActionLog = null,
   IntegrationConnection = null,
   Article = null,
@@ -402,11 +410,34 @@ const buildWikiRouter = ({
     WikiProposal,
     WikiRevision,
     WikiMaintenanceRun,
+    Connection,
     Article,
     NotebookEntry,
     TagMeta,
     Question
   });
+
+  const syncPageGraph = async (page, fallbackUserId = null) => {
+    if (!Connection) return null;
+    try {
+      return await syncWikiPageGraphConnections({
+        Connection,
+        userId: page?.userId || fallbackUserId,
+        page
+      });
+    } catch (graphError) {
+      console.warn('Failed to sync wiki graph connections:', graphError);
+      return null;
+    }
+  };
+
+  const refreshPageClaims = (page) => {
+    page.claims = deriveClaimsFromDoc({
+      body: page.body || emptyDoc(),
+      citations: page.citations || [],
+      sourceRefs: page.sourceRefs || []
+    });
+  };
 
   router.get('/api/wiki/pages', authenticateToken, async (req, res) => {
     try {
@@ -464,7 +495,9 @@ const buildWikiRouter = ({
         plainText: extractPlainText(body),
         sourceRefs: initialSourceRef?.value ? [initialSourceRef.value] : []
       });
+      refreshPageClaims(page);
       await page.save();
+      await syncPageGraph(page, req.user.id);
       await createWikiRevision({
         WikiRevision,
         userId: req.user.id,
@@ -520,8 +553,10 @@ const buildWikiRouter = ({
         page.body = req.body.body;
         page.plainText = extractPlainText(req.body.body);
       }
+      if (req.body?.body !== undefined) refreshPageClaims(page);
 
       await page.save();
+      await syncPageGraph(page, req.user.id);
       await createWikiRevision({
         WikiRevision,
         userId: req.user.id,
@@ -545,6 +580,12 @@ const buildWikiRouter = ({
       const before = snapshotPage(page);
       page.status = 'archived';
       await page.save();
+      await syncPageGraph({
+        _id: page._id,
+        userId: page.userId,
+        body: emptyDoc(),
+        sourceRefs: []
+      }, req.user.id);
       await createWikiRevision({
         WikiRevision,
         userId: req.user.id,
@@ -587,6 +628,7 @@ const buildWikiRouter = ({
       });
 
       await page.save();
+      await syncPageGraph(page, req.user.id);
       await createWikiRevision({
         WikiRevision,
         userId: req.user.id,
@@ -612,7 +654,9 @@ const buildWikiRouter = ({
       if (!page) return res.status(404).json({ error: 'Wiki page not found.' });
 
       page.sourceRefs.push(sourceRef.value);
+      refreshPageClaims(page);
       await page.save();
+      await syncPageGraph(page, req.user.id);
       await createWikiRevision({
         WikiRevision,
         userId: req.user.id,
@@ -637,7 +681,9 @@ const buildWikiRouter = ({
       if (!source) return res.status(404).json({ error: 'Wiki source not found.' });
 
       source.deleteOne();
+      refreshPageClaims(page);
       await page.save();
+      await syncPageGraph(page, req.user.id);
       await createWikiRevision({
         WikiRevision,
         userId: req.user.id,
@@ -734,6 +780,40 @@ const buildWikiRouter = ({
     } catch (error) {
       console.error('Error finding wiki backlinks:', error);
       res.status(500).json({ error: 'Failed to compute wiki backlinks.' });
+    }
+  });
+
+  router.post('/api/wiki/pages/:id/graph/rebuild', authenticateToken, async (req, res) => {
+    try {
+      if (!Connection) return res.status(503).json({ error: 'Wiki graph storage is not available.' });
+      const page = await findOwnedPage(req).lean();
+      if (!page) return res.status(404).json({ error: 'Wiki page not found.' });
+      const result = await syncWikiPageGraphConnections({
+        Connection,
+        userId: req.user.id,
+        page
+      });
+      res.status(200).json(result);
+    } catch (error) {
+      console.error('Error rebuilding wiki page graph:', error);
+      res.status(500).json({ error: 'Failed to rebuild wiki page graph.' });
+    }
+  });
+
+  router.post('/api/wiki/graph/rebuild', authenticateToken, async (req, res) => {
+    try {
+      if (!Connection) return res.status(503).json({ error: 'Wiki graph storage is not available.' });
+      const limit = Math.max(1, Math.min(Number(req.body?.limit) || 500, 1000));
+      const result = await rebuildWikiGraphConnections({
+        Connection,
+        WikiPage,
+        userId: req.user.id,
+        limit
+      });
+      res.status(200).json(result);
+    } catch (error) {
+      console.error('Error rebuilding wiki graph:', error);
+      res.status(500).json({ error: 'Failed to rebuild wiki graph.' });
     }
   });
 
@@ -917,6 +997,61 @@ const buildWikiRouter = ({
     } catch (error) {
       console.error('Error listing wiki connector actions:', error);
       res.status(500).json({ error: 'Failed to list wiki connector actions.' });
+    }
+  });
+
+  router.get('/api/wiki/pages/:id/autolinks', authenticateToken, async (req, res) => {
+    try {
+      const page = await findOwnedPage(req).lean();
+      if (!page) return res.status(404).json({ error: 'Wiki page not found.' });
+      const result = await findAutolinkSuggestions({
+        targetPage: page,
+        userId: req.user.id,
+        models: { WikiPage }
+      });
+      res.status(200).json(result);
+    } catch (error) {
+      console.error('Error listing wiki autolink suggestions:', error);
+      res.status(500).json({ error: 'Failed to list wiki autolink suggestions.' });
+    }
+  });
+
+  router.post('/api/wiki/pages/:id/autolinks/:targetPageId/apply', authenticateToken, async (req, res) => {
+    try {
+      if (!mongoose.Types.ObjectId.isValid(String(req.params.targetPageId || ''))) {
+        return res.status(400).json({ error: 'Invalid target wiki page id.' });
+      }
+      const page = await findOwnedPage(req);
+      if (!page) return res.status(404).json({ error: 'Wiki page not found.' });
+      const targetPage = await WikiPage.findOne({
+        _id: req.params.targetPageId,
+        userId: req.user.id,
+        status: { $ne: 'archived' }
+      }).lean();
+      if (!targetPage) return res.status(404).json({ error: 'Target wiki page not found.' });
+      if (String(targetPage._id) === String(page._id)) return res.status(400).json({ error: 'Cannot link a Wiki page to itself.' });
+      const before = snapshotPage(page);
+      const result = applyWikiAutolinkToDoc({ doc: page.body || emptyDoc(), targetPage });
+      if (!result.applied) {
+        return res.status(409).json({ error: 'Could not apply link. The mention may already be linked or no longer exists.' });
+      }
+      page.body = result.doc;
+      page.plainText = extractPlainText(result.doc);
+      await page.save();
+      await syncPageGraph(page, req.user.id);
+      await createWikiRevision({
+        WikiRevision,
+        userId: req.user.id,
+        page,
+        before,
+        reason: 'user_edit',
+        actorType: 'user',
+        summary: `Linked "${targetPage.title}" from "${page.title}".`
+      });
+      res.status(200).json(serializeWikiPage(page));
+    } catch (error) {
+      console.error('Error applying wiki autolink:', error);
+      res.status(500).json({ error: 'Failed to apply wiki link.' });
     }
   });
 

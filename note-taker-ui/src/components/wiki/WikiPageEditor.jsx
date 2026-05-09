@@ -24,6 +24,7 @@ import WikiPageMetaBar from './WikiPageMetaBar';
 import WikiPageActivityRail from './WikiPageActivityRail';
 import ClaimCitationPopover from './ClaimCitationPopover';
 import Claim, { SUPPORT_STATES } from './extensions/Claim';
+import WikiLink from './extensions/WikiLink';
 import { diffClaimSnapshots, extractClaimTexts, getLastVisitState, recordVisit } from './wikiVisitTracker';
 
 const emptyDoc = { type: 'doc', content: [{ type: 'paragraph' }] };
@@ -132,6 +133,7 @@ const WikiPageEditor = ({ pageId }) => {
     extensions: [
       StarterKit,
       Placeholder.configure({ placeholder: 'Write the page. Use the AI/source panel for support.' }),
+      WikiLink,
       Claim
     ],
     content: emptyDoc,
@@ -409,7 +411,15 @@ const WikiPageEditor = ({ pageId }) => {
         </section>
         {sourcePanelOpen ? (
           <aside className="wiki-editor__rail" aria-label="AI, sources, and backlinks">
-            <WikiPageActivityRail pageId={pageId} page={page} onPageUpdate={setPage} />
+            <WikiPageActivityRail
+              pageId={pageId}
+              page={page}
+              onPageUpdate={(updated) => {
+                latestPageRef.current = updated;
+                setPage(updated);
+                if (updated?.body) editor?.commands?.setContent(updated.body, false);
+              }}
+            />
             <WikiAiSourcePanel
               id="wiki-source-panel"
               page={page}

@@ -31,6 +31,20 @@ const citationText = (indexes = []) => `[${indexes.join(',')}]`;
 const renderTextNode = (node, key) => {
   const text = node?.text || '';
   if (!text) return null;
+  const wikiLinkMark = Array.isArray(node.marks)
+    ? node.marks.find(mark => mark?.type === 'wikiLink')
+    : null;
+  const wikiLinkedText = wikiLinkMark?.attrs?.pageId ? (
+    <a
+      key={`${key}-wiki-link`}
+      className="wiki-internal-link"
+      href={`/wiki/${wikiLinkMark.attrs.pageId}`}
+      data-wiki-page-id={wikiLinkMark.attrs.pageId}
+      data-wiki-title={wikiLinkMark.attrs.title || ''}
+    >
+      {text}
+    </a>
+  ) : text;
   const claimMark = Array.isArray(node.marks)
     ? node.marks.find(mark => mark?.type === 'claim')
     : null;
@@ -40,7 +54,7 @@ const renderTextNode = (node, key) => {
     return (
       <React.Fragment key={key}>
         <span className="wiki-claim" {...attrs}>
-          {text}
+          {wikiLinkedText}
         </span>
         {indexes ? (
           <button
@@ -57,7 +71,7 @@ const renderTextNode = (node, key) => {
       </React.Fragment>
     );
   }
-  return <React.Fragment key={key}>{text}</React.Fragment>;
+  return <React.Fragment key={key}>{wikiLinkedText}</React.Fragment>;
 };
 
 const renderInline = (content = []) => content

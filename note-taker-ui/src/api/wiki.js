@@ -148,9 +148,27 @@ export const listWikiConnectorActions = async (id) => {
   return [];
 };
 
+export const listWikiAutolinks = async (id) => {
+  const res = await api.get(`${WIKI_PAGES_PATH}/${safeId(id)}/autolinks`, getAuthHeaders());
+  return {
+    suggestions: Array.isArray(res.data?.suggestions) ? res.data.suggestions : [],
+    scanned: Number.isFinite(Number(res.data?.scanned)) ? Number(res.data.scanned) : 0
+  };
+};
+
+export const applyWikiAutolink = async (id, targetPageId) => {
+  const res = await api.post(`${WIKI_PAGES_PATH}/${safeId(id)}/autolinks/${safeId(targetPageId)}/apply`, {}, getAuthHeaders());
+  return res.data;
+};
+
 export const reviewWikiFreshness = async (id) => {
   const res = await api.post(`${WIKI_PAGES_PATH}/${safeId(id)}/freshness/review`, {}, getAuthHeaders());
   return res.data;
+};
+
+export const rebuildWikiPageGraph = async (id) => {
+  const res = await api.post(`${WIKI_PAGES_PATH}/${safeId(id)}/graph/rebuild`, {}, getAuthHeaders());
+  return res.data || {};
 };
 
 export const writeWikiPageToConnector = async (id, connector, payload = {}) => {
@@ -184,7 +202,10 @@ const wikiApi = {
   processPendingWikiSourceEvents,
   listWikiRevisions,
   listWikiConnectorActions,
+  listWikiAutolinks,
+  applyWikiAutolink,
   reviewWikiFreshness,
+  rebuildWikiPageGraph,
   writeWikiPageToConnector
 };
 

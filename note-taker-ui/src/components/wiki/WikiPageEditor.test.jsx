@@ -2,7 +2,8 @@ import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import WikiPageEditor from './WikiPageEditor';
-import { addWikiSource, deleteWikiPage, getWikiBacklinks, getWikiPage, listWikiConnectorActions, listWikiRevisions, maintainWikiPage, removeWikiSource, reviewWikiFreshness, updateWikiPage } from '../../api/wiki';
+import { addWikiSource, applyWikiAutolink, deleteWikiPage, getWikiBacklinks, getWikiPage, listWikiAutolinks, listWikiConnectorActions, listWikiRevisions, maintainWikiPage, rebuildWikiPageGraph, removeWikiSource, reviewWikiFreshness, updateWikiPage } from '../../api/wiki';
+import { fetchGraphData } from '../../api/map';
 
 const mockUseEditor = jest.fn();
 const mockEditor = {
@@ -30,17 +31,24 @@ jest.mock('@tiptap/extension-placeholder', () => ({
 
 jest.mock('../../api/wiki', () => ({
   addWikiSource: jest.fn(),
+  applyWikiAutolink: jest.fn(),
   askWikiPage: jest.fn(),
   deleteWikiPage: jest.fn(),
   getWikiBacklinks: jest.fn(),
   getWikiPage: jest.fn(),
+  listWikiAutolinks: jest.fn(),
   listWikiConnectorActions: jest.fn(),
   listWikiRevisions: jest.fn(),
   maintainWikiPage: jest.fn(),
+  rebuildWikiPageGraph: jest.fn(),
   removeWikiDiscussion: jest.fn(),
   removeWikiSource: jest.fn(),
   reviewWikiFreshness: jest.fn(),
   updateWikiPage: jest.fn()
+}));
+
+jest.mock('../../api/map', () => ({
+  fetchGraphData: jest.fn()
 }));
 
 const page = {
@@ -78,8 +86,25 @@ describe('WikiPageEditor', () => {
     mockUseEditor.mockReturnValue(mockEditor);
     getWikiPage.mockResolvedValue(page);
     getWikiBacklinks.mockResolvedValue({ count: 0, backlinks: [] });
+    listWikiAutolinks.mockResolvedValue({ suggestions: [], scanned: 0 });
     listWikiConnectorActions.mockResolvedValue([]);
     listWikiRevisions.mockResolvedValue([]);
+    fetchGraphData.mockResolvedValue({ nodes: [], edges: [], page: { hasMore: false } });
+    rebuildWikiPageGraph.mockResolvedValue({ edgesCreated: 0, edgesDeleted: 0 });
+    applyWikiAutolink.mockResolvedValue({
+      ...page,
+      body: {
+        type: 'doc',
+        content: [{
+          type: 'paragraph',
+          content: [{
+            type: 'text',
+            text: 'Compounding interest',
+            marks: [{ type: 'wikiLink', attrs: { pageId: 'wiki-related', title: 'Compounding interest' } }]
+          }]
+        }]
+      }
+    });
     reviewWikiFreshness.mockResolvedValue(page);
     updateWikiPage.mockResolvedValue(page);
     addWikiSource.mockResolvedValue(page);
@@ -97,6 +122,76 @@ describe('WikiPageEditor', () => {
           newItems: [{ text: 'New article affects this page.', sourceTitle: 'Memory article' }]
         }
       }
+    });
+  });
+
+  it('shows wiki autolink opportunities in the activity rail', async () => {
+    listWikiAutolinks.mockResolvedValueOnce({
+      scanned: 4,
+      suggestions: [
+        {
+          pageId: 'wiki-related',
+          title: 'Compounding interest',
+          snippet: 'This page mentions Compounding interest as a related topic.',
+          mentionCount: 2
+        }
+      ]
+    });
+
+    render(
+      <MemoryRouter>
+        <WikiPageEditor pageId="wiki-1" />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByText('Link opportunities')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Compounding interest' })).toHaveAttribute('href', '/wiki/wiki-related');
+    expect(screen.getByText('2 mentions')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Apply link' }));
+    await waitFor(() => {
+      expect(applyWikiAutolink).toHaveBeenCalledWith('wiki-1', 'wiki-related');
+      expect(mockEditor.commands.setContent).toHaveBeenCalledWith(expect.objectContaining({ type: 'doc' }), false);
+    });
+  });
+
+  it('renders relationship graph health and refreshes persisted graph edges', async () => {
+    fetchGraphData.mockResolvedValueOnce({
+      nodes: [
+        { id: 'wiki_page:wiki-1', itemType: 'wiki_page', title: 'Enterprise AI Memory' },
+        { id: 'wiki_claim:wiki-1:claim-1', itemType: 'wiki_claim', title: 'Claim', snippet: 'Memory needs explicit source trails.' },
+        { id: 'article:article-1', itemType: 'article', title: 'Memory article' },
+        { id: 'wiki_page:wiki-related', itemType: 'wiki_page', title: 'Compounding interest', openPath: '/wiki/wiki-related' }
+      ],
+      edges: [
+        { id: 'edge-1', source: 'wiki_page:wiki-1', target: 'wiki_claim:wiki-1:claim-1', relationType: 'contains' },
+        { id: 'edge-2', source: 'article:article-1', target: 'wiki_claim:wiki-1:claim-1', relationType: 'supports' },
+        { id: 'edge-3', source: 'wiki_page:wiki-1', target: 'wiki_page:wiki-related', relationType: 'related' }
+      ]
+    }).mockResolvedValueOnce({
+      nodes: [
+        { id: 'wiki_page:wiki-1', itemType: 'wiki_page', title: 'Enterprise AI Memory' },
+        { id: 'wiki_claim:wiki-1:claim-1', itemType: 'wiki_claim', title: 'Claim', snippet: 'Memory needs explicit source trails.' },
+        { id: 'article:article-1', itemType: 'article', title: 'Memory article' }
+      ],
+      edges: [
+        { id: 'edge-1', source: 'wiki_page:wiki-1', target: 'wiki_claim:wiki-1:claim-1', relationType: 'contains' },
+        { id: 'edge-2', source: 'article:article-1', target: 'wiki_claim:wiki-1:claim-1', relationType: 'supports' }
+      ]
+    });
+
+    render(
+      <MemoryRouter>
+        <WikiPageEditor pageId="wiki-1" />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByText('Relationship graph')).toBeInTheDocument();
+    expect(await screen.findByText('Memory needs explicit source trails.')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Compounding interest' })).toHaveAttribute('href', '/wiki/wiki-related');
+    fireEvent.click(screen.getByRole('button', { name: 'Refresh' }));
+    await waitFor(() => {
+      expect(rebuildWikiPageGraph).toHaveBeenCalledWith('wiki-1');
+      expect(fetchGraphData).toHaveBeenCalledTimes(2);
     });
   });
 

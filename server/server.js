@@ -149,6 +149,7 @@ const runWikiSourceEventWorker = async () => {
         WikiProposal,
         WikiRevision,
         WikiMaintenanceRun,
+        Connection,
         Article,
         NotebookEntry,
         TagMeta,
@@ -3212,11 +3213,41 @@ const resolveReturnQueueItem = async (userId, itemType, itemId) => {
       exists: true
     };
   }
+  if (itemType === 'wiki_page') {
+    const page = await WikiPage.findOne({ _id: safeItemId, userId, status: { $ne: 'archived' } })
+      .select('title plainText pageType status')
+      .lean();
+    if (!page) return null;
+    return {
+      title: page.title || 'Wiki page',
+      snippet: buildQueueSnippet(page.plainText, page.pageType),
+      openPath: `/wiki/${page._id}`,
+      exists: true
+    };
+  }
+  if (itemType === 'wiki_claim') {
+    const [pageId, ...claimParts] = safeItemId.split(':');
+    const claimId = claimParts.join(':');
+    if (!mongoose.Types.ObjectId.isValid(pageId) || !claimId) return null;
+    const page = await WikiPage.findOne({ _id: pageId, userId, status: { $ne: 'archived' } })
+      .select('title claims updatedAt')
+      .lean();
+    if (!page) return null;
+    const claim = (Array.isArray(page.claims) ? page.claims : [])
+      .find(row => String(row?.claimId || '') === claimId);
+    if (!claim) return null;
+    return {
+      title: claim.section || 'Wiki claim',
+      snippet: buildQueueSnippet(claim.text, page.title),
+      openPath: `/wiki/${page._id}`,
+      exists: true
+    };
+  }
   return null;
 };
 
-const CONNECTION_RELATION_TYPES = new Set(['supports', 'contradicts', 'extends', 'related', 'example', 'definition']);
-const CONNECTION_ITEM_TYPES = new Set(['highlight', 'notebook', 'article', 'concept', 'question']);
+const CONNECTION_RELATION_TYPES = new Set(['supports', 'contradicts', 'extends', 'related', 'example', 'definition', 'contains', 'needs_review']);
+const CONNECTION_ITEM_TYPES = new Set(['highlight', 'notebook', 'article', 'concept', 'question', 'wiki_page', 'wiki_claim']);
 const CONNECTION_SCOPE_TYPES = new Set(['', 'concept', 'question']);
 
 const normalizeConnectionItemType = (value) => {
@@ -3322,7 +3353,9 @@ const createEmptyConnectionCandidateSets = () => ({
   notebookIds: new Set(),
   articleIds: new Set(),
   conceptIds: new Set(),
-  questionIds: new Set()
+  questionIds: new Set(),
+  wikiPageIds: new Set(),
+  wikiClaimIds: new Set()
 });
 
 const addToCandidateSet = (set, value) => {
@@ -3470,6 +3503,8 @@ const isConnectionItemInScopeCandidates = (itemType, itemId, candidates) => {
   if (safeType === 'article') return candidates.articleIds.has(safeId);
   if (safeType === 'concept') return candidates.conceptIds.has(safeId);
   if (safeType === 'question') return candidates.questionIds.has(safeId);
+  if (safeType === 'wiki_page') return candidates.wikiPageIds.has(safeId);
+  if (safeType === 'wiki_claim') return candidates.wikiClaimIds.has(safeId);
   return false;
 };
 
@@ -3682,6 +3717,61 @@ const buildGraphNodeMap = async (userId, idsByType = {}) => {
         tags,
         updatedAt: question.updatedAt || null,
         openPath: `/think?tab=questions&questionId=${question._id}`
+      });
+    });
+  }
+
+  const wikiPageIds = toObjectIdList(Array.from(idsByType.wiki_page || []));
+  if (wikiPageIds.length > 0) {
+    const pages = await WikiPage.find({ userId, _id: { $in: wikiPageIds }, status: { $ne: 'archived' } })
+      .select('title plainText pageType status updatedAt')
+      .lean();
+    pages.forEach(page => {
+      const itemId = String(page._id);
+      const key = buildGraphNodeKey('wiki_page', itemId);
+      nodeMap.set(key, {
+        id: key,
+        itemType: 'wiki_page',
+        itemId,
+        title: page.title || 'Wiki page',
+        snippet: buildQueueSnippet(page.plainText, page.pageType),
+        tags: page.pageType ? [page.pageType] : [],
+        updatedAt: page.updatedAt || null,
+        openPath: `/wiki/${page._id}`
+      });
+    });
+  }
+
+  const wikiClaimRefs = Array.from(idsByType.wiki_claim || [])
+    .map((value) => {
+      const [pageId, ...claimParts] = String(value || '').split(':');
+      const claimId = claimParts.join(':');
+      return { raw: String(value || ''), pageId, claimId };
+    })
+    .filter(ref => mongoose.Types.ObjectId.isValid(ref.pageId) && ref.claimId);
+  if (wikiClaimRefs.length > 0) {
+    const claimPageIds = toObjectIdList([...new Set(wikiClaimRefs.map(ref => ref.pageId))]);
+    const pages = await WikiPage.find({ userId, _id: { $in: claimPageIds }, status: { $ne: 'archived' } })
+      .select('title claims updatedAt')
+      .lean();
+    const pageById = new Map(pages.map(page => [String(page._id), page]));
+    wikiClaimRefs.forEach((ref) => {
+      const page = pageById.get(ref.pageId);
+      if (!page) return;
+      const claim = (Array.isArray(page.claims) ? page.claims : [])
+        .find(row => String(row?.claimId || '') === ref.claimId);
+      if (!claim) return;
+      const key = buildGraphNodeKey('wiki_claim', ref.raw);
+      const support = String(claim.support || '').trim();
+      nodeMap.set(key, {
+        id: key,
+        itemType: 'wiki_claim',
+        itemId: ref.raw,
+        title: claim.section || 'Wiki claim',
+        snippet: buildQueueSnippet(claim.text, page.title),
+        tags: ['claim', support].filter(Boolean),
+        updatedAt: claim.lastReviewedAt || page.updatedAt || null,
+        openPath: `/wiki/${page._id}`
       });
     });
   }
@@ -4255,6 +4345,7 @@ app.use(buildWikiRouter({
   WikiRevision,
   WikiSourceEvent,
   WikiMaintenanceRun,
+  Connection,
   ConnectorActionLog,
   IntegrationConnection,
   Article,
@@ -4798,7 +4889,9 @@ const hydrateRelatedCandidates = async (userId, candidateMap, limit = 8) => {
     notebook: new Set(),
     article: new Set(),
     concept: new Set(),
-    question: new Set()
+    question: new Set(),
+    wiki_page: new Set(),
+    wiki_claim: new Set()
   };
   candidateMap.forEach(candidate => {
     addToCandidateSet(idsByType[candidate.itemType], candidate.itemId);
@@ -5451,6 +5544,12 @@ app.use(buildAgentNotionFetchRouter({
   IntegrationConnection,
   NotebookEntry,
   WikiSourceEvent,
+  WikiPage,
+  WikiRevision,
+  WikiMaintenanceRun,
+  Article,
+  TagMeta,
+  Question,
   ConnectorActionLog,
   decryptSecret: decryptIntegrationSecretForAgent
 }));

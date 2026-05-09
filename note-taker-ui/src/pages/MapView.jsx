@@ -6,22 +6,26 @@ import useConcepts from '../hooks/useConcepts';
 import useNotebookEntries from '../hooks/useNotebookEntries';
 import useQuestions from '../hooks/useQuestions';
 
-const RELATION_TYPES = ['supports', 'contradicts', 'extends', 'related'];
-const ITEM_TYPES = ['highlight', 'notebook', 'article', 'concept', 'question'];
+const RELATION_TYPES = ['supports', 'contradicts', 'extends', 'related', 'contains', 'needs_review'];
+const ITEM_TYPES = ['highlight', 'notebook', 'article', 'concept', 'question', 'wiki_page', 'wiki_claim'];
 
 const ITEM_COLORS = {
   highlight: '#2563eb',
   notebook: '#0f766e',
   article: '#7c3aed',
   concept: '#c2410c',
-  question: '#9333ea'
+  question: '#9333ea',
+  wiki_page: '#365f5c',
+  wiki_claim: '#a16207'
 };
 
 const EDGE_COLORS = {
   supports: '#059669',
   contradicts: '#dc2626',
   extends: '#2563eb',
-  related: '#6b7280'
+  related: '#6b7280',
+  contains: '#7c2d12',
+  needs_review: '#b45309'
 };
 
 const formatItemType = (value = '') => {
@@ -31,6 +35,8 @@ const formatItemType = (value = '') => {
   if (safe === 'article') return 'Article';
   if (safe === 'concept') return 'Concept';
   if (safe === 'question') return 'Question';
+  if (safe === 'wiki_page') return 'Wiki page';
+  if (safe === 'wiki_claim') return 'Wiki claim';
   return safe || 'Item';
 };
 

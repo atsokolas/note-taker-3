@@ -20,6 +20,12 @@ const buildAgentNotionFetchRouter = ({
   IntegrationConnection,
   NotebookEntry,
   WikiSourceEvent = null,
+  WikiPage = null,
+  WikiRevision = null,
+  WikiMaintenanceRun = null,
+  Article = null,
+  TagMeta = null,
+  Question = null,
   ConnectorActionLog = null,
   decryptSecret
 }) => {
@@ -37,6 +43,12 @@ const buildAgentNotionFetchRouter = ({
           IntegrationConnection,
           NotebookEntry,
           WikiSourceEvent,
+          WikiPage,
+          WikiRevision,
+          WikiMaintenanceRun,
+          Article,
+          TagMeta,
+          Question,
           ConnectorActionLog,
           decryptSecret
         }

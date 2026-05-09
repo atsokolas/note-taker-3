@@ -1,4 +1,8 @@
 const { chatComplete, isTextGenerationConfigured } = require('../ai/hfTextClient');
+const {
+  alignArticleToPageStructure,
+  getWikiPageStructure
+} = require('./wikiPageStructureService');
 
 const DEFAULT_SOURCE_LIMIT = 24;
 const MAX_SOURCE_TEXT = 1800;
@@ -311,6 +315,7 @@ const selectCandidateSources = ({ page, sources, limit = DEFAULT_SOURCE_LIMIT })
 };
 
 const buildPrompt = ({ page, candidates, manualNotes = '' }) => {
+  const structure = getWikiPageStructure(page.pageType || 'topic');
   const sourceBlock = candidates.map(source => (
     `[${source.index}] ${source.type.toUpperCase()}: ${source.title}\n` +
     `Updated: ${source.updatedAt || source.createdAt || 'unknown'}\n` +
@@ -330,6 +335,8 @@ Hard rules:
 Page:
 Title: ${page.title}
 Type: ${page.pageType || 'topic'}
+Page intent: ${structure.intent}
+Required section shape, in this order: ${structure.sections.join(' | ')}
 Existing text: ${truncate(page.plainText || toPlainText(page.body), 2400)}
 Creation seed: ${truncate(page.createdFrom?.text || page.createdFrom?.label || '', 1200)}
 Manual notes to preserve when useful: ${manualNotes || 'None detected.'}
@@ -344,7 +351,7 @@ Return strict JSON only:
     "summary": { "text": "one clean introductory paragraph", "citationIndexes": [1] },
     "sections": [
       {
-        "heading": "What It Means",
+        "heading": "${structure.sections[0]}",
         "paragraphs": [
           { "text": "clean wiki paragraph", "citationIndexes": [1, 2] }
         ],
@@ -538,11 +545,50 @@ const collectClaimsFromDoc = (node, section = '') => {
     text: ownText,
     section,
     support: claimMark.attrs?.support || inferClaimSupport(claimMark.attrs?.citationIndexes || []),
+    citationIndexes: normalizeCitationIndexes(claimMark.attrs?.citationIndexes || []),
     citationIds: [],
     lastReviewedAt: new Date()
   }] : [];
   return [...own, ...collectClaimsFromDoc(node.content, nextSection)];
 };
+
+const normalizeMaybeObjectId = (value) => {
+  const text = asString(value);
+  return text || null;
+};
+
+const resolveClaimCitationIds = ({ citationIndexes = [], citations = [], sourceRefs = [] } = {}) => {
+  const indexes = normalizeCitationIndexes(citationIndexes);
+  const ids = [];
+  const seen = new Set();
+  indexes.forEach((index) => {
+    const citation = citations[index - 1] || null;
+    const source = sourceRefs[index - 1] || null;
+    const id = normalizeMaybeObjectId(citation?._id || citation?.id || citation?.sourceRefId || source?._id || source?.id);
+    if (!id || seen.has(id)) return;
+    seen.add(id);
+    ids.push(id);
+  });
+  return ids;
+};
+
+const attachClaimCitationIds = ({ claims = [], citations = [], sourceRefs = [] } = {}) => (
+  (Array.isArray(claims) ? claims : []).map((claim) => {
+    const { citationIndexes, ...rest } = claim || {};
+    const support = rest.support === 'contradicted' ? 'conflicted' : rest.support;
+    return {
+      ...rest,
+      support,
+      citationIds: resolveClaimCitationIds({ citationIndexes, citations, sourceRefs })
+    };
+  })
+);
+
+const deriveClaimsFromDoc = ({ body, citations = [], sourceRefs = [], limit = 80 } = {}) => attachClaimCitationIds({
+  claims: collectClaimsFromDoc(body).slice(0, limit),
+  citations,
+  sourceRefs
+});
 
 const fallbackMaintenance = ({ page, candidates, manualNotes = '' }) => {
   const top = candidates.slice(0, 6);
@@ -621,9 +667,13 @@ const fallbackMaintenance = ({ page, candidates, manualNotes = '' }) => {
       sourceIndexes: [source.index]
     }))
   ];
+  const structuredArticle = alignArticleToPageStructure({
+    pageType: page.pageType || 'topic',
+    article
+  });
   return {
     title: topic,
-    article,
+    article: structuredArticle,
     maintenance: {
       summary: top.length
         ? `Rebuilt as a Wiki article from ${top.length} relevant library source${top.length === 1 ? '' : 's'}.`
@@ -667,15 +717,18 @@ const normalizeModelResult = ({ raw, page, candidates, manualNotes = '' }) => {
         changelog: raw.operations,
         health: raw.health
       };
-  const article = normalizeArticle({
-    rawArticle: raw.article || {
-      summary: raw.summary,
-      sections: raw.sections,
-      preservedUserContent: raw.preservedUserContent
-    },
-    page,
-    manualNotes,
-    candidates
+  const article = alignArticleToPageStructure({
+    pageType: page.pageType || 'topic',
+    article: normalizeArticle({
+      rawArticle: raw.article || {
+        summary: raw.summary,
+        sections: raw.sections,
+        preservedUserContent: raw.preservedUserContent
+      },
+      page,
+      manualNotes,
+      candidates
+    })
   });
   const changelog = Array.isArray(rawMaintenance.changelog)
     ? rawMaintenance.changelog
@@ -771,10 +824,11 @@ const maintainWikiPage = async ({
     confidence: source.addedBy === 'ai' ? 0.72 : 0.9,
     createdAt: now
   }));
-  page.claims = collectClaimsFromDoc(body).slice(0, 80).map(claim => ({
-    ...claim,
-    citationIds: []
-  }));
+  page.claims = deriveClaimsFromDoc({
+    body,
+    citations: page.citations,
+    sourceRefs: mergedSourceRefs
+  });
   page.freshness = {
     ...(page.freshness?.toObject ? page.freshness.toObject() : page.freshness || {}),
     status: Array.isArray(normalized.maintenance.health?.contradictions) && normalized.maintenance.health.contradictions.length
@@ -810,12 +864,17 @@ const maintainWikiPage = async ({
 
 module.exports = {
   maintainWikiPage,
+  deriveClaimsFromDoc,
   collectLibrarySources,
   selectCandidateSources,
   fallbackMaintenance,
   __testables: {
     extractJson,
     docFromArticle,
+    collectClaimsFromDoc,
+    resolveClaimCitationIds,
+    attachClaimCitationIds,
+    deriveClaimsFromDoc,
     normalizeHealth,
     cleanWikiText,
     toPlainText

@@ -441,7 +441,9 @@ const buildConnectionsRouter = ({
         notebook: new Set(),
         article: new Set(),
         concept: new Set(),
-        question: new Set()
+        question: new Set(),
+        wiki_page: new Set(),
+        wiki_claim: new Set()
       };
       edgeRows.forEach(row => {
         addToCandidateSet(idsByType[row.fromType], row.fromId);

@@ -1,0 +1,46 @@
+const assert = require('assert');
+const { applyWikiAutolinkToDoc } = require('./wikiAutolinkApplyService');
+
+const run = async () => {
+  const doc = {
+    type: 'doc',
+    content: [{
+      type: 'paragraph',
+      content: [{ type: 'text', text: 'Compounding interest matters over time.' }]
+    }]
+  };
+  const result = applyWikiAutolinkToDoc({
+    doc,
+    targetPage: { _id: 'page-2', title: 'Compounding interest' }
+  });
+  assert.strictEqual(result.applied, true);
+  assert.strictEqual(result.doc.content[0].content.length, 2);
+  assert.strictEqual(result.doc.content[0].content[0].text, 'Compounding interest');
+  assert.strictEqual(result.doc.content[0].content[0].marks[0].type, 'wikiLink');
+  assert.strictEqual(result.doc.content[0].content[0].marks[0].attrs.pageId, 'page-2');
+
+  const second = applyWikiAutolinkToDoc({
+    doc: result.doc,
+    targetPage: { _id: 'page-2', title: 'Compounding interest' }
+  });
+  assert.strictEqual(second.applied, false);
+
+  const none = applyWikiAutolinkToDoc({
+    doc,
+    targetPage: { _id: 'page-3', title: 'Unrelated topic' }
+  });
+  assert.strictEqual(none.applied, false);
+};
+
+if (require.main === module) {
+  run()
+    .then(() => {
+      console.log('wikiAutolinkApplyService tests passed');
+    })
+    .catch((error) => {
+      console.error(error);
+      process.exit(1);
+    });
+}
+
+module.exports = { run };

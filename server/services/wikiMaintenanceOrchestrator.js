@@ -1,6 +1,7 @@
 const { maintainWikiPage } = require('./wikiMaintenanceService');
 const { createWikiRevision, snapshotPage } = require('./wikiRevisionService');
 const { createProposalFromSourceEvent } = require('./wikiProposalService');
+const { syncWikiPageGraphConnections } = require('./wikiGraphConnectionService');
 
 const escapeRegExp = (value = '') => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
@@ -124,6 +125,7 @@ const processWikiSourceEvent = async ({
     WikiRevision,
     WikiMaintenanceRun,
     WikiProposal,
+    Connection,
     Article,
     NotebookEntry,
     TagMeta,
@@ -200,6 +202,13 @@ const processWikiSourceEvent = async ({
         staleSectionCount: Array.isArray(page.aiState?.health?.staleSections) ? page.aiState.health.staleSections.length : 0
       };
       await page.save();
+      if (Connection) {
+        await syncWikiPageGraphConnections({
+          Connection,
+          userId: event.userId,
+          page
+        });
+      }
       await createWikiRevision({
         WikiRevision,
         userId: event.userId,

@@ -32,6 +32,7 @@ const DEFAULT_LIMIT = 25;
 const PROVIDER = 'notion';
 const NOTION_TAG = 'notion';
 const { createWikiSourceEvent } = require('../wikiSourceEventService');
+const { processWikiSourceEvent } = require('../wikiMaintenanceOrchestrator');
 
 const trimString = (value) => String(value || '').trim();
 
@@ -87,7 +88,8 @@ const upsertNotebookEntryFromNotion = async ({
   userId,
   payload,
   NotebookEntry,
-  WikiSourceEvent = null
+  WikiSourceEvent = null,
+  wikiModels = null
 }) => {
   const existing = await NotebookEntry.findOne({
     userId,
@@ -122,7 +124,7 @@ const upsertNotebookEntryFromNotion = async ({
       importedAt: existing.importMeta?.importedAt || payload.importMeta.importedAt
     };
     await existing.save();
-    await createWikiSourceEvent({
+    const event = await createWikiSourceEvent({
       WikiSourceEvent,
       userId,
       sourceType: 'notebook',
@@ -134,6 +136,13 @@ const upsertNotebookEntryFromNotion = async ({
       sourceUpdatedAt: existing.updatedAt || new Date(),
       metadata: { source: 'agent-notion-fetch', importMeta: existing.importMeta }
     });
+    if (event && wikiModels?.WikiPage) {
+      await processWikiSourceEvent({
+        sourceEvent: event,
+        userId,
+        models: wikiModels
+      });
+    }
     return { entry: existing, status: 'updated' };
   }
 
@@ -146,7 +155,7 @@ const upsertNotebookEntryFromNotion = async ({
     importMeta: payload.importMeta
   });
   await entry.save();
-  await createWikiSourceEvent({
+  const event = await createWikiSourceEvent({
     WikiSourceEvent,
     userId,
     sourceType: 'notebook',
@@ -158,6 +167,13 @@ const upsertNotebookEntryFromNotion = async ({
     sourceUpdatedAt: entry.updatedAt || new Date(),
     metadata: { source: 'agent-notion-fetch', importMeta: entry.importMeta }
   });
+  if (event && wikiModels?.WikiPage) {
+    await processWikiSourceEvent({
+      sourceEvent: event,
+      userId,
+      models: wikiModels
+    });
+  }
   return { entry, status: 'created' };
 };
 
@@ -177,6 +193,12 @@ const fetchNotionPagesForAgent = async ({
     NotebookEntry,
     decryptSecret,
     WikiSourceEvent = null,
+    WikiPage = null,
+    WikiRevision = null,
+    WikiMaintenanceRun = null,
+    Article = null,
+    TagMeta = null,
+    Question = null,
     ConnectorActionLog = null
   } = deps;
 
@@ -269,7 +291,22 @@ const fetchNotionPagesForAgent = async ({
         notionTransform,
         token
       });
-      const result = await upsertNotebookEntryFromNotion({ userId, payload, NotebookEntry, WikiSourceEvent });
+      const result = await upsertNotebookEntryFromNotion({
+        userId,
+        payload,
+        NotebookEntry,
+        WikiSourceEvent,
+        wikiModels: WikiSourceEvent && WikiPage ? {
+          WikiSourceEvent,
+          WikiPage,
+          WikiRevision,
+          WikiMaintenanceRun,
+          Article,
+          NotebookEntry,
+          TagMeta,
+          Question
+        } : null
+      });
       counters[result.status] += 1;
     } catch (err) {
       counters.failed += 1;
