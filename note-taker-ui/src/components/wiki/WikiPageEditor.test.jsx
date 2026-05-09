@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import WikiPageEditor from './WikiPageEditor';
 import { addWikiSource, applyWikiAutolink, deleteWikiPage, getWikiBacklinks, getWikiPage, listWikiAutolinks, listWikiConnectorActions, listWikiRevisions, maintainWikiPage, rebuildWikiPageGraph, removeWikiSource, reviewWikiFreshness, updateWikiPage } from '../../api/wiki';
@@ -307,6 +307,145 @@ describe('WikiPageEditor', () => {
 
     await waitFor(() => {
       expect(sourceCard).toHaveFocus();
+    });
+  });
+
+  it('resolves claim popover sources from the persisted claim ledger before citation indexes', async () => {
+    getWikiPage.mockResolvedValueOnce({
+      ...page,
+      sourceRefs: [
+        { _id: 'source-old', type: 'article', title: 'Old source', snippet: 'Stale index source' },
+        { _id: 'source-ledger', type: 'article', title: 'Ledger source', snippet: 'Stable ledger source' },
+        { _id: 'source-conflict', type: 'article', title: 'Counter source', snippet: 'Contradicting ledger source' }
+      ],
+      citations: [
+        { _id: 'citation-ledger', sourceRefId: 'source-ledger', sourceTitle: 'Ledger source' },
+        { _id: 'citation-conflict', sourceRefId: 'source-conflict', sourceTitle: 'Counter source' }
+      ],
+      claims: [{
+        claimId: 'claim-ledger',
+        text: 'Ledger backed claim.',
+        section: 'Evidence',
+        support: 'conflicted',
+        citationIds: ['citation-ledger'],
+        sourceRefIds: ['source-ledger'],
+        contradictedByCitationIds: ['citation-conflict'],
+        confidence: 0.84,
+        lastVerifiedAt: '2026-05-09T12:00:00.000Z',
+        history: [{ event: 'created' }, { event: 'updated' }]
+      }]
+    });
+    mockEditor.renderTestContent = (
+      <button
+        type="button"
+        className="wiki-claim-citation"
+        data-claim-id="claim-ledger"
+        data-support="supported"
+        data-citation-indexes="1"
+        data-testid="ledger-citation-number"
+      >
+        [1]
+      </button>
+    );
+
+    render(
+      <MemoryRouter>
+        <WikiPageEditor pageId="wiki-1" />
+      </MemoryRouter>
+    );
+
+    await screen.findByDisplayValue('Enterprise AI Memory');
+    fireEvent.mouseOver(screen.getByTestId('ledger-citation-number'));
+
+    const popover = await screen.findByRole('dialog', { name: 'Claim citations' });
+    expect(within(popover).getByText('84% confidence')).toBeInTheDocument();
+    expect(within(popover).getByText('Evidence')).toBeInTheDocument();
+    expect(within(popover).getByText('2 events')).toBeInTheDocument();
+    const supportGroup = within(popover).getByRole('heading', { name: 'Supporting sources' }).closest('section');
+    const contradictionGroup = within(popover).getByRole('heading', { name: 'Contradicting sources' }).closest('section');
+    expect(within(supportGroup).getByText('Ledger source')).toBeInTheDocument();
+    expect(within(contradictionGroup).getByText('Counter source')).toBeInTheDocument();
+    expect(within(supportGroup).queryByText('Counter source')).not.toBeInTheDocument();
+    expect(within(popover).queryByText('Old source')).not.toBeInTheDocument();
+  });
+
+  it('uses inline contradiction indexes as the fallback when no claim ledger exists', async () => {
+    getWikiPage.mockResolvedValueOnce({
+      ...page,
+      sourceRefs: [
+        { _id: 'source-support', type: 'article', title: 'Supporting inline source', snippet: 'Inline support' },
+        { _id: 'source-conflict', type: 'article', title: 'Contradicting inline source', snippet: 'Inline contradiction' }
+      ],
+      claims: []
+    });
+    mockEditor.renderTestContent = (
+      <button
+        type="button"
+        className="wiki-claim-citation"
+        data-claim-id="draft-claim"
+        data-support="conflicted"
+        data-citation-indexes="1"
+        data-contradiction-indexes="2"
+        data-testid="draft-citation-number"
+      >
+        [1]
+      </button>
+    );
+
+    render(
+      <MemoryRouter>
+        <WikiPageEditor pageId="wiki-1" />
+      </MemoryRouter>
+    );
+
+    await screen.findByDisplayValue('Enterprise AI Memory');
+    fireEvent.mouseOver(screen.getByTestId('draft-citation-number'));
+
+    const popover = await screen.findByRole('dialog', { name: 'Claim citations' });
+    const supportGroup = within(popover).getByRole('heading', { name: 'Supporting sources' }).closest('section');
+    const contradictionGroup = within(popover).getByRole('heading', { name: 'Contradicting sources' }).closest('section');
+    expect(within(supportGroup).getByText('Supporting inline source')).toBeInTheDocument();
+    expect(within(contradictionGroup).getByText('Contradicting inline source')).toBeInTheDocument();
+  });
+
+  it('uses ledger source ids for source-panel focus when citation indexes are stale', async () => {
+    getWikiPage.mockResolvedValueOnce({
+      ...page,
+      sourceRefs: [
+        { _id: 'source-old', type: 'article', title: 'Old source', snippet: 'Stale index source' },
+        { _id: 'source-ledger', type: 'article', title: 'Ledger source', snippet: 'Stable ledger source' }
+      ],
+      claims: [{
+        claimId: 'claim-ledger',
+        text: 'Ledger backed claim.',
+        support: 'supported',
+        sourceRefIds: ['source-ledger']
+      }]
+    });
+    mockEditor.renderTestContent = (
+      <button
+        type="button"
+        className="wiki-claim-citation"
+        data-claim-id="claim-ledger"
+        data-support="supported"
+        data-citation-indexes="1"
+        data-testid="ledger-focus-number"
+      >
+        [1]
+      </button>
+    );
+
+    render(
+      <MemoryRouter>
+        <WikiPageEditor pageId="wiki-1" />
+      </MemoryRouter>
+    );
+
+    await screen.findByDisplayValue('Enterprise AI Memory');
+    fireEvent.click(screen.getByTestId('ledger-focus-number'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Ledger source').closest('[data-testid="wiki-source-ref-2"]')).toHaveFocus();
     });
   });
 

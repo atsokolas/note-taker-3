@@ -16,13 +16,15 @@ import { Decoration, DecorationSet } from '@tiptap/pm/view';
  * Attributes:
  *  - claimId   stable id so re-renders / diffs / popovers can address the
  *              same claim across edits.
- *  - support   one of: 'supported' | 'partial' | 'unsupported' | 'contradicted'
+ *  - support   one of: 'supported' | 'partial' | 'unsupported' | 'conflicted'
  *              renders as a colored underline.
  *  - citationIndexes  array of 1-based indexes into page.sourceRefs
  *              the popover resolves these against the current page.
+ *  - contradictionIndexes  optional array of 1-based indexes into page.sourceRefs
+ *              that challenge the claim. Preserved for backend ledger refresh.
  */
 
-export const SUPPORT_STATES = new Set(['supported', 'partial', 'unsupported', 'contradicted']);
+export const SUPPORT_STATES = new Set(['supported', 'partial', 'unsupported', 'conflicted']);
 
 const sanitizeIndexes = (value) => {
   if (!Array.isArray(value)) return [];
@@ -34,11 +36,15 @@ const sanitizeIndexes = (value) => {
   return out.slice(0, 8);
 };
 
-const sanitizeSupport = (value) => (SUPPORT_STATES.has(value) ? value : 'supported');
+const sanitizeSupport = (value) => {
+  if (value === 'contradicted') return 'conflicted';
+  return SUPPORT_STATES.has(value) ? value : 'supported';
+};
 
 const citationLabel = (indexes = []) => `[${indexes.join(',')}]`;
 
-const buildCitationMarker = ({ claimId, support, citationIndexes }) => {
+const buildCitationMarker = ({ claimId, support, citationIndexes, contradictionIndexes = [] }) => {
+  const visibleIndexes = citationIndexes.length ? citationIndexes : contradictionIndexes;
   const marker = document.createElement('button');
   marker.type = 'button';
   marker.className = 'wiki-claim-citation';
@@ -46,8 +52,9 @@ const buildCitationMarker = ({ claimId, support, citationIndexes }) => {
   marker.dataset.claimId = claimId || '';
   marker.dataset.support = sanitizeSupport(support);
   marker.dataset.citationIndexes = citationIndexes.join(',');
-  marker.setAttribute('aria-label', `Backlink to source${citationIndexes.length === 1 ? '' : 's'} ${citationIndexes.join(', ')}`);
-  marker.textContent = citationLabel(citationIndexes);
+  marker.dataset.contradictionIndexes = contradictionIndexes.join(',');
+  marker.setAttribute('aria-label', `Backlink to source${visibleIndexes.length === 1 ? '' : 's'} ${visibleIndexes.join(', ')}`);
+  marker.textContent = citationLabel(visibleIndexes);
   return marker;
 };
 
@@ -89,6 +96,17 @@ const Claim = Mark.create({
         const indexes = sanitizeIndexes(attrs.citationIndexes);
         return indexes.length ? { 'data-citation-indexes': indexes.join(',') } : {};
       }
+    },
+    contradictionIndexes: {
+      default: [],
+      parseHTML: (element) => {
+        const raw = element.getAttribute('data-contradiction-indexes') || '';
+        return sanitizeIndexes(raw.split(',').map(token => token.trim()).filter(Boolean));
+      },
+      renderHTML: (attrs) => {
+        const indexes = sanitizeIndexes(attrs.contradictionIndexes);
+        return indexes.length ? { 'data-contradiction-indexes': indexes.join(',') } : {};
+      }
     }
   }),
 
@@ -112,7 +130,8 @@ const Claim = Mark.create({
       setClaim: (attributes = {}) => ({ commands }) => commands.setMark(this.name, {
         claimId: attributes.claimId || generateClaimId(),
         support: sanitizeSupport(attributes.support),
-        citationIndexes: sanitizeIndexes(attributes.citationIndexes)
+        citationIndexes: sanitizeIndexes(attributes.citationIndexes),
+        contradictionIndexes: sanitizeIndexes(attributes.contradictionIndexes)
       }),
       unsetClaim: () => ({ commands }) => commands.unsetMark(this.name)
     };
@@ -129,14 +148,15 @@ const Claim = Mark.create({
               const claimMark = node.marks.find(mark => mark.type.name === this.name);
               if (!claimMark) return;
               const citationIndexes = sanitizeIndexes(claimMark.attrs?.citationIndexes);
-              if (!citationIndexes.length) return;
+              const contradictionIndexes = sanitizeIndexes(claimMark.attrs?.contradictionIndexes);
+              if (!citationIndexes.length && !contradictionIndexes.length) return;
               const claimId = claimMark.attrs?.claimId || '';
               const support = sanitizeSupport(claimMark.attrs?.support);
               decorations.push(Decoration.widget(
                 pos + node.nodeSize,
-                () => buildCitationMarker({ claimId, support, citationIndexes }),
+                () => buildCitationMarker({ claimId, support, citationIndexes, contradictionIndexes }),
                 {
-                  key: `${claimId || pos}-${citationIndexes.join(',')}`,
+                  key: `${claimId || pos}-${citationIndexes.join(',')}-${contradictionIndexes.join(',')}`,
                   side: 1
                 }
               ));

@@ -130,7 +130,11 @@ const run = async () => {
       _id: 'page-a',
       body: doc,
       sourceRefs: [{ _id: 'source-ref-1', type: 'article', objectId: 'article-1' }],
-      citations: [{ _id: 'citation-1', sourceRefId: 'source-ref-1', sourceType: 'article', sourceObjectId: 'article-1' }],
+      citations: [
+        { _id: 'citation-1', sourceRefId: 'source-ref-1', sourceType: 'article', sourceObjectId: 'article-1' },
+        { _id: 'citation-support', sourceRefId: 'source-ref-support', sourceType: 'notebook', sourceObjectId: 'note-support' },
+        { _id: 'citation-conflict', sourceRefId: 'source-ref-conflict', sourceType: 'highlight', sourceObjectId: 'highlight-conflict' }
+      ],
       claims: [
         {
           claimId: 'claim-1',
@@ -149,6 +153,20 @@ const run = async () => {
           text: 'A claim needs review.',
           support: 'unsupported',
           citationIds: []
+        },
+        {
+          claimId: 'claim-4',
+          text: 'Source refs can support claims without citation rows.',
+          support: 'supported',
+          sourceRefIds: ['source-ref-1']
+        },
+        {
+          claimId: 'claim-5',
+          text: 'A claim can have support and contradiction evidence.',
+          support: 'conflicted',
+          citationIds: ['citation-support', 'citation-conflict'],
+          sourceRefIds: ['source-ref-support', 'source-ref-conflict'],
+          contradictedByCitationIds: ['citation-conflict']
         }
       ]
     }
@@ -168,6 +186,10 @@ const run = async () => {
   )));
   assert.ok(claimRows.some(row => row.fromType === 'article' && row.toId === 'page-a:claim-2' && row.relationType === 'contradicts'));
   assert.ok(claimRows.some(row => row.fromType === WIKI_CLAIM_ITEM_TYPE && row.fromId === 'page-a:claim-3' && row.relationType === 'needs_review'));
+  assert.ok(claimRows.some(row => row.fromType === 'article' && row.fromId === 'article-1' && row.toId === 'page-a:claim-4' && row.relationType === 'supports'));
+  assert.ok(claimRows.some(row => row.fromType === 'notebook' && row.fromId === 'note-support' && row.toId === 'page-a:claim-5' && row.relationType === 'supports'));
+  assert.ok(claimRows.some(row => row.fromType === 'highlight' && row.fromId === 'highlight-conflict' && row.toId === 'page-a:claim-5' && row.relationType === 'contradicts'));
+  assert.ok(!claimRows.some(row => row.fromType === 'highlight' && row.fromId === 'highlight-conflict' && row.toId === 'page-a:claim-5' && row.relationType === 'supports'));
 
   const syncStore = createConnectionStore();
   syncStore.records.push({

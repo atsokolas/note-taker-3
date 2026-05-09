@@ -73,24 +73,29 @@ const textNode = (text = '', { marks } = {}) => {
   return node;
 };
 
-const inferClaimSupport = (citationIndexes = []) => {
+const inferClaimSupport = (citationIndexes = [], contradictionIndexes = []) => {
+  if (Array.isArray(contradictionIndexes) && contradictionIndexes.length) return 'conflicted';
   if (!Array.isArray(citationIndexes) || citationIndexes.length === 0) return 'unsupported';
   if (citationIndexes.length === 1) return 'partial';
   return 'supported';
 };
 
 let claimSeed = 0;
-const buildClaimMark = (citationIndexes = [], support = null) => {
+const buildClaimMark = (citationIndexes = [], support = null, contradictionIndexes = []) => {
   claimSeed += 1;
   const indexes = Array.isArray(citationIndexes)
     ? citationIndexes.map(Number).filter(Number.isFinite).filter(index => index > 0).slice(0, 8)
+    : [];
+  const contradictions = Array.isArray(contradictionIndexes)
+    ? contradictionIndexes.map(Number).filter(Number.isFinite).filter(index => index > 0).slice(0, 8)
     : [];
   return {
     type: 'claim',
     attrs: {
       claimId: `claim-${Date.now()}-${claimSeed}`,
-      support: support || inferClaimSupport(indexes),
-      citationIndexes: indexes
+      support: support || inferClaimSupport(indexes, contradictions),
+      citationIndexes: indexes,
+      contradictionIndexes: contradictions
     }
   };
 };
@@ -98,9 +103,9 @@ const buildClaimMark = (citationIndexes = [], support = null) => {
 // Wrap the text in a claim mark so the editor can render the colored
 // underline + citation popover. Falls back to a plain paragraph if the
 // text is empty.
-const claimParagraph = (text = '', citationIndexes = [], support = null) => ({
+const claimParagraph = (text = '', citationIndexes = [], support = null, contradictionIndexes = []) => ({
   type: 'paragraph',
-  content: [textNode(text, { marks: [buildClaimMark(citationIndexes, support)] })]
+  content: [textNode(text, { marks: [buildClaimMark(citationIndexes, support, contradictionIndexes)] })]
 });
 
 const paragraph = (text = '') => ({
@@ -120,7 +125,7 @@ const bulletList = (items = []) => ({
     if (item && typeof item === 'object' && (item.text || item.citationIndexes)) {
       return {
         type: 'listItem',
-        content: [claimParagraph(item.text, item.citationIndexes, item.support)]
+        content: [claimParagraph(item.text, item.citationIndexes, item.support, item.contradictionIndexes)]
       };
     }
     return {
@@ -329,6 +334,7 @@ Hard rules:
 - Do not include HTML tags, JSON, raw URLs, scraped metadata labels, source indexes as prose, support labels, or sentences like "X contributes evidence for this page."
 - Use source titles only as evidence behind the writing. The page should say the idea, not list the source title as the idea.
 - Keep lightweight citation indexes only at the end of factual paragraphs or bullets, e.g. [1] or [1, 3].
+- When a paragraph has both supporting and contradicting evidence, put supporting sources in citationIndexes and contradicting sources in contradictionIndexes. Set support to "conflicted".
 - Put evidence gaps, new items, contradictions, stale sections, and changelog entries only in maintenance.
 - Preserve likely user-authored notes when they are not duplicate, contradicted, navigation text, or metadata.
 
@@ -348,15 +354,15 @@ Return strict JSON only:
 {
   "title": "page title",
   "article": {
-    "summary": { "text": "one clean introductory paragraph", "citationIndexes": [1] },
+    "summary": { "text": "one clean introductory paragraph", "citationIndexes": [1], "contradictionIndexes": [], "support": "supported|partial|unsupported|conflicted" },
     "sections": [
       {
         "heading": "${structure.sections[0]}",
         "paragraphs": [
-          { "text": "clean wiki paragraph", "citationIndexes": [1, 2] }
+          { "text": "clean wiki paragraph", "citationIndexes": [1, 2], "contradictionIndexes": [], "support": "supported|partial|unsupported|conflicted" }
         ],
         "bullets": [
-          { "text": "optional clean article bullet", "citationIndexes": [3] }
+          { "text": "optional clean article bullet", "citationIndexes": [3], "contradictionIndexes": [], "support": "supported|partial|unsupported|conflicted" }
         ]
       }
     ],
@@ -374,7 +380,7 @@ Return strict JSON only:
       "unsupportedClaims": [{ "text": "claim needing support", "section": "section" }],
       "missingCitations": [{ "text": "citation gap", "section": "section" }],
       "staleSections": [{ "text": "stale section", "section": "section" }],
-      "contradictions": [{ "text": "contradiction", "sourceTitle": "source" }],
+      "contradictions": [{ "text": "contradiction", "sourceTitle": "source", "sourceIndexes": [2], "section": "section" }],
       "relatedPages": [{ "text": "related topic or page" }]
     }
   },
@@ -457,14 +463,23 @@ const citationSuffix = (indexes = []) => {
 
 const normalizeArticleTextBlock = (value = {}) => {
   if (typeof value === 'string') {
-    return { text: truncate(value, 1000), citationIndexes: [] };
+    return { text: truncate(value, 1000), citationIndexes: [], contradictionIndexes: [], support: null };
   }
   if (!value || typeof value !== 'object') return null;
   const text = truncate(value.text || value.body || value.summary || '', 1000);
   if (!text) return null;
+  const citationIndexes = normalizeCitationIndexes(value.citationIndexes || value.sourceIndexes || value.sources);
+  const contradictionIndexes = normalizeCitationIndexes(
+    value.contradictionIndexes ||
+    value.contradictedByIndexes ||
+    value.contradictingSourceIndexes ||
+    value.contradictionSourceIndexes
+  );
   return {
     text,
-    citationIndexes: normalizeCitationIndexes(value.citationIndexes || value.sourceIndexes || value.sources)
+    citationIndexes,
+    contradictionIndexes,
+    support: normalizeClaimSupport(value.support || value.status || (contradictionIndexes.length ? 'conflicted' : inferClaimSupport(citationIndexes)))
   };
 };
 
@@ -506,18 +521,23 @@ const normalizeArticle = ({ rawArticle = {}, page, manualNotes = '', candidates 
 const docFromArticle = ({ title, article = {} }) => {
   const content = [heading(title, 1)];
   const summary = normalizeArticleTextBlock(article.summary);
-  if (summary?.text) content.push(claimParagraph(summary.text, summary.citationIndexes));
+  if (summary?.text) content.push(claimParagraph(summary.text, summary.citationIndexes, summary.support, summary.contradictionIndexes));
   (article.sections || []).forEach((section) => {
     const sectionTitle = truncate(section.heading || section.title, 140);
     if (sectionTitle) content.push(heading(sectionTitle, 2));
     (section.paragraphs || []).forEach((item) => {
       const block = normalizeArticleTextBlock(item);
-      if (block?.text) content.push(claimParagraph(block.text, block.citationIndexes));
+      if (block?.text) content.push(claimParagraph(block.text, block.citationIndexes, block.support, block.contradictionIndexes));
     });
     const bulletItems = (section.bullets || [])
       .map(normalizeArticleTextBlock)
       .filter(Boolean)
-      .map(block => ({ text: block.text, citationIndexes: block.citationIndexes }));
+      .map(block => ({
+        text: block.text,
+        citationIndexes: block.citationIndexes,
+        contradictionIndexes: block.contradictionIndexes,
+        support: block.support
+      }));
     if (bulletItems.length) content.push(bulletList(bulletItems));
   });
   const preserved = Array.isArray(article.preservedUserContent) ? article.preservedUserContent : [];
@@ -533,7 +553,14 @@ const docFromArticle = ({ title, article = {} }) => {
 
 const collectClaimsFromDoc = (node, section = '') => {
   if (!node) return [];
-  if (Array.isArray(node)) return node.flatMap(child => collectClaimsFromDoc(child, section));
+  if (Array.isArray(node)) {
+    let currentSection = section;
+    return node.flatMap((child) => {
+      const claims = collectClaimsFromDoc(child, currentSection);
+      if (child?.type === 'heading') currentSection = toPlainText(child) || currentSection;
+      return claims;
+    });
+  }
   if (typeof node !== 'object') return [];
   const nextSection = node.type === 'heading' ? toPlainText(node) || section : section;
   const ownText = typeof node.text === 'string' ? node.text.trim() : '';
@@ -544,8 +571,12 @@ const collectClaimsFromDoc = (node, section = '') => {
     claimId: claimMark.attrs?.claimId || `claim-${Date.now()}-${Math.random().toString(16).slice(2)}`,
     text: ownText,
     section,
-    support: claimMark.attrs?.support || inferClaimSupport(claimMark.attrs?.citationIndexes || []),
+    support: claimMark.attrs?.support || inferClaimSupport(
+      claimMark.attrs?.citationIndexes || [],
+      claimMark.attrs?.contradictionIndexes || []
+    ),
     citationIndexes: normalizeCitationIndexes(claimMark.attrs?.citationIndexes || []),
+    contradictionIndexes: normalizeCitationIndexes(claimMark.attrs?.contradictionIndexes || []),
     citationIds: [],
     lastReviewedAt: new Date()
   }] : [];
@@ -556,6 +587,21 @@ const normalizeMaybeObjectId = (value) => {
   const text = asString(value);
   return text || null;
 };
+
+const normalizeClaimSupport = (support = '') => {
+  if (support === 'contradicted') return 'conflicted';
+  return ['supported', 'partial', 'unsupported', 'conflicted'].includes(support)
+    ? support
+    : 'unsupported';
+};
+
+const normalizeClaimIdentity = (value = '') => (
+  cleanWikiText(value)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+);
 
 const resolveClaimCitationIds = ({ citationIndexes = [], citations = [], sourceRefs = [] } = {}) => {
   const indexes = normalizeCitationIndexes(citationIndexes);
@@ -572,23 +618,254 @@ const resolveClaimCitationIds = ({ citationIndexes = [], citations = [], sourceR
   return ids;
 };
 
+const resolveClaimSourceRefIds = ({ citationIndexes = [], citations = [], sourceRefs = [] } = {}) => {
+  const indexes = normalizeCitationIndexes(citationIndexes);
+  const ids = [];
+  const seen = new Set();
+  indexes.forEach((index) => {
+    const citation = citations[index - 1] || null;
+    const source = sourceRefs[index - 1] || null;
+    const id = normalizeMaybeObjectId(citation?.sourceRefId || source?._id || source?.id);
+    if (!id || seen.has(id)) return;
+    seen.add(id);
+    ids.push(id);
+  });
+  return ids;
+};
+
+const claimConfidence = ({ support, citationIds = [], sourceRefIds = [] } = {}) => {
+  const citationCount = Math.max(citationIds.length, sourceRefIds.length);
+  const base = {
+    supported: 0.72,
+    partial: 0.48,
+    unsupported: 0.12,
+    conflicted: 0.32
+  }[normalizeClaimSupport(support)] || 0.12;
+  const boost = Math.min(0.18, citationCount * 0.06);
+  return Math.min(0.95, Number((base + boost).toFixed(2)));
+};
+
+const normalizeClaimHistory = (history = []) => (
+  Array.isArray(history)
+    ? history
+        .filter(Boolean)
+        .map(entry => ({
+          at: entry.at || new Date(),
+          event: truncateRaw(entry.event || 'reviewed', 80),
+          support: normalizeClaimSupport(entry.support),
+          text: truncate(entry.text || '', 500),
+          section: truncate(entry.section || '', 160),
+          citationIds: Array.isArray(entry.citationIds) ? entry.citationIds.filter(Boolean).slice(0, 12) : [],
+          sourceRefIds: Array.isArray(entry.sourceRefIds) ? entry.sourceRefIds.filter(Boolean).slice(0, 12) : [],
+          contradictedByCitationIds: Array.isArray(entry.contradictedByCitationIds) ? entry.contradictedByCitationIds.filter(Boolean).slice(0, 12) : [],
+          summary: truncate(entry.summary || '', 300)
+        }))
+        .slice(-12)
+    : []
+);
+
 const attachClaimCitationIds = ({ claims = [], citations = [], sourceRefs = [] } = {}) => (
   (Array.isArray(claims) ? claims : []).map((claim) => {
-    const { citationIndexes, ...rest } = claim || {};
-    const support = rest.support === 'contradicted' ? 'conflicted' : rest.support;
+    const { citationIndexes, contradictionIndexes, ...rest } = claim || {};
+    const support = normalizeClaimSupport(rest.support);
+    const citationIds = resolveClaimCitationIds({ citationIndexes, citations, sourceRefs });
+    const sourceRefIds = resolveClaimSourceRefIds({ citationIndexes, citations, sourceRefs });
+    const contradictedByCitationIds = resolveClaimCitationIds({
+      citationIndexes: contradictionIndexes,
+      citations,
+      sourceRefs
+    });
     return {
       ...rest,
       support,
-      citationIds: resolveClaimCitationIds({ citationIndexes, citations, sourceRefs })
+      citationIds,
+      sourceRefIds,
+      contradictedByCitationIds: contradictedByCitationIds.length
+        ? contradictedByCitationIds
+        : support === 'conflicted'
+          ? citationIds
+          : [],
+      confidence: claimConfidence({ support, citationIds, sourceRefIds })
     };
   })
 );
 
-const deriveClaimsFromDoc = ({ body, citations = [], sourceRefs = [], limit = 80 } = {}) => attachClaimCitationIds({
-  claims: collectClaimsFromDoc(body).slice(0, limit),
-  citations,
-  sourceRefs
+const hasClaimChanged = (previous = {}, next = {}) => (
+  normalizeClaimSupport(previous.support) !== normalizeClaimSupport(next.support) ||
+  asString(previous.text) !== asString(next.text) ||
+  asString(previous.section) !== asString(next.section) ||
+  JSON.stringify((previous.citationIds || []).map(String).sort()) !== JSON.stringify((next.citationIds || []).map(String).sort()) ||
+  JSON.stringify((previous.sourceRefIds || []).map(String).sort()) !== JSON.stringify((next.sourceRefIds || []).map(String).sort()) ||
+  JSON.stringify((previous.contradictedByCitationIds || []).map(String).sort()) !== JSON.stringify((next.contradictedByCitationIds || []).map(String).sort())
+);
+
+const claimHistoryEntry = ({ claim, event, now, summary }) => ({
+  at: now,
+  event,
+  support: normalizeClaimSupport(claim.support),
+  text: truncate(claim.text || '', 500),
+  section: truncate(claim.section || '', 160),
+  citationIds: Array.isArray(claim.citationIds) ? claim.citationIds.filter(Boolean).slice(0, 12) : [],
+  sourceRefIds: Array.isArray(claim.sourceRefIds) ? claim.sourceRefIds.filter(Boolean).slice(0, 12) : [],
+  contradictedByCitationIds: Array.isArray(claim.contradictedByCitationIds) ? claim.contradictedByCitationIds.filter(Boolean).slice(0, 12) : [],
+  summary: truncate(summary || '', 300)
 });
+
+const buildClaimLedger = ({ claims = [], previousClaims = [], now = new Date() } = {}) => {
+  const byId = new Map();
+  const byText = new Map();
+  (Array.isArray(previousClaims) ? previousClaims : []).forEach((claim) => {
+    if (!claim) return;
+    const plain = claim.toObject ? claim.toObject() : claim;
+    if (plain.claimId) byId.set(String(plain.claimId), plain);
+    const identity = normalizeClaimIdentity(plain.text);
+    if (identity && !byText.has(identity)) byText.set(identity, plain);
+  });
+
+  return (Array.isArray(claims) ? claims : []).map((claim) => {
+    const previousById = claim.claimId ? byId.get(String(claim.claimId)) : null;
+    const previousByText = byText.get(normalizeClaimIdentity(claim.text));
+    const previous = previousById || previousByText || null;
+    const support = normalizeClaimSupport(claim.support);
+    const citationIds = Array.isArray(claim.citationIds) ? claim.citationIds.filter(Boolean).slice(0, 12) : [];
+    const sourceRefIds = Array.isArray(claim.sourceRefIds) ? claim.sourceRefIds.filter(Boolean).slice(0, 12) : [];
+    const explicitContradictions = Array.isArray(claim.contradictedByCitationIds)
+      ? claim.contradictedByCitationIds.filter(Boolean).slice(0, 12)
+      : [];
+    const next = {
+      claimId: claim.claimId,
+      text: truncate(claim.text || '', 800),
+      section: truncate(claim.section || '', 160),
+      support,
+      citationIds,
+      sourceRefIds,
+      contradictedByCitationIds: explicitContradictions.length
+        ? explicitContradictions
+        : support === 'conflicted'
+          ? citationIds
+          : [],
+      confidence: claimConfidence({ support, citationIds, sourceRefIds }),
+      lastReviewedAt: now,
+      lastVerifiedAt: citationIds.length || sourceRefIds.length
+        ? now
+        : previous?.lastVerifiedAt || null,
+      createdAt: previous?.createdAt || claim.createdAt || now
+    };
+    const history = normalizeClaimHistory(previous?.history);
+    if (!previous) {
+      history.push(claimHistoryEntry({
+        claim: next,
+        event: 'created',
+        now,
+        summary: 'Claim added to the page ledger.'
+      }));
+    } else if (hasClaimChanged(previous, next)) {
+      history.push(claimHistoryEntry({
+        claim: next,
+        event: 'updated',
+        now,
+        summary: 'Claim text, support, section, or evidence changed.'
+      }));
+    } else if (!history.length) {
+      history.push(claimHistoryEntry({
+        claim: next,
+        event: 'reviewed',
+        now,
+        summary: 'Claim reviewed with no material change.'
+      }));
+    }
+    next.history = history.slice(-12);
+    return next;
+  });
+};
+
+const deriveClaimsFromDoc = ({
+  body,
+  citations = [],
+  sourceRefs = [],
+  previousClaims = [],
+  limit = 80,
+  now = new Date()
+} = {}) => buildClaimLedger({
+  claims: attachClaimCitationIds({
+    claims: collectClaimsFromDoc(body).slice(0, limit),
+    citations,
+    sourceRefs
+  }),
+  previousClaims,
+  now
+});
+
+const buildSectionMaintenancePlan = ({ claims = [], health = {}, changeLog = [], now = new Date() } = {}) => {
+  const sections = new Map();
+  const ensure = (section = '') => {
+    const name = truncate(section || 'Unsectioned', 160);
+    if (!sections.has(name)) {
+      sections.set(name, {
+        section: name,
+        totalClaims: 0,
+        supportedClaims: 0,
+        partialClaims: 0,
+        unsupportedClaims: 0,
+        conflictedClaims: 0,
+        averageConfidence: 0,
+        lastReviewedAt: null,
+        actions: []
+      });
+    }
+    return sections.get(name);
+  };
+
+  (Array.isArray(claims) ? claims : []).forEach((claim) => {
+    const row = ensure(claim.section);
+    row.totalClaims += 1;
+    const support = normalizeClaimSupport(claim.support);
+    if (support === 'supported') row.supportedClaims += 1;
+    else if (support === 'partial') row.partialClaims += 1;
+    else if (support === 'conflicted') row.conflictedClaims += 1;
+    else row.unsupportedClaims += 1;
+    row.averageConfidence += Number(claim.confidence || 0);
+    const reviewed = claim.lastReviewedAt ? new Date(claim.lastReviewedAt) : null;
+    if (reviewed && (!row.lastReviewedAt || reviewed > new Date(row.lastReviewedAt))) {
+      row.lastReviewedAt = reviewed;
+    }
+  });
+
+  HEALTH_KEYS.forEach((key) => {
+    (Array.isArray(health?.[key]) ? health[key] : []).forEach((item) => {
+      const row = ensure(item.section || item.target);
+      row.actions.push({
+        type: key,
+        text: truncate(item.text || item.summary || item.title || '', 220)
+      });
+    });
+  });
+
+  (Array.isArray(changeLog) ? changeLog : []).forEach((entry) => {
+    const row = ensure(entry.target || entry.title);
+    row.actions.push({
+      type: entry.type || 'maintenance',
+      text: truncate(entry.summary || entry.text || '', 220)
+    });
+  });
+
+  return {
+    updatedAt: now,
+    sections: Array.from(sections.values()).map((row) => ({
+      ...row,
+      averageConfidence: row.totalClaims
+        ? Number((row.averageConfidence / row.totalClaims).toFixed(2))
+        : 0,
+      lastReviewedAt: row.lastReviewedAt || null,
+      actions: row.actions.filter(action => action.text).slice(0, 6)
+    })).sort((a, b) => (
+      b.conflictedClaims - a.conflictedClaims ||
+      b.unsupportedClaims - a.unsupportedClaims ||
+      b.totalClaims - a.totalClaims ||
+      a.section.localeCompare(b.section)
+    ))
+  };
+};
 
 const fallbackMaintenance = ({ page, candidates, manualNotes = '' }) => {
   const top = candidates.slice(0, 6);
@@ -695,8 +972,16 @@ const fallbackMaintenance = ({ page, candidates, manualNotes = '' }) => {
 const normalizeSourceIndexesUsed = ({ rawIndexes = [], article = {}, changelog = [], candidates = [] }) => {
   const used = new Set();
   normalizeCitationIndexes(rawIndexes).forEach(index => used.add(index));
-  const addBlock = (block = {}) => normalizeCitationIndexes(block.citationIndexes || block.sourceIndexes)
-    .forEach(index => used.add(index));
+  const addBlock = (block = {}) => {
+    normalizeCitationIndexes(block.citationIndexes || block.sourceIndexes)
+      .forEach(index => used.add(index));
+    normalizeCitationIndexes(
+      block.contradictionIndexes ||
+      block.contradictedByIndexes ||
+      block.contradictingSourceIndexes ||
+      block.contradictionSourceIndexes
+    ).forEach(index => used.add(index));
+  };
   addBlock(article.summary);
   (article.sections || []).forEach((section) => {
     (section.paragraphs || []).forEach(addBlock);
@@ -799,11 +1084,12 @@ const maintainWikiPage = async ({
   }
 
   const normalized = normalizeModelResult({ raw: result, page, candidates, manualNotes });
+  const previousClaims = page.claims?.toObject ? page.claims.toObject() : page.claims || [];
   const sourceRefs = normalized.sourceIndexesUsed
     .map(index => candidates.find(source => source.index === index))
     .filter(Boolean)
     .map(sourceRefFromCandidate);
-  const mergedSourceRefs = dedupeSourceRefs(page.sourceRefs || [], sourceRefs);
+  const mergedSourceRefs = dedupeSourceRefs(sourceRefs, page.sourceRefs || []);
   const body = docFromArticle({
     title: normalized.title || page.title,
     article: normalized.article
@@ -814,7 +1100,10 @@ const maintainWikiPage = async ({
   page.body = body;
   page.plainText = toPlainText(body);
   page.sourceRefs = mergedSourceRefs;
-  page.citations = mergedSourceRefs.map(source => ({
+  const persistedSourceRefs = page.sourceRefs?.toObject
+    ? page.sourceRefs.toObject()
+    : page.sourceRefs || [];
+  page.citations = persistedSourceRefs.map(source => ({
     sourceRefId: source._id || null,
     sourceType: source.type || '',
     sourceObjectId: source.objectId || null,
@@ -827,7 +1116,15 @@ const maintainWikiPage = async ({
   page.claims = deriveClaimsFromDoc({
     body,
     citations: page.citations,
-    sourceRefs: mergedSourceRefs
+    sourceRefs: persistedSourceRefs,
+    previousClaims,
+    now
+  });
+  const sectionMaintenance = buildSectionMaintenancePlan({
+    claims: page.claims,
+    health: normalized.maintenance.health,
+    changeLog: normalized.maintenance.changelog,
+    now
   });
   page.freshness = {
     ...(page.freshness?.toObject ? page.freshness.toObject() : page.freshness || {}),
@@ -854,6 +1151,7 @@ const maintainWikiPage = async ({
     sourceScopeAtDraft: 'entire_library',
     sourceRefIdsAtDraft: [],
     maintenanceSummary: normalized.maintenance.summary,
+    sectionMaintenance,
     health: normalized.maintenance.health,
     changeLog: normalizeOperations(normalized.maintenance.changelog),
     suggestions: normalizeOperations(normalized.maintenance.changelog)
@@ -865,6 +1163,7 @@ const maintainWikiPage = async ({
 module.exports = {
   maintainWikiPage,
   deriveClaimsFromDoc,
+  buildSectionMaintenancePlan,
   collectLibrarySources,
   selectCandidateSources,
   fallbackMaintenance,
@@ -875,6 +1174,11 @@ module.exports = {
     resolveClaimCitationIds,
     attachClaimCitationIds,
     deriveClaimsFromDoc,
+    buildClaimLedger,
+    buildSectionMaintenancePlan,
+    claimConfidence,
+    normalizeClaimIdentity,
+    normalizeSourceIndexesUsed,
     normalizeHealth,
     cleanWikiText,
     toPlainText

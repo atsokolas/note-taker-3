@@ -25,9 +25,53 @@ import WikiPageActivityRail from './WikiPageActivityRail';
 import ClaimCitationPopover from './ClaimCitationPopover';
 import Claim, { SUPPORT_STATES } from './extensions/Claim';
 import WikiLink from './extensions/WikiLink';
-import { diffClaimSnapshots, extractClaimTexts, getLastVisitState, recordVisit } from './wikiVisitTracker';
+import {
+  diffClaimLedgerSnapshots,
+  diffClaimSnapshots,
+  extractClaimTexts,
+  getLastVisitState,
+  recordVisit
+} from './wikiVisitTracker';
 
 const emptyDoc = { type: 'doc', content: [{ type: 'paragraph' }] };
+
+const normalizeId = (value) => String(value || '').trim();
+
+const idsMatch = (a, b) => normalizeId(a) && normalizeId(a) === normalizeId(b);
+
+const parseIndexAttribute = (value = '') => (
+  String(value || '')
+    .split(',')
+    .map(token => Number(token.trim()))
+    .filter(Number.isFinite)
+    .filter(index => index >= 1)
+);
+
+const sourceIdsForCitationIds = ({ citationIds = [], citations = [] } = {}) => (
+  (citations || [])
+    .filter(citation => (citationIds || []).some(id => idsMatch(id, citation._id || citation.id)))
+    .map(citation => citation.sourceRefId || citation.sourceId)
+    .filter(Boolean)
+);
+
+const claimContradictsSource = ({ claim, source, citations = [] }) => {
+  if (!claim || !source) return false;
+  const sourceId = source._id || source.id;
+  const contradictionCitationIds = Array.isArray(claim.contradictedByCitationIds)
+    ? claim.contradictedByCitationIds
+    : [];
+  return sourceIdsForCitationIds({ citationIds: contradictionCitationIds, citations })
+    .some(id => idsMatch(id, sourceId));
+};
+
+const claimMatchesSource = ({ claim, source, citations = [] }) => {
+  if (!claim || !source) return false;
+  const sourceId = source._id || source.id;
+  if ((claim.sourceRefIds || []).some(id => idsMatch(id, sourceId))) return true;
+  const supportingSourceIds = sourceIdsForCitationIds({ citationIds: claim.citationIds || [], citations });
+  if (supportingSourceIds.some(id => idsMatch(id, sourceId))) return true;
+  return claimContradictsSource({ claim, source, citations });
+};
 
 const WikiPageEditor = ({ pageId }) => {
   const navigate = useNavigate();
@@ -82,14 +126,13 @@ const WikiPageEditor = ({ pageId }) => {
     if (!target) return;
     const claimId = target.getAttribute('data-claim-id') || '';
     const support = target.getAttribute('data-support') || 'supported';
-    const indexes = (target.getAttribute('data-citation-indexes') || '')
-      .split(',')
-      .map(token => Number(token.trim()))
-      .filter(Number.isFinite);
+    const indexes = parseIndexAttribute(target.getAttribute('data-citation-indexes'));
+    const contradictionIndexes = parseIndexAttribute(target.getAttribute('data-contradiction-indexes'));
     setActiveClaim({
       claimId,
       support: SUPPORT_STATES.has(support) ? support : 'supported',
       citationIndexes: indexes,
+      contradictionIndexes,
       anchorRect: target.getBoundingClientRect()
     });
   }, []);
@@ -124,8 +167,20 @@ const WikiPageEditor = ({ pageId }) => {
       .split(',')
       .map(token => Number(token.trim()))
       .filter(Number.isFinite);
-    if (!firstIndex) return false;
-    focusSourceByIndex(firstIndex);
+    const claimId = target.getAttribute('data-claim-id') || '';
+    const ledgerClaim = (latestPageRef.current?.claims || []).find(claim => claim.claimId === claimId);
+    const firstLedgerIndex = ledgerClaim && latestPageRef.current?.sourceRefs?.length
+      ? latestPageRef.current.sourceRefs.findIndex(source => (
+          claimMatchesSource({
+            claim: ledgerClaim,
+            source,
+            citations: latestPageRef.current?.citations || []
+          })
+        )) + 1
+      : 0;
+    const targetIndex = firstLedgerIndex || firstIndex;
+    if (!targetIndex) return false;
+    focusSourceByIndex(targetIndex);
     return true;
   }, [focusSourceByIndex]);
 
@@ -315,26 +370,65 @@ const WikiPageEditor = ({ pageId }) => {
   const visitDiff = useMemo(() => {
     if (!lastVisit?.lastViewedAt) return { added: [], removed: [] };
     const currentClaims = extractClaimTexts(page?.body);
-    return diffClaimSnapshots(lastVisit.claimSnapshot, currentClaims);
+    return {
+      ...diffClaimSnapshots(lastVisit.claimSnapshot, currentClaims),
+      changed: diffClaimLedgerSnapshots(lastVisit.ledgerSnapshot, page?.claims || [])
+    };
   }, [lastVisit, page]);
 
   const handleMarkReviewed = useCallback(() => {
     if (!page) return;
-    const next = recordVisit(pageId, page.body);
+    const next = recordVisit(pageId, page.body, page.claims || []);
     setLastVisit(next);
   }, [page, pageId]);
 
-  // Resolve the active claim's citation indexes into the page's sourceRefs.
-  // citationIndex is 1-based to match the agent's convention.
+  const claimLedgerById = useMemo(() => {
+    const map = new Map();
+    (page?.claims || []).forEach((claim) => {
+      if (claim?.claimId) map.set(claim.claimId, claim);
+    });
+    return map;
+  }, [page?.claims]);
+
+  // Prefer the persisted claim ledger for source resolution. The inline mark's
+  // citation indexes remain the compatibility path for older pages and drafts.
   const resolvedActiveSources = useMemo(() => {
     if (!activeClaim || !page?.sourceRefs?.length) return [];
-    return activeClaim.citationIndexes
+    const ledgerClaim = claimLedgerById.get(activeClaim.claimId);
+    if (ledgerClaim) {
+      const ledgerSources = page.sourceRefs
+        .map((source, index) => ({ ...source, citationIndex: index + 1 }))
+        .filter(source => (
+          claimMatchesSource({ claim: ledgerClaim, source, citations: page.citations || [] })
+        ))
+        .map(source => ({
+          ...source,
+          evidenceRole: claimContradictsSource({
+            claim: ledgerClaim,
+            source,
+            citations: page.citations || []
+          }) ? 'contradicts' : 'supports'
+        }));
+      if (ledgerSources.length) return ledgerSources;
+    }
+    const contradictionIndexSet = new Set(activeClaim.contradictionIndexes || []);
+    const supportingFallbackSources = (activeClaim.citationIndexes || [])
+      .filter(index => !contradictionIndexSet.has(index))
       .map((index) => {
         const source = page.sourceRefs[index - 1];
-        return source ? { ...source, citationIndex: index } : null;
+        return source ? { ...source, citationIndex: index, evidenceRole: 'supports' } : null;
       })
       .filter(Boolean);
-  }, [activeClaim, page]);
+    const contradictionFallbackSources = (activeClaim.contradictionIndexes || [])
+      .map((index) => {
+        const source = page.sourceRefs[index - 1];
+        return source ? { ...source, citationIndex: index, evidenceRole: 'contradicts' } : null;
+      })
+      .filter(Boolean);
+    return [...supportingFallbackSources, ...contradictionFallbackSources];
+  }, [activeClaim, claimLedgerById, page]);
+
+  const activeLedgerClaim = activeClaim ? claimLedgerById.get(activeClaim.claimId) : null;
 
   if (loading) {
     return <main className="wiki-page"><p className="wiki-index__status">Loading Wiki page...</p></main>;
@@ -384,6 +478,7 @@ const WikiPageEditor = ({ pageId }) => {
             lastViewedAt={lastVisit?.lastViewedAt}
             added={visitDiff.added}
             removed={visitDiff.removed}
+            changed={visitDiff.changed}
             onMarkReviewed={handleMarkReviewed}
           />
           <input
@@ -403,7 +498,8 @@ const WikiPageEditor = ({ pageId }) => {
           {activeClaim ? (
             <ClaimCitationPopover
               anchorRect={activeClaim.anchorRect}
-              support={activeClaim.support}
+              support={activeLedgerClaim?.support || activeClaim.support}
+              claim={activeLedgerClaim}
               sources={resolvedActiveSources}
               onClose={() => setActiveClaim(null)}
             />

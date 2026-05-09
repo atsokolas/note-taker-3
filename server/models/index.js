@@ -317,7 +317,25 @@ const wikiClaimSchema = new mongoose.Schema({
   section: { type: String, default: '', trim: true },
   support: { type: String, enum: ['supported', 'partial', 'unsupported', 'conflicted'], default: 'unsupported' },
   citationIds: { type: [mongoose.Schema.Types.ObjectId], default: [] },
+  sourceRefIds: { type: [mongoose.Schema.Types.ObjectId], default: [] },
+  contradictedByCitationIds: { type: [mongoose.Schema.Types.ObjectId], default: [] },
+  confidence: { type: Number, min: 0, max: 1, default: 0 },
   lastReviewedAt: { type: Date, default: null },
+  lastVerifiedAt: { type: Date, default: null },
+  history: {
+    type: [{
+      at: { type: Date, default: Date.now },
+      event: { type: String, default: 'reviewed', trim: true },
+      support: { type: String, enum: ['supported', 'partial', 'unsupported', 'conflicted'], default: 'unsupported' },
+      text: { type: String, default: '', trim: true },
+      section: { type: String, default: '', trim: true },
+      citationIds: { type: [mongoose.Schema.Types.ObjectId], default: [] },
+      sourceRefIds: { type: [mongoose.Schema.Types.ObjectId], default: [] },
+      contradictedByCitationIds: { type: [mongoose.Schema.Types.ObjectId], default: [] },
+      summary: { type: String, default: '', trim: true }
+    }],
+    default: []
+  },
   createdAt: { type: Date, default: Date.now }
 }, { _id: false });
 
@@ -343,6 +361,13 @@ const wikiAiStateSchema = new mongoose.Schema({
   sourceScopeAtDraft: { type: String, enum: WIKI_SOURCE_SCOPES, default: 'entire_library' },
   sourceRefIdsAtDraft: { type: [mongoose.Schema.Types.ObjectId], default: [] },
   maintenanceSummary: { type: String, default: '', trim: true },
+  sectionMaintenance: {
+    type: mongoose.Schema.Types.Mixed,
+    default: () => ({
+      updatedAt: null,
+      sections: []
+    })
+  },
   health: {
     type: mongoose.Schema.Types.Mixed,
     default: () => ({
@@ -461,11 +486,13 @@ const wikiProposalSchema = new mongoose.Schema({
   signals: { type: [wikiProposalSignalSchema], default: [] },
   starterClaims: { type: [String], default: [] },
   openQuestions: { type: [String], default: [] },
+  proposalDecision: { type: mongoose.Schema.Types.Mixed, default: null },
+  quality: { type: mongoose.Schema.Types.Mixed, default: null },
   createdPageId: { type: mongoose.Schema.Types.ObjectId, ref: 'WikiPage', default: null },
   mergedIntoPageId: { type: mongoose.Schema.Types.ObjectId, ref: 'WikiPage', default: null },
   dismissedReason: { type: String, default: '', trim: true },
   generation: {
-    source: { type: String, enum: ['deterministic', 'ai_shaped'], default: 'deterministic' },
+    source: { type: String, enum: ['deterministic', 'deterministic_quality_gate', 'ai_shaped'], default: 'deterministic' },
     generatedAt: { type: Date, default: Date.now },
     materialHash: { type: String, default: '', trim: true },
     signalCount: { type: Number, default: 0 }

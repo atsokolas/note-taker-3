@@ -1,18 +1,23 @@
 const crypto = require('crypto');
+const { chatComplete, isTextGenerationConfigured } = require('../ai/hfTextClient');
 
 const STOPWORDS = new Set([
-  'about', 'after', 'again', 'against', 'also', 'and', 'because', 'before', 'being', 'between', 'by', 'could',
+  'about', 'after', 'again', 'against', 'also', 'and', 'because', 'before', 'being', 'between', 'by', 'can', 'could',
   'every', 'from', 'have', 'into', 'more', 'most', 'over', 'should', 'that', 'their', 'there',
   'the', 'these', 'this', 'through', 'under', 'what', 'when', 'where', 'which', 'while', 'with', 'would'
 ]);
 
 const TITLE_NOISE = new Set([
   'article', 'author', 'blog', 'com', 'content', 'html', 'http', 'https', 'name', 'newsletter',
-  'page', 'shareholder', 'shareholders', 'source', 'title', 'url', 'www'
+  'change', 'found', 'increase', 'improve', 'page', 'shareholder', 'shareholders', 'source', 'title', 'url', 'www'
 ]);
 
 const CORPORATE_SUFFIXES = new Set([
   'co', 'company', 'corp', 'corporation', 'inc', 'incorporated', 'llc', 'ltd', 'limited', 'plc'
+]);
+
+const GENERIC_TOPIC_TOKENS = new Set([
+  'idea', 'lesson', 'note', 'notes', 'theme', 'signal', 'archive', 'material', 'source', 'thinking'
 ]);
 
 const toText = (value = '') => String(value || '')
@@ -69,9 +74,15 @@ const canonicalTopicKey = (value = '') => {
   const tokens = normalizeTopicTokens(value);
   if (!tokens.length) return '';
   const compactTokens = new Set(tokens.map(compactToken));
-  const deduped = tokens.filter((token) => {
+  const withoutConcatenatedNoise = tokens.filter((token) => {
     const compact = compactToken(token);
-    return ![...compactTokens].some(other => other !== compact && other.length > compact.length + 2 && other.includes(compact));
+    const containedParts = [...compactTokens].filter(other => other !== compact && compact.includes(other) && other.length >= 4);
+    return containedParts.length < 2;
+  });
+  const nextCompactTokens = new Set(withoutConcatenatedNoise.map(compactToken));
+  const deduped = withoutConcatenatedNoise.filter((token) => {
+    const compact = compactToken(token);
+    return ![...nextCompactTokens].some(other => other !== compact && other.length > compact.length + 2 && other.includes(compact));
   });
   const ordered = [];
   deduped.forEach((token) => {
@@ -264,29 +275,339 @@ const representativeTitleFor = (bucket = [], fallbackKey = '') => {
 
 const dedupeCandidates = (candidates = []) => {
   const kept = [];
-  const dominantHosts = new Set();
+  const sourceKeys = (candidate = {}) => new Set((candidate.sourceRefs || []).map(sourceRefIdentity));
+  const sourceOverlap = (left = {}, right = {}) => {
+    const a = sourceKeys(left);
+    const b = sourceKeys(right);
+    if (!a.size || !b.size) return 0;
+    let shared = 0;
+    a.forEach(key => {
+      if (b.has(key)) shared += 1;
+    });
+    return shared / Math.min(a.size, b.size);
+  };
   candidates
-    .sort((a, b) => b.confidence - a.confidence || (b.sourceRefs?.length || 0) - (a.sourceRefs?.length || 0))
+    .sort((a, b) => (
+      (b.proposalDecision?.qualityScore || 0) - (a.proposalDecision?.qualityScore || 0)
+      || b.confidence - a.confidence
+      || (b.sourceRefs?.length || 0) - (a.sourceRefs?.length || 0)
+    ))
     .forEach((candidate) => {
       const key = canonicalTopicKey(candidate.title || candidate.slugCandidate);
       if (!key) return;
-      const hosts = (candidate.sourceRefs || []).map(ref => ref.sourceHost).filter(Boolean);
-      const hostCounts = hosts.reduce((counts, host) => {
-        counts.set(host, (counts.get(host) || 0) + 1);
-        return counts;
-      }, new Map());
-      const dominantHost = [...hostCounts.entries()].find(([, count]) => hosts.length && count / hosts.length >= 0.8)?.[0] || '';
-      if (dominantHost && dominantHosts.has(dominantHost)) return;
       const duplicate = kept.some(existing => (
         tokenOverlap(key, existing.canonicalKey || existing.title) >= 0.8
         || tokenOverlap(candidate.clusterKey, existing.clusterKey) >= 0.8
+        || sourceOverlap(candidate, existing) >= 0.67
       ));
-      if (!duplicate) {
-        if (dominantHost) dominantHosts.add(dominantHost);
-        kept.push({ ...candidate, canonicalKey: key });
-      }
+      if (!duplicate) kept.push({ ...candidate, canonicalKey: key });
     });
   return kept.map(({ canonicalKey, ...candidate }) => candidate);
+};
+
+const sourceDiversityFor = (sourceRefs = []) => {
+  const families = new Set();
+  const hosts = new Set();
+  (Array.isArray(sourceRefs) ? sourceRefs : []).forEach((ref = {}) => {
+    const family = ref.url
+      ? sourceFamilyFor({ sourceType: ref.type || 'source', objectId: ref.objectId, title: ref.title, url: ref.url })
+      : `${ref.type || 'source'}:${ref.objectId || canonicalTopicKey(ref.title) || materialHash(ref.title || ref.snippet)}`;
+    if (family) families.add(family);
+    const host = ref.sourceHost || hostFromUrl(ref.url);
+    if (host) hosts.add(host);
+  });
+  return {
+    distinctSources: families.size,
+    distinctHosts: hosts.size,
+    sameDomainSourceCount: families.size,
+    note: hosts.size <= 1 && families.size > 1
+      ? 'Multiple pages from the same domain count as distinct sources, but remain a weaker diversity signal.'
+      : 'Sources span multiple families.'
+  };
+};
+
+const dominantSourceTitleKey = (sourceRefs = []) => {
+  const counts = new Map();
+  (Array.isArray(sourceRefs) ? sourceRefs : []).forEach((ref = {}) => {
+    const key = canonicalTopicKey(ref.title || '');
+    if (!key || isUglyTopicKey(key)) return;
+    counts.set(key, (counts.get(key) || 0) + 1);
+  });
+  return [...counts.entries()].sort((a, b) => b[1] - a[1])[0] || ['', 0];
+};
+
+const bestExistingPageMatch = (candidate = {}, existingPages = []) => {
+  const key = canonicalTopicKey(candidate.title || candidate.slugCandidate || candidate.clusterKey);
+  if (!key) return null;
+  return (Array.isArray(existingPages) ? existingPages : [])
+    .map(page => ({
+      page,
+      score: Math.max(
+        tokenOverlap(key, page.title || ''),
+        tokenOverlap(key, `${page.title || ''} ${page.plainText || ''}`)
+      )
+    }))
+    .filter(row => row.score >= 0.65)
+    .sort((a, b) => b.score - a.score)[0] || null;
+};
+
+const qualityDecisionFor = (candidate = {}, existingPages = []) => {
+  const titleKey = canonicalTopicKey(candidate.title || candidate.slugCandidate || candidate.clusterKey);
+  const tokens = titleKey.split(/\s+/).filter(Boolean);
+  const sourceDiversity = sourceDiversityFor(candidate.sourceRefs || []);
+  const [dominantTitleKey, dominantTitleCount] = dominantSourceTitleKey(candidate.sourceRefs || []);
+  const reasons = [];
+  let qualityScore = 0.35;
+
+  if (!titleKey || isUglyTopicKey(titleKey)) reasons.push('Title is not a durable wiki topic.');
+  else qualityScore += 0.18;
+
+  if (tokens.some(token => GENERIC_TOPIC_TOKENS.has(token)) && tokens.length <= 2) {
+    reasons.push('Title is too generic to deserve a page.');
+    qualityScore -= 0.2;
+  }
+
+  if (sourceDiversity.distinctSources >= 3) qualityScore += 0.22;
+  else if (sourceDiversity.distinctSources >= 2) qualityScore += 0.12;
+  else reasons.push('Not enough distinct source support.');
+
+  if ((candidate.signals || []).length >= 6) qualityScore += 0.08;
+  if ((candidate.connectedPageRefs || []).length + (candidate.connectedConceptRefs || []).length > 0) qualityScore += 0.08;
+  if ((candidate.starterClaims || []).some(claim => canonicalTopicKey(claim).split(/\s+/).length >= 5)) qualityScore += 0.07;
+  if (
+    dominantTitleKey
+    && dominantTitleCount / Math.max(1, (candidate.sourceRefs || []).length) >= 0.8
+    && sourceDiversity.distinctHosts <= 1
+    && tokenOverlap(titleKey, dominantTitleKey) < 0.5
+  ) {
+    reasons.push(`Signal is a claim cluster inside "${titleize(dominantTitleKey)}", not a separate page.`);
+    qualityScore -= 0.25;
+  }
+
+  const mergeMatch = bestExistingPageMatch(candidate, existingPages);
+  if (mergeMatch?.score >= 0.8) {
+    return {
+      action: 'merge_into_existing',
+      qualityScore: Math.min(0.95, qualityScore + 0.1),
+      canonicalTitle: candidate.title,
+      rationale: `This belongs in the existing "${mergeMatch.page.title}" wiki page.`,
+      sourceDiversity,
+      mergeTarget: {
+        pageId: mergeMatch.page._id,
+        title: mergeMatch.page.title,
+        score: mergeMatch.score
+      },
+      rejectionReason: ''
+    };
+  }
+
+  if (reasons.length || qualityScore < 0.68) {
+    return {
+      action: 'reject',
+      qualityScore: Math.max(0, Math.min(1, qualityScore)),
+      canonicalTitle: candidate.title,
+      rationale: reasons[0] || 'Signal is not strong enough to show as an emerging wiki.',
+      sourceDiversity,
+      mergeTarget: null,
+      rejectionReason: reasons.join(' ') || 'Below emerging wiki quality threshold.'
+    };
+  }
+
+  return {
+    action: 'create_page',
+    qualityScore: Math.min(0.98, qualityScore),
+    canonicalTitle: candidate.title,
+    rationale: `${candidate.title} has enough distinct source support to become a maintained page.`,
+    sourceDiversity,
+    mergeTarget: null,
+    rejectionReason: ''
+  };
+};
+
+const applyQualityDecision = (candidate = {}, existingPages = []) => {
+  const proposalDecision = qualityDecisionFor(candidate, existingPages);
+  const status = proposalDecision.action === 'reject'
+    ? 'dismissed'
+    : proposalDecision.action === 'merge_into_existing'
+      ? 'merged'
+      : 'pending';
+  return {
+    ...candidate,
+    status,
+    dismissedReason: proposalDecision.rejectionReason || '',
+    mergedIntoPageId: proposalDecision.mergeTarget?.pageId || null,
+    confidence: Math.min(0.98, Math.max(candidate.confidence || 0, proposalDecision.qualityScore || 0)),
+    proposalDecision,
+    quality: {
+      score: proposalDecision.qualityScore,
+      sourceDiversity: proposalDecision.sourceDiversity,
+      rationale: proposalDecision.rationale
+    },
+    generation: {
+      ...(candidate.generation || {}),
+      source: 'deterministic_quality_gate'
+    }
+  };
+};
+
+const extractJsonObject = (value = '') => {
+  const raw = String(value || '').trim();
+  if (!raw) return null;
+  const fenced = raw.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  const text = fenced ? fenced[1].trim() : raw;
+  const start = text.indexOf('{');
+  const end = text.lastIndexOf('}');
+  if (start < 0 || end <= start) return null;
+  try {
+    return JSON.parse(text.slice(start, end + 1));
+  } catch (_error) {
+    return null;
+  }
+};
+
+const normalizeAgentDecision = (value = {}, candidate = {}, existingPages = []) => {
+  const action = ['create_page', 'merge_into_existing', 'reject'].includes(String(value.action || value.decision || '').trim())
+    ? String(value.action || value.decision).trim()
+    : '';
+  if (!action) return null;
+  const fallback = candidate.proposalDecision || qualityDecisionFor(candidate, existingPages);
+  if (candidate.status === 'dismissed' && action === 'create_page') return null;
+  if (candidate.status === 'merged' && action === 'create_page') return null;
+  const safeTitle = toText(value.canonicalTitle || value.title || fallback.canonicalTitle || candidate.title).slice(0, 120);
+  const score = Math.max(0, Math.min(1, Number(value.qualityScore ?? value.confidence ?? fallback.qualityScore ?? 0)));
+  const mergeTargetId = toText(value.mergeTarget?.pageId || value.mergeTargetId || fallback.mergeTarget?.pageId || '');
+  const mergeTarget = action === 'merge_into_existing'
+    ? (
+      (fallback.mergeTarget && (!mergeTargetId || String(fallback.mergeTarget.pageId) === mergeTargetId))
+        ? fallback.mergeTarget
+        : (existingPages || []).map(page => ({
+          pageId: page._id,
+          title: page.title,
+          score: tokenOverlap(safeTitle, page.title || '')
+        })).filter(match => String(match.pageId) === mergeTargetId).sort((a, b) => b.score - a.score)[0] || fallback.mergeTarget || null
+    )
+    : null;
+  if (action === 'merge_into_existing' && !mergeTarget?.pageId) return null;
+  return {
+    action,
+    qualityScore: score || fallback.qualityScore || 0,
+    canonicalTitle: safeTitle || candidate.title,
+    rationale: toText(value.rationale || value.whyPageWorthy || fallback.rationale).slice(0, 800),
+    sourceDiversity: fallback.sourceDiversity || sourceDiversityFor(candidate.sourceRefs || []),
+    mergeTarget,
+    rejectionReason: action === 'reject'
+      ? toText(value.rejectionReason || value.rationale || fallback.rejectionReason || 'Agent rejected this proposal.').slice(0, 800)
+      : ''
+  };
+};
+
+const buildAgentShapePrompt = ({ candidate = {}, existingPages = [] } = {}) => JSON.stringify({
+  task: 'Judge whether this emerging wiki candidate deserves a page, should merge into an existing page, or should be rejected.',
+  allowedActions: ['create_page', 'merge_into_existing', 'reject'],
+  outputSchema: {
+    action: 'create_page | merge_into_existing | reject',
+    canonicalTitle: 'short durable wiki title',
+    qualityScore: 'number 0..1',
+    rationale: 'specific reason',
+    mergeTargetId: 'existing page id when action is merge_into_existing, otherwise empty',
+    rejectionReason: 'required when action is reject'
+  },
+  rules: [
+    'Be stricter than recurrence. A repeated phrase is not enough.',
+    'Reject source metadata, claim fragments, URLs, vague themes, and cards that belong inside a stronger candidate.',
+    'Merge when an existing wiki page already covers the topic.',
+    'Prefer fewer, higher-quality proposals.'
+  ],
+  candidate: {
+    title: candidate.title,
+    proposalType: candidate.proposalType,
+    deterministicDecision: candidate.proposalDecision,
+    sourceRefs: (candidate.sourceRefs || []).slice(0, 6).map(ref => ({
+      title: ref.title,
+      snippet: ref.snippet,
+      url: ref.url,
+      sourceHost: ref.sourceHost
+    })),
+    starterClaims: (candidate.starterClaims || []).slice(0, 4),
+    connectedPageRefs: (candidate.connectedPageRefs || []).slice(0, 4),
+    connectedConceptRefs: (candidate.connectedConceptRefs || []).slice(0, 4)
+  },
+  existingPages: (existingPages || []).slice(0, 12).map(page => ({
+    pageId: page._id,
+    title: page.title,
+    plainText: toText(page.plainText).slice(0, 500)
+  }))
+}, null, 2);
+
+const applyAgentDecision = (candidate = {}, decision = {}) => {
+  const status = decision.action === 'reject'
+    ? 'dismissed'
+    : decision.action === 'merge_into_existing'
+      ? 'merged'
+      : 'pending';
+  const title = decision.canonicalTitle || candidate.title;
+  return {
+    ...candidate,
+    title,
+    slugCandidate: slugify(title),
+    status,
+    dismissedReason: decision.rejectionReason || '',
+    mergedIntoPageId: decision.mergeTarget?.pageId || null,
+    confidence: Math.min(0.98, Math.max(candidate.confidence || 0, decision.qualityScore || 0)),
+    proposalDecision: {
+      ...decision,
+      shapedBy: 'agent'
+    },
+    quality: {
+      ...(candidate.quality || {}),
+      score: decision.qualityScore,
+      sourceDiversity: decision.sourceDiversity,
+      rationale: decision.rationale
+    },
+    generation: {
+      ...(candidate.generation || {}),
+      source: 'ai_shaped'
+    }
+  };
+};
+
+const shapeWikiProposalCandidates = async ({
+  candidates = [],
+  existingPages = [],
+  chat = chatComplete,
+  isConfigured = isTextGenerationConfigured,
+  maxCandidates = 8
+} = {}) => {
+  const base = Array.isArray(candidates) ? candidates : [];
+  if (!isConfigured || !isConfigured() || !chat) return base;
+  const shaped = [];
+  for (const candidate of base.slice(0, maxCandidates)) {
+    try {
+      const completion = await chat({
+        route: 'critique',
+        maxTokens: 650,
+        temperature: 0.1,
+        reasoningEffort: 'low',
+        responseFormat: { type: 'json_object' },
+        messages: [
+          {
+            role: 'system',
+            content: 'You are a strict wiki proposal quality judge. Return only valid JSON. It is good to reject weak proposals.'
+          },
+          { role: 'user', content: buildAgentShapePrompt({ candidate, existingPages }) }
+        ]
+      });
+      const parsed = extractJsonObject(typeof completion === 'string' ? completion : completion?.text || '');
+      const decision = normalizeAgentDecision(parsed, candidate, existingPages);
+      shaped.push(decision ? applyAgentDecision(candidate, decision) : candidate);
+    } catch (_error) {
+      shaped.push(candidate);
+    }
+  }
+  return [
+    ...shaped,
+    ...base.slice(maxCandidates)
+  ];
 };
 
 const shouldRetireActiveProposal = (proposal = {}, candidates = []) => {
@@ -334,13 +655,59 @@ const activeProposalsNeedClusteringRefresh = (proposals = []) => {
   return false;
 };
 
+const sourceRefIdentity = (ref = {}) => (
+  ref.url
+    ? `url:${ref.url}`
+    : ref.objectId
+      ? `${ref.type || 'source'}:${String(ref.objectId)}`
+      : `${ref.type || 'source'}:${ref.title || ref.snippet}`
+);
+
+const autoMergeProposalCandidates = async ({ WikiPage, userId, candidates = [] } = {}) => {
+  if (!WikiPage || !userId) return { merged: 0, pageIds: [] };
+  const mergeCandidates = (Array.isArray(candidates) ? candidates : [])
+    .filter(candidate => candidate.proposalDecision?.action === 'merge_into_existing' && candidate.proposalDecision?.mergeTarget?.pageId);
+  const touched = [];
+  for (const candidate of mergeCandidates) {
+    const page = await WikiPage.findOne({ _id: candidate.proposalDecision.mergeTarget.pageId, userId });
+    if (!page) continue;
+    const existing = new Set((page.sourceRefs || []).map(sourceRefIdentity));
+    let added = 0;
+    (candidate.sourceRefs || []).forEach((ref = {}) => {
+      const nextRef = {
+        type: ref.type === 'wiki_page' ? 'external' : (ref.type || 'external'),
+        objectId: ref.objectId || null,
+        title: ref.title || candidate.title,
+        snippet: ref.snippet || ref.reason || '',
+        url: ref.url || '',
+        addedBy: 'ai'
+      };
+      const key = sourceRefIdentity(nextRef);
+      if (existing.has(key)) return;
+      existing.add(key);
+      page.sourceRefs.push(nextRef);
+      added += 1;
+    });
+    if (!added) continue;
+    page.freshness = {
+      ...(page.freshness?.toObject ? page.freshness.toObject() : page.freshness || {}),
+      status: 'needs_review'
+    };
+    page.aiState = {
+      ...(page.aiState?.toObject ? page.aiState.toObject() : page.aiState || {}),
+      maintenanceSummary: `Merged ${added} source${added === 1 ? '' : 's'} from emerging wiki signal "${candidate.title}".`
+    };
+    await page.save();
+    touched.push(String(page._id));
+  }
+  return { merged: touched.length, pageIds: touched };
+};
+
 const buildProposalCandidates = ({ signals = [], existingPages = [] } = {}) => {
-  const existingKeys = existingPages.map(page => canonicalTopicKey(page.title)).filter(Boolean);
   const byKey = new Map();
   signals.forEach(signal => {
     const key = canonicalTopicKey(signal.key);
     if (!key || isUglyTopicKey(key)) return;
-    if (existingKeys.some(existingKey => tokenOverlap(key, existingKey) >= 0.8)) return;
     const bucketKey = [...byKey.keys()].find(existingKey => tokenOverlap(key, existingKey) >= 0.5) || key;
     const bucket = byKey.get(bucketKey) || [];
     bucket.push(signal);
@@ -353,7 +720,11 @@ const buildProposalCandidates = ({ signals = [], existingPages = [] } = {}) => {
     if (!title) return;
     const uniqueSources = new Map(bucket.map(signal => [signal.sourceFamily || `${signal.sourceType}:${signal.sourceObjectId || signal.title}`, signal]));
     const sourceRefs = Array.from(uniqueSources.values()).filter(signal => signal.sourceType !== 'wiki_page').slice(0, 6);
-    if (sourceRefs.length >= 2) {
+    const connectedPages = existingPages.filter(page => {
+      const pageKey = canonicalTopicKey(`${page.title} ${page.plainText || ''}`);
+      return key.split(' ').some(token => token.length > 3 && pageKey.includes(token));
+    }).slice(0, 4);
+    if (sourceRefs.length >= 2 && connectedPages.length < 2) {
       candidates.push({
         proposalType: 'repeated_theme',
         title,
@@ -385,10 +756,6 @@ const buildProposalCandidates = ({ signals = [], existingPages = [] } = {}) => {
       });
     }
 
-    const connectedPages = existingPages.filter(page => {
-      const pageKey = canonicalTopicKey(`${page.title} ${page.plainText || ''}`);
-      return key.split(' ').some(token => token.length > 3 && pageKey.includes(token));
-    }).slice(0, 4);
     if (connectedPages.length >= 2 && sourceRefs.length >= 1) {
       candidates.push({
         proposalType: 'bridge_idea',
@@ -427,7 +794,7 @@ const buildProposalCandidates = ({ signals = [], existingPages = [] } = {}) => {
       });
     }
   });
-  return dedupeCandidates(candidates).slice(0, 12);
+  return dedupeCandidates(candidates.map(candidate => applyQualityDecision(candidate, existingPages))).slice(0, 12);
 };
 
 const upsertProposalCandidates = async ({ WikiProposal, userId, candidates = [] } = {}) => {
@@ -435,9 +802,10 @@ const upsertProposalCandidates = async ({ WikiProposal, userId, candidates = [] 
   await retireStaleActiveProposals({ WikiProposal, userId, candidates });
   const proposals = [];
   for (const candidate of candidates) {
+    const candidateStatus = ['dismissed', 'merged', 'pending'].includes(candidate.status) ? candidate.status : 'pending';
     const proposal = await WikiProposal.findOneAndUpdate(
       { userId, clusterKey: candidate.clusterKey },
-      { $setOnInsert: { status: 'pending' }, $set: { ...candidate, userId } },
+      { $setOnInsert: { status: candidateStatus }, $set: { ...candidate, status: candidateStatus, userId } },
       { upsert: true, new: true }
     );
     proposals.push(proposal);
@@ -445,7 +813,14 @@ const upsertProposalCandidates = async ({ WikiProposal, userId, candidates = [] 
   return proposals;
 };
 
-const refreshWikiProposals = async ({ userId, models = {}, limit = 8 } = {}) => {
+const refreshWikiProposals = async ({
+  userId,
+  models = {},
+  limit = 8,
+  shapeWithAgent = true,
+  chat = chatComplete,
+  isConfigured = isTextGenerationConfigured
+} = {}) => {
   const { WikiProposal, WikiPage, Article, NotebookEntry, TagMeta, Question } = models;
   if (!WikiProposal || !WikiPage || !userId) return { proposals: [], generated: false };
   const [pages, articles, notebooks, concepts, questions] = await Promise.all([
@@ -456,7 +831,10 @@ const refreshWikiProposals = async ({ userId, models = {}, limit = 8 } = {}) => 
     Question ? Question.find({ userId }).sort({ updatedAt: -1 }).limit(80).lean() : []
   ]);
   const signals = buildArchiveSignals({ articles, notebooks, concepts, pages, questions });
-  const candidates = buildProposalCandidates({ signals, existingPages: pages });
+  const deterministicCandidates = buildProposalCandidates({ signals, existingPages: pages });
+  const candidates = shapeWithAgent
+    ? await shapeWikiProposalCandidates({ candidates: deterministicCandidates, existingPages: pages, chat, isConfigured })
+    : deterministicCandidates;
   await upsertProposalCandidates({ WikiProposal, userId, candidates });
   const proposals = await WikiProposal.find({ userId, status: { $in: ['pending', 'watched'] } })
     .sort({ confidence: -1, updatedAt: -1 })
@@ -550,8 +928,10 @@ module.exports = {
   createDraftPageFromProposal,
   createProposalFromSourceEvent,
   activeProposalsNeedClusteringRefresh,
+  shapeWikiProposalCandidates,
   normalizeKey,
   refreshWikiProposals,
+  autoMergeProposalCandidates,
   retireStaleActiveProposals,
   slugify,
   upsertProposalCandidates

@@ -5,7 +5,7 @@ describe('Claim mark extension', () => {
     expect(SUPPORT_STATES.has('supported')).toBe(true);
     expect(SUPPORT_STATES.has('partial')).toBe(true);
     expect(SUPPORT_STATES.has('unsupported')).toBe(true);
-    expect(SUPPORT_STATES.has('contradicted')).toBe(true);
+    expect(SUPPORT_STATES.has('conflicted')).toBe(true);
     expect(SUPPORT_STATES.size).toBe(4);
   });
 
@@ -37,15 +37,34 @@ describe('Claim mark extension', () => {
     expect(config.support.parseHTML(fakeElement)).toBe('supported');
   });
 
+  it('normalizes legacy contradicted support to conflicted', () => {
+    const config = Claim.config.addAttributes();
+    const fakeElement = {
+      getAttribute: (name) => (name === 'data-support' ? 'contradicted' : null)
+    };
+    expect(config.support.parseHTML(fakeElement)).toBe('conflicted');
+  });
+
   it('renders citation indexes back to a comma string when present', () => {
     const config = Claim.config.addAttributes();
     expect(config.citationIndexes.renderHTML({ citationIndexes: [1, 2] }))
       .toEqual({ 'data-citation-indexes': '1,2' });
   });
 
+  it('parses and renders contradiction indexes', () => {
+    const config = Claim.config.addAttributes();
+    const fakeElement = {
+      getAttribute: (name) => (name === 'data-contradiction-indexes' ? '2,4' : null)
+    };
+    expect(config.contradictionIndexes.parseHTML(fakeElement)).toEqual([2, 4]);
+    expect(config.contradictionIndexes.renderHTML({ contradictionIndexes: [2, 4] }))
+      .toEqual({ 'data-contradiction-indexes': '2,4' });
+  });
+
   it('omits the citation-indexes attribute when there are none', () => {
     const config = Claim.config.addAttributes();
     expect(config.citationIndexes.renderHTML({ citationIndexes: [] })).toEqual({});
+    expect(config.contradictionIndexes.renderHTML({ contradictionIndexes: [] })).toEqual({});
   });
 
   it('caps citation indexes at 8 to bound popover overflow', () => {
@@ -54,5 +73,13 @@ describe('Claim mark extension', () => {
       getAttribute: () => Array.from({ length: 12 }, (_, i) => i + 1).join(',')
     };
     expect(config.citationIndexes.parseHTML(fakeElement)).toHaveLength(8);
+  });
+
+  it('sanitizes malformed contradiction indexes', () => {
+    const config = Claim.config.addAttributes();
+    const fakeElement = {
+      getAttribute: (name) => (name === 'data-contradiction-indexes' ? '2, bad, -1, 0, 201, 4' : null)
+    };
+    expect(config.contradictionIndexes.parseHTML(fakeElement)).toEqual([2, 4]);
   });
 });

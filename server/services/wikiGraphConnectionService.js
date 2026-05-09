@@ -43,6 +43,8 @@ const isUsableConnectionRow = (row) => (
   && !(row.fromType === row.toType && row.fromId === row.toId)
 );
 
+const sourceKey = (source = {}) => `${normalizeId(source.type)}:${normalizeId(source.objectId)}`;
+
 const persistConnectionRow = async ({ Connection, row }) => {
   if (!Connection || !isUsableConnectionRow(row)) return null;
 
@@ -135,17 +137,17 @@ const buildWikiPageGraphRows = ({ page, userId }) => {
     }));
   });
 
-  const sourceByCitationId = new Map();
+  const sourceByEvidenceId = new Map();
   (Array.isArray(page?.citations) ? page.citations : []).forEach((citation) => {
     const citationId = normalizeId(citation?._id || citation?.id);
     const sourceRefId = normalizeId(citation?.sourceRefId);
     const sourceType = normalizeId(citation?.sourceType);
     const sourceObjectId = normalizeId(citation?.sourceObjectId);
     if (citationId && SOURCE_CONNECTION_TYPES.has(sourceType) && sourceObjectId) {
-      sourceByCitationId.set(citationId, { type: sourceType, objectId: sourceObjectId });
+      sourceByEvidenceId.set(citationId, { type: sourceType, objectId: sourceObjectId });
     }
     if (sourceRefId && SOURCE_CONNECTION_TYPES.has(sourceType) && sourceObjectId) {
-      sourceByCitationId.set(sourceRefId, { type: sourceType, objectId: sourceObjectId });
+      sourceByEvidenceId.set(sourceRefId, { type: sourceType, objectId: sourceObjectId });
     }
   });
   (Array.isArray(page?.sourceRefs) ? page.sourceRefs : []).forEach((sourceRef) => {
@@ -153,9 +155,24 @@ const buildWikiPageGraphRows = ({ page, userId }) => {
     const sourceType = normalizeId(sourceRef?.type);
     const sourceObjectId = normalizeId(sourceRef?.objectId);
     if (sourceRefId && SOURCE_CONNECTION_TYPES.has(sourceType) && sourceObjectId) {
-      sourceByCitationId.set(sourceRefId, { type: sourceType, objectId: sourceObjectId });
+      sourceByEvidenceId.set(sourceRefId, { type: sourceType, objectId: sourceObjectId });
     }
   });
+
+  const addClaimEvidenceRows = ({ claimGraphId, evidenceIds = [], relationType = 'supports' }) => {
+    (Array.isArray(evidenceIds) ? evidenceIds : []).forEach((evidenceId) => {
+      const source = sourceByEvidenceId.get(normalizeId(evidenceId));
+      if (!source) return;
+      addRow(normalizeConnectionRow({
+        userId,
+        fromType: source.type,
+        fromId: source.objectId,
+        toType: WIKI_CLAIM_ITEM_TYPE,
+        toId: claimGraphId,
+        relationType
+      }));
+    });
+  };
 
   (Array.isArray(page?.claims) ? page.claims : []).forEach((claim) => {
     const claimGraphId = buildWikiClaimId({ pageId, claimId: claim?.claimId });
@@ -170,17 +187,46 @@ const buildWikiPageGraphRows = ({ page, userId }) => {
     }));
 
     const support = normalizeId(claim?.support);
-    (Array.isArray(claim?.citationIds) ? claim.citationIds : []).forEach((citationId) => {
-      const source = sourceByCitationId.get(normalizeId(citationId));
-      if (!source) return;
-      addRow(normalizeConnectionRow({
-        userId,
-        fromType: source.type,
-        fromId: source.objectId,
-        toType: WIKI_CLAIM_ITEM_TYPE,
-        toId: claimGraphId,
-        relationType: support === 'conflicted' ? 'contradicts' : 'supports'
-      }));
+    const contradictedIds = Array.isArray(claim?.contradictedByCitationIds)
+      ? claim.contradictedByCitationIds.map(normalizeId).filter(Boolean)
+      : [];
+    const contradictedIdSet = new Set(contradictedIds);
+    const contradictedSourceKeys = new Set(
+      contradictedIds
+        .map(id => sourceByEvidenceId.get(id))
+        .filter(Boolean)
+        .map(sourceKey)
+    );
+    const supportingCitationIds = (Array.isArray(claim?.citationIds) ? claim.citationIds : [])
+      .map(normalizeId)
+      .filter(Boolean)
+      .filter(id => !contradictedIdSet.has(id))
+      .filter(id => !contradictedSourceKeys.has(sourceKey(sourceByEvidenceId.get(id))));
+    const supportingSourceRefIds = (Array.isArray(claim?.sourceRefIds) ? claim.sourceRefIds : [])
+      .map(normalizeId)
+      .filter(Boolean)
+      .filter(id => !contradictedIdSet.has(id))
+      .filter(id => !contradictedSourceKeys.has(sourceKey(sourceByEvidenceId.get(id))));
+    const conflictIds = contradictedIds.length
+      ? contradictedIds
+      : support === 'conflicted'
+        ? [...supportingCitationIds, ...supportingSourceRefIds]
+        : [];
+
+    addClaimEvidenceRows({
+      claimGraphId,
+      evidenceIds: support === 'conflicted' && !contradictedIds.length ? [] : supportingCitationIds,
+      relationType: 'supports'
+    });
+    addClaimEvidenceRows({
+      claimGraphId,
+      evidenceIds: support === 'conflicted' && !contradictedIds.length ? [] : supportingSourceRefIds,
+      relationType: 'supports'
+    });
+    addClaimEvidenceRows({
+      claimGraphId,
+      evidenceIds: conflictIds,
+      relationType: 'contradicts'
     });
 
     if (support === 'unsupported' || support === 'partial' || support === 'conflicted') {

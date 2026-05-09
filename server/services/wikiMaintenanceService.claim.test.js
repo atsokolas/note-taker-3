@@ -2,8 +2,11 @@ const { __testables } = require('./wikiMaintenanceService');
 
 const {
   attachClaimCitationIds,
+  buildSectionMaintenancePlan,
   collectClaimsFromDoc,
+  deriveClaimsFromDoc,
   docFromArticle,
+  normalizeSourceIndexesUsed,
   resolveClaimCitationIds
 } = __testables;
 
@@ -120,6 +123,27 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
     expect(marks.find(m => m.text === 'A bullet point.')?.attrs.citationIndexes).toEqual([1]);
   });
 
+  it('emits contradiction indexes on conflicted claim marks without putting them in prose', () => {
+    const doc = docFromArticle({
+      title: 'X',
+      article: {
+        summary: {
+          text: 'A claim with mixed evidence.',
+          citationIndexes: [1],
+          contradictionIndexes: [2],
+          support: 'conflicted'
+        }
+      }
+    });
+    const marks = findClaimMarks(doc);
+    expect(marks[0].attrs).toMatchObject({
+      citationIndexes: [1],
+      contradictionIndexes: [2],
+      support: 'conflicted'
+    });
+    expect(marks[0].text).not.toMatch(/\[2\]/);
+  });
+
   it('does not append the legacy "[1, 2]" suffix into the claim text', () => {
     const doc = docFromArticle({
       title: 'X',
@@ -176,6 +200,24 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
     expect(claims[0].citationIndexes).toEqual([1, 2]);
   });
 
+  it('extracts contradiction indexes from claim marks before persistence', () => {
+    const doc = docFromArticle({
+      title: 'X',
+      article: {
+        summary: {
+          text: 'Claim with a counter-source.',
+          citationIndexes: [1],
+          contradictionIndexes: [2],
+          support: 'conflicted'
+        }
+      }
+    });
+    const claims = collectClaimsFromDoc(doc);
+    expect(claims[0].citationIndexes).toEqual([1]);
+    expect(claims[0].contradictionIndexes).toEqual([2]);
+    expect(claims[0].support).toBe('conflicted');
+  });
+
   it('maps claim citation indexes to persisted citation ids', () => {
     const citationIds = resolveClaimCitationIds({
       citationIndexes: [2, 1, 2, 99],
@@ -212,6 +254,8 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
       sourceRefs: [{ _id: 'source-a' }]
     });
     expect(claims[0].citationIds).toEqual(['citation-a']);
+    expect(claims[0].sourceRefIds).toEqual(['source-a']);
+    expect(claims[0].confidence).toBeGreaterThan(0.45);
     expect(claims[0].citationIndexes).toBeUndefined();
   });
 
@@ -225,5 +269,194 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
       }]
     });
     expect(claims[0].support).toBe('conflicted');
+  });
+
+  it('maps contradiction indexes separately from supporting citation ids', () => {
+    const claims = attachClaimCitationIds({
+      claims: [{
+        claimId: 'claim-1',
+        text: 'A mixed evidence claim.',
+        support: 'conflicted',
+        citationIndexes: [1],
+        contradictionIndexes: [2]
+      }],
+      citations: [
+        { _id: 'citation-a', sourceRefId: 'source-a' },
+        { _id: 'citation-b', sourceRefId: 'source-b' }
+      ],
+      sourceRefs: [{ _id: 'source-a' }, { _id: 'source-b' }]
+    });
+    expect(claims[0].citationIds).toEqual(['citation-a']);
+    expect(claims[0].sourceRefIds).toEqual(['source-a']);
+    expect(claims[0].contradictedByCitationIds).toEqual(['citation-b']);
+  });
+
+  it('keeps legacy conflicted claims as contradictory when no contradiction indexes exist', () => {
+    const claims = attachClaimCitationIds({
+      claims: [{
+        claimId: 'claim-legacy',
+        text: 'Legacy conflicted claim.',
+        support: 'conflicted',
+        citationIndexes: [1]
+      }],
+      citations: [{ _id: 'citation-a', sourceRefId: 'source-a' }],
+      sourceRefs: [{ _id: 'source-a' }]
+    });
+    expect(claims[0].contradictedByCitationIds).toEqual(['citation-a']);
+  });
+
+  it('derives ledger claims with confidence, verification time, and source refs', () => {
+    const now = new Date('2026-05-09T12:00:00.000Z');
+    const doc = docFromArticle({
+      title: 'X',
+      article: {
+        summary: { text: 'A well sourced claim.', citationIndexes: [1, 2] }
+      }
+    });
+    const claims = deriveClaimsFromDoc({
+      body: doc,
+      citations: [
+        { _id: 'citation-a', sourceRefId: 'source-a' },
+        { _id: 'citation-b', sourceRefId: 'source-b' }
+      ],
+      sourceRefs: [{ _id: 'source-a' }, { _id: 'source-b' }],
+      now
+    });
+
+    expect(claims[0]).toMatchObject({
+      text: 'A well sourced claim.',
+      support: 'supported',
+      citationIds: ['citation-a', 'citation-b'],
+      sourceRefIds: ['source-a', 'source-b']
+    });
+    expect(claims[0].confidence).toBeGreaterThanOrEqual(0.8);
+    expect(claims[0].lastReviewedAt).toEqual(now);
+    expect(claims[0].lastVerifiedAt).toEqual(now);
+    expect(claims[0].history[0].event).toBe('created');
+  });
+
+  it('derives mixed support and contradiction evidence into the claim ledger', () => {
+    const now = new Date('2026-05-09T12:00:00.000Z');
+    const doc = docFromArticle({
+      title: 'X',
+      article: {
+        summary: {
+          text: 'A mixed evidence claim.',
+          citationIndexes: [1],
+          contradictionIndexes: [2],
+          support: 'conflicted'
+        }
+      }
+    });
+    const claims = deriveClaimsFromDoc({
+      body: doc,
+      citations: [
+        { _id: 'citation-a', sourceRefId: 'source-a' },
+        { _id: 'citation-b', sourceRefId: 'source-b' }
+      ],
+      sourceRefs: [{ _id: 'source-a' }, { _id: 'source-b' }],
+      now
+    });
+    expect(claims[0]).toMatchObject({
+      support: 'conflicted',
+      citationIds: ['citation-a'],
+      sourceRefIds: ['source-a'],
+      contradictedByCitationIds: ['citation-b']
+    });
+  });
+
+  it('counts contradiction-only sources as used source indexes', () => {
+    const used = normalizeSourceIndexesUsed({
+      rawIndexes: [],
+      article: {
+        summary: { text: 'Summary', citationIndexes: [], contradictionIndexes: [2] },
+        sections: [{
+          heading: 'Evidence',
+          paragraphs: [{ text: 'Paragraph', citationIndexes: [1], contradictionIndexes: [3] }],
+          bullets: []
+        }]
+      },
+      candidates: [{ index: 1 }, { index: 2 }, { index: 3 }]
+    });
+    expect(used).toEqual([2, 1, 3]);
+  });
+
+  it('preserves claim history across regenerated claim ids by matching claim text', () => {
+    const createdAt = new Date('2026-05-01T00:00:00.000Z');
+    const now = new Date('2026-05-09T12:00:00.000Z');
+    const doc = docFromArticle({
+      title: 'X',
+      article: {
+        summary: { text: 'Durable claim text.', citationIndexes: [1, 2] }
+      }
+    });
+    const previousClaims = [{
+      claimId: 'old-claim-id',
+      text: 'Durable claim text.',
+      section: 'X',
+      support: 'partial',
+      citationIds: ['citation-a'],
+      sourceRefIds: ['source-a'],
+      confidence: 0.54,
+      createdAt,
+      history: [{
+        at: createdAt,
+        event: 'created',
+        support: 'partial',
+        text: 'Durable claim text.',
+        section: 'X',
+        citationIds: ['citation-a'],
+        sourceRefIds: ['source-a'],
+        summary: 'Original claim.'
+      }]
+    }];
+
+    const claims = deriveClaimsFromDoc({
+      body: doc,
+      citations: [
+        { _id: 'citation-a', sourceRefId: 'source-a' },
+        { _id: 'citation-b', sourceRefId: 'source-b' }
+      ],
+      sourceRefs: [{ _id: 'source-a' }, { _id: 'source-b' }],
+      previousClaims,
+      now
+    });
+
+    expect(claims[0].claimId).not.toBe('old-claim-id');
+    expect(claims[0].createdAt).toEqual(createdAt);
+    expect(claims[0].history.map(entry => entry.event)).toEqual(['created', 'updated']);
+    expect(claims[0].history[1].support).toBe('supported');
+  });
+
+  it('builds section-level maintenance state from the claim ledger and health signals', () => {
+    const now = new Date('2026-05-09T12:00:00.000Z');
+    const plan = buildSectionMaintenancePlan({
+      now,
+      claims: [
+        { section: 'Core Idea', support: 'supported', confidence: 0.9, lastReviewedAt: now },
+        { section: 'Core Idea', support: 'unsupported', confidence: 0.1, lastReviewedAt: now },
+        { section: 'Evidence', support: 'conflicted', confidence: 0.3, lastReviewedAt: now }
+      ],
+      health: {
+        missingCitations: [{ text: 'Needs a citation.', section: 'Core Idea' }],
+        contradictions: [{ text: 'Source disagrees.', section: 'Evidence' }]
+      },
+      changeLog: [{ type: 'flagged_gap', target: 'Core Idea', summary: 'Marked a gap.' }]
+    });
+
+    expect(plan.updatedAt).toEqual(now);
+    expect(plan.sections[0]).toMatchObject({
+      section: 'Evidence',
+      totalClaims: 1,
+      conflictedClaims: 1
+    });
+    const core = plan.sections.find(section => section.section === 'Core Idea');
+    expect(core).toMatchObject({
+      totalClaims: 2,
+      supportedClaims: 1,
+      unsupportedClaims: 1,
+      averageConfidence: 0.5
+    });
+    expect(core.actions.map(action => action.type)).toContain('missingCitations');
   });
 });

@@ -13,7 +13,7 @@ import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
  *
  * Props:
  *  - anchorRect: DOMRect of the claim span being hovered
- *  - support: 'supported' | 'partial' | 'unsupported' | 'contradicted'
+ *  - support: 'supported' | 'partial' | 'unsupported' | 'conflicted'
  *  - sources: resolved source objects (already filtered to citationIndexes)
  *  - onClose: () => void
  */
@@ -22,22 +22,74 @@ const SUPPORT_LABEL = {
   supported: 'Supported',
   partial: 'Partial support',
   unsupported: 'No source',
-  contradicted: 'Contradicted'
+  contradicted: 'Contradicted',
+  conflicted: 'Conflicted'
 };
 
 const SUPPORT_BLURB = {
   supported: 'This claim is grounded in your library.',
   partial: 'Only one source partially supports this claim.',
   unsupported: 'The agent wrote this without an attached source.',
-  contradicted: 'A source in your library contradicts this claim.'
+  contradicted: 'A source in your library contradicts this claim.',
+  conflicted: 'A source in your library conflicts with this claim.'
 };
 
 const POPOVER_WIDTH = 360;
 const POPOVER_GAP = 10;
 
-const ClaimCitationPopover = ({ anchorRect, support, sources, onClose }) => {
+const formatDate = (value) => {
+  if (!value) return '';
+  const time = new Date(value).getTime();
+  if (!Number.isFinite(time)) return '';
+  return new Date(time).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+};
+
+const formatConfidence = (value) => {
+  const number = Number(value);
+  if (!Number.isFinite(number) || number <= 0) return '';
+  return `${Math.round(number * 100)}% confidence`;
+};
+
+const EvidenceList = ({ title, sources, role }) => {
+  if (!sources.length) return null;
+  return (
+    <section className={`wiki-claim-popover__evidence wiki-claim-popover__evidence--${role}`}>
+      <h3 className="wiki-claim-popover__evidence-title">{title}</h3>
+      <ol className="wiki-claim-popover__list">
+        {sources.map((source, index) => (
+          <li key={source._id || `${source.type}-${index}`} className="wiki-claim-popover__item">
+            <div className="wiki-claim-popover__item-head">
+              <span className="wiki-claim-popover__item-index">[{source.citationIndex || index + 1}]</span>
+              <span className="wiki-claim-popover__item-title">{source.title || 'Untitled source'}</span>
+            </div>
+            {source.snippet ? (
+              <p className="wiki-claim-popover__item-snippet">{source.snippet}</p>
+            ) : null}
+            {source.url ? (
+              <a
+                className="wiki-claim-popover__item-link"
+                href={source.url}
+                target="_blank"
+                rel="noreferrer"
+              >
+                Open source ↗
+              </a>
+            ) : null}
+          </li>
+        ))}
+      </ol>
+    </section>
+  );
+};
+
+const ClaimCitationPopover = ({ anchorRect, support, sources, claim, onClose }) => {
   const popoverRef = useRef(null);
   const [position, setPosition] = useState(null);
+  const confidence = formatConfidence(claim?.confidence);
+  const verified = formatDate(claim?.lastVerifiedAt);
+  const historyCount = Array.isArray(claim?.history) ? claim.history.length : 0;
+  const supportingSources = sources.filter(source => source.evidenceRole !== 'contradicts');
+  const contradictingSources = sources.filter(source => source.evidenceRole === 'contradicts');
 
   useLayoutEffect(() => {
     if (!anchorRect) return;
@@ -99,30 +151,39 @@ const ClaimCitationPopover = ({ anchorRect, support, sources, onClose }) => {
         </span>
       </div>
       <p className="wiki-claim-popover__blurb">{SUPPORT_BLURB[support] || SUPPORT_BLURB.supported}</p>
+      {claim ? (
+        <dl className="wiki-claim-popover__ledger" aria-label="Claim ledger">
+          {confidence ? (
+            <div>
+              <dt>Confidence</dt>
+              <dd>{confidence}</dd>
+            </div>
+          ) : null}
+          {verified ? (
+            <div>
+              <dt>Verified</dt>
+              <dd>{verified}</dd>
+            </div>
+          ) : null}
+          {claim.section ? (
+            <div>
+              <dt>Section</dt>
+              <dd>{claim.section}</dd>
+            </div>
+          ) : null}
+          {historyCount ? (
+            <div>
+              <dt>Ledger</dt>
+              <dd>{historyCount} event{historyCount === 1 ? '' : 's'}</dd>
+            </div>
+          ) : null}
+        </dl>
+      ) : null}
       {sources.length > 0 ? (
-        <ol className="wiki-claim-popover__list">
-          {sources.map((source, index) => (
-            <li key={source._id || `${source.type}-${index}`} className="wiki-claim-popover__item">
-              <div className="wiki-claim-popover__item-head">
-                <span className="wiki-claim-popover__item-index">[{source.citationIndex || index + 1}]</span>
-                <span className="wiki-claim-popover__item-title">{source.title || 'Untitled source'}</span>
-              </div>
-              {source.snippet ? (
-                <p className="wiki-claim-popover__item-snippet">{source.snippet}</p>
-              ) : null}
-              {source.url ? (
-                <a
-                  className="wiki-claim-popover__item-link"
-                  href={source.url}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  Open source ↗
-                </a>
-              ) : null}
-            </li>
-          ))}
-        </ol>
+        <div className="wiki-claim-popover__evidence-groups">
+          <EvidenceList title="Supporting sources" sources={supportingSources} role="supports" />
+          <EvidenceList title="Contradicting sources" sources={contradictingSources} role="contradicts" />
+        </div>
       ) : (
         <p className="wiki-claim-popover__empty">
           No source attached. Add one from the panel to ground this claim.

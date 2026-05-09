@@ -12,7 +12,7 @@
  *
  * Storage shape (localStorage):
  *   key:   `noeis.wiki.visit.<pageId>`
- *   value: { lastViewedAt: ISO string, claimSnapshot: string[] }
+ *   value: { lastViewedAt: ISO string, claimSnapshot: string[], ledgerSnapshot: object[] }
  *
  * The snapshot is capped at 200 entries — enough for any realistic
  * page, bounded so we don't fill localStorage with megabyte snapshots.
@@ -38,6 +38,39 @@ const normalizeClaimText = (value = '') => String(value || '')
   .replace(/\s+/g, ' ')
   .trim()
   .toLowerCase();
+
+const normalizeSupport = (value = '') => {
+  if (value === 'contradicted') return 'conflicted';
+  return ['supported', 'partial', 'unsupported', 'conflicted'].includes(value)
+    ? value
+    : 'unsupported';
+};
+
+const normalizeDateValue = (value) => {
+  if (!value) return '';
+  const time = new Date(value).getTime();
+  return Number.isFinite(time) ? new Date(time).toISOString() : '';
+};
+
+export const extractClaimLedgerSnapshot = (claims = []) => (
+  (Array.isArray(claims) ? claims : [])
+    .map((claim) => {
+      const text = normalizeClaimText(claim?.text);
+      if (!text) return null;
+      return {
+        text,
+        support: normalizeSupport(claim?.support),
+        confidence: Number.isFinite(Number(claim?.confidence))
+          ? Number(Number(claim.confidence).toFixed(2))
+          : 0,
+        lastVerifiedAt: normalizeDateValue(claim?.lastVerifiedAt),
+        citationCount: Array.isArray(claim?.citationIds) ? claim.citationIds.length : 0,
+        historyCount: Array.isArray(claim?.history) ? claim.history.length : 0
+      };
+    })
+    .filter(Boolean)
+    .slice(0, SNAPSHOT_CAP)
+);
 
 const collectClaimTextsFromNode = (node, accumulator) => {
   if (!node) return;
@@ -83,7 +116,17 @@ export const getLastVisitState = (pageId) => {
     const claimSnapshot = Array.isArray(parsed.claimSnapshot)
       ? parsed.claimSnapshot.map(String).filter(Boolean).slice(0, SNAPSHOT_CAP)
       : [];
-    return { lastViewedAt, claimSnapshot };
+    const ledgerSnapshot = Array.isArray(parsed.ledgerSnapshot)
+      ? parsed.ledgerSnapshot.map((entry) => ({
+          text: normalizeClaimText(entry?.text),
+          support: normalizeSupport(entry?.support),
+          confidence: Number.isFinite(Number(entry?.confidence)) ? Number(entry.confidence) : 0,
+          lastVerifiedAt: normalizeDateValue(entry?.lastVerifiedAt),
+          citationCount: Number.isFinite(Number(entry?.citationCount)) ? Number(entry.citationCount) : 0,
+          historyCount: Number.isFinite(Number(entry?.historyCount)) ? Number(entry.historyCount) : 0
+        })).filter(entry => entry.text).slice(0, SNAPSHOT_CAP)
+      : [];
+    return { lastViewedAt, claimSnapshot, ledgerSnapshot };
   } catch (_err) {
     return null;
   }
@@ -95,13 +138,14 @@ export const getLastVisitState = (pageId) => {
  * snapshots so the banner doesn't dismiss itself before the user has
  * read it.
  */
-export const recordVisit = (pageId, doc) => {
+export const recordVisit = (pageId, doc, claims = []) => {
   if (!safePageId(pageId)) return null;
   const storage = safeStorage();
   if (!storage) return null;
   const state = {
     lastViewedAt: new Date().toISOString(),
-    claimSnapshot: extractClaimTexts(doc)
+    claimSnapshot: extractClaimTexts(doc),
+    ledgerSnapshot: extractClaimLedgerSnapshot(claims)
   };
   try {
     storage.setItem(storageKey(pageId), JSON.stringify(state));
@@ -126,8 +170,42 @@ export const diffClaimSnapshots = (snapshot = [], current = []) => {
   return { added, removed };
 };
 
+export const diffClaimLedgerSnapshots = (snapshot = [], current = []) => {
+  const previous = new Map((Array.isArray(snapshot) ? snapshot : [])
+    .map(entry => [normalizeClaimText(entry?.text), entry])
+    .filter(([text]) => text));
+  const next = new Map(extractClaimLedgerSnapshot(current)
+    .map(entry => [entry.text, entry]));
+  const changed = [];
+
+  next.forEach((entry, text) => {
+    const prior = previous.get(text);
+    if (!prior) return;
+    const supportChanged = normalizeSupport(prior.support) !== normalizeSupport(entry.support);
+    const confidenceChanged = Math.abs(Number(prior.confidence || 0) - Number(entry.confidence || 0)) >= 0.15;
+    const citationChanged = Number(prior.citationCount || 0) !== Number(entry.citationCount || 0);
+    const historyChanged = Number(entry.historyCount || 0) > Number(prior.historyCount || 0);
+    if (supportChanged || confidenceChanged || citationChanged || historyChanged) {
+      changed.push({
+        text,
+        support: entry.support,
+        confidence: entry.confidence,
+        reasons: [
+          supportChanged ? 'support' : null,
+          confidenceChanged ? 'confidence' : null,
+          citationChanged ? 'sources' : null,
+          historyChanged ? 'history' : null
+        ].filter(Boolean)
+      });
+    }
+  });
+
+  return changed.slice(0, SNAPSHOT_CAP);
+};
+
 export const __testables = {
   STORAGE_KEY_PREFIX,
   SNAPSHOT_CAP,
-  normalizeClaimText
+  normalizeClaimText,
+  normalizeSupport
 };

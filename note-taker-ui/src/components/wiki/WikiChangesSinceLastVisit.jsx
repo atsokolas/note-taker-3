@@ -12,6 +12,7 @@ import React, { useMemo, useState } from 'react';
  *  - lastViewedAt:  ISO string of the previous visit (drives the meta line)
  *  - added:         normalized claim texts new since the last visit
  *  - removed:       normalized claim texts removed since the last visit
+ *  - changed:       claim ledger changes for existing claim texts
  *  - onMarkReviewed: () => void; snapshots current state and dismisses
  */
 
@@ -35,24 +36,41 @@ const formatRelative = (iso) => {
   return new Date(iso).toLocaleDateString();
 };
 
-const WikiChangesSinceLastVisit = ({ lastViewedAt, added = [], removed = [], onMarkReviewed }) => {
+const SUPPORT_LABEL = {
+  supported: 'supported',
+  partial: 'partially supported',
+  unsupported: 'unsupported',
+  conflicted: 'conflicted'
+};
+
+const WikiChangesSinceLastVisit = ({
+  lastViewedAt,
+  added = [],
+  removed = [],
+  changed = [],
+  onMarkReviewed
+}) => {
   const [expanded, setExpanded] = useState(false);
 
   const counts = useMemo(() => ({
     added: Array.isArray(added) ? added.length : 0,
-    removed: Array.isArray(removed) ? removed.length : 0
-  }), [added, removed]);
+    removed: Array.isArray(removed) ? removed.length : 0,
+    changed: Array.isArray(changed) ? changed.length : 0
+  }), [added, removed, changed]);
 
   if (!lastViewedAt) return null;
-  if (counts.added === 0 && counts.removed === 0) return null;
+  if (counts.added === 0 && counts.removed === 0 && counts.changed === 0) return null;
 
   const summary = [
     counts.added > 0 ? `${counts.added} new` : null,
-    counts.removed > 0 ? `${counts.removed} removed` : null
+    counts.removed > 0 ? `${counts.removed} removed` : null,
+    counts.changed > 0 ? `${counts.changed} evidence update${counts.changed === 1 ? '' : 's'}` : null
   ].filter(Boolean).join(' · ');
 
   const previewAdded = added.slice(0, PREVIEW_COUNT);
   const previewRemoved = removed.slice(0, PREVIEW_COUNT);
+  const previewChanged = changed.slice(0, PREVIEW_COUNT);
+  const totalCount = counts.added + counts.removed + counts.changed;
 
   return (
     <section
@@ -65,7 +83,7 @@ const WikiChangesSinceLastVisit = ({ lastViewedAt, added = [], removed = [], onM
         <div className="wiki-changes-banner__copy">
           <span className="wiki-changes-banner__eyebrow">Since you last visited</span>
           <span className="wiki-changes-banner__title">
-            {summary} claim{counts.added + counts.removed === 1 ? '' : 's'}
+            {summary} claim{totalCount === 1 ? '' : 's'}
           </span>
           <span className="wiki-changes-banner__sub">
             You were last here {formatRelative(lastViewedAt)}.
@@ -129,6 +147,32 @@ const WikiChangesSinceLastVisit = ({ lastViewedAt, added = [], removed = [], onM
                 <p className="wiki-changes-banner__more">
                   + {counts.removed - PREVIEW_COUNT} more removed claim
                   {counts.removed - PREVIEW_COUNT === 1 ? '' : 's'}.
+                </p>
+              ) : null}
+            </div>
+          ) : null}
+
+          {counts.changed > 0 ? (
+            <div className="wiki-changes-banner__group wiki-changes-banner__group--changed">
+              <h4 className="wiki-changes-banner__group-title">Evidence updates</h4>
+              <ul className="wiki-changes-banner__list">
+                {previewChanged.map((entry, index) => (
+                  <li key={`changed-${index}`} className="wiki-changes-banner__item">
+                    <span className="wiki-changes-banner__sigil" aria-hidden="true">↻</span>
+                    <span className="wiki-changes-banner__item-text">
+                      {truncate(entry.text)}
+                      <span className="wiki-changes-banner__item-meta">
+                        {SUPPORT_LABEL[entry.support] || entry.support}
+                        {Number.isFinite(Number(entry.confidence)) ? ` · ${Math.round(Number(entry.confidence) * 100)}%` : ''}
+                      </span>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              {counts.changed > PREVIEW_COUNT ? (
+                <p className="wiki-changes-banner__more">
+                  + {counts.changed - PREVIEW_COUNT} more evidence update
+                  {counts.changed - PREVIEW_COUNT === 1 ? '' : 's'}.
                 </p>
               ) : null}
             </div>

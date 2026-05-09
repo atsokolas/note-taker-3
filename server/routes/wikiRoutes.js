@@ -1,7 +1,10 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const { maintainWikiPage: defaultMaintainWikiPage } = require('../services/wikiMaintenanceService');
-const { deriveClaimsFromDoc } = require('../services/wikiMaintenanceService');
+const {
+  buildSectionMaintenancePlan,
+  deriveClaimsFromDoc
+} = require('../services/wikiMaintenanceService');
 const { askWikiPage: defaultAskWikiPage } = require('../services/wikiAskService');
 const { buildWikiBriefing: defaultBuildWikiBriefing } = require('../services/wikiBriefingService');
 const { findWikiBacklinks: defaultFindWikiBacklinks } = require('../services/wikiBacklinkService');
@@ -18,10 +21,12 @@ const {
 } = require('../services/wikiGraphConnectionService');
 const {
   activeProposalsNeedClusteringRefresh,
+  autoMergeProposalCandidates,
   buildArchiveSignals,
   buildProposalCandidates,
   createDraftPageFromProposal,
-  retireStaleActiveProposals
+  retireStaleActiveProposals,
+  shapeWikiProposalCandidates
 } = require('../services/wikiProposalService');
 
 const PAGE_TYPES = new Set(['topic', 'question', 'project', 'source', 'person', 'synthesis']);
@@ -299,7 +304,8 @@ const buildWikiRouter = ({
   maintainWikiPage = defaultMaintainWikiPage,
   askWikiPage = defaultAskWikiPage,
   buildWikiBriefing = defaultBuildWikiBriefing,
-  findWikiBacklinks = defaultFindWikiBacklinks
+  findWikiBacklinks = defaultFindWikiBacklinks,
+  shapeWikiProposalCandidates: shapeWikiProposalCandidatesRunner = shapeWikiProposalCandidates
 }) => {
   const router = express.Router();
 
@@ -336,14 +342,18 @@ const buildWikiRouter = ({
     ]);
 
     const signals = buildArchiveSignals({ articles, notebooks, concepts, pages, questions });
-    const candidates = buildProposalCandidates({ signals, existingPages: pages });
+    const deterministicCandidates = buildProposalCandidates({ signals, existingPages: pages });
+    const candidates = shapeWikiProposalCandidatesRunner
+      ? await shapeWikiProposalCandidatesRunner({ candidates: deterministicCandidates, existingPages: pages })
+      : deterministicCandidates;
+    await autoMergeProposalCandidates({ WikiPage, userId, candidates });
     await retireStaleActiveProposals({ WikiProposal, userId, candidates });
     for (const candidate of candidates) {
       const prior = await WikiProposal.findOne({ userId, clusterKey: candidate.clusterKey });
       if (prior && ['dismissed', 'accepted', 'merged'].includes(prior.status)) continue;
       await WikiProposal.findOneAndUpdate(
         { userId, clusterKey: candidate.clusterKey },
-        { $set: { ...candidate, userId } },
+        { $set: { ...candidate, status: candidate.status || 'pending', userId } },
         { upsert: true, new: true, setDefaultsOnInsert: true }
       );
     }
@@ -435,11 +445,24 @@ const buildWikiRouter = ({
   };
 
   const refreshPageClaims = (page) => {
+    const previousClaims = page.claims?.toObject ? page.claims.toObject() : page.claims || [];
+    const now = new Date();
     page.claims = deriveClaimsFromDoc({
       body: page.body || emptyDoc(),
       citations: page.citations || [],
-      sourceRefs: page.sourceRefs || []
+      sourceRefs: page.sourceRefs || [],
+      previousClaims,
+      now
     });
+    page.aiState = {
+      ...(page.aiState?.toObject ? page.aiState.toObject() : page.aiState || {}),
+      sectionMaintenance: buildSectionMaintenancePlan({
+        claims: page.claims,
+        health: page.aiState?.health || {},
+        changeLog: page.aiState?.changeLog || [],
+        now
+      })
+    };
   };
 
   router.get('/api/wiki/pages', authenticateToken, async (req, res) => {

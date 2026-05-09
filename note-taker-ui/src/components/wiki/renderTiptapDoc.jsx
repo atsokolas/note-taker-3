@@ -19,10 +19,14 @@ const claimAttrs = (mark) => {
   const indexes = Array.isArray(attrs.citationIndexes)
     ? attrs.citationIndexes.filter(value => Number.isFinite(Number(value)))
     : [];
+  const contradictionIndexes = Array.isArray(attrs.contradictionIndexes)
+    ? attrs.contradictionIndexes.filter(value => Number.isFinite(Number(value)))
+    : [];
   return {
     'data-claim-id': attrs.claimId || '',
     'data-support': attrs.support || 'supported',
-    'data-citation-indexes': indexes.join(',')
+    'data-citation-indexes': indexes.join(','),
+    'data-contradiction-indexes': contradictionIndexes.join(',')
   };
 };
 
@@ -51,21 +55,24 @@ const renderTextNode = (node, key) => {
   if (claimMark) {
     const attrs = claimAttrs(claimMark);
     const indexes = attrs['data-citation-indexes'];
+    const contradictionIndexes = attrs['data-contradiction-indexes'];
+    const visibleIndexes = indexes || contradictionIndexes;
     return (
       <React.Fragment key={key}>
         <span className="wiki-claim" {...attrs}>
           {wikiLinkedText}
         </span>
-        {indexes ? (
+        {visibleIndexes ? (
           <button
             type="button"
             className="wiki-claim-citation"
             data-claim-id={attrs['data-claim-id']}
             data-support={attrs['data-support']}
             data-citation-indexes={indexes}
-            aria-label={`Backlink to source${indexes.includes(',') ? 's' : ''} ${indexes.split(',').join(', ')}`}
+            data-contradiction-indexes={contradictionIndexes}
+            aria-label={`Backlink to source${visibleIndexes.includes(',') ? 's' : ''} ${visibleIndexes.split(',').join(', ')}`}
           >
-            {citationText(indexes.split(','))}
+            {citationText(visibleIndexes.split(','))}
           </button>
         ) : null}
       </React.Fragment>

@@ -30,6 +30,36 @@ describe('WikiChangesSinceLastVisit', () => {
     expect(screen.getByText(/last here 5m ago/)).toBeInTheDocument();
   });
 
+  it('summarizes and expands ledger-only evidence updates', () => {
+    render(
+      <WikiChangesSinceLastVisit
+        lastViewedAt={new Date().toISOString()}
+        added={[]}
+        removed={[]}
+        changed={[{ text: 'evidence changed', support: 'supported', confidence: 0.83 }]}
+        onMarkReviewed={() => {}}
+      />
+    );
+    expect(screen.getByText(/1 evidence update claim/)).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('wiki-changes-banner-toggle'));
+    expect(screen.getByText('Evidence updates')).toBeInTheDocument();
+    expect(screen.getByText('evidence changed')).toBeInTheDocument();
+    expect(screen.getByText(/supported · 83%/)).toBeInTheDocument();
+  });
+
+  it('renders nothing when text and ledger diffs are empty', () => {
+    const { container } = render(
+      <WikiChangesSinceLastVisit
+        lastViewedAt={new Date().toISOString()}
+        added={[]}
+        removed={[]}
+        changed={[]}
+        onMarkReviewed={() => {}}
+      />
+    );
+    expect(container.firstChild).toBeNull();
+  });
+
   it('toggles the diff body open and previews up to 3 added/removed claims', () => {
     render(
       <WikiChangesSinceLastVisit

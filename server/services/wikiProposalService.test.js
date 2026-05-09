@@ -4,8 +4,10 @@ const {
   buildProposalCandidates,
   createDraftPageFromProposal,
   activeProposalsNeedClusteringRefresh,
+  autoMergeProposalCandidates,
   normalizeKey,
-  retireStaleActiveProposals
+  retireStaleActiveProposals,
+  shapeWikiProposalCandidates
 } = require('./wikiProposalService');
 
 const run = async () => {
@@ -102,8 +104,10 @@ const run = async () => {
       signals: buildArchiveSignals({ articles: letters }),
       existingPages: []
     });
-    assert.deepStrictEqual(proposals.map(item => item.title), ['Berkshire Hathaway']);
-    assert.strictEqual(proposals[0].sourceRefs.length, 6);
+    const visible = proposals.filter(item => item.status === 'pending');
+    assert.deepStrictEqual(visible.map(item => item.title), ['Berkshire Hathaway']);
+    assert.strictEqual(visible[0].sourceRefs.length, 6);
+    assert.strictEqual(proposals.some(item => item.title === 'Owner Earning' && item.status === 'pending'), false);
   }
 
   {
@@ -121,12 +125,13 @@ const run = async () => {
       signals: buildArchiveSignals({ articles: letters }),
       existingPages: [{ _id: 'page-berkshire', title: 'Berkshire Hathaway', plainText: 'Existing page.' }]
     });
-    assert.strictEqual(proposals.some(item => /berkshire/i.test(item.title)), false);
+    assert.strictEqual(proposals.some(item => /berkshire/i.test(item.title) && item.status === 'pending'), false);
+    assert.ok(proposals.some(item => /berkshire/i.test(item.title) && item.status === 'merged'));
   }
 
   {
     const existingPages = [
-      { _id: 'page-1', title: 'Personal Agents', plainText: 'Agents can adapt to users over time.' },
+      { _id: 'page-1', title: 'Personal Agents', plainText: 'Adaptive learning agents can adapt to users over time.' },
       { _id: 'page-2', title: 'Education Software', plainText: 'Learning interfaces need adaptive feedback.' }
     ];
     const signals = buildArchiveSignals({
@@ -207,6 +212,150 @@ const run = async () => {
       { status: 'pending', title: 'AI Tutors and Motivation', clusterKey: 'theme:tutors motivation' },
       { status: 'pending', title: 'Long-Term Writing Habits', clusterKey: 'theme:long term writing habits' }
     ]), false);
+  }
+
+  {
+    const page = {
+      _id: 'page-berkshire',
+      userId: 'user-1',
+      title: 'Berkshire Hathaway',
+      sourceRefs: [],
+      saveCalls: 0,
+      async save() {
+        this.saveCalls += 1;
+        return this;
+      }
+    };
+    const WikiPage = {
+      findOne: async () => page
+    };
+    const result = await autoMergeProposalCandidates({
+      WikiPage,
+      userId: 'user-1',
+      candidates: [{
+        title: 'Berkshire Hathaway',
+        sourceRefs: [
+          { type: 'article', objectId: 'article-1', title: 'Berkshire letter', snippet: 'Owner earnings.', url: 'https://www.berkshirehathaway.com/letters/1992.html' }
+        ],
+        proposalDecision: {
+          action: 'merge_into_existing',
+          mergeTarget: { pageId: 'page-berkshire', title: 'Berkshire Hathaway', score: 1 }
+        }
+      }]
+    });
+    assert.strictEqual(result.merged, 1);
+    assert.strictEqual(page.sourceRefs.length, 1);
+    assert.strictEqual(page.freshness.status, 'needs_review');
+    assert.strictEqual(page.saveCalls, 1);
+  }
+
+  {
+    const proposals = buildProposalCandidates({
+      signals: buildArchiveSignals({
+        articles: [
+          {
+            _id: 'article-agent-1',
+            title: 'AI tutors and motivation',
+            url: 'https://learning.example.com/ai-tutors',
+            highlights: [{ _id: 'agent-h1', text: 'AI tutors may improve motivation through adaptive feedback.' }]
+          },
+          {
+            _id: 'article-agent-2',
+            title: 'Motivation in adaptive learning',
+            url: 'https://education.example.org/motivation',
+            highlights: [{ _id: 'agent-h2', text: 'Adaptive tutors can improve motivation and practice consistency.' }]
+          }
+        ]
+      }),
+      existingPages: []
+    });
+    const shaped = await shapeWikiProposalCandidates({
+      candidates: proposals,
+      existingPages: [],
+      isConfigured: () => true,
+      chat: async (request) => {
+        assert.strictEqual(request.route, 'critique');
+        assert.deepStrictEqual(request.responseFormat, { type: 'json_object' });
+        return {
+          model: 'stub',
+          text: JSON.stringify({
+            action: 'reject',
+            canonicalTitle: 'Tutor Motivation',
+            qualityScore: 0.2,
+            rationale: 'This is a claim fragment, not a page.',
+            rejectionReason: 'Too narrow.'
+          })
+        };
+      }
+    });
+    assert.strictEqual(shaped[0].status, 'dismissed');
+    assert.strictEqual(shaped[0].proposalDecision.shapedBy, 'agent');
+    assert.strictEqual(shaped[0].dismissedReason, 'Too narrow.');
+    assert.strictEqual(shaped[0].generation.source, 'ai_shaped');
+  }
+
+  {
+    const dismissed = {
+      title: 'Owner Earning',
+      slugCandidate: 'owner-earning',
+      clusterKey: 'theme:owner earning',
+      status: 'dismissed',
+      confidence: 0.65,
+      sourceRefs: [],
+      proposalDecision: {
+        action: 'reject',
+        qualityScore: 0.65,
+        canonicalTitle: 'Owner Earning',
+        rationale: 'Signal is a claim cluster.',
+        sourceDiversity: { distinctSources: 2, distinctHosts: 1 },
+        mergeTarget: null,
+        rejectionReason: 'Signal is a claim cluster.'
+      }
+    };
+    const shaped = await shapeWikiProposalCandidates({
+      candidates: [dismissed],
+      existingPages: [],
+      isConfigured: () => true,
+      chat: async () => ({
+        text: JSON.stringify({
+          action: 'create_page',
+          canonicalTitle: dismissed.title,
+          qualityScore: 0.99,
+          rationale: 'Create it anyway.'
+        })
+      })
+    });
+    assert.strictEqual(shaped[0].status, 'dismissed');
+    assert.notStrictEqual(shaped[0].proposalDecision?.shapedBy, 'agent');
+  }
+
+  {
+    const proposals = buildProposalCandidates({
+      signals: buildArchiveSignals({
+        articles: [
+          {
+            _id: 'article-agent-fallback-1',
+            title: 'Long-term writing habits',
+            url: 'https://writing.example.com/habits',
+            highlights: [{ _id: 'fallback-h1', text: 'Writing habits compound when notes are reviewed weekly.' }]
+          },
+          {
+            _id: 'article-agent-fallback-2',
+            title: 'Writing systems',
+            url: 'https://writing.example.com/systems',
+            highlights: [{ _id: 'fallback-h2', text: 'Long-term writing habits depend on repeated capture and review.' }]
+          }
+        ]
+      }),
+      existingPages: []
+    });
+    const shaped = await shapeWikiProposalCandidates({
+      candidates: proposals,
+      existingPages: [],
+      isConfigured: () => true,
+      chat: async () => ({ text: 'not json' })
+    });
+    assert.deepStrictEqual(shaped, proposals);
   }
 
   {

@@ -111,6 +111,12 @@ const run = async () => {
   const sourceRefId = sourceAdded.body.sourceRefs[0]._id;
   assert.ok(sourceRefId, 'source should include _id');
 
+  const invalidSource = await request(`/api/wiki/pages/${created.body._id}/sources`, {
+    method: 'POST',
+    body: JSON.stringify({ type: 'bad-source' })
+  });
+  assertStatus(invalidSource, 400, 'reject invalid wiki source');
+
   const sourceRemoved = await request(`/api/wiki/pages/${created.body._id}/sources/${sourceRefId}`, {
     method: 'DELETE'
   });

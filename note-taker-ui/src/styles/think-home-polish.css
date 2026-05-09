@@ -4468,7 +4468,9 @@ html[data-ui-theme='dark'] .wiki-agent-presence[data-status='error'] .wiki-agent
 }
 
 .wiki-claim[data-support='contradicted'],
-.wiki-claim-citation[data-support='contradicted'] {
+.wiki-claim-citation[data-support='contradicted'],
+.wiki-claim[data-support='conflicted'],
+.wiki-claim-citation[data-support='conflicted'] {
   --wiki-claim-color: #b54a32;  /* burnt sienna */
 }
 
@@ -4483,7 +4485,9 @@ html[data-ui-theme='dark'] .wiki-claim-citation[data-support='partial'] {
 }
 
 html[data-ui-theme='dark'] .wiki-claim[data-support='contradicted'],
-html[data-ui-theme='dark'] .wiki-claim-citation[data-support='contradicted'] {
+html[data-ui-theme='dark'] .wiki-claim-citation[data-support='contradicted'],
+html[data-ui-theme='dark'] .wiki-claim[data-support='conflicted'],
+html[data-ui-theme='dark'] .wiki-claim-citation[data-support='conflicted'] {
   --wiki-claim-color: #e08770;
 }
 
@@ -4538,11 +4542,13 @@ html[data-ui-theme='dark'] .wiki-claim-popover {
 .wiki-claim-popover__pill--supported    { color: #4f8c5a; }
 .wiki-claim-popover__pill--partial      { color: #b1862e; }
 .wiki-claim-popover__pill--unsupported  { color: var(--vellum-subtle); }
-.wiki-claim-popover__pill--contradicted { color: #b54a32; }
+.wiki-claim-popover__pill--contradicted,
+.wiki-claim-popover__pill--conflicted { color: #b54a32; }
 
 html[data-ui-theme='dark'] .wiki-claim-popover__pill--supported    { color: #7fb088; }
 html[data-ui-theme='dark'] .wiki-claim-popover__pill--partial      { color: #d6a86b; }
-html[data-ui-theme='dark'] .wiki-claim-popover__pill--contradicted { color: #e08770; }
+html[data-ui-theme='dark'] .wiki-claim-popover__pill--contradicted,
+html[data-ui-theme='dark'] .wiki-claim-popover__pill--conflicted { color: #e08770; }
 
 .wiki-claim-popover__count {
   font-size: 0.74rem;
@@ -4555,14 +4561,85 @@ html[data-ui-theme='dark'] .wiki-claim-popover__pill--contradicted { color: #e08
   color: var(--vellum-muted);
 }
 
+.wiki-claim-popover__ledger {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  margin: -2px 0 12px;
+  padding: 8px 0;
+  border-top: 1px solid var(--vellum-line);
+  border-bottom: 1px solid var(--vellum-line);
+}
+
+.wiki-claim-popover__ledger div {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  min-width: 0;
+}
+
+.wiki-claim-popover__ledger dt,
+.wiki-claim-popover__ledger dd {
+  margin: 0;
+  font-size: 0.72rem;
+  line-height: 1.3;
+}
+
+.wiki-claim-popover__ledger dt {
+  color: var(--vellum-subtle);
+}
+
+.wiki-claim-popover__ledger dd {
+  color: var(--vellum-muted);
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wiki-claim-popover__evidence-groups {
+  display: grid;
+  gap: 12px;
+  max-height: 340px;
+  overflow-y: auto;
+}
+
+.wiki-claim-popover__evidence {
+  display: grid;
+  gap: 7px;
+}
+
+.wiki-claim-popover__evidence-title {
+  margin: 0;
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 0.62rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--vellum-subtle);
+}
+
+.wiki-claim-popover__evidence--supports .wiki-claim-popover__evidence-title {
+  color: #4f8c5a;
+}
+
+.wiki-claim-popover__evidence--contradicts .wiki-claim-popover__evidence-title {
+  color: #b54a32;
+}
+
+html[data-ui-theme='dark'] .wiki-claim-popover__evidence--supports .wiki-claim-popover__evidence-title {
+  color: #7fb088;
+}
+
+html[data-ui-theme='dark'] .wiki-claim-popover__evidence--contradicts .wiki-claim-popover__evidence-title {
+  color: #e08770;
+}
+
 .wiki-claim-popover__list {
   list-style: none;
   margin: 0;
   padding: 0;
   display: grid;
   gap: 12px;
-  max-height: 340px;
-  overflow-y: auto;
 }
 
 .wiki-claim-popover__item {
@@ -4754,12 +4831,20 @@ html[data-ui-theme='dark'] .wiki-claim-popover__pill--contradicted { color: #e08
   color: #b54a32;
 }
 
+.wiki-changes-banner__group--changed .wiki-changes-banner__group-title {
+  color: #6e7690;
+}
+
 html[data-ui-theme='dark'] .wiki-changes-banner__group--added .wiki-changes-banner__group-title {
   color: #7fb088;
 }
 
 html[data-ui-theme='dark'] .wiki-changes-banner__group--removed .wiki-changes-banner__group-title {
   color: #e08770;
+}
+
+html[data-ui-theme='dark'] .wiki-changes-banner__group--changed .wiki-changes-banner__group-title {
+  color: #aeb8d4;
 }
 
 .wiki-changes-banner__list {
@@ -4803,6 +4888,11 @@ html[data-ui-theme='dark'] .wiki-changes-banner__group--removed .wiki-changes-ba
   color: #b54a32;
 }
 
+.wiki-changes-banner__group--changed .wiki-changes-banner__sigil {
+  background: color-mix(in srgb, #6e7690 18%, transparent);
+  color: #6e7690;
+}
+
 html[data-ui-theme='dark'] .wiki-changes-banner__group--added .wiki-changes-banner__sigil {
   color: #7fb088;
   background: color-mix(in srgb, #7fb088 18%, transparent);
@@ -4811,6 +4901,18 @@ html[data-ui-theme='dark'] .wiki-changes-banner__group--added .wiki-changes-bann
 html[data-ui-theme='dark'] .wiki-changes-banner__group--removed .wiki-changes-banner__sigil {
   color: #e08770;
   background: color-mix(in srgb, #e08770 18%, transparent);
+}
+
+html[data-ui-theme='dark'] .wiki-changes-banner__group--changed .wiki-changes-banner__sigil {
+  color: #aeb8d4;
+  background: color-mix(in srgb, #aeb8d4 18%, transparent);
+}
+
+.wiki-changes-banner__item-meta {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.72rem;
+  color: var(--vellum-subtle);
 }
 
 .wiki-changes-banner__more {
