@@ -18,6 +18,7 @@ import WikiAiSourcePanel from './WikiAiSourcePanel';
 import WikiAgentPresence from './WikiAgentPresence';
 import WikiAskComposer from './WikiAskComposer';
 import WikiBacklinkPanel from './WikiBacklinkPanel';
+import WikiAutolinkSuggestions from './WikiAutolinkSuggestions';
 import WikiChangesSinceLastVisit from './WikiChangesSinceLastVisit';
 import WikiDiscussions from './WikiDiscussions';
 import WikiPageMetaBar from './WikiPageMetaBar';
@@ -526,6 +527,7 @@ const WikiPageEditor = ({ pageId }) => {
               activeSourceIndex={activeSourceIndex}
             />
             <WikiBacklinkPanel pageId={pageId} pageTitle={page.title} />
+            <WikiAutolinkSuggestions pageId={pageId} pageTitle={page.title} />
           </aside>
         ) : null}
       </div>

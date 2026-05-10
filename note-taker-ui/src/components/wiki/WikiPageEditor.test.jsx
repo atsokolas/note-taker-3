@@ -2,7 +2,7 @@ import React from 'react';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import WikiPageEditor from './WikiPageEditor';
-import { addWikiSource, applyWikiAutolink, deleteWikiPage, getWikiBacklinks, getWikiPage, listWikiAutolinks, listWikiConnectorActions, listWikiRevisions, maintainWikiPage, rebuildWikiPageGraph, removeWikiSource, reviewWikiFreshness, updateWikiPage } from '../../api/wiki';
+import { addWikiSource, applyWikiAutolink, deleteWikiPage, getWikiAutolinkSuggestions, getWikiBacklinks, getWikiPage, listWikiAutolinks, listWikiConnectorActions, listWikiRevisions, maintainWikiPage, rebuildWikiPageGraph, removeWikiSource, reviewWikiFreshness, updateWikiPage } from '../../api/wiki';
 import { fetchGraphData } from '../../api/map';
 
 const mockUseEditor = jest.fn();
@@ -35,6 +35,9 @@ jest.mock('../../api/wiki', () => ({
   askWikiPage: jest.fn(),
   deleteWikiPage: jest.fn(),
   getWikiBacklinks: jest.fn(),
+  // WikiAutolinkSuggestions in the right rail calls this on mount; stub
+  // it so existing editor tests don't crash on (undefined).then().
+  getWikiAutolinkSuggestions: jest.fn(() => Promise.reject(new Error('not relevant in WikiPageEditor tests'))),
   getWikiPage: jest.fn(),
   listWikiAutolinks: jest.fn(),
   listWikiConnectorActions: jest.fn(),
@@ -86,6 +89,7 @@ describe('WikiPageEditor', () => {
     mockUseEditor.mockReturnValue(mockEditor);
     getWikiPage.mockResolvedValue(page);
     getWikiBacklinks.mockResolvedValue({ count: 0, backlinks: [] });
+    getWikiAutolinkSuggestions.mockResolvedValue({ suggestions: [], scanned: 0 });
     listWikiAutolinks.mockResolvedValue({ suggestions: [], scanned: 0 });
     listWikiConnectorActions.mockResolvedValue([]);
     listWikiRevisions.mockResolvedValue([]);

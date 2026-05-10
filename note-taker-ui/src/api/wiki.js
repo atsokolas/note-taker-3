@@ -76,6 +76,11 @@ export const getWikiBacklinks = async (id) => {
   return res.data;
 };
 
+export const getWikiAutolinkSuggestions = async (id) => {
+  const res = await api.get(`${WIKI_PAGES_PATH}/${safeId(id)}/autolinks`, getAuthHeaders());
+  return res.data;
+};
+
 export const getWikiBriefing = async () => {
   const res = await api.get('/api/wiki/briefing', getAuthHeaders());
   return res.data;
@@ -190,6 +195,7 @@ const wikiApi = {
   askWikiPage,
   removeWikiDiscussion,
   getWikiBacklinks,
+  getWikiAutolinkSuggestions,
   getWikiBriefing,
   listWikiProposals,
   refreshWikiProposals,
