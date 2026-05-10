@@ -58,6 +58,10 @@ const WikiAskComposer = ({ onAsk, busy = false }) => {
         rows={3}
         aria-label="Question for this page"
         disabled={busy}
+        // Backend rejects > 1000 chars. Cap the input client-side so the
+        // composer never lets the user type past the limit and only
+        // discover the rejection after submit.
+        maxLength={1000}
         data-testid="wiki-ask-composer-input"
       />
       <div className="wiki-ask-composer__row">

@@ -47,8 +47,10 @@ describe('WikiBacklinkPanel', () => {
       ]
     });
     mount();
-    await waitFor(() => expect(screen.getByTestId('wiki-backlinks')).toBeInTheDocument());
-    expect(screen.getByText('2 pages')).toBeInTheDocument();
+    // The component debounces the title-driven refetch by 400ms, so wait
+    // for the post-debounce populated render rather than the initial
+    // skeleton phase.
+    expect(await screen.findByText('2 pages')).toBeInTheDocument();
     expect(screen.getByText('Strategy').closest('a')).toHaveAttribute('href', '/wiki/a');
     expect(screen.getByText(/3 mentions/)).toBeInTheDocument();
     expect(screen.getByText(/1 mention/)).toBeInTheDocument();

@@ -30,25 +30,31 @@ const WikiBacklinkPanel = ({ pageId, pageTitle }) => {
   useEffect(() => {
     if (!pageId) return undefined;
     let cancelled = false;
-    setState((current) => ({ ...current, loading: true, error: false }));
-    getWikiBacklinks(pageId)
-      .then((data) => {
-        if (cancelled) return;
-        setState({
-          backlinks: Array.isArray(data?.backlinks) ? data.backlinks : [],
-          scanned: Number.isFinite(data?.scanned) ? data.scanned : 0,
-          loading: false,
-          error: false
+    // Debounce title changes — page.title is bound to a controlled input
+    // in WikiPageEditor, so without this we'd fire one backlinks request
+    // per keystroke while the owner renames the page. 400ms is the sweet
+    // spot: feels live, doesn't hammer the route.
+    const handle = setTimeout(() => {
+      setState((current) => ({ ...current, loading: true, error: false }));
+      getWikiBacklinks(pageId)
+        .then((data) => {
+          if (cancelled) return;
+          setState({
+            backlinks: Array.isArray(data?.backlinks) ? data.backlinks : [],
+            scanned: Number.isFinite(data?.scanned) ? data.scanned : 0,
+            loading: false,
+            error: false
+          });
+        })
+        .catch(() => {
+          if (cancelled) return;
+          setState({ backlinks: [], scanned: 0, loading: false, error: true });
         });
-      })
-      .catch(() => {
-        if (cancelled) return;
-        setState({ backlinks: [], scanned: 0, loading: false, error: true });
-      });
-    return () => { cancelled = true; };
-    // pageTitle is in deps so renaming the page refreshes backlinks; the
-    // backend matcher uses the saved title, so a fresh request after a
-    // rename surfaces the right matches.
+    }, 400);
+    return () => {
+      cancelled = true;
+      clearTimeout(handle);
+    };
   }, [pageId, pageTitle]);
 
   if (state.error) return null;

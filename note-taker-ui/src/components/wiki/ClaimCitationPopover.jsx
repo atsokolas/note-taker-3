@@ -115,7 +115,13 @@ const ClaimCitationPopover = ({ anchorRect, support, sources, claim, onClose }) 
     const handleKey = (event) => {
       if (event.key === 'Escape') onClose();
     };
-    const handleScroll = () => onClose();
+    const handleScroll = (event) => {
+      // Don't dismiss when the scroll originates inside the popover (e.g.
+      // the user is scrolling its citation list). Only outside-page scrolls
+      // should close.
+      if (popoverRef.current?.contains(event.target)) return;
+      onClose();
+    };
     window.addEventListener('mousedown', handlePointer);
     window.addEventListener('keydown', handleKey);
     window.addEventListener('scroll', handleScroll, true);
