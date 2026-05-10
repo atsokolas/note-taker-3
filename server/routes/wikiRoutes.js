@@ -364,29 +364,25 @@ const buildWikiRouter = ({
     return { proposals: proposals.map(serializeWikiProposal), generated: true };
   };
 
-  const maintainProposalDraftSoon = ({ page, userId }) => {
-    setImmediate(async () => {
-      try {
-        await maintainWikiPage({
-          page,
-          userId,
-          models: { Article, NotebookEntry, TagMeta, Question }
-        });
-        await page.save();
-      } catch (maintenanceError) {
-        try {
-          page.aiState = {
-            ...(page.aiState?.toObject ? page.aiState.toObject() : page.aiState || {}),
-            draftStatus: 'error',
-            lastError: String(maintenanceError.message || 'Draft maintenance failed.'),
-            errorCode: 'PROPOSAL_DRAFT_FAILED'
-          };
-          await page.save();
-        } catch (saveError) {
-          console.error('Error saving failed proposal draft state:', saveError);
-        }
-      }
-    });
+  const maintainProposalDraft = async ({ page, userId }) => {
+    try {
+      await maintainWikiPage({
+        page,
+        userId,
+        models: { Article, NotebookEntry, TagMeta, Question }
+      });
+      await page.save();
+      return page;
+    } catch (maintenanceError) {
+      page.aiState = {
+        ...(page.aiState?.toObject ? page.aiState.toObject() : page.aiState || {}),
+        draftStatus: 'error',
+        lastError: String(maintenanceError.message || 'Draft maintenance failed.'),
+        errorCode: 'PROPOSAL_DRAFT_FAILED'
+      };
+      await page.save();
+      return page;
+    }
   };
 
   router.param('id', (req, res, next, id) => {
@@ -925,8 +921,8 @@ const buildWikiRouter = ({
       });
       if (!proposal) return res.status(404).json({ error: 'Wiki proposal not found.' });
       const page = await createDraftPageFromProposal({ proposal, WikiPage, buildUniqueSlug });
-      maintainProposalDraftSoon({ page, userId: req.user.id });
-      res.status(201).json({ proposal: serializeWikiProposal(proposal), page: serializeWikiPage(page) });
+      const maintainedPage = await maintainProposalDraft({ page, userId: req.user.id });
+      res.status(201).json({ proposal: serializeWikiProposal(proposal), page: serializeWikiPage(maintainedPage) });
     } catch (error) {
       console.error('Error accepting wiki proposal:', error);
       res.status(500).json({ error: 'Failed to accept wiki proposal.' });

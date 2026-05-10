@@ -17,6 +17,9 @@ const matches = (record, query = {}) => Object.entries(query).every(([key, value
   if (value && typeof value === 'object' && value.$ne !== undefined) {
     return String(record[key]) !== String(value.$ne);
   }
+  if (value && typeof value === 'object' && Array.isArray(value.$in)) {
+    return value.$in.map(String).includes(String(record[key] || ''));
+  }
   if (value instanceof RegExp) {
     return value.test(String(record[key] || ''));
   }
@@ -115,6 +118,55 @@ const createFakeWikiPageModel = () => {
   return WikiPage;
 };
 
+const createFakeWikiProposalModel = () => {
+  const records = [];
+
+  function WikiProposal(payload = {}) {
+    Object.assign(this, payload);
+    this._id = this._id || new mongoose.Types.ObjectId().toString();
+    this.createdAt = this.createdAt || new Date();
+    this.updatedAt = this.updatedAt || new Date();
+  }
+
+  WikiProposal.records = records;
+
+  WikiProposal.find = (query = {}) => new Query(
+    records.filter(record => matches(record, query)).sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))
+  );
+
+  WikiProposal.findOne = (query = {}) => {
+    const found = records.find(record => matches(record, query));
+    return new Query(found ? new WikiProposal(clone(found)) : null);
+  };
+
+  WikiProposal.findOneAndUpdate = async (query = {}, updates = {}, options = {}) => {
+    let found = records.find(record => matches(record, query));
+    if (!found && options.upsert) {
+      found = { ...query };
+      records.push(found);
+    }
+    if (!found) return null;
+    const nextUpdates = updates.$set || updates;
+    Object.assign(found, nextUpdates, { updatedAt: new Date() });
+    return new WikiProposal(clone(found));
+  };
+
+  WikiProposal.prototype.toObject = function toObject() {
+    return clone(this);
+  };
+
+  WikiProposal.prototype.save = async function save() {
+    this.updatedAt = new Date();
+    const stored = this.toObject();
+    const index = records.findIndex(record => String(record._id) === String(this._id));
+    if (index >= 0) records[index] = stored;
+    else records.push(stored);
+    return this;
+  };
+
+  return WikiProposal;
+};
+
 const createFakeLibraryModel = (records = []) => ({
   find: (query = {}) => new Query(records.filter(record => matches(record, query)))
 });
@@ -183,6 +235,7 @@ const request = async (url, path, options = {}) => {
 
 const run = async () => {
   const WikiPage = createFakeWikiPageModel();
+  const WikiProposal = createFakeWikiProposalModel();
   const Article = createFakeLibraryModel([
     {
       _id: new mongoose.Types.ObjectId().toString(),
@@ -204,14 +257,84 @@ const run = async () => {
   const Connection = createFakeConnectionModel();
   const app = express();
   app.use(express.json());
+  const proposalMaintainCalls = [];
   app.use(buildWikiRouter({
     authenticateToken: (req, _res, next) => {
       req.user = { id: req.headers['x-test-user'] || 'user-1' };
       next();
     },
     WikiPage,
+    WikiProposal,
     Connection,
-    Article
+    Article,
+    maintainWikiPage: async ({ page, userId }) => {
+      proposalMaintainCalls.push({ pageId: String(page._id), userId });
+      const isProposalAccept = page.title === 'Accepted Proposal Page';
+      page.title = page.title || 'Maintained proposal page';
+      page.sourceScope = 'entire_library';
+      page.body = {
+        type: 'doc',
+        content: [
+          { type: 'heading', attrs: { level: 1 }, content: [{ type: 'text', text: page.title }] },
+          { type: 'heading', attrs: { level: 2 }, content: [{ type: 'text', text: isProposalAccept ? 'Core Idea' : 'Key Signals' }] },
+          { type: 'paragraph', content: [{ type: 'text', text: isProposalAccept ? 'Accepted proposal returned as a maintained article.' : 'Enterprise AI memory needs maintained claims, source-backed sections, and fresh evidence review.' }] },
+          { type: 'heading', attrs: { level: 2 }, content: [{ type: 'text', text: 'Evidence' }] },
+          { type: 'paragraph', content: [{ type: 'text', text: 'The response should not expose the starter scaffold.' }] }
+        ]
+      };
+      page.plainText = isProposalAccept
+        ? `${page.title}\nCore Idea\nAccepted proposal returned as a maintained article.\nEvidence\nThe response should not expose the starter scaffold.`
+        : `${page.title}\nKey Signals\nEnterprise AI memory needs maintained claims, source-backed sections, and fresh evidence review.\nEvidence\nThe response should not expose the starter scaffold.`;
+      page.aiState = {
+        ...(page.aiState || {}),
+        draftStatus: 'ready',
+        draftRequestedAt: page.aiState?.draftRequestedAt || new Date(),
+        draftStartedAt: page.aiState?.draftStartedAt || new Date(),
+        draftCompletedAt: new Date(),
+        maintenanceSummary: 'Maintained synchronously from proposal accept.',
+        lastDraftedAt: new Date(),
+        changeLog: [
+          {
+            type: 'draft',
+            title: 'Maintained page',
+            summary: 'Rebuilt the wiki page from available source evidence.',
+            at: new Date()
+          }
+        ],
+        suggestions: [
+          {
+            id: 'suggestion-review-evidence',
+            type: 'gap',
+            title: 'Review evidence',
+            text: 'Check whether the evidence section captures the strongest support.',
+            sourceRefIds: []
+          }
+        ]
+      };
+      if (!isProposalAccept) {
+        page.sourceRefs = attachSourceHelpers(page);
+        if (!page.sourceRefs.some(source => source.title === 'Enterprise AI memory article')) {
+          page.sourceRefs.push({
+            _id: new mongoose.Types.ObjectId().toString(),
+            type: 'article',
+            title: 'Enterprise AI memory article',
+            snippet: 'Enterprise AI memory needs maintained claims, source-backed sections, and fresh evidence review.',
+            addedBy: 'ai'
+          });
+          attachSourceHelpers(page);
+        }
+      }
+      page.claims = [{
+        claimId: 'claim-maintained-proposal',
+        text: 'Accepted proposal returned as a maintained article.',
+        section: 'Core Idea',
+        support: 'unsupported',
+        citationIds: [],
+        sourceRefIds: [],
+        contradictedByCitationIds: []
+      }];
+      return page;
+    }
   }));
 
   const server = await listen(app);
@@ -259,6 +382,31 @@ const run = async () => {
       body: JSON.stringify({ body: [] })
     });
     assert.strictEqual(invalidBody.res.status, 400, invalidBody.text);
+
+    const proposalId = new mongoose.Types.ObjectId().toString();
+    const proposal = new WikiProposal({
+      _id: proposalId,
+      userId: 'user-1',
+      status: 'pending',
+      proposalType: 'repeated_theme',
+      title: 'Accepted Proposal Page',
+      thesis: 'This proposal should be maintained before the response returns.',
+      whyNow: 'Found across sources.',
+      sourceRefs: [{ type: 'article', objectId: new mongoose.Types.ObjectId().toString(), title: 'Proposal source' }],
+      starterClaims: ['Starter claim should not be the final returned article.'],
+      openQuestions: ['Starter question should not be the final returned article.']
+    });
+    await proposal.save();
+
+    const acceptedProposal = await request(url, `/api/wiki/proposals/${proposalId}/accept`, { method: 'POST' });
+    assert.strictEqual(acceptedProposal.res.status, 201, acceptedProposal.text);
+    assert.strictEqual(acceptedProposal.body.page.aiState.draftStatus, 'ready');
+    assert.strictEqual(acceptedProposal.body.page.aiState.maintenanceSummary, 'Maintained synchronously from proposal accept.');
+    assert.ok(acceptedProposal.body.page.plainText.includes('Core Idea'));
+    assert.ok(acceptedProposal.body.page.plainText.includes('Evidence'));
+    assert.ok(!acceptedProposal.body.page.plainText.includes('Current Understanding'));
+    assert.ok(!acceptedProposal.body.page.plainText.includes('Why This Page Exists'));
+    assert.strictEqual(proposalMaintainCalls.length, 1);
 
     const patched = await request(url, `/api/wiki/pages/${created.body._id}`, {
       method: 'PATCH',
@@ -405,8 +553,9 @@ const run = async () => {
 
     const activeAfterArchive = await request(url, '/api/wiki/pages');
     assert.strictEqual(activeAfterArchive.res.status, 200, activeAfterArchive.text);
-    assert.strictEqual(activeAfterArchive.body.length, 1);
-    assert.strictEqual(activeAfterArchive.body[0]._id, linkedPage._id);
+    assert.ok(activeAfterArchive.body.some(page => page._id === linkedPage._id));
+    assert.ok(activeAfterArchive.body.some(page => page._id === acceptedProposal.body.page._id));
+    assert.ok(!activeAfterArchive.body.some(page => page._id === created.body._id));
 
     const archivedList = await request(url, '/api/wiki/pages?status=archived');
     assert.strictEqual(archivedList.res.status, 200, archivedList.text);
