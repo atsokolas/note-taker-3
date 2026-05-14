@@ -2,6 +2,7 @@ import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
 
 const mockUseParams = jest.fn();
+const mockUseLocation = jest.fn();
 
 jest.mock('../utils/wikiFeatureFlags', () => ({
   isWikiReadModeV2Enabled: jest.fn()
@@ -12,6 +13,7 @@ jest.mock('../utils/wikiAnalytics', () => ({
 }));
 
 jest.mock('react-router-dom', () => ({
+  useLocation: () => mockUseLocation(),
   useParams: () => mockUseParams()
 }));
 
@@ -41,6 +43,7 @@ describe('Wiki route shell', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockUseParams.mockReturnValue({ id: 'wiki-1' });
+    mockUseLocation.mockReturnValue({ pathname: '/wiki/wiki-1' });
     originalRequestAnimationFrame = window.requestAnimationFrame;
     originalScrollTo = window.scrollTo;
     Object.defineProperty(window, 'scrollY', { configurable: true, value: 320 });
@@ -87,6 +90,7 @@ describe('Wiki route shell', () => {
     isWikiReadModeV2Enabled.mockReturnValue(true);
 
     mockUseParams.mockReturnValue({});
+    mockUseLocation.mockReturnValue({ pathname: '/wiki' });
 
     render(<Wiki />);
 
@@ -97,6 +101,7 @@ describe('Wiki route shell', () => {
     isWikiReadModeV2Enabled.mockReturnValue(false);
 
     mockUseParams.mockReturnValue({});
+    mockUseLocation.mockReturnValue({ pathname: '/wiki' });
 
     render(<Wiki />);
 
@@ -107,7 +112,8 @@ describe('Wiki route shell', () => {
   it('renders the card list at /wiki/list', () => {
     isWikiReadModeV2Enabled.mockReturnValue(true);
 
-    mockUseParams.mockReturnValue({ id: 'list' });
+    mockUseParams.mockReturnValue({});
+    mockUseLocation.mockReturnValue({ pathname: '/wiki/list' });
 
     render(<Wiki />);
 

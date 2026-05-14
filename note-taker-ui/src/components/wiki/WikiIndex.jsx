@@ -8,6 +8,7 @@ import { trackWikiIngestResult, trackWikiIngestSubmitted } from '../../utils/wik
 import WikiBriefing from './WikiBriefing';
 import WikiList from './WikiList';
 import {
+  DRIFT_STATUSES,
   MODIFIED_WINDOWS,
   PAGE_TYPES,
   buildWikiGraphData,
@@ -226,6 +227,7 @@ const WikiIndex = () => {
   const [mapGraph, setMapGraph] = useState({ nodes: [], edges: [] });
   const [pageType, setPageType] = useState('all');
   const [modifiedWithin, setModifiedWithin] = useState('all');
+  const [driftStatus, setDriftStatus] = useState('all');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [toast, setToast] = useState(null);
@@ -269,8 +271,8 @@ const WikiIndex = () => {
   }, []);
 
   const filteredPages = useMemo(() => (
-    filterWikiGraphPages(pages, { pageType, modifiedWithin })
-  ), [modifiedWithin, pageType, pages]);
+    filterWikiGraphPages(pages, { pageType, modifiedWithin, driftStatus })
+  ), [driftStatus, modifiedWithin, pageType, pages]);
 
   const graph = useMemo(() => buildWikiGraphData(filteredPages, mapGraph), [filteredPages, mapGraph]);
   const isMobile = width < 720;
@@ -328,6 +330,9 @@ const WikiIndex = () => {
         </select>
         <select value={modifiedWithin} onChange={(event) => setModifiedWithin(event.target.value)} aria-label="Modified within">
           {MODIFIED_WINDOWS.map(value => <option key={value} value={value}>{value === 'all' ? 'All time' : `Modified ${value}`}</option>)}
+        </select>
+        <select value={driftStatus} onChange={(event) => setDriftStatus(event.target.value)} aria-label="Drift status">
+          {DRIFT_STATUSES.map(value => <option key={value} value={value}>{value === 'all' ? 'All drift states' : labelFor(value)}</option>)}
         </select>
         <span className="wiki-graph-index__stats">
           {graph.nodes.length} {graph.nodes.length === 1 ? 'page' : 'pages'} · {graph.links.length} {graph.links.length === 1 ? 'link' : 'links'}

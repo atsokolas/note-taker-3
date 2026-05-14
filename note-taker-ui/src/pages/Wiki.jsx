@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useLocation, useParams } from 'react-router-dom';
 import WikiIndex from '../components/wiki/WikiIndex';
 import WikiList from '../components/wiki/WikiList';
 import WikiPageEditor from '../components/wiki/WikiPageEditor';
@@ -9,6 +9,7 @@ import { isWikiReadModeV2Enabled } from '../utils/wikiFeatureFlags';
 
 const Wiki = () => {
   const { id } = useParams();
+  const location = useLocation();
   const [mode, setMode] = useState('read');
   const restoreScrollYRef = useRef(null);
   const switchMode = (nextMode) => {
@@ -21,8 +22,8 @@ const Wiki = () => {
       restoreScrollYRef.current = null;
     });
   };
+  if (location.pathname === '/wiki/list' || id === 'list') return <WikiList />;
   if (!id) return isWikiReadModeV2Enabled() ? <WikiIndex /> : <WikiList />;
-  if (id === 'list') return <WikiList />;
   if (!isWikiReadModeV2Enabled() || mode === 'edit') {
     return <WikiPageEditor pageId={id} onDoneEditing={() => switchMode('read')} />;
   }

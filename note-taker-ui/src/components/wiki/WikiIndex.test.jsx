@@ -68,7 +68,12 @@ const pages = [
     pageType: 'source',
     plainText: 'A source-backed page about investing.',
     sourceRefs: [{ _id: 'source-1' }],
-    updatedAt: '2026-05-02T12:00:00.000Z'
+    updatedAt: '2026-05-02T12:00:00.000Z',
+    aiState: {
+      health: {
+        staleSections: [{ section: 'Evidence' }]
+      }
+    }
   }
 ];
 
@@ -124,6 +129,9 @@ describe('WikiIndex graph', () => {
 
     fireEvent.change(screen.getByLabelText('Page type'), { target: { value: 'source' } });
     expect(screen.getByText('1 page · 0 links')).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText('Drift status'), { target: { value: 'stable' } });
+    expect(screen.getByText('0 pages · 0 links')).toBeInTheDocument();
   });
 
   it('still renders the inline-link graph if persisted map edges fail to load', async () => {

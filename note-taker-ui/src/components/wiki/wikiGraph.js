@@ -2,6 +2,7 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 
 export const PAGE_TYPES = ['all', 'concept', 'entity', 'source', 'question', 'comparison', 'overview', 'project', 'log', 'topic'];
 export const MODIFIED_WINDOWS = ['24h', '7d', '30d', 'all'];
+export const DRIFT_STATUSES = ['all', 'drifting', 'stable'];
 
 export const labelFor = (value = '') => String(value || '')
   .replace(/_/g, ' ')
@@ -136,7 +137,13 @@ export const buildWikiGraphData = (pages = [], mapGraph = {}) => {
   };
 };
 
-export const filterWikiGraphPages = (pages = [], { pageType = 'all', modifiedWithin = 'all', now = new Date() } = {}) => {
+const countDriftSignals = (page = {}) => {
+  const health = page?.aiState?.health || {};
+  return ['newItems', 'unsupportedClaims', 'staleSections', 'contradictions']
+    .reduce((total, key) => total + (Array.isArray(health[key]) ? health[key].length : 0), 0);
+};
+
+export const filterWikiGraphPages = (pages = [], { pageType = 'all', modifiedWithin = 'all', driftStatus = 'all', now = new Date() } = {}) => {
   const maxAgeMs = modifiedWithin === '24h'
     ? DAY_MS
     : modifiedWithin === '7d'
@@ -147,6 +154,8 @@ export const filterWikiGraphPages = (pages = [], { pageType = 'all', modifiedWit
   const nowTime = now instanceof Date ? now.getTime() : new Date(now).getTime();
   return (Array.isArray(pages) ? pages : []).filter(page => {
     if (pageType !== 'all' && String(page.pageType || 'topic') !== pageType) return false;
+    if (driftStatus === 'drifting' && countDriftSignals(page) === 0) return false;
+    if (driftStatus === 'stable' && countDriftSignals(page) > 0) return false;
     if (!maxAgeMs) return true;
     const updatedAt = new Date(page.updatedAt || page.lastModifiedAt || 0).getTime();
     if (!Number.isFinite(updatedAt)) return false;

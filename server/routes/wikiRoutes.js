@@ -380,12 +380,29 @@ const normalizeIngestSource = (value = {}) => {
 
 const serializeId = (value) => (value ? String(value) : null);
 
+const cleanWikiSummary = (value = '', maxLength = 360) => {
+  const text = String(value || '')
+    .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;|&apos;/gi, "'")
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (!text) return '';
+  return text.length > maxLength ? `${text.slice(0, maxLength - 1).trim()}…` : text;
+};
+
 const serializeSourceRefFromEvent = (event = {}) => ({
   type: event.sourceType || 'external',
   objectId: serializeId(event.sourceObjectId),
   url: event.url || '',
   title: event.title || '',
-  summary: event.summary || '',
+  summary: cleanWikiSummary(event.summary || ''),
   text: event.text || ''
 });
 
@@ -397,7 +414,7 @@ const serializeIngestRun = ({ event, run = null } = {}) => {
     runId: serializeId(rawEvent._id),
     sourceRef: serializeSourceRefFromEvent(rawEvent),
     affectedPageIds: Array.isArray(rawEvent.affectedPageIds) ? rawEvent.affectedPageIds.map(serializeId).filter(Boolean) : [],
-    summary: rawRun?.summary || rawEvent.summary || rawEvent.errorMessage || '',
+    summary: cleanWikiSummary(rawRun?.summary || rawEvent.summary || rawEvent.errorMessage || ''),
     status: rawEvent.status || rawRun?.status || 'pending',
     suggestedCreatePage: (
       rawEvent.status === 'ignored'
@@ -670,7 +687,7 @@ const buildWikiRouter = ({
         runId: serializeId(rawEvent._id),
         status: rawEvent.status || 'pending',
         title: rawEvent.title || rawEvent.url || rawEvent.sourceType,
-        summary: rawEvent.summary || '',
+        summary: cleanWikiSummary(rawEvent.summary || ''),
         at: rawEvent.createdAt
       },
       rawRun ? {
@@ -681,7 +698,7 @@ const buildWikiRouter = ({
         status: rawRun.status || '',
         pageId: serializeId(rawRun.pageId),
         title: 'Wiki maintenance',
-        summary: rawRun.summary || rawRun.errorMessage || '',
+        summary: cleanWikiSummary(rawRun.summary || rawRun.errorMessage || ''),
         at: rawRun.completedAt || rawRun.startedAt || rawRun.createdAt
       } : null,
       ...revisions.map(revision => ({
@@ -692,7 +709,7 @@ const buildWikiRouter = ({
         status: 'completed',
         pageId: serializeId(revision.pageId),
         title: revision.reason || 'wiki_revision',
-        summary: revision.summary || '',
+        summary: cleanWikiSummary(revision.summary || ''),
         at: revision.createdAt
       }))
     ]);
@@ -1573,7 +1590,7 @@ const buildWikiRouter = ({
           sourceEventId: serializeId(event._id),
           status: event.status || '',
           title: event.title || event.url || event.sourceType,
-          summary: event.summary || event.errorMessage || '',
+          summary: cleanWikiSummary(event.summary || event.errorMessage || ''),
           affectedPageIds: Array.isArray(event.affectedPageIds) ? event.affectedPageIds.map(serializeId).filter(Boolean) : [],
           at: event.processedAt || event.updatedAt || event.createdAt
         }, event.metadata?.undoneAt ? {
@@ -1595,7 +1612,7 @@ const buildWikiRouter = ({
           status: run.status || '',
           pageId: serializeId(run.pageId),
           title: 'Wiki maintenance',
-          summary: run.summary || run.errorMessage || '',
+          summary: cleanWikiSummary(run.summary || run.errorMessage || ''),
           at: run.completedAt || run.startedAt || run.createdAt
         })),
         ...(Array.isArray(pages) ? pages : []).flatMap(page => (
@@ -1606,7 +1623,7 @@ const buildWikiRouter = ({
           pageId: serializeId(page._id),
           status: discussion.status || 'answered',
           title: discussion.question || 'Wiki question',
-          summary: discussion.errorMessage || '',
+          summary: cleanWikiSummary(discussion.errorMessage || ''),
           at: discussion.askedAt || page.updatedAt
         })))
       ]).slice(0, limit);
