@@ -378,6 +378,17 @@ const wikiAiStateSchema = new mongoose.Schema({
       sections: []
     })
   },
+  quality: {
+    type: mongoose.Schema.Types.Mixed,
+    default: () => ({
+      ok: true,
+      status: 'pass',
+      score: 1,
+      failures: [],
+      checkedAt: null,
+      rebuiltAutomatically: false
+    })
+  },
   health: {
     type: mongoose.Schema.Types.Mixed,
     default: () => ({

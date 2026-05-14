@@ -253,6 +253,14 @@ const serializeWikiPage = (page) => {
         contradictions: [],
         relatedPages: []
       },
+      quality: raw.aiState?.quality || {
+        ok: true,
+        status: 'pass',
+        score: 1,
+        failures: [],
+        checkedAt: null,
+        rebuiltAutomatically: false
+      },
       changeLog: Array.isArray(raw.aiState?.changeLog) ? raw.aiState.changeLog : [],
       suggestions: Array.isArray(raw.aiState?.suggestions) ? raw.aiState.suggestions : []
     }

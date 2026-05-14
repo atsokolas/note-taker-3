@@ -205,6 +205,105 @@ describe('WikiPageReadView', () => {
     }
   });
 
+  it('surfaces non-blocking rebuild state from page API quality issues and weak claim health', async () => {
+    getWikiPage.mockResolvedValueOnce({
+      ...page,
+      aiState: {
+        ...page.aiState,
+        health: {
+          ...page.aiState.health,
+          unsupportedClaims: [{ text: 'Maintenance generated a claim without usable evidence.' }],
+          missingCitations: [{ text: 'One paragraph has no citation.' }]
+        }
+      }
+    });
+
+    render(
+      <MemoryRouter>
+        <WikiPageReadView pageId="wiki-1" onEdit={jest.fn()} />
+      </MemoryRouter>
+    );
+
+    const quality = await screen.findByLabelText('Wiki page quality');
+    expect(quality).toHaveTextContent('Needs rebuild');
+    expect(quality).toHaveTextContent('2 maintenance issues surfaced by the page API.');
+    expect(quality).toHaveTextContent('Maintenance generated a claim without usable evidence.');
+    expect(quality).toHaveTextContent('2 of 3 claims need stronger support.');
+    expect(screen.getByRole('tab', { name: 'Article' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('tabpanel', { name: 'Article' })).toHaveTextContent('Enterprise AI Memory depends on');
+  });
+
+  it('keeps read-mode source rail cards concise with evidence counts and collapsed long text', async () => {
+    const longSnippet = [
+      'This source contains a concise front-loaded passage about memory systems and recurring review.',
+      'It then keeps going with low-insight maintenance output that should not dominate the read rail.',
+      'The remaining diagnostic transcript is useful only on demand and should stay behind expansion.'
+    ].join(' ');
+    getWikiPage.mockResolvedValueOnce({
+      ...page,
+      sourceRefs: [
+        { _id: 'source-1', title: 'Long maintenance source', snippet: longSnippet },
+        { _id: 'source-2', title: 'Agent article', summary: 'Short source summary.' }
+      ],
+      claims: [
+        { claimId: 'claim-1', text: 'Memory compounds with review.', support: 'supported', sourceRefIds: ['source-1'] },
+        { claimId: 'claim-2', text: 'Agentic memory needs sources.', support: 'partial', sourceRefIds: ['source-1'] }
+      ],
+      citations: [{ _id: 'citation-1', sourceRefId: 'source-1' }]
+    });
+
+    render(
+      <MemoryRouter>
+        <WikiPageReadView pageId="wiki-1" onEdit={jest.fn()} />
+      </MemoryRouter>
+    );
+
+    const rail = await screen.findByRole('complementary', { name: 'Page context' });
+    const sourceSection = rail.querySelector('.wiki-read__source-list');
+    const sourceList = sourceSection.querySelector('ol');
+    expect(sourceList).toHaveTextContent('Long maintenance source');
+    expect(sourceList).toHaveTextContent('This source contains a concise front-loaded passage');
+    expect(sourceList).toHaveTextContent('1 citation / 2 claims');
+    const details = sourceList.querySelector('details');
+    expect(details).toBeInTheDocument();
+    expect(details).not.toHaveAttribute('open');
+    expect(details.querySelector('summary')).toHaveTextContent('More');
+  });
+
+  it('automatically starts one rebuild when backend quality marks the page as needing rebuild', async () => {
+    const rebuiltPage = {
+      ...page,
+      aiState: {
+        ...page.aiState,
+        quality: { ok: true, status: 'pass', failures: [], rebuiltAutomatically: true }
+      }
+    };
+    getWikiPage.mockResolvedValueOnce({
+      ...page,
+      aiState: {
+        ...page.aiState,
+        quality: {
+          ok: false,
+          status: 'needs_rebuild',
+          failures: ['Article contains instructional scaffold.']
+        }
+      }
+    });
+    maintainWikiPage.mockResolvedValueOnce(rebuiltPage);
+
+    render(
+      <MemoryRouter>
+        <WikiPageReadView pageId="wiki-1" onEdit={jest.fn()} />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByRole('heading', { name: 'Enterprise AI Memory' })).toBeInTheDocument();
+    await waitFor(() => {
+      expect(maintainWikiPage).toHaveBeenCalledTimes(1);
+      expect(maintainWikiPage).toHaveBeenCalledWith('wiki-1');
+    });
+  });
+
   it('shows a hover preview after the PRD 250ms delay for an internal wiki link', async () => {
     getWikiPage
       .mockResolvedValueOnce(page)

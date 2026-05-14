@@ -7,6 +7,8 @@ const {
   collectClaimsFromDoc,
   deriveClaimsFromDoc,
   docFromArticle,
+  evaluateWikiArticleQuality,
+  inferMaintainedPageType,
   normalizeSourceIndexesUsed,
   resolveClaimCitationIds
 } = __testables;
@@ -498,6 +500,51 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
     expect(core.actions.map(action => action.type)).toContain('missingCitations');
   });
 
+  it('fails scaffold-like, thin articles so they can be rebuilt', () => {
+    const body = {
+      type: 'doc',
+      content: [
+        { type: 'heading', attrs: { level: 1 }, content: [{ type: 'text', text: 'Investing' }] },
+        { type: 'paragraph', content: [{ type: 'text', text: 'The page should explain investing.' }] },
+        { type: 'heading', attrs: { level: 2 }, content: [{ type: 'text', text: 'Evidence' }] },
+        { type: 'paragraph', content: [{ type: 'text', text: 'Evidence still needs source-backed development.' }] }
+      ]
+    };
+
+    const quality = evaluateWikiArticleQuality({
+      page: { title: 'Investing' },
+      body,
+      claims: [
+        { support: 'unsupported', citationIds: [] },
+        { support: 'partial', citationIds: [] },
+        { support: 'unsupported', citationIds: [] },
+        { support: 'partial', citationIds: [] },
+        { support: 'unsupported', citationIds: [] },
+        { support: 'partial', citationIds: [] }
+      ],
+      sourceRefs: Array.from({ length: 8 }, (_, index) => ({ _id: `source-${index}` }))
+    });
+
+    expect(quality.ok).toBe(false);
+    expect(quality.status).toBe('needs_rebuild');
+    expect(quality.failures.join(' ')).toMatch(/scaffold|too thin|weak/i);
+  });
+
+  it('migrates broad legacy topic pages to overview during maintenance', () => {
+    expect(inferMaintainedPageType({
+      page: { pageType: 'topic', title: 'Investing - Concepts, Ideas, and Strategies' },
+      candidates: Array.from({ length: 6 }, (_, index) => ({ index }))
+    })).toBe('overview');
+    expect(inferMaintainedPageType({
+      page: { pageType: 'topic', title: 'Feedback Loops' },
+      candidates: []
+    })).toBe('concept');
+    expect(inferMaintainedPageType({
+      page: { pageType: 'topic', title: 'Imported memo', createdFrom: { type: 'article' } },
+      candidates: []
+    })).toBe('source');
+  });
+
   it('resolves known page title occurrences into wikiLink marks after maintenance drafts the body', async () => {
     const page = {
       _id: 'page-main',
@@ -558,5 +605,80 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
         title: 'Compounding interest'
       }
     });
+  });
+
+  it('automatically rebuilds once when the first maintenance draft fails quality gates', async () => {
+    const page = {
+      _id: 'page-main',
+      title: 'Investment Process',
+      pageType: 'topic',
+      plainText: '',
+      body: { type: 'doc', content: [] },
+      sourceRefs: [],
+      claims: [],
+      aiState: {}
+    };
+
+    const chat = jest.fn()
+      .mockResolvedValueOnce({
+        model: 'test-model',
+        provider: 'test-provider',
+        text: JSON.stringify({
+          title: 'Investment Process',
+          article: {
+            summary: {
+              text: 'The page should explain investing process.',
+              citationIndexes: [1]
+            },
+            sections: []
+          },
+          maintenance: { summary: 'Drafted weak page.', changelog: [], health: {} },
+          sourceIndexesUsed: [1]
+        })
+      })
+      .mockResolvedValueOnce({
+        model: 'test-model',
+        provider: 'test-provider',
+        text: JSON.stringify({
+          title: 'Investment Process',
+          article: {
+            summary: {
+              text: 'Investment process matters because rules preserve judgment when markets make patience emotionally expensive.',
+              citationIndexes: [1]
+            },
+            sections: [{
+              heading: 'Core Idea',
+              paragraphs: [{
+                text: 'A useful process narrows attention to business quality, valuation discipline, and the conditions that would prove the thesis wrong.',
+                citationIndexes: [1]
+              }],
+              bullets: []
+            }]
+          },
+          maintenance: { summary: 'Rebuilt into a stronger page.', changelog: [], health: {} },
+          sourceIndexesUsed: [1]
+        })
+      });
+
+    const { maintainWikiPage } = require('./wikiMaintenanceService');
+    await maintainWikiPage({
+      page,
+      userId: 'user-1',
+      chat,
+      isConfigured: () => true,
+      models: {
+        Article: fakeFindModel([{ _id: 'article-1', title: 'Process evidence', content: 'Rules preserve judgment when markets make patience emotionally expensive.' }]),
+        NotebookEntry: fakeFindModel([]),
+        TagMeta: fakeFindModel([]),
+        Question: fakeFindModel([]),
+        WikiPage: fakeFindModel([])
+      }
+    });
+
+    expect(chat).toHaveBeenCalledTimes(2);
+    expect(page.plainText).toContain('Investment process matters');
+    expect(page.plainText).not.toContain('should explain');
+    expect(page.aiState.quality.rebuiltAutomatically).toBe(true);
+    expect(page.aiState.quality.previousFailures.join(' ')).toMatch(/scaffold/i);
   });
 });

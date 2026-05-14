@@ -9,6 +9,17 @@ const { formatWikiSchemaPromptBlock } = require('./wikiSchemaService');
 
 const DEFAULT_SOURCE_LIMIT = 24;
 const MAX_SOURCE_TEXT = 1800;
+const QUALITY_MIN_WORDS = 450;
+const QUALITY_MIN_WORDS_WITH_MANY_SOURCES = 650;
+const SCAFFOLD_PATTERNS = [
+  { label: 'instructional scaffold', pattern: /\bshould explain\b/i },
+  { label: 'source-backed development placeholder', pattern: /\bstill needs source-backed development\b/i },
+  { label: 'signal-list scaffold', pattern: /\bstrongest current signals\b/i },
+  { label: 'source summary dump', pattern: /(^|\n|\s)Summary:/i },
+  { label: 'maintenance phrasing', pattern: /\bmay change this page\b/i },
+  { label: 'unfinished article placeholder', pattern: /\bwaiting for source-backed evidence\b/i },
+  { label: 'source dump framing', pattern: /\bcontributes evidence for this page\b/i }
+];
 const HEALTH_KEYS = [
   'newItems',
   'unsupportedClaims',
@@ -336,8 +347,11 @@ const buildPrompt = ({ page, candidates, manualNotes = '', wikiSchemaContent = '
 
 Hard rules:
 - The article body must read like a Wiki page, not a maintenance report and not a source dump.
+- Be opinionated. State what the evidence implies, which mechanisms matter, and where the tension is. Mark uncertainty in Open Questions instead of writing filler.
 - Do not include HTML tags, JSON, raw URLs, scraped metadata labels, source indexes as prose, support labels, or sentences like "X contributes evidence for this page."
 - Use source titles only as evidence behind the writing. The page should say the idea, not list the source title as the idea.
+- Do not write scaffold or placeholder phrases such as "should explain", "still needs source-backed development", "strongest current signals", or "Summary:" bullets.
+- If there are 5 or more candidate sources, write at least 650 words of synthesis across the required sections.
 - Keep lightweight citation indexes only at the end of factual paragraphs or bullets, e.g. [1] or [1, 3].
 - When a paragraph has both supporting and contradicting evidence, put supporting sources in citationIndexes and contradicting sources in contradictionIndexes. Set support to "conflicted".
 - Put evidence gaps, new items, contradictions, stale sections, and changelog entries only in maintenance.
@@ -392,6 +406,15 @@ Return strict JSON only:
   "sourceIndexesUsed": [1, 2]
 }`;
 };
+
+const buildRebuildPrompt = ({ page, candidates, manualNotes = '', wikiSchemaContent = '', failures = [] }) => (
+  `${buildPrompt({ page, candidates, manualNotes, wikiSchemaContent })}
+
+Your previous draft failed the wiki quality gate:
+${failures.map(failure => `- ${failure}`).join('\n') || '- The draft was too thin or scaffold-like.'}
+
+Rewrite again from scratch. Produce a real article, not a patch. Make defensible claims, compare evidence, and include concrete tensions.`
+);
 
 const extractJson = (value = '') => {
   const text = asString(value);
@@ -876,17 +899,21 @@ const buildSectionMaintenancePlan = ({ claims = [], health = {}, changeLog = [],
 
 const fallbackMaintenance = ({ page, candidates, manualNotes = '' }) => {
   const top = candidates.slice(0, 6);
+  const sourceTitles = top.map(source => source.title).filter(Boolean);
+  const sourceTheme = sourceTitles.length
+    ? sourceTitles.slice(0, 3).join(', ')
+    : 'the available library material';
   const newItems = top
     .filter(source => source.updatedAt || source.createdAt)
     .slice(0, 4)
-    .map(source => ({ text: `${source.title} may change this page.`, sourceTitle: source.title }));
+    .map(source => ({ text: `${source.title} adds fresh evidence that should be weighed against the current claims.`, sourceTitle: source.title }));
   const leadSources = top.slice(0, 3);
   const topic = truncate(page.title, 120) || 'This topic';
   const article = {
     summary: {
       text: leadSources.length
-        ? `${topic} is a living synthesis built from the strongest related material in the library. The current evidence points to a set of working ideas rather than a finished answer.`
-        : `${topic} is a draft Wiki page waiting for source-backed evidence.`,
+        ? `${topic} is best treated as a provisional synthesis, not a bucket of saved notes. The recurring pattern across ${sourceTheme} is that the useful claim is narrower than the topic label: the page should preserve the mechanism that keeps reappearing, then separate evidence-backed claims from unresolved judgment calls.`
+        : `${topic} needs stronger source material before it can become a durable wiki article.`,
       citationIndexes: leadSources.map(source => source.index)
     },
     sections: [
@@ -895,30 +922,43 @@ const fallbackMaintenance = ({ page, candidates, manualNotes = '' }) => {
         paragraphs: [
           {
             text: leadSources.length
-              ? `The page should explain the concept in terms of the ideas that recur across the relevant sources, then separate durable claims from open questions.`
-              : `Add sources or notes so this page can move from a placeholder into a source-backed Wiki article.`,
+              ? `${topic} should not be read as a complete answer. The defensible core is that several saved sources point toward the same working pattern, but the page still needs sharper evidence before turning that pattern into a settled principle.`
+              : `There is not enough source material yet to make a strong claim about ${topic}.`,
             citationIndexes: leadSources.map(source => source.index)
           }
         ],
         bullets: []
       },
       {
-        heading: 'Key Signals',
+        heading: 'Evidence',
         paragraphs: top.length
-          ? [{ text: 'The strongest current signals from the library are:', citationIndexes: [] }]
-          : [],
-        bullets: top.slice(0, 5).map(source => ({
-          text: truncate(source.text || source.title, 220),
-          citationIndexes: [source.index]
-        }))
+          ? [{
+              text: `The current evidence base is broad enough to suggest direction but not yet deep enough to settle the page. The most useful sources should be compared for agreement, contradiction, and specificity rather than copied into the article as summaries.`,
+              citationIndexes: top.slice(0, 4).map(source => source.index)
+            }]
+          : [{ text: `No matching library evidence was found during this maintenance pass.`, citationIndexes: [] }],
+        bullets: []
+      },
+      {
+        heading: 'Tensions',
+        paragraphs: [
+          {
+            text: top.length
+              ? `The main risk is false coherence: related sources can make ${topic} feel more settled than it is. A better page should keep the strongest shared mechanism while explicitly marking where evidence is thin, stale, or merely adjacent.`
+              : `The main tension is that the page title exists before the evidence base does.`,
+            citationIndexes: top.slice(0, 2).map(source => source.index),
+            support: top.length ? 'partial' : 'unsupported'
+          }
+        ],
+        bullets: []
       },
       {
         heading: 'Open Questions',
         paragraphs: [
           {
             text: newItems.length
-              ? 'New or recently touched material should be reviewed before this page is treated as settled.'
-              : 'No newly relevant material was found during this maintenance run.',
+              ? `The page needs a rebuild that turns the freshest material into claims: what does ${topic} explain, what would falsify it, and which source should carry the most weight?`
+              : `The next question is which source would make ${topic} specific enough to maintain as a wiki page.`,
             citationIndexes: newItems.map((_item, index) => top[index]?.index).filter(Boolean)
           }
         ],
@@ -1045,6 +1085,129 @@ const normalizeModelResult = ({ raw, page, candidates, manualNotes = '' }) => {
   };
 };
 
+const countWords = (value = '') => asString(value).split(/\s+/).filter(Boolean).length;
+const escapeRegex = (value = '') => asString(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+const evaluateWikiArticleQuality = ({ page, body, claims = [], sourceRefs = [], now = new Date(), skipDurableCitationCheck = false } = {}) => {
+  const plainText = toPlainText(body || page?.body || '');
+  const titlePattern = escapeRegex(page?.title || '');
+  const words = countWords(titlePattern ? plainText.replace(new RegExp(`^${titlePattern}\\s*`, 'i'), '') : plainText);
+  const sourceCount = Array.isArray(sourceRefs) ? sourceRefs.length : 0;
+  const claimList = Array.isArray(claims) ? claims : [];
+  const supportedLike = claimList.filter(claim => ['supported', 'partial', 'conflicted'].includes(normalizeClaimSupport(claim.support))).length;
+  const unsupported = claimList.filter(claim => normalizeClaimSupport(claim.support) === 'unsupported').length;
+  const partial = claimList.filter(claim => normalizeClaimSupport(claim.support) === 'partial').length;
+  const cited = claimList.filter(claim => (
+    (claim.citationIds || []).length ||
+    (claim.sourceRefIds || []).length ||
+    (claim.citationIndexes || []).length
+  )).length;
+  const failures = [];
+
+  SCAFFOLD_PATTERNS.forEach(({ label, pattern }) => {
+    if (pattern.test(plainText)) failures.push(`Article contains ${label}.`);
+  });
+  const minWords = sourceCount >= 5 ? QUALITY_MIN_WORDS_WITH_MANY_SOURCES : QUALITY_MIN_WORDS;
+  if (sourceCount >= 3 && words < minWords) {
+    failures.push(`Article is too thin for ${sourceCount} sources: ${words} words, expected at least ${minWords}.`);
+  }
+  if (claimList.length >= 4 && supportedLike < Math.ceil(claimList.length * 0.45)) {
+    failures.push(`Too few claims are evidence-backed: ${supportedLike}/${claimList.length}.`);
+  }
+  if (claimList.length >= 6 && unsupported + partial > Math.ceil(claimList.length * 0.75)) {
+    failures.push(`Too many claims are weak or unsupported: ${unsupported + partial}/${claimList.length}.`);
+  }
+  if (!skipDurableCitationCheck && claimList.length >= 4 && cited < Math.ceil(claimList.length * 0.4)) {
+    failures.push(`Too few claims are tied to durable citations: ${cited}/${claimList.length}.`);
+  }
+  if (/(\n|\s)[-•]\s*Summary:/i.test(plainText)) {
+    failures.push('Article uses source-summary bullets instead of synthesis.');
+  }
+
+  const score = Math.max(0, Number((1 - Math.min(1, failures.length / 6)).toFixed(2)));
+  return {
+    ok: failures.length === 0,
+    status: failures.length ? 'needs_rebuild' : 'pass',
+    score,
+    failures,
+    checkedAt: now,
+    metrics: {
+      words,
+      sourceCount,
+      claimCount: claimList.length,
+      supportedLike,
+      unsupported,
+      partial,
+      cited,
+      durableCitationCheckSkipped: Boolean(skipDurableCitationCheck)
+    }
+  };
+};
+
+const inferMaintainedPageType = ({ page, candidates = [] } = {}) => {
+  const current = asString(page?.pageType || 'topic').toLowerCase();
+  if (current && current !== 'topic') return current;
+  const createdType = asString(page?.createdFrom?.type).toLowerCase();
+  const title = asString(page?.title).toLowerCase();
+  if (['article', 'highlight', 'notebook', 'external', 'paste', 'sources'].includes(createdType)) return 'source';
+  if (/\b(overview|strategy|strategies|landscape|system|systems|concepts|ideas)\b/i.test(title)) return 'overview';
+  if (candidates.length >= 5) return 'overview';
+  return 'concept';
+};
+
+const materializeMaintenanceResult = async ({ page, normalized, candidates, previousClaims, now, userId, models }) => {
+  const sourceRefs = normalized.sourceIndexesUsed
+    .map(index => candidates.find(source => source.index === index))
+    .filter(Boolean)
+    .map(sourceRefFromCandidate);
+  const mergedSourceRefs = dedupeSourceRefs(sourceRefs, page.sourceRefs || []);
+  const body = docFromArticle({
+    title: normalized.title || page.title,
+    article: normalized.article
+  });
+  const plainText = toPlainText(body);
+  const citations = mergedSourceRefs.map(source => ({
+    sourceRefId: source._id || null,
+    sourceType: source.type || '',
+    sourceObjectId: source.objectId || null,
+    sourceTitle: source.title || '',
+    quote: source.snippet || '',
+    url: source.url || '',
+    confidence: source.addedBy === 'ai' ? 0.72 : 0.9,
+    createdAt: now
+  }));
+  const claims = deriveClaimsFromDoc({
+    body,
+    citations,
+    sourceRefs: mergedSourceRefs,
+    previousClaims,
+    now
+  });
+  const linkedBody = await applyKnownWikiLinks({
+    page,
+    body,
+    plainText,
+    userId,
+    models
+  });
+  return {
+    title: normalized.title || page.title,
+    body: linkedBody,
+    plainText,
+    sourceRefs: mergedSourceRefs,
+    citations,
+    claims,
+    quality: evaluateWikiArticleQuality({
+      page: { ...page, title: normalized.title || page.title },
+      body: linkedBody,
+      claims,
+      sourceRefs: mergedSourceRefs,
+      now,
+      skipDurableCitationCheck: true
+    })
+  };
+};
+
 const applyKnownWikiLinks = async ({ page, body, plainText, userId, models = {} } = {}) => {
   const WikiPage = modelForPage({ page, models });
   if (!WikiPage) return body;
@@ -1088,6 +1251,7 @@ const maintainWikiPage = async ({
   const manualNotes = extractManualNotes(page);
   let modelInfo = { model: 'local-maintainer', provider: '' };
   let result = null;
+  let rebuiltAutomatically = false;
 
   if (candidates.length && isConfigured()) {
     try {
@@ -1121,22 +1285,84 @@ const maintainWikiPage = async ({
 
   const normalized = normalizeModelResult({ raw: result, page, candidates, manualNotes });
   const previousClaims = page.claims?.toObject ? page.claims.toObject() : page.claims || [];
-  const sourceRefs = normalized.sourceIndexesUsed
-    .map(index => candidates.find(source => source.index === index))
-    .filter(Boolean)
-    .map(sourceRefFromCandidate);
-  const mergedSourceRefs = dedupeSourceRefs(sourceRefs, page.sourceRefs || []);
-  const body = docFromArticle({
-    title: normalized.title || page.title,
-    article: normalized.article
+  let finalNormalized = normalized;
+  let materialized = await materializeMaintenanceResult({
+    page,
+    normalized: finalNormalized,
+    candidates,
+    previousClaims,
+    now,
+    userId,
+    models
   });
-  const plainText = toPlainText(body);
 
-  page.title = normalized.title || page.title;
+  if (!materialized.quality.ok && candidates.length && isConfigured()) {
+    try {
+      const completion = await chat({
+        route: 'artifact_draft',
+        maxTokens: 3600,
+        temperature: 0.28,
+        reasoningEffort: 'medium',
+        responseFormat: { type: 'json_object' },
+        messages: [
+          {
+            role: 'system',
+            content: `You are a strict, opinionated wiki editor. Your job is to rebuild weak wiki pages into real synthesis. Return JSON only.${formatWikiSchemaPromptBlock(wikiSchemaContent)}`
+          },
+          {
+            role: 'user',
+            content: buildRebuildPrompt({
+              page,
+              candidates,
+              manualNotes,
+              wikiSchemaContent,
+              failures: materialized.quality.failures
+            })
+          }
+        ]
+      });
+      const retryRaw = extractJson(completion.text);
+      if (retryRaw) {
+        modelInfo = {
+          model: completion.model || modelInfo.model,
+          provider: completion.provider || modelInfo.provider || ''
+        };
+        const retryNormalized = normalizeModelResult({ raw: retryRaw, page, candidates, manualNotes });
+        const retryMaterialized = await materializeMaintenanceResult({
+          page,
+          normalized: retryNormalized,
+          candidates,
+          previousClaims,
+          now,
+          userId,
+          models
+        });
+        finalNormalized = retryNormalized;
+        materialized = {
+          ...retryMaterialized,
+          quality: {
+            ...retryMaterialized.quality,
+            rebuiltAutomatically: true,
+            previousFailures: materialized.quality.failures
+          }
+        };
+        rebuiltAutomatically = true;
+      }
+    } catch (_error) {
+      materialized.quality = {
+        ...materialized.quality,
+        rebuildAttempted: true,
+        rebuildError: 'Automatic rebuild failed.'
+      };
+    }
+  }
+
+  page.title = materialized.title || page.title;
+  page.pageType = inferMaintainedPageType({ page, candidates });
   page.sourceScope = 'entire_library';
-  page.body = body;
-  page.plainText = plainText;
-  page.sourceRefs = mergedSourceRefs;
+  page.body = materialized.body;
+  page.plainText = materialized.plainText;
+  page.sourceRefs = materialized.sourceRefs;
   const persistedSourceRefs = page.sourceRefs?.toObject
     ? page.sourceRefs.toObject()
     : page.sourceRefs || [];
@@ -1151,28 +1377,30 @@ const maintainWikiPage = async ({
     createdAt: now
   }));
   page.claims = deriveClaimsFromDoc({
-    body,
+    body: page.body,
     citations: page.citations,
     sourceRefs: persistedSourceRefs,
     previousClaims,
     now
   });
-  page.body = await applyKnownWikiLinks({
+  const persistedQuality = evaluateWikiArticleQuality({
     page,
-    body,
-    plainText,
-    userId,
-    models
+    body: page.body,
+    claims: page.claims,
+    sourceRefs: persistedSourceRefs,
+    now
   });
   const sectionMaintenance = buildSectionMaintenancePlan({
     claims: page.claims,
-    health: normalized.maintenance.health,
-    changeLog: normalized.maintenance.changelog,
+    health: finalNormalized.maintenance.health,
+    changeLog: finalNormalized.maintenance.changelog,
     now
   });
   page.freshness = {
     ...(page.freshness?.toObject ? page.freshness.toObject() : page.freshness || {}),
-    status: Array.isArray(normalized.maintenance.health?.contradictions) && normalized.maintenance.health.contradictions.length
+    status: !persistedQuality.ok
+      ? 'needs_review'
+      : Array.isArray(finalNormalized.maintenance.health?.contradictions) && finalNormalized.maintenance.health.contradictions.length
       ? 'conflicted'
       : 'fresh',
     reason: trigger === 'source_event'
@@ -1194,11 +1422,17 @@ const maintainWikiPage = async ({
     provider: modelInfo.provider || '',
     sourceScopeAtDraft: 'entire_library',
     sourceRefIdsAtDraft: [],
-    maintenanceSummary: normalized.maintenance.summary,
+    maintenanceSummary: finalNormalized.maintenance.summary,
     sectionMaintenance,
-    health: normalized.maintenance.health,
-    changeLog: normalizeOperations(normalized.maintenance.changelog),
-    suggestions: normalizeOperations(normalized.maintenance.changelog)
+    quality: {
+      ...materialized.quality,
+      ...persistedQuality,
+      previousFailures: materialized.quality.previousFailures,
+      rebuiltAutomatically
+    },
+    health: finalNormalized.maintenance.health,
+    changeLog: normalizeOperations(finalNormalized.maintenance.changelog),
+    suggestions: normalizeOperations(finalNormalized.maintenance.changelog)
   };
 
   return page;
@@ -1226,6 +1460,9 @@ module.exports = {
     normalizeHealth,
     applyKnownWikiLinks,
     buildPrompt,
+    buildRebuildPrompt,
+    evaluateWikiArticleQuality,
+    inferMaintainedPageType,
     cleanWikiText,
     toPlainText
   }

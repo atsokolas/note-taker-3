@@ -131,6 +131,128 @@ const contradictionCount = (claims = []) => (
     .length
 );
 
+const cleanSourceText = (value = '') => String(value || '')
+  .replace(/&lt;/gi, '<')
+  .replace(/&gt;/gi, '>')
+  .replace(/<\/(p|div|li|br)>/gi, ' ')
+  .replace(/<[^>]+>/g, ' ')
+  .replace(/&nbsp;/gi, ' ')
+  .replace(/&amp;/gi, '&')
+  .replace(/&quot;/gi, '"')
+  .replace(/&#39;/gi, "'")
+  .replace(/\s+/g, ' ')
+  .trim();
+
+const conciseText = (value = '', limit = 180) => {
+  const text = cleanSourceText(value);
+  if (text.length <= limit) return text;
+  const truncated = text.slice(0, limit).replace(/\s+\S*$/, '').trim();
+  return `${truncated || text.slice(0, limit).trim()}...`;
+};
+
+const sourceExcerpt = (source = {}) => (
+  cleanSourceText(source.excerpt || source.snippet || source.summary || source.description || source.text || '')
+);
+
+const citationMatchesSource = (citation = {}, source = {}) => {
+  const sourceId = source?._id || source?.id;
+  return [
+    citation.sourceRefId,
+    citation.sourceId,
+    citation.sourceRef?._id,
+    citation.sourceRef?.id
+  ].some(id => idsMatch(id, sourceId));
+};
+
+const sourceEvidenceCounts = ({ source = {}, claims = [], citations = [] }) => {
+  const explicitCitationCount = Number(source.citationCount ?? source.citationsCount);
+  const explicitClaimCount = Number(source.claimCount ?? source.claimsCount);
+  const citationCount = (Array.isArray(citations) ? citations : [])
+    .filter(citation => citationMatchesSource(citation, source))
+    .length;
+  const claimCount = (Array.isArray(claims) ? claims : [])
+    .filter(claim => claimMatchesSource({ claim, source, citations }))
+    .length;
+  return {
+    citationCount: Number.isFinite(explicitCitationCount) ? Math.max(citationCount, explicitCitationCount) : citationCount,
+    claimCount: Number.isFinite(explicitClaimCount) ? Math.max(claimCount, explicitClaimCount) : claimCount
+  };
+};
+
+const formatSourceCounts = ({ citationCount = 0, claimCount = 0 }) => {
+  const parts = [];
+  if (citationCount > 0) parts.push(`${citationCount} citation${citationCount === 1 ? '' : 's'}`);
+  if (claimCount > 0) parts.push(`${claimCount} claim${claimCount === 1 ? '' : 's'}`);
+  return parts.join(' / ');
+};
+
+const HEALTH_LABELS = {
+  newItems: 'new source signals',
+  unsupportedClaims: 'unsupported claims',
+  missingCitations: 'missing citations',
+  staleSections: 'stale sections',
+  contradictions: 'contradictions'
+};
+
+const normalizeQualityIssueText = (issue = '') => {
+  if (typeof issue === 'string') return issue.trim();
+  if (!issue || typeof issue !== 'object') return '';
+  return String(issue.text || issue.message || issue.summary || issue.title || issue.reason || '').trim();
+};
+
+const collectQualityIssues = (page = {}) => {
+  const aiState = page?.aiState || {};
+  const health = aiState.health || {};
+  const healthIssues = Object.entries(HEALTH_LABELS).flatMap(([key, label]) => {
+    const items = Array.isArray(health[key]) ? health[key] : [];
+    return items.map((item) => ({
+      key,
+      label,
+      text: normalizeQualityIssueText(item)
+    }));
+  });
+  const explicitIssueSources = [
+    page?.qualityIssues,
+    page?.quality?.issues,
+    page?.quality?.failures,
+    page?.quality?.qualityIssues,
+    aiState?.qualityIssues,
+    aiState?.quality?.issues,
+    aiState?.quality?.failures,
+    aiState?.maintenanceQualityIssues
+  ];
+  const explicitIssues = explicitIssueSources
+    .filter(Array.isArray)
+    .flatMap(issues => issues.map((issue) => ({
+      key: 'qualityIssues',
+      label: 'quality issues',
+      text: normalizeQualityIssueText(issue)
+    })));
+  return [...explicitIssues, ...healthIssues].filter(issue => issue.text || issue.label);
+};
+
+const buildQualityState = ({ page = {}, counts = {} }) => {
+  const claims = Array.isArray(page?.claims) ? page.claims : [];
+  const issues = collectQualityIssues(page);
+  const explicitNeedsRebuild = ['needs_rebuild', 'fail', 'failed'].includes(String(page?.aiState?.quality?.status || page?.quality?.status || '').toLowerCase());
+  const weakClaimCount = (counts.partial || 0) + (counts.unsupported || 0) + (counts.conflicted || 0);
+  const weakClaimRatio = claims.length ? weakClaimCount / claims.length : 0;
+  const missingSourceEvidence = claims.length > 0 && !(page?.sourceRefs || []).length;
+  const weakClaimHealth = weakClaimCount > 0 && (weakClaimRatio >= 0.34 || (counts.unsupported || 0) + (counts.conflicted || 0) > 0);
+  if (!explicitNeedsRebuild && !issues.length && !weakClaimHealth && !missingSourceEvidence) return null;
+  const reasons = [
+    ...issues.slice(0, 3).map(issue => issue.text || labelFor(issue.label)),
+    missingSourceEvidence ? 'Claims have no attached sources.' : '',
+    weakClaimHealth ? `${weakClaimCount} of ${claims.length} claim${claims.length === 1 ? '' : 's'} need stronger support.` : ''
+  ].filter(Boolean);
+  return {
+    title: explicitNeedsRebuild || issues.length || missingSourceEvidence ? 'Needs rebuild' : 'Weak quality',
+    reasons: Array.from(new Set(reasons)).slice(0, 4),
+    issueCount: issues.length,
+    weakClaimCount
+  };
+};
+
 const sectionTitles = (body) => extractTocItems(body || emptyDoc)
   .filter(item => item.level === 2)
   .map(item => item.title)
@@ -286,6 +408,7 @@ const WikiPageReadView = ({ pageId, onEdit }) => {
   const previewTimerRef = useRef(null);
   const previewDismissTimerRef = useRef(null);
   const latestPageRef = useRef(null);
+  const autoRebuildPageRef = useRef('');
 
   useEffect(() => {
     let cancelled = false;
@@ -333,7 +456,7 @@ const WikiPageReadView = ({ pageId, onEdit }) => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [onEdit]);
 
-  const handleMaintain = async () => {
+  const handleMaintain = useCallback(async () => {
     setMaintaining(true);
     setError('');
     try {
@@ -345,7 +468,7 @@ const WikiPageReadView = ({ pageId, onEdit }) => {
     } finally {
       setMaintaining(false);
     }
-  };
+  }, [pageId]);
 
   const handleAsk = async (question) => {
     setAsking(true);
@@ -529,6 +652,7 @@ const WikiPageReadView = ({ pageId, onEdit }) => {
 
   const wordCount = useMemo(() => collectText(page?.body).split(/\s+/).filter(Boolean).length, [page?.body]);
   const healthCounts = useMemo(() => claimHealthCounts(page?.claims), [page?.claims]);
+  const qualityState = useMemo(() => buildQualityState({ page, counts: healthCounts }), [page, healthCounts]);
   const infoboxRows = useMemo(() => buildInfoboxRows({
     page,
     sourceCount: (page?.sourceRefs || []).length,
@@ -538,6 +662,16 @@ const WikiPageReadView = ({ pageId, onEdit }) => {
   const activeLedgerClaim = activeClaim ? claimLedgerById.get(activeClaim.claimId) : null;
   const displayedActiveTocId = activeTocId || tocItems[0]?.id || '';
   const discussionCount = (page?.discussions || []).length;
+
+  useEffect(() => {
+    const qualityStatus = String(page?.aiState?.quality?.status || page?.quality?.status || '').toLowerCase();
+    const pageKey = `${pageId}:${page?.updatedAt || page?.aiState?.quality?.checkedAt || ''}`;
+    if (!page || !qualityState || maintaining || autoRebuildPageRef.current === pageKey) return;
+    if (!['needs_rebuild', 'fail', 'failed'].includes(qualityStatus)) return;
+    if (page?.aiState?.quality?.rebuiltAutomatically && qualityStatus !== 'needs_rebuild') return;
+    autoRebuildPageRef.current = pageKey;
+    handleMaintain();
+  }, [handleMaintain, maintaining, page, pageId, qualityState]);
 
   if (loading) return <main className="wiki-page"><p className="wiki-index__status">Loading Wiki page...</p></main>;
   if (!page) {
@@ -604,6 +738,23 @@ const WikiPageReadView = ({ pageId, onEdit }) => {
               <span>{formatDate(lastVisit?.lastViewedAt)}</span>
               <span>{wordCount} words</span>
             </div>
+            {qualityState ? (
+              <aside className="wiki-read__quality" aria-label="Wiki page quality">
+                <div>
+                  <strong>{qualityState.title}</strong>
+                  <span>
+                    {qualityState.issueCount > 0
+                      ? `${qualityState.issueCount} maintenance issue${qualityState.issueCount === 1 ? '' : 's'} surfaced by the page API.`
+                      : 'Claim support is weak enough to warrant review.'}
+                  </span>
+                </div>
+                {qualityState.reasons.length ? (
+                  <ul>
+                    {qualityState.reasons.map(reason => <li key={reason}>{reason}</li>)}
+                  </ul>
+                ) : null}
+              </aside>
+            ) : null}
             <div className="wiki-read__tabs" role="tablist" aria-label="Wiki page views">
               <button
                 type="button"
@@ -683,12 +834,29 @@ const WikiPageReadView = ({ pageId, onEdit }) => {
             <section className="wiki-read__infobox wiki-read__source-list">
               <h2>Sources</h2>
               <ol>
-                {(page.sourceRefs || []).slice(0, 8).map((source, index) => (
-                  <li key={source._id || source.id || `${source.title}-${index}`}>
-                    <span>{source.title || 'Untitled source'}</span>
-                    {source.snippet ? <p>{source.snippet}</p> : null}
-                  </li>
-                ))}
+                {(page.sourceRefs || []).slice(0, 8).map((source, index) => {
+                  const excerpt = sourceExcerpt(source);
+                  const counts = sourceEvidenceCounts({
+                    source,
+                    claims: page.claims || [],
+                    citations: page.citations || []
+                  });
+                  const countLabel = formatSourceCounts(counts);
+                  const isLong = excerpt.length > 180;
+                  return (
+                    <li key={source._id || source.id || `${source.title}-${index}`}>
+                      <span>{source.title || 'Untitled source'}</span>
+                      {excerpt ? <p>{conciseText(excerpt)}</p> : null}
+                      {countLabel ? <small>{countLabel}</small> : null}
+                      {isLong ? (
+                        <details>
+                          <summary>More</summary>
+                          <p>{excerpt}</p>
+                        </details>
+                      ) : null}
+                    </li>
+                  );
+                })}
               </ol>
             </section>
           ) : null}
