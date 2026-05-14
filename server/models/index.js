@@ -1,4 +1,7 @@
 const mongoose = require('mongoose');
+const {
+  WIKI_PAGE_TYPES
+} = require('../services/wikiPageStructureService');
 
 // --- AUTHENTICATION ADDITIONS: User Schema and Model ---
 const userAgentProfileSchema = new mongoose.Schema({
@@ -264,13 +267,20 @@ notebookFolderSchema.index({ userId: 1, parentFolderId: 1, sortOrder: 1, name: 1
 
 const NotebookFolder = mongoose.model('NotebookFolder', notebookFolderSchema);
 
-const WIKI_PAGE_TYPES = ['topic', 'question', 'project', 'source', 'person', 'synthesis'];
 const WIKI_PAGE_STATUSES = ['draft', 'published', 'archived'];
 const WIKI_PROPOSAL_TYPES = ['repeated_theme', 'bridge_idea'];
 const WIKI_PROPOSAL_STATUSES = ['pending', 'watched', 'accepted', 'dismissed', 'merged'];
 const WIKI_PROPOSAL_SIGNAL_TYPES = ['phrase', 'tag', 'highlight', 'note', 'wiki_page', 'concept', 'question'];
 const WIKI_VISIBILITY_VALUES = ['private', 'shared'];
 const WIKI_SOURCE_SCOPES = ['entire_library', 'current_item', 'selected_sources'];
+
+const normalizeWikiPageTypeForModel = (value = '') => {
+  const raw = String(value || '').trim().toLowerCase();
+  if (!raw) return 'topic';
+  if (raw === 'person') return 'entity';
+  if (raw === 'synthesis') return 'overview';
+  return raw;
+};
 
 const wikiCreatedFromSchema = new mongoose.Schema({
   type: {
@@ -425,7 +435,7 @@ const wikiPageSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
   title: { type: String, required: true, trim: true, default: 'Untitled Wiki Page' },
   slug: { type: String, required: true, trim: true },
-  pageType: { type: String, enum: WIKI_PAGE_TYPES, default: 'topic' },
+  pageType: { type: String, enum: WIKI_PAGE_TYPES, default: 'topic', set: normalizeWikiPageTypeForModel },
   status: { type: String, enum: WIKI_PAGE_STATUSES, default: 'draft', index: true },
   visibility: { type: String, enum: WIKI_VISIBILITY_VALUES, default: 'private', index: true },
   sourceScope: { type: String, enum: WIKI_SOURCE_SCOPES, default: 'entire_library' },
@@ -447,6 +457,11 @@ wikiPageSchema.index({ userId: 1, updatedAt: -1 });
 wikiPageSchema.index({ userId: 1, status: 1, updatedAt: -1 });
 wikiPageSchema.index({ userId: 1, visibility: 1, updatedAt: -1 });
 wikiPageSchema.index({ userId: 1, slug: 1 }, { unique: true });
+
+wikiPageSchema.pre('validate', function normalizeLegacyWikiPageType(next) {
+  this.pageType = normalizeWikiPageTypeForModel(this.pageType);
+  next();
+});
 
 const WikiPage = mongoose.model('WikiPage', wikiPageSchema);
 
@@ -824,6 +839,21 @@ const uiSettingsSchema = new mongoose.Schema({
 uiSettingsSchema.index({ userId: 1, workspaceType: 1, workspaceId: 1 }, { unique: true });
 
 const UiSettings = mongoose.model('UiSettings', uiSettingsSchema);
+
+const wikiSchemaSnapshotSchema = new mongoose.Schema({
+  content: { type: String, default: '', trim: true, maxlength: 8000 },
+  createdAt: { type: Date, default: Date.now }
+}, { _id: true });
+
+const wikiSchemaSettingsSchema = new mongoose.Schema({
+  content: { type: String, default: '', trim: true, maxlength: 8000 },
+  snapshots: { type: [wikiSchemaSnapshotSchema], default: [] },
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }
+}, { timestamps: true });
+
+wikiSchemaSettingsSchema.index({ userId: 1 }, { unique: true });
+
+const WikiSchemaSettings = mongoose.model('WikiSchemaSettings', wikiSchemaSettingsSchema);
 
 const tourSignalsSchema = new mongoose.Schema({
   extensionConnected: { type: Boolean, default: false },
@@ -1675,6 +1705,7 @@ module.exports = {
   BoardEdge,
   WorkingMemoryItem,
   UiSettings,
+  WikiSchemaSettings,
   TourState,
   ReturnQueueEntry,
   Connection,

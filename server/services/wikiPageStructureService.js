@@ -1,39 +1,63 @@
+const WIKI_PAGE_TYPE_ALIASES = {
+  person: 'entity',
+  synthesis: 'overview'
+};
+
 const CONTRACTS = {
-  topic: {
-    label: 'Topic',
-    intent: 'Explain a durable concept as a source-backed reference page.',
+  concept: {
+    label: 'Concept',
+    intent: 'Explain a durable idea as a source-backed reference page.',
     sections: ['Core Idea', 'How It Works', 'Evidence', 'Tensions', 'Open Questions']
   },
-  question: {
-    label: 'Question',
-    intent: 'Answer the question directly while preserving uncertainty.',
-    sections: ['Short Answer', 'Why It Matters', 'Evidence', 'What Would Change This', 'Open Questions']
-  },
-  project: {
-    label: 'Project',
-    intent: 'Track what the project is, why it matters, current state, and next decisions.',
-    sections: ['Purpose', 'Current State', 'Key Decisions', 'Risks', 'Next Moves']
+  entity: {
+    label: 'Entity',
+    intent: 'Maintain a source-backed profile of an entity, its ideas, and relevance.',
+    sections: ['Profile', 'Core Ideas', 'Evidence', 'Tensions', 'Related Pages']
   },
   source: {
     label: 'Source',
     intent: 'Summarize one source as a reusable reference with claims and implications.',
     sections: ['Source Thesis', 'Key Claims', 'Useful Evidence', 'Limitations', 'Related Pages']
   },
-  person: {
-    label: 'Person',
-    intent: 'Maintain a source-backed profile of a person, their ideas, and relevance.',
-    sections: ['Profile', 'Core Ideas', 'Evidence', 'Tensions', 'Related Pages']
+  question: {
+    label: 'Question',
+    intent: 'Answer the question directly while preserving uncertainty.',
+    sections: ['Short Answer', 'Why It Matters', 'Evidence', 'What Would Change This', 'Open Questions']
   },
-  synthesis: {
-    label: 'Synthesis',
-    intent: 'Combine multiple pages or sources into a higher-level read.',
-    sections: ['Synthesis', 'Converging Evidence', 'Diverging Evidence', 'Implications', 'Open Questions']
+  comparison: {
+    label: 'Comparison',
+    intent: 'Compare multiple ideas, entities, or sources while making tradeoffs explicit.',
+    sections: ['Comparison Frame', 'Similarities', 'Differences', 'Tradeoffs', 'Open Questions']
+  },
+  overview: {
+    label: 'Overview',
+    intent: 'Combine multiple pages or sources into a higher-level overview.',
+    sections: ['Overview', 'Converging Evidence', 'Diverging Evidence', 'Implications', 'Open Questions']
+  },
+  project: {
+    label: 'Project',
+    intent: 'Track what the project is, why it matters, current state, and next decisions.',
+    sections: ['Purpose', 'Current State', 'Key Decisions', 'Risks', 'Next Moves']
+  },
+  log: {
+    label: 'Log',
+    intent: 'Track dated observations, changes, and decisions as a source-backed working record.',
+    sections: ['Latest Entry', 'Timeline', 'Decisions', 'Signals', 'Next Review']
+  },
+  topic: {
+    label: 'Topic',
+    intent: 'Explain a durable topic as a source-backed reference page.',
+    sections: ['Core Idea', 'How It Works', 'Evidence', 'Tensions', 'Open Questions']
   }
 };
 
-const normalizePageType = (pageType = '') => (
-  CONTRACTS[String(pageType || '').trim()] ? String(pageType).trim() : 'topic'
-);
+const WIKI_PAGE_TYPES = Object.freeze(Object.keys(CONTRACTS));
+
+const normalizePageType = (pageType = '') => {
+  const raw = String(pageType || '').trim().toLowerCase();
+  const canonical = WIKI_PAGE_TYPE_ALIASES[raw] || raw;
+  return CONTRACTS[canonical] ? canonical : 'topic';
+};
 
 const getWikiPageStructure = (pageType = 'topic') => {
   const type = normalizePageType(pageType);
@@ -66,5 +90,6 @@ const alignArticleToPageStructure = ({ article = {}, pageType = 'topic' } = {}) 
 module.exports = {
   alignArticleToPageStructure,
   getWikiPageStructure,
-  normalizePageType
+  normalizePageType,
+  WIKI_PAGE_TYPES
 };

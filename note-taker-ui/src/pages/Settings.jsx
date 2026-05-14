@@ -5,6 +5,9 @@ import { Link } from 'react-router-dom';
 import { ACCENT_OPTIONS } from '../settings/uiPreferences';
 import { resetTourState } from '../api/tourApi';
 import { getMarketingFunnelSnapshot } from '../api/marketingAnalytics';
+import { getWikiSchema, revertWikiSchema, saveWikiSchema, suggestWikiSchemaUpdates } from '../api/wiki';
+import { trackWikiSchemaSaved, trackWikiSchemaSuggested } from '../utils/wikiAnalytics';
+import { isWikiReadModeV2Enabled } from '../utils/wikiFeatureFlags';
 import { TOUR_CACHE_KEY } from '../tour/tourConfig';
 
 const TYPOGRAPHY_OPTIONS = [
@@ -17,6 +20,8 @@ const DENSITY_OPTIONS = [
   { value: 'comfortable', label: 'Comfortable' },
   { value: 'compact', label: 'Compact' }
 ];
+
+const WIKI_SCHEMA_MAX_CHARS = 8000;
 
 const formatEntryLabel = (value = '') => {
   const cleaned = String(value || '').trim();
@@ -36,6 +41,15 @@ const Settings = ({
   const [marketingFunnel, setMarketingFunnel] = useState(null);
   const [marketingLoading, setMarketingLoading] = useState(true);
   const [marketingError, setMarketingError] = useState('');
+  const [wikiSchemaDraft, setWikiSchemaDraft] = useState('');
+  const [wikiSchemaSnapshots, setWikiSchemaSnapshots] = useState([]);
+  const [wikiSchemaSuggestion, setWikiSchemaSuggestion] = useState(null);
+  const [wikiSchemaLoading, setWikiSchemaLoading] = useState(false);
+  const [wikiSchemaSaving, setWikiSchemaSaving] = useState(false);
+  const [wikiSchemaLoadPending, setWikiSchemaLoadPending] = useState(true);
+  const [wikiSchemaError, setWikiSchemaError] = useState('');
+  const [wikiSchemaStatus, setWikiSchemaStatus] = useState('');
+  const wikiSchemaEnabled = isWikiReadModeV2Enabled();
 
   useEffect(() => {
     let cancelled = false;
@@ -63,11 +77,105 @@ const Settings = ({
     };
   }, []);
 
+  useEffect(() => {
+    if (!wikiSchemaEnabled) {
+      setWikiSchemaLoadPending(false);
+      return undefined;
+    }
+    let cancelled = false;
+    const loadWikiSchema = async () => {
+      setWikiSchemaLoadPending(true);
+      setWikiSchemaError('');
+      try {
+        const settings = await getWikiSchema();
+        if (!cancelled) {
+          setWikiSchemaDraft(settings.content || '');
+          setWikiSchemaSnapshots(Array.isArray(settings.snapshots) ? settings.snapshots : []);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setWikiSchemaError(error?.response?.data?.error || 'Failed to load wiki schema.');
+        }
+      } finally {
+        if (!cancelled) setWikiSchemaLoadPending(false);
+      }
+    };
+    loadWikiSchema();
+    return () => {
+      cancelled = true;
+    };
+  }, [wikiSchemaEnabled]);
+
   const funnelTotals = marketingFunnel?.totals || {
     signupViewed: 0,
     signupStarted: 0,
     signupsCompleted: 0,
     activatedUsers: 0
+  };
+
+  const handleSuggestWikiSchemaUpdates = async () => {
+    setWikiSchemaLoading(true);
+    setWikiSchemaError('');
+    try {
+      const result = await suggestWikiSchemaUpdates({ currentSchema: wikiSchemaDraft });
+      setWikiSchemaSuggestion(result);
+      trackWikiSchemaSuggested({
+        runId: result?.runId || '',
+        suggestionCount: Array.isArray(result?.suggestions) ? result.suggestions.length : 0
+      });
+    } catch (error) {
+      setWikiSchemaError(error?.response?.data?.error || 'Failed to suggest schema updates.');
+    } finally {
+      setWikiSchemaLoading(false);
+    }
+  };
+
+  const handleWikiSchemaDraftChange = (event) => {
+    const raw = event.target.value || '';
+    if (raw.length > WIKI_SCHEMA_MAX_CHARS) {
+      setWikiSchemaDraft(raw.slice(0, WIKI_SCHEMA_MAX_CHARS));
+      setWikiSchemaStatus(`Schema is capped at ${WIKI_SCHEMA_MAX_CHARS.toLocaleString()} characters.`);
+      return;
+    }
+    setWikiSchemaDraft(raw);
+    setWikiSchemaStatus('');
+  };
+
+  const handleSaveWikiSchema = async () => {
+    setWikiSchemaSaving(true);
+    setWikiSchemaStatus('');
+    setWikiSchemaError('');
+    try {
+      const settings = await saveWikiSchema(wikiSchemaDraft);
+      setWikiSchemaDraft(settings.content || '');
+      setWikiSchemaSnapshots(Array.isArray(settings.snapshots) ? settings.snapshots : []);
+      setWikiSchemaStatus('Wiki schema saved.');
+      trackWikiSchemaSaved({
+        contentLength: String(settings.content || '').length,
+        snapshotCount: Array.isArray(settings.snapshots) ? settings.snapshots.length : 0
+      });
+    } catch (error) {
+      setWikiSchemaError(error?.response?.data?.error || 'Failed to save wiki schema.');
+    } finally {
+      setWikiSchemaSaving(false);
+    }
+  };
+
+  const handleRevertWikiSchema = async (snapshotId) => {
+    if (!snapshotId) return;
+    setWikiSchemaSaving(true);
+    setWikiSchemaStatus('');
+    setWikiSchemaError('');
+    try {
+      const settings = await revertWikiSchema(snapshotId);
+      setWikiSchemaDraft(settings.content || '');
+      setWikiSchemaSnapshots(Array.isArray(settings.snapshots) ? settings.snapshots : []);
+      setWikiSchemaStatus('Wiki schema reverted.');
+    } catch (error) {
+      setWikiSchemaError(error?.response?.data?.error || 'Failed to revert wiki schema.');
+    } finally {
+      setWikiSchemaSaving(false);
+    }
   };
 
   return (
@@ -203,6 +311,83 @@ const Settings = ({
           Open data integrations
         </Link>
       </Card>
+      {wikiSchemaEnabled ? (
+      <Card className="settings-card">
+        <div className="settings-appearance-header">
+          <div>
+            <h2>Wiki schema</h2>
+            <p className="muted">Free-form markdown instructions appended to wiki maintenance, ingest, and ask prompts.</p>
+          </div>
+          <p className="muted-label">
+            {wikiSchemaSaving ? 'Saving…' : `${wikiSchemaDraft.length.toLocaleString()} / ${WIKI_SCHEMA_MAX_CHARS.toLocaleString()}`}
+          </p>
+        </div>
+        {wikiSchemaLoadPending ? (
+          <p className="muted">Loading wiki schema…</p>
+        ) : (
+          <textarea
+            className="settings-wiki-schema-editor"
+            value={wikiSchemaDraft}
+            onChange={handleWikiSchemaDraftChange}
+            placeholder="Paste the current wiki schema markdown here."
+            aria-label="Current wiki schema"
+            maxLength={WIKI_SCHEMA_MAX_CHARS}
+            rows={12}
+            style={{ width: '100%', marginTop: 12 }}
+          />
+        )}
+        <div className="settings-option-row" style={{ marginTop: 12 }}>
+          <Button
+            variant="secondary"
+            onClick={handleSaveWikiSchema}
+            disabled={wikiSchemaSaving || wikiSchemaLoadPending}
+          >
+            Save wiki schema
+          </Button>
+          <Button
+            variant="secondary"
+            onClick={handleSuggestWikiSchemaUpdates}
+            disabled={wikiSchemaLoading || wikiSchemaLoadPending}
+          >
+            {wikiSchemaLoading ? 'Suggesting...' : 'Suggest schema updates'}
+          </Button>
+        </div>
+        {wikiSchemaStatus && <p className="status-message">{wikiSchemaStatus}</p>}
+        {wikiSchemaError && <p className="status-message error-message">{wikiSchemaError}</p>}
+        <div className="settings-option-group">
+          <p className="muted-label">Snapshots</p>
+          {wikiSchemaSnapshots.length === 0 ? (
+            <p className="muted small">No saved snapshots yet.</p>
+          ) : (
+            <div className="settings-option-row" style={{ flexDirection: 'column', alignItems: 'stretch' }}>
+              {wikiSchemaSnapshots.slice(0, 5).map((snapshot) => (
+                <button
+                  key={snapshot.id}
+                  type="button"
+                  className="settings-option-button"
+                  onClick={() => handleRevertWikiSchema(snapshot.id)}
+                  disabled={wikiSchemaSaving}
+                >
+                  Revert to {snapshot.createdAt ? new Date(snapshot.createdAt).toLocaleString() : 'snapshot'}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+        {wikiSchemaSuggestion?.summary && (
+          <div className="settings-option-group">
+            <p className="muted">{wikiSchemaSuggestion.summary}</p>
+            <textarea
+              readOnly
+              aria-label="Suggested wiki schema patch"
+              value={wikiSchemaSuggestion.proposedPatch || ''}
+              rows={10}
+              style={{ width: '100%' }}
+            />
+          </div>
+        )}
+      </Card>
+      ) : null}
       <Card className="settings-card">
         <h2>Organic funnel</h2>
         <p className="muted">Last 30 days of SEO/AEO traffic progressing from signup view to activated user.</p>

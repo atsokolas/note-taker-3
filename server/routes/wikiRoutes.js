@@ -8,17 +8,30 @@ const {
 const { askWikiPage: defaultAskWikiPage } = require('../services/wikiAskService');
 const { buildWikiBriefing: defaultBuildWikiBriefing } = require('../services/wikiBriefingService');
 const { findWikiBacklinks: defaultFindWikiBacklinks } = require('../services/wikiBacklinkService');
+const {
+  getWikiSchemaPromptContent,
+  getWikiSchemaSettings,
+  revertWikiSchemaSettings,
+  saveWikiSchemaSettings
+} = require('../services/wikiSchemaService');
 const { createWikiRevision, snapshotPage } = require('../services/wikiRevisionService');
-const { listWikiSourceEvents } = require('../services/wikiSourceEventService');
+const { createWikiSourceEvent, listWikiSourceEvents } = require('../services/wikiSourceEventService');
 const { processWikiSourceEvent } = require('../services/wikiMaintenanceOrchestrator');
 const { processPendingWikiSourceEvents } = require('../services/wikiSourceEventWorker');
 const { writeWikiPageToConnector } = require('../services/wikiConnectorWritebackService');
 const { findAutolinkSuggestions } = require('../services/wikiAutolinkService');
 const { applyWikiAutolinkToDoc } = require('../services/wikiAutolinkApplyService');
 const {
+  WIKI_PAGE_TYPES,
+  normalizePageType
+} = require('../services/wikiPageStructureService');
+const {
   rebuildWikiGraphConnections,
   syncWikiPageGraphConnections
 } = require('../services/wikiGraphConnectionService');
+const {
+  suggestWikiSchemaUpdates
+} = require('../services/wikiSchemaSuggestionService');
 const {
   activeProposalsNeedClusteringRefresh,
   autoMergeProposalCandidates,
@@ -29,7 +42,11 @@ const {
   shapeWikiProposalCandidates
 } = require('../services/wikiProposalService');
 
-const PAGE_TYPES = new Set(['topic', 'question', 'project', 'source', 'person', 'synthesis']);
+const PAGE_TYPES = new Set(WIKI_PAGE_TYPES);
+const PAGE_TYPE_ALIASES = {
+  person: 'entity',
+  synthesis: 'overview'
+};
 const STATUSES = new Set(['draft', 'published', 'archived']);
 const VISIBILITIES = new Set(['private', 'shared']);
 const SOURCE_SCOPES = new Set(['entire_library', 'current_item', 'selected_sources']);
@@ -48,6 +65,7 @@ const CREATED_FROM_TYPES = new Set([
 ]);
 const SOURCE_REF_TYPES = new Set(['article', 'highlight', 'notebook', 'concept', 'question', 'memory', 'external']);
 const SOURCE_REF_ADDED_BY = new Set(['user', 'ai']);
+const INGEST_SOURCE_TYPES = new Set(['article', 'highlight', 'notebook', 'concept', 'question', 'memory', 'external', 'url', 'text']);
 
 const emptyDoc = () => ({ type: 'doc', content: [{ type: 'paragraph' }] });
 
@@ -76,6 +94,17 @@ const extractPlainText = (node) => {
 const normalizeTitle = (value = '') => (
   String(value || 'Untitled Wiki Page').trim().slice(0, 180) || 'Untitled Wiki Page'
 );
+
+const deriveTitleFromQuestion = (question = '') => {
+  const title = String(question || '')
+    .replace(/[?!.]+$/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .split(/\s+/)
+    .slice(0, 3)
+    .join(' ');
+  return normalizeTitle(title || 'Answer from discussion');
+};
 
 const normalizeObjectId = (value) => {
   const id = String(value || '').trim();
@@ -107,6 +136,90 @@ const buildDraftDoc = ({ title, seedText }) => ({
   ]
 });
 
+const clonePlain = (value) => JSON.parse(JSON.stringify(value || null));
+
+const collectCitationIndexesFromDoc = (node, out = new Set()) => {
+  if (!node) return out;
+  if (Array.isArray(node)) {
+    node.forEach(child => collectCitationIndexesFromDoc(child, out));
+    return out;
+  }
+  if (typeof node !== 'object') return out;
+  (node.marks || []).forEach((mark) => {
+    const attrs = mark?.attrs || {};
+    [
+      ...(Array.isArray(attrs.citationIndexes) ? attrs.citationIndexes : []),
+      ...(Array.isArray(attrs.contradictionIndexes) ? attrs.contradictionIndexes : [])
+    ].forEach((index) => {
+      const numeric = Number(index);
+      if (Number.isInteger(numeric) && numeric >= 1) out.add(numeric);
+    });
+  });
+  if (Array.isArray(node.content)) collectCitationIndexesFromDoc(node.content, out);
+  return out;
+};
+
+const remapCitationIndexesInDoc = (node, citationIndexMap = new Map()) => {
+  if (!node) return node;
+  if (Array.isArray(node)) return node.map(child => remapCitationIndexesInDoc(child, citationIndexMap));
+  if (typeof node !== 'object') return node;
+  const next = { ...node };
+  if (Array.isArray(next.marks)) {
+    next.marks = next.marks.map((mark) => {
+      const attrs = mark?.attrs || {};
+      const remapIndexes = (indexes = []) => (
+        Array.isArray(indexes)
+          ? indexes
+            .map(index => citationIndexMap.get(Number(index)))
+            .filter(Number.isInteger)
+          : indexes
+      );
+      if (!Array.isArray(attrs.citationIndexes) && !Array.isArray(attrs.contradictionIndexes)) return mark;
+      return {
+        ...mark,
+        attrs: {
+          ...attrs,
+          ...(Array.isArray(attrs.citationIndexes)
+            ? { citationIndexes: remapIndexes(attrs.citationIndexes) }
+            : {}),
+          ...(Array.isArray(attrs.contradictionIndexes)
+            ? { contradictionIndexes: remapIndexes(attrs.contradictionIndexes) }
+            : {})
+        }
+      };
+    });
+  }
+  if (Array.isArray(next.content)) next.content = remapCitationIndexesInDoc(next.content, citationIndexMap);
+  return next;
+};
+
+const cloneSourceRefForPromotion = (source) => {
+  const raw = source?.toObject ? source.toObject({ virtuals: false }) : clonePlain(source);
+  if (!raw || typeof raw !== 'object') return null;
+  delete raw._id;
+  return raw;
+};
+
+const buildPromotedDiscussionDoc = ({ title, discussion, citationIndexMap = new Map() }) => {
+  const answerContent = Array.isArray(discussion?.answer?.content) && discussion.answer.content.length > 0
+    ? remapCitationIndexesInDoc(clonePlain(discussion.answer.content), citationIndexMap)
+    : [{ type: 'paragraph', content: [{ type: 'text', text: 'No answer yet.' }] }];
+  const standaloneAnswerContent = answerContent.filter((node) => {
+    const text = extractPlainText(node).trim();
+    return !/^you asked:/i.test(text);
+  });
+  return {
+    type: 'doc',
+    content: [
+      { type: 'heading', attrs: { level: 1 }, content: [{ type: 'text', text: title }] },
+      { type: 'heading', attrs: { level: 2 }, content: [{ type: 'text', text: 'Answer' }] },
+      ...(standaloneAnswerContent.length ? standaloneAnswerContent : answerContent),
+      { type: 'heading', attrs: { level: 2 }, content: [{ type: 'text', text: 'Source question' }] },
+      { type: 'paragraph', content: [{ type: 'text', text: String(discussion?.question || '').trim() }] }
+    ]
+  };
+};
+
 const serializeWikiPage = (page) => {
   if (!page) return page;
   const raw = typeof page.toObject === 'function'
@@ -114,6 +227,7 @@ const serializeWikiPage = (page) => {
     : { ...page };
   return {
     ...raw,
+    pageType: normalizePageType(raw.pageType || 'topic'),
     body: raw.body || emptyDoc(),
     createdFrom: raw.createdFrom || { type: 'wiki_index', objectIds: [], text: '', label: '' },
     sourceRefs: Array.isArray(raw.sourceRefs) ? raw.sourceRefs : [],
@@ -216,6 +330,97 @@ const validateEnumField = (field, value, allowedValues) => {
   return { value: normalized };
 };
 
+const validatePageType = (value) => {
+  if (value === undefined) return null;
+  const raw = String(value || '').trim().toLowerCase();
+  if (!raw) return { error: `pageType must be one of: ${Array.from(PAGE_TYPES).join(', ')}.` };
+  const normalized = normalizePageType(raw);
+  if (normalized === 'topic' && raw !== 'topic' && PAGE_TYPE_ALIASES[raw] !== 'topic') {
+    return { error: `pageType must be one of: ${Array.from(PAGE_TYPES).join(', ')}.` };
+  }
+  return { value: normalized, raw };
+};
+
+const pageTypeQueryValue = (pageType) => {
+  if (!pageType?.value) return null;
+  const legacyValues = Object.entries(PAGE_TYPE_ALIASES)
+    .filter(([, normalized]) => normalized === pageType.value)
+    .map(([legacy]) => legacy);
+  return legacyValues.length ? { $in: [pageType.value, ...legacyValues] } : pageType.value;
+};
+
+const normalizeIngestSource = (value = {}) => {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return { error: 'source payload must be an object.' };
+  }
+  const rawType = String(value.type || '').trim().toLowerCase();
+  if (!INGEST_SOURCE_TYPES.has(rawType)) {
+    return { error: `source.type must be one of: ${Array.from(INGEST_SOURCE_TYPES).join(', ')}.` };
+  }
+  const objectId = normalizeObjectId(value.objectId);
+  if (value.objectId && !objectId) return { error: 'source.objectId must be a valid id.' };
+  const url = String(value.url || '').trim().slice(0, 1000);
+  const text = String(value.text || '').trim().slice(0, 8000);
+  if (!objectId && !url && !text) {
+    return { error: 'source must include objectId, url, or text.' };
+  }
+  const sourceType = rawType === 'url' || rawType === 'text' ? 'external' : rawType;
+  return {
+    value: {
+      sourceType,
+      objectId,
+      url,
+      text,
+      title: String(value.title || '').trim().slice(0, 240),
+      summary: String(value.summary || '').trim().slice(0, 1200),
+      rawType
+    }
+  };
+};
+
+const serializeId = (value) => (value ? String(value) : null);
+
+const serializeSourceRefFromEvent = (event = {}) => ({
+  type: event.sourceType || 'external',
+  objectId: serializeId(event.sourceObjectId),
+  url: event.url || '',
+  title: event.title || '',
+  summary: event.summary || '',
+  text: event.text || ''
+});
+
+const serializeIngestRun = ({ event, run = null } = {}) => {
+  if (!event) return null;
+  const rawEvent = typeof event.toObject === 'function' ? event.toObject({ virtuals: false }) : event;
+  const rawRun = run && typeof run.toObject === 'function' ? run.toObject({ virtuals: false }) : run;
+  return {
+    runId: serializeId(rawEvent._id),
+    sourceRef: serializeSourceRefFromEvent(rawEvent),
+    affectedPageIds: Array.isArray(rawEvent.affectedPageIds) ? rawEvent.affectedPageIds.map(serializeId).filter(Boolean) : [],
+    summary: rawRun?.summary || rawEvent.summary || rawEvent.errorMessage || '',
+    status: rawEvent.status || rawRun?.status || 'pending',
+    suggestedCreatePage: (
+      rawEvent.status === 'ignored'
+      && !(Array.isArray(rawEvent.affectedPageIds) && rawEvent.affectedPageIds.length)
+      && rawEvent.metadata?.ignoredReason === 'no_matching_wiki_page'
+    ) ? {
+        title: rawEvent.title || rawEvent.url || rawEvent.sourceType || 'Untitled wiki page',
+        source: serializeSourceRefFromEvent(rawEvent)
+      } : null,
+    undoneAt: rawEvent.metadata?.undoneAt || null,
+    startedAt: rawRun?.startedAt || rawEvent.createdAt || null,
+    completedAt: rawEvent.processedAt || rawRun?.completedAt || null,
+    sourceEventId: serializeId(rawEvent._id),
+    maintenanceRunId: serializeId(rawRun?._id)
+  };
+};
+
+const activityEventTime = (event = {}) => new Date(event.at || 0).getTime();
+
+const sortActivityEvents = (events = []) => events
+  .filter(event => event && event.at)
+  .sort((a, b) => activityEventTime(b) - activityEventTime(a));
+
 const normalizeSourceRef = (value = {}) => {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     return { error: 'sourceRef payload must be an object.' };
@@ -290,6 +495,7 @@ const buildWikiRouter = ({
   WikiRevision = null,
   WikiSourceEvent = null,
   WikiMaintenanceRun = null,
+  WikiSchemaSettings = null,
   Connection = null,
   ConnectorActionLog = null,
   IntegrationConnection = null,
@@ -305,9 +511,21 @@ const buildWikiRouter = ({
   askWikiPage = defaultAskWikiPage,
   buildWikiBriefing = defaultBuildWikiBriefing,
   findWikiBacklinks = defaultFindWikiBacklinks,
-  shapeWikiProposalCandidates: shapeWikiProposalCandidatesRunner = shapeWikiProposalCandidates
+  shapeWikiProposalCandidates: shapeWikiProposalCandidatesRunner = shapeWikiProposalCandidates,
+  trackEvent = null,
+  EVENT_NAMES = {}
 }) => {
   const router = express.Router();
+
+  const trackWikiEvent = (req, event, properties = {}) => {
+    if (!trackEvent || !event) return;
+    trackEvent({
+      event,
+      userId: req.user?.id,
+      requestId: req.requestId,
+      properties
+    });
+  };
 
   const buildUniqueSlug = async (userId, title, existingId = null) => {
     const base = slugify(title);
@@ -369,6 +587,7 @@ const buildWikiRouter = ({
       await maintainWikiPage({
         page,
         userId,
+        wikiSchemaContent: await loadWikiSchemaContent(userId),
         models: { Article, NotebookEntry, TagMeta, Question }
       });
       await page.save();
@@ -423,8 +642,61 @@ const buildWikiRouter = ({
     Article,
     NotebookEntry,
     TagMeta,
-    Question
+    Question,
+    WikiSchemaSettings
   });
+
+  const loadWikiSchemaContent = (userId) => getWikiSchemaPromptContent({
+    WikiSchemaSettings,
+    userId
+  });
+
+  const findMaintenanceRunBySourceEvent = async ({ userId, sourceEventId } = {}) => {
+    if (!WikiMaintenanceRun || !sourceEventId) return null;
+    return WikiMaintenanceRun.findOne({ userId, sourceEventId }).sort({ createdAt: -1 }).lean();
+  };
+
+  const buildIngestTimeline = async ({ userId, event, run = null } = {}) => {
+    const rawEvent = event && typeof event.toObject === 'function' ? event.toObject({ virtuals: false }) : event;
+    if (!rawEvent) return [];
+    const rawRun = run && typeof run.toObject === 'function' ? run.toObject({ virtuals: false }) : run;
+    const revisions = WikiRevision
+      ? await WikiRevision.find({ userId, sourceEventId: rawEvent._id }).sort({ createdAt: -1 }).limit(50).lean()
+      : [];
+    return sortActivityEvents([
+      {
+        id: `${rawEvent._id}:created`,
+        type: rawEvent.metadata?.ingest ? 'ingest' : 'source_event',
+        runId: serializeId(rawEvent._id),
+        status: rawEvent.status || 'pending',
+        title: rawEvent.title || rawEvent.url || rawEvent.sourceType,
+        summary: rawEvent.summary || '',
+        at: rawEvent.createdAt
+      },
+      rawRun ? {
+        id: serializeId(rawRun._id),
+        type: 'maintenance',
+        runId: serializeId(rawRun._id),
+        ingestRunId: serializeId(rawEvent._id),
+        status: rawRun.status || '',
+        pageId: serializeId(rawRun.pageId),
+        title: 'Wiki maintenance',
+        summary: rawRun.summary || rawRun.errorMessage || '',
+        at: rawRun.completedAt || rawRun.startedAt || rawRun.createdAt
+      } : null,
+      ...revisions.map(revision => ({
+        id: serializeId(revision._id),
+        type: 'revision',
+        runId: serializeId(revision.maintenanceRunId),
+        ingestRunId: serializeId(rawEvent._id),
+        status: 'completed',
+        pageId: serializeId(revision.pageId),
+        title: revision.reason || 'wiki_revision',
+        summary: revision.summary || '',
+        at: revision.createdAt
+      }))
+    ]);
+  };
 
   const syncPageGraph = async (page, fallbackUserId = null) => {
     if (!Connection) return null;
@@ -461,18 +733,140 @@ const buildWikiRouter = ({
     };
   };
 
+  const restorePageSnapshot = (page, snapshot = {}) => {
+    if (!page || !snapshot) return;
+    [
+      'title',
+      'slug',
+      'pageType',
+      'status',
+      'visibility',
+      'sourceScope',
+      'body',
+      'plainText',
+      'sourceRefs',
+      'claims',
+      'citations',
+      'freshness',
+      'aiState'
+    ].forEach((field) => {
+      if (snapshot[field] !== undefined) page[field] = clonePlain(snapshot[field]);
+    });
+  };
+
+  const applyAutolinksForPage = async (page, userId) => {
+    const result = await findAutolinkSuggestions({
+      targetPage: page,
+      userId,
+      models: { WikiPage }
+    });
+    let nextBody = page.body || emptyDoc();
+    for (const suggestion of result.suggestions || []) {
+      const targetPage = await WikiPage.findOne({ _id: suggestion.pageId, userId }).lean();
+      if (!targetPage) continue;
+      const applied = applyWikiAutolinkToDoc({ doc: nextBody, targetPage });
+      if (applied.applied) nextBody = applied.doc;
+    }
+    page.body = nextBody;
+    page.plainText = extractPlainText(nextBody);
+    return result;
+  };
+
+  const autolinkPagesToTarget = async ({ targetPage, userId, sourcePageId = null } = {}) => {
+    if (!targetPage?._id || !targetPage?.title) return [];
+    const query = {
+      userId,
+      status: { $ne: 'archived' },
+      _id: { $ne: targetPage._id }
+    };
+    const candidates = await WikiPage.find(query).sort({ updatedAt: -1 }).limit(600);
+    const updatedPages = [];
+    for (const page of Array.isArray(candidates) ? candidates : []) {
+      const before = snapshotPage(page);
+      const result = applyWikiAutolinkToDoc({ doc: page.body || emptyDoc(), targetPage });
+      if (!result.applied) continue;
+      page.body = result.doc;
+      page.plainText = extractPlainText(result.doc);
+      refreshPageClaims(page);
+      await page.save();
+      await syncPageGraph(page, userId);
+      await createWikiRevision({
+        WikiRevision,
+        userId,
+        page,
+        before,
+        reason: 'agent_maintenance',
+        actorType: 'agent',
+        summary: `Linked "${targetPage.title}" from "${page.title}".`
+      });
+      updatedPages.push(page);
+    }
+    if (!updatedPages.length && sourcePageId) {
+      await syncPageGraph(targetPage, userId);
+    }
+    return updatedPages;
+  };
+
+  router.get('/api/wiki/schema', authenticateToken, async (req, res) => {
+    try {
+      const settings = await getWikiSchemaSettings({
+        WikiSchemaSettings,
+        userId: req.user.id
+      });
+      res.status(200).json(settings);
+    } catch (error) {
+      console.error('Error reading wiki schema:', error);
+      res.status(500).json({ error: 'Failed to read wiki schema.' });
+    }
+  });
+
+  router.put('/api/wiki/schema', authenticateToken, async (req, res) => {
+    try {
+      const settings = await saveWikiSchemaSettings({
+        WikiSchemaSettings,
+        userId: req.user.id,
+        content: req.body?.content
+      });
+      trackWikiEvent(req, EVENT_NAMES.WIKI_SCHEMA_SAVED, {
+        contentLength: String(settings.content || '').length,
+        snapshotCount: Array.isArray(settings.snapshots) ? settings.snapshots.length : 0
+      });
+      res.status(200).json(settings);
+    } catch (error) {
+      console.error('Error saving wiki schema:', error);
+      res.status(500).json({ error: 'Failed to save wiki schema.' });
+    }
+  });
+
+  router.post('/api/wiki/schema/revert', authenticateToken, async (req, res) => {
+    try {
+      const settings = await revertWikiSchemaSettings({
+        WikiSchemaSettings,
+        userId: req.user.id,
+        snapshotId: req.body?.snapshotId
+      });
+      res.status(200).json(settings);
+    } catch (error) {
+      if (error.code === 'WIKI_SCHEMA_SNAPSHOT_NOT_FOUND') {
+        return res.status(404).json({ error: 'Wiki schema snapshot not found.' });
+      }
+      console.error('Error reverting wiki schema:', error);
+      res.status(500).json({ error: 'Failed to revert wiki schema.' });
+    }
+  });
+
   router.get('/api/wiki/pages', authenticateToken, async (req, res) => {
     try {
       const query = { userId: req.user.id };
       const status = validateEnumField('status', req.query.status, STATUSES);
       const visibility = validateEnumField('visibility', req.query.visibility, VISIBILITIES);
-      const pageType = validateEnumField('pageType', req.query.pageType, PAGE_TYPES);
+      const pageType = validatePageType(req.query.pageType);
       const invalidEnum = [status, visibility, pageType].find(result => result?.error);
       if (invalidEnum) return res.status(400).json({ error: invalidEnum.error });
       if (status?.value) query.status = status.value;
       else query.status = { $ne: 'archived' };
       if (visibility?.value) query.visibility = visibility.value;
-      if (pageType?.value) query.pageType = pageType.value;
+      if (pageType?.value) query.pageType = pageTypeQueryValue(pageType);
 
       const q = String(req.query.q || '').trim();
       if (q) {
@@ -480,7 +874,8 @@ const buildWikiRouter = ({
         query.$or = [{ title: regex }, { plainText: regex }];
       }
 
-      const pages = await WikiPage.find(query).sort({ updatedAt: -1 }).limit(100).lean();
+      const limit = Math.max(1, Math.min(Number(req.query.limit) || 100, 500));
+      const pages = await WikiPage.find(query).sort({ updatedAt: -1 }).limit(limit).lean();
       res.status(200).json(pages.map(serializeWikiPage));
     } catch (error) {
       console.error('Error listing wiki pages:', error);
@@ -490,7 +885,7 @@ const buildWikiRouter = ({
 
   router.post('/api/wiki/pages', authenticateToken, async (req, res) => {
     try {
-      const pageType = validateEnumField('pageType', req.body?.pageType, PAGE_TYPES);
+      const pageType = validatePageType(req.body?.pageType);
       const sourceScope = validateEnumField('sourceScope', req.body?.sourceScope, SOURCE_SCOPES);
       if (pageType?.error) return res.status(400).json({ error: pageType.error });
       if (sourceScope?.error) return res.status(400).json({ error: sourceScope.error });
@@ -548,7 +943,7 @@ const buildWikiRouter = ({
   router.patch('/api/wiki/pages/:id', authenticateToken, async (req, res) => {
     try {
       const enumChecks = [
-        validateEnumField('pageType', req.body?.pageType, PAGE_TYPES),
+        validatePageType(req.body?.pageType),
         validateEnumField('status', req.body?.status, STATUSES),
         validateEnumField('visibility', req.body?.visibility, VISIBILITIES),
         validateEnumField('sourceScope', req.body?.sourceScope, SOURCE_SCOPES)
@@ -641,6 +1036,7 @@ const buildWikiRouter = ({
       await maintainWikiPage({
         page,
         userId: req.user.id,
+        wikiSchemaContent: await loadWikiSchemaContent(req.user.id),
         models: {
           Article,
           NotebookEntry,
@@ -733,7 +1129,11 @@ const buildWikiRouter = ({
       const page = await findOwnedPage(req);
       if (!page) return res.status(404).json({ error: 'Wiki page not found.' });
 
-      const result = await askWikiPage({ page, question });
+      const result = await askWikiPage({
+        page,
+        question,
+        wikiSchemaContent: await loadWikiSchemaContent(req.user.id)
+      });
 
       page.discussions.push({
         question,
@@ -750,6 +1150,88 @@ const buildWikiRouter = ({
     } catch (error) {
       console.error('Error asking wiki page:', error);
       res.status(500).json({ error: 'Failed to ask wiki page.' });
+    }
+  });
+
+  router.post('/api/wiki/pages/:id/discussions/:discussionId/promote', authenticateToken, async (req, res) => {
+    try {
+      const sourcePage = await findOwnedPage(req);
+      if (!sourcePage) return res.status(404).json({ error: 'Wiki page not found.' });
+
+      const discussion = sourcePage.discussions.id(req.params.discussionId);
+      if (!discussion) return res.status(404).json({ error: 'Discussion not found.' });
+      if (discussion.status === 'failed') {
+        return res.status(400).json({ error: 'Only answered discussions can become wiki pages.' });
+      }
+
+      const title = normalizeTitle(req.body?.title || deriveTitleFromQuestion(discussion.question));
+      const citationIndexes = collectCitationIndexesFromDoc(discussion.answer);
+      (discussion.citationIndexesUsed || []).forEach((index) => {
+        const numeric = Number(index);
+        if (Number.isInteger(numeric) && numeric >= 1) citationIndexes.add(numeric);
+      });
+      const sourceRefs = Array.from(citationIndexes)
+        .sort((a, b) => a - b)
+        .map(index => sourcePage.sourceRefs?.[index - 1])
+        .map(cloneSourceRefForPromotion)
+        .filter(Boolean);
+      const citationIndexMap = new Map(
+        Array.from(citationIndexes)
+          .sort((a, b) => a - b)
+          .map((index, nextIndex) => [index, nextIndex + 1])
+      );
+      const body = buildPromotedDiscussionDoc({ title, discussion, citationIndexMap });
+      const promotedPage = new WikiPage({
+        userId: req.user.id,
+        title,
+        slug: await buildUniqueSlug(req.user.id, title),
+        pageType: 'question',
+        status: 'draft',
+        visibility: 'private',
+        sourceScope: sourceRefs.length > 0 ? 'selected_sources' : 'current_item',
+        createdFrom: {
+          type: 'question',
+          objectId: sourcePage._id,
+          objectIds: [sourcePage._id],
+          text: discussion.question,
+          label: sourcePage.title
+        },
+        body,
+        plainText: extractPlainText(body),
+        sourceRefs
+      });
+
+      await applyAutolinksForPage(promotedPage, req.user.id);
+      refreshPageClaims(promotedPage);
+      await promotedPage.save();
+      await syncPageGraph(promotedPage, req.user.id);
+      await createWikiRevision({
+        WikiRevision,
+        userId: req.user.id,
+        page: promotedPage,
+        reason: 'created',
+        actorType: 'agent',
+        summary: `Created "${promotedPage.title}" from a discussion on "${sourcePage.title}".`
+      });
+      const linkedNeighborPages = await autolinkPagesToTarget({
+        targetPage: promotedPage,
+        userId: req.user.id,
+        sourcePageId: sourcePage._id
+      });
+      trackWikiEvent(req, EVENT_NAMES.WIKI_QA_PROMOTED, {
+        sourcePageId: serializeId(sourcePage._id),
+        promotedPageId: serializeId(promotedPage._id),
+        citationCount: sourceRefs.length,
+        linkedNeighborPageCount: linkedNeighborPages.length
+      });
+      res.status(201).json({
+        page: serializeWikiPage(promotedPage),
+        sourcePage: serializeWikiPage(sourcePage),
+        linkedNeighborPageIds: linkedNeighborPages.map(page => serializeId(page._id)).filter(Boolean)
+      });
+    } catch (error) {
+      console.error('Error promoting wiki discussion:', error);
+      res.status(500).json({ error: 'Failed to create wiki page from discussion.' });
     }
   });
 
@@ -929,6 +1411,265 @@ const buildWikiRouter = ({
     }
   });
 
+  router.post('/api/wiki/ingest', authenticateToken, async (req, res) => {
+    try {
+      if (!WikiSourceEvent) return res.status(503).json({ error: 'Wiki ingest storage is not available.' });
+      const normalized = normalizeIngestSource(req.body?.source);
+      if (normalized.error) return res.status(400).json({ error: normalized.error });
+      const source = normalized.value;
+      const sourceLabel = source.title || source.url || source.text.slice(0, 120) || 'Untitled source';
+      const event = await createWikiSourceEvent({
+        WikiSourceEvent,
+        userId: req.user.id,
+        sourceType: source.sourceType,
+        sourceObjectId: source.objectId,
+        provider: source.rawType === 'url' ? 'url' : (source.rawType === 'text' ? 'paste' : ''),
+        eventType: 'imported',
+        title: sourceLabel,
+        summary: source.summary || source.text || source.url || sourceLabel,
+        text: source.text,
+        url: source.url,
+        metadata: {
+          ingest: true,
+          ingestSourceType: source.rawType
+        }
+      });
+      if (!event) return res.status(400).json({ error: 'Could not create ingest run.' });
+      trackWikiEvent(req, EVENT_NAMES.WIKI_INGEST_SUBMITTED, {
+        sourceEventId: serializeId(event._id),
+        sourceType: source.rawType,
+        hasUrl: Boolean(source.url),
+        hasText: Boolean(source.text)
+      });
+
+      const result = await processWikiSourceEvent({
+        sourceEvent: event,
+        userId: req.user.id,
+        models: wikiModels(),
+        buildUniqueSlug,
+        wikiSchemaContent: await loadWikiSchemaContent(req.user.id)
+      });
+      const run = result.run || await findMaintenanceRunBySourceEvent({ userId: req.user.id, sourceEventId: event._id });
+      const affectedPageCount = Array.isArray((result.event || event).affectedPageIds)
+        ? (result.event || event).affectedPageIds.length
+        : 0;
+      trackWikiEvent(req, affectedPageCount > 0 ? EVENT_NAMES.WIKI_INGEST_COMPLETED : EVENT_NAMES.WIKI_INGEST_NO_MATCH, {
+        sourceEventId: serializeId((result.event || event)._id),
+        sourceType: source.rawType,
+        affectedPageCount,
+        status: (result.event || event).status || '',
+        suggestedCreatePage: Boolean((result.event || event).metadata?.ignoredReason === 'no_matching_wiki_page')
+      });
+      res.status(202).json(serializeIngestRun({ event: result.event || event, run }));
+    } catch (error) {
+      console.error('Error ingesting wiki source:', error);
+      res.status(500).json({ error: 'Failed to ingest wiki source.' });
+    }
+  });
+
+  router.get('/api/wiki/ingest/:runId', authenticateToken, async (req, res) => {
+    try {
+      if (!WikiSourceEvent) return res.status(404).json({ error: 'Wiki ingest run not found.' });
+      if (!mongoose.Types.ObjectId.isValid(String(req.params.runId || ''))) {
+        return res.status(400).json({ error: 'Invalid ingest run id.' });
+      }
+      const event = await WikiSourceEvent.findOne({
+        _id: req.params.runId,
+        userId: req.user.id
+      }).lean();
+      if (!event) return res.status(404).json({ error: 'Wiki ingest run not found.' });
+      const run = await findMaintenanceRunBySourceEvent({ userId: req.user.id, sourceEventId: event._id });
+      const timeline = await buildIngestTimeline({ userId: req.user.id, event, run });
+      res.status(200).json({
+        ...serializeIngestRun({ event, run }),
+        timeline
+      });
+    } catch (error) {
+      console.error('Error reading wiki ingest run:', error);
+      res.status(500).json({ error: 'Failed to read wiki ingest run.' });
+    }
+  });
+
+  router.post('/api/wiki/ingest/:runId/undo', authenticateToken, async (req, res) => {
+    try {
+      if (!WikiSourceEvent || !WikiRevision) {
+        return res.status(503).json({ error: 'Wiki ingest undo is not available.' });
+      }
+      if (!mongoose.Types.ObjectId.isValid(String(req.params.runId || ''))) {
+        return res.status(400).json({ error: 'Invalid ingest run id.' });
+      }
+      const event = await WikiSourceEvent.findOne({ _id: req.params.runId, userId: req.user.id });
+      if (!event) return res.status(404).json({ error: 'Wiki ingest run not found.' });
+      if (event.metadata?.undoneAt) {
+        return res.status(409).json({ error: 'Wiki ingest run has already been undone.' });
+      }
+
+      const revisions = await WikiRevision.find({
+        userId: req.user.id,
+        sourceEventId: event._id
+      }).sort({ createdAt: -1 }).limit(100);
+      const latestByPage = new Map();
+      (Array.isArray(revisions) ? revisions : []).forEach((revision) => {
+        const pageId = serializeId(revision.pageId);
+        if (pageId && !latestByPage.has(pageId)) latestByPage.set(pageId, revision);
+      });
+
+      const restoredPageIds = [];
+      for (const revision of latestByPage.values()) {
+        const page = await WikiPage.findOne({ _id: revision.pageId, userId: req.user.id });
+        if (!page) continue;
+        const beforeUndo = snapshotPage(page);
+        if (revision.before) restorePageSnapshot(page, revision.before);
+        else page.status = 'archived';
+        await page.save();
+        await syncPageGraph(page, req.user.id);
+        await createWikiRevision({
+          WikiRevision,
+          userId: req.user.id,
+          page,
+          before: beforeUndo,
+          reason: 'user_edit',
+          actorType: 'user',
+          sourceEventId: event._id,
+          summary: `Undid ingest changes from "${event.title || event.sourceType}".`
+        });
+        restoredPageIds.push(serializeId(page._id));
+      }
+
+      event.metadata = {
+        ...(event.metadata?.toObject ? event.metadata.toObject() : event.metadata || {}),
+        undoneAt: new Date(),
+        undonePageIds: restoredPageIds
+      };
+      await event.save();
+      const run = await findMaintenanceRunBySourceEvent({ userId: req.user.id, sourceEventId: event._id });
+      res.status(200).json({
+        ...serializeIngestRun({ event, run }),
+        restoredPageIds
+      });
+    } catch (error) {
+      console.error('Error undoing wiki ingest run:', error);
+      res.status(500).json({ error: 'Failed to undo wiki ingest run.' });
+    }
+  });
+
+  router.get('/api/wiki/activity', authenticateToken, async (req, res) => {
+    try {
+      const limit = Math.max(1, Math.min(Number(req.query.limit) || 50, 100));
+      const [sourceEvents, maintenanceRuns, pages] = await Promise.all([
+        WikiSourceEvent
+          ? WikiSourceEvent.find({ userId: req.user.id }).sort({ createdAt: -1 }).limit(limit).lean()
+          : [],
+        WikiMaintenanceRun
+          ? WikiMaintenanceRun.find({ userId: req.user.id }).sort({ createdAt: -1 }).limit(limit).lean()
+          : [],
+        WikiPage.find({ userId: req.user.id, status: { $ne: 'archived' } }).sort({ updatedAt: -1 }).limit(200).lean()
+      ]);
+      const events = sortActivityEvents([
+        ...(Array.isArray(sourceEvents) ? sourceEvents : []).flatMap(event => ([{
+          id: serializeId(event._id),
+          type: event.metadata?.ingest ? 'ingest' : 'source_event',
+          runId: event.metadata?.ingest ? serializeId(event._id) : null,
+          sourceEventId: serializeId(event._id),
+          status: event.status || '',
+          title: event.title || event.url || event.sourceType,
+          summary: event.summary || event.errorMessage || '',
+          affectedPageIds: Array.isArray(event.affectedPageIds) ? event.affectedPageIds.map(serializeId).filter(Boolean) : [],
+          at: event.processedAt || event.updatedAt || event.createdAt
+        }, event.metadata?.undoneAt ? {
+          id: `${serializeId(event._id)}:undo`,
+          type: 'ingest_undo',
+          runId: event.metadata?.ingest ? serializeId(event._id) : null,
+          sourceEventId: serializeId(event._id),
+          status: 'completed',
+          title: `Undid ${event.title || event.url || event.sourceType}`,
+          summary: `${Array.isArray(event.metadata?.undonePageIds) ? event.metadata.undonePageIds.length : 0} page${Array.isArray(event.metadata?.undonePageIds) && event.metadata.undonePageIds.length === 1 ? '' : 's'} restored.`,
+          affectedPageIds: Array.isArray(event.metadata?.undonePageIds) ? event.metadata.undonePageIds.map(serializeId).filter(Boolean) : [],
+          at: event.metadata.undoneAt
+        } : null]).filter(Boolean)),
+        ...(Array.isArray(maintenanceRuns) ? maintenanceRuns : []).map(run => ({
+          id: serializeId(run._id),
+          type: 'maintenance',
+          runId: serializeId(run._id),
+          sourceEventId: serializeId(run.sourceEventId),
+          status: run.status || '',
+          pageId: serializeId(run.pageId),
+          title: 'Wiki maintenance',
+          summary: run.summary || run.errorMessage || '',
+          at: run.completedAt || run.startedAt || run.createdAt
+        })),
+        ...(Array.isArray(pages) ? pages : []).flatMap(page => (
+          Array.isArray(page.discussions) ? page.discussions : []
+        ).map(discussion => ({
+          id: serializeId(discussion._id) || `${page._id}:${discussion.askedAt}`,
+          type: 'ask',
+          pageId: serializeId(page._id),
+          status: discussion.status || 'answered',
+          title: discussion.question || 'Wiki question',
+          summary: discussion.errorMessage || '',
+          at: discussion.askedAt || page.updatedAt
+        })))
+      ]).slice(0, limit);
+      res.status(200).json({ events });
+    } catch (error) {
+      console.error('Error listing wiki activity:', error);
+      res.status(500).json({ error: 'Failed to list wiki activity.' });
+    }
+  });
+
+  router.post('/api/wiki/schema/suggestions', authenticateToken, async (req, res) => {
+    try {
+      const limit = Math.max(5, Math.min(Number(req.body?.limit) || 50, 100));
+      const [sourceEvents, maintenanceRuns, pages] = await Promise.all([
+        WikiSourceEvent
+          ? WikiSourceEvent.find({ userId: req.user.id }).sort({ createdAt: -1 }).limit(limit).lean()
+          : [],
+        WikiMaintenanceRun
+          ? WikiMaintenanceRun.find({ userId: req.user.id }).sort({ createdAt: -1 }).limit(limit).lean()
+          : [],
+        WikiPage.find({ userId: req.user.id, status: { $ne: 'archived' } }).sort({ updatedAt: -1 }).limit(limit).lean()
+      ]);
+      const now = new Date();
+      const result = suggestWikiSchemaUpdates({
+        currentSchema: req.body?.currentSchema,
+        sourceEvents,
+        maintenanceRuns,
+        pages,
+        now
+      });
+      let run = null;
+      if (WikiMaintenanceRun) {
+        run = new WikiMaintenanceRun({
+          userId: req.user.id,
+          status: 'completed',
+          trigger: 'batch',
+          summary: result.summary,
+          startedAt: now,
+          completedAt: now,
+          metadata: {
+            kind: 'schema_suggestions',
+            suggestionCount: result.suggestions.length,
+            currentSchemaLength: result.currentSchema.length,
+            context: result.context
+          }
+        });
+        await run.save();
+      }
+      trackWikiEvent(req, EVENT_NAMES.WIKI_SCHEMA_SUGGESTED, {
+        runId: serializeId(run?._id),
+        suggestionCount: Array.isArray(result.suggestions) ? result.suggestions.length : 0,
+        currentSchemaLength: String(result.currentSchema || '').length
+      });
+      res.status(200).json({
+        runId: serializeId(run?._id),
+        ...result
+      });
+    } catch (error) {
+      console.error('Error suggesting wiki schema updates:', error);
+      res.status(500).json({ error: 'Failed to suggest wiki schema updates.' });
+    }
+  });
+
   router.get('/api/wiki/source-events', authenticateToken, async (req, res) => {
     try {
       const status = String(req.query.status || '').trim();
@@ -954,7 +1695,8 @@ const buildWikiRouter = ({
         userId: req.user.id,
         models: wikiModels(),
         limit: req.body?.limit,
-        buildUniqueSlug
+        buildUniqueSlug,
+        wikiSchemaContent: await loadWikiSchemaContent(req.user.id)
       });
       res.status(200).json({
         processed: results.filter(result => !result.error).length,
@@ -978,7 +1720,8 @@ const buildWikiRouter = ({
         sourceEventId: req.params.sourceEventId,
         userId: req.user.id,
         models: wikiModels(),
-        buildUniqueSlug
+        buildUniqueSlug,
+        wikiSchemaContent: await loadWikiSchemaContent(req.user.id)
       });
       res.status(200).json({
         event: result.event,

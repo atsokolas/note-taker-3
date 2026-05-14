@@ -877,7 +877,7 @@ const createDraftPageFromProposal = async ({ proposal, WikiPage, buildUniqueSlug
     userId: proposal.userId,
     title,
     slug: buildUniqueSlug ? await buildUniqueSlug(proposal.userId, title) : `${proposal.slugCandidate || slugify(title)}-${Date.now()}`,
-    pageType: proposal.proposalType === 'bridge_idea' ? 'synthesis' : 'topic',
+    pageType: proposal.proposalType === 'bridge_idea' ? 'overview' : 'topic',
     status: 'draft',
     visibility: 'private',
     sourceScope: 'selected_sources',

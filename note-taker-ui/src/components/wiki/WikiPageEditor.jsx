@@ -6,10 +6,13 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '../ui';
 import {
   addWikiSource,
+  applyWikiAutolink,
   askWikiPage,
   deleteWikiPage,
   getWikiPage,
+  listWikiAutolinks,
   maintainWikiPage,
+  promoteWikiDiscussion,
   removeWikiDiscussion,
   removeWikiSource,
   updateWikiPage
@@ -33,10 +36,21 @@ import {
   getLastVisitState,
   recordVisit
 } from './wikiVisitTracker';
+import { trackWikiQaPromoted } from '../../utils/wikiAnalytics';
 
 const emptyDoc = { type: 'doc', content: [{ type: 'paragraph' }] };
 
 const normalizeId = (value) => String(value || '').trim();
+
+const docHasWikiLinks = (node) => {
+  if (!node) return false;
+  if (Array.isArray(node)) return node.some(docHasWikiLinks);
+  if (typeof node !== 'object') return false;
+  if (Array.isArray(node.marks) && node.marks.some(mark => mark?.type === 'wikiLink' && mark?.attrs?.pageId)) {
+    return true;
+  }
+  return Array.isArray(node.content) && node.content.some(docHasWikiLinks);
+};
 
 const idsMatch = (a, b) => normalizeId(a) && normalizeId(a) === normalizeId(b);
 
@@ -74,17 +88,19 @@ const claimMatchesSource = ({ claim, source, citations = [] }) => {
   return claimContradictsSource({ claim, source, citations });
 };
 
-const WikiPageEditor = ({ pageId }) => {
+const WikiPageEditor = ({ pageId, onDoneEditing }) => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [page, setPage] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saveStatus, setSaveStatus] = useState('idle');
   const [maintaining, setMaintaining] = useState(false);
+  const [linkifying, setLinkifying] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [sourcePanelOpen, setSourcePanelOpen] = useState(true);
   const [activeSourceIndex, setActiveSourceIndex] = useState(null);
   const [asking, setAsking] = useState(false);
+  const [promotingDiscussionId, setPromotingDiscussionId] = useState('');
   const [error, setError] = useState('');
   // Snapshot from the previous visit, captured on first page load. We hold
   // this in a ref + state so subsequent edits within the visit don't clear
@@ -286,6 +302,31 @@ const WikiPageEditor = ({ pageId }) => {
     }
   };
 
+  const handleLinkify = async () => {
+    setLinkifying(true);
+    setError('');
+    try {
+      const { suggestions = [] } = await listWikiAutolinks(pageId);
+      let updated = latestPageRef.current || page;
+      for (const suggestion of suggestions) {
+        if (!suggestion?.pageId) continue;
+        // Apply sequentially so later links see the body saved by earlier passes.
+        // The backend skips duplicates, so this remains idempotent.
+        // eslint-disable-next-line no-await-in-loop
+        updated = await applyWikiAutolink(pageId, suggestion.pageId);
+      }
+      if (updated) {
+        latestPageRef.current = updated;
+        setPage(updated);
+        if (updated.body) editor?.commands?.setContent(updated.body, false);
+      }
+    } catch (_error) {
+      setError('Failed to linkify Wiki page.');
+    } finally {
+      setLinkifying(false);
+    }
+  };
+
   useEffect(() => {
     if (!page || draftTriggeredRef.current || searchParams.get('draft') !== '1') return;
     draftTriggeredRef.current = true;
@@ -297,6 +338,21 @@ const WikiPageEditor = ({ pageId }) => {
     // handleMaintain intentionally omitted so the URL flag triggers once per page load.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page, searchParams, setSearchParams]);
+
+  useEffect(() => {
+    if (!onDoneEditing) return undefined;
+    const handleKeyDown = (event) => {
+      const target = event.target;
+      const tag = target?.tagName || '';
+      if (['INPUT', 'TEXTAREA', 'SELECT'].includes(tag) || target?.isContentEditable) return;
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        onDoneEditing();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onDoneEditing]);
 
   const handleAddSource = async (source) => {
     setError('');
@@ -340,6 +396,27 @@ const WikiPageEditor = ({ pageId }) => {
       setPage(updated);
     } catch (_error) {
       setError('Failed to remove discussion.');
+    }
+  };
+
+  const handlePromoteDiscussion = async (discussion, title) => {
+    const discussionId = discussion?._id || '';
+    if (!discussionId) return;
+    setPromotingDiscussionId(discussionId);
+    setError('');
+    try {
+      const result = await promoteWikiDiscussion(pageId, discussionId, { title });
+      const createdPage = result?.page || result;
+      trackWikiQaPromoted({
+        sourcePageId: pageId,
+        promotedPageId: createdPage?._id || '',
+        discussionId
+      });
+      if (createdPage?._id) navigate(`/wiki/${createdPage._id}`);
+    } catch (_error) {
+      setError('Failed to create Wiki page from discussion.');
+    } finally {
+      setPromotingDiscussionId('');
     }
   };
 
@@ -447,6 +524,9 @@ const WikiPageEditor = ({ pageId }) => {
     <main className="wiki-page wiki-editor">
       <div className="wiki-editor__topline">
         <Button type="button" variant="secondary" onClick={() => navigate('/wiki')}>Back to Wiki</Button>
+        {onDoneEditing ? (
+          <Button type="button" variant="secondary" onClick={onDoneEditing}>Done editing</Button>
+        ) : null}
         <Button
           type="button"
           variant="secondary"
@@ -455,6 +535,9 @@ const WikiPageEditor = ({ pageId }) => {
           aria-controls="wiki-source-panel"
         >
           {sourcePanelOpen ? 'Hide AI/Sources' : 'Show AI/Sources'}
+        </Button>
+        <Button type="button" variant="secondary" onClick={handleLinkify} disabled={linkifying}>
+          {linkifying ? 'Linkifying...' : 'Linkify'}
         </Button>
         <Button type="button" variant="secondary" onClick={handleDeletePage} disabled={deleting}>
           {deleting ? 'Deleting...' : 'Delete Wiki'}
@@ -494,6 +577,8 @@ const WikiPageEditor = ({ pageId }) => {
           <WikiDiscussions
             discussions={page.discussions || []}
             onRemove={handleRemoveDiscussion}
+            onPromote={handlePromoteDiscussion}
+            promotingId={promotingDiscussionId}
           />
           <WikiAskComposer onAsk={handleAsk} busy={asking} />
           {activeClaim ? (
@@ -527,7 +612,9 @@ const WikiPageEditor = ({ pageId }) => {
               activeSourceIndex={activeSourceIndex}
             />
             <WikiBacklinkPanel pageId={pageId} pageTitle={page.title} />
-            <WikiAutolinkSuggestions pageId={pageId} pageTitle={page.title} />
+            {!docHasWikiLinks(page.body) ? (
+              <WikiAutolinkSuggestions pageId={pageId} pageTitle={page.title} />
+            ) : null}
           </aside>
         ) : null}
       </div>

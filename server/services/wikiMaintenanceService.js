@@ -3,6 +3,9 @@ const {
   alignArticleToPageStructure,
   getWikiPageStructure
 } = require('./wikiPageStructureService');
+const { findAutolinkSuggestions } = require('./wikiAutolinkService');
+const { applyWikiAutolinkToDoc } = require('./wikiAutolinkApplyService');
+const { formatWikiSchemaPromptBlock } = require('./wikiSchemaService');
 
 const DEFAULT_SOURCE_LIMIT = 24;
 const MAX_SOURCE_TEXT = 1800;
@@ -192,6 +195,8 @@ const runFind = async (Model, query = {}, limit = 200) => {
   }
 };
 
+const modelForPage = ({ page, models = {} } = {}) => models.WikiPage || page?.constructor || null;
+
 const sourceObjectId = (value) => {
   const id = asString(value?._id || value?.id || value?.objectId);
   return id || null;
@@ -319,7 +324,7 @@ const selectCandidateSources = ({ page, sources, limit = DEFAULT_SOURCE_LIMIT })
     .map((source, index) => ({ ...source, index: index + 1 }));
 };
 
-const buildPrompt = ({ page, candidates, manualNotes = '' }) => {
+const buildPrompt = ({ page, candidates, manualNotes = '', wikiSchemaContent = '' }) => {
   const structure = getWikiPageStructure(page.pageType || 'topic');
   const sourceBlock = candidates.map(source => (
     `[${source.index}] ${source.type.toUpperCase()}: ${source.title}\n` +
@@ -348,7 +353,7 @@ Creation seed: ${truncate(page.createdFrom?.text || page.createdFrom?.label || '
 Manual notes to preserve when useful: ${manualNotes || 'None detected.'}
 
 Candidate library sources:
-${sourceBlock || 'No library sources were found.'}
+${sourceBlock || 'No library sources were found.'}${formatWikiSchemaPromptBlock(wikiSchemaContent)}
 
 Return strict JSON only:
 {
@@ -429,7 +434,9 @@ const sourceRefFromCandidate = (candidate) => ({
 const dedupeSourceRefs = (existing = [], next = []) => {
   const seen = new Set();
   return [...existing, ...next].filter((source) => {
-    const key = `${source.type}:${source.objectId || ''}:${source.title || ''}:${source.url || ''}`;
+    const key = source.objectId
+      ? `${source.type}:${source.objectId}`
+      : `${source.type}:${source.title || ''}:${source.url || ''}`;
     if (seen.has(key)) return false;
     seen.add(key);
     return Boolean(source.type && (source.objectId || source.title || source.snippet || source.url));
@@ -1038,6 +1045,34 @@ const normalizeModelResult = ({ raw, page, candidates, manualNotes = '' }) => {
   };
 };
 
+const applyKnownWikiLinks = async ({ page, body, plainText, userId, models = {} } = {}) => {
+  const WikiPage = modelForPage({ page, models });
+  if (!WikiPage) return body;
+  const pageId = asString(page?._id || page?.id);
+  const result = await findAutolinkSuggestions({
+    targetPage: {
+      _id: pageId,
+      id: page?.id,
+      title: page?.title,
+      plainText
+    },
+    userId,
+    models: { WikiPage }
+  });
+  return (result.suggestions || [])
+    .filter(suggestion => asString(suggestion.pageId) && asString(suggestion.pageId) !== pageId)
+    .reduce((doc, suggestion) => (
+      applyWikiAutolinkToDoc({
+        doc,
+        targetPage: {
+          _id: suggestion.pageId,
+          id: suggestion.pageId,
+          title: suggestion.title
+        }
+      }).doc
+    ), body);
+};
+
 const maintainWikiPage = async ({
   page,
   userId,
@@ -1045,7 +1080,8 @@ const maintainWikiPage = async ({
   chat = chatComplete,
   isConfigured = isTextGenerationConfigured,
   now = new Date(),
-  trigger = 'manual'
+  trigger = 'manual',
+  wikiSchemaContent = ''
 }) => {
   const allSources = await collectLibrarySources({ userId, models });
   const candidates = selectCandidateSources({ page, sources: allSources });
@@ -1064,11 +1100,11 @@ const maintainWikiPage = async ({
         messages: [
           {
             role: 'system',
-            content: 'You are a Wiki maintenance engine. Rewrite pages directly from supplied sources. Return JSON only.'
+            content: `You are a Wiki maintenance engine. Rewrite pages directly from supplied sources. Return JSON only.${formatWikiSchemaPromptBlock(wikiSchemaContent)}`
           },
           {
             role: 'user',
-            content: buildPrompt({ page, candidates, manualNotes })
+            content: buildPrompt({ page, candidates, manualNotes, wikiSchemaContent })
           }
         ]
       });
@@ -1094,11 +1130,12 @@ const maintainWikiPage = async ({
     title: normalized.title || page.title,
     article: normalized.article
   });
+  const plainText = toPlainText(body);
 
   page.title = normalized.title || page.title;
   page.sourceScope = 'entire_library';
   page.body = body;
-  page.plainText = toPlainText(body);
+  page.plainText = plainText;
   page.sourceRefs = mergedSourceRefs;
   const persistedSourceRefs = page.sourceRefs?.toObject
     ? page.sourceRefs.toObject()
@@ -1119,6 +1156,13 @@ const maintainWikiPage = async ({
     sourceRefs: persistedSourceRefs,
     previousClaims,
     now
+  });
+  page.body = await applyKnownWikiLinks({
+    page,
+    body,
+    plainText,
+    userId,
+    models
   });
   const sectionMaintenance = buildSectionMaintenancePlan({
     claims: page.claims,
@@ -1180,6 +1224,8 @@ module.exports = {
     normalizeClaimIdentity,
     normalizeSourceIndexesUsed,
     normalizeHealth,
+    applyKnownWikiLinks,
+    buildPrompt,
     cleanWikiText,
     toPlainText
   }

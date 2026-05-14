@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 
 /**
  * renderTiptapDoc — minimal read-only renderer that walks a TipTap JSON
@@ -32,6 +33,52 @@ const claimAttrs = (mark) => {
 
 const citationText = (indexes = []) => `[${indexes.join(',')}]`;
 
+const plainText = (node) => {
+  if (!node) return '';
+  if (typeof node === 'string') return node;
+  if (Array.isArray(node)) return node.map(plainText).join('');
+  if (typeof node !== 'object') return '';
+  return [node.text || '', plainText(node.content)].join('');
+};
+
+const slugifyHeading = (value = '') => {
+  const slug = String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+  return slug || 'section';
+};
+
+export const extractTocItems = (doc) => {
+  if (!doc || typeof doc !== 'object' || !Array.isArray(doc.content)) return [];
+  const seen = new Map();
+  return doc.content
+    .map((node, blockIndex) => {
+      if (node?.type !== 'heading') return null;
+      const level = Math.max(1, Math.min(6, Number(node.attrs?.level) || 2));
+      if (level !== 2 && level !== 3) return null;
+      const title = plainText(node.content).trim();
+      if (!title) return null;
+      const base = slugifyHeading(title);
+      const count = seen.get(base) || 0;
+      seen.set(base, count + 1);
+      return {
+        id: count ? `${base}-${count + 1}` : base,
+        title,
+        level,
+        blockIndex
+      };
+    })
+    .filter(Boolean);
+};
+
+export const firstParagraphText = (doc) => {
+  if (!doc || typeof doc !== 'object' || !Array.isArray(doc.content)) return '';
+  const paragraph = doc.content.find(node => node?.type === 'paragraph' && plainText(node.content).trim());
+  return paragraph ? plainText(paragraph.content).replace(/\s+/g, ' ').trim() : '';
+};
+
 const renderTextNode = (node, key) => {
   const text = node?.text || '';
   if (!text) return null;
@@ -39,15 +86,15 @@ const renderTextNode = (node, key) => {
     ? node.marks.find(mark => mark?.type === 'wikiLink')
     : null;
   const wikiLinkedText = wikiLinkMark?.attrs?.pageId ? (
-    <a
+    <Link
       key={`${key}-wiki-link`}
       className="wiki-internal-link"
-      href={`/wiki/${wikiLinkMark.attrs.pageId}`}
+      to={`/wiki/${wikiLinkMark.attrs.pageId}`}
       data-wiki-page-id={wikiLinkMark.attrs.pageId}
       data-wiki-title={wikiLinkMark.attrs.title || ''}
     >
       {text}
-    </a>
+    </Link>
   ) : text;
   const claimMark = Array.isArray(node.marks)
     ? node.marks.find(mark => mark?.type === 'claim')
@@ -89,7 +136,7 @@ const renderInline = (content = []) => content
   })
   .filter(Boolean);
 
-const renderBlock = (node, key) => {
+const renderBlock = (node, key, options = {}) => {
   if (!node || typeof node !== 'object') return null;
   switch (node.type) {
     case 'paragraph':
@@ -97,24 +144,25 @@ const renderBlock = (node, key) => {
     case 'heading': {
       const level = Math.max(1, Math.min(6, node.attrs?.level || 2));
       const HeadingTag = `h${level}`;
-      return <HeadingTag key={key}>{renderInline(node.content)}</HeadingTag>;
+      const tocItem = options.tocByBlockIndex?.get?.(key);
+      return <HeadingTag key={key} id={tocItem?.id}>{renderInline(node.content)}</HeadingTag>;
     }
     case 'bulletList':
       return (
         <ul key={key}>
-          {(node.content || []).map((item, index) => renderBlock(item, index))}
+          {(node.content || []).map((item, index) => renderBlock(item, index, options))}
         </ul>
       );
     case 'orderedList':
       return (
         <ol key={key}>
-          {(node.content || []).map((item, index) => renderBlock(item, index))}
+          {(node.content || []).map((item, index) => renderBlock(item, index, options))}
         </ol>
       );
     case 'listItem':
       return (
         <li key={key}>
-          {(node.content || []).map((child, index) => renderBlock(child, index))}
+          {(node.content || []).map((child, index) => renderBlock(child, index, options))}
         </li>
       );
     default:
@@ -122,9 +170,11 @@ const renderBlock = (node, key) => {
   }
 };
 
-const renderTiptapDoc = (doc) => {
+const renderTiptapDoc = (doc, options = {}) => {
   if (!doc || typeof doc !== 'object' || !Array.isArray(doc.content)) return null;
-  return doc.content.map((block, index) => renderBlock(block, index)).filter(Boolean);
+  const tocItems = Array.isArray(options.tocItems) ? options.tocItems : [];
+  const tocByBlockIndex = new Map(tocItems.map(item => [item.blockIndex, item]));
+  return doc.content.map((block, index) => renderBlock(block, index, { ...options, tocByBlockIndex })).filter(Boolean);
 };
 
 export default renderTiptapDoc;

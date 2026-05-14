@@ -1,6 +1,6 @@
 const { askWikiPage, __testables } = require('./wikiAskService');
 
-const { buildSourceList, normalizeAnswerSchema, buildFallbackAnswer, docFromAnswer } = __testables;
+const { buildSourceList, buildSystemPrompt, normalizeAnswerSchema, buildFallbackAnswer, docFromAnswer } = __testables;
 
 const buildPage = (overrides = {}) => ({
   title: 'Compounding interest',
@@ -41,6 +41,19 @@ describe('wikiAskService', () => {
 
     it('falls back to "Untitled source" when title is missing', () => {
       expect(buildSourceList([{ snippet: 'x' }])[0].title).toBe('Untitled source');
+    });
+  });
+
+  describe('buildSystemPrompt', () => {
+    it('appends the wiki schema conventions to ask prompts', () => {
+      const prompt = buildSystemPrompt({
+        page: buildPage(),
+        sources: buildSourceList(buildPage().sourceRefs),
+        question: 'What matters?',
+        wikiSchemaContent: '## Voice and tone\n- Prefer durable reference prose.'
+      });
+      expect(prompt).toContain('User wiki schema conventions');
+      expect(prompt).toContain('Prefer durable reference prose.');
     });
   });
 

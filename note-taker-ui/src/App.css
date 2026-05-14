@@ -1594,6 +1594,22 @@ body.noeis-editorial .product-feedback-modal .feedback-field textarea::placehold
     color: var(--primary-color);
 }
 
+.settings-wiki-schema-editor {
+    min-height: 260px;
+    resize: vertical;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--input-background, transparent);
+    color: var(--text-color);
+    padding: 12px;
+    font: 0.94rem/1.55 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+}
+
+.settings-wiki-schema-editor:focus {
+    outline: 2px solid var(--primary-color-light);
+    border-color: var(--primary-color);
+}
+
 .settings-accent-button {
     min-width: 104px;
     justify-content: center;

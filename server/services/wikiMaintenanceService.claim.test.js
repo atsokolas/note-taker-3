@@ -3,6 +3,7 @@ const { __testables } = require('./wikiMaintenanceService');
 const {
   attachClaimCitationIds,
   buildSectionMaintenancePlan,
+  buildPrompt,
   collectClaimsFromDoc,
   deriveClaimsFromDoc,
   docFromArticle,
@@ -42,7 +43,44 @@ const headings = (doc) => {
   return out;
 };
 
+const findWikiLinkMarks = (doc) => {
+  const marks = [];
+  const visit = (node) => {
+    if (!node) return;
+    if (Array.isArray(node)) return node.forEach(visit);
+    if (typeof node !== 'object') return;
+    if (Array.isArray(node.marks)) {
+      node.marks
+        .filter(mark => mark?.type === 'wikiLink')
+        .forEach(mark => marks.push({ text: node.text, attrs: mark.attrs }));
+    }
+    if (Array.isArray(node.content)) node.content.forEach(visit);
+  };
+  visit(doc);
+  return marks;
+};
+
+const fakeFindModel = (records = []) => ({
+  find: () => ({
+    sort: () => ({
+      limit: () => ({
+        lean: () => Promise.resolve(records)
+      })
+    })
+  })
+});
+
 describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
+  it('appends the wiki schema conventions to maintenance prompts', () => {
+    const prompt = buildPrompt({
+      page: { title: 'AI Memory', pageType: 'topic', body: {}, sourceRefs: [] },
+      candidates: [],
+      wikiSchemaContent: '## Ingest workflow\n- Update related pages first.'
+    });
+    expect(prompt).toContain('User wiki schema conventions');
+    expect(prompt).toContain('Update related pages first.');
+  });
+
   it('wraps article summary text in a claim mark with citation indexes', () => {
     const doc = docFromArticle({
       title: 'Compounding interest',
@@ -458,5 +496,67 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
       averageConfidence: 0.5
     });
     expect(core.actions.map(action => action.type)).toContain('missingCitations');
+  });
+
+  it('resolves known page title occurrences into wikiLink marks after maintenance drafts the body', async () => {
+    const page = {
+      _id: 'page-main',
+      title: 'Investment Notes',
+      pageType: 'topic',
+      plainText: '',
+      body: { type: 'doc', content: [] },
+      sourceRefs: [],
+      claims: [],
+      aiState: {}
+    };
+
+    const chat = jest.fn().mockResolvedValue({
+      model: 'test-model',
+      provider: 'test-provider',
+      text: JSON.stringify({
+        title: 'Investment Notes',
+        article: {
+          summary: {
+            text: 'Compounding interest rewards patience over long horizons.',
+            citationIndexes: [1]
+          },
+          sections: []
+        },
+        maintenance: {
+          summary: 'Drafted page.',
+          changelog: [],
+          health: {}
+        },
+        sourceIndexesUsed: [1]
+      })
+    });
+
+    const { maintainWikiPage } = require('./wikiMaintenanceService');
+    await maintainWikiPage({
+      page,
+      userId: 'user-1',
+      chat,
+      isConfigured: () => true,
+      models: {
+        Article: fakeFindModel([{ _id: 'article-1', title: 'Evidence', content: 'Evidence about investing.' }]),
+        NotebookEntry: fakeFindModel([]),
+        TagMeta: fakeFindModel([]),
+        Question: fakeFindModel([]),
+        WikiPage: fakeFindModel([
+          { _id: 'page-main', title: 'Investment Notes', status: 'draft' },
+          { _id: 'page-target', title: 'Compounding interest', status: 'draft' }
+        ])
+      }
+    });
+
+    const links = findWikiLinkMarks(page.body);
+    expect(links).toHaveLength(1);
+    expect(links[0]).toMatchObject({
+      text: 'Compounding interest',
+      attrs: {
+        pageId: 'page-target',
+        title: 'Compounding interest'
+      }
+    });
   });
 });

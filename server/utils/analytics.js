@@ -37,7 +37,15 @@ const EVENT_NAMES = Object.freeze({
   AGENT_ARTIFACT_DRAFT_PROMOTED: 'agent_artifact_draft_promoted',
   AGENT_ARTIFACT_DRAFT_DISMISSED: 'agent_artifact_draft_dismissed',
   AGENT_RUN_APPROVAL_APPROVED: 'agent_run_approval_approved',
-  AGENT_RUN_APPROVAL_REJECTED: 'agent_run_approval_rejected'
+  AGENT_RUN_APPROVAL_REJECTED: 'agent_run_approval_rejected',
+  WIKI_READ_MODE_PAGE_VIEW: 'wiki_read_mode_page_view',
+  WIKI_EDIT_MODE_ENTERED: 'wiki_edit_mode_entered',
+  WIKI_INGEST_SUBMITTED: 'wiki_ingest_submitted',
+  WIKI_INGEST_COMPLETED: 'wiki_ingest_completed',
+  WIKI_INGEST_NO_MATCH: 'wiki_ingest_no_match',
+  WIKI_QA_PROMOTED: 'wiki_qa_promoted',
+  WIKI_SCHEMA_SAVED: 'wiki_schema_saved',
+  WIKI_SCHEMA_SUGGESTED: 'wiki_schema_suggested'
 });
 
 const VALID_EVENT_NAMES = new Set(Object.values(EVENT_NAMES));

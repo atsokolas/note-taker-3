@@ -91,6 +91,7 @@ const {
   BoardEdge,
   WorkingMemoryItem,
   UiSettings,
+  WikiSchemaSettings,
   TourState,
   ReturnQueueEntry,
   Connection,
@@ -4345,6 +4346,7 @@ app.use(buildWikiRouter({
   WikiRevision,
   WikiSourceEvent,
   WikiMaintenanceRun,
+  WikiSchemaSettings,
   Connection,
   ConnectorActionLog,
   IntegrationConnection,
@@ -4355,7 +4357,9 @@ app.use(buildWikiRouter({
   createNotionPage: notionClientForAgent.createNotionPage,
   appendNotionBlockChildren: notionClientForAgent.appendNotionBlockChildren,
   updateNotionPageTitle: notionClientForAgent.updateNotionPageTitle,
-  decryptSecret: decryptIntegrationSecretForAgent
+  decryptSecret: decryptIntegrationSecretForAgent,
+  trackEvent,
+  EVENT_NAMES
 }));
 
 app.use(buildWorkingMemoryRouter({

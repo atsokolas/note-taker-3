@@ -53,6 +53,7 @@ const ReviewMode = lazy(() => import('./pages/ReviewMode'));
 const ReturnQueue = lazy(() => import('./pages/ReturnQueue'));
 const Settings = lazy(() => import('./pages/Settings'));
 const Wiki = lazy(() => import('./pages/Wiki'));
+const WikiIngestRun = lazy(() => import('./pages/WikiIngestRun'));
 const HowToUse = lazy(() => import('./pages/HowToUse'));
 const Integrations = lazy(() => import('./pages/Integrations'));
 const DataIntegrations = lazy(() => import('./pages/DataIntegrations'));
@@ -473,6 +474,8 @@ function App() {
             <Route path="/return-queue" element={<ReturnQueue />} />
             <Route path="/review" element={<ReviewMode />} />
             <Route path="/wiki" element={<Wiki />} />
+            <Route path="/wiki/list" element={<Wiki />} />
+            <Route path="/wiki/activity/:runId" element={<WikiIngestRun />} />
             <Route path="/wiki/:id" element={<Wiki />} />
             <Route
               path="/settings"

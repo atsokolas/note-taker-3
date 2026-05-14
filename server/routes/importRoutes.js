@@ -41,7 +41,7 @@ const {
   searchNotionItems,
   searchNotionPreviewItems
 } = require('../services/import/notionClient');
-const { createWikiSourceEvent } = require('../services/wikiSourceEventService');
+const { createConnectorWikiSourceEvent } = require('../services/wikiSourceEventService');
 const { processWikiSourceEvent: defaultProcessWikiSourceEvent } = require('../services/wikiMaintenanceOrchestrator');
 
 const toTrimmedString = (value = '') => String(value || '').trim();
@@ -90,18 +90,26 @@ const buildImportRouter = ({
 
   const emitWikiSourceEvent = async (payload = {}) => {
     try {
-      const event = await createWikiSourceEvent({
+      const event = await createConnectorWikiSourceEvent({
         WikiSourceEvent,
         userId: payload.userId,
-        sourceType: payload.sourceType,
+        provider: payload.provider,
+        payload: {
+          sourceType: payload.sourceType,
+          eventType: payload.eventType || 'imported',
+          title: payload.title,
+          summary: payload.summary,
+          text: payload.text,
+          url: payload.url,
+          sourceUpdatedAt: payload.sourceUpdatedAt,
+          importSessionId: payload.importSessionId,
+          externalId: payload.externalId,
+          affectedPageIds: payload.affectedPageIds
+        },
         sourceObjectId: payload.sourceObjectId,
         parentObjectId: payload.parentObjectId,
-        provider: payload.provider,
-        eventType: payload.eventType || 'imported',
-        title: payload.title,
-        summary: payload.summary,
-        url: payload.url,
-        sourceUpdatedAt: payload.sourceUpdatedAt,
+        importSessionId: payload.importSessionId,
+        affectedPageIds: payload.affectedPageIds,
         metadata: payload.metadata
       });
       if (event && WikiPage) {

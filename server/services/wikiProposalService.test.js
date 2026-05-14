@@ -410,7 +410,7 @@ const run = async () => {
 
     assert.strictEqual(page.title, 'AI Tutors and Motivation');
     assert.strictEqual(page.status, 'draft');
-    assert.strictEqual(page.pageType, 'synthesis');
+    assert.strictEqual(page.pageType, 'overview');
     assert.strictEqual(page.createdFrom.type, 'sources');
     assert.strictEqual(page.aiState.draftStatus, 'maintaining');
     assert.ok(page.plainText.includes('Current Understanding'));

@@ -71,6 +71,15 @@ export const removeWikiDiscussion = async (id, discussionId) => {
   return res.data;
 };
 
+export const promoteWikiDiscussion = async (id, discussionId, payload = {}) => {
+  const res = await api.post(
+    `${WIKI_PAGES_PATH}/${safeId(id)}/discussions/${safeId(discussionId)}/promote`,
+    payload,
+    getAuthHeaders()
+  );
+  return res.data;
+};
+
 export const getWikiBacklinks = async (id) => {
   const res = await api.get(`${WIKI_PAGES_PATH}/${safeId(id)}/backlinks`, getAuthHeaders());
   return res.data;
@@ -127,6 +136,48 @@ export const listWikiSourceEvents = async (params = {}) => {
   if (Array.isArray(res.data)) return res.data;
   if (Array.isArray(res.data?.events)) return res.data.events;
   return [];
+};
+
+export const ingestWikiSource = async (source = {}) => {
+  const res = await api.post('/api/wiki/ingest', { source }, getAuthHeaders());
+  return res.data || {};
+};
+
+export const getWikiIngestRun = async (runId) => {
+  const res = await api.get(`/api/wiki/ingest/${safeId(runId)}`, getAuthHeaders());
+  return res.data || {};
+};
+
+export const undoWikiIngestRun = async (runId) => {
+  const res = await api.post(`/api/wiki/ingest/${safeId(runId)}/undo`, {}, getAuthHeaders());
+  return res.data || {};
+};
+
+export const getWikiSchema = async () => {
+  const res = await api.get('/api/wiki/schema', getAuthHeaders());
+  return res.data || {};
+};
+
+export const saveWikiSchema = async (content = '') => {
+  const res = await api.put('/api/wiki/schema', { content }, getAuthHeaders());
+  return res.data || {};
+};
+
+export const revertWikiSchema = async (snapshotId) => {
+  const res = await api.post('/api/wiki/schema/revert', { snapshotId }, getAuthHeaders());
+  return res.data || {};
+};
+
+export const listWikiActivity = async (params = {}) => {
+  const res = await api.get(`/api/wiki/activity${buildQueryString(params)}`, getAuthHeaders());
+  if (Array.isArray(res.data)) return res.data;
+  if (Array.isArray(res.data?.events)) return res.data.events;
+  return [];
+};
+
+export const suggestWikiSchemaUpdates = async ({ currentSchema = '', limit } = {}) => {
+  const res = await api.post('/api/wiki/schema/suggestions', { currentSchema, limit }, getAuthHeaders());
+  return res.data || {};
 };
 
 export const processWikiSourceEvent = async (sourceEventId) => {
@@ -194,6 +245,7 @@ const wikiApi = {
   removeWikiSource,
   askWikiPage,
   removeWikiDiscussion,
+  promoteWikiDiscussion,
   getWikiBacklinks,
   getWikiAutolinkSuggestions,
   getWikiBriefing,
@@ -203,6 +255,14 @@ const wikiApi = {
   watchWikiProposal,
   dismissWikiProposal,
   mergeWikiProposal,
+  ingestWikiSource,
+  getWikiIngestRun,
+  undoWikiIngestRun,
+  getWikiSchema,
+  saveWikiSchema,
+  revertWikiSchema,
+  listWikiActivity,
+  suggestWikiSchemaUpdates,
   listWikiSourceEvents,
   processWikiSourceEvent,
   processPendingWikiSourceEvents,

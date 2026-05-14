@@ -2,7 +2,7 @@ import React from 'react';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import WikiPageEditor from './WikiPageEditor';
-import { addWikiSource, applyWikiAutolink, deleteWikiPage, getWikiAutolinkSuggestions, getWikiBacklinks, getWikiPage, listWikiAutolinks, listWikiConnectorActions, listWikiRevisions, maintainWikiPage, rebuildWikiPageGraph, removeWikiSource, reviewWikiFreshness, updateWikiPage } from '../../api/wiki';
+import { addWikiSource, applyWikiAutolink, deleteWikiPage, getWikiAutolinkSuggestions, getWikiBacklinks, getWikiPage, listWikiAutolinks, listWikiConnectorActions, listWikiRevisions, maintainWikiPage, promoteWikiDiscussion, rebuildWikiPageGraph, removeWikiSource, reviewWikiFreshness, updateWikiPage } from '../../api/wiki';
 import { fetchGraphData } from '../../api/map';
 
 const mockUseEditor = jest.fn();
@@ -43,6 +43,7 @@ jest.mock('../../api/wiki', () => ({
   listWikiConnectorActions: jest.fn(),
   listWikiRevisions: jest.fn(),
   maintainWikiPage: jest.fn(),
+  promoteWikiDiscussion: jest.fn(),
   rebuildWikiPageGraph: jest.fn(),
   removeWikiDiscussion: jest.fn(),
   removeWikiSource: jest.fn(),
@@ -213,6 +214,22 @@ describe('WikiPageEditor', () => {
     expect(screen.getByDisplayValue('Entire library')).toBeInTheDocument();
   });
 
+  it('exits edit mode from the Done editing button or Escape key when a read shell owns mode', async () => {
+    const onDoneEditing = jest.fn();
+    render(
+      <MemoryRouter>
+        <WikiPageEditor pageId="wiki-1" onDoneEditing={onDoneEditing} />
+      </MemoryRouter>
+    );
+
+    await screen.findByDisplayValue('Enterprise AI Memory');
+    fireEvent.click(screen.getByRole('button', { name: 'Done editing' }));
+    expect(onDoneEditing).toHaveBeenCalledTimes(1);
+
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(onDoneEditing).toHaveBeenCalledTimes(2);
+  });
+
   it('saves metadata changes', async () => {
     render(
       <MemoryRouter>
@@ -247,6 +264,80 @@ describe('WikiPageEditor', () => {
     });
     expect(await screen.findByText('Rebuilt from 3 relevant sources.')).toBeInTheDocument();
     expect(screen.getByText(/New article affects this page/)).toBeInTheDocument();
+  });
+
+  it('runs linkify across current autolink suggestions from edit mode', async () => {
+    listWikiAutolinks.mockResolvedValueOnce({ scanned: 4, suggestions: [] });
+    listWikiAutolinks.mockResolvedValueOnce({
+      scanned: 4,
+      suggestions: [
+        { pageId: 'wiki-a', title: 'First concept', mentionCount: 1 },
+        { pageId: 'wiki-b', title: 'Second concept', mentionCount: 1 }
+      ]
+    });
+    applyWikiAutolink
+      .mockResolvedValueOnce({
+        ...page,
+        body: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'First concept' }] }] }
+      })
+      .mockResolvedValueOnce({
+        ...page,
+        body: {
+          type: 'doc',
+          content: [{
+            type: 'paragraph',
+            content: [{
+              type: 'text',
+              text: 'Second concept',
+              marks: [{ type: 'wikiLink', attrs: { pageId: 'wiki-b', title: 'Second concept' } }]
+            }]
+          }]
+        }
+      });
+
+    render(
+      <MemoryRouter>
+        <WikiPageEditor pageId="wiki-1" />
+      </MemoryRouter>
+    );
+
+    await screen.findByDisplayValue('Enterprise AI Memory');
+    fireEvent.click(screen.getByRole('button', { name: 'Linkify' }));
+
+    await waitFor(() => {
+      expect(applyWikiAutolink).toHaveBeenCalledWith('wiki-1', 'wiki-a');
+      expect(applyWikiAutolink).toHaveBeenCalledWith('wiki-1', 'wiki-b');
+      expect(mockEditor.commands.setContent).toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'doc' }),
+        false
+      );
+    });
+  });
+
+  it('hides the fallback linkable-pages rail when inline wiki links already exist', async () => {
+    getWikiPage.mockResolvedValueOnce({
+      ...page,
+      body: {
+        type: 'doc',
+        content: [{
+          type: 'paragraph',
+          content: [{
+            type: 'text',
+            text: 'Compounding interest',
+            marks: [{ type: 'wikiLink', attrs: { pageId: 'wiki-related', title: 'Compounding interest' } }]
+          }]
+        }]
+      }
+    });
+
+    render(
+      <MemoryRouter>
+        <WikiPageEditor pageId="wiki-1" />
+      </MemoryRouter>
+    );
+
+    await screen.findByDisplayValue('Enterprise AI Memory');
+    expect(screen.queryByTestId('wiki-autolinks')).not.toBeInTheDocument();
   });
 
   it('adds and removes sources while showing applied updates', async () => {

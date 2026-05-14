@@ -2,6 +2,7 @@ const { maintainWikiPage } = require('./wikiMaintenanceService');
 const { createWikiRevision, snapshotPage } = require('./wikiRevisionService');
 const { createProposalFromSourceEvent } = require('./wikiProposalService');
 const { syncWikiPageGraphConnections } = require('./wikiGraphConnectionService');
+const { getWikiSchemaPromptContent } = require('./wikiSchemaService');
 
 const escapeRegExp = (value = '') => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
@@ -117,7 +118,9 @@ const processWikiSourceEvent = async ({
   sourceEvent = null,
   userId,
   models = {},
-  buildUniqueSlug = null
+  buildUniqueSlug = null,
+  maintainWikiPageFn = maintainWikiPage,
+  wikiSchemaContent = ''
 } = {}) => {
   const {
     WikiSourceEvent,
@@ -129,7 +132,8 @@ const processWikiSourceEvent = async ({
     Article,
     NotebookEntry,
     TagMeta,
-    Question
+    Question,
+    WikiSchemaSettings
   } = models;
   if (!WikiSourceEvent || !WikiPage) throw new Error('Wiki source event processing requires WikiSourceEvent and WikiPage models.');
 
@@ -143,6 +147,10 @@ const processWikiSourceEvent = async ({
   event.status = 'processing';
   event.errorMessage = '';
   await event.save();
+  const effectiveWikiSchemaContent = wikiSchemaContent || await getWikiSchemaPromptContent({
+    WikiSchemaSettings,
+    userId: event.userId
+  });
 
   const run = WikiMaintenanceRun ? new WikiMaintenanceRun({
     userId: event.userId,
@@ -187,11 +195,12 @@ const processWikiSourceEvent = async ({
         lastSourceEventAt: event.createdAt || new Date(),
         pendingSourceEventIds: [event._id]
       };
-      await maintainWikiPage({
+      await maintainWikiPageFn({
         page,
         userId: event.userId,
         models: { Article, NotebookEntry, TagMeta, Question },
-        trigger: 'source_event'
+        trigger: 'source_event',
+        wikiSchemaContent: effectiveWikiSchemaContent
       });
       page.freshness = {
         ...(page.freshness?.toObject ? page.freshness.toObject() : page.freshness || {}),
@@ -250,13 +259,13 @@ const processWikiSourceEvent = async ({
   }
 };
 
-const processPendingWikiSourceEvents = async ({ userId, models = {}, limit = 5, buildUniqueSlug = null } = {}) => {
+const processPendingWikiSourceEvents = async ({ userId, models = {}, limit = 5, buildUniqueSlug = null, wikiSchemaContent = '' } = {}) => {
   const { WikiSourceEvent } = models;
   if (!WikiSourceEvent || !userId) return [];
   const events = await WikiSourceEvent.find({ userId, status: 'pending' }).sort({ createdAt: 1 }).limit(limit);
   const results = [];
   for (const event of Array.isArray(events) ? events : []) {
-    results.push(await processWikiSourceEvent({ sourceEvent: event, userId, models, buildUniqueSlug }));
+    results.push(await processWikiSourceEvent({ sourceEvent: event, userId, models, buildUniqueSlug, wikiSchemaContent }));
   }
   return results;
 };

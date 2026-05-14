@@ -31,7 +31,7 @@
 const DEFAULT_LIMIT = 25;
 const PROVIDER = 'notion';
 const NOTION_TAG = 'notion';
-const { createWikiSourceEvent } = require('../wikiSourceEventService');
+const { createConnectorWikiSourceEvent } = require('../wikiSourceEventService');
 const { processWikiSourceEvent } = require('../wikiMaintenanceOrchestrator');
 
 const trimString = (value) => String(value || '').trim();
@@ -124,16 +124,20 @@ const upsertNotebookEntryFromNotion = async ({
       importedAt: existing.importMeta?.importedAt || payload.importMeta.importedAt
     };
     await existing.save();
-    const event = await createWikiSourceEvent({
+    const event = await createConnectorWikiSourceEvent({
       WikiSourceEvent,
       userId,
-      sourceType: 'notebook',
       sourceObjectId: existing._id,
       provider: PROVIDER,
-      eventType: 'updated',
-      title: existing.title,
-      summary: existing.content,
-      sourceUpdatedAt: existing.updatedAt || new Date(),
+      payload: {
+        sourceType: 'page',
+        eventType: 'updated',
+        title: existing.title,
+        content: existing.content,
+        url: existing.importMeta?.sourcePath || '',
+        sourceUpdatedAt: existing.updatedAt || new Date(),
+        externalId: existing.importMeta?.externalId || ''
+      },
       metadata: { source: 'agent-notion-fetch', importMeta: existing.importMeta }
     });
     if (event && wikiModels?.WikiPage) {
@@ -155,16 +159,20 @@ const upsertNotebookEntryFromNotion = async ({
     importMeta: payload.importMeta
   });
   await entry.save();
-  const event = await createWikiSourceEvent({
+  const event = await createConnectorWikiSourceEvent({
     WikiSourceEvent,
     userId,
-    sourceType: 'notebook',
     sourceObjectId: entry._id,
     provider: PROVIDER,
-    eventType: 'imported',
-    title: entry.title,
-    summary: entry.content,
-    sourceUpdatedAt: entry.updatedAt || new Date(),
+    payload: {
+      sourceType: 'page',
+      eventType: 'imported',
+      title: entry.title,
+      content: entry.content,
+      url: entry.importMeta?.sourcePath || '',
+      sourceUpdatedAt: entry.updatedAt || new Date(),
+      externalId: entry.importMeta?.externalId || ''
+    },
     metadata: { source: 'agent-notion-fetch', importMeta: entry.importMeta }
   });
   if (event && wikiModels?.WikiPage) {

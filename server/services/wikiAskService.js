@@ -1,4 +1,5 @@
 const { chatComplete, isTextGenerationConfigured } = require('../ai/hfTextClient');
+const { formatWikiSchemaPromptBlock } = require('./wikiSchemaService');
 
 /**
  * wikiAskService — answers a user's question about a single wiki page using
@@ -70,7 +71,7 @@ const buildSourceList = (sourceRefs = []) => {
   }));
 };
 
-const buildSystemPrompt = ({ page, sources, question }) => {
+const buildSystemPrompt = ({ page, sources, question, wikiSchemaContent = '' }) => {
   const sourceLines = sources
     .map(source => `[${source.index}] ${source.type.toUpperCase()} — ${source.title}\n${source.snippet || '(no snippet)'}${source.url ? `\n(${source.url})` : ''}`)
     .join('\n\n');
@@ -88,7 +89,7 @@ ${sourceLines || '(no attached sources)'}
 The reader's question:
 """
 ${truncate(question, MAX_QUESTION)}
-"""
+"""${formatWikiSchemaPromptBlock(wikiSchemaContent)}
 
 Respond with a JSON object only. Schema:
 {
@@ -182,7 +183,7 @@ const docFromAnswer = (answer) => ({
  * @param {object} [params.aiClient]   Optional override for the chat client (used in tests).
  * @returns {Promise<{answer:object,citationIndexesUsed:number[],model:string,status:'answered'|'failed',errorMessage:string}>}
  */
-const askWikiPage = async ({ page, question, aiClient } = {}) => {
+const askWikiPage = async ({ page, question, aiClient, wikiSchemaContent = '' } = {}) => {
   const trimmed = truncate(question, MAX_QUESTION);
   if (!trimmed) {
     return {
@@ -209,7 +210,7 @@ const askWikiPage = async ({ page, question, aiClient } = {}) => {
     };
   }
 
-  const systemPrompt = buildSystemPrompt({ page, sources, question: trimmed });
+  const systemPrompt = buildSystemPrompt({ page, sources, question: trimmed, wikiSchemaContent });
   let completion = null;
   try {
     completion = await chatClient({

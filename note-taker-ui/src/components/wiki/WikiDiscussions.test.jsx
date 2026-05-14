@@ -69,6 +69,28 @@ describe('WikiDiscussions', () => {
     expect(onRemove).toHaveBeenCalledWith('d1');
   });
 
+  it('confirms a title before promoting an answer to a wiki page', () => {
+    const onPromote = jest.fn();
+    const discussion = buildDiscussion({ question: 'What changed after the ingest?' });
+    render(<WikiDiscussions discussions={[discussion]} onPromote={onPromote} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Save as wiki page' }));
+    const dialog = screen.getByRole('dialog', { name: 'Save answer as wiki page' });
+    const input = screen.getByLabelText('New wiki page title');
+    expect(dialog).toHaveAttribute('aria-modal', 'true');
+    expect(input).toHaveValue('What changed after');
+
+    fireEvent.change(input, { target: { value: 'Ingest change answer' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save page' }));
+
+    expect(onPromote).toHaveBeenCalledWith(discussion, 'Ingest change answer');
+  });
+
+  it('does not offer promotion for failed answers', () => {
+    render(<WikiDiscussions discussions={[buildDiscussion({ status: 'failed' })]} onPromote={jest.fn()} />);
+    expect(screen.queryByRole('button', { name: 'Save as wiki page' })).toBeNull();
+  });
+
   it('hides the Remove button when no onRemove handler is provided', () => {
     render(<WikiDiscussions discussions={[buildDiscussion()]} />);
     expect(screen.queryByRole('button', { name: 'Remove discussion' })).toBeNull();

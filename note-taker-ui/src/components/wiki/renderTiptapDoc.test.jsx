@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import renderTiptapDoc from './renderTiptapDoc';
 
 describe('renderTiptapDoc', () => {
@@ -65,5 +66,36 @@ describe('renderTiptapDoc', () => {
     expect(button).toHaveTextContent('[2]');
     expect(button).toHaveAttribute('data-citation-indexes', '');
     expect(button).toHaveAttribute('data-contradiction-indexes', '2');
+  });
+
+  it('renders wikiLink marks as internal router links', () => {
+    render(
+      <MemoryRouter>
+        <div>
+          {renderTiptapDoc({
+            type: 'doc',
+            content: [{
+              type: 'paragraph',
+              content: [{
+                type: 'text',
+                text: 'Compounding interest',
+                marks: [{
+                  type: 'wikiLink',
+                  attrs: {
+                    pageId: 'wiki-related',
+                    title: 'Compounding interest'
+                  }
+                }]
+              }]
+            }]
+          })}
+        </div>
+      </MemoryRouter>
+    );
+
+    const link = screen.getByRole('link', { name: 'Compounding interest' });
+    expect(link).toHaveAttribute('href', '/wiki/wiki-related');
+    expect(link).toHaveAttribute('data-wiki-page-id', 'wiki-related');
+    expect(link).toHaveAttribute('data-wiki-title', 'Compounding interest');
   });
 });

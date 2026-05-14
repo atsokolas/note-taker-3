@@ -21,6 +21,129 @@ const statusRank = (status = '') => {
   return 4;
 };
 
+const firstString = (...values) => values
+  .map(value => trim(value, 8000))
+  .find(Boolean) || '';
+
+const normalizeProvider = (value = '') => trim(value, 80).toLowerCase();
+
+const connectorSourceType = ({ provider = '', payload = {} } = {}) => {
+  const rawType = String(payload.sourceType || payload.type || '').toLowerCase();
+  if (SOURCE_TYPES.has(rawType)) return rawType;
+  if (provider === 'notion' || provider === 'evernote') return 'notebook';
+  if (provider === 'readwise') {
+    if (payload.highlight || payload.highlightId || payload.highlight_id || rawType === 'highlight') return 'highlight';
+    return 'article';
+  }
+  return 'external';
+};
+
+const connectorEventType = (payload = {}) => {
+  const raw = String(payload.eventType || payload.action || '').toLowerCase();
+  if (EVENT_TYPES.has(raw)) return raw;
+  if (raw === 'create') return 'created';
+  if (raw === 'update') return 'updated';
+  if (raw === 'delete') return 'deleted';
+  return payload.syncedAt || payload.syncCursor ? 'synced' : 'imported';
+};
+
+const connectorExternalId = (payload = {}) => firstString(
+  payload.externalId,
+  payload.external_id,
+  payload.pageId,
+  payload.page_id,
+  payload.guid,
+  payload.id,
+  payload.book_id,
+  payload.highlightId,
+  payload.highlight_id
+);
+
+const connectorTitle = ({ provider = '', payload = {} } = {}) => {
+  if (provider === 'readwise' && payload.highlight) {
+    return firstString(payload.highlight.title, payload.title, payload.bookTitle, payload.book_title, 'Readwise highlight');
+  }
+  return firstString(payload.title, payload.name, payload.bookTitle, payload.book_title, payload.pageTitle, payload.page_title, 'Untitled source');
+};
+
+const connectorText = ({ provider = '', payload = {} } = {}) => {
+  if (provider === 'readwise' && payload.highlight) {
+    return firstString(
+      [payload.highlight.text, payload.highlight.note].filter(Boolean).join(' - '),
+      payload.text,
+      payload.summary
+    );
+  }
+  const highlightText = Array.isArray(payload.highlights)
+    ? payload.highlights.map(highlight => [highlight.text, highlight.note].filter(Boolean).join(' - ')).filter(Boolean).join('\n')
+    : '';
+  const blockText = Array.isArray(payload.blocks)
+    ? payload.blocks.map(block => (typeof block === 'string' ? block : block?.text)).filter(Boolean).join('\n')
+    : '';
+  return firstString(payload.text, payload.content, payload.summary, payload.description, blockText, highlightText);
+};
+
+const connectorUrl = (payload = {}) => firstString(
+  payload.url,
+  payload.sourceUrl,
+  payload.source_url,
+  payload.readwise_url,
+  payload.webUrl,
+  payload.web_url
+);
+
+const connectorUpdatedAt = (payload = {}) => (
+  payload.sourceUpdatedAt
+  || payload.updatedAt
+  || payload.updated_at
+  || payload.last_edited_time
+  || payload.highlighted_at
+  || payload.created_at
+  || null
+);
+
+const connectorMetadata = ({ provider = '', payload = {}, metadata = {} } = {}) => ({
+  connector: provider,
+  source: firstString(payload.source, payload.sourceType, payload.importSource, metadata.source),
+  importMeta: payload.importMeta || metadata.importMeta || null,
+  rawExternalId: connectorExternalId(payload),
+  ...metadata
+});
+
+const createConnectorWikiSourceEvent = async ({
+  WikiSourceEvent,
+  userId,
+  provider = '',
+  payload = {},
+  sourceObjectId = null,
+  parentObjectId = null,
+  importSessionId = null,
+  affectedPageIds = [],
+  metadata = {}
+} = {}) => {
+  const normalizedProvider = normalizeProvider(provider || payload.provider);
+  if (!normalizedProvider || !payload || typeof payload !== 'object') return null;
+  const text = connectorText({ provider: normalizedProvider, payload });
+  return createWikiSourceEvent({
+    WikiSourceEvent,
+    userId,
+    sourceType: connectorSourceType({ provider: normalizedProvider, payload }),
+    sourceObjectId: sourceObjectId || payload.sourceObjectId || payload.source_object_id || payload._id || null,
+    parentObjectId: parentObjectId || payload.parentObjectId || payload.parent_object_id || payload.parentId || null,
+    provider: normalizedProvider,
+    externalId: connectorExternalId(payload),
+    importSessionId: importSessionId || payload.importSessionId || payload.import_session_id || null,
+    eventType: connectorEventType(payload),
+    title: connectorTitle({ provider: normalizedProvider, payload }),
+    summary: firstString(payload.summary, text),
+    text,
+    url: connectorUrl(payload),
+    sourceUpdatedAt: connectorUpdatedAt(payload),
+    affectedPageIds: payload.affectedPageIds || payload.affected_page_ids || affectedPageIds,
+    metadata: connectorMetadata({ provider: normalizedProvider, payload, metadata })
+  });
+};
+
 const createWikiSourceEvent = async ({
   WikiSourceEvent,
   userId,
@@ -77,6 +200,7 @@ const listWikiSourceEvents = async ({ WikiSourceEvent, userId, status = '', limi
 };
 
 module.exports = {
+  createConnectorWikiSourceEvent,
   createWikiSourceEvent,
   listWikiSourceEvents
 };

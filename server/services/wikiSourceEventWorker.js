@@ -37,18 +37,21 @@ const processPendingWikiSourceEvents = async ({
   userId,
   models = {},
   limit = 5,
-  buildUniqueSlug = null
+  buildUniqueSlug = null,
+  processWikiSourceEventFn = processWikiSourceEvent,
+  wikiSchemaContent = ''
 } = {}) => {
   const { WikiSourceEvent } = models;
   const events = await claimPendingWikiSourceEvents({ WikiSourceEvent, userId, limit });
   const results = [];
   for (const event of events) {
     try {
-      results.push(await processWikiSourceEvent({
+      results.push(await processWikiSourceEventFn({
         sourceEvent: event,
         userId,
         models,
-        buildUniqueSlug
+        buildUniqueSlug,
+        wikiSchemaContent
       }));
     } catch (error) {
       results.push({ event, error: error.message || 'Failed to process wiki source event.' });
@@ -70,7 +73,9 @@ const drainWikiSourceEventQueue = async ({
   models = {},
   limit = 20,
   perUserLimit = 5,
-  buildUniqueSlug = null
+  buildUniqueSlug = null,
+  processWikiSourceEventFn = processWikiSourceEvent,
+  wikiSchemaContent = ''
 } = {}) => {
   const { WikiSourceEvent } = models;
   if (!WikiSourceEvent) return { processed: 0, failed: 0, results: [] };
@@ -84,7 +89,9 @@ const drainWikiSourceEventQueue = async ({
       userId,
       models,
       limit: Math.min(Math.max(1, Number(perUserLimit) || 5), remaining),
-      buildUniqueSlug
+      buildUniqueSlug,
+      processWikiSourceEventFn,
+      wikiSchemaContent
     });
     results.push(...next);
   }

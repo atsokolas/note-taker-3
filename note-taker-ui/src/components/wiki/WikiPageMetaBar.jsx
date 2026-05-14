@@ -1,6 +1,6 @@
 import React from 'react';
 
-const PAGE_TYPES = ['topic', 'question', 'project', 'source', 'person', 'synthesis'];
+const PAGE_TYPES = ['concept', 'entity', 'source', 'question', 'comparison', 'overview', 'project', 'log', 'topic'];
 const STATUSES = ['draft', 'published', 'archived'];
 const VISIBILITIES = ['private', 'shared'];
 const SOURCE_SCOPES = ['entire_library', 'current_item', 'selected_sources'];

@@ -39,6 +39,19 @@ const attachSourceHelpers = (doc) => {
   return doc.sourceRefs;
 };
 
+const attachDiscussionHelpers = (doc) => {
+  doc.discussions = Array.isArray(doc.discussions) ? doc.discussions : [];
+  doc.discussions.forEach((discussion) => {
+    discussion._id = discussion._id || new mongoose.Types.ObjectId().toString();
+    discussion.deleteOne = () => {
+      const index = doc.discussions.findIndex(item => String(item._id) === String(discussion._id));
+      if (index >= 0) doc.discussions.splice(index, 1);
+    };
+  });
+  doc.discussions.id = (id) => doc.discussions.find(discussion => String(discussion._id) === String(id)) || null;
+  return doc.discussions;
+};
+
 class Query {
   constructor(value) {
     this.value = value;
@@ -75,13 +88,17 @@ const createFakeWikiPageModel = () => {
     this.createdAt = this.createdAt || new Date();
     this.updatedAt = this.updatedAt || new Date();
     this.sourceRefs = attachSourceHelpers(this);
+    this.discussions = attachDiscussionHelpers(this);
     this.aiState = this.aiState || {};
   }
 
   WikiPage.records = records;
 
   WikiPage.find = (query = {}) => new Query(
-    records.filter(record => matches(record, query)).sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))
+    records
+      .filter(record => matches(record, query))
+      .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))
+      .map(record => new WikiPage(clone(record)))
   );
 
   WikiPage.findOne = (query = {}) => {
@@ -102,12 +119,17 @@ const createFakeWikiPageModel = () => {
       const { deleteOne, ...rest } = source;
       return clone(rest);
     });
+    copy.discussions = (this.discussions || []).map(discussion => {
+      const { deleteOne, ...rest } = discussion;
+      return clone(rest);
+    });
     return copy;
   };
 
   WikiPage.prototype.save = async function save() {
     this.updatedAt = new Date();
     attachSourceHelpers(this);
+    attachDiscussionHelpers(this);
     const stored = this.toObject();
     const index = records.findIndex(record => String(record._id) === String(this._id));
     if (index >= 0) records[index] = stored;
@@ -214,6 +236,167 @@ const createFakeConnectionModel = () => {
   };
 };
 
+const createFakeWikiSourceEventModel = () => {
+  const records = [];
+
+  function WikiSourceEvent(payload = {}) {
+    Object.assign(this, payload);
+    this._id = this._id || new mongoose.Types.ObjectId().toString();
+    this.createdAt = this.createdAt || new Date();
+    this.updatedAt = this.updatedAt || new Date();
+    this.status = this.status || 'pending';
+    this.affectedPageIds = Array.isArray(this.affectedPageIds) ? this.affectedPageIds : [];
+    this.metadata = this.metadata || {};
+  }
+
+  WikiSourceEvent.records = records;
+
+  WikiSourceEvent.find = (query = {}) => new Query(
+    records.filter(record => matches(record, query)).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+  );
+
+  WikiSourceEvent.findOne = (query = {}) => {
+    const found = records.find(record => matches(record, query));
+    return new Query(found ? new WikiSourceEvent(clone(found)) : null);
+  };
+
+  WikiSourceEvent.prototype.toObject = function toObject() {
+    return clone(this);
+  };
+
+  WikiSourceEvent.prototype.save = async function save() {
+    this.updatedAt = new Date();
+    const stored = this.toObject();
+    const index = records.findIndex(record => String(record._id) === String(this._id));
+    if (index >= 0) records[index] = stored;
+    else records.push(stored);
+    return this;
+  };
+
+  return WikiSourceEvent;
+};
+
+const createFakeWikiMaintenanceRunModel = () => {
+  const records = [];
+
+  function WikiMaintenanceRun(payload = {}) {
+    Object.assign(this, payload);
+    this._id = this._id || new mongoose.Types.ObjectId().toString();
+    this.createdAt = this.createdAt || new Date();
+    this.updatedAt = this.updatedAt || new Date();
+    this.metadata = this.metadata || {};
+  }
+
+  WikiMaintenanceRun.records = records;
+
+  WikiMaintenanceRun.find = (query = {}) => new Query(
+    records.filter(record => matches(record, query)).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+  );
+
+  WikiMaintenanceRun.findOne = (query = {}) => {
+    const found = records.find(record => matches(record, query));
+    return new Query(found ? new WikiMaintenanceRun(clone(found)) : null);
+  };
+
+  WikiMaintenanceRun.findOneAndUpdate = async (query = {}, updates = {}, options = {}) => {
+    let found = records.find(record => matches(record, query));
+    if (!found && options.upsert) {
+      found = {
+        _id: new mongoose.Types.ObjectId().toString(),
+        ...query,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      };
+      records.push(found);
+    }
+    if (!found) return null;
+    Object.assign(found, updates.$set || updates, { updatedAt: new Date() });
+    return new WikiMaintenanceRun(clone(found));
+  };
+
+  WikiMaintenanceRun.prototype.toObject = function toObject() {
+    return clone(this);
+  };
+
+  WikiMaintenanceRun.prototype.save = async function save() {
+    this.updatedAt = new Date();
+    const stored = this.toObject();
+    const index = records.findIndex(record => String(record._id) === String(this._id));
+    if (index >= 0) records[index] = stored;
+    else records.push(stored);
+    return this;
+  };
+
+  return WikiMaintenanceRun;
+};
+
+const createFakeWikiSchemaSettingsModel = () => {
+  const records = [];
+
+  function WikiSchemaSettings(payload = {}) {
+    Object.assign(this, payload);
+    this._id = this._id || new mongoose.Types.ObjectId().toString();
+    this.createdAt = this.createdAt || new Date();
+    this.updatedAt = this.updatedAt || new Date();
+    this.snapshots = Array.isArray(this.snapshots)
+      ? this.snapshots.map(snapshot => ({
+        ...snapshot,
+        _id: snapshot._id || new mongoose.Types.ObjectId().toString()
+      }))
+      : [];
+  }
+
+  WikiSchemaSettings.records = records;
+
+  WikiSchemaSettings.findOne = async (query = {}) => {
+    const found = records.find(record => matches(record, query));
+    return found ? new WikiSchemaSettings(clone(found)) : null;
+  };
+
+  WikiSchemaSettings.prototype.toObject = function toObject() {
+    return clone(this);
+  };
+
+  WikiSchemaSettings.prototype.save = async function save() {
+    this.updatedAt = new Date();
+    const stored = this.toObject();
+    const index = records.findIndex(record => String(record.userId) === String(this.userId));
+    if (index >= 0) records[index] = stored;
+    else records.push(stored);
+    return this;
+  };
+
+  return WikiSchemaSettings;
+};
+
+const createFakeWikiRevisionModel = () => {
+  const records = [];
+
+  function WikiRevision(payload = {}) {
+    Object.assign(this, payload);
+    this._id = this._id || new mongoose.Types.ObjectId().toString();
+    this.createdAt = this.createdAt || new Date();
+    this.updatedAt = this.updatedAt || new Date();
+  }
+
+  WikiRevision.records = records;
+  WikiRevision.find = (query = {}) => new Query(records.filter(record => matches(record, query)));
+
+  WikiRevision.prototype.toObject = function toObject() {
+    return clone(this);
+  };
+
+  WikiRevision.prototype.save = async function save() {
+    const stored = this.toObject();
+    const index = records.findIndex(record => String(record._id) === String(this._id));
+    if (index >= 0) records[index] = stored;
+    else records.push(stored);
+    return this;
+  };
+
+  return WikiRevision;
+};
+
 const request = async (url, path, options = {}) => {
   const res = await fetch(`${url}${path}`, {
     ...options,
@@ -236,6 +419,10 @@ const request = async (url, path, options = {}) => {
 const run = async () => {
   const WikiPage = createFakeWikiPageModel();
   const WikiProposal = createFakeWikiProposalModel();
+  const WikiRevision = createFakeWikiRevisionModel();
+  const WikiSourceEvent = createFakeWikiSourceEventModel();
+  const WikiMaintenanceRun = createFakeWikiMaintenanceRunModel();
+  const WikiSchemaSettings = createFakeWikiSchemaSettingsModel();
   const Article = createFakeLibraryModel([
     {
       _id: new mongoose.Types.ObjectId().toString(),
@@ -265,6 +452,10 @@ const run = async () => {
     },
     WikiPage,
     WikiProposal,
+    WikiRevision,
+    WikiSourceEvent,
+    WikiMaintenanceRun,
+    WikiSchemaSettings,
     Connection,
     Article,
     maintainWikiPage: async ({ page, userId }) => {
@@ -366,11 +557,57 @@ const run = async () => {
     assert.strictEqual(created.body.sourceRefs.length, 1);
     assert.deepStrictEqual(created.body.aiState.suggestions, []);
 
+    const legacyPerson = await request(url, '/api/wiki/pages', {
+      method: 'POST',
+      body: JSON.stringify({
+        title: 'Legacy Person Page',
+        pageType: 'person'
+      })
+    });
+    assert.strictEqual(legacyPerson.res.status, 201, legacyPerson.text);
+    assert.strictEqual(legacyPerson.body.pageType, 'entity');
+
     const listed = await request(url, '/api/wiki/pages?pageType=question&visibility=private');
     assert.strictEqual(listed.res.status, 200, listed.text);
     assert.ok(Array.isArray(listed.body));
     assert.strictEqual(listed.body.length, 1);
     assert.strictEqual(listed.body[0]._id, created.body._id);
+
+    const listedLegacyPerson = await request(url, '/api/wiki/pages?pageType=person');
+    assert.strictEqual(listedLegacyPerson.res.status, 200, listedLegacyPerson.text);
+    assert.strictEqual(listedLegacyPerson.body.length, 1);
+    assert.strictEqual(listedLegacyPerson.body[0].pageType, 'entity');
+
+    const graphSizedList = await request(url, '/api/wiki/pages?limit=500');
+    assert.strictEqual(graphSizedList.res.status, 200, graphSizedList.text);
+    assert.ok(graphSizedList.body.length >= 2);
+
+    const defaultSchema = await request(url, '/api/wiki/schema');
+    assert.strictEqual(defaultSchema.res.status, 200, defaultSchema.text);
+    assert.ok(defaultSchema.body.content.includes('Page types I want'));
+
+    const savedSchema = await request(url, '/api/wiki/schema', {
+      method: 'PUT',
+      body: JSON.stringify({ content: '# Wiki Schema\n\n## Ingest workflow\n- Prefer source-backed updates.' })
+    });
+    assert.strictEqual(savedSchema.res.status, 200, savedSchema.text);
+    assert.strictEqual(savedSchema.body.content, '# Wiki Schema\n\n## Ingest workflow\n- Prefer source-backed updates.');
+    assert.strictEqual(savedSchema.body.snapshots.length, 1);
+
+    const updatedSchema = await request(url, '/api/wiki/schema', {
+      method: 'PUT',
+      body: JSON.stringify({ content: '# Wiki Schema\n\n## Voice and tone\n- Keep it terse.' })
+    });
+    assert.strictEqual(updatedSchema.res.status, 200, updatedSchema.text);
+    assert.strictEqual(updatedSchema.body.snapshots.length, 2);
+
+    const revertedSchema = await request(url, '/api/wiki/schema/revert', {
+      method: 'POST',
+      body: JSON.stringify({ snapshotId: savedSchema.body.snapshots[0].id })
+    });
+    assert.strictEqual(revertedSchema.res.status, 200, revertedSchema.text);
+    assert.strictEqual(revertedSchema.body.content, savedSchema.body.content);
+    assert.strictEqual(revertedSchema.body.snapshots.length, 3);
 
     const hiddenFromOtherUser = await request(url, `/api/wiki/pages/${created.body._id}`, {
       headers: { 'x-test-user': 'user-2' }
@@ -421,6 +658,13 @@ const run = async () => {
     assert.strictEqual(patched.res.status, 200, patched.text);
     assert.strictEqual(patched.body.title, 'Contract Page Updated');
     assert.ok(patched.body.plainText.includes('Updated contract body'));
+
+    const patchedLegacySynthesis = await request(url, `/api/wiki/pages/${created.body._id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ pageType: 'synthesis' })
+    });
+    assert.strictEqual(patchedLegacySynthesis.res.status, 200, patchedLegacySynthesis.text);
+    assert.strictEqual(patchedLegacySynthesis.body.pageType, 'overview');
 
     const maintained = await request(url, `/api/wiki/pages/${created.body._id}/ai/draft`, { method: 'POST' });
     assert.strictEqual(maintained.res.status, 200, maintained.text);
@@ -539,6 +783,167 @@ const run = async () => {
       && record.toType === 'wiki_claim'
       && record.toId === `${created.body._id}:claim-route-1`
       && record.relationType === 'supports'
+    )));
+
+    const ingest = await request(url, '/api/wiki/ingest', {
+      method: 'POST',
+      body: JSON.stringify({
+        source: {
+          type: 'text',
+          text: 'Enterprise AI memory needs source-backed maintenance and fresh claims.',
+          url: 'https://example.com/ingest-source'
+        }
+      })
+    });
+    assert.strictEqual(ingest.res.status, 202, ingest.text);
+    assert.ok(ingest.body.runId);
+    assert.strictEqual(ingest.body.sourceRef.type, 'external');
+    assert.strictEqual(ingest.body.status, 'processed');
+    assert.ok(ingest.body.affectedPageIds.includes(String(created.body._id)));
+    assert.ok(ingest.body.summary.includes('Updated'));
+
+    const ingestDetails = await request(url, `/api/wiki/ingest/${ingest.body.runId}`);
+    assert.strictEqual(ingestDetails.res.status, 200, ingestDetails.text);
+    assert.strictEqual(ingestDetails.body.runId, ingest.body.runId);
+    assert.ok(ingestDetails.body.affectedPageIds.includes(String(created.body._id)));
+    assert.ok(ingestDetails.body.timeline.some(item => item.type === 'maintenance'));
+
+    const asked = await request(url, `/api/wiki/pages/${created.body._id}/ask`, {
+      method: 'POST',
+      body: JSON.stringify({ question: 'What changed after the ingest?' })
+    });
+    assert.strictEqual(asked.res.status, 200, asked.text);
+    assert.strictEqual(asked.body.discussions.length, 1);
+
+    const neighborPage = new WikiPage({
+      userId: 'user-1',
+      title: 'Neighbor Page',
+      slug: 'neighbor-page',
+      pageType: 'topic',
+      status: 'published',
+      body: {
+        type: 'doc',
+        content: [{
+          type: 'paragraph',
+          content: [{ type: 'text', text: 'This page should link to Ingest Change Answer when it exists.' }]
+        }]
+      },
+      plainText: 'This page should link to Ingest Change Answer when it exists.'
+    });
+    await neighborPage.save();
+
+    const promoted = await request(
+      url,
+      `/api/wiki/pages/${created.body._id}/discussions/${asked.body.discussions[0]._id}/promote`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ title: 'Ingest Change Answer' })
+      }
+    );
+    assert.strictEqual(promoted.res.status, 201, promoted.text);
+    assert.strictEqual(promoted.body.page.title, 'Ingest Change Answer');
+    assert.strictEqual(promoted.body.page.pageType, 'question');
+    assert.strictEqual(promoted.body.page.createdFrom.type, 'question');
+    assert.strictEqual(promoted.body.page.createdFrom.label, 'Contract Page Updated');
+    assert.ok(promoted.body.page.plainText.includes('Answer'));
+    assert.ok(promoted.body.page.plainText.includes('Source question'));
+    assert.ok(!promoted.body.page.plainText.includes('You asked:'));
+    assert.ok(promoted.body.page.sourceRefs.length >= 1);
+    assert.ok(WikiPage.records.some(record => String(record._id) === String(promoted.body.page._id)));
+    assert.ok(promoted.body.linkedNeighborPageIds.includes(String(neighborPage._id)));
+    const linkedNeighbor = WikiPage.records.find(record => String(record._id) === String(neighborPage._id));
+    const neighborLinkText = linkedNeighbor.body.content[0].content.find(node => node.text === 'Ingest Change Answer');
+    assert.strictEqual(neighborLinkText.marks[0].type, 'wikiLink');
+
+    const citedOnlyDiscussionId = new mongoose.Types.ObjectId().toString();
+    const sourceRecordForPromotion = WikiPage.records.find(record => String(record._id) === String(created.body._id));
+    sourceRecordForPromotion.sourceRefs = [
+      {
+        _id: new mongoose.Types.ObjectId().toString(),
+        type: 'article',
+        title: 'Uncited source',
+        snippet: 'This source should not be copied.',
+        addedBy: 'user'
+      },
+      {
+        _id: new mongoose.Types.ObjectId().toString(),
+        type: 'article',
+        title: 'Only cited source',
+        snippet: 'This source should be copied and remapped to citation 1.',
+        addedBy: 'user'
+      }
+    ];
+    sourceRecordForPromotion.discussions = [{
+      _id: citedOnlyDiscussionId,
+      question: 'Why does index remapping matter?',
+      answer: {
+        type: 'doc',
+        content: [{
+          type: 'paragraph',
+          content: [{
+            type: 'text',
+            text: 'Only the second source backs this answer.',
+            marks: [{ type: 'claim', attrs: { claimId: 'claim-promoted-remap', support: 'partial', citationIndexes: [2] } }]
+          }]
+        }]
+      },
+      citationIndexesUsed: [2],
+      status: 'answered',
+      askedAt: new Date()
+    }];
+    const remappedPromotion = await request(
+      url,
+      `/api/wiki/pages/${created.body._id}/discussions/${citedOnlyDiscussionId}/promote`,
+      {
+        method: 'POST',
+        body: JSON.stringify({})
+      }
+    );
+    assert.strictEqual(remappedPromotion.res.status, 201, remappedPromotion.text);
+    assert.strictEqual(remappedPromotion.body.page.title, 'Why does index');
+    assert.strictEqual(remappedPromotion.body.page.sourceRefs.length, 1);
+    assert.strictEqual(remappedPromotion.body.page.sourceRefs[0].title, 'Only cited source');
+    const remappedClaimText = remappedPromotion.body.page.body.content[2].content[0];
+    assert.deepStrictEqual(remappedClaimText.marks[0].attrs.citationIndexes, [1]);
+    assert.strictEqual(remappedPromotion.body.page.claims[0].citationIds.length, 1);
+    const fetchedPromotedPage = await request(url, `/api/wiki/pages/${remappedPromotion.body.page._id}`);
+    assert.strictEqual(fetchedPromotedPage.res.status, 200, fetchedPromotedPage.text);
+    assert.strictEqual(fetchedPromotedPage.body._id, remappedPromotion.body.page._id);
+
+    const activity = await request(url, '/api/wiki/activity?limit=20');
+    assert.strictEqual(activity.res.status, 200, activity.text);
+    assert.ok(activity.body.events.some(event => event.type === 'ingest' && event.runId === ingest.body.runId));
+    assert.ok(activity.body.events.some(event => event.type === 'ask' && event.pageId === String(created.body._id)));
+    assert.ok(activity.body.events.some(event => event.type === 'maintenance' && event.runId));
+    const activityTimes = activity.body.events.map(event => new Date(event.at).getTime());
+    assert.deepStrictEqual(activityTimes, [...activityTimes].sort((a, b) => b - a));
+
+    const undoneIngest = await request(url, `/api/wiki/ingest/${ingest.body.runId}/undo`, { method: 'POST' });
+    assert.strictEqual(undoneIngest.res.status, 200, undoneIngest.text);
+    assert.ok(undoneIngest.body.undoneAt);
+    assert.ok(undoneIngest.body.restoredPageIds.includes(String(created.body._id)));
+    const undoneAgain = await request(url, `/api/wiki/ingest/${ingest.body.runId}/undo`, { method: 'POST' });
+    assert.strictEqual(undoneAgain.res.status, 409, undoneAgain.text);
+
+    const activityAfterUndo = await request(url, '/api/wiki/activity?limit=20');
+    assert.strictEqual(activityAfterUndo.res.status, 200, activityAfterUndo.text);
+    assert.ok(activityAfterUndo.body.events.some(event => event.type === 'ingest_undo' && event.runId === ingest.body.runId));
+
+    const schemaSuggestions = await request(url, '/api/wiki/schema/suggestions', {
+      method: 'POST',
+      body: JSON.stringify({
+        currentSchema: '## Page types I want\n- topic: default research page'
+      })
+    });
+    assert.strictEqual(schemaSuggestions.res.status, 200, schemaSuggestions.text);
+    assert.ok(schemaSuggestions.body.runId);
+    assert.ok(schemaSuggestions.body.proposedPatch.includes('## Suggested schema updates'));
+    assert.ok(schemaSuggestions.body.suggestions.length >= 1);
+    assert.strictEqual(schemaSuggestions.body.context.recentSourceEventCount >= 1, true);
+    assert.ok(WikiMaintenanceRun.records.some(run => (
+      run.trigger === 'batch'
+      && run.status === 'completed'
+      && run.metadata?.kind === 'schema_suggestions'
     )));
 
     const invalidSource = await request(url, `/api/wiki/pages/${created.body._id}/sources`, {
