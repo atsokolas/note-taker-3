@@ -378,6 +378,23 @@ const renderStaticRedirects = (content) => {
 
 const renderVercelConfig = (content) => JSON.stringify({
   cleanUrls: true,
+  redirects: [
+    {
+      source: '/wiki',
+      destination: '/wiki/workspace',
+      permanent: false
+    },
+    {
+      source: '/wiki/list',
+      destination: '/wiki/workspace?view=list',
+      permanent: false
+    },
+    {
+      source: '/wiki/:id((?!workspace$)[^/]+)',
+      destination: '/wiki/workspace?page=:id',
+      permanent: false
+    }
+  ],
   rewrites: [
     ...getPrerenderRoutes(content)
       .filter((entry) => entry.route !== '/')

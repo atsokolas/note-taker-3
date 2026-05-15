@@ -49,11 +49,18 @@ describe('publishing renderers', () => {
     expect(redirects.trim().endsWith('/* /index.html 200')).toBe(true);
 
     expect(vercel.cleanUrls).toBe(true);
+    expect(vercel.redirects).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ source: '/wiki', destination: '/wiki/workspace', permanent: false }),
+        expect.objectContaining({ source: '/wiki/list', destination: '/wiki/workspace?view=list', permanent: false }),
+        expect.objectContaining({ source: '/wiki/:id((?!workspace$)[^/]+)', destination: '/wiki/workspace?page=:id', permanent: false })
+      ])
+    );
     expect(vercel.rewrites).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ source: '/guides', destination: '/guides/index.html' }),
         expect.objectContaining({ source: '/best-second-brain-app-for-founders', destination: '/best-second-brain-app-for-founders/index.html' }),
-        expect.objectContaining({ source: '/(.*)', destination: '/index.html' })
+        expect.objectContaining({ source: '/(.*)', destination: '/' })
       ])
     );
   });

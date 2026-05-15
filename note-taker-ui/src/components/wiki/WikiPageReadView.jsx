@@ -736,11 +736,17 @@ const WikiPageReadView = ({ pageId, onEdit, workspaceMode = false }) => {
 
   return (
     <main className="wiki-page wiki-read">
-      <div className="wiki-read__topline">
-        <Button type="button" variant="secondary" onClick={() => navigate(workspaceMode ? '/wiki/workspace?view=graph' : '/wiki')}>Back to Wiki</Button>
-        {!workspaceMode ? <Button type="button" variant="secondary" onClick={onEdit}>Edit</Button> : null}
-        {error ? <span className="wiki-editor__error" role="alert">{error}</span> : null}
-      </div>
+      {(!workspaceMode || error) ? (
+        <div className="wiki-read__topline">
+          {!workspaceMode ? (
+            <>
+              <Button type="button" variant="secondary" onClick={() => navigate('/wiki')}>Back to Wiki</Button>
+              <Button type="button" variant="secondary" onClick={onEdit}>Edit</Button>
+            </>
+          ) : null}
+          {error ? <span className="wiki-editor__error" role="alert">{error}</span> : null}
+        </div>
+      ) : null}
       <WikiChangesSinceLastVisit
         lastViewedAt={lastVisit?.lastViewedAt}
         added={visitDiff.added}
