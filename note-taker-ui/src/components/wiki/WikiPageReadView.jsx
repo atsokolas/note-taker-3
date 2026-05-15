@@ -710,6 +710,7 @@ const WikiPageReadView = ({ pageId, onEdit, workspaceMode = false }) => {
   const activeLedgerClaim = activeClaim ? claimLedgerById.get(activeClaim.claimId) : null;
   const displayedActiveTocId = activeTocId || tocItems[0]?.id || '';
   const discussionCount = (page?.discussions || []).length;
+  const showPageTalk = !workspaceMode;
 
   useEffect(() => {
     const qualityStatus = String(page?.aiState?.quality?.status || page?.quality?.status || '').toLowerCase();
@@ -799,7 +800,7 @@ const WikiPageReadView = ({ pageId, onEdit, workspaceMode = false }) => {
                 ) : null}
               </aside>
             ) : null}
-            {!workspaceMode ? <div className="wiki-read__tabs" role="tablist" aria-label="Wiki page views">
+            {showPageTalk ? <div className="wiki-read__tabs" role="tablist" aria-label="Wiki page views">
               <button
                 type="button"
                 role="tab"
@@ -825,7 +826,7 @@ const WikiPageReadView = ({ pageId, onEdit, workspaceMode = false }) => {
               </button>
             </div> : null}
           </header>
-          {workspaceMode || activeTab === 'article' ? (
+          {!showPageTalk || activeTab === 'article' ? (
             <section
               id="wiki-read-panel-article"
               role="tabpanel"

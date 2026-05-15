@@ -235,6 +235,34 @@ describe('WikiPageReadView', () => {
     expect(screen.getByLabelText('Ask this page')).toBeInTheDocument();
   });
 
+  it('hides the legacy Talk tab and page ask composer in workspace mode', async () => {
+    getWikiPage.mockResolvedValueOnce({
+      ...page,
+      discussions: [{
+        _id: 'discussion-1',
+        question: 'What changed after review?',
+        answer: {
+          type: 'doc',
+          content: [{ type: 'paragraph', content: [{ type: 'text', text: 'The source mix changed.' }] }]
+        },
+        status: 'answered',
+        askedAt: new Date().toISOString()
+      }]
+    });
+
+    render(
+      <MemoryRouter>
+        <WikiPageReadView pageId="wiki-1" onEdit={jest.fn()} workspaceMode />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByRole('heading', { name: 'Enterprise AI Memory' })).toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: /Talk/ })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Ask this page')).not.toBeInTheDocument();
+    expect(screen.queryByText('What changed after review?')).not.toBeInTheDocument();
+    expect(screen.getByRole('tabpanel')).toHaveTextContent('Enterprise AI Memory depends on');
+  });
+
   it('shows linkable page fallback in read mode when prose has no inline wiki links', async () => {
     getWikiPage.mockResolvedValueOnce({
       ...page,

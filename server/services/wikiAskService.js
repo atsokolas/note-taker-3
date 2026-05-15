@@ -13,7 +13,7 @@ const { formatWikiSchemaPromptBlock } = require('./wikiSchemaService');
  */
 
 const MAX_PAGE_TEXT = 6000;
-const MAX_SOURCE_TEXT = 800;
+const MAX_SOURCE_TEXT = 1400;
 const MAX_QUESTION = 500;
 const MAX_ANSWER_PARAGRAPHS = 6;
 
@@ -32,6 +32,73 @@ const toPlainText = (node) => {
   const own = typeof node.text === 'string' ? node.text : '';
   const child = Array.isArray(node.content) ? toPlainText(node.content) : '';
   return [own, child].filter(Boolean).join(' ').trim();
+};
+
+const splitSentences = (value = '') => (
+  asString(value)
+    .replace(/\s+/g, ' ')
+    .split(/(?<=[.!?])\s+/)
+    .map(sentence => sentence.trim())
+    .filter(sentence => sentence.length >= 24)
+);
+
+const keywordsFor = (value = '') => {
+  const stop = new Set([
+    'about', 'after', 'again', 'agent', 'anything', 'because', 'before', 'between', 'could', 'found',
+    'from', 'have', 'here', 'into', 'just', 'most', 'page', 'that', 'their', 'there', 'these', 'thing',
+    'this', 'what', 'when', 'where', 'which', 'while', 'with', 'would', 'you', 'your'
+  ]);
+  return new Set(
+    asString(value)
+      .toLowerCase()
+      .replace(/[^a-z0-9\s-]/g, ' ')
+      .split(/\s+/)
+      .map(token => token.trim())
+      .filter(token => token.length > 3 && !stop.has(token))
+  );
+};
+
+const scoreText = (text = '', keywords = new Set()) => {
+  const lower = asString(text).toLowerCase();
+  let score = 0;
+  keywords.forEach((keyword) => {
+    if (lower.includes(keyword)) score += 3;
+  });
+  if (/\bbut\b|\bhowever\b|\bwhile\b|\btension\b|\bcontradict/i.test(text)) score += 2;
+  if (/\btherefore\b|\bmeans\b|\bimplies\b|\bbecause\b/i.test(text)) score += 1;
+  return score;
+};
+
+const sourceEvidenceCandidates = (sources = [], question = '') => {
+  const keywords = keywordsFor(question);
+  return sources
+    .flatMap(source => splitSentences(source.snippet)
+      .slice(0, 4)
+      .map(sentence => ({
+        text: sentence,
+        citationIndexes: [source.index],
+        score: scoreText(`${source.title} ${sentence}`, keywords),
+        source
+      })))
+    .sort((a, b) => b.score - a.score || a.source.index - b.source.index);
+};
+
+const pageEvidenceCandidates = (page, question = '') => {
+  const keywords = keywordsFor(`${question} ${page?.title || ''}`);
+  return splitSentences(toPlainText(page?.body))
+    .slice(0, 12)
+    .map(sentence => ({
+      text: sentence,
+      citationIndexes: [],
+      score: scoreText(sentence, keywords)
+    }))
+    .sort((a, b) => b.score - a.score);
+};
+
+const conciseSentence = (value = '', limit = 320) => {
+  const text = truncate(value, limit).replace(/\s+/g, ' ').trim();
+  if (!text) return '';
+  return /[.!?]$/.test(text) ? text : `${text}.`;
 };
 
 let claimSeed = 0;
@@ -102,6 +169,8 @@ Respond with a JSON object only. Schema:
 Rules:
 - Output 1 to ${MAX_ANSWER_PARAGRAPHS} paragraphs.
 - Every paragraph must be self-contained prose (no markdown, no headings).
+- Answer the user's actual question directly. If they ask what is interesting, surprising, weak, or contradictory, name the specific signal first.
+- Do not say "open the cited sources", "run maintenance", or restate the question as a substitute for answering it.
 - citationIndexes per paragraph point to the reader's attached sources only.
 - Use [] for citationIndexes when the paragraph relies only on the page text or general reasoning.
 - Never invent sources or indexes outside the attached set.
@@ -127,21 +196,52 @@ const extractJson = (raw = '') => {
 };
 
 const buildFallbackAnswer = ({ page, sources, question }) => {
-  const sourceCitations = sources.slice(0, 2).map(source => source.index);
-  const intro = sources.length
-    ? `Drawing on this page and ${sources.length} attached source${sources.length === 1 ? '' : 's'}, here is the most direct take.`
-    : `This page does not yet have attached sources, so the answer is grounded only in the page text.`;
-  const reflection = `You asked: "${truncate(question, 200)}". The most relevant material in the page concerns "${truncate(page.title, 80) || 'this topic'}".`;
-  const followUp = sources.length
-    ? `For more depth, open the cited source${sources.length === 1 ? '' : 's'} or run maintenance to widen the source set.`
-    : 'Attach a source from the AI/Sources panel and ask again to get a citable answer.';
+  const sourceCandidates = sourceEvidenceCandidates(sources, question);
+  const pageCandidates = pageEvidenceCandidates(page, question);
+  const primary = sourceCandidates[0] || pageCandidates[0];
+  const secondary = sourceCandidates.find(candidate => candidate.source?.index !== primary?.source?.index) || pageCandidates[1];
+  const title = truncate(page?.title, 120) || 'this page';
+  if (!primary) {
+    return {
+      paragraphs: [{
+        text: `I could not answer from the available page text or attached sources for "${title}". Add source excerpts or run maintenance before treating this as evidence-backed.`,
+        citationIndexes: []
+      }],
+      citationIndexesUsed: []
+    };
+  }
+
+  const isInterestingQuestion = /\binteresting\b|\bsurprising\b|\bnotable\b|\bsignal\b/i.test(question);
+  const primaryLead = isInterestingQuestion
+    ? `The most interesting signal: ${primary.text}`
+    : `The strongest answer from the available evidence: ${primary.text}`;
+  const paragraphs = [{
+    text: conciseSentence(primaryLead),
+    citationIndexes: primary.citationIndexes
+  }];
+
+  if (secondary) {
+    const secondText = secondary.citationIndexes.length
+      ? `A second source sharpens the point: ${secondary.text}`
+      : `The page itself adds context: ${secondary.text}`;
+    paragraphs.push({
+      text: conciseSentence(secondText),
+      citationIndexes: secondary.citationIndexes
+    });
+  }
+
+  const sourceCount = sources.length;
+  const evidenceNote = sourceCount
+    ? `Confidence is limited to the ${sourceCount} attached source${sourceCount === 1 ? '' : 's'} and this page's current synthesis; unanswered tension should be turned into a maintenance pass, not treated as settled.`
+    : `Confidence is limited because this answer relies on the page text without attached source excerpts.`;
+  paragraphs.push({ text: evidenceNote, citationIndexes: [] });
+
+  const citationIndexesUsed = Array.from(new Set(
+    paragraphs.flatMap(paragraph => paragraph.citationIndexes || [])
+  )).sort((a, b) => a - b);
   return {
-    paragraphs: [
-      { text: intro, citationIndexes: sourceCitations },
-      { text: reflection, citationIndexes: [] },
-      { text: followUp, citationIndexes: [] }
-    ],
-    citationIndexesUsed: sourceCitations
+    paragraphs,
+    citationIndexesUsed
   };
 };
 

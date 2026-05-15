@@ -54,6 +54,8 @@ describe('wikiAskService', () => {
       });
       expect(prompt).toContain('User wiki schema conventions');
       expect(prompt).toContain('Prefer durable reference prose.');
+      expect(prompt).toContain('Answer the user');
+      expect(prompt).toContain('Do not say "open the cited sources"');
     });
   });
 
@@ -125,6 +127,21 @@ describe('wikiAskService', () => {
       expect(out.paragraphs.length).toBeGreaterThanOrEqual(2);
     });
 
+    it('does not emit the old generic non-answer copy', () => {
+      const sources = buildSourceList(buildPage().sourceRefs);
+      const out = buildFallbackAnswer({
+        page: buildPage(),
+        sources,
+        question: 'what did you find most interesting in this'
+      });
+      const text = out.paragraphs.map(paragraph => paragraph.text).join('\n');
+      expect(text).toContain('most interesting signal');
+      expect(text).toContain('Hold what you understand');
+      expect(text).not.toContain('Drawing on this page');
+      expect(text).not.toContain('You asked:');
+      expect(text).not.toContain('For more depth');
+    });
+
     it('returns no citation indexes when no sources are attached', () => {
       const out = buildFallbackAnswer({ page: { title: 'X', body: {} }, sources: [], question: 'why?' });
       expect(out.citationIndexesUsed).toEqual([]);
@@ -154,6 +171,7 @@ describe('wikiAskService', () => {
       expect(out.citationIndexesUsed).toEqual([1, 2]);
       const marks = findClaimMarks(out.answer);
       expect(marks.length).toBeGreaterThan(0);
+      expect(marks.map(mark => mark.text).join(' ')).not.toContain('For more depth');
     });
 
     it('parses a JSON answer from the chat client and emits claim marks', async () => {
