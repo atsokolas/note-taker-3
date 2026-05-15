@@ -6873,6 +6873,19 @@ html[data-ui-theme='dark'] .wiki-activity-rail__graph-alerts span {
   font-size: 0.82rem;
 }
 
+.wiki-workspace-chat__thread-link {
+  justify-self: start;
+  color: var(--accent-primary, var(--primary-color));
+  font-size: 0.8rem;
+  font-weight: 750;
+  text-decoration: none;
+}
+
+.wiki-workspace-chat__thread-link:hover,
+.wiki-workspace-chat__thread-link:focus-visible {
+  text-decoration: underline;
+}
+
 .wiki-workspace-chat__messages {
   display: grid;
   align-content: start;
@@ -6936,6 +6949,42 @@ html[data-ui-theme='dark'] .wiki-activity-rail__graph-alerts span {
   resize: vertical;
 }
 
+.wiki-workspace-chat__palette {
+  display: grid;
+  gap: 6px;
+  padding: 8px;
+  border: 1px solid color-mix(in srgb, var(--nt-divider) 70%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface) 98%, transparent);
+}
+
+.wiki-workspace-chat__palette button {
+  display: grid;
+  gap: 3px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-primary);
+  text-align: left;
+}
+
+.wiki-workspace-chat__palette button:hover,
+.wiki-workspace-chat__palette button:focus-visible {
+  background: color-mix(in srgb, var(--accent-primary, var(--primary-color)) 8%, var(--surface));
+  outline: none;
+}
+
+.wiki-workspace-chat__palette strong {
+  font-size: 0.82rem;
+}
+
+.wiki-workspace-chat__palette span {
+  color: var(--text-secondary);
+  font-size: 0.74rem;
+}
+
 .wiki-workspace-chat__composer div {
   display: flex;
   gap: 10px;
@@ -6992,6 +7041,24 @@ html[data-ui-theme='dark'] .wiki-activity-rail__graph-alerts span {
   margin: 0;
   color: var(--text-secondary);
   font-size: 0.84rem;
+}
+
+.wiki-workspace-sources__list button {
+  justify-self: start;
+  min-height: 30px;
+  padding: 0 10px;
+  border: 1px solid color-mix(in srgb, var(--nt-divider) 75%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--surface) 96%, transparent);
+  color: var(--text-primary);
+  font-size: 0.78rem;
+  font-weight: 750;
+}
+
+.wiki-workspace-sources__list button:hover,
+.wiki-workspace-sources__list button:focus-visible {
+  background: color-mix(in srgb, var(--accent-primary, var(--primary-color)) 8%, var(--surface));
+  outline: none;
 }
 
 .wiki-workspace-schema textarea {
