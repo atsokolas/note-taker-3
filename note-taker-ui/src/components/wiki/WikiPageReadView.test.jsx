@@ -260,6 +260,10 @@ describe('WikiPageReadView', () => {
     expect(screen.queryByRole('tab', { name: /Talk/ })).not.toBeInTheDocument();
     expect(screen.queryByLabelText('Ask this page')).not.toBeInTheDocument();
     expect(screen.queryByText('What changed after review?')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Wiki page facts')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Wiki page quality')).not.toBeInTheDocument();
+    expect(screen.queryByText('Claim health')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Mentioned in')).not.toBeInTheDocument();
     expect(screen.getByRole('tabpanel')).toHaveTextContent('Enterprise AI Memory depends on');
   });
 

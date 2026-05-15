@@ -6812,6 +6812,18 @@ html[data-ui-theme='dark'] .wiki-activity-rail__graph-alerts span {
   background: var(--surface);
 }
 
+.wiki-workspace.is-chat-collapsed {
+  grid-template-columns: 0 8px minmax(0, 1fr);
+}
+
+.wiki-workspace.is-wiki-collapsed {
+  grid-template-columns: minmax(320px, var(--wiki-workspace-chat-width)) 8px 0;
+}
+
+.wiki-workspace.is-chat-collapsed.is-wiki-collapsed {
+  grid-template-columns: var(--wiki-workspace-chat-width) 8px minmax(0, 1fr);
+}
+
 .wiki-workspace__chat-pane,
 .wiki-workspace__right-pane {
   min-width: 0;
@@ -6827,6 +6839,13 @@ html[data-ui-theme='dark'] .wiki-activity-rail__graph-alerts span {
   overflow: auto;
 }
 
+.wiki-workspace.is-chat-collapsed .wiki-workspace__chat-pane,
+.wiki-workspace.is-wiki-collapsed .wiki-workspace__right-pane {
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+
 .wiki-workspace__resizer {
   width: 8px;
   padding: 0;
@@ -6839,6 +6858,38 @@ html[data-ui-theme='dark'] .wiki-activity-rail__graph-alerts span {
 
 .wiki-workspace__mobile-tabs {
   display: none;
+}
+
+.wiki-workspace__desktop-tabs {
+  position: fixed;
+  z-index: 15;
+  right: 22px;
+  bottom: 22px;
+  display: flex;
+  gap: 8px;
+  padding: 6px;
+  border: 1px solid color-mix(in srgb, var(--nt-divider) 70%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  box-shadow: 0 12px 28px color-mix(in srgb, var(--shadow-color, #000) 12%, transparent);
+}
+
+.wiki-workspace__desktop-tabs button {
+  padding: 6px 10px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 0.76rem;
+  font-weight: 750;
+}
+
+.wiki-workspace__desktop-tabs button[aria-pressed='true'],
+.wiki-workspace__desktop-tabs button:hover,
+.wiki-workspace__desktop-tabs button:focus-visible {
+  border-color: color-mix(in srgb, var(--accent-primary, var(--primary-color)) 35%, var(--nt-divider));
+  color: var(--text-primary);
+  outline: none;
 }
 
 .wiki-workspace-chat {
@@ -7132,6 +7183,10 @@ html[data-ui-theme='dark'] .wiki-activity-rail__graph-alerts span {
   }
 
   .wiki-workspace__resizer {
+    display: none;
+  }
+
+  .wiki-workspace__desktop-tabs {
     display: none;
   }
 

@@ -90,7 +90,7 @@ describe('Wiki route shell', () => {
     expect(window.scrollTo).toHaveBeenCalledWith(0, 320);
   });
 
-  it('renders the graph index at /wiki', () => {
+  it('renders the graph index at /wiki', async () => {
     isWikiReadModeV2Enabled.mockReturnValue(true);
 
     mockUseParams.mockReturnValue({});
@@ -98,7 +98,7 @@ describe('Wiki route shell', () => {
 
     render(<Wiki />);
 
-    expect(screen.getByTestId('wiki-index')).toBeInTheDocument();
+    expect(await screen.findByTestId('wiki-index')).toBeInTheDocument();
   });
 
   it('keeps the card list at /wiki when read mode v2 is disabled', () => {

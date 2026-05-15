@@ -711,6 +711,7 @@ const WikiPageReadView = ({ pageId, onEdit, workspaceMode = false }) => {
   const displayedActiveTocId = activeTocId || tocItems[0]?.id || '';
   const discussionCount = (page?.discussions || []).length;
   const showPageTalk = !workspaceMode;
+  const showUtilityRail = !workspaceMode;
 
   useEffect(() => {
     const qualityStatus = String(page?.aiState?.quality?.status || page?.quality?.status || '').toLowerCase();
@@ -781,13 +782,13 @@ const WikiPageReadView = ({ pageId, onEdit, workspaceMode = false }) => {
           <header className="wiki-read__header">
             <p className="wiki-read__eyebrow">{labelFor(page.pageType || 'topic')}</p>
             <h1>{page.title || 'Untitled Wiki Page'}</h1>
-            <div className="wiki-read__facts" aria-label="Wiki page facts">
+            {!workspaceMode ? <div className="wiki-read__facts" aria-label="Wiki page facts">
               <span>{labelFor(page.pageType || 'topic')}</span>
               <span>{(page.sourceRefs || []).length} source{(page.sourceRefs || []).length === 1 ? '' : 's'}</span>
               <span>{formatDate(lastVisit?.lastViewedAt)}</span>
               <span>{wordCount} words</span>
-            </div>
-            {qualityState ? (
+            </div> : null}
+            {!workspaceMode && qualityState ? (
               <aside className="wiki-read__quality" aria-label="Wiki page quality">
                 <div>
                   <strong>{qualityState.title}</strong>
@@ -835,7 +836,7 @@ const WikiPageReadView = ({ pageId, onEdit, workspaceMode = false }) => {
               <section className="wiki-read__body">
                 {renderTiptapDoc(page.body || emptyDoc, { tocItems })}
               </section>
-              <WikiMentionedInFooter pageId={pageId} pageTitle={page.title} />
+              {showUtilityRail ? <WikiMentionedInFooter pageId={pageId} pageTitle={page.title} /> : null}
             </section>
           ) : (
             <section
@@ -866,10 +867,10 @@ const WikiPageReadView = ({ pageId, onEdit, workspaceMode = false }) => {
               ))}
             </dl>
           </section>
-          {!bodyHasWikiLinks ? (
+          {showUtilityRail && !bodyHasWikiLinks ? (
             <WikiAutolinkSuggestions pageId={pageId} pageTitle={page.title} />
           ) : null}
-          <section className="wiki-read__infobox wiki-read__claim-health">
+          {showUtilityRail ? <section className="wiki-read__infobox wiki-read__claim-health">
             <h2>Claim health</h2>
             <ul>
               <li>{healthCounts.supported} supported</li>
@@ -877,8 +878,8 @@ const WikiPageReadView = ({ pageId, onEdit, workspaceMode = false }) => {
               <li>{healthCounts.unsupported} unsupported</li>
               <li>{healthCounts.conflicted} conflicted</li>
             </ul>
-          </section>
-          {(page.sourceRefs || []).length ? (
+          </section> : null}
+          {showUtilityRail && (page.sourceRefs || []).length ? (
             <section className="wiki-read__infobox wiki-read__source-list">
               <h2>Sources</h2>
               <ol>

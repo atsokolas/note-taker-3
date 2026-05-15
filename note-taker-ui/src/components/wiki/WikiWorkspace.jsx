@@ -1,7 +1,10 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { chatWithAgent } from '../../api/agent';
 import { getArticles } from '../../api/articles';
+import { getConcepts } from '../../api/concepts';
+import { getHighlights } from '../../api/highlights';
+import { getQuestions } from '../../api/questions';
 import {
   createWikiPage,
   getWikiPage,
@@ -14,11 +17,14 @@ import {
 } from '../../api/wiki';
 import { buildWikiCreatePayload } from '../../utils/wikiCreate';
 import { Button } from '../ui';
-import WikiIndex from './WikiIndex';
 import WikiPageReadView from './WikiPageReadView';
+
+const WikiIndex = lazy(() => import('./WikiIndex'));
 
 const LAST_PAGE_KEY = 'noeis.wiki.workspace.last_page_id';
 const CHAT_WIDTH_KEY = 'noeis.wiki.workspace.chat_width';
+const CHAT_COLLAPSED_KEY = 'noeis.wiki.workspace.chat_collapsed';
+const WIKI_COLLAPSED_KEY = 'noeis.wiki.workspace.wiki_collapsed';
 const POLL_MS = 2000;
 
 const clean = (value = '') => String(value || '').trim();
@@ -150,6 +156,10 @@ const labelForRef = (ref = {}) => {
   if (ref.type === 'wiki') return `@wiki:${ref.id}`;
   if (ref.type === 'url') return ref.url || '@url';
   if (ref.type === 'article') return ref.title || '@article';
+  if (ref.type === 'highlight') return ref.title || '@highlight';
+  if (ref.type === 'concept') return ref.title || '@concept';
+  if (ref.type === 'question') return ref.title || '@question';
+  if (ref.type === 'today') return '@today';
   return ref.label || ref.id || 'Reference';
 };
 
@@ -164,23 +174,76 @@ const mergeReferences = (current = [], next = []) => {
   return Array.from(map.values()).slice(0, 12);
 };
 
-const referencesFromText = (text = '', wikiPages = []) => {
+const refId = (item = {}) => clean(item._id || item.id || item.name || item.text || item.title || item.url);
+
+const refTitle = (item = {}, fallback = 'Untitled') => clean(item.title || item.name || item.text || item.url || fallback);
+
+const typedRefFromItem = (type, item = {}) => {
+  const id = refId(item);
+  const title = refTitle(item, id || type);
+  const base = {
+    type,
+    id,
+    title,
+    label: type === 'wiki' ? `@wiki:${title}` : `@${type}:${title}`
+  };
+  if (type === 'article') return { ...base, url: clean(item.url), snippet: clean(item.summary || item.description || item.text || item.content) };
+  if (type === 'highlight') return { ...base, articleId: item.articleId, articleTitle: item.articleTitle, snippet: clean(item.text || item.note) };
+  if (type === 'concept') return { ...base, description: clean(item.description) };
+  if (type === 'question') return { ...base, status: item.status, conceptName: item.linkedTagName || item.conceptName };
+  return base;
+};
+
+const referencesFromText = (text = '', referenceCatalog = {}) => {
   const refs = [];
-  const pageById = new Map(wikiPages.map(page => [clean(page._id || page.id), page]));
-  String(text || '').replace(/@wiki:([^\s]+)/gi, (_match, id) => {
+  const catalogs = {
+    wiki: referenceCatalog.wiki || [],
+    article: referenceCatalog.article || [],
+    highlight: referenceCatalog.highlight || [],
+    concept: referenceCatalog.concept || [],
+    question: referenceCatalog.question || []
+  };
+  const byTypeAndId = Object.fromEntries(Object.entries(catalogs).map(([type, items]) => [
+    type,
+    new Map(items.map(item => [refId(item), item]))
+  ]));
+  String(text || '').replace(/@(wiki|article|highlight|concept|question|source):([^\s]+)/gi, (_match, type, id) => {
     const cleanId = clean(id);
-    const page = pageById.get(cleanId);
-    refs.push({
-      type: 'wiki',
-      id: cleanId,
-      title: page?.title || cleanId,
-      label: page?.title ? `@wiki:${page.title}` : `@wiki:${cleanId}`
-    });
+    const resolvedType = type.toLowerCase() === 'source' ? 'article' : type.toLowerCase();
+    const item = byTypeAndId[resolvedType]?.get(cleanId);
+    refs.push(item ? typedRefFromItem(resolvedType, item) : { type: resolvedType, id: cleanId, label: `@${type}:${cleanId}` });
     return _match;
   });
   const url = parseUrl(text);
   if (url) refs.push({ type: 'url', url, id: url, label: url });
+  if (String(text || '').match(/@today\b/i)) {
+    refs.push({ type: 'today', id: new Date().toISOString().slice(0, 10), label: '@today' });
+  }
   return refs;
+};
+
+const mentionTrigger = (input = '') => {
+  const match = String(input || '').match(/@(wiki|article|highlight|concept|question|source|url|today):?([^\s]*)$/i);
+  if (!match) return null;
+  return {
+    type: match[1].toLowerCase(),
+    query: clean(match[2]).toLowerCase()
+  };
+};
+
+const matchesQuery = (item = {}, query = '') => {
+  if (!query) return true;
+  return [
+    item._id,
+    item.id,
+    item.name,
+    item.title,
+    item.text,
+    item.articleTitle,
+    item.description,
+    item.url,
+    item.linkedTagName
+  ].some(value => String(value || '').toLowerCase().includes(query));
 };
 
 const viewPathFor = ({ view = 'graph', page = '' } = {}) => {
@@ -343,6 +406,10 @@ const WikiWorkspaceChat = ({ selectedPageId, view, onNavigate, onPageChanged, bu
   const [threadId, setThreadId] = useState('');
   const [threadTitle, setThreadTitle] = useState('');
   const [wikiPages, setWikiPages] = useState([]);
+  const [articles, setArticles] = useState([]);
+  const [highlights, setHighlights] = useState([]);
+  const [concepts, setConcepts] = useState([]);
+  const [questions, setQuestions] = useState([]);
   const [contextRefs, setContextRefs] = useState([]);
   const scrollRef = useRef(null);
 
@@ -360,13 +427,20 @@ const WikiWorkspaceChat = ({ selectedPageId, view, onNavigate, onPageChanged, bu
 
   useEffect(() => {
     let cancelled = false;
-    listWikiPages({ limit: 30 })
-      .then((pages) => {
-        if (!cancelled) setWikiPages(Array.isArray(pages) ? pages : []);
-      })
-      .catch(() => {
-        if (!cancelled) setWikiPages([]);
-      });
+    Promise.allSettled([
+      listWikiPages({ limit: 50 }),
+      getArticles({ limit: 50, sort: 'recent' }),
+      getHighlights({ limit: 50 }),
+      getConcepts(),
+      getQuestions()
+    ]).then(([pages, articleRows, highlightRows, conceptRows, questionRows]) => {
+      if (cancelled) return;
+      if (pages.status === 'fulfilled') setWikiPages(Array.isArray(pages.value) ? pages.value : []);
+      if (articleRows.status === 'fulfilled') setArticles(Array.isArray(articleRows.value) ? articleRows.value : []);
+      if (highlightRows.status === 'fulfilled') setHighlights(Array.isArray(highlightRows.value) ? highlightRows.value : []);
+      if (conceptRows.status === 'fulfilled') setConcepts(Array.isArray(conceptRows.value) ? conceptRows.value : []);
+      if (questionRows.status === 'fulfilled') setQuestions(Array.isArray(questionRows.value) ? questionRows.value : []);
+    });
     return () => { cancelled = true; };
   }, []);
 
@@ -374,40 +448,43 @@ const WikiWorkspaceChat = ({ selectedPageId, view, onNavigate, onPageChanged, bu
     setMessages(current => [...current, { id: messageId(message.role), createdAt: new Date().toISOString(), ...message }]);
   }, []);
 
+  const referenceCatalog = useMemo(() => ({
+    wiki: wikiPages,
+    article: articles,
+    highlight: highlights,
+    concept: concepts,
+    question: questions
+  }), [articles, concepts, highlights, questions, wikiPages]);
+
   const showCommands = commandMatches(input);
-  const mentionQuery = useMemo(() => {
-    const match = input.match(/@wiki:([^\s]*)$/i);
-    return match ? clean(match[1]).toLowerCase() : '';
-  }, [input]);
-  const showWikiMentions = useMemo(() => {
-    if (!input.match(/@wiki:[^\s]*$/i)) return [];
-    return wikiPages
-      .filter(page => {
-        const id = String(page._id || page.id || '').toLowerCase();
-        const title = String(page.title || '').toLowerCase();
-        return !mentionQuery || id.includes(mentionQuery) || title.includes(mentionQuery);
-      })
-      .slice(0, 6);
-  }, [input, mentionQuery, wikiPages]);
+  const trigger = useMemo(() => mentionTrigger(input), [input]);
+  const showMentions = useMemo(() => {
+    if (!trigger || trigger.type === 'url') return [];
+    if (trigger.type === 'today') {
+      return [{ type: 'today', id: new Date().toISOString().slice(0, 10), title: 'Today', label: '@today' }];
+    }
+    const type = trigger.type === 'source' ? 'article' : trigger.type;
+    const items = referenceCatalog[type] || [];
+    return items
+      .filter(item => matchesQuery(item, trigger.query))
+      .slice(0, 8)
+      .map(item => typedRefFromItem(type, item));
+  }, [referenceCatalog, trigger]);
 
   const applyCommandTemplate = (template) => {
     setInput(template);
   };
 
-  const applyWikiMention = (page) => {
-    const pageId = clean(page?._id || page?.id);
-    if (!pageId) return;
-    setInput(current => current.replace(/@wiki:[^\s]*$/i, `@wiki:${pageId}`));
-    setContextRefs(current => mergeReferences(current, [{
-      type: 'wiki',
-      id: pageId,
-      title: page.title || pageId,
-      label: page.title ? `@wiki:${page.title}` : `@wiki:${pageId}`
-    }]));
+  const applyMention = (ref) => {
+    const id = clean(ref?.id || ref?.url);
+    if (!id && ref?.type !== 'today') return;
+    const token = ref.type === 'today' ? '@today' : `@${ref.type}:${id}`;
+    setInput(current => current.replace(/@(wiki|article|highlight|concept|question|source|url|today):?[^\s]*$/i, token));
+    setContextRefs(current => mergeReferences(current, [ref]));
   };
 
   const sendAgentMessage = useCallback(async (text, { assistantPrefix = '', extraRefs = [] } = {}) => {
-    const nextRefs = mergeReferences(contextRefs, [...referencesFromText(text, wikiPages), ...extraRefs]);
+    const nextRefs = mergeReferences(contextRefs, [...referencesFromText(text, referenceCatalog), ...extraRefs]);
     setContextRefs(nextRefs);
     const result = await chatWithAgent({
       message: text,
@@ -438,7 +515,7 @@ const WikiWorkspaceChat = ({ selectedPageId, view, onNavigate, onPageChanged, bu
       setMessages(hydratedMessages);
     }
     append({ role: 'assistant', text: `${assistantPrefix}${clean(result?.reply) || 'No reply generated.'}` });
-  }, [append, contextRefs, messages, selectedPageId, threadId, view, wikiPages]);
+  }, [append, contextRefs, messages, referenceCatalog, selectedPageId, threadId, view]);
 
   const handleCommand = async (command) => {
     const pageRef = parseWikiRef(command.args) || selectedPageId;
@@ -602,7 +679,7 @@ const WikiWorkspaceChat = ({ selectedPageId, view, onNavigate, onPageChanged, bu
     if (!text || busy) return;
     setInput('');
     append({ role: 'user', text });
-    setContextRefs(current => mergeReferences(current, referencesFromText(text, wikiPages)));
+    setContextRefs(current => mergeReferences(current, referencesFromText(text, referenceCatalog)));
     const command = parseCommand(text);
     if (command && await handleCommand(command)) return;
 
@@ -672,18 +749,18 @@ const WikiWorkspaceChat = ({ selectedPageId, view, onNavigate, onPageChanged, bu
             ))}
           </div>
         ) : null}
-        {showWikiMentions.length ? (
-          <div className="wiki-workspace-chat__palette" aria-label="Wiki page references">
-            {showWikiMentions.map(page => (
-              <button type="button" key={page._id || page.id} onClick={() => applyWikiMention(page)}>
-                <strong>{page.title || 'Untitled wiki page'}</strong>
-                <span>@wiki:{page._id || page.id}</span>
+        {showMentions.length ? (
+          <div className="wiki-workspace-chat__palette" aria-label="Workspace references">
+            {showMentions.map(ref => (
+              <button type="button" key={contextKeyFor(ref)} onClick={() => applyMention(ref)}>
+                <strong>{ref.title || ref.label || 'Reference'}</strong>
+                <span>@{ref.type}:{ref.id || ref.url}</span>
               </button>
             ))}
           </div>
         ) : null}
         <div>
-          <span>Type / for commands, @wiki: for page references</span>
+          <span>Type / for commands, @ for references</span>
           <Button type="submit" disabled={busy || !input.trim()}>{busy ? 'Working...' : 'Send'}</Button>
         </div>
       </form>
@@ -700,6 +777,8 @@ const WikiWorkspace = () => {
   const [mobilePane, setMobilePane] = useState('chat');
   const [routeOverride, setRouteOverride] = useState('');
   const [chatDraft, setChatDraft] = useState(null);
+  const [chatCollapsed, setChatCollapsed] = useState(() => window.localStorage?.getItem(CHAT_COLLAPSED_KEY) === 'true');
+  const [wikiCollapsed, setWikiCollapsed] = useState(() => window.localStorage?.getItem(WIKI_COLLAPSED_KEY) === 'true');
   const touchStartRef = useRef(null);
   const dragRef = useRef(null);
   const chatWidthRef = useRef(chatWidth);
@@ -734,7 +813,7 @@ const WikiWorkspace = () => {
     if (!busy || !selectedPageId) return undefined;
     const handle = window.setInterval(async () => {
       try {
-        await getWikiPage(selectedPageId);
+        await getWikiPage(selectedPageId, { force: true });
         setRefreshNonce(value => value + 1);
       } catch (_error) {
         // Polling is opportunistic; the explicit command result still reports failure.
@@ -749,6 +828,7 @@ const WikiWorkspace = () => {
     setRouteOverride(searchFor(target));
     navigate(viewPathFor(target));
     if (page) setMobilePane('wiki');
+    if (page || nextView) setWikiCollapsed(false);
   }, [navigate, selectedPageId]);
 
   const onPageChanged = useCallback((pageId) => {
@@ -792,8 +872,36 @@ const WikiWorkspace = () => {
     if (view === 'activity') return <WorkspaceActivity />;
     if (view === 'sources') return <WorkspaceSources onUseSource={useSourceInChat} />;
     if (view === 'schema') return <WorkspaceSchema />;
-    return <WikiIndex />;
+    return (
+      <Suspense fallback={<p className="wiki-index__status">Loading wiki graph...</p>}>
+        <WikiIndex />
+      </Suspense>
+    );
   }, [navigate, refreshNonce, selectedPageId, useSourceInChat, view]);
+
+  const toggleChatCollapsed = () => {
+    setChatCollapsed(current => {
+      const next = !current;
+      window.localStorage?.setItem?.(CHAT_COLLAPSED_KEY, String(next));
+      if (next && wikiCollapsed) {
+        setWikiCollapsed(false);
+        window.localStorage?.setItem?.(WIKI_COLLAPSED_KEY, 'false');
+      }
+      return next;
+    });
+  };
+
+  const toggleWikiCollapsed = () => {
+    setWikiCollapsed(current => {
+      const next = !current;
+      window.localStorage?.setItem?.(WIKI_COLLAPSED_KEY, String(next));
+      if (next && chatCollapsed) {
+        setChatCollapsed(false);
+        window.localStorage?.setItem?.(CHAT_COLLAPSED_KEY, 'false');
+      }
+      return next;
+    });
+  };
 
   const handleDragStart = (event) => {
     dragRef.current = { startX: event.clientX, startWidth: chatWidth };
@@ -832,7 +940,7 @@ const WikiWorkspace = () => {
 
   return (
     <main
-      className={`wiki-workspace is-mobile-${mobilePane}`}
+      className={`wiki-workspace is-mobile-${mobilePane} ${chatCollapsed ? 'is-chat-collapsed' : ''} ${wikiCollapsed ? 'is-wiki-collapsed' : ''}`.trim()}
       style={{ '--wiki-workspace-chat-width': `${chatWidth}px` }}
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
@@ -840,6 +948,14 @@ const WikiWorkspace = () => {
       <div className="wiki-workspace__mobile-tabs" role="tablist" aria-label="Workspace panes">
         <button type="button" className={mobilePane === 'chat' ? 'is-active' : ''} onClick={() => setMobilePane('chat')}>Chat</button>
         <button type="button" className={mobilePane === 'wiki' ? 'is-active' : ''} onClick={() => setMobilePane('wiki')}>Wiki</button>
+      </div>
+      <div className="wiki-workspace__desktop-tabs" aria-label="Desktop workspace panes">
+        <button type="button" onClick={toggleChatCollapsed} aria-pressed={chatCollapsed}>
+          {chatCollapsed ? 'Show chat' : 'Hide chat'}
+        </button>
+        <button type="button" onClick={toggleWikiCollapsed} aria-pressed={wikiCollapsed}>
+          {wikiCollapsed ? 'Show wiki' : 'Hide wiki'}
+        </button>
       </div>
       <aside className="wiki-workspace__chat-pane">
         <WikiWorkspaceChat
@@ -859,7 +975,9 @@ const WikiWorkspace = () => {
         onMouseDown={handleDragStart}
       />
       <section className="wiki-workspace__right-pane" aria-label="Wiki workspace right pane">
-        {rightPane}
+        <Suspense fallback={<p className="wiki-index__status">Loading wiki view...</p>}>
+          {rightPane}
+        </Suspense>
       </section>
     </main>
   );

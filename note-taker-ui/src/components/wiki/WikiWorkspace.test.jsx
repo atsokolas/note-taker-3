@@ -4,6 +4,9 @@ import { BrowserRouter } from 'react-router-dom';
 import WikiWorkspace from './WikiWorkspace';
 import { chatWithAgent } from '../../api/agent';
 import { getArticles } from '../../api/articles';
+import { getConcepts } from '../../api/concepts';
+import { getHighlights } from '../../api/highlights';
+import { getQuestions } from '../../api/questions';
 import { createWikiPage, getWikiPage, getWikiSchema, ingestWikiSource, listWikiActivity, listWikiPages, maintainWikiPage, saveWikiSchema } from '../../api/wiki';
 
 jest.mock('../../api/agent', () => ({
@@ -12,6 +15,18 @@ jest.mock('../../api/agent', () => ({
 
 jest.mock('../../api/articles', () => ({
   getArticles: jest.fn()
+}));
+
+jest.mock('../../api/concepts', () => ({
+  getConcepts: jest.fn()
+}));
+
+jest.mock('../../api/highlights', () => ({
+  getHighlights: jest.fn()
+}));
+
+jest.mock('../../api/questions', () => ({
+  getQuestions: jest.fn()
 }));
 
 jest.mock('../../api/wiki', () => ({
@@ -51,6 +66,9 @@ describe('WikiWorkspace', () => {
     window.localStorage.clear();
     chatWithAgent.mockResolvedValue({ reply: 'Agent reply.', thread: { threadId: 'thread-1' } });
     getArticles.mockResolvedValue([{ _id: 'article-1', title: 'Source memo', url: 'https://example.com' }]);
+    getConcepts.mockResolvedValue([{ _id: 'concept-1', name: 'Systems Thinking', description: 'Feedback loops.' }]);
+    getHighlights.mockResolvedValue([{ _id: 'highlight-1', text: 'Durable advantage compounds.', articleId: 'article-1', articleTitle: 'Source memo' }]);
+    getQuestions.mockResolvedValue([{ _id: 'question-1', text: 'What is the weak claim?', status: 'open', linkedTagName: 'Investing' }]);
     createWikiPage.mockResolvedValue({ _id: 'wiki-promoted', title: 'Promoted answer' });
     getWikiPage.mockResolvedValue({ _id: 'wiki-1', title: 'Wiki page' });
     getWikiSchema.mockResolvedValue({ content: '# Wiki Schema' });
@@ -170,10 +188,51 @@ describe('WikiWorkspace', () => {
       target: { value: '/page @wiki:sys' }
     });
 
-    expect(await screen.findByLabelText('Wiki page references')).toBeInTheDocument();
+    expect(await screen.findByLabelText('Workspace references')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /Systems Thinking/ }));
     expect(screen.getByLabelText('Wiki workspace message')).toHaveValue('/page @wiki:wiki-2');
     expect(screen.getByLabelText('Workspace context references')).toHaveTextContent('@wiki:Systems Thinking');
+  });
+
+  it('suggests article, highlight, concept, question, source, and today references', async () => {
+    renderWorkspace();
+    await settleWorkspaceEffects();
+
+    fireEvent.change(screen.getByLabelText('Wiki workspace message'), {
+      target: { value: 'Use @article:sour' }
+    });
+    expect(await screen.findByLabelText('Workspace references')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /Source memo/ }));
+    expect(screen.getByLabelText('Workspace context references')).toHaveTextContent('@article:Source memo');
+
+    fireEvent.change(screen.getByLabelText('Wiki workspace message'), {
+      target: { value: 'Compare @highlight:durable' }
+    });
+    fireEvent.click(await screen.findByRole('button', { name: /Durable advantage compounds/ }));
+    expect(screen.getByLabelText('Workspace context references')).toHaveTextContent('@highlight:Durable advantage compounds.');
+
+    fireEvent.change(screen.getByLabelText('Wiki workspace message'), {
+      target: { value: 'Scope @concept:systems' }
+    });
+    fireEvent.click(await screen.findByRole('button', { name: /Systems Thinking/ }));
+    expect(screen.getByLabelText('Workspace context references')).toHaveTextContent('@concept:Systems Thinking');
+
+    fireEvent.change(screen.getByLabelText('Wiki workspace message'), {
+      target: { value: 'Resolve @question:weak' }
+    });
+    fireEvent.click(await screen.findByRole('button', { name: /What is the weak claim/ }));
+    expect(screen.getByLabelText('Workspace context references')).toHaveTextContent('@question:What is the weak claim?');
+
+    fireEvent.change(screen.getByLabelText('Wiki workspace message'), {
+      target: { value: 'Use @source:sour' }
+    });
+    fireEvent.click((await screen.findAllByRole('button', { name: /Source memo/ })).find(button => !button.getAttribute('aria-label')));
+
+    fireEvent.change(screen.getByLabelText('Wiki workspace message'), {
+      target: { value: 'Use @today' }
+    });
+    fireEvent.click(await screen.findByRole('button', { name: /Today/ }));
+    expect(screen.getByLabelText('Workspace context references')).toHaveTextContent('@today');
   });
 
   it('persists and removes context reference chips', async () => {
@@ -292,5 +351,22 @@ describe('WikiWorkspace', () => {
     fireEvent.touchStart(workspace, { touches: [{ clientX: 300, clientY: 20 }] });
     fireEvent.touchEnd(workspace, { changedTouches: [{ clientX: 120, clientY: 28 }] });
     expect(workspace).toHaveClass('is-mobile-wiki');
+  });
+
+  it('collapses and restores desktop panes', async () => {
+    renderWorkspace();
+    await settleWorkspaceEffects();
+    const workspace = screen.getByRole('main');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Hide chat' }));
+    expect(workspace).toHaveClass('is-chat-collapsed');
+    expect(window.localStorage.getItem('noeis.wiki.workspace.chat_collapsed')).toBe('true');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show chat' }));
+    expect(workspace).not.toHaveClass('is-chat-collapsed');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Hide wiki' }));
+    expect(workspace).toHaveClass('is-wiki-collapsed');
+    expect(window.localStorage.getItem('noeis.wiki.workspace.wiki_collapsed')).toBe('true');
   });
 });
