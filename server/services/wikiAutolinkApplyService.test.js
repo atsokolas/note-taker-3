@@ -30,6 +30,21 @@ const run = async () => {
     targetPage: { _id: 'page-3', title: 'Unrelated topic' }
   });
   assert.strictEqual(none.applied, false);
+
+  const aliasDoc = {
+    type: 'doc',
+    content: [{
+      type: 'paragraph',
+      content: [{ type: 'text', text: 'Investing rewards patient evidence review.' }]
+    }]
+  };
+  const aliasResult = applyWikiAutolinkToDoc({
+    doc: aliasDoc,
+    targetPage: { _id: 'page-4', title: 'Investing - Concepts, Ideas, and Strategies', matchText: 'Investing' }
+  });
+  assert.strictEqual(aliasResult.applied, true);
+  assert.strictEqual(aliasResult.doc.content[0].content[0].text, 'Investing');
+  assert.strictEqual(aliasResult.doc.content[0].content[0].marks[0].attrs.title, 'Investing - Concepts, Ideas, and Strategies');
 };
 
 if (require.main === module) {

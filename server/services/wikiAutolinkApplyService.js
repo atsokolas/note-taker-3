@@ -1,6 +1,6 @@
 const { __testables } = require('./wikiAutolinkService');
 
-const { buildTitleMatcher } = __testables;
+const { buildTitleMatcher, titleAliases } = __testables;
 
 const clone = (value) => JSON.parse(JSON.stringify(value));
 
@@ -47,8 +47,16 @@ const splitTextNodeWithWikiLink = ({ node, start, end, targetPage }) => {
 
 const applyWikiAutolinkToDoc = ({ doc, targetPage } = {}) => {
   if (!doc || typeof doc !== 'object' || !targetPage) return { doc, applied: false };
-  const matcher = buildTitleMatcher(targetPage.title);
-  if (!matcher) return { doc, applied: false };
+  const matchTexts = [
+    targetPage.matchText,
+    ...(Array.isArray(targetPage.aliases) ? targetPage.aliases : []),
+    ...titleAliases(targetPage.title)
+  ].map(value => String(value || '').trim()).filter(Boolean);
+  const matchers = Array.from(new Set(matchTexts.map(value => value.toLowerCase())))
+    .map(key => matchTexts.find(value => value.toLowerCase() === key))
+    .map(buildTitleMatcher)
+    .filter(Boolean);
+  if (!matchers.length) return { doc, applied: false };
   const targetPageId = targetPage._id || targetPage.id;
   if (docHasWikiLink(doc, targetPageId)) return { doc, applied: false };
   let applied = false;
@@ -57,13 +65,15 @@ const applyWikiAutolinkToDoc = ({ doc, targetPage } = {}) => {
     if (!node || typeof node !== 'object') return node;
     if (applied) return node;
     if (node.type === 'text' && typeof node.text === 'string' && !hasWikiLinkMark(node, targetPageId)) {
-      matcher.lastIndex = 0;
-      const match = matcher.exec(node.text);
-      if (match) {
-        applied = true;
-        const start = match.index + match[0].indexOf(match[1]);
-        const end = start + match[1].length;
-        return splitTextNodeWithWikiLink({ node, start, end, targetPage });
+      for (const matcher of matchers) {
+        matcher.lastIndex = 0;
+        const match = matcher.exec(node.text);
+        if (match) {
+          applied = true;
+          const start = match.index + match[0].indexOf(match[1]);
+          const end = start + match[1].length;
+          return splitTextNodeWithWikiLink({ node, start, end, targetPage });
+        }
       }
     }
     if (!Array.isArray(node.content)) return node;

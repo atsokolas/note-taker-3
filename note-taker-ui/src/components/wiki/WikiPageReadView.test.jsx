@@ -316,8 +316,8 @@ describe('WikiPageReadView', () => {
     );
 
     const quality = await screen.findByLabelText('Wiki page quality');
-    expect(quality).toHaveTextContent('Needs rebuild');
-    expect(quality).toHaveTextContent('2 maintenance issues surfaced by the page API.');
+    expect(quality).toHaveTextContent('Needs review');
+    expect(quality).toHaveTextContent('The article is usable, but new signals or weak claims should be reviewed.');
     expect(quality).toHaveTextContent('Maintenance generated a claim without usable evidence.');
     expect(quality).toHaveTextContent('2 of 3 claims need stronger support.');
     expect(screen.getByRole('tab', { name: 'Article' })).toHaveAttribute('aria-selected', 'true');

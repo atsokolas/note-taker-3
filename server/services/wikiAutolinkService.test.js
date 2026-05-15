@@ -1,7 +1,7 @@
 const assert = require('assert');
 const { findAutolinkSuggestions, __testables } = require('./wikiAutolinkService');
 
-const { buildTitleMatcher, scanTextForCandidate, truncate } = __testables;
+const { buildTitleMatcher, scanTextForCandidate, titleAliases, truncate } = __testables;
 
 const fakeModel = (records) => ({
   find: () => ({
@@ -26,6 +26,16 @@ const run = async () => {
   });
   assert.strictEqual(scan.mentionCount, 2);
   assert.match(scan.snippet, /Compounding interest/);
+
+  const aliases = titleAliases('Investing - Concepts, Ideas, and Strategies');
+  assert.ok(aliases.includes('Investing - Concepts, Ideas, and Strategies'));
+  assert.ok(aliases.includes('Investing'));
+  const aliasScan = scanTextForCandidate({
+    targetText: 'This article treats Investing as a repeatable decision craft.',
+    candidateTitle: 'Investing - Concepts, Ideas, and Strategies'
+  });
+  assert.strictEqual(aliasScan.mentionCount, 1);
+  assert.strictEqual(aliasScan.matchedAlias, 'Investing');
 
   assert.match(truncate('a'.repeat(80), 30), /^a+…$/);
   assert.strictEqual(truncate('short'), 'short');
@@ -56,6 +66,7 @@ const run = async () => {
   assert.deepStrictEqual(ranked.suggestions.map(suggestion => suggestion.pageId), ['a', 'b']);
   assert.strictEqual(ranked.suggestions[0].mentionCount, 2);
   assert.strictEqual(ranked.suggestions[1].mentionCount, 1);
+  assert.strictEqual(ranked.suggestions[0].matchedAlias, 'Compounding interest');
   assert.strictEqual(ranked.scanned, 3);
 
   const tied = await findAutolinkSuggestions({

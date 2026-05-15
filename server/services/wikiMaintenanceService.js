@@ -1230,7 +1230,8 @@ const applyKnownWikiLinks = async ({ page, body, plainText, userId, models = {} 
         targetPage: {
           _id: suggestion.pageId,
           id: suggestion.pageId,
-          title: suggestion.title
+          title: suggestion.title,
+          matchText: suggestion.matchedAlias
         }
       }).doc
     ), body);

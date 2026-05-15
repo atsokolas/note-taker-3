@@ -14,7 +14,8 @@ import {
   buildWikiGraphData,
   filterWikiGraphPages,
   formatDate,
-  labelFor
+  labelFor,
+  summarizeWikiGraph
 } from './wikiGraph';
 
 const TYPE_COLORS = {
@@ -49,6 +50,39 @@ const sourceTitle = (source = {}) => (
 );
 
 const statusLabel = (value = '') => labelFor(String(value || 'pending'));
+
+const RELATION_LABELS = {
+  wikiLink: 'Inline links',
+  shared_source: 'Shared sources',
+  related: 'Related',
+  needs_review: 'Needs review',
+  supports: 'Supports',
+  contradicts: 'Contradicts',
+  extends: 'Extends'
+};
+
+const relationLabel = (value = '') => RELATION_LABELS[value] || labelFor(value || 'related');
+
+const linkEndpointTitle = (endpoint) => (
+  typeof endpoint === 'object' && endpoint
+    ? endpoint.title || endpoint.id || ''
+    : String(endpoint || '')
+);
+
+const linkReason = (link = {}) => {
+  if (link.relationType === 'wikiLink') return 'The article text links directly to another wiki page.';
+  if (link.relationType === 'shared_source') {
+    const titles = Array.isArray(link.sourceTitles) ? link.sourceTitles.filter(Boolean).slice(0, 2) : [];
+    return titles.length
+      ? `Both pages cite ${titles.join(titles.length === 2 ? ' and ' : '')}.`
+      : 'Both pages use overlapping source material.';
+  }
+  if (link.relationType === 'needs_review') return 'The knowledge graph marks this relationship as requiring review.';
+  if (link.relationType === 'supports') return 'The knowledge graph says one page supports the other.';
+  if (link.relationType === 'contradicts') return 'The knowledge graph says these pages are in tension.';
+  if (link.relationType === 'extends') return 'The knowledge graph says one page extends the other.';
+  return 'The page health or graph metadata marks these pages as related.';
+};
 
 const formatActivityTime = (value) => {
   if (!value) return '';
@@ -173,6 +207,51 @@ const WikiGraph = ({ graph }) => {
   const navigate = useNavigate();
   const graphRef = useRef(null);
   const [hovered, setHovered] = useState(null);
+  const [hoveredLink, setHoveredLink] = useState(null);
+  const relationCounts = useMemo(() => (
+    (graph.links || []).reduce((counts, link) => {
+      const key = link.relationType || 'related';
+      counts[key] = (counts[key] || 0) + 1;
+      return counts;
+    }, {})
+  ), [graph.links]);
+  const relationTypes = useMemo(() => Object.keys(relationCounts), [relationCounts]);
+  const relationTypeKey = relationTypes.join('|');
+  const [activeRelations, setActiveRelations] = useState(null);
+
+  useEffect(() => {
+    setActiveRelations(current => {
+      if (!current) return new Set(relationTypes);
+      const available = new Set(relationTypes);
+      const next = new Set(Array.from(current).filter(relationType => available.has(relationType)));
+      relationTypes.forEach(relationType => {
+        if (!current.size) return;
+        if (!current.has(relationType)) next.add(relationType);
+      });
+      return next;
+    });
+  }, [relationTypes, relationTypeKey]);
+
+  const activeRelationSet = useMemo(() => (
+    activeRelations || new Set(relationTypes)
+  ), [activeRelations, relationTypes]);
+
+  const visibleGraph = useMemo(() => {
+    if (!activeRelationSet.size) return { ...graph, links: [] };
+    return {
+      ...graph,
+      links: (graph.links || []).filter(link => activeRelationSet.has(link.relationType || 'related'))
+    };
+  }, [activeRelationSet, graph]);
+
+  const toggleRelation = (relationType) => {
+    setActiveRelations(current => {
+      const next = new Set(current || relationTypes);
+      if (next.has(relationType)) next.delete(relationType);
+      else next.add(relationType);
+      return next;
+    });
+  };
 
   const renderNode = (node, ctx, globalScale) => {
     const radius = Math.min(14, 5 + Math.sqrt(Number(node.inboundCount || 0)) * 2.4);
@@ -206,11 +285,26 @@ const WikiGraph = ({ graph }) => {
           Fit
         </Button>
       </div>
+      <div className="wiki-graph__relations" aria-label="Graph relation filters">
+        {relationTypes.map(relationType => (
+          <button
+            type="button"
+            key={relationType}
+            className={activeRelationSet.has(relationType) ? 'is-active' : ''}
+            onClick={() => toggleRelation(relationType)}
+          >
+            <i style={{ background: EDGE_COLORS[relationType] || '#94a3b8' }} />
+            {relationLabel(relationType)}
+            <span>{relationCounts[relationType]}</span>
+          </button>
+        ))}
+      </div>
       <div className="wiki-graph__canvas">
         <ForceGraph2D
           ref={graphRef}
-          graphData={graph}
+          graphData={visibleGraph}
           nodeLabel={(node) => `${node.title}\n${labelFor(node.pageType)} · ${formatDate(node.updatedAt) || 'No date'}`}
+          linkLabel={(link) => `${relationLabel(link.relationType)}\n${linkReason(link)}`}
           nodeCanvasObject={renderNode}
           linkColor={(link) => EDGE_COLORS[link.relationType] || '#94a3b8'}
           linkWidth={(link) => (link.relationType === 'wikiLink' ? 1.8 : link.relationType === 'shared_source' ? 1.35 : 1.2)}
@@ -218,6 +312,7 @@ const WikiGraph = ({ graph }) => {
           linkDirectionalParticleSpeed={(link) => (link.relationType === 'wikiLink' ? 0.006 : 0.003)}
           linkDirectionalParticleWidth={(link) => (link.relationType === 'wikiLink' ? 2.5 : 1.6)}
           onNodeHover={setHovered}
+          onLinkHover={setHoveredLink}
           onNodeClick={(node) => navigate(`/wiki/${node.id}`)}
         />
       </div>
@@ -226,6 +321,13 @@ const WikiGraph = ({ graph }) => {
           <strong>{hovered.title}</strong>
           <span>{labelFor(hovered.pageType)} · {hovered.inboundCount} inbound · {hovered.sourceCount} sources</span>
           <span>{formatDate(hovered.updatedAt)}</span>
+        </aside>
+      ) : null}
+      {hoveredLink ? (
+        <aside className="wiki-graph__tooltip wiki-graph__tooltip--link" role="tooltip">
+          <strong>{relationLabel(hoveredLink.relationType)}</strong>
+          <span>{linkEndpointTitle(hoveredLink.source)} -> {linkEndpointTitle(hoveredLink.target)}</span>
+          <span>{linkReason(hoveredLink)}</span>
         </aside>
       ) : null}
       <div className="wiki-graph__legend" aria-label="Page type legend">
@@ -290,6 +392,7 @@ const WikiIndex = () => {
   ), [driftStatus, modifiedWithin, pageType, pages]);
 
   const graph = useMemo(() => buildWikiGraphData(filteredPages, mapGraph), [filteredPages, mapGraph]);
+  const graphSummary = useMemo(() => summarizeWikiGraph(graph), [graph]);
   const isMobile = width < 720;
 
   const handleIngested = (result = {}) => {
@@ -353,6 +456,22 @@ const WikiIndex = () => {
           {graph.nodes.length} {graph.nodes.length === 1 ? 'page' : 'pages'} · {graph.links.length} {graph.links.length === 1 ? 'link' : 'links'}
         </span>
       </section>
+      {!loading && graph.nodes.length ? (
+        <section className="wiki-graph-signals" aria-label="Wiki map signals">
+          <div>
+            <span>Hubs</span>
+            <strong>{graphSummary.hubs.map(node => node.title).join(', ') || 'None yet'}</strong>
+          </div>
+          <div>
+            <span>Isolated</span>
+            <strong>{graphSummary.orphanCount}</strong>
+          </div>
+          <div>
+            <span>Evidence overlap</span>
+            <strong>{graphSummary.relationCounts.shared_source || 0}</strong>
+          </div>
+        </section>
+      ) : null}
       {error ? <div className="wiki-index__error" role="alert">{error}</div> : null}
       {loading ? <p className="wiki-index__status">Loading Wiki graph...</p> : null}
       {!loading && graph.nodes.length && !isMobile ? <WikiGraph graph={graph} /> : null}

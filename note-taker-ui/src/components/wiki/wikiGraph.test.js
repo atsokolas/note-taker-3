@@ -1,4 +1,4 @@
-import { buildWikiGraphData, filterWikiGraphPages } from './wikiGraph';
+import { buildWikiGraphData, filterWikiGraphPages, summarizeWikiGraph } from './wikiGraph';
 
 const basePage = {
   _id: 'page-a',
@@ -135,5 +135,17 @@ describe('wiki graph helpers', () => {
 
     expect(graph.nodes).toHaveLength(500);
     expect(graph.links).toHaveLength(2000);
+  });
+
+  it('summarizes hubs, isolated pages, and relation counts for map interpretation', () => {
+    const graph = buildWikiGraphData(pages);
+    const summary = summarizeWikiGraph(graph);
+
+    expect(summary.hubs[0]).toMatchObject({ id: 'page-a', degree: 2 });
+    expect(summary.orphanCount).toBe(0);
+    expect(summary.relationCounts).toMatchObject({
+      wikiLink: 1,
+      related: 1
+    });
   });
 });

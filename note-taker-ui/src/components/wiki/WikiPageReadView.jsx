@@ -243,19 +243,29 @@ const collectQualityIssues = (page = {}) => {
 const buildQualityState = ({ page = {}, counts = {} }) => {
   const claims = Array.isArray(page?.claims) ? page.claims : [];
   const issues = collectQualityIssues(page);
-  const explicitNeedsRebuild = ['needs_rebuild', 'fail', 'failed'].includes(String(page?.aiState?.quality?.status || page?.quality?.status || '').toLowerCase());
+  const qualityStatus = String(page?.aiState?.quality?.status || page?.quality?.status || '').toLowerCase();
+  const explicitNeedsRebuild = ['needs_rebuild', 'fail', 'failed'].includes(qualityStatus);
   const weakClaimCount = (counts.partial || 0) + (counts.unsupported || 0) + (counts.conflicted || 0);
   const weakClaimRatio = claims.length ? weakClaimCount / claims.length : 0;
   const missingSourceEvidence = claims.length > 0 && !(page?.sourceRefs || []).length;
   const weakClaimHealth = weakClaimCount > 0 && (weakClaimRatio >= 0.34 || (counts.unsupported || 0) + (counts.conflicted || 0) > 0);
   if (!explicitNeedsRebuild && !issues.length && !weakClaimHealth && !missingSourceEvidence) return null;
+  const severeIssue = explicitNeedsRebuild
+    || missingSourceEvidence
+    || issues.some(issue => /scaffold|placeholder|too thin|source dump|missing source/i.test(issue.text || issue.label || ''));
+  const title = severeIssue ? 'Needs rebuild' : 'Needs review';
+  const summary = severeIssue
+    ? 'The page has structural or evidence problems that can make the article misleading.'
+    : 'The article is usable, but new signals or weak claims should be reviewed.';
   const reasons = [
     ...issues.slice(0, 3).map(issue => issue.text || labelFor(issue.label)),
     missingSourceEvidence ? 'Claims have no attached sources.' : '',
     weakClaimHealth ? `${weakClaimCount} of ${claims.length} claim${claims.length === 1 ? '' : 's'} need stronger support.` : ''
   ].filter(Boolean);
   return {
-    title: explicitNeedsRebuild || issues.length || missingSourceEvidence ? 'Needs rebuild' : 'Weak quality',
+    title,
+    summary,
+    severity: severeIssue ? 'rebuild' : 'review',
     reasons: Array.from(new Set(reasons)).slice(0, 4),
     issueCount: issues.length,
     weakClaimCount
@@ -774,11 +784,7 @@ const WikiPageReadView = ({ pageId, onEdit }) => {
               <aside className="wiki-read__quality" aria-label="Wiki page quality">
                 <div>
                   <strong>{qualityState.title}</strong>
-                  <span>
-                    {qualityState.issueCount > 0
-                      ? `${qualityState.issueCount} maintenance issue${qualityState.issueCount === 1 ? '' : 's'} surfaced by the page API.`
-                      : 'Claim support is weak enough to warrant review.'}
-                  </span>
+                  <span>{qualityState.summary}</span>
                 </div>
                 {qualityState.reasons.length ? (
                   <ul>

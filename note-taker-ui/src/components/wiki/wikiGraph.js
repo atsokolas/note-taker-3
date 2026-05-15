@@ -185,6 +185,41 @@ export const buildWikiGraphData = (pages = [], mapGraph = {}) => {
   };
 };
 
+export const summarizeWikiGraph = (graph = {}) => {
+  const nodes = Array.isArray(graph.nodes) ? graph.nodes : [];
+  const links = Array.isArray(graph.links) ? graph.links : [];
+  const degree = new Map(nodes.map(node => [node.id, 0]));
+  const relationCounts = {};
+  links.forEach((link) => {
+    const source = typeof link.source === 'object' ? link.source?.id : link.source;
+    const target = typeof link.target === 'object' ? link.target?.id : link.target;
+    const relationType = link.relationType || 'related';
+    relationCounts[relationType] = (relationCounts[relationType] || 0) + 1;
+    if (degree.has(source)) degree.set(source, degree.get(source) + 1);
+    if (degree.has(target)) degree.set(target, degree.get(target) + 1);
+  });
+  const hubs = nodes
+    .map(node => ({ ...node, degree: degree.get(node.id) || 0 }))
+    .filter(node => node.degree > 0)
+    .sort((a, b) => b.degree - a.degree || a.title.localeCompare(b.title))
+    .slice(0, 3);
+  const orphans = nodes
+    .map(node => ({ ...node, degree: degree.get(node.id) || 0 }))
+    .filter(node => node.degree === 0)
+    .sort((a, b) => a.title.localeCompare(b.title));
+  const sharedSourceClusters = links
+    .filter(link => link.relationType === 'shared_source')
+    .sort((a, b) => (b.weight || 0) - (a.weight || 0))
+    .slice(0, 3);
+  return {
+    hubs,
+    orphans,
+    orphanCount: orphans.length,
+    relationCounts,
+    sharedSourceClusters
+  };
+};
+
 const countDriftSignals = (page = {}) => {
   const health = page?.aiState?.health || {};
   return ['newItems', 'unsupportedClaims', 'staleSections', 'contradictions']

@@ -26,7 +26,7 @@ jest.mock('../../utils/wikiAnalytics', () => ({
   trackWikiIngestSubmitted: jest.fn()
 }));
 
-jest.mock('react-force-graph-2d', () => function MockForceGraph2D({ graphData, onNodeClick }) {
+jest.mock('react-force-graph-2d', () => function MockForceGraph2D({ graphData, linkLabel, onLinkHover, onNodeClick }) {
   return (
     <div
       data-testid="wiki-force-graph"
@@ -36,6 +36,15 @@ jest.mock('react-force-graph-2d', () => function MockForceGraph2D({ graphData, o
       {(graphData.nodes || []).map(node => (
         <button key={node.id} type="button" onClick={() => onNodeClick?.(node)}>
           {node.title}
+        </button>
+      ))}
+      {(graphData.links || []).map(link => (
+        <button
+          key={link.id}
+          type="button"
+          onMouseEnter={() => onLinkHover?.(link)}
+        >
+          {linkLabel?.(link)}
         </button>
       ))}
     </div>
@@ -120,6 +129,10 @@ describe('WikiIndex graph', () => {
     expect(await screen.findByTestId('wiki-force-graph')).toBeInTheDocument();
     expect(screen.getByText('Knowledge map')).toBeInTheDocument();
     expect(screen.getByText('2 pages · 1 link')).toBeInTheDocument();
+    expect(screen.getByLabelText('Wiki map signals')).toHaveTextContent('Hubs');
+    expect(screen.getByLabelText('Wiki map signals')).toHaveTextContent('Enterprise AI Memory, Investing');
+    expect(screen.getByLabelText('Wiki map signals')).toHaveTextContent('Evidence overlap');
+    expect(screen.getByRole('button', { name: /^Inline links\s*1$/ })).toHaveClass('is-active');
     expect(screen.getByRole('link', { name: 'List' })).toHaveAttribute('href', '/wiki/list');
     expect(await screen.findByText('Research memo')).toBeInTheDocument();
     expect(fetchGraphData).toHaveBeenCalledWith(expect.objectContaining({

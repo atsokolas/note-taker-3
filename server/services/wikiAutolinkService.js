@@ -13,6 +13,22 @@
 const SNIPPET_RADIUS = 70;
 const MAX_SUGGESTIONS = 8;
 const MIN_TITLE_LEN = 4;
+const MAX_TITLE_ALIASES = 5;
+const GENERIC_ALIASES = new Set([
+  'overview',
+  'concept',
+  'concepts',
+  'ideas',
+  'strategy',
+  'strategies',
+  'notes',
+  'page',
+  'wiki',
+  'source',
+  'sources',
+  'question',
+  'questions'
+]);
 
 const escapeRegExp = (value = '') => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
@@ -49,21 +65,71 @@ const buildTitleMatcher = (title) => {
   return new RegExp(`(?:^|[^a-z0-9])(${pattern})(?:$|[^a-z0-9])`, 'gi');
 };
 
+const normalizeAlias = (value = '') => String(value || '')
+  .replace(/[()[\]{}]/g, ' ')
+  .replace(/[“”]/g, '"')
+  .replace(/[’]/g, "'")
+  .replace(/\s+/g, ' ')
+  .trim();
+
+const aliasScore = (value = '') => {
+  const words = normalizeAlias(value).split(/\s+/).filter(Boolean);
+  return words.length * 10 + normalizeAlias(value).length;
+};
+
+const titleAliases = (title = '') => {
+  const raw = normalizeAlias(title);
+  if (raw.length < MIN_TITLE_LEN) return [];
+  const aliases = new Map();
+  const add = (value) => {
+    const alias = normalizeAlias(value);
+    if (alias.length < MIN_TITLE_LEN) return;
+    const canonical = alias.toLowerCase();
+    if (GENERIC_ALIASES.has(canonical)) return;
+    aliases.set(canonical, alias);
+  };
+
+  add(raw);
+  raw
+    .split(/\s+(?:[-–—:|/]|and|or)\s+/i)
+    .forEach(add);
+
+  const withoutParenthetical = raw.replace(/\s*\([^)]*\)\s*/g, ' ').replace(/\s+/g, ' ').trim();
+  if (withoutParenthetical !== raw) add(withoutParenthetical);
+
+  const commaParts = raw.split(/\s*,\s*/).filter(Boolean);
+  if (commaParts.length > 1) commaParts.forEach(add);
+
+  return Array.from(aliases.values())
+    .sort((a, b) => aliasScore(b) - aliasScore(a))
+    .slice(0, MAX_TITLE_ALIASES);
+};
+
 /**
  * Count title-of-candidate occurrences in target's plainText. Returns
  * { mentionCount, snippet } or null on no match.
  */
 const scanTextForCandidate = ({ targetText, candidateTitle }) => {
-  const matcher = buildTitleMatcher(candidateTitle);
-  if (!matcher || !targetText) return null;
-  matcher.lastIndex = 0;
+  const aliases = titleAliases(candidateTitle);
+  if (!aliases.length || !targetText) return null;
   let mentionCount = 0;
   let firstIndex = -1;
-  let match;
-  // eslint-disable-next-line no-cond-assign
-  while ((match = matcher.exec(targetText)) !== null) {
-    mentionCount += 1;
-    if (firstIndex === -1) firstIndex = match.index + (match[0].length - match[1].length);
+  let matchedAlias = '';
+  for (const alias of aliases) {
+    const matcher = buildTitleMatcher(alias);
+    if (!matcher) continue;
+    matcher.lastIndex = 0;
+    let match;
+    // eslint-disable-next-line no-cond-assign
+    while ((match = matcher.exec(targetText)) !== null) {
+      mentionCount += 1;
+      const index = match.index + (match[0].length - match[1].length);
+      if (firstIndex === -1 || index < firstIndex) {
+        firstIndex = index;
+        matchedAlias = match[1];
+      }
+      if (mentionCount >= 12) break;
+    }
     if (mentionCount >= 12) break;
   }
   if (mentionCount === 0) return null;
@@ -72,7 +138,7 @@ const scanTextForCandidate = ({ targetText, candidateTitle }) => {
   const prefix = start > 0 ? '…' : '';
   const suffix = end < targetText.length ? '…' : '';
   const snippet = `${prefix}${targetText.slice(start, end).trim()}${suffix}`;
-  return { mentionCount, snippet };
+  return { mentionCount, snippet, matchedAlias };
 };
 
 /**
@@ -109,6 +175,7 @@ const findAutolinkSuggestions = async ({ targetPage, userId, models = {} } = {})
       slug: String(candidate.slug || ''),
       pageType: candidate.pageType || 'topic',
       mentionCount: scan.mentionCount,
+      matchedAlias: scan.matchedAlias,
       snippet: scan.snippet
     });
   }
@@ -129,9 +196,11 @@ module.exports = {
   __testables: {
     buildTitleMatcher,
     scanTextForCandidate,
+    titleAliases,
     truncate,
     SNIPPET_RADIUS,
     MAX_SUGGESTIONS,
-    MIN_TITLE_LEN
+    MIN_TITLE_LEN,
+    MAX_TITLE_ALIASES
   }
 };
