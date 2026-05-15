@@ -676,6 +676,25 @@ const buildWikiRouter = ({
     userId
   });
 
+  const writeSse = (res, event, payload = {}) => {
+    if (res.writableEnded) return;
+    res.write(`event: ${event}\n`);
+    res.write(`data: ${JSON.stringify(payload)}\n\n`);
+  };
+
+  const openWikiDraftStream = (res) => {
+    res.status(200);
+    res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
+    res.setHeader('Cache-Control', 'no-cache, no-transform');
+    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no');
+    res.flushHeaders?.();
+    writeSse(res, 'wiki-draft', {
+      stage: 'connected',
+      summary: 'Connected to wiki maintenance stream.'
+    });
+  };
+
   const findMaintenanceRunBySourceEvent = async ({ userId, sourceEventId } = {}) => {
     if (!WikiMaintenanceRun || !sourceEventId) return null;
     return WikiMaintenanceRun.findOne({ userId, sourceEventId }).sort({ createdAt: -1 }).lean();
@@ -1085,6 +1104,104 @@ const buildWikiRouter = ({
     } catch (error) {
       console.error('Error maintaining wiki page:', error);
       res.status(500).json({ error: 'Failed to maintain wiki page.' });
+    }
+  });
+
+  router.post('/api/wiki/pages/:id/ai/draft/stream', authenticateToken, async (req, res) => {
+    let page = null;
+    try {
+      page = await findOwnedPage(req);
+      if (!page) return res.status(404).json({ error: 'Wiki page not found.' });
+      const before = snapshotPage(page);
+      openWikiDraftStream(res);
+
+      page.aiState = {
+        ...(page.aiState?.toObject ? page.aiState.toObject() : page.aiState || {}),
+        draftStatus: 'maintaining',
+        draftRequestedAt: new Date(),
+        draftStartedAt: new Date(),
+        lastError: '',
+        errorCode: ''
+      };
+      await page.save();
+      writeSse(res, 'wiki-page', {
+        stage: 'maintaining',
+        summary: 'Wiki maintenance started.',
+        page: serializeWikiPage(page)
+      });
+
+      await maintainWikiPage({
+        page,
+        userId: req.user.id,
+        wikiSchemaContent: await loadWikiSchemaContent(req.user.id),
+        models: {
+          Article,
+          NotebookEntry,
+          TagMeta,
+          Question
+        },
+        onProgress: (event) => {
+          writeSse(res, 'wiki-draft', event);
+        }
+      });
+      writeSse(res, 'wiki-page', {
+        stage: 'drafted',
+        summary: page.aiState?.maintenanceSummary || 'Wiki draft generated.',
+        page: serializeWikiPage(page)
+      });
+
+      await page.save();
+      writeSse(res, 'wiki-page', {
+        stage: 'saved',
+        summary: 'Wiki page saved.',
+        page: serializeWikiPage(page)
+      });
+
+      await syncPageGraph(page, req.user.id);
+      writeSse(res, 'wiki-draft', {
+        stage: 'graph_synced',
+        summary: 'Wiki graph connections synced.'
+      });
+
+      await createWikiRevision({
+        WikiRevision,
+        userId: req.user.id,
+        page,
+        before,
+        reason: 'agent_maintenance',
+        actorType: 'agent',
+        summary: page.aiState?.maintenanceSummary || `Maintained "${page.title}".`
+      });
+      writeSse(res, 'wiki-page', {
+        stage: 'complete',
+        summary: page.aiState?.maintenanceSummary || 'Wiki maintenance completed.',
+        page: serializeWikiPage(page)
+      });
+      writeSse(res, 'done', { ok: true, pageId: serializeId(page._id) });
+      res.end();
+    } catch (error) {
+      console.error('Error streaming wiki maintenance:', error);
+      if (!res.headersSent) {
+        return res.status(500).json({ error: 'Failed to maintain wiki page.' });
+      }
+      if (page) {
+        page.aiState = {
+          ...(page.aiState?.toObject ? page.aiState.toObject() : page.aiState || {}),
+          draftStatus: 'error',
+          lastError: String(error.message || 'Failed to maintain wiki page.'),
+          errorCode: 'WIKI_DRAFT_STREAM_FAILED'
+        };
+        try {
+          await page.save();
+        } catch (_saveError) {
+          // The stream error is the actionable failure for the client.
+        }
+      }
+      writeSse(res, 'error', {
+        error: 'Failed to maintain wiki page.',
+        message: String(error.message || '')
+      });
+      res.end();
     }
   });
 

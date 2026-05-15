@@ -106,4 +106,24 @@ describe('renderTiptapDoc', () => {
     expect(link).toHaveAttribute('data-wiki-page-id', 'wiki-related');
     expect(link).toHaveAttribute('data-wiki-title', 'Compounding interest');
   });
+
+  it('strips model source-range citation artifacts from prose', () => {
+    render(
+      <div>
+        {renderTiptapDoc({
+          type: 'doc',
+          content: [{
+            type: 'paragraph',
+            content: [{
+              type: 'text',
+              text: `Cash-flow valuation matters ${'\u3010'}1†L1-L4${'\u3011'} and process matters ${'\u3010'}2†L7${'\u3011'} .`
+            }]
+          }]
+        })}
+      </div>
+    );
+
+    expect(screen.getByText('Cash-flow valuation matters and process matters.')).toBeInTheDocument();
+    expect(screen.queryByText(/L1-L4/)).not.toBeInTheDocument();
+  });
 });

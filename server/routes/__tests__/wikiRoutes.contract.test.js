@@ -458,8 +458,14 @@ const run = async () => {
     WikiSchemaSettings,
     Connection,
     Article,
-    maintainWikiPage: async ({ page, userId }) => {
+    maintainWikiPage: async ({ page, userId, onProgress }) => {
       proposalMaintainCalls.push({ pageId: String(page._id), userId });
+      if (onProgress) {
+        await onProgress({
+          stage: 'test_progress',
+          summary: 'Fake maintenance progress event.'
+        });
+      }
       const isProposalAccept = page.title === 'Accepted Proposal Page';
       page.title = page.title || 'Maintained proposal page';
       page.sourceScope = 'entire_library';
@@ -686,6 +692,14 @@ const run = async () => {
     assert.ok(Array.isArray(maintained.body.aiState.health.newItems));
     assert.ok(maintained.body.aiState.changeLog.length >= 1);
     assert.ok(maintained.body.aiState.suggestions.length >= 1);
+
+    const streamed = await request(url, `/api/wiki/pages/${created.body._id}/ai/draft/stream`, { method: 'POST' });
+    assert.strictEqual(streamed.res.status, 200, streamed.text);
+    assert.match(streamed.res.headers.get('content-type') || '', /text\/event-stream/);
+    assert.ok(streamed.text.includes('event: wiki-page'));
+    assert.ok(streamed.text.includes('"stage":"maintaining"'));
+    assert.ok(streamed.text.includes('"stage":"test_progress"'));
+    assert.ok(streamed.text.includes('"stage":"complete"'));
 
     const linkedPage = new WikiPage({
       userId: 'user-1',

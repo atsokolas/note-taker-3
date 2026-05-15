@@ -101,6 +101,18 @@ describe('Wiki route shell', () => {
     expect(screen.getByTestId('wiki-index')).toBeInTheDocument();
   });
 
+  it('routes /wiki into the workspace when workspace v1 is enabled', () => {
+    isWikiWorkspaceV1Enabled.mockReturnValue(true);
+    isWikiReadModeV2Enabled.mockReturnValue(true);
+
+    mockUseParams.mockReturnValue({});
+    mockUseLocation.mockReturnValue({ pathname: '/wiki' });
+
+    render(<Wiki />);
+
+    expect(screen.getByTestId('navigate')).toHaveTextContent('/wiki/workspace');
+  });
+
   it('keeps the card list at /wiki when read mode v2 is disabled', () => {
     isWikiReadModeV2Enabled.mockReturnValue(false);
 

@@ -37,8 +37,13 @@ describe('wiki feature flags', () => {
     expect(isWikiWorkspaceV1Enabled()).toBe(true);
   });
 
-  it('lets local storage disable workspace v1', () => {
+  it('does not let stale local storage disable workspace v1', () => {
     window.localStorage.setItem('noeis.flags.wiki.workspace_v1', 'false');
+    expect(isWikiWorkspaceV1Enabled()).toBe(true);
+  });
+
+  it('lets the environment disable workspace v1 for rollback builds', () => {
+    process.env.REACT_APP_WIKI_WORKSPACE_V1 = 'false';
     expect(isWikiWorkspaceV1Enabled()).toBe(false);
   });
 });

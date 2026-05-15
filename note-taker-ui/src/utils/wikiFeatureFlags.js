@@ -10,7 +10,6 @@ export const isWikiReadModeV2Enabled = () => {
 export const isWikiWorkspaceV1Enabled = () => {
   if (typeof window !== 'undefined') {
     const stored = window.localStorage?.getItem?.('noeis.flags.wiki.workspace_v1');
-    if (stored === '0' || stored === 'false') return false;
     if (stored === '1' || stored === 'true') return true;
   }
   if (process.env.REACT_APP_WIKI_WORKSPACE_V1 === 'false') return false;

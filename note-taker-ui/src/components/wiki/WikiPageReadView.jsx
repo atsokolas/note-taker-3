@@ -9,7 +9,7 @@ import {
   promoteWikiDiscussion
 } from '../../api/wiki';
 import { trackWikiQaPromoted, trackWikiReadModePageView } from '../../utils/wikiAnalytics';
-import { wikiPagePath } from '../../utils/wikiFeatureFlags';
+import { isWikiWorkspaceV1Enabled, wikiPagePath } from '../../utils/wikiFeatureFlags';
 import ClaimCitationPopover from './ClaimCitationPopover';
 import WikiAgentPresence from './WikiAgentPresence';
 import WikiAskComposer from './WikiAskComposer';
@@ -279,15 +279,18 @@ const sectionTitles = (body) => extractTocItems(body || emptyDoc)
   .slice(0, 3)
   .join(', ');
 
-const buildInfoboxRows = ({ page = {}, sourceCount = 0, claimCount = 0, lastReviewed = 'Not reviewed' }) => {
+const buildInfoboxRows = ({ page = {}, sourceCount = 0, claimCount = 0, wordCount = 0, lastReviewed = 'Not reviewed' }) => {
   const value = page || {};
   const meta = pageMeta(value);
   const type = String(value.pageType || 'topic').toLowerCase();
   const firstSource = Array.isArray(value.sourceRefs) ? value.sourceRefs[0] || {} : {};
+  // Word count moved here from the now-stripped page-header "facts row" so
+  // the number survives but stops competing with the title for attention.
   const baseRows = [
     { label: 'Status', value: labelFor(value.status || 'draft') },
     { label: 'Sources', value: sourceCount },
     { label: 'Claims', value: claimCount },
+    { label: 'Words', value: wordCount || 0 },
     { label: 'Last reviewed', value: lastReviewed }
   ];
 
@@ -703,11 +706,14 @@ const WikiPageReadView = ({ pageId, onEdit, workspaceMode = false }) => {
     page,
     sourceCount: (page?.sourceRefs || []).length,
     claimCount: (page?.claims || []).length,
+    wordCount,
     lastReviewed: formatDate(lastVisit?.lastViewedAt)
-  }), [page, lastVisit?.lastViewedAt]);
+  }), [page, wordCount, lastVisit?.lastViewedAt]);
   const activeLedgerClaim = activeClaim ? claimLedgerById.get(activeClaim.claimId) : null;
   const displayedActiveTocId = activeTocId || tocItems[0]?.id || '';
   const discussionCount = (page?.discussions || []).length;
+  const showPageTalk = !workspaceMode && !isWikiWorkspaceV1Enabled();
+  const showUtilityRail = !workspaceMode && !isWikiWorkspaceV1Enabled();
 
   useEffect(() => {
     const qualityStatus = String(page?.aiState?.quality?.status || page?.quality?.status || '').toLowerCase();
@@ -776,28 +782,18 @@ const WikiPageReadView = ({ pageId, onEdit, workspaceMode = false }) => {
           onFocus={handleClaimHover}
         >
           <header className="wiki-read__header">
-            <p className="wiki-read__eyebrow">{labelFor(page.pageType || 'topic')}</p>
+            {/* AT-21 (Bucket 2 UI rework): the page header used to render an
+                uppercase eyebrow, a 4-chip facts row, and a quality state
+                card stacked above the title. All three duplicated what the
+                right-rail infobox already surfaces, and together they were
+                the loudest part of the page. The reader's eye should land
+                on the title and run straight into the body — Wikipedia /
+                Tolkien Gateway shape. Quality issues, page type, source
+                count, and "last reviewed" all live in the rail infobox now.
+                In workspace mode the agent will surface quality problems
+                via chat notification (AT-26). */}
             <h1>{page.title || 'Untitled Wiki Page'}</h1>
-            <div className="wiki-read__facts" aria-label="Wiki page facts">
-              <span>{labelFor(page.pageType || 'topic')}</span>
-              <span>{(page.sourceRefs || []).length} source{(page.sourceRefs || []).length === 1 ? '' : 's'}</span>
-              <span>{formatDate(lastVisit?.lastViewedAt)}</span>
-              <span>{wordCount} words</span>
-            </div>
-            {qualityState ? (
-              <aside className="wiki-read__quality" aria-label="Wiki page quality">
-                <div>
-                  <strong>{qualityState.title}</strong>
-                  <span>{qualityState.summary}</span>
-                </div>
-                {qualityState.reasons.length ? (
-                  <ul>
-                    {qualityState.reasons.map(reason => <li key={reason}>{reason}</li>)}
-                  </ul>
-                ) : null}
-              </aside>
-            ) : null}
-            {!workspaceMode ? <div className="wiki-read__tabs" role="tablist" aria-label="Wiki page views">
+            {showPageTalk ? <div className="wiki-read__tabs" role="tablist" aria-label="Wiki page views">
               <button
                 type="button"
                 role="tab"
@@ -823,7 +819,7 @@ const WikiPageReadView = ({ pageId, onEdit, workspaceMode = false }) => {
               </button>
             </div> : null}
           </header>
-          {workspaceMode || activeTab === 'article' ? (
+          {!showPageTalk || activeTab === 'article' ? (
             <section
               id="wiki-read-panel-article"
               role="tabpanel"
@@ -832,7 +828,7 @@ const WikiPageReadView = ({ pageId, onEdit, workspaceMode = false }) => {
               <section className="wiki-read__body">
                 {renderTiptapDoc(page.body || emptyDoc, { tocItems })}
               </section>
-              <WikiMentionedInFooter pageId={pageId} pageTitle={page.title} />
+              {showUtilityRail ? <WikiMentionedInFooter pageId={pageId} pageTitle={page.title} /> : null}
             </section>
           ) : (
             <section
@@ -863,10 +859,10 @@ const WikiPageReadView = ({ pageId, onEdit, workspaceMode = false }) => {
               ))}
             </dl>
           </section>
-          {!bodyHasWikiLinks ? (
+          {showUtilityRail && !bodyHasWikiLinks ? (
             <WikiAutolinkSuggestions pageId={pageId} pageTitle={page.title} />
           ) : null}
-          <section className="wiki-read__infobox wiki-read__claim-health">
+          {showUtilityRail ? <section className="wiki-read__infobox wiki-read__claim-health">
             <h2>Claim health</h2>
             <ul>
               <li>{healthCounts.supported} supported</li>
@@ -874,8 +870,8 @@ const WikiPageReadView = ({ pageId, onEdit, workspaceMode = false }) => {
               <li>{healthCounts.unsupported} unsupported</li>
               <li>{healthCounts.conflicted} conflicted</li>
             </ul>
-          </section>
-          {(page.sourceRefs || []).length ? (
+          </section> : null}
+          {showUtilityRail && (page.sourceRefs || []).length ? (
             <section className="wiki-read__infobox wiki-read__source-list">
               <h2>Sources</h2>
               <ol>

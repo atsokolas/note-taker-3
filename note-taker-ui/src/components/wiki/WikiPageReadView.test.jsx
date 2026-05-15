@@ -95,9 +95,12 @@ const emptyAnswer = () => ({
 });
 
 describe('WikiPageReadView', () => {
+  const originalWorkspaceFlag = process.env.REACT_APP_WIKI_WORKSPACE_V1;
+
   beforeEach(() => {
     jest.clearAllMocks();
     jest.useFakeTimers();
+    process.env.REACT_APP_WIKI_WORKSPACE_V1 = 'false';
     getWikiPage.mockResolvedValue(page);
     getWikiBacklinks.mockResolvedValue({
       backlinks: [{
@@ -116,6 +119,8 @@ describe('WikiPageReadView', () => {
 
   afterEach(() => {
     jest.useRealTimers();
+    if (originalWorkspaceFlag === undefined) delete process.env.REACT_APP_WIKI_WORKSPACE_V1;
+    else process.env.REACT_APP_WIKI_WORKSPACE_V1 = originalWorkspaceFlag;
   });
 
   it('opens a wiki page as an article with no editor input until edit is requested', async () => {
@@ -131,11 +136,10 @@ describe('WikiPageReadView', () => {
     expect(screen.queryByTestId('wiki-editor-content')).not.toBeInTheDocument();
     expect(document.querySelector('[contenteditable="true"]')).not.toBeInTheDocument();
     expect(screen.getAllByText('Overview').length).toBeGreaterThan(0);
-    expect(screen.getByText('2 sources')).toBeInTheDocument();
     expect(screen.getByRole('navigation', { name: 'Page sections' })).toHaveTextContent('Core idea');
     expect(screen.getByRole('navigation', { name: 'Page sections' })).toHaveTextContent('Open questions');
     expect(screen.getByRole('link', { name: 'Core idea' })).toHaveClass('is-active');
-    expect(screen.getByRole('link', { name: 'Compounding interest' })).toHaveAttribute('href', '/wiki/workspace?page=wiki-related');
+    expect(screen.getByRole('link', { name: 'Compounding interest' })).toHaveAttribute('href', '/wiki/wiki-related');
     expect(screen.getByRole('tab', { name: 'Article' })).toHaveAttribute('aria-selected', 'true');
     expect(screen.getByRole('tab', { name: 'Talk' })).toHaveAttribute('aria-selected', 'false');
     expect(screen.getByRole('tabpanel', { name: 'Article' })).toHaveTextContent('Enterprise AI Memory depends on');
@@ -145,7 +149,7 @@ describe('WikiPageReadView', () => {
     expect(screen.getByText('1 conflicted')).toBeInTheDocument();
     expect(screen.getAllByText('Sources').length).toBeGreaterThan(0);
     expect(screen.getByText('Memory article')).toBeInTheDocument();
-    expect(await screen.findByRole('link', { name: /Adjacent Memory/ })).toHaveAttribute('href', '/wiki/workspace?page=wiki-backlink');
+    expect(await screen.findByRole('link', { name: /Adjacent Memory/ })).toHaveAttribute('href', '/wiki/wiki-backlink');
 
     fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
     expect(onEdit).toHaveBeenCalledTimes(1);
@@ -269,7 +273,24 @@ describe('WikiPageReadView', () => {
     const fallback = await screen.findByTestId('wiki-autolinks');
     expect(fallback).toHaveTextContent('Linkable pages here');
     expect(fallback).toHaveTextContent('Compounding interest');
-    expect(within(fallback).getByRole('link', { name: /Compounding interest/ })).toHaveAttribute('href', '/wiki/workspace?page=wiki-related');
+    expect(within(fallback).getByRole('link', { name: /Compounding interest/ })).toHaveAttribute('href', '/wiki/wiki-related');
+  });
+
+  it('hides legacy Talk controls and utility rail cards when workspace v1 is active', async () => {
+    delete process.env.REACT_APP_WIKI_WORKSPACE_V1;
+
+    render(
+      <MemoryRouter>
+        <WikiPageReadView pageId="wiki-1" onEdit={jest.fn()} />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByRole('heading', { name: 'Enterprise AI Memory' })).toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: 'Article' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: 'Talk' })).not.toBeInTheDocument();
+    expect(screen.queryByText('Claim health')).not.toBeInTheDocument();
+    expect(screen.queryByText('Mentioned in')).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Compounding interest' })).toHaveAttribute('href', '/wiki/workspace?page=wiki-related');
   });
 
   it('renders structured infobox rows for each supported read-mode page type', async () => {
@@ -296,7 +317,7 @@ describe('WikiPageReadView', () => {
     }
   });
 
-  it('surfaces non-blocking rebuild state from page API quality issues and weak claim health', async () => {
+  it('surfaces pending signal state from page API quality issues and weak claim health', async () => {
     getWikiPage.mockResolvedValueOnce({
       ...page,
       aiState: {
@@ -315,11 +336,9 @@ describe('WikiPageReadView', () => {
       </MemoryRouter>
     );
 
-    const quality = await screen.findByLabelText('Wiki page quality');
-    expect(quality).toHaveTextContent('Needs review');
-    expect(quality).toHaveTextContent('The article is usable, but new signals or weak claims should be reviewed.');
-    expect(quality).toHaveTextContent('Maintenance generated a claim without usable evidence.');
-    expect(quality).toHaveTextContent('2 of 3 claims need stronger support.');
+    const status = await screen.findByRole('status', { name: 'Agent status' });
+    expect(status).toHaveTextContent('2 signals pending review');
+    expect(status).toHaveTextContent('New material may affect this page.');
     expect(screen.getByRole('tab', { name: 'Article' })).toHaveAttribute('aria-selected', 'true');
     expect(screen.getByRole('tabpanel', { name: 'Article' })).toHaveTextContent('Enterprise AI Memory depends on');
   });

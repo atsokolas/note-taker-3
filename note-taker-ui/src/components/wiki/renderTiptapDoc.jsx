@@ -34,6 +34,10 @@ const claimAttrs = (mark) => {
 
 const citationText = (indexes = []) => `[${indexes.join(',')}]`;
 
+const stripModelSourceRangeCitations = (value = '') => String(value || '')
+  .replace(/\s*【\s*\d+†L\d+(?:-L?\d+)?\s*】/g, '')
+  .replace(/\s+([,.;:!?])/g, '$1');
+
 const plainText = (node) => {
   if (!node) return '';
   if (typeof node === 'string') return node;
@@ -81,7 +85,7 @@ export const firstParagraphText = (doc) => {
 };
 
 const renderTextNode = (node, key) => {
-  const text = node?.text || '';
+  const text = stripModelSourceRangeCitations(node?.text || '');
   if (!text) return null;
   const wikiLinkMark = Array.isArray(node.marks)
     ? node.marks.find(mark => mark?.type === 'wikiLink')
