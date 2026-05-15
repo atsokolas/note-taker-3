@@ -1,11 +1,13 @@
 import api from '../api';
+import { TextDecoder, TextEncoder } from 'util';
 import { clearCached } from '../utils/cache';
 import {
   getWikiAutolinkSuggestions,
   getWikiPage,
   listWikiAutolinks,
   maintainWikiPage,
-  prefetchWikiPage
+  prefetchWikiPage,
+  streamMaintainWikiPage
 } from './wiki';
 
 jest.mock('../api', () => ({
@@ -24,6 +26,14 @@ describe('wiki api cache', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     clearCached();
+    global.fetch = jest.fn();
+    global.TextDecoder = TextDecoder;
+    window.localStorage.setItem('token', 'token');
+  });
+
+  afterEach(() => {
+    delete global.fetch;
+    delete global.TextDecoder;
   });
 
   it('coalesces concurrent wiki page reads and reuses the cached page', async () => {
@@ -76,5 +86,47 @@ describe('wiki api cache', () => {
 
     expect(page).toEqual({ _id: 'wiki-1', title: 'Prefetched' });
     expect(api.get).toHaveBeenCalledTimes(1);
+  });
+
+  it('reads streamed maintenance events and invalidates the page cache', async () => {
+    const encoder = new TextEncoder();
+    const chunks = [
+      'event: wiki-draft\ndata: {"stage":"connected"}\n\n',
+      'event: wiki-page\ndata: {"stage":"maintaining","page":{"_id":"wiki-1","title":"Maintaining"}}\n\n',
+      'event: wiki-page\ndata: {"stage":"complete","page":{"_id":"wiki-1","title":"Complete"}}\n\n',
+      'event: done\ndata: {"ok":true}\n\n'
+    ].map(chunk => encoder.encode(chunk));
+    const read = jest.fn()
+      .mockResolvedValueOnce({ done: false, value: chunks[0] })
+      .mockResolvedValueOnce({ done: false, value: chunks[1] })
+      .mockResolvedValueOnce({ done: false, value: chunks[2] })
+      .mockResolvedValueOnce({ done: false, value: chunks[3] })
+      .mockResolvedValueOnce({ done: true });
+    global.fetch.mockResolvedValue({
+      ok: true,
+      body: { getReader: () => ({ read }) }
+    });
+    api.get
+      .mockResolvedValueOnce({ data: { _id: 'wiki-1', title: 'Before' } })
+      .mockResolvedValueOnce({ data: { _id: 'wiki-1', title: 'After stream' } });
+    const events = [];
+    const pages = [];
+
+    await getWikiPage('wiki-1');
+    const finalPage = await streamMaintainWikiPage('wiki-1', {}, {
+      onEvent: (event, payload) => events.push([event, payload.stage]),
+      onPage: (page) => pages.push(page.title)
+    });
+    const after = await getWikiPage('wiki-1');
+
+    expect(global.fetch).toHaveBeenCalledWith('/api/wiki/pages/wiki-1/ai/draft/stream', expect.objectContaining({
+      method: 'POST',
+      headers: expect.objectContaining({ Authorization: 'Bearer token' })
+    }));
+    expect(finalPage).toEqual({ _id: 'wiki-1', title: 'Complete' });
+    expect(events).toContainEqual(['wiki-draft', 'connected']);
+    expect(pages).toEqual(['Maintaining', 'Complete']);
+    expect(after).toEqual({ _id: 'wiki-1', title: 'After stream' });
+    expect(api.get).toHaveBeenCalledTimes(2);
   });
 });

@@ -12,8 +12,8 @@ import {
   ingestWikiSource,
   listWikiActivity,
   listWikiPages,
-  maintainWikiPage,
-  saveWikiSchema
+  saveWikiSchema,
+  streamMaintainWikiPage
 } from '../../api/wiki';
 import { buildWikiCreatePayload } from '../../utils/wikiCreate';
 import { Button } from '../ui';
@@ -555,9 +555,21 @@ const WikiWorkspaceChat = ({ selectedPageId, view, onNavigate, onPageChanged, bu
         return true;
       }
       setBusy(true);
-      append({ role: 'assistant', text: `Drafting @wiki:${pageRef}. The right pane will refresh while the run is active.` });
+      append({ role: 'assistant', text: `Drafting @wiki:${pageRef}. The right pane will update from the maintenance stream.` });
       try {
-        await maintainWikiPage(pageRef);
+        await streamMaintainWikiPage(pageRef, {}, {
+          onPage: (_page, event = {}) => {
+            onNavigate({ page: pageRef });
+            onPageChanged?.(pageRef);
+            if (event.stage === 'maintaining') setContextRefs(current => mergeReferences(current, [{ type: 'wiki', id: pageRef, label: `@wiki:${pageRef}` }]));
+          },
+          onEvent: (event, payload = {}) => {
+            if (event !== 'wiki-draft') return;
+            if (payload.stage === 'quality_rebuild') {
+              append({ role: 'assistant', text: 'The first draft missed quality gates, so I am rebuilding it once with stricter instructions.' });
+            }
+          }
+        });
         onNavigate({ page: pageRef });
         onPageChanged?.(pageRef);
         append({ role: 'assistant', text: `Finished drafting @wiki:${pageRef}.` });

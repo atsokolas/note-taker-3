@@ -23,6 +23,29 @@ const wikiPageCacheKey = (id) => `wiki:page:${safeId(id)}`;
 const wikiPageRailCacheKey = (id, rail) => `wiki:page:${safeId(id)}:${rail}`;
 const wikiListCacheKey = (params = {}) => `wiki:pages:${buildQueryString(params) || '?'}`;
 
+const apiUrl = (path = '') => {
+  const base = String(api.defaults?.baseURL || '').trim();
+  if (!base) return path;
+  if (/^https?:\/\//i.test(path)) return path;
+  return `${base.replace(/\/+$/g, '')}/${String(path || '').replace(/^\/+/g, '')}`;
+};
+
+const parseSseBlock = (block = '') => {
+  let event = 'message';
+  const data = [];
+  String(block || '').split(/\r?\n/).forEach((line) => {
+    if (line.startsWith('event:')) event = line.slice(6).trim() || 'message';
+    if (line.startsWith('data:')) data.push(line.slice(5).trimStart());
+  });
+  const raw = data.join('\n');
+  if (!raw) return { event, payload: null };
+  try {
+    return { event, payload: JSON.parse(raw) };
+  } catch (_error) {
+    return { event, payload: { raw } };
+  }
+};
+
 const clearWikiPageCaches = (id = '') => {
   if (id) clearCachedPrefix(`wiki:page:${safeId(id)}`);
   clearCachedPrefix('wiki:pages:');
@@ -89,6 +112,71 @@ export const maintainWikiPage = async (id, options = {}) => {
 };
 
 export const draftWikiPage = maintainWikiPage;
+
+export const streamMaintainWikiPage = async (id, options = {}, handlers = {}) => {
+  const pageId = String(id || '').trim();
+  const token = localStorage.getItem('token');
+  const res = await fetch(apiUrl(`${WIKI_PAGES_PATH}/${safeId(pageId)}/ai/draft/stream`), {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {})
+    },
+    body: JSON.stringify(options || {})
+  });
+
+  if (!res.ok) {
+    let message = 'Failed to maintain wiki page.';
+    try {
+      const body = await res.json();
+      message = body?.error || message;
+    } catch (_error) {
+      // Preserve the generic error if the stream endpoint did not return JSON.
+    }
+    throw new Error(message);
+  }
+
+  if (!res.body?.getReader) {
+    const body = await res.json();
+    clearWikiPageCaches(pageId);
+    handlers.onPage?.(body);
+    return body;
+  }
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  let finalPage = null;
+  let streamError = null;
+
+  const consumeBlock = (block) => {
+    const { event, payload } = parseSseBlock(block);
+    if (!payload) return;
+    handlers.onEvent?.(event, payload);
+    if (payload.page) {
+      finalPage = payload.page;
+      clearWikiPageCaches(payload.page._id || payload.page.id || pageId);
+      handlers.onPage?.(payload.page, payload);
+    }
+    if (event === 'error') {
+      streamError = new Error(payload.error || payload.message || 'Failed to maintain wiki page.');
+    }
+  };
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const blocks = buffer.split(/\r?\n\r?\n/);
+    buffer = blocks.pop() || '';
+    blocks.forEach(consumeBlock);
+  }
+  buffer += decoder.decode();
+  if (buffer.trim()) consumeBlock(buffer);
+  clearWikiPageCaches(pageId);
+  if (streamError) throw streamError;
+  return finalPage;
+};
 
 export const addWikiSource = async (id, source = {}) => {
   const res = await api.post(`${WIKI_PAGES_PATH}/${safeId(id)}/sources`, source, getAuthHeaders());

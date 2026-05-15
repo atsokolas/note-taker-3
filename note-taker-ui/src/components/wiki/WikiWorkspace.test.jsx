@@ -7,7 +7,7 @@ import { getArticles } from '../../api/articles';
 import { getConcepts } from '../../api/concepts';
 import { getHighlights } from '../../api/highlights';
 import { getQuestions } from '../../api/questions';
-import { createWikiPage, getWikiPage, getWikiSchema, ingestWikiSource, listWikiActivity, listWikiPages, maintainWikiPage, saveWikiSchema } from '../../api/wiki';
+import { createWikiPage, getWikiPage, getWikiSchema, ingestWikiSource, listWikiActivity, listWikiPages, saveWikiSchema, streamMaintainWikiPage } from '../../api/wiki';
 
 jest.mock('../../api/agent', () => ({
   chatWithAgent: jest.fn()
@@ -36,8 +36,8 @@ jest.mock('../../api/wiki', () => ({
   ingestWikiSource: jest.fn(),
   listWikiActivity: jest.fn(),
   listWikiPages: jest.fn(),
-  maintainWikiPage: jest.fn(),
-  saveWikiSchema: jest.fn()
+  saveWikiSchema: jest.fn(),
+  streamMaintainWikiPage: jest.fn()
 }));
 
 jest.mock('./WikiIndex', () => () => <div data-testid="wiki-index">Graph view</div>);
@@ -78,8 +78,12 @@ describe('WikiWorkspace', () => {
       { _id: 'wiki-1', title: 'Investing' },
       { _id: 'wiki-2', title: 'Systems Thinking' }
     ]);
-    maintainWikiPage.mockResolvedValue({ _id: 'wiki-1', title: 'Updated page' });
     saveWikiSchema.mockResolvedValue({ content: '# Saved' });
+    streamMaintainWikiPage.mockImplementation(async (_pageId, _options, handlers = {}) => {
+      handlers.onPage?.({ _id: 'wiki-1', title: 'Maintaining page' }, { stage: 'maintaining' });
+      handlers.onPage?.({ _id: 'wiki-1', title: 'Updated page' }, { stage: 'complete' });
+      return { _id: 'wiki-1', title: 'Updated page' };
+    });
   });
 
   it('renders the graph beside persistent chat by default', async () => {
@@ -111,7 +115,7 @@ describe('WikiWorkspace', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: 'Send' }));
 
-    await waitFor(() => expect(maintainWikiPage).toHaveBeenCalledWith('wiki-1'));
+    await waitFor(() => expect(streamMaintainWikiPage).toHaveBeenCalledWith('wiki-1', {}, expect.any(Object)));
     expect(await screen.findByText('Finished drafting @wiki:wiki-1.')).toBeInTheDocument();
   });
 

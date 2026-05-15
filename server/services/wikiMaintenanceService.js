@@ -1245,8 +1245,16 @@ const maintainWikiPage = async ({
   isConfigured = isTextGenerationConfigured,
   now = new Date(),
   trigger = 'manual',
-  wikiSchemaContent = ''
+  wikiSchemaContent = '',
+  onProgress = null
 }) => {
+  const emitProgress = async (payload = {}) => {
+    if (typeof onProgress !== 'function') return;
+    await onProgress({
+      at: new Date().toISOString(),
+      ...payload
+    });
+  };
   const allSources = await collectLibrarySources({ userId, models });
   const candidates = selectCandidateSources({ page, sources: allSources });
   const manualNotes = extractManualNotes(page);
@@ -1254,8 +1262,18 @@ const maintainWikiPage = async ({
   let result = null;
   let rebuiltAutomatically = false;
 
+  await emitProgress({
+    stage: 'sources_selected',
+    summary: `${candidates.length} candidate source${candidates.length === 1 ? '' : 's'} selected for maintenance.`,
+    sourceCount: candidates.length
+  });
+
   if (candidates.length && isConfigured()) {
     try {
+      await emitProgress({
+        stage: 'model_drafting',
+        summary: 'Drafting a source-backed wiki revision.'
+      });
       const completion = await chat({
         route: 'artifact_draft',
         maxTokens: 2600,
@@ -1278,12 +1296,26 @@ const maintainWikiPage = async ({
         provider: completion.provider || ''
       };
       result = extractJson(completion.text);
+      await emitProgress({
+        stage: 'model_drafted',
+        summary: 'Draft response received from the maintenance model.',
+        model: modelInfo.model,
+        provider: modelInfo.provider
+      });
     } catch (error) {
       modelInfo = { model: 'local-maintainer', provider: '' };
       result = null;
+      await emitProgress({
+        stage: 'model_fallback',
+        summary: 'Maintenance model failed; falling back to deterministic synthesis.'
+      });
     }
   }
 
+  await emitProgress({
+    stage: 'materializing',
+    summary: 'Materializing the page body, citations, and claim ledger.'
+  });
   const normalized = normalizeModelResult({ raw: result, page, candidates, manualNotes });
   const previousClaims = page.claims?.toObject ? page.claims.toObject() : page.claims || [];
   let finalNormalized = normalized;
@@ -1299,6 +1331,11 @@ const maintainWikiPage = async ({
 
   if (!materialized.quality.ok && candidates.length && isConfigured()) {
     try {
+      await emitProgress({
+        stage: 'quality_rebuild',
+        summary: 'Initial draft missed quality gates; rebuilding once with stricter instructions.',
+        failures: materialized.quality.failures || []
+      });
       const completion = await chat({
         route: 'artifact_draft',
         maxTokens: 3600,
@@ -1348,6 +1385,12 @@ const maintainWikiPage = async ({
           }
         };
         rebuiltAutomatically = true;
+        await emitProgress({
+          stage: 'quality_rebuilt',
+          summary: 'Automatic rebuild completed.',
+          model: modelInfo.model,
+          provider: modelInfo.provider
+        });
       }
     } catch (_error) {
       materialized.quality = {
@@ -1355,6 +1398,10 @@ const maintainWikiPage = async ({
         rebuildAttempted: true,
         rebuildError: 'Automatic rebuild failed.'
       };
+      await emitProgress({
+        stage: 'quality_rebuild_failed',
+        summary: 'Automatic rebuild failed; preserving the best available draft.'
+      });
     }
   }
 
@@ -1435,6 +1482,13 @@ const maintainWikiPage = async ({
     changeLog: normalizeOperations(finalNormalized.maintenance.changelog),
     suggestions: normalizeOperations(finalNormalized.maintenance.changelog)
   };
+
+  await emitProgress({
+    stage: 'ready',
+    summary: page.aiState.maintenanceSummary || 'Wiki maintenance draft is ready.',
+    quality: page.aiState.quality || {},
+    sourceCount: persistedSourceRefs.length
+  });
 
   return page;
 };
