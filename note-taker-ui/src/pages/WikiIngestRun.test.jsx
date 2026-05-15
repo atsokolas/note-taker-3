@@ -53,7 +53,7 @@ describe('WikiIngestRun', () => {
     expect(screen.getByLabelText('Ingest run facts')).toHaveTextContent('Processed');
     expect(screen.getByLabelText('Ingest run facts')).toHaveTextContent('1 pages touched');
     expect(screen.getByText('Updated Enterprise AI Memory.')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Open page' })).toHaveAttribute('href', '/wiki/wiki-1');
+    expect(screen.getByRole('link', { name: 'Open page' })).toHaveAttribute('href', '/wiki/workspace?page=wiki-1');
     expect(getWikiIngestRun).toHaveBeenCalledWith('run-1');
   });
 

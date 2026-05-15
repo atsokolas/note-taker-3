@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { getWikiBriefing } from '../../api/wiki';
+import { wikiPagePath } from '../../utils/wikiFeatureFlags';
 
 /**
  * WikiBriefing — top-of-index "Daily briefing" card. Surfaces a 1–3
@@ -40,7 +41,7 @@ const PagePreview = ({ pageId, title, sub }) => {
   );
   if (pageId) {
     return (
-      <Link className="wiki-briefing__preview" to={`/wiki/${pageId}`}>
+      <Link className="wiki-briefing__preview" to={wikiPagePath(pageId)}>
         {inner}
       </Link>
     );

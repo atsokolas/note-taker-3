@@ -3,6 +3,14 @@ import { MemoryRouter } from 'react-router-dom';
 import renderTiptapDoc from './renderTiptapDoc';
 
 describe('renderTiptapDoc', () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+  });
+
+  afterEach(() => {
+    window.localStorage.clear();
+  });
+
   it('renders contradiction indexes on claim spans and citation buttons', () => {
     render(
       <div>
@@ -94,7 +102,7 @@ describe('renderTiptapDoc', () => {
     );
 
     const link = screen.getByRole('link', { name: 'Compounding interest' });
-    expect(link).toHaveAttribute('href', '/wiki/wiki-related');
+    expect(link).toHaveAttribute('href', '/wiki/workspace?page=wiki-related');
     expect(link).toHaveAttribute('data-wiki-page-id', 'wiki-related');
     expect(link).toHaveAttribute('data-wiki-title', 'Compounding interest');
   });

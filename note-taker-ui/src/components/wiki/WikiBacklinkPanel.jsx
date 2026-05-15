@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { getWikiBacklinks } from '../../api/wiki';
+import { wikiPagePath } from '../../utils/wikiFeatureFlags';
 
 /**
  * WikiBacklinkPanel — "Mentioned in N other pages" rail. Mounts under
@@ -83,7 +84,7 @@ const WikiBacklinkPanel = ({ pageId, pageTitle }) => {
         <ul className="wiki-backlinks__list">
           {state.backlinks.map((entry) => (
             <li key={entry.pageId} className="wiki-backlinks__item">
-              <Link to={`/wiki/${entry.pageId}`} className="wiki-backlinks__link">
+              <Link to={wikiPagePath(entry.pageId)} className="wiki-backlinks__link">
                 <span className="wiki-backlinks__link-title">
                   {entry.title || 'Untitled wiki page'}
                 </span>

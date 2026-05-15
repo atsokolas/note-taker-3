@@ -9,6 +9,7 @@ import {
   mergeWikiProposal,
   watchWikiProposal
 } from '../../api/wiki';
+import { wikiPagePath } from '../../utils/wikiFeatureFlags';
 
 const labelForType = (type) => (type === 'bridge_idea' ? 'Bridge idea' : 'Recurring theme');
 
@@ -72,7 +73,7 @@ const WikiEmergingProposals = () => {
     try {
       const result = await acceptWikiProposal(proposal._id);
       const pageId = result?.page?._id;
-      if (pageId) navigate(`/wiki/${pageId}`);
+      if (pageId) navigate(wikiPagePath(pageId));
     } catch (_error) {
       setError('Failed to create wiki from proposal.');
     } finally {

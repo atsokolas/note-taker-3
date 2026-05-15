@@ -1,17 +1,21 @@
-import { isWikiReadModeV2Enabled } from './wikiFeatureFlags';
+import { isWikiReadModeV2Enabled, isWikiWorkspaceV1Enabled } from './wikiFeatureFlags';
 
 describe('wiki feature flags', () => {
   const originalEnv = process.env.REACT_APP_WIKI_READ_MODE_V2;
+  const originalWorkspaceEnv = process.env.REACT_APP_WIKI_WORKSPACE_V1;
 
   beforeEach(() => {
     window.localStorage.clear();
     delete process.env.REACT_APP_WIKI_READ_MODE_V2;
+    delete process.env.REACT_APP_WIKI_WORKSPACE_V1;
   });
 
   afterEach(() => {
     window.localStorage.clear();
     if (originalEnv === undefined) delete process.env.REACT_APP_WIKI_READ_MODE_V2;
     else process.env.REACT_APP_WIKI_READ_MODE_V2 = originalEnv;
+    if (originalWorkspaceEnv === undefined) delete process.env.REACT_APP_WIKI_WORKSPACE_V1;
+    else process.env.REACT_APP_WIKI_WORKSPACE_V1 = originalWorkspaceEnv;
   });
 
   it('keeps read mode off by default', () => {
@@ -27,5 +31,14 @@ describe('wiki feature flags', () => {
     process.env.REACT_APP_WIKI_READ_MODE_V2 = 'true';
     window.localStorage.setItem('noeis.flags.wiki.read_mode_v2', 'false');
     expect(isWikiReadModeV2Enabled()).toBe(false);
+  });
+
+  it('turns workspace v1 on by default', () => {
+    expect(isWikiWorkspaceV1Enabled()).toBe(true);
+  });
+
+  it('lets local storage disable workspace v1', () => {
+    window.localStorage.setItem('noeis.flags.wiki.workspace_v1', 'false');
+    expect(isWikiWorkspaceV1Enabled()).toBe(false);
   });
 });

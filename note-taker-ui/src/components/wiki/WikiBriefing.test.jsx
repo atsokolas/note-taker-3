@@ -46,8 +46,8 @@ describe('WikiBriefing', () => {
     expect(screen.getByText(/new sources/)).toBeInTheDocument();
     expect(screen.getByText('Pages drifting')).toBeInTheDocument();
     expect(screen.getByText('Recently updated')).toBeInTheDocument();
-    expect(screen.getByText('Network effects').closest('a')).toHaveAttribute('href', '/wiki/p3');
-    expect(screen.getByText('Compounding interest').closest('a')).toHaveAttribute('href', '/wiki/p1');
+    expect(screen.getByText('Network effects').closest('a')).toHaveAttribute('href', '/wiki/workspace?page=p3');
+    expect(screen.getByText('Compounding interest').closest('a')).toHaveAttribute('href', '/wiki/workspace?page=p1');
   });
 
   it('hides itself entirely when the request fails', async () => {

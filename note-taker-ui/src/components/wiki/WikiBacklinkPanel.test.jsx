@@ -51,7 +51,7 @@ describe('WikiBacklinkPanel', () => {
     // for the post-debounce populated render rather than the initial
     // skeleton phase.
     expect(await screen.findByText('2 pages')).toBeInTheDocument();
-    expect(screen.getByText('Strategy').closest('a')).toHaveAttribute('href', '/wiki/a');
+    expect(screen.getByText('Strategy').closest('a')).toHaveAttribute('href', '/wiki/workspace?page=a');
     expect(screen.getByText(/3 mentions/)).toBeInTheDocument();
     expect(screen.getByText(/1 mention/)).toBeInTheDocument();
     expect(screen.getByText(/says compounding interest matters/)).toBeInTheDocument();

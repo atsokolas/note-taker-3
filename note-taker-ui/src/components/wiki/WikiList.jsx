@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Button, SurfaceCard } from '../ui';
 import { createWikiPage, deleteWikiPage, listWikiPages } from '../../api/wiki';
 import { buildWikiCreatePayload, openWikiDraft } from '../../utils/wikiCreate';
+import { wikiPagePath } from '../../utils/wikiFeatureFlags';
 import WikiBriefing from './WikiBriefing';
 import WikiEmergingProposals from './WikiEmergingProposals';
 import WikiInbox from './WikiInbox';
@@ -192,7 +193,7 @@ const WikiList = ({ compact = false }) => {
             key={page._id}
             page={page}
             deleting={deletingId === page._id}
-            onOpen={() => navigate(`/wiki/${page._id}`)}
+            onOpen={() => navigate(wikiPagePath(page._id))}
             onDelete={() => handleDelete(page)}
           />
         ))}

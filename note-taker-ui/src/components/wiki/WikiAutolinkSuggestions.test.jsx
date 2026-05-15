@@ -48,7 +48,7 @@ describe('WikiAutolinkSuggestions', () => {
     });
     mount();
     expect(await screen.findByText('2 matches')).toBeInTheDocument();
-    expect(screen.getByText('Compounding interest').closest('a')).toHaveAttribute('href', '/wiki/a');
+    expect(screen.getByText('Compounding interest').closest('a')).toHaveAttribute('href', '/wiki/workspace?page=a');
     expect(screen.getByText(/3 mentions/)).toBeInTheDocument();
     expect(screen.getByText(/1 mention/)).toBeInTheDocument();
     expect(screen.getByText(/says Compounding interest matters/)).toBeInTheDocument();

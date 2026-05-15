@@ -36,6 +36,7 @@ import {
   getLastVisitState,
   recordVisit
 } from './wikiVisitTracker';
+import { wikiPagePath } from '../../utils/wikiFeatureFlags';
 import { trackWikiQaPromoted } from '../../utils/wikiAnalytics';
 
 const emptyDoc = { type: 'doc', content: [{ type: 'paragraph' }] };
@@ -412,7 +413,7 @@ const WikiPageEditor = ({ pageId, onDoneEditing }) => {
         promotedPageId: createdPage?._id || '',
         discussionId
       });
-      if (createdPage?._id) navigate(`/wiki/${createdPage._id}`);
+      if (createdPage?._id) navigate(wikiPagePath(createdPage._id));
     } catch (_error) {
       setError('Failed to create Wiki page from discussion.');
     } finally {

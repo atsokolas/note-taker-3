@@ -10,6 +10,7 @@ import {
   reviewWikiFreshness
 } from '../../api/wiki';
 import { fetchGraphData } from '../../api/map';
+import { wikiPagePath } from '../../utils/wikiFeatureFlags';
 
 const formatDate = (value) => {
   if (!value) return '';
@@ -275,7 +276,7 @@ const WikiPageActivityRail = ({ pageId, page, onPageUpdate }) => {
           <ul className="wiki-activity-rail__list">
             {autolinks.slice(0, 4).map(suggestion => (
               <li key={suggestion.pageId}>
-                <Link to={`/wiki/${suggestion.pageId}`}>{suggestion.title}</Link>
+                <Link to={wikiPagePath(suggestion.pageId)}>{suggestion.title}</Link>
                 <span>{suggestion.snippet}</span>
                 <time>{suggestion.mentionCount} mention{suggestion.mentionCount === 1 ? '' : 's'}</time>
                 <Button

@@ -150,7 +150,7 @@ describe('WikiPageEditor', () => {
     );
 
     expect(await screen.findByText('Link opportunities')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Compounding interest' })).toHaveAttribute('href', '/wiki/wiki-related');
+    expect(screen.getByRole('link', { name: 'Compounding interest' })).toHaveAttribute('href', '/wiki/workspace?page=wiki-related');
     expect(screen.getByText('2 mentions')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Apply link' }));
     await waitFor(() => {

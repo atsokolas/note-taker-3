@@ -1,5 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import { wikiPagePath } from '../../utils/wikiFeatureFlags';
 
 /**
  * renderTiptapDoc — minimal read-only renderer that walks a TipTap JSON
@@ -85,11 +86,12 @@ const renderTextNode = (node, key) => {
   const wikiLinkMark = Array.isArray(node.marks)
     ? node.marks.find(mark => mark?.type === 'wikiLink')
     : null;
+  const wikiHref = wikiLinkMark?.attrs?.pageId ? wikiPagePath(wikiLinkMark.attrs.pageId) : '';
   const wikiLinkedText = wikiLinkMark?.attrs?.pageId ? (
     <Link
       key={`${key}-wiki-link`}
       className="wiki-internal-link"
-      to={`/wiki/${wikiLinkMark.attrs.pageId}`}
+      to={wikiHref}
       data-wiki-page-id={wikiLinkMark.attrs.pageId}
       data-wiki-title={wikiLinkMark.attrs.title || ''}
     >

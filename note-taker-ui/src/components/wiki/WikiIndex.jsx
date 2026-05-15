@@ -5,6 +5,7 @@ import { Button } from '../ui';
 import { ingestWikiSource, listWikiActivity, listWikiPages } from '../../api/wiki';
 import { fetchGraphData } from '../../api/map';
 import { trackWikiIngestResult, trackWikiIngestSubmitted } from '../../utils/wikiAnalytics';
+import { wikiPagePath } from '../../utils/wikiFeatureFlags';
 import WikiBriefing from './WikiBriefing';
 import WikiList from './WikiList';
 import {
@@ -193,7 +194,7 @@ const WikiActivityLog = ({ refreshKey = 0 }) => {
             </div>
             <div className="wiki-activity-log__actions">
               {event.runId ? <Link to={`/wiki/activity/${event.runId}`}>Details</Link> : null}
-              {event.pageId ? <Link to={`/wiki/${event.pageId}`}>Open</Link> : null}
+              {event.pageId ? <Link to={wikiPagePath(event.pageId)}>Open</Link> : null}
             </div>
           </li>
         ))}
@@ -313,7 +314,7 @@ const WikiGraph = ({ graph }) => {
           linkDirectionalParticleWidth={(link) => (link.relationType === 'wikiLink' ? 2.5 : 1.6)}
           onNodeHover={setHovered}
           onLinkHover={setHoveredLink}
-          onNodeClick={(node) => navigate(`/wiki/${node.id}`)}
+          onNodeClick={(node) => navigate(wikiPagePath(node.id))}
         />
       </div>
       {hovered ? (

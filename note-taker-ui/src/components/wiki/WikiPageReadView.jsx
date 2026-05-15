@@ -9,6 +9,7 @@ import {
   promoteWikiDiscussion
 } from '../../api/wiki';
 import { trackWikiQaPromoted, trackWikiReadModePageView } from '../../utils/wikiAnalytics';
+import { wikiPagePath } from '../../utils/wikiFeatureFlags';
 import ClaimCitationPopover from './ClaimCitationPopover';
 import WikiAgentPresence from './WikiAgentPresence';
 import WikiAskComposer from './WikiAskComposer';
@@ -399,7 +400,7 @@ const WikiMentionedInFooter = ({ pageId, pageTitle }) => {
         <ul>
           {state.backlinks.map(entry => (
             <li key={entry.pageId}>
-              <Link to={`/wiki/${entry.pageId}`}>
+              <Link to={wikiPagePath(entry.pageId)}>
                 <span>{entry.title || 'Untitled wiki page'}</span>
                 <small>{entry.mentionCount} mention{entry.mentionCount === 1 ? '' : 's'}</small>
                 {entry.snippet ? <p>{entry.snippet}</p> : null}
@@ -412,7 +413,7 @@ const WikiMentionedInFooter = ({ pageId, pageTitle }) => {
   );
 };
 
-const WikiPageReadView = ({ pageId, onEdit }) => {
+const WikiPageReadView = ({ pageId, onEdit, workspaceMode = false }) => {
   const navigate = useNavigate();
   const [page, setPage] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -476,6 +477,7 @@ const WikiPageReadView = ({ pageId, onEdit }) => {
   }, [onEdit]);
 
   const handleMaintain = useCallback(async () => {
+    if (workspaceMode) return;
     setMaintaining(true);
     setError('');
     try {
@@ -487,9 +489,10 @@ const WikiPageReadView = ({ pageId, onEdit }) => {
     } finally {
       setMaintaining(false);
     }
-  }, [pageId]);
+  }, [pageId, workspaceMode]);
 
   const handleAsk = async (question) => {
+    if (workspaceMode) return;
     setAsking(true);
     setError('');
     try {
@@ -504,6 +507,7 @@ const WikiPageReadView = ({ pageId, onEdit }) => {
   };
 
   const handlePromoteDiscussion = async (discussion, title) => {
+    if (workspaceMode) return;
     const discussionId = discussion?._id || '';
     if (!discussionId) return;
     setPromotingDiscussionId(discussionId);
@@ -516,7 +520,7 @@ const WikiPageReadView = ({ pageId, onEdit }) => {
         promotedPageId: createdPage?._id || '',
         discussionId
       });
-      if (createdPage?._id) navigate(`/wiki/${createdPage._id}`);
+      if (createdPage?._id) navigate(wikiPagePath(createdPage._id));
     } catch (_error) {
       setError('Failed to create Wiki page from discussion.');
     } finally {
@@ -708,12 +712,12 @@ const WikiPageReadView = ({ pageId, onEdit }) => {
   useEffect(() => {
     const qualityStatus = String(page?.aiState?.quality?.status || page?.quality?.status || '').toLowerCase();
     const pageKey = `${pageId}:${page?.updatedAt || page?.aiState?.quality?.checkedAt || ''}`;
-    if (!page || !qualityState || maintaining || autoRebuildPageRef.current === pageKey) return;
+    if (workspaceMode || !page || !qualityState || maintaining || autoRebuildPageRef.current === pageKey) return;
     if (!['needs_rebuild', 'fail', 'failed'].includes(qualityStatus)) return;
     if (page?.aiState?.quality?.rebuiltAutomatically && qualityStatus !== 'needs_rebuild') return;
     autoRebuildPageRef.current = pageKey;
     handleMaintain();
-  }, [handleMaintain, maintaining, page, pageId, qualityState]);
+  }, [handleMaintain, maintaining, page, pageId, qualityState, workspaceMode]);
 
   if (loading) return <main className="wiki-page"><p className="wiki-index__status">Loading Wiki page...</p></main>;
   if (!page) {
@@ -727,8 +731,8 @@ const WikiPageReadView = ({ pageId, onEdit }) => {
   return (
     <main className="wiki-page wiki-read">
       <div className="wiki-read__topline">
-        <Button type="button" variant="secondary" onClick={() => navigate('/wiki')}>Back to Wiki</Button>
-        <Button type="button" variant="secondary" onClick={onEdit}>Edit</Button>
+        <Button type="button" variant="secondary" onClick={() => navigate(workspaceMode ? '/wiki/workspace?view=graph' : '/wiki')}>Back to Wiki</Button>
+        {!workspaceMode ? <Button type="button" variant="secondary" onClick={onEdit}>Edit</Button> : null}
         {error ? <span className="wiki-editor__error" role="alert">{error}</span> : null}
       </div>
       <WikiChangesSinceLastVisit
@@ -793,7 +797,7 @@ const WikiPageReadView = ({ pageId, onEdit }) => {
                 ) : null}
               </aside>
             ) : null}
-            <div className="wiki-read__tabs" role="tablist" aria-label="Wiki page views">
+            {!workspaceMode ? <div className="wiki-read__tabs" role="tablist" aria-label="Wiki page views">
               <button
                 type="button"
                 role="tab"
@@ -817,9 +821,9 @@ const WikiPageReadView = ({ pageId, onEdit }) => {
                 Talk
                 {discussionCount ? <span>{discussionCount}</span> : null}
               </button>
-            </div>
+            </div> : null}
           </header>
-          {activeTab === 'article' ? (
+          {workspaceMode || activeTab === 'article' ? (
             <section
               id="wiki-read-panel-article"
               role="tabpanel"
@@ -847,7 +851,7 @@ const WikiPageReadView = ({ pageId, onEdit }) => {
           )}
         </article>
         <aside className="wiki-read__rail" aria-label="Page context">
-          <WikiAgentPresence page={page} isMaintaining={maintaining} onMaintain={handleMaintain} />
+          {!workspaceMode ? <WikiAgentPresence page={page} isMaintaining={maintaining} onMaintain={handleMaintain} /> : null}
           <section className="wiki-read__infobox wiki-read__infobox--structured">
             <h2>{labelFor(page.pageType || 'topic')}</h2>
             <dl>

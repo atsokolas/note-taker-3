@@ -475,6 +475,7 @@ function App() {
             <Route path="/review" element={<ReviewMode />} />
             <Route path="/wiki" element={<Wiki />} />
             <Route path="/wiki/list" element={<Wiki />} />
+            <Route path="/wiki/workspace" element={<Wiki />} />
             <Route path="/wiki/activity/:runId" element={<WikiIngestRun />} />
             <Route path="/wiki/:id" element={<Wiki />} />
             <Route

@@ -1,3 +1,5 @@
+import { wikiPagePath } from './wikiFeatureFlags';
+
 const CREATED_FROM_TYPES = new Set([
   'wiki_index',
   'idea',
@@ -71,5 +73,5 @@ export const buildWikiCreatePayload = ({
 };
 
 export const openWikiDraft = ({ navigate, pageId }) => {
-  navigate(`/wiki/${pageId}?draft=1`);
+  navigate(wikiPagePath(pageId, '&draft=1'));
 };

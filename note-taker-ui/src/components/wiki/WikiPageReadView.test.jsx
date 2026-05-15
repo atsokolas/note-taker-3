@@ -135,7 +135,7 @@ describe('WikiPageReadView', () => {
     expect(screen.getByRole('navigation', { name: 'Page sections' })).toHaveTextContent('Core idea');
     expect(screen.getByRole('navigation', { name: 'Page sections' })).toHaveTextContent('Open questions');
     expect(screen.getByRole('link', { name: 'Core idea' })).toHaveClass('is-active');
-    expect(screen.getByRole('link', { name: 'Compounding interest' })).toHaveAttribute('href', '/wiki/wiki-related');
+    expect(screen.getByRole('link', { name: 'Compounding interest' })).toHaveAttribute('href', '/wiki/workspace?page=wiki-related');
     expect(screen.getByRole('tab', { name: 'Article' })).toHaveAttribute('aria-selected', 'true');
     expect(screen.getByRole('tab', { name: 'Talk' })).toHaveAttribute('aria-selected', 'false');
     expect(screen.getByRole('tabpanel', { name: 'Article' })).toHaveTextContent('Enterprise AI Memory depends on');
@@ -145,7 +145,7 @@ describe('WikiPageReadView', () => {
     expect(screen.getByText('1 conflicted')).toBeInTheDocument();
     expect(screen.getAllByText('Sources').length).toBeGreaterThan(0);
     expect(screen.getByText('Memory article')).toBeInTheDocument();
-    expect(await screen.findByRole('link', { name: /Adjacent Memory/ })).toHaveAttribute('href', '/wiki/wiki-backlink');
+    expect(await screen.findByRole('link', { name: /Adjacent Memory/ })).toHaveAttribute('href', '/wiki/workspace?page=wiki-backlink');
 
     fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
     expect(onEdit).toHaveBeenCalledTimes(1);
@@ -269,7 +269,7 @@ describe('WikiPageReadView', () => {
     const fallback = await screen.findByTestId('wiki-autolinks');
     expect(fallback).toHaveTextContent('Linkable pages here');
     expect(fallback).toHaveTextContent('Compounding interest');
-    expect(within(fallback).getByRole('link', { name: /Compounding interest/ })).toHaveAttribute('href', '/wiki/wiki-related');
+    expect(within(fallback).getByRole('link', { name: /Compounding interest/ })).toHaveAttribute('href', '/wiki/workspace?page=wiki-related');
   });
 
   it('renders structured infobox rows for each supported read-mode page type', async () => {

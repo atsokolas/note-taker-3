@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { createWikiPage, getWikiIngestRun, undoWikiIngestRun } from '../api/wiki';
+import { wikiPagePath } from '../utils/wikiFeatureFlags';
 
 const labelFor = (value = '') => String(value || '')
   .replace(/_/g, ' ')
@@ -134,7 +135,7 @@ const WikiIngestRun = () => {
                 {item.summary ? <p>{item.summary}</p> : null}
                 <time dateTime={item.at}>{formatDateTime(item.at)}</time>
               </div>
-              {item.pageId ? <Link to={`/wiki/${item.pageId}`}>Open page</Link> : null}
+              {item.pageId ? <Link to={wikiPagePath(item.pageId)}>Open page</Link> : null}
             </li>
           ))}
         </ol>

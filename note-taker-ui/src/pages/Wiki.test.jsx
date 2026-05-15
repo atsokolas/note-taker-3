@@ -5,7 +5,8 @@ const mockUseParams = jest.fn();
 const mockUseLocation = jest.fn();
 
 jest.mock('../utils/wikiFeatureFlags', () => ({
-  isWikiReadModeV2Enabled: jest.fn()
+  isWikiReadModeV2Enabled: jest.fn(),
+  isWikiWorkspaceV1Enabled: jest.fn()
 }));
 
 jest.mock('../utils/wikiAnalytics', () => ({
@@ -13,6 +14,7 @@ jest.mock('../utils/wikiAnalytics', () => ({
 }));
 
 jest.mock('react-router-dom', () => ({
+  Navigate: ({ to }) => <div data-testid="navigate">{to}</div>,
   useLocation: () => mockUseLocation(),
   useParams: () => mockUseParams()
 }));
@@ -31,9 +33,10 @@ jest.mock('../components/wiki/WikiPageEditor', () => ({ onDoneEditing, pageId })
     {onDoneEditing ? <button type="button" onClick={onDoneEditing}>Done editing</button> : null}
   </div>
 ));
+jest.mock('../components/wiki/WikiWorkspace', () => () => <div data-testid="wiki-workspace">Wiki workspace</div>);
 
 import Wiki from './Wiki';
-import { isWikiReadModeV2Enabled } from '../utils/wikiFeatureFlags';
+import { isWikiReadModeV2Enabled, isWikiWorkspaceV1Enabled } from '../utils/wikiFeatureFlags';
 import { trackWikiEditModeEntered } from '../utils/wikiAnalytics';
 
 describe('Wiki route shell', () => {
@@ -44,6 +47,7 @@ describe('Wiki route shell', () => {
     jest.clearAllMocks();
     mockUseParams.mockReturnValue({ id: 'wiki-1' });
     mockUseLocation.mockReturnValue({ pathname: '/wiki/wiki-1' });
+    isWikiWorkspaceV1Enabled.mockReturnValue(false);
     originalRequestAnimationFrame = window.requestAnimationFrame;
     originalScrollTo = window.scrollTo;
     Object.defineProperty(window, 'scrollY', { configurable: true, value: 320 });
@@ -118,5 +122,25 @@ describe('Wiki route shell', () => {
     render(<Wiki />);
 
     expect(screen.getByTestId('wiki-list')).toBeInTheDocument();
+  });
+
+  it('renders the workspace route when workspace v1 is enabled', () => {
+    isWikiWorkspaceV1Enabled.mockReturnValue(true);
+    isWikiReadModeV2Enabled.mockReturnValue(true);
+    mockUseParams.mockReturnValue({});
+    mockUseLocation.mockReturnValue({ pathname: '/wiki/workspace' });
+
+    render(<Wiki />);
+
+    expect(screen.getByTestId('wiki-workspace')).toBeInTheDocument();
+  });
+
+  it('routes wiki pages into workspace when workspace v1 is enabled', () => {
+    isWikiWorkspaceV1Enabled.mockReturnValue(true);
+    isWikiReadModeV2Enabled.mockReturnValue(true);
+
+    render(<Wiki />);
+
+    expect(screen.getByTestId('navigate')).toHaveTextContent('/wiki/workspace?page=wiki-1');
   });
 });

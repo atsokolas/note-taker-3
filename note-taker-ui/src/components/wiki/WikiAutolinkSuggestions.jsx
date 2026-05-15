@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { getWikiAutolinkSuggestions } from '../../api/wiki';
+import { wikiPagePath } from '../../utils/wikiFeatureFlags';
 
 /**
  * WikiAutolinkSuggestions — "Linkable pages here" rail. For the page
@@ -77,7 +78,7 @@ const WikiAutolinkSuggestions = ({ pageId, pageTitle }) => {
         <ul className="wiki-autolinks__list">
           {state.suggestions.map((entry) => (
             <li key={entry.pageId} className="wiki-autolinks__item">
-              <Link to={`/wiki/${entry.pageId}`} className="wiki-autolinks__link">
+              <Link to={wikiPagePath(entry.pageId)} className="wiki-autolinks__link">
                 <span className="wiki-autolinks__link-title">
                   {entry.title || 'Untitled wiki page'}
                 </span>
