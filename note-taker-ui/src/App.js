@@ -111,6 +111,16 @@ const LegacyArticleRedirect = () => {
   return <Navigate to={buildCanonicalArticlePath(id)} replace />;
 };
 
+const LegacyWikiPageRedirect = () => {
+  const { id = '' } = useParams();
+  const trimmedId = String(id).trim();
+  const workspacePath = trimmedId
+    ? `/wiki/workspace?page=${encodeURIComponent(trimmedId)}`
+    : '/wiki/workspace';
+
+  return <Navigate to={workspacePath} replace />;
+};
+
 const PublicRoutes = ({ chromeStoreLink, handleLoginSuccess, uiSettings }) => {
   const location = useLocation();
   const isLongformRoute = (
@@ -473,11 +483,11 @@ function App() {
             <Route path="/map" element={<MapView />} />
             <Route path="/return-queue" element={<ReturnQueue />} />
             <Route path="/review" element={<ReviewMode />} />
-            <Route path="/wiki" element={<Wiki />} />
-            <Route path="/wiki/list" element={<Wiki />} />
+            <Route path="/wiki" element={<Navigate to="/wiki/workspace" replace />} />
+            <Route path="/wiki/list" element={<Navigate to="/wiki/workspace?view=list" replace />} />
             <Route path="/wiki/workspace" element={<Wiki />} />
             <Route path="/wiki/activity/:runId" element={<WikiIngestRun />} />
-            <Route path="/wiki/:id" element={<Wiki />} />
+            <Route path="/wiki/:id" element={<LegacyWikiPageRedirect />} />
             <Route
               path="/settings"
               element={(
