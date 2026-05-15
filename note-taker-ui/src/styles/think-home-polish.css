@@ -6949,6 +6949,32 @@ html[data-ui-theme='dark'] .wiki-activity-rail__graph-alerts span {
   resize: vertical;
 }
 
+.wiki-workspace-chat__refs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.wiki-workspace-chat__refs button {
+  max-width: 100%;
+  padding: 4px 8px;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--nt-divider) 70%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent-primary, var(--primary-color)) 7%, var(--surface));
+  color: var(--text-primary);
+  font-size: 0.72rem;
+  font-weight: 750;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wiki-workspace-chat__refs button:hover,
+.wiki-workspace-chat__refs button:focus-visible {
+  border-color: color-mix(in srgb, var(--accent-primary, var(--primary-color)) 45%, var(--nt-divider));
+  outline: none;
+}
+
 .wiki-workspace-chat__palette {
   display: grid;
   gap: 6px;
@@ -6985,7 +7011,7 @@ html[data-ui-theme='dark'] .wiki-activity-rail__graph-alerts span {
   font-size: 0.74rem;
 }
 
-.wiki-workspace-chat__composer div {
+.wiki-workspace-chat__composer > div:not(.wiki-workspace-chat__palette):not(.wiki-workspace-chat__refs) {
   display: flex;
   gap: 10px;
   align-items: center;

@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { chatWithAgent } from '../../api/agent';
 import { getArticles } from '../../api/articles';
 import {
+  createWikiPage,
   getWikiPage,
   getWikiSchema,
   ingestWikiSource,
@@ -11,6 +12,7 @@ import {
   maintainWikiPage,
   saveWikiSchema
 } from '../../api/wiki';
+import { buildWikiCreatePayload } from '../../utils/wikiCreate';
 import { Button } from '../ui';
 import WikiIndex from './WikiIndex';
 import WikiPageReadView from './WikiPageReadView';
@@ -24,6 +26,12 @@ const clean = (value = '') => String(value || '').trim();
 const messageId = (prefix) => `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
 const COMMANDS = [
+  {
+    verb: 'ask',
+    template: '/ask ',
+    label: 'Ask workspace',
+    hint: 'Ask across the current wiki context.'
+  },
   {
     verb: 'draft',
     template: '/draft @wiki:',
@@ -62,9 +70,33 @@ const COMMANDS = [
   },
   {
     verb: 'ingest',
-    template: '/ingest https://',
+    template: '/ingest @url:',
     label: 'Ingest URL',
     hint: 'Feed a source URL to the wiki.'
+  },
+  {
+    verb: 'lint',
+    template: '/lint @wiki:',
+    label: 'Lint page',
+    hint: 'Ask the agent for gaps, weak claims, and maintenance risks.'
+  },
+  {
+    verb: 'promote',
+    template: '/promote ',
+    label: 'Promote answer',
+    hint: 'Turn the last agent answer into an overview wiki draft.'
+  },
+  {
+    verb: 'diff',
+    template: '/diff @wiki:',
+    label: 'Review diff',
+    hint: 'Open a page and review what changed since last visit.'
+  },
+  {
+    verb: 'help',
+    template: '/help',
+    label: 'Help',
+    hint: 'Show available wiki commands.'
   }
 ];
 
@@ -76,7 +108,7 @@ const commandMatches = (input = '') => {
     !query
     || command.verb.startsWith(query)
     || command.label.toLowerCase().includes(query)
-  )).slice(0, 6);
+  )).slice(0, 10);
 };
 
 const toWorkspaceThreadMessages = (thread = null) => {
@@ -107,8 +139,48 @@ const parseWikiRef = (value = '') => {
 };
 
 const parseUrl = (value = '') => {
-  const match = String(value || '').match(/https?:\/\/\S+/i);
-  return clean(match?.[0]);
+  const text = String(value || '');
+  const tagged = text.match(/@url:?(https?:\/\/\S+)/i);
+  const bare = text.match(/https?:\/\/\S+/i);
+  return clean(tagged?.[1] || bare?.[0]);
+};
+
+const labelForRef = (ref = {}) => {
+  if (ref.label) return ref.label;
+  if (ref.type === 'wiki') return `@wiki:${ref.id}`;
+  if (ref.type === 'url') return ref.url || '@url';
+  if (ref.type === 'article') return ref.title || '@article';
+  return ref.label || ref.id || 'Reference';
+};
+
+const contextKeyFor = (ref = {}) => `${ref.type}:${ref.id || ref.url || ref.title || ref.label}`;
+
+const mergeReferences = (current = [], next = []) => {
+  const map = new Map();
+  [...current, ...next].forEach((ref) => {
+    const key = contextKeyFor(ref);
+    if (key && key !== `${ref.type}:`) map.set(key, { ...ref, label: ref.label || labelForRef(ref) });
+  });
+  return Array.from(map.values()).slice(0, 12);
+};
+
+const referencesFromText = (text = '', wikiPages = []) => {
+  const refs = [];
+  const pageById = new Map(wikiPages.map(page => [clean(page._id || page.id), page]));
+  String(text || '').replace(/@wiki:([^\s]+)/gi, (_match, id) => {
+    const cleanId = clean(id);
+    const page = pageById.get(cleanId);
+    refs.push({
+      type: 'wiki',
+      id: cleanId,
+      title: page?.title || cleanId,
+      label: page?.title ? `@wiki:${page.title}` : `@wiki:${cleanId}`
+    });
+    return _match;
+  });
+  const url = parseUrl(text);
+  if (url) refs.push({ type: 'url', url, id: url, label: url });
+  return refs;
 };
 
 const viewPathFor = ({ view = 'graph', page = '' } = {}) => {
@@ -271,6 +343,7 @@ const WikiWorkspaceChat = ({ selectedPageId, view, onNavigate, onPageChanged, bu
   const [threadId, setThreadId] = useState('');
   const [threadTitle, setThreadTitle] = useState('');
   const [wikiPages, setWikiPages] = useState([]);
+  const [contextRefs, setContextRefs] = useState([]);
   const scrollRef = useRef(null);
 
   useEffect(() => {
@@ -280,6 +353,9 @@ const WikiWorkspaceChat = ({ selectedPageId, view, onNavigate, onPageChanged, bu
   useEffect(() => {
     if (!chatDraft?.text) return;
     setInput(chatDraft.text);
+    if (Array.isArray(chatDraft.refs)) {
+      setContextRefs(current => mergeReferences(current, chatDraft.refs));
+    }
   }, [chatDraft]);
 
   useEffect(() => {
@@ -322,10 +398,51 @@ const WikiWorkspaceChat = ({ selectedPageId, view, onNavigate, onPageChanged, bu
     const pageId = clean(page?._id || page?.id);
     if (!pageId) return;
     setInput(current => current.replace(/@wiki:[^\s]*$/i, `@wiki:${pageId}`));
+    setContextRefs(current => mergeReferences(current, [{
+      type: 'wiki',
+      id: pageId,
+      title: page.title || pageId,
+      label: page.title ? `@wiki:${page.title}` : `@wiki:${pageId}`
+    }]));
   };
+
+  const sendAgentMessage = useCallback(async (text, { assistantPrefix = '', extraRefs = [] } = {}) => {
+    const nextRefs = mergeReferences(contextRefs, [...referencesFromText(text, wikiPages), ...extraRefs]);
+    setContextRefs(nextRefs);
+    const result = await chatWithAgent({
+      message: text,
+      threadId: threadId || undefined,
+      persistThread: true,
+      threadTitle: 'Wiki workspace',
+      context: {
+        type: 'workspace',
+        id: 'wiki',
+        title: selectedPageId ? `Wiki page ${selectedPageId}` : 'Wiki workspace',
+        pageId: selectedPageId || '',
+        view,
+        references: nextRefs,
+        metadata: {
+          surface: 'wiki_workspace',
+          references: nextRefs
+        }
+      },
+      history: messages.map(message => ({ role: message.role, text: message.text })),
+      limit: 6
+    });
+    if (result?.thread?.threadId) {
+      setThreadId(result.thread.threadId);
+      setThreadTitle(clean(result.thread.title) || 'Wiki workspace');
+    }
+    const hydratedMessages = toWorkspaceThreadMessages(result?.thread);
+    if (hydratedMessages.length > messages.length + 1) {
+      setMessages(hydratedMessages);
+    }
+    append({ role: 'assistant', text: `${assistantPrefix}${clean(result?.reply) || 'No reply generated.'}` });
+  }, [append, contextRefs, messages, selectedPageId, threadId, view, wikiPages]);
 
   const handleCommand = async (command) => {
     const pageRef = parseWikiRef(command.args) || selectedPageId;
+    const argsWithoutWikiRef = clean(command.args.replace(/@wiki:[^\s]+/i, ''));
     if (command.verb === 'graph') {
       onNavigate({ view: 'graph' });
       append({ role: 'assistant', text: 'Opened the wiki graph on the right.' });
@@ -374,6 +491,16 @@ const WikiWorkspaceChat = ({ selectedPageId, view, onNavigate, onPageChanged, bu
       }
       return true;
     }
+    if (command.verb === 'diff') {
+      if (!pageRef) {
+        append({ role: 'assistant', text: 'Add a wiki reference, for example /diff @wiki:PAGE_ID.' });
+        return true;
+      }
+      onNavigate({ page: pageRef });
+      setContextRefs(current => mergeReferences(current, [{ type: 'wiki', id: pageRef, label: `@wiki:${pageRef}` }]));
+      append({ role: 'assistant', text: `Opened @wiki:${pageRef}. Use the page banner to review changes since your last visit.` });
+      return true;
+    }
     if (command.verb === 'ingest') {
       const url = parseUrl(command.args);
       if (!url) {
@@ -383,6 +510,7 @@ const WikiWorkspaceChat = ({ selectedPageId, view, onNavigate, onPageChanged, bu
       setBusy(true);
       try {
         const result = await ingestWikiSource({ type: 'url', url });
+        setContextRefs(current => mergeReferences(current, [{ type: 'url', id: url, url, label: url }]));
         append({
           role: 'assistant',
           text: `Ingested source. ${result?.affectedPageIds?.length || 0} page${result?.affectedPageIds?.length === 1 ? '' : 's'} affected.`
@@ -395,8 +523,74 @@ const WikiWorkspaceChat = ({ selectedPageId, view, onNavigate, onPageChanged, bu
       }
       return true;
     }
+    if (command.verb === 'ask') {
+      const question = argsWithoutWikiRef || command.args;
+      if (!question) {
+        append({ role: 'assistant', text: 'Add a question after /ask.' });
+        return true;
+      }
+      setBusy(true);
+      try {
+        await sendAgentMessage(question, {
+          extraRefs: pageRef ? [{ type: 'wiki', id: pageRef, label: `@wiki:${pageRef}` }] : []
+        });
+      } catch (_error) {
+        append({ role: 'assistant', text: 'Agent chat failed.' });
+      } finally {
+        setBusy(false);
+      }
+      return true;
+    }
+    if (command.verb === 'lint') {
+      if (!pageRef) {
+        append({ role: 'assistant', text: 'Add a wiki reference, for example /lint @wiki:PAGE_ID.' });
+        return true;
+      }
+      setBusy(true);
+      try {
+        await sendAgentMessage(`Lint @wiki:${pageRef}. Be opinionated: identify unsupported claims, stale sections, missing links, weak source coverage, and the smallest rebuild plan.`, {
+          extraRefs: [{ type: 'wiki', id: pageRef, label: `@wiki:${pageRef}` }]
+        });
+      } catch (_error) {
+        append({ role: 'assistant', text: `Lint failed for @wiki:${pageRef}.` });
+      } finally {
+        setBusy(false);
+      }
+      return true;
+    }
+    if (command.verb === 'promote') {
+      const lastAssistant = [...messages].reverse().find(message => message.role === 'assistant' && clean(message.text) && message.id !== 'assistant-welcome');
+      if (!lastAssistant) {
+        append({ role: 'assistant', text: 'There is no agent answer to promote yet.' });
+        return true;
+      }
+      setBusy(true);
+      try {
+        const title = argsWithoutWikiRef || clean(lastAssistant.text).split(/[.!?]\s/)[0] || 'Promoted wiki draft';
+        const created = await createWikiPage(buildWikiCreatePayload({
+          type: 'thought_partner',
+          title,
+          text: lastAssistant.text,
+          pageType: 'overview',
+          sourceScope: 'selected_sources'
+        }));
+        const createdPageId = created?._id || created?.id;
+        if (createdPageId) {
+          onNavigate({ page: createdPageId });
+          setContextRefs(current => mergeReferences(current, [{ type: 'wiki', id: createdPageId, title, label: `@wiki:${title}` }]));
+          append({ role: 'assistant', text: `Promoted the last answer into @wiki:${createdPageId}.` });
+        } else {
+          append({ role: 'assistant', text: 'Promoted the last answer, but the new page id was not returned.' });
+        }
+      } catch (_error) {
+        append({ role: 'assistant', text: 'Promotion failed.' });
+      } finally {
+        setBusy(false);
+      }
+      return true;
+    }
     if (command.verb === 'help') {
-      append({ role: 'assistant', text: 'Commands: /draft @wiki:X, /page @wiki:X, /graph, /activity, /sources, /schema, /ingest <url>.' });
+      append({ role: 'assistant', text: 'Commands: /ask, /draft @wiki:X, /lint @wiki:X, /promote, /page @wiki:X, /diff @wiki:X, /graph, /activity, /sources, /schema, /ingest @url:https://...' });
       return true;
     }
     return false;
@@ -408,38 +602,13 @@ const WikiWorkspaceChat = ({ selectedPageId, view, onNavigate, onPageChanged, bu
     if (!text || busy) return;
     setInput('');
     append({ role: 'user', text });
+    setContextRefs(current => mergeReferences(current, referencesFromText(text, wikiPages)));
     const command = parseCommand(text);
     if (command && await handleCommand(command)) return;
 
     setBusy(true);
     try {
-      const result = await chatWithAgent({
-        message: text,
-        threadId: threadId || undefined,
-        persistThread: true,
-        threadTitle: 'Wiki workspace',
-        context: {
-          type: 'workspace',
-          id: 'wiki',
-          title: selectedPageId ? `Wiki page ${selectedPageId}` : 'Wiki workspace',
-          pageId: selectedPageId || '',
-          view,
-          metadata: {
-            surface: 'wiki_workspace'
-          }
-        },
-        history: messages.map(message => ({ role: message.role, text: message.text })),
-        limit: 6
-      });
-      if (result?.thread?.threadId) {
-        setThreadId(result.thread.threadId);
-        setThreadTitle(clean(result.thread.title) || 'Wiki workspace');
-      }
-      const hydratedMessages = toWorkspaceThreadMessages(result?.thread);
-      if (hydratedMessages.length > messages.length + 1) {
-        setMessages(hydratedMessages);
-      }
-      append({ role: 'assistant', text: clean(result?.reply) || 'No reply generated.' });
+      await sendAgentMessage(text);
     } catch (_error) {
       append({ role: 'assistant', text: 'Agent chat failed.' });
     } finally {
@@ -468,6 +637,20 @@ const WikiWorkspaceChat = ({ selectedPageId, view, onNavigate, onPageChanged, bu
         ))}
       </div>
       <form onSubmit={submit} className="wiki-workspace-chat__composer">
+        {contextRefs.length ? (
+          <div className="wiki-workspace-chat__refs" aria-label="Workspace context references">
+            {contextRefs.map(ref => (
+              <button
+                type="button"
+                key={contextKeyFor(ref)}
+                onClick={() => setContextRefs(current => current.filter(item => contextKeyFor(item) !== contextKeyFor(ref)))}
+                aria-label={`Remove ${labelForRef(ref)}`}
+              >
+                {labelForRef(ref)}
+              </button>
+            ))}
+          </div>
+        ) : null}
         <textarea
           value={input}
           onChange={(event) => setInput(event.target.value)}
@@ -577,9 +760,20 @@ const WikiWorkspace = () => {
     const url = clean(article.url);
     const pageId = selectedPageId || lastSelectedPageRef.current;
     const pageContext = pageId ? ` for @wiki:${pageId}` : '';
+    const refs = [];
+    if (article._id || article.id) refs.push({
+      type: 'article',
+      id: article._id || article.id,
+      title,
+      url,
+      label: title
+    });
+    if (url) refs.push({ type: 'url', id: url, url, label: url });
+    if (pageId) refs.push({ type: 'wiki', id: pageId, label: `@wiki:${pageId}` });
     setChatDraft({
       id: `${article._id || article.id || title}-${Date.now()}`,
-      text: `Use "${title}"${url ? ` (${url})` : ''}${pageContext} and tell me what wiki update it supports.`
+      text: `Use "${title}"${url ? ` (${url})` : ''}${pageContext} and tell me what wiki update it supports.`,
+      refs
     });
     setMobilePane('chat');
   }, [selectedPageId]);

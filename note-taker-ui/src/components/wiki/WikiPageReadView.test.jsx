@@ -2,7 +2,7 @@ import React from 'react';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import WikiPageReadView from './WikiPageReadView';
-import { askWikiPage, getWikiAutolinkSuggestions, getWikiBacklinks, getWikiPage, maintainWikiPage, promoteWikiDiscussion } from '../../api/wiki';
+import { askWikiPage, getWikiAutolinkSuggestions, getWikiBacklinks, getWikiPage, maintainWikiPage, prefetchWikiPage, promoteWikiDiscussion } from '../../api/wiki';
 
 jest.mock('../../api/wiki', () => ({
   askWikiPage: jest.fn(),
@@ -10,6 +10,7 @@ jest.mock('../../api/wiki', () => ({
   getWikiBacklinks: jest.fn(),
   getWikiPage: jest.fn(),
   maintainWikiPage: jest.fn(),
+  prefetchWikiPage: jest.fn(),
   promoteWikiDiscussion: jest.fn()
 }));
 

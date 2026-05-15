@@ -6,6 +6,7 @@ import {
   getWikiBacklinks,
   getWikiPage,
   maintainWikiPage,
+  prefetchWikiPage,
   promoteWikiDiscussion
 } from '../../api/wiki';
 import { trackWikiQaPromoted, trackWikiReadModePageView } from '../../utils/wikiAnalytics';
@@ -556,6 +557,7 @@ const WikiPageReadView = ({ pageId, onEdit, workspaceMode = false }) => {
     const target = event.target.closest?.('.wiki-internal-link');
     const targetPageId = target?.getAttribute?.('data-wiki-page-id');
     if (!targetPageId) return;
+    prefetchWikiPage(targetPageId);
     if (previewTimerRef.current) clearTimeout(previewTimerRef.current);
     if (previewDismissTimerRef.current) clearTimeout(previewDismissTimerRef.current);
     const anchorRect = target.getBoundingClientRect();
