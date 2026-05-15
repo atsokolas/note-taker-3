@@ -25,6 +25,7 @@ jest.mock('../../api/wiki', () => ({
 }));
 
 jest.mock('./WikiIndex', () => () => <div data-testid="wiki-index">Graph view</div>);
+jest.mock('./WikiList', () => ({ compact }) => <div data-testid="wiki-list">List view {compact ? 'compact' : ''}</div>);
 jest.mock('./WikiPageReadView', () => ({ pageId, workspaceMode }) => (
   <div data-testid="wiki-read-view">
     Page {pageId} {workspaceMode ? 'workspace' : ''}

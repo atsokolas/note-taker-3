@@ -13,6 +13,7 @@ import {
 } from '../../api/wiki';
 import { Button } from '../ui';
 import WikiIndex from './WikiIndex';
+import WikiList from './WikiList';
 import WikiPageReadView from './WikiPageReadView';
 
 const LAST_PAGE_KEY = 'noeis.wiki.workspace.last_page_id';
@@ -607,6 +608,7 @@ const WikiWorkspace = () => {
       );
     }
     if (view === 'activity') return <WorkspaceActivity />;
+    if (view === 'list') return <WikiList compact />;
     if (view === 'sources') return <WorkspaceSources onUseSource={useSourceInChat} />;
     if (view === 'schema') return <WorkspaceSchema />;
     return <WikiIndex />;

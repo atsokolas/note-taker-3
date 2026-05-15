@@ -9,7 +9,7 @@ import {
   promoteWikiDiscussion
 } from '../../api/wiki';
 import { trackWikiQaPromoted, trackWikiReadModePageView } from '../../utils/wikiAnalytics';
-import { isWikiWorkspaceV1Enabled, wikiPagePath } from '../../utils/wikiFeatureFlags';
+import { wikiPagePath } from '../../utils/wikiFeatureFlags';
 import ClaimCitationPopover from './ClaimCitationPopover';
 import WikiAgentPresence from './WikiAgentPresence';
 import WikiAskComposer from './WikiAskComposer';
@@ -712,8 +712,8 @@ const WikiPageReadView = ({ pageId, onEdit, workspaceMode = false }) => {
   const activeLedgerClaim = activeClaim ? claimLedgerById.get(activeClaim.claimId) : null;
   const displayedActiveTocId = activeTocId || tocItems[0]?.id || '';
   const discussionCount = (page?.discussions || []).length;
-  const showPageTalk = !workspaceMode && !isWikiWorkspaceV1Enabled();
-  const showUtilityRail = !workspaceMode && !isWikiWorkspaceV1Enabled();
+  const showPageTalk = false;
+  const showUtilityRail = false;
 
   useEffect(() => {
     const qualityStatus = String(page?.aiState?.quality?.status || page?.quality?.status || '').toLowerCase();

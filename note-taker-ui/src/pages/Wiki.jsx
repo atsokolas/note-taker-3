@@ -26,6 +26,9 @@ const Wiki = () => {
   if (location.pathname === '/wiki/workspace') {
     return isWikiWorkspaceV1Enabled() ? <WikiWorkspace /> : <Navigate to="/wiki" replace />;
   }
+  if ((location.pathname === '/wiki/list' || id === 'list') && isWikiWorkspaceV1Enabled()) {
+    return <Navigate to="/wiki/workspace?view=list" replace />;
+  }
   if (location.pathname === '/wiki/list' || id === 'list') return <WikiList />;
   if (!id && isWikiWorkspaceV1Enabled()) return <Navigate to="/wiki/workspace" replace />;
   if (!id) return isWikiReadModeV2Enabled() ? <WikiIndex /> : <WikiList />;

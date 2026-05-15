@@ -368,7 +368,7 @@ function App() {
     },
     {
       label: 'Wiki',
-      to: '/wiki',
+      to: '/wiki/workspace',
       match: (location) => location.pathname.startsWith('/wiki')
     }
   ];

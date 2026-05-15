@@ -136,6 +136,18 @@ describe('Wiki route shell', () => {
     expect(screen.getByTestId('wiki-list')).toBeInTheDocument();
   });
 
+  it('routes /wiki/list into the workspace list when workspace v1 is enabled', () => {
+    isWikiWorkspaceV1Enabled.mockReturnValue(true);
+    isWikiReadModeV2Enabled.mockReturnValue(true);
+
+    mockUseParams.mockReturnValue({});
+    mockUseLocation.mockReturnValue({ pathname: '/wiki/list' });
+
+    render(<Wiki />);
+
+    expect(screen.getByTestId('navigate')).toHaveTextContent('/wiki/workspace?view=list');
+  });
+
   it('renders the workspace route when workspace v1 is enabled', () => {
     isWikiWorkspaceV1Enabled.mockReturnValue(true);
     isWikiReadModeV2Enabled.mockReturnValue(true);

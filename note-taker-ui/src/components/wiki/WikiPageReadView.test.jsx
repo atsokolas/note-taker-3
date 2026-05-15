@@ -140,16 +140,11 @@ describe('WikiPageReadView', () => {
     expect(screen.getByRole('navigation', { name: 'Page sections' })).toHaveTextContent('Open questions');
     expect(screen.getByRole('link', { name: 'Core idea' })).toHaveClass('is-active');
     expect(screen.getByRole('link', { name: 'Compounding interest' })).toHaveAttribute('href', '/wiki/wiki-related');
-    expect(screen.getByRole('tab', { name: 'Article' })).toHaveAttribute('aria-selected', 'true');
-    expect(screen.getByRole('tab', { name: 'Talk' })).toHaveAttribute('aria-selected', 'false');
-    expect(screen.getByRole('tabpanel', { name: 'Article' })).toHaveTextContent('Enterprise AI Memory depends on');
-    expect(screen.getByText('Claim health')).toBeInTheDocument();
-    expect(screen.getByText('1 supported')).toBeInTheDocument();
-    expect(screen.getByText('1 unsupported')).toBeInTheDocument();
-    expect(screen.getByText('1 conflicted')).toBeInTheDocument();
-    expect(screen.getAllByText('Sources').length).toBeGreaterThan(0);
-    expect(screen.getByText('Memory article')).toBeInTheDocument();
-    expect(await screen.findByRole('link', { name: /Adjacent Memory/ })).toHaveAttribute('href', '/wiki/wiki-backlink');
+    expect(screen.queryByRole('tab', { name: 'Article' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: 'Talk' })).not.toBeInTheDocument();
+    expect(screen.queryByText('Claim health')).not.toBeInTheDocument();
+    expect(screen.queryByText('Memory article')).not.toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Enterprise AI Memory' })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
     expect(onEdit).toHaveBeenCalledTimes(1);
@@ -206,7 +201,7 @@ describe('WikiPageReadView', () => {
     }
   });
 
-  it('keeps discussions and the ask composer inside the Talk tab in read mode', async () => {
+  it('hides legacy discussions and ask composer chrome in read mode', async () => {
     getWikiPage.mockResolvedValueOnce({
       ...page,
       discussions: [{
@@ -227,18 +222,14 @@ describe('WikiPageReadView', () => {
       </MemoryRouter>
     );
 
-    expect(await screen.findByRole('tab', { name: 'Article' })).toHaveAttribute('aria-selected', 'true');
+    expect(await screen.findByRole('heading', { name: 'Enterprise AI Memory' })).toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: 'Article' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: /Talk/ })).not.toBeInTheDocument();
     expect(screen.queryByText('What changed after review?')).not.toBeInTheDocument();
     expect(screen.queryByLabelText('Ask this page')).not.toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole('tab', { name: /Talk/ }));
-
-    expect(screen.getByRole('tab', { name: /Talk/ })).toHaveAttribute('aria-selected', 'true');
-    expect(screen.getByRole('tabpanel', { name: /Talk/ })).toHaveTextContent('What changed after review?');
-    expect(screen.getByLabelText('Ask this page')).toBeInTheDocument();
   });
 
-  it('shows linkable page fallback in read mode when prose has no inline wiki links', async () => {
+  it('does not show legacy linkable page fallback in read mode when prose has no inline wiki links', async () => {
     getWikiPage.mockResolvedValueOnce({
       ...page,
       body: {
@@ -270,10 +261,7 @@ describe('WikiPageReadView', () => {
       jest.advanceTimersByTime(400);
     });
 
-    const fallback = await screen.findByTestId('wiki-autolinks');
-    expect(fallback).toHaveTextContent('Linkable pages here');
-    expect(fallback).toHaveTextContent('Compounding interest');
-    expect(within(fallback).getByRole('link', { name: /Compounding interest/ })).toHaveAttribute('href', '/wiki/wiki-related');
+    expect(screen.queryByTestId('wiki-autolinks')).not.toBeInTheDocument();
   });
 
   it('hides legacy Talk controls and utility rail cards when workspace v1 is active', async () => {
@@ -339,11 +327,11 @@ describe('WikiPageReadView', () => {
     const status = await screen.findByRole('status', { name: 'Agent status' });
     expect(status).toHaveTextContent('2 signals pending review');
     expect(status).toHaveTextContent('New material may affect this page.');
-    expect(screen.getByRole('tab', { name: 'Article' })).toHaveAttribute('aria-selected', 'true');
-    expect(screen.getByRole('tabpanel', { name: 'Article' })).toHaveTextContent('Enterprise AI Memory depends on');
+    expect(screen.queryByRole('tab', { name: 'Article' })).not.toBeInTheDocument();
+    expect(screen.getAllByText(/Enterprise AI Memory depends on/).length).toBeGreaterThan(0);
   });
 
-  it('keeps read-mode source rail cards concise with evidence counts and collapsed long text', async () => {
+  it('hides legacy source rail cards in read mode', async () => {
     const longSnippet = [
       'This source contains a concise front-loaded passage about memory systems and recurring review.',
       'It then keeps going with low-insight maintenance output that should not dominate the read rail.',
@@ -369,15 +357,8 @@ describe('WikiPageReadView', () => {
     );
 
     const rail = await screen.findByRole('complementary', { name: 'Page context' });
-    const sourceSection = rail.querySelector('.wiki-read__source-list');
-    const sourceList = sourceSection.querySelector('ol');
-    expect(sourceList).toHaveTextContent('Long maintenance source');
-    expect(sourceList).toHaveTextContent('This source contains a concise front-loaded passage');
-    expect(sourceList).toHaveTextContent('1 citation / 2 claims');
-    const details = sourceList.querySelector('details');
-    expect(details).toBeInTheDocument();
-    expect(details).not.toHaveAttribute('open');
-    expect(details.querySelector('summary')).toHaveTextContent('More');
+    expect(rail.querySelector('.wiki-read__source-list')).not.toBeInTheDocument();
+    expect(screen.queryByText('Long maintenance source')).not.toBeInTheDocument();
   });
 
   it('automatically starts one rebuild when backend quality marks the page as needing rebuild', async () => {
