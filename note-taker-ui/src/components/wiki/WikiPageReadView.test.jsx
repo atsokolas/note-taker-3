@@ -2,10 +2,11 @@ import React from 'react';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import WikiPageReadView from './WikiPageReadView';
-import { askWikiPage, getWikiBacklinks, getWikiPage, maintainWikiPage, promoteWikiDiscussion } from '../../api/wiki';
+import { askWikiPage, getWikiAutolinkSuggestions, getWikiBacklinks, getWikiPage, maintainWikiPage, promoteWikiDiscussion } from '../../api/wiki';
 
 jest.mock('../../api/wiki', () => ({
   askWikiPage: jest.fn(),
+  getWikiAutolinkSuggestions: jest.fn(),
   getWikiBacklinks: jest.fn(),
   getWikiPage: jest.fn(),
   maintainWikiPage: jest.fn(),
@@ -107,6 +108,7 @@ describe('WikiPageReadView', () => {
       }],
       scanned: 3
     });
+    getWikiAutolinkSuggestions.mockResolvedValue({ suggestions: [], scanned: 0 });
     maintainWikiPage.mockResolvedValue(page);
     askWikiPage.mockResolvedValue(page);
     window.localStorage.clear();
@@ -230,6 +232,44 @@ describe('WikiPageReadView', () => {
     expect(screen.getByRole('tab', { name: /Talk/ })).toHaveAttribute('aria-selected', 'true');
     expect(screen.getByRole('tabpanel', { name: /Talk/ })).toHaveTextContent('What changed after review?');
     expect(screen.getByLabelText('Ask this page')).toBeInTheDocument();
+  });
+
+  it('shows linkable page fallback in read mode when prose has no inline wiki links', async () => {
+    getWikiPage.mockResolvedValueOnce({
+      ...page,
+      body: {
+        type: 'doc',
+        content: [
+          { type: 'heading', attrs: { level: 2 }, content: [{ type: 'text', text: 'Core idea' }] },
+          { type: 'paragraph', content: [{ type: 'text', text: 'Enterprise memory mentions Compounding interest without a mark.' }] }
+        ]
+      }
+    });
+    getWikiAutolinkSuggestions.mockResolvedValueOnce({
+      scanned: 3,
+      suggestions: [{
+        pageId: 'wiki-related',
+        title: 'Compounding interest',
+        mentionCount: 1,
+        snippet: 'Enterprise memory mentions Compounding interest.'
+      }]
+    });
+
+    render(
+      <MemoryRouter>
+        <WikiPageReadView pageId="wiki-1" onEdit={jest.fn()} />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByRole('heading', { name: 'Enterprise AI Memory' })).toBeInTheDocument();
+    await act(async () => {
+      jest.advanceTimersByTime(400);
+    });
+
+    const fallback = await screen.findByTestId('wiki-autolinks');
+    expect(fallback).toHaveTextContent('Linkable pages here');
+    expect(fallback).toHaveTextContent('Compounding interest');
+    expect(within(fallback).getByRole('link', { name: /Compounding interest/ })).toHaveAttribute('href', '/wiki/wiki-related');
   });
 
   it('renders structured infobox rows for each supported read-mode page type', async () => {

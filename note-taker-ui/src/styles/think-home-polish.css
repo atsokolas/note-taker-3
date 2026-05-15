@@ -3905,6 +3905,13 @@ html[data-ui-theme='dark'] {
   height: 620px;
 }
 
+.wiki-graph__actions {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 2;
+}
+
 .wiki-graph-index__stats {
   display: inline-flex;
   align-items: center;

@@ -12,6 +12,7 @@ import { trackWikiQaPromoted, trackWikiReadModePageView } from '../../utils/wiki
 import ClaimCitationPopover from './ClaimCitationPopover';
 import WikiAgentPresence from './WikiAgentPresence';
 import WikiAskComposer from './WikiAskComposer';
+import WikiAutolinkSuggestions from './WikiAutolinkSuggestions';
 import WikiChangesSinceLastVisit from './WikiChangesSinceLastVisit';
 import WikiDiscussions from './WikiDiscussions';
 import renderTiptapDoc, { extractTocItems, firstParagraphText } from './renderTiptapDoc';
@@ -73,6 +74,14 @@ const collectText = (node) => {
   if (Array.isArray(node)) return node.map(collectText).join(' ');
   if (typeof node !== 'object') return '';
   return [node.text || '', collectText(node.content)].filter(Boolean).join(' ');
+};
+
+const hasInlineWikiLinks = (node) => {
+  if (!node) return false;
+  if (Array.isArray(node)) return node.some(hasInlineWikiLinks);
+  if (typeof node !== 'object') return false;
+  if (Array.isArray(node.marks) && node.marks.some(mark => mark?.type === 'wikiLink' && mark?.attrs?.pageId)) return true;
+  return hasInlineWikiLinks(node.content);
 };
 
 const pickFirst = (...values) => values
@@ -673,6 +682,7 @@ const WikiPageReadView = ({ pageId, onEdit }) => {
   }, [tocItems]);
 
   const wordCount = useMemo(() => collectText(page?.body).split(/\s+/).filter(Boolean).length, [page?.body]);
+  const bodyHasWikiLinks = useMemo(() => hasInlineWikiLinks(page?.body), [page?.body]);
   const healthCounts = useMemo(() => claimHealthCounts(page?.claims), [page?.claims]);
   const qualityState = useMemo(() => buildQualityState({ page, counts: healthCounts }), [page, healthCounts]);
   const infoboxRows = useMemo(() => buildInfoboxRows({
@@ -843,6 +853,9 @@ const WikiPageReadView = ({ pageId, onEdit }) => {
               ))}
             </dl>
           </section>
+          {!bodyHasWikiLinks ? (
+            <WikiAutolinkSuggestions pageId={pageId} pageTitle={page.title} />
+          ) : null}
           <section className="wiki-read__infobox wiki-read__claim-health">
             <h2>Claim health</h2>
             <ul>

@@ -90,10 +90,57 @@ const collectConnectionEdges = (mapGraph = {}, pageIds) => {
     .filter(Boolean);
 };
 
+const sourceKey = (source = {}) => String(
+  source._id || source.id || source.objectId || source.url || source.title || ''
+).trim().toLowerCase();
+
+const collectSharedSourceEdges = (pages = []) => {
+  const bySource = new Map();
+  (Array.isArray(pages) ? pages : []).forEach((page) => {
+    const pageId = getPageId(page);
+    if (!pageId) return;
+    (Array.isArray(page.sourceRefs) ? page.sourceRefs : []).forEach((source) => {
+      const key = sourceKey(source);
+      if (!key) return;
+      if (!bySource.has(key)) bySource.set(key, { title: source.title || source.url || 'Shared source', pageIds: new Set() });
+      bySource.get(key).pageIds.add(pageId);
+    });
+  });
+
+  const pairCounts = new Map();
+  bySource.forEach(({ title, pageIds }) => {
+    const ids = Array.from(pageIds).sort();
+    for (let leftIndex = 0; leftIndex < ids.length; leftIndex += 1) {
+      for (let rightIndex = leftIndex + 1; rightIndex < ids.length; rightIndex += 1) {
+        const source = ids[leftIndex];
+        const target = ids[rightIndex];
+        const key = `${source}:${target}`;
+        const current = pairCounts.get(key) || { source, target, count: 0, sourceTitles: [] };
+        current.count += 1;
+        if (title && current.sourceTitles.length < 3) current.sourceTitles.push(title);
+        pairCounts.set(key, current);
+      }
+    }
+  });
+
+  return Array.from(pairCounts.values()).map(edge => ({
+    id: `shared_source:${edge.source}:${edge.target}`,
+    source: edge.source,
+    target: edge.target,
+    relationType: 'shared_source',
+    weight: edge.count,
+    sourceTitles: edge.sourceTitles
+  }));
+};
+
 const dedupeEdges = (edges) => {
   const seen = new Set();
   return edges.filter(edge => {
-    const key = `${edge.source}:${edge.target}:${edge.relationType}`;
+    const left = String(edge.source || '');
+    const right = String(edge.target || '');
+    const key = edge.relationType === 'shared_source' && left > right
+      ? `${right}:${left}:${edge.relationType}`
+      : `${left}:${right}:${edge.relationType}`;
     if (seen.has(key)) return false;
     seen.add(key);
     return true;
@@ -109,7 +156,8 @@ export const buildWikiGraphData = (pages = [], mapGraph = {}) => {
   const links = dedupeEdges([
     ...pageList.flatMap(collectWikiLinkEdges),
     ...pageList.flatMap(page => collectRelatedEdges(page, titleToId)),
-    ...collectConnectionEdges(mapGraph, pageIds)
+    ...collectConnectionEdges(mapGraph, pageIds),
+    ...collectSharedSourceEdges(pageList)
   ]).filter(edge => pageIds.has(edge.source) && pageIds.has(edge.target));
 
   const inbound = new Map();

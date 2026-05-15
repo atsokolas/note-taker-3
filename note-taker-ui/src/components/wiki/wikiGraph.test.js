@@ -109,6 +109,25 @@ describe('wiki graph helpers', () => {
     expect(filtered.map(page => page._id)).toEqual(['page-a']);
   });
 
+  it('adds evidence-overlap edges when pages share source refs', () => {
+    const graph = buildWikiGraphData([
+      { _id: 'page-a', title: 'A', sourceRefs: [{ _id: 'source-1', title: 'Shared memo' }], body: { type: 'doc', content: [] } },
+      { _id: 'page-b', title: 'B', sourceRefs: [{ _id: 'source-1', title: 'Shared memo' }], body: { type: 'doc', content: [] } },
+      { _id: 'page-c', title: 'C', sourceRefs: [{ _id: 'source-2', title: 'Other memo' }], body: { type: 'doc', content: [] } }
+    ]);
+
+    expect(graph.links).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        source: 'page-a',
+        target: 'page-b',
+        relationType: 'shared_source',
+        weight: 1,
+        sourceTitles: ['Shared memo']
+      })
+    ]));
+    expect(graph.links.filter(edge => edge.relationType === 'shared_source')).toHaveLength(1);
+  });
+
   it('builds the PRD 500-node / 2000-edge graph without dropping nodes or links', () => {
     const fixture = makeLargeGraphFixture();
 

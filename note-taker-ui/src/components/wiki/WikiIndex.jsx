@@ -31,6 +31,7 @@ const TYPE_COLORS = {
 
 const EDGE_COLORS = {
   wikiLink: '#3876b8',
+  shared_source: '#8b6fbd',
   related: '#7a8088',
   needs_review: '#b1862e',
   supports: '#4f8c5a',
@@ -191,8 +192,20 @@ const WikiGraph = ({ graph }) => {
     ctx.fillText(label, node.x + radius + 5, node.y);
   };
 
+  useEffect(() => {
+    const handle = window.setTimeout(() => {
+      graphRef.current?.zoomToFit?.(650, 80);
+    }, 300);
+    return () => window.clearTimeout(handle);
+  }, [graph]);
+
   return (
     <div className="wiki-graph" aria-label="Wiki graph">
+      <div className="wiki-graph__actions" aria-label="Graph controls">
+        <Button type="button" variant="secondary" onClick={() => graphRef.current?.zoomToFit?.(650, 80)}>
+          Fit
+        </Button>
+      </div>
       <div className="wiki-graph__canvas">
         <ForceGraph2D
           ref={graphRef}
@@ -200,8 +213,10 @@ const WikiGraph = ({ graph }) => {
           nodeLabel={(node) => `${node.title}\n${labelFor(node.pageType)} · ${formatDate(node.updatedAt) || 'No date'}`}
           nodeCanvasObject={renderNode}
           linkColor={(link) => EDGE_COLORS[link.relationType] || '#94a3b8'}
-          linkWidth={(link) => (link.relationType === 'wikiLink' ? 1.8 : 1.2)}
-          linkDirectionalParticles={0}
+          linkWidth={(link) => (link.relationType === 'wikiLink' ? 1.8 : link.relationType === 'shared_source' ? 1.35 : 1.2)}
+          linkDirectionalParticles={(link) => (link.relationType === 'wikiLink' ? 2 : link.relationType === 'shared_source' ? 1 : 0)}
+          linkDirectionalParticleSpeed={(link) => (link.relationType === 'wikiLink' ? 0.006 : 0.003)}
+          linkDirectionalParticleWidth={(link) => (link.relationType === 'wikiLink' ? 2.5 : 1.6)}
           onNodeHover={setHovered}
           onNodeClick={(node) => navigate(`/wiki/${node.id}`)}
         />
