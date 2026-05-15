@@ -149,6 +149,57 @@ describe('WikiPageReadView', () => {
     expect(onEdit).toHaveBeenCalledTimes(1);
   });
 
+  it('updates the left contents rail as the reader scrolls through sections', async () => {
+    getWikiPage.mockResolvedValueOnce({
+      ...page,
+      body: {
+        type: 'doc',
+        content: [
+          { type: 'heading', attrs: { level: 2 }, content: [{ type: 'text', text: 'Core idea' }] },
+          { type: 'paragraph', content: [{ type: 'text', text: 'Core section.' }] },
+          { type: 'heading', attrs: { level: 2 }, content: [{ type: 'text', text: 'How it works' }] },
+          { type: 'paragraph', content: [{ type: 'text', text: 'Mechanism section.' }] },
+          { type: 'heading', attrs: { level: 2 }, content: [{ type: 'text', text: 'Evidence' }] },
+          { type: 'paragraph', content: [{ type: 'text', text: 'Evidence section.' }] }
+        ]
+      }
+    });
+    const originalInnerHeight = window.innerHeight;
+    Object.defineProperty(window, 'innerHeight', { configurable: true, value: 900 });
+    let positions = { 'core-idea': 80, 'how-it-works': 500, evidence: 900 };
+    const rectSpy = jest.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function getRect() {
+      const top = positions[this.getAttribute('id')] ?? 0;
+      return { top, bottom: top + 32, left: 0, right: 0, width: 0, height: 32, x: 0, y: top, toJSON: () => ({}) };
+    });
+
+    try {
+      render(
+        <MemoryRouter>
+          <WikiPageReadView pageId="wiki-1" onEdit={jest.fn()} />
+        </MemoryRouter>
+      );
+
+      expect(await screen.findByRole('link', { name: 'Core idea' })).toHaveClass('is-active');
+
+      positions = { 'core-idea': -450, 'how-it-works': 220, evidence: 640 };
+      fireEvent.scroll(window);
+      await act(async () => {
+        jest.advanceTimersByTime(20);
+      });
+      expect(screen.getByRole('link', { name: 'How it works' })).toHaveClass('is-active');
+
+      positions = { 'core-idea': -900, 'how-it-works': -260, evidence: 210 };
+      fireEvent.scroll(window);
+      await act(async () => {
+        jest.advanceTimersByTime(20);
+      });
+      expect(screen.getByRole('link', { name: 'Evidence' })).toHaveClass('is-active');
+    } finally {
+      rectSpy.mockRestore();
+      Object.defineProperty(window, 'innerHeight', { configurable: true, value: originalInnerHeight });
+    }
+  });
+
   it('keeps discussions and the ask composer inside the Talk tab in read mode', async () => {
     getWikiPage.mockResolvedValueOnce({
       ...page,

@@ -632,22 +632,44 @@ const WikiPageReadView = ({ pageId, onEdit }) => {
       return undefined;
     }
     setActiveTocId(current => current || tocItems[0].id);
+    let animationFrame = 0;
     const handleScroll = () => {
-      let nextActive = tocItems[0].id;
-      let hasMeasuredLayout = false;
-      tocItems.forEach((item) => {
-        const element = document.getElementById(item.id);
-        const top = element?.getBoundingClientRect?.().top;
-        if (Number.isFinite(top) && top !== 0) hasMeasuredLayout = true;
-        if (Number.isFinite(top) && top <= 120) {
-          nextActive = item.id;
+      if (animationFrame) window.cancelAnimationFrame(animationFrame);
+      animationFrame = window.requestAnimationFrame(() => {
+        animationFrame = 0;
+        const activationLine = Math.max(160, Math.min(window.innerHeight * 0.35, 320));
+        const headingPositions = tocItems
+          .map((item) => {
+            const element = document.getElementById(item.id);
+            const top = element?.getBoundingClientRect?.().top;
+            return Number.isFinite(top) ? { ...item, top } : null;
+          })
+          .filter(Boolean);
+        const hasMeasuredLayout = headingPositions.some(item => item.top !== 0);
+        if (!hasMeasuredLayout) return;
+
+        const previousHeading = headingPositions
+          .filter(item => item.top <= activationLine)
+          .sort((a, b) => b.top - a.top)[0];
+        if (previousHeading) {
+          setActiveTocId(previousHeading.id);
+          return;
         }
+
+        const nextHeading = headingPositions
+          .filter(item => item.top > activationLine)
+          .sort((a, b) => a.top - b.top)[0];
+        if (nextHeading) setActiveTocId(nextHeading.id);
       });
-      if (hasMeasuredLayout) setActiveTocId(nextActive);
     };
     handleScroll();
     window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
+    window.addEventListener('resize', handleScroll);
+    return () => {
+      if (animationFrame) window.cancelAnimationFrame(animationFrame);
+      window.removeEventListener('scroll', handleScroll);
+      window.removeEventListener('resize', handleScroll);
+    };
   }, [tocItems]);
 
   const wordCount = useMemo(() => collectText(page?.body).split(/\s+/).filter(Boolean).length, [page?.body]);
