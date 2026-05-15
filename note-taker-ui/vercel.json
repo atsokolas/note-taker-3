@@ -54,8 +54,8 @@
       "destination": "/import-reading-archive-into-noeis/index.html"
     },
     {
-      "source": "/:path*",
-      "destination": "/index.html"
+      "source": "/(.*)",
+      "destination": "/"
     }
   ]
 }

@@ -387,7 +387,7 @@ const renderVercelConfig = (content) => JSON.stringify({
       })),
     {
       source: '/(.*)',
-      destination: '/index.html'
+      destination: '/'
     }
   ]
 }, null, 2);
