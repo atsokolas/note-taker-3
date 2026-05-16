@@ -2,15 +2,26 @@ import React from 'react';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import WikiPageReadView from './WikiPageReadView';
-import { askWikiPage, getWikiAutolinkSuggestions, getWikiBacklinks, getWikiPage, maintainWikiPage, promoteWikiDiscussion } from '../../api/wiki';
+import {
+  askWikiPage,
+  createWikiPage,
+  getWikiAutolinkSuggestions,
+  getWikiBacklinks,
+  getWikiPage,
+  maintainWikiPage,
+  promoteWikiDiscussion,
+  streamMaintainWikiPage
+} from '../../api/wiki';
 
 jest.mock('../../api/wiki', () => ({
   askWikiPage: jest.fn(),
+  createWikiPage: jest.fn(),
   getWikiAutolinkSuggestions: jest.fn(),
   getWikiBacklinks: jest.fn(),
   getWikiPage: jest.fn(),
   maintainWikiPage: jest.fn(),
-  promoteWikiDiscussion: jest.fn()
+  promoteWikiDiscussion: jest.fn(),
+  streamMaintainWikiPage: jest.fn()
 }));
 
 jest.mock('../../utils/wikiAnalytics', () => ({
@@ -114,6 +125,8 @@ describe('WikiPageReadView', () => {
     getWikiAutolinkSuggestions.mockResolvedValue({ suggestions: [], scanned: 0 });
     maintainWikiPage.mockResolvedValue(page);
     askWikiPage.mockResolvedValue(page);
+    createWikiPage.mockResolvedValue({ _id: 'wiki-new', title: 'Portfolio Concentration' });
+    streamMaintainWikiPage.mockResolvedValue({ _id: 'wiki-new', title: 'Portfolio Concentration' });
     window.localStorage.clear();
   });
 
@@ -241,6 +254,7 @@ describe('WikiPageReadView', () => {
     expect(screen.queryByRole('tab', { name: /Talk/ })).not.toBeInTheDocument();
     expect(screen.queryByText('What changed after review?')).not.toBeInTheDocument();
     expect(screen.queryByLabelText('Ask this page')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Ask the wiki agent to build a page')).toBeInTheDocument();
   });
 
   it('does not show legacy linkable page fallback in read mode when prose has no inline wiki links', async () => {

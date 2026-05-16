@@ -5,6 +5,7 @@ import { createWikiPage, deleteWikiPage, listWikiPages } from '../../api/wiki';
 import { buildWikiCreatePayload, openWikiDraft } from '../../utils/wikiCreate';
 import { wikiPagePath } from '../../utils/wikiFeatureFlags';
 import WikiBriefing from './WikiBriefing';
+import WikiBuildPageComposer from './WikiBuildPageComposer';
 import WikiEmergingProposals from './WikiEmergingProposals';
 import WikiInbox from './WikiInbox';
 import { PAGE_TYPES, formatDate, labelFor } from './wikiGraph';
@@ -134,6 +135,7 @@ const WikiList = ({ compact = false }) => {
       {!compact ? (
         <>
           <WikiBriefing />
+          <WikiBuildPageComposer onBuilt={loadPages} />
           <WikiEmergingProposals />
           <WikiInbox />
           <section className="wiki-index__header">
@@ -157,6 +159,8 @@ const WikiList = ({ compact = false }) => {
           </section>
         </>
       ) : null}
+
+      {compact ? <WikiBuildPageComposer compact onBuilt={loadPages} /> : null}
 
       <section className="wiki-index__filters" aria-label={compact ? 'Wiki mobile list filters' : 'Wiki filters'}>
         <input

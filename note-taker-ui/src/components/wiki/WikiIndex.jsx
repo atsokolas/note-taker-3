@@ -7,6 +7,7 @@ import { fetchGraphData } from '../../api/map';
 import { trackWikiIngestResult, trackWikiIngestSubmitted } from '../../utils/wikiAnalytics';
 import { wikiPagePath } from '../../utils/wikiFeatureFlags';
 import WikiBriefing from './WikiBriefing';
+import WikiBuildPageComposer from './WikiBuildPageComposer';
 import WikiList from './WikiList';
 import {
   DRIFT_STATUSES,
@@ -422,6 +423,7 @@ const WikiIndex = () => {
   return (
     <main className="wiki-page wiki-index wiki-graph-index">
       <WikiBriefing />
+      <WikiBuildPageComposer onBuilt={() => loadGraph({ quiet: true })} />
       <WikiSourceDropComposer onIngested={handleIngested} />
       {toast ? (
         <aside className="wiki-ingest-toast" role="status">

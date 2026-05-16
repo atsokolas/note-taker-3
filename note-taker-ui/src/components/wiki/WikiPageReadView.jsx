@@ -14,6 +14,7 @@ import ClaimCitationPopover from './ClaimCitationPopover';
 import WikiAgentPresence from './WikiAgentPresence';
 import WikiAskComposer from './WikiAskComposer';
 import WikiAutolinkSuggestions from './WikiAutolinkSuggestions';
+import WikiBuildPageComposer from './WikiBuildPageComposer';
 import WikiChangesSinceLastVisit from './WikiChangesSinceLastVisit';
 import WikiDiscussions from './WikiDiscussions';
 import renderTiptapDoc, { extractTocItems, firstParagraphText } from './renderTiptapDoc';
@@ -763,6 +764,7 @@ const WikiPageReadView = ({ pageId, onEdit, workspaceMode = false }) => {
         changed={visitDiff.changed}
         onMarkReviewed={handleMarkReviewed}
       />
+      <WikiBuildPageComposer compact className="wiki-read__build-page" />
       <div className="wiki-read__layout">
         <aside className="wiki-read__toc">
           {tocItems.length ? (

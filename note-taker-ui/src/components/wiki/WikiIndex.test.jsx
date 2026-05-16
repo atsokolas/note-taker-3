@@ -2,7 +2,7 @@ import React from 'react';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import WikiIndex from './WikiIndex';
-import { getWikiBriefing, ingestWikiSource, listWikiActivity, listWikiPages } from '../../api/wiki';
+import { createWikiPage, getWikiBriefing, ingestWikiSource, listWikiActivity, listWikiPages, streamMaintainWikiPage } from '../../api/wiki';
 import { fetchGraphData } from '../../api/map';
 
 jest.mock('../../api/wiki', () => ({
@@ -14,7 +14,8 @@ jest.mock('../../api/wiki', () => ({
   listWikiPages: jest.fn(),
   listWikiSourceEvents: jest.fn(() => Promise.resolve([])),
   processPendingWikiSourceEvents: jest.fn(),
-  processWikiSourceEvent: jest.fn()
+  processWikiSourceEvent: jest.fn(),
+  streamMaintainWikiPage: jest.fn()
 }));
 
 jest.mock('../../api/map', () => ({
@@ -100,6 +101,8 @@ describe('WikiIndex graph', () => {
     jest.clearAllMocks();
     setViewportWidth(1024);
     getWikiBriefing.mockRejectedValue(new Error('not relevant in WikiIndex tests'));
+    createWikiPage.mockResolvedValue({ _id: 'wiki-new', title: 'Portfolio Concentration' });
+    streamMaintainWikiPage.mockResolvedValue({ _id: 'wiki-new', title: 'Portfolio Concentration' });
     ingestWikiSource.mockResolvedValue({
       runId: 'run-1',
       sourceRef: { title: 'Research memo' },
@@ -134,6 +137,7 @@ describe('WikiIndex graph', () => {
     expect(screen.getByLabelText('Wiki map signals')).toHaveTextContent('Evidence overlap');
     expect(screen.getByRole('button', { name: /^Inline links\s*1$/ })).toHaveClass('is-active');
     expect(screen.getByRole('link', { name: 'List' })).toHaveAttribute('href', '/wiki/list');
+    expect(screen.getByLabelText('Ask the wiki agent to build a page')).toBeInTheDocument();
     expect(await screen.findByText('Research memo')).toBeInTheDocument();
     expect(fetchGraphData).toHaveBeenCalledWith(expect.objectContaining({
       itemTypes: ['wiki_page']
