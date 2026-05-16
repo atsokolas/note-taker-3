@@ -9,7 +9,7 @@ import {
   promoteWikiDiscussion
 } from '../../api/wiki';
 import { trackWikiQaPromoted, trackWikiReadModePageView } from '../../utils/wikiAnalytics';
-import { wikiPagePath } from '../../utils/wikiFeatureFlags';
+import { isWikiWorkspaceV1Enabled, wikiPagePath } from '../../utils/wikiFeatureFlags';
 import ClaimCitationPopover from './ClaimCitationPopover';
 import WikiAgentPresence from './WikiAgentPresence';
 import WikiAskComposer from './WikiAskComposer';
@@ -466,7 +466,13 @@ const WikiPageReadView = ({ pageId, onEdit, workspaceMode = false }) => {
   }, [pageId]);
 
   useEffect(() => {
+    if (workspaceMode || !pageId || !isWikiWorkspaceV1Enabled()) return;
+    navigate(wikiPagePath(pageId), { replace: true });
+  }, [navigate, pageId, workspaceMode]);
+
+  useEffect(() => {
     const handleKeyDown = (event) => {
+      if (!workspaceMode && isWikiWorkspaceV1Enabled()) return;
       const target = event.target;
       const tag = target?.tagName || '';
       if (['INPUT', 'TEXTAREA', 'SELECT'].includes(tag) || target?.isContentEditable) return;
@@ -477,7 +483,7 @@ const WikiPageReadView = ({ pageId, onEdit, workspaceMode = false }) => {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onEdit]);
+  }, [onEdit, workspaceMode]);
 
   const handleMaintain = useCallback(async () => {
     if (workspaceMode) return;
@@ -732,6 +738,9 @@ const WikiPageReadView = ({ pageId, onEdit, workspaceMode = false }) => {
         <div className="wiki-index__error" role="alert">{error || 'Wiki page not found.'}</div>
       </main>
     );
+  }
+  if (!workspaceMode && isWikiWorkspaceV1Enabled()) {
+    return <main className="wiki-page"><p className="wiki-index__status">Opening Wiki workspace...</p></main>;
   }
 
   return (

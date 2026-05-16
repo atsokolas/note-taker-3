@@ -4,7 +4,7 @@ import { BrowserRouter } from 'react-router-dom';
 import WikiWorkspace from './WikiWorkspace';
 import { chatWithAgent } from '../../api/agent';
 import { getArticles } from '../../api/articles';
-import { getWikiPage, getWikiSchema, ingestWikiSource, listWikiActivity, listWikiPages, saveWikiSchema, streamMaintainWikiPage } from '../../api/wiki';
+import { createWikiPage, getWikiPage, getWikiSchema, ingestWikiSource, listWikiActivity, listWikiPages, saveWikiSchema, streamMaintainWikiPage } from '../../api/wiki';
 
 jest.mock('../../api/agent', () => ({
   chatWithAgent: jest.fn()
@@ -15,6 +15,7 @@ jest.mock('../../api/articles', () => ({
 }));
 
 jest.mock('../../api/wiki', () => ({
+  createWikiPage: jest.fn(),
   getWikiPage: jest.fn(),
   getWikiSchema: jest.fn(),
   ingestWikiSource: jest.fn(),
@@ -50,6 +51,7 @@ describe('WikiWorkspace', () => {
     jest.clearAllMocks();
     window.localStorage.clear();
     chatWithAgent.mockResolvedValue({ reply: 'Agent reply.', thread: { threadId: 'thread-1' } });
+    createWikiPage.mockResolvedValue({ _id: 'wiki-new', title: 'Portfolio Concentration' });
     getArticles.mockResolvedValue([{ _id: 'article-1', title: 'Source memo', url: 'https://example.com' }]);
     getWikiPage.mockResolvedValue({ _id: 'wiki-1', title: 'Wiki page' });
     getWikiSchema.mockResolvedValue({ content: '# Wiki Schema' });
@@ -98,6 +100,28 @@ describe('WikiWorkspace', () => {
 
     await waitFor(() => expect(streamMaintainWikiPage).toHaveBeenCalledWith('wiki-1', {}, expect.any(Object)));
     expect(await screen.findByText('Finished drafting @wiki:wiki-1.')).toBeInTheDocument();
+  });
+
+  it('builds a new overview wiki page from the chat command', async () => {
+    renderWorkspace();
+    await settleWorkspaceEffects();
+
+    fireEvent.change(screen.getByLabelText('Wiki workspace message'), {
+      target: { value: '/build Portfolio Concentration' }
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+
+    await waitFor(() => expect(createWikiPage).toHaveBeenCalledWith(expect.objectContaining({
+      title: 'Portfolio Concentration',
+      pageType: 'overview',
+      sourceScope: 'entire_library',
+      createdFrom: expect.objectContaining({
+        type: 'idea',
+        text: 'Portfolio Concentration'
+      })
+    })));
+    await waitFor(() => expect(streamMaintainWikiPage).toHaveBeenCalledWith('wiki-new', {}, expect.any(Object)));
+    expect(await screen.findByText('Built @wiki:wiki-new for "Portfolio Concentration".')).toBeInTheDocument();
   });
 
   it('uses broader agent chat infra for ordinary messages', async () => {
@@ -160,6 +184,7 @@ describe('WikiWorkspace', () => {
     });
 
     expect(screen.getByLabelText('Wiki commands')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /\/build/ })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /\/draft/ }));
     expect(screen.getByLabelText('Wiki workspace message')).toHaveValue('/draft @wiki:');
   });

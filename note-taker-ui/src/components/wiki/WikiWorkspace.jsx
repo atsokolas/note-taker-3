@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { chatWithAgent } from '../../api/agent';
 import { getArticles } from '../../api/articles';
 import {
+  createWikiPage,
   getWikiPage,
   getWikiSchema,
   ingestWikiSource,
@@ -11,6 +12,7 @@ import {
   saveWikiSchema,
   streamMaintainWikiPage
 } from '../../api/wiki';
+import { buildWikiCreatePayload } from '../../utils/wikiCreate';
 import { Button } from '../ui';
 import WikiIndex from './WikiIndex';
 import WikiList from './WikiList';
@@ -30,6 +32,12 @@ const COMMANDS = [
     template: '/draft @wiki:',
     label: 'Draft page',
     hint: 'Run wiki maintenance for a page in the right pane.'
+  },
+  {
+    verb: 'build',
+    template: '/build ',
+    label: 'Build new page',
+    hint: 'Create a new overview page and draft it with the wiki agent.'
   },
   {
     verb: 'page',
@@ -264,7 +272,7 @@ const WikiWorkspaceChat = ({ selectedPageId, view, onNavigate, onPageChanged, bu
     {
       id: 'assistant-welcome',
       role: 'assistant',
-      text: 'Use this chat to drive the wiki. Try /draft @wiki:page_id, /graph, /sources, /activity, /schema, or paste a source URL with /ingest.',
+      text: 'Use this chat to drive the wiki. Try /build Topic, /draft @wiki:page_id, /graph, /sources, /activity, /schema, or paste a source URL with /ingest.',
       createdAt: new Date().toISOString()
     }
   ]);
@@ -356,6 +364,46 @@ const WikiWorkspaceChat = ({ selectedPageId, view, onNavigate, onPageChanged, bu
       append({ role: 'assistant', text: `Opened @wiki:${pageRef} on the right.` });
       return true;
     }
+    if (command.verb === 'build' || command.verb === 'create' || command.verb === 'new') {
+      const topic = clean(command.args.replace(/@wiki:[^\s]+/gi, ''));
+      if (!topic) {
+        append({ role: 'assistant', text: 'Name the page to build, for example /build Portfolio Concentration.' });
+        return true;
+      }
+      setBusy(true);
+      try {
+        const page = await createWikiPage(buildWikiCreatePayload({
+          type: 'idea',
+          title: topic,
+          text: topic,
+          pageType: 'overview'
+        }));
+        const pageId = clean(page?._id || page?.id);
+        if (!pageId) throw new Error('Created page did not include an id.');
+        onNavigate({ page: pageId });
+        append({ role: 'assistant', text: `Created @wiki:${pageId} for "${topic}". Drafting it now.` });
+        await streamMaintainWikiPage(pageId, {}, {
+          onPage: () => {
+            onNavigate({ page: pageId });
+            onPageChanged?.(pageId);
+          },
+          onEvent: (event, payload = {}) => {
+            if (event !== 'wiki-draft') return;
+            if (payload.stage === 'quality_rebuild') {
+              append({ role: 'assistant', text: 'The first draft missed quality gates, so I am rebuilding it once with stricter instructions.' });
+            }
+          }
+        });
+        onNavigate({ page: pageId });
+        onPageChanged?.(pageId);
+        append({ role: 'assistant', text: `Built @wiki:${pageId} for "${topic}".` });
+      } catch (_error) {
+        append({ role: 'assistant', text: `Failed to build a wiki page for "${topic}".` });
+      } finally {
+        setBusy(false);
+      }
+      return true;
+    }
     if (command.verb === 'draft') {
       if (!pageRef) {
         append({ role: 'assistant', text: 'Add a wiki reference, for example /draft @wiki:PAGE_ID.' });
@@ -408,7 +456,7 @@ const WikiWorkspaceChat = ({ selectedPageId, view, onNavigate, onPageChanged, bu
       return true;
     }
     if (command.verb === 'help') {
-      append({ role: 'assistant', text: 'Commands: /draft @wiki:X, /page @wiki:X, /graph, /activity, /sources, /schema, /ingest <url>.' });
+      append({ role: 'assistant', text: 'Commands: /build Topic, /draft @wiki:X, /page @wiki:X, /graph, /activity, /sources, /schema, /ingest <url>.' });
       return true;
     }
     return false;

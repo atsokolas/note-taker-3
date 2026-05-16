@@ -150,6 +150,20 @@ describe('WikiPageReadView', () => {
     expect(onEdit).toHaveBeenCalledTimes(1);
   });
 
+  it('redirects the standalone reader into the workspace when workspace is canonical', async () => {
+    process.env.REACT_APP_WIKI_WORKSPACE_V1 = 'true';
+
+    render(
+      <MemoryRouter>
+        <WikiPageReadView pageId="wiki-1" onEdit={jest.fn()} />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByText('Opening Wiki workspace...')).toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: 'Article' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Edit' })).not.toBeInTheDocument();
+  });
+
   it('updates the left contents rail as the reader scrolls through sections', async () => {
     getWikiPage.mockResolvedValueOnce({
       ...page,
@@ -218,7 +232,7 @@ describe('WikiPageReadView', () => {
 
     render(
       <MemoryRouter>
-        <WikiPageReadView pageId="wiki-1" onEdit={jest.fn()} />
+        <WikiPageReadView pageId="wiki-1" onEdit={jest.fn()} workspaceMode />
       </MemoryRouter>
     );
 
@@ -269,7 +283,7 @@ describe('WikiPageReadView', () => {
 
     render(
       <MemoryRouter>
-        <WikiPageReadView pageId="wiki-1" onEdit={jest.fn()} />
+        <WikiPageReadView pageId="wiki-1" onEdit={jest.fn()} workspaceMode />
       </MemoryRouter>
     );
 
