@@ -6833,7 +6833,7 @@ html[data-ui-theme='dark'] .wiki-activity-rail__graph-alerts span {
 /* Wiki workspace --------------------------------------------------------- */
 
 .wiki-workspace {
-  --wiki-workspace-chat-width: 380px;
+  --wiki-workspace-chat-width: 300px;
   display: grid;
   grid-template-columns: var(--wiki-workspace-chat-width) 8px minmax(0, 1fr);
   min-height: calc(100vh - 96px);
@@ -6871,7 +6871,7 @@ html[data-ui-theme='dark'] .wiki-activity-rail__graph-alerts span {
 
 .wiki-workspace-chat {
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr) auto;
+  grid-template-rows: auto auto minmax(0, 1fr);
   height: 100%;
 }
 
@@ -6925,7 +6925,7 @@ html[data-ui-theme='dark'] .wiki-activity-rail__graph-alerts span {
 .wiki-workspace-chat__message {
   display: grid;
   gap: 5px;
-  max-width: 92%;
+  max-width: 100%;
   padding: 10px 12px;
   border: 1px solid color-mix(in srgb, var(--nt-divider) 70%, transparent);
   border-radius: 8px;
@@ -6956,8 +6956,10 @@ html[data-ui-theme='dark'] .wiki-activity-rail__graph-alerts span {
 .wiki-workspace-chat__composer {
   display: grid;
   gap: 10px;
-  padding: 14px;
+  padding: 12px 14px;
   border-top: 1px solid color-mix(in srgb, var(--nt-divider) 70%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--nt-divider) 70%, transparent);
+  background: color-mix(in srgb, var(--surface) 96%, #fff);
 }
 
 .wiki-workspace-chat__composer textarea,
@@ -6972,7 +6974,7 @@ html[data-ui-theme='dark'] .wiki-activity-rail__graph-alerts span {
 }
 
 .wiki-workspace-chat__composer textarea {
-  min-height: 104px;
+  min-height: 72px;
   padding: 10px 11px;
   resize: vertical;
 }
@@ -7014,10 +7016,10 @@ html[data-ui-theme='dark'] .wiki-activity-rail__graph-alerts span {
 }
 
 .wiki-workspace-chat__composer div {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   gap: 10px;
   align-items: center;
-  justify-content: space-between;
 }
 
 .wiki-workspace-chat__composer span {

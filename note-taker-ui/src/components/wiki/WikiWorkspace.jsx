@@ -20,6 +20,10 @@ import WikiPageReadView from './WikiPageReadView';
 
 const LAST_PAGE_KEY = 'noeis.wiki.workspace.last_page_id';
 const CHAT_WIDTH_KEY = 'noeis.wiki.workspace.chat_width';
+const DEFAULT_CHAT_WIDTH = 300;
+const LEGACY_DEFAULT_CHAT_WIDTH = 380;
+const MIN_CHAT_WIDTH = 260;
+const MAX_CHAT_WIDTH = 480;
 const POLL_MS = 2000;
 
 const clean = (value = '') => String(value || '').trim();
@@ -130,6 +134,12 @@ const viewPathFor = ({ view = 'graph', page = '' } = {}) => {
 const searchFor = (target = {}) => {
   const path = viewPathFor(target);
   return path.slice(path.indexOf('?'));
+};
+
+const initialChatWidth = () => {
+  const saved = Number(window.localStorage?.getItem(CHAT_WIDTH_KEY));
+  if (!saved || saved === LEGACY_DEFAULT_CHAT_WIDTH) return DEFAULT_CHAT_WIDTH;
+  return Math.max(MIN_CHAT_WIDTH, Math.min(MAX_CHAT_WIDTH, saved));
 };
 
 const WorkspaceSources = ({ onUseSource }) => {
@@ -519,14 +529,6 @@ const WikiWorkspaceChat = ({ selectedPageId, view, onNavigate, onPageChanged, bu
           </Link>
         ) : null}
       </header>
-      <div ref={scrollRef} className="wiki-workspace-chat__messages">
-        {messages.map(message => (
-          <article key={message.id} className={`wiki-workspace-chat__message is-${message.role}`}>
-            <span>{message.role === 'user' ? 'You' : 'Agent'}</span>
-            <p>{message.text}</p>
-          </article>
-        ))}
-      </div>
       <form onSubmit={submit} className="wiki-workspace-chat__composer">
         <textarea
           value={input}
@@ -564,6 +566,14 @@ const WikiWorkspaceChat = ({ selectedPageId, view, onNavigate, onPageChanged, bu
           <Button type="submit" disabled={busy || !input.trim()}>{busy ? 'Working...' : 'Send'}</Button>
         </div>
       </form>
+      <div ref={scrollRef} className="wiki-workspace-chat__messages">
+        {messages.map(message => (
+          <article key={message.id} className={`wiki-workspace-chat__message is-${message.role}`}>
+            <span>{message.role === 'user' ? 'You' : 'Agent'}</span>
+            <p>{message.text}</p>
+          </article>
+        ))}
+      </div>
     </section>
   );
 };
@@ -571,7 +581,7 @@ const WikiWorkspaceChat = ({ selectedPageId, view, onNavigate, onPageChanged, bu
 const WikiWorkspace = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const [chatWidth, setChatWidth] = useState(() => Number(window.localStorage?.getItem(CHAT_WIDTH_KEY)) || 380);
+  const [chatWidth, setChatWidth] = useState(initialChatWidth);
   const [busy, setBusy] = useState(false);
   const [refreshNonce, setRefreshNonce] = useState(0);
   const [mobilePane, setMobilePane] = useState('chat');
@@ -601,8 +611,7 @@ const WikiWorkspace = () => {
       return;
     }
     if (explicitView) return;
-    const lastPage = clean(window.localStorage?.getItem?.(LAST_PAGE_KEY));
-    const target = lastPage ? { page: lastPage } : { view: 'graph' };
+    const target = { view: 'graph' };
     setRouteOverride(searchFor(target));
     navigate(viewPathFor(target), { replace: true });
   }, [explicitView, navigate, selectedPageId]);
@@ -670,7 +679,7 @@ const WikiWorkspace = () => {
 
   const handleDragMove = (event) => {
     if (!dragRef.current) return;
-    const next = Math.max(300, Math.min(560, dragRef.current.startWidth + event.clientX - dragRef.current.startX));
+    const next = Math.max(MIN_CHAT_WIDTH, Math.min(MAX_CHAT_WIDTH, dragRef.current.startWidth + event.clientX - dragRef.current.startX));
     setChatWidth(next);
   };
 

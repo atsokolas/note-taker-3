@@ -75,6 +75,28 @@ describe('WikiWorkspace', () => {
 
     expect(screen.getByLabelText('Wiki agent chat')).toBeInTheDocument();
     expect(screen.getByTestId('wiki-index')).toBeInTheDocument();
+    expect(document.querySelector('.wiki-workspace')).toHaveStyle('--wiki-workspace-chat-width: 300px');
+  });
+
+  it('opens the general wiki workspace instead of resuming the last page when no page is requested', async () => {
+    window.localStorage.setItem('noeis.wiki.workspace.last_page_id', 'wiki-1');
+
+    renderWorkspace('/wiki/workspace');
+    await settleWorkspaceEffects();
+
+    expect(screen.getByTestId('wiki-index')).toBeInTheDocument();
+    expect(screen.queryByTestId('wiki-read-view')).not.toBeInTheDocument();
+  });
+
+  it('keeps the chat composer visible above the message history', async () => {
+    renderWorkspace();
+    await settleWorkspaceEffects();
+
+    const composer = document.querySelector('.wiki-workspace-chat__composer');
+    const messages = document.querySelector('.wiki-workspace-chat__messages');
+    expect(composer).toBeInTheDocument();
+    expect(messages).toBeInTheDocument();
+    expect(Boolean(composer.compareDocumentPosition(messages) & Node.DOCUMENT_POSITION_FOLLOWING)).toBe(true);
   });
 
   it('opens a page from the /page chat command', async () => {
