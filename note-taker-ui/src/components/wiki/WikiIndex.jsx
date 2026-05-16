@@ -149,7 +149,7 @@ const WikiSourceDropComposer = ({ onIngested }) => {
   );
 };
 
-const WikiActivityLog = ({ refreshKey = 0 }) => {
+const WikiActivityLog = ({ refreshKey = 0, onOpenPage }) => {
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -195,7 +195,13 @@ const WikiActivityLog = ({ refreshKey = 0 }) => {
             </div>
             <div className="wiki-activity-log__actions">
               {event.runId ? <Link to={`/wiki/activity/${event.runId}`}>Details</Link> : null}
-              {event.pageId ? <Link to={wikiPagePath(event.pageId)}>Open</Link> : null}
+              {event.pageId ? (
+                onOpenPage ? (
+                  <button type="button" onClick={() => onOpenPage(event.pageId)}>Open</button>
+                ) : (
+                  <Link to={wikiPagePath(event.pageId)}>Open</Link>
+                )
+              ) : null}
             </div>
           </li>
         ))}
@@ -205,7 +211,7 @@ const WikiActivityLog = ({ refreshKey = 0 }) => {
   );
 };
 
-const WikiGraph = ({ graph }) => {
+const WikiGraph = ({ graph, onOpenPage }) => {
   const navigate = useNavigate();
   const graphRef = useRef(null);
   const [hovered, setHovered] = useState(null);
@@ -315,7 +321,10 @@ const WikiGraph = ({ graph }) => {
           linkDirectionalParticleWidth={(link) => (link.relationType === 'wikiLink' ? 2.5 : 1.6)}
           onNodeHover={setHovered}
           onLinkHover={setHoveredLink}
-          onNodeClick={(node) => navigate(wikiPagePath(node.id))}
+          onNodeClick={(node) => {
+            if (onOpenPage) onOpenPage(node.id);
+            else navigate(wikiPagePath(node.id));
+          }}
         />
       </div>
       {hovered ? (
@@ -341,7 +350,8 @@ const WikiGraph = ({ graph }) => {
   );
 };
 
-const WikiIndex = () => {
+const WikiIndex = ({ onOpenPage, onOpenList }) => {
+  const navigate = useNavigate();
   const [pages, setPages] = useState([]);
   const [mapGraph, setMapGraph] = useState({ nodes: [], edges: [] });
   const [pageType, setPageType] = useState('all');
@@ -420,6 +430,12 @@ const WikiIndex = () => {
     }
   };
 
+  const handleOpenPage = useCallback((pageId) => {
+    if (!pageId) return;
+    if (onOpenPage) onOpenPage(pageId);
+    else navigate(wikiPagePath(pageId));
+  }, [navigate, onOpenPage]);
+
   return (
     <main className="wiki-page wiki-index wiki-graph-index">
       <WikiBriefing />
@@ -441,8 +457,17 @@ const WikiIndex = () => {
           <p>Pages are nodes, inline wiki links are edges, and larger nodes have more inbound links.</p>
         </div>
         <div className="wiki-index__tabs" role="tablist" aria-label="Wiki views">
-          <Link aria-current="page" to="/wiki">Graph</Link>
-          <Link to="/wiki/list">List</Link>
+          {onOpenList ? (
+            <>
+              <button type="button" aria-current="page">Graph</button>
+              <button type="button" onClick={onOpenList}>List</button>
+            </>
+          ) : (
+            <>
+              <Link aria-current="page" to="/wiki">Graph</Link>
+              <Link to="/wiki/list">List</Link>
+            </>
+          )}
         </div>
       </section>
       <section className="wiki-index__filters" aria-label="Wiki graph filters">
@@ -477,7 +502,7 @@ const WikiIndex = () => {
       ) : null}
       {error ? <div className="wiki-index__error" role="alert">{error}</div> : null}
       {loading ? <p className="wiki-index__status">Loading Wiki graph...</p> : null}
-      {!loading && graph.nodes.length && !isMobile ? <WikiGraph graph={graph} /> : null}
+      {!loading && graph.nodes.length && !isMobile ? <WikiGraph graph={graph} onOpenPage={handleOpenPage} /> : null}
       {!loading && !graph.nodes.length ? (
         <section className="wiki-index__empty">
           <h2>No graph nodes yet</h2>
@@ -486,10 +511,10 @@ const WikiIndex = () => {
       ) : null}
       {isMobile ? (
         <section className="wiki-graph-index__mobile-list" aria-label="Wiki pages mobile list">
-          <WikiList compact />
+          <WikiList compact onOpenPage={handleOpenPage} />
         </section>
       ) : null}
-      <WikiActivityLog refreshKey={activityRefresh} />
+      <WikiActivityLog refreshKey={activityRefresh} onOpenPage={handleOpenPage} />
     </main>
   );
 };

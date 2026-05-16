@@ -57,7 +57,7 @@ const WikiPageCard = ({ deleting, page, onDelete, onOpen }) => {
   );
 };
 
-const WikiList = ({ compact = false }) => {
+const WikiList = ({ compact = false, onOpenPage }) => {
   const navigate = useNavigate();
   const [pages, setPages] = useState([]);
   const [query, setQuery] = useState('');
@@ -97,6 +97,15 @@ const WikiList = ({ compact = false }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [requestParams]);
 
+  const openPage = (pageId) => {
+    if (!pageId) return;
+    if (onOpenPage) {
+      onOpenPage(pageId);
+      return;
+    }
+    navigate(wikiPagePath(pageId));
+  };
+
   const handleCreate = async (event) => {
     event?.preventDefault();
     setCreating(true);
@@ -107,7 +116,8 @@ const WikiList = ({ compact = false }) => {
         text: seed,
         title: seed
       }));
-      openWikiDraft({ navigate, pageId: page._id });
+      if (onOpenPage && page?._id) onOpenPage(page._id);
+      else openWikiDraft({ navigate, pageId: page._id });
     } catch (_error) {
       setError('Failed to create Wiki page.');
       setCreating(false);
@@ -197,7 +207,7 @@ const WikiList = ({ compact = false }) => {
             key={page._id}
             page={page}
             deleting={deletingId === page._id}
-            onOpen={() => navigate(wikiPagePath(page._id))}
+            onOpen={() => openPage(page._id)}
             onDelete={() => handleDelete(page)}
           />
         ))}

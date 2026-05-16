@@ -165,6 +165,21 @@ describe('WikiIndex graph', () => {
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 
+  it('uses the workspace page opener for graph nodes when provided', async () => {
+    const onOpenPage = jest.fn();
+
+    render(
+      <MemoryRouter>
+        <WikiIndex onOpenPage={onOpenPage} />
+      </MemoryRouter>
+    );
+
+    await screen.findByTestId('wiki-force-graph');
+    fireEvent.click(screen.getByRole('button', { name: 'Investing' }));
+
+    expect(onOpenPage).toHaveBeenCalledWith('wiki-2');
+  });
+
   it('degrades to the mobile page list instead of the force graph under 720px', async () => {
     setViewportWidth(719);
 

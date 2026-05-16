@@ -585,17 +585,24 @@ const WikiWorkspace = () => {
   const [busy, setBusy] = useState(false);
   const [refreshNonce, setRefreshNonce] = useState(0);
   const [mobilePane, setMobilePane] = useState('chat');
-  const [routeOverride, setRouteOverride] = useState('');
+  const [currentSearch, setCurrentSearch] = useState(location.search);
   const [chatDraft, setChatDraft] = useState(null);
+  const currentSearchRef = useRef(location.search);
   const touchStartRef = useRef(null);
   const dragRef = useRef(null);
   const chatWidthRef = useRef(chatWidth);
   const lastSelectedPageRef = useRef('');
 
-  const params = useMemo(() => new URLSearchParams(routeOverride || location.search), [location.search, routeOverride]);
+  const params = useMemo(() => new URLSearchParams(currentSearch), [currentSearch]);
   const selectedPageId = clean(params.get('page'));
   const explicitView = clean(params.get('view'));
   const view = selectedPageId ? 'page' : explicitView || 'graph';
+
+  useEffect(() => {
+    if (location.search === currentSearchRef.current) return;
+    currentSearchRef.current = location.search;
+    setCurrentSearch(location.search);
+  }, [location.search]);
 
   useEffect(() => {
     chatWidthRef.current = chatWidth;
@@ -612,7 +619,9 @@ const WikiWorkspace = () => {
     }
     if (explicitView) return;
     const target = { view: 'graph' };
-    setRouteOverride(searchFor(target));
+    const targetSearch = searchFor(target);
+    currentSearchRef.current = targetSearch;
+    setCurrentSearch(targetSearch);
     navigate(viewPathFor(target), { replace: true });
   }, [explicitView, navigate, selectedPageId]);
 
@@ -632,7 +641,9 @@ const WikiWorkspace = () => {
   const onNavigate = useCallback(({ page = '', view: nextView = '' } = {}) => {
     if (selectedPageId) lastSelectedPageRef.current = selectedPageId;
     const target = { page, view: nextView || 'graph' };
-    setRouteOverride(searchFor(target));
+    const targetSearch = searchFor(target);
+    currentSearchRef.current = targetSearch;
+    setCurrentSearch(targetSearch);
     navigate(viewPathFor(target));
     if (page) setMobilePane('wiki');
   }, [navigate, selectedPageId]);
@@ -665,11 +676,16 @@ const WikiWorkspace = () => {
       );
     }
     if (view === 'activity') return <WorkspaceActivity />;
-    if (view === 'list') return <WikiList compact />;
+    if (view === 'list') return <WikiList compact onOpenPage={(pageId) => onNavigate({ page: pageId })} />;
     if (view === 'sources') return <WorkspaceSources onUseSource={useSourceInChat} />;
     if (view === 'schema') return <WorkspaceSchema />;
-    return <WikiIndex />;
-  }, [navigate, refreshNonce, selectedPageId, useSourceInChat, view]);
+    return (
+      <WikiIndex
+        onOpenPage={(pageId) => onNavigate({ page: pageId })}
+        onOpenList={() => onNavigate({ view: 'list' })}
+      />
+    );
+  }, [navigate, onNavigate, refreshNonce, selectedPageId, useSourceInChat, view]);
 
   const handleDragStart = (event) => {
     dragRef.current = { startX: event.clientX, startWidth: chatWidth };

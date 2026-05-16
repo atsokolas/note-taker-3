@@ -25,7 +25,12 @@ jest.mock('../../api/wiki', () => ({
   streamMaintainWikiPage: jest.fn()
 }));
 
-jest.mock('./WikiIndex', () => () => <div data-testid="wiki-index">Graph view</div>);
+jest.mock('./WikiIndex', () => ({ onOpenPage }) => (
+  <div data-testid="wiki-index">
+    Graph view
+    <button type="button" onClick={() => onOpenPage?.('wiki-1')}>Open Investing</button>
+  </div>
+));
 jest.mock('./WikiList', () => ({ compact }) => <div data-testid="wiki-list">List view {compact ? 'compact' : ''}</div>);
 jest.mock('./WikiPageReadView', () => ({ pageId, workspaceMode }) => (
   <div data-testid="wiki-read-view">
@@ -86,6 +91,16 @@ describe('WikiWorkspace', () => {
 
     expect(screen.getByTestId('wiki-index')).toBeInTheDocument();
     expect(screen.queryByTestId('wiki-read-view')).not.toBeInTheDocument();
+  });
+
+  it('opens a wiki page from the general wiki workspace', async () => {
+    renderWorkspace('/wiki/workspace');
+    await settleWorkspaceEffects();
+
+    expect(screen.getByTestId('wiki-index')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Open Investing' }));
+
+    expect(await screen.findByTestId('wiki-read-view')).toHaveTextContent('Page wiki-1 workspace');
   });
 
   it('keeps the chat composer visible above the message history', async () => {
