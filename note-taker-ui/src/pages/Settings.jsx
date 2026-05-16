@@ -6,6 +6,8 @@ import { ACCENT_OPTIONS } from '../settings/uiPreferences';
 import { resetTourState } from '../api/tourApi';
 import { getMarketingFunnelSnapshot } from '../api/marketingAnalytics';
 import { getWikiSchema, revertWikiSchema, saveWikiSchema, suggestWikiSchemaUpdates } from '../api/wiki';
+import ConnectedAgentsCard from '../components/integrations/ConnectedAgentsCard';
+import useAgentTokens from '../hooks/integrations/useAgentTokens';
 import { trackWikiSchemaSaved, trackWikiSchemaSuggested } from '../utils/wikiAnalytics';
 import { isWikiReadModeV2Enabled } from '../utils/wikiFeatureFlags';
 import { TOUR_CACHE_KEY } from '../tour/tourConfig';
@@ -50,6 +52,7 @@ const Settings = ({
   const [wikiSchemaError, setWikiSchemaError] = useState('');
   const [wikiSchemaStatus, setWikiSchemaStatus] = useState('');
   const wikiSchemaEnabled = isWikiReadModeV2Enabled();
+  const agentTokensModel = useAgentTokens();
 
   useEffect(() => {
     let cancelled = false;
@@ -304,6 +307,7 @@ const Settings = ({
           Set up agents
         </Link>
       </Card>
+      <ConnectedAgentsCard tokenModel={agentTokensModel} />
       <Card className="settings-card">
         <h2>Data integrations</h2>
         <p className="muted">Import Readwise CSVs and markdown notes on a dedicated page.</p>

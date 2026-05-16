@@ -1049,6 +1049,26 @@ personalAgentSchema.index({ apiKeyHash: 1 }, { unique: true });
 
 const PersonalAgent = mongoose.model('PersonalAgent', personalAgentSchema);
 
+const agentTokenSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+  label: { type: String, required: true, trim: true },
+  hashedSecret: { type: String, required: true, trim: true },
+  secretPrefix: { type: String, default: '', trim: true },
+  scopes: { type: [String], enum: ['read', 'agent-write'], default: ['read'] },
+  dailyQuota: { type: Number, default: null, min: 0 },
+  callsToday: { type: Number, default: 0, min: 0 },
+  quotaWindowStartedAt: { type: Date, default: null },
+  expiresAt: { type: Date, default: null, index: true },
+  lastUsedAt: { type: Date, default: null },
+  revokedAt: { type: Date, default: null },
+  status: { type: String, enum: ['active', 'revoked'], default: 'active', index: true }
+}, { timestamps: true });
+
+agentTokenSchema.index({ userId: 1, status: 1, updatedAt: -1 });
+agentTokenSchema.index({ hashedSecret: 1 }, { unique: true });
+
+const AgentToken = mongoose.model('AgentToken', agentTokenSchema);
+
 const actorIdentitySchema = new mongoose.Schema({
   actorType: { type: String, enum: ['user', 'native_agent', 'byo_agent'], default: 'native_agent' },
   actorId: { type: String, default: '', trim: true }
@@ -1744,6 +1764,7 @@ module.exports = {
   ConceptPathProgress,
   BrainSummary,
   PersonalAgent,
+  AgentToken,
   AgentThread,
   AgentActionApproval,
   AgentProtocolApproval,

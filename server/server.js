@@ -100,6 +100,7 @@ const {
   ConceptPathProgress,
   BrainSummary,
   PersonalAgent,
+  AgentToken,
   AgentThread,
   AgentActionApproval,
   AgentProtocolApproval,
@@ -209,6 +210,7 @@ const notionTransformForAgent = require('./services/import/notionTransform');
 const { decryptSecret: decryptIntegrationSecretForAgent } = require('./utils/integrationSecrets');
 const { buildAgentSettingsRouter } = require('./routes/agentSettingsRoutes');
 const { buildPersonalAgentRouter } = require('./routes/personalAgentRoutes');
+const { buildAgentTokenRouter } = require('./routes/agentTokenRoutes');
 const { buildAgentBridgeRouter } = require('./routes/agentBridgeRoutes');
 const { buildAgentThreadRouter } = require('./routes/agentThreadRoutes');
 const { buildAgentHandoffRouter } = require('./routes/agentHandoffRoutes');
@@ -218,6 +220,14 @@ const { buildAgentProposedChangeRouter } = require('./routes/agentProposedChange
 const { buildAgentStructureProposalRouter } = require('./routes/agentStructureProposalRoutes');
 const { buildAgentChatRouter } = require('./routes/agentChatRoutes');
 const { buildAgentArtifactDraftRouter } = require('./routes/agentArtifactDraftRoutes');
+const {
+  createAgentTokenSecret,
+  hashAgentTokenSecret,
+  normalizeAgentTokenScopes,
+  sanitizeAgentToken,
+  buildAuthenticateAgentToken,
+  AGENT_TOKEN_PREFIX
+} = require('./services/agentTokenService');
 const { buildAgentHarnessMetricsRouter } = require('./routes/agentHarnessMetricsRoutes');
 const { buildAgentWriteBoundaryRouter } = require('./routes/agentWriteBoundaryRoutes');
 const { buildAgentMemoryApprovalRouter } = require('./routes/agentMemoryApprovalRoutes');
@@ -3845,6 +3855,19 @@ function authenticateToken(req, res, next) {
   });
 }
 
+const authenticateAgentToken = buildAuthenticateAgentToken({ AgentToken });
+
+function authenticateUserOrAgentToken(req, res, next) {
+  const authHeader = req.headers['authorization'] || '';
+  const headerToken = authHeader.startsWith('Bearer ')
+    ? authHeader.slice(7).trim()
+    : '';
+  if (headerToken.startsWith(AGENT_TOKEN_PREFIX)) {
+    return authenticateAgentToken(req, res, next);
+  }
+  return authenticateToken(req, res, next);
+}
+
 async function authenticatePersonalAgentKey(req, res, next) {
   try {
     const agentId = String(req.headers['x-agent-id'] || '').trim();
@@ -4343,7 +4366,7 @@ app.use(buildNotebookRouter({
 }));
 
 app.use(buildWikiRouter({
-  authenticateToken,
+  authenticateToken: authenticateUserOrAgentToken,
   WikiPage,
   WikiProposal,
   WikiRevision,
@@ -5591,6 +5614,16 @@ app.use(buildPersonalAgentRouter({
   createPersonalAgentApiKey,
   hashPersonalAgentApiKey,
   normalizePersonalAgentStatus
+}));
+
+app.use(buildAgentTokenRouter({
+  mongoose,
+  authenticateToken,
+  AgentToken,
+  createAgentTokenSecret,
+  hashAgentTokenSecret,
+  normalizeAgentTokenScopes,
+  sanitizeAgentToken
 }));
 
 app.use(buildAgentThreadRouter({

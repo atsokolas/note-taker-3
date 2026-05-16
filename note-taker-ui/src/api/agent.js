@@ -100,6 +100,28 @@ export const disablePersonalAgent = async (agentId) => {
   return res.data || {};
 };
 
+export const listAgentTokens = async () => {
+  const res = await api.get('/api/agent-tokens', getAuthHeaders());
+  return res.data || { tokens: [] };
+};
+
+export const createAgentToken = async (payload = {}) => {
+  const res = await api.post('/api/agent-tokens', payload, getAuthHeaders());
+  return res.data || {};
+};
+
+export const revokeAgentToken = async (tokenId) => {
+  const safeId = encodeURIComponent(String(tokenId || '').trim());
+  const res = await api.post(`/api/agent-tokens/${safeId}/revoke`, {}, getAuthHeaders());
+  return res.data || {};
+};
+
+export const deleteAgentToken = async (tokenId) => {
+  const safeId = encodeURIComponent(String(tokenId || '').trim());
+  const res = await api.delete(`/api/agent-tokens/${safeId}`, getAuthHeaders());
+  return res.data || {};
+};
+
 export const createAgentHandoff = async (payload = {}) => {
   const res = await api.post('/api/agent/protocol/handoffs', payload, getAuthHeaders());
   return res.data || {};

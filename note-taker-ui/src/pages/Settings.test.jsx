@@ -1,9 +1,17 @@
 import React from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import Settings from './Settings';
+import { createAgentToken, deleteAgentToken, listAgentTokens, revokeAgentToken } from '../api/agent';
 import { getMarketingFunnelSnapshot } from '../api/marketingAnalytics';
 import { getWikiSchema, revertWikiSchema, saveWikiSchema, suggestWikiSchemaUpdates } from '../api/wiki';
+
+jest.mock('../api/agent', () => ({
+  createAgentToken: jest.fn(),
+  deleteAgentToken: jest.fn(),
+  listAgentTokens: jest.fn(),
+  revokeAgentToken: jest.fn()
+}));
 
 jest.mock('../api/marketingAnalytics', () => ({
   getMarketingFunnelSnapshot: jest.fn()
@@ -43,6 +51,22 @@ describe('Settings marketing reporting', () => {
       content: '# Wiki Schema\n\nReverted convention',
       snapshots: [{ id: 'snap-2', content: '# Wiki Schema', createdAt: '2026-05-12T12:00:00.000Z' }]
     });
+    listAgentTokens.mockResolvedValue({ tokens: [] });
+    createAgentToken.mockResolvedValue({
+      token: {
+        id: 'tok-new',
+        label: 'Research worker',
+        secretPrefix: 'ntk_at_new...',
+        scopes: ['read'],
+        callsToday: 0,
+        dailyQuota: 10,
+        status: 'active',
+        createdAt: '2026-05-16T12:00:00.000Z'
+      },
+      secret: 'agent_secret_once'
+    });
+    revokeAgentToken.mockResolvedValue({});
+    deleteAgentToken.mockResolvedValue({});
   });
 
   afterEach(() => {
@@ -159,5 +183,86 @@ describe('Settings marketing reporting', () => {
 
     expect(screen.queryByText('Wiki schema')).not.toBeInTheDocument();
     await waitFor(() => expect(getWikiSchema).not.toHaveBeenCalled());
+  });
+
+  it('lists connected agent tokens and can issue a new token', async () => {
+    getMarketingFunnelSnapshot.mockResolvedValue({ totals: {}, byEntry: [], bySource: [] });
+    listAgentTokens
+      .mockResolvedValueOnce({
+        tokens: [{
+          id: 'tok-1',
+          label: 'Research worker',
+          secretPrefix: 'ntk_at_live...',
+          scopes: ['read'],
+          callsToday: 1,
+          dailyQuota: 10,
+          status: 'active',
+          createdAt: '2026-05-15T12:00:00.000Z'
+        }]
+      })
+      .mockResolvedValueOnce({
+        tokens: [{
+          id: 'tok-new',
+          label: 'Notebook worker',
+          secretPrefix: 'ntk_at_new...',
+          scopes: ['read', 'agent-write'],
+          callsToday: 0,
+          dailyQuota: 25,
+          status: 'active',
+          createdAt: '2026-05-16T12:00:00.000Z'
+        }]
+      });
+
+    render(
+      <MemoryRouter>
+        <Settings />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByText('Research worker')).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Agent token label'), { target: { value: 'Notebook worker' } });
+    fireEvent.change(screen.getByLabelText('Agent token daily quota'), { target: { value: '25' } });
+    fireEvent.click(screen.getByLabelText('Agent write'));
+    fireEvent.click(screen.getByRole('button', { name: 'Issue token' }));
+
+    await waitFor(() => expect(createAgentToken).toHaveBeenCalledWith({
+      label: 'Notebook worker',
+      scopes: ['read', 'agent-write'],
+      dailyQuota: 25
+    }));
+    expect(await screen.findByText('agent_secret_once')).toBeInTheDocument();
+    expect(await screen.findByText('Notebook worker')).toBeInTheDocument();
+    expect(screen.getByText(/Quota: 0 \/ 25 today/)).toBeInTheDocument();
+  });
+
+  it('revokes and deletes connected agent tokens', async () => {
+    getMarketingFunnelSnapshot.mockResolvedValue({ totals: {}, byEntry: [], bySource: [] });
+    listAgentTokens.mockResolvedValue({
+      tokens: [{
+        id: 'tok-1',
+        label: 'Research worker',
+        secretPrefix: 'ntk_at_live...',
+        scopes: ['read'],
+        callsToday: 0,
+        dailyQuota: 10,
+        status: 'active',
+        createdAt: '2026-05-15T12:00:00.000Z'
+      }]
+    });
+
+    render(
+      <MemoryRouter>
+        <Settings />
+      </MemoryRouter>
+    );
+
+    const tokenRow = await screen.findByText('Research worker');
+    const list = tokenRow.closest('.connected-agents-token-row');
+    fireEvent.click(within(list).getByRole('button', { name: 'Revoke' }));
+    await waitFor(() => expect(revokeAgentToken).toHaveBeenCalledWith('tok-1'));
+    await waitFor(() => expect(within(list).getByRole('button', { name: 'Delete' })).not.toBeDisabled());
+
+    fireEvent.click(within(list).getByRole('button', { name: 'Delete' }));
+    await waitFor(() => expect(deleteAgentToken).toHaveBeenCalledWith('tok-1'));
   });
 });
