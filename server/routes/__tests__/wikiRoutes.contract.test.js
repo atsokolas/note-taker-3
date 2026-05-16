@@ -397,6 +397,35 @@ const createFakeWikiRevisionModel = () => {
   return WikiRevision;
 };
 
+const createFakeWikiLintRunModel = () => {
+  const records = [];
+
+  function WikiLintRun(payload = {}) {
+    Object.assign(this, payload);
+    this._id = this._id || new mongoose.Types.ObjectId().toString();
+    this.createdAt = this.createdAt || new Date();
+    this.updatedAt = this.updatedAt || new Date();
+    this.findings = this.findings || {};
+  }
+
+  WikiLintRun.records = records;
+  WikiLintRun.find = (query = {}) => new Query(records.filter(record => matches(record, query)));
+
+  WikiLintRun.prototype.toObject = function toObject() {
+    return clone(this);
+  };
+
+  WikiLintRun.prototype.save = async function save() {
+    const stored = this.toObject();
+    const index = records.findIndex(record => String(record._id) === String(this._id));
+    if (index >= 0) records[index] = stored;
+    else records.push(stored);
+    return this;
+  };
+
+  return WikiLintRun;
+};
+
 const request = async (url, path, options = {}) => {
   const res = await fetch(`${url}${path}`, {
     ...options,
@@ -420,6 +449,7 @@ const run = async () => {
   const WikiPage = createFakeWikiPageModel();
   const WikiProposal = createFakeWikiProposalModel();
   const WikiRevision = createFakeWikiRevisionModel();
+  const WikiLintRun = createFakeWikiLintRunModel();
   const WikiSourceEvent = createFakeWikiSourceEventModel();
   const WikiMaintenanceRun = createFakeWikiMaintenanceRunModel();
   const WikiSchemaSettings = createFakeWikiSchemaSettingsModel();
@@ -453,6 +483,7 @@ const run = async () => {
     WikiPage,
     WikiProposal,
     WikiRevision,
+    WikiLintRun,
     WikiSourceEvent,
     WikiMaintenanceRun,
     WikiSchemaSettings,
@@ -693,6 +724,14 @@ const run = async () => {
     assert.ok(maintained.body.aiState.changeLog.length >= 1);
     assert.ok(maintained.body.aiState.suggestions.length >= 1);
 
+    const markdown = await request(url, `/api/wiki/pages/${created.body._id}/markdown`);
+    assert.strictEqual(markdown.res.status, 200, markdown.text);
+    assert.match(markdown.res.headers.get('content-type') || '', /text\/markdown/);
+    assert.ok(markdown.text.includes('title: "Contract Page Updated"'));
+    assert.ok(markdown.text.includes('## Key Signals'));
+    assert.ok(markdown.text.includes('## References'));
+    assert.ok(markdown.text.includes('Enterprise AI memory article'));
+
     const streamed = await request(url, `/api/wiki/pages/${created.body._id}/ai/draft/stream`, { method: 'POST' });
     assert.strictEqual(streamed.res.status, 200, streamed.text);
     assert.match(streamed.res.headers.get('content-type') || '', /text\/event-stream/);
@@ -741,6 +780,16 @@ const run = async () => {
     const duplicateAutolink = await request(url, `/api/wiki/pages/${created.body._id}/autolinks/${linkedPage._id}/apply`, { method: 'POST' });
     assert.strictEqual(duplicateAutolink.res.status, 409, duplicateAutolink.text);
     assert.strictEqual(Connection.records.length, edgeCountAfterApply);
+
+    const lintRun = await request(url, '/api/wiki/lint', {
+      method: 'POST',
+      body: JSON.stringify({ pageId: created.body._id })
+    });
+    assert.strictEqual(lintRun.res.status, 200, lintRun.text);
+    assert.ok(lintRun.body.runId);
+    assert.strictEqual(lintRun.body.scope, 'page');
+    assert.ok(Array.isArray(lintRun.body.findings.gaps));
+    assert.ok(WikiLintRun.records.some(run => String(run._id) === String(lintRun.body.runId)));
 
     const sourceArticleId = new mongoose.Types.ObjectId().toString();
     const attachedSource = await request(url, `/api/wiki/pages/${created.body._id}/sources`, {
@@ -928,6 +977,7 @@ const run = async () => {
     assert.strictEqual(activity.res.status, 200, activity.text);
     assert.ok(activity.body.events.some(event => event.type === 'ingest' && event.runId === ingest.body.runId));
     assert.ok(activity.body.events.some(event => event.type === 'ask' && event.pageId === String(created.body._id)));
+    assert.ok(activity.body.events.some(event => event.type === 'lint' && event.runId === lintRun.body.runId));
     assert.ok(activity.body.events.some(event => event.type === 'maintenance' && event.runId));
     const activityTimes = activity.body.events.map(event => new Date(event.at).getTime());
     assert.deepStrictEqual(activityTimes, [...activityTimes].sort((a, b) => b - a));
@@ -959,6 +1009,11 @@ const run = async () => {
       && run.status === 'completed'
       && run.metadata?.kind === 'schema_suggestions'
     )));
+
+    const exported = await request(url, '/api/wiki/export.zip');
+    assert.strictEqual(exported.res.status, 200, exported.text);
+    assert.match(exported.res.headers.get('content-type') || '', /application\/zip/);
+    assert.ok(exported.text.length > 50);
 
     const invalidSource = await request(url, `/api/wiki/pages/${created.body._id}/sources`, {
       method: 'POST',

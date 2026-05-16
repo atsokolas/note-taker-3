@@ -5,6 +5,7 @@ import {
   askWikiPage,
   getWikiBacklinks,
   getWikiPage,
+  getWikiPageMarkdown,
   maintainWikiPage,
   promoteWikiDiscussion
 } from '../../api/wiki';
@@ -429,6 +430,7 @@ const WikiPageReadView = ({ pageId, onEdit, workspaceMode = false }) => {
   const [preview, setPreview] = useState(null);
   const [lastVisit, setLastVisit] = useState(null);
   const [activeTab, setActiveTab] = useState('article');
+  const [markdownStatus, setMarkdownStatus] = useState('');
   // AT-22 (Bucket 2): rail is collapsible-by-default. Persisted across pages
   // so once a reader opens context they keep it open until they hide it again.
   // Wikipedia / Tolkien Gateway reading shape — body owns the canvas.
@@ -674,6 +676,47 @@ const WikiPageReadView = ({ pageId, onEdit, workspaceMode = false }) => {
     setLastVisit(next);
   }, [page, pageId]);
 
+  const loadMarkdown = useCallback(async () => {
+    setMarkdownStatus('');
+    try {
+      return await getWikiPageMarkdown(pageId);
+    } catch (_error) {
+      setMarkdownStatus('Markdown export failed.');
+      return '';
+    }
+  }, [pageId]);
+
+  const handleCopyMarkdown = useCallback(async () => {
+    const markdown = await loadMarkdown();
+    if (!markdown) return;
+    try {
+      await navigator.clipboard.writeText(markdown);
+      setMarkdownStatus('Markdown copied.');
+    } catch (_error) {
+      setMarkdownStatus('Clipboard permission blocked copy.');
+    }
+  }, [loadMarkdown]);
+
+  const handleDownloadMarkdown = useCallback(async () => {
+    const markdown = await loadMarkdown();
+    if (!markdown) return;
+    const blob = new Blob([markdown], { type: 'text/markdown;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    const slug = String(page?.slug || page?.title || 'wiki-page')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 90) || 'wiki-page';
+    anchor.href = url;
+    anchor.download = `${slug}.md`;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    URL.revokeObjectURL(url);
+    setMarkdownStatus('Markdown downloaded.');
+  }, [loadMarkdown, page?.slug, page?.title]);
+
   const tocItems = useMemo(() => extractTocItems(page?.body || emptyDoc), [page?.body]);
   const [activeTocId, setActiveTocId] = useState('');
 
@@ -828,6 +871,11 @@ const WikiPageReadView = ({ pageId, onEdit, workspaceMode = false }) => {
                 In workspace mode the agent will surface quality problems
                 via chat notification (AT-26). */}
             <h1>{page.title || 'Untitled Wiki Page'}</h1>
+            <div className="wiki-read__exports" aria-label="Markdown export">
+              <button type="button" onClick={handleCopyMarkdown}>Copy markdown</button>
+              <button type="button" onClick={handleDownloadMarkdown}>Download .md</button>
+              {markdownStatus ? <span role="status">{markdownStatus}</span> : null}
+            </div>
             {showPageTalk ? <div className="wiki-read__tabs" role="tablist" aria-label="Wiki page views">
               <button
                 type="button"

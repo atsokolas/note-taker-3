@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import ForceGraph2D from 'react-force-graph-2d';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '../ui';
-import { ingestWikiSource, listWikiActivity, listWikiPages } from '../../api/wiki';
+import { downloadWikiExportZip, ingestWikiSource, listWikiActivity, listWikiPages } from '../../api/wiki';
 import { fetchGraphData } from '../../api/map';
 import { trackWikiIngestResult, trackWikiIngestSubmitted } from '../../utils/wikiAnalytics';
 import { wikiPagePath } from '../../utils/wikiFeatureFlags';
@@ -436,6 +436,22 @@ const WikiIndex = ({ onOpenPage, onOpenList }) => {
     else navigate(wikiPagePath(pageId));
   }, [navigate, onOpenPage]);
 
+  const handleExportWiki = async () => {
+    try {
+      const blob = await downloadWikiExportZip();
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = 'wiki-export.zip';
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(url);
+    } catch (_error) {
+      setError('Failed to export wiki.');
+    }
+  };
+
   return (
     <main className="wiki-page wiki-index wiki-graph-index">
       <WikiBriefing />
@@ -461,11 +477,13 @@ const WikiIndex = ({ onOpenPage, onOpenList }) => {
             <>
               <button type="button" aria-current="page">Graph</button>
               <button type="button" onClick={onOpenList}>List</button>
+              <button type="button" onClick={handleExportWiki}>Export</button>
             </>
           ) : (
             <>
               <Link aria-current="page" to="/wiki">Graph</Link>
               <Link to="/wiki/list">List</Link>
+              <button type="button" onClick={handleExportWiki}>Export</button>
             </>
           )}
         </div>

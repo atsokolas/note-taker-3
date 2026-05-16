@@ -55,6 +55,30 @@ export const getWikiPage = async (id) => {
   return res.data;
 };
 
+export const getWikiPageMarkdown = async (id) => {
+  const res = await api.get(`${WIKI_PAGES_PATH}/${safeId(id)}/markdown`, {
+    ...getAuthHeaders(),
+    responseType: 'text',
+    transformResponse: [data => data]
+  });
+  return String(res.data || '');
+};
+
+export const getWikiExportZipUrl = () => apiUrl('/api/wiki/export.zip');
+
+export const downloadWikiExportZip = async () => {
+  const res = await api.get('/api/wiki/export.zip', {
+    ...getAuthHeaders(),
+    responseType: 'blob'
+  });
+  return res.data;
+};
+
+export const lintWiki = async ({ pageId = '' } = {}) => {
+  const res = await api.post('/api/wiki/lint', { pageId }, getAuthHeaders());
+  return res.data || {};
+};
+
 export const updateWikiPage = async (id, updates = {}) => {
   const res = await api.patch(`${WIKI_PAGES_PATH}/${safeId(id)}`, updates, getAuthHeaders());
   return res.data;
@@ -321,6 +345,10 @@ const wikiApi = {
   listWikiPages,
   createWikiPage,
   getWikiPage,
+  getWikiPageMarkdown,
+  getWikiExportZipUrl,
+  downloadWikiExportZip,
+  lintWiki,
   updateWikiPage,
   archiveWikiPage,
   deleteWikiPage,

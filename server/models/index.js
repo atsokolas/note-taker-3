@@ -547,6 +547,22 @@ wikiRevisionSchema.index({ userId: 1, pageId: 1, createdAt: -1 });
 
 const WikiRevision = mongoose.model('WikiRevision', wikiRevisionSchema);
 
+const wikiLintRunSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+  scope: { type: String, enum: ['all', 'page'], default: 'all', index: true },
+  pageId: { type: mongoose.Schema.Types.ObjectId, ref: 'WikiPage', default: null, index: true },
+  status: { type: String, enum: ['completed', 'failed'], default: 'completed', index: true },
+  findings: { type: mongoose.Schema.Types.Mixed, default: () => ({}) },
+  summary: { type: String, default: '', trim: true },
+  startedAt: { type: Date, default: Date.now },
+  completedAt: { type: Date, default: Date.now }
+}, { timestamps: true });
+
+wikiLintRunSchema.index({ userId: 1, createdAt: -1 });
+wikiLintRunSchema.index({ userId: 1, pageId: 1, createdAt: -1 });
+
+const WikiLintRun = mongoose.model('WikiLintRun', wikiLintRunSchema);
+
 const wikiSourceEventSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
   sourceType: { type: String, enum: ['article', 'highlight', 'notebook', 'concept', 'question', 'memory', 'external'], required: true },
@@ -1705,6 +1721,7 @@ module.exports = {
   WikiPage,
   WikiProposal,
   WikiRevision,
+  WikiLintRun,
   WikiSourceEvent,
   WikiMaintenanceRun,
   ConnectorActionLog,

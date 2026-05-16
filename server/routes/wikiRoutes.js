@@ -1,5 +1,6 @@
 const express = require('express');
 const mongoose = require('mongoose');
+const archiver = require('archiver');
 const { maintainWikiPage: defaultMaintainWikiPage } = require('../services/wikiMaintenanceService');
 const {
   buildSectionMaintenancePlan,
@@ -32,6 +33,14 @@ const {
 const {
   suggestWikiSchemaUpdates
 } = require('../services/wikiSchemaSuggestionService');
+const {
+  renderWikiIndexMarkdown,
+  renderWikiLogMarkdown,
+  renderWikiPageMarkdown,
+  renderWikiSchemaMarkdown,
+  sanitizeFilename
+} = require('../services/wikiMarkdownExportService');
+const { lintWiki: defaultLintWiki } = require('../services/wikiLintService');
 const {
   activeProposalsNeedClusteringRefresh,
   autoMergeProposalCandidates,
@@ -518,6 +527,7 @@ const buildWikiRouter = ({
   WikiPage,
   WikiProposal = null,
   WikiRevision = null,
+  WikiLintRun = null,
   WikiSourceEvent = null,
   WikiMaintenanceRun = null,
   WikiSchemaSettings = null,
@@ -533,6 +543,7 @@ const buildWikiRouter = ({
   updateNotionPageTitle = null,
   decryptSecret = null,
   maintainWikiPage = defaultMaintainWikiPage,
+  lintWiki = defaultLintWiki,
   askWikiPage = defaultAskWikiPage,
   buildWikiBriefing = defaultBuildWikiBriefing,
   findWikiBacklinks = defaultFindWikiBacklinks,
@@ -662,6 +673,7 @@ const buildWikiRouter = ({
     WikiPage,
     WikiProposal,
     WikiRevision,
+    WikiLintRun,
     WikiMaintenanceRun,
     Connection,
     Article,
@@ -899,6 +911,68 @@ const buildWikiRouter = ({
     }
   });
 
+  router.get('/api/wiki/export.zip', authenticateToken, async (req, res) => {
+    try {
+      const [pages, schemaSettings, lintRuns] = await Promise.all([
+        WikiPage.find({ userId: req.user.id, status: { $ne: 'archived' } }).sort({ updatedAt: -1 }).limit(1000).lean(),
+        WikiSchemaSettings
+          ? getWikiSchemaSettings({ WikiSchemaSettings, userId: req.user.id }).catch(() => null)
+          : null,
+        WikiLintRun
+          ? WikiLintRun.find({ userId: req.user.id }).sort({ createdAt: -1 }).limit(50).lean()
+          : []
+      ]);
+      const archive = archiver('zip', { zlib: { level: 9 } });
+      archive.on('error', (error) => {
+        if (!res.headersSent) res.status(500).json({ error: 'Failed to export wiki.' });
+        else res.destroy(error);
+      });
+      res.status(200);
+      res.setHeader('Content-Type', 'application/zip');
+      res.setHeader('Content-Disposition', 'attachment; filename="wiki-export.zip"');
+      archive.pipe(res);
+      archive.append(renderWikiIndexMarkdown(pages), { name: 'index.md' });
+      archive.append(renderWikiLogMarkdown({ pages, lintRuns }), { name: 'log.md' });
+      archive.append(renderWikiSchemaMarkdown(schemaSettings), { name: 'schema.md' });
+      const usedNames = new Map();
+      pages.forEach((page) => {
+        const base = sanitizeFilename(page.slug || page.title);
+        const count = (usedNames.get(base) || 0) + 1;
+        usedNames.set(base, count);
+        const name = count === 1 ? `${base}.md` : `${base}-${count}.md`;
+        archive.append(renderWikiPageMarkdown(page), { name });
+      });
+      await archive.finalize();
+    } catch (error) {
+      console.error('Error exporting wiki:', error);
+      if (!res.headersSent) res.status(500).json({ error: 'Failed to export wiki.' });
+    }
+  });
+
+  router.post('/api/wiki/lint', authenticateToken, async (req, res) => {
+    try {
+      const pageId = String(req.body?.pageId || '').trim();
+      if (pageId && !mongoose.Types.ObjectId.isValid(pageId)) {
+        return res.status(400).json({ error: 'Invalid wiki page id.' });
+      }
+      if (pageId) {
+        const exists = await WikiPage.findOne({ _id: pageId, userId: req.user.id, status: { $ne: 'archived' } }).lean();
+        if (!exists) return res.status(404).json({ error: 'Wiki page not found.' });
+      }
+      const result = await lintWiki({
+        userId: req.user.id,
+        scope: pageId ? 'page' : 'all',
+        pageId,
+        models: wikiModels(),
+        findAutolinkSuggestions
+      });
+      res.status(200).json(result);
+    } catch (error) {
+      console.error('Error linting wiki:', error);
+      res.status(500).json({ error: 'Failed to lint wiki.' });
+    }
+  });
+
   router.get('/api/wiki/pages', authenticateToken, async (req, res) => {
     try {
       const query = { userId: req.user.id };
@@ -979,6 +1053,20 @@ const buildWikiRouter = ({
       const page = await findOwnedPage(req).lean();
       if (!page) return res.status(404).json({ error: 'Wiki page not found.' });
       res.status(200).json(serializeWikiPage(page));
+    } catch (_error) {
+      res.status(400).json({ error: 'Invalid wiki page id.' });
+    }
+  });
+
+  router.get('/api/wiki/pages/:id/markdown', authenticateToken, async (req, res) => {
+    try {
+      const page = await findOwnedPage(req).lean();
+      if (!page) return res.status(404).json({ error: 'Wiki page not found.' });
+      const filename = `${sanitizeFilename(page.slug || page.title)}.md`;
+      res.status(200);
+      res.setHeader('Content-Type', 'text/markdown; charset=utf-8');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      res.send(renderWikiPageMarkdown(page));
     } catch (_error) {
       res.status(400).json({ error: 'Invalid wiki page id.' });
     }
@@ -1698,12 +1786,15 @@ const buildWikiRouter = ({
   router.get('/api/wiki/activity', authenticateToken, async (req, res) => {
     try {
       const limit = Math.max(1, Math.min(Number(req.query.limit) || 50, 100));
-      const [sourceEvents, maintenanceRuns, pages] = await Promise.all([
+      const [sourceEvents, maintenanceRuns, lintRuns, pages] = await Promise.all([
         WikiSourceEvent
           ? WikiSourceEvent.find({ userId: req.user.id }).sort({ createdAt: -1 }).limit(limit).lean()
           : [],
         WikiMaintenanceRun
           ? WikiMaintenanceRun.find({ userId: req.user.id }).sort({ createdAt: -1 }).limit(limit).lean()
+          : [],
+        WikiLintRun
+          ? WikiLintRun.find({ userId: req.user.id }).sort({ createdAt: -1 }).limit(limit).lean()
           : [],
         WikiPage.find({ userId: req.user.id, status: { $ne: 'archived' } }).sort({ updatedAt: -1 }).limit(200).lean()
       ]);
@@ -1739,6 +1830,16 @@ const buildWikiRouter = ({
           title: 'Wiki maintenance',
           summary: cleanWikiSummary(run.summary || run.errorMessage || ''),
           at: run.completedAt || run.startedAt || run.createdAt
+        })),
+        ...(Array.isArray(lintRuns) ? lintRuns : []).map(run => ({
+          id: serializeId(run._id),
+          type: 'lint',
+          runId: serializeId(run._id),
+          status: run.status || 'completed',
+          pageId: serializeId(run.pageId),
+          title: 'Wiki lint',
+          summary: cleanWikiSummary(run.summary || ''),
+          at: run.completedAt || run.createdAt
         })),
         ...(Array.isArray(pages) ? pages : []).flatMap(page => (
           Array.isArray(page.discussions) ? page.discussions : []

@@ -9,6 +9,7 @@ import {
   ingestWikiSource,
   listWikiActivity,
   listWikiPages,
+  lintWiki,
   saveWikiSchema,
   streamMaintainWikiPage
 } from '../../api/wiki';
@@ -78,6 +79,12 @@ const COMMANDS = [
     template: '/ingest https://',
     label: 'Ingest URL',
     hint: 'Feed a source URL to the wiki.'
+  },
+  {
+    verb: 'lint',
+    template: '/lint',
+    label: 'Lint wiki',
+    hint: 'Scan for contradictions, stale pages, missing links, and gaps.'
   }
 ];
 
@@ -122,6 +129,30 @@ const parseWikiRef = (value = '') => {
 const parseUrl = (value = '') => {
   const match = String(value || '').match(/https?:\/\/\S+/i);
   return clean(match?.[0]);
+};
+
+const lintCount = (run = {}, key = '') => (
+  Array.isArray(run?.findings?.[key]) ? run.findings[key].length : 0
+);
+
+const formatLintSummary = (run = {}) => {
+  const rows = [
+    ['contradictions', lintCount(run, 'contradictions')],
+    ['stale', lintCount(run, 'stale')],
+    ['orphans', lintCount(run, 'orphans')],
+    ['missing pages', lintCount(run, 'missingPages')],
+    ['missing links', lintCount(run, 'missingLinks')],
+    ['gaps', lintCount(run, 'gaps')]
+  ];
+  const nonZero = rows.filter(([, count]) => count > 0);
+  if (!nonZero.length) return run.summary || 'Wiki lint found no immediate structural issues.';
+  const headline = run.summary || `Wiki lint found ${nonZero.reduce((sum, [, count]) => sum + count, 0)} issues.`;
+  const topFindings = Object.values(run.findings || {})
+    .flat()
+    .slice(0, 5)
+    .map(finding => `- ${finding.pageTitle ? `${finding.pageTitle}: ` : ''}${finding.title || finding.type}${finding.summary ? ` — ${finding.summary}` : ''}`)
+    .join('\n');
+  return `${headline}\n${nonZero.map(([label, count]) => `${count} ${label}`).join(' · ')}${topFindings ? `\n\n${topFindings}` : ''}`;
 };
 
 const viewPathFor = ({ view = 'graph', page = '' } = {}) => {
@@ -282,7 +313,7 @@ const WikiWorkspaceChat = ({ selectedPageId, view, onNavigate, onPageChanged, bu
     {
       id: 'assistant-welcome',
       role: 'assistant',
-      text: 'Use this chat to drive the wiki. Try /build Topic, /draft @wiki:page_id, /graph, /sources, /activity, /schema, or paste a source URL with /ingest.',
+      text: 'Use this chat to drive the wiki. Try /build Topic, /draft @wiki:page_id, /lint, /graph, /sources, /activity, /schema, or paste a source URL with /ingest.',
       createdAt: new Date().toISOString()
     }
   ]);
@@ -465,8 +496,22 @@ const WikiWorkspaceChat = ({ selectedPageId, view, onNavigate, onPageChanged, bu
       }
       return true;
     }
+    if (command.verb === 'lint') {
+      const lintTarget = parseWikiRef(command.args);
+      setBusy(true);
+      try {
+        const result = await lintWiki({ pageId: lintTarget || '' });
+        append({ role: 'assistant', text: formatLintSummary(result) });
+        onNavigate({ view: 'activity' });
+      } catch (_error) {
+        append({ role: 'assistant', text: 'Wiki lint failed.' });
+      } finally {
+        setBusy(false);
+      }
+      return true;
+    }
     if (command.verb === 'help') {
-      append({ role: 'assistant', text: 'Commands: /build Topic, /draft @wiki:X, /page @wiki:X, /graph, /activity, /sources, /schema, /ingest <url>.' });
+      append({ role: 'assistant', text: 'Commands: /build Topic, /draft @wiki:X, /page @wiki:X, /graph, /activity, /sources, /schema, /ingest <url>, /lint, /lint @wiki:X.' });
       return true;
     }
     return false;

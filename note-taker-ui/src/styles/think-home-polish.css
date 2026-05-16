@@ -4514,6 +4514,37 @@ html[data-ui-theme='dark'] {
   line-height: 1.02;
 }
 
+.wiki-read__exports {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 10px;
+  align-items: center;
+}
+
+.wiki-read__exports button {
+  padding: 6px 10px;
+  border: 1px solid color-mix(in srgb, var(--nt-divider) 76%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--surface) 96%, transparent);
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.wiki-read__exports button:hover,
+.wiki-read__exports button:focus-visible {
+  border-color: color-mix(in srgb, var(--accent-primary, var(--primary-color)) 45%, var(--nt-divider));
+  color: var(--text-primary);
+  outline: none;
+}
+
+.wiki-read__exports span {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+
 .wiki-read__facts {
   display: flex;
   flex-wrap: wrap;
