@@ -97,7 +97,7 @@ For local development:
 
 ## Tools
 
-Read tools available now:
+Read tools available now. These return normalized JSON so external agents can list pages, choose one, read it, inspect references, and catch up on recent wiki activity with a read-scoped token:
 
 - `list_pages`
 - `get_page`
@@ -105,13 +105,14 @@ Read tools available now:
 - `search_pages`
 - `get_schema`
 - `get_briefing`
-- `get_backlinks`
+- `list_sources`
+- `list_backlinks`
 - `list_activity`
 - `list_revisions`
 - `list_source_events`
 - `get_ingest_run`
 - `list_proposals`
-- `get_autolinks`
+- `list_autolinks`
 - `get_lint_run`
 
 Reserved write tools are listed so agents can see the intended surface, but return `not_implemented` until the write-tool slice lands:

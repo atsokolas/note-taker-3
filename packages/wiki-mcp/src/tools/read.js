@@ -12,7 +12,7 @@ const pageIdShape = {
 export const readTools = [
   {
     name: 'list_pages',
-    description: 'List wiki pages. Archived pages are excluded unless status=archived is provided.',
+    description: 'Find candidate wiki pages to inspect. Returns lightweight page rows with id, title, pageType, slug, and updatedAt.',
     inputSchema: {
       q: z.string().optional().describe('Optional title/body search query.'),
       status: optionalEnum(statuses),
@@ -24,7 +24,7 @@ export const readTools = [
   },
   {
     name: 'get_page',
-    description: 'Get a full wiki page including body, sources, claims, freshness, discussions, and AI state.',
+    description: 'Read one full wiki page, including body text, source references, claims, and infobox metadata.',
     inputSchema: pageIdShape,
     handler: (client, args) => client.getPage(args)
   },
@@ -36,7 +36,7 @@ export const readTools = [
   },
   {
     name: 'search_pages',
-    description: 'Search wiki pages by title/body text.',
+    description: 'Search wiki pages by title and body text. Returns page hits with short snippets for choosing what to read next.',
     inputSchema: {
       query: z.string().describe('Search query.'),
       limit: z.number().min(1).max(100).optional().default(20),
@@ -48,34 +48,44 @@ export const readTools = [
   },
   {
     name: 'get_schema',
-    description: 'Get the user wiki schema markdown and saved snapshots.',
+    description: 'Read the current wiki schema so you can follow the user-defined page taxonomy and structure.',
     inputSchema: {},
     handler: (client) => client.getSchema()
   },
   {
     name: 'get_briefing',
-    description: 'Get the current wiki briefing: recent updates, drift, and page counts.',
+    description: 'Read the current wiki briefing: recent updates, drift, and page counts.',
     inputSchema: {},
     handler: (client) => client.getBriefing()
   },
   {
-    name: 'get_backlinks',
-    description: 'Find pages that mention or link to a wiki page.',
+    name: 'list_sources',
+    description: 'List source references attached to a wiki page.',
     inputSchema: pageIdShape,
-    handler: (client, args) => client.getBacklinks(args)
+    handler: (client, args) => client.listSources(args)
+  },
+  {
+    name: 'list_backlinks',
+    description: 'List pages that mention or link to the selected wiki page.',
+    inputSchema: pageIdShape,
+    handler: (client, args) => client.listBacklinks(args)
   },
   {
     name: 'list_activity',
-    description: 'List recent wiki activity events.',
+    description: 'List recent wiki-wide activity events, optionally bounded to events since an ISO timestamp.',
     inputSchema: {
-      limit: z.number().min(1).max(100).optional().default(50)
+      limit: z.number().min(1).max(100).optional().default(50),
+      since: z.string().optional().describe('Optional ISO timestamp or date; only events at or after this time are returned.')
     },
     handler: (client, args) => client.listActivity(args)
   },
   {
     name: 'list_revisions',
     description: 'List revision history for a wiki page.',
-    inputSchema: pageIdShape,
+    inputSchema: {
+      ...pageIdShape,
+      limit: z.number().min(1).max(100).optional().default(50)
+    },
     handler: (client, args) => client.listRevisions(args)
   },
   {
@@ -102,10 +112,10 @@ export const readTools = [
     handler: (client) => client.listProposals()
   },
   {
-    name: 'get_autolinks',
-    description: 'Get autolink suggestions for a wiki page.',
+    name: 'list_autolinks',
+    description: 'List pages the selected wiki page mentions through inline wiki links or autolink suggestions.',
     inputSchema: pageIdShape,
-    handler: (client, args) => client.getAutolinks(args)
+    handler: (client, args) => client.listAutolinks(args)
   },
   {
     name: 'get_lint_run',

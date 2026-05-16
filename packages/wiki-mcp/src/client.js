@@ -4,6 +4,64 @@ const trimTrailingSlash = (value = '') => String(value || '').replace(/\/+$/g, '
 
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
+const pickId = (value) => {
+  if (!value) return '';
+  if (typeof value === 'string') return value;
+  if (typeof value === 'object') return String(value.id || value._id || '');
+  return String(value);
+};
+
+const cleanText = (value = '') => String(value || '').replace(/\s+/g, ' ').trim();
+
+const snippetFromPage = (page = {}, query = '', maxLength = 240) => {
+  const haystack = cleanText([
+    page.title,
+    page.summary,
+    page.plainText,
+    page.bodyMarkdown,
+    page.body
+  ].filter(Boolean).join(' '));
+  if (!haystack) return '';
+  const needle = cleanText(query).toLowerCase();
+  const lower = haystack.toLowerCase();
+  const hitIndex = needle ? lower.indexOf(needle) : -1;
+  const start = hitIndex > 40 ? hitIndex - 40 : 0;
+  const snippet = haystack.slice(start, start + maxLength);
+  return `${start > 0 ? '...' : ''}${snippet}${start + maxLength < haystack.length ? '...' : ''}`;
+};
+
+const normalizePageSummary = (page = {}) => ({
+  id: pickId(page),
+  title: page.title || 'Untitled wiki page',
+  pageType: page.pageType || page.kind || 'topic',
+  slug: page.slug || '',
+  updatedAt: page.updatedAt || page.lastReviewedAt || page.createdAt || null
+});
+
+const normalizeSearchHit = (page = {}, query = '') => ({
+  ...normalizePageSummary(page),
+  snippet: snippetFromPage(page, query)
+});
+
+const normalizeFullPage = (page = {}) => ({
+  ...page,
+  id: pickId(page),
+  title: page.title || 'Untitled wiki page',
+  pageType: page.pageType || page.kind || 'topic',
+  body: page.body || page.bodyMarkdown || page.plainText || '',
+  sources: Array.isArray(page.sources)
+    ? page.sources
+    : (Array.isArray(page.sourceRefs) ? page.sourceRefs : []),
+  claims: Array.isArray(page.claims) ? page.claims : [],
+  infobox: page.infobox || page.aiState?.infobox || null
+});
+
+const normalizeArrayPayload = (payload, key) => {
+  if (Array.isArray(payload)) return payload;
+  if (Array.isArray(payload?.[key])) return payload[key];
+  return [];
+};
+
 export class NoeisApiError extends Error {
   constructor(message, { status = 0, body = null, retryAfter = null } = {}) {
     super(message);
@@ -92,11 +150,13 @@ export class NoeisClient {
   }
 
   listPages(args = {}) {
-    return this.request('/api/wiki/pages', { query: args });
+    return this.request('/api/wiki/pages', { query: args }).then(pages => (
+      normalizeArrayPayload(pages, 'pages').map(normalizePageSummary)
+    ));
   }
 
   getPage({ pageId }) {
-    return this.request(`/api/wiki/pages/${encodeURIComponent(pageId)}`);
+    return this.request(`/api/wiki/pages/${encodeURIComponent(pageId)}`).then(normalizeFullPage);
   }
 
   getPageMarkdown({ pageId }) {
@@ -104,7 +164,9 @@ export class NoeisClient {
   }
 
   searchPages({ query, limit = 20, pageType, status, visibility } = {}) {
-    return this.listPages({ q: query, limit, pageType, status, visibility });
+    return this.request('/api/wiki/pages', {
+      query: { q: query, limit, pageType, status, visibility }
+    }).then(pages => normalizeArrayPayload(pages, 'pages').map(page => normalizeSearchHit(page, query)));
   }
 
   getSchema() {
@@ -115,16 +177,45 @@ export class NoeisClient {
     return this.request('/api/wiki/briefing');
   }
 
-  getBacklinks({ pageId }) {
+  listSources({ pageId }) {
+    return this.request(`/api/wiki/pages/${encodeURIComponent(pageId)}`).then(page => ({
+      pageId: pickId(page) || pageId,
+      sources: Array.isArray(page.sources)
+        ? page.sources
+        : (Array.isArray(page.sourceRefs) ? page.sourceRefs : [])
+    }));
+  }
+
+  listBacklinks({ pageId }) {
     return this.request(`/api/wiki/pages/${encodeURIComponent(pageId)}/backlinks`);
   }
 
-  listActivity({ limit = 50 } = {}) {
-    return this.request('/api/wiki/activity', { query: { limit } });
+  getBacklinks(args) {
+    return this.listBacklinks(args);
   }
 
-  listRevisions({ pageId }) {
-    return this.request(`/api/wiki/pages/${encodeURIComponent(pageId)}/revisions`);
+  listActivity({ limit = 50, since } = {}) {
+    return this.request('/api/wiki/activity', { query: { limit, since } }).then(payload => {
+      const events = normalizeArrayPayload(payload, 'events');
+      if (!since) return { events };
+      const sinceTime = new Date(since).getTime();
+      if (Number.isNaN(sinceTime)) return { events };
+      return {
+        events: events.filter(event => {
+          const eventTime = new Date(event.at || event.createdAt || event.updatedAt).getTime();
+          return !Number.isNaN(eventTime) && eventTime >= sinceTime;
+        })
+      };
+    });
+  }
+
+  listRevisions({ pageId, limit = 50 }) {
+    return this.request(`/api/wiki/pages/${encodeURIComponent(pageId)}/revisions`, {
+      query: { limit }
+    }).then(payload => {
+      const revisions = normalizeArrayPayload(payload, 'revisions').slice(0, limit);
+      return { revisions };
+    });
   }
 
   listSourceEvents({ status, limit = 50 } = {}) {
@@ -139,8 +230,12 @@ export class NoeisClient {
     return this.request('/api/wiki/proposals');
   }
 
-  getAutolinks({ pageId }) {
+  listAutolinks({ pageId }) {
     return this.request(`/api/wiki/pages/${encodeURIComponent(pageId)}/autolinks`);
+  }
+
+  getAutolinks(args) {
+    return this.listAutolinks(args);
   }
 
   getLintRun({ runId }) {

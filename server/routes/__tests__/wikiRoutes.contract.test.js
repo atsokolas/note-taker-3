@@ -1044,6 +1044,11 @@ const run = async () => {
     assert.ok(activity.body.events.some(event => event.type === 'maintenance' && event.runId));
     const activityTimes = activity.body.events.map(event => new Date(event.at).getTime());
     assert.deepStrictEqual(activityTimes, [...activityTimes].sort((a, b) => b - a));
+    const futureActivity = await request(url, '/api/wiki/activity?limit=20&since=2100-01-01T00%3A00%3A00.000Z');
+    assert.strictEqual(futureActivity.res.status, 200, futureActivity.text);
+    assert.deepStrictEqual(futureActivity.body.events, []);
+    const invalidSinceActivity = await request(url, '/api/wiki/activity?since=not-a-date');
+    assert.strictEqual(invalidSinceActivity.res.status, 400, invalidSinceActivity.text);
 
     const undoneIngest = await request(url, `/api/wiki/ingest/${ingest.body.runId}/undo`, { method: 'POST' });
     assert.strictEqual(undoneIngest.res.status, 200, undoneIngest.text);

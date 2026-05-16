@@ -2069,6 +2069,11 @@ const buildWikiRouter = ({
   router.get('/api/wiki/activity', authenticateToken, async (req, res) => {
     try {
       const limit = Math.max(1, Math.min(Number(req.query.limit) || 50, 100));
+      const sinceRaw = String(req.query.since || '').trim();
+      const sinceDate = sinceRaw ? new Date(sinceRaw) : null;
+      if (sinceRaw && Number.isNaN(sinceDate.getTime())) {
+        return res.status(400).json({ error: 'since must be a valid date or timestamp.' });
+      }
       const [sourceEvents, maintenanceRuns, lintRuns, pages] = await Promise.all([
         WikiSourceEvent
           ? WikiSourceEvent.find({ userId: req.user.id }).sort({ createdAt: -1 }).limit(limit).lean()
@@ -2135,7 +2140,11 @@ const buildWikiRouter = ({
           summary: cleanWikiSummary(discussion.errorMessage || ''),
           at: discussion.askedAt || page.updatedAt
         })))
-      ]).slice(0, limit);
+      ]).filter(event => {
+        if (!sinceDate) return true;
+        const eventDate = new Date(event.at);
+        return !Number.isNaN(eventDate.getTime()) && eventDate.getTime() >= sinceDate.getTime();
+      }).slice(0, limit);
       res.status(200).json({ events });
     } catch (error) {
       console.error('Error listing wiki activity:', error);
@@ -2266,7 +2275,8 @@ const buildWikiRouter = ({
       const page = await findOwnedPage(req).select('_id').lean();
       if (!page) return res.status(404).json({ error: 'Wiki page not found.' });
       if (!WikiRevision) return res.status(200).json({ revisions: [] });
-      const revisions = await WikiRevision.find({ userId: req.user.id, pageId: req.params.id }).sort({ createdAt: -1 }).limit(50).lean();
+      const limit = Math.max(1, Math.min(Number(req.query.limit) || 50, 100));
+      const revisions = await WikiRevision.find({ userId: req.user.id, pageId: req.params.id }).sort({ createdAt: -1 }).limit(limit).lean();
       res.status(200).json({ revisions });
     } catch (error) {
       console.error('Error listing wiki revisions:', error);
