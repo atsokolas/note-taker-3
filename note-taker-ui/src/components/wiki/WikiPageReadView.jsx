@@ -429,6 +429,24 @@ const WikiPageReadView = ({ pageId, onEdit, workspaceMode = false }) => {
   const [preview, setPreview] = useState(null);
   const [lastVisit, setLastVisit] = useState(null);
   const [activeTab, setActiveTab] = useState('article');
+  // AT-22 (Bucket 2): rail is collapsible-by-default. Persisted across pages
+  // so once a reader opens context they keep it open until they hide it again.
+  // Wikipedia / Tolkien Gateway reading shape — body owns the canvas.
+  const [railCollapsed, setRailCollapsed] = useState(() => {
+    try {
+      const raw = window.localStorage?.getItem('noeis.wiki.read.rail_collapsed');
+      // Default: collapsed. Anything explicitly set to '0' or 'false' opens it.
+      if (raw === '0' || raw === 'false') return false;
+      return true;
+    } catch (_e) {
+      return true;
+    }
+  });
+  useEffect(() => {
+    try {
+      window.localStorage?.setItem('noeis.wiki.read.rail_collapsed', railCollapsed ? '1' : '0');
+    } catch (_e) { /* ignore quota / private mode */ }
+  }, [railCollapsed]);
   const previewTimerRef = useRef(null);
   const previewDismissTimerRef = useRef(null);
   const latestPageRef = useRef(null);
@@ -765,7 +783,7 @@ const WikiPageReadView = ({ pageId, onEdit, workspaceMode = false }) => {
         onMarkReviewed={handleMarkReviewed}
       />
       <WikiBuildPageComposer compact className="wiki-read__build-page" />
-      <div className="wiki-read__layout">
+      <div className={`wiki-read__layout${railCollapsed ? ' wiki-read__layout--rail-collapsed' : ''}`}>
         <aside className="wiki-read__toc">
           {tocItems.length ? (
             <nav aria-label="Page sections">
@@ -863,9 +881,37 @@ const WikiPageReadView = ({ pageId, onEdit, workspaceMode = false }) => {
             </section>
           )}
         </article>
-        <aside className="wiki-read__rail" aria-label="Page context">
-          {!workspaceMode ? <WikiAgentPresence page={page} isMaintaining={maintaining} onMaintain={handleMaintain} /> : null}
-          <section className="wiki-read__infobox wiki-read__infobox--structured">
+        <aside
+          className={`wiki-read__rail${railCollapsed ? ' wiki-read__rail--collapsed' : ''}`}
+          aria-label="Page context"
+        >
+          {railCollapsed ? (
+            <button
+              type="button"
+              className="wiki-read__rail-toggle wiki-read__rail-toggle--show"
+              onClick={() => setRailCollapsed(false)}
+              aria-expanded="false"
+              aria-controls="wiki-read-rail-content"
+              title="Show context"
+            >
+              <span aria-hidden="true">›</span>
+              <span className="wiki-read__rail-toggle-label">Show context</span>
+            </button>
+          ) : (
+            <div id="wiki-read-rail-content" className="wiki-read__rail-content">
+              <button
+                type="button"
+                className="wiki-read__rail-toggle wiki-read__rail-toggle--hide"
+                onClick={() => setRailCollapsed(true)}
+                aria-expanded="true"
+                aria-controls="wiki-read-rail-content"
+                title="Hide context"
+              >
+                <span aria-hidden="true">‹</span>
+                <span className="wiki-read__rail-toggle-label">Hide</span>
+              </button>
+              {!workspaceMode ? <WikiAgentPresence page={page} isMaintaining={maintaining} onMaintain={handleMaintain} /> : null}
+              <section className="wiki-read__infobox wiki-read__infobox--structured">
             <h2>{labelFor(page.pageType || 'topic')}</h2>
             <dl>
               {infoboxRows.map(row => (
@@ -918,6 +964,8 @@ const WikiPageReadView = ({ pageId, onEdit, workspaceMode = false }) => {
               </ol>
             </section>
           ) : null}
+            </div>
+          )}
         </aside>
       </div>
       {activeClaim ? (

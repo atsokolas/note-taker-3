@@ -4361,12 +4361,76 @@ html[data-ui-theme='dark'] {
   align-items: start;
 }
 
+/* AT-22 (Bucket 2): when the rail is collapsed by default, give the body
+   the canvas — Wikipedia / Tolkien Gateway reading shape. The rail column
+   shrinks to a thin gutter and the article fills 800-880px. */
+.wiki-read__layout--rail-collapsed {
+  grid-template-columns: minmax(160px, 220px) minmax(0, 880px) 36px;
+  gap: 24px;
+}
+
 .wiki-read__toc,
 .wiki-read__rail {
   position: sticky;
   top: 24px;
   display: grid;
   gap: 14px;
+}
+
+.wiki-read__rail--collapsed {
+  gap: 0;
+  justify-items: end;
+}
+
+.wiki-read__rail-content {
+  display: grid;
+  gap: 14px;
+}
+
+.wiki-read__rail-toggle {
+  appearance: none;
+  background: transparent;
+  border: 1px solid color-mix(in srgb, var(--nt-divider) 72%, transparent);
+  border-radius: 999px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 1;
+  transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
+}
+
+.wiki-read__rail-toggle:hover,
+.wiki-read__rail-toggle:focus-visible {
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  color: var(--text-primary);
+  border-color: color-mix(in srgb, var(--nt-divider) 92%, transparent);
+  outline: none;
+}
+
+.wiki-read__rail-toggle--show {
+  /* Render vertically so the gutter stays slim. */
+  flex-direction: column;
+  padding: 10px 6px;
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  gap: 8px;
+  letter-spacing: 0.04em;
+}
+
+.wiki-read__rail-toggle--show .wiki-read__rail-toggle-label {
+  text-transform: uppercase;
+  font-size: 0.65rem;
+}
+
+.wiki-read__rail-toggle--hide {
+  align-self: end;
+  justify-self: end;
+  margin-bottom: 4px;
 }
 
 .wiki-read__toc nav,
