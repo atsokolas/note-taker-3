@@ -1,0 +1,128 @@
+# @noeis/wiki-mcp
+
+MCP server for driving a Noeis wiki from external agents.
+
+## Requirements
+
+- Node 18.17+
+- A Noeis connected-agent token from `Settings -> Connected agents`
+- Optional: `NOEIS_API_URL` if you are not using the hosted API
+
+## Run
+
+```bash
+NOEIS_TOKEN="ntk_at_..." npx -y @noeis/wiki-mcp
+```
+
+`NOEIS_API_URL` defaults to `https://api.noeis.io`.
+
+## Claude Code
+
+Add this to `~/.config/claude-code/mcp.json`:
+
+```json
+{
+  "noeis-wiki": {
+    "command": "npx",
+    "args": ["-y", "@noeis/wiki-mcp"],
+    "env": {
+      "NOEIS_TOKEN": "ntk_at_..."
+    }
+  }
+}
+```
+
+Then run `claude` and check `/mcp`.
+
+## Codex
+
+Add this to `~/.codex/config.toml`:
+
+```toml
+[mcp_servers.noeis-wiki]
+command = "npx"
+args = ["-y", "@noeis/wiki-mcp"]
+env = { NOEIS_TOKEN = "ntk_at_..." }
+```
+
+Restart Codex and confirm the `noeis-wiki` MCP server is connected.
+
+## OpenCode
+
+Add this server to your OpenCode MCP config:
+
+```json
+{
+  "mcp": {
+    "noeis-wiki": {
+      "command": "npx",
+      "args": ["-y", "@noeis/wiki-mcp"],
+      "env": {
+        "NOEIS_TOKEN": "ntk_at_..."
+      }
+    }
+  }
+}
+```
+
+## Hermes
+
+Add a stdio MCP server named `noeis-wiki`:
+
+```json
+{
+  "servers": {
+    "noeis-wiki": {
+      "transport": "stdio",
+      "command": "npx",
+      "args": ["-y", "@noeis/wiki-mcp"],
+      "env": {
+        "NOEIS_TOKEN": "ntk_at_..."
+      }
+    }
+  }
+}
+```
+
+## Optional local API
+
+For local development:
+
+```json
+{
+  "NOEIS_TOKEN": "ntk_at_...",
+  "NOEIS_API_URL": "http://localhost:5500"
+}
+```
+
+## Tools
+
+Read tools available now:
+
+- `list_pages`
+- `get_page`
+- `get_page_markdown`
+- `search_pages`
+- `get_schema`
+- `get_briefing`
+- `get_backlinks`
+- `list_activity`
+- `list_revisions`
+- `list_source_events`
+- `get_ingest_run`
+- `list_proposals`
+- `get_autolinks`
+- `get_lint_run`
+
+Reserved write tools are listed so agents can see the intended surface, but return `not_implemented` until the write-tool slice lands:
+
+- `create_page`
+- `update_page`
+- `archive_page`
+- `ingest_source`
+- `draft_page`
+- `ask_page`
+
+## Prompt
+
+- `wiki_schema`: fetches the current Noeis wiki schema markdown and returns it as prompt context.

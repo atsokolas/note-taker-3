@@ -6,6 +6,7 @@ import ExternalBridgeCard from '../components/integrations/ExternalBridgeCard';
 import HandoffQueueCard from '../components/integrations/HandoffQueueCard';
 import OrchestrationPolicyCard from '../components/integrations/OrchestrationPolicyCard';
 import PersonalAgentsCard from '../components/integrations/PersonalAgentsCard';
+import WikiMcpConnectCard from '../components/integrations/WikiMcpConnectCard';
 import useHandoffs from '../hooks/useHandoffs';
 import useAgentBridge from '../hooks/integrations/useAgentBridge';
 import useAgentEntitlements from '../hooks/integrations/useAgentEntitlements';
@@ -46,6 +47,8 @@ const Integrations = () => {
         showAdvanced={showAdvancedAgentSettings}
         onToggleAdvanced={() => setShowAdvancedAgentSettings((previous) => !previous)}
       />
+
+      <WikiMcpConnectCard />
 
       <HandoffQueueCard
         handoffsModel={handoffsModel}

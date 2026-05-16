@@ -1,0 +1,32 @@
+{
+  "name": "@noeis/wiki-mcp",
+  "version": "0.1.0",
+  "description": "MCP server for driving a Noeis wiki from external agents.",
+  "type": "module",
+  "bin": {
+    "noeis-wiki-mcp": "bin/noeis-wiki-mcp"
+  },
+  "files": [
+    "bin",
+    "src",
+    "README.md"
+  ],
+  "scripts": {
+    "test": "node test/server.test.js",
+    "smoke": "node bin/noeis-wiki-mcp --help"
+  },
+  "keywords": [
+    "noeis",
+    "mcp",
+    "wiki",
+    "agent"
+  ],
+  "license": "ISC",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "zod": "^3.25.76"
+  },
+  "engines": {
+    "node": ">=18.17"
+  }
+}
