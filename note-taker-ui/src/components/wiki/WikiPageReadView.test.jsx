@@ -148,6 +148,10 @@ describe('WikiPageReadView', () => {
     expect(screen.queryByLabelText('Wiki page title')).not.toBeInTheDocument();
     expect(screen.queryByTestId('wiki-editor-content')).not.toBeInTheDocument();
     expect(document.querySelector('[contenteditable="true"]')).not.toBeInTheDocument();
+    // AT-22: rail starts collapsed; expand it so the infobox (which renders the page-type header) is in the DOM.
+    const railEl = await screen.findByRole('complementary', { name: 'Page context' });
+    const showContextBtn = within(railEl).queryByRole('button', { name: /show context/i });
+    if (showContextBtn) await act(async () => { fireEvent.click(showContextBtn); });
     expect(screen.getAllByText('Overview').length).toBeGreaterThan(0);
     expect(screen.getByRole('navigation', { name: 'Page sections' })).toHaveTextContent('Core idea');
     expect(screen.getByRole('navigation', { name: 'Page sections' })).toHaveTextContent('Open questions');
@@ -328,9 +332,38 @@ describe('WikiPageReadView', () => {
       );
 
       const rail = await screen.findByRole('complementary', { name: 'Page context' });
+      // AT-22: rail starts collapsed by default — open it before asserting on infobox content.
+      const showContext = within(rail).queryByRole('button', { name: /show context/i });
+      if (showContext) {
+        await act(async () => { fireEvent.click(showContext); });
+      }
       expectedText.forEach(text => expect(rail).toHaveTextContent(text));
       unmount();
     }
+  });
+
+  it('AT-22 — defaults the page-context rail to collapsed and toggles via Show/Hide', async () => {
+    render(
+      <MemoryRouter>
+        <WikiPageReadView pageId="wiki-1" onEdit={jest.fn()} />
+      </MemoryRouter>
+    );
+
+    const rail = await screen.findByRole('complementary', { name: 'Page context' });
+    expect(rail).toHaveClass('wiki-read__rail--collapsed');
+    expect(within(rail).getByRole('button', { name: /show context/i })).toHaveAttribute('aria-expanded', 'false');
+    // Collapsed: infobox content is not in the DOM.
+    expect(rail.querySelector('.wiki-read__infobox')).not.toBeInTheDocument();
+
+    await act(async () => { fireEvent.click(within(rail).getByRole('button', { name: /show context/i })); });
+    expect(rail).not.toHaveClass('wiki-read__rail--collapsed');
+    expect(rail.querySelector('.wiki-read__infobox')).toBeInTheDocument();
+    expect(within(rail).getByRole('button', { name: /hide/i })).toHaveAttribute('aria-expanded', 'true');
+    expect(window.localStorage.getItem('noeis.wiki.read.rail_collapsed')).toBe('0');
+
+    await act(async () => { fireEvent.click(within(rail).getByRole('button', { name: /hide/i })); });
+    expect(rail).toHaveClass('wiki-read__rail--collapsed');
+    expect(window.localStorage.getItem('noeis.wiki.read.rail_collapsed')).toBe('1');
   });
 
   it('surfaces pending signal state from page API quality issues and weak claim health', async () => {
@@ -352,6 +385,10 @@ describe('WikiPageReadView', () => {
       </MemoryRouter>
     );
 
+    // AT-22: rail starts collapsed; expand it so WikiAgentPresence (and its 'Agent status' role) is in the DOM.
+    const presenceRail = await screen.findByRole('complementary', { name: 'Page context' });
+    const presenceToggle = within(presenceRail).queryByRole('button', { name: /show context/i });
+    if (presenceToggle) await act(async () => { fireEvent.click(presenceToggle); });
     const status = await screen.findByRole('status', { name: 'Agent status' });
     expect(status).toHaveTextContent('2 signals pending review');
     expect(status).toHaveTextContent('New material may affect this page.');
