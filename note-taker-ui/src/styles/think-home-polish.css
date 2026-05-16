@@ -7048,6 +7048,91 @@ html[data-ui-theme='dark'] .wiki-activity-rail__graph-alerts span {
   white-space: pre-wrap;
 }
 
+.wiki-workspace-lint-card {
+  display: grid;
+  gap: 10px;
+  padding-top: 6px;
+}
+
+.wiki-workspace-lint-card header {
+  display: grid;
+  gap: 4px;
+  padding: 0;
+  border: 0;
+}
+
+.wiki-workspace-lint-card header strong {
+  color: var(--text-primary);
+  font-size: 0.88rem;
+}
+
+.wiki-workspace-lint-card header span,
+.wiki-workspace-lint-card em {
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+  font-style: normal;
+  line-height: 1.35;
+}
+
+.wiki-workspace-lint-card ol {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.wiki-workspace-lint-card li {
+  display: grid;
+  gap: 8px;
+  padding: 9px;
+  border: 1px solid color-mix(in srgb, var(--nt-divider) 78%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+}
+
+.wiki-workspace-lint-card li > div:first-child {
+  display: grid;
+  gap: 4px;
+}
+
+.wiki-workspace-lint-card li span {
+  letter-spacing: 0.08em;
+}
+
+.wiki-workspace-lint-card li strong {
+  color: var(--text-primary);
+  font-size: 0.86rem;
+}
+
+.wiki-workspace-lint-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.wiki-workspace-lint-card__actions button {
+  min-height: 28px;
+  padding: 5px 8px;
+  border: 1px solid color-mix(in srgb, var(--nt-divider) 80%, transparent);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text-primary);
+  cursor: pointer;
+  font-size: 0.74rem;
+  font-weight: 750;
+}
+
+.wiki-workspace-lint-card__actions button:hover,
+.wiki-workspace-lint-card__actions button:focus-visible {
+  border-color: var(--accent-primary, var(--primary-color));
+}
+
+.wiki-workspace-lint-card__actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
 .wiki-workspace-chat__composer {
   display: grid;
   gap: 10px;

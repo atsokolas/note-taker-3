@@ -79,6 +79,85 @@ export const lintWiki = async ({ pageId = '' } = {}) => {
   return res.data || {};
 };
 
+export const streamLintWiki = async ({ pageId = '' } = {}, handlers = {}) => {
+  const token = localStorage.getItem('token');
+  const res = await fetch(apiUrl('/api/wiki/lint/stream'), {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {})
+    },
+    body: JSON.stringify({ pageId })
+  });
+
+  if (!res.ok) {
+    let message = 'Failed to lint wiki.';
+    try {
+      const body = await res.json();
+      message = body?.error || message;
+    } catch (_error) {
+      // Preserve the generic error if the stream endpoint did not return JSON.
+    }
+    throw new Error(message);
+  }
+
+  if (!res.body?.getReader) {
+    const body = await res.json();
+    handlers.onRun?.(body);
+    return body;
+  }
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  let finalRun = null;
+  let streamError = null;
+
+  const consumeBlock = (block) => {
+    const { event, payload } = parseSseBlock(block);
+    if (!payload) return;
+    handlers.onEvent?.(event, payload);
+    if (payload.run) {
+      finalRun = payload.run;
+      handlers.onRun?.(payload.run, payload);
+    }
+    if (event === 'error') {
+      streamError = new Error(payload.error || payload.message || 'Failed to lint wiki.');
+    }
+  };
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const blocks = buffer.split(/\r?\n\r?\n/);
+    buffer = blocks.pop() || '';
+    blocks.forEach(consumeBlock);
+  }
+  buffer += decoder.decode();
+  if (buffer.trim()) consumeBlock(buffer);
+  if (streamError) throw streamError;
+  return finalRun;
+};
+
+export const getWikiLintRun = async (runId) => {
+  const res = await api.get(`/api/wiki/lint/${safeId(runId)}`, getAuthHeaders());
+  return res.data || {};
+};
+
+const mutateWikiLintFinding = async (runId, findingId, action) => {
+  const res = await api.post(
+    `/api/wiki/lint/${safeId(runId)}/findings/${safeId(findingId)}/${safeId(action)}`,
+    {},
+    getAuthHeaders()
+  );
+  return res.data || {};
+};
+
+export const acceptWikiLintFinding = (runId, findingId) => mutateWikiLintFinding(runId, findingId, 'accept');
+export const ignoreWikiLintFinding = (runId, findingId) => mutateWikiLintFinding(runId, findingId, 'ignore');
+export const fixWikiLintFinding = (runId, findingId) => mutateWikiLintFinding(runId, findingId, 'fix');
+
 export const updateWikiPage = async (id, updates = {}) => {
   const res = await api.patch(`${WIKI_PAGES_PATH}/${safeId(id)}`, updates, getAuthHeaders());
   return res.data;
@@ -349,6 +428,11 @@ const wikiApi = {
   getWikiExportZipUrl,
   downloadWikiExportZip,
   lintWiki,
+  streamLintWiki,
+  getWikiLintRun,
+  acceptWikiLintFinding,
+  ignoreWikiLintFinding,
+  fixWikiLintFinding,
   updateWikiPage,
   archiveWikiPage,
   deleteWikiPage,

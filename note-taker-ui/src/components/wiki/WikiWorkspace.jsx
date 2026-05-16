@@ -9,8 +9,11 @@ import {
   ingestWikiSource,
   listWikiActivity,
   listWikiPages,
-  lintWiki,
+  acceptWikiLintFinding,
+  fixWikiLintFinding,
+  ignoreWikiLintFinding,
   saveWikiSchema,
+  streamLintWiki,
   streamMaintainWikiPage
 } from '../../api/wiki';
 import { buildWikiCreatePayload } from '../../utils/wikiCreate';
@@ -153,6 +156,38 @@ const formatLintSummary = (run = {}) => {
     .map(finding => `- ${finding.pageTitle ? `${finding.pageTitle}: ` : ''}${finding.title || finding.type}${finding.summary ? ` — ${finding.summary}` : ''}`)
     .join('\n');
   return `${headline}\n${nonZero.map(([label, count]) => `${count} ${label}`).join(' · ')}${topFindings ? `\n\n${topFindings}` : ''}`;
+};
+
+const LINT_GROUP_LABELS = {
+  contradictions: 'Contradictions',
+  stale: 'Stale pages',
+  gaps: 'Evidence gaps',
+  orphans: 'Orphans',
+  missingPages: 'Missing pages',
+  missingLinks: 'Missing links'
+};
+
+const lintFindings = (run = {}) => Object.entries(run.findings || {})
+  .flatMap(([group, rows]) => (
+    Array.isArray(rows)
+      ? rows.map(finding => ({ ...finding, group }))
+      : []
+  ))
+  .filter(finding => finding.status !== 'ignored');
+
+const actionLabel = (action, finding = {}) => {
+  if (action === 'accept') {
+    if (finding.type === 'missing_page') return 'Create';
+    if (finding.type === 'missing_link') return 'Link';
+    if (finding.type === 'stale') return 'Draft';
+    return 'Accept';
+  }
+  if (action === 'fix') {
+    if (finding.type === 'stale') return 'Draft';
+    if (finding.type === 'missing_page') return 'Create + draft';
+    return 'Fix';
+  }
+  return 'Ignore';
 };
 
 const viewPathFor = ({ view = 'graph', page = '' } = {}) => {
@@ -305,6 +340,107 @@ const WorkspaceSchema = () => {
         {status ? <span role="status">{status}</span> : null}
       </div>
     </section>
+  );
+};
+
+const WikiLintResultCard = ({ run, onNavigate, onPageChanged, onAppend }) => {
+  const [currentRun, setCurrentRun] = useState(run || {});
+  const [busyFinding, setBusyFinding] = useState('');
+  const findings = useMemo(() => lintFindings(currentRun), [currentRun]);
+  const runId = clean(currentRun.runId || currentRun._id);
+
+  useEffect(() => {
+    setCurrentRun(run || {});
+  }, [run]);
+
+  const handleAction = async (finding, action) => {
+    if (!runId || !finding.id) return;
+    setBusyFinding(`${finding.id}:${action}`);
+    try {
+      const mutate = action === 'accept'
+        ? acceptWikiLintFinding
+        : action === 'fix'
+          ? fixWikiLintFinding
+          : ignoreWikiLintFinding;
+      const result = await mutate(runId, finding.id);
+      if (result?.run) setCurrentRun(result.run);
+      if (result?.page?._id || result?.page?.id) {
+        const pageId = clean(result.page._id || result.page.id);
+        onPageChanged?.(pageId);
+        onNavigate?.({ page: pageId });
+      }
+      onAppend?.({
+        role: 'assistant',
+        text: `${actionLabel(action, finding)} complete for ${finding.title || finding.type}.`
+      });
+    } catch (_error) {
+      onAppend?.({
+        role: 'assistant',
+        text: `${actionLabel(action, finding)} failed for ${finding.title || finding.type}.`
+      });
+    } finally {
+      setBusyFinding('');
+    }
+  };
+
+  return (
+    <div className="wiki-workspace-lint-card">
+      <header>
+        <strong>Wiki lint</strong>
+        <span>{currentRun.summary || 'Structural scan complete.'}</span>
+      </header>
+      {findings.length ? (
+        <ol>
+          {findings.slice(0, 12).map(finding => (
+            <li key={finding.id || `${finding.group}-${finding.title}`}>
+              <div>
+                <span>{LINT_GROUP_LABELS[finding.group] || finding.type}</span>
+                <strong>{finding.title || finding.type}</strong>
+                {finding.summary ? <p>{finding.summary}</p> : null}
+                {finding.recommendedAction ? <em>{finding.recommendedAction}</em> : null}
+              </div>
+              <div className="wiki-workspace-lint-card__actions">
+                {finding.actionability === 'automatic' ? (
+                  <>
+                    <button
+                      type="button"
+                      disabled={Boolean(busyFinding)}
+                      onClick={() => handleAction(finding, 'accept')}
+                    >
+                      {busyFinding === `${finding.id}:accept` ? 'Working...' : actionLabel('accept', finding)}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={Boolean(busyFinding)}
+                      onClick={() => handleAction(finding, 'fix')}
+                    >
+                      {busyFinding === `${finding.id}:fix` ? 'Working...' : actionLabel('fix', finding)}
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    type="button"
+                    disabled={Boolean(busyFinding)}
+                    onClick={() => handleAction(finding, 'accept')}
+                  >
+                    {busyFinding === `${finding.id}:accept` ? 'Working...' : actionLabel('accept', finding)}
+                  </button>
+                )}
+                <button
+                  type="button"
+                  disabled={Boolean(busyFinding)}
+                  onClick={() => handleAction(finding, 'ignore')}
+                >
+                  {busyFinding === `${finding.id}:ignore` ? 'Working...' : 'Ignore'}
+                </button>
+              </div>
+            </li>
+          ))}
+        </ol>
+      ) : (
+        <p>No open lint findings.</p>
+      )}
+    </div>
   );
 };
 
@@ -500,9 +636,16 @@ const WikiWorkspaceChat = ({ selectedPageId, view, onNavigate, onPageChanged, bu
       const lintTarget = parseWikiRef(command.args);
       setBusy(true);
       try {
-        const result = await lintWiki({ pageId: lintTarget || '' });
-        append({ role: 'assistant', text: formatLintSummary(result) });
-        onNavigate({ view: 'activity' });
+        append({ role: 'assistant', text: lintTarget ? `Linting @wiki:${lintTarget}.` : 'Linting the wiki.' });
+        const result = await streamLintWiki({ pageId: lintTarget || '' }, {
+          onEvent: (event, payload = {}) => {
+            if (event !== 'wiki-lint') return;
+            if (payload.stage === 'loading_pages' || payload.stage === 'persisting') {
+              append({ role: 'assistant', text: payload.summary || 'Wiki lint is running.' });
+            }
+          }
+        });
+        append({ role: 'assistant', text: formatLintSummary(result), lintRun: result });
       } catch (_error) {
         append({ role: 'assistant', text: 'Wiki lint failed.' });
       } finally {
@@ -616,6 +759,14 @@ const WikiWorkspaceChat = ({ selectedPageId, view, onNavigate, onPageChanged, bu
           <article key={message.id} className={`wiki-workspace-chat__message is-${message.role}`}>
             <span>{message.role === 'user' ? 'You' : 'Agent'}</span>
             <p>{message.text}</p>
+            {message.lintRun ? (
+              <WikiLintResultCard
+                run={message.lintRun}
+                onNavigate={onNavigate}
+                onPageChanged={onPageChanged}
+                onAppend={append}
+              />
+            ) : null}
           </article>
         ))}
       </div>

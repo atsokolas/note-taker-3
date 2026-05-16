@@ -707,6 +707,221 @@ const buildWikiRouter = ({
     });
   };
 
+  const openWikiLintStream = (res) => {
+    res.status(200);
+    res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
+    res.setHeader('Cache-Control', 'no-cache, no-transform');
+    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no');
+    res.flushHeaders?.();
+    writeSse(res, 'wiki-lint', {
+      stage: 'connected',
+      summary: 'Connected to wiki lint stream.'
+    });
+  };
+
+  const serializeLintRun = (run) => {
+    if (!run) return null;
+    const raw = typeof run.toObject === 'function' ? run.toObject({ virtuals: false }) : { ...run };
+    return {
+      ...raw,
+      _id: serializeId(raw._id),
+      runId: serializeId(raw._id),
+      pageId: serializeId(raw.pageId),
+      findings: raw.findings || {},
+      resolutions: raw.resolutions || {},
+      actions: Array.isArray(raw.actions) ? raw.actions : []
+    };
+  };
+
+  const flattenLintFindings = (findings = {}) => Object.entries(findings || {})
+    .flatMap(([group, rows]) => (
+      Array.isArray(rows)
+        ? rows.map((finding, index) => ({ ...finding, group, index }))
+        : []
+    ));
+
+  const findLintRun = async (req) => {
+    if (!WikiLintRun) return null;
+    if (!mongoose.Types.ObjectId.isValid(String(req.params.runId || ''))) return null;
+    return WikiLintRun.findOne({ _id: req.params.runId, userId: req.user.id });
+  };
+
+  const findLintFinding = (run, findingId = '') => (
+    flattenLintFindings(run?.findings || {}).find(finding => String(finding.id || '') === String(findingId || '')) || null
+  );
+
+  const updateLintFinding = async ({ run, finding, status, action, result = {} }) => {
+    const findings = run.findings?.toObject ? run.findings.toObject() : clonePlain(run.findings || {});
+    const rows = Array.isArray(findings[finding.group]) ? findings[finding.group] : [];
+    if (!rows[finding.index]) return serializeLintRun(run);
+    rows[finding.index] = {
+      ...rows[finding.index],
+      status,
+      resolvedAt: new Date().toISOString()
+    };
+    findings[finding.group] = rows;
+    run.findings = findings;
+    run.resolutions = {
+      ...(run.resolutions?.toObject ? run.resolutions.toObject() : run.resolutions || {}),
+      [finding.id]: {
+        status,
+        action,
+        at: new Date().toISOString(),
+        result
+      }
+    };
+    run.actions = [
+      ...(Array.isArray(run.actions) ? run.actions : []),
+      {
+        findingId: finding.id,
+        findingType: finding.type,
+        action,
+        status,
+        result,
+        at: new Date()
+      }
+    ];
+    run.markModified?.('findings');
+    run.markModified?.('resolutions');
+    run.markModified?.('actions');
+    await run.save();
+    return serializeLintRun(run);
+  };
+
+  const runMaintenanceForLintPage = async (page, userId) => {
+    const before = snapshotPage(page);
+    await maintainWikiPage({
+      page,
+      userId,
+      wikiSchemaContent: await loadWikiSchemaContent(userId),
+      models: {
+        Article,
+        NotebookEntry,
+        TagMeta,
+        Question
+      }
+    });
+    await page.save();
+    await syncPageGraph(page, userId);
+    await createWikiRevision({
+      WikiRevision,
+      userId,
+      page,
+      before,
+      reason: 'agent_maintenance',
+      actorType: 'agent',
+      summary: page.aiState?.maintenanceSummary || `Maintained "${page.title}".`
+    });
+    return serializeWikiPage(page);
+  };
+
+  const createPageFromLintFinding = async ({ finding, userId, maintain = false }) => {
+    const title = normalizeTitle(finding.suggestedTitle || String(finding.title || '').replace(/^Potential page:\s*/i, ''));
+    const seedText = finding.summary || `Build a source-backed overview page for ${title}.`;
+    const page = new WikiPage({
+      userId,
+      title,
+      slug: await buildUniqueSlug(userId, title),
+      pageType: 'overview',
+      status: 'draft',
+      visibility: 'private',
+      sourceScope: 'entire_library',
+      createdFrom: {
+        type: 'wiki_index',
+        text: seedText,
+        label: 'Wiki lint'
+      },
+      sourceRefs: [],
+      body: buildDraftDoc({ title, seedText }),
+      plainText: `${title} ${seedText}`,
+      claims: [],
+      citations: [],
+      aiState: {
+        draftStatus: 'idle',
+        health: {},
+        quality: {},
+        changeLog: [],
+        suggestions: []
+      }
+    });
+    refreshPageClaims(page);
+    await page.save();
+    await syncPageGraph(page, userId);
+    await createWikiRevision({
+      WikiRevision,
+      userId,
+      page,
+      before: null,
+      reason: 'created',
+      actorType: 'agent',
+      summary: `Created "${page.title}" from wiki lint.`
+    });
+    if (maintain) return runMaintenanceForLintPage(page, userId);
+    return serializeWikiPage(page);
+  };
+
+  const applyLinkFromLintFinding = async ({ finding, userId }) => {
+    if (!finding.pageId || !finding.targetPageId) {
+      const error = new Error('Lint finding is missing source or target page.');
+      error.statusCode = 400;
+      throw error;
+    }
+    const page = await WikiPage.findOne({ _id: finding.pageId, userId, status: { $ne: 'archived' } });
+    if (!page) {
+      const error = new Error('Source wiki page not found.');
+      error.statusCode = 404;
+      throw error;
+    }
+    const targetPage = await WikiPage.findOne({ _id: finding.targetPageId, userId, status: { $ne: 'archived' } }).lean();
+    if (!targetPage) {
+      const error = new Error('Target wiki page not found.');
+      error.statusCode = 404;
+      throw error;
+    }
+    const before = snapshotPage(page);
+    const applied = applyWikiAutolinkToDoc({ doc: page.body || emptyDoc(), targetPage });
+    if (!applied.applied) {
+      const error = new Error('Could not apply link. The mention may already be linked or no longer exists.');
+      error.statusCode = 409;
+      throw error;
+    }
+    page.body = applied.doc;
+    page.plainText = extractPlainText(applied.doc);
+    await page.save();
+    await syncPageGraph(page, userId);
+    await createWikiRevision({
+      WikiRevision,
+      userId,
+      page,
+      before,
+      reason: 'user_edit',
+      actorType: 'agent',
+      summary: `Linked "${targetPage.title}" from wiki lint.`
+    });
+    return serializeWikiPage(page);
+  };
+
+  const resolveLintFindingAction = async ({ action, finding, userId }) => {
+    if (action === 'ignore') return { ignored: true };
+    if (finding.type === 'missing_page' && (action === 'accept' || action === 'fix')) {
+      return { page: await createPageFromLintFinding({ finding, userId, maintain: action === 'fix' }) };
+    }
+    if (finding.type === 'missing_link' && (action === 'accept' || action === 'fix')) {
+      return { page: await applyLinkFromLintFinding({ finding, userId }) };
+    }
+    if (finding.type === 'stale' && (action === 'accept' || action === 'fix')) {
+      const page = await WikiPage.findOne({ _id: finding.pageId, userId, status: { $ne: 'archived' } });
+      if (!page) {
+        const error = new Error('Wiki page not found.');
+        error.statusCode = 404;
+        throw error;
+      }
+      return { page: await runMaintenanceForLintPage(page, userId) };
+    }
+    return { reviewed: true };
+  };
+
   const findMaintenanceRunBySourceEvent = async ({ userId, sourceEventId } = {}) => {
     if (!WikiMaintenanceRun || !sourceEventId) return null;
     return WikiMaintenanceRun.findOne({ userId, sourceEventId }).sort({ createdAt: -1 }).lean();
@@ -970,6 +1185,74 @@ const buildWikiRouter = ({
     } catch (error) {
       console.error('Error linting wiki:', error);
       res.status(500).json({ error: 'Failed to lint wiki.' });
+    }
+  });
+
+  router.post('/api/wiki/lint/stream', authenticateToken, async (req, res) => {
+    try {
+      const pageId = String(req.body?.pageId || '').trim();
+      if (pageId && !mongoose.Types.ObjectId.isValid(pageId)) {
+        return res.status(400).json({ error: 'Invalid wiki page id.' });
+      }
+      if (pageId) {
+        const exists = await WikiPage.findOne({ _id: pageId, userId: req.user.id, status: { $ne: 'archived' } }).lean();
+        if (!exists) return res.status(404).json({ error: 'Wiki page not found.' });
+      }
+      openWikiLintStream(res);
+      const result = await lintWiki({
+        userId: req.user.id,
+        scope: pageId ? 'page' : 'all',
+        pageId,
+        models: wikiModels(),
+        findAutolinkSuggestions,
+        onProgress: event => writeSse(res, 'wiki-lint', event)
+      });
+      writeSse(res, 'wiki-lint', {
+        stage: 'complete',
+        summary: result.summary,
+        run: result
+      });
+      writeSse(res, 'done', { ok: true, runId: result.runId });
+      res.end();
+    } catch (error) {
+      console.error('Error streaming wiki lint:', error);
+      if (!res.headersSent) return res.status(500).json({ error: 'Failed to lint wiki.' });
+      writeSse(res, 'error', {
+        error: 'Failed to lint wiki.',
+        message: String(error.message || '')
+      });
+      res.end();
+    }
+  });
+
+  router.get('/api/wiki/lint/:runId', authenticateToken, async (req, res) => {
+    try {
+      const run = await findLintRun(req);
+      if (!run) return res.status(404).json({ error: 'Wiki lint run not found.' });
+      res.status(200).json(serializeLintRun(run));
+    } catch (error) {
+      console.error('Error loading wiki lint run:', error);
+      res.status(500).json({ error: 'Failed to load wiki lint run.' });
+    }
+  });
+
+  router.post('/api/wiki/lint/:runId/findings/:findingId/:action', authenticateToken, async (req, res) => {
+    try {
+      const action = String(req.params.action || '').trim();
+      if (!['accept', 'ignore', 'fix'].includes(action)) {
+        return res.status(400).json({ error: 'Unsupported lint action.' });
+      }
+      const run = await findLintRun(req);
+      if (!run) return res.status(404).json({ error: 'Wiki lint run not found.' });
+      const finding = findLintFinding(run, req.params.findingId);
+      if (!finding) return res.status(404).json({ error: 'Wiki lint finding not found.' });
+      const result = await resolveLintFindingAction({ action, finding, userId: req.user.id });
+      const status = action === 'ignore' ? 'ignored' : action === 'fix' ? 'fixed' : 'accepted';
+      const updatedRun = await updateLintFinding({ run, finding, status, action, result });
+      res.status(200).json({ run: updatedRun, findingId: finding.id, status, action, ...result });
+    } catch (error) {
+      console.error('Error resolving wiki lint finding:', error);
+      res.status(error.statusCode || 500).json({ error: error.message || 'Failed to resolve wiki lint finding.' });
     }
   });
 

@@ -6,17 +6,54 @@ const clean = (value = '') => String(value || '').replace(/\s+/g, ' ').trim();
 
 const serializeId = (value) => (value ? String(value) : '');
 
-const issue = ({ type, severity = 'info', page = null, title = '', summary = '', targetPage = null, evidence = [] }) => ({
+const stableKey = (...parts) => parts
+  .map(part => clean(part).toLowerCase())
+  .filter(Boolean)
+  .join(':')
+  .replace(/[^a-z0-9:_-]+/g, '-')
+  .replace(/-+/g, '-')
+  .slice(0, 220);
+
+const recommendedActionFor = (type) => {
+  if (type === 'missing_page') return 'Create an overview page from the repeated concept signal.';
+  if (type === 'missing_link') return 'Apply the suggested wiki link to the source page.';
+  if (type === 'stale') return 'Run page maintenance to fold in pending freshness work.';
+  if (type === 'contradiction') return 'Review the cited conflict and decide which claim survives.';
+  if (type === 'gap') return 'Attach stronger sources or mark the weak claim as unresolved.';
+  if (type === 'orphan') return 'Link this page from a related page or leave it isolated intentionally.';
+  return 'Review this finding.';
+};
+
+const issue = ({
   type,
-  severity,
-  pageId: serializeId(page?._id || page?.id),
-  pageTitle: page?.title || '',
-  targetPageId: serializeId(targetPage?._id || targetPage?.id),
-  targetPageTitle: targetPage?.title || '',
-  title,
-  summary,
-  evidence: Array.isArray(evidence) ? evidence.filter(Boolean).slice(0, 6) : []
-});
+  severity = 'info',
+  page = null,
+  title = '',
+  summary = '',
+  targetPage = null,
+  evidence = [],
+  suggestedTitle = ''
+}) => {
+  const pageId = serializeId(page?._id || page?.id);
+  const targetPageId = serializeId(targetPage?._id || targetPage?.id);
+  const normalizedSuggestedTitle = clean(suggestedTitle);
+  return {
+    id: stableKey(type, pageId, targetPageId, normalizedSuggestedTitle || title),
+    type,
+    status: 'open',
+    severity,
+    actionability: ['missing_page', 'missing_link', 'stale'].includes(type) ? 'automatic' : 'review',
+    recommendedAction: recommendedActionFor(type),
+    pageId,
+    pageTitle: page?.title || '',
+    targetPageId,
+    targetPageTitle: targetPage?.title || '',
+    suggestedTitle: normalizedSuggestedTitle,
+    title,
+    summary,
+    evidence: Array.isArray(evidence) ? evidence.filter(Boolean).slice(0, 6) : []
+  };
+};
 
 const bodyHasLinkTo = (node, targetPageId = '') => {
   if (!node || !targetPageId) return false;
@@ -76,6 +113,8 @@ const persistLintRun = async ({ WikiLintRun, userId, scope, pageId, findings, su
     pageId: pageId || null,
     status: 'completed',
     findings,
+    resolutions: {},
+    actions: [],
     summary,
     startedAt,
     completedAt
@@ -90,12 +129,14 @@ const lintWiki = async ({
   pageId = '',
   models = {},
   findAutolinkSuggestions = null,
-  now = new Date()
+  now = new Date(),
+  onProgress = null
 } = {}) => {
   const startedAt = now;
   const { WikiPage, WikiLintRun } = models;
   if (!WikiPage) throw new Error('WikiPage model is required.');
 
+  onProgress?.({ stage: 'loading_pages', summary: 'Loading wiki pages for lint.' });
   const query = { userId, status: { $ne: 'archived' } };
   const allPages = (await WikiPage.find(query).sort({ updatedAt: -1 }).limit(600).lean()).map(normalizePage);
   const scopedPages = pageId
@@ -120,7 +161,15 @@ const lintWiki = async ({
   const orphans = [];
   const missingLinks = [];
 
-  for (const page of scopedPages) {
+  for (const [index, page] of scopedPages.entries()) {
+    onProgress?.({
+      stage: 'analyzing_page',
+      summary: `Analyzing ${page.title || 'Untitled Wiki Page'}.`,
+      pageId: serializeId(page._id || page.id),
+      pageTitle: page.title || '',
+      index: index + 1,
+      total: scopedPages.length
+    });
     const health = page.aiState?.health || {};
     const quality = page.aiState?.quality || page.quality || {};
     const claims = Array.isArray(page.claims) ? page.claims : [];
@@ -202,6 +251,7 @@ const lintWiki = async ({
     .map(entry => issue({
       type: 'missing_page',
       severity: 'info',
+      suggestedTitle: entry.phrase,
       title: `Potential page: ${entry.phrase}`,
       summary: `"${entry.phrase}" appears across ${entry.count} page${entry.count === 1 ? '' : 's'}.`,
       evidence: entry.pages
@@ -217,6 +267,7 @@ const lintWiki = async ({
   };
   const summary = summarizeRun(findings);
   const completedAt = new Date();
+  onProgress?.({ stage: 'persisting', summary: 'Saving wiki lint run.' });
   const run = await persistLintRun({
     WikiLintRun,
     userId,
@@ -228,6 +279,7 @@ const lintWiki = async ({
     completedAt
   });
 
+  onProgress?.({ stage: 'completed', summary, runId: serializeId(run?._id) });
   return {
     runId: serializeId(run?._id),
     runAt: completedAt.toISOString(),

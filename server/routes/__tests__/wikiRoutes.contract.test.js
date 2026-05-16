@@ -410,10 +410,16 @@ const createFakeWikiLintRunModel = () => {
 
   WikiLintRun.records = records;
   WikiLintRun.find = (query = {}) => new Query(records.filter(record => matches(record, query)));
+  WikiLintRun.findOne = (query = {}) => {
+    const found = records.find(record => matches(record, query));
+    return new Query(found ? new WikiLintRun(clone(found)) : null);
+  };
 
   WikiLintRun.prototype.toObject = function toObject() {
     return clone(this);
   };
+
+  WikiLintRun.prototype.markModified = function markModified() {};
 
   WikiLintRun.prototype.save = async function save() {
     const stored = this.toObject();
@@ -789,7 +795,64 @@ const run = async () => {
     assert.ok(lintRun.body.runId);
     assert.strictEqual(lintRun.body.scope, 'page');
     assert.ok(Array.isArray(lintRun.body.findings.gaps));
+    assert.ok(lintRun.body.findings.gaps[0].id);
+    assert.strictEqual(lintRun.body.findings.gaps[0].status, 'open');
     assert.ok(WikiLintRun.records.some(run => String(run._id) === String(lintRun.body.runId)));
+
+    const streamedLint = await request(url, '/api/wiki/lint/stream', {
+      method: 'POST',
+      body: JSON.stringify({ pageId: created.body._id })
+    });
+    assert.strictEqual(streamedLint.res.status, 200, streamedLint.text);
+    assert.ok(streamedLint.text.includes('event: wiki-lint'));
+    assert.ok(streamedLint.text.includes('"stage":"complete"'));
+
+    const lintDetail = await request(url, `/api/wiki/lint/${lintRun.body.runId}`);
+    assert.strictEqual(lintDetail.res.status, 200, lintDetail.text);
+    assert.strictEqual(lintDetail.body.runId, lintRun.body.runId);
+
+    const gapFindingId = lintRun.body.findings.gaps[0].id;
+    const ignoredFinding = await request(url, `/api/wiki/lint/${lintRun.body.runId}/findings/${encodeURIComponent(gapFindingId)}/ignore`, { method: 'POST' });
+    assert.strictEqual(ignoredFinding.res.status, 200, ignoredFinding.text);
+    assert.strictEqual(ignoredFinding.body.status, 'ignored');
+    assert.strictEqual(ignoredFinding.body.run.resolutions[gapFindingId].status, 'ignored');
+
+    const linkedTarget = new WikiPage({
+      userId: 'user-1',
+      title: 'Systems Thinking',
+      slug: 'systems-thinking',
+      pageType: 'topic',
+      status: 'published',
+      plainText: 'A destination page for Systems Thinking.'
+    });
+    await linkedTarget.save();
+    const linkSource = new WikiPage({
+      userId: 'user-1',
+      title: 'Process Notes',
+      slug: 'process-notes',
+      pageType: 'topic',
+      status: 'published',
+      body: {
+        type: 'doc',
+        content: [{
+          type: 'paragraph',
+          content: [{ type: 'text', text: 'This page mentions Systems Thinking without a link.' }]
+        }]
+      },
+      plainText: 'This page mentions Systems Thinking without a link.'
+    });
+    await linkSource.save();
+    const missingLinkRun = await request(url, '/api/wiki/lint', {
+      method: 'POST',
+      body: JSON.stringify({ pageId: linkSource._id })
+    });
+    assert.strictEqual(missingLinkRun.res.status, 200, missingLinkRun.text);
+    const missingLinkFinding = missingLinkRun.body.findings.missingLinks.find(finding => finding.targetPageId === linkedTarget._id);
+    assert.ok(missingLinkFinding, JSON.stringify(missingLinkRun.body.findings.missingLinks));
+    const fixedLink = await request(url, `/api/wiki/lint/${missingLinkRun.body.runId}/findings/${encodeURIComponent(missingLinkFinding.id)}/fix`, { method: 'POST' });
+    assert.strictEqual(fixedLink.res.status, 200, fixedLink.text);
+    assert.strictEqual(fixedLink.body.status, 'fixed');
+    assert.strictEqual(fixedLink.body.page._id, linkSource._id);
 
     const sourceArticleId = new mongoose.Types.ObjectId().toString();
     const attachedSource = await request(url, `/api/wiki/pages/${created.body._id}/sources`, {

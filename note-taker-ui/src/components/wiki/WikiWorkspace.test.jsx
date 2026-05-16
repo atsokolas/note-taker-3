@@ -4,7 +4,20 @@ import { BrowserRouter } from 'react-router-dom';
 import WikiWorkspace from './WikiWorkspace';
 import { chatWithAgent } from '../../api/agent';
 import { getArticles } from '../../api/articles';
-import { createWikiPage, getWikiPage, getWikiSchema, ingestWikiSource, listWikiActivity, listWikiPages, saveWikiSchema, streamMaintainWikiPage } from '../../api/wiki';
+import {
+  acceptWikiLintFinding,
+  createWikiPage,
+  fixWikiLintFinding,
+  getWikiPage,
+  getWikiSchema,
+  ignoreWikiLintFinding,
+  ingestWikiSource,
+  listWikiActivity,
+  listWikiPages,
+  saveWikiSchema,
+  streamLintWiki,
+  streamMaintainWikiPage
+} from '../../api/wiki';
 
 jest.mock('../../api/agent', () => ({
   chatWithAgent: jest.fn()
@@ -16,12 +29,16 @@ jest.mock('../../api/articles', () => ({
 
 jest.mock('../../api/wiki', () => ({
   createWikiPage: jest.fn(),
+  acceptWikiLintFinding: jest.fn(),
+  fixWikiLintFinding: jest.fn(),
   getWikiPage: jest.fn(),
   getWikiSchema: jest.fn(),
+  ignoreWikiLintFinding: jest.fn(),
   ingestWikiSource: jest.fn(),
   listWikiActivity: jest.fn(),
   listWikiPages: jest.fn(),
   saveWikiSchema: jest.fn(),
+  streamLintWiki: jest.fn(),
   streamMaintainWikiPage: jest.fn()
 }));
 
@@ -67,6 +84,44 @@ describe('WikiWorkspace', () => {
       { _id: 'wiki-2', title: 'Systems Thinking' }
     ]);
     saveWikiSchema.mockResolvedValue({ content: '# Saved' });
+    streamLintWiki.mockImplementation(async (_options, handlers = {}) => {
+      handlers.onEvent?.('wiki-lint', { stage: 'loading_pages', summary: 'Loading wiki pages for lint.' });
+      handlers.onEvent?.('wiki-lint', { stage: 'persisting', summary: 'Saving wiki lint run.' });
+      return {
+        runId: 'lint-1',
+        summary: 'Wiki lint found 2 issues: 1 missingLinks, 1 gaps.',
+        findings: {
+          missingLinks: [{
+            id: 'missing-link-1',
+            type: 'missing_link',
+            status: 'open',
+            actionability: 'automatic',
+            title: 'Possible wiki link missing',
+            summary: 'The page text mentions "Systems Thinking" without linking it.',
+            recommendedAction: 'Apply the suggested wiki link to the source page.',
+            pageId: 'wiki-1',
+            targetPageId: 'wiki-2'
+          }],
+          gaps: [{
+            id: 'gap-1',
+            type: 'gap',
+            status: 'open',
+            actionability: 'review',
+            title: 'Evidence coverage is thin',
+            summary: '1 weak claim.',
+            recommendedAction: 'Attach stronger sources or mark the weak claim as unresolved.',
+            pageId: 'wiki-1'
+          }]
+        }
+      };
+    });
+    acceptWikiLintFinding.mockResolvedValue({ run: { runId: 'lint-1', findings: {} }, status: 'accepted' });
+    fixWikiLintFinding.mockResolvedValue({
+      run: { runId: 'lint-1', findings: {} },
+      status: 'fixed',
+      page: { _id: 'wiki-1', title: 'Investing' }
+    });
+    ignoreWikiLintFinding.mockResolvedValue({ run: { runId: 'lint-1', findings: {} }, status: 'ignored' });
     streamMaintainWikiPage.mockImplementation(async (_pageId, _options, handlers = {}) => {
       handlers.onPage?.({ _id: 'wiki-1', title: 'Maintaining page' }, { stage: 'maintaining' });
       handlers.onPage?.({ _id: 'wiki-1', title: 'Updated page' }, { stage: 'complete' });
@@ -159,6 +214,44 @@ describe('WikiWorkspace', () => {
     })));
     await waitFor(() => expect(streamMaintainWikiPage).toHaveBeenCalledWith('wiki-new', {}, expect.any(Object)));
     expect(await screen.findByText('Built @wiki:wiki-new for "Portfolio Concentration".')).toBeInTheDocument();
+  });
+
+  it('streams wiki lint into an actionable chat card without leaving the workspace', async () => {
+    renderWorkspace('/wiki/workspace?view=graph');
+    await settleWorkspaceEffects();
+
+    fireEvent.change(screen.getByLabelText('Wiki workspace message'), {
+      target: { value: '/lint @wiki:wiki-1' }
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+
+    await waitFor(() => expect(streamLintWiki).toHaveBeenCalledWith({ pageId: 'wiki-1' }, expect.any(Object)));
+    expect(await screen.findByText('Wiki lint')).toBeInTheDocument();
+    expect(screen.getByText('Possible wiki link missing')).toBeInTheDocument();
+    expect(screen.getByTestId('wiki-index')).toBeInTheDocument();
+  });
+
+  it('can fix and ignore lint findings from the chat card', async () => {
+    renderWorkspace('/wiki/workspace?view=graph');
+    await settleWorkspaceEffects();
+
+    fireEvent.change(screen.getByLabelText('Wiki workspace message'), {
+      target: { value: '/lint' }
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+
+    const fixButton = await screen.findByRole('button', { name: 'Fix' });
+    fireEvent.click(fixButton);
+    await waitFor(() => expect(fixWikiLintFinding).toHaveBeenCalledWith('lint-1', 'missing-link-1'));
+    expect(await screen.findByTestId('wiki-read-view')).toHaveTextContent('Page wiki-1 workspace');
+
+    fireEvent.change(screen.getByLabelText('Wiki workspace message'), {
+      target: { value: '/lint' }
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+    const ignoreButtons = await screen.findAllByRole('button', { name: 'Ignore' });
+    fireEvent.click(ignoreButtons[0]);
+    await waitFor(() => expect(ignoreWikiLintFinding).toHaveBeenCalledWith('lint-1', 'missing-link-1'));
   });
 
   it('uses broader agent chat infra for ordinary messages', async () => {

@@ -553,6 +553,8 @@ const wikiLintRunSchema = new mongoose.Schema({
   pageId: { type: mongoose.Schema.Types.ObjectId, ref: 'WikiPage', default: null, index: true },
   status: { type: String, enum: ['completed', 'failed'], default: 'completed', index: true },
   findings: { type: mongoose.Schema.Types.Mixed, default: () => ({}) },
+  resolutions: { type: mongoose.Schema.Types.Mixed, default: () => ({}) },
+  actions: { type: [mongoose.Schema.Types.Mixed], default: () => [] },
   summary: { type: String, default: '', trim: true },
   startedAt: { type: Date, default: Date.now },
   completedAt: { type: Date, default: Date.now }
