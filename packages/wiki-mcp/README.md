@@ -115,7 +115,7 @@ Read tools available now. These return normalized JSON so external agents can li
 - `list_autolinks`
 - `get_lint_run`
 
-Reserved write tools are listed so agents can see the intended surface, but return `not_implemented` until the write-tool slice lands:
+Write tools require a token with the `agent-write` scope. Read-only tokens receive `403` from the Noeis API on these calls:
 
 - `create_page`
 - `update_page`
@@ -123,6 +123,15 @@ Reserved write tools are listed so agents can see the intended surface, but retu
 - `ingest_source`
 - `draft_page`
 - `ask_page`
+- `promote_answer`
+- `lint_wiki`
+- `apply_autolink`
+- `add_source`
+- `remove_source`
+- `update_schema`
+- `accept_proposal`
+- `dismiss_proposal`
+- `merge_proposal`
 
 ## Prompt
 

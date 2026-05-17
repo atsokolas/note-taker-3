@@ -56,6 +56,21 @@ const normalizeFullPage = (page = {}) => ({
   infobox: page.infobox || page.aiState?.infobox || null
 });
 
+const toTipTapDoc = (body) => {
+  if (body === undefined || body === null || body === '') return undefined;
+  if (typeof body === 'object' && !Array.isArray(body)) return body;
+  const text = cleanText(body);
+  return {
+    type: 'doc',
+    content: text
+      ? [{
+        type: 'paragraph',
+        content: [{ type: 'text', text }]
+      }]
+      : []
+  };
+};
+
 const normalizeArrayPayload = (payload, key) => {
   if (Array.isArray(payload)) return payload;
   if (Array.isArray(payload?.[key])) return payload[key];
@@ -240,5 +255,131 @@ export class NoeisClient {
 
   getLintRun({ runId }) {
     return this.request(`/api/wiki/lint/${encodeURIComponent(runId)}`);
+  }
+
+  createPage({ title, pageType, body, sourceScope, initialSourceRef, createdFrom } = {}) {
+    return this.request('/api/wiki/pages', {
+      method: 'POST',
+      body: {
+        title,
+        pageType,
+        body: toTipTapDoc(body),
+        sourceScope,
+        initialSourceRef,
+        createdFrom
+      }
+    }).then(normalizeFullPage);
+  }
+
+  updatePage({ pageId, title, body, pageType, status, visibility, sourceScope } = {}) {
+    return this.request(`/api/wiki/pages/${encodeURIComponent(pageId)}`, {
+      method: 'PATCH',
+      body: {
+        title,
+        body: toTipTapDoc(body),
+        pageType,
+        status,
+        visibility,
+        sourceScope
+      }
+    }).then(normalizeFullPage);
+  }
+
+  archivePage({ pageId }) {
+    return this.request(`/api/wiki/pages/${encodeURIComponent(pageId)}`, {
+      method: 'DELETE'
+    }).then(normalizeFullPage);
+  }
+
+  ingestSource({ source } = {}) {
+    return this.request('/api/wiki/ingest', {
+      method: 'POST',
+      body: { source }
+    });
+  }
+
+  draftPage({ pageId } = {}) {
+    return this.request(`/api/wiki/pages/${encodeURIComponent(pageId)}/ai/draft`, {
+      method: 'POST',
+      body: {}
+    }).then(normalizeFullPage);
+  }
+
+  askPage({ pageId, question } = {}) {
+    return this.request(`/api/wiki/pages/${encodeURIComponent(pageId)}/ask`, {
+      method: 'POST',
+      body: { question }
+    }).then(normalizeFullPage);
+  }
+
+  promoteAnswer({ pageId, discussionId, newTitle, title } = {}) {
+    return this.request(`/api/wiki/pages/${encodeURIComponent(pageId)}/discussions/${encodeURIComponent(discussionId)}/promote`, {
+      method: 'POST',
+      body: { title: newTitle || title }
+    }).then(payload => ({
+      ...payload,
+      page: payload?.page ? normalizeFullPage(payload.page) : null,
+      sourcePage: payload?.sourcePage ? normalizeFullPage(payload.sourcePage) : null,
+      pageId: pickId(payload?.page)
+    }));
+  }
+
+  lintWiki({ scope, pageId } = {}) {
+    return this.request('/api/wiki/lint', {
+      method: 'POST',
+      body: { scope, pageId }
+    });
+  }
+
+  applyAutolink({ pageId, targetPageId } = {}) {
+    return this.request(`/api/wiki/pages/${encodeURIComponent(pageId)}/autolinks/${encodeURIComponent(targetPageId)}/apply`, {
+      method: 'POST',
+      body: {}
+    }).then(normalizeFullPage);
+  }
+
+  addSource({ pageId, source } = {}) {
+    return this.request(`/api/wiki/pages/${encodeURIComponent(pageId)}/sources`, {
+      method: 'POST',
+      body: source
+    }).then(normalizeFullPage);
+  }
+
+  removeSource({ pageId, sourceRefId } = {}) {
+    return this.request(`/api/wiki/pages/${encodeURIComponent(pageId)}/sources/${encodeURIComponent(sourceRefId)}`, {
+      method: 'DELETE'
+    }).then(normalizeFullPage);
+  }
+
+  updateSchema({ content } = {}) {
+    return this.request('/api/wiki/schema', {
+      method: 'PUT',
+      body: { content }
+    });
+  }
+
+  acceptProposal({ proposalId } = {}) {
+    return this.request(`/api/wiki/proposals/${encodeURIComponent(proposalId)}/accept`, {
+      method: 'POST',
+      body: {}
+    }).then(payload => ({
+      ...payload,
+      page: payload?.page ? normalizeFullPage(payload.page) : null,
+      pageId: pickId(payload?.page)
+    }));
+  }
+
+  dismissProposal({ proposalId, reason } = {}) {
+    return this.request(`/api/wiki/proposals/${encodeURIComponent(proposalId)}/dismiss`, {
+      method: 'POST',
+      body: { reason }
+    });
+  }
+
+  mergeProposal({ proposalId, pageId } = {}) {
+    return this.request(`/api/wiki/proposals/${encodeURIComponent(proposalId)}/merge`, {
+      method: 'POST',
+      body: { pageId }
+    });
   }
 }
