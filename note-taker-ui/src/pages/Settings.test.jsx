@@ -2,15 +2,24 @@ import React from 'react';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import Settings from './Settings';
-import { createAgentToken, deleteAgentToken, listAgentTokens, revokeAgentToken } from '../api/agent';
+import {
+  createAgentToken,
+  deleteAgentToken,
+  listAgentTokenActions,
+  listAgentTokens,
+  revokeAgentToken,
+  undoAgentTokenAction
+} from '../api/agent';
 import { getMarketingFunnelSnapshot } from '../api/marketingAnalytics';
 import { getWikiSchema, revertWikiSchema, saveWikiSchema, suggestWikiSchemaUpdates } from '../api/wiki';
 
 jest.mock('../api/agent', () => ({
   createAgentToken: jest.fn(),
   deleteAgentToken: jest.fn(),
+  listAgentTokenActions: jest.fn(),
   listAgentTokens: jest.fn(),
-  revokeAgentToken: jest.fn()
+  revokeAgentToken: jest.fn(),
+  undoAgentTokenAction: jest.fn()
 }));
 
 jest.mock('../api/marketingAnalytics', () => ({
@@ -67,6 +76,8 @@ describe('Settings marketing reporting', () => {
     });
     revokeAgentToken.mockResolvedValue({});
     deleteAgentToken.mockResolvedValue({});
+    listAgentTokenActions.mockResolvedValue({ actions: [], counts: { today: 0, week: 0 } });
+    undoAgentTokenAction.mockResolvedValue({});
   });
 
   afterEach(() => {
@@ -264,5 +275,53 @@ describe('Settings marketing reporting', () => {
 
     fireEvent.click(within(list).getByRole('button', { name: 'Delete' }));
     await waitFor(() => expect(deleteAgentToken).toHaveBeenCalledWith('tok-1'));
+  });
+
+  it('shows connected agent activity and can undo reversible wiki actions', async () => {
+    getMarketingFunnelSnapshot.mockResolvedValue({ totals: {}, byEntry: [], bySource: [] });
+    listAgentTokens.mockResolvedValue({
+      tokens: [{
+        id: 'tok-1',
+        label: 'Research worker',
+        secretPrefix: 'ntk_at_live...',
+        scopes: ['read', 'agent-write'],
+        callsToday: 3,
+        dailyQuota: 10,
+        status: 'active',
+        createdAt: '2026-05-15T12:00:00.000Z'
+      }]
+    });
+    listAgentTokenActions.mockResolvedValue({
+      counts: { today: 1, week: 2 },
+      actions: [{
+        id: 'action-1',
+        action: 'update_page',
+        status: 'completed',
+        method: 'PATCH',
+        route: '/api/wiki/pages/page-1',
+        targetHref: '/wiki/page-1',
+        canUndo: true,
+        undoPath: '/api/wiki/pages/page-1/revisions/latest/restore',
+        durationMs: 21,
+        createdAt: '2026-05-16T12:00:00.000Z'
+      }]
+    });
+
+    render(
+      <MemoryRouter>
+        <Settings />
+      </MemoryRouter>
+    );
+
+    const tokenRow = (await screen.findByText('Research worker')).closest('.connected-agents-token-row');
+    fireEvent.click(within(tokenRow).getByRole('button', { name: 'Activity' }));
+    expect(await screen.findByText('Activity · last 30 days')).toBeInTheDocument();
+    expect(await screen.findByText(/1 today.*2 this week/)).toBeInTheDocument();
+    expect(await screen.findByText('update page')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Undo' }));
+    await waitFor(() => expect(undoAgentTokenAction).toHaveBeenCalledWith(expect.objectContaining({
+      id: 'action-1',
+      undoPath: '/api/wiki/pages/page-1/revisions/latest/restore'
+    })));
   });
 });

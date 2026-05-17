@@ -105,6 +105,24 @@ export const listAgentTokens = async () => {
   return res.data || { tokens: [] };
 };
 
+export const listAgentTokenActions = async (tokenId, { limit = 50 } = {}) => {
+  const safeId = encodeURIComponent(String(tokenId || '').trim());
+  const params = new URLSearchParams();
+  if (limit) params.set('limit', String(limit));
+  const suffix = params.toString();
+  const res = await api.get(`/api/agent-tokens/${safeId}/actions${suffix ? `?${suffix}` : ''}`, getAuthHeaders());
+  return res.data || { actions: [], counts: { today: 0, week: 0 } };
+};
+
+export const undoAgentTokenAction = async (action = {}) => {
+  const undoPath = String(action?.undoPath || action?.metadata?.undoPath || '').trim();
+  if (!undoPath || !undoPath.startsWith('/api/wiki/')) {
+    throw new Error('This action cannot be undone from Settings.');
+  }
+  const res = await api.post(undoPath, {}, getAuthHeaders());
+  return res.data || {};
+};
+
 export const createAgentToken = async (payload = {}) => {
   const res = await api.post('/api/agent-tokens', payload, getAuthHeaders());
   return res.data || {};

@@ -563,6 +563,236 @@ const buildWikiRouter = ({
     });
   };
 
+  const summarizeAgentArgs = (req) => {
+    const body = req.body && typeof req.body === 'object' ? req.body : {};
+    const summary = {
+      params: req.params || {},
+      query: req.query || {},
+      bodyFields: Object.keys(body).slice(0, 30)
+    };
+    [
+      'title',
+      'pageType',
+      'status',
+      'visibility',
+      'sourceScope',
+      'sourceType',
+      'url',
+      'question',
+      'connector',
+      'action',
+      'targetPageId',
+      'proposalId',
+      'runId',
+      'snapshotId'
+    ].forEach((field) => {
+      if (body[field] !== undefined) summary[field] = body[field];
+    });
+    if (typeof body.text === 'string') summary.textLength = body.text.length;
+    if (typeof body.markdown === 'string') summary.markdownLength = body.markdown.length;
+    if (body.body !== undefined) summary.hasDocumentBody = true;
+    if (Array.isArray(body.sources)) summary.sourceCount = body.sources.length;
+    return summary;
+  };
+
+  const inferAgentAction = (req, responseBody = {}) => {
+    const method = String(req.method || 'GET').toUpperCase();
+    const path = String(req.path || '');
+    const params = req.params || {};
+    const metadata = {};
+    let action = `${method.toLowerCase()}_wiki`;
+    let targetType = 'wiki';
+    let targetId = '';
+
+    if (path === '/api/wiki/schema') {
+      action = method === 'PUT' ? 'update_schema' : 'get_schema';
+      targetType = 'wiki_schema';
+      targetId = 'wiki_schema';
+    } else if (path === '/api/wiki/schema/revert') {
+      action = 'revert_schema';
+      targetType = 'wiki_schema';
+      targetId = 'wiki_schema';
+    } else if (path.startsWith('/api/wiki/schema/suggestions')) {
+      action = 'suggest_schema';
+      targetType = 'wiki_schema';
+      targetId = 'wiki_schema';
+    } else if (path === '/api/wiki/lint' || path === '/api/wiki/lint/stream') {
+      action = 'lint_wiki';
+      targetType = 'wiki_lint_run';
+      targetId = serializeId(responseBody.runId || responseBody.run?._id || responseBody.run?.id) || '';
+    } else if (path.startsWith('/api/wiki/lint/')) {
+      action = method === 'POST' ? 'resolve_lint_finding' : 'get_lint_run';
+      targetType = 'wiki_lint_run';
+      targetId = String(params.runId || '');
+    } else if (path === '/api/wiki/pages') {
+      action = method === 'POST' ? 'create_page' : 'list_pages';
+      targetType = method === 'POST' ? 'wiki_page' : 'wiki';
+      targetId = serializeId(responseBody.page?._id || responseBody.page?.id || responseBody._id || responseBody.id) || '';
+    } else if (path.includes('/api/wiki/pages/') && path.includes('/markdown')) {
+      action = 'get_page_markdown';
+      targetType = 'wiki_page';
+      targetId = String(params.id || '');
+    } else if (path.includes('/api/wiki/pages/') && path.includes('/ai/draft')) {
+      action = path.includes('/stream') ? 'draft_page_stream' : 'draft_page';
+      targetType = 'wiki_page';
+      targetId = String(params.id || '');
+    } else if (path.includes('/api/wiki/pages/') && path.includes('/sources')) {
+      action = method === 'DELETE' ? 'remove_page_source' : 'add_page_source';
+      targetType = 'wiki_page';
+      targetId = String(params.id || '');
+    } else if (path.includes('/api/wiki/pages/') && path.includes('/ask')) {
+      action = 'ask_page';
+      targetType = 'wiki_page';
+      targetId = String(params.id || '');
+    } else if (path.includes('/api/wiki/pages/') && path.includes('/discussions')) {
+      action = path.includes('/promote') ? 'promote_discussion_answer' : 'delete_discussion';
+      targetType = 'wiki_page';
+      targetId = String(params.id || '');
+    } else if (path.includes('/api/wiki/pages/') && path.includes('/backlinks')) {
+      action = 'list_backlinks';
+      targetType = 'wiki_page';
+      targetId = String(params.id || '');
+    } else if (path.includes('/api/wiki/pages/') && path.includes('/graph/rebuild')) {
+      action = 'rebuild_page_graph';
+      targetType = 'wiki_page';
+      targetId = String(params.id || '');
+    } else if (path.includes('/api/wiki/pages/') && path.includes('/revisions/latest/restore')) {
+      action = 'restore_page_revision';
+      targetType = 'wiki_page';
+      targetId = String(params.id || '');
+    } else if (path.includes('/api/wiki/pages/') && path.includes('/revisions')) {
+      action = 'list_page_revisions';
+      targetType = 'wiki_page';
+      targetId = String(params.id || '');
+    } else if (path.includes('/api/wiki/pages/') && path.includes('/connector-actions')) {
+      action = 'list_page_connector_actions';
+      targetType = 'wiki_page';
+      targetId = String(params.id || '');
+    } else if (path.includes('/api/wiki/pages/') && path.includes('/autolinks')) {
+      action = method === 'POST' ? 'apply_autolink' : 'list_autolinks';
+      targetType = 'wiki_page';
+      targetId = String(params.id || '');
+    } else if (path.includes('/api/wiki/pages/') && path.includes('/freshness/review')) {
+      action = 'review_page_freshness';
+      targetType = 'wiki_page';
+      targetId = String(params.id || '');
+    } else if (path.includes('/api/wiki/pages/') && path.includes('/write-back')) {
+      action = 'write_back_page';
+      targetType = 'wiki_page';
+      targetId = String(params.id || '');
+    } else if (path.startsWith('/api/wiki/pages/')) {
+      action = method === 'PATCH' ? 'update_page' : method === 'DELETE' ? 'archive_page' : 'get_page';
+      targetType = 'wiki_page';
+      targetId = String(params.id || '');
+    } else if (path === '/api/wiki/briefing') {
+      action = 'get_briefing';
+    } else if (path === '/api/wiki/graph/rebuild') {
+      action = 'rebuild_graph';
+      targetType = 'wiki_graph';
+      targetId = 'wiki_graph';
+    } else if (path === '/api/wiki/proposals') {
+      action = 'list_proposals';
+      targetType = 'wiki_proposal';
+    } else if (path === '/api/wiki/proposals/generate-background') {
+      action = 'generate_proposals';
+      targetType = 'wiki_proposal';
+    } else if (path.includes('/api/wiki/proposals/')) {
+      action = path.includes('/accept') ? 'accept_proposal'
+        : path.includes('/dismiss') ? 'dismiss_proposal'
+          : path.includes('/merge') ? 'merge_proposal'
+            : path.includes('/watch') ? 'watch_proposal'
+              : 'update_proposal';
+      targetType = 'wiki_proposal';
+      targetId = String(params.proposalId || '');
+    } else if (path === '/api/wiki/ingest') {
+      action = 'ingest_source';
+      targetType = 'wiki_ingest_run';
+      targetId = serializeId(responseBody.runId || responseBody.run?._id || responseBody.sourceEventId) || '';
+      if (targetId) metadata.undoPath = `/api/wiki/ingest/${targetId}/undo`;
+    } else if (path.includes('/api/wiki/ingest/')) {
+      action = path.includes('/undo') ? 'undo_ingest' : 'get_ingest_run';
+      targetType = 'wiki_ingest_run';
+      targetId = String(params.runId || '');
+    } else if (path === '/api/wiki/activity') {
+      action = 'list_activity';
+    } else if (path === '/api/wiki/source-events') {
+      action = 'list_source_events';
+      targetType = 'wiki_source_event';
+    } else if (path.includes('/api/wiki/source-events')) {
+      action = path.includes('/process-pending') ? 'process_pending_source_events' : 'process_source_event';
+      targetType = 'wiki_source_event';
+      targetId = String(params.sourceEventId || '');
+    }
+
+    return { action, targetType, targetId, metadata };
+  };
+
+  const auditExternalAgentAction = (req, res, next) => {
+    if (!ConnectorActionLog || !req.agentToken) return next();
+    const startedAt = Date.now();
+    let responseBody = null;
+    const originalJson = res.json.bind(res);
+    res.json = (body) => {
+      responseBody = body;
+      return originalJson(body);
+    };
+    res.on('finish', () => {
+      const tokenId = serializeId(req.agentToken?._id || req.agentToken?.id);
+      if (!tokenId) return;
+      const inferred = inferAgentAction(req, responseBody || {});
+      const statusCode = Number(res.statusCode) || 0;
+      const direction = ['GET', 'HEAD', 'OPTIONS'].includes(String(req.method || '').toUpperCase()) ? 'read' : 'write';
+      if (
+        direction === 'write' &&
+        inferred.targetType === 'wiki_page' &&
+        inferred.targetId &&
+        !inferred.metadata.undoPath
+      ) {
+        inferred.metadata.undoPath = `/api/wiki/pages/${inferred.targetId}/revisions/latest/restore`;
+      }
+      const payload = {
+        userId: req.user?.id,
+        connector: 'wiki_mcp',
+        action: inferred.action,
+        direction,
+        status: statusCode >= 400 ? 'failed' : 'completed',
+        resultStatus: statusCode >= 400 ? 'error' : 'ok',
+        targetType: inferred.targetType,
+        targetId: inferred.targetId,
+        beforeRef: inferred.metadata.undoPath || '',
+        summary: `${req.agentToken.label || 'External agent'} ${inferred.action.replace(/_/g, ' ')}`,
+        errorMessage: statusCode >= 400
+          ? String(responseBody?.error || responseBody?.message || '')
+          : '',
+        agentTokenId: tokenId,
+        agentTokenLabel: req.agentToken.label || '',
+        actorType: 'agent_token',
+        route: req.originalUrl || req.path,
+        method: String(req.method || '').toUpperCase(),
+        statusCode,
+        durationMs: Date.now() - startedAt,
+        metadata: {
+          tool: inferred.action,
+          mutating: direction === 'write',
+          resultStatus: statusCode >= 400 ? 'error' : 'ok',
+          scopes: req.agentToken.scopes || [],
+          args: summarizeAgentArgs(req),
+          ...inferred.metadata
+        }
+      };
+      Promise.resolve(
+        typeof ConnectorActionLog.create === 'function'
+          ? ConnectorActionLog.create(payload)
+          : new ConnectorActionLog(payload).save()
+      ).catch((error) => {
+        console.warn('Failed to audit external wiki action:', error?.message || error);
+      });
+    });
+    return next();
+  };
+
+  const wikiAuth = [authenticateToken, auditExternalAgentAction];
+
   const buildUniqueSlug = async (userId, title, existingId = null) => {
     const base = slugify(title);
     for (let i = 0; i < 25; i += 1) {
@@ -1078,7 +1308,7 @@ const buildWikiRouter = ({
     return updatedPages;
   };
 
-  router.get('/api/wiki/schema', authenticateToken, async (req, res) => {
+  router.get('/api/wiki/schema', wikiAuth, async (req, res) => {
     try {
       const settings = await getWikiSchemaSettings({
         WikiSchemaSettings,
@@ -1091,7 +1321,7 @@ const buildWikiRouter = ({
     }
   });
 
-  router.put('/api/wiki/schema', authenticateToken, async (req, res) => {
+  router.put('/api/wiki/schema', wikiAuth, async (req, res) => {
     try {
       const settings = await saveWikiSchemaSettings({
         WikiSchemaSettings,
@@ -1109,7 +1339,7 @@ const buildWikiRouter = ({
     }
   });
 
-  router.post('/api/wiki/schema/revert', authenticateToken, async (req, res) => {
+  router.post('/api/wiki/schema/revert', wikiAuth, async (req, res) => {
     try {
       const settings = await revertWikiSchemaSettings({
         WikiSchemaSettings,
@@ -1126,7 +1356,7 @@ const buildWikiRouter = ({
     }
   });
 
-  router.get('/api/wiki/export.zip', authenticateToken, async (req, res) => {
+  router.get('/api/wiki/export.zip', wikiAuth, async (req, res) => {
     try {
       const [pages, schemaSettings, lintRuns] = await Promise.all([
         WikiPage.find({ userId: req.user.id, status: { $ne: 'archived' } }).sort({ updatedAt: -1 }).limit(1000).lean(),
@@ -1164,7 +1394,7 @@ const buildWikiRouter = ({
     }
   });
 
-  router.post('/api/wiki/lint', authenticateToken, async (req, res) => {
+  router.post('/api/wiki/lint', wikiAuth, async (req, res) => {
     try {
       const pageId = String(req.body?.pageId || '').trim();
       if (pageId && !mongoose.Types.ObjectId.isValid(pageId)) {
@@ -1188,7 +1418,7 @@ const buildWikiRouter = ({
     }
   });
 
-  router.post('/api/wiki/lint/stream', authenticateToken, async (req, res) => {
+  router.post('/api/wiki/lint/stream', wikiAuth, async (req, res) => {
     try {
       const pageId = String(req.body?.pageId || '').trim();
       if (pageId && !mongoose.Types.ObjectId.isValid(pageId)) {
@@ -1225,7 +1455,7 @@ const buildWikiRouter = ({
     }
   });
 
-  router.get('/api/wiki/lint/:runId', authenticateToken, async (req, res) => {
+  router.get('/api/wiki/lint/:runId', wikiAuth, async (req, res) => {
     try {
       const run = await findLintRun(req);
       if (!run) return res.status(404).json({ error: 'Wiki lint run not found.' });
@@ -1236,7 +1466,7 @@ const buildWikiRouter = ({
     }
   });
 
-  router.post('/api/wiki/lint/:runId/findings/:findingId/:action', authenticateToken, async (req, res) => {
+  router.post('/api/wiki/lint/:runId/findings/:findingId/:action', wikiAuth, async (req, res) => {
     try {
       const action = String(req.params.action || '').trim();
       if (!['accept', 'ignore', 'fix'].includes(action)) {
@@ -1256,7 +1486,7 @@ const buildWikiRouter = ({
     }
   });
 
-  router.get('/api/wiki/pages', authenticateToken, async (req, res) => {
+  router.get('/api/wiki/pages', wikiAuth, async (req, res) => {
     try {
       const query = { userId: req.user.id };
       const status = validateEnumField('status', req.query.status, STATUSES);
@@ -1284,7 +1514,7 @@ const buildWikiRouter = ({
     }
   });
 
-  router.post('/api/wiki/pages', authenticateToken, async (req, res) => {
+  router.post('/api/wiki/pages', wikiAuth, async (req, res) => {
     try {
       const pageType = validatePageType(req.body?.pageType);
       const sourceScope = validateEnumField('sourceScope', req.body?.sourceScope, SOURCE_SCOPES);
@@ -1331,7 +1561,7 @@ const buildWikiRouter = ({
     }
   });
 
-  router.get('/api/wiki/pages/:id', authenticateToken, async (req, res) => {
+  router.get('/api/wiki/pages/:id', wikiAuth, async (req, res) => {
     try {
       const page = await findOwnedPage(req).lean();
       if (!page) return res.status(404).json({ error: 'Wiki page not found.' });
@@ -1341,7 +1571,7 @@ const buildWikiRouter = ({
     }
   });
 
-  router.get('/api/wiki/pages/:id/markdown', authenticateToken, async (req, res) => {
+  router.get('/api/wiki/pages/:id/markdown', wikiAuth, async (req, res) => {
     try {
       const page = await findOwnedPage(req).lean();
       if (!page) return res.status(404).json({ error: 'Wiki page not found.' });
@@ -1355,7 +1585,7 @@ const buildWikiRouter = ({
     }
   });
 
-  router.patch('/api/wiki/pages/:id', authenticateToken, async (req, res) => {
+  router.patch('/api/wiki/pages/:id', wikiAuth, async (req, res) => {
     try {
       const enumChecks = [
         validatePageType(req.body?.pageType),
@@ -1405,7 +1635,7 @@ const buildWikiRouter = ({
     }
   });
 
-  router.delete('/api/wiki/pages/:id', authenticateToken, async (req, res) => {
+  router.delete('/api/wiki/pages/:id', wikiAuth, async (req, res) => {
     try {
       const page = await WikiPage.findOne({ _id: req.params.id, userId: req.user.id });
       if (!page) return res.status(404).json({ error: 'Wiki page not found.' });
@@ -1433,7 +1663,7 @@ const buildWikiRouter = ({
     }
   });
 
-  router.post('/api/wiki/pages/:id/ai/draft', authenticateToken, async (req, res) => {
+  router.post('/api/wiki/pages/:id/ai/draft', wikiAuth, async (req, res) => {
     try {
       const page = await findOwnedPage(req);
       if (!page) return res.status(404).json({ error: 'Wiki page not found.' });
@@ -1478,7 +1708,7 @@ const buildWikiRouter = ({
     }
   });
 
-  router.post('/api/wiki/pages/:id/ai/draft/stream', authenticateToken, async (req, res) => {
+  router.post('/api/wiki/pages/:id/ai/draft/stream', wikiAuth, async (req, res) => {
     let page = null;
     try {
       page = await findOwnedPage(req);
@@ -1576,7 +1806,7 @@ const buildWikiRouter = ({
     }
   });
 
-  router.post('/api/wiki/pages/:id/sources', authenticateToken, async (req, res) => {
+  router.post('/api/wiki/pages/:id/sources', wikiAuth, async (req, res) => {
     try {
       const sourceRef = normalizeSourceRef(req.body);
       if (sourceRef.error) return res.status(400).json({ error: sourceRef.error });
@@ -1603,7 +1833,7 @@ const buildWikiRouter = ({
     }
   });
 
-  router.delete('/api/wiki/pages/:id/sources/:sourceRefId', authenticateToken, async (req, res) => {
+  router.delete('/api/wiki/pages/:id/sources/:sourceRefId', wikiAuth, async (req, res) => {
     try {
       const page = await findOwnedPage(req);
       if (!page) return res.status(404).json({ error: 'Wiki page not found.' });
@@ -1633,7 +1863,7 @@ const buildWikiRouter = ({
   // Ask the agent a question about this page. The answer is appended to
   // the page's discussions array and the updated page is returned so the
   // editor can re-render the discussions section.
-  router.post('/api/wiki/pages/:id/ask', authenticateToken, async (req, res) => {
+  router.post('/api/wiki/pages/:id/ask', wikiAuth, async (req, res) => {
     try {
       const question = String(req.body?.question || '').trim();
       if (!question) return res.status(400).json({ error: 'Question is required.' });
@@ -1666,7 +1896,7 @@ const buildWikiRouter = ({
     }
   });
 
-  router.post('/api/wiki/pages/:id/discussions/:discussionId/promote', authenticateToken, async (req, res) => {
+  router.post('/api/wiki/pages/:id/discussions/:discussionId/promote', wikiAuth, async (req, res) => {
     try {
       const sourcePage = await findOwnedPage(req);
       if (!sourcePage) return res.status(404).json({ error: 'Wiki page not found.' });
@@ -1748,7 +1978,7 @@ const buildWikiRouter = ({
     }
   });
 
-  router.delete('/api/wiki/pages/:id/discussions/:discussionId', authenticateToken, async (req, res) => {
+  router.delete('/api/wiki/pages/:id/discussions/:discussionId', wikiAuth, async (req, res) => {
     try {
       const page = await findOwnedPage(req);
       if (!page) return res.status(404).json({ error: 'Wiki page not found.' });
@@ -1768,7 +1998,7 @@ const buildWikiRouter = ({
   // Daily wiki briefing for the index page. The route is intentionally
   // computed on demand rather than scheduled — the user's signal volume
   // doesn't justify a cron and on-demand keeps the data fresh.
-  router.get('/api/wiki/briefing', authenticateToken, async (req, res) => {
+  router.get('/api/wiki/briefing', wikiAuth, async (req, res) => {
     try {
       const briefing = await buildWikiBriefing({
         userId: req.user.id,
@@ -1784,7 +2014,7 @@ const buildWikiRouter = ({
   // Backlinks for a single page — "Mentioned in N other pages." Computed
   // on demand by scanning the user's other pages' plainText for substring
   // matches against this page's title.
-  router.get('/api/wiki/pages/:id/backlinks', authenticateToken, async (req, res) => {
+  router.get('/api/wiki/pages/:id/backlinks', wikiAuth, async (req, res) => {
     try {
       const targetPage = await findOwnedPage(req).lean();
       if (!targetPage) return res.status(404).json({ error: 'Wiki page not found.' });
@@ -1800,7 +2030,7 @@ const buildWikiRouter = ({
     }
   });
 
-  router.post('/api/wiki/pages/:id/graph/rebuild', authenticateToken, async (req, res) => {
+  router.post('/api/wiki/pages/:id/graph/rebuild', wikiAuth, async (req, res) => {
     try {
       if (!Connection) return res.status(503).json({ error: 'Wiki graph storage is not available.' });
       const page = await findOwnedPage(req).lean();
@@ -1817,7 +2047,7 @@ const buildWikiRouter = ({
     }
   });
 
-  router.post('/api/wiki/graph/rebuild', authenticateToken, async (req, res) => {
+  router.post('/api/wiki/graph/rebuild', wikiAuth, async (req, res) => {
     try {
       if (!Connection) return res.status(503).json({ error: 'Wiki graph storage is not available.' });
       const limit = Math.max(1, Math.min(Number(req.body?.limit) || 500, 1000));
@@ -1834,7 +2064,7 @@ const buildWikiRouter = ({
     }
   });
 
-  router.get('/api/wiki/proposals', authenticateToken, async (req, res) => {
+  router.get('/api/wiki/proposals', wikiAuth, async (req, res) => {
     try {
       const result = await refreshWikiProposals({ userId: req.user.id, force: false });
       res.status(200).json(result);
@@ -1844,7 +2074,7 @@ const buildWikiRouter = ({
     }
   });
 
-  router.post('/api/wiki/proposals/generate-background', authenticateToken, async (req, res) => {
+  router.post('/api/wiki/proposals/generate-background', wikiAuth, async (req, res) => {
     try {
       const result = await refreshWikiProposals({ userId: req.user.id, force: Boolean(req.body?.force) });
       res.status(200).json(result);
@@ -1854,7 +2084,7 @@ const buildWikiRouter = ({
     }
   });
 
-  router.post('/api/wiki/proposals/:proposalId/watch', authenticateToken, async (req, res) => {
+  router.post('/api/wiki/proposals/:proposalId/watch', wikiAuth, async (req, res) => {
     try {
       if (!WikiProposal) return res.status(404).json({ error: 'Wiki proposal not found.' });
       const proposal = await WikiProposal.findOneAndUpdate(
@@ -1870,7 +2100,7 @@ const buildWikiRouter = ({
     }
   });
 
-  router.post('/api/wiki/proposals/:proposalId/dismiss', authenticateToken, async (req, res) => {
+  router.post('/api/wiki/proposals/:proposalId/dismiss', wikiAuth, async (req, res) => {
     try {
       if (!WikiProposal) return res.status(404).json({ error: 'Wiki proposal not found.' });
       const proposal = await WikiProposal.findOneAndUpdate(
@@ -1886,7 +2116,7 @@ const buildWikiRouter = ({
     }
   });
 
-  router.post('/api/wiki/proposals/:proposalId/merge', authenticateToken, async (req, res) => {
+  router.post('/api/wiki/proposals/:proposalId/merge', wikiAuth, async (req, res) => {
     try {
       if (!WikiProposal) return res.status(404).json({ error: 'Wiki proposal not found.' });
       const pageId = normalizeObjectId(req.body?.pageId);
@@ -1906,7 +2136,7 @@ const buildWikiRouter = ({
     }
   });
 
-  router.post('/api/wiki/proposals/:proposalId/accept', authenticateToken, async (req, res) => {
+  router.post('/api/wiki/proposals/:proposalId/accept', wikiAuth, async (req, res) => {
     try {
       if (!WikiProposal) return res.status(404).json({ error: 'Wiki proposal not found.' });
       const proposal = await WikiProposal.findOne({
@@ -1924,7 +2154,7 @@ const buildWikiRouter = ({
     }
   });
 
-  router.post('/api/wiki/ingest', authenticateToken, async (req, res) => {
+  router.post('/api/wiki/ingest', wikiAuth, async (req, res) => {
     try {
       if (!WikiSourceEvent) return res.status(503).json({ error: 'Wiki ingest storage is not available.' });
       const normalized = normalizeIngestSource(req.body?.source);
@@ -1980,7 +2210,7 @@ const buildWikiRouter = ({
     }
   });
 
-  router.get('/api/wiki/ingest/:runId', authenticateToken, async (req, res) => {
+  router.get('/api/wiki/ingest/:runId', wikiAuth, async (req, res) => {
     try {
       if (!WikiSourceEvent) return res.status(404).json({ error: 'Wiki ingest run not found.' });
       if (!mongoose.Types.ObjectId.isValid(String(req.params.runId || ''))) {
@@ -2003,7 +2233,7 @@ const buildWikiRouter = ({
     }
   });
 
-  router.post('/api/wiki/ingest/:runId/undo', authenticateToken, async (req, res) => {
+  router.post('/api/wiki/ingest/:runId/undo', wikiAuth, async (req, res) => {
     try {
       if (!WikiSourceEvent || !WikiRevision) {
         return res.status(503).json({ error: 'Wiki ingest undo is not available.' });
@@ -2066,7 +2296,7 @@ const buildWikiRouter = ({
     }
   });
 
-  router.get('/api/wiki/activity', authenticateToken, async (req, res) => {
+  router.get('/api/wiki/activity', wikiAuth, async (req, res) => {
     try {
       const limit = Math.max(1, Math.min(Number(req.query.limit) || 50, 100));
       const sinceRaw = String(req.query.since || '').trim();
@@ -2074,7 +2304,7 @@ const buildWikiRouter = ({
       if (sinceRaw && Number.isNaN(sinceDate.getTime())) {
         return res.status(400).json({ error: 'since must be a valid date or timestamp.' });
       }
-      const [sourceEvents, maintenanceRuns, lintRuns, pages] = await Promise.all([
+      const [sourceEvents, maintenanceRuns, lintRuns, pages, externalAgentActions] = await Promise.all([
         WikiSourceEvent
           ? WikiSourceEvent.find({ userId: req.user.id }).sort({ createdAt: -1 }).limit(limit).lean()
           : [],
@@ -2084,7 +2314,10 @@ const buildWikiRouter = ({
         WikiLintRun
           ? WikiLintRun.find({ userId: req.user.id }).sort({ createdAt: -1 }).limit(limit).lean()
           : [],
-        WikiPage.find({ userId: req.user.id, status: { $ne: 'archived' } }).sort({ updatedAt: -1 }).limit(200).lean()
+        WikiPage.find({ userId: req.user.id, status: { $ne: 'archived' } }).sort({ updatedAt: -1 }).limit(200).lean(),
+        ConnectorActionLog?.find
+          ? ConnectorActionLog.find({ userId: req.user.id, connector: 'wiki_mcp' }).sort({ createdAt: -1 }).limit(limit).lean()
+          : []
       ]);
       const events = sortActivityEvents([
         ...(Array.isArray(sourceEvents) ? sourceEvents : []).flatMap(event => ([{
@@ -2129,6 +2362,19 @@ const buildWikiRouter = ({
           summary: cleanWikiSummary(run.summary || ''),
           at: run.completedAt || run.createdAt
         })),
+        ...(Array.isArray(externalAgentActions) ? externalAgentActions : []).map(action => ({
+          id: serializeId(action._id),
+          type: 'external_agent_action',
+          status: action.status || '',
+          pageId: action.targetType === 'wiki_page' ? serializeId(action.targetId) : null,
+          runId: action.targetType === 'wiki_ingest_run' ? serializeId(action.targetId) : null,
+          sourceEventId: action.targetType === 'wiki_source_event' ? serializeId(action.targetId) : null,
+          title: `${action.agentTokenLabel || 'External agent'} · ${(action.action || 'wiki action').replace(/_/g, ' ')}`,
+          summary: cleanWikiSummary(action.summary || action.errorMessage || ''),
+          targetType: action.targetType || '',
+          targetId: serializeId(action.targetId),
+          at: action.createdAt
+        })),
         ...(Array.isArray(pages) ? pages : []).flatMap(page => (
           Array.isArray(page.discussions) ? page.discussions : []
         ).map(discussion => ({
@@ -2152,7 +2398,7 @@ const buildWikiRouter = ({
     }
   });
 
-  router.post('/api/wiki/schema/suggestions', authenticateToken, async (req, res) => {
+  router.post('/api/wiki/schema/suggestions', wikiAuth, async (req, res) => {
     try {
       const limit = Math.max(5, Math.min(Number(req.body?.limit) || 50, 100));
       const [sourceEvents, maintenanceRuns, pages] = await Promise.all([
@@ -2205,7 +2451,7 @@ const buildWikiRouter = ({
     }
   });
 
-  router.get('/api/wiki/source-events', authenticateToken, async (req, res) => {
+  router.get('/api/wiki/source-events', wikiAuth, async (req, res) => {
     try {
       const status = String(req.query.status || '').trim();
       if (status && !['pending', 'processing', 'processed', 'failed', 'ignored'].includes(status)) {
@@ -2224,7 +2470,7 @@ const buildWikiRouter = ({
     }
   });
 
-  router.post('/api/wiki/source-events/process-pending', authenticateToken, async (req, res) => {
+  router.post('/api/wiki/source-events/process-pending', wikiAuth, async (req, res) => {
     try {
       const results = await processPendingWikiSourceEvents({
         userId: req.user.id,
@@ -2249,7 +2495,7 @@ const buildWikiRouter = ({
     }
   });
 
-  router.post('/api/wiki/source-events/:sourceEventId/process', authenticateToken, async (req, res) => {
+  router.post('/api/wiki/source-events/:sourceEventId/process', wikiAuth, async (req, res) => {
     try {
       const result = await processWikiSourceEvent({
         sourceEventId: req.params.sourceEventId,
@@ -2270,7 +2516,7 @@ const buildWikiRouter = ({
     }
   });
 
-  router.get('/api/wiki/pages/:id/revisions', authenticateToken, async (req, res) => {
+  router.get('/api/wiki/pages/:id/revisions', wikiAuth, async (req, res) => {
     try {
       const page = await findOwnedPage(req).select('_id').lean();
       if (!page) return res.status(404).json({ error: 'Wiki page not found.' });
@@ -2284,7 +2530,38 @@ const buildWikiRouter = ({
     }
   });
 
-  router.get('/api/wiki/pages/:id/connector-actions', authenticateToken, async (req, res) => {
+  router.post('/api/wiki/pages/:id/revisions/latest/restore', wikiAuth, async (req, res) => {
+    try {
+      if (!WikiRevision) return res.status(503).json({ error: 'Wiki revisions are not available.' });
+      const page = await findOwnedPage(req);
+      if (!page) return res.status(404).json({ error: 'Wiki page not found.' });
+      const revision = await WikiRevision.findOne({ userId: req.user.id, pageId: req.params.id })
+        .sort({ createdAt: -1 });
+      if (!revision?.before) return res.status(404).json({ error: 'No restorable wiki revision found.' });
+      const beforeRestore = snapshotPage(page);
+      restorePageSnapshot(page, revision.before);
+      await page.save();
+      await syncPageGraph(page, req.user.id);
+      await createWikiRevision({
+        WikiRevision,
+        userId: req.user.id,
+        page,
+        before: beforeRestore,
+        reason: 'external_agent_undo',
+        actorType: 'user',
+        summary: `Restored "${page.title}" from the latest captured revision.`
+      });
+      res.status(200).json({
+        page: serializeWikiPage(page),
+        restoredRevisionId: serializeId(revision._id)
+      });
+    } catch (error) {
+      console.error('Error restoring latest wiki revision:', error);
+      res.status(500).json({ error: 'Failed to restore wiki revision.' });
+    }
+  });
+
+  router.get('/api/wiki/pages/:id/connector-actions', wikiAuth, async (req, res) => {
     try {
       const page = await findOwnedPage(req).select('_id').lean();
       if (!page) return res.status(404).json({ error: 'Wiki page not found.' });
@@ -2301,7 +2578,7 @@ const buildWikiRouter = ({
     }
   });
 
-  router.get('/api/wiki/pages/:id/autolinks', authenticateToken, async (req, res) => {
+  router.get('/api/wiki/pages/:id/autolinks', wikiAuth, async (req, res) => {
     try {
       const page = await findOwnedPage(req).lean();
       if (!page) return res.status(404).json({ error: 'Wiki page not found.' });
@@ -2317,7 +2594,7 @@ const buildWikiRouter = ({
     }
   });
 
-  router.post('/api/wiki/pages/:id/autolinks/:targetPageId/apply', authenticateToken, async (req, res) => {
+  router.post('/api/wiki/pages/:id/autolinks/:targetPageId/apply', wikiAuth, async (req, res) => {
     try {
       if (!mongoose.Types.ObjectId.isValid(String(req.params.targetPageId || ''))) {
         return res.status(400).json({ error: 'Invalid target wiki page id.' });
@@ -2356,7 +2633,7 @@ const buildWikiRouter = ({
     }
   });
 
-  router.post('/api/wiki/pages/:id/freshness/review', authenticateToken, async (req, res) => {
+  router.post('/api/wiki/pages/:id/freshness/review', wikiAuth, async (req, res) => {
     try {
       const page = await findOwnedPage(req);
       if (!page) return res.status(404).json({ error: 'Wiki page not found.' });
@@ -2383,7 +2660,7 @@ const buildWikiRouter = ({
     }
   });
 
-  router.post('/api/wiki/pages/:id/write-back/:connector', authenticateToken, async (req, res) => {
+  router.post('/api/wiki/pages/:id/write-back/:connector', wikiAuth, async (req, res) => {
     try {
       const page = await findOwnedPage(req);
       if (!page) return res.status(404).json({ error: 'Wiki page not found.' });

@@ -5620,6 +5620,7 @@ app.use(buildAgentTokenRouter({
   mongoose,
   authenticateToken,
   AgentToken,
+  ConnectorActionLog,
   createAgentTokenSecret,
   hashAgentTokenSecret,
   normalizeAgentTokenScopes,

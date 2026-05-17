@@ -617,14 +617,24 @@ const connectorActionLogSchema = new mongoose.Schema({
   action: { type: String, required: true, trim: true },
   direction: { type: String, enum: ['read', 'write'], default: 'read' },
   status: { type: String, enum: ['pending', 'completed', 'failed', 'skipped'], default: 'completed', index: true },
+  resultStatus: { type: String, default: '', trim: true },
+  agentTokenId: { type: mongoose.Schema.Types.ObjectId, ref: 'AgentToken', default: null, index: true },
+  agentTokenLabel: { type: String, default: '', trim: true },
+  actorType: { type: String, enum: ['user', 'agent_token', 'native_agent', 'byo_agent'], default: 'user', index: true },
+  route: { type: String, default: '', trim: true },
+  method: { type: String, default: '', trim: true },
+  statusCode: { type: Number, default: null },
+  durationMs: { type: Number, default: null },
   targetType: { type: String, default: '', trim: true },
   targetId: { type: String, default: '', trim: true },
+  beforeRef: { type: String, default: '', trim: true },
   summary: { type: String, default: '', trim: true },
   errorMessage: { type: String, default: '', trim: true },
   metadata: { type: mongoose.Schema.Types.Mixed, default: () => ({}) }
 }, { timestamps: true });
 
 connectorActionLogSchema.index({ userId: 1, connector: 1, createdAt: -1 });
+connectorActionLogSchema.index({ userId: 1, agentTokenId: 1, createdAt: -1 });
 
 const ConnectorActionLog = mongoose.model('ConnectorActionLog', connectorActionLogSchema);
 

@@ -2,8 +2,10 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   createAgentToken,
   deleteAgentToken,
+  listAgentTokenActions,
   listAgentTokens,
-  revokeAgentToken
+  revokeAgentToken,
+  undoAgentTokenAction
 } from '../../api/agent';
 
 const useAgentTokens = () => {
@@ -18,6 +20,11 @@ const useAgentTokens = () => {
   const [tokenBusyId, setTokenBusyId] = useState('');
   const [issuedToken, setIssuedToken] = useState(null);
   const [issuedSecret, setIssuedSecret] = useState('');
+  const [expandedTokenId, setExpandedTokenId] = useState('');
+  const [tokenActionsById, setTokenActionsById] = useState({});
+  const [tokenActionsLoadingId, setTokenActionsLoadingId] = useState('');
+  const [tokenActionUndoId, setTokenActionUndoId] = useState('');
+  const [tokenActionsError, setTokenActionsError] = useState('');
 
   const loadTokens = useCallback(async () => {
     setTokensLoading(true);
@@ -121,6 +128,54 @@ const useAgentTokens = () => {
     }
   }, [loadTokens, tokenBusyId]);
 
+  const loadTokenActions = useCallback(async (tokenId, { force = false } = {}) => {
+    const safeId = String(tokenId || '').trim();
+    if (!safeId || (!force && tokenActionsById[safeId])) return;
+    setTokenActionsLoadingId(safeId);
+    setTokenActionsError('');
+    try {
+      const response = await listAgentTokenActions(safeId, { limit: 50 });
+      setTokenActionsById((current) => ({
+        ...current,
+        [safeId]: {
+          actions: Array.isArray(response?.actions) ? response.actions : [],
+          counts: response?.counts || { today: 0, week: 0 }
+        }
+      }));
+    } catch (error) {
+      setTokenActionsError(error?.response?.data?.error || 'Failed to load token activity.');
+    } finally {
+      setTokenActionsLoadingId('');
+    }
+  }, [tokenActionsById]);
+
+  const handleToggleTokenActivity = useCallback(async (tokenId) => {
+    const safeId = String(tokenId || '').trim();
+    if (!safeId) return;
+    if (expandedTokenId === safeId) {
+      setExpandedTokenId('');
+      return;
+    }
+    setExpandedTokenId(safeId);
+    await loadTokenActions(safeId);
+  }, [expandedTokenId, loadTokenActions]);
+
+  const handleUndoTokenAction = useCallback(async (tokenId, action) => {
+    const safeId = String(tokenId || '').trim();
+    const actionId = String(action?.id || action?._id || action?.undoPath || '').trim();
+    if (!safeId || !actionId || tokenActionUndoId) return;
+    setTokenActionUndoId(actionId);
+    setTokenActionsError('');
+    try {
+      await undoAgentTokenAction(action);
+      await loadTokenActions(safeId, { force: true });
+    } catch (error) {
+      setTokenActionsError(error?.response?.data?.error || error?.message || 'Failed to undo agent action.');
+    } finally {
+      setTokenActionUndoId('');
+    }
+  }, [loadTokenActions, tokenActionUndoId]);
+
   return {
     tokens,
     sortedTokens,
@@ -138,9 +193,17 @@ const useAgentTokens = () => {
     tokenBusyId,
     issuedToken,
     issuedSecret,
+    expandedTokenId,
+    tokenActionsById,
+    tokenActionsLoadingId,
+    tokenActionUndoId,
+    tokenActionsError,
     handleCreateToken,
     handleRevokeToken,
-    handleDeleteToken
+    handleDeleteToken,
+    handleToggleTokenActivity,
+    handleUndoTokenAction,
+    loadTokenActions
   };
 };
 

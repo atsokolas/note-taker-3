@@ -19,7 +19,19 @@ class Query {
   }
 
   sort() {
-    return Promise.resolve(this.value);
+    return this;
+  }
+
+  limit() {
+    return this;
+  }
+
+  lean() {
+    return Promise.resolve(Array.isArray(this.value) ? this.value.map(row => ({ ...row })) : this.value);
+  }
+
+  then(resolve, reject) {
+    return Promise.resolve(this.value).then(resolve, reject);
   }
 }
 
@@ -29,6 +41,13 @@ const createAgentTokenModel = () => {
     rows,
     find(query = {}) {
       return new Query(rows.filter(row => String(row.userId) === String(query.userId)));
+    },
+    findOne(query = {}) {
+      const row = rows.find(item => (
+        String(item._id) === String(query._id) &&
+        String(item.userId) === String(query.userId)
+      ));
+      return new Query(row || null);
     },
     async create(payload = {}) {
       const row = {
@@ -52,6 +71,19 @@ const createAgentTokenModel = () => {
   };
 };
 
+const createConnectorActionLogModel = () => {
+  const rows = [];
+  return {
+    rows,
+    find(query = {}) {
+      return new Query(rows.filter(row => (
+        String(row.userId) === String(query.userId) &&
+        String(row.agentTokenId) === String(query.agentTokenId)
+      )));
+    }
+  };
+};
+
 const fetchJson = async (url, options = {}) => {
   const response = await fetch(url, {
     ...options,
@@ -66,6 +98,7 @@ const fetchJson = async (url, options = {}) => {
 
 const run = async () => {
   const AgentToken = createAgentTokenModel();
+  const ConnectorActionLog = createConnectorActionLogModel();
   let issueCount = 0;
   const app = express();
   app.use(express.json());
@@ -76,6 +109,7 @@ const run = async () => {
       next();
     },
     AgentToken,
+    ConnectorActionLog,
     createAgentTokenSecret: () => `ntk_at_secret_${++issueCount}`,
     hashAgentTokenSecret,
     normalizeAgentTokenScopes,
@@ -105,6 +139,33 @@ const run = async () => {
     assert.strictEqual(list.body.tokens.length, 1);
     assert.strictEqual(list.body.tokens[0].secret, undefined);
     assert.strictEqual(list.body.tokens[0].hashedSecret, undefined);
+
+    ConnectorActionLog.rows.push({
+      _id: new mongoose.Types.ObjectId().toString(),
+      userId: 'user-1',
+      agentTokenId: create.body.token._id,
+      agentTokenLabel: 'Codex local',
+      actorType: 'agent_token',
+      connector: 'wiki_mcp',
+      action: 'update_page',
+      direction: 'write',
+      status: 'completed',
+      targetType: 'wiki_page',
+      targetId: new mongoose.Types.ObjectId().toString(),
+      route: '/api/wiki/pages/123',
+      method: 'PATCH',
+      statusCode: 200,
+      durationMs: 42,
+      metadata: { undoPath: '/api/wiki/pages/123/revisions/latest/restore' },
+      createdAt: new Date(),
+      updatedAt: new Date()
+    });
+    const activity = await fetchJson(`${baseUrl}/api/agent-tokens/${create.body.token._id}/actions`);
+    assert.strictEqual(activity.response.status, 200);
+    assert.strictEqual(activity.body.actions.length, 1);
+    assert.strictEqual(activity.body.actions[0].action, 'update_page');
+    assert.strictEqual(activity.body.actions[0].canUndo, true);
+    assert.strictEqual(activity.body.counts.today, 1);
 
     const revoke = await fetchJson(`${baseUrl}/api/agent-tokens/${create.body.token._id}/revoke`, {
       method: 'POST',

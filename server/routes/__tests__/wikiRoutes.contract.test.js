@@ -381,6 +381,12 @@ const createFakeWikiRevisionModel = () => {
 
   WikiRevision.records = records;
   WikiRevision.find = (query = {}) => new Query(records.filter(record => matches(record, query)));
+  WikiRevision.findOne = (query = {}) => {
+    const found = records
+      .filter(record => matches(record, query))
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))[0];
+    return new Query(found ? new WikiRevision(clone(found)) : null);
+  };
 
   WikiRevision.prototype.toObject = function toObject() {
     return clone(this);
@@ -432,6 +438,37 @@ const createFakeWikiLintRunModel = () => {
   return WikiLintRun;
 };
 
+const createFakeConnectorActionLogModel = () => {
+  const records = [];
+
+  function ConnectorActionLog(payload = {}) {
+    Object.assign(this, payload);
+    this._id = this._id || new mongoose.Types.ObjectId().toString();
+    this.createdAt = this.createdAt || new Date();
+    this.updatedAt = this.updatedAt || new Date();
+  }
+
+  ConnectorActionLog.records = records;
+  ConnectorActionLog.find = (query = {}) => new Query(records.filter(record => matches(record, query)));
+
+  ConnectorActionLog.create = async (payload = {}) => {
+    const row = new ConnectorActionLog(payload);
+    records.push(row.toObject());
+    return row;
+  };
+
+  ConnectorActionLog.prototype.toObject = function toObject() {
+    return clone(this);
+  };
+
+  ConnectorActionLog.prototype.save = async function save() {
+    records.push(this.toObject());
+    return this;
+  };
+
+  return ConnectorActionLog;
+};
+
 const request = async (url, path, options = {}) => {
   const res = await fetch(`${url}${path}`, {
     ...options,
@@ -459,6 +496,7 @@ const run = async () => {
   const WikiSourceEvent = createFakeWikiSourceEventModel();
   const WikiMaintenanceRun = createFakeWikiMaintenanceRunModel();
   const WikiSchemaSettings = createFakeWikiSchemaSettingsModel();
+  const ConnectorActionLog = createFakeConnectorActionLogModel();
   const Article = createFakeLibraryModel([
     {
       _id: new mongoose.Types.ObjectId().toString(),
@@ -484,6 +522,14 @@ const run = async () => {
   app.use(buildWikiRouter({
     authenticateToken: (req, _res, next) => {
       req.user = { id: req.headers['x-test-user'] || 'user-1' };
+      if (req.headers['x-agent-token-id']) {
+        req.agentToken = {
+          id: req.headers['x-agent-token-id'],
+          _id: req.headers['x-agent-token-id'],
+          label: req.headers['x-agent-token-label'] || 'Codex local',
+          scopes: ['read', 'agent-write']
+        };
+      }
       next();
     },
     WikiPage,
@@ -493,6 +539,7 @@ const run = async () => {
     WikiSourceEvent,
     WikiMaintenanceRun,
     WikiSchemaSettings,
+    ConnectorActionLog,
     Connection,
     Article,
     maintainWikiPage: async ({ page, userId, onProgress }) => {
@@ -1036,12 +1083,28 @@ const run = async () => {
     assert.strictEqual(fetchedPromotedPage.res.status, 200, fetchedPromotedPage.text);
     assert.strictEqual(fetchedPromotedPage.body._id, remappedPromotion.body.page._id);
 
+    const agentTokenId = new mongoose.Types.ObjectId().toString();
+    const agentPageList = await request(url, '/api/wiki/pages', {
+      headers: {
+        'x-agent-token-id': agentTokenId,
+        'x-agent-token-label': 'Codex local'
+      }
+    });
+    assert.strictEqual(agentPageList.res.status, 200, agentPageList.text);
+    await new Promise(resolve => setTimeout(resolve, 5));
+    assert.ok(ConnectorActionLog.records.some(record => (
+      record.action === 'list_pages' &&
+      record.actorType === 'agent_token' &&
+      String(record.agentTokenId) === agentTokenId
+    )));
+
     const activity = await request(url, '/api/wiki/activity?limit=20');
     assert.strictEqual(activity.res.status, 200, activity.text);
     assert.ok(activity.body.events.some(event => event.type === 'ingest' && event.runId === ingest.body.runId));
     assert.ok(activity.body.events.some(event => event.type === 'ask' && event.pageId === String(created.body._id)));
     assert.ok(activity.body.events.some(event => event.type === 'lint' && event.runId === lintRun.body.runId));
     assert.ok(activity.body.events.some(event => event.type === 'maintenance' && event.runId));
+    assert.ok(activity.body.events.some(event => event.type === 'external_agent_action' && event.title.includes('list pages')));
     const activityTimes = activity.body.events.map(event => new Date(event.at).getTime());
     assert.deepStrictEqual(activityTimes, [...activityTimes].sort((a, b) => b - a));
     const futureActivity = await request(url, '/api/wiki/activity?limit=20&since=2100-01-01T00%3A00%3A00.000Z');
