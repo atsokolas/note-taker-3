@@ -16,6 +16,19 @@ NOEIS_TOKEN="ntk_at_..." npx -y @noeis/wiki-mcp
 
 `NOEIS_API_URL` defaults to `https://api.noeis.io`.
 
+## Need a normal CLI instead?
+
+For cron jobs, shell scripts, or custom runtimes that do not speak MCP, install the sibling CLI:
+
+```bash
+npm i -g @noeis/cli
+noeis login --token ntk_at_...
+noeis ingest https://example.com/research
+noeis pages list
+```
+
+The CLI uses the same Connected agents token and API routes as this MCP server.
+
 ## Claude Code
 
 Add this to `~/.config/claude-code/mcp.json`:

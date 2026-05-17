@@ -45,8 +45,10 @@ describe('Integrations MCP setup', () => {
       </MemoryRouter>
     );
 
-    expect(screen.getByText('Noeis wiki MCP')).toBeInTheDocument();
-    expect(screen.getByText('@noeis/wiki-mcp')).toBeInTheDocument();
+    expect(screen.getByText('Noeis wiki MCP + CLI')).toBeInTheDocument();
+    expect(screen.getByText('@noeis/wiki-mcp · @noeis/cli')).toBeInTheDocument();
+    expect(screen.getByText('Noeis CLI')).toBeInTheDocument();
+    expect(screen.getByText(/npm i -g @noeis\/cli/)).toBeInTheDocument();
     expect(screen.getByText('Claude Code')).toBeInTheDocument();
     expect(screen.getByText('Codex')).toBeInTheDocument();
     expect(screen.getByText('OpenCode')).toBeInTheDocument();

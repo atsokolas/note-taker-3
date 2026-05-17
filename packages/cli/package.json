@@ -1,0 +1,28 @@
+{
+  "name": "@noeis/cli",
+  "version": "0.1.0",
+  "description": "Command-line client for scripting a Noeis wiki.",
+  "type": "module",
+  "bin": {
+    "noeis": "bin/noeis"
+  },
+  "files": [
+    "bin",
+    "src",
+    "README.md"
+  ],
+  "scripts": {
+    "test": "node test/cli.test.js",
+    "smoke": "node bin/noeis --help"
+  },
+  "keywords": [
+    "noeis",
+    "wiki",
+    "cli",
+    "agent"
+  ],
+  "license": "ISC",
+  "engines": {
+    "node": ">=18.17"
+  }
+}
