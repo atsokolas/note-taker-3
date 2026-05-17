@@ -18,7 +18,7 @@ import WikiAutolinkSuggestions from './WikiAutolinkSuggestions';
 import WikiBuildPageComposer from './WikiBuildPageComposer';
 import WikiChangesSinceLastVisit from './WikiChangesSinceLastVisit';
 import WikiDiscussions from './WikiDiscussions';
-import renderTiptapDoc, { extractTocItems, firstParagraphText } from './renderTiptapDoc';
+import renderTiptapDoc, { citationAnchorId, extractTocItems, firstParagraphText } from './renderTiptapDoc';
 import {
   diffClaimLedgerSnapshots,
   diffClaimSnapshots,
@@ -70,6 +70,52 @@ const parseIndexAttribute = (value = '') => (
     .filter(Number.isFinite)
     .filter(index => index >= 1)
 );
+
+const scrollOptions = () => (
+  window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches
+    ? { block: 'start' }
+    : { behavior: 'smooth', block: 'start' }
+);
+
+const scrollToElementId = (id = '') => {
+  const element = id ? document.getElementById(id) : null;
+  if (!element) return false;
+  element.scrollIntoView?.(scrollOptions());
+  element.focus?.({ preventScroll: true });
+  return true;
+};
+
+const collectFootnoteCitations = (node, fallbackPrefix = 'body') => {
+  const matches = [];
+  const walk = (value, path = fallbackPrefix) => {
+    if (!value) return;
+    if (Array.isArray(value)) {
+      value.forEach((child, index) => walk(child, `${path}-${index}`));
+      return;
+    }
+    if (typeof value !== 'object') return;
+    if (value.type === 'text' && Array.isArray(value.marks)) {
+      const claimMark = value.marks.find(mark => mark?.type === 'claim');
+      const attrs = claimMark?.attrs || {};
+      const indexes = Array.isArray(attrs.citationIndexes) && attrs.citationIndexes.length
+        ? attrs.citationIndexes
+        : attrs.contradictionIndexes;
+      (Array.isArray(indexes) ? indexes : [])
+        .map(index => Number(index))
+        .filter(index => Number.isFinite(index) && index >= 1)
+        .forEach(index => {
+          matches.push({
+            index,
+            claimId: attrs.claimId || '',
+            anchorId: citationAnchorId({ claimId: attrs.claimId, citationIndex: index, fallback: path })
+          });
+        });
+    }
+    walk(value.content, path);
+  };
+  walk(node);
+  return matches;
+};
 
 const collectText = (node) => {
   if (!node) return '';
@@ -418,6 +464,59 @@ const WikiMentionedInFooter = ({ pageId, pageTitle }) => {
   );
 };
 
+const WikiReadReferences = ({ sources = [], citations = [], highlightedRef, onJumpBack }) => {
+  if (!sources.length) return null;
+  const firstCitationByIndex = citations.reduce((map, citation) => {
+    if (!map.has(citation.index)) map.set(citation.index, citation);
+    return map;
+  }, new Map());
+  return (
+    <section className="wiki-read__references" aria-labelledby="wiki-read-references-title">
+      <h2 id="wiki-read-references-title">References</h2>
+      <ol>
+        {sources.map((source, index) => {
+          const citationIndex = index + 1;
+          const citation = firstCitationByIndex.get(citationIndex);
+          const refId = `wiki-ref-${citationIndex}`;
+          const excerpt = sourceExcerpt(source);
+          return (
+            <li
+              key={source._id || source.id || `${source.title}-${index}`}
+              id={refId}
+              tabIndex="-1"
+              className={highlightedRef === refId ? 'is-highlighted' : ''}
+            >
+              <div className="wiki-read__reference-head">
+                <span className="wiki-read__reference-index">[{citationIndex}]</span>
+                {citation?.anchorId ? (
+                  <a
+                    href={`#${citation.anchorId}`}
+                    className="wiki-read__reference-backlink"
+                    aria-label={`Jump back to citation ${citationIndex}`}
+                    onClick={(event) => {
+                      event.preventDefault();
+                      onJumpBack?.(citation.anchorId);
+                    }}
+                  >
+                    ^
+                  </a>
+                ) : null}
+                <span className="wiki-read__reference-title">{source.title || 'Untitled source'}</span>
+              </div>
+              {excerpt ? <p>{conciseText(excerpt, 240)}</p> : null}
+              {source.url ? (
+                <a className="wiki-read__reference-source" href={source.url} target="_blank" rel="noreferrer">
+                  Open source
+                </a>
+              ) : null}
+            </li>
+          );
+        })}
+      </ol>
+    </section>
+  );
+};
+
 const WikiPageReadView = ({ pageId, onEdit, workspaceMode = false }) => {
   const navigate = useNavigate();
   const [page, setPage] = useState(null);
@@ -431,6 +530,7 @@ const WikiPageReadView = ({ pageId, onEdit, workspaceMode = false }) => {
   const [lastVisit, setLastVisit] = useState(null);
   const [activeTab, setActiveTab] = useState('article');
   const [markdownStatus, setMarkdownStatus] = useState('');
+  const [highlightedRef, setHighlightedRef] = useState('');
   // AT-22 (Bucket 2): rail is collapsible-by-default. Persisted across pages
   // so once a reader opens context they keep it open until they hide it again.
   // Wikipedia / Tolkien Gateway reading shape — body owns the canvas.
@@ -570,6 +670,26 @@ const WikiPageReadView = ({ pageId, onEdit, workspaceMode = false }) => {
       contradictionIndexes: parseIndexAttribute(target.getAttribute('data-contradiction-indexes')),
       anchorRect: target.getBoundingClientRect()
     });
+  }, []);
+
+  const highlightReference = useCallback((refId = '') => {
+    setHighlightedRef(refId);
+    window.setTimeout(() => {
+      setHighlightedRef(current => (current === refId ? '' : current));
+    }, 1600);
+  }, []);
+
+  const handleCitationClick = useCallback((event) => {
+    const target = event.target.closest?.('.wiki-claim-citation');
+    if (!target) return;
+    const refId = target.getAttribute('data-footnote-target') || '';
+    if (!refId) return;
+    event.preventDefault();
+    if (scrollToElementId(refId)) highlightReference(refId);
+  }, [highlightReference]);
+
+  const handleReferenceBacklink = useCallback((citationId = '') => {
+    scrollToElementId(citationId);
   }, []);
 
   const handleClaimLeave = useCallback((event) => {
@@ -718,6 +838,7 @@ const WikiPageReadView = ({ pageId, onEdit, workspaceMode = false }) => {
   }, [loadMarkdown, page?.slug, page?.title]);
 
   const tocItems = useMemo(() => extractTocItems(page?.body || emptyDoc), [page?.body]);
+  const footnoteCitations = useMemo(() => collectFootnoteCitations(page?.body || emptyDoc), [page?.body]);
   const [activeTocId, setActiveTocId] = useState('');
 
   useEffect(() => {
@@ -858,6 +979,7 @@ const WikiPageReadView = ({ pageId, onEdit, workspaceMode = false }) => {
             handleLinkLeave(event);
           }}
           onFocus={handleClaimHover}
+          onClick={handleCitationClick}
         >
           <header className="wiki-read__header">
             {/* AT-21 (Bucket 2 UI rework): the page header used to render an
@@ -911,6 +1033,12 @@ const WikiPageReadView = ({ pageId, onEdit, workspaceMode = false }) => {
               <section className="wiki-read__body">
                 {renderTiptapDoc(page.body || emptyDoc, { tocItems })}
               </section>
+              <WikiReadReferences
+                sources={page.sourceRefs || []}
+                citations={footnoteCitations}
+                highlightedRef={highlightedRef}
+                onJumpBack={handleReferenceBacklink}
+              />
               {showUtilityRail ? <WikiMentionedInFooter pageId={pageId} pageTitle={page.title} /> : null}
             </section>
           ) : (

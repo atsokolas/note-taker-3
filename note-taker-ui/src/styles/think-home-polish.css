@@ -4356,7 +4356,7 @@ html[data-ui-theme='dark'] {
 
 .wiki-read__layout {
   display: grid;
-  grid-template-columns: minmax(160px, 220px) minmax(0, 760px) minmax(260px, 340px);
+  grid-template-columns: minmax(160px, 220px) minmax(0, 700px) minmax(260px, 340px);
   gap: 28px;
   align-items: start;
 }
@@ -4365,7 +4365,7 @@ html[data-ui-theme='dark'] {
    the canvas — Wikipedia / Tolkien Gateway reading shape. The rail column
    shrinks to a thin gutter and the article fills 800-880px. */
 .wiki-read__layout--rail-collapsed {
-  grid-template-columns: minmax(160px, 220px) minmax(0, 880px) 36px;
+  grid-template-columns: minmax(160px, 220px) minmax(0, 860px) 36px;
   gap: 24px;
 }
 
@@ -4600,40 +4600,53 @@ html[data-ui-theme='dark'] {
 }
 
 .wiki-read__body {
-  padding: 24px 0 12px;
+  padding: 26px 0 12px;
   color: var(--text-primary);
   font-family: Georgia, 'Times New Roman', serif;
-  font-size: 1.08rem;
-  line-height: 1.72;
+  font-size: 1.12rem;
+  line-height: 1.6;
 }
 
 .wiki-read__body h2,
 .wiki-read__body h3 {
-  scroll-margin-top: 24px;
-  margin: 1.7em 0 0.5em;
+  scroll-margin-top: 32px;
   color: var(--text-primary);
   font-family: Georgia, 'Times New Roman', serif;
   line-height: 1.16;
 }
 
 .wiki-read__body h2 {
-  padding-bottom: 6px;
-  border-bottom: 1px solid color-mix(in srgb, var(--nt-divider) 62%, transparent);
-  font-size: 1.65rem;
+  margin: 2em 0 0.55em;
+  padding-top: 0.55em;
+  padding-bottom: 7px;
+  border-top: 1px solid color-mix(in srgb, var(--nt-divider) 58%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--nt-divider) 34%, transparent);
+  font-size: 1.72rem;
+  font-weight: 520;
 }
 
 .wiki-read__body h3 {
+  margin: 1.35em 0 0.45em;
   font-size: 1.28rem;
+  font-weight: 560;
 }
 
 .wiki-read__body p,
 .wiki-read__body ul,
 .wiki-read__body ol {
-  margin: 0 0 1.1em;
+  margin: 0 0 1em;
 }
 
 .wiki-read__body li {
   margin: 0.28em 0;
+}
+
+.wiki-read__body > p:first-child::first-letter {
+  float: left;
+  margin: 0.06em 0.08em 0 0;
+  color: var(--text-primary);
+  font-size: 3.35em;
+  line-height: 0.82;
 }
 
 .wiki-read__infobox dl {
@@ -5339,9 +5352,12 @@ html[data-ui-theme='dark'] .wiki-agent-presence[data-status='error'] .wiki-agent
   font-size: 0.72em;
   font-weight: 700;
   line-height: 1;
-  vertical-align: super;
   white-space: nowrap;
   cursor: pointer;
+}
+
+.wiki-claim-citation-wrap {
+  line-height: 0;
 }
 
 .wiki-claim-citation:hover,
@@ -5599,6 +5615,93 @@ html[data-ui-theme='dark'] .wiki-claim-popover__evidence--contradicts .wiki-clai
   font-size: 0.84rem;
   color: var(--vellum-subtle);
   font-style: italic;
+}
+
+.wiki-read__references {
+  margin-top: 42px;
+  padding-top: 18px;
+  border-top: 1px solid color-mix(in srgb, var(--nt-divider) 60%, transparent);
+  font-family: Georgia, 'Times New Roman', serif;
+}
+
+.wiki-read__references h2 {
+  margin: 0 0 14px;
+  color: var(--text-primary);
+  font-size: 1.45rem;
+  font-weight: 540;
+  line-height: 1.2;
+}
+
+.wiki-read__references ol {
+  display: grid;
+  gap: 11px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.wiki-read__references li {
+  display: grid;
+  gap: 4px;
+  scroll-margin-top: 32px;
+  padding: 9px 10px;
+  border-radius: 6px;
+  color: var(--text-secondary);
+  font-size: 0.92rem;
+  line-height: 1.42;
+  transition: background-color 220ms ease, box-shadow 220ms ease;
+}
+
+.wiki-read__references li.is-highlighted {
+  background: color-mix(in srgb, var(--accent-primary, var(--primary-color)) 10%, transparent);
+  box-shadow: inset 3px 0 0 color-mix(in srgb, var(--accent-primary, var(--primary-color)) 62%, transparent);
+}
+
+.wiki-read__reference-head {
+  display: flex;
+  gap: 7px;
+  align-items: baseline;
+}
+
+.wiki-read__reference-index,
+.wiki-read__reference-backlink {
+  color: var(--text-tertiary);
+  font-family: -apple-system, BlinkMacSystemFont, "SF Mono", Menlo, monospace;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.wiki-read__reference-backlink {
+  text-decoration: none;
+}
+
+.wiki-read__reference-backlink:hover,
+.wiki-read__reference-backlink:focus-visible {
+  color: var(--accent-primary, var(--primary-color));
+  outline: none;
+}
+
+.wiki-read__reference-title {
+  color: var(--text-primary);
+  font-weight: 650;
+}
+
+.wiki-read__references p {
+  margin: 0;
+}
+
+.wiki-read__reference-source {
+  width: fit-content;
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  text-decoration: none;
+  border-bottom: 1px dotted color-mix(in srgb, var(--text-secondary) 44%, transparent);
+}
+
+.wiki-read__reference-source:hover,
+.wiki-read__reference-source:focus-visible {
+  color: var(--accent-primary, var(--primary-color));
+  outline: none;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -6801,11 +6904,12 @@ html[data-ui-theme='dark'] .wiki-activity-rail__graph-alerts span {
 .wiki-internal-link {
   color: var(--vellum-ink);
   text-decoration: none;
-  border-bottom: 1px solid color-mix(in srgb, var(--vellum-ink) 36%, transparent);
+  border-bottom: 1px dotted color-mix(in srgb, var(--vellum-ink) 38%, transparent);
 }
 
 .wiki-internal-link:hover {
-  border-bottom-color: var(--vellum-ink);
+  color: var(--accent-primary, var(--primary-color));
+  border-bottom-color: currentColor;
 }
 
 .wiki-activity-rail__list span {

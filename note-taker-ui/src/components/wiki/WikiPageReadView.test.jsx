@@ -107,6 +107,8 @@ const emptyAnswer = () => ({
 
 describe('WikiPageReadView', () => {
   const originalWorkspaceFlag = process.env.REACT_APP_WIKI_WORKSPACE_V1;
+  const originalScrollIntoView = window.HTMLElement.prototype.scrollIntoView;
+  const originalMatchMedia = window.matchMedia;
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -127,6 +129,8 @@ describe('WikiPageReadView', () => {
     askWikiPage.mockResolvedValue(page);
     createWikiPage.mockResolvedValue({ _id: 'wiki-new', title: 'Portfolio Concentration' });
     streamMaintainWikiPage.mockResolvedValue({ _id: 'wiki-new', title: 'Portfolio Concentration' });
+    window.HTMLElement.prototype.scrollIntoView = jest.fn();
+    window.matchMedia = jest.fn().mockReturnValue({ matches: false });
     window.localStorage.clear();
   });
 
@@ -134,6 +138,8 @@ describe('WikiPageReadView', () => {
     jest.useRealTimers();
     if (originalWorkspaceFlag === undefined) delete process.env.REACT_APP_WIKI_WORKSPACE_V1;
     else process.env.REACT_APP_WIKI_WORKSPACE_V1 = originalWorkspaceFlag;
+    window.HTMLElement.prototype.scrollIntoView = originalScrollIntoView;
+    window.matchMedia = originalMatchMedia;
   });
 
   it('opens a wiki page as an article with no editor input until edit is requested', async () => {
@@ -160,7 +166,8 @@ describe('WikiPageReadView', () => {
     expect(screen.queryByRole('tab', { name: 'Article' })).not.toBeInTheDocument();
     expect(screen.queryByRole('tab', { name: 'Talk' })).not.toBeInTheDocument();
     expect(screen.queryByText('Claim health')).not.toBeInTheDocument();
-    expect(screen.queryByText('Memory article')).not.toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'References' })).toBeInTheDocument();
+    expect(screen.getByText('Memory article')).toBeInTheDocument();
     expect(await screen.findByRole('heading', { name: 'Enterprise AI Memory' })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
@@ -423,7 +430,8 @@ describe('WikiPageReadView', () => {
 
     const rail = await screen.findByRole('complementary', { name: 'Page context' });
     expect(rail.querySelector('.wiki-read__source-list')).not.toBeInTheDocument();
-    expect(screen.queryByText('Long maintenance source')).not.toBeInTheDocument();
+    const references = screen.getByRole('heading', { name: 'References' }).closest('section');
+    expect(within(references).getByText('Long maintenance source')).toBeInTheDocument();
   });
 
   it('automatically starts one rebuild when backend quality marks the page as needing rebuild', async () => {
@@ -561,5 +569,29 @@ describe('WikiPageReadView', () => {
     expect(dialog).toHaveTextContent('Supported');
     expect(within(dialog).getByText('Memory article')).toBeInTheDocument();
     expect(within(dialog).getByText('Source snippet')).toBeInTheDocument();
+  });
+
+  it('renders source references and round-trips between claim footnotes and the reference list', async () => {
+    render(
+      <MemoryRouter>
+        <WikiPageReadView pageId="wiki-1" onEdit={jest.fn()} />
+      </MemoryRouter>
+    );
+
+    const citation = await screen.findByRole('button', { name: 'Backlink to source 1' });
+    expect(citation).toHaveAttribute('id', 'wiki-cite-claim-1-ref-1');
+    expect(citation).toHaveAttribute('data-footnote-target', 'wiki-ref-1');
+
+    const references = screen.getByRole('heading', { name: 'References' }).closest('section');
+    expect(within(references).getByText('Memory article')).toBeInTheDocument();
+    expect(within(references).getByText('Source snippet')).toBeInTheDocument();
+
+    fireEvent.click(citation);
+    const ref = document.getElementById('wiki-ref-1');
+    expect(ref.scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth', block: 'start' });
+    expect(ref).toHaveClass('is-highlighted');
+
+    fireEvent.click(within(ref).getByRole('link', { name: 'Jump back to citation 1' }));
+    expect(citation.scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth', block: 'start' });
   });
 });

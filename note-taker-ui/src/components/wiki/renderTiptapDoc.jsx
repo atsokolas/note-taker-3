@@ -34,6 +34,16 @@ const claimAttrs = (mark) => {
 
 const citationText = (indexes = []) => `[${indexes.join(',')}]`;
 
+const safeAnchorToken = (value = '') => String(value || '')
+  .trim()
+  .toLowerCase()
+  .replace(/[^a-z0-9_-]+/g, '-')
+  .replace(/^-+|-+$/g, '') || 'claim';
+
+export const citationAnchorId = ({ claimId = '', citationIndex, fallback = '' } = {}) => (
+  `wiki-cite-${safeAnchorToken(claimId || fallback)}-ref-${Number(citationIndex) || 0}`
+);
+
 const stripModelSourceRangeCitations = (value = '') => String(value || '')
   .replace(/\s*【\s*\d+†L\d+(?:-L?\d+)?\s*】/g, '')
   .replace(/\s+([,.;:!?])/g, '$1');
@@ -110,23 +120,31 @@ const renderTextNode = (node, key) => {
     const indexes = attrs['data-citation-indexes'];
     const contradictionIndexes = attrs['data-contradiction-indexes'];
     const visibleIndexes = indexes || contradictionIndexes;
+    const firstVisibleIndex = Number(String(visibleIndexes).split(',')[0]);
+    const footnoteId = Number.isFinite(firstVisibleIndex)
+      ? citationAnchorId({ claimId: attrs['data-claim-id'], citationIndex: firstVisibleIndex, fallback: key })
+      : '';
     return (
       <React.Fragment key={key}>
         <span className="wiki-claim" {...attrs}>
           {wikiLinkedText}
         </span>
         {visibleIndexes ? (
-          <button
-            type="button"
-            className="wiki-claim-citation"
-            data-claim-id={attrs['data-claim-id']}
-            data-support={attrs['data-support']}
-            data-citation-indexes={indexes}
-            data-contradiction-indexes={contradictionIndexes}
-            aria-label={`Backlink to source${visibleIndexes.includes(',') ? 's' : ''} ${visibleIndexes.split(',').join(', ')}`}
-          >
-            {citationText(visibleIndexes.split(','))}
-          </button>
+          <sup className="wiki-claim-citation-wrap">
+            <button
+              type="button"
+              id={footnoteId}
+              className="wiki-claim-citation"
+              data-claim-id={attrs['data-claim-id']}
+              data-support={attrs['data-support']}
+              data-citation-indexes={indexes}
+              data-contradiction-indexes={contradictionIndexes}
+              data-footnote-target={firstVisibleIndex ? `wiki-ref-${firstVisibleIndex}` : ''}
+              aria-label={`Backlink to source${visibleIndexes.includes(',') ? 's' : ''} ${visibleIndexes.split(',').join(', ')}`}
+            >
+              {citationText(visibleIndexes.split(','))}
+            </button>
+          </sup>
         ) : null}
       </React.Fragment>
     );
@@ -134,10 +152,10 @@ const renderTextNode = (node, key) => {
   return <React.Fragment key={key}>{wikiLinkedText}</React.Fragment>;
 };
 
-const renderInline = (content = []) => content
+const renderInline = (content = [], keyPrefix = '') => content
   .map((child, index) => {
     if (!child) return null;
-    if (child.type === 'text') return renderTextNode(child, index);
+    if (child.type === 'text') return renderTextNode(child, `${keyPrefix}-${index}`);
     return null;
   })
   .filter(Boolean);
@@ -146,12 +164,12 @@ const renderBlock = (node, key, options = {}) => {
   if (!node || typeof node !== 'object') return null;
   switch (node.type) {
     case 'paragraph':
-      return <p key={key}>{renderInline(node.content)}</p>;
+      return <p key={key}>{renderInline(node.content, `p-${key}`)}</p>;
     case 'heading': {
       const level = Math.max(1, Math.min(6, node.attrs?.level || 2));
       const HeadingTag = `h${level}`;
       const tocItem = options.tocByBlockIndex?.get?.(key);
-      return <HeadingTag key={key} id={tocItem?.id}>{renderInline(node.content)}</HeadingTag>;
+      return <HeadingTag key={key} id={tocItem?.id}>{renderInline(node.content, `h-${key}`)}</HeadingTag>;
     }
     case 'bulletList':
       return (
