@@ -24,10 +24,17 @@ export const wikiPagePath = (pageId, suffix = '') => {
   return `/wiki/${encodedPageId}${String(suffix || '').replace(/^&/, '?')}`;
 };
 
+export const wikiPageEditPath = (pageId) => {
+  const encodedPageId = encodeURIComponent(pageId || '');
+  if (isWikiWorkspaceV1Enabled()) return `/wiki/workspace?page=${encodedPageId}&mode=edit`;
+  return `/wiki/${encodedPageId}?mode=edit`;
+};
+
 const wikiFeatureFlags = {
   isWikiReadModeV2Enabled,
   isWikiWorkspaceV1Enabled,
-  wikiPagePath
+  wikiPagePath,
+  wikiPageEditPath
 };
 
 export default wikiFeatureFlags;

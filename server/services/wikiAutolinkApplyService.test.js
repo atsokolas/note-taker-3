@@ -45,6 +45,21 @@ const run = async () => {
   assert.strictEqual(aliasResult.applied, true);
   assert.strictEqual(aliasResult.doc.content[0].content[0].text, 'Investing');
   assert.strictEqual(aliasResult.doc.content[0].content[0].marks[0].attrs.title, 'Investing - Concepts, Ideas, and Strategies');
+
+  const variantDoc = {
+    type: 'doc',
+    content: [{
+      type: 'paragraph',
+      content: [{ type: 'text', text: 'Cash-flow valuations keep growth assumptions explicit.' }]
+    }]
+  };
+  const variantResult = applyWikiAutolinkToDoc({
+    doc: variantDoc,
+    targetPage: { _id: 'page-5', title: 'Cash Flow Valuation' }
+  });
+  assert.strictEqual(variantResult.applied, true);
+  assert.strictEqual(variantResult.doc.content[0].content[0].text, 'Cash-flow valuations');
+  assert.strictEqual(variantResult.doc.content[0].content[0].marks[0].attrs.pageId, 'page-5');
 };
 
 if (require.main === module) {

@@ -245,7 +245,7 @@ describe('WikiPageEditor', () => {
     });
   });
 
-  it('maintains the Wiki page and refreshes editor content', async () => {
+  it('does not expose page-level ambient maintenance presence in edit mode', async () => {
     render(
       <MemoryRouter>
         <WikiPageEditor pageId="wiki-1" />
@@ -253,17 +253,8 @@ describe('WikiPageEditor', () => {
     );
 
     await screen.findByDisplayValue('Enterprise AI Memory');
-    fireEvent.click(screen.getByRole('button', { name: 'Maintain page' }));
-
-    await waitFor(() => {
-      expect(maintainWikiPage).toHaveBeenCalledWith('wiki-1');
-      expect(mockEditor.commands.setContent).toHaveBeenCalledWith(
-        expect.objectContaining({ type: 'doc' }),
-        false
-      );
-    });
-    expect(await screen.findByText('Rebuilt from 3 relevant sources.')).toBeInTheDocument();
-    expect(screen.getByText(/New article affects this page/)).toBeInTheDocument();
+    expect(screen.queryByRole('status', { name: 'Agent status' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Maintain page' })).not.toBeInTheDocument();
   });
 
   it('runs linkify across current autolink suggestions from edit mode', async () => {
@@ -361,6 +352,24 @@ describe('WikiPageEditor', () => {
     await waitFor(() => {
       expect(removeWikiSource).toHaveBeenCalledWith('wiki-1', 'source-1');
     });
+  });
+
+  it('hides per-page operation surfaces when mounted inside the workspace', async () => {
+    render(
+      <MemoryRouter>
+        <WikiPageEditor pageId="wiki-1" workspaceMode onDoneEditing={jest.fn()} />
+      </MemoryRouter>
+    );
+
+    await screen.findByDisplayValue('Enterprise AI Memory');
+    expect(screen.queryByRole('status', { name: 'Agent status' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Maintain page' })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Ask this page')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Wiki AI and sources')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Show AI/Sources' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Attach source' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Done editing' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Linkify' })).toBeInTheDocument();
   });
 
   it('focuses the matching source only when a claim citation number is clicked', async () => {

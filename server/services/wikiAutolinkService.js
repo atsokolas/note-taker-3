@@ -13,7 +13,7 @@
 const SNIPPET_RADIUS = 70;
 const MAX_SUGGESTIONS = 8;
 const MIN_TITLE_LEN = 4;
-const MAX_TITLE_ALIASES = 5;
+const MAX_TITLE_ALIASES = 8;
 const GENERIC_ALIASES = new Set([
   'overview',
   'concept',
@@ -69,6 +69,7 @@ const normalizeAlias = (value = '') => String(value || '')
   .replace(/[()[\]{}]/g, ' ')
   .replace(/[“”]/g, '"')
   .replace(/[’]/g, "'")
+  .replace(/&/g, ' and ')
   .replace(/\s+/g, ' ')
   .trim();
 
@@ -82,14 +83,17 @@ const titleAliases = (title = '') => {
   if (raw.length < MIN_TITLE_LEN) return [];
   const aliases = new Map();
   const add = (value) => {
-    const alias = normalizeAlias(value);
+    const alias = normalizeAlias(value).replace(/^[,;:]+|[,;:]+$/g, '').trim();
     if (alias.length < MIN_TITLE_LEN) return;
     const canonical = alias.toLowerCase();
     if (GENERIC_ALIASES.has(canonical)) return;
+    if (/^(?:and|or)\s+/i.test(alias)) return;
     aliases.set(canonical, alias);
   };
 
   add(raw);
+  if (/^the\s+/i.test(raw)) add(raw.replace(/^the\s+/i, ''));
+  if (/\band\b/i.test(raw)) add(raw.replace(/\band\b/gi, '&'));
   raw
     .split(/\s+(?:[-–—:|/]|and|or)\s+/i)
     .forEach(add);
@@ -99,6 +103,16 @@ const titleAliases = (title = '') => {
 
   const commaParts = raw.split(/\s*,\s*/).filter(Boolean);
   if (commaParts.length > 1) commaParts.forEach(add);
+
+  Array.from(aliases.values()).forEach((alias) => {
+    const words = alias.split(/\s+/).filter(Boolean);
+    if (words.length < 2) return;
+    const last = words[words.length - 1];
+    if (!/^[a-z][a-z-]{3,}$/i.test(last) || /(?:ss|us|is)$/i.test(last)) return;
+    if (/ies$/i.test(last)) add([...words.slice(0, -1), last.replace(/ies$/i, 'y')].join(' '));
+    else if (/s$/i.test(last)) add([...words.slice(0, -1), last.replace(/s$/i, '')].join(' '));
+    else add([...words, ''].join(' ').trim().replace(new RegExp(`${escapeRegExp(last)}$`, 'i'), `${last}s`));
+  });
 
   return Array.from(aliases.values())
     .sort((a, b) => aliasScore(b) - aliasScore(a))

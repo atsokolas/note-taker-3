@@ -2,7 +2,7 @@ import React from 'react';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import WikiIndex from './WikiIndex';
-import { createWikiPage, getWikiBriefing, ingestWikiSource, listWikiActivity, listWikiPages, streamMaintainWikiPage } from '../../api/wiki';
+import { createWikiPage, getWikiBriefing, ingestWikiSource, listWikiActivity, listWikiPages, rebuildWikiGraph, streamMaintainWikiPage } from '../../api/wiki';
 import { fetchGraphData } from '../../api/map';
 
 jest.mock('../../api/wiki', () => ({
@@ -12,6 +12,7 @@ jest.mock('../../api/wiki', () => ({
   ingestWikiSource: jest.fn(),
   listWikiActivity: jest.fn(),
   listWikiPages: jest.fn(),
+  rebuildWikiGraph: jest.fn(),
   listWikiSourceEvents: jest.fn(() => Promise.resolve([])),
   processPendingWikiSourceEvents: jest.fn(),
   processWikiSourceEvent: jest.fn(),
@@ -119,6 +120,7 @@ describe('WikiIndex graph', () => {
       at: '2026-05-04T12:00:00.000Z'
     }]);
     listWikiPages.mockResolvedValue(pages);
+    rebuildWikiGraph.mockResolvedValue({ edgesCreated: 1, edgesDeleted: 0 });
     fetchGraphData.mockResolvedValue({ nodes: [], edges: [] });
   });
 
@@ -135,6 +137,9 @@ describe('WikiIndex graph', () => {
     expect(screen.getByLabelText('Wiki map signals')).toHaveTextContent('Hubs');
     expect(screen.getByLabelText('Wiki map signals')).toHaveTextContent('Enterprise AI Memory, Investing');
     expect(screen.getByLabelText('Wiki map signals')).toHaveTextContent('Evidence overlap');
+    expect(screen.getByLabelText('Wiki map signals')).toHaveTextContent('Sync');
+    expect(screen.getByLabelText('Wiki graph sync')).toHaveTextContent('Persisted graph needs sync');
+    expect(screen.getByRole('button', { name: 'Sync graph' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /^Inline links\s*1$/ })).toHaveClass('is-active');
     expect(screen.getByRole('link', { name: 'List' })).toHaveAttribute('href', '/wiki/list');
     expect(screen.getByLabelText('Ask the wiki agent to build a page')).toBeInTheDocument();
@@ -165,7 +170,7 @@ describe('WikiIndex graph', () => {
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 
-  it('uses the workspace page opener for graph nodes when provided', async () => {
+  it('opens an explanatory node panel before navigating to a page', async () => {
     const onOpenPage = jest.fn();
 
     render(
@@ -177,7 +182,35 @@ describe('WikiIndex graph', () => {
     await screen.findByTestId('wiki-force-graph');
     fireEvent.click(screen.getByRole('button', { name: 'Investing' }));
 
+    const panel = screen.getByLabelText('Selected graph node');
+    expect(panel).toHaveTextContent('Investing');
+    expect(panel).toHaveTextContent('Referenced page');
+    fireEvent.click(within(panel).getByRole('button', { name: 'Open page' }));
     expect(onOpenPage).toHaveBeenCalledWith('wiki-2');
+  });
+
+  it('syncs the persisted graph from the index when stale', async () => {
+    fetchGraphData
+      .mockResolvedValueOnce({ nodes: [], edges: [] })
+      .mockResolvedValueOnce({
+        nodes: [],
+        edges: [{ id: 'edge-1', source: 'wiki_page:wiki-1', target: 'wiki_page:wiki-2', relationType: 'related' }]
+      });
+
+    render(
+      <MemoryRouter>
+        <WikiIndex />
+      </MemoryRouter>
+    );
+
+    await screen.findByTestId('wiki-force-graph');
+    fireEvent.click(screen.getByRole('button', { name: 'Sync graph' }));
+
+    await waitFor(() => {
+      expect(rebuildWikiGraph).toHaveBeenCalledWith({ limit: 500 });
+    });
+    expect(await screen.findByText('Wiki graph synced')).toBeInTheDocument();
+    expect(screen.getByLabelText('Wiki graph sync')).toHaveTextContent('Persisted graph synced');
   });
 
   it('degrades to the mobile page list instead of the force graph under 720px', async () => {

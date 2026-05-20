@@ -380,11 +380,6 @@ const renderVercelConfig = (content) => JSON.stringify({
   cleanUrls: true,
   redirects: [
     {
-      source: '/wiki',
-      destination: '/wiki/workspace',
-      permanent: false
-    },
-    {
       source: '/wiki/list',
       destination: '/wiki/workspace?view=list',
       permanent: false

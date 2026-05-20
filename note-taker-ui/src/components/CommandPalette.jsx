@@ -141,19 +141,24 @@ const CommandPalette = ({ open, onClose }) => {
     const q = query.trim();
     const list = [];
 
-    list.push({
+    const actionSection = {
       title: 'Actions',
       items: [
         { type: 'Action', label: 'New note', action: createNote },
         { type: 'Action', label: q ? `New Wiki page from "${q.slice(0, 48)}"` : 'New Wiki page', action: createWiki },
         { type: 'Action', label: 'New collection', path: '/library?tab=collections' }
       ]
-    });
+    };
 
-    list.push({
+    const pagesSection = {
       title: 'Pages',
       items: pages.map(page => ({ type: 'Page', label: page.label, path: page.path }))
-    });
+    };
+
+    if (!q) {
+      list.push(actionSection);
+      list.push(pagesSection);
+    }
 
     if (q) {
       list.push({
@@ -196,6 +201,8 @@ const CommandPalette = ({ open, onClose }) => {
           path: buildCanonicalArticlePath(item._id)
         }))
       });
+      list.push(actionSection);
+      list.push(pagesSection);
     } else {
       list.push({
         title: 'Concepts',
@@ -263,6 +270,7 @@ const CommandPalette = ({ open, onClose }) => {
       setActiveIndex(prev => Math.max(prev - 1, 0));
     } else if (event.key === 'Enter') {
       event.preventDefault();
+      if (loading) return;
       handleSelect(selectableItems[activeIndex]);
     } else if (event.key === 'Escape') {
       onClose();
@@ -280,7 +288,11 @@ const CommandPalette = ({ open, onClose }) => {
           <input
             autoFocus
             value={query}
-            onChange={(event) => setQuery(event.target.value)}
+            onChange={(event) => {
+              const nextQuery = event.target.value;
+              setQuery(nextQuery);
+              setLoading(Boolean(nextQuery.trim()));
+            }}
             placeholder="Quick open notes, highlights, claims, evidence..."
             className="palette-input"
           />
@@ -289,7 +301,6 @@ const CommandPalette = ({ open, onClose }) => {
         <div className="palette-shortcuts">
           <span className="muted small">Cmd/Ctrl+K: Open</span>
           <span className="muted small">Arrows + Enter: Navigate</span>
-          <span className="muted small">Cmd/Ctrl+Shift+D: Dump to memory</span>
         </div>
         {loading && <p className="muted small">Searching…</p>}
         <div className="palette-list">

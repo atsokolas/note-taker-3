@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { buildQualityState } from './wikiQuality';
 
 /**
  * WikiAgentPresence — ambient row at the top of a wiki page that shows
@@ -56,7 +57,7 @@ const deriveStatus = ({ isMaintaining, aiState }) => {
   return countPendingSignals(aiState) > 0 ? 'ready' : 'idle';
 };
 
-const statusCopy = ({ status, aiState, signalCount }) => {
+const statusCopy = ({ status, aiState, signalCount, qualityState }) => {
   switch (status) {
     case 'maintaining':
       return {
@@ -73,6 +74,30 @@ const statusCopy = ({ status, aiState, signalCount }) => {
         actionDisabled: false
       };
     case 'ready':
+      if (qualityState?.severity === 'rebuild') {
+        return {
+          text: 'Needs rebuild',
+          sub: qualityState.summary,
+          action: 'Run again',
+          actionDisabled: false
+        };
+      }
+      if (qualityState?.severity === 'review') {
+        return {
+          text: 'Needs review',
+          sub: qualityState.summary,
+          action: 'Run again',
+          actionDisabled: false
+        };
+      }
+      if (qualityState?.severity === 'drift') {
+        return {
+          text: 'Drifting',
+          sub: `${signalCount} signal${signalCount === 1 ? '' : 's'} waiting to be incorporated.`,
+          action: 'Run again',
+          actionDisabled: false
+        };
+      }
       return {
         text: `${signalCount} signal${signalCount === 1 ? '' : 's'} pending review`,
         sub: aiState?.lastDraftedAt
@@ -117,11 +142,12 @@ const WikiAgentPresence = ({ page, isMaintaining = false, onMaintain }) => {
 
   const status = useMemo(() => deriveStatus({ isMaintaining, aiState }), [isMaintaining, aiState]);
   const signalCount = useMemo(() => countPendingSignals(aiState), [aiState]);
+  const qualityState = useMemo(() => buildQualityState({ page }), [page]);
   // tick is intentionally read so the relative-time labels refresh every 30s.
   const copy = useMemo(
-    () => statusCopy({ status, aiState, signalCount }),
+    () => statusCopy({ status, aiState, signalCount, qualityState }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [status, aiState, signalCount, tick]
+    [status, aiState, signalCount, qualityState, tick]
   );
 
   return (

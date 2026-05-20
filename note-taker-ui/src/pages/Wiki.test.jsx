@@ -21,6 +21,7 @@ jest.mock('react-router-dom', () => ({
 
 jest.mock('../components/wiki/WikiIndex', () => () => <div data-testid="wiki-index">Wiki graph index</div>);
 jest.mock('../components/wiki/WikiList', () => () => <div data-testid="wiki-list">Wiki list</div>);
+jest.mock('../components/wiki/WikiProductIndex', () => () => <div data-testid="wiki-product-index">Wiki product index</div>);
 jest.mock('../components/wiki/WikiPageReadView', () => ({ onEdit, pageId }) => (
   <div data-testid="wiki-read-view">
     Read {pageId}
@@ -90,7 +91,7 @@ describe('Wiki route shell', () => {
     expect(window.scrollTo).toHaveBeenCalledWith(0, 320);
   });
 
-  it('renders the graph index at /wiki', () => {
+  it('renders the sparse product index at /wiki', () => {
     isWikiReadModeV2Enabled.mockReturnValue(true);
 
     mockUseParams.mockReturnValue({});
@@ -98,10 +99,10 @@ describe('Wiki route shell', () => {
 
     render(<Wiki />);
 
-    expect(screen.getByTestId('wiki-index')).toBeInTheDocument();
+    expect(screen.getByTestId('wiki-product-index')).toBeInTheDocument();
   });
 
-  it('routes /wiki into the workspace when workspace v1 is enabled', () => {
+  it('keeps /wiki on the sparse product index when workspace v1 is enabled', () => {
     isWikiWorkspaceV1Enabled.mockReturnValue(true);
     isWikiReadModeV2Enabled.mockReturnValue(true);
 
@@ -110,7 +111,8 @@ describe('Wiki route shell', () => {
 
     render(<Wiki />);
 
-    expect(screen.getByTestId('navigate')).toHaveTextContent('/wiki/workspace');
+    expect(screen.getByTestId('wiki-product-index')).toBeInTheDocument();
+    expect(screen.queryByTestId('navigate')).not.toBeInTheDocument();
   });
 
   it('keeps the card list at /wiki when read mode v2 is disabled', () => {
@@ -148,7 +150,7 @@ describe('Wiki route shell', () => {
     expect(screen.getByTestId('navigate')).toHaveTextContent('/wiki/workspace?view=list');
   });
 
-  it('renders the workspace route when workspace v1 is enabled', () => {
+  it('renders the workspace route when workspace v1 is enabled', async () => {
     isWikiWorkspaceV1Enabled.mockReturnValue(true);
     isWikiReadModeV2Enabled.mockReturnValue(true);
     mockUseParams.mockReturnValue({});
@@ -156,7 +158,7 @@ describe('Wiki route shell', () => {
 
     render(<Wiki />);
 
-    expect(screen.getByTestId('wiki-workspace')).toBeInTheDocument();
+    expect(await screen.findByTestId('wiki-workspace')).toBeInTheDocument();
   });
 
   it('routes wiki pages into workspace when workspace v1 is enabled', () => {

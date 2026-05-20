@@ -1,4 +1,4 @@
-import { isWikiReadModeV2Enabled, isWikiWorkspaceV1Enabled } from './wikiFeatureFlags';
+import { isWikiReadModeV2Enabled, isWikiWorkspaceV1Enabled, wikiPageEditPath, wikiPagePath } from './wikiFeatureFlags';
 
 describe('wiki feature flags', () => {
   const originalEnv = process.env.REACT_APP_WIKI_READ_MODE_V2;
@@ -45,5 +45,16 @@ describe('wiki feature flags', () => {
   it('lets the environment disable workspace v1 for rollback builds', () => {
     process.env.REACT_APP_WIKI_WORKSPACE_V1 = 'false';
     expect(isWikiWorkspaceV1Enabled()).toBe(false);
+  });
+
+  it('builds canonical workspace read and edit paths while workspace v1 is enabled', () => {
+    expect(wikiPagePath('wiki 1')).toBe('/wiki/workspace?page=wiki%201');
+    expect(wikiPageEditPath('wiki 1')).toBe('/wiki/workspace?page=wiki%201&mode=edit');
+  });
+
+  it('builds legacy read and edit paths when workspace v1 is disabled', () => {
+    process.env.REACT_APP_WIKI_WORKSPACE_V1 = 'false';
+    expect(wikiPagePath('wiki 1')).toBe('/wiki/wiki%201');
+    expect(wikiPageEditPath('wiki 1')).toBe('/wiki/wiki%201?mode=edit');
   });
 });

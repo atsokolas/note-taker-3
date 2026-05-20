@@ -10,6 +10,7 @@ const {
   evaluateWikiArticleQuality,
   inferMaintainedPageType,
   normalizeSourceIndexesUsed,
+  formatKnownWikiPages,
   resolveClaimCitationIds
 } = __testables;
 
@@ -77,10 +78,19 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
     const prompt = buildPrompt({
       page: { title: 'AI Memory', pageType: 'topic', body: {}, sourceRefs: [] },
       candidates: [],
-      wikiSchemaContent: '## Ingest workflow\n- Update related pages first.'
+      wikiSchemaContent: '## Ingest workflow\n- Update related pages first.',
+      knownWikiPages: [{ _id: 'page-related', title: 'Compounding Interest', pageType: 'concept' }]
     });
     expect(prompt).toContain('User wiki schema conventions');
     expect(prompt).toContain('Update related pages first.');
+    expect(prompt).toContain('mention existing related wiki pages by their exact titles');
+    expect(prompt).toContain('Compounding Interest');
+  });
+
+  it('formats known pages for prompt-time wiki references', () => {
+    expect(formatKnownWikiPages([
+      { id: 'page-1', title: 'Cash Flow Valuation', pageType: 'concept', summary: 'Valuing assets from owner cash flows.' }
+    ])).toContain('Cash Flow Valuation (concept) — Valuing assets from owner cash flows.');
   });
 
   it('wraps article summary text in a claim mark with citation indexes', () => {
@@ -603,6 +613,68 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
       attrs: {
         pageId: 'page-target',
         title: 'Compounding interest'
+      }
+    });
+  });
+
+  it('resolves conservative near-title variants into wikiLink marks after maintenance drafts the body', async () => {
+    const page = {
+      _id: 'page-main',
+      title: 'Investment Notes',
+      pageType: 'topic',
+      plainText: '',
+      body: { type: 'doc', content: [] },
+      sourceRefs: [],
+      claims: [],
+      aiState: {}
+    };
+
+    const chat = jest.fn().mockResolvedValue({
+      model: 'test-model',
+      provider: 'test-provider',
+      text: JSON.stringify({
+        title: 'Investment Notes',
+        article: {
+          summary: {
+            text: 'Cash-flow valuations make growth assumptions explicit.',
+            citationIndexes: [1]
+          },
+          sections: []
+        },
+        maintenance: {
+          summary: 'Drafted page.',
+          changelog: [],
+          health: {}
+        },
+        sourceIndexesUsed: [1]
+      })
+    });
+
+    const { maintainWikiPage } = require('./wikiMaintenanceService');
+    await maintainWikiPage({
+      page,
+      userId: 'user-1',
+      chat,
+      isConfigured: () => true,
+      models: {
+        Article: fakeFindModel([{ _id: 'article-1', title: 'Evidence', content: 'Evidence about investing.' }]),
+        NotebookEntry: fakeFindModel([]),
+        TagMeta: fakeFindModel([]),
+        Question: fakeFindModel([]),
+        WikiPage: fakeFindModel([
+          { _id: 'page-main', title: 'Investment Notes', status: 'draft' },
+          { _id: 'page-target', title: 'Cash Flow Valuation', status: 'draft' }
+        ])
+      }
+    });
+
+    const links = findWikiLinkMarks(page.body);
+    expect(links).toHaveLength(1);
+    expect(links[0]).toMatchObject({
+      text: 'Cash-flow valuations',
+      attrs: {
+        pageId: 'page-target',
+        title: 'Cash Flow Valuation'
       }
     });
   });

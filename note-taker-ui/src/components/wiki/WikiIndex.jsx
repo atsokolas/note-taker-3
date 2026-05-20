@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import ForceGraph2D from 'react-force-graph-2d';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '../ui';
-import { downloadWikiExportZip, ingestWikiSource, listWikiActivity, listWikiPages } from '../../api/wiki';
+import { downloadWikiExportZip, ingestWikiSource, listWikiActivity, listWikiPages, rebuildWikiGraph } from '../../api/wiki';
 import { fetchGraphData } from '../../api/map';
 import { trackWikiIngestResult, trackWikiIngestSubmitted } from '../../utils/wikiAnalytics';
 import { wikiPagePath } from '../../utils/wikiFeatureFlags';
@@ -84,6 +84,22 @@ const linkReason = (link = {}) => {
   if (link.relationType === 'contradicts') return 'The knowledge graph says these pages are in tension.';
   if (link.relationType === 'extends') return 'The knowledge graph says one page extends the other.';
   return 'The page health or graph metadata marks these pages as related.';
+};
+
+const endpointId = (endpoint) => (
+  typeof endpoint === 'object' && endpoint ? endpoint.id : String(endpoint || '')
+);
+
+const describeNodeRole = ({ node, links = [] }) => {
+  const inbound = links.filter(link => endpointId(link.target) === node.id);
+  const outbound = links.filter(link => endpointId(link.source) === node.id);
+  if (!inbound.length && !outbound.length) return 'Isolated page. It has no visible graph relationships under the current filters.';
+  const directLinks = outbound.filter(link => link.relationType === 'wikiLink').length;
+  const evidenceOverlap = [...inbound, ...outbound].filter(link => link.relationType === 'shared_source').length;
+  if (directLinks) return `Navigation hub. This article links directly to ${directLinks} other wiki page${directLinks === 1 ? '' : 's'}.`;
+  if (evidenceOverlap) return `Evidence overlap. This page shares source material with ${evidenceOverlap} visible page${evidenceOverlap === 1 ? '' : 's'}.`;
+  if (inbound.length > outbound.length) return 'Referenced page. More pages point here than it points outward.';
+  return 'Connector page. Its visible relationships come from related-page or review graph metadata.';
 };
 
 const formatActivityTime = (value) => {
@@ -212,10 +228,10 @@ const WikiActivityLog = ({ refreshKey = 0, onOpenPage }) => {
 };
 
 const WikiGraph = ({ graph, onOpenPage }) => {
-  const navigate = useNavigate();
   const graphRef = useRef(null);
   const [hovered, setHovered] = useState(null);
   const [hoveredLink, setHoveredLink] = useState(null);
+  const [selectedNode, setSelectedNode] = useState(null);
   const relationCounts = useMemo(() => (
     (graph.links || []).reduce((counts, link) => {
       const key = link.relationType || 'related';
@@ -251,6 +267,11 @@ const WikiGraph = ({ graph, onOpenPage }) => {
       links: (graph.links || []).filter(link => activeRelationSet.has(link.relationType || 'related'))
     };
   }, [activeRelationSet, graph]);
+
+  const selectedNodeLinks = useMemo(() => {
+    if (!selectedNode) return [];
+    return (visibleGraph.links || []).filter(link => endpointId(link.source) === selectedNode.id || endpointId(link.target) === selectedNode.id);
+  }, [selectedNode, visibleGraph.links]);
 
   const toggleRelation = (relationType) => {
     setActiveRelations(current => {
@@ -321,12 +342,33 @@ const WikiGraph = ({ graph, onOpenPage }) => {
           linkDirectionalParticleWidth={(link) => (link.relationType === 'wikiLink' ? 2.5 : 1.6)}
           onNodeHover={setHovered}
           onLinkHover={setHoveredLink}
-          onNodeClick={(node) => {
-            if (onOpenPage) onOpenPage(node.id);
-            else navigate(wikiPagePath(node.id));
-          }}
+          onNodeClick={(node) => setSelectedNode(node)}
         />
       </div>
+      {selectedNode ? (
+        <aside className="wiki-graph__inspector" aria-label="Selected graph node">
+          <div>
+            <p>{labelFor(selectedNode.pageType)}</p>
+            <h2>{selectedNode.title}</h2>
+            <span>{selectedNode.sourceCount} source{selectedNode.sourceCount === 1 ? '' : 's'} · {selectedNode.inboundCount} inbound · {selectedNodeLinks.length} visible relation{selectedNodeLinks.length === 1 ? '' : 's'}</span>
+          </div>
+          <p>{describeNodeRole({ node: selectedNode, links: visibleGraph.links })}</p>
+          {selectedNodeLinks.length ? (
+            <ul>
+              {selectedNodeLinks.slice(0, 5).map(link => (
+                <li key={link.id}>
+                  <strong>{relationLabel(link.relationType)}</strong>
+                  <span>{linkEndpointTitle(link.source)} -> {linkEndpointTitle(link.target)}</span>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+          <div className="wiki-graph__inspector-actions">
+            <Button type="button" onClick={() => onOpenPage?.(selectedNode.id)}>Open page</Button>
+            <button type="button" onClick={() => setSelectedNode(null)}>Close</button>
+          </div>
+        </aside>
+      ) : null}
       {hovered ? (
         <aside className="wiki-graph__tooltip" role="tooltip">
           <strong>{hovered.title}</strong>
@@ -360,6 +402,7 @@ const WikiIndex = ({ onOpenPage, onOpenList }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [toast, setToast] = useState(null);
+  const [syncingGraph, setSyncingGraph] = useState(false);
   const [activityRefresh, setActivityRefresh] = useState(0);
   const [width, setWidth] = useState(getWindowWidth);
   const mountedRef = useRef(true);
@@ -405,6 +448,13 @@ const WikiIndex = ({ onOpenPage, onOpenList }) => {
 
   const graph = useMemo(() => buildWikiGraphData(filteredPages, mapGraph), [filteredPages, mapGraph]);
   const graphSummary = useMemo(() => summarizeWikiGraph(graph), [graph]);
+  const persistedEdgeCount = Array.isArray(mapGraph.edges) ? mapGraph.edges.length : Array.isArray(mapGraph.links) ? mapGraph.links.length : 0;
+  const graphSyncState = useMemo(() => {
+    if (!pages.length) return { status: 'empty', label: 'No pages yet', stale: false };
+    if (!persistedEdgeCount && graph.links.length) return { status: 'stale', label: 'Persisted graph needs sync', stale: true };
+    if (!persistedEdgeCount) return { status: 'limited', label: 'Inline graph only', stale: true };
+    return { status: 'synced', label: 'Persisted graph synced', stale: false };
+  }, [graph.links.length, pages.length, persistedEdgeCount]);
   const isMobile = width < 720;
 
   const handleIngested = (result = {}) => {
@@ -449,6 +499,23 @@ const WikiIndex = ({ onOpenPage, onOpenList }) => {
       URL.revokeObjectURL(url);
     } catch (_error) {
       setError('Failed to export wiki.');
+    }
+  };
+
+  const handleRebuildGraph = async () => {
+    setSyncingGraph(true);
+    setError('');
+    try {
+      await rebuildWikiGraph({ limit: GRAPH_PAGE_LIMIT });
+      await loadGraph({ quiet: true });
+      setToast({
+        title: 'Wiki graph synced',
+        summary: 'Persisted page relationships were rebuilt from the current wiki.'
+      });
+    } catch (_error) {
+      setError('Failed to rebuild wiki graph.');
+    } finally {
+      setSyncingGraph(false);
     }
   };
 
@@ -516,6 +583,21 @@ const WikiIndex = ({ onOpenPage, onOpenList }) => {
             <span>Evidence overlap</span>
             <strong>{graphSummary.relationCounts.shared_source || 0}</strong>
           </div>
+          <div>
+            <span>Sync</span>
+            <strong>{graphSyncState.label}</strong>
+          </div>
+        </section>
+      ) : null}
+      {!loading && graph.nodes.length ? (
+        <section className={`wiki-graph-sync is-${graphSyncState.status}`} aria-label="Wiki graph sync">
+          <div>
+            <strong>{graphSyncState.label}</strong>
+            <span>{persistedEdgeCount} persisted edge{persistedEdgeCount === 1 ? '' : 's'} · {graph.links.length} visible relation{graph.links.length === 1 ? '' : 's'}</span>
+          </div>
+          <Button type="button" variant={graphSyncState.stale ? 'primary' : 'secondary'} onClick={handleRebuildGraph} disabled={syncingGraph}>
+            {syncingGraph ? 'Syncing...' : graphSyncState.stale ? 'Sync graph' : 'Rebuild graph'}
+          </Button>
         </section>
       ) : null}
       {error ? <div className="wiki-index__error" role="alert">{error}</div> : null}

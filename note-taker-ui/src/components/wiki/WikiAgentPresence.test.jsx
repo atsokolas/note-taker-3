@@ -36,7 +36,7 @@ describe('WikiAgentPresence', () => {
     expect(screen.getByRole('button', { name: 'Maintaining…' })).toBeDisabled();
   });
 
-  it('renders the ready state when there are pending health signals', () => {
+  it('renders the review state when evidence health signals are pending', () => {
     const page = basePage({
       aiState: {
         draftStatus: 'ready',
@@ -52,11 +52,30 @@ describe('WikiAgentPresence', () => {
       }
     });
     render(<WikiAgentPresence page={page} onMaintain={() => {}} />);
-    expect(screen.getByText(/2 signals pending review/)).toBeInTheDocument();
-    expect(screen.getByText(/Last reviewed/)).toBeInTheDocument();
+    expect(screen.getByText(/Needs review/)).toBeInTheDocument();
+    expect(screen.getByText(/weak claims or citation gaps/)).toBeInTheDocument();
     const row = screen.getByRole('status');
     expect(row.getAttribute('data-status')).toBe('ready');
     expect(screen.getByRole('button', { name: 'Run again' })).toBeEnabled();
+  });
+
+  it('renders Drifting for useful pages with source signals only', () => {
+    const page = basePage({
+      claims: [{ claimId: 'claim-1', support: 'supported' }],
+      sourceRefs: [{ _id: 'source-1' }],
+      aiState: {
+        draftStatus: 'ready',
+        lastDraftedAt: new Date(Date.now() - 60_000).toISOString(),
+        health: {
+          ...basePage().aiState.health,
+          newItems: [{ text: 'New article relates to this page.' }],
+          staleSections: [{ text: 'Evidence section may need refresh.' }]
+        }
+      }
+    });
+    render(<WikiAgentPresence page={page} onMaintain={() => {}} />);
+    expect(screen.getByText('Drifting')).toBeInTheDocument();
+    expect(screen.getByText(/2 signals waiting to be incorporated/)).toBeInTheDocument();
   });
 
   it('renders the idle state with a relative timestamp when no signals are pending', () => {
@@ -116,6 +135,6 @@ describe('WikiAgentPresence', () => {
       }
     });
     render(<WikiAgentPresence page={page} onMaintain={() => {}} />);
-    expect(screen.getByText(/1 signal pending/)).toBeInTheDocument();
+    expect(screen.getByText(/1 signal waiting to be incorporated/)).toBeInTheDocument();
   });
 });

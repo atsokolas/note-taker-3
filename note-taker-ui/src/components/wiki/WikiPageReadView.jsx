@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '../ui';
 import {
@@ -10,15 +10,10 @@ import {
   promoteWikiDiscussion
 } from '../../api/wiki';
 import { trackWikiQaPromoted, trackWikiReadModePageView } from '../../utils/wikiAnalytics';
-import { isWikiWorkspaceV1Enabled, wikiPagePath } from '../../utils/wikiFeatureFlags';
+import { wikiPagePath } from '../../utils/wikiFeatureFlags';
 import ClaimCitationPopover from './ClaimCitationPopover';
-import WikiAgentPresence from './WikiAgentPresence';
-import WikiAskComposer from './WikiAskComposer';
-import WikiAutolinkSuggestions from './WikiAutolinkSuggestions';
-import WikiBuildPageComposer from './WikiBuildPageComposer';
-import WikiChangesSinceLastVisit from './WikiChangesSinceLastVisit';
-import WikiDiscussions from './WikiDiscussions';
 import renderTiptapDoc, { citationAnchorId, extractTocItems, firstParagraphText } from './renderTiptapDoc';
+import { buildQualityState } from './wikiQuality';
 import {
   diffClaimLedgerSnapshots,
   diffClaimSnapshots,
@@ -27,6 +22,12 @@ import {
   recordVisit
 } from './wikiVisitTracker';
 import { SUPPORT_STATES } from './extensions/Claim';
+
+const WikiAskComposer = lazy(() => import('./WikiAskComposer'));
+const WikiAutolinkSuggestions = lazy(() => import('./WikiAutolinkSuggestions'));
+const WikiBuildPageComposer = lazy(() => import('./WikiBuildPageComposer'));
+const WikiChangesSinceLastVisit = lazy(() => import('./WikiChangesSinceLastVisit'));
+const WikiDiscussions = lazy(() => import('./WikiDiscussions'));
 
 const emptyDoc = { type: 'doc', content: [{ type: 'paragraph' }] };
 
@@ -83,6 +84,26 @@ const scrollToElementId = (id = '') => {
   element.scrollIntoView?.(scrollOptions());
   element.focus?.({ preventScroll: true });
   return true;
+};
+
+const scheduleAfterFirstPaint = (callback) => {
+  let frame = 0;
+  let idle = 0;
+  let timeout = 0;
+  const run = () => {
+    if (typeof window.requestIdleCallback === 'function') {
+      idle = window.requestIdleCallback(callback, { timeout: 250 });
+      return;
+    }
+    timeout = window.setTimeout(callback, 0);
+  };
+  if (typeof window.requestAnimationFrame === 'function') frame = window.requestAnimationFrame(run);
+  else timeout = window.setTimeout(callback, 0);
+  return () => {
+    if (frame && typeof window.cancelAnimationFrame === 'function') window.cancelAnimationFrame(frame);
+    if (idle && typeof window.cancelIdleCallback === 'function') window.cancelIdleCallback(idle);
+    if (timeout) window.clearTimeout(timeout);
+  };
 };
 
 const collectFootnoteCitations = (node, fallbackPrefix = 'body') => {
@@ -242,83 +263,6 @@ const formatSourceCounts = ({ citationCount = 0, claimCount = 0 }) => {
   if (citationCount > 0) parts.push(`${citationCount} citation${citationCount === 1 ? '' : 's'}`);
   if (claimCount > 0) parts.push(`${claimCount} claim${claimCount === 1 ? '' : 's'}`);
   return parts.join(' / ');
-};
-
-const HEALTH_LABELS = {
-  newItems: 'new source signals',
-  unsupportedClaims: 'unsupported claims',
-  missingCitations: 'missing citations',
-  staleSections: 'stale sections',
-  contradictions: 'contradictions'
-};
-
-const normalizeQualityIssueText = (issue = '') => {
-  if (typeof issue === 'string') return issue.trim();
-  if (!issue || typeof issue !== 'object') return '';
-  return String(issue.text || issue.message || issue.summary || issue.title || issue.reason || '').trim();
-};
-
-const collectQualityIssues = (page = {}) => {
-  const aiState = page?.aiState || {};
-  const health = aiState.health || {};
-  const healthIssues = Object.entries(HEALTH_LABELS).flatMap(([key, label]) => {
-    const items = Array.isArray(health[key]) ? health[key] : [];
-    return items.map((item) => ({
-      key,
-      label,
-      text: normalizeQualityIssueText(item)
-    }));
-  });
-  const explicitIssueSources = [
-    page?.qualityIssues,
-    page?.quality?.issues,
-    page?.quality?.failures,
-    page?.quality?.qualityIssues,
-    aiState?.qualityIssues,
-    aiState?.quality?.issues,
-    aiState?.quality?.failures,
-    aiState?.maintenanceQualityIssues
-  ];
-  const explicitIssues = explicitIssueSources
-    .filter(Array.isArray)
-    .flatMap(issues => issues.map((issue) => ({
-      key: 'qualityIssues',
-      label: 'quality issues',
-      text: normalizeQualityIssueText(issue)
-    })));
-  return [...explicitIssues, ...healthIssues].filter(issue => issue.text || issue.label);
-};
-
-const buildQualityState = ({ page = {}, counts = {} }) => {
-  const claims = Array.isArray(page?.claims) ? page.claims : [];
-  const issues = collectQualityIssues(page);
-  const qualityStatus = String(page?.aiState?.quality?.status || page?.quality?.status || '').toLowerCase();
-  const explicitNeedsRebuild = ['needs_rebuild', 'fail', 'failed'].includes(qualityStatus);
-  const weakClaimCount = (counts.partial || 0) + (counts.unsupported || 0) + (counts.conflicted || 0);
-  const weakClaimRatio = claims.length ? weakClaimCount / claims.length : 0;
-  const missingSourceEvidence = claims.length > 0 && !(page?.sourceRefs || []).length;
-  const weakClaimHealth = weakClaimCount > 0 && (weakClaimRatio >= 0.34 || (counts.unsupported || 0) + (counts.conflicted || 0) > 0);
-  if (!explicitNeedsRebuild && !issues.length && !weakClaimHealth && !missingSourceEvidence) return null;
-  const severeIssue = explicitNeedsRebuild
-    || missingSourceEvidence
-    || issues.some(issue => /scaffold|placeholder|too thin|source dump|missing source/i.test(issue.text || issue.label || ''));
-  const title = severeIssue ? 'Needs rebuild' : 'Needs review';
-  const summary = severeIssue
-    ? 'The page has structural or evidence problems that can make the article misleading.'
-    : 'The article is usable, but new signals or weak claims should be reviewed.';
-  const reasons = [
-    ...issues.slice(0, 3).map(issue => issue.text || labelFor(issue.label)),
-    missingSourceEvidence ? 'Claims have no attached sources.' : '',
-    weakClaimHealth ? `${weakClaimCount} of ${claims.length} claim${claims.length === 1 ? '' : 's'} need stronger support.` : ''
-  ].filter(Boolean);
-  return {
-    title,
-    summary,
-    severity: severeIssue ? 'rebuild' : 'review',
-    reasons: Array.from(new Set(reasons)).slice(0, 4),
-    issueCount: issues.length,
-    weakClaimCount
-  };
 };
 
 const sectionTitles = (body) => extractTocItems(body || emptyDoc)
@@ -531,6 +475,7 @@ const WikiPageReadView = ({ pageId, onEdit, workspaceMode = false }) => {
   const [activeTab, setActiveTab] = useState('article');
   const [markdownStatus, setMarkdownStatus] = useState('');
   const [highlightedRef, setHighlightedRef] = useState('');
+  const [nonCriticalReady, setNonCriticalReady] = useState(false);
   // AT-22 (Bucket 2): rail is collapsible-by-default. Persisted across pages
   // so once a reader opens context they keep it open until they hide it again.
   // Wikipedia / Tolkien Gateway reading shape — body owns the canvas.
@@ -557,6 +502,7 @@ const WikiPageReadView = ({ pageId, onEdit, workspaceMode = false }) => {
   useEffect(() => {
     let cancelled = false;
     setActiveTab('article');
+    setNonCriticalReady(false);
     const load = async () => {
       setLoading(true);
       setError('');
@@ -565,7 +511,6 @@ const WikiPageReadView = ({ pageId, onEdit, workspaceMode = false }) => {
         if (cancelled) return;
         latestPageRef.current = loaded;
         setPage(loaded);
-        setLastVisit(getLastVisitState(pageId));
         trackWikiReadModePageView({
           pageId,
           pageType: loaded.pageType || '',
@@ -587,13 +532,25 @@ const WikiPageReadView = ({ pageId, onEdit, workspaceMode = false }) => {
   }, [pageId]);
 
   useEffect(() => {
-    if (workspaceMode || !pageId || !isWikiWorkspaceV1Enabled()) return;
-    navigate(wikiPagePath(pageId), { replace: true });
-  }, [navigate, pageId, workspaceMode]);
+    if (!page) {
+      setNonCriticalReady(false);
+      setLastVisit(null);
+      return undefined;
+    }
+    let cancelled = false;
+    const cancelScheduled = scheduleAfterFirstPaint(() => {
+      if (cancelled) return;
+      setLastVisit(getLastVisitState(pageId));
+      setNonCriticalReady(true);
+    });
+    return () => {
+      cancelled = true;
+      cancelScheduled?.();
+    };
+  }, [page, pageId]);
 
   useEffect(() => {
     const handleKeyDown = (event) => {
-      if (!workspaceMode && isWikiWorkspaceV1Enabled()) return;
       const target = event.target;
       const tag = target?.tagName || '';
       if (['INPUT', 'TEXTAREA', 'SELECT'].includes(tag) || target?.isContentEditable) return;
@@ -782,13 +739,21 @@ const WikiPageReadView = ({ pageId, onEdit, workspaceMode = false }) => {
     return [...supportingFallbackSources, ...contradictionFallbackSources];
   }, [activeClaim, claimLedgerById, page]);
 
+  const currentClaimTexts = useMemo(() => (
+    nonCriticalReady && lastVisit?.lastViewedAt ? extractClaimTexts(page?.body) : []
+  ), [lastVisit?.lastViewedAt, nonCriticalReady, page?.body]);
+  const claimLedgerDiff = useMemo(() => (
+    nonCriticalReady && lastVisit?.lastViewedAt
+      ? diffClaimLedgerSnapshots(lastVisit.ledgerSnapshot, page?.claims || [])
+      : []
+  ), [lastVisit?.lastViewedAt, lastVisit?.ledgerSnapshot, nonCriticalReady, page?.claims]);
   const visitDiff = useMemo(() => {
-    if (!lastVisit?.lastViewedAt) return { added: [], removed: [], changed: [] };
+    if (!nonCriticalReady || !lastVisit?.lastViewedAt) return { added: [], removed: [], changed: [] };
     return {
-      ...diffClaimSnapshots(lastVisit.claimSnapshot, extractClaimTexts(page?.body)),
-      changed: diffClaimLedgerSnapshots(lastVisit.ledgerSnapshot, page?.claims || [])
+      ...diffClaimSnapshots(lastVisit.claimSnapshot, currentClaimTexts),
+      changed: claimLedgerDiff
     };
-  }, [lastVisit, page]);
+  }, [claimLedgerDiff, currentClaimTexts, lastVisit?.claimSnapshot, lastVisit?.lastViewedAt, nonCriticalReady]);
 
   const handleMarkReviewed = useCallback(() => {
     if (!page) return;
@@ -888,9 +853,18 @@ const WikiPageReadView = ({ pageId, onEdit, workspaceMode = false }) => {
   }, [tocItems]);
 
   const wordCount = useMemo(() => collectText(page?.body).split(/\s+/).filter(Boolean).length, [page?.body]);
-  const bodyHasWikiLinks = useMemo(() => hasInlineWikiLinks(page?.body), [page?.body]);
-  const healthCounts = useMemo(() => claimHealthCounts(page?.claims), [page?.claims]);
-  const qualityState = useMemo(() => buildQualityState({ page, counts: healthCounts }), [page, healthCounts]);
+  const bodyHasWikiLinks = useMemo(
+    () => (nonCriticalReady ? hasInlineWikiLinks(page?.body) : true),
+    [nonCriticalReady, page?.body]
+  );
+  const healthCounts = useMemo(
+    () => (nonCriticalReady ? claimHealthCounts(page?.claims) : { supported: 0, partial: 0, unsupported: 0, conflicted: 0 }),
+    [nonCriticalReady, page?.claims]
+  );
+  const qualityState = useMemo(
+    () => (nonCriticalReady ? buildQualityState({ page, counts: healthCounts }) : null),
+    [healthCounts, nonCriticalReady, page]
+  );
   const infoboxRows = useMemo(() => buildInfoboxRows({
     page,
     sourceCount: (page?.sourceRefs || []).length,
@@ -922,10 +896,6 @@ const WikiPageReadView = ({ pageId, onEdit, workspaceMode = false }) => {
       </main>
     );
   }
-  if (!workspaceMode && isWikiWorkspaceV1Enabled()) {
-    return <main className="wiki-page"><p className="wiki-index__status">Opening Wiki workspace...</p></main>;
-  }
-
   return (
     <main className="wiki-page wiki-read">
       {(!workspaceMode || error) ? (
@@ -939,14 +909,22 @@ const WikiPageReadView = ({ pageId, onEdit, workspaceMode = false }) => {
           {error ? <span className="wiki-editor__error" role="alert">{error}</span> : null}
         </div>
       ) : null}
-      <WikiChangesSinceLastVisit
-        lastViewedAt={lastVisit?.lastViewedAt}
-        added={visitDiff.added}
-        removed={visitDiff.removed}
-        changed={visitDiff.changed}
-        onMarkReviewed={handleMarkReviewed}
-      />
-      <WikiBuildPageComposer compact className="wiki-read__build-page" />
+      {nonCriticalReady ? (
+        <Suspense fallback={null}>
+          {!workspaceMode ? (
+            <>
+              <WikiChangesSinceLastVisit
+                lastViewedAt={lastVisit?.lastViewedAt}
+                added={visitDiff.added}
+                removed={visitDiff.removed}
+                changed={visitDiff.changed}
+                onMarkReviewed={handleMarkReviewed}
+              />
+              <WikiBuildPageComposer compact className="wiki-read__build-page" />
+            </>
+          ) : null}
+        </Suspense>
+      ) : null}
       <div className={`wiki-read__layout${railCollapsed ? ' wiki-read__layout--rail-collapsed' : ''}`}>
         <aside className="wiki-read__toc">
           {tocItems.length ? (
@@ -993,11 +971,13 @@ const WikiPageReadView = ({ pageId, onEdit, workspaceMode = false }) => {
                 In workspace mode the agent will surface quality problems
                 via chat notification (AT-26). */}
             <h1>{page.title || 'Untitled Wiki Page'}</h1>
-            <div className="wiki-read__exports" aria-label="Markdown export">
-              <button type="button" onClick={handleCopyMarkdown}>Copy markdown</button>
-              <button type="button" onClick={handleDownloadMarkdown}>Download .md</button>
-              {markdownStatus ? <span role="status">{markdownStatus}</span> : null}
-            </div>
+            {!workspaceMode ? (
+              <div className="wiki-read__exports" aria-label="Markdown export">
+                <button type="button" onClick={handleCopyMarkdown}>Copy markdown</button>
+                <button type="button" onClick={handleDownloadMarkdown}>Download .md</button>
+                {markdownStatus ? <span role="status">{markdownStatus}</span> : null}
+              </div>
+            ) : null}
             {showPageTalk ? <div className="wiki-read__tabs" role="tablist" aria-label="Wiki page views">
               <button
                 type="button"
@@ -1048,12 +1028,14 @@ const WikiPageReadView = ({ pageId, onEdit, workspaceMode = false }) => {
               aria-labelledby="wiki-read-tab-talk"
               className="wiki-read__talk"
             >
-              <WikiDiscussions
-                discussions={page.discussions || []}
-                onPromote={handlePromoteDiscussion}
-                promotingId={promotingDiscussionId}
-              />
-              <WikiAskComposer onAsk={handleAsk} busy={asking} />
+              <Suspense fallback={null}>
+                <WikiDiscussions
+                  discussions={page.discussions || []}
+                  onPromote={handlePromoteDiscussion}
+                  promotingId={promotingDiscussionId}
+                />
+                <WikiAskComposer onAsk={handleAsk} busy={asking} />
+              </Suspense>
             </section>
           )}
         </article>
@@ -1061,7 +1043,7 @@ const WikiPageReadView = ({ pageId, onEdit, workspaceMode = false }) => {
           className={`wiki-read__rail${railCollapsed ? ' wiki-read__rail--collapsed' : ''}`}
           aria-label="Page context"
         >
-          {railCollapsed ? (
+          {railCollapsed || !nonCriticalReady ? (
             <button
               type="button"
               className="wiki-read__rail-toggle wiki-read__rail-toggle--show"
@@ -1075,71 +1057,72 @@ const WikiPageReadView = ({ pageId, onEdit, workspaceMode = false }) => {
             </button>
           ) : (
             <div id="wiki-read-rail-content" className="wiki-read__rail-content">
-              <button
-                type="button"
-                className="wiki-read__rail-toggle wiki-read__rail-toggle--hide"
-                onClick={() => setRailCollapsed(true)}
-                aria-expanded="true"
-                aria-controls="wiki-read-rail-content"
-                title="Hide context"
-              >
-                <span aria-hidden="true">‹</span>
-                <span className="wiki-read__rail-toggle-label">Hide</span>
-              </button>
-              {!workspaceMode ? <WikiAgentPresence page={page} isMaintaining={maintaining} onMaintain={handleMaintain} /> : null}
-              <section className="wiki-read__infobox wiki-read__infobox--structured">
-            <h2>{labelFor(page.pageType || 'topic')}</h2>
-            <dl>
-              {infoboxRows.map(row => (
-                <div key={row.label}>
-                  <dt>{row.label}</dt>
-                  <dd>{row.value || 'Unknown'}</dd>
-                </div>
-              ))}
-            </dl>
-          </section>
-          {showUtilityRail && !bodyHasWikiLinks ? (
-            <WikiAutolinkSuggestions pageId={pageId} pageTitle={page.title} />
-          ) : null}
-          {showUtilityRail ? <section className="wiki-read__infobox wiki-read__claim-health">
-            <h2>Claim health</h2>
-            <ul>
-              <li>{healthCounts.supported} supported</li>
-              <li>{healthCounts.partial} partial</li>
-              <li>{healthCounts.unsupported} unsupported</li>
-              <li>{healthCounts.conflicted} conflicted</li>
-            </ul>
-          </section> : null}
-          {showUtilityRail && (page.sourceRefs || []).length ? (
-            <section className="wiki-read__infobox wiki-read__source-list">
-              <h2>Sources</h2>
-              <ol>
-                {(page.sourceRefs || []).slice(0, 8).map((source, index) => {
-                  const excerpt = sourceExcerpt(source);
-                  const counts = sourceEvidenceCounts({
-                    source,
-                    claims: page.claims || [],
-                    citations: page.citations || []
-                  });
-                  const countLabel = formatSourceCounts(counts);
-                  const isLong = excerpt.length > 180;
-                  return (
-                    <li key={source._id || source.id || `${source.title}-${index}`}>
-                      <span>{source.title || 'Untitled source'}</span>
-                      {excerpt ? <p>{conciseText(excerpt)}</p> : null}
-                      {countLabel ? <small>{countLabel}</small> : null}
-                      {isLong ? (
-                        <details>
-                          <summary>More</summary>
-                          <p>{excerpt}</p>
-                        </details>
-                      ) : null}
-                    </li>
-                  );
-                })}
-              </ol>
-            </section>
-          ) : null}
+              <Suspense fallback={null}>
+                <button
+                  type="button"
+                  className="wiki-read__rail-toggle wiki-read__rail-toggle--hide"
+                  onClick={() => setRailCollapsed(true)}
+                  aria-expanded="true"
+                  aria-controls="wiki-read-rail-content"
+                  title="Hide context"
+                >
+                  <span aria-hidden="true">‹</span>
+                  <span className="wiki-read__rail-toggle-label">Hide</span>
+                </button>
+                <section className="wiki-read__infobox wiki-read__infobox--structured">
+                  <h2>{labelFor(page.pageType || 'topic')}</h2>
+                  <dl>
+                    {infoboxRows.map(row => (
+                      <div key={row.label}>
+                        <dt>{row.label}</dt>
+                        <dd>{row.value || 'Unknown'}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                </section>
+                {showUtilityRail && !bodyHasWikiLinks ? (
+                  <WikiAutolinkSuggestions pageId={pageId} pageTitle={page.title} />
+                ) : null}
+                {showUtilityRail ? <section className="wiki-read__infobox wiki-read__claim-health">
+                  <h2>Claim health</h2>
+                  <ul>
+                    <li>{healthCounts.supported} supported</li>
+                    <li>{healthCounts.partial} partial</li>
+                    <li>{healthCounts.unsupported} unsupported</li>
+                    <li>{healthCounts.conflicted} conflicted</li>
+                  </ul>
+                </section> : null}
+                {showUtilityRail && (page.sourceRefs || []).length ? (
+                  <section className="wiki-read__infobox wiki-read__source-list">
+                    <h2>Sources</h2>
+                    <ol>
+                      {(page.sourceRefs || []).slice(0, 8).map((source, index) => {
+                        const excerpt = sourceExcerpt(source);
+                        const counts = sourceEvidenceCounts({
+                          source,
+                          claims: page.claims || [],
+                          citations: page.citations || []
+                        });
+                        const countLabel = formatSourceCounts(counts);
+                        const isLong = excerpt.length > 180;
+                        return (
+                          <li key={source._id || source.id || `${source.title}-${index}`}>
+                            <span>{source.title || 'Untitled source'}</span>
+                            {excerpt ? <p>{conciseText(excerpt)}</p> : null}
+                            {countLabel ? <small>{countLabel}</small> : null}
+                            {isLong ? (
+                              <details>
+                                <summary>More</summary>
+                                <p>{excerpt}</p>
+                              </details>
+                            ) : null}
+                          </li>
+                        );
+                      })}
+                    </ol>
+                  </section>
+                ) : null}
+              </Suspense>
             </div>
           )}
         </aside>

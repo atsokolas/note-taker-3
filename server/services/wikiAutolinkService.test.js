@@ -37,6 +37,20 @@ const run = async () => {
   assert.strictEqual(aliasScan.mentionCount, 1);
   assert.strictEqual(aliasScan.matchedAlias, 'Investing');
 
+  const nearTitleAliases = titleAliases('Cash Flow Valuation');
+  assert.ok(nearTitleAliases.includes('Cash Flow Valuations'));
+  const variantScan = scanTextForCandidate({
+    targetText: 'Cash-flow valuations keep growth assumptions explicit.',
+    candidateTitle: 'Cash Flow Valuation'
+  });
+  assert.strictEqual(variantScan.mentionCount, 1);
+  assert.strictEqual(variantScan.matchedAlias, 'Cash-flow valuations');
+
+  assert.strictEqual(scanTextForCandidate({
+    targetText: 'Karpathys is a username, not a page mention.',
+    candidateTitle: 'Karpathy'
+  }), null);
+
   assert.match(truncate('a'.repeat(80), 30), /^a+…$/);
   assert.strictEqual(truncate('short'), 'short');
 

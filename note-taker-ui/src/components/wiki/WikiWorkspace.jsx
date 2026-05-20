@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { chatWithAgent } from '../../api/agent';
 import { getArticles } from '../../api/articles';
@@ -17,10 +17,18 @@ import {
   streamMaintainWikiPage
 } from '../../api/wiki';
 import { buildWikiCreatePayload } from '../../utils/wikiCreate';
+import { trackWikiEditModeEntered } from '../../utils/wikiAnalytics';
 import { Button } from '../ui';
-import WikiIndex from './WikiIndex';
 import WikiList from './WikiList';
+import WikiPageEditor from './WikiPageEditor';
 import WikiPageReadView from './WikiPageReadView';
+import {
+  diffClaimLedgerSnapshots,
+  diffClaimSnapshots,
+  extractClaimTexts,
+  getLastVisitState,
+  recordVisit
+} from './wikiVisitTracker';
 
 const LAST_PAGE_KEY = 'noeis.wiki.workspace.last_page_id';
 const CHAT_WIDTH_KEY = 'noeis.wiki.workspace.chat_width';
@@ -29,6 +37,39 @@ const LEGACY_DEFAULT_CHAT_WIDTH = 380;
 const MIN_CHAT_WIDTH = 260;
 const MAX_CHAT_WIDTH = 480;
 const POLL_MS = 2000;
+const HEALTH_KEYS = [
+  'newItems',
+  'unsupportedClaims',
+  'missingCitations',
+  'staleSections',
+  'contradictions'
+];
+
+const WikiIndex = lazy(() => import('./WikiIndex'));
+
+const WorkspacePaneFallback = ({ label = 'Loading Wiki pane...' }) => (
+  <p className="wiki-index__status">{label}</p>
+);
+
+const scheduleAfterFirstPaint = (callback) => {
+  let frame = 0;
+  let idle = 0;
+  let timeout = 0;
+  const run = () => {
+    if (typeof window.requestIdleCallback === 'function') {
+      idle = window.requestIdleCallback(callback, { timeout: 250 });
+      return;
+    }
+    timeout = window.setTimeout(callback, 0);
+  };
+  if (typeof window.requestAnimationFrame === 'function') frame = window.requestAnimationFrame(run);
+  else timeout = window.setTimeout(callback, 0);
+  return () => {
+    if (frame && typeof window.cancelAnimationFrame === 'function') window.cancelAnimationFrame(frame);
+    if (idle && typeof window.cancelIdleCallback === 'function') window.cancelIdleCallback(idle);
+    if (timeout) window.clearTimeout(timeout);
+  };
+};
 
 const clean = (value = '') => String(value || '').trim();
 
@@ -88,17 +129,25 @@ const COMMANDS = [
     template: '/lint',
     label: 'Lint wiki',
     hint: 'Scan for contradictions, stale pages, missing links, and gaps.'
+  },
+  {
+    verb: 'help',
+    template: '/help',
+    label: 'Help',
+    hint: 'Show available wiki chat commands.'
   }
 ];
 
 const commandMatches = (input = '') => {
   const text = clean(input);
   if (!text.startsWith('/')) return [];
-  const query = text.slice(1).split(/\s+/)[0].toLowerCase();
+  const rawQuery = text.slice(1);
+  if (/\s/.test(rawQuery)) return [];
+  const query = rawQuery.toLowerCase();
   return COMMANDS.filter(command => (
     !query
     || command.verb.startsWith(query)
-    || command.label.toLowerCase().includes(query)
+    || command.label.toLowerCase().startsWith(query)
   )).slice(0, 6);
 };
 
@@ -129,9 +178,125 @@ const parseWikiRef = (value = '') => {
   return clean(match?.[1]);
 };
 
+const trimReferenceToken = (value = '') => clean(value).replace(/[),.;:!?]+$/g, '');
+
+const referenceKey = (type, id) => `${type}:${id}`;
+
+const labelForReference = ({ type = '', id = '', title = '' } = {}) => {
+  const safeType = clean(type).toLowerCase();
+  const safeTitle = clean(title);
+  const safeId = clean(id);
+  return `@${safeType}:${safeTitle || safeId}`;
+};
+
+const mergeContextReferences = (current = [], additions = []) => {
+  const byKey = new Map();
+  current.forEach((reference) => {
+    if (reference?.key) byKey.set(reference.key, reference);
+  });
+  additions.forEach((reference) => {
+    if (!reference?.key) return;
+    byKey.set(reference.key, {
+      ...reference,
+      label: reference.label || labelForReference(reference)
+    });
+  });
+  return Array.from(byKey.values());
+};
+
+const referencesFromText = (text = '', { pages = [], articles = [] } = {}) => {
+  const references = [];
+  const pageById = new Map((pages || []).map(page => [clean(page?._id || page?.id), page]));
+  const articleById = new Map((articles || []).map(article => [clean(article?._id || article?.id), article]));
+  String(text || '').replace(/@wiki:([^\s]+)/gi, (_match, rawId) => {
+    const id = trimReferenceToken(rawId);
+    if (!id) return _match;
+    const page = pageById.get(id);
+    references.push({
+      key: referenceKey('wiki', id),
+      type: 'wiki',
+      id,
+      title: clean(page?.title),
+      label: labelForReference({ type: 'wiki', id, title: page?.title })
+    });
+    return _match;
+  });
+  String(text || '').replace(/@article:([^\s]+)/gi, (_match, rawId) => {
+    const id = trimReferenceToken(rawId);
+    if (!id) return _match;
+    const article = articleById.get(id);
+    references.push({
+      key: referenceKey('article', id),
+      type: 'article',
+      id,
+      title: clean(article?.title || article?.url),
+      url: clean(article?.url),
+      label: labelForReference({ type: 'article', id, title: article?.title || article?.url })
+    });
+    return _match;
+  });
+  return mergeContextReferences([], references);
+};
+
 const parseUrl = (value = '') => {
   const match = String(value || '').match(/https?:\/\/\S+/i);
   return clean(match?.[0]);
+};
+
+const countPendingSignals = (aiState = {}) => {
+  const health = aiState?.health || {};
+  return HEALTH_KEYS.reduce((total, key) => {
+    const rows = Array.isArray(health[key]) ? health[key] : [];
+    return total + rows.length;
+  }, 0);
+};
+
+const workspaceAgentStatus = ({ busy = false, reading = false, pageId = '', page = null } = {}) => {
+  if (busy) {
+    return {
+      status: 'working',
+      text: pageId ? `Agent updating @wiki:${pageId}...` : 'Agent is working...'
+    };
+  }
+  if (reading && pageId) {
+    return {
+      status: 'reading',
+      text: `Agent is reading @wiki:${pageId}...`
+    };
+  }
+  const aiState = page?.aiState || {};
+  if (aiState.lastError) {
+    return { status: 'error', text: 'Last agent run failed.' };
+  }
+  const signalCount = countPendingSignals(aiState);
+  if (signalCount > 0) {
+    return {
+      status: 'ready',
+      text: `${signalCount} signal${signalCount === 1 ? '' : 's'} pending for @wiki:${pageId}.`
+    };
+  }
+  if (pageId) {
+    return { status: 'idle', text: `Agent ready for @wiki:${pageId}.` };
+  }
+  return { status: 'idle', text: 'Agent ready.' };
+};
+
+const formatWorkspaceVisitDiff = ({ page = {}, lastVisit = null, diff = {} } = {}) => {
+  const addedCount = Array.isArray(diff.added) ? diff.added.length : 0;
+  const removedCount = Array.isArray(diff.removed) ? diff.removed.length : 0;
+  const changedCount = Array.isArray(diff.changed) ? diff.changed.length : 0;
+  const total = addedCount + removedCount + changedCount;
+  if (!lastVisit?.lastViewedAt || total === 0) return '';
+  const reviewed = new Date(lastVisit.lastViewedAt);
+  const reviewedLabel = Number.isNaN(reviewed.getTime())
+    ? 'your last review'
+    : reviewed.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  const parts = [
+    addedCount ? `${addedCount} new claim${addedCount === 1 ? '' : 's'}` : '',
+    changedCount ? `${changedCount} changed claim${changedCount === 1 ? '' : 's'}` : '',
+    removedCount ? `${removedCount} removed claim${removedCount === 1 ? '' : 's'}` : ''
+  ].filter(Boolean);
+  return `${page.title || 'This page'} changed since ${reviewedLabel}: ${parts.join(', ')}.`;
 };
 
 const lintCount = (run = {}, key = '') => (
@@ -190,10 +355,11 @@ const actionLabel = (action, finding = {}) => {
   return 'Ignore';
 };
 
-const viewPathFor = ({ view = 'graph', page = '' } = {}) => {
+const viewPathFor = ({ view = 'graph', page = '', mode = '' } = {}) => {
   const params = new URLSearchParams();
   if (page) params.set('page', page);
   else params.set('view', view);
+  if (page && mode && mode !== 'read') params.set('mode', mode);
   return `/wiki/workspace?${params.toString()}`;
 };
 
@@ -444,6 +610,36 @@ const WikiLintResultCard = ({ run, onNavigate, onPageChanged, onAppend }) => {
   );
 };
 
+const WikiWorkspaceVisitCard = ({ notice = {}, onNavigate, onReviewed }) => {
+  const diff = notice.diff || {};
+  const rows = [
+    ['New', diff.added || []],
+    ['Changed', diff.changed || []],
+    ['Removed', diff.removed || []]
+  ].filter(([, items]) => Array.isArray(items) && items.length);
+  if (!rows.length) return null;
+  return (
+    <div className="wiki-workspace-visit-card" aria-label="Page changes since last review">
+      {rows.map(([label, items]) => (
+        <div key={label}>
+          <strong>{label}</strong>
+          <ul>
+            {items.slice(0, 3).map((item, index) => (
+              <li key={`${label}-${index}`}>
+                {typeof item === 'string' ? item : item?.text || label.toLowerCase()}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ))}
+      <div className="wiki-workspace-visit-card__actions">
+        <button type="button" onClick={() => onNavigate?.({ page: notice.pageId })}>Open page</button>
+        <button type="button" onClick={() => onReviewed?.(notice)}>Mark reviewed</button>
+      </div>
+    </div>
+  );
+};
+
 const WikiWorkspaceChat = ({ selectedPageId, view, onNavigate, onPageChanged, busy, setBusy, chatDraft }) => {
   const [messages, setMessages] = useState([
     {
@@ -457,7 +653,20 @@ const WikiWorkspaceChat = ({ selectedPageId, view, onNavigate, onPageChanged, bu
   const [threadId, setThreadId] = useState('');
   const [threadTitle, setThreadTitle] = useState('');
   const [wikiPages, setWikiPages] = useState([]);
+  const [wikiPagesRequested, setWikiPagesRequested] = useState(false);
+  const [articles, setArticles] = useState([]);
+  const [articlesRequested, setArticlesRequested] = useState(false);
+  const [contextReferences, setContextReferences] = useState([]);
+  const [slashHintSeen, setSlashHintSeen] = useState(false);
+  const [referenceHintSeen, setReferenceHintSeen] = useState(false);
+  const [hintDismissed, setHintDismissed] = useState(false);
+  const [dismissedMentionInput, setDismissedMentionInput] = useState('');
+  const [selectedPagePresence, setSelectedPagePresence] = useState({ page: null, reading: false });
+  const [ambientReady, setAmbientReady] = useState(false);
   const scrollRef = useRef(null);
+  const visitNoticeKeysRef = useRef(new Set());
+
+  useEffect(() => scheduleAfterFirstPaint(() => setAmbientReady(true)), []);
 
   useEffect(() => {
     scrollRef.current?.scrollTo?.({ top: scrollRef.current.scrollHeight });
@@ -468,7 +677,16 @@ const WikiWorkspaceChat = ({ selectedPageId, view, onNavigate, onPageChanged, bu
     setInput(chatDraft.text);
   }, [chatDraft]);
 
+  const requestWikiPages = useCallback(() => {
+    setWikiPagesRequested(true);
+  }, []);
+
+  const requestArticles = useCallback(() => {
+    setArticlesRequested(true);
+  }, []);
+
   useEffect(() => {
+    if (!wikiPagesRequested) return undefined;
     let cancelled = false;
     listWikiPages({ limit: 30 })
       .then((pages) => {
@@ -478,27 +696,112 @@ const WikiWorkspaceChat = ({ selectedPageId, view, onNavigate, onPageChanged, bu
         if (!cancelled) setWikiPages([]);
       });
     return () => { cancelled = true; };
-  }, []);
+  }, [wikiPagesRequested]);
+
+  useEffect(() => {
+    if (!articlesRequested) return undefined;
+    let cancelled = false;
+    getArticles({ limit: 30, sort: 'recent' })
+      .then((items) => {
+        if (!cancelled) setArticles(Array.isArray(items) ? items : []);
+      })
+      .catch(() => {
+        if (!cancelled) setArticles([]);
+      });
+    return () => { cancelled = true; };
+  }, [articlesRequested]);
 
   const append = useCallback((message) => {
     setMessages(current => [...current, { id: messageId(message.role), createdAt: new Date().toISOString(), ...message }]);
   }, []);
 
+  useEffect(() => {
+    if (!selectedPageId) {
+      setSelectedPagePresence({ page: null, reading: false });
+      return undefined;
+    }
+    let cancelled = false;
+    setSelectedPagePresence(current => ({ page: current.page, reading: true }));
+    getWikiPage(selectedPageId)
+      .then((page) => {
+        if (cancelled) return;
+        setSelectedPagePresence({ page, reading: false });
+        const lastVisit = getLastVisitState(selectedPageId);
+        if (!lastVisit?.lastViewedAt) return;
+        const diff = {
+          ...diffClaimSnapshots(lastVisit.claimSnapshot, extractClaimTexts(page?.body)),
+          changed: diffClaimLedgerSnapshots(lastVisit.ledgerSnapshot, page?.claims || [])
+        };
+        const text = formatWorkspaceVisitDiff({ page, lastVisit, diff });
+        if (!text) return;
+        const noticeKey = `${selectedPageId}:${page?.updatedAt || page?.aiState?.lastDraftedAt || text}`;
+        if (visitNoticeKeysRef.current.has(noticeKey)) return;
+        visitNoticeKeysRef.current.add(noticeKey);
+        append({
+          role: 'assistant',
+          text,
+          visitNotice: { pageId: selectedPageId, page, diff }
+        });
+      })
+      .catch(() => {
+        if (!cancelled) setSelectedPagePresence({ page: null, reading: false });
+        // The page body still renders on the right; the chat notification is opportunistic.
+      });
+    return () => { cancelled = true; };
+  }, [append, selectedPageId]);
+
+  const handleVisitReviewed = useCallback((notice = {}) => {
+    if (!notice.pageId || !notice.page) return;
+    recordVisit(notice.pageId, notice.page.body, notice.page.claims || []);
+    append({ role: 'assistant', text: `Marked @wiki:${notice.pageId} reviewed.` });
+  }, [append]);
+
   const showCommands = commandMatches(input);
-  const mentionQuery = useMemo(() => {
+  const showDiscoveryHint = !hintDismissed && !(slashHintSeen && referenceHintSeen);
+  const agentStatus = workspaceAgentStatus({
+    busy,
+    reading: selectedPagePresence.reading,
+    pageId: selectedPageId,
+    page: selectedPagePresence.page
+  });
+  const wikiMentionQuery = useMemo(() => {
     const match = input.match(/@wiki:([^\s]*)$/i);
     return match ? clean(match[1]).toLowerCase() : '';
   }, [input]);
+  const articleMentionQuery = useMemo(() => {
+    const match = input.match(/@article:([^\s]*)$/i);
+    return match ? clean(match[1]).toLowerCase() : '';
+  }, [input]);
+  const bareMentionQuery = useMemo(() => {
+    const match = input.match(/(^|\s)@([^\s:@]*)$/i);
+    if (!match || input.match(/@(wiki|article):[^\s]*$/i)) return '';
+    return clean(match[2]).toLowerCase();
+  }, [input]);
   const showWikiMentions = useMemo(() => {
-    if (!input.match(/@wiki:[^\s]*$/i)) return [];
+    if (input === dismissedMentionInput) return [];
+    if (!input.match(/@wiki:[^\s]*$/i) && !bareMentionQuery) return [];
     return wikiPages
       .filter(page => {
         const id = String(page._id || page.id || '').toLowerCase();
         const title = String(page.title || '').toLowerCase();
-        return !mentionQuery || id.includes(mentionQuery) || title.includes(mentionQuery);
+        const query = wikiMentionQuery || bareMentionQuery;
+        return !query || id.includes(query) || title.includes(query);
       })
       .slice(0, 6);
-  }, [input, mentionQuery, wikiPages]);
+  }, [bareMentionQuery, dismissedMentionInput, input, wikiMentionQuery, wikiPages]);
+  const showArticleMentions = useMemo(() => {
+    if (input === dismissedMentionInput) return [];
+    if (!input.match(/@article:[^\s]*$/i) && !bareMentionQuery) return [];
+    return articles
+      .filter(article => {
+        const id = String(article._id || article.id || '').toLowerCase();
+        const title = String(article.title || '').toLowerCase();
+        const url = String(article.url || '').toLowerCase();
+        const query = articleMentionQuery || bareMentionQuery;
+        return !query || id.includes(query) || title.includes(query) || url.includes(query);
+      })
+      .slice(0, 6);
+  }, [articleMentionQuery, articles, bareMentionQuery, dismissedMentionInput, input]);
 
   const applyCommandTemplate = (template) => {
     setInput(template);
@@ -507,7 +810,29 @@ const WikiWorkspaceChat = ({ selectedPageId, view, onNavigate, onPageChanged, bu
   const applyWikiMention = (page) => {
     const pageId = clean(page?._id || page?.id);
     if (!pageId) return;
-    setInput(current => current.replace(/@wiki:[^\s]*$/i, `@wiki:${pageId}`));
+    setInput(current => {
+      const next = current.match(/@wiki:[^\s]*$/i)
+        ? current.replace(/@wiki:[^\s]*$/i, `@wiki:${pageId}`)
+        : current.replace(/(^|\s)@[^\s:@]*$/i, `$1@wiki:${pageId}`);
+      setDismissedMentionInput(next);
+      return next;
+    });
+  };
+
+  const applyArticleMention = (article) => {
+    const articleId = clean(article?._id || article?.id);
+    if (!articleId) return;
+    setInput(current => {
+      const next = current.match(/@article:[^\s]*$/i)
+        ? current.replace(/@article:[^\s]*$/i, `@article:${articleId}`)
+        : current.replace(/(^|\s)@[^\s:@]*$/i, `$1@article:${articleId}`);
+      setDismissedMentionInput(next);
+      return next;
+    });
+  };
+
+  const removeContextReference = (key) => {
+    setContextReferences(current => current.filter(reference => reference.key !== key));
   };
 
   const handleCommand = async (command) => {
@@ -612,7 +937,7 @@ const WikiWorkspaceChat = ({ selectedPageId, view, onNavigate, onPageChanged, bu
       return true;
     }
     if (command.verb === 'ingest') {
-      const url = parseUrl(command.args);
+      const url = parseUrl(command.args.replace(/^@url\s+/i, ''));
       if (!url) {
         append({ role: 'assistant', text: 'Paste a URL after /ingest to feed it to the wiki.' });
         return true;
@@ -664,6 +989,12 @@ const WikiWorkspaceChat = ({ selectedPageId, view, onNavigate, onPageChanged, bu
     event?.preventDefault?.();
     const text = clean(input);
     if (!text || busy) return;
+    const referenced = referencesFromText(text, { pages: wikiPages, articles });
+    const nextContextReferences = mergeContextReferences(contextReferences, referenced);
+    if (referenced.length) {
+      setContextReferences(nextContextReferences);
+      setReferenceHintSeen(true);
+    }
     setInput('');
     append({ role: 'user', text });
     const command = parseCommand(text);
@@ -671,6 +1002,16 @@ const WikiWorkspaceChat = ({ selectedPageId, view, onNavigate, onPageChanged, bu
 
     setBusy(true);
     try {
+      const pastedUrl = parseUrl(text.replace(/^@url\s+/i, ''));
+      if (pastedUrl) {
+        const result = await ingestWikiSource({ type: 'url', url: pastedUrl });
+        append({
+          role: 'assistant',
+          text: `Ingested source. ${result?.affectedPageIds?.length || 0} page${result?.affectedPageIds?.length === 1 ? '' : 's'} affected.`
+        });
+        onNavigate({ view: 'activity' });
+        return;
+      }
       const result = await chatWithAgent({
         message: text,
         threadId: threadId || undefined,
@@ -682,8 +1023,10 @@ const WikiWorkspaceChat = ({ selectedPageId, view, onNavigate, onPageChanged, bu
           title: selectedPageId ? `Wiki page ${selectedPageId}` : 'Wiki workspace',
           pageId: selectedPageId || '',
           view,
+          references: nextContextReferences,
           metadata: {
-            surface: 'wiki_workspace'
+            surface: 'wiki_workspace',
+            contextReferences: nextContextReferences
           }
         },
         history: messages.map(message => ({ role: message.role, text: message.text })),
@@ -710,7 +1053,7 @@ const WikiWorkspaceChat = ({ selectedPageId, view, onNavigate, onPageChanged, bu
       <header>
         <p className="wiki-index__eyebrow">Agent workspace</p>
         <h1>Wiki chat</h1>
-        <span>{busy ? 'Agent is working' : threadId ? 'Saved thread' : 'Ready'}</span>
+        <span>{threadId ? 'Saved thread' : 'Workspace'}</span>
         {threadId ? (
           <Link className="wiki-workspace-chat__thread-link" to={`/think?tab=threads&threadId=${encodeURIComponent(threadId)}`}>
             Open thread{threadTitle ? ` · ${threadTitle}` : ''}
@@ -718,9 +1061,45 @@ const WikiWorkspaceChat = ({ selectedPageId, view, onNavigate, onPageChanged, bu
         ) : null}
       </header>
       <form onSubmit={submit} className="wiki-workspace-chat__composer">
+        {ambientReady ? (
+          <div
+            className="wiki-workspace-chat__presence"
+            data-status={agentStatus.status}
+            role="status"
+            aria-live="polite"
+            aria-label="Agent status"
+          >
+            <span className="wiki-workspace-chat__presence-dot" aria-hidden="true" />
+            <span>{agentStatus.text}</span>
+          </div>
+        ) : null}
+        {contextReferences.length ? (
+          <div className="wiki-workspace-chat__context" aria-label="In context">
+            <span>In context:</span>
+            {contextReferences.map(reference => (
+              <button
+                type="button"
+                key={reference.key}
+                onClick={() => removeContextReference(reference.key)}
+                aria-label={`Remove ${reference.label} from context`}
+              >
+                {reference.label}
+                <span aria-hidden="true">×</span>
+              </button>
+            ))}
+          </div>
+        ) : null}
         <textarea
           value={input}
-          onChange={(event) => setInput(event.target.value)}
+          onFocus={requestWikiPages}
+          onChange={(event) => {
+            const next = event.target.value;
+            setInput(next);
+            setDismissedMentionInput('');
+            if (next.startsWith('/')) setSlashHintSeen(true);
+            if (/@wiki:/i.test(next) || /(^|\s)@[^\s:@]*$/i.test(next)) requestWikiPages();
+            if (/@article:/i.test(next) || /(^|\s)@[^\s:@]*$/i.test(next)) requestArticles();
+          }}
           onKeyDown={(event) => {
             if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') submit(event);
           }}
@@ -749,8 +1128,23 @@ const WikiWorkspaceChat = ({ selectedPageId, view, onNavigate, onPageChanged, bu
             ))}
           </div>
         ) : null}
-        <div>
-          <span>Type / for commands, @wiki: for page references</span>
+        {showArticleMentions.length ? (
+          <div className="wiki-workspace-chat__palette" aria-label="Article references">
+            {showArticleMentions.map(article => (
+              <button type="button" key={article._id || article.id} onClick={() => applyArticleMention(article)}>
+                <strong>{article.title || article.url || 'Untitled source'}</strong>
+                <span>@article:{article._id || article.id}</span>
+              </button>
+            ))}
+          </div>
+        ) : null}
+        <div className="wiki-workspace-chat__composer-footer">
+          {showDiscoveryHint ? (
+            <span className="wiki-workspace-chat__hint">
+              Type / for commands, @ to reference your library.
+              <button type="button" onClick={() => setHintDismissed(true)} aria-label="Dismiss composer hint">Dismiss</button>
+            </span>
+          ) : <span />}
           <Button type="submit" disabled={busy || !input.trim()}>{busy ? 'Working...' : 'Send'}</Button>
         </div>
       </form>
@@ -765,6 +1159,13 @@ const WikiWorkspaceChat = ({ selectedPageId, view, onNavigate, onPageChanged, bu
                 onNavigate={onNavigate}
                 onPageChanged={onPageChanged}
                 onAppend={append}
+              />
+            ) : null}
+            {message.visitNotice ? (
+              <WikiWorkspaceVisitCard
+                notice={message.visitNotice}
+                onNavigate={onNavigate}
+                onReviewed={handleVisitReviewed}
               />
             ) : null}
           </article>
@@ -791,6 +1192,7 @@ const WikiWorkspace = () => {
 
   const params = useMemo(() => new URLSearchParams(currentSearch), [currentSearch]);
   const selectedPageId = clean(params.get('page'));
+  const pageMode = clean(params.get('mode')) === 'edit' ? 'edit' : 'read';
   const explicitView = clean(params.get('view'));
   const view = selectedPageId ? 'page' : explicitView || 'graph';
 
@@ -834,15 +1236,28 @@ const WikiWorkspace = () => {
     return () => window.clearInterval(handle);
   }, [busy, selectedPageId]);
 
-  const onNavigate = useCallback(({ page = '', view: nextView = '' } = {}) => {
+  const onNavigate = useCallback(({ page = '', view: nextView = '', mode = '' } = {}) => {
     if (selectedPageId) lastSelectedPageRef.current = selectedPageId;
-    const target = { page, view: nextView || 'graph' };
+    const target = { page, view: nextView || 'graph', mode };
     const targetSearch = searchFor(target);
     currentSearchRef.current = targetSearch;
     setCurrentSearch(targetSearch);
     navigate(viewPathFor(target));
     if (page) setMobilePane('wiki');
   }, [navigate, selectedPageId]);
+
+  const enterPageEditMode = useCallback((pageId = selectedPageId) => {
+    const nextPageId = clean(pageId);
+    if (!nextPageId) return;
+    trackWikiEditModeEntered({ pageId: nextPageId, source: 'wiki_workspace' });
+    onNavigate({ page: nextPageId, mode: 'edit' });
+  }, [onNavigate, selectedPageId]);
+
+  const exitPageEditMode = useCallback(() => {
+    if (!selectedPageId) return;
+    onNavigate({ page: selectedPageId });
+    setRefreshNonce(value => value + 1);
+  }, [onNavigate, selectedPageId]);
 
   const onPageChanged = useCallback((pageId) => {
     if (pageId === selectedPageId) setRefreshNonce(value => value + 1);
@@ -851,24 +1266,38 @@ const WikiWorkspace = () => {
   const useSourceInChat = useCallback((article = {}) => {
     const title = clean(article.title || article.url || 'this source');
     const url = clean(article.url);
+    const articleId = clean(article._id || article.id);
+    const articleContext = articleId ? ` @article:${articleId}` : '';
     const pageId = selectedPageId || lastSelectedPageRef.current;
     const pageContext = pageId ? ` for @wiki:${pageId}` : '';
     setChatDraft({
       id: `${article._id || article.id || title}-${Date.now()}`,
-      text: `Use "${title}"${url ? ` (${url})` : ''}${pageContext} and tell me what wiki update it supports.`
+      text: `Use "${title}"${url ? ` (${url})` : ''}${articleContext}${pageContext} and tell me what wiki update it supports.`
     });
     setMobilePane('chat');
   }, [selectedPageId]);
 
   const rightPane = useMemo(() => {
     if (selectedPageId) {
+      if (pageMode === 'edit') {
+        return (
+          <WikiPageEditor
+            key={`${selectedPageId}:edit`}
+            pageId={selectedPageId}
+            workspaceMode
+            onDoneEditing={exitPageEditMode}
+          />
+        );
+      }
       return (
-        <WikiPageReadView
-          key={`${selectedPageId}:${refreshNonce}`}
-          pageId={selectedPageId}
-          workspaceMode
-          onEdit={() => navigate(`/wiki/${selectedPageId}`)}
-        />
+        <div className="wiki-workspace__page-shell">
+          <WikiPageReadView
+            key={`${selectedPageId}:${refreshNonce}`}
+            pageId={selectedPageId}
+            workspaceMode
+            onEdit={() => enterPageEditMode(selectedPageId)}
+          />
+        </div>
       );
     }
     if (view === 'activity') return <WorkspaceActivity />;
@@ -876,12 +1305,14 @@ const WikiWorkspace = () => {
     if (view === 'sources') return <WorkspaceSources onUseSource={useSourceInChat} />;
     if (view === 'schema') return <WorkspaceSchema />;
     return (
-      <WikiIndex
-        onOpenPage={(pageId) => onNavigate({ page: pageId })}
-        onOpenList={() => onNavigate({ view: 'list' })}
-      />
+      <Suspense fallback={<WorkspacePaneFallback label="Loading knowledge map..." />}>
+        <WikiIndex
+          onOpenPage={(pageId) => onNavigate({ page: pageId })}
+          onOpenList={() => onNavigate({ view: 'list' })}
+        />
+      </Suspense>
     );
-  }, [navigate, onNavigate, refreshNonce, selectedPageId, useSourceInChat, view]);
+  }, [enterPageEditMode, exitPageEditMode, onNavigate, pageMode, refreshNonce, selectedPageId, useSourceInChat, view]);
 
   const handleDragStart = (event) => {
     dragRef.current = { startX: event.clientX, startWidth: chatWidth };

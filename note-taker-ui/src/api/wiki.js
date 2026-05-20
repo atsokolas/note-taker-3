@@ -415,6 +415,11 @@ export const rebuildWikiPageGraph = async (id) => {
   return res.data || {};
 };
 
+export const rebuildWikiGraph = async ({ limit = 500 } = {}) => {
+  const res = await api.post('/api/wiki/graph/rebuild', { limit }, getAuthHeaders());
+  return res.data || {};
+};
+
 export const writeWikiPageToConnector = async (id, connector, payload = {}) => {
   const res = await api.post(`${WIKI_PAGES_PATH}/${safeId(id)}/write-back/${safeId(connector)}`, payload, getAuthHeaders());
   return res.data || {};
@@ -470,6 +475,7 @@ const wikiApi = {
   applyWikiAutolink,
   reviewWikiFreshness,
   rebuildWikiPageGraph,
+  rebuildWikiGraph,
   writeWikiPageToConnector
 };
 

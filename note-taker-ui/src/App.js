@@ -27,7 +27,6 @@ import './styles/global.css';
 import './App.css';
 import './styles/reading-layout.css';
 import './styles/dashboard-refresh.css';
-import './styles/think-home-polish.css';
 import './styles/idea-workbench.css';
 import './styles/brand-energy.css';
 import './styles/calm-ui-global.css';
@@ -53,6 +52,7 @@ const ReviewMode = lazy(() => import('./pages/ReviewMode'));
 const ReturnQueue = lazy(() => import('./pages/ReturnQueue'));
 const Settings = lazy(() => import('./pages/Settings'));
 const Wiki = lazy(() => import('./pages/Wiki'));
+const WikiProductIndex = lazy(() => import('./components/wiki/WikiProductIndex'));
 const WikiIngestRun = lazy(() => import('./pages/WikiIngestRun'));
 const HowToUse = lazy(() => import('./pages/HowToUse'));
 const Integrations = lazy(() => import('./pages/Integrations'));
@@ -80,6 +80,26 @@ const SharedConcept = lazy(() => import('./pages/SharedConcept'));
 const RouteLoadingFallback = () => (
   <div className="page-loading" role="status" aria-live="polite">Loading...</div>
 );
+
+const scheduleDeferredStyleLoad = (callback) => {
+  let frame = 0;
+  let idle = 0;
+  let timeout = 0;
+  const run = () => {
+    if (typeof window.requestIdleCallback === 'function') {
+      idle = window.requestIdleCallback(callback, { timeout: 350 });
+      return;
+    }
+    timeout = window.setTimeout(callback, 0);
+  };
+  if (typeof window.requestAnimationFrame === 'function') frame = window.requestAnimationFrame(run);
+  else timeout = window.setTimeout(callback, 0);
+  return () => {
+    if (frame && typeof window.cancelAnimationFrame === 'function') window.cancelAnimationFrame(frame);
+    if (idle && typeof window.cancelIdleCallback === 'function') window.cancelIdleCallback(idle);
+    if (timeout) window.clearTimeout(timeout);
+  };
+};
 
 const bootstrapDevTokenFromLocation = () => {
   if (process.env.NODE_ENV !== 'development') return false;
@@ -113,9 +133,12 @@ const LegacyArticleRedirect = () => {
 
 const LegacyWikiPageRedirect = () => {
   const { id = '' } = useParams();
+  const location = useLocation();
   const trimmedId = String(id).trim();
+  const legacyParams = new URLSearchParams(location.search);
+  const mode = legacyParams.get('mode') === 'edit' ? '&mode=edit' : '';
   const workspacePath = trimmedId
-    ? `/wiki/workspace?page=${encodeURIComponent(trimmedId)}`
+    ? `/wiki/workspace?page=${encodeURIComponent(trimmedId)}${mode}`
     : '/wiki/workspace';
 
   return <Navigate to={workspacePath} replace />;
@@ -204,6 +227,12 @@ function App() {
 
   // Your existing Chrome Store link
   const chromeStoreLink = "https://chromewebstore.google.com/detail/note-taker/bekllegjmjbnamphjnkifpijkhoiepaa?hl=en-US&utm_source=ext_sidebar";
+
+  useEffect(() => (
+    scheduleDeferredStyleLoad(() => {
+      import('./styles/think-home-polish.css');
+    })
+  ), []);
 
   useEffect(() => {
     if (process.env.NODE_ENV !== 'development') return;
@@ -483,7 +512,7 @@ function App() {
             <Route path="/map" element={<MapView />} />
             <Route path="/return-queue" element={<ReturnQueue />} />
             <Route path="/review" element={<ReviewMode />} />
-            <Route path="/wiki" element={<Navigate to="/wiki/workspace" replace />} />
+            <Route path="/wiki" element={<WikiProductIndex />} />
             <Route path="/wiki/list" element={<Navigate to="/wiki/workspace?view=list" replace />} />
             <Route path="/wiki/workspace" element={<Wiki />} />
             <Route path="/wiki/activity/:runId" element={<WikiIngestRun />} />

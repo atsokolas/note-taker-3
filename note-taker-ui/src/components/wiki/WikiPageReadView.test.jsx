@@ -110,6 +110,13 @@ describe('WikiPageReadView', () => {
   const originalScrollIntoView = window.HTMLElement.prototype.scrollIntoView;
   const originalMatchMedia = window.matchMedia;
 
+  const flushDeferredWikiReadWork = async () => {
+    await act(async () => {
+      jest.advanceTimersByTime(300);
+    });
+    await act(async () => {});
+  };
+
   beforeEach(() => {
     jest.clearAllMocks();
     jest.useFakeTimers();
@@ -155,6 +162,7 @@ describe('WikiPageReadView', () => {
     expect(screen.queryByTestId('wiki-editor-content')).not.toBeInTheDocument();
     expect(document.querySelector('[contenteditable="true"]')).not.toBeInTheDocument();
     // AT-22: rail starts collapsed; expand it so the infobox (which renders the page-type header) is in the DOM.
+    await flushDeferredWikiReadWork();
     const railEl = await screen.findByRole('complementary', { name: 'Page context' });
     const showContextBtn = within(railEl).queryByRole('button', { name: /show context/i });
     if (showContextBtn) await act(async () => { fireEvent.click(showContextBtn); });
@@ -174,7 +182,7 @@ describe('WikiPageReadView', () => {
     expect(onEdit).toHaveBeenCalledTimes(1);
   });
 
-  it('redirects the standalone reader into the workspace when workspace is canonical', async () => {
+  it('keeps standalone reader presentational even when workspace routing is canonical', async () => {
     process.env.REACT_APP_WIKI_WORKSPACE_V1 = 'true';
 
     render(
@@ -183,9 +191,8 @@ describe('WikiPageReadView', () => {
       </MemoryRouter>
     );
 
-    expect(await screen.findByText('Opening Wiki workspace...')).toBeInTheDocument();
-    expect(screen.queryByRole('tab', { name: 'Article' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Edit' })).not.toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Enterprise AI Memory' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Edit' })).toBeInTheDocument();
   });
 
   it('updates the left contents rail as the reader scrolls through sections', async () => {
@@ -265,7 +272,10 @@ describe('WikiPageReadView', () => {
     expect(screen.queryByRole('tab', { name: /Talk/ })).not.toBeInTheDocument();
     expect(screen.queryByText('What changed after review?')).not.toBeInTheDocument();
     expect(screen.queryByLabelText('Ask this page')).not.toBeInTheDocument();
-    expect(screen.getByLabelText('Ask the wiki agent to build a page')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Ask the wiki agent to build a page')).not.toBeInTheDocument();
+    await flushDeferredWikiReadWork();
+    expect(screen.queryByLabelText('Ask the wiki agent to build a page')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Markdown export')).not.toBeInTheDocument();
   });
 
   it('does not show legacy linkable page fallback in read mode when prose has no inline wiki links', async () => {
@@ -340,6 +350,7 @@ describe('WikiPageReadView', () => {
 
       const rail = await screen.findByRole('complementary', { name: 'Page context' });
       // AT-22: rail starts collapsed by default — open it before asserting on infobox content.
+      await flushDeferredWikiReadWork();
       const showContext = within(rail).queryByRole('button', { name: /show context/i });
       if (showContext) {
         await act(async () => { fireEvent.click(showContext); });
@@ -362,6 +373,7 @@ describe('WikiPageReadView', () => {
     // Collapsed: infobox content is not in the DOM.
     expect(rail.querySelector('.wiki-read__infobox')).not.toBeInTheDocument();
 
+    await flushDeferredWikiReadWork();
     await act(async () => { fireEvent.click(within(rail).getByRole('button', { name: /show context/i })); });
     expect(rail).not.toHaveClass('wiki-read__rail--collapsed');
     expect(rail.querySelector('.wiki-read__infobox')).toBeInTheDocument();
@@ -373,7 +385,29 @@ describe('WikiPageReadView', () => {
     expect(window.localStorage.getItem('noeis.wiki.read.rail_collapsed')).toBe('1');
   });
 
-  it('surfaces pending signal state from page API quality issues and weak claim health', async () => {
+  it('AT-19 — renders the article before the since-last-visit banner mounts', async () => {
+    window.localStorage.setItem('noeis.wiki.visit.wiki-1', JSON.stringify({
+      lastViewedAt: new Date(Date.now() - 60_000).toISOString(),
+      claimSnapshot: [],
+      ledgerSnapshot: []
+    }));
+
+    render(
+      <MemoryRouter>
+        <WikiPageReadView pageId="wiki-1" onEdit={jest.fn()} />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByRole('heading', { name: 'Enterprise AI Memory' })).toBeInTheDocument();
+    expect(screen.getByText('Memory compounds with review.')).toBeInTheDocument();
+    expect(screen.queryByRole('status', { name: 'Changes since your last visit' })).not.toBeInTheDocument();
+
+    await flushDeferredWikiReadWork();
+
+    expect(screen.getByRole('status', { name: 'Changes since your last visit' })).toHaveTextContent('1 new claim');
+  });
+
+  it('keeps pending signal state out of the page-level ambient presence', async () => {
     getWikiPage.mockResolvedValueOnce({
       ...page,
       aiState: {
@@ -392,13 +426,12 @@ describe('WikiPageReadView', () => {
       </MemoryRouter>
     );
 
-    // AT-22: rail starts collapsed; expand it so WikiAgentPresence (and its 'Agent status' role) is in the DOM.
     const presenceRail = await screen.findByRole('complementary', { name: 'Page context' });
+    await flushDeferredWikiReadWork();
     const presenceToggle = within(presenceRail).queryByRole('button', { name: /show context/i });
     if (presenceToggle) await act(async () => { fireEvent.click(presenceToggle); });
-    const status = await screen.findByRole('status', { name: 'Agent status' });
-    expect(status).toHaveTextContent('2 signals pending review');
-    expect(status).toHaveTextContent('New material may affect this page.');
+    expect(screen.queryByRole('status', { name: 'Agent status' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Maintain page' })).not.toBeInTheDocument();
     expect(screen.queryByRole('tab', { name: 'Article' })).not.toBeInTheDocument();
     expect(screen.getAllByText(/Enterprise AI Memory depends on/).length).toBeGreaterThan(0);
   });
@@ -462,6 +495,7 @@ describe('WikiPageReadView', () => {
     );
 
     expect(await screen.findByRole('heading', { name: 'Enterprise AI Memory' })).toBeInTheDocument();
+    await flushDeferredWikiReadWork();
     await waitFor(() => {
       expect(maintainWikiPage).toHaveBeenCalledTimes(1);
       expect(maintainWikiPage).toHaveBeenCalledWith('wiki-1');

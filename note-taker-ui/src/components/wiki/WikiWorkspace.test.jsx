@@ -1,6 +1,7 @@
 import React from 'react';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { BrowserRouter } from 'react-router-dom';
+import { MemoryRouter } from 'react-router-dom';
+import * as router from 'react-router-dom';
 import WikiWorkspace from './WikiWorkspace';
 import { chatWithAgent } from '../../api/agent';
 import { getArticles } from '../../api/articles';
@@ -49,18 +50,35 @@ jest.mock('./WikiIndex', () => ({ onOpenPage }) => (
   </div>
 ));
 jest.mock('./WikiList', () => ({ compact }) => <div data-testid="wiki-list">List view {compact ? 'compact' : ''}</div>);
-jest.mock('./WikiPageReadView', () => ({ pageId, workspaceMode }) => (
+jest.mock('./WikiPageReadView', () => ({ pageId, workspaceMode, onEdit }) => (
   <div data-testid="wiki-read-view">
     Page {pageId} {workspaceMode ? 'workspace' : ''}
+    <button type="button" onClick={onEdit}>Edit page</button>
+  </div>
+));
+jest.mock('./WikiPageEditor', () => ({ pageId, onDoneEditing }) => (
+  <div data-testid="wiki-page-editor">
+    Editing {pageId}
+    <button type="button" onClick={onDoneEditing}>Done editing</button>
   </div>
 ));
 
+const mockNavigate = jest.fn();
+
 const renderWorkspace = (initialEntry = '/wiki/workspace?view=graph') => {
-  window.history.pushState({}, '', initialEntry);
+  const parsed = new URL(initialEntry, 'http://localhost');
+  jest.spyOn(router, 'useLocation').mockReturnValue({
+    pathname: parsed.pathname,
+    search: parsed.search,
+    hash: '',
+    state: null,
+    key: 'test'
+  });
+  jest.spyOn(router, 'useNavigate').mockReturnValue(mockNavigate);
   return render(
-    <BrowserRouter>
+    <MemoryRouter initialEntries={[initialEntry]}>
       <WikiWorkspace />
-    </BrowserRouter>
+    </MemoryRouter>
   );
 };
 
@@ -71,6 +89,8 @@ const settleWorkspaceEffects = async () => {
 describe('WikiWorkspace', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    jest.restoreAllMocks();
+    mockNavigate.mockClear();
     window.localStorage.clear();
     chatWithAgent.mockResolvedValue({ reply: 'Agent reply.', thread: { threadId: 'thread-1' } });
     createWikiPage.mockResolvedValue({ _id: 'wiki-new', title: 'Portfolio Concentration' });
@@ -158,6 +178,41 @@ describe('WikiWorkspace', () => {
     expect(await screen.findByTestId('wiki-read-view')).toHaveTextContent('Page wiki-1 workspace');
   });
 
+  it('keeps page editing inside the canonical workspace URL state', async () => {
+    renderWorkspace('/wiki/workspace?page=wiki-1');
+    await settleWorkspaceEffects();
+
+    expect(await screen.findByTestId('wiki-read-view')).toHaveTextContent('Page wiki-1 workspace');
+    fireEvent.click(screen.getByRole('button', { name: 'Edit page' }));
+
+    expect(await screen.findByTestId('wiki-page-editor')).toHaveTextContent('Editing wiki-1');
+    expect(mockNavigate).toHaveBeenLastCalledWith('/wiki/workspace?page=wiki-1&mode=edit');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Done editing' }));
+    expect(await screen.findByTestId('wiki-read-view')).toHaveTextContent('Page wiki-1 workspace');
+    expect(mockNavigate).toHaveBeenLastCalledWith('/wiki/workspace?page=wiki-1');
+  });
+
+  it('opens the workspace editor directly from an edit-mode URL', async () => {
+    renderWorkspace('/wiki/workspace?page=wiki-1&mode=edit');
+    await settleWorkspaceEffects();
+
+    expect(await screen.findByTestId('wiki-page-editor')).toHaveTextContent('Editing wiki-1');
+    expect(screen.queryByTestId('wiki-read-view')).not.toBeInTheDocument();
+  });
+
+  it('defers wiki page reference loading until the chat asks for it', async () => {
+    renderWorkspace('/wiki/workspace');
+    await settleWorkspaceEffects();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open Investing' }));
+    expect(await screen.findByTestId('wiki-read-view')).toHaveTextContent('Page wiki-1 workspace');
+    expect(listWikiPages).not.toHaveBeenCalled();
+
+    fireEvent.focus(screen.getByLabelText('Wiki workspace message'));
+    await waitFor(() => expect(listWikiPages).toHaveBeenCalledWith({ limit: 30 }));
+  });
+
   it('keeps the chat composer visible above the message history', async () => {
     renderWorkspace();
     await settleWorkspaceEffects();
@@ -167,6 +222,50 @@ describe('WikiWorkspace', () => {
     expect(composer).toBeInTheDocument();
     expect(messages).toBeInTheDocument();
     expect(Boolean(composer.compareDocumentPosition(messages) & Node.DOCUMENT_POSITION_FOLLOWING)).toBe(true);
+  });
+
+  it('AT-19 — defers the ambient agent presence until after the workspace first paint', async () => {
+    jest.useFakeTimers();
+    try {
+      renderWorkspace('/wiki/workspace?page=wiki-1');
+      await settleWorkspaceEffects();
+
+      expect(screen.getByTestId('wiki-read-view')).toHaveTextContent('Page wiki-1 workspace');
+      expect(screen.queryByRole('status', { name: 'Agent status' })).not.toBeInTheDocument();
+
+      await act(async () => {
+        jest.advanceTimersByTime(300);
+      });
+      await settleWorkspaceEffects();
+
+      expect(screen.getByRole('status', { name: 'Agent status' })).toHaveTextContent(/ready/i);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('uses the chat composer as the agent status surface for the selected page', async () => {
+    getWikiPage.mockResolvedValueOnce({
+      _id: 'wiki-1',
+      title: 'Investing',
+      aiState: {
+        draftStatus: 'ready',
+        health: {
+          newItems: [{ text: 'New source' }],
+          unsupportedClaims: [],
+          missingCitations: [],
+          staleSections: [],
+          contradictions: []
+        }
+      }
+    });
+
+    renderWorkspace('/wiki/workspace?page=wiki-1');
+    await settleWorkspaceEffects();
+
+    const status = await screen.findByRole('status', { name: 'Agent status' });
+    expect(status).toHaveTextContent('1 signal pending for @wiki:wiki-1.');
+    expect(status).toHaveAttribute('data-status', 'ready');
   });
 
   it('opens a page from the /page chat command', async () => {
@@ -192,6 +291,40 @@ describe('WikiWorkspace', () => {
 
     await waitFor(() => expect(streamMaintainWikiPage).toHaveBeenCalledWith('wiki-1', {}, expect.any(Object)));
     expect(await screen.findByText('Finished drafting @wiki:wiki-1.')).toBeInTheDocument();
+  });
+
+  it('shows active agent work in the chat composer while drafting', async () => {
+    let resolveDraft;
+    streamMaintainWikiPage.mockImplementationOnce(() => new Promise(resolve => {
+      resolveDraft = () => resolve({ _id: 'wiki-1', title: 'Updated page' });
+    }));
+    renderWorkspace('/wiki/workspace?page=wiki-1');
+    await settleWorkspaceEffects();
+
+    fireEvent.change(screen.getByLabelText('Wiki workspace message'), {
+      target: { value: '/draft @wiki:wiki-1' }
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+
+    const status = await screen.findByRole('status', { name: 'Agent status' });
+    expect(status).toHaveTextContent('Agent updating @wiki:wiki-1...');
+    expect(status).toHaveAttribute('data-status', 'working');
+
+    await act(async () => { resolveDraft(); });
+    expect(await screen.findByText('Finished drafting @wiki:wiki-1.')).toBeInTheDocument();
+  });
+
+  it('ingests a pasted URL directly through chat', async () => {
+    renderWorkspace('/wiki/workspace?page=wiki-1');
+    await settleWorkspaceEffects();
+
+    fireEvent.change(screen.getByLabelText('Wiki workspace message'), {
+      target: { value: 'https://example.com/source' }
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+
+    await waitFor(() => expect(ingestWikiSource).toHaveBeenCalledWith({ type: 'url', url: 'https://example.com/source' }));
+    expect(await screen.findByText('Ingested source. 1 page affected.')).toBeInTheDocument();
   });
 
   it('builds a new overview wiki page from the chat command', async () => {
@@ -276,10 +409,90 @@ describe('WikiWorkspace', () => {
         type: 'workspace',
         id: 'wiki',
         pageId: 'wiki-1',
-        metadata: { surface: 'wiki_workspace' }
+        metadata: expect.objectContaining({ surface: 'wiki_workspace' })
       })
     })));
     expect(await screen.findByText('Agent reply.')).toBeInTheDocument();
+  });
+
+  it('keeps referenced wiki pages in context for later agent turns until removed', async () => {
+    renderWorkspace();
+    await settleWorkspaceEffects();
+
+    fireEvent.change(screen.getByLabelText('Wiki workspace message'), {
+      target: { value: '/page @wiki:wiki-1' }
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+    await screen.findByTestId('wiki-read-view');
+
+    expect(screen.getByLabelText('In context')).toHaveTextContent('@wiki:wiki-1');
+
+    fireEvent.change(screen.getByLabelText('Wiki workspace message'), {
+      target: { value: 'What should I read next?' }
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+
+    await waitFor(() => expect(chatWithAgent).toHaveBeenCalledWith(expect.objectContaining({
+      message: 'What should I read next?',
+      context: expect.objectContaining({
+        references: [expect.objectContaining({ type: 'wiki', id: 'wiki-1' })],
+        metadata: expect.objectContaining({
+          contextReferences: [expect.objectContaining({ type: 'wiki', id: 'wiki-1' })]
+        })
+      })
+    })));
+
+    fireEvent.click(screen.getByRole('button', { name: /Remove @wiki:/ }));
+    fireEvent.change(screen.getByLabelText('Wiki workspace message'), {
+      target: { value: 'Continue without that page.' }
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+
+    await waitFor(() => expect(chatWithAgent).toHaveBeenLastCalledWith(expect.objectContaining({
+      message: 'Continue without that page.',
+      context: expect.objectContaining({
+        references: [],
+        metadata: expect.objectContaining({ contextReferences: [] })
+      })
+    })));
+  });
+
+  it('suggests article references and stores them as context chips', async () => {
+    renderWorkspace();
+    await settleWorkspaceEffects();
+
+    fireEvent.change(screen.getByLabelText('Wiki workspace message'), {
+      target: { value: 'Use @article:source' }
+    });
+
+    expect(await screen.findByLabelText('Article references')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /Source memo/ }));
+    expect(screen.getByLabelText('Wiki workspace message')).toHaveValue('Use @article:article-1');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+    expect(await screen.findByLabelText('In context')).toHaveTextContent('@article:Source memo');
+  });
+
+  it('shows and dismisses the composer discoverability hint', async () => {
+    renderWorkspace();
+    await settleWorkspaceEffects();
+
+    expect(screen.getByText('Type / for commands, @ to reference your library.')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Dismiss composer hint' }));
+    expect(screen.queryByText('Type / for commands, @ to reference your library.')).not.toBeInTheDocument();
+  });
+
+  it('auto-hides the discoverability hint after slash and at-reference use', async () => {
+    renderWorkspace();
+    await settleWorkspaceEffects();
+
+    fireEvent.change(screen.getByLabelText('Wiki workspace message'), {
+      target: { value: '/page @wiki:wiki-1' }
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+
+    await screen.findByTestId('wiki-read-view');
+    expect(screen.queryByText('Type / for commands, @ to reference your library.')).not.toBeInTheDocument();
   });
 
   it('surfaces the saved broader thread and continues it on later messages', async () => {
@@ -319,6 +532,40 @@ describe('WikiWorkspace', () => {
     expect(screen.getByLabelText('Wiki workspace message')).toHaveValue('/draft @wiki:');
   });
 
+  it('filters slash commands by the active command token', async () => {
+    renderWorkspace();
+    await settleWorkspaceEffects();
+
+    fireEvent.change(screen.getByLabelText('Wiki workspace message'), {
+      target: { value: '/pa' }
+    });
+
+    const commands = screen.getByLabelText('Wiki commands');
+    expect(commands).toHaveTextContent('/page');
+    expect(commands).not.toHaveTextContent('/draft');
+    expect(commands).not.toHaveTextContent('/lint');
+  });
+
+  it('keeps the slash command palette canonical and discoverable', async () => {
+    renderWorkspace();
+    await settleWorkspaceEffects();
+
+    fireEvent.change(screen.getByLabelText('Wiki workspace message'), {
+      target: { value: '/' }
+    });
+
+    const commands = screen.getByLabelText('Wiki commands');
+    ['/new', '/create', '/promote', '/diff', '/ask'].forEach(command => (
+      expect(commands).not.toHaveTextContent(command)
+    ));
+
+    fireEvent.change(screen.getByLabelText('Wiki workspace message'), {
+      target: { value: '/he' }
+    });
+
+    expect(screen.getByLabelText('Wiki commands')).toHaveTextContent('/help');
+  });
+
   it('suggests wiki page references for @wiki input', async () => {
     renderWorkspace();
     await settleWorkspaceEffects();
@@ -328,8 +575,10 @@ describe('WikiWorkspace', () => {
     });
 
     expect(await screen.findByLabelText('Wiki page references')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Wiki commands')).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /Systems Thinking/ }));
     expect(screen.getByLabelText('Wiki workspace message')).toHaveValue('/page @wiki:wiki-2');
+    expect(screen.queryByLabelText('Wiki page references')).not.toBeInTheDocument();
   });
 
   it('opens Library sources as the right pane', async () => {
@@ -364,7 +613,7 @@ describe('WikiWorkspace', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Use in chat' }));
 
     expect(screen.getByLabelText('Wiki workspace message')).toHaveValue(
-      'Use "Source memo" (https://example.com) for @wiki:wiki-1 and tell me what wiki update it supports.'
+      'Use "Source memo" (https://example.com) @article:article-1 for @wiki:wiki-1 and tell me what wiki update it supports.'
     );
   });
 

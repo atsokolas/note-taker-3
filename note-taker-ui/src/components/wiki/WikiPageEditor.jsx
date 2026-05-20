@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { EditorContent, useEditor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
@@ -18,14 +18,12 @@ import {
   updateWikiPage
 } from '../../api/wiki';
 import WikiAiSourcePanel from './WikiAiSourcePanel';
-import WikiAgentPresence from './WikiAgentPresence';
 import WikiAskComposer from './WikiAskComposer';
 import WikiBacklinkPanel from './WikiBacklinkPanel';
 import WikiAutolinkSuggestions from './WikiAutolinkSuggestions';
 import WikiChangesSinceLastVisit from './WikiChangesSinceLastVisit';
 import WikiDiscussions from './WikiDiscussions';
 import WikiPageMetaBar from './WikiPageMetaBar';
-import WikiPageActivityRail from './WikiPageActivityRail';
 import ClaimCitationPopover from './ClaimCitationPopover';
 import Claim, { SUPPORT_STATES } from './extensions/Claim';
 import WikiLink from './extensions/WikiLink';
@@ -40,6 +38,12 @@ import { wikiPagePath } from '../../utils/wikiFeatureFlags';
 import { trackWikiQaPromoted } from '../../utils/wikiAnalytics';
 
 const emptyDoc = { type: 'doc', content: [{ type: 'paragraph' }] };
+
+const WikiPageActivityRail = lazy(() => import('./WikiPageActivityRail'));
+
+const WikiEditorRailFallback = () => (
+  <p className="wiki-index__status">Loading page pulse...</p>
+);
 
 const normalizeId = (value) => String(value || '').trim();
 
@@ -89,7 +93,7 @@ const claimMatchesSource = ({ claim, source, citations = [] }) => {
   return claimContradictsSource({ claim, source, citations });
 };
 
-const WikiPageEditor = ({ pageId, onDoneEditing }) => {
+const WikiPageEditor = ({ pageId, onDoneEditing, workspaceMode = false }) => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [page, setPage] = useState(null);
@@ -446,14 +450,21 @@ const WikiPageEditor = ({ pageId, onDoneEditing }) => {
   // Diff the previous visit's snapshot against the page's current claim
   // texts. We diff once per page state change so the banner stays accurate
   // as the live page updates (e.g., right after a maintenance run).
+  const currentClaimTexts = useMemo(() => (
+    lastVisit?.lastViewedAt ? extractClaimTexts(page?.body) : []
+  ), [lastVisit?.lastViewedAt, page?.body]);
+  const claimLedgerDiff = useMemo(() => (
+    lastVisit?.lastViewedAt
+      ? diffClaimLedgerSnapshots(lastVisit.ledgerSnapshot, page?.claims || [])
+      : []
+  ), [lastVisit?.lastViewedAt, lastVisit?.ledgerSnapshot, page?.claims]);
   const visitDiff = useMemo(() => {
     if (!lastVisit?.lastViewedAt) return { added: [], removed: [] };
-    const currentClaims = extractClaimTexts(page?.body);
     return {
-      ...diffClaimSnapshots(lastVisit.claimSnapshot, currentClaims),
-      changed: diffClaimLedgerSnapshots(lastVisit.ledgerSnapshot, page?.claims || [])
+      ...diffClaimSnapshots(lastVisit.claimSnapshot, currentClaimTexts),
+      changed: claimLedgerDiff
     };
-  }, [lastVisit, page]);
+  }, [claimLedgerDiff, currentClaimTexts, lastVisit?.claimSnapshot, lastVisit?.lastViewedAt]);
 
   const handleMarkReviewed = useCallback(() => {
     if (!page) return;
@@ -528,15 +539,17 @@ const WikiPageEditor = ({ pageId, onDoneEditing }) => {
         {onDoneEditing ? (
           <Button type="button" variant="secondary" onClick={onDoneEditing}>Done editing</Button>
         ) : null}
-        <Button
-          type="button"
-          variant="secondary"
-          onClick={() => setSourcePanelOpen(open => !open)}
-          aria-expanded={sourcePanelOpen}
-          aria-controls="wiki-source-panel"
-        >
-          {sourcePanelOpen ? 'Hide AI/Sources' : 'Show AI/Sources'}
-        </Button>
+        {!workspaceMode ? (
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() => setSourcePanelOpen(open => !open)}
+            aria-expanded={sourcePanelOpen}
+            aria-controls="wiki-source-panel"
+          >
+            {sourcePanelOpen ? 'Hide AI/Sources' : 'Show AI/Sources'}
+          </Button>
+        ) : null}
         <Button type="button" variant="secondary" onClick={handleLinkify} disabled={linkifying}>
           {linkifying ? 'Linkifying...' : 'Linkify'}
         </Button>
@@ -554,18 +567,15 @@ const WikiPageEditor = ({ pageId, onDoneEditing }) => {
           onFocus={handleClaimHover}
           onClick={handleClaimClick}
         >
-          <WikiAgentPresence
-            page={page}
-            isMaintaining={maintaining}
-            onMaintain={handleMaintain}
-          />
-          <WikiChangesSinceLastVisit
-            lastViewedAt={lastVisit?.lastViewedAt}
-            added={visitDiff.added}
-            removed={visitDiff.removed}
-            changed={visitDiff.changed}
-            onMarkReviewed={handleMarkReviewed}
-          />
+          {!workspaceMode ? (
+            <WikiChangesSinceLastVisit
+              lastViewedAt={lastVisit?.lastViewedAt}
+              added={visitDiff.added}
+              removed={visitDiff.removed}
+              changed={visitDiff.changed}
+              onMarkReviewed={handleMarkReviewed}
+            />
+          ) : null}
           <input
             className="wiki-editor__title"
             value={page.title || ''}
@@ -575,13 +585,17 @@ const WikiPageEditor = ({ pageId, onDoneEditing }) => {
           />
           <WikiPageMetaBar page={page} onChange={handleMetaChange} saveStatus={saveStatus} />
           <EditorContent editor={editor} />
-          <WikiDiscussions
-            discussions={page.discussions || []}
-            onRemove={handleRemoveDiscussion}
-            onPromote={handlePromoteDiscussion}
-            promotingId={promotingDiscussionId}
-          />
-          <WikiAskComposer onAsk={handleAsk} busy={asking} />
+          {!workspaceMode ? (
+            <>
+              <WikiDiscussions
+                discussions={page.discussions || []}
+                onRemove={handleRemoveDiscussion}
+                onPromote={handlePromoteDiscussion}
+                promotingId={promotingDiscussionId}
+              />
+              <WikiAskComposer onAsk={handleAsk} busy={asking} />
+            </>
+          ) : null}
           {activeClaim ? (
             <ClaimCitationPopover
               anchorRect={activeClaim.anchorRect}
@@ -592,17 +606,19 @@ const WikiPageEditor = ({ pageId, onDoneEditing }) => {
             />
           ) : null}
         </section>
-        {sourcePanelOpen ? (
+        {sourcePanelOpen && !workspaceMode ? (
           <aside className="wiki-editor__rail" aria-label="AI, sources, and backlinks">
-            <WikiPageActivityRail
-              pageId={pageId}
-              page={page}
-              onPageUpdate={(updated) => {
-                latestPageRef.current = updated;
-                setPage(updated);
-                if (updated?.body) editor?.commands?.setContent(updated.body, false);
-              }}
-            />
+            <Suspense fallback={<WikiEditorRailFallback />}>
+              <WikiPageActivityRail
+                pageId={pageId}
+                page={page}
+                onPageUpdate={(updated) => {
+                  latestPageRef.current = updated;
+                  setPage(updated);
+                  if (updated?.body) editor?.commands?.setContent(updated.body, false);
+                }}
+              />
+            </Suspense>
             <WikiAiSourcePanel
               id="wiki-source-panel"
               page={page}

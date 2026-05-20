@@ -335,7 +335,42 @@ const selectCandidateSources = ({ page, sources, limit = DEFAULT_SOURCE_LIMIT })
     .map((source, index) => ({ ...source, index: index + 1 }));
 };
 
-const buildPrompt = ({ page, candidates, manualNotes = '', wikiSchemaContent = '' }) => {
+const collectKnownWikiPages = async ({ page, userId, models = {}, limit = 40 } = {}) => {
+  const WikiPage = modelForPage({ page, models });
+  if (!WikiPage) return [];
+  const pageId = asString(page?._id || page?.id);
+  const pages = await runFind(
+    WikiPage,
+    {
+      userId,
+      status: { $ne: 'archived' },
+      _id: { $ne: pageId }
+    },
+    limit
+  );
+  return pages
+    .map((knownPage) => ({
+      id: asString(knownPage._id || knownPage.id),
+      title: truncate(knownPage.title, 180),
+      pageType: truncate(knownPage.pageType || 'topic', 80),
+      summary: truncate(knownPage.summary || knownPage.description || knownPage.plainText || '', 220)
+    }))
+    .filter(knownPage => knownPage.id && knownPage.title)
+    .slice(0, limit);
+};
+
+const formatKnownWikiPages = (knownWikiPages = []) => {
+  if (!knownWikiPages.length) return 'No existing wiki pages were available.';
+  return knownWikiPages
+    .slice(0, 30)
+    .map((knownPage, index) => {
+      const suffix = knownPage.summary ? ` — ${knownPage.summary}` : '';
+      return `${index + 1}. ${knownPage.title} (${knownPage.pageType || 'topic'})${suffix}`;
+    })
+    .join('\n');
+};
+
+const buildPrompt = ({ page, candidates, manualNotes = '', wikiSchemaContent = '', knownWikiPages = [] }) => {
   const structure = getWikiPageStructure(page.pageType || 'topic');
   const sourceBlock = candidates.map(source => (
     `[${source.index}] ${source.type.toUpperCase()}: ${source.title}\n` +
@@ -356,6 +391,7 @@ Hard rules:
 - When a paragraph has both supporting and contradicting evidence, put supporting sources in citationIndexes and contradicting sources in contradictionIndexes. Set support to "conflicted".
 - Put evidence gaps, new items, contradictions, stale sections, and changelog entries only in maintenance.
 - Preserve likely user-authored notes when they are not duplicate, contradicted, navigation text, or metadata.
+- Where it is natural and specific, mention existing related wiki pages by their exact titles so the article becomes navigable through inline wiki links. Do not force links, do not list related pages as a directory, and do not mention generic page titles that add no explanatory value.
 
 Page:
 Title: ${page.title}
@@ -367,7 +403,10 @@ Creation seed: ${truncate(page.createdFrom?.text || page.createdFrom?.label || '
 Manual notes to preserve when useful: ${manualNotes || 'None detected.'}
 
 Candidate library sources:
-${sourceBlock || 'No library sources were found.'}${formatWikiSchemaPromptBlock(wikiSchemaContent)}
+${sourceBlock || 'No library sources were found.'}
+
+Existing related wiki pages available for natural inline references:
+${formatKnownWikiPages(knownWikiPages)}${formatWikiSchemaPromptBlock(wikiSchemaContent)}
 
 Return strict JSON only:
 {
@@ -407,8 +446,8 @@ Return strict JSON only:
 }`;
 };
 
-const buildRebuildPrompt = ({ page, candidates, manualNotes = '', wikiSchemaContent = '', failures = [] }) => (
-  `${buildPrompt({ page, candidates, manualNotes, wikiSchemaContent })}
+const buildRebuildPrompt = ({ page, candidates, manualNotes = '', wikiSchemaContent = '', knownWikiPages = [], failures = [] }) => (
+  `${buildPrompt({ page, candidates, manualNotes, wikiSchemaContent, knownWikiPages })}
 
 Your previous draft failed the wiki quality gate:
 ${failures.map(failure => `- ${failure}`).join('\n') || '- The draft was too thin or scaffold-like.'}
@@ -1257,6 +1296,7 @@ const maintainWikiPage = async ({
   };
   const allSources = await collectLibrarySources({ userId, models });
   const candidates = selectCandidateSources({ page, sources: allSources });
+  const knownWikiPages = await collectKnownWikiPages({ page, userId, models });
   const manualNotes = extractManualNotes(page);
   let modelInfo = { model: 'local-maintainer', provider: '' };
   let result = null;
@@ -1287,7 +1327,7 @@ const maintainWikiPage = async ({
           },
           {
             role: 'user',
-            content: buildPrompt({ page, candidates, manualNotes, wikiSchemaContent })
+            content: buildPrompt({ page, candidates, manualNotes, wikiSchemaContent, knownWikiPages })
           }
         ]
       });
@@ -1354,6 +1394,7 @@ const maintainWikiPage = async ({
               candidates,
               manualNotes,
               wikiSchemaContent,
+              knownWikiPages,
               failures: materialized.quality.failures
             })
           }
@@ -1514,6 +1555,8 @@ module.exports = {
     normalizeSourceIndexesUsed,
     normalizeHealth,
     applyKnownWikiLinks,
+    collectKnownWikiPages,
+    formatKnownWikiPages,
     buildPrompt,
     buildRebuildPrompt,
     evaluateWikiArticleQuality,

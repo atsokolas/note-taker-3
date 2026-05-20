@@ -51,9 +51,13 @@ describe('publishing renderers', () => {
     expect(vercel.cleanUrls).toBe(true);
     expect(vercel.redirects).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ source: '/wiki', destination: '/wiki/workspace', permanent: false }),
         expect.objectContaining({ source: '/wiki/list', destination: '/wiki/workspace?view=list', permanent: false }),
         expect.objectContaining({ source: '/wiki/:id((?!workspace$)[^/]+)', destination: '/wiki/workspace?page=:id', permanent: false })
+      ])
+    );
+    expect(vercel.redirects).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ source: '/wiki' })
       ])
     );
     expect(vercel.rewrites).toEqual(
