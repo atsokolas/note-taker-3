@@ -252,16 +252,17 @@ const countPendingSignals = (aiState = {}) => {
 };
 
 const workspaceAgentStatus = ({ busy = false, reading = false, pageId = '', page = null } = {}) => {
+  const pageLabel = clean(page?.title) || (pageId ? `@wiki:${pageId}` : 'this page');
   if (busy) {
     return {
       status: 'working',
-      text: pageId ? `Agent updating @wiki:${pageId}...` : 'Agent is working...'
+      text: pageId ? `Agent updating ${pageLabel}...` : 'Agent is working...'
     };
   }
   if (reading && pageId) {
     return {
       status: 'reading',
-      text: `Agent is reading @wiki:${pageId}...`
+      text: `Agent is reading ${pageLabel}...`
     };
   }
   const aiState = page?.aiState || {};
@@ -272,11 +273,11 @@ const workspaceAgentStatus = ({ busy = false, reading = false, pageId = '', page
   if (signalCount > 0) {
     return {
       status: 'ready',
-      text: `${signalCount} signal${signalCount === 1 ? '' : 's'} pending for @wiki:${pageId}.`
+      text: `${signalCount} signal${signalCount === 1 ? '' : 's'} pending for ${pageLabel}.`
     };
   }
   if (pageId) {
-    return { status: 'idle', text: `Agent ready for @wiki:${pageId}.` };
+    return { status: 'idle', text: `Agent ready for ${pageLabel}.` };
   }
   return { status: 'idle', text: 'Agent ready.' };
 };

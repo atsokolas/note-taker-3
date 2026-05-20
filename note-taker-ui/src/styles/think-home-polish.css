@@ -7679,13 +7679,6 @@ html[data-ui-theme='dark'] .wiki-activity-rail__graph-alerts span {
   font-size: 0.74rem;
 }
 
-.wiki-workspace-chat__composer div {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 10px;
-  align-items: center;
-}
-
 .wiki-workspace-chat__composer span {
   color: var(--text-muted);
   font-size: 0.76rem;
@@ -7735,19 +7728,28 @@ html[data-ui-theme='dark'] .wiki-activity-rail__graph-alerts span {
 }
 
 .wiki-workspace-chat__composer-footer {
-  display: grid !important;
-  grid-template-columns: minmax(0, 1fr) auto !important;
-  gap: 10px !important;
-  align-items: center;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+  align-items: start;
+}
+
+.wiki-workspace-chat__composer-footer .ui-button,
+.wiki-workspace-chat__composer-footer button[type='submit'] {
+  justify-self: end;
+  min-width: 68px;
+  min-height: 34px;
 }
 
 .wiki-workspace-chat__hint {
   display: inline-flex;
   flex-wrap: wrap;
-  gap: 8px;
-  align-items: center;
+  gap: 4px 8px;
+  align-items: baseline;
+  max-width: 100%;
   color: var(--text-muted);
   font-size: 0.76rem;
+  line-height: 1.4;
 }
 
 .wiki-workspace-chat__hint button {
@@ -7770,16 +7772,17 @@ html[data-ui-theme='dark'] .wiki-activity-rail__graph-alerts span {
 
 .wiki-workspace-chat__presence {
   display: flex !important;
-  width: fit-content;
+  width: 100%;
   max-width: 100%;
   grid-template-columns: none !important;
-  gap: 7px !important;
-  align-items: center;
-  padding: 5px 8px;
+  gap: 8px !important;
+  align-items: flex-start;
+  padding: 8px 10px;
   border: 1px solid color-mix(in srgb, var(--nt-divider) 72%, transparent);
-  border-radius: 999px;
+  border-radius: 8px;
   background: color-mix(in srgb, var(--surface) 98%, transparent);
   color: var(--text-secondary);
+  line-height: 1.35;
 }
 
 .wiki-workspace-chat__presence[data-status='working'],
@@ -7842,9 +7845,11 @@ html[data-ui-theme='dark'] .wiki-activity-rail__graph-alerts span {
 
 .wiki-workspace-chat__presence span:last-child {
   min-width: 0;
+  overflow-wrap: anywhere;
   color: var(--text-secondary);
   font-size: 0.74rem;
-  line-height: 1.25;
+  font-weight: 650;
+  line-height: 1.35;
 }
 
 @keyframes wikiWorkspacePresencePulse {

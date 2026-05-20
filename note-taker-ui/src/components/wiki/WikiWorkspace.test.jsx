@@ -264,7 +264,7 @@ describe('WikiWorkspace', () => {
     await settleWorkspaceEffects();
 
     const status = await screen.findByRole('status', { name: 'Agent status' });
-    expect(status).toHaveTextContent('1 signal pending for @wiki:wiki-1.');
+    expect(status).toHaveTextContent('1 signal pending for Investing.');
     expect(status).toHaveAttribute('data-status', 'ready');
   });
 
@@ -307,7 +307,7 @@ describe('WikiWorkspace', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Send' }));
 
     const status = await screen.findByRole('status', { name: 'Agent status' });
-    expect(status).toHaveTextContent('Agent updating @wiki:wiki-1...');
+    expect(status).toHaveTextContent('Agent updating Wiki page...');
     expect(status).toHaveAttribute('data-status', 'working');
 
     await act(async () => { resolveDraft(); });
