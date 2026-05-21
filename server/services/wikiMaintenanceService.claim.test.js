@@ -230,7 +230,7 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
       }
     });
     const doc = docFromArticle({ title: 'Why compound?', article });
-    expect(headings(doc).slice(1, 6)).toEqual([
+    expect(headings(doc).slice(0, 5)).toEqual([
       'Short Answer',
       'Why It Matters',
       'Evidence',

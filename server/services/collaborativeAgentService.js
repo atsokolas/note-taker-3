@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 const { buildAgentPlanner } = require('./agentWorkerRoles');
 const { buildProposalBundle } = require('./agentProposalBundles');
-const { chatComplete, isTextGenerationConfigured } = require('../ai/hfTextClient');
+const { chatComplete, chatCompleteStream, isTextGenerationConfigured } = require('../ai/hfTextClient');
 
 const MAX_LIMIT = 12;
 const DEFAULT_LIMIT = 6;
@@ -18,6 +18,7 @@ const SEARCH_STOPWORDS = new Set([
 ]);
 
 const toSafeString = (value) => String(value || '').trim();
+const MONGO_ID_RE = /\b[a-f0-9]{24}\b/gi;
 const stripHtml = (value = '') => (
   String(value || '')
     .replace(/<[^>]*>/g, ' ')
@@ -44,6 +45,18 @@ const truncate = (value, limit = 220) => {
 };
 const truncateRaw = (value, limit = 8000) => String(value || '').slice(0, Math.max(0, limit));
 const escapeRegExp = (value = '') => String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+const toPlainText = (node) => {
+  if (!node) return '';
+  if (typeof node === 'string') return node;
+  if (Array.isArray(node)) return node.map(toPlainText).filter(Boolean).join(' ');
+  if (typeof node !== 'object') return '';
+  return [node.text || '', toPlainText(node.content)].filter(Boolean).join(' ').trim();
+};
+
+const stripRawObjectIds = (value = '', fallback = 'this wiki page') => (
+  String(value || '').replace(/@wiki:[a-f0-9]{24}\b/gi, fallback).replace(MONGO_ID_RE, fallback)
+);
 
 const normalizeAmbientContextMetadata = (input = {}) => {
   const source = input && typeof input === 'object' ? input : {};
@@ -957,6 +970,15 @@ const formatPartnerMaterialLines = (items = []) => {
 const buildPartnerSystemPrompt = ({ intent = '', contextItem = null } = {}) => {
   const contextLabel = toSafeString(contextItem?.title) || 'the active workspace';
   const intentHint = intent ? `Current reply mode: ${intent}.` : '';
+  const wikiHint = contextItem?.type === 'wiki_page'
+    ? [
+        'The selected wiki page body and attached source list are already included below.',
+        'Never ask the user to ingest or attach the current page before answering about it.',
+        'Only cite or name sources that appear in the attached wiki sources block.',
+        'If a claim has no attached source, say it is uncited rather than inventing a source.',
+        'Never output raw database ids; refer to wiki pages as [[Page Title]].'
+      ].join(' ')
+    : '';
   return [
     'You are a grounded thought partner inside a private research workspace.',
     'Use only the workspace context, retrieved internal material, and conversation history provided to you.',
@@ -965,6 +987,7 @@ const buildPartnerSystemPrompt = ({ intent = '', contextItem = null } = {}) => {
     'Keep the tone concise, specific, and editorial rather than generic assistant chatter.',
     'Prefer 2 to 4 sentences unless the user explicitly asks for a longer artifact.',
     contextLabel ? `Stay anchored to ${contextLabel}.` : '',
+    wikiHint,
     intentHint
   ].filter(Boolean).join(' ');
 };
@@ -991,6 +1014,9 @@ const buildPartnerGroundingBlock = ({
     `Active surface: ${activeType}`,
     `Active title: ${activeTitle}`,
     summary ? `Active summary: ${summary}` : '',
+    contextItem?.fullText ? `Selected wiki page body:\n"""${truncateRaw(contextItem.fullText, 6000)}"""` : '',
+    contextItem?.sourceText ? `Attached wiki sources:\n${contextItem.sourceText}` : '',
+    contextItem?.claimText ? `Wiki claims:\n${contextItem.claimText}` : '',
     anchorUserText ? `Anchor request: ${anchorUserText}` : '',
     'Retrieved internal material:',
     ...formatPartnerMaterialLines(relatedItems),
@@ -1444,13 +1470,63 @@ const resolveContextItem = async ({
   context = {},
   Article,
   NotebookEntry,
-  TagMeta
+  TagMeta,
+  WikiPage
 }) => {
   const contextType = toSafeString(context.type).toLowerCase();
   const contextId = toSafeString(context.id);
   const contextTitle = toSafeString(context.title);
   const ambientMetadata = normalizeAmbientContextMetadata(context.metadata);
   if (!contextType || !contextId) return null;
+
+  const pageId = toSafeString(context.pageId);
+  if (WikiPage && pageId && mongoose.Types.ObjectId.isValid(pageId)) {
+    const page = await WikiPage.findOne({ _id: pageId, userId: userObjectId })
+      .select('_id title slug plainText body sourceRefs claims citations updatedAt')
+      .lean();
+    if (page) {
+      const pageTitle = toSafeString(page.title) || 'Wiki page';
+      const sourceRefs = Array.isArray(page.sourceRefs) ? page.sourceRefs : [];
+      const sourceIndexById = new Map();
+      sourceRefs.forEach((source, index) => {
+        [source?._id, source?.id, source?.sourceRefId]
+          .map(value => toSafeString(value))
+          .filter(Boolean)
+          .forEach(value => sourceIndexById.set(value, index + 1));
+      });
+      const sourceText = (Array.isArray(page.sourceRefs) ? page.sourceRefs : [])
+        .slice(0, 12)
+        .map((source, index) => {
+          const title = truncate(source?.title || source?.url || `Source ${index + 1}`, 180);
+          const snippet = truncate(source?.snippet || source?.text || source?.summary || '', 260);
+          return `[${index + 1}] ${title}${snippet ? ` — ${snippet}` : ''}`;
+        })
+        .join('\n');
+      const claimText = (Array.isArray(page.claims) ? page.claims : [])
+        .slice(0, 12)
+        .map((claim, index) => {
+          const refs = (claim.sourceRefIds || claim.citationIds || [])
+            .slice(0, 4)
+            .map(value => sourceIndexById.get(toSafeString(value)))
+            .filter(Boolean)
+            .map(value => `[${value}]`)
+            .join(', ');
+          return `- Claim ${index + 1}: ${truncate(claim.text || claim.claim || '', 260)}${refs ? ` (attached refs: ${refs})` : ' (uncited)'}`;
+        })
+        .join('\n');
+      const bodyText = truncateRaw(page.plainText || toPlainText(page.body), 10000);
+      return {
+        type: 'wiki_page',
+        id: `wiki:${page.slug || pageTitle}`,
+        title: pageTitle,
+        snippet: truncate(bodyText, 420),
+        fullText: bodyText,
+        sourceText,
+        claimText,
+        updatedAt: page.updatedAt
+      };
+    }
+  }
 
   if (contextType === 'concept') {
     if (mongoose.Types.ObjectId.isValid(contextId)) {
@@ -1808,7 +1884,9 @@ const generateCollaborativeReply = async ({
   context = {},
   limit = DEFAULT_LIMIT,
   premiumWebResearchAvailable = false,
-  skillInvocation = {}
+  skillInvocation = {},
+  onDelta = null,
+  signal = null
 }) => {
   const userObjectId = toObjectId(userId);
   if (!userObjectId) throw createError(400, 'userId must be a valid ObjectId.');
@@ -1822,12 +1900,18 @@ const generateCollaborativeReply = async ({
   let Article;
   let NotebookEntry;
   let TagMeta;
+  let WikiPage;
   try {
     Article = mongoose.model('Article');
     NotebookEntry = mongoose.model('NotebookEntry');
     TagMeta = mongoose.model('TagMeta');
   } catch (_error) {
     throw createError(500, 'Required models are not initialized.');
+  }
+  try {
+    WikiPage = mongoose.model('WikiPage');
+  } catch (_error) {
+    WikiPage = null;
   }
 
   const safeLimit = Math.max(1, Math.min(MAX_LIMIT, Number(limit) || DEFAULT_LIMIT));
@@ -1845,7 +1929,8 @@ const generateCollaborativeReply = async ({
     context,
     Article,
     NotebookEntry,
-    TagMeta
+    TagMeta,
+    WikiPage
   });
   const searchedItems = await searchInternalItems({
     userObjectId,
@@ -1881,13 +1966,29 @@ const generateCollaborativeReply = async ({
     context,
     relatedItems
   });
-  let finalReply = reply || fallbackReply;
+  let finalReply = stripRawObjectIds(reply || fallbackReply, contextItem?.title || 'this wiki page');
   let mode = 'internal_only';
   let model = '';
   let provider = '';
   if (!reply && isTextGenerationConfigured()) {
     try {
-      const completion = await chatComplete({
+      const completion = typeof onDelta === 'function'
+        ? await chatCompleteStream({
+          route: 'partner_chat',
+          messages: buildPartnerChatMessages({
+            message: conversationState.resolvedMessage || safeMessage,
+            conversationState,
+            context,
+            contextItem,
+            relatedItems
+          }),
+          temperature: 0.25,
+          maxTokens: 180,
+          reasoningEffort: 'low',
+          onDelta,
+          signal
+        })
+        : await chatComplete({
         route: 'partner_chat',
         messages: buildPartnerChatMessages({
           message: conversationState.resolvedMessage || safeMessage,
@@ -1901,7 +2002,7 @@ const generateCollaborativeReply = async ({
         reasoningEffort: 'low'
       });
       if (toSafeString(completion?.text)) {
-        finalReply = toSafeString(completion.text);
+        finalReply = stripRawObjectIds(toSafeString(completion.text), contextItem?.title || 'this wiki page');
         mode = 'hf_chat';
         model = toSafeString(completion?.model);
         provider = toSafeString(completion?.provider);

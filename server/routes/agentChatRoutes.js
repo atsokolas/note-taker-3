@@ -57,6 +57,38 @@ const buildAgentChatRouter = ({
     return AgentThread.findOne({ _id: safeId, userId });
   };
 
+  const writeSse = (res, event, payload = {}) => {
+    res.write(`event: ${event}\n`);
+    res.write(`data: ${JSON.stringify(payload)}\n\n`);
+  };
+
+  const delay = (ms = 0) => new Promise(resolve => setTimeout(resolve, ms));
+
+  const streamReplyText = async (res, reply = '') => {
+    const text = String(reply || '');
+    const chunks = text.match(/\S+\s*/g) || (text ? [text] : []);
+    for (const chunk of chunks) {
+      writeSse(res, 'agent-delta', { delta: chunk });
+      await delay(10);
+    }
+  };
+
+  const buildActivityReceipt = ({ stage = 'activity', summary = '', elapsedMs = null } = {}) => ({
+    key: `${stage}:${String(summary || '').trim()}`,
+    stage,
+    summary: String(summary || '').trim(),
+    elapsedMs: Number.isFinite(Number(elapsedMs)) ? Number(elapsedMs) : undefined,
+    createdAt: new Date().toISOString()
+  });
+
+  const emitActivity = (res, receipts, receipt) => {
+    const safeReceipt = buildActivityReceipt(receipt);
+    if (!safeReceipt.summary) return;
+    if (receipts.some(item => item.key === safeReceipt.key)) return;
+    receipts.push(safeReceipt);
+    writeSse(res, 'agent-activity', safeReceipt);
+  };
+
   const persistChatTurn = async ({
     userId,
     actor,
@@ -97,7 +129,8 @@ const buildAgentChatRouter = ({
       proposalBundle: result?.proposalBundle || null,
       metadata: {
         premiumWebResearchAvailable: Boolean(result?.premiumWebResearchAvailable),
-        planner: result?.planner ? normalizeThreadPlanner(result.planner) : undefined
+        planner: result?.planner ? normalizeThreadPlanner(result.planner) : undefined,
+        activityReceipts: Array.isArray(result?.activityReceipts) ? result.activityReceipts : []
       }
     });
     if (result?.planner) {
@@ -465,6 +498,125 @@ const buildAgentChatRouter = ({
       }
       console.error('❌ Error generating collaborative agent reply:', error);
       return res.status(500).json({ error: 'Failed to generate agent reply.' });
+    }
+  });
+
+  router.post('/api/agent/chat/stream', authenticateToken, async (req, res) => {
+    res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
+    res.setHeader('Cache-Control', 'no-cache, no-transform');
+    res.setHeader('Connection', 'keep-alive');
+    res.flushHeaders?.();
+
+    const startedAt = Date.now();
+    const activityReceipts = [];
+    const streamController = new AbortController();
+    let streamedReply = '';
+    req.on('close', () => {
+      if (!res.writableEnded) streamController.abort();
+    });
+    try {
+      const thread = await loadThread(String(req.user.id), req.body?.threadId);
+      const actor = { actorType: 'user', actorId: String(req.user.id) };
+      const context = req.body?.context || thread?.scope || null;
+      if (context?.pageId) {
+        emitActivity(res, activityReceipts, {
+          stage: 'read_page',
+          summary: 'Read the selected wiki page.'
+        });
+      }
+      const referenceCount = Array.isArray(context?.references) ? context.references.length : 0;
+      if (referenceCount) {
+        emitActivity(res, activityReceipts, {
+          stage: 'load_references',
+          summary: `Loaded ${referenceCount} referenced item${referenceCount === 1 ? '' : 's'}.`
+        });
+      }
+      emitActivity(res, activityReceipts, {
+        stage: 'search',
+        summary: 'Searched the workspace context.'
+      });
+
+      const entitlements = await getUserAgentEntitlements(String(req.user.id));
+      const result = await generateCollaborativeReply({
+        userId: String(req.user.id),
+        message: req.body?.message,
+        history: thread ? threadMessagesToHistory(thread.messages) : req.body?.history,
+        context,
+        limit: req.body?.limit,
+        premiumWebResearchAvailable: entitlements.premiumWebResearchAvailable,
+        skillInvocation: req.body?.skillInvocation || {},
+        signal: streamController.signal,
+        onDelta: (delta) => {
+          const text = String(delta || '');
+          if (!text || res.writableEnded || streamController.signal.aborted) return;
+          streamedReply += text;
+          writeSse(res, 'agent-delta', { delta: text });
+        }
+      });
+
+      const relatedCount = Array.isArray(result?.relatedItems) ? result.relatedItems.length : 0;
+      emitActivity(res, activityReceipts, {
+        stage: 'retrieve',
+        summary: relatedCount
+          ? `Retrieved ${relatedCount} related workspace item${relatedCount === 1 ? '' : 's'}.`
+          : 'No additional related workspace items were needed.'
+      });
+      emitActivity(res, activityReceipts, {
+        stage: 'compose',
+        summary: `Composed reply in ${((Date.now() - startedAt) / 1000).toFixed(1)}s.`
+      });
+
+      const resultWithReceipts = {
+        ...result,
+        activityReceipts
+      };
+      if (!streamedReply) {
+        await streamReplyText(res, resultWithReceipts.reply);
+      }
+
+      const persistedThread = await persistChatTurn({
+        userId: String(req.user.id),
+        actor,
+        payload: req.body || {},
+        result: resultWithReceipts,
+        thread
+      });
+      if (result?.proposalBundle) {
+        emitHarnessEvent({
+          event: EVENT_NAMES?.AGENT_PROPOSAL_BUNDLE_STAGED,
+          userId: String(req.user.id),
+          requestId: req.requestId,
+          properties: {
+            threadId: String(persistedThread?._id || thread?._id || ''),
+            bundleId: String(result?.proposalBundle?.bundleId || ''),
+            source: 'native_chat_stream'
+          }
+        });
+      }
+      const draftArtifact = await createAgentArtifactDraftFromSkillReply({
+        AgentArtifactDraft,
+        userId: String(req.user.id),
+        actor,
+        reply: result?.reply,
+        thread: persistedThread,
+        context,
+        skillInvocation: req.body?.skillInvocation || {}
+      });
+      writeSse(res, 'agent-final', {
+        ...resultWithReceipts,
+        entitlements,
+        thread: persistedThread ? sanitizeAgentThreadDoc(persistedThread) : undefined,
+        draftArtifact: draftArtifact ? sanitizeAgentArtifactDraftDoc(draftArtifact) : undefined
+      });
+      return res.end();
+    } catch (error) {
+      console.error('❌ Error streaming collaborative agent reply:', error);
+      writeSse(res, 'error', {
+        error: Number(error?.status) >= 400 && Number(error?.status) < 500
+          ? error.message || 'Invalid agent chat request.'
+          : 'Failed to generate agent reply.'
+      });
+      return res.end();
     }
   });
 

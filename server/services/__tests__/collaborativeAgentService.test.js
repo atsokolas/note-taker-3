@@ -169,6 +169,25 @@ const run = () => {
   assert.ok(ambientMetadataArticleReply.includes('World models matter because agents can plan in imagination before they act.'), 'Article summaries should prefer substantive article text over ambient host metadata.');
   assert.ok(!ambientMetadataArticleReply.includes('example.com'), 'Article summaries should not surface source-host metadata as a claim.');
 
+  const wikiMessages = buildPartnerChatMessages({
+    message: 'What is strongest here?',
+    context: { type: 'workspace', id: 'wiki', pageId: '69fd2e7d212cd5a5f57db144' },
+    contextItem: {
+      type: 'wiki_page',
+      title: 'Investing',
+      snippet: 'Investing is capital allocation.',
+      fullText: 'Investing is capital allocation with a margin of safety.',
+      sourceText: '[1] Buffett letter — Margin of safety matters.',
+      claimText: '- Claim 1: Cash-flow valuation is central. (attached refs: [1])'
+    },
+    relatedItems: []
+  });
+  const wikiPrompt = wikiMessages.map(message => message.content).join('\n');
+  assert.ok(wikiPrompt.includes('Selected wiki page body'), 'Wiki chat prompt should include selected page body.');
+  assert.ok(wikiPrompt.includes('Attached wiki sources'), 'Wiki chat prompt should include attached wiki sources.');
+  assert.ok(wikiPrompt.includes('Never ask the user to ingest or attach the current page'), 'Wiki chat prompt should prohibit fake missing-context replies.');
+  assert.ok(!wikiPrompt.includes('69fd2e7d212cd5a5f57db144'), 'Wiki chat prompt should not expose raw page ObjectIds to the model.');
+
   const genericQuestionReply = buildReply({
     message: 'What is this question really asking?',
     context: {

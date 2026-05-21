@@ -35,10 +35,12 @@ const toPlainText = (node) => {
 };
 
 let claimSeed = 0;
-const claimMark = (citationIndexes = []) => {
+const claimMark = (citationIndexes = [], maxCitationIndex = Infinity) => {
   claimSeed += 1;
+  const maxIndex = Number.isFinite(Number(maxCitationIndex)) ? Number(maxCitationIndex) : Infinity;
   const indexes = Array.isArray(citationIndexes)
     ? citationIndexes.map(Number).filter(Number.isFinite).filter(index => index > 0).slice(0, 6)
+      .filter(index => index <= maxIndex)
     : [];
   const support = indexes.length === 0 ? 'unsupported' : indexes.length === 1 ? 'partial' : 'supported';
   return {
@@ -51,12 +53,12 @@ const claimMark = (citationIndexes = []) => {
   };
 };
 
-const claimParagraph = (text, citationIndexes = []) => ({
+const claimParagraph = (text, citationIndexes = [], maxCitationIndex = Infinity) => ({
   type: 'paragraph',
   content: [{
     type: 'text',
     text: asString(text) || ' ',
-    marks: [claimMark(citationIndexes)]
+    marks: [claimMark(citationIndexes, maxCitationIndex)]
   }]
 });
 
@@ -145,8 +147,9 @@ const buildFallbackAnswer = ({ page, sources, question }) => {
   };
 };
 
-const normalizeAnswerSchema = (raw, fallback) => {
+const normalizeAnswerSchema = (raw, fallback, maxCitationIndex = Infinity) => {
   if (!raw || typeof raw !== 'object') return fallback;
+  const maxIndex = Number.isFinite(Number(maxCitationIndex)) ? Number(maxCitationIndex) : Infinity;
   const paragraphs = Array.isArray(raw.paragraphs) ? raw.paragraphs : [];
   const cleaned = paragraphs
     .map((entry) => {
@@ -154,7 +157,7 @@ const normalizeAnswerSchema = (raw, fallback) => {
       const text = truncate(entry.text, 800).replace(/\[[0-9,\s]+\]\s*$/g, '').trim();
       if (!text) return null;
       const citationIndexes = Array.isArray(entry.citationIndexes)
-        ? entry.citationIndexes.map(Number).filter(Number.isFinite).filter(idx => idx > 0).slice(0, 6)
+        ? entry.citationIndexes.map(Number).filter(Number.isFinite).filter(idx => idx > 0 && idx <= maxIndex).slice(0, 6)
         : [];
       return { text, citationIndexes };
     })
@@ -169,9 +172,9 @@ const normalizeAnswerSchema = (raw, fallback) => {
   };
 };
 
-const docFromAnswer = (answer) => ({
+const docFromAnswer = (answer, maxCitationIndex = Infinity) => ({
   type: 'doc',
-  content: answer.paragraphs.map(entry => claimParagraph(entry.text, entry.citationIndexes))
+  content: answer.paragraphs.map(entry => claimParagraph(entry.text, entry.citationIndexes, maxCitationIndex))
 });
 
 /**
@@ -202,7 +205,7 @@ const askWikiPage = async ({ page, question, aiClient, wikiSchemaContent = '' } 
 
   if (!isConfigured()) {
     return {
-      answer: docFromAnswer(fallback),
+      answer: docFromAnswer(fallback, sources.length),
       citationIndexesUsed: fallback.citationIndexesUsed,
       model: 'stub',
       status: 'answered',
@@ -226,7 +229,7 @@ const askWikiPage = async ({ page, question, aiClient, wikiSchemaContent = '' } 
     });
   } catch (error) {
     return {
-      answer: docFromAnswer(fallback),
+      answer: docFromAnswer(fallback, sources.length),
       citationIndexesUsed: fallback.citationIndexesUsed,
       model: 'fallback',
       status: 'failed',
@@ -235,9 +238,9 @@ const askWikiPage = async ({ page, question, aiClient, wikiSchemaContent = '' } 
   }
   const raw = typeof completion === 'string' ? completion : completion?.text || '';
   const parsed = extractJson(raw);
-  const answer = normalizeAnswerSchema(parsed, fallback);
+  const answer = normalizeAnswerSchema(parsed, fallback, sources.length);
   return {
-    answer: docFromAnswer(answer),
+    answer: docFromAnswer(answer, sources.length),
     citationIndexesUsed: answer.citationIndexesUsed,
     model: completion?.model || 'hf',
     status: 'answered',

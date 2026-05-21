@@ -7348,6 +7348,11 @@ html[data-ui-theme='dark'] .wiki-activity-rail__graph-alerts span {
 }
 
 .wiki-workspace__chat-pane {
+  position: sticky;
+  top: 0;
+  height: calc(100vh - 96px);
+  max-height: calc(100vh - 96px);
+  overflow: hidden;
   border-right: 1px solid color-mix(in srgb, var(--nt-divider) 80%, transparent);
   background: color-mix(in srgb, var(--surface) 94%, #fff);
 }
@@ -7481,6 +7486,102 @@ html[data-ui-theme='dark'] .wiki-activity-rail__graph-alerts span {
   font-size: 0.9rem;
   line-height: 1.45;
   white-space: pre-wrap;
+}
+
+.wiki-workspace-chat__markdown {
+  display: grid;
+  gap: 8px;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.wiki-workspace-chat__markdown p,
+.wiki-workspace-chat__markdown ul,
+.wiki-workspace-chat__markdown pre,
+.wiki-workspace-chat__markdown table {
+  margin: 0;
+}
+
+.wiki-workspace-chat__markdown ul {
+  padding-left: 18px;
+}
+
+.wiki-workspace-chat__markdown table {
+  width: 100%;
+  border-collapse: collapse;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--nt-divider) 75%, transparent);
+  border-radius: 6px;
+  font-size: 0.82rem;
+}
+
+.wiki-workspace-chat__markdown th,
+.wiki-workspace-chat__markdown td {
+  padding: 6px 8px;
+  border-bottom: 1px solid color-mix(in srgb, var(--nt-divider) 65%, transparent);
+  text-align: left;
+  vertical-align: top;
+}
+
+.wiki-workspace-chat__markdown th {
+  color: var(--text-primary);
+  font-weight: 800;
+}
+
+.wiki-workspace-chat__markdown pre {
+  overflow: auto;
+  padding: 8px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--text-primary) 7%, var(--surface));
+}
+
+.wiki-workspace-chat__markdown code {
+  font-size: 0.84em;
+}
+
+.wiki-workspace-chat__wiki-link {
+  color: var(--accent-primary, var(--primary-color));
+  font-weight: 750;
+}
+
+.wiki-workspace-chat__caret {
+  width: 7px;
+  height: 1.1em;
+  margin-top: 1px;
+  background: var(--accent-primary, var(--primary-color));
+  animation: wiki-chat-caret 0.85s steps(2, start) infinite;
+}
+
+@keyframes wiki-chat-caret {
+  0%,
+  45% {
+    opacity: 1;
+  }
+  46%,
+  100% {
+    opacity: 0;
+  }
+}
+
+.wiki-workspace-chat__receipts {
+  display: grid;
+  gap: 4px;
+  margin: 2px 0 0;
+  padding: 7px 9px;
+  border-left: 2px solid color-mix(in srgb, var(--accent-primary, var(--primary-color)) 45%, transparent);
+  border-radius: 0 6px 6px 0;
+  background: color-mix(in srgb, var(--accent-primary, var(--primary-color)) 5%, transparent);
+  color: var(--text-secondary);
+  font-size: 0.76rem;
+  line-height: 1.35;
+  list-style: none;
+}
+
+.wiki-workspace-chat__receipts li::before {
+  content: "✓ ";
+  color: var(--accent-primary, var(--primary-color));
+  font-weight: 800;
 }
 
 .wiki-workspace-lint-card {
@@ -7646,6 +7747,8 @@ html[data-ui-theme='dark'] .wiki-activity-rail__graph-alerts span {
 .wiki-workspace-chat__palette {
   display: grid;
   gap: 6px;
+  max-height: min(280px, 40vh);
+  overflow: auto;
   padding: 8px;
   border: 1px solid color-mix(in srgb, var(--nt-divider) 70%, transparent);
   border-radius: 8px;
@@ -7665,7 +7768,9 @@ html[data-ui-theme='dark'] .wiki-activity-rail__graph-alerts span {
 }
 
 .wiki-workspace-chat__palette button:hover,
-.wiki-workspace-chat__palette button:focus-visible {
+.wiki-workspace-chat__palette button:focus-visible,
+.wiki-workspace-chat__palette button.is-active,
+.wiki-workspace-chat__palette button[aria-current='true'] {
   background: color-mix(in srgb, var(--accent-primary, var(--primary-color)) 8%, var(--surface));
   outline: none;
 }

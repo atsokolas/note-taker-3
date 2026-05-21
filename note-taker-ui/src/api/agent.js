@@ -11,6 +11,93 @@ export const chatWithAgent = async (payload = {}) => {
   return res.data || {};
 };
 
+const apiUrl = (path = '') => {
+  const base = String(api.defaults?.baseURL || '').trim();
+  if (!base) return path;
+  if (/^https?:\/\//i.test(path)) return path;
+  return `${base.replace(/\/+$/g, '')}/${String(path || '').replace(/^\/+/g, '')}`;
+};
+
+const parseSseBlock = (block = '') => {
+  let event = 'message';
+  const data = [];
+  String(block || '').split(/\r?\n/).forEach((line) => {
+    if (line.startsWith('event:')) event = line.slice(6).trim() || 'message';
+    if (line.startsWith('data:')) data.push(line.slice(5).trimStart());
+  });
+  const raw = data.join('\n');
+  if (!raw) return { event, payload: null };
+  try {
+    return { event, payload: JSON.parse(raw) };
+  } catch (_error) {
+    return { event, payload: { raw } };
+  }
+};
+
+export const streamChatWithAgent = async (payload = {}, handlers = {}) => {
+  const token = localStorage.getItem('token');
+  const res = await fetch(apiUrl('/api/agent/chat/stream'), {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {})
+    },
+    body: JSON.stringify(payload || {}),
+    signal: handlers.signal
+  });
+
+  if (!res.ok) {
+    let message = 'Failed to generate agent reply.';
+    try {
+      const body = await res.json();
+      message = body?.error || message;
+    } catch (_error) {
+      // Keep the generic error for non-JSON stream failures.
+    }
+    throw new Error(message);
+  }
+
+  if (!res.body?.getReader) {
+    const body = await res.json();
+    handlers.onFinal?.(body);
+    return body || {};
+  }
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  let finalPayload = null;
+  let streamError = null;
+
+  const consumeBlock = (block) => {
+    const { event, payload: blockPayload } = parseSseBlock(block);
+    if (!blockPayload) return;
+    handlers.onEvent?.(event, blockPayload);
+    if (event === 'agent-activity') handlers.onActivity?.(blockPayload);
+    if (event === 'agent-delta') handlers.onDelta?.(String(blockPayload.delta || ''), blockPayload);
+    if (event === 'agent-final') {
+      finalPayload = blockPayload;
+      handlers.onFinal?.(blockPayload);
+    }
+    if (event === 'error') {
+      streamError = new Error(blockPayload.error || blockPayload.message || 'Failed to generate agent reply.');
+    }
+  };
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const blocks = buffer.split(/\r?\n\r?\n/);
+    buffer = blocks.pop() || '';
+    blocks.forEach(consumeBlock);
+  }
+  buffer += decoder.decode();
+  if (buffer.trim()) consumeBlock(buffer);
+  if (streamError) throw streamError;
+  return finalPayload || {};
+};
+
 export const getAgentEntitlements = async () => {
   const res = await api.get('/api/agent/entitlements', getAuthHeaders());
   return res.data || { entitlements: {} };

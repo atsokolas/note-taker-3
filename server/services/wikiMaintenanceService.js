@@ -386,6 +386,7 @@ Hard rules:
 - Do not include HTML tags, JSON, raw URLs, scraped metadata labels, source indexes as prose, support labels, or sentences like "X contributes evidence for this page."
 - Use source titles only as evidence behind the writing. The page should say the idea, not list the source title as the idea.
 - Do not write scaffold or placeholder phrases such as "should explain", "still needs source-backed development", "strongest current signals", or "Summary:" bullets.
+- Do not restate the page title as a body heading. The page chrome already renders the title; the article body should begin with the summary paragraph.
 - If there are 5 or more candidate sources, write at least 650 words of synthesis across the required sections.
 - Keep lightweight citation indexes only at the end of factual paragraphs or bullets, e.g. [1] or [1, 3].
 - When a paragraph has both supporting and contradicting evidence, put supporting sources in citationIndexes and contradicting sources in contradictionIndexes. Set support to "conflicted".
@@ -588,7 +589,7 @@ const normalizeArticle = ({ rawArticle = {}, page, manualNotes = '', candidates 
 };
 
 const docFromArticle = ({ title, article = {} }) => {
-  const content = [heading(title, 1)];
+  const content = [];
   const summary = normalizeArticleTextBlock(article.summary);
   if (summary?.text) content.push(claimParagraph(summary.text, summary.citationIndexes, summary.support, summary.contradictionIndexes));
   (article.sections || []).forEach((section) => {

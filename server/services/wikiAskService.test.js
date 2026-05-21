@@ -97,6 +97,19 @@ describe('wikiAskService', () => {
       }, fallback);
       expect(out.paragraphs[0].citationIndexes).toEqual([2]);
     });
+
+    it('drops citation indexes outside the attached source list', () => {
+      const fallback = { paragraphs: [], citationIndexesUsed: [] };
+      const out = normalizeAnswerSchema({
+        paragraphs: [
+          { text: 'a', citationIndexes: [1, 999] },
+          { text: 'b', citationIndexes: [2, 3] }
+        ]
+      }, fallback, 2);
+      expect(out.paragraphs[0].citationIndexes).toEqual([1]);
+      expect(out.paragraphs[1].citationIndexes).toEqual([2]);
+      expect(out.citationIndexesUsed).toEqual([1, 2]);
+    });
   });
 
   describe('docFromAnswer', () => {

@@ -146,6 +146,21 @@ const collectText = (node) => {
   return [node.text || '', collectText(node.content)].filter(Boolean).join(' ');
 };
 
+const normalizeHeadingText = (value = '') => String(value || '')
+  .toLowerCase()
+  .replace(/[\s\p{Punctuation}]+/gu, ' ')
+  .trim();
+
+const stripLeadingDuplicateTitleHeading = (body = emptyDoc, title = '') => {
+  const normalizedTitle = normalizeHeadingText(title);
+  if (!body || !Array.isArray(body.content) || !normalizedTitle) return body || emptyDoc;
+  const first = body.content[0];
+  if (first?.type !== 'heading') return body;
+  const headingText = normalizeHeadingText(collectText(first));
+  if (headingText !== normalizedTitle) return body;
+  return { ...body, content: body.content.slice(1) };
+};
+
 const hasInlineWikiLinks = (node) => {
   if (!node) return false;
   if (Array.isArray(node)) return node.some(hasInlineWikiLinks);
@@ -461,7 +476,7 @@ const WikiReadReferences = ({ sources = [], citations = [], highlightedRef, onJu
   );
 };
 
-const WikiPageReadView = ({ pageId, onEdit, workspaceMode = false }) => {
+const WikiPageReadView = ({ pageId, onEdit, workspaceMode = false, refreshNonce = 0 }) => {
   const navigate = useNavigate();
   const [page, setPage] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -498,6 +513,7 @@ const WikiPageReadView = ({ pageId, onEdit, workspaceMode = false }) => {
   const previewDismissTimerRef = useRef(null);
   const latestPageRef = useRef(null);
   const autoRebuildPageRef = useRef('');
+  const lastRefreshNonceRef = useRef(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -530,6 +546,22 @@ const WikiPageReadView = ({ pageId, onEdit, workspaceMode = false }) => {
       if (previewDismissTimerRef.current) clearTimeout(previewDismissTimerRef.current);
     };
   }, [pageId]);
+
+  useEffect(() => {
+    if (!latestPageRef.current || !refreshNonce || lastRefreshNonceRef.current === refreshNonce) return undefined;
+    lastRefreshNonceRef.current = refreshNonce;
+    let cancelled = false;
+    getWikiPage(pageId)
+      .then((loaded) => {
+        if (cancelled) return;
+        latestPageRef.current = loaded;
+        setPage(loaded);
+      })
+      .catch(() => {
+        if (!cancelled) setError('Failed to refresh Wiki page.');
+      });
+    return () => { cancelled = true; };
+  }, [pageId, refreshNonce]);
 
   useEffect(() => {
     if (!page) {
@@ -802,8 +834,12 @@ const WikiPageReadView = ({ pageId, onEdit, workspaceMode = false }) => {
     setMarkdownStatus('Markdown downloaded.');
   }, [loadMarkdown, page?.slug, page?.title]);
 
-  const tocItems = useMemo(() => extractTocItems(page?.body || emptyDoc), [page?.body]);
-  const footnoteCitations = useMemo(() => collectFootnoteCitations(page?.body || emptyDoc), [page?.body]);
+  const displayBody = useMemo(
+    () => stripLeadingDuplicateTitleHeading(page?.body || emptyDoc, page?.title || ''),
+    [page?.body, page?.title]
+  );
+  const tocItems = useMemo(() => extractTocItems(displayBody), [displayBody]);
+  const footnoteCitations = useMemo(() => collectFootnoteCitations(displayBody), [displayBody]);
   const [activeTocId, setActiveTocId] = useState('');
 
   useEffect(() => {
@@ -852,7 +888,7 @@ const WikiPageReadView = ({ pageId, onEdit, workspaceMode = false }) => {
     };
   }, [tocItems]);
 
-  const wordCount = useMemo(() => collectText(page?.body).split(/\s+/).filter(Boolean).length, [page?.body]);
+  const wordCount = useMemo(() => collectText(displayBody).split(/\s+/).filter(Boolean).length, [displayBody]);
   const bodyHasWikiLinks = useMemo(
     () => (nonCriticalReady ? hasInlineWikiLinks(page?.body) : true),
     [nonCriticalReady, page?.body]
@@ -1011,7 +1047,7 @@ const WikiPageReadView = ({ pageId, onEdit, workspaceMode = false }) => {
               aria-labelledby="wiki-read-tab-article"
             >
               <section className="wiki-read__body">
-                {renderTiptapDoc(page.body || emptyDoc, { tocItems })}
+                {renderTiptapDoc(displayBody, { tocItems })}
               </section>
               <WikiReadReferences
                 sources={page.sourceRefs || []}

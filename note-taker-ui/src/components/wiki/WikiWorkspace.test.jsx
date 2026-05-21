@@ -3,7 +3,7 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom';
 import * as router from 'react-router-dom';
 import WikiWorkspace from './WikiWorkspace';
-import { chatWithAgent } from '../../api/agent';
+import { streamChatWithAgent } from '../../api/agent';
 import { getArticles } from '../../api/articles';
 import {
   acceptWikiLintFinding,
@@ -21,7 +21,7 @@ import {
 } from '../../api/wiki';
 
 jest.mock('../../api/agent', () => ({
-  chatWithAgent: jest.fn()
+  streamChatWithAgent: jest.fn()
 }));
 
 jest.mock('../../api/articles', () => ({
@@ -92,7 +92,12 @@ describe('WikiWorkspace', () => {
     jest.restoreAllMocks();
     mockNavigate.mockClear();
     window.localStorage.clear();
-    chatWithAgent.mockResolvedValue({ reply: 'Agent reply.', thread: { threadId: 'thread-1' } });
+    streamChatWithAgent.mockImplementation(async (_payload, handlers = {}) => {
+      handlers.onDelta?.('Agent reply.');
+      const result = { reply: 'Agent reply.', thread: { threadId: 'thread-1' } };
+      handlers.onFinal?.(result);
+      return result;
+    });
     createWikiPage.mockResolvedValue({ _id: 'wiki-new', title: 'Portfolio Concentration' });
     getArticles.mockResolvedValue([{ _id: 'article-1', title: 'Source memo', url: 'https://example.com' }]);
     getWikiPage.mockResolvedValue({ _id: 'wiki-1', title: 'Wiki page' });
@@ -402,17 +407,88 @@ describe('WikiWorkspace', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: 'Send' }));
 
-    await waitFor(() => expect(chatWithAgent).toHaveBeenCalledWith(expect.objectContaining({
-      message: 'What changed here?',
-      persistThread: true,
-      context: expect.objectContaining({
-        type: 'workspace',
-        id: 'wiki',
-        pageId: 'wiki-1',
-        metadata: expect.objectContaining({ surface: 'wiki_workspace' })
-      })
-    })));
+    await waitFor(() => expect(streamChatWithAgent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: 'What changed here?',
+        persistThread: true,
+        context: expect.objectContaining({
+          type: 'workspace',
+          id: 'wiki',
+          pageId: 'wiki-1',
+          metadata: expect.objectContaining({ surface: 'wiki_workspace' })
+        })
+      }),
+      expect.any(Object)
+    ));
     expect(await screen.findByText('Agent reply.')).toBeInTheDocument();
+  });
+
+  it('streams agent deltas and inline activity receipts into the pending reply', async () => {
+    streamChatWithAgent.mockImplementationOnce(async (_payload, handlers = {}) => {
+      handlers.onActivity?.({
+        key: 'read-page',
+        stage: 'read_page',
+        summary: 'Read the selected wiki page.'
+      });
+      handlers.onActivity?.({
+        key: 'read-page',
+        stage: 'read_page',
+        summary: 'Read the selected wiki page.'
+      });
+      handlers.onDelta?.('First ');
+      handlers.onDelta?.('chunk.');
+      const result = {
+        reply: 'First chunk.',
+        activityReceipts: [{
+          key: 'read-page',
+          stage: 'read_page',
+          summary: 'Read the selected wiki page.'
+        }],
+        thread: { threadId: 'thread-1' }
+      };
+      handlers.onFinal?.(result);
+      return result;
+    });
+    renderWorkspace('/wiki/workspace?page=wiki-1');
+    await settleWorkspaceEffects();
+
+    fireEvent.change(screen.getByLabelText('Wiki workspace message'), {
+      target: { value: 'Stream this response' }
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+
+    expect(await screen.findByText('First chunk.')).toBeInTheDocument();
+    const receipts = await screen.findByLabelText('Agent activity');
+    expect(receipts).toHaveTextContent('Read the selected wiki page.');
+    expect(receipts.querySelectorAll('li')).toHaveLength(1);
+    expect(await screen.findByText('Saved thread')).toBeInTheDocument();
+  });
+
+  it('aborts an active streamed agent reply from the cancel affordance', async () => {
+    let streamSignal;
+    streamChatWithAgent.mockImplementationOnce(async (_payload, handlers = {}) => {
+      streamSignal = handlers.signal;
+      handlers.onDelta?.('Partial reply');
+      return new Promise((_resolve, reject) => {
+        streamSignal.addEventListener('abort', () => {
+          reject(Object.assign(new Error('Aborted'), { name: 'AbortError' }));
+        });
+      });
+    });
+    renderWorkspace('/wiki/workspace?page=wiki-1');
+    await settleWorkspaceEffects();
+
+    fireEvent.change(screen.getByLabelText('Wiki workspace message'), {
+      target: { value: 'Cancel this response' }
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+
+    expect(await screen.findByText('Partial reply')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+
+    await waitFor(() => expect(streamSignal.aborted).toBe(true));
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Cancel' })).not.toBeInTheDocument());
+    expect(screen.getByText('Partial reply')).toBeInTheDocument();
   });
 
   it('keeps referenced wiki pages in context for later agent turns until removed', async () => {
@@ -432,15 +508,18 @@ describe('WikiWorkspace', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: 'Send' }));
 
-    await waitFor(() => expect(chatWithAgent).toHaveBeenCalledWith(expect.objectContaining({
-      message: 'What should I read next?',
-      context: expect.objectContaining({
-        references: [expect.objectContaining({ type: 'wiki', id: 'wiki-1' })],
-        metadata: expect.objectContaining({
-          contextReferences: [expect.objectContaining({ type: 'wiki', id: 'wiki-1' })]
+    await waitFor(() => expect(streamChatWithAgent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: 'What should I read next?',
+        context: expect.objectContaining({
+          references: [expect.objectContaining({ type: 'wiki', id: 'wiki-1' })],
+          metadata: expect.objectContaining({
+            contextReferences: [expect.objectContaining({ type: 'wiki', id: 'wiki-1' })]
+          })
         })
-      })
-    })));
+      }),
+      expect.any(Object)
+    ));
 
     fireEvent.click(screen.getByRole('button', { name: /Remove @wiki:/ }));
     fireEvent.change(screen.getByLabelText('Wiki workspace message'), {
@@ -448,13 +527,16 @@ describe('WikiWorkspace', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: 'Send' }));
 
-    await waitFor(() => expect(chatWithAgent).toHaveBeenLastCalledWith(expect.objectContaining({
-      message: 'Continue without that page.',
-      context: expect.objectContaining({
-        references: [],
-        metadata: expect.objectContaining({ contextReferences: [] })
-      })
-    })));
+    await waitFor(() => expect(streamChatWithAgent).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        message: 'Continue without that page.',
+        context: expect.objectContaining({
+          references: [],
+          metadata: expect.objectContaining({ contextReferences: [] })
+        })
+      }),
+      expect.any(Object)
+    ));
   });
 
   it('suggests article references and stores them as context chips', async () => {
@@ -512,10 +594,13 @@ describe('WikiWorkspace', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: 'Send' }));
 
-    await waitFor(() => expect(chatWithAgent).toHaveBeenLastCalledWith(expect.objectContaining({
-      message: 'Continue it',
-      threadId: 'thread-1'
-    })));
+    await waitFor(() => expect(streamChatWithAgent).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        message: 'Continue it',
+        threadId: 'thread-1'
+      }),
+      expect.any(Object)
+    ));
   });
 
   it('shows slash command discovery and fills a selected command', async () => {

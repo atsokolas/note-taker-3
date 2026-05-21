@@ -218,7 +218,8 @@ const requestChatCompletions = async ({
   provider,
   timeoutMs,
   routerBaseUrl,
-  payload
+  payload,
+  signal
 }) => {
   const url = `${String(routerBaseUrl || DEFAULT_ROUTER_BASE_URL).replace(/\/+$/, '')}/chat/completions`;
   const basePayload = {
@@ -250,7 +251,7 @@ const requestChatCompletions = async ({
           Accept: 'application/json'
         },
         body: JSON.stringify(requestPayload),
-        signal: controller.signal
+        signal: signal || controller.signal
       });
       const rawText = await readTextSafely(response);
       const json = parseJsonSafely(rawText);
@@ -288,9 +289,9 @@ const requestChatCompletions = async ({
     } catch (error) {
       if (error?.name === 'AbortError') {
         throw buildError({
-          status: 504,
-          detail: 'HF request timed out',
-          message: `HF request timed out after ${timeoutMs}ms`,
+          status: signal?.aborted ? 499 : 504,
+          detail: signal?.aborted ? 'HF request aborted' : 'HF request timed out',
+          message: signal?.aborted ? 'HF request aborted' : `HF request timed out after ${timeoutMs}ms`,
           provider,
           model
         });
@@ -317,6 +318,109 @@ const requestChatCompletions = async ({
   });
 };
 
+const requestChatCompletionsStream = async ({
+  token,
+  model,
+  provider,
+  timeoutMs,
+  routerBaseUrl,
+  payload,
+  signal
+}) => {
+  const url = `${String(routerBaseUrl || DEFAULT_ROUTER_BASE_URL).replace(/\/+$/, '')}/chat/completions`;
+  const basePayload = {
+    model,
+    stream: true,
+    ...payload
+  };
+  const attempts = [
+    { withProvider: Boolean(provider) },
+    { withProvider: false }
+  ];
+
+  for (let index = 0; index < attempts.length; index += 1) {
+    const attempt = attempts[index];
+    if (!attempt.withProvider && index === 1 && !provider) break;
+
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const requestPayload = {
+        ...basePayload,
+        ...(attempt.withProvider ? { provider } : {})
+      };
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          Accept: 'text/event-stream'
+        },
+        body: JSON.stringify(requestPayload),
+        signal: signal || controller.signal
+      });
+
+      if (!response.ok) {
+        const rawText = await readTextSafely(response);
+        const json = parseJsonSafely(rawText);
+        const detail = typeof json?.detail === 'string'
+          ? json.detail
+          : typeof json?.error === 'string'
+            ? json.error
+            : rawText || `HF request failed with status ${response.status}`;
+        const lowerDetail = String(detail || '').toLowerCase();
+        const providerFieldUnsupported = attempt.withProvider
+          && response.status >= 400
+          && response.status < 500
+          && lowerDetail.includes('provider')
+          && (lowerDetail.includes('unknown field') || lowerDetail.includes('extra inputs') || lowerDetail.includes('not permitted'));
+        if (providerFieldUnsupported) continue;
+        throw buildError({
+          status: response.status,
+          detail,
+          message: detail,
+          provider: attempt.withProvider ? provider : '',
+          model
+        });
+      }
+
+      return {
+        response,
+        model,
+        provider: attempt.withProvider ? provider : ''
+      };
+    } catch (error) {
+      if (error?.name === 'AbortError') {
+        throw buildError({
+          status: signal?.aborted ? 499 : 504,
+          detail: signal?.aborted ? 'HF request aborted' : 'HF request timed out',
+          message: signal?.aborted ? 'HF request aborted' : `HF request timed out after ${timeoutMs}ms`,
+          provider,
+          model
+        });
+      }
+      if (error?.payload || error?.status) throw error;
+      throw buildError({
+        status: 502,
+        detail: String(error?.message || 'HF request failed'),
+        message: `HF request failed: ${error?.message || 'Unknown error'}`,
+        provider,
+        model
+      });
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  throw buildError({
+    status: 502,
+    detail: 'HF streaming request failed',
+    message: 'HF streaming request failed without a usable response.',
+    provider,
+    model
+  });
+};
+
 const extractChatContent = (body) => {
   if (!body) return '';
   if (typeof body === 'string') return stripThinkBlocks(body);
@@ -331,6 +435,16 @@ const extractChatContent = (body) => {
     );
   }
   return '';
+};
+
+const extractDeltaContent = (payload) => {
+  const delta = payload?.choices?.[0]?.delta?.content;
+  if (typeof delta === 'string') return delta;
+  if (Array.isArray(delta)) {
+    return delta.map(item => item?.text || item?.content || '').filter(Boolean).join('');
+  }
+  const text = payload?.choices?.[0]?.text;
+  return typeof text === 'string' ? text : '';
 };
 
 const isTextGenerationConfigured = () => {
@@ -470,14 +584,196 @@ const chatComplete = async ({
   });
 };
 
+const readStreamingCompletion = async ({ response, onDelta, signal }) => {
+  if (!response?.body?.getReader) {
+    const rawText = await readTextSafely(response);
+    const body = parseJsonSafely(rawText) || rawText;
+    const text = extractChatContent(body);
+    if (text && typeof onDelta === 'function') onDelta(text);
+    return { text, raw: body };
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  let text = '';
+  let finalRaw = null;
+
+  const consumeBlock = (block = '') => {
+    const dataLines = String(block || '')
+      .split(/\r?\n/)
+      .filter(line => line.startsWith('data:'))
+      .map(line => line.slice(5).trimStart());
+    dataLines.forEach((line) => {
+      if (!line || line === '[DONE]') return;
+      const payload = parseJsonSafely(line);
+      if (!payload) return;
+      finalRaw = payload;
+      const delta = extractDeltaContent(payload);
+      if (!delta) return;
+      text += delta;
+      if (typeof onDelta === 'function') onDelta(delta);
+    });
+  };
+
+  while (true) {
+    if (signal?.aborted) {
+      try { await reader.cancel(); } catch (_error) {}
+      throw buildError({
+        status: 499,
+        detail: 'HF request aborted',
+        message: 'HF request aborted'
+      });
+    }
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const blocks = buffer.split(/\r?\n\r?\n/);
+    buffer = blocks.pop() || '';
+    blocks.forEach(consumeBlock);
+  }
+  buffer += decoder.decode();
+  if (buffer.trim()) consumeBlock(buffer);
+  return { text: stripThinkBlocks(text), raw: finalRaw };
+};
+
+const chatCompleteStream = async ({
+  messages = [],
+  temperature = 0.35,
+  maxTokens = 260,
+  reasoningEffort = 'medium',
+  fallbackModels = [],
+  preferFallbackModels = false,
+  route = '',
+  modelRoutes = [],
+  responseFormat = null,
+  tools = null,
+  toolChoice = null,
+  onDelta = null,
+  signal = null
+} = {}) => {
+  const { token, model, textModelFallbacks, provider, timeoutMs, routerBaseUrl, routeProfiles } = getConfig();
+  if (!token) {
+    throw buildError({
+      status: 401,
+      detail: 'HF_TOKEN not configured',
+      message: 'HF_TOKEN not configured',
+      provider,
+      model
+    });
+  }
+  if (!model) {
+    throw buildError({
+      status: 500,
+      detail: 'HF_TEXT_MODEL not configured',
+      message: 'HF_TEXT_MODEL not configured',
+      provider,
+      model
+    });
+  }
+
+  const safeMessages = Array.isArray(messages)
+    ? messages
+        .map((entry) => ({
+          role: String(entry?.role || '').trim(),
+          content: String(entry?.content || '').trim()
+        }))
+        .filter((entry) => entry.role && entry.content)
+    : [];
+  if (safeMessages.length === 0) {
+    throw buildError({
+      status: 400,
+      detail: 'HF chat requires at least one message',
+      message: 'HF chat requires at least one message',
+      provider,
+      model
+    });
+  }
+
+  const preferredFallbacks = Array.isArray(fallbackModels) ? fallbackModels : [];
+  const configuredFallbacks = Array.isArray(textModelFallbacks) ? textModelFallbacks : [];
+  const explicitRoutes = Array.isArray(modelRoutes) ? modelRoutes : [];
+  const profileRoutes = route && Array.isArray(routeProfiles?.[route]) ? routeProfiles[route] : [];
+  const legacyRoutes = [
+    parseRouteEntry({ model, provider }),
+    ...configuredFallbacks.map((entry) => parseRouteEntry(entry, provider))
+  ].filter(Boolean);
+  const candidateRoutes = explicitRoutes.length > 0
+    ? mergeCandidateRoutes(explicitRoutes, preferredFallbacks)
+    : profileRoutes.length > 0
+      ? mergeCandidateRoutes(preferFallbackModels ? preferredFallbacks : [], profileRoutes, preferFallbackModels ? [] : preferredFallbacks)
+      : preferFallbackModels
+        ? mergeCandidateRoutes(preferredFallbacks, legacyRoutes)
+        : mergeCandidateRoutes(legacyRoutes, preferredFallbacks);
+  let lastError = null;
+
+  for (const candidateRoute of candidateRoutes) {
+    const candidateModel = candidateRoute.model;
+    const candidateProvider = candidateRoute.provider || provider;
+    try {
+      const { response, provider: resolvedProvider } = await requestChatCompletionsStream({
+        token,
+        model: candidateModel,
+        provider: candidateProvider,
+        timeoutMs,
+        routerBaseUrl,
+        payload: {
+          messages: safeMessages,
+          temperature,
+          max_tokens: maxTokens,
+          ...(reasoningEffort ? { reasoning_effort: reasoningEffort } : {}),
+          ...(responseFormat ? { response_format: responseFormat } : {}),
+          ...(Array.isArray(tools) && tools.length > 0 ? { tools } : {}),
+          ...(toolChoice ? { tool_choice: toolChoice } : {})
+        },
+        signal
+      });
+      const streamed = await readStreamingCompletion({ response, onDelta, signal });
+      if (!streamed.text) {
+        throw buildError({
+          status: 502,
+          detail: 'HF streaming response empty',
+          message: 'HF streaming response empty',
+          provider: resolvedProvider || provider,
+          model: candidateModel
+        });
+      }
+      return {
+        text: streamed.text,
+        model: candidateModel,
+        provider: resolvedProvider || candidateProvider,
+        raw: streamed.raw
+      };
+    } catch (error) {
+      lastError = error;
+      const status = Number(error?.status || 0);
+      const shouldTryNextModel = candidateRoute !== candidateRoutes.at(-1)
+        && !signal?.aborted
+        && (status === 400 || status === 404 || status === 408 || status === 429 || status >= 500);
+      if (shouldTryNextModel) continue;
+      throw error;
+    }
+  }
+
+  throw lastError || buildError({
+    status: 502,
+    detail: 'HF streaming response failed across all models',
+    message: 'HF streaming response failed across all models',
+    provider,
+    model
+  });
+};
+
 module.exports = {
   chatComplete,
+  chatCompleteStream,
   getConfig,
   isTextGenerationConfigured,
   __testables: {
     parseRouteEntry,
     parseRouteList,
     mergeCandidateRoutes,
-    getConfiguredRouteProfiles
+    getConfiguredRouteProfiles,
+    extractDeltaContent
   }
 };
