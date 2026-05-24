@@ -533,11 +533,22 @@ const WikiPageEditor = ({ pageId, onDoneEditing, workspaceMode = false }) => {
   }
 
   return (
-    <main className="wiki-page wiki-editor">
+    <main className={`wiki-page wiki-editor${workspaceMode ? ' wiki-editor--workspace' : ''}`}>
       <div className="wiki-editor__topline">
-        <Button type="button" variant="secondary" onClick={() => navigate('/wiki')}>Back to Wiki</Button>
+        {workspaceMode ? (
+          <span className="wiki-editor__mode-label">Editing page</span>
+        ) : (
+          <Button type="button" variant="secondary" onClick={() => navigate('/wiki')}>Back to Wiki</Button>
+        )}
         {onDoneEditing ? (
-          <Button type="button" variant="secondary" onClick={onDoneEditing}>Done editing</Button>
+          <Button
+            type="button"
+            variant={workspaceMode ? 'primary' : 'secondary'}
+            className="wiki-editor__done"
+            onClick={onDoneEditing}
+          >
+            Done editing
+          </Button>
         ) : null}
         {!workspaceMode ? (
           <Button

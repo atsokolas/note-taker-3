@@ -50,12 +50,13 @@ jest.mock('./WikiIndex', () => ({ onOpenPage }) => (
   </div>
 ));
 jest.mock('./WikiList', () => ({ compact }) => <div data-testid="wiki-list">List view {compact ? 'compact' : ''}</div>);
-jest.mock('./WikiPageReadView', () => ({ pageId, workspaceMode, onEdit }) => (
+jest.mock('./WikiPageReadView', () => jest.fn(({ pageId, workspaceMode, onEdit, liveUpdate }) => (
   <div data-testid="wiki-read-view">
     Page {pageId} {workspaceMode ? 'workspace' : ''}
+    {liveUpdate?.anchorId ? <span data-testid="wiki-live-update">{liveUpdate.anchorId}</span> : null}
     <button type="button" onClick={onEdit}>Edit page</button>
   </div>
-));
+)));
 jest.mock('./WikiPageEditor', () => ({ pageId, onDoneEditing }) => (
   <div data-testid="wiki-page-editor">
     Editing {pageId}
@@ -90,6 +91,13 @@ describe('WikiWorkspace', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     jest.restoreAllMocks();
+    require('./WikiPageReadView').mockImplementation(({ pageId, workspaceMode, onEdit, liveUpdate }) => (
+      <div data-testid="wiki-read-view">
+        Page {pageId} {workspaceMode ? 'workspace' : ''}
+        {liveUpdate?.anchorId ? <span data-testid="wiki-live-update">{liveUpdate.anchorId}</span> : null}
+        <button type="button" onClick={onEdit}>Edit page</button>
+      </div>
+    ));
     mockNavigate.mockClear();
     window.localStorage.clear();
     streamChatWithAgent.mockImplementation(async (_payload, handlers = {}) => {
@@ -161,6 +169,50 @@ describe('WikiWorkspace', () => {
     expect(screen.getByLabelText('Wiki agent chat')).toBeInTheDocument();
     expect(screen.getByTestId('wiki-index')).toBeInTheDocument();
     expect(document.querySelector('.wiki-workspace')).toHaveStyle('--wiki-workspace-chat-width: 300px');
+    expect(document.querySelector('.wiki-workspace__right-pane')).toBeInTheDocument();
+  });
+
+  it('AT-248 — shows first-visit onboarding until dismissed and stores the seen flag', async () => {
+    renderWorkspace('/wiki/workspace?view=graph');
+    await settleWorkspaceEffects();
+
+    expect(screen.getByRole('heading', { name: /start the wiki with one page or one source/i })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /skip for now/i }));
+
+    expect(window.localStorage.getItem('noeis.wiki.first_visit_seen')).toBe('true');
+    expect(screen.queryByRole('heading', { name: /start the wiki with one page or one source/i })).not.toBeInTheDocument();
+  });
+
+  it('AT-248 — does not show onboarding for returning wiki workspace users', async () => {
+    window.localStorage.setItem('noeis.wiki.first_visit_seen', 'true');
+
+    renderWorkspace('/wiki/workspace?view=graph');
+    await settleWorkspaceEffects();
+
+    expect(screen.queryByRole('heading', { name: /start the wiki with one page or one source/i })).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Wiki agent chat')).toBeInTheDocument();
+  });
+
+  it('AT-248 — marks onboarding seen when a first-visit CTA is used', async () => {
+    renderWorkspace('/wiki/workspace?view=graph');
+    await settleWorkspaceEffects();
+
+    fireEvent.click(screen.getByRole('button', { name: /build page/i }));
+
+    expect(window.localStorage.getItem('noeis.wiki.first_visit_seen')).toBe('true');
+    await waitFor(() => expect(screen.getByLabelText('Wiki workspace message')).toHaveValue('/build '));
+  });
+
+  it('AT-248 — drop source CTA opens the source workflow and stores the seen flag', async () => {
+    renderWorkspace('/wiki/workspace?view=graph');
+    await settleWorkspaceEffects();
+
+    fireEvent.click(screen.getByRole('button', { name: /drop source/i }));
+
+    expect(window.localStorage.getItem('noeis.wiki.first_visit_seen')).toBe('true');
+    expect(mockNavigate).toHaveBeenLastCalledWith('/wiki/workspace?view=sources');
+    await waitFor(() => expect(screen.getByLabelText('Wiki workspace message')).toHaveValue('/ingest https://'));
   });
 
   it('opens the general wiki workspace instead of resuming the last page when no page is requested', async () => {
@@ -183,6 +235,35 @@ describe('WikiWorkspace', () => {
     expect(await screen.findByTestId('wiki-read-view')).toHaveTextContent('Page wiki-1 workspace');
   });
 
+  it('keeps the read view mounted across page-to-page navigation', async () => {
+    let mountCount = 0;
+    const MockReadView = require('./WikiPageReadView');
+    MockReadView.mockImplementation(({ pageId, workspaceMode, onEdit }) => {
+      React.useEffect(() => {
+        mountCount += 1;
+      }, []);
+      return (
+        <div data-testid="wiki-read-view">
+          Page {pageId} {workspaceMode ? 'workspace' : ''}
+          <button type="button" onClick={onEdit}>Edit page</button>
+        </div>
+      );
+    });
+
+    renderWorkspace('/wiki/workspace?page=wiki-1');
+    await settleWorkspaceEffects();
+    expect(await screen.findByTestId('wiki-read-view')).toHaveTextContent('Page wiki-1 workspace');
+    expect(mountCount).toBe(1);
+
+    fireEvent.change(screen.getByLabelText('Wiki workspace message'), {
+      target: { value: '/page @wiki:wiki-2' }
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+
+    expect(await screen.findByTestId('wiki-read-view')).toHaveTextContent('Page wiki-2 workspace');
+    expect(mountCount).toBe(1);
+  });
+
   it('keeps page editing inside the canonical workspace URL state', async () => {
     renderWorkspace('/wiki/workspace?page=wiki-1');
     await settleWorkspaceEffects();
@@ -191,6 +272,7 @@ describe('WikiWorkspace', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Edit page' }));
 
     expect(await screen.findByTestId('wiki-page-editor')).toHaveTextContent('Editing wiki-1');
+    expect(document.querySelector('.wiki-workspace__page-shell--editing')).toBeInTheDocument();
     expect(mockNavigate).toHaveBeenLastCalledWith('/wiki/workspace?page=wiki-1&mode=edit');
 
     fireEvent.click(screen.getByRole('button', { name: 'Done editing' }));
@@ -269,7 +351,7 @@ describe('WikiWorkspace', () => {
     await settleWorkspaceEffects();
 
     const status = await screen.findByRole('status', { name: 'Agent status' });
-    expect(status).toHaveTextContent('1 signal pending for Investing.');
+    expect(status).toHaveTextContent('1 review item for Investing.');
     expect(status).toHaveAttribute('data-status', 'ready');
   });
 
@@ -461,7 +543,57 @@ describe('WikiWorkspace', () => {
     const receipts = await screen.findByLabelText('Agent activity');
     expect(receipts).toHaveTextContent('Read the selected wiki page.');
     expect(receipts.querySelectorAll('li')).toHaveLength(1);
-    expect(await screen.findByText('Saved thread')).toBeInTheDocument();
+    expect(receipts.querySelector('.wiki-workspace-chat__receipt-icon')).toBeInTheDocument();
+    expect(await screen.findByText('Thread · Wiki workspace')).toBeInTheDocument();
+  });
+
+  it('forwards paragraph edit stream events to the active wiki read view', async () => {
+    streamChatWithAgent.mockImplementationOnce(async (_payload, handlers = {}) => {
+      handlers.onActivity?.({ type: 'paragraph_edited', pageId: 'wiki-1', anchorId: 'wiki-block-1', summary: 'Edited Core idea.' });
+      const result = { reply: 'Updated paragraph.', thread: { threadId: 'thread-1' } };
+      handlers.onFinal?.(result);
+      return result;
+    });
+    renderWorkspace('/wiki/workspace?page=wiki-1');
+    await settleWorkspaceEffects();
+
+    fireEvent.change(screen.getByLabelText('Wiki workspace message'), {
+      target: { value: 'Update this page' }
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+
+    expect(await screen.findByTestId('wiki-live-update')).toHaveTextContent('wiki-block-1');
+  });
+
+  it('renders the living-agent pending state without a literal Thinking placeholder', async () => {
+    let resolveStream;
+    streamChatWithAgent.mockImplementationOnce(async (_payload, handlers = {}) => {
+      const result = await new Promise(resolve => {
+        resolveStream = () => resolve({ reply: 'Resolved reply.', thread: { threadId: 'thread-1' } });
+      });
+      handlers.onFinal?.(result);
+      return result;
+    });
+    renderWorkspace('/wiki/workspace?page=wiki-1');
+    await settleWorkspaceEffects();
+
+    const sendButton = screen.getByRole('button', { name: 'Send' });
+    expect(sendButton).toHaveClass('wiki-workspace-chat__send', 'is-empty');
+    fireEvent.change(screen.getByLabelText('Wiki workspace message'), {
+      target: { value: 'Hold the stream open' }
+    });
+    expect(screen.getByRole('button', { name: 'Send' })).toHaveClass('wiki-workspace-chat__send', 'is-ready');
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+
+    expect(await screen.findByRole('button', { name: 'Cancel' })).toHaveClass('wiki-workspace-chat__send', 'is-cancel');
+    expect(document.querySelector('.wiki-workspace-chat__composer')).toHaveAttribute('data-streaming', 'true');
+    expect(screen.queryByText('Thinking...')).not.toBeInTheDocument();
+    expect(document.querySelector('.wiki-workspace-chat__message.is-assistant .wiki-workspace-chat__caret')).toBeInTheDocument();
+
+    await act(async () => {
+      resolveStream();
+    });
+    expect(await screen.findByText('Resolved reply.')).toBeInTheDocument();
   });
 
   it('aborts an active streamed agent reply from the cancel affordance', async () => {
@@ -559,9 +691,9 @@ describe('WikiWorkspace', () => {
     renderWorkspace();
     await settleWorkspaceEffects();
 
-    expect(screen.getByText('Type / for commands, @ to reference your library.')).toBeInTheDocument();
+    expect(screen.getByText(/Type \/ for commands, @ to reference your library/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Dismiss composer hint' }));
-    expect(screen.queryByText('Type / for commands, @ to reference your library.')).not.toBeInTheDocument();
+    expect(screen.queryByText(/Type \/ for commands, @ to reference your library/)).not.toBeInTheDocument();
   });
 
   it('auto-hides the discoverability hint after slash and at-reference use', async () => {
@@ -574,7 +706,7 @@ describe('WikiWorkspace', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Send' }));
 
     await screen.findByTestId('wiki-read-view');
-    expect(screen.queryByText('Type / for commands, @ to reference your library.')).not.toBeInTheDocument();
+    expect(screen.queryByText(/Type \/ for commands, @ to reference your library/)).not.toBeInTheDocument();
   });
 
   it('surfaces the saved broader thread and continues it on later messages', async () => {
@@ -586,8 +718,8 @@ describe('WikiWorkspace', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: 'Send' }));
 
-    expect(await screen.findByText('Saved thread')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /Open thread/ })).toHaveAttribute('href', '/think?tab=threads&threadId=thread-1');
+    expect(await screen.findByText('Thread · Wiki workspace')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Thread/ })).toHaveAttribute('href', '/think?tab=threads&threadId=thread-1');
 
     fireEvent.change(screen.getByLabelText('Wiki workspace message'), {
       target: { value: 'Continue it' }
@@ -707,9 +839,9 @@ describe('WikiWorkspace', () => {
     await settleWorkspaceEffects();
     const workspace = screen.getByRole('main');
 
-    expect(workspace).toHaveClass('is-mobile-chat');
-    fireEvent.touchStart(workspace, { touches: [{ clientX: 300, clientY: 20 }] });
-    fireEvent.touchEnd(workspace, { changedTouches: [{ clientX: 120, clientY: 28 }] });
     expect(workspace).toHaveClass('is-mobile-wiki');
+    fireEvent.touchStart(workspace, { touches: [{ clientX: 120, clientY: 20 }] });
+    fireEvent.touchEnd(workspace, { changedTouches: [{ clientX: 300, clientY: 28 }] });
+    expect(workspace).toHaveClass('is-mobile-chat');
   });
 });

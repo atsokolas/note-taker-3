@@ -29,6 +29,10 @@
   --bg: var(--background);
   --accent: #0b74ff;
   --accent-soft: rgba(11, 116, 255, 0.08);
+  --wiki-warm-accent: #b1862e;
+  --wiki-warm-accent-strong: #8b5f1d;
+  --wiki-neutral-accent: #6f6a61;
+  --wiki-quiet-danger: #9b5a46;
   --surface-muted: #f8fafc;
   /* color-mix(in srgb, var(--surface) X%, var(--mix-lift)) is used in 30+
      places to "lift" a surface a bit lighter than its base. In light mode
@@ -62,6 +66,10 @@ html[data-ui-theme='dark'] {
   --text-primary: #e7ecf3;
   --text-secondary: #94a3b8;
   --accent-soft: rgba(54, 228, 255, 0.14);
+  --wiki-warm-accent: #d2a45f;
+  --wiki-warm-accent-strong: #e0b971;
+  --wiki-neutral-accent: #a8a198;
+  --wiki-quiet-danger: #c78978;
   --shadow-subtle: 0 10px 26px rgba(0, 0, 0, 0.4);
   --mix-lift: #2c3a55;
   color-scheme: dark;
@@ -210,6 +218,9 @@ p {
 }
 
 .topbar__brand {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
   font-weight: 600;
   font-size: var(--text-md);
   color: var(--text);
@@ -222,6 +233,9 @@ p {
 }
 
 .topbar__link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
   text-decoration: none;
   color: var(--text-secondary);
   font-size: var(--text-sm);
@@ -234,6 +248,14 @@ p {
 .topbar__link.is-active {
   color: var(--text);
   background: var(--surface-muted);
+}
+
+.topbar__primary-link,
+.topbar__icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
 }
 
 .topbar__right {
@@ -272,6 +294,42 @@ p {
   -webkit-text-fill-color: var(--text);
   box-shadow: 0 0 0px 1000px var(--surface) inset;
   transition: background-color 9999s ease-in-out 0s;
+}
+
+.topbar__search-trigger {
+  width: min(360px, 34vw);
+  min-height: 44px;
+  padding: 0 6px 0 12px;
+  border: 1px solid var(--border-subtle-2);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text-secondary);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font: inherit;
+  cursor: pointer;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease, color 0.2s ease;
+}
+
+.topbar__search-trigger:hover,
+.topbar__search-trigger:focus-visible {
+  color: var(--text);
+  border-color: var(--accent);
+  background: var(--surface-muted);
+  box-shadow: 0 0 0 2px var(--accent-soft);
+  outline: none;
+}
+
+.topbar__search-trigger-label {
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+  color: inherit;
+  font-size: var(--text-sm);
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* ⌘K hint inside the topbar search wrap — surfaces the existing global
@@ -388,9 +446,32 @@ p {
   font-weight: 500;
 }
 
+body.noeis-editorial .palette-overlay {
+  align-items: center;
+  padding: 24px;
+}
+
+body.noeis-editorial .palette-card {
+  width: min(600px, calc(100vw - 32px));
+  max-height: 60vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+body.noeis-editorial .palette-list {
+  max-height: none;
+  min-height: 0;
+  flex: 1 1 auto;
+}
+
 @media (max-width: 480px) {
   .topbar__search-kbd {
     display: none;
+  }
+
+  .topbar__search-trigger {
+    width: min(240px, 42vw);
   }
 }
 
@@ -405,6 +486,7 @@ html[data-ui-theme='dark'] .topbar__search:-webkit-autofill:focus {
 }
 
 .topbar__button {
+  min-height: 44px;
   border: 1px solid var(--border-subtle);
   background: transparent;
   color: var(--text-secondary);
@@ -448,7 +530,7 @@ html[data-ui-theme='dark'] .topbar__search:-webkit-autofill:focus {
   border-radius: 999px;
   background: color-mix(in srgb, var(--accent-soft, rgba(0, 0, 0, 0.06)) 80%, transparent);
   color: var(--accent, var(--text));
-  font-family: -apple-system, BlinkMacSystemFont, "Inter", sans-serif;
+  font-family: var(--wiki-ui-font, -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif);
   font-size: 0.7rem;
   font-weight: 600;
   line-height: 1;
@@ -479,6 +561,9 @@ html[data-ui-theme='dark'] .topbar__search:-webkit-autofill:focus {
 }
 
 .topbar__menu-item {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
   border: 1px solid transparent;
   background: transparent;
   color: var(--text);
@@ -497,6 +582,18 @@ html[data-ui-theme='dark'] .topbar__search:-webkit-autofill:focus {
 .topbar__menu-item:disabled {
   opacity: 0.45;
   cursor: not-allowed;
+}
+
+.topbar__menu-separator {
+  height: 1px;
+  margin: 4px 0;
+  background: var(--border-subtle-2);
+}
+
+.topbar__menu-meta {
+  margin-left: auto;
+  color: var(--text-secondary);
+  font-size: 0.75rem;
 }
 
 .topbar__theme-control {
@@ -529,7 +626,7 @@ html[data-ui-theme='dark'] .topbar__search:-webkit-autofill:focus {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  min-height: 30px;
+  min-height: 44px;
   padding: 0 12px;
   border: 1px solid var(--border-subtle);
   border-radius: 999px;
@@ -6929,7 +7026,7 @@ html[data-ui-theme='dark'] body.noeis-editorial .concept-editorial-evidence__ite
   border: 0;
   background: transparent;
   color: var(--text);
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--wiki-ui-font, -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif);
   font-size: 0.78rem;
   font-weight: 500;
   cursor: pointer;
@@ -7059,7 +7156,7 @@ html[data-ui-theme='dark'] body.noeis-editorial .concept-editorial-evidence__ite
   border-radius: 999px;
   background: transparent;
   color: var(--text-secondary);
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--wiki-ui-font, -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif);
   font-size: 0.72rem;
   font-weight: 500;
   cursor: pointer;
@@ -7142,7 +7239,7 @@ html[data-ui-theme='dark'] body.noeis-editorial .concept-editorial-evidence__ite
 
 .concept-share-modal__eyebrow {
   display: inline-block;
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--wiki-ui-font, -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif);
   font-size: 0.6rem;
   letter-spacing: 0.22em;
   text-transform: uppercase;
@@ -7223,7 +7320,7 @@ html[data-ui-theme='dark'] body.noeis-editorial .concept-editorial-evidence__ite
 }
 
 .concept-share-modal__preview-eyebrow {
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--wiki-ui-font, -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif);
   font-size: 0.58rem;
   letter-spacing: 0.22em;
   text-transform: uppercase;
@@ -7360,7 +7457,7 @@ html[data-ui-theme='dark'] body.noeis-editorial .concept-editorial-evidence__ite
   padding: 4px 10px;
   border: 1px solid var(--border-subtle);
   border-radius: 999px;
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--wiki-ui-font, -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif);
   font-size: 0.62rem;
   letter-spacing: 0.22em;
   text-transform: uppercase;
@@ -7396,7 +7493,7 @@ html[data-ui-theme='dark'] body.noeis-editorial .concept-editorial-evidence__ite
 
 .shared-concept-page__section-title {
   margin: 0 0 16px;
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--wiki-ui-font, -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif);
   font-size: 0.66rem;
   letter-spacing: 0.22em;
   text-transform: uppercase;
@@ -7440,7 +7537,7 @@ html[data-ui-theme='dark'] body.noeis-editorial .concept-editorial-evidence__ite
   justify-content: space-between;
   gap: 12px;
   margin-bottom: 8px;
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--wiki-ui-font, -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif);
   font-size: 0.62rem;
   letter-spacing: 0.18em;
   text-transform: uppercase;

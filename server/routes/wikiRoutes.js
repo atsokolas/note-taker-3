@@ -1516,6 +1516,13 @@ const buildWikiRouter = ({
 
   router.post('/api/wiki/pages', wikiAuth, async (req, res) => {
     try {
+      const unsupportedMetadataFields = ['sourceRefs', 'claims', 'citations']
+        .filter(field => req.body?.[field] !== undefined);
+      if (unsupportedMetadataFields.length) {
+        return res.status(400).json({
+          error: `Unsupported wiki page metadata fields: ${unsupportedMetadataFields.join(', ')}. Use initialSourceRef when creating a page; source and claim ledgers are managed by wiki maintenance.`
+        });
+      }
       const pageType = validatePageType(req.body?.pageType);
       const sourceScope = validateEnumField('sourceScope', req.body?.sourceScope, SOURCE_SCOPES);
       if (pageType?.error) return res.status(400).json({ error: pageType.error });

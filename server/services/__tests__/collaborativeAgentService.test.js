@@ -8,8 +8,10 @@ const {
   buildOutputArtifactReply,
   inferReplyIntent,
   buildPartnerChatMessages,
+  buildWikiClaimSourceReply,
   prepareRelatedItemsForReply,
-  pruneRelatedItemsForContext
+  pruneRelatedItemsForContext,
+  shouldSearchWorkspaceForWikiPage
 } = __testables;
 
 const run = () => {
@@ -187,6 +189,95 @@ const run = () => {
   assert.ok(wikiPrompt.includes('Attached wiki sources'), 'Wiki chat prompt should include attached wiki sources.');
   assert.ok(wikiPrompt.includes('Never ask the user to ingest or attach the current page'), 'Wiki chat prompt should prohibit fake missing-context replies.');
   assert.ok(!wikiPrompt.includes('69fd2e7d212cd5a5f57db144'), 'Wiki chat prompt should not expose raw page ObjectIds to the model.');
+
+  const wikiFallbackReply = buildReply({
+    message: 'What does this page say about margin of safety? Answer from the current page only.',
+    context: { type: 'workspace', id: 'wiki', pageId: '69fd2e7d212cd5a5f57db144' },
+    contextItem: {
+      type: 'wiki_page',
+      title: 'Margin of Safety',
+      snippet: 'Margin of safety is the gap between estimated intrinsic value and price paid.',
+      fullText: [
+        'Margin of safety is the gap between estimated intrinsic value and price paid.',
+        'The gap protects against valuation error and adverse surprises.',
+        'Investors demand a discount before buying.'
+      ].join(' '),
+      sourceText: '[1] Graham notes — Conservative appraisal matters.',
+      claimText: '- Claim 1: The discount protects against valuation error. (attached refs: [1])'
+    },
+    relatedItems: []
+  });
+  assert.match(wikiFallbackReply, /gap between estimated intrinsic value and price paid/i);
+  assert.ok(!/not enough attached material|Point me at/i.test(wikiFallbackReply), 'Wiki fallback should answer from the selected page body instead of asking for the already-loaded page.');
+
+  const pageScopedReply = buildReply({
+    message: 'What does the page say about the Mr. Market metaphor?',
+    context: { type: 'workspace', id: 'wiki', pageId: '69fd2e7d212cd5a5f57db144' },
+    contextItem: {
+      type: 'wiki_page',
+      title: 'Investing',
+      snippet: 'Mr. Market is a behavioral metaphor.',
+      fullText: 'The Mr. Market metaphor says prices swing between pessimism and optimism, creating opportunities for patient investors.',
+      sourceText: '[1] Berkshire letter — Mr. Market discussion.',
+      claimText: '- Claim 1: Mr. Market frames sentiment swings. (attached refs: [1])'
+    },
+    relatedItems: [
+      {
+        type: 'article',
+        id: 'a-cerebras',
+        title: 'Cerebras Wafer Scale Hardware',
+        snippet: 'Cerebras shipped unusually large AI chips.'
+      }
+    ]
+  });
+  assert.match(pageScopedReply, /prices swing between pessimism and optimism/i);
+  assert.ok(!/Cerebras|wafer/i.test(pageScopedReply), 'Page-scoped wiki answers should not bleed unrelated workspace retrieval into the response.');
+
+  const claimSourceReply = buildWikiClaimSourceReply({
+    message: 'What source supports the claim that margin of safety protects against valuation error?',
+    contextItem: {
+      type: 'wiki_page',
+      title: 'Margin of Safety',
+      claimSourceMap: [
+        {
+          claim: 'Margin of safety protects against valuation error.',
+          refs: [{ index: 1, title: 'The Intelligent Investor', snippet: 'A conservative appraisal discussion.' }]
+        },
+        {
+          claim: 'Diversification can reduce position risk.',
+          refs: [{ index: 2, title: 'Portfolio Diversification Memo', snippet: 'Unrelated to margin of safety.' }]
+        }
+      ]
+    }
+  });
+  assert.match(claimSourceReply, /The Intelligent Investor/i);
+  assert.ok(!/Portfolio Diversification Memo/i.test(claimSourceReply), 'Claim attribution should only name refs attached to the matched claim.');
+
+  const uncitedClaimReply = buildWikiClaimSourceReply({
+    message: 'What source supports the claim that concentration creates behavioral risk?',
+    contextItem: {
+      type: 'wiki_page',
+      title: 'Investing',
+      claimSourceMap: [
+        {
+          claim: 'Concentration creates behavioral risk.',
+          refs: []
+        }
+      ]
+    }
+  });
+  assert.match(uncitedClaimReply, /no attached source/i);
+
+  assert.strictEqual(
+    shouldSearchWorkspaceForWikiPage({ message: 'What does this page say about Mr. Market?' }),
+    false,
+    'Ordinary ask-this-page questions should stay scoped to the selected wiki page.'
+  );
+  assert.strictEqual(
+    shouldSearchWorkspaceForWikiPage({ message: 'Find related sources across my library about Mr. Market.' }),
+    true,
+    'Explicit cross-workspace retrieval requests should still search the library.'
+  );
 
   const genericQuestionReply = buildReply({
     message: 'What is this question really asking?',

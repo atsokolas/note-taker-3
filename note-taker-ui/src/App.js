@@ -1,4 +1,4 @@
-import React, { Suspense, lazy, useState, useEffect } from 'react';
+import React, { Suspense, lazy, useState, useEffect, useRef, useCallback } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useParams } from 'react-router-dom';
 import { Analytics } from '@vercel/analytics/react';
 import Register from './components/Register';
@@ -18,7 +18,7 @@ import {
 import { Page } from './components/ui';
 import AppShell from './layout/AppShell';
 import TopBar from './layout/TopBar';
-import TourProvider, { useTour } from './tour/TourProvider';
+import TourProvider from './tour/TourProvider';
 import TourManager from './tour/TourManager';
 import { buildCanonicalArticlePath } from './utils/firstInsight';
 import './styles/theme.css';
@@ -220,6 +220,7 @@ function App() {
   ));
   const [isLoading, setIsLoading] = useState(true);
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const paletteReturnFocusRef = useRef(null);
   const [shortcutOverlayOpen, setShortcutOverlayOpen] = useState(false);
   const [productFeedbackOpen, setProductFeedbackOpen] = useState(false);
   const [uiSettings, setUiSettings] = useState(() => loadUiSettingsFromStorage());
@@ -341,19 +342,75 @@ function App() {
     }
   };
 
+  const openPalette = useCallback(() => {
+    if (document.activeElement instanceof HTMLElement) {
+      paletteReturnFocusRef.current = document.activeElement;
+    }
+    setPaletteOpen(true);
+  }, []);
+
+  const closePalette = useCallback(() => {
+    setPaletteOpen(false);
+  }, []);
+
+  useEffect(() => {
+    if (paletteOpen) return undefined;
+    const returnTarget = paletteReturnFocusRef.current;
+    paletteReturnFocusRef.current = null;
+    if (!returnTarget || !document.contains(returnTarget)) return undefined;
+    window.setTimeout(() => returnTarget.focus(), 0);
+    return undefined;
+  }, [paletteOpen, closePalette]);
+
+  useEffect(() => {
+    if (!paletteOpen) return undefined;
+    const getFocusable = () => Array.from(document.querySelectorAll(
+      '.palette-overlay button, .palette-overlay [href], .palette-overlay input, .palette-overlay textarea, .palette-overlay select, .palette-overlay [tabindex]:not([tabindex="-1"])'
+    )).filter((node) => !node.disabled && node.getAttribute('aria-hidden') !== 'true');
+    const handlePointerDown = (event) => {
+      if (event.target === document.querySelector('.palette-overlay')) {
+        closePalette();
+      }
+    };
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        closePalette();
+        return;
+      }
+      if (event.key !== 'Tab') return;
+      const focusable = getFocusable();
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    document.addEventListener('mousedown', handlePointerDown);
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [paletteOpen, closePalette]);
+
   // Global keyboard shortcuts and palette
   useEffect(() => {
     let lastG = 0;
     const handleKeyDown = (e) => {
       const tag = (e.target && e.target.tagName) || '';
-      const isText = ['INPUT', 'TEXTAREA'].includes(tag) || e.target?.isContentEditable;
-      if (isText) return;
-
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault();
-        setPaletteOpen(true);
+        openPalette();
         return;
       }
+
+      const isText = ['INPUT', 'TEXTAREA'].includes(tag) || e.target?.isContentEditable;
+      if (isText) return;
 
       // ? opens the shortcut overlay. Bare key — no modifiers — and only
       // outside text inputs (already filtered above). Shift+/ on US layouts
@@ -382,7 +439,7 @@ function App() {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [openPalette]);
 
   const primaryNavItems = [
     {
@@ -461,7 +518,6 @@ function App() {
 
   const AppLayout = () => {
     const location = useLocation();
-    const tour = useTour();
     const locationSearch = new URLSearchParams(location.search);
     const hasSeenLanding = localStorage.getItem('hasSeenLanding') === 'true';
     const isConceptRoute = (
@@ -470,22 +526,16 @@ function App() {
     );
     const topBarUtilityNav = [
       {
-        label: 'Feedback',
-        onClick: () => setProductFeedbackOpen(true),
-        match: () => false
-      },
-      {
-        label: 'Growth',
-        to: '/marketing-analytics',
-        match: (currentLocation) => currentLocation.pathname.startsWith('/marketing-analytics') || currentLocation.pathname.startsWith('/search-console-opportunities')
-      },
-      {
         label: 'Settings',
         to: '/settings',
         match: (currentLocation) => currentLocation.pathname.startsWith('/settings')
       }
     ];
     const topBarAccountMenuItems = [
+      {
+        label: 'Feedback',
+        onClick: () => setProductFeedbackOpen(true)
+      },
       {
         label: 'Chrome Extension',
         href: chromeStoreLink,
@@ -496,10 +546,11 @@ function App() {
         onClick: handleLogout
       }
     ];
+    const moreNavItems = secondaryNavItems;
 
     const routes = (
       <Page className="page-area">
-        <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
+        <CommandPalette open={paletteOpen} onClose={closePalette} />
         <KeyboardShortcutOverlay open={shortcutOverlayOpen} onClose={() => setShortcutOverlayOpen(false)} />
         <ProductFeedbackModal open={productFeedbackOpen} onClose={() => setProductFeedbackOpen(false)} />
         <TourManager />
@@ -587,22 +638,12 @@ function App() {
             brandEnergy={uiSettings.brandEnergy}
             primaryNav={primaryNavItems}
             utilityNav={topBarUtilityNav}
-            secondaryNav={secondaryNavItems}
+            secondaryNav={moreNavItems}
             searchMode={isConceptRoute ? 'icon' : 'field'}
+            onSearchOpen={openPalette}
             theme={uiSettings.theme}
             onThemeChange={(nextTheme) => handleUiSettingsChange({ theme: nextTheme })}
             themeSaving={uiSettingsSaving}
-            helpMenu={{
-              onStart: () => tour.startTour(),
-              onResume: () => tour.resumeTour(),
-              onRestart: () => tour.restartTour(),
-              canResume: tour.state.status !== 'not_started' && tour.state.status !== 'completed',
-              progress: {
-                completed: (tour.state.completedStepIds || []).length,
-                total: tour.totalSteps,
-                status: tour.state.status
-              }
-            }}
             accountMenuItems={topBarAccountMenuItems}
             className={isConceptRoute ? 'topbar--manuscript' : ''}
           />

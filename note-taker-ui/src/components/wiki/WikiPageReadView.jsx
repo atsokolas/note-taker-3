@@ -86,6 +86,11 @@ const scrollToElementId = (id = '') => {
   return true;
 };
 
+const cssEscape = (value = '') => {
+  if (typeof CSS !== 'undefined' && typeof CSS.escape === 'function') return CSS.escape(value);
+  return String(value || '').replace(/["\\]/g, '\\$&');
+};
+
 const scheduleAfterFirstPaint = (callback) => {
   let frame = 0;
   let idle = 0;
@@ -159,6 +164,25 @@ const stripLeadingDuplicateTitleHeading = (body = emptyDoc, title = '') => {
   const headingText = normalizeHeadingText(collectText(first));
   if (headingText !== normalizedTitle) return body;
   return { ...body, content: body.content.slice(1) };
+};
+
+const splitTitleAccent = (title = '') => {
+  const text = String(title || '').trim() || 'Untitled Wiki Page';
+  const words = text.match(/\S+/g) || [];
+  if (words.length < 2) return { before: '', accent: text, after: '' };
+  const stopWords = new Set([
+    'a', 'an', 'and', 'as', 'at', 'by', 'for', 'from', 'in', 'into', 'of', 'on', 'or', 'the', 'to', 'with'
+  ]);
+  const accentIndex = words.reduce((selected, word, index) => {
+    const cleaned = word.toLowerCase().replace(/[^a-z0-9]/g, '');
+    if (cleaned.length < 4 || stopWords.has(cleaned)) return selected;
+    return index;
+  }, words.length - 1);
+  return {
+    before: words.slice(0, accentIndex).join(' '),
+    accent: words[accentIndex],
+    after: words.slice(accentIndex + 1).join(' ')
+  };
 };
 
 const hasInlineWikiLinks = (node) => {
@@ -244,6 +268,20 @@ const conciseText = (value = '', limit = 180) => {
   return `${truncated || text.slice(0, limit).trim()}...`;
 };
 
+const conciseInfoboxText = (value = '', { maxChars = 140, maxWords = 12 } = {}) => {
+  const text = cleanSourceText(value);
+  if (!text) return '';
+  const words = text.split(/\s+/).filter(Boolean);
+  const wordLimited = words.length > maxWords
+    ? `${words.slice(0, maxWords).join(' ')}...`
+    : text;
+  if (wordLimited.length <= maxChars) return wordLimited;
+  const truncated = wordLimited.slice(0, maxChars).replace(/\s+\S*$/, '').trim();
+  return `${truncated || wordLimited.slice(0, maxChars).trim()}...`;
+};
+
+const autoInfoboxSummary = (body) => conciseInfoboxText(firstParagraphText(body), { maxChars: 140, maxWords: 12 });
+
 const sourceExcerpt = (source = {}) => (
   cleanSourceText(source.excerpt || source.snippet || source.summary || source.description || source.text || '')
 );
@@ -291,6 +329,8 @@ const buildInfoboxRows = ({ page = {}, sourceCount = 0, claimCount = 0, wordCoun
   const meta = pageMeta(value);
   const type = String(value.pageType || 'topic').toLowerCase();
   const firstSource = Array.isArray(value.sourceRefs) ? value.sourceRefs[0] || {} : {};
+  const summaryText = conciseInfoboxText(meta.summary || meta.scope || '') || autoInfoboxSummary(value.body);
+  const scopeText = conciseInfoboxText(meta.scope || meta.summary || '') || autoInfoboxSummary(value.body);
   // Word count moved here from the now-stripped page-header "facts row" so
   // the number survives but stops competing with the title for attention.
   const baseRows = [
@@ -340,16 +380,16 @@ const buildInfoboxRows = ({ page = {}, sourceCount = 0, claimCount = 0, wordCoun
 
   if (type === 'overview') {
     return [
-      { label: 'Scope', value: pickFirst(meta.scope, firstParagraphText(value.body)) },
+      { label: 'Scope', value: scopeText },
       { label: 'Sections', value: pickFirst(sectionTitles(value.body), 'No sections yet') },
-      { label: 'Open threads', value: `${(value.discussions || []).length} discussion${(value.discussions || []).length === 1 ? '' : 's'}` },
+      { label: 'Discussions', value: `${(value.discussions || []).length} discussion${(value.discussions || []).length === 1 ? '' : 's'}` },
       ...baseRows
     ];
   }
 
   return [
     { label: 'Kind', value: labelFor(value.pageType || 'topic') },
-    { label: 'Summary', value: pickFirst(meta.summary, firstParagraphText(value.body)) },
+    { label: 'Summary', value: summaryText },
     { label: 'Sections', value: pickFirst(sectionTitles(value.body), 'No sections yet') },
     ...baseRows
   ];
@@ -357,6 +397,93 @@ const buildInfoboxRows = ({ page = {}, sourceCount = 0, claimCount = 0, wordCoun
 
 const WIKI_LINK_PREVIEW_SHOW_DELAY_MS = 250;
 const WIKI_LINK_PREVIEW_DISMISS_GRACE_MS = 100;
+const NUMERIC_TWEEN_DURATION_MS = 520;
+const PAGE_TRANSITION_DURATION_MS = 200;
+
+const useReducedMotion = () => {
+  const getReducedMotion = () => (
+    typeof window !== 'undefined'
+      ? Boolean(window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches)
+      : false
+  );
+  const [reducedMotion, setReducedMotion] = useState(getReducedMotion);
+
+  useEffect(() => {
+    const query = window.matchMedia?.('(prefers-reduced-motion: reduce)');
+    if (!query) return undefined;
+    const handleChange = () => setReducedMotion(Boolean(query.matches));
+    query.addEventListener?.('change', handleChange);
+    query.addListener?.(handleChange);
+    return () => {
+      query.removeEventListener?.('change', handleChange);
+      query.removeListener?.(handleChange);
+    };
+  }, []);
+
+  return reducedMotion;
+};
+
+const useRafTweenedNumber = (targetValue, { duration = NUMERIC_TWEEN_DURATION_MS, resetKey = '' } = {}) => {
+  const target = Number.isFinite(Number(targetValue)) ? Number(targetValue) : 0;
+  const reducedMotion = useReducedMotion();
+  const [displayValue, setDisplayValue] = useState(() => (reducedMotion ? target : 0));
+  const displayRef = useRef(displayValue);
+  const previousResetKeyRef = useRef(resetKey);
+
+  useEffect(() => {
+    displayRef.current = displayValue;
+  }, [displayValue]);
+
+  useEffect(() => {
+    if (reducedMotion) {
+      setDisplayValue(target);
+      displayRef.current = target;
+      return undefined;
+    }
+
+    const startValue = previousResetKeyRef.current === resetKey ? displayRef.current : 0;
+    previousResetKeyRef.current = resetKey;
+    if (startValue === target) {
+      setDisplayValue(target);
+      displayRef.current = target;
+      return undefined;
+    }
+
+    let frame = 0;
+    let startTime = 0;
+    const requestFrame = window.requestAnimationFrame || ((callback) => window.setTimeout(() => callback(Date.now()), 16));
+    const cancelFrame = window.cancelAnimationFrame || window.clearTimeout;
+    const animate = (time) => {
+      if (!startTime) startTime = time;
+      const progress = Math.min(1, (time - startTime) / duration);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      const nextValue = startValue + ((target - startValue) * eased);
+      displayRef.current = nextValue;
+      setDisplayValue(nextValue);
+      if (progress < 1) frame = requestFrame(animate);
+      else {
+        displayRef.current = target;
+        setDisplayValue(target);
+      }
+    };
+
+    frame = requestFrame(animate);
+    return () => {
+      if (frame) cancelFrame(frame);
+    };
+  }, [duration, reducedMotion, resetKey, target]);
+
+  return Math.round(displayValue);
+};
+
+const AnimatedNumber = ({ value, className = '', resetKey = '' }) => {
+  const displayValue = useRafTweenedNumber(value, { resetKey });
+  return (
+    <span className={`wiki-numeric-value${className ? ` ${className}` : ''}`}>
+      {displayValue.toLocaleString()}
+    </span>
+  );
+};
 
 const WikiLinkPreview = ({ preview, onMouseEnter, onMouseLeave }) => {
   if (!preview?.page) return null;
@@ -374,9 +501,16 @@ const WikiLinkPreview = ({ preview, onMouseEnter, onMouseLeave }) => {
     >
       <h3>{preview.page.title || 'Untitled wiki page'}</h3>
       <p>{firstParagraphText(preview.page.body) || 'No summary yet.'}</p>
-      <span>{sourceCount} source{sourceCount === 1 ? '' : 's'}</span>
+      <span className="wiki-read-link-preview__meta">{sourceCount} source{sourceCount === 1 ? '' : 's'}</span>
     </aside>
   );
+};
+
+const InfoboxValue = ({ value, pageId, label }) => {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return <AnimatedNumber value={value} resetKey={`${pageId}:${label}`} />;
+  }
+  return value === null || value === undefined || value === '' ? 'Unknown' : value;
 };
 
 const WikiMentionedInFooter = ({ pageId, pageTitle }) => {
@@ -476,7 +610,57 @@ const WikiReadReferences = ({ sources = [], citations = [], highlightedRef, onJu
   );
 };
 
-const WikiPageReadView = ({ pageId, onEdit, workspaceMode = false, refreshNonce = 0 }) => {
+const WikiReadTitle = ({ title = '' }) => {
+  const parts = splitTitleAccent(title);
+  return (
+    <h1>
+      {parts.before ? <>{parts.before} </> : null}
+      <em>{parts.accent}</em>
+      {parts.after ? <> {parts.after}</> : null}
+    </h1>
+  );
+};
+
+const WikiReadMarginalia = ({ sources = [], citations = [], onJumpToReference }) => {
+  if (!sources.length || !citations.length) return null;
+  const seen = new Set();
+  const items = citations
+    .filter((citation) => {
+      if (!citation?.index || seen.has(citation.index)) return false;
+      seen.add(citation.index);
+      return Boolean(sources[citation.index - 1]);
+    })
+    .map(citation => ({
+      citation,
+      source: sources[citation.index - 1]
+    }));
+  if (!items.length) return null;
+  return (
+    <aside className="wiki-read__marginalia" aria-label="Citation previews">
+      {items.map(({ citation, source }) => {
+        const refId = `wiki-ref-${citation.index}`;
+        const excerpt = sourceExcerpt(source);
+        return (
+          <a
+            key={`${refId}-${source._id || source.id || source.title || 'source'}`}
+            className="wiki-read__margin-note"
+            href={`#${refId}`}
+            onClick={(event) => {
+              event.preventDefault();
+              onJumpToReference?.(refId);
+            }}
+          >
+            <span className="wiki-read__margin-note-index">[{citation.index}]</span>
+            <strong>{source.title || 'Untitled source'}</strong>
+            {excerpt ? <span>{conciseText(excerpt, 120)}</span> : null}
+          </a>
+        );
+      })}
+    </aside>
+  );
+};
+
+const WikiPageReadView = ({ pageId, onEdit, workspaceMode = false, refreshNonce = 0, liveUpdate = null }) => {
   const navigate = useNavigate();
   const [page, setPage] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -490,7 +674,16 @@ const WikiPageReadView = ({ pageId, onEdit, workspaceMode = false, refreshNonce 
   const [activeTab, setActiveTab] = useState('article');
   const [markdownStatus, setMarkdownStatus] = useState('');
   const [highlightedRef, setHighlightedRef] = useState('');
+  const [recentParagraphAnchors, setRecentParagraphAnchors] = useState(() => new Set());
+  const [recentTocIds, setRecentTocIds] = useState(() => new Set());
+  const [liveUpdateToast, setLiveUpdateToast] = useState(null);
   const [nonCriticalReady, setNonCriticalReady] = useState(false);
+  const [pageTransitionState, setPageTransitionState] = useState('idle');
+  const reducedMotion = useReducedMotion();
+  const [showMarginalia, setShowMarginalia] = useState(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return false;
+    return window.matchMedia('(min-width: 1280px)').matches;
+  });
   // AT-22 (Bucket 2): rail is collapsible-by-default. Persisted across pages
   // so once a reader opens context they keep it open until they hide it again.
   // Wikipedia / Tolkien Gateway reading shape — body owns the canvas.
@@ -514,11 +707,27 @@ const WikiPageReadView = ({ pageId, onEdit, workspaceMode = false, refreshNonce 
   const latestPageRef = useRef(null);
   const autoRebuildPageRef = useRef('');
   const lastRefreshNonceRef = useRef(0);
+  const articleRef = useRef(null);
+  const recentParagraphTimersRef = useRef(new Map());
+  const pageTransitionTimerRef = useRef(null);
+  const reducedMotionRef = useRef(reducedMotion);
+
+  useEffect(() => {
+    reducedMotionRef.current = reducedMotion;
+  }, [reducedMotion]);
 
   useEffect(() => {
     let cancelled = false;
+    const recentParagraphTimers = recentParagraphTimersRef.current;
+    const hasMountedPage = Boolean(latestPageRef.current);
+    const prefersReducedMotion = reducedMotionRef.current;
     setActiveTab('article');
     setNonCriticalReady(false);
+    if (pageTransitionTimerRef.current) {
+      clearTimeout(pageTransitionTimerRef.current);
+      pageTransitionTimerRef.current = null;
+    }
+    setPageTransitionState(hasMountedPage && !prefersReducedMotion ? 'exiting' : 'idle');
     const load = async () => {
       setLoading(true);
       setError('');
@@ -527,6 +736,15 @@ const WikiPageReadView = ({ pageId, onEdit, workspaceMode = false, refreshNonce 
         if (cancelled) return;
         latestPageRef.current = loaded;
         setPage(loaded);
+        if (hasMountedPage && !prefersReducedMotion) {
+          setPageTransitionState('entering');
+          pageTransitionTimerRef.current = window.setTimeout(() => {
+            pageTransitionTimerRef.current = null;
+            setPageTransitionState('idle');
+          }, PAGE_TRANSITION_DURATION_MS);
+        } else {
+          setPageTransitionState('idle');
+        }
         trackWikiReadModePageView({
           pageId,
           pageType: loaded.pageType || '',
@@ -534,7 +752,10 @@ const WikiPageReadView = ({ pageId, onEdit, workspaceMode = false, refreshNonce 
           claimCount: Array.isArray(loaded.claims) ? loaded.claims.length : 0
         });
       } catch (_error) {
-        if (!cancelled) setError('Failed to load Wiki page.');
+        if (!cancelled) {
+          setError('Failed to load Wiki page.');
+          setPageTransitionState('idle');
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -544,6 +765,12 @@ const WikiPageReadView = ({ pageId, onEdit, workspaceMode = false, refreshNonce 
       cancelled = true;
       if (previewTimerRef.current) clearTimeout(previewTimerRef.current);
       if (previewDismissTimerRef.current) clearTimeout(previewDismissTimerRef.current);
+      recentParagraphTimers.forEach(timer => clearTimeout(timer));
+      recentParagraphTimers.clear();
+      if (pageTransitionTimerRef.current) {
+        clearTimeout(pageTransitionTimerRef.current);
+        pageTransitionTimerRef.current = null;
+      }
     };
   }, [pageId]);
 
@@ -677,8 +904,29 @@ const WikiPageReadView = ({ pageId, onEdit, workspaceMode = false, refreshNonce 
     if (scrollToElementId(refId)) highlightReference(refId);
   }, [highlightReference]);
 
+  useEffect(() => {
+    if (typeof window.matchMedia !== 'function') return undefined;
+    const query = window.matchMedia('(min-width: 1280px)');
+    const update = () => setShowMarginalia(Boolean(query.matches));
+    update();
+    if (typeof query.addEventListener === 'function') {
+      query.addEventListener('change', update);
+      return () => query.removeEventListener('change', update);
+    }
+    if (typeof query.addListener === 'function') {
+      query.addListener(update);
+      return () => query.removeListener(update);
+    }
+    return undefined;
+  }, []);
+
   const handleReferenceBacklink = useCallback((citationId = '') => {
     scrollToElementId(citationId);
+  }, []);
+
+  const handleLiveUpdateJump = useCallback((anchorId = '') => {
+    if (!anchorId) return;
+    if (scrollToElementId(anchorId)) setLiveUpdateToast(null);
   }, []);
 
   const handleClaimLeave = useCallback((event) => {
@@ -878,15 +1126,60 @@ const WikiPageReadView = ({ pageId, onEdit, workspaceMode = false, refreshNonce 
         if (nextHeading) setActiveTocId(nextHeading.id);
       });
     };
+    const scrollTargets = [window];
+    const firstHeading = document.getElementById(tocItems[0]?.id);
+    let scrollParent = firstHeading?.parentElement || null;
+    while (scrollParent && scrollParent !== document.body && scrollParent !== document.documentElement) {
+      const style = window.getComputedStyle(scrollParent);
+      const canScroll = scrollParent.scrollHeight > scrollParent.clientHeight;
+      if (canScroll && /(auto|scroll|overlay)/.test(`${style.overflowY} ${style.overflow}`)) {
+        scrollTargets.push(scrollParent);
+        break;
+      }
+      scrollParent = scrollParent.parentElement;
+    }
     handleScroll();
-    window.addEventListener('scroll', handleScroll, { passive: true });
+    scrollTargets.forEach(target => target.addEventListener('scroll', handleScroll, { passive: true }));
     window.addEventListener('resize', handleScroll);
     return () => {
       if (animationFrame) window.cancelAnimationFrame(animationFrame);
-      window.removeEventListener('scroll', handleScroll);
+      scrollTargets.forEach(target => target.removeEventListener('scroll', handleScroll));
       window.removeEventListener('resize', handleScroll);
     };
   }, [tocItems]);
+
+  useEffect(() => {
+    const article = articleRef.current;
+    if (!article) return undefined;
+
+    let animationFrame = 0;
+    const updateProgress = () => {
+      if (animationFrame) return;
+      const run = () => {
+        animationFrame = 0;
+        const rect = article.getBoundingClientRect();
+        const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 1;
+        const distance = Math.max(1, rect.height - viewportHeight + 120);
+        const progress = Math.min(1, Math.max(0, (0 - rect.top) / distance));
+        article.style.setProperty('--wiki-reading-progress', progress.toFixed(4));
+      };
+      animationFrame = window.requestAnimationFrame
+        ? window.requestAnimationFrame(run)
+        : window.setTimeout(run, 0);
+    };
+
+    updateProgress();
+    window.addEventListener('scroll', updateProgress, { passive: true, capture: true });
+    window.addEventListener('resize', updateProgress);
+    return () => {
+      if (animationFrame) {
+        if (window.cancelAnimationFrame) window.cancelAnimationFrame(animationFrame);
+        else window.clearTimeout(animationFrame);
+      }
+      window.removeEventListener('scroll', updateProgress, true);
+      window.removeEventListener('resize', updateProgress);
+    };
+  }, [displayBody, pageId]);
 
   const wordCount = useMemo(() => collectText(displayBody).split(/\s+/).filter(Boolean).length, [displayBody]);
   const bodyHasWikiLinks = useMemo(
@@ -914,6 +1207,82 @@ const WikiPageReadView = ({ pageId, onEdit, workspaceMode = false, refreshNonce 
   const showPageTalk = false;
   const showUtilityRail = false;
 
+  const clearRecentTocId = useCallback((tocId = '') => {
+    if (!tocId) return;
+    setRecentTocIds(current => {
+      if (!current.has(tocId)) return current;
+      const next = new Set(current);
+      next.delete(tocId);
+      return next;
+    });
+  }, []);
+
+  const handleTocClick = useCallback((event, tocId = '') => {
+    clearRecentTocId(tocId);
+    if (liveUpdateToast?.tocId === tocId) setLiveUpdateToast(null);
+  }, [clearRecentTocId, liveUpdateToast?.tocId]);
+
+  useEffect(() => {
+    const anchorId = normalizeId(liveUpdate?.anchorId);
+    if (!anchorId || (liveUpdate?.pageId && normalizeId(liveUpdate.pageId) !== normalizeId(pageId))) return undefined;
+
+    setRecentParagraphAnchors(current => {
+      const next = new Set(current);
+      next.add(anchorId);
+      return next;
+    });
+    const previousTimer = recentParagraphTimersRef.current.get(anchorId);
+    if (previousTimer) clearTimeout(previousTimer);
+    const timer = window.setTimeout(() => {
+      recentParagraphTimersRef.current.delete(anchorId);
+      setRecentParagraphAnchors(current => {
+        if (!current.has(anchorId)) return current;
+        const next = new Set(current);
+        next.delete(anchorId);
+        return next;
+      });
+    }, 2000);
+    recentParagraphTimersRef.current.set(anchorId, timer);
+
+    const run = () => {
+      const element = document.getElementById(anchorId) || articleRef.current?.querySelector?.(`[data-wiki-block-anchor="${cssEscape(anchorId)}"]`);
+      if (!element) return;
+      const headingSelector = 'h2[id], h3[id]';
+      let tocId = element.matches?.(headingSelector) ? element.id : '';
+      let sibling = element.previousElementSibling;
+      while (!tocId && sibling) {
+        if (sibling.matches?.(headingSelector)) tocId = sibling.id;
+        sibling = sibling.previousElementSibling;
+      }
+      tocId = tocId || tocItems[0]?.id || '';
+      if (tocId) {
+        setRecentTocIds(current => {
+          const next = new Set(current);
+          next.add(tocId);
+          return next;
+        });
+      }
+
+      const rect = element.getBoundingClientRect?.();
+      const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
+      const outsideViewport = rect && (rect.bottom < 0 || rect.top > viewportHeight);
+      if (outsideViewport) {
+        const tocItem = tocItems.find(item => item.id === tocId);
+        setLiveUpdateToast({
+          anchorId,
+          tocId,
+          title: tocItem?.title || 'Updated section'
+        });
+      }
+    };
+    const usedAnimationFrame = Boolean(window.requestAnimationFrame);
+    const frame = usedAnimationFrame ? window.requestAnimationFrame(run) : window.setTimeout(run, 0);
+    return () => {
+      if (usedAnimationFrame && window.cancelAnimationFrame) window.cancelAnimationFrame(frame);
+      else window.clearTimeout(frame);
+    };
+  }, [liveUpdate, pageId, tocItems]);
+
   useEffect(() => {
     const qualityStatus = String(page?.aiState?.quality?.status || page?.quality?.status || '').toLowerCase();
     const pageKey = `${pageId}:${page?.updatedAt || page?.aiState?.quality?.checkedAt || ''}`;
@@ -924,7 +1293,7 @@ const WikiPageReadView = ({ pageId, onEdit, workspaceMode = false, refreshNonce 
     handleMaintain();
   }, [handleMaintain, maintaining, page, pageId, qualityState, workspaceMode]);
 
-  if (loading) return <main className="wiki-page"><p className="wiki-index__status">Loading Wiki page...</p></main>;
+  if (loading && !page) return <main className="wiki-page"><p className="wiki-index__status">Loading Wiki page...</p></main>;
   if (!page) {
     return (
       <main className="wiki-page">
@@ -932,8 +1301,14 @@ const WikiPageReadView = ({ pageId, onEdit, workspaceMode = false, refreshNonce 
       </main>
     );
   }
+  const readPageType = String(page.pageType || 'topic').toLowerCase().replace(/[^a-z0-9_-]/g, '-');
+  const bodyTransitionClass = pageTransitionState !== 'idle' ? ' wiki-read__body--transitioning' : '';
   return (
-    <main className="wiki-page wiki-read">
+    <main
+      className={`wiki-page wiki-read wiki-read--type-${readPageType}`}
+      data-state={pageTransitionState}
+      data-page-transition-state={pageTransitionState}
+    >
       {(!workspaceMode || error) ? (
         <div className="wiki-read__topline">
           {!workspaceMode ? (
@@ -973,7 +1348,9 @@ const WikiPageReadView = ({ pageId, onEdit, workspaceMode = false, refreshNonce 
                       className={displayedActiveTocId === item.id ? 'is-active' : ''}
                       href={`#${item.id}`}
                       aria-current={displayedActiveTocId === item.id ? 'true' : undefined}
+                      onClick={(event) => handleTocClick(event, item.id)}
                     >
+                      {recentTocIds.has(item.id) ? <span className="wiki-read__toc-update-dot" aria-label="Recently updated" /> : null}
                       {item.title}
                     </a>
                   </li>
@@ -983,6 +1360,7 @@ const WikiPageReadView = ({ pageId, onEdit, workspaceMode = false, refreshNonce 
           ) : null}
         </aside>
         <article
+          ref={articleRef}
           className="wiki-read__article"
           onMouseOver={(event) => {
             handleClaimHover(event);
@@ -995,6 +1373,9 @@ const WikiPageReadView = ({ pageId, onEdit, workspaceMode = false, refreshNonce 
           onFocus={handleClaimHover}
           onClick={handleCitationClick}
         >
+          <div className="wiki-read__progress" aria-hidden="true">
+            <span />
+          </div>
           <header className="wiki-read__header">
             {/* AT-21 (Bucket 2 UI rework): the page header used to render an
                 uppercase eyebrow, a 4-chip facts row, and a quality state
@@ -1006,7 +1387,7 @@ const WikiPageReadView = ({ pageId, onEdit, workspaceMode = false, refreshNonce 
                 count, and "last reviewed" all live in the rail infobox now.
                 In workspace mode the agent will surface quality problems
                 via chat notification (AT-26). */}
-            <h1>{page.title || 'Untitled Wiki Page'}</h1>
+            <WikiReadTitle title={page.title || 'Untitled Wiki Page'} />
             {!workspaceMode ? (
               <div className="wiki-read__exports" aria-label="Markdown export">
                 <button type="button" onClick={handleCopyMarkdown}>Copy markdown</button>
@@ -1046,8 +1427,23 @@ const WikiPageReadView = ({ pageId, onEdit, workspaceMode = false, refreshNonce 
               role="tabpanel"
               aria-labelledby="wiki-read-tab-article"
             >
-              <section className="wiki-read__body">
-                {renderTiptapDoc(displayBody, { tocItems })}
+              <section className="wiki-read__article-panel">
+              <section
+                className={`wiki-read__body${bodyTransitionClass}`}
+                data-state={pageTransitionState}
+                data-page-transition-state={pageTransitionState}
+              >
+                {renderTiptapDoc(displayBody, { tocItems, recentAnchorIds: recentParagraphAnchors })}
+              </section>
+                {showMarginalia ? (
+                  <WikiReadMarginalia
+                    sources={page.sourceRefs || []}
+                    citations={footnoteCitations}
+                    onJumpToReference={(refId) => {
+                      if (scrollToElementId(refId)) highlightReference(refId);
+                    }}
+                  />
+                ) : null}
               </section>
               <WikiReadReferences
                 sources={page.sourceRefs || []}
@@ -1102,16 +1498,18 @@ const WikiPageReadView = ({ pageId, onEdit, workspaceMode = false, refreshNonce 
                   aria-controls="wiki-read-rail-content"
                   title="Hide context"
                 >
-                  <span aria-hidden="true">‹</span>
+                  <span aria-hidden="true">›</span>
                   <span className="wiki-read__rail-toggle-label">Hide</span>
                 </button>
                 <section className="wiki-read__infobox wiki-read__infobox--structured">
                   <h2>{labelFor(page.pageType || 'topic')}</h2>
                   <dl>
                     {infoboxRows.map(row => (
-                      <div key={row.label}>
+                      <div key={row.label} data-infobox-row={String(row.label || '').toLowerCase().replace(/[^a-z0-9]+/g, '-')}>
                         <dt>{row.label}</dt>
-                        <dd>{row.value || 'Unknown'}</dd>
+                        <dd>
+                          <InfoboxValue value={row.value} pageId={pageId} label={row.label} />
+                        </dd>
                       </div>
                     ))}
                   </dl>
@@ -1162,6 +1560,13 @@ const WikiPageReadView = ({ pageId, onEdit, workspaceMode = false, refreshNonce 
             </div>
           )}
         </aside>
+        {liveUpdateToast ? (
+          <div className="wiki-read-live-toast" role="status" aria-live="polite">
+            <button type="button" className="wiki-read-live-toast__dismiss" onClick={() => setLiveUpdateToast(null)} aria-label="Dismiss update notice">×</button>
+            <span>{liveUpdateToast.title} updated</span>
+            <button type="button" onClick={() => handleLiveUpdateJump(liveUpdateToast.anchorId)}>Jump</button>
+          </div>
+        ) : null}
       </div>
       {activeClaim ? (
         <ClaimCitationPopover

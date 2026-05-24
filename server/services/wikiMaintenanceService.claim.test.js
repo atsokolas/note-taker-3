@@ -1,4 +1,4 @@
-const { __testables } = require('./wikiMaintenanceService');
+const { __testables, selectCandidateSources } = require('./wikiMaintenanceService');
 
 const {
   attachClaimCitationIds,
@@ -429,6 +429,37 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
       candidates: [{ index: 1 }, { index: 2 }, { index: 3 }]
     });
     expect(used).toEqual([2, 1, 3]);
+  });
+
+  it('does not attach arbitrary top sources when the model returns no citation indexes', () => {
+    const used = normalizeSourceIndexesUsed({
+      rawIndexes: [],
+      article: { summary: { text: 'Summary' }, sections: [] },
+      candidates: [{ index: 1 }, { index: 2 }, { index: 3 }]
+    });
+    expect(used).toEqual([]);
+  });
+
+  it('filters source candidates by topical relevance before recency bonuses', () => {
+    const candidates = selectCandidateSources({
+      page: { title: 'Cash flow valuation', plainText: 'discounted cash flow intrinsic value' },
+      sources: [
+        {
+          title: 'Fresh unrelated note',
+          text: 'A recent note about cooking and travel.',
+          type: 'highlight',
+          updatedAt: new Date().toISOString()
+        },
+        {
+          title: 'Discounted cash flow memo',
+          text: 'Intrinsic value and cash flow valuation process.',
+          type: 'article',
+          updatedAt: '2025-01-01T00:00:00.000Z'
+        }
+      ]
+    });
+    expect(candidates).toHaveLength(1);
+    expect(candidates[0].title).toBe('Discounted cash flow memo');
   });
 
   it('preserves claim history across regenerated claim ids by matching claim text', () => {

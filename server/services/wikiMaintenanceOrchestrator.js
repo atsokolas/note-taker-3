@@ -62,7 +62,7 @@ const findAffectedPages = async ({ WikiPage, userId, event, limit = 8 }) => {
   const recent = await WikiPage.find({ userId, status: { $ne: 'archived' } }).sort({ updatedAt: -1 }).limit(40);
   return (Array.isArray(recent) ? recent : [])
     .map(page => ({ page, score: scorePageForEvent(page, event) }))
-    .filter(item => item.score >= 0.18)
+    .filter(item => item.score >= 0.4)
     .sort((a, b) => b.score - a.score)
     .slice(0, limit)
     .map(item => item.page);

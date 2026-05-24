@@ -2,12 +2,9 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import ForceGraph2D from 'react-force-graph-2d';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '../ui';
-import { downloadWikiExportZip, ingestWikiSource, listWikiActivity, listWikiPages, rebuildWikiGraph } from '../../api/wiki';
+import { downloadWikiExportZip, listWikiActivity, listWikiPages, rebuildWikiGraph } from '../../api/wiki';
 import { fetchGraphData } from '../../api/map';
-import { trackWikiIngestResult, trackWikiIngestSubmitted } from '../../utils/wikiAnalytics';
 import { wikiPagePath } from '../../utils/wikiFeatureFlags';
-import WikiBriefing from './WikiBriefing';
-import WikiBuildPageComposer from './WikiBuildPageComposer';
 import WikiList from './WikiList';
 import {
   DRIFT_STATUSES,
@@ -21,35 +18,37 @@ import {
 } from './wikiGraph';
 
 const TYPE_COLORS = {
-  concept: '#4f8c5a',
-  entity: '#6f63bf',
+  concept: '#b1862e',
+  entity: '#6f6a61',
   source: '#b1862e',
-  question: '#3876b8',
-  comparison: '#b54a32',
-  overview: '#62714a',
-  project: '#8b5a2b',
+  question: '#74706a',
+  comparison: '#8b8176',
+  overview: '#625d55',
+  project: '#7a6040',
   log: '#62707a',
-  topic: '#476a7d'
+  topic: '#5f6468'
 };
 
 const EDGE_COLORS = {
-  wikiLink: '#3876b8',
-  shared_source: '#8b6fbd',
+  wikiLink: '#b1862e',
+  shared_source: '#8f8373',
   related: '#7a8088',
   needs_review: '#b1862e',
-  supports: '#4f8c5a',
-  contradicts: '#b54a32',
-  extends: '#3876b8'
+  supports: '#7a756d',
+  contradicts: '#9b5a46',
+  extends: '#8b7652'
 };
 
 const GRAPH_RELATION_TYPES = ['related', 'needs_review', 'supports', 'contradicts', 'extends'];
 const GRAPH_PAGE_LIMIT = 500;
+const SPARSE_WIKI_PAGE_THRESHOLD = 3;
+const REVIEW_STATUS_LABELS = {
+  all: 'All review states',
+  drifting: 'Needs review',
+  stable: 'Up to date'
+};
 
 const getWindowWidth = () => (typeof window === 'undefined' ? 1024 : window.innerWidth || 1024);
-
-const sourceTitle = (source = {}) => (
-  source.title || source.url || source.text?.slice?.(0, 64) || 'source'
-);
 
 const statusLabel = (value = '') => labelFor(String(value || 'pending'));
 
@@ -107,62 +106,6 @@ const formatActivityTime = (value) => {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '';
   return date.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
-};
-
-const WikiSourceDropComposer = ({ onIngested }) => {
-  const [sourceType, setSourceType] = useState('url');
-  const [value, setValue] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
-
-  const handleSubmit = async (event) => {
-    event.preventDefault();
-    const trimmed = value.trim();
-    if (!trimmed) return;
-    setBusy(true);
-    setError('');
-    try {
-      const source = sourceType === 'url'
-        ? { type: 'url', url: trimmed }
-        : { type: 'text', text: trimmed };
-      trackWikiIngestSubmitted({ sourceType });
-      const result = await ingestWikiSource(source);
-      trackWikiIngestResult({ ingestRun: result?.ingestRun || result });
-      onIngested?.(result);
-      setValue('');
-    } catch (_error) {
-      setError('Failed to feed this source to the wiki.');
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  return (
-    <form className="wiki-drop-source" onSubmit={handleSubmit} aria-label="Feed source to wiki">
-      <div>
-        <p className="wiki-index__eyebrow">Feed the wiki</p>
-        <h2>Drop a source</h2>
-      </div>
-      <div className="wiki-drop-source__row">
-        <select
-          value={sourceType}
-          onChange={(event) => setSourceType(event.target.value)}
-          aria-label="Source input type"
-        >
-          <option value="url">URL</option>
-          <option value="text">Text</option>
-        </select>
-        <input
-          value={value}
-          onChange={(event) => setValue(event.target.value)}
-          placeholder={sourceType === 'url' ? 'Paste a URL' : 'Paste source text'}
-          aria-label="Source to feed to wiki"
-        />
-        <Button type="submit" disabled={busy || !value.trim()}>{busy ? 'Reading...' : 'Feed'}</Button>
-      </div>
-      {error ? <p className="wiki-index__error" role="alert">{error}</p> : null}
-    </form>
-  );
 };
 
 const WikiActivityLog = ({ refreshKey = 0, onOpenPage }) => {
@@ -227,6 +170,36 @@ const WikiActivityLog = ({ refreshKey = 0, onOpenPage }) => {
   );
 };
 
+const WikiSparsePages = ({ pages = [], onOpenPage }) => (
+  <section className="wiki-index__sparse" aria-label="Wiki pages">
+    <div>
+      <p className="wiki-index__eyebrow">Pages</p>
+      <h2>{pages.length ? `${pages.length} current page${pages.length === 1 ? '' : 's'}` : 'Start the wiki'}</h2>
+      <p>
+        {pages.length
+          ? 'A graph is useful once the wiki has enough pages and relationships. Use the agent workspace to build or connect pages.'
+          : 'Ask the agent to build the first page, or type /ingest in the wiki chat with a source URL.'}
+      </p>
+    </div>
+    <div className="wiki-index__sparse-agent" aria-label="Build pages with wiki agent">
+      <strong>Build pages from the wiki agent</strong>
+      <span>Use the wiki chat to ask for a new page, draft from a source, or connect existing pages.</span>
+    </div>
+    {pages.length ? (
+      <ol className="wiki-index__sparse-list">
+        {pages.slice(0, 9).map(page => (
+          <li key={page._id || page.id}>
+            <button type="button" onClick={() => onOpenPage?.(page._id || page.id)}>
+              <strong>{page.title || 'Untitled Wiki Page'}</strong>
+              <span>{labelFor(page.pageType || 'topic')} · {Array.isArray(page.sourceRefs) ? page.sourceRefs.length : 0} sources</span>
+            </button>
+          </li>
+        ))}
+      </ol>
+    ) : null}
+  </section>
+);
+
 const WikiGraph = ({ graph, onOpenPage }) => {
   const graphRef = useRef(null);
   const [hovered, setHovered] = useState(null);
@@ -283,16 +256,19 @@ const WikiGraph = ({ graph, onOpenPage }) => {
   };
 
   const renderNode = (node, ctx, globalScale) => {
-    const radius = Math.min(14, 5 + Math.sqrt(Number(node.inboundCount || 0)) * 2.4);
+    const radius = Math.min(9, 3.5 + Math.sqrt(Number(node.inboundCount || 0)) * 1.6);
     ctx.fillStyle = TYPE_COLORS[node.pageType] || TYPE_COLORS.topic;
     ctx.beginPath();
     ctx.arc(node.x, node.y, radius, 0, 2 * Math.PI, false);
     ctx.fill();
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.62)';
+    ctx.lineWidth = 1.2 / Math.max(globalScale, 1);
+    ctx.stroke();
 
-    if (globalScale < 1.05) return;
+    if (globalScale < 1.35) return;
     const label = node.title || 'Untitled Wiki Page';
-    const fontSize = 11 / globalScale;
-    ctx.font = `600 ${fontSize}px "SF Pro Text", "Segoe UI", Inter, sans-serif`;
+    const fontSize = 10 / globalScale;
+    ctx.font = `500 ${fontSize}px "SF Pro Text", "Segoe UI", -apple-system, BlinkMacSystemFont, sans-serif`;
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
     const isDark = typeof document !== 'undefined' && document.documentElement?.dataset?.uiTheme === 'dark';
@@ -336,10 +312,8 @@ const WikiGraph = ({ graph, onOpenPage }) => {
           linkLabel={(link) => `${relationLabel(link.relationType)}\n${linkReason(link)}`}
           nodeCanvasObject={renderNode}
           linkColor={(link) => EDGE_COLORS[link.relationType] || '#94a3b8'}
-          linkWidth={(link) => (link.relationType === 'wikiLink' ? 1.8 : link.relationType === 'shared_source' ? 1.35 : 1.2)}
-          linkDirectionalParticles={(link) => (link.relationType === 'wikiLink' ? 2 : link.relationType === 'shared_source' ? 1 : 0)}
-          linkDirectionalParticleSpeed={(link) => (link.relationType === 'wikiLink' ? 0.006 : 0.003)}
-          linkDirectionalParticleWidth={(link) => (link.relationType === 'wikiLink' ? 2.5 : 1.6)}
+          linkWidth={(link) => (link.relationType === 'wikiLink' ? 1.15 : link.relationType === 'shared_source' ? 0.95 : 0.8)}
+          linkDirectionalParticles={0}
           onNodeHover={setHovered}
           onLinkHover={setHoveredLink}
           onNodeClick={(node) => setSelectedNode(node)}
@@ -403,7 +377,7 @@ const WikiIndex = ({ onOpenPage, onOpenList }) => {
   const [error, setError] = useState('');
   const [toast, setToast] = useState(null);
   const [syncingGraph, setSyncingGraph] = useState(false);
-  const [activityRefresh, setActivityRefresh] = useState(0);
+  const [activityRefresh] = useState(0);
   const [width, setWidth] = useState(getWindowWidth);
   const mountedRef = useRef(true);
 
@@ -451,34 +425,12 @@ const WikiIndex = ({ onOpenPage, onOpenList }) => {
   const persistedEdgeCount = Array.isArray(mapGraph.edges) ? mapGraph.edges.length : Array.isArray(mapGraph.links) ? mapGraph.links.length : 0;
   const graphSyncState = useMemo(() => {
     if (!pages.length) return { status: 'empty', label: 'No pages yet', stale: false };
-    if (!persistedEdgeCount && graph.links.length) return { status: 'stale', label: 'Persisted graph needs sync', stale: true };
-    if (!persistedEdgeCount) return { status: 'limited', label: 'Inline graph only', stale: true };
-    return { status: 'synced', label: 'Persisted graph synced', stale: false };
+    if (!persistedEdgeCount && graph.links.length) return { status: 'stale', label: 'Map needs refresh', stale: true };
+    if (!persistedEdgeCount) return { status: 'limited', label: 'No saved links yet', stale: true };
+    return { status: 'synced', label: 'Map up to date', stale: false };
   }, [graph.links.length, pages.length, persistedEdgeCount]);
   const isMobile = width < 720;
-
-  const handleIngested = (result = {}) => {
-    const ingestRun = result.ingestRun || result || {};
-    const source = ingestRun.sourceRef || {};
-    setToast({
-      title: `Reading ${sourceTitle(source)}...`,
-      summary: ingestRun.affectedPageIds?.length
-        ? `${ingestRun.affectedPageIds.length} page${ingestRun.affectedPageIds.length === 1 ? '' : 's'} updated so far.`
-        : ingestRun.suggestedCreatePage
-          ? `No matching pages yet. Create "${ingestRun.suggestedCreatePage.title}" from this source?`
-          : 'No matching pages yet. Review details to create or merge.',
-      runId: ingestRun.runId
-    });
-    setActivityRefresh(value => value + 1);
-    loadGraph({ quiet: true });
-    if (Array.isArray(result.pages) && result.pages.length) {
-      setPages(current => {
-        const byId = new Map(current.map(page => [page._id, page]));
-        result.pages.forEach(page => byId.set(page._id, page));
-        return Array.from(byId.values());
-      });
-    }
-  };
+  const isSparseWiki = graph.nodes.length < SPARSE_WIKI_PAGE_THRESHOLD;
 
   const handleOpenPage = useCallback((pageId) => {
     if (!pageId) return;
@@ -521,23 +473,19 @@ const WikiIndex = ({ onOpenPage, onOpenList }) => {
 
   return (
     <main className="wiki-page wiki-index wiki-graph-index">
-      <WikiBriefing />
-      <WikiBuildPageComposer onBuilt={() => loadGraph({ quiet: true })} />
-      <WikiSourceDropComposer onIngested={handleIngested} />
       {toast ? (
         <aside className="wiki-ingest-toast" role="status">
           <div>
             <strong>{toast.title}</strong>
             <span>{toast.summary}</span>
           </div>
-          {toast.runId ? <Link to={`/wiki/activity/${toast.runId}`}>View details</Link> : null}
         </aside>
       ) : null}
       <section className="wiki-index__header">
         <div className="wiki-index__title-block">
           <p className="wiki-index__eyebrow">Wiki graph</p>
           <h1>Knowledge map</h1>
-          <p>Pages are nodes, inline wiki links are edges, and larger nodes have more inbound links.</p>
+          <p>{isSparseWiki ? 'The wiki is still sparse. Build a few pages first; the constellation appears once there is enough material to connect.' : 'Pages settle into a quiet constellation of links, sources, and review relationships.'}</p>
         </div>
         <div className="wiki-index__tabs" role="tablist" aria-label="Wiki views">
           {onOpenList ? (
@@ -562,38 +510,26 @@ const WikiIndex = ({ onOpenPage, onOpenList }) => {
         <select value={modifiedWithin} onChange={(event) => setModifiedWithin(event.target.value)} aria-label="Modified within">
           {MODIFIED_WINDOWS.map(value => <option key={value} value={value}>{value === 'all' ? 'All time' : `Modified ${value}`}</option>)}
         </select>
-        <select value={driftStatus} onChange={(event) => setDriftStatus(event.target.value)} aria-label="Drift status">
-          {DRIFT_STATUSES.map(value => <option key={value} value={value}>{value === 'all' ? 'All drift states' : labelFor(value)}</option>)}
+        <select value={driftStatus} onChange={(event) => setDriftStatus(event.target.value)} aria-label="Review status">
+          {DRIFT_STATUSES.map(value => <option key={value} value={value}>{REVIEW_STATUS_LABELS[value] || labelFor(value)}</option>)}
         </select>
         <span className="wiki-graph-index__stats">
           {graph.nodes.length} {graph.nodes.length === 1 ? 'page' : 'pages'} · {graph.links.length} {graph.links.length === 1 ? 'link' : 'links'}
         </span>
       </section>
-      {!loading && graph.nodes.length ? (
+      {!loading && graph.nodes.length && !isSparseWiki ? (
         <section className="wiki-graph-signals" aria-label="Wiki map signals">
-          <div>
-            <span>Hubs</span>
-            <strong>{graphSummary.hubs.map(node => node.title).join(', ') || 'None yet'}</strong>
-          </div>
-          <div>
-            <span>Isolated</span>
-            <strong>{graphSummary.orphanCount}</strong>
-          </div>
-          <div>
-            <span>Evidence overlap</span>
-            <strong>{graphSummary.relationCounts.shared_source || 0}</strong>
-          </div>
-          <div>
-            <span>Sync</span>
-            <strong>{graphSyncState.label}</strong>
-          </div>
+          <span>{graphSummary.hubs.length ? `Brightest: ${graphSummary.hubs.map(node => node.title).join(', ')}` : 'No center yet'}</span>
+          <span>{graphSummary.orphanCount} unlinked</span>
+          <span>{graphSummary.relationCounts.shared_source || 0} shared-source ties</span>
+          <span>{graphSyncState.label}</span>
         </section>
       ) : null}
-      {!loading && graph.nodes.length ? (
+      {!loading && graph.nodes.length && !isSparseWiki ? (
         <section className={`wiki-graph-sync is-${graphSyncState.status}`} aria-label="Wiki graph sync">
           <div>
             <strong>{graphSyncState.label}</strong>
-            <span>{persistedEdgeCount} persisted edge{persistedEdgeCount === 1 ? '' : 's'} · {graph.links.length} visible relation{graph.links.length === 1 ? '' : 's'}</span>
+            <span>{persistedEdgeCount} saved link{persistedEdgeCount === 1 ? '' : 's'} · {graph.links.length} visible connection{graph.links.length === 1 ? '' : 's'}</span>
           </div>
           <Button type="button" variant={graphSyncState.stale ? 'primary' : 'secondary'} onClick={handleRebuildGraph} disabled={syncingGraph}>
             {syncingGraph ? 'Syncing...' : graphSyncState.stale ? 'Sync graph' : 'Rebuild graph'}
@@ -602,14 +538,11 @@ const WikiIndex = ({ onOpenPage, onOpenList }) => {
       ) : null}
       {error ? <div className="wiki-index__error" role="alert">{error}</div> : null}
       {loading ? <p className="wiki-index__status">Loading Wiki graph...</p> : null}
-      {!loading && graph.nodes.length && !isMobile ? <WikiGraph graph={graph} onOpenPage={handleOpenPage} /> : null}
-      {!loading && !graph.nodes.length ? (
-        <section className="wiki-index__empty">
-          <h2>No graph nodes yet</h2>
-          <p>Create or maintain wiki pages to build the map.</p>
-        </section>
+      {!loading && graph.nodes.length && !isMobile && !isSparseWiki ? <WikiGraph graph={graph} onOpenPage={handleOpenPage} /> : null}
+      {!loading && isSparseWiki ? (
+        <WikiSparsePages pages={filteredPages} onOpenPage={handleOpenPage} />
       ) : null}
-      {isMobile ? (
+      {isMobile && !isSparseWiki ? (
         <section className="wiki-graph-index__mobile-list" aria-label="Wiki pages mobile list">
           <WikiList compact onOpenPage={handleOpenPage} />
         </section>

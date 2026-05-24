@@ -3,6 +3,31 @@ import { MemoryRouter } from 'react-router-dom';
 import TopBar from './TopBar';
 
 describe('TopBar help menu', () => {
+  it('renders search as a command palette trigger instead of an inline input', () => {
+    const onSearchOpen = jest.fn();
+    render(
+      <MemoryRouter>
+        <TopBar searchMode="field" onSearchOpen={onSearchOpen} />
+      </MemoryRouter>
+    );
+
+    expect(screen.queryByRole('textbox')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Open command palette' }));
+    expect(onSearchOpen).toHaveBeenCalledTimes(1);
+  });
+
+  it('opens command palette from the icon search affordance', () => {
+    const onSearchOpen = jest.fn();
+    render(
+      <MemoryRouter>
+        <TopBar searchMode="icon" onSearchOpen={onSearchOpen} />
+      </MemoryRouter>
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open command palette' }));
+    expect(onSearchOpen).toHaveBeenCalledTimes(1);
+  });
+
   it('renders direct utility links in the top bar', () => {
     render(
       <MemoryRouter>
@@ -41,7 +66,7 @@ describe('TopBar help menu', () => {
     expect(screen.getByRole('menuitem', { name: 'How To Use' })).toBeInTheDocument();
   });
 
-  it('renders an inline progress chip on the Tour button when the tour is in progress', () => {
+  it('does not create More just to hold tour actions', () => {
     render(
       <MemoryRouter>
         <TopBar
@@ -55,14 +80,44 @@ describe('TopBar help menu', () => {
         />
       </MemoryRouter>
     );
-    const tourButton = screen.getByTestId('topbar-tour-button');
-    expect(tourButton.className).toMatch(/has-progress/);
-    expect(tourButton).toHaveAttribute('aria-label', 'Tour: 2 of 5 steps complete');
-    expect(tourButton.textContent).toContain('2/5');
+
+    expect(screen.queryByTestId('topbar-tour-button')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'More' })).toBeNull();
   });
 
-  it('omits the progress chip when the tour has not started or is completed', () => {
-    const { rerender } = render(
+  it('keeps tour actions out of More even when secondary navigation exists', () => {
+    const onStart = jest.fn();
+    const onResume = jest.fn();
+    const onRestart = jest.fn();
+
+    render(
+      <MemoryRouter>
+        <TopBar
+          secondaryNav={[
+            {
+              label: 'How To Use',
+              to: '/how-to-use',
+              match: (location) => location.pathname.startsWith('/how-to-use')
+            }
+          ]}
+          helpMenu={{
+            onStart,
+            onResume,
+            onRestart,
+            canResume: true,
+            progress: { completed: 2, total: 5, status: 'in_progress' }
+          }}
+        />
+      </MemoryRouter>
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'More' }));
+    expect(screen.getByRole('menuitem', { name: 'How To Use' })).toBeInTheDocument();
+    expect(screen.queryByRole('menuitem', { name: /tour/i })).toBeNull();
+  });
+
+  it('does not show tour progress in global chrome when the tour has not started or is completed', () => {
+    const { unmount } = render(
       <MemoryRouter>
         <TopBar
           helpMenu={{
@@ -75,11 +130,10 @@ describe('TopBar help menu', () => {
         />
       </MemoryRouter>
     );
-    let tourButton = screen.getByTestId('topbar-tour-button');
-    expect(tourButton.className).not.toMatch(/has-progress/);
-    expect(tourButton.textContent).not.toContain('0/5');
+    expect(screen.queryByText('0/5')).toBeNull();
 
-    rerender(
+    unmount();
+    render(
       <MemoryRouter>
         <TopBar
           helpMenu={{
@@ -92,39 +146,7 @@ describe('TopBar help menu', () => {
         />
       </MemoryRouter>
     );
-    tourButton = screen.getByTestId('topbar-tour-button');
-    expect(tourButton.className).not.toMatch(/has-progress/);
-    expect(tourButton.textContent).not.toContain('5/5');
-  });
-
-  it('exposes start, resume, and restart tour actions', () => {
-    const onStart = jest.fn();
-    const onResume = jest.fn();
-    const onRestart = jest.fn();
-
-    render(
-      <MemoryRouter>
-        <TopBar
-          helpMenu={{
-            onStart,
-            onResume,
-            onRestart,
-            canResume: true
-          }}
-        />
-      </MemoryRouter>
-    );
-
-    fireEvent.click(screen.getByRole('button', { name: 'Tour' }));
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Start onboarding' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Tour' }));
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Resume onboarding' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Tour' }));
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Restart onboarding' }));
-
-    expect(onStart).toHaveBeenCalledTimes(1);
-    expect(onResume).toHaveBeenCalledTimes(1);
-    expect(onRestart).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText('5/5')).toBeNull();
   });
 
   it('hides the theme toggle when no onThemeChange handler is provided', () => {
@@ -143,8 +165,9 @@ describe('TopBar help menu', () => {
       </MemoryRouter>
     );
     const pill = screen.getByTestId('topbar-theme-toggle');
-    expect(pill.textContent).toContain('Auto');
+    expect(pill.textContent).toBe('');
     expect(pill.getAttribute('aria-label')).toMatch(/Theme: Auto/);
+    expect(pill).toHaveAttribute('title', expect.stringMatching(/Theme: Auto/));
   });
 
   it('cycles through auto → light → dark on click', () => {

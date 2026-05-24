@@ -44,6 +44,12 @@ export const citationAnchorId = ({ claimId = '', citationIndex, fallback = '' } 
   `wiki-cite-${safeAnchorToken(claimId || fallback)}-ref-${Number(citationIndex) || 0}`
 );
 
+export const blockAnchorId = ({ anchorId = '', id = '', blockIndex = 0, fallback = '' } = {}) => {
+  const explicit = String(anchorId || id || '').trim();
+  if (explicit) return explicit;
+  return `wiki-block-${Number(blockIndex) || 0}${fallback ? `-${safeAnchorToken(fallback)}` : ''}`;
+};
+
 const stripModelSourceRangeCitations = (value = '') => String(value || '')
   .replace(/\s*【\s*\d+†L\d+(?:-L?\d+)?\s*】/g, '')
   .replace(/\s+([,.;:!?])/g, '$1');
@@ -160,11 +166,37 @@ const renderInline = (content = [], keyPrefix = '') => content
   })
   .filter(Boolean);
 
+const renderPullquoteContent = (node, key, options = {}) => {
+  const content = Array.isArray(node.content) ? node.content : [];
+  if (!content.length && node.attrs?.text) return <p>{node.attrs.text}</p>;
+  return content.map((child, index) => {
+    if (child?.type === 'paragraph') return <p key={`${key}-p-${index}`}>{renderInline(child.content, `pullquote-${key}-${index}`)}</p>;
+    if (child?.type === 'text') return renderTextNode(child, `pullquote-${key}-${index}`);
+    return renderBlock(child, `${key}-${index}`, options);
+  }).filter(Boolean);
+};
+
 const renderBlock = (node, key, options = {}) => {
   if (!node || typeof node !== 'object') return null;
   switch (node.type) {
-    case 'paragraph':
-      return <p key={key}>{renderInline(node.content, `p-${key}`)}</p>;
+    case 'paragraph': {
+      const anchorId = blockAnchorId({
+        anchorId: node.attrs?.anchorId,
+        id: node.attrs?.id,
+        blockIndex: key
+      });
+      const isRecent = options.recentAnchorIds?.has?.(anchorId);
+      return (
+        <p
+          key={key}
+          id={anchorId}
+          data-wiki-block-anchor={anchorId}
+          className={isRecent ? 'wiki-read__paragraph--recent' : undefined}
+        >
+          {renderInline(node.content, `p-${key}`)}
+        </p>
+      );
+    }
     case 'heading': {
       const level = Math.max(1, Math.min(6, node.attrs?.level || 2));
       const HeadingTag = `h${level}`;
@@ -189,6 +221,15 @@ const renderBlock = (node, key, options = {}) => {
           {(node.content || []).map((child, index) => renderBlock(child, index, options))}
         </li>
       );
+    case 'pullquote': {
+      const attribution = node.attrs?.attribution || node.attrs?.cite || '';
+      return (
+        <blockquote key={key} className="wiki-read-pullquote">
+          {renderPullquoteContent(node, key, options)}
+          {attribution ? <cite>{attribution}</cite> : null}
+        </blockquote>
+      );
+    }
     default:
       return null;
   }

@@ -858,8 +858,8 @@ const buildContextSummarySignals = ({ context = {}, contextItem = null }) => {
   const metadata = normalizeAmbientContextMetadata(context?.metadata);
   const contextLabel = toSafeString(contextItem?.title) || toSafeString(context?.title) || toSafeString(contextItem?.type);
   const titleTokens = tokenize(contextLabel).slice(0, 6);
-  const contextType = toSafeString(context?.type || contextItem?.type).toLowerCase();
-  const sourceText = contextType === 'article'
+  const contextType = toSafeString(contextItem?.type || context?.type).toLowerCase();
+  const sourceText = ['article', 'wiki_page'].includes(contextType)
     ? [metadata.primaryText, contextItem?.fullText, contextItem?.snippet]
     : [metadata.primaryText, metadata.summary, contextItem?.snippet];
   const sentences = splitIntoSentences(sourceText.filter(Boolean).join(' '));
@@ -891,6 +891,123 @@ const buildContextSummarySignals = ({ context = {}, contextItem = null }) => {
     pressurePoint,
     openQuestion
   };
+};
+
+const PAGE_ANSWER_STOPWORDS = new Set([
+  'about', 'above', 'after', 'again', 'answer', 'before', 'being', 'below', 'between', 'current', 'does',
+  'from', 'have', 'here', 'into', 'only', 'page', 'please', 'says', 'that', 'this', 'what', 'when',
+  'where', 'which', 'with', 'wiki', 'would', 'your'
+]);
+
+const WIKI_WORKSPACE_RETRIEVAL_RE = /\b(across|all|another|broader|compare|cross[-\s]?wiki|elsewhere|find|library|other|related|retrieve|search|sources?|workspace)\b/i;
+const WIKI_SOURCE_ATTRIBUTION_RE = /\b(back(?:s|ed)?|citation|cite|cited|evidence|source|support(?:s|ed|ing)?)\b/i;
+
+const shouldSearchWorkspaceForWikiPage = ({ message = '', conversationState = {}, skillInvocation = {} } = {}) => {
+  const outputType = toSafeString(skillInvocation?.outputType).toLowerCase();
+  if (outputType && !['chat', 'answer', 'summary'].includes(outputType)) return true;
+  const safeMessage = toSafeString(conversationState?.retrievalMessage || conversationState?.resolvedMessage || message);
+  if (!safeMessage) return false;
+  if (
+    WIKI_SOURCE_ATTRIBUTION_RE.test(safeMessage)
+    && !/\b(across|all|another|broader|elsewhere|find|library|other|related|retrieve|search|workspace)\b/i.test(safeMessage)
+  ) {
+    return false;
+  }
+  const intent = inferReplyIntent({ message: safeMessage, conversationState });
+  if (['retrieve', 'restructure', 'strengthen'].includes(intent)) return true;
+  return WIKI_WORKSPACE_RETRIEVAL_RE.test(safeMessage);
+};
+
+const pickWikiPageAnswerSentences = ({ message = '', contextItem = null, maxSentences = 3 } = {}) => {
+  if (contextItem?.type !== 'wiki_page') return [];
+  const fullText = toSafeString(contextItem?.fullText);
+  if (!fullText) return [];
+  const queryTokens = tokenize(message)
+    .filter(token => token.length > 2 && !PAGE_ANSWER_STOPWORDS.has(token))
+    .slice(0, 10);
+  const cleanWikiSentence = sentence => ensureSentence(toSafeString(sentence)
+    .replace(/^(overview|core idea|how it works|evidence|converging evidence|diverging evidence|implications|tensions|open questions|references)\s+/i, '')
+    .trim());
+  const sentences = splitIntoSentences(fullText)
+    .map(cleanWikiSentence)
+    .filter(sentence => sentence && !isBoilerplateSentence(sentence));
+  if (!sentences.length) return [];
+  const scored = sentences.map((sentence, index) => {
+    const lower = sentence.toLowerCase();
+    const tokenScore = queryTokens.reduce((score, token) => score + (lower.includes(token) ? 2 : 0), 0);
+    const sectionScore = /\b(core|overview|how|evidence|tension|question)\b/i.test(sentence) ? 0.2 : 0;
+    return { sentence, index, score: tokenScore + sectionScore };
+  });
+  const threshold = queryTokens.length ? 1 : 0;
+  const selected = scored
+    .filter(item => item.score >= threshold)
+    .sort((left, right) => right.score - left.score || left.index - right.index)
+    .slice(0, maxSentences)
+    .sort((left, right) => left.index - right.index)
+    .map(item => item.sentence);
+  return selected.length > 0 ? selected : sentences.slice(0, maxSentences);
+};
+
+const scoreClaimForMessage = ({ claimText = '', message = '' } = {}) => {
+  const claim = toSafeString(claimText).toLowerCase();
+  const queryTokens = tokenize(message).filter(token => !PAGE_ANSWER_STOPWORDS.has(token));
+  return queryTokens.reduce((score, token) => score + (claim.includes(token) ? 1 : 0), 0);
+};
+
+const buildWikiClaimSourceReply = ({ message = '', contextItem = null } = {}) => {
+  if (contextItem?.type !== 'wiki_page') return '';
+  if (!WIKI_SOURCE_ATTRIBUTION_RE.test(message)) return '';
+  const claimSourceMap = Array.isArray(contextItem.claimSourceMap) ? contextItem.claimSourceMap : [];
+  if (!claimSourceMap.length) return 'No claim-source map is attached to this page yet, so I cannot attribute that claim safely.';
+  const ranked = claimSourceMap
+    .map((entry, index) => ({
+      entry,
+      index,
+      score: scoreClaimForMessage({ claimText: entry?.claim, message })
+    }))
+    .sort((left, right) => right.score - left.score || left.index - right.index);
+  const best = ranked[0];
+  if (!best || best.score <= 0) {
+    return 'I cannot match that to a specific claim on this page, so I cannot attribute it safely.';
+  }
+  const refs = Array.isArray(best.entry?.refs) ? best.entry.refs.filter(ref => toSafeString(ref?.title)) : [];
+  if (!refs.length) {
+    return `That claim is present on this page, but it has no attached source. Claim: ${truncate(best.entry?.claim || '', 220)}`;
+  }
+  const labels = refs.slice(0, 4).map((ref) => {
+    const index = Number(ref.index);
+    const title = truncate(ref.title, 120);
+    return index ? `[${index}] ${title}` : title;
+  });
+  return `That claim is backed by ${joinLabels(labels)}. Claim: ${truncate(best.entry?.claim || '', 220)}`;
+};
+
+const buildWikiPageGroundedReply = ({ message = '', contextItem = null, contextSignals = {} } = {}) => {
+  const sourceReply = buildWikiClaimSourceReply({ message, contextItem });
+  if (sourceReply) return sourceReply;
+  const wantsOneSentence = /\b(one|1)\s+sentence\b/i.test(message);
+  const sentences = pickWikiPageAnswerSentences({
+    message,
+    contextItem,
+    maxSentences: wantsOneSentence ? 1 : 3
+  });
+  if (sentences.length > 0) {
+    const lead = sentences.length === 1
+      ? `The page says ${lowercaseFirst(sentences[0])}`
+      : `The page says ${lowercaseFirst(sentences[0])} It also says ${sentences.slice(1).map(lowercaseFirst).join(' ')}`;
+    return ensureSentence(lead);
+  }
+  if (contextSignals.coreClaim) {
+    const lines = [`The page's core claim is ${lowercaseFirst(contextSignals.coreClaim)}`];
+    if (contextSignals.supportPoint && contextSignals.supportPoint !== contextSignals.coreClaim) {
+      lines.push(`Its strongest support in view is ${lowercaseFirst(contextSignals.supportPoint)}`);
+    }
+    if (contextSignals.pressurePoint && contextSignals.pressurePoint !== contextSignals.coreClaim) {
+      lines.push(`The pressure point is ${lowercaseFirst(contextSignals.pressurePoint)}`);
+    }
+    return lines.join(' ');
+  }
+  return '';
 };
 
 const isContextEchoItem = ({ item = {}, context = {}, contextItem = null } = {}) => {
@@ -973,6 +1090,8 @@ const buildPartnerSystemPrompt = ({ intent = '', contextItem = null } = {}) => {
   const wikiHint = contextItem?.type === 'wiki_page'
     ? [
         'The selected wiki page body and attached source list are already included below.',
+        'Treat the selected wiki page body, Wiki claims, and attached wiki sources as the primary authority.',
+        'Do not use broader workspace retrieval unless the request explicitly asks for other pages, other sources, or a workspace-wide search.',
         'Never ask the user to ingest or attach the current page before answering about it.',
         'Only cite or name sources that appear in the attached wiki sources block.',
         'If a claim has no attached source, say it is uncited rather than inventing a source.',
@@ -1018,8 +1137,12 @@ const buildPartnerGroundingBlock = ({
     contextItem?.sourceText ? `Attached wiki sources:\n${contextItem.sourceText}` : '',
     contextItem?.claimText ? `Wiki claims:\n${contextItem.claimText}` : '',
     anchorUserText ? `Anchor request: ${anchorUserText}` : '',
-    'Retrieved internal material:',
-    ...formatPartnerMaterialLines(relatedItems),
+    relatedItems.length
+      ? 'Retrieved internal material:'
+      : contextItem?.type === 'wiki_page'
+        ? 'Retrieved internal material: intentionally not used for this page-scoped request.'
+        : 'Retrieved internal material:',
+    ...(relatedItems.length ? formatPartnerMaterialLines(relatedItems) : contextItem?.type === 'wiki_page' ? [] : formatPartnerMaterialLines(relatedItems)),
     'Open questions:',
     ...formatPartnerMaterialLines(openQuestions.map((text, index) => ({
       type: 'question',
@@ -1488,12 +1611,33 @@ const resolveContextItem = async ({
       const pageTitle = toSafeString(page.title) || 'Wiki page';
       const sourceRefs = Array.isArray(page.sourceRefs) ? page.sourceRefs : [];
       const sourceIndexById = new Map();
+      const sourceByIndex = new Map();
       sourceRefs.forEach((source, index) => {
+        const sourceEntry = {
+          index: index + 1,
+          id: toSafeString(source?._id || source?.id || source?.sourceRefId),
+          title: truncate(source?.title || source?.url || `Source ${index + 1}`, 180),
+          snippet: truncate(source?.snippet || source?.text || source?.summary || '', 260)
+        };
+        sourceByIndex.set(index + 1, sourceEntry);
         [source?._id, source?.id, source?.sourceRefId]
           .map(value => toSafeString(value))
           .filter(Boolean)
           .forEach(value => sourceIndexById.set(value, index + 1));
       });
+      const sourceIndexByCitationId = new Map();
+      (Array.isArray(page.citations) ? page.citations : []).forEach((citation) => {
+        const sourceIndex = sourceIndexById.get(toSafeString(citation?.sourceRefId || citation?.sourceRef || citation?.sourceId));
+        if (!sourceIndex) return;
+        [citation?._id, citation?.id, citation?.citationId]
+          .map(value => toSafeString(value))
+          .filter(Boolean)
+          .forEach(value => sourceIndexByCitationId.set(value, sourceIndex));
+      });
+      const resolveSourceIndex = (value) => {
+        const key = toSafeString(value);
+        return sourceIndexById.get(key) || sourceIndexByCitationId.get(key);
+      };
       const sourceText = (Array.isArray(page.sourceRefs) ? page.sourceRefs : [])
         .slice(0, 12)
         .map((source, index) => {
@@ -1507,13 +1651,26 @@ const resolveContextItem = async ({
         .map((claim, index) => {
           const refs = (claim.sourceRefIds || claim.citationIds || [])
             .slice(0, 4)
-            .map(value => sourceIndexById.get(toSafeString(value)))
+            .map(value => resolveSourceIndex(value))
             .filter(Boolean)
             .map(value => `[${value}]`)
             .join(', ');
           return `- Claim ${index + 1}: ${truncate(claim.text || claim.claim || '', 260)}${refs ? ` (attached refs: ${refs})` : ' (uncited)'}`;
         })
         .join('\n');
+      const claimSourceMap = (Array.isArray(page.claims) ? page.claims : [])
+        .slice(0, 40)
+        .map((claim) => {
+          const refs = (claim.sourceRefIds || claim.citationIds || [])
+            .slice(0, 8)
+            .map(value => sourceByIndex.get(resolveSourceIndex(value)))
+            .filter(Boolean);
+          return {
+            claim: truncate(claim.text || claim.claim || '', 320),
+            refs
+          };
+        })
+        .filter(entry => entry.claim);
       const bodyText = truncateRaw(page.plainText || toPlainText(page.body), 10000);
       return {
         type: 'wiki_page',
@@ -1523,6 +1680,7 @@ const resolveContextItem = async ({
         fullText: bodyText,
         sourceText,
         claimText,
+        claimSourceMap,
         updatedAt: page.updatedAt
       };
     }
@@ -1730,7 +1888,7 @@ const searchInternalItems = async ({
 
 const buildReply = ({
   message,
-  conversationState,
+  conversationState = {},
   contextItem,
   context = {},
   relatedItems = []
@@ -1753,7 +1911,24 @@ const buildReply = ({
   const leadDetail = buildReplyDetail(preparedItems[0]);
   const secondLabel = titles[1] || '';
 
+  if (contextItem?.type === 'wiki_page' && intent !== 'retrieve') {
+    const wikiReply = buildWikiPageGroundedReply({
+      message: conversationState.resolvedMessage || message,
+      contextItem,
+      contextSignals
+    });
+    if (wikiReply) return wikiReply;
+  }
+
   if (preparedItems.length === 0) {
+    if (contextItem?.type === 'wiki_page') {
+      const wikiReply = buildWikiPageGroundedReply({
+        message: conversationState.resolvedMessage || message,
+        contextItem,
+        contextSignals
+      });
+      if (wikiReply) return wikiReply;
+    }
     if (intent === 'summarize' && contextSignals.coreClaim) {
       const lines = [`Core claim: ${contextSignals.coreClaim}`];
       if (contextSignals.supportPoint && contextSignals.supportPoint !== contextSignals.coreClaim) {
@@ -1932,14 +2107,22 @@ const generateCollaborativeReply = async ({
     TagMeta,
     WikiPage
   });
-  const searchedItems = await searchInternalItems({
-    userObjectId,
-    tokens,
-    limit: safeLimit,
-    Article,
-    NotebookEntry,
-    TagMeta
+  const wikiPageScoped = contextItem?.type === 'wiki_page';
+  const shouldSearchWorkspace = !wikiPageScoped || shouldSearchWorkspaceForWikiPage({
+    message: conversationState.resolvedMessage || safeMessage,
+    conversationState,
+    skillInvocation
   });
+  const searchedItems = shouldSearchWorkspace
+    ? await searchInternalItems({
+      userObjectId,
+      tokens,
+      limit: safeLimit,
+      Article,
+      NotebookEntry,
+      TagMeta
+    })
+    : [];
   const relatedItems = pruneRelatedItemsForContext({
     context,
     contextItem,
@@ -1970,7 +2153,7 @@ const generateCollaborativeReply = async ({
   let mode = 'internal_only';
   let model = '';
   let provider = '';
-  if (!reply && isTextGenerationConfigured()) {
+  if (!reply && isTextGenerationConfigured() && (!wikiPageScoped || shouldSearchWorkspace)) {
     try {
       const completion = typeof onDelta === 'function'
         ? await chatCompleteStream({
@@ -2060,6 +2243,10 @@ const generateCollaborativeReply = async ({
       id: item.id,
       title: item.title
     })),
+    retrieval: {
+      searchedWorkspace: Boolean(shouldSearchWorkspace),
+      relatedCount: relatedItems.length
+    },
     suggestedActions: relatedItems.length > 0
       ? [
         {
@@ -2089,7 +2276,9 @@ module.exports = {
     inferReplyIntent,
     buildPartnerChatMessages,
     buildOutputArtifactReply,
+    buildWikiClaimSourceReply,
     prepareRelatedItemsForReply,
-    pruneRelatedItemsForContext
+    pruneRelatedItemsForContext,
+    shouldSearchWorkspaceForWikiPage
   }
 };

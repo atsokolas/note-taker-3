@@ -22,8 +22,10 @@ describe('WikiBriefing', () => {
   it('renders the loading skeleton while the request is in flight', async () => {
     getWikiBriefing.mockReturnValue(new Promise(() => {})); // never resolves
     renderBriefing();
-    expect(screen.getByText('Daily briefing')).toBeInTheDocument();
-    expect(screen.getByLabelText('Daily wiki briefing')).toHaveClass('wiki-briefing--loading');
+    expect(screen.getByText('Morning paper')).toBeInTheDocument();
+    expect(screen.getByText("Preparing today's notes from the wiki.")).toBeInTheDocument();
+    expect(screen.getByLabelText('Morning wiki briefing')).toHaveClass('wiki-briefing--loading');
+    expect(document.querySelector('.wiki-briefing__skeleton')).not.toBeInTheDocument();
   });
 
   it('renders the agent summary, signal chips, and rails when populated', async () => {
@@ -44,7 +46,7 @@ describe('WikiBriefing', () => {
     expect(screen.getByText('Two pages moved today: Compounding and Disruption.')).toBeInTheDocument();
     expect(screen.getByText('4')).toBeInTheDocument();
     expect(screen.getByText(/new sources/)).toBeInTheDocument();
-    expect(screen.getByText('Pages drifting')).toBeInTheDocument();
+    expect(screen.getByText('Pages needing review')).toBeInTheDocument();
     expect(screen.getByText('Recently updated')).toBeInTheDocument();
     expect(screen.getByText('Network effects').closest('a')).toHaveAttribute('href', '/wiki/workspace?page=p3');
     expect(screen.getByText('Compounding interest').closest('a')).toHaveAttribute('href', '/wiki/workspace?page=p1');
@@ -67,11 +69,11 @@ describe('WikiBriefing', () => {
     renderBriefing();
     await waitFor(() => expect(screen.getByTestId('wiki-briefing')).toBeInTheDocument());
     expect(screen.getByText('Your wiki is quiet today.')).toBeInTheDocument();
-    expect(screen.queryByText('Pages drifting')).toBeNull();
+    expect(screen.queryByText('Pages needing review')).toBeNull();
     expect(screen.queryByText('Recently updated')).toBeNull();
   });
 
-  it('singularizes "1 page drifting" / "1 new source" correctly', async () => {
+  it('singularizes "1 page needs review" / "1 new source" correctly', async () => {
     getWikiBriefing.mockResolvedValueOnce({
       generatedAt: new Date().toISOString(),
       summary: 'X.',
@@ -83,6 +85,6 @@ describe('WikiBriefing', () => {
     await waitFor(() => expect(screen.getByTestId('wiki-briefing')).toBeInTheDocument());
     expect(screen.getByText('new source')).toBeInTheDocument();
     expect(screen.getByText('page updated')).toBeInTheDocument();
-    expect(screen.getByText('page drifting')).toBeInTheDocument();
+    expect(screen.getByText('page needs review')).toBeInTheDocument();
   });
 });

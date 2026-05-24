@@ -32,6 +32,7 @@ import {
 
 const LAST_PAGE_KEY = 'noeis.wiki.workspace.last_page_id';
 const CHAT_WIDTH_KEY = 'noeis.wiki.workspace.chat_width';
+const FIRST_VISIT_SEEN_KEY = 'noeis.wiki.first_visit_seen';
 const DEFAULT_CHAT_WIDTH = 300;
 const LEGACY_DEFAULT_CHAT_WIDTH = 380;
 const MIN_CHAT_WIDTH = 260;
@@ -74,6 +75,21 @@ const clean = (value = '') => String(value || '').trim();
 
 const messageId = (prefix) => `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 const MONGO_ID_RE = /\b[a-f0-9]{24}\b/gi;
+
+const paragraphEditedUpdateFromStream = (event = '', payload = {}, fallbackPageId = '') => {
+  const typeCandidates = [event, payload?.type, payload?.stage, payload?.action, payload?.kind]
+    .map(value => clean(value).toLowerCase())
+    .filter(Boolean);
+  if (!typeCandidates.includes('paragraph_edited')) return null;
+  const anchorId = clean(payload?.anchorId || payload?.anchor_id || payload?.paragraphAnchorId || payload?.blockId || payload?.id);
+  if (!anchorId) return null;
+  return {
+    id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    pageId: clean(payload?.pageId || payload?.page_id || fallbackPageId),
+    anchorId,
+    payload
+  };
+};
 
 const wikiPageLabel = (page, fallback = 'this wiki page') => (
   clean(page?.title) || clean(page?.name) || fallback
@@ -295,7 +311,7 @@ const workspaceAgentStatus = ({ busy = false, reading = false, pageId = '', page
   if (signalCount > 0) {
     return {
       status: 'ready',
-      text: `${signalCount} signal${signalCount === 1 ? '' : 's'} pending for ${pageLabel}.`
+      text: `${signalCount} review item${signalCount === 1 ? '' : 's'} for ${pageLabel}.`
     };
   }
   if (pageId) {
@@ -395,6 +411,14 @@ const initialChatWidth = () => {
   const saved = Number(window.localStorage?.getItem(CHAT_WIDTH_KEY));
   if (!saved || saved === LEGACY_DEFAULT_CHAT_WIDTH) return DEFAULT_CHAT_WIDTH;
   return Math.max(MIN_CHAT_WIDTH, Math.min(MAX_CHAT_WIDTH, saved));
+};
+
+const hasSeenFirstVisitOnboarding = () => {
+  try {
+    return window.localStorage?.getItem?.(FIRST_VISIT_SEEN_KEY) === 'true';
+  } catch (_error) {
+    return true;
+  }
 };
 
 const WorkspaceSources = ({ onUseSource }) => {
@@ -737,7 +761,7 @@ const WikiChatMarkdown = ({ text = '', pages = [], currentPage = null }) => {
   return <div className="wiki-workspace-chat__markdown">{blocks.length ? blocks : <p>{safeText}</p>}</div>;
 };
 
-const WikiWorkspaceChat = ({ selectedPageId, view, onNavigate, onPageChanged, busy, setBusy, chatDraft }) => {
+const WikiWorkspaceChat = ({ selectedPageId, view, onNavigate, onPageChanged, onLiveUpdate, busy, setBusy, chatDraft }) => {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [threadId, setThreadId] = useState('');
@@ -831,6 +855,11 @@ const WikiWorkspaceChat = ({ selectedPageId, view, onNavigate, onPageChanged, bu
       };
     }));
   }, []);
+
+  const handleStreamEvent = useCallback((event, payload = {}, fallbackPageId = selectedPageId) => {
+    const update = paragraphEditedUpdateFromStream(event, payload, fallbackPageId);
+    if (update) onLiveUpdate?.(update);
+  }, [onLiveUpdate, selectedPageId]);
 
   useEffect(() => {
     if (!selectedPageId) {
@@ -1025,6 +1054,7 @@ const WikiWorkspaceChat = ({ selectedPageId, view, onNavigate, onPageChanged, bu
             onPageChanged?.(pageId);
           },
           onEvent: (event, payload = {}) => {
+            handleStreamEvent(event, payload, pageId);
             if (event !== 'wiki-draft') return;
             if (payload.stage === 'quality_rebuild') {
               append({ role: 'assistant', text: 'The first draft missed quality gates, so I am rebuilding it once with stricter instructions.' });
@@ -1055,6 +1085,7 @@ const WikiWorkspaceChat = ({ selectedPageId, view, onNavigate, onPageChanged, bu
             onPageChanged?.(pageRef);
           },
           onEvent: (event, payload = {}) => {
+            handleStreamEvent(event, payload, pageRef);
             if (event !== 'wiki-draft') return;
             if (payload.stage === 'quality_rebuild') {
               append({ role: 'assistant', text: 'The first draft missed quality gates, so I am rebuilding it once with stricter instructions.' });
@@ -1137,7 +1168,7 @@ const WikiWorkspaceChat = ({ selectedPageId, view, onNavigate, onPageChanged, bu
 
     setBusy(true);
     const pendingId = messageId('assistant');
-    append({ id: pendingId, role: 'assistant', text: 'Thinking...', pending: true });
+    append({ id: pendingId, role: 'assistant', text: '', pending: true });
     const streamController = new AbortController();
     streamAbortRef.current = streamController;
     setStreamingMessageId(pendingId);
@@ -1175,10 +1206,14 @@ const WikiWorkspaceChat = ({ selectedPageId, view, onNavigate, onPageChanged, bu
       };
       const result = await streamChatWithAgent(chatPayload, {
         signal: streamController.signal,
-        onActivity: (payload) => appendReceipt(pendingId, payload),
+        onEvent: (event, payload = {}) => handleStreamEvent(event, payload, selectedPageId),
+        onActivity: (payload) => {
+          appendReceipt(pendingId, payload);
+          handleStreamEvent('agent-activity', payload, selectedPageId);
+        },
         onDelta: (delta) => {
           streamedText += delta;
-          replaceMessage(pendingId, { text: streamedText || 'Thinking...', pending: true });
+          replaceMessage(pendingId, { text: streamedText, pending: true });
         },
         onFinal: (payload) => {
           streamedText = clean(payload?.reply) || streamedText;
@@ -1221,16 +1256,18 @@ const WikiWorkspaceChat = ({ selectedPageId, view, onNavigate, onPageChanged, bu
   return (
     <section className="wiki-workspace-chat" aria-label="Wiki agent chat">
       <header>
-        <p className="wiki-index__eyebrow">Agent workspace</p>
-        <h1>Wiki chat</h1>
-        <span>{threadId ? 'Saved thread' : 'Workspace'}</span>
+        <h1>Wiki agent</h1>
         {threadId ? (
           <Link className="wiki-workspace-chat__thread-link" to={`/think?tab=threads&threadId=${encodeURIComponent(threadId)}`}>
-            Open thread{threadTitle ? ` · ${threadTitle}` : ''}
+            Thread{threadTitle ? ` · ${threadTitle}` : ''}
           </Link>
         ) : null}
       </header>
-      <form onSubmit={submit} className="wiki-workspace-chat__composer">
+      <form
+        onSubmit={submit}
+        className="wiki-workspace-chat__composer"
+        data-streaming={streamingMessageId ? 'true' : 'false'}
+      >
         {ambientReady ? (
           <div
             className="wiki-workspace-chat__presence"
@@ -1336,14 +1373,20 @@ const WikiWorkspaceChat = ({ selectedPageId, view, onNavigate, onPageChanged, bu
         <div className="wiki-workspace-chat__composer-footer">
           {showDiscoveryHint ? (
             <span className="wiki-workspace-chat__hint">
-              Type / for commands, @ to reference your library.
+              Type / for commands, @ to reference your library. <kbd>⌘Enter</kbd> sends.
               <button type="button" onClick={() => setHintDismissed(true)} aria-label="Dismiss composer hint">Dismiss</button>
             </span>
-          ) : <span />}
+          ) : <span className="wiki-workspace-chat__shortcut"><kbd>⌘Enter</kbd> to send</span>}
           {streamingMessageId ? (
-            <Button type="button" onClick={cancelActiveStream}>Cancel</Button>
+            <Button type="button" className="wiki-workspace-chat__send is-cancel" onClick={cancelActiveStream}>Cancel</Button>
           ) : (
-            <Button type="submit" disabled={busy || !input.trim()}>{busy ? 'Sending...' : 'Send'}</Button>
+            <Button
+              type="submit"
+              className={`wiki-workspace-chat__send${input.trim() ? ' is-ready' : ' is-empty'}`}
+              disabled={busy || !input.trim()}
+            >
+              {busy ? 'Sending...' : 'Send'}
+            </Button>
           )}
         </div>
       </form>
@@ -1351,12 +1394,15 @@ const WikiWorkspaceChat = ({ selectedPageId, view, onNavigate, onPageChanged, bu
         {messages.map(message => (
           <article key={message.id} className={`wiki-workspace-chat__message is-${message.role}`}>
             <span>{message.role === 'user' ? 'You' : 'Agent'}</span>
-            <WikiChatMarkdown text={message.text} pages={wikiPages} currentPage={selectedPagePresence.page} />
+            {message.text ? (
+              <WikiChatMarkdown text={message.text} pages={wikiPages} currentPage={selectedPagePresence.page} />
+            ) : null}
             {message.pending ? <span className="wiki-workspace-chat__caret" aria-hidden="true" /> : null}
             {message.activityReceipts?.length ? (
               <ol className="wiki-workspace-chat__receipts" aria-label="Agent activity">
                 {message.activityReceipts.map(receipt => (
                   <li key={receipt.key || `${receipt.stage}:${receipt.summary}`}>
+                    <span className="wiki-workspace-chat__receipt-icon" aria-hidden="true" />
                     {receipt.summary || receipt.text || receipt.message}
                   </li>
                 ))}
@@ -1390,9 +1436,11 @@ const WikiWorkspace = () => {
   const [chatWidth, setChatWidth] = useState(initialChatWidth);
   const [busy, setBusy] = useState(false);
   const [refreshNonce, setRefreshNonce] = useState(0);
-  const [mobilePane, setMobilePane] = useState('chat');
+  const [liveUpdate, setLiveUpdate] = useState(null);
+  const [mobilePane, setMobilePane] = useState('wiki');
   const [currentSearch, setCurrentSearch] = useState(location.search);
   const [chatDraft, setChatDraft] = useState(null);
+  const [showFirstVisitOnboarding, setShowFirstVisitOnboarding] = useState(() => !hasSeenFirstVisitOnboarding());
   const currentSearchRef = useRef(location.search);
   const touchStartRef = useRef(null);
   const dragRef = useRef(null);
@@ -1422,6 +1470,7 @@ const WikiWorkspace = () => {
   useEffect(() => {
     if (selectedPageId) {
       window.localStorage?.setItem?.(LAST_PAGE_KEY, selectedPageId);
+      setMobilePane('wiki');
       return;
     }
     if (explicitView) return;
@@ -1459,6 +1508,10 @@ const WikiWorkspace = () => {
     if (pageId === selectedPageId) setRefreshNonce(value => value + 1);
   }, [selectedPageId]);
 
+  const onLiveUpdate = useCallback((update = {}) => {
+    setLiveUpdate(update);
+  }, []);
+
   const useSourceInChat = useCallback((article = {}) => {
     const title = clean(article.title || article.url || 'this source');
     const url = clean(article.url);
@@ -1473,25 +1526,49 @@ const WikiWorkspace = () => {
     setMobilePane('chat');
   }, [selectedPageId]);
 
+  const dismissFirstVisitOnboarding = useCallback(() => {
+    try {
+      window.localStorage?.setItem?.(FIRST_VISIT_SEEN_KEY, 'true');
+    } catch (_error) {
+      // localStorage can be unavailable in private or embedded contexts; dismiss in memory.
+    }
+    setShowFirstVisitOnboarding(false);
+  }, []);
+
+  const handleFirstVisitBuild = useCallback(() => {
+    dismissFirstVisitOnboarding();
+    setChatDraft({ id: `first-visit-build-${Date.now()}`, text: '/build ' });
+    setMobilePane('chat');
+  }, [dismissFirstVisitOnboarding]);
+
+  const handleFirstVisitSource = useCallback(() => {
+    dismissFirstVisitOnboarding();
+    onNavigate({ view: 'sources' });
+    setChatDraft({ id: `first-visit-source-${Date.now()}`, text: '/ingest https://' });
+    setMobilePane('chat');
+  }, [dismissFirstVisitOnboarding, onNavigate]);
+
   const rightPane = useMemo(() => {
     if (selectedPageId) {
       if (pageMode === 'edit') {
         return (
-          <WikiPageEditor
-            key={`${selectedPageId}:edit`}
-            pageId={selectedPageId}
-            workspaceMode
-            onDoneEditing={exitPageEditMode}
-          />
+          <div className="wiki-workspace__page-shell wiki-workspace__page-shell--editing">
+            <WikiPageEditor
+              key={`${selectedPageId}:edit`}
+              pageId={selectedPageId}
+              workspaceMode
+              onDoneEditing={exitPageEditMode}
+            />
+          </div>
         );
       }
       return (
         <div className="wiki-workspace__page-shell">
           <WikiPageReadView
-            key={selectedPageId}
             pageId={selectedPageId}
             workspaceMode
             refreshNonce={refreshNonce}
+            liveUpdate={liveUpdate}
             onEdit={() => enterPageEditMode(selectedPageId)}
           />
         </div>
@@ -1509,7 +1586,7 @@ const WikiWorkspace = () => {
         />
       </Suspense>
     );
-  }, [enterPageEditMode, exitPageEditMode, onNavigate, pageMode, refreshNonce, selectedPageId, useSourceInChat, view]);
+  }, [enterPageEditMode, exitPageEditMode, liveUpdate, onNavigate, pageMode, refreshNonce, selectedPageId, useSourceInChat, view]);
 
   const handleDragStart = (event) => {
     dragRef.current = { startX: event.clientX, startWidth: chatWidth };
@@ -1563,6 +1640,7 @@ const WikiWorkspace = () => {
           view={view}
           onNavigate={onNavigate}
           onPageChanged={onPageChanged}
+          onLiveUpdate={onLiveUpdate}
           busy={busy}
           setBusy={setBusy}
           chatDraft={chatDraft}
@@ -1577,6 +1655,31 @@ const WikiWorkspace = () => {
       <section className="wiki-workspace__right-pane" aria-label="Wiki workspace right pane">
         {rightPane}
       </section>
+      {showFirstVisitOnboarding ? (
+        <section className="wiki-workspace-onboarding" aria-labelledby="wiki-workspace-onboarding-title">
+          <div className="wiki-workspace-onboarding__panel">
+            <div className="wiki-workspace-onboarding__copy">
+              <p className="wiki-index__eyebrow">First visit</p>
+              <h1 id="wiki-workspace-onboarding-title">Start the wiki with one page or one source.</h1>
+              <p>
+                The workspace is split between the wiki agent and the page canvas. Build a page from a topic,
+                or drop source material and let the wiki decide what should change.
+              </p>
+            </div>
+            <div className="wiki-workspace-onboarding__actions">
+              <Button type="button" variant="primary" onClick={handleFirstVisitBuild}>Build page</Button>
+              <Button type="button" variant="secondary" onClick={handleFirstVisitSource}>Drop source</Button>
+            </div>
+            <button
+              type="button"
+              className="wiki-workspace-onboarding__skip"
+              onClick={dismissFirstVisitOnboarding}
+            >
+              Skip for now
+            </button>
+          </div>
+        </section>
+      ) : null}
     </main>
   );
 };

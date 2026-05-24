@@ -8,6 +8,7 @@ import {
   getWikiAutolinkSuggestions,
   getWikiBacklinks,
   getWikiPage,
+  getWikiPageMarkdown,
   maintainWikiPage,
   promoteWikiDiscussion,
   streamMaintainWikiPage
@@ -19,6 +20,7 @@ jest.mock('../../api/wiki', () => ({
   getWikiAutolinkSuggestions: jest.fn(),
   getWikiBacklinks: jest.fn(),
   getWikiPage: jest.fn(),
+  getWikiPageMarkdown: jest.fn(),
   maintainWikiPage: jest.fn(),
   promoteWikiDiscussion: jest.fn(),
   streamMaintainWikiPage: jest.fn()
@@ -133,6 +135,7 @@ describe('WikiPageReadView', () => {
     });
     getWikiAutolinkSuggestions.mockResolvedValue({ suggestions: [], scanned: 0 });
     maintainWikiPage.mockResolvedValue(page);
+    getWikiPageMarkdown.mockResolvedValue('---\ntitle: "Enterprise AI Memory"\n---\n\n## Core idea\n');
     askWikiPage.mockResolvedValue(page);
     createWikiPage.mockResolvedValue({ _id: 'wiki-new', title: 'Portfolio Concentration' });
     streamMaintainWikiPage.mockResolvedValue({ _id: 'wiki-new', title: 'Portfolio Concentration' });
@@ -158,6 +161,7 @@ describe('WikiPageReadView', () => {
     );
 
     expect(await screen.findByRole('heading', { name: 'Enterprise AI Memory' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Enterprise AI Memory' }).querySelector('em')).toHaveTextContent('Memory');
     expect(screen.queryByLabelText('Wiki page title')).not.toBeInTheDocument();
     expect(screen.queryByTestId('wiki-editor-content')).not.toBeInTheDocument();
     expect(document.querySelector('[contenteditable="true"]')).not.toBeInTheDocument();
@@ -182,6 +186,54 @@ describe('WikiPageReadView', () => {
     expect(onEdit).toHaveBeenCalledTimes(1);
   });
 
+  it('renders citation marginalia on wide readers without replacing references', async () => {
+    window.matchMedia = jest.fn().mockReturnValue({
+      matches: true,
+      addEventListener: jest.fn(),
+      removeEventListener: jest.fn()
+    });
+
+    render(
+      <MemoryRouter>
+        <WikiPageReadView pageId="wiki-1" onEdit={jest.fn()} />
+      </MemoryRouter>
+    );
+
+    const marginalia = await screen.findByLabelText('Citation previews');
+    expect(within(marginalia).getByRole('link', { name: /\[1\].*Memory article/s })).toHaveAttribute('href', '#wiki-ref-1');
+    expect(screen.getByRole('heading', { name: 'References' })).toBeInTheDocument();
+  });
+
+  it('renders pullquote blocks in read mode', async () => {
+    getWikiPage.mockResolvedValueOnce({
+      ...page,
+      body: {
+        ...page.body,
+        content: [
+          ...page.body.content,
+          {
+            type: 'pullquote',
+            attrs: { attribution: 'Research memo' },
+            content: [{
+              type: 'paragraph',
+              content: [{ type: 'text', text: 'Memory is a compounding asset.' }]
+            }]
+          }
+        ]
+      }
+    });
+
+    render(
+      <MemoryRouter>
+        <WikiPageReadView pageId="wiki-1" onEdit={jest.fn()} />
+      </MemoryRouter>
+    );
+
+    const quote = (await screen.findByText('Memory is a compounding asset.')).closest('blockquote');
+    expect(quote).toHaveClass('wiki-read-pullquote');
+    expect(screen.getByText('Research memo').tagName.toLowerCase()).toBe('cite');
+  });
+
   it('keeps standalone reader presentational even when workspace routing is canonical', async () => {
     process.env.REACT_APP_WIKI_WORKSPACE_V1 = 'true';
 
@@ -193,6 +245,115 @@ describe('WikiPageReadView', () => {
 
     expect(await screen.findByRole('heading', { name: 'Enterprise AI Memory' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Edit' })).toBeInTheDocument();
+  });
+
+  it('marks the reader by page type and renders an article progress hairline', async () => {
+    render(
+      <MemoryRouter>
+        <WikiPageReadView pageId="wiki-1" onEdit={jest.fn()} />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByRole('heading', { name: 'Enterprise AI Memory' })).toBeInTheDocument();
+    expect(document.querySelector('.wiki-read')).toHaveClass('wiki-read--type-overview');
+    expect(document.querySelector('.wiki-read__progress span')).toBeInTheDocument();
+  });
+
+  it('keeps the mounted article visible while a new page is loading', async () => {
+    let resolveNextPage;
+    getWikiPage
+      .mockResolvedValueOnce(page)
+      .mockImplementationOnce(() => new Promise(resolve => {
+        resolveNextPage = resolve;
+      }));
+
+    const { rerender } = render(
+      <MemoryRouter>
+        <WikiPageReadView pageId="wiki-1" onEdit={jest.fn()} />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByRole('heading', { name: 'Enterprise AI Memory' })).toBeInTheDocument();
+
+    rerender(
+      <MemoryRouter>
+        <WikiPageReadView pageId="wiki-2" onEdit={jest.fn()} />
+      </MemoryRouter>
+    );
+
+    expect(screen.queryByText('Loading Wiki page...')).not.toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Enterprise AI Memory' })).toBeInTheDocument();
+    expect(document.querySelector('.wiki-read__body')).toHaveAttribute('data-state', 'exiting');
+    expect(document.querySelector('.wiki-read__body')).toHaveClass('wiki-read__body--transitioning');
+
+    await act(async () => {
+      resolveNextPage({
+        ...page,
+        _id: 'wiki-2',
+        title: 'Systems Thinking',
+        body: {
+          type: 'doc',
+          content: [
+            { type: 'heading', attrs: { level: 2 }, content: [{ type: 'text', text: 'Feedback loops' }] },
+            { type: 'paragraph', content: [{ type: 'text', text: 'Systems thinking keeps the page shell mounted.' }] }
+          ]
+        }
+      });
+    });
+
+    expect(await screen.findByRole('heading', { name: 'Systems Thinking' })).toBeInTheDocument();
+    expect(screen.getByText('Systems thinking keeps the page shell mounted.')).toBeInTheDocument();
+    expect(document.querySelector('.wiki-read__body')).toHaveAttribute('data-state', 'entering');
+  });
+
+  it('AT-46 — exposes copy and download markdown actions for a standalone page', async () => {
+    const writeText = jest.fn().mockResolvedValue(undefined);
+    Object.assign(navigator, { clipboard: { writeText } });
+    const originalCreateObjectURL = URL.createObjectURL;
+    const originalRevokeObjectURL = URL.revokeObjectURL;
+    URL.createObjectURL = jest.fn().mockReturnValue('blob:wiki-markdown');
+    URL.revokeObjectURL = jest.fn();
+    const click = jest.fn();
+    const appendChild = jest.spyOn(document.body, 'appendChild');
+    const createElement = jest.spyOn(document, 'createElement').mockImplementation((tagName) => {
+      const element = document.createElementNS('http://www.w3.org/1999/xhtml', tagName);
+      if (tagName === 'a') {
+        element.click = click;
+        element.remove = jest.fn();
+      }
+      return element;
+    });
+
+    try {
+      render(
+        <MemoryRouter>
+          <WikiPageReadView pageId="wiki-1" onEdit={jest.fn()} />
+        </MemoryRouter>
+      );
+
+      await screen.findByRole('heading', { name: 'Enterprise AI Memory' });
+      fireEvent.click(screen.getByRole('button', { name: 'Copy markdown' }));
+      await waitFor(() => expect(getWikiPageMarkdown).toHaveBeenCalledWith('wiki-1'));
+      await waitFor(() => expect(writeText).toHaveBeenCalledWith(expect.stringContaining('## Core idea')));
+      expect(screen.getByRole('status')).toHaveTextContent('Markdown copied.');
+
+      fireEvent.click(screen.getByRole('button', { name: 'Download .md' }));
+      await waitFor(() => expect(getWikiPageMarkdown).toHaveBeenCalledTimes(2));
+      await waitFor(() => expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:wiki-markdown'));
+      expect(appendChild).toHaveBeenLastCalledWith(expect.objectContaining({
+        download: 'enterprise-ai-memory.md',
+        href: 'blob:wiki-markdown'
+      }));
+      expect(click).toHaveBeenCalledTimes(1);
+      expect(screen.getByRole('status')).toHaveTextContent('Markdown downloaded.');
+    } finally {
+      if (originalCreateObjectURL) URL.createObjectURL = originalCreateObjectURL;
+      else delete URL.createObjectURL;
+      if (originalRevokeObjectURL) URL.revokeObjectURL = originalRevokeObjectURL;
+      else delete URL.revokeObjectURL;
+      appendChild.mockRestore();
+      createElement.mockRestore();
+    }
   });
 
   it('updates the left contents rail as the reader scrolls through sections', async () => {
@@ -360,6 +521,93 @@ describe('WikiPageReadView', () => {
     }
   });
 
+  it('caps the right-rail scope summary instead of dumping the whole lead paragraph', async () => {
+    const longLead = 'Investing is the disciplined allocation of capital to assets that are expected to generate cash flows exceeding their purchase price over a horizon that matches the investor time preference while navigating behavioral pressure and market uncertainty.';
+    getWikiPage.mockResolvedValueOnce({
+      ...page,
+      pageType: 'overview',
+      metadata: {},
+      body: {
+        type: 'doc',
+        content: [{
+          type: 'paragraph',
+          content: [{ type: 'text', text: longLead }]
+        }]
+      }
+    });
+
+    render(
+      <MemoryRouter>
+        <WikiPageReadView pageId="wiki-summary-cap" onEdit={jest.fn()} />
+      </MemoryRouter>
+    );
+
+    const rail = await screen.findByRole('complementary', { name: 'Page context' });
+    await flushDeferredWikiReadWork();
+    const showContext = within(rail).queryByRole('button', { name: /show context/i });
+    if (showContext) {
+      await act(async () => { fireEvent.click(showContext); });
+    }
+
+    expect(rail).toHaveTextContent('Investing is the disciplined allocation of capital to assets that are expected...');
+    expect(rail).not.toHaveTextContent('while navigating behavioral pressure and market uncertainty');
+  });
+
+  it('animates infobox numeric counts on load and on live source or claim count changes', async () => {
+    const { rerender } = render(
+      <MemoryRouter>
+        <WikiPageReadView pageId="wiki-1" onEdit={jest.fn()} />
+      </MemoryRouter>
+    );
+
+    const rail = await screen.findByRole('complementary', { name: 'Page context' });
+    await flushDeferredWikiReadWork();
+    await act(async () => {
+      fireEvent.click(within(rail).getByRole('button', { name: /show context/i }));
+    });
+
+    const sourceValue = () => rail.querySelector('[data-infobox-row="sources"] dd');
+    const claimValue = () => rail.querySelector('[data-infobox-row="claims"] dd');
+    expect(sourceValue()).toHaveTextContent('0');
+    expect(claimValue()).toHaveTextContent('0');
+
+    await act(async () => {
+      jest.advanceTimersByTime(620);
+    });
+    expect(sourceValue()).toHaveTextContent('2');
+    expect(claimValue()).toHaveTextContent('3');
+
+    getWikiPage.mockResolvedValueOnce({
+      ...page,
+      title: 'Enterprise AI Memory refreshed',
+      sourceRefs: [
+        ...page.sourceRefs,
+        { _id: 'source-3', title: 'Fresh source', snippet: 'New source evidence.' }
+      ],
+      claims: [
+        ...page.claims,
+        { claimId: 'claim-4', text: 'Fresh claim.', support: 'partial' }
+      ]
+    });
+
+    rerender(
+      <MemoryRouter>
+        <WikiPageReadView pageId="wiki-1" onEdit={jest.fn()} refreshNonce={1} />
+      </MemoryRouter>
+    );
+    await waitFor(() => expect(getWikiPage).toHaveBeenCalledTimes(2));
+    await screen.findByRole('heading', { name: 'Enterprise AI Memory refreshed' });
+
+    expect(sourceValue()).toHaveTextContent('2');
+    expect(claimValue()).toHaveTextContent('3');
+
+    await act(async () => {
+      jest.advanceTimersByTime(620);
+    });
+    expect(sourceValue()).toHaveTextContent('3');
+    expect(claimValue()).toHaveTextContent('4');
+  });
+
   it('AT-22 — defaults the page-context rail to collapsed and toggles via Show/Hide', async () => {
     render(
       <MemoryRouter>
@@ -377,7 +625,9 @@ describe('WikiPageReadView', () => {
     await act(async () => { fireEvent.click(within(rail).getByRole('button', { name: /show context/i })); });
     expect(rail).not.toHaveClass('wiki-read__rail--collapsed');
     expect(rail.querySelector('.wiki-read__infobox')).toBeInTheDocument();
-    expect(within(rail).getByRole('button', { name: /hide/i })).toHaveAttribute('aria-expanded', 'true');
+    const hideButton = within(rail).getByRole('button', { name: /hide/i });
+    expect(hideButton).toHaveAttribute('aria-expanded', 'true');
+    expect(hideButton).toHaveTextContent('›');
     expect(window.localStorage.getItem('noeis.wiki.read.rail_collapsed')).toBe('0');
 
     await act(async () => { fireEvent.click(within(rail).getByRole('button', { name: /hide/i })); });
@@ -537,8 +787,10 @@ describe('WikiPageReadView', () => {
 
     await waitFor(() => {
       expect(getWikiPage).toHaveBeenCalledWith('wiki-related');
-      expect(screen.getByRole('tooltip')).toHaveTextContent('Small gains compound into durable knowledge.');
-      expect(screen.getByRole('tooltip')).toHaveTextContent('1 source');
+      const tooltip = screen.getByRole('tooltip');
+      expect(tooltip).toHaveClass('wiki-read-link-preview');
+      expect(tooltip).toHaveTextContent('Small gains compound into durable knowledge.');
+      expect(tooltip).toHaveTextContent('1 source');
     });
   });
 
@@ -627,5 +879,40 @@ describe('WikiPageReadView', () => {
 
     fireEvent.click(within(ref).getByRole('link', { name: 'Jump back to citation 1' }));
     expect(citation.scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth', block: 'start' });
+  });
+
+  it('highlights a live edited paragraph and marks its table of contents section until clicked', async () => {
+    const { rerender } = render(
+      <MemoryRouter>
+        <WikiPageReadView pageId="wiki-1" onEdit={jest.fn()} />
+      </MemoryRouter>
+    );
+    await screen.findByRole('heading', { name: 'Core idea' });
+
+    rerender(
+      <MemoryRouter>
+        <WikiPageReadView
+          pageId="wiki-1"
+          onEdit={jest.fn()}
+          liveUpdate={{ pageId: 'wiki-1', anchorId: 'wiki-block-1' }}
+        />
+      </MemoryRouter>
+    );
+    await act(async () => {
+      jest.advanceTimersByTime(20);
+    });
+
+    const paragraph = document.getElementById('wiki-block-1');
+    expect(paragraph).toHaveClass('wiki-read__paragraph--recent');
+    const toc = screen.getByRole('navigation', { name: 'Page sections' });
+    expect(within(toc).getByLabelText('Recently updated')).toBeInTheDocument();
+
+    fireEvent.click(within(toc).getByRole('link', { name: /Core idea/i }));
+    expect(within(toc).queryByLabelText('Recently updated')).not.toBeInTheDocument();
+
+    await act(async () => {
+      jest.advanceTimersByTime(2000);
+    });
+    expect(paragraph).not.toHaveClass('wiki-read__paragraph--recent');
   });
 });

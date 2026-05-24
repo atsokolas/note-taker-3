@@ -719,8 +719,15 @@ body.noeis-editorial .topbar__menu-popover {
 
 body.noeis-editorial .topbar__menu-popover .topbar__menu-item {
   display: flex;
+  gap: 8px;
   justify-content: flex-start;
   width: 100%;
+}
+
+body.noeis-editorial .topbar__menu-separator {
+  height: 1px;
+  margin: 3px 0;
+  background: color-mix(in srgb, var(--vellum-line) 76%, transparent);
 }
 
 body.noeis-editorial .topbar--manuscript .topbar__content {

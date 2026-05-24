@@ -2,7 +2,7 @@ import React from 'react';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import WikiIndex from './WikiIndex';
-import { createWikiPage, getWikiBriefing, ingestWikiSource, listWikiActivity, listWikiPages, rebuildWikiGraph, streamMaintainWikiPage } from '../../api/wiki';
+import { createWikiPage, getWikiBriefing, listWikiActivity, listWikiPages, rebuildWikiGraph, streamMaintainWikiPage } from '../../api/wiki';
 import { fetchGraphData } from '../../api/map';
 
 jest.mock('../../api/wiki', () => ({
@@ -88,6 +88,18 @@ const pages = [
   }
 ];
 
+const graphPages = [
+  ...pages,
+  ...Array.from({ length: 8 }, (_, index) => ({
+    _id: `wiki-extra-${index + 1}`,
+    title: `Extra Wiki Page ${index + 1}`,
+    pageType: 'topic',
+    plainText: 'Additional page used to cross the sparse graph threshold.',
+    sourceRefs: [],
+    updatedAt: '2026-05-01T12:00:00.000Z'
+  }))
+];
+
 const setViewportWidth = (width) => {
   Object.defineProperty(window, 'innerWidth', {
     configurable: true,
@@ -104,12 +116,6 @@ describe('WikiIndex graph', () => {
     getWikiBriefing.mockRejectedValue(new Error('not relevant in WikiIndex tests'));
     createWikiPage.mockResolvedValue({ _id: 'wiki-new', title: 'Portfolio Concentration' });
     streamMaintainWikiPage.mockResolvedValue({ _id: 'wiki-new', title: 'Portfolio Concentration' });
-    ingestWikiSource.mockResolvedValue({
-      runId: 'run-1',
-      sourceRef: { title: 'Research memo' },
-      affectedPageIds: ['wiki-1'],
-      status: 'processed'
-    });
     listWikiActivity.mockResolvedValue([{
       id: 'activity-1',
       type: 'ingest',
@@ -119,7 +125,7 @@ describe('WikiIndex graph', () => {
       runId: 'run-1',
       at: '2026-05-04T12:00:00.000Z'
     }]);
-    listWikiPages.mockResolvedValue(pages);
+    listWikiPages.mockResolvedValue(graphPages);
     rebuildWikiGraph.mockResolvedValue({ edgesCreated: 1, edgesDeleted: 0 });
     fetchGraphData.mockResolvedValue({ nodes: [], edges: [] });
   });
@@ -133,16 +139,15 @@ describe('WikiIndex graph', () => {
 
     expect(await screen.findByTestId('wiki-force-graph')).toBeInTheDocument();
     expect(screen.getByText('Knowledge map')).toBeInTheDocument();
-    expect(screen.getByText('2 pages · 1 link')).toBeInTheDocument();
-    expect(screen.getByLabelText('Wiki map signals')).toHaveTextContent('Hubs');
-    expect(screen.getByLabelText('Wiki map signals')).toHaveTextContent('Enterprise AI Memory, Investing');
-    expect(screen.getByLabelText('Wiki map signals')).toHaveTextContent('Evidence overlap');
-    expect(screen.getByLabelText('Wiki map signals')).toHaveTextContent('Sync');
-    expect(screen.getByLabelText('Wiki graph sync')).toHaveTextContent('Persisted graph needs sync');
+    expect(screen.getByText('10 pages · 1 link')).toBeInTheDocument();
+    expect(screen.getByLabelText('Wiki map signals')).toHaveTextContent('Brightest');
+    expect(screen.getByLabelText('Wiki map signals')).toHaveTextContent('8 unlinked');
+    expect(screen.getByLabelText('Wiki map signals')).toHaveTextContent('0 shared-source ties');
+    expect(screen.getByLabelText('Wiki map signals')).toHaveTextContent('Map needs refresh');
+    expect(screen.getByLabelText('Wiki graph sync')).toHaveTextContent('Map needs refresh');
     expect(screen.getByRole('button', { name: 'Sync graph' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /^Inline links\s*1$/ })).toHaveClass('is-active');
     expect(screen.getByRole('link', { name: 'List' })).toHaveAttribute('href', '/wiki/list');
-    expect(screen.getByLabelText('Ask the wiki agent to build a page')).toBeInTheDocument();
     expect(await screen.findByText('Research memo')).toBeInTheDocument();
     expect(fetchGraphData).toHaveBeenCalledWith(expect.objectContaining({
       itemTypes: ['wiki_page']
@@ -152,7 +157,7 @@ describe('WikiIndex graph', () => {
     fireEvent.change(screen.getByLabelText('Page type'), { target: { value: 'source' } });
     expect(screen.getByText('1 page · 0 links')).toBeInTheDocument();
 
-    fireEvent.change(screen.getByLabelText('Drift status'), { target: { value: 'stable' } });
+    fireEvent.change(screen.getByLabelText('Review status'), { target: { value: 'stable' } });
     expect(screen.getByText('0 pages · 0 links')).toBeInTheDocument();
   });
 
@@ -166,7 +171,7 @@ describe('WikiIndex graph', () => {
     );
 
     expect(await screen.findByTestId('wiki-force-graph')).toBeInTheDocument();
-    expect(screen.getByText('2 pages · 1 link')).toBeInTheDocument();
+    expect(screen.getByText('10 pages · 1 link')).toBeInTheDocument();
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 
@@ -210,7 +215,7 @@ describe('WikiIndex graph', () => {
       expect(rebuildWikiGraph).toHaveBeenCalledWith({ limit: 500 });
     });
     expect(await screen.findByText('Wiki graph synced')).toBeInTheDocument();
-    expect(screen.getByLabelText('Wiki graph sync')).toHaveTextContent('Persisted graph synced');
+    expect(screen.getByLabelText('Wiki graph sync')).toHaveTextContent('Map up to date');
   });
 
   it('degrades to the mobile page list instead of the force graph under 720px', async () => {
@@ -225,44 +230,39 @@ describe('WikiIndex graph', () => {
     expect(await screen.findByLabelText('Wiki pages mobile list')).toBeInTheDocument();
     expect(screen.queryByTestId('wiki-force-graph')).not.toBeInTheDocument();
     await waitFor(() => {
-      expect(screen.getByText('2 pages · 1 link')).toBeInTheDocument();
+      expect(screen.getByText('10 pages · 1 link')).toBeInTheDocument();
     });
   });
 
-  it('feeds a pasted URL into the wiki and exposes ingest details', async () => {
+  it('hides the graph for sparse wikis and exposes an editorial build surface', async () => {
+    listWikiPages.mockResolvedValueOnce(pages);
+
     render(
       <MemoryRouter>
         <WikiIndex />
       </MemoryRouter>
     );
 
-    await screen.findByText('Knowledge map');
-    fireEvent.change(screen.getByLabelText('Source to feed to wiki'), {
-      target: { value: 'https://example.com/memo' }
-    });
-    fireEvent.click(screen.getByRole('button', { name: 'Feed' }));
-
-    await waitFor(() => {
-      expect(ingestWikiSource).toHaveBeenCalledWith({ type: 'url', url: 'https://example.com/memo' });
-    });
-
-    const status = await screen.findByRole('status');
-    expect(status).toHaveTextContent('Reading Research memo');
-    expect(status).toHaveTextContent('1 page updated so far.');
-    expect(within(status).getByRole('link', { name: 'View details' })).toHaveAttribute('href', '/wiki/activity/run-1');
+    expect(await screen.findByText('Knowledge map')).toBeInTheDocument();
+    expect(screen.getByText('2 pages · 1 link')).toBeInTheDocument();
+    expect(screen.queryByTestId('wiki-force-graph')).not.toBeInTheDocument();
+    expect(screen.getByText('2 current pages')).toBeInTheDocument();
+    expect(screen.getByLabelText('Build pages with wiki agent')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Enterprise AI Memory/ })).toBeInTheDocument();
   });
 
-  it('shows a no-match ingest status when no pages were affected', async () => {
-    ingestWikiSource.mockResolvedValueOnce({
-      runId: 'run-empty',
-      sourceRef: { title: 'Unmatched source' },
-      affectedPageIds: [],
-      status: 'ignored',
-      suggestedCreatePage: {
-        title: 'Unmatched source',
-        source: { type: 'external', title: 'Unmatched source' }
+  it('renders the constellation once the wiki has at least three pages', async () => {
+    listWikiPages.mockResolvedValueOnce([
+      ...pages,
+      {
+        _id: 'wiki-3',
+        title: 'Third Wiki Page',
+        pageType: 'topic',
+        plainText: 'Enough material to leave the sparse empty state.',
+        sourceRefs: [],
+        updatedAt: '2026-05-01T12:00:00.000Z'
       }
-    });
+    ]);
 
     render(
       <MemoryRouter>
@@ -270,14 +270,8 @@ describe('WikiIndex graph', () => {
       </MemoryRouter>
     );
 
-    await screen.findByText('Knowledge map');
-    fireEvent.change(screen.getByLabelText('Source to feed to wiki'), {
-      target: { value: 'https://example.com/unknown' }
-    });
-    fireEvent.click(screen.getByRole('button', { name: 'Feed' }));
-
-    const status = await screen.findByRole('status');
-    expect(status).toHaveTextContent('No matching pages yet. Create "Unmatched source" from this source?');
-    expect(within(status).getByRole('link', { name: 'View details' })).toHaveAttribute('href', '/wiki/activity/run-empty');
+    expect(await screen.findByTestId('wiki-force-graph')).toBeInTheDocument();
+    expect(screen.getByText('3 pages · 1 link')).toBeInTheDocument();
+    expect(screen.queryByText('3 current pages')).not.toBeInTheDocument();
   });
 });

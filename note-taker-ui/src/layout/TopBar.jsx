@@ -6,11 +6,11 @@ import { THEME_OPTIONS } from '../settings/uiPreferences';
 const TopBar = ({
   rightSlot,
   brandEnergy = true,
-  helpMenu = null,
   primaryNav = [],
   utilityNav = [],
   secondaryNav = [],
   searchMode = 'field',
+  onSearchOpen = null,
   accountMenuItems = [],
   className = '',
   theme = 'auto',
@@ -34,13 +34,11 @@ const TopBar = ({
   );
   const navigate = useNavigate();
   const location = useLocation();
-  const [query, setQuery] = useState('');
-  const [helpOpen, setHelpOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
-  const helpMenuRef = useRef(null);
   const moreMenuRef = useRef(null);
   const accountMenuRef = useRef(null);
+  const showMoreMenu = secondaryNav.length > 0;
 
   const isNavItemActive = useMemo(() => (item) => {
     if (typeof item.match === 'function') {
@@ -49,10 +47,12 @@ const TopBar = ({
     return location.pathname === item.to;
   }, [location]);
 
-  const handleSearch = () => {
-    const value = query.trim();
-    if (!value) return;
-    navigate(`/search?mode=keyword&q=${encodeURIComponent(value)}`);
+  const openSearch = () => {
+    if (onSearchOpen) {
+      onSearchOpen();
+      return;
+    }
+    navigate('/search');
   };
 
   useEffect(() => {
@@ -73,19 +73,16 @@ const TopBar = ({
   }, [themeMenuOpen]);
 
   useEffect(() => {
-    if (!helpOpen) return undefined;
+    if (!moreOpen && !accountOpen) return undefined;
     const onPointerDown = (event) => {
       const target = event.target;
-      if (helpMenuRef.current?.contains(target)) return;
       if (moreMenuRef.current?.contains(target)) return;
       if (accountMenuRef.current?.contains(target)) return;
-      setHelpOpen(false);
       setMoreOpen(false);
       setAccountOpen(false);
     };
     const onKeyDown = (event) => {
       if (event.key === 'Escape') {
-        setHelpOpen(false);
         setMoreOpen(false);
         setAccountOpen(false);
       }
@@ -96,7 +93,7 @@ const TopBar = ({
       window.removeEventListener('mousedown', onPointerDown);
       window.removeEventListener('keydown', onKeyDown);
     };
-  }, [helpOpen, moreOpen, accountOpen]);
+  }, [moreOpen, accountOpen]);
 
   return (
     <header className={`topbar topbar--noeis ${className}`.trim()}>
@@ -122,18 +119,14 @@ const TopBar = ({
         </div>
         {searchMode === 'field' ? (
           <div className="topbar__search-slot">
-            <div className="topbar__search-wrap">
+            <button
+              type="button"
+              className="topbar__search-wrap topbar__search-trigger"
+              aria-label="Open command palette"
+              onClick={openSearch}
+            >
               <span className="topbar__search-icon" aria-hidden="true" />
-              <input
-                type="text"
-                className="topbar__search"
-                placeholder="Search fragments"
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter') handleSearch();
-                }}
-              />
+              <span className="topbar__search-trigger-label">Search fragments</span>
               <kbd
                 className="topbar__search-kbd"
                 aria-hidden="true"
@@ -141,7 +134,7 @@ const TopBar = ({
               >
                 ⌘K
               </kbd>
-            </div>
+            </button>
           </div>
         ) : null}
         <div className="topbar__right">
@@ -149,9 +142,9 @@ const TopBar = ({
             <button
               type="button"
               className="topbar__icon-button"
-              aria-label="Search"
+              aria-label="Open command palette"
               title="Search"
-              onClick={() => navigate('/search')}
+              onClick={openSearch}
             >
               <span aria-hidden="true">⌕</span>
             </button>
@@ -173,7 +166,6 @@ const TopBar = ({
                 }}
               >
                 <span aria-hidden="true" className={`topbar__theme-icon topbar__theme-icon--${currentThemeOption.value}`} />
-                <span className="topbar__theme-label">{currentThemeOption.shortLabel}</span>
               </button>
               {themeMenuOpen && (
                 <div className="topbar__menu-popover topbar__theme-popover" role="menu">
@@ -228,7 +220,7 @@ const TopBar = ({
               </button>
             )
           ))}
-          {secondaryNav.length > 0 && (
+          {showMoreMenu && (
             <div className="topbar__menu" ref={moreMenuRef}>
               <button
                 type="button"
@@ -238,7 +230,6 @@ const TopBar = ({
                 onClick={() => {
                   setMoreOpen((prev) => {
                     const next = !prev;
-                    if (next) setHelpOpen(false);
                     if (next) setAccountOpen(false);
                     return next;
                   });
@@ -290,80 +281,6 @@ const TopBar = ({
               )}
             </div>
           )}
-          {helpMenu && (
-            <div className="topbar__menu" ref={helpMenuRef}>
-              <button
-                type="button"
-                className={`topbar__button topbar__tour-button ${helpOpen ? 'is-active' : ''} ${helpMenu.progress?.status === 'in_progress' || helpMenu.progress?.status === 'paused' ? 'has-progress' : ''}`.trim()}
-                aria-haspopup="menu"
-                aria-expanded={helpOpen}
-                aria-label={
-                  helpMenu.progress && (helpMenu.progress.status === 'in_progress' || helpMenu.progress.status === 'paused')
-                    ? `Tour: ${helpMenu.progress.completed} of ${helpMenu.progress.total} steps complete`
-                    : 'Tour'
-                }
-                title={
-                  helpMenu.progress && (helpMenu.progress.status === 'in_progress' || helpMenu.progress.status === 'paused')
-                    ? `Tour: ${helpMenu.progress.completed} of ${helpMenu.progress.total} steps complete`
-                    : 'Tour'
-                }
-                data-testid="topbar-tour-button"
-                onClick={() => {
-                  setHelpOpen(prev => {
-                    const next = !prev;
-                    if (next) setMoreOpen(false);
-                    if (next) setAccountOpen(false);
-                    return next;
-                  });
-                }}
-              >
-                <span>Tour</span>
-                {helpMenu.progress && (helpMenu.progress.status === 'in_progress' || helpMenu.progress.status === 'paused') && (
-                  <span className="topbar__tour-progress" aria-hidden="true">
-                    {helpMenu.progress.completed}/{helpMenu.progress.total}
-                  </span>
-                )}
-              </button>
-              {helpOpen && (
-                <div className="topbar__menu-popover" role="menu">
-                  <button
-                    type="button"
-                    className="topbar__menu-item"
-                    role="menuitem"
-                    onClick={() => {
-                      setHelpOpen(false);
-                      helpMenu.onStart?.();
-                    }}
-                  >
-                    Start onboarding
-                  </button>
-                  <button
-                    type="button"
-                    className="topbar__menu-item"
-                    role="menuitem"
-                    onClick={() => {
-                      setHelpOpen(false);
-                      helpMenu.onResume?.();
-                    }}
-                    disabled={!helpMenu.canResume}
-                  >
-                    Resume onboarding
-                  </button>
-                  <button
-                    type="button"
-                    className="topbar__menu-item"
-                    role="menuitem"
-                    onClick={() => {
-                      setHelpOpen(false);
-                      helpMenu.onRestart?.();
-                    }}
-                  >
-                    Restart onboarding
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
           {accountMenuItems.length > 0 && (
             <div className="topbar__menu" ref={accountMenuRef}>
               <button
@@ -378,7 +295,6 @@ const TopBar = ({
                     const next = !prev;
                     if (next) {
                       setMoreOpen(false);
-                      setHelpOpen(false);
                     }
                     return next;
                   });

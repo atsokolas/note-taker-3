@@ -5,7 +5,6 @@ import { createWikiPage, deleteWikiPage, listWikiPages } from '../../api/wiki';
 import { buildWikiCreatePayload, openWikiDraft } from '../../utils/wikiCreate';
 import { wikiPagePath } from '../../utils/wikiFeatureFlags';
 import WikiBriefing from './WikiBriefing';
-import WikiBuildPageComposer from './WikiBuildPageComposer';
 import WikiEmergingProposals from './WikiEmergingProposals';
 import WikiInbox from './WikiInbox';
 import { PAGE_TYPES, formatDate, labelFor } from './wikiGraph';
@@ -15,11 +14,13 @@ const STATUSES = ['all', 'draft', 'published', 'archived'];
 
 const WikiPageCard = ({ deleting, page, onDelete, onOpen }) => {
   const snippet = String(page.plainText || '').trim();
+  const title = page.title || 'Untitled Wiki Page';
   return (
     <SurfaceCard
       className="wiki-index__page-card"
       role="button"
       tabIndex={0}
+      aria-label={`Open ${title}`}
       onClick={onOpen}
       onKeyDown={(event) => {
         if (event.key === 'Enter' || event.key === ' ') {
@@ -30,27 +31,27 @@ const WikiPageCard = ({ deleting, page, onDelete, onOpen }) => {
     >
       <div className="wiki-index__page-meta">
         <span>{labelFor(page.pageType || 'topic')}</span>
-        <span>{labelFor(page.visibility || 'private')}</span>
-        <span>{labelFor(page.status || 'draft')}</span>
       </div>
-      <h2>{page.title || 'Untitled Wiki Page'}</h2>
+      <h2>{title}</h2>
       <p>{snippet || 'No body yet. Open the page to start writing.'}</p>
       <div className="wiki-index__page-footer">
-        <span>{Array.isArray(page.sourceRefs) ? page.sourceRefs.length : 0} sources</span>
+        <span>{Array.isArray(page.sourceRefs) ? page.sourceRefs.length : 0} sources · {labelFor(page.status || 'draft')}</span>
         <span>{formatDate(page.updatedAt)}</span>
       </div>
       <div className="wiki-index__page-actions">
         <Button
           type="button"
           variant="secondary"
+          className="wiki-index__page-delete"
           disabled={deleting}
+          aria-label={`Archive ${title}`}
           onClick={(event) => {
             event.stopPropagation();
             onDelete();
           }}
           onKeyDown={(event) => event.stopPropagation()}
         >
-          {deleting ? 'Deleting...' : 'Delete'}
+          {deleting ? 'Archiving...' : 'Archive'}
         </Button>
       </div>
     </SurfaceCard>
@@ -127,14 +128,14 @@ const WikiList = ({ compact = false, onOpenPage }) => {
   const handleDelete = async (page) => {
     if (!page?._id) return;
     const title = page.title || 'Untitled Wiki Page';
-    if (!window.confirm(`Delete "${title}"?`)) return;
+    if (!window.confirm(`Archive "${title}"?`)) return;
     setDeletingId(page._id);
     setError('');
     try {
       await deleteWikiPage(page._id);
       setPages(current => current.filter(item => item._id !== page._id));
     } catch (_error) {
-      setError('Failed to delete Wiki page.');
+      setError('Failed to archive Wiki page.');
     } finally {
       setDeletingId('');
     }
@@ -145,7 +146,6 @@ const WikiList = ({ compact = false, onOpenPage }) => {
       {!compact ? (
         <>
           <WikiBriefing />
-          <WikiBuildPageComposer onBuilt={loadPages} />
           <WikiEmergingProposals />
           <WikiInbox />
           <section className="wiki-index__header">
@@ -169,8 +169,6 @@ const WikiList = ({ compact = false, onOpenPage }) => {
           </section>
         </>
       ) : null}
-
-      {compact ? <WikiBuildPageComposer compact onBuilt={loadPages} /> : null}
 
       <section className="wiki-index__filters" aria-label={compact ? 'Wiki mobile list filters' : 'Wiki filters'}>
         <input

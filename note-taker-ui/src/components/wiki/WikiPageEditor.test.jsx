@@ -368,6 +368,8 @@ describe('WikiPageEditor', () => {
     expect(screen.queryByLabelText('Wiki AI and sources')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Show AI/Sources' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Attach source' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Back to Wiki' })).not.toBeInTheDocument();
+    expect(screen.getByText('Editing page')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Done editing' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Linkify' })).toBeInTheDocument();
   });

@@ -622,6 +622,16 @@ const run = async () => {
   const url = `http://127.0.0.1:${server.address().port}`;
 
   try {
+    const unsupportedCreate = await request(url, '/api/wiki/pages', {
+      method: 'POST',
+      body: JSON.stringify({
+        title: 'Imported Page',
+        sourceRefs: [{ title: 'Raw source' }]
+      })
+    });
+    assert.strictEqual(unsupportedCreate.res.status, 400, unsupportedCreate.text);
+    assert.match(unsupportedCreate.body.error, /Unsupported wiki page metadata fields: sourceRefs/);
+
     const created = await request(url, '/api/wiki/pages', {
       method: 'POST',
       body: JSON.stringify({
@@ -780,10 +790,15 @@ const run = async () => {
     const markdown = await request(url, `/api/wiki/pages/${created.body._id}/markdown`);
     assert.strictEqual(markdown.res.status, 200, markdown.text);
     assert.match(markdown.res.headers.get('content-type') || '', /text\/markdown/);
+    assert.match(markdown.res.headers.get('content-disposition') || '', /attachment; filename="contract-page-updated\.md"/);
     assert.ok(markdown.text.includes('title: "Contract Page Updated"'));
     assert.ok(markdown.text.includes('## Key Signals'));
     assert.ok(markdown.text.includes('## References'));
     assert.ok(markdown.text.includes('Enterprise AI memory article'));
+
+    const missingMarkdown = await request(url, `/api/wiki/pages/${new mongoose.Types.ObjectId()}/markdown`);
+    assert.strictEqual(missingMarkdown.res.status, 404, missingMarkdown.text);
+    assert.strictEqual(missingMarkdown.body.error, 'Wiki page not found.');
 
     const streamed = await request(url, `/api/wiki/pages/${created.body._id}/ai/draft/stream`, { method: 'POST' });
     assert.strictEqual(streamed.res.status, 200, streamed.text);

@@ -531,11 +531,6 @@ const buildAgentChatRouter = ({
           summary: `Loaded ${referenceCount} referenced item${referenceCount === 1 ? '' : 's'}.`
         });
       }
-      emitActivity(res, activityReceipts, {
-        stage: 'search',
-        summary: 'Searched the workspace context.'
-      });
-
       const entitlements = await getUserAgentEntitlements(String(req.user.id));
       const result = await generateCollaborativeReply({
         userId: String(req.user.id),
@@ -555,12 +550,23 @@ const buildAgentChatRouter = ({
       });
 
       const relatedCount = Array.isArray(result?.relatedItems) ? result.relatedItems.length : 0;
-      emitActivity(res, activityReceipts, {
-        stage: 'retrieve',
-        summary: relatedCount
-          ? `Retrieved ${relatedCount} related workspace item${relatedCount === 1 ? '' : 's'}.`
-          : 'No additional related workspace items were needed.'
-      });
+      if (result?.retrieval?.searchedWorkspace) {
+        emitActivity(res, activityReceipts, {
+          stage: 'search',
+          summary: 'Searched the workspace context.'
+        });
+        emitActivity(res, activityReceipts, {
+          stage: 'retrieve',
+          summary: relatedCount
+            ? `Retrieved ${relatedCount} related workspace item${relatedCount === 1 ? '' : 's'}.`
+            : 'No additional related workspace items were needed.'
+        });
+      } else {
+        emitActivity(res, activityReceipts, {
+          stage: 'retrieve',
+          summary: 'Answered from the selected wiki page.'
+        });
+      }
       emitActivity(res, activityReceipts, {
         stage: 'compose',
         summary: `Composed reply in ${((Date.now() - startedAt) / 1000).toFixed(1)}s.`

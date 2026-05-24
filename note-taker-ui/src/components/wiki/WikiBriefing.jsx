@@ -4,14 +4,13 @@ import { getWikiBriefing } from '../../api/wiki';
 import { wikiPagePath } from '../../utils/wikiFeatureFlags';
 
 /**
- * WikiBriefing — top-of-index "Daily briefing" card. Surfaces a 1–3
+ * WikiBriefing — top-of-index "Morning paper" editorial note. Surfaces a 1–3
  * sentence agent-authored summary of what's new in the user's wiki +
  * library over the last 24h, plus three glanceable signal counts and
- * a "Pages drifting" rail with one-tap "Open" links.
+ * a "Pages needing review" rail with one-tap "Open" links.
  *
- * Self-loading: hits GET /api/wiki/briefing on mount. Renders a low-
- * key skeleton while loading and quietly hides itself if the request
- * fails — the index is still usable without it.
+ * Self-loading: hits GET /api/wiki/briefing on mount. Renders a quiet
+ * masthead while loading and quietly hides itself if the request fails.
  */
 
 const formatRelative = (iso) => {
@@ -77,14 +76,12 @@ const WikiBriefing = () => {
 
   if (loading) {
     return (
-      <section className="wiki-briefing wiki-briefing--loading" aria-label="Daily wiki briefing">
+      <section className="wiki-briefing wiki-briefing--loading" aria-label="Morning wiki briefing">
         <div className="wiki-briefing__head">
-          <span className="wiki-briefing__eyebrow">Daily briefing</span>
+          <span className="wiki-briefing__eyebrow">Morning paper</span>
+          <span className="wiki-briefing__meta">Setting type</span>
         </div>
-        <div className="wiki-briefing__skeleton" aria-hidden="true">
-          <div className="wiki-briefing__skeleton-line" />
-          <div className="wiki-briefing__skeleton-line wiki-briefing__skeleton-line--short" />
-        </div>
+        <p className="wiki-briefing__summary wiki-briefing__summary--loading">Preparing today&apos;s notes from the wiki.</p>
       </section>
     );
   }
@@ -96,9 +93,9 @@ const WikiBriefing = () => {
   const drifting = Array.isArray(briefing.driftingPages) ? briefing.driftingPages : [];
 
   return (
-    <section className="wiki-briefing" aria-label="Daily wiki briefing" data-testid="wiki-briefing">
+    <section className="wiki-briefing" aria-label="Morning wiki briefing" data-testid="wiki-briefing">
       <header className="wiki-briefing__head">
-        <span className="wiki-briefing__eyebrow">Daily briefing</span>
+        <span className="wiki-briefing__eyebrow">Morning paper</span>
         <span className="wiki-briefing__meta">
           Updated {formatRelative(briefing.generatedAt)}
         </span>
@@ -107,18 +104,18 @@ const WikiBriefing = () => {
       <div className="wiki-briefing__chips">
         <Chip label={counts.newSources === 1 ? 'new source' : 'new sources'} count={counts.newSources || 0} tone="positive" />
         <Chip label={counts.recentlyUpdatedPages === 1 ? 'page updated' : 'pages updated'} count={counts.recentlyUpdatedPages || 0} tone="neutral" />
-        <Chip label={counts.driftingPages === 1 ? 'page drifting' : 'pages drifting'} count={counts.driftingPages || 0} tone={counts.driftingPages > 0 ? 'warning' : 'neutral'} />
+        <Chip label={counts.driftingPages === 1 ? 'page needs review' : 'pages need review'} count={counts.driftingPages || 0} tone={counts.driftingPages > 0 ? 'warning' : 'neutral'} />
       </div>
       {drifting.length > 0 ? (
-        <div className="wiki-briefing__group" aria-label="Pages drifting">
-          <h4 className="wiki-briefing__group-title">Pages drifting</h4>
+        <div className="wiki-briefing__group" aria-label="Pages needing review">
+          <h4 className="wiki-briefing__group-title">Pages needing review</h4>
           <ul className="wiki-briefing__list">
             {drifting.slice(0, 5).map((page) => (
               <li key={`drift-${page._id || page.title}`}>
                 <PagePreview
                   pageId={page._id}
                   title={page.title}
-                  sub={`${page.driftSignals} signal${page.driftSignals === 1 ? '' : 's'} pending`}
+                  sub={`${page.driftSignals} review item${page.driftSignals === 1 ? '' : 's'} pending`}
                 />
               </li>
             ))}

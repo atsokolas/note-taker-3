@@ -9,6 +9,7 @@ const { formatWikiSchemaPromptBlock } = require('./wikiSchemaService');
 
 const DEFAULT_SOURCE_LIMIT = 24;
 const MAX_SOURCE_TEXT = 1800;
+const MIN_SOURCE_RELEVANCE_SCORE = 2;
 const QUALITY_MIN_WORDS = 450;
 const QUALITY_MIN_WORDS_WITH_MANY_SOURCES = 650;
 const SCAFFOLD_PATTERNS = [
@@ -181,13 +182,19 @@ const tokenize = (value = '') => (
 const scoreSource = (source, queryTokens = []) => {
   const haystack = `${source.title} ${source.text} ${(source.tags || []).join(' ')}`.toLowerCase();
   const unique = new Set(queryTokens);
-  let score = 0;
+  let relevanceScore = 0;
   unique.forEach((token) => {
-    if (haystack.includes(token)) score += token.length > 5 ? 3 : 1;
+    if (haystack.includes(token)) relevanceScore += token.length > 5 ? 3 : 1;
+    else {
+      const stem = token.replace(/(?:ing|ment|tion|s)$/i, '');
+      if (stem.length >= 5 && haystack.includes(stem)) relevanceScore += 2;
+    }
   });
-  if (source.createdAt && Date.now() - new Date(source.createdAt).getTime() < 1000 * 60 * 60 * 24 * 30) score += 2;
-  if (source.updatedAt && Date.now() - new Date(source.updatedAt).getTime() < 1000 * 60 * 60 * 24 * 14) score += 2;
-  if (source.type === 'highlight' || source.type === 'notebook') score += 1;
+  if (relevanceScore === 0) return 0;
+  let score = relevanceScore;
+  if (source.createdAt && Date.now() - new Date(source.createdAt).getTime() < 1000 * 60 * 60 * 24 * 30) score += 1;
+  if (source.updatedAt && Date.now() - new Date(source.updatedAt).getTime() < 1000 * 60 * 60 * 24 * 14) score += 1;
+  if (source.type === 'highlight' || source.type === 'notebook') score += 0.5;
   return score;
 };
 
@@ -330,6 +337,7 @@ const selectCandidateSources = ({ page, sources, limit = DEFAULT_SOURCE_LIMIT })
   const queryTokens = tokenize(queryText);
   return sources
     .map((source, index) => ({ ...source, libraryIndex: index + 1, score: scoreSource(source, queryTokens) }))
+    .filter(source => source.score >= MIN_SOURCE_RELEVANCE_SCORE)
     .sort((a, b) => b.score - a.score || new Date(b.updatedAt || b.createdAt || 0) - new Date(a.updatedAt || a.createdAt || 0))
     .slice(0, limit)
     .map((source, index) => ({ ...source, index: index + 1 }));
@@ -1075,7 +1083,6 @@ const normalizeSourceIndexesUsed = ({ rawIndexes = [], article = {}, changelog =
     (section.bullets || []).forEach(addBlock);
   });
   (changelog || []).forEach((entry) => normalizeCitationIndexes(entry.sourceIndexes).forEach(index => used.add(index)));
-  if (used.size === 0) candidates.slice(0, 6).forEach(source => used.add(source.index));
   return Array.from(used).filter(index => candidates.some(source => source.index === index)).slice(0, 16);
 };
 
