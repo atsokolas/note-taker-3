@@ -46,6 +46,21 @@ const truncate = (value, limit = 220) => {
 const truncateRaw = (value, limit = 8000) => String(value || '').slice(0, Math.max(0, limit));
 const escapeRegExp = (value = '') => String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
+const truncateRawAtSentenceBoundary = (value, limit = 8000) => {
+  const text = String(value || '').replace(/\s+/g, ' ').trim();
+  if (text.length <= limit) return text;
+  const visible = text.slice(0, Math.max(0, limit));
+  const lastSentenceEnd = Math.max(
+    visible.lastIndexOf('.'),
+    visible.lastIndexOf('!'),
+    visible.lastIndexOf('?')
+  );
+  if (lastSentenceEnd >= Math.floor(limit * 0.55)) {
+    return visible.slice(0, lastSentenceEnd + 1).trim();
+  }
+  return truncate(text, limit);
+};
+
 const toPlainText = (node) => {
   if (!node) return '';
   if (typeof node === 'string') return node;
@@ -363,12 +378,29 @@ const ensureSentence = (value = '') => {
   return /[.?!]$/.test(safe) ? safe : `${safe}.`;
 };
 
-const splitIntoSentences = (value = '') => (
-  normalizeSentenceText(value)
+const splitIntoSentences = (value = '') => {
+  const placeholders = new Map();
+  let index = 0;
+  const protectedText = normalizeSentenceText(value).replace(
+    /\b(Mr|Mrs|Ms|Dr|Prof|Sr|Jr|St|vs|etc)\./gi,
+    (match) => {
+      const key = `__ABBR_${index}__`;
+      index += 1;
+      placeholders.set(key, match);
+      return key;
+    }
+  );
+  return protectedText
     .split(/(?<=[.?!])\s+/)
-    .map((sentence) => normalizeSentenceText(sentence))
-    .filter(Boolean)
-);
+    .map((sentence) => {
+      let restored = sentence;
+      placeholders.forEach((match, key) => {
+        restored = restored.replace(key, match);
+      });
+      return normalizeSentenceText(restored);
+    })
+    .filter(Boolean);
+};
 
 const isBoilerplateSentence = (sentence = '') => {
   const lower = normalizeSentenceText(sentence).toLowerCase();
@@ -901,6 +933,7 @@ const PAGE_ANSWER_STOPWORDS = new Set([
 
 const WIKI_WORKSPACE_RETRIEVAL_RE = /\b(across|all|another|broader|compare|cross[-\s]?wiki|elsewhere|find|library|other|related|retrieve|search|sources?|workspace)\b/i;
 const WIKI_SOURCE_ATTRIBUTION_RE = /\b(back(?:s|ed)?|citation|cite|cited|evidence|source|support(?:s|ed|ing)?)\b/i;
+const WIKI_EXACT_SENTENCE_RE = /\b(exact|verbatim|quote|sentence|wording|word-for-word)\b/i;
 
 const shouldSearchWorkspaceForWikiPage = ({ message = '', conversationState = {}, skillInvocation = {} } = {}) => {
   const outputType = toSafeString(skillInvocation?.outputType).toLowerCase();
@@ -986,12 +1019,17 @@ const buildWikiPageGroundedReply = ({ message = '', contextItem = null, contextS
   const sourceReply = buildWikiClaimSourceReply({ message, contextItem });
   if (sourceReply) return sourceReply;
   const wantsOneSentence = /\b(one|1)\s+sentence\b/i.test(message);
+  const wantsExactSentence = WIKI_EXACT_SENTENCE_RE.test(message);
   const sentences = pickWikiPageAnswerSentences({
     message,
     contextItem,
     maxSentences: wantsOneSentence ? 1 : 3
   });
   if (sentences.length > 0) {
+    if (wantsExactSentence) {
+      if (sentences.length === 1) return `Exact sentence: "${sentences[0]}"`;
+      return `Exact sentences: ${sentences.map(sentence => `"${sentence}"`).join(' ')}`;
+    }
     const lead = sentences.length === 1
       ? `The page says ${lowercaseFirst(sentences[0])}`
       : `The page says ${lowercaseFirst(sentences[0])} It also says ${sentences.slice(1).map(lowercaseFirst).join(' ')}`;
@@ -1133,7 +1171,7 @@ const buildPartnerGroundingBlock = ({
     `Active surface: ${activeType}`,
     `Active title: ${activeTitle}`,
     summary ? `Active summary: ${summary}` : '',
-    contextItem?.fullText ? `Selected wiki page body:\n"""${truncateRaw(contextItem.fullText, 6000)}"""` : '',
+    contextItem?.fullText ? `Selected wiki page body:\n"""${truncateRawAtSentenceBoundary(contextItem.fullText, 6000)}"""` : '',
     contextItem?.sourceText ? `Attached wiki sources:\n${contextItem.sourceText}` : '',
     contextItem?.claimText ? `Wiki claims:\n${contextItem.claimText}` : '',
     anchorUserText ? `Anchor request: ${anchorUserText}` : '',

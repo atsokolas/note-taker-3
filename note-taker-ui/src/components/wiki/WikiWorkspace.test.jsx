@@ -173,10 +173,10 @@ describe('WikiWorkspace', () => {
   });
 
   it('AT-248 — shows first-visit onboarding until dismissed and stores the seen flag', async () => {
+    listWikiPages.mockResolvedValueOnce([]);
     renderWorkspace('/wiki/workspace?view=graph');
-    await settleWorkspaceEffects();
 
-    expect(screen.getByRole('heading', { name: /start the wiki with one page or one source/i })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: /start the wiki with one page or one source/i })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: /skip for now/i }));
 
@@ -194,9 +194,29 @@ describe('WikiWorkspace', () => {
     expect(screen.getByLabelText('Wiki agent chat')).toBeInTheDocument();
   });
 
-  it('AT-248 — marks onboarding seen when a first-visit CTA is used', async () => {
+  it('AT-250 — does not show first-visit onboarding when the workspace already has pages', async () => {
     renderWorkspace('/wiki/workspace?view=graph');
+    await waitFor(() => expect(listWikiPages).toHaveBeenCalledWith({ limit: 1 }));
+
+    expect(screen.queryByRole('heading', { name: /start the wiki with one page or one source/i })).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Wiki agent chat')).toBeInTheDocument();
+  });
+
+  it('AT-250 — does not show first-visit onboarding on direct wiki page links', async () => {
+    listWikiPages.mockClear();
+
+    renderWorkspace('/wiki/workspace?page=wiki-1');
     await settleWorkspaceEffects();
+
+    expect(listWikiPages).not.toHaveBeenCalledWith({ limit: 1 });
+    expect(screen.queryByRole('heading', { name: /start the wiki with one page or one source/i })).not.toBeInTheDocument();
+    expect(screen.getByTestId('wiki-read-view')).toHaveTextContent('Page wiki-1');
+  });
+
+  it('AT-248 — marks onboarding seen when a first-visit CTA is used', async () => {
+    listWikiPages.mockResolvedValueOnce([]);
+    renderWorkspace('/wiki/workspace?view=graph');
+    await screen.findByRole('heading', { name: /start the wiki with one page or one source/i });
 
     fireEvent.click(screen.getByRole('button', { name: /build page/i }));
 
@@ -205,8 +225,9 @@ describe('WikiWorkspace', () => {
   });
 
   it('AT-248 — drop source CTA opens the source workflow and stores the seen flag', async () => {
+    listWikiPages.mockResolvedValueOnce([]);
     renderWorkspace('/wiki/workspace?view=graph');
-    await settleWorkspaceEffects();
+    await screen.findByRole('heading', { name: /start the wiki with one page or one source/i });
 
     fireEvent.click(screen.getByRole('button', { name: /drop source/i }));
 
@@ -294,7 +315,7 @@ describe('WikiWorkspace', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Open Investing' }));
     expect(await screen.findByTestId('wiki-read-view')).toHaveTextContent('Page wiki-1 workspace');
-    expect(listWikiPages).not.toHaveBeenCalled();
+    expect(listWikiPages).not.toHaveBeenCalledWith({ limit: 30 });
 
     fireEvent.focus(screen.getByLabelText('Wiki workspace message'));
     await waitFor(() => expect(listWikiPages).toHaveBeenCalledWith({ limit: 30 }));
@@ -594,6 +615,9 @@ describe('WikiWorkspace', () => {
       resolveStream();
     });
     expect(await screen.findByText('Resolved reply.')).toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Cancel' })).not.toBeInTheDocument());
+    expect(screen.getByRole('button', { name: 'Send' })).toBeDisabled();
+    expect(document.querySelector('.wiki-workspace-chat__composer')).toHaveAttribute('data-streaming', 'false');
   });
 
   it('aborts an active streamed agent reply from the cancel affordance', async () => {
@@ -615,12 +639,34 @@ describe('WikiWorkspace', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: 'Send' }));
 
-    expect(await screen.findByText('Partial reply')).toBeInTheDocument();
+    await waitFor(() => expect(streamSignal).toBeTruthy());
+    expect(screen.queryByText('Partial reply')).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
 
     await waitFor(() => expect(streamSignal.aborted).toBe(true));
     await waitFor(() => expect(screen.queryByRole('button', { name: 'Cancel' })).not.toBeInTheDocument());
-    expect(screen.getByText('Partial reply')).toBeInTheDocument();
+    expect(screen.getByText('Agent reply cancelled before completion.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Send' })).toBeDisabled();
+  });
+
+  it('restores composer state and keeps the draft when a streamed reply errors', async () => {
+    streamChatWithAgent.mockImplementationOnce(async (_payload, handlers = {}) => {
+      handlers.onDelta?.('Half answer that should not render');
+      throw new Error('network dropped');
+    });
+    renderWorkspace('/wiki/workspace?page=wiki-1');
+    await settleWorkspaceEffects();
+
+    fireEvent.change(screen.getByLabelText('Wiki workspace message'), {
+      target: { value: 'Fail this response' }
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+
+    expect(await screen.findByText('Agent chat failed. Your draft is still in the composer; retry when ready.')).toBeInTheDocument();
+    expect(screen.queryByText('Half answer that should not render')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Cancel' })).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Wiki workspace message')).toHaveValue('Fail this response');
+    expect(screen.getByRole('button', { name: 'Send' })).not.toBeDisabled();
   });
 
   it('keeps referenced wiki pages in context for later agent turns until removed', async () => {

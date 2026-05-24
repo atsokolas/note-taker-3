@@ -247,7 +247,7 @@ describe('WikiIndex graph', () => {
     expect(screen.getByText('2 pages · 1 link')).toBeInTheDocument();
     expect(screen.queryByTestId('wiki-force-graph')).not.toBeInTheDocument();
     expect(screen.getByText('2 current pages')).toBeInTheDocument();
-    expect(screen.getByLabelText('Build pages with wiki agent')).toBeInTheDocument();
+    expect(screen.getByLabelText('Build wiki pages')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Enterprise AI Memory/ })).toBeInTheDocument();
   });
 

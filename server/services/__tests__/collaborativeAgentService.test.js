@@ -233,6 +233,25 @@ const run = () => {
   assert.match(pageScopedReply, /prices swing between pessimism and optimism/i);
   assert.ok(!/Cerebras|wafer/i.test(pageScopedReply), 'Page-scoped wiki answers should not bleed unrelated workspace retrieval into the response.');
 
+  const exactWikiSentenceReply = buildReply({
+    message: 'Quote the exact sentence about the Mr. Market metaphor.',
+    context: { type: 'workspace', id: 'wiki', pageId: '69fd2e7d212cd5a5f57db144' },
+    contextItem: {
+      type: 'wiki_page',
+      title: 'Investing',
+      snippet: 'Mr. Market is a behavioral metaphor.',
+      fullText: 'The Mr. Market metaphor says prices swing between pessimism and optimism, creating opportunities for patient investors.',
+      sourceText: '[1] Berkshire letter — Mr. Market discussion.',
+      claimText: '- Claim 1: Mr. Market frames sentiment swings. (attached refs: [1])'
+    },
+    relatedItems: []
+  });
+  assert.strictEqual(
+    exactWikiSentenceReply,
+    'Exact sentence: "The Mr. Market metaphor says prices swing between pessimism and optimism, creating opportunities for patient investors."',
+    'Exact wiki quote requests should preserve the selected page sentence instead of paraphrasing it.'
+  );
+
   const claimSourceReply = buildWikiClaimSourceReply({
     message: 'What source supports the claim that margin of safety protects against valuation error?',
     contextItem: {

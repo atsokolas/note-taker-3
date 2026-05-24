@@ -3,7 +3,7 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import CommandPalette from './CommandPalette';
 import api from '../api';
 import { searchKeyword } from '../api/retrieval';
-import { createWikiPage } from '../api/wiki';
+import { createWikiPage, listWikiPages } from '../api/wiki';
 import { getNotebookSummaries } from '../api/notebook';
 import { buildWikiCreatePayload, openWikiDraft } from '../utils/wikiCreate';
 
@@ -23,7 +23,8 @@ jest.mock('../api/retrieval', () => ({
 }));
 
 jest.mock('../api/wiki', () => ({
-  createWikiPage: jest.fn()
+  createWikiPage: jest.fn(),
+  listWikiPages: jest.fn()
 }));
 
 jest.mock('../api/notebook', () => ({
@@ -67,6 +68,7 @@ describe('CommandPalette', () => {
       }
     });
     createWikiPage.mockResolvedValue({ _id: 'wiki-new' });
+    listWikiPages.mockResolvedValue([]);
   });
 
   afterEach(() => {
@@ -116,5 +118,20 @@ describe('CommandPalette', () => {
     })));
     expect(createWikiPage).toHaveBeenCalled();
     expect(openWikiDraft).toHaveBeenCalledWith({ navigate: mockNavigate, pageId: 'wiki-new' });
+  });
+
+  it('surfaces wiki pages first on wiki surfaces', async () => {
+    window.history.pushState({}, '', '/wiki/workspace?view=graph');
+    listWikiPages.mockResolvedValueOnce([
+      { _id: 'wiki-1', title: 'Investing' }
+    ]);
+
+    await renderPalette();
+
+    expect(await screen.findByText('Investing')).toBeInTheDocument();
+    const groupTitles = Array.from(document.querySelectorAll('.palette-group-title')).map(node => node.textContent);
+    expect(groupTitles[0]).toBe('Wiki pages');
+    fireEvent.click(screen.getByText('Investing'));
+    expect(mockNavigate).toHaveBeenCalledWith('/wiki/workspace?page=wiki-1');
   });
 });

@@ -177,13 +177,13 @@ const WikiSparsePages = ({ pages = [], onOpenPage }) => (
       <h2>{pages.length ? `${pages.length} current page${pages.length === 1 ? '' : 's'}` : 'Start the wiki'}</h2>
       <p>
         {pages.length
-          ? 'A graph is useful once the wiki has enough pages and relationships. Use the agent workspace to build or connect pages.'
-          : 'Ask the agent to build the first page, or type /ingest in the wiki chat with a source URL.'}
+          ? 'The map will appear after there are enough pages to connect. For now, open a page or add another source-backed page.'
+          : 'Create the first source-backed page, then add related pages as your library starts to connect.'}
       </p>
     </div>
-    <div className="wiki-index__sparse-agent" aria-label="Build pages with wiki agent">
-      <strong>Build pages from the wiki agent</strong>
-      <span>Use the wiki chat to ask for a new page, draft from a source, or connect existing pages.</span>
+    <div className="wiki-index__sparse-agent" aria-label="Build wiki pages">
+      <strong>Grow the map deliberately</strong>
+      <span>Add pages with citations, then connect them through links, shared sources, and review relationships.</span>
     </div>
     {pages.length ? (
       <ol className="wiki-index__sparse-list">

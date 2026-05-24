@@ -95,19 +95,29 @@ const scheduleAfterFirstPaint = (callback) => {
   let frame = 0;
   let idle = 0;
   let timeout = 0;
+  let fallback = 0;
+  let didRun = false;
+  const runCallback = () => {
+    if (didRun) return;
+    didRun = true;
+    if (fallback) window.clearTimeout(fallback);
+    callback();
+  };
   const run = () => {
     if (typeof window.requestIdleCallback === 'function') {
-      idle = window.requestIdleCallback(callback, { timeout: 250 });
+      idle = window.requestIdleCallback(runCallback, { timeout: 250 });
       return;
     }
-    timeout = window.setTimeout(callback, 0);
+    timeout = window.setTimeout(runCallback, 0);
   };
   if (typeof window.requestAnimationFrame === 'function') frame = window.requestAnimationFrame(run);
-  else timeout = window.setTimeout(callback, 0);
+  else timeout = window.setTimeout(runCallback, 0);
+  fallback = window.setTimeout(runCallback, 3000);
   return () => {
     if (frame && typeof window.cancelAnimationFrame === 'function') window.cancelAnimationFrame(frame);
     if (idle && typeof window.cancelIdleCallback === 'function') window.cancelIdleCallback(idle);
     if (timeout) window.clearTimeout(timeout);
+    if (fallback) window.clearTimeout(fallback);
   };
 };
 
@@ -1475,7 +1485,7 @@ const WikiPageReadView = ({ pageId, onEdit, workspaceMode = false, refreshNonce 
           className={`wiki-read__rail${railCollapsed ? ' wiki-read__rail--collapsed' : ''}`}
           aria-label="Page context"
         >
-          {railCollapsed || !nonCriticalReady ? (
+          {railCollapsed ? (
             <button
               type="button"
               className="wiki-read__rail-toggle wiki-read__rail-toggle--show"
@@ -1487,6 +1497,15 @@ const WikiPageReadView = ({ pageId, onEdit, workspaceMode = false, refreshNonce 
               <span aria-hidden="true">›</span>
               <span className="wiki-read__rail-toggle-label">Show context</span>
             </button>
+          ) : !nonCriticalReady ? (
+            <div
+              id="wiki-read-rail-content"
+              className="wiki-read__rail-content wiki-read__rail-content--loading"
+              role="status"
+              aria-live="polite"
+            >
+              Loading context...
+            </div>
           ) : (
             <div id="wiki-read-rail-content" className="wiki-read__rail-content">
               <Suspense fallback={null}>

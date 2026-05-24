@@ -1213,7 +1213,6 @@ const WikiWorkspaceChat = ({ selectedPageId, view, onNavigate, onPageChanged, on
         },
         onDelta: (delta) => {
           streamedText += delta;
-          replaceMessage(pendingId, { text: streamedText, pending: true });
         },
         onFinal: (payload) => {
           streamedText = clean(payload?.reply) || streamedText;
@@ -1228,21 +1227,26 @@ const WikiWorkspaceChat = ({ selectedPageId, view, onNavigate, onPageChanged, on
       if (hydratedMessages.length > messages.length + 1) {
         setMessages(hydratedMessages);
       }
+      const finalReply = clean(result?.reply || streamedText);
+      if (!finalReply) {
+        setInput(text);
+      }
       replaceMessage(pendingId, {
-        text: clean(streamedText || result?.reply) || 'No reply generated.',
+        text: finalReply || 'Agent chat ended without a complete reply. Your draft is still in the composer; retry when ready.',
         ...(Array.isArray(result?.activityReceipts) ? { activityReceipts: result.activityReceipts } : {}),
-        pending: false
+        pending: false,
+        ...(finalReply ? {} : { error: true })
       });
     } catch (error) {
       if (error?.name === 'AbortError' || streamController.signal.aborted) {
         replaceMessage(pendingId, {
-          text: clean(streamedText) || 'Agent reply cancelled.',
+          text: 'Agent reply cancelled before completion.',
           pending: false,
           cancelled: true
         });
       } else {
         setInput(text);
-        replaceMessage(pendingId, { text: 'Agent chat failed. Your draft is still in the composer.', pending: false, error: true });
+        replaceMessage(pendingId, { text: 'Agent chat failed. Your draft is still in the composer; retry when ready.', pending: false, error: true });
       }
     } finally {
       if (streamAbortRef.current === streamController) {
@@ -1440,7 +1444,7 @@ const WikiWorkspace = () => {
   const [mobilePane, setMobilePane] = useState('wiki');
   const [currentSearch, setCurrentSearch] = useState(location.search);
   const [chatDraft, setChatDraft] = useState(null);
-  const [showFirstVisitOnboarding, setShowFirstVisitOnboarding] = useState(() => !hasSeenFirstVisitOnboarding());
+  const [showFirstVisitOnboarding, setShowFirstVisitOnboarding] = useState(false);
   const currentSearchRef = useRef(location.search);
   const touchStartRef = useRef(null);
   const dragRef = useRef(null);
@@ -1465,6 +1469,25 @@ const WikiWorkspace = () => {
 
   useEffect(() => {
     if (selectedPageId) lastSelectedPageRef.current = selectedPageId;
+  }, [selectedPageId]);
+
+  useEffect(() => {
+    if (hasSeenFirstVisitOnboarding() || selectedPageId) {
+      setShowFirstVisitOnboarding(false);
+      return undefined;
+    }
+    let cancelled = false;
+    listWikiPages({ limit: 1 })
+      .then((pages = []) => {
+        if (cancelled) return;
+        setShowFirstVisitOnboarding(!Array.isArray(pages) || pages.length === 0);
+      })
+      .catch(() => {
+        if (!cancelled) setShowFirstVisitOnboarding(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [selectedPageId]);
 
   useEffect(() => {

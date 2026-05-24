@@ -77,6 +77,7 @@ const WikiProductIndex = () => {
 
   const types = useMemo(() => topPageTypes(pages), [pages]);
   const totalSources = useMemo(() => pages.reduce((sum, page) => sum + sourceCount(page), 0), [pages]);
+  const statValue = (value) => (loading ? 'Loading...' : value);
 
   return (
     <main className="wiki-page wiki-product-index">
@@ -95,15 +96,15 @@ const WikiProductIndex = () => {
       <section className="wiki-product-index__stats" aria-label="Wiki overview">
         <div>
           <span>Pages</span>
-          <strong>{pages.length}</strong>
+          <strong>{statValue(pages.length)}</strong>
         </div>
         <div>
           <span>Sources cited</span>
-          <strong>{totalSources}</strong>
+          <strong>{statValue(totalSources)}</strong>
         </div>
         <div>
           <span>Top types</span>
-          <strong>{types.map(([type]) => labelFor(type)).join(', ') || 'None yet'}</strong>
+          <strong>{statValue(types.map(([type]) => labelFor(type)).join(', ') || 'None yet')}</strong>
         </div>
       </section>
 

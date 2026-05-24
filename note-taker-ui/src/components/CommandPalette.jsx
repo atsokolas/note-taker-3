@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api';
 import { searchKeyword } from '../api/retrieval';
-import { createWikiPage } from '../api/wiki';
+import { createWikiPage, listWikiPages } from '../api/wiki';
 import { Card, Button } from './ui';
 import { buildCanonicalArticlePath } from '../utils/firstInsight';
 import { getNotebookSummaries } from '../api/notebook';
@@ -23,6 +23,10 @@ const buildResultLabel = (item = {}, fallback = '') => {
   return `${primary} — ${secondary.slice(0, 90)}`;
 };
 
+const currentPathname = () => (
+  typeof window === 'undefined' ? '' : window.location?.pathname || ''
+);
+
 const CommandPalette = ({ open, onClose }) => {
   const navigate = useNavigate();
   const [query, setQuery] = useState('');
@@ -31,8 +35,10 @@ const CommandPalette = ({ open, onClose }) => {
   const [notebook, setNotebook] = useState([]);
   const [collections, setCollections] = useState([]);
   const [concepts, setConcepts] = useState([]);
+  const [wikiPages, setWikiPages] = useState([]);
   const [loading, setLoading] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
+  const isWikiSurface = currentPathname().startsWith('/wiki');
 
   const pages = useMemo(() => ([
     { label: 'Today', path: '/today' },
@@ -50,19 +56,22 @@ const CommandPalette = ({ open, onClose }) => {
     setQuery('');
     setArticles([]);
     setSearchGroups(EMPTY_GROUPS);
+    setWikiPages([]);
     setActiveIndex(0);
     const fetchBase = async () => {
       try {
         const token = localStorage.getItem('token');
         const headers = { Authorization: `Bearer ${token}` };
-        const [notebookRows, colRes, tagRes] = await Promise.all([
+        const [notebookRows, colRes, tagRes, wikiRows] = await Promise.allSettled([
           getNotebookSummaries(),
           api.get('/api/collections', { headers }),
-          api.get('/api/tags', { headers })
+          api.get('/api/tags', { headers }),
+          listWikiPages({ limit: 12 })
         ]);
-        setNotebook(notebookRows || []);
-        setCollections(colRes.data || []);
-        setConcepts(tagRes.data || []);
+        setNotebook(notebookRows.status === 'fulfilled' ? notebookRows.value || [] : []);
+        setCollections(colRes.status === 'fulfilled' ? colRes.value?.data || [] : []);
+        setConcepts(tagRes.status === 'fulfilled' ? tagRes.value?.data || [] : []);
+        setWikiPages(wikiRows.status === 'fulfilled' && Array.isArray(wikiRows.value) ? wikiRows.value : []);
       } catch (err) {
         console.error('Palette preload failed', err);
       }
@@ -81,7 +90,11 @@ const CommandPalette = ({ open, onClose }) => {
       }
       setLoading(true);
       try {
-        const data = await searchKeyword({ q, scope: 'all' });
+        const [searchResult, wikiResult] = await Promise.allSettled([
+          searchKeyword({ q, scope: 'all' }),
+          listWikiPages({ q, limit: 8 })
+        ]);
+        const data = searchResult.status === 'fulfilled' ? searchResult.value : {};
         setArticles(Array.isArray(data?.articles) ? data.articles : []);
         setSearchGroups({
           notes: Array.isArray(data?.groups?.notes) ? data.groups.notes : [],
@@ -89,6 +102,7 @@ const CommandPalette = ({ open, onClose }) => {
           claims: Array.isArray(data?.groups?.claims) ? data.groups.claims : [],
           evidence: Array.isArray(data?.groups?.evidence) ? data.groups.evidence : []
         });
+        setWikiPages(wikiResult.status === 'fulfilled' && Array.isArray(wikiResult.value) ? wikiResult.value : []);
       } catch (err) {
         console.error('Palette search failed', err);
       } finally {
@@ -154,13 +168,39 @@ const CommandPalette = ({ open, onClose }) => {
       title: 'Pages',
       items: pages.map(page => ({ type: 'Page', label: page.label, path: page.path }))
     };
+    const wikiDestinationsSection = {
+      title: 'Wiki',
+      items: [
+        { type: 'Wiki', label: 'Wiki home', path: '/wiki' },
+        { type: 'Wiki', label: 'Wiki workspace', path: '/wiki/workspace' },
+        { type: 'Wiki', label: 'Wiki pages', path: '/wiki/workspace?view=list' },
+        { type: 'Wiki', label: 'Knowledge map', path: '/wiki/workspace?view=graph' }
+      ]
+    };
+    const wikiPagesSection = {
+      title: 'Wiki pages',
+      items: wikiPages.slice(0, q ? 8 : 6).map(page => {
+        const pageId = page._id || page.id;
+        return pageId ? {
+          type: 'Wiki',
+          label: page.title || 'Untitled wiki page',
+          path: `/wiki/workspace?page=${pageId}`
+        } : null;
+      })
+    };
 
     if (!q) {
+      if (isWikiSurface) {
+        list.push(wikiPagesSection);
+        list.push(wikiDestinationsSection);
+      }
       list.push(actionSection);
       list.push(pagesSection);
+      if (!isWikiSurface) list.push(wikiDestinationsSection);
     }
 
     if (q) {
+      if (isWikiSurface) list.push(wikiPagesSection);
       list.push({
         title: 'Notes',
         items: (searchGroups.notes || []).slice(0, 6).map(item => ({
@@ -202,6 +242,8 @@ const CommandPalette = ({ open, onClose }) => {
         }))
       });
       list.push(actionSection);
+      if (!isWikiSurface) list.push(wikiPagesSection);
+      list.push(wikiDestinationsSection);
       list.push(pagesSection);
     } else {
       list.push({
@@ -233,7 +275,7 @@ const CommandPalette = ({ open, onClose }) => {
     return list
       .map(section => ({ ...section, items: section.items.filter(Boolean) }))
       .filter(section => section.items.length > 0);
-  }, [articles, collections, concepts, createNote, createWiki, notebook, pages, query, searchGroups]);
+  }, [articles, collections, concepts, createNote, createWiki, isWikiSurface, notebook, pages, query, searchGroups, wikiPages]);
 
   const selectableItems = useMemo(
     () => sections.flatMap(section => section.items),
@@ -293,7 +335,7 @@ const CommandPalette = ({ open, onClose }) => {
               setQuery(nextQuery);
               setLoading(Boolean(nextQuery.trim()));
             }}
-            placeholder="Quick open notes, highlights, claims, evidence..."
+            placeholder={isWikiSurface ? 'Quick open wiki pages, notes, sources...' : 'Quick open notes, highlights, claims, evidence...'}
             className="palette-input"
           />
           <Button variant="secondary" onClick={onClose}>Close</Button>

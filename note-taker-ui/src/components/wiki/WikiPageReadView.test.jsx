@@ -635,6 +635,44 @@ describe('WikiPageReadView', () => {
     expect(window.localStorage.getItem('noeis.wiki.read.rail_collapsed')).toBe('1');
   });
 
+  it('AT-249 — opens a previously expanded context rail even when idle callbacks never fire', async () => {
+    const originalRequestAnimationFrame = window.requestAnimationFrame;
+    const originalCancelAnimationFrame = window.cancelAnimationFrame;
+    const originalRequestIdleCallback = window.requestIdleCallback;
+    const originalCancelIdleCallback = window.cancelIdleCallback;
+    window.localStorage.setItem('noeis.wiki.read.rail_collapsed', '0');
+    window.requestAnimationFrame = jest.fn(() => 1);
+    window.cancelAnimationFrame = jest.fn();
+    window.requestIdleCallback = jest.fn(() => 1);
+    window.cancelIdleCallback = jest.fn();
+
+    try {
+      render(
+        <MemoryRouter>
+          <WikiPageReadView pageId="wiki-1" onEdit={jest.fn()} />
+        </MemoryRouter>
+      );
+
+      expect(await screen.findByRole('heading', { name: 'Enterprise AI Memory' })).toBeInTheDocument();
+      const rail = await screen.findByRole('complementary', { name: 'Page context' });
+      expect(rail).not.toHaveClass('wiki-read__rail--collapsed');
+      expect(within(rail).getByRole('status')).toHaveTextContent(/loading context/i);
+
+      await act(async () => {
+        jest.advanceTimersByTime(3000);
+      });
+
+      expect(within(rail).queryByRole('status')).not.toBeInTheDocument();
+      expect(rail.querySelector('.wiki-read__infobox')).toBeInTheDocument();
+      expect(rail).toHaveTextContent('Overview');
+    } finally {
+      window.requestAnimationFrame = originalRequestAnimationFrame;
+      window.cancelAnimationFrame = originalCancelAnimationFrame;
+      window.requestIdleCallback = originalRequestIdleCallback;
+      window.cancelIdleCallback = originalCancelIdleCallback;
+    }
+  });
+
   it('AT-19 — renders the article before the since-last-visit banner mounts', async () => {
     window.localStorage.setItem('noeis.wiki.visit.wiki-1', JSON.stringify({
       lastViewedAt: new Date(Date.now() - 60_000).toISOString(),

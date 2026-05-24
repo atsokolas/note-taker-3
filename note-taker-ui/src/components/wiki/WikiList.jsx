@@ -12,12 +12,23 @@ import { PAGE_TYPES, formatDate, labelFor } from './wikiGraph';
 const VISIBILITIES = ['all', 'private', 'shared'];
 const STATUSES = ['all', 'draft', 'published', 'archived'];
 
-const WikiPageCard = ({ deleting, page, onDelete, onOpen }) => {
-  const snippet = String(page.plainText || '').trim();
+const compactText = (value = '', limit = 150) => {
+  const text = String(value || '').replace(/\s+/g, ' ').trim();
+  if (text.length <= limit) return text;
+  return `${text.slice(0, limit).trimEnd()}...`;
+};
+
+const pageSummary = (page = {}) => (
+  page.summary || page.scope || page.description || page.plainText || ''
+);
+
+const WikiPageCard = ({ compact = false, deleting, page, onDelete, onOpen }) => {
+  const snippet = compactText(pageSummary(page), compact ? 118 : 180);
   const title = page.title || 'Untitled Wiki Page';
+  const sourceTotal = Array.isArray(page.sourceRefs) ? page.sourceRefs.length : Number(page.sourceCount || 0);
   return (
     <SurfaceCard
-      className="wiki-index__page-card"
+      className={`wiki-index__page-card${compact ? ' wiki-index__page-card--compact' : ''}`}
       role="button"
       tabIndex={0}
       aria-label={`Open ${title}`}
@@ -31,11 +42,12 @@ const WikiPageCard = ({ deleting, page, onDelete, onOpen }) => {
     >
       <div className="wiki-index__page-meta">
         <span>{labelFor(page.pageType || 'topic')}</span>
+        <span>{labelFor(page.status || 'draft')}</span>
       </div>
       <h2>{title}</h2>
       <p>{snippet || 'No body yet. Open the page to start writing.'}</p>
       <div className="wiki-index__page-footer">
-        <span>{Array.isArray(page.sourceRefs) ? page.sourceRefs.length : 0} sources · {labelFor(page.status || 'draft')}</span>
+        <span>{sourceTotal} source{sourceTotal === 1 ? '' : 's'}</span>
         <span>{formatDate(page.updatedAt)}</span>
       </div>
       <div className="wiki-index__page-actions">
@@ -203,6 +215,7 @@ const WikiList = ({ compact = false, onOpenPage }) => {
         {pages.map(page => (
           <WikiPageCard
             key={page._id}
+            compact={compact}
             page={page}
             deleting={deletingId === page._id}
             onOpen={() => openPage(page._id)}

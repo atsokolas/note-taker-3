@@ -1,6 +1,14 @@
 const { askWikiPage, __testables } = require('./wikiAskService');
 
-const { buildSourceList, buildSystemPrompt, normalizeAnswerSchema, buildFallbackAnswer, docFromAnswer } = __testables;
+const {
+  buildSourceList,
+  buildSystemPrompt,
+  normalizeAnswerSchema,
+  buildFallbackAnswer,
+  docFromAnswer,
+  buildPageContext,
+  truncateAtSentenceBoundary
+} = __testables;
 
 const buildPage = (overrides = {}) => ({
   title: 'Compounding interest',
@@ -54,6 +62,42 @@ describe('wikiAskService', () => {
       });
       expect(prompt).toContain('User wiki schema conventions');
       expect(prompt).toContain('Prefer durable reference prose.');
+    });
+
+    it('uses sentence-bounded page context for exact quote requests', () => {
+      const page = buildPage({
+        body: {
+          type: 'doc',
+          content: [{
+            type: 'paragraph',
+            content: [{
+              type: 'text',
+              text: [
+                'Alpha is the opening frame.',
+                'Margin of safety protects investors from valuation error.',
+                'The closing sentence should remain complete.'
+              ].join(' ')
+            }]
+          }]
+        }
+      });
+      const context = buildPageContext({
+        page,
+        question: 'Quote the exact sentence about valuation error.'
+      });
+      expect(context).toContain('Margin of safety protects investors from valuation error.');
+      expect(context).not.toMatch(/\.\.\.$/);
+      const prompt = buildSystemPrompt({
+        page,
+        sources: [],
+        question: 'Quote the exact sentence about valuation error.'
+      });
+      expect(prompt).toContain('preserve quoted sentence wording exactly');
+    });
+
+    it('does not cut long context mid-sentence when a sentence boundary is available', () => {
+      const text = 'First complete sentence. Second complete sentence. Third sentence is too long to include fully.';
+      expect(truncateAtSentenceBoundary(text, 56)).toBe('First complete sentence. Second complete sentence.');
     });
   });
 
