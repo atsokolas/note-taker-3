@@ -368,6 +368,8 @@ const normalizeSentenceText = (value = '') => {
   if (!safe) return '';
   return safe
     .replace(/\.{3,}/g, '…')
+    .replace(/([.!?])([”"'`])\s*[.!?]+$/u, '$1$2')
+    .replace(/([.!?])\s+([”"'`])/gu, '$1$2')
     .replace(/([.!?])\1+$/g, '$1')
     .replace(/^[“"'`]+|[”"'`]+$/g, '')
     .trim();

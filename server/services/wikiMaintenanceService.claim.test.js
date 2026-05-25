@@ -710,6 +710,64 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
     });
   });
 
+  it('drops stale page sources that are not cited by the current maintenance rebuild', async () => {
+    const page = {
+      _id: 'page-main',
+      title: 'Investing',
+      pageType: 'overview',
+      plainText: '',
+      body: { type: 'doc', content: [] },
+      sourceRefs: [
+        { type: 'article', objectId: 'stale-article', title: 'Flounder Mode', snippet: 'An unrelated retained source.' }
+      ],
+      claims: [],
+      aiState: {}
+    };
+
+    const chat = jest.fn().mockResolvedValue({
+      model: 'test-model',
+      provider: 'test-provider',
+      text: JSON.stringify({
+        title: 'Investing',
+        article: {
+          summary: {
+            text: 'Investing starts with cash-flow discipline and explicit risk checks.',
+            citationIndexes: [1]
+          },
+          sections: [{
+            heading: 'Overview',
+            paragraphs: [{
+              text: 'The maintained page should only carry sources that the rebuild actually cites.',
+              citationIndexes: [1]
+            }],
+            bullets: []
+          }]
+        },
+        maintenance: { summary: 'Rebuilt page.', changelog: [], health: {} },
+        sourceIndexesUsed: [1]
+      })
+    });
+
+    const { maintainWikiPage } = require('./wikiMaintenanceService');
+    await maintainWikiPage({
+      page,
+      userId: 'user-1',
+      chat,
+      isConfigured: () => true,
+      models: {
+        Article: fakeFindModel([{ _id: 'article-1', title: 'Investing cash-flow evidence', content: 'Investing starts with cash-flow discipline and explicit risk checks.' }]),
+        NotebookEntry: fakeFindModel([]),
+        TagMeta: fakeFindModel([]),
+        Question: fakeFindModel([]),
+        WikiPage: fakeFindModel([])
+      }
+    });
+
+    expect(page.sourceRefs).toHaveLength(1);
+    expect(page.sourceRefs[0].objectId).toBe('article-1');
+    expect(page.sourceRefs.map(source => source.title)).not.toContain('Flounder Mode');
+  });
+
   it('automatically rebuilds once when the first maintenance draft fails quality gates', async () => {
     const page = {
       _id: 'page-main',

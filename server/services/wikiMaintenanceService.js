@@ -1207,7 +1207,7 @@ const materializeMaintenanceResult = async ({ page, normalized, candidates, prev
     .map(index => candidates.find(source => source.index === index))
     .filter(Boolean)
     .map(sourceRefFromCandidate);
-  const mergedSourceRefs = dedupeSourceRefs(sourceRefs, page.sourceRefs || []);
+  const mergedSourceRefs = dedupeSourceRefs(sourceRefs);
   const body = docFromArticle({
     title: normalized.title || page.title,
     article: normalized.article

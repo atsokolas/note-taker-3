@@ -143,9 +143,9 @@ describe('WikiIndex graph', () => {
     expect(screen.getByLabelText('Wiki map signals')).toHaveTextContent('Brightest');
     expect(screen.getByLabelText('Wiki map signals')).toHaveTextContent('8 standalone pages');
     expect(screen.getByLabelText('Wiki map signals')).toHaveTextContent('0 evidence overlaps');
-    expect(screen.getByLabelText('Wiki map signals')).toHaveTextContent('Review latest connections');
-    expect(screen.getByLabelText('Knowledge map refresh')).toHaveTextContent('Review latest connections');
-    expect(screen.getByRole('button', { name: 'Refresh map' })).toBeInTheDocument();
+    expect(screen.getByLabelText('Wiki map signals')).not.toHaveTextContent('Review latest connections');
+    expect(screen.getByLabelText('Knowledge map refresh')).toHaveTextContent('Connections need review');
+    expect(screen.getByRole('button', { name: 'Review connections' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /^Inline links\s*1$/ })).toHaveClass('is-active');
     expect(screen.getByRole('link', { name: 'List' })).toHaveAttribute('href', '/wiki/list');
     expect(await screen.findByText('Research memo')).toBeInTheDocument();
@@ -195,6 +195,11 @@ describe('WikiIndex graph', () => {
   });
 
   it('uses reader-facing map language in the graph details and refresh controls', async () => {
+    fetchGraphData.mockResolvedValueOnce({
+      nodes: [],
+      edges: [{ id: 'edge-1', source: 'wiki-1', target: 'wiki-2', relationType: 'related' }]
+    });
+
     render(
       <MemoryRouter>
         <WikiIndex />
@@ -202,8 +207,8 @@ describe('WikiIndex graph', () => {
     );
 
     await screen.findByTestId('wiki-force-graph');
-    expect(screen.getByLabelText('Knowledge map refresh')).toHaveTextContent('reviewed connections');
-    expect(screen.getByRole('button', { name: 'Refresh map' })).toBeInTheDocument();
+    expect(screen.getByLabelText('Knowledge map refresh')).toHaveTextContent(/reviewed connection/i);
+    expect(screen.getByRole('button', { name: 'Update map' })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Investing' }));
 
@@ -229,7 +234,7 @@ describe('WikiIndex graph', () => {
     );
 
     await screen.findByTestId('wiki-force-graph');
-    fireEvent.click(screen.getByRole('button', { name: 'Refresh map' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Review connections' }));
 
     await waitFor(() => {
       expect(rebuildWikiGraph).toHaveBeenCalledWith({ limit: 500 });

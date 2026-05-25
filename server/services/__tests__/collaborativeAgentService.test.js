@@ -299,6 +299,25 @@ const run = () => {
     'Exact wiki quote requests should not stitch section headings into the quoted sentence.'
   );
 
+  const exactWikiSentenceWithDuplicatePunctuationReply = buildReply({
+    message: 'Quote the exact sentence about Mr. Market from this page.',
+    context: { type: 'workspace', id: 'wiki', pageId: '69fd2e7d212cd5a5f57db144' },
+    contextItem: {
+      type: 'wiki_page',
+      title: 'Investing',
+      snippet: 'Mr. Market is a behavioral metaphor.',
+      fullText: 'The Mr. Market metaphor says prices swing between pessimism and optimism, creating opportunities for patient investors.”.',
+      sourceText: '[1] Berkshire letter — Mr. Market discussion.',
+      claimText: '- Claim 1: Mr. Market frames sentiment swings. (attached refs: [1])'
+    },
+    relatedItems: []
+  });
+  assert.strictEqual(
+    exactWikiSentenceWithDuplicatePunctuationReply,
+    'Exact sentence: "The Mr. Market metaphor says prices swing between pessimism and optimism, creating opportunities for patient investors."',
+    'Exact wiki quote requests should remove duplicated punctuation around closing quotes.'
+  );
+
   const unrelatedWikiQuestionReply = buildReply({
     message: 'What is the weather in Chicago?',
     context: { type: 'workspace', id: 'wiki', pageId: '69fd2e7d212cd5a5f57db144' },

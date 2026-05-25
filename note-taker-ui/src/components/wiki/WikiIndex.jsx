@@ -287,7 +287,7 @@ const WikiGraph = ({ graph, onOpenPage }) => {
     <div className="wiki-graph" aria-label="Knowledge map">
       <div className="wiki-graph__actions" aria-label="Map controls">
         <Button type="button" variant="secondary" onClick={() => graphRef.current?.zoomToFit?.(650, 80)}>
-          Fit
+          Center map
         </Button>
       </div>
       <div className="wiki-graph__relations" aria-label="Map relationship filters">
@@ -425,7 +425,7 @@ const WikiIndex = ({ onOpenPage, onOpenList }) => {
   const persistedEdgeCount = Array.isArray(mapGraph.edges) ? mapGraph.edges.length : Array.isArray(mapGraph.links) ? mapGraph.links.length : 0;
   const graphSyncState = useMemo(() => {
     if (!pages.length) return { status: 'empty', label: 'No pages yet', stale: false };
-    if (!persistedEdgeCount && graph.links.length) return { status: 'stale', label: 'Review latest connections', stale: true };
+    if (!persistedEdgeCount && graph.links.length) return { status: 'stale', label: 'Connections need review', stale: true };
     if (!persistedEdgeCount) return { status: 'limited', label: 'No reviewed connections yet', stale: true };
     return { status: 'synced', label: 'Connections reviewed', stale: false };
   }, [graph.links.length, pages.length, persistedEdgeCount]);
@@ -522,7 +522,6 @@ const WikiIndex = ({ onOpenPage, onOpenList }) => {
           <span>{graphSummary.hubs.length ? `Brightest: ${graphSummary.hubs.map(node => node.title).join(', ')}` : 'No center yet'}</span>
           <span>{graphSummary.orphanCount} standalone page{graphSummary.orphanCount === 1 ? '' : 's'}</span>
           <span>{graphSummary.relationCounts.shared_source || 0} evidence overlap{(graphSummary.relationCounts.shared_source || 0) === 1 ? '' : 's'}</span>
-          <span>{graphSyncState.label}</span>
         </section>
       ) : null}
       {!loading && graph.nodes.length && !isSparseWiki ? (
@@ -532,7 +531,7 @@ const WikiIndex = ({ onOpenPage, onOpenList }) => {
             <span>{persistedEdgeCount} reviewed connection{persistedEdgeCount === 1 ? '' : 's'} · {graph.links.length} visible connection{graph.links.length === 1 ? '' : 's'}</span>
           </div>
           <Button type="button" variant={graphSyncState.stale ? 'primary' : 'secondary'} onClick={handleRebuildGraph} disabled={syncingGraph}>
-            {syncingGraph ? 'Refreshing...' : 'Refresh map'}
+            {syncingGraph ? 'Reviewing...' : graphSyncState.stale ? 'Review connections' : 'Update map'}
           </Button>
         </section>
       ) : null}

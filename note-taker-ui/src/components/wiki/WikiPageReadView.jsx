@@ -1154,11 +1154,23 @@ const WikiPageReadView = ({ pageId, onEdit, workspaceMode = false, refreshNonce 
     }
     setActiveTocId(current => current || tocItems[0].id);
     let animationFrame = 0;
+    let scrollRoot = window;
+    const rootMetrics = () => {
+      if (!scrollRoot || scrollRoot === window) {
+        return { top: 0, height: window.innerHeight || 900 };
+      }
+      const rect = scrollRoot.getBoundingClientRect?.();
+      return {
+        top: Number.isFinite(rect?.top) ? rect.top : 0,
+        height: Number.isFinite(rect?.height) && rect.height > 0 ? rect.height : window.innerHeight || 900
+      };
+    };
     const handleScroll = () => {
       if (animationFrame) window.cancelAnimationFrame(animationFrame);
       animationFrame = window.requestAnimationFrame(() => {
         animationFrame = 0;
-        const activationLine = Math.max(160, Math.min(window.innerHeight * 0.35, 320));
+        const root = rootMetrics();
+        const activationLine = root.top + Math.max(120, Math.min(root.height * 0.3, 260));
         const headingPositions = tocItems
           .map((item) => {
             const element = document.getElementById(item.id);
@@ -1191,9 +1203,15 @@ const WikiPageReadView = ({ pageId, onEdit, workspaceMode = false, refreshNonce 
       const canScroll = scrollParent.scrollHeight > scrollParent.clientHeight;
       if (canScroll && /(auto|scroll|overlay)/.test(`${style.overflowY} ${style.overflow}`)) {
         scrollTargets.push(scrollParent);
+        scrollRoot = scrollParent;
         break;
       }
       scrollParent = scrollParent.parentElement;
+    }
+    const workspacePane = articleRef.current?.closest?.('.wiki-workspace__right-pane');
+    if (workspacePane && !scrollTargets.includes(workspacePane)) {
+      scrollTargets.push(workspacePane);
+      scrollRoot = workspacePane;
     }
     handleScroll();
     scrollTargets.forEach(target => target.addEventListener('scroll', handleScroll, { passive: true }));

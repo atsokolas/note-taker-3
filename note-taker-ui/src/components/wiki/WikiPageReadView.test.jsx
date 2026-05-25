@@ -424,8 +424,11 @@ describe('WikiPageReadView', () => {
     });
     const originalInnerHeight = window.innerHeight;
     Object.defineProperty(window, 'innerHeight', { configurable: true, value: 900 });
-    let positions = { 'core-idea': 80, 'how-it-works': 500, evidence: 900 };
+    let positions = { 'core-idea': 160, 'how-it-works': 500, evidence: 900 };
     const rectSpy = jest.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function getRect() {
+      if (this.classList?.contains('wiki-workspace__right-pane')) {
+        return { top: 100, bottom: 700, left: 0, right: 0, width: 900, height: 600, x: 0, y: 100, toJSON: () => ({}) };
+      }
       const top = positions[this.getAttribute('id')] ?? 0;
       return { top, bottom: top + 32, left: 0, right: 0, width: 0, height: 32, x: 0, y: top, toJSON: () => ({}) };
     });
@@ -433,21 +436,24 @@ describe('WikiPageReadView', () => {
     try {
       render(
         <MemoryRouter>
-          <WikiPageReadView pageId="wiki-1" onEdit={jest.fn()} />
+          <div className="wiki-workspace__right-pane">
+            <WikiPageReadView pageId="wiki-1" onEdit={jest.fn()} />
+          </div>
         </MemoryRouter>
       );
 
       expect(await screen.findByRole('link', { name: 'Core idea' })).toHaveClass('is-active');
 
-      positions = { 'core-idea': -450, 'how-it-works': 220, evidence: 640 };
-      fireEvent.scroll(window);
+      const pane = document.querySelector('.wiki-workspace__right-pane');
+      positions = { 'core-idea': -450, 'how-it-works': 260, evidence: 640 };
+      fireEvent.scroll(pane);
       await act(async () => {
         jest.advanceTimersByTime(20);
       });
       expect(screen.getByRole('link', { name: 'How it works' })).toHaveClass('is-active');
 
-      positions = { 'core-idea': -900, 'how-it-works': -260, evidence: 210 };
-      fireEvent.scroll(window);
+      positions = { 'core-idea': -900, 'how-it-works': -260, evidence: 250 };
+      fireEvent.scroll(pane);
       await act(async () => {
         jest.advanceTimersByTime(20);
       });
