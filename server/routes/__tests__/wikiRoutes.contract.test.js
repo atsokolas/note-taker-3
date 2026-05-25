@@ -697,14 +697,23 @@ const run = async () => {
     ];
     staleSourcePage.body = {
       type: 'doc',
-      content: [{
-        type: 'paragraph',
-        content: [{
-          type: 'text',
-          text: 'Enterprise AI memory should cite relevant sources and suppress unrelated stale sources.',
-          marks: [{ type: 'claim', attrs: { citationIndexes: [1, 2, 3, 4] } }]
-        }]
-      }]
+      content: [
+        {
+          type: 'paragraph',
+          content: [{
+            type: 'text',
+            text: 'Enterprise AI memory should cite relevant sources and suppress unrelated stale sources.',
+            marks: [{ type: 'claim', attrs: { citationIndexes: [1, 2, 3, 4] } }]
+          }]
+        },
+        {
+          type: 'paragraph',
+          content: [{
+            type: 'text',
+            text: 'Flounder Mode is an unrelated stale source that should not survive just because it leaked into the body.'
+          }]
+        }
+      ]
     };
     staleSourcePage.claims = [{
       claimId: 'claim-stale-source',
@@ -717,6 +726,7 @@ const run = async () => {
     const sanitizedLedger = await request(url, `/api/wiki/pages/${hygieneCreated.body._id}`);
     assert.strictEqual(sanitizedLedger.res.status, 200, sanitizedLedger.text);
     assert.ok(!sanitizedLedger.body.sourceRefs.some(source => source.title === 'Flounder Mode'));
+    assert.ok(!JSON.stringify(sanitizedLedger.body.body).includes('Flounder Mode'));
     assert.deepStrictEqual(
       sanitizedLedger.body.body.content[0].content[0].marks[0].attrs.citationIndexes,
       [1, 2, 3]

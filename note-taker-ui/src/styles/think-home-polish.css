@@ -3944,7 +3944,7 @@ html[data-ui-theme='dark'] {
 
 .wiki-index__sparse-agent {
   display: grid;
-  gap: 4px;
+  gap: 8px;
   padding: 11px 12px;
   border: 1px solid color-mix(in srgb, var(--accent-primary, var(--primary-color)) 22%, var(--nt-divider));
   border-radius: 8px;
@@ -3960,6 +3960,34 @@ html[data-ui-theme='dark'] {
   color: var(--text-secondary);
   font-size: 0.84rem;
   line-height: 1.42;
+}
+
+.wiki-index__sparse-agent .ui-button {
+  justify-self: start;
+  min-height: 32px;
+}
+
+.wiki-graph-sparse-hint {
+  display: grid;
+  gap: 4px;
+  padding: 12px 14px;
+  border: 1px solid color-mix(in srgb, var(--nt-divider) 72%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface) 94%, transparent);
+}
+
+.wiki-graph-sparse-hint span {
+  color: var(--text-accent, var(--accent-primary, var(--primary-color)));
+  font-size: 0.74rem;
+  font-style: italic;
+  font-weight: 750;
+}
+
+.wiki-graph-sparse-hint p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.88rem;
+  line-height: 1.45;
 }
 
 .wiki-index__sparse-list {
@@ -4991,7 +5019,7 @@ html[data-ui-theme='dark'] {
 }
 
 .wiki-read__header h1 em {
-  color: var(--accent-primary, var(--primary-color));
+  color: inherit;
   font-style: italic;
   font-weight: inherit;
 }
@@ -5232,6 +5260,11 @@ html[data-ui-theme='dark'] {
   gap: 12px;
 }
 
+.wiki-read__infobox-row.is-updated {
+  border-radius: 6px;
+  animation: wikiInfoboxRowFlash 900ms ease-out;
+}
+
 .wiki-read__infobox dt {
   color: color-mix(in srgb, var(--text-muted) 88%, transparent);
   font-size: 0.76rem;
@@ -5295,6 +5328,18 @@ html[data-ui-theme='dark'] {
 .wiki-activity-rail__list time {
   font-variant-numeric: tabular-nums;
   font-feature-settings: "tnum" 1;
+}
+
+@keyframes wikiInfoboxRowFlash {
+  0% {
+    background: color-mix(in srgb, var(--accent-primary, var(--primary-color)) 14%, transparent);
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent-primary, var(--primary-color)) 28%, transparent);
+  }
+
+  100% {
+    background: transparent;
+    box-shadow: 0 0 0 8px transparent;
+  }
 }
 
 .wiki-read__talk {
@@ -5877,7 +5922,7 @@ html[data-ui-theme='dark'] {
   inset: 0;
   border-radius: 50%;
   background: inherit;
-  animation: wikiAgentDotIdle 3.6s ease-in-out infinite;
+  animation: wikiAgentDotIdle 4s ease-in-out infinite;
 }
 
 .wiki-agent-presence[data-status='maintaining'] .wiki-agent-presence__dot {
@@ -5885,7 +5930,7 @@ html[data-ui-theme='dark'] {
 }
 
 .wiki-agent-presence[data-status='maintaining'] .wiki-agent-presence__dot-inner {
-  animation: wikiAgentDotActive 1.4s ease-in-out infinite;
+  animation: wikiAgentDotActive 1s ease-in-out infinite;
 }
 
 .wiki-agent-presence[data-status='ready'] .wiki-agent-presence__dot {
@@ -8340,6 +8385,11 @@ html[data-ui-theme='dark'] .wiki-activity-rail__graph-alerts span {
   border-top: 1px solid color-mix(in srgb, var(--nt-divider) 70%, transparent);
   border-bottom: 1px solid color-mix(in srgb, var(--nt-divider) 70%, transparent);
   background: color-mix(in srgb, var(--surface) 96%, #fff);
+  animation: wikiWorkspaceComposerBreath 4s ease-in-out infinite;
+}
+
+.wiki-workspace-chat__composer[data-streaming='true'] {
+  animation-duration: 1.4s;
 }
 
 .wiki-workspace-chat__composer::after {
@@ -8633,7 +8683,7 @@ html[data-ui-theme='dark'] .wiki-activity-rail__graph-alerts span {
     inset 0 1px 1px rgba(255, 255, 255, 0.42),
     0 0 0 1px color-mix(in srgb, var(--surface) 60%, transparent),
     0 4px 10px rgba(15, 23, 42, 0.12);
-  animation: wikiWorkspacePresenceBreathe 2.8s ease-in-out infinite;
+  animation: wikiWorkspacePresenceBreathe 4s ease-in-out infinite;
 }
 
 .wiki-workspace-chat__presence-dot::after {
@@ -8655,7 +8705,7 @@ html[data-ui-theme='dark'] .wiki-activity-rail__graph-alerts span {
     inset 0 1px 1px rgba(255, 255, 255, 0.5),
     0 0 0 1px color-mix(in srgb, var(--accent-primary, var(--primary-color)) 20%, transparent),
     0 0 18px color-mix(in srgb, var(--accent-primary, var(--primary-color)) 34%, transparent);
-  animation-duration: 1.45s;
+  animation-duration: 1s;
 }
 
 .wiki-workspace-chat__presence[data-status='ready'] .wiki-workspace-chat__presence-dot {
@@ -8670,7 +8720,7 @@ html[data-ui-theme='dark'] .wiki-activity-rail__graph-alerts span {
 
 .wiki-workspace-chat__presence[data-status='working'] .wiki-workspace-chat__presence-dot::after,
 .wiki-workspace-chat__presence[data-status='reading'] .wiki-workspace-chat__presence-dot::after {
-  animation: wikiWorkspacePresencePulse 1.8s ease-out infinite;
+  animation: wikiWorkspacePresencePulse 800ms ease-out infinite;
 }
 
 .wiki-workspace-chat__presence span:last-child {
@@ -8716,11 +8766,26 @@ html[data-ui-theme='dark'] .wiki-activity-rail__graph-alerts span {
   }
 }
 
+@keyframes wikiWorkspaceComposerBreath {
+  0%,
+  100% {
+    border-color: color-mix(in srgb, var(--nt-divider) 70%, transparent);
+    box-shadow: 0 0 0 0 transparent;
+  }
+
+  50% {
+    border-color: color-mix(in srgb, var(--accent-primary, var(--primary-color)) 34%, var(--nt-divider));
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-primary, var(--primary-color)) 8%, transparent);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .wiki-workspace-chat__caret,
+  .wiki-workspace-chat__composer,
   .wiki-workspace-chat__composer::after,
   .wiki-workspace-chat__presence-dot,
-  .wiki-workspace-chat__presence-dot::after {
+  .wiki-workspace-chat__presence-dot::after,
+  .wiki-read__infobox-row.is-updated {
     animation: none !important;
   }
 }

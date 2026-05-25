@@ -100,6 +100,22 @@ const extractPlainText = (node) => {
   return [ownText, childText].filter(Boolean).join(' ').trim();
 };
 
+const extractRelevanceTextFromDoc = (node, out = [], state = { paragraphSeen: false }) => {
+  if (!node || out.join(' ').length > 1600) return out;
+  if (Array.isArray(node)) {
+    node.forEach(child => extractRelevanceTextFromDoc(child, out, state));
+    return out;
+  }
+  if (typeof node !== 'object') return out;
+  if (node.type === 'heading' || (node.type === 'paragraph' && !state.paragraphSeen)) {
+    const text = extractPlainText(node);
+    if (text) out.push(text);
+    if (node.type === 'paragraph') state.paragraphSeen = true;
+  }
+  if (Array.isArray(node.content)) extractRelevanceTextFromDoc(node.content, out, state);
+  return out;
+};
+
 const normalizeTitle = (value = '') => (
   String(value || 'Untitled Wiki Page').trim().slice(0, 180) || 'Untitled Wiki Page'
 );
@@ -217,8 +233,8 @@ const tokenizeForSourceRelevance = (value = '') => (
 ).map(token => token.replace(/(?:ing|ments?|ions?|ers?|ies|s)$/i, ''))
   .filter(token => token.length >= 4 && !WIKI_SOURCE_RELEVANCE_STOPWORDS.has(token));
 
-const sourceLooksOffTopicForPage = ({ pageTokens = new Set(), pageText = '', source = {} } = {}) => {
-  if (!pageTokens.size || pageTokens.size < 6) return false;
+const sourceLooksOffTopicForPage = ({ pageTokens = new Set(), source = {} } = {}) => {
+  if (!pageTokens.size || pageTokens.size < 2) return false;
   const sourceText = [
     source.title,
     source.snippet,
@@ -229,9 +245,52 @@ const sourceLooksOffTopicForPage = ({ pageTokens = new Set(), pageText = '', sou
   if (!sourceTokens.length) return false;
   const overlap = sourceTokens.filter(token => pageTokens.has(token));
   if (overlap.length > 0) return false;
-  const title = String(source.title || '').trim().toLowerCase();
-  if (title && pageText.includes(title)) return false;
+  const titleTokens = tokenizeForSourceRelevance(source.title || '');
+  if (titleTokens.length >= 2 && titleTokens.every(token => pageTokens.has(token))) return false;
   return true;
+};
+
+const sourceTitlePhrase = (source = {}) => (
+  String(source.title || '')
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+);
+
+const stripSourceTitlePhrases = (value = '', sources = []) => (
+  sources.reduce((text, source) => {
+    const phrase = sourceTitlePhrase(source);
+    if (phrase.length < 6) return text;
+    return text.replace(new RegExp(escapeRegExp(phrase), 'gi'), ' ');
+  }, String(value || ''))
+);
+
+const nodeMentionsRemovedSource = (node, removedSources = []) => {
+  const text = extractPlainText(node).toLowerCase().replace(/\s+/g, ' ');
+  if (!text) return false;
+  return removedSources
+    .map(sourceTitlePhrase)
+    .filter(phrase => phrase.length >= 6)
+    .some(phrase => text.includes(phrase));
+};
+
+const stripRemovedSourceMentionsFromDoc = (node, removedSources = []) => {
+  if (!node || !removedSources.length) return node;
+  if (Array.isArray(node)) {
+    return node
+      .map(child => stripRemovedSourceMentionsFromDoc(child, removedSources))
+      .filter(Boolean);
+  }
+  if (typeof node !== 'object') return node;
+  if (['paragraph', 'listItem', 'blockquote'].includes(node.type) && nodeMentionsRemovedSource(node, removedSources)) {
+    return null;
+  }
+  const next = { ...node };
+  if (Array.isArray(next.content)) {
+    const stripped = stripRemovedSourceMentionsFromDoc(next.content, removedSources);
+    next.content = stripped.length ? stripped : next.content;
+  }
+  return next;
 };
 
 const remapClaimSourceReferences = ({ claims = [], citationIndexMap = new Map(), keptSourceIds = new Set(), keptCitationIds = new Set() } = {}) => (
@@ -265,11 +324,15 @@ const sanitizeSourceLedgerForRead = (raw = {}) => {
   if (sourceRefs.length < 4) return raw;
   const pageText = [
     raw.title,
-    raw.plainText,
-    extractPlainText(raw.body)
+    raw.infobox?.scope,
+    raw.infobox?.summary,
+    raw.metadata?.scope,
+    raw.metadata?.summary,
+    stripSourceTitlePhrases(raw.plainText, sourceRefs),
+    extractRelevanceTextFromDoc(raw.body).join(' ')
   ].filter(Boolean).join(' ').toLowerCase();
   const pageTokens = new Set(tokenizeForSourceRelevance(pageText));
-  const keepFlags = sourceRefs.map(source => !sourceLooksOffTopicForPage({ pageTokens, pageText, source }));
+  const keepFlags = sourceRefs.map(source => !sourceLooksOffTopicForPage({ pageTokens, source }));
   const removedCount = keepFlags.filter(keep => !keep).length;
   if (!removedCount || sourceRefs.length - removedCount < 3 || removedCount > Math.ceil(sourceRefs.length * 0.35)) {
     return raw;
@@ -285,6 +348,7 @@ const sanitizeSourceLedgerForRead = (raw = {}) => {
     });
   });
   const keptSourceIds = new Set(keptSourceRefs.map(source => String(source._id || source.id || '')).filter(Boolean));
+  const removedSourceRefs = sourceRefs.filter((_source, index) => !keepFlags[index]);
   const citations = Array.isArray(raw.citations) ? raw.citations : [];
   const keptCitations = citations.filter((citation, index) => {
     const sourceId = String(citation?.sourceRefId || '');
@@ -293,7 +357,10 @@ const sanitizeSourceLedgerForRead = (raw = {}) => {
   const keptCitationIds = new Set(keptCitations.map(citation => String(citation._id || citation.id || '')).filter(Boolean));
   return {
     ...raw,
-    body: remapCitationIndexesInDoc(clonePlain(raw.body || emptyDoc()), citationIndexMap),
+    body: remapCitationIndexesInDoc(
+      stripRemovedSourceMentionsFromDoc(clonePlain(raw.body || emptyDoc()), removedSourceRefs),
+      citationIndexMap
+    ),
     sourceRefs: keptSourceRefs,
     citations: keptCitations,
     claims: remapClaimSourceReferences({

@@ -1705,7 +1705,7 @@ const WikiWorkspace = () => {
     const dx = touch.clientX - start.x;
     const dy = touch.clientY - start.y;
     if (Math.abs(dx) < 56 || Math.abs(dx) < Math.abs(dy) * 1.35) return;
-    setMobilePane(dx < 0 ? 'wiki' : 'chat');
+    showPane(dx < 0 ? 'wiki' : 'chat', { persist: true });
   };
 
   return (

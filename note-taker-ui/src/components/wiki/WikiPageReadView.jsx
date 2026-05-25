@@ -178,6 +178,14 @@ const stripLeadingDuplicateTitleHeading = (body = emptyDoc, title = '') => {
 
 const splitTitleAccent = (title = '') => {
   const text = String(title || '').trim() || 'Untitled Wiki Page';
+  const explicitMatch = text.match(/^(.*?)\*([^*]+)\*(.*)$/);
+  if (explicitMatch?.[2]?.trim()) {
+    return {
+      before: explicitMatch[1].trim(),
+      accent: explicitMatch[2].trim(),
+      after: explicitMatch[3].trim()
+    };
+  }
   const words = text.match(/\S+/g) || [];
   if (words.length < 2) return { before: '', accent: text, after: '' };
   const stopWords = new Set([
@@ -258,6 +266,23 @@ const contradictionCount = (claims = []) => (
     .filter(claim => ['conflicted', 'contradicted'].includes(String(claim?.support || '').toLowerCase()))
     .length
 );
+
+const countClaimMarks = (node, out = new Set()) => {
+  if (!node) return out;
+  if (Array.isArray(node)) {
+    node.forEach(child => countClaimMarks(child, out));
+    return out;
+  }
+  if (typeof node !== 'object') return out;
+  (node.marks || []).forEach((mark) => {
+    if (mark?.type !== 'claim') return;
+    const attrs = mark.attrs || {};
+    if (attrs.claimId) out.add(String(attrs.claimId));
+    else out.add(`${collectText(node).slice(0, 120)}:${out.size}`);
+  });
+  if (Array.isArray(node.content)) countClaimMarks(node.content, out);
+  return out;
+};
 
 const cleanSourceText = (value = '') => String(value || '')
   .replace(/&lt;/gi, '<')
@@ -353,10 +378,12 @@ const countPageClaims = (page = {}) => {
   const citationsWithClaims = Array.isArray(value.citations)
     ? new Set(value.citations.map(citation => citation.claimId).filter(Boolean)).size
     : 0;
+  const markedClaims = countClaimMarks(value.body).size;
   return Math.max(
     Number.isFinite(explicit) ? explicit : 0,
     claims,
-    citationsWithClaims
+    citationsWithClaims,
+    markedClaims
   );
 };
 
@@ -372,7 +399,9 @@ const buildInfoboxRows = ({ page = {}, sourceCount = 0, claimCount = 0, wordCoun
   const type = String(value.pageType || 'topic').toLowerCase();
   const firstSource = Array.isArray(value.sourceRefs) ? value.sourceRefs[0] || {} : {};
   const summaryText = conciseInfoboxText(meta.summary || meta.scope || '') || autoInfoboxSummary(value.body);
-  const scopeText = conciseScopeText(meta.scope || meta.summary || '') || conciseScopeText(firstParagraphText(value.body));
+  const sectionText = sectionTitles(value.body);
+  const scopeText = conciseScopeText(meta.scope || meta.summary || '')
+    || (sectionText ? `Covers ${sectionText}.` : 'No explicit scope yet.');
   // Word count moved here from the now-stripped page-header "facts row" so
   // the number survives but stops competing with the title for attention.
   const baseRows = [
@@ -439,7 +468,7 @@ const buildInfoboxRows = ({ page = {}, sourceCount = 0, claimCount = 0, wordCoun
 
 const WIKI_LINK_PREVIEW_SHOW_DELAY_MS = 250;
 const WIKI_LINK_PREVIEW_DISMISS_GRACE_MS = 100;
-const NUMERIC_TWEEN_DURATION_MS = 520;
+const NUMERIC_TWEEN_DURATION_MS = 800;
 const PAGE_TRANSITION_DURATION_MS = 200;
 
 const useReducedMotion = () => {
@@ -553,6 +582,29 @@ const InfoboxValue = ({ value, pageId, label }) => {
     return <AnimatedNumber value={value} resetKey={`${pageId}:${label}`} />;
   }
   return value === null || value === undefined || value === '' ? 'Unknown' : value;
+};
+
+const InfoboxRow = ({ row, pageId }) => {
+  const previousValueRef = useRef(row.value);
+  const [updated, setUpdated] = useState(false);
+
+  useEffect(() => {
+    if (previousValueRef.current === row.value) return undefined;
+    previousValueRef.current = row.value;
+    setUpdated(true);
+    const timeout = window.setTimeout(() => setUpdated(false), 900);
+    return () => window.clearTimeout(timeout);
+  }, [row.value]);
+
+  return (
+    <div
+      data-infobox-row={String(row.label).toLowerCase().replace(/\s+/g, '-')}
+      className={updated ? 'wiki-read__infobox-row is-updated' : 'wiki-read__infobox-row'}
+    >
+      <dt>{row.label}</dt>
+      <dd><InfoboxValue value={row.value} pageId={pageId} label={row.label} /></dd>
+    </div>
+  );
 };
 
 const WikiMentionedInFooter = ({ pageId, pageTitle }) => {
@@ -1274,8 +1326,13 @@ const WikiPageReadView = ({ pageId, onEdit, workspaceMode = false, refreshNonce 
     sourceCount: countPageSources(page),
     claimCount: countPageClaims(page),
     wordCount,
-    lastReviewed: formatDate(lastVisit?.lastViewedAt)
-  }), [page, wordCount, lastVisit?.lastViewedAt]);
+    lastReviewed: formatDate(
+      page?.aiState?.lastReviewedAt
+      || page?.aiState?.lastDraftedAt
+      || page?.lastReviewedAt
+      || page?.updatedAt
+    )
+  }), [page, wordCount]);
   const activeLedgerClaim = activeClaim ? claimLedgerById.get(activeClaim.claimId) : null;
   const displayedActiveTocId = activeTocId || tocItems[0]?.id || '';
   const discussionCount = (page?.discussions || []).length;
@@ -1589,12 +1646,7 @@ const WikiPageReadView = ({ pageId, onEdit, workspaceMode = false, refreshNonce 
                   <h2>{labelFor(page.pageType || 'topic')}</h2>
                   <dl>
                     {infoboxRows.map(row => (
-                      <div key={row.label} data-infobox-row={String(row.label || '').toLowerCase().replace(/[^a-z0-9]+/g, '-')}>
-                        <dt>{row.label}</dt>
-                        <dd>
-                          <InfoboxValue value={row.value} pageId={pageId} label={row.label} />
-                        </dd>
-                      </div>
+                      <InfoboxRow key={row.label} row={row} pageId={pageId} />
                     ))}
                   </dl>
                 </section>

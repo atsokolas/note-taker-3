@@ -606,7 +606,8 @@ describe('WikiPageReadView', () => {
       await act(async () => { fireEvent.click(showContext); });
     }
 
-    expect(rail).toHaveTextContent('Investing is the disciplined allocation of capital to assets that are expected...');
+    expect(rail).toHaveTextContent('No explicit scope yet.');
+    expect(rail).not.toHaveTextContent('Investing is the disciplined allocation of capital');
     expect(rail).not.toHaveTextContent('while navigating behavioral pressure and market uncertainty');
   });
 
@@ -629,7 +630,7 @@ describe('WikiPageReadView', () => {
     expect(claimValue()).toHaveTextContent('0');
 
     await act(async () => {
-      jest.advanceTimersByTime(620);
+      jest.advanceTimersByTime(820);
     });
     expect(sourceValue()).toHaveTextContent('2');
     expect(claimValue()).toHaveTextContent('3');
@@ -659,7 +660,7 @@ describe('WikiPageReadView', () => {
     expect(claimValue()).toHaveTextContent('3');
 
     await act(async () => {
-      jest.advanceTimersByTime(620);
+      jest.advanceTimersByTime(820);
     });
     expect(sourceValue()).toHaveTextContent('3');
     expect(claimValue()).toHaveTextContent('4');

@@ -41,7 +41,8 @@ const EDGE_COLORS = {
 
 const GRAPH_RELATION_TYPES = ['related', 'needs_review', 'supports', 'contradicts', 'extends'];
 const GRAPH_PAGE_LIMIT = 500;
-const SPARSE_WIKI_PAGE_THRESHOLD = 3;
+const EMPTY_WIKI_PAGE_THRESHOLD = 3;
+const SPARSE_WIKI_HINT_THRESHOLD = 10;
 const REVIEW_STATUS_LABELS = {
   all: 'All review states',
   drifting: 'Needs review',
@@ -170,20 +171,21 @@ const WikiActivityLog = ({ refreshKey = 0, onOpenPage }) => {
   );
 };
 
-const WikiSparsePages = ({ pages = [], onOpenPage }) => (
+const WikiSparsePages = ({ pages = [], onOpenPage, onOpenWorkspace }) => (
   <section className="wiki-index__sparse" aria-label="Wiki pages">
     <div>
       <p className="wiki-index__eyebrow">Pages</p>
-      <h2>{pages.length ? `${pages.length} current page${pages.length === 1 ? '' : 's'}` : 'Start the wiki'}</h2>
+      <h2>{pages.length ? `${pages.length} source-backed page${pages.length === 1 ? '' : 's'}` : 'Start the wiki'}</h2>
       <p>
         {pages.length
-          ? 'The map will appear after there are enough pages to connect. For now, open a page or add another source-backed page.'
-          : 'Create the first source-backed page, then add related pages as your library starts to connect.'}
+          ? 'The map will stay out of the way until there is enough material to connect. Open a page, or ask the agent to build the next source-backed page.'
+          : 'Ask the agent to build a source-backed page from your library. The map appears after the wiki has enough pages to form a useful constellation.'}
       </p>
     </div>
     <div className="wiki-index__sparse-agent" aria-label="Build wiki pages">
       <strong>Grow the map deliberately</strong>
       <span>Add pages with citations, then connect them through links, shared sources, and review relationships.</span>
+      <Button type="button" variant="secondary" onClick={onOpenWorkspace}>Open wiki agent</Button>
     </div>
     {pages.length ? (
       <ol className="wiki-index__sparse-list">
@@ -430,13 +432,18 @@ const WikiIndex = ({ onOpenPage, onOpenList }) => {
     return { status: 'synced', label: 'Connections reviewed', stale: false };
   }, [graph.links.length, pages.length, persistedEdgeCount]);
   const isMobile = width < 720;
-  const isSparseWiki = graph.nodes.length < SPARSE_WIKI_PAGE_THRESHOLD;
+  const isEmptyWiki = graph.nodes.length < EMPTY_WIKI_PAGE_THRESHOLD;
+  const isSparseWiki = graph.nodes.length >= EMPTY_WIKI_PAGE_THRESHOLD && graph.nodes.length < SPARSE_WIKI_HINT_THRESHOLD;
 
   const handleOpenPage = useCallback((pageId) => {
     if (!pageId) return;
     if (onOpenPage) onOpenPage(pageId);
     else navigate(wikiPagePath(pageId));
   }, [navigate, onOpenPage]);
+
+  const handleOpenWorkspace = useCallback(() => {
+    navigate('/wiki/workspace?pane=chat&view=graph');
+  }, [navigate]);
 
   const handleExportWiki = async () => {
     try {
@@ -481,11 +488,21 @@ const WikiIndex = ({ onOpenPage, onOpenList }) => {
           </div>
         </aside>
       ) : null}
+      {loading ? <p className="wiki-index__status">Loading knowledge map...</p> : null}
+      {!loading && isEmptyWiki ? (
+        <>
+          {error ? <div className="wiki-index__error" role="alert">{error}</div> : null}
+          <WikiSparsePages pages={filteredPages} onOpenPage={handleOpenPage} onOpenWorkspace={handleOpenWorkspace} />
+          <WikiActivityLog refreshKey={activityRefresh} onOpenPage={handleOpenPage} />
+        </>
+      ) : null}
+      {loading || isEmptyWiki ? null : (
+        <>
       <section className="wiki-index__header">
         <div className="wiki-index__title-block">
           <p className="wiki-index__eyebrow">Wiki</p>
           <h1>Knowledge map</h1>
-          <p>{isSparseWiki ? 'The wiki is still sparse. Build a few pages first; the constellation appears once there is enough material to connect.' : 'Pages settle into a quiet constellation of links, sources, and review relationships.'}</p>
+          <p>{isSparseWiki ? 'This is still a sparse wiki, so the map is a lightweight constellation rather than an authority signal.' : 'Pages settle into a quiet constellation of links, sources, and review relationships.'}</p>
         </div>
         <div className="wiki-index__tabs" role="tablist" aria-label="Wiki views">
           {onOpenList ? (
@@ -517,6 +534,12 @@ const WikiIndex = ({ onOpenPage, onOpenList }) => {
           {graph.nodes.length} {graph.nodes.length === 1 ? 'page' : 'pages'} · {graph.links.length} {graph.links.length === 1 ? 'link' : 'links'}
         </span>
       </section>
+      {isSparseWiki ? (
+        <section className="wiki-graph-sparse-hint" aria-label="Sparse wiki note">
+          <span>Early map</span>
+          <p>With fewer than ten pages, treat the map as a reading aid. Stronger hubs and evidence overlap appear as the wiki fills in.</p>
+        </section>
+      ) : null}
       {!loading && graph.nodes.length && !isSparseWiki ? (
         <section className="wiki-graph-signals" aria-label="Wiki map signals">
           <span>{graphSummary.hubs.length ? `Brightest: ${graphSummary.hubs.map(node => node.title).join(', ')}` : 'No center yet'}</span>
@@ -536,17 +559,15 @@ const WikiIndex = ({ onOpenPage, onOpenList }) => {
         </section>
       ) : null}
       {error ? <div className="wiki-index__error" role="alert">{error}</div> : null}
-      {loading ? <p className="wiki-index__status">Loading knowledge map...</p> : null}
-      {!loading && graph.nodes.length && !isMobile && !isSparseWiki ? <WikiGraph graph={graph} onOpenPage={handleOpenPage} /> : null}
-      {!loading && isSparseWiki ? (
-        <WikiSparsePages pages={filteredPages} onOpenPage={handleOpenPage} />
-      ) : null}
-      {isMobile && !isSparseWiki ? (
+      {!loading && graph.nodes.length && !isMobile ? <WikiGraph graph={graph} onOpenPage={handleOpenPage} /> : null}
+      {isMobile ? (
         <section className="wiki-graph-index__mobile-list" aria-label="Wiki pages mobile list">
           <WikiList compact onOpenPage={handleOpenPage} />
         </section>
       ) : null}
       <WikiActivityLog refreshKey={activityRefresh} onOpenPage={handleOpenPage} />
+        </>
+      )}
     </main>
   );
 };

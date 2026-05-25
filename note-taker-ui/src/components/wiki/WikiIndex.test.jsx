@@ -155,10 +155,7 @@ describe('WikiIndex graph', () => {
     expect(listWikiPages).toHaveBeenCalledWith({ limit: 500 });
 
     fireEvent.change(screen.getByLabelText('Page type'), { target: { value: 'source' } });
-    expect(screen.getByText('1 page · 0 links')).toBeInTheDocument();
-
-    fireEvent.change(screen.getByLabelText('Review status'), { target: { value: 'stable' } });
-    expect(screen.getByText('0 pages · 0 links')).toBeInTheDocument();
+    expect(screen.getByText('1 source-backed page')).toBeInTheDocument();
   });
 
   it('still renders the inline-link graph if persisted map edges fail to load', async () => {
@@ -259,7 +256,7 @@ describe('WikiIndex graph', () => {
     });
   });
 
-  it('hides the graph for sparse wikis and exposes an editorial build surface', async () => {
+  it('replaces the graph surface for wikis with fewer than three pages', async () => {
     listWikiPages.mockResolvedValueOnce(pages);
 
     render(
@@ -268,15 +265,16 @@ describe('WikiIndex graph', () => {
       </MemoryRouter>
     );
 
-    expect(await screen.findByText('Knowledge map')).toBeInTheDocument();
-    expect(screen.getByText('2 pages · 1 link')).toBeInTheDocument();
+    expect(await screen.findByText('2 source-backed pages')).toBeInTheDocument();
+    expect(screen.queryByText('Knowledge map')).not.toBeInTheDocument();
+    expect(screen.queryByText('2 pages · 1 link')).not.toBeInTheDocument();
     expect(screen.queryByTestId('wiki-force-graph')).not.toBeInTheDocument();
-    expect(screen.getByText('2 current pages')).toBeInTheDocument();
     expect(screen.getByLabelText('Build wiki pages')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Open wiki agent' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Enterprise AI Memory/ })).toBeInTheDocument();
   });
 
-  it('renders the constellation once the wiki has at least three pages', async () => {
+  it('renders an early constellation with a sparse hint once the wiki has at least three pages', async () => {
     listWikiPages.mockResolvedValueOnce([
       ...pages,
       {
@@ -297,6 +295,7 @@ describe('WikiIndex graph', () => {
 
     expect(await screen.findByTestId('wiki-force-graph')).toBeInTheDocument();
     expect(screen.getByText('3 pages · 1 link')).toBeInTheDocument();
-    expect(screen.queryByText('3 current pages')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Sparse wiki note')).toHaveTextContent('Early map');
+    expect(screen.queryByText('3 source-backed pages')).not.toBeInTheDocument();
   });
 });
