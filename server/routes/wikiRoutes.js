@@ -202,6 +202,115 @@ const remapCitationIndexesInDoc = (node, citationIndexMap = new Map()) => {
   return next;
 };
 
+const WIKI_SOURCE_RELEVANCE_STOPWORDS = new Set([
+  'about', 'after', 'again', 'against', 'also', 'another', 'article', 'because', 'before', 'between',
+  'claim', 'claims', 'concept', 'could', 'draft', 'evidence', 'from', 'have', 'into', 'more',
+  'most', 'needs', 'other', 'page', 'pages', 'source', 'sources', 'still', 'than', 'that',
+  'their', 'there', 'these', 'this', 'through', 'topic', 'what', 'when', 'where', 'which',
+  'while', 'wiki', 'with', 'without', 'would'
+]);
+
+const tokenizeForSourceRelevance = (value = '') => (
+  String(value || '')
+    .toLowerCase()
+    .match(/[a-z][a-z0-9-]{3,}/g) || []
+).map(token => token.replace(/(?:ing|ments?|ions?|ers?|ies|s)$/i, ''))
+  .filter(token => token.length >= 4 && !WIKI_SOURCE_RELEVANCE_STOPWORDS.has(token));
+
+const sourceLooksOffTopicForPage = ({ pageTokens = new Set(), pageText = '', source = {} } = {}) => {
+  if (!pageTokens.size || pageTokens.size < 6) return false;
+  const sourceText = [
+    source.title,
+    source.snippet,
+    source.url,
+    source.citationLabel
+  ].filter(Boolean).join(' ');
+  const sourceTokens = tokenizeForSourceRelevance(sourceText);
+  if (!sourceTokens.length) return false;
+  const overlap = sourceTokens.filter(token => pageTokens.has(token));
+  if (overlap.length > 0) return false;
+  const title = String(source.title || '').trim().toLowerCase();
+  if (title && pageText.includes(title)) return false;
+  return true;
+};
+
+const remapClaimSourceReferences = ({ claims = [], citationIndexMap = new Map(), keptSourceIds = new Set(), keptCitationIds = new Set() } = {}) => (
+  Array.isArray(claims)
+    ? claims.map((claim) => {
+      const remapIndexes = (indexes = []) => (
+        Array.isArray(indexes)
+          ? indexes.map(index => citationIndexMap.get(Number(index))).filter(Number.isInteger)
+          : indexes
+      );
+      return {
+        ...claim,
+        ...(Array.isArray(claim.citationIndexes) ? { citationIndexes: remapIndexes(claim.citationIndexes) } : {}),
+        ...(Array.isArray(claim.contradictionIndexes) ? { contradictionIndexes: remapIndexes(claim.contradictionIndexes) } : {}),
+        ...(Array.isArray(claim.sourceRefIds)
+          ? { sourceRefIds: claim.sourceRefIds.filter(id => keptSourceIds.has(String(id))) }
+          : {}),
+        ...(Array.isArray(claim.citationIds)
+          ? { citationIds: claim.citationIds.filter(id => keptCitationIds.has(String(id))) }
+          : {}),
+        ...(Array.isArray(claim.contradictedByCitationIds)
+          ? { contradictedByCitationIds: claim.contradictedByCitationIds.filter(id => keptCitationIds.has(String(id))) }
+          : {})
+      };
+    })
+    : []
+);
+
+const sanitizeSourceLedgerForRead = (raw = {}) => {
+  const sourceRefs = Array.isArray(raw.sourceRefs) ? raw.sourceRefs : [];
+  if (sourceRefs.length < 4) return raw;
+  const pageText = [
+    raw.title,
+    raw.plainText,
+    extractPlainText(raw.body)
+  ].filter(Boolean).join(' ').toLowerCase();
+  const pageTokens = new Set(tokenizeForSourceRelevance(pageText));
+  const keepFlags = sourceRefs.map(source => !sourceLooksOffTopicForPage({ pageTokens, pageText, source }));
+  const removedCount = keepFlags.filter(keep => !keep).length;
+  if (!removedCount || sourceRefs.length - removedCount < 3 || removedCount > Math.ceil(sourceRefs.length * 0.35)) {
+    return raw;
+  }
+  const citationIndexMap = new Map();
+  const keptSourceRefs = [];
+  sourceRefs.forEach((source, index) => {
+    if (!keepFlags[index]) return;
+    citationIndexMap.set(index + 1, keptSourceRefs.length + 1);
+    keptSourceRefs.push({
+      ...source,
+      citationLabel: `[${keptSourceRefs.length + 1}]`
+    });
+  });
+  const keptSourceIds = new Set(keptSourceRefs.map(source => String(source._id || source.id || '')).filter(Boolean));
+  const citations = Array.isArray(raw.citations) ? raw.citations : [];
+  const keptCitations = citations.filter((citation, index) => {
+    const sourceId = String(citation?.sourceRefId || '');
+    return keepFlags[index] || (sourceId && keptSourceIds.has(sourceId));
+  });
+  const keptCitationIds = new Set(keptCitations.map(citation => String(citation._id || citation.id || '')).filter(Boolean));
+  return {
+    ...raw,
+    body: remapCitationIndexesInDoc(clonePlain(raw.body || emptyDoc()), citationIndexMap),
+    sourceRefs: keptSourceRefs,
+    citations: keptCitations,
+    claims: remapClaimSourceReferences({
+      claims: raw.claims || [],
+      citationIndexMap,
+      keptSourceIds,
+      keptCitationIds
+    }),
+    aiState: {
+      ...(raw.aiState || {}),
+      sourceRefIdsAtDraft: Array.isArray(raw.aiState?.sourceRefIdsAtDraft)
+        ? raw.aiState.sourceRefIdsAtDraft.filter(id => keptSourceIds.has(String(id)))
+        : []
+    }
+  };
+};
+
 const cloneSourceRefForPromotion = (source) => {
   const raw = source?.toObject ? source.toObject({ virtuals: false }) : clonePlain(source);
   if (!raw || typeof raw !== 'object') return null;
@@ -231,9 +340,10 @@ const buildPromotedDiscussionDoc = ({ title, discussion, citationIndexMap = new 
 
 const serializeWikiPage = (page) => {
   if (!page) return page;
-  const raw = typeof page.toObject === 'function'
+  const rawPage = typeof page.toObject === 'function'
     ? page.toObject({ virtuals: false })
     : { ...page };
+  const raw = sanitizeSourceLedgerForRead(rawPage);
   return {
     ...raw,
     pageType: normalizePageType(raw.pageType || 'topic'),

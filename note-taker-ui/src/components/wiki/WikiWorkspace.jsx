@@ -394,11 +394,18 @@ const actionLabel = (action, finding = {}) => {
   return 'Ignore';
 };
 
-const viewPathFor = ({ view = 'graph', page = '', mode = '' } = {}) => {
+const normalizePane = (value = '') => {
+  const pane = clean(value).toLowerCase();
+  return pane === 'chat' || pane === 'wiki' ? pane : '';
+};
+
+const viewPathFor = ({ view = 'graph', page = '', mode = '', pane = '' } = {}) => {
   const params = new URLSearchParams();
   if (page) params.set('page', page);
   else params.set('view', view);
   if (page && mode && mode !== 'read') params.set('mode', mode);
+  const normalizedPane = normalizePane(pane);
+  if (normalizedPane) params.set('pane', normalizedPane);
   return `/wiki/workspace?${params.toString()}`;
 };
 
@@ -1477,6 +1484,7 @@ const WikiWorkspace = () => {
   const selectedPageId = clean(params.get('page'));
   const pageMode = clean(params.get('mode')) === 'edit' ? 'edit' : 'read';
   const explicitView = clean(params.get('view'));
+  const explicitPane = normalizePane(params.get('pane'));
   const view = selectedPageId ? 'page' : explicitView || 'graph';
 
   useEffect(() => {
@@ -1492,6 +1500,33 @@ const WikiWorkspace = () => {
   useEffect(() => {
     if (selectedPageId) lastSelectedPageRef.current = selectedPageId;
   }, [selectedPageId]);
+
+  const syncPaneParam = useCallback((pane) => {
+    const normalizedPane = normalizePane(pane);
+    if (!normalizedPane) return;
+    const nextParams = new URLSearchParams(currentSearchRef.current || currentSearch || location.search || '');
+    nextParams.set('pane', normalizedPane);
+    const nextSearch = `?${nextParams.toString()}`;
+    currentSearchRef.current = nextSearch;
+    setCurrentSearch(nextSearch);
+    navigate(`/wiki/workspace${nextSearch}`, { replace: true });
+  }, [currentSearch, location.search, navigate]);
+
+  const showPane = useCallback((pane, { persist = false } = {}) => {
+    const normalizedPane = normalizePane(pane);
+    if (!normalizedPane) return;
+    setMobilePane(normalizedPane);
+    if (persist) syncPaneParam(normalizedPane);
+  }, [syncPaneParam]);
+
+  const openChatWithDraft = useCallback((text, idPrefix = 'workspace-chat-draft') => {
+    setChatDraft({ id: `${idPrefix}-${Date.now()}`, text });
+    showPane('chat', { persist: true });
+  }, [showPane]);
+
+  useEffect(() => {
+    if (explicitPane) setMobilePane(explicitPane);
+  }, [explicitPane]);
 
   useEffect(() => {
     if (hasSeenFirstVisitOnboarding() || selectedPageId) {
@@ -1515,7 +1550,7 @@ const WikiWorkspace = () => {
   useEffect(() => {
     if (selectedPageId) {
       window.localStorage?.setItem?.(LAST_PAGE_KEY, selectedPageId);
-      setMobilePane('wiki');
+      if (explicitPane !== 'chat') setMobilePane('wiki');
       return;
     }
     if (explicitView) return;
@@ -1526,19 +1561,19 @@ const WikiWorkspace = () => {
       setCurrentSearch(targetSearch);
       navigate(viewPathFor(target), { replace: true });
     });
-  }, [explicitView, navigate, selectedPageId]);
+  }, [explicitPane, explicitView, navigate, selectedPageId]);
 
   const onNavigate = useCallback(({ page = '', view: nextView = '', mode = '' } = {}) => {
     if (selectedPageId) lastSelectedPageRef.current = selectedPageId;
-    const target = { page, view: nextView || 'graph', mode };
+    const target = { page, view: nextView || 'graph', mode, pane: explicitPane };
     const targetSearch = searchFor(target);
     startWikiViewTransition(() => {
       currentSearchRef.current = targetSearch;
       setCurrentSearch(targetSearch);
       navigate(viewPathFor(target));
-      if (page) setMobilePane('wiki');
+      if (page && explicitPane !== 'chat') setMobilePane('wiki');
     });
-  }, [navigate, selectedPageId]);
+  }, [explicitPane, navigate, selectedPageId]);
 
   const enterPageEditMode = useCallback((pageId = selectedPageId) => {
     const nextPageId = clean(pageId);
@@ -1568,12 +1603,11 @@ const WikiWorkspace = () => {
     const articleContext = articleId ? ` @article:${articleId}` : '';
     const pageId = selectedPageId || lastSelectedPageRef.current;
     const pageContext = pageId ? ` for @wiki:${pageId}` : '';
-    setChatDraft({
-      id: `${article._id || article.id || title}-${Date.now()}`,
-      text: `Use "${title}"${url ? ` (${url})` : ''}${articleContext}${pageContext} and tell me what wiki update it supports.`
-    });
-    setMobilePane('chat');
-  }, [selectedPageId]);
+    openChatWithDraft(
+      `Use "${title}"${url ? ` (${url})` : ''}${articleContext}${pageContext} and tell me what wiki update it supports.`,
+      `${article._id || article.id || title}`
+    );
+  }, [openChatWithDraft, selectedPageId]);
 
   const dismissFirstVisitOnboarding = useCallback(() => {
     try {
@@ -1586,16 +1620,18 @@ const WikiWorkspace = () => {
 
   const handleFirstVisitBuild = useCallback(() => {
     dismissFirstVisitOnboarding();
-    setChatDraft({ id: `first-visit-build-${Date.now()}`, text: '/build ' });
-    setMobilePane('chat');
-  }, [dismissFirstVisitOnboarding]);
+    openChatWithDraft('/build ', 'first-visit-build');
+  }, [dismissFirstVisitOnboarding, openChatWithDraft]);
 
   const handleFirstVisitSource = useCallback(() => {
     dismissFirstVisitOnboarding();
     onNavigate({ view: 'sources' });
-    setChatDraft({ id: `first-visit-source-${Date.now()}`, text: '/ingest https://' });
-    setMobilePane('chat');
-  }, [dismissFirstVisitOnboarding, onNavigate]);
+    openChatWithDraft('/ingest https://', 'first-visit-source');
+  }, [dismissFirstVisitOnboarding, onNavigate, openChatWithDraft]);
+
+  const handleWorkspaceBuild = useCallback(() => {
+    openChatWithDraft('/build ', 'workspace-build');
+  }, [openChatWithDraft]);
 
   const rightPane = useMemo(() => {
     if (selectedPageId) {
@@ -1680,8 +1716,24 @@ const WikiWorkspace = () => {
       onTouchEnd={handleTouchEnd}
     >
       <div className="wiki-workspace__mobile-tabs" role="tablist" aria-label="Workspace panes">
-        <button type="button" className={mobilePane === 'chat' ? 'is-active' : ''} onClick={() => setMobilePane('chat')}>Chat</button>
-        <button type="button" className={mobilePane === 'wiki' ? 'is-active' : ''} onClick={() => setMobilePane('wiki')}>Wiki</button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={mobilePane === 'chat'}
+          className={mobilePane === 'chat' ? 'is-active' : ''}
+          onClick={() => showPane('chat', { persist: true })}
+        >
+          Chat
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={mobilePane === 'wiki'}
+          className={mobilePane === 'wiki' ? 'is-active' : ''}
+          onClick={() => showPane('wiki', { persist: true })}
+        >
+          Wiki
+        </button>
       </div>
       <aside className="wiki-workspace__chat-pane">
         <WikiWorkspaceChat
@@ -1702,6 +1754,11 @@ const WikiWorkspace = () => {
         onMouseDown={handleDragStart}
       />
       <section className="wiki-workspace__right-pane" aria-label="Wiki workspace right pane">
+        <div className="wiki-workspace__quick-actions" aria-label="Wiki actions">
+          <button type="button" onClick={handleWorkspaceBuild}>
+            Build page
+          </button>
+        </div>
         {rightPane}
       </section>
       {showFirstVisitOnboarding ? (

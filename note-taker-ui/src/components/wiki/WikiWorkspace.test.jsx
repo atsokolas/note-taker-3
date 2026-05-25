@@ -218,7 +218,7 @@ describe('WikiWorkspace', () => {
     renderWorkspace('/wiki/workspace?view=graph');
     await screen.findByRole('heading', { name: /start the wiki with one page or one source/i });
 
-    fireEvent.click(screen.getByRole('button', { name: /build page/i }));
+    fireEvent.click(screen.getAllByRole('button', { name: /build page/i }).at(-1));
 
     expect(window.localStorage.getItem('noeis.wiki.first_visit_seen')).toBe('true');
     await waitFor(() => expect(screen.getByLabelText('Wiki workspace message')).toHaveValue('/build '));
@@ -232,7 +232,7 @@ describe('WikiWorkspace', () => {
     fireEvent.click(screen.getByRole('button', { name: /drop source/i }));
 
     expect(window.localStorage.getItem('noeis.wiki.first_visit_seen')).toBe('true');
-    expect(mockNavigate).toHaveBeenLastCalledWith('/wiki/workspace?view=sources');
+    expect(mockNavigate).toHaveBeenLastCalledWith('/wiki/workspace?view=sources&pane=chat', { replace: true });
     await waitFor(() => expect(screen.getByLabelText('Wiki workspace message')).toHaveValue('/ingest https://'));
   });
 
@@ -351,6 +351,26 @@ describe('WikiWorkspace', () => {
     expect(composer).toBeInTheDocument();
     expect(messages).toBeInTheDocument();
     expect(Boolean(composer.compareDocumentPosition(messages) & Node.DOCUMENT_POSITION_FOLLOWING)).toBe(true);
+  });
+
+  it('keeps the chat pane addressable from the workspace URL on narrow layouts', async () => {
+    renderWorkspace('/wiki/workspace?page=wiki-1&pane=chat');
+    await settleWorkspaceEffects();
+
+    expect(document.querySelector('.wiki-workspace')).toHaveClass('is-mobile-chat');
+    expect(screen.getByRole('tab', { name: 'Chat' })).toHaveAttribute('aria-selected', 'true');
+    expect(await screen.findByLabelText('Wiki workspace message')).toBeInTheDocument();
+  });
+
+  it('offers a build-page agent action on every workspace surface', async () => {
+    renderWorkspace('/wiki/workspace?page=wiki-1');
+    await settleWorkspaceEffects();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Build page' }));
+
+    expect(document.querySelector('.wiki-workspace')).toHaveClass('is-mobile-chat');
+    await waitFor(() => expect(screen.getByLabelText('Wiki workspace message')).toHaveValue('/build '));
+    expect(mockNavigate).toHaveBeenLastCalledWith('/wiki/workspace?page=wiki-1&pane=chat', { replace: true });
   });
 
   it('AT-19 — defers the ambient agent presence until after the workspace first paint', async () => {

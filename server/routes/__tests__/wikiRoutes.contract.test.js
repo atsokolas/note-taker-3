@@ -657,6 +657,71 @@ const run = async () => {
     assert.strictEqual(created.body.sourceRefs.length, 1);
     assert.deepStrictEqual(created.body.aiState.suggestions, []);
 
+    const hygieneCreated = await request(url, '/api/wiki/pages', {
+      method: 'POST',
+      body: JSON.stringify({ title: 'Enterprise AI memory' })
+    });
+    assert.strictEqual(hygieneCreated.res.status, 201, hygieneCreated.text);
+    const staleSourcePage = WikiPage.records.find(record => String(record._id) === String(hygieneCreated.body._id));
+    staleSourcePage.title = 'Enterprise AI memory';
+    staleSourcePage.plainText = 'Enterprise AI memory keeps source-backed claims connected to maintained wiki pages.';
+    staleSourcePage.sourceRefs = [
+      {
+        _id: new mongoose.Types.ObjectId().toString(),
+        type: 'article',
+        title: 'Enterprise AI memory article',
+        snippet: 'Enterprise AI memory needs maintained claims and source-backed sections.',
+        citationLabel: '[1]'
+      },
+      {
+        _id: new mongoose.Types.ObjectId().toString(),
+        type: 'article',
+        title: 'Flounder Mode',
+        snippet: 'Founders discuss operating cadence and startup tactics.',
+        citationLabel: '[2]'
+      },
+      {
+        _id: new mongoose.Types.ObjectId().toString(),
+        type: 'article',
+        title: 'Maintained wiki claims',
+        snippet: 'Maintained wiki claims keep evidence, source refs, and page updates synchronized.',
+        citationLabel: '[3]'
+      },
+      {
+        _id: new mongoose.Types.ObjectId().toString(),
+        type: 'article',
+        title: 'Source-backed wiki sections',
+        snippet: 'Source-backed wiki sections preserve citation context for evidence reviews.',
+        citationLabel: '[4]'
+      }
+    ];
+    staleSourcePage.body = {
+      type: 'doc',
+      content: [{
+        type: 'paragraph',
+        content: [{
+          type: 'text',
+          text: 'Enterprise AI memory should cite relevant sources and suppress unrelated stale sources.',
+          marks: [{ type: 'claim', attrs: { citationIndexes: [1, 2, 3, 4] } }]
+        }]
+      }]
+    };
+    staleSourcePage.claims = [{
+      claimId: 'claim-stale-source',
+      text: 'Enterprise AI memory should cite relevant sources.',
+      support: 'supported',
+      citationIndexes: [1, 2, 3, 4],
+      sourceRefIds: staleSourcePage.sourceRefs.map(source => source._id)
+    }];
+    attachSourceHelpers(staleSourcePage);
+    const sanitizedLedger = await request(url, `/api/wiki/pages/${hygieneCreated.body._id}`);
+    assert.strictEqual(sanitizedLedger.res.status, 200, sanitizedLedger.text);
+    assert.ok(!sanitizedLedger.body.sourceRefs.some(source => source.title === 'Flounder Mode'));
+    assert.deepStrictEqual(
+      sanitizedLedger.body.body.content[0].content[0].marks[0].attrs.citationIndexes,
+      [1, 2, 3]
+    );
+
     const legacyPerson = await request(url, '/api/wiki/pages', {
       method: 'POST',
       body: JSON.stringify({

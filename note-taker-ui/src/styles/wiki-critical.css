@@ -846,6 +846,7 @@
   height: calc(100dvh - 96px);
   min-height: calc(100vh - 96px);
   overflow: hidden;
+  max-width: 100vw;
   background: var(--surface);
 }
 
@@ -927,7 +928,42 @@
 }
 
 .wiki-workspace__right-pane {
-  overflow: auto;
+  overflow-x: clip;
+  overflow-y: auto;
+  position: relative;
+}
+
+.wiki-workspace__quick-actions {
+  position: sticky;
+  top: 12px;
+  z-index: 8;
+  display: flex;
+  justify-content: flex-end;
+  width: min(100% - 32px, 1160px);
+  margin: 12px auto -46px;
+  pointer-events: none;
+}
+
+.wiki-workspace__quick-actions button {
+  min-height: 36px;
+  padding: 0 12px;
+  border: 1px solid color-mix(in srgb, var(--accent-primary, var(--primary-color)) 36%, var(--nt-divider));
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--surface) 94%, transparent);
+  color: var(--text-primary);
+  cursor: pointer;
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  pointer-events: auto;
+  box-shadow: 0 8px 18px color-mix(in srgb, #000 8%, transparent);
+}
+
+.wiki-workspace__quick-actions button:hover,
+.wiki-workspace__quick-actions button:focus-visible {
+  background: color-mix(in srgb, var(--accent-primary, var(--primary-color)) 10%, var(--surface));
+  outline: none;
 }
 
 .wiki-workspace__mobile-tabs {
@@ -1148,7 +1184,8 @@
     display: block;
     height: auto;
     min-height: calc(100vh - 80px);
-    overflow: visible;
+    overflow-x: clip;
+    overflow-y: visible;
   }
 
   .wiki-workspace__mobile-tabs {
@@ -1167,6 +1204,8 @@
   .wiki-workspace__right-pane {
     height: auto;
     min-height: calc(100vh - 128px);
+    max-width: 100%;
+    overflow-x: clip;
   }
 
   .wiki-workspace__pane--inactive {
