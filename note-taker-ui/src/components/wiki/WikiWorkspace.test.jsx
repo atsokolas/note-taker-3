@@ -256,6 +256,27 @@ describe('WikiWorkspace', () => {
     expect(await screen.findByTestId('wiki-read-view')).toHaveTextContent('Page wiki-1 workspace');
   });
 
+  it('wraps workspace page navigation in a view transition when supported', async () => {
+    const startViewTransition = jest.fn((callback) => {
+      callback();
+      return { finished: Promise.resolve(), ready: Promise.resolve(), updateCallbackDone: Promise.resolve() };
+    });
+    document.startViewTransition = startViewTransition;
+
+    try {
+      renderWorkspace('/wiki/workspace');
+      await settleWorkspaceEffects();
+
+      fireEvent.click(screen.getByRole('button', { name: 'Open Investing' }));
+
+      expect(await screen.findByTestId('wiki-read-view')).toHaveTextContent('Page wiki-1 workspace');
+      expect(startViewTransition).toHaveBeenCalled();
+      expect(mockNavigate).toHaveBeenLastCalledWith('/wiki/workspace?page=wiki-1');
+    } finally {
+      delete document.startViewTransition;
+    }
+  });
+
   it('keeps the read view mounted across page-to-page navigation', async () => {
     let mountCount = 0;
     const MockReadView = require('./WikiPageReadView');

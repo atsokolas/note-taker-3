@@ -252,6 +252,29 @@ const run = () => {
     'Exact wiki quote requests should preserve the selected page sentence instead of paraphrasing it.'
   );
 
+  const exactWikiSentenceFromPageReply = buildReply({
+    message: 'Quote the exact sentence about Mr. Market from this page.',
+    context: { type: 'workspace', id: 'wiki', pageId: '69fd2e7d212cd5a5f57db144' },
+    contextItem: {
+      type: 'wiki_page',
+      title: 'Investing',
+      snippet: 'Mr. Market is a behavioral metaphor.',
+      fullText: [
+        'Investors should distinguish price from value.',
+        'The Mr. Market metaphor says prices swing between pessimism and optimism, creating opportunities for patient investors.',
+        'Mr. Market discipline matters when markets are loud.'
+      ].join(' '),
+      sourceText: '[1] Berkshire letter — Mr. Market discussion.',
+      claimText: '- Claim 1: Mr. Market frames sentiment swings. (attached refs: [1])'
+    },
+    relatedItems: []
+  });
+  assert.strictEqual(
+    exactWikiSentenceFromPageReply,
+    'Exact sentence: "The Mr. Market metaphor says prices swing between pessimism and optimism, creating opportunities for patient investors."',
+    'Exact wiki quote requests should return one best matching sentence, not every page sentence mentioning the term.'
+  );
+
   const claimSourceReply = buildWikiClaimSourceReply({
     message: 'What source supports the claim that margin of safety protects against valuation error?',
     contextItem: {

@@ -204,6 +204,57 @@ describe('WikiPageReadView', () => {
     expect(screen.getByRole('heading', { name: 'References' })).toBeInTheDocument();
   });
 
+  it('collapses overflowing citation marginalia until the reader expands it', async () => {
+    window.matchMedia = jest.fn().mockReturnValue({
+      matches: true,
+      addEventListener: jest.fn(),
+      removeEventListener: jest.fn()
+    });
+    getWikiPage.mockResolvedValueOnce({
+      ...page,
+      body: {
+        type: 'doc',
+        content: [{
+          type: 'paragraph',
+          content: [{
+            type: 'text',
+            text: 'This paragraph cites a dense run of sources.',
+            marks: [{
+              type: 'claim',
+              attrs: {
+                claimId: 'claim-many',
+                support: 'supported',
+                citationIndexes: [1, 2, 3, 4, 5, 6],
+                contradictionIndexes: []
+              }
+            }]
+          }]
+        }]
+      },
+      sourceRefs: Array.from({ length: 6 }, (_, index) => ({
+        _id: `source-${index + 1}`,
+        title: `Source ${index + 1}`,
+        snippet: `Snippet ${index + 1}`
+      }))
+    });
+
+    render(
+      <MemoryRouter>
+        <WikiPageReadView pageId="wiki-1" onEdit={jest.fn()} />
+      </MemoryRouter>
+    );
+
+    const marginalia = await screen.findByLabelText('Citation previews');
+    expect(within(marginalia).getByText('Source 1')).toBeInTheDocument();
+    expect(within(marginalia).getByText('Source 4')).toBeInTheDocument();
+    expect(within(marginalia).queryByText('Source 5')).not.toBeInTheDocument();
+
+    fireEvent.click(within(marginalia).getByRole('button', { name: 'Show 2 more citation previews' }));
+
+    expect(within(marginalia).getByText('Source 6')).toBeInTheDocument();
+    expect(within(marginalia).getByRole('button', { name: 'Show fewer citation previews' })).toBeInTheDocument();
+  });
+
   it('renders pullquote blocks in read mode', async () => {
     getWikiPage.mockResolvedValueOnce({
       ...page,

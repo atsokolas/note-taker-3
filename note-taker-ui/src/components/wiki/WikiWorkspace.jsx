@@ -407,6 +407,17 @@ const searchFor = (target = {}) => {
   return path.slice(path.indexOf('?'));
 };
 
+const startWikiViewTransition = (callback) => {
+  if (
+    typeof document !== 'undefined'
+    && typeof document.startViewTransition === 'function'
+  ) {
+    document.startViewTransition(callback);
+    return;
+  }
+  callback();
+};
+
 const initialChatWidth = () => {
   const saved = Number(window.localStorage?.getItem(CHAT_WIDTH_KEY));
   if (!saved || saved === LEGACY_DEFAULT_CHAT_WIDTH) return DEFAULT_CHAT_WIDTH;
@@ -1499,19 +1510,23 @@ const WikiWorkspace = () => {
     if (explicitView) return;
     const target = { view: 'graph' };
     const targetSearch = searchFor(target);
-    currentSearchRef.current = targetSearch;
-    setCurrentSearch(targetSearch);
-    navigate(viewPathFor(target), { replace: true });
+    startWikiViewTransition(() => {
+      currentSearchRef.current = targetSearch;
+      setCurrentSearch(targetSearch);
+      navigate(viewPathFor(target), { replace: true });
+    });
   }, [explicitView, navigate, selectedPageId]);
 
   const onNavigate = useCallback(({ page = '', view: nextView = '', mode = '' } = {}) => {
     if (selectedPageId) lastSelectedPageRef.current = selectedPageId;
     const target = { page, view: nextView || 'graph', mode };
     const targetSearch = searchFor(target);
-    currentSearchRef.current = targetSearch;
-    setCurrentSearch(targetSearch);
-    navigate(viewPathFor(target));
-    if (page) setMobilePane('wiki');
+    startWikiViewTransition(() => {
+      currentSearchRef.current = targetSearch;
+      setCurrentSearch(targetSearch);
+      navigate(viewPathFor(target));
+      if (page) setMobilePane('wiki');
+    });
   }, [navigate, selectedPageId]);
 
   const enterPageEditMode = useCallback((pageId = selectedPageId) => {

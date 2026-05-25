@@ -239,6 +239,45 @@ describe('wikiAskService', () => {
       expect(marks[0].attrs.citationIndexes).toEqual([1]);
     });
 
+    it('answers exact quote requests with one verbatim page sentence before model paraphrase can leak in', async () => {
+      const page = buildPage({
+        title: 'Mr. Market',
+        body: {
+          type: 'doc',
+          content: [{
+            type: 'paragraph',
+            content: [{
+              type: 'text',
+              text: [
+                'Investors should distinguish price from value.',
+                'The Mr. Market metaphor says prices swing between pessimism and optimism, creating opportunities for patient investors.',
+                'That discipline matters most when markets are loud.'
+              ].join(' ')
+            }]
+          }]
+        }
+      });
+      const chatComplete = jest.fn().mockResolvedValue({
+        text: JSON.stringify({
+          paragraphs: [
+            { text: 'Mr. Market is about sentiment swings and patient investing.', citationIndexes: [] }
+          ],
+          citationIndexesUsed: []
+        }),
+        model: 'gpt-test'
+      });
+      const out = await askWikiPage({
+        page,
+        question: 'Quote the exact sentence about Mr. Market from this page.',
+        aiClient: { chatComplete, isTextGenerationConfigured: () => true }
+      });
+      const marks = findClaimMarks(out.answer);
+      expect(chatComplete).not.toHaveBeenCalled();
+      expect(marks).toHaveLength(1);
+      expect(marks[0].text).toBe('The Mr. Market metaphor says prices swing between pessimism and optimism, creating opportunities for patient investors.');
+      expect(out.citationIndexesUsed).toEqual([]);
+    });
+
     it('falls back gracefully when the chat client throws', async () => {
       const chatComplete = jest.fn().mockRejectedValue(new Error('HF timeout'));
       const out = await askWikiPage({

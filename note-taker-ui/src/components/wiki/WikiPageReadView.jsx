@@ -631,7 +631,10 @@ const WikiReadTitle = ({ title = '' }) => {
   );
 };
 
+const MARGINALIA_COLLAPSED_LIMIT = 4;
+
 const WikiReadMarginalia = ({ sources = [], citations = [], onJumpToReference }) => {
+  const [expanded, setExpanded] = useState(false);
   if (!sources.length || !citations.length) return null;
   const seen = new Set();
   const items = citations
@@ -645,9 +648,11 @@ const WikiReadMarginalia = ({ sources = [], citations = [], onJumpToReference })
       source: sources[citation.index - 1]
     }));
   if (!items.length) return null;
+  const hiddenCount = Math.max(items.length - MARGINALIA_COLLAPSED_LIMIT, 0);
+  const visibleItems = expanded ? items : items.slice(0, MARGINALIA_COLLAPSED_LIMIT);
   return (
-    <aside className="wiki-read__marginalia" aria-label="Citation previews">
-      {items.map(({ citation, source }) => {
+    <aside className={`wiki-read__marginalia${expanded ? ' is-expanded' : ' is-collapsed'}`} aria-label="Citation previews">
+      {visibleItems.map(({ citation, source }) => {
         const refId = `wiki-ref-${citation.index}`;
         const excerpt = sourceExcerpt(source);
         return (
@@ -666,6 +671,16 @@ const WikiReadMarginalia = ({ sources = [], citations = [], onJumpToReference })
           </a>
         );
       })}
+      {hiddenCount ? (
+        <button
+          type="button"
+          className="wiki-read__margin-note-toggle"
+          aria-expanded={expanded}
+          onClick={() => setExpanded(current => !current)}
+        >
+          {expanded ? 'Show fewer citation previews' : `Show ${hiddenCount} more citation preview${hiddenCount === 1 ? '' : 's'}`}
+        </button>
+      ) : null}
     </aside>
   );
 };

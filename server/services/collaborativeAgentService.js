@@ -927,8 +927,9 @@ const buildContextSummarySignals = ({ context = {}, contextItem = null }) => {
 
 const PAGE_ANSWER_STOPWORDS = new Set([
   'about', 'above', 'after', 'again', 'answer', 'before', 'being', 'below', 'between', 'current', 'does',
+  'exact',
   'from', 'have', 'here', 'into', 'only', 'page', 'please', 'says', 'that', 'this', 'what', 'when',
-  'where', 'which', 'with', 'wiki', 'would', 'your'
+  'where', 'which', 'with', 'wiki', 'would', 'your', 'quote', 'sentence', 'verbatim', 'word', 'wording'
 ]);
 
 const WIKI_WORKSPACE_RETRIEVAL_RE = /\b(across|all|another|broader|compare|cross[-\s]?wiki|elsewhere|find|library|other|related|retrieve|search|sources?|workspace)\b/i;
@@ -1023,7 +1024,7 @@ const buildWikiPageGroundedReply = ({ message = '', contextItem = null, contextS
   const sentences = pickWikiPageAnswerSentences({
     message,
     contextItem,
-    maxSentences: wantsOneSentence ? 1 : 3
+    maxSentences: wantsOneSentence || wantsExactSentence ? 1 : 3
   });
   if (sentences.length > 0) {
     if (wantsExactSentence) {

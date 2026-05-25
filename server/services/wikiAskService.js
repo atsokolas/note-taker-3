@@ -16,6 +16,10 @@ const MAX_PAGE_TEXT = 6000;
 const MAX_SOURCE_TEXT = 800;
 const MAX_QUESTION = 500;
 const MAX_ANSWER_PARAGRAPHS = 6;
+const EXACT_SENTENCE_STOPWORDS = new Set([
+  'about', 'answer', 'exact', 'from', 'page', 'quote', 'sentence', 'this',
+  'verbatim', 'word', 'wording', 'words'
+]);
 
 const asString = (value = '') => String(value || '').trim();
 
@@ -64,6 +68,37 @@ const truncateAtSentenceBoundary = (value = '', limit = 1000) => {
 const isExactSentenceRequest = (question = '') => (
   /\b(exact|verbatim|quote|sentence|wording|word-for-word)\b/i.test(question)
 );
+
+const extractQuestionTokens = (question = '') => {
+  const tokens = asString(question)
+    .toLowerCase()
+    .match(/[a-z0-9][a-z0-9'-]{2,}/g) || [];
+  const deduped = [];
+  const seen = new Set();
+  tokens.forEach((token) => {
+    if (EXACT_SENTENCE_STOPWORDS.has(token) || seen.has(token)) return;
+    seen.add(token);
+    deduped.push(token);
+  });
+  return deduped;
+};
+
+const pickExactPageSentence = ({ page, question } = {}) => {
+  if (!isExactSentenceRequest(question)) return '';
+  const pageText = asString(toPlainText(page?.body)).replace(/\s+/g, ' ');
+  if (!pageText) return '';
+  const sentences = splitIntoSentences(pageText);
+  if (!sentences.length) return '';
+  const queryTokens = extractQuestionTokens(question);
+  if (!queryTokens.length) return sentences[0];
+  const scored = sentences.map((sentence, index) => {
+    const lower = sentence.toLowerCase();
+    const score = queryTokens.reduce((sum, token) => sum + (lower.includes(token) ? 1 : 0), 0);
+    return { sentence, index, score };
+  });
+  const best = scored.sort((left, right) => right.score - left.score || left.index - right.index)[0];
+  return best?.score > 0 ? best.sentence : '';
+};
 
 const toPlainText = (node) => {
   if (!node) return '';
@@ -121,9 +156,7 @@ const buildPageContext = ({ page, question } = {}) => {
   if (!sentences.length) return truncateAtSentenceBoundary(pageText, MAX_PAGE_TEXT);
   if (!isExactSentenceRequest(question)) return truncateAtSentenceBoundary(sentences.join(' '), MAX_PAGE_TEXT);
 
-  const queryTokens = asString(question)
-    .toLowerCase()
-    .match(/[a-z0-9][a-z0-9'-]{2,}/g) || [];
+  const queryTokens = extractQuestionTokens(question);
   const scored = sentences.map((sentence, index) => {
     const lower = sentence.toLowerCase();
     const score = queryTokens.reduce((sum, token) => sum + (lower.includes(token) ? 1 : 0), 0);
@@ -272,6 +305,20 @@ const askWikiPage = async ({ page, question, aiClient, wikiSchemaContent = '' } 
   }
   const sources = buildSourceList(page?.sourceRefs);
   const fallback = buildFallbackAnswer({ page, sources, question: trimmed });
+  const exactSentence = pickExactPageSentence({ page, question: trimmed });
+  if (exactSentence) {
+    const answer = {
+      paragraphs: [{ text: exactSentence, citationIndexes: [] }],
+      citationIndexesUsed: []
+    };
+    return {
+      answer: docFromAnswer(answer, sources.length),
+      citationIndexesUsed: [],
+      model: 'deterministic',
+      status: 'answered',
+      errorMessage: ''
+    };
+  }
 
   const chatClient = aiClient?.chatComplete || chatComplete;
   const isConfigured = aiClient?.isTextGenerationConfigured || isTextGenerationConfigured;
@@ -334,6 +381,7 @@ module.exports = {
     splitIntoSentences,
     truncateAtSentenceBoundary,
     buildPageContext,
-    isExactSentenceRequest
+    isExactSentenceRequest,
+    pickExactPageSentence
   }
 };

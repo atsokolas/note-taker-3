@@ -92,13 +92,13 @@ const endpointId = (endpoint) => (
 const describeNodeRole = ({ node, links = [] }) => {
   const inbound = links.filter(link => endpointId(link.target) === node.id);
   const outbound = links.filter(link => endpointId(link.source) === node.id);
-  if (!inbound.length && !outbound.length) return 'Isolated page. It has no visible graph relationships under the current filters.';
+  if (!inbound.length && !outbound.length) return 'Standalone page. It has no shown relationships under the current filters.';
   const directLinks = outbound.filter(link => link.relationType === 'wikiLink').length;
   const evidenceOverlap = [...inbound, ...outbound].filter(link => link.relationType === 'shared_source').length;
   if (directLinks) return `Navigation hub. This article links directly to ${directLinks} other wiki page${directLinks === 1 ? '' : 's'}.`;
-  if (evidenceOverlap) return `Evidence overlap. This page shares source material with ${evidenceOverlap} visible page${evidenceOverlap === 1 ? '' : 's'}.`;
+  if (evidenceOverlap) return `Evidence overlap. This page shares source material with ${evidenceOverlap} shown page${evidenceOverlap === 1 ? '' : 's'}.`;
   if (inbound.length > outbound.length) return 'Referenced page. More pages point here than it points outward.';
-  return 'Connector page. Its visible relationships come from related-page or review graph metadata.';
+  return 'Connector page. Its shown relationships come from related-page or review signals.';
 };
 
 const formatActivityTime = (value) => {
@@ -284,13 +284,13 @@ const WikiGraph = ({ graph, onOpenPage }) => {
   }, [graph]);
 
   return (
-    <div className="wiki-graph" aria-label="Wiki graph">
-      <div className="wiki-graph__actions" aria-label="Graph controls">
+    <div className="wiki-graph" aria-label="Knowledge map">
+      <div className="wiki-graph__actions" aria-label="Map controls">
         <Button type="button" variant="secondary" onClick={() => graphRef.current?.zoomToFit?.(650, 80)}>
           Fit
         </Button>
       </div>
-      <div className="wiki-graph__relations" aria-label="Graph relation filters">
+      <div className="wiki-graph__relations" aria-label="Map relationship filters">
         {relationTypes.map(relationType => (
           <button
             type="button"
@@ -320,11 +320,11 @@ const WikiGraph = ({ graph, onOpenPage }) => {
         />
       </div>
       {selectedNode ? (
-        <aside className="wiki-graph__inspector" aria-label="Selected graph node">
+        <aside className="wiki-graph__inspector" aria-label="Selected map page">
           <div>
             <p>{labelFor(selectedNode.pageType)}</p>
             <h2>{selectedNode.title}</h2>
-            <span>{selectedNode.sourceCount} source{selectedNode.sourceCount === 1 ? '' : 's'} · {selectedNode.inboundCount} inbound · {selectedNodeLinks.length} visible relation{selectedNodeLinks.length === 1 ? '' : 's'}</span>
+            <span>{selectedNode.sourceCount} source{selectedNode.sourceCount === 1 ? '' : 's'} · referenced by {selectedNode.inboundCount} · {selectedNodeLinks.length} shown relationship{selectedNodeLinks.length === 1 ? '' : 's'}</span>
           </div>
           <p>{describeNodeRole({ node: selectedNode, links: visibleGraph.links })}</p>
           {selectedNodeLinks.length ? (
@@ -332,7 +332,7 @@ const WikiGraph = ({ graph, onOpenPage }) => {
               {selectedNodeLinks.slice(0, 5).map(link => (
                 <li key={link.id}>
                   <strong>{relationLabel(link.relationType)}</strong>
-                  <span>{linkEndpointTitle(link.source)} -> {linkEndpointTitle(link.target)}</span>
+                  <span>{linkEndpointTitle(link.source)} to {linkEndpointTitle(link.target)}</span>
                 </li>
               ))}
             </ul>
@@ -346,14 +346,14 @@ const WikiGraph = ({ graph, onOpenPage }) => {
       {hovered ? (
         <aside className="wiki-graph__tooltip" role="tooltip">
           <strong>{hovered.title}</strong>
-          <span>{labelFor(hovered.pageType)} · {hovered.inboundCount} inbound · {hovered.sourceCount} sources</span>
+          <span>{labelFor(hovered.pageType)} · referenced by {hovered.inboundCount} · {hovered.sourceCount} sources</span>
           <span>{formatDate(hovered.updatedAt)}</span>
         </aside>
       ) : null}
       {hoveredLink ? (
         <aside className="wiki-graph__tooltip wiki-graph__tooltip--link" role="tooltip">
           <strong>{relationLabel(hoveredLink.relationType)}</strong>
-          <span>{linkEndpointTitle(hoveredLink.source)} -> {linkEndpointTitle(hoveredLink.target)}</span>
+          <span>{linkEndpointTitle(hoveredLink.source)} to {linkEndpointTitle(hoveredLink.target)}</span>
           <span>{linkReason(hoveredLink)}</span>
         </aside>
       ) : null}
@@ -396,7 +396,7 @@ const WikiIndex = ({ onOpenPage, onOpenList }) => {
       if (pagesResult.status === 'fulfilled') {
         setPages(Array.isArray(pagesResult.value) ? pagesResult.value : []);
       } else if (!quiet) {
-        setError('Failed to load Wiki graph.');
+        setError('Failed to load knowledge map.');
       }
       setMapGraph(mapGraphResult.status === 'fulfilled' ? (mapGraphResult.value || { nodes: [], edges: [] }) : { nodes: [], edges: [] });
     } finally {
@@ -426,7 +426,7 @@ const WikiIndex = ({ onOpenPage, onOpenList }) => {
   const graphSyncState = useMemo(() => {
     if (!pages.length) return { status: 'empty', label: 'No pages yet', stale: false };
     if (!persistedEdgeCount && graph.links.length) return { status: 'stale', label: 'Map needs refresh', stale: true };
-    if (!persistedEdgeCount) return { status: 'limited', label: 'No saved links yet', stale: true };
+    if (!persistedEdgeCount) return { status: 'limited', label: 'No saved connections yet', stale: true };
     return { status: 'synced', label: 'Map up to date', stale: false };
   }, [graph.links.length, pages.length, persistedEdgeCount]);
   const isMobile = width < 720;
@@ -461,11 +461,11 @@ const WikiIndex = ({ onOpenPage, onOpenList }) => {
       await rebuildWikiGraph({ limit: GRAPH_PAGE_LIMIT });
       await loadGraph({ quiet: true });
       setToast({
-        title: 'Wiki graph synced',
-        summary: 'Persisted page relationships were rebuilt from the current wiki.'
+        title: 'Knowledge map refreshed',
+        summary: 'Page relationships were rebuilt from the current wiki.'
       });
     } catch (_error) {
-      setError('Failed to rebuild wiki graph.');
+      setError('Failed to refresh knowledge map.');
     } finally {
       setSyncingGraph(false);
     }
@@ -483,27 +483,27 @@ const WikiIndex = ({ onOpenPage, onOpenList }) => {
       ) : null}
       <section className="wiki-index__header">
         <div className="wiki-index__title-block">
-          <p className="wiki-index__eyebrow">Wiki graph</p>
+          <p className="wiki-index__eyebrow">Wiki</p>
           <h1>Knowledge map</h1>
           <p>{isSparseWiki ? 'The wiki is still sparse. Build a few pages first; the constellation appears once there is enough material to connect.' : 'Pages settle into a quiet constellation of links, sources, and review relationships.'}</p>
         </div>
         <div className="wiki-index__tabs" role="tablist" aria-label="Wiki views">
           {onOpenList ? (
             <>
-              <button type="button" aria-current="page">Graph</button>
+              <button type="button" aria-current="page">Map</button>
               <button type="button" onClick={onOpenList}>List</button>
               <button type="button" onClick={handleExportWiki}>Export</button>
             </>
           ) : (
             <>
-              <Link aria-current="page" to="/wiki">Graph</Link>
+              <Link aria-current="page" to="/wiki">Map</Link>
               <Link to="/wiki/list">List</Link>
               <button type="button" onClick={handleExportWiki}>Export</button>
             </>
           )}
         </div>
       </section>
-      <section className="wiki-index__filters" aria-label="Wiki graph filters">
+      <section className="wiki-index__filters" aria-label="Knowledge map filters">
         <select value={pageType} onChange={(event) => setPageType(event.target.value)} aria-label="Page type">
           {PAGE_TYPES.map(value => <option key={value} value={value}>{labelFor(value)}</option>)}
         </select>
@@ -526,18 +526,18 @@ const WikiIndex = ({ onOpenPage, onOpenList }) => {
         </section>
       ) : null}
       {!loading && graph.nodes.length && !isSparseWiki ? (
-        <section className={`wiki-graph-sync is-${graphSyncState.status}`} aria-label="Wiki graph sync">
+        <section className={`wiki-graph-sync is-${graphSyncState.status}`} aria-label="Knowledge map refresh">
           <div>
             <strong>{graphSyncState.label}</strong>
-            <span>{persistedEdgeCount} saved link{persistedEdgeCount === 1 ? '' : 's'} · {graph.links.length} visible connection{graph.links.length === 1 ? '' : 's'}</span>
+            <span>{persistedEdgeCount} saved connection{persistedEdgeCount === 1 ? '' : 's'} · {graph.links.length} shown connection{graph.links.length === 1 ? '' : 's'}</span>
           </div>
           <Button type="button" variant={graphSyncState.stale ? 'primary' : 'secondary'} onClick={handleRebuildGraph} disabled={syncingGraph}>
-            {syncingGraph ? 'Syncing...' : graphSyncState.stale ? 'Sync graph' : 'Rebuild graph'}
+            {syncingGraph ? 'Refreshing...' : 'Refresh map'}
           </Button>
         </section>
       ) : null}
       {error ? <div className="wiki-index__error" role="alert">{error}</div> : null}
-      {loading ? <p className="wiki-index__status">Loading Wiki graph...</p> : null}
+      {loading ? <p className="wiki-index__status">Loading knowledge map...</p> : null}
       {!loading && graph.nodes.length && !isMobile && !isSparseWiki ? <WikiGraph graph={graph} onOpenPage={handleOpenPage} /> : null}
       {!loading && isSparseWiki ? (
         <WikiSparsePages pages={filteredPages} onOpenPage={handleOpenPage} />

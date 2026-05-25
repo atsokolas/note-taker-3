@@ -101,6 +101,18 @@ describe('CommandPalette', () => {
     expect(createWikiPage).not.toHaveBeenCalled();
   });
 
+  it('lets exact local page matches outrank async search and open immediately on Enter', async () => {
+    await renderPalette();
+
+    fireEvent.change(screen.getByPlaceholderText('Quick open notes, highlights, claims, evidence...'), {
+      target: { value: 'settings' }
+    });
+    fireEvent.keyDown(document.querySelector('.palette-overlay'), { key: 'Enter' });
+
+    expect(mockNavigate).toHaveBeenCalledWith('/settings');
+    expect(createWikiPage).not.toHaveBeenCalled();
+  });
+
   it('still allows explicit wiki page creation from a search query', async () => {
     await renderPalette();
 

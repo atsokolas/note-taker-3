@@ -23,6 +23,24 @@ const buildResultLabel = (item = {}, fallback = '') => {
   return `${primary} — ${secondary.slice(0, 90)}`;
 };
 
+const scoreLocalMatch = (label = '', query = '') => {
+  const normalizedLabel = String(label || '').trim().toLowerCase();
+  const normalizedQuery = String(query || '').trim().toLowerCase();
+  if (!normalizedLabel || !normalizedQuery) return 0;
+  if (normalizedLabel === normalizedQuery) return 100;
+  if (normalizedLabel.startsWith(normalizedQuery)) return 80;
+  if (normalizedLabel.includes(normalizedQuery)) return 50;
+  return 0;
+};
+
+const rankLocalItems = (items = [], query = '') => (
+  items
+    .map((item, index) => ({ item, index, score: scoreLocalMatch(item.label, query) }))
+    .filter(({ score }) => score > 0)
+    .sort((a, b) => b.score - a.score || a.index - b.index)
+    .map(({ item }) => ({ ...item, immediate: true }))
+);
+
 const currentPathname = () => (
   typeof window === 'undefined' ? '' : window.location?.pathname || ''
 );
@@ -201,6 +219,13 @@ const CommandPalette = ({ open, onClose }) => {
 
     if (q) {
       if (isWikiSurface) list.push(wikiPagesSection);
+      const rankedPages = rankLocalItems(pagesSection.items, q);
+      if (rankedPages.length) {
+        list.push({
+          title: 'Pages',
+          items: rankedPages
+        });
+      }
       list.push({
         title: 'Notes',
         items: (searchGroups.notes || []).slice(0, 6).map(item => ({
@@ -243,8 +268,13 @@ const CommandPalette = ({ open, onClose }) => {
       });
       list.push(actionSection);
       if (!isWikiSurface) list.push(wikiPagesSection);
-      list.push(wikiDestinationsSection);
-      list.push(pagesSection);
+      const rankedWikiDestinations = rankLocalItems(wikiDestinationsSection.items, q);
+      if (rankedWikiDestinations.length) {
+        list.push({
+          title: 'Wiki',
+          items: rankedWikiDestinations
+        });
+      }
     } else {
       list.push({
         title: 'Concepts',
@@ -312,8 +342,9 @@ const CommandPalette = ({ open, onClose }) => {
       setActiveIndex(prev => Math.max(prev - 1, 0));
     } else if (event.key === 'Enter') {
       event.preventDefault();
-      if (loading) return;
-      handleSelect(selectableItems[activeIndex]);
+      const selectedItem = selectableItems[activeIndex];
+      if (loading && !selectedItem?.immediate) return;
+      handleSelect(selectedItem);
     } else if (event.key === 'Escape') {
       onClose();
     }

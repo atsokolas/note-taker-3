@@ -144,8 +144,8 @@ describe('WikiIndex graph', () => {
     expect(screen.getByLabelText('Wiki map signals')).toHaveTextContent('8 unlinked');
     expect(screen.getByLabelText('Wiki map signals')).toHaveTextContent('0 shared-source ties');
     expect(screen.getByLabelText('Wiki map signals')).toHaveTextContent('Map needs refresh');
-    expect(screen.getByLabelText('Wiki graph sync')).toHaveTextContent('Map needs refresh');
-    expect(screen.getByRole('button', { name: 'Sync graph' })).toBeInTheDocument();
+    expect(screen.getByLabelText('Knowledge map refresh')).toHaveTextContent('Map needs refresh');
+    expect(screen.getByRole('button', { name: 'Refresh map' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /^Inline links\s*1$/ })).toHaveClass('is-active');
     expect(screen.getByRole('link', { name: 'List' })).toHaveAttribute('href', '/wiki/list');
     expect(await screen.findByText('Research memo')).toBeInTheDocument();
@@ -187,11 +187,31 @@ describe('WikiIndex graph', () => {
     await screen.findByTestId('wiki-force-graph');
     fireEvent.click(screen.getByRole('button', { name: 'Investing' }));
 
-    const panel = screen.getByLabelText('Selected graph node');
+    const panel = screen.getByLabelText('Selected map page');
     expect(panel).toHaveTextContent('Investing');
     expect(panel).toHaveTextContent('Referenced page');
     fireEvent.click(within(panel).getByRole('button', { name: 'Open page' }));
     expect(onOpenPage).toHaveBeenCalledWith('wiki-2');
+  });
+
+  it('uses reader-facing map language in the graph details and refresh controls', async () => {
+    render(
+      <MemoryRouter>
+        <WikiIndex />
+      </MemoryRouter>
+    );
+
+    await screen.findByTestId('wiki-force-graph');
+    expect(screen.getByLabelText('Knowledge map refresh')).toHaveTextContent('saved connections');
+    expect(screen.getByRole('button', { name: 'Refresh map' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Investing' }));
+
+    const panel = screen.getByLabelText('Selected map page');
+    expect(panel).toHaveTextContent('referenced by');
+    expect(panel).toHaveTextContent('shown relationship');
+    expect(panel).not.toHaveTextContent('inbound');
+    expect(panel).not.toHaveTextContent('visible relation');
   });
 
   it('syncs the persisted graph from the index when stale', async () => {
@@ -209,13 +229,13 @@ describe('WikiIndex graph', () => {
     );
 
     await screen.findByTestId('wiki-force-graph');
-    fireEvent.click(screen.getByRole('button', { name: 'Sync graph' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Refresh map' }));
 
     await waitFor(() => {
       expect(rebuildWikiGraph).toHaveBeenCalledWith({ limit: 500 });
     });
-    expect(await screen.findByText('Wiki graph synced')).toBeInTheDocument();
-    expect(screen.getByLabelText('Wiki graph sync')).toHaveTextContent('Map up to date');
+    expect(await screen.findByText('Knowledge map refreshed')).toBeInTheDocument();
+    expect(screen.getByLabelText('Knowledge map refresh')).toHaveTextContent('Map up to date');
   });
 
   it('degrades to the mobile page list instead of the force graph under 720px', async () => {
