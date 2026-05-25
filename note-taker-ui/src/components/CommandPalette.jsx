@@ -23,12 +23,21 @@ const buildResultLabel = (item = {}, fallback = '') => {
   return `${primary} — ${secondary.slice(0, 90)}`;
 };
 
+const normalizeSearchText = (value = '') => String(value || '')
+  .trim()
+  .toLowerCase()
+  .replace(/[\s\p{Punctuation}]+/gu, ' ')
+  .trim();
+
 const scoreLocalMatch = (label = '', query = '') => {
-  const normalizedLabel = String(label || '').trim().toLowerCase();
-  const normalizedQuery = String(query || '').trim().toLowerCase();
+  const normalizedLabel = normalizeSearchText(label);
+  const normalizedQuery = normalizeSearchText(query);
   if (!normalizedLabel || !normalizedQuery) return 0;
   if (normalizedLabel === normalizedQuery) return 100;
-  if (normalizedLabel.startsWith(normalizedQuery)) return 80;
+  if (normalizedLabel.startsWith(normalizedQuery)) return 90;
+  const words = normalizedLabel.split(/\s+/).filter(Boolean);
+  if (words.some(word => word === normalizedQuery)) return 86;
+  if (words.some(word => word.startsWith(normalizedQuery))) return 82;
   if (normalizedLabel.includes(normalizedQuery)) return 50;
   return 0;
 };
@@ -218,7 +227,14 @@ const CommandPalette = ({ open, onClose }) => {
     }
 
     if (q) {
-      if (isWikiSurface) list.push(wikiPagesSection);
+      const rankedWikiPages = rankLocalItems(wikiPagesSection.items, q);
+      const wikiPageMatches = rankedWikiPages.length ? rankedWikiPages : wikiPagesSection.items;
+      if (isWikiSurface && wikiPageMatches.length) {
+        list.push({
+          title: 'Wiki pages',
+          items: wikiPageMatches
+        });
+      }
       const rankedPages = rankLocalItems(pagesSection.items, q);
       if (rankedPages.length) {
         list.push({
@@ -267,7 +283,12 @@ const CommandPalette = ({ open, onClose }) => {
         }))
       });
       list.push(actionSection);
-      if (!isWikiSurface) list.push(wikiPagesSection);
+      if (!isWikiSurface && wikiPageMatches.length) {
+        list.push({
+          title: 'Wiki pages',
+          items: wikiPageMatches
+        });
+      }
       const rankedWikiDestinations = rankLocalItems(wikiDestinationsSection.items, q);
       if (rankedWikiDestinations.length) {
         list.push({

@@ -407,12 +407,23 @@ const searchFor = (target = {}) => {
   return path.slice(path.indexOf('?'));
 };
 
+const isExpectedViewTransitionAbort = (error) => {
+  const name = String(error?.name || '');
+  const message = String(error?.message || '');
+  return name === 'AbortError' || /transition was skipped|view transition/i.test(message);
+};
+
 const startWikiViewTransition = (callback) => {
   if (
     typeof document !== 'undefined'
     && typeof document.startViewTransition === 'function'
   ) {
-    document.startViewTransition(callback);
+    const transition = document.startViewTransition(callback);
+    transition?.finished?.catch?.((error) => {
+      if (!isExpectedViewTransitionAbort(error)) {
+        console.error(error);
+      }
+    });
     return;
   }
   callback();

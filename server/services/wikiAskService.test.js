@@ -7,7 +7,8 @@ const {
   buildFallbackAnswer,
   docFromAnswer,
   buildPageContext,
-  truncateAtSentenceBoundary
+  truncateAtSentenceBoundary,
+  pickExactPageSentence
 } = __testables;
 
 const buildPage = (overrides = {}) => ({
@@ -93,6 +94,25 @@ describe('wikiAskService', () => {
         question: 'Quote the exact sentence about valuation error.'
       });
       expect(prompt).toContain('preserve quoted sentence wording exactly');
+    });
+
+    it('does not stitch headings into exact quote candidates', () => {
+      const page = buildPage({
+        body: {
+          type: 'doc',
+          content: [
+            { type: 'heading', attrs: { level: 2 }, content: [{ type: 'text', text: 'Overview' }] },
+            { type: 'paragraph', content: [{ type: 'text', text: 'Investors should distinguish price from value.' }] },
+            { type: 'heading', attrs: { level: 2 }, content: [{ type: 'text', text: 'Diverging Evidence' }] },
+            { type: 'paragraph', content: [{ type: 'text', text: 'The Mr. Market metaphor says prices swing between pessimism and optimism.' }] }
+          ]
+        }
+      });
+
+      expect(pickExactPageSentence({
+        page,
+        question: 'Quote the exact sentence about Mr. Market from this page.'
+      })).toBe('The Mr. Market metaphor says prices swing between pessimism and optimism.');
     });
 
     it('does not cut long context mid-sentence when a sentence boundary is available', () => {

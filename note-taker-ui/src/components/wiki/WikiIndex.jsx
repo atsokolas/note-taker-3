@@ -425,9 +425,9 @@ const WikiIndex = ({ onOpenPage, onOpenList }) => {
   const persistedEdgeCount = Array.isArray(mapGraph.edges) ? mapGraph.edges.length : Array.isArray(mapGraph.links) ? mapGraph.links.length : 0;
   const graphSyncState = useMemo(() => {
     if (!pages.length) return { status: 'empty', label: 'No pages yet', stale: false };
-    if (!persistedEdgeCount && graph.links.length) return { status: 'stale', label: 'Map needs refresh', stale: true };
-    if (!persistedEdgeCount) return { status: 'limited', label: 'No saved connections yet', stale: true };
-    return { status: 'synced', label: 'Map up to date', stale: false };
+    if (!persistedEdgeCount && graph.links.length) return { status: 'stale', label: 'Review latest connections', stale: true };
+    if (!persistedEdgeCount) return { status: 'limited', label: 'No reviewed connections yet', stale: true };
+    return { status: 'synced', label: 'Connections reviewed', stale: false };
   }, [graph.links.length, pages.length, persistedEdgeCount]);
   const isMobile = width < 720;
   const isSparseWiki = graph.nodes.length < SPARSE_WIKI_PAGE_THRESHOLD;
@@ -520,8 +520,8 @@ const WikiIndex = ({ onOpenPage, onOpenList }) => {
       {!loading && graph.nodes.length && !isSparseWiki ? (
         <section className="wiki-graph-signals" aria-label="Wiki map signals">
           <span>{graphSummary.hubs.length ? `Brightest: ${graphSummary.hubs.map(node => node.title).join(', ')}` : 'No center yet'}</span>
-          <span>{graphSummary.orphanCount} unlinked</span>
-          <span>{graphSummary.relationCounts.shared_source || 0} shared-source ties</span>
+          <span>{graphSummary.orphanCount} standalone page{graphSummary.orphanCount === 1 ? '' : 's'}</span>
+          <span>{graphSummary.relationCounts.shared_source || 0} evidence overlap{(graphSummary.relationCounts.shared_source || 0) === 1 ? '' : 's'}</span>
           <span>{graphSyncState.label}</span>
         </section>
       ) : null}
@@ -529,7 +529,7 @@ const WikiIndex = ({ onOpenPage, onOpenList }) => {
         <section className={`wiki-graph-sync is-${graphSyncState.status}`} aria-label="Knowledge map refresh">
           <div>
             <strong>{graphSyncState.label}</strong>
-            <span>{persistedEdgeCount} saved connection{persistedEdgeCount === 1 ? '' : 's'} · {graph.links.length} shown connection{graph.links.length === 1 ? '' : 's'}</span>
+            <span>{persistedEdgeCount} reviewed connection{persistedEdgeCount === 1 ? '' : 's'} · {graph.links.length} visible connection{graph.links.length === 1 ? '' : 's'}</span>
           </div>
           <Button type="button" variant={graphSyncState.stale ? 'primary' : 'secondary'} onClick={handleRebuildGraph} disabled={syncingGraph}>
             {syncingGraph ? 'Refreshing...' : 'Refresh map'}

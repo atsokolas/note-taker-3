@@ -146,4 +146,26 @@ describe('CommandPalette', () => {
     fireEvent.click(screen.getByText('Investing'));
     expect(mockNavigate).toHaveBeenCalledWith('/wiki/workspace?page=wiki-1');
   });
+
+  it('ranks exact wiki page matches above stale broader wiki results', async () => {
+    window.history.pushState({}, '', '/wiki/workspace?view=graph');
+    listWikiPages
+      .mockResolvedValueOnce([
+        { _id: 'wiki-investing', title: 'Investing - Concepts, Ideas, and Strategies' }
+      ])
+      .mockResolvedValueOnce([
+        { _id: 'wiki-investing', title: 'Investing - Concepts, Ideas, and Strategies' },
+        { _id: 'wiki-cia', title: 'Cia Teach Investor Behavioural Investment' }
+      ]);
+
+    await renderPalette();
+
+    fireEvent.change(screen.getByPlaceholderText('Quick open wiki pages, notes, sources...'), {
+      target: { value: 'Cia' }
+    });
+    await flushSearch();
+
+    fireEvent.keyDown(document.querySelector('.palette-overlay'), { key: 'Enter' });
+    expect(mockNavigate).toHaveBeenCalledWith('/wiki/workspace?page=wiki-cia');
+  });
 });

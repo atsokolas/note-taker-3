@@ -368,6 +368,7 @@ const normalizeSentenceText = (value = '') => {
   if (!safe) return '';
   return safe
     .replace(/\.{3,}/g, '…')
+    .replace(/([.!?])\1+$/g, '$1')
     .replace(/^[“"'`]+|[”"'`]+$/g, '')
     .trim();
 };
@@ -935,6 +936,7 @@ const PAGE_ANSWER_STOPWORDS = new Set([
 const WIKI_WORKSPACE_RETRIEVAL_RE = /\b(across|all|another|broader|compare|cross[-\s]?wiki|elsewhere|find|library|other|related|retrieve|search|sources?|workspace)\b/i;
 const WIKI_SOURCE_ATTRIBUTION_RE = /\b(back(?:s|ed)?|citation|cite|cited|evidence|source|support(?:s|ed|ing)?)\b/i;
 const WIKI_EXACT_SENTENCE_RE = /\b(exact|verbatim|quote|sentence|wording|word-for-word)\b/i;
+const WIKI_SECTION_HEADING_RE = /\b(overview|core idea|how it works|evidence|converging evidence|diverging evidence|implications|tensions|open questions|references)\b/gi;
 
 const shouldSearchWorkspaceForWikiPage = ({ message = '', conversationState = {}, skillInvocation = {} } = {}) => {
   const outputType = toSafeString(skillInvocation?.outputType).toLowerCase();
@@ -956,15 +958,21 @@ const pickWikiPageAnswerSentences = ({ message = '', contextItem = null, maxSent
   if (contextItem?.type !== 'wiki_page') return [];
   const fullText = toSafeString(contextItem?.fullText);
   if (!fullText) return [];
+  const wantsExactSentence = WIKI_EXACT_SENTENCE_RE.test(message);
   const queryTokens = tokenize(message)
     .filter(token => token.length > 2 && !PAGE_ANSWER_STOPWORDS.has(token))
     .slice(0, 10);
   const cleanWikiSentence = sentence => ensureSentence(toSafeString(sentence)
     .replace(/^(overview|core idea|how it works|evidence|converging evidence|diverging evidence|implications|tensions|open questions|references)\s+/i, '')
+    .replace(/\s*\[[0-9,\s]+\]\s*$/g, '')
     .trim());
-  const sentences = splitIntoSentences(fullText)
+  const sentenceSource = wantsExactSentence
+    ? fullText.replace(WIKI_SECTION_HEADING_RE, '. ')
+    : fullText;
+  const sentences = splitIntoSentences(sentenceSource)
     .map(cleanWikiSentence)
-    .filter(sentence => sentence && !isBoilerplateSentence(sentence));
+    .filter(sentence => sentence && !isBoilerplateSentence(sentence))
+    .filter(sentence => !wantsExactSentence || sentence.split(/\s+/).length <= 45);
   if (!sentences.length) return [];
   const scored = sentences.map((sentence, index) => {
     const lower = sentence.toLowerCase();
@@ -979,6 +987,7 @@ const pickWikiPageAnswerSentences = ({ message = '', contextItem = null, maxSent
     .slice(0, maxSentences)
     .sort((left, right) => left.index - right.index)
     .map(item => item.sentence);
+  if (queryTokens.length && selected.length === 0) return [];
   return selected.length > 0 ? selected : sentences.slice(0, maxSentences);
 };
 
@@ -1035,6 +1044,10 @@ const buildWikiPageGroundedReply = ({ message = '', contextItem = null, contextS
       ? `The page says ${lowercaseFirst(sentences[0])}`
       : `The page says ${lowercaseFirst(sentences[0])} It also says ${sentences.slice(1).map(lowercaseFirst).join(' ')}`;
     return ensureSentence(lead);
+  }
+  const queryTokens = tokenize(message).filter(token => !PAGE_ANSWER_STOPWORDS.has(token));
+  if (queryTokens.length && !/\b(summarize|summary|overview|main|core|thesis|claim)\b/i.test(message)) {
+    return 'I do not see that answered on this page. Ask me to search the wider library if you want me to look beyond this wiki page.';
   }
   if (contextSignals.coreClaim) {
     const lines = [`The page's core claim is ${lowercaseFirst(contextSignals.coreClaim)}`];

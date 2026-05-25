@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Button, SurfaceCard } from '../ui';
 import { createWikiPage, deleteWikiPage, listWikiPages } from '../../api/wiki';
 import { buildWikiCreatePayload, openWikiDraft } from '../../utils/wikiCreate';
@@ -29,27 +29,29 @@ const WikiPageCard = ({ compact = false, deleting, page, onDelete, onOpen }) => 
   return (
     <SurfaceCard
       className={`wiki-index__page-card${compact ? ' wiki-index__page-card--compact' : ''}`}
-      role="button"
-      tabIndex={0}
-      aria-label={`Open ${title}`}
-      onClick={onOpen}
-      onKeyDown={(event) => {
-        if (event.key === 'Enter' || event.key === ' ') {
-          event.preventDefault();
-          onOpen();
-        }
-      }}
     >
-      <div className="wiki-index__page-meta">
-        <span>{labelFor(page.pageType || 'topic')}</span>
-        <span>{labelFor(page.status || 'draft')}</span>
-      </div>
-      <h2>{title}</h2>
-      <p>{snippet || 'No body yet. Open the page to start writing.'}</p>
-      <div className="wiki-index__page-footer">
-        <span>{sourceTotal} source{sourceTotal === 1 ? '' : 's'}</span>
-        <span>{formatDate(page.updatedAt)}</span>
-      </div>
+      <Link
+        className="wiki-index__page-link"
+        to={wikiPagePath(page._id || page.id)}
+        aria-label={`Open ${title}`}
+        onClick={(event) => {
+          if (onOpen) {
+            event.preventDefault();
+            onOpen();
+          }
+        }}
+      >
+        <div className="wiki-index__page-meta">
+          <span>{labelFor(page.pageType || 'topic')}</span>
+          <span>{labelFor(page.status || 'draft')}</span>
+        </div>
+        <h2>{title}</h2>
+        <p>{snippet || 'No body yet. Open the page to start writing.'}</p>
+        <div className="wiki-index__page-footer">
+          <span>{sourceTotal} source{sourceTotal === 1 ? '' : 's'}</span>
+          <span>{formatDate(page.updatedAt)}</span>
+        </div>
+      </Link>
       <div className="wiki-index__page-actions">
         <Button
           type="button"
@@ -59,6 +61,7 @@ const WikiPageCard = ({ compact = false, deleting, page, onDelete, onOpen }) => 
           aria-label={`Archive ${title}`}
           onClick={(event) => {
             event.stopPropagation();
+            event.preventDefault();
             onDelete();
           }}
           onKeyDown={(event) => event.stopPropagation()}

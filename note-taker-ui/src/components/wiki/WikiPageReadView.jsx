@@ -290,6 +290,8 @@ const conciseInfoboxText = (value = '', { maxChars = 140, maxWords = 12 } = {}) 
   return `${truncated || wordLimited.slice(0, maxChars).trim()}...`;
 };
 
+const conciseScopeText = (value = '') => conciseInfoboxText(value, { maxChars: 140, maxWords: 12 });
+
 const autoInfoboxSummary = (body) => conciseInfoboxText(firstParagraphText(body), { maxChars: 140, maxWords: 12 });
 
 const sourceExcerpt = (source = {}) => (
@@ -328,6 +330,36 @@ const formatSourceCounts = ({ citationCount = 0, claimCount = 0 }) => {
   return parts.join(' / ');
 };
 
+const countPageSources = (page = {}) => {
+  const value = page || {};
+  const explicit = Number(value.sourceCount ?? value.sourcesCount);
+  const sourceRefs = Array.isArray(value.sourceRefs) ? value.sourceRefs.length : 0;
+  const sources = Array.isArray(value.sources) ? value.sources.length : 0;
+  const citations = Array.isArray(value.citations)
+    ? new Set(value.citations.map(citation => citation.sourceRefId || citation.sourceId).filter(Boolean)).size
+    : 0;
+  return Math.max(
+    Number.isFinite(explicit) ? explicit : 0,
+    sourceRefs,
+    sources,
+    citations
+  );
+};
+
+const countPageClaims = (page = {}) => {
+  const value = page || {};
+  const explicit = Number(value.claimCount ?? value.claimsCount);
+  const claims = Array.isArray(value.claims) ? value.claims.length : 0;
+  const citationsWithClaims = Array.isArray(value.citations)
+    ? new Set(value.citations.map(citation => citation.claimId).filter(Boolean)).size
+    : 0;
+  return Math.max(
+    Number.isFinite(explicit) ? explicit : 0,
+    claims,
+    citationsWithClaims
+  );
+};
+
 const sectionTitles = (body) => extractTocItems(body || emptyDoc)
   .filter(item => item.level === 2)
   .map(item => item.title)
@@ -340,7 +372,7 @@ const buildInfoboxRows = ({ page = {}, sourceCount = 0, claimCount = 0, wordCoun
   const type = String(value.pageType || 'topic').toLowerCase();
   const firstSource = Array.isArray(value.sourceRefs) ? value.sourceRefs[0] || {} : {};
   const summaryText = conciseInfoboxText(meta.summary || meta.scope || '') || autoInfoboxSummary(value.body);
-  const scopeText = conciseInfoboxText(meta.scope || meta.summary || '') || autoInfoboxSummary(value.body);
+  const scopeText = conciseScopeText(meta.scope || meta.summary || '') || conciseScopeText(firstParagraphText(value.body));
   // Word count moved here from the now-stripped page-header "facts row" so
   // the number survives but stops competing with the title for attention.
   const baseRows = [
@@ -1221,8 +1253,8 @@ const WikiPageReadView = ({ pageId, onEdit, workspaceMode = false, refreshNonce 
   );
   const infoboxRows = useMemo(() => buildInfoboxRows({
     page,
-    sourceCount: (page?.sourceRefs || []).length,
-    claimCount: (page?.claims || []).length,
+    sourceCount: countPageSources(page),
+    claimCount: countPageClaims(page),
     wordCount,
     lastReviewed: formatDate(lastVisit?.lastViewedAt)
   }), [page, wordCount, lastVisit?.lastViewedAt]);

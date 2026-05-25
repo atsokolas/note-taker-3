@@ -141,10 +141,10 @@ describe('WikiIndex graph', () => {
     expect(screen.getByText('Knowledge map')).toBeInTheDocument();
     expect(screen.getByText('10 pages · 1 link')).toBeInTheDocument();
     expect(screen.getByLabelText('Wiki map signals')).toHaveTextContent('Brightest');
-    expect(screen.getByLabelText('Wiki map signals')).toHaveTextContent('8 unlinked');
-    expect(screen.getByLabelText('Wiki map signals')).toHaveTextContent('0 shared-source ties');
-    expect(screen.getByLabelText('Wiki map signals')).toHaveTextContent('Map needs refresh');
-    expect(screen.getByLabelText('Knowledge map refresh')).toHaveTextContent('Map needs refresh');
+    expect(screen.getByLabelText('Wiki map signals')).toHaveTextContent('8 standalone pages');
+    expect(screen.getByLabelText('Wiki map signals')).toHaveTextContent('0 evidence overlaps');
+    expect(screen.getByLabelText('Wiki map signals')).toHaveTextContent('Review latest connections');
+    expect(screen.getByLabelText('Knowledge map refresh')).toHaveTextContent('Review latest connections');
     expect(screen.getByRole('button', { name: 'Refresh map' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /^Inline links\s*1$/ })).toHaveClass('is-active');
     expect(screen.getByRole('link', { name: 'List' })).toHaveAttribute('href', '/wiki/list');
@@ -202,7 +202,7 @@ describe('WikiIndex graph', () => {
     );
 
     await screen.findByTestId('wiki-force-graph');
-    expect(screen.getByLabelText('Knowledge map refresh')).toHaveTextContent('saved connections');
+    expect(screen.getByLabelText('Knowledge map refresh')).toHaveTextContent('reviewed connections');
     expect(screen.getByRole('button', { name: 'Refresh map' })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Investing' }));
@@ -235,7 +235,7 @@ describe('WikiIndex graph', () => {
       expect(rebuildWikiGraph).toHaveBeenCalledWith({ limit: 500 });
     });
     expect(await screen.findByText('Knowledge map refreshed')).toBeInTheDocument();
-    expect(screen.getByLabelText('Knowledge map refresh')).toHaveTextContent('Map up to date');
+    expect(screen.getByLabelText('Knowledge map refresh')).toHaveTextContent('Connections reviewed');
   });
 
   it('degrades to the mobile page list instead of the force graph under 720px', async () => {

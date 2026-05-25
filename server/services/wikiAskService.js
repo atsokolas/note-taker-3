@@ -85,7 +85,7 @@ const extractQuestionTokens = (question = '') => {
 
 const pickExactPageSentence = ({ page, question } = {}) => {
   if (!isExactSentenceRequest(question)) return '';
-  const pageText = asString(toPlainText(page?.body)).replace(/\s+/g, ' ');
+  const pageText = pageBodySentenceText(page);
   if (!pageText) return '';
   const sentences = splitIntoSentences(pageText);
   if (!sentences.length) return '';
@@ -108,6 +108,33 @@ const toPlainText = (node) => {
   const own = typeof node.text === 'string' ? node.text : '';
   const child = Array.isArray(node.content) ? toPlainText(node.content) : '';
   return [own, child].filter(Boolean).join(' ').trim();
+};
+
+const toTextBlocks = (node) => {
+  const blocks = [];
+  const walk = (value) => {
+    if (!value) return;
+    if (Array.isArray(value)) {
+      value.forEach(walk);
+      return;
+    }
+    if (typeof value !== 'object') return;
+    if (['paragraph', 'blockquote', 'listItem'].includes(value.type)) {
+      const text = toPlainText(value);
+      if (text) blocks.push(text);
+      return;
+    }
+    walk(value.content);
+  };
+  walk(node);
+  return blocks;
+};
+
+const pageBodySentenceText = (page = {}) => {
+  const blocks = toTextBlocks(page?.body)
+    .map(text => asString(text).replace(/\s+/g, ' '))
+    .filter(Boolean);
+  return blocks.length ? blocks.join(' ') : asString(toPlainText(page?.body)).replace(/\s+/g, ' ');
 };
 
 let claimSeed = 0;
@@ -150,7 +177,7 @@ const buildSourceList = (sourceRefs = []) => {
 };
 
 const buildPageContext = ({ page, question } = {}) => {
-  const pageText = asString(toPlainText(page?.body)).replace(/\s+/g, ' ');
+  const pageText = pageBodySentenceText(page);
   if (!pageText) return '';
   const sentences = splitIntoSentences(pageText);
   if (!sentences.length) return truncateAtSentenceBoundary(pageText, MAX_PAGE_TEXT);

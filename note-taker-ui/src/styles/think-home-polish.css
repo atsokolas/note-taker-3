@@ -4096,6 +4096,7 @@ html[data-ui-theme='dark'] {
 }
 
 .wiki-index__tabs a,
+.wiki-index__tabs button,
 .wiki-activity-log__actions a,
 .wiki-ingest-run__back,
 .wiki-ingest-run__timeline a {
@@ -4112,9 +4113,30 @@ html[data-ui-theme='dark'] {
   background: color-mix(in srgb, var(--surface) 82%, transparent);
 }
 
-.wiki-index__tabs a[aria-current='page'] {
+.wiki-index__tabs button {
+  padding: 8px 11px;
+  border: 1px solid color-mix(in srgb, var(--nt-divider) 75%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface) 82%, transparent);
+  cursor: pointer;
+}
+
+.wiki-index__tabs a[aria-current='page'],
+.wiki-index__tabs button[aria-current='page'] {
   border-color: color-mix(in srgb, var(--accent-primary, var(--primary-color)) 45%, var(--nt-divider));
   background: color-mix(in srgb, var(--accent-primary, var(--primary-color)) 10%, var(--surface));
+}
+
+.wiki-index__page-link {
+  display: grid;
+  gap: 10px;
+  color: inherit;
+  text-decoration: none;
+}
+
+.wiki-index__page-link:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent-primary, var(--primary-color)) 50%, transparent);
+  outline-offset: 4px;
 }
 
 .wiki-build-page,
@@ -4285,6 +4307,7 @@ html[data-ui-theme='dark'] {
   color: var(--text-secondary);
   font-size: 0.84rem;
   font-weight: 700;
+  font-variant-numeric: tabular-nums;
 }
 
 .wiki-graph-signals {
@@ -4303,6 +4326,7 @@ html[data-ui-theme='dark'] {
   color: var(--text-muted);
   font-size: 0.76rem;
   font-weight: 500;
+  font-variant-numeric: tabular-nums;
 }
 
 .wiki-graph-sync {
@@ -4336,6 +4360,7 @@ html[data-ui-theme='dark'] {
 .wiki-graph-sync span {
   color: var(--text-secondary);
   font-size: 0.82rem;
+  font-variant-numeric: tabular-nums;
 }
 
 .wiki-graph__edge {
