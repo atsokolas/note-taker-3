@@ -693,6 +693,20 @@ const run = async () => {
         title: 'Source-backed wiki sections',
         snippet: 'Source-backed wiki sections preserve citation context for evidence reviews.',
         citationLabel: '[4]'
+      },
+      {
+        _id: new mongoose.Types.ObjectId().toString(),
+        type: 'article',
+        title: 'Fed cuts US interest rates again despite flying blind',
+        snippet: 'The market moved after a central bank decision and delayed official data.',
+        citationLabel: '[5]'
+      },
+      {
+        _id: new mongoose.Types.ObjectId().toString(),
+        type: 'article',
+        title: 'How to do things if you are not that smart',
+        snippet: 'A generic productivity essay about people trying to make work feel meaningful.',
+        citationLabel: '[6]'
       }
     ];
     staleSourcePage.body = {
@@ -703,7 +717,7 @@ const run = async () => {
           content: [{
             type: 'text',
             text: 'Enterprise AI memory should cite relevant sources and suppress unrelated stale sources.',
-            marks: [{ type: 'claim', attrs: { citationIndexes: [1, 2, 3, 4] } }]
+            marks: [{ type: 'claim', attrs: { citationIndexes: [1, 2, 3, 4, 5, 6] } }]
           }]
         },
         {
@@ -719,13 +733,15 @@ const run = async () => {
       claimId: 'claim-stale-source',
       text: 'Enterprise AI memory should cite relevant sources.',
       support: 'supported',
-      citationIndexes: [1, 2, 3, 4],
+      citationIndexes: [1, 2, 3, 4, 5, 6],
       sourceRefIds: staleSourcePage.sourceRefs.map(source => source._id)
     }];
     attachSourceHelpers(staleSourcePage);
     const sanitizedLedger = await request(url, `/api/wiki/pages/${hygieneCreated.body._id}`);
     assert.strictEqual(sanitizedLedger.res.status, 200, sanitizedLedger.text);
     assert.ok(!sanitizedLedger.body.sourceRefs.some(source => source.title === 'Flounder Mode'));
+    assert.ok(!sanitizedLedger.body.sourceRefs.some(source => /Fed cuts/i.test(source.title)));
+    assert.ok(!sanitizedLedger.body.sourceRefs.some(source => /not that smart/i.test(source.title)));
     assert.ok(!JSON.stringify(sanitizedLedger.body.body).includes('Flounder Mode'));
     assert.deepStrictEqual(
       sanitizedLedger.body.body.content[0].content[0].marks[0].attrs.citationIndexes,

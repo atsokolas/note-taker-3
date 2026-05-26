@@ -220,8 +220,9 @@ const remapCitationIndexesInDoc = (node, citationIndexMap = new Map()) => {
 
 const WIKI_SOURCE_RELEVANCE_STOPWORDS = new Set([
   'about', 'after', 'again', 'against', 'also', 'another', 'article', 'because', 'before', 'between',
-  'claim', 'claims', 'concept', 'could', 'draft', 'evidence', 'from', 'have', 'into', 'more',
-  'most', 'needs', 'other', 'page', 'pages', 'source', 'sources', 'still', 'than', 'that',
+  'claim', 'claims', 'concept', 'could', 'draft', 'enough', 'evidence', 'from', 'have', 'http',
+  'into', 'just', 'make', 'more', 'most', 'name', 'needs', 'only', 'other', 'page', 'pages',
+  'source', 'sources', 'still', 'than', 'that',
   'their', 'there', 'these', 'this', 'through', 'topic', 'what', 'when', 'where', 'which',
   'while', 'wiki', 'with', 'without', 'would'
 ]);
@@ -233,8 +234,15 @@ const tokenizeForSourceRelevance = (value = '') => (
 ).map(token => token.replace(/(?:ing|ments?|ions?|ers?|ies|s)$/i, ''))
   .filter(token => token.length >= 4 && !WIKI_SOURCE_RELEVANCE_STOPWORDS.has(token));
 
+const WIKI_SOURCE_SINGLE_OVERLAP_AMBIGUOUS = new Set([
+  'busines', 'business', 'market', 'people', 'proces', 'process', 'signal', 'time', 'work'
+]);
+
 const sourceLooksOffTopicForPage = ({ pageTokens = new Set(), source = {} } = {}) => {
   if (!pageTokens.size || pageTokens.size < 2) return false;
+  const titleTokens = tokenizeForSourceRelevance(source.title || '');
+  const titleOverlap = titleTokens.filter(token => pageTokens.has(token));
+  if (titleOverlap.length > 0) return false;
   const sourceText = [
     source.title,
     source.snippet,
@@ -243,10 +251,9 @@ const sourceLooksOffTopicForPage = ({ pageTokens = new Set(), source = {} } = {}
   ].filter(Boolean).join(' ');
   const sourceTokens = tokenizeForSourceRelevance(sourceText);
   if (!sourceTokens.length) return false;
-  const overlap = sourceTokens.filter(token => pageTokens.has(token));
-  if (overlap.length > 0) return false;
-  const titleTokens = tokenizeForSourceRelevance(source.title || '');
-  if (titleTokens.length >= 2 && titleTokens.every(token => pageTokens.has(token))) return false;
+  const overlap = Array.from(new Set(sourceTokens.filter(token => pageTokens.has(token))));
+  if (overlap.length > 1) return false;
+  if (overlap.length === 1 && !WIKI_SOURCE_SINGLE_OVERLAP_AMBIGUOUS.has(overlap[0])) return false;
   return true;
 };
 
