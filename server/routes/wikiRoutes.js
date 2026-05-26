@@ -334,7 +334,7 @@ const sanitizeSourceLedgerForRead = (raw = {}) => {
   const pageTokens = new Set(tokenizeForSourceRelevance(pageText));
   const keepFlags = sourceRefs.map(source => !sourceLooksOffTopicForPage({ pageTokens, source }));
   const removedCount = keepFlags.filter(keep => !keep).length;
-  if (!removedCount || sourceRefs.length - removedCount < 3 || removedCount > Math.ceil(sourceRefs.length * 0.35)) {
+  if (!removedCount || sourceRefs.length - removedCount < 3) {
     return raw;
   }
   const citationIndexMap = new Map();
