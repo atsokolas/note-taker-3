@@ -10,6 +10,7 @@ const { formatWikiSchemaPromptBlock } = require('./wikiSchemaService');
 const DEFAULT_SOURCE_LIMIT = 24;
 const MAX_SOURCE_TEXT = 1800;
 const MIN_SOURCE_RELEVANCE_SCORE = 2;
+const MIN_SPARSE_PAGE_CANDIDATES = 3;
 const QUALITY_MIN_WORDS = 450;
 const QUALITY_MIN_WORDS_WITH_MANY_SOURCES = 650;
 const SCAFFOLD_PATTERNS = [
@@ -198,6 +199,20 @@ const scoreSource = (source, queryTokens = []) => {
   return score;
 };
 
+const scoreSourceTitle = (source, queryTokens = []) => {
+  const title = asString(source.title).toLowerCase();
+  if (!title) return 0;
+  let score = 0;
+  new Set(queryTokens).forEach((token) => {
+    if (title.includes(token)) score += token.length > 5 ? 3 : 1;
+    else {
+      const stem = token.replace(/(?:ing|ment|tion|s)$/i, '');
+      if (stem.length >= 5 && title.includes(stem)) score += 2;
+    }
+  });
+  return score;
+};
+
 const runFind = async (Model, query = {}, limit = 200) => {
   if (!Model?.find) return [];
   try {
@@ -335,10 +350,35 @@ const selectCandidateSources = ({ page, sources, limit = DEFAULT_SOURCE_LIMIT })
     (page.sourceRefs || []).map(source => `${source.title} ${source.snippet}`).join(' ')
   ].filter(Boolean).join(' ');
   const queryTokens = tokenize(queryText);
-  return sources
-    .map((source, index) => ({ ...source, libraryIndex: index + 1, score: scoreSource(source, queryTokens) }))
-    .filter(source => source.score >= MIN_SOURCE_RELEVANCE_SCORE)
-    .sort((a, b) => b.score - a.score || new Date(b.updatedAt || b.createdAt || 0) - new Date(a.updatedAt || a.createdAt || 0))
+  const scoredSources = sources
+    .map((source, index) => ({
+      ...source,
+      libraryIndex: index + 1,
+      score: scoreSource(source, queryTokens),
+      titleScore: scoreSourceTitle(source, queryTokens)
+    }));
+  const sortSources = (a, b) => (
+    b.titleScore - a.titleScore
+    || b.score - a.score
+    || new Date(b.updatedAt || b.createdAt || 0) - new Date(a.updatedAt || a.createdAt || 0)
+  );
+  const relevantSources = scoredSources
+    .filter(source => source.score >= MIN_SOURCE_RELEVANCE_SCORE);
+  const minCandidateCount = Math.min(MIN_SPARSE_PAGE_CANDIDATES, limit);
+  const shouldBackfill = sources.length >= minCandidateCount
+    && relevantSources.length > 0
+    && relevantSources.length < minCandidateCount;
+  const selected = !shouldBackfill
+    ? relevantSources
+    : [
+        ...relevantSources,
+        ...scoredSources
+          .filter(source => !relevantSources.some(relevant => relevant.libraryIndex === source.libraryIndex))
+          .sort(sortSources)
+          .slice(0, Math.max(0, minCandidateCount - relevantSources.length))
+      ];
+  return selected
+    .sort(sortSources)
     .slice(0, limit)
     .map((source, index) => ({ ...source, index: index + 1 }));
 };
@@ -859,6 +899,7 @@ const buildClaimLedger = ({ claims = [], previousClaims = [], now = new Date() }
 
 const deriveClaimsFromDoc = ({
   body,
+  title = '',
   citations = [],
   sourceRefs = [],
   previousClaims = [],
@@ -866,7 +907,7 @@ const deriveClaimsFromDoc = ({
   now = new Date()
 } = {}) => buildClaimLedger({
   claims: attachClaimCitationIds({
-    claims: collectClaimsFromDoc(body).slice(0, limit),
+    claims: collectClaimsFromDoc(body, title).slice(0, limit),
     citations,
     sourceRefs
   }),
@@ -1225,6 +1266,7 @@ const materializeMaintenanceResult = async ({ page, normalized, candidates, prev
   }));
   const claims = deriveClaimsFromDoc({
     body,
+    title: normalized.title || page.title,
     citations,
     sourceRefs: mergedSourceRefs,
     previousClaims,
@@ -1475,6 +1517,7 @@ const maintainWikiPage = async ({
   }));
   page.claims = deriveClaimsFromDoc({
     body: page.body,
+    title: page.title,
     citations: page.citations,
     sourceRefs: persistedSourceRefs,
     previousClaims,

@@ -677,8 +677,8 @@ body.noeis-editorial .list-button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 32px;
-  padding: 7px 9px;
+  min-height: 44px;
+  padding: 10px 11px;
   font-size: 0.66rem;
   font-weight: 600;
   letter-spacing: 0.13em;
@@ -1011,7 +1011,7 @@ body.noeis-editorial .ui-segmented-nav {
 }
 
 body.noeis-editorial .ui-segmented-nav__item {
-  min-height: 36px;
+  min-height: 44px;
   padding: 8px 12px;
 }
 

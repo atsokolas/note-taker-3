@@ -717,7 +717,7 @@ const WikiWorkspaceVisitCard = ({ notice = {}, onNavigate, onReviewed }) => {
 };
 
 const renderInlineMarkdown = (text = '', keyPrefix = 'inline') => {
-  const pattern = /(\[\[[^\]]+\]\]|\*\*[^*]+\*\*|`[^`]+`|\[[^\]]+\]\(https?:\/\/[^)\s]+\))/g;
+  const pattern = /(\[[^\]]+\]\(https?:\/\/[^)\s]+\)|\[\[[^\]]+\]\]|\*\*[^*]+\*\*|`[^`]+`|\[(?:\d+\s*,\s*)*\d+\])/g;
   return String(text || '').split(pattern).filter(part => part !== '').map((part, index) => {
     const key = `${keyPrefix}-${index}`;
     const wiki = part.match(/^\[\[([^\]]+)\]\]$/);
@@ -733,6 +733,29 @@ const renderInlineMarkdown = (text = '', keyPrefix = 'inline') => {
           {link[1]}
         </a>
       );
+    }
+    const citation = part.match(/^\[((?:\d+\s*,\s*)*\d+)\]$/);
+    if (citation) {
+      const indexes = citation[1]
+        .split(',')
+        .map(value => Number(value.trim()))
+        .filter(value => Number.isInteger(value) && value > 0);
+      if (indexes.length) {
+        return (
+          <span key={key} className="wiki-workspace-chat__citations" aria-label="Citations">
+            {indexes.map(sourceIndex => (
+              <a
+                key={sourceIndex}
+                className="wiki-workspace-chat__citation"
+                href={`#wiki-ref-${sourceIndex}`}
+                aria-label={`Citation ${sourceIndex}`}
+              >
+                [{sourceIndex}]
+              </a>
+            ))}
+          </span>
+        );
+      }
     }
     return <React.Fragment key={key}>{part}</React.Fragment>;
   });
@@ -1242,6 +1265,7 @@ const WikiWorkspaceChat = ({ selectedPageId, view, onNavigate, onPageChanged, on
         },
         onDelta: (delta) => {
           streamedText += delta;
+          replaceMessage(pendingId, { text: streamedText, pending: true });
         },
         onFinal: (payload) => {
           streamedText = clean(payload?.reply) || streamedText;
@@ -1755,8 +1779,8 @@ const WikiWorkspace = () => {
       />
       <section className="wiki-workspace__right-pane" aria-label="Wiki workspace right pane">
         <div className="wiki-workspace__quick-actions" aria-label="Wiki actions">
-          <button type="button" onClick={handleWorkspaceBuild}>
-            Build page
+          <button type="button" onClick={handleWorkspaceBuild} aria-label="Open wiki agent">
+            Open wiki agent
           </button>
         </div>
         {rightPane}

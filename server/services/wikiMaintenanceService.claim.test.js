@@ -93,6 +93,46 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
     ])).toContain('Cash Flow Valuation (concept) — Valuing assets from owner cash flows.');
   });
 
+  it('keeps a small evidence bundle for sparse pages instead of starving maintenance context', () => {
+    const candidates = selectCandidateSources({
+      page: {
+        title: 'Complementary Machine Thing',
+        plainText: '',
+        sourceRefs: []
+      },
+      sources: [
+        {
+          type: 'article',
+          objectId: 'world-models',
+          title: 'World Models',
+          text: 'World-model agents predict future environment states before acting.',
+          updatedAt: new Date('2026-05-09T12:00:00.000Z')
+        },
+        {
+          type: 'article',
+          objectId: 'complementary-machines',
+          title: 'Complementary Machines',
+          text: 'Complementary machines extend human capability on dangerous or tedious tasks.',
+          updatedAt: new Date('2026-05-08T12:00:00.000Z')
+        },
+        {
+          type: 'article',
+          objectId: 'agent-limits',
+          title: 'Limits of Autonomous Agents',
+          text: 'Deployment depends on alignment, governance, and robust evaluation.',
+          updatedAt: new Date('2026-05-07T12:00:00.000Z')
+        }
+      ]
+    });
+
+    expect(candidates).toHaveLength(3);
+    expect(candidates.map(source => source.objectId)).toEqual([
+      'complementary-machines',
+      'world-models',
+      'agent-limits'
+    ]);
+  });
+
   it('wraps article summary text in a claim mark with citation indexes', () => {
     const doc = docFromArticle({
       title: 'Compounding interest',
@@ -460,6 +500,38 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
     });
     expect(candidates).toHaveLength(1);
     expect(candidates[0].title).toBe('Discounted cash flow memo');
+  });
+
+  it('adds one adjacent source when a maintenance page has a nearly complete evidence bundle', () => {
+    const candidates = selectCandidateSources({
+      page: {
+        title: 'Capital Allocation',
+        plainText: 'Old capital allocation note that overstates buybacks.'
+      },
+      sources: [
+        {
+          title: 'Reinvestment returns and capital allocation',
+          text: 'Capital allocation compares reinvestment returns with alternatives.',
+          type: 'article',
+          updatedAt: '2026-05-09T00:00:00.000Z'
+        },
+        {
+          title: 'Buyback discipline',
+          text: 'Buybacks create value when shares trade below intrinsic value.',
+          type: 'article',
+          updatedAt: '2026-05-08T00:00:00.000Z'
+        },
+        {
+          title: 'Dividend counterpoint',
+          text: 'Dividends can be superior when reinvestment opportunities are weak.',
+          type: 'article',
+          updatedAt: '2026-05-07T00:00:00.000Z'
+        }
+      ]
+    });
+
+    expect(candidates).toHaveLength(3);
+    expect(candidates.map(source => source.title)).toContain('Dividend counterpoint');
   });
 
   it('preserves claim history across regenerated claim ids by matching claim text', () => {

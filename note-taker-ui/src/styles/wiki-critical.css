@@ -247,7 +247,27 @@
 
 .wiki-index__page-actions {
   display: flex;
+  position: relative;
   justify-content: flex-end;
+}
+
+.wiki-index__page-more,
+.wiki-index__page-delete {
+  min-height: 36px;
+}
+
+.wiki-index__page-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 4;
+  display: grid;
+  min-width: 128px;
+  padding: 6px;
+  border: 1px solid color-mix(in srgb, var(--nt-divider) 76%, transparent);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: 0 12px 28px color-mix(in srgb, #000 12%, transparent);
 }
 
 .wiki-index__sparse {
@@ -933,6 +953,7 @@
 }
 
 .wiki-workspace__right-pane {
+  overflow: auto;
   overflow-x: clip;
   overflow-y: auto;
   position: relative;
@@ -940,17 +961,18 @@
 
 .wiki-workspace__quick-actions {
   position: sticky;
-  top: 12px;
+  top: 0;
   z-index: 8;
   display: flex;
   justify-content: flex-end;
   width: min(100% - 32px, 1160px);
-  margin: 12px auto -46px;
+  margin: 12px auto 0;
+  padding-bottom: 8px;
   pointer-events: none;
 }
 
 .wiki-workspace__quick-actions button {
-  min-height: 36px;
+  min-height: 44px;
   padding: 0 12px;
   border: 1px solid color-mix(in srgb, var(--accent-primary, var(--primary-color)) 36%, var(--nt-divider));
   border-radius: 999px;
@@ -1064,6 +1086,22 @@
   height: 1.1em;
   background: var(--accent-primary, var(--primary-color));
   animation: wiki-chat-caret 0.85s steps(2, start) infinite;
+}
+
+.wiki-workspace-chat__citations {
+  display: inline-flex;
+  gap: 2px;
+  margin-left: 0.25em;
+  vertical-align: baseline;
+}
+
+.wiki-workspace-chat__citation {
+  color: var(--accent-primary, var(--primary-color));
+  font-variant-numeric: tabular-nums;
+  font-weight: 750;
+  text-decoration: underline;
+  text-decoration-thickness: 0.08em;
+  text-underline-offset: 0.18em;
 }
 
 @keyframes wiki-chat-caret {
@@ -1207,7 +1245,7 @@
   }
 
   .wiki-workspace__mobile-tabs button {
-    min-height: 36px;
+    min-height: 44px;
   }
 
   .wiki-workspace__chat-pane,

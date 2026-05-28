@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import WikiList from './WikiList';
 import { listWikiPages } from '../../api/wiki';
@@ -52,5 +52,21 @@ describe('WikiList', () => {
     const link = await screen.findByRole('link', { name: 'Open Investing - Concepts, Ideas, and Strategies' });
     expect(link).toHaveAttribute('href', '/wiki/workspace?page=wiki-1');
     expect(screen.queryByRole('button', { name: 'Open Investing - Concepts, Ideas, and Strategies' })).not.toBeInTheDocument();
+  });
+
+  it('keeps archive actions out of the list card at rest', async () => {
+    render(
+      <MemoryRouter>
+        <WikiList compact />
+      </MemoryRouter>
+    );
+
+    const card = await screen.findByRole('article', { name: 'Investing - Concepts, Ideas, and Strategies' });
+
+    expect(within(card).queryByRole('button', { name: /archive investing/i })).not.toBeInTheDocument();
+
+    fireEvent.click(within(card).getByRole('button', { name: /more actions for investing/i }));
+
+    expect(within(card).getByRole('button', { name: /archive investing/i })).toBeInTheDocument();
   });
 });

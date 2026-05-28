@@ -458,6 +458,13 @@ describe('WikiPageReadView', () => {
         jest.advanceTimersByTime(20);
       });
       expect(screen.getByRole('link', { name: 'Evidence' })).toHaveClass('is-active');
+
+      positions = { 'core-idea': -1200, 'how-it-works': -760, evidence: -320, 'wiki-read-references-title': 230 };
+      fireEvent.scroll(pane);
+      await act(async () => {
+        jest.advanceTimersByTime(20);
+      });
+      expect(screen.getByRole('link', { name: 'References' })).toHaveClass('is-active');
     } finally {
       rectSpy.mockRestore();
       Object.defineProperty(window, 'innerHeight', { configurable: true, value: originalInnerHeight });

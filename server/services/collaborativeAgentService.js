@@ -1027,6 +1027,23 @@ const buildWikiClaimSourceReply = ({ message = '', contextItem = null } = {}) =>
   return `That claim is backed by ${joinLabels(labels)}. Claim: ${truncate(best.entry?.claim || '', 220)}`;
 };
 
+const wikiCitationSuffix = (contextItem = null, limit = 2) => {
+  if (contextItem?.type !== 'wiki_page') return '';
+  const sources = Array.isArray(contextItem.sources) ? contextItem.sources : [];
+  const indexes = sources
+    .map(source => Number(source?.index))
+    .filter(index => Number.isInteger(index) && index > 0)
+    .slice(0, limit);
+  return indexes.length ? ` [${indexes.join(',')}]` : '';
+};
+
+const withWikiPageCitations = (reply = '', contextItem = null) => {
+  const safeReply = toSafeString(reply);
+  if (!safeReply || /\[(?:\d+\s*,\s*)*\d+\]/.test(safeReply)) return safeReply;
+  const suffix = wikiCitationSuffix(contextItem);
+  return suffix ? `${ensureSentence(safeReply)}${suffix}` : safeReply;
+};
+
 const buildWikiPageGroundedReply = ({ message = '', contextItem = null, contextSignals = {} } = {}) => {
   const sourceReply = buildWikiClaimSourceReply({ message, contextItem });
   if (sourceReply) return sourceReply;
@@ -1039,13 +1056,13 @@ const buildWikiPageGroundedReply = ({ message = '', contextItem = null, contextS
   });
   if (sentences.length > 0) {
     if (wantsExactSentence) {
-      if (sentences.length === 1) return `Exact sentence: "${sentences[0]}"`;
-      return `Exact sentences: ${sentences.map(sentence => `"${sentence}"`).join(' ')}`;
+      if (sentences.length === 1) return withWikiPageCitations(`Exact sentence: "${sentences[0]}"`, contextItem);
+      return withWikiPageCitations(`Exact sentences: ${sentences.map(sentence => `"${sentence}"`).join(' ')}`, contextItem);
     }
     const lead = sentences.length === 1
       ? `The page says ${lowercaseFirst(sentences[0])}`
       : `The page says ${lowercaseFirst(sentences[0])} It also says ${sentences.slice(1).map(lowercaseFirst).join(' ')}`;
-    return ensureSentence(lead);
+    return withWikiPageCitations(lead, contextItem);
   }
   const queryTokens = tokenize(message).filter(token => !PAGE_ANSWER_STOPWORDS.has(token));
   if (queryTokens.length && !/\b(summarize|summary|overview|main|core|thesis|claim)\b/i.test(message)) {
@@ -1059,7 +1076,7 @@ const buildWikiPageGroundedReply = ({ message = '', contextItem = null, contextS
     if (contextSignals.pressurePoint && contextSignals.pressurePoint !== contextSignals.coreClaim) {
       lines.push(`The pressure point is ${lowercaseFirst(contextSignals.pressurePoint)}`);
     }
-    return lines.join(' ');
+    return withWikiPageCitations(lines.join(' '), contextItem);
   }
   return '';
 };
@@ -1735,6 +1752,7 @@ const resolveContextItem = async ({
         sourceText,
         claimText,
         claimSourceMap,
+        sources: Array.from(sourceByIndex.values()),
         updatedAt: page.updatedAt
       };
     }

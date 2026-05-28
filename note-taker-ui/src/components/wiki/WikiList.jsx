@@ -23,12 +23,15 @@ const pageSummary = (page = {}) => (
 );
 
 const WikiPageCard = ({ compact = false, deleting, page, onDelete, onOpen }) => {
+  const [actionsOpen, setActionsOpen] = useState(false);
   const snippet = compactText(pageSummary(page), compact ? 118 : 180);
   const title = page.title || 'Untitled Wiki Page';
   const sourceTotal = Array.isArray(page.sourceRefs) ? page.sourceRefs.length : Number(page.sourceCount || 0);
   return (
     <SurfaceCard
       className={`wiki-index__page-card${compact ? ' wiki-index__page-card--compact' : ''}`}
+      role="article"
+      aria-label={title}
     >
       <Link
         className="wiki-index__page-link"
@@ -56,18 +59,38 @@ const WikiPageCard = ({ compact = false, deleting, page, onDelete, onOpen }) => 
         <Button
           type="button"
           variant="secondary"
-          className="wiki-index__page-delete"
+          className="wiki-index__page-more"
           disabled={deleting}
-          aria-label={`Archive ${title}`}
+          aria-label={`More actions for ${title}`}
+          aria-expanded={actionsOpen}
           onClick={(event) => {
             event.stopPropagation();
             event.preventDefault();
-            onDelete();
+            setActionsOpen(open => !open);
           }}
           onKeyDown={(event) => event.stopPropagation()}
         >
-          {deleting ? 'Archiving...' : 'Archive'}
+          More
         </Button>
+        {actionsOpen ? (
+          <div className="wiki-index__page-menu" role="menu" aria-label={`Actions for ${title}`}>
+            <Button
+              type="button"
+              variant="secondary"
+              className="wiki-index__page-delete"
+              disabled={deleting}
+              aria-label={`Archive ${title}`}
+              onClick={(event) => {
+                event.stopPropagation();
+                event.preventDefault();
+                onDelete();
+              }}
+              onKeyDown={(event) => event.stopPropagation()}
+            >
+              {deleting ? 'Archiving...' : 'Archive'}
+            </Button>
+          </div>
+        ) : null}
       </div>
     </SurfaceCard>
   );

@@ -1195,7 +1195,22 @@ const WikiPageReadView = ({ pageId, onEdit, workspaceMode = false, refreshNonce 
     () => stripLeadingDuplicateTitleHeading(page?.body || emptyDoc, page?.title || ''),
     [page?.body, page?.title]
   );
-  const tocItems = useMemo(() => extractTocItems(displayBody), [displayBody]);
+  const bodyTocItems = useMemo(() => extractTocItems(displayBody), [displayBody]);
+  const tocItems = useMemo(() => {
+    const hasReferences = Array.isArray(page?.sourceRefs) && page.sourceRefs.length > 0;
+    if (!hasReferences || bodyTocItems.some(item => item.id === 'wiki-read-references-title')) {
+      return bodyTocItems;
+    }
+    return [
+      ...bodyTocItems,
+      {
+        id: 'wiki-read-references-title',
+        title: 'References',
+        level: 2,
+        blockIndex: Number.MAX_SAFE_INTEGER
+      }
+    ];
+  }, [bodyTocItems, page?.sourceRefs]);
   const footnoteCitations = useMemo(() => collectFootnoteCitations(displayBody), [displayBody]);
   const [activeTocId, setActiveTocId] = useState('');
 

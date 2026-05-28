@@ -366,7 +366,7 @@ describe('WikiWorkspace', () => {
     renderWorkspace('/wiki/workspace?page=wiki-1');
     await settleWorkspaceEffects();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Build page' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Open wiki agent' }));
 
     expect(document.querySelector('.wiki-workspace')).toHaveClass('is-mobile-chat');
     await waitFor(() => expect(screen.getByLabelText('Wiki workspace message')).toHaveValue('/build '));
@@ -609,6 +609,30 @@ describe('WikiWorkspace', () => {
     expect(await screen.findByText('Thread · Wiki workspace')).toBeInTheDocument();
   });
 
+  it('renders visible citation chips from streamed agent replies', async () => {
+    streamChatWithAgent.mockImplementationOnce(async (_payload, handlers = {}) => {
+      handlers.onDelta?.('The thesis is disciplined capital allocation [1,2].');
+      const result = {
+        reply: 'The thesis is disciplined capital allocation [1,2].',
+        activityReceipts: [{ key: 'read-page', stage: 'read_page', summary: 'Read the selected wiki page.' }],
+        thread: { threadId: 'thread-1' }
+      };
+      handlers.onFinal?.(result);
+      return result;
+    });
+    renderWorkspace('/wiki/workspace?page=wiki-1');
+    await settleWorkspaceEffects();
+
+    fireEvent.change(screen.getByLabelText('Wiki workspace message'), {
+      target: { value: 'Summarize thesis' }
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+
+    expect(await screen.findByText(/The thesis is disciplined capital allocation/)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Citation 1' })).toHaveAttribute('href', '#wiki-ref-1');
+    expect(screen.getByRole('link', { name: 'Citation 2' })).toHaveAttribute('href', '#wiki-ref-2');
+  });
+
   it('forwards paragraph edit stream events to the active wiki read view', async () => {
     streamChatWithAgent.mockImplementationOnce(async (_payload, handlers = {}) => {
       handlers.onActivity?.({ type: 'paragraph_edited', pageId: 'wiki-1', anchorId: 'wiki-block-1', summary: 'Edited Core idea.' });
@@ -681,7 +705,7 @@ describe('WikiWorkspace', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Send' }));
 
     await waitFor(() => expect(streamSignal).toBeTruthy());
-    expect(screen.queryByText('Partial reply')).not.toBeInTheDocument();
+    expect(await screen.findByText('Partial reply')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
 
     await waitFor(() => expect(streamSignal.aborted).toBe(true));
