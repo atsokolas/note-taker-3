@@ -40,6 +40,19 @@ const pages = [
   }
 ];
 
+// AT-293: a page with no curated summary/scope falls through to plainText,
+// which is the full flattened article body. The card must show a tight,
+// cleaned excerpt, not a wall of text with leading title echo + [n] markers.
+const LONG_BODY_PAGE = {
+  _id: 'wiki-dump',
+  title: 'Photosynthesis',
+  pageType: 'topic',
+  plainText: 'Photosynthesis is the process by which plants convert light energy into chemical energy stored in glucose [1]. It occurs in the chloroplasts of plant cells, primarily within structures called thylakoids [2,3]. The light-dependent reactions capture solar energy and produce ATP and NADPH, which then power the Calvin cycle to fix carbon dioxide into sugars [4-6]. This process is fundamental to life on Earth.',
+  sourceRefs: [{ _id: 's4' }],
+  claims: [{ _id: 'c4' }],
+  updatedAt: '2026-05-12T12:00:00.000Z'
+};
+
 describe('WikiProductIndex', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -68,6 +81,32 @@ describe('WikiProductIndex', () => {
     expect(overview).toHaveTextContent('Pages2');
     expect(overview).toHaveTextContent('Sources cited3');
     expect(overview).toHaveTextContent('Top typesConcept, Overview');
+  });
+
+  it('clamps the Key pages excerpt and strips citation markers + title echo (AT-293)', async () => {
+    listWikiPages.mockResolvedValueOnce([LONG_BODY_PAGE]);
+
+    render(
+      <MemoryRouter>
+        <WikiProductIndex />
+      </MemoryRouter>
+    );
+
+    await screen.findByRole('heading', { name: 'Key pages' });
+
+    const card = screen.getAllByRole('link', { name: /Photosynthesis/ })[0];
+    const excerpt = card.querySelector('p');
+    expect(excerpt).toBeTruthy();
+
+    const text = excerpt.textContent;
+    // Tight excerpt, not the whole body run.
+    expect(text.length).toBeLessThanOrEqual(170);
+    expect(text.length).toBeLessThan(LONG_BODY_PAGE.plainText.length);
+    // Citation markers like [1], [2,3], [4-6] are stripped.
+    expect(text).not.toMatch(/\[\s*\d/);
+    // Leading title echo is removed: excerpt starts on prose, not "Photosynthesis".
+    expect(text.startsWith('Photosynthesis')).toBe(false);
+    expect(text).toMatch(/is the process by which plants/);
   });
 
   it('shows a quiet empty state when there are no pages', async () => {

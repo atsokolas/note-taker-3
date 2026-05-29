@@ -2225,7 +2225,13 @@ const generateCollaborativeReply = async ({
   let mode = 'internal_only';
   let model = '';
   let provider = '';
-  if (!reply && isTextGenerationConfigured() && (!wikiPageScoped || shouldSearchWorkspace)) {
+  // AT-287: previously gated out LLM synthesis when asking about the current wiki
+  // page (wikiPageScoped && !shouldSearchWorkspace), so page-scoped Q&A returned the
+  // deterministic nearest-claim pick from buildReply in ~0.3s instead of a grounded
+  // answer. Now any plain Q&A (no build/draft artifact) synthesizes via the LLM,
+  // grounded in the selected page's contextItem + relatedItems, with streaming when
+  // onDelta is supplied. Citations are derived from relatedItems independently below.
+  if (!reply && isTextGenerationConfigured()) {
     try {
       const completion = typeof onDelta === 'function'
         ? await chatCompleteStream({

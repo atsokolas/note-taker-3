@@ -1,5 +1,6 @@
 :root {
-  --font-sans: "SF Pro Text", "Suisse Int'l", "Inter", "Helvetica Neue", Arial, sans-serif;
+  /* AT-290: free/standard fonts only — system UI stack for chrome, no licensed/Inter. */
+  --font-sans: system-ui, -apple-system, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
   --font-serif: "Iowan Old Style", "Lyon Text", "Georgia", "Times New Roman", serif;
   --text: #111827;
   --text-secondary: #5f6b7a;

@@ -1030,7 +1030,7 @@
   padding: 14px 18px;
 }
 
-.wiki-workspace-chat h1 {
+.wiki-workspace-chat__title {
   margin: 0;
   color: var(--text-primary);
   font-family: Georgia, "Times New Roman", serif;

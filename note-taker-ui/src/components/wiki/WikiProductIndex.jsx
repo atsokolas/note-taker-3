@@ -17,9 +17,40 @@ const sourceCount = (page = {}) => (
   Array.isArray(page.sourceRefs) ? page.sourceRefs.length : Number(page.sourceCount || 0)
 );
 
+// AT-293: key-page cards used to dump the entire article body whenever a page
+// had no curated summary/scope (it fell straight through to page.plainText,
+// which is the full flattened body incl. section-heading runs + [1] citation
+// markers). Clamp to a tight, deliberate excerpt and strip the detritus so the
+// wiki home stays a calm entry point.
+const PREVIEW_CHAR_BUDGET = 160;
+
+const cleanPreviewText = (value = '', title = '') => {
+  let text = String(value || '')
+    // drop inline citation markers like [1], [2,3], [4-6]
+    .replace(/\[\s*\d+(?:\s*[,–-]\s*\d+)*\s*\]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  // plainText often begins by repeating the page title (heading flattened into
+  // the body run). Strip a leading title echo so the excerpt starts on prose.
+  const trimmedTitle = String(title || '').replace(/\s+/g, ' ').trim();
+  if (trimmedTitle && text.toLowerCase().startsWith(trimmedTitle.toLowerCase())) {
+    text = text.slice(trimmedTitle.length).replace(/^[\s:–-]+/, '').trim();
+  }
+  return text;
+};
+
+const clampPreview = (value = '', budget = PREVIEW_CHAR_BUDGET) => {
+  if (value.length <= budget) return value;
+  const slice = value.slice(0, budget);
+  const lastStop = Math.max(slice.lastIndexOf('. '), slice.lastIndexOf('? '), slice.lastIndexOf('! '));
+  if (lastStop > budget * 0.5) return slice.slice(0, lastStop + 1).trim();
+  const lastSpace = slice.lastIndexOf(' ');
+  return `${slice.slice(0, lastSpace > 0 ? lastSpace : budget).trim()}…`;
+};
+
 const summaryFor = (page = {}) => {
-  const summary = page.summary || page.scope || page.plainText || '';
-  return String(summary || '').replace(/\s+/g, ' ').trim();
+  const source = page.summary || page.scope || page.plainText || '';
+  return clampPreview(cleanPreviewText(source, page.title));
 };
 
 const pageWeight = (page = {}) => (

@@ -4808,6 +4808,11 @@ html[data-ui-theme='dark'] {
   width: min(1380px, calc(100% - 32px));
   margin: 0 auto;
   padding: 28px 0 64px;
+  /* AT-292: the read layout renders both standalone AND inside the narrow
+     two-pane workspace. Make it a container so the grid can react to the pane
+     width (not the viewport) and keep the body from being crushed by the rails. */
+  container-type: inline-size;
+  container-name: wikiread;
 }
 
 .wiki-read__topline {
@@ -4831,6 +4836,47 @@ html[data-ui-theme='dark'] {
 .wiki-read__layout--rail-collapsed {
   grid-template-columns: minmax(160px, 220px) minmax(0, 860px) 36px;
   gap: 24px;
+}
+
+/* AT-292: inside the two-pane workspace the read container is ~1020px, not the
+   ~1380px of a standalone page. At that width the fixed left+right rails crush
+   the body to ~464px ("Notion, not Wikipedia"). When the container is narrow,
+   uncap the body to fill the row and slim the rails so the article owns the
+   canvas. Standalone pages stay >1200px and keep the generous 860px column. */
+@container wikiread (max-width: 1200px) {
+  /* Default (collapsed) state: both side rails become slim gutters, body 1fr. */
+  .wiki-read__layout--rail-collapsed {
+    grid-template-columns: minmax(120px, 160px) minmax(0, 1fr) 36px;
+    gap: 20px;
+  }
+  /* Expanded state: uncap the body and trim the rails so it stops crushing. */
+  .wiki-read__layout {
+    grid-template-columns: minmax(120px, 150px) minmax(0, 1fr) minmax(200px, 240px);
+    gap: 20px;
+  }
+}
+
+/* AT-291: WCAG 2.5.5 tap-target floor (44x44) for interactive CHROME controls.
+   Uses min-* (not height/width) so it wins over themed height declarations
+   without !important. Inline prose links — citations, reference backlinks, TOC
+   entries — are intentionally EXEMPT: they sit inside sentences and the WCAG
+   target-size criterion exempts inline links. Sizing them would break reading. */
+.topbar__primary-link,
+.topbar__icon-button,
+.topbar__theme-pill,
+.topbar__button,
+.topbar__search-trigger,
+.wiki-read__rail-toggle,
+.wiki-workspace-chat__hint-dismiss {
+  min-height: 44px;
+  min-width: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.topbar__search-wrap {
+  min-height: 44px;
 }
 
 .wiki-read__toc,
@@ -8013,7 +8059,7 @@ html[data-ui-theme='dark'] .wiki-activity-rail__graph-alerts span {
   border-bottom: 1px solid color-mix(in srgb, var(--nt-divider) 70%, transparent);
 }
 
-.wiki-workspace-chat h1,
+.wiki-workspace-chat__title,
 .wiki-workspace-sources h1,
 .wiki-workspace-activity h1,
 .wiki-workspace-schema h1 {
@@ -8412,6 +8458,72 @@ html[data-ui-theme='dark'] .wiki-activity-rail__graph-alerts span {
   opacity: 1;
   transform: scaleX(1);
   animation: wikiWorkspaceComposerHairline 1.8s linear infinite;
+}
+
+/* AT-289: breathing conic-gradient border on the agent composer field.
+   A registered custom property is required so the conic angle can be
+   interpolated (a plain CSS variable can't animate). The field WRAPPER carries
+   it because <textarea> is a replaced element and won't paint ::before.
+   Idle = slow, faint breath; focus = brighter; streaming = fast, full intensity
+   ("the agent is alive" once AT-287 makes it actually think). */
+@property --composer-angle {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
+
+.wiki-workspace-chat__composer-field {
+  position: relative;
+  border-radius: 8px;
+}
+
+.wiki-workspace-chat__composer-field > textarea {
+  position: relative;
+  z-index: 1;
+}
+
+.wiki-workspace-chat__composer-field::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: 9px;
+  padding: 1.5px;
+  background: conic-gradient(
+    from var(--composer-angle),
+    transparent 0deg,
+    color-mix(in srgb, var(--accent-primary, var(--primary-color)) 70%, transparent) 70deg,
+    color-mix(in srgb, var(--wiki-warm-accent, #b1862e) 60%, transparent) 150deg,
+    transparent 220deg,
+    color-mix(in srgb, var(--accent-primary, var(--primary-color)) 70%, transparent) 320deg,
+    transparent 360deg
+  );
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+  opacity: 0.4;
+  pointer-events: none;
+  animation: composer-breathe 7s linear infinite;
+}
+
+.wiki-workspace-chat__composer-field:focus-within::before {
+  opacity: 0.72;
+  animation-duration: 4.5s;
+}
+
+.wiki-workspace-chat__composer[data-streaming='true'] .wiki-workspace-chat__composer-field::before {
+  opacity: 1;
+  animation-duration: 2.2s;
+}
+
+@keyframes composer-breathe {
+  to { --composer-angle: 360deg; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wiki-workspace-chat__composer-field::before {
+    animation: none;
+  }
 }
 
 .wiki-workspace-chat__composer textarea,

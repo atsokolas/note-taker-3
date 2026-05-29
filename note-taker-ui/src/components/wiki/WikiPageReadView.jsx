@@ -1013,6 +1013,28 @@ const WikiPageReadView = ({ pageId, onEdit, workspaceMode = false, refreshNonce 
     if (scrollToElementId(refId)) highlightReference(refId);
   }, [highlightReference]);
 
+  // AT-288: wikilinks render as raw <a href="/wiki/:id"> (see renderTiptapDoc).
+  // Intercept plain left-clicks so concept-to-concept navigation stays in-app
+  // and rides the page-switch View Transition instead of doing a full reload.
+  // Modifier-clicks (open-in-new-tab) and non-primary buttons fall through to
+  // the browser's native behavior.
+  const handleInternalLinkClick = useCallback((event) => {
+    if (event.defaultPrevented) return;
+    if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    const target = event.target.closest?.('.wiki-internal-link');
+    const targetPageId = target?.getAttribute?.('data-wiki-page-id');
+    if (!targetPageId) return;
+    event.preventDefault();
+    if (previewTimerRef.current) clearTimeout(previewTimerRef.current);
+    setPreview(null);
+    const go = () => navigate(wikiPagePath(targetPageId));
+    if (typeof document !== 'undefined' && typeof document.startViewTransition === 'function') {
+      document.startViewTransition(go);
+    } else {
+      go();
+    }
+  }, [navigate]);
+
   useEffect(() => {
     if (typeof window.matchMedia !== 'function') return undefined;
     const query = window.matchMedia('(min-width: 1280px)');
@@ -1518,7 +1540,10 @@ const WikiPageReadView = ({ pageId, onEdit, workspaceMode = false, refreshNonce 
             handleLinkLeave(event);
           }}
           onFocus={handleClaimHover}
-          onClick={handleCitationClick}
+          onClick={(event) => {
+            handleCitationClick(event);
+            handleInternalLinkClick(event);
+          }}
         >
           <div className="wiki-read__progress" aria-hidden="true">
             <span />

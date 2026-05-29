@@ -1313,7 +1313,9 @@ const WikiWorkspaceChat = ({ selectedPageId, view, onNavigate, onPageChanged, on
   return (
     <section className="wiki-workspace-chat" aria-label="Wiki agent chat">
       <header>
-        <h1>Wiki agent</h1>
+        {/* AT-291: pane label, not the page's document title — kept as h2 so the
+            active right-pane content (article / sources / schema) owns the sole h1. */}
+        <h2 className="wiki-workspace-chat__title">Wiki agent</h2>
         {threadId ? (
           <Link className="wiki-workspace-chat__thread-link" to={`/think?tab=threads&threadId=${encodeURIComponent(threadId)}`}>
             Thread{threadTitle ? ` · ${threadTitle}` : ''}
@@ -1353,6 +1355,11 @@ const WikiWorkspaceChat = ({ selectedPageId, view, onNavigate, onPageChanged, on
             ))}
           </div>
         ) : null}
+        {/* AT-289: the textarea is a replaced element and can't host the
+            breathing conic-gradient border directly, so the field wrapper
+            carries the animated border (see .wiki-workspace-chat__composer-field
+            in think-home-polish.css). data-streaming bubbles from the form. */}
+        <div className="wiki-workspace-chat__composer-field">
         <textarea
           value={input}
           onFocus={requestWikiPages}
@@ -1390,6 +1397,7 @@ const WikiWorkspaceChat = ({ selectedPageId, view, onNavigate, onPageChanged, on
           rows={4}
           disabled={busy}
         />
+        </div>
         {showCommands.length ? (
           <div className="wiki-workspace-chat__palette" aria-label="Wiki commands">
             {showCommands.map((command, index) => (
