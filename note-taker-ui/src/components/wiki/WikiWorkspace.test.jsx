@@ -168,7 +168,7 @@ describe('WikiWorkspace', () => {
 
     expect(screen.getByLabelText('Wiki agent chat')).toBeInTheDocument();
     expect(screen.getByTestId('wiki-index')).toBeInTheDocument();
-    expect(document.querySelector('.wiki-workspace')).toHaveStyle('--wiki-workspace-chat-width: 300px');
+    expect(document.querySelector('.wiki-workspace')).toHaveStyle('--wiki-workspace-chat-width: 260px');
     expect(document.querySelector('.wiki-workspace__right-pane')).toBeInTheDocument();
   });
 

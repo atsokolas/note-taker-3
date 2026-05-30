@@ -108,7 +108,13 @@ const WikiProductIndex = () => {
 
   const types = useMemo(() => topPageTypes(pages), [pages]);
   const totalSources = useMemo(() => pages.reduce((sum, page) => sum + sourceCount(page), 0), [pages]);
-  const statValue = (value) => (loading ? 'Loading...' : value);
+  // AT-294: render a shimmer chip while loading instead of the word "Loading..."
+  // so a slow backend cold-start reads as "working" rather than "broken".
+  const statValue = (value) => (
+    loading
+      ? <span className="wiki-skeleton wiki-skeleton--stat" aria-hidden="true" />
+      : value
+  );
 
   return (
     <main className="wiki-page wiki-product-index">
@@ -146,7 +152,25 @@ const WikiProductIndex = () => {
       </section>
 
       {error ? <div className="wiki-index__error" role="alert">{error}</div> : null}
-      {loading ? <p className="wiki-index__status">Loading wiki pages...</p> : null}
+      {loading ? (
+        // AT-294: skeleton card grid stands in for Key pages during cold-start.
+        <section className="wiki-product-index__section" aria-hidden="true">
+          <div className="wiki-product-index__section-head">
+            <p className="wiki-index__eyebrow">Start here</p>
+            <h2>Key pages</h2>
+          </div>
+          <div className="wiki-product-index__grid">
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="wiki-product-index__card wiki-product-index__card--skeleton">
+                <span className="wiki-skeleton wiki-skeleton--eyebrow" />
+                <span className="wiki-skeleton wiki-skeleton--title" />
+                <span className="wiki-skeleton wiki-skeleton--line" />
+                <span className="wiki-skeleton wiki-skeleton--line wiki-skeleton--line-short" />
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       {!loading && !pages.length ? (
         <section className="wiki-index__empty">
