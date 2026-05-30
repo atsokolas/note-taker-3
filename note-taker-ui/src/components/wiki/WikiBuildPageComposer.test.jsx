@@ -1,6 +1,7 @@
 import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
+import * as router from 'react-router-dom';
 import WikiBuildPageComposer from './WikiBuildPageComposer';
 import { createWikiPage, streamMaintainWikiPage } from '../../api/wiki';
 
@@ -10,8 +11,11 @@ jest.mock('../../api/wiki', () => ({
 }));
 
 describe('WikiBuildPageComposer', () => {
+  const mockNavigate = jest.fn();
+
   beforeEach(() => {
     jest.clearAllMocks();
+    jest.spyOn(router, 'useNavigate').mockReturnValue(mockNavigate);
     process.env.REACT_APP_WIKI_WORKSPACE_V1 = 'true';
     createWikiPage.mockResolvedValue({ _id: 'wiki-new', title: 'Portfolio Concentration' });
     streamMaintainWikiPage.mockImplementation(async (_pageId, _options, handlers = {}) => {
@@ -21,10 +25,11 @@ describe('WikiBuildPageComposer', () => {
   });
 
   afterEach(() => {
+    jest.restoreAllMocks();
     delete process.env.REACT_APP_WIKI_WORKSPACE_V1;
   });
 
-  it('creates an overview page, asks maintenance to draft it, and opens the workspace page', async () => {
+  it('creates an overview page and opens the workspace page for agent drafting', async () => {
     const onBuilt = jest.fn();
     render(
       <MemoryRouter>
@@ -43,10 +48,9 @@ describe('WikiBuildPageComposer', () => {
         pageType: 'overview'
       }));
     });
-    expect(streamMaintainWikiPage).toHaveBeenCalledWith('wiki-new', {}, expect.objectContaining({
-      onPage: expect.any(Function)
-    }));
+    expect(streamMaintainWikiPage).not.toHaveBeenCalled();
     expect(onBuilt).toHaveBeenCalled();
+    expect(mockNavigate).toHaveBeenCalledWith('/wiki/workspace?page=wiki-new&build=1', { replace: false });
     await waitFor(() => {
       expect(screen.getByLabelText('Wiki page to build')).toHaveValue('');
     });
@@ -67,5 +71,6 @@ describe('WikiBuildPageComposer', () => {
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Failed to build this wiki page.');
     expect(streamMaintainWikiPage).not.toHaveBeenCalled();
+    expect(mockNavigate).not.toHaveBeenCalled();
   });
 });

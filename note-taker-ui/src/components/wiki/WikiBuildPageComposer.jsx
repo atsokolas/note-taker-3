@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { createWikiPage, streamMaintainWikiPage } from '../../api/wiki';
+import { createWikiPage } from '../../api/wiki';
 import { buildWikiCreatePayload } from '../../utils/wikiCreate';
 import { wikiPagePath } from '../../utils/wikiFeatureFlags';
 import { Button } from '../ui';
@@ -29,14 +29,10 @@ const WikiBuildPageComposer = ({ className = '', compact = false, onBuilt }) => 
       const pageId = page?._id || page?.id;
       if (!pageId) throw new Error('Missing created page id');
       setStatus(`Building "${page.title || topic}"...`);
-      await streamMaintainWikiPage(pageId, {}, {
-        onPage: (updatedPage) => {
-          if (updatedPage) onBuilt?.(updatedPage);
-        }
-      });
+      navigate(`${wikiPagePath(pageId)}&build=1`, { replace: false });
       setPrompt('');
       onBuilt?.(page);
-      navigate(wikiPagePath(pageId));
+      setStatus('Opened the workspace. The wiki agent is drafting the page there.');
     } catch (_error) {
       setError('Failed to build this wiki page.');
     } finally {

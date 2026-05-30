@@ -525,13 +525,6 @@ function App() {
   if (isLoading) return <RouteLoadingFallback />;
 
   const AppLayout = () => {
-    const location = useLocation();
-    const locationSearch = new URLSearchParams(location.search);
-    const hasSeenLanding = localStorage.getItem('hasSeenLanding') === 'true';
-    const isConceptRoute = (
-      location.pathname.startsWith('/think')
-      && locationSearch.get('tab') === 'concepts'
-    );
     const topBarUtilityNav = [
       {
         label: 'Settings',
@@ -564,7 +557,7 @@ function App() {
         <TourManager />
         <Suspense fallback={<RouteLoadingFallback />}>
           <Routes>
-            <Route path="/" element={hasSeenLanding ? <Navigate to="/think?tab=home" replace /> : <Landing />} />
+            <Route path="/" element={<Navigate to="/think?tab=home" replace />} />
             <Route path="/today" element={<TodayMode />} />
             <Route path="/library" element={<Library />} />
             <Route path="/think" element={<ThinkMode />} />
@@ -647,13 +640,13 @@ function App() {
             primaryNav={primaryNavItems}
             utilityNav={topBarUtilityNav}
             secondaryNav={moreNavItems}
-            searchMode={isConceptRoute ? 'icon' : 'field'}
+            searchMode="field"
             onSearchOpen={openPalette}
             theme={uiSettings.theme}
             onThemeChange={(nextTheme) => handleUiSettingsChange({ theme: nextTheme })}
             themeSaving={uiSettingsSaving}
             accountMenuItems={topBarAccountMenuItems}
-            className={isConceptRoute ? 'topbar--manuscript' : ''}
+            className=""
           />
         )}
       >

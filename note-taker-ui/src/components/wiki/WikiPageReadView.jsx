@@ -1476,8 +1476,20 @@ const WikiPageReadView = ({ pageId, onEdit, workspaceMode = false, refreshNonce 
   if (loading && !page) return <main className="wiki-page"><p className="wiki-index__status">Loading Wiki page...</p></main>;
   if (!page) {
     return (
-      <main className="wiki-page">
-        <div className="wiki-index__error" role="alert">{error || 'Wiki page not found.'}</div>
+      <main className="wiki-page wiki-read wiki-read--missing">
+        <section className="wiki-index__empty wiki-read__missing-page" role="alert">
+          <p className="wiki-index__eyebrow">Wiki page unavailable</p>
+          <h1>This wiki page could not be opened.</h1>
+          <p>
+            {error || 'The page may have been archived, deleted, or not migrated into the current workspace.'}
+            {' '}Open the wiki list to find the current page, or ask the agent to rebuild it from the topic.
+          </p>
+          <div className="wiki-read__missing-actions">
+            <Link to="/wiki/workspace?view=list">Open wiki list</Link>
+            <Link to="/wiki/workspace?view=graph">Open knowledge map</Link>
+            <Link to="/wiki">Build a page</Link>
+          </div>
+        </section>
       </main>
     );
   }

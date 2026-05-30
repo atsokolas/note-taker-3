@@ -358,8 +358,29 @@ describe('WikiWorkspace', () => {
     await settleWorkspaceEffects();
 
     expect(document.querySelector('.wiki-workspace')).toHaveClass('is-mobile-chat');
+    expect(document.querySelector('.wiki-workspace__chat-pane')).not.toHaveClass('wiki-workspace__pane--inactive');
+    expect(document.querySelector('.wiki-workspace__right-pane')).toHaveClass('wiki-workspace__pane--inactive');
     expect(screen.getByRole('tab', { name: 'Chat' })).toHaveAttribute('aria-selected', 'true');
     expect(await screen.findByLabelText('Wiki workspace message')).toBeInTheDocument();
+  });
+
+  it('keeps the wiki pane and chat pane mutually exclusive on mobile tab changes', async () => {
+    renderWorkspace('/wiki/workspace?page=wiki-1&pane=chat');
+    await settleWorkspaceEffects();
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Wiki' }));
+
+    expect(document.querySelector('.wiki-workspace')).toHaveClass('is-mobile-wiki');
+    expect(document.querySelector('.wiki-workspace__chat-pane')).toHaveClass('wiki-workspace__pane--inactive');
+    expect(document.querySelector('.wiki-workspace__right-pane')).not.toHaveClass('wiki-workspace__pane--inactive');
+    expect(mockNavigate).toHaveBeenLastCalledWith('/wiki/workspace?page=wiki-1&pane=wiki', { replace: true });
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Chat' }));
+
+    expect(document.querySelector('.wiki-workspace')).toHaveClass('is-mobile-chat');
+    expect(document.querySelector('.wiki-workspace__chat-pane')).not.toHaveClass('wiki-workspace__pane--inactive');
+    expect(document.querySelector('.wiki-workspace__right-pane')).toHaveClass('wiki-workspace__pane--inactive');
+    expect(mockNavigate).toHaveBeenLastCalledWith('/wiki/workspace?page=wiki-1&pane=chat', { replace: true });
   });
 
   it('offers a build-page agent action on every workspace surface', async () => {
@@ -496,6 +517,17 @@ describe('WikiWorkspace', () => {
     })));
     await waitFor(() => expect(streamMaintainWikiPage).toHaveBeenCalledWith('wiki-new', {}, expect.any(Object)));
     expect(await screen.findByText('Built @wiki:wiki-new for "Portfolio Concentration".')).toBeInTheDocument();
+  });
+
+  it('auto-drafts pages opened from the home build composer and refreshes the reader', async () => {
+    renderWorkspace('/wiki/workspace?page=wiki-new&build=1');
+    await settleWorkspaceEffects();
+
+    await waitFor(() => expect(streamMaintainWikiPage).toHaveBeenCalledWith('wiki-new', {}, expect.objectContaining({
+      onPage: expect.any(Function)
+    })));
+    expect(mockNavigate).toHaveBeenCalledWith('/wiki/workspace?page=wiki-new', { replace: true });
+    expect(await screen.findByTestId('wiki-read-view')).toHaveTextContent('Page wiki-new workspace');
   });
 
   it('streams wiki lint into an actionable chat card without leaving the workspace', async () => {

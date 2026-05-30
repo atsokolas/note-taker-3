@@ -1519,12 +1519,14 @@ const WikiWorkspace = () => {
   const dragRef = useRef(null);
   const chatWidthRef = useRef(chatWidth);
   const lastSelectedPageRef = useRef('');
+  const autoBuildRef = useRef(new Set());
 
   const params = useMemo(() => new URLSearchParams(currentSearch), [currentSearch]);
   const selectedPageId = clean(params.get('page'));
   const pageMode = clean(params.get('mode')) === 'edit' ? 'edit' : 'read';
   const explicitView = clean(params.get('view'));
   const explicitPane = normalizePane(params.get('pane'));
+  const shouldAutoBuild = params.get('build') === '1';
   const view = selectedPageId ? 'page' : explicitView || 'graph';
 
   useEffect(() => {
@@ -1540,6 +1542,34 @@ const WikiWorkspace = () => {
   useEffect(() => {
     if (selectedPageId) lastSelectedPageRef.current = selectedPageId;
   }, [selectedPageId]);
+
+  useEffect(() => {
+    if (!selectedPageId || !shouldAutoBuild || autoBuildRef.current.has(selectedPageId)) return undefined;
+    autoBuildRef.current.add(selectedPageId);
+    let cancelled = false;
+    const nextParams = new URLSearchParams(currentSearchRef.current || currentSearch || location.search || '');
+    nextParams.delete('build');
+    const nextSearch = `?${nextParams.toString()}`;
+    currentSearchRef.current = nextSearch;
+    setCurrentSearch(nextSearch);
+    navigate(`/wiki/workspace${nextSearch}`, { replace: true });
+    setBusy(true);
+    streamMaintainWikiPage(selectedPageId, {}, {
+      onPage: (_page, event = {}) => {
+        if (cancelled) return;
+        setRefreshNonce(value => value + 1);
+        const anchorId = clean(event.anchorId || event.sectionId || event.changedSectionId);
+        if (anchorId) setLiveUpdate({ anchorId, pageId: selectedPageId, at: Date.now() });
+      }
+    }).catch(() => {
+      // The read view still shows the created page; a failed draft can be retried from the workspace chat.
+    }).finally(() => {
+      if (!cancelled) setBusy(false);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [currentSearch, location.search, navigate, selectedPageId, shouldAutoBuild]);
 
   const syncPaneParam = useCallback((pane) => {
     const normalizedPane = normalizePane(pane);
@@ -1782,7 +1812,10 @@ const WikiWorkspace = () => {
           Wiki
         </button>
       </div>
-      <aside className="wiki-workspace__chat-pane">
+      <aside
+        className={`wiki-workspace__chat-pane${mobilePane !== 'chat' ? ' wiki-workspace__pane--inactive' : ''}`}
+        data-mobile-active={mobilePane === 'chat' ? 'true' : 'false'}
+      >
         <WikiWorkspaceChat
           selectedPageId={selectedPageId}
           view={view}
@@ -1801,7 +1834,11 @@ const WikiWorkspace = () => {
         aria-label="Resize workspace panes"
         onMouseDown={handleDragStart}
       />
-      <section className="wiki-workspace__right-pane" aria-label="Wiki workspace right pane">
+      <section
+        className={`wiki-workspace__right-pane${mobilePane !== 'wiki' ? ' wiki-workspace__pane--inactive' : ''}`}
+        data-mobile-active={mobilePane === 'wiki' ? 'true' : 'false'}
+        aria-label="Wiki workspace right pane"
+      >
         {rightPane}
       </section>
       {showFirstVisitOnboarding ? (

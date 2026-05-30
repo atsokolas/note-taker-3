@@ -7,6 +7,7 @@
     "start": "node server/server.js",
     "dev": "nodemon server/server.js",
     "qa:seed": "node scripts/seed_editor_qa.js",
+    "wiki:seed:qa": "node scripts/seed_wiki_qa.js",
     "agent:harness": "node scripts/run_agent_harness.js",
     "agent:harness:realistic": "node scripts/run_agent_harness.js --fixture-set=realistic",
     "agent:harness:live": "node scripts/run_agent_harness.js --live",

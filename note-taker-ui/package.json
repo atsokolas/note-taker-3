@@ -60,6 +60,7 @@
 	},
 	"devDependencies": {
 		"@playwright/test": "^1.59.1",
+		"caniuse-lite": "^1.0.30001793",
 		"patch-package": "^8.0.1"
 	}
 }

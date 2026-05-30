@@ -32,6 +32,38 @@
   padding-top: 52px;
 }
 
+.wiki-read__missing-page {
+  max-width: min(720px, calc(100vw - 48px));
+  margin: 96px auto;
+}
+
+.wiki-read__missing-page h1 {
+  margin: 0;
+  color: var(--text-primary);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(2rem, 6vw, 4rem);
+  line-height: 0.98;
+}
+
+.wiki-read__missing-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.wiki-read__missing-actions a {
+  display: inline-flex;
+  min-height: 40px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--nt-divider);
+  border-radius: 999px;
+  padding: 0 14px;
+  color: var(--text-primary);
+  text-decoration: none;
+}
+
 .wiki-product-index__hero,
 .wiki-read__layout {
   display: grid;

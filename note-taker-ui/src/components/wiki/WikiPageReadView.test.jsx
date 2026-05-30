@@ -357,6 +357,22 @@ describe('WikiPageReadView', () => {
     expect(document.querySelector('.wiki-read__body')).toHaveAttribute('data-state', 'entering');
   });
 
+  it('shows recovery actions instead of a dead page when a wiki page cannot load', async () => {
+    getWikiPage.mockRejectedValueOnce(new Error('missing'));
+
+    render(
+      <MemoryRouter>
+        <WikiPageReadView pageId="legacy-page-id" onEdit={jest.fn()} workspaceMode />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByRole('heading', { name: 'This wiki page could not be opened.' })).toBeInTheDocument();
+    expect(screen.getByRole('alert')).toHaveTextContent('Open the wiki list to find the current page');
+    expect(screen.getByRole('link', { name: 'Open wiki list' })).toHaveAttribute('href', '/wiki/workspace?view=list');
+    expect(screen.getByRole('link', { name: 'Open knowledge map' })).toHaveAttribute('href', '/wiki/workspace?view=graph');
+    expect(screen.getByRole('link', { name: 'Build a page' })).toHaveAttribute('href', '/wiki');
+  });
+
   it('AT-46 — exposes copy and download markdown actions for a standalone page', async () => {
     const writeText = jest.fn().mockResolvedValue(undefined);
     Object.assign(navigator, { clipboard: { writeText } });
