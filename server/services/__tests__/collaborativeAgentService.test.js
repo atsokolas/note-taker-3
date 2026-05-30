@@ -334,6 +334,20 @@ const run = () => {
   assert.match(unrelatedWikiQuestionReply, /do not see that answered on this page/i);
   assert.ok(!/Mr\. Market/i.test(unrelatedWikiQuestionReply), 'Unrelated page questions should not dump page prose as a fake answer.');
 
+  const wikiSignalHeadingReply = buildReply({
+    message: 'Summarize this page.',
+    context: { type: 'workspace', id: 'wiki', pageId: '69fd2e7d212cd5a5f57db144' },
+    contextItem: {
+      type: 'wiki_page',
+      title: 'Investing',
+      snippet: 'Diverging Evidence Some investors disagree that valuation models should ignore market sentiment.',
+      sources: [{ index: 1, title: 'Source memo' }]
+    },
+    relatedItems: []
+  });
+  assert.ok(!/Diverging Evidence/i.test(wikiSignalHeadingReply), 'Wiki chat should not stitch section headings into grounded replies.');
+  assert.match(wikiSignalHeadingReply, /Some investors disagree/i);
+
   const claimSourceReply = buildWikiClaimSourceReply({
     message: 'What source supports the claim that margin of safety protects against valuation error?',
     contextItem: {

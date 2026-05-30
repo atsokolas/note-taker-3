@@ -270,7 +270,7 @@ describe('WikiIndex graph', () => {
     expect(screen.queryByText('2 pages · 1 link')).not.toBeInTheDocument();
     expect(screen.queryByTestId('wiki-force-graph')).not.toBeInTheDocument();
     expect(screen.getByLabelText('Build wiki pages')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Open wiki agent' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Build page' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Enterprise AI Memory/ })).toBeInTheDocument();
   });
 
@@ -296,6 +296,9 @@ describe('WikiIndex graph', () => {
     expect(await screen.findByTestId('wiki-force-graph')).toBeInTheDocument();
     expect(screen.getByText('3 pages · 1 link')).toBeInTheDocument();
     expect(screen.getByLabelText('Sparse wiki note')).toHaveTextContent('Early map');
+    expect(screen.getByRole('button', { name: 'Build bridge page' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Add source' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Review pages' })).toBeInTheDocument();
     expect(screen.queryByText('3 source-backed pages')).not.toBeInTheDocument();
   });
 });

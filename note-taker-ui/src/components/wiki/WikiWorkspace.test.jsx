@@ -366,7 +366,7 @@ describe('WikiWorkspace', () => {
     renderWorkspace('/wiki/workspace?page=wiki-1');
     await settleWorkspaceEffects();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Open wiki agent' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Build page' }));
 
     expect(document.querySelector('.wiki-workspace')).toHaveClass('is-mobile-chat');
     await waitFor(() => expect(screen.getByLabelText('Wiki workspace message')).toHaveValue('/build '));
