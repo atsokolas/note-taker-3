@@ -77,9 +77,19 @@ const TermsOfUse = lazy(() => import('./pages/TermsOfUse'));
 const DesignPreview = lazy(() => import('./pages/DesignPreview'));
 const SharedConcept = lazy(() => import('./pages/SharedConcept'));
 
-const RouteLoadingFallback = () => (
-  <div className="page-loading" role="status" aria-live="polite">Loading...</div>
-);
+const RouteLoadingFallback = () => {
+  const isWikiRoute = typeof window !== 'undefined' && window.location.pathname.startsWith('/wiki');
+  if (isWikiRoute) {
+    return (
+      <div className="page-loading page-loading--wiki" role="status" aria-live="polite">
+        <span>Wiki</span>
+        <strong>Preparing the wiki workspace</strong>
+        <i aria-hidden="true" />
+      </div>
+    );
+  }
+  return <div className="page-loading" role="status" aria-live="polite">Loading...</div>;
+};
 
 const scheduleDeferredStyleLoad = (callback) => {
   let frame = 0;
@@ -512,9 +522,7 @@ function App() {
     }
   ];
 
-  if (isLoading) {
-    return <div>Loading...</div>;
-  }
+  if (isLoading) return <RouteLoadingFallback />;
 
   const AppLayout = () => {
     const location = useLocation();

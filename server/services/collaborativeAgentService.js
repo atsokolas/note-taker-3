@@ -939,6 +939,7 @@ const WIKI_WORKSPACE_RETRIEVAL_RE = /\b(across|all|another|broader|compare|cross
 const WIKI_SOURCE_ATTRIBUTION_RE = /\b(back(?:s|ed)?|citation|cite|cited|evidence|source|support(?:s|ed|ing)?)\b/i;
 const WIKI_EXACT_SENTENCE_RE = /\b(exact|verbatim|quote|sentence|wording|word-for-word)\b/i;
 const WIKI_SECTION_HEADING_RE = /\b(overview|core idea|how it works|evidence|converging evidence|diverging evidence|implications|tensions|open questions|references)\b/gi;
+const WIKI_SECTION_HEADING_START_RE = /^(overview|core idea|how it works|evidence|converging evidence|diverging evidence|implications|tensions|open questions|references)\s+/i;
 
 const shouldSearchWorkspaceForWikiPage = ({ message = '', conversationState = {}, skillInvocation = {} } = {}) => {
   const outputType = toSafeString(skillInvocation?.outputType).toLowerCase();
@@ -991,6 +992,18 @@ const pickWikiPageAnswerSentences = ({ message = '', contextItem = null, maxSent
     .map(item => item.sentence);
   if (queryTokens.length && selected.length === 0) return [];
   return selected.length > 0 ? selected : sentences.slice(0, maxSentences);
+};
+
+const cleanWikiSignalText = (value = '') => {
+  let text = stripHtml(value)
+    .replace(/\s*\[[0-9,\s]+\]\s*$/g, '')
+    .trim();
+  for (let index = 0; index < 3; index += 1) {
+    const next = text.replace(WIKI_SECTION_HEADING_START_RE, '').trim();
+    if (next === text) break;
+    text = next;
+  }
+  return ensureSentence(text);
 };
 
 const scoreClaimForMessage = ({ claimText = '', message = '' } = {}) => {
@@ -1068,13 +1081,16 @@ const buildWikiPageGroundedReply = ({ message = '', contextItem = null, contextS
   if (queryTokens.length && !/\b(summarize|summary|overview|main|core|thesis|claim)\b/i.test(message)) {
     return 'I do not see that answered on this page. Ask me to search the wider library if you want me to look beyond this wiki page.';
   }
-  if (contextSignals.coreClaim) {
-    const lines = [`The page's core claim is ${lowercaseFirst(contextSignals.coreClaim)}`];
-    if (contextSignals.supportPoint && contextSignals.supportPoint !== contextSignals.coreClaim) {
-      lines.push(`Its strongest support in view is ${lowercaseFirst(contextSignals.supportPoint)}`);
+  const coreClaim = cleanWikiSignalText(contextSignals.coreClaim);
+  if (coreClaim) {
+    const supportPoint = cleanWikiSignalText(contextSignals.supportPoint);
+    const pressurePoint = cleanWikiSignalText(contextSignals.pressurePoint);
+    const lines = [`Core claim: ${coreClaim}`];
+    if (supportPoint && supportPoint !== coreClaim) {
+      lines.push(`Best support in view: ${supportPoint}`);
     }
-    if (contextSignals.pressurePoint && contextSignals.pressurePoint !== contextSignals.coreClaim) {
-      lines.push(`The pressure point is ${lowercaseFirst(contextSignals.pressurePoint)}`);
+    if (pressurePoint && pressurePoint !== coreClaim) {
+      lines.push(`Main tension: ${pressurePoint}`);
     }
     return withWikiPageCitations(lines.join(' '), contextItem);
   }

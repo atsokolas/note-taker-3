@@ -3990,6 +3990,32 @@ html[data-ui-theme='dark'] {
   line-height: 1.45;
 }
 
+.wiki-graph-sparse-hint__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.wiki-graph-sparse-hint__actions button {
+  min-height: 32px;
+  padding: 0 10px;
+  border: 1px solid color-mix(in srgb, var(--nt-divider) 76%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--surface) 96%, transparent);
+  color: var(--text-primary);
+  cursor: pointer;
+  font-size: 0.76rem;
+  font-weight: 750;
+}
+
+.wiki-graph-sparse-hint__actions button:hover,
+.wiki-graph-sparse-hint__actions button:focus-visible {
+  border-color: color-mix(in srgb, var(--accent-primary, var(--primary-color)) 52%, var(--nt-divider));
+  background: color-mix(in srgb, var(--accent-primary, var(--primary-color)) 8%, var(--surface));
+  outline: none;
+}
+
 .wiki-index__sparse-list {
   display: grid;
   gap: 8px;
@@ -8146,6 +8172,35 @@ html[data-ui-theme='dark'] .wiki-activity-rail__graph-alerts span {
 .wiki-workspace-chat__thread-link:hover,
 .wiki-workspace-chat__thread-link:focus-visible {
   text-decoration: underline;
+}
+
+.wiki-workspace-chat__header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.wiki-workspace-chat__build-button {
+  min-height: 30px;
+  padding: 0 10px;
+  border: 1px solid color-mix(in srgb, var(--accent-primary, var(--primary-color)) 34%, var(--nt-divider));
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent-primary, var(--primary-color)) 7%, var(--surface));
+  color: var(--text-primary);
+  cursor: pointer;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.wiki-workspace-chat__build-button:hover,
+.wiki-workspace-chat__build-button:focus-visible {
+  border-color: color-mix(in srgb, var(--accent-primary, var(--primary-color)) 60%, var(--nt-divider));
+  background: color-mix(in srgb, var(--accent-primary, var(--primary-color)) 12%, var(--surface));
+  outline: none;
 }
 
 .wiki-workspace-chat__messages {

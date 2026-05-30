@@ -171,7 +171,7 @@ const WikiActivityLog = ({ refreshKey = 0, onOpenPage }) => {
   );
 };
 
-const WikiSparsePages = ({ pages = [], onOpenPage, onOpenWorkspace }) => (
+const WikiSparsePages = ({ pages = [], onOpenPage, onOpenWorkspace, onBuildPage }) => (
   <section className="wiki-index__sparse" aria-label="Wiki pages">
     <div>
       <p className="wiki-index__eyebrow">Pages</p>
@@ -185,7 +185,7 @@ const WikiSparsePages = ({ pages = [], onOpenPage, onOpenWorkspace }) => (
     <div className="wiki-index__sparse-agent" aria-label="Build wiki pages">
       <strong>Grow the map deliberately</strong>
       <span>Add pages with citations, then connect them through links, shared sources, and review relationships.</span>
-      <Button type="button" variant="secondary" onClick={onOpenWorkspace}>Open wiki agent</Button>
+      <Button type="button" variant="secondary" onClick={onBuildPage || onOpenWorkspace}>Build page</Button>
     </div>
     {pages.length ? (
       <ol className="wiki-index__sparse-list">
@@ -368,7 +368,7 @@ const WikiGraph = ({ graph, onOpenPage }) => {
   );
 };
 
-const WikiIndex = ({ onOpenPage, onOpenList }) => {
+const WikiIndex = ({ onOpenPage, onOpenList, onBuildPage, onOpenSources }) => {
   const navigate = useNavigate();
   const [pages, setPages] = useState([]);
   const [mapGraph, setMapGraph] = useState({ nodes: [], edges: [] });
@@ -445,6 +445,30 @@ const WikiIndex = ({ onOpenPage, onOpenList }) => {
     navigate('/wiki/workspace?pane=chat&view=graph');
   }, [navigate]);
 
+  const handleBuildPage = useCallback(() => {
+    if (onBuildPage) {
+      onBuildPage();
+      return;
+    }
+    handleOpenWorkspace();
+  }, [handleOpenWorkspace, onBuildPage]);
+
+  const handleOpenSources = useCallback(() => {
+    if (onOpenSources) {
+      onOpenSources();
+      return;
+    }
+    navigate('/wiki/workspace?pane=chat&view=sources');
+  }, [navigate, onOpenSources]);
+
+  const handleReviewPages = useCallback(() => {
+    if (onOpenList) {
+      onOpenList();
+      return;
+    }
+    navigate('/wiki/list');
+  }, [navigate, onOpenList]);
+
   const handleExportWiki = async () => {
     try {
       const blob = await downloadWikiExportZip();
@@ -492,7 +516,12 @@ const WikiIndex = ({ onOpenPage, onOpenList }) => {
       {!loading && isEmptyWiki ? (
         <>
           {error ? <div className="wiki-index__error" role="alert">{error}</div> : null}
-          <WikiSparsePages pages={filteredPages} onOpenPage={handleOpenPage} onOpenWorkspace={handleOpenWorkspace} />
+          <WikiSparsePages
+            pages={filteredPages}
+            onOpenPage={handleOpenPage}
+            onOpenWorkspace={handleOpenWorkspace}
+            onBuildPage={handleBuildPage}
+          />
           <WikiActivityLog refreshKey={activityRefresh} onOpenPage={handleOpenPage} />
         </>
       ) : null}
@@ -537,7 +566,12 @@ const WikiIndex = ({ onOpenPage, onOpenList }) => {
       {isSparseWiki ? (
         <section className="wiki-graph-sparse-hint" aria-label="Sparse wiki note">
           <span>Early map</span>
-          <p>With fewer than ten pages, treat the map as a reading aid. Stronger hubs and evidence overlap appear as the wiki fills in.</p>
+          <p>With fewer than ten pages, the next useful move is not more map-reading. Build one bridge page, add one source, or review the page list until relationships appear.</p>
+          <div className="wiki-graph-sparse-hint__actions">
+            <button type="button" onClick={handleBuildPage}>Build bridge page</button>
+            <button type="button" onClick={handleOpenSources}>Add source</button>
+            <button type="button" onClick={handleReviewPages}>Review pages</button>
+          </div>
         </section>
       ) : null}
       {!loading && graph.nodes.length && !isSparseWiki ? (

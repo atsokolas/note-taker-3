@@ -85,6 +85,59 @@ body {
   line-height: var(--ui-line-height-base);
 }
 
+.page-loading {
+  min-height: 42vh;
+  display: grid;
+  place-items: center;
+  color: var(--text-color-secondary);
+}
+
+.page-loading--wiki {
+  align-content: center;
+  justify-items: start;
+  gap: 10px;
+  width: min(520px, calc(100vw - 48px));
+  min-height: calc(100vh - 120px);
+  margin: 0 auto;
+  color: var(--text-color-secondary);
+}
+
+.page-loading--wiki span {
+  color: #7f8aa3;
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.page-loading--wiki strong {
+  color: var(--text-color);
+  font-family: "Newsreader", Georgia, serif;
+  font-size: clamp(1.8rem, 5vw, 3.4rem);
+  font-weight: 500;
+  line-height: 1.02;
+}
+
+.page-loading--wiki i {
+  width: min(420px, 100%);
+  height: 10px;
+  border-radius: 999px;
+  background: linear-gradient(100deg, rgba(127, 138, 163, 0.12), rgba(177, 134, 46, 0.25), rgba(127, 138, 163, 0.12));
+  background-size: 220% 100%;
+  animation: page-loading-wiki-shimmer 1.35s ease-in-out infinite;
+}
+
+@keyframes page-loading-wiki-shimmer {
+  0% { background-position: 180% 0; }
+  100% { background-position: -80% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page-loading--wiki i {
+    animation: none;
+  }
+}
+
 .ui-card {
   padding: var(--ui-card-padding);
 }

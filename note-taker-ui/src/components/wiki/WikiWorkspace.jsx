@@ -816,7 +816,7 @@ const WikiChatMarkdown = ({ text = '', pages = [], currentPage = null }) => {
   return <div className="wiki-workspace-chat__markdown">{blocks.length ? blocks : <p>{safeText}</p>}</div>;
 };
 
-const WikiWorkspaceChat = ({ selectedPageId, view, onNavigate, onPageChanged, onLiveUpdate, busy, setBusy, chatDraft }) => {
+const WikiWorkspaceChat = ({ selectedPageId, view, onNavigate, onPageChanged, onLiveUpdate, busy, setBusy, chatDraft, onBuildPage }) => {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [threadId, setThreadId] = useState('');
@@ -1319,11 +1319,16 @@ const WikiWorkspaceChat = ({ selectedPageId, view, onNavigate, onPageChanged, on
         {/* AT-291: pane label, not the page's document title — kept as h2 so the
             active right-pane content (article / sources / schema) owns the sole h1. */}
         <h2 className="wiki-workspace-chat__title">Wiki agent</h2>
-        {threadId ? (
-          <Link className="wiki-workspace-chat__thread-link" to={`/think?tab=threads&threadId=${encodeURIComponent(threadId)}`}>
-            Thread{threadTitle ? ` · ${threadTitle}` : ''}
-          </Link>
-        ) : null}
+        <div className="wiki-workspace-chat__header-actions">
+          {threadId ? (
+            <Link className="wiki-workspace-chat__thread-link" to={`/think?tab=threads&threadId=${encodeURIComponent(threadId)}`}>
+              Thread{threadTitle ? ` · ${threadTitle}` : ''}
+            </Link>
+          ) : null}
+          <button type="button" className="wiki-workspace-chat__build-button" onClick={onBuildPage}>
+            Build page
+          </button>
+        </div>
       </header>
       <form
         onSubmit={submit}
@@ -1668,6 +1673,11 @@ const WikiWorkspace = () => {
     openChatWithDraft('/build ', 'workspace-build');
   }, [openChatWithDraft]);
 
+  const handleWorkspaceSource = useCallback(() => {
+    onNavigate({ view: 'sources' });
+    openChatWithDraft('/ingest https://', 'workspace-source');
+  }, [onNavigate, openChatWithDraft]);
+
   const rightPane = useMemo(() => {
     if (selectedPageId) {
       if (pageMode === 'edit') {
@@ -1703,10 +1713,12 @@ const WikiWorkspace = () => {
         <WikiIndex
           onOpenPage={(pageId) => onNavigate({ page: pageId })}
           onOpenList={() => onNavigate({ view: 'list' })}
+          onBuildPage={handleWorkspaceBuild}
+          onOpenSources={handleWorkspaceSource}
         />
       </Suspense>
     );
-  }, [enterPageEditMode, exitPageEditMode, liveUpdate, onNavigate, pageMode, refreshNonce, selectedPageId, useSourceInChat, view]);
+  }, [enterPageEditMode, exitPageEditMode, handleWorkspaceBuild, handleWorkspaceSource, liveUpdate, onNavigate, pageMode, refreshNonce, selectedPageId, useSourceInChat, view]);
 
   const handleDragStart = (event) => {
     dragRef.current = { startX: event.clientX, startWidth: chatWidth };
@@ -1780,6 +1792,7 @@ const WikiWorkspace = () => {
           busy={busy}
           setBusy={setBusy}
           chatDraft={chatDraft}
+          onBuildPage={handleWorkspaceBuild}
         />
       </aside>
       <button
@@ -1789,11 +1802,6 @@ const WikiWorkspace = () => {
         onMouseDown={handleDragStart}
       />
       <section className="wiki-workspace__right-pane" aria-label="Wiki workspace right pane">
-        <div className="wiki-workspace__quick-actions" aria-label="Wiki actions">
-          <button type="button" onClick={handleWorkspaceBuild} aria-label="Open wiki agent">
-            Open wiki agent
-          </button>
-        </div>
         {rightPane}
       </section>
       {showFirstVisitOnboarding ? (
