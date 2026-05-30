@@ -33,10 +33,10 @@ import {
 const LAST_PAGE_KEY = 'noeis.wiki.workspace.last_page_id';
 const CHAT_WIDTH_KEY = 'noeis.wiki.workspace.chat_width';
 const FIRST_VISIT_SEEN_KEY = 'noeis.wiki.first_visit_seen';
-const DEFAULT_CHAT_WIDTH = 300;
+const DEFAULT_CHAT_WIDTH = 260;
 const LEGACY_DEFAULT_CHAT_WIDTH = 380;
 const MIN_CHAT_WIDTH = 260;
-const MAX_CHAT_WIDTH = 480;
+const MAX_CHAT_WIDTH = 420;
 const HEALTH_KEYS = [
   'newItems',
   'unsupportedClaims',
@@ -439,7 +439,10 @@ const startWikiViewTransition = (callback) => {
 const initialChatWidth = () => {
   const saved = Number(window.localStorage?.getItem(CHAT_WIDTH_KEY));
   if (!saved || saved === LEGACY_DEFAULT_CHAT_WIDTH) return DEFAULT_CHAT_WIDTH;
-  return Math.max(MIN_CHAT_WIDTH, Math.min(MAX_CHAT_WIDTH, saved));
+  const responsiveMax = typeof window !== 'undefined' && window.innerWidth <= 1360
+    ? DEFAULT_CHAT_WIDTH
+    : MAX_CHAT_WIDTH;
+  return Math.max(MIN_CHAT_WIDTH, Math.min(responsiveMax, saved));
 };
 
 const hasSeenFirstVisitOnboarding = () => {

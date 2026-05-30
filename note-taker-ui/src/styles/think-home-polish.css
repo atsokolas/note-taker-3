@@ -7958,6 +7958,66 @@ html[data-ui-theme='dark'] .wiki-activity-rail__graph-alerts span {
   position: relative;
 }
 
+.wiki-workspace .wiki-read {
+  width: min(100% - 24px, 1180px);
+}
+
+/* AT-295: in the two-pane workspace, keep the article as the primary reading
+   surface even when the agent pane and context rail are visible. */
+@container wikiread (max-width: 1200px) {
+  .wiki-workspace .wiki-read__layout {
+    grid-template-columns: minmax(82px, 96px) minmax(0, 1fr) minmax(132px, 160px);
+    gap: 12px;
+  }
+
+  .wiki-workspace .wiki-read__layout--rail-collapsed {
+    grid-template-columns: minmax(82px, 96px) minmax(0, 1fr) 34px;
+    gap: 12px;
+  }
+
+  .wiki-workspace .wiki-read__toc nav,
+  .wiki-workspace .wiki-read__infobox {
+    padding: 10px;
+  }
+
+  .wiki-workspace .wiki-read__toc h2,
+  .wiki-workspace .wiki-read__infobox h2 {
+    font-size: 0.78rem;
+  }
+
+  .wiki-workspace .wiki-read__toc ol {
+    gap: 5px;
+  }
+
+  .wiki-workspace .wiki-read__toc a,
+  .wiki-workspace .wiki-read__infobox dd {
+    font-size: 0.78rem;
+    line-height: 1.3;
+  }
+
+  .wiki-workspace .wiki-read__infobox dl > div {
+    grid-template-columns: 1fr;
+    gap: 3px;
+  }
+}
+
+@container wikiread (max-width: 980px) {
+  .wiki-workspace .wiki-read__layout {
+    grid-template-columns: minmax(64px, 72px) minmax(0, 1fr) minmax(104px, 120px);
+    gap: 8px;
+  }
+
+  .wiki-workspace .wiki-read__layout--rail-collapsed {
+    grid-template-columns: minmax(64px, 72px) minmax(0, 1fr) 32px;
+    gap: 8px;
+  }
+
+  .wiki-workspace .wiki-read__toc nav,
+  .wiki-workspace .wiki-read__infobox {
+    padding: 8px;
+  }
+}
+
 .wiki-workspace__quick-actions {
   position: sticky;
   top: 12px;
@@ -9039,4 +9099,38 @@ html[data-ui-theme='dark'] .wiki-activity-rail__graph-alerts span {
   .wiki-workspace.is-mobile-wiki .wiki-workspace__chat-pane {
     display: none;
   }
+}
+
+/* AT-294: skeleton shimmer for wiki home cold-start (Render spin-up).
+   Replaces literal "Loading..." text so a slow backend reads as working. */
+.wiki-skeleton {
+  display: inline-block;
+  border-radius: 6px;
+  background: linear-gradient(
+    100deg,
+    color-mix(in srgb, var(--text-primary, #1a1a1a) 7%, transparent) 30%,
+    color-mix(in srgb, var(--text-primary, #1a1a1a) 14%, transparent) 50%,
+    color-mix(in srgb, var(--text-primary, #1a1a1a) 7%, transparent) 70%
+  );
+  background-size: 200% 100%;
+  animation: wiki-skeleton-shimmer 1.3s ease-in-out infinite;
+}
+.wiki-skeleton--stat { width: 3.2ch; height: 1.6rem; vertical-align: middle; border-radius: 5px; }
+.wiki-skeleton--eyebrow { width: 4.5rem; height: 0.7rem; }
+.wiki-skeleton--title { width: 80%; height: 1.1rem; margin-top: 0.35rem; }
+.wiki-skeleton--line { width: 100%; height: 0.7rem; }
+.wiki-skeleton--line-short { width: 55%; }
+.wiki-product-index__card--skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  pointer-events: none;
+  cursor: default;
+}
+@keyframes wiki-skeleton-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .wiki-skeleton { animation: none; }
 }

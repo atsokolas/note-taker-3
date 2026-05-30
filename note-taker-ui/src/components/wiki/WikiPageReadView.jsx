@@ -468,7 +468,7 @@ const buildInfoboxRows = ({ page = {}, sourceCount = 0, claimCount = 0, wordCoun
 
 const WIKI_LINK_PREVIEW_SHOW_DELAY_MS = 250;
 const WIKI_LINK_PREVIEW_DISMISS_GRACE_MS = 100;
-const NUMERIC_TWEEN_DURATION_MS = 800;
+const NUMERIC_TWEEN_DURATION_MS = 360;
 const PAGE_TRANSITION_DURATION_MS = 200;
 
 const useReducedMotion = () => {
@@ -505,15 +505,26 @@ const useRafTweenedNumber = (targetValue, { duration = NUMERIC_TWEEN_DURATION_MS
     displayRef.current = displayValue;
   }, [displayValue]);
 
+  // Count up only for a new page/stat or a real value change; incidental parent
+  // renders should not make infobox numbers look temporarily wrong.
+  const lastAnimatedTargetRef = useRef(null);
   useEffect(() => {
     if (reducedMotion) {
+      lastAnimatedTargetRef.current = target;
       setDisplayValue(target);
       displayRef.current = target;
       return undefined;
     }
 
-    const startValue = previousResetKeyRef.current === resetKey ? displayRef.current : 0;
+    const resetKeyChanged = previousResetKeyRef.current !== resetKey;
     previousResetKeyRef.current = resetKey;
+
+    if (!resetKeyChanged && lastAnimatedTargetRef.current === target) {
+      return undefined;
+    }
+
+    const startValue = resetKeyChanged ? 0 : displayRef.current;
+    lastAnimatedTargetRef.current = target;
     if (startValue === target) {
       setDisplayValue(target);
       displayRef.current = target;
