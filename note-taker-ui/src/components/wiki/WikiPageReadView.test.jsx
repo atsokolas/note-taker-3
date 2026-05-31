@@ -689,6 +689,31 @@ describe('WikiPageReadView', () => {
     expect(claimValue()).toHaveTextContent('4');
   });
 
+  it('uses plainText as the word-count fallback when the body payload is not renderable', async () => {
+    window.localStorage.setItem('noeis.wiki.read.rail_collapsed', '0');
+    getWikiPage.mockResolvedValueOnce({
+      ...page,
+      body: null,
+      plainText: 'One two three four five six.',
+      sourceRefs: [],
+      claims: []
+    });
+
+    render(
+      <MemoryRouter>
+        <WikiPageReadView pageId="wiki-plain-text" onEdit={jest.fn()} />
+      </MemoryRouter>
+    );
+
+    const rail = await screen.findByRole('complementary', { name: 'Page context' });
+    await flushDeferredWikiReadWork();
+    await act(async () => {
+      jest.advanceTimersByTime(820);
+    });
+    const words = rail.querySelector('[data-infobox-row="words"] dd');
+    expect(words).toHaveTextContent('6');
+  });
+
   it('AT-22 — defaults the page-context rail to collapsed and toggles via Show/Hide', async () => {
     render(
       <MemoryRouter>

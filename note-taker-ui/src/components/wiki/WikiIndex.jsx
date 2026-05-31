@@ -65,6 +65,11 @@ const RELATION_LABELS = {
 
 const relationLabel = (value = '') => RELATION_LABELS[value] || labelFor(value || 'related');
 
+const truncateGraphLabel = (value = '', maxChars = 34) => {
+  const text = String(value || 'Untitled Wiki Page').replace(/\s+/g, ' ').trim();
+  return text.length > maxChars ? `${text.slice(0, maxChars - 1).trim()}…` : text;
+};
+
 const linkEndpointTitle = (endpoint) => (
   typeof endpoint === 'object' && endpoint
     ? endpoint.title || endpoint.id || ''
@@ -258,7 +263,7 @@ const WikiGraph = ({ graph, onOpenPage }) => {
   };
 
   const renderNode = (node, ctx, globalScale) => {
-    const radius = Math.min(9, 3.5 + Math.sqrt(Number(node.inboundCount || 0)) * 1.6);
+    const radius = Math.min(7, 3.25 + Math.sqrt(Number(node.degreeCount || node.inboundCount || 0)) * 0.95);
     ctx.fillStyle = TYPE_COLORS[node.pageType] || TYPE_COLORS.topic;
     ctx.beginPath();
     ctx.arc(node.x, node.y, radius, 0, 2 * Math.PI, false);
@@ -267,15 +272,20 @@ const WikiGraph = ({ graph, onOpenPage }) => {
     ctx.lineWidth = 1.2 / Math.max(globalScale, 1);
     ctx.stroke();
 
-    if (globalScale < 1.35) return;
-    const label = node.title || 'Untitled Wiki Page';
-    const fontSize = 10 / globalScale;
+    if (globalScale < 0.72) return;
+    const label = truncateGraphLabel(node.title);
+    const fontSize = Math.max(8, 10 / Math.max(globalScale, 1));
+    const labelX = node.x + radius + 5;
+    const labelWidth = Math.min(180 / Math.max(globalScale, 1), 220);
     ctx.font = `500 ${fontSize}px "SF Pro Text", "Segoe UI", -apple-system, BlinkMacSystemFont, sans-serif`;
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
+    const metrics = ctx.measureText(label);
+    ctx.fillStyle = 'rgba(255, 252, 247, 0.82)';
+    ctx.fillRect(labelX - 3, node.y - fontSize * 0.72, Math.min(metrics.width, labelWidth) + 6, fontSize * 1.45);
     const isDark = typeof document !== 'undefined' && document.documentElement?.dataset?.uiTheme === 'dark';
-    ctx.fillStyle = isDark ? '#e5ecf9' : '#0f172a';
-    ctx.fillText(label, node.x + radius + 5, node.y);
+    ctx.fillStyle = isDark ? '#e5ecf9' : '#1f2933';
+    ctx.fillText(label, labelX, node.y, labelWidth);
   };
 
   useEffect(() => {
@@ -310,9 +320,12 @@ const WikiGraph = ({ graph, onOpenPage }) => {
         <ForceGraph2D
           ref={graphRef}
           graphData={visibleGraph}
+          nodeRelSize={4}
           nodeLabel={(node) => `${node.title}\n${labelFor(node.pageType)} · ${formatDate(node.updatedAt) || 'No date'}`}
           linkLabel={(link) => `${relationLabel(link.relationType)}\n${linkReason(link)}`}
           nodeCanvasObject={renderNode}
+          d3VelocityDecay={0.42}
+          cooldownTicks={90}
           linkColor={(link) => EDGE_COLORS[link.relationType] || '#94a3b8'}
           linkWidth={(link) => (link.relationType === 'wikiLink' ? 1.15 : link.relationType === 'shared_source' ? 0.95 : 0.8)}
           linkDirectionalParticles={0}

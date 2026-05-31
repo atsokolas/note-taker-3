@@ -363,6 +363,7 @@
 }
 
 .wiki-read {
+  --wiki-reading-ink: #3f3a34;
   width: min(1380px, calc(100% - 32px));
   margin: 0 auto;
   padding: 28px 0 64px;
@@ -580,12 +581,12 @@
 
 .wiki-read__body,
 .wiki-read__references {
-  color: var(--text-primary);
   font-family: Georgia, "Times New Roman", serif;
 }
 
 .wiki-read__body {
   padding: 26px 0 12px;
+  color: var(--wiki-reading-ink);
   font-size: 1.12rem;
   line-height: 1.6;
   opacity: 1;
@@ -830,10 +831,16 @@
 }
 
 @media (min-width: 1280px) {
+  .wiki-read__layout--rail-collapsed .wiki-read__article-panel {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 184px;
+    gap: 20px;
+    align-items: start;
+  }
+
   .wiki-read__layout--rail-collapsed .wiki-read__marginalia {
-    position: absolute;
+    position: sticky;
     top: 28px;
-    left: calc(100% + 24px);
     display: grid;
     width: 184px;
     gap: 12px;
@@ -1227,6 +1234,24 @@
     grid-template-columns: 1fr;
   }
 
+  .wiki-read__layout,
+  .wiki-read__layout--rail-collapsed {
+    gap: 18px;
+  }
+
+  .wiki-read__article {
+    order: 1;
+    width: 100%;
+  }
+
+  .wiki-read__toc {
+    order: 2;
+  }
+
+  .wiki-read__rail {
+    order: 3;
+  }
+
   .wiki-read__toc,
   .wiki-read__rail {
     position: static;
@@ -1260,6 +1285,30 @@
 }
 
 @media (max-width: 720px) {
+  .wiki-read {
+    width: min(100% - 24px, 720px);
+    padding-top: 18px;
+  }
+
+  .wiki-read__header h1 {
+    font-size: clamp(2.25rem, 14vw, 3.6rem);
+  }
+
+  .wiki-read__body {
+    font-size: 1.04rem;
+    line-height: 1.62;
+  }
+
+  .wiki-read__body > p:first-of-type::first-letter,
+  .wiki-read--type-overview .wiki-read__body > p:first-of-type::first-letter,
+  .wiki-read--type-topic .wiki-read__body > p:first-of-type::first-letter,
+  .wiki-read--type-concept .wiki-read__body > p:first-of-type::first-letter,
+  .wiki-read--type-entity .wiki-read__body > p:first-of-type::first-letter {
+    margin: 0.06em 0.08em 0 0;
+    font-size: 3em;
+    line-height: 0.84;
+  }
+
   .wiki-workspace {
     display: block;
     height: auto;

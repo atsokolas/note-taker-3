@@ -28,12 +28,25 @@ jest.mock('../../utils/wikiAnalytics', () => ({
   trackWikiIngestSubmitted: jest.fn()
 }));
 
-jest.mock('react-force-graph-2d', () => function MockForceGraph2D({ graphData, linkLabel, onLinkHover, onNodeClick }) {
+jest.mock('react-force-graph-2d', () => function MockForceGraph2D({
+  graphData,
+  linkLabel,
+  onLinkHover,
+  onNodeClick,
+  nodeRelSize,
+  cooldownTicks,
+  d3VelocityDecay,
+  nodeCanvasObject
+}) {
   return (
     <div
       data-testid="wiki-force-graph"
       role="img"
       aria-label={`${graphData.nodes.length} wiki pages and ${graphData.links.length} links`}
+      data-node-rel-size={nodeRelSize}
+      data-cooldown-ticks={cooldownTicks}
+      data-d3-velocity-decay={d3VelocityDecay}
+      data-has-custom-node-renderer={nodeCanvasObject ? 'true' : 'false'}
     >
       {(graphData.nodes || []).map(node => (
         <button key={node.id} type="button" onClick={() => onNodeClick?.(node)}>
@@ -138,6 +151,11 @@ describe('WikiIndex graph', () => {
     );
 
     expect(await screen.findByTestId('wiki-force-graph')).toBeInTheDocument();
+    const graphSurface = screen.getByTestId('wiki-force-graph');
+    expect(graphSurface).toHaveAttribute('data-node-rel-size', '4');
+    expect(graphSurface).toHaveAttribute('data-cooldown-ticks', '90');
+    expect(graphSurface).toHaveAttribute('data-d3-velocity-decay', '0.42');
+    expect(graphSurface).toHaveAttribute('data-has-custom-node-renderer', 'true');
     expect(screen.getByText('Knowledge map')).toBeInTheDocument();
     expect(screen.getByText('10 pages · 1 link')).toBeInTheDocument();
     expect(screen.getByLabelText('Wiki map signals')).toHaveTextContent('Brightest');

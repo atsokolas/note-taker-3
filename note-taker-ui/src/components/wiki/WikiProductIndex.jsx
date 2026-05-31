@@ -9,13 +9,66 @@ import '../../styles/wiki-critical.css';
 const INDEX_PAGE_LIMIT = 80;
 const FEATURED_LIMIT = 6;
 
-const claimCount = (page = {}) => (
-  Array.isArray(page.claims) ? page.claims.length : Number(page.claimCount || 0)
-);
+const collectText = (node) => {
+  if (!node) return '';
+  if (typeof node === 'string') return node;
+  if (Array.isArray(node)) return node.map(collectText).join(' ');
+  if (typeof node !== 'object') return '';
+  return [node.text || '', collectText(node.content)].filter(Boolean).join(' ');
+};
 
-const sourceCount = (page = {}) => (
-  Array.isArray(page.sourceRefs) ? page.sourceRefs.length : Number(page.sourceCount || 0)
-);
+const countClaimMarks = (node, out = new Set()) => {
+  if (!node) return out;
+  if (Array.isArray(node)) {
+    node.forEach(child => countClaimMarks(child, out));
+    return out;
+  }
+  if (typeof node !== 'object') return out;
+  (node.marks || []).forEach((mark) => {
+    if (mark?.type !== 'claim') return;
+    const attrs = mark.attrs || {};
+    out.add(attrs.claimId ? String(attrs.claimId) : `${collectText(node).slice(0, 120)}:${out.size}`);
+  });
+  if (Array.isArray(node.content)) countClaimMarks(node.content, out);
+  return out;
+};
+
+const claimCount = (page = {}) => {
+  const explicit = Number(page.claimCount ?? page.claimsCount);
+  const claimIds = new Set();
+  (Array.isArray(page.claims) ? page.claims : []).forEach((claim, index) => {
+    claimIds.add(claim?.claimId || claim?._id || claim?.id || `claim-${index}`);
+  });
+  (Array.isArray(page.citations) ? page.citations : []).forEach((citation) => {
+    const id = citation.claimId || citation.claim?._id || citation.claim?.id;
+    if (id) claimIds.add(id);
+  });
+  countClaimMarks(page.body).forEach(id => claimIds.add(id));
+  return Math.max(Number.isFinite(explicit) ? explicit : 0, claimIds.size);
+};
+
+const sourceCount = (page = {}) => {
+  const explicit = Number(page.sourceCount ?? page.sourcesCount);
+  const sourceIds = new Set();
+  [...(Array.isArray(page.sourceRefs) ? page.sourceRefs : []), ...(Array.isArray(page.sources) ? page.sources : [])]
+    .forEach((source, index) => {
+      sourceIds.add(source?._id || source?.id || source?.sourceRefId || `source-${index}`);
+    });
+  (Array.isArray(page.citations) ? page.citations : []).forEach((citation) => {
+    const id = citation.sourceRefId || citation.sourceId || citation.sourceRef?._id || citation.sourceRef?.id;
+    if (id) sourceIds.add(id);
+  });
+  return Math.max(Number.isFinite(explicit) ? explicit : 0, sourceIds.size);
+};
+
+const scaffoldPattern = /(still needs source-backed development|needs stronger source material|no matching library evidence|not enough source material|should explain the concept)/i;
+
+const sourceStatusFor = (page = {}) => {
+  const sources = sourceCount(page);
+  if (sources > 0) return `${sources} sources · ${claimCount(page)} claims`;
+  const bodyText = collectText(page.body || page.plainText || page.summary || '');
+  return scaffoldPattern.test(bodyText) ? 'Draft scaffold · needs sources' : 'Draft · needs sources';
+};
 
 // AT-293: key-page cards used to dump the entire article body whenever a page
 // had no curated summary/scope (it fell straight through to page.plainText,
@@ -108,6 +161,7 @@ const WikiProductIndex = () => {
 
   const types = useMemo(() => topPageTypes(pages), [pages]);
   const totalSources = useMemo(() => pages.reduce((sum, page) => sum + sourceCount(page), 0), [pages]);
+  const hasSourceBackedPages = totalSources > 0;
   // AT-294: render a shimmer chip while loading instead of the word "Loading..."
   // so a slow backend cold-start reads as "working" rather than "broken".
   const statValue = (value) => (
@@ -121,10 +175,11 @@ const WikiProductIndex = () => {
       <section className="wiki-product-index__hero">
         <div className="wiki-product-index__intro">
           <p className="wiki-index__eyebrow">Wiki</p>
-          <h1>Your source-backed knowledge base</h1>
+          <h1>{hasSourceBackedPages ? 'Your source-backed knowledge base' : 'Your wiki workspace'}</h1>
           <p>
-            Browse the strongest synthesized pages, ask the agent to build a new one,
-            or open the workspace when you need graph, ingest, and maintenance controls.
+            {hasSourceBackedPages
+              ? 'Browse the strongest synthesized pages, ask the agent to build a new one, or open the workspace when you need graph, ingest, and maintenance controls.'
+              : 'Draft pages live here until the agent attaches enough source material to turn them into durable synthesis.'}
           </p>
         </div>
         <WikiBuildPageComposer compact className="wiki-product-index__builder" />
@@ -183,17 +238,15 @@ const WikiProductIndex = () => {
         <section className="wiki-product-index__section" aria-labelledby="wiki-featured-pages">
           <div className="wiki-product-index__section-head">
             <p className="wiki-index__eyebrow">Start here</p>
-            <h2 id="wiki-featured-pages">Key pages</h2>
+            <h2 id="wiki-featured-pages">{hasSourceBackedPages ? 'Key pages' : 'Draft pages'}</h2>
           </div>
           <div className="wiki-product-index__grid">
             {featuredPages.map((page) => (
               <Link key={page._id || page.id} className="wiki-product-index__card" to={wikiPagePath(page._id || page.id)}>
                 <span>{labelFor(page.pageType || 'topic')}</span>
                 <h3>{page.title || 'Untitled page'}</h3>
-                <p>{summaryFor(page) || 'Open this page to review its current synthesis.'}</p>
-                <small>
-                  {sourceCount(page)} sources · {claimCount(page)} claims
-                </small>
+                <p>{summaryFor(page) || (sourceCount(page) > 0 ? 'Open this page to review its current synthesis.' : 'Needs source material before it can become durable synthesis.')}</p>
+                <small>{sourceStatusFor(page)}</small>
               </Link>
             ))}
           </div>

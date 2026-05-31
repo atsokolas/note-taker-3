@@ -47,4 +47,34 @@ describe('wiki critical CSS loading', () => {
     expect(workspaceBlock).toContain('overflow: hidden');
     expect(rightPaneBlocks.some(block => block.includes('overflow: auto'))).toBe(true);
   });
+
+  it('keeps the mobile wiki reader article-first with a readable measure', () => {
+    const css = fs.readFileSync(path.join(__dirname, 'wiki-critical.css'), 'utf8');
+    const tabletBlock = css.match(/@media \(max-width: 980px\) \{[\s\S]*?@media \(max-width: 1280px\)/)?.[0] || '';
+    const mobileBlock = css.match(/@media \(max-width: 720px\) \{[\s\S]*?\.wiki-workspace__resizer[\s\S]*?\n\}/)?.[0] || '';
+
+    expect(tabletBlock).toContain('.wiki-read__article');
+    expect(tabletBlock).toContain('order: 1');
+    expect(mobileBlock).toContain('width: min(100% - 24px, 720px)');
+    expect(mobileBlock).toContain('font-size: 3em');
+  });
+
+  it('darkens long-form wiki body text independent of the softer UI token', () => {
+    const css = fs.readFileSync(path.join(__dirname, 'wiki-critical.css'), 'utf8');
+    const readBlock = css.match(/\.wiki-read \{[\s\S]*?\n\}/)?.[0] || '';
+    const bodyBlock = css.match(/\.wiki-read__body \{[\s\S]*?\n\}/)?.[0] || '';
+
+    expect(readBlock).toContain('--wiki-reading-ink: #3f3a34');
+    expect(bodyBlock).toContain('color: var(--wiki-reading-ink)');
+  });
+
+  it('keeps desktop citation marginalia inside the reader grid instead of beyond the viewport', () => {
+    const css = fs.readFileSync(path.join(__dirname, 'wiki-critical.css'), 'utf8');
+    const desktopBlock = css.match(/@media \(min-width: 1280px\) \{[\s\S]*?\.wiki-read__margin-note \{/)?.[0] || '';
+
+    expect(desktopBlock).toContain('.wiki-read__article-panel');
+    expect(desktopBlock).toContain('grid-template-columns: minmax(0, 1fr) 184px');
+    expect(desktopBlock).toContain('position: sticky');
+    expect(desktopBlock).not.toContain('left: calc(100% + 24px)');
+  });
 });

@@ -161,6 +161,8 @@ const collectText = (node) => {
   return [node.text || '', collectText(node.content)].filter(Boolean).join(' ');
 };
 
+const countWords = (value = '') => String(value || '').split(/\s+/).filter(Boolean).length;
+
 const normalizeHeadingText = (value = '') => String(value || '')
   .toLowerCase()
   .replace(/[\s\p{Punctuation}]+/gu, ' ')
@@ -358,33 +360,31 @@ const formatSourceCounts = ({ citationCount = 0, claimCount = 0 }) => {
 const countPageSources = (page = {}) => {
   const value = page || {};
   const explicit = Number(value.sourceCount ?? value.sourcesCount);
-  const sourceRefs = Array.isArray(value.sourceRefs) ? value.sourceRefs.length : 0;
-  const sources = Array.isArray(value.sources) ? value.sources.length : 0;
-  const citations = Array.isArray(value.citations)
-    ? new Set(value.citations.map(citation => citation.sourceRefId || citation.sourceId).filter(Boolean)).size
-    : 0;
-  return Math.max(
-    Number.isFinite(explicit) ? explicit : 0,
-    sourceRefs,
-    sources,
-    citations
-  );
+  const sourceIds = new Set();
+  [...(Array.isArray(value.sourceRefs) ? value.sourceRefs : []), ...(Array.isArray(value.sources) ? value.sources : [])]
+    .forEach((source, index) => {
+      sourceIds.add(source?._id || source?.id || source?.sourceRefId || `source-${index}`);
+    });
+  (Array.isArray(value.citations) ? value.citations : []).forEach((citation) => {
+    const id = citation.sourceRefId || citation.sourceId || citation.sourceRef?._id || citation.sourceRef?.id;
+    if (id) sourceIds.add(id);
+  });
+  return Math.max(Number.isFinite(explicit) ? explicit : 0, sourceIds.size);
 };
 
 const countPageClaims = (page = {}) => {
   const value = page || {};
   const explicit = Number(value.claimCount ?? value.claimsCount);
-  const claims = Array.isArray(value.claims) ? value.claims.length : 0;
-  const citationsWithClaims = Array.isArray(value.citations)
-    ? new Set(value.citations.map(citation => citation.claimId).filter(Boolean)).size
-    : 0;
-  const markedClaims = countClaimMarks(value.body).size;
-  return Math.max(
-    Number.isFinite(explicit) ? explicit : 0,
-    claims,
-    citationsWithClaims,
-    markedClaims
-  );
+  const claimIds = new Set();
+  (Array.isArray(value.claims) ? value.claims : []).forEach((claim, index) => {
+    claimIds.add(claim?.claimId || claim?._id || claim?.id || `claim-${index}`);
+  });
+  (Array.isArray(value.citations) ? value.citations : []).forEach((citation) => {
+    const id = citation.claimId || citation.claim?._id || citation.claim?.id;
+    if (id) claimIds.add(id);
+  });
+  countClaimMarks(value.body).forEach(id => claimIds.add(id));
+  return Math.max(Number.isFinite(explicit) ? explicit : 0, claimIds.size);
 };
 
 const sectionTitles = (body) => extractTocItems(body || emptyDoc)
@@ -1356,7 +1356,11 @@ const WikiPageReadView = ({ pageId, onEdit, workspaceMode = false, refreshNonce 
     };
   }, [displayBody, pageId]);
 
-  const wordCount = useMemo(() => collectText(displayBody).split(/\s+/).filter(Boolean).length, [displayBody]);
+  const wordCount = useMemo(() => {
+    const bodyWords = countWords(collectText(displayBody));
+    if (bodyWords > 0) return bodyWords;
+    return countWords(page?.plainText || page?.summary || page?.scope || '');
+  }, [displayBody, page?.plainText, page?.scope, page?.summary]);
   const bodyHasWikiLinks = useMemo(
     () => (nonCriticalReady ? hasInlineWikiLinks(page?.body) : true),
     [nonCriticalReady, page?.body]

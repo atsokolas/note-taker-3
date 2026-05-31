@@ -90,7 +90,8 @@ describe('wiki graph helpers', () => {
     expect(graph.nodes).toHaveLength(3);
     expect(graph.nodes.find(node => node.id === 'page-c')).toMatchObject({
       title: 'Research Taste',
-      inboundCount: 2
+      inboundCount: 2,
+      degreeCount: 2
     });
     expect(graph.links).toEqual(expect.arrayContaining([
       expect.objectContaining({ source: 'page-a', target: 'page-b', relationType: 'wikiLink' }),

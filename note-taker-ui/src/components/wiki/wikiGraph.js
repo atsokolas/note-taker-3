@@ -161,7 +161,12 @@ export const buildWikiGraphData = (pages = [], mapGraph = {}) => {
   ]).filter(edge => pageIds.has(edge.source) && pageIds.has(edge.target));
 
   const inbound = new Map();
-  links.forEach(edge => inbound.set(edge.target, (inbound.get(edge.target) || 0) + 1));
+  const degree = new Map();
+  links.forEach((edge) => {
+    inbound.set(edge.target, (inbound.get(edge.target) || 0) + 1);
+    degree.set(edge.source, (degree.get(edge.source) || 0) + 1);
+    degree.set(edge.target, (degree.get(edge.target) || 0) + 1);
+  });
 
   return {
     nodes: pageList
@@ -177,6 +182,7 @@ export const buildWikiGraphData = (pages = [], mapGraph = {}) => {
           updatedAt: page.updatedAt || page.lastModifiedAt || null,
           sourceCount: Array.isArray(page.sourceRefs) ? page.sourceRefs.length : 0,
           inboundCount: inbound.get(id) || 0,
+          degreeCount: degree.get(id) || 0,
           openPath: `/wiki/${id}`
         };
       })

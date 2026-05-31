@@ -66,13 +66,13 @@ describe('WikiProductIndex', () => {
       </MemoryRouter>
     );
 
-    expect(screen.getByRole('heading', { name: 'Your source-backed knowledge base' })).toBeInTheDocument();
     expect(screen.getByLabelText('Ask the wiki agent to build a page')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Open workspace' })).toHaveAttribute('href', '/wiki/workspace');
     expect(screen.getByRole('link', { name: 'All pages' })).toHaveAttribute('href', '/wiki/workspace?view=list');
     expect(screen.getByRole('link', { name: 'Knowledge map' })).toHaveAttribute('href', '/wiki/workspace?view=graph');
 
     expect(await screen.findByRole('heading', { name: 'Key pages' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Your source-backed knowledge base' })).toBeInTheDocument();
     expect(listWikiPages).toHaveBeenCalledWith({ limit: 80 });
     expect(screen.getAllByRole('link', { name: /Investing/ })[0]).toHaveAttribute('href', '/wiki/workspace?page=wiki-investing');
     expect(screen.getByText('A source-backed synthesis of investing practice.')).toBeInTheDocument();
@@ -81,6 +81,61 @@ describe('WikiProductIndex', () => {
     expect(overview).toHaveTextContent('Pages2');
     expect(overview).toHaveTextContent('Sources cited3');
     expect(overview).toHaveTextContent('Top typesConcept, Overview');
+  });
+
+  it('derives trust metrics from sources, citations, and claim marks instead of only legacy fields', async () => {
+    listWikiPages.mockResolvedValueOnce([{
+      _id: 'wiki-cited',
+      title: 'Cited page',
+      pageType: 'topic',
+      summary: 'A page whose backend payload uses citation arrays.',
+      sources: [{ _id: 'source-a' }],
+      citations: [
+        { sourceRefId: 'source-b', claimId: 'claim-a' },
+        { sourceRef: { _id: 'source-c' }, claimId: 'claim-b' }
+      ],
+      body: {
+        type: 'doc',
+        content: [{
+          type: 'paragraph',
+          content: [{
+            type: 'text',
+            text: 'Marked claim.',
+            marks: [{ type: 'claim', attrs: { claimId: 'claim-c' } }]
+          }]
+        }]
+      }
+    }]);
+
+    render(
+      <MemoryRouter>
+        <WikiProductIndex />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByRole('heading', { name: 'Key pages' })).toBeInTheDocument();
+    expect(screen.getByLabelText('Wiki overview')).toHaveTextContent('Sources cited3');
+    expect(screen.getByText('3 sources · 3 claims')).toBeInTheDocument();
+  });
+
+  it('does not describe source-less scaffold pages as source-backed key pages', async () => {
+    listWikiPages.mockResolvedValueOnce([{
+      _id: 'wiki-scaffold',
+      title: 'Sparse topic',
+      pageType: 'topic',
+      plainText: 'Sparse topic still needs source-backed development before it becomes useful.'
+    }]);
+
+    render(
+      <MemoryRouter>
+        <WikiProductIndex />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByRole('heading', { name: 'Draft pages' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Your wiki workspace' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Key pages' })).not.toBeInTheDocument();
+    expect(screen.getByText('Draft scaffold · needs sources')).toBeInTheDocument();
   });
 
   it('clamps the Key pages excerpt and strips citation markers + title echo (AT-293)', async () => {
