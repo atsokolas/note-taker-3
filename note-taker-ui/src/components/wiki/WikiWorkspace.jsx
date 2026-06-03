@@ -2629,7 +2629,6 @@ const WikiWorkspace = () => {
       onPage: (page, event = {}) => {
         if (lastSelectedPageRef.current !== selectedPageId) return;
         if (page) setStreamedWikiPage(page);
-        setRefreshNonce(value => value + 1);
         const anchorId = clean(event.anchorId || event.sectionId || event.changedSectionId);
         if (anchorId) setLiveUpdate({ anchorId, pageId: selectedPageId, at: Date.now() });
       }
@@ -2638,7 +2637,10 @@ const WikiWorkspace = () => {
         setAutoBuildNotice('The page was created, but the build stream did not finish. Use Run again or /draft to retry.');
       }
     }).finally(() => {
-      if (lastSelectedPageRef.current === selectedPageId) setBusy(false);
+      if (lastSelectedPageRef.current === selectedPageId) {
+        setBusy(false);
+        setRefreshNonce(value => value + 1);
+      }
     });
     return undefined;
   }, [currentSearch, location.search, navigate, selectedPageId, shouldAutoBuild]);
@@ -2767,7 +2769,10 @@ const WikiWorkspace = () => {
 
   const onPageChanged = useCallback((pageId, page = null) => {
     if (pageId !== selectedPageId) return;
-    if (page) setStreamedWikiPage(page);
+    if (page) {
+      setStreamedWikiPage(page);
+      return;
+    }
     setRefreshNonce(value => value + 1);
   }, [selectedPageId]);
 

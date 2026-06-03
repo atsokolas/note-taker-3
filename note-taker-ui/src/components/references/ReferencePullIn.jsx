@@ -209,6 +209,7 @@ const ReferencePullIn = ({
   className = '',
   onLinked,
   onPulled,
+  ensureTarget,
   connectionPayloadForItem,
   relationOptions = [],
   defaultRelationType = 'related'
@@ -221,16 +222,36 @@ const ReferencePullIn = ({
   const [error, setError] = useState('');
   const [linkReceipt, setLinkReceipt] = useState(null);
   const [connectionState, setConnectionState] = useState({ outgoing: [], incoming: [], loading: false, error: '' });
+  const [resolvedTarget, setResolvedTarget] = useState(null);
 
-  const hasTarget = Boolean(targetType && targetId);
+  const activeTarget = useMemo(() => {
+    if (targetType && targetId) {
+      return { targetType, targetId, scopeType, scopeId };
+    }
+    if (resolvedTarget?.targetType && resolvedTarget?.targetId) {
+      return resolvedTarget;
+    }
+    return null;
+  }, [resolvedTarget, scopeId, scopeType, targetId, targetType]);
+
+  const hasTarget = Boolean(activeTarget?.targetType && activeTarget?.targetId);
+  const canLink = hasTarget || typeof ensureTarget === 'function';
   const related = useMemo(() => normalizeRelatedItems(relatedItems), [relatedItems]);
   const normalizedRelationOptions = useMemo(() => normalizeRelationOptions(relationOptions), [relationOptions]);
   const [selectedRelationType, setSelectedRelationType] = useState(defaultRelationType || 'related');
   const trimmedQuery = query.trim();
   const scopePayload = useMemo(
-    () => (scopeType && scopeId ? { scopeType, scopeId } : {}),
-    [scopeType, scopeId]
+    () => (
+      activeTarget?.scopeType && activeTarget?.scopeId
+        ? { scopeType: activeTarget.scopeType, scopeId: activeTarget.scopeId }
+        : {}
+    ),
+    [activeTarget?.scopeId, activeTarget?.scopeType]
   );
+
+  useEffect(() => {
+    setResolvedTarget(null);
+  }, [targetId, targetType]);
 
   useEffect(() => {
     if (!hasTarget) {
@@ -242,8 +263,8 @@ const ReferencePullIn = ({
       setConnectionState((current) => ({ ...current, loading: true, error: '' }));
       try {
         const data = await getConnectionsForItem({
-          itemType: targetType,
-          itemId: targetId,
+          itemType: activeTarget.targetType,
+          itemId: activeTarget.targetId,
           ...scopePayload
         });
         if (!cancelled) {
@@ -268,7 +289,7 @@ const ReferencePullIn = ({
     return () => {
       cancelled = true;
     };
-  }, [hasTarget, scopePayload, targetId, targetType]);
+  }, [activeTarget?.targetId, activeTarget?.targetType, hasTarget, scopePayload]);
 
   useEffect(() => {
     if (!normalizedRelationOptions.length) {
@@ -280,7 +301,7 @@ const ReferencePullIn = ({
   }, [defaultRelationType, normalizedRelationOptions, selectedRelationType]);
 
   useEffect(() => {
-    if (!hasTarget) {
+    if (!canLink) {
       setResults([]);
       return undefined;
     }
@@ -291,8 +312,8 @@ const ReferencePullIn = ({
       try {
         const items = await searchConnectableItems({
           q: trimmedQuery,
-          excludeType: targetType,
-          excludeId: targetId,
+          excludeType: activeTarget?.targetType || targetType,
+          excludeId: activeTarget?.targetId || targetId,
           ...scopePayload,
           limit: 6
         });
@@ -308,10 +329,19 @@ const ReferencePullIn = ({
       cancelled = true;
       clearTimeout(timeoutId);
     };
-  }, [hasTarget, scopePayload, targetId, targetType, trimmedQuery]);
+  }, [activeTarget?.targetId, activeTarget?.targetType, canLink, scopePayload, targetId, targetType, trimmedQuery]);
+
+  const resolveActiveTarget = async () => {
+    if (activeTarget?.targetType && activeTarget?.targetId) return activeTarget;
+    if (typeof ensureTarget !== 'function') return null;
+    const ensured = await ensureTarget();
+    if (!ensured?.targetType || !ensured?.targetId) return null;
+    setResolvedTarget(ensured);
+    return ensured;
+  };
 
   const handleLink = async (item) => {
-    if (!hasTarget || !item?.itemType || !item?.itemId) return;
+    if (!item?.itemType || !item?.itemId) return;
     const key = `${item.itemType}:${item.itemId}`;
     setSavingId(key);
     setError('');
@@ -322,21 +352,31 @@ const ReferencePullIn = ({
       title: item.title || formatTypeLabel(item.itemType),
       message: 'Saving bidirectional trace...'
     });
+    const linkTarget = await resolveActiveTarget();
+    if (!linkTarget?.targetType || !linkTarget?.targetId) {
+      setLinkReceipt(null);
+      setError('Save this surface before pulling references in.');
+      setSavingId('');
+      return;
+    }
+    const linkScopePayload = linkTarget.scopeType && linkTarget.scopeId
+      ? { scopeType: linkTarget.scopeType, scopeId: linkTarget.scopeId }
+      : {};
     try {
       const payload = connectionPayloadForItem?.(item, {
-        targetType,
-        targetId,
-        scopeType,
-        scopeId,
-        scopePayload,
+        targetType: linkTarget.targetType,
+        targetId: linkTarget.targetId,
+        scopeType: linkTarget.scopeType,
+        scopeId: linkTarget.scopeId,
+        scopePayload: linkScopePayload,
         relationType: selectedRelationType
       }) || {
-        fromType: targetType,
-        fromId: targetId,
+        fromType: linkTarget.targetType,
+        fromId: linkTarget.targetId,
         toType: item.itemType,
         toId: item.itemId,
         relationType: selectedRelationType || 'related',
-        ...scopePayload
+        ...linkScopePayload
       };
       const created = await createConnection(payload);
       const nextItem = {
@@ -428,7 +468,7 @@ const ReferencePullIn = ({
     <section className={`reference-pull-in ${className}`.trim()} aria-label="Reference pull-in">
       <SectionHeader
         title="Reference"
-        subtitle={hasTarget ? 'Pull Library, Think, and Wiki material into this surface.' : 'Open an item to pull sources into it.'}
+        subtitle={canLink ? 'Pull Library, Think, and Wiki material into this surface.' : 'Open an item to pull sources into it.'}
       />
       {targetTitle && (
         <p className="reference-pull-in__target muted small">
@@ -453,14 +493,14 @@ const ReferencePullIn = ({
         <input
           type="search"
           value={query}
-          disabled={!hasTarget}
+          disabled={!canLink}
           onChange={(event) => setQuery(event.target.value)}
           placeholder="Reference Library, wiki, notes, questions..."
           aria-label="Search references to pull in"
         />
         <Button
           variant="secondary"
-          disabled={!hasTarget || results.length === 0 || loading}
+          disabled={!canLink || results.length === 0 || loading}
           onClick={() => handleLink(results[0])}
         >
           Pull
@@ -541,7 +581,7 @@ const ReferencePullIn = ({
                 key={key}
                 className={`reference-pull-in__chip${linkReceipt?.key === key ? ' is-linked' : ''}`}
                 onClick={() => handleLink(item)}
-                disabled={!hasTarget}
+                disabled={!canLink}
               >
                 {formatTypeLabel(item.itemType)} · {item.title}
               </QuietButton>
