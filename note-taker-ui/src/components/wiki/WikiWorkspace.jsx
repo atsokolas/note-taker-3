@@ -1970,9 +1970,9 @@ const WikiWorkspaceChat = ({
         }]
       });
       await withMaintenanceTimeout(streamMaintainWikiPage(pageId, {}, {
-        onPage: () => {
+        onPage: (streamPage) => {
           onNavigate({ page: pageId });
-          onPageChanged?.(pageId);
+          onPageChanged?.(pageId, streamPage);
         },
         onEvent: (event, payload = {}) => {
           handleStreamEvent(event, payload, pageId);
@@ -2042,9 +2042,9 @@ const WikiWorkspaceChat = ({
         onNavigate({ page: pageId });
         append({ role: 'assistant', text: `Created @wiki:${pageId} for "${topic}". Drafting it now.` });
         await withMaintenanceTimeout(streamMaintainWikiPage(pageId, {}, {
-          onPage: () => {
+          onPage: (streamPage) => {
             onNavigate({ page: pageId });
-            onPageChanged?.(pageId);
+            onPageChanged?.(pageId, streamPage);
           },
           onEvent: (event, payload = {}) => {
             handleStreamEvent(event, payload, pageId);
@@ -2073,9 +2073,9 @@ const WikiWorkspaceChat = ({
       append({ role: 'assistant', text: `Drafting @wiki:${pageRef}. The right pane will update from the maintenance stream.` });
       try {
         await withMaintenanceTimeout(streamMaintainWikiPage(pageRef, {}, {
-          onPage: (_page, event = {}) => {
+          onPage: (streamPage) => {
             onNavigate({ page: pageRef });
-            onPageChanged?.(pageRef);
+            onPageChanged?.(pageRef, streamPage);
           },
           onEvent: (event, payload = {}) => {
             handleStreamEvent(event, payload, pageRef);
@@ -2568,6 +2568,7 @@ const WikiWorkspace = () => {
   const [chatWidth, setChatWidth] = useState(initialChatWidth);
   const [busy, setBusy] = useState(false);
   const [refreshNonce, setRefreshNonce] = useState(0);
+  const [streamedWikiPage, setStreamedWikiPage] = useState(null);
   const [liveUpdate, setLiveUpdate] = useState(null);
   const [mobilePane, setMobilePane] = useState('wiki');
   const [currentSearch, setCurrentSearch] = useState(location.search);
@@ -2610,6 +2611,10 @@ const WikiWorkspace = () => {
   }, [selectedPageId]);
 
   useEffect(() => {
+    setStreamedWikiPage(null);
+  }, [selectedPageId]);
+
+  useEffect(() => {
     if (!selectedPageId || !shouldAutoBuild || autoBuildRef.current.has(selectedPageId)) return undefined;
     autoBuildRef.current.add(selectedPageId);
     setAutoBuildNotice('');
@@ -2621,8 +2626,9 @@ const WikiWorkspace = () => {
     navigate(`/wiki/workspace${nextSearch}`, { replace: true });
     setBusy(true);
     withMaintenanceTimeout(streamMaintainWikiPage(selectedPageId, {}, {
-      onPage: (_page, event = {}) => {
+      onPage: (page, event = {}) => {
         if (lastSelectedPageRef.current !== selectedPageId) return;
+        if (page) setStreamedWikiPage(page);
         setRefreshNonce(value => value + 1);
         const anchorId = clean(event.anchorId || event.sectionId || event.changedSectionId);
         if (anchorId) setLiveUpdate({ anchorId, pageId: selectedPageId, at: Date.now() });
@@ -2759,8 +2765,10 @@ const WikiWorkspace = () => {
     setRefreshNonce(value => value + 1);
   }, [onNavigate, selectedPageId]);
 
-  const onPageChanged = useCallback((pageId) => {
-    if (pageId === selectedPageId) setRefreshNonce(value => value + 1);
+  const onPageChanged = useCallback((pageId, page = null) => {
+    if (pageId !== selectedPageId) return;
+    if (page) setStreamedWikiPage(page);
+    setRefreshNonce(value => value + 1);
   }, [selectedPageId]);
 
   const onLiveUpdate = useCallback((update = {}) => {
@@ -2901,6 +2909,8 @@ const WikiWorkspace = () => {
             workspaceMode
             refreshNonce={refreshNonce}
             liveUpdate={liveUpdate}
+            streamedPage={streamedWikiPage}
+            streamBusy={busy}
             onEdit={() => enterPageEditMode(selectedPageId)}
           />
         </div>
@@ -2927,7 +2937,7 @@ const WikiWorkspace = () => {
         />
       </Suspense>
     );
-  }, [enterPageEditMode, exitPageEditMode, feedSourceToWiki, handleWorkspaceBuild, handleWorkspaceSource, liveUpdate, onNavigate, pageMode, refreshNonce, selectedPageId, useSourceInChat, view]);
+  }, [busy, enterPageEditMode, exitPageEditMode, feedSourceToWiki, handleWorkspaceBuild, handleWorkspaceSource, liveUpdate, onNavigate, pageMode, refreshNonce, selectedPageId, streamedWikiPage, useSourceInChat, view]);
 
   const handleDragStart = (event) => {
     dragRef.current = { startX: event.clientX, startWidth: chatWidth };

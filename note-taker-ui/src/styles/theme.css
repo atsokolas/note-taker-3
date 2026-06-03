@@ -6898,6 +6898,7 @@ html[data-ui-theme='dark'] .article-reader-header {
   position: fixed;
   left: var(--magnetic-rail-left);
   width: var(--magnetic-rail-width);
+  max-width: calc(100vw - var(--magnetic-rail-left, 0px) - 12px);
   bottom: 18px;
   z-index: 1180;
   display: flex;
@@ -6905,6 +6906,8 @@ html[data-ui-theme='dark'] .article-reader-header {
   align-items: center;
   gap: 8px;
   pointer-events: none;
+  overflow: visible;
+  box-sizing: border-box;
 }
 
 .magnetic-reading-rail__track {
@@ -6935,6 +6938,9 @@ html[data-ui-theme='dark'] .article-reader-header {
   display: flex;
   justify-content: center;
   width: min(420px, 100%);
+  max-width: 100%;
+  min-width: 0;
+  overflow: visible;
 }
 
 .magnetic-reading-rail__pill {

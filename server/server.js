@@ -38,6 +38,12 @@ const {
   checkUpstreamHealth
 } = require('./config/aiClient');
 const { buildEmbeddingId } = require('./ai/embeddingTypes');
+const { buildConnectionScopeQuery } = require('./utils/connectionScopeQuery');
+const {
+  sanitizeRetrievalSnippet,
+  classifyQuestionEvidenceTone,
+  isBoilerplateRetrievalSentence
+} = require('./utils/retrievalSanitizer');
 const {
   highlightToEmbeddingItem,
   articleToEmbeddingItems,
@@ -3625,22 +3631,6 @@ const isConnectionItemInScopeCandidates = (itemType, itemId, candidates) => {
   return false;
 };
 
-const buildConnectionScopeQuery = (scope) => {
-  if (!scope?.scopeType && !scope?.scopeId) {
-    return {
-      $or: [
-        { scopeType: '', scopeId: '' },
-        { scopeType: { $exists: false }, scopeId: { $exists: false } },
-        { scopeType: null, scopeId: null }
-      ]
-    };
-  }
-  return {
-    scopeType: scope.scopeType || '',
-    scopeId: scope.scopeId || ''
-  };
-};
-
 const normalizeConceptPathItemType = (value) => normalizeConnectionItemType(value);
 
 const normalizeConceptPathNotes = (value) => String(value || '').trim().slice(0, 400);
@@ -4711,7 +4701,23 @@ const hydrateSemanticResults = async ({ matches = [], userId }) => {
     return null;
   }));
 
-  return hydrated.filter(Boolean);
+  return hydrated
+    .filter(Boolean)
+    .map((row) => {
+      const sanitizedSnippet = sanitizeRetrievalSnippet(row.snippet);
+      const snippet = sanitizedSnippet || row.snippet || '';
+      const evidenceTone = classifyQuestionEvidenceTone(`${row.title || ''} ${snippet}`);
+      return {
+        ...row,
+        snippet,
+        evidenceTone
+      };
+    })
+    .filter((row) => {
+      const combined = `${row.title || ''} ${row.snippet || ''}`.trim();
+      if (!combined) return false;
+      return !isBoilerplateRetrievalSentence(combined);
+    });
 };
 
 const SEARCH_SCOPE_VALUES = new Set(['all', 'articles', 'highlights', 'notebook']);
