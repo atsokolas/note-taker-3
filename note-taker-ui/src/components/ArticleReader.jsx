@@ -10,6 +10,7 @@ import { renderArticleContentWithHighlights } from '../utils/highlightMarkup';
 import ThoughtPartnerPanel from './agent/ThoughtPartnerPanel';
 import AgentSkillDock from './agent/AgentSkillDock';
 import { buildArticleAmbientContext } from '../utils/ambientAgentContext';
+import { AGENT_DISPLAY_NAME } from '../constants/agentIdentity';
 
 const formatDate = (value) => {
   if (!value) return '';
@@ -34,6 +35,7 @@ const parseTags = (value) => {
 const ArticleReader = forwardRef(({
   article,
   highlights = [],
+  graphConnections = null,
   onMove,
   onHighlightOptimistic,
   onHighlightReplace,
@@ -64,9 +66,11 @@ const ArticleReader = forwardRef(({
   const articleContextMetadata = useMemo(() => (
     buildArticleAmbientContext({
       article,
+      highlights,
+      graphConnections,
       selectionText: selectionState.text || ''
     })
-  ), [article, selectionState.text]);
+  ), [article, graphConnections, highlights, selectionState.text]);
   const selectionKey = `${selectionState.text || ''}:${selectionState.anchor?.startOffsetApprox ?? ''}`;
 
   useEffect(() => {
@@ -201,7 +205,7 @@ const ArticleReader = forwardRef(({
           contextTitle={article?.title || 'Article'}
           headline={selectionState.text ? 'Selection moves' : 'Draft-first article moves'}
           selectionText={selectionState.text || ''}
-          title={selectionState.text ? 'Selection agent' : 'Article agent'}
+          title={AGENT_DISPLAY_NAME}
           subtitle={selectionState.text
             ? 'Run a concrete move against the selected passage.'
             : 'Turn the current article into a sharper summary, critique, question set, or concept lead.'}
@@ -211,7 +215,7 @@ const ArticleReader = forwardRef(({
         <ThoughtPartnerPanel
           className="article-reader-agent-band__partner"
           variant="stream"
-          title="Reading partner"
+          title={AGENT_DISPLAY_NAME}
           subtitle={selectionState.text
             ? 'Working against the current selection.'
             : 'Ask against the full article and your connected workspace.'}

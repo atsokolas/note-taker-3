@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react';
 import api from '../../api';
 import { createAgentBridgeToken, getAgentBridgeManifest } from '../../api/agent';
+import { AGENT_DISPLAY_NAME, SPECIALIST_AGENT_LABEL, USER_BRIDGE_LABEL } from '../../constants/agentIdentity';
 import useProtocolApprovals from '../useProtocolApprovals';
 
 const resolveBridgeBaseUrl = () => {
@@ -16,9 +17,9 @@ const resolveBridgeBaseUrl = () => {
 
 const formatActorLabel = (bridgeActorType = 'user', selectedAgentName = '') => {
   if (bridgeActorType === 'byo_agent' && selectedAgentName) return selectedAgentName;
-  if (bridgeActorType === 'native_agent') return 'Native agent';
-  if (bridgeActorType === 'byo_agent') return 'BYO agent';
-  return 'User bridge';
+  if (bridgeActorType === 'native_agent') return AGENT_DISPLAY_NAME;
+  if (bridgeActorType === 'byo_agent') return SPECIALIST_AGENT_LABEL;
+  return USER_BRIDGE_LABEL;
 };
 
 const buildOpenClawConfig = ({

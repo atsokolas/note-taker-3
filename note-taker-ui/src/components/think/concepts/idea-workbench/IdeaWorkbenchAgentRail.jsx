@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import { Button, QuietButton, TagChip } from '../../../../components/ui';
+import AgentTicker from '../../../agent/AgentTicker';
 
 const describeEventDetail = (event) => {
   const payload = event?.payload || {};
@@ -54,6 +55,30 @@ const IdeaWorkbenchAgentRail = ({ model }) => {
     || 'Use the lens to surface pressure, strengthen a sentence, or widen the evidence base.';
   const unresolvedQuestions = model.state.cards.filter((card) => card.zone === 'questions').slice(0, 3);
   const tensions = model.state.cards.filter((card) => card.zone === 'contradictions').slice(0, 3);
+  const tickerLines = useMemo(() => {
+    const lines = [];
+    const title = model.state.header?.title || model.state.header?.label || 'current idea';
+    if (model.agentBusy) {
+      lines.push('scanning concept workspace');
+      lines.push(`testing ${title}`);
+      lines.push('drafting marginalia');
+      return lines;
+    }
+    if (latestAgentEvent) lines.push(describeEventDetail(latestAgentEvent));
+    if (latestSupport) lines.push(`support staged · ${latestSupport.title || 'source'}`);
+    if (tensions.length > 0) lines.push(`${tensions.length} tension${tensions.length === 1 ? '' : 's'} visible`);
+    if (unresolvedQuestions.length > 0) lines.push(`${unresolvedQuestions.length} open question${unresolvedQuestions.length === 1 ? '' : 's'}`);
+    if (lines.length === 0) lines.push(`anchored to ${title}`);
+    return lines.slice(0, 3);
+  }, [
+    latestAgentEvent,
+    latestSupport,
+    model.agentBusy,
+    model.state.header?.label,
+    model.state.header?.title,
+    tensions,
+    unresolvedQuestions
+  ]);
   const contextTabs = [
     { id: 'context', label: 'Context', active: Boolean(latestSupport) },
     { id: 'refinement', label: 'Refinement', active: false },
@@ -75,6 +100,13 @@ const IdeaWorkbenchAgentRail = ({ model }) => {
           </button>
         ))}
       </nav>
+
+      <AgentTicker
+        className="idea-workbench-rail__ticker"
+        label="Thought partner computation trace"
+        lines={tickerLines}
+        state={model.agentBusy ? 'working' : 'idle'}
+      />
 
       {model.syncError && <p className="status-message error-message">{model.syncError}</p>}
       {model.agentError && <p className="status-message error-message">{model.agentError}</p>}

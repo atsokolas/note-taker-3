@@ -52,7 +52,7 @@ const HowToUse = () => {
                 <strong>Write a note.</strong> Think is where you turn raw highlights into your words.
               </li>
               <li>
-                <strong>Use agentic assist (optional).</strong> Ask Thought Partner for context, or create a handoff when you want to delegate.
+                <strong>Use Thought partner (optional).</strong> Ask for context, or create a handoff when you want to delegate.
               </li>
               <li>
                 <strong>Come back to Today.</strong> It resurfaces what matters so your brain stays warm.
@@ -168,7 +168,7 @@ const HowToUse = () => {
             <li>Day 1: Save 3 articles, add 10 highlights.</li>
             <li>Day 2: Create 5 concepts, pin 3 key highlights.</li>
             <li>Day 3: Write one synthesis note using 5 highlights.</li>
-            <li>Day 4: Set up one personal agent and create one handoff.</li>
+            <li>Day 4: Set up one specialist agent and create one handoff.</li>
             <li>Day 5: Use Today, reshuffle, insert one resurfaced highlight into a note.</li>
             <li>Day 6: Answer one open question.</li>
             <li>Day 7: Export your data (trust ritual).</li>

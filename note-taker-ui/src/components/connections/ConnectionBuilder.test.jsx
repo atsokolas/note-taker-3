@@ -39,6 +39,23 @@ describe('ConnectionBuilder', () => {
     createConnection.mockClear();
     getConnectionsForItem.mockClear();
     searchConnectableItems.mockClear();
+    createConnection.mockResolvedValue({
+      _id: 'c-1',
+      fromType: 'highlight',
+      fromId: 'h-1',
+      toType: 'notebook',
+      toId: 'n-1',
+      relationType: 'supports',
+      target: { title: 'Target note' }
+    });
+    searchConnectableItems.mockResolvedValue([
+      {
+        itemType: 'notebook',
+        itemId: 'n-1',
+        title: 'Target note',
+        snippet: 'Snippet'
+      }
+    ]);
   });
 
   it('creates a connection from selected search target', async () => {

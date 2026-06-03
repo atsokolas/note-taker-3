@@ -16,11 +16,16 @@ import ThreePaneLayout from '../layout/ThreePaneLayout';
 import LibraryConceptModal from '../components/library/LibraryConceptModal';
 import LibraryNotebookModal from '../components/library/LibraryNotebookModal';
 import LibraryQuestionModal from '../components/library/LibraryQuestionModal';
+import ReferencePullIn from '../components/references/ReferencePullIn';
+import { getConnectionsForItem } from '../api/connections';
 import { createWorkingMemory } from '../api/workingMemory';
 import { updateHighlight, deleteHighlight } from '../api/highlights';
 import api from '../api';
 import { getAuthHeaders } from '../hooks/useAuthHeaders';
 import { chatWithAgent } from '../api/agent';
+import { AGENT_DISPLAY_NAME } from '../constants/agentIdentity';
+import AgentPresence from '../components/agent/AgentPresence';
+import AgentTicker from '../components/agent/AgentTicker';
 
 const RIGHT_STORAGE_KEY = 'workspace-right-open:/library';
 const CONTEXT_OVERRIDE_KEY = 'library.context.override:/library';
@@ -37,6 +42,7 @@ const Library = () => {
   const folderId = searchParams.get('folderId') || '';
   const requestedArticleId = searchParams.get('articleId') || '';
   const requestedHighlightId = searchParams.get('highlightId') || '';
+  const shouldOpenReferencePullIn = searchParams.get('pull') === '1';
   const highlightQuery = searchParams.get('hq') || '';
   const highlightView = searchParams.get('highlightView') || 'concept';
   const [selectedArticleId, setSelectedArticleId] = useState('');
@@ -64,6 +70,7 @@ const Library = () => {
     localStorage.getItem(CABINET_OVERRIDE_KEY) === 'true'
   ));
   const [activeHighlightId, setActiveHighlightId] = useState('');
+  const [articleGraphConnections, setArticleGraphConnections] = useState({ outgoing: [], incoming: [] });
   const [organizeLaunching, setOrganizeLaunching] = useState(false);
   const readerRef = useRef(null);
 
@@ -113,6 +120,30 @@ const Library = () => {
   useEffect(() => {
     if (!selectedArticleId) return;
     window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+  }, [selectedArticleId]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setArticleGraphConnections({ outgoing: [], incoming: [] });
+    if (!selectedArticleId) return () => {
+      cancelled = true;
+    };
+
+    getConnectionsForItem({ itemType: 'article', itemId: selectedArticleId })
+      .then((connections) => {
+        if (cancelled) return;
+        setArticleGraphConnections({
+          outgoing: Array.isArray(connections?.outgoing) ? connections.outgoing : [],
+          incoming: Array.isArray(connections?.incoming) ? connections.incoming : []
+        });
+      })
+      .catch(() => {
+        if (!cancelled) setArticleGraphConnections({ outgoing: [], incoming: [] });
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, [selectedArticleId]);
 
   useEffect(() => {
@@ -275,6 +306,16 @@ const Library = () => {
     setLeftOpen(nextOpen);
     localStorage.setItem(LEFT_STORAGE_KEY, String(nextOpen));
   }, [cabinetOverride, selectedArticleId]);
+
+  useEffect(() => {
+    if (!shouldOpenReferencePullIn) return;
+    if (selectedArticleId) {
+      handleToggleRight(true);
+    }
+    const params = new URLSearchParams(searchParams);
+    params.delete('pull');
+    setSearchParams(params, { replace: true });
+  }, [handleToggleRight, searchParams, selectedArticleId, setSearchParams, shouldOpenReferencePullIn]);
 
   const handleOrganizeLibrary = useCallback(async () => {
     if (organizeLaunching) return;
@@ -589,6 +630,55 @@ const Library = () => {
     () => (Array.isArray(tags) ? tags.slice(0, 3).map((tag) => String(tag?.tag || '')).filter(Boolean) : []),
     [tags]
   );
+  const articleHighlightCount = Array.isArray(articleHighlights) ? articleHighlights.length : 0;
+  const articleReferenceCount = Array.isArray(references) ? references.length : 0;
+  const libraryAgentTickerLines = useMemo(() => {
+    if (isReadingView) {
+      return [
+        selectedArticle?.title ? `reading ${selectedArticle.title}` : 'reading selected source',
+        `${articleHighlightCount} highlights available`,
+        `${articleReferenceCount} source references in margin`
+      ];
+    }
+
+    const shelfLabel = scope === 'folder' && selectedFolderName ? selectedFolderName : scope;
+    return [
+      `${allArticles.length} sources in library`,
+      highlightQuery ? `filtering highlights for "${highlightQuery}"` : `watching ${shelfLabel} shelf`,
+      topThemeTags.length > 0 ? `themes: ${topThemeTags.join(', ')}` : 'waiting for highlights to reveal themes'
+    ];
+  }, [
+    allArticles.length,
+    articleHighlightCount,
+    articleReferenceCount,
+    highlightQuery,
+    isReadingView,
+    scope,
+    selectedArticle?.title,
+    selectedFolderName,
+    topThemeTags
+  ]);
+  const libraryAgentPanel = (
+    <section className="library-agent-card" aria-label="Library thought partner">
+      <AgentPresence
+        className="library-agent-card__presence"
+        status={articleLoading || articlesLoading ? 'working' : 'idle'}
+        title={AGENT_DISPLAY_NAME}
+        subtitle={isReadingView ? 'Source context visible' : 'Library context visible'}
+      />
+      <AgentTicker
+        className="library-agent-card__ticker"
+        label={`${AGENT_DISPLAY_NAME} library trace`}
+        state={articleLoading || articlesLoading ? 'working' : 'idle'}
+        lines={libraryAgentTickerLines}
+      />
+      <p className="library-agent-card__note">
+        {isReadingView
+          ? 'Use the margin to pull this source into Wiki or Think with provenance intact.'
+          : 'Open a source or pull highlights into Think; the agent keeps the active shelf, themes, and provenance in view.'}
+      </p>
+    </section>
+  );
   const browseRailActions = useMemo(() => ([
     {
       label: 'Highlights',
@@ -636,6 +726,7 @@ const Library = () => {
       selectedArticleId={selectedArticleId}
       selectedArticle={selectedArticle}
       articleHighlights={articleHighlights}
+      articleGraphConnections={articleGraphConnections}
       articleLoading={articleLoading}
       articleError={articleError}
       articles={articles}
@@ -664,6 +755,13 @@ const Library = () => {
 
   const rightPanel = isReadingView ? (
     <div className="section-stack library-context-stack library-context-stack--reading">
+      {libraryAgentPanel}
+      <ReferencePullIn
+        targetType="article"
+        targetId={selectedArticleId}
+        targetTitle={selectedArticle?.title || 'Source'}
+        className="library-context-stack__reference-pull-in"
+      />
       <LibraryContext
         selectedArticleId={selectedArticleId}
         articleHighlights={articleHighlights}
@@ -684,6 +782,7 @@ const Library = () => {
     </div>
   ) : (
     <div className="section-stack library-context-stack library-context-stack--browse">
+      {libraryAgentPanel}
       <section className="library-browse-rail">
         <div className="library-browse-rail__header">
           <span>Marginalia</span>
@@ -757,12 +856,12 @@ const Library = () => {
         left={leftPanel}
         main={mainPanel}
         right={rightPanel}
-        rightTitle={isReadingView ? 'Evidence stream' : 'Context'}
+        rightTitle={AGENT_DISPLAY_NAME}
         rightOpen={effectiveRightOpen}
         onToggleRight={handleToggleRight}
         leftOpen={effectiveLeftOpen}
         onToggleLeft={handleToggleLeft}
-        rightToggleLabel="Context"
+        rightToggleLabel={AGENT_DISPLAY_NAME}
         mainHeader={isReadingView ? null : <PageTitle eyebrow="Mode" title="Library" subtitle="Reading room for your saved work." />}
         mainActions={isReadingView ? null : (
           <div className="library-main-actions">
@@ -777,7 +876,7 @@ const Library = () => {
               Cabinet
             </QuietButton>
             <QuietButton className="list-button" onClick={() => handleToggleRight(!effectiveRightOpen)}>
-              Context
+              {AGENT_DISPLAY_NAME}
             </QuietButton>
           </div>
         )}

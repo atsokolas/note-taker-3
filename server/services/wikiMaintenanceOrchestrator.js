@@ -39,6 +39,133 @@ const scorePageForEvent = (page, event) => {
   return score;
 };
 
+const eventTerms = (event = {}) => [event.title, event.summary, event.text]
+  .join(' ')
+  .toLowerCase()
+  .split(/[^a-z0-9]+/)
+  .filter(term => term.length > 4)
+  .slice(0, 18);
+
+const scoreTextForEvent = (text = '', event = {}) => {
+  const haystack = asText(text).toLowerCase();
+  if (!haystack) return 0;
+  let score = 0;
+  eventTerms(event).forEach(term => {
+    if (haystack.includes(term)) score += 0.12;
+  });
+  const title = asText(event.title).toLowerCase();
+  if (title && haystack.includes(title)) score += 0.35;
+  return score;
+};
+
+const candidateConfidence = (score = 0, fallback = 'candidate') => {
+  if (score >= 0.85) return 'high';
+  if (score >= 0.5) return 'medium';
+  if (score > 0) return 'low';
+  return fallback;
+};
+
+const buildWikiCandidateRows = (pages = [], event = {}) => (
+  (Array.isArray(pages) ? pages : []).map(page => ({
+    id: `wiki:${page._id}`,
+    targetType: 'wiki_page',
+    pageId: String(page._id || ''),
+    title: asText(page.title) || 'Wiki page',
+    reason: 'The source overlaps this wiki page and triggered a maintenance pass.',
+    confidence: candidateConfidence(scorePageForEvent(page, event), 'updated'),
+    recommendedAction: 'Review the rebuilt page and decide whether the new source should stay attached.',
+    status: 'updated',
+    provenance: {
+      sourceEventId: String(event._id || ''),
+      sourceTitle: asText(event.title || event.url || event.sourceType)
+    }
+  })).filter(row => row.pageId)
+);
+
+const queryRecent = async (Model, query = {}, select = '', limit = 25) => {
+  if (!Model?.find) return [];
+  try {
+    let cursor = Model.find(query);
+    if (cursor?.select && select) cursor = cursor.select(select);
+    if (cursor?.sort) cursor = cursor.sort({ updatedAt: -1, createdAt: -1 });
+    if (cursor?.limit) cursor = cursor.limit(limit);
+    const rows = await cursor;
+    return Array.isArray(rows) ? rows : [];
+  } catch (_error) {
+    return [];
+  }
+};
+
+const buildThinkCandidateRows = async ({ models = {}, userId, event } = {}) => {
+  const { TagMeta, Question, NotebookEntry } = models;
+  const terms = eventTerms(event);
+  if (!userId || !terms.length) return [];
+  const regex = new RegExp(terms.slice(0, 6).map(escapeRegExp).join('|'), 'i');
+  const [concepts, questions, notebooks] = await Promise.all([
+    queryRecent(TagMeta, { userId, $or: [{ name: regex }, { description: regex }] }, 'name description updatedAt', 20),
+    queryRecent(Question, { userId, text: regex }, 'text updatedAt status linkedTagName', 20),
+    queryRecent(NotebookEntry, { userId, $or: [{ title: regex }, { content: regex }] }, 'title content updatedAt', 20)
+  ]);
+
+  const rows = [];
+  (Array.isArray(concepts) ? concepts : []).forEach((concept) => {
+    const score = scoreTextForEvent([concept.name, concept.description].join(' '), event);
+    if (score <= 0) return;
+    rows.push({
+      id: `concept:${concept._id || concept.name}`,
+      targetType: 'concept',
+      objectId: String(concept._id || concept.name || ''),
+      title: asText(concept.name) || 'Concept',
+      reason: 'The source mentions terms already present in this concept.',
+      confidence: candidateConfidence(score),
+      recommendedAction: 'Pull the source in as evidence or open a concept synthesis pass.',
+      status: 'candidate',
+      provenance: { sourceEventId: String(event._id || ''), sourceTitle: asText(event.title || event.url || event.sourceType) }
+    });
+  });
+  (Array.isArray(questions) ? questions : []).forEach((question) => {
+    const score = scoreTextForEvent(question.text, event);
+    if (score <= 0) return;
+    rows.push({
+      id: `question:${question._id}`,
+      targetType: 'question',
+      objectId: String(question._id || ''),
+      title: asText(question.text) || 'Question',
+      reason: 'The source may answer or reframe this open question.',
+      confidence: candidateConfidence(score),
+      recommendedAction: 'Review the source against the question before closing the loop.',
+      status: 'candidate',
+      provenance: { sourceEventId: String(event._id || ''), sourceTitle: asText(event.title || event.url || event.sourceType) }
+    });
+  });
+  (Array.isArray(notebooks) ? notebooks : []).forEach((note) => {
+    const score = scoreTextForEvent([note.title, note.content].join(' '), event);
+    if (score <= 0) return;
+    rows.push({
+      id: `notebook:${note._id}`,
+      targetType: 'notebook',
+      objectId: String(note._id || ''),
+      title: asText(note.title) || 'Notebook',
+      reason: 'The source overlaps a quiet note that may need to be woven back in.',
+      confidence: candidateConfidence(score),
+      recommendedAction: 'Use the source as context for the next note or promotion.',
+      status: 'candidate',
+      provenance: { sourceEventId: String(event._id || ''), sourceTitle: asText(event.title || event.url || event.sourceType) }
+    });
+  });
+  return rows
+    .filter(row => row.objectId)
+    .sort((a, b) => ['high', 'medium', 'low', 'candidate'].indexOf(a.confidence) - ['high', 'medium', 'low', 'candidate'].indexOf(b.confidence))
+    .slice(0, 8);
+};
+
+const setEventMetadata = (event, updates = {}) => {
+  event.metadata = {
+    ...(event.metadata?.toObject ? event.metadata.toObject() : event.metadata || {}),
+    ...updates
+  };
+};
+
 const findAffectedPages = async ({ WikiPage, userId, event, limit = 8 }) => {
   if (!WikiPage || !userId || !event) return [];
   const explicitIds = Array.isArray(event.affectedPageIds) ? event.affectedPageIds.filter(Boolean) : [];
@@ -167,16 +294,28 @@ const processWikiSourceEvent = async ({
     if (!pages.length && mayCreateDraftPage) {
       pages = [await createPageForEvent({ WikiPage, userId: event.userId, event, buildUniqueSlug })];
     }
+    const thinkCandidates = await buildThinkCandidateRows({
+      models: { TagMeta, Question, NotebookEntry },
+      userId: event.userId,
+      event
+    });
+    const candidateUpdates = [
+      ...buildWikiCandidateRows(pages, event),
+      ...thinkCandidates
+    ].slice(0, 16);
+    setEventMetadata(event, {
+      candidateUpdates,
+      ingestReviewStatus: candidateUpdates.length ? 'pending_review' : 'no_candidates'
+    });
     if (!pages.length) {
       const proposal = await createProposalFromSourceEvent({ WikiProposal, event });
       event.status = 'ignored';
       event.processedAt = new Date();
       event.errorMessage = '';
-      event.metadata = {
-        ...(event.metadata?.toObject ? event.metadata.toObject() : event.metadata || {}),
+      setEventMetadata(event, {
         proposalId: proposal?._id || null,
         ignoredReason: proposal ? 'created_low_confidence_proposal' : 'no_matching_wiki_page'
-      };
+      });
       await event.save();
       if (run) {
         run.status = 'completed';

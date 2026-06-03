@@ -1,5 +1,5 @@
 import React, { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '../ui';
 import {
   askWikiPage,
@@ -7,13 +7,21 @@ import {
   getWikiPage,
   getWikiPageMarkdown,
   maintainWikiPage,
-  promoteWikiDiscussion
+  promoteWikiDiscussion,
+  streamAskWikiPage
 } from '../../api/wiki';
+import { getConnectionsForItem } from '../../api/connections';
 import { trackWikiQaPromoted, trackWikiReadModePageView } from '../../utils/wikiAnalytics';
 import { wikiPagePath } from '../../utils/wikiFeatureFlags';
 import ClaimCitationPopover from './ClaimCitationPopover';
 import renderTiptapDoc, { citationAnchorId, extractTocItems, firstParagraphText } from './renderTiptapDoc';
 import { buildQualityState } from './wikiQuality';
+import AgentTicker from '../agent/AgentTicker';
+import {
+  countWikiClaims,
+  countWikiPageWords,
+  countWikiSources
+} from './wikiPageMetrics';
 import {
   diffClaimLedgerSnapshots,
   diffClaimSnapshots,
@@ -22,6 +30,7 @@ import {
   recordVisit
 } from './wikiVisitTracker';
 import { SUPPORT_STATES } from './extensions/Claim';
+import { AGENT_DISPLAY_NAME } from '../../constants/agentIdentity';
 
 const WikiAskComposer = lazy(() => import('./WikiAskComposer'));
 const WikiAutolinkSuggestions = lazy(() => import('./WikiAutolinkSuggestions'));
@@ -37,6 +46,49 @@ const labelFor = (value = '') => String(value || '')
 
 const normalizeId = (value) => String(value || '').trim();
 const idsMatch = (a, b) => normalizeId(a) && normalizeId(a) === normalizeId(b);
+
+const promotionPosturePath = (type = '', sourceId = '') => {
+  const safeType = normalizeId(type).toLowerCase();
+  const safeId = normalizeId(sourceId);
+  if (!safeId) return '';
+  const params = new URLSearchParams();
+  if (safeType === 'question') {
+    params.set('tab', 'questions');
+    params.set('questionId', safeId);
+  } else if (safeType === 'notebook' || safeType === 'note') {
+    params.set('tab', 'notebook');
+    params.set('entryId', safeId);
+  } else {
+    params.set('tab', 'concepts');
+    params.set('concept', safeId);
+  }
+  return `/think?${params.toString()}`;
+};
+
+const promotionWitnessFromSearch = (search = '') => {
+  const params = new URLSearchParams(search || '');
+  const promotedType = normalizeId(params.get('promoted')).toLowerCase();
+  if (!promotedType) return null;
+  const from = normalizeId(params.get('from')).toLowerCase();
+  const sourceId = normalizeId(params.get('sourceId'));
+  const sourceTitle = normalizeId(params.get('sourceTitle'));
+  const receipt = normalizeId(params.get('receipt')).toLowerCase();
+  const transition = normalizeId(params.get('transition')).toLowerCase();
+  const readableType = promotedType === 'question' ? 'Question' : promotedType === 'notebook' || promotedType === 'note' ? 'Notebook page' : 'Concept';
+  return {
+    type: readableType,
+    promotedType,
+    from: from === 'think' ? 'Think' : labelFor(from || 'workspace'),
+    sourceId,
+    sourceTitle,
+    receipt: receipt || 'settled',
+    transition: transition || 'register',
+    sourcePath: promotionPosturePath(
+      promotedType,
+      promotedType === 'concept' ? sourceTitle || sourceId : sourceId
+    )
+  };
+};
 
 const sourceIdsForCitationIds = ({ citationIds = [], citations = [] } = {}) => (
   (citations || [])
@@ -161,8 +213,6 @@ const collectText = (node) => {
   return [node.text || '', collectText(node.content)].filter(Boolean).join(' ');
 };
 
-const countWords = (value = '') => String(value || '').split(/\s+/).filter(Boolean).length;
-
 const normalizeHeadingText = (value = '') => String(value || '')
   .toLowerCase()
   .replace(/[\s\p{Punctuation}]+/gu, ' ')
@@ -269,23 +319,6 @@ const contradictionCount = (claims = []) => (
     .length
 );
 
-const countClaimMarks = (node, out = new Set()) => {
-  if (!node) return out;
-  if (Array.isArray(node)) {
-    node.forEach(child => countClaimMarks(child, out));
-    return out;
-  }
-  if (typeof node !== 'object') return out;
-  (node.marks || []).forEach((mark) => {
-    if (mark?.type !== 'claim') return;
-    const attrs = mark.attrs || {};
-    if (attrs.claimId) out.add(String(attrs.claimId));
-    else out.add(`${collectText(node).slice(0, 120)}:${out.size}`);
-  });
-  if (Array.isArray(node.content)) countClaimMarks(node.content, out);
-  return out;
-};
-
 const cleanSourceText = (value = '') => String(value || '')
   .replace(/&lt;/gi, '<')
   .replace(/&gt;/gi, '>')
@@ -325,6 +358,25 @@ const sourceExcerpt = (source = {}) => (
   cleanSourceText(source.excerpt || source.snippet || source.summary || source.description || source.text || '')
 );
 
+const sourceLibraryPath = (source = {}) => {
+  const type = normalizeId(source.type || source.sourceType).toLowerCase();
+  const objectId = normalizeId(source.objectId || source.sourceObjectId || source.articleId || source.highlightId);
+  const parentObjectId = normalizeId(source.parentObjectId || source.parentArticleId || source.articleId);
+
+  if (type === 'article' && objectId) {
+    return `/library?articleId=${encodeURIComponent(objectId)}`;
+  }
+
+  if (type === 'highlight' && objectId) {
+    const params = new URLSearchParams();
+    if (parentObjectId) params.set('articleId', parentObjectId);
+    params.set('highlightId', objectId);
+    return `/library?${params.toString()}`;
+  }
+
+  return '';
+};
+
 const citationMatchesSource = (citation = {}, source = {}) => {
   const sourceId = source?._id || source?.id;
   return [
@@ -357,35 +409,11 @@ const formatSourceCounts = ({ citationCount = 0, claimCount = 0 }) => {
   return parts.join(' / ');
 };
 
-const countPageSources = (page = {}) => {
-  const value = page || {};
-  const explicit = Number(value.sourceCount ?? value.sourcesCount);
-  const sourceIds = new Set();
-  [...(Array.isArray(value.sourceRefs) ? value.sourceRefs : []), ...(Array.isArray(value.sources) ? value.sources : [])]
-    .forEach((source, index) => {
-      sourceIds.add(source?._id || source?.id || source?.sourceRefId || `source-${index}`);
-    });
-  (Array.isArray(value.citations) ? value.citations : []).forEach((citation) => {
-    const id = citation.sourceRefId || citation.sourceId || citation.sourceRef?._id || citation.sourceRef?.id;
-    if (id) sourceIds.add(id);
-  });
-  return Math.max(Number.isFinite(explicit) ? explicit : 0, sourceIds.size);
-};
+const countPageSources = (page = {}) => countWikiSources(page);
 
-const countPageClaims = (page = {}) => {
-  const value = page || {};
-  const explicit = Number(value.claimCount ?? value.claimsCount);
-  const claimIds = new Set();
-  (Array.isArray(value.claims) ? value.claims : []).forEach((claim, index) => {
-    claimIds.add(claim?.claimId || claim?._id || claim?.id || `claim-${index}`);
-  });
-  (Array.isArray(value.citations) ? value.citations : []).forEach((citation) => {
-    const id = citation.claimId || citation.claim?._id || citation.claim?.id;
-    if (id) claimIds.add(id);
-  });
-  countClaimMarks(value.body).forEach(id => claimIds.add(id));
-  return Math.max(Number.isFinite(explicit) ? explicit : 0, claimIds.size);
-};
+const countPageClaims = (page = {}) => countWikiClaims(page);
+
+const countPageWords = (page = {}, body = null) => countWikiPageWords(page, body);
 
 const sectionTitles = (body) => extractTocItems(body || emptyDoc)
   .filter(item => item.level === 2)
@@ -395,6 +423,9 @@ const sectionTitles = (body) => extractTocItems(body || emptyDoc)
 
 const buildInfoboxRows = ({ page = {}, sourceCount = 0, claimCount = 0, wordCount = 0, lastReviewed = 'Not reviewed' }) => {
   const value = page || {};
+  const resolvedSourceCount = Math.max(Number(sourceCount) || 0, countPageSources(value));
+  const resolvedClaimCount = Math.max(Number(claimCount) || 0, countPageClaims(value));
+  const resolvedWordCount = Math.max(Number(wordCount) || 0, countPageWords(value));
   const meta = pageMeta(value);
   const type = String(value.pageType || 'topic').toLowerCase();
   const firstSource = Array.isArray(value.sourceRefs) ? value.sourceRefs[0] || {} : {};
@@ -406,9 +437,9 @@ const buildInfoboxRows = ({ page = {}, sourceCount = 0, claimCount = 0, wordCoun
   // the number survives but stops competing with the title for attention.
   const baseRows = [
     { label: 'Status', value: labelFor(value.status || 'draft') },
-    { label: 'Sources', value: sourceCount },
-    { label: 'Claims', value: claimCount },
-    { label: 'Words', value: wordCount || 0 },
+    { label: 'Sources', value: resolvedSourceCount },
+    { label: 'Claims', value: resolvedClaimCount },
+    { label: 'Words', value: resolvedWordCount },
     { label: 'Last reviewed', value: lastReviewed }
   ];
 
@@ -468,7 +499,6 @@ const buildInfoboxRows = ({ page = {}, sourceCount = 0, claimCount = 0, wordCoun
 
 const WIKI_LINK_PREVIEW_SHOW_DELAY_MS = 250;
 const WIKI_LINK_PREVIEW_DISMISS_GRACE_MS = 100;
-const NUMERIC_TWEEN_DURATION_MS = 360;
 const PAGE_TRANSITION_DURATION_MS = 200;
 
 const useReducedMotion = () => {
@@ -494,75 +524,59 @@ const useReducedMotion = () => {
   return reducedMotion;
 };
 
-const useRafTweenedNumber = (targetValue, { duration = NUMERIC_TWEEN_DURATION_MS, resetKey = '' } = {}) => {
-  const target = Number.isFinite(Number(targetValue)) ? Number(targetValue) : 0;
-  const reducedMotion = useReducedMotion();
-  const [displayValue, setDisplayValue] = useState(() => (reducedMotion ? target : 0));
-  const displayRef = useRef(displayValue);
-  const previousResetKeyRef = useRef(resetKey);
+const AnimatedNumber = ({ value, className = '' }) => {
+  const displayValue = Number.isFinite(Number(value)) ? Number(value) : 0;
+  const prefersReducedMotion = useReducedMotion();
+  const previousValueRef = useRef(displayValue);
+  const timerRef = useRef(null);
+  const [renderedValue, setRenderedValue] = useState(displayValue);
+  const [animating, setAnimating] = useState(false);
 
   useEffect(() => {
-    displayRef.current = displayValue;
-  }, [displayValue]);
-
-  // Count up only for a new page/stat or a real value change; incidental parent
-  // renders should not make infobox numbers look temporarily wrong.
-  const lastAnimatedTargetRef = useRef(null);
-  useEffect(() => {
-    if (reducedMotion) {
-      lastAnimatedTargetRef.current = target;
-      setDisplayValue(target);
-      displayRef.current = target;
+    const previousValue = previousValueRef.current;
+    previousValueRef.current = displayValue;
+    if (timerRef.current) {
+      window.clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+    if (previousValue === displayValue || prefersReducedMotion) {
+      setRenderedValue(displayValue);
+      setAnimating(false);
       return undefined;
     }
 
-    const resetKeyChanged = previousResetKeyRef.current !== resetKey;
-    previousResetKeyRef.current = resetKey;
-
-    if (!resetKeyChanged && lastAnimatedTargetRef.current === target) {
-      return undefined;
-    }
-
-    const startValue = resetKeyChanged ? 0 : displayRef.current;
-    lastAnimatedTargetRef.current = target;
-    if (startValue === target) {
-      setDisplayValue(target);
-      displayRef.current = target;
-      return undefined;
-    }
-
-    let frame = 0;
-    let startTime = 0;
-    const requestFrame = window.requestAnimationFrame || ((callback) => window.setTimeout(() => callback(Date.now()), 16));
-    const cancelFrame = window.cancelAnimationFrame || window.clearTimeout;
-    const animate = (time) => {
-      if (!startTime) startTime = time;
-      const progress = Math.min(1, (time - startTime) / duration);
+    const duration = 360;
+    const stepMs = 40;
+    const startedAt = Date.now();
+    setRenderedValue(previousValue);
+    setAnimating(true);
+    timerRef.current = window.setInterval(() => {
+      const progress = Math.min(1, (Date.now() - startedAt) / duration);
       const eased = 1 - Math.pow(1 - progress, 3);
-      const nextValue = startValue + ((target - startValue) * eased);
-      displayRef.current = nextValue;
-      setDisplayValue(nextValue);
-      if (progress < 1) frame = requestFrame(animate);
-      else {
-        displayRef.current = target;
-        setDisplayValue(target);
+      const nextValue = Math.round(previousValue + ((displayValue - previousValue) * eased));
+      setRenderedValue(nextValue);
+      if (progress >= 1) {
+        window.clearInterval(timerRef.current);
+        timerRef.current = null;
+        setRenderedValue(displayValue);
+        setAnimating(false);
+      }
+    }, stepMs);
+
+    return () => {
+      if (timerRef.current) {
+        window.clearInterval(timerRef.current);
+        timerRef.current = null;
       }
     };
+  }, [displayValue, prefersReducedMotion]);
 
-    frame = requestFrame(animate);
-    return () => {
-      if (frame) cancelFrame(frame);
-    };
-  }, [duration, reducedMotion, resetKey, target]);
-
-  return Math.round(displayValue);
-};
-
-const AnimatedNumber = ({ value, className = '', resetKey = '' }) => {
-  const displayValue = useRafTweenedNumber(value, { resetKey });
   return (
-    <span className={`wiki-numeric-value${className ? ` ${className}` : ''}`}>
-      {displayValue.toLocaleString()}
+    <span
+      className={`wiki-numeric-value${animating ? ' is-counting' : ''}${className ? ` ${className}` : ''}`}
+      data-animated-number="true"
+    >
+      {renderedValue.toLocaleString()}
     </span>
   );
 };
@@ -662,6 +676,135 @@ const WikiMentionedInFooter = ({ pageId, pageTitle }) => {
   );
 };
 
+const connectionItemTitle = (item = {}) => pickFirst(item.title, item.name, item.text, item.url, 'Untitled');
+
+const connectionTypeLabel = (type = '') => {
+  if (type === 'wiki_page') return 'Wiki';
+  if (type === 'wiki_claim') return 'Claim';
+  return labelFor(type || 'source');
+};
+
+const connectionItemPath = ({ item = {}, type = '', id = '' } = {}) => {
+  if (type === 'wiki_page') return wikiPagePath(id);
+  return item.openPath || '';
+};
+
+const normalizeConnectionRows = ({ incoming = [], outgoing = [] } = {}) => {
+  const rows = [];
+  outgoing.forEach((connection = {}) => {
+    rows.push({
+      key: connection._id || `out:${connection.toType}:${connection.toId}:${connection.relationType}`,
+      direction: 'outgoing',
+      relationType: connection.relationType || 'related',
+      itemType: connection.toType,
+      itemId: connection.toId,
+      item: connection.target || {}
+    });
+  });
+  incoming.forEach((connection = {}) => {
+    rows.push({
+      key: connection._id || `in:${connection.fromType}:${connection.fromId}:${connection.relationType}`,
+      direction: 'incoming',
+      relationType: connection.relationType || 'related',
+      itemType: connection.fromType,
+      itemId: connection.fromId,
+      item: connection.source || {}
+    });
+  });
+  return rows.filter(row => row.item?.exists !== false);
+};
+
+const groupConnectionRows = (rows = []) => ({
+  relatedTo: rows.filter(row => row.direction === 'outgoing' && row.itemType === 'wiki_page'),
+  mentionedBy: rows.filter(row => row.direction === 'incoming' && row.itemType === 'wiki_page'),
+  supportedBy: rows.filter(row => row.itemType !== 'wiki_page')
+});
+
+const WikiConnectionTraceList = ({ title, items = [] }) => {
+  if (!items.length) return null;
+  return (
+    <div className="wiki-read__connection-group">
+      <h3>{title}</h3>
+      <ol>
+        {items.slice(0, 5).map((row) => {
+          const path = connectionItemPath({ item: row.item, type: row.itemType, id: row.itemId });
+          const content = (
+            <>
+              <span>{connectionItemTitle(row.item)}</span>
+              <small>{connectionTypeLabel(row.itemType)} · {labelFor(row.relationType)}</small>
+              {row.item.snippet ? <p>{conciseText(row.item.snippet, 120)}</p> : null}
+            </>
+          );
+          return (
+            <li key={row.key}>
+              {path ? <Link to={path}>{content}</Link> : <div>{content}</div>}
+            </li>
+          );
+        })}
+      </ol>
+    </div>
+  );
+};
+
+const WikiConnectionTraces = ({ pageId }) => {
+  const location = useLocation();
+  const [state, setState] = useState({ rows: [], loading: true, error: false });
+  const shouldFocusTrace = useMemo(
+    () => new URLSearchParams(location.search || '').get('trace') === '1',
+    [location.search]
+  );
+  const traceRef = useRef(null);
+
+  useEffect(() => {
+    if (!pageId) return undefined;
+    let cancelled = false;
+    setState(current => ({ ...current, loading: true, error: false }));
+    getConnectionsForItem({ itemType: 'wiki_page', itemId: pageId })
+      .then((data) => {
+        if (cancelled) return;
+        setState({
+          rows: normalizeConnectionRows(data),
+          loading: false,
+          error: false
+        });
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setState({ rows: [], loading: false, error: true });
+      });
+    return () => { cancelled = true; };
+  }, [pageId]);
+
+  useEffect(() => {
+    if (!shouldFocusTrace || state.loading || state.error || !state.rows.length) return undefined;
+    const timeout = window.setTimeout(() => {
+      traceRef.current?.scrollIntoView?.(scrollOptions());
+      traceRef.current?.focus?.({ preventScroll: true });
+    }, 80);
+    return () => window.clearTimeout(timeout);
+  }, [shouldFocusTrace, state.error, state.loading, state.rows.length]);
+
+  if (state.error || (!state.loading && state.rows.length === 0)) return null;
+  const grouped = groupConnectionRows(state.rows);
+  return (
+    <section
+      ref={traceRef}
+      className="wiki-read__infobox wiki-read__connections"
+      aria-label="Graph traces"
+      tabIndex="-1"
+    >
+      <h2>Graph traces</h2>
+      {state.loading ? <p>Loading connections...</p> : (
+        <>
+          <WikiConnectionTraceList title="Related to" items={grouped.relatedTo} />
+          <WikiConnectionTraceList title="Mentioned by" items={grouped.mentionedBy} />
+          <WikiConnectionTraceList title="Supported by" items={grouped.supportedBy} />
+        </>
+      )}
+    </section>
+  );
+};
+
 const WikiReadReferences = ({ sources = [], citations = [], highlightedRef, onJumpBack }) => {
   if (!sources.length) return null;
   const firstCitationByIndex = citations.reduce((map, citation) => {
@@ -677,6 +820,7 @@ const WikiReadReferences = ({ sources = [], citations = [], highlightedRef, onJu
           const citation = firstCitationByIndex.get(citationIndex);
           const refId = `wiki-ref-${citationIndex}`;
           const excerpt = sourceExcerpt(source);
+          const internalSourcePath = sourceLibraryPath(source);
           return (
             <li
               key={source._id || source.id || `${source.title}-${index}`}
@@ -702,7 +846,11 @@ const WikiReadReferences = ({ sources = [], citations = [], highlightedRef, onJu
                 <span className="wiki-read__reference-title">{source.title || 'Untitled source'}</span>
               </div>
               {excerpt ? <p>{conciseText(excerpt, 240)}</p> : null}
-              {source.url ? (
+              {internalSourcePath ? (
+                <Link className="wiki-read__reference-source" to={internalSourcePath}>
+                  Open in Library
+                </Link>
+              ) : source.url ? (
                 <a className="wiki-read__reference-source" href={source.url} target="_blank" rel="noreferrer">
                   Open source
                 </a>
@@ -718,7 +866,7 @@ const WikiReadReferences = ({ sources = [], citations = [], highlightedRef, onJu
 const WikiReadTitle = ({ title = '' }) => {
   const parts = splitTitleAccent(title);
   return (
-    <h1>
+    <h1 className="wiki-read__title" data-view-transition-name="wiki-read-title">
       {parts.before ? <>{parts.before} </> : null}
       <em>{parts.accent}</em>
       {parts.after ? <> {parts.after}</> : null}
@@ -782,16 +930,33 @@ const WikiReadMarginalia = ({ sources = [], citations = [], onJumpToReference })
 
 const WikiPageReadView = ({ pageId, onEdit, workspaceMode = false, refreshNonce = 0, liveUpdate = null }) => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const traceSearch = location.search || (typeof window !== 'undefined' ? window.location.search : '');
+  const shouldOpenTrace = useMemo(
+    () => new URLSearchParams(traceSearch || '').get('trace') === '1',
+    [traceSearch]
+  );
+  const requestedReadTab = useMemo(() => {
+    const value = new URLSearchParams(traceSearch || '').get('tab');
+    return value === 'talk' ? 'talk' : 'article';
+  }, [traceSearch]);
+  const promotionWitness = useMemo(
+    () => promotionWitnessFromSearch(traceSearch),
+    [traceSearch]
+  );
   const [page, setPage] = useState(null);
   const [loading, setLoading] = useState(true);
   const [maintaining, setMaintaining] = useState(false);
+  const [maintenanceTraceLines, setMaintenanceTraceLines] = useState([]);
+  const [maintenanceReceipt, setMaintenanceReceipt] = useState(null);
   const [asking, setAsking] = useState(false);
+  const [streamingAskText, setStreamingAskText] = useState('');
   const [promotingDiscussionId, setPromotingDiscussionId] = useState('');
   const [error, setError] = useState('');
   const [activeClaim, setActiveClaim] = useState(null);
   const [preview, setPreview] = useState(null);
   const [lastVisit, setLastVisit] = useState(null);
-  const [activeTab, setActiveTab] = useState('article');
+  const [activeTab, setActiveTab] = useState(requestedReadTab);
   const [markdownStatus, setMarkdownStatus] = useState('');
   const [highlightedRef, setHighlightedRef] = useState('');
   const [recentParagraphAnchors, setRecentParagraphAnchors] = useState(() => new Set());
@@ -804,10 +969,15 @@ const WikiPageReadView = ({ pageId, onEdit, workspaceMode = false, refreshNonce 
     if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return false;
     return window.matchMedia('(min-width: 1280px)').matches;
   });
+
+  useEffect(() => {
+    setActiveTab(requestedReadTab);
+  }, [requestedReadTab]);
   // AT-22 (Bucket 2): rail is collapsible-by-default. Persisted across pages
   // so once a reader opens context they keep it open until they hide it again.
   // Wikipedia / Tolkien Gateway reading shape — body owns the canvas.
   const [railCollapsed, setRailCollapsed] = useState(() => {
+    if (shouldOpenTrace) return false;
     try {
       const raw = window.localStorage?.getItem('noeis.wiki.read.rail_collapsed');
       // Default: collapsed. Anything explicitly set to '0' or 'false' opens it.
@@ -822,6 +992,9 @@ const WikiPageReadView = ({ pageId, onEdit, workspaceMode = false, refreshNonce 
       window.localStorage?.setItem('noeis.wiki.read.rail_collapsed', railCollapsed ? '1' : '0');
     } catch (_e) { /* ignore quota / private mode */ }
   }, [railCollapsed]);
+  useEffect(() => {
+    if (shouldOpenTrace) setRailCollapsed(false);
+  }, [shouldOpenTrace]);
   const previewTimerRef = useRef(null);
   const previewDismissTimerRef = useRef(null);
   const latestPageRef = useRef(null);
@@ -841,8 +1014,10 @@ const WikiPageReadView = ({ pageId, onEdit, workspaceMode = false, refreshNonce 
     const recentParagraphTimers = recentParagraphTimersRef.current;
     const hasMountedPage = Boolean(latestPageRef.current);
     const prefersReducedMotion = reducedMotionRef.current;
-    setActiveTab('article');
+    setActiveTab(requestedReadTab);
     setNonCriticalReady(false);
+    setMaintenanceTraceLines([]);
+    setMaintenanceReceipt(null);
     if (pageTransitionTimerRef.current) {
       clearTimeout(pageTransitionTimerRef.current);
       pageTransitionTimerRef.current = null;
@@ -892,7 +1067,7 @@ const WikiPageReadView = ({ pageId, onEdit, workspaceMode = false, refreshNonce 
         pageTransitionTimerRef.current = null;
       }
     };
-  }, [pageId]);
+  }, [pageId, requestedReadTab]);
 
   useEffect(() => {
     if (!latestPageRef.current || !refreshNonce || lastRefreshNonceRef.current === refreshNonce) return undefined;
@@ -908,7 +1083,7 @@ const WikiPageReadView = ({ pageId, onEdit, workspaceMode = false, refreshNonce 
         if (!cancelled) setError('Failed to refresh Wiki page.');
       });
     return () => { cancelled = true; };
-  }, [pageId, refreshNonce]);
+  }, [pageId, refreshNonce, requestedReadTab]);
 
   useEffect(() => {
     if (!page) {
@@ -943,37 +1118,81 @@ const WikiPageReadView = ({ pageId, onEdit, workspaceMode = false, refreshNonce 
   }, [onEdit, workspaceMode]);
 
   const handleMaintain = useCallback(async () => {
-    if (workspaceMode) return;
     setMaintaining(true);
     setError('');
+    setMaintenanceReceipt(null);
+    setMaintenanceTraceLines([
+      `checking @wiki:${pageId}`,
+      'reading sources and claims'
+    ]);
     try {
       const maintained = await maintainWikiPage(pageId);
       latestPageRef.current = maintained;
       setPage(maintained);
+      const nextSourceCount = countPageSources(maintained);
+      const nextClaimCount = countPageClaims(maintained);
+      const issueCount = Array.isArray(maintained?.aiState?.maintenanceQualityIssues)
+        ? maintained.aiState.maintenanceQualityIssues.length
+        : Array.isArray(maintained?.aiState?.quality?.failures)
+          ? maintained.aiState.quality.failures.length
+          : 0;
+      setMaintenanceTraceLines([
+        `checked ${nextSourceCount} source${nextSourceCount === 1 ? '' : 's'}`,
+        `reviewed ${nextClaimCount} claim${nextClaimCount === 1 ? '' : 's'}`,
+        issueCount ? `${issueCount} issue${issueCount === 1 ? '' : 's'} surfaced` : 'page settled'
+      ]);
+      setMaintenanceReceipt({
+        status: issueCount ? 'review' : 'settled',
+        issueCount,
+        sourceCount: nextSourceCount,
+        claimCount: nextClaimCount
+      });
     } catch (_error) {
       setError('Failed to maintain Wiki page.');
+      setMaintenanceTraceLines([
+        `maintenance failed · @wiki:${pageId}`,
+        'waiting for retry'
+      ]);
+      setMaintenanceReceipt({
+        status: 'failed',
+        issueCount: 0,
+        sourceCount: countPageSources(latestPageRef.current || page),
+        claimCount: countPageClaims(latestPageRef.current || page)
+      });
     } finally {
       setMaintaining(false);
     }
-  }, [pageId, workspaceMode]);
+  }, [page, pageId]);
 
   const handleAsk = async (question) => {
-    if (workspaceMode) return;
     setAsking(true);
     setError('');
+    setStreamingAskText('');
     try {
-      const updated = await askWikiPage(pageId, question);
+      const updated = await streamAskWikiPage(pageId, question, {
+        onDelta: (delta) => setStreamingAskText(current => `${current}${delta}`),
+        onPage: (nextPage) => {
+          latestPageRef.current = nextPage;
+          setPage(nextPage);
+        }
+      });
       latestPageRef.current = updated;
-      setPage(updated);
+      if (updated) setPage(updated);
     } catch (_error) {
-      setError('Failed to ask this Wiki page.');
+      try {
+        const updated = await askWikiPage(pageId, question);
+        latestPageRef.current = updated;
+        setPage(updated);
+      } catch (_fallbackError) {
+        setError('Failed to ask this Wiki page.');
+      }
     } finally {
+      setStreamingAskText('');
       setAsking(false);
     }
   };
 
   const handlePromoteDiscussion = async (discussion, title) => {
-    if (workspaceMode) return;
     const discussionId = discussion?._id || '';
     if (!discussionId) return;
     setPromotingDiscussionId(discussionId);
@@ -1356,11 +1575,7 @@ const WikiPageReadView = ({ pageId, onEdit, workspaceMode = false, refreshNonce 
     };
   }, [displayBody, pageId]);
 
-  const wordCount = useMemo(() => {
-    const bodyWords = countWords(collectText(displayBody));
-    if (bodyWords > 0) return bodyWords;
-    return countWords(page?.plainText || page?.summary || page?.scope || '');
-  }, [displayBody, page?.plainText, page?.scope, page?.summary]);
+  const wordCount = countPageWords(page, displayBody);
   const bodyHasWikiLinks = useMemo(
     () => (nonCriticalReady ? hasInlineWikiLinks(page?.body) : true),
     [nonCriticalReady, page?.body]
@@ -1373,7 +1588,7 @@ const WikiPageReadView = ({ pageId, onEdit, workspaceMode = false, refreshNonce 
     () => (nonCriticalReady ? buildQualityState({ page, counts: healthCounts }) : null),
     [healthCounts, nonCriticalReady, page]
   );
-  const infoboxRows = useMemo(() => buildInfoboxRows({
+  const infoboxRows = buildInfoboxRows({
     page,
     sourceCount: countPageSources(page),
     claimCount: countPageClaims(page),
@@ -1384,11 +1599,12 @@ const WikiPageReadView = ({ pageId, onEdit, workspaceMode = false, refreshNonce 
       || page?.lastReviewedAt
       || page?.updatedAt
     )
-  }), [page, wordCount]);
+  });
   const activeLedgerClaim = activeClaim ? claimLedgerById.get(activeClaim.claimId) : null;
   const displayedActiveTocId = activeTocId || tocItems[0]?.id || '';
   const discussionCount = (page?.discussions || []).length;
-  const showPageTalk = false;
+  const showPageTalk = true;
+  const showMentionedInFooter = true;
   const showUtilityRail = false;
 
   const clearRecentTocId = useCallback((tocId = '') => {
@@ -1486,7 +1702,7 @@ const WikiPageReadView = ({ pageId, onEdit, workspaceMode = false, refreshNonce 
           <h1>This wiki page could not be opened.</h1>
           <p>
             {error || 'The page may have been archived, deleted, or not migrated into the current workspace.'}
-            {' '}Open the wiki list to find the current page, or ask the agent to rebuild it from the topic.
+            {' '}Open the wiki list to find the current page, or ask {AGENT_DISPLAY_NAME.toLowerCase()} to rebuild it from the topic.
           </p>
           <div className="wiki-read__missing-actions">
             <Link to="/wiki/workspace?view=list">Open wiki list</Link>
@@ -1531,6 +1747,73 @@ const WikiPageReadView = ({ pageId, onEdit, workspaceMode = false, refreshNonce 
             </>
           ) : null}
         </Suspense>
+      ) : null}
+      {promotionWitness ? (
+        <section
+          className="wiki-read__promotion-witness"
+          aria-label="Thought promoted to Wiki"
+          data-register-transition={promotionWitness.transition}
+          data-promotion-receipt={promotionWitness.receipt}
+          data-promoted-type={promotionWitness.promotedType}
+        >
+          <span className="wiki-read__promotion-mark" aria-hidden="true" />
+          <div>
+            <p className="wiki-read__promotion-kicker">{promotionWitness.from} -> Wiki</p>
+            <p>
+              {promotionWitness.type} registered as a sourced wiki page
+              {promotionWitness.sourceTitle ? <> from <strong>{promotionWitness.sourceTitle}</strong></> : null}
+              .
+            </p>
+            <ol className="wiki-read__promotion-steps" aria-label="Promotion receipt">
+              <li>Draft captured</li>
+              <li>Graph edge written</li>
+              <li>Wiki register settled</li>
+            </ol>
+          </div>
+          {promotionWitness.sourcePath ? (
+            <Link to={promotionWitness.sourcePath}>Return to source</Link>
+          ) : null}
+        </section>
+      ) : null}
+      {(!loading && page) ? (
+        <section
+          className={`wiki-read__maintenance-receipt is-${maintenanceReceipt?.status || (maintaining ? 'working' : 'idle')}`}
+          aria-label="Wiki maintenance receipt"
+          data-maintenance-state={maintenanceReceipt?.status || (maintaining ? 'working' : 'idle')}
+        >
+          <div className="wiki-read__maintenance-copy">
+            <p className="wiki-read__promotion-kicker">Agent-owned page</p>
+            <h2>
+              {maintaining
+                ? 'Checking this page against your corpus'
+                : maintenanceReceipt?.status === 'failed'
+                  ? 'Maintenance needs a retry'
+                  : maintenanceReceipt?.status === 'review'
+                    ? 'Maintenance surfaced review work'
+                    : maintenanceReceipt?.status === 'settled'
+                      ? 'Page maintenance settled'
+                      : 'Ready for maintenance'}
+            </h2>
+            {maintenanceReceipt ? (
+              <p>
+                {maintenanceReceipt.sourceCount} source{maintenanceReceipt.sourceCount === 1 ? '' : 's'} ·{' '}
+                {maintenanceReceipt.claimCount} claim{maintenanceReceipt.claimCount === 1 ? '' : 's'} ·{' '}
+                {maintenanceReceipt.issueCount} issue{maintenanceReceipt.issueCount === 1 ? '' : 's'}
+              </p>
+            ) : (
+              <p>Ask {AGENT_DISPLAY_NAME.toLowerCase()} to check sources, claims, and weak signals without leaving the reading surface.</p>
+            )}
+          </div>
+          <AgentTicker
+            label="Wiki maintenance trace"
+            className="wiki-read__maintenance-ticker"
+            state={maintaining ? 'working' : 'idle'}
+            lines={maintenanceTraceLines.length ? maintenanceTraceLines : ['maintenance idle', 'ready to review sources']}
+          />
+          <Button type="button" variant="secondary" onClick={handleMaintain} disabled={maintaining}>
+            {maintaining ? 'Running...' : 'Run again'}
+          </Button>
+        </section>
       ) : null}
       <div className={`wiki-read__layout${railCollapsed ? ' wiki-read__layout--rail-collapsed' : ''}`}>
         <aside className="wiki-read__toc">
@@ -1650,7 +1933,7 @@ const WikiPageReadView = ({ pageId, onEdit, workspaceMode = false, refreshNonce 
                 highlightedRef={highlightedRef}
                 onJumpBack={handleReferenceBacklink}
               />
-              {showUtilityRail ? <WikiMentionedInFooter pageId={pageId} pageTitle={page.title} /> : null}
+              {showMentionedInFooter ? <WikiMentionedInFooter pageId={pageId} pageTitle={page.title} /> : null}
             </section>
           ) : (
             <section
@@ -1665,6 +1948,11 @@ const WikiPageReadView = ({ pageId, onEdit, workspaceMode = false, refreshNonce 
                   onPromote={handlePromoteDiscussion}
                   promotingId={promotingDiscussionId}
                 />
+                {asking && streamingAskText ? (
+                  <aside className="wiki-read__streaming-answer" aria-live="polite" aria-label="Streaming answer">
+                    <span>{streamingAskText}</span>
+                  </aside>
+                ) : null}
                 <WikiAskComposer onAsk={handleAsk} busy={asking} />
               </Suspense>
             </section>
@@ -1720,6 +2008,7 @@ const WikiPageReadView = ({ pageId, onEdit, workspaceMode = false, refreshNonce 
                 {showUtilityRail && !bodyHasWikiLinks ? (
                   <WikiAutolinkSuggestions pageId={pageId} pageTitle={page.title} />
                 ) : null}
+                <WikiConnectionTraces pageId={pageId} />
                 {showUtilityRail ? <section className="wiki-read__infobox wiki-read__claim-health">
                   <h2>Claim health</h2>
                   <ul>

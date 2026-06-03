@@ -24,7 +24,7 @@ const OrchestrationPolicyCard = ({
   return (
     <Card className="settings-card">
       <h2>Agent orchestration policy</h2>
-      <p className="muted">Set default routing so new auto-planned handoffs are assigned to native or personal agents.</p>
+      <p className="muted">Set default routing so new auto-planned handoffs are assigned to the thought partner or specialist agents.</p>
       {policyLoading ? (
         <p className="muted small">Loading policy…</p>
       ) : (
@@ -42,7 +42,7 @@ const OrchestrationPolicyCard = ({
               </select>
             </div>
             <div style={{ flex: 1 }}>
-              <p className="muted-label">Default personal agent</p>
+              <p className="muted-label">Default specialist agent</p>
               <select
                 value={protocolPolicy.defaultByoAgentId}
                 onChange={(event) => setProtocolPolicy((previous) => ({ ...previous, defaultByoAgentId: event.target.value }))}
@@ -63,7 +63,7 @@ const OrchestrationPolicyCard = ({
                 checked={Boolean(protocolPolicy.allowByoForResearch)}
                 onChange={(event) => setProtocolPolicy((previous) => ({ ...previous, allowByoForResearch: event.target.checked }))}
               />
-              Allow personal agents for research tasks
+              Allow specialist agents for research tasks
             </label>
             <label className="muted small" style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
               <input
@@ -71,7 +71,7 @@ const OrchestrationPolicyCard = ({
                 checked={Boolean(protocolPolicy.allowByoForSynthesis)}
                 onChange={(event) => setProtocolPolicy((previous) => ({ ...previous, allowByoForSynthesis: event.target.checked }))}
               />
-              Allow personal agents for synthesis tasks
+              Allow specialist agents for synthesis tasks
             </label>
             <label className="muted small" style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
               <input
@@ -79,7 +79,7 @@ const OrchestrationPolicyCard = ({
                 checked={Boolean(protocolPolicy.preferByoSpecialists)}
                 onChange={(event) => setProtocolPolicy((previous) => ({ ...previous, preferByoSpecialists: event.target.checked }))}
               />
-              Prefer specialist-matched personal agents
+              Prefer specialist-matched agents
             </label>
             <Button variant="secondary" disabled={policySaving} onClick={handleSaveProtocolPolicy}>
               {policySaving ? 'Saving…' : 'Save policy'}

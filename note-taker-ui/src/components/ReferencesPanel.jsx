@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import api from '../api';
 import { Button } from './ui';
+import { getConnectionsForItem } from '../api/connections';
 
 const getAuthConfig = () => ({
   headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
@@ -16,24 +17,123 @@ const endpointFor = ({ targetType, targetId, tagName }) => {
   return null;
 };
 
-const ReferencesPanel = ({ targetType, targetId, tagName, label = 'Used in' }) => {
-  const [open, setOpen] = useState(false);
+const GRAPH_TYPE_LABELS = {
+  article: 'Article',
+  concept: 'Concept',
+  highlight: 'Highlight',
+  notebook: 'Note',
+  question: 'Question',
+  wiki_page: 'Wiki',
+  wiki_claim: 'Claim'
+};
+
+const formatGraphType = (type = '') => GRAPH_TYPE_LABELS[String(type || '').toLowerCase()] || 'Item';
+
+export const canonicalGraphOpenPath = ({ itemType = '', itemId = '', openPath = '' } = {}) => {
+  const type = String(itemType || '').toLowerCase();
+  const path = String(openPath || '').trim();
+  if (type === 'wiki_page' || type === 'wiki_claim') {
+    const explicitPageId = type === 'wiki_claim'
+      ? String(itemId || '').split(':')[0]
+      : String(itemId || '').trim();
+    if (explicitPageId) return `/wiki/workspace?page=${encodeURIComponent(explicitPageId)}`;
+    const legacyMatch = path.match(/^\/wiki\/([^/?#]+)(.*)?$/);
+    if (legacyMatch?.[1] && legacyMatch[1] !== 'workspace' && legacyMatch[1] !== 'list') {
+      return `/wiki/workspace?page=${encodeURIComponent(legacyMatch[1])}`;
+    }
+  }
+  return path;
+};
+
+const normalizeGraphRows = (connections = {}) => {
+  const outgoing = (Array.isArray(connections?.outgoing) ? connections.outgoing : [])
+    .map((row) => ({
+      id: row?._id || `${row?.toType}:${row?.toId}`,
+      direction: 'outgoing',
+      relationType: row?.relationType || 'related',
+      itemType: row?.toType || '',
+      itemId: row?.toId || row?.target?.itemId || row?.target?.id || '',
+      title: row?.target?.title || row?.targetTitle || row?.toType || 'Item',
+      snippet: row?.target?.snippet || '',
+      openPath: canonicalGraphOpenPath({
+        itemType: row?.toType || '',
+        itemId: row?.toId || row?.target?.itemId || row?.target?.id || '',
+        openPath: row?.target?.openPath || ''
+      })
+    }))
+    .filter((row) => row.itemType && row.title);
+  const incoming = (Array.isArray(connections?.incoming) ? connections.incoming : [])
+    .map((row) => ({
+      id: row?._id || `${row?.fromType}:${row?.fromId}`,
+      direction: 'incoming',
+      relationType: row?.relationType || 'referenced_by',
+      itemType: row?.fromType || '',
+      itemId: row?.fromId || row?.source?.itemId || row?.source?.id || '',
+      title: row?.source?.title || row?.sourceTitle || row?.fromType || 'Item',
+      snippet: row?.source?.snippet || '',
+      openPath: canonicalGraphOpenPath({
+        itemType: row?.fromType || '',
+        itemId: row?.fromId || row?.source?.itemId || row?.source?.id || '',
+        openPath: row?.source?.openPath || ''
+      })
+    }))
+    .filter((row) => row.itemType && row.title);
+  return { outgoing, incoming };
+};
+
+const ReferencesPanel = ({
+  targetType,
+  targetId,
+  tagName,
+  label = 'Used in',
+  defaultOpen = false,
+  showToggle = true,
+  heading = ''
+}) => {
+  const [open, setOpen] = useState(defaultOpen);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [data, setData] = useState(null);
+  const [graphLinks, setGraphLinks] = useState({ outgoing: [], incoming: [] });
+  const [loaded, setLoaded] = useState(false);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    setData(null);
+    setGraphLinks({ outgoing: [], incoming: [] });
+    setLoaded(false);
+    setError('');
+  }, [targetType, targetId, tagName]);
 
   const load = async () => {
     const endpoint = endpointFor({ targetType, targetId, tagName });
-    if (!endpoint) return;
+    const canLoadGraph = Boolean(targetType && targetId);
+    if (!endpoint && !canLoadGraph) return;
     setLoading(true);
     setError('');
     try {
-      const res = await api.get(endpoint, getAuthConfig());
-      setData(res.data || { notebookBlocks: [], collections: [] });
+      const [legacyResult, graphResult] = await Promise.allSettled([
+        endpoint ? api.get(endpoint, getAuthConfig()) : Promise.resolve({ data: { notebookBlocks: [], collections: [] } }),
+        canLoadGraph ? getConnectionsForItem({ itemType: targetType, itemId: targetId }) : Promise.resolve({ outgoing: [], incoming: [] })
+      ]);
+      if (legacyResult.status === 'fulfilled') {
+        setData(legacyResult.value?.data || { notebookBlocks: [], collections: [] });
+      } else if (!canLoadGraph) {
+        throw legacyResult.reason;
+      } else {
+        setData({ notebookBlocks: [], collections: [] });
+      }
+      if (graphResult.status === 'fulfilled') {
+        setGraphLinks(normalizeGraphRows(graphResult.value));
+      } else if (!endpoint) {
+        throw graphResult.reason;
+      } else {
+        setGraphLinks({ outgoing: [], incoming: [] });
+      }
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to load references.');
     } finally {
+      setLoaded(true);
       setLoading(false);
     }
   };
@@ -44,6 +144,12 @@ const ReferencesPanel = ({ targetType, targetId, tagName, label = 'Used in' }) =
     }
     setOpen(prev => !prev);
   };
+
+  useEffect(() => {
+    if (open && !loaded && !loading) {
+      load();
+    }
+  });
 
   const handleBlockClick = (entryId, blockId) => {
     if (!entryId) return;
@@ -68,6 +174,37 @@ const ReferencesPanel = ({ targetType, targetId, tagName, label = 'Used in' }) =
     params.set('tab', 'questions');
     params.set('questionId', questionId);
     navigate(`/think?${params.toString()}`);
+  };
+
+  const handleGraphLinkClick = (openPath) => {
+    if (!openPath) return;
+    navigate(openPath);
+  };
+
+  const renderGraphRows = (rows, labelText) => {
+    if (!rows.length) return null;
+    return (
+      <div className="references-panel__group">
+        <p className="muted-label">{labelText}</p>
+        <div className="section-stack">
+          {rows.map((row) => (
+            <button
+              key={`${row.direction}-${row.id}`}
+              type="button"
+              className="search-card"
+              onClick={() => handleGraphLinkClick(row.openPath)}
+              disabled={!row.openPath}
+            >
+              <div className="search-card-top">
+                <span className="article-title-link">{row.title}</span>
+                <span className="muted small">{formatGraphType(row.itemType)} · {row.relationType}</span>
+              </div>
+              {row.snippet && <p className="muted small">{row.snippet}</p>}
+            </button>
+          ))}
+        </div>
+      </div>
+    );
   };
 
   const renderNotebookBlocks = () => {
@@ -97,13 +234,16 @@ const ReferencesPanel = ({ targetType, targetId, tagName, label = 'Used in' }) =
 
   return (
     <div className="references-panel">
-      <Button variant="secondary" onClick={toggle}>{open ? 'Hide references' : label}</Button>
+      {heading && <p className="muted-label">{heading}</p>}
+      {showToggle && <Button variant="secondary" onClick={toggle}>{open ? 'Hide references' : label}</Button>}
       {open && (
         <div className="references-panel__body">
           {loading && <p className="muted small">Loading references…</p>}
           {error && <p className="status-message error-message">{error}</p>}
           {!loading && !error && (
             <>
+              {renderGraphRows(graphLinks.outgoing, 'Uses')}
+              {renderGraphRows(graphLinks.incoming, 'Used by')}
               {renderNotebookBlocks()}
               {data?.concepts && data.concepts.length > 0 && (
                 <div className="references-panel__group">

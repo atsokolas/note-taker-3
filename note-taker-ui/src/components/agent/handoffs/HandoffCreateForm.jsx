@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '../../ui';
+import { AGENT_DISPLAY_NAME, SPECIALIST_AGENT_LABEL } from '../../../constants/agentIdentity';
 
 const HandoffCreateForm = ({
   mode = 'think',
@@ -109,9 +110,9 @@ const HandoffCreateForm = ({
                 onChange={(event) => onRequestedActorTypeChange(event.target.value)}
                 disabled={creating}
               >
-                <option value="native_agent">Native agent</option>
+                <option value="native_agent">{AGENT_DISPLAY_NAME}</option>
                 <option value="user">User</option>
-                <option value="byo_agent">Personal agent</option>
+                <option value="byo_agent">{SPECIALIST_AGENT_LABEL}</option>
               </select>
               {requestedActorType === 'byo_agent' && (
                 <>
@@ -120,15 +121,15 @@ const HandoffCreateForm = ({
                     onChange={(event) => onRequestedActorIdChange(event.target.value)}
                     disabled={creating}
                   >
-                    <option value="">Select personal agent</option>
+                    <option value="">Select specialist agent</option>
                     {activePersonalAgents.map(agent => (
                       <option key={agent._id} value={agent._id}>{agent.name}</option>
                     ))}
                   </select>
-                  {selectedPersonalAgent && <p className="muted small">Selected agent: {selectedPersonalAgent.name}</p>}
+                  {selectedPersonalAgent && <p className="muted small">Selected specialist: {selectedPersonalAgent.name}</p>}
                   {activePersonalAgents.length === 0 && (
                     <p className="muted small">
-                      No active personal agents yet. <Link to={setupAgentsHref}>Set up an agent</Link>.
+                      No active specialist agents yet. <Link to={setupAgentsHref}>Set up an agent</Link>.
                     </p>
                   )}
                 </>
@@ -211,9 +212,9 @@ const HandoffCreateForm = ({
               onChange={(event) => onRequestedActorTypeChange(event.target.value)}
               disabled={creating}
             >
-              <option value="native_agent">Native agent</option>
+              <option value="native_agent">{AGENT_DISPLAY_NAME}</option>
               <option value="user">User</option>
-              <option value="byo_agent">Personal agent</option>
+              <option value="byo_agent">{SPECIALIST_AGENT_LABEL}</option>
             </select>
             {requestedActorType === 'byo_agent' && (
               <>
@@ -222,15 +223,15 @@ const HandoffCreateForm = ({
                   onChange={(event) => onRequestedActorIdChange(event.target.value)}
                   disabled={creating}
                 >
-                  <option value="">Select personal agent</option>
+                  <option value="">Select specialist agent</option>
                   {activePersonalAgents.map(agent => (
                     <option key={agent._id} value={agent._id}>{agent.name}</option>
                   ))}
                 </select>
-                {selectedPersonalAgent && <p className="muted small">Selected agent: {selectedPersonalAgent.name}</p>}
+                {selectedPersonalAgent && <p className="muted small">Selected specialist: {selectedPersonalAgent.name}</p>}
                 {activePersonalAgents.length === 0 && (
                   <p className="muted small">
-                    No active personal agents yet. <Link to={setupAgentsHref}>Set up an agent</Link>.
+                    No active specialist agents yet. <Link to={setupAgentsHref}>Set up an agent</Link>.
                   </p>
                 )}
               </>

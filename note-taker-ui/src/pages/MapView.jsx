@@ -339,7 +339,7 @@ const MapView = () => {
                 const isDark = document?.documentElement?.dataset?.uiTheme === 'dark';
                 const label = node.title || formatItemType(node.itemType);
                 const fontSize = 11 / globalScale;
-                ctx.font = `600 ${fontSize}px "SF Pro Text", "Segoe UI", Inter, sans-serif`;
+                ctx.font = `600 ${fontSize}px "SF Pro Text", "Segoe UI", system-ui, sans-serif`;
                 const textWidth = ctx.measureText(label).width;
                 const bckgDimensions = [textWidth + 10 / globalScale, fontSize + 6 / globalScale];
                 ctx.fillStyle = ITEM_COLORS[node.itemType] || '#334155';

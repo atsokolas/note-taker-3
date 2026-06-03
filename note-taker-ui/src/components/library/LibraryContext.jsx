@@ -1,6 +1,7 @@
 import React, { Profiler, useEffect, useMemo, useState } from 'react';
 import { QuietButton } from '../ui';
 import SemanticRelatedPanel from '../retrieval/SemanticRelatedPanel';
+import ReferencePullIn from '../references/ReferencePullIn';
 import { createProfilerLogger } from '../../utils/perf';
 import { HIGHLIGHT_COLOR_OPTIONS } from '../../constants/highlightColors';
 
@@ -93,6 +94,12 @@ const LibraryContext = ({
     setRelatedExpanded(prev => !prev);
   };
 
+  const handleReferenceHighlight = (highlight) => {
+    if (!highlight?._id) return;
+    onSelectHighlight?.(highlight._id);
+    onHighlightClick?.(highlight);
+  };
+
   if (!selectedArticleId) {
     return (
       <div className="library-context-feed-panel">
@@ -168,6 +175,7 @@ const LibraryContext = ({
                         </button>
                         <div className="library-context-feed-item__actions">
                           <QuietButton onClick={() => onSelectHighlight(highlight._id)}>Focus</QuietButton>
+                          <QuietButton onClick={() => handleReferenceHighlight(highlight)}>Reference</QuietButton>
                           <QuietButton onClick={() => onAddNotebook(highlight)}>Notebook</QuietButton>
                           <QuietButton onClick={() => onAddConcept(highlight)}>Concept</QuietButton>
                           <QuietButton onClick={() => onAddQuestion(highlight)}>Question</QuietButton>
@@ -183,6 +191,16 @@ const LibraryContext = ({
                           </select>
                           <QuietButton onClick={() => onDeleteHighlight?.(highlight)}>Delete</QuietButton>
                         </div>
+                        {activeHighlightId === highlight._id && (
+                          <ReferencePullIn
+                            targetType="highlight"
+                            targetId={highlight._id}
+                            targetTitle={summarizeHighlight(highlight)}
+                            scopeType="article"
+                            scopeId={selectedArticleId}
+                            className="library-context-feed-item__reference-pull-in"
+                          />
+                        )}
                       </article>
                     );
                   })}
@@ -236,7 +254,7 @@ const LibraryContext = ({
             <SemanticRelatedPanel
               sourceType="highlight"
               sourceId={semanticHighlightId}
-              title="AI Related Highlights"
+              title="Related highlights"
               limit={6}
               resultTypes={['highlight']}
               enabled={Boolean(selectedArticleId && semanticHighlightId)}

@@ -14,7 +14,7 @@ const AppShell = ({ leftNav, topBar, children, brandEnergy = true }) => (
     )}
     <div className="app-shell-new__main">
       {topBar}
-      <div id="main-content" className="app-shell-new__body" role="main" aria-label="Application content" tabIndex="-1">
+      <div id="main-content" className="app-shell-new__body" tabIndex="-1">
         {children}
       </div>
     </div>

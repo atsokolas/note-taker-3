@@ -1,4 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { AGENT_DISPLAY_NAME } from '../../constants/agentIdentity';
+import AgentPresence from '../agent/AgentPresence';
 import { buildQualityState } from './wikiQuality';
 
 /**
@@ -62,7 +64,7 @@ const statusCopy = ({ status, aiState, signalCount, qualityState }) => {
     case 'maintaining':
       return {
         text: 'Reading your library and updating this page…',
-        sub: 'The agent is analyzing relevant sources right now.',
+        sub: `${AGENT_DISPLAY_NAME} is analyzing relevant sources right now.`,
         action: 'Maintaining…',
         actionDisabled: true
       };
@@ -110,7 +112,7 @@ const statusCopy = ({ status, aiState, signalCount, qualityState }) => {
       return {
         text: 'Up to date',
         sub: aiState?.lastDraftedAt
-          ? `Reviewed by the agent ${formatRelativeTime(aiState.lastDraftedAt)}.`
+          ? `Reviewed by ${AGENT_DISPLAY_NAME.toLowerCase()} ${formatRelativeTime(aiState.lastDraftedAt)}.`
           : 'No pending signals.',
         action: 'Run again',
         actionDisabled: false
@@ -118,7 +120,7 @@ const statusCopy = ({ status, aiState, signalCount, qualityState }) => {
     case 'never_run':
     default:
       return {
-        text: 'The agent hasn’t read this page yet.',
+        text: `${AGENT_DISPLAY_NAME} hasn’t read this page yet.`,
         sub: 'Run maintenance to draft from your library and surface signals.',
         action: 'Maintain page',
         actionDisabled: false
@@ -151,30 +153,16 @@ const WikiAgentPresence = ({ page, isMaintaining = false, onMaintain }) => {
   );
 
   return (
-    <div
+    <AgentPresence
       className="wiki-agent-presence"
-      data-status={status}
-      role="status"
-      aria-live="polite"
-      aria-label="Agent status"
-    >
-      <span className="wiki-agent-presence__dot" aria-hidden="true">
-        <span className="wiki-agent-presence__dot-inner" />
-      </span>
-      <div className="wiki-agent-presence__copy">
-        <span className="wiki-agent-presence__text">{copy.text}</span>
-        {copy.sub ? <span className="wiki-agent-presence__sub">{copy.sub}</span> : null}
-      </div>
-      <button
-        type="button"
-        className="wiki-agent-presence__action"
-        onClick={onMaintain}
-        disabled={copy.actionDisabled}
-        data-testid="wiki-agent-presence-action"
-      >
-        {copy.action}
-      </button>
-    </div>
+      status={status}
+      title={copy.text}
+      subtitle={copy.sub}
+      actionLabel={copy.action}
+      actionDisabled={copy.actionDisabled}
+      onAction={onMaintain}
+      actionTestId="wiki-agent-presence-action"
+    />
   );
 };
 

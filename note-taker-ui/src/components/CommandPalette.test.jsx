@@ -82,6 +82,22 @@ describe('CommandPalette', () => {
     expect(screen.queryByText('Cmd/Ctrl+Shift+D: Dump to memory')).not.toBeInTheDocument();
   });
 
+  it('presents concepts and notebooks as Think postures instead of standalone surfaces', async () => {
+    getNotebookSummaries.mockResolvedValueOnce([{ _id: 'note-1', title: 'Draft note' }]);
+    api.get.mockImplementation((path) => {
+      if (path === '/api/tags') return Promise.resolve({ data: [{ tag: 'Investing' }] });
+      return Promise.resolve({ data: [] });
+    });
+
+    await renderPalette();
+
+    expect(await screen.findByText('Think concepts')).toBeInTheDocument();
+    expect(screen.getByText('Think notebook')).toBeInTheDocument();
+    expect(screen.getByText('New Think note')).toBeInTheDocument();
+    expect(screen.queryByText('Concepts')).not.toBeInTheDocument();
+    expect(screen.queryByText('Notebook')).not.toBeInTheDocument();
+  });
+
   it('opens the first search result before wiki creation when pressing Enter', async () => {
     await renderPalette();
 
@@ -145,6 +161,26 @@ describe('CommandPalette', () => {
     expect(groupTitles[0]).toBe('Wiki pages');
     fireEvent.click(screen.getByText('Investing'));
     expect(mockNavigate).toHaveBeenCalledWith('/wiki/workspace?page=wiki-1');
+  });
+
+  it('routes pull-reference action into the current Think surface', async () => {
+    window.history.pushState({}, '', '/think?tab=questions&questionId=question-1');
+
+    await renderPalette();
+
+    fireEvent.click(screen.getByText('Pull reference into current surface'));
+
+    expect(mockNavigate).toHaveBeenCalledWith('/think?tab=questions&questionId=question-1&pull=1');
+  });
+
+  it('routes pull-reference action into the wiki chat pane while preserving workspace state', async () => {
+    window.history.pushState({}, '', '/wiki/workspace?page=wiki-1&view=graph');
+
+    await renderPalette();
+
+    fireEvent.click(screen.getByText('Pull reference into current surface'));
+
+    expect(mockNavigate).toHaveBeenCalledWith('/wiki/workspace?page=wiki-1&view=graph&pane=chat&pull=1');
   });
 
   it('ranks exact wiki page matches above stale broader wiki results', async () => {

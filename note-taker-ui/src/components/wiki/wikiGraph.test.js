@@ -1,4 +1,4 @@
-import { buildWikiGraphData, filterWikiGraphPages, summarizeWikiGraph } from './wikiGraph';
+import { buildCorpusConstellation, buildWikiGraphData, filterWikiGraphPages, summarizeWikiGraph } from './wikiGraph';
 
 const basePage = {
   _id: 'page-a',
@@ -91,7 +91,8 @@ describe('wiki graph helpers', () => {
     expect(graph.nodes.find(node => node.id === 'page-c')).toMatchObject({
       title: 'Research Taste',
       inboundCount: 2,
-      degreeCount: 2
+      degreeCount: 2,
+      openPath: '/wiki/workspace?page=page-c'
     });
     expect(graph.links).toEqual(expect.arrayContaining([
       expect.objectContaining({ source: 'page-a', target: 'page-b', relationType: 'wikiLink' }),
@@ -129,6 +130,20 @@ describe('wiki graph helpers', () => {
     expect(graph.links.filter(edge => edge.relationType === 'shared_source')).toHaveLength(1);
   });
 
+  it('uses the shared source counter for graph node source counts', () => {
+    const graph = buildWikiGraphData([
+      {
+        _id: 'page-a',
+        title: 'A',
+        sourceCount: 0,
+        citations: [{ sourceRefId: 'source-from-citation' }],
+        body: { type: 'doc', content: [] }
+      }
+    ]);
+
+    expect(graph.nodes[0]).toMatchObject({ sourceCount: 1 });
+  });
+
   it('builds the PRD 500-node / 2000-edge graph without dropping nodes or links', () => {
     const fixture = makeLargeGraphFixture();
 
@@ -148,5 +163,61 @@ describe('wiki graph helpers', () => {
       wikiLink: 1,
       related: 1
     });
+  });
+
+  it('builds cross-surface traces for a selected wiki page', () => {
+    const traces = buildCorpusConstellation({
+      nodes: [
+        { id: 'wiki_page:page-a', itemType: 'wiki_page', itemId: 'page-a', title: 'Agent Memory' },
+        { id: 'article:article-1', itemType: 'article', itemId: 'article-1', title: 'Investor Letter' },
+        { id: 'highlight:highlight-1', itemType: 'highlight', itemId: 'highlight-1', title: 'Cash-flow highlight' },
+        { id: 'concept:memory', itemType: 'concept', itemId: 'memory', title: 'Memory' },
+        { id: 'question:question-1', itemType: 'question', itemId: 'question-1', title: 'What changed?' },
+        { id: 'notebook:note-1', itemType: 'notebook', itemId: 'note-1', title: 'Research note' }
+      ],
+      edges: [
+        { id: 'edge-1', source: 'article:article-1', target: 'wiki_page:page-a', relationType: 'derived_from' },
+        { id: 'edge-2', source: 'highlight:highlight-1', target: 'wiki_page:page-a', relationType: 'supports' },
+        { id: 'edge-3', source: 'wiki_page:page-a', target: 'concept:memory', relationType: 'extends' },
+        { id: 'edge-4', source: 'question:question-1', target: 'wiki_page:page-a', relationType: 'contradicts' },
+        { id: 'edge-5', source: 'wiki_page:page-a', target: 'notebook:note-1', relationType: 'needs_review' },
+        { id: 'edge-6', source: 'wiki_page:page-a', target: 'wiki_page:page-b', relationType: 'related' }
+      ]
+    }, 'page-a');
+
+    expect(traces).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        itemType: 'article',
+        title: 'Investor Letter',
+        label: 'Source material',
+        openPath: '/library?articleId=article-1'
+      }),
+      expect.objectContaining({
+        itemType: 'highlight',
+        title: 'Cash-flow highlight',
+        label: 'Supports this page',
+        openPath: '/library?highlightId=highlight-1'
+      }),
+      expect.objectContaining({
+        itemType: 'concept',
+        title: 'Memory',
+        openPath: '/think?tab=concepts&concept=Memory'
+      }),
+      expect.objectContaining({
+        itemType: 'question',
+        title: 'What changed?',
+        label: 'Creates tension',
+        openPath: '/think?tab=questions&questionId=question-1'
+      }),
+      expect.objectContaining({
+        itemType: 'notebook',
+        title: 'Research note',
+        label: 'Needs review',
+        openPath: '/think?tab=notebook&entryId=note-1'
+      })
+    ]));
+    expect(traces).not.toEqual(expect.arrayContaining([
+      expect.objectContaining({ itemType: 'wiki_page', itemId: 'page-b' })
+    ]));
   });
 });

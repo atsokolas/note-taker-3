@@ -5,6 +5,7 @@ const {
   WIKI_CLAIM_ITEM_TYPE,
   buildWikiPageConnectionQuery,
   buildWikiPageGraphRows,
+  buildSharedSourceWikiPageRows,
   collectWikiLinkPageIds,
   persistWikiPageConnection,
   syncWikiPageGraphConnections
@@ -12,6 +13,11 @@ const {
 
 const createConnectionStore = () => {
   const records = [];
+  const matchesValue = (actual, expected) => {
+    if (expected?.$in) return expected.$in.includes(actual);
+    if (expected?.$regex) return new RegExp(expected.$regex).test(String(actual || ''));
+    return String(actual || '') === String(expected);
+  };
   return {
     records,
     deleteMany: async (query = {}) => {
@@ -19,15 +25,11 @@ const createConnectionStore = () => {
       const matches = (record) => {
         if (String(record.userId || '') !== String(query.userId || '')) return false;
         return (query.$or || []).some((condition) => {
-          if (condition.fromType?.$in && !condition.fromType.$in.includes(record.fromType)) return false;
-          else if (condition.fromType && String(record.fromType || '') !== String(condition.fromType)) return false;
-          if (condition.fromId?.$regex && !(new RegExp(condition.fromId.$regex).test(String(record.fromId || '')))) return false;
-          else if (condition.fromId && String(record.fromId || '') !== String(condition.fromId)) return false;
-          if (condition.toType && String(record.toType || '') !== String(condition.toType)) return false;
-          if (condition.toId?.$regex && !(new RegExp(condition.toId.$regex).test(String(record.toId || '')))) return false;
-          else if (condition.toId && String(record.toId || '') !== String(condition.toId)) return false;
-          if (condition.relationType?.$in && !condition.relationType.$in.includes(record.relationType)) return false;
-          else if (condition.relationType && String(record.relationType || '') !== String(condition.relationType)) return false;
+          if (condition.fromType && !matchesValue(record.fromType, condition.fromType)) return false;
+          if (condition.fromId && !matchesValue(record.fromId, condition.fromId)) return false;
+          if (condition.toType && !matchesValue(record.toType, condition.toType)) return false;
+          if (condition.toId && !matchesValue(record.toId, condition.toId)) return false;
+          if (condition.relationType && !matchesValue(record.relationType, condition.relationType)) return false;
           return true;
         });
       };
@@ -119,8 +121,11 @@ const run = async () => {
     rows.map(row => `${row.fromType}:${row.fromId}->${row.toType}:${row.toId}:${row.relationType}`),
     [
       'wiki_page:page-a->wiki_page:page-c:related',
+      'wiki_page:page-c->wiki_page:page-a:referenced_by',
       'article:article-1->wiki_page:page-a:supports',
-      'notebook:note-1->wiki_page:page-a:supports'
+      'wiki_page:page-a->article:article-1:supported_by',
+      'notebook:note-1->wiki_page:page-a:supports',
+      'wiki_page:page-a->notebook:note-1:supported_by'
     ]
   );
 
@@ -178,18 +183,60 @@ const run = async () => {
     && row.relationType === 'contains'
   )));
   assert.ok(claimRows.some(row => (
+    row.fromType === WIKI_CLAIM_ITEM_TYPE
+    && row.fromId === 'page-a:claim-1'
+    && row.toType === WIKI_PAGE_ITEM_TYPE
+    && row.toId === 'page-a'
+    && row.relationType === 'contained_by'
+  )));
+  assert.ok(claimRows.some(row => (
     row.fromType === 'article'
     && row.fromId === 'article-1'
     && row.toType === WIKI_CLAIM_ITEM_TYPE
     && row.toId === 'page-a:claim-1'
     && row.relationType === 'supports'
   )));
+  assert.ok(claimRows.some(row => row.fromType === WIKI_CLAIM_ITEM_TYPE && row.fromId === 'page-a:claim-1' && row.toType === 'article' && row.toId === 'article-1' && row.relationType === 'supported_by'));
   assert.ok(claimRows.some(row => row.fromType === 'article' && row.toId === 'page-a:claim-2' && row.relationType === 'contradicts'));
+  assert.ok(claimRows.some(row => row.fromType === WIKI_CLAIM_ITEM_TYPE && row.fromId === 'page-a:claim-2' && row.toType === 'article' && row.relationType === 'contradicted_by'));
   assert.ok(claimRows.some(row => row.fromType === WIKI_CLAIM_ITEM_TYPE && row.fromId === 'page-a:claim-3' && row.relationType === 'needs_review'));
+  assert.ok(claimRows.some(row => row.fromType === WIKI_PAGE_ITEM_TYPE && row.fromId === 'page-a' && row.toType === WIKI_CLAIM_ITEM_TYPE && row.toId === 'page-a:claim-3' && row.relationType === 'review_needed_by'));
   assert.ok(claimRows.some(row => row.fromType === 'article' && row.fromId === 'article-1' && row.toId === 'page-a:claim-4' && row.relationType === 'supports'));
   assert.ok(claimRows.some(row => row.fromType === 'notebook' && row.fromId === 'note-support' && row.toId === 'page-a:claim-5' && row.relationType === 'supports'));
   assert.ok(claimRows.some(row => row.fromType === 'highlight' && row.fromId === 'highlight-conflict' && row.toId === 'page-a:claim-5' && row.relationType === 'contradicts'));
   assert.ok(!claimRows.some(row => row.fromType === 'highlight' && row.fromId === 'highlight-conflict' && row.toId === 'page-a:claim-5' && row.relationType === 'supports'));
+
+  const sharedRows = buildSharedSourceWikiPageRows({
+    userId: 'user-1',
+    pages: [
+      { _id: 'page-a', sourceRefs: [{ type: 'article', objectId: 'article-1', title: 'Shared memo' }] },
+      { _id: 'page-b', sourceRefs: [{ type: 'article', objectId: 'article-1', title: 'Shared memo' }] },
+      { _id: 'page-c', sourceRefs: [{ type: 'article', objectId: 'article-2', title: 'Other memo' }] }
+    ]
+  });
+  assert.deepStrictEqual(
+    sharedRows.map(row => `${row.fromType}:${row.fromId}->${row.toType}:${row.toId}:${row.relationType}`),
+    [
+      'wiki_page:page-a->wiki_page:page-b:shared_source',
+      'wiki_page:page-b->wiki_page:page-a:shared_source'
+    ]
+  );
+  const partialSharedRows = buildSharedSourceWikiPageRows({
+    userId: 'user-1',
+    pages: [
+      { _id: 'page-a', sourceRefs: [{ type: 'article' }] },
+      { _id: 'page-b', sourceRefs: [{ type: 'article' }] },
+      { _id: 'page-c', sourceRefs: [{ url: 'https://example.com/shared' }] },
+      { _id: 'page-d', sourceRefs: [{ url: 'https://example.com/shared' }] }
+    ]
+  });
+  assert.deepStrictEqual(
+    partialSharedRows.map(row => `${row.fromId}->${row.toId}:${row.relationType}`),
+    [
+      'page-c->page-d:shared_source',
+      'page-d->page-c:shared_source'
+    ]
+  );
 
   const syncStore = createConnectionStore();
   syncStore.records.push({
@@ -214,6 +261,28 @@ const run = async () => {
     toId: 'page-a:old-claim',
     relationType: 'contains'
   });
+  syncStore.records.push({
+    _id: 'stale-inverse',
+    userId: 'user-1',
+    scopeType: '',
+    scopeId: '',
+    fromType: 'wiki_page',
+    fromId: 'old-page',
+    toType: 'wiki_page',
+    toId: 'page-a',
+    relationType: 'referenced_by'
+  });
+  syncStore.records.push({
+    _id: 'stale-claim-inverse',
+    userId: 'user-1',
+    scopeType: '',
+    scopeId: '',
+    fromType: 'wiki_claim',
+    fromId: 'page-a:old-claim',
+    toType: 'wiki_page',
+    toId: 'page-a',
+    relationType: 'contained_by'
+  });
   const syncResult = await syncWikiPageGraphConnections({
     Connection: syncStore,
     userId: 'user-1',
@@ -223,11 +292,14 @@ const run = async () => {
       sourceRefs: [{ type: 'article', objectId: 'article-1' }]
     }
   });
-  assert.strictEqual(syncResult.deletedCount, 2);
-  assert.strictEqual(syncResult.createdCount, 2);
+  assert.strictEqual(syncResult.deletedCount, 4);
+  assert.strictEqual(syncResult.createdCount, 4);
   assert.ok(syncStore.records.some(record => record.toId === 'page-c'));
+  assert.ok(syncStore.records.some(record => record.fromId === 'page-c' && record.toId === 'page-a' && record.relationType === 'referenced_by'));
   assert.ok(!syncStore.records.some(record => record.toId === 'old-page'));
   assert.ok(!syncStore.records.some(record => record.toId === 'page-a:old-claim'));
+  assert.ok(!syncStore.records.some(record => record._id === 'stale-inverse'));
+  assert.ok(!syncStore.records.some(record => record._id === 'stale-claim-inverse'));
 };
 
 if (require.main === module) {

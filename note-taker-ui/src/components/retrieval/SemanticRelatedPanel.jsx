@@ -30,7 +30,7 @@ const SemanticRelatedPanel = ({
   sourceId,
   limit = 6,
   resultTypes = ['highlight'],
-  title = 'AI Related Highlights',
+  title = 'Related highlights',
   enabled = true,
   renderAction
 }) => {
@@ -54,13 +54,13 @@ const SemanticRelatedPanel = ({
           We convert text into numeric embeddings and compare angle distance (cosine similarity). Higher
           similarity means ideas are closer, even if wording differs.
         </p>
-        <p className="semantic-related-explain-note">Matches are AI suggestions, not exact duplicates.</p>
+        <p className="semantic-related-explain-note">Matches are partner suggestions, not exact duplicates.</p>
       </div>
 
-      {loading && <p className="muted small">Finding AI-related highlights...</p>}
+      {loading && <p className="muted small">Finding related highlights...</p>}
       {error && <p className="status-message error-message">{error}</p>}
       {!loading && !error && meta?.modelAvailable === false && (
-        <p className="muted small">AI suggestions unavailable right now.</p>
+        <p className="muted small">Partner suggestions unavailable right now.</p>
       )}
       {!loading && !error && meta?.modelAvailable !== false && results.length === 0 && (
         <p className="muted small">No semantic matches yet.</p>

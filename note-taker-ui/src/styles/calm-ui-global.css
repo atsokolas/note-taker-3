@@ -974,6 +974,12 @@ body.calm-ui-global .library-context-feed-item__actions .ui-quiet-button {
   font-size: 0.7rem;
 }
 
+body.calm-ui-global .library-context-feed-item__reference-pull-in {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--calm-line-soft);
+}
+
 body.calm-ui-global .library-context-feed-item.is-active .library-context-feed-item__text {
   color: color-mix(in srgb, var(--calm-text) 88%, var(--calm-link));
 }

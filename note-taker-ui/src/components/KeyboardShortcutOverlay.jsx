@@ -21,12 +21,12 @@ const SECTIONS = [
   {
     title: 'Go to (press G then…)',
     items: [
-      { keys: ['G', 'T'], label: 'Today' },
-      { keys: ['G', 'B'], label: 'Brain' },
-      { keys: ['G', 'N'], label: 'Notebook' },
-      { keys: ['G', 'J'], label: 'Journey' },
-      { keys: ['G', 'C'], label: 'Collections' },
-      { keys: ['G', 'V'], label: 'Views' }
+      { keys: ['G', 'H'], label: 'Home' },
+      { keys: ['G', 'L'], label: 'Library' },
+      { keys: ['G', 'T'], label: 'Think' },
+      { keys: ['G', 'W'], label: 'Wiki' },
+      { keys: ['G', 'R'], label: 'Review' },
+      { keys: ['G', 'S'], label: 'Settings' }
     ]
   },
   {

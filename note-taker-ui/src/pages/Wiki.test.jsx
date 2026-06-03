@@ -21,7 +21,6 @@ jest.mock('react-router-dom', () => ({
 
 jest.mock('../components/wiki/WikiIndex', () => () => <div data-testid="wiki-index">Wiki graph index</div>);
 jest.mock('../components/wiki/WikiList', () => () => <div data-testid="wiki-list">Wiki list</div>);
-jest.mock('../components/wiki/WikiProductIndex', () => () => <div data-testid="wiki-product-index">Wiki product index</div>);
 jest.mock('../components/wiki/WikiPageReadView', () => ({ onEdit, pageId }) => (
   <div data-testid="wiki-read-view">
     Read {pageId}
@@ -91,7 +90,7 @@ describe('Wiki route shell', () => {
     expect(window.scrollTo).toHaveBeenCalledWith(0, 320);
   });
 
-  it('renders the sparse product index at /wiki', () => {
+  it('routes /wiki to the graph workspace when read mode v2 is enabled', () => {
     isWikiReadModeV2Enabled.mockReturnValue(true);
 
     mockUseParams.mockReturnValue({});
@@ -99,10 +98,10 @@ describe('Wiki route shell', () => {
 
     render(<Wiki />);
 
-    expect(screen.getByTestId('wiki-product-index')).toBeInTheDocument();
+    expect(screen.getByTestId('navigate')).toHaveTextContent('/wiki/workspace?view=graph');
   });
 
-  it('keeps /wiki on the sparse product index when workspace v1 is enabled', () => {
+  it('routes /wiki to the graph workspace when workspace v1 is enabled', () => {
     isWikiWorkspaceV1Enabled.mockReturnValue(true);
     isWikiReadModeV2Enabled.mockReturnValue(true);
 
@@ -111,8 +110,7 @@ describe('Wiki route shell', () => {
 
     render(<Wiki />);
 
-    expect(screen.getByTestId('wiki-product-index')).toBeInTheDocument();
-    expect(screen.queryByTestId('navigate')).not.toBeInTheDocument();
+    expect(screen.getByTestId('navigate')).toHaveTextContent('/wiki/workspace?view=graph');
   });
 
   it('keeps the card list at /wiki when read mode v2 is disabled', () => {

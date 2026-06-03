@@ -789,7 +789,15 @@ const questionSchema = new mongoose.Schema({
     id: { type: String, required: true },
     type: { type: String, enum: ['paragraph', 'highlight-ref'], default: 'paragraph' },
     text: { type: String, default: '' },
-    highlightId: { type: mongoose.Schema.Types.ObjectId, default: null }
+    highlightId: { type: mongoose.Schema.Types.ObjectId, default: null },
+    challenge: {
+      enabled: { type: Boolean, default: false },
+      createdAt: { type: Date, default: null },
+      note: { type: String, default: '' },
+      support: { type: [mongoose.Schema.Types.Mixed], default: [] },
+      counter: { type: [mongoose.Schema.Types.Mixed], default: [] },
+      evidence: { type: [mongoose.Schema.Types.Mixed], default: [] }
+    }
   }],
   linkedHighlightId: { type: mongoose.Schema.Types.ObjectId, default: null },
   linkedHighlightIds: [{ type: mongoose.Schema.Types.ObjectId }],

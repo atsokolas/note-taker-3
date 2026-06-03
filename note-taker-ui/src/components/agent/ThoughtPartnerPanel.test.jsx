@@ -45,6 +45,8 @@ const {
 } = require('../../api/agent');
 
 describe('ThoughtPartnerPanel', () => {
+  const originalMatchMedia = window.matchMedia;
+
   beforeEach(() => {
     jest.clearAllMocks();
     listAgentArtifactDrafts.mockResolvedValue({ drafts: [] });
@@ -56,6 +58,87 @@ describe('ThoughtPartnerPanel', () => {
     listAgentStructureProposals.mockResolvedValue({ proposals: [] });
     approveAgentProtocolApproval.mockResolvedValue({});
     rejectAgentProtocolApproval.mockResolvedValue({});
+  });
+
+  afterEach(() => {
+    window.matchMedia = originalMatchMedia;
+  });
+
+  it('renders a Think posture switcher when posture options are provided', () => {
+    const onPostureChange = jest.fn();
+
+    render(
+      <ThoughtPartnerPanel
+        contextType="think"
+        contextId="think-home"
+        contextTitle="Think"
+        posture="concept"
+        postureOptions={[
+          { value: 'concept', label: 'Concept', summary: 'Builder mode keeps one idea in focus.' },
+          { value: 'question', label: 'Question', summary: 'Challenger mode tests claims.' },
+          { value: 'notebook', label: 'Notebook', summary: 'Quiet mode keeps loose notes nearby.' }
+        ]}
+        onPostureChange={onPostureChange}
+      />
+    );
+
+    expect(screen.getByRole('group', { name: 'Think posture' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Concept' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByText('Builder mode keeps one idea in focus.')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Question' }));
+
+    expect(onPostureChange).toHaveBeenCalledWith('question');
+  });
+
+  it('recedes in notebook posture by hiding proactive prompt chips', () => {
+    render(
+      <ThoughtPartnerPanel
+        contextType="think"
+        contextId="notebook"
+        contextTitle="Notebook"
+        posture="notebook"
+        postureOptions={[
+          { value: 'concept', label: 'Concept', summary: 'Builder mode keeps one idea in focus.' },
+          { value: 'question', label: 'Question', summary: 'Challenger mode tests claims.' },
+          { value: 'notebook', label: 'Notebook', summary: 'Quiet mode keeps loose notes nearby.' }
+        ]}
+        promptTemplates={[
+          'Suggest a structure.',
+          'Find related material.'
+        ]}
+      />
+    );
+
+    expect(screen.getByTestId('thought-partner-panel')).toHaveAttribute('data-agent-posture', 'notebook');
+    expect(screen.getByRole('button', { name: 'Notebook' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.queryByRole('button', { name: 'Suggest a structure.' })).not.toBeInTheDocument();
+    expect(screen.getByTestId('thought-partner-passive-status')).toHaveTextContent('Quiet mode is active');
+    expect(screen.getByPlaceholderText('Ask your thought partner...')).toBeInTheDocument();
+  });
+
+  it('renders the shared computation ticker inside the agent panel', () => {
+    window.matchMedia = jest.fn().mockReturnValue({ matches: true });
+
+    render(
+      <ThoughtPartnerPanel
+        contextType="concept"
+        contextId="concept-1"
+        contextTitle="Investing"
+        contextMetadata={{
+          relatedItems: [
+            { type: 'highlight', id: 'h-1', title: 'Margin of safety' },
+            { type: 'wiki_page', id: 'w-1', title: 'Capital allocation' }
+          ]
+        }}
+      />
+    );
+
+    expect(screen.getByRole('status', { name: 'Thought partner status' })).toHaveTextContent('Thought partner');
+    expect(screen.getByLabelText('Thought partner computation trace')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /Expand 1 trace history line/ }));
+    expect(screen.getByText('holding 2 related items')).toBeInTheDocument();
+    expect(screen.getByText('anchored to Investing')).toBeInTheDocument();
   });
 
   it('does not append a duplicate assistant message when the server thread already includes it', async () => {
@@ -79,7 +162,7 @@ describe('ThoughtPartnerPanel', () => {
       />
     );
 
-    fireEvent.change(screen.getByPlaceholderText('Ask your thought partner…'), {
+    fireEvent.change(screen.getByPlaceholderText('Ask your thought partner...'), {
       target: { value: 'Find the strongest support.' }
     });
     fireEvent.click(screen.getByRole('button', { name: 'Ask' }));
@@ -929,7 +1012,7 @@ describe('ThoughtPartnerPanel', () => {
     expect(screen.queryByText('Runs')).not.toBeInTheDocument();
     expect(screen.queryByText('Run approvals')).not.toBeInTheDocument();
 
-    fireEvent.change(screen.getByPlaceholderText('Ask your thought partner…'), {
+    fireEvent.change(screen.getByPlaceholderText('Ask your thought partner...'), {
       target: { value: 'Continue with the library cleanup.' }
     });
     fireEvent.click(screen.getByRole('button', { name: 'Continue' }));

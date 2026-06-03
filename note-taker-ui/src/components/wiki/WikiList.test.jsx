@@ -69,4 +69,30 @@ describe('WikiList', () => {
 
     expect(within(card).getByRole('button', { name: /archive investing/i })).toBeInTheDocument();
   });
+
+  it('labels source-less scaffold pages as drafts instead of implying source-backed knowledge', async () => {
+    listWikiPages.mockResolvedValueOnce([
+      {
+        _id: 'wiki-scaffold',
+        title: 'Thin Strategy',
+        pageType: 'topic',
+        status: 'draft',
+        sourceCount: 0,
+        plainText: 'Thin Strategy still needs source-backed development before it becomes useful.',
+        updatedAt: '2026-05-01T12:00:00.000Z'
+      }
+    ]);
+
+    render(
+      <MemoryRouter>
+        <WikiList compact />
+      </MemoryRouter>
+    );
+
+    const card = await screen.findByRole('article', { name: 'Thin Strategy' });
+
+    expect(within(card).getByText('Draft scaffold · needs sources')).toBeInTheDocument();
+    expect(within(card).queryByText('0 sources')).not.toBeInTheDocument();
+    expect(within(card).getByText(/still needs source-backed development/).textContent.length).toBeLessThan(130);
+  });
 });

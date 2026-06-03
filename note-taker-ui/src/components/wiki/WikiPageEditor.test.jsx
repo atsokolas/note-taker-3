@@ -9,8 +9,14 @@ const mockUseEditor = jest.fn();
 const mockEditor = {
   commands: {
     insertContent: jest.fn(),
+    insertPullquote: jest.fn(),
     setContent: jest.fn()
   },
+  chain: jest.fn(() => ({
+    focus: jest.fn(function focus() { return this; }),
+    insertPullquote: jest.fn(function insertPullquote() { return this; }),
+    run: jest.fn()
+  })),
   getJSON: jest.fn(() => ({ type: 'doc', content: [{ type: 'paragraph' }] }))
 };
 
@@ -86,6 +92,11 @@ const page = {
 describe('WikiPageEditor', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockEditor.chain.mockImplementation(() => ({
+      focus: jest.fn(function focus() { return this; }),
+      insertPullquote: jest.fn(function insertPullquote() { return this; }),
+      run: jest.fn()
+    }));
     mockEditor.renderTestContent = null;
     mockUseEditor.mockReturnValue(mockEditor);
     getWikiPage.mockResolvedValue(page);
@@ -214,6 +225,25 @@ describe('WikiPageEditor', () => {
     expect(screen.getByDisplayValue('Entire library')).toBeInTheDocument();
   });
 
+  it('registers and exposes pullquote insertion in the wiki editor', async () => {
+    render(
+      <MemoryRouter>
+        <WikiPageEditor pageId="wiki-1" />
+      </MemoryRouter>
+    );
+
+    await screen.findByDisplayValue('Enterprise AI Memory');
+    const editorOptions = mockUseEditor.mock.calls[0][0];
+    const extensionNames = editorOptions.extensions.map(extension => extension?.name).filter(Boolean);
+
+    expect(extensionNames).toContain('pullquote');
+    fireEvent.click(screen.getByRole('button', { name: 'Pullquote' }));
+    const chain = mockEditor.chain.mock.results[0].value;
+    expect(chain.focus).toHaveBeenCalled();
+    expect(chain.insertPullquote).toHaveBeenCalledWith('');
+    expect(chain.run).toHaveBeenCalled();
+  });
+
   it('exits edit mode from the Done editing button or Escape key when a read shell owns mode', async () => {
     const onDoneEditing = jest.fn();
     render(
@@ -253,7 +283,7 @@ describe('WikiPageEditor', () => {
     );
 
     await screen.findByDisplayValue('Enterprise AI Memory');
-    expect(screen.queryByRole('status', { name: 'Agent status' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('status', { name: 'Thought partner status' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Maintain page' })).not.toBeInTheDocument();
   });
 
@@ -362,11 +392,11 @@ describe('WikiPageEditor', () => {
     );
 
     await screen.findByDisplayValue('Enterprise AI Memory');
-    expect(screen.queryByRole('status', { name: 'Agent status' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('status', { name: 'Thought partner status' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Maintain page' })).not.toBeInTheDocument();
     expect(screen.queryByLabelText('Ask this page')).not.toBeInTheDocument();
-    expect(screen.queryByLabelText('Wiki AI and sources')).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Show AI/Sources' })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Wiki partner and sources')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Show partner/sources' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Attach source' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Back to Wiki' })).not.toBeInTheDocument();
     expect(screen.getByText('Editing page')).toBeInTheDocument();

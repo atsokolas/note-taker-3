@@ -254,6 +254,69 @@ export const askWikiPage = async (id, question) => {
   return res.data;
 };
 
+export const streamAskWikiPage = async (id, question, handlers = {}) => {
+  const pageId = String(id || '').trim();
+  const token = localStorage.getItem('token');
+  const res = await fetch(apiUrl(`${WIKI_PAGES_PATH}/${safeId(pageId)}/ask/stream`), {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {})
+    },
+    body: JSON.stringify({ question })
+  });
+
+  if (!res.ok) {
+    let message = 'Failed to ask wiki page.';
+    try {
+      const body = await res.json();
+      message = body?.error || message;
+    } catch (_error) {
+      // Preserve the generic error if the stream endpoint did not return JSON.
+    }
+    throw new Error(message);
+  }
+
+  if (!res.body?.getReader) {
+    return askWikiPage(pageId, question);
+  }
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  let finalPage = null;
+  let streamError = null;
+
+  const consumeBlock = (block) => {
+    const { event, payload } = parseSseBlock(block);
+    if (!payload) return;
+    handlers.onEvent?.(event, payload);
+    if (event === 'wiki-ask-delta' && typeof payload.delta === 'string') {
+      handlers.onDelta?.(payload.delta, payload);
+    }
+    if (payload.page) {
+      finalPage = payload.page;
+      handlers.onPage?.(payload.page, payload);
+    }
+    if (event === 'error') {
+      streamError = new Error(payload.error || payload.message || 'Failed to ask wiki page.');
+    }
+  };
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const blocks = buffer.split(/\r?\n\r?\n/);
+    buffer = blocks.pop() || '';
+    blocks.forEach(consumeBlock);
+  }
+  buffer += decoder.decode();
+  if (buffer.trim()) consumeBlock(buffer);
+  if (streamError) throw streamError;
+  return finalPage;
+};
+
 export const removeWikiDiscussion = async (id, discussionId) => {
   const res = await api.delete(`${WIKI_PAGES_PATH}/${safeId(id)}/discussions/${safeId(discussionId)}`, getAuthHeaders());
   return res.data;
@@ -341,6 +404,14 @@ export const undoWikiIngestRun = async (runId) => {
   return res.data || {};
 };
 
+export const reviewWikiIngestRun = async (runId, action, options = '') => {
+  const payload = typeof options === 'string'
+    ? { action, note: options }
+    : { action, ...(options || {}) };
+  const res = await api.post(`/api/wiki/ingest/${safeId(runId)}/review`, payload, getAuthHeaders());
+  return res.data || {};
+};
+
 export const getWikiSchema = async () => {
   const res = await api.get('/api/wiki/schema', getAuthHeaders());
   return res.data || {};
@@ -425,6 +496,16 @@ export const writeWikiPageToConnector = async (id, connector, payload = {}) => {
   return res.data || {};
 };
 
+export const createLibrarySourceProvenanceFixture = async () => {
+  const res = await api.post('/api/debug/fixtures/library-source-provenance', {}, getAuthHeaders());
+  return res.data || {};
+};
+
+export const clearLibrarySourceProvenanceFixture = async () => {
+  const res = await api.delete('/api/debug/fixtures/library-source-provenance', getAuthHeaders());
+  return res.data || {};
+};
+
 const wikiApi = {
   listWikiPages,
   createWikiPage,
@@ -447,6 +528,7 @@ const wikiApi = {
   addWikiSource,
   removeWikiSource,
   askWikiPage,
+  streamAskWikiPage,
   removeWikiDiscussion,
   promoteWikiDiscussion,
   getWikiBacklinks,
@@ -461,6 +543,7 @@ const wikiApi = {
   ingestWikiSource,
   getWikiIngestRun,
   undoWikiIngestRun,
+  reviewWikiIngestRun,
   getWikiSchema,
   saveWikiSchema,
   revertWikiSchema,
@@ -476,7 +559,9 @@ const wikiApi = {
   reviewWikiFreshness,
   rebuildWikiPageGraph,
   rebuildWikiGraph,
-  writeWikiPageToConnector
+  writeWikiPageToConnector,
+  createLibrarySourceProvenanceFixture,
+  clearLibrarySourceProvenanceFixture
 };
 
 export default wikiApi;

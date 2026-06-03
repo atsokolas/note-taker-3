@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { AGENT_DISPLAY_NAME } from '../../constants/agentIdentity';
 
 /**
  * WikiAskComposer — bottom-of-page composer that lets the reader ask a
@@ -54,7 +55,7 @@ const WikiAskComposer = ({ onAsk, busy = false }) => {
         value={question}
         onChange={(event) => setQuestion(event.target.value)}
         onKeyDown={handleKeyDown}
-        placeholder="Ask the agent anything about this page — answers cite your attached sources."
+        placeholder={`Ask ${AGENT_DISPLAY_NAME.toLowerCase()} anything about this page — answers cite your attached sources.`}
         rows={3}
         aria-label="Question for this page"
         disabled={busy}
@@ -84,7 +85,7 @@ const WikiAskComposer = ({ onAsk, busy = false }) => {
           disabled={busy || !question.trim()}
           data-testid="wiki-ask-composer-submit"
         >
-          {busy ? 'Asking…' : 'Ask the agent'}
+          {busy ? 'Asking…' : `Ask ${AGENT_DISPLAY_NAME.toLowerCase()}`}
         </button>
       </div>
       {error ? <p className="wiki-ask-composer__error" role="alert">{error}</p> : null}

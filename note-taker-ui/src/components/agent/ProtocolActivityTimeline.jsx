@@ -267,7 +267,7 @@ const buildThreadEntries = ({
     entries.push({
       id: `thread-message-${clean(thread?.threadId)}-${clean(message?.createdAt) || index}`,
       category: role === 'assistant' ? 'assistant' : 'user',
-      title: role === 'assistant' ? 'Thought Partner advanced the thread' : 'User moved the thread forward',
+      title: role === 'assistant' ? 'Thought partner advanced the thread' : 'User moved the thread forward',
       body: truncate(message?.text || '', 220),
       meta: [
         Array.isArray(message?.relatedItems) && message.relatedItems.length > 0 ? `${message.relatedItems.length} related items` : '',

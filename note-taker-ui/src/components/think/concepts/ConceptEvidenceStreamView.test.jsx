@@ -1,5 +1,5 @@
 import React from 'react';
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import ConceptEvidenceStreamView, { ConceptEvidenceStreamRail, ConceptPartnerRail } from './ConceptEvidenceStreamView';
 import { CONCEPT_ACTIONS } from './idea-workbench/conceptActionDispatch';
 
@@ -146,7 +146,7 @@ describe('Concept evidence shell surfaces', () => {
     expect(screen.queryByText('New inquiry')).not.toBeInTheDocument();
   });
 
-  it('keeps one primary prompt block and quick retrieval actions in the context margin', () => {
+  it('keeps one primary prompt block and quick retrieval actions in the context margin', async () => {
     const model = buildModel();
 
     render(
@@ -155,10 +155,17 @@ describe('Concept evidence shell surfaces', () => {
         model={model}
         activeSection="assistant"
         personalAgents={[{ _id: 'agent-1', name: 'OpenClaw Researcher', status: 'active', preferredWorkerRoles: ['researcher'] }]}
+        referencePullInSlot={<div aria-label="Reference pull-in">Reference control</div>}
       />
     );
 
     expect(screen.getByText('Ask for support, contradiction, a cleaner draft, or the piece of prior reading you know is somewhere in the archive.')).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByLabelText('Thought partner computation trace')).toHaveTextContent('1 tension visible'));
+    fireEvent.click(screen.getByRole('button', { name: 'Expand trace history' }));
+    expect(screen.getByLabelText('Thought partner computation trace')).toHaveTextContent('Found 2 good leads.');
+    expect(screen.getByLabelText('Thought partner computation trace')).toHaveTextContent('1 support signal staged');
+    expect(screen.getByLabelText('Thought partner computation trace')).toHaveTextContent('1 tension visible');
+    expect(screen.getByLabelText('Reference pull-in')).toHaveTextContent('Reference control');
     expect(screen.getByRole('button', { name: 'Pull support' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Find tension' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Related sources' })).toBeInTheDocument();

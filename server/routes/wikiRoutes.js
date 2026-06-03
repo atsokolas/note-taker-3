@@ -100,6 +100,10 @@ const extractPlainText = (node) => {
   return [ownText, childText].filter(Boolean).join(' ').trim();
 };
 
+const countWords = (value = '') => (
+  String(value || '').trim().split(/\s+/).filter(Boolean).length
+);
+
 const extractRelevanceTextFromDoc = (node, out = [], state = { paragraphSeen: false }) => {
   if (!node || out.join(' ').length > 1600) return out;
   if (Array.isArray(node)) {
@@ -418,12 +422,38 @@ const serializeWikiPage = (page) => {
     ? page.toObject({ virtuals: false })
     : { ...page };
   const raw = sanitizeSourceLedgerForRead(rawPage);
+  const sourceRefs = Array.isArray(raw.sourceRefs) ? raw.sourceRefs : [];
+  const claims = Array.isArray(raw.claims) ? raw.claims : [];
+  const citations = Array.isArray(raw.citations) ? raw.citations : [];
+  const sourceIds = new Set();
+  sourceRefs.forEach((source, index) => {
+    sourceIds.add(String(source?._id || source?.id || source?.sourceRefId || `source-${index}`));
+  });
+  citations.forEach((citation) => {
+    const id = citation?.sourceRefId || citation?.sourceId || citation?.sourceRef?._id || citation?.sourceRef?.id;
+    if (id) sourceIds.add(String(id));
+  });
+  const claimIds = new Set();
+  claims.forEach((claim, index) => {
+    claimIds.add(String(claim?.claimId || claim?._id || claim?.id || `claim-${index}`));
+  });
+  citations.forEach((citation) => {
+    const id = citation?.claimId || citation?.claim?._id || citation?.claim?.id;
+    if (id) claimIds.add(String(id));
+  });
+  const plainText = raw.plainText || extractPlainText(raw.body || emptyDoc());
   return {
     ...raw,
     pageType: normalizePageType(raw.pageType || 'topic'),
     body: raw.body || emptyDoc(),
     createdFrom: raw.createdFrom || { type: 'wiki_index', objectIds: [], text: '', label: '' },
-    sourceRefs: Array.isArray(raw.sourceRefs) ? raw.sourceRefs : [],
+    plainText,
+    sourceRefs,
+    claims,
+    citations,
+    sourceCount: sourceIds.size,
+    claimCount: claimIds.size,
+    wordCount: countWords(plainText),
     discussions: Array.isArray(raw.discussions) ? raw.discussions : [],
     aiState: {
       draftStatus: raw.aiState?.draftStatus || 'idle',
@@ -615,6 +645,8 @@ const serializeIngestRun = ({ event, run = null } = {}) => {
     runId: serializeId(rawEvent._id),
     sourceRef: serializeSourceRefFromEvent(rawEvent),
     affectedPageIds: Array.isArray(rawEvent.affectedPageIds) ? rawEvent.affectedPageIds.map(serializeId).filter(Boolean) : [],
+    candidateUpdates: Array.isArray(rawEvent.metadata?.candidateUpdates) ? rawEvent.metadata.candidateUpdates : [],
+    reviewStatus: rawEvent.metadata?.ingestReviewStatus || '',
     summary: cleanWikiSummary(rawRun?.summary || rawEvent.summary || rawEvent.errorMessage || ''),
     status: rawEvent.status || rawRun?.status || 'pending',
     suggestedCreatePage: (
@@ -1106,6 +1138,19 @@ const buildWikiRouter = ({
     if (res.writableEnded) return;
     res.write(`event: ${event}\n`);
     res.write(`data: ${JSON.stringify(payload)}\n\n`);
+  };
+
+  const openWikiAskStream = (res) => {
+    res.status(200);
+    res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
+    res.setHeader('Cache-Control', 'no-cache, no-transform');
+    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no');
+    res.flushHeaders?.();
+    writeSse(res, 'wiki-ask', {
+      stage: 'connected',
+      summary: 'Connected to wiki ask stream.'
+    });
   };
 
   const openWikiDraftStream = (res) => {
@@ -2103,6 +2148,86 @@ const buildWikiRouter = ({
     }
   });
 
+  const answerDocText = (node) => {
+    if (!node) return '';
+    if (typeof node === 'string') return node;
+    if (Array.isArray(node)) return node.map(answerDocText).filter(Boolean).join(' ');
+    if (typeof node !== 'object') return '';
+    const own = typeof node.text === 'string' ? node.text : '';
+    const child = Array.isArray(node.content) ? answerDocText(node.content) : '';
+    return [own, child].filter(Boolean).join(' ').trim();
+  };
+
+  const streamAnswerText = async (res, text = '') => {
+    const chunks = String(text || '')
+      .split(/(\s+)/)
+      .filter(Boolean);
+    for (const chunk of chunks) {
+      writeSse(res, 'wiki-ask-delta', { delta: chunk });
+      // Yield between chunks so browser rendering sees a real stream instead
+      // of one buffered terminal event.
+      await new Promise(resolve => setTimeout(resolve, 8));
+    }
+  };
+
+  router.post('/api/wiki/pages/:id/ask/stream', wikiAuth, async (req, res) => {
+    openWikiAskStream(res);
+    try {
+      const question = String(req.body?.question || '').trim();
+      if (!question) {
+        writeSse(res, 'error', { error: 'Question is required.' });
+        return res.end();
+      }
+      if (question.length > 1000) {
+        writeSse(res, 'error', { error: 'Question is too long.' });
+        return res.end();
+      }
+
+      const page = await findOwnedPage(req);
+      if (!page) {
+        writeSse(res, 'error', { error: 'Wiki page not found.' });
+        return res.end();
+      }
+
+      writeSse(res, 'wiki-ask', {
+        stage: 'thinking',
+        summary: 'Reading page and source context.'
+      });
+      const result = await askWikiPage({
+        page,
+        question,
+        wikiSchemaContent: await loadWikiSchemaContent(req.user.id)
+      });
+      const answerText = answerDocText(result.answer);
+      await streamAnswerText(res, answerText);
+
+      page.discussions.push({
+        question,
+        answer: result.answer,
+        citationIndexesUsed: result.citationIndexesUsed || [],
+        model: result.model || '',
+        status: result.status || 'answered',
+        errorMessage: result.errorMessage || '',
+        askedAt: new Date()
+      });
+      await page.save();
+
+      writeSse(res, 'wiki-ask', {
+        stage: 'complete',
+        page: serializeWikiPage(page)
+      });
+      writeSse(res, 'done', { ok: true, pageId: serializeId(page._id) });
+      res.end();
+    } catch (error) {
+      console.error('Error streaming wiki page ask:', error);
+      writeSse(res, 'error', {
+        error: 'Failed to ask wiki page.',
+        message: error?.message || ''
+      });
+      res.end();
+    }
+  });
+
   router.post('/api/wiki/pages/:id/discussions/:discussionId/promote', wikiAuth, async (req, res) => {
     try {
       const sourcePage = await findOwnedPage(req);
@@ -2437,6 +2562,58 @@ const buildWikiRouter = ({
     } catch (error) {
       console.error('Error reading wiki ingest run:', error);
       res.status(500).json({ error: 'Failed to read wiki ingest run.' });
+    }
+  });
+
+  router.post('/api/wiki/ingest/:runId/review', wikiAuth, async (req, res) => {
+    try {
+      if (!WikiSourceEvent) return res.status(404).json({ error: 'Wiki ingest run not found.' });
+      if (!mongoose.Types.ObjectId.isValid(String(req.params.runId || ''))) {
+        return res.status(400).json({ error: 'Invalid ingest run id.' });
+      }
+      const action = String(req.body?.action || '').trim().toLowerCase();
+      const allowed = new Set(['accept', 'defer', 'reject']);
+      if (!allowed.has(action)) {
+        return res.status(400).json({ error: 'action must be one of: accept, defer, reject.' });
+      }
+      const event = await WikiSourceEvent.findOne({ _id: req.params.runId, userId: req.user.id });
+      if (!event) return res.status(404).json({ error: 'Wiki ingest run not found.' });
+      const metadata = event.metadata?.toObject ? event.metadata.toObject() : (event.metadata || {});
+      const reviewedAt = new Date();
+      const candidateIds = Array.isArray(req.body?.candidateIds)
+        ? req.body.candidateIds.map(id => String(id || '').trim()).filter(Boolean)
+        : [];
+      const selectedCandidateIds = new Set(candidateIds);
+      const existingCandidates = Array.isArray(metadata.candidateUpdates) ? metadata.candidateUpdates : [];
+      const baseStatus = action === 'accept' ? 'accepted' : (action === 'reject' ? 'rejected' : 'deferred');
+      const candidateUpdates = existingCandidates.map((candidate) => {
+        const candidateId = String(candidate?.id || '').trim();
+        const shouldReview = !selectedCandidateIds.size || selectedCandidateIds.has(candidateId);
+        if (!shouldReview) return candidate;
+        return {
+          ...candidate,
+          status: baseStatus,
+          reviewAction: action,
+          reviewedAt
+        };
+      });
+      const selectedKnownCount = candidateIds.filter(id => (
+        existingCandidates.some(candidate => String(candidate?.id || '').trim() === id)
+      )).length;
+      const isPartialReview = Boolean(existingCandidates.length && selectedCandidateIds.size && selectedKnownCount < existingCandidates.length);
+      event.metadata = {
+        ...metadata,
+        ...(existingCandidates.length ? { candidateUpdates } : {}),
+        ingestReviewStatus: isPartialReview ? `partially_${baseStatus}` : baseStatus,
+        ingestReviewedAt: reviewedAt,
+        ingestReviewNote: String(req.body?.note || '').trim().slice(0, 500)
+      };
+      await event.save();
+      const run = await findMaintenanceRunBySourceEvent({ userId: req.user.id, sourceEventId: event._id });
+      res.status(200).json(serializeIngestRun({ event, run }));
+    } catch (error) {
+      console.error('Error reviewing wiki ingest run:', error);
+      res.status(500).json({ error: 'Failed to review wiki ingest run.' });
     }
   });
 

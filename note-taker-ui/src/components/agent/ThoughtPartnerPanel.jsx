@@ -10,13 +10,16 @@ import {
   updateAgentProposedChange,
   updateAgentArtifactDraft
 } from '../../api/agent';
-import { Button, QuietButton, SectionHeader, SurfaceCard } from '../ui';
+import { Button, QuietButton, SurfaceCard } from '../ui';
 import { buildCanonicalArticlePath } from '../../utils/firstInsight';
 import { buildQueuedAgentSkillPrompt } from '../../utils/agentSkillInvocation';
 import useProtocolApprovals from '../../hooks/useProtocolApprovals';
 import ProtocolApprovalsPanel from './ProtocolApprovalsPanel';
 import StructureProposalReview from './StructureProposalReview';
 import useAgentReviewState from './useAgentReviewState';
+import { AGENT_DEFAULT_PLACEHOLDER, AGENT_DISPLAY_NAME } from '../../constants/agentIdentity';
+import AgentTicker from './AgentTicker';
+import AgentPresence from './AgentPresence';
 
 const clean = (value) => String(value || '').trim();
 const truncate = (value, limit = 320) => {
@@ -41,6 +44,18 @@ const formatTelemetryStatus = (status = '') => {
   if (safe === 'insufficient_data') return 'Needs data';
   return 'Aligned';
 };
+
+const normalizePostureOptions = (options = []) => (
+  Array.isArray(options)
+    ? options
+        .map((option) => ({
+          value: clean(option?.value),
+          label: clean(option?.label),
+          summary: clean(option?.summary)
+        }))
+        .filter((option) => option.value && option.label)
+    : []
+);
 
 const normalizeContextMetadata = (metadata = {}) => {
   const source = metadata && typeof metadata === 'object' ? metadata : {};
@@ -309,9 +324,9 @@ const ThoughtPartnerPanel = ({
   contextType = '',
   contextId = '',
   contextTitle = '',
-  placeholder = 'Ask your thought partner…',
+  placeholder = AGENT_DEFAULT_PLACEHOLDER,
   className = '',
-  title = 'Thought partner',
+  title = AGENT_DISPLAY_NAME,
   subtitle = '',
   promptTemplates: promptTemplatesProp = null,
   emptyStateText = 'Start with a question, or pick a prompt above.',
@@ -321,7 +336,11 @@ const ThoughtPartnerPanel = ({
   onThreadChange = null,
   queuedPrompt = null,
   contextMetadata = null,
-  disabled = false
+  disabled = false,
+  posture = '',
+  postureOptions = [],
+  onPostureChange = null,
+  passiveStatusText = 'Quiet mode is active. The agent is watching for reusable structure without steering the draft.'
 }) => {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -346,6 +365,17 @@ const ThoughtPartnerPanel = ({
   const activeThreadId = clean(threadId || thread?.threadId);
   const isStreamVariant = variant === 'stream';
   const isThreadStreamVariant = isStreamVariant && Boolean(activeThreadId);
+  const normalizedPostureOptions = useMemo(
+    () => normalizePostureOptions(postureOptions),
+    [postureOptions]
+  );
+  const activePosture = useMemo(() => (
+    normalizedPostureOptions.find((option) => option.value === posture)
+      || normalizedPostureOptions[0]
+      || null
+  ), [normalizedPostureOptions, posture]);
+  const activePostureValue = activePosture?.value || '';
+  const isPassiveNotebookPosture = activePostureValue === 'notebook';
 
   const context = useMemo(
     () => toContext(contextType, contextId, contextTitle, contextMetadata),
@@ -579,7 +609,7 @@ const ThoughtPartnerPanel = ({
       setPendingSkillInvocation(null);
     } catch (chatError) {
       setInput(message);
-      setError(chatError.response?.data?.error || 'Failed to ask agent.');
+      setError(chatError.response?.data?.error || 'Failed to ask thought partner.');
     } finally {
       setLoading(false);
     }
@@ -945,6 +975,44 @@ const ThoughtPartnerPanel = ({
       }));
   }, [harnessMetrics]);
   const partnerSubtitle = subtitle || (contextTitle ? `Context: ${contextTitle}` : 'Ask about your notes, concepts, and articles.');
+  const tickerLines = useMemo(() => {
+    const lines = [];
+    const safeContextTitle = clean(contextTitle || context?.title || contextId);
+    if (loading) {
+      lines.push('reading current context');
+      if (safeContextTitle) lines.push(`testing ${safeContextTitle}`);
+      lines.push('drafting response');
+      return lines;
+    }
+    if (activePlanner?.activeWorkerLabel) {
+      lines.push(`worker ${activePlanner.activeWorkerLabel}`);
+    }
+    const pendingRun = runs.find((run) => !['completed', 'failed', 'cancelled'].includes(clean(run.status).toLowerCase()));
+    if (pendingRun) {
+      lines.push(`running ${pendingRun.title || pendingRun.runId || 'agent task'}`);
+    }
+    if (latestPendingProposalBundle) {
+      lines.push(`proposal ready · ${latestPendingProposalBundle.title || 'review staged'}`);
+    }
+    const relatedCount = Array.isArray(context?.metadata?.relatedItems) ? context.metadata.relatedItems.length : 0;
+    if (relatedCount > 0) {
+      lines.push(`holding ${relatedCount} related ${relatedCount === 1 ? 'item' : 'items'}`);
+    }
+    if (safeContextTitle) {
+      lines.push(`anchored to ${safeContextTitle}`);
+    }
+    return lines.slice(0, 3);
+  }, [
+    activePlanner?.activeWorkerLabel,
+    context?.metadata?.relatedItems,
+    context?.title,
+    contextId,
+    contextTitle,
+    latestPendingProposalBundle,
+    loading,
+    runs
+  ]);
+  const tickerState = loading ? 'working' : (runs.some((run) => !['completed', 'failed', 'cancelled'].includes(clean(run.status).toLowerCase())) ? 'working' : 'idle');
   const handleFocusReviewStage = useCallback(() => {
     const reviewNode = document.querySelector('.agent-thought-partner__review-card--structure, .agent-thought-partner__review-card');
     if (reviewNode && typeof reviewNode.scrollIntoView === 'function') {
@@ -1069,6 +1137,30 @@ const ThoughtPartnerPanel = ({
       })}
     </div>
   );
+  const postureControlSection = normalizedPostureOptions.length > 0 ? (
+    <div className="agent-thought-partner__postures" role="group" aria-label="Think posture">
+      <div className="agent-thought-partner__posture-tabs">
+        {normalizedPostureOptions.map((option) => {
+          const isActive = activePosture?.value === option.value;
+          return (
+            <button
+              key={option.value}
+              type="button"
+              className={`agent-thought-partner__posture-tab ${isActive ? 'is-active' : ''}`.trim()}
+              aria-pressed={isActive}
+              disabled={disabled || typeof onPostureChange !== 'function'}
+              onClick={() => onPostureChange?.(option.value)}
+            >
+              {option.label}
+            </button>
+          );
+        })}
+      </div>
+      {activePosture?.summary ? (
+        <p className="agent-thought-partner__posture-summary">{activePosture.summary}</p>
+      ) : null}
+    </div>
+  ) : null;
 
   const plannerStripSection = !isThreadStreamVariant && activePlanner ? (
     <div className="agent-thought-partner__planner-strip">
@@ -1616,38 +1708,35 @@ const ThoughtPartnerPanel = ({
   ) : null;
 
   return (
-    <SurfaceCard className={`agent-thought-partner ${isStreamVariant ? 'agent-thought-partner--stream' : ''} ${className}`.trim()} data-testid="thought-partner-panel">
-      {isStreamVariant ? (
-        <div className="agent-thought-partner__stream-head">
-          <div className="agent-thought-partner__stream-copy">
-            <h3>{title}</h3>
-            <p>{partnerSubtitle}</p>
-          </div>
-          <QuietButton
-            type="button"
-            onClick={handleClearPanel}
-            disabled={loading || disabled || messages.length === 0}
-          >
-            Clear
-          </QuietButton>
-        </div>
-      ) : (
-        <SectionHeader
-          title={title}
-          subtitle={partnerSubtitle}
-          action={(
-            <QuietButton
-              type="button"
-              onClick={handleClearPanel}
-              disabled={loading || messages.length === 0}
-            >
-              Clear
-            </QuietButton>
-          )}
-        />
-      )}
+    <SurfaceCard
+      className={`agent-thought-partner ${isStreamVariant ? 'agent-thought-partner--stream' : ''} ${isPassiveNotebookPosture ? 'agent-thought-partner--passive' : ''} ${className}`.trim()}
+      data-testid="thought-partner-panel"
+      data-agent-posture={activePostureValue || undefined}
+    >
+      <AgentPresence
+        className={`agent-thought-partner__presence ${isStreamVariant ? 'agent-thought-partner__presence--stream' : ''}`.trim()}
+        status={loading ? 'maintaining' : 'idle'}
+        title={title}
+        subtitle={partnerSubtitle}
+        actionLabel="Clear"
+        actionDisabled={loading || disabled || messages.length === 0}
+        onAction={handleClearPanel}
+        actionTestId="thought-partner-clear"
+      />
 
-      {!isThreadStreamVariant && quickPromptsSection}
+      {postureControlSection}
+      <AgentTicker
+        className="agent-thought-partner__ticker"
+        label={`${AGENT_DISPLAY_NAME} computation trace`}
+        lines={tickerLines}
+        state={tickerState}
+      />
+      {isPassiveNotebookPosture ? (
+        <p className="agent-thought-partner__passive-status" data-testid="thought-partner-passive-status">
+          {passiveStatusText}
+        </p>
+      ) : null}
+      {!isThreadStreamVariant && !isPassiveNotebookPosture && quickPromptsSection}
       {plannerStripSection}
       {scorecardSection}
       {modelComparisonSection}
@@ -1685,7 +1774,7 @@ const ThoughtPartnerPanel = ({
             key={message.id}
             className={`agent-thought-partner__message ${message.role === 'assistant' ? 'is-assistant' : 'is-user'}`}
           >
-            <p className="agent-thought-partner__message-role">{message.role === 'assistant' ? 'Agent' : 'You'}</p>
+            <p className="agent-thought-partner__message-role">{message.role === 'assistant' ? AGENT_DISPLAY_NAME : 'You'}</p>
             <p>{message.text}</p>
             {message.role === 'assistant' && message.proposalBundle && (
               <div className="agent-thought-partner__draft-workflow">

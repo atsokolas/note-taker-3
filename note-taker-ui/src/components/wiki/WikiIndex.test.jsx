@@ -1,8 +1,8 @@
 import React from 'react';
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import WikiIndex from './WikiIndex';
-import { createWikiPage, getWikiBriefing, listWikiActivity, listWikiPages, rebuildWikiGraph, streamMaintainWikiPage } from '../../api/wiki';
+import { createWikiPage, getWikiBriefing, ingestWikiSource, listWikiActivity, listWikiPages, rebuildWikiGraph, streamMaintainWikiPage } from '../../api/wiki';
 import { fetchGraphData } from '../../api/map';
 
 jest.mock('../../api/wiki', () => ({
@@ -36,7 +36,9 @@ jest.mock('react-force-graph-2d', () => function MockForceGraph2D({
   nodeRelSize,
   cooldownTicks,
   d3VelocityDecay,
-  nodeCanvasObject
+  nodeCanvasObject,
+  width,
+  height
 }) {
   return (
     <div
@@ -47,6 +49,8 @@ jest.mock('react-force-graph-2d', () => function MockForceGraph2D({
       data-cooldown-ticks={cooldownTicks}
       data-d3-velocity-decay={d3VelocityDecay}
       data-has-custom-node-renderer={nodeCanvasObject ? 'true' : 'false'}
+      data-width={width || ''}
+      data-height={height || ''}
     >
       {(graphData.nodes || []).map(node => (
         <button key={node.id} type="button" onClick={() => onNodeClick?.(node)}>
@@ -125,11 +129,40 @@ const setViewportWidth = (width) => {
 describe('WikiIndex graph', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    window.history.pushState({}, '', '/');
     setViewportWidth(1024);
     getWikiBriefing.mockRejectedValue(new Error('not relevant in WikiIndex tests'));
     createWikiPage.mockResolvedValue({ _id: 'wiki-new', title: 'Portfolio Concentration' });
+    ingestWikiSource.mockResolvedValue({ runId: 'ingest-1', suggestedCreatePage: false });
     streamMaintainWikiPage.mockResolvedValue({ _id: 'wiki-new', title: 'Portfolio Concentration' });
-    listWikiActivity.mockResolvedValue([{
+    listWikiActivity.mockImplementation(() => new Promise(() => {}));
+    listWikiPages.mockResolvedValue(graphPages);
+    rebuildWikiGraph.mockResolvedValue({ edgesCreated: 1, edgesDeleted: 0 });
+    fetchGraphData.mockResolvedValue({
+      nodes: [
+        { id: 'wiki_page:wiki-1', itemType: 'wiki_page', itemId: 'wiki-1', title: 'Enterprise AI Memory' },
+        { id: 'concept:concept-1', itemType: 'concept', itemId: 'concept-1', title: 'Memory' },
+        { id: 'question:question-1', itemType: 'question', itemId: 'question-1', title: 'Question' },
+        { id: 'article:article-1', itemType: 'article', itemId: 'article-1', title: 'Article' },
+        { id: 'highlight:highlight-1', itemType: 'highlight', itemId: 'highlight-1', title: 'Highlight' }
+      ],
+      edges: []
+    });
+  });
+
+  it('renders the graph index with links, filters, and activity', async () => {
+    getWikiBriefing.mockResolvedValueOnce({
+      generatedAt: '2026-05-04T12:00:00.000Z',
+      summary: 'Two wiki pages changed today.',
+      counts: {
+        newSources: 1,
+        recentlyUpdatedPages: 2,
+        driftingPages: 1
+      },
+      recentlyUpdatedPages: [],
+      driftingPages: []
+    });
+    listWikiActivity.mockResolvedValueOnce([{
       id: 'activity-1',
       type: 'ingest',
       status: 'processed',
@@ -138,12 +171,7 @@ describe('WikiIndex graph', () => {
       runId: 'run-1',
       at: '2026-05-04T12:00:00.000Z'
     }]);
-    listWikiPages.mockResolvedValue(graphPages);
-    rebuildWikiGraph.mockResolvedValue({ edgesCreated: 1, edgesDeleted: 0 });
-    fetchGraphData.mockResolvedValue({ nodes: [], edges: [] });
-  });
 
-  it('renders the graph index with links, filters, and activity', async () => {
     render(
       <MemoryRouter>
         <WikiIndex />
@@ -156,24 +184,99 @@ describe('WikiIndex graph', () => {
     expect(graphSurface).toHaveAttribute('data-cooldown-ticks', '90');
     expect(graphSurface).toHaveAttribute('data-d3-velocity-decay', '0.42');
     expect(graphSurface).toHaveAttribute('data-has-custom-node-renderer', 'true');
+    expect(graphSurface).toHaveAttribute('data-width');
+    expect(graphSurface).toHaveAttribute('data-height');
     expect(screen.getByText('Knowledge map')).toBeInTheDocument();
+    expect(await screen.findByTestId('wiki-briefing')).toHaveTextContent('Two wiki pages changed today.');
     expect(screen.getByText('10 pages · 1 link')).toBeInTheDocument();
     expect(screen.getByLabelText('Wiki map signals')).toHaveTextContent('Brightest');
     expect(screen.getByLabelText('Wiki map signals')).toHaveTextContent('8 standalone pages');
     expect(screen.getByLabelText('Wiki map signals')).toHaveTextContent('0 evidence overlaps');
     expect(screen.getByLabelText('Wiki map signals')).not.toHaveTextContent('Review latest connections');
+    expect(screen.getByLabelText('Knowledge map next moves')).toHaveTextContent('Review connection model');
+    expect(screen.getByLabelText('Knowledge map next moves')).toHaveTextContent('Open hub: Enterprise AI Memory');
+    expect(screen.getByLabelText('Knowledge map next moves')).toHaveTextContent('8 standalone pages');
+    expect(screen.getByRole('button', { name: 'Open hub' })).toBeInTheDocument();
     expect(screen.getByLabelText('Knowledge map refresh')).toHaveTextContent('Connections need review');
     expect(screen.getByRole('button', { name: 'Review connections' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /^Inline links\s*1$/ })).toHaveClass('is-active');
     expect(screen.getByRole('link', { name: 'List' })).toHaveAttribute('href', '/wiki/list');
     expect(await screen.findByText('Research memo')).toBeInTheDocument();
     expect(fetchGraphData).toHaveBeenCalledWith(expect.objectContaining({
-      itemTypes: ['wiki_page']
+      itemTypes: ['wiki_page', 'wiki_claim', 'concept', 'question', 'notebook', 'article', 'highlight']
     }));
     expect(listWikiPages).toHaveBeenCalledWith({ limit: 500 });
+    expect(screen.getByLabelText('Corpus shape')).toHaveTextContent('1 wiki · 2 working thoughts · 2 library atoms · 0 live edges');
+    expect(screen.getByLabelText('Corpus shape')).toHaveTextContent('5 graph objects');
 
     fireEvent.change(screen.getByLabelText('Page type'), { target: { value: 'source' } });
-    expect(screen.getByText('1 source-backed page')).toBeInTheDocument();
+    expect(screen.getByText('1 page · 0 links')).toBeInTheDocument();
+  });
+
+  it('hydrates the graph search from the route query and lets the user clear it', async () => {
+    window.history.pushState({}, '', '/wiki/workspace?view=graph&query=Investing');
+    render(
+      <MemoryRouter initialEntries={[{ pathname: '/wiki/workspace', search: '?view=graph&query=Investing' }]}>
+        <WikiIndex />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByTestId('wiki-force-graph')).toBeInTheDocument();
+    expect(screen.getByLabelText('Search knowledge map')).toHaveValue('Investing');
+    expect(screen.getByText('1 page · 0 links')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Clear search' }));
+    expect(screen.getByLabelText('Search knowledge map')).toHaveValue('');
+    expect(screen.getByText('10 pages · 1 link')).toBeInTheDocument();
+  });
+
+  it('drops a source into the wiki from the graph index', async () => {
+    ingestWikiSource.mockResolvedValueOnce({ runId: 'ingest-1', suggestedCreatePage: false });
+    listWikiActivity.mockResolvedValue([]);
+
+    render(
+      <MemoryRouter>
+        <WikiIndex />
+      </MemoryRouter>
+    );
+
+    await screen.findByTestId('wiki-force-graph');
+    fireEvent.change(screen.getByLabelText('Source URL'), {
+      target: { value: 'https://example.com/source' }
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Drop' }));
+
+    await waitFor(() => expect(ingestWikiSource).toHaveBeenCalledWith({ type: 'url', url: 'https://example.com/source' }));
+    expect(await screen.findByText('Source dropped into the wiki')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Review details' })).toHaveAttribute('href', '/wiki/activity/ingest-1');
+    expect(listWikiPages).toHaveBeenCalledTimes(2);
+    await waitFor(() => expect(listWikiActivity).toHaveBeenCalledTimes(2));
+  });
+
+  it('drops pasted text into the wiki from the graph index', async () => {
+    ingestWikiSource.mockResolvedValueOnce({ runId: 'ingest-text-1', suggestedCreatePage: false });
+    listWikiActivity.mockResolvedValue([]);
+
+    render(
+      <MemoryRouter>
+        <WikiIndex />
+      </MemoryRouter>
+    );
+
+    await screen.findByTestId('wiki-force-graph');
+    fireEvent.click(screen.getByRole('button', { name: 'Text' }));
+    fireEvent.change(screen.getByLabelText('Source text'), {
+      target: { value: 'This note explains a new contradiction in the investing thesis.' }
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Drop' }));
+
+    await waitFor(() => expect(ingestWikiSource).toHaveBeenCalledWith({
+      type: 'text',
+      text: 'This note explains a new contradiction in the investing thesis.'
+    }));
+    expect(await screen.findByText('Source dropped into the wiki')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Review details' })).toHaveAttribute('href', '/wiki/activity/ingest-text-1');
+    await waitFor(() => expect(listWikiActivity).toHaveBeenCalledTimes(2));
   });
 
   it('still renders the inline-link graph if persisted map edges fail to load', async () => {
@@ -190,7 +293,7 @@ describe('WikiIndex graph', () => {
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 
-  it('opens an explanatory node panel before navigating to a page', async () => {
+  it('selects the clicked graph node without leaving the map', async () => {
     const onOpenPage = jest.fn();
 
     render(
@@ -205,8 +308,47 @@ describe('WikiIndex graph', () => {
     const panel = screen.getByLabelText('Selected map page');
     expect(panel).toHaveTextContent('Investing');
     expect(panel).toHaveTextContent('Referenced page');
-    fireEvent.click(within(panel).getByRole('button', { name: 'Open page' }));
+    expect(panel).toHaveTextContent('No source or thinking objects are attached to this map node yet.');
+    expect(onOpenPage).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open page' }));
     expect(onOpenPage).toHaveBeenCalledWith('wiki-2');
+  });
+
+  it('surfaces connected source and thought objects from the map inspector', async () => {
+    fetchGraphData.mockResolvedValueOnce({
+      nodes: [
+        { id: 'wiki_page:wiki-1', itemType: 'wiki_page', itemId: 'wiki-1', title: 'Enterprise AI Memory' },
+        { id: 'article:article-1', itemType: 'article', itemId: 'article-1', title: 'Investor Letter' },
+        { id: 'concept:memory', itemType: 'concept', itemId: 'memory', title: 'Memory' },
+        { id: 'question:question-1', itemType: 'question', itemId: 'question-1', title: 'What changed?' }
+      ],
+      edges: [
+        { id: 'edge-1', source: 'article:article-1', target: 'wiki_page:wiki-1', relationType: 'derived_from' },
+        { id: 'edge-2', source: 'wiki_page:wiki-1', target: 'concept:memory', relationType: 'extends' },
+        { id: 'edge-3', source: 'question:question-1', target: 'wiki_page:wiki-1', relationType: 'contradicts' }
+      ]
+    });
+
+    render(
+      <MemoryRouter>
+        <WikiIndex />
+      </MemoryRouter>
+    );
+
+    await screen.findByTestId('wiki-force-graph');
+    fireEvent.click(screen.getByRole('button', { name: 'Enterprise AI Memory' }));
+
+    const connectedObjects = screen.getByLabelText('Connected source and thought objects');
+    expect(connectedObjects).toHaveTextContent('Investor Letter');
+    expect(connectedObjects).toHaveTextContent('Source material');
+    expect(connectedObjects).toHaveTextContent('Memory');
+    expect(connectedObjects).toHaveTextContent('Extends the synthesis');
+    expect(connectedObjects).toHaveTextContent('What changed?');
+    expect(connectedObjects).toHaveTextContent('Creates tension');
+    expect(screen.getByRole('link', { name: 'Open library source' })).toHaveAttribute('href', '/library?articleId=article-1');
+    expect(screen.getByRole('link', { name: 'Open concept' })).toHaveAttribute('href', '/think?tab=concepts&concept=Memory');
+    expect(screen.getByRole('link', { name: 'Open question' })).toHaveAttribute('href', '/think?tab=questions&questionId=question-1');
   });
 
   it('uses reader-facing map language in the graph details and refresh controls', async () => {
@@ -289,7 +431,24 @@ describe('WikiIndex graph', () => {
     expect(screen.queryByTestId('wiki-force-graph')).not.toBeInTheDocument();
     expect(screen.getByLabelText('Build wiki pages')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Build page' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Add source' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Enterprise AI Memory/ })).toBeInTheDocument();
+  });
+
+  it('lets the empty map state route to source metabolizing', async () => {
+    const onOpenSources = jest.fn();
+    listWikiPages.mockResolvedValueOnce(pages);
+
+    render(
+      <MemoryRouter>
+        <WikiIndex onOpenSources={onOpenSources} />
+      </MemoryRouter>
+    );
+
+    await screen.findByText('2 source-backed pages');
+    fireEvent.click(screen.getByRole('button', { name: 'Add source' }));
+
+    expect(onOpenSources).toHaveBeenCalledTimes(1);
   });
 
   it('renders an early constellation with a sparse hint once the wiki has at least three pages', async () => {

@@ -25,7 +25,7 @@ const usePersonalAgents = () => {
       const rows = await listPersonalAgents();
       setAgents(Array.isArray(rows) ? rows : []);
     } catch (error) {
-      setAgentsError(error.response?.data?.error || 'Failed to load personal agents.');
+      setAgentsError(error.response?.data?.error || 'Failed to load specialist agents.');
       setAgents([]);
     } finally {
       setAgentsLoading(false);
@@ -62,7 +62,7 @@ const usePersonalAgents = () => {
       setAgentWorkerRoles([]);
       setNewAgentKey(String(response?.apiKey || '').trim());
     } catch (error) {
-      setAgentsError(error.response?.data?.error || 'Failed to create personal agent.');
+      setAgentsError(error.response?.data?.error || 'Failed to create specialist agent.');
     } finally {
       setCreatingAgent(false);
     }
@@ -78,7 +78,7 @@ const usePersonalAgents = () => {
       await loadAgents();
       return response?.agent || null;
     } catch (error) {
-      setAgentsError(error.response?.data?.error || 'Failed to update personal agent.');
+      setAgentsError(error.response?.data?.error || 'Failed to update specialist agent.');
       return null;
     } finally {
       setAgentBusyId('');
@@ -96,7 +96,7 @@ const usePersonalAgents = () => {
       await loadAgents();
       setNewAgentKey(String(response?.apiKey || '').trim());
     } catch (error) {
-      setAgentsError(error.response?.data?.error || 'Failed to rotate personal agent key.');
+      setAgentsError(error.response?.data?.error || 'Failed to rotate specialist agent key.');
     } finally {
       setAgentBusyId('');
     }
@@ -111,7 +111,7 @@ const usePersonalAgents = () => {
       await disablePersonalAgent(safeId);
       await loadAgents();
     } catch (error) {
-      setAgentsError(error.response?.data?.error || 'Failed to disable personal agent.');
+      setAgentsError(error.response?.data?.error || 'Failed to disable specialist agent.');
     } finally {
       setAgentBusyId('');
     }

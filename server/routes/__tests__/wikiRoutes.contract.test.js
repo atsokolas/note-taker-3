@@ -1080,12 +1080,38 @@ const run = async () => {
     assert.strictEqual(ingest.body.status, 'processed');
     assert.ok(ingest.body.affectedPageIds.includes(String(created.body._id)));
     assert.ok(ingest.body.summary.includes('Updated'));
+    assert.ok(Array.isArray(ingest.body.candidateUpdates));
+    assert.ok(ingest.body.candidateUpdates.some(candidate => (
+      candidate.targetType === 'wiki_page'
+      && candidate.pageId === String(created.body._id)
+      && candidate.status === 'updated'
+    )));
+    const wikiCandidate = ingest.body.candidateUpdates.find(candidate => candidate.pageId === String(created.body._id));
+    assert.strictEqual(ingest.body.reviewStatus, 'pending_review');
 
     const ingestDetails = await request(url, `/api/wiki/ingest/${ingest.body.runId}`);
     assert.strictEqual(ingestDetails.res.status, 200, ingestDetails.text);
     assert.strictEqual(ingestDetails.body.runId, ingest.body.runId);
     assert.ok(ingestDetails.body.affectedPageIds.includes(String(created.body._id)));
     assert.ok(ingestDetails.body.timeline.some(item => item.type === 'maintenance'));
+    assert.strictEqual(ingestDetails.body.reviewStatus, 'pending_review');
+
+    const reviewedIngest = await request(url, `/api/wiki/ingest/${ingest.body.runId}/review`, {
+      method: 'POST',
+      body: JSON.stringify({
+        action: 'defer',
+        note: 'Review after adding more sources.',
+        candidateIds: [wikiCandidate.id]
+      })
+    });
+    assert.strictEqual(reviewedIngest.res.status, 200, reviewedIngest.text);
+    assert.strictEqual(reviewedIngest.body.runId, ingest.body.runId);
+    assert.strictEqual(reviewedIngest.body.reviewStatus, 'partially_deferred');
+    assert.ok(reviewedIngest.body.candidateUpdates.some(candidate => (
+      candidate.pageId === String(created.body._id)
+      && candidate.status === 'deferred'
+      && candidate.reviewAction === 'defer'
+    )));
 
     const asked = await request(url, `/api/wiki/pages/${created.body._id}/ask`, {
       method: 'POST',
@@ -1093,6 +1119,15 @@ const run = async () => {
     });
     assert.strictEqual(asked.res.status, 200, asked.text);
     assert.strictEqual(asked.body.discussions.length, 1);
+
+    const streamedAsk = await request(url, `/api/wiki/pages/${created.body._id}/ask/stream`, {
+      method: 'POST',
+      body: JSON.stringify({ question: 'What changed after the ingest?' })
+    });
+    assert.strictEqual(streamedAsk.res.status, 200, streamedAsk.text);
+    assert.match(streamedAsk.res.headers.get('content-type') || '', /text\/event-stream/);
+    assert.ok(streamedAsk.text.includes('event: wiki-ask-delta'));
+    assert.ok(streamedAsk.text.includes('"stage":"complete"'));
 
     const neighborPage = new WikiPage({
       userId: 'user-1',

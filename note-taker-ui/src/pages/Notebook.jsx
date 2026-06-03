@@ -792,7 +792,14 @@ const Notebook = () => {
                   <EditorContent editor={editor} />
                 </div>
                 <div style={{ marginTop: 12 }}>
-                  <ReferencesPanel targetType="notebook" targetId={activeId} label="Links in this note" />
+                  <ReferencesPanel
+                    targetType="notebook"
+                    targetId={activeId}
+                    label="Links in this note"
+                    defaultOpen
+                    showToggle={false}
+                    heading="Links in this note"
+                  />
                 </div>
                 <div style={{ marginTop: 12 }}>
                   <WorkingMemoryPanel

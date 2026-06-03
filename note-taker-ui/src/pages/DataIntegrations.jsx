@@ -21,6 +21,7 @@ import {
   updateImportSession
 } from '../api/imports';
 import { createReturnQueueEntry } from '../api/returnQueue';
+import { AGENT_DISPLAY_NAME } from '../constants/agentIdentity';
 import {
   clearFirstInsightState,
   getFirstInsightOpenPath,
@@ -1002,17 +1003,17 @@ const DataIntegrations = () => {
     }
     setNotionAgentFetching(true);
     setNotionAgentResult(null);
-    setStatus('Asking the agent to fetch your Notion pages…');
+    setStatus(`Asking ${AGENT_DISPLAY_NAME} to fetch your Notion pages…`);
     try {
       const result = await fetchNotionPagesViaAgent({ connectionId: notionConnection.id });
       setNotionAgentResult(result);
-      setStatus(result?.summary || 'Agent finished fetching from Notion.', result?.failed ? 'warning' : 'success');
+      setStatus(result?.summary || `${AGENT_DISPLAY_NAME} finished fetching from Notion.`, result?.failed ? 'warning' : 'success');
     } catch (error) {
       console.error('Agent Notion fetch failed:', error);
       const message = error?.response?.data?.summary
         || error?.response?.data?.error
         || error?.message
-        || 'Agent fetch failed.';
+        || `${AGENT_DISPLAY_NAME} fetch failed.`;
       setStatus(message, 'error');
     } finally {
       setNotionAgentFetching(false);
@@ -1832,9 +1833,9 @@ const DataIntegrations = () => {
           ) : null}
           {showOrganizeImportCta ? (
             <div className="import-callout">
-              <p className="muted-label">Agent next step</p>
+              <p className="muted-label">{AGENT_DISPLAY_NAME} next step</p>
               <p className="muted small">
-                Imported text is ready. If you want, the agent can stage a folder cleanup plan before anything moves.
+                Imported text is ready. If you want, {AGENT_DISPLAY_NAME} can stage a folder cleanup plan before anything moves.
               </p>
               <Button
                 type="button"

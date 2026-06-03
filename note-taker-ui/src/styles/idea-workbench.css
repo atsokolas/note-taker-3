@@ -458,7 +458,7 @@
   background: var(--workbench-surface-tinted);
   border: 1px solid var(--workbench-tint);
   color: var(--workbench-ink);
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--noeis-ui-font, -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif);
   font-size: 0.62rem;
   letter-spacing: 0.22em;
   text-transform: uppercase;

@@ -107,6 +107,24 @@ describe('renderTiptapDoc', () => {
     expect(link).toHaveAttribute('data-wiki-title', 'Compounding interest');
   });
 
+  it('demotes body h1 headings so the page title owns the document h1', () => {
+    render(
+      <div>
+        {renderTiptapDoc({
+          type: 'doc',
+          content: [{
+            type: 'heading',
+            attrs: { level: 1 },
+            content: [{ type: 'text', text: 'Model generated title' }]
+          }]
+        })}
+      </div>
+    );
+
+    expect(screen.queryByRole('heading', { level: 1 })).not.toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 2, name: 'Model generated title' })).toBeInTheDocument();
+  });
+
   it('strips model source-range citation artifacts from prose', () => {
     render(
       <div>

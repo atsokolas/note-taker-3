@@ -197,14 +197,23 @@ describe('wikiAskService', () => {
   describe('buildFallbackAnswer', () => {
     it('cites the top two attached sources when present', () => {
       const sources = buildSourceList(buildPage().sourceRefs);
-      const out = buildFallbackAnswer({ page: buildPage(), sources, question: 'why?' });
-      expect(out.citationIndexesUsed).toEqual([1, 2]);
-      expect(out.paragraphs.length).toBeGreaterThanOrEqual(2);
+      const out = buildFallbackAnswer({ page: buildPage(), sources, question: 'What makes compounding useful?' });
+      expect(out.citationIndexesUsed).toContain(2);
+      expect(out.paragraphs).toHaveLength(1);
+      expect(out.paragraphs[0].text).toMatch(/compounding/i);
     });
 
     it('returns no citation indexes when no sources are attached', () => {
       const out = buildFallbackAnswer({ page: { title: 'X', body: {} }, sources: [], question: 'why?' });
       expect(out.citationIndexesUsed).toEqual([]);
+    });
+
+    it('admits when the page lacks evidence for the question instead of returning nearest generic material', () => {
+      const sources = buildSourceList(buildPage().sourceRefs);
+      const out = buildFallbackAnswer({ page: buildPage(), sources, question: 'What is the weather in Chicago?' });
+      expect(out.citationIndexesUsed).toEqual([]);
+      expect(out.paragraphs[0].text).toMatch(/do not see enough evidence/i);
+      expect(out.paragraphs[0].text).not.toMatch(/most relevant material/i);
     });
   });
 
@@ -228,7 +237,7 @@ describe('wikiAskService', () => {
       expect(out.status).toBe('answered');
       expect(out.model).toBe('stub');
       expect(out.answer.type).toBe('doc');
-      expect(out.citationIndexesUsed).toEqual([1, 2]);
+      expect(out.citationIndexesUsed).toEqual([2]);
       const marks = findClaimMarks(out.answer);
       expect(marks.length).toBeGreaterThan(0);
     });

@@ -8,25 +8,17 @@ import WikiBriefing from './WikiBriefing';
 import WikiEmergingProposals from './WikiEmergingProposals';
 import WikiInbox from './WikiInbox';
 import { PAGE_TYPES, formatDate, labelFor } from './wikiGraph';
+import { countWikiSources, wikiPreviewForPage, wikiSourceStatusForPage } from './wikiPageMetrics';
 
 const VISIBILITIES = ['all', 'private', 'shared'];
 const STATUSES = ['all', 'draft', 'published', 'archived'];
 
-const compactText = (value = '', limit = 150) => {
-  const text = String(value || '').replace(/\s+/g, ' ').trim();
-  if (text.length <= limit) return text;
-  return `${text.slice(0, limit).trimEnd()}...`;
-};
-
-const pageSummary = (page = {}) => (
-  page.summary || page.scope || page.description || page.plainText || ''
-);
-
 const WikiPageCard = ({ compact = false, deleting, page, onDelete, onOpen }) => {
   const [actionsOpen, setActionsOpen] = useState(false);
-  const snippet = compactText(pageSummary(page), compact ? 118 : 180);
+  const snippet = wikiPreviewForPage(page, compact ? 118 : 180);
   const title = page.title || 'Untitled Wiki Page';
-  const sourceTotal = Array.isArray(page.sourceRefs) ? page.sourceRefs.length : Number(page.sourceCount || 0);
+  const sourceTotal = countWikiSources(page);
+  const sourceStatus = wikiSourceStatusForPage(page);
   return (
     <SurfaceCard
       className={`wiki-index__page-card${compact ? ' wiki-index__page-card--compact' : ''}`}
@@ -51,7 +43,7 @@ const WikiPageCard = ({ compact = false, deleting, page, onDelete, onOpen }) => 
         <h2>{title}</h2>
         <p>{snippet || 'No body yet. Open the page to start writing.'}</p>
         <div className="wiki-index__page-footer">
-          <span>{sourceTotal} source{sourceTotal === 1 ? '' : 's'}</span>
+          <span>{sourceTotal > 0 ? `${sourceTotal} source${sourceTotal === 1 ? '' : 's'}` : sourceStatus}</span>
           <span>{formatDate(page.updatedAt)}</span>
         </div>
       </Link>
@@ -179,8 +171,10 @@ const WikiList = ({ compact = false, onOpenPage }) => {
     }
   };
 
+  const Container = compact ? 'section' : 'main';
+
   return (
-    <main className={`wiki-page wiki-index${compact ? ' wiki-index--compact' : ''}`}>
+    <Container className={`wiki-page wiki-index${compact ? ' wiki-index--compact' : ''}`}>
       {!compact ? (
         <>
           <WikiBriefing />
@@ -249,7 +243,7 @@ const WikiList = ({ compact = false, onOpenPage }) => {
           />
         ))}
       </section>
-    </main>
+    </Container>
   );
 };
 

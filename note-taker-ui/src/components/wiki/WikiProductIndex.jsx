@@ -2,73 +2,20 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { listWikiPages } from '../../api/wiki';
 import { wikiPagePath } from '../../utils/wikiFeatureFlags';
+import { AGENT_DISPLAY_NAME } from '../../constants/agentIdentity';
 import WikiBuildPageComposer from './WikiBuildPageComposer';
+import AgentTicker from '../agent/AgentTicker';
 import { formatDate, labelFor } from './wikiGraph';
+import {
+  countWikiClaims,
+  countWikiSources,
+  wikiPreviewForPage,
+  wikiSourceStatusForPage
+} from './wikiPageMetrics';
 import '../../styles/wiki-critical.css';
 
 const INDEX_PAGE_LIMIT = 80;
 const FEATURED_LIMIT = 6;
-
-const collectText = (node) => {
-  if (!node) return '';
-  if (typeof node === 'string') return node;
-  if (Array.isArray(node)) return node.map(collectText).join(' ');
-  if (typeof node !== 'object') return '';
-  return [node.text || '', collectText(node.content)].filter(Boolean).join(' ');
-};
-
-const countClaimMarks = (node, out = new Set()) => {
-  if (!node) return out;
-  if (Array.isArray(node)) {
-    node.forEach(child => countClaimMarks(child, out));
-    return out;
-  }
-  if (typeof node !== 'object') return out;
-  (node.marks || []).forEach((mark) => {
-    if (mark?.type !== 'claim') return;
-    const attrs = mark.attrs || {};
-    out.add(attrs.claimId ? String(attrs.claimId) : `${collectText(node).slice(0, 120)}:${out.size}`);
-  });
-  if (Array.isArray(node.content)) countClaimMarks(node.content, out);
-  return out;
-};
-
-const claimCount = (page = {}) => {
-  const explicit = Number(page.claimCount ?? page.claimsCount);
-  const claimIds = new Set();
-  (Array.isArray(page.claims) ? page.claims : []).forEach((claim, index) => {
-    claimIds.add(claim?.claimId || claim?._id || claim?.id || `claim-${index}`);
-  });
-  (Array.isArray(page.citations) ? page.citations : []).forEach((citation) => {
-    const id = citation.claimId || citation.claim?._id || citation.claim?.id;
-    if (id) claimIds.add(id);
-  });
-  countClaimMarks(page.body).forEach(id => claimIds.add(id));
-  return Math.max(Number.isFinite(explicit) ? explicit : 0, claimIds.size);
-};
-
-const sourceCount = (page = {}) => {
-  const explicit = Number(page.sourceCount ?? page.sourcesCount);
-  const sourceIds = new Set();
-  [...(Array.isArray(page.sourceRefs) ? page.sourceRefs : []), ...(Array.isArray(page.sources) ? page.sources : [])]
-    .forEach((source, index) => {
-      sourceIds.add(source?._id || source?.id || source?.sourceRefId || `source-${index}`);
-    });
-  (Array.isArray(page.citations) ? page.citations : []).forEach((citation) => {
-    const id = citation.sourceRefId || citation.sourceId || citation.sourceRef?._id || citation.sourceRef?.id;
-    if (id) sourceIds.add(id);
-  });
-  return Math.max(Number.isFinite(explicit) ? explicit : 0, sourceIds.size);
-};
-
-const scaffoldPattern = /(still needs source-backed development|needs stronger source material|no matching library evidence|not enough source material|should explain the concept)/i;
-
-const sourceStatusFor = (page = {}) => {
-  const sources = sourceCount(page);
-  if (sources > 0) return `${sources} sources · ${claimCount(page)} claims`;
-  const bodyText = collectText(page.body || page.plainText || page.summary || '');
-  return scaffoldPattern.test(bodyText) ? 'Draft scaffold · needs sources' : 'Draft · needs sources';
-};
 
 // AT-293: key-page cards used to dump the entire article body whenever a page
 // had no curated summary/scope (it fell straight through to page.plainText,
@@ -77,38 +24,13 @@ const sourceStatusFor = (page = {}) => {
 // wiki home stays a calm entry point.
 const PREVIEW_CHAR_BUDGET = 160;
 
-const cleanPreviewText = (value = '', title = '') => {
-  let text = String(value || '')
-    // drop inline citation markers like [1], [2,3], [4-6]
-    .replace(/\[\s*\d+(?:\s*[,–-]\s*\d+)*\s*\]/g, '')
-    .replace(/\s+/g, ' ')
-    .trim();
-  // plainText often begins by repeating the page title (heading flattened into
-  // the body run). Strip a leading title echo so the excerpt starts on prose.
-  const trimmedTitle = String(title || '').replace(/\s+/g, ' ').trim();
-  if (trimmedTitle && text.toLowerCase().startsWith(trimmedTitle.toLowerCase())) {
-    text = text.slice(trimmedTitle.length).replace(/^[\s:–-]+/, '').trim();
-  }
-  return text;
-};
-
-const clampPreview = (value = '', budget = PREVIEW_CHAR_BUDGET) => {
-  if (value.length <= budget) return value;
-  const slice = value.slice(0, budget);
-  const lastStop = Math.max(slice.lastIndexOf('. '), slice.lastIndexOf('? '), slice.lastIndexOf('! '));
-  if (lastStop > budget * 0.5) return slice.slice(0, lastStop + 1).trim();
-  const lastSpace = slice.lastIndexOf(' ');
-  return `${slice.slice(0, lastSpace > 0 ? lastSpace : budget).trim()}…`;
-};
-
 const summaryFor = (page = {}) => {
-  const source = page.summary || page.scope || page.plainText || '';
-  return clampPreview(cleanPreviewText(source, page.title));
+  return wikiPreviewForPage(page, PREVIEW_CHAR_BUDGET);
 };
 
 const pageWeight = (page = {}) => (
-  sourceCount(page) * 3
-  + claimCount(page) * 2
+  countWikiSources(page) * 3
+  + countWikiClaims(page) * 2
   + (page.updatedAt ? 1 : 0)
   + (page.lastReviewedAt ? 1 : 0)
 );
@@ -160,8 +82,29 @@ const WikiProductIndex = () => {
   ), [pages]);
 
   const types = useMemo(() => topPageTypes(pages), [pages]);
-  const totalSources = useMemo(() => pages.reduce((sum, page) => sum + sourceCount(page), 0), [pages]);
+  const totalSources = useMemo(() => pages.reduce((sum, page) => sum + countWikiSources(page), 0), [pages]);
   const hasSourceBackedPages = totalSources > 0;
+  const agentTraceLines = useMemo(() => {
+    if (loading) {
+      return [
+        'scanning wiki corpus',
+        'loading page graph'
+      ];
+    }
+    if (!pages.length) {
+      return [
+        'wiki corpus empty',
+        'ready to build first page'
+      ];
+    }
+    const draftCount = pages.filter(page => countWikiSources(page) === 0).length;
+    const updated = recentlyUpdated[0]?.title || 'no recent page';
+    return [
+      `scanned ${pages.length} page${pages.length === 1 ? '' : 's'} · ${totalSources} sources`,
+      draftCount ? `${draftCount} draft page${draftCount === 1 ? '' : 's'} need sources` : 'all shown pages have source memory',
+      `latest update · ${updated}`
+    ];
+  }, [loading, pages, recentlyUpdated, totalSources]);
   // AT-294: render a shimmer chip while loading instead of the word "Loading..."
   // so a slow backend cold-start reads as "working" rather than "broken".
   const statValue = (value) => (
@@ -178,9 +121,15 @@ const WikiProductIndex = () => {
           <h1>{hasSourceBackedPages ? 'Your source-backed knowledge base' : 'Your wiki workspace'}</h1>
           <p>
             {hasSourceBackedPages
-              ? 'Browse the strongest synthesized pages, ask the agent to build a new one, or open the workspace when you need graph, ingest, and maintenance controls.'
+              ? `Browse the strongest synthesized pages, ask ${AGENT_DISPLAY_NAME.toLowerCase()} to build a new one, or open the workspace when you need graph, ingest, and maintenance controls.`
               : 'Draft pages live here until the agent attaches enough source material to turn them into durable synthesis.'}
           </p>
+          <AgentTicker
+            label="Wiki corpus trace"
+            className="wiki-product-index__ticker"
+            state={loading ? 'working' : 'idle'}
+            lines={agentTraceLines}
+          />
         </div>
         <WikiBuildPageComposer compact className="wiki-product-index__builder" />
       </section>
@@ -230,7 +179,7 @@ const WikiProductIndex = () => {
       {!loading && !pages.length ? (
         <section className="wiki-index__empty">
           <h2>No wiki pages yet</h2>
-          <p>Ask the agent to build the first page from your library or a source URL.</p>
+          <p>Ask {AGENT_DISPLAY_NAME.toLowerCase()} to build the first page from your library or a source URL.</p>
         </section>
       ) : null}
 
@@ -245,8 +194,8 @@ const WikiProductIndex = () => {
               <Link key={page._id || page.id} className="wiki-product-index__card" to={wikiPagePath(page._id || page.id)}>
                 <span>{labelFor(page.pageType || 'topic')}</span>
                 <h3>{page.title || 'Untitled page'}</h3>
-                <p>{summaryFor(page) || (sourceCount(page) > 0 ? 'Open this page to review its current synthesis.' : 'Needs source material before it can become durable synthesis.')}</p>
-                <small>{sourceStatusFor(page)}</small>
+                <p>{summaryFor(page) || (countWikiSources(page) > 0 ? 'Open this page to review its current synthesis.' : 'Needs source material before it can become durable synthesis.')}</p>
+                <small>{wikiSourceStatusForPage(page)}</small>
               </Link>
             ))}
           </div>

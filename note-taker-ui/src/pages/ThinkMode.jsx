@@ -1,10 +1,11 @@
 import React, { Profiler, Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { PageTitle, SectionHeader, QuietButton, Button, TagChip, SegmentedNav, SurfaceCard } from '../components/ui';
 import useConcepts from '../hooks/useConcepts';
 import useConcept from '../hooks/useConcept';
 import useConceptRelated from '../hooks/useConceptRelated';
 import ReferencesPanel from '../components/ReferencesPanel';
+import ReferencePullIn from '../components/references/ReferencePullIn';
 import {
   updateConcept,
   updateConceptPins,
@@ -26,7 +27,9 @@ import { getAuthHeaders } from '../hooks/useAuthHeaders';
 import useIdeaWorkbenchModel from '../components/think/concepts/idea-workbench/useIdeaWorkbenchModel';
 import { formatEditorialEvidenceHtml } from '../components/think/concepts/formatEditorialEvidenceHtml';
 import VirtualList from '../components/virtual/VirtualList';
-import { getConnectionsForScope } from '../api/connections';
+import { createConnection, getConnectionsForScope } from '../api/connections';
+import { createWikiPage, listWikiActivity, listWikiPages } from '../api/wiki';
+import { wikiPagePath } from '../utils/wikiFeatureFlags';
 import { createProfilerLogger, endPerfTimer, logPerf, startPerfTimer } from '../utils/perf';
 import { listReturnQueue } from '../api/returnQueue';
 import { getArticles } from '../api/articles';
@@ -64,6 +67,10 @@ import {
 } from '../utils/ambientAgentContext';
 import { buildQueuedAgentSkillPrompt } from '../utils/agentSkillInvocation';
 import { buildConceptAgentHandoffPayload } from '../utils/conceptAgentHandoff';
+import { buildThinkWikiPromotionPayload } from '../utils/thinkWikiPromotion';
+import { classifyHomeUniversalCommand } from '../utils/homeUniversalCommand';
+import { navigateWithViewTransition } from '../utils/viewTransitionNavigation';
+import { AGENT_DISPLAY_NAME } from '../constants/agentIdentity';
 
 const NotebookEditor = lazy(() => import('../components/think/notebook/NotebookEditor'));
 const NotebookContext = lazy(() => import('../components/think/notebook/NotebookContext'));
@@ -104,13 +111,60 @@ const THINK_QUESTION_ROW_HEIGHT = 60;
 const THINK_HOME_LIMIT = 6;
 const CONCEPT_COMPOSER_DEFAULT_STATE = { message: '', tone: 'success' };
 const cleanText = (value = '') => String(value || '').trim();
+const pulledReferenceKey = (item = {}) => `${cleanText(item.itemType || item.type)}:${cleanText(item.itemId || item.id)}`;
+const pulledReferenceRelatedItem = (item = {}) => ({
+  type: cleanText(item.itemType || item.type),
+  id: cleanText(item.itemId || item.id),
+  title: cleanText(item.title || item.label || item.url || item.snippet),
+  snippet: cleanText(item.snippet || item.description || item.url)
+});
 const previewText = (value = '') => cleanText(String(value || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' '));
+const questionCounterSignalPattern = /\b(counter|contradict|against|but|however|although|risk|tension|weak|problem|trade[-\s]?off|fails?|doubt|uncertain)\b/i;
+const isQuestionCounterSignal = (value = '') => questionCounterSignalPattern.test(String(value || ''));
+const formatQuestionEvidenceSource = (item = {}) => cleanText(
+  item.metadata?.articleTitle
+  || item.metadata?.sourceTitle
+  || item.metadata?.title
+  || item.sourceTitle
+  || item.title
+  || ''
+);
 const normalizeNotebookFolderId = (value = '') => String(value || '').trim();
 const THINK_SUB_NAV_ITEMS = [
-  { value: 'concepts', label: 'Concepts' },
-  { value: 'notebook', label: 'Notebook' },
-  { value: 'questions', label: 'Questions' }
+  { value: 'concepts', label: 'Generative', meta: 'Concept', ariaLabel: 'Generative concept posture' },
+  { value: 'notebook', label: 'Quiet', meta: 'Notebook', ariaLabel: 'Quiet notebook posture' },
+  { value: 'questions', label: 'Dialectical', meta: 'Question', ariaLabel: 'Dialectical question posture' }
 ];
+
+const THINK_POSTURE_OPTIONS = [
+  {
+    value: 'concept',
+    label: 'Concept',
+    summary: 'Builder mode: develop one idea, pull related material, and decide what deserves structure.'
+  },
+  {
+    value: 'question',
+    label: 'Question',
+    summary: 'Challenger mode: pressure-test claims, ask what would change your mind, and surface counter-evidence.'
+  },
+  {
+    value: 'notebook',
+    label: 'Notebook',
+    summary: 'Quiet mode: keep loose notes nearby until they are ready to become a concept, question, or draft.'
+  }
+];
+
+const THINK_POSTURE_BY_VIEW = {
+  concepts: 'concept',
+  questions: 'question',
+  notebook: 'notebook'
+};
+
+const THINK_VIEW_BY_POSTURE = {
+  concept: 'concepts',
+  question: 'questions',
+  notebook: 'notebook'
+};
 
 const THINK_ADVANCED_NAV_ITEMS = [
   { value: 'threads', label: 'Threads' },
@@ -168,13 +222,13 @@ const formatAiError = (err, fallback = 'Request failed.') => {
   const model = typeof data?.model === 'string' ? data.model : '';
   const message = typeof data?.message === 'string' ? data.message : '';
   if (status === 400 && detail === 'HF model not supported by enabled provider') {
-    return `AI model configuration issue (${provider || 'unknown provider'} / ${model || 'unknown model'}). Ask admin to update HF_TEXT_MODEL or HF_PROVIDER.`;
+    return `Thought partner model configuration issue (${provider || 'unknown provider'} / ${model || 'unknown model'}). Ask admin to update HF_TEXT_MODEL or HF_PROVIDER.`;
   }
   if (status === 429 && detail === 'HF credits depleted') {
-    return 'AI credits are depleted. Buy Hugging Face credits or wait for reset.';
+    return 'Thought partner credits are depleted. Buy Hugging Face credits or wait for reset.';
   }
   if (status === 502 && /service error 429/i.test(message)) {
-    return 'AI provider is temporarily rate-limited. Please retry in a minute.';
+    return 'Thought partner provider is temporarily rate-limited. Please retry in a minute.';
   }
   const bodySnippet = typeof data === 'string'
     ? data.slice(0, 300)
@@ -301,7 +355,7 @@ const QuestionListItem = React.memo(({ question, isActive, onOpen }) => (
 ));
 
 const EditorialRail = React.memo(({
-  heroTitle = 'The Partner',
+  heroTitle = AGENT_DISPLAY_NAME,
   heroSubtitle = 'Contextual intelligence',
   ctaLabel = 'New inquiry',
   onCta = () => {},
@@ -389,6 +443,7 @@ const ThinkPanelFallback = () => (
 );
 
 const ThinkMode = () => {
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const queryConcept = searchParams.get('concept') || '';
   const allowedViews = useMemo(() => ['home', 'notebook', 'concepts', 'questions', 'threads', 'handoffs', 'paths', 'insights'], []);
@@ -412,6 +467,7 @@ const ThinkMode = () => {
   const selectedPathId = searchParams.get('pathId') || '';
   const selectedHandoffId = searchParams.get('handoffId') || '';
   const selectedThreadId = searchParams.get('threadId') || '';
+  const shouldOpenReferencePullIn = searchParams.get('pull') === '1';
   const [search, setSearch] = useState('');
   const [descriptionDraft, setDescriptionDraft] = useState('');
   const [isEditingSummary, setIsEditingSummary] = useState(false);
@@ -477,6 +533,8 @@ const ThinkMode = () => {
   const [contextConnections, setContextConnections] = useState([]);
   const [contextConnectionsLoading, setContextConnectionsLoading] = useState(false);
   const [contextConnectionsError, setContextConnectionsError] = useState('');
+  const [pulledThinkReferences, setPulledThinkReferences] = useState([]);
+  const [wikiPromotionState, setWikiPromotionState] = useState({ busyTarget: '', error: '', phase: '' });
 
   const [notebookEntries, setNotebookEntries] = useState([]);
   const [notebookFolders, setNotebookFolders] = useState([]);
@@ -504,6 +562,8 @@ const ThinkMode = () => {
   const [homeArticles, setHomeArticles] = useState([]);
   const [homeArticlesLoading, setHomeArticlesLoading] = useState(false);
   const [homeArticlesError, setHomeArticlesError] = useState('');
+  const [homeWikiPages, setHomeWikiPages] = useState([]);
+  const [homeWikiActivity, setHomeWikiActivity] = useState([]);
   const [collapsedIndexGroups, setCollapsedIndexGroups] = useState(() => readCollapsedIndexGroups());
   const [rightOpen, setRightOpen] = useState(() => {
     try {
@@ -542,6 +602,14 @@ const ThinkMode = () => {
     params.delete('scopeId');
     setSearchParams(params);
   }, [searchParams, setSearchParams]);
+
+  useEffect(() => {
+    if (!shouldOpenReferencePullIn) return;
+    setRightOpen(true);
+    const params = new URLSearchParams(searchParams);
+    params.delete('pull');
+    setSearchParams(params, { replace: true });
+  }, [searchParams, setSearchParams, shouldOpenReferencePullIn]);
 
   const threadsModel = useAgentThreads({
     enabled: activeView === 'threads',
@@ -1071,7 +1139,7 @@ const ThinkMode = () => {
         const response = await api.get('/api/ai/health', getAuthHeaders());
         if (!cancelled) {
           if (response?.data?.status === 'disabled' || response?.data?.error === 'AI_DISABLED') {
-            setAiHealthError('AI insights are currently disabled. Use themes and connections later, but keep working in concepts, notebook, and questions now.');
+            setAiHealthError('Partner insights are currently disabled. Use themes and connections later, but keep working in concepts, notebook, and questions now.');
             setAiHealthStatus('disabled');
           } else {
             setAiHealthStatus('ok');
@@ -1081,9 +1149,9 @@ const ThinkMode = () => {
         if (cancelled) return;
         const code = err.response?.data?.error;
         if (code === 'AI_DISABLED') {
-          setAiHealthError('AI insights are currently disabled. Enable AI on the server to restore this tab.');
+          setAiHealthError('Partner insights are currently disabled. Enable the partner service on the server to restore this tab.');
         } else {
-          setAiHealthError('AI insights are temporarily unavailable. You can keep working while we reconnect.');
+          setAiHealthError('Partner insights are temporarily unavailable. You can keep working while we reconnect.');
         }
         setAiHealthStatus('error');
       }
@@ -1347,13 +1415,27 @@ const ThinkMode = () => {
       setHomeArticlesLoading(true);
       setHomeArticlesError('');
       try {
-        const [queueRows, articleRows] = await Promise.all([
+        const [queueResult, articleResult, wikiPagesResult, wikiActivityResult] = await Promise.allSettled([
           listReturnQueue({ filter: 'all' }),
-          getArticles({ sort: 'recent', limit: THINK_HOME_LIMIT })
+          getArticles({ sort: 'recent', limit: THINK_HOME_LIMIT }),
+          listWikiPages({ limit: 500 }),
+          listWikiActivity({ limit: THINK_HOME_LIMIT })
         ]);
         if (cancelled) return;
+        const queueRows = queueResult.status === 'fulfilled' ? queueResult.value : [];
+        const articleRows = articleResult.status === 'fulfilled' ? articleResult.value : [];
+        const wikiPageRows = wikiPagesResult.status === 'fulfilled' ? wikiPagesResult.value : [];
+        const wikiActivityRows = wikiActivityResult.status === 'fulfilled' ? wikiActivityResult.value : [];
         setHomeReturnQueue(Array.isArray(queueRows) ? queueRows.slice(0, THINK_HOME_LIMIT) : []);
         setHomeArticles(Array.isArray(articleRows) ? articleRows.slice(0, THINK_HOME_LIMIT) : []);
+        setHomeWikiPages(Array.isArray(wikiPageRows) ? wikiPageRows : []);
+        setHomeWikiActivity(Array.isArray(wikiActivityRows) ? wikiActivityRows.slice(0, THINK_HOME_LIMIT) : []);
+        const failed = [queueResult, articleResult].find(result => result.status === 'rejected');
+        if (failed) {
+          const message = failed.reason?.response?.data?.error || 'Failed to load Think home.';
+          setHomeQueueError(message);
+          setHomeArticlesError(message);
+        }
       } catch (homeError) {
         if (!cancelled) {
           const message = homeError?.response?.data?.error || 'Failed to load Think home.';
@@ -1625,7 +1707,7 @@ const ThinkMode = () => {
     setConceptComposerSaving(true);
     setConceptComposerScouting(false);
     setConceptComposerStatus({
-      message: runScout ? 'Creating concept and preparing AI scout...' : 'Creating concept...',
+      message: runScout ? 'Creating concept and preparing partner scan...' : 'Creating concept...',
       tone: 'success'
     });
     setConceptError('');
@@ -1635,7 +1717,7 @@ const ThinkMode = () => {
       handleSelectConcept(candidate);
       setConceptComposerStatus({
         message: runScout
-          ? `Created concept: ${candidate}. Running AI scout...`
+          ? `Created concept: ${candidate}. Running partner scan...`
           : `Created concept: ${candidate}.`,
         tone: 'success'
       });
@@ -1656,7 +1738,7 @@ const ThinkMode = () => {
             const itemCount = Number(response?.summary?.itemSuggestions || 0);
             const conceptCount = Number(response?.summary?.conceptSuggestions || 0);
             setConceptComposerStatus({
-              message: `AI scout ready: ${itemCount} items and ${conceptCount} concepts suggested.`,
+              message: `Partner scan ready: ${itemCount} items and ${conceptCount} concepts suggested.`,
               tone: 'success'
             });
           })
@@ -1664,8 +1746,8 @@ const ThinkMode = () => {
             const scoutStatus = Number(scoutError?.response?.status || 0);
             setConceptComposerStatus({
               message: scoutStatus === 401
-                ? 'Concept created, but your session expired before AI scout completed.'
-                : (scoutError?.response?.data?.error || 'Concept created, but AI scout failed.'),
+                ? 'Concept created, but your session expired before the partner scan completed.'
+                : (scoutError?.response?.data?.error || 'Concept created, but the partner scan failed.'),
               tone: 'error'
             });
           })
@@ -2305,6 +2387,95 @@ const ThinkMode = () => {
     }
   };
 
+  const handleHomeUniversalCommand = useCallback(async (rawText = '') => {
+    const intent = classifyHomeUniversalCommand(rawText);
+    const text = cleanText(intent.text || rawText);
+    if (!text) return '';
+    const title = text.length > 90 ? `${text.slice(0, 87)}...` : text;
+
+    if (intent.kind === 'think-home') {
+      handleSelectView('home');
+      return `${AGENT_DISPLAY_NAME} is keeping you in Think.`;
+    }
+
+    if (intent.kind === 'wiki-ingest') {
+      const ingestCommand = intent.command || `/ingest ${intent.source || text}`;
+      try {
+        sessionStorage.setItem('noeis.homeCommand.pendingSourceIngest', intent.source || text.replace(/^\/ingest\s+/i, '').trim());
+      } catch (error) {
+        // Best-effort handoff only; route still works without session storage.
+      }
+      window.location.href = `/wiki/workspace?pane=chat&homeCommand=${encodeURIComponent(ingestCommand)}`;
+      return `${AGENT_DISPLAY_NAME} is feeding this source to Wiki.`;
+    }
+
+    if (intent.kind === 'wiki-build') {
+      try {
+        sessionStorage.setItem('noeis.homeCommand.pendingWikiBuild', text);
+      } catch (error) {
+        // Best-effort handoff only; route still works without session storage.
+      }
+      window.location.href = `/wiki/workspace?pane=chat&homeCommand=${encodeURIComponent(text)}`;
+      return `${AGENT_DISPLAY_NAME} is sending this to Wiki.`;
+    }
+
+    if (intent.kind === 'wiki-graph') {
+      try {
+        sessionStorage.setItem('noeis.homeCommand.pendingGraphQuery', text);
+      } catch (error) {
+        // Best-effort handoff only; route still works without session storage.
+      }
+      window.location.href = `/wiki/workspace?view=graph&query=${encodeURIComponent(text)}`;
+      return `${AGENT_DISPLAY_NAME} is opening the corpus map.`;
+    }
+
+    if (intent.kind === 'library-search') {
+      window.location.href = `/library?query=${encodeURIComponent(text)}`;
+      return `${AGENT_DISPLAY_NAME} is pulling this up in Library.`;
+    }
+
+    if (intent.kind === 'question') {
+      setQuestionSaving(true);
+      setQuestionError('');
+      try {
+        const created = await createQuestion({
+          text,
+          conceptName: '',
+          blocks: [{ id: createBlockId(), type: 'paragraph', text }]
+        });
+        setAllQuestions(prev => [created, ...prev]);
+        setActiveQuestionId(created._id);
+        setActiveQuestion(created);
+        handleSelectView('questions');
+        return `${AGENT_DISPLAY_NAME} opened this as a question.`;
+      } catch (err) {
+        const message = err.response?.data?.error || 'Failed to create question.';
+        setQuestionError(message);
+        throw new Error(message);
+      } finally {
+        setQuestionSaving(false);
+      }
+    }
+
+    if (intent.kind === 'concept') {
+      handleSelectView('concepts');
+      openConceptComposer('hero', text);
+      return `${AGENT_DISPLAY_NAME} is shaping this as a concept.`;
+    }
+
+    try {
+      await createNotebookEntry({
+        title,
+        content: text,
+        blocks: [{ id: createBlockId(), type: 'paragraph', text }]
+      });
+      return `${AGENT_DISPLAY_NAME} saved this as a note.`;
+    } catch (err) {
+      const message = err.response?.data?.error || 'Failed to create note.';
+      throw new Error(message);
+    }
+  }, [createNotebookEntry, handleSelectView, openConceptComposer, setAllQuestions]);
+
   const handleSaveQuestion = async (payload) => {
     if (!payload?._id) return;
     setQuestionSaving(true);
@@ -2522,7 +2693,7 @@ const ThinkMode = () => {
             checked={conceptComposerAutoScout}
             onChange={(event) => setConceptComposerAutoScout(Boolean(event.target.checked))}
           />
-          <span>Run AI scout after create</span>
+          <span>Run partner scan after create</span>
         </label>
         <div className="think-concept-composer-actions">
           <Button
@@ -2749,6 +2920,15 @@ const ThinkMode = () => {
     concepts: concepts.slice(0, THINK_HOME_LIMIT),
     questions: allQuestions.filter(item => item.status !== 'answered').slice(0, THINK_HOME_LIMIT)
   }), [allQuestions, concepts, notebookEntries]);
+  const homeCorpusTelemetry = useMemo(() => ({
+    sources: homeArticles.length,
+    highlights: allHighlights.length,
+    concepts: concepts.length,
+    openThreads: allQuestions.filter(item => item.status !== 'answered').length,
+    wikiPages: homeWikiPages.length,
+    agentMoves: homeWikiActivity.length,
+    returnQueue: homeReturnQueue.length
+  }), [allHighlights.length, allQuestions, concepts.length, homeArticles.length, homeReturnQueue.length, homeWikiActivity.length, homeWikiPages.length]);
   const conceptsWithHighlights = useMemo(
     () => concepts.filter((item) => Number(item?.count || 0) > 0).slice(0, THINK_HOME_LIMIT),
     [concepts]
@@ -2758,7 +2938,7 @@ const ThinkMode = () => {
     'Create directly when the claim is still loose and needs room to move.'
   ];
   const partnerRailNavItems = useMemo(() => ([
-    { key: 'assistant', label: 'Assistant', short: 'As' },
+    { key: 'assistant', label: AGENT_DISPLAY_NAME, short: 'Tp' },
     { key: 'sources', label: 'Sources', short: 'So' },
     { key: 'highlights', label: 'Highlights', short: 'Hi' },
     { key: 'annotations', label: 'Annotations', short: 'An' }
@@ -2766,7 +2946,7 @@ const ThinkMode = () => {
 
   const homeEditorialLeftPanel = (
     <EditorialRail
-      heroTitle="The Partner"
+      heroTitle={AGENT_DISPLAY_NAME}
       heroSubtitle="Contextual intelligence"
       ctaLabel="New inquiry"
       onCta={handleCreateNotebookEntry}
@@ -2912,7 +3092,7 @@ const ThinkMode = () => {
 
   const conceptIndexLeftPanel = (
     <EditorialRail
-      heroTitle="The Partner"
+      heroTitle={AGENT_DISPLAY_NAME}
       heroSubtitle="Contextual intelligence"
       ctaLabel="New inquiry"
       onCta={() => openConceptComposer('sidebar', search)}
@@ -3068,7 +3248,7 @@ const ThinkMode = () => {
 
   const notebookEditorialLeftPanel = (
     <EditorialRail
-      heroTitle="The Partner"
+      heroTitle={AGENT_DISPLAY_NAME}
       heroSubtitle="Contextual intelligence"
       ctaLabel={null}
       onCta={handleCreateNotebookEntry}
@@ -3233,7 +3413,7 @@ const ThinkMode = () => {
     <div className="section-stack">
       <SectionHeader title="Insights" subtitle="Themes and connections across your thinking." />
       {aiHealthStatus === 'loading' && (
-        <p className="muted small">Checking AI service…</p>
+        <p className="muted small">Checking partner service...</p>
       )}
       {(aiHealthStatus === 'error' || aiHealthStatus === 'disabled') && (
         <p className="status-message error-message">{aiHealthError}</p>
@@ -3244,7 +3424,7 @@ const ThinkMode = () => {
             <span className="think-insights-fallback__eyebrow">Insights paused</span>
             <h3>Keep the work moving in the core surfaces.</h3>
             <p>
-              The AI insight layer is offline right now, so this tab stays read-only instead of pretending to be live.
+              The partner insight layer is offline right now, so this tab stays read-only instead of pretending to be live.
               Use concept pressure, notebook handoffs, and question tracking until the service comes back.
             </p>
           </div>
@@ -3416,8 +3596,9 @@ const ThinkMode = () => {
     concept
   ]);
   const thoughtPartnerContextMetadata = useMemo(() => {
+    let baseContext;
     if (activeView === 'concepts' && concept?._id) {
-      return buildConceptAmbientContext({
+      baseContext = buildConceptAmbientContext({
         concept,
         conceptQuestions,
         conceptSuggestions,
@@ -3425,31 +3606,38 @@ const ThinkMode = () => {
         pinnedArticles,
         pinnedNotes
       });
-    }
-    if (activeView === 'notebook' && activeNotebookEntry?._id) {
-      return buildNotebookAmbientContext({ entry: activeNotebookEntry });
-    }
-    if (activeView === 'questions' && activeQuestionData?._id) {
-      return buildQuestionAmbientContext({
+    } else if (activeView === 'notebook' && activeNotebookEntry?._id) {
+      baseContext = buildNotebookAmbientContext({ entry: activeNotebookEntry });
+    } else if (activeView === 'questions' && activeQuestionData?._id) {
+      baseContext = buildQuestionAmbientContext({
         question: activeQuestionData,
         questionRelated
       });
-    }
-    if (activeView === 'handoffs' && activeHandoffData?.handoffId) {
-      return buildHandoffAmbientContext({ handoff: activeHandoffData });
-    }
-    if (activeView === 'home') {
-      return buildHomeAmbientContext({
+    } else if (activeView === 'handoffs' && activeHandoffData?.handoffId) {
+      baseContext = buildHandoffAmbientContext({ handoff: activeHandoffData });
+    } else if (activeView === 'home') {
+      baseContext = buildHomeAmbientContext({
         homeWorkingSet,
         recentTargets
       });
+    } else {
+      baseContext = {
+        summary: '',
+        primaryText: '',
+        openQuestions: [],
+        nextActions: [],
+        relatedItems: []
+      };
     }
+    if (!pulledThinkReferences.length) return baseContext;
+    const pulledKeys = new Set(pulledThinkReferences.map(pulledReferenceKey));
+    const baseRelated = Array.isArray(baseContext.relatedItems) ? baseContext.relatedItems : [];
     return {
-      summary: '',
-      primaryText: '',
-      openQuestions: [],
-      nextActions: [],
-      relatedItems: []
+      ...baseContext,
+      relatedItems: [
+        ...pulledThinkReferences,
+        ...baseRelated.filter(item => !pulledKeys.has(pulledReferenceKey(item)))
+      ].slice(0, 8)
     };
   }, [
     activeView,
@@ -3463,6 +3651,7 @@ const ThinkMode = () => {
     homeWorkingSet,
     pinnedArticles,
     pinnedNotes,
+    pulledThinkReferences,
     questionRelated,
     recentTargets
   ]);
@@ -3501,6 +3690,220 @@ const ThinkMode = () => {
     }
     return null;
   }, [activeView]);
+  const activeThinkPosture = THINK_POSTURE_BY_VIEW[activeView] || 'concept';
+  const handleSelectThinkPosture = useCallback((posture) => {
+    const nextView = THINK_VIEW_BY_POSTURE[posture];
+    if (!nextView) return;
+    handleSelectView(nextView);
+  }, [handleSelectView]);
+  const thoughtPartnerPostureProps = useMemo(() => ({
+    posture: activeThinkPosture,
+    postureOptions: THINK_POSTURE_OPTIONS,
+    onPostureChange: handleSelectThinkPosture
+  }), [activeThinkPosture, handleSelectThinkPosture]);
+  const activeThinkPostureMeta = useMemo(
+    () => THINK_POSTURE_OPTIONS.find((option) => option.value === activeThinkPosture) || THINK_POSTURE_OPTIONS[0],
+    [activeThinkPosture]
+  );
+  const renderThinkPostureStrip = useCallback((className = '') => (
+    <div className={`think-posture-strip ${className}`.trim()} data-testid="think-posture-strip">
+      <div className="think-posture-strip__copy">
+        <span>Think posture</span>
+        <strong>{activeThinkPostureMeta.label}</strong>
+        <p>{activeThinkPostureMeta.summary}</p>
+      </div>
+      <div className="think-posture-strip__controls" role="group" aria-label="Switch Think posture">
+        {THINK_POSTURE_OPTIONS.map((option) => {
+          const isActive = option.value === activeThinkPosture;
+          return (
+            <button
+              key={option.value}
+              type="button"
+              className={`think-posture-strip__button ${isActive ? 'is-active' : ''}`.trim()}
+              aria-pressed={isActive}
+              onClick={() => handleSelectThinkPosture(option.value)}
+            >
+              {option.label}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  ), [activeThinkPosture, activeThinkPostureMeta.label, activeThinkPostureMeta.summary, handleSelectThinkPosture]);
+  const referencePullInTarget = useMemo(() => {
+    if (activeView === 'concepts' && (concept?._id || concept?.name || selectedName)) {
+      if (!concept?._id) {
+        return {
+          targetType: '',
+          targetId: '',
+          targetTitle: concept?.name || selectedName || 'Concept',
+          scopeType: '',
+          scopeId: ''
+        };
+      }
+      return {
+        targetType: 'concept',
+        targetId: concept._id,
+        targetTitle: concept?.name || selectedName || 'Concept',
+        scopeType: 'concept',
+        scopeId: concept._id
+      };
+    }
+    if (activeView === 'questions' && activeQuestionData?._id) {
+      return {
+        targetType: 'question',
+        targetId: activeQuestionData._id,
+        targetTitle: activeQuestionData.text || 'Question',
+        scopeType: 'question',
+        scopeId: activeQuestionData._id
+      };
+    }
+    if (activeView === 'notebook' && activeNotebookEntry?._id) {
+      return {
+        targetType: 'notebook',
+        targetId: activeNotebookEntry._id,
+        targetTitle: activeNotebookEntry.title || 'Notebook page',
+        scopeType: '',
+        scopeId: ''
+      };
+    }
+    return null;
+  }, [
+    activeNotebookEntry?._id,
+    activeNotebookEntry?.title,
+    activeQuestionData?._id,
+    activeQuestionData?.text,
+    activeView,
+    concept?._id,
+    concept?.name,
+    selectedName
+  ]);
+  const referencePullInTargetKey = referencePullInTarget
+    ? `${referencePullInTarget.targetType}:${referencePullInTarget.targetId}`
+    : '';
+  useEffect(() => {
+    setPulledThinkReferences([]);
+  }, [referencePullInTargetKey]);
+  const handleThinkReferencePulled = useCallback(({ item } = {}) => {
+    const relatedItem = pulledReferenceRelatedItem(item);
+    if (!relatedItem.type || !relatedItem.id) return;
+    setPulledThinkReferences(current => [
+      relatedItem,
+      ...current.filter(existing => pulledReferenceKey(existing) !== pulledReferenceKey(relatedItem))
+    ].slice(0, 6));
+  }, []);
+  const renderReferencePullIn = useCallback((className = '') => {
+    if (!referencePullInTarget) return null;
+    return (
+      <ReferencePullIn
+        {...referencePullInTarget}
+        relatedItems={thoughtPartnerContextMetadata.relatedItems}
+        className={className}
+        onPulled={handleThinkReferencePulled}
+        relationOptions={referencePullInTarget.targetType === 'question' ? [
+          { value: 'supports', label: 'Support' },
+          { value: 'contradicts', label: 'Counter' },
+          { value: 'related', label: 'Related' }
+        ] : []}
+        defaultRelationType={referencePullInTarget.targetType === 'question' ? 'supports' : 'related'}
+      />
+    );
+  }, [handleThinkReferencePulled, referencePullInTarget, thoughtPartnerContextMetadata.relatedItems]);
+  const handlePromoteThinkObjectToWiki = useCallback(async (type) => {
+    const source = type === 'concept'
+      ? concept
+      : (type === 'notebook' ? activeNotebookEntry : activeQuestionData);
+    const sourceId = String(source?._id || '').trim();
+    if (!sourceId) return;
+    const busyTarget = `${type}:${sourceId}`;
+    setWikiPromotionState({ busyTarget, error: '', phase: 'drafting' });
+    try {
+      const payload = buildThinkWikiPromotionPayload({
+        type,
+        concept,
+        question: activeQuestionData,
+        notebook: activeNotebookEntry,
+        conceptQuestions
+      });
+      if (!payload) throw new Error('Nothing to promote yet.');
+      const created = await createWikiPage(payload);
+      const pageId = created?._id || created?.id;
+      if (!pageId) throw new Error('Wiki page was created without an id.');
+      setWikiPromotionState({ busyTarget, error: '', phase: 'linking' });
+      try {
+        await createConnection({
+          fromType: type,
+          fromId: sourceId,
+          toType: 'wiki_page',
+          toId: pageId,
+          relationType: 'extends',
+          scopeType: type === 'notebook' ? '' : type,
+          scopeId: type === 'notebook' ? '' : sourceId
+        });
+      } catch (connectionError) {
+        if (connectionError?.response?.status !== 409) throw connectionError;
+      }
+      const promotionParams = new URLSearchParams({
+        promoted: type,
+        from: 'think',
+        sourceId,
+        transition: 'register',
+        receipt: 'settled'
+      });
+      const sourceTitle = type === 'concept'
+        ? concept?.name
+        : (type === 'notebook' ? activeNotebookEntry?.title : activeQuestionData?.text);
+      if (sourceTitle) promotionParams.set('sourceTitle', sourceTitle);
+      setWikiPromotionState({ busyTarget, error: '', phase: 'opening' });
+      navigateWithViewTransition(navigate, wikiPagePath(pageId, promotionParams.toString()));
+    } catch (error) {
+      setWikiPromotionState({
+        busyTarget: '',
+        error: error?.response?.data?.error || error?.message || 'Failed to promote this item to the wiki.',
+        phase: ''
+      });
+      return;
+    }
+    setWikiPromotionState({ busyTarget: '', error: '', phase: '' });
+  }, [activeNotebookEntry, activeQuestionData, concept, conceptQuestions, navigate]);
+  const conceptWikiPromotionTarget = concept?._id ? `concept:${concept._id}` : '';
+  const notebookWikiPromotionTarget = activeNotebookEntry?._id ? `notebook:${activeNotebookEntry._id}` : '';
+  const questionWikiPromotionTarget = activeQuestionData?._id ? `question:${activeQuestionData._id}` : '';
+  const renderWikiPromotionTrace = useCallback((target) => {
+    if (!target || wikiPromotionState.busyTarget !== target) return null;
+    const phases = [
+      { id: 'drafting', label: 'Drafting wiki page' },
+      { id: 'linking', label: 'Writing graph edge' },
+      { id: 'opening', label: 'Opening settled register' }
+    ];
+    const activeIndex = Math.max(0, phases.findIndex((phase) => phase.id === wikiPromotionState.phase));
+    return (
+      <div
+        className="think-wiki-promotion__trace"
+        role="status"
+        aria-label="Wiki promotion trace"
+        data-promotion-phase={wikiPromotionState.phase || 'drafting'}
+      >
+        <span className="think-wiki-promotion__trace-label">Raw -> Wiki</span>
+        <ol>
+          {phases.map((phase, index) => (
+            <li
+              key={phase.id}
+              className={[
+                index < activeIndex ? 'is-complete' : '',
+                index === activeIndex ? 'is-active' : ''
+              ].filter(Boolean).join(' ')}
+            >
+              {phase.label}
+            </li>
+          ))}
+        </ol>
+      </div>
+    );
+  }, [wikiPromotionState.busyTarget, wikiPromotionState.phase]);
+  const wikiPromotionError = wikiPromotionState.error ? (
+    <p className="status-message error-message think-wiki-promotion__error">{wikiPromotionState.error}</p>
+  ) : null;
 
   function handleQueueOrganizationPrompt() {
     if (!organizationPrompt) return;
@@ -3725,6 +4128,9 @@ const ThinkMode = () => {
       returnQueue={homeReturnQueue}
       recentHighlights={homeHighlights}
       recentArticles={homeArticles}
+      recentWikiPages={homeWikiPages.slice(0, THINK_HOME_LIMIT)}
+      recentAgentActivity={homeWikiActivity}
+      corpusTelemetry={homeCorpusTelemetry}
       loading={conceptsLoading || notebookLoadingList || allQuestionsLoading}
       queueLoading={homeQueueLoading}
       articlesLoading={homeArticlesLoading}
@@ -3744,6 +4150,7 @@ const ThinkMode = () => {
       onCreateConcept={handleCreateConceptFromHome}
       onCreateFromTemplate={openTemplatePicker}
       onCreateQuestion={handleCreateQuestion}
+      onUniversalCommand={handleHomeUniversalCommand}
     />
   ) : activeView === 'notebook' ? (
     !activeNotebookEntry ? (
@@ -3776,6 +4183,7 @@ const ThinkMode = () => {
       </div>
     ) : (
       <div className="think-notebook-editor-pane">
+        {renderThinkPostureStrip('think-posture-strip--notebook')}
         {notebookLoadingEntry && <p className="muted small">Loading note…</p>}
         {!notebookLoadingEntry && (
           <NotebookEditor
@@ -3845,6 +4253,13 @@ const ThinkMode = () => {
         />
         {activeQuestionData && questionStatus === 'open' && (
           <div className="think-question-actions">
+            <QuietButton
+              onClick={() => handlePromoteThinkObjectToWiki('question')}
+              disabled={wikiPromotionState.busyTarget === questionWikiPromotionTarget}
+            >
+              {wikiPromotionState.busyTarget === questionWikiPromotionTarget ? 'Promoting...' : 'Promote to wiki page'}
+            </QuietButton>
+            {renderWikiPromotionTrace(questionWikiPromotionTarget)}
             <QuietButton onClick={() => handleMarkAnswered(activeQuestionData)}>Mark answered</QuietButton>
           </div>
         )}
@@ -4093,7 +4508,7 @@ const ThinkMode = () => {
                 ))}
               </div>
 
-              <SectionHeader title="Suggested highlights" subtitle="AI recommendations you can approve." />
+              <SectionHeader title="Suggested highlights" subtitle="Partner recommendations you can approve." />
               {conceptSuggestionsLoading && <p className="muted small">Finding suggestions…</p>}
               {conceptSuggestionsError && <p className="status-message error-message">{conceptSuggestionsError}</p>}
               {!conceptSuggestionsLoading && !conceptSuggestionsError && (
@@ -4333,7 +4748,11 @@ const ThinkMode = () => {
   );
 
   const rightPanel = isConceptWorkbenchView ? (
-    <ConceptEvidenceStreamRail concept={concept} model={ideaWorkbenchModel} />
+    <ConceptEvidenceStreamRail
+      concept={concept}
+      model={ideaWorkbenchModel}
+      referencePullInSlot={renderReferencePullIn('concept-editorial-evidence__reference-control')}
+    />
   ) : activeView === 'concepts' ? (
     <div className="section-stack think-layout__right-panel">
       <div className="think-concepts-index-rail">
@@ -4365,7 +4784,8 @@ const ThinkMode = () => {
           })).filter(Boolean)
         }}
         queuedPrompt={queuedThoughtPartnerPrompt}
-        title="Ask the index"
+        {...thoughtPartnerPostureProps}
+        title={AGENT_DISPLAY_NAME}
         subtitle="Use this for naming, framing, and deciding which concept to deepen next."
         placeholder="Ask which concept to open, create, or refine next."
         promptTemplates={[
@@ -4405,8 +4825,10 @@ const ThinkMode = () => {
           contextMetadata={thoughtPartnerContextMetadata}
           placeholder={thoughtPartnerContext.placeholder}
           queuedPrompt={queuedThoughtPartnerPrompt}
+          {...thoughtPartnerPostureProps}
         />
       )}
+      {renderReferencePullIn('think-layout__reference-pull-in')}
       <AgentArtifactDraftsPanel
         draftsModel={sharedArtifactDraftsModel}
         title="Draft staging"
@@ -4466,7 +4888,7 @@ const ThinkMode = () => {
             Use auto routing for delegation, then claim, complete, reject, or cancel from the selected handoff.
           </p>
           <p className="muted small">
-            Personal agents only appear when active agent keys exist in Integrations.
+            Specialist agents only appear when active agent keys exist in Integrations.
           </p>
         </>
       ) : (
@@ -4631,7 +5053,13 @@ const ThinkMode = () => {
           {activeQuestion?._id && (
             <div>
               <SectionHeader title="Used in" subtitle="Backlinks to this question." />
-              <ReferencesPanel targetType="question" targetId={activeQuestion._id} label="Show backlinks" />
+              <ReferencesPanel
+                targetType="question"
+                targetId={activeQuestion._id}
+                label="Show backlinks"
+                defaultOpen
+                showToggle={false}
+              />
             </div>
           )}
         </div>
@@ -4660,7 +5088,7 @@ const ThinkMode = () => {
           <SemanticRelatedPanel
             sourceType="concept"
             sourceId={concept?._id || ''}
-            title="AI Related Highlights"
+            title="Related highlights"
             limit={6}
             resultTypes={['highlight']}
             enabled={Boolean(concept?._id)}
@@ -4702,7 +5130,14 @@ const ThinkMode = () => {
           {concept?.name && (
             <div>
               <SectionHeader title="Used in" subtitle="Backlinks to this concept." />
-              <ReferencesPanel targetType="concept" tagName={concept.name} label="Show backlinks" />
+              <ReferencesPanel
+                targetType="concept"
+                targetId={concept._id}
+                tagName={concept.name}
+                label="Show backlinks"
+                defaultOpen
+                showToggle={false}
+              />
             </div>
           )}
         </div>
@@ -4711,7 +5146,7 @@ const ThinkMode = () => {
   );
 
   const selectedConceptLayout = isConceptWorkbenchView ? (
-    <div className="concept-editorial-shell-page">
+    <div className="concept-editorial-shell-page" data-think-posture="concept">
       <div className={`concept-editorial-shell ${conceptPartnerCollapsed ? 'is-partner-collapsed' : ''}`.trim()}>
         <aside className={`concept-editorial-shell__partner ${conceptPartnerCollapsed ? 'is-collapsed' : ''}`.trim()}>
           <ConceptPartnerRail
@@ -4725,8 +5160,24 @@ const ThinkMode = () => {
             collapsed={conceptPartnerCollapsed}
             onToggleCollapse={() => setConceptPartnerCollapsed((current) => !current)}
           />
+          {renderReferencePullIn('concept-editorial-shell__reference-pull-in')}
+          {concept?._id && (
+            <div className="concept-editorial-shell__promotion">
+              <SectionHeader title="Graduate" subtitle="Turn this working thought into a durable wiki page." />
+              <Button
+                type="button"
+                onClick={() => handlePromoteThinkObjectToWiki('concept')}
+                disabled={wikiPromotionState.busyTarget === conceptWikiPromotionTarget}
+              >
+                {wikiPromotionState.busyTarget === conceptWikiPromotionTarget ? 'Promoting...' : 'Promote to wiki page'}
+              </Button>
+              {renderWikiPromotionTrace(conceptWikiPromotionTarget)}
+              {wikiPromotionState.error && wikiPromotionState.busyTarget !== questionWikiPromotionTarget ? wikiPromotionError : null}
+            </div>
+          )}
         </aside>
         <main className="concept-editorial-shell__main">
+          {renderThinkPostureStrip('think-posture-strip--concept')}
           {conceptLoadError && <p className="status-message error-message">{conceptLoadError}</p>}
           {conceptError && <p className="status-message error-message">{conceptError}</p>}
           {relatedError && <p className="status-message error-message">{relatedError}</p>}
@@ -4782,6 +5233,7 @@ const ThinkMode = () => {
             onIntegrateCard={handleIntegrateConceptCard}
             activeSection={conceptEditorialSection}
             onOpenTemplatePicker={openTemplatePicker}
+            referencePullInSlot={renderReferencePullIn('concept-editorial-evidence__reference-control')}
           />
         </aside>
       </div>
@@ -4812,7 +5264,8 @@ const ThinkMode = () => {
           })).filter(Boolean)
         }}
         queuedPrompt={queuedThoughtPartnerPrompt}
-        title="Evidence stream"
+        {...thoughtPartnerPostureProps}
+        title={AGENT_DISPLAY_NAME}
         subtitle="Concept contextualization"
         placeholder="Ask which concept to open, create, or refine next."
         promptTemplates={[
@@ -4854,9 +5307,11 @@ const ThinkMode = () => {
         contextTitle={thoughtPartnerContext?.contextTitle || activeNotebookEntry?.title || 'Notebook'}
         contextMetadata={thoughtPartnerContextMetadata}
         queuedPrompt={queuedThoughtPartnerPrompt}
-        title="Evidence stream"
-        subtitle="Notebook contextualization"
-        placeholder="Ask what this page should keep, connect, or promote next."
+        {...thoughtPartnerPostureProps}
+        title={AGENT_DISPLAY_NAME}
+        subtitle="Quiet notebook posture"
+        placeholder="Ask only when you want the agent to step in."
+        passiveStatusText="Quiet mode is active. Keep writing; the agent will stay ambient unless you ask it to connect, promote, or structure this page."
         promptTemplates={[
           'What matters most on this page?',
           'Which concept is forming here?',
@@ -4865,38 +5320,45 @@ const ThinkMode = () => {
         emptyStateText="Use the notebook rail to clarify what should stay loose and what should be promoted."
         submitLabel="↗"
       />
-      <AgentArtifactDraftsPanel
-        draftsModel={sharedArtifactDraftsModel}
-        title="Draft staging"
-        subtitle="Promote the strongest note-driven outputs without leaving the notebook."
-        emptyText="No staged drafts yet."
-        accent="output"
-        className="editorial-side-rail__section editorial-side-rail__drafts think-draft-staging-panel"
-        compact
-        maxPending={3}
-        showPromoted={false}
-        onInvokeWorkflowSkill={queueThoughtPartnerPrompt}
-        onOpenThreadFromDraft={handleOpenThreadFromDraft}
-        onCreateHandoffFromDraft={handleCreateHandoffFromDraft}
-        onQueueFollowUpLoop={handleQueueFollowUpLoopFromDraft}
-        contextType={thoughtPartnerContext?.contextType || 'notebook'}
-        contextId={thoughtPartnerContext?.contextId || activeNotebookEntry?._id || 'notebook'}
-        contextTitle={thoughtPartnerContext?.contextTitle || activeNotebookEntry?.title || 'Notebook'}
-      />
-      <AgentSkillDock
-        surface="notebook"
-        contextType="notebook"
-        category="output"
-        contextId={activeNotebookEntry?._id || 'notebook'}
-        targetContextType={thoughtPartnerContext?.contextType || 'notebook'}
-        targetContextId={thoughtPartnerContext?.contextId || activeNotebookEntry?._id || ''}
-        contextTitle={thoughtPartnerContext?.contextTitle || activeNotebookEntry?.title || 'Notebook'}
-        title="Output studio"
-        subtitle="Spin active notes into briefs, synthesis docs, and deck-ready outlines."
-        className="editorial-side-rail__section agent-skill-dock--output"
-        maxVisible={4}
-        onInvoke={queueThoughtPartnerPrompt}
-      />
+      {renderReferencePullIn('editorial-side-rail__section')}
+      <details className="editorial-side-rail__section notebook-editorial-context__advanced">
+        <summary>
+          <span>Advanced drafting</span>
+          <small>Open when this note is ready to become an output.</small>
+        </summary>
+        <AgentArtifactDraftsPanel
+          draftsModel={sharedArtifactDraftsModel}
+          title="Draft staging"
+          subtitle="Promote the strongest note-driven outputs without leaving the notebook."
+          emptyText="No staged drafts yet."
+          accent="output"
+          className="editorial-side-rail__drafts think-draft-staging-panel"
+          compact
+          maxPending={3}
+          showPromoted={false}
+          onInvokeWorkflowSkill={queueThoughtPartnerPrompt}
+          onOpenThreadFromDraft={handleOpenThreadFromDraft}
+          onCreateHandoffFromDraft={handleCreateHandoffFromDraft}
+          onQueueFollowUpLoop={handleQueueFollowUpLoopFromDraft}
+          contextType={thoughtPartnerContext?.contextType || 'notebook'}
+          contextId={thoughtPartnerContext?.contextId || activeNotebookEntry?._id || 'notebook'}
+          contextTitle={thoughtPartnerContext?.contextTitle || activeNotebookEntry?.title || 'Notebook'}
+        />
+        <AgentSkillDock
+          surface="notebook"
+          contextType="notebook"
+          category="output"
+          contextId={activeNotebookEntry?._id || 'notebook'}
+          targetContextType={thoughtPartnerContext?.contextType || 'notebook'}
+          targetContextId={thoughtPartnerContext?.contextId || activeNotebookEntry?._id || ''}
+          contextTitle={thoughtPartnerContext?.contextTitle || activeNotebookEntry?.title || 'Notebook'}
+          title="Output studio"
+          subtitle="Spin active notes into briefs, synthesis docs, and deck-ready outlines."
+          className="agent-skill-dock--output"
+          maxVisible={4}
+          onInvoke={queueThoughtPartnerPrompt}
+        />
+      </details>
 
       <div className="editorial-side-rail__section">
         <SectionHeader title="Notebook posture" subtitle="How to use this page." />
@@ -4906,8 +5368,16 @@ const ThinkMode = () => {
         <div className="think-home-rail__actions">
           <QuietButton onClick={handleCreateNotebookEntry}>New page</QuietButton>
           <QuietButton onClick={handleQueueOrganizationPrompt}>Clean up structure</QuietButton>
+          <QuietButton
+            onClick={() => handlePromoteThinkObjectToWiki('notebook')}
+            disabled={!activeNotebookEntry?._id || wikiPromotionState.busyTarget === notebookWikiPromotionTarget}
+          >
+            {wikiPromotionState.busyTarget === notebookWikiPromotionTarget ? 'Promoting...' : 'Promote to wiki'}
+          </QuietButton>
           <QuietButton onClick={() => handleSelectView('concepts')}>Open concepts</QuietButton>
         </div>
+        {wikiPromotionState.error && wikiPromotionState.busyTarget !== conceptWikiPromotionTarget ? wikiPromotionError : null}
+        {renderWikiPromotionTrace(notebookWikiPromotionTarget)}
       </div>
 
       <NotebookContext entry={activeNotebookEntry} />
@@ -4924,7 +5394,8 @@ const ThinkMode = () => {
         contextTitle="Think home"
         contextMetadata={thoughtPartnerContextMetadata}
         queuedPrompt={queuedThoughtPartnerPrompt}
-        title="Evidence stream"
+        {...thoughtPartnerPostureProps}
+        title={AGENT_DISPLAY_NAME}
         subtitle="Workspace contextualization"
         placeholder="Ask what to resume, refine, or gather next."
         promptTemplates={[
@@ -5026,7 +5497,7 @@ const ThinkMode = () => {
   );
 
   const homeEditorialLayout = activeView === 'home' ? (
-    <div className="think-home-editorial-shell-page">
+    <div className="think-home-editorial-shell-page" data-think-posture={activeThinkPosture}>
       <div className="think-home-editorial-shell">
         <aside className="think-home-editorial-shell__left">
           {homeEditorialLeftPanel}
@@ -5042,7 +5513,7 @@ const ThinkMode = () => {
   ) : null;
 
   const notebookEditorialLayout = activeView === 'notebook' ? (
-    <div className="notebook-editorial-shell-page">
+    <div className="notebook-editorial-shell-page" data-think-posture="notebook">
       <div className="notebook-editorial-shell">
         <aside className="notebook-editorial-shell__left">
           {notebookEditorialLeftPanel}
@@ -5091,7 +5562,7 @@ const ThinkMode = () => {
   ]);
 
   const conceptIndexEditorialLayout = activeView === 'concepts' && !hasExplicitConceptSelection ? (
-    <div className="concept-index-editorial-shell-page">
+    <div className="concept-index-editorial-shell-page" data-think-posture="concept">
       <div className="concept-index-editorial-shell">
         <aside className="concept-index-editorial-shell__left">
           <div className="concept-index-editorial-rail concept-index-editorial-rail--left">
@@ -5149,7 +5620,7 @@ const ThinkMode = () => {
 
   const questionEditorialLeftPanel = (
     <EditorialRail
-      heroTitle="The Partner"
+      heroTitle={AGENT_DISPLAY_NAME}
       heroSubtitle="Contextual intelligence"
       ctaLabel="New inquiry"
       onCta={handleCreateQuestion}
@@ -5319,8 +5790,128 @@ const ThinkMode = () => {
     />
   );
 
+  const questionEvidenceHighlights = questionRelated.highlights.map(item => {
+    const source = formatQuestionEvidenceSource(item);
+    const snippet = previewText(item.snippet || item.metadata?.text || item.metadata?.note || source);
+    return {
+      id: item.objectId,
+      objectId: item.objectId,
+      sourceKind: 'Library highlight',
+      title: source || item.title || 'Related highlight',
+      quote: snippet || 'Candidate evidence from your library.',
+      source,
+      isCounter: isQuestionCounterSignal(`${item.title || ''} ${snippet}`)
+    };
+  });
+  const questionSupportSignals = [
+    ...contextConnections
+      .filter(row => String(row.relationType || '').toLowerCase().includes('support'))
+      .slice(0, 2)
+      .map(row => ({
+        id: row._id,
+        sourceKind: 'Graph link',
+        title: row.fromItem?.title || row.toItem?.title || 'Connected support',
+        quote: row.relationType || 'supports',
+        source: row.fromItem?.title || row.toItem?.title || ''
+      })),
+    ...questionEvidenceHighlights
+      .filter(item => !item.isCounter)
+      .slice(0, 2)
+  ].slice(0, 3);
+  const questionCounterSignals = [
+    ...contextConnections
+      .filter(row => {
+      const relation = String(row.relationType || '').toLowerCase();
+      return relation.includes('contradict') || relation.includes('counter') || relation.includes('tension');
+      })
+      .slice(0, 2)
+      .map(row => ({
+        id: row._id,
+        sourceKind: 'Graph link',
+        title: row.fromItem?.title || row.toItem?.title || 'Counter signal',
+        quote: row.relationType || 'counter',
+        source: row.fromItem?.title || row.toItem?.title || ''
+      })),
+    ...questionEvidenceHighlights
+      .filter(item => item.isCounter)
+      .slice(0, 2)
+  ].slice(0, 3);
+  const questionSignalTotal = questionSupportSignals.length + questionCounterSignals.length;
+  const questionSupportLean = questionSignalTotal
+    ? Math.round((questionSupportSignals.length / questionSignalTotal) * 100)
+    : 50;
+  const questionLineAnchors = (Array.isArray(activeQuestionData?.blocks) ? activeQuestionData.blocks : [])
+    .map((block, index) => ({
+      id: block?.id || `question-line-${index}`,
+      type: block?.type || 'paragraph',
+      text: previewText(block?.text || activeQuestionData?.text || 'Question line'),
+      challengeActive: Boolean(block?.challenge?.enabled)
+    }))
+    .filter(anchor => anchor.text)
+    .slice(0, 4);
+  if (!questionLineAnchors.length && activeQuestionData?.text) {
+    questionLineAnchors.push({
+      id: activeQuestionData._id || 'question-title',
+      type: 'question',
+      text: previewText(activeQuestionData.text)
+    });
+  }
+  const questionEvidenceAnchors = questionLineAnchors.length
+    ? questionLineAnchors
+    : [{ id: 'question-evidence', type: 'question', text: 'Question line' }];
+  const questionSignalTerms = (value) => (
+    String(value || '')
+      .toLowerCase()
+      .replace(/[^a-z0-9\s-]/g, ' ')
+      .split(/\s+/)
+      .filter(term => term.length > 3)
+  );
+  const questionSignalScoreForLine = (signal, anchor, signalIndex, lineIndex) => {
+    const anchorTerms = new Set(questionSignalTerms(anchor?.text));
+    const signalTerms = questionSignalTerms([
+      signal?.title,
+      signal?.quote,
+      signal?.source,
+      signal?.sourceKind
+    ].filter(Boolean).join(' '));
+    const overlap = signalTerms.filter(term => anchorTerms.has(term)).length;
+    if (overlap) return overlap + 10;
+    return signalIndex === (lineIndex % Math.max(1, questionEvidenceAnchors.length)) ? 1 : 0;
+  };
+  const questionSignalsForLine = (signals, anchor, lineIndex) => (
+    signals
+      .map((signal, signalIndex) => ({
+        signal,
+        score: questionSignalScoreForLine(signal, anchor, signalIndex, lineIndex)
+      }))
+      .filter(item => item.score > 0)
+      .sort((left, right) => right.score - left.score)
+      .map(item => item.signal)
+      .slice(0, 2)
+  );
+  const questionLineConfidence = (supportCount, counterCount) => {
+    if (!supportCount && !counterCount) return 'No evidence';
+    if (supportCount && counterCount) return 'Balanced line';
+    if (supportCount) return 'Support-heavy';
+    return 'Counter-heavy';
+  };
+  const questionChallengeEvidenceByBlockId = questionEvidenceAnchors.reduce((acc, anchor, index) => {
+    acc[anchor.id] = {
+      support: questionSignalsForLine(questionSupportSignals, anchor, index).map(signal => ({
+        ...signal,
+        stance: 'support'
+      })),
+      counter: questionSignalsForLine(questionCounterSignals, anchor, index).map(signal => ({
+        ...signal,
+        stance: 'counter'
+      }))
+    };
+    return acc;
+  }, {});
+
   const questionEditorialMainPanel = (
     <div className="question-editorial-main">
+      {renderThinkPostureStrip('think-posture-strip--question')}
       <div className="question-editorial-main__hero">
         <div className="question-editorial-main__eyebrow">Question refinement</div>
         <p className="question-editorial-main__subtitle">
@@ -5333,25 +5924,107 @@ const ThinkMode = () => {
       {questionError && <p className="status-message error-message">{questionError}</p>}
 
       <div className="question-editorial-main__editor">
-        <QuestionEditor
-          question={activeQuestionData}
-          saving={questionSaving}
-          error={questionError}
-          onSave={handleSaveQuestion}
-          onRegisterInsert={(fn) => { questionInsertRef.current = fn; }}
-          onSynthesize={(question) => openSynthesis('question', question?._id)}
-          variant="editorial"
-          onInvokeAgentSkill={queueThoughtPartnerPrompt}
-          agentContextType={thoughtPartnerContext?.contextType || 'question'}
-          agentContextId={thoughtPartnerContext?.contextId || activeQuestionData?._id || ''}
-          agentContextTitle={activeQuestionData?.text || thoughtPartnerContext?.contextTitle || 'Question'}
-        />
-        {activeQuestionData && questionStatus === 'open' && (
-          <div className="think-question-actions">
-            <QuietButton onClick={handleQueueOrganizationPrompt}>Clean up structure</QuietButton>
-            <QuietButton onClick={() => handleMarkAnswered(activeQuestionData)}>Mark answered</QuietButton>
+        <div className="question-editorial-main__draft-grid">
+          <div className="question-editorial-main__draft-body">
+            <QuestionEditor
+              question={activeQuestionData}
+              saving={questionSaving}
+              error={questionError}
+              onSave={handleSaveQuestion}
+              onRegisterInsert={(fn) => { questionInsertRef.current = fn; }}
+              onSynthesize={(question) => openSynthesis('question', question?._id)}
+              variant="editorial"
+              onInvokeAgentSkill={queueThoughtPartnerPrompt}
+              agentContextType={thoughtPartnerContext?.contextType || 'question'}
+              agentContextId={thoughtPartnerContext?.contextId || activeQuestionData?._id || ''}
+              agentContextTitle={activeQuestionData?.text || thoughtPartnerContext?.contextTitle || 'Question'}
+              challengeEvidenceByBlockId={questionChallengeEvidenceByBlockId}
+            />
+            {activeQuestionData && questionStatus === 'open' && (
+              <div className="think-question-actions">
+                <QuietButton onClick={handleQueueOrganizationPrompt}>Clean up structure</QuietButton>
+                <QuietButton onClick={() => handleMarkAnswered(activeQuestionData)}>Mark answered</QuietButton>
+              </div>
+            )}
           </div>
-        )}
+          <aside
+            className="question-editorial-main__evidence-dock"
+            aria-label="Question line evidence"
+            data-testid="question-inline-evidence-dock"
+          >
+            <div className="question-editorial-main__evidence-gauge">
+              <span>{questionSupportSignals.length}</span>
+              <i aria-hidden="true" />
+              <span>{questionCounterSignals.length}</span>
+            </div>
+            <ol className="question-editorial-main__evidence-lines">
+              {questionEvidenceAnchors.map((anchor, index) => {
+                const supportSignals = questionSignalsForLine(questionSupportSignals, anchor, index);
+                const counterSignals = questionSignalsForLine(questionCounterSignals, anchor, index);
+                const supportSignal = supportSignals[0] || null;
+                const counterSignal = counterSignals[0] || null;
+                const lineSignalTotal = supportSignals.length + counterSignals.length;
+                const lineSupportLean = lineSignalTotal
+                  ? Math.round((supportSignals.length / lineSignalTotal) * 100)
+                  : 50;
+                const lineCounterLean = lineSignalTotal ? 100 - lineSupportLean : 50;
+                const confidenceLabel = questionLineConfidence(supportSignals.length, counterSignals.length);
+                return (
+                  <li
+                    key={anchor.id}
+                    className="question-editorial-main__evidence-line"
+                    data-testid={`question-line-evidence-${anchor.id}`}
+                    data-anchor-block-id={anchor.id}
+                    data-support-count={supportSignals.length}
+                    data-counter-count={counterSignals.length}
+                    data-support-lean={lineSupportLean}
+                    data-challenge-active={anchor.challengeActive ? 'true' : 'false'}
+                  >
+                    <a className="question-editorial-main__line-label" href={`#question-block-${anchor.id}`}>
+                      Line {index + 1}
+                    </a>
+                    <p>{anchor.text}</p>
+                    {anchor.challengeActive ? (
+                      <span className="question-editorial-main__challenge-marker">Challenge marked</span>
+                    ) : null}
+                    <div
+                      className="question-editorial-main__line-balance"
+                      aria-label={`Line ${index + 1} balance: ${supportSignals.length} support, ${counterSignals.length} counter`}
+                      style={{ '--question-line-support-lean': `${lineSupportLean}%` }}
+                    >
+                      <span>Support {lineSupportLean}%</span>
+                      <i aria-hidden="true" />
+                      <span>Counter {lineCounterLean}%</span>
+                    </div>
+                    <span className="question-editorial-main__line-confidence">{confidenceLabel}</span>
+                    <article className="question-editorial-main__evidence-card is-support" data-anchor-block-id={anchor.id}>
+                      <span>Support notch</span>
+                      {supportSignal ? (
+                        <>
+                          <strong>{supportSignal.title}</strong>
+                          <p>{supportSignal.quote}</p>
+                        </>
+                      ) : (
+                        <p>No supporting source docked yet.</p>
+                      )}
+                    </article>
+                    <article className="question-editorial-main__evidence-card is-counter" data-anchor-block-id={anchor.id}>
+                      <span>Counter notch</span>
+                      {counterSignal ? (
+                        <>
+                          <strong>{counterSignal.title}</strong>
+                          <p>{counterSignal.quote}</p>
+                        </>
+                      ) : (
+                        <p>No counter source docked yet.</p>
+                      )}
+                    </article>
+                  </li>
+                );
+              })}
+            </ol>
+          </aside>
+        </div>
       </div>
     </div>
   );
@@ -5366,7 +6039,8 @@ const ThinkMode = () => {
         contextTitle={thoughtPartnerContext?.contextTitle || activeQuestionData?.text || 'Question'}
         contextMetadata={thoughtPartnerContextMetadata}
         queuedPrompt={queuedThoughtPartnerPrompt}
-        title="Evidence stream"
+        {...thoughtPartnerPostureProps}
+        title={AGENT_DISPLAY_NAME}
         subtitle="Question contextualization"
         placeholder="Ask what this question should prove, gather, or test next."
         promptTemplates={[
@@ -5377,6 +6051,78 @@ const ThinkMode = () => {
         emptyStateText="Use the question rail to clarify, connect, and tighten open loops."
         submitLabel="↗"
       />
+      {renderReferencePullIn('editorial-side-rail__section question-editorial-context__section')}
+      <div className="editorial-side-rail__section question-editorial-context__section question-dialectic-margin">
+        <SectionHeader
+          title="Dialectical margin"
+          subtitle="Support and counter-pressure stay beside the open loop."
+        />
+        <div
+          className="question-dialectic-margin__gauge"
+          style={{ '--question-support-lean': `${questionSupportLean}%` }}
+          aria-label={`Question evidence lean: ${questionSupportSignals.length} support, ${questionCounterSignals.length} counter`}
+        >
+          <span>Counter</span>
+          <div aria-hidden="true"><i /></div>
+          <span>Support</span>
+        </div>
+        <div className="question-dialectic-margin__lanes">
+          <section>
+            <h3>Strongest support</h3>
+            {questionSupportSignals.length === 0 ? (
+              <CalmEmptyLine>No support staged yet.</CalmEmptyLine>
+            ) : (
+              questionSupportSignals.map(signal => (
+                <article key={`support-${signal.id}`} className="question-dialectic-margin__card is-support">
+                  <span className="question-dialectic-margin__source">{signal.sourceKind || 'Evidence'}</span>
+                  <strong>{signal.title}</strong>
+                  <span>{signal.quote}</span>
+                  {signal.source && <em>{signal.source}</em>}
+                  {signal.objectId && (
+                    <button type="button" onClick={() => handleAttachRelatedHighlight(signal.objectId)}>
+                      Pull into question
+                    </button>
+                  )}
+                </article>
+              ))
+            )}
+          </section>
+          <section>
+            <h3>Counter-pressure</h3>
+            {questionCounterSignals.length === 0 ? (
+              <CalmEmptyLine>No counter-evidence staged yet.</CalmEmptyLine>
+            ) : (
+              questionCounterSignals.map(signal => (
+                <article key={`counter-${signal.id}`} className="question-dialectic-margin__card is-counter">
+                  <span className="question-dialectic-margin__source">{signal.sourceKind || 'Evidence'}</span>
+                  <strong>{signal.title}</strong>
+                  <span>{signal.quote}</span>
+                  {signal.source && <em>{signal.source}</em>}
+                  {signal.objectId && (
+                    <button type="button" onClick={() => handleAttachRelatedHighlight(signal.objectId)}>
+                      Pull into question
+                    </button>
+                  )}
+                </article>
+              ))
+            )}
+          </section>
+        </div>
+      </div>
+      {activeQuestionData?._id && (
+        <div className="editorial-side-rail__section question-editorial-context__section think-wiki-promotion">
+          <SectionHeader title="Graduate" subtitle="Make this open loop a durable wiki page." />
+          <Button
+            type="button"
+            onClick={() => handlePromoteThinkObjectToWiki('question')}
+            disabled={wikiPromotionState.busyTarget === questionWikiPromotionTarget}
+          >
+            {wikiPromotionState.busyTarget === questionWikiPromotionTarget ? 'Promoting...' : 'Promote to wiki page'}
+          </Button>
+          {renderWikiPromotionTrace(questionWikiPromotionTarget)}
+          {wikiPromotionState.error && wikiPromotionState.busyTarget !== conceptWikiPromotionTarget ? wikiPromotionError : null}
+        </div>
+      )}
       {questionScopedArtifactDraftsModel?.pendingCount > 0 && (
         <AgentArtifactDraftsPanel
           draftsModel={questionScopedArtifactDraftsModel}
@@ -5479,19 +6225,26 @@ const ThinkMode = () => {
       {activeQuestion?._id && (
         <div className="editorial-side-rail__section question-editorial-context__section">
           <SectionHeader title="Used in" subtitle="Backlinks to this question." />
-          <ReferencesPanel targetType="question" targetId={activeQuestion._id} label="Show backlinks" />
+          <ReferencesPanel
+            targetType="question"
+            targetId={activeQuestion._id}
+            label="Show backlinks"
+            defaultOpen
+            showToggle={false}
+          />
         </div>
       )}
     </div>
   );
 
   const questionEditorialLayout = isQuestionEditorialView ? (
-    <div className="question-editorial-shell-page">
+    <div className="question-editorial-shell-page" data-think-posture="question">
       <div className="question-editorial-shell">
         <aside className="question-editorial-shell__left">
           {questionEditorialLeftPanel}
         </aside>
         <main className="question-editorial-shell__main">
+          <h1 className="sr-only">Questions</h1>
           {questionEditorialMainPanel}
         </main>
         <aside className="question-editorial-shell__right">
@@ -5517,7 +6270,7 @@ const ThinkMode = () => {
         questionEditorialLayout
       ) : (
         <ThreePaneLayout
-          className={`three-pane--editorial ${
+          className={`three-pane--editorial three-pane--think-posture-${activeThinkPosture} ${
             activeView === 'concepts'
               ? 'three-pane--concepts-index three-pane--concepts'
               : activeView === 'notebook'

@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import WikiProductIndex from './WikiProductIndex';
 import { listWikiPages } from '../../api/wiki';
@@ -9,7 +9,7 @@ jest.mock('../../api/wiki', () => ({
 }));
 
 jest.mock('./WikiBuildPageComposer', () => ({ className = '' }) => (
-  <form className={className} aria-label="Ask the wiki agent to build a page">
+  <form className={className} aria-label="Ask thought partner to build a page">
     <input aria-label="Build page prompt" />
     <button type="button">Build page</button>
   </form>
@@ -66,13 +66,19 @@ describe('WikiProductIndex', () => {
       </MemoryRouter>
     );
 
-    expect(screen.getByLabelText('Ask the wiki agent to build a page')).toBeInTheDocument();
+    expect(screen.getByLabelText('Ask thought partner to build a page')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Open workspace' })).toHaveAttribute('href', '/wiki/workspace');
     expect(screen.getByRole('link', { name: 'All pages' })).toHaveAttribute('href', '/wiki/workspace?view=list');
     expect(screen.getByRole('link', { name: 'Knowledge map' })).toHaveAttribute('href', '/wiki/workspace?view=graph');
 
     expect(await screen.findByRole('heading', { name: 'Key pages' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Your source-backed knowledge base' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /Expand 2 trace history lines/ }));
+    expect(screen.getByLabelText('Wiki corpus trace')).toHaveTextContent('scanned 2 pages · 3 sources');
+    expect(screen.getByLabelText('Wiki corpus trace')).toHaveTextContent('all shown pages have source memory');
+    await waitFor(() => {
+      expect(screen.getByLabelText('Wiki corpus trace')).toHaveTextContent('latest update · Investing');
+    });
     expect(listWikiPages).toHaveBeenCalledWith({ limit: 80 });
     expect(screen.getAllByRole('link', { name: /Investing/ })[0]).toHaveAttribute('href', '/wiki/workspace?page=wiki-investing');
     expect(screen.getByText('A source-backed synthesis of investing practice.')).toBeInTheDocument();
@@ -175,6 +181,11 @@ describe('WikiProductIndex', () => {
 
     const empty = await screen.findByRole('heading', { name: 'No wiki pages yet' });
     expect(empty).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /Expand 1 trace history line/ }));
+    expect(screen.getByLabelText('Wiki corpus trace')).toHaveTextContent('wiki corpus empty');
+    await waitFor(() => {
+      expect(screen.getByLabelText('Wiki corpus trace')).toHaveTextContent('ready to build first page');
+    });
     expect(screen.queryByRole('heading', { name: 'Key pages' })).not.toBeInTheDocument();
   });
 

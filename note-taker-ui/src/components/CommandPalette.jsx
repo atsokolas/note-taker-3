@@ -7,6 +7,7 @@ import { Card, Button } from './ui';
 import { buildCanonicalArticlePath } from '../utils/firstInsight';
 import { getNotebookSummaries } from '../api/notebook';
 import { buildWikiCreatePayload, openWikiDraft } from '../utils/wikiCreate';
+import { buildReferenceHandoffPath } from '../navigation/referenceHandoff';
 
 const EMPTY_GROUPS = {
   notes: [],
@@ -54,6 +55,10 @@ const currentPathname = () => (
   typeof window === 'undefined' ? '' : window.location?.pathname || ''
 );
 
+const currentLocationSearch = () => (
+  typeof window === 'undefined' ? '' : window.location?.search || ''
+);
+
 const CommandPalette = ({ open, onClose }) => {
   const navigate = useNavigate();
   const [query, setQuery] = useState('');
@@ -66,6 +71,10 @@ const CommandPalette = ({ open, onClose }) => {
   const [loading, setLoading] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
   const isWikiSurface = currentPathname().startsWith('/wiki');
+  const pullReferencePath = buildReferenceHandoffPath({
+    pathname: currentPathname(),
+    search: currentLocationSearch()
+  });
 
   const pages = useMemo(() => ([
     { label: 'Today', path: '/today' },
@@ -185,7 +194,8 @@ const CommandPalette = ({ open, onClose }) => {
     const actionSection = {
       title: 'Actions',
       items: [
-        { type: 'Action', label: 'New note', action: createNote },
+        { type: 'Action', label: 'New Think note', action: createNote },
+        { type: 'Action', label: 'Pull reference into current surface', path: pullReferencePath },
         { type: 'Action', label: q ? `New Wiki page from "${q.slice(0, 48)}"` : 'New Wiki page', action: createWiki },
         { type: 'Action', label: 'New collection', path: '/library?tab=collections' }
       ]
@@ -298,17 +308,17 @@ const CommandPalette = ({ open, onClose }) => {
       }
     } else {
       list.push({
-        title: 'Concepts',
+        title: 'Think concepts',
         items: concepts.slice(0, 8).map(item => ({
-          type: 'Concept',
+          type: 'Think',
           label: item.tag,
           path: `/think?tab=concepts&concept=${encodeURIComponent(item.tag)}`
         }))
       });
       list.push({
-        title: 'Notebook',
+        title: 'Think notebook',
         items: notebook.slice(0, 6).map(item => ({
-          type: 'Notebook',
+          type: 'Think',
           label: item.title || 'Untitled note',
           path: `/think?tab=notebook&entryId=${item._id}`
         }))
@@ -326,7 +336,7 @@ const CommandPalette = ({ open, onClose }) => {
     return list
       .map(section => ({ ...section, items: section.items.filter(Boolean) }))
       .filter(section => section.items.length > 0);
-  }, [articles, collections, concepts, createNote, createWiki, isWikiSurface, notebook, pages, query, searchGroups, wikiPages]);
+  }, [articles, collections, concepts, createNote, createWiki, isWikiSurface, notebook, pages, pullReferencePath, query, searchGroups, wikiPages]);
 
   const selectableItems = useMemo(
     () => sections.flatMap(section => section.items),

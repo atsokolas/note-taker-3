@@ -11,6 +11,8 @@ describe('NotionAgentFetchCard', () => {
 
   it('renders the disconnected hint when no Notion connection exists', () => {
     render(<NotionAgentFetchCard connected={false} onFetch={() => {}} />);
+    expect(screen.getByText('Thought partner · Notion')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Let Thought partner fetch your pages' })).toBeInTheDocument();
     expect(screen.getByText(/Connect Notion above first/)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Fetch now' })).toBeDisabled();
   });

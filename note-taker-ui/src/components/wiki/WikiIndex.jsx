@@ -1,45 +1,35 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import ForceGraph2D from 'react-force-graph-2d';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '../ui';
-import { downloadWikiExportZip, listWikiActivity, listWikiPages, rebuildWikiGraph } from '../../api/wiki';
+import { downloadWikiExportZip, ingestWikiSource, listWikiActivity, listWikiPages, rebuildWikiGraph } from '../../api/wiki';
 import { fetchGraphData } from '../../api/map';
 import { wikiPagePath } from '../../utils/wikiFeatureFlags';
+import { AGENT_DISPLAY_NAME } from '../../constants/agentIdentity';
 import WikiList from './WikiList';
+import WikiBriefing from './WikiBriefing';
 import {
   DRIFT_STATUSES,
   MODIFIED_WINDOWS,
   PAGE_TYPES,
+  buildCorpusConstellation,
   buildWikiGraphData,
   filterWikiGraphPages,
   formatDate,
+  formatCorpusShapeSummary,
   labelFor,
+  summarizeCorpusShape,
   summarizeWikiGraph
 } from './wikiGraph';
-
-const TYPE_COLORS = {
-  concept: '#b1862e',
-  entity: '#6f6a61',
-  source: '#b1862e',
-  question: '#74706a',
-  comparison: '#8b8176',
-  overview: '#625d55',
-  project: '#7a6040',
-  log: '#62707a',
-  topic: '#5f6468'
-};
-
-const EDGE_COLORS = {
-  wikiLink: '#b1862e',
-  shared_source: '#8f8373',
-  related: '#7a8088',
-  needs_review: '#b1862e',
-  supports: '#7a756d',
-  contradicts: '#9b5a46',
-  extends: '#8b7652'
-};
+import {
+  WIKI_GRAPH_NODE_TOKENS,
+  wikiGraphEdgeColor,
+  wikiGraphLabelColor,
+  wikiGraphNodeColor
+} from './wikiGraphPalette';
 
 const GRAPH_RELATION_TYPES = ['related', 'needs_review', 'supports', 'contradicts', 'extends'];
+const GRAPH_CORPUS_ITEM_TYPES = ['wiki_page', 'wiki_claim', 'concept', 'question', 'notebook', 'article', 'highlight'];
 const GRAPH_PAGE_LIMIT = 500;
 const EMPTY_WIKI_PAGE_THRESHOLD = 3;
 const SPARSE_WIKI_HINT_THRESHOLD = 10;
@@ -50,6 +40,22 @@ const REVIEW_STATUS_LABELS = {
 };
 
 const getWindowWidth = () => (typeof window === 'undefined' ? 1024 : window.innerWidth || 1024);
+
+const pageMatchesGraphQuery = (page = {}, query = '') => {
+  const needle = String(query || '').trim().toLowerCase();
+  if (!needle) return true;
+  const sourceText = (Array.isArray(page.sourceRefs) ? page.sourceRefs : [])
+    .map(source => [source.title, source.url, source.type, source.objectId].filter(Boolean).join(' '))
+    .join(' ');
+  const haystack = [
+    page.title,
+    page.pageType,
+    page.plainText,
+    page.summary,
+    sourceText
+  ].filter(Boolean).join(' ').toLowerCase();
+  return haystack.includes(needle);
+};
 
 const statusLabel = (value = '') => labelFor(String(value || 'pending'));
 
@@ -64,6 +70,63 @@ const RELATION_LABELS = {
 };
 
 const relationLabel = (value = '') => RELATION_LABELS[value] || labelFor(value || 'related');
+
+const buildMapNextMoves = ({ graphSummary = {}, graphSyncState = {}, onOpenPage, onReviewPages, onOpenSources, onRebuildGraph }) => {
+  const moves = [];
+  const hubs = Array.isArray(graphSummary.hubs) ? graphSummary.hubs : [];
+  const orphans = Array.isArray(graphSummary.orphans) ? graphSummary.orphans : [];
+  const sharedSourceClusters = Array.isArray(graphSummary.sharedSourceClusters) ? graphSummary.sharedSourceClusters : [];
+
+  if (graphSyncState.stale) {
+    moves.push({
+      key: 'review-connections',
+      label: 'Review connection model',
+      detail: 'Rebuild reviewed relationships so the map is not only inferred from inline links.',
+      cta: 'Review model',
+      onClick: onRebuildGraph
+    });
+  }
+
+  if (hubs[0]) {
+    moves.push({
+      key: 'open-hub',
+      label: `Open hub: ${hubs[0].title}`,
+      detail: 'Start from the brightest page and add outbound wiki links where the synthesis naturally branches.',
+      cta: 'Open hub',
+      onClick: () => onOpenPage?.(hubs[0].id)
+    });
+  }
+
+  if (sharedSourceClusters[0]) {
+    moves.push({
+      key: 'resolve-overlap',
+      label: 'Resolve evidence overlap',
+      detail: 'Shared sources mean two pages may need a bridge, contrast, or merged claim.',
+      cta: 'Review pages',
+      onClick: onReviewPages
+    });
+  } else if (orphans.length) {
+    moves.push({
+      key: 'connect-orphans',
+      label: `${orphans.length} standalone page${orphans.length === 1 ? '' : 's'}`,
+      detail: 'Pick one isolated page and either link it to a hub or feed a source that gives it context.',
+      cta: 'Review pages',
+      onClick: onReviewPages
+    });
+  }
+
+  if (moves.length < 3) {
+    moves.push({
+      key: 'feed-source',
+      label: 'Feed the next source',
+      detail: 'Drop a source to create new evidence overlap and give the agent something to metabolize.',
+      cta: 'Add source',
+      onClick: onOpenSources
+    });
+  }
+
+  return moves.slice(0, 3);
+};
 
 const truncateGraphLabel = (value = '', maxChars = 34) => {
   const text = String(value || 'Untitled Wiki Page').replace(/\s+/g, ' ').trim();
@@ -176,21 +239,24 @@ const WikiActivityLog = ({ refreshKey = 0, onOpenPage }) => {
   );
 };
 
-const WikiSparsePages = ({ pages = [], onOpenPage, onOpenWorkspace, onBuildPage }) => (
+const WikiSparsePages = ({ pages = [], onOpenPage, onOpenWorkspace, onBuildPage, onOpenSources }) => (
   <section className="wiki-index__sparse" aria-label="Wiki pages">
     <div>
       <p className="wiki-index__eyebrow">Pages</p>
       <h2>{pages.length ? `${pages.length} source-backed page${pages.length === 1 ? '' : 's'}` : 'Start the wiki'}</h2>
       <p>
         {pages.length
-          ? 'The map will stay out of the way until there is enough material to connect. Open a page, or ask the agent to build the next source-backed page.'
-          : 'Ask the agent to build a source-backed page from your library. The map appears after the wiki has enough pages to form a useful constellation.'}
+          ? `The map will stay out of the way until there is enough material to connect. Open a page, or ask ${AGENT_DISPLAY_NAME.toLowerCase()} to build the next source-backed page.`
+          : `Ask ${AGENT_DISPLAY_NAME.toLowerCase()} to build a source-backed page from your library. The map appears after the wiki has enough pages to form a useful constellation.`}
       </p>
     </div>
     <div className="wiki-index__sparse-agent" aria-label="Build wiki pages">
       <strong>Grow the map deliberately</strong>
       <span>Add pages with citations, then connect them through links, shared sources, and review relationships.</span>
-      <Button type="button" variant="secondary" onClick={onBuildPage || onOpenWorkspace}>Build page</Button>
+      <div className="wiki-index__sparse-actions">
+        <Button type="button" variant="secondary" onClick={onBuildPage || onOpenWorkspace}>Build page</Button>
+        <Button type="button" variant="secondary" onClick={onOpenSources || onOpenWorkspace}>Add source</Button>
+      </div>
     </div>
     {pages.length ? (
       <ol className="wiki-index__sparse-list">
@@ -207,11 +273,13 @@ const WikiSparsePages = ({ pages = [], onOpenPage, onOpenWorkspace, onBuildPage 
   </section>
 );
 
-const WikiGraph = ({ graph, onOpenPage }) => {
+const WikiGraph = ({ graph, mapGraph, onOpenPage }) => {
   const graphRef = useRef(null);
+  const canvasRef = useRef(null);
   const [hovered, setHovered] = useState(null);
   const [hoveredLink, setHoveredLink] = useState(null);
   const [selectedNode, setSelectedNode] = useState(null);
+  const [graphSize, setGraphSize] = useState({ width: 0, height: 0 });
   const relationCounts = useMemo(() => (
     (graph.links || []).reduce((counts, link) => {
       const key = link.relationType || 'related';
@@ -252,6 +320,9 @@ const WikiGraph = ({ graph, onOpenPage }) => {
     if (!selectedNode) return [];
     return (visibleGraph.links || []).filter(link => endpointId(link.source) === selectedNode.id || endpointId(link.target) === selectedNode.id);
   }, [selectedNode, visibleGraph.links]);
+  const selectedNodeTraces = useMemo(() => (
+    selectedNode ? buildCorpusConstellation(mapGraph, selectedNode.id) : []
+  ), [mapGraph, selectedNode]);
 
   const toggleRelation = (relationType) => {
     setActiveRelations(current => {
@@ -264,11 +335,11 @@ const WikiGraph = ({ graph, onOpenPage }) => {
 
   const renderNode = (node, ctx, globalScale) => {
     const radius = Math.min(7, 3.25 + Math.sqrt(Number(node.degreeCount || node.inboundCount || 0)) * 0.95);
-    ctx.fillStyle = TYPE_COLORS[node.pageType] || TYPE_COLORS.topic;
+    ctx.fillStyle = wikiGraphNodeColor(node.pageType);
     ctx.beginPath();
     ctx.arc(node.x, node.y, radius, 0, 2 * Math.PI, false);
     ctx.fill();
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.62)';
+    ctx.strokeStyle = wikiGraphLabelColor('stroke', 'rgba(255, 255, 255, 0.62)');
     ctx.lineWidth = 1.2 / Math.max(globalScale, 1);
     ctx.stroke();
 
@@ -281,10 +352,9 @@ const WikiGraph = ({ graph, onOpenPage }) => {
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
     const metrics = ctx.measureText(label);
-    ctx.fillStyle = 'rgba(255, 252, 247, 0.82)';
+    ctx.fillStyle = wikiGraphLabelColor('backdrop', 'rgba(255, 252, 247, 0.82)');
     ctx.fillRect(labelX - 3, node.y - fontSize * 0.72, Math.min(metrics.width, labelWidth) + 6, fontSize * 1.45);
-    const isDark = typeof document !== 'undefined' && document.documentElement?.dataset?.uiTheme === 'dark';
-    ctx.fillStyle = isDark ? '#e5ecf9' : '#1f2933';
+    ctx.fillStyle = wikiGraphLabelColor('text', '#1f2933');
     ctx.fillText(label, labelX, node.y, labelWidth);
   };
 
@@ -294,6 +364,27 @@ const WikiGraph = ({ graph, onOpenPage }) => {
     }, 300);
     return () => window.clearTimeout(handle);
   }, [graph]);
+
+  useEffect(() => {
+    const node = canvasRef.current;
+    if (!node) return undefined;
+    const measure = () => {
+      const rect = node.getBoundingClientRect?.() || {};
+      const width = Math.max(320, Math.floor(rect.width || node.clientWidth || Math.min(getWindowWidth(), 960)));
+      const height = Math.max(420, Math.floor(rect.height || node.clientHeight || 560));
+      setGraphSize(current => (
+        current.width === width && current.height === height ? current : { width, height }
+      ));
+    };
+    measure();
+    const observer = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(measure) : null;
+    observer?.observe(node);
+    window.addEventListener?.('resize', measure);
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener?.('resize', measure);
+    };
+  }, []);
 
   return (
     <div className="wiki-graph" aria-label="Knowledge map">
@@ -310,28 +401,32 @@ const WikiGraph = ({ graph, onOpenPage }) => {
             className={activeRelationSet.has(relationType) ? 'is-active' : ''}
             onClick={() => toggleRelation(relationType)}
           >
-            <i style={{ background: EDGE_COLORS[relationType] || '#94a3b8' }} />
+            <i style={{ background: wikiGraphEdgeColor(relationType, { css: true }) }} />
             {relationLabel(relationType)}
             <span>{relationCounts[relationType]}</span>
           </button>
         ))}
       </div>
-      <div className="wiki-graph__canvas">
+      <div ref={canvasRef} className="wiki-graph__canvas">
         <ForceGraph2D
           ref={graphRef}
           graphData={visibleGraph}
+          width={graphSize.width || undefined}
+          height={graphSize.height || undefined}
           nodeRelSize={4}
           nodeLabel={(node) => `${node.title}\n${labelFor(node.pageType)} · ${formatDate(node.updatedAt) || 'No date'}`}
           linkLabel={(link) => `${relationLabel(link.relationType)}\n${linkReason(link)}`}
           nodeCanvasObject={renderNode}
           d3VelocityDecay={0.42}
           cooldownTicks={90}
-          linkColor={(link) => EDGE_COLORS[link.relationType] || '#94a3b8'}
+          linkColor={(link) => wikiGraphEdgeColor(link.relationType)}
           linkWidth={(link) => (link.relationType === 'wikiLink' ? 1.15 : link.relationType === 'shared_source' ? 0.95 : 0.8)}
           linkDirectionalParticles={0}
           onNodeHover={setHovered}
           onLinkHover={setHoveredLink}
-          onNodeClick={(node) => setSelectedNode(node)}
+          onNodeClick={(node) => {
+            setSelectedNode(node);
+          }}
         />
       </div>
       {selectedNode ? (
@@ -342,6 +437,23 @@ const WikiGraph = ({ graph, onOpenPage }) => {
             <span>{selectedNode.sourceCount} source{selectedNode.sourceCount === 1 ? '' : 's'} · referenced by {selectedNode.inboundCount} · {selectedNodeLinks.length} shown relationship{selectedNodeLinks.length === 1 ? '' : 's'}</span>
           </div>
           <p>{describeNodeRole({ node: selectedNode, links: visibleGraph.links })}</p>
+          {selectedNodeTraces.length ? (
+            <section className="wiki-graph__trace-links" aria-label="Connected source and thought objects">
+              <h3>Connected objects</h3>
+              <ul>
+                {selectedNodeTraces.map(trace => (
+                  <li key={trace.id}>
+                    <span>{trace.kindLabel}</span>
+                    <strong>{trace.title}</strong>
+                    <em>{trace.label}</em>
+                    {trace.openPath ? <Link to={trace.openPath}>Open {trace.kindLabel.toLowerCase()}</Link> : null}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : (
+            <p className="wiki-graph__trace-empty">No source or thinking objects are attached to this map node yet.</p>
+          )}
           {selectedNodeLinks.length ? (
             <ul>
               {selectedNodeLinks.slice(0, 5).map(link => (
@@ -373,8 +485,8 @@ const WikiGraph = ({ graph, onOpenPage }) => {
         </aside>
       ) : null}
       <div className="wiki-graph__legend" aria-label="Page type legend">
-        {Object.entries(TYPE_COLORS).map(([type, color]) => (
-          <span key={type}><i style={{ background: color }} />{labelFor(type)}</span>
+        {Object.keys(WIKI_GRAPH_NODE_TOKENS).map(type => (
+          <span key={type}><i style={{ background: wikiGraphNodeColor(type, { css: true }) }} />{labelFor(type)}</span>
         ))}
       </div>
     </div>
@@ -383,16 +495,27 @@ const WikiGraph = ({ graph, onOpenPage }) => {
 
 const WikiIndex = ({ onOpenPage, onOpenList, onBuildPage, onOpenSources }) => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const urlGraphQuery = useMemo(() => {
+    const routerSearch = location.search || '';
+    const browserSearch = typeof window === 'undefined' ? '' : window.location?.search || '';
+    return new URLSearchParams(routerSearch || browserSearch).get('query') || '';
+  }, [location.search]);
   const [pages, setPages] = useState([]);
   const [mapGraph, setMapGraph] = useState({ nodes: [], edges: [] });
   const [pageType, setPageType] = useState('all');
   const [modifiedWithin, setModifiedWithin] = useState('all');
   const [driftStatus, setDriftStatus] = useState('all');
+  const [graphQuery, setGraphQuery] = useState(urlGraphQuery);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [toast, setToast] = useState(null);
   const [syncingGraph, setSyncingGraph] = useState(false);
-  const [activityRefresh] = useState(0);
+  const [sourceMode, setSourceMode] = useState('url');
+  const [sourceUrl, setSourceUrl] = useState('');
+  const [sourceText, setSourceText] = useState('');
+  const [ingestingSource, setIngestingSource] = useState(false);
+  const [activityRefresh, setActivityRefresh] = useState(0);
   const [width, setWidth] = useState(getWindowWidth);
   const mountedRef = useRef(true);
 
@@ -402,7 +525,7 @@ const WikiIndex = ({ onOpenPage, onOpenList, onBuildPage, onOpenSources }) => {
     const pagesPromise = listWikiPages({ limit: GRAPH_PAGE_LIMIT });
     const mapGraphPromise = fetchGraphData({
       limit: 600,
-      itemTypes: ['wiki_page'],
+      itemTypes: GRAPH_CORPUS_ITEM_TYPES,
       relationTypes: GRAPH_RELATION_TYPES
     });
     try {
@@ -431,12 +554,18 @@ const WikiIndex = ({ onOpenPage, onOpenList, onBuildPage, onOpenSources }) => {
     return () => window.removeEventListener?.('resize', handleResize);
   }, []);
 
+  useEffect(() => {
+    setGraphQuery(urlGraphQuery);
+  }, [urlGraphQuery]);
+
   const filteredPages = useMemo(() => (
     filterWikiGraphPages(pages, { pageType, modifiedWithin, driftStatus })
-  ), [driftStatus, modifiedWithin, pageType, pages]);
+      .filter(page => pageMatchesGraphQuery(page, graphQuery))
+  ), [driftStatus, graphQuery, modifiedWithin, pageType, pages]);
 
   const graph = useMemo(() => buildWikiGraphData(filteredPages, mapGraph), [filteredPages, mapGraph]);
   const graphSummary = useMemo(() => summarizeWikiGraph(graph), [graph]);
+  const corpusShape = useMemo(() => summarizeCorpusShape(mapGraph), [mapGraph]);
   const persistedEdgeCount = Array.isArray(mapGraph.edges) ? mapGraph.edges.length : Array.isArray(mapGraph.links) ? mapGraph.links.length : 0;
   const graphSyncState = useMemo(() => {
     if (!pages.length) return { status: 'empty', label: 'No pages yet', stale: false };
@@ -445,7 +574,7 @@ const WikiIndex = ({ onOpenPage, onOpenList, onBuildPage, onOpenSources }) => {
     return { status: 'synced', label: 'Connections reviewed', stale: false };
   }, [graph.links.length, pages.length, persistedEdgeCount]);
   const isMobile = width < 720;
-  const isEmptyWiki = graph.nodes.length < EMPTY_WIKI_PAGE_THRESHOLD;
+  const isEmptyWiki = pages.length < EMPTY_WIKI_PAGE_THRESHOLD;
   const isSparseWiki = graph.nodes.length >= EMPTY_WIKI_PAGE_THRESHOLD && graph.nodes.length < SPARSE_WIKI_HINT_THRESHOLD;
 
   const handleOpenPage = useCallback((pageId) => {
@@ -498,7 +627,7 @@ const WikiIndex = ({ onOpenPage, onOpenList, onBuildPage, onOpenSources }) => {
     }
   };
 
-  const handleRebuildGraph = async () => {
+  const handleRebuildGraph = useCallback(async () => {
     setSyncingGraph(true);
     setError('');
     try {
@@ -513,7 +642,44 @@ const WikiIndex = ({ onOpenPage, onOpenList, onBuildPage, onOpenSources }) => {
     } finally {
       setSyncingGraph(false);
     }
+  }, [loadGraph]);
+
+  const handleIngestSource = async (event) => {
+    event.preventDefault();
+    const url = String(sourceUrl || '').trim();
+    const text = String(sourceText || '').trim();
+    if (sourceMode === 'url' && !url) return;
+    if (sourceMode === 'text' && !text) return;
+    setIngestingSource(true);
+    setError('');
+    try {
+      const run = await ingestWikiSource(sourceMode === 'text' ? { type: 'text', text } : { type: 'url', url });
+      setSourceUrl('');
+      setSourceText('');
+      await loadGraph({ quiet: true });
+      setActivityRefresh((value) => value + 1);
+      setToast({
+        title: 'Source dropped into the wiki',
+        summary: run?.suggestedCreatePage
+          ? 'The source did not match a page confidently; review the suggested page from activity.'
+          : 'The source ripple is ready for review.',
+        detailsPath: run?.runId ? `/wiki/activity/${run.runId}` : ''
+      });
+    } catch (_error) {
+      setError('Failed to drop source into the wiki.');
+    } finally {
+      setIngestingSource(false);
+    }
   };
+
+  const mapNextMoves = useMemo(() => buildMapNextMoves({
+    graphSummary,
+    graphSyncState,
+    onOpenPage: handleOpenPage,
+    onReviewPages: handleReviewPages,
+    onOpenSources: handleOpenSources,
+    onRebuildGraph: handleRebuildGraph
+  }), [graphSummary, graphSyncState, handleOpenPage, handleOpenSources, handleRebuildGraph, handleReviewPages]);
 
   return (
     <main className="wiki-page wiki-index wiki-graph-index">
@@ -522,6 +688,7 @@ const WikiIndex = ({ onOpenPage, onOpenList, onBuildPage, onOpenSources }) => {
           <div>
             <strong>{toast.title}</strong>
             <span>{toast.summary}</span>
+            {toast.detailsPath ? <Link to={toast.detailsPath}>Review details</Link> : null}
           </div>
         </aside>
       ) : null}
@@ -529,17 +696,20 @@ const WikiIndex = ({ onOpenPage, onOpenList, onBuildPage, onOpenSources }) => {
       {!loading && isEmptyWiki ? (
         <>
           {error ? <div className="wiki-index__error" role="alert">{error}</div> : null}
+          <WikiBriefing />
           <WikiSparsePages
             pages={filteredPages}
             onOpenPage={handleOpenPage}
             onOpenWorkspace={handleOpenWorkspace}
             onBuildPage={handleBuildPage}
+            onOpenSources={handleOpenSources}
           />
           <WikiActivityLog refreshKey={activityRefresh} onOpenPage={handleOpenPage} />
         </>
       ) : null}
       {loading || isEmptyWiki ? null : (
         <>
+      <WikiBriefing />
       <section className="wiki-index__header">
         <div className="wiki-index__title-block">
           <p className="wiki-index__eyebrow">Wiki</p>
@@ -562,7 +732,45 @@ const WikiIndex = ({ onOpenPage, onOpenList, onBuildPage, onOpenSources }) => {
           )}
         </div>
       </section>
+      <form className="wiki-index-source-drop" aria-label="Drop source into wiki" onSubmit={handleIngestSource}>
+        <div>
+          <span>Drop source</span>
+          <p>Paste a URL or text excerpt to let the wiki look for pages it should update.</p>
+        </div>
+        <div className="wiki-index-source-drop__control">
+          <div className="wiki-index-source-drop__modes" role="group" aria-label="Source type">
+            <button type="button" aria-pressed={sourceMode === 'url'} onClick={() => setSourceMode('url')}>URL</button>
+            <button type="button" aria-pressed={sourceMode === 'text'} onClick={() => setSourceMode('text')}>Text</button>
+          </div>
+          {sourceMode === 'text' ? (
+            <textarea
+              value={sourceText}
+              onChange={(event) => setSourceText(event.target.value)}
+              placeholder="Paste a paragraph, note, or article excerpt"
+              aria-label="Source text"
+            />
+          ) : (
+            <input
+              type="url"
+              value={sourceUrl}
+              onChange={(event) => setSourceUrl(event.target.value)}
+              placeholder="https://"
+              aria-label="Source URL"
+            />
+          )}
+        </div>
+        <Button type="submit" variant="secondary" disabled={ingestingSource || !(sourceMode === 'text' ? sourceText.trim() : sourceUrl.trim())}>
+          {ingestingSource ? 'Dropping...' : 'Drop'}
+        </Button>
+      </form>
       <section className="wiki-index__filters" aria-label="Knowledge map filters">
+        <input
+          type="search"
+          value={graphQuery}
+          onChange={(event) => setGraphQuery(event.target.value)}
+          placeholder="Search map"
+          aria-label="Search knowledge map"
+        />
         <select value={pageType} onChange={(event) => setPageType(event.target.value)} aria-label="Page type">
           {PAGE_TYPES.map(value => <option key={value} value={value}>{labelFor(value)}</option>)}
         </select>
@@ -575,6 +783,22 @@ const WikiIndex = ({ onOpenPage, onOpenList, onBuildPage, onOpenSources }) => {
         <span className="wiki-graph-index__stats">
           {graph.nodes.length} {graph.nodes.length === 1 ? 'page' : 'pages'} · {graph.links.length} {graph.links.length === 1 ? 'link' : 'links'}
         </span>
+        {graphQuery ? (
+          <button type="button" className="wiki-index__filter-clear" onClick={() => setGraphQuery('')}>
+            Clear search
+          </button>
+        ) : null}
+      </section>
+      <section className="wiki-corpus-shape" aria-label="Corpus shape">
+        <div className="wiki-corpus-shape__summary">
+          <span>Corpus shape</span>
+          <strong>{formatCorpusShapeSummary(corpusShape)}</strong>
+        </div>
+        <div className="wiki-corpus-shape__metrics">
+          <span><b>{corpusShape.wikiBridges || 0}</b> wiki bridges</span>
+          <span><b>{corpusShape.wikiClaims || 0}</b> claim atoms</span>
+          <span><b>{corpusShape.totalNodes || 0}</b> graph objects</span>
+        </div>
       </section>
       {isSparseWiki ? (
         <section className="wiki-graph-sparse-hint" aria-label="Sparse wiki note">
@@ -595,6 +819,23 @@ const WikiIndex = ({ onOpenPage, onOpenList, onBuildPage, onOpenSources }) => {
         </section>
       ) : null}
       {!loading && graph.nodes.length && !isSparseWiki ? (
+        <section className="wiki-graph-next-moves" aria-label="Knowledge map next moves">
+          <div>
+            <span>Next moves</span>
+            <p>The map should suggest work, not just describe structure.</p>
+          </div>
+          <ol>
+            {mapNextMoves.map(move => (
+              <li key={move.key}>
+                <strong>{move.label}</strong>
+                <p>{move.detail}</p>
+                <button type="button" onClick={move.onClick}>{move.cta}</button>
+              </li>
+            ))}
+          </ol>
+        </section>
+      ) : null}
+      {!loading && graph.nodes.length && !isSparseWiki ? (
         <section className={`wiki-graph-sync is-${graphSyncState.status}`} aria-label="Knowledge map refresh">
           <div>
             <strong>{graphSyncState.label}</strong>
@@ -606,7 +847,7 @@ const WikiIndex = ({ onOpenPage, onOpenList, onBuildPage, onOpenSources }) => {
         </section>
       ) : null}
       {error ? <div className="wiki-index__error" role="alert">{error}</div> : null}
-      {!loading && graph.nodes.length && !isMobile ? <WikiGraph graph={graph} onOpenPage={handleOpenPage} /> : null}
+      {!loading && graph.nodes.length && !isMobile ? <WikiGraph graph={graph} mapGraph={mapGraph} onOpenPage={handleOpenPage} /> : null}
       {isMobile ? (
         <section className="wiki-graph-index__mobile-list" aria-label="Wiki pages mobile list">
           <WikiList compact onOpenPage={handleOpenPage} />

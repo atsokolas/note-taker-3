@@ -302,7 +302,7 @@ const Settings = ({
       </Card>
       <Card className="settings-card">
         <h2>Agents & integrations</h2>
-        <p className="muted">Set up your personal agent and connect BYO runtimes.</p>
+        <p className="muted">Set up specialist agents and connect BYO runtimes.</p>
         <Link to="/integrations" className="ui-button ui-button-secondary">
           Set up agents
         </Link>

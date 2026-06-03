@@ -11,6 +11,7 @@ import ThoughtPartnerPanel from './agent/ThoughtPartnerPanel';
 import { renderArticleContentWithHighlights } from '../utils/highlightMarkup';
 import { buildArticleAmbientContext } from '../utils/ambientAgentContext';
 import { buildWikiCreatePayload, openWikiDraft } from '../utils/wikiCreate';
+import { getConnectionsForItem } from '../api/connections';
 
 const getAuthConfig = () => {
     // ... (Your existing code)
@@ -85,6 +86,7 @@ const ArticleViewer = ({ onArticleChange }) => {
     const tempHighlightRef = useRef(null);
     const selectionOverlayRef = useRef(null);
     const [folders, setFolders] = useState([]);
+    const [articleGraphConnections, setArticleGraphConnections] = useState({ outgoing: [], incoming: [] });
     
     const [editingHighlightId, setEditingHighlightId] = useState(null);
     const [activeHighlightId, setActiveHighlightId] = useState('');
@@ -106,8 +108,12 @@ const ArticleViewer = ({ onArticleChange }) => {
         return pdfs.find(pdf => pdf.id === activePdfId) || pdfs[0];
     }, [pdfs, activePdfId]);
     const articleContextMetadata = useMemo(() => (
-        buildArticleAmbientContext({ article })
-    ), [article]);
+        buildArticleAmbientContext({
+            article,
+            highlights: article?.highlights || [],
+            graphConnections: articleGraphConnections
+        })
+    ), [article, articleGraphConnections]);
 
     const parseTagInput = (value) => (
         value
@@ -342,6 +348,30 @@ const ArticleViewer = ({ onArticleChange }) => {
             fetchArticle();
         }
     }, [id, fetchFolders]);
+
+    useEffect(() => {
+        let cancelled = false;
+        setArticleGraphConnections({ outgoing: [], incoming: [] });
+        if (!id) return () => {
+            cancelled = true;
+        };
+
+        getConnectionsForItem({ itemType: 'article', itemId: id })
+            .then((connections) => {
+                if (cancelled) return;
+                setArticleGraphConnections({
+                    outgoing: Array.isArray(connections?.outgoing) ? connections.outgoing : [],
+                    incoming: Array.isArray(connections?.incoming) ? connections.incoming : []
+                });
+            })
+            .catch(() => {
+                if (!cancelled) setArticleGraphConnections({ outgoing: [], incoming: [] });
+            });
+
+        return () => {
+            cancelled = true;
+        };
+    }, [id]);
 
     const clearTempHighlight = useCallback(() => {
         const el = tempHighlightRef.current;
@@ -693,8 +723,15 @@ const ArticleViewer = ({ onArticleChange }) => {
         <Card className="article-highlights-card" data-testid="article-context-panel">
             <div className="search-section-header" style={{ marginBottom: 12 }}>
                 <h2 style={{ margin: 0 }}>Article Highlights</h2>
-                <ReferencesPanel targetType="article" targetId={id} label="Used in" />
             </div>
+            <ReferencesPanel
+                targetType="article"
+                targetId={id}
+                label="Used in"
+                defaultOpen
+                showToggle={false}
+                heading="Graph backlinks"
+            />
             {article.highlights && article.highlights.length > 0 ? (
                 <ul className="highlights-list">
                     {article.highlights.map(h => (
@@ -756,7 +793,7 @@ const ArticleViewer = ({ onArticleChange }) => {
             <SemanticRelatedPanel
                 sourceType="highlight"
                 sourceId={semanticHighlightId}
-                title="AI Related Highlights"
+                title="Related highlights"
                 limit={6}
                 resultTypes={['highlight']}
                 enabled={Boolean(semanticHighlightId)}

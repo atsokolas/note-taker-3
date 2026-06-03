@@ -1,6 +1,7 @@
 import React, { useCallback, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Button, Card, SegmentedNav } from '../ui';
+import { AGENT_DISPLAY_NAME, SPECIALIST_AGENT_LABEL, USER_BRIDGE_LABEL } from '../../constants/agentIdentity';
 
 const CAPABILITY_LABELS = {
   sharedSkills: 'Shared skills',
@@ -66,7 +67,7 @@ const buildOpenClawConfig = ({
 }) => {
   const baseUrl = resolveBridgeBaseUrl();
   return JSON.stringify({
-    name: actorName || (actorType === 'native_agent' ? 'Native agent' : actorType === 'byo_agent' ? 'BYO agent' : 'User bridge'),
+    name: actorName || (actorType === 'native_agent' ? AGENT_DISPLAY_NAME : actorType === 'byo_agent' ? SPECIALIST_AGENT_LABEL : USER_BRIDGE_LABEL),
     protocol: 'note-taker-agent-bridge-v1',
     scope,
     expires_in_sec: expiresInSec,
@@ -191,25 +192,25 @@ const ExternalBridgeCard = ({
           <p className="muted-label">Actor type</p>
           <select value={bridgeActorType} onChange={(event) => setBridgeActorType(event.target.value)} disabled={bridgeBusy}>
             <option value="user">User</option>
-            <option value="native_agent">Native agent</option>
-            <option value="byo_agent">Personal agent (BYO)</option>
+            <option value="native_agent">{AGENT_DISPLAY_NAME}</option>
+            <option value="byo_agent">{SPECIALIST_AGENT_LABEL}</option>
           </select>
         </div>
         <div className="settings-import-field">
-          <p className="muted-label">Personal agent (if selected)</p>
+          <p className="muted-label">{SPECIALIST_AGENT_LABEL} (if selected)</p>
           <select
             value={bridgeActorId}
             onChange={(event) => setBridgeActorId(event.target.value)}
             disabled={bridgeBusy || bridgeActorType !== 'byo_agent'}
           >
-            <option value="">Select personal agent</option>
+            <option value="">Select specialist agent</option>
             {activePersonalAgents.map(agent => (
               <option key={agent._id} value={agent._id}>{agent.name}</option>
             ))}
           </select>
           {bridgeActorType === 'byo_agent' && activePersonalAgents.length === 0 && (
             <p className="muted small">
-              No active personal agents yet. <Link to="/integrations#personal-agents">Set up an agent</Link>.
+              No active specialist agents yet. <Link to="/integrations#personal-agents">Set up an agent</Link>.
             </p>
           )}
         </div>

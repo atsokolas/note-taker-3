@@ -198,7 +198,9 @@ const renderBlock = (node, key, options = {}) => {
       );
     }
     case 'heading': {
-      const level = Math.max(1, Math.min(6, node.attrs?.level || 2));
+      // The page chrome owns the document h1. Body headings, including model-
+      // generated level-1 headings, must stay subordinate for screen readers.
+      const level = Math.max(2, Math.min(6, node.attrs?.level || 2));
       const HeadingTag = `h${level}`;
       const tocItem = options.tocByBlockIndex?.get?.(key);
       return <HeadingTag key={key} id={tocItem?.id}>{renderInline(node.content, `h-${key}`)}</HeadingTag>;

@@ -460,7 +460,7 @@ const ReviewMode = () => {
               <SemanticRelatedPanel
                 sourceType="highlight"
                 sourceId={selectedHighlight._id}
-                title="AI Related Highlights"
+                title="Related highlights"
                 limit={6}
                 resultTypes={['highlight']}
                 enabled={Boolean(selectedHighlight?._id)}

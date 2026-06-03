@@ -542,7 +542,7 @@ const ConceptNotebook = ({ concept, autoScoutToken = 0 }) => {
       const response = await getConceptAgentSuggestions(conceptId);
       setAgentDrafts(Array.isArray(response?.drafts) ? response.drafts : []);
     } catch (error) {
-      setAgentDraftsError(error.response?.data?.error || 'Failed to load AI draft suggestions.');
+      setAgentDraftsError(error.response?.data?.error || 'Failed to load partner draft suggestions.');
     } finally {
       setAgentDraftsLoading(false);
     }
@@ -1187,8 +1187,8 @@ const ConceptNotebook = ({ concept, autoScoutToken = 0 }) => {
   const handleRunAiScout = useCallback(async () => {
     if (!conceptId || scoutingFromLibrary) return;
     setScoutingFromLibrary(true);
-    queueAgentProgress(['Searching library...', 'Generating AI draft suggestions...']);
-    setToast({ message: 'Running AI scout on your library...', tone: 'success' });
+    queueAgentProgress(['Searching library...', 'Generating partner draft suggestions...']);
+    setToast({ message: 'Running partner scan on your library...', tone: 'success' });
     try {
       const response = await suggestConceptWorkspaceFromLibrary(conceptId, {
         mode: 'library_only',
@@ -1200,8 +1200,8 @@ const ConceptNotebook = ({ concept, autoScoutToken = 0 }) => {
       const usedFallback = Boolean(response?.summary?.usedFallbackSuggestions);
       setToast({
         message: usedFallback
-          ? `AI draft ready: ${itemCount} items and ${conceptCount} concepts (fallback mode).`
-          : `AI draft ready: ${itemCount} items and ${conceptCount} concepts.`,
+          ? `Partner draft ready: ${itemCount} items and ${conceptCount} concepts (fallback mode).`
+          : `Partner draft ready: ${itemCount} items and ${conceptCount} concepts.`,
         tone: 'success'
       });
     } catch (error) {
@@ -1209,7 +1209,7 @@ const ConceptNotebook = ({ concept, autoScoutToken = 0 }) => {
       setToast({
         message: status === 401
           ? 'Session expired. Please log in again.'
-          : (error.response?.data?.error || 'Failed to run AI scout.'),
+          : (error.response?.data?.error || 'Failed to run partner scan.'),
         tone: 'error'
       });
     } finally {
@@ -1288,7 +1288,7 @@ const ConceptNotebook = ({ concept, autoScoutToken = 0 }) => {
                 disabled={scoutingFromLibrary || workspaceLoading}
                 data-testid="concept-ai-scout-button"
               >
-                {scoutingFromLibrary ? 'Scouting...' : 'Run AI scout'}
+                {scoutingFromLibrary ? 'Scanning...' : 'Run partner scan'}
               </Button>
               <Button
                 variant="secondary"
@@ -1332,7 +1332,7 @@ const ConceptNotebook = ({ concept, autoScoutToken = 0 }) => {
         {buildPreview && (
           <div className="concept-outline__ai-draft-group" data-testid="concept-build-preview-panel">
             <div className="concept-outline__ai-draft-group-head">
-              <p className="concept-outline__ai-draft-subtitle">Build preview (AI generated)</p>
+              <p className="concept-outline__ai-draft-subtitle">Build preview (partner generated)</p>
               <div className="concept-outline__drawer-meta">
                 <span className="concept-outline__meta-chip">{buildPreview.candidateItems} candidates</span>
                 <span className="concept-outline__meta-chip">{buildPreview.outlineHeadings} outline headings</span>
@@ -1480,15 +1480,15 @@ const ConceptNotebook = ({ concept, autoScoutToken = 0 }) => {
 
         <div className="concept-outline__ai-draft">
           <div className="concept-outline__ai-draft-head">
-            <p className="concept-outline__ai-draft-title">AI Draft</p>
-            <span className="concept-outline__meta-chip">AI generated</span>
+            <p className="concept-outline__ai-draft-title">Partner draft</p>
+            <span className="concept-outline__meta-chip">Partner generated</span>
           </div>
           {agentDraftsLoading ? (
-            <p className="muted small">Loading AI suggestions…</p>
+            <p className="muted small">Loading partner suggestions...</p>
           ) : (
             <>
               {!activeDraft && !agentDraftsError && (
-                <p className="muted small">No AI draft suggestions yet. Run AI scout to generate them.</p>
+                <p className="muted small">No partner draft suggestions yet. Run partner scan to generate them.</p>
               )}
               {!!activeDraft && (
                 <>

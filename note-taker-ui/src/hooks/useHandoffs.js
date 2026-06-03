@@ -10,6 +10,7 @@ import {
   listPersonalAgents,
   rejectAgentHandoff
 } from '../api/agent';
+import { AGENT_DISPLAY_NAME, SPECIALIST_AGENT_LABEL, labelForAgentActorType } from '../constants/agentIdentity';
 
 const useHandoffs = ({
   enabled = false,
@@ -58,7 +59,7 @@ const useHandoffs = ({
   const agentNameById = useMemo(() => {
     const map = new Map();
     sortedPersonalAgents.forEach((agent) => {
-      map.set(String(agent?._id || ''), String(agent?.name || 'Personal agent'));
+      map.set(String(agent?._id || ''), String(agent?.name || SPECIALIST_AGENT_LABEL));
     });
     return map;
   }, [sortedPersonalAgents]);
@@ -71,10 +72,9 @@ const useHandoffs = ({
   const formatActor = useCallback((actor = {}) => {
     const actorType = String(actor?.actorType || '').trim();
     const actorId = String(actor?.actorId || '').trim();
-    if (actorType === 'user') return 'User';
-    if (actorType === 'native_agent') return actorId ? `Native (${actorId})` : 'Native agent';
-    if (actorType === 'byo_agent') return agentNameById.get(actorId) || `Personal (${actorId || 'unknown'})`;
-    return 'Unknown actor';
+    if (actorType === 'native_agent') return actorId ? `${AGENT_DISPLAY_NAME} · ${actorId}` : AGENT_DISPLAY_NAME;
+    if (actorType === 'byo_agent') return agentNameById.get(actorId) || labelForAgentActorType(actorType, actorId);
+    return labelForAgentActorType(actorType, actorId);
   }, [agentNameById]);
 
   const formatDateTime = useCallback((value) => {
@@ -127,7 +127,7 @@ const useHandoffs = ({
       return { actorType: 'native_agent', actorId: String(queueActorId || '').trim() };
     }
     const actorId = String(queueActorId || '').trim();
-    if (!actorId) throw new Error('Select a personal agent before running this action.');
+    if (!actorId) throw new Error('Select a specialist agent before running this action.');
     return { actorType: 'byo_agent', actorId };
   }, [queueActorId, queueActorType]);
 
@@ -154,7 +154,7 @@ const useHandoffs = ({
     const title = String(newHandoffTitle || '').trim();
     if (!title || handoffCreating) return;
     if (!newHandoffAutoRoute && newHandoffRequestedActorType === 'byo_agent' && !String(newHandoffRequestedActorId || '').trim()) {
-      setHandoffCreateError('Select a personal agent before creating this handoff.');
+      setHandoffCreateError('Select a specialist agent before creating this handoff.');
       return;
     }
     setHandoffCreating(true);
@@ -227,7 +227,7 @@ const useHandoffs = ({
     const requestedActorType = String(payload?.requestedActor?.actorType || '').trim().toLowerCase();
     const requestedActorId = String(payload?.requestedActor?.actorId || '').trim();
     if (requestedActorType === 'byo_agent' && !requestedActorId) {
-      setHandoffCreateError('Select a personal agent before creating this handoff.');
+      setHandoffCreateError('Select a specialist agent before creating this handoff.');
       return null;
     }
     setHandoffCreating(true);

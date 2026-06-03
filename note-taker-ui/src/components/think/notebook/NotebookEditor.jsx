@@ -19,6 +19,7 @@ import useConcepts from '../../../hooks/useConcepts';
 import useQuestions from '../../../hooks/useQuestions';
 import { buildDocFromBlocks, ensureBlockIds, serializeBlocksFromDoc } from '../../../utils/notebookBlocks';
 import { getNotebookClaimEvidence, searchNotebookClaims } from '../../../api/organize';
+import { AGENT_DISPLAY_NAME } from '../../../constants/agentIdentity';
 
 const createId = () => {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
@@ -770,7 +771,7 @@ const NotebookEditor = ({
           targetContextId={agentContextId || entry?._id}
           contextTitle={agentContextTitle || titleDraft || entry?.title || 'Notebook note'}
           headline="Draft what this page can become"
-          title="Notebook agent"
+          title={AGENT_DISPLAY_NAME}
           subtitle="Use the current page as raw material for a brief, critique, concept lead, or question."
           className="think-notebook-editor__skills agent-skill-dock--inline"
           onInvoke={onInvokeAgentSkill}

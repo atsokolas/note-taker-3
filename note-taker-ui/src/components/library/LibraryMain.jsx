@@ -7,6 +7,7 @@ const LibraryMain = ({
   selectedArticleId,
   selectedArticle,
   articleHighlights,
+  articleGraphConnections,
   articleLoading,
   articleError,
   articles,
@@ -66,6 +67,7 @@ const LibraryMain = ({
             ref={readerRef}
             article={selectedArticle}
             highlights={articleHighlights}
+            graphConnections={articleGraphConnections}
             onMove={() => selectedArticle && onMoveArticle(selectedArticle)}
             onHighlightOptimistic={onHighlightOptimistic}
             onHighlightReplace={onHighlightReplace}

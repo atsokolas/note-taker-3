@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Button } from '../ui';
+import { AGENT_DISPLAY_NAME } from '../../constants/agentIdentity';
 
 /**
  * NotionAgentFetchCard — owner-facing surface for the agent-mediated Notion
@@ -99,8 +100,8 @@ const NotionAgentFetchCard = ({
     <div className="notion-agent-fetch-card" data-testid="notion-agent-fetch-card">
       <div className="notion-agent-fetch-card__head">
         <div className="notion-agent-fetch-card__copy">
-          <span className="notion-agent-fetch-card__eyebrow">Agent · Notion</span>
-          <h4 className="notion-agent-fetch-card__title">Let the agent fetch your pages</h4>
+          <span className="notion-agent-fetch-card__eyebrow">{AGENT_DISPLAY_NAME} · Notion</span>
+          <h4 className="notion-agent-fetch-card__title">Let {AGENT_DISPLAY_NAME} fetch your pages</h4>
           <p className="notion-agent-fetch-card__body muted small">
             Pulls every Notion page you can read. Pages whose Notion edit time
             hasn't changed since the last fetch are skipped — re-running is cheap.
@@ -129,7 +130,7 @@ const NotionAgentFetchCard = ({
 
       {!connected ? (
         <p className="muted small">
-          Connect Notion above first, then run the agent fetch from here.
+          Connect Notion above first, then run the {AGENT_DISPLAY_NAME} fetch from here.
         </p>
       ) : null}
 

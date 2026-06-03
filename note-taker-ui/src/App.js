@@ -21,6 +21,7 @@ import TopBar from './layout/TopBar';
 import TourProvider from './tour/TourProvider';
 import TourManager from './tour/TourManager';
 import { buildCanonicalArticlePath } from './utils/firstInsight';
+import { buildThinkPosturePath, getPrimaryNavItems, getSecondaryNavItems } from './navigation/appNavigation';
 import './styles/theme.css';
 import './styles/tokens.css';
 import './styles/global.css';
@@ -130,10 +131,17 @@ const bootstrapDevTokenFromLocation = () => {
 const LegacyConceptRedirect = () => {
   const { tagName, tag } = useParams();
   const conceptName = String(tagName || tag || '').trim();
-  if (!conceptName) {
-    return <Navigate to="/think?tab=concepts" replace />;
-  }
-  return <Navigate to={`/think?tab=concepts&concept=${encodeURIComponent(conceptName)}`} replace />;
+  return <Navigate to={buildThinkPosturePath('concepts', conceptName)} replace />;
+};
+
+const LegacyNotebookRedirect = () => {
+  const { entryId = '' } = useParams();
+  return <Navigate to={buildThinkPosturePath('notebook', entryId)} replace />;
+};
+
+const LegacyQuestionRedirect = () => {
+  const { questionId = '' } = useParams();
+  return <Navigate to={buildThinkPosturePath('questions', questionId)} replace />;
 };
 
 const LegacyArticleRedirect = () => {
@@ -439,88 +447,20 @@ function App() {
         return;
       }
       if (now - lastG < 800) {
-        if (e.key.toLowerCase() === 't') window.location.href = '/today';
-        if (e.key.toLowerCase() === 'b') window.location.href = '/brain';
-        if (e.key.toLowerCase() === 'n') window.location.href = '/think?tab=notebook';
-        if (e.key.toLowerCase() === 'j') window.location.href = '/journey';
-        if (e.key.toLowerCase() === 'c') window.location.href = '/collections';
-        if (e.key.toLowerCase() === 'v') window.location.href = '/views';
+        if (e.key.toLowerCase() === 'h') window.location.href = '/think?tab=home';
+        if (e.key.toLowerCase() === 'l') window.location.href = '/library';
+        if (e.key.toLowerCase() === 't') window.location.href = '/think?tab=home';
+        if (e.key.toLowerCase() === 'w') window.location.href = '/wiki/workspace?view=graph';
+        if (e.key.toLowerCase() === 'r') window.location.href = '/review';
+        if (e.key.toLowerCase() === 's') window.location.href = '/settings';
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [openPalette]);
 
-  const primaryNavItems = [
-    {
-      label: 'Library',
-      to: '/library',
-      match: (location) => location.pathname.startsWith('/library')
-    },
-    {
-      label: 'Notebook',
-      to: '/think?tab=notebook',
-      match: (location) => location.pathname.startsWith('/think') && new URLSearchParams(location.search).get('tab') === 'notebook'
-    },
-    {
-      label: 'Concepts',
-      to: '/think?tab=concepts',
-      match: (location) => location.pathname.startsWith('/think') && new URLSearchParams(location.search).get('tab') === 'concepts'
-    },
-    {
-      label: 'Questions',
-      to: '/think?tab=questions',
-      match: (location) => location.pathname.startsWith('/think') && new URLSearchParams(location.search).get('tab') === 'questions'
-    },
-    {
-      label: 'Wiki',
-      to: '/wiki',
-      match: (location) => location.pathname.startsWith('/wiki')
-    }
-  ];
-
-  const secondaryNavItems = [
-    {
-      label: 'Think Home',
-      to: '/think?tab=home',
-      match: (location) => location.pathname.startsWith('/think') && new URLSearchParams(location.search).get('tab') === 'home'
-    },
-    {
-      label: 'Today',
-      to: '/today',
-      match: (location) => location.pathname.startsWith('/today')
-    },
-    {
-      label: 'Review',
-      to: '/review',
-      match: (location) => location.pathname.startsWith('/review')
-    },
-    {
-      label: 'Capture',
-      to: '/data-integrations',
-      match: (location) => location.pathname.startsWith('/data-integrations')
-    },
-    {
-      label: 'Map',
-      to: '/map',
-      match: (location) => location.pathname.startsWith('/map')
-    },
-    {
-      label: 'Return Queue',
-      to: '/return-queue',
-      match: (location) => location.pathname.startsWith('/return-queue')
-    },
-    {
-      label: 'Growth',
-      to: '/marketing-analytics',
-      match: (location) => location.pathname.startsWith('/marketing-analytics') || location.pathname.startsWith('/search-console-opportunities')
-    },
-    {
-      label: 'How To Use',
-      to: '/how-to-use',
-      match: (location) => location.pathname.startsWith('/how-to-use')
-    }
-  ];
+  const primaryNavItems = getPrimaryNavItems();
+  const secondaryNavItems = getSecondaryNavItems();
 
   if (isLoading) return <RouteLoadingFallback />;
 
@@ -564,7 +504,8 @@ function App() {
             <Route path="/map" element={<MapView />} />
             <Route path="/return-queue" element={<ReturnQueue />} />
             <Route path="/review" element={<ReviewMode />} />
-            <Route path="/wiki" element={<WikiProductIndex />} />
+            <Route path="/wiki" element={<Navigate to="/wiki/workspace?view=graph" replace />} />
+            <Route path="/wiki/home" element={<WikiProductIndex />} />
             <Route path="/wiki/list" element={<Navigate to="/wiki/workspace?view=list" replace />} />
             <Route path="/wiki/workspace" element={<Wiki />} />
             <Route path="/wiki/activity/:runId" element={<WikiIngestRun />} />
@@ -610,7 +551,13 @@ function App() {
             <Route path="/tags/:tagName" element={<LegacyConceptRedirect />} />
             <Route path="/collections" element={<Collections />} />
             <Route path="/collections/:slug" element={<CollectionDetail />} />
-            <Route path="/notebook" element={<Navigate to="/think?tab=notebook" replace />} />
+            <Route path="/concepts" element={<LegacyConceptRedirect />} />
+            <Route path="/concepts/:tag" element={<LegacyConceptRedirect />} />
+            <Route path="/notebook" element={<LegacyNotebookRedirect />} />
+            <Route path="/notebook/:entryId" element={<LegacyNotebookRedirect />} />
+            <Route path="/questions" element={<LegacyQuestionRedirect />} />
+            <Route path="/questions/:questionId" element={<LegacyQuestionRedirect />} />
+            <Route path="/question/:questionId" element={<LegacyQuestionRedirect />} />
             <Route path="/views" element={<Views />} />
             <Route path="/views/:id" element={<ViewDetail />} />
             <Route path="/search" element={<Search />} />

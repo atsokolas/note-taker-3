@@ -1,5 +1,19 @@
 const express = require('express');
 
+const INVERSE_CONNECTION_RELATION_TYPES = {
+  related: 'referenced_by',
+  referenced_by: 'related',
+  supports: 'supported_by',
+  supported_by: 'supports',
+  contradicts: 'contradicted_by',
+  contradicted_by: 'contradicts',
+  contains: 'contained_by',
+  contained_by: 'contains',
+  shared_source: 'shared_source',
+  needs_review: 'review_needed_by',
+  review_needed_by: 'needs_review'
+};
+
 const buildConnectionsRouter = ({
   mongoose,
   authenticateToken,
@@ -8,6 +22,7 @@ const buildConnectionsRouter = ({
   Article,
   TagMeta,
   Question,
+  WikiPage,
   normalizeConnectionItemType,
   normalizeRelationType,
   resolveConnectionScopeInput,
@@ -67,7 +82,8 @@ const buildConnectionsRouter = ({
         return res.status(404).json({ error: 'One or both items were not found for this user.' });
       }
 
-      const existing = await Connection.findOne({
+      const reciprocalRelationType = INVERSE_CONNECTION_RELATION_TYPES[safeRelationType] || 'referenced_by';
+      const connectionQuery = {
         userId,
         fromType: safeFromType,
         fromId: safeFromId,
@@ -75,9 +91,55 @@ const buildConnectionsRouter = ({
         toId: safeToId,
         relationType: safeRelationType,
         ...buildConnectionScopeQuery(scope)
-      }).lean();
+      };
+      const reciprocalQuery = {
+        userId,
+        fromType: safeToType,
+        fromId: safeToId,
+        toType: safeFromType,
+        toId: safeFromId,
+        relationType: reciprocalRelationType,
+        ...buildConnectionScopeQuery(scope)
+      };
+
+      const existing = await Connection.findOne(connectionQuery).lean();
       if (existing) {
-        return res.status(409).json({ error: 'Connection already exists.' });
+        let reciprocalConnection = await Connection.findOne(reciprocalQuery).lean();
+        let reciprocalCreated = false;
+        if (!reciprocalConnection) {
+          try {
+            const repaired = await Connection.create({
+              fromType: safeToType,
+              fromId: safeToId,
+              toType: safeFromType,
+              toId: safeFromId,
+              relationType: reciprocalRelationType,
+              scopeType: scope.scopeType || '',
+              scopeId: scope.scopeId || '',
+              userId
+            });
+            reciprocalConnection = repaired.toObject ? repaired.toObject() : repaired;
+            reciprocalCreated = true;
+          } catch (reciprocalError) {
+            if (reciprocalError?.code !== 11000) throw reciprocalError;
+            reciprocalConnection = await Connection.findOne(reciprocalQuery).lean();
+          }
+        }
+        return res.status(200).json({
+          ...existing,
+          fromItem,
+          toItem,
+          existing: true,
+          reciprocalConnection,
+          trace: {
+            bidirectional: Boolean(reciprocalConnection),
+            forwardId: String(existing._id || ''),
+            reciprocalId: String(reciprocalConnection?._id || ''),
+            reciprocalCreated,
+            relationType: safeRelationType,
+            reciprocalRelationType
+          }
+        });
       }
 
       const created = await Connection.create({
@@ -90,11 +152,41 @@ const buildConnectionsRouter = ({
         scopeId: scope.scopeId || '',
         userId
       });
+      const createdObject = created.toObject ? created.toObject() : created;
+
+      let reciprocalConnection = null;
+      let reciprocalCreated = false;
+      try {
+        const reciprocal = await Connection.create({
+          fromType: safeToType,
+          fromId: safeToId,
+          toType: safeFromType,
+          toId: safeFromId,
+          relationType: reciprocalRelationType,
+          scopeType: scope.scopeType || '',
+          scopeId: scope.scopeId || '',
+          userId
+        });
+        reciprocalConnection = reciprocal.toObject ? reciprocal.toObject() : reciprocal;
+        reciprocalCreated = true;
+      } catch (reciprocalError) {
+        if (reciprocalError?.code !== 11000) throw reciprocalError;
+        reciprocalConnection = await Connection.findOne(reciprocalQuery).lean();
+      }
 
       res.status(201).json({
-        ...created.toObject(),
+        ...createdObject,
         fromItem,
-        toItem
+        toItem,
+        reciprocalConnection,
+        trace: {
+          bidirectional: Boolean(reciprocalConnection),
+          forwardId: String(createdObject._id || ''),
+          reciprocalId: String(reciprocalConnection?._id || ''),
+          reciprocalCreated,
+          relationType: safeRelationType,
+          reciprocalRelationType
+        }
       });
     } catch (error) {
       if (error?.code === 11000) {
@@ -194,6 +286,9 @@ const buildConnectionsRouter = ({
       const scopedQuestionObjectIds = scopeCandidates
         ? toObjectIdList(Array.from(scopeCandidates.questionIds || []))
         : [];
+      const scopedWikiPageObjectIds = scopeCandidates
+        ? toObjectIdList(Array.from(scopeCandidates.wikiPageIds || []))
+        : [];
 
       if (
         scopeCandidates &&
@@ -201,7 +296,8 @@ const buildConnectionsRouter = ({
         scopedHighlightObjectIds.length === 0 &&
         scopedArticleObjectIds.length === 0 &&
         scopedConceptObjectIds.length === 0 &&
-        scopedQuestionObjectIds.length === 0
+        scopedQuestionObjectIds.length === 0 &&
+        scopedWikiPageObjectIds.length === 0
       ) {
         return res.status(200).json([]);
       }
@@ -239,7 +335,16 @@ const buildConnectionsRouter = ({
         questionQuery._id = { $in: scopedQuestionObjectIds };
       }
 
-      const [notebooks, highlights, articles, concepts, questions] = await Promise.all([
+      const wikiPageQuery = {
+        userId,
+        status: { $ne: 'archived' },
+        ...(regex ? { $or: [{ title: regex }, { plainText: regex }, { pageType: regex }] } : {})
+      };
+      if (scopeCandidates) {
+        wikiPageQuery._id = { $in: scopedWikiPageObjectIds };
+      }
+
+      const [notebooks, highlights, articles, concepts, questions, wikiPages] = await Promise.all([
         NotebookEntry.find(notebookQuery)
           .select('title content updatedAt')
           .sort({ updatedAt: -1 })
@@ -284,7 +389,14 @@ const buildConnectionsRouter = ({
           .select('text updatedAt')
           .sort({ updatedAt: -1 })
           .limit(fetchLimit)
-          .lean()
+          .lean(),
+        WikiPage
+          ? WikiPage.find(wikiPageQuery)
+            .select('title plainText pageType updatedAt')
+            .sort({ updatedAt: -1 })
+            .limit(fetchLimit)
+            .lean()
+          : Promise.resolve([])
       ]);
 
       const notebookItems = notebooks.map(entry => ({
@@ -297,8 +409,12 @@ const buildConnectionsRouter = ({
       const highlightItems = highlights.map(highlight => ({
         itemType: 'highlight',
         itemId: String(highlight._id),
+        articleId: highlight.articleId ? String(highlight.articleId) : '',
         title: highlight.articleTitle || 'Highlight',
         snippet: buildQueueSnippet(highlight.text, highlight.note),
+        metadata: {
+          articleId: highlight.articleId ? String(highlight.articleId) : ''
+        },
         updatedAt: null
       }));
       const articleItems = articles.map(article => ({
@@ -322,8 +438,15 @@ const buildConnectionsRouter = ({
         snippet: buildQueueSnippet(question.text),
         updatedAt: question.updatedAt
       }));
+      const wikiItems = wikiPages.map(page => ({
+        itemType: 'wiki_page',
+        itemId: String(page._id),
+        title: page.title || 'Wiki page',
+        snippet: buildQueueSnippet(page.plainText, page.pageType, page.title),
+        updatedAt: page.updatedAt
+      }));
 
-      const results = [...notebookItems, ...highlightItems, ...articleItems, ...conceptItems, ...questionItems]
+      const results = [...notebookItems, ...highlightItems, ...articleItems, ...conceptItems, ...questionItems, ...wikiItems]
         .filter(item => !(item.itemType === excludeType && item.itemId === excludeId))
         .filter(item => (allowedItemTypes.size === 0 ? true : allowedItemTypes.has(item.itemType)))
         .filter(item => isConnectionItemInScopeCandidates(item.itemType, item.itemId, scopeCandidates))
@@ -517,7 +640,22 @@ const buildConnectionsRouter = ({
       if (!deleted) {
         return res.status(404).json({ error: 'Connection not found.' });
       }
-      res.status(200).json({ message: 'Connection deleted.' });
+      const deletedObject = deleted.toObject ? deleted.toObject() : deleted;
+      const reciprocalRelationType = INVERSE_CONNECTION_RELATION_TYPES[deletedObject.relationType] || 'referenced_by';
+      const reciprocalDeleted = await Connection.findOneAndDelete({
+        userId,
+        fromType: deletedObject.toType,
+        fromId: deletedObject.toId,
+        toType: deletedObject.fromType,
+        toId: deletedObject.fromId,
+        relationType: reciprocalRelationType,
+        scopeType: deletedObject.scopeType || '',
+        scopeId: deletedObject.scopeId || ''
+      });
+      res.status(200).json({
+        message: 'Connection deleted.',
+        reciprocalDeleted: Boolean(reciprocalDeleted)
+      });
     } catch (error) {
       console.error('❌ Error deleting connection:', error);
       res.status(500).json({ error: 'Failed to delete connection.' });
@@ -527,4 +665,4 @@ const buildConnectionsRouter = ({
   return router;
 };
 
-module.exports = { buildConnectionsRouter };
+module.exports = { buildConnectionsRouter, INVERSE_CONNECTION_RELATION_TYPES };

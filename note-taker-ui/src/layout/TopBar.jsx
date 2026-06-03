@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import BrandGradient from '../components/BrandGradient';
 import { THEME_OPTIONS } from '../settings/uiPreferences';
+import { buildReferenceHandoffPath } from '../navigation/referenceHandoff';
 
 const TopBar = ({
   rightSlot,
@@ -53,6 +54,13 @@ const TopBar = ({
       return;
     }
     navigate('/search');
+  };
+
+  const openReferenceHandoff = () => {
+    navigate(buildReferenceHandoffPath({
+      pathname: location.pathname,
+      search: location.search
+    }));
   };
 
   useEffect(() => {
@@ -138,6 +146,13 @@ const TopBar = ({
           </div>
         ) : null}
         <div className="topbar__right">
+          <button
+            type="button"
+            className="topbar__button topbar__reference-button"
+            onClick={openReferenceHandoff}
+          >
+            Reference…
+          </button>
           {searchMode === 'icon' && (
             <button
               type="button"

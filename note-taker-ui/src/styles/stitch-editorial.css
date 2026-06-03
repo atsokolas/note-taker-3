@@ -1,6 +1,7 @@
-@import url('https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,200..800;1,6..72,200..800&family=Inter:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,200..800;1,6..72,200..800&display=swap');
 
 body.noeis-editorial {
+  --noeis-ui-font: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
   --vellum-bg: #fffcf7;
   --vellum-panel: #fcf9f3;
   --vellum-panel-strong: #f6f4ec;
@@ -13,7 +14,27 @@ body.noeis-editorial {
   --vellum-accent: #615e5b;
   --vellum-accent-dim: #55524f;
   --vellum-warm: #74614a;
+  --vellum-cyan: #1d8fa2;
   --vellum-error: #a54731;
+  --wiki-graph-node-concept: var(--wiki-warm-accent, #b1862e);
+  --wiki-graph-node-entity: #6f6a61;
+  --wiki-graph-node-source: var(--wiki-warm-accent, #b1862e);
+  --wiki-graph-node-question: #74706a;
+  --wiki-graph-node-comparison: #8b8176;
+  --wiki-graph-node-overview: #625d55;
+  --wiki-graph-node-project: #7a6040;
+  --wiki-graph-node-log: #62707a;
+  --wiki-graph-node-topic: #5f6468;
+  --wiki-graph-edge-wikiLink: var(--wiki-warm-accent, #b1862e);
+  --wiki-graph-edge-shared_source: #8f8373;
+  --wiki-graph-edge-related: #7a8088;
+  --wiki-graph-edge-needs_review: var(--wiki-warm-accent, #b1862e);
+  --wiki-graph-edge-supports: #7a756d;
+  --wiki-graph-edge-contradicts: #9b5a46;
+  --wiki-graph-edge-extends: #8b7652;
+  --wiki-graph-label-backdrop: rgba(255, 252, 247, 0.82);
+  --wiki-graph-label-text: #1f2933;
+  --wiki-graph-node-stroke: rgba(255, 255, 255, 0.62);
   --vellum-shadow: 0 24px 48px color-mix(in srgb, var(--vellum-ink) 6%, transparent);
   --vellum-scrollbar-thumb: color-mix(in srgb, var(--vellum-ink) 18%, transparent);
   --vellum-scrollbar-thumb-hover: color-mix(in srgb, var(--vellum-ink) 34%, transparent);
@@ -35,6 +56,36 @@ body.noeis-editorial {
   background: var(--vellum-bg) !important;
   color: var(--vellum-ink);
   font-family: "Newsreader", Georgia, serif;
+}
+
+body.noeis-editorial,
+body.noeis-editorial .topbar,
+body.noeis-editorial .ui-card,
+body.noeis-editorial .three-pane__main,
+body.noeis-editorial .right-drawer__panel,
+body.noeis-editorial .wiki-read,
+body.noeis-editorial .wiki-workspace,
+body.noeis-editorial .think-home-editorial,
+body.noeis-editorial .agent-ticker {
+  transition:
+    background-color 260ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    border-color 260ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    color 220ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    box-shadow 260ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body.noeis-editorial,
+  body.noeis-editorial .topbar,
+  body.noeis-editorial .ui-card,
+  body.noeis-editorial .three-pane__main,
+  body.noeis-editorial .right-drawer__panel,
+  body.noeis-editorial .wiki-read,
+  body.noeis-editorial .wiki-workspace,
+  body.noeis-editorial .think-home-editorial,
+  body.noeis-editorial .agent-ticker {
+    transition: none;
+  }
 }
 
 /* Workbench / concept-editorial palette — extracted from raw rgba() literals
@@ -65,18 +116,19 @@ body.noeis-editorial {
      (Iter 5/C). Uses the vellum-ink family rather than the workbench tan
      family so the dropzone reads as a quieter "drop slot" rather than a
      warm card. */
-  --dropzone-border-idle: var(--dropzone-border-idle);
-  --dropzone-border-active: var(--dropzone-border-active);
-  --dropzone-border-hover: var(--dropzone-border-hover);
-  --dropzone-surface-idle: var(--dropzone-surface-idle);
-  --dropzone-surface-active: var(--dropzone-surface-active);
-  --dropzone-surface-hover: var(--dropzone-surface-hover);
-  --dropzone-shadow-hover: var(--dropzone-shadow-hover);
-  --dropzone-inset-active: var(--dropzone-inset-active);
-  --dropzone-inset-hover: var(--dropzone-inset-hover);
-  --dropzone-ink-idle: var(--dropzone-ink-idle);
-  --dropzone-ink-hover: var(--dropzone-ink-hover);
-  --dropzone-text-quiet: var(--dropzone-text-quiet);
+  --dropzone-border-idle: rgba(56, 56, 49, 0.18);
+  --dropzone-border-active: rgba(56, 56, 49, 0.38);
+  --dropzone-border-hover: rgba(56, 56, 49, 0.58);
+  --dropzone-surface-idle: rgba(252, 249, 243, 0.72);
+  --dropzone-surface-active: rgba(246, 244, 236, 0.88);
+  --dropzone-surface-hover: rgba(234, 232, 222, 0.92);
+  --dropzone-shadow-hover: 0 6px 18px rgba(56, 56, 49, 0.12);
+  --dropzone-inset-active: inset 0 0 0 1px rgba(56, 56, 49, 0.08);
+  --dropzone-inset-hover: inset 0 0 0 1px rgba(56, 56, 49, 0.14);
+  --dropzone-ink-idle: rgba(56, 56, 49, 0.58);
+  --dropzone-ink-hover: rgba(56, 56, 49, 0.9);
+  --dropzone-text: rgba(56, 56, 49, 0.78);
+  --dropzone-text-quiet: rgba(56, 56, 49, 0.5);
 }
 
 /* Dark-mode editorial. The base palette is warm-cream; dark mode flips
@@ -102,7 +154,27 @@ html[data-ui-theme='dark'] body.noeis-editorial {
   --vellum-accent: #d2c4ac;
   --vellum-accent-dim: #b9ad96;
   --vellum-warm: #e0bf91;
+  --vellum-cyan: #5ac7d6;
   --vellum-error: #d97a5e;
+  --wiki-graph-node-concept: #c79a43;
+  --wiki-graph-node-entity: #9d9487;
+  --wiki-graph-node-source: #d2a34a;
+  --wiki-graph-node-question: #a69a87;
+  --wiki-graph-node-comparison: #b09a78;
+  --wiki-graph-node-overview: #b8ad9c;
+  --wiki-graph-node-project: #c09663;
+  --wiki-graph-node-log: #8fa4ad;
+  --wiki-graph-node-topic: #9aa0a1;
+  --wiki-graph-edge-wikiLink: #d0a34a;
+  --wiki-graph-edge-shared_source: #b6a28a;
+  --wiki-graph-edge-related: #9aa0a8;
+  --wiki-graph-edge-needs_review: #d8ac55;
+  --wiki-graph-edge-supports: #b5aa96;
+  --wiki-graph-edge-contradicts: #d47d63;
+  --wiki-graph-edge-extends: #c2a06a;
+  --wiki-graph-label-backdrop: rgba(20, 17, 13, 0.76);
+  --wiki-graph-label-text: #efe6d4;
+  --wiki-graph-node-stroke: rgba(239, 230, 212, 0.36);
   --vellum-shadow: 0 24px 48px rgba(0, 0, 0, 0.45);
   --vellum-scrollbar-thumb: rgba(232, 222, 198, 0.22);
   --vellum-scrollbar-thumb-hover: rgba(232, 222, 198, 0.36);
@@ -139,6 +211,7 @@ html[data-ui-theme='dark'] body.noeis-editorial {
   --dropzone-inset-hover: inset 0 0 0 1px rgba(232, 222, 198, 0.32);
   --dropzone-ink-idle: rgba(190, 190, 178, 0.62);
   --dropzone-ink-hover: rgba(232, 222, 198, 0.95);
+  --dropzone-text: rgba(232, 222, 198, 0.82);
   --dropzone-text-quiet: rgba(190, 190, 178, 0.5);
 }
 
@@ -176,7 +249,7 @@ body.noeis-editorial .think-home-editorial-column__empty-action {
   border: 0;
   background: transparent;
   color: var(--vellum-ink, var(--text));
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--noeis-ui-font);
   font-size: 0.78rem;
   font-weight: 500;
   cursor: pointer;
@@ -240,7 +313,7 @@ body.noeis-editorial .think-home-editorial-row__title {
 }
 
 body.noeis-editorial .think-home-editorial-row__meta {
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif !important;
+  font-family: var(--noeis-ui-font) !important;
   font-size: 0.72rem !important;
   line-height: 1.45 !important;
   letter-spacing: 0.03em;
@@ -292,14 +365,14 @@ body.noeis-editorial .think-home-editorial-material-row__snippet {
   overflow: hidden;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif !important;
+  font-family: var(--noeis-ui-font) !important;
   font-size: 0.82rem !important;
   line-height: 1.55 !important;
   color: color-mix(in srgb, var(--vellum-ink) 76%, transparent) !important;
 }
 
 body.noeis-editorial .think-home-editorial-material-row__meta {
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif !important;
+  font-family: var(--noeis-ui-font) !important;
   font-size: 0.72rem !important;
   line-height: 1.45 !important;
   letter-spacing: 0.03em;
@@ -418,7 +491,7 @@ body.noeis-editorial input,
 body.noeis-editorial textarea,
 body.noeis-editorial select,
 body.noeis-editorial button {
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--noeis-ui-font);
 }
 
 body.noeis-editorial .app-shell-new--stitch.app-shell-new--navless {
@@ -580,7 +653,7 @@ body.noeis-editorial .topbar__search {
   box-shadow: none;
   background: var(--vellum-panel);
   color: var(--vellum-ink);
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--noeis-ui-font);
   font-size: 0.68rem;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -953,7 +1026,7 @@ body.noeis-editorial .idea-workbench-rail__comment-anchor,
 body.noeis-editorial .library-article-row-source,
 body.noeis-editorial .review-resurface-context-title,
 body.noeis-editorial .today-context-title {
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif !important;
+  font-family: var(--noeis-ui-font) !important;
   font-size: 0.68rem !important;
   font-weight: 600 !important;
   letter-spacing: 0.18em !important;
@@ -1135,7 +1208,7 @@ body.noeis-editorial .library-article-row {
 
 body.noeis-editorial .library-article-row-date {
   padding-top: 6px;
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--noeis-ui-font);
   font-size: 0.66rem;
   letter-spacing: 0.18em;
   text-transform: uppercase;
@@ -1164,7 +1237,7 @@ body.noeis-editorial .library-article-row-kicker {
 }
 
 body.noeis-editorial .library-article-row-tag {
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--noeis-ui-font);
   font-size: 0.68rem;
   letter-spacing: 0.14em;
   text-transform: uppercase;
@@ -1180,7 +1253,7 @@ body.noeis-editorial .library-article-row-excerpt {
 body.noeis-editorial .library-article-row-meta {
   display: flex;
   gap: 16px;
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--noeis-ui-font);
   font-size: 0.7rem;
   letter-spacing: 0.14em;
   text-transform: uppercase;
@@ -1212,7 +1285,7 @@ body.noeis-editorial .article-reader-meta {
   display: flex;
   gap: 14px;
   flex-wrap: wrap;
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--noeis-ui-font);
   font-size: 0.7rem;
   letter-spacing: 0.16em;
   text-transform: uppercase;
@@ -1453,7 +1526,7 @@ body.noeis-editorial .think-home-editorial__hero {
 }
 
 body.noeis-editorial .think-home-editorial__hero-eyebrow {
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--noeis-ui-font);
   font-size: 0.62rem;
   letter-spacing: 0.18em;
   text-transform: uppercase;
@@ -1479,6 +1552,467 @@ body.noeis-editorial .think-home-editorial__hero-subtitle {
   line-height: 1.5;
   font-style: italic;
   color: color-mix(in srgb, var(--vellum-ink) 82%, transparent);
+}
+
+body.noeis-editorial .think-home-editorial__greeting {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+  align-items: stretch;
+  max-width: 48rem;
+  padding: 18px 0 20px;
+  border-bottom: 1px solid var(--vellum-line);
+}
+
+body.noeis-editorial .think-home-editorial__greeting-kicker {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--vellum-accent);
+  font-family: var(--noeis-ui-font);
+  font-size: 0.62rem;
+  font-weight: 760;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+body.noeis-editorial .think-home-editorial__greeting h2 {
+  margin: 0;
+  color: var(--vellum-ink);
+  font-family: "Newsreader", Georgia, serif;
+  font-size: clamp(1.6rem, 3vw, 2.4rem);
+  font-weight: 520;
+  line-height: 1.02;
+}
+
+body.noeis-editorial .think-home-editorial__greeting p {
+  max-width: 38rem;
+  margin: 10px 0 0;
+  color: color-mix(in srgb, var(--vellum-ink) 78%, transparent);
+  font-size: 0.96rem;
+  line-height: 1.5;
+}
+
+body.noeis-editorial .think-home-editorial__agent-presence {
+  margin: 0;
+  max-width: 48rem;
+  background: color-mix(in srgb, var(--vellum-bg) 88%, var(--vellum-panel-strong) 12%);
+}
+
+body.noeis-editorial .think-home-editorial__agent-presence .agent-presence__text {
+  font-family: "Newsreader", Georgia, serif;
+  font-size: clamp(1.35rem, 2.4vw, 1.9rem);
+  font-weight: 520;
+  line-height: 1.08;
+}
+
+body.noeis-editorial .think-home-editorial__agent-presence .agent-presence__sub {
+  white-space: normal;
+}
+
+body.noeis-editorial .think-home-editorial__universal-command {
+  display: grid;
+  gap: 10px;
+  max-width: 48rem;
+  padding: 18px 0 20px;
+  border-bottom: 1px solid var(--vellum-line);
+}
+
+body.noeis-editorial .think-home-editorial__command-label {
+  font-family: var(--noeis-ui-font);
+  font-size: 0.62rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--vellum-accent);
+}
+
+body.noeis-editorial .think-home-editorial__command-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: stretch;
+  border: 1px solid color-mix(in srgb, var(--vellum-warm) 48%, var(--vellum-line));
+  border-radius: 999px;
+  background:
+    linear-gradient(var(--vellum-bg), var(--vellum-bg)) padding-box,
+    conic-gradient(
+      from 180deg,
+      color-mix(in srgb, var(--vellum-warm) 26%, transparent),
+      transparent 22%,
+      color-mix(in srgb, var(--vellum-accent) 22%, transparent),
+      transparent 58%,
+      color-mix(in srgb, var(--vellum-warm) 28%, transparent)
+    ) border-box;
+  box-shadow: 0 12px 30px color-mix(in srgb, var(--vellum-warm) 10%, transparent);
+  overflow: hidden;
+}
+
+body.noeis-editorial .think-home-editorial__command-row:focus-within {
+  border-color: color-mix(in srgb, var(--vellum-warm) 64%, var(--vellum-ink));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--vellum-warm) 12%, transparent);
+}
+
+body.noeis-editorial .think-home-editorial__command-row input {
+  min-width: 0;
+  min-height: 52px;
+  padding: 0 22px;
+  border: 0;
+  background: transparent;
+  color: var(--vellum-ink);
+  font-family: "Newsreader", Georgia, serif;
+  font-size: 1.16rem;
+}
+
+body.noeis-editorial .think-home-editorial__command-row input::placeholder {
+  color: color-mix(in srgb, var(--vellum-muted) 72%, transparent);
+}
+
+body.noeis-editorial .think-home-editorial__command-row input:focus {
+  outline: 0;
+}
+
+body.noeis-editorial .think-home-editorial__command-row button {
+  min-width: 96px;
+  border: 0;
+  border-left: 1px solid var(--vellum-line);
+  background: color-mix(in srgb, var(--vellum-bg) 78%, var(--vellum-warm) 8%);
+  color: var(--vellum-ink);
+  font-family: var(--noeis-ui-font);
+  font-size: 0.68rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+body.noeis-editorial .think-home-editorial__command-row button:hover:not(:disabled),
+body.noeis-editorial .think-home-editorial__command-row button:focus-visible {
+  background: color-mix(in srgb, var(--vellum-bg) 64%, var(--vellum-warm) 16%);
+}
+
+body.noeis-editorial .think-home-editorial__command-row button:disabled {
+  cursor: not-allowed;
+  color: color-mix(in srgb, var(--vellum-muted) 70%, transparent);
+}
+
+body.noeis-editorial .think-home-editorial__command-hint {
+  margin: 0;
+  color: color-mix(in srgb, var(--vellum-muted) 88%, transparent);
+  font-size: 0.82rem;
+}
+
+body.noeis-editorial .think-home-editorial__reference-tray {
+  display: grid;
+  gap: 10px;
+  max-width: 48rem;
+  padding: 12px 14px;
+  border: 1px solid var(--vellum-line);
+  background: color-mix(in srgb, var(--vellum-page) 78%, transparent);
+}
+
+body.noeis-editorial .think-home-editorial__reference-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  align-items: baseline;
+}
+
+body.noeis-editorial .think-home-editorial__reference-head span,
+body.noeis-editorial .think-home-editorial__reference-strip > span {
+  color: var(--vellum-blue);
+  font-family: var(--noeis-ui-font);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+
+body.noeis-editorial .think-home-editorial__reference-head p {
+  margin: 0;
+  color: var(--vellum-muted);
+  font-size: 0.8rem;
+}
+
+body.noeis-editorial .think-home-editorial__reference-search input {
+  width: 100%;
+  min-height: 44px;
+  border: 1px solid color-mix(in srgb, var(--vellum-line) 86%, transparent);
+  background: var(--vellum-page);
+  color: var(--vellum-ink);
+  font-family: var(--noeis-ui-font);
+  font-size: 0.88rem;
+  padding: 10px 12px;
+}
+
+body.noeis-editorial .think-home-editorial__reference-search input:focus {
+  border-color: color-mix(in srgb, var(--vellum-cyan) 52%, var(--vellum-line));
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--vellum-cyan) 12%, transparent);
+}
+
+body.noeis-editorial .think-home-editorial__reference-results {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 8px;
+}
+
+body.noeis-editorial .think-home-editorial__reference-result {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: 10px 11px;
+  border: 1px solid color-mix(in srgb, var(--vellum-line) 88%, transparent);
+  background: color-mix(in srgb, var(--vellum-page) 82%, transparent);
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+body.noeis-editorial .think-home-editorial__reference-result:hover,
+body.noeis-editorial .think-home-editorial__reference-result:focus-visible {
+  border-color: color-mix(in srgb, var(--vellum-cyan) 55%, var(--vellum-line));
+  background: color-mix(in srgb, var(--vellum-cyan) 8%, var(--vellum-page));
+  outline: none;
+}
+
+body.noeis-editorial .think-home-editorial__reference-result span {
+  color: var(--vellum-muted);
+  font-family: var(--noeis-ui-font);
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+body.noeis-editorial .think-home-editorial__reference-result strong {
+  overflow: hidden;
+  color: var(--vellum-ink);
+  font-family: var(--noeis-ui-font);
+  font-size: 0.84rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+body.noeis-editorial .think-home-editorial__reference-result small {
+  display: -webkit-box;
+  overflow: hidden;
+  color: var(--vellum-muted);
+  font-size: 0.76rem;
+  line-height: 1.35;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+body.noeis-editorial .think-home-editorial__reference-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+body.noeis-editorial .think-home-editorial__reference-strip button {
+  min-height: 34px;
+  border: 1px solid color-mix(in srgb, var(--vellum-cyan) 38%, var(--vellum-line));
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--vellum-cyan) 8%, var(--vellum-page));
+  color: var(--vellum-ink);
+  cursor: pointer;
+  font-family: var(--noeis-ui-font);
+  font-size: 0.76rem;
+  padding: 7px 10px;
+  animation: referenceChipSnap 280ms ease-out both;
+}
+
+body.noeis-editorial .think-home-editorial__telemetry {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: baseline;
+  max-width: 100%;
+  padding: 2px 0 10px;
+  color: color-mix(in srgb, var(--vellum-ink) 78%, transparent);
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", monospace;
+  font-size: 0.74rem;
+  line-height: 1.45;
+  letter-spacing: 0;
+}
+
+body.noeis-editorial .think-home-editorial__telemetry-label {
+  color: color-mix(in srgb, var(--vellum-warm) 88%, transparent);
+}
+
+body.noeis-editorial .agent-ticker {
+  position: relative;
+  display: grid;
+  gap: 7px;
+  max-width: 48rem;
+  padding: 12px 14px;
+  border: 1px solid var(--vellum-line);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--vellum-bg) 88%, var(--vellum-panel-strong) 12%);
+  overflow: hidden;
+}
+
+body.noeis-editorial .agent-ticker__history {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 2px;
+  padding: 0;
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--vellum-warm) 48%, transparent),
+    transparent
+  );
+  border: 0;
+  cursor: pointer;
+  opacity: 0.7;
+}
+
+body.noeis-editorial .agent-ticker[data-history-count="0"] .agent-ticker__history {
+  cursor: default;
+  opacity: 0.22;
+}
+
+body.noeis-editorial .agent-ticker:not([data-history-count="0"]) .agent-ticker__history:hover {
+  width: 4px;
+  opacity: 1;
+}
+
+body.noeis-editorial .agent-ticker__history:focus-visible {
+  width: 5px;
+  outline: 1px solid color-mix(in srgb, var(--vellum-cyan) 60%, transparent);
+  outline-offset: 3px;
+}
+
+body.noeis-editorial .agent-ticker__lines {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", monospace;
+  font-size: 0.76rem;
+  line-height: 1.45;
+  color: color-mix(in srgb, var(--vellum-ink) 72%, transparent);
+}
+
+body.noeis-editorial .agent-ticker__lines--history {
+  padding-bottom: 5px;
+  border-bottom: 1px solid color-mix(in srgb, var(--vellum-line) 70%, transparent);
+}
+
+body.noeis-editorial .agent-ticker__line {
+  display: flex;
+  gap: 7px;
+  align-items: baseline;
+  min-width: 0;
+  opacity: 0.72;
+}
+
+body.noeis-editorial .agent-ticker__line--active {
+  color: var(--vellum-ink);
+  opacity: 1;
+}
+
+body.noeis-editorial .agent-ticker__prompt {
+  color: color-mix(in srgb, var(--vellum-warm) 86%, transparent);
+}
+
+body.noeis-editorial .agent-ticker__cursor {
+  width: 0.55em;
+  height: 1em;
+  background: color-mix(in srgb, var(--vellum-warm) 72%, transparent);
+  animation: noeisTickerCursor 900ms steps(2, start) infinite;
+}
+
+body.noeis-editorial .agent-ticker--working .agent-ticker__history {
+  opacity: 1;
+}
+
+@keyframes noeisTickerCursor {
+  0%,
+  45% {
+    opacity: 1;
+  }
+  46%,
+  100% {
+    opacity: 0;
+  }
+}
+
+body.noeis-editorial .think-home-editorial__pulse {
+  max-width: 58rem;
+}
+
+body.noeis-editorial .think-home-editorial__pulse-list {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--vellum-line);
+}
+
+body.noeis-editorial .think-home-editorial__pulse-row {
+  display: grid;
+  width: 100%;
+  grid-template-columns: minmax(8rem, 0.35fr) minmax(0, 0.8fr) minmax(0, 1fr);
+  gap: 18px;
+  align-items: baseline;
+  padding: 12px 0;
+  border: 0;
+  border-bottom: 1px solid var(--vellum-line);
+  background: transparent;
+  color: color-mix(in srgb, var(--vellum-ink) 80%, transparent);
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}
+
+body.noeis-editorial .think-home-editorial__pulse-row:hover,
+body.noeis-editorial .think-home-editorial__pulse-row:focus-visible {
+  color: var(--vellum-ink);
+  outline: none;
+}
+
+body.noeis-editorial .think-home-editorial__pulse-row:focus-visible {
+  box-shadow: 0 1px 0 var(--vellum-warm);
+}
+
+body.noeis-editorial .think-home-editorial__pulse-row strong {
+  min-width: 0;
+  color: var(--vellum-ink);
+  font-weight: 500;
+}
+
+body.noeis-editorial .think-home-editorial__pulse-row span:last-child {
+  min-width: 0;
+  color: color-mix(in srgb, var(--vellum-muted) 92%, transparent);
+}
+
+body.noeis-editorial .think-home-editorial__pulse-kind {
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", monospace;
+  font-size: 0.68rem;
+  line-height: 1.45;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--vellum-warm) 86%, transparent);
+}
+
+body.noeis-editorial .think-home-editorial__first-run {
+  display: grid;
+  gap: 14px;
+  max-width: 42rem;
+  padding: 18px 0;
+}
+
+body.noeis-editorial .think-home-editorial__first-run p {
+  margin: 0;
+  color: color-mix(in srgb, var(--vellum-ink) 82%, transparent);
+  font-size: 1.05rem;
+  line-height: 1.55;
+}
+
+body.noeis-editorial .think-home-editorial__starter-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
 }
 
 body.noeis-editorial .think-home-editorial__notice,
@@ -1555,7 +2089,7 @@ body.noeis-editorial .ui-quiet-button--primary {
   padding: 10px 22px !important;
   border: 1px solid var(--vellum-line-strong) !important;
   border-radius: 999px !important;
-  background: var(--vellum-page) !important;
+  background: var(--vellum-bg) !important;
   color: var(--vellum-ink) !important;
   font-size: 0.72rem !important;
   letter-spacing: 0.18em !important;
@@ -1633,7 +2167,7 @@ body.noeis-editorial .think-home-editorial__continue-hero-copy {
 }
 
 body.noeis-editorial .think-home-editorial__continue-hero-eyebrow {
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--noeis-ui-font);
   font-size: 0.62rem;
   letter-spacing: 0.22em;
   text-transform: uppercase;
@@ -1665,7 +2199,7 @@ body.noeis-editorial .think-home-editorial__continue-hero-title-button:focus-vis
 }
 
 body.noeis-editorial .think-home-editorial__continue-hero-meta {
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--noeis-ui-font);
   font-size: 0.78rem;
   color: color-mix(in srgb, var(--vellum-ink) 78%, transparent);
 }
@@ -1674,7 +2208,134 @@ body.noeis-editorial .think-home-editorial__continue-hero-cta {
   flex-shrink: 0;
 }
 
+body.noeis-editorial .think-home-editorial__index {
+  display: grid;
+  gap: 18px;
+}
+
+body.noeis-editorial .think-home-editorial__index-orientation {
+  max-width: 76ch;
+  margin: 0;
+  font-family: var(--noeis-ui-font);
+  font-size: 0.86rem;
+  line-height: 1.55;
+  color: color-mix(in srgb, var(--vellum-ink) 72%, transparent);
+}
+
+body.noeis-editorial .think-home-editorial__index-list {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--vellum-line);
+}
+
+body.noeis-editorial .think-home-editorial__index-list li {
+  min-width: 0;
+}
+
+body.noeis-editorial .think-home-editorial__index-row {
+  width: 100%;
+  display: grid;
+  grid-template-columns: minmax(120px, 0.34fr) minmax(0, 1fr) minmax(160px, 0.44fr);
+  gap: 18px;
+  align-items: center;
+  padding: 16px 0;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--vellum-line);
+  color: var(--vellum-ink);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 180ms ease-out, transform 180ms ease-out;
+}
+
+body.noeis-editorial .think-home-editorial__index-row:hover,
+body.noeis-editorial .think-home-editorial__index-row:focus-visible {
+  border-bottom-color: color-mix(in srgb, var(--vellum-ink) 34%, transparent);
+  transform: translateX(2px);
+  outline: 0;
+}
+
+body.noeis-editorial .think-home-editorial__index-posture,
+body.noeis-editorial .think-home-editorial__index-readout {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+  font-family: var(--noeis-ui-font);
+}
+
+body.noeis-editorial .think-home-editorial__index-posture strong,
+body.noeis-editorial .think-home-editorial__index-kind {
+  font-size: 0.64rem;
+  line-height: 1.2;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--vellum-ink) 64%, transparent);
+}
+
+body.noeis-editorial .think-home-editorial__index-posture small,
+body.noeis-editorial .think-home-editorial__index-readout small {
+  font-size: 0.72rem;
+  line-height: 1.35;
+  color: color-mix(in srgb, var(--vellum-ink) 58%, transparent);
+}
+
+body.noeis-editorial .think-home-editorial__index-copy {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+body.noeis-editorial .think-home-editorial__index-copy strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-family: "Newsreader", Georgia, serif;
+  font-size: clamp(1.2rem, 1.5vw, 1.7rem);
+  font-weight: 500;
+  line-height: 1.18;
+  color: var(--vellum-ink);
+}
+
+body.noeis-editorial .think-home-editorial__index-readout {
+  justify-items: end;
+  text-align: right;
+}
+
+body.noeis-editorial .think-home-editorial__index-readout span {
+  font-size: 0.78rem;
+  line-height: 1.35;
+  color: color-mix(in srgb, var(--vellum-ink) 82%, transparent);
+}
+
+body.noeis-editorial .think-home-editorial__index-launcher {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-top: 2px;
+}
+
+body.noeis-editorial .think-home-editorial__index-row.is-concept .think-home-editorial__index-posture strong {
+  color: color-mix(in srgb, var(--noeis-accent, #11c5d9) 74%, var(--vellum-ink));
+}
+
+body.noeis-editorial .think-home-editorial__index-row.is-question .think-home-editorial__index-posture strong {
+  color: color-mix(in srgb, #9b5b22 72%, var(--vellum-ink));
+}
+
+body.noeis-editorial .think-home-editorial__index-row.is-notebook .think-home-editorial__index-posture strong {
+  color: color-mix(in srgb, var(--vellum-ink) 70%, transparent);
+}
+
 @media (max-width: 760px) {
+  body.noeis-editorial .think-home-editorial__greeting {
+    grid-template-columns: minmax(0, 1fr);
+    align-items: stretch;
+  }
+  body.noeis-editorial .think-home-editorial__greeting .ui-quiet-button {
+    width: 100%;
+  }
   body.noeis-editorial .think-home-editorial__continue-hero {
     flex-direction: column;
     align-items: stretch;
@@ -1689,6 +2350,18 @@ body.noeis-editorial .think-home-editorial__continue-hero-cta {
   }
   body.noeis-editorial .think-home-editorial__launchpad-primary .ui-quiet-button--primary {
     width: 100%;
+  }
+  body.noeis-editorial .think-home-editorial__pulse-row {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 6px;
+  }
+  body.noeis-editorial .think-home-editorial__index-row {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+  }
+  body.noeis-editorial .think-home-editorial__index-readout {
+    justify-items: start;
+    text-align: left;
   }
 }
 
@@ -1729,7 +2402,7 @@ body.noeis-editorial .think-home__material-title {
 
 body.noeis-editorial .think-home__row-meta,
 body.noeis-editorial .think-home__material-meta {
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif !important;
+  font-family: var(--noeis-ui-font) !important;
   font-size: 0.72rem !important;
   line-height: 1.45 !important;
   letter-spacing: 0.03em;
@@ -1793,6 +2466,257 @@ body.noeis-editorial .think-home__material-block {
   gap: 10px;
 }
 
+body.noeis-editorial .question-dialectic-margin {
+  display: grid;
+  gap: 16px;
+}
+
+body.noeis-editorial .question-dialectic-margin__gauge {
+  display: grid;
+  grid-template-columns: auto minmax(96px, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  font-family: var(--noeis-ui-font);
+  font-size: 0.66rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--vellum-ink) 62%, transparent);
+}
+
+body.noeis-editorial .question-dialectic-margin__gauge div {
+  position: relative;
+  height: 6px;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--vellum-ink) 15%, transparent);
+  border-radius: 999px;
+  background:
+    linear-gradient(
+      90deg,
+      color-mix(in srgb, #9b5b22 28%, transparent) 0%,
+      color-mix(in srgb, #9b5b22 18%, transparent) 50%,
+      color-mix(in srgb, var(--noeis-accent, #11c5d9) 22%, transparent) 100%
+    );
+}
+
+body.noeis-editorial .question-dialectic-margin__gauge i {
+  position: absolute;
+  top: -4px;
+  left: var(--question-support-lean, 50%);
+  width: 2px;
+  height: 12px;
+  border-radius: 999px;
+  background: var(--vellum-ink);
+}
+
+body.noeis-editorial .question-dialectic-margin__lanes {
+  display: grid;
+  gap: 14px;
+}
+
+body.noeis-editorial .question-dialectic-margin__lanes section {
+  display: grid;
+  gap: 8px;
+}
+
+body.noeis-editorial .question-dialectic-margin__lanes h3 {
+  margin: 0;
+  font-family: var(--noeis-ui-font);
+  font-size: 0.66rem;
+  line-height: 1.25;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--vellum-ink) 66%, transparent);
+}
+
+body.noeis-editorial .question-dialectic-margin__card {
+  display: grid;
+  gap: 5px;
+  padding: 10px 0 10px 12px;
+  border-left: 2px solid color-mix(in srgb, var(--vellum-ink) 22%, transparent);
+}
+
+body.noeis-editorial .question-dialectic-margin__card.is-support {
+  border-left-color: color-mix(in srgb, var(--noeis-accent, #11c5d9) 72%, var(--vellum-ink));
+}
+
+body.noeis-editorial .question-dialectic-margin__card.is-counter {
+  border-left-color: color-mix(in srgb, #9b5b22 76%, var(--vellum-ink));
+}
+
+body.noeis-editorial .question-dialectic-margin__card strong {
+  font-family: "Newsreader", Georgia, serif;
+  font-size: 1rem;
+  line-height: 1.22;
+  font-weight: 600;
+  color: var(--vellum-ink);
+}
+
+body.noeis-editorial .question-dialectic-margin__card span:not(.question-dialectic-margin__source) {
+  font-family: var(--noeis-ui-font);
+  font-size: 0.72rem;
+  line-height: 1.4;
+  color: color-mix(in srgb, var(--vellum-ink) 65%, transparent);
+}
+
+body.noeis-editorial .question-dialectic-margin__source,
+body.noeis-editorial .question-dialectic-margin__card em,
+body.noeis-editorial .question-dialectic-margin__card button {
+  font-family: var(--noeis-ui-font);
+  font-size: 0.58rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+body.noeis-editorial .question-dialectic-margin__source {
+  color: color-mix(in srgb, var(--vellum-ink) 50%, transparent);
+}
+
+body.noeis-editorial .question-dialectic-margin__card em {
+  font-style: normal;
+  color: color-mix(in srgb, var(--vellum-ink) 56%, transparent);
+}
+
+body.noeis-editorial .question-dialectic-margin__card button {
+  justify-self: start;
+  min-height: 32px;
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--vellum-ink) 28%, transparent);
+  background: transparent;
+  color: color-mix(in srgb, var(--vellum-ink) 72%, transparent);
+  cursor: pointer;
+}
+
+body.noeis-editorial .question-dialectic-margin__card button:hover,
+body.noeis-editorial .question-dialectic-margin__card button:focus-visible {
+  color: var(--vellum-ink);
+  border-bottom-color: var(--vellum-ink);
+}
+
+body.noeis-editorial .think-posture-strip {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 18px;
+  align-items: center;
+  margin-bottom: 22px;
+  padding: 12px 0 14px;
+  border-bottom: 1px solid var(--vellum-line);
+}
+
+body.noeis-editorial .think-posture-strip__copy {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+body.noeis-editorial .think-posture-strip__copy span {
+  font-family: var(--noeis-ui-font);
+  font-size: 0.62rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--vellum-accent);
+}
+
+body.noeis-editorial .think-posture-strip__copy strong {
+  font-family: "Newsreader", Georgia, serif;
+  font-size: 1.08rem;
+  line-height: 1.1;
+  font-weight: 600;
+  color: var(--vellum-ink);
+}
+
+body.noeis-editorial .think-posture-strip__copy p {
+  max-width: 42rem;
+  margin: 0;
+  font-family: var(--noeis-ui-font);
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: color-mix(in srgb, var(--vellum-ink) 62%, transparent);
+}
+
+body.noeis-editorial .think-posture-strip__controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+body.noeis-editorial .think-posture-strip__button {
+  min-height: 32px;
+  padding: 0 10px;
+  border: 1px solid color-mix(in srgb, var(--vellum-ink) 12%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--vellum-paper) 74%, transparent);
+  color: color-mix(in srgb, var(--vellum-ink) 68%, transparent);
+  font-family: var(--noeis-ui-font);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+}
+
+body.noeis-editorial .think-posture-strip__button:hover,
+body.noeis-editorial .think-posture-strip__button:focus-visible {
+  border-color: color-mix(in srgb, var(--vellum-accent) 50%, transparent);
+  color: var(--vellum-ink);
+}
+
+body.noeis-editorial .think-posture-strip__button.is-active {
+  border-color: color-mix(in srgb, var(--vellum-accent) 62%, transparent);
+  background: color-mix(in srgb, var(--vellum-accent) 12%, var(--vellum-paper));
+  color: var(--vellum-ink);
+}
+
+body.noeis-editorial [data-think-posture='question'] .think-posture-strip {
+  border-bottom-color: color-mix(in srgb, #9b5a46 32%, var(--vellum-line));
+}
+
+body.noeis-editorial [data-think-posture='question'] .think-posture-strip__copy span {
+  color: color-mix(in srgb, #9b5a46 82%, var(--vellum-accent));
+}
+
+body.noeis-editorial [data-think-posture='question'] .think-posture-strip__button.is-active {
+  border-color: color-mix(in srgb, #9b5a46 58%, transparent);
+  background: color-mix(in srgb, #9b5a46 10%, var(--vellum-paper));
+}
+
+body.noeis-editorial [data-think-posture='notebook'] .think-posture-strip {
+  border-bottom-color: color-mix(in srgb, var(--vellum-ink) 8%, var(--vellum-line));
+  opacity: 0.88;
+}
+
+body.noeis-editorial [data-think-posture='notebook'] .think-posture-strip__copy span {
+  color: color-mix(in srgb, var(--vellum-ink) 42%, var(--vellum-muted));
+}
+
+body.noeis-editorial [data-think-posture='notebook'] .think-posture-strip__button.is-active {
+  border-color: color-mix(in srgb, var(--vellum-ink) 18%, transparent);
+  background: color-mix(in srgb, var(--vellum-ink) 4%, var(--vellum-paper));
+}
+
+@media (max-width: 760px) {
+  body.noeis-editorial .think-posture-strip {
+    grid-template-columns: 1fr;
+  }
+
+  body.noeis-editorial .think-posture-strip__controls {
+    overflow-x: auto;
+    padding-bottom: 2px;
+  }
+
+  body.noeis-editorial .question-editorial-main__draft-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  body.noeis-editorial .question-editorial-main__evidence-dock {
+    position: static;
+    grid-template-columns: minmax(0, 1fr);
+    padding: 12px 0 0;
+    border-left: 0;
+    border-top: 1px solid color-mix(in srgb, var(--vellum-ink) 10%, transparent);
+  }
+}
+
 body.noeis-editorial .think-home__material-row {
   width: 100%;
   display: grid;
@@ -1817,7 +2741,7 @@ body.noeis-editorial .think-home__material-snippet {
   overflow: hidden;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--noeis-ui-font);
   font-size: 0.82rem;
   line-height: 1.55;
   color: color-mix(in srgb, var(--vellum-ink) 76%, transparent);
@@ -1919,7 +2843,7 @@ body.noeis-editorial .landing-public__footer-links {
 body.noeis-editorial .landing-public__nav a,
 body.noeis-editorial .landing-public__inline-links a,
 body.noeis-editorial .landing-public__footer-links a {
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--noeis-ui-font);
   font-size: 0.72rem;
   letter-spacing: 0.16em;
   text-transform: uppercase;
@@ -1944,7 +2868,7 @@ body.noeis-editorial .landing-public__hero {
 body.noeis-editorial .landing-public__eyebrow,
 body.noeis-editorial .landing-public__section-kicker,
 body.noeis-editorial .landing-public__strip span {
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--noeis-ui-font);
   font-size: 0.68rem;
   font-weight: 600;
   letter-spacing: 0.18em;
@@ -2026,7 +2950,7 @@ body.noeis-editorial .landing-public__detail-list--ordered li::before {
   position: absolute;
   left: 0;
   top: 0;
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--noeis-ui-font);
   font-size: 0.7rem;
   letter-spacing: 0.14em;
   text-transform: uppercase;
@@ -2112,7 +3036,7 @@ body.noeis-editorial .auth-editorial__brand {
 }
 
 body.noeis-editorial .auth-editorial__eyebrow {
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--noeis-ui-font);
   font-size: 0.66rem;
   font-weight: 600;
   letter-spacing: 0.18em;
@@ -2165,7 +3089,7 @@ body.noeis-editorial .auth-editorial__note {
 body.noeis-editorial .auth-editorial__note span,
 body.noeis-editorial .auth-editorial__field span,
 body.noeis-editorial .auth-editorial__switch span {
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--noeis-ui-font);
   font-size: 0.66rem;
   font-weight: 600;
   letter-spacing: 0.18em;
@@ -2236,7 +3160,7 @@ body.noeis-editorial .auth-editorial__switch-button {
   border-bottom: 1px solid transparent;
   background: transparent;
   color: color-mix(in srgb, var(--vellum-ink) 76%, transparent);
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--noeis-ui-font);
   font-size: 0.72rem;
   letter-spacing: 0.16em;
   text-transform: uppercase;
@@ -2706,7 +3630,7 @@ body.noeis-editorial .question-editorial-main__hero {
 }
 
 body.noeis-editorial .question-editorial-main__eyebrow {
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--noeis-ui-font);
   font-size: 0.62rem;
   letter-spacing: 0.18em;
   text-transform: uppercase;
@@ -2737,6 +3661,188 @@ body.noeis-editorial .question-editorial-main__editor {
   padding-top: 20px;
 }
 
+body.noeis-editorial .question-editorial-main__draft-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(168px, 0.28fr);
+  gap: clamp(18px, 3vw, 34px);
+  align-items: start;
+}
+
+body.noeis-editorial .question-editorial-main__draft-body {
+  min-width: 0;
+}
+
+body.noeis-editorial .question-editorial-main__evidence-dock {
+  position: sticky;
+  top: 118px;
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  padding-left: 16px;
+  border-left: 1px solid color-mix(in srgb, var(--vellum-ink) 10%, transparent);
+}
+
+body.noeis-editorial .question-editorial-main__evidence-gauge {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 8px;
+  align-items: center;
+  font-family: var(--noeis-ui-font);
+  font-size: 0.62rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--vellum-ink) 54%, transparent);
+}
+
+body.noeis-editorial .question-editorial-main__evidence-gauge i {
+  display: block;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--noeis-accent, #11c5d9) 55%, transparent),
+    color-mix(in srgb, #9b5b22 55%, transparent)
+  );
+}
+
+body.noeis-editorial .question-editorial-main__evidence-lines {
+  display: grid;
+  gap: 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  min-width: 0;
+}
+
+body.noeis-editorial .question-editorial-main__evidence-line {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  padding: 0 0 12px;
+  border-bottom: 1px solid color-mix(in srgb, var(--vellum-ink) 8%, transparent);
+}
+
+body.noeis-editorial .question-editorial-main__evidence-line:last-child {
+  border-bottom: 0;
+}
+
+body.noeis-editorial .question-editorial-main__line-label {
+  width: max-content;
+  max-width: 100%;
+  font-family: var(--noeis-ui-font);
+  font-size: 0.58rem;
+  font-weight: 760;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--vellum-ink) 50%, transparent);
+  text-decoration: none;
+}
+
+body.noeis-editorial .question-editorial-main__evidence-line > p {
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: color-mix(in srgb, var(--vellum-ink) 62%, transparent);
+  font-family: var(--noeis-ui-font);
+  font-size: 0.68rem;
+  line-height: 1.35;
+}
+
+body.noeis-editorial .question-editorial-main__line-balance {
+  display: grid;
+  grid-template-columns: max-content minmax(36px, 1fr) max-content;
+  gap: 7px;
+  align-items: center;
+  min-width: 0;
+  font-family: var(--noeis-ui-font);
+  font-size: 0.55rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--vellum-ink) 52%, transparent);
+}
+
+body.noeis-editorial .question-editorial-main__line-balance i {
+  position: relative;
+  display: block;
+  height: 3px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: color-mix(in srgb, #9b5b22 36%, transparent);
+}
+
+body.noeis-editorial .question-editorial-main__line-balance i::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: var(--question-line-support-lean, 50%);
+  background: color-mix(in srgb, var(--noeis-accent, #11c5d9) 62%, var(--vellum-ink));
+}
+
+body.noeis-editorial .question-editorial-main__line-confidence {
+  width: max-content;
+  max-width: 100%;
+  padding: 3px 7px;
+  border: 1px solid color-mix(in srgb, var(--vellum-ink) 10%, transparent);
+  border-radius: 999px;
+  font-family: var(--noeis-ui-font);
+  font-size: 0.55rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--vellum-ink) 54%, transparent);
+  background: color-mix(in srgb, var(--vellum-bg) 92%, transparent);
+}
+
+body.noeis-editorial .question-editorial-main__challenge-marker {
+  width: max-content;
+  max-width: 100%;
+  padding: 3px 7px;
+  border: 1px solid color-mix(in srgb, var(--noeis-accent, #11c5d9) 42%, transparent);
+  border-radius: 999px;
+  font-family: var(--noeis-ui-font);
+  font-size: 0.55rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--noeis-accent, #11c5d9) 72%, var(--vellum-ink));
+  background: color-mix(in srgb, var(--noeis-accent, #11c5d9) 7%, transparent);
+}
+
+body.noeis-editorial .question-editorial-main__evidence-card {
+  display: grid;
+  gap: 5px;
+  padding: 9px 0 9px 11px;
+  border-left: 2px solid color-mix(in srgb, var(--vellum-ink) 20%, transparent);
+}
+
+body.noeis-editorial .question-editorial-main__evidence-card.is-support {
+  border-left-color: color-mix(in srgb, var(--noeis-accent, #11c5d9) 72%, var(--vellum-ink));
+}
+
+body.noeis-editorial .question-editorial-main__evidence-card.is-counter {
+  border-left-color: color-mix(in srgb, #9b5b22 76%, var(--vellum-ink));
+}
+
+body.noeis-editorial .question-editorial-main__evidence-card span {
+  font-family: var(--noeis-ui-font);
+  font-size: 0.56rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--vellum-ink) 48%, transparent);
+}
+
+body.noeis-editorial .question-editorial-main__evidence-card strong {
+  font-family: "Newsreader", Georgia, serif;
+  font-size: 0.98rem;
+  line-height: 1.16;
+  color: var(--vellum-ink);
+}
+
+body.noeis-editorial .question-editorial-main__evidence-card p {
+  margin: 0;
+  font-family: var(--noeis-ui-font);
+  font-size: 0.7rem;
+  line-height: 1.42;
+  color: color-mix(in srgb, var(--vellum-ink) 64%, transparent);
+}
+
 body.noeis-editorial .question-editorial-context__section {
   display: grid;
   gap: 12px;
@@ -2749,6 +3855,621 @@ body.noeis-editorial .editorial-side-rail__section {
   gap: 12px;
   padding-bottom: 18px;
   border-bottom: 1px solid var(--vellum-line);
+}
+
+body.noeis-editorial .notebook-editorial-context__advanced {
+  color: color-mix(in srgb, var(--vellum-ink) 78%, transparent);
+}
+
+body.noeis-editorial .notebook-editorial-context__advanced summary {
+  display: grid;
+  gap: 4px;
+  cursor: pointer;
+  list-style: none;
+}
+
+body.noeis-editorial .notebook-editorial-context__advanced summary::-webkit-details-marker {
+  display: none;
+}
+
+body.noeis-editorial .notebook-editorial-context__advanced summary span {
+  font-family: var(--noeis-ui-font);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--vellum-ink) 82%, transparent);
+}
+
+body.noeis-editorial .notebook-editorial-context__advanced summary small {
+  color: color-mix(in srgb, var(--vellum-muted) 92%, transparent);
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+body.noeis-editorial .notebook-editorial-context__advanced[open] {
+  gap: 14px;
+}
+
+body.noeis-editorial .agent-thought-partner--passive .agent-thought-partner__presence {
+  opacity: 0.78;
+}
+
+body.noeis-editorial .agent-thought-partner__passive-status {
+  margin: 0;
+  padding: 10px 0 0;
+  border-top: 1px solid color-mix(in srgb, var(--vellum-ink) 8%, transparent);
+  font-family: var(--noeis-ui-font);
+  font-size: 0.72rem;
+  line-height: 1.45;
+  color: color-mix(in srgb, var(--vellum-ink) 58%, transparent);
+}
+
+body.noeis-editorial .agent-thought-partner--passive .agent-thought-partner__composer {
+  opacity: 0.84;
+}
+
+body.noeis-editorial .agent-thought-partner--passive .agent-thought-partner__composer:focus-within {
+  opacity: 1;
+}
+
+body.noeis-editorial .reference-pull-in {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  position: relative;
+}
+
+body.noeis-editorial .concept-editorial-shell__reference-pull-in {
+  margin: 16px 22px 0;
+  padding-top: 16px;
+  border-top: 1px solid var(--vellum-line);
+}
+
+body.noeis-editorial .concept-editorial-shell__promotion {
+  display: grid;
+  gap: 12px;
+  margin: 16px 22px 0;
+  padding-top: 16px;
+  border-top: 1px solid var(--vellum-line);
+}
+
+body.noeis-editorial .think-wiki-promotion {
+  min-width: 0;
+}
+
+body.noeis-editorial .think-wiki-promotion__trace {
+  display: grid;
+  gap: 8px;
+  padding: 10px 11px;
+  border: 1px solid color-mix(in srgb, var(--vellum-gold) 34%, var(--vellum-line));
+  border-radius: 12px;
+  background:
+    linear-gradient(90deg,
+      color-mix(in srgb, var(--vellum-gold) 12%, transparent),
+      color-mix(in srgb, var(--vellum-paper) 96%, transparent));
+  color: var(--vellum-ink);
+}
+
+body.noeis-editorial .think-wiki-promotion__trace-label {
+  color: var(--vellum-muted);
+  font-size: 0.66rem;
+  font-weight: 760;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+body.noeis-editorial .think-wiki-promotion__trace ol {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+body.noeis-editorial .think-wiki-promotion__trace li {
+  display: grid;
+  grid-template-columns: 10px minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+  color: var(--vellum-muted);
+  font-size: 0.76rem;
+}
+
+body.noeis-editorial .think-wiki-promotion__trace li::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border: 1px solid color-mix(in srgb, var(--vellum-muted) 44%, transparent);
+  border-radius: 999px;
+  background: transparent;
+}
+
+body.noeis-editorial .think-wiki-promotion__trace li.is-complete,
+body.noeis-editorial .think-wiki-promotion__trace li.is-active {
+  color: var(--vellum-ink);
+}
+
+body.noeis-editorial .think-wiki-promotion__trace li.is-complete::before,
+body.noeis-editorial .think-wiki-promotion__trace li.is-active::before {
+  border-color: var(--vellum-gold);
+  background: var(--vellum-gold);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--vellum-gold) 12%, transparent);
+}
+
+body.noeis-editorial .think-wiki-promotion__error {
+  margin: 0;
+}
+
+body.noeis-editorial .reference-pull-in__target {
+  margin: 0;
+}
+
+body.noeis-editorial .reference-pull-in__target strong {
+  font-weight: 650;
+  color: var(--vellum-ink);
+}
+
+body.noeis-editorial .reference-pull-in__relations {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+body.noeis-editorial .reference-pull-in__relations button {
+  min-height: 30px;
+  padding: 4px 9px;
+  border: 1px solid var(--vellum-line);
+  border-radius: 999px;
+  background: transparent;
+  color: color-mix(in srgb, var(--vellum-ink) 64%, transparent);
+  font-family: var(--noeis-ui-font);
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+body.noeis-editorial .reference-pull-in__relations button[aria-pressed="true"] {
+  border-color: color-mix(in srgb, var(--noeis-accent, #11c5d9) 45%, var(--vellum-line));
+  color: var(--vellum-ink);
+  background: color-mix(in srgb, var(--noeis-accent, #11c5d9) 8%, transparent);
+}
+
+body.noeis-editorial .reference-pull-in__search {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: stretch;
+}
+
+body.noeis-editorial .reference-pull-in__search input {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--vellum-line);
+  border-radius: 0;
+  background: color-mix(in srgb, var(--vellum-page) 78%, transparent);
+  color: var(--vellum-ink);
+  font-family: var(--noeis-ui-font);
+  font-size: 0.82rem;
+  line-height: 1.3;
+  padding: 10px 11px;
+}
+
+body.noeis-editorial .reference-pull-in__search input:focus {
+  outline: 1px solid var(--vellum-cyan);
+  outline-offset: 1px;
+}
+
+body.noeis-editorial .reference-pull-in__results,
+body.noeis-editorial .reference-pull-in__strip {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+body.noeis-editorial .reference-pull-in__receipt {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 8px;
+  align-items: start;
+  min-width: 0;
+  padding: 9px 10px;
+  border: 1px solid color-mix(in srgb, var(--vellum-cyan) 36%, var(--vellum-line));
+  background:
+    linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--vellum-cyan) 10%, transparent),
+      color-mix(in srgb, var(--vellum-page) 88%, transparent)
+    );
+  color: var(--vellum-ink);
+  font-family: var(--noeis-ui-font);
+  font-size: 0.72rem;
+  line-height: 1.35;
+  animation: referenceReceiptLand 360ms ease-out both;
+}
+
+body.noeis-editorial .reference-pull-in__receipt.is-existing {
+  border-color: color-mix(in srgb, var(--vellum-warm) 42%, var(--vellum-line));
+  background:
+    linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--vellum-warm) 12%, transparent),
+      color-mix(in srgb, var(--vellum-page) 88%, transparent)
+    );
+}
+
+body.noeis-editorial .reference-pull-in__receipt-dot {
+  width: 8px;
+  height: 8px;
+  margin-top: 4px;
+  border-radius: 999px;
+  background: var(--vellum-cyan);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--vellum-cyan) 14%, transparent);
+}
+
+body.noeis-editorial .reference-pull-in__receipt.is-existing .reference-pull-in__receipt-dot {
+  background: var(--vellum-warm);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--vellum-warm) 16%, transparent);
+}
+
+body.noeis-editorial .reference-pull-in__receipt strong,
+body.noeis-editorial .reference-pull-in__receipt em {
+  display: block;
+  min-width: 0;
+}
+
+body.noeis-editorial .reference-pull-in__receipt strong {
+  font-weight: 700;
+}
+
+body.noeis-editorial .reference-pull-in__receipt em {
+  overflow: hidden;
+  color: var(--vellum-muted);
+  font-style: normal;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+body.noeis-editorial .reference-pull-in__trace {
+  display: grid;
+  gap: 5px;
+  margin: -2px 0 0;
+  padding: 7px 10px 7px 26px;
+  border-left: 1px solid color-mix(in srgb, var(--vellum-cyan) 44%, var(--vellum-line));
+  background: color-mix(in srgb, var(--vellum-page) 74%, transparent);
+  color: var(--vellum-muted);
+  font-family: var(--noeis-mono-font, "SFMono-Regular", Consolas, monospace);
+  font-size: 0.68rem;
+  line-height: 1.35;
+}
+
+body.noeis-editorial .reference-pull-in__trace li::marker {
+  color: var(--vellum-cyan);
+  font-variant-numeric: tabular-nums;
+}
+
+body.noeis-editorial .reference-pull-in__arc {
+  position: relative;
+  display: block;
+  width: min(72px, 42%);
+  height: 18px;
+  margin: -3px 0 -4px 11px;
+  pointer-events: none;
+}
+
+body.noeis-editorial .reference-pull-in__arc::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-top: 1px solid color-mix(in srgb, var(--vellum-cyan) 62%, transparent);
+  border-left: 1px solid color-mix(in srgb, var(--vellum-cyan) 34%, transparent);
+  border-top-left-radius: 72px 18px;
+  opacity: 0;
+  transform: scaleX(0.12);
+  transform-origin: left center;
+  animation: referenceHairlineArc 380ms cubic-bezier(0.18, 0.88, 0.28, 1) both;
+}
+
+body.noeis-editorial .reference-pull-in__constellation {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid color-mix(in srgb, var(--vellum-cyan) 22%, var(--vellum-line));
+  border-radius: 8px;
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--vellum-cyan) 7%, transparent), transparent 56%),
+    color-mix(in srgb, var(--vellum-panel) 78%, transparent);
+}
+
+body.noeis-editorial .reference-pull-in__constellation-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
+  color: var(--vellum-muted);
+  font-family: var(--noeis-ui-font);
+  font-size: 0.6rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+body.noeis-editorial .reference-pull-in__constellation-head strong {
+  flex: 0 0 auto;
+  color: color-mix(in srgb, var(--vellum-ink) 76%, transparent);
+  font-size: 0.58rem;
+  font-variant-numeric: tabular-nums;
+}
+
+body.noeis-editorial .reference-pull-in__constellation-types {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+body.noeis-editorial .reference-pull-in__constellation-types span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 20px;
+  padding: 2px 7px;
+  border: 1px solid color-mix(in srgb, var(--vellum-line) 80%, transparent);
+  border-radius: 999px;
+  color: color-mix(in srgb, var(--vellum-ink) 72%, transparent);
+  font-family: var(--noeis-ui-font);
+  font-size: 0.64rem;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+body.noeis-editorial .reference-pull-in__constellation-edges {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+body.noeis-editorial .reference-pull-in__constellation-edge {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 7px;
+  align-items: baseline;
+  min-width: 0;
+  color: var(--vellum-ink);
+  font-family: var(--noeis-ui-font);
+  font-size: 0.7rem;
+  text-decoration: none;
+}
+
+body.noeis-editorial .reference-pull-in__constellation-edge span,
+body.noeis-editorial .reference-pull-in__constellation-edge em {
+  overflow: hidden;
+  color: var(--vellum-muted);
+  font-size: 0.56rem;
+  font-style: normal;
+  letter-spacing: 0.08em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+body.noeis-editorial .reference-pull-in__constellation-edge strong {
+  min-width: 0;
+  overflow: hidden;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+body.noeis-editorial .reference-pull-in__backlinks {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  padding-top: 10px;
+  border-top: 1px solid color-mix(in srgb, var(--vellum-line) 76%, transparent);
+}
+
+body.noeis-editorial .reference-pull-in__backlinks-head,
+body.noeis-editorial .reference-pull-in__backlink-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: baseline;
+  min-width: 0;
+}
+
+body.noeis-editorial .reference-pull-in__backlinks-head {
+  color: var(--vellum-muted);
+  font-family: var(--noeis-ui-font);
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+body.noeis-editorial .reference-pull-in__backlink-list {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+body.noeis-editorial .reference-pull-in__backlink-row {
+  color: color-mix(in srgb, var(--vellum-ink) 82%, transparent);
+  font-family: var(--noeis-ui-font);
+  font-size: 0.72rem;
+  line-height: 1.4;
+  text-decoration: none;
+}
+
+body.noeis-editorial .reference-pull-in__constellation-edge[href]:hover,
+body.noeis-editorial .reference-pull-in__constellation-edge[href]:focus-visible,
+body.noeis-editorial .reference-pull-in__backlink-row[href]:hover,
+body.noeis-editorial .reference-pull-in__backlink-row[href]:focus-visible {
+  color: var(--vellum-cyan);
+}
+
+body.noeis-editorial .reference-pull-in__backlink-row span,
+body.noeis-editorial .reference-pull-in__backlink-row em {
+  overflow: hidden;
+  color: var(--vellum-muted);
+  font-size: 0.62rem;
+  font-style: normal;
+  letter-spacing: 0.08em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+body.noeis-editorial .reference-pull-in__backlink-row strong {
+  min-width: 0;
+  overflow: hidden;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+body.noeis-editorial .reference-pull-in__result {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-width: 0;
+  padding: 10px 11px;
+  border: 1px solid color-mix(in srgb, var(--vellum-line) 88%, transparent);
+  background: color-mix(in srgb, var(--vellum-page) 82%, transparent);
+  color: inherit;
+  text-align: left;
+}
+
+body.noeis-editorial .reference-pull-in__result:hover,
+body.noeis-editorial .reference-pull-in__result:focus-within {
+  border-color: color-mix(in srgb, var(--vellum-cyan) 55%, var(--vellum-line));
+  background: color-mix(in srgb, var(--vellum-cyan) 8%, var(--vellum-page));
+  outline: none;
+}
+
+body.noeis-editorial .reference-pull-in__result-main {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+body.noeis-editorial .reference-pull-in__result-main:focus-visible {
+  outline: 1px solid color-mix(in srgb, var(--vellum-cyan) 60%, transparent);
+  outline-offset: 3px;
+}
+
+body.noeis-editorial .reference-pull-in__result-open {
+  display: inline-flex;
+  min-height: 32px;
+  align-items: center;
+  color: var(--vellum-blue);
+  font-family: var(--noeis-ui-font);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-decoration: none;
+  text-transform: uppercase;
+}
+
+body.noeis-editorial .reference-pull-in__result-open:hover,
+body.noeis-editorial .reference-pull-in__result-open:focus-visible {
+  color: var(--vellum-cyan);
+  text-decoration: underline;
+}
+
+body.noeis-editorial .reference-pull-in__result-title {
+  overflow: hidden;
+  color: var(--vellum-ink);
+  font-family: var(--noeis-ui-font);
+  font-size: 0.82rem;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+body.noeis-editorial .reference-pull-in__result-meta {
+  display: -webkit-box;
+  overflow: hidden;
+  color: var(--vellum-muted);
+  font-size: 0.76rem;
+  line-height: 1.35;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+body.noeis-editorial .reference-pull-in__chip {
+  justify-content: flex-start;
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+body.noeis-editorial .reference-pull-in__chip.is-linked {
+  border-color: color-mix(in srgb, var(--vellum-cyan) 44%, var(--vellum-line));
+  animation: referenceChipSnap 280ms ease-out both;
+}
+
+@keyframes referenceReceiptLand {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes referenceChipSnap {
+  0% {
+    transform: translateX(-3px);
+  }
+
+  100% {
+    transform: translateX(0);
+  }
+}
+
+@keyframes referenceHairlineArc {
+  0% {
+    opacity: 0;
+    transform: scaleX(0.12);
+  }
+
+  28% {
+    opacity: 1;
+  }
+
+  72% {
+    opacity: 1;
+    transform: scaleX(1);
+  }
+
+  100% {
+    opacity: 0;
+    transform: scaleX(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body.noeis-editorial .reference-pull-in__receipt,
+  body.noeis-editorial .reference-pull-in__chip.is-linked,
+  body.noeis-editorial .reference-pull-in__arc::before {
+    animation: none;
+  }
 }
 
 body.noeis-editorial .question-editorial-context__agent,
@@ -2967,7 +4688,7 @@ body.noeis-editorial .concept-editorial-evidence__header h3 {
 body.noeis-editorial .concept-editorial-partner__title-row p,
 body.noeis-editorial .concept-editorial-evidence__header p {
   margin: 2px 0 0;
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--noeis-ui-font);
   font-size: 0.58rem;
   letter-spacing: 0.22em;
   text-transform: uppercase;
@@ -2981,7 +4702,7 @@ body.noeis-editorial .concept-editorial-partner__new-inquiry {
   border: 1px solid rgba(79, 74, 70, 0.12);
   border-radius: 999px;
   background: rgba(255, 252, 246, 0.92);
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--noeis-ui-font);
   font-size: 0.64rem;
   line-height: 1;
   letter-spacing: 0.14em;
@@ -3004,7 +4725,7 @@ body.noeis-editorial .concept-editorial-partner__new-inquiry:disabled {
 
 body.noeis-editorial .concept-editorial-partner__note {
   margin: 0;
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--noeis-ui-font);
   font-size: 0.7rem;
   line-height: 1.6;
   color: rgba(79, 74, 70, 0.72);
@@ -3020,7 +4741,7 @@ body.noeis-editorial .concept-editorial-partner__collapse-toggle {
   padding: 0;
   border: 0;
   background: transparent;
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--noeis-ui-font);
   font-size: 0.54rem;
   letter-spacing: 0.18em;
   text-transform: uppercase;
@@ -3058,7 +4779,7 @@ body.noeis-editorial .concept-editorial-partner__footer button {
   background: transparent;
   color: color-mix(in srgb, var(--vellum-ink) 58%, transparent);
   text-align: left;
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--noeis-ui-font);
   font-size: 0.62rem;
   letter-spacing: 0.2em;
   text-transform: uppercase;
@@ -3138,7 +4859,7 @@ body.noeis-editorial .concept-editorial-view__synthesis-point > span,
 body.noeis-editorial .concept-editorial-view__draft-head > span,
 body.noeis-editorial .concept-editorial-evidence__item-meta > span:not(.concept-editorial-evidence__item-grip),
 body.noeis-editorial .concept-editorial-evidence__item-footer span {
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--noeis-ui-font);
   font-size: 0.58rem;
   letter-spacing: 0.2em;
   text-transform: uppercase;
@@ -3242,7 +4963,7 @@ body.noeis-editorial .notebook-folder-tree__toolbar-actions {
 
 body.noeis-editorial .notebook-folder-tree__toolbar-label,
 body.noeis-editorial .notebook-folder-tree__toolbar-action {
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif !important;
+  font-family: var(--noeis-ui-font) !important;
   font-size: 0.68rem !important;
   font-weight: 600;
   line-height: 1.45 !important;
@@ -3335,7 +5056,7 @@ body.noeis-editorial .notebook-folder-tree .library-folder-row.is-selected .libr
 
 body.noeis-editorial .notebook-folder-tree .library-folder-name,
 body.noeis-editorial .notebook-folder-tree__root-label {
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif !important;
+  font-family: var(--noeis-ui-font) !important;
   font-size: 0.82rem !important;
   line-height: 1.45 !important;
   letter-spacing: 0.01em;
@@ -3349,7 +5070,7 @@ body.noeis-editorial .notebook-folder-tree__root-label {
 
 body.noeis-editorial .notebook-folder-tree .library-folder-count,
 body.noeis-editorial .notebook-folder-tree__entry-meta {
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif !important;
+  font-family: var(--noeis-ui-font) !important;
   font-size: 0.66rem !important;
   line-height: 1.45 !important;
   letter-spacing: 0.12em;
@@ -3430,7 +5151,7 @@ body.noeis-editorial .notebook-folder-tree__entry-move {
   border: 0;
   background: transparent;
   color: color-mix(in srgb, var(--vellum-ink) 68%, transparent);
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--noeis-ui-font);
   font-size: 0.66rem;
   font-weight: 600;
   letter-spacing: 0.14em;
@@ -3457,7 +5178,7 @@ body.noeis-editorial .notebook-folder-tree__root-empty {
   padding: 2px 0 10px 24px;
   border-bottom: 1px solid var(--vellum-line);
   color: color-mix(in srgb, var(--vellum-ink) 62%, transparent);
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--noeis-ui-font);
   font-size: 0.72rem;
   line-height: 1.5;
 }
@@ -3489,7 +5210,7 @@ body.noeis-editorial .notebook-move-entry-modal__header {
 
 body.noeis-editorial .notebook-move-entry-modal__eyebrow {
   margin: 0 0 8px;
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--noeis-ui-font);
   font-size: 0.68rem;
   font-weight: 600;
   letter-spacing: 0.16em;
@@ -3518,7 +5239,7 @@ body.noeis-editorial .notebook-move-entry-modal__create-row {
 body.noeis-editorial .notebook-move-entry-modal__create-copy {
   margin: 0;
   color: color-mix(in srgb, var(--vellum-ink) 80%, transparent);
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--noeis-ui-font);
   font-size: 0.78rem;
   line-height: 1.5;
 }
@@ -3563,7 +5284,7 @@ body.noeis-editorial .notebook-move-entry-modal__destination.is-active {
 
 body.noeis-editorial .notebook-move-entry-modal__destination-name,
 body.noeis-editorial .notebook-move-entry-modal__destination-state {
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--noeis-ui-font);
 }
 
 body.noeis-editorial .notebook-move-entry-modal__destination-name {
@@ -3625,7 +5346,7 @@ body.noeis-editorial .concept-editorial-loading__editor {
 }
 
 body.noeis-editorial .concept-editorial-loading__eyebrow {
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--noeis-ui-font);
   font-size: 0.58rem;
   letter-spacing: 0.2em;
   text-transform: uppercase;
@@ -3704,7 +5425,7 @@ body.noeis-editorial .concept-editorial-view__agent-feedback {
   padding: 12px 14px;
   border: 1px solid rgba(186, 186, 176, 0.42);
   background: color-mix(in srgb, var(--vellum-panel) 92%, transparent);
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--noeis-ui-font);
   font-size: 0.64rem;
   letter-spacing: 0.16em;
   text-transform: uppercase;
@@ -3742,7 +5463,7 @@ body.noeis-editorial .concept-editorial-view__editor-meta button {
   padding: 0;
   border: 0;
   background: transparent;
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--noeis-ui-font);
   font-size: 0.62rem;
   letter-spacing: 0.18em;
   text-transform: uppercase;
@@ -3770,7 +5491,7 @@ body.noeis-editorial .concept-editorial-view__starter-copy {
 }
 
 body.noeis-editorial .concept-editorial-view__starter-copy span {
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--noeis-ui-font);
   font-size: 0.58rem;
   letter-spacing: 0.18em;
   text-transform: uppercase;
@@ -3797,7 +5518,7 @@ body.noeis-editorial .concept-editorial-view__starter-actions button {
   padding: 0;
   border: 0;
   background: transparent;
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--noeis-ui-font);
   font-size: 0.62rem;
   letter-spacing: 0.18em;
   text-transform: uppercase;
@@ -3820,7 +5541,7 @@ body.noeis-editorial .concept-editorial-view__editor-shell .idea-workbench-hypot
   padding: 0;
   border: 0;
   background: transparent;
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--noeis-ui-font);
   font-size: 0.62rem;
   letter-spacing: 0.18em;
   text-transform: uppercase;
@@ -3932,7 +5653,7 @@ body.noeis-editorial .concept-editorial-view__dropzone.is-hovering span {
 
 body.noeis-editorial .concept-editorial-view__dropzone p {
   margin: 0;
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--noeis-ui-font);
   font-size: 0.6rem;
   letter-spacing: 0.2em;
   text-transform: uppercase;
@@ -3975,6 +5696,14 @@ body.noeis-editorial .concept-editorial-evidence__header {
   border-bottom: 1px solid var(--vellum-line);
 }
 
+body.noeis-editorial .concept-editorial-evidence__ticker.agent-ticker {
+  margin: 14px 0 2px;
+}
+
+body.noeis-editorial .concept-editorial-evidence__reference-pull-in {
+  margin: 14px 0 2px;
+}
+
 body.noeis-editorial .concept-editorial-evidence__starter-block {
   display: grid;
   gap: 12px;
@@ -3987,7 +5716,7 @@ body.noeis-editorial .concept-editorial-evidence__starter-copy {
 }
 
 body.noeis-editorial .concept-editorial-evidence__starter-copy span {
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--noeis-ui-font);
   font-size: 0.58rem;
   letter-spacing: 0.18em;
   text-transform: uppercase;
@@ -4013,7 +5742,7 @@ body.noeis-editorial .concept-editorial-evidence__starter-actions button {
   padding: 0;
   border: 0;
   background: transparent;
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--noeis-ui-font);
   font-size: 0.62rem;
   letter-spacing: 0.18em;
   text-transform: uppercase;
@@ -4038,7 +5767,7 @@ body.noeis-editorial .concept-editorial-evidence__section-head {
   display: flex;
   justify-content: space-between;
   gap: 10px;
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--noeis-ui-font);
   font-size: 0.58rem;
   letter-spacing: 0.18em;
   text-transform: uppercase;
@@ -4112,7 +5841,7 @@ body.noeis-editorial .concept-editorial-evidence__quick-actions button {
   padding: 0;
   border: 0;
   background: transparent;
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--noeis-ui-font);
   font-size: 0.62rem;
   letter-spacing: 0.18em;
   text-transform: uppercase;
@@ -4152,7 +5881,7 @@ body.noeis-editorial .concept-editorial-evidence__result-head {
   display: flex;
   justify-content: space-between;
   gap: 10px;
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--noeis-ui-font);
   font-size: 0.58rem;
   letter-spacing: 0.18em;
   text-transform: uppercase;
@@ -4177,7 +5906,7 @@ body.noeis-editorial .concept-editorial-evidence__result ul {
 
 body.noeis-editorial .concept-editorial-evidence__result li {
   margin: 0;
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--noeis-ui-font);
   font-size: 0.68rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -4208,7 +5937,7 @@ body.noeis-editorial .concept-editorial-evidence__proposal-list li {
 
 body.noeis-editorial .concept-editorial-evidence__proposal-list span,
 body.noeis-editorial .concept-editorial-view__pressure-point > span {
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--noeis-ui-font);
   font-size: 0.58rem;
   letter-spacing: 0.2em;
   text-transform: uppercase;
@@ -4239,7 +5968,7 @@ body.noeis-editorial .concept-editorial-evidence__proposal-actions button {
   padding: 0;
   border: 0;
   background: transparent;
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--noeis-ui-font);
   font-size: 0.62rem;
   letter-spacing: 0.18em;
   text-transform: uppercase;
@@ -4273,7 +6002,7 @@ body.noeis-editorial .concept-editorial-evidence__handoff-options strong {
 }
 
 body.noeis-editorial .concept-editorial-evidence__handoff-options span {
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--noeis-ui-font);
   font-size: 0.68rem;
   line-height: 1.5;
   color: color-mix(in srgb, var(--vellum-ink) 74%, transparent);
@@ -4283,7 +6012,7 @@ body.noeis-editorial .concept-editorial-evidence__status {
   padding: 8px 0 10px;
   border: 0;
   background: transparent;
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--noeis-ui-font);
   font-size: 0.58rem;
   letter-spacing: 0.18em;
   text-transform: uppercase;
@@ -4335,7 +6064,7 @@ body.noeis-editorial .concept-editorial-evidence__message-meta {
   display: flex;
   justify-content: flex-start;
   gap: 8px;
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--noeis-ui-font);
   font-size: 0.52rem;
   letter-spacing: 0.18em;
   text-transform: uppercase;
@@ -4409,7 +6138,7 @@ body.noeis-editorial .concept-editorial-evidence__item--agent button {
   padding: 0;
   border: 0;
   background: transparent;
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--noeis-ui-font);
   font-size: 0.62rem;
   letter-spacing: 0.18em;
   text-transform: uppercase;
@@ -4484,7 +6213,7 @@ body.noeis-editorial .think-question-block-actions .ui-quiet-button {
   border: 0;
   background: transparent !important;
   box-shadow: none !important;
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--noeis-ui-font);
   font-size: 0.72rem;
   letter-spacing: 0.18em;
   text-transform: uppercase;
@@ -4512,6 +6241,13 @@ body.noeis-editorial .think-question-editor.is-editorial .think-question-block {
   padding-bottom: 18px;
 }
 
+body.noeis-editorial .think-question-block[data-challenge-active="true"] {
+  padding: 14px;
+  border: 1px solid color-mix(in srgb, var(--vellum-cyan) 40%, var(--vellum-line));
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--vellum-cyan) 6%, transparent);
+}
+
 body.noeis-editorial .think-question-paragraph {
   min-height: 160px;
   padding: 0 !important;
@@ -4532,7 +6268,70 @@ body.noeis-editorial .think-question-editor.is-editorial .think-question-paragra
 
 body.noeis-editorial .think-question-block-actions {
   display: flex;
+  gap: 8px;
   justify-content: flex-end;
+}
+
+body.noeis-editorial .think-question-block__challenge-note {
+  margin: -2px 0 0;
+  color: var(--vellum-muted);
+  font-size: 0.76rem;
+  line-height: 1.45;
+}
+
+body.noeis-editorial .think-question-block__challenge-panel {
+  display: grid;
+  gap: 8px;
+}
+
+body.noeis-editorial .think-question-block__balance-gauge {
+  display: grid;
+  grid-template-columns: max-content minmax(120px, 1fr) max-content;
+  align-items: center;
+  gap: 8px;
+  max-width: 420px;
+  color: var(--vellum-muted);
+  font-size: 0.72rem;
+  font-weight: 750;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+body.noeis-editorial .think-question-block__balance-gauge i {
+  position: relative;
+  display: block;
+  height: 8px;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--vellum-line) 72%, transparent);
+  border-radius: 999px;
+  background:
+    linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--vellum-coral) 42%, transparent) 0%,
+      color-mix(in srgb, var(--vellum-coral) 42%, transparent) calc(100% - var(--question-block-support-lean, 50%)),
+      color-mix(in srgb, var(--wiki-warm-accent) 54%, transparent) calc(100% - var(--question-block-support-lean, 50%)),
+      color-mix(in srgb, var(--wiki-warm-accent) 54%, transparent) 100%
+    );
+}
+
+body.noeis-editorial .think-question-block__balance-gauge i::after {
+  content: "";
+  position: absolute;
+  top: -3px;
+  left: calc(100% - var(--question-block-support-lean, 50%));
+  width: 1px;
+  height: 14px;
+  background: var(--vellum-ink);
+  opacity: 0.38;
+}
+
+body.noeis-editorial .think-question-block__balance-gauge strong {
+  grid-column: 1 / -1;
+  color: var(--vellum-ink);
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  text-transform: none;
 }
 
 body.noeis-editorial .think-question-editor.is-editorial .think-question-block-toolbar {
@@ -4730,7 +6529,7 @@ body.noeis-editorial .three-pane--concept-workbench .idea-workbench-head__path {
   align-items: center;
   gap: 14px;
   color: color-mix(in srgb, var(--vellum-ink) 68%, transparent);
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--noeis-ui-font);
   font-size: 0.64rem;
   letter-spacing: 0.22em;
   text-transform: uppercase;
@@ -4760,7 +6559,7 @@ body.noeis-editorial .three-pane--concept-workbench .idea-workbench-head__meta-i
   align-items: center;
   gap: 8px;
   padding: 0;
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--noeis-ui-font);
   font-size: 0.68rem;
   letter-spacing: 0.16em;
   text-transform: uppercase;
@@ -4802,7 +6601,7 @@ body.noeis-editorial .three-pane--concept-workbench .idea-workbench-claim {
 }
 
 body.noeis-editorial .three-pane--concept-workbench .idea-workbench-claim__eyebrow {
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--noeis-ui-font);
   font-size: 0.64rem;
   letter-spacing: 0.22em;
   text-transform: uppercase;
@@ -4823,7 +6622,7 @@ body.noeis-editorial .three-pane--concept-workbench .idea-workbench-claim__meta 
   display: flex;
   gap: 12px;
   align-items: center;
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--noeis-ui-font);
   font-size: 0.68rem;
   letter-spacing: 0.14em;
   text-transform: uppercase;
@@ -4912,7 +6711,7 @@ body.noeis-editorial .three-pane--concept-workbench .idea-workbench-sheet__propo
 }
 
 body.noeis-editorial .three-pane--concept-workbench .idea-workbench-sheet__proposal-label {
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--noeis-ui-font);
   font-size: 0.64rem;
   letter-spacing: 0.22em;
   text-transform: uppercase;
@@ -4992,7 +6791,7 @@ body.noeis-editorial .three-pane--concept-workbench .idea-workbench-stream__eyeb
 body.noeis-editorial .three-pane--concept-workbench .idea-workbench-stream__kicker,
 body.noeis-editorial .three-pane--concept-workbench .idea-workbench-stream__note-label,
 body.noeis-editorial .three-pane--concept-workbench .idea-workbench-stream__card-meta {
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--noeis-ui-font);
   font-size: 0.62rem;
   letter-spacing: 0.2em;
   text-transform: uppercase;
@@ -5039,7 +6838,7 @@ body.noeis-editorial .three-pane--concept-workbench .idea-workbench-stream__tags
 body.noeis-editorial .three-pane--concept-workbench .idea-workbench-stream__tags span {
   padding: 4px 8px;
   background: var(--vellum-panel);
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--noeis-ui-font);
   font-size: 0.58rem;
   letter-spacing: 0.18em;
   text-transform: uppercase;
@@ -5070,7 +6869,11 @@ body.noeis-editorial .three-pane--concept-workbench .idea-workbench-rail__header
 body.noeis-editorial .three-pane--concept-workbench .idea-workbench-rail__nav {
   display: grid;
   gap: 4px;
-  margin: 18px 0 28px;
+  margin: 18px 0 14px;
+}
+
+body.noeis-editorial .three-pane--concept-workbench .idea-workbench-rail__ticker {
+  margin: 0 0 24px;
 }
 
 body.noeis-editorial .three-pane--concept-workbench .idea-workbench-rail__nav-item {
@@ -5081,7 +6884,7 @@ body.noeis-editorial .three-pane--concept-workbench .idea-workbench-rail__nav-it
   border: 0;
   background: transparent;
   text-align: left;
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--noeis-ui-font);
   font-size: 0.7rem;
   letter-spacing: 0.16em;
   text-transform: uppercase;
@@ -5162,7 +6965,7 @@ body.noeis-editorial .think-concept-manuscript-rail__header {
 
 body.noeis-editorial .think-concept-manuscript-rail__header span,
 body.noeis-editorial .think-concept-manuscript-rail__section-head span {
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--noeis-ui-font);
   font-size: 0.62rem;
   letter-spacing: 0.2em;
   text-transform: uppercase;
@@ -5171,7 +6974,7 @@ body.noeis-editorial .think-concept-manuscript-rail__section-head span {
 
 body.noeis-editorial .think-concept-manuscript-rail__header p {
   margin: 0;
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--noeis-ui-font);
   font-size: 0.62rem;
   letter-spacing: 0.2em;
   text-transform: uppercase;
@@ -5236,7 +7039,7 @@ body.noeis-editorial .think-concepts-index-card__meta {
   display: flex;
   flex-wrap: wrap;
   gap: 12px;
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--noeis-ui-font);
   font-size: 0.64rem;
   letter-spacing: 0.22em;
   text-transform: uppercase;
@@ -5775,7 +7578,7 @@ body.noeis-editorial .agent-skill-dock__head {
 
 body.noeis-editorial .agent-skill-dock__eyebrow {
   margin: 0 0 6px;
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--noeis-ui-font);
   font-size: 0.56rem;
   letter-spacing: 0.2em;
   text-transform: uppercase;
@@ -5793,7 +7596,7 @@ body.noeis-editorial .agent-skill-dock__head h3 {
 
 body.noeis-editorial .agent-skill-dock__head p:last-child {
   margin: 4px 0 0;
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--noeis-ui-font);
   font-size: 0.78rem;
   line-height: 1.6;
   color: rgba(79, 74, 70, 0.72);
@@ -5843,7 +7646,7 @@ body.noeis-editorial .agent-skill-dock__skill-title {
 }
 
 body.noeis-editorial .agent-skill-dock__skill-summary {
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--noeis-ui-font);
   font-size: 0.78rem;
   line-height: 1.55;
   color: rgba(79, 74, 70, 0.72);
@@ -5861,7 +7664,7 @@ body.noeis-editorial .agent-skill-dock__footer .ui-quiet-button {
   border-bottom: 1px solid transparent !important;
   background: transparent !important;
   color: rgba(79, 74, 70, 0.8) !important;
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--noeis-ui-font);
   font-size: 0.62rem;
   letter-spacing: 0.16em;
   text-transform: uppercase;
@@ -5949,6 +7752,18 @@ body.noeis-editorial .agent-thought-partner--stream .agent-thought-partner__quic
   overflow-wrap: anywhere;
 }
 
+body.noeis-editorial .agent-thought-partner__presence {
+  margin-bottom: 12px;
+}
+
+body.noeis-editorial .agent-thought-partner__presence .agent-presence__sub {
+  white-space: normal;
+}
+
+body.noeis-editorial .agent-thought-partner__presence--stream {
+  align-items: flex-start;
+}
+
 body.noeis-editorial .agent-thought-partner__stream-head {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
@@ -5968,7 +7783,7 @@ body.noeis-editorial .agent-thought-partner__stream-copy h3 {
 
 body.noeis-editorial .agent-thought-partner__stream-copy p {
   margin: 2px 0 0;
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--noeis-ui-font);
   font-size: 0.58rem;
   letter-spacing: 0.22em;
   text-transform: uppercase;
@@ -5995,6 +7810,61 @@ body.noeis-editorial .agent-thought-partner__quick-prompts .ui-quiet-button {
 body.noeis-editorial .agent-thought-partner__quick-prompts .ui-quiet-button:hover {
   color: var(--vellum-ink) !important;
   border-bottom-color: var(--vellum-line) !important;
+}
+
+body.noeis-editorial .agent-thought-partner__postures {
+  display: grid;
+  gap: 8px;
+  padding: 0 0 14px;
+  border-bottom: 1px solid var(--vellum-line);
+}
+
+body.noeis-editorial .agent-thought-partner__posture-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 4px;
+  padding: 3px;
+  border: 1px solid var(--vellum-line);
+  background: color-mix(in srgb, var(--vellum-bg) 72%, #ffffff 28%);
+}
+
+body.noeis-editorial .agent-thought-partner__posture-tab {
+  min-height: 36px;
+  border: 0;
+  background: transparent;
+  color: var(--dropzone-text);
+  font-family: var(--noeis-ui-font);
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+body.noeis-editorial .agent-thought-partner__posture-tab.is-active {
+  background: #4f4a46;
+  color: #fffaf5;
+}
+
+body.noeis-editorial .agent-thought-partner__posture-tab:focus-visible {
+  outline: 2px solid var(--accent-cyan);
+  outline-offset: 2px;
+}
+
+body.noeis-editorial .agent-thought-partner__posture-tab:disabled {
+  cursor: default;
+}
+
+body.noeis-editorial .agent-thought-partner__posture-summary {
+  margin: 0;
+  color: var(--dropzone-text-quiet);
+  font-family: var(--noeis-ui-font);
+  font-size: 0.72rem;
+  line-height: 1.45;
+}
+
+body.noeis-editorial .agent-thought-partner__ticker {
+  margin: 0 0 14px;
 }
 
 body.noeis-editorial .agent-thought-partner__composer {
@@ -6107,7 +7977,7 @@ body.noeis-editorial .agent-thought-partner__plan-preview h4 {
 
 body.noeis-editorial .agent-thought-partner__plan-preview p {
   margin: 0;
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--noeis-ui-font);
   font-size: 0.78rem;
   line-height: 1.58;
   color: rgba(79, 74, 70, 0.78);
@@ -6127,7 +7997,7 @@ body.noeis-editorial .agent-thought-partner__plan-preview-list {
 body.noeis-editorial .agent-thought-partner__plan-preview-list li {
   grid-template-columns: 30px minmax(0, 1fr);
   gap: 10px;
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--noeis-ui-font);
   font-size: 0.82rem;
   line-height: 1.5;
   color: color-mix(in srgb, var(--vellum-ink) 82%, transparent);
@@ -6139,7 +8009,7 @@ body.noeis-editorial .agent-thought-partner__plan-preview-list li::before {
   border: 1px solid rgba(120, 110, 98, 0.14);
   background: rgba(255, 251, 246, 0.9);
   color: rgba(47, 70, 72, 0.8);
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--noeis-ui-font);
 }
 
 body.noeis-editorial .agent-thought-partner__plan-preview-actions {
@@ -6192,7 +8062,7 @@ body.noeis-editorial .agent-thought-partner__message.is-user::before {
 
 body.noeis-editorial .agent-thought-partner__message-role {
   margin: 0;
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--noeis-ui-font);
   font-size: 0.52rem;
   letter-spacing: 0.18em;
   text-transform: uppercase;
@@ -6228,7 +8098,7 @@ body.noeis-editorial .agent-thought-partner__message.is-user {
 
 body.noeis-editorial .agent-thought-partner__message-role {
   margin: 0;
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--noeis-ui-font);
   font-size: 0.62rem;
   letter-spacing: 0.18em;
   text-transform: uppercase;
@@ -6279,7 +8149,7 @@ body.noeis-editorial .agent-thought-partner__drafts-head h4 {
 
 body.noeis-editorial .agent-thought-partner__drafts-head p {
   margin: 4px 0 0;
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--noeis-ui-font);
   font-size: 0.74rem;
   line-height: 1.55;
   color: rgba(79, 74, 70, 0.72);
@@ -6328,7 +8198,7 @@ body.noeis-editorial .agent-thought-partner__draft-meta span {
   border: 1px solid var(--vellum-line) !important;
   border-radius: 999px;
   background: rgba(255, 251, 246, 0.88) !important;
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--noeis-ui-font);
   font-size: 0.56rem;
   letter-spacing: 0.18em;
   text-transform: uppercase;
@@ -6346,7 +8216,7 @@ body.noeis-editorial .agent-thought-partner__draft-card h4 {
 
 body.noeis-editorial .agent-thought-partner__draft-summary {
   margin: 0;
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--noeis-ui-font);
   font-size: 0.82rem;
   line-height: 1.62;
   color: rgba(79, 74, 70, 0.8);
@@ -6419,7 +8289,7 @@ body.noeis-editorial .protocol-activity-log__item:hover .protocol-activity-log__
 }
 
 body.noeis-editorial .protocol-activity-log__eyebrow {
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--noeis-ui-font);
   font-size: 0.58rem;
   letter-spacing: 0.18em;
   color: color-mix(in srgb, var(--vellum-ink) 54%, transparent);
@@ -6433,7 +8303,7 @@ body.noeis-editorial .protocol-activity-log__body h4 {
 }
 
 body.noeis-editorial .protocol-activity-log__body p {
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--noeis-ui-font);
   font-size: 0.8rem;
   line-height: 1.62;
   color: rgba(79, 74, 70, 0.74);
@@ -6444,7 +8314,7 @@ body.noeis-editorial .protocol-activity-log__meta span {
   padding: 0.05rem 0.5rem;
   border: 1px solid rgba(120, 110, 98, 0.12) !important;
   background: rgba(255, 251, 246, 0.84) !important;
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--noeis-ui-font);
   font-size: 0.63rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -6476,7 +8346,37 @@ body.noeis-editorial .review-mode__right-panel {
 }
 
 body.noeis-editorial .library-context-stack--browse {
-  gap: 0;
+  gap: 18px;
+}
+
+body.noeis-editorial .library-agent-card {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid var(--vellum-line);
+  border-radius: 10px;
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--vellum-panel) 92%, transparent), transparent 140%),
+    var(--vellum-surface);
+}
+
+body.noeis-editorial .library-agent-card__presence.agent-presence {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+body.noeis-editorial .library-agent-card__ticker.agent-ticker {
+  margin-top: 0;
+}
+
+body.noeis-editorial .library-agent-card__note {
+  margin: 0;
+  font-family: "Newsreader", Georgia, serif;
+  font-size: 0.88rem;
+  line-height: 1.48;
+  color: color-mix(in srgb, var(--vellum-ink) 74%, transparent);
 }
 
 body.noeis-editorial .library-browse-rail {
@@ -6494,7 +8394,7 @@ body.noeis-editorial .library-browse-rail__header {
 body.noeis-editorial .library-browse-rail__header span,
 body.noeis-editorial .library-browse-rail__nav-item,
 body.noeis-editorial .library-browse-rail__section-head span {
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--noeis-ui-font);
   font-size: 0.64rem;
   letter-spacing: 0.22em;
   text-transform: uppercase;
@@ -6506,7 +8406,7 @@ body.noeis-editorial .library-browse-rail__header span {
 
 body.noeis-editorial .library-browse-rail__header p {
   margin: 0;
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--noeis-ui-font);
   font-size: 0.62rem;
   letter-spacing: 0.2em;
   text-transform: uppercase;
@@ -6574,7 +8474,7 @@ body.noeis-editorial .working-memory-eyebrow,
 body.noeis-editorial .notebook-context__eyebrow,
 body.noeis-editorial .library-context-section__title,
 body.noeis-editorial .library-context-related__title {
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--noeis-ui-font);
   font-size: 0.64rem;
   letter-spacing: 0.22em;
   text-transform: uppercase;
@@ -6613,7 +8513,7 @@ body.noeis-editorial .library-context-section__header {
 }
 
 body.noeis-editorial .library-context-section__meta {
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--noeis-ui-font);
   font-size: 0.66rem;
   letter-spacing: 0.14em;
   text-transform: uppercase;
@@ -6662,7 +8562,7 @@ body.noeis-editorial .library-context-feed-item__meta,
 body.noeis-editorial .working-memory-block-meta,
 body.noeis-editorial .working-memory-block-tags,
 body.noeis-editorial .notebook-context .muted-label {
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--noeis-ui-font);
   font-size: 0.66rem;
   letter-spacing: 0.14em;
   text-transform: uppercase;
@@ -6674,6 +8574,16 @@ body.noeis-editorial .library-context-feed-item__actions {
   flex-wrap: wrap;
   gap: 6px;
   margin-top: 10px;
+}
+
+body.noeis-editorial .library-context-feed-item__reference-pull-in {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--vellum-line);
+}
+
+body.noeis-editorial .library-context-feed-item__reference-pull-in .section-header {
+  margin-bottom: 8px;
 }
 
 body.noeis-editorial .library-context-related,
@@ -6733,7 +8643,7 @@ body.noeis-editorial .working-memory-toggle {
   border-bottom: 1px solid transparent;
   border-radius: 0;
   background: transparent;
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--noeis-ui-font);
   font-size: 0.68rem;
   letter-spacing: 0.14em;
   text-transform: uppercase;
@@ -6785,7 +8695,7 @@ body.noeis-editorial .working-memory-select-all {
   padding: 0;
   border: 0;
   background: transparent;
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--noeis-ui-font);
   font-size: 0.68rem;
   letter-spacing: 0.14em;
   text-transform: uppercase;
@@ -6806,7 +8716,7 @@ body.noeis-editorial .working-memory-promote-bar label {
 }
 
 body.noeis-editorial .working-memory-promote-bar label > span {
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--noeis-ui-font);
   font-size: 0.64rem;
   letter-spacing: 0.18em;
   text-transform: uppercase;
@@ -6879,7 +8789,7 @@ body.noeis-editorial .working-memory-menu button {
   border: 0;
   background: transparent;
   text-align: left;
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--noeis-ui-font);
   font-size: 0.76rem;
   color: var(--vellum-ink);
 }
@@ -6975,7 +8885,7 @@ body.noeis-editorial .notebook-insert-labels {
 }
 
 body.noeis-editorial .notebook-insert-label {
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--noeis-ui-font);
   font-size: 0.64rem;
   letter-spacing: 0.22em;
   text-transform: uppercase;
@@ -7071,7 +8981,7 @@ body.noeis-editorial .notebook-context__source {
 }
 
 body.noeis-editorial .notebook-context__source-kicker {
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--noeis-ui-font);
   font-size: 0.62rem;
   letter-spacing: 0.18em;
   text-transform: uppercase;
@@ -7101,7 +9011,7 @@ body.noeis-editorial .think-notebook-editor-provenance {
 }
 
 body.noeis-editorial .think-notebook-editor-provenance__eyebrow {
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--noeis-ui-font);
   font-size: 0.62rem;
   letter-spacing: 0.18em;
   text-transform: uppercase;
@@ -7263,6 +9173,12 @@ body.noeis-editorial a:hover {
   body.noeis-editorial .topbar__primary-nav {
     gap: 14px;
     flex-wrap: wrap;
+  }
+
+  body.noeis-editorial .topbar__right {
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    row-gap: 4px;
   }
 
   body.noeis-editorial .topbar__brand {

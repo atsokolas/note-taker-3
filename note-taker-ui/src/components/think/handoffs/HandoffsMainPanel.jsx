@@ -54,7 +54,7 @@ const HandoffsMainPanel = ({
   return (
     <div className="section-stack think-handoffs-main" data-testid="think-handoffs-main">
       <SurfaceCard className="think-handoffs-card">
-        <SectionHeader title="Create handoff" subtitle="Delegate work between you, native agent, and personal agents." />
+        <SectionHeader title="Create handoff" subtitle="Delegate work between you, the thought partner, and specialist agents." />
         <HandoffCreateForm
           mode="think"
           sortedAgents={sortedPersonalAgents}

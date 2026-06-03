@@ -119,11 +119,13 @@ export const SegmentedNav = ({ items = [], value = '', onChange = () => {}, clas
         key={item.value}
         type="button"
         role="tab"
+        aria-label={item.ariaLabel || item.label}
         aria-selected={value === item.value}
         className={cx('ui-segmented-nav__item', value === item.value && 'is-active')}
         onClick={() => onChange(item.value)}
       >
-        {item.label}
+        <span className="ui-segmented-nav__label">{item.label}</span>
+        {item.meta ? <span className="ui-segmented-nav__meta">{item.meta}</span> : null}
       </button>
     ))}
   </div>

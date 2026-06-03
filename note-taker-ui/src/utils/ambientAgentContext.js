@@ -128,6 +128,38 @@ const buildArticleRelatedItems = (article = {}) => {
   ], 8);
 };
 
+const normalizeGraphConnectionItem = (row = {}, direction = 'outgoing') => {
+  const itemType = direction === 'incoming'
+    ? clean(row?.fromType || row?.source?.type || row?.source?.itemType)
+    : clean(row?.toType || row?.target?.type || row?.target?.itemType);
+  const itemId = direction === 'incoming'
+    ? clean(row?.fromId || row?.source?.id || row?.source?.itemId)
+    : clean(row?.toId || row?.target?.id || row?.target?.itemId);
+  const item = direction === 'incoming' ? row?.source : row?.target;
+  const title = clean(item?.title || row?.sourceTitle || row?.targetTitle || itemType);
+  const relationType = clean(row?.relationType);
+  const snippet = truncateAmbientText([
+    direction === 'incoming' ? 'Uses this source' : 'Referenced from this source',
+    relationType ? `relation: ${relationType}` : '',
+    clean(item?.snippet || row?.snippet)
+  ].filter(Boolean).join(' · '), 180);
+  return makeAmbientRelatedItem({
+    type: itemType,
+    id: itemId,
+    title,
+    snippet
+  });
+};
+
+const buildGraphRelatedItems = (graphConnections = {}) => {
+  const outgoing = Array.isArray(graphConnections?.outgoing) ? graphConnections.outgoing : [];
+  const incoming = Array.isArray(graphConnections?.incoming) ? graphConnections.incoming : [];
+  return dedupeRelatedItems([
+    ...incoming.slice(0, 4).map((row) => normalizeGraphConnectionItem(row, 'incoming')),
+    ...outgoing.slice(0, 4).map((row) => normalizeGraphConnectionItem(row, 'outgoing'))
+  ], 8);
+};
+
 const extractNotebookHighlightRefs = (entry = {}) => (
   (Array.isArray(entry?.blocks) ? entry.blocks : [])
     .filter((block) => block?.type === 'highlight-ref' || block?.type === 'highlight_embed')
@@ -142,16 +174,28 @@ const extractNotebookQuestionRefs = (entry = {}) => (
 
 export const buildArticleAmbientContext = ({
   article = null,
+  highlights: highlightsOverride = null,
+  graphConnections = null,
   selectionText = ''
 } = {}) => {
   const safeSelection = clean(selectionText);
-  const highlights = Array.isArray(article?.highlights) ? article.highlights : [];
-  const tags = collectTags(article);
+  const sourceArticle = {
+    ...(article || {}),
+    highlights: Array.isArray(highlightsOverride)
+      ? highlightsOverride
+      : (Array.isArray(article?.highlights) ? article.highlights : [])
+  };
+  const highlights = sourceArticle.highlights;
+  const tags = collectTags(sourceArticle);
   const host = getUrlHostLabel(article?.url);
   const highlightCount = highlights.length;
+  const graphOutgoing = Array.isArray(graphConnections?.outgoing) ? graphConnections.outgoing.length : 0;
+  const graphIncoming = Array.isArray(graphConnections?.incoming) ? graphConnections.incoming.length : 0;
+  const graphRelatedItems = buildGraphRelatedItems(graphConnections);
   return {
     summary: truncateAmbientText([
       highlightCount > 0 ? `${highlightCount} saved highlight${highlightCount === 1 ? '' : 's'} attached to this article.` : '',
+      graphIncoming || graphOutgoing ? `Graph traces: ${graphOutgoing} used, ${graphIncoming} used by.` : '',
       tags.length > 0 ? `Linked concepts: ${tags.slice(0, 2).join(' · ')}.` : '',
       host ? `Source host: ${host}.` : ''
     ].filter(Boolean).join(' '), 420),
@@ -167,9 +211,14 @@ export const buildArticleAmbientContext = ({
     nextActions: dedupeLines([
       safeSelection ? 'Use the selected passage as the working focus.' : '',
       highlightCount > 0 ? 'Anchor the reasoning in saved highlights from this article.' : '',
+      graphIncoming > 0 ? 'Use the incoming graph traces to explain where this source already matters.' : '',
+      graphOutgoing > 0 ? 'Follow the outgoing graph traces before treating this source in isolation.' : '',
       tags.length > 0 ? `Follow linked concepts: ${tags.slice(0, 2).join(' · ')}.` : ''
     ], 4),
-    relatedItems: buildArticleRelatedItems(article)
+    relatedItems: dedupeRelatedItems([
+      ...buildArticleRelatedItems(sourceArticle),
+      ...graphRelatedItems
+    ], 10)
   };
 };
 

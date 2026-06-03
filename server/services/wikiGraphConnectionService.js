@@ -1,6 +1,20 @@
 const WIKI_PAGE_ITEM_TYPE = 'wiki_page';
 const WIKI_CLAIM_ITEM_TYPE = 'wiki_claim';
 const SOURCE_CONNECTION_TYPES = new Set(['article', 'highlight', 'notebook', 'concept', 'question']);
+const INVERSE_RELATION_TYPES = {
+  related: 'referenced_by',
+  referenced_by: 'related',
+  supports: 'supported_by',
+  supported_by: 'supports',
+  contradicts: 'contradicted_by',
+  contradicted_by: 'contradicts',
+  contains: 'contained_by',
+  contained_by: 'contains',
+  shared_source: 'shared_source',
+  needs_review: 'review_needed_by',
+  review_needed_by: 'needs_review'
+};
+const WIKI_SYNC_RELATION_TYPES = Object.keys(INVERSE_RELATION_TYPES);
 
 const normalizeId = (value) => String(value || '').trim();
 
@@ -44,6 +58,27 @@ const isUsableConnectionRow = (row) => (
 );
 
 const sourceKey = (source = {}) => `${normalizeId(source.type)}:${normalizeId(source.objectId)}`;
+
+const wikiPageSourceKey = (source = {}) => {
+  const sourceType = normalizeId(source.type).toLowerCase();
+  const sourceObjectId = normalizeId(source.objectId);
+  if (sourceType && sourceObjectId) return `${sourceType}:${sourceObjectId}`;
+  const fallback = normalizeId(source.url || source._id || source.id || source.title).toLowerCase();
+  return fallback ? `source:${fallback}` : '';
+};
+
+const inverseConnectionRow = (row) => {
+  const inverseRelationType = INVERSE_RELATION_TYPES[row?.relationType];
+  if (!inverseRelationType) return null;
+  return normalizeConnectionRow({
+    userId: row.userId,
+    fromType: row.toType,
+    fromId: row.toId,
+    toType: row.fromType,
+    toId: row.fromId,
+    relationType: inverseRelationType
+  });
+};
 
 const persistConnectionRow = async ({ Connection, row }) => {
   if (!Connection || !isUsableConnectionRow(row)) return null;
@@ -108,10 +143,13 @@ const buildWikiPageGraphRows = ({ page, userId }) => {
   const rows = [];
   const addRow = (row) => {
     if (!isUsableConnectionRow(row)) return;
-    const key = `${row.fromType}:${row.fromId}->${row.toType}:${row.toId}:${row.relationType}`;
-    if (seen.has(key)) return;
-    seen.add(key);
-    rows.push(row);
+    [row, inverseConnectionRow(row)].filter(Boolean).forEach((candidate) => {
+      if (!isUsableConnectionRow(candidate)) return;
+      const key = `${candidate.fromType}:${candidate.fromId}->${candidate.toType}:${candidate.toId}:${candidate.relationType}`;
+      if (seen.has(key)) return;
+      seen.add(key);
+      rows.push(candidate);
+    });
   };
 
   collectWikiLinkPageIds(page?.body).forEach((targetPageId) => {
@@ -244,6 +282,46 @@ const buildWikiPageGraphRows = ({ page, userId }) => {
   return rows;
 };
 
+const buildSharedSourceWikiPageRows = ({ pages = [], userId } = {}) => {
+  if (!userId || !Array.isArray(pages) || pages.length < 2) return [];
+  const bySource = new Map();
+  pages.forEach((page) => {
+    const pageId = normalizeId(page?._id || page?.id);
+    if (!pageId) return;
+    (Array.isArray(page?.sourceRefs) ? page.sourceRefs : []).forEach((sourceRef) => {
+      const key = wikiPageSourceKey(sourceRef);
+      if (!key) return;
+      if (!bySource.has(key)) bySource.set(key, new Set());
+      bySource.get(key).add(pageId);
+    });
+  });
+
+  const seenPairs = new Set();
+  const rows = [];
+  bySource.forEach((pageIds) => {
+    const ids = Array.from(pageIds).sort();
+    for (let leftIndex = 0; leftIndex < ids.length; leftIndex += 1) {
+      for (let rightIndex = leftIndex + 1; rightIndex < ids.length; rightIndex += 1) {
+        const fromPageId = ids[leftIndex];
+        const toPageId = ids[rightIndex];
+        const pairKey = `${fromPageId}:${toPageId}`;
+        if (seenPairs.has(pairKey)) continue;
+        seenPairs.add(pairKey);
+        const row = buildWikiPageConnectionQuery({
+          userId,
+          fromPageId,
+          toPageId,
+          relationType: 'shared_source'
+        });
+        [row, inverseConnectionRow(row)].filter(Boolean).forEach(candidate => {
+          if (isUsableConnectionRow(candidate)) rows.push(candidate);
+        });
+      }
+    }
+  });
+  return rows;
+};
+
 const deleteSyncedWikiPageConnections = async ({ Connection, userId, pageId }) => {
   if (!Connection || typeof Connection.deleteMany !== 'function') return { deletedCount: 0 };
   const safePageId = normalizeId(pageId);
@@ -256,31 +334,22 @@ const deleteSyncedWikiPageConnections = async ({ Connection, userId, pageId }) =
       {
         fromType: WIKI_PAGE_ITEM_TYPE,
         fromId: safePageId,
-        relationType: 'related'
+        relationType: { $in: WIKI_SYNC_RELATION_TYPES }
       },
       {
         toType: WIKI_PAGE_ITEM_TYPE,
         toId: safePageId,
-        relationType: 'supports',
-        fromType: { $in: Array.from(SOURCE_CONNECTION_TYPES) }
-      },
-      {
-        fromType: WIKI_PAGE_ITEM_TYPE,
-        fromId: safePageId,
-        toType: WIKI_CLAIM_ITEM_TYPE,
-        relationType: 'contains'
-      },
-      {
-        toType: WIKI_CLAIM_ITEM_TYPE,
-        toId: { $regex: `^${safePageId}:` },
-        relationType: { $in: ['supports', 'contradicts'] }
+        relationType: { $in: WIKI_SYNC_RELATION_TYPES }
       },
       {
         fromType: WIKI_CLAIM_ITEM_TYPE,
         fromId: { $regex: `^${safePageId}:` },
-        toType: WIKI_PAGE_ITEM_TYPE,
-        toId: safePageId,
-        relationType: { $in: ['needs_review', 'contradicts'] }
+        relationType: { $in: WIKI_SYNC_RELATION_TYPES }
+      },
+      {
+        toType: WIKI_CLAIM_ITEM_TYPE,
+        toId: { $regex: `^${safePageId}:` },
+        relationType: { $in: WIKI_SYNC_RELATION_TYPES }
       }
     ]
   });
@@ -322,10 +391,16 @@ const rebuildWikiGraphConnections = async ({ Connection, WikiPage, userId, limit
     edgesCreated += result.createdCount || 0;
     edgesDeleted += result.deletedCount || 0;
   }
+  const sharedSourceRows = buildSharedSourceWikiPageRows({ pages: pages || [], userId });
+  for (const row of sharedSourceRows) {
+    const saved = await persistConnectionRow({ Connection, row });
+    if (saved) edgesCreated += 1;
+  }
   return {
     pagesProcessed: Array.isArray(pages) ? pages.length : 0,
     edgesCreated,
-    edgesDeleted
+    edgesDeleted,
+    sharedSourceEdgesCreated: sharedSourceRows.length
   };
 };
 
@@ -333,9 +408,12 @@ module.exports = {
   WIKI_PAGE_ITEM_TYPE,
   WIKI_CLAIM_ITEM_TYPE,
   SOURCE_CONNECTION_TYPES,
+  INVERSE_RELATION_TYPES,
+  WIKI_SYNC_RELATION_TYPES,
   buildWikiClaimId,
   buildWikiPageConnectionQuery,
   buildWikiPageGraphRows,
+  buildSharedSourceWikiPageRows,
   collectWikiLinkPageIds,
   deleteSyncedWikiPageConnections,
   persistWikiPageConnection,

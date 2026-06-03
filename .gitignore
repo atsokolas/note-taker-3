@@ -12,6 +12,11 @@ server/logs/
 test-results/
 tmp/
 .cursor/hooks/state/
+.codex-qa-*.png
+
+# Local Xcode workspace metadata
+ios/**/xcuserdata/
+ios/**/*.xcworkspace/
 
 # Sync-conflict copies (iCloud / Dropbox " 2.ext" artifacts)
 *\ [0-9].js
@@ -23,4 +28,3 @@ tmp/
 *\ [0-9].json
 *\ [0-9].log
 *\ [0-9].html
-

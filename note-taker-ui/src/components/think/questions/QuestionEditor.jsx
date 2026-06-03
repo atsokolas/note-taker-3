@@ -15,12 +15,24 @@ const normalizeBlocks = (blocks = []) => {
   if (!Array.isArray(blocks) || blocks.length === 0) {
     return [{ id: createId(), type: 'paragraph', text: '' }];
   }
-  return blocks.map(block => ({
-    id: block.id || createId(),
-    type: block.type || 'paragraph',
-    text: block.text || '',
-    highlightId: block.highlightId || null
-  }));
+  return blocks.map(block => {
+    const challenge = block.challenge || {};
+    return {
+      ...block,
+      id: block.id || createId(),
+      type: block.type || 'paragraph',
+      text: block.text || '',
+      highlightId: block.highlightId || null,
+      challenge: challenge.enabled
+      ? {
+          ...challenge,
+          enabled: true,
+          createdAt: challenge.createdAt || new Date().toISOString(),
+          note: challenge.note || ''
+        }
+      : { enabled: false, createdAt: null, note: '' }
+    };
+  });
 };
 
 const QuestionEditor = ({
@@ -35,7 +47,8 @@ const QuestionEditor = ({
   onInvokeAgentSkill = null,
   agentContextType = 'question',
   agentContextId = '',
-  agentContextTitle = ''
+  agentContextTitle = '',
+  challengeEvidenceByBlockId = {}
 }) => {
   const [titleDraft, setTitleDraft] = useState('');
   const [blocksDraft, setBlocksDraft] = useState([]);
@@ -124,6 +137,7 @@ const QuestionEditor = ({
         blocks={blocksDraft}
         onChange={setBlocksDraft}
         onInsertHighlight={() => setInsertOpen(true)}
+        challengeEvidenceByBlockId={challengeEvidenceByBlockId}
       />
       <InsertHighlightModal
         open={insertOpen}

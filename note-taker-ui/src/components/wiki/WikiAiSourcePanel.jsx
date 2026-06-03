@@ -117,7 +117,7 @@ const WikiAiSourcePanel = ({
   };
 
   return (
-    <aside id={id} className="wiki-source-panel" aria-label="Wiki AI and sources">
+    <aside id={id} className="wiki-source-panel" aria-label="Wiki partner and sources">
       <SurfaceCard className="wiki-source-panel__section">
         <div className="wiki-source-panel__header">
           <div>

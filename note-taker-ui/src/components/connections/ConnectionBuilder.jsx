@@ -106,7 +106,7 @@ const ConnectionBuilder = ({ itemType, itemId, scopeType = '', scopeId = '', ite
           itemTypes,
           ...scopePayload
         });
-        if (!cancelled) setSearchResults(items);
+        if (!cancelled) setSearchResults(Array.isArray(items) ? items : []);
       } catch (err) {
         if (!cancelled) {
           setError(err.response?.data?.error || 'Failed to search items.');
@@ -126,14 +126,14 @@ const ConnectionBuilder = ({ itemType, itemId, scopeType = '', scopeId = '', ite
     [selectedTarget, relationType]
   );
   const previewRows = useMemo(() => {
-    const outgoing = (connections.outgoing || []).map(row => ({
+    const outgoing = (connections.outgoing || []).filter(Boolean).map(row => ({
       id: row._id,
       direction: 'outgoing',
       relationType: row.relationType,
       title: row.target?.title || formatItemTypeLabel(row.toType),
       itemType: row.toType
     }));
-    const incoming = (connections.incoming || []).map(row => ({
+    const incoming = (connections.incoming || []).filter(Boolean).map(row => ({
       id: row._id,
       direction: 'incoming',
       relationType: row.relationType,
@@ -156,10 +156,12 @@ const ConnectionBuilder = ({ itemType, itemId, scopeType = '', scopeId = '', ite
         relationType,
         ...scopePayload
       });
-      setConnections(prev => ({
-        ...prev,
-        outgoing: [created, ...(prev.outgoing || [])]
-      }));
+      if (created) {
+        setConnections(prev => ({
+          ...prev,
+          outgoing: [created, ...(prev.outgoing || [])]
+        }));
+      }
       setSelectedTarget(null);
       setQuery('');
       setSearchResults([]);

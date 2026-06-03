@@ -26,6 +26,7 @@ import WikiDiscussions from './WikiDiscussions';
 import WikiPageMetaBar from './WikiPageMetaBar';
 import ClaimCitationPopover from './ClaimCitationPopover';
 import Claim, { SUPPORT_STATES } from './extensions/Claim';
+import Pullquote from './extensions/Pullquote';
 import WikiLink from './extensions/WikiLink';
 import {
   diffClaimLedgerSnapshots,
@@ -209,7 +210,8 @@ const WikiPageEditor = ({ pageId, onDoneEditing, workspaceMode = false }) => {
   const editor = useEditor({
     extensions: [
       StarterKit,
-      Placeholder.configure({ placeholder: 'Write the page. Use the AI/source panel for support.' }),
+      Placeholder.configure({ placeholder: 'Write the page. Use the partner/source panel for support.' }),
+      Pullquote,
       WikiLink,
       Claim
     ],
@@ -277,6 +279,15 @@ const WikiPageEditor = ({ pageId, onDoneEditing, workspaceMode = false }) => {
     const title = event.target.value;
     setPage(current => ({ ...(current || latestPageRef.current), title }));
     scheduleSave({ title });
+  };
+
+  const handleInsertPullquote = () => {
+    const chain = editor?.chain?.();
+    if (chain?.focus && chain?.insertPullquote && chain?.run) {
+      chain.focus().insertPullquote('').run();
+      return;
+    }
+    editor?.commands?.insertPullquote?.('');
   };
 
   const handleMetaChange = (updates) => {
@@ -558,7 +569,7 @@ const WikiPageEditor = ({ pageId, onDoneEditing, workspaceMode = false }) => {
             aria-expanded={sourcePanelOpen}
             aria-controls="wiki-source-panel"
           >
-            {sourcePanelOpen ? 'Hide AI/Sources' : 'Show AI/Sources'}
+            {sourcePanelOpen ? 'Hide partner/sources' : 'Show partner/sources'}
           </Button>
         ) : null}
         <Button type="button" variant="secondary" onClick={handleLinkify} disabled={linkifying}>
@@ -595,6 +606,11 @@ const WikiPageEditor = ({ pageId, onDoneEditing, workspaceMode = false }) => {
             aria-label="Wiki page title"
           />
           <WikiPageMetaBar page={page} onChange={handleMetaChange} saveStatus={saveStatus} />
+          <div className="wiki-editor__inline-tools" aria-label="Wiki editor insert tools">
+            <Button type="button" variant="secondary" onClick={handleInsertPullquote}>
+              Pullquote
+            </Button>
+          </div>
           <EditorContent editor={editor} />
           {!workspaceMode ? (
             <>
@@ -618,7 +634,7 @@ const WikiPageEditor = ({ pageId, onDoneEditing, workspaceMode = false }) => {
           ) : null}
         </section>
         {sourcePanelOpen && !workspaceMode ? (
-          <aside className="wiki-editor__rail" aria-label="AI, sources, and backlinks">
+          <aside className="wiki-editor__rail" aria-label="Partner, sources, and backlinks">
             <Suspense fallback={<WikiEditorRailFallback />}>
               <WikiPageActivityRail
                 pageId={pageId}

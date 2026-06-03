@@ -50,7 +50,7 @@ const HandoffsSidebar = ({
       />
       {!hasActivePersonalAgents && (
         <p className="muted small">
-          No personal agents set up yet. <Link to="/integrations#personal-agents">Set up an agent</Link>.
+          No specialist agents set up yet. <Link to="/integrations#personal-agents">Set up an agent</Link>.
         </p>
       )}
 

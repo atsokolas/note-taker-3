@@ -1,0 +1,68 @@
+import fs from 'fs';
+import path from 'path';
+
+describe('stitch editorial CSS tokens', () => {
+  it('defines the accent tokens used by interactive trace states in light and dark palettes', () => {
+    const css = fs.readFileSync(path.join(__dirname, 'stitch-editorial.css'), 'utf8');
+    const lightPalette = css.match(/body\.noeis-editorial \{[\s\S]*?\n\}/)?.[0] || '';
+    const darkPalette = css.match(/html\[data-ui-theme='dark'\] body\.noeis-editorial \{[\s\S]*?\n\}/)?.[0] || '';
+
+    expect(lightPalette).toContain('--vellum-cyan:');
+    expect(darkPalette).toContain('--vellum-cyan:');
+    expect(css).not.toContain('var(--vellum-cyan,');
+  });
+
+  it('defines wiki graph semantic tokens in light and dark palettes', () => {
+    const css = fs.readFileSync(path.join(__dirname, 'stitch-editorial.css'), 'utf8');
+    const lightPalette = css.match(/body\.noeis-editorial \{[\s\S]*?\n\}/)?.[0] || '';
+    const darkPalette = css.match(/html\[data-ui-theme='dark'\] body\.noeis-editorial \{[\s\S]*?\n\}/)?.[0] || '';
+
+    [
+      '--wiki-graph-node-overview:',
+      '--wiki-graph-node-question:',
+      '--wiki-graph-edge-shared_source:',
+      '--wiki-graph-edge-contradicts:',
+      '--wiki-graph-label-backdrop:',
+      '--wiki-graph-label-text:',
+      '--wiki-graph-node-stroke:'
+    ].forEach(token => {
+      expect(lightPalette).toContain(token);
+      expect(darkPalette).toContain(token);
+    });
+  });
+
+  it('defines an editorial theme-flip transition with a reduced-motion escape hatch', () => {
+    const css = fs.readFileSync(path.join(__dirname, 'stitch-editorial.css'), 'utf8');
+
+    expect(css).toContain('body.noeis-editorial .agent-ticker');
+    expect(css).toContain('background-color 260ms cubic-bezier(0.2, 0.8, 0.2, 1)');
+    expect(css).toContain('@media (prefers-reduced-motion: reduce)');
+    expect(css).toContain('transition: none;');
+  });
+
+  it('defines concrete magnetic dropzone tokens in light and dark palettes', () => {
+    const css = fs.readFileSync(path.join(__dirname, 'stitch-editorial.css'), 'utf8');
+    const darkPalette = css.match(/html\[data-ui-theme='dark'\] body\.noeis-editorial \{[\s\S]*?\n\}/)?.[0] || '';
+
+    [
+      '--dropzone-border-idle:',
+      '--dropzone-border-active:',
+      '--dropzone-border-hover:',
+      '--dropzone-surface-idle:',
+      '--dropzone-surface-active:',
+      '--dropzone-surface-hover:',
+      '--dropzone-shadow-hover:',
+      '--dropzone-inset-active:',
+      '--dropzone-inset-hover:',
+      '--dropzone-ink-idle:',
+      '--dropzone-ink-hover:',
+      '--dropzone-text:',
+      '--dropzone-text-quiet:'
+    ].forEach(token => {
+      expect(css).toContain(token);
+      expect(darkPalette).toContain(token);
+    });
+
+    expect(css).not.toMatch(/^\s*--dropzone-[^:]+:\s*var\(--dropzone-/m);
+  });
+});

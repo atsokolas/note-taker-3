@@ -267,7 +267,7 @@ const fixtures = [
     },
     expectations: {
       claimCount: 6,
-      graphRowCount: 21,
+      graphRowCount: 42,
       sections: ['Multi Section Moat', 'Core Idea', 'How It Works', 'Evidence', 'Tensions', 'Open Questions']
     }
   }
@@ -647,10 +647,16 @@ const evaluateMaintainMongooseGraphFixture = async (fixture) => {
     if (!rows.some(row => row.fromType === 'article' && String(row.fromId || '') === objectId && row.toType === 'wiki_page' && String(row.toId || '') === String(page._id) && row.relationType === 'supports')) {
       failures.push(`Expected source-to-page support row for ${objectId}.`);
     }
+    if (!rows.some(row => row.fromType === 'wiki_page' && String(row.fromId || '') === String(page._id) && row.toType === 'article' && String(row.toId || '') === objectId && row.relationType === 'supported_by')) {
+      failures.push(`Expected reciprocal page-to-source supported_by row for ${objectId}.`);
+    }
   });
   claims.forEach((claim) => {
     if (!rows.some(row => row.fromType === 'wiki_page' && String(row.fromId || '') === String(page._id) && row.toType === WIKI_CLAIM_ITEM_TYPE && row.toId === claimGraphId(claim) && row.relationType === 'contains')) {
       failures.push(`Expected contains row for claim ${claim.claimId}.`);
+    }
+    if (!rows.some(row => row.fromType === WIKI_CLAIM_ITEM_TYPE && row.fromId === claimGraphId(claim) && row.toType === 'wiki_page' && String(row.toId || '') === String(page._id) && row.relationType === 'contained_by')) {
+      failures.push(`Expected reciprocal contained_by row for claim ${claim.claimId}.`);
     }
   });
   if (coreIdea && !rows.some(row => row.fromType === 'article' && String(row.fromId || '') === sourceObjectIds[0] && row.toId === claimGraphId(coreIdea) && row.relationType === 'supports')) {
@@ -665,11 +671,17 @@ const evaluateMaintainMongooseGraphFixture = async (fixture) => {
   if (!tensions || !rows.some(row => row.fromType === 'article' && String(row.fromId || '') === sourceObjectIds[2] && row.toId === claimGraphId(tensions) && row.relationType === 'contradicts')) {
     failures.push('Expected Tensions contradiction from source 3.');
   }
+  if (!tensions || !rows.some(row => row.fromType === WIKI_CLAIM_ITEM_TYPE && row.fromId === claimGraphId(tensions) && row.toType === 'article' && String(row.toId || '') === sourceObjectIds[2] && row.relationType === 'contradicted_by')) {
+    failures.push('Expected reciprocal Tensions contradicted_by edge to source 3.');
+  }
   if (tensions && rows.some(row => row.fromType === 'article' && String(row.fromId || '') === sourceObjectIds[2] && row.toId === claimGraphId(tensions) && row.relationType === 'supports')) {
     failures.push('Source 3 should not support the Tensions claim.');
   }
   if (!openQuestions || !rows.some(row => row.fromType === WIKI_CLAIM_ITEM_TYPE && row.fromId === claimGraphId(openQuestions) && row.toType === 'wiki_page' && String(row.toId || '') === String(page._id) && row.relationType === 'needs_review')) {
     failures.push('Expected Open Questions needs_review graph row.');
+  }
+  if (!openQuestions || !rows.some(row => row.fromType === 'wiki_page' && String(row.fromId || '') === String(page._id) && row.toType === WIKI_CLAIM_ITEM_TYPE && row.toId === claimGraphId(openQuestions) && row.relationType === 'review_needed_by')) {
+    failures.push('Expected reciprocal Open Questions review_needed_by graph row.');
   }
   if (!unsupported || rows.some(row => row.toId === claimGraphId(unsupported) && row.relationType === 'supports')) {
     failures.push('Expected unsupported claim to avoid supporting graph edges.');

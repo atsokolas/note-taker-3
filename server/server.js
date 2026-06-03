@@ -3202,7 +3202,10 @@ const resolveReturnQueueItem = async (userId, itemType, itemId) => {
     };
   }
   if (itemType === 'concept') {
-    const concept = await TagMeta.findOne({ _id: safeItemId, userId })
+    const conceptQuery = mongoose.Types.ObjectId.isValid(safeItemId)
+      ? { _id: safeItemId, userId }
+      : { userId, name: new RegExp(`^${escapeRegExp(safeItemId)}$`, 'i') };
+    const concept = await TagMeta.findOne(conceptQuery)
       .select('name description')
       .lean();
     if (!concept) return null;
@@ -3258,9 +3261,24 @@ const resolveReturnQueueItem = async (userId, itemType, itemId) => {
   return null;
 };
 
-const CONNECTION_RELATION_TYPES = new Set(['supports', 'contradicts', 'extends', 'related', 'example', 'definition', 'contains', 'needs_review']);
+const CONNECTION_RELATION_TYPES = new Set([
+  'supports',
+  'supported_by',
+  'contradicts',
+  'contradicted_by',
+  'extends',
+  'related',
+  'referenced_by',
+  'example',
+  'definition',
+  'shared_source',
+  'contains',
+  'contained_by',
+  'needs_review',
+  'review_needed_by'
+]);
 const CONNECTION_ITEM_TYPES = new Set(['highlight', 'notebook', 'article', 'concept', 'question', 'wiki_page', 'wiki_claim']);
-const CONNECTION_SCOPE_TYPES = new Set(['', 'concept', 'question']);
+const CONNECTION_SCOPE_TYPES = new Set(['', 'article', 'concept', 'question']);
 
 const normalizeConnectionItemType = (value) => {
   const candidate = String(value || '').trim().toLowerCase();
@@ -3312,6 +3330,16 @@ const resolveConnectionScope = async (userId, scopeType, scopeId) => {
       scopeId: String(conceptByName._id),
       title: conceptByName.name || 'Concept',
       conceptName: conceptByName.name || ''
+    };
+  }
+  if (safeScopeType === 'article') {
+    if (!mongoose.Types.ObjectId.isValid(safeScopeId)) return null;
+    const article = await Article.findOne({ _id: safeScopeId, userId }).select('title').lean();
+    if (!article) return null;
+    return {
+      scopeType: 'article',
+      scopeId: String(article._id),
+      title: article.title || 'Article'
     };
   }
   if (safeScopeType === 'question') {
@@ -3433,15 +3461,29 @@ const buildConnectionScopeCandidates = async (userId, scope) => {
         .lean();
       conceptQuestions.forEach(row => addToCandidateSet(candidates.questionIds, row?._id));
 
-      const conceptReferenceEdges = await ReferenceEdge.find({
-        userId: new mongoose.Types.ObjectId(userId),
-        targetType: 'concept',
-        targetTagName: regex
+    const conceptReferenceEdges = await ReferenceEdge.find({
+      userId: new mongoose.Types.ObjectId(userId),
+      targetType: 'concept',
+      targetTagName: regex
       })
         .select('sourceId')
-        .lean();
+      .lean();
       conceptReferenceEdges.forEach(edge => addToCandidateSet(candidates.notebookIds, edge?.sourceId));
     }
+
+    const scopedWikiEdges = await Connection.find({
+      userId,
+      scopeType: 'concept',
+      scopeId: String(concept._id),
+      $or: [{ fromType: 'wiki_page' }, { toType: 'wiki_page' }]
+    })
+      .select('fromType fromId toType toId')
+      .limit(300)
+      .lean();
+    scopedWikiEdges.forEach(edge => {
+      if (edge?.fromType === 'wiki_page') addToCandidateSet(candidates.wikiPageIds, edge.fromId);
+      if (edge?.toType === 'wiki_page') addToCandidateSet(candidates.wikiPageIds, edge.toId);
+    });
 
     const highlightObjectIds = toObjectIdList(Array.from(candidates.highlightIds));
     if (highlightObjectIds.length > 0) {
@@ -3499,6 +3541,69 @@ const buildConnectionScopeCandidates = async (userId, scope) => {
     }
 
     await addArticleIdsForHighlightIds(userId, candidates.highlightIds, candidates.articleIds);
+    const scopedWikiEdges = await Connection.find({
+      userId,
+      scopeType: 'question',
+      scopeId: String(question._id),
+      $or: [{ fromType: 'wiki_page' }, { toType: 'wiki_page' }]
+    })
+      .select('fromType fromId toType toId')
+      .limit(300)
+      .lean();
+    scopedWikiEdges.forEach(edge => {
+      if (edge?.fromType === 'wiki_page') addToCandidateSet(candidates.wikiPageIds, edge.fromId);
+      if (edge?.toType === 'wiki_page') addToCandidateSet(candidates.wikiPageIds, edge.toId);
+    });
+    return candidates;
+  }
+
+  if (scope.scopeType === 'article') {
+    const article = await Article.findOne({ _id: scope.scopeId, userId })
+      .select('highlights._id')
+      .lean();
+    if (!article) return null;
+
+    const candidates = createEmptyConnectionCandidateSets();
+    addToCandidateSet(candidates.articleIds, article._id);
+    (article.highlights || []).forEach(highlight => addToCandidateSet(candidates.highlightIds, highlight?._id));
+
+    const highlightObjectIds = toObjectIdList(Array.from(candidates.highlightIds));
+    if (highlightObjectIds.length > 0) {
+      const [notesLinkedToHighlights, questionsLinkedToHighlights] = await Promise.all([
+        NotebookEntry.find({
+          userId,
+          linkedHighlightIds: { $in: highlightObjectIds }
+        })
+          .select('_id')
+          .lean(),
+        Question.find({
+          userId,
+          $or: [
+            { linkedHighlightId: { $in: Array.from(candidates.highlightIds) } },
+            { linkedHighlightIds: { $in: Array.from(candidates.highlightIds) } },
+            { 'blocks.highlightId': { $in: Array.from(candidates.highlightIds) } }
+          ]
+        })
+          .select('_id')
+          .lean()
+      ]);
+      notesLinkedToHighlights.forEach(row => addToCandidateSet(candidates.notebookIds, row?._id));
+      questionsLinkedToHighlights.forEach(row => addToCandidateSet(candidates.questionIds, row?._id));
+    }
+
+    const scopedWikiEdges = await Connection.find({
+      userId,
+      scopeType: 'article',
+      scopeId: String(article._id),
+      $or: [{ fromType: 'wiki_page' }, { toType: 'wiki_page' }]
+    })
+      .select('fromType fromId toType toId')
+      .limit(300)
+      .lean();
+    scopedWikiEdges.forEach(edge => {
+      if (edge?.fromType === 'wiki_page') addToCandidateSet(candidates.wikiPageIds, edge.fromId);
+      if (edge?.toType === 'wiki_page') addToCandidateSet(candidates.wikiPageIds, edge.toId);
+    });
     return candidates;
   }
 
@@ -4456,6 +4561,7 @@ app.use(buildConnectionsRouter({
   Article,
   TagMeta,
   Question,
+  WikiPage,
   normalizeConnectionItemType,
   normalizeRelationType,
   resolveConnectionScopeInput,
@@ -6199,7 +6305,11 @@ app.use(buildSystemRouter({
   NotebookFolder,
   NotebookEntry,
   AgentThread,
-  AgentStructureProposal
+  AgentStructureProposal,
+  Article,
+  WikiPage,
+  Connection,
+  Question
 }));
 
 startServer({

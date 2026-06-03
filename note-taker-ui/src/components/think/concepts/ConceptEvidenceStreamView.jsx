@@ -5,6 +5,8 @@ import { sanitizeAgentReplyText } from './idea-workbench/useIdeaWorkbenchModel';
 import { CONCEPT_ACTIONS } from './idea-workbench/conceptActionDispatch';
 import { CONCEPT_NOTEBOOK_DRAFT_TEMPLATES } from '../../../utils/conceptNotebookDraft';
 import { formatEditorialEvidenceHtml } from './formatEditorialEvidenceHtml';
+import { AGENT_DISPLAY_NAME } from '../../../constants/agentIdentity';
+import AgentTicker from '../../agent/AgentTicker';
 
 const clean = (value) => String(value || '').trim();
 const truncate = (value = '', limit = 220) => {
@@ -562,7 +564,8 @@ export const ConceptEvidenceStreamRail = ({
   onIntegrateCard,
   activeSection = 'assistant',
   onOpenTemplatePicker,
-  personalAgents = []
+  personalAgents = [],
+  referencePullInSlot = null
 }) => {
   const contradictionCards = model.state.cards.filter((card) => card.zone === 'contradictions');
   const supportCards = model.state.cards.filter((card) => card.zone === 'supports');
@@ -672,6 +675,30 @@ export const ConceptEvidenceStreamRail = ({
   }, [streamCards, suggestedCardsFirst]);
   const hasConversation = model.agentBusy || model.agentError || recentMessages.length > 0 || Boolean(latestComment);
   const hasPreparedMoves = freshness.isStale || pendingChangeDrafts.length > 0 || Boolean(pendingRevision);
+  const tickerLines = useMemo(() => {
+    const lines = [];
+    const title = model.state.header?.title || concept?.name || 'current concept';
+    if (model.agentBusy) {
+      lines.push('reading the concept draft');
+      lines.push(`testing ${title}`);
+      lines.push('looking for support and pressure');
+      return lines;
+    }
+    if (latestAssistantMessage) lines.push(formatStreamMessage(latestAssistantMessage));
+    if (supportCards.length > 0) lines.push(`${supportCards.length} support signal${supportCards.length === 1 ? '' : 's'} staged`);
+    if (contradictionCards.length > 0) lines.push(`${contradictionCards.length} tension${contradictionCards.length === 1 ? '' : 's'} visible`);
+    if (questionCards.length > 0) lines.push(`${questionCards.length} open question${questionCards.length === 1 ? '' : 's'} waiting`);
+    if (lines.length === 0) lines.push(`anchored to ${title}`);
+    return lines.slice(0, 3);
+  }, [
+    concept?.name,
+    contradictionCards.length,
+    latestAssistantMessage,
+    model.agentBusy,
+    model.state.header?.title,
+    questionCards.length,
+    supportCards.length
+  ]);
 
   const handleSend = async () => {
     const next = clean(partnerInput);
@@ -688,9 +715,22 @@ export const ConceptEvidenceStreamRail = ({
   return (
     <div className="concept-editorial-evidence">
       <div className="concept-editorial-evidence__header">
-        <h3>Partner</h3>
+        <h3>{AGENT_DISPLAY_NAME}</h3>
         <p>Prompt first, then review the conversation, then decide what pulled material belongs on the page.</p>
       </div>
+
+      <AgentTicker
+        className="concept-editorial-evidence__ticker"
+        label="Thought partner computation trace"
+        lines={tickerLines}
+        state={model.agentBusy ? 'working' : 'idle'}
+      />
+
+      {referencePullInSlot && (
+        <div className="concept-editorial-evidence__reference-pull-in">
+          {referencePullInSlot}
+        </div>
+      )}
 
       {isFreshConcept && (
         <div className="concept-editorial-evidence__starter-block">
@@ -749,7 +789,7 @@ export const ConceptEvidenceStreamRail = ({
       <section className="concept-editorial-evidence__section">
         <div className="concept-editorial-evidence__section-head">
           <span>Conversation</span>
-          <span>{model.agentBusy ? 'Thinking' : 'Agent + chat'}</span>
+          <span>{model.agentBusy ? 'Thinking' : `${AGENT_DISPLAY_NAME} + chat`}</span>
         </div>
         <p className="concept-editorial-evidence__section-copy">
           Keep the exchange simple here. Ask, read the reply, then pull only the material that earns space in the draft.
@@ -758,7 +798,7 @@ export const ConceptEvidenceStreamRail = ({
           <div className="concept-editorial-evidence__messages" aria-live="polite">
           {model.agentBusy && (
             <div className="concept-editorial-evidence__status">
-              {model.agentModeLabel ? `${model.agentModeLabel}…` : 'The Partner is thinking…'}
+              {model.agentModeLabel ? `${model.agentModeLabel}…` : `${AGENT_DISPLAY_NAME} is thinking…`}
             </div>
           )}
           {model.agentError && (
@@ -772,7 +812,7 @@ export const ConceptEvidenceStreamRail = ({
               className={`concept-editorial-evidence__message concept-editorial-evidence__message--${clean(message.role) || 'assistant'}`}
             >
               <div className="concept-editorial-evidence__message-meta">
-                <span>{clean(message.role) === 'user' ? 'You' : 'Partner'}</span>
+                <span>{clean(message.role) === 'user' ? 'You' : AGENT_DISPLAY_NAME}</span>
               </div>
               <p>{formatStreamMessage(message)}</p>
             </article>
@@ -780,7 +820,7 @@ export const ConceptEvidenceStreamRail = ({
           {!recentMessages.length && latestComment && (
             <article className="concept-editorial-evidence__message">
               <div className="concept-editorial-evidence__message-meta">
-                <span>Partner</span>
+                <span>{AGENT_DISPLAY_NAME}</span>
               </div>
               <p>{latestComment.body}</p>
             </article>
@@ -943,7 +983,7 @@ export const ConceptEvidenceStreamRail = ({
             <span>Scoped delegation</span>
           </div>
           <p className="concept-editorial-evidence__section-copy">
-            Send the live concept to a personal agent with the current claim, support, tension, and open questions already attached.
+            Send the live concept to a specialist agent with the current claim, support, tension, and open questions already attached.
           </p>
           {activePersonalAgents.length > 0 ? (
             <div className="concept-editorial-evidence__handoff-options">
@@ -961,7 +1001,7 @@ export const ConceptEvidenceStreamRail = ({
                     })}
                     disabled={model.agentBusy}
                   >
-                    <strong>{agent.name || 'Personal agent'}</strong>
+                    <strong>{agent.name || 'Specialist agent'}</strong>
                     <span>{roleLabel}</span>
                   </button>
                 );
@@ -969,7 +1009,7 @@ export const ConceptEvidenceStreamRail = ({
             </div>
           ) : (
             <p className="concept-editorial-evidence__empty">
-              No active personal agents yet. <a href="/integrations#personal-agents">Set one up</a>.
+              No active specialist agents yet. <a href="/integrations#personal-agents">Set one up</a>.
             </p>
           )}
         </section>

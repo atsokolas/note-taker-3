@@ -151,6 +151,28 @@ const mergeAmbientRelatedItems = ({
   return merged.slice(0, Math.max(1, Math.min(MAX_LIMIT, Number(limit) || DEFAULT_LIMIT)));
 };
 
+const mergeRelatedItemLists = (...lists) => {
+  const merged = [];
+  const seen = new Set();
+  lists.flatMap(list => (Array.isArray(list) ? list : [])).forEach((item) => {
+    const type = toSafeString(item?.type).toLowerCase();
+    const id = toSafeString(item?.id);
+    const title = toSafeString(item?.title);
+    const key = id ? `${type}:${id}` : `${type}:${title.toLowerCase()}`;
+    if (!key || seen.has(key)) return;
+    seen.add(key);
+    merged.push({
+      type,
+      id,
+      title,
+      snippet: truncate(item?.snippet || ''),
+      updatedAt: item?.updatedAt || null,
+      relationType: toSafeString(item?.relationType)
+    });
+  });
+  return merged.slice(0, MAX_LIMIT);
+};
+
 const createError = (status, message) => {
   const error = new Error(message);
   error.status = status;
@@ -940,6 +962,9 @@ const WIKI_SOURCE_ATTRIBUTION_RE = /\b(back(?:s|ed)?|citation|cite|cited|evidenc
 const WIKI_EXACT_SENTENCE_RE = /\b(exact|verbatim|quote|sentence|wording|word-for-word)\b/i;
 const WIKI_SECTION_HEADING_RE = /\b(overview|core idea|how it works|evidence|converging evidence|diverging evidence|implications|tensions|open questions|references)\b/gi;
 const WIKI_SECTION_HEADING_START_RE = /^(overview|core idea|how it works|evidence|converging evidence|diverging evidence|implications|tensions|open questions|references)\s+/i;
+const QUESTION_DEPTH_RE = /\b(what is this question really asking|really asking|what is the real question|what is this actually asking)\b/i;
+const ORIENTATION_CONTEXT_RE = /\b(what am i looking at|what is this|what's this|where am i|what page is this|what object is this|what is open|what's in view|what am i reading)\b/i;
+const ORIENTATION_USAGE_RE = /\b(where else is this used|where is this used|what uses this|who cites this|what references this|referenced by|backlinks?|where else does this appear|where else is this cited)\b/i;
 
 const shouldSearchWorkspaceForWikiPage = ({ message = '', conversationState = {}, skillInvocation = {} } = {}) => {
   const outputType = toSafeString(skillInvocation?.outputType).toLowerCase();
@@ -1095,6 +1120,77 @@ const buildWikiPageGroundedReply = ({ message = '', contextItem = null, contextS
     return withWikiPageCitations(lines.join(' '), contextItem);
   }
   return '';
+};
+
+const contextSurfaceLabel = (type = '') => {
+  const safeType = toSafeString(type).toLowerCase();
+  if (safeType === 'wiki_page' || safeType === 'wiki') return 'Wiki page';
+  if (safeType === 'article' || safeType === 'source') return 'Library source';
+  if (safeType === 'highlight') return 'Library highlight';
+  if (safeType === 'notebook' || safeType === 'note') return 'Think note';
+  if (safeType === 'question') return 'Think question';
+  if (safeType === 'concept' || safeType === 'tag') return 'Think concept';
+  if (safeType === 'think') return 'Think workspace';
+  if (safeType === 'home' || safeType === 'global') return 'Home workspace';
+  if (safeType === 'workspace' || safeType === 'selection') return 'Workspace';
+  return safeType ? `${safeType.replace(/[_-]+/g, ' ')} surface` : 'Workspace';
+};
+
+const formatVisibleConnectionLine = (item = {}) => {
+  const type = toSafeString(item?.type).toLowerCase() || 'item';
+  const label = buildReplyLabel(item);
+  const detail = buildReplyDetail(item);
+  return detail
+    ? `[${type}] ${label} - ${detail}`
+    : `[${type}] ${label}`;
+};
+
+const buildOrientationReply = ({
+  message = '',
+  context = {},
+  contextItem = null,
+  relatedItems = []
+} = {}) => {
+  const safeMessage = toSafeString(message);
+  if (QUESTION_DEPTH_RE.test(safeMessage)) return '';
+  const wantsContext = ORIENTATION_CONTEXT_RE.test(safeMessage);
+  const wantsUsage = ORIENTATION_USAGE_RE.test(safeMessage);
+  if (!wantsContext && !wantsUsage) return '';
+
+  const metadata = normalizeAmbientContextMetadata(context?.metadata);
+  const activeType = toSafeString(contextItem?.type || context?.type).toLowerCase();
+  const surfaceLabel = contextSurfaceLabel(activeType);
+  const title = toSafeString(contextItem?.title)
+    || toSafeString(context?.title)
+    || 'the current workspace';
+  const preparedItems = prepareRelatedItemsForReply(relatedItems);
+
+  if (wantsUsage) {
+    if (preparedItems.length === 0) {
+      return stripRawObjectIds(
+        `${surfaceLabel} "${title}" has no visible backlinks or cross-surface uses in the current context yet. Ask me to search the wider workspace if you want a broader pass.`,
+        title
+      );
+    }
+    const lines = preparedItems.slice(0, 5).map(formatVisibleConnectionLine);
+    return stripRawObjectIds([
+      `${surfaceLabel} "${title}" is connected to ${preparedItems.length} visible item${preparedItems.length === 1 ? '' : 's'} in the current context:`,
+      ...lines.map(line => `- ${line}`)
+    ].join('\n'), title);
+  }
+
+  const contextSignals = buildContextSummarySignals({ context, contextItem });
+  const summary = cleanWikiSignalText(contextSignals.coreClaim)
+    || truncate(contextItem?.snippet || metadata.summary || metadata.primaryText || '', 220);
+  const nearbyLabels = preparedItems
+    .map((item) => buildReplyLabel(item))
+    .filter(Boolean)
+    .slice(0, 3);
+  const nearbyLine = nearbyLabels.length
+    ? ` Visible nearby material: ${joinLabels(nearbyLabels)}.`
+    : '';
+  const reply = `${surfaceLabel}: "${title}".${summary ? ` ${summary}` : ''}${nearbyLine}`;
+  return stripRawObjectIds(reply, title);
 };
 
 const isContextEchoItem = ({ item = {}, context = {}, contextItem = null } = {}) => {
@@ -1654,8 +1750,10 @@ const inferReplyIntent = ({ message = '', conversationState = {} }) => {
   const lower = toSafeString(message).toLowerCase();
   const assistantLower = toSafeString(conversationState?.previousAssistantMessage?.text).toLowerCase();
 
+  if (QUESTION_DEPTH_RE.test(lower)) return 'summarize';
+  if (ORIENTATION_USAGE_RE.test(lower)) return 'show_usage';
+  if (ORIENTATION_CONTEXT_RE.test(lower)) return 'orient_context';
   if (/\b(summarize|summary|distill|what matters|key claim|brief|synthesis)\b/i.test(lower)) return 'summarize';
-  if (/\b(what is this question really asking|really asking|what is the real question|what is this actually asking)\b/i.test(lower)) return 'summarize';
   if (/\b(challenge|push back|pressure|weak|hole|counter|falsif|rethink|rethought)\b/i.test(lower)) return 'challenge';
   if (/\b(organize|organise|reorganize|reorganise|cleanup structure|clean up structure|clean up library|cleanup library|library cleanup|folder cleanup|folder structure|workspace cleanup|organize library|organize notebook|organize workspace|stage a reviewable organization plan)\b/i.test(lower)) return 'cleanup_structure';
   if (/\b(restructure|bucket|sort|cluster)\b/i.test(lower)) return 'restructure';
@@ -1974,6 +2072,205 @@ const searchInternalItems = async ({
     .slice(0, Math.max(1, Math.min(MAX_LIMIT, Number(limit) || DEFAULT_LIMIT)));
 };
 
+const resolveGraphIdentity = ({ context = {}, contextItem = null } = {}) => {
+  const contextType = toSafeString(context?.type).toLowerCase();
+  const contextId = toSafeString(context?.id);
+  if (contextItem?.type === 'wiki_page' || context?.pageId) {
+    const pageId = toSafeString(context?.pageId || contextItem?.id);
+    return pageId && !pageId.startsWith('wiki:')
+      ? { type: 'wiki_page', id: pageId }
+      : null;
+  }
+  const type = toSafeString(contextItem?.type || contextType).toLowerCase();
+  const id = toSafeString(contextItem?.id || contextId);
+  if (!type || !id) return null;
+  if (['workspace', 'think', 'home', 'global', 'concept-index', 'selection'].includes(type)) return null;
+  return { type, id };
+};
+
+const unwrapQueryResult = async (query) => {
+  if (!query) return [];
+  if (typeof query.lean === 'function') return query.lean();
+  return query;
+};
+
+const queryModelMany = async (Model, query = {}, select = '') => {
+  if (!Model || typeof Model.find !== 'function') return [];
+  const found = Model.find(query);
+  const selected = select && typeof found?.select === 'function' ? found.select(select) : found;
+  const result = await unwrapQueryResult(selected);
+  return Array.isArray(result) ? result : [];
+};
+
+const hydrateGraphConnectionItems = async ({
+  userObjectId,
+  graphItems = [],
+  Article,
+  NotebookEntry,
+  TagMeta,
+  WikiPage,
+  Question
+} = {}) => {
+  const byType = graphItems.reduce((acc, item) => {
+    const type = toSafeString(item?.type).toLowerCase();
+    const id = toSafeString(item?.id);
+    if (!type || !id) return acc;
+    if (!acc[type]) acc[type] = new Set();
+    acc[type].add(id);
+    return acc;
+  }, {});
+  const idsFor = type => Array.from(byType[type] || []);
+  const articleIds = idsFor('article').filter(id => mongoose.Types.ObjectId.isValid(id));
+  const notebookIds = idsFor('notebook').filter(id => mongoose.Types.ObjectId.isValid(id));
+  const conceptIds = idsFor('concept').filter(id => mongoose.Types.ObjectId.isValid(id));
+  const conceptNames = idsFor('concept').filter(id => !mongoose.Types.ObjectId.isValid(id));
+  const wikiPageIds = idsFor('wiki_page').filter(id => mongoose.Types.ObjectId.isValid(id));
+  const questionIds = idsFor('question').filter(id => mongoose.Types.ObjectId.isValid(id));
+  const highlightIds = idsFor('highlight');
+
+  const [articles, notes, conceptsById, conceptsByName, wikiPages, questions, highlightArticles] = await Promise.all([
+    queryModelMany(Article, { _id: { $in: articleIds }, userId: userObjectId }, '_id title content url updatedAt'),
+    queryModelMany(NotebookEntry, { _id: { $in: notebookIds }, userId: userObjectId }, '_id title content blocks updatedAt'),
+    queryModelMany(TagMeta, { _id: { $in: conceptIds }, userId: userObjectId }, '_id name description updatedAt'),
+    conceptNames.length
+      ? queryModelMany(TagMeta, { userId: userObjectId, name: { $in: conceptNames } }, '_id name description updatedAt')
+      : [],
+    queryModelMany(WikiPage, { _id: { $in: wikiPageIds }, userId: userObjectId }, '_id title plainText updatedAt'),
+    queryModelMany(Question, { _id: { $in: questionIds }, userId: userObjectId }, '_id text linkedTagName updatedAt'),
+    highlightIds.length
+      ? queryModelMany(Article, { userId: userObjectId, 'highlights._id': { $in: highlightIds } }, '_id title highlights updatedAt')
+      : []
+  ]);
+
+  const hydratedByKey = new Map();
+  articles.forEach((entry) => {
+    hydratedByKey.set(`article:${entry._id}`, {
+      type: 'article',
+      id: String(entry._id),
+      title: toSafeString(entry.title) || 'Article',
+      snippet: truncate(entry.content || entry.url || ''),
+      updatedAt: entry.updatedAt
+    });
+  });
+  notes.forEach((entry) => {
+    const blockText = Array.isArray(entry.blocks)
+      ? entry.blocks.map(block => toSafeString(block?.text)).filter(Boolean).join(' ')
+      : '';
+    hydratedByKey.set(`notebook:${entry._id}`, {
+      type: 'notebook',
+      id: String(entry._id),
+      title: toSafeString(entry.title) || 'Notebook note',
+      snippet: truncate(entry.content || blockText),
+      updatedAt: entry.updatedAt
+    });
+  });
+  [...conceptsById, ...conceptsByName].forEach((entry) => {
+    const item = {
+      type: 'concept',
+      id: String(entry._id || entry.name),
+      title: toSafeString(entry.name) || 'Concept',
+      snippet: truncate(entry.description || ''),
+      updatedAt: entry.updatedAt
+    };
+    hydratedByKey.set(`concept:${entry._id}`, item);
+    hydratedByKey.set(`concept:${entry.name}`, item);
+  });
+  wikiPages.forEach((entry) => {
+    hydratedByKey.set(`wiki_page:${entry._id}`, {
+      type: 'wiki_page',
+      id: String(entry._id),
+      title: toSafeString(entry.title) || 'Wiki page',
+      snippet: truncate(entry.plainText || ''),
+      updatedAt: entry.updatedAt
+    });
+  });
+  questions.forEach((entry) => {
+    hydratedByKey.set(`question:${entry._id}`, {
+      type: 'question',
+      id: String(entry._id),
+      title: truncate(entry.text || 'Question', 120),
+      snippet: toSafeString(entry.linkedTagName) ? `Linked concept: ${entry.linkedTagName}` : '',
+      updatedAt: entry.updatedAt
+    });
+  });
+  highlightArticles.forEach((article) => {
+    (Array.isArray(article.highlights) ? article.highlights : []).forEach((highlight) => {
+      const id = toSafeString(highlight?._id || highlight?.id);
+      if (!highlightIds.includes(id)) return;
+      hydratedByKey.set(`highlight:${id}`, {
+        type: 'highlight',
+        id,
+        title: truncate(highlight.text || 'Highlight', 120),
+        snippet: toSafeString(article.title) ? `From ${article.title}` : '',
+        updatedAt: highlight.createdAt || article.updatedAt
+      });
+    });
+  });
+
+  return graphItems.map((item) => {
+    const key = `${toSafeString(item?.type).toLowerCase()}:${toSafeString(item?.id)}`;
+    const hydrated = hydratedByKey.get(key);
+    return {
+      ...(hydrated || {
+        type: toSafeString(item?.type).toLowerCase(),
+        id: toSafeString(item?.id),
+        title: toSafeString(item?.title) || toSafeString(item?.id),
+        snippet: ''
+      }),
+      relationType: toSafeString(item?.relationType)
+    };
+  }).filter(item => item.title || item.id);
+};
+
+const loadGraphRelatedItems = async ({
+  userObjectId,
+  context = {},
+  contextItem = null,
+  limit = DEFAULT_LIMIT,
+  Connection,
+  Article,
+  NotebookEntry,
+  TagMeta,
+  WikiPage,
+  Question
+} = {}) => {
+  const graphIdentity = resolveGraphIdentity({ context, contextItem });
+  if (!graphIdentity || !Connection || typeof Connection.find !== 'function') return [];
+  const rows = await queryModelMany(Connection, {
+    userId: userObjectId,
+    $or: [
+      { fromType: graphIdentity.type, fromId: graphIdentity.id },
+      { toType: graphIdentity.type, toId: graphIdentity.id }
+    ]
+  });
+  const graphItems = rows
+    .map((row) => {
+      const fromMatches = row?.fromType === graphIdentity.type && row?.fromId === graphIdentity.id;
+      return fromMatches
+        ? {
+            type: row.toType,
+            id: row.toId,
+            relationType: row.relationType
+          }
+        : {
+            type: row.fromType,
+            id: row.fromId,
+            relationType: row.relationType
+          };
+    })
+    .filter(item => item.type && item.id)
+    .slice(0, Math.max(1, Math.min(MAX_LIMIT, Number(limit) || DEFAULT_LIMIT)));
+  return hydrateGraphConnectionItems({
+    userObjectId,
+    graphItems,
+    Article,
+    NotebookEntry,
+    TagMeta,
+    WikiPage,
+    Question
+  });
+};
+
 const buildReply = ({
   message,
   conversationState = {},
@@ -1998,6 +2295,13 @@ const buildReply = ({
   const contextSignals = buildContextSummarySignals({ context, contextItem });
   const leadDetail = buildReplyDetail(preparedItems[0]);
   const secondLabel = titles[1] || '';
+  const orientationReply = buildOrientationReply({
+    message: conversationState.resolvedMessage || message,
+    context,
+    contextItem,
+    relatedItems
+  });
+  if (orientationReply) return orientationReply;
 
   if (contextItem?.type === 'wiki_page' && intent !== 'retrieve') {
     const wikiReply = buildWikiPageGroundedReply({
@@ -2164,6 +2468,8 @@ const generateCollaborativeReply = async ({
   let NotebookEntry;
   let TagMeta;
   let WikiPage;
+  let Connection;
+  let Question;
   try {
     Article = mongoose.model('Article');
     NotebookEntry = mongoose.model('NotebookEntry');
@@ -2175,6 +2481,16 @@ const generateCollaborativeReply = async ({
     WikiPage = mongoose.model('WikiPage');
   } catch (_error) {
     WikiPage = null;
+  }
+  try {
+    Connection = mongoose.model('Connection');
+  } catch (_error) {
+    Connection = null;
+  }
+  try {
+    Question = mongoose.model('Question');
+  } catch (_error) {
+    Question = null;
   }
 
   const safeLimit = Math.max(1, Math.min(MAX_LIMIT, Number(limit) || DEFAULT_LIMIT));
@@ -2211,18 +2527,39 @@ const generateCollaborativeReply = async ({
       TagMeta
     })
     : [];
+  const graphItems = await loadGraphRelatedItems({
+    userObjectId,
+    context,
+    contextItem,
+    limit: safeLimit,
+    Connection,
+    Article,
+    NotebookEntry,
+    TagMeta,
+    WikiPage,
+    Question
+  });
   const relatedItems = pruneRelatedItemsForContext({
     context,
     contextItem,
-    relatedItems: mergeAmbientRelatedItems({
-      context,
-      relatedItems: searchedItems,
-      limit: safeLimit
-    }),
+    relatedItems: mergeRelatedItemLists(
+      mergeAmbientRelatedItems({
+        context,
+        relatedItems: graphItems,
+        limit: safeLimit
+      }),
+      searchedItems
+    ),
     limit: safeLimit
   });
 
-  const reply = buildOutputArtifactReply({
+  const orientationReply = buildOrientationReply({
+    message: conversationState.resolvedMessage || safeMessage,
+    context,
+    contextItem,
+    relatedItems
+  });
+  const reply = orientationReply || buildOutputArtifactReply({
     skillInvocation,
     context,
     contextItem,
@@ -2368,6 +2705,8 @@ module.exports = {
     buildTokenRegex,
     buildReply,
     inferReplyIntent,
+    buildOrientationReply,
+    loadGraphRelatedItems,
     buildPartnerChatMessages,
     buildOutputArtifactReply,
     buildWikiClaimSourceReply,

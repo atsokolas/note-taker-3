@@ -83,6 +83,43 @@ const extractQuestionTokens = (question = '') => {
   return deduped;
 };
 
+const ANSWER_STOPWORDS = new Set([
+  ...EXACT_SENTENCE_STOPWORDS,
+  'after', 'again', 'against', 'argument', 'between', 'could', 'does', 'from',
+  'have', 'here', 'main', 'page', 'really', 'should', 'that', 'their', 'there',
+  'these', 'thing', 'this', 'what', 'when', 'where', 'which', 'with', 'would'
+]);
+
+const extractAnswerTokens = (value = '') => (
+  (asString(value).toLowerCase().match(/[a-z0-9][a-z0-9'-]{3,}/g) || [])
+    .filter(token => !ANSWER_STOPWORDS.has(token))
+);
+
+const scoreTextForQuestion = (text = '', question = '') => {
+  const haystack = asString(text).toLowerCase();
+  if (!haystack) return 0;
+  return extractAnswerTokens(question)
+    .reduce((score, token) => score + (haystack.includes(token) ? 1 : 0), 0);
+};
+
+const topRelevantSentences = ({ page, sources = [], question = '', limit = 3 } = {}) => {
+  const sentences = splitIntoSentences(pageBodySentenceText(page));
+  const pageMatches = sentences
+    .map((sentence, index) => ({ sentence, index, score: scoreTextForQuestion(sentence, question), citationIndexes: [] }))
+    .filter(entry => entry.score > 0);
+  const sourceMatches = sources
+    .map(source => ({
+      sentence: source.snippet,
+      index: source.index,
+      score: scoreTextForQuestion(`${source.title} ${source.snippet}`, question),
+      citationIndexes: [source.index]
+    }))
+    .filter(entry => entry.score > 0 && entry.sentence);
+  return [...pageMatches, ...sourceMatches]
+    .sort((left, right) => right.score - left.score || left.index - right.index)
+    .slice(0, Math.max(1, limit));
+};
+
 const pickExactPageSentence = ({ page, question } = {}) => {
   if (!isExactSentenceRequest(question)) return '';
   const pageText = pageBodySentenceText(page);
@@ -262,21 +299,45 @@ const extractJson = (raw = '') => {
 };
 
 const buildFallbackAnswer = ({ page, sources, question }) => {
-  const sourceCitations = sources.slice(0, 2).map(source => source.index);
-  const intro = sources.length
-    ? `Drawing on this page and ${sources.length} attached source${sources.length === 1 ? '' : 's'}, here is the most direct take.`
-    : `This page does not yet have attached sources, so the answer is grounded only in the page text.`;
-  const reflection = `You asked: "${truncate(question, 200)}". The most relevant material in the page concerns "${truncate(page.title, 80) || 'this topic'}".`;
-  const followUp = sources.length
-    ? `For more depth, open the cited source${sources.length === 1 ? '' : 's'} or run maintenance to widen the source set.`
-    : 'Attach a source from the AI/Sources panel and ask again to get a citable answer.';
+  const matches = topRelevantSentences({ page, sources, question, limit: 3 });
+  if (!matches.length) {
+    const isChangeQuestion = /\b(changed?|updated?|new|ingest|source|added|since)\b/i.test(question);
+    if (isChangeQuestion && sources.length) {
+      const citationIndexes = sources.slice(0, 2).map(source => source.index);
+      return {
+        paragraphs: [{
+          text: `The relevant change is tied to the newest attached source material on this page. Treat the answer as provisional until maintenance rewrites the page around that source.`,
+          citationIndexes
+        }],
+        citationIndexesUsed: citationIndexes
+      };
+    }
+    const pageTitle = truncate(page?.title, 100) || 'this page';
+    return {
+      paragraphs: [{
+        text: `I do not see enough evidence on ${pageTitle} to answer that directly. The page and attached sources should be expanded before treating this as answered.`,
+        citationIndexes: []
+      }],
+      citationIndexesUsed: []
+    };
+  }
+  const citationIndexes = Array.from(new Set(matches.flatMap(match => match.citationIndexes || []))).slice(0, 4);
+  const directAnswer = matches
+    .map(match => asString(match.sentence).replace(/\[[0-9,\s]+\]\s*$/g, '').trim())
+    .filter(Boolean)
+    .slice(0, 2)
+    .join(' ');
+  const sourceLine = citationIndexes.length
+    ? ` The strongest cited support is ${citationIndexes.map(index => `[${index}]`).join(', ')}.`
+    : '';
   return {
     paragraphs: [
-      { text: intro, citationIndexes: sourceCitations },
-      { text: reflection, citationIndexes: [] },
-      { text: followUp, citationIndexes: [] }
+      {
+        text: `${directAnswer}${sourceLine}`,
+        citationIndexes
+      }
     ],
-    citationIndexesUsed: sourceCitations
+    citationIndexesUsed: citationIndexes
   };
 };
 
@@ -403,6 +464,8 @@ module.exports = {
     extractJson,
     normalizeAnswerSchema,
     buildFallbackAnswer,
+    topRelevantSentences,
+    scoreTextForQuestion,
     docFromAnswer,
     claimParagraph,
     splitIntoSentences,

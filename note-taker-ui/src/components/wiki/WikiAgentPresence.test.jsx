@@ -22,9 +22,9 @@ const basePage = (overrides = {}) => ({
 describe('WikiAgentPresence', () => {
   it('renders the never-run state when the agent has not touched the page', () => {
     render(<WikiAgentPresence page={basePage()} onMaintain={() => {}} />);
-    expect(screen.getByText(/agent hasn’t read this page yet/i)).toBeInTheDocument();
+    expect(screen.getByText(/thought partner hasn’t read this page yet/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Maintain page' })).toBeEnabled();
-    const row = screen.getByRole('status', { name: 'Agent status' });
+    const row = screen.getByRole('status', { name: 'Thought partner status' });
     expect(row.getAttribute('data-status')).toBe('never_run');
   });
 

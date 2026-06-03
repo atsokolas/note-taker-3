@@ -37,7 +37,7 @@ const ThreadsSidebar = ({
     <div className="section-stack think-layout__left-panel think-index think-threads-sidebar" data-testid="think-threads-left-panel">
       <SectionHeader
         title="Shared threads"
-        subtitle="Resumable conversations for you, native agents, and personal agents."
+        subtitle="Resumable conversations for you, the thought partner, and specialist agents."
         action={(
           <QuietButton type="button" onClick={loadThreads} disabled={threadsLoading}>
             Refresh

@@ -7,6 +7,8 @@ const {
   buildReply,
   buildOutputArtifactReply,
   inferReplyIntent,
+  buildOrientationReply,
+  loadGraphRelatedItems,
   buildPartnerChatMessages,
   buildWikiClaimSourceReply,
   prepareRelatedItemsForReply,
@@ -14,7 +16,19 @@ const {
   shouldSearchWorkspaceForWikiPage
 } = __testables;
 
-const run = () => {
+const makeFindModel = (resolver) => ({
+  find(query = {}) {
+    const runQuery = async () => resolver(query);
+    return {
+      select() {
+        return { lean: runQuery };
+      },
+      lean: runQuery
+    };
+  }
+});
+
+const run = async () => {
   const tokens = tokenize('Find the note about systems thinking and evidence loops in my notebook');
   assert.ok(tokens.includes('systems'), 'Expected systems token.');
   assert.ok(tokens.includes('thinking'), 'Expected thinking token.');
@@ -44,6 +58,126 @@ const run = () => {
     'cleanup_structure',
     'Continuation approvals after an organization plan should keep the cleanup execution intent.'
   );
+  assert.strictEqual(
+    inferReplyIntent({ message: 'What am I looking at?' }),
+    'orient_context',
+    'Agent orientation questions should be recognized as current-surface orientation, not generic chat.'
+  );
+  assert.strictEqual(
+    inferReplyIntent({ message: 'Where else is this used?' }),
+    'show_usage',
+    'Backlink and usage questions should be recognized as visible-usage requests.'
+  );
+
+  const wikiOrientationReply = buildReply({
+    message: 'What am I looking at?',
+    context: {
+      type: 'workspace',
+      id: 'wiki',
+      pageId: '69fd2e7d212cd5a5f57db144'
+    },
+    contextItem: {
+      type: 'wiki_page',
+      id: 'wiki:investing',
+      title: 'Investing',
+      snippet: 'Investing is disciplined capital allocation.',
+      fullText: 'Investing is disciplined capital allocation with a margin of safety. It connects valuation, behavior, and concentration risk.'
+    },
+    relatedItems: [
+      { type: 'highlight', id: 'h1', title: 'Margin of safety highlight', snippet: 'A margin of safety protects against valuation error.' },
+      { type: 'question', id: 'q1', title: 'How much concentration is too much?', snippet: 'The open question is how concentration risk should be bounded.' }
+    ]
+  });
+  assert.ok(wikiOrientationReply.includes('Wiki page: "Investing".'), 'Orientation replies should name the active wiki page.');
+  assert.ok(/disciplined capital allocation/i.test(wikiOrientationReply), 'Orientation replies should summarize the current surface.');
+  assert.ok(wikiOrientationReply.includes('Margin of safety highlight'), 'Orientation replies should mention visible nearby material.');
+  assert.ok(!wikiOrientationReply.includes('69fd2e7d212cd5a5f57db144'), 'Orientation replies should never expose raw ObjectIds.');
+
+  const usageReply = buildReply({
+    message: 'Where else is this used?',
+    context: { type: 'concept', id: 'c1', title: 'Systems Thinking' },
+    contextItem: {
+      type: 'concept',
+      id: 'c1',
+      title: 'Systems Thinking',
+      snippet: 'A concept about feedback loops.'
+    },
+    relatedItems: [
+      { type: 'notebook', id: 'n1', title: 'Feedback loops', snippet: 'Pressure accumulates before a system changes state.' },
+      { type: 'wiki_page', id: 'w1', title: 'Decision Quality', snippet: 'Feedback loops shape decision quality.' }
+    ]
+  });
+  assert.ok(usageReply.includes('Think concept "Systems Thinking"'), 'Usage replies should name the active concept surface.');
+  assert.ok(usageReply.includes('2 visible items'), 'Usage replies should count visible connected items.');
+  assert.ok(usageReply.includes('[notebook] Feedback loops'), 'Usage replies should classify notebook connections.');
+  assert.ok(usageReply.includes('[wiki_page] Decision Quality'), 'Usage replies should classify wiki page connections.');
+
+  const activeConceptId = 'aaaaaaaaaaaaaaaaaaaaaaaa';
+  const articleId = 'bbbbbbbbbbbbbbbbbbbbbbbb';
+  const wikiPageId = 'cccccccccccccccccccccccc';
+  const graphRelatedItems = await loadGraphRelatedItems({
+    userObjectId: 'user-1',
+    context: { type: 'concept', id: activeConceptId, title: 'Systems Thinking' },
+    contextItem: {
+      type: 'concept',
+      id: activeConceptId,
+      title: 'Systems Thinking',
+      snippet: 'A concept about feedback loops.'
+    },
+    Connection: makeFindModel(() => [
+      {
+        fromType: 'concept',
+        fromId: activeConceptId,
+        toType: 'article',
+        toId: articleId,
+        relationType: 'supports'
+      },
+      {
+        fromType: 'wiki_page',
+        fromId: wikiPageId,
+        toType: 'concept',
+        toId: activeConceptId,
+        relationType: 'referenced_by'
+      }
+    ]),
+    Article: makeFindModel(() => [
+      {
+        _id: articleId,
+        title: 'Feedback Systems',
+        content: 'Feedback loops create delayed state changes.',
+        updatedAt: '2026-04-18T12:00:00.000Z'
+      }
+    ]),
+    NotebookEntry: makeFindModel(() => []),
+    TagMeta: makeFindModel(() => []),
+    WikiPage: makeFindModel(() => [
+      {
+        _id: wikiPageId,
+        title: 'Decision Quality',
+        plainText: 'A wiki page about decisions and feedback.',
+        updatedAt: '2026-04-18T12:01:00.000Z'
+      }
+    ]),
+    Question: makeFindModel(() => [])
+  });
+  assert.deepStrictEqual(
+    graphRelatedItems.map((item) => `${item.type}:${item.title}:${item.relationType}`),
+    ['article:Feedback Systems:supports', 'wiki_page:Decision Quality:referenced_by'],
+    'Graph related items should hydrate connected article/wiki nodes for agent usage replies.'
+  );
+
+  const emptyUsageReply = buildOrientationReply({
+    message: 'What references this?',
+    context: { type: 'article', id: 'a1', title: 'World Models' },
+    contextItem: {
+      type: 'article',
+      id: 'a1',
+      title: 'World Models',
+      snippet: 'World models compress experience into latent simulations.'
+    },
+    relatedItems: []
+  });
+  assert.ok(/no visible backlinks/i.test(emptyUsageReply), 'Usage replies should be honest when no visible backlinks are attached.');
 
   const prepared = prepareRelatedItemsForReply([
     { type: 'source', id: 'u1', title: 'example.com', snippet: 'https://example.com/world-models' },
@@ -657,13 +791,15 @@ const run = () => {
 };
 
 if (require.main === module) {
-  try {
-    run();
+  (async () => {
+    try {
+      await run();
     console.log('collaborativeAgentService tests passed');
-  } catch (error) {
-    console.error(error);
-    process.exit(1);
-  }
+    } catch (error) {
+      console.error(error);
+      process.exit(1);
+    }
+  })();
 }
 
 module.exports = { run };

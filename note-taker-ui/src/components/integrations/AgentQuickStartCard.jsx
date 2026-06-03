@@ -1,6 +1,7 @@
 import React from 'react';
 import { Button, Card } from '../ui';
 import { AGENT_WORKER_ROLE_OPTIONS } from '../../constants/agentWorkerRoles';
+import { SPECIALIST_AGENT_LABEL } from '../../constants/agentIdentity';
 
 const AgentQuickStartCard = ({
   agentModel,
@@ -25,19 +26,19 @@ const AgentQuickStartCard = ({
 
   return (
     <Card className="settings-card">
-      <h2 id="personal-agents">Set up your personal agent</h2>
+      <h2 id="personal-agents">Set up a specialist agent</h2>
       <p className="muted">
-        Give your agent a name and start using it in Think handoffs. You can configure advanced BYO bridge options after setup.
+        Give a specialist worker a name and let {SPECIALIST_AGENT_LABEL.toLowerCase()}s handle routed Think handoffs under the same thought partner workflow. You can configure advanced BYO bridge options after setup.
       </p>
 
       <div className="settings-import-row">
         <div style={{ flex: 1 }}>
-          <p className="muted-label">{hasAgents ? 'Add another agent' : 'Agent name'}</p>
+          <p className="muted-label">{hasAgents ? 'Add another specialist' : 'Specialist name'}</p>
           <input
             type="text"
             value={agentName}
             onChange={(event) => setAgentName(event.target.value)}
-            placeholder="Jarvis"
+            placeholder="Research operator"
             disabled={creatingAgent}
           />
         </div>
@@ -82,8 +83,8 @@ const AgentQuickStartCard = ({
       ) : (
         <p className="muted small">
           {activeAgents.length > 0
-            ? `Active personal agents: ${activeAgents.map(agent => agent.name).join(', ')}`
-            : 'No active personal agents yet.'}
+            ? `Active specialist agents: ${activeAgents.map(agent => agent.name).join(', ')}`
+            : 'No active specialist agents yet.'}
         </p>
       )}
 

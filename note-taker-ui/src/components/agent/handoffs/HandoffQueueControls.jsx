@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '../../ui';
+import { AGENT_DISPLAY_NAME, SPECIALIST_AGENT_LABEL } from '../../../constants/agentIdentity';
 
 const HandoffQueueControls = ({
   mode = 'integrations',
@@ -37,23 +38,23 @@ const HandoffQueueControls = ({
           <div className="think-handoffs-sidebar__actor">
             <select value={queueActorType} onChange={(event) => onQueueActorTypeChange(event.target.value)}>
               <option value="user">User</option>
-              <option value="native_agent">Native agent</option>
-              <option value="byo_agent">Personal agent</option>
+              <option value="native_agent">{AGENT_DISPLAY_NAME}</option>
+              <option value="byo_agent">{SPECIALIST_AGENT_LABEL}</option>
             </select>
             {queueActorType === 'byo_agent' && (
               <>
                 <select value={queueActorId} onChange={(event) => onQueueActorIdChange(event.target.value)}>
-                  <option value="">Select personal agent</option>
+                  <option value="">Select specialist agent</option>
                   {activePersonalAgents.map(agent => (
                     <option key={agent._id} value={agent._id}>{agent.name}</option>
                   ))}
                 </select>
                 {selectedPersonalAgent && (
-                  <p className="muted small">Selected agent: {selectedPersonalAgent.name}</p>
+                  <p className="muted small">Selected specialist: {selectedPersonalAgent.name}</p>
                 )}
                 {activePersonalAgents.length === 0 && (
                   <p className="muted small">
-                    No active personal agents yet. <Link to={setupAgentsHref}>Set up an agent</Link>.
+                    No active specialist agents yet. <Link to={setupAgentsHref}>Set up an agent</Link>.
                   </p>
                 )}
               </>
@@ -85,23 +86,23 @@ const HandoffQueueControls = ({
         <div className="settings-import-row">
           <select value={queueActorType} onChange={(event) => onQueueActorTypeChange(event.target.value)}>
             <option value="user">User</option>
-            <option value="native_agent">Native agent</option>
-            <option value="byo_agent">Personal agent</option>
+            <option value="native_agent">{AGENT_DISPLAY_NAME}</option>
+            <option value="byo_agent">{SPECIALIST_AGENT_LABEL}</option>
           </select>
           {queueActorType === 'byo_agent' && (
             <>
               <select value={queueActorId} onChange={(event) => onQueueActorIdChange(event.target.value)}>
-                <option value="">Select personal agent</option>
+                <option value="">Select specialist agent</option>
                 {activePersonalAgents.map(agent => (
                   <option key={agent._id} value={agent._id}>{agent.name}</option>
                 ))}
               </select>
               {selectedPersonalAgent && (
-                <p className="muted small">Selected agent: {selectedPersonalAgent.name}</p>
+                <p className="muted small">Selected specialist: {selectedPersonalAgent.name}</p>
               )}
               {activePersonalAgents.length === 0 && (
                 <p className="muted small">
-                  No active personal agents yet. <Link to={setupAgentsHref}>Set up an agent</Link>.
+                  No active specialist agents yet. <Link to={setupAgentsHref}>Set up an agent</Link>.
                 </p>
               )}
             </>

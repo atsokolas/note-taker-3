@@ -39,7 +39,7 @@ describe('SemanticRelatedPanel', () => {
       />
     );
 
-    expect(screen.getByText('AI Related Highlights')).toBeInTheDocument();
+    expect(screen.getByText('Related highlights')).toBeInTheDocument();
     expect(screen.getByText('How similarity works')).toBeInTheDocument();
     expect(screen.getByText('Transformer scaling law')).toBeInTheDocument();
     expect(screen.getByText('High')).toBeInTheDocument();
@@ -56,6 +56,6 @@ describe('SemanticRelatedPanel', () => {
     });
 
     render(<SemanticRelatedPanel sourceType="concept" sourceId="c-1" />);
-    expect(screen.getByText('AI suggestions unavailable right now.')).toBeInTheDocument();
+    expect(screen.getByText('Partner suggestions unavailable right now.')).toBeInTheDocument();
   });
 });

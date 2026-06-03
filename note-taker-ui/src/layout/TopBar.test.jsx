@@ -46,6 +46,16 @@ describe('TopBar help menu', () => {
     expect(screen.getByRole('link', { name: 'Settings' })).toHaveAttribute('href', '/settings');
   });
 
+  it('exposes a persistent reference handoff in the top bar', () => {
+    render(
+      <MemoryRouter>
+        <TopBar />
+      </MemoryRouter>
+    );
+
+    expect(screen.getByRole('button', { name: 'Reference…' })).toBeInTheDocument();
+  });
+
   it('opens the more menu for secondary navigation links', () => {
     render(
       <MemoryRouter>

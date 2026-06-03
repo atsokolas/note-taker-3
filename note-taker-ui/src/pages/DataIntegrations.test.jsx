@@ -57,6 +57,10 @@ jest.mock('../api/agent', () => ({
   chatWithAgent: jest.fn()
 }));
 
+jest.mock('../utils/marketingAnalytics', () => ({
+  trackActivationMilestone: jest.fn()
+}));
+
 describe('DataIntegrations first insight workflow', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -383,7 +387,8 @@ describe('DataIntegrations first insight workflow', () => {
       </MemoryRouter>
     );
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Export note to Notion' }));
+    fireEvent.click(await screen.findByRole('button', { name: /Notion.*Import pages plus database row content/s }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Export current note to Notion' }));
 
     await waitFor(() => expect(exportToNotionPage).toHaveBeenCalledWith({
       connectionId: 'notion-1',

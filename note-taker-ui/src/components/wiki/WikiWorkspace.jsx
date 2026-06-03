@@ -2,23 +2,32 @@ import React, { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useStat
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { streamChatWithAgent } from '../../api/agent';
 import { getArticles } from '../../api/articles';
+import { createConnection } from '../../api/connections';
+import { getAllHighlights } from '../../api/highlights';
 import {
   createWikiPage,
+  createLibrarySourceProvenanceFixture,
   getWikiPage,
   getWikiSchema,
   ingestWikiSource,
   listWikiActivity,
   listWikiPages,
+  reviewWikiIngestRun,
   acceptWikiLintFinding,
   fixWikiLintFinding,
   ignoreWikiLintFinding,
   saveWikiSchema,
+  revertWikiSchema,
+  suggestWikiSchemaUpdates,
   streamLintWiki,
   streamMaintainWikiPage
 } from '../../api/wiki';
 import { buildWikiCreatePayload } from '../../utils/wikiCreate';
 import { trackWikiEditModeEntered } from '../../utils/wikiAnalytics';
+import { AGENT_CHAT_LABEL, AGENT_DISPLAY_NAME, AGENT_STATUS_LABEL } from '../../constants/agentIdentity';
 import { Button } from '../ui';
+import AgentTicker from '../agent/AgentTicker';
+import ReferencePullIn from '../references/ReferencePullIn';
 import WikiList from './WikiList';
 import WikiPageEditor from './WikiPageEditor';
 import WikiPageReadView from './WikiPageReadView';
@@ -37,6 +46,7 @@ const DEFAULT_CHAT_WIDTH = 260;
 const LEGACY_DEFAULT_CHAT_WIDTH = 380;
 const MIN_CHAT_WIDTH = 260;
 const MAX_CHAT_WIDTH = 420;
+const MAINTENANCE_STREAM_TIMEOUT_MS = 25000;
 const HEALTH_KEYS = [
   'newItems',
   'unsupportedClaims',
@@ -72,6 +82,9 @@ const scheduleAfterFirstPaint = (callback) => {
 };
 
 const clean = (value = '') => String(value || '').trim();
+const labelText = (value = '') => clean(value)
+  .replace(/[_-]+/g, ' ')
+  .replace(/\b\w/g, character => character.toUpperCase());
 
 const messageId = (prefix) => `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 const MONGO_ID_RE = /\b[a-f0-9]{24}\b/gi;
@@ -123,7 +136,7 @@ const COMMANDS = [
     verb: 'build',
     template: '/build ',
     label: 'Build new page',
-    hint: 'Create a new overview page and draft it with the wiki agent.'
+    hint: `Create a new overview page and draft it with ${AGENT_DISPLAY_NAME.toLowerCase()}.`
   },
   {
     verb: 'page',
@@ -211,8 +224,34 @@ const parseCommand = (value = '') => {
   };
 };
 
+const homeCommandDraft = (value = '') => {
+  const text = clean(value);
+  if (!text) return '';
+  if (text.startsWith('/')) return text;
+  const lower = text.toLowerCase();
+  if (/\b(build|create|new|synthesi[sz]e|wiki\s+page|page\s+about)\b/.test(lower)) {
+    return `/build ${text
+      .replace(/^\s*(please\s+)?(build|create|make|draft|synthesi[sz]e)\s+(me\s+)?(a\s+)?(new\s+)?(wiki\s+)?page\s+(about|on|for)\s+/i, '')
+      .replace(/^\s*(please\s+)?(build|create|make|draft|synthesi[sz]e)\s+(a\s+)?(wiki\s+)?page\s*/i, '')
+      .trim() || text}`;
+  }
+  return `/draft ${text}`;
+};
+
+const shouldAutoRunHomeCommand = (value = '') => /^\/ingest\b/i.test(homeCommandDraft(value));
+
 const parseWikiRef = (value = '') => {
   const match = String(value || '').match(/@wiki:([^\s]+)/i);
+  return clean(match?.[1]);
+};
+
+const parseArticleRef = (value = '') => {
+  const match = String(value || '').match(/@article:([^\s]+)/i);
+  return clean(match?.[1]);
+};
+
+const parseHighlightRef = (value = '') => {
+  const match = String(value || '').match(/@highlight:([^\s]+)/i);
   return clean(match?.[1]);
 };
 
@@ -242,10 +281,11 @@ const mergeContextReferences = (current = [], additions = []) => {
   return Array.from(byKey.values());
 };
 
-const referencesFromText = (text = '', { pages = [], articles = [] } = {}) => {
+const referencesFromText = (text = '', { pages = [], articles = [], highlights = [] } = {}) => {
   const references = [];
   const pageById = new Map((pages || []).map(page => [clean(page?._id || page?.id), page]));
   const articleById = new Map((articles || []).map(article => [clean(article?._id || article?.id), article]));
+  const highlightById = new Map((highlights || []).map(highlight => [clean(highlight?._id || highlight?.id), highlight]));
   String(text || '').replace(/@wiki:([^\s]+)/gi, (_match, rawId) => {
     const id = trimReferenceToken(rawId);
     if (!id) return _match;
@@ -273,7 +313,228 @@ const referencesFromText = (text = '', { pages = [], articles = [] } = {}) => {
     });
     return _match;
   });
+  String(text || '').replace(/@highlight:([^\s]+)/gi, (_match, rawId) => {
+    const id = trimReferenceToken(rawId);
+    if (!id) return _match;
+    const highlight = highlightById.get(id);
+    const title = clean(highlight?.articleTitle || highlight?.text);
+    references.push({
+      key: referenceKey('highlight', id),
+      type: 'highlight',
+      id,
+      title,
+      articleId: clean(highlight?.articleId),
+      label: labelForReference({ type: 'highlight', id, title })
+    });
+    return _match;
+  });
   return mergeContextReferences([], references);
+};
+
+const referenceFromWikiPage = (page = {}) => {
+  const id = clean(page?._id || page?.id);
+  if (!id) return null;
+  return {
+    key: referenceKey('wiki', id),
+    type: 'wiki',
+    id,
+    title: clean(page.title),
+    label: labelForReference({ type: 'wiki', id, title: page.title })
+  };
+};
+
+const referenceFromArticle = (article = {}) => {
+  const id = clean(article?._id || article?.id);
+  if (!id) return null;
+  const title = clean(article.title || article.url);
+  return {
+    key: referenceKey('article', id),
+    type: 'article',
+    id,
+    title,
+    url: clean(article.url),
+    label: labelForReference({ type: 'article', id, title })
+  };
+};
+
+const referenceFromConnectableItem = (item = {}) => {
+  const rawType = clean(item.itemType || item.type).toLowerCase();
+  const id = clean(item.itemId || item.id || item._id);
+  if (!rawType || !id) return null;
+  const type = rawType === 'wiki_page' ? 'wiki' : rawType;
+  const title = clean(item.title || item.name || item.url || item.snippet);
+  return {
+    key: referenceKey(type, id),
+    type,
+    id,
+    title,
+    url: clean(item.url),
+    articleId: clean(item.articleId || item.metadata?.articleId),
+    label: labelForReference({ type, id, title })
+  };
+};
+
+const connectionPayloadForReference = (reference = {}, selectedPageId = '') => {
+  const pageId = clean(selectedPageId);
+  const referenceType = clean(reference.type);
+  const referenceId = clean(reference.id);
+  if (!pageId || !referenceType || !referenceId) return null;
+  if (referenceType === 'wiki') {
+    if (referenceId === pageId) return null;
+    return {
+      fromType: 'wiki_page',
+      fromId: pageId,
+      toType: 'wiki_page',
+      toId: referenceId,
+      relationType: 'related'
+    };
+  }
+  if (['article', 'highlight', 'notebook', 'concept', 'question'].includes(referenceType)) {
+    return {
+      fromType: referenceType,
+      fromId: referenceId,
+      toType: 'wiki_page',
+      toId: pageId,
+      relationType: 'supports'
+    };
+  }
+  return null;
+};
+
+const isDuplicateConnectionError = (error = {}) => Number(error?.response?.status) === 409;
+
+const graphTraceActionForPage = (pageId = '') => {
+  const safePageId = clean(pageId);
+  if (!safePageId) return null;
+  return {
+    label: 'View trace',
+    href: viewPathFor({ page: safePageId, pane: 'wiki', trace: true })
+  };
+};
+
+const sourceTitle = (source = {}) => clean(source.title || source.url || source.text || source.label || 'Source');
+
+const isObjectIdLike = (value = '') => /^[a-f0-9]{24}$/i.test(String(value || '').trim());
+
+const sourceRefFromIngestRun = (run = {}) => {
+  const source = run.sourceRef || {};
+  const runId = clean(run.runId || run.sourceEventId || run._id || run.id);
+  const rawObjectId = clean(source.objectId || source.sourceObjectId || source._id || source.id);
+  return {
+    type: clean(source.type || source.sourceType) || 'external',
+    objectId: isObjectIdLike(rawObjectId) ? rawObjectId : null,
+    parentObjectId: isObjectIdLike(source.parentObjectId || source.parentId || source.articleId)
+      ? clean(source.parentObjectId || source.parentId || source.articleId)
+      : null,
+    title: sourceTitle(source),
+    snippet: clean(source.snippet || source.summary || source.text || run.summary),
+    url: clean(source.url || source.href),
+    citationLabel: runId ? `ingest:${runId}` : '',
+    addedBy: 'ai'
+  };
+};
+
+const pageTitleForId = (pageId = '', pages = []) => {
+  const safePageId = clean(pageId);
+  const page = (Array.isArray(pages) ? pages : [])
+    .find(item => clean(item?._id || item?.id) === safePageId);
+  return clean(page?.title) || (safePageId ? `Wiki page ${safePageId}` : 'Wiki page');
+};
+
+const summarizeIngestRun = (run = {}) => {
+  const affectedCount = Array.isArray(run.affectedPageIds) ? run.affectedPageIds.length : 0;
+  if (run.summary) return run.summary;
+  if (affectedCount) {
+    return `The agent found ${affectedCount} wiki page${affectedCount === 1 ? '' : 's'} that this source may update.`;
+  }
+  if (run.suggestedCreatePage) {
+    return 'No existing page matched strongly enough; the agent suggests creating a new page from this source.';
+  }
+  return 'The source was saved for review, but no confident wiki update was found.';
+};
+
+const ingestCandidateRows = (run = {}, pages = []) => {
+  const explicitRows = Array.isArray(run.candidateUpdates) ? run.candidateUpdates : [];
+  if (explicitRows.length) {
+    return explicitRows.map((row, index) => {
+      const pageId = clean(row.pageId || row.page_id);
+      return {
+        id: clean(row.id) || pageId || `candidate-${index}`,
+        pageId,
+        title: clean(row.title) || pageTitleForId(pageId, pages),
+        reason: clean(row.reason || row.summary || row.recommendedAction) || 'The source overlaps with this page.',
+        confidence: clean(row.confidence || row.scoreLabel || row.status) || 'Candidate',
+        status: clean(row.status) || clean(run.status),
+        targetType: clean(row.targetType || row.target_type),
+        objectId: clean(row.objectId || row.object_id),
+        provenance: row.provenance && typeof row.provenance === 'object' ? row.provenance : null
+      };
+    });
+  }
+  const affectedPageIds = Array.isArray(run.affectedPageIds) ? run.affectedPageIds.filter(Boolean) : [];
+  return affectedPageIds.map((pageId, index) => ({
+    id: clean(pageId) || `affected-${index}`,
+    pageId,
+    title: pageTitleForId(pageId, pages),
+    reason: 'The ingest pipeline marked this page as affected by the source.',
+    confidence: run.status === 'processed' || run.status === 'completed' ? 'Updated' : 'Candidate',
+    status: clean(run.status)
+  }));
+};
+
+const thinkCandidatePath = (row = {}) => {
+  const targetType = clean(row.targetType).toLowerCase();
+  const objectId = clean(row.objectId || row.object_id || row.pageId);
+  const title = clean(row.title);
+  if (targetType === 'concept') {
+    const concept = title || objectId;
+    return concept ? `/think?tab=concepts&concept=${encodeURIComponent(concept)}` : '';
+  }
+  if (targetType === 'question') {
+    return objectId ? `/think?tab=questions&questionId=${encodeURIComponent(objectId)}` : '/think?tab=questions';
+  }
+  if (targetType === 'notebook') {
+    return objectId ? `/think?tab=notebook&entryId=${encodeURIComponent(objectId)}` : '/think?tab=notebook';
+  }
+  return '';
+};
+
+const ingestCandidateDestination = (row = {}) => {
+  const pageId = clean(row.pageId);
+  if (pageId) {
+    return {
+      type: 'wiki',
+      label: 'Open',
+      onNavigate: { page: pageId }
+    };
+  }
+  const path = thinkCandidatePath(row);
+  if (path) {
+    return {
+      type: 'think',
+      label: 'Open in Think',
+      path
+    };
+  }
+  return null;
+};
+
+const ingestCandidateProvenanceLabel = (row = {}, source = {}) => {
+  const candidateSource = clean(row.provenance?.sourceTitle || row.sourceTitle);
+  return candidateSource || sourceTitle(source);
+};
+
+const ingestRunReceipts = (run = {}) => {
+  const affectedCount = Array.isArray(run.affectedPageIds) ? run.affectedPageIds.length : 0;
+  return [
+    { key: 'ingest-source', stage: 'source_scanned', summary: `Scanned ${sourceTitle(run.sourceRef)}.` },
+    affectedCount
+      ? { key: 'ingest-affected', stage: 'ripple_candidates', summary: `Found ${affectedCount} affected page${affectedCount === 1 ? '' : 's'}.` }
+      : { key: 'ingest-affected', stage: 'ripple_candidates', summary: 'No existing page matched confidently.' },
+    run.suggestedCreatePage
+      ? { key: 'ingest-create-page', stage: 'suggested_create_page', summary: 'Suggested creating a new page from this source.' }
+      : null
+  ].filter(Boolean);
 };
 
 const parseUrl = (value = '') => {
@@ -379,6 +640,25 @@ const lintFindings = (run = {}) => Object.entries(run.findings || {})
   ))
   .filter(finding => finding.status !== 'ignored');
 
+const withMaintenanceTimeout = async (promise, pageLabel = 'wiki page') => {
+  let timeoutId;
+  const overrideMs = Number(window.__NOEIS_WIKI_MAINTENANCE_TIMEOUT_MS__);
+  const timeoutMs = Number.isFinite(overrideMs) ? overrideMs : MAINTENANCE_STREAM_TIMEOUT_MS;
+  if (timeoutMs <= 0) {
+    throw new Error(`The maintenance stream for ${pageLabel} timed out.`);
+  }
+  const timeout = new Promise((_, reject) => {
+    timeoutId = window.setTimeout(() => {
+      reject(new Error(`The maintenance stream for ${pageLabel} timed out.`));
+    }, timeoutMs);
+  });
+  try {
+    return await Promise.race([promise, timeout]);
+  } finally {
+    window.clearTimeout(timeoutId);
+  }
+};
+
 const actionLabel = (action, finding = {}) => {
   if (action === 'accept') {
     if (finding.type === 'missing_page') return 'Create';
@@ -399,13 +679,14 @@ const normalizePane = (value = '') => {
   return pane === 'chat' || pane === 'wiki' ? pane : '';
 };
 
-const viewPathFor = ({ view = 'graph', page = '', mode = '', pane = '' } = {}) => {
+const viewPathFor = ({ view = 'graph', page = '', mode = '', pane = '', trace = false } = {}) => {
   const params = new URLSearchParams();
   if (page) params.set('page', page);
   else params.set('view', view);
   if (page && mode && mode !== 'read') params.set('mode', mode);
   const normalizedPane = normalizePane(pane);
   if (normalizedPane) params.set('pane', normalizedPane);
+  if (trace) params.set('trace', '1');
   return `/wiki/workspace?${params.toString()}`;
 };
 
@@ -453,7 +734,7 @@ const hasSeenFirstVisitOnboarding = () => {
   }
 };
 
-const WorkspaceSources = ({ onUseSource }) => {
+const WorkspaceSources = ({ onUseSource, onFeedSource }) => {
   const [query, setQuery] = useState('');
   const [articles, setArticles] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -498,6 +779,9 @@ const WorkspaceSources = ({ onUseSource }) => {
             <button type="button" onClick={() => onUseSource?.(article)}>
               Use in chat
             </button>
+            <button type="button" onClick={() => onFeedSource?.(article)}>
+              Feed to wiki
+            </button>
           </li>
         ))}
       </ol>
@@ -533,7 +817,13 @@ const WorkspaceActivity = () => {
           <li key={event.id || `${event.type}-${event.at}`}>
             <strong>{event.title || 'Wiki activity'}</strong>
             {event.summary ? <p>{event.summary}</p> : null}
-            {event.pageId ? <Link to={viewPathFor({ page: event.pageId })}>Open page</Link> : null}
+            <div className="wiki-workspace-activity__actions">
+              {event.pageId ? <Link to={viewPathFor({ page: event.pageId })}>Open page</Link> : null}
+              {event.runId ? <Link to={`/wiki/activity/${encodeURIComponent(event.runId)}`}>Details</Link> : null}
+              {Array.isArray(event.affectedPageIds) && event.affectedPageIds.length ? (
+                <span>{event.affectedPageIds.length} page{event.affectedPageIds.length === 1 ? '' : 's'} touched</span>
+              ) : null}
+            </div>
           </li>
         ))}
       </ol>
@@ -543,13 +833,19 @@ const WorkspaceActivity = () => {
 
 const WorkspaceSchema = () => {
   const [content, setContent] = useState('');
+  const [snapshots, setSnapshots] = useState([]);
+  const [suggestion, setSuggestion] = useState(null);
   const [status, setStatus] = useState('');
+  const [busy, setBusy] = useState('');
 
   useEffect(() => {
     let cancelled = false;
     getWikiSchema()
       .then(result => {
-        if (!cancelled) setContent(result?.content || '');
+        if (!cancelled) {
+          setContent(result?.content || '');
+          setSnapshots(Array.isArray(result?.snapshots) ? result.snapshots : []);
+        }
       })
       .catch(() => {
         if (!cancelled) setStatus('Failed to load schema.');
@@ -558,13 +854,48 @@ const WorkspaceSchema = () => {
   }, []);
 
   const handleSave = async () => {
+    setBusy('save');
     setStatus('Saving...');
     try {
       const result = await saveWikiSchema(content);
       setContent(result?.content || content);
+      setSnapshots(Array.isArray(result?.snapshots) ? result.snapshots : []);
       setStatus('Schema saved.');
     } catch (_error) {
       setStatus('Failed to save schema.');
+    } finally {
+      setBusy('');
+    }
+  };
+
+  const handleRevert = async (snapshotId) => {
+    if (!snapshotId) return;
+    setBusy(`revert:${snapshotId}`);
+    setStatus('Reverting...');
+    try {
+      const result = await revertWikiSchema(snapshotId);
+      setContent(result?.content || '');
+      setSnapshots(Array.isArray(result?.snapshots) ? result.snapshots : []);
+      setSuggestion(null);
+      setStatus('Schema reverted.');
+    } catch (_error) {
+      setStatus('Failed to revert schema.');
+    } finally {
+      setBusy('');
+    }
+  };
+
+  const handleSuggest = async () => {
+    setBusy('suggest');
+    setStatus('Suggesting...');
+    try {
+      const result = await suggestWikiSchemaUpdates({ currentSchema: content });
+      setSuggestion(result || null);
+      setStatus(result?.summary || 'Schema suggestions ready.');
+    } catch (_error) {
+      setStatus('Failed to suggest schema updates.');
+    } finally {
+      setBusy('');
     }
   };
 
@@ -581,9 +912,45 @@ const WorkspaceSchema = () => {
         rows={18}
       />
       <div>
-        <Button type="button" onClick={handleSave}>Save schema</Button>
+        <Button type="button" onClick={handleSave} disabled={Boolean(busy)}>Save schema</Button>
+        <Button type="button" variant="secondary" onClick={handleSuggest} disabled={Boolean(busy)}>Suggest updates</Button>
         {status ? <span role="status">{status}</span> : null}
       </div>
+      <section className="wiki-workspace-schema__review" aria-label="Schema review">
+        <div>
+          <h2>Snapshots</h2>
+          {snapshots.length ? (
+            <ol>
+              {snapshots.slice(0, 5).map(snapshot => (
+                <li key={snapshot.id}>
+                  <button
+                    type="button"
+                    onClick={() => handleRevert(snapshot.id)}
+                    disabled={Boolean(busy)}
+                  >
+                    Revert to {snapshot.createdAt ? new Date(snapshot.createdAt).toLocaleString() : 'snapshot'}
+                  </button>
+                </li>
+              ))}
+            </ol>
+          ) : (
+            <p>No saved snapshots yet.</p>
+          )}
+        </div>
+        <div>
+          <h2>Suggested patch</h2>
+          {suggestion?.proposedPatch ? (
+            <textarea
+              readOnly
+              aria-label="Suggested wiki schema patch"
+              value={suggestion.proposedPatch}
+              rows={8}
+            />
+          ) : (
+            <p>Ask {AGENT_DISPLAY_NAME.toLowerCase()} to suggest schema updates from the current conventions.</p>
+          )}
+        </div>
+      </section>
     </section>
   );
 };
@@ -719,6 +1086,258 @@ const WikiWorkspaceVisitCard = ({ notice = {}, onNavigate, onReviewed }) => {
   );
 };
 
+const WikiIngestResultCard = ({ run = {}, pages = [], onNavigate, onBuildFromSource }) => {
+  const [currentRun, setCurrentRun] = useState(run);
+  const [reviewBusy, setReviewBusy] = useState('');
+  const [reviewError, setReviewError] = useState('');
+  const [selectedCandidateIds, setSelectedCandidateIds] = useState([]);
+  useEffect(() => {
+    setCurrentRun(run);
+  }, [run]);
+  const affectedPageIds = Array.isArray(currentRun.affectedPageIds) ? currentRun.affectedPageIds.filter(Boolean) : [];
+  const runId = clean(currentRun.runId || currentRun._id || currentRun.id);
+  const source = currentRun.sourceRef || {};
+  const suggestedCreatePage = Boolean(currentRun.suggestedCreatePage || currentRun.metadata?.ignoredReason === 'no_matching_wiki_page');
+  const candidateRows = useMemo(() => ingestCandidateRows(currentRun, pages), [currentRun, pages]);
+  useEffect(() => {
+    setSelectedCandidateIds(candidateRows.map(row => row.id).filter(Boolean));
+  }, [candidateRows]);
+  const reviewStatus = clean(currentRun.reviewStatus || currentRun.metadata?.ingestReviewStatus);
+  const reviewLabel = reviewStatus
+    ? reviewStatus.replace(/_/g, ' ')
+    : (candidateRows.length ? 'pending review' : 'no candidates');
+  const toggleCandidate = (candidateId) => {
+    setSelectedCandidateIds((current) => (
+      current.includes(candidateId)
+        ? current.filter(id => id !== candidateId)
+        : [...current, candidateId]
+    ));
+  };
+  const handleReview = async (action) => {
+    if (!runId || reviewBusy) return;
+    const candidateIds = selectedCandidateIds.filter(id => candidateRows.some(row => row.id === id));
+    if (candidateRows.length && !candidateIds.length) {
+      setReviewError('Select at least one candidate update to review.');
+      return;
+    }
+    setReviewBusy(action);
+    setReviewError('');
+    try {
+      const updated = await reviewWikiIngestRun(runId, action, { candidateIds });
+      setCurrentRun(updated || currentRun);
+    } catch (error) {
+      setReviewError(error?.response?.data?.error || 'Failed to review this ingest plan.');
+    } finally {
+      setReviewBusy('');
+    }
+  };
+  return (
+    <div className="wiki-workspace-ingest-card" aria-label="Source ripple result">
+      <header>
+        <span className="wiki-index__eyebrow">Source ripple</span>
+        <strong>{sourceTitle(source)}</strong>
+      </header>
+      <p>{summarizeIngestRun(run)}</p>
+      {candidateRows.length ? (
+        <section className="wiki-workspace-ingest-card__plan" aria-label="Candidate update plan">
+          <span>Candidate update plan</span>
+          <ol>
+            {candidateRows.slice(0, 6).map((row) => {
+              const destination = ingestCandidateDestination(row);
+              return (
+                <li key={row.id}>
+                  <label className="wiki-workspace-ingest-card__candidate-check">
+                    <input
+                      type="checkbox"
+                      checked={selectedCandidateIds.includes(row.id)}
+                      onChange={() => toggleCandidate(row.id)}
+                      aria-label={`Select update for ${row.title}`}
+                    />
+                    <span>{row.status || 'candidate'}</span>
+                  </label>
+                  <div>
+                    <strong>{row.title}</strong>
+                    <p>{row.reason}</p>
+                    <small>{row.confidence} · provenance: {ingestCandidateProvenanceLabel(row, source)}</small>
+                  </div>
+                  {destination?.type === 'wiki' ? (
+                    <button type="button" onClick={() => onNavigate?.(destination.onNavigate)}>
+                      {destination.label}
+                    </button>
+                  ) : null}
+                  {destination?.type === 'think' ? (
+                    <Link to={destination.path}>{destination.label}</Link>
+                  ) : null}
+                </li>
+              );
+            })}
+          </ol>
+        </section>
+      ) : affectedPageIds.length ? (
+        <ol>
+          {affectedPageIds.slice(0, 6).map(pageId => (
+            <li key={pageId}>
+              <button type="button" onClick={() => onNavigate?.({ page: pageId })}>
+                {pageTitleForId(pageId, pages)}
+              </button>
+            </li>
+          ))}
+        </ol>
+      ) : null}
+      <div className="wiki-workspace-ingest-card__actions">
+        {runId ? <Link to={`/wiki/activity/${encodeURIComponent(runId)}`}>Inspect activity</Link> : null}
+        {suggestedCreatePage ? (
+          <button type="button" onClick={() => onBuildFromSource?.(run)}>
+            Build page from source
+          </button>
+        ) : null}
+      </div>
+      {runId ? (
+        <section className="wiki-workspace-ingest-card__review" aria-label="Review ingest plan">
+          <span>Plan status: {reviewLabel}</span>
+          <div>
+            <button type="button" onClick={() => handleReview('accept')} disabled={Boolean(reviewBusy)}>
+              {reviewBusy === 'accept' ? 'Accepting...' : 'Accept'}
+            </button>
+            <button type="button" onClick={() => handleReview('defer')} disabled={Boolean(reviewBusy)}>
+              {reviewBusy === 'defer' ? 'Deferring...' : 'Defer'}
+            </button>
+            <button type="button" onClick={() => handleReview('reject')} disabled={Boolean(reviewBusy)}>
+              {reviewBusy === 'reject' ? 'Rejecting...' : 'Reject'}
+            </button>
+          </div>
+          {reviewError ? <p className="status-message error-message">{reviewError}</p> : null}
+        </section>
+      ) : null}
+    </div>
+  );
+};
+
+const WikiIngestRippleStrip = ({ run = {}, pages = [], onNavigate }) => {
+  if (!run?.runId && !run?.sourceEventId && !Array.isArray(run?.affectedPageIds)) return null;
+  const source = run.sourceRef || {};
+  const candidateRows = ingestCandidateRows(run, pages);
+  const runId = clean(run.runId || run._id || run.id);
+  return (
+    <aside className="wiki-workspace-ripple-strip" aria-label="Latest source ripple">
+      <div>
+        <span className="wiki-index__eyebrow">Latest source ripple</span>
+        <strong>{sourceTitle(source)}</strong>
+        <p>{summarizeIngestRun(run)}</p>
+      </div>
+      {candidateRows.length ? (
+        <ol>
+          {candidateRows.slice(0, 3).map((row) => {
+            const destination = ingestCandidateDestination(row);
+            return (
+              <li key={row.id}>
+                {destination?.type === 'wiki' ? (
+                  <button type="button" onClick={() => onNavigate?.(destination.onNavigate)}>
+                    {row.title}
+                  </button>
+                ) : destination?.type === 'think' ? (
+                  <Link to={destination.path}>{row.title}</Link>
+                ) : (
+                  <span>{row.title}</span>
+                )}
+              </li>
+            );
+          })}
+        </ol>
+      ) : null}
+      {runId ? <Link to={`/wiki/activity/${encodeURIComponent(runId)}`}>Inspect</Link> : null}
+    </aside>
+  );
+};
+
+const pendingIngestReceipts = (source = {}) => {
+  const label = sourceTitle(source);
+  return [
+    {
+      key: `ingest-handoff:${label}`,
+      stage: 'source_handoff',
+      summary: `Source landed in Wiki: ${label}.`
+    },
+    {
+      key: 'ingest-scan',
+      stage: 'source_scan',
+      summary: 'Scanning Library, Think, and Wiki for pages or threads this can update.'
+    },
+    {
+      key: 'ingest-plan',
+      stage: 'candidate_plan',
+      summary: 'Preparing the source ripple and candidate update plan.'
+    }
+  ];
+};
+
+const WikiReferencePalette = ({
+  open = false,
+  query = '',
+  pages = [],
+  articles = [],
+  onQueryChange,
+  onSelect,
+  onClose
+}) => {
+  const candidates = useMemo(() => {
+    const normalizedQuery = clean(query).toLowerCase();
+    const wikiRows = (pages || []).map(page => ({
+      key: `wiki:${page._id || page.id}`,
+      kind: 'wiki',
+      title: page.title || 'Untitled wiki page',
+      detail: `${labelText(page.pageType || 'wiki page')} · ${Array.isArray(page.sourceRefs) ? page.sourceRefs.length : 0} sources`,
+      reference: referenceFromWikiPage(page)
+    }));
+    const articleRows = (articles || []).map(article => ({
+      key: `article:${article._id || article.id}`,
+      kind: 'source',
+      title: article.title || article.url || 'Untitled source',
+      detail: article.url || 'Library source',
+      reference: referenceFromArticle(article)
+    }));
+    return [...wikiRows, ...articleRows]
+      .filter(row => row.reference)
+      .filter(row => {
+        if (!normalizedQuery) return true;
+        return `${row.title} ${row.detail} ${row.kind}`.toLowerCase().includes(normalizedQuery);
+      })
+      .slice(0, 10);
+  }, [articles, pages, query]);
+
+  if (!open) return null;
+  return (
+    <div className="wiki-workspace-reference" role="dialog" aria-label="Reference Library or Wiki material">
+      <div className="wiki-workspace-reference__head">
+        <div>
+          <span className="wiki-index__eyebrow">Reference</span>
+          <strong>Pull material into this workspace</strong>
+        </div>
+        <button type="button" onClick={onClose} aria-label="Close reference picker">×</button>
+      </div>
+      <input
+        value={query}
+        onChange={(event) => onQueryChange?.(event.target.value)}
+        placeholder="Search wiki pages and Library sources"
+        aria-label="Search references"
+        autoFocus
+      />
+      <ol>
+        {candidates.map(row => (
+          <li key={row.key}>
+            <button type="button" onClick={() => onSelect?.(row.reference)}>
+              <span>{row.kind}</span>
+              <strong>{row.title}</strong>
+              <small>{row.detail}</small>
+            </button>
+          </li>
+        ))}
+      </ol>
+      {!candidates.length ? <p>No matching reference yet.</p> : null}
+    </div>
+  );
+};
+
 const renderInlineMarkdown = (text = '', keyPrefix = 'inline') => {
   const pattern = /(\[[^\]]+\]\(https?:\/\/[^)\s]+\)|\[\[[^\]]+\]\]|\*\*[^*]+\*\*|`[^`]+`|\[(?:\d+\s*,\s*)*\d+\])/g;
   return String(text || '').split(pattern).filter(part => part !== '').map((part, index) => {
@@ -816,7 +1435,19 @@ const WikiChatMarkdown = ({ text = '', pages = [], currentPage = null }) => {
   return <div className="wiki-workspace-chat__markdown">{blocks.length ? blocks : <p>{safeText}</p>}</div>;
 };
 
-const WikiWorkspaceChat = ({ selectedPageId, view, onNavigate, onPageChanged, onLiveUpdate, busy, setBusy, chatDraft, onBuildPage }) => {
+const WikiWorkspaceChat = ({
+  selectedPageId,
+  view,
+  onNavigate,
+  onPageChanged,
+  onLiveUpdate,
+  onIngestRun,
+  busy,
+  setBusy,
+  chatDraft,
+  onBuildPage,
+  referenceCommandNonce = 0
+}) => {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [threadId, setThreadId] = useState('');
@@ -825,11 +1456,16 @@ const WikiWorkspaceChat = ({ selectedPageId, view, onNavigate, onPageChanged, on
   const [wikiPagesRequested, setWikiPagesRequested] = useState(false);
   const [articles, setArticles] = useState([]);
   const [articlesRequested, setArticlesRequested] = useState(false);
+  const [highlights, setHighlights] = useState([]);
+  const [highlightsRequested, setHighlightsRequested] = useState(false);
   const [contextReferences, setContextReferences] = useState([]);
   const [slashHintSeen, setSlashHintSeen] = useState(false);
   const [referenceHintSeen, setReferenceHintSeen] = useState(false);
   const [hintDismissed, setHintDismissed] = useState(false);
   const [dismissedMentionInput, setDismissedMentionInput] = useState('');
+  const [referencePaletteOpen, setReferencePaletteOpen] = useState(false);
+  const [referenceQuery, setReferenceQuery] = useState('');
+  const [linkedReferenceKey, setLinkedReferenceKey] = useState('');
   const [activeCommandIndex, setActiveCommandIndex] = useState(0);
   const [selectedPagePresence, setSelectedPagePresence] = useState({ page: null, reading: false });
   const [ambientReady, setAmbientReady] = useState(false);
@@ -837,6 +1473,9 @@ const WikiWorkspaceChat = ({ selectedPageId, view, onNavigate, onPageChanged, on
   const scrollRef = useRef(null);
   const streamAbortRef = useRef(null);
   const visitNoticeKeysRef = useRef(new Set());
+  const autoRunDraftIdsRef = useRef(new Set());
+  const submitRef = useRef(null);
+  const lastReferenceCommandNonceRef = useRef(0);
 
   useEffect(() => scheduleAfterFirstPaint(() => setAmbientReady(true)), []);
 
@@ -859,6 +1498,10 @@ const WikiWorkspaceChat = ({ selectedPageId, view, onNavigate, onPageChanged, on
 
   const requestArticles = useCallback(() => {
     setArticlesRequested(true);
+  }, []);
+
+  const requestHighlights = useCallback(() => {
+    setHighlightsRequested(true);
   }, []);
 
   useEffect(() => {
@@ -886,6 +1529,19 @@ const WikiWorkspaceChat = ({ selectedPageId, view, onNavigate, onPageChanged, on
       });
     return () => { cancelled = true; };
   }, [articlesRequested]);
+
+  useEffect(() => {
+    if (!highlightsRequested) return undefined;
+    let cancelled = false;
+    getAllHighlights()
+      .then((items) => {
+        if (!cancelled) setHighlights(Array.isArray(items) ? items : []);
+      })
+      .catch(() => {
+        if (!cancelled) setHighlights([]);
+      });
+    return () => { cancelled = true; };
+  }, [highlightsRequested]);
 
   const append = useCallback((message) => {
     setMessages(current => [...current, { id: messageId(message.role), createdAt: new Date().toISOString(), ...message }]);
@@ -968,6 +1624,18 @@ const WikiWorkspaceChat = ({ selectedPageId, view, onNavigate, onPageChanged, on
     pageId: selectedPageId,
     page: selectedPagePresence.page
   });
+  const tickerLines = useMemo(() => {
+    const recentReceipts = messages
+      .flatMap(message => Array.isArray(message.activityReceipts) ? message.activityReceipts : [])
+      .map(receipt => clean(receipt.summary || receipt.text || receipt.message || receipt.title))
+      .filter(Boolean)
+      .slice(-2);
+    return [
+      selectedPageId ? `context - @wiki:${selectedPageId}` : `workspace - ${view || 'graph'}`,
+      ...recentReceipts,
+      agentStatus.text
+    ].filter(Boolean).slice(-3);
+  }, [agentStatus.text, messages, selectedPageId, view]);
   const wikiMentionQuery = useMemo(() => {
     const match = input.match(/@wiki:([^\s]*)$/i);
     return match ? clean(match[1]).toLowerCase() : '';
@@ -976,9 +1644,13 @@ const WikiWorkspaceChat = ({ selectedPageId, view, onNavigate, onPageChanged, on
     const match = input.match(/@article:([^\s]*)$/i);
     return match ? clean(match[1]).toLowerCase() : '';
   }, [input]);
+  const highlightMentionQuery = useMemo(() => {
+    const match = input.match(/@highlight:([^\s]*)$/i);
+    return match ? clean(match[1]).toLowerCase() : '';
+  }, [input]);
   const bareMentionQuery = useMemo(() => {
     const match = input.match(/(^|\s)@([^\s:@]*)$/i);
-    if (!match || input.match(/@(wiki|article):[^\s]*$/i)) return '';
+    if (!match || input.match(/@(wiki|article|highlight):[^\s]*$/i)) return '';
     return clean(match[2]).toLowerCase();
   }, [input]);
   const showWikiMentions = useMemo(() => {
@@ -1006,6 +1678,21 @@ const WikiWorkspaceChat = ({ selectedPageId, view, onNavigate, onPageChanged, on
       })
       .slice(0, 6);
   }, [articleMentionQuery, articles, bareMentionQuery, dismissedMentionInput, input]);
+  const showHighlightMentions = useMemo(() => {
+    if (input === dismissedMentionInput) return [];
+    if (!input.match(/@highlight:[^\s]*$/i) && !bareMentionQuery) return [];
+    return highlights
+      .filter(highlight => {
+        const id = String(highlight._id || highlight.id || '').toLowerCase();
+        const text = String(highlight.text || '').toLowerCase();
+        const note = String(highlight.note || '').toLowerCase();
+        const title = String(highlight.articleTitle || '').toLowerCase();
+        const tags = Array.isArray(highlight.tags) ? highlight.tags.join(' ').toLowerCase() : '';
+        const query = highlightMentionQuery || bareMentionQuery;
+        return !query || id.includes(query) || text.includes(query) || note.includes(query) || title.includes(query) || tags.includes(query);
+      })
+      .slice(0, 6);
+  }, [bareMentionQuery, dismissedMentionInput, highlightMentionQuery, highlights, input]);
 
   const applyCommandTemplate = (template) => {
     setInput(template);
@@ -1035,13 +1722,132 @@ const WikiWorkspaceChat = ({ selectedPageId, view, onNavigate, onPageChanged, on
     });
   };
 
+  const applyHighlightMention = (highlight) => {
+    const highlightId = clean(highlight?._id || highlight?.id);
+    if (!highlightId) return;
+    setInput(current => {
+      const next = current.match(/@highlight:[^\s]*$/i)
+        ? current.replace(/@highlight:[^\s]*$/i, `@highlight:${highlightId}`)
+        : current.replace(/(^|\s)@[^\s:@]*$/i, `$1@highlight:${highlightId}`);
+      setDismissedMentionInput(next);
+      return next;
+    });
+  };
+
   const removeContextReference = (key) => {
     setContextReferences(current => current.filter(reference => reference.key !== key));
   };
 
+  const openReferencePalette = useCallback(() => {
+    requestWikiPages();
+    requestArticles();
+    requestHighlights();
+    setReferencePaletteOpen(true);
+    setReferenceQuery('');
+  }, [requestArticles, requestHighlights, requestWikiPages]);
+
+  const closeReferencePalette = useCallback(() => {
+    setReferencePaletteOpen(false);
+  }, []);
+
+  useEffect(() => {
+    if (!referenceCommandNonce || referenceCommandNonce === lastReferenceCommandNonceRef.current) return;
+    lastReferenceCommandNonceRef.current = referenceCommandNonce;
+    if (selectedPageId) {
+      requestWikiPages();
+      requestArticles();
+      requestHighlights();
+      return;
+    }
+    openReferencePalette();
+  }, [openReferencePalette, referenceCommandNonce, requestArticles, requestHighlights, requestWikiPages, selectedPageId]);
+
+  const pullReferenceIntoContext = useCallback(async (reference = {}) => {
+    if (!reference?.key) return;
+    setContextReferences(current => mergeContextReferences(current, [reference]));
+    setReferenceHintSeen(true);
+    setLinkedReferenceKey(reference.key);
+    setReferencePaletteOpen(false);
+    const traceAction = graphTraceActionForPage(selectedPageId);
+    const activityReceipts = [{
+      key: `linked:${reference.key}`,
+      stage: 'reference_linked',
+      summary: 'Reference chip landed in context.'
+    }];
+    const payload = connectionPayloadForReference(reference, selectedPageId);
+    if (payload) {
+      try {
+        await createConnection(payload);
+        activityReceipts.push({
+          key: `graph:${reference.key}`,
+          stage: 'graph_trace_saved',
+          summary: 'Saved a bidirectional graph trace for this pull-in.',
+          action: traceAction
+        });
+      } catch (error) {
+        activityReceipts.push({
+          key: `graph:${reference.key}`,
+          stage: isDuplicateConnectionError(error) ? 'graph_trace_existing' : 'graph_trace_failed',
+          summary: isDuplicateConnectionError(error)
+            ? 'This graph trace already existed.'
+            : 'The context chip landed, but the graph trace could not be saved.',
+          ...(isDuplicateConnectionError(error) ? { action: traceAction } : {})
+        });
+      }
+    } else {
+      activityReceipts.push({
+        key: `graph:${reference.key}`,
+        stage: 'graph_trace_skipped',
+        summary: 'No page-level graph trace was needed for this reference.'
+      });
+    }
+    append({
+      role: 'assistant',
+      text: `Linked ${reference.label || labelForReference(reference)} into this workspace.`,
+      activityReceipts
+    });
+    window.setTimeout(() => {
+      setLinkedReferenceKey(current => (current === reference.key ? '' : current));
+    }, 900);
+  }, [append, selectedPageId]);
+
+  const pullGraphReferenceIntoContext = useCallback(({ item = {}, status = 'saved' } = {}) => {
+    const reference = referenceFromConnectableItem(item);
+    if (!reference?.key) return;
+    setContextReferences(current => mergeContextReferences(current, [reference]));
+    setReferenceHintSeen(true);
+    setLinkedReferenceKey(reference.key);
+    append({
+      role: 'assistant',
+      text: `Linked ${reference.label || labelForReference(reference)} into this workspace.`,
+      activityReceipts: [{
+        key: `graph:${reference.key}:${status}`,
+        stage: status === 'existing' ? 'graph_trace_existing' : 'graph_trace_saved',
+        summary: status === 'existing'
+          ? 'This bidirectional graph trace already existed.'
+          : 'Saved a bidirectional graph trace for this pull-in.',
+        action: graphTraceActionForPage(selectedPageId)
+      }]
+    });
+    window.setTimeout(() => {
+      setLinkedReferenceKey(current => (current === reference.key ? '' : current));
+    }, 900);
+  }, [append, selectedPageId]);
+
   const cancelActiveStream = useCallback(() => {
     streamAbortRef.current?.abort?.();
   }, []);
+
+  useEffect(() => {
+    const onKeyDown = (event) => {
+      if (!((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k')) return;
+      if (event.defaultPrevented) return;
+      event.preventDefault();
+      openReferencePalette();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [openReferencePalette]);
 
   useEffect(() => {
     if (!streamingMessageId) return undefined;
@@ -1053,6 +1859,75 @@ const WikiWorkspaceChat = ({ selectedPageId, view, onNavigate, onPageChanged, on
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [cancelActiveStream, streamingMessageId]);
+
+  const runIngest = useCallback(async ({ source = null, url = '', pendingId = '' } = {}) => {
+    const payload = source || { type: 'url', url };
+    const result = await ingestWikiSource(payload);
+    const nextMessage = {
+      text: summarizeIngestRun(result),
+      activityReceipts: ingestRunReceipts(result),
+      ingestRun: result,
+      pending: false
+    };
+    if (pendingId) replaceMessage(pendingId, nextMessage);
+    else append({ role: 'assistant', ...nextMessage });
+    onIngestRun?.({
+      ...result,
+      candidateUpdates: ingestCandidateRows(result, wikiPages)
+    });
+    onNavigate({ view: 'activity' });
+    return result;
+  }, [append, onIngestRun, onNavigate, replaceMessage, wikiPages]);
+
+  const buildPageFromIngestRun = useCallback(async (run = {}) => {
+    if (busy) return;
+    const source = sourceRefFromIngestRun(run);
+    const title = clean(run.suggestedTitle || run.title || source.title || source.url || 'New wiki page');
+    setBusy(true);
+    try {
+      const page = await createWikiPage(buildWikiCreatePayload({
+        type: 'sources',
+        title,
+        text: clean(run.summary || source.snippet || title),
+        pageType: 'overview',
+        source
+      }));
+      const pageId = clean(page?._id || page?.id);
+      if (!pageId) throw new Error('Created page did not include an id.');
+      onNavigate({ page: pageId });
+      onPageChanged?.(pageId);
+      append({
+        role: 'assistant',
+        text: `Created @wiki:${pageId} from ${source.title || 'the source'}. Drafting it with the source attached.`,
+        activityReceipts: [{
+          key: `ingest-build:${clean(run.runId || run.sourceEventId || run._id || run.id) || pageId}`,
+          stage: 'source_page_created',
+          summary: 'Created a wiki page with the ingest source attached as provenance.',
+          action: graphTraceActionForPage(pageId)
+        }]
+      });
+      await withMaintenanceTimeout(streamMaintainWikiPage(pageId, {}, {
+        onPage: () => {
+          onNavigate({ page: pageId });
+          onPageChanged?.(pageId);
+        },
+        onEvent: (event, payload = {}) => {
+          handleStreamEvent(event, payload, pageId);
+          if (event !== 'wiki-draft') return;
+          if (payload.stage === 'quality_rebuild') {
+            append({ role: 'assistant', text: 'The first draft missed quality gates, so I am rebuilding it once with stricter instructions.' });
+          }
+        }
+      }), title);
+      onNavigate({ page: pageId });
+      onPageChanged?.(pageId);
+      append({ role: 'assistant', text: `Built @wiki:${pageId} from ${source.title || 'the source'}.` });
+    } catch (_error) {
+      append({ role: 'assistant', text: `Failed to build a wiki page from ${source.title || 'the source'}.` });
+    } finally {
+      setBusy(false);
+    }
+  }, [append, busy, handleStreamEvent, onNavigate, onPageChanged, setBusy]);
 
   const handleCommand = async (command) => {
     const pageRef = parseWikiRef(command.args) || selectedPageId;
@@ -1103,7 +1978,7 @@ const WikiWorkspaceChat = ({ selectedPageId, view, onNavigate, onPageChanged, on
         if (!pageId) throw new Error('Created page did not include an id.');
         onNavigate({ page: pageId });
         append({ role: 'assistant', text: `Created @wiki:${pageId} for "${topic}". Drafting it now.` });
-        await streamMaintainWikiPage(pageId, {}, {
+        await withMaintenanceTimeout(streamMaintainWikiPage(pageId, {}, {
           onPage: () => {
             onNavigate({ page: pageId });
             onPageChanged?.(pageId);
@@ -1115,7 +1990,7 @@ const WikiWorkspaceChat = ({ selectedPageId, view, onNavigate, onPageChanged, on
               append({ role: 'assistant', text: 'The first draft missed quality gates, so I am rebuilding it once with stricter instructions.' });
             }
           }
-        });
+        }), topic);
         onNavigate({ page: pageId });
         onPageChanged?.(pageId);
         append({ role: 'assistant', text: `Built @wiki:${pageId} for "${topic}".` });
@@ -1134,7 +2009,7 @@ const WikiWorkspaceChat = ({ selectedPageId, view, onNavigate, onPageChanged, on
       setBusy(true);
       append({ role: 'assistant', text: `Drafting @wiki:${pageRef}. The right pane will update from the maintenance stream.` });
       try {
-        await streamMaintainWikiPage(pageRef, {}, {
+        await withMaintenanceTimeout(streamMaintainWikiPage(pageRef, {}, {
           onPage: (_page, event = {}) => {
             onNavigate({ page: pageRef });
             onPageChanged?.(pageRef);
@@ -1146,7 +2021,7 @@ const WikiWorkspaceChat = ({ selectedPageId, view, onNavigate, onPageChanged, on
               append({ role: 'assistant', text: 'The first draft missed quality gates, so I am rebuilding it once with stricter instructions.' });
             }
           }
-        });
+        }), pageRef);
         onNavigate({ page: pageRef });
         onPageChanged?.(pageRef);
         append({ role: 'assistant', text: `Finished drafting @wiki:${pageRef}.` });
@@ -1158,21 +2033,66 @@ const WikiWorkspaceChat = ({ selectedPageId, view, onNavigate, onPageChanged, on
       return true;
     }
     if (command.verb === 'ingest') {
+      const articleRef = parseArticleRef(command.args);
+      const highlightRef = parseHighlightRef(command.args);
       const url = parseUrl(command.args.replace(/^@url\s+/i, ''));
-      if (!url) {
-        append({ role: 'assistant', text: 'Paste a URL after /ingest to feed it to the wiki.' });
+      if (!url && !articleRef && !highlightRef) {
+        append({ role: 'assistant', text: 'Paste a URL or reference a Library item after /ingest, for example /ingest @article:ARTICLE_ID or /ingest @highlight:HIGHLIGHT_ID.' });
         return true;
       }
       setBusy(true);
+      const article = articleRef
+        ? (articles.find(item => clean(item?._id || item?.id) === articleRef) || {})
+        : {};
+      const pendingSource = highlightRef
+        ? { type: 'highlight', objectId: highlightRef, title: `Highlight ${highlightRef}`, url }
+        : articleRef
+          ? {
+              type: 'article',
+              objectId: articleRef,
+              title: clean(article.title || article.url || `Article ${articleRef}`),
+              summary: clean(article.summary || article.description || article.excerpt || article.text),
+              url: clean(article.url) || url
+            }
+          : { type: 'url', url };
+      const pendingId = messageId('assistant');
+      append({
+        id: pendingId,
+        role: 'assistant',
+        text: `Metabolizing ${sourceTitle(pendingSource)}...`,
+        pending: true,
+        activityReceipts: pendingIngestReceipts(pendingSource)
+      });
       try {
-        const result = await ingestWikiSource({ type: 'url', url });
-        append({
-          role: 'assistant',
-          text: `Ingested source. ${result?.affectedPageIds?.length || 0} page${result?.affectedPageIds?.length === 1 ? '' : 's'} affected.`
-        });
-        onNavigate({ view: 'activity' });
+        if (highlightRef) {
+          await runIngest({
+            source: {
+              type: 'highlight',
+              objectId: highlightRef,
+              url
+            },
+            pendingId
+          });
+        } else if (articleRef) {
+          await runIngest({
+            source: {
+              type: 'article',
+              objectId: articleRef,
+              title: clean(article.title || article.url),
+              summary: clean(article.summary || article.description || article.excerpt || article.text),
+              url: clean(article.url) || url
+            },
+            pendingId
+          });
+        } else {
+          await runIngest({ url, pendingId });
+        }
       } catch (_error) {
-        append({ role: 'assistant', text: 'Source ingest failed.' });
+        replaceMessage(pendingId, {
+          text: 'Source ingest failed.',
+          pending: false,
+          error: true
+        });
       } finally {
         setBusy(false);
       }
@@ -1206,11 +2126,11 @@ const WikiWorkspaceChat = ({ selectedPageId, view, onNavigate, onPageChanged, on
     return false;
   };
 
-  const submit = async (event) => {
+  const submit = async (event, forcedText = '') => {
     event?.preventDefault?.();
-    const text = clean(input);
+    const text = clean(forcedText || input);
     if (!text || busy) return;
-    const referenced = referencesFromText(text, { pages: wikiPages, articles });
+    const referenced = referencesFromText(text, { pages: wikiPages, articles, highlights });
     const nextContextReferences = mergeContextReferences(contextReferences, referenced);
     if (referenced.length) {
       setContextReferences(nextContextReferences);
@@ -1231,12 +2151,7 @@ const WikiWorkspaceChat = ({ selectedPageId, view, onNavigate, onPageChanged, on
     try {
       const pastedUrl = parseUrl(text.replace(/^@url\s+/i, ''));
       if (pastedUrl) {
-        const result = await ingestWikiSource({ type: 'url', url: pastedUrl });
-        replaceMessage(pendingId, {
-          text: `Ingested source. ${result?.affectedPageIds?.length || 0} page${result?.affectedPageIds?.length === 1 ? '' : 's'} affected.`,
-          pending: false
-        });
-        onNavigate({ view: 'activity' });
+        await runIngest({ url: pastedUrl, pendingId });
         return;
       }
       const chatPayload = {
@@ -1313,12 +2228,27 @@ const WikiWorkspaceChat = ({ selectedPageId, view, onNavigate, onPageChanged, on
     }
   };
 
+  useEffect(() => {
+    submitRef.current = submit;
+  });
+
+  useEffect(() => {
+    if (!chatDraft?.autoRun || !chatDraft?.text || busy) return undefined;
+    const draftId = chatDraft.id || chatDraft.text;
+    if (autoRunDraftIdsRef.current.has(draftId)) return undefined;
+    autoRunDraftIdsRef.current.add(draftId);
+    const timeout = window.setTimeout(() => {
+      submitRef.current?.({ preventDefault: () => {} }, chatDraft.text);
+    }, 0);
+    return () => window.clearTimeout(timeout);
+  }, [chatDraft, busy]);
+
   return (
-    <section className="wiki-workspace-chat" aria-label="Wiki agent chat">
+    <section className="wiki-workspace-chat" aria-label={AGENT_CHAT_LABEL}>
       <header>
         {/* AT-291: pane label, not the page's document title — kept as h2 so the
             active right-pane content (article / sources / schema) owns the sole h1. */}
-        <h2 className="wiki-workspace-chat__title">Wiki agent</h2>
+        <h2 className="wiki-workspace-chat__title">{AGENT_DISPLAY_NAME}</h2>
         <div className="wiki-workspace-chat__header-actions">
           {threadId ? (
             <Link className="wiki-workspace-chat__thread-link" to={`/think?tab=threads&threadId=${encodeURIComponent(threadId)}`}>
@@ -1341,12 +2271,18 @@ const WikiWorkspaceChat = ({ selectedPageId, view, onNavigate, onPageChanged, on
             data-status={agentStatus.status}
             role="status"
             aria-live="polite"
-            aria-label="Agent status"
+            aria-label={AGENT_STATUS_LABEL}
           >
             <span className="wiki-workspace-chat__presence-dot" aria-hidden="true" />
             <span>{agentStatus.text}</span>
           </div>
         ) : null}
+        <AgentTicker
+          className="wiki-workspace-chat__ticker"
+          label={`${AGENT_DISPLAY_NAME} trace`}
+          state={busy ? 'working' : agentStatus.status}
+          lines={tickerLines}
+        />
         {contextReferences.length ? (
           <div className="wiki-workspace-chat__context" aria-label="In context">
             <span>In context:</span>
@@ -1354,6 +2290,7 @@ const WikiWorkspaceChat = ({ selectedPageId, view, onNavigate, onPageChanged, on
               <button
                 type="button"
                 key={reference.key}
+                data-landed={linkedReferenceKey === reference.key ? 'true' : undefined}
                 onClick={() => removeContextReference(reference.key)}
                 aria-label={`Remove ${reference.label} from context`}
               >
@@ -1363,6 +2300,38 @@ const WikiWorkspaceChat = ({ selectedPageId, view, onNavigate, onPageChanged, on
             ))}
           </div>
         ) : null}
+        {selectedPageId ? (
+          <ReferencePullIn
+            targetType="wiki_page"
+            targetId={selectedPageId}
+            targetTitle={wikiPageLabel(selectedPagePresence.page, 'Selected wiki page')}
+            className="wiki-workspace-chat__reference-pull-in"
+            connectionPayloadForItem={(item) => connectionPayloadForReference(referenceFromConnectableItem(item), selectedPageId)}
+            onPulled={pullGraphReferenceIntoContext}
+          />
+        ) : (
+          <>
+            <div className="wiki-workspace-chat__reference-row">
+              <button
+                type="button"
+                className="wiki-workspace-chat__reference-button"
+                onClick={openReferencePalette}
+              >
+                + Reference
+              </button>
+              <span>Pull in wiki pages or Library sources without leaving this page.</span>
+            </div>
+            <WikiReferencePalette
+              open={referencePaletteOpen}
+              query={referenceQuery}
+              pages={wikiPages}
+              articles={articles}
+              onQueryChange={setReferenceQuery}
+              onSelect={pullReferenceIntoContext}
+              onClose={closeReferencePalette}
+            />
+          </>
+        )}
         {/* AT-289: the textarea is a replaced element and can't host the
             breathing conic-gradient border directly, so the field wrapper
             carries the animated border (see .wiki-workspace-chat__composer-field
@@ -1378,6 +2347,7 @@ const WikiWorkspaceChat = ({ selectedPageId, view, onNavigate, onPageChanged, on
             if (next.startsWith('/')) setSlashHintSeen(true);
             if (/@wiki:/i.test(next) || /(^|\s)@[^\s:@]*$/i.test(next)) requestWikiPages();
             if (/@article:/i.test(next) || /(^|\s)@[^\s:@]*$/i.test(next)) requestArticles();
+            if (/@highlight:/i.test(next) || /(^|\s)@[^\s:@]*$/i.test(next)) requestHighlights();
           }}
           onKeyDown={(event) => {
             if (event.key === 'Escape' && streamingMessageId) {
@@ -1443,6 +2413,16 @@ const WikiWorkspaceChat = ({ selectedPageId, view, onNavigate, onPageChanged, on
             ))}
           </div>
         ) : null}
+        {showHighlightMentions.length ? (
+          <div className="wiki-workspace-chat__palette" aria-label="Highlight references">
+            {showHighlightMentions.map(highlight => (
+              <button type="button" key={highlight._id || highlight.id} onClick={() => applyHighlightMention(highlight)}>
+                <strong>{highlight.articleTitle || 'Library highlight'}</strong>
+                <span>@highlight:{highlight._id || highlight.id} · {clean(highlight.text).slice(0, 90)}</span>
+              </button>
+            ))}
+          </div>
+        ) : null}
         <div className="wiki-workspace-chat__composer-footer">
           {showDiscoveryHint ? (
             <span className="wiki-workspace-chat__hint">
@@ -1477,6 +2457,11 @@ const WikiWorkspaceChat = ({ selectedPageId, view, onNavigate, onPageChanged, on
                   <li key={receipt.key || `${receipt.stage}:${receipt.summary}`}>
                     <span className="wiki-workspace-chat__receipt-icon" aria-hidden="true" />
                     {receipt.summary || receipt.text || receipt.message}
+                    {receipt.action?.href ? (
+                      <Link className="wiki-workspace-chat__receipt-action" to={receipt.action.href}>
+                        {receipt.action.label || 'Open'}
+                      </Link>
+                    ) : null}
                   </li>
                 ))}
               </ol>
@@ -1496,6 +2481,14 @@ const WikiWorkspaceChat = ({ selectedPageId, view, onNavigate, onPageChanged, on
                 onReviewed={handleVisitReviewed}
               />
             ) : null}
+            {message.ingestRun ? (
+              <WikiIngestResultCard
+                run={message.ingestRun}
+                pages={wikiPages}
+                onNavigate={onNavigate}
+                onBuildFromSource={buildPageFromIngestRun}
+              />
+            ) : null}
           </article>
         ))}
       </div>
@@ -1513,7 +2506,12 @@ const WikiWorkspace = () => {
   const [mobilePane, setMobilePane] = useState('wiki');
   const [currentSearch, setCurrentSearch] = useState(location.search);
   const [chatDraft, setChatDraft] = useState(null);
+  const [referenceCommandNonce, setReferenceCommandNonce] = useState(0);
+  const [quickAgentDraft, setQuickAgentDraft] = useState('');
   const [showFirstVisitOnboarding, setShowFirstVisitOnboarding] = useState(false);
+  const [autoBuildNotice, setAutoBuildNotice] = useState('');
+  const [lastIngestRun, setLastIngestRun] = useState(null);
+  const [qaFixtureState, setQaFixtureState] = useState({ status: 'idle', message: '' });
   const currentSearchRef = useRef(location.search);
   const touchStartRef = useRef(null);
   const dragRef = useRef(null);
@@ -1523,10 +2521,12 @@ const WikiWorkspace = () => {
 
   const params = useMemo(() => new URLSearchParams(currentSearch), [currentSearch]);
   const selectedPageId = clean(params.get('page'));
+  const qaMode = clean(params.get('qa'));
   const pageMode = clean(params.get('mode')) === 'edit' ? 'edit' : 'read';
   const explicitView = clean(params.get('view'));
   const explicitPane = normalizePane(params.get('pane'));
   const shouldAutoBuild = params.get('build') === '1';
+  const shouldOpenReferencePullIn = params.get('pull') === '1';
   const view = selectedPageId ? 'page' : explicitView || 'graph';
 
   useEffect(() => {
@@ -1546,7 +2546,7 @@ const WikiWorkspace = () => {
   useEffect(() => {
     if (!selectedPageId || !shouldAutoBuild || autoBuildRef.current.has(selectedPageId)) return undefined;
     autoBuildRef.current.add(selectedPageId);
-    let cancelled = false;
+    setAutoBuildNotice('');
     const nextParams = new URLSearchParams(currentSearchRef.current || currentSearch || location.search || '');
     nextParams.delete('build');
     const nextSearch = `?${nextParams.toString()}`;
@@ -1554,21 +2554,21 @@ const WikiWorkspace = () => {
     setCurrentSearch(nextSearch);
     navigate(`/wiki/workspace${nextSearch}`, { replace: true });
     setBusy(true);
-    streamMaintainWikiPage(selectedPageId, {}, {
+    withMaintenanceTimeout(streamMaintainWikiPage(selectedPageId, {}, {
       onPage: (_page, event = {}) => {
-        if (cancelled) return;
+        if (lastSelectedPageRef.current !== selectedPageId) return;
         setRefreshNonce(value => value + 1);
         const anchorId = clean(event.anchorId || event.sectionId || event.changedSectionId);
         if (anchorId) setLiveUpdate({ anchorId, pageId: selectedPageId, at: Date.now() });
       }
-    }).catch(() => {
-      // The read view still shows the created page; a failed draft can be retried from the workspace chat.
+    }), selectedPageId).catch(() => {
+      if (lastSelectedPageRef.current === selectedPageId) {
+        setAutoBuildNotice('The page was created, but the build stream did not finish. Use Run again or /draft to retry.');
+      }
     }).finally(() => {
-      if (!cancelled) setBusy(false);
+      if (lastSelectedPageRef.current === selectedPageId) setBusy(false);
     });
-    return () => {
-      cancelled = true;
-    };
+    return undefined;
   }, [currentSearch, location.search, navigate, selectedPageId, shouldAutoBuild]);
 
   const syncPaneParam = useCallback((pane) => {
@@ -1589,10 +2589,37 @@ const WikiWorkspace = () => {
     if (persist) syncPaneParam(normalizedPane);
   }, [syncPaneParam]);
 
-  const openChatWithDraft = useCallback((text, idPrefix = 'workspace-chat-draft') => {
-    setChatDraft({ id: `${idPrefix}-${Date.now()}`, text });
+  const openChatWithDraft = useCallback((text, idPrefix = 'workspace-chat-draft', options = {}) => {
+    setChatDraft({ id: `${idPrefix}-${Date.now()}`, text, autoRun: Boolean(options.autoRun) });
     showPane('chat', { persist: true });
   }, [showPane]);
+
+  useEffect(() => {
+    const homeCommand = clean(params.get('homeCommand'));
+    if (!homeCommand) return;
+    const draft = homeCommandDraft(homeCommand);
+    openChatWithDraft(draft, 'home-command', { autoRun: shouldAutoRunHomeCommand(homeCommand) });
+    const nextParams = new URLSearchParams(currentSearchRef.current || currentSearch || location.search || '');
+    nextParams.delete('homeCommand');
+    nextParams.set('pane', 'chat');
+    const nextSearch = `?${nextParams.toString()}`;
+    currentSearchRef.current = nextSearch;
+    setCurrentSearch(nextSearch);
+    navigate(`/wiki/workspace${nextSearch}`, { replace: true });
+  }, [currentSearch, location.search, navigate, openChatWithDraft, params]);
+
+  useEffect(() => {
+    if (!shouldOpenReferencePullIn) return;
+    setMobilePane('chat');
+    setReferenceCommandNonce(value => value + 1);
+    const nextParams = new URLSearchParams(currentSearchRef.current || currentSearch || location.search || '');
+    nextParams.delete('pull');
+    nextParams.set('pane', 'chat');
+    const nextSearch = `?${nextParams.toString()}`;
+    currentSearchRef.current = nextSearch;
+    setCurrentSearch(nextSearch);
+    navigate(`/wiki/workspace${nextSearch}`, { replace: true });
+  }, [currentSearch, location.search, navigate, shouldOpenReferencePullIn]);
 
   useEffect(() => {
     if (explicitPane) setMobilePane(explicitPane);
@@ -1623,7 +2650,7 @@ const WikiWorkspace = () => {
       if (explicitPane !== 'chat') setMobilePane('wiki');
       return;
     }
-    if (explicitView) return;
+    if (explicitView || explicitPane) return;
     const target = { view: 'graph' };
     const targetSearch = searchFor(target);
     startWikiViewTransition(() => {
@@ -1666,6 +2693,10 @@ const WikiWorkspace = () => {
     setLiveUpdate(update);
   }, []);
 
+  const onIngestRun = useCallback((run = {}) => {
+    setLastIngestRun(run);
+  }, []);
+
   const useSourceInChat = useCallback((article = {}) => {
     const title = clean(article.title || article.url || 'this source');
     const url = clean(article.url);
@@ -1678,6 +2709,18 @@ const WikiWorkspace = () => {
       `${article._id || article.id || title}`
     );
   }, [openChatWithDraft, selectedPageId]);
+
+  const feedSourceToWiki = useCallback((article = {}) => {
+    const articleId = clean(article._id || article.id);
+    const url = clean(article.url);
+    if (articleId) {
+      openChatWithDraft(`/ingest @article:${articleId}${url ? ` ${url}` : ''}`, `feed-source-${articleId}`, { autoRun: true });
+      return;
+    }
+    if (url) {
+      openChatWithDraft(`/ingest ${url}`, `feed-source-${url}`, { autoRun: true });
+    }
+  }, [openChatWithDraft]);
 
   const dismissFirstVisitOnboarding = useCallback(() => {
     try {
@@ -1708,6 +2751,54 @@ const WikiWorkspace = () => {
     openChatWithDraft('/ingest https://', 'workspace-source');
   }, [onNavigate, openChatWithDraft]);
 
+  const showQaFixtureControls = process.env.NODE_ENV !== 'production' && Boolean(qaMode);
+
+  const createQaSourceFixture = useCallback(async () => {
+    setQaFixtureState({ status: 'loading', message: 'Creating seeded Library source provenance fixture...' });
+    try {
+      const result = await createLibrarySourceProvenanceFixture();
+      const fixture = result?.fixture || {};
+      const wikiPath = clean(fixture.wikiPath);
+      const libraryPath = clean(fixture.libraryPath);
+      const questionPath = clean(fixture.questionPath);
+      setQaFixtureState({
+        status: 'ready',
+        message: `Seeded ${fixture.articleTitle || 'Library source'} -> ${fixture.wikiTitle || 'wiki page'}.`
+      });
+      if (qaMode === 'question-evidence' && questionPath) {
+        navigate(questionPath);
+        return;
+      }
+      if (wikiPath) {
+        navigate(wikiPath);
+        return;
+      }
+      if (questionPath) {
+        navigate(questionPath);
+        return;
+      }
+      if (libraryPath) navigate(libraryPath);
+    } catch (error) {
+      setQaFixtureState({
+        status: 'error',
+        message: error?.response?.data?.error || error?.message || 'Failed to create seeded source fixture.'
+      });
+    }
+  }, [navigate, qaMode]);
+
+  const submitQuickAgentDraft = useCallback((event) => {
+    event?.preventDefault?.();
+    const draft = clean(quickAgentDraft);
+    if (draft) {
+      setQuickAgentDraft('');
+      openChatWithDraft(draft, 'workspace-quick-agent');
+      return;
+    }
+    const pageId = selectedPageId || lastSelectedPageRef.current;
+    const pageContext = pageId ? ` @wiki:${pageId}` : '';
+    openChatWithDraft(`/ask${pageContext} `, 'workspace-ask');
+  }, [openChatWithDraft, quickAgentDraft, selectedPageId]);
+
   const rightPane = useMemo(() => {
     if (selectedPageId) {
       if (pageMode === 'edit') {
@@ -1735,8 +2826,15 @@ const WikiWorkspace = () => {
       );
     }
     if (view === 'activity') return <WorkspaceActivity />;
-    if (view === 'list') return <WikiList compact onOpenPage={(pageId) => onNavigate({ page: pageId })} />;
-    if (view === 'sources') return <WorkspaceSources onUseSource={useSourceInChat} />;
+    if (view === 'list') {
+      return (
+        <main className="wiki-workspace__list-main" aria-label="Wiki pages">
+          <h1 className="sr-only">Wiki pages</h1>
+          <WikiList compact onOpenPage={(pageId) => onNavigate({ page: pageId })} />
+        </main>
+      );
+    }
+    if (view === 'sources') return <WorkspaceSources onUseSource={useSourceInChat} onFeedSource={feedSourceToWiki} />;
     if (view === 'schema') return <WorkspaceSchema />;
     return (
       <Suspense fallback={<WorkspacePaneFallback label="Loading knowledge map..." />}>
@@ -1748,7 +2846,7 @@ const WikiWorkspace = () => {
         />
       </Suspense>
     );
-  }, [enterPageEditMode, exitPageEditMode, handleWorkspaceBuild, handleWorkspaceSource, liveUpdate, onNavigate, pageMode, refreshNonce, selectedPageId, useSourceInChat, view]);
+  }, [enterPageEditMode, exitPageEditMode, feedSourceToWiki, handleWorkspaceBuild, handleWorkspaceSource, liveUpdate, onNavigate, pageMode, refreshNonce, selectedPageId, useSourceInChat, view]);
 
   const handleDragStart = (event) => {
     dragRef.current = { startX: event.clientX, startWidth: chatWidth };
@@ -1786,31 +2884,38 @@ const WikiWorkspace = () => {
   };
 
   return (
-    <main
+    <section
       className={`wiki-workspace is-mobile-${mobilePane}`}
+      aria-label="Wiki workspace"
       style={{ '--wiki-workspace-chat-width': `${chatWidth}px` }}
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
     >
       <div className="wiki-workspace__mobile-tabs" role="tablist" aria-label="Workspace panes">
-        <button
-          type="button"
+        <Link
+          to={viewPathFor({ page: selectedPageId, view, mode: pageMode, pane: 'chat' })}
           role="tab"
           aria-selected={mobilePane === 'chat'}
           className={mobilePane === 'chat' ? 'is-active' : ''}
-          onClick={() => showPane('chat', { persist: true })}
+          onClick={(event) => {
+            event.preventDefault();
+            showPane('chat', { persist: true });
+          }}
         >
           Chat
-        </button>
-        <button
-          type="button"
+        </Link>
+        <Link
+          to={viewPathFor({ page: selectedPageId, view, mode: pageMode, pane: 'wiki' })}
           role="tab"
           aria-selected={mobilePane === 'wiki'}
           className={mobilePane === 'wiki' ? 'is-active' : ''}
-          onClick={() => showPane('wiki', { persist: true })}
+          onClick={(event) => {
+            event.preventDefault();
+            showPane('wiki', { persist: true });
+          }}
         >
           Wiki
-        </button>
+        </Link>
       </div>
       <aside
         className={`wiki-workspace__chat-pane${mobilePane !== 'chat' ? ' wiki-workspace__pane--inactive' : ''}`}
@@ -1822,10 +2927,12 @@ const WikiWorkspace = () => {
           onNavigate={onNavigate}
           onPageChanged={onPageChanged}
           onLiveUpdate={onLiveUpdate}
+          onIngestRun={onIngestRun}
           busy={busy}
           setBusy={setBusy}
           chatDraft={chatDraft}
           onBuildPage={handleWorkspaceBuild}
+          referenceCommandNonce={referenceCommandNonce}
         />
       </aside>
       <button
@@ -1839,6 +2946,58 @@ const WikiWorkspace = () => {
         data-mobile-active={mobilePane === 'wiki' ? 'true' : 'false'}
         aria-label="Wiki workspace right pane"
       >
+        {showQaFixtureControls ? (
+          <section className="wiki-workspace__qa-fixture" aria-label="QA source provenance fixture">
+            <div>
+              <p className="wiki-workspace__qa-fixture-kicker">QA fixture</p>
+              <p className="wiki-workspace__qa-fixture-title">Seed Library source provenance</p>
+              {qaFixtureState.message ? (
+                <p className={`wiki-workspace__qa-fixture-message is-${qaFixtureState.status}`}>
+                  {qaFixtureState.message}
+                </p>
+              ) : null}
+            </div>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={createQaSourceFixture}
+              disabled={qaFixtureState.status === 'loading'}
+            >
+              {qaFixtureState.status === 'loading' ? 'Seeding' : 'Seed source'}
+            </Button>
+          </section>
+        ) : null}
+        <form className="wiki-workspace__mobile-agent" onSubmit={submitQuickAgentDraft} aria-label={`${AGENT_DISPLAY_NAME} quick prompt`}>
+          <span className="wiki-workspace__mobile-agent-label">
+            <strong>{AGENT_DISPLAY_NAME}</strong>
+            <span>Ready</span>
+          </span>
+          <input
+            type="text"
+            value={quickAgentDraft}
+            onChange={(event) => setQuickAgentDraft(event.target.value)}
+            placeholder="Ask, paste a source, or type /"
+            aria-label={`${AGENT_DISPLAY_NAME} quick message`}
+          />
+          <Button type="submit" variant="secondary">
+            Ask
+          </Button>
+          <Button type="button" variant="secondary" onClick={handleWorkspaceBuild}>
+            Build
+          </Button>
+        </form>
+        {autoBuildNotice ? (
+          <div className="wiki-workspace__build-notice" role="alert">
+            {autoBuildNotice}
+          </div>
+        ) : null}
+        {lastIngestRun ? (
+          <WikiIngestRippleStrip
+            run={lastIngestRun}
+            pages={[]}
+            onNavigate={onNavigate}
+          />
+        ) : null}
         {rightPane}
       </section>
       {showFirstVisitOnboarding ? (
@@ -1848,7 +3007,7 @@ const WikiWorkspace = () => {
               <p className="wiki-index__eyebrow">First visit</p>
               <h1 id="wiki-workspace-onboarding-title">Start the wiki with one page or one source.</h1>
               <p>
-                The workspace is split between the wiki agent and the page canvas. Build a page from a topic,
+                The workspace is split between {AGENT_DISPLAY_NAME.toLowerCase()} and the page canvas. Build a page from a topic,
                 or drop source material and let the wiki decide what should change.
               </p>
             </div>
@@ -1866,7 +3025,7 @@ const WikiWorkspace = () => {
           </div>
         </section>
       ) : null}
-    </main>
+    </section>
   );
 };
 

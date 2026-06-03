@@ -1,3 +1,5 @@
+import { countWikiSources } from './wikiPageMetrics';
+
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 export const PAGE_TYPES = ['all', 'concept', 'entity', 'source', 'question', 'comparison', 'overview', 'project', 'log', 'topic'];
@@ -72,6 +74,15 @@ const collectRelatedEdges = (page, titleToId) => {
 };
 
 const normalizeMapNodeId = (value = '') => String(value || '').replace(/^wiki_page:/, '').trim();
+
+const mapEndpointId = (endpoint = '') => {
+  if (typeof endpoint === 'object' && endpoint) return endpoint.id || endpoint.itemId || '';
+  return String(endpoint || '');
+};
+
+const normalizeCorpusNodeId = (value = '') => String(value || '').trim();
+
+const normalizeWikiEndpoint = (value = '') => normalizeMapNodeId(normalizeCorpusNodeId(value));
 
 const collectConnectionEdges = (mapGraph = {}, pageIds) => {
   const rows = Array.isArray(mapGraph.edges) ? mapGraph.edges : Array.isArray(mapGraph.links) ? mapGraph.links : [];
@@ -180,10 +191,10 @@ export const buildWikiGraphData = (pages = [], mapGraph = {}) => {
           pageType: page.pageType || 'topic',
           snippet: page.plainText || '',
           updatedAt: page.updatedAt || page.lastModifiedAt || null,
-          sourceCount: Array.isArray(page.sourceRefs) ? page.sourceRefs.length : 0,
+          sourceCount: countWikiSources(page),
           inboundCount: inbound.get(id) || 0,
           degreeCount: degree.get(id) || 0,
-          openPath: `/wiki/${id}`
+          openPath: `/wiki/workspace?page=${encodeURIComponent(id)}`
         };
       })
       .filter(Boolean),
@@ -224,6 +235,134 @@ export const summarizeWikiGraph = (graph = {}) => {
     relationCounts,
     sharedSourceClusters
   };
+};
+
+export const summarizeCorpusShape = (mapGraph = {}) => {
+  const nodes = Array.isArray(mapGraph.nodes) ? mapGraph.nodes : [];
+  const edges = Array.isArray(mapGraph.edges) ? mapGraph.edges : Array.isArray(mapGraph.links) ? mapGraph.links : [];
+  const countsByType = nodes.reduce((counts, node) => {
+    const type = String(node?.itemType || node?.type || '').trim() || 'item';
+    counts[type] = (counts[type] || 0) + 1;
+    return counts;
+  }, {});
+  const workingThoughts = ['concept', 'question', 'notebook']
+    .reduce((total, type) => total + (countsByType[type] || 0), 0);
+  const libraryAtoms = ['article', 'highlight']
+    .reduce((total, type) => total + (countsByType[type] || 0), 0);
+  const wikiBridges = edges.filter((edge) => {
+    const source = String(edge?.source || '');
+    const target = String(edge?.target || '');
+    const sourceIsWiki = source.startsWith('wiki_page:');
+    const targetIsWiki = target.startsWith('wiki_page:');
+    return sourceIsWiki !== targetIsWiki;
+  }).length;
+  return {
+    totalNodes: nodes.length,
+    totalEdges: edges.length,
+    countsByType,
+    workingThoughts,
+    libraryAtoms,
+    wikiPages: countsByType.wiki_page || 0,
+    wikiClaims: countsByType.wiki_claim || 0,
+    wikiBridges
+  };
+};
+
+const CORPUS_KIND_LABELS = {
+  article: 'Library source',
+  highlight: 'Source highlight',
+  concept: 'Concept',
+  question: 'Question',
+  notebook: 'Notebook note',
+  wiki_page: 'Wiki page',
+  wiki_claim: 'Wiki claim'
+};
+
+const relationToTraceLabel = (relationType = '') => {
+  if (relationType === 'supports') return 'Supports this page';
+  if (relationType === 'contradicts') return 'Creates tension';
+  if (relationType === 'extends') return 'Extends the synthesis';
+  if (relationType === 'needs_review') return 'Needs review';
+  if (relationType === 'evidence_for') return 'Evidence for this page';
+  if (relationType === 'derived_from') return 'Source material';
+  return labelFor(relationType || 'related');
+};
+
+const itemRoute = ({ itemType = '', itemId = '', title = '' } = {}) => {
+  const id = String(itemId || '').trim();
+  if (!id && itemType !== 'concept') return '';
+  if (itemType === 'article') return `/library?articleId=${encodeURIComponent(id)}`;
+  if (itemType === 'highlight') return `/library?highlightId=${encodeURIComponent(id)}`;
+  if (itemType === 'question') return `/think?tab=questions&questionId=${encodeURIComponent(id)}`;
+  if (itemType === 'notebook') return `/think?tab=notebook&entryId=${encodeURIComponent(id)}`;
+  if (itemType === 'concept') return `/think?tab=concepts&concept=${encodeURIComponent(title || id)}`;
+  if (itemType === 'wiki_page') return `/wiki/workspace?page=${encodeURIComponent(id)}`;
+  return '';
+};
+
+export const buildCorpusConstellation = (mapGraph = {}, wikiPageId = '') => {
+  const targetWikiId = normalizeWikiEndpoint(wikiPageId);
+  if (!targetWikiId) return [];
+  const nodes = Array.isArray(mapGraph.nodes) ? mapGraph.nodes : [];
+  const edges = Array.isArray(mapGraph.edges) ? mapGraph.edges : Array.isArray(mapGraph.links) ? mapGraph.links : [];
+  const byId = new Map(nodes.map(node => [normalizeCorpusNodeId(node?.id || `${node?.itemType || ''}:${node?.itemId || ''}`), node]));
+
+  const traces = edges
+    .map((edge) => {
+      const source = normalizeCorpusNodeId(mapEndpointId(edge?.source));
+      const target = normalizeCorpusNodeId(mapEndpointId(edge?.target));
+      const sourceWiki = normalizeWikiEndpoint(source);
+      const targetWiki = normalizeWikiEndpoint(target);
+      const sourceIsSelectedWiki = sourceWiki === targetWikiId && (source.startsWith('wiki_page:') || source === targetWikiId);
+      const targetIsSelectedWiki = targetWiki === targetWikiId && (target.startsWith('wiki_page:') || target === targetWikiId);
+      if (!sourceIsSelectedWiki && !targetIsSelectedWiki) return null;
+      const neighborId = sourceIsSelectedWiki ? target : source;
+      if (!neighborId || neighborId.startsWith('wiki_page:')) return null;
+      const node = byId.get(neighborId) || {};
+      const itemType = String(node.itemType || node.type || neighborId.split(':')[0] || 'item');
+      const itemId = String(node.itemId || neighborId.split(':').slice(1).join(':') || neighborId);
+      const title = node.title || node.name || labelFor(itemId);
+      const openPath = itemRoute({ itemType, itemId, title });
+      return {
+        id: edge.id || `${source}:${target}:${edge.relationType || 'related'}`,
+        itemType,
+        itemId,
+        title,
+        relationType: edge.relationType || 'related',
+        label: relationToTraceLabel(edge.relationType || 'related'),
+        kindLabel: CORPUS_KIND_LABELS[itemType] || labelFor(itemType),
+        direction: sourceIsSelectedWiki ? 'outbound' : 'inbound',
+        openPath
+      };
+    })
+    .filter(Boolean);
+
+  const seen = new Set();
+  return traces
+    .filter((trace) => {
+      const key = `${trace.itemType}:${trace.itemId}:${trace.relationType}:${trace.direction}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .sort((a, b) => {
+      const typeOrder = ['article', 'highlight', 'concept', 'question', 'notebook', 'wiki_claim'];
+      const left = typeOrder.indexOf(a.itemType);
+      const right = typeOrder.indexOf(b.itemType);
+      return (left === -1 ? typeOrder.length : left) - (right === -1 ? typeOrder.length : right)
+        || a.title.localeCompare(b.title);
+    })
+    .slice(0, 8);
+};
+
+export const formatCorpusShapeSummary = (shape = {}) => {
+  if (!shape.totalNodes) return 'No cross-surface graph edges yet.';
+  const parts = [
+    `${shape.wikiPages || 0} wiki`,
+    `${shape.workingThoughts || 0} working thoughts`,
+    `${shape.libraryAtoms || 0} library atoms`
+  ];
+  return `${parts.join(' · ')} · ${shape.totalEdges || 0} live edge${shape.totalEdges === 1 ? '' : 's'}`;
 };
 
 const countDriftSignals = (page = {}) => {

@@ -1,15 +1,26 @@
 /* Before: weak hierarchy and low section contrast made Library/Think feel visually flat.
    After: added a compact type scale, stronger selected/focus states, and distinct article/highlight section treatments while preserving layout structure. */
 :root {
-  --background: #f6f7fb;
-  --surface: #ffffff;
+  --canvas: #f7f4ed;
+  --raised: #fffdf8;
+  --sunken: #eee7d9;
+  --spark: #b1862e;
+  --reading-text: #332f29;
+  --working-text: #4f596c;
+  --hairline: rgba(91, 80, 63, 0.16);
+  --well: #f1eadc;
+  --input-surface: #f8f3e9;
+  --focus-ring: rgba(177, 134, 46, 0.36);
+  --theme-transition: background-color 260ms cubic-bezier(0.2, 0.8, 0.2, 1), color 260ms cubic-bezier(0.2, 0.8, 0.2, 1), border-color 260ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  --background: var(--canvas);
+  --surface: var(--raised);
   --surface-base: var(--background);
-  --surface-panel: #f9fbff;
-  --surface-card: #ffffff;
-  --border-subtle: #e3e6ed;
-  --surface-elevated: #ffffff;
-  --text-primary: #1b2430;
-  --text-secondary: #667085;
+  --surface-panel: color-mix(in srgb, var(--raised) 92%, var(--sunken));
+  --surface-card: var(--raised);
+  --border-subtle: var(--hairline);
+  --surface-elevated: color-mix(in srgb, var(--raised) 96%, white);
+  --text-primary: var(--reading-text);
+  --text-secondary: var(--working-text);
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
@@ -29,11 +40,11 @@
   --bg: var(--background);
   --accent: #0b74ff;
   --accent-soft: rgba(11, 116, 255, 0.08);
-  --wiki-warm-accent: #b1862e;
+  --wiki-warm-accent: var(--spark);
   --wiki-warm-accent-strong: #8b5f1d;
   --wiki-neutral-accent: #6f6a61;
   --wiki-quiet-danger: #9b5a46;
-  --surface-muted: #f8fafc;
+  --surface-muted: var(--well);
   /* color-mix(in srgb, var(--surface) X%, var(--mix-lift)) is used in 30+
      places to "lift" a surface a bit lighter than its base. In light mode
      the lift target is white. In dark mode lifting toward white blows out
@@ -55,23 +66,35 @@
    After: the full foundational set flips, and the aliases (--text, --border,
    --bg, --muted, --shadow) cascade because they're var() pointers. */
 html[data-ui-theme='dark'] {
-  --background: #0a0e17;
-  --surface: #141a26;
-  --surface-base: #0b1220;
-  --surface-panel: #111a2a;
-  --surface-card: #172132;
-  --surface-elevated: #1d2a40;
-  --surface-muted: #0f1623;
-  --border-subtle: rgba(255, 255, 255, 0.08);
-  --text-primary: #e7ecf3;
-  --text-secondary: #94a3b8;
-  --accent-soft: rgba(54, 228, 255, 0.14);
+  --canvas: #16140f;
+  --raised: #211e17;
+  --sunken: #100f0c;
+  --spark: #d6ad63;
+  --reading-text: #f1eadc;
+  --working-text: #c5bda9;
+  --hairline: rgba(223, 206, 166, 0.16);
+  --well: #19160f;
+  --input-surface: #1d1a13;
+  --focus-ring: rgba(214, 173, 99, 0.42);
+  --theme-transition: background-color 260ms cubic-bezier(0.2, 0.8, 0.2, 1), color 260ms cubic-bezier(0.2, 0.8, 0.2, 1), border-color 260ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  --background: var(--canvas);
+  --surface: var(--raised);
+  --surface-base: var(--canvas);
+  --surface-panel: color-mix(in srgb, var(--raised) 86%, var(--sunken));
+  --surface-card: color-mix(in srgb, var(--raised) 94%, var(--spark) 6%);
+  --surface-elevated: color-mix(in srgb, var(--raised) 88%, #332812);
+  --surface-muted: var(--well);
+  --border-subtle: var(--hairline);
+  --text-primary: var(--reading-text);
+  --text-secondary: var(--working-text);
+  --accent: var(--spark);
+  --accent-soft: rgba(214, 173, 99, 0.14);
   --wiki-warm-accent: #d2a45f;
   --wiki-warm-accent-strong: #e0b971;
   --wiki-neutral-accent: #a8a198;
   --wiki-quiet-danger: #c78978;
   --shadow-subtle: 0 10px 26px rgba(0, 0, 0, 0.4);
-  --mix-lift: #2c3a55;
+  --mix-lift: #332812;
   color-scheme: dark;
 }
 
@@ -137,6 +160,7 @@ body {
   color: var(--text);
   -webkit-font-smoothing: antialiased;
   line-height: 1.68;
+  transition: var(--theme-transition);
 }
 
 h1, h2, h3, h4, h5, h6 {
@@ -5578,6 +5602,13 @@ html[data-ui-theme='dark'] .article-reader-header {
   gap: 8px;
 }
 
+.think-question-block[data-challenge-active="true"] {
+  padding: 10px;
+  border: 1px solid color-mix(in srgb, var(--accent) 34%, var(--border-subtle));
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--accent) 7%, var(--surface));
+}
+
 .think-question-paragraph {
   width: 100%;
   min-height: 96px;
@@ -5591,7 +5622,20 @@ html[data-ui-theme='dark'] .article-reader-header {
 
 .think-question-block-actions {
   display: flex;
+  gap: 8px;
   justify-content: flex-end;
+}
+
+.think-question-block-actions .ui-quiet-button.is-active,
+.think-question-block-actions .ui-quiet-button[aria-pressed="true"] {
+  color: var(--accent);
+}
+
+.think-question-block__challenge-note {
+  margin: -2px 0 0;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  line-height: 1.45;
 }
 
 .think-question-block-toolbar {
@@ -5603,6 +5647,29 @@ html[data-ui-theme='dark'] .article-reader-header {
 .think-question-actions {
   display: flex;
   justify-content: flex-end;
+}
+
+.reference-pull-in__relations {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.reference-pull-in__relations button {
+  min-height: 30px;
+  padding: 4px 9px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.reference-pull-in__relations button[aria-pressed="true"] {
+  border-color: color-mix(in srgb, var(--accent) 38%, var(--border-subtle));
+  color: var(--text);
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface));
 }
 
 .concept-search-filters {

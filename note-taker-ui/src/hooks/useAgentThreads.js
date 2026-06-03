@@ -6,6 +6,7 @@ import {
   listAgentThreads,
   updateAgentThread
 } from '../api/agent';
+import { labelForAgentActorType } from '../constants/agentIdentity';
 
 const clean = (value) => String(value || '').trim();
 const toTimestamp = (value) => {
@@ -114,10 +115,7 @@ const useAgentThreads = ({
   const formatActor = useCallback((actor = {}) => {
     const actorType = clean(actor?.actorType).toLowerCase();
     const actorId = clean(actor?.actorId);
-    if (actorType === 'user') return 'You';
-    if (actorType === 'native_agent') return actorId ? `Native ${actorId}` : 'Native agent';
-    if (actorType === 'byo_agent') return actorId ? `Personal ${actorId}` : 'Personal agent';
-    return 'Unknown actor';
+    return labelForAgentActorType(actorType, actorId);
   }, []);
 
   const formatScopeLabel = useCallback((scope = {}) => {

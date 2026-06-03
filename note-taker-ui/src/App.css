@@ -53,16 +53,16 @@ html[data-ui-density='compact'] {
 }
 
 html[data-ui-theme='dark'] {
-  --background: #0f172a;
-  --surface: #111827;
-  --surface-muted: #1f2937;
-  --border-subtle: #263243;
-  --border-subtle-2: rgba(148, 163, 184, 0.26);
-  --text-primary: #e5e7eb;
-  --text-secondary: #9ca3af;
-  --text: #e5e7eb;
-  --muted: #9ca3af;
-  --link: #dbeafe;
+  --background: var(--canvas, #16140f);
+  --surface: var(--raised, #211e17);
+  --surface-muted: var(--well, #19160f);
+  --border-subtle: var(--hairline, rgba(223, 206, 166, 0.16));
+  --border-subtle-2: color-mix(in srgb, var(--hairline, rgba(223, 206, 166, 0.16)) 82%, transparent);
+  --text-primary: var(--reading-text, #f1eadc);
+  --text-secondary: var(--working-text, #c5bda9);
+  --text: var(--reading-text, #f1eadc);
+  --muted: var(--working-text, #c5bda9);
+  --link: var(--reading-text, #f1eadc);
   --bg-color: var(--background);
   --sidebar-bg-color: var(--surface);
   --card-bg-color: var(--surface);
@@ -71,7 +71,7 @@ html[data-ui-theme='dark'] {
   --text-color: var(--text-primary);
   --text-color-secondary: var(--text-secondary);
   --hover-color: var(--surface-muted);
-  --active-color: #223044;
+  --active-color: color-mix(in srgb, var(--spark, #d6ad63) 12%, var(--surface));
 }
 
 body {

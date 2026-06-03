@@ -94,7 +94,13 @@ const NotebookContext = ({ entry }) => {
       <section className="editorial-side-rail__section notebook-context__section">
         <SectionHeader title="Used in" subtitle="Where this page echoes." />
         {entry?._id ? (
-          <ReferencesPanel targetType="notebook" targetId={entry._id} label="Show backlinks" />
+          <ReferencesPanel
+            targetType="notebook"
+            targetId={entry._id}
+            label="Show backlinks"
+            defaultOpen
+            showToggle={false}
+          />
         ) : (
           <p className="muted small">Select a note to see links.</p>
         )}

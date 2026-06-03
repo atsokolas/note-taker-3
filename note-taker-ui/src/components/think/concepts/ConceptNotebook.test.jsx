@@ -357,7 +357,7 @@ describe('ConceptNotebook workspace interactions', () => {
     });
   });
 
-  it('runs AI scout from library and refreshes drafts', async () => {
+  it('runs partner scan from library and refreshes drafts', async () => {
     render(<ConceptNotebook concept={concept} />);
 
     fireEvent.click(screen.getByTestId('concept-ai-scout-button'));

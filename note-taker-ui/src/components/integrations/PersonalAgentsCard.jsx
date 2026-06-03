@@ -41,7 +41,7 @@ const PersonalAgentsCard = ({
     <Card className="settings-card">
       <h2>Advanced agent management</h2>
       <p className="muted">
-        Manage keys and usage for personal agents you created in this workspace.
+        Manage keys and usage for specialist agents you created in this workspace.
       </p>
 
       {newAgentKey && (
@@ -52,7 +52,7 @@ const PersonalAgentsCard = ({
       )}
 
       <div className="import-summary">
-        <p className="muted-label">Personal agent API (BYO-compatible, private workspace only)</p>
+        <p className="muted-label">Specialist agent API (BYO-compatible, private workspace only)</p>
         <p className="muted small">
           Authenticate with <code>x-agent-id</code> and <code>x-agent-key</code> headers.
         </p>
@@ -110,9 +110,9 @@ POST /api/agent/byo/protocol/handoffs/:handoffId/reject`}
       </div>
 
       {agentsLoading ? (
-        <p className="muted">Loading personal agents…</p>
+        <p className="muted">Loading specialist agents…</p>
       ) : sortedAgents.length === 0 ? (
-        <p className="muted">No personal agents yet.</p>
+        <p className="muted">No specialist agents yet.</p>
       ) : (
         <div className="import-summary">
           <p className="muted-label">Your agents</p>
