@@ -928,7 +928,15 @@ const WikiReadMarginalia = ({ sources = [], citations = [], onJumpToReference })
   );
 };
 
-const WikiPageReadView = ({ pageId, onEdit, workspaceMode = false, refreshNonce = 0, liveUpdate = null }) => {
+const WikiPageReadView = ({
+  pageId,
+  onEdit,
+  workspaceMode = false,
+  refreshNonce = 0,
+  liveUpdate = null,
+  streamedPage = null,
+  streamBusy = false
+}) => {
   const navigate = useNavigate();
   const location = useLocation();
   const traceSearch = location.search || (typeof window !== 'undefined' ? window.location.search : '');
@@ -947,6 +955,7 @@ const WikiPageReadView = ({ pageId, onEdit, workspaceMode = false, refreshNonce 
   const [page, setPage] = useState(null);
   const [loading, setLoading] = useState(true);
   const [maintaining, setMaintaining] = useState(false);
+  const maintenanceActive = maintaining || streamBusy;
   const [maintenanceTraceLines, setMaintenanceTraceLines] = useState([]);
   const [maintenanceReceipt, setMaintenanceReceipt] = useState(null);
   const [asking, setAsking] = useState(false);
@@ -1070,7 +1079,17 @@ const WikiPageReadView = ({ pageId, onEdit, workspaceMode = false, refreshNonce 
   }, [pageId, requestedReadTab]);
 
   useEffect(() => {
-    if (!latestPageRef.current || !refreshNonce || lastRefreshNonceRef.current === refreshNonce) return undefined;
+    if (!streamedPage) return undefined;
+    const streamedId = normalizeId(streamedPage._id || streamedPage.id);
+    if (!streamedId || streamedId !== normalizeId(pageId)) return undefined;
+    latestPageRef.current = streamedPage;
+    setPage(streamedPage);
+    setLoading(false);
+    return undefined;
+  }, [pageId, streamedPage]);
+
+  useEffect(() => {
+    if (!refreshNonce || lastRefreshNonceRef.current === refreshNonce) return undefined;
     lastRefreshNonceRef.current = refreshNonce;
     let cancelled = false;
     getWikiPage(pageId)
@@ -1777,14 +1796,14 @@ const WikiPageReadView = ({ pageId, onEdit, workspaceMode = false, refreshNonce 
       ) : null}
       {(!loading && page) ? (
         <section
-          className={`wiki-read__maintenance-receipt is-${maintenanceReceipt?.status || (maintaining ? 'working' : 'idle')}`}
+          className={`wiki-read__maintenance-receipt is-${maintenanceReceipt?.status || (maintenanceActive ? 'working' : 'idle')}`}
           aria-label="Wiki maintenance receipt"
-          data-maintenance-state={maintenanceReceipt?.status || (maintaining ? 'working' : 'idle')}
+          data-maintenance-state={maintenanceReceipt?.status || (maintenanceActive ? 'working' : 'idle')}
         >
           <div className="wiki-read__maintenance-copy">
             <p className="wiki-read__promotion-kicker">Agent-owned page</p>
             <h2>
-              {maintaining
+              {maintenanceActive
                 ? 'Checking this page against your corpus'
                 : maintenanceReceipt?.status === 'failed'
                   ? 'Maintenance needs a retry'
@@ -1807,13 +1826,17 @@ const WikiPageReadView = ({ pageId, onEdit, workspaceMode = false, refreshNonce 
           <AgentTicker
             label="Wiki maintenance trace"
             className="wiki-read__maintenance-ticker"
-            state={maintaining ? 'working' : 'idle'}
-            lines={maintenanceTraceLines.length ? maintenanceTraceLines : ['maintenance idle', 'ready to review sources']}
+            state={maintenanceActive ? 'working' : 'idle'}
+            lines={maintenanceTraceLines.length
+              ? maintenanceTraceLines
+              : maintenanceActive
+                ? ['drafting page body', 'updating infobox and claims']
+                : ['maintenance idle', 'ready to review sources']}
             sharedMemory
             surface={page?.title || 'Wiki page'}
           />
-          <Button type="button" variant="secondary" onClick={handleMaintain} disabled={maintaining}>
-            {maintaining ? 'Running...' : 'Run again'}
+          <Button type="button" variant="secondary" onClick={handleMaintain} disabled={maintenanceActive}>
+            {maintenanceActive ? 'Running...' : 'Run again'}
           </Button>
         </section>
       ) : null}

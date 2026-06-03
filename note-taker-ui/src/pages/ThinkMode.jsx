@@ -5893,7 +5893,8 @@ const ThinkMode = () => {
       title: source || item.title || 'Related highlight',
       quote: snippet || 'Candidate evidence from your library.',
       source,
-      isCounter: isQuestionCounterSignal(`${item.title || ''} ${snippet}`)
+      isCounter: item.evidenceTone === 'counter'
+        || (item.evidenceTone !== 'support' && isQuestionCounterSignal(`${item.title || ''} ${snippet}`))
     };
   });
   const questionSupportSignals = [
