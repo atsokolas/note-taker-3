@@ -671,6 +671,8 @@ const Library = () => {
         label={`${AGENT_DISPLAY_NAME} library trace`}
         state={articleLoading || articlesLoading ? 'working' : 'idle'}
         lines={libraryAgentTickerLines}
+        sharedMemory
+        surface="Library"
       />
       <p className="library-agent-card__note">
         {isReadingView

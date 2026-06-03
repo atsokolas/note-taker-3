@@ -10,6 +10,7 @@ import useQuestions from '../hooks/useQuestions';
 import useHighlights from '../hooks/useHighlights';
 import useTags from '../hooks/useTags';
 import api from '../api';
+import { createQuestion } from '../api/questions';
 import { listReturnQueue } from '../api/returnQueue';
 import { getArticles } from '../api/articles';
 import { listAgentHandoffs, listPersonalAgents } from '../api/agent';
@@ -77,10 +78,42 @@ jest.mock('../layout/ThreePaneLayout', () => ({
 
 jest.mock('../components/think/ThinkHome', () => ({
   __esModule: true,
-  default: ({ onCreateFromTemplate }) => (
-    <button type="button" onClick={onCreateFromTemplate}>
-      Use template
-    </button>
+  default: ({ onCreateFromTemplate, onUniversalCommand }) => (
+    <div>
+      <button type="button" onClick={onCreateFromTemplate}>
+        Use template
+      </button>
+      <button
+        type="button"
+        onClick={() => onUniversalCommand?.('What breaks this thesis?', {
+          references: [{
+            type: 'highlight',
+            id: 'highlight-home-1',
+            articleId: 'article-1',
+            title: 'Home highlight',
+            snippet: 'A source staged from Home.'
+          }],
+          sourceContext: 'home_reference_tray',
+          provenancePending: true
+        })}
+      >
+        Home question with reference
+      </button>
+      <button
+        type="button"
+        onClick={() => onUniversalCommand?.('Keep this as a durable note', {
+          references: [{
+            type: 'wiki',
+            id: 'wiki-home-1',
+            title: 'Home wiki'
+          }],
+          sourceContext: 'home_reference_tray',
+          provenancePending: true
+        })}
+      >
+        Home note with reference
+      </button>
+    </div>
   )
 }));
 
@@ -626,6 +659,78 @@ describe('ThinkMode template integration', () => {
     });
 
     expect(screen.getByText('Template Concept')).toBeInTheDocument();
+  });
+
+  it('persists pulled Home references when a Home command creates a question', async () => {
+    useSearchParamsMock.mockReturnValue([
+      new URLSearchParams('tab=home'),
+      mockSetSearchParams
+    ]);
+    createQuestion.mockResolvedValueOnce({
+      _id: 'question-home-1',
+      text: 'What breaks this thesis?',
+      status: 'open'
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/think?tab=home']}>
+        <ThinkMode />
+      </MemoryRouter>
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Home question with reference' }));
+
+    await waitFor(() => expect(createQuestion).toHaveBeenCalledWith(expect.objectContaining({
+      text: 'What breaks this thesis?'
+    })));
+    await waitFor(() => expect(createConnection).toHaveBeenCalledWith({
+      fromType: 'question',
+      fromId: 'question-home-1',
+      toType: 'highlight',
+      toId: 'highlight-home-1',
+      relationType: 'related',
+      scopeType: 'question',
+      scopeId: 'question-home-1'
+    }));
+  });
+
+  it('persists pulled Home references when a Home command creates a note', async () => {
+    useSearchParamsMock.mockReturnValue([
+      new URLSearchParams('tab=home'),
+      mockSetSearchParams
+    ]);
+    api.post.mockResolvedValueOnce({
+      data: {
+        _id: 'note-home-1',
+        title: 'Keep this as a durable note'
+      }
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/think?tab=home']}>
+        <ThinkMode />
+      </MemoryRouter>
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Home note with reference' }));
+
+    await waitFor(() => expect(api.post).toHaveBeenCalledWith(
+      '/api/notebook',
+      expect.objectContaining({
+        title: 'Keep this as a durable note',
+        content: 'Keep this as a durable note'
+      }),
+      expect.any(Object)
+    ));
+    await waitFor(() => expect(createConnection).toHaveBeenCalledWith({
+      fromType: 'notebook',
+      fromId: 'note-home-1',
+      toType: 'wiki_page',
+      toId: 'wiki-home-1',
+      relationType: 'related',
+      scopeType: '',
+      scopeId: ''
+    }));
   });
 
   it('consumes the global pull-reference URL flag on Think surfaces', async () => {

@@ -48,6 +48,7 @@ describe('ThoughtPartnerPanel', () => {
   const originalMatchMedia = window.matchMedia;
 
   beforeEach(() => {
+    window.sessionStorage.clear();
     jest.clearAllMocks();
     listAgentArtifactDrafts.mockResolvedValue({ drafts: [] });
     getAgentHarnessMetrics.mockResolvedValue({ metrics: null });
@@ -62,6 +63,7 @@ describe('ThoughtPartnerPanel', () => {
 
   afterEach(() => {
     window.matchMedia = originalMatchMedia;
+    window.sessionStorage.clear();
   });
 
   it('renders a Think posture switcher when posture options are provided', () => {
@@ -174,7 +176,7 @@ describe('ThoughtPartnerPanel', () => {
   });
 
   it('renders stream thread messages newest first', () => {
-    const { container } = render(
+    render(
       <ThoughtPartnerPanel
         contextType="library"
         contextId="library-root"
@@ -192,7 +194,7 @@ describe('ThoughtPartnerPanel', () => {
       />
     );
 
-    const renderedMessages = [...container.querySelectorAll('.agent-thought-partner__message')]
+    const renderedMessages = screen.getAllByText(/Oldest request\.|Middle plan\.|Newest execute command\./)
       .map((node) => node.textContent);
     expect(renderedMessages[0]).toContain('Newest execute command.');
     expect(renderedMessages[2]).toContain('Oldest request.');

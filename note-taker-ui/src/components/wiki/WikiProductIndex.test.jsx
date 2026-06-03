@@ -55,6 +55,7 @@ const LONG_BODY_PAGE = {
 
 describe('WikiProductIndex', () => {
   beforeEach(() => {
+    window.sessionStorage.clear();
     jest.clearAllMocks();
     listWikiPages.mockResolvedValue(pages);
   });
@@ -181,7 +182,7 @@ describe('WikiProductIndex', () => {
 
     const empty = await screen.findByRole('heading', { name: 'No wiki pages yet' });
     expect(empty).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: /Expand 1 trace history line/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Expand 2 trace history lines/ }));
     expect(screen.getByLabelText('Wiki corpus trace')).toHaveTextContent('wiki corpus empty');
     await waitFor(() => {
       expect(screen.getByLabelText('Wiki corpus trace')).toHaveTextContent('ready to build first page');

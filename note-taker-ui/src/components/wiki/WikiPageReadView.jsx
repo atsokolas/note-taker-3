@@ -1809,6 +1809,8 @@ const WikiPageReadView = ({ pageId, onEdit, workspaceMode = false, refreshNonce 
             className="wiki-read__maintenance-ticker"
             state={maintaining ? 'working' : 'idle'}
             lines={maintenanceTraceLines.length ? maintenanceTraceLines : ['maintenance idle', 'ready to review sources']}
+            sharedMemory
+            surface={page?.title || 'Wiki page'}
           />
           <Button type="button" variant="secondary" onClick={handleMaintain} disabled={maintaining}>
             {maintaining ? 'Running...' : 'Run again'}

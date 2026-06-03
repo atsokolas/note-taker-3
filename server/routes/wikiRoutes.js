@@ -75,6 +75,19 @@ const CREATED_FROM_TYPES = new Set([
 const SOURCE_REF_TYPES = new Set(['article', 'highlight', 'notebook', 'concept', 'question', 'memory', 'external']);
 const SOURCE_REF_ADDED_BY = new Set(['user', 'ai']);
 const INGEST_SOURCE_TYPES = new Set(['article', 'highlight', 'notebook', 'concept', 'question', 'memory', 'external', 'url', 'text']);
+const INVERSE_CONNECTION_RELATION_TYPES = {
+  related: 'referenced_by',
+  referenced_by: 'related',
+  supports: 'supported_by',
+  supported_by: 'supports',
+  contradicts: 'contradicted_by',
+  contradicted_by: 'contradicts',
+  contains: 'contained_by',
+  contained_by: 'contains',
+  shared_source: 'shared_source',
+  needs_review: 'review_needed_by',
+  review_needed_by: 'needs_review'
+};
 
 const emptyDoc = () => ({ type: 'doc', content: [{ type: 'paragraph' }] });
 
@@ -665,6 +678,92 @@ const serializeIngestRun = ({ event, run = null } = {}) => {
   };
 };
 
+const connectionTargetForIngestCandidate = (candidate = {}) => {
+  const targetType = String(candidate.targetType || candidate.target_type || '').trim().toLowerCase();
+  const pageId = serializeId(candidate.pageId || candidate.page_id);
+  const objectId = String(candidate.objectId || candidate.object_id || '').trim();
+  if (targetType === 'wiki_page' && pageId) return { type: 'wiki_page', id: pageId };
+  if (['concept', 'question', 'notebook'].includes(targetType) && objectId) return { type: targetType, id: objectId };
+  return null;
+};
+
+const connectionSourceForIngestEvent = (event = {}) => {
+  const sourceType = SOURCE_REF_TYPES.has(String(event.sourceType || '').trim())
+    ? String(event.sourceType || '').trim()
+    : 'external';
+  const objectId = serializeId(event.sourceObjectId);
+  const fallbackId = serializeId(event._id);
+  if (objectId) return { type: sourceType, id: objectId };
+  if (fallbackId) return { type: 'external', id: fallbackId };
+  return null;
+};
+
+const persistIngestCandidateGraphTrace = async ({
+  Connection,
+  userId,
+  event,
+  candidate
+} = {}) => {
+  if (!Connection || !userId || !event || !candidate) return null;
+  const source = connectionSourceForIngestEvent(event);
+  const target = connectionTargetForIngestCandidate(candidate);
+  if (!source || !target || (source.type === target.type && source.id === target.id)) return null;
+
+  const relationType = 'supports';
+  const reciprocalRelationType = INVERSE_CONNECTION_RELATION_TYPES[relationType] || 'supported_by';
+  const scopeType = target.type === 'question' ? 'question' : '';
+  const scopeId = target.type === 'question' ? target.id : '';
+  const forward = {
+    userId,
+    fromType: source.type,
+    fromId: source.id,
+    toType: target.type,
+    toId: target.id,
+    relationType,
+    scopeType,
+    scopeId
+  };
+  const reciprocal = {
+    userId,
+    fromType: target.type,
+    fromId: target.id,
+    toType: source.type,
+    toId: source.id,
+    relationType: reciprocalRelationType,
+    scopeType,
+    scopeId
+  };
+
+  const save = async (row) => {
+    if (typeof Connection.findOneAndUpdate === 'function') {
+      return Connection.findOneAndUpdate(
+        row,
+        { $setOnInsert: row, $set: { updatedAt: new Date() } },
+        { upsert: true, new: true, setDefaultsOnInsert: true }
+      );
+    }
+    if (typeof Connection.create === 'function') {
+      try {
+        return await Connection.create(row);
+      } catch (error) {
+        if (error?.code !== 11000) throw error;
+      }
+    }
+    return null;
+  };
+
+  const [forwardRow, reciprocalRow] = await Promise.all([save(forward), save(reciprocal)]);
+  return {
+    bidirectional: Boolean(forwardRow && reciprocalRow),
+    relationType,
+    reciprocalRelationType,
+    source,
+    target,
+    forwardId: serializeId(forwardRow?._id),
+    reciprocalId: serializeId(reciprocalRow?._id)
+  };
+};
+
 const activityEventTime = (event = {}) => new Date(event.at || 0).getTime();
 
 const sortActivityEvents = (events = []) => events
@@ -676,7 +775,7 @@ const normalizeSourceRef = (value = {}) => {
     return { error: 'sourceRef payload must be an object.' };
   }
 
-  const type = String(value.type || '').trim();
+  const type = String(value.type || '').trim().toLowerCase();
   if (!SOURCE_REF_TYPES.has(type)) {
     return { error: `type must be one of: ${Array.from(SOURCE_REF_TYPES).join(', ')}.` };
   }
@@ -711,6 +810,40 @@ const normalizeSourceRef = (value = {}) => {
   }
 
   return { value: sourceRef };
+};
+
+const normalizeInitialSourceRefs = ({ initialSourceRef, initialSourceRefs, createdFrom }) => {
+  const rawRefs = [];
+  if (initialSourceRef !== undefined) rawRefs.push(initialSourceRef);
+  if (initialSourceRefs !== undefined) {
+    if (!Array.isArray(initialSourceRefs)) {
+      return { error: 'initialSourceRefs must be an array.' };
+    }
+    rawRefs.push(...initialSourceRefs);
+  }
+  const sourceRefs = [];
+  const seen = new Set();
+  for (const rawRef of rawRefs.slice(0, 8)) {
+    const sourceRef = normalizeSourceRef(rawRef);
+    if (sourceRef?.error) return { error: sourceRef.error };
+    const value = {
+      ...sourceRef.value,
+      objectId: sourceRef.value.objectId
+        || (sourceRef.value.type === createdFrom.type ? createdFrom.objectId : null)
+    };
+    const key = [
+      value.type,
+      value.objectId || '',
+      value.url || '',
+      value.citationLabel || '',
+      value.title || '',
+      value.snippet || ''
+    ].join(':');
+    if (seen.has(key)) continue;
+    seen.add(key);
+    sourceRefs.push(value);
+  }
+  return { value: sourceRefs };
 };
 
 const serializeWikiProposal = (proposal) => {
@@ -1756,12 +1889,14 @@ const buildWikiRouter = ({
       const sourceScope = validateEnumField('sourceScope', req.body?.sourceScope, SOURCE_SCOPES);
       if (pageType?.error) return res.status(400).json({ error: pageType.error });
       if (sourceScope?.error) return res.status(400).json({ error: sourceScope.error });
-      const initialSourceRef = req.body?.initialSourceRef
-        ? normalizeSourceRef(req.body.initialSourceRef)
-        : null;
-      if (initialSourceRef?.error) return res.status(400).json({ error: initialSourceRef.error });
 
       const createdFrom = normalizeCreatedFrom(req.body?.createdFrom);
+      const initialSourceRefs = normalizeInitialSourceRefs({
+        initialSourceRef: req.body?.initialSourceRef,
+        initialSourceRefs: req.body?.initialSourceRefs,
+        createdFrom
+      });
+      if (initialSourceRefs?.error) return res.status(400).json({ error: initialSourceRefs.error });
       const title = normalizeTitle(req.body?.title || createdFrom.label);
       const body = req.body?.body && typeof req.body.body === 'object' && !Array.isArray(req.body.body)
         ? req.body.body
@@ -1777,7 +1912,7 @@ const buildWikiRouter = ({
         createdFrom,
         body,
         plainText: extractPlainText(body),
-        sourceRefs: initialSourceRef?.value ? [initialSourceRef.value] : []
+        sourceRefs: initialSourceRefs.value
       });
       refreshPageClaims(page);
       await page.save();
@@ -2586,17 +2721,30 @@ const buildWikiRouter = ({
       const selectedCandidateIds = new Set(candidateIds);
       const existingCandidates = Array.isArray(metadata.candidateUpdates) ? metadata.candidateUpdates : [];
       const baseStatus = action === 'accept' ? 'accepted' : (action === 'reject' ? 'rejected' : 'deferred');
-      const candidateUpdates = existingCandidates.map((candidate) => {
+      const candidateUpdates = [];
+      for (const candidate of existingCandidates) {
         const candidateId = String(candidate?.id || '').trim();
         const shouldReview = !selectedCandidateIds.size || selectedCandidateIds.has(candidateId);
-        if (!shouldReview) return candidate;
-        return {
+        if (!shouldReview) {
+          candidateUpdates.push(candidate);
+          continue;
+        }
+        const graphTrace = action === 'accept'
+          ? await persistIngestCandidateGraphTrace({
+              Connection,
+              userId: req.user.id,
+              event,
+              candidate
+            })
+          : null;
+        candidateUpdates.push({
           ...candidate,
           status: baseStatus,
           reviewAction: action,
-          reviewedAt
-        };
-      });
+          reviewedAt,
+          ...(graphTrace ? { graphTrace } : {})
+        });
+      }
       const selectedKnownCount = candidateIds.filter(id => (
         existingCandidates.some(candidate => String(candidate?.id || '').trim() === id)
       )).length;

@@ -129,6 +129,8 @@ const WikiProductIndex = () => {
             className="wiki-product-index__ticker"
             state={loading ? 'working' : 'idle'}
             lines={agentTraceLines}
+            sharedMemory
+            surface="Wiki"
           />
         </div>
         <WikiBuildPageComposer compact className="wiki-product-index__builder" />

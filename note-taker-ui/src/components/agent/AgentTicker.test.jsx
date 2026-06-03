@@ -5,9 +5,14 @@ import AgentTicker from './AgentTicker';
 describe('AgentTicker', () => {
   const originalMatchMedia = window.matchMedia;
 
+  beforeEach(() => {
+    window.sessionStorage.clear();
+  });
+
   afterEach(() => {
     jest.useRealTimers();
     window.matchMedia = originalMatchMedia;
+    window.sessionStorage.clear();
   });
 
   it('types the active trace line character by character and expands collapsed history', () => {
@@ -57,5 +62,34 @@ describe('AgentTicker', () => {
     const ticker = screen.getByLabelText('Trace');
     expect(ticker).toHaveAttribute('data-history-count', '0');
     expect(screen.getByRole('button', { name: 'Expand 0 trace history lines' })).toBeDisabled();
+  });
+
+  it('carries recent shared trace memory into the next surface ticker', () => {
+    window.matchMedia = jest.fn().mockReturnValue({ matches: true });
+
+    const { rerender } = render(
+      <AgentTicker
+        label="Home trace"
+        lines={['routing source to wiki']}
+        sharedMemory
+        surface="Home"
+      />
+    );
+
+    rerender(
+      <AgentTicker
+        label="Wiki trace"
+        lines={['reading target page']}
+        sharedMemory
+        surface="Wiki"
+      />
+    );
+
+    const ticker = screen.getByLabelText('Wiki trace');
+    expect(ticker).toHaveAttribute('data-shared-history-count', '1');
+    expect(screen.getByRole('button', { name: 'Expand 1 trace history line' })).not.toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Expand 1 trace history line' }));
+    expect(screen.getByLabelText('Trace history')).toHaveTextContent('Home: routing source to wiki');
+    expect(screen.getByText('reading target page')).toBeInTheDocument();
   });
 });

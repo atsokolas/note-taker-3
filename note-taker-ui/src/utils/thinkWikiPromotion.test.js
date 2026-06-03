@@ -9,11 +9,47 @@ describe('buildThinkWikiPromotionPayload', () => {
         name: 'Margin of Safety',
         description: 'A buffer between price and intrinsic value.'
       },
-      conceptQuestions: [{ text: 'How large should the buffer be?' }]
+      conceptQuestions: [{ text: 'How large should the buffer be?' }],
+      pulledReferences: [
+        {
+          type: 'highlight',
+          id: 'highlight-1',
+          articleId: 'article-1',
+          title: 'Buffett highlight',
+          snippet: 'Margin of safety protects against mistakes.'
+        },
+        {
+          type: 'wiki_page',
+          id: 'wiki-1',
+          title: 'Value investing'
+        }
+      ]
     });
 
     expect(payload.title).toBe('Margin of Safety');
     expect(payload.pageType).toBe('concept');
+    expect(payload.initialSourceRefs).toEqual([
+      {
+        type: 'highlight',
+        objectId: 'highlight-1',
+        parentObjectId: 'article-1',
+        title: 'Buffett highlight',
+        snippet: 'Margin of safety protects against mistakes.',
+        url: '',
+        citationLabel: '',
+        addedBy: 'user'
+      },
+      {
+        type: 'external',
+        objectId: '',
+        parentObjectId: '',
+        title: 'Value investing',
+        snippet: '',
+        url: '',
+        citationLabel: 'wiki:wiki-1',
+        addedBy: 'user'
+      }
+    ]);
     expect(payload.createdFrom).toMatchObject({
       type: 'concept',
       objectId: 'concept-1',
@@ -22,6 +58,8 @@ describe('buildThinkWikiPromotionPayload', () => {
     });
     expect(JSON.stringify(payload.body)).toContain('How large should the buffer be?');
     expect(JSON.stringify(payload.body)).toContain('Promotion Provenance');
+    expect(JSON.stringify(payload.body)).toContain('Pulled References');
+    expect(JSON.stringify(payload.body)).toContain('Buffett highlight');
     expect(JSON.stringify(payload.body)).toContain('concept:concept-1');
     expect(JSON.stringify(payload.body)).toContain('/think?tab=concepts&concept=Margin%20of%20Safety');
     expect(JSON.stringify(payload.body)).toContain('bidirectional graph edge');

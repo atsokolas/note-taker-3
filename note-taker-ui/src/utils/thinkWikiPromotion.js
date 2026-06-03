@@ -48,12 +48,54 @@ const promotionProvenanceSection = ({ sourceType, sourceId, sourceLabel, sourceP
   ].filter(Boolean).join(' ')
 });
 
+const normalizePulledSourceRefs = (references = []) => (
+  Array.isArray(references)
+    ? references
+      .map((reference) => {
+        const type = cleanText(reference?.type || reference?.itemType).toLowerCase();
+        const objectId = cleanText(reference?.id || reference?.itemId || reference?.objectId);
+        if (!type || !objectId) return null;
+        const supportedType = type === 'wiki' || type === 'wiki_page' ? 'external' : type;
+        if (!['article', 'highlight', 'notebook', 'concept', 'question', 'memory', 'external'].includes(supportedType)) return null;
+        const isWikiReference = type === 'wiki' || type === 'wiki_page';
+        return {
+          type: supportedType,
+          objectId: isWikiReference ? '' : objectId,
+          parentObjectId: cleanText(reference?.articleId || reference?.parentObjectId),
+          title: cleanText(reference?.title || reference?.label || reference?.url),
+          snippet: cleanText(reference?.snippet || reference?.description || reference?.text),
+          url: cleanText(reference?.url),
+          citationLabel: isWikiReference ? `wiki:${objectId}` : cleanText(reference?.citationLabel),
+          addedBy: 'user'
+        };
+      })
+      .filter(Boolean)
+      .filter((reference, index, list) => (
+        list.findIndex(item => `${item.type}:${item.objectId || item.url || item.title}` === `${reference.type}:${reference.objectId || reference.url || reference.title}`) === index
+      ))
+      .slice(0, 8)
+    : []
+);
+
+const pulledReferencesSection = (sourceRefs = []) => {
+  if (!sourceRefs.length) return null;
+  return {
+    title: 'Pulled References',
+    text: 'These references were already in the Think workspace when the object graduated, so they travel with the wiki page as source provenance instead of becoming copied text.',
+    items: sourceRefs.map((source) => [
+      source.title || source.objectId || source.type,
+      source.type ? `(${source.type})` : '',
+      source.snippet ? `- ${source.snippet}` : ''
+    ].filter(Boolean).join(' '))
+  };
+};
+
 const buildDoc = ({ title, intro, sections = [] }) => ({
   type: 'doc',
   content: [
     heading(title, 1),
     paragraph(intro),
-    ...sections.flatMap((section) => {
+    ...sections.filter(Boolean).flatMap((section) => {
       const content = [heading(section.title, 2)];
       if (section.text) content.push(paragraph(section.text));
       if (Array.isArray(section.items) && section.items.length) {
@@ -64,7 +106,15 @@ const buildDoc = ({ title, intro, sections = [] }) => ({
   ]
 });
 
-export const buildThinkWikiPromotionPayload = ({ type, concept, question, notebook, conceptQuestions = [] } = {}) => {
+export const buildThinkWikiPromotionPayload = ({
+  type,
+  concept,
+  question,
+  notebook,
+  conceptQuestions = [],
+  pulledReferences = []
+} = {}) => {
+  const initialSourceRefs = normalizePulledSourceRefs(pulledReferences);
   if (type === 'concept' && concept?._id) {
     const title = cleanText(concept.name) || 'Untitled concept';
     const description = cleanText(concept.description);
@@ -78,6 +128,7 @@ export const buildThinkWikiPromotionPayload = ({ type, concept, question, notebo
       title,
       pageType: 'concept',
       sourceScope: 'current_item',
+      initialSourceRefs,
       createdFrom: {
         type: 'concept',
         objectId: concept._id,
@@ -101,6 +152,7 @@ export const buildThinkWikiPromotionPayload = ({ type, concept, question, notebo
               : 'No open questions were attached at promotion time.',
             items: openQuestions
           },
+          pulledReferencesSection(initialSourceRefs),
           promotionProvenanceSection({ sourceType: 'concept', sourceId: concept._id, sourceLabel: title, sourcePath })
         ]
       })
@@ -117,6 +169,7 @@ export const buildThinkWikiPromotionPayload = ({ type, concept, question, notebo
       title,
       pageType: 'question',
       sourceScope: 'current_item',
+      initialSourceRefs,
       createdFrom: {
         type: 'question',
         objectId: question._id,
@@ -143,6 +196,7 @@ export const buildThinkWikiPromotionPayload = ({ type, concept, question, notebo
             title: 'Evidence To Gather',
             text: 'Use wiki maintenance to pull in source-backed evidence, contradictions, and neighboring pages.'
           },
+          pulledReferencesSection(initialSourceRefs),
           promotionProvenanceSection({ sourceType: 'question', sourceId: question._id, sourceLabel: questionText || title, sourcePath })
         ]
       })
@@ -162,6 +216,7 @@ export const buildThinkWikiPromotionPayload = ({ type, concept, question, notebo
       title,
       pageType: 'overview',
       sourceScope: 'current_item',
+      initialSourceRefs,
       createdFrom: {
         type: 'notebook',
         objectId: notebook._id,
@@ -189,6 +244,7 @@ export const buildThinkWikiPromotionPayload = ({ type, concept, question, notebo
             title: 'Questions To Resolve',
             text: 'Use wiki maintenance to separate stable claims, weak evidence, and open questions before treating this page as durable.'
           },
+          pulledReferencesSection(initialSourceRefs),
           promotionProvenanceSection({ sourceType: 'notebook', sourceId: notebook._id, sourceLabel: title, sourcePath })
         ]
       })

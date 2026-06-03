@@ -113,6 +113,7 @@ const run = async () => {
       sourceRefs: [
         { type: 'article', objectId: 'article-1' },
         { type: 'external', objectId: 'external-1' },
+        { type: 'External', url: 'https://example.com/source' },
         { type: 'notebook', objectId: 'note-1' }
       ]
     }
@@ -124,6 +125,10 @@ const run = async () => {
       'wiki_page:page-c->wiki_page:page-a:referenced_by',
       'article:article-1->wiki_page:page-a:supports',
       'wiki_page:page-a->article:article-1:supported_by',
+      'external:external-1->wiki_page:page-a:supports',
+      'wiki_page:page-a->external:external-1:supported_by',
+      'external:https://example.com/source->wiki_page:page-a:supports',
+      'wiki_page:page-a->external:https://example.com/source:supported_by',
       'notebook:note-1->wiki_page:page-a:supports',
       'wiki_page:page-a->notebook:note-1:supported_by'
     ]

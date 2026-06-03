@@ -69,7 +69,11 @@ describe('ThinkHome', () => {
     fireEvent.click(start);
 
     expect(await screen.findByText('Thought partner opened this as a question.')).toBeInTheDocument();
-    expect(onUniversalCommand).toHaveBeenCalledWith('What should I read next?', { references: [] });
+    expect(onUniversalCommand).toHaveBeenCalledWith('What should I read next?', {
+      references: [],
+      sourceContext: '',
+      provenancePending: false
+    });
     expect(input).toHaveValue('');
   });
 
@@ -91,6 +95,7 @@ describe('ThinkHome', () => {
     fireEvent.click(screen.getByRole('button', { name: /Investing thesis/ }));
 
     expect(screen.getByLabelText('Pulled Home references')).toHaveTextContent('Wiki · Investing thesis');
+    expect(screen.getByLabelText('Pending provenance trace')).toHaveTextContent('1 pending provenance trace');
 
     fireEvent.change(screen.getByPlaceholderText('Think, ask, or build...'), {
       target: { value: 'Use this as the starting point' }
@@ -104,7 +109,9 @@ describe('ThinkHome', () => {
           type: 'wiki',
           id: 'wiki-1',
           title: 'Investing thesis'
-        })]
+        })],
+        sourceContext: 'home_reference_tray',
+        provenancePending: true
       }
     ));
   });
@@ -129,6 +136,7 @@ describe('ThinkHome', () => {
     fireEvent.click(screen.getByRole('button', { name: /Margin of safety quote/ }));
 
     expect(screen.getByLabelText('Pulled Home references')).toHaveTextContent('Highlight · Margin of safety quote');
+    expect(screen.getByLabelText('Pending provenance trace')).toHaveTextContent('1 pending provenance trace');
 
     fireEvent.change(screen.getByPlaceholderText('Think, ask, or build...'), {
       target: { value: 'Use the quote to build a page' }
@@ -144,7 +152,9 @@ describe('ThinkHome', () => {
           articleId: 'article-1',
           title: 'Margin of safety quote',
           snippet: 'Price is what you pay, value is what you get.'
-        })]
+        })],
+        sourceContext: 'home_reference_tray',
+        provenancePending: true
       }
     ));
   });
@@ -282,7 +292,9 @@ describe('ThinkHome', () => {
           id: 'article-1',
           title: 'Investor letter',
           snippet: 'Cash-flow valuation notes.'
-        })]
+        })],
+        sourceContext: 'home_reference_tray',
+        provenancePending: true
       }
     ));
     expect(await screen.findByText('Thought partner is feeding this source to Wiki.')).toBeInTheDocument();
@@ -377,7 +389,9 @@ describe('ThinkHome', () => {
           type: 'article',
           id: 'article-1',
           title: 'Interface research'
-        })]
+        })],
+        sourceContext: 'home_reference_tray',
+        provenancePending: true
       }
     ));
     expect(await screen.findByText('Thought partner is feeding this source to Wiki.')).toBeInTheDocument();

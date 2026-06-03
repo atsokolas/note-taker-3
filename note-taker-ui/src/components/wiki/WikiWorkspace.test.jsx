@@ -120,6 +120,7 @@ describe('WikiWorkspace', () => {
     ));
     mockNavigate.mockClear();
     window.localStorage.clear();
+    window.sessionStorage.clear();
     streamChatWithAgent.mockImplementation(async (_payload, handlers = {}) => {
       handlers.onDelta?.('Agent reply.');
       const result = { reply: 'Agent reply.', thread: { threadId: 'thread-1' } };
@@ -186,7 +187,7 @@ describe('WikiWorkspace', () => {
       runId: 'ingest-1',
       summary: 'The agent found 1 wiki page that this source may update.',
       affectedPageIds: ['wiki-1'],
-      reviewStatus: 'partially_deferred',
+      reviewStatus: 'partially_accepted',
       sourceRef: { title: 'Example source', url: 'https://example.com/source' },
       candidateUpdates: [{
         id: 'candidate-wiki-1',
@@ -195,8 +196,13 @@ describe('WikiWorkspace', () => {
         title: 'Investing',
         reason: 'Source overlaps this wiki page.',
         confidence: 'medium',
-        status: 'deferred',
-        provenance: { sourceEventId: 'ingest-1', sourceTitle: 'Candidate source' }
+        status: 'accepted',
+        provenance: { sourceEventId: 'ingest-1', sourceTitle: 'Candidate source' },
+        graphTrace: {
+          bidirectional: true,
+          source: { type: 'external', id: 'ingest-1' },
+          target: { type: 'wiki_page', id: 'wiki-1' }
+        }
       }, {
         id: 'candidate-think-1',
         targetType: 'question',
@@ -749,12 +755,13 @@ describe('WikiWorkspace', () => {
 
     expect(await screen.findByLabelText('Review ingest plan')).toHaveTextContent('Plan status: pending review');
     fireEvent.click(screen.getByLabelText('Select update for What should update?'));
-    fireEvent.click(screen.getByRole('button', { name: 'Defer' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Accept' }));
 
-    await waitFor(() => expect(reviewWikiIngestRun).toHaveBeenCalledWith('ingest-1', 'defer', {
+    await waitFor(() => expect(reviewWikiIngestRun).toHaveBeenCalledWith('ingest-1', 'accept', {
       candidateIds: ['candidate-wiki-1']
     }));
-    expect(await screen.findByLabelText('Review ingest plan')).toHaveTextContent('Plan status: partially deferred');
+    expect(await screen.findByLabelText('Review ingest plan')).toHaveTextContent('Plan status: partially accepted');
+    expect(screen.getAllByText('Linked Candidate source ↔ wiki page')).toHaveLength(2);
   });
 
   it('builds a new wiki page from a no-match source while preserving source provenance', async () => {
@@ -1313,6 +1320,44 @@ describe('WikiWorkspace', () => {
 
     expect(screen.getByLabelText('Wiki workspace message')).toHaveValue('/build research maps');
     expect(mockNavigate).toHaveBeenCalledWith('/wiki/workspace?pane=chat', { replace: true });
+  });
+
+  it('hydrates Home command references into Wiki chat context', async () => {
+    window.sessionStorage.setItem('noeis.homeCommand.pendingReferences', JSON.stringify([{
+      itemType: 'article',
+      itemId: 'article-1',
+      title: 'Source memo',
+      url: 'https://example.com'
+    }]));
+
+    renderWorkspace('/wiki/workspace?pane=chat&homeCommand=build%20a%20page%20about%20research%20maps');
+    await settleWorkspaceEffects();
+
+    expect(await screen.findByLabelText('In context')).toHaveTextContent('@article:Source memo');
+    expect(window.sessionStorage.getItem('noeis.homeCommand.pendingReferences')).toBeNull();
+
+    fireEvent.change(screen.getByLabelText('Wiki workspace message'), {
+      target: { value: 'What does this source change?' }
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+
+    await waitFor(() => expect(streamChatWithAgent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: 'What does this source change?',
+        context: expect.objectContaining({
+          references: [expect.objectContaining({
+            type: 'article',
+            id: 'article-1',
+            title: 'Source memo',
+            url: 'https://example.com'
+          })],
+          metadata: expect.objectContaining({
+            contextReferences: [expect.objectContaining({ type: 'article', id: 'article-1' })]
+          })
+        })
+      }),
+      expect.any(Object)
+    ));
   });
 
   it('auto-runs home source ingest handoffs so the source ripple is visible', async () => {

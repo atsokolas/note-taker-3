@@ -88,6 +88,12 @@ const normalizeReferenceItem = (item = {}) => {
   };
 };
 
+const buildHomeCommandContext = (references = []) => ({
+  references,
+  sourceContext: references.length > 0 ? 'home_reference_tray' : '',
+  provenancePending: references.length > 0
+});
+
 const POSTURE_META = {
   notebook: {
     label: 'Quiet',
@@ -668,7 +674,7 @@ const ThinkHome = ({
     setCommandStatus(`${AGENT_DISPLAY_NAME} is routing this…`);
     try {
       const status = typeof onUniversalCommand === 'function'
-        ? await onUniversalCommand(text, { references: pulledReferences })
+        ? await onUniversalCommand(text, buildHomeCommandContext(pulledReferences))
         : '';
       setCommandStatus(status || `${AGENT_DISPLAY_NAME} opened the right workspace.`);
       setCommandDraft('');
@@ -702,7 +708,7 @@ const ThinkHome = ({
         setCommandStatus(`${AGENT_DISPLAY_NAME} is metabolizing "${article?.title || 'latest source'}"...`);
         try {
           const status = await onUniversalCommand(command, {
-            references: articleReference ? [articleReference] : []
+            ...buildHomeCommandContext(articleReference ? [articleReference] : [])
           });
           setCommandStatus(status || `${AGENT_DISPLAY_NAME} sent the source to Wiki.`);
         } catch (error) {
@@ -777,7 +783,7 @@ const ThinkHome = ({
         title: sourceTitle,
         snippet: highlight.text || article.summary || article.description || sourceUrl
       });
-      const status = await onUniversalCommand(command, { references: reference ? [reference] : [] });
+      const status = await onUniversalCommand(command, buildHomeCommandContext(reference ? [reference] : []));
       setCommandStatus(status || `${AGENT_DISPLAY_NAME} sent this source to Wiki.`);
     } catch (error) {
       setCommandStatus(error?.message || `${AGENT_DISPLAY_NAME} could not metabolize that pulse row yet.`);
@@ -885,6 +891,9 @@ const ThinkHome = ({
                 <span aria-hidden="true">×</span>
               </button>
             ))}
+            <em aria-label="Pending provenance trace">
+              {pulledReferences.length} pending provenance trace{pulledReferences.length === 1 ? '' : 's'}
+            </em>
           </div>
         ) : null}
       </section>
@@ -895,6 +904,8 @@ const ThinkHome = ({
         label={`${AGENT_DISPLAY_NAME} home trace`}
         state={commandBusy ? 'working' : 'idle'}
         lines={tickerLines}
+        sharedMemory
+        surface="Home"
       />
 
       <LivingPulse

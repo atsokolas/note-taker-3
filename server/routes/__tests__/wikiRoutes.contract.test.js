@@ -655,7 +655,117 @@ const run = async () => {
     assert.strictEqual(created.body.visibility, 'private');
     assert.strictEqual(created.body.pageType, 'question');
     assert.strictEqual(created.body.sourceRefs.length, 1);
+    assert.strictEqual(created.body.sourceRefs[0].objectId, created.body.createdFrom.objectId);
     assert.deepStrictEqual(created.body.aiState.suggestions, []);
+    assert.ok(Connection.records.some(record => (
+      record.fromType === 'highlight'
+      && String(record.fromId) === String(created.body.createdFrom.objectId)
+      && record.toType === 'wiki_page'
+      && String(record.toId) === String(created.body._id)
+      && record.relationType === 'supports'
+    )));
+    assert.ok(Connection.records.some(record => (
+      record.fromType === 'wiki_page'
+      && String(record.fromId) === String(created.body._id)
+      && record.toType === 'highlight'
+      && String(record.toId) === String(created.body.createdFrom.objectId)
+      && record.relationType === 'supported_by'
+    )));
+
+    const externalPage = await request(url, '/api/wiki/pages', {
+      method: 'POST',
+      body: JSON.stringify({
+        title: 'External Ingest Page',
+        pageType: 'topic',
+        sourceScope: 'selected_sources',
+        createdFrom: {
+          type: 'external',
+          objectId: 'ingest-run-source',
+          label: 'External source'
+        },
+        initialSourceRef: {
+          type: 'external',
+          title: 'Outside source',
+          url: 'https://example.com/source',
+          citationLabel: 'ingest:run-source'
+        }
+      })
+    });
+    assert.strictEqual(externalPage.res.status, 201, externalPage.text);
+    assert.strictEqual(externalPage.body.sourceRefs.length, 1);
+    assert.strictEqual(externalPage.body.sourceRefs[0].url, 'https://example.com/source');
+    assert.ok(Connection.records.some(record => (
+      record.fromType === 'external'
+      && String(record.fromId) === 'https://example.com/source'
+      && record.toType === 'wiki_page'
+      && String(record.toId) === String(externalPage.body._id)
+      && record.relationType === 'supports'
+    )));
+    assert.ok(Connection.records.some(record => (
+      record.fromType === 'wiki_page'
+      && String(record.fromId) === String(externalPage.body._id)
+      && record.toType === 'external'
+      && String(record.toId) === 'https://example.com/source'
+      && record.relationType === 'supported_by'
+    )));
+
+    const pulledHighlightId = new mongoose.Types.ObjectId().toString();
+    const pulledArticleId = new mongoose.Types.ObjectId().toString();
+    const multiSourcePage = await request(url, '/api/wiki/pages', {
+      method: 'POST',
+      body: JSON.stringify({
+        title: 'Promoted Think Page',
+        pageType: 'overview',
+        sourceScope: 'current_item',
+        createdFrom: {
+          type: 'question',
+          objectId: new mongoose.Types.ObjectId().toString(),
+          text: 'Promoted question with pulled references.',
+          label: 'Think question'
+        },
+        initialSourceRefs: [
+          {
+            type: 'Highlight',
+            objectId: pulledHighlightId,
+            parentObjectId: pulledArticleId,
+            title: 'Pulled highlight',
+            snippet: 'This was pulled into the Think workspace before promotion.'
+          },
+          {
+            type: 'external',
+            title: 'External pulled note',
+            url: 'https://example.com/pulled-reference'
+          }
+        ]
+      })
+    });
+    assert.strictEqual(multiSourcePage.res.status, 201, multiSourcePage.text);
+    assert.strictEqual(multiSourcePage.body.sourceRefs.length, 2);
+    assert.deepStrictEqual(
+      multiSourcePage.body.sourceRefs.map(source => source.type),
+      ['highlight', 'external']
+    );
+    assert.ok(Connection.records.some(record => (
+      record.fromType === 'highlight'
+      && String(record.fromId) === pulledHighlightId
+      && record.toType === 'wiki_page'
+      && String(record.toId) === String(multiSourcePage.body._id)
+      && record.relationType === 'supports'
+    )));
+    assert.ok(Connection.records.some(record => (
+      record.fromType === 'external'
+      && String(record.fromId) === 'https://example.com/pulled-reference'
+      && record.toType === 'wiki_page'
+      && String(record.toId) === String(multiSourcePage.body._id)
+      && record.relationType === 'supports'
+    )));
+    assert.ok(Connection.records.some(record => (
+      record.fromType === 'wiki_page'
+      && String(record.fromId) === String(multiSourcePage.body._id)
+      && record.toType === 'highlight'
+      && String(record.toId) === pulledHighlightId
+      && record.relationType === 'supported_by'
+    )));
 
     const hygieneCreated = await request(url, '/api/wiki/pages', {
       method: 'POST',
@@ -1111,6 +1221,69 @@ const run = async () => {
       candidate.pageId === String(created.body._id)
       && candidate.status === 'deferred'
       && candidate.reviewAction === 'defer'
+    )));
+    assert.ok(!Connection.records.some(record => (
+      record.fromType === 'external'
+      && String(record.fromId) === ingest.body.runId
+      && record.toType === 'wiki_page'
+      && String(record.toId) === String(created.body._id)
+    )));
+
+    const acceptedIngest = await request(url, '/api/wiki/ingest', {
+      method: 'POST',
+      body: JSON.stringify({
+        source: {
+          type: 'text',
+          text: 'Investing pages need accepted ingest traces that connect source events to wiki pages.',
+          url: 'https://example.com/accepted-ingest-source'
+        }
+      })
+    });
+    assert.strictEqual(acceptedIngest.res.status, 202, acceptedIngest.text);
+    const acceptedWikiCandidate = acceptedIngest.body.candidateUpdates.find(candidate => (
+      candidate.targetType === 'wiki_page'
+      && candidate.pageId === String(created.body._id)
+    ));
+    assert.ok(acceptedWikiCandidate);
+
+    const acceptedReview = await request(url, `/api/wiki/ingest/${acceptedIngest.body.runId}/review`, {
+      method: 'POST',
+      body: JSON.stringify({
+        action: 'accept',
+        note: 'Keep this source attached to the page graph.',
+        candidateIds: [acceptedWikiCandidate.id]
+      })
+    });
+    assert.strictEqual(acceptedReview.res.status, 200, acceptedReview.text);
+    assert.strictEqual(acceptedReview.body.reviewStatus, 'partially_accepted');
+    const acceptedReviewedCandidate = acceptedReview.body.candidateUpdates.find(candidate => (
+      candidate.pageId === String(created.body._id)
+      && candidate.status === 'accepted'
+      && candidate.reviewAction === 'accept'
+    ));
+    assert.ok(acceptedReviewedCandidate);
+    assert.strictEqual(acceptedReviewedCandidate.graphTrace.bidirectional, true);
+    assert.deepStrictEqual(acceptedReviewedCandidate.graphTrace.source, {
+      type: 'external',
+      id: acceptedIngest.body.runId
+    });
+    assert.deepStrictEqual(acceptedReviewedCandidate.graphTrace.target, {
+      type: 'wiki_page',
+      id: String(created.body._id)
+    });
+    assert.ok(Connection.records.some(record => (
+      record.fromType === 'external'
+      && String(record.fromId) === acceptedIngest.body.runId
+      && record.toType === 'wiki_page'
+      && String(record.toId) === String(created.body._id)
+      && record.relationType === 'supports'
+    )));
+    assert.ok(Connection.records.some(record => (
+      record.fromType === 'wiki_page'
+      && String(record.fromId) === String(created.body._id)
+      && record.toType === 'external'
+      && String(record.toId) === acceptedIngest.body.runId
+      && record.relationType === 'supported_by'
     )));
 
     const asked = await request(url, `/api/wiki/pages/${created.body._id}/ask`, {

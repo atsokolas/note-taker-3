@@ -152,6 +152,7 @@ describe('WikiPageReadView', () => {
     window.HTMLElement.prototype.scrollIntoView = jest.fn();
     window.matchMedia = jest.fn().mockReturnValue({ matches: false });
     window.localStorage.clear();
+    window.sessionStorage.clear();
   });
 
   afterEach(() => {
@@ -161,6 +162,7 @@ describe('WikiPageReadView', () => {
     else process.env.REACT_APP_WIKI_WORKSPACE_V1 = originalWorkspaceFlag;
     window.HTMLElement.prototype.scrollIntoView = originalScrollIntoView;
     window.matchMedia = originalMatchMedia;
+    window.sessionStorage.clear();
     window.history.pushState({}, '', '/');
   });
 
@@ -1219,7 +1221,7 @@ describe('WikiPageReadView', () => {
     await waitFor(() => {
       expect(trace).toHaveTextContent('reading sources and claims');
     });
-    fireEvent.click(within(trace).getByRole('button', { name: /Expand 1 trace history line/ }));
+    fireEvent.click(within(trace).getByRole('button', { name: /Expand 2 trace history lines/ }));
     expect(within(trace).getByRole('list', { name: 'Trace history' })).toHaveTextContent('checking @wiki:wiki-1');
     await act(async () => {
       resolveMaintenance(reviewedPage);

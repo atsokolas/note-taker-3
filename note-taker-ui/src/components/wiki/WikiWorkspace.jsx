@@ -42,6 +42,7 @@ import {
 const LAST_PAGE_KEY = 'noeis.wiki.workspace.last_page_id';
 const CHAT_WIDTH_KEY = 'noeis.wiki.workspace.chat_width';
 const FIRST_VISIT_SEEN_KEY = 'noeis.wiki.first_visit_seen';
+const HOME_COMMAND_REFERENCES_STORAGE_KEY = 'noeis.homeCommand.pendingReferences';
 const DEFAULT_CHAT_WIDTH = 260;
 const LEGACY_DEFAULT_CHAT_WIDTH = 380;
 const MIN_CHAT_WIDTH = 260;
@@ -281,6 +282,36 @@ const mergeContextReferences = (current = [], additions = []) => {
   return Array.from(byKey.values());
 };
 
+const normalizeHomeCommandReference = (reference = {}) => {
+  const rawType = clean(reference.itemType || reference.type).toLowerCase();
+  const id = clean(reference.itemId || reference.id || reference._id);
+  if (!rawType || !id) return null;
+  const type = rawType === 'wiki_page' ? 'wiki' : rawType;
+  const title = clean(reference.title || reference.label || reference.url || reference.snippet);
+  return {
+    key: referenceKey(type, id),
+    type,
+    id,
+    title,
+    url: clean(reference.url),
+    articleId: clean(reference.articleId || reference.metadata?.articleId),
+    label: labelForReference({ type, id, title })
+  };
+};
+
+const consumeHomeCommandReferences = () => {
+  try {
+    const raw = sessionStorage.getItem(HOME_COMMAND_REFERENCES_STORAGE_KEY);
+    sessionStorage.removeItem(HOME_COMMAND_REFERENCES_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return mergeContextReferences([], parsed.map(normalizeHomeCommandReference).filter(Boolean));
+  } catch (error) {
+    return [];
+  }
+};
+
 const referencesFromText = (text = '', { pages = [], articles = [], highlights = [] } = {}) => {
   const references = [];
   const pageById = new Map((pages || []).map(page => [clean(page?._id || page?.id), page]));
@@ -467,7 +498,8 @@ const ingestCandidateRows = (run = {}, pages = []) => {
         status: clean(row.status) || clean(run.status),
         targetType: clean(row.targetType || row.target_type),
         objectId: clean(row.objectId || row.object_id),
-        provenance: row.provenance && typeof row.provenance === 'object' ? row.provenance : null
+        provenance: row.provenance && typeof row.provenance === 'object' ? row.provenance : null,
+        graphTrace: row.graphTrace && typeof row.graphTrace === 'object' ? row.graphTrace : null
       };
     });
   }
@@ -522,6 +554,23 @@ const ingestCandidateDestination = (row = {}) => {
 const ingestCandidateProvenanceLabel = (row = {}, source = {}) => {
   const candidateSource = clean(row.provenance?.sourceTitle || row.sourceTitle);
   return candidateSource || sourceTitle(source);
+};
+
+const graphTraceTargetLabel = (trace = {}, row = {}) => {
+  const target = trace.target || {};
+  const targetType = clean(target.type || row.targetType);
+  if (targetType === 'wiki_page') return 'wiki page';
+  if (targetType === 'question') return 'question';
+  if (targetType === 'concept') return 'concept';
+  if (targetType === 'notebook') return 'notebook';
+  return targetType ? targetType.replace(/_/g, ' ') : 'target';
+};
+
+const ingestCandidateGraphTraceLabel = (row = {}, source = {}) => {
+  const trace = row.graphTrace || {};
+  if (!trace.bidirectional) return '';
+  const sourceLabel = ingestCandidateProvenanceLabel(row, source);
+  return `Linked ${sourceLabel} ↔ ${graphTraceTargetLabel(trace, row)}`;
 };
 
 const ingestRunReceipts = (run = {}) => {
@@ -1086,7 +1135,7 @@ const WikiWorkspaceVisitCard = ({ notice = {}, onNavigate, onReviewed }) => {
   );
 };
 
-const WikiIngestResultCard = ({ run = {}, pages = [], onNavigate, onBuildFromSource }) => {
+const WikiIngestResultCard = ({ run = {}, pages = [], onNavigate, onBuildFromSource, onReviewUpdate }) => {
   const [currentRun, setCurrentRun] = useState(run);
   const [reviewBusy, setReviewBusy] = useState('');
   const [reviewError, setReviewError] = useState('');
@@ -1125,6 +1174,7 @@ const WikiIngestResultCard = ({ run = {}, pages = [], onNavigate, onBuildFromSou
     try {
       const updated = await reviewWikiIngestRun(runId, action, { candidateIds });
       setCurrentRun(updated || currentRun);
+      if (updated) onReviewUpdate?.(updated);
     } catch (error) {
       setReviewError(error?.response?.data?.error || 'Failed to review this ingest plan.');
     } finally {
@@ -1144,6 +1194,7 @@ const WikiIngestResultCard = ({ run = {}, pages = [], onNavigate, onBuildFromSou
           <ol>
             {candidateRows.slice(0, 6).map((row) => {
               const destination = ingestCandidateDestination(row);
+              const graphTraceLabel = ingestCandidateGraphTraceLabel(row, source);
               return (
                 <li key={row.id}>
                   <label className="wiki-workspace-ingest-card__candidate-check">
@@ -1159,6 +1210,9 @@ const WikiIngestResultCard = ({ run = {}, pages = [], onNavigate, onBuildFromSou
                     <strong>{row.title}</strong>
                     <p>{row.reason}</p>
                     <small>{row.confidence} · provenance: {ingestCandidateProvenanceLabel(row, source)}</small>
+                    {graphTraceLabel ? (
+                      <span className="wiki-workspace-ingest-card__trace">{graphTraceLabel}</span>
+                    ) : null}
                   </div>
                   {destination?.type === 'wiki' ? (
                     <button type="button" onClick={() => onNavigate?.(destination.onNavigate)}>
@@ -1229,6 +1283,7 @@ const WikiIngestRippleStrip = ({ run = {}, pages = [], onNavigate }) => {
         <ol>
           {candidateRows.slice(0, 3).map((row) => {
             const destination = ingestCandidateDestination(row);
+            const graphTraceLabel = ingestCandidateGraphTraceLabel(row, source);
             return (
               <li key={row.id}>
                 {destination?.type === 'wiki' ? (
@@ -1240,6 +1295,9 @@ const WikiIngestRippleStrip = ({ run = {}, pages = [], onNavigate }) => {
                 ) : (
                   <span>{row.title}</span>
                 )}
+                {graphTraceLabel ? (
+                  <small className="wiki-workspace-ripple-strip__trace">{graphTraceLabel}</small>
+                ) : null}
               </li>
             );
           })}
@@ -1442,6 +1500,7 @@ const WikiWorkspaceChat = ({
   onPageChanged,
   onLiveUpdate,
   onIngestRun,
+  onIngestRunReviewed,
   busy,
   setBusy,
   chatDraft,
@@ -1486,6 +1545,10 @@ const WikiWorkspaceChat = ({
   useEffect(() => {
     if (!chatDraft?.text) return;
     setInput(chatDraft.text);
+    if (Array.isArray(chatDraft.references) && chatDraft.references.length > 0) {
+      setContextReferences(current => mergeContextReferences(current, chatDraft.references));
+      setReferenceHintSeen(true);
+    }
   }, [chatDraft]);
 
   useEffect(() => () => {
@@ -2282,6 +2345,8 @@ const WikiWorkspaceChat = ({
           label={`${AGENT_DISPLAY_NAME} trace`}
           state={busy ? 'working' : agentStatus.status}
           lines={tickerLines}
+          sharedMemory
+          surface="Wiki"
         />
         {contextReferences.length ? (
           <div className="wiki-workspace-chat__context" aria-label="In context">
@@ -2487,6 +2552,7 @@ const WikiWorkspaceChat = ({
                 pages={wikiPages}
                 onNavigate={onNavigate}
                 onBuildFromSource={buildPageFromIngestRun}
+                onReviewUpdate={onIngestRunReviewed}
               />
             ) : null}
           </article>
@@ -2590,7 +2656,12 @@ const WikiWorkspace = () => {
   }, [syncPaneParam]);
 
   const openChatWithDraft = useCallback((text, idPrefix = 'workspace-chat-draft', options = {}) => {
-    setChatDraft({ id: `${idPrefix}-${Date.now()}`, text, autoRun: Boolean(options.autoRun) });
+    setChatDraft({
+      id: `${idPrefix}-${Date.now()}`,
+      text,
+      autoRun: Boolean(options.autoRun),
+      references: Array.isArray(options.references) ? options.references : []
+    });
     showPane('chat', { persist: true });
   }, [showPane]);
 
@@ -2598,7 +2669,10 @@ const WikiWorkspace = () => {
     const homeCommand = clean(params.get('homeCommand'));
     if (!homeCommand) return;
     const draft = homeCommandDraft(homeCommand);
-    openChatWithDraft(draft, 'home-command', { autoRun: shouldAutoRunHomeCommand(homeCommand) });
+    openChatWithDraft(draft, 'home-command', {
+      autoRun: shouldAutoRunHomeCommand(homeCommand),
+      references: consumeHomeCommandReferences()
+    });
     const nextParams = new URLSearchParams(currentSearchRef.current || currentSearch || location.search || '');
     nextParams.delete('homeCommand');
     nextParams.set('pane', 'chat');
@@ -2695,6 +2769,13 @@ const WikiWorkspace = () => {
 
   const onIngestRun = useCallback((run = {}) => {
     setLastIngestRun(run);
+  }, []);
+
+  const onIngestRunReviewed = useCallback((run = {}) => {
+    setLastIngestRun({
+      ...run,
+      candidateUpdates: ingestCandidateRows(run, [])
+    });
   }, []);
 
   const useSourceInChat = useCallback((article = {}) => {
@@ -2928,6 +3009,7 @@ const WikiWorkspace = () => {
           onPageChanged={onPageChanged}
           onLiveUpdate={onLiveUpdate}
           onIngestRun={onIngestRun}
+          onIngestRunReviewed={onIngestRunReviewed}
           busy={busy}
           setBusy={setBusy}
           chatDraft={chatDraft}

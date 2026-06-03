@@ -1730,6 +1730,8 @@ const ThoughtPartnerPanel = ({
         label={`${AGENT_DISPLAY_NAME} computation trace`}
         lines={tickerLines}
         state={tickerState}
+        sharedMemory
+        surface={contextTitle || contextType || 'Thought partner'}
       />
       {isPassiveNotebookPosture ? (
         <p className="agent-thought-partner__passive-status" data-testid="thought-partner-passive-status">

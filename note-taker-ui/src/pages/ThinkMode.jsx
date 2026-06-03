@@ -106,11 +106,48 @@ const THINK_RIGHT_STORAGE_KEY = 'workspace-right-open:/think';
 const THINK_RIGHT_MIGRATION_KEY = 'workspace-right-open:/think:migrated-v2';
 const THINK_RECENTS_STORAGE_KEY = 'think.recent.targets';
 const THINK_INDEX_GROUPS_STORAGE_KEY = 'think.index.groups.collapsed';
+const HOME_COMMAND_REFERENCES_STORAGE_KEY = 'noeis.homeCommand.pendingReferences';
 const THINK_CONCEPT_ROW_HEIGHT = 46;
 const THINK_QUESTION_ROW_HEIGHT = 60;
 const THINK_HOME_LIMIT = 6;
 const CONCEPT_COMPOSER_DEFAULT_STATE = { message: '', tone: 'success' };
 const cleanText = (value = '') => String(value || '').trim();
+
+const normalizeHomeReferenceConnectionType = (type = '') => {
+  const candidate = cleanText(type).toLowerCase();
+  if (candidate === 'wiki') return 'wiki_page';
+  if (candidate === 'note' || candidate === 'notebook_entry') return 'notebook';
+  return candidate;
+};
+
+const normalizeHomeCommandReferences = (references = []) => (
+  Array.isArray(references)
+    ? references
+      .map((reference) => ({
+        itemType: normalizeHomeReferenceConnectionType(reference?.itemType || reference?.type),
+        itemId: cleanText(reference?.itemId || reference?.id || reference?._id),
+        title: cleanText(reference?.title || reference?.label),
+        articleId: cleanText(reference?.articleId || reference?.metadata?.articleId),
+        snippet: cleanText(reference?.snippet || reference?.text || reference?.description)
+      }))
+      .filter(reference => reference.itemType && reference.itemId)
+      .slice(0, 8)
+    : []
+);
+
+const persistHomeCommandReferences = (references = []) => {
+  const normalizedReferences = normalizeHomeCommandReferences(references);
+  try {
+    if (normalizedReferences.length > 0) {
+      sessionStorage.setItem(HOME_COMMAND_REFERENCES_STORAGE_KEY, JSON.stringify(normalizedReferences));
+    } else {
+      sessionStorage.removeItem(HOME_COMMAND_REFERENCES_STORAGE_KEY);
+    }
+  } catch (error) {
+    // Best-effort handoff only; route still works without session storage.
+  }
+  return normalizedReferences;
+};
 const pulledReferenceKey = (item = {}) => `${cleanText(item.itemType || item.type)}:${cleanText(item.itemId || item.id)}`;
 const pulledReferenceRelatedItem = (item = {}) => ({
   type: cleanText(item.itemType || item.type),
@@ -2387,10 +2424,48 @@ const ThinkMode = () => {
     }
   };
 
-  const handleHomeUniversalCommand = useCallback(async (rawText = '') => {
+  const linkHomeCommandReferences = useCallback(async ({
+    targetType = '',
+    targetId = '',
+    references = []
+  } = {}) => {
+    const safeTargetType = normalizeHomeReferenceConnectionType(targetType);
+    const safeTargetId = cleanText(targetId);
+    const normalizedReferences = normalizeHomeCommandReferences(references);
+    if (!safeTargetType || !safeTargetId || normalizedReferences.length === 0) {
+      return { linked: 0, attempted: normalizedReferences.length };
+    }
+
+    let linked = 0;
+    for (const reference of normalizedReferences) {
+      try {
+        await createConnection({
+          fromType: safeTargetType,
+          fromId: safeTargetId,
+          toType: reference.itemType,
+          toId: reference.itemId,
+          relationType: 'related',
+          scopeType: safeTargetType === 'question' ? 'question' : '',
+          scopeId: safeTargetType === 'question' ? safeTargetId : ''
+        });
+        linked += 1;
+      } catch (error) {
+        if (error?.response?.status === 409) {
+          linked += 1;
+          continue;
+        }
+        throw error;
+      }
+    }
+
+    return { linked, attempted: normalizedReferences.length };
+  }, []);
+
+  const handleHomeUniversalCommand = useCallback(async (rawText = '', commandContext = {}) => {
     const intent = classifyHomeUniversalCommand(rawText);
     const text = cleanText(intent.text || rawText);
     if (!text) return '';
+    const commandReferences = normalizeHomeCommandReferences(commandContext?.references);
     const title = text.length > 90 ? `${text.slice(0, 87)}...` : text;
 
     if (intent.kind === 'think-home') {
@@ -2405,6 +2480,7 @@ const ThinkMode = () => {
       } catch (error) {
         // Best-effort handoff only; route still works without session storage.
       }
+      persistHomeCommandReferences(commandReferences);
       window.location.href = `/wiki/workspace?pane=chat&homeCommand=${encodeURIComponent(ingestCommand)}`;
       return `${AGENT_DISPLAY_NAME} is feeding this source to Wiki.`;
     }
@@ -2415,6 +2491,7 @@ const ThinkMode = () => {
       } catch (error) {
         // Best-effort handoff only; route still works without session storage.
       }
+      persistHomeCommandReferences(commandReferences);
       window.location.href = `/wiki/workspace?pane=chat&homeCommand=${encodeURIComponent(text)}`;
       return `${AGENT_DISPLAY_NAME} is sending this to Wiki.`;
     }
@@ -2425,6 +2502,7 @@ const ThinkMode = () => {
       } catch (error) {
         // Best-effort handoff only; route still works without session storage.
       }
+      persistHomeCommandReferences(commandReferences);
       window.location.href = `/wiki/workspace?view=graph&query=${encodeURIComponent(text)}`;
       return `${AGENT_DISPLAY_NAME} is opening the corpus map.`;
     }
@@ -2446,8 +2524,15 @@ const ThinkMode = () => {
         setAllQuestions(prev => [created, ...prev]);
         setActiveQuestionId(created._id);
         setActiveQuestion(created);
+        const linkResult = await linkHomeCommandReferences({
+          targetType: 'question',
+          targetId: created._id,
+          references: commandReferences
+        });
         handleSelectView('questions');
-        return `${AGENT_DISPLAY_NAME} opened this as a question.`;
+        return linkResult.linked > 0
+          ? `${AGENT_DISPLAY_NAME} opened this as a question with ${linkResult.linked} provenance trace${linkResult.linked === 1 ? '' : 's'}.`
+          : `${AGENT_DISPLAY_NAME} opened this as a question.`;
       } catch (err) {
         const message = err.response?.data?.error || 'Failed to create question.';
         setQuestionError(message);
@@ -2464,17 +2549,24 @@ const ThinkMode = () => {
     }
 
     try {
-      await createNotebookEntry({
+      const created = await createNotebookEntry({
         title,
         content: text,
         blocks: [{ id: createBlockId(), type: 'paragraph', text }]
       });
-      return `${AGENT_DISPLAY_NAME} saved this as a note.`;
+      const linkResult = await linkHomeCommandReferences({
+        targetType: 'notebook',
+        targetId: created?._id,
+        references: commandReferences
+      });
+      return linkResult.linked > 0
+        ? `${AGENT_DISPLAY_NAME} saved this as a note with ${linkResult.linked} provenance trace${linkResult.linked === 1 ? '' : 's'}.`
+        : `${AGENT_DISPLAY_NAME} saved this as a note.`;
     } catch (err) {
       const message = err.response?.data?.error || 'Failed to create note.';
       throw new Error(message);
     }
-  }, [createNotebookEntry, handleSelectView, openConceptComposer, setAllQuestions]);
+  }, [createNotebookEntry, handleSelectView, linkHomeCommandReferences, openConceptComposer, setAllQuestions]);
 
   const handleSaveQuestion = async (payload) => {
     if (!payload?._id) return;
@@ -3823,7 +3915,8 @@ const ThinkMode = () => {
         concept,
         question: activeQuestionData,
         notebook: activeNotebookEntry,
-        conceptQuestions
+        conceptQuestions,
+        pulledReferences: pulledThinkReferences
       });
       if (!payload) throw new Error('Nothing to promote yet.');
       const created = await createWikiPage(payload);
@@ -3865,7 +3958,7 @@ const ThinkMode = () => {
       return;
     }
     setWikiPromotionState({ busyTarget: '', error: '', phase: '' });
-  }, [activeNotebookEntry, activeQuestionData, concept, conceptQuestions, navigate]);
+  }, [activeNotebookEntry, activeQuestionData, concept, conceptQuestions, navigate, pulledThinkReferences]);
   const conceptWikiPromotionTarget = concept?._id ? `concept:${concept._id}` : '';
   const notebookWikiPromotionTarget = activeNotebookEntry?._id ? `notebook:${activeNotebookEntry._id}` : '';
   const questionWikiPromotionTarget = activeQuestionData?._id ? `question:${activeQuestionData._id}` : '';

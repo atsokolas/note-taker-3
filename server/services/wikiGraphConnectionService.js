@@ -1,6 +1,6 @@
 const WIKI_PAGE_ITEM_TYPE = 'wiki_page';
 const WIKI_CLAIM_ITEM_TYPE = 'wiki_claim';
-const SOURCE_CONNECTION_TYPES = new Set(['article', 'highlight', 'notebook', 'concept', 'question']);
+const SOURCE_CONNECTION_TYPES = new Set(['article', 'highlight', 'notebook', 'concept', 'question', 'external']);
 const INVERSE_RELATION_TYPES = {
   related: 'referenced_by',
   referenced_by: 'related',
@@ -57,11 +57,23 @@ const isUsableConnectionRow = (row) => (
   && !(row.fromType === row.toType && row.fromId === row.toId)
 );
 
-const sourceKey = (source = {}) => `${normalizeId(source.type)}:${normalizeId(source.objectId)}`;
+const sourceConnectionId = (source = {}) => {
+  const sourceType = normalizeId(source?.type).toLowerCase();
+  const objectId = normalizeId(source?.objectId);
+  if (objectId) return objectId;
+  if (sourceType !== 'external') return '';
+  return normalizeId(source?.url || source?.citationLabel || source?._id || source?.id || source?.title);
+};
+
+const sourceKey = (source = {}) => {
+  const sourceType = normalizeId(source?.type).toLowerCase();
+  const sourceObjectId = sourceConnectionId(source);
+  return `${sourceType}:${sourceObjectId}`;
+};
 
 const wikiPageSourceKey = (source = {}) => {
   const sourceType = normalizeId(source.type).toLowerCase();
-  const sourceObjectId = normalizeId(source.objectId);
+  const sourceObjectId = sourceConnectionId(source);
   if (sourceType && sourceObjectId) return `${sourceType}:${sourceObjectId}`;
   const fallback = normalizeId(source.url || source._id || source.id || source.title).toLowerCase();
   return fallback ? `source:${fallback}` : '';
@@ -162,8 +174,8 @@ const buildWikiPageGraphRows = ({ page, userId }) => {
   });
 
   (Array.isArray(page?.sourceRefs) ? page.sourceRefs : []).forEach((sourceRef) => {
-    const sourceType = normalizeId(sourceRef?.type);
-    const sourceObjectId = normalizeId(sourceRef?.objectId);
+    const sourceType = normalizeId(sourceRef?.type).toLowerCase();
+    const sourceObjectId = sourceConnectionId(sourceRef);
     if (!SOURCE_CONNECTION_TYPES.has(sourceType) || !sourceObjectId) return;
     addRow(normalizeConnectionRow({
       userId,
@@ -179,7 +191,7 @@ const buildWikiPageGraphRows = ({ page, userId }) => {
   (Array.isArray(page?.citations) ? page.citations : []).forEach((citation) => {
     const citationId = normalizeId(citation?._id || citation?.id);
     const sourceRefId = normalizeId(citation?.sourceRefId);
-    const sourceType = normalizeId(citation?.sourceType);
+    const sourceType = normalizeId(citation?.sourceType).toLowerCase();
     const sourceObjectId = normalizeId(citation?.sourceObjectId);
     if (citationId && SOURCE_CONNECTION_TYPES.has(sourceType) && sourceObjectId) {
       sourceByEvidenceId.set(citationId, { type: sourceType, objectId: sourceObjectId });
@@ -190,8 +202,8 @@ const buildWikiPageGraphRows = ({ page, userId }) => {
   });
   (Array.isArray(page?.sourceRefs) ? page.sourceRefs : []).forEach((sourceRef) => {
     const sourceRefId = normalizeId(sourceRef?._id || sourceRef?.id);
-    const sourceType = normalizeId(sourceRef?.type);
-    const sourceObjectId = normalizeId(sourceRef?.objectId);
+    const sourceType = normalizeId(sourceRef?.type).toLowerCase();
+    const sourceObjectId = sourceConnectionId(sourceRef);
     if (sourceRefId && SOURCE_CONNECTION_TYPES.has(sourceType) && sourceObjectId) {
       sourceByEvidenceId.set(sourceRefId, { type: sourceType, objectId: sourceObjectId });
     }
