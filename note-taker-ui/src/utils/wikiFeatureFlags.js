@@ -16,12 +16,23 @@ export const isWikiWorkspaceV1Enabled = () => {
   return true;
 };
 
+const normalizeWikiPathSuffix = (suffix = '', { workspace = false } = {}) => {
+  const raw = String(suffix || '').trim();
+  if (!raw) return '';
+  if (workspace) {
+    if (raw.startsWith('?') || raw.startsWith('&')) return raw.replace(/^\?/, '&');
+    return `&${raw}`;
+  }
+  if (raw.startsWith('?') || raw.startsWith('&')) return raw.replace(/^&/, '?');
+  return `?${raw}`;
+};
+
 export const wikiPagePath = (pageId, suffix = '') => {
   const encodedPageId = encodeURIComponent(pageId || '');
   if (isWikiWorkspaceV1Enabled()) {
-    return `/wiki/workspace?page=${encodedPageId}${String(suffix || '').replace(/^\?/, '&')}`;
+    return `/wiki/workspace?page=${encodedPageId}${normalizeWikiPathSuffix(suffix, { workspace: true })}`;
   }
-  return `/wiki/${encodedPageId}${String(suffix || '').replace(/^&/, '?')}`;
+  return `/wiki/${encodedPageId}${normalizeWikiPathSuffix(suffix)}`;
 };
 
 export const wikiPageEditPath = (pageId) => {
