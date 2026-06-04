@@ -49,6 +49,9 @@ describe('wiki feature flags', () => {
 
   it('builds canonical workspace read and edit paths while workspace v1 is enabled', () => {
     expect(wikiPagePath('wiki 1')).toBe('/wiki/workspace?page=wiki%201');
+    expect(wikiPagePath('wiki 1', 'promoted=concept&from=think')).toBe(
+      '/wiki/workspace?page=wiki%201&promoted=concept&from=think'
+    );
     expect(wikiPageEditPath('wiki 1')).toBe('/wiki/workspace?page=wiki%201&mode=edit');
   });
 
