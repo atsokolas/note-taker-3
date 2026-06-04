@@ -1090,11 +1090,16 @@ const WikiPageReadView = ({
 
   useEffect(() => {
     if (!refreshNonce || lastRefreshNonceRef.current === refreshNonce) return undefined;
+    if (streamBusy) return undefined;
     lastRefreshNonceRef.current = refreshNonce;
     let cancelled = false;
     getWikiPage(pageId)
       .then((loaded) => {
         if (cancelled) return;
+        const streamed = latestPageRef.current;
+        const streamedWords = countWikiPageWords(streamed);
+        const loadedWords = countWikiPageWords(loaded);
+        if (streamed && streamedWords > loadedWords) return;
         latestPageRef.current = loaded;
         setPage(loaded);
       })
@@ -1102,7 +1107,7 @@ const WikiPageReadView = ({
         if (!cancelled) setError('Failed to refresh Wiki page.');
       });
     return () => { cancelled = true; };
-  }, [pageId, refreshNonce, requestedReadTab]);
+  }, [pageId, refreshNonce, requestedReadTab, streamBusy]);
 
   useEffect(() => {
     if (!page) {

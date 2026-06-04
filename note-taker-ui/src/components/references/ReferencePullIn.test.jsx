@@ -423,4 +423,43 @@ describe('ReferencePullIn', () => {
       expect(screen.getByLabelText('Local constellation')).toHaveTextContent('Supported by');
     });
   });
+
+  it('creates a target on demand before pulling when ensureTarget is provided', async () => {
+    const ensureTarget = jest.fn().mockResolvedValue({
+      targetType: 'concept',
+      targetId: 'concept-new',
+      scopeType: 'concept',
+      scopeId: 'concept-new'
+    });
+    render(
+      <ReferencePullIn
+        targetTitle="Circle of competence"
+        ensureTarget={ensureTarget}
+      />
+    );
+
+    fireEvent.change(screen.getByLabelText('Search references to pull in'), {
+      target: { value: 'margin' }
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('Margin of safety')).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByText('Margin of safety'));
+
+    await waitFor(() => {
+      expect(ensureTarget).toHaveBeenCalled();
+    });
+    await waitFor(() => {
+      expect(createConnection).toHaveBeenCalledWith({
+        fromType: 'concept',
+        fromId: 'concept-new',
+        toType: 'highlight',
+        toId: 'h-1',
+        relationType: 'related',
+        scopeType: 'concept',
+        scopeId: 'concept-new'
+      });
+    });
+  });
 });

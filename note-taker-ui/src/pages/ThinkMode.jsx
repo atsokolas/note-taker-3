@@ -3824,21 +3824,23 @@ const ThinkMode = () => {
   ), [activeThinkPosture, activeThinkPostureMeta.label, activeThinkPostureMeta.summary, handleSelectThinkPosture]);
   const referencePullInTarget = useMemo(() => {
     if (activeView === 'concepts' && (concept?._id || concept?.name || selectedName)) {
-      if (!concept?._id) {
+      const conceptTitle = concept?.name || selectedName || 'Concept';
+      if (concept?._id) {
         return {
-          targetType: '',
-          targetId: '',
-          targetTitle: concept?.name || selectedName || 'Concept',
-          scopeType: '',
-          scopeId: ''
+          targetType: 'concept',
+          targetId: concept._id,
+          targetTitle: conceptTitle,
+          scopeType: 'concept',
+          scopeId: concept._id
         };
       }
       return {
-        targetType: 'concept',
-        targetId: concept._id,
-        targetTitle: concept?.name || selectedName || 'Concept',
-        scopeType: 'concept',
-        scopeId: concept._id
+        targetType: '',
+        targetId: '',
+        targetTitle: conceptTitle,
+        scopeType: '',
+        scopeId: '',
+        conceptName: conceptTitle
       };
     }
     if (activeView === 'questions' && activeQuestionData?._id) {
@@ -3884,6 +3886,41 @@ const ThinkMode = () => {
       ...current.filter(existing => pulledReferenceKey(existing) !== pulledReferenceKey(relatedItem))
     ].slice(0, 6));
   }, []);
+  const ensureThinkReferenceTarget = useCallback(async () => {
+    if (referencePullInTarget?.targetType && referencePullInTarget?.targetId) {
+      return {
+        targetType: referencePullInTarget.targetType,
+        targetId: referencePullInTarget.targetId,
+        scopeType: referencePullInTarget.scopeType || '',
+        scopeId: referencePullInTarget.scopeId || ''
+      };
+    }
+    const conceptName = String(
+      referencePullInTarget?.conceptName || selectedName || concept?.name || ''
+    ).trim();
+    if (!conceptName || activeView !== 'concepts') return null;
+    const saved = await updateConcept(conceptName, {
+      description: concept?.description || ''
+    });
+    if (saved) setConcept(saved);
+    await refreshConcepts();
+    const conceptId = String(saved?._id || '').trim();
+    if (!conceptId) return null;
+    return {
+      targetType: 'concept',
+      targetId: conceptId,
+      scopeType: 'concept',
+      scopeId: conceptId
+    };
+  }, [
+    activeView,
+    concept?.description,
+    concept?.name,
+    referencePullInTarget,
+    refreshConcepts,
+    selectedName,
+    setConcept
+  ]);
   const renderReferencePullIn = useCallback((className = '') => {
     if (!referencePullInTarget) return null;
     return (
@@ -3891,6 +3928,7 @@ const ThinkMode = () => {
         {...referencePullInTarget}
         relatedItems={thoughtPartnerContextMetadata.relatedItems}
         className={className}
+        ensureTarget={ensureThinkReferenceTarget}
         onPulled={handleThinkReferencePulled}
         relationOptions={referencePullInTarget.targetType === 'question' ? [
           { value: 'supports', label: 'Support' },
@@ -3900,21 +3938,50 @@ const ThinkMode = () => {
         defaultRelationType={referencePullInTarget.targetType === 'question' ? 'supports' : 'related'}
       />
     );
-  }, [handleThinkReferencePulled, referencePullInTarget, thoughtPartnerContextMetadata.relatedItems]);
+  }, [ensureThinkReferenceTarget, handleThinkReferencePulled, referencePullInTarget, thoughtPartnerContextMetadata.relatedItems]);
+  const resolveThinkPromotionSource = useCallback(async (type) => {
+    if (type === 'concept') {
+      if (concept?._id) return concept;
+      const conceptName = String(selectedName || concept?.name || '').trim();
+      if (!conceptName) return null;
+      const saved = await updateConcept(conceptName, {
+        description: concept?.description || ''
+      });
+      if (saved) setConcept(saved);
+      await refreshConcepts();
+      return saved;
+    }
+    if (type === 'notebook') return activeNotebookEntry;
+    return activeQuestionData;
+  }, [
+    activeNotebookEntry,
+    activeQuestionData,
+    concept,
+    refreshConcepts,
+    selectedName,
+    setConcept
+  ]);
   const handlePromoteThinkObjectToWiki = useCallback(async (type) => {
-    const source = type === 'concept'
-      ? concept
-      : (type === 'notebook' ? activeNotebookEntry : activeQuestionData);
+    const source = await resolveThinkPromotionSource(type);
     const sourceId = String(source?._id || '').trim();
-    if (!sourceId) return;
+    if (!sourceId) {
+      setWikiPromotionState({
+        busyTarget: '',
+        error: type === 'concept'
+          ? 'Save this concept before promoting it to the wiki.'
+          : 'Nothing to promote yet.',
+        phase: ''
+      });
+      return;
+    }
     const busyTarget = `${type}:${sourceId}`;
     setWikiPromotionState({ busyTarget, error: '', phase: 'drafting' });
     try {
       const payload = buildThinkWikiPromotionPayload({
         type,
-        concept,
-        question: activeQuestionData,
-        notebook: activeNotebookEntry,
+        concept: type === 'concept' ? source : concept,
+        question: type === 'question' ? source : activeQuestionData,
+        notebook: type === 'notebook' ? source : activeNotebookEntry,
         conceptQuestions,
         pulledReferences: pulledThinkReferences
       });
@@ -3958,7 +4025,7 @@ const ThinkMode = () => {
       return;
     }
     setWikiPromotionState({ busyTarget: '', error: '', phase: '' });
-  }, [activeNotebookEntry, activeQuestionData, concept, conceptQuestions, navigate, pulledThinkReferences]);
+  }, [activeNotebookEntry, activeQuestionData, concept, conceptQuestions, navigate, pulledThinkReferences, resolveThinkPromotionSource]);
   const conceptWikiPromotionTarget = concept?._id ? `concept:${concept._id}` : '';
   const notebookWikiPromotionTarget = activeNotebookEntry?._id ? `notebook:${activeNotebookEntry._id}` : '';
   const questionWikiPromotionTarget = activeQuestionData?._id ? `question:${activeQuestionData._id}` : '';
@@ -5254,12 +5321,12 @@ const ThinkMode = () => {
             onToggleCollapse={() => setConceptPartnerCollapsed((current) => !current)}
           />
           {renderReferencePullIn('concept-editorial-shell__reference-pull-in')}
-          {concept?._id && (
+          {(concept?._id || selectedName) && (
             <div className="concept-editorial-shell__promotion">
               <SectionHeader title="Graduate" subtitle="Turn this working thought into a durable wiki page." />
               <Button
                 type="button"
-                onClick={() => handlePromoteThinkObjectToWiki('concept')}
+                onClick={() => { void handlePromoteThinkObjectToWiki('concept'); }}
                 disabled={wikiPromotionState.busyTarget === conceptWikiPromotionTarget}
               >
                 {wikiPromotionState.busyTarget === conceptWikiPromotionTarget ? 'Promoting...' : 'Promote to wiki page'}

@@ -5686,7 +5686,9 @@ body.noeis-editorial .concept-editorial-evidence {
   padding: 10px 0 24px 20px;
   background: var(--vellum-panel);
   min-width: 0;
-  overflow: hidden;
+  max-width: 100%;
+  overflow-x: clip;
+  overflow-y: visible;
 }
 
 body.noeis-editorial .concept-editorial-evidence__header {
@@ -5834,12 +5836,20 @@ body.noeis-editorial .concept-editorial-evidence__quick-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 10px 14px;
+  max-width: 100%;
+  min-width: 0;
 }
 
 body.noeis-editorial .concept-editorial-evidence__quick-actions button {
   min-height: 0;
+  min-width: 0;
+  max-width: 100%;
   padding: 0;
   border: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  white-space: normal;
+  text-align: left;
   background: transparent;
   font-family: var(--noeis-ui-font);
   font-size: 0.62rem;
