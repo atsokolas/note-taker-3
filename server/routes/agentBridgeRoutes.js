@@ -72,11 +72,38 @@ const buildAgentBridgeRouter = ({
           sharedThreads: true,
           sharedArtifactDrafts: true,
           protocolHandoffs: true,
+          projectSearch: true,
+          projectRead: true,
+          controlledProjectWrites: true,
+          accessChecks: true,
           supportsPlans: true,
           supportsCheckpoints: true,
           supportsThreadHandoffConversion: true,
           supportsWorkerRoles: true,
           supportsSpecialistWorkers: true
+        },
+        access: {
+          project: {
+            read: true,
+            retrieve: true,
+            search: true,
+            edit: true,
+            writeMode: 'controlled_drafts_and_approval_gated_mutations',
+            readableTypes: [
+              'article',
+              'notebook',
+              'concept',
+              'question',
+              'wiki_page',
+              'thread',
+              'handoff',
+              'artifact_draft'
+            ]
+          },
+          approvals: {
+            bridgeIssuedWritesPauseForApproval: req.bridgeActor.actorType !== 'user',
+            approvalPath: '/api/agent/protocol/approvals'
+          }
         },
         resources: {
           skillsPath: '/api/agent/protocol/bridge/skills',
@@ -84,6 +111,10 @@ const buildAgentBridgeRouter = ({
         },
         workerRoles: listWorkerRoles(),
         operations: [
+          'bridge.access_check',
+          'project.search',
+          'project.read',
+          'project.write_draft',
           'threads.list',
           'threads.get',
           'threads.create',
@@ -102,6 +133,10 @@ const buildAgentBridgeRouter = ({
           'handoffs.reject'
         ],
         mcpMethods: [
+          'bridge/access_check',
+          'project/search',
+          'project/read',
+          'project/write_draft',
           'threads/list',
           'threads/get',
           'threads/create',
@@ -121,6 +156,20 @@ const buildAgentBridgeRouter = ({
         ],
         examples: {
           a2a: [
+            {
+              op: 'bridge.access_check',
+              payload: {
+                query: 'portfolio concentration'
+              }
+            },
+            {
+              op: 'project.search',
+              payload: {
+                query: 'portfolio concentration',
+                types: ['article', 'notebook', 'concept', 'wiki_page'],
+                limit: 8
+              }
+            },
             {
               op: 'handoffs.claim',
               payload: {
@@ -158,6 +207,20 @@ const buildAgentBridgeRouter = ({
             }
           ],
           mcp: [
+            {
+              method: 'bridge/access_check',
+              params: {
+                query: 'portfolio concentration'
+              }
+            },
+            {
+              method: 'project/search',
+              params: {
+                query: 'portfolio concentration',
+                types: ['article', 'notebook', 'concept', 'wiki_page'],
+                limit: 8
+              }
+            },
             {
               method: 'handoffs/claim',
               params: {
@@ -346,6 +409,10 @@ const buildAgentBridgeRouter = ({
       const method = String(req.body?.method || '').trim();
       const params = req.body?.params && typeof req.body.params === 'object' ? req.body.params : {};
       const methodMap = {
+        'bridge/access_check': 'bridge.access_check',
+        'project/search': 'project.search',
+        'project/read': 'project.read',
+        'project/write_draft': 'project.write_draft',
         'threads/list': 'threads.list',
         'threads/get': 'threads.get',
         'threads/create': 'threads.create',

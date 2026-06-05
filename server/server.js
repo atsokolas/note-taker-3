@@ -1013,6 +1013,7 @@ const sanitizeProtocolHookRunDoc = (doc) => ({
 });
 
 const BRIDGE_APPROVAL_REQUIRED_OPS = new Set([
+  'project.write_draft',
   'threads.create',
   'threads.update',
   'threads.convert_to_handoff',
@@ -1024,6 +1025,365 @@ const BRIDGE_APPROVAL_REQUIRED_OPS = new Set([
   'handoffs.complete',
   'handoffs.reject'
 ]);
+
+const BRIDGE_PROJECT_READ_TYPES = new Set([
+  'article',
+  'notebook',
+  'concept',
+  'question',
+  'wiki_page',
+  'thread',
+  'handoff',
+  'artifact_draft'
+]);
+
+const BRIDGE_PROJECT_ACCESS_OPERATIONS = [
+  'project.search',
+  'project.read',
+  'project.write_draft',
+  'bridge.access_check'
+];
+
+const clampBridgeText = (value = '', maxLength = 1200) => (
+  String(value || '')
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, maxLength)
+);
+
+const buildBridgeProjectResult = ({
+  type,
+  id,
+  title = '',
+  snippet = '',
+  updatedAt = null,
+  route = '',
+  metadata = {}
+}) => ({
+  type,
+  id: String(id || ''),
+  title: String(title || '').trim() || 'Untitled',
+  snippet: clampBridgeText(snippet, 700),
+  updatedAt: updatedAt ? new Date(updatedAt).toISOString() : null,
+  route,
+  metadata: metadata && typeof metadata === 'object' ? metadata : {}
+});
+
+const buildBridgeSearchRegex = (query = '') => {
+  const safeQuery = String(query || '').trim();
+  if (!safeQuery) return null;
+  const escaped = safeQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(escaped, 'i');
+};
+
+const bridgeCanRetrieveProject = ({ actor = {}, bridgeByoCapabilities = null } = {}) => {
+  if (actor.actorType !== 'byo_agent') return true;
+  return Boolean(bridgeByoCapabilities?.read || bridgeByoCapabilities?.search);
+};
+
+const bridgeCanWriteProject = ({ actor = {}, bridgeByoCapabilities = null } = {}) => {
+  if (actor.actorType !== 'byo_agent') return true;
+  return Boolean(bridgeByoCapabilities?.proposeChanges || bridgeByoCapabilities?.executeWrites);
+};
+
+const searchBridgeProjectCorpus = async ({
+  userId,
+  query = '',
+  types = [],
+  limit = 20
+} = {}) => {
+  const safeLimit = safeAgentHandoffLimit(limit, 20);
+  const selectedTypes = Array.isArray(types)
+    ? types.map(type => String(type || '').trim().toLowerCase()).filter(type => BRIDGE_PROJECT_READ_TYPES.has(type))
+    : [];
+  const includeType = (type) => selectedTypes.length === 0 || selectedTypes.includes(type);
+  const matcher = buildBridgeSearchRegex(query);
+  const results = [];
+  const remaining = () => Math.max(0, safeLimit - results.length);
+
+  if (includeType('article') && remaining() > 0) {
+    const articleQuery = { userId };
+    if (matcher) {
+      articleQuery.$or = [
+        { title: matcher },
+        { content: matcher },
+        { author: matcher },
+        { siteName: matcher },
+        { 'highlights.text': matcher },
+        { 'highlights.note': matcher }
+      ];
+    }
+    const rows = await Article.find(articleQuery)
+      .select('_id title content author siteName url updatedAt highlights')
+      .sort({ updatedAt: -1, createdAt: -1 })
+      .limit(remaining());
+    rows.forEach((row) => {
+      const highlight = Array.isArray(row.highlights) ? row.highlights.find(item => (
+        !matcher || matcher.test(String(item?.text || '')) || matcher.test(String(item?.note || ''))
+      )) : null;
+      results.push(buildBridgeProjectResult({
+        type: 'article',
+        id: row._id,
+        title: row.title,
+        snippet: highlight?.text || row.content,
+        updatedAt: row.updatedAt,
+        route: `/library?articleId=${encodeURIComponent(String(row._id))}`,
+        metadata: { author: row.author || '', siteName: row.siteName || '', url: row.url || '' }
+      }));
+    });
+  }
+
+  if (includeType('notebook') && remaining() > 0) {
+    const notebookQuery = { userId };
+    if (matcher) {
+      notebookQuery.$or = [
+        { title: matcher },
+        { content: matcher },
+        { tags: matcher },
+        { 'blocks.text': matcher }
+      ];
+    }
+    const rows = await NotebookEntry.find(notebookQuery)
+      .select('_id title content blocks tags type updatedAt')
+      .sort({ updatedAt: -1, createdAt: -1 })
+      .limit(remaining());
+    rows.forEach((row) => {
+      const block = Array.isArray(row.blocks) ? row.blocks.find(item => !matcher || matcher.test(String(item?.text || ''))) : null;
+      results.push(buildBridgeProjectResult({
+        type: 'notebook',
+        id: row._id,
+        title: row.title,
+        snippet: block?.text || row.content,
+        updatedAt: row.updatedAt,
+        route: `/think?tab=notebook&entryId=${encodeURIComponent(String(row._id))}`,
+        metadata: { noteType: row.type || 'note', tags: Array.isArray(row.tags) ? row.tags : [] }
+      }));
+    });
+  }
+
+  if (includeType('concept') && remaining() > 0) {
+    const conceptQuery = { userId };
+    if (matcher) {
+      conceptQuery.$or = [
+        { name: matcher },
+        { description: matcher },
+        { workspaceTemplateName: matcher }
+      ];
+    }
+    const rows = await TagMeta.find(conceptQuery)
+      .select('_id name description workspaceTemplateName updatedAt')
+      .sort({ updatedAt: -1, createdAt: -1 })
+      .limit(remaining());
+    rows.forEach((row) => {
+      results.push(buildBridgeProjectResult({
+        type: 'concept',
+        id: row._id,
+        title: row.name,
+        snippet: row.description || row.workspaceTemplateName,
+        updatedAt: row.updatedAt,
+        route: `/think?tab=concepts&concept=${encodeURIComponent(String(row.name || ''))}`,
+        metadata: { workspaceTemplateName: row.workspaceTemplateName || '' }
+      }));
+    });
+  }
+
+  if (includeType('question') && remaining() > 0) {
+    const questionQuery = { userId };
+    if (matcher) {
+      questionQuery.$or = [
+        { text: matcher },
+        { conceptName: matcher },
+        { linkedTagName: matcher },
+        { 'blocks.text': matcher }
+      ];
+    }
+    const rows = await Question.find(questionQuery)
+      .select('_id text status conceptName linkedTagName blocks updatedAt')
+      .sort({ updatedAt: -1, createdAt: -1 })
+      .limit(remaining());
+    rows.forEach((row) => {
+      const block = Array.isArray(row.blocks) ? row.blocks.find(item => !matcher || matcher.test(String(item?.text || ''))) : null;
+      results.push(buildBridgeProjectResult({
+        type: 'question',
+        id: row._id,
+        title: row.text,
+        snippet: block?.text || row.conceptName || row.linkedTagName,
+        updatedAt: row.updatedAt,
+        route: `/think?tab=questions&questionId=${encodeURIComponent(String(row._id))}`,
+        metadata: { status: row.status || 'open', conceptName: row.conceptName || row.linkedTagName || '' }
+      }));
+    });
+  }
+
+  if (includeType('wiki_page') && remaining() > 0) {
+    const wikiQuery = { userId };
+    if (matcher) {
+      wikiQuery.$or = [
+        { title: matcher },
+        { plainText: matcher },
+        { slug: matcher }
+      ];
+    }
+    const rows = await WikiPage.find(wikiQuery)
+      .select('_id title plainText status pageType updatedAt')
+      .sort({ updatedAt: -1, createdAt: -1 })
+      .limit(remaining());
+    rows.forEach((row) => {
+      results.push(buildBridgeProjectResult({
+        type: 'wiki_page',
+        id: row._id,
+        title: row.title,
+        snippet: row.plainText,
+        updatedAt: row.updatedAt,
+        route: `/wiki/workspace?page=${encodeURIComponent(String(row._id))}`,
+        metadata: { status: row.status || 'draft', pageType: row.pageType || 'topic' }
+      }));
+    });
+  }
+
+  return results.slice(0, safeLimit);
+};
+
+const readBridgeProjectItem = async ({
+  userId,
+  type = '',
+  id = ''
+} = {}) => {
+  const safeType = String(type || '').trim().toLowerCase();
+  const safeId = String(id || '').trim();
+  if (!BRIDGE_PROJECT_READ_TYPES.has(safeType)) throw Object.assign(new Error('Unsupported project item type.'), { status: 400 });
+  if (!mongoose.Types.ObjectId.isValid(safeId)) throw Object.assign(new Error('Invalid project item id.'), { status: 400 });
+
+  if (safeType === 'article') {
+    const row = await Article.findOne({ _id: safeId, userId }).select('_id title content author siteName url highlights updatedAt createdAt');
+    if (!row) throw Object.assign(new Error('Project article not found.'), { status: 404 });
+    return buildBridgeProjectResult({
+      type: 'article',
+      id: row._id,
+      title: row.title,
+      snippet: row.content,
+      updatedAt: row.updatedAt,
+      route: `/library?articleId=${encodeURIComponent(String(row._id))}`,
+      metadata: {
+        author: row.author || '',
+        siteName: row.siteName || '',
+        url: row.url || '',
+        content: clampBridgeText(row.content, 12000),
+        highlights: (Array.isArray(row.highlights) ? row.highlights : []).slice(0, 80).map(item => ({
+          highlightId: String(item?._id || ''),
+          text: clampBridgeText(item?.text, 2000),
+          note: clampBridgeText(item?.note, 1000),
+          tags: Array.isArray(item?.tags) ? item.tags : []
+        }))
+      }
+    });
+  }
+
+  if (safeType === 'notebook') {
+    const row = await NotebookEntry.findOne({ _id: safeId, userId }).select('_id title content blocks tags type updatedAt createdAt');
+    if (!row) throw Object.assign(new Error('Project notebook entry not found.'), { status: 404 });
+    return buildBridgeProjectResult({
+      type: 'notebook',
+      id: row._id,
+      title: row.title,
+      snippet: row.content,
+      updatedAt: row.updatedAt,
+      route: `/think?tab=notebook&entryId=${encodeURIComponent(String(row._id))}`,
+      metadata: {
+        noteType: row.type || 'note',
+        tags: Array.isArray(row.tags) ? row.tags : [],
+        content: clampBridgeText(row.content, 12000),
+        blocks: (Array.isArray(row.blocks) ? row.blocks : []).slice(0, 200).map(block => ({
+          id: String(block?.id || ''),
+          type: String(block?.type || 'paragraph'),
+          text: clampBridgeText(block?.text, 2000)
+        }))
+      }
+    });
+  }
+
+  if (safeType === 'concept') {
+    const row = await TagMeta.findOne({ _id: safeId, userId }).select('_id name description workspace workspaceTemplateName updatedAt createdAt');
+    if (!row) throw Object.assign(new Error('Project concept not found.'), { status: 404 });
+    return buildBridgeProjectResult({
+      type: 'concept',
+      id: row._id,
+      title: row.name,
+      snippet: row.description,
+      updatedAt: row.updatedAt,
+      route: `/think?tab=concepts&concept=${encodeURIComponent(String(row.name || ''))}`,
+      metadata: {
+        description: row.description || '',
+        workspaceTemplateName: row.workspaceTemplateName || '',
+        workspace: row.workspace || {}
+      }
+    });
+  }
+
+  if (safeType === 'question') {
+    const row = await Question.findOne({ _id: safeId, userId }).select('_id text status conceptName linkedTagName blocks updatedAt createdAt');
+    if (!row) throw Object.assign(new Error('Project question not found.'), { status: 404 });
+    return buildBridgeProjectResult({
+      type: 'question',
+      id: row._id,
+      title: row.text,
+      snippet: row.conceptName || row.linkedTagName,
+      updatedAt: row.updatedAt,
+      route: `/think?tab=questions&questionId=${encodeURIComponent(String(row._id))}`,
+      metadata: {
+        status: row.status || 'open',
+        conceptName: row.conceptName || row.linkedTagName || '',
+        blocks: (Array.isArray(row.blocks) ? row.blocks : []).slice(0, 120).map(block => ({
+          id: String(block?.id || ''),
+          type: String(block?.type || 'paragraph'),
+          text: clampBridgeText(block?.text, 2000)
+        }))
+      }
+    });
+  }
+
+  if (safeType === 'wiki_page') {
+    const row = await WikiPage.findOne({ _id: safeId, userId }).select('_id title plainText body status pageType claims citations sourceRefs updatedAt createdAt');
+    if (!row) throw Object.assign(new Error('Project wiki page not found.'), { status: 404 });
+    return buildBridgeProjectResult({
+      type: 'wiki_page',
+      id: row._id,
+      title: row.title,
+      snippet: row.plainText,
+      updatedAt: row.updatedAt,
+      route: `/wiki/workspace?page=${encodeURIComponent(String(row._id))}`,
+      metadata: {
+        status: row.status || 'draft',
+        pageType: row.pageType || 'topic',
+        plainText: clampBridgeText(row.plainText, 14000),
+        claims: Array.isArray(row.claims) ? row.claims.slice(0, 120) : [],
+        citations: Array.isArray(row.citations) ? row.citations.slice(0, 120) : [],
+        sourceRefs: Array.isArray(row.sourceRefs) ? row.sourceRefs.slice(0, 120) : []
+      }
+    });
+  }
+
+  if (safeType === 'thread') {
+    const row = await AgentThread.findOne({ _id: safeId, userId });
+    if (!row) throw Object.assign(new Error('Project thread not found.'), { status: 404 });
+    return { type: 'thread', item: sanitizeAgentThreadDoc(row) };
+  }
+
+  if (safeType === 'handoff') {
+    const row = await AgentHandoff.findOne({ _id: safeId, userId });
+    if (!row) throw Object.assign(new Error('Project handoff not found.'), { status: 404 });
+    return { type: 'handoff', item: sanitizeAgentHandoffDoc(row) };
+  }
+
+  if (safeType === 'artifact_draft') {
+    const row = await AgentArtifactDraft.findOne({ _id: safeId, userId });
+    if (!row) throw Object.assign(new Error('Project artifact draft not found.'), { status: 404 });
+    return { type: 'artifact_draft', item: sanitizeAgentArtifactDraftDoc(row) };
+  }
+
+  throw Object.assign(new Error('Unsupported project item type.'), { status: 400 });
+};
 
 const shouldRequireProtocolApproval = ({
   op = '',
@@ -1368,7 +1728,7 @@ const runBridgeHandoffOperation = async ({
     actorType: normalizeAgentActorType(bridgeActor?.actorType, 'user'),
     actorId: String(bridgeActor?.actorId || '').trim()
   };
-  const operation = String(op || '').trim().toLowerCase();
+  let operation = String(op || '').trim().toLowerCase();
   let bridgeByoCapabilities = null;
   if (actor.actorType === 'byo_agent') {
     const byAgent = await PersonalAgent.findOne({
@@ -1432,6 +1792,80 @@ const runBridgeHandoffOperation = async ({
     }
     return result;
   };
+
+  if (operation === 'bridge.access_check') {
+    const projectReadable = bridgeCanRetrieveProject({ actor, bridgeByoCapabilities });
+    const projectWritable = bridgeCanWriteProject({ actor, bridgeByoCapabilities });
+    const searchResults = projectReadable
+      ? await searchBridgeProjectCorpus({
+          userId,
+          query: payload.query || '',
+          types: payload.types || [],
+          limit: payload.limit || 5
+        })
+      : [];
+    return finalizeOperation({
+      status: 'ready',
+      actor,
+      scope: String(bridgeActor?.scope || 'agent_ops').trim() || 'agent_ops',
+      access: {
+        projectRead: projectReadable,
+        projectRetrieve: projectReadable,
+        projectSearch: projectReadable,
+        projectEdit: projectWritable,
+        writeMode: 'controlled_drafts_and_approval_gated_mutations',
+        readableTypes: Array.from(BRIDGE_PROJECT_READ_TYPES),
+        approvalGatedOperations: Array.from(BRIDGE_APPROVAL_REQUIRED_OPS)
+      },
+      checks: {
+        manifest: true,
+        projectSearch: projectReadable,
+        projectWriteBoundary: projectWritable,
+        protocolApprovals: actor.actorType !== 'user'
+      },
+      sampleResults: searchResults,
+      nextMcpMethods: [
+        'project/search',
+        'project/read',
+        'project/write_draft',
+        'threads/create',
+        'artifacts/drafts/create',
+        'handoffs/create'
+      ]
+    });
+  }
+
+  if (operation === 'project.search') {
+    if (!bridgeCanRetrieveProject({ actor, bridgeByoCapabilities })) {
+      throw Object.assign(new Error('This BYO actor cannot search project context.'), { status: 403 });
+    }
+    const results = await searchBridgeProjectCorpus({
+      userId,
+      query: payload.query || '',
+      types: payload.types || [],
+      limit: payload.limit || 20
+    });
+    return finalizeOperation({
+      query: String(payload.query || '').trim(),
+      results
+    });
+  }
+
+  if (operation === 'project.read') {
+    if (!bridgeCanRetrieveProject({ actor, bridgeByoCapabilities })) {
+      throw Object.assign(new Error('This BYO actor cannot read project context.'), { status: 403 });
+    }
+    const item = await readBridgeProjectItem({
+      userId,
+      type: payload.type,
+      id: payload.id || payload.itemId
+    });
+    return finalizeOperation({ item });
+  }
+
+  if (operation === 'project.write_draft') {
+    operation = 'artifacts.drafts.create';
+  }
 
   if (operation === 'threads.list') {
     const query = { userId };

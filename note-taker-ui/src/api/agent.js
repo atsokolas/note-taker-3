@@ -532,6 +532,25 @@ export const getAgentBridgeManifest = async (bridgeToken) => {
   return res.data || {};
 };
 
+export const executeAgentBridgeMcp = async (bridgeToken, {
+  method,
+  params = {},
+  id = 1
+} = {}) => {
+  const safeBridgeToken = String(bridgeToken || '').trim();
+  const res = await api.post('/api/agent/protocol/bridge/mcp', {
+    jsonrpc: '2.0',
+    id,
+    method,
+    params
+  }, {
+    headers: {
+      Authorization: `Bearer ${safeBridgeToken}`
+    }
+  });
+  return res.data || {};
+};
+
 export const listAgentSkills = async ({
   surface = '',
   contextType = '',

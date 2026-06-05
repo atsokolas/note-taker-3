@@ -8,6 +8,10 @@ const CAPABILITY_LABELS = {
   sharedThreads: 'Shared threads',
   sharedArtifactDrafts: 'Shared artifact drafts',
   protocolHandoffs: 'Protocol handoffs',
+  projectSearch: 'Project search',
+  projectRead: 'Project read',
+  controlledProjectWrites: 'Controlled project writes',
+  accessChecks: 'Access checks',
   supportsPlans: 'Plans',
   supportsCheckpoints: 'Checkpoints',
   supportsThreadHandoffConversion: 'Thread to handoff conversion',
@@ -35,6 +39,10 @@ const RUNTIME_OPTIONS = [
 ];
 
 const BRIDGE_METHODS_LIST = `threads/list
+bridge/access_check
+project/search
+project/read
+project/write_draft
 threads/get
 threads/create
 threads/update
@@ -69,21 +77,23 @@ const buildA2aExample = (bridgeToken = '') => `curl -X POST http://localhost:550
 const buildMcpExample = () => `{
   "jsonrpc": "2.0",
   "id": 1,
-  "method": "artifacts/drafts/promote",
+  "method": "project/search",
   "params": {
-    "draftId": "DRAFT_ID"
+    "query": "portfolio concentration",
+    "types": ["article", "notebook", "concept", "wiki_page"],
+    "limit": 8
   }
 }`;
 
 const buildWorkflowExample = () => `Recommended specialist-worker loop
 1. bridge/manifest
-2. bridge/worker-roles
-3. handoffs/list
-4. handoffs/claim
-5. handoffs/ensure_thread
-6. threads/append_message or artifacts/drafts/create
-7. artifacts/drafts/promote
-8. handoffs/complete`;
+2. bridge/access_check
+3. project/search
+4. project/read
+5. handoffs/list or threads/list
+6. handoffs/claim
+7. threads/append_message or project/write_draft
+8. artifacts/drafts/promote or handoffs/complete`;
 
 const resolveBridgeBaseUrl = () => {
   const configured = String(process.env.REACT_APP_API_BASE_URL || '').trim();
@@ -114,6 +124,10 @@ const buildOpenClawConfig = ({
     manifest_url: `${baseUrl}/api/agent/protocol/bridge/manifest`,
     a2a_url: `${baseUrl}/api/agent/protocol/bridge/a2a`,
     mcp_url: `${baseUrl}/api/agent/protocol/bridge/mcp`,
+    access_check_method: 'bridge/access_check',
+    project_search_method: 'project/search',
+    project_read_method: 'project/read',
+    project_write_draft_method: 'project/write_draft',
     headers: {
       Authorization: `Bearer ${bridgeToken}`
     }
@@ -141,7 +155,13 @@ const buildHermesConfig = ({
           protocol: 'note-taker-agent-bridge-v1',
           manifest_url: `${baseUrl}/api/agent/protocol/bridge/manifest`,
           scope,
-          expires_in_sec: expiresInSec
+          expires_in_sec: expiresInSec,
+          methods: {
+            access_check: 'bridge/access_check',
+            project_search: 'project/search',
+            project_read: 'project/read',
+            project_write_draft: 'project/write_draft'
+          }
         }
       }
     }
@@ -190,6 +210,9 @@ const ExternalBridgeCard = ({
     bridgeManifestLoading,
     bridgeManifestError,
     bridgeManifest,
+    bridgeHealth,
+    bridgeAccessCheckLoading,
+    bridgeAccessCheckError,
     bridgeCopyStatus,
     bridgeMeta,
     protocolApprovals,
@@ -198,6 +221,8 @@ const ExternalBridgeCard = ({
     protocolApprovalBusyId,
     handleCreateBridgeToken,
     handleTestBridgeConnection,
+    handleRunBridgeAccessCheck,
+    handleForgetBridgeHealth,
     handleCopyBridgeConfig,
     handleApproveProtocolApproval,
     handleRejectProtocolApproval
@@ -210,7 +235,10 @@ const ExternalBridgeCard = ({
   const bridgeStatus = getBridgeState({ bridgeToken, bridgeManifest, bridgeManifestLoading });
   const bridgeScopeValue = bridgeMeta?.scope || bridgeScope;
   const bridgeExpiry = bridgeMeta?.expiresInSec || bridgeTtl;
+  const bridgeExpiresAt = bridgeMeta?.expiresAt || bridgeHealth?.expiresAt || '';
   const previewBridgeToken = bridgeToken || '<minted-bridge-token>';
+  const projectAccess = bridgeHealth?.access?.project || bridgeManifest?.access?.project || null;
+  const bridgeChecks = bridgeHealth?.checks || {};
 
   const bridgeConfigPreview = useMemo(() => (
     buildRuntimeConfig({
@@ -254,6 +282,13 @@ const ExternalBridgeCard = ({
       detail: bridgeManifest ? 'Runtime can read available bridge capabilities.' : 'Run the manifest check before handing over the config.'
     },
     {
+      label: 'Project access verified',
+      done: bridgeHealth?.status === 'access_verified',
+      detail: bridgeHealth?.status === 'access_verified'
+        ? 'Project search, retrieval, and write-boundary access checked.'
+        : 'Run access check after minting to verify project-level retrieval and edit paths.'
+    },
+    {
       label: `${runtime.title} config template ready`,
       done: true,
       detail: bridgeToken
@@ -269,7 +304,7 @@ const ExternalBridgeCard = ({
           <p className="muted-label">BYO agent bridge</p>
           <h2>Connect OpenClaw or Hermes</h2>
           <p className="muted">
-            Plug an external runtime into Noeis as a specialist worker. It can read shared threads, claim routed handoffs, stage artifact drafts, promote drafts, and report back through the same approval path.
+            Plug an external runtime into Noeis as a specialist worker. It can search and read project context, claim routed handoffs, stage artifact drafts, promote drafts, and report back through the same approval path.
           </p>
         </div>
         <div className={statusClass(bridgeStatus.tone)} aria-label="Bridge connection status">
@@ -313,6 +348,9 @@ const ExternalBridgeCard = ({
           <p className="muted-label">Runtime permissions</p>
           <div className="external-bridge-capability-list">
             {(manifestCapabilities.length > 0 ? manifestCapabilities : [
+              'Project search',
+              'Project read',
+              'Controlled project writes',
               'Shared threads',
               'Protocol handoffs',
               'Artifact drafts',
@@ -325,6 +363,14 @@ const ExternalBridgeCard = ({
             <p className="muted small external-bridge-protocol-line">
               {bridgeManifest.protocol} for {bridgeManifest.actor?.actorType || bridgeActorType} on {bridgeManifest.scope || bridgeScopeValue}.
             </p>
+          )}
+          {projectAccess && (
+            <div className="external-bridge-access-grid" aria-label="Project bridge access">
+              <span className={projectAccess.read ? 'is-enabled' : ''}>Read</span>
+              <span className={projectAccess.retrieve ? 'is-enabled' : ''}>Retrieve</span>
+              <span className={projectAccess.search ? 'is-enabled' : ''}>Search</span>
+              <span className={projectAccess.edit ? 'is-enabled' : ''}>Edit drafts</span>
+            </div>
           )}
         </div>
       </div>
@@ -400,6 +446,17 @@ const ExternalBridgeCard = ({
               disabled={bridgeBusy}
               placeholder="agent_ops"
             />
+            <div className="external-bridge-scope-presets" role="group" aria-label="Bridge scope presets">
+              <button type="button" onClick={() => setBridgeScope('project_ops')} disabled={bridgeBusy}>
+                Project operator
+              </button>
+              <button type="button" onClick={() => setBridgeScope('agent_ops')} disabled={bridgeBusy}>
+                Agent ops
+              </button>
+              <button type="button" onClick={() => setBridgeScope('retrieval_ops')} disabled={bridgeBusy}>
+                Retrieval only
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -437,8 +494,17 @@ const ExternalBridgeCard = ({
           <Button variant="secondary" disabled={!bridgeToken || bridgeManifestLoading} onClick={handleTestBridgeConnection}>
             {bridgeManifestLoading ? 'Testing...' : 'Test bridge connection'}
           </Button>
+          <Button variant="secondary" disabled={!bridgeToken || bridgeAccessCheckLoading} onClick={() => handleRunBridgeAccessCheck(selectedRuntime)}>
+            {bridgeAccessCheckLoading ? 'Checking...' : 'Run project access check'}
+          </Button>
           <Button variant="secondary" disabled={!bridgeToken} onClick={() => handleCopyBridgeConfig(selectedAgentName, selectedRuntime)}>
             {runtime.copyLabel}
+          </Button>
+          <Button variant="secondary" disabled={bridgeBusy} onClick={handleCreateBridgeToken}>
+            Rotate token
+          </Button>
+          <Button variant="secondary" onClick={handleForgetBridgeHealth}>
+            Forget health
           </Button>
         </div>
 
@@ -448,10 +514,36 @@ const ExternalBridgeCard = ({
           </p>
         )}
         {bridgeManifestError && <p className="status-message error-message">{bridgeManifestError}</p>}
+        {bridgeAccessCheckError && <p className="status-message error-message">{bridgeAccessCheckError}</p>}
         {bridgeManifest && (
           <div className="external-bridge-verify-banner">
             <p className="status-message success-message">Bridge verified</p>
             <p className="muted small">The selected token can read the manifest and bridge capabilities.</p>
+          </div>
+        )}
+        {bridgeHealth && (
+          <div className="external-bridge-health" role="region" aria-label="Bridge health">
+            <div>
+              <p className="muted-label">Last bridge health</p>
+              <strong>{bridgeHealth.status === 'access_verified' ? 'Project access verified' : bridgeHealth.status === 'error' ? 'Bridge check failed' : 'Manifest verified'}</strong>
+              <p className="muted small">
+                {bridgeHealth.lastVerifiedAt ? `Checked ${new Date(bridgeHealth.lastVerifiedAt).toLocaleString()}` : 'No check timestamp'}
+                {bridgeExpiresAt ? ` · token expires ${new Date(bridgeExpiresAt).toLocaleString()}` : ''}
+              </p>
+            </div>
+            <div className="external-bridge-health__checks">
+              <span className={bridgeChecks.projectSearch ? 'is-enabled' : ''}>Search</span>
+              <span className={bridgeChecks.projectWriteBoundary ? 'is-enabled' : ''}>Write boundary</span>
+              <span className={bridgeChecks.protocolApprovals ? 'is-enabled' : ''}>Approvals</span>
+            </div>
+            {Array.isArray(bridgeHealth.sampleResults) && bridgeHealth.sampleResults.length > 0 && (
+              <div className="external-bridge-health__samples">
+                {bridgeHealth.sampleResults.slice(0, 3).map((item) => (
+                  <span key={`${item.type}-${item.id}`}>{item.type}: {item.title}</span>
+                ))}
+              </div>
+            )}
+            {bridgeHealth.error && <p className="status-message error-message">{bridgeHealth.error}</p>}
           </div>
         )}
 

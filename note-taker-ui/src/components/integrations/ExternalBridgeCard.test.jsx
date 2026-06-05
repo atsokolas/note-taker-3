@@ -18,12 +18,17 @@ const buildBridgeModel = (overrides = {}) => ({
   bridgeManifestLoading: false,
   bridgeManifestError: '',
   bridgeManifest: null,
+  bridgeHealth: null,
+  bridgeAccessCheckLoading: false,
+  bridgeAccessCheckError: '',
   protocolApprovals: [],
   protocolApprovalsLoading: false,
   protocolApprovalsError: '',
   protocolApprovalBusyId: '',
   handleCreateBridgeToken: jest.fn(),
   handleTestBridgeConnection: jest.fn(),
+  handleRunBridgeAccessCheck: jest.fn(),
+  handleForgetBridgeHealth: jest.fn(),
   handleCopyBridgeConfig: jest.fn(),
   handleApproveProtocolApproval: jest.fn(),
   handleRejectProtocolApproval: jest.fn(),
@@ -54,10 +59,14 @@ describe('ExternalBridgeCard', () => {
     expect(screen.getByRole('button', { name: /MCP-first runtime/i })).toBeInTheDocument();
     expect(screen.getByText('Bridge quickstart')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Test bridge connection' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Run project access check' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Copy OpenClaw config' })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Test bridge connection' }));
     await waitFor(() => expect(bridgeModel.handleTestBridgeConnection).toHaveBeenCalledTimes(1));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Run project access check' }));
+    await waitFor(() => expect(bridgeModel.handleRunBridgeAccessCheck).toHaveBeenCalledWith('openclaw'));
 
     fireEvent.click(screen.getByRole('button', { name: 'Copy OpenClaw config' }));
     await waitFor(() => expect(bridgeModel.handleCopyBridgeConfig).toHaveBeenCalledWith('OpenClaw Researcher', 'openclaw'));
@@ -92,7 +101,18 @@ describe('ExternalBridgeCard', () => {
         capabilities: {
           sharedSkills: true,
           sharedThreads: true,
-          protocolHandoffs: true
+          protocolHandoffs: true,
+          projectSearch: true,
+          projectRead: true,
+          controlledProjectWrites: true
+        },
+        access: {
+          project: {
+            read: true,
+            retrieve: true,
+            search: true,
+            edit: true
+          }
         }
       }
     });
@@ -108,6 +128,38 @@ describe('ExternalBridgeCard', () => {
     expect(screen.getByText('Shared skills')).toBeInTheDocument();
     expect(screen.getByText('Shared threads')).toBeInTheDocument();
     expect(screen.getByText('Protocol handoffs')).toBeInTheDocument();
+    expect(screen.getByText('Project search')).toBeInTheDocument();
+    expect(screen.getByText('Edit drafts')).toBeInTheDocument();
+  });
+
+  it('renders persisted bridge health and access samples', () => {
+    const bridgeModel = buildBridgeModel({
+      bridgeHealth: {
+        status: 'access_verified',
+        runtime: 'hermes',
+        lastVerifiedAt: '2026-06-05T20:00:00.000Z',
+        expiresAt: '2026-06-05T21:00:00.000Z',
+        checks: {
+          projectSearch: true,
+          projectWriteBoundary: true,
+          protocolApprovals: true
+        },
+        sampleResults: [
+          { type: 'concept', id: 'concept-1', title: 'Portfolio concentration' }
+        ]
+      }
+    });
+
+    render(
+      <MemoryRouter>
+        <ExternalBridgeCard bridgeModel={bridgeModel} sortedAgents={sortedAgents} />
+      </MemoryRouter>
+    );
+
+    expect(screen.getAllByText('Project access verified').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText('Search')).toBeInTheDocument();
+    expect(screen.getByText('Write boundary')).toBeInTheDocument();
+    expect(screen.getByText('concept: Portfolio concentration')).toBeInTheDocument();
   });
 
   it('moves long examples into the Reference tab', () => {
@@ -122,6 +174,6 @@ describe('ExternalBridgeCard', () => {
     expect(screen.queryByText('Bridge methods')).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('tab', { name: 'Reference' }));
     expect(screen.getByText('Bridge methods')).toBeInTheDocument();
-    expect(screen.getByText(/threads\/list/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/threads\/list/i).length).toBeGreaterThanOrEqual(1);
   });
 });

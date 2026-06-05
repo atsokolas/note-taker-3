@@ -7261,6 +7261,37 @@ html[data-ui-theme='dark'] .external-bridge-pre {
   margin-top: 12px;
 }
 
+.external-bridge-access-grid,
+.external-bridge-health__checks,
+.external-bridge-health__samples,
+.external-bridge-scope-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.external-bridge-access-grid span,
+.external-bridge-health__checks span,
+.external-bridge-health__samples span {
+  display: inline-flex;
+  min-height: 26px;
+  align-items: center;
+  padding: 4px 8px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 999px;
+  color: var(--text-secondary);
+  font-size: 0.74rem;
+  font-weight: 650;
+}
+
+.external-bridge-access-grid span.is-enabled,
+.external-bridge-health__checks span.is-enabled {
+  border-color: color-mix(in srgb, var(--success-color, #10b981) 34%, var(--border-subtle));
+  color: var(--text);
+  background: color-mix(in srgb, var(--surface-elevated) 88%, var(--success-color, #10b981) 8%);
+}
+
 .external-bridge-agent-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
@@ -7284,6 +7315,23 @@ html[data-ui-theme='dark'] .external-bridge-pre {
 .external-bridge-approval-actions,
 .external-bridge-approval-meta {
   flex-wrap: wrap;
+}
+
+.external-bridge-scope-presets button {
+  min-height: 28px;
+  padding: 4px 9px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 999px;
+  background: var(--surface-card);
+  color: var(--text-secondary);
+  font-size: 0.74rem;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.external-bridge-scope-presets button:disabled {
+  cursor: not-allowed;
+  opacity: 0.56;
 }
 
 .external-bridge-post-mint {
@@ -7352,6 +7400,27 @@ html[data-ui-theme='dark'] .external-bridge-pre {
   border: 1px solid color-mix(in srgb, var(--success-color, #10b981) 34%, var(--border-subtle));
   border-radius: 12px;
   background: color-mix(in srgb, var(--surface-elevated) 90%, var(--success-color, #10b981) 7%);
+}
+
+.external-bridge-health {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  background: var(--surface-elevated);
+}
+
+.external-bridge-health strong {
+  display: block;
+  margin-top: 2px;
+  color: var(--text);
+}
+
+.external-bridge-health__samples span {
+  max-width: 100%;
+  border-radius: 8px;
 }
 
 .external-bridge-approval-list {

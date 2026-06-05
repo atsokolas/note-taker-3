@@ -41,6 +41,9 @@ jest.mock('../hooks/integrations/useAgentBridge', () => () => ({
   bridgeManifestLoading: false,
   bridgeManifestError: '',
   bridgeManifest: null,
+  bridgeHealth: null,
+  bridgeAccessCheckLoading: false,
+  bridgeAccessCheckError: '',
   bridgeCopyStatus: '',
   bridgeMeta: { scope: 'agent_ops', expiresInSec: 1800 },
   protocolApprovals: [],
@@ -49,6 +52,8 @@ jest.mock('../hooks/integrations/useAgentBridge', () => () => ({
   protocolApprovalBusyId: '',
   handleCreateBridgeToken: jest.fn(),
   handleTestBridgeConnection: jest.fn(),
+  handleRunBridgeAccessCheck: jest.fn(),
+  handleForgetBridgeHealth: jest.fn(),
   handleCopyBridgeConfig: jest.fn(),
   handleApproveProtocolApproval: jest.fn(),
   handleRejectProtocolApproval: jest.fn()
