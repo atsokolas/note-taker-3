@@ -886,8 +886,8 @@ export const ConceptEvidenceStreamRail = ({
               <p>{freshness.summary}</p>
               {Array.isArray(freshness.preview) && freshness.preview.length > 0 && (
                 <ul>
-                  {freshness.preview.slice(0, 3).map((item) => (
-                    <li key={`freshness-${item}`}>{item}</li>
+                  {freshness.preview.slice(0, 3).map((item, index) => (
+                    <li key={`freshness-${index}-${item}`}>{item}</li>
                   ))}
                 </ul>
               )}

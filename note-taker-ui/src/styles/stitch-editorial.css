@@ -3978,7 +3978,10 @@ body.noeis-editorial .agent-thought-partner--passive .agent-thought-partner__com
 body.noeis-editorial .reference-pull-in {
   display: grid;
   gap: 10px;
+  width: 100%;
+  max-width: 100%;
   min-width: 0;
+  overflow-x: hidden;
   position: relative;
 }
 
@@ -4100,9 +4103,11 @@ body.noeis-editorial .reference-pull-in__relations button[aria-pressed="true"] {
 
 body.noeis-editorial .reference-pull-in__search {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr);
   gap: 8px;
   align-items: stretch;
+  min-width: 0;
+  max-width: 100%;
 }
 
 body.noeis-editorial .reference-pull-in__search input {
@@ -4393,11 +4398,13 @@ body.noeis-editorial .reference-pull-in__backlink-row strong {
 
 body.noeis-editorial .reference-pull-in__result {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr);
   align-items: center;
   gap: 10px;
   width: 100%;
+  max-width: 100%;
   min-width: 0;
+  overflow: hidden;
   padding: 10px 11px;
   border: 1px solid color-mix(in srgb, var(--vellum-line) 88%, transparent);
   background: color-mix(in srgb, var(--vellum-page) 82%, transparent);
@@ -4415,9 +4422,12 @@ body.noeis-editorial .reference-pull-in__result:focus-within {
 body.noeis-editorial .reference-pull-in__result-main {
   display: grid;
   gap: 4px;
+  width: 100%;
   min-width: 0;
+  max-width: 100%;
   padding: 0;
   border: 0;
+  overflow: hidden;
   background: transparent;
   color: inherit;
   text-align: left;
@@ -4431,8 +4441,12 @@ body.noeis-editorial .reference-pull-in__result-main:focus-visible {
 
 body.noeis-editorial .reference-pull-in__result-open {
   display: inline-flex;
+  justify-self: start;
   min-height: 32px;
+  min-width: 0;
+  max-width: 100%;
   align-items: center;
+  overflow: hidden;
   color: var(--vellum-blue);
   font-family: var(--noeis-ui-font);
   font-size: 0.68rem;
@@ -4449,6 +4463,8 @@ body.noeis-editorial .reference-pull-in__result-open:focus-visible {
 }
 
 body.noeis-editorial .reference-pull-in__result-title {
+  min-width: 0;
+  max-width: 100%;
   overflow: hidden;
   color: var(--vellum-ink);
   font-family: var(--noeis-ui-font);
@@ -4460,6 +4476,8 @@ body.noeis-editorial .reference-pull-in__result-title {
 
 body.noeis-editorial .reference-pull-in__result-meta {
   display: -webkit-box;
+  min-width: 0;
+  max-width: 100%;
   overflow: hidden;
   color: var(--vellum-muted);
   font-size: 0.76rem;
@@ -5766,8 +5784,18 @@ body.noeis-editorial .concept-editorial-evidence *::after {
 body.noeis-editorial .concept-editorial-evidence__header {
   display: grid;
   gap: 3px;
+  min-width: 0;
+  max-width: 100%;
   padding-bottom: 12px;
   border-bottom: 1px solid var(--vellum-line);
+}
+
+body.noeis-editorial .concept-editorial-evidence__header h3,
+body.noeis-editorial .concept-editorial-evidence__header p {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 body.noeis-editorial .concept-editorial-evidence__ticker.agent-ticker {
@@ -5839,13 +5867,23 @@ body.noeis-editorial .concept-editorial-evidence__section {
 
 body.noeis-editorial .concept-editorial-evidence__section-head {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   gap: 10px;
+  min-width: 0;
+  max-width: 100%;
   font-family: var(--noeis-ui-font);
   font-size: 0.58rem;
   letter-spacing: 0.18em;
   text-transform: uppercase;
   color: color-mix(in srgb, var(--vellum-ink) 62%, transparent);
+}
+
+body.noeis-editorial .concept-editorial-evidence__section-head span {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 body.noeis-editorial .concept-editorial-evidence__section-copy {
