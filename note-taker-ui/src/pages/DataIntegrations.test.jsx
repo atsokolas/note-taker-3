@@ -57,6 +57,38 @@ jest.mock('../api/agent', () => ({
   chatWithAgent: jest.fn()
 }));
 
+jest.mock('../hooks/integrations/useAgentBridge', () => () => ({
+  bridgeActorType: 'byo_agent',
+  setBridgeActorType: jest.fn(),
+  bridgeActorId: '',
+  setBridgeActorId: jest.fn(),
+  bridgeScope: 'agent_ops',
+  setBridgeScope: jest.fn(),
+  bridgeTtl: 1800,
+  setBridgeTtl: jest.fn(),
+  bridgeBusy: false,
+  bridgeError: '',
+  bridgeToken: '',
+  bridgeManifestLoading: false,
+  bridgeManifestError: '',
+  bridgeManifest: null,
+  bridgeCopyStatus: '',
+  bridgeMeta: { scope: 'agent_ops', expiresInSec: 1800 },
+  protocolApprovals: [],
+  protocolApprovalsLoading: false,
+  protocolApprovalsError: '',
+  protocolApprovalBusyId: '',
+  handleCreateBridgeToken: jest.fn(),
+  handleTestBridgeConnection: jest.fn(),
+  handleCopyBridgeConfig: jest.fn(),
+  handleApproveProtocolApproval: jest.fn(),
+  handleRejectProtocolApproval: jest.fn()
+}));
+
+jest.mock('../hooks/integrations/usePersonalAgents', () => () => ({
+  sortedAgents: []
+}));
+
 jest.mock('../utils/marketingAnalytics', () => ({
   trackActivationMilestone: jest.fn()
 }));
@@ -100,6 +132,18 @@ describe('DataIntegrations first insight workflow', () => {
     syncReadwiseConnection.mockResolvedValue({});
     syncNotionConnection.mockResolvedValue({});
     chatWithAgent.mockResolvedValue({});
+  });
+
+  it('shows the OpenClaw and Hermes agent bridge on the active integrations route', async () => {
+    render(
+      <MemoryRouter>
+        <DataIntegrations />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByText('Connect OpenClaw or Hermes')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Best for delegated research/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /MCP-first runtime/i })).toBeInTheDocument();
   });
 
   it('shows organize this import action after a completed import session', async () => {

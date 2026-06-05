@@ -27,8 +27,31 @@ jest.mock('../hooks/integrations/useAgentProtocolPolicy', () => () => ({
 }));
 
 jest.mock('../hooks/integrations/useAgentBridge', () => () => ({
-  bridgeState: {},
-  loading: false
+  bridgeActorType: 'byo_agent',
+  setBridgeActorType: jest.fn(),
+  bridgeActorId: '',
+  setBridgeActorId: jest.fn(),
+  bridgeScope: 'agent_ops',
+  setBridgeScope: jest.fn(),
+  bridgeTtl: 1800,
+  setBridgeTtl: jest.fn(),
+  bridgeBusy: false,
+  bridgeError: '',
+  bridgeToken: '',
+  bridgeManifestLoading: false,
+  bridgeManifestError: '',
+  bridgeManifest: null,
+  bridgeCopyStatus: '',
+  bridgeMeta: { scope: 'agent_ops', expiresInSec: 1800 },
+  protocolApprovals: [],
+  protocolApprovalsLoading: false,
+  protocolApprovalsError: '',
+  protocolApprovalBusyId: '',
+  handleCreateBridgeToken: jest.fn(),
+  handleTestBridgeConnection: jest.fn(),
+  handleCopyBridgeConfig: jest.fn(),
+  handleApproveProtocolApproval: jest.fn(),
+  handleRejectProtocolApproval: jest.fn()
 }));
 
 jest.mock('../hooks/useHandoffs', () => () => ({
@@ -52,7 +75,8 @@ describe('Integrations MCP setup', () => {
     expect(screen.getByText('Claude Code')).toBeInTheDocument();
     expect(screen.getByText('Codex')).toBeInTheDocument();
     expect(screen.getByText('OpenCode')).toBeInTheDocument();
-    expect(screen.getByText('Hermes')).toBeInTheDocument();
+    expect(screen.getAllByText('Hermes').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText('Connect OpenClaw or Hermes')).toBeInTheDocument();
     expect(screen.getAllByText(/NOEIS_TOKEN/).length).toBeGreaterThanOrEqual(4);
     expect(screen.getByText(/NOEIS_API_URL/)).toBeInTheDocument();
   });

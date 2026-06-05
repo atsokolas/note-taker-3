@@ -44,6 +44,47 @@ const buildOpenClawConfig = ({
   }, null, 2);
 };
 
+const buildHermesConfig = ({
+  bridgeToken,
+  bridgeScope,
+  bridgeActorType,
+  selectedAgentName,
+  expiresInSec = 1800
+}) => {
+  const baseUrl = resolveBridgeBaseUrl();
+  return JSON.stringify({
+    servers: {
+      'noeis-agent-bridge': {
+        transport: 'http',
+        url: `${baseUrl}/api/agent/protocol/bridge/mcp`,
+        headers: {
+          Authorization: `Bearer ${bridgeToken}`
+        },
+        metadata: {
+          name: formatActorLabel(bridgeActorType, selectedAgentName),
+          protocol: 'note-taker-agent-bridge-v1',
+          manifest_url: `${baseUrl}/api/agent/protocol/bridge/manifest`,
+          scope: String(bridgeScope || 'agent_ops').trim() || 'agent_ops',
+          expires_in_sec: Number(expiresInSec) || 1800
+        }
+      }
+    }
+  }, null, 2);
+};
+
+const buildBridgeRuntimeConfig = ({
+  runtime = 'openclaw',
+  bridgeToken,
+  bridgeScope,
+  bridgeActorType,
+  selectedAgentName,
+  expiresInSec
+}) => (
+  runtime === 'hermes'
+    ? buildHermesConfig({ bridgeToken, bridgeScope, bridgeActorType, selectedAgentName, expiresInSec })
+    : buildOpenClawConfig({ bridgeToken, bridgeScope, bridgeActorType, selectedAgentName, expiresInSec })
+);
+
 const useAgentBridge = () => {
   const [bridgeActorType, setBridgeActorType] = useState('user');
   const [bridgeActorId, setBridgeActorId] = useState('');
@@ -111,7 +152,7 @@ const useAgentBridge = () => {
     }
   }, [bridgeToken]);
 
-  const handleCopyBridgeConfig = useCallback(async (selectedAgentName = '') => {
+  const handleCopyBridgeConfig = useCallback(async (selectedAgentName = '', runtime = 'openclaw') => {
     const safeBridgeToken = String(bridgeToken || '').trim();
     if (!safeBridgeToken) {
       setBridgeCopyStatus('Mint a bridge token before copying config.');
@@ -122,16 +163,18 @@ const useAgentBridge = () => {
       return;
     }
     try {
-      await navigator.clipboard.writeText(buildOpenClawConfig({
+      const safeRuntime = runtime === 'hermes' ? 'hermes' : 'openclaw';
+      await navigator.clipboard.writeText(buildBridgeRuntimeConfig({
+        runtime: safeRuntime,
         bridgeToken: safeBridgeToken,
         bridgeScope,
         bridgeActorType,
         selectedAgentName,
         expiresInSec: bridgeMeta?.expiresInSec || bridgeTtl
       }));
-      setBridgeCopyStatus('OpenClaw config copied to clipboard.');
+      setBridgeCopyStatus(`${safeRuntime === 'hermes' ? 'Hermes' : 'OpenClaw'} config copied to clipboard.`);
     } catch (_error) {
-      setBridgeCopyStatus('Failed to copy OpenClaw config.');
+      setBridgeCopyStatus('Failed to copy bridge config.');
     }
   }, [bridgeActorType, bridgeMeta?.expiresInSec, bridgeScope, bridgeToken, bridgeTtl]);
 

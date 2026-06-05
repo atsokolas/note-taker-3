@@ -50,6 +50,11 @@ const Integrations = () => {
 
       <WikiMcpConnectCard />
 
+      <ExternalBridgeCard
+        bridgeModel={bridgeModel}
+        sortedAgents={personalAgentsModel.sortedAgents}
+      />
+
       <HandoffQueueCard
         handoffsModel={handoffsModel}
         sortedAgents={personalAgentsModel.sortedAgents}
@@ -66,11 +71,6 @@ const Integrations = () => {
 
           <OrchestrationPolicyCard
             policyModel={policyModel}
-            sortedAgents={personalAgentsModel.sortedAgents}
-          />
-
-          <ExternalBridgeCard
-            bridgeModel={bridgeModel}
             sortedAgents={personalAgentsModel.sortedAgents}
           />
         </>

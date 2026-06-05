@@ -40,7 +40,7 @@ const sortedAgents = [
 ];
 
 describe('ExternalBridgeCard', () => {
-  it('shows a bridge quickstart flow with test and copy actions after minting a token', async () => {
+  it('shows a guided OpenClaw connection flow with test and copy actions after minting a token', async () => {
     const bridgeModel = buildBridgeModel();
 
     render(
@@ -49,6 +49,9 @@ describe('ExternalBridgeCard', () => {
       </MemoryRouter>
     );
 
+    expect(screen.getByText('Connect OpenClaw or Hermes')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Best for delegated research/i })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: /MCP-first runtime/i })).toBeInTheDocument();
     expect(screen.getByText('Bridge quickstart')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Test bridge connection' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Copy OpenClaw config' })).toBeInTheDocument();
@@ -57,7 +60,24 @@ describe('ExternalBridgeCard', () => {
     await waitFor(() => expect(bridgeModel.handleTestBridgeConnection).toHaveBeenCalledTimes(1));
 
     fireEvent.click(screen.getByRole('button', { name: 'Copy OpenClaw config' }));
-    await waitFor(() => expect(bridgeModel.handleCopyBridgeConfig).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(bridgeModel.handleCopyBridgeConfig).toHaveBeenCalledWith('OpenClaw Researcher', 'openclaw'));
+  });
+
+  it('switches to Hermes config and copy action', async () => {
+    const bridgeModel = buildBridgeModel();
+
+    render(
+      <MemoryRouter>
+        <ExternalBridgeCard bridgeModel={bridgeModel} sortedAgents={sortedAgents} />
+      </MemoryRouter>
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /MCP-first runtime/i }));
+    expect(screen.getByText('Hermes MCP config')).toBeInTheDocument();
+    expect(screen.getByText(/"transport": "http"/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Copy Hermes config' }));
+    await waitFor(() => expect(bridgeModel.handleCopyBridgeConfig).toHaveBeenCalledWith('OpenClaw Researcher', 'hermes'));
   });
 
   it('renders manifest verification details after a successful test', () => {
@@ -85,7 +105,9 @@ describe('ExternalBridgeCard', () => {
 
     expect(screen.getByText('Bridge verified')).toBeInTheDocument();
     expect(screen.getByText(/note-taker-agent-bridge-v1 for/i)).toBeInTheDocument();
-    expect(screen.getByText(/shared skills .* shared threads .* protocol handoffs/i)).toBeInTheDocument();
+    expect(screen.getByText('Shared skills')).toBeInTheDocument();
+    expect(screen.getByText('Shared threads')).toBeInTheDocument();
+    expect(screen.getByText('Protocol handoffs')).toBeInTheDocument();
   });
 
   it('moves long examples into the Reference tab', () => {

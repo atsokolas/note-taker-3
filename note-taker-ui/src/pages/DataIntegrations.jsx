@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import api from '../api';
 import { Button, Card, Page } from '../components/ui';
 import { chatWithAgent, fetchNotionPagesViaAgent } from '../api/agent';
+import ExternalBridgeCard from '../components/integrations/ExternalBridgeCard';
 import NotionAgentFetchCard from '../components/integrations/NotionAgentFetchCard';
 import { updateConcept } from '../api/concepts';
 import {
@@ -31,6 +32,8 @@ import {
   saveFirstInsightState,
   updateFirstInsightState
 } from '../utils/firstInsight';
+import useAgentBridge from '../hooks/integrations/useAgentBridge';
+import usePersonalAgents from '../hooks/integrations/usePersonalAgents';
 import { trackActivationMilestone } from '../utils/marketingAnalytics';
 
 const SOURCE_OPTIONS = [
@@ -355,6 +358,8 @@ const getActivationCopy = ({ state, session, scheduleTarget }) => {
 
 const DataIntegrations = () => {
   const navigate = useNavigate();
+  const bridgeModel = useAgentBridge();
+  const personalAgentsModel = usePersonalAgents();
   const [selectedSource, setSelectedSource] = useState('readwise');
   const [importStatus, setImportStatus] = useState({ tone: '', message: '' });
   const [importStats, setImportStats] = useState(null);
@@ -1707,6 +1712,11 @@ const DataIntegrations = () => {
         <h1>Bring your knowledge</h1>
         <p className="muted">Choose a source, import the text cleanly, then turn it into a concept instead of leaving it as a dead archive.</p>
       </div>
+
+      <ExternalBridgeCard
+        bridgeModel={bridgeModel}
+        sortedAgents={personalAgentsModel.sortedAgents}
+      />
 
       <Card className="settings-card">
         <h2>Choose a source</h2>
