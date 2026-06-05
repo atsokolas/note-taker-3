@@ -7091,6 +7091,40 @@ html[data-ui-theme='dark'] .external-bridge-pre {
   border-color: color-mix(in srgb, var(--border-subtle) 100%, var(--mix-lift) 4%);
 }
 
+.integrations-page {
+  width: min(100%, 1500px);
+  min-height: auto;
+  padding-bottom: max(96px, env(safe-area-inset-bottom));
+}
+
+.wiki-mcp-connect-card {
+  overflow: visible;
+}
+
+.wiki-mcp-connect-card__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.wiki-mcp-connect-card__panel {
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  background: var(--surface-elevated);
+}
+
+.wiki-mcp-connect-card__panel p {
+  margin: 0;
+}
+
+.wiki-mcp-connect-card__panel p + p,
+.wiki-mcp-connect-card__panel p + pre {
+  margin-top: 8px;
+}
+
 .external-bridge-card {
   display: grid;
   gap: 16px;

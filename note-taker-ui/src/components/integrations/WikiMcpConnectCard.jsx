@@ -51,7 +51,7 @@ env = { NOEIS_TOKEN = "ntk_at_..." }`
 ];
 
 const WikiMcpConnectCard = () => (
-  <Card className="settings-card">
+  <Card className="settings-card wiki-mcp-connect-card">
     <div className="settings-appearance-header">
       <div>
         <h2>Noeis wiki MCP + CLI</h2>
@@ -62,21 +62,21 @@ const WikiMcpConnectCard = () => (
     <p className="muted small">
       Create a token in Settings &gt; Connected agents. Use `NOEIS_TOKEN` for hosted Noeis, and add `NOEIS_API_URL` only for local or self-hosted API targets.
     </p>
-    <div className="settings-option-button" style={{ display: 'block', marginTop: 12 }}>
+    <div className="wiki-mcp-connect-card__panel">
       <p><strong>Noeis CLI</strong></p>
       <p className="muted small">For cron jobs, shell scripts, and custom Python or Node workflows that do not speak MCP.</p>
-      <pre className="external-bridge-pre" style={{ whiteSpace: 'pre-wrap' }}>{`npm i -g @noeis/cli
+      <pre className="external-bridge-pre">{`npm i -g @noeis/cli
 noeis login --token ntk_at_...
 noeis ingest https://example.com/research
 noeis pages list
 noeis ask <pageId> "What changed?"`}</pre>
     </div>
-    <div className="settings-option-row" style={{ alignItems: 'stretch', flexWrap: 'wrap', marginTop: 12 }}>
+    <div className="wiki-mcp-connect-card__grid">
       {CODE_BLOCKS.map((block) => (
-        <div key={block.label} className="settings-option-button" style={{ flex: '1 1 300px', display: 'block' }}>
+        <div key={block.label} className="wiki-mcp-connect-card__panel">
           <p><strong>{block.label}</strong></p>
           <p className="muted small">{block.detail}</p>
-          <pre className="external-bridge-pre" style={{ whiteSpace: 'pre-wrap' }}>{block.code}</pre>
+          <pre className="external-bridge-pre">{block.code}</pre>
         </div>
       ))}
     </div>

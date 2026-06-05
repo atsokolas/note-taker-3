@@ -35,7 +35,7 @@ const Integrations = () => {
   });
 
   return (
-    <Page>
+    <Page className="settings-page integrations-page">
       <div className="page-header">
         <p className="muted-label">Mode</p>
         <h1>Integrations</h1>
