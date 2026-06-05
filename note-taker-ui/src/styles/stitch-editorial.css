@@ -3322,6 +3322,8 @@ body.noeis-editorial .concept-editorial-shell__main {
    .concept-editorial-evidence, the trailing words got clipped. */
 body.noeis-editorial .concept-editorial-shell__stream {
   min-width: 0;
+  max-width: 336px;
+  overflow-x: hidden;
 }
 
 /* Letter-spaced uppercase eyebrows balloon in width; force wrap so they fit
@@ -5745,10 +5747,20 @@ body.noeis-editorial .concept-editorial-evidence {
   min-height: calc(100vh - 148px);
   padding: 10px 0 24px 20px;
   background: var(--vellum-panel);
+  box-sizing: border-box;
+  width: 100%;
   min-width: 0;
   max-width: 100%;
-  overflow-x: clip;
+  overflow-x: hidden;
   overflow-y: visible;
+}
+
+body.noeis-editorial .concept-editorial-evidence *,
+body.noeis-editorial .concept-editorial-evidence *::before,
+body.noeis-editorial .concept-editorial-evidence *::after {
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
 }
 
 body.noeis-editorial .concept-editorial-evidence__header {
@@ -5896,11 +5908,14 @@ body.noeis-editorial .concept-editorial-evidence__quick-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 10px 14px;
+  width: 100%;
   max-width: 100%;
   min-width: 0;
+  overflow-x: hidden;
 }
 
 body.noeis-editorial .concept-editorial-evidence__quick-actions button {
+  flex: 1 1 100%;
   min-height: 0;
   min-width: 0;
   max-width: 100%;
