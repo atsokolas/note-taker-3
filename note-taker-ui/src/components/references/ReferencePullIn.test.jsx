@@ -462,4 +462,70 @@ describe('ReferencePullIn', () => {
       });
     });
   });
+
+  it('does not reuse an on-demand target after moving to another unresolved surface', async () => {
+    const ensureTarget = jest.fn()
+      .mockResolvedValueOnce({
+        targetType: 'concept',
+        targetId: 'concept-a',
+        scopeType: 'concept',
+        scopeId: 'concept-a'
+      })
+      .mockResolvedValueOnce({
+        targetType: 'concept',
+        targetId: 'concept-b',
+        scopeType: 'concept',
+        scopeId: 'concept-b'
+      });
+    const { rerender } = render(
+      <ReferencePullIn
+        targetTitle="Concept A"
+        ensureTarget={ensureTarget}
+      />
+    );
+
+    fireEvent.change(screen.getByLabelText('Search references to pull in'), {
+      target: { value: 'margin' }
+    });
+    await waitFor(() => {
+      expect(screen.getByText('Margin of safety')).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByText('Margin of safety'));
+
+    await waitFor(() => {
+      expect(createConnection).toHaveBeenCalledWith(expect.objectContaining({
+        fromId: 'concept-a',
+        scopeId: 'concept-a'
+      }));
+    });
+    createConnection.mockClear();
+
+    rerender(
+      <ReferencePullIn
+        targetTitle="Concept B"
+        ensureTarget={ensureTarget}
+      />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Concept B')).toBeInTheDocument();
+    });
+    fireEvent.change(screen.getByLabelText('Search references to pull in'), {
+      target: { value: 'margin b' }
+    });
+    await waitFor(() => {
+      expect(searchConnectableItems).toHaveBeenCalledWith(expect.objectContaining({
+        q: 'margin b'
+      }));
+    });
+    fireEvent.click(screen.getAllByRole('button', { name: /Margin of safety/ })[0]);
+
+    await waitFor(() => {
+      expect(createConnection).toHaveBeenCalledWith(expect.objectContaining({
+        fromId: 'concept-b',
+        scopeId: 'concept-b'
+      }));
+    });
+    expect(ensureTarget).toHaveBeenCalledTimes(2);
+  });
 });

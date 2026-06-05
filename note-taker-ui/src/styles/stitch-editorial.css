@@ -611,6 +611,16 @@ body.noeis-editorial .topbar__search-wrap {
   border: 1px solid var(--vellum-line) !important;
 }
 
+body.noeis-editorial .topbar__search-trigger {
+  min-height: 38px;
+  padding: 0 10px 0 38px;
+  gap: 8px;
+}
+
+body.noeis-editorial .topbar__search-trigger-label {
+  line-height: 1;
+}
+
 body.noeis-editorial .topbar__search-icon {
   position: absolute;
   top: 50%;
@@ -1924,6 +1934,43 @@ body.noeis-editorial .agent-ticker__cursor {
 
 body.noeis-editorial .agent-ticker--working .agent-ticker__history {
   opacity: 1;
+}
+
+body.noeis-editorial .wiki-workspace-chat__ticker.agent-ticker {
+  gap: 0;
+  max-width: none;
+  min-height: 34px;
+  padding: 8px 10px;
+  border-color: color-mix(in srgb, var(--vellum-line) 72%, transparent);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--vellum-panel) 72%, var(--vellum-bg) 28%);
+  overflow: visible;
+}
+
+body.noeis-editorial .wiki-workspace-chat__ticker .agent-ticker__history {
+  display: none;
+}
+
+body.noeis-editorial .wiki-workspace-chat__ticker .agent-ticker__lines {
+  font-family: var(--noeis-ui-font);
+  font-size: 0.72rem;
+  line-height: 1.35;
+  color: color-mix(in srgb, var(--vellum-ink) 74%, transparent);
+}
+
+body.noeis-editorial .wiki-workspace-chat__ticker .agent-ticker__line {
+  display: block;
+  opacity: 1;
+}
+
+body.noeis-editorial .wiki-workspace-chat__ticker .agent-ticker__prompt {
+  display: none;
+}
+
+body.noeis-editorial .wiki-workspace-chat__ticker .agent-ticker__line span:not(.agent-ticker__prompt):not(.agent-ticker__cursor) {
+  display: block;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 @keyframes noeisTickerCursor {
@@ -3573,7 +3620,8 @@ body.noeis-editorial .editorial-side-rail {
   gap: 18px;
   align-content: start;
   min-height: calc(100vh - 148px);
-  padding: 10px 0 24px 20px;
+  box-sizing: border-box;
+  padding: 10px 20px 24px;
   background: var(--vellum-panel);
 }
 

@@ -223,16 +223,28 @@ const ReferencePullIn = ({
   const [linkReceipt, setLinkReceipt] = useState(null);
   const [connectionState, setConnectionState] = useState({ outgoing: [], incoming: [], loading: false, error: '' });
   const [resolvedTarget, setResolvedTarget] = useState(null);
+  const targetSurfaceKey = useMemo(
+    () => [
+      targetType || '',
+      targetId || '',
+      targetTitle || ''
+    ].join('::'),
+    [targetId, targetTitle, targetType]
+  );
 
   const activeTarget = useMemo(() => {
     if (targetType && targetId) {
       return { targetType, targetId, scopeType, scopeId };
     }
-    if (resolvedTarget?.targetType && resolvedTarget?.targetId) {
+    if (
+      resolvedTarget?.surfaceKey === targetSurfaceKey
+      && resolvedTarget?.targetType
+      && resolvedTarget?.targetId
+    ) {
       return resolvedTarget;
     }
     return null;
-  }, [resolvedTarget, scopeId, scopeType, targetId, targetType]);
+  }, [resolvedTarget, scopeId, scopeType, targetId, targetSurfaceKey, targetType]);
 
   const hasTarget = Boolean(activeTarget?.targetType && activeTarget?.targetId);
   const canLink = hasTarget || typeof ensureTarget === 'function';
@@ -251,7 +263,7 @@ const ReferencePullIn = ({
 
   useEffect(() => {
     setResolvedTarget(null);
-  }, [targetId, targetType]);
+  }, [targetSurfaceKey]);
 
   useEffect(() => {
     if (!hasTarget) {
@@ -336,7 +348,7 @@ const ReferencePullIn = ({
     if (typeof ensureTarget !== 'function') return null;
     const ensured = await ensureTarget();
     if (!ensured?.targetType || !ensured?.targetId) return null;
-    setResolvedTarget(ensured);
+    setResolvedTarget({ ...ensured, surfaceKey: targetSurfaceKey });
     return ensured;
   };
 

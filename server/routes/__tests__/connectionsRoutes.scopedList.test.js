@@ -18,8 +18,15 @@ const listen = (app) => new Promise((resolve) => {
   const server = app.listen(0, '127.0.0.1', () => resolve(server));
 });
 
-const request = async (url, path) => {
-  const res = await fetch(`${url}${path}`, { headers: { Authorization: 'Bearer test' } });
+const request = async (url, path, options = {}) => {
+  const res = await fetch(`${url}${path}`, {
+    ...options,
+    headers: {
+      Authorization: 'Bearer test',
+      ...(options.body ? { 'Content-Type': 'application/json' } : {}),
+      ...(options.headers || {})
+    }
+  });
   const text = await res.text();
   return { res, body: text ? JSON.parse(text) : {}, text };
 };
@@ -57,7 +64,16 @@ const run = async () => {
   ];
 
   const Connection = {
-    find: (query = {}) => new Query(records.filter(row => matchesQuery(row, query)))
+    find: (query = {}) => new Query(records.filter(row => matchesQuery(row, query))),
+    findOne: (query = {}) => new Query(records.find(row => matchesQuery(row, query)) || null),
+    create: async (row = {}) => {
+      const created = {
+        ...row,
+        _id: `created-${records.length + 1}`
+      };
+      records.push(created);
+      return { toObject: () => created };
+    }
   };
 
   const app = express();
@@ -103,6 +119,30 @@ const run = async () => {
       outgoingIds,
       ['highlight-a', 'highlight-b'],
       'unscoped list should include global and scoped outgoing edges'
+    );
+
+    const created = await request(url, '/api/connections', {
+      method: 'POST',
+      body: JSON.stringify({
+        fromType: 'concept',
+        fromId: 'concept-a',
+        toType: 'highlight',
+        toId: 'highlight-b',
+        relationType: 'related'
+      })
+    });
+    assert.strictEqual(created.res.status, 201, created.text);
+    assert.strictEqual(created.body.scopeType || '', '', 'unscoped create should return an unscoped forward edge');
+    assert.ok(
+      records.some(row => (
+        row.fromType === 'concept'
+        && row.fromId === 'concept-a'
+        && row.toType === 'highlight'
+        && row.toId === 'highlight-b'
+        && row.scopeType === ''
+        && row.scopeId === ''
+      )),
+      'unscoped forward edge should be created even when a scoped edge already exists'
     );
   } finally {
     await new Promise((resolve, reject) => server.close(err => (err ? reject(err) : resolve())));

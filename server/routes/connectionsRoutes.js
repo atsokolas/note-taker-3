@@ -39,6 +39,10 @@ const buildConnectionsRouter = ({
   addToCandidateSet
 }) => {
   const router = express.Router();
+  const buildExactConnectionScopeQuery = (scope = {}) => ({
+    scopeType: scope?.scopeType || '',
+    scopeId: scope?.scopeId || ''
+  });
 
   router.post('/api/connections', authenticateToken, async (req, res) => {
     try {
@@ -90,7 +94,7 @@ const buildConnectionsRouter = ({
         toType: safeToType,
         toId: safeToId,
         relationType: safeRelationType,
-        ...buildConnectionScopeQuery(scope)
+        ...buildExactConnectionScopeQuery(scope)
       };
       const reciprocalQuery = {
         userId,
@@ -99,7 +103,7 @@ const buildConnectionsRouter = ({
         toType: safeFromType,
         toId: safeFromId,
         relationType: reciprocalRelationType,
-        ...buildConnectionScopeQuery(scope)
+        ...buildExactConnectionScopeQuery(scope)
       };
 
       const existing = await Connection.findOne(connectionQuery).lean();
