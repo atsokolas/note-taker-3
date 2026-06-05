@@ -1699,6 +1699,7 @@ const WikiWorkspaceChat = ({
       agentStatus.text
     ].filter(Boolean).slice(-3);
   }, [agentStatus.text, messages, selectedPageId, view]);
+  const showTraceTicker = Boolean(busy);
   const wikiMentionQuery = useMemo(() => {
     const match = input.match(/@wiki:([^\s]*)$/i);
     return match ? clean(match[1]).toLowerCase() : '';
@@ -2340,14 +2341,16 @@ const WikiWorkspaceChat = ({
             <span>{agentStatus.text}</span>
           </div>
         ) : null}
-        <AgentTicker
-          className="wiki-workspace-chat__ticker"
-          label={`${AGENT_DISPLAY_NAME} trace`}
-          state={busy ? 'working' : agentStatus.status}
-          lines={tickerLines}
-          sharedMemory
-          surface="Wiki"
-        />
+        {showTraceTicker ? (
+          <AgentTicker
+            className="wiki-workspace-chat__ticker"
+            label={`${AGENT_DISPLAY_NAME} trace`}
+            state="working"
+            lines={tickerLines}
+            sharedMemory
+            surface="Wiki"
+          />
+        ) : null}
         {contextReferences.length ? (
           <div className="wiki-workspace-chat__context" aria-label="In context">
             <span>In context:</span>

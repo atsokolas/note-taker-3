@@ -277,7 +277,8 @@ describe('WikiWorkspace', () => {
     await settleWorkspaceEffects();
 
     expect(screen.getByLabelText('Thought partner chat')).toBeInTheDocument();
-    await waitFor(() => expect(screen.getByLabelText('Thought partner trace')).toHaveTextContent('Agent ready.'));
+    await waitFor(() => expect(screen.getByLabelText('Thought partner status')).toHaveTextContent('Agent ready.'));
+    expect(screen.queryByLabelText('Thought partner trace')).not.toBeInTheDocument();
     expect(screen.getByTestId('wiki-index')).toBeInTheDocument();
     expect(document.querySelector('.wiki-workspace')).toHaveStyle('--wiki-workspace-chat-width: 260px');
     expect(document.querySelector('.wiki-workspace__right-pane')).toBeInTheDocument();
