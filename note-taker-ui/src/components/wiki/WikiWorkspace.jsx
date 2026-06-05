@@ -2611,7 +2611,11 @@ const WikiWorkspace = () => {
   }, [selectedPageId]);
 
   useEffect(() => {
-    setStreamedWikiPage(null);
+    setStreamedWikiPage((current) => {
+      if (!current) return null;
+      const streamedPageId = clean(current._id || current.id);
+      return streamedPageId && streamedPageId === selectedPageId ? current : null;
+    });
   }, [selectedPageId]);
 
   useEffect(() => {
@@ -2768,13 +2772,18 @@ const WikiWorkspace = () => {
   }, [onNavigate, selectedPageId]);
 
   const onPageChanged = useCallback((pageId, page = null) => {
-    if (pageId !== selectedPageId) return;
     if (page) {
+      const streamedPageId = clean(page._id || page.id);
+      if (streamedPageId && streamedPageId !== pageId) return;
       setStreamedWikiPage(page);
       return;
     }
+    const currentPageId = clean(new URLSearchParams(
+      currentSearchRef.current || currentSearch || location.search || ''
+    ).get('page'));
+    if (pageId !== (currentPageId || selectedPageId)) return;
     setRefreshNonce(value => value + 1);
-  }, [selectedPageId]);
+  }, [currentSearch, location.search, selectedPageId]);
 
   const onLiveUpdate = useCallback((update = {}) => {
     setLiveUpdate(update);

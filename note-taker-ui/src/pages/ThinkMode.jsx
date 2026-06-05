@@ -3461,7 +3461,7 @@ const ThinkMode = () => {
     />
   );
 
-  const isConceptWorkbenchView = activeView === 'concepts' && Boolean(selectedName) && Boolean(concept);
+  const isConceptWorkbenchView = activeView === 'concepts' && Boolean(selectedName);
   const isQuestionEditorialView = activeView === 'questions';
 
   useEffect(() => {
@@ -4011,7 +4011,7 @@ const ThinkMode = () => {
         receipt: 'settled'
       });
       const sourceTitle = type === 'concept'
-        ? concept?.name
+        ? source?.name
         : (type === 'notebook' ? activeNotebookEntry?.title : activeQuestionData?.text);
       if (sourceTitle) promotionParams.set('sourceTitle', sourceTitle);
       setWikiPromotionState({ busyTarget, error: '', phase: 'opening' });
@@ -4026,7 +4026,9 @@ const ThinkMode = () => {
     }
     setWikiPromotionState({ busyTarget: '', error: '', phase: '' });
   }, [activeNotebookEntry, activeQuestionData, concept, conceptQuestions, navigate, pulledThinkReferences, resolveThinkPromotionSource]);
-  const conceptWikiPromotionTarget = concept?._id ? `concept:${concept._id}` : '';
+  const conceptWikiPromotionTarget = concept?._id
+    ? `concept:${concept._id}`
+    : (selectedName ? `concept:new:${selectedName}` : '');
   const notebookWikiPromotionTarget = activeNotebookEntry?._id ? `notebook:${activeNotebookEntry._id}` : '';
   const questionWikiPromotionTarget = activeQuestionData?._id ? `question:${activeQuestionData._id}` : '';
   const renderWikiPromotionTrace = useCallback((target) => {
@@ -4542,7 +4544,7 @@ const ThinkMode = () => {
         // True first-run: user has zero concepts in the workspace.
         // Mirrors the Library first-run empty state (PR #7) — strong primary
         // CTA + secondary link to the broader walkthrough.
-        <SurfaceCard className="think-concepts-empty-state think-concepts-empty-state--first-run" data-testid="think-concepts-empty-first-run">
+        <SurfaceCard className="think-concepts-empty-state think-concepts-empty-state--first-run" data-testid="think-concepts-empty-state">
           <div className="think-concepts-empty-state__copy">
             <span className="think-concepts-empty-state__eyebrow">Concepts</span>
             <h3 className="think-concepts-empty-state__title">Create your first concept</h3>
@@ -5321,6 +5323,19 @@ const ThinkMode = () => {
             onToggleCollapse={() => setConceptPartnerCollapsed((current) => !current)}
           />
           {renderReferencePullIn('concept-editorial-shell__reference-pull-in')}
+          <div className="concept-editorial-shell__promotion">
+            <SectionHeader title="Create" subtitle="Start a new working thought without leaving Think." />
+            <div className="think-concept-composer-anchor">
+              <QuietButton
+                type="button"
+                onClick={() => openConceptComposer('selected-concept')}
+                data-testid="think-new-concept-sidebar-button"
+              >
+                New concept
+              </QuietButton>
+              {renderConceptComposer('selected-concept')}
+            </div>
+          </div>
           {(concept?._id || selectedName) && (
             <div className="concept-editorial-shell__promotion">
               <SectionHeader title="Graduate" subtitle="Turn this working thought into a durable wiki page." />
@@ -5337,6 +5352,42 @@ const ThinkMode = () => {
           )}
         </aside>
         <main className="concept-editorial-shell__main">
+          <div className="concept-editorial-shell__main-actions">
+            <input
+              type="search"
+              className="think-index__search-input concept-editorial-shell__quick-search"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key !== 'Enter' || event.nativeEvent?.isComposing) return;
+                event.preventDefault();
+                submitConceptComposer(search, 'search-enter');
+              }}
+              placeholder="Search or create concept"
+              data-testid="think-index-search-input"
+            />
+            <div className="think-concept-composer-anchor">
+              <QuietButton
+                type="button"
+                onClick={() => openConceptComposer('selected-concept-header')}
+                data-testid="think-new-concept-header-button"
+              >
+                New concept
+              </QuietButton>
+              {renderConceptComposer('selected-concept-header')}
+            </div>
+            <QuietButton type="button" onClick={openTemplatePicker}>
+              Use template
+            </QuietButton>
+          </div>
+          {!conceptComposerOpen && conceptComposerStatus.message ? (
+            <p
+              className={`think-concept-composer-status ${conceptComposerStatus.tone === 'error' ? 'is-error' : 'is-success'}`}
+              data-testid="think-concept-composer-status"
+            >
+              {conceptComposerStatus.message}
+            </p>
+          ) : null}
           {renderThinkPostureStrip('think-posture-strip--concept')}
           {conceptLoadError && <p className="status-message error-message">{conceptLoadError}</p>}
           {conceptError && <p className="status-message error-message">{conceptError}</p>}
@@ -5371,7 +5422,7 @@ const ThinkMode = () => {
                 </div>
               </div>
             </div>
-          ) : (
+          ) : concept ? (
             <ConceptEvidenceStreamView
               concept={concept}
               model={ideaWorkbenchModel}
@@ -5383,6 +5434,21 @@ const ThinkMode = () => {
               onOpenTemplatePicker={openTemplatePicker}
               onShareConcept={() => setConceptShareModalOpen(true)}
             />
+          ) : (
+            <SurfaceCard className="think-concepts-empty-state">
+              <SectionHeader
+                title={selectedName || 'Concept'}
+                subtitle={conceptLoadError || 'This concept could not be loaded yet.'}
+              />
+              <div className="think-concepts-empty-state__actions">
+                <QuietButton onClick={refresh} disabled={conceptLoading}>
+                  Retry
+                </QuietButton>
+                <QuietButton onClick={() => handleSelectView('concepts')}>
+                  Open concepts
+                </QuietButton>
+              </div>
+            </SurfaceCard>
           )}
         </main>
         <aside className="concept-editorial-shell__stream">

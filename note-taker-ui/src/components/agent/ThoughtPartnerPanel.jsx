@@ -475,6 +475,7 @@ const ThoughtPartnerPanel = ({
     resolvedStructureProposals,
     clearReviewState,
     replaceProposedChange,
+    replaceStructureProposal,
     loadProposedChanges,
     loadStructureProposals,
     handleAcceptProposedChange,
@@ -569,6 +570,14 @@ const ThoughtPartnerPanel = ({
       };
       const hydratedMessages = result?.thread?.threadId ? mapThreadMessages(result.thread) : [];
       const didHydrateThread = Boolean(result?.thread?.threadId && hydratedMessages.length > 0);
+      const responseProposedChanges = Array.isArray(result?.proposedChanges)
+        ? result.proposedChanges
+        : (result?.proposedChange ? [result.proposedChange] : []);
+      const responseStructureProposals = Array.isArray(result?.structureProposals)
+        ? result.structureProposals
+        : Array.isArray(result?.proposals)
+          ? result.proposals
+          : (result?.structureProposal || result?.proposal ? [result.structureProposal || result.proposal] : []);
       if (result?.thread?.threadId) {
         const threadForUi = didHydrateThread
           ? result.thread
@@ -591,14 +600,20 @@ const ThoughtPartnerPanel = ({
         hydrateFromThread(threadForUi);
         loadArtifactDrafts(result.thread.threadId);
         loadRuns(result.thread.threadId);
-        loadProposedChanges(result.thread.threadId);
-        loadStructureProposals(result.thread.threadId);
+        if (responseProposedChanges.length === 0) loadProposedChanges(result.thread.threadId);
+        if (responseStructureProposals.length === 0) loadStructureProposals(result.thread.threadId);
         loadHarnessMetrics(result.thread.threadId);
         loadWriteBoundary(result.thread.threadId);
         if (typeof onThreadChange === 'function') onThreadChange(threadForUi);
       } else {
         setMessages(prev => [...prev, assistantMessage]);
       }
+      responseProposedChanges.forEach((change) => {
+        if (clean(change?.proposedChangeId)) replaceProposedChange(change);
+      });
+      responseStructureProposals.forEach((proposal) => {
+        if (clean(proposal?.structureProposalId)) replaceStructureProposal(proposal);
+      });
       if (result?.draftArtifact?.draftId) {
         setArtifactDrafts(prev => {
           const nextDraft = mapDraft(result.draftArtifact);
@@ -613,7 +628,7 @@ const ThoughtPartnerPanel = ({
     } finally {
       setLoading(false);
     }
-  }, [context, contextTitle, disabled, hydrateFromThread, loadArtifactDrafts, loadHarnessMetrics, loadProposedChanges, loadRuns, loadStructureProposals, loadWriteBoundary, loading, messages, onThreadChange, pendingSkillInvocation, thread?.threadId, thread?.title, threadId, title]);
+  }, [context, contextTitle, disabled, hydrateFromThread, loadArtifactDrafts, loadHarnessMetrics, loadProposedChanges, loadRuns, loadStructureProposals, loadWriteBoundary, loading, messages, onThreadChange, pendingSkillInvocation, replaceProposedChange, replaceStructureProposal, thread?.threadId, thread?.title, threadId, title]);
 
   const handleExecuteProposalBundle = useCallback((bundle = {}) => {
     const title = clean(bundle?.title);

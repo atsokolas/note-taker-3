@@ -1,5 +1,7 @@
 const { test, expect } = require('@playwright/test');
 
+const VALID_TOKEN = 'eyJhbGciOiAiSFMyNTYiLCAidHlwIjogIkpXVCJ9.eyJleHAiOiA0MTAyNDQ0ODAwLCAic3ViIjogInBsYXl3cmlnaHQifQ.signature';
+
 const normalizeConceptName = (value = '') => String(value || '').replace(/\s+/g, ' ').trim();
 const conceptKey = (value = '') => normalizeConceptName(value).toLowerCase();
 
@@ -34,6 +36,13 @@ const json = (route, body, status = 200) => route.fulfill({
   body: JSON.stringify(body)
 });
 
+const expectSelectedConcept = async (page, name) => {
+  await expect.poll(async () => {
+    const url = new URL(page.url());
+    return url.searchParams.get('concept');
+  }).toBe(name);
+};
+
 const setupThinkConceptMocks = async (page, { initialConceptNames = [] } = {}) => {
   const conceptsByKey = new Map();
   let idCounter = 0;
@@ -53,7 +62,7 @@ const setupThinkConceptMocks = async (page, { initialConceptNames = [] } = {}) =
 
   initialConceptNames.forEach((name) => ensureConcept(name));
 
-  await page.route(/https:\/\/note-taker-3-unrg\.onrender\.com\/.*/, async (route) => {
+  await page.route(/(https:\/\/note-taker-3-unrg\.onrender\.com|http:\/\/127\.0\.0\.1:3000|http:\/\/localhost:3000)\/(api|get-articles).*/, async (route) => {
     const request = route.request();
     const method = request.method();
     const url = new URL(request.url());
@@ -125,11 +134,11 @@ const setupThinkConceptMocks = async (page, { initialConceptNames = [] } = {}) =
 };
 
 test('quick create works from header, sidebar, duplicate handling, and Enter in search', async ({ page }) => {
-  await page.addInitScript(() => {
-    window.localStorage.setItem('token', 'test-token');
+  await page.addInitScript((token) => {
+    window.localStorage.setItem('token', token);
     window.localStorage.setItem('hasSeenLanding', 'true');
     window.localStorage.setItem('workspace-right-open:/think', 'true');
-  });
+  }, VALID_TOKEN);
 
   const mocks = await setupThinkConceptMocks(page, {
     initialConceptNames: ['Blah', 'Know']
@@ -142,14 +151,14 @@ test('quick create works from header, sidebar, duplicate handling, and Enter in 
   await expect(page.getByTestId('think-concept-composer-popover')).toBeVisible();
   await page.getByTestId('think-concept-composer-input').fill('Fresh Concept');
   await page.getByTestId('think-concept-composer-submit').click();
-  await expect(page).toHaveURL(/concept=Fresh%20Concept/);
+  await expectSelectedConcept(page, 'Fresh Concept');
   await expect(page.getByRole('heading', { name: 'Fresh Concept' })).toBeVisible();
   expect(mocks.getPutCount('Fresh Concept')).toBe(1);
 
   await page.getByTestId('think-new-concept-sidebar-button').click();
   await page.getByTestId('think-concept-composer-input').fill('Side Concept');
   await page.getByTestId('think-concept-composer-input').press('Enter');
-  await expect(page).toHaveURL(/concept=Side%20Concept/);
+  await expectSelectedConcept(page, 'Side Concept');
   await expect(page.getByRole('heading', { name: 'Side Concept' })).toBeVisible();
   expect(mocks.getPutCount('Side Concept')).toBe(1);
 
@@ -162,7 +171,7 @@ test('quick create works from header, sidebar, duplicate handling, and Enter in 
 
   await page.getByTestId('think-index-search-input').fill('Search Enter Concept');
   await page.getByTestId('think-index-search-input').press('Enter');
-  await expect(page).toHaveURL(/concept=Search%20Enter%20Concept/);
+  await expectSelectedConcept(page, 'Search Enter Concept');
   await expect(page.getByRole('heading', { name: 'Search Enter Concept' })).toBeVisible();
   expect(mocks.getPutCount('Search Enter Concept')).toBe(1);
 
@@ -174,10 +183,10 @@ test('quick create works from header, sidebar, duplicate handling, and Enter in 
 });
 
 test('empty concepts state can create the first concept', async ({ page }) => {
-  await page.addInitScript(() => {
-    window.localStorage.setItem('token', 'test-token');
+  await page.addInitScript((token) => {
+    window.localStorage.setItem('token', token);
     window.localStorage.setItem('hasSeenLanding', 'true');
-  });
+  }, VALID_TOKEN);
 
   const mocks = await setupThinkConceptMocks(page, { initialConceptNames: [] });
 
@@ -189,7 +198,7 @@ test('empty concepts state can create the first concept', async ({ page }) => {
   await page.getByTestId('think-concept-composer-input').fill('First Concept');
   await page.getByTestId('think-concept-composer-submit').click();
 
-  await expect(page).toHaveURL(/concept=First%20Concept/);
+  await expectSelectedConcept(page, 'First Concept');
   await expect(page.getByRole('heading', { name: 'First Concept' })).toBeVisible();
   expect(mocks.getPutCount('First Concept')).toBe(1);
 });

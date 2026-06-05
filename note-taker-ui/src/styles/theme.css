@@ -4789,6 +4789,36 @@ html[data-ui-theme='dark'] .article-reader-header {
   gap: 6px;
 }
 
+.concept-editorial-shell__main-actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.concept-editorial-shell__quick-search {
+  width: min(260px, 100%);
+  min-width: 0;
+}
+
+.think-concept-composer-anchor {
+  position: relative;
+  z-index: 12;
+}
+
+.think-concept-composer-popover {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  z-index: 80;
+}
+
+.concept-editorial-shell__partner .think-concept-composer-popover {
+  top: auto;
+  bottom: calc(100% + 8px);
+}
+
 .concept-outline__menu-popover label {
   display: grid;
   gap: 4px;

@@ -1916,6 +1916,11 @@ body.noeis-editorial .agent-ticker__line {
   opacity: 0.72;
 }
 
+body.noeis-editorial .agent-ticker__line span:not(.agent-ticker__prompt):not(.agent-ticker__cursor) {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
 body.noeis-editorial .agent-ticker__line--active {
   color: var(--vellum-ink);
   opacity: 1;
@@ -3901,8 +3906,15 @@ body.noeis-editorial .question-editorial-context__section {
 body.noeis-editorial .editorial-side-rail__section {
   display: grid;
   gap: 12px;
+  min-width: 0;
   padding-bottom: 18px;
   border-bottom: 1px solid var(--vellum-line);
+}
+
+body.noeis-editorial .editorial-side-rail__section > *,
+body.noeis-editorial .editorial-side-rail__partner > *,
+body.noeis-editorial .agent-thought-partner > * {
+  min-width: 0;
 }
 
 body.noeis-editorial .notebook-editorial-context__advanced {
@@ -7850,6 +7862,8 @@ body.noeis-editorial .agent-thought-partner__stream-copy p {
 
 body.noeis-editorial .agent-thought-partner__quick-prompts .ui-quiet-button {
   justify-content: flex-start;
+  width: 100%;
+  min-width: 0;
   min-height: 0;
   padding: 0 0 8px;
   border: 0 !important;
@@ -7863,6 +7877,8 @@ body.noeis-editorial .agent-thought-partner__quick-prompts .ui-quiet-button {
   font-size: 0.92rem;
   font-weight: 400;
   line-height: 1.45;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 body.noeis-editorial .agent-thought-partner__quick-prompts .ui-quiet-button:hover {
@@ -7873,6 +7889,7 @@ body.noeis-editorial .agent-thought-partner__quick-prompts .ui-quiet-button:hove
 body.noeis-editorial .agent-thought-partner__postures {
   display: grid;
   gap: 8px;
+  min-width: 0;
   padding: 0 0 14px;
   border-bottom: 1px solid var(--vellum-line);
 }
@@ -7881,12 +7898,14 @@ body.noeis-editorial .agent-thought-partner__posture-tabs {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 4px;
+  min-width: 0;
   padding: 3px;
   border: 1px solid var(--vellum-line);
   background: color-mix(in srgb, var(--vellum-bg) 72%, #ffffff 28%);
 }
 
 body.noeis-editorial .agent-thought-partner__posture-tab {
+  min-width: 0;
   min-height: 36px;
   border: 0;
   background: transparent;
@@ -7897,6 +7916,7 @@ body.noeis-editorial .agent-thought-partner__posture-tab {
   letter-spacing: 0.14em;
   text-transform: uppercase;
   cursor: pointer;
+  overflow-wrap: anywhere;
 }
 
 body.noeis-editorial .agent-thought-partner__posture-tab.is-active {
@@ -7928,6 +7948,7 @@ body.noeis-editorial .agent-thought-partner__ticker {
 body.noeis-editorial .agent-thought-partner__composer {
   display: grid;
   gap: 10px;
+  min-width: 0;
 }
 
 body.noeis-editorial .agent-thought-partner__composer--stream {

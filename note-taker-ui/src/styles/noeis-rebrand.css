@@ -1052,6 +1052,23 @@ select:focus {
   animation: noeis-pop-in 170ms var(--noeis-ease-out) both;
 }
 
+.think-concept-composer-anchor {
+  position: relative;
+  z-index: 12;
+}
+
+.think-concept-composer-popover {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  z-index: 80;
+}
+
+.concept-editorial-shell__partner .think-concept-composer-popover {
+  top: auto;
+  bottom: calc(100% + 8px);
+}
+
 .think-home__continue-actions .ui-pill-button {
   min-height: 32px;
 }

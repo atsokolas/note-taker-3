@@ -70,9 +70,10 @@ jest.mock('./WikiIndex', () => ({ onOpenPage }) => (
   </div>
 ));
 jest.mock('./WikiList', () => ({ compact }) => <div data-testid="wiki-list">List view {compact ? 'compact' : ''}</div>);
-jest.mock('./WikiPageReadView', () => jest.fn(({ pageId, workspaceMode, onEdit, liveUpdate }) => (
+jest.mock('./WikiPageReadView', () => jest.fn(({ pageId, workspaceMode, onEdit, liveUpdate, streamedPage }) => (
   <div data-testid="wiki-read-view">
     Page {pageId} {workspaceMode ? 'workspace' : ''}
+    {streamedPage?.title ? <span data-testid="wiki-streamed-page-title">{streamedPage.title}</span> : null}
     {liveUpdate?.anchorId ? <span data-testid="wiki-live-update">{liveUpdate.anchorId}</span> : null}
     <button type="button" onClick={onEdit}>Edit page</button>
   </div>
@@ -111,9 +112,10 @@ describe('WikiWorkspace', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     jest.restoreAllMocks();
-    require('./WikiPageReadView').mockImplementation(({ pageId, workspaceMode, onEdit, liveUpdate }) => (
+    require('./WikiPageReadView').mockImplementation(({ pageId, workspaceMode, onEdit, liveUpdate, streamedPage }) => (
       <div data-testid="wiki-read-view">
         Page {pageId} {workspaceMode ? 'workspace' : ''}
+        {streamedPage?.title ? <span data-testid="wiki-streamed-page-title">{streamedPage.title}</span> : null}
         {liveUpdate?.anchorId ? <span data-testid="wiki-live-update">{liveUpdate.anchorId}</span> : null}
         <button type="button" onClick={onEdit}>Edit page</button>
       </div>
@@ -951,6 +953,29 @@ describe('WikiWorkspace', () => {
     })));
     expect(mockNavigate).toHaveBeenCalledWith('/wiki/workspace?page=wiki-new', { replace: true });
     expect(await screen.findByTestId('wiki-read-view')).toHaveTextContent('Page wiki-new workspace');
+    expect(await screen.findByTestId('wiki-streamed-page-title')).toHaveTextContent('Updated page');
+  });
+
+  it('streams a built wiki page into the mounted reader without waiting for reload', async () => {
+    createWikiPage.mockResolvedValueOnce({ _id: 'wiki-built', title: 'Portfolio Concentration' });
+    streamMaintainWikiPage.mockImplementationOnce(async (_pageId, _options, handlers = {}) => {
+      handlers.onPage?.({ _id: 'wiki-built', title: 'Portfolio Concentration Draft' }, { stage: 'drafting' });
+      handlers.onPage?.({ _id: 'wiki-built', title: 'Portfolio Concentration Final' }, { stage: 'complete' });
+      return { _id: 'wiki-built', title: 'Portfolio Concentration Final' };
+    });
+    renderWorkspace();
+    await settleWorkspaceEffects();
+
+    fireEvent.change(screen.getByLabelText('Wiki workspace message'), {
+      target: { value: '/build Portfolio Concentration' }
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+
+    await waitFor(() => expect(streamMaintainWikiPage).toHaveBeenCalledWith('wiki-built', {}, expect.objectContaining({
+      onPage: expect.any(Function)
+    })));
+    expect(await screen.findByTestId('wiki-read-view')).toHaveTextContent('Page wiki-built workspace');
+    expect(await screen.findByTestId('wiki-streamed-page-title')).toHaveTextContent('Portfolio Concentration Final');
   });
 
   it('recovers when an auto-build maintenance stream never completes', async () => {

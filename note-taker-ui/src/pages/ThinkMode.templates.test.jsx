@@ -15,6 +15,7 @@ import { listReturnQueue } from '../api/returnQueue';
 import { getArticles } from '../api/articles';
 import { listAgentHandoffs, listPersonalAgents } from '../api/agent';
 import { createConnection, getConnectionsForScope, searchConnectableItems } from '../api/connections';
+import { updateConcept } from '../api/concepts';
 import { createWikiPage } from '../api/wiki';
 import { listWorkingMemory } from '../api/workingMemory';
 import { navigateWithViewTransition } from '../utils/viewTransitionNavigation';
@@ -315,6 +316,7 @@ describe('ThinkMode template integration', () => {
     getConnectionsForScope.mockImplementation(() => pendingRequest());
     listWorkingMemory.mockImplementation(() => pendingRequest());
     createConnection.mockResolvedValue({});
+    updateConcept.mockResolvedValue({ _id: 'concept-1', name: 'Template Concept', description: '' });
     createWikiPage.mockResolvedValue({ _id: 'wiki-created' });
     navigateWithViewTransition.mockImplementation((navigate, destination, options) => navigate(destination, options));
   });
@@ -446,6 +448,123 @@ describe('ThinkMode template integration', () => {
     expect(destination).toContain('transition=register');
     expect(destination).toContain('receipt=settled');
     expect(destination).toContain('promoted=concept');
+  });
+
+  it('persists a name-only concept before pulling a reference in', async () => {
+    useSearchParamsMock.mockReturnValue([
+      new URLSearchParams('tab=concepts&concept=Fresh Concept'),
+      mockSetSearchParams
+    ]);
+    useConcepts.mockReturnValue({
+      concepts: [],
+      loading: false,
+      error: '',
+      refresh: refreshConceptsMock
+    });
+    const setConcept = jest.fn();
+    useConcept.mockReturnValue({
+      concept: null,
+      loading: false,
+      error: '',
+      refresh: jest.fn(),
+      setConcept
+    });
+    updateConcept.mockResolvedValueOnce({
+      _id: 'fresh-concept-id',
+      name: 'Fresh Concept',
+      description: ''
+    });
+    searchConnectableItems.mockResolvedValueOnce([{
+      itemType: 'highlight',
+      itemId: 'highlight-fresh-1',
+      articleId: 'article-1',
+      title: 'Fresh evidence',
+      snippet: 'Evidence pulled into a just-opened concept.'
+    }]);
+
+    render(
+      <MemoryRouter initialEntries={['/think?tab=concepts&concept=Fresh%20Concept']}>
+        <ThinkMode />
+      </MemoryRouter>
+    );
+
+    fireEvent.change(await screen.findByLabelText('Search references to pull in'), {
+      target: { value: 'fresh evidence' }
+    });
+    fireEvent.click(await screen.findByRole('button', { name: /Fresh evidence/ }));
+
+    await waitFor(() => expect(updateConcept).toHaveBeenCalledWith('Fresh Concept', {
+      description: ''
+    }));
+    await waitFor(() => expect(createConnection).toHaveBeenCalledWith(expect.objectContaining({
+      fromType: 'concept',
+      fromId: 'fresh-concept-id',
+      toType: 'highlight',
+      toId: 'highlight-fresh-1',
+      relationType: 'related',
+      scopeType: 'concept',
+      scopeId: 'fresh-concept-id'
+    })));
+    expect(setConcept).toHaveBeenCalledWith(expect.objectContaining({
+      _id: 'fresh-concept-id',
+      name: 'Fresh Concept'
+    }));
+  });
+
+  it('persists a name-only concept before promoting it to a wiki page', async () => {
+    useSearchParamsMock.mockReturnValue([
+      new URLSearchParams('tab=concepts&concept=Fresh Concept'),
+      mockSetSearchParams
+    ]);
+    useConcepts.mockReturnValue({
+      concepts: [],
+      loading: false,
+      error: '',
+      refresh: refreshConceptsMock
+    });
+    useConcept.mockReturnValue({
+      concept: null,
+      loading: false,
+      error: '',
+      refresh: jest.fn(),
+      setConcept: jest.fn()
+    });
+    updateConcept.mockResolvedValueOnce({
+      _id: 'fresh-concept-id',
+      name: 'Fresh Concept',
+      description: ''
+    });
+    createWikiPage.mockResolvedValueOnce({ _id: 'wiki-fresh' });
+
+    render(
+      <MemoryRouter initialEntries={['/think?tab=concepts&concept=Fresh%20Concept']}>
+        <ThinkMode />
+      </MemoryRouter>
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Promote to wiki page' }));
+
+    await waitFor(() => expect(updateConcept).toHaveBeenCalledWith('Fresh Concept', {
+      description: ''
+    }));
+    await waitFor(() => expect(createWikiPage).toHaveBeenCalledWith(expect.objectContaining({
+      title: 'Fresh Concept',
+      pageType: 'concept',
+      createdFrom: expect.objectContaining({
+        type: 'concept',
+        objectId: 'fresh-concept-id'
+      })
+    })));
+    await waitFor(() => expect(createConnection).toHaveBeenCalledWith(expect.objectContaining({
+      fromType: 'concept',
+      fromId: 'fresh-concept-id',
+      toType: 'wiki_page',
+      toId: 'wiki-fresh',
+      relationType: 'extends'
+    })));
+    const destination = navigateWithViewTransition.mock.calls.at(-1)[1];
+    expect(destination).toContain('/wiki/workspace?page=wiki-fresh');
+    expect(destination).toContain('sourceTitle=Fresh+Concept');
   });
 
   it('renders question posture with the dialectical margin primitive', async () => {

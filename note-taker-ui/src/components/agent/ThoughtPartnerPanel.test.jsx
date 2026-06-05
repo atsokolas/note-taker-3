@@ -175,6 +175,53 @@ describe('ThoughtPartnerPanel', () => {
     });
   });
 
+  it('renders response proposed changes immediately after an agent run settles', async () => {
+    chatWithAgent.mockResolvedValue({
+      reply: 'I staged a reviewable challenge.',
+      relatedItems: [],
+      thread: {
+        threadId: 'thread-1',
+        messages: [
+          { role: 'user', text: 'Challenge this.' },
+          { role: 'assistant', text: 'I staged a reviewable challenge.' }
+        ]
+      },
+      proposedChanges: [{
+        proposedChangeId: 'pc-response-1',
+        targetType: 'question',
+        targetTitle: 'Portfolio concentration',
+        status: 'pending',
+        summary: 'Add counter-evidence to the question canvas.',
+        currentSnapshot: {
+          content: 'Support is thin.'
+        },
+        proposedSnapshot: {
+          content: 'Counter-evidence should test the concentration thesis.'
+        },
+        diffSummary: {
+          changedFields: ['content']
+        }
+      }]
+    });
+
+    render(
+      <ThoughtPartnerPanel
+        contextType="question"
+        contextId="question-1"
+        contextTitle="Portfolio concentration"
+      />
+    );
+
+    fireEvent.change(screen.getByPlaceholderText('Ask your thought partner...'), {
+      target: { value: 'Challenge this.' }
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Ask' }));
+
+    await waitFor(() => expect(chatWithAgent).toHaveBeenCalledTimes(1));
+    expect(await screen.findByText('Review stage')).toBeInTheDocument();
+    expect(screen.getByText('Counter-evidence should test the concentration thesis.')).toBeInTheDocument();
+  });
+
   it('renders stream thread messages newest first', () => {
     render(
       <ThoughtPartnerPanel
