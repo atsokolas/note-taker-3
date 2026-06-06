@@ -1,20 +1,20 @@
 # Agent runtime distribution release checklist
 
-OpenClaw setup exposed a packaging gap: browser approval works, but the public install path is not live until the npm packages are published.
+OpenClaw setup exposed a packaging gap: browser approval worked, but the public install path was not live until the npm packages were published.
 
 ## Current status
 
-- `@noeis/cli` is not published on npm.
-- `@noeis/wiki-mcp` is not published on npm.
-- Internal installs should use:
+- `@noeis/wiki-mcp@0.1.0` is published on npm.
+- `@noeis/noeis-cli@0.1.1` is published on npm and installs the `noeis` binary.
+- `@noeis/cli` was attempted first and npm reports public access/dist-tags, but raw registry lookup still 404s. Do not use it as the user-facing package unless npm support resolves that registry inconsistency.
+- Public installs should use:
 
 ```bash
-cd ~/Documents/GitHub/note-taker-3-1
-npm install -g ./packages/cli
+npm install -g @noeis/noeis-cli
 noeis connect openclaw
 ```
 
-## Required public release sequence
+## Completed release sequence
 
 1. Publish `@noeis/wiki-mcp`.
 
@@ -36,34 +36,34 @@ to the published version:
 "@noeis/wiki-mcp": "^0.1.0"
 ```
 
-3. Run `npm install` in `packages/cli`, then publish `@noeis/cli`.
+3. Run `npm install` in `packages/cli`, then publish `@noeis/noeis-cli`.
 
 ```bash
 cd packages/cli
 npm install
 npm publish --access public
-npm view @noeis/cli version
+npm view @noeis/noeis-cli version
 ```
 
 4. Verify the public happy path from a clean machine or temp prefix.
 
 ```bash
-npm install -g @noeis/cli
+npm install -g @noeis/noeis-cli
 noeis mcp --help
 noeis connect openclaw --no-browser
 ```
 
-5. Only after the npm checks pass, update public product copy and `skill.md` to use:
+5. After the npm checks pass, update public product copy and `skill.md` to use:
 
 ```bash
-npm install -g @noeis/cli
+npm install -g @noeis/noeis-cli
 noeis connect openclaw
 ```
 
 ## Acceptance criteria
 
 - `npm view @noeis/wiki-mcp version` returns a version, not 404.
-- `npm view @noeis/cli version` returns a version, not 404.
+- `npm view @noeis/noeis-cli version` returns a version, not 404.
 - `noeis connect <runtime>` writes exactly one token source: `~/.config/noeis/config.json`.
 - Generated runtime MCP configs call `noeis mcp`.
 - Generated runtime MCP configs do not contain `NOEIS_TOKEN`.

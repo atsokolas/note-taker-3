@@ -8,33 +8,28 @@ Connect this machine to Noeis so you can read, retrieve, and write against the u
 
 ## Fast path
 
-The public npm packages are not published yet. For the current internal build, run from the local Noeis repository:
+Run:
 
 ```bash
-cd ~/Documents/GitHub/note-taker-3-1
-npm install -g ./packages/cli
+npm install -g @noeis/noeis-cli
 noeis connect openclaw
 ```
 
 If the user asked for Hermes, run:
 
 ```bash
-cd ~/Documents/GitHub/note-taker-3-1
-npm install -g ./packages/cli
+npm install -g @noeis/noeis-cli
 noeis connect hermes
 ```
 
 If the user asked for Codex, Claude Code, OpenCode, or a custom runtime, run:
 
 ```bash
-cd ~/Documents/GitHub/note-taker-3-1
-npm install -g ./packages/cli
+npm install -g @noeis/noeis-cli
 noeis connect codex
 ```
 
 Then open the browser approval URL printed by the CLI, ask the user to approve access, and wait for the CLI to finish writing the local configuration.
-
-After public release, the install step becomes `npm install -g @noeis/cli`.
 
 ## What access means
 

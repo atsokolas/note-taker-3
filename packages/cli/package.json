@@ -1,6 +1,6 @@
 {
-  "name": "@noeis/cli",
-  "version": "0.1.0",
+  "name": "@noeis/noeis-cli",
+  "version": "0.1.1",
   "description": "Command-line client for scripting a Noeis wiki.",
   "type": "module",
   "bin": {
@@ -23,7 +23,7 @@
   ],
   "license": "ISC",
   "dependencies": {
-    "@noeis/wiki-mcp": "file:../wiki-mcp"
+    "@noeis/wiki-mcp": "^0.1.0"
   },
   "engines": {
     "node": ">=18.17"

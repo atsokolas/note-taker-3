@@ -79,7 +79,7 @@ describe('Integrations MCP setup', () => {
 
     expect(screen.getByText('Connect an agent to Noeis')).toBeInTheDocument();
     expect(screen.getByText(/Read https:\/\/www\.noeis\.io\/skill\.md/)).toBeInTheDocument();
-    expect(screen.getByText(/npm install -g \.\/packages\/cli/)).toBeInTheDocument();
+    expect(screen.getByText(/npm install -g @noeis\/noeis-cli/)).toBeInTheDocument();
     expect(screen.getByText(/noeis connect openclaw/)).toBeInTheDocument();
     expect(screen.getByText('Create an agent task link')).toBeInTheDocument();
     expect(screen.getByText('Advanced connection details')).toBeInTheDocument();

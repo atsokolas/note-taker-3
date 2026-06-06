@@ -1,17 +1,14 @@
-# @noeis/cli
+# @noeis/noeis-cli
 
 Command-line client for scripting a Noeis wiki without an MCP-speaking agent.
 
 ## Install
 
-Current internal build:
-
 ```bash
-cd ~/Documents/GitHub/note-taker-3-1
-npm i -g ./packages/cli
+npm i -g @noeis/noeis-cli
 ```
 
-Public package status: `@noeis/cli` is not published on npm yet. After publish, this becomes `npm i -g @noeis/cli`.
+This installs the `noeis` command.
 
 ## Connect an agent
 

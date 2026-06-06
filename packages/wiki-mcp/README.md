@@ -10,11 +10,10 @@ MCP server for driving a Noeis wiki from external agents.
 
 ## One-command setup
 
-Install the current internal CLI build and connect the runtime you use:
+Install the CLI and connect the runtime you use:
 
 ```bash
-cd ~/Documents/GitHub/note-taker-3-1
-npm i -g ./packages/cli
+npm i -g @noeis/noeis-cli
 noeis connect hermes
 # or
 noeis connect openclaw
@@ -24,7 +23,7 @@ noeis connect codex
 
 The CLI opens Noeis in your browser, asks you to approve the local agent, writes the runtime MCP config, and runs an access check. The generated MCP config calls `noeis mcp`; it reads the token from the Noeis CLI config instead of copying the raw token into every runtime config.
 
-Public package status: `@noeis/cli` and `@noeis/wiki-mcp` are not published on npm yet. After publish, install becomes `npm i -g @noeis/cli`.
+Public package status: `@noeis/noeis-cli` and `@noeis/wiki-mcp` are published on npm.
 
 ## Agent launch links
 
@@ -49,8 +48,7 @@ noeis mcp
 For cron jobs, shell scripts, or custom runtimes that do not speak MCP, install the sibling CLI:
 
 ```bash
-cd ~/Documents/GitHub/note-taker-3-1
-npm i -g ./packages/cli
+npm i -g @noeis/noeis-cli
 noeis connect hermes
 noeis ingest https://example.com/research
 noeis pages list

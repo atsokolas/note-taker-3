@@ -61,8 +61,7 @@ const WikiMcpConnectCard = () => (
     <div className="wiki-mcp-connect-card__panel">
       <p><strong>Recommended setup</strong></p>
       <p className="muted small">Use the runtime you want to connect. The browser approval page issues read/write Noeis access and the terminal finishes the local config.</p>
-      <pre className="external-bridge-pre">{`cd ~/Documents/GitHub/note-taker-3-1
-npm i -g ./packages/cli
+      <pre className="external-bridge-pre">{`npm i -g @noeis/noeis-cli
 noeis connect hermes
 # or: noeis connect openclaw
 # or: noeis connect codex
