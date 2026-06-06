@@ -4846,7 +4846,7 @@ const normalizePdfs = (pdfs = []) => {
 };
 
 app.use(buildLegacyContentRouter({
-  authenticateToken,
+  authenticateToken: authenticateUserOrAgentToken,
   mongoose,
   Note,
   normalizeChecklist,
@@ -5021,7 +5021,7 @@ app.use(buildConceptPathRouter({
 
 app.use(buildFeedbackHighlightRouter({
   mongoose,
-  authenticateToken,
+  authenticateToken: authenticateUserOrAgentToken,
   Feedback,
   Article,
   normalizeItemType,
@@ -6095,7 +6095,7 @@ app.use(buildTagTemplateRouter({
 }));
 
 app.use(buildConceptMetaRouter({
-  authenticateToken,
+  authenticateToken: authenticateUserOrAgentToken,
   getConcepts,
   getConceptMeta,
   updateConceptMeta,
@@ -6561,7 +6561,7 @@ app.use(buildAiInsightsRouter({
 
 app.use(buildConceptPinRouter({
   mongoose,
-  authenticateToken,
+  authenticateToken: authenticateUserOrAgentToken,
   TagMeta,
   markTourSignal
 }));
@@ -6575,7 +6575,7 @@ app.use(buildTagInsightRouter({
 
 app.use(buildConceptQuestionBoardRouter({
   mongoose,
-  authenticateToken,
+  authenticateToken: authenticateUserOrAgentToken,
   Article,
   NotebookEntry,
   ReferenceEdge,
@@ -6725,7 +6725,7 @@ app.use(buildCollectionRouter({
 
 app.use(buildHighlightMutationRouter({
   mongoose,
-  authenticateToken,
+  authenticateToken: authenticateUserOrAgentToken,
   Article,
   normalizeTags,
   enqueueHighlightEmbedding,
