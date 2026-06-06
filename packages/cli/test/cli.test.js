@@ -152,12 +152,37 @@ const run = async () => {
   assert.strictEqual(connectedConfig.token, 'ntk_at_connected');
   assert.strictEqual(connectedConfig.apiUrl, 'https://api.test');
   const hermesConfig = JSON.parse(fs.readFileSync(path.join(xdgConfigHome, 'hermes', 'mcp.json'), 'utf8'));
-  assert.strictEqual(hermesConfig.servers['noeis-wiki'].command, 'npx');
-  assert.strictEqual(hermesConfig.servers['noeis-wiki'].env.NOEIS_TOKEN, 'ntk_at_connected');
+  assert.strictEqual(hermesConfig.servers['noeis-wiki'].command, 'noeis');
+  assert.deepStrictEqual(hermesConfig.servers['noeis-wiki'].args, ['mcp']);
+  assert.strictEqual(hermesConfig.servers['noeis-wiki'].env.NOEIS_CONFIG_DIR, connectConfigDir);
+  assert.strictEqual(hermesConfig.servers['noeis-wiki'].env.NOEIS_TOKEN, undefined);
   assert.strictEqual(hermesConfig.servers['noeis-wiki'].env.NOEIS_API_URL, 'https://api.test');
+  assert.strictEqual(hermesConfig['noeis-wiki'], undefined);
   assert(connectIo.stdout.includes('Approve Hermes in your browser.'));
   assert(connectIo.stdout.includes('Connected Hermes with read/write Noeis access.'));
+  assert(connectIo.stdout.includes('no raw token was copied into MCP config.'));
   assert(connectSeen.some(request => request.url.endsWith('/api/wiki/pages?limit=1')));
+
+  const codexConfigDir = fs.mkdtempSync(path.join(os.tmpdir(), 'noeis-codex-test-'));
+  const originalHome = process.env.HOME;
+  process.env.HOME = codexConfigDir;
+  try {
+    await runCli(['connect', 'codex', '--no-browser', '--api-url', 'https://api.test', '--app-url', 'https://noeis.example'], {
+      env: {
+        NOEIS_CONFIG_DIR: codexConfigDir
+      },
+      fetchImpl: connectFetch,
+      io: makeIo().io,
+      sleep: async () => {}
+    });
+    const codexToml = fs.readFileSync(path.join(codexConfigDir, '.codex', 'config.toml'), 'utf8');
+    assert(codexToml.includes('command = "noeis"'));
+    assert(codexToml.includes('args = ["mcp"]'));
+    assert(codexToml.includes(`NOEIS_CONFIG_DIR = ${JSON.stringify(codexConfigDir)}`));
+    assert(!codexToml.includes('ntk_at_connected'));
+  } finally {
+    process.env.HOME = originalHome;
+  }
 };
 
 run().catch((error) => {

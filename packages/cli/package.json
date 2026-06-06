@@ -22,6 +22,9 @@
     "agent"
   ],
   "license": "ISC",
+  "dependencies": {
+    "@noeis/wiki-mcp": "file:../wiki-mcp"
+  },
   "engines": {
     "node": ">=18.17"
   }

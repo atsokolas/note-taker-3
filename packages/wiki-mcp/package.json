@@ -3,6 +3,9 @@
   "version": "0.1.0",
   "description": "MCP server for driving a Noeis wiki from external agents.",
   "type": "module",
+  "exports": {
+    ".": "./src/server.js"
+  },
   "bin": {
     "noeis-wiki-mcp": "bin/noeis-wiki-mcp"
   },

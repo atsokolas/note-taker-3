@@ -7,9 +7,8 @@ const CODE_BLOCKS = [
     detail: '~/.config/claude-code/mcp.json',
     code: `{
   "noeis-wiki": {
-    "command": "npx",
-    "args": ["-y", "@noeis/wiki-mcp"],
-    "env": { "NOEIS_TOKEN": "ntk_at_..." }
+    "command": "noeis",
+    "args": ["mcp"]
   }
 }`
   },
@@ -17,19 +16,17 @@ const CODE_BLOCKS = [
     label: 'Codex',
     detail: '~/.codex/config.toml',
     code: `[mcp_servers.noeis-wiki]
-command = "npx"
-args = ["-y", "@noeis/wiki-mcp"]
-env = { NOEIS_TOKEN = "ntk_at_..." }`
+command = "noeis"
+args = ["mcp"]`
   },
   {
     label: 'OpenCode',
     detail: 'MCP config',
     code: `{
   "mcp": {
-    "noeis-wiki": {
-      "command": "npx",
-      "args": ["-y", "@noeis/wiki-mcp"],
-      "env": { "NOEIS_TOKEN": "ntk_at_..." }
+      "noeis-wiki": {
+      "command": "noeis",
+      "args": ["mcp"]
     }
   }
 }`
@@ -39,11 +36,10 @@ env = { NOEIS_TOKEN = "ntk_at_..." }`
     detail: 'stdio MCP server',
     code: `{
   "servers": {
-    "noeis-wiki": {
+      "noeis-wiki": {
       "transport": "stdio",
-      "command": "npx",
-      "args": ["-y", "@noeis/wiki-mcp"],
-      "env": { "NOEIS_TOKEN": "ntk_at_..." }
+      "command": "noeis",
+      "args": ["mcp"]
     }
   }
 }`
@@ -57,18 +53,20 @@ const WikiMcpConnectCard = () => (
         <h2>One-command agent connect</h2>
         <p className="muted">Connect Claude Code, Codex, OpenCode, Hermes, OpenClaw, or scripted jobs through browser approval.</p>
       </div>
-      <p className="muted-label">@noeis/wiki-mcp · @noeis/cli</p>
+      <p className="muted-label">noeis mcp · connected-agent token</p>
     </div>
     <p className="muted small">
-      Run one command, approve in Noeis, and the CLI writes the local MCP config plus a revocable connected-agent token.
+      Run one command, approve in Noeis, and the CLI writes one token source plus runtime MCP config that calls `noeis mcp`.
     </p>
     <div className="wiki-mcp-connect-card__panel">
       <p><strong>Recommended setup</strong></p>
       <p className="muted small">Use the runtime you want to connect. The browser approval page issues read/write Noeis access and the terminal finishes the local config.</p>
-      <pre className="external-bridge-pre">{`npm i -g @noeis/cli
+      <pre className="external-bridge-pre">{`cd ~/Documents/GitHub/note-taker-3-1
+npm i -g ./packages/cli
 noeis connect hermes
 # or: noeis connect openclaw
 # or: noeis connect codex
+noeis mcp --help
 noeis pages list
 noeis ingest https://example.com/research
 noeis ask <pageId> "What changed?"`}</pre>
@@ -76,7 +74,7 @@ noeis ask <pageId> "What changed?"`}</pre>
     <details className="wiki-mcp-connect-card__manual">
       <summary>Manual setup</summary>
       <p className="muted small">
-        Advanced path for custom runtimes: create a token in Settings &gt; Connected agents, set `NOEIS_TOKEN`, and add `NOEIS_API_URL` only for local or self-hosted API targets.
+        Advanced path for custom runtimes: use `noeis mcp` so runtime configs read the token from the Noeis CLI config. Set `NOEIS_API_URL` only for local or self-hosted API targets.
       </p>
     <div className="wiki-mcp-connect-card__grid">
       {CODE_BLOCKS.map((block) => (

@@ -4,9 +4,14 @@ Command-line client for scripting a Noeis wiki without an MCP-speaking agent.
 
 ## Install
 
+Current internal build:
+
 ```bash
-npm i -g @noeis/cli
+cd ~/Documents/GitHub/note-taker-3-1
+npm i -g ./packages/cli
 ```
+
+Public package status: `@noeis/cli` is not published on npm yet. After publish, this becomes `npm i -g @noeis/cli`.
 
 ## Connect an agent
 
@@ -21,6 +26,8 @@ noeis connect codex
 ```
 
 Supported runtime names: `claude-code`, `codex`, `hermes`, `openclaw`, and `opencode`.
+
+The generated runtime MCP config calls `noeis mcp`. The raw token stays in one place: the Noeis CLI config, normally `~/.config/noeis/config.json`. Generated MCP configs should not copy `NOEIS_TOKEN`.
 
 For local/self-hosted API targets, pass both URLs:
 
@@ -58,10 +65,13 @@ You can also skip stored config and use environment variables:
 NOEIS_TOKEN=ntk_at_... NOEIS_API_URL=https://api.noeis.io noeis pages list
 ```
 
+Manual environment variables are useful for scripts. Runtime MCP configs should prefer `noeis mcp` so secrets remain centralized.
+
 ## Commands
 
 ```bash
 noeis pages list
+noeis mcp --help
 noeis pages get <id> --json
 noeis ingest https://example.com/research
 noeis ingest ./source.txt --title "Source title"

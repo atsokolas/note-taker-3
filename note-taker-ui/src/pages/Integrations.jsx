@@ -63,8 +63,8 @@ const Integrations = () => {
           <div className="agent-connect-simple-card__terminal-body">
             <p>Tell your agent to:</p>
             <pre>{'Read https://www.noeis.io/skill.md and get me set up with Noeis'}</pre>
-            <p>Or run:</p>
-            <pre>{'npm install -g @noeis/cli'}</pre>
+            <p>Current internal build:</p>
+            <pre>{'cd ~/Documents/GitHub/note-taker-3-1\nnpm install -g ./packages/cli'}</pre>
             <pre>{'noeis connect openclaw'}</pre>
           </div>
           <div className="agent-connect-simple-card__runtime-row">

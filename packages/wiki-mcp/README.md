@@ -10,10 +10,11 @@ MCP server for driving a Noeis wiki from external agents.
 
 ## One-command setup
 
-Install the CLI and connect the runtime you use:
+Install the current internal CLI build and connect the runtime you use:
 
 ```bash
-npm i -g @noeis/cli
+cd ~/Documents/GitHub/note-taker-3-1
+npm i -g ./packages/cli
 noeis connect hermes
 # or
 noeis connect openclaw
@@ -21,7 +22,9 @@ noeis connect openclaw
 noeis connect codex
 ```
 
-The CLI opens Noeis in your browser, asks you to approve the local agent, writes the runtime MCP config, and runs an access check.
+The CLI opens Noeis in your browser, asks you to approve the local agent, writes the runtime MCP config, and runs an access check. The generated MCP config calls `noeis mcp`; it reads the token from the Noeis CLI config instead of copying the raw token into every runtime config.
+
+Public package status: `@noeis/cli` and `@noeis/wiki-mcp` are not published on npm yet. After publish, install becomes `npm i -g @noeis/cli`.
 
 ## Agent launch links
 
@@ -36,17 +39,18 @@ These links package a specific task, target, runtime, and permission set. Openin
 ## Run
 
 ```bash
-NOEIS_TOKEN="ntk_at_..." npx -y @noeis/wiki-mcp
+noeis mcp
 ```
 
-`NOEIS_API_URL` defaults to `https://api.noeis.io`.
+`noeis mcp` reads the token and API URL from `~/.config/noeis/config.json`, `NOEIS_CONFIG_DIR`, or explicit environment variables. `NOEIS_API_URL` defaults to `https://api.noeis.io`.
 
 ## Need a normal CLI instead?
 
 For cron jobs, shell scripts, or custom runtimes that do not speak MCP, install the sibling CLI:
 
 ```bash
-npm i -g @noeis/cli
+cd ~/Documents/GitHub/note-taker-3-1
+npm i -g ./packages/cli
 noeis connect hermes
 noeis ingest https://example.com/research
 noeis pages list
@@ -61,11 +65,8 @@ Add this to `~/.config/claude-code/mcp.json`:
 ```json
 {
   "noeis-wiki": {
-    "command": "npx",
-    "args": ["-y", "@noeis/wiki-mcp"],
-    "env": {
-      "NOEIS_TOKEN": "ntk_at_..."
-    }
+    "command": "noeis",
+    "args": ["mcp"]
   }
 }
 ```
@@ -78,9 +79,8 @@ Add this to `~/.codex/config.toml`:
 
 ```toml
 [mcp_servers.noeis-wiki]
-command = "npx"
-args = ["-y", "@noeis/wiki-mcp"]
-env = { NOEIS_TOKEN = "ntk_at_..." }
+command = "noeis"
+args = ["mcp"]
 ```
 
 Restart Codex and confirm the `noeis-wiki` MCP server is connected.
@@ -93,11 +93,8 @@ Add this server to your OpenCode MCP config:
 {
   "mcp": {
     "noeis-wiki": {
-      "command": "npx",
-      "args": ["-y", "@noeis/wiki-mcp"],
-      "env": {
-        "NOEIS_TOKEN": "ntk_at_..."
-      }
+      "command": "noeis",
+      "args": ["mcp"]
     }
   }
 }
@@ -112,11 +109,8 @@ Add a stdio MCP server named `noeis-wiki`:
   "servers": {
     "noeis-wiki": {
       "transport": "stdio",
-      "command": "npx",
-      "args": ["-y", "@noeis/wiki-mcp"],
-      "env": {
-        "NOEIS_TOKEN": "ntk_at_..."
-      }
+      "command": "noeis",
+      "args": ["mcp"]
     }
   }
 }
@@ -128,7 +122,6 @@ For local development:
 
 ```json
 {
-  "NOEIS_TOKEN": "ntk_at_...",
   "NOEIS_API_URL": "http://localhost:5500"
 }
 ```

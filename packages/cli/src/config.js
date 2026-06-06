@@ -25,6 +25,11 @@ export const readConfig = ({ env = process.env } = {}) => {
 export const writeConfig = (config = {}, { env = process.env } = {}) => {
   const configDir = resolveConfigDir({ env });
   fs.mkdirSync(configDir, { recursive: true, mode: 0o700 });
+  try {
+    fs.chmodSync(configDir, 0o700);
+  } catch {
+    // Best effort on filesystems that do not support chmod.
+  }
   const configPath = resolveConfigPath({ env });
   fs.writeFileSync(configPath, `${JSON.stringify(config, null, 2)}\n`, { mode: 0o600 });
   return configPath;

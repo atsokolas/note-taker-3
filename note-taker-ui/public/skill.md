@@ -8,32 +8,37 @@ Connect this machine to Noeis so you can read, retrieve, and write against the u
 
 ## Fast path
 
-Run:
+The public npm packages are not published yet. For the current internal build, run from the local Noeis repository:
 
 ```bash
-npm install -g @noeis/cli
+cd ~/Documents/GitHub/note-taker-3-1
+npm install -g ./packages/cli
 noeis connect openclaw
 ```
 
 If the user asked for Hermes, run:
 
 ```bash
-npm install -g @noeis/cli
+cd ~/Documents/GitHub/note-taker-3-1
+npm install -g ./packages/cli
 noeis connect hermes
 ```
 
 If the user asked for Codex, Claude Code, OpenCode, or a custom runtime, run:
 
 ```bash
-npm install -g @noeis/cli
+cd ~/Documents/GitHub/note-taker-3-1
+npm install -g ./packages/cli
 noeis connect codex
 ```
 
 Then open the browser approval URL printed by the CLI, ask the user to approve access, and wait for the CLI to finish writing the local configuration.
 
+After public release, the install step becomes `npm install -g @noeis/cli`.
+
 ## What access means
 
-The connected agent token is scoped to Noeis read and agent-write operations. It can retrieve workspace context, create handoffs, ingest source material, and write proposed or approved changes through Noeis APIs. The user can revoke the token from Noeis settings.
+The connected agent token is scoped to Noeis read and agent-write operations. It can retrieve workspace context, create handoffs, ingest source material, and write proposed or approved changes through Noeis APIs. The token is stored once in the Noeis CLI config, normally `~/.config/noeis/config.json`; runtime MCP config should call `noeis mcp` and should not copy the raw token. The user can revoke the token from Noeis settings.
 
 ## Useful commands
 

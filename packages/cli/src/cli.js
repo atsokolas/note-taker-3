@@ -12,6 +12,7 @@ const HELP = `Noeis CLI
 
 Usage:
   noeis connect [claude-code|codex|hermes|openclaw|opencode] [--label name] [--no-browser]
+  noeis mcp [--help]
   noeis login [--token ntk_at_...] [--api-url https://api.noeis.io]
   noeis pages list [--query text] [--status draft|published|archived] [--page-type type] [--limit n] [--json]
   noeis pages get <id> [--json]
@@ -101,34 +102,44 @@ const safeReadJson = (filePath) => {
   }
 };
 
+const ensurePrivateDir = (dirPath) => {
+  fs.mkdirSync(dirPath, { recursive: true, mode: 0o700 });
+  try {
+    fs.chmodSync(dirPath, 0o700);
+  } catch {
+    // Best effort on filesystems that do not support chmod.
+  }
+};
+
 const writeJsonFile = (filePath, value) => {
-  fs.mkdirSync(path.dirname(filePath), { recursive: true, mode: 0o700 });
+  ensurePrivateDir(path.dirname(filePath));
   fs.writeFileSync(filePath, `${JSON.stringify(value, null, 2)}\n`, { mode: 0o600 });
 };
 
-const mcpServerConfig = ({ token, apiUrl }) => ({
-  command: 'npx',
-  args: ['-y', '@noeis/wiki-mcp'],
+const mcpServerConfig = ({ configDir, apiUrl }) => ({
+  command: 'noeis',
+  args: ['mcp'],
   env: {
-    NOEIS_TOKEN: token,
+    ...(configDir ? { NOEIS_CONFIG_DIR: configDir } : {}),
     ...(apiUrl && apiUrl !== DEFAULT_API_URL ? { NOEIS_API_URL: apiUrl } : {})
   }
 });
 
-const writeTomlMcpConfig = (filePath, { token, apiUrl }) => {
-  fs.mkdirSync(path.dirname(filePath), { recursive: true, mode: 0o700 });
+const writeTomlMcpConfig = (filePath, { configDir, apiUrl }) => {
+  ensurePrivateDir(path.dirname(filePath));
   let current = '';
   try {
     current = fs.readFileSync(filePath, 'utf8');
   } catch (error) {
     if (error.code !== 'ENOENT') throw error;
   }
-  const envParts = [`NOEIS_TOKEN = ${JSON.stringify(token)}`];
+  const envParts = [];
+  if (configDir) envParts.push(`NOEIS_CONFIG_DIR = ${JSON.stringify(configDir)}`);
   if (apiUrl && apiUrl !== DEFAULT_API_URL) envParts.push(`NOEIS_API_URL = ${JSON.stringify(apiUrl)}`);
+  const envLine = envParts.length ? `\nenv = { ${envParts.join(', ')} }` : '';
   const block = `[mcp_servers.noeis-wiki]
-command = "npx"
-args = ["-y", "@noeis/wiki-mcp"]
-env = { ${envParts.join(', ')} }
+command = "noeis"
+args = ["mcp"]${envLine}
 `;
   const next = /\[mcp_servers\.noeis-wiki\][\s\S]*?(?=\n\[|\s*$)/m.test(current)
     ? current.replace(/\[mcp_servers\.noeis-wiki\][\s\S]*?(?=\n\[|\s*$)/m, block.trimEnd())
@@ -136,12 +147,12 @@ env = { ${envParts.join(', ')} }
   fs.writeFileSync(filePath, `${next.trimEnd()}\n`, { mode: 0o600 });
 };
 
-const writeRuntimeMcpConfig = ({ runtime, token, apiUrl, env = process.env } = {}) => {
+const writeRuntimeMcpConfig = ({ runtime, apiUrl, configDir, env = process.env } = {}) => {
   const home = os.homedir();
-  const server = mcpServerConfig({ token, apiUrl });
+  const server = mcpServerConfig({ configDir, apiUrl });
   if (runtime === 'codex') {
     const filePath = path.join(home, '.codex', 'config.toml');
-    writeTomlMcpConfig(filePath, { token, apiUrl });
+    writeTomlMcpConfig(filePath, { configDir, apiUrl });
     return filePath;
   }
 
@@ -158,7 +169,7 @@ const writeRuntimeMcpConfig = ({ runtime, token, apiUrl, env = process.env } = {
     config.mcp = { ...(config.mcp || {}), 'noeis-wiki': server };
   } else {
     config.servers = { ...(config.servers || {}), 'noeis-wiki': { transport: 'stdio', ...server } };
-    config['noeis-wiki'] = config['noeis-wiki'] || server;
+    delete config['noeis-wiki'];
   }
   writeJsonFile(filePath, config);
   return filePath;
@@ -299,7 +310,12 @@ const runConnect = async (args, context) => {
   const configPath = writeConfig({ ...readConfig(context), token: approved.secret, apiUrl, appUrl }, context);
   let runtimeConfigPath = '';
   if (!hasFlag(args, '--no-config')) {
-    runtimeConfigPath = writeRuntimeMcpConfig({ runtime, token: approved.secret, apiUrl, env: context.env || process.env });
+    runtimeConfigPath = writeRuntimeMcpConfig({
+      runtime,
+      apiUrl,
+      configDir: path.dirname(configPath),
+      env: context.env || process.env
+    });
   }
 
   try {
@@ -311,7 +327,31 @@ const runConnect = async (args, context) => {
   }
   io.stdout.write(`Saved Noeis CLI config to ${configPath}\n`);
   if (runtimeConfigPath) io.stdout.write(`Updated ${runtimeLabel(runtime)} MCP config at ${runtimeConfigPath}\n`);
+  if (runtimeConfigPath) io.stdout.write(`Runtime config reads the token from ${configPath}; no raw token was copied into MCP config.\n`);
   if (hasFlag(args, '--print-token')) io.stdout.write(`${approved.secret}\n`);
+};
+
+const runMcp = async (args, context) => {
+  if (args.includes('--help') || args.includes('-h')) {
+    context.io.stdout.write(`Noeis MCP bridge\n\nUsage: noeis mcp\n\nReads token/API settings from NOEIS_CONFIG_DIR or ~/.config/noeis/config.json.\n`);
+    return;
+  }
+  const auth = resolveAuth(context);
+  if (!auth.token) throw new NoeisCliError('Noeis token is missing. Run `noeis connect <runtime>` first.');
+  process.env.NOEIS_TOKEN = auth.token;
+  process.env.NOEIS_API_URL = auth.apiUrl;
+  try {
+    let mod;
+    try {
+      mod = await import('@noeis/wiki-mcp');
+    } catch {
+      const localMcpPath = new URL('../../wiki-mcp/src/server.js', import.meta.url);
+      mod = await import(localMcpPath.href);
+    }
+    await mod.main([]);
+  } catch (error) {
+    throw new NoeisCliError(`Unable to start Noeis MCP bridge. Install the CLI with its MCP dependency or publish/install @noeis/wiki-mcp. ${error.message || error}`);
+  }
 };
 
 const editSchema = async (client, context) => {
@@ -335,7 +375,7 @@ export const runCli = async (argv = [], context = {}) => {
   const io = context.io || { stdout: process.stdout, stderr: process.stderr };
   const env = context.env || process.env;
   const args = [...argv];
-  if (args.length === 0 || hasFlag(args, '--help') || hasFlag(args, '-h')) {
+  if (args.length === 0 || args[0] === '--help' || args[0] === '-h') {
     io.stdout.write(HELP);
     return;
   }
@@ -343,6 +383,10 @@ export const runCli = async (argv = [], context = {}) => {
   const command = args[0];
   if (command === 'connect') {
     await runConnect(args.slice(1), { ...context, env, io });
+    return;
+  }
+  if (command === 'mcp') {
+    await runMcp(args.slice(1), { ...context, env, io });
     return;
   }
   if (command === 'login') {
