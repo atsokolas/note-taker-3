@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
-export const DEFAULT_API_URL = 'https://api.noeis.io';
+export const DEFAULT_API_URL = 'https://note-taker-3-unrg.onrender.com';
 export const DEFAULT_APP_URL = 'https://www.noeis.io';
 
 export const resolveConfigDir = ({ env = process.env } = {}) => (

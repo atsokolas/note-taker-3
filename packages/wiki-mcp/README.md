@@ -41,7 +41,7 @@ These links package a specific task, target, runtime, and permission set. Openin
 noeis mcp
 ```
 
-`noeis mcp` reads the token and API URL from `~/.config/noeis/config.json`, `NOEIS_CONFIG_DIR`, or explicit environment variables. `NOEIS_API_URL` defaults to `https://api.noeis.io`.
+`noeis mcp` reads the token and API URL from `~/.config/noeis/config.json`, `NOEIS_CONFIG_DIR`, or explicit environment variables. `NOEIS_API_URL` defaults to `https://note-taker-3-unrg.onrender.com`.
 
 ## Need a normal CLI instead?
 

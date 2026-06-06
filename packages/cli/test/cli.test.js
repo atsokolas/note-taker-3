@@ -4,6 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 
 import { runCli } from '../src/cli.js';
+import { DEFAULT_API_URL } from '../src/config.js';
 
 const jsonResponse = (payload) => ({
   ok: true,
@@ -93,6 +94,20 @@ const run = async () => {
 
   await runCli(['log', '--since', '1d'], { env, fetchImpl, io: makeIo().io });
   assert(seen.some(request => request.url.includes('/api/wiki/activity?limit=50&since=')));
+
+  assert.strictEqual(DEFAULT_API_URL, 'https://note-taker-3-unrg.onrender.com');
+
+  const connectHelpIo = makeIo();
+  await runCli(['connect', '--help'], {
+    env: { NOEIS_CONFIG_DIR: fs.mkdtempSync(path.join(os.tmpdir(), 'noeis-help-test-')) },
+    fetchImpl: async () => {
+      throw new Error('connect help should not call the network');
+    },
+    io: connectHelpIo.io
+  });
+  assert(connectHelpIo.stdout.includes('Noeis agent connect'));
+  assert(connectHelpIo.stdout.includes('noeis connect openclaw'));
+  assert(connectHelpIo.stdout.includes('https://note-taker-3-unrg.onrender.com'));
 
   const loginIo = makeIo();
   await runCli(['login', '--token', 'ntk_at_saved', '--api-url', 'https://api.test', '--no-browser'], {

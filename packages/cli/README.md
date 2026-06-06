@@ -59,7 +59,7 @@ noeis login --token ntk_at_... --api-url http://localhost:5500
 You can also skip stored config and use environment variables:
 
 ```bash
-NOEIS_TOKEN=ntk_at_... NOEIS_API_URL=https://api.noeis.io noeis pages list
+NOEIS_TOKEN=ntk_at_... NOEIS_API_URL=https://note-taker-3-unrg.onrender.com noeis pages list
 ```
 
 Manual environment variables are useful for scripts. Runtime MCP configs should prefer `noeis mcp` so secrets remain centralized.

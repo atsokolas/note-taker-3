@@ -13,7 +13,7 @@ const HELP = `Noeis CLI
 Usage:
   noeis connect [claude-code|codex|hermes|openclaw|opencode] [--label name] [--no-browser]
   noeis mcp [--help]
-  noeis login [--token ntk_at_...] [--api-url https://api.noeis.io]
+  noeis login [--token ntk_at_...] [--api-url https://note-taker-3-unrg.onrender.com]
   noeis pages list [--query text] [--status draft|published|archived] [--page-type type] [--limit n] [--json]
   noeis pages get <id> [--json]
   noeis ingest <url|file> [--title title] [--json]
@@ -25,6 +25,25 @@ Usage:
 
 Environment:
   NOEIS_TOKEN, NOEIS_API_URL, NOEIS_APP_URL, NOEIS_CONFIG_DIR
+`;
+
+const CONNECT_HELP = `Noeis agent connect
+
+Usage:
+  noeis connect [claude-code|codex|hermes|openclaw|opencode] [options]
+
+Options:
+  --label <name>       Label shown on the Noeis browser approval screen
+  --api-url <url>      API URL, defaults to ${DEFAULT_API_URL}
+  --app-url <url>      Browser approval app URL, defaults to ${DEFAULT_APP_URL}
+  --no-browser         Print the approval URL without opening a browser
+  --no-config          Save Noeis CLI config but do not write runtime MCP config
+  --timeout <seconds>  Wait time for browser approval, defaults to 300
+
+Examples:
+  noeis connect openclaw
+  noeis connect hermes
+  noeis connect codex --no-browser
 `;
 
 const optionValue = (args, name, fallback = '') => {
@@ -254,6 +273,10 @@ const runLogin = async (args, context) => {
 };
 
 const runConnect = async (args, context) => {
+  if (args.includes('--help') || args.includes('-h')) {
+    context.io.stdout.write(CONNECT_HELP);
+    return;
+  }
   const auth = resolveAuth(context);
   const positional = compactArgs(args);
   const runtime = normalizeRuntime(positional[0] || optionValue(args, '--runtime'));

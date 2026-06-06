@@ -1,4 +1,4 @@
-export const DEFAULT_API_URL = 'https://api.noeis.io';
+export const DEFAULT_API_URL = 'https://note-taker-3-unrg.onrender.com';
 
 const trimTrailingSlash = (value = '') => String(value || '').replace(/\/+$/g, '');
 
