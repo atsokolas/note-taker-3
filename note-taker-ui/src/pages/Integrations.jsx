@@ -2,6 +2,7 @@ import React, { useCallback, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Card, Page } from '../components/ui';
 import AgentQuickStartCard from '../components/integrations/AgentQuickStartCard';
+import AgentLaunchLinkCard from '../components/integrations/AgentLaunchLinkCard';
 import ExternalBridgeCard from '../components/integrations/ExternalBridgeCard';
 import HandoffQueueCard from '../components/integrations/HandoffQueueCard';
 import OrchestrationPolicyCard from '../components/integrations/OrchestrationPolicyCard';
@@ -47,6 +48,8 @@ const Integrations = () => {
         showAdvanced={showAdvancedAgentSettings}
         onToggleAdvanced={() => setShowAdvancedAgentSettings((previous) => !previous)}
       />
+
+      <AgentLaunchLinkCard />
 
       <WikiMcpConnectCard />
 

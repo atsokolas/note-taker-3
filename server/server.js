@@ -107,6 +107,8 @@ const {
   BrainSummary,
   PersonalAgent,
   AgentToken,
+  AgentConnectSession,
+  AgentTaskLink,
   AgentThread,
   AgentActionApproval,
   AgentProtocolApproval,
@@ -218,6 +220,8 @@ const { buildAgentSettingsRouter } = require('./routes/agentSettingsRoutes');
 const { buildPersonalAgentRouter } = require('./routes/personalAgentRoutes');
 const { buildAgentTokenRouter } = require('./routes/agentTokenRoutes');
 const { buildAgentBridgeRouter } = require('./routes/agentBridgeRoutes');
+const { buildAgentConnectRouter } = require('./routes/agentConnectRoutes');
+const { buildAgentTaskLinkRouter } = require('./routes/agentTaskLinkRoutes');
 const { buildAgentThreadRouter } = require('./routes/agentThreadRoutes');
 const { buildAgentHandoffRouter } = require('./routes/agentHandoffRoutes');
 const { buildAgentActionRouter } = require('./routes/agentActionRoutes');
@@ -6171,6 +6175,33 @@ app.use(buildAgentTokenRouter({
   hashAgentTokenSecret,
   normalizeAgentTokenScopes,
   sanitizeAgentToken
+}));
+
+app.use(buildAgentConnectRouter({
+  authenticateToken,
+  AgentConnectSession,
+  AgentToken,
+  createAgentTokenSecret,
+  hashAgentTokenSecret,
+  normalizeAgentTokenScopes,
+  sanitizeAgentToken
+}));
+
+app.use(buildAgentTaskLinkRouter({
+  mongoose,
+  authenticateToken,
+  AgentTaskLink,
+  PersonalAgent,
+  AgentHandoff,
+  AgentThread,
+  buildDefaultHandoffPlan,
+  buildDefaultHandoffCheckpoint,
+  buildAgentPlanner,
+  createThreadForHandoff,
+  appendHandoffEvent,
+  sanitizeAgentHandoffDoc,
+  normalizeAgentHandoffTaskType,
+  normalizeAgentHandoffPriority
 }));
 
 app.use(buildAgentThreadRouter({

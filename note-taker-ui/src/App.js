@@ -57,6 +57,8 @@ const WikiProductIndex = lazy(() => import('./components/wiki/WikiProductIndex')
 const WikiIngestRun = lazy(() => import('./pages/WikiIngestRun'));
 const HowToUse = lazy(() => import('./pages/HowToUse'));
 const Integrations = lazy(() => import('./pages/Integrations'));
+const AgentConnectAuthorize = lazy(() => import('./pages/AgentConnectAuthorize'));
+const AgentTaskRun = lazy(() => import('./pages/AgentTaskRun'));
 const DataIntegrations = lazy(() => import('./pages/DataIntegrations'));
 const AiSecondBrain = lazy(() => import('./pages/AiSecondBrain'));
 const GuidesHub = lazy(() => import('./pages/GuidesHub'));
@@ -214,6 +216,8 @@ const PublicRoutes = ({ chromeStoreLink, handleLoginSuccess, uiSettings }) => {
           <Route path="/terms" element={<TermsOfUse />} />
           <Route path="/design-preview" element={<DesignPreview />} />
           <Route path="/share/concepts/:slug" element={<SharedConcept />} />
+          <Route path="/settings/connected-agents/authorize" element={<AgentConnectAuthorize />} />
+          <Route path="/a/run/:taskId" element={<AgentTaskRun />} />
           <Route path="/register" element={<Register chromeStoreLink={chromeStoreLink} />} />
           <Route
             path="/login"
@@ -522,6 +526,8 @@ function App() {
             />
             <Route path="/how-to-use" element={<HowToUse />} />
             <Route path="/integrations" element={<Integrations />} />
+            <Route path="/settings/connected-agents/authorize" element={<AgentConnectAuthorize />} />
+            <Route path="/a/run/:taskId" element={<AgentTaskRun />} />
             <Route path="/data-integrations" element={<DataIntegrations />} />
             <Route path="/marketing-analytics" element={<MarketingAnalytics />} />
             <Route path="/search-console-opportunities" element={<SearchConsoleOpportunities />} />

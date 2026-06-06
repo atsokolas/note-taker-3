@@ -5,8 +5,33 @@ MCP server for driving a Noeis wiki from external agents.
 ## Requirements
 
 - Node 18.17+
-- A Noeis connected-agent token from `Settings -> Connected agents`
+- A Noeis connected-agent token from browser approval or `Settings -> Connected agents`
 - Optional: `NOEIS_API_URL` if you are not using the hosted API
+
+## One-command setup
+
+Install the CLI and connect the runtime you use:
+
+```bash
+npm i -g @noeis/cli
+noeis connect hermes
+# or
+noeis connect openclaw
+# or
+noeis connect codex
+```
+
+The CLI opens Noeis in your browser, asks you to approve the local agent, writes the runtime MCP config, and runs an access check.
+
+## Agent launch links
+
+Noeis also supports task links:
+
+```text
+https://www.noeis.io/a/run/at_...
+```
+
+These links package a specific task, target, runtime, and permission set. Opening the link lets the user dispatch the task into the normal Noeis handoff queue. If the requested runtime is not connected, Noeis shows the matching `noeis connect <runtime>` command before dispatch.
 
 ## Run
 
@@ -22,7 +47,7 @@ For cron jobs, shell scripts, or custom runtimes that do not speak MCP, install 
 
 ```bash
 npm i -g @noeis/cli
-noeis login --token ntk_at_...
+noeis connect hermes
 noeis ingest https://example.com/research
 noeis pages list
 ```

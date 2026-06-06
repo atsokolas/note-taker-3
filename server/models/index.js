@@ -1087,6 +1087,52 @@ agentTokenSchema.index({ hashedSecret: 1 }, { unique: true });
 
 const AgentToken = mongoose.model('AgentToken', agentTokenSchema);
 
+const agentConnectSessionSchema = new mongoose.Schema({
+  sessionId: { type: String, required: true, unique: true, trim: true },
+  pollSecretHash: { type: String, required: true, trim: true },
+  deviceCode: { type: String, required: true, trim: true, index: true },
+  runtime: { type: String, default: 'agent', trim: true },
+  label: { type: String, default: '', trim: true },
+  scopes: { type: [String], enum: ['read', 'agent-write'], default: ['read', 'agent-write'] },
+  requestedApiUrl: { type: String, default: '', trim: true },
+  requestedAppUrl: { type: String, default: '', trim: true },
+  status: { type: String, enum: ['pending', 'approved', 'expired', 'cancelled'], default: 'pending', index: true },
+  tokenId: { type: mongoose.Schema.Types.ObjectId, ref: 'AgentToken', default: null },
+  tokenSecret: { type: String, default: '', trim: true },
+  approvedUserId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+  approvedAt: { type: Date, default: null },
+  deliveredAt: { type: Date, default: null },
+  expiresAt: { type: Date, required: true }
+}, { timestamps: true });
+
+agentConnectSessionSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 3600 });
+agentConnectSessionSchema.index({ status: 1, expiresAt: 1 });
+
+const AgentConnectSession = mongoose.model('AgentConnectSession', agentConnectSessionSchema);
+
+const agentTaskLinkSchema = new mongoose.Schema({
+  taskId: { type: String, required: true, unique: true, trim: true },
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+  runtime: { type: String, default: 'agent', trim: true },
+  title: { type: String, required: true, trim: true },
+  objective: { type: String, default: '', trim: true },
+  taskType: { type: String, enum: ['research', 'synthesis', 'restructure', 'qa', 'custom'], default: 'custom' },
+  priority: { type: String, enum: ['low', 'normal', 'high'], default: 'normal' },
+  target: { type: mongoose.Schema.Types.Mixed, default: {} },
+  permissions: { type: [String], default: ['read', 'draft_write'] },
+  context: { type: mongoose.Schema.Types.Mixed, default: {} },
+  input: { type: mongoose.Schema.Types.Mixed, default: {} },
+  status: { type: String, enum: ['pending', 'dispatched', 'expired', 'cancelled'], default: 'pending', index: true },
+  handoffId: { type: mongoose.Schema.Types.ObjectId, ref: 'AgentHandoff', default: null },
+  dispatchedAt: { type: Date, default: null },
+  expiresAt: { type: Date, default: null }
+}, { timestamps: true });
+
+agentTaskLinkSchema.index({ userId: 1, status: 1, updatedAt: -1 });
+agentTaskLinkSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 86400 });
+
+const AgentTaskLink = mongoose.model('AgentTaskLink', agentTaskLinkSchema);
+
 const actorIdentitySchema = new mongoose.Schema({
   actorType: { type: String, enum: ['user', 'native_agent', 'byo_agent'], default: 'native_agent' },
   actorId: { type: String, default: '', trim: true }
@@ -1783,6 +1829,8 @@ module.exports = {
   BrainSummary,
   PersonalAgent,
   AgentToken,
+  AgentConnectSession,
+  AgentTaskLink,
   AgentThread,
   AgentActionApproval,
   AgentProtocolApproval,

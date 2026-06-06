@@ -103,6 +103,35 @@ export const getAgentEntitlements = async () => {
   return res.data || { entitlements: {} };
 };
 
+export const getAgentConnectApprovalSession = async (sessionId) => {
+  const safeSessionId = encodeURIComponent(String(sessionId || '').trim());
+  const res = await api.get(`/api/agent-connect/sessions/${safeSessionId}/approval`, { skipAuthHandling: true });
+  return res.data || {};
+};
+
+export const approveAgentConnectSession = async (sessionId, payload = {}) => {
+  const safeSessionId = encodeURIComponent(String(sessionId || '').trim());
+  const res = await api.post(`/api/agent-connect/sessions/${safeSessionId}/approve`, payload, getAuthHeaders());
+  return res.data || {};
+};
+
+export const createAgentTaskLink = async (payload = {}) => {
+  const res = await api.post('/api/agent-task-links', payload, getAuthHeaders());
+  return res.data || {};
+};
+
+export const getAgentTaskLink = async (taskId) => {
+  const safeTaskId = encodeURIComponent(String(taskId || '').trim());
+  const res = await api.get(`/api/agent-task-links/${safeTaskId}`, { skipAuthHandling: true });
+  return res.data || {};
+};
+
+export const dispatchAgentTaskLink = async (taskId, payload = {}) => {
+  const safeTaskId = encodeURIComponent(String(taskId || '').trim());
+  const res = await api.post(`/api/agent-task-links/${safeTaskId}/dispatch`, payload, getAuthHeaders());
+  return res.data || {};
+};
+
 export const updateAgentEntitlementsDev = async (payload = {}) => {
   const res = await api.patch('/api/agent/entitlements/dev', payload, getAuthHeaders());
   return res.data || { entitlements: {} };

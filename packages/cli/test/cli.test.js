@@ -102,6 +102,62 @@ const run = async () => {
   const saved = JSON.parse(fs.readFileSync(path.join(tempDir, 'config.json'), 'utf8'));
   assert.strictEqual(saved.token, 'ntk_at_saved');
   assert.strictEqual(saved.apiUrl, 'https://api.test');
+
+  const connectSeen = [];
+  const connectFetch = async (url, init = {}) => {
+    connectSeen.push({ url: String(url), init });
+    const requestUrl = new URL(String(url));
+    if (requestUrl.pathname.endsWith('/api/agent-connect/sessions')) {
+      return jsonResponse({
+        session: {
+          sessionId: 'nac_123',
+          deviceCode: 'ABCD-1234',
+          runtime: 'hermes',
+          label: 'Hermes local',
+          status: 'pending'
+        },
+        pollSecret: 'poll_secret',
+        authorizeUrl: 'https://noeis.example/settings/connected-agents/authorize?session=nac_123&secret=poll_secret',
+        pollIntervalSec: 1
+      });
+    }
+    if (requestUrl.pathname.endsWith('/api/agent-connect/sessions/nac_123/poll')) {
+      return jsonResponse({
+        session: { sessionId: 'nac_123', status: 'approved', runtime: 'hermes' },
+        secret: 'ntk_at_connected',
+        tokenId: 'token-1'
+      });
+    }
+    if (requestUrl.pathname.endsWith('/api/wiki/pages')) {
+      return jsonResponse({ pages: [] });
+    }
+    return jsonResponse({});
+  };
+  const connectIo = makeIo();
+  const connectConfigDir = fs.mkdtempSync(path.join(os.tmpdir(), 'noeis-connect-test-'));
+  const xdgConfigHome = path.join(connectConfigDir, 'xdg');
+  await runCli(['connect', 'hermes', '--no-browser', '--api-url', 'https://api.test', '--app-url', 'https://noeis.example'], {
+    env: {
+      NOEIS_CONFIG_DIR: connectConfigDir,
+      XDG_CONFIG_HOME: xdgConfigHome
+    },
+    fetchImpl: connectFetch,
+    io: connectIo.io,
+    openBrowser: () => {
+      throw new Error('browser should not open with --no-browser');
+    },
+    sleep: async () => {}
+  });
+  const connectedConfig = JSON.parse(fs.readFileSync(path.join(connectConfigDir, 'config.json'), 'utf8'));
+  assert.strictEqual(connectedConfig.token, 'ntk_at_connected');
+  assert.strictEqual(connectedConfig.apiUrl, 'https://api.test');
+  const hermesConfig = JSON.parse(fs.readFileSync(path.join(xdgConfigHome, 'hermes', 'mcp.json'), 'utf8'));
+  assert.strictEqual(hermesConfig.servers['noeis-wiki'].command, 'npx');
+  assert.strictEqual(hermesConfig.servers['noeis-wiki'].env.NOEIS_TOKEN, 'ntk_at_connected');
+  assert.strictEqual(hermesConfig.servers['noeis-wiki'].env.NOEIS_API_URL, 'https://api.test');
+  assert(connectIo.stdout.includes('Approve Hermes in your browser.'));
+  assert(connectIo.stdout.includes('Connected Hermes with read/write Noeis access.'));
+  assert(connectSeen.some(request => request.url.endsWith('/api/wiki/pages?limit=1')));
 };
 
 run().catch((error) => {

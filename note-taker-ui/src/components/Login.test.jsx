@@ -32,8 +32,8 @@ describe('Login', () => {
       </MemoryRouter>
     );
 
-    fireEvent.change(screen.getByLabelText('Username:'), { target: { value: 'alice' } });
-    fireEvent.change(screen.getByLabelText('Password:'), { target: { value: 'secret' } });
+    fireEvent.change(screen.getByLabelText('Username'), { target: { value: 'alice' } });
+    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'secret' } });
     fireEvent.click(screen.getByRole('button', { name: 'Login' }));
 
     await waitFor(() => expect(api.post).toHaveBeenCalledWith(

@@ -49,6 +49,8 @@ const redirectToLogin = (reason = 'auth') => {
   clearStoredTokens();
   try {
     sessionStorage.setItem('auth_redirect_reason', reason);
+    const currentPath = `${window.location.pathname || '/'}${window.location.search || ''}${window.location.hash || ''}`;
+    if (currentPath && currentPath !== '/login') sessionStorage.setItem('auth_return_to', currentPath);
   } catch (_error) {
     // ignore storage failures
   }

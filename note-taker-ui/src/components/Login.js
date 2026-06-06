@@ -68,6 +68,15 @@ const Login = ({ onLoginSuccess, chromeStoreLink }) => {
         if (typeof onLoginSuccess === 'function') {
           onLoginSuccess();
         }
+        try {
+          const returnTo = sessionStorage.getItem('auth_return_to');
+          sessionStorage.removeItem('auth_return_to');
+          if (returnTo && returnTo.startsWith('/') && !returnTo.startsWith('//')) {
+            navigate(returnTo, { replace: true });
+          }
+        } catch (_error) {
+          // ignore storage failures
+        }
       } else {
         setMessage('Login succeeded, but no token was returned.');
         setIsError(true);

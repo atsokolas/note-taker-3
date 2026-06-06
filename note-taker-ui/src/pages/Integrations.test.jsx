@@ -3,6 +3,10 @@ import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import Integrations from './Integrations';
 
+jest.mock('../api/agent', () => ({
+  createAgentTaskLink: jest.fn()
+}));
+
 jest.mock('../hooks/integrations/usePersonalAgents', () => () => ({
   sortedAgents: [],
   agentsLoading: false,
@@ -66,20 +70,25 @@ jest.mock('../hooks/useHandoffs', () => () => ({
 }));
 
 describe('Integrations MCP setup', () => {
-  it('shows copy-paste MCP config for the supported agent CLIs', () => {
+  it('leads with one-command connect and keeps manual MCP config available', () => {
     render(
       <MemoryRouter>
         <Integrations />
       </MemoryRouter>
     );
 
-    expect(screen.getByText('Noeis wiki MCP + CLI')).toBeInTheDocument();
+    expect(screen.getByText('One-command agent connect')).toBeInTheDocument();
+    expect(screen.getByText('Agent launch links')).toBeInTheDocument();
+    expect(screen.getByText(/feeds a specific task to OpenClaw/i)).toBeInTheDocument();
     expect(screen.getByText('@noeis/wiki-mcp · @noeis/cli')).toBeInTheDocument();
-    expect(screen.getByText('Noeis CLI')).toBeInTheDocument();
+    expect(screen.getByText('Recommended setup')).toBeInTheDocument();
     expect(screen.getByText(/npm i -g @noeis\/cli/)).toBeInTheDocument();
-    expect(screen.getByText('Claude Code')).toBeInTheDocument();
-    expect(screen.getByText('Codex')).toBeInTheDocument();
-    expect(screen.getByText('OpenCode')).toBeInTheDocument();
+    expect(screen.getByText(/noeis connect hermes/)).toBeInTheDocument();
+    expect(screen.getByText(/noeis connect openclaw/)).toBeInTheDocument();
+    expect(screen.getByText('Manual setup')).toBeInTheDocument();
+    expect(screen.getAllByText('Claude Code').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText('Codex').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText('OpenCode').length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText('Hermes').length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText('Connect OpenClaw or Hermes')).toBeInTheDocument();
     expect(screen.getAllByText(/NOEIS_TOKEN/).length).toBeGreaterThanOrEqual(4);

@@ -8,15 +8,45 @@ Command-line client for scripting a Noeis wiki without an MCP-speaking agent.
 npm i -g @noeis/cli
 ```
 
-## Auth
+## Connect an agent
 
-Create a Connected agents token in Noeis Settings, then run:
+The normal setup path opens Noeis in your browser, asks you to approve the local agent, writes the CLI token, writes the runtime MCP config, and runs an access check:
 
 ```bash
-noeis login --token ntk_at_...
+noeis connect hermes
+# or
+noeis connect openclaw
+# or
+noeis connect codex
 ```
 
-For local/self-hosted API targets:
+Supported runtime names: `claude-code`, `codex`, `hermes`, `openclaw`, and `opencode`.
+
+For local/self-hosted API targets, pass both URLs:
+
+```bash
+noeis connect hermes --api-url http://localhost:5500 --app-url http://localhost:3000
+```
+
+If the browser cannot open automatically:
+
+```bash
+noeis connect hermes --no-browser
+```
+
+## Agent launch links
+
+Noeis can create browser links that feed a task to a connected runtime:
+
+```text
+https://www.noeis.io/a/run/at_...
+```
+
+Open the link, review the task, then dispatch it to OpenClaw, Hermes, Codex, or another connected runtime. If the runtime is not connected yet, Noeis shows the exact connect command to run and preserves the task link.
+
+## Manual auth
+
+You can still create a Connected agents token in Noeis Settings and paste it manually:
 
 ```bash
 noeis login --token ntk_at_... --api-url http://localhost:5500

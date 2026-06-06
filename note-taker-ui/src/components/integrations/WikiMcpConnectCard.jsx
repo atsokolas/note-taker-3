@@ -54,23 +54,30 @@ const WikiMcpConnectCard = () => (
   <Card className="settings-card wiki-mcp-connect-card">
     <div className="settings-appearance-header">
       <div>
-        <h2>Noeis wiki MCP + CLI</h2>
-        <p className="muted">Connect Claude Code, Codex, OpenCode, Hermes, or scripted jobs to your wiki with a Connected agents token.</p>
+        <h2>One-command agent connect</h2>
+        <p className="muted">Connect Claude Code, Codex, OpenCode, Hermes, OpenClaw, or scripted jobs through browser approval.</p>
       </div>
       <p className="muted-label">@noeis/wiki-mcp · @noeis/cli</p>
     </div>
     <p className="muted small">
-      Create a token in Settings &gt; Connected agents. Use `NOEIS_TOKEN` for hosted Noeis, and add `NOEIS_API_URL` only for local or self-hosted API targets.
+      Run one command, approve in Noeis, and the CLI writes the local MCP config plus a revocable connected-agent token.
     </p>
     <div className="wiki-mcp-connect-card__panel">
-      <p><strong>Noeis CLI</strong></p>
-      <p className="muted small">For cron jobs, shell scripts, and custom Python or Node workflows that do not speak MCP.</p>
+      <p><strong>Recommended setup</strong></p>
+      <p className="muted small">Use the runtime you want to connect. The browser approval page issues read/write Noeis access and the terminal finishes the local config.</p>
       <pre className="external-bridge-pre">{`npm i -g @noeis/cli
-noeis login --token ntk_at_...
-noeis ingest https://example.com/research
+noeis connect hermes
+# or: noeis connect openclaw
+# or: noeis connect codex
 noeis pages list
+noeis ingest https://example.com/research
 noeis ask <pageId> "What changed?"`}</pre>
     </div>
+    <details className="wiki-mcp-connect-card__manual">
+      <summary>Manual setup</summary>
+      <p className="muted small">
+        Advanced path for custom runtimes: create a token in Settings &gt; Connected agents, set `NOEIS_TOKEN`, and add `NOEIS_API_URL` only for local or self-hosted API targets.
+      </p>
     <div className="wiki-mcp-connect-card__grid">
       {CODE_BLOCKS.map((block) => (
         <div key={block.label} className="wiki-mcp-connect-card__panel">
@@ -80,6 +87,7 @@ noeis ask <pageId> "What changed?"`}</pre>
         </div>
       ))}
     </div>
+    </details>
   </Card>
 );
 

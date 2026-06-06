@@ -7125,6 +7125,168 @@ html[data-ui-theme='dark'] .external-bridge-pre {
   margin-top: 8px;
 }
 
+.wiki-mcp-connect-card__manual {
+  margin-top: 12px;
+}
+
+.wiki-mcp-connect-card__manual summary {
+  cursor: pointer;
+  color: var(--text-primary);
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.wiki-mcp-connect-card__manual > p {
+  margin: 10px 0 0;
+}
+
+.agent-connect-authorize-page {
+  width: min(100%, 980px);
+}
+
+.agent-connect-authorize-card {
+  display: grid;
+  gap: 18px;
+}
+
+.agent-connect-authorize-card__code {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  background: var(--surface-elevated);
+}
+
+.agent-connect-authorize-card__code span,
+.agent-connect-authorize-card__scope strong {
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.agent-connect-authorize-card__code strong {
+  color: var(--text-primary);
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 1.15rem;
+  letter-spacing: 0.08em;
+}
+
+.agent-connect-authorize-card__scope-list {
+  display: grid;
+  gap: 10px;
+}
+
+.agent-connect-authorize-card__scope {
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+}
+
+.agent-connect-authorize-card__scope p {
+  margin: 6px 0 0;
+}
+
+.agent-connect-authorize-card__success {
+  padding: 12px;
+  border: 1px solid color-mix(in srgb, var(--success, #2f8f5b) 45%, var(--border-subtle));
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--success, #2f8f5b) 10%, var(--surface-elevated));
+}
+
+.agent-connect-authorize-card__success p {
+  margin: 6px 0 0;
+}
+
+.agent-launch-link-card,
+.agent-task-run-card {
+  display: grid;
+  gap: 14px;
+}
+
+.agent-launch-link-card__grid,
+.agent-task-run-card__meta {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.agent-launch-link-card label,
+.agent-launch-link-card__field {
+  display: grid;
+  gap: 6px;
+}
+
+.agent-launch-link-card input,
+.agent-launch-link-card select,
+.agent-launch-link-card textarea {
+  width: 100%;
+  min-width: 0;
+}
+
+.agent-launch-link-card textarea {
+  resize: vertical;
+}
+
+.agent-launch-link-card__result,
+.agent-task-run-card__success,
+.agent-task-run-card__warning,
+.agent-task-run-card__target,
+.agent-task-run-card__meta > div {
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  background: var(--surface-elevated);
+}
+
+.agent-launch-link-card__result {
+  display: grid;
+  gap: 10px;
+}
+
+.agent-task-run-page {
+  width: min(100%, 980px);
+}
+
+.agent-task-run-card__meta span,
+.agent-task-run-card__target span {
+  display: block;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.agent-task-run-card__meta strong,
+.agent-task-run-card__target strong {
+  display: block;
+  margin-top: 4px;
+  color: var(--text-primary);
+}
+
+.agent-task-run-card__target p,
+.agent-task-run-card__success p,
+.agent-task-run-card__warning p {
+  margin: 6px 0 0;
+}
+
+.agent-task-run-card__success {
+  border-color: color-mix(in srgb, var(--success, #2f8f5b) 45%, var(--border-subtle));
+  background: color-mix(in srgb, var(--success, #2f8f5b) 10%, var(--surface-elevated));
+}
+
+.agent-task-run-card__warning {
+  border-color: color-mix(in srgb, var(--warning, #c48a2c) 45%, var(--border-subtle));
+  background: color-mix(in srgb, var(--warning, #c48a2c) 10%, var(--surface-elevated));
+}
+
 .external-bridge-card {
   display: grid;
   gap: 16px;
