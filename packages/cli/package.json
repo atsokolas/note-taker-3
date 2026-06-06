@@ -1,6 +1,6 @@
 {
   "name": "@noeis/noeis-cli",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Command-line client for scripting a Noeis wiki.",
   "type": "module",
   "bin": {

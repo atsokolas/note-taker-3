@@ -168,6 +168,7 @@ args = ["mcp"]${envLine}
 
 const writeOpenClawRootConfig = ({ filePath, server }) => {
   const config = safeReadJson(filePath);
+  delete config.meta;
   config.mcp = {
     ...(config.mcp || {}),
     servers: {

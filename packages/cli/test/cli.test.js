@@ -183,6 +183,9 @@ const run = async () => {
   const openClawXdg = path.join(openClawConfigDir, 'xdg');
   fs.mkdirSync(path.join(openClawHome, '.openclaw'), { recursive: true });
   fs.writeFileSync(path.join(openClawHome, '.openclaw', 'openclaw.json'), JSON.stringify({
+    meta: {
+      note: 'Old Noeis installer note that current OpenClaw rejects.'
+    },
     mcp: {
       servers: {
         x: { url: 'http://127.0.0.1:8000/mcp' }
@@ -204,6 +207,7 @@ const run = async () => {
   assert.strictEqual(openClawXdgConfig.servers['noeis-wiki'].command, 'noeis');
   assert.strictEqual(openClawXdgConfig.servers['noeis-wiki'].env.NOEIS_TOKEN, undefined);
   const openClawRootConfig = JSON.parse(fs.readFileSync(path.join(openClawHome, '.openclaw', 'openclaw.json'), 'utf8'));
+  assert.strictEqual(openClawRootConfig.meta, undefined);
   assert.strictEqual(openClawRootConfig.mcp.servers.x.url, 'http://127.0.0.1:8000/mcp');
   assert.strictEqual(openClawRootConfig.mcp.servers['noeis-wiki'].transport, undefined);
   assert.strictEqual(openClawRootConfig.mcp.servers['noeis-wiki'].command, 'noeis');
