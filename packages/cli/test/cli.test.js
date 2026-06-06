@@ -178,6 +178,39 @@ const run = async () => {
   assert(connectIo.stdout.includes('no raw token was copied into MCP config.'));
   assert(connectSeen.some(request => request.url.endsWith('/api/wiki/pages?limit=1')));
 
+  const openClawConfigDir = fs.mkdtempSync(path.join(os.tmpdir(), 'noeis-openclaw-test-'));
+  const openClawHome = path.join(openClawConfigDir, 'home');
+  const openClawXdg = path.join(openClawConfigDir, 'xdg');
+  fs.mkdirSync(path.join(openClawHome, '.openclaw'), { recursive: true });
+  fs.writeFileSync(path.join(openClawHome, '.openclaw', 'openclaw.json'), JSON.stringify({
+    mcp: {
+      servers: {
+        x: { url: 'http://127.0.0.1:8000/mcp' }
+      }
+    }
+  }, null, 2));
+  const openClawIo = makeIo();
+  await runCli(['connect', 'openclaw', '--no-browser', '--api-url', 'https://api.test', '--app-url', 'https://noeis.example'], {
+    env: {
+      HOME: openClawHome,
+      NOEIS_CONFIG_DIR: openClawConfigDir,
+      XDG_CONFIG_HOME: openClawXdg
+    },
+    fetchImpl: connectFetch,
+    io: openClawIo.io,
+    sleep: async () => {}
+  });
+  const openClawXdgConfig = JSON.parse(fs.readFileSync(path.join(openClawXdg, 'openclaw', 'mcp.json'), 'utf8'));
+  assert.strictEqual(openClawXdgConfig.servers['noeis-wiki'].command, 'noeis');
+  assert.strictEqual(openClawXdgConfig.servers['noeis-wiki'].env.NOEIS_TOKEN, undefined);
+  const openClawRootConfig = JSON.parse(fs.readFileSync(path.join(openClawHome, '.openclaw', 'openclaw.json'), 'utf8'));
+  assert.strictEqual(openClawRootConfig.mcp.servers.x.url, 'http://127.0.0.1:8000/mcp');
+  assert.strictEqual(openClawRootConfig.mcp.servers['noeis-wiki'].command, 'noeis');
+  assert.deepStrictEqual(openClawRootConfig.mcp.servers['noeis-wiki'].args, ['mcp']);
+  assert.strictEqual(openClawRootConfig.mcp.servers['noeis-wiki'].env.NOEIS_CONFIG_DIR, openClawConfigDir);
+  assert.strictEqual(openClawRootConfig.mcp.servers['noeis-wiki'].env.NOEIS_TOKEN, undefined);
+  assert(openClawIo.stdout.includes(path.join(openClawHome, '.openclaw', 'openclaw.json')));
+
   const codexConfigDir = fs.mkdtempSync(path.join(os.tmpdir(), 'noeis-codex-test-'));
   const originalHome = process.env.HOME;
   process.env.HOME = codexConfigDir;

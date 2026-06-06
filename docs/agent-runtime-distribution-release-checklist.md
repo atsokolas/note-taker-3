@@ -5,7 +5,7 @@ OpenClaw setup exposed a packaging gap: browser approval worked, but the public 
 ## Current status
 
 - `@noeis/wiki-mcp@0.1.1` is published on npm.
-- `@noeis/noeis-cli@0.1.2` is published on npm and installs the `noeis` binary.
+- `@noeis/noeis-cli@0.1.3` is published on npm and installs the `noeis` binary.
 - `@noeis/cli` was attempted first and npm reports public access/dist-tags, but raw registry lookup still 404s. Do not use it as the user-facing package unless npm support resolves that registry inconsistency.
 - Public installs should use:
 

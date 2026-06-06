@@ -26,6 +26,8 @@ Supported runtime names: `claude-code`, `codex`, `hermes`, `openclaw`, and `open
 
 The generated runtime MCP config calls `noeis mcp`. The raw token stays in one place: the Noeis CLI config, normally `~/.config/noeis/config.json`. Generated MCP configs should not copy `NOEIS_TOKEN`.
 
+For OpenClaw, `noeis connect openclaw` writes both the XDG MCP file and `~/.openclaw/openclaw.json`, because OpenClaw installs differ in which config path they read.
+
 For local/self-hosted API targets, pass both URLs:
 
 ```bash

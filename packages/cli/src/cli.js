@@ -166,8 +166,21 @@ args = ["mcp"]${envLine}
   fs.writeFileSync(filePath, `${next.trimEnd()}\n`, { mode: 0o600 });
 };
 
+const writeOpenClawRootConfig = ({ filePath, server }) => {
+  const config = safeReadJson(filePath);
+  config.mcp = {
+    ...(config.mcp || {}),
+    servers: {
+      ...(config.mcp?.servers || {}),
+      'noeis-wiki': { transport: 'stdio', ...server }
+    }
+  };
+  writeJsonFile(filePath, config);
+  return filePath;
+};
+
 const writeRuntimeMcpConfig = ({ runtime, apiUrl, configDir, env = process.env } = {}) => {
-  const home = os.homedir();
+  const home = env.HOME || os.homedir();
   const server = mcpServerConfig({ configDir, apiUrl });
   if (runtime === 'codex') {
     const filePath = path.join(home, '.codex', 'config.toml');
@@ -191,6 +204,11 @@ const writeRuntimeMcpConfig = ({ runtime, apiUrl, configDir, env = process.env }
     delete config['noeis-wiki'];
   }
   writeJsonFile(filePath, config);
+  if (runtime === 'openclaw') {
+    const rootConfigPath = path.join(home, '.openclaw', 'openclaw.json');
+    writeOpenClawRootConfig({ filePath: rootConfigPath, server });
+    return [filePath, rootConfigPath];
+  }
   return filePath;
 };
 
@@ -349,8 +367,11 @@ const runConnect = async (args, context) => {
     io.stderr.write(`Connected, but the access check failed: ${error.message || error}\n`);
   }
   io.stdout.write(`Saved Noeis CLI config to ${configPath}\n`);
-  if (runtimeConfigPath) io.stdout.write(`Updated ${runtimeLabel(runtime)} MCP config at ${runtimeConfigPath}\n`);
-  if (runtimeConfigPath) io.stdout.write(`Runtime config reads the token from ${configPath}; no raw token was copied into MCP config.\n`);
+  const runtimeConfigPaths = Array.isArray(runtimeConfigPath) ? runtimeConfigPath : (runtimeConfigPath ? [runtimeConfigPath] : []);
+  runtimeConfigPaths.forEach((filePath) => {
+    io.stdout.write(`Updated ${runtimeLabel(runtime)} MCP config at ${filePath}\n`);
+  });
+  if (runtimeConfigPaths.length) io.stdout.write(`Runtime config reads the token from ${configPath}; no raw token was copied into MCP config.\n`);
   if (hasFlag(args, '--print-token')) io.stdout.write(`${approved.secret}\n`);
 };
 
