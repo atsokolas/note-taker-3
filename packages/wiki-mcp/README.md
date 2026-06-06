@@ -43,6 +43,8 @@ noeis mcp
 
 `noeis mcp` reads the token and API URL from `~/.config/noeis/config.json`, `NOEIS_CONFIG_DIR`, or explicit environment variables. `NOEIS_API_URL` defaults to `https://note-taker-3-unrg.onrender.com`.
 
+The MCP surface includes wiki tools plus Library/Think tools for saved articles, highlights, concepts, and questions. Agents can search highlights, fetch articles, create article highlights, create or update Think questions, update concepts, pin highlights to concepts, and create or edit wiki pages.
+
 ## Need a normal CLI instead?
 
 For cron jobs, shell scripts, or custom runtimes that do not speak MCP, install the sibling CLI:

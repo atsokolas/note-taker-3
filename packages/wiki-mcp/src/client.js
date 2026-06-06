@@ -56,6 +56,57 @@ const normalizeFullPage = (page = {}) => ({
   infobox: page.infobox || page.aiState?.infobox || null
 });
 
+const normalizeArticleSummary = (article = {}) => ({
+  id: pickId(article),
+  title: article.title || 'Untitled article',
+  url: article.url || '',
+  siteName: article.siteName || '',
+  author: article.author || '',
+  publicationDate: article.publicationDate || '',
+  folder: article.folder || null,
+  highlightCount: Number(article.highlightCount ?? (Array.isArray(article.highlights) ? article.highlights.length : 0)),
+  createdAt: article.createdAt || null,
+  updatedAt: article.updatedAt || null
+});
+
+const normalizeFullArticle = (article = {}) => ({
+  ...article,
+  id: pickId(article),
+  title: article.title || 'Untitled article',
+  url: article.url || '',
+  content: article.content || '',
+  highlights: Array.isArray(article.highlights) ? article.highlights : [],
+  folder: article.folder || null
+});
+
+const normalizeHighlight = (highlight = {}) => ({
+  ...highlight,
+  id: pickId(highlight),
+  articleId: pickId(highlight.articleId),
+  articleTitle: highlight.articleTitle || '',
+  text: highlight.text || '',
+  note: highlight.note || '',
+  tags: Array.isArray(highlight.tags) ? highlight.tags : [],
+  color: highlight.color || '',
+  type: highlight.type || 'note',
+  claimId: highlight.claimId || null,
+  createdAt: highlight.createdAt || null
+});
+
+const normalizeQuestion = (question = {}) => ({
+  ...question,
+  id: pickId(question),
+  text: question.text || '',
+  status: question.status || 'open',
+  linkedTagName: question.linkedTagName || '',
+  conceptName: question.conceptName || question.linkedTagName || '',
+  linkedHighlightId: question.linkedHighlightId || null,
+  linkedHighlightIds: Array.isArray(question.linkedHighlightIds) ? question.linkedHighlightIds : [],
+  linkedNotebookEntryId: question.linkedNotebookEntryId || null,
+  createdAt: question.createdAt || null,
+  updatedAt: question.updatedAt || null
+});
+
 const toTipTapDoc = (body) => {
   if (body === undefined || body === null || body === '') return undefined;
   if (typeof body === 'object' && !Array.isArray(body)) return body;
@@ -255,6 +306,102 @@ export class NoeisClient {
 
   getLintRun({ runId }) {
     return this.request(`/api/wiki/lint/${encodeURIComponent(runId)}`);
+  }
+
+  searchArticles({ query = '', scope = 'all', folderId, sort = 'recent', limit = 20 } = {}) {
+    return this.request('/api/articles', {
+      query: { query, scope, folderId, sort, limit }
+    }).then(payload => normalizeArrayPayload(payload, 'articles').map(normalizeArticleSummary));
+  }
+
+  getArticle({ articleId }) {
+    return this.request(`/articles/${encodeURIComponent(articleId)}`).then(normalizeFullArticle);
+  }
+
+  listArticleHighlights({ articleId }) {
+    return this.request(`/api/articles/${encodeURIComponent(articleId)}/highlights`)
+      .then(payload => normalizeArrayPayload(payload, 'highlights').map(normalizeHighlight));
+  }
+
+  searchHighlights({ query = '', tag, articleId, folderId, limit = 20 } = {}) {
+    return this.request('/api/highlights', {
+      query: { q: query, tag, articleId, folderId, limit }
+    }).then(payload => normalizeArrayPayload(payload, 'highlights').map(normalizeHighlight));
+  }
+
+  getHighlight({ highlightId }) {
+    return this.request('/api/highlights/all')
+      .then(payload => normalizeArrayPayload(payload, 'highlights').map(normalizeHighlight))
+      .then(highlights => highlights.find(highlight => String(highlight.id) === String(highlightId)) || null);
+  }
+
+  createArticle({ title, url, content = '', folderId, author, publicationDate, siteName } = {}) {
+    return this.request('/save-article', {
+      method: 'POST',
+      body: { title, url, content, folderId, author, publicationDate, siteName }
+    }).then(normalizeFullArticle);
+  }
+
+  createHighlight({ articleId, text, note, tags, anchor, color } = {}) {
+    return this.request(`/articles/${encodeURIComponent(articleId)}/highlights`, {
+      method: 'POST',
+      body: { text, note, tags, anchor, color }
+    }).then(payload => normalizeHighlight(payload?.highlight || payload?.createdHighlight || payload));
+  }
+
+  listQuestions({ status, tag, conceptName, highlightId, notebookEntryId } = {}) {
+    return this.request('/api/questions', {
+      query: { status, tag, conceptName, highlightId, notebookEntryId }
+    }).then(payload => normalizeArrayPayload(payload, 'questions').map(normalizeQuestion));
+  }
+
+  getQuestion({ questionId }) {
+    return this.request(`/api/questions/${encodeURIComponent(questionId)}`).then(normalizeQuestion);
+  }
+
+  createQuestion({ text, status = 'open', conceptName = '', linkedTagName, blocks = [], linkedHighlightId, linkedHighlightIds = [], linkedNotebookEntryId } = {}) {
+    return this.request('/api/questions', {
+      method: 'POST',
+      body: {
+        text,
+        status,
+        conceptName,
+        linkedTagName: linkedTagName || conceptName || '',
+        blocks,
+        linkedHighlightId,
+        linkedHighlightIds,
+        linkedNotebookEntryId
+      }
+    }).then(normalizeQuestion);
+  }
+
+  updateQuestion({ questionId, text, status, conceptName, linkedTagName, blocks, linkedHighlightId, linkedHighlightIds, linkedNotebookEntryId } = {}) {
+    return this.request(`/api/questions/${encodeURIComponent(questionId)}`, {
+      method: 'PUT',
+      body: { text, status, conceptName, linkedTagName, blocks, linkedHighlightId, linkedHighlightIds, linkedNotebookEntryId }
+    }).then(normalizeQuestion);
+  }
+
+  listConcepts() {
+    return this.request('/api/concepts');
+  }
+
+  getConcept({ name }) {
+    return this.request(`/api/concepts/${encodeURIComponent(name)}`);
+  }
+
+  updateConcept({ name, description, summary, status, pinnedHighlightIds, pinnedArticleIds, pinnedNoteIds, ideaWorkbench, ideaWorkbenchMeta } = {}) {
+    return this.request(`/api/concepts/${encodeURIComponent(name)}`, {
+      method: 'PUT',
+      body: { description, summary, status, pinnedHighlightIds, pinnedArticleIds, pinnedNoteIds, ideaWorkbench, ideaWorkbenchMeta }
+    });
+  }
+
+  pinHighlightToConcept({ name, highlightId } = {}) {
+    return this.request(`/api/concepts/${encodeURIComponent(name)}/add-highlight`, {
+      method: 'POST',
+      body: { highlightId }
+    });
   }
 
   createPage({ title, pageType, body, sourceScope, initialSourceRef, createdFrom } = {}) {

@@ -18,7 +18,16 @@ const run = async () => {
     'list_activity',
     'get_schema',
     'list_proposals',
-    'get_briefing'
+    'get_briefing',
+    'search_articles',
+    'get_article',
+    'list_article_highlights',
+    'search_highlights',
+    'get_highlight',
+    'list_questions',
+    'get_question',
+    'list_concepts',
+    'get_concept'
   ];
   for (const name of requiredReadTools) {
     assert(toolDefinitions.some(tool => tool.name === name), `missing ${name}`);
@@ -38,7 +47,13 @@ const run = async () => {
     'update_schema',
     'accept_proposal',
     'dismiss_proposal',
-    'merge_proposal'
+    'merge_proposal',
+    'create_article',
+    'create_highlight',
+    'create_question',
+    'update_question',
+    'update_concept',
+    'pin_highlight_to_concept'
   ];
   for (const name of requiredWriteTools) {
     assert(toolDefinitions.some(tool => tool.name === name), `missing ${name}`);
@@ -78,6 +93,124 @@ const run = async () => {
       }
       if (requestUrl.pathname.endsWith('/ingest')) {
         return jsonResponse({ runId: 'ingest-1', touchedPageIds: ['page-1'] });
+      }
+      if (requestUrl.pathname.endsWith('/api/articles') && init.method !== 'POST') {
+        return jsonResponse([
+          {
+            _id: 'article-1',
+            title: 'Opportunity cost memo',
+            url: 'https://example.com/opportunity',
+            siteName: 'Example',
+            highlightCount: 1,
+            updatedAt: '2026-05-16T12:00:00.000Z'
+          }
+        ]);
+      }
+      if (requestUrl.pathname.endsWith('/articles/article-1') && init.method !== 'DELETE') {
+        return jsonResponse({
+          _id: 'article-1',
+          title: 'Opportunity cost memo',
+          url: 'https://example.com/opportunity',
+          content: 'Opportunity cost is what you forgo.',
+          highlights: [{ _id: 'highlight-1', text: 'Every choice excludes another return.' }]
+        });
+      }
+      if (requestUrl.pathname.endsWith('/api/articles/article-1/highlights')) {
+        return jsonResponse([
+          {
+            _id: 'highlight-1',
+            articleId: 'article-1',
+            articleTitle: 'Opportunity cost memo',
+            text: 'Every choice excludes another return.',
+            tags: ['opportunity-cost']
+          }
+        ]);
+      }
+      if (requestUrl.pathname.endsWith('/api/highlights')) {
+        return jsonResponse([
+          {
+            _id: 'highlight-1',
+            articleId: 'article-1',
+            articleTitle: 'Opportunity cost memo',
+            text: 'Every choice excludes another return.',
+            tags: ['opportunity-cost']
+          }
+        ]);
+      }
+      if (requestUrl.pathname.endsWith('/api/highlights/all')) {
+        return jsonResponse([
+          {
+            _id: 'highlight-1',
+            articleId: 'article-1',
+            articleTitle: 'Opportunity cost memo',
+            text: 'Every choice excludes another return.',
+            tags: ['opportunity-cost']
+          }
+        ]);
+      }
+      if (requestUrl.pathname.endsWith('/save-article')) {
+        return jsonResponse({
+          _id: 'article-created',
+          title: 'Saved article',
+          url: 'https://example.com/new',
+          content: 'Saved.'
+        });
+      }
+      if (requestUrl.pathname.endsWith('/articles/article-1/highlights') && init.method === 'POST') {
+        return jsonResponse({
+          highlight: {
+            _id: 'highlight-created',
+            articleId: 'article-1',
+            articleTitle: 'Opportunity cost memo',
+            text: 'New highlight'
+          }
+        });
+      }
+      if (requestUrl.pathname.endsWith('/api/questions') && init.method !== 'POST') {
+        return jsonResponse([
+          {
+            _id: 'question-1',
+            text: 'Where does opportunity cost show up?',
+            status: 'open',
+            conceptName: 'Opportunity Cost'
+          }
+        ]);
+      }
+      if (requestUrl.pathname.endsWith('/api/questions/question-1') && init.method !== 'PUT') {
+        return jsonResponse({
+          _id: 'question-1',
+          text: 'Where does opportunity cost show up?',
+          status: 'open',
+          conceptName: 'Opportunity Cost'
+        });
+      }
+      if (requestUrl.pathname.endsWith('/api/questions') && init.method === 'POST') {
+        return jsonResponse({
+          _id: 'question-created',
+          text: 'What did this highlight change?',
+          status: 'open',
+          conceptName: 'Opportunity Cost'
+        });
+      }
+      if (requestUrl.pathname.endsWith('/api/questions/question-1') && init.method === 'PUT') {
+        return jsonResponse({
+          _id: 'question-1',
+          text: 'Updated question',
+          status: 'answered',
+          conceptName: 'Opportunity Cost'
+        });
+      }
+      if (requestUrl.pathname.endsWith('/api/concepts') && init.method !== 'PUT') {
+        return jsonResponse([{ _id: 'concept-1', name: 'Opportunity Cost', description: 'Tradeoffs.' }]);
+      }
+      if (requestUrl.pathname.endsWith('/api/concepts/Opportunity%20Cost') && init.method !== 'PUT') {
+        return jsonResponse({ _id: 'concept-1', name: 'Opportunity Cost', description: 'Tradeoffs.' });
+      }
+      if (requestUrl.pathname.endsWith('/api/concepts/Opportunity%20Cost') && init.method === 'PUT') {
+        return jsonResponse({ _id: 'concept-1', name: 'Opportunity Cost', description: 'Updated tradeoffs.' });
+      }
+      if (requestUrl.pathname.endsWith('/api/concepts/Opportunity%20Cost/add-highlight')) {
+        return jsonResponse({ _id: 'concept-1', name: 'Opportunity Cost', pinnedHighlightIds: ['highlight-1'] });
       }
       if (requestUrl.pathname.endsWith('/activity')) {
         return jsonResponse({
@@ -232,6 +365,83 @@ const run = async () => {
   assert.strictEqual(accepted.pageId, 'page-4');
   await toolDefinitions.find(tool => tool.name === 'dismiss_proposal').handler(client, { proposalId: 'proposal-1', reason: 'Duplicate' });
   await toolDefinitions.find(tool => tool.name === 'merge_proposal').handler(client, { proposalId: 'proposal-1', pageId: 'page-1' });
+
+  const articles = await toolDefinitions.find(tool => tool.name === 'search_articles').handler(client, {
+    query: 'opportunity',
+    limit: 5
+  });
+  assert.strictEqual(articles[0].id, 'article-1');
+  assert(seenRequests.some(request => request.url.includes('/api/articles?query=opportunity')));
+
+  const article = await toolDefinitions.find(tool => tool.name === 'get_article').handler(client, { articleId: 'article-1' });
+  assert.strictEqual(article.content, 'Opportunity cost is what you forgo.');
+
+  const articleHighlights = await toolDefinitions.find(tool => tool.name === 'list_article_highlights').handler(client, { articleId: 'article-1' });
+  assert.strictEqual(articleHighlights[0].id, 'highlight-1');
+
+  const highlights = await toolDefinitions.find(tool => tool.name === 'search_highlights').handler(client, {
+    query: 'choice',
+    limit: 5
+  });
+  assert.strictEqual(highlights[0].articleTitle, 'Opportunity cost memo');
+  assert(seenRequests.some(request => request.url.includes('/api/highlights?q=choice')));
+
+  const highlight = await toolDefinitions.find(tool => tool.name === 'get_highlight').handler(client, { highlightId: 'highlight-1' });
+  assert.strictEqual(highlight.text, 'Every choice excludes another return.');
+
+  const createdArticle = await toolDefinitions.find(tool => tool.name === 'create_article').handler(client, {
+    title: 'Saved article',
+    url: 'https://example.com/new',
+    content: 'Saved.'
+  });
+  assert.strictEqual(createdArticle.id, 'article-created');
+  assert(seenRequests.some(request => request.url.endsWith('/save-article') && request.init.method === 'POST'));
+
+  const createdHighlight = await toolDefinitions.find(tool => tool.name === 'create_highlight').handler(client, {
+    articleId: 'article-1',
+    text: 'New highlight'
+  });
+  assert.strictEqual(createdHighlight.id, 'highlight-created');
+
+  const questions = await toolDefinitions.find(tool => tool.name === 'list_questions').handler(client, {
+    conceptName: 'Opportunity Cost'
+  });
+  assert.strictEqual(questions[0].id, 'question-1');
+
+  const question = await toolDefinitions.find(tool => tool.name === 'get_question').handler(client, { questionId: 'question-1' });
+  assert.strictEqual(question.conceptName, 'Opportunity Cost');
+
+  const createdQuestion = await toolDefinitions.find(tool => tool.name === 'create_question').handler(client, {
+    text: 'What did this highlight change?',
+    conceptName: 'Opportunity Cost',
+    linkedHighlightIds: ['highlight-1']
+  });
+  assert.strictEqual(createdQuestion.id, 'question-created');
+
+  const updatedQuestion = await toolDefinitions.find(tool => tool.name === 'update_question').handler(client, {
+    questionId: 'question-1',
+    status: 'answered',
+    text: 'Updated question'
+  });
+  assert.strictEqual(updatedQuestion.status, 'answered');
+
+  const concepts = await toolDefinitions.find(tool => tool.name === 'list_concepts').handler(client, {});
+  assert.strictEqual(concepts[0].name, 'Opportunity Cost');
+
+  const concept = await toolDefinitions.find(tool => tool.name === 'get_concept').handler(client, { name: 'Opportunity Cost' });
+  assert.strictEqual(concept.description, 'Tradeoffs.');
+
+  const updatedConcept = await toolDefinitions.find(tool => tool.name === 'update_concept').handler(client, {
+    name: 'Opportunity Cost',
+    description: 'Updated tradeoffs.'
+  });
+  assert.strictEqual(updatedConcept.description, 'Updated tradeoffs.');
+
+  const pinnedConcept = await toolDefinitions.find(tool => tool.name === 'pin_highlight_to_concept').handler(client, {
+    name: 'Opportunity Cost',
+    highlightId: 'highlight-1'
+  });
+  assert.deepStrictEqual(pinnedConcept.pinnedHighlightIds, ['highlight-1']);
 
   const prompt = await renderWikiSchemaPrompt(client);
   assert(prompt.messages[0].content.text.includes('# Wiki Schema'));

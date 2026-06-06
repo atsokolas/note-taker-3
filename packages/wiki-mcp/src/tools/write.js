@@ -148,5 +148,88 @@ export const writeTools = [
       pageId: z.string().describe('Existing wiki page id to merge into.')
     },
     handler: (client, args) => client.mergeProposal(args)
+  },
+  {
+    name: 'create_article',
+    description: 'Save or update a normal Library article. Use this for user requests to add an article to the reading library, not for wiki ingestion.',
+    inputSchema: {
+      title: z.string().min(1),
+      url: z.string().min(1),
+      content: z.string().optional(),
+      folderId: z.string().optional(),
+      author: z.string().optional(),
+      publicationDate: z.string().optional(),
+      siteName: z.string().optional()
+    },
+    handler: (client, args) => client.createArticle(args)
+  },
+  {
+    name: 'create_highlight',
+    description: 'Create a highlight on an existing Library article.',
+    inputSchema: {
+      articleId: z.string().describe('Library article id.'),
+      text: z.string().min(3),
+      note: z.string().optional(),
+      tags: z.array(z.string()).optional(),
+      anchor: z.record(z.any()).optional(),
+      color: z.string().optional()
+    },
+    handler: (client, args) => client.createHighlight(args)
+  },
+  {
+    name: 'create_question',
+    description: 'Create a Think question, optionally linked to a concept and highlights.',
+    inputSchema: {
+      text: z.string().min(1),
+      status: optionalEnum(['open', 'answered']),
+      conceptName: z.string().optional(),
+      linkedTagName: z.string().optional(),
+      blocks: z.array(z.record(z.any())).optional(),
+      linkedHighlightId: z.string().optional(),
+      linkedHighlightIds: z.array(z.string()).optional(),
+      linkedNotebookEntryId: z.string().optional()
+    },
+    handler: (client, args) => client.createQuestion(args)
+  },
+  {
+    name: 'update_question',
+    description: 'Patch a Think question. Confirm user intent before changing text, links, or status.',
+    inputSchema: {
+      questionId: z.string().describe('Question id.'),
+      text: z.string().optional(),
+      status: optionalEnum(['open', 'answered']),
+      conceptName: z.string().optional(),
+      linkedTagName: z.string().optional(),
+      blocks: z.array(z.record(z.any())).optional(),
+      linkedHighlightId: z.string().optional(),
+      linkedHighlightIds: z.array(z.string()).optional(),
+      linkedNotebookEntryId: z.string().optional()
+    },
+    handler: (client, args) => client.updateQuestion(args)
+  },
+  {
+    name: 'update_concept',
+    description: 'Patch a Think concept. Confirm user intent before changing description, pinned material, or workbench state.',
+    inputSchema: {
+      name: z.string().describe('Concept name.'),
+      description: z.string().optional(),
+      summary: z.string().optional(),
+      status: z.string().optional(),
+      pinnedHighlightIds: z.array(z.string()).optional(),
+      pinnedArticleIds: z.array(z.string()).optional(),
+      pinnedNoteIds: z.array(z.string()).optional(),
+      ideaWorkbench: z.record(z.any()).optional(),
+      ideaWorkbenchMeta: z.record(z.any()).optional()
+    },
+    handler: (client, args) => client.updateConcept(args)
+  },
+  {
+    name: 'pin_highlight_to_concept',
+    description: 'Attach an existing highlight to a Think concept.',
+    inputSchema: {
+      name: z.string().describe('Concept name.'),
+      highlightId: z.string().describe('Highlight id.')
+    },
+    handler: (client, args) => client.pinHighlightToConcept(args)
   }
 ];

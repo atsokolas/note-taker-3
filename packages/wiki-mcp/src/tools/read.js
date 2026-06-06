@@ -124,5 +124,87 @@ export const readTools = [
       runId: z.string().describe('Wiki lint run id.')
     },
     handler: (client, args) => client.getLintRun(args)
+  },
+  {
+    name: 'search_articles',
+    description: 'Search the user library for saved articles. Use this before fetching article detail or article highlights.',
+    inputSchema: {
+      query: z.string().optional().describe('Optional title, URL, or site search query.'),
+      scope: optionalEnum(['all', 'unfiled', 'folder']),
+      folderId: z.string().optional(),
+      sort: optionalEnum(['recent', 'oldest', 'most-highlighted']),
+      limit: z.number().min(1).max(100).optional().default(20)
+    },
+    handler: (client, args) => client.searchArticles(args)
+  },
+  {
+    name: 'get_article',
+    description: 'Read one saved library article including content and embedded highlights.',
+    inputSchema: {
+      articleId: z.string().describe('Library article id.')
+    },
+    handler: (client, args) => client.getArticle(args)
+  },
+  {
+    name: 'list_article_highlights',
+    description: 'List highlights attached to one saved article.',
+    inputSchema: {
+      articleId: z.string().describe('Library article id.')
+    },
+    handler: (client, args) => client.listArticleHighlights(args)
+  },
+  {
+    name: 'search_highlights',
+    description: 'Search saved highlights by text, note, tag, or article title. Use this for requests like "fetch my highlight about X".',
+    inputSchema: {
+      query: z.string().optional().describe('Highlight text/note/tag/article-title query.'),
+      tag: z.string().optional(),
+      articleId: z.string().optional(),
+      folderId: z.string().optional(),
+      limit: z.number().min(1).max(100).optional().default(20)
+    },
+    handler: (client, args) => client.searchHighlights(args)
+  },
+  {
+    name: 'get_highlight',
+    description: 'Read one saved highlight by id. Returns null when the highlight cannot be found.',
+    inputSchema: {
+      highlightId: z.string().describe('Highlight id.')
+    },
+    handler: (client, args) => client.getHighlight(args)
+  },
+  {
+    name: 'list_questions',
+    description: 'List Think questions, optionally scoped by status, concept, highlight, or notebook entry.',
+    inputSchema: {
+      status: optionalEnum(['open', 'answered']),
+      tag: z.string().optional(),
+      conceptName: z.string().optional(),
+      highlightId: z.string().optional(),
+      notebookEntryId: z.string().optional()
+    },
+    handler: (client, args) => client.listQuestions(args)
+  },
+  {
+    name: 'get_question',
+    description: 'Read one Think question by id.',
+    inputSchema: {
+      questionId: z.string().describe('Question id.')
+    },
+    handler: (client, args) => client.getQuestion(args)
+  },
+  {
+    name: 'list_concepts',
+    description: 'List Think concepts and their current metadata.',
+    inputSchema: {},
+    handler: (client) => client.listConcepts()
+  },
+  {
+    name: 'get_concept',
+    description: 'Read one Think concept by name.',
+    inputSchema: {
+      name: z.string().describe('Concept name.')
+    },
+    handler: (client, args) => client.getConcept(args)
   }
 ];

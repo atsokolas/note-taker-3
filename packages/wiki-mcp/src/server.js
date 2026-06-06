@@ -8,7 +8,7 @@ import { renderWikiSchemaPrompt, wikiSchemaPrompt } from './prompts/wiki_schema.
 
 export const SERVER_INFO = {
   name: 'noeis-wiki',
-  version: '0.1.1'
+  version: '0.1.2'
 };
 
 export const toolDefinitions = [...readTools, ...writeTools];
