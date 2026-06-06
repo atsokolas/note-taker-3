@@ -205,6 +205,7 @@ const run = async () => {
   assert.strictEqual(openClawXdgConfig.servers['noeis-wiki'].env.NOEIS_TOKEN, undefined);
   const openClawRootConfig = JSON.parse(fs.readFileSync(path.join(openClawHome, '.openclaw', 'openclaw.json'), 'utf8'));
   assert.strictEqual(openClawRootConfig.mcp.servers.x.url, 'http://127.0.0.1:8000/mcp');
+  assert.strictEqual(openClawRootConfig.mcp.servers['noeis-wiki'].transport, undefined);
   assert.strictEqual(openClawRootConfig.mcp.servers['noeis-wiki'].command, 'noeis');
   assert.deepStrictEqual(openClawRootConfig.mcp.servers['noeis-wiki'].args, ['mcp']);
   assert.strictEqual(openClawRootConfig.mcp.servers['noeis-wiki'].env.NOEIS_CONFIG_DIR, openClawConfigDir);

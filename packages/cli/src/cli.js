@@ -172,7 +172,7 @@ const writeOpenClawRootConfig = ({ filePath, server }) => {
     ...(config.mcp || {}),
     servers: {
       ...(config.mcp?.servers || {}),
-      'noeis-wiki': { transport: 'stdio', ...server }
+      'noeis-wiki': server
     }
   };
   writeJsonFile(filePath, config);
