@@ -172,6 +172,7 @@ const run = async () => {
   assert.strictEqual(hermesConfig.servers['noeis-wiki'].env.NOEIS_CONFIG_DIR, connectConfigDir);
   assert.strictEqual(hermesConfig.servers['noeis-wiki'].env.NOEIS_TOKEN, undefined);
   assert.strictEqual(hermesConfig.servers['noeis-wiki'].env.NOEIS_API_URL, 'https://api.test');
+  assert.strictEqual(hermesConfig.servers['noeis-wiki'].env.NOEIS_MCP_TOOLSET, 'library-think-v1');
   assert.strictEqual(hermesConfig['noeis-wiki'], undefined);
   assert(connectIo.stdout.includes('Approve Hermes in your browser.'));
   assert(connectIo.stdout.includes('Connected Hermes with read/write Noeis access.'));
@@ -206,6 +207,7 @@ const run = async () => {
   const openClawXdgConfig = JSON.parse(fs.readFileSync(path.join(openClawXdg, 'openclaw', 'mcp.json'), 'utf8'));
   assert.strictEqual(openClawXdgConfig.servers['noeis-wiki'].command, 'noeis');
   assert.strictEqual(openClawXdgConfig.servers['noeis-wiki'].env.NOEIS_TOKEN, undefined);
+  assert.strictEqual(openClawXdgConfig.servers['noeis-wiki'].env.NOEIS_MCP_TOOLSET, 'library-think-v1');
   const openClawRootConfig = JSON.parse(fs.readFileSync(path.join(openClawHome, '.openclaw', 'openclaw.json'), 'utf8'));
   assert.strictEqual(openClawRootConfig.meta, undefined);
   assert.strictEqual(openClawRootConfig.mcp.servers.x.url, 'http://127.0.0.1:8000/mcp');
@@ -214,6 +216,7 @@ const run = async () => {
   assert.deepStrictEqual(openClawRootConfig.mcp.servers['noeis-wiki'].args, ['mcp']);
   assert.strictEqual(openClawRootConfig.mcp.servers['noeis-wiki'].env.NOEIS_CONFIG_DIR, openClawConfigDir);
   assert.strictEqual(openClawRootConfig.mcp.servers['noeis-wiki'].env.NOEIS_TOKEN, undefined);
+  assert.strictEqual(openClawRootConfig.mcp.servers['noeis-wiki'].env.NOEIS_MCP_TOOLSET, 'library-think-v1');
   assert(openClawIo.stdout.includes(path.join(openClawHome, '.openclaw', 'openclaw.json')));
 
   const codexConfigDir = fs.mkdtempSync(path.join(os.tmpdir(), 'noeis-codex-test-'));
@@ -232,6 +235,7 @@ const run = async () => {
     assert(codexToml.includes('command = "noeis"'));
     assert(codexToml.includes('args = ["mcp"]'));
     assert(codexToml.includes(`NOEIS_CONFIG_DIR = ${JSON.stringify(codexConfigDir)}`));
+    assert(codexToml.includes('NOEIS_MCP_TOOLSET = "library-think-v1"'));
     assert(!codexToml.includes('ntk_at_connected'));
   } finally {
     process.env.HOME = originalHome;

@@ -140,7 +140,8 @@ const mcpServerConfig = ({ configDir, apiUrl }) => ({
   args: ['mcp'],
   env: {
     ...(configDir ? { NOEIS_CONFIG_DIR: configDir } : {}),
-    ...(apiUrl && apiUrl !== DEFAULT_API_URL ? { NOEIS_API_URL: apiUrl } : {})
+    ...(apiUrl && apiUrl !== DEFAULT_API_URL ? { NOEIS_API_URL: apiUrl } : {}),
+    NOEIS_MCP_TOOLSET: 'library-think-v1'
   }
 });
 
@@ -155,6 +156,7 @@ const writeTomlMcpConfig = (filePath, { configDir, apiUrl }) => {
   const envParts = [];
   if (configDir) envParts.push(`NOEIS_CONFIG_DIR = ${JSON.stringify(configDir)}`);
   if (apiUrl && apiUrl !== DEFAULT_API_URL) envParts.push(`NOEIS_API_URL = ${JSON.stringify(apiUrl)}`);
+  envParts.push('NOEIS_MCP_TOOLSET = "library-think-v1"');
   const envLine = envParts.length ? `\nenv = { ${envParts.join(', ')} }` : '';
   const block = `[mcp_servers.noeis-wiki]
 command = "noeis"
