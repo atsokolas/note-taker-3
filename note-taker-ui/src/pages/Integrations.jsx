@@ -16,6 +16,8 @@ import usePersonalAgents from '../hooks/integrations/usePersonalAgents';
 
 const Integrations = () => {
   const [showAdvancedAgentSettings, setShowAdvancedAgentSettings] = useState(false);
+  const [showTaskLinkBuilder, setShowTaskLinkBuilder] = useState(false);
+  const [showConnectionDetails, setShowConnectionDetails] = useState(false);
 
   const personalAgentsModel = usePersonalAgents();
   const entitlementsModel = useAgentEntitlements();
@@ -37,55 +39,118 @@ const Integrations = () => {
 
   return (
     <Page className="settings-page integrations-page">
-      <div className="page-header">
-        <p className="muted-label">Mode</p>
+      <div className="page-header integrations-page__header">
+        <p className="muted-label">Agents</p>
         <h1>Integrations</h1>
-        <p className="muted">Set up agents fast, then unlock advanced BYO integrations when needed.</p>
+        <p className="muted">Give an agent one instruction, or run one command yourself.</p>
       </div>
 
-      <AgentQuickStartCard
-        agentModel={personalAgentsModel}
-        showAdvanced={showAdvancedAgentSettings}
-        onToggleAdvanced={() => setShowAdvancedAgentSettings((previous) => !previous)}
-      />
+      <Card className="settings-card agent-connect-simple-card">
+        <div className="agent-connect-simple-card__copy">
+          <p className="muted-label">Get started</p>
+          <h2>Connect an agent to Noeis</h2>
+          <p className="muted">
+            Point OpenClaw, Hermes, Codex, Claude Code, or a custom worker at Noeis. The browser approval step grants access and the CLI writes the local config.
+          </p>
+          <ol className="agent-connect-simple-card__steps">
+            <li><span>01</span> Point your agent to <a href="/skill.md">skill.md</a></li>
+            <li><span>02</span> Authenticate and grant access</li>
+          </ol>
+        </div>
 
-      <AgentLaunchLinkCard />
-
-      <WikiMcpConnectCard />
-
-      <ExternalBridgeCard
-        bridgeModel={bridgeModel}
-        sortedAgents={personalAgentsModel.sortedAgents}
-      />
-
-      <HandoffQueueCard
-        handoffsModel={handoffsModel}
-        sortedAgents={personalAgentsModel.sortedAgents}
-        formatDate={formatDate}
-      />
-
-      {showAdvancedAgentSettings && (
-        <>
-          <PersonalAgentsCard
-            agentModel={personalAgentsModel}
-            entitlementsModel={entitlementsModel}
-            formatDate={formatDate}
-          />
-
-          <OrchestrationPolicyCard
-            policyModel={policyModel}
-            sortedAgents={personalAgentsModel.sortedAgents}
-          />
-        </>
-      )}
-
-      <Card className="settings-card">
-        <h2>Data integrations</h2>
-        <p className="muted">Manual notes, direct paste capture, and Readwise/markdown imports live on a dedicated page.</p>
-        <Link to="/data-integrations" className="ui-button ui-button-secondary">
-          Open data integrations
-        </Link>
+        <div className="agent-connect-simple-card__terminal" aria-label="Agent setup commands">
+          <div className="agent-connect-simple-card__terminal-bar">Get started</div>
+          <div className="agent-connect-simple-card__terminal-body">
+            <p>Tell your agent to:</p>
+            <pre>{'Read https://www.noeis.io/skill.md and get me set up with Noeis'}</pre>
+            <p>Or run:</p>
+            <pre>{'npm install -g @noeis/cli'}</pre>
+            <pre>{'noeis connect openclaw'}</pre>
+          </div>
+          <div className="agent-connect-simple-card__runtime-row">
+            <span>Works with:</span>
+            <strong>OpenClaw</strong>
+            <strong>Hermes</strong>
+            <strong>Codex</strong>
+            <strong>Claude Code</strong>
+          </div>
+        </div>
       </Card>
+
+      <Card className="settings-card integrations-compact-actions">
+        <button
+          type="button"
+          className="integrations-compact-actions__button"
+          onClick={() => setShowTaskLinkBuilder((previous) => !previous)}
+        >
+          <span>
+            <strong>Create an agent task link</strong>
+            <em>Make a shareable /a/run link for a review, research pass, or wiki task.</em>
+          </span>
+          <b>{showTaskLinkBuilder ? 'Hide' : 'Open'}</b>
+        </button>
+        {showTaskLinkBuilder ? <AgentLaunchLinkCard compact /> : null}
+      </Card>
+
+      <details
+        className="integrations-advanced-details"
+        open={showConnectionDetails}
+        onToggle={(event) => setShowConnectionDetails(event.currentTarget.open)}
+      >
+        <summary>
+          <span>
+            <strong>Advanced connection details</strong>
+            <em>MCP snippets, bridge tokens, handoff queues, specialist routing, and data integrations.</em>
+          </span>
+          <b>{showConnectionDetails ? 'Hide' : 'Show'}</b>
+        </summary>
+
+        {showConnectionDetails ? (
+          <>
+            <WikiMcpConnectCard />
+
+            <ExternalBridgeCard
+              bridgeModel={bridgeModel}
+              sortedAgents={personalAgentsModel.sortedAgents}
+            />
+
+            <HandoffQueueCard
+              handoffsModel={handoffsModel}
+              sortedAgents={personalAgentsModel.sortedAgents}
+              formatDate={formatDate}
+            />
+
+            <AgentQuickStartCard
+              agentModel={personalAgentsModel}
+              showAdvanced={showAdvancedAgentSettings}
+              onToggleAdvanced={() => setShowAdvancedAgentSettings((previous) => !previous)}
+            />
+
+            {showAdvancedAgentSettings && (
+              <>
+                <PersonalAgentsCard
+                  agentModel={personalAgentsModel}
+                  entitlementsModel={entitlementsModel}
+                  formatDate={formatDate}
+                />
+
+                <OrchestrationPolicyCard
+                  policyModel={policyModel}
+                  sortedAgents={personalAgentsModel.sortedAgents}
+                />
+              </>
+            )}
+
+            <Card className="settings-card">
+              <h2>Data integrations</h2>
+              <p className="muted">Manual notes, direct paste capture, and Readwise/markdown imports live on a dedicated page.</p>
+              <Link to="/data-integrations" className="ui-button ui-button-secondary">
+                Open data integrations
+              </Link>
+            </Card>
+          </>
+        ) : null}
+      </details>
     </Page>
   );
 };

@@ -19,7 +19,7 @@ const TASK_TYPES = [
   { value: 'custom', label: 'Custom' }
 ];
 
-const AgentLaunchLinkCard = () => {
+const AgentLaunchLinkCard = ({ compact = false }) => {
   const [runtime, setRuntime] = useState('openclaw');
   const [taskType, setTaskType] = useState('qa');
   const [title, setTitle] = useState('Review this Noeis surface');
@@ -54,8 +54,13 @@ const AgentLaunchLinkCard = () => {
     }
   };
 
+  const Container = compact ? 'div' : Card;
+  const containerClassName = compact
+    ? 'agent-launch-link-card agent-launch-link-card--compact'
+    : 'settings-card agent-launch-link-card';
+
   return (
-    <Card className="settings-card agent-launch-link-card">
+    <Container className={containerClassName}>
       <div className="settings-appearance-header">
         <div>
           <h2>Agent launch links</h2>
@@ -112,7 +117,7 @@ const AgentLaunchLinkCard = () => {
           <a className="ui-button ui-button-secondary" href={created.runUrl}>Open link</a>
         </div>
       ) : null}
-    </Card>
+    </Container>
   );
 };
 

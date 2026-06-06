@@ -70,28 +70,20 @@ jest.mock('../hooks/useHandoffs', () => () => ({
 }));
 
 describe('Integrations MCP setup', () => {
-  it('leads with one-command connect and keeps manual MCP config available', () => {
+  it('leads with a simple agent setup surface and hides advanced config by default', () => {
     render(
       <MemoryRouter>
         <Integrations />
       </MemoryRouter>
     );
 
-    expect(screen.getByText('One-command agent connect')).toBeInTheDocument();
-    expect(screen.getByText('Agent launch links')).toBeInTheDocument();
-    expect(screen.getByText(/feeds a specific task to OpenClaw/i)).toBeInTheDocument();
-    expect(screen.getByText('@noeis/wiki-mcp · @noeis/cli')).toBeInTheDocument();
-    expect(screen.getByText('Recommended setup')).toBeInTheDocument();
-    expect(screen.getByText(/npm i -g @noeis\/cli/)).toBeInTheDocument();
-    expect(screen.getByText(/noeis connect hermes/)).toBeInTheDocument();
+    expect(screen.getByText('Connect an agent to Noeis')).toBeInTheDocument();
+    expect(screen.getByText(/Read https:\/\/www\.noeis\.io\/skill\.md/)).toBeInTheDocument();
+    expect(screen.getByText(/npm install -g @noeis\/cli/)).toBeInTheDocument();
     expect(screen.getByText(/noeis connect openclaw/)).toBeInTheDocument();
-    expect(screen.getByText('Manual setup')).toBeInTheDocument();
-    expect(screen.getAllByText('Claude Code').length).toBeGreaterThanOrEqual(1);
-    expect(screen.getAllByText('Codex').length).toBeGreaterThanOrEqual(1);
-    expect(screen.getAllByText('OpenCode').length).toBeGreaterThanOrEqual(1);
-    expect(screen.getAllByText('Hermes').length).toBeGreaterThanOrEqual(1);
-    expect(screen.getByText('Connect OpenClaw or Hermes')).toBeInTheDocument();
-    expect(screen.getAllByText(/NOEIS_TOKEN/).length).toBeGreaterThanOrEqual(4);
-    expect(screen.getByText(/NOEIS_API_URL/)).toBeInTheDocument();
+    expect(screen.getByText('Create an agent task link')).toBeInTheDocument();
+    expect(screen.getByText('Advanced connection details')).toBeInTheDocument();
+    expect(screen.queryByText('One-command agent connect')).not.toBeInTheDocument();
+    expect(screen.queryByText('Connect OpenClaw or Hermes')).not.toBeInTheDocument();
   });
 });
