@@ -1707,7 +1707,7 @@ const DataIntegrations = () => {
   const [showAdvancedBridgeSetup, setShowAdvancedBridgeSetup] = useState(false);
 
   return (
-    <Page>
+    <Page className="settings-page data-integrations-page">
       <div className="page-header">
         <p className="muted-label">Mode</p>
         <h1>Bring your knowledge</h1>

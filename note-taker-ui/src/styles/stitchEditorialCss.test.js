@@ -65,4 +65,15 @@ describe('stitch editorial CSS tokens', () => {
 
     expect(css).not.toMatch(/^\s*--dropzone-[^:]+:\s*var\(--dropzone-/m);
   });
+
+  it('lets settings and connection pages scroll inside the editorial shell', () => {
+    const css = fs.readFileSync(path.join(__dirname, 'stitch-editorial.css'), 'utf8');
+    const documentScrollBlock = css.match(/body\.noeis-editorial \.settings-page,[\s\S]*?overflow-y: auto;\n\}/)?.[0] || '';
+
+    expect(documentScrollBlock).toContain('.app-shell-new__body:has(.settings-page)');
+    expect(documentScrollBlock).toContain('.app-shell-new__body:has(.integrations-page)');
+    expect(documentScrollBlock).toContain('.app-shell-new__body:has(.data-integrations-page)');
+    expect(documentScrollBlock).toContain('height: auto;');
+    expect(documentScrollBlock).toContain('overflow-y: auto;');
+  });
 });

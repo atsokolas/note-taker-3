@@ -410,10 +410,13 @@ body.noeis-editorial .page-area {
 
 body.noeis-editorial .settings-page,
 body.noeis-editorial .page-area:has(.settings-page),
-body.noeis-editorial .app-shell-new--stitch .app-shell-new__body:has(.settings-page) {
+body.noeis-editorial .app-shell-new--stitch .app-shell-new__body:has(.settings-page),
+body.noeis-editorial .app-shell-new--stitch .app-shell-new__body:has(.integrations-page),
+body.noeis-editorial .app-shell-new--stitch .app-shell-new__body:has(.data-integrations-page) {
   height: auto;
   min-height: calc(100vh - 96px);
-  overflow: visible;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 body.noeis-editorial .app-shell-new--stitch .app-shell-new__body:has(.wiki-page) {

@@ -139,6 +139,17 @@ describe('DataIntegrations first insight workflow', () => {
     chatWithAgent.mockResolvedValue({});
   });
 
+  it('marks the import surface as a scrollable settings-style page', async () => {
+    const { container } = render(
+      <MemoryRouter>
+        <DataIntegrations />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByText('Bring your knowledge')).toBeInTheDocument();
+    expect(container.querySelector('.ui-page')).toHaveClass('settings-page', 'data-integrations-page');
+  });
+
   it('keeps the OpenClaw and Hermes agent bridge behind advanced setup on the active integrations route', async () => {
     render(
       <MemoryRouter>
