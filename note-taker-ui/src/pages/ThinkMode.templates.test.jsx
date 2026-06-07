@@ -13,6 +13,7 @@ import api from '../api';
 import { createQuestion } from '../api/questions';
 import { listReturnQueue } from '../api/returnQueue';
 import { getArticles } from '../api/articles';
+import { getNotebookFolders, getNotebookSummaries } from '../api/notebook';
 import { listAgentHandoffs, listPersonalAgents } from '../api/agent';
 import { createConnection, getConnectionsForScope, searchConnectableItems } from '../api/connections';
 import { updateConcept } from '../api/concepts';
@@ -49,6 +50,11 @@ jest.mock('../api/returnQueue', () => ({
 
 jest.mock('../api/articles', () => ({
   getArticles: jest.fn()
+}));
+
+jest.mock('../api/notebook', () => ({
+  getNotebookFolders: jest.fn(),
+  getNotebookSummaries: jest.fn()
 }));
 
 jest.mock('../api/agent', () => ({
@@ -311,6 +317,8 @@ describe('ThinkMode template integration', () => {
 
     listReturnQueue.mockImplementation(() => pendingRequest());
     getArticles.mockImplementation(() => pendingRequest());
+    getNotebookSummaries.mockImplementation(() => pendingRequest());
+    getNotebookFolders.mockImplementation(() => pendingRequest());
     listPersonalAgents.mockImplementation(() => pendingRequest());
     listAgentHandoffs.mockImplementation(() => pendingRequest());
     getConnectionsForScope.mockImplementation(() => pendingRequest());
@@ -565,6 +573,115 @@ describe('ThinkMode template integration', () => {
     const destination = navigateWithViewTransition.mock.calls.at(-1)[1];
     expect(destination).toContain('/wiki/workspace?page=wiki-fresh');
     expect(destination).toContain('sourceTitle=Fresh+Concept');
+  });
+
+  it('promotes an active question to a wiki page with a graph edge', async () => {
+    useSearchParamsMock.mockReturnValue([
+      new URLSearchParams('tab=questions&questionId=question-1'),
+      mockSetSearchParams
+    ]);
+    api.get.mockImplementation((path) => {
+      if (String(path).includes('/api/questions/question-1/related')) {
+        return Promise.resolve({ data: { results: [] } });
+      }
+      return pendingRequest();
+    });
+    useQuestions.mockReturnValue({
+      questions: [{
+        _id: 'question-1',
+        text: 'What evidence changes the thesis?',
+        status: 'open',
+        linkedTagName: 'Template Concept',
+        blocks: []
+      }],
+      loading: false,
+      error: '',
+      setQuestions: jest.fn()
+    });
+    createWikiPage.mockResolvedValueOnce({ _id: 'wiki-question' });
+
+    render(
+      <MemoryRouter initialEntries={['/think?tab=questions&questionId=question-1']}>
+        <ThinkMode />
+      </MemoryRouter>
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Promote to wiki page' }));
+
+    await waitFor(() => expect(createWikiPage).toHaveBeenCalledWith(expect.objectContaining({
+      title: 'What evidence changes the thesis',
+      pageType: 'question',
+      createdFrom: expect.objectContaining({
+        type: 'question',
+        objectId: 'question-1'
+      })
+    })));
+    await waitFor(() => expect(createConnection).toHaveBeenCalledWith(expect.objectContaining({
+      fromType: 'question',
+      fromId: 'question-1',
+      toType: 'wiki_page',
+      toId: 'wiki-question',
+      relationType: 'extends',
+      scopeType: 'question',
+      scopeId: 'question-1'
+    })));
+    const destination = navigateWithViewTransition.mock.calls.at(-1)[1];
+    expect(destination).toContain('/wiki/workspace?page=wiki-question');
+    expect(destination).toContain('promoted=question');
+    expect(destination).toContain('sourceId=question-1');
+  });
+
+  it('promotes an active notebook page to a wiki page with a graph edge', async () => {
+    useSearchParamsMock.mockReturnValue([
+      new URLSearchParams('tab=notebook&entryId=note-1'),
+      mockSetSearchParams
+    ]);
+    getNotebookSummaries.mockResolvedValueOnce([{ _id: 'note-1', title: 'Notebook thesis' }]);
+    getNotebookFolders.mockResolvedValueOnce([]);
+    api.get.mockImplementation((path) => {
+      if (String(path) === '/api/notebook/note-1') {
+        return Promise.resolve({
+          data: {
+            _id: 'note-1',
+            title: 'Notebook thesis',
+            content: 'A notebook draft with enough shape to settle.',
+            blocks: [{ id: 'b1', type: 'paragraph', text: 'A notebook draft with enough shape to settle.' }]
+          }
+        });
+      }
+      return pendingRequest();
+    });
+    createWikiPage.mockResolvedValueOnce({ _id: 'wiki-note' });
+
+    render(
+      <MemoryRouter initialEntries={['/think?tab=notebook&entryId=note-1']}>
+        <ThinkMode />
+      </MemoryRouter>
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Promote to wiki' }));
+
+    await waitFor(() => expect(createWikiPage).toHaveBeenCalledWith(expect.objectContaining({
+      title: 'Notebook thesis',
+      pageType: 'overview',
+      createdFrom: expect.objectContaining({
+        type: 'notebook',
+        objectId: 'note-1'
+      })
+    })));
+    await waitFor(() => expect(createConnection).toHaveBeenCalledWith(expect.objectContaining({
+      fromType: 'notebook',
+      fromId: 'note-1',
+      toType: 'wiki_page',
+      toId: 'wiki-note',
+      relationType: 'extends',
+      scopeType: '',
+      scopeId: ''
+    })));
+    const destination = navigateWithViewTransition.mock.calls.at(-1)[1];
+    expect(destination).toContain('/wiki/workspace?page=wiki-note');
+    expect(destination).toContain('promoted=notebook');
+    expect(destination).toContain('sourceId=note-1');
   });
 
   it('renders question posture with the dialectical margin primitive', async () => {

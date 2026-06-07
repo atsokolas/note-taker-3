@@ -353,13 +353,33 @@ const CommandPalette = ({ open, onClose }) => {
 
   const handleSelect = (item) => {
     if (!item) return;
-    onClose();
     if (item.action) {
+      onClose();
       item.action();
       return;
     }
     if (item.path) {
       navigate(item.path);
+      onClose();
+      return;
+    }
+    onClose();
+  };
+
+  const handleResultClick = (item) => (event) => {
+    event.preventDefault();
+    handleSelect(item);
+  };
+
+  const handleResultMouseDown = (event) => {
+    // Keep focus in the palette input long enough for click selection to commit.
+    event.preventDefault();
+  };
+
+  const handleResultKeyDown = (item) => (event) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      handleSelect(item);
     }
   };
 
@@ -417,15 +437,18 @@ const CommandPalette = ({ open, onClose }) => {
                 const rowIndex = renderedIndex;
                 const isActive = rowIndex === activeIndex;
                 return (
-                  <div
+                  <button
+                    type="button"
                     key={`${section.title}-${item.type}-${item.label}`}
                     className={`palette-item ${isActive ? 'active' : ''}`}
                     onMouseEnter={() => setActiveIndex(rowIndex)}
-                    onClick={() => handleSelect(item)}
+                    onMouseDown={handleResultMouseDown}
+                    onClick={handleResultClick(item)}
+                    onKeyDown={handleResultKeyDown(item)}
                   >
                     <span className="muted small">{item.type}</span>
                     <span>{item.label}</span>
-                  </div>
+                  </button>
                 );
               })}
             </div>

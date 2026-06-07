@@ -7203,7 +7203,7 @@ html[data-ui-theme='dark'] .external-bridge-pre {
 }
 
 .agent-connect-simple-card__terminal-body pre {
-  width: fit-content;
+  width: 100%;
   max-width: 100%;
   margin: 0;
   overflow-x: auto;
@@ -7217,6 +7217,37 @@ html[data-ui-theme='dark'] .external-bridge-pre {
   font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
   font-size: 0.9rem;
   line-height: 1.45;
+}
+
+.agent-connect-simple-card__command {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  width: min(100%, max-content);
+  max-width: 100%;
+}
+
+.agent-connect-simple-card__command pre {
+  min-width: 0;
+}
+
+.agent-connect-simple-card__copy-button {
+  min-height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  background: var(--surface-card);
+  color: var(--text-primary);
+  cursor: pointer;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.agent-connect-simple-card__command span[role='status'] {
+  grid-column: 1 / -1;
+  color: var(--text-muted);
+  font-size: 0.78rem;
 }
 
 .agent-connect-simple-card__runtime-row {
@@ -7531,6 +7562,15 @@ html[data-ui-theme='dark'] .external-bridge-pre {
 
   .agent-connect-simple-card__steps li {
     align-items: flex-start;
+  }
+
+  .agent-connect-simple-card__command {
+    width: 100%;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .agent-connect-simple-card__copy-button {
+    justify-self: start;
   }
 
   .integrations-compact-actions__button,

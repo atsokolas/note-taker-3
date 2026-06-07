@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import api from '../api';
 import { Page, Card, Button } from '../components/ui';
 
-const Export = () => {
+const Export = ({ embedded = false }) => {
   const [status, setStatus] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -78,7 +78,7 @@ const Export = () => {
     <Page>
       <div className="page-header">
         <p className="muted-label">Settings</p>
-        <h1>Export your data</h1>
+        {embedded ? <h2>Export your data</h2> : <h1>Export your data</h1>}
         <p className="muted">Download everything: articles, highlights, notebook entries, collections, and tag metadata.</p>
       </div>
       <Card className="search-section">

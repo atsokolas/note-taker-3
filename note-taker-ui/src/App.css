@@ -3488,11 +3488,16 @@ body.noeis-editorial .product-feedback-modal .feedback-field textarea::placehold
   padding: 9px 11px;
   border: 1px solid var(--border-color);
   border-radius: 8px;
+  width: 100%;
   display: grid;
   grid-template-columns: 72px minmax(0, 1fr);
   gap: 12px;
   align-items: baseline;
+  background: transparent;
+  color: inherit;
   cursor: pointer;
+  font: inherit;
+  text-align: left;
   min-height: 42px;
 }
 

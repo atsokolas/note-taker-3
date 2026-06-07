@@ -1704,6 +1704,7 @@ const DataIntegrations = () => {
     session: currentSession,
     scheduleTarget
   });
+  const [showAdvancedBridgeSetup, setShowAdvancedBridgeSetup] = useState(false);
 
   return (
     <Page>
@@ -1713,10 +1714,34 @@ const DataIntegrations = () => {
         <p className="muted">Choose a source, import the text cleanly, then turn it into a concept instead of leaving it as a dead archive.</p>
       </div>
 
-      <ExternalBridgeCard
-        bridgeModel={bridgeModel}
-        sortedAgents={personalAgentsModel.sortedAgents}
-      />
+      <Card className="settings-card data-integrations-agent-setup">
+        <div>
+          <p className="muted-label">Connected agents</p>
+          <h2>Need OpenClaw or Hermes?</h2>
+          <p className="muted">
+            Use the simple setup page for one-command browser approval. Raw bridge/runtime config is still here for custom agent workers.
+          </p>
+        </div>
+        <div className="settings-option-row">
+          <Button type="button" variant="secondary" onClick={() => navigate('/integrations')}>
+            Open simple setup
+          </Button>
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() => setShowAdvancedBridgeSetup((previous) => !previous)}
+          >
+            {showAdvancedBridgeSetup ? 'Hide advanced bridge' : 'Show advanced bridge'}
+          </Button>
+        </div>
+      </Card>
+
+      {showAdvancedBridgeSetup ? (
+        <ExternalBridgeCard
+          bridgeModel={bridgeModel}
+          sortedAgents={personalAgentsModel.sortedAgents}
+        />
+      ) : null}
 
       <Card className="settings-card">
         <h2>Choose a source</h2>

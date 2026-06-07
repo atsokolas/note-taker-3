@@ -477,7 +477,7 @@ const Settings = ({
           </Link>
         </div>
       </Card>
-      <Export />
+      <Export embedded />
     </Page>
   );
 };

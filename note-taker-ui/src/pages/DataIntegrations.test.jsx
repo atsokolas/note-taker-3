@@ -139,12 +139,17 @@ describe('DataIntegrations first insight workflow', () => {
     chatWithAgent.mockResolvedValue({});
   });
 
-  it('shows the OpenClaw and Hermes agent bridge on the active integrations route', async () => {
+  it('keeps the OpenClaw and Hermes agent bridge behind advanced setup on the active integrations route', async () => {
     render(
       <MemoryRouter>
         <DataIntegrations />
       </MemoryRouter>
     );
+
+    expect(await screen.findByText('Need OpenClaw or Hermes?')).toBeInTheDocument();
+    expect(screen.queryByText('Connect OpenClaw or Hermes')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show advanced bridge' }));
 
     expect(await screen.findByText('Connect OpenClaw or Hermes')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Best for delegated research/i })).toBeInTheDocument();

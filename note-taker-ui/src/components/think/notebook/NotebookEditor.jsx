@@ -641,6 +641,7 @@ const NotebookEditor = ({
     <div className="think-notebook-editor">
       <div className="think-notebook-editor-header">
         <div className="think-notebook-title-block">
+          <h1 className="sr-only">{titleDraft || entry?.title || 'Untitled notebook page'}</h1>
           <span className="think-notebook-title-kicker">Document title</span>
           <input
             type="text"

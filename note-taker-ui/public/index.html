@@ -34,6 +34,46 @@
       user's mobile device or desktop. See https://developers.google.com/web/fundamentals/web-app-manifest/
     -->
     <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
+    <script>
+      (function () {
+        try {
+          var defaults = {
+            theme: 'auto',
+            density: 'comfortable',
+            typographyScale: 'default',
+            accent: 'electric',
+            brandEnergy: true
+          };
+          var accents = {
+            electric: { color: '#36e4ff', soft: 'rgba(54, 228, 255, 0.22)' },
+            violet: { color: '#9d84ff', soft: 'rgba(157, 132, 255, 0.22)' },
+            indigo: { color: '#6f87ff', soft: 'rgba(111, 135, 255, 0.2)' }
+          };
+          var raw = window.localStorage && window.localStorage.getItem('ui-settings.v1');
+          var saved = raw ? JSON.parse(raw) : {};
+          var themePref = ['auto', 'light', 'dark'].indexOf(saved.theme) >= 0 ? saved.theme : defaults.theme;
+          var activeTheme = themePref;
+          if (themePref === 'auto') {
+            activeTheme = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+          }
+          var density = ['comfortable', 'compact'].indexOf(saved.density) >= 0 ? saved.density : defaults.density;
+          var typography = ['small', 'default', 'large'].indexOf(saved.typographyScale) >= 0 ? saved.typographyScale : defaults.typographyScale;
+          var accentKey = accents[saved.accent] ? saved.accent : defaults.accent;
+          var accent = accents[accentKey];
+          var root = document.documentElement;
+          root.setAttribute('data-ui-theme', activeTheme);
+          root.setAttribute('data-ui-theme-pref', themePref);
+          root.setAttribute('data-ui-density', density);
+          root.setAttribute('data-ui-typography', typography);
+          root.setAttribute('data-ui-brand-energy', saved.brandEnergy === false ? 'off' : 'on');
+          root.style.setProperty('--ui-accent', accent.color);
+          root.style.setProperty('--ui-accent-soft', accent.soft);
+        } catch (error) {
+          document.documentElement.setAttribute('data-ui-theme', 'light');
+          document.documentElement.setAttribute('data-ui-theme-pref', 'auto');
+        }
+      }());
+    </script>
     <!--
       Notice the use of %PUBLIC_URL% in the tags above.
       It will be replaced with the URL of the `public` folder during the build.

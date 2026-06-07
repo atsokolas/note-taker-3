@@ -18,6 +18,7 @@ const Integrations = () => {
   const [showAdvancedAgentSettings, setShowAdvancedAgentSettings] = useState(false);
   const [showTaskLinkBuilder, setShowTaskLinkBuilder] = useState(false);
   const [showConnectionDetails, setShowConnectionDetails] = useState(false);
+  const [copiedCommand, setCopiedCommand] = useState('');
 
   const personalAgentsModel = usePersonalAgents();
   const entitlementsModel = useAgentEntitlements();
@@ -30,6 +31,35 @@ const Integrations = () => {
     if (Number.isNaN(parsed.getTime())) return '';
     return parsed.toLocaleString();
   }, []);
+
+  const handleCopySetupCommand = useCallback(async (id, value) => {
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopiedCommand(id);
+      window.setTimeout(() => setCopiedCommand(current => (current === id ? '' : current)), 1800);
+    } catch (error) {
+      setCopiedCommand(`${id}:error`);
+    }
+  }, []);
+
+  const renderCommandBlock = useCallback((id, value) => {
+    const isCopied = copiedCommand === id;
+    const isError = copiedCommand === `${id}:error`;
+    return (
+      <div className="agent-connect-simple-card__command">
+        <pre>{value}</pre>
+        <button
+          type="button"
+          className="agent-connect-simple-card__copy-button"
+          onClick={() => handleCopySetupCommand(id, value)}
+          aria-label={`Copy ${id.replace(/-/g, ' ')}`}
+        >
+          {isCopied ? 'Copied' : 'Copy'}
+        </button>
+        {isError ? <span role="status">Select and copy manually</span> : null}
+      </div>
+    );
+  }, [copiedCommand, handleCopySetupCommand]);
 
   const handoffsModel = useHandoffs({
     enabled: true,
@@ -62,10 +92,10 @@ const Integrations = () => {
           <div className="agent-connect-simple-card__terminal-bar">Get started</div>
           <div className="agent-connect-simple-card__terminal-body">
             <p>Tell your agent to:</p>
-            <pre>{'Read https://www.noeis.io/skill.md and get me set up with Noeis'}</pre>
+            {renderCommandBlock('agent-instruction', 'Read https://www.noeis.io/skill.md and get me set up with Noeis')}
             <p>Or run:</p>
-            <pre>{'npm install -g @noeis/noeis-cli'}</pre>
-            <pre>{'noeis connect openclaw'}</pre>
+            {renderCommandBlock('npm-install', 'npm install -g @noeis/noeis-cli')}
+            {renderCommandBlock('connect-openclaw', 'noeis connect openclaw')}
           </div>
           <div className="agent-connect-simple-card__runtime-row">
             <span>Works with:</span>
