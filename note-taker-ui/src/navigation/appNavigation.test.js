@@ -23,7 +23,8 @@ describe('appNavigation', () => {
   it('keeps operational tools out of the primary nav', () => {
     const secondaryLabels = getSecondaryNavItems().map(item => item.label);
 
-    expect(secondaryLabels).toEqual(expect.arrayContaining(['Today', 'Review', 'Capture', 'Map']));
+    expect(secondaryLabels).toEqual(expect.arrayContaining(['Today', 'Review', 'Import data', 'Map']));
+    expect(secondaryLabels).not.toContain('Capture');
     expect(getPrimaryNavItems().map(item => item.label)).not.toEqual(expect.arrayContaining(secondaryLabels));
   });
 });

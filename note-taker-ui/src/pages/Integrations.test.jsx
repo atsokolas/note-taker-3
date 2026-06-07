@@ -81,6 +81,9 @@ describe('Integrations MCP setup', () => {
     expect(screen.getByText(/Read https:\/\/www\.noeis\.io\/skill\.md/)).toBeInTheDocument();
     expect(screen.getByText(/npm install -g @noeis\/noeis-cli/)).toBeInTheDocument();
     expect(screen.getByText(/noeis connect openclaw/)).toBeInTheDocument();
+    expect(screen.getByText('Import connections')).toBeInTheDocument();
+    expect(screen.getByText(/Readwise highlights, Notion pages and databases, Evernote ENEX/)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Import connections/i })).toHaveAttribute('href', '/data-integrations');
     expect(screen.getByText('Create an agent task link')).toBeInTheDocument();
     expect(screen.getByText('Advanced connection details')).toBeInTheDocument();
     expect(screen.queryByText('One-command agent connect')).not.toBeInTheDocument();

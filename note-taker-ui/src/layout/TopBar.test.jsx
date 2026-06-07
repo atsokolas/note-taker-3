@@ -34,6 +34,11 @@ describe('TopBar help menu', () => {
         <TopBar
           utilityNav={[
             {
+              label: 'Connections',
+              to: '/integrations',
+              match: (location) => location.pathname.startsWith('/integrations')
+            },
+            {
               label: 'Settings',
               to: '/settings',
               match: (location) => location.pathname.startsWith('/settings')
@@ -43,6 +48,7 @@ describe('TopBar help menu', () => {
       </MemoryRouter>
     );
 
+    expect(screen.getByRole('link', { name: 'Connections' })).toHaveAttribute('href', '/integrations');
     expect(screen.getByRole('link', { name: 'Settings' })).toHaveAttribute('href', '/settings');
   });
 

@@ -18,6 +18,16 @@ export const getPrimaryNavItems = () => [
 
 export const getSecondaryNavItems = () => [
   {
+    label: 'Import data',
+    to: '/data-integrations',
+    match: (location) => location.pathname.startsWith('/data-integrations')
+  },
+  {
+    label: 'Map',
+    to: '/map',
+    match: (location) => location.pathname.startsWith('/map')
+  },
+  {
     label: 'Today',
     to: '/today',
     match: (location) => location.pathname.startsWith('/today')
@@ -26,16 +36,6 @@ export const getSecondaryNavItems = () => [
     label: 'Review',
     to: '/review',
     match: (location) => location.pathname.startsWith('/review')
-  },
-  {
-    label: 'Capture',
-    to: '/data-integrations',
-    match: (location) => location.pathname.startsWith('/data-integrations')
-  },
-  {
-    label: 'Map',
-    to: '/map',
-    match: (location) => location.pathname.startsWith('/map')
   },
   {
     label: 'Return Queue',

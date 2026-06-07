@@ -471,6 +471,11 @@ function App() {
   const AppLayout = () => {
     const topBarUtilityNav = [
       {
+        label: 'Connections',
+        to: '/integrations',
+        match: (currentLocation) => currentLocation.pathname.startsWith('/integrations')
+      },
+      {
         label: 'Settings',
         to: '/settings',
         match: (currentLocation) => currentLocation.pathname.startsWith('/settings')

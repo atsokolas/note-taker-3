@@ -2652,25 +2652,35 @@ const buildWikiRouter = ({
         hasText: Boolean(source.text)
       });
 
-      const result = await processWikiSourceEvent({
-        sourceEvent: event,
-        userId: req.user.id,
-        models: wikiModels(),
-        buildUniqueSlug,
-        wikiSchemaContent: await loadWikiSchemaContent(req.user.id)
+      res.status(202).json(serializeIngestRun({ event }));
+
+      const sourceEventId = event._id;
+      const userId = req.user.id;
+      const sourceType = source.rawType;
+      const requestForAnalytics = req;
+      setImmediate(async () => {
+        try {
+          const result = await processWikiSourceEvent({
+            sourceEventId,
+            userId,
+            models: wikiModels(),
+            buildUniqueSlug,
+            wikiSchemaContent: await loadWikiSchemaContent(userId)
+          });
+          const affectedPageCount = Array.isArray((result.event || event).affectedPageIds)
+            ? (result.event || event).affectedPageIds.length
+            : 0;
+          trackWikiEvent(requestForAnalytics, affectedPageCount > 0 ? EVENT_NAMES.WIKI_INGEST_COMPLETED : EVENT_NAMES.WIKI_INGEST_NO_MATCH, {
+            sourceEventId: serializeId((result.event || event)._id),
+            sourceType,
+            affectedPageCount,
+            status: (result.event || event).status || '',
+            suggestedCreatePage: Boolean((result.event || event).metadata?.ignoredReason === 'no_matching_wiki_page')
+          });
+        } catch (error) {
+          console.error('Error processing queued wiki ingest source:', error);
+        }
       });
-      const run = result.run || await findMaintenanceRunBySourceEvent({ userId: req.user.id, sourceEventId: event._id });
-      const affectedPageCount = Array.isArray((result.event || event).affectedPageIds)
-        ? (result.event || event).affectedPageIds.length
-        : 0;
-      trackWikiEvent(req, affectedPageCount > 0 ? EVENT_NAMES.WIKI_INGEST_COMPLETED : EVENT_NAMES.WIKI_INGEST_NO_MATCH, {
-        sourceEventId: serializeId((result.event || event)._id),
-        sourceType: source.rawType,
-        affectedPageCount,
-        status: (result.event || event).status || '',
-        suggestedCreatePage: Boolean((result.event || event).metadata?.ignoredReason === 'no_matching_wiki_page')
-      });
-      res.status(202).json(serializeIngestRun({ event: result.event || event, run }));
     } catch (error) {
       console.error('Error ingesting wiki source:', error);
       res.status(500).json({ error: 'Failed to ingest wiki source.' });

@@ -12,6 +12,7 @@ import {
   createLibrarySourceProvenanceFixture,
   createWikiPage,
   fixWikiLintFinding,
+  getWikiIngestRun,
   getWikiPage,
   getWikiSchema,
   ignoreWikiLintFinding,
@@ -49,6 +50,7 @@ jest.mock('../../api/wiki', () => ({
   createWikiPage: jest.fn(),
   acceptWikiLintFinding: jest.fn(),
   fixWikiLintFinding: jest.fn(),
+  getWikiIngestRun: jest.fn(),
   getWikiPage: jest.fn(),
   getWikiSchema: jest.fn(),
   ignoreWikiLintFinding: jest.fn(),
@@ -163,6 +165,7 @@ describe('WikiWorkspace', () => {
     });
     ingestWikiSource.mockResolvedValue({
       runId: 'ingest-1',
+      status: 'processed',
       summary: 'The agent found 1 wiki page that this source may update.',
       affectedPageIds: ['wiki-1'],
       reviewStatus: 'pending_review',
@@ -187,6 +190,7 @@ describe('WikiWorkspace', () => {
     });
     reviewWikiIngestRun.mockResolvedValue({
       runId: 'ingest-1',
+      status: 'processed',
       summary: 'The agent found 1 wiki page that this source may update.',
       affectedPageIds: ['wiki-1'],
       reviewStatus: 'partially_accepted',
@@ -699,8 +703,10 @@ describe('WikiWorkspace', () => {
     expect(await screen.findByLabelText('Source ripple result')).toBeInTheDocument();
     expect(screen.getByLabelText('Latest source ripple')).toBeInTheDocument();
     expect(screen.getByLabelText('Candidate update plan')).toHaveTextContent('provenance: Candidate source');
-    expect(screen.getAllByText('The agent found 1 wiki page that this source may update.').length).toBeGreaterThanOrEqual(2);
-    expect(screen.getByRole('link', { name: 'Inspect activity' })).toHaveAttribute('href', '/wiki/activity/ingest-1');
+    expect(screen.getByText('Done — Example source landed in Wiki Activity. Review 2 proposed destinations: Investing, What should update?.')).toBeInTheDocument();
+    expect(screen.getAllByText('The agent found 1 wiki page that this source may update.').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByRole('link', { name: 'Inspect activity' })[0]).toHaveAttribute('href', '/wiki/activity/ingest-1');
+    expect(screen.getByText('Saved Example source to Wiki activity.')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Open' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Open in Think' })).toHaveAttribute('href', '/think?tab=questions&questionId=question-1');
     expect(screen.getByLabelText('Review ingest plan')).toHaveTextContent('Plan status: pending review');
@@ -728,6 +734,7 @@ describe('WikiWorkspace', () => {
     await act(async () => {
       resolveIngest({
         runId: 'ingest-1',
+        status: 'processed',
         summary: 'The agent found 1 wiki page that this source may update.',
         affectedPageIds: ['wiki-1'],
         reviewStatus: 'pending_review',
@@ -744,6 +751,7 @@ describe('WikiWorkspace', () => {
     });
 
     expect(await screen.findByLabelText('Source ripple result')).toBeInTheDocument();
+    expect(screen.getByText('Done — Example source landed in Wiki Activity. Review 1 proposed destination: Investing.')).toBeInTheDocument();
     expect(screen.queryByText('Metabolizing https://example.com/source...')).not.toBeInTheDocument();
   });
 
@@ -770,6 +778,7 @@ describe('WikiWorkspace', () => {
   it('builds a new wiki page from a no-match source while preserving source provenance', async () => {
     ingestWikiSource.mockResolvedValueOnce({
       runId: '507f1f77bcf86cd799439011',
+      status: 'ignored',
       summary: 'No existing page matched strongly enough; create a page for the source.',
       affectedPageIds: [],
       reviewStatus: 'pending_review',

@@ -488,6 +488,20 @@ const request = async (url, path, options = {}) => {
   return { res, body, text };
 };
 
+const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+const waitForIngestRun = async (url, runId, predicate, attempts = 30) => {
+  let latest = null;
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    latest = await request(url, `/api/wiki/ingest/${runId}`);
+    if (latest.res.status === 200 && predicate(latest.body)) {
+      return latest;
+    }
+    await wait(50);
+  }
+  return latest;
+};
+
 const run = async () => {
   const WikiPage = createFakeWikiPageModel();
   const WikiProposal = createFakeWikiProposalModel();
@@ -1187,24 +1201,23 @@ const run = async () => {
     assert.strictEqual(ingest.res.status, 202, ingest.text);
     assert.ok(ingest.body.runId);
     assert.strictEqual(ingest.body.sourceRef.type, 'external');
-    assert.strictEqual(ingest.body.status, 'processed');
-    assert.ok(ingest.body.affectedPageIds.includes(String(created.body._id)));
-    assert.ok(ingest.body.summary.includes('Updated'));
-    assert.ok(Array.isArray(ingest.body.candidateUpdates));
-    assert.ok(ingest.body.candidateUpdates.some(candidate => (
+    assert.strictEqual(ingest.body.status, 'pending');
+    assert.deepStrictEqual(ingest.body.affectedPageIds, []);
+
+    const ingestDetails = await waitForIngestRun(url, ingest.body.runId, body => body.status === 'processed');
+    assert.strictEqual(ingestDetails.res.status, 200, ingestDetails.text);
+    assert.strictEqual(ingestDetails.body.runId, ingest.body.runId);
+    assert.ok(ingestDetails.body.affectedPageIds.includes(String(created.body._id)));
+    assert.ok(ingestDetails.body.summary.includes('Updated'));
+    assert.ok(Array.isArray(ingestDetails.body.candidateUpdates));
+    assert.ok(ingestDetails.body.candidateUpdates.some(candidate => (
       candidate.targetType === 'wiki_page'
       && candidate.pageId === String(created.body._id)
       && candidate.status === 'updated'
     )));
-    const wikiCandidate = ingest.body.candidateUpdates.find(candidate => candidate.pageId === String(created.body._id));
-    assert.strictEqual(ingest.body.reviewStatus, 'pending_review');
-
-    const ingestDetails = await request(url, `/api/wiki/ingest/${ingest.body.runId}`);
-    assert.strictEqual(ingestDetails.res.status, 200, ingestDetails.text);
-    assert.strictEqual(ingestDetails.body.runId, ingest.body.runId);
-    assert.ok(ingestDetails.body.affectedPageIds.includes(String(created.body._id)));
     assert.ok(ingestDetails.body.timeline.some(item => item.type === 'maintenance'));
     assert.strictEqual(ingestDetails.body.reviewStatus, 'pending_review');
+    const wikiCandidate = ingestDetails.body.candidateUpdates.find(candidate => candidate.pageId === String(created.body._id));
 
     const reviewedIngest = await request(url, `/api/wiki/ingest/${ingest.body.runId}/review`, {
       method: 'POST',
@@ -1240,7 +1253,10 @@ const run = async () => {
       })
     });
     assert.strictEqual(acceptedIngest.res.status, 202, acceptedIngest.text);
-    const acceptedWikiCandidate = acceptedIngest.body.candidateUpdates.find(candidate => (
+    assert.strictEqual(acceptedIngest.body.status, 'pending');
+    const acceptedIngestDetails = await waitForIngestRun(url, acceptedIngest.body.runId, body => body.status === 'processed');
+    assert.strictEqual(acceptedIngestDetails.res.status, 200, acceptedIngestDetails.text);
+    const acceptedWikiCandidate = acceptedIngestDetails.body.candidateUpdates.find(candidate => (
       candidate.targetType === 'wiki_page'
       && candidate.pageId === String(created.body._id)
     ));

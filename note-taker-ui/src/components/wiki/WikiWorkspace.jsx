@@ -7,6 +7,7 @@ import { getAllHighlights } from '../../api/highlights';
 import {
   createWikiPage,
   createLibrarySourceProvenanceFixture,
+  getWikiIngestRun,
   getWikiPage,
   getWikiSchema,
   ingestWikiSource,
@@ -48,6 +49,8 @@ const LEGACY_DEFAULT_CHAT_WIDTH = 380;
 const MIN_CHAT_WIDTH = 260;
 const MAX_CHAT_WIDTH = 420;
 const MAINTENANCE_STREAM_TIMEOUT_MS = 25000;
+const INGEST_POLL_INTERVAL_MS = 1800;
+const INGEST_POLL_TIMEOUT_MS = 70000;
 const HEALTH_KEYS = [
   'newItems',
   'unsupportedClaims',
@@ -484,6 +487,13 @@ const summarizeIngestRun = (run = {}) => {
   return 'The source was saved for review, but no confident wiki update was found.';
 };
 
+const ingestRunId = (run = {}) => clean(run.runId || run.sourceEventId || run._id || run.id);
+
+const ingestRunActivityPath = (run = {}) => {
+  const runId = ingestRunId(run);
+  return runId ? `/wiki/activity/${encodeURIComponent(runId)}` : '/wiki/workspace?view=activity';
+};
+
 const ingestCandidateRows = (run = {}, pages = []) => {
   const explicitRows = Array.isArray(run.candidateUpdates) ? run.candidateUpdates : [];
   if (explicitRows.length) {
@@ -575,8 +585,14 @@ const ingestCandidateGraphTraceLabel = (row = {}, source = {}) => {
 
 const ingestRunReceipts = (run = {}) => {
   const affectedCount = Array.isArray(run.affectedPageIds) ? run.affectedPageIds.length : 0;
+  const activityAction = { label: 'Inspect activity', href: ingestRunActivityPath(run) };
   return [
-    { key: 'ingest-source', stage: 'source_scanned', summary: `Scanned ${sourceTitle(run.sourceRef)}.` },
+    {
+      key: 'ingest-source',
+      stage: 'source_scanned',
+      summary: `Saved ${sourceTitle(run.sourceRef)} to Wiki activity.`,
+      action: activityAction
+    },
     affectedCount
       ? { key: 'ingest-affected', stage: 'ripple_candidates', summary: `Found ${affectedCount} affected page${affectedCount === 1 ? '' : 's'}.` }
       : { key: 'ingest-affected', stage: 'ripple_candidates', summary: 'No existing page matched confidently.' },
@@ -584,6 +600,39 @@ const ingestRunReceipts = (run = {}) => {
       ? { key: 'ingest-create-page', stage: 'suggested_create_page', summary: 'Suggested creating a new page from this source.' }
       : null
   ].filter(Boolean);
+};
+
+const formatIngestCompletion = (run = {}, pages = []) => {
+  const source = sourceTitle(run.sourceRef);
+  const candidateRows = ingestCandidateRows(run, pages);
+  const affectedPageIds = Array.isArray(run.affectedPageIds) ? run.affectedPageIds.filter(Boolean) : [];
+  const pageTitles = candidateRows.length
+    ? candidateRows.map(row => row.title).filter(Boolean)
+    : affectedPageIds.map(pageId => pageTitleForId(pageId, pages));
+  const destination = pageTitles.length
+    ? `Review ${pageTitles.length} proposed destination${pageTitles.length === 1 ? '' : 's'}: ${pageTitles.slice(0, 3).join(', ')}${pageTitles.length > 3 ? ', ...' : ''}.`
+    : run.suggestedCreatePage
+      ? `No existing page matched; suggested a new page${run.suggestedTitle ? `, "${run.suggestedTitle}"` : ''}.`
+      : 'No confident page destination was found yet.';
+  return `Done — ${source} landed in Wiki Activity. ${destination}`;
+};
+
+const isTerminalIngestStatus = (run = {}) => {
+  const status = clean(run.status).toLowerCase();
+  return ['processed', 'completed', 'ignored', 'failed'].includes(status);
+};
+
+const waitForIngestCompletion = async (initialRun = {}) => {
+  const runId = ingestRunId(initialRun);
+  if (!runId || isTerminalIngestStatus(initialRun)) return initialRun;
+  const startedAt = Date.now();
+  let latestRun = initialRun;
+  while (Date.now() - startedAt < INGEST_POLL_TIMEOUT_MS) {
+    await new Promise(resolve => window.setTimeout(resolve, INGEST_POLL_INTERVAL_MS));
+    latestRun = await getWikiIngestRun(runId);
+    if (isTerminalIngestStatus(latestRun)) return latestRun;
+  }
+  return latestRun;
 };
 
 const parseUrl = (value = '') => {
@@ -1144,7 +1193,7 @@ const WikiIngestResultCard = ({ run = {}, pages = [], onNavigate, onBuildFromSou
     setCurrentRun(run);
   }, [run]);
   const affectedPageIds = Array.isArray(currentRun.affectedPageIds) ? currentRun.affectedPageIds.filter(Boolean) : [];
-  const runId = clean(currentRun.runId || currentRun._id || currentRun.id);
+  const runId = ingestRunId(currentRun);
   const source = currentRun.sourceRef || {};
   const suggestedCreatePage = Boolean(currentRun.suggestedCreatePage || currentRun.metadata?.ignoredReason === 'no_matching_wiki_page');
   const candidateRows = useMemo(() => ingestCandidateRows(currentRun, pages), [currentRun, pages]);
@@ -1239,7 +1288,7 @@ const WikiIngestResultCard = ({ run = {}, pages = [], onNavigate, onBuildFromSou
         </ol>
       ) : null}
       <div className="wiki-workspace-ingest-card__actions">
-        {runId ? <Link to={`/wiki/activity/${encodeURIComponent(runId)}`}>Inspect activity</Link> : null}
+        {runId ? <Link to={ingestRunActivityPath(currentRun)}>Inspect activity</Link> : null}
         {suggestedCreatePage ? (
           <button type="button" onClick={() => onBuildFromSource?.(run)}>
             Build page from source
@@ -1926,12 +1975,24 @@ const WikiWorkspaceChat = ({
 
   const runIngest = useCallback(async ({ source = null, url = '', pendingId = '' } = {}) => {
     const payload = source || { type: 'url', url };
-    const result = await ingestWikiSource(payload);
+    const submittedRun = await ingestWikiSource(payload);
+    const runId = ingestRunId(submittedRun);
+    if (pendingId && !isTerminalIngestStatus(submittedRun)) {
+      replaceMessage(pendingId, {
+        text: `Queued ${sourceTitle(submittedRun.sourceRef || payload)} in Wiki Activity. I will keep checking until the source ripple is ready.`,
+        activityReceipts: ingestRunReceipts(submittedRun),
+        ingestRun: submittedRun,
+        pending: true
+      });
+    }
+    const result = await waitForIngestCompletion(submittedRun);
     const nextMessage = {
-      text: summarizeIngestRun(result),
+      text: isTerminalIngestStatus(result)
+        ? formatIngestCompletion(result, wikiPages)
+        : `Still working — ${sourceTitle(result.sourceRef || payload)} is queued in Wiki Activity${runId ? ` run ${runId}` : ''}. Open activity to follow it.`,
       activityReceipts: ingestRunReceipts(result),
       ingestRun: result,
-      pending: false
+      pending: !isTerminalIngestStatus(result)
     };
     if (pendingId) replaceMessage(pendingId, nextMessage);
     else append({ role: 'assistant', ...nextMessage });

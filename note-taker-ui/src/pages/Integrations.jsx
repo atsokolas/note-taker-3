@@ -108,6 +108,16 @@ const Integrations = () => {
       </Card>
 
       <Card className="settings-card integrations-compact-actions">
+        <Link to="/data-integrations" className="integrations-compact-actions__button">
+          <span>
+            <strong>Import connections</strong>
+            <em>Readwise highlights, Notion pages and databases, Evernote ENEX, markdown, and pasted source text.</em>
+          </span>
+          <b>Open</b>
+        </Link>
+      </Card>
+
+      <Card className="settings-card integrations-compact-actions">
         <button
           type="button"
           className="integrations-compact-actions__button"
