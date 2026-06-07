@@ -961,6 +961,16 @@ body.noeis-editorial .three-pane__left {
   overscroll-behavior: contain;
 }
 
+body.noeis-editorial .three-pane__left.is-collapsed {
+  display: none;
+  width: 0;
+  min-width: 0;
+  padding: 0 !important;
+  border: 0 !important;
+  overflow: hidden !important;
+  pointer-events: none;
+}
+
 body.noeis-editorial .three-pane__main {
   min-width: 0;
   min-height: 0;
@@ -3352,7 +3362,7 @@ body.noeis-editorial .concept-editorial-evidence__section-head span {
 }
 
 body.noeis-editorial .question-editorial-shell-page {
-  width: min(1500px, calc(100vw - 64px));
+  width: min(1400px, calc(100vw - 96px));
   margin: 0 auto;
   padding: 78px 0 56px;
 }
@@ -3360,7 +3370,7 @@ body.noeis-editorial .question-editorial-shell-page {
 body.noeis-editorial .think-home-editorial-shell-page,
 body.noeis-editorial .concept-index-editorial-shell-page,
 body.noeis-editorial .notebook-editorial-shell-page {
-  width: min(1500px, calc(100vw - 64px));
+  width: min(1400px, calc(100vw - 96px));
   margin: 0 auto;
   /* Topbar is ~64px tall (22+18 padding + ~24px content). 78px left a
      ~14px cream gap below the topbar that read as a "white bar". 68px
@@ -3381,8 +3391,8 @@ body.noeis-editorial .think-home-editorial-shell,
 body.noeis-editorial .concept-index-editorial-shell,
 body.noeis-editorial .notebook-editorial-shell {
   display: grid;
-  grid-template-columns: 280px minmax(0, 1fr) 360px;
-  gap: 34px;
+  grid-template-columns: 250px minmax(0, 1fr) 300px;
+  gap: 24px;
   align-items: stretch;
   justify-content: center;
   height: 100%;
@@ -3418,8 +3428,8 @@ body.noeis-editorial .concept-index-editorial-main {
 
 body.noeis-editorial .question-editorial-shell {
   display: grid;
-  grid-template-columns: 280px minmax(0, 1fr) 360px;
-  gap: 34px;
+  grid-template-columns: 250px minmax(0, 1fr) 300px;
+  gap: 24px;
   align-items: stretch;
   justify-content: center;
   height: 100%;
@@ -3647,7 +3657,7 @@ body.noeis-editorial .editorial-side-rail {
   min-width: 0;
   min-height: calc(100vh - 148px);
   box-sizing: border-box;
-  padding: 10px 20px 24px;
+  padding: 10px 16px 24px;
   overflow-x: hidden;
   background: var(--vellum-panel);
 }
@@ -3941,6 +3951,39 @@ body.noeis-editorial .agent-thought-partner__drafts > *,
 body.noeis-editorial .agent-thought-partner__draft-workflow > * {
   min-width: 0;
   max-width: 100%;
+}
+
+body.noeis-editorial .agent-thought-partner__presence,
+body.noeis-editorial .agent-thought-partner__presence > *,
+body.noeis-editorial .agent-thought-partner__posture-tabs,
+body.noeis-editorial .agent-thought-partner__quick-prompts,
+body.noeis-editorial .agent-thought-partner__composer,
+body.noeis-editorial .agent-thought-partner__composer textarea,
+body.noeis-editorial .agent-thought-partner__submit,
+body.noeis-editorial .think-home-editorial__reference-search,
+body.noeis-editorial .think-home-editorial__reference-search input {
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+body.noeis-editorial .agent-thought-partner__posture-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  width: 100%;
+  overflow: hidden;
+}
+
+body.noeis-editorial .agent-thought-partner__posture-tab {
+  min-width: 0;
+  padding-inline: 8px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+body.noeis-editorial .agent-thought-partner__quick-prompts {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
 }
 
 body.noeis-editorial .notebook-editorial-context__advanced {
@@ -7393,6 +7436,15 @@ body.noeis-editorial .three-pane--library .three-pane__main-header {
   align-items: start;
 }
 
+body.noeis-editorial .three-pane--library-browse .three-pane__main {
+  justify-content: flex-start;
+  padding-top: 0;
+}
+
+body.noeis-editorial .three-pane--library-browse .three-pane__main-header {
+  margin-bottom: 24px;
+}
+
 body.noeis-editorial .library-page-shell,
 body.noeis-editorial .library-page-shell .three-pane--library {
   height: 100%;
@@ -7963,6 +8015,10 @@ body.noeis-editorial .agent-thought-partner--stream .agent-thought-partner__quic
 
 body.noeis-editorial .agent-thought-partner__presence {
   margin-bottom: 12px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 8px;
 }
 
 body.noeis-editorial .agent-thought-partner__presence .agent-presence__sub {
@@ -8053,26 +8109,30 @@ body.noeis-editorial .agent-thought-partner__postures {
 body.noeis-editorial .agent-thought-partner__posture-tabs {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 4px;
+  gap: 2px;
   min-width: 0;
-  padding: 3px;
+  padding: 2px;
   border: 1px solid var(--vellum-line);
   background: color-mix(in srgb, var(--vellum-bg) 72%, #ffffff 28%);
+  overflow: hidden;
 }
 
 body.noeis-editorial .agent-thought-partner__posture-tab {
   min-width: 0;
   min-height: 36px;
+  padding-inline: 4px;
   border: 0;
   background: transparent;
   color: var(--dropzone-text);
   font-family: var(--noeis-ui-font);
-  font-size: 0.62rem;
+  font-size: 0.58rem;
   font-weight: 700;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   cursor: pointer;
-  overflow-wrap: anywhere;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 body.noeis-editorial .agent-thought-partner__posture-tab.is-active {

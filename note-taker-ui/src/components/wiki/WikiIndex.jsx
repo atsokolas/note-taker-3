@@ -334,26 +334,31 @@ const WikiGraph = ({ graph, mapGraph, onOpenPage }) => {
   };
 
   const renderNode = (node, ctx, globalScale) => {
-    const radius = Math.min(7, 3.25 + Math.sqrt(Number(node.degreeCount || node.inboundCount || 0)) * 0.95);
+    const safeScale = Math.max(globalScale || 1, 0.2);
+    const degree = Number(node.degreeCount || node.inboundCount || 0);
+    const screenRadius = Math.min(9, 4.5 + Math.sqrt(degree) * 1.1);
+    const radius = screenRadius / safeScale;
     ctx.fillStyle = wikiGraphNodeColor(node.pageType);
     ctx.beginPath();
     ctx.arc(node.x, node.y, radius, 0, 2 * Math.PI, false);
     ctx.fill();
     ctx.strokeStyle = wikiGraphLabelColor('stroke', 'rgba(255, 255, 255, 0.62)');
-    ctx.lineWidth = 1.2 / Math.max(globalScale, 1);
+    ctx.lineWidth = 1.2 / safeScale;
     ctx.stroke();
 
-    if (globalScale < 0.72) return;
+    const isActiveNode = hovered?.id === node.id || selectedNode?.id === node.id;
+    const shouldShowLabel = isActiveNode || degree >= 4 || (visibleGraph.nodes?.length || 0) <= 6;
+    if (!shouldShowLabel) return;
     const label = truncateGraphLabel(node.title);
-    const fontSize = Math.max(8, 10 / Math.max(globalScale, 1));
-    const labelX = node.x + radius + 5;
-    const labelWidth = Math.min(180 / Math.max(globalScale, 1), 220);
+    const fontSize = 11 / safeScale;
+    const labelX = node.x + radius + (7 / safeScale);
+    const labelWidth = Math.min(170 / safeScale, 220);
     ctx.font = `500 ${fontSize}px "SF Pro Text", "Segoe UI", -apple-system, BlinkMacSystemFont, sans-serif`;
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
     const metrics = ctx.measureText(label);
     ctx.fillStyle = wikiGraphLabelColor('backdrop', 'rgba(255, 252, 247, 0.82)');
-    ctx.fillRect(labelX - 3, node.y - fontSize * 0.72, Math.min(metrics.width, labelWidth) + 6, fontSize * 1.45);
+    ctx.fillRect(labelX - (3 / safeScale), node.y - fontSize * 0.72, Math.min(metrics.width, labelWidth) + (6 / safeScale), fontSize * 1.45);
     ctx.fillStyle = wikiGraphLabelColor('text', '#1f2933');
     ctx.fillText(label, labelX, node.y, labelWidth);
   };
@@ -414,6 +419,7 @@ const WikiGraph = ({ graph, mapGraph, onOpenPage }) => {
           width={graphSize.width || undefined}
           height={graphSize.height || undefined}
           nodeRelSize={4}
+          nodeCanvasObjectMode={() => 'replace'}
           nodeLabel={(node) => `${node.title}\n${labelFor(node.pageType)} · ${formatDate(node.updatedAt) || 'No date'}`}
           linkLabel={(link) => `${relationLabel(link.relationType)}\n${linkReason(link)}`}
           nodeCanvasObject={renderNode}

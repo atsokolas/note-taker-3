@@ -6481,6 +6481,30 @@ html[data-ui-theme='dark'] .wiki-agent-presence[data-status='error'] .wiki-agent
   cursor: not-allowed;
 }
 
+.agent-thought-partner__presence.wiki-agent-presence {
+  display: grid;
+  grid-template-columns: 12px minmax(0, 1fr);
+  align-items: start;
+  gap: 10px;
+}
+
+.agent-thought-partner__presence.wiki-agent-presence .wiki-agent-presence__copy {
+  min-width: 0;
+}
+
+.agent-thought-partner__presence.wiki-agent-presence .wiki-agent-presence__sub {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+}
+
+.agent-thought-partner__presence.wiki-agent-presence .wiki-agent-presence__action {
+  grid-column: 2;
+  justify-self: start;
+  max-width: 100%;
+  margin-top: 6px;
+}
+
 @media (max-width: 640px) {
   .wiki-agent-presence {
     flex-wrap: wrap;
