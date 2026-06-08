@@ -68,9 +68,12 @@ const buildConnectionStore = () => {
       return {
         _id: this._id,
         provider: this.provider,
+        mode: this.mode,
         accountLabel: this.accountLabel,
+        externalAccountId: this.externalAccountId,
         status: this.status,
         health: this.health,
+        scopes: this.scopes,
         lastSyncAt: this.lastSyncAt,
         lastValidatedAt: this.lastValidatedAt,
         lastPreviewAt: this.lastPreviewAt,
@@ -80,10 +83,37 @@ const buildConnectionStore = () => {
       };
     }
   };
+  const mcpConnection = {
+    _id: 'rw-mcp-1',
+    userId: 'user-1',
+    provider: 'readwise',
+    mode: 'mcp_remote',
+    accountLabel: 'Readwise MCP',
+    externalAccountId: '',
+    encryptedApiToken: '',
+    status: 'draft',
+    health: 'unknown',
+    scopes: [],
+    lastSyncAt: null,
+    lastValidatedAt: null,
+    lastPreviewAt: null,
+    lastError: '',
+    async save() {
+      return this;
+    },
+    toObject: connection.toObject
+  };
 
   return {
     connection,
+    mcpConnection,
     async findOne(query = {}) {
+      if (String(query?.mode || '') === 'mcp_remote') {
+        return String(query?.userId || '') === mcpConnection.userId
+          && String(query?.provider || '') === mcpConnection.provider
+          ? mcpConnection
+          : null;
+      }
       return String(query?._id || '') === connection._id
         && String(query?.userId || '') === connection.userId
         && String(query?.provider || '') === connection.provider
@@ -193,6 +223,24 @@ const run = async () => {
 
   const { server, url } = await listen(app);
   try {
+    const mcpResponse = await fetch(`${url}/api/import/readwise/mcp/connect`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json'
+      },
+      body: JSON.stringify({
+        accountLabel: 'Reader MCP'
+      })
+    });
+    const mcpPayload = await mcpResponse.json();
+    assert.strictEqual(mcpResponse.status, 200, `Readwise MCP connect should save a connection. body=${JSON.stringify(mcpPayload)}`);
+    assert.strictEqual(mcpPayload.connection.mode, 'mcp_remote');
+    assert.strictEqual(mcpPayload.connection.accountLabel, 'Reader MCP');
+    assert.strictEqual(mcpPayload.connection.externalAccountId, 'https://mcp2.readwise.io/mcp');
+    assert.strictEqual(mcpPayload.connection.status, 'connected');
+    assert.strictEqual(mcpPayload.connection.health, 'healthy');
+    assert.strictEqual(mcpPayload.connection.encryptedApiToken, undefined, 'Sanitized connection must not expose token fields.');
+
     const response = await fetch(`${url}/api/import/readwise/sync`, {
       method: 'POST',
       headers: {

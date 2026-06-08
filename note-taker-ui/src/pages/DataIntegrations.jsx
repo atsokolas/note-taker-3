@@ -9,6 +9,7 @@ import { updateConcept } from '../api/concepts';
 import {
   checkNotionConnection,
   checkReadwiseConnection,
+  connectReadwiseMcp,
   connectReadwiseToken,
   createImportSession,
   exportToNotionPage,
@@ -42,7 +43,7 @@ const SOURCE_OPTIONS = [
     title: 'Readwise',
     subtitle: 'Bring in highlights and notes from your reading layer.',
     status: 'Available today',
-    helper: 'Direct token-based sync and preview are live, with CSV still available as fallback.'
+    helper: 'Use Readwise MCP/OAuth for agent access; token sync and CSV remain available as direct Noeis fallbacks.'
   },
   {
     key: 'notion',
@@ -68,6 +69,8 @@ const SOURCE_OPTIONS = [
 ];
 
 const EVERNOTE_EXPORT_HELP_URL = 'https://help.evernote.com/hc/en-us/articles/209005557-Export-Notes-and-Notebooks-as-ENEX-or-HTML';
+const READWISE_MCP_DOCS_URL = 'https://docs.readwise.io/tools/mcp';
+const READWISE_MCP_SERVER_URL = 'https://mcp2.readwise.io/mcp';
 const READWISE_TOKEN_HELP_URL = 'https://readwise.io/access_token';
 
 const getAuthConfig = () => ({
@@ -409,6 +412,7 @@ const DataIntegrations = () => {
   const [readwiseLabel, setReadwiseLabel] = useState('Readwise');
   const [readwiseConnection, setReadwiseConnection] = useState(null);
   const [readwiseConnecting, setReadwiseConnecting] = useState(false);
+  const [readwiseMcpConnecting, setReadwiseMcpConnecting] = useState(false);
   const [readwiseChecking, setReadwiseChecking] = useState(false);
   const [readwiseSyncing, setReadwiseSyncing] = useState(false);
   const [notionConnection, setNotionConnection] = useState(null);
@@ -828,6 +832,25 @@ const DataIntegrations = () => {
       setStatus(error.response?.data?.error || 'Failed to validate Readwise token.', 'error');
     } finally {
       setReadwiseConnecting(false);
+    }
+  };
+
+  const handleReadwiseMcpConnect = async () => {
+    setReadwiseMcpConnecting(true);
+    setStatus('Saving Readwise MCP connection...');
+    try {
+      const data = await connectReadwiseMcp({
+        accountLabel: readwiseLabel || 'Readwise MCP'
+      });
+      if (data?.connection) {
+        setReadwiseConnection(data.connection);
+      }
+      setStatus('Readwise MCP saved. Add the MCP server URL to your agent and approve in Readwise when prompted.', 'success');
+    } catch (error) {
+      console.error('Readwise MCP connect failed:', error);
+      setStatus(error.response?.data?.error || 'Failed to save Readwise MCP connection.', 'error');
+    } finally {
+      setReadwiseMcpConnecting(false);
     }
   };
 
@@ -1762,6 +1785,7 @@ const DataIntegrations = () => {
     || previewing.readwise
     || previewing.notion
     || previewing.evernote
+    || readwiseMcpConnecting
     || readwiseConnecting
     || readwiseChecking
     || readwiseSyncing
@@ -1996,13 +2020,22 @@ const DataIntegrations = () => {
 
       {selectedSource === 'readwise' && (
         <Card className="settings-card">
-          <h2>Readwise import</h2>
-          <p className="muted">Connect a Readwise token once, then sync directly into the same import-session and activation pipeline used by file imports.</p>
+          <h2>Readwise connection</h2>
+          <p className="muted">Use Readwise MCP for browser-approved agent access. Keep manual token sync only when you want Noeis to run the direct import itself.</p>
           <div className="import-callout">
-            <p className="muted-label">Direct connect</p>
-            <p className="muted small">Step 1: get your token. Step 2: paste it once. Step 3: preview what will come in before you sync.</p>
-            <p className="muted small">Token-based Readwise sync is live in this pass. Import persistence succeeds even if semantic indexing needs a follow-up pass.</p>
-            <a href={READWISE_TOKEN_HELP_URL} target="_blank" rel="noopener noreferrer">Get Readwise token</a>
+            <p className="muted-label">Recommended: Readwise MCP + OAuth</p>
+            <p className="muted small">Readwise now exposes an official remote MCP server. Your agent connects to it, Readwise opens browser approval, then the agent can search highlights and Reader documents without pasting a raw token into Noeis.</p>
+            <p className="muted small">MCP server: <code>{READWISE_MCP_SERVER_URL}</code></p>
+            <div className="capture-actions">
+              <Button
+                type="button"
+                onClick={handleReadwiseMcpConnect}
+                disabled={busy || readwiseMcpConnecting}
+              >
+                {readwiseMcpConnecting ? 'Saving…' : 'Use Readwise MCP'}
+              </Button>
+              <a href={READWISE_MCP_DOCS_URL} target="_blank" rel="noopener noreferrer">Readwise MCP setup</a>
+            </div>
           </div>
           <div className="capture-form" style={{ marginBottom: 18 }}>
             <label className="capture-label" htmlFor="readwise-account-label">Connection label</label>
@@ -2015,6 +2048,11 @@ const DataIntegrations = () => {
               placeholder="Readwise"
               disabled={busy || readwiseConnecting || readwiseSyncing}
             />
+            <div className="import-callout">
+              <p className="muted-label">Manual direct-sync fallback</p>
+              <p className="muted small">Use this only when you want Noeis to sync Readwise directly through the export API. MCP/OAuth is the default agent path.</p>
+              <a href={READWISE_TOKEN_HELP_URL} target="_blank" rel="noopener noreferrer">Get Readwise token</a>
+            </div>
             <label className="capture-label" htmlFor="readwise-token-input">Readwise API token</label>
             <input
               id="readwise-token-input"
@@ -2063,8 +2101,10 @@ const DataIntegrations = () => {
             <div className="import-summary" style={{ marginBottom: 16 }}>
               <p className="muted-label">Connected account</p>
               <p>Label: {readwiseConnection.accountLabel || 'Readwise'}</p>
+              <p>Mode: {readwiseConnection.mode === 'mcp_remote' ? 'Readwise MCP / OAuth' : readwiseConnection.mode || 'manual'}</p>
               <p>Status: {readwiseConnection.status || 'connected'}</p>
               <p>Health: {readwiseConnection.health || 'unknown'}</p>
+              {readwiseConnection.mode === 'mcp_remote' && readwiseConnection.externalAccountId ? <p>MCP server: {readwiseConnection.externalAccountId}</p> : null}
               <p>Last checked: {readwiseConnection.lastValidatedAt ? new Date(readwiseConnection.lastValidatedAt).toLocaleString() : 'Never'}</p>
               <p>Last preview: {readwiseConnection.lastPreviewAt ? new Date(readwiseConnection.lastPreviewAt).toLocaleString() : 'Never'}</p>
               <p>Last sync: {readwiseConnection.lastSyncAt ? new Date(readwiseConnection.lastSyncAt).toLocaleString() : 'Never'}</p>

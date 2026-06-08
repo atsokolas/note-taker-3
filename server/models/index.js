@@ -1662,7 +1662,7 @@ const integrationConnectionSchema = new mongoose.Schema({
   health: { type: String, enum: ['unknown', 'healthy', 'warning', 'error'], default: 'unknown' },
   accountLabel: { type: String, default: '', trim: true },
   externalAccountId: { type: String, default: '', trim: true },
-  mode: { type: String, enum: ['api_token', 'oauth', 'file_upload', 'manual'], default: 'manual' },
+  mode: { type: String, enum: ['api_token', 'oauth', 'mcp_remote', 'file_upload', 'manual'], default: 'manual' },
   scopes: { type: [String], default: [] },
   secretVersion: { type: Number, default: 1 },
   encryptedAccessToken: { type: String, default: '' },

@@ -1069,6 +1069,49 @@ const buildImportRouter = ({
     }
   });
 
+  router.post('/api/import/readwise/mcp/connect', authenticateToken, async (req, res) => {
+    try {
+      const accountLabel = toTrimmedString(req.body?.accountLabel) || 'Readwise MCP';
+      const mcpServerUrl = 'https://mcp2.readwise.io/mcp';
+
+      let connection = await IntegrationConnection.findOne({
+        userId: req.user.id,
+        provider: 'readwise',
+        mode: 'mcp_remote'
+      });
+
+      if (!connection) {
+        connection = new IntegrationConnection({
+          userId: req.user.id,
+          provider: 'readwise',
+          mode: 'mcp_remote'
+        });
+      }
+
+      connection.accountLabel = accountLabel;
+      connection.externalAccountId = mcpServerUrl;
+      connection.status = 'connected';
+      connection.health = 'healthy';
+      connection.scopes = [
+        'mcp:readwise.highlights.read',
+        'mcp:reader.documents.read',
+        'mcp:reader.documents.write'
+      ];
+      connection.lastValidatedAt = new Date();
+      connection.lastError = '';
+      await connection.save();
+
+      res.status(200).json({
+        connection: sanitizeConnection(connection.toObject()),
+        mcpServerUrl,
+        message: 'Readwise MCP connection saved. Use the server URL in an MCP-compatible client to complete Readwise browser authorization.'
+      });
+    } catch (error) {
+      console.error('Readwise MCP connect failed:', error);
+      res.status(500).json({ error: 'Failed to save Readwise MCP connection.' });
+    }
+  });
+
   router.post('/api/import/readwise/check', authenticateToken, async (req, res) => {
     try {
       const connectionId = toTrimmedString(req.body?.connectionId);
@@ -1083,6 +1126,13 @@ const buildImportRouter = ({
       });
       if (!connection) {
         return res.status(404).json({ error: 'Readwise connection not found.' });
+      }
+      if (connection.mode === 'mcp_remote') {
+        return res.status(200).json({
+          ok: true,
+          connection: sanitizeConnection(connection.toObject()),
+          message: 'Readwise MCP is configured for agent access. Direct Noeis sync uses the manual token fallback until the hosted MCP broker ships.'
+        });
       }
       if (!connection.encryptedApiToken) {
         await markConnectionError(connection, 'Readwise token is missing for this connection.');
@@ -1126,6 +1176,12 @@ const buildImportRouter = ({
       });
       if (!connection) {
         return res.status(404).json({ error: 'Readwise connection not found.' });
+      }
+      if (connection.mode === 'mcp_remote') {
+        return res.status(400).json({
+          error: 'Readwise MCP is configured for agent access. Use the manual token fallback for direct Noeis preview until the hosted MCP broker ships.',
+          connection: sanitizeConnection(connection.toObject())
+        });
       }
       if (!connection.encryptedApiToken) {
         return res.status(400).json({ error: 'Readwise token is missing for this connection.' });
@@ -1190,6 +1246,12 @@ const buildImportRouter = ({
       });
       if (!connection) {
         return res.status(404).json({ error: 'Readwise connection not found.' });
+      }
+      if (connection.mode === 'mcp_remote') {
+        return res.status(400).json({
+          error: 'Readwise MCP is configured for agent access. Use the manual token fallback for direct Noeis sync until the hosted MCP broker ships.',
+          connection: sanitizeConnection(connection.toObject())
+        });
       }
       if (!connection.encryptedApiToken) {
         return res.status(400).json({ error: 'Readwise token is missing for this connection.' });

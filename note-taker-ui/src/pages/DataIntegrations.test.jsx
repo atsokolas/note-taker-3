@@ -8,6 +8,7 @@ import { updateConcept } from '../api/concepts';
 import {
   checkNotionConnection,
   checkReadwiseConnection,
+  connectReadwiseMcp,
   connectReadwiseToken,
   createImportSession,
   exportToNotionPage,
@@ -36,6 +37,7 @@ jest.mock('../api/concepts', () => ({
 jest.mock('../api/imports', () => ({
   checkNotionConnection: jest.fn(),
   checkReadwiseConnection: jest.fn(),
+  connectReadwiseMcp: jest.fn(),
   connectReadwiseToken: jest.fn(),
   createImportSession: jest.fn(),
   exportToNotionPage: jest.fn(),
@@ -106,6 +108,7 @@ describe('DataIntegrations first insight workflow', () => {
     getActiveImportSession.mockResolvedValue(null);
     checkReadwiseConnection.mockResolvedValue({});
     checkNotionConnection.mockResolvedValue({});
+    connectReadwiseMcp.mockResolvedValue({});
     connectReadwiseToken.mockResolvedValue(null);
     startNotionOAuth.mockResolvedValue('');
     exportToNotionPage.mockResolvedValue({
@@ -365,16 +368,47 @@ describe('DataIntegrations first insight workflow', () => {
     expect(await screen.findByText('Readwise connection is healthy.')).toBeInTheDocument();
   });
 
-  it('shows the Readwise token helper link inside the guided connect flow', async () => {
+  it('shows Readwise MCP as the recommended connect flow with token fallback', async () => {
     render(
       <MemoryRouter>
         <DataIntegrations />
       </MemoryRouter>
     );
 
+    expect(await screen.findByText(/Recommended: Readwise MCP \+ OAuth/i)).toBeInTheDocument();
+    expect(screen.getByText(/https:\/\/mcp2\.readwise\.io\/mcp/)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Readwise MCP setup' })).toHaveAttribute('href', 'https://docs.readwise.io/tools/mcp');
+    expect(screen.getByText(/Manual direct-sync fallback/i)).toBeInTheDocument();
     const tokenLink = await screen.findByRole('link', { name: 'Get Readwise token' });
     expect(tokenLink).toHaveAttribute('href', 'https://readwise.io/access_token');
-    expect(screen.getByText(/Step 1: get your token/)).toBeInTheDocument();
+  });
+
+  it('saves a Readwise MCP connection without requiring an API token', async () => {
+    connectReadwiseMcp.mockResolvedValue({
+      connection: {
+        id: 'rw-mcp-1',
+        provider: 'readwise',
+        mode: 'mcp_remote',
+        accountLabel: 'Readwise MCP',
+        externalAccountId: 'https://mcp2.readwise.io/mcp',
+        status: 'connected',
+        health: 'healthy'
+      }
+    });
+
+    render(
+      <MemoryRouter>
+        <DataIntegrations />
+      </MemoryRouter>
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Use Readwise MCP' }));
+
+    await waitFor(() => expect(connectReadwiseMcp).toHaveBeenCalledWith({
+      accountLabel: 'Readwise'
+    }));
+    expect(await screen.findByText(/Readwise MCP saved/)).toBeInTheDocument();
+    expect(screen.getByText('Mode: Readwise MCP / OAuth')).toBeInTheDocument();
   });
 
   it('renders source-aware activation guidance for a Readwise import', async () => {

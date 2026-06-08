@@ -47,6 +47,11 @@ export const connectReadwiseToken = async ({ apiToken, accountLabel = '' } = {})
   return response.data?.connection || null;
 };
 
+export const connectReadwiseMcp = async ({ accountLabel = '' } = {}) => {
+  const response = await api.post('/api/import/readwise/mcp/connect', { accountLabel }, getAuthHeaders());
+  return response.data || {};
+};
+
 export const checkReadwiseConnection = async ({ connectionId } = {}) => {
   const response = await api.post('/api/import/readwise/check', { connectionId }, getAuthHeaders());
   return response.data || {};
