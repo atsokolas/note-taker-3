@@ -67,6 +67,9 @@ const SOURCE_OPTIONS = [
   }
 ];
 
+const EVERNOTE_EXPORT_HELP_URL = 'https://help.evernote.com/hc/en-us/articles/209005557-Export-Notes-and-Notebooks-as-ENEX-or-HTML';
+const READWISE_TOKEN_HELP_URL = 'https://readwise.io/access_token';
+
 const getAuthConfig = () => ({
   headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
 });
@@ -248,6 +251,39 @@ const getPreviewForSource = (session, sourceKey) => {
   return preview;
 };
 
+const stripFileExtension = (value = '') => String(value || '').replace(/\.[^./\\]+$/, '').trim();
+
+const getReceiptDestination = ({ sourceKey, session, importStats, sourceLabel = '' }) => {
+  if (!importStats) return null;
+
+  if (sourceKey === 'evernote' && importStats.importedNotes > 0) {
+    const label = stripFileExtension(sourceLabel || session?.sourceLabel || 'Evernote ENEX') || 'Evernote import';
+    return {
+      heading: 'Import receipt',
+      body: `Imported Evernote notes were saved into Think under the mirrored "${label}" folder. Open the first imported note or create a concept next.`,
+      primaryLabel: importStats.entryId ? 'Open first imported note' : 'Open Think',
+      primaryPath: importStats.entryId
+        ? `/think?tab=notebook&entryId=${encodeURIComponent(importStats.entryId)}`
+        : '/think?tab=notebook',
+      secondaryLabel: 'Open Think review',
+      secondaryPath: '/think?tab=notebook'
+    };
+  }
+
+  if (sourceKey === 'readwise' && (importStats.importedArticles > 0 || importStats.importedHighlights > 0)) {
+    return {
+      heading: 'Import receipt',
+      body: `Readwise sync landed ${importStats.importedHighlights || 0} highlights across ${importStats.importedArticles || 0} articles. Open Think to review what came in and turn it into a concept.`,
+      primaryLabel: 'Open Think review',
+      primaryPath: '/think?tab=notebook',
+      secondaryLabel: 'Open Today',
+      secondaryPath: '/today'
+    };
+  }
+
+  return null;
+};
+
 const hasPendingOrganizeImportSuggestion = (session = null) => (
   Array.isArray(session?.agentSuggestions)
     && session.agentSuggestions.some((suggestion) => (
@@ -363,6 +399,7 @@ const DataIntegrations = () => {
   const [selectedSource, setSelectedSource] = useState('readwise');
   const [importStatus, setImportStatus] = useState({ tone: '', message: '' });
   const [importStats, setImportStats] = useState(null);
+  const [lastImportSourceLabel, setLastImportSourceLabel] = useState('');
   const [currentSession, setCurrentSession] = useState(null);
   const [sessionLoading, setSessionLoading] = useState(true);
   const [organizeLaunching, setOrganizeLaunching] = useState(false);
@@ -384,6 +421,7 @@ const DataIntegrations = () => {
   const [notionAgentFetching, setNotionAgentFetching] = useState(false);
   const [notionAgentResult, setNotionAgentResult] = useState(null);
   const [evernoteFile, setEvernoteFile] = useState(null);
+  const [evernoteDragActive, setEvernoteDragActive] = useState(false);
   const [manualTitle, setManualTitle] = useState('');
   const [manualText, setManualText] = useState('');
   const [manualTags, setManualTags] = useState('');
@@ -566,8 +604,20 @@ const DataIntegrations = () => {
   const patchSession = async (sessionId, payload) => {
     if (!sessionId) return null;
     const session = await updateImportSession(sessionId, payload);
-    if (session) setCurrentSession(session);
-    return session;
+    if (!session) return null;
+    let nextSession = null;
+    setCurrentSession((previous) => {
+      nextSession = {
+        ...(previous || {}),
+        ...session,
+        preview: session.preview || previous?.preview || {},
+        progress: session.progress || previous?.progress || {},
+        result: session.result || previous?.result || {},
+        activation: session.activation || previous?.activation || {}
+      };
+      return nextSession;
+    });
+    return nextSession;
   };
 
   const ensureSessionForSource = async ({ provider, mode, sourceLabel, sourceType }) => {
@@ -651,6 +701,12 @@ const DataIntegrations = () => {
     return next;
   };
 
+  const selectEvernoteFile = (file) => {
+    if (!file) return;
+    setEvernoteFile(file);
+    setStatus(`Selected ${file.name}. Preview or import when ready.`, 'info');
+  };
+
   const getSchedulableTarget = (stateOverride = activationState) => {
     const current = stateOverride;
     if (!current) return null;
@@ -726,6 +782,7 @@ const DataIntegrations = () => {
       const data = await importCsvFile(file, session?.id);
       const summary = makeSummaryFromCsvResponse(data);
       setImportStats(summary);
+      setLastImportSourceLabel(file.name || 'Readwise CSV');
       rememberFirstInsight({
         sourceType: 'readwise-csv',
         title: file.name || 'Readwise import',
@@ -869,6 +926,7 @@ const DataIntegrations = () => {
       });
       const summary = makeSummaryFromCsvResponse(data);
       setImportStats(summary);
+      setLastImportSourceLabel(readwiseConnection.accountLabel || 'Readwise');
       if (data?.connection) {
         setReadwiseConnection(data.connection);
       }
@@ -1069,6 +1127,7 @@ const DataIntegrations = () => {
       summary.indexingFailures = data.indexingFailures || 0;
       summary.indexingState = data.indexingState || 'not_started';
       setImportStats(summary);
+      setLastImportSourceLabel(notionConnection.accountLabel || 'Notion');
       if (data?.connection) {
         setNotionConnection(data.connection);
       }
@@ -1176,9 +1235,30 @@ const DataIntegrations = () => {
   const handleEvernoteFileSelected = (event) => {
     const file = event.target.files?.[0];
     if (!file) return;
-    setEvernoteFile(file);
-    setStatus(`Selected ${file.name}. Preview or import when ready.`, 'info');
+    selectEvernoteFile(file);
     event.target.value = '';
+  };
+
+  const handleEvernoteDragOver = (event) => {
+    event.preventDefault();
+    setEvernoteDragActive(true);
+  };
+
+  const handleEvernoteDragLeave = (event) => {
+    event.preventDefault();
+    setEvernoteDragActive(false);
+  };
+
+  const handleEvernoteDrop = (event) => {
+    event.preventDefault();
+    setEvernoteDragActive(false);
+    const file = event.dataTransfer?.files?.[0];
+    if (!file) return;
+    if (!String(file.name || '').toLowerCase().endsWith('.enex')) {
+      setStatus('Drop an .enex export file from Evernote.', 'error');
+      return;
+    }
+    selectEvernoteFile(file);
   };
 
   const handleEvernotePreview = async () => {
@@ -1238,6 +1318,7 @@ const DataIntegrations = () => {
       summary.indexingFailures = data.indexingFailures || 0;
       summary.indexingState = data.indexingState || 'not_started';
       setImportStats(summary);
+      setLastImportSourceLabel(file.name || 'Evernote ENEX');
       if (summary.importedNotes > 0) {
         rememberFirstInsight({
           sourceType: 'evernote-enex',
@@ -1704,6 +1785,12 @@ const DataIntegrations = () => {
     session: currentSession,
     scheduleTarget
   });
+  const importReceipt = getReceiptDestination({
+    sourceKey: selectedSource,
+    session: currentSession,
+    importStats,
+    sourceLabel: lastImportSourceLabel
+  });
   const [showAdvancedBridgeSetup, setShowAdvancedBridgeSetup] = useState(false);
 
   return (
@@ -1866,6 +1953,28 @@ const DataIntegrations = () => {
               ) : null}
             </div>
           ) : null}
+          {importReceipt ? (
+            <div className="import-callout" data-testid="import-receipt">
+              <p className="muted-label">{importReceipt.heading}</p>
+              <p className="muted small">{importReceipt.body}</p>
+              <div className="capture-actions">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => navigate(importReceipt.primaryPath)}
+                >
+                  {importReceipt.primaryLabel}
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => navigate(importReceipt.secondaryPath)}
+                >
+                  {importReceipt.secondaryLabel}
+                </Button>
+              </div>
+            </div>
+          ) : null}
           {showOrganizeImportCta ? (
             <div className="import-callout">
               <p className="muted-label">{AGENT_DISPLAY_NAME} next step</p>
@@ -1891,7 +2000,9 @@ const DataIntegrations = () => {
           <p className="muted">Connect a Readwise token once, then sync directly into the same import-session and activation pipeline used by file imports.</p>
           <div className="import-callout">
             <p className="muted-label">Direct connect</p>
+            <p className="muted small">Step 1: get your token. Step 2: paste it once. Step 3: preview what will come in before you sync.</p>
             <p className="muted small">Token-based Readwise sync is live in this pass. Import persistence succeeds even if semantic indexing needs a follow-up pass.</p>
+            <a href={READWISE_TOKEN_HELP_URL} target="_blank" rel="noopener noreferrer">Get Readwise token</a>
           </div>
           <div className="capture-form" style={{ marginBottom: 18 }}>
             <label className="capture-label" htmlFor="readwise-account-label">Connection label</label>
@@ -2087,12 +2198,22 @@ const DataIntegrations = () => {
           <h2>Evernote import</h2>
           <p className="muted">Evernote lands through ENEX as notebook entries with tags, dates, source identity, and semantic indexing queued behind the import.</p>
           <div className="import-callout">
-            <p className="muted-label">Planned flow</p>
-            <p className="muted small">Upload ENEX → parse notes and tags → persist notebook entries → queue semantic indexing → create first concept from the imported notes.</p>
+            <p className="muted-label">3-step ENEX flow</p>
+            <p className="muted small">1. Export a notebook or notes as `.enex` from the Evernote desktop app.</p>
+            <p className="muted small">2. Drop that file here to preview parsed notes and tags before anything is imported.</p>
+            <p className="muted small">3. Import into Think, where Noeis mirrors the ENEX name as the destination folder and lets you activate the notes.</p>
+            <p className="muted small">This is a one-time import path today. Cloud sync stays future-facing until the OAuth spike says it is worth building.</p>
+            <a href={EVERNOTE_EXPORT_HELP_URL} target="_blank" rel="noopener noreferrer">Evernote export instructions</a>
           </div>
-          <div className="settings-import-row">
+          <div
+            className={`import-dropzone ${evernoteDragActive ? 'is-active' : ''}`}
+            onDragOver={handleEvernoteDragOver}
+            onDragLeave={handleEvernoteDragLeave}
+            onDrop={handleEvernoteDrop}
+          >
             <div>
               <p className="muted-label">Evernote ENEX</p>
+              <p className="muted small">Drag and drop a `.enex` file here, or choose one manually.</p>
               <input
                 ref={enexInputRef}
                 type="file"
@@ -2114,6 +2235,7 @@ const DataIntegrations = () => {
             <div className="import-summary">
               <p className="muted-label">Selected file</p>
               <p>{evernoteFile.name}</p>
+              <p className="muted small">Preview before import if you want to confirm note counts, titles, and tags first.</p>
             </div>
           ) : null}
           <div className="capture-actions">

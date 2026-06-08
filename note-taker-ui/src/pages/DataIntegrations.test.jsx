@@ -365,6 +365,18 @@ describe('DataIntegrations first insight workflow', () => {
     expect(await screen.findByText('Readwise connection is healthy.')).toBeInTheDocument();
   });
 
+  it('shows the Readwise token helper link inside the guided connect flow', async () => {
+    render(
+      <MemoryRouter>
+        <DataIntegrations />
+      </MemoryRouter>
+    );
+
+    const tokenLink = await screen.findByRole('link', { name: 'Get Readwise token' });
+    expect(tokenLink).toHaveAttribute('href', 'https://readwise.io/access_token');
+    expect(screen.getByText(/Step 1: get your token/)).toBeInTheDocument();
+  });
+
   it('renders source-aware activation guidance for a Readwise import', async () => {
     localStorage.setItem('first-insight.activation.v1', JSON.stringify({
       status: 'captured',
@@ -499,6 +511,53 @@ describe('DataIntegrations first insight workflow', () => {
       expect.any(Object)
     );
     expect(await screen.findByText('CSV import complete.')).toBeInTheDocument();
+  });
+
+  it('guides Evernote ENEX import and shows a destination receipt after import', async () => {
+    api.post.mockResolvedValueOnce({
+      data: {
+        importedNotes: 2,
+        entryId: 'note-evernote-1',
+        duplicateSkips: 1,
+        invalidSkips: 0,
+        warningCodes: [],
+        warnings: [],
+        indexingQueued: 2,
+        indexingAttempts: 2,
+        indexingFailures: 0,
+        indexingState: 'queued'
+      }
+    });
+
+    const { container } = render(
+      <MemoryRouter>
+        <DataIntegrations />
+      </MemoryRouter>
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /Evernote/i }));
+    expect(await screen.findByRole('link', { name: 'Evernote export instructions' })).toHaveAttribute(
+      'href',
+      'https://help.evernote.com/hc/en-us/articles/209005557-Export-Notes-and-Notebooks-as-ENEX-or-HTML'
+    );
+    expect(screen.getByText(/This is a one-time import path today/)).toBeInTheDocument();
+
+    const fileInput = container.querySelector('input[accept=".enex,application/xml,text/xml"]');
+    expect(fileInput).not.toBeNull();
+    const enexFile = new File(['<en-export></en-export>'], 'Research Notebook.enex', { type: 'text/xml' });
+    fireEvent.change(fileInput, { target: { files: [enexFile] } });
+    fireEvent.click(screen.getByRole('button', { name: 'Import ENEX' }));
+
+    await waitFor(() => expect(api.post).toHaveBeenCalledWith(
+      '/api/import/evernote-enex',
+      expect.any(FormData),
+      expect.any(Object)
+    ));
+    const receipt = await screen.findByTestId('import-receipt');
+    expect(receipt).toBeInTheDocument();
+    expect(receipt.textContent).toMatch(/mirrored/i);
+    expect(receipt.textContent).toMatch(/folder/i);
+    expect(screen.getByRole('button', { name: 'Open first imported note' })).toBeInTheDocument();
   });
 
   it('shows an inline setup warning when Notion OAuth is not configured on the server', async () => {

@@ -1932,6 +1932,11 @@ body.noeis-editorial .product-feedback-modal .feedback-field textarea::placehold
         align-items: flex-start;
     }
 
+    .import-dropzone {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
     .settings-import-row input[type="file"] {
         max-width: none;
     }
@@ -3901,6 +3906,29 @@ body.noeis-editorial .product-feedback-modal .feedback-field textarea::placehold
   border-radius: 12px;
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid var(--border-color, rgba(255, 255, 255, 0.08));
+}
+
+.import-dropzone {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: center;
+  margin-bottom: 16px;
+  padding: 16px;
+  border-radius: 14px;
+  border: 1px dashed var(--border-color, rgba(255, 255, 255, 0.16));
+  background: rgba(255, 255, 255, 0.025);
+  transition: border-color 0.18s ease, background 0.18s ease, transform 0.18s ease;
+}
+
+.import-dropzone.is-active {
+  border-color: var(--primary-color);
+  background: rgba(56, 189, 248, 0.08);
+  transform: translateY(-1px);
+}
+
+.import-dropzone p {
+  margin-top: 0;
 }
 
 .import-preview {
