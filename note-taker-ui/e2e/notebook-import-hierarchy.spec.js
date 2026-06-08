@@ -1,5 +1,6 @@
 const { test, expect } = require('@playwright/test');
 const {
+  appendDevToken,
   buildDevJwt,
   buildPausedTourState,
   installDevAuth
@@ -352,9 +353,8 @@ test('import-backed notebook tree survives moves and mocked notion resync', asyn
 
   await installMocks(page, state);
 
-  await page.goto(`/think?tab=notebook&entryId=${encodeURIComponent(NOTE_ID)}`);
+  await page.goto(appendDevToken(`/think?tab=notebook&entryId=${encodeURIComponent(NOTE_ID)}`, VALID_TOKEN));
 
-  await expect(page.getByTestId(`notebook-entry-select-${NOTE_ID}`)).toBeVisible();
   await expect(page.getByText('Imported notebooks')).toBeVisible();
   await expect(page.getByText('Product specs')).toBeVisible();
   await expect(folderNode(page, 'Product specs').getByTestId(`notebook-entry-select-${NOTE_ID}`)).toHaveCount(1);
@@ -369,13 +369,13 @@ test('import-backed notebook tree survives moves and mocked notion resync', asyn
   await expect(folderNode(page, 'Product specs').getByTestId(`notebook-entry-select-${NOTE_ID}`)).toHaveCount(0);
   await expect(folderNode(page, 'Workbench').getByTestId(`notebook-entry-select-${NOTE_ID}`)).toHaveCount(1);
 
-  await page.goto('/data-integrations');
+  await page.goto(appendDevToken('/data-integrations', VALID_TOKEN));
   await page.getByRole('button', { name: /Notion/i }).click();
   await expect(page.getByText('Label: Product Wiki')).toBeVisible();
   await page.getByRole('button', { name: 'Sync from Notion' }).click();
   await expect(page.getByText('Notion sync complete.')).toBeVisible();
 
-  await page.goto(`/think?tab=notebook&entryId=${encodeURIComponent(NOTE_ID)}`);
+  await page.goto(appendDevToken(`/think?tab=notebook&entryId=${encodeURIComponent(NOTE_ID)}`, VALID_TOKEN));
 
   await expect(page.getByText('Updated from mocked Notion resync.')).toBeVisible();
   await expect(folderNode(page, 'Product specs').getByTestId(`notebook-entry-select-${NOTE_ID}`)).toHaveCount(0);

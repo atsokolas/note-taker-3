@@ -5,15 +5,20 @@ const dotenv = require('dotenv');
 const jwt = require('jsonwebtoken');
 const { test, expect } = require('@playwright/test');
 const {
+  appendDevToken,
   bootstrapAuthenticatedPage,
   buildPausedTourState
 } = require('./helpers/session');
 
 dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 
+const API_BASE_URL = process.env.PLAYWRIGHT_API_BASE_URL || 'http://127.0.0.1:5500';
+
 const authHeaders = (token) => ({
   Authorization: `Bearer ${token}`
 });
+
+const apiUrl = (route = '') => `${API_BASE_URL}${String(route || '')}`;
 
 const createSignedToken = ({ userId, username }) => jwt.sign(
   {
@@ -35,8 +40,8 @@ const ensureJwtSecret = async () => {
 
 const getNotebookState = async ({ request, token, noteId }) => {
   const [entryResponse, foldersResponse] = await Promise.all([
-    request.get(`/api/notebook/${encodeURIComponent(noteId)}`, { headers: authHeaders(token) }),
-    request.get('/api/notebook/folders', { headers: authHeaders(token) })
+    request.get(apiUrl(`/api/notebook/${encodeURIComponent(noteId)}`), { headers: authHeaders(token) }),
+    request.get(apiUrl('/api/notebook/folders'), { headers: authHeaders(token) })
   ]);
   expect(entryResponse.ok()).toBeTruthy();
   expect(foldersResponse.ok()).toBeTruthy();
@@ -56,7 +61,7 @@ test.describe.serial('import organization browser flow', () => {
 
   test.afterEach(async ({ request }) => {
     if (!token) return;
-    await request.delete('/api/debug/fixtures/import-organization', {
+    await request.delete(apiUrl('/api/debug/fixtures/import-organization'), {
       headers: authHeaders(token)
     }).catch(() => null);
     fixture = null;
@@ -69,7 +74,7 @@ test.describe.serial('import organization browser flow', () => {
       username: `pw-import-organize-${Date.now()}`
     });
 
-    const fixtureResponse = await request.post('/api/debug/fixtures/import-organization', {
+    const fixtureResponse = await request.post(apiUrl('/api/debug/fixtures/import-organization'), {
       headers: authHeaders(token)
     });
     expect(fixtureResponse.ok()).toBeTruthy();
@@ -107,7 +112,7 @@ test.describe.serial('import organization browser flow', () => {
       dismissTour: true
     });
 
-    await page.goto('/data-integrations');
+    await page.goto(appendDevToken('/data-integrations', token));
     await expect(page.getByRole('button', { name: 'Organize this import' })).toBeVisible();
 
     await page.getByRole('button', { name: 'Organize this import' }).click();
@@ -177,7 +182,7 @@ test.describe.serial('import organization browser flow', () => {
     });
 
     const metricsResponse = await request.get(
-      `/api/agent/harness-metrics?threadId=${encodeURIComponent(fixture.threadId)}`,
+      apiUrl(`/api/agent/harness-metrics?threadId=${encodeURIComponent(fixture.threadId)}`),
       { headers: authHeaders(token) }
     );
     expect(metricsResponse.ok()).toBeTruthy();
