@@ -1942,6 +1942,31 @@ const buildWikiRouter = ({
     }
   });
 
+  router.get('/api/public/wiki/pages/:idOrSlug', async (req, res) => {
+    try {
+      const idOrSlug = String(req.params.idOrSlug || '').trim();
+      if (!idOrSlug) return res.status(400).json({ error: 'Wiki page id or slug is required.' });
+      const query = {
+        visibility: 'shared',
+        status: { $ne: 'archived' }
+      };
+      if (mongoose.Types.ObjectId.isValid(idOrSlug)) {
+        query._id = idOrSlug;
+      } else {
+        query.slug = idOrSlug;
+      }
+      const page = await WikiPage.findOne(query).lean();
+      if (!page) return res.status(404).json({ error: 'Shared wiki page not found.' });
+      res.status(200).json({
+        page: serializeWikiPage(page),
+        sharedAt: page.updatedAt || page.createdAt || null
+      });
+    } catch (error) {
+      console.error('Error fetching public wiki page:', error);
+      res.status(500).json({ error: 'Failed to fetch shared wiki page.' });
+    }
+  });
+
   router.get('/api/wiki/pages/:id/markdown', wikiAuth, async (req, res) => {
     try {
       const page = await findOwnedPage(req).lean();

@@ -40,6 +40,23 @@ const useLibraryArticles = ({ scope, folderId, query = '', sort = 'recent' }) =>
 
   const articles = useMemo(() => {
     const getHighlightCount = (article) => Number(article?.highlightCount ?? article?.highlights?.length ?? 0);
+    const searchableArticleText = (article = {}) => [
+      article.title,
+      article.url,
+      article.source,
+      article.publication,
+      article.publisher,
+      article.siteName,
+      article.summary,
+      article.description,
+      article.excerpt,
+      article.previewText,
+      article.snippet,
+      ...(Array.isArray(article.tags) ? article.tags : []),
+      ...(Array.isArray(article.concepts)
+        ? article.concepts.map(item => item?.name || item?.tag || item)
+        : [])
+    ].filter(Boolean).join(' ').toLowerCase();
     let next = allArticles;
     if (scope === 'folder' && !folderId) {
       next = [];
@@ -50,9 +67,11 @@ const useLibraryArticles = ({ scope, folderId, query = '', sort = 'recent' }) =>
     }
     const normalizedQuery = query.trim().toLowerCase();
     if (normalizedQuery) {
-      next = next.filter(article =>
-        `${article.title || ''} ${article.url || ''}`.toLowerCase().includes(normalizedQuery)
-      );
+      const terms = normalizedQuery.split(/\s+/).filter(Boolean);
+      next = next.filter(article => {
+        const haystack = searchableArticleText(article);
+        return terms.every(term => haystack.includes(term));
+      });
     }
     if (sort === 'oldest') {
       next = [...next].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));

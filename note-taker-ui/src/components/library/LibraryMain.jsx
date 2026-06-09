@@ -27,8 +27,10 @@ const LibraryMain = ({
   onDumpToWorkingMemory,
   folderOptions,
   articleOptions,
+  articleQuery,
   externalQuery,
   highlightView,
+  onArticleQueryChange,
   onQueryChange,
   onDumpHighlight
 }) => {
@@ -93,7 +95,11 @@ const LibraryMain = ({
           ? 'No unfiled articles right now.'
           : scope === 'folder'
             ? `No articles in ${selectedFolderName || 'this folder'} yet.`
-            : 'No articles saved yet.'}
+            : articleQuery
+              ? `No articles match "${articleQuery}".`
+              : 'No articles saved yet.'}
+        query={articleQuery}
+        onQueryChange={onArticleQueryChange}
         onSelectArticle={onSelectArticle}
         onMoveArticle={onMoveArticle}
       />

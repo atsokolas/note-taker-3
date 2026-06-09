@@ -155,12 +155,85 @@ body.calm-ui-global .library-page-shell .library-article-list.is-empty .library-
 
 body.calm-ui-global .library-page-shell .library-article-row {
   position: relative;
+  display: grid;
+  grid-template-columns: minmax(82px, 0.16fr) minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 18px;
+  min-height: 136px;
+  padding: 14px 12px;
   border: 0;
   border-radius: 0;
   border-bottom: 1px solid var(--calm-system-border-soft);
   background: transparent;
   isolation: isolate;
   transition: background-color 220ms ease-out, transform 220ms ease-out;
+}
+
+body.calm-ui-global .library-page-shell .library-article-row-date {
+  padding-top: 4px;
+  min-width: 0;
+  white-space: nowrap;
+}
+
+body.calm-ui-global .library-page-shell .library-article-row-main {
+  display: grid;
+  min-width: 0;
+  width: 100%;
+  gap: 6px;
+  padding: 0;
+  text-align: left;
+}
+
+body.calm-ui-global .library-page-shell .library-article-row-title {
+  display: -webkit-box;
+  max-width: 100%;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-height: 1.1;
+}
+
+body.calm-ui-global .library-page-shell .library-article-row-kicker,
+body.calm-ui-global .library-page-shell .library-article-row-meta {
+  display: flex;
+  min-width: 0;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+body.calm-ui-global .library-page-shell .library-article-row-excerpt {
+  display: -webkit-box;
+  max-width: 100%;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-height: 1.35;
+}
+
+body.calm-ui-global .library-page-shell .library-article-search {
+  display: grid;
+  gap: 7px;
+  margin: 0 0 4px;
+}
+
+body.calm-ui-global .library-page-shell .library-article-search span {
+  font-family: var(--calm-ui-font);
+  font-size: 0.62rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--calm-muted);
+}
+
+body.calm-ui-global .library-page-shell .library-article-search input {
+  width: 100%;
+  min-height: 42px;
+  border: 1px solid var(--calm-system-border-soft);
+  border-radius: 0;
+  background: color-mix(in srgb, var(--calm-bg-1) 92%, var(--mix-lift));
+  color: var(--calm-text);
+  padding: 0 12px;
+  font: inherit;
 }
 
 body.calm-ui-global .library-page-shell .library-article-row:last-child {

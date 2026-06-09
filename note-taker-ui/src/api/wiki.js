@@ -55,6 +55,11 @@ export const getWikiPage = async (id) => {
   return res.data;
 };
 
+export const getPublicWikiPage = async (idOrSlug) => {
+  const res = await api.get(`/api/public/wiki/pages/${safeId(idOrSlug)}`);
+  return res.data || {};
+};
+
 export const getWikiPageMarkdown = async (id) => {
   const res = await api.get(`${WIKI_PAGES_PATH}/${safeId(id)}/markdown`, {
     ...getAuthHeaders(),
@@ -510,6 +515,7 @@ const wikiApi = {
   listWikiPages,
   createWikiPage,
   getWikiPage,
+  getPublicWikiPage,
   getWikiPageMarkdown,
   getWikiExportZipUrl,
   downloadWikiExportZip,

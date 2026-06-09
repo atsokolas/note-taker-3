@@ -43,6 +43,7 @@ const Library = () => {
   const requestedArticleId = searchParams.get('articleId') || '';
   const requestedHighlightId = searchParams.get('highlightId') || '';
   const shouldOpenReferencePullIn = searchParams.get('pull') === '1';
+  const articleQuery = searchParams.get('aq') || '';
   const highlightQuery = searchParams.get('hq') || '';
   const highlightView = searchParams.get('highlightView') || 'concept';
   const [selectedArticleId, setSelectedArticleId] = useState('');
@@ -84,6 +85,7 @@ const Library = () => {
   } = useLibraryArticles({
     scope,
     folderId,
+    query: articleQuery,
     sort: 'recent'
   });
   const { tags, loading: tagsLoading } = useTags();
@@ -182,6 +184,24 @@ const Library = () => {
     }
     setSearchParams(params);
   }, [searchParams, setSearchParams]);
+
+  const handleArticleQueryChange = useCallback((value) => {
+    const nextValue = String(value || '');
+    const params = new URLSearchParams(searchParams);
+    if (nextValue.trim()) {
+      params.set('aq', nextValue);
+      if (scope === 'highlights') {
+        params.set('scope', 'all');
+        params.delete('hq');
+        params.delete('highlightView');
+      }
+    } else {
+      params.delete('aq');
+    }
+    params.delete('articleId');
+    params.delete('highlightId');
+    setSearchParams(params);
+  }, [scope, searchParams, setSearchParams]);
 
   const handleSelectFolder = useCallback((id) => {
     const params = new URLSearchParams(searchParams);
@@ -587,7 +607,16 @@ const Library = () => {
         )}
       </div>
       <div className="library-search-panel">
-        <SectionHeader title="Search" subtitle="Find highlights fast." />
+        <SectionHeader title="Search" subtitle="Find articles or highlights fast." />
+        <label className="feedback-field" style={{ margin: 0 }}>
+          <span>Article search</span>
+          <input
+            type="search"
+            value={articleQuery}
+            placeholder="Search articles..."
+            onChange={(event) => handleArticleQueryChange(event.target.value)}
+          />
+        </label>
         <label className="feedback-field" style={{ margin: 0 }}>
           <span>Highlight search</span>
           <input
@@ -644,11 +673,16 @@ const Library = () => {
     const shelfLabel = scope === 'folder' && selectedFolderName ? selectedFolderName : scope;
     return [
       `${allArticles.length} sources in library`,
-      highlightQuery ? `filtering highlights for "${highlightQuery}"` : `watching ${shelfLabel} shelf`,
+      articleQuery
+        ? `filtering articles for "${articleQuery}"`
+        : highlightQuery
+          ? `filtering highlights for "${highlightQuery}"`
+          : `watching ${shelfLabel} shelf`,
       topThemeTags.length > 0 ? `themes: ${topThemeTags.join(', ')}` : 'waiting for highlights to reveal themes'
     ];
   }, [
     allArticles.length,
+    articleQuery,
     articleHighlightCount,
     articleReferenceCount,
     highlightQuery,
@@ -748,8 +782,10 @@ const Library = () => {
       onDumpToWorkingMemory={(highlight) => handleDumpToWorkingMemory(highlight?.text || '')}
       folderOptions={folderOptions}
       articleOptions={articleOptions}
+      articleQuery={articleQuery}
       externalQuery={highlightQuery}
       highlightView={highlightView}
+      onArticleQueryChange={handleArticleQueryChange}
       onQueryChange={handleHighlightQueryChange}
       onDumpHighlight={(highlight) => handleDumpToWorkingMemory(highlight?.text || '')}
     />

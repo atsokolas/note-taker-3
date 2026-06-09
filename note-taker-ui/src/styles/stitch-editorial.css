@@ -1226,7 +1226,8 @@ body.noeis-editorial .library-article-row {
   grid-template-columns: 96px minmax(0, 1fr) auto;
   gap: 16px;
   align-items: start;
-  padding: 22px 0;
+  min-height: 136px;
+  padding: 14px 0;
   border-bottom: 1px solid var(--vellum-line);
 }
 
@@ -1241,7 +1242,9 @@ body.noeis-editorial .library-article-row-date {
 
 body.noeis-editorial .library-article-row-main {
   display: grid;
-  gap: 10px;
+  gap: 7px;
+  min-width: 0;
+  width: 100%;
   padding: 0;
   border: 0;
   background: transparent;
@@ -1249,6 +1252,11 @@ body.noeis-editorial .library-article-row-main {
 }
 
 body.noeis-editorial .library-article-row-title {
+  display: -webkit-box;
+  max-width: 100%;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
   font-size: clamp(1.55rem, 1.9vw, 2.4rem);
   line-height: 1.08;
 }
@@ -1269,9 +1277,13 @@ body.noeis-editorial .library-article-row-tag {
 }
 
 body.noeis-editorial .library-article-row-excerpt {
+  display: -webkit-box;
   max-width: 680px;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
   font-size: 1rem;
-  line-height: 1.62;
+  line-height: 1.38;
 }
 
 body.noeis-editorial .library-article-row-meta {
@@ -7594,13 +7606,39 @@ body.noeis-editorial .three-pane--library .library-article-row-action {
 }
 
 body.noeis-editorial .three-pane--library .library-article-row-title {
+  max-width: 100%;
   font-size: clamp(1.28rem, 1.7vw, 1.8rem);
 }
 
 body.noeis-editorial .three-pane--library .library-article-row-excerpt {
   max-width: 600px;
   font-size: 0.94rem;
-  line-height: 1.52;
+  line-height: 1.38;
+}
+
+body.noeis-editorial .library-article-search {
+  display: grid;
+  gap: 8px;
+  margin: 0 0 8px;
+}
+
+body.noeis-editorial .library-article-search span {
+  font-family: var(--noeis-ui-font);
+  font-size: 0.62rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--vellum-blue) 70%, var(--vellum-ink));
+}
+
+body.noeis-editorial .library-article-search input {
+  width: 100%;
+  min-height: 42px;
+  border: 1px solid var(--vellum-line);
+  border-radius: 0;
+  background: color-mix(in srgb, var(--vellum-surface) 82%, transparent);
+  color: var(--vellum-ink);
+  padding: 0 12px;
+  font: inherit;
 }
 
 body.noeis-editorial .three-pane--library .library-highlights-surface > .ui-section-header {

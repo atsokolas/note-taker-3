@@ -60,7 +60,7 @@ const getExcerpt = (article) => {
  *  onMoveArticle?: (article: { _id: string }) => void
  * }} props
  */
-const ARTICLE_ROW_HEIGHT = 92;
+const ARTICLE_ROW_HEIGHT = 148;
 const SKELETON_ROWS = 6;
 
 const ArticleRowSkeleton = React.memo(() => (
@@ -145,7 +145,9 @@ const LibraryArticleList = ({
   emptyLabel,
   onSelectArticle,
   onMoveArticle,
-  scope = 'all'
+  scope = 'all',
+  query = '',
+  onQueryChange = null
 }) => {
   const hasError = Boolean(error);
   const isEmpty = !loading && !hasError && articles.length === 0;
@@ -164,6 +166,18 @@ const LibraryArticleList = ({
         subtitle="Saved reads and source material."
         className="library-section-head is-articles"
       />
+      {onQueryChange ? (
+        <label className="library-article-search" htmlFor="library-article-search">
+          <span>Search articles</span>
+          <input
+            id="library-article-search"
+            type="search"
+            value={query}
+            placeholder="Search titles, sources, tags..."
+            onChange={(event) => onQueryChange(event.target.value)}
+          />
+        </label>
+      ) : null}
       {loading && (
         <div className="library-article-skeletons">
           {Array.from({ length: SKELETON_ROWS }).map((_, index) => (

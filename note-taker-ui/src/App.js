@@ -79,6 +79,7 @@ const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy'));
 const TermsOfUse = lazy(() => import('./pages/TermsOfUse'));
 const DesignPreview = lazy(() => import('./pages/DesignPreview'));
 const SharedConcept = lazy(() => import('./pages/SharedConcept'));
+const SharedWikiPage = lazy(() => import('./pages/SharedWikiPage'));
 
 const RouteLoadingFallback = () => {
   const isWikiRoute = typeof window !== 'undefined' && window.location.pathname.startsWith('/wiki');
@@ -216,6 +217,7 @@ const PublicRoutes = ({ chromeStoreLink, handleLoginSuccess, uiSettings }) => {
           <Route path="/terms" element={<TermsOfUse />} />
           <Route path="/design-preview" element={<DesignPreview />} />
           <Route path="/share/concepts/:slug" element={<SharedConcept />} />
+          <Route path="/share/wiki/:idOrSlug" element={<SharedWikiPage />} />
           <Route path="/settings/connected-agents/authorize" element={<AgentConnectAuthorize />} />
           <Route path="/a/run/:taskId" element={<AgentTaskRun />} />
           <Route path="/register" element={<Register chromeStoreLink={chromeStoreLink} />} />
@@ -553,6 +555,7 @@ function App() {
             <Route path="/terms" element={<TermsOfUse />} />
             <Route path="/design-preview" element={<DesignPreview />} />
             <Route path="/share/concepts/:slug" element={<SharedConcept />} />
+            <Route path="/share/wiki/:idOrSlug" element={<SharedWikiPage />} />
 
             {/* Legacy/feature routes kept for compatibility */}
             <Route path="/brain" element={<Navigate to="/review?tab=patterns" replace />} />

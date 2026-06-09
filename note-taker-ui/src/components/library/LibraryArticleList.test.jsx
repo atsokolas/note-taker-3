@@ -59,6 +59,15 @@ describe('LibraryArticleList', () => {
     expect(onSelect).toHaveBeenCalledWith('a1');
   });
 
+  it('renders an article search box when a query handler is provided', () => {
+    const onQueryChange = jest.fn();
+    renderList({ query: 'Munger', onQueryChange });
+    const input = screen.getByLabelText('Search articles');
+    expect(input).toHaveValue('Munger');
+    fireEvent.change(input, { target: { value: 'Buffett' } });
+    expect(onQueryChange).toHaveBeenCalledWith('Buffett');
+  });
+
   it('Move action does not trigger row select (stopPropagation)', () => {
     const onSelect = jest.fn();
     const onMove = jest.fn();

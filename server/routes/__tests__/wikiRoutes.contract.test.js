@@ -929,6 +929,68 @@ const run = async () => {
     });
     assert.strictEqual(hiddenFromOtherUser.res.status, 404, hiddenFromOtherUser.text);
 
+    const sharedPage = new WikiPage({
+      userId: 'user-1',
+      title: 'Public Systems Page',
+      slug: 'public-systems-page',
+      pageType: 'topic',
+      status: 'published',
+      visibility: 'shared',
+      plainText: 'A shared systems page for unauthenticated readers.',
+      body: {
+        type: 'doc',
+        content: [{
+          type: 'paragraph',
+          content: [{ type: 'text', text: 'A shared systems page for unauthenticated readers.' }]
+        }]
+      }
+    });
+    await sharedPage.save();
+    const privatePage = new WikiPage({
+      userId: 'user-1',
+      title: 'Private Systems Page',
+      slug: 'private-systems-page',
+      pageType: 'topic',
+      status: 'published',
+      visibility: 'private',
+      plainText: 'This private page must not be public.'
+    });
+    await privatePage.save();
+    const archivedSharedPage = new WikiPage({
+      userId: 'user-1',
+      title: 'Archived Shared Systems Page',
+      slug: 'archived-shared-systems-page',
+      pageType: 'topic',
+      status: 'archived',
+      visibility: 'shared',
+      plainText: 'This archived page must not be public.'
+    });
+    await archivedSharedPage.save();
+
+    const publicBySlug = await request(url, '/api/public/wiki/pages/public-systems-page', {
+      headers: {}
+    });
+    assert.strictEqual(publicBySlug.res.status, 200, publicBySlug.text);
+    assert.strictEqual(publicBySlug.body.page._id, String(sharedPage._id));
+    assert.strictEqual(publicBySlug.body.page.visibility, 'shared');
+    assert.strictEqual(publicBySlug.body.page.plainText, 'A shared systems page for unauthenticated readers.');
+
+    const publicById = await request(url, `/api/public/wiki/pages/${sharedPage._id}`, {
+      headers: {}
+    });
+    assert.strictEqual(publicById.res.status, 200, publicById.text);
+    assert.strictEqual(publicById.body.page.slug, 'public-systems-page');
+
+    const hiddenPrivatePublicPage = await request(url, '/api/public/wiki/pages/private-systems-page', {
+      headers: {}
+    });
+    assert.strictEqual(hiddenPrivatePublicPage.res.status, 404, hiddenPrivatePublicPage.text);
+
+    const hiddenArchivedPublicPage = await request(url, '/api/public/wiki/pages/archived-shared-systems-page', {
+      headers: {}
+    });
+    assert.strictEqual(hiddenArchivedPublicPage.res.status, 404, hiddenArchivedPublicPage.text);
+
     const invalidBody = await request(url, `/api/wiki/pages/${created.body._id}`, {
       method: 'PATCH',
       body: JSON.stringify({ body: [] })
@@ -1494,8 +1556,8 @@ const run = async () => {
 
     const archivedList = await request(url, '/api/wiki/pages?status=archived');
     assert.strictEqual(archivedList.res.status, 200, archivedList.text);
-    assert.strictEqual(archivedList.body.length, 1);
-    assert.strictEqual(archivedList.body[0]._id, created.body._id);
+    assert.ok(archivedList.body.some(page => page._id === created.body._id));
+    assert.ok(archivedList.body.some(page => page._id === String(archivedSharedPage._id)));
   } finally {
     await new Promise((resolve, reject) => server.close(error => (error ? reject(error) : resolve())));
   }
