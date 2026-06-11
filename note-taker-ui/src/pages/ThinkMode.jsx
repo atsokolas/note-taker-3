@@ -77,7 +77,6 @@ const LibraryNotebookModal = lazy(() => import('../components/library/LibraryNot
 const LibraryQuestionModal = lazy(() => import('../components/library/LibraryQuestionModal'));
 const SynthesisModal = lazy(() => import('../components/think/SynthesisModal'));
 const WorkingMemoryPanel = lazy(() => import('../components/working-memory/WorkingMemoryPanel'));
-const ConceptPathWorkspace = lazy(() => import('../components/paths/ConceptPathWorkspace'));
 const ThoughtPartnerPanel = lazy(() => import('../components/agent/ThoughtPartnerPanel'));
 const AgentSkillDock = lazy(() => import('../components/agent/AgentSkillDock'));
 const AgentArtifactDraftsPanel = lazy(() => import('../components/agent/AgentArtifactDraftsPanel'));
@@ -94,6 +93,7 @@ const SemanticRelatedPanel = lazy(() => import('../components/retrieval/Semantic
 const QuestionEditorialView = lazy(() => import('../components/think/questions/QuestionEditorialView'));
 const InsightsPanel = lazy(() => import('../components/think/insights/InsightsPanel'));
 const ProtocolRouteView = lazy(() => import('../components/think/protocol/ProtocolRouteView'));
+const PathsRouteView = lazy(() => import('../components/think/paths/PathsRouteView'));
 
 const THINK_RIGHT_STORAGE_KEY = 'workspace-right-open:/think';
 const THINK_RIGHT_MIGRATION_KEY = 'workspace-right-open:/think:migrated-v2';
@@ -3727,7 +3727,7 @@ const ThinkMode = () => {
       onQueueFollowUpLoop={handleQueueFollowUpLoopFromDraft}
     />
   ) : activeView === 'paths' ? (
-    <ConceptPathWorkspace
+    <PathsRouteView
       selectedPathId={selectedPathId}
       onSelectPath={handleSelectPath}
     />

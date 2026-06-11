@@ -212,6 +212,34 @@ CI=true npm run build
 
 All pass after extraction.
 
+## Paths extraction proof
+
+Created `note-taker-ui/src/components/think/paths/PathsRouteView.jsx`.
+
+This moves the remaining path route main pane out of `ThinkMode.jsx`:
+
+- `ConceptPathWorkspace` wrapper.
+- `selectedPathId` and `onSelectPath` forwarding.
+
+Parent-owned state and side effects intentionally remain in `ThinkMode.jsx`:
+
+- Search-param routing.
+- `selectedPathId` derivation.
+- `handleSelectPath` mutation of URL params.
+- Shared default left and right rails.
+
+No path-specific left or right rail existed; paths intentionally continue using the generic `ThreePaneLayout` fallback rails.
+
+Verification:
+
+```bash
+git diff --check
+CI=1 npm test -- --watchAll=false --runInBand src/pages/ThinkMode.templates.test.jsx
+CI=true npm run build
+```
+
+All pass after extraction.
+
 ## AT-354 diagnostic
 
 The persistent rail clip is probably not the rail column itself. The right rail column is narrow by design:
@@ -281,9 +309,10 @@ CI=true npm run build
 5. Extract `ProtocolRouteView` for threads and handoffs.
 6. Extract the remaining path fallback branch into a small `PathsRouteView`.
 7. Purge stale legacy CSS after selector reachability is rechecked.
+8. Update stale e2e selectors that still reference removed concept-index card classes.
 
 ## Cursor-delegatable follow-ups
 
 - Purge the inventoried stale CSS selectors after this extraction: `.think-concept-hero`, `.think-concept-kicker`, `.think-concept-summary*`, `.concept-description`, `.think-concept-toolbar`, `.concept-suggestion-actions`, and stale `.think-concepts-index-card*` / `.think-concepts-index-section*` / `.think-concepts-index-rail` selectors. Keep live selectors such as `.think-concept-loading`, `.think-concepts-index-surface`, `.think-concepts-index-hero`, `.think-concepts-index-hero__eyebrow`, `.think-concepts-index-list`, `.concept-editorial-shell*`, and `.concept-highlight-card`.
-- Write a no-edit extraction plan for the remaining `PathsRouteView`. Include exact props, tests, and whether it should own only the main `ConceptPathWorkspace` branch or also any path-specific right-rail copy.
+- Update `note-taker-ui/e2e/think-concept-agent-flow.spec.js` where it still clicks `.think-concepts-index-card`; use `page.getByRole('button', { name: /Archive Memory/ }).click()` after the existing `think-concept-status-Archive%20Memory` wait.
 - Browser-QA `/think?tab=notebook&legacyShell=0` to confirm the extracted notebook `left`/`main`/`right` variants still match the pre-extraction fallback.
