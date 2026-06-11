@@ -9708,10 +9708,34 @@ body.noeis-editorial .concept-index-editorial-shell--calm,
    Long letter-spaced eyebrows and prompt rows wrap instead of overflowing. */
 .concept-editorial-partner,
 .concept-editorial-evidence { min-width: 0; }
+.concept-editorial-evidence__result-head,
+.concept-editorial-evidence__item-footer,
+.question-editorial-shell__right .related-embed-row,
+.question-editorial-shell__right .context-connection-row {
+  min-width: 0;
+  max-width: 100%;
+  flex-wrap: wrap;
+}
+.concept-editorial-evidence__result-head > *,
+.concept-editorial-evidence__item-footer > *,
+.question-editorial-shell__right .related-embed-row > *,
+.question-editorial-shell__right .context-connection-row > * {
+  min-width: 0;
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
 .concept-editorial-partner__note,
 .concept-editorial-partner__nav-label,
 .concept-editorial-evidence p,
-.concept-editorial-evidence span {
+.concept-editorial-evidence span,
+.concept-editorial-evidence strong,
+.concept-editorial-evidence em,
+.concept-editorial-evidence button,
+.question-editorial-shell__right .related-embed-row,
+.question-editorial-shell__right .related-embed-row *,
+.question-editorial-shell__right .context-connection-row,
+.question-editorial-shell__right .context-connection-row * {
   white-space: normal;
   overflow-wrap: anywhere;
 }
