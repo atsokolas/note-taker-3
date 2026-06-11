@@ -20,6 +20,8 @@ import { updateConcept } from '../api/concepts';
 import { createWikiPage } from '../api/wiki';
 import { listWorkingMemory } from '../api/workingMemory';
 import { navigateWithViewTransition } from '../utils/viewTransitionNavigation';
+import useAgentThreads from '../hooks/useAgentThreads';
+import useHandoffs from '../hooks/useHandoffs';
 
 const mockThoughtPartnerPanel = jest.fn();
 const mockQuestionEditor = jest.fn();
@@ -163,7 +165,52 @@ jest.mock('../components/think/SynthesisModal', () => () => null);
 jest.mock('../components/working-memory/WorkingMemoryPanel', () => () => null);
 jest.mock('../components/return-queue/ReturnLaterControl', () => () => null);
 jest.mock('../components/connections/ConnectionBuilder', () => () => null);
-jest.mock('../components/paths/ConceptPathWorkspace', () => () => null);
+jest.mock('../components/paths/ConceptPathWorkspace', () => ({
+  __esModule: true,
+  default: () => <div data-testid="think-paths-workspace">Concept paths</div>
+}));
+
+jest.mock('../components/think/threads/ThreadsSidebar', () => ({
+  __esModule: true,
+  default: () => <div data-testid="think-threads-left-panel">Threads sidebar</div>
+}));
+
+jest.mock('../components/think/threads/ThreadsMainPanel', () => ({
+  __esModule: true,
+  default: () => <div data-testid="think-threads-main">Threads main</div>
+}));
+
+jest.mock('../components/think/handoffs/HandoffsSidebar', () => ({
+  __esModule: true,
+  default: () => <div data-testid="think-handoffs-left-panel">Handoffs sidebar</div>
+}));
+
+jest.mock('../components/think/handoffs/HandoffsMainPanel', () => ({
+  __esModule: true,
+  default: () => <div data-testid="think-handoffs-main">Handoffs main</div>
+}));
+
+jest.mock('../hooks/useAgentThreads', () => jest.fn());
+jest.mock('../hooks/useHandoffs', () => jest.fn());
+jest.mock('../hooks/useProtocolApprovals', () => jest.fn(() => ({
+  approvals: [],
+  loading: false,
+  loadProtocolApprovals: jest.fn()
+})));
+jest.mock('../hooks/useProtocolHookRuns', () => jest.fn(() => ({
+  hookRuns: [],
+  loading: false
+})));
+jest.mock('../hooks/useAgentArtifactDrafts', () => jest.fn(() => ({
+  artifactDrafts: [],
+  pendingCount: 0,
+  loadArtifactDrafts: jest.fn()
+})));
+jest.mock('../hooks/useAgentUpkeepCycles', () => jest.fn(() => ({
+  cycles: [],
+  loading: false,
+  loadUpkeepCycles: jest.fn()
+})));
 jest.mock('../components/agent/ThoughtPartnerPanel', () => ({
   __esModule: true,
   default: (props) => {
@@ -259,6 +306,20 @@ jest.mock('../api/workingMemory', () => ({
 const refreshConceptsMock = jest.fn().mockResolvedValue(undefined);
 const pendingRequest = () => new Promise(() => {});
 
+const defaultThreadsModel = {
+  threads: [{ threadId: 'thread-1', title: 'Review synthesis', status: 'active' }],
+  activeThreadData: { threadId: 'thread-1', title: 'Review synthesis', status: 'active' },
+  loadThreads: jest.fn(),
+  sortedPersonalAgents: []
+};
+
+const defaultHandoffsModel = {
+  handoffs: [{ handoffId: 'handoff-1', title: 'Research handoff', status: 'pending' }],
+  activeHandoffData: { handoffId: 'handoff-1', title: 'Research handoff', status: 'pending' },
+  loadHandoffs: jest.fn(),
+  sortedPersonalAgents: []
+};
+
 describe('ThinkMode template integration', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -327,6 +388,9 @@ describe('ThinkMode template integration', () => {
     updateConcept.mockResolvedValue({ _id: 'concept-1', name: 'Template Concept', description: '' });
     createWikiPage.mockResolvedValue({ _id: 'wiki-created' });
     navigateWithViewTransition.mockImplementation((navigate, destination, options) => navigate(destination, options));
+
+    useAgentThreads.mockReturnValue(defaultThreadsModel);
+    useHandoffs.mockReturnValue(defaultHandoffsModel);
   });
 
   it('defaults Think to the concept workspace and keeps advanced routes in the actions menu', async () => {
@@ -1026,6 +1090,109 @@ describe('ThinkMode template integration', () => {
     fireEvent.click(await screen.findByTestId('think-concepts-empty-create-button'));
 
     expect(screen.getByTestId('think-concept-composer-input')).toBeVisible();
+  });
+
+  describe('ThreePaneLayout fallback routes', () => {
+    it('renders threads through ThreePaneLayout with threadLeftPanel content', async () => {
+      useSearchParamsMock.mockReturnValue([
+        new URLSearchParams('tab=threads&threadId=thread-1'),
+        mockSetSearchParams
+      ]);
+
+      render(
+        <MemoryRouter initialEntries={['/think?tab=threads&threadId=thread-1']}>
+          <ThinkMode />
+        </MemoryRouter>
+      );
+
+      expect(await screen.findByTestId('think-left-panel')).toBeInTheDocument();
+      expect(screen.getByTestId('think-main-panel')).toBeInTheDocument();
+      expect(screen.getByTestId('think-threads-left-panel')).toBeInTheDocument();
+      expect(screen.getByTestId('think-threads-main')).toBeInTheDocument();
+      expect(document.querySelector('.notebook-editorial-shell-page')).toBeNull();
+    });
+
+    it('renders handoffs through ThreePaneLayout with handoffLeftPanel content', async () => {
+      useSearchParamsMock.mockReturnValue([
+        new URLSearchParams('tab=handoffs&handoffId=handoff-1'),
+        mockSetSearchParams
+      ]);
+
+      render(
+        <MemoryRouter initialEntries={['/think?tab=handoffs&handoffId=handoff-1']}>
+          <ThinkMode />
+        </MemoryRouter>
+      );
+
+      expect(await screen.findByTestId('think-left-panel')).toBeInTheDocument();
+      expect(screen.getByTestId('think-main-panel')).toBeInTheDocument();
+      expect(screen.getByTestId('think-handoffs-left-panel')).toBeInTheDocument();
+      expect(screen.getByTestId('think-handoffs-main')).toBeInTheDocument();
+      expect(document.querySelector('.notebook-editorial-shell-page')).toBeNull();
+    });
+
+    it('renders paths through ThreePaneLayout main panel', async () => {
+      useSearchParamsMock.mockReturnValue([
+        new URLSearchParams('tab=paths&pathId=path-1'),
+        mockSetSearchParams
+      ]);
+
+      render(
+        <MemoryRouter initialEntries={['/think?tab=paths&pathId=path-1']}>
+          <ThinkMode />
+        </MemoryRouter>
+      );
+
+      expect(await screen.findByTestId('think-left-panel')).toBeInTheDocument();
+      expect(screen.getByTestId('think-main-panel')).toBeInTheDocument();
+      expect(screen.getByTestId('think-paths-workspace')).toBeInTheDocument();
+      expect(document.querySelector('.notebook-editorial-shell-page')).toBeNull();
+    });
+
+    it('renders insights through ThreePaneLayout with insights panel content', async () => {
+      useSearchParamsMock.mockReturnValue([
+        new URLSearchParams('tab=insights'),
+        mockSetSearchParams
+      ]);
+      api.get.mockImplementation((path) => {
+        if (String(path).includes('/api/ai/health')) {
+          return Promise.resolve({ data: { status: 'ok' } });
+        }
+        if (String(path).includes('/api/ai/themes')) {
+          return Promise.resolve({ data: { clusters: [] } });
+        }
+        return pendingRequest();
+      });
+
+      render(
+        <MemoryRouter initialEntries={['/think?tab=insights']}>
+          <ThinkMode />
+        </MemoryRouter>
+      );
+
+      expect(await screen.findByTestId('think-left-panel')).toBeInTheDocument();
+      expect(screen.getByTestId('think-main-panel')).toBeInTheDocument();
+      expect(await screen.findByText('Insights')).toBeInTheDocument();
+      expect(screen.getByText('Themes and connections across your thinking.')).toBeInTheDocument();
+      expect(document.querySelector('.notebook-editorial-shell-page')).toBeNull();
+    });
+
+    it('keeps threads on ThreePaneLayout when legacyShell=0', async () => {
+      useSearchParamsMock.mockReturnValue([
+        new URLSearchParams('tab=threads&threadId=thread-1&legacyShell=0'),
+        mockSetSearchParams
+      ]);
+
+      render(
+        <MemoryRouter initialEntries={['/think?tab=threads&threadId=thread-1&legacyShell=0']}>
+          <ThinkMode />
+        </MemoryRouter>
+      );
+
+      expect(await screen.findByTestId('think-threads-main')).toBeInTheDocument();
+      expect(screen.getByTestId('think-left-panel')).toBeInTheDocument();
+      expect(document.querySelector('.notebook-editorial-shell-page')).toBeNull();
+    });
   });
 
   it.each([
