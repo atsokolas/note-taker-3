@@ -182,6 +182,36 @@ CI=true npm run build
 
 All pass after extraction.
 
+## Protocol extraction proof
+
+Created `note-taker-ui/src/components/think/protocol/ProtocolRouteView.jsx`.
+
+This moves the shared protocol route panes out of `ThinkMode.jsx`:
+
+- Threads left rail and main protocol canvas.
+- Handoffs left rail and main protocol canvas.
+- Shared threads/handoffs right rail with working memory, protocol posture copy, and approval history.
+
+Parent-owned state and side effects intentionally remain in `ThinkMode.jsx`:
+
+- Thread and handoff hooks/models.
+- Approval, hook-run, artifact-draft, upkeep-cycle models.
+- Working-memory drawer state and mutations.
+- Search-param routing and open-thread/open-handoff callbacks.
+- Workflow-skill and draft follow-up handlers.
+
+The extraction uses `left`, `main`, and `right` variants so `ThreePaneLayout` ownership remains unchanged and `workingMemoryDrawer` is only passed after it is initialized, avoiding a TDZ regression.
+
+Verification:
+
+```bash
+git diff --check
+CI=1 npm test -- --watchAll=false --runInBand src/pages/ThinkMode.templates.test.jsx
+CI=true npm run build
+```
+
+All pass after extraction.
+
 ## AT-354 diagnostic
 
 The persistent rail clip is probably not the rail column itself. The right rail column is narrow by design:
@@ -248,11 +278,12 @@ CI=true npm run build
 2. Browser-measure concept and question right rails. If AT-354 still fails, patch only the measured descendant.
 3. Extract `NotebookEditorialView` after question path stabilizes.
 4. Extract `InsightsPanel` from the remaining fallback branches.
-5. Reduce the remaining protocol/path fallback branches: threads, handoffs, and paths.
-6. Purge stale legacy CSS after selector reachability is rechecked.
+5. Extract `ProtocolRouteView` for threads and handoffs.
+6. Extract the remaining path fallback branch into a small `PathsRouteView`.
+7. Purge stale legacy CSS after selector reachability is rechecked.
 
 ## Cursor-delegatable follow-ups
 
 - Purge the inventoried stale CSS selectors after this extraction: `.think-concept-hero`, `.think-concept-kicker`, `.think-concept-summary*`, `.concept-description`, `.think-concept-toolbar`, `.concept-suggestion-actions`, and stale `.think-concepts-index-card*` / `.think-concepts-index-section*` / `.think-concepts-index-rail` selectors. Keep live selectors such as `.think-concept-loading`, `.think-concepts-index-surface`, `.think-concepts-index-hero`, `.think-concepts-index-hero__eyebrow`, `.think-concepts-index-list`, `.concept-editorial-shell*`, and `.concept-highlight-card`.
-- Write a no-edit extraction plan for the remaining fallback route modules: `ProtocolRouteView` for threads/handoffs and a small `PathsRouteView`. Include exact props, tests, and whether each branch is still mounted under `legacyShell=0`.
+- Write a no-edit extraction plan for the remaining `PathsRouteView`. Include exact props, tests, and whether it should own only the main `ConceptPathWorkspace` branch or also any path-specific right-rail copy.
 - Browser-QA `/think?tab=notebook&legacyShell=0` to confirm the extracted notebook `left`/`main`/`right` variants still match the pre-extraction fallback.

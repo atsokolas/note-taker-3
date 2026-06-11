@@ -82,7 +82,6 @@ const ThoughtPartnerPanel = lazy(() => import('../components/agent/ThoughtPartne
 const AgentSkillDock = lazy(() => import('../components/agent/AgentSkillDock'));
 const AgentArtifactDraftsPanel = lazy(() => import('../components/agent/AgentArtifactDraftsPanel'));
 const UpkeepCyclesPanel = lazy(() => import('../components/agent/UpkeepCyclesPanel'));
-const ProtocolApprovalsPanel = lazy(() => import('../components/agent/ProtocolApprovalsPanel'));
 const ConceptTemplatePickerModal = lazy(() => import('../components/think/concepts/ConceptTemplatePickerModal'));
 const ConceptEvidenceStreamView = lazy(() => import('../components/think/concepts/ConceptEvidenceStreamView'));
 const ConceptEvidenceStreamRail = lazy(() => import('../components/think/concepts/ConceptEvidenceStreamView')
@@ -92,12 +91,9 @@ const ConceptPartnerRail = lazy(() => import('../components/think/concepts/Conce
 const ThinkHome = lazy(() => import('../components/think/ThinkHome'));
 const ConceptShareModal = lazy(() => import('../components/think/concepts/ConceptShareModal'));
 const SemanticRelatedPanel = lazy(() => import('../components/retrieval/SemanticRelatedPanel'));
-const HandoffsSidebar = lazy(() => import('../components/think/handoffs/HandoffsSidebar'));
-const HandoffsMainPanel = lazy(() => import('../components/think/handoffs/HandoffsMainPanel'));
-const ThreadsSidebar = lazy(() => import('../components/think/threads/ThreadsSidebar'));
-const ThreadsMainPanel = lazy(() => import('../components/think/threads/ThreadsMainPanel'));
 const QuestionEditorialView = lazy(() => import('../components/think/questions/QuestionEditorialView'));
 const InsightsPanel = lazy(() => import('../components/think/insights/InsightsPanel'));
+const ProtocolRouteView = lazy(() => import('../components/think/protocol/ProtocolRouteView'));
 
 const THINK_RIGHT_STORAGE_KEY = 'workspace-right-open:/think';
 const THINK_RIGHT_MIGRATION_KEY = 'workspace-right-open:/think:migrated-v2';
@@ -2919,20 +2915,6 @@ const ThinkMode = () => {
   );
 
 
-  const handoffLeftPanel = (
-    <HandoffsSidebar
-      handoffsModel={handoffsModel}
-      onOpenHandoff={handleOpenHandoff}
-    />
-  );
-
-  const threadLeftPanel = (
-    <ThreadsSidebar
-      threadsModel={threadsModel}
-      onOpenThread={handleOpenThread}
-    />
-  );
-
   const isConceptWorkbenchView = activeView === 'concepts' && Boolean(selectedName);
   const isQuestionEditorialView = activeView === 'questions';
 
@@ -3652,9 +3634,23 @@ const ThinkMode = () => {
       />
     )
     : (activeView === 'threads'
-      ? threadLeftPanel
+      ? (
+        <ProtocolRouteView
+          variant="left"
+          mode="threads"
+          threadsModel={threadsModel}
+          onOpenThread={handleOpenThread}
+        />
+      )
       : activeView === 'handoffs'
-      ? handoffLeftPanel
+      ? (
+        <ProtocolRouteView
+          variant="left"
+          mode="handoffs"
+          handoffsModel={handoffsModel}
+          onOpenHandoff={handleOpenHandoff}
+        />
+      )
       : activeView === 'notebook'
         ? renderNotebookEditorialView('left')
         : activeView === 'concepts'
@@ -3701,11 +3697,12 @@ const ThinkMode = () => {
   ) : activeView === 'notebook' ? (
     renderNotebookEditorialView('main')
   ) : activeView === 'threads' ? (
-    <ThreadsMainPanel
+    <ProtocolRouteView
+      mode="threads"
       threadsModel={threadsModel}
-      relatedApprovalsModel={threadApprovalHistoryModel}
-      hookRunsModel={threadHookRunsModel}
-      draftsModel={protocolArtifactDraftsModel}
+      threadApprovalHistoryModel={threadApprovalHistoryModel}
+      threadHookRunsModel={threadHookRunsModel}
+      protocolArtifactDraftsModel={protocolArtifactDraftsModel}
       upkeepCyclesModel={upkeepCyclesModel}
       onOpenHandoff={handleOpenHandoff}
       onOpenThread={handleOpenThread}
@@ -3715,11 +3712,12 @@ const ThinkMode = () => {
       onQueueFollowUpLoop={handleQueueFollowUpLoopFromDraft}
     />
   ) : activeView === 'handoffs' ? (
-    <HandoffsMainPanel
+    <ProtocolRouteView
+      mode="handoffs"
       handoffsModel={handoffsModel}
-      relatedApprovalsModel={handoffApprovalHistoryModel}
-      hookRunsModel={handoffHookRunsModel}
-      draftsModel={protocolArtifactDraftsModel}
+      handoffApprovalHistoryModel={handoffApprovalHistoryModel}
+      handoffHookRunsModel={handoffHookRunsModel}
+      protocolArtifactDraftsModel={protocolArtifactDraftsModel}
       upkeepCyclesModel={upkeepCyclesModel}
       onOpenThread={handleOpenThread}
       onOpenHandoff={handleOpenHandoff}
@@ -3849,22 +3847,12 @@ const ThinkMode = () => {
   ) : activeView === 'notebook' ? (
     renderNotebookEditorialView('right')
   ) : activeView === 'threads' || activeView === 'handoffs' ? (
-    <div className="section-stack think-layout__right-panel">
-      {workingMemoryDrawer}
-      <SurfaceCard className="think-threads-card think-protocol-rail">
-        <SectionHeader
-          title={activeView === 'threads' ? 'Thread protocol' : 'Handoff protocol'}
-          subtitle="The main canvas now owns live state, drafts, upkeep loops, and operating history."
-        />
-        <p className="muted small">
-          Use this rail for working memory and approval actions. Planner state, specialist context, upkeep loops, artifacts, and execution history now stay together in the central operating canvas.
-        </p>
-      </SurfaceCard>
-      <ProtocolApprovalsPanel
-        approvalsModel={protocolApprovalsModel}
-        className="think-threads-card"
-      />
-    </div>
+    <ProtocolRouteView
+      variant="right"
+      mode={activeView}
+      protocolApprovalsModel={protocolApprovalsModel}
+      workingMemoryDrawer={workingMemoryDrawer}
+    />
   ) : (
     <div className="section-stack think-layout__right-panel">
       {workingMemoryDrawer}
