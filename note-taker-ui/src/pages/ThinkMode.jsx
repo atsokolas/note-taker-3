@@ -315,24 +315,6 @@ const formatReviewDate = (value) => {
     : { month: 'short', day: 'numeric', year: 'numeric' });
 };
 
-const describeConceptReviewState = (conceptItem = {}) => {
-  const freshness = conceptItem?.freshness || {};
-  const reviewedLabel = formatReviewDate(freshness?.lastReviewedAt);
-  if (freshness?.stale) {
-    if (reviewedLabel && freshness?.statusLabel) {
-      return `Last reviewed ${reviewedLabel}. ${freshness.statusLabel} waiting.`;
-    }
-    if (freshness?.statusLabel) {
-      return `${freshness.statusLabel} waiting in the archive.`;
-    }
-    return 'Newer archive material is waiting on this concept.';
-  }
-  if (reviewedLabel) {
-    return `Reviewed ${reviewedLabel}. Current with the archive you have already pulled through this concept.`;
-  }
-  return 'Open the concept to pull support, tension, and remembered reading back into the draft.';
-};
-
 // AT-329: instrument-register state note for "In motion" threads — only from
 // data we actually have.
 const describeConceptMotionNote = (conceptItem = {}) => {
@@ -513,7 +495,6 @@ const ThinkMode = () => {
   const activeView = resolveActiveView(searchParams);
   const [homeEditorialSection, setHomeEditorialSection] = useState('assistant');
   const [notebookEditorialSection, setNotebookEditorialSection] = useState('assistant');
-  const [conceptIndexSection, setConceptIndexSection] = useState('assistant');
   const [questionEditorialSection, setQuestionEditorialSection] = useState('assistant');
   const [queuedThoughtPartnerPrompt, setQueuedThoughtPartnerPrompt] = useState(null);
   const selectedPathId = searchParams.get('pathId') || '';
@@ -3050,10 +3031,6 @@ const ThinkMode = () => {
     () => concepts.filter((item) => Number(item?.count || 0) > 0).slice(0, THINK_HOME_LIMIT),
     [concepts]
   );
-  const templatePromptLines = [
-    'Use a template when the concept already has a known shape.',
-    'Create directly when the claim is still loose and needs room to move.'
-  ];
   const partnerRailNavItems = useMemo(() => ([
     { key: 'assistant', label: AGENT_DISPLAY_NAME, short: 'Tp' },
     { key: 'sources', label: 'Sources', short: 'So' },
@@ -3207,161 +3184,6 @@ const ThinkMode = () => {
     />
   );
 
-  const conceptIndexLeftPanel = (
-    <EditorialRail
-      heroTitle={AGENT_DISPLAY_NAME}
-      heroSubtitle="Contextual intelligence"
-      ctaLabel="New inquiry"
-      onCta={() => openConceptComposer('sidebar', search)}
-      navItems={partnerRailNavItems}
-      activeNav={conceptIndexSection}
-      onChangeNav={setConceptIndexSection}
-      sections={
-        conceptIndexSection === 'sources'
-          ? [
-              {
-                label: 'Search or create',
-                content: (
-                  <>
-                    <label className="feedback-field think-index__search" style={{ margin: 0 }}>
-                      <input
-                        type="text"
-                        value={search}
-                        placeholder="Search or create a concept"
-                        data-testid="think-concept-index-search-input"
-                        onChange={(event) => setSearch(event.target.value)}
-                        onKeyDown={(event) => {
-                          if (event.key !== 'Enter') return;
-                          if (event.nativeEvent?.isComposing) return;
-                          const candidate = normalizeConceptName(search);
-                          if (!candidate) return;
-                          event.preventDefault();
-                          submitConceptComposer(candidate, 'search-enter');
-                        }}
-                      />
-                    </label>
-                    {renderConceptComposer('sidebar')}
-                    {conceptComposerStatus.message && !conceptComposerOpen && (
-                      <p
-                        className={`think-concept-composer-status ${conceptComposerStatus.tone === 'error' ? 'is-error' : 'is-success'}`}
-                        data-testid="think-concept-composer-status"
-                      >
-                        {conceptComposerScouting && (
-                          <span className="think-inline-spinner" aria-hidden="true" />
-                        )}
-                        {conceptComposerStatus.message}
-                      </p>
-                    )}
-                    <div className="think-home-rail__actions">
-                      <QuietButton onClick={handleQueueOrganizationPrompt}>Clean up structure</QuietButton>
-                    </div>
-                    {conceptsError && <p className="status-message error-message">{conceptsError}</p>}
-                  </>
-                )
-              },
-              {
-                label: 'Search results',
-                flush: true,
-                content: conceptsLoading
-                  ? <SidebarSkeletonRows rows={8} />
-                  : renderPartnerConceptList(filteredConcepts.slice(0, 8), 'No concepts match.')
-              },
-              {
-                label: 'Working concepts',
-                content: (
-                  conceptsLoading
-                    ? <SidebarSkeletonRows rows={4} />
-                    : renderPartnerConceptList(conceptsWithHighlights.slice(0, 4), 'No concepts have evidence yet.')
-                )
-              }
-            ]
-          : conceptIndexSection === 'highlights'
-            ? [
-                {
-                  label: 'Concepts with evidence',
-                  flush: true,
-                  content: conceptsLoading
-                    ? <SidebarSkeletonRows rows={6} />
-                    : renderPartnerConceptList(conceptsWithHighlights, 'No concepts have highlights yet.')
-                },
-                {
-                  label: 'Search or create',
-                  content: (
-                    <label className="feedback-field think-index__search" style={{ margin: 0 }}>
-                      <input
-                        type="text"
-                        value={search}
-                        placeholder="Search or create a concept"
-                        onChange={(event) => setSearch(event.target.value)}
-                      />
-                    </label>
-                  )
-                },
-                {
-                  label: 'Template moves',
-                  content: <p>Use templates when the shape is already known and you only need to gather support.</p>
-                }
-              ]
-            : conceptIndexSection === 'annotations'
-              ? [
-                  {
-                    label: 'Template cues',
-                    content: (
-                      <>
-                        {templatePromptLines.map((line) => (
-                          <p key={line}>{line}</p>
-                        ))}
-                        <div className="think-home-rail__actions">
-                          <QuietButton onClick={openTemplatePicker}>Open templates</QuietButton>
-                          <QuietButton onClick={() => openConceptComposer('sidebar', search)}>Create directly</QuietButton>
-                        </div>
-                      </>
-                    )
-                  },
-                  {
-                    label: 'Working concepts',
-                    flush: true,
-                    content: conceptsLoading
-                      ? <SidebarSkeletonRows rows={5} />
-                      : renderPartnerConceptList(filteredConcepts.slice(0, 5), 'No concepts yet.')
-                  }
-                ]
-              : [
-                {
-                  label: 'Working concepts',
-                  flush: true,
-                  content: (
-                    <Profiler id="ThinkConceptIndexList" onRender={conceptListProfilerLogger}>
-                      {conceptsLoading ? (
-                        <SidebarSkeletonRows rows={8} />
-                      ) : (
-                        renderPartnerConceptList(filteredConcepts, 'No concepts match.')
-                      )}
-                    </Profiler>
-                  )
-                },
-                  {
-                    label: 'Search or create',
-                    content: (
-                      <label className="feedback-field think-index__search" style={{ margin: 0 }}>
-                        <input
-                          type="text"
-                          value={search}
-                          placeholder="Search or create a concept"
-                          onChange={(event) => setSearch(event.target.value)}
-                        />
-                      </label>
-                    )
-                  },
-                  {
-                    label: 'Concept posture',
-                    content: <p>Choose the claim before opening the manuscript. Keep contradiction visible from the start.</p>
-                  }
-                ]
-      }
-      footer={<button type="button" onClick={openTemplatePicker}>Feedback</button>}
-    />
-  );
 
   const notebookEditorialLeftPanel = (
     <EditorialRail
