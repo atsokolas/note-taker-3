@@ -41,10 +41,7 @@ Scope: AT-398 investigation plus staged proof extractions and dead-branch remova
 | `homeEditorialLayout` | 5564 | 6328 | Home shell when not `legacyShell=0`. |
 | `notebookEditorialLayout` | 5580 | 6330 | Notebook shell when not `legacyShell=0`. |
 | `conceptIndexEditorialLayout` | 5629 | 6332 | Concept index shell. |
-| `questionEditorialLeftPanel` | 5684 | 6308 | Active questions shell. |
-| `questionEditorialMainPanel` | 5976 | 6312 | Active questions main panel. |
-| `questionEditorialRightPanel` | 6096 | 6315 | Active questions right rail. |
-| `questionEditorialLayout` | 6304 | 6334 | Active for all questions views. |
+| `questionEditorialLayout` | 4977 | 5035 | Active questions shell; extracted to `QuestionEditorialView`. |
 
 ## First extraction proof
 
@@ -90,6 +87,38 @@ CI=true npm run build
 ```
 
 Both pass after removal.
+
+## Question extraction proof
+
+Created `note-taker-ui/src/components/think/questions/QuestionEditorialView.jsx`.
+
+This moves the active question editorial shell out of `ThinkMode.jsx`:
+
+- Left `EditorialRail` question navigation.
+- Question evidence derivation for support/counter lanes and per-line evidence docking.
+- Main question editor and inline evidence dock.
+- Right thought-partner rail, dialectical margin, wiki promotion, draft queue, backlinks, related highlights, and related concepts.
+- The question editorial shell wrapper.
+
+Parent-owned state and side effects intentionally remain in `ThinkMode.jsx`:
+
+- URL/search-param routing and active question selection.
+- Question save/create/answer mutations.
+- ThoughtPartner context and queued prompt routing.
+- Reference pull-in rendering.
+- Wiki promotion mutation state.
+- Agent draft queue handlers.
+
+Shared rail primitives moved to `note-taker-ui/src/components/think/EditorialRail.jsx` so future view extractions do not keep depending on `ThinkMode.jsx` local components.
+
+Verification:
+
+```bash
+CI=1 npm test -- --watchAll=false --runInBand src/pages/ThinkMode.templates.test.jsx
+CI=true npm run build
+```
+
+Both pass after extraction.
 
 ## AT-354 diagnostic
 
@@ -154,13 +183,11 @@ CI=true npm run build
 
 1. Land the `ConceptsIndexView` extraction and AT-354 narrow CSS hardening.
 2. Browser-measure concept and question right rails. If AT-354 still fails, patch only the measured descendant.
-3. Extract `QuestionEditorialView`; it is the highest-risk next target because prompt routing and `QuestionEditor` evidence props are coupled.
-4. Extract `NotebookEditorialView` after question path stabilizes.
-5. Reduce the remaining `mainPanel` fallback branches for threads/handoffs/paths/insights into route-specific modules.
+3. Extract `NotebookEditorialView` after question path stabilizes.
+4. Reduce the remaining `mainPanel` fallback branches for threads/handoffs/paths/insights into route-specific modules.
 
 ## Cursor-delegatable follow-ups
 
-- Expand this inventory with exact dependency props for `questionEditorialLayout`.
 - Inventory stale CSS selectors after the deleted legacy concept branch, especially concept collection and old add-modal selectors.
 - Write a no-edit extraction plan for `NotebookEditorialView` with exact props and route-state dependencies.
 - Add targeted tests for any remaining fallback branch before extraction.
