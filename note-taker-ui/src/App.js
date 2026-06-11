@@ -54,6 +54,7 @@ const ReturnQueue = lazy(() => import('./pages/ReturnQueue'));
 const Settings = lazy(() => import('./pages/Settings'));
 const Wiki = lazy(() => import('./pages/Wiki'));
 const WikiProductIndex = lazy(() => import('./components/wiki/WikiProductIndex'));
+const WikiFrontPage = lazy(() => import('./components/wiki/WikiFrontPage'));
 const WikiIngestRun = lazy(() => import('./pages/WikiIngestRun'));
 const HowToUse = lazy(() => import('./pages/HowToUse'));
 const Integrations = lazy(() => import('./pages/Integrations'));
@@ -508,14 +509,18 @@ function App() {
         <TourManager />
         <Suspense fallback={<RouteLoadingFallback />}>
           <Routes>
-            <Route path="/" element={<Navigate to="/think?tab=home" replace />} />
+            {/* AT-394: opening Noeis lands in the Wiki — the product opens on
+                what the agent has made for you, not on what it wants from you. */}
+            <Route path="/" element={<Navigate to="/wiki" replace />} />
             <Route path="/today" element={<TodayMode />} />
             <Route path="/library" element={<Library />} />
             <Route path="/think" element={<ThinkMode />} />
             <Route path="/map" element={<MapView />} />
             <Route path="/return-queue" element={<ReturnQueue />} />
             <Route path="/review" element={<ReviewMode />} />
-            <Route path="/wiki" element={<Navigate to="/wiki/workspace?view=graph" replace />} />
+            {/* AT-394: /wiki is the newspaper front page; the maintenance
+                workspace stays one hairline away at /wiki/workspace. */}
+            <Route path="/wiki" element={<WikiFrontPage />} />
             <Route path="/wiki/home" element={<WikiProductIndex />} />
             <Route path="/wiki/list" element={<Navigate to="/wiki/workspace?view=list" replace />} />
             <Route path="/wiki/workspace" element={<Wiki />} />

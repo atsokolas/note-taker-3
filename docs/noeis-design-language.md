@@ -92,13 +92,39 @@ One consistent presence — same name, same dot, same right-rail home, same voic
 ## 10. Decisions locked
 
 - Two registers (calm reading / alive working): **yes.**
-- Theme: **light default, dark mode first-class and required to work.**
+- Theme: **light default, dark mode first-class and required to work.** (Note 2026-06: the rebrand direction is tuning toward dark-first — Settings ships "Dark (Noeis)"; revisit which is default, but both stay first-class.)
 - Agent home: **right rail, always there, consistent across surfaces.**
 - Left rail: **library / corpus / nav.**
 - Question shape: **soft, challenged-in-place** with magnetic counter/support cards (not a split-pane).
 - Motion: **meaningful only**, reduced-motion safe.
+- **Landing surface: Wiki (decided 2026-06-07).** Opening Noeis drops the user into the Wiki front page — a calm, inviting space to explore. Three rooms hold (Library / Think / Wiki); there is no separate "Home" surface. The principle: *the product opens on what the agent has made for you, not on what it wants from you.* Reading first; tasks never demanded at the door.
 
-## 11. Home (designed)
+## 11. Home (SUPERSEDED 2026-06-07 — landing is now the Wiki front page)
+
+> **Supersession note:** the standalone Home surface is dissolved. Its jobs migrate rather than disappear: the **greeting/continuity** becomes the morning-paper lead on the Wiki front page (agent voice, prose, specific); the **universal command** becomes the Wiki front page's quiet composer (Think keeps its own command inside Think); the **living pulse** becomes the wiki Activity log, behind the fold. The voice rules (warm via specificity, never filler) and first-run guide-me behavior carry over to the Wiki front page. The section below is retained for those carried-over behaviors only.
+
+### Wiki front page (the front door — decided 2026-06-07: richer "newspaper" layout, alive as it opens)
+The landing's one job: make you open a page and read. Every element either invites you into a page or gets out of the way.
+
+**Aliveness principle:** alive the way a newspaper on the doorstep is alive — *new today, and it arrives.* Motion at the threshold, stillness once you're reading. NOT a dashboard that perpetually moves. Two sources of life:
+- **Daily newness** — the page is genuinely different every morning (new lead, new growth notes, new date). Life through evidence, not animation.
+- **Arrival choreography** — a staggered entrance (~1.2s total, spring physics per `noeis-motion-interaction.md` §1) and then calm.
+
+**Layout (newspaper):**
+1. **Masthead** — `MORNING PAPER · Saturday, June 7`. Fresh date every day.
+2. **Morning paper lead** — the agent's editorial voice, 1–2 sentences of prose with page names as inline links ("While you were away I rebuilt *Opportunity Cost* and linked it to *First Principles Thinking*."). NOT counters, NOT review queues. This line **writes itself in** on arrival (the ticker treatment from motion spec §2, slowed to a human pace) — the agent's voice meeting you at the door.
+3. **Today's page (lead story, ~2/3 width)** — the agent's featured article: title, opening paragraph, "Continue reading →". Picked daily (recently enriched / most connected to recent reading).
+4. **Recently grown (secondary column, right of the lead)** — 2–3 smaller entries, each with a quiet one-line *growth note* in the instrument register: "Opportunity Cost — rebuilt yesterday · +212 words", "Margin of Safety — 2 new claims". Growth notes are the living data: proof the wiki grew while you were away.
+5. **Explore** — a TOC-style serif index of key pages (inline links, not SaaS cards). A book's index, not a dashboard.
+6. **Quiet composer** — "Ask, or build a page…" carrying the breathing conic presence (AT-289). After the entrance settles, this breath is the *only* persistent motion on the page.
+7. **Machinery behind one hairline** — `workspace: map · activity · review (n)` as a single quiet line linking into the workspace view. Corpus telemetry, drop-source form, review queues, filters: one click away, never on the front door. (Review counts are guilt-shaped; they recede like dormant Think threads.)
+
+**Arrival choreography (one thing leads, others follow):**
+masthead + date fade up → morning-paper sentence writes in → lead story settles (spring) → secondary entries follow (~80ms stagger each) → Explore index ripples in → composer breath begins. Total ≤ ~1.2s, then complete stillness except the composer breath. `prefers-reduced-motion`: everything appears instantly, nothing lost.
+
+**Success metric:** time-to-first-page-opened. A stranger should be reading an article within ten seconds.
+
+## 11b. Home (original design — retained for carried-over behaviors)
 
 **Register:** alive. Sets the tone on login and establishes the agent's permanent identity. The agent is at full presence here — Home is the agent's room. Spatial grammar holds: left = corpus nav, center = pulse + command, right = agent.
 

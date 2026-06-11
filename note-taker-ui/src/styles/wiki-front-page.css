@@ -1,0 +1,235 @@
+/* AT-394 — Wiki front page ("newspaper" landing).
+   Alive the way a newspaper on the doorstep is alive: new today, and it
+   arrives. One staggered entrance (~1.2s, spring settle), then stillness —
+   the composer breath is the only persistent motion. Calm reading register;
+   all machinery lives behind the hairline. Tokens only; both themes. */
+
+.wiki-front-page {
+  display: grid;
+  gap: 34px;
+  max-width: 980px;
+  margin: 0 auto;
+  padding: 40px 24px 72px;
+}
+
+.wiki-front-page__masthead {
+  letter-spacing: 0.14em;
+}
+
+/* The agent's lead sentence — editorial voice, serif, generous. */
+.wiki-front-page__lead {
+  margin: 10px 0 0;
+  max-width: 44ch;
+  color: var(--text-primary);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(1.25rem, 2.1vw, 1.6rem);
+  line-height: 1.45;
+}
+.wiki-front-page__lead-text { min-height: 1.4em; display: inline-block; }
+
+/* Newspaper columns: lead story ~2/3, recently-grown column right. */
+.wiki-front-page__columns {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  gap: 36px;
+  align-items: start;
+  padding-top: 6px;
+  border-top: 1px solid color-mix(in srgb, var(--nt-divider) 72%, transparent);
+}
+
+.wiki-front-page__story { display: grid; gap: 12px; }
+.wiki-front-page__story h1 {
+  margin: 0;
+  font-family: Georgia, "Times New Roman", serif;
+  font-weight: 650;
+  font-size: clamp(1.9rem, 3.4vw, 2.8rem);
+  line-height: 1.06;
+}
+.wiki-front-page__story h1 a {
+  color: var(--text-primary);
+  text-decoration: none;
+}
+.wiki-front-page__story h1 a:hover { text-decoration: underline; }
+
+.wiki-front-page__excerpt {
+  margin: 0;
+  max-width: 62ch;
+  color: var(--text-secondary);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1.06rem;
+  line-height: 1.62;
+}
+
+.wiki-front-page__continue {
+  justify-self: start;
+  color: var(--accent-primary);
+  font-size: 0.92rem;
+  font-weight: 650;
+  text-decoration: none;
+}
+.wiki-front-page__continue:hover { text-decoration: underline; }
+
+/* Recently grown — secondary stories with instrument-register growth notes. */
+.wiki-front-page__grown ul {
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 16px;
+}
+.wiki-front-page__grown li { display: grid; gap: 4px; }
+.wiki-front-page__grown a {
+  color: var(--text-primary);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1.04rem;
+  font-weight: 650;
+  text-decoration: none;
+}
+.wiki-front-page__grown a:hover { text-decoration: underline; }
+.wiki-front-page__growth-note {
+  color: color-mix(in srgb, var(--text-muted) 92%, transparent);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+}
+
+/* Explore — a book's index, not a dashboard. */
+.wiki-front-page__explore {
+  padding-top: 18px;
+  border-top: 1px solid color-mix(in srgb, var(--nt-divider) 72%, transparent);
+}
+.wiki-front-page__index {
+  margin: 10px 0 0;
+  max-width: 70ch;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1.02rem;
+  line-height: 1.9;
+}
+.wiki-front-page__index a {
+  color: var(--text-primary);
+  text-decoration: none;
+  border-bottom: 1px solid color-mix(in srgb, var(--accent-primary) 45%, transparent);
+}
+.wiki-front-page__index a:hover {
+  color: var(--accent-primary);
+  border-bottom-color: var(--accent-primary);
+}
+.wiki-front-page__dot { color: var(--text-muted); }
+
+/* Quiet composer — present, breathing, never shouting. */
+.wiki-front-page__composer {
+  position: relative;
+  max-width: 560px;
+  border-radius: 10px;
+}
+.wiki-front-page__composer::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: 11px;
+  padding: 1.5px;
+  background: conic-gradient(
+    from 0deg,
+    transparent 0deg,
+    color-mix(in srgb, var(--accent-primary) 55%, transparent) 80deg,
+    transparent 200deg,
+    color-mix(in srgb, var(--accent-primary) 45%, transparent) 320deg,
+    transparent 360deg
+  );
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+  opacity: 0.35;
+  pointer-events: none;
+  animation: wfp-breathe 7s linear infinite;
+}
+.wiki-front-page__composer:focus-within::before { opacity: 0.7; }
+
+@keyframes wfp-breathe {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* The hairline — every instrument, one click away, none on the door. */
+.wiki-front-page__hairline {
+  display: flex;
+  gap: 6px;
+  align-items: baseline;
+  padding-top: 14px;
+  border-top: 1px solid color-mix(in srgb, var(--nt-divider) 72%, transparent);
+  color: var(--text-muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.74rem;
+  letter-spacing: 0.06em;
+}
+.wiki-front-page__hairline a {
+  color: var(--text-secondary);
+  text-decoration: none;
+}
+.wiki-front-page__hairline a:hover { color: var(--accent-primary); }
+
+/* Empty corpus — the agent leans in; never a dead screen. */
+.wiki-front-page__empty { display: grid; gap: 12px; max-width: 56ch; }
+.wiki-front-page__empty h1 {
+  margin: 0;
+  font-family: Georgia, "Times New Roman", serif;
+  font-weight: 650;
+  font-size: clamp(1.7rem, 3vw, 2.4rem);
+  line-height: 1.1;
+  color: var(--text-primary);
+}
+.wiki-front-page__empty p { margin: 0; color: var(--text-secondary); line-height: 1.6; }
+
+/* Loading skeleton (self-contained — do not depend on other sheets). */
+.wiki-front-page__skeleton { display: grid; gap: 12px; max-width: 540px; }
+.wiki-front-page .wiki-skeleton {
+  display: inline-block;
+  border-radius: 6px;
+  background: linear-gradient(
+    100deg,
+    color-mix(in srgb, var(--text-primary) 7%, transparent) 30%,
+    color-mix(in srgb, var(--text-primary) 14%, transparent) 50%,
+    color-mix(in srgb, var(--text-primary) 7%, transparent) 70%
+  );
+  background-size: 200% 100%;
+  animation: wfp-shimmer 1.3s ease-in-out infinite;
+}
+.wiki-front-page .wiki-skeleton--title { width: 70%; height: 2rem; }
+.wiki-front-page .wiki-skeleton--line { width: 100%; height: 0.85rem; }
+.wiki-front-page .wiki-skeleton--line-short { width: 55%; }
+@keyframes wfp-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* Arrival choreography — one thing leads, others follow; spring settle;
+   total <= ~1.2s, then stillness. */
+.wfp-anim {
+  opacity: 0;
+  transform: translateY(10px);
+  animation: wfp-enter 0.55s cubic-bezier(0.18, 0.85, 0.3, 1.04) forwards;
+}
+.wfp-anim--1 { animation-delay: 0.05s; }
+.wfp-anim--2 { animation-delay: 0.2s; }
+.wfp-anim--3 { animation-delay: 0.42s; }
+.wfp-anim--4 { animation-delay: 0.54s; }
+.wfp-anim--5 { animation-delay: 0.66s; }
+.wfp-anim--6 { animation-delay: 0.78s; }
+
+@keyframes wfp-enter {
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Narrow viewports: the paper folds to one column. */
+@media (max-width: 760px) {
+  .wiki-front-page { padding: 28px 18px 56px; gap: 28px; }
+  .wiki-front-page__columns { grid-template-columns: minmax(0, 1fr); gap: 26px; }
+}
+
+/* Reduced motion: everything appears instantly; nothing is lost. */
+@media (prefers-reduced-motion: reduce) {
+  .wfp-anim { animation: none; opacity: 1; transform: none; }
+  .wiki-front-page__composer::before { animation: none; }
+  .wiki-front-page .wiki-skeleton { animation: none; }
+}
