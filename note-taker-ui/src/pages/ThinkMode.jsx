@@ -333,6 +333,21 @@ const describeConceptReviewState = (conceptItem = {}) => {
   return 'Open the concept to pull support, tension, and remembered reading back into the draft.';
 };
 
+// AT-329: instrument-register state note for "In motion" threads — only from
+// data we actually have.
+const describeConceptMotionNote = (conceptItem = {}) => {
+  const parts = [];
+  const reviewedLabel = formatReviewDate(conceptItem?.freshness?.lastReviewedAt);
+  parts.push(reviewedLabel ? `reviewed ${reviewedLabel}` : 'not yet reviewed');
+  if (Number.isFinite(conceptItem.count) && conceptItem.count > 0) {
+    parts.push(`${conceptItem.count} highlight${conceptItem.count === 1 ? '' : 's'}`);
+  }
+  if (conceptItem?.freshness?.stale) {
+    parts.push(`${conceptItem?.freshness?.statusLabel || 'new material'} waiting`);
+  }
+  return parts.join(' · ');
+};
+
 const compareReviewDates = (left, right) => {
   const leftTime = left ? new Date(left).getTime() : 0;
   const rightTime = right ? new Date(right).getTime() : 0;
@@ -790,30 +805,40 @@ const ThinkMode = () => {
     if (!searchQuery) return concepts;
     return concepts.filter(c => c.name.toLowerCase().includes(searchQuery));
   }, [concepts, searchQuery]);
-  const conceptIndexSections = useMemo(() => {
-    const staleConcepts = filteredConcepts.filter((item) => item?.freshness?.stale);
-    const currentConcepts = filteredConcepts.filter((item) => !item?.freshness?.stale);
-    const sections = [];
-    if (staleConcepts.length > 0) {
-      sections.push({
-        key: 'review',
-        title: 'Review next',
-        subtitle: 'Concepts with newer material waiting in the archive.',
-        items: sortConceptsForIndex(staleConcepts, { staleFirst: true })
-      });
-    }
-    if (currentConcepts.length > 0) {
-      sections.push({
-        key: 'current',
-        title: staleConcepts.length > 0 ? 'Current threads' : 'All concepts',
-        subtitle: staleConcepts.length > 0
-          ? 'Concepts that are already current with the archive you have pulled through.'
-          : 'Open a concept to draft, recover support, and connect what you already know.',
-        items: sortConceptsForIndex(currentConcepts)
-      });
-    }
-    return sections;
+  // AT-329 calm inversion: the index shows what's alive ("In motion") and lets
+  // the rest recede ("On the shelf"), instead of equal-weight card sections.
+  // Threads with waiting archive material count as motion — they're the ones
+  // pulling at you — then most-recently-reviewed.
+  const conceptIndexMotion = useMemo(() => {
+    const staleConcepts = sortConceptsForIndex(
+      filteredConcepts.filter((item) => item?.freshness?.stale),
+      { staleFirst: true }
+    );
+    const currentConcepts = sortConceptsForIndex(
+      filteredConcepts.filter((item) => !item?.freshness?.stale)
+    );
+    const ranked = [...staleConcepts, ...currentConcepts];
+    return {
+      inMotion: ranked.slice(0, 3),
+      shelf: ranked.slice(3)
+    };
   }, [filteredConcepts]);
+
+  // The orientation lead — the agent's voice at the door, composed honestly
+  // from data we actually have (no fabricated signals).
+  const conceptIndexOrientation = useMemo(() => {
+    const lead = conceptIndexMotion.inMotion[0];
+    if (!lead) return 'A quiet desk. Start a thought and the archive will come in behind it.';
+    const others = conceptIndexMotion.inMotion.length - 1 + conceptIndexMotion.shelf.length;
+    if (lead?.freshness?.stale) {
+      const waiting = lead?.freshness?.statusLabel
+        ? `${lead.freshness.statusLabel} waiting`
+        : 'new material waiting';
+      return `“${lead.name}” has the strongest pull right now — ${waiting} in the archive${others > 0 ? `, with ${others} other thread${others === 1 ? '' : 's'} on the desk` : ''}.`;
+    }
+    const reviewedLabel = formatReviewDate(lead?.freshness?.lastReviewedAt);
+    return `“${lead.name}” is your most recent thread${reviewedLabel ? ` — reviewed ${reviewedLabel}` : ''} and current with the archive${others > 0 ? `. ${others} other thread${others === 1 ? '' : 's'} on the desk` : ''}.`;
+  }, [conceptIndexMotion]);
   const findExistingConcept = useCallback((name) => {
     const normalized = normalizeConceptName(name).toLowerCase();
     if (!normalized) return null;
@@ -3498,7 +3523,9 @@ const ThinkMode = () => {
       : activeView === 'notebook'
         ? notebookEditorialLeftPanel
         : activeView === 'concepts'
-        ? conceptIndexLeftPanel
+        // AT-329 (b): the Think door is calm — no left rail on the index.
+        // Rails belong to the open-thread chassis, not the doorway.
+        ? null
         : defaultLeftPanel);
 
   const insightsPanel = (
@@ -4465,28 +4492,12 @@ const ThinkMode = () => {
       {insightsPanel}
     </div>
   ) : activeView === 'concepts' && !hasExplicitConceptSelection ? (
-    <div className="think-concepts-index-surface">
-      <div className="think-concepts-index-hero">
-        <div className="think-concepts-index-hero__eyebrow">Concept workspace</div>
-        <h1 className="think-concepts-index-hero__title">Start from the idea, then pull the archive into focus.</h1>
-        <p className="think-concepts-index-hero__subtitle">
-          Open an existing concept when you already know the thread. Create a new one when you need a calm page to think against before the evidence arrives.
-        </p>
-        <div className="think-concepts-index-hero__actions">
-          <div className="think-concept-composer-anchor">
-            <Button
-              variant="secondary"
-              onClick={() => openConceptComposer('hero', search)}
-              data-testid="think-concepts-index-create-button"
-            >
-              Create concept
-            </Button>
-            {renderConceptComposer('hero')}
-          </div>
-          <QuietButton onClick={openTemplatePicker}>
-            Use template
-          </QuietButton>
-        </div>
+    <div className="think-concepts-index-surface tix">
+      {/* AT-329: calm inversion. The door opens on the agent's orientation —
+          where your own momentum is — not on an imperative console. */}
+      <div className="think-concepts-index-hero tix-anim tix-anim--1">
+        <div className="think-concepts-index-hero__eyebrow">Think</div>
+        <h1 className="tix-lead">{conceptIndexOrientation}</h1>
       </div>
       {conceptsError && <p className="status-message error-message">{conceptsError}</p>}
       {conceptsLoading ? (
@@ -4498,47 +4509,65 @@ const ThinkMode = () => {
           <div className="skeleton skeleton-text" style={{ width: '92%', height: 14 }} />
         </div>
       ) : filteredConcepts.length > 0 ? (
-        <div className="think-concepts-index-list">
-          {conceptIndexSections.map((section) => (
-            <section key={section.key} className="think-concepts-index-section" aria-label={section.title}>
-              <div className="think-concepts-index-section__header">
-                <div>
-                  <h2 className="think-concepts-index-section__title">{section.title}</h2>
-                  <p className="think-concepts-index-section__subtitle">{section.subtitle}</p>
-                </div>
-                <span className="think-concepts-index-section__count">{section.items.length}</span>
-              </div>
-              <div className="think-concepts-index-section__list">
-                {section.items.map((conceptItem) => (
-                  <button
-                    key={conceptItem.name}
-                    type="button"
-                    className={`think-concepts-index-card ${conceptItem?.freshness?.stale ? 'is-stale' : ''}`.trim()}
-                    onClick={() => handleSelectConcept(conceptItem.name)}
+        <div className="think-concepts-index-list tix-list">
+          <section className="tix-motion tix-anim tix-anim--2" aria-label="In motion">
+            <h2 className="tix-eyebrow">In motion</h2>
+            <div className="tix-motion__list">
+              {conceptIndexMotion.inMotion.map((conceptItem) => (
+                <button
+                  key={conceptItem.name}
+                  type="button"
+                  className={`tix-thread ${conceptItem?.freshness?.stale ? 'is-stale' : ''}`.trim()}
+                  onClick={() => handleSelectConcept(conceptItem.name)}
+                >
+                  <span className="tix-thread__title">{conceptItem.name}</span>
+                  <span
+                    className="tix-thread__note"
+                    data-testid={`think-concept-status-${encodeURIComponent(conceptItem.name)}`}
                   >
-                    <div className="think-concepts-index-card__meta">
-                      <span>Concept</span>
-                      {Number.isFinite(conceptItem.count) && <span>{conceptItem.count} highlights</span>}
-                      {conceptItem?.freshness?.stale && (
-                        <span className="think-concepts-index-card__status" data-testid={`think-concept-status-${encodeURIComponent(conceptItem.name)}`}>
-                          {conceptItem?.freshness?.statusLabel || 'Needs review'}
-                        </span>
-                      )}
-                      <span className="think-concepts-index-card__open">Open</span>
-                    </div>
-                    <h3 className="think-concepts-index-card__title">{conceptItem.name}</h3>
-                    <p className="think-concepts-index-card__body">
-                      {String(conceptItem.description || '').trim()
-                        || 'Use the concept page to draft the live thought, recover old reading, and keep support and tension close to the writing.'}
-                    </p>
-                    <p className={`think-concepts-index-card__review ${conceptItem?.freshness?.stale ? 'is-stale' : ''}`.trim()}>
-                      {describeConceptReviewState(conceptItem)}
-                    </p>
-                  </button>
+                    {describeConceptMotionNote(conceptItem)}
+                  </span>
+                  {String(conceptItem.description || '').trim() ? (
+                    <span className="tix-thread__desc">{String(conceptItem.description).trim()}</span>
+                  ) : null}
+                </button>
+              ))}
+            </div>
+          </section>
+          {conceptIndexMotion.shelf.length > 0 && (
+            <section className="tix-shelf tix-anim tix-anim--3" aria-label="On the shelf">
+              <h2 className="tix-eyebrow">On the shelf</h2>
+              <p className="tix-shelf__index">
+                {conceptIndexMotion.shelf.map((conceptItem, index) => (
+                  <React.Fragment key={conceptItem.name}>
+                    {index > 0 ? <span aria-hidden="true" className="tix-shelf__dot"> · </span> : null}
+                    <button
+                      type="button"
+                      className="tix-shelf__link"
+                      onClick={() => handleSelectConcept(conceptItem.name)}
+                    >
+                      {conceptItem.name}
+                    </button>
+                  </React.Fragment>
                 ))}
-              </div>
+              </p>
             </section>
-          ))}
+          )}
+          <div className="tix-actions tix-anim tix-anim--4">
+            <div className="think-concept-composer-anchor">
+              <Button
+                variant="secondary"
+                onClick={() => openConceptComposer('hero', search)}
+                data-testid="think-concepts-index-create-button"
+              >
+                New concept
+              </Button>
+              {renderConceptComposer('hero')}
+            </div>
+            <QuietButton onClick={openTemplatePicker}>
+              Use template
+            </QuietButton>
+          </div>
         </div>
       ) : concepts.length === 0 ? (
         // True first-run: user has zero concepts in the workspace.
@@ -4916,21 +4945,9 @@ const ThinkMode = () => {
       referencePullInSlot={renderReferencePullIn('concept-editorial-evidence__reference-control')}
     />
   ) : activeView === 'concepts' ? (
+    // AT-329 (b): calm door — the instructional rail card and duplicate
+    // actions are gone; the agent alone keeps the right-rail seat.
     <div className="section-stack think-layout__right-panel">
-      <div className="think-concepts-index-rail">
-        <SectionHeader title="Concept posture" subtitle="Keep the page quiet until the idea needs more structure." />
-        <p className="muted small">
-          Start with a concept name, then let the archive come in behind it. The point of search, suggestions, and support is to improve the active concept, not to create another results surface.
-        </p>
-        <div className="think-concepts-index-rail__actions">
-          <QuietButton onClick={() => openConceptComposer('header', search)}>
-            New concept
-          </QuietButton>
-          <QuietButton onClick={openTemplatePicker}>
-            Use template
-          </QuietButton>
-        </div>
-      </div>
       <ThoughtPartnerPanel
         contextType="think"
         contextId="concept-index"
@@ -5789,12 +5806,10 @@ const ThinkMode = () => {
 
   const conceptIndexEditorialLayout = activeView === 'concepts' && !hasExplicitConceptSelection ? (
     <div className="concept-index-editorial-shell-page" data-think-posture="concept">
-      <div className="concept-index-editorial-shell">
-        <aside className="concept-index-editorial-shell__left">
-          <div className="concept-index-editorial-rail concept-index-editorial-rail--left">
-            {conceptIndexLeftPanel}
-          </div>
-        </aside>
+      <div className="concept-index-editorial-shell concept-index-editorial-shell--calm">
+        {/* AT-329 (b): calm door — no left rail on the index. Working
+            concepts live on the shelf in the main column; rails belong to
+            the open-thread chassis. */}
         <main className="concept-index-editorial-shell__main">
           <div className="concept-index-editorial-main">
             <div className="sr-only">

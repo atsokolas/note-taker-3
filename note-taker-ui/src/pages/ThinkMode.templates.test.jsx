@@ -365,15 +365,18 @@ describe('ThinkMode template integration', () => {
       </MemoryRouter>
     );
 
-    expect(await screen.findByText('Start from the idea, then pull the archive into focus.')).toBeInTheDocument();
+    // AT-329 calm index: orientation lead + "In motion" replace the old
+    // imperative hero and equal-weight card sections.
+    expect(await screen.findByRole('heading', { name: 'In motion' })).toBeInTheDocument();
     const generativeTab = screen.getByRole('tab', { name: 'Generative concept posture' });
     expect(generativeTab).toBeInTheDocument();
     expect(generativeTab).toHaveTextContent('Generative');
     expect(generativeTab).toHaveTextContent('Concept');
-    expect(screen.getByRole('heading', { name: 'Review next' })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Current threads' })).toBeInTheDocument();
-    expect(screen.getByText('2 newer sources')).toBeInTheDocument();
-    expect(screen.getByText(/Last reviewed/i)).toBeInTheDocument();
+    // The stale thread's waiting material surfaces in its motion note and
+    // pulls the orientation lead.
+    expect(screen.getAllByText(/2 newer sources/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/reviewed/i).length).toBeGreaterThan(0);
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(/strongest pull|most recent thread|quiet desk/i);
 
     fireEvent.click(screen.getByTestId('think-header-actions-menu-button'));
 
@@ -1018,7 +1021,9 @@ describe('ThinkMode template integration', () => {
       </MemoryRouter>
     );
 
-    fireEvent.click(await screen.findByTestId('think-concepts-index-create-button'));
+    // With an empty workspace the calm index renders the first-run state,
+    // whose primary CTA opens the same concept composer.
+    fireEvent.click(await screen.findByTestId('think-concepts-empty-create-button'));
 
     expect(screen.getByTestId('think-concept-composer-input')).toBeVisible();
   });
