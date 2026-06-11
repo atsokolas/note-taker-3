@@ -1,10 +1,10 @@
 # ThinkMode refactor inventory — 2026-06-11
 
-Scope: AT-398 investigation plus the first proof extraction. Source file: `note-taker-ui/src/pages/ThinkMode.jsx`.
+Scope: AT-398 investigation plus staged proof extractions and dead-branch removal. Source file: `note-taker-ui/src/pages/ThinkMode.jsx`.
 
 ## Current shape
 
-`ThinkMode.jsx` is still the owner of routing, view state, data hooks, prompt routing, shells, rails, and modals. It is 6.5k+ lines and uses one large `mainPanel` ternary plus multiple editorial shells. That means dead JSX variables are deploy risk because Vercel builds with `CI=true`.
+`ThinkMode.jsx` is still the owner of routing, view state, data hooks, prompt routing, shells, rails, and modals. It is 6k+ lines and uses one large `mainPanel` ternary plus multiple editorial shells. That means dead JSX variables are deploy risk because Vercel builds with `CI=true`.
 
 ## Active view branches
 
@@ -12,13 +12,13 @@ Scope: AT-398 investigation plus the first proof extraction. Source file: `note-
 | --- | ---: | --- |
 | `home` | 4131-4165 | Reached through `homeEditorialLayout`; fallback only with `legacyShell=0`. |
 | `notebook` | 4166-4219 | Reached through `notebookEditorialLayout`; fallback only with `legacyShell=0`. |
-| `questions` | 4220-4278 | Suspicious dead branch: final return always selects `questionEditorialLayout` for questions. |
+| `questions` | 4220-4278 | Removed on 2026-06-11. Final return always selects `questionEditorialLayout` for questions. |
 | `threads` | 4279-4292 | Reached through fallback `ThreePaneLayout`. |
 | `handoffs` | 4293-4306 | Reached through fallback `ThreePaneLayout`. |
 | `paths` | 4307-4311 | Reached through fallback `ThreePaneLayout`. |
 | `insights` | 4312-4315 | Reached through fallback `ThreePaneLayout`. |
 | `concepts` index | 4316-4438 | Reached through `conceptIndexEditorialLayout`; now extracted to `ConceptsIndexView`. |
-| selected concept final branch | 4439-4707 | Suspicious dead branch: final return selects `selectedConceptLayout` before fallback. |
+| selected concept final branch | 4439-4707 | Removed on 2026-06-11. Final return selects `selectedConceptLayout` before fallback. |
 
 ## Panel and shell variables
 
@@ -66,6 +66,30 @@ This moves the AT-329 concept-index rendering out of `ThinkMode.jsx` while keepi
 - `describeMotionNote`
 
 This is intentionally not a full concepts refactor. It only proves the extraction seam for a low-risk, display-heavy branch.
+
+## Dead-branch removal proof
+
+Removed two unreachable `mainPanel` branches from `ThinkMode.jsx`:
+
+- `activeView === 'questions'`: superseded by `questionEditorialLayout` in the final return.
+- Selected concept fallback branch: superseded by `selectedConceptLayout` when `isConceptWorkbenchView` is true.
+
+Follow-on cleanup removed the dead support code owned only by those branches:
+
+- Legacy summary-edit state and save handler.
+- Legacy concept pin toggles and add-modal path.
+- Legacy concept highlight pagination state.
+- Unused imports for the old question/concept collection panels.
+- The `showLegacyConceptCollections = false` marker.
+
+Verification:
+
+```bash
+CI=1 npm test -- --watchAll=false --runInBand src/pages/ThinkMode.templates.test.jsx
+CI=true npm run build
+```
+
+Both pass after removal.
 
 ## AT-354 diagnostic
 
@@ -130,14 +154,13 @@ CI=true npm run build
 
 1. Land the `ConceptsIndexView` extraction and AT-354 narrow CSS hardening.
 2. Browser-measure concept and question right rails. If AT-354 still fails, patch only the measured descendant.
-3. Prove or delete the suspicious `mainPanel` questions branch. Do not delete until a route matrix confirms no `legacyShell` path needs it.
-4. Prove or delete the suspicious selected-concept final branch. It appears masked by `selectedConceptLayout`.
-5. Extract `QuestionEditorialView` only after the dead branch decision; it is the highest-risk next target because prompt routing and `QuestionEditor` evidence props are coupled.
-6. Extract `NotebookEditorialView` after question path stabilizes.
+3. Extract `QuestionEditorialView`; it is the highest-risk next target because prompt routing and `QuestionEditor` evidence props are coupled.
+4. Extract `NotebookEditorialView` after question path stabilizes.
+5. Reduce the remaining `mainPanel` fallback branches for threads/handoffs/paths/insights into route-specific modules.
 
 ## Cursor-delegatable follow-ups
 
 - Expand this inventory with exact dependency props for `questionEditorialLayout`.
-- Write a no-edit report proving whether `mainPanel` questions branch is unreachable.
-- Write a no-edit report proving whether the selected-concept final branch is unreachable.
-- Add targeted tests for any branch before deletion.
+- Inventory stale CSS selectors after the deleted legacy concept branch, especially concept collection and old add-modal selectors.
+- Write a no-edit extraction plan for `NotebookEditorialView` with exact props and route-state dependencies.
+- Add targeted tests for any remaining fallback branch before extraction.

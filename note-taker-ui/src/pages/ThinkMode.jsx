@@ -13,13 +13,8 @@ import {
 } from '../api/concepts';
 import useQuestions from '../hooks/useQuestions';
 import { createQuestion, updateQuestion } from '../api/questions';
-import QuestionInput from '../components/think/questions/QuestionInput';
-import QuestionList from '../components/think/questions/QuestionList';
 import ConceptsIndexView from '../components/think/concepts/ConceptsIndexView';
 import HighlightCard from '../components/blocks/HighlightCard';
-import NoteCard from '../components/blocks/NoteCard';
-import ArticleCard from '../components/blocks/ArticleCard';
-import AddToConceptModal from '../components/think/concepts/AddToConceptModal';
 import ThreePaneLayout from '../layout/ThreePaneLayout';
 import useHighlights from '../hooks/useHighlights';
 import useTags from '../hooks/useTags';
@@ -504,12 +499,7 @@ const ThinkMode = () => {
   const shouldOpenReferencePullIn = searchParams.get('pull') === '1';
   const [search, setSearch] = useState('');
   const [descriptionDraft, setDescriptionDraft] = useState('');
-  const [isEditingSummary, setIsEditingSummary] = useState(false);
-  const [savingDescription, setSavingDescription] = useState(false);
   const [conceptError, setConceptError] = useState('');
-  const [highlightOffset, setHighlightOffset] = useState(0);
-  const [recentHighlights, setRecentHighlights] = useState([]);
-  const [loadingMore, setLoadingMore] = useState(false);
   const [activationState, setActivationState] = useState(() => readFirstInsightState());
   const [activeNotebookEntry, setActiveNotebookEntry] = useState(null);
   const [activeQuestion, setActiveQuestion] = useState(null);
@@ -527,7 +517,6 @@ const ThinkMode = () => {
   const workingMemoryEnabled = activeView !== 'concepts';
   const { highlightMap, highlights: allHighlights } = useHighlights({ enabled: highlightsEnabled });
   const { tags } = useTags({ enabled: highlightSearchEnabled });
-  const [addModal, setAddModal] = useState({ open: false, mode: 'highlight' });
   const notebookInsertRef = useRef(null);
   const questionInsertRef = useRef(null);
   const [highlightQuery, setHighlightQuery] = useState('');
@@ -544,8 +533,6 @@ const ThinkMode = () => {
   const [conceptRelatedLoading, setConceptRelatedLoading] = useState(false);
   const [conceptRelatedError, setConceptRelatedError] = useState('');
   const [conceptSuggestions, setConceptSuggestions] = useState([]);
-  const [conceptSuggestionsLoading, setConceptSuggestionsLoading] = useState(false);
-  const [conceptSuggestionsError, setConceptSuggestionsError] = useState('');
   const [insightsTab, setInsightsTab] = useState('themes');
   const [themesRange, setThemesRange] = useState('7d');
   const [themes, setThemes] = useState([]);
@@ -716,7 +703,6 @@ const ThinkMode = () => {
     autoLoad: activeView === 'handoffs' && Boolean(activeHandoffData?.handoffId)
   });
 
-  const conceptProfilerLogger = useMemo(() => createProfilerLogger('think.concept.render'), []);
   const questionListProfilerLogger = useMemo(() => createProfilerLogger('think.question-list.render'), []);
   const conceptListProfilerLogger = useMemo(() => createProfilerLogger('think.concept-list.render'), []);
   const leftListHeight = useMemo(() => {
@@ -766,15 +752,13 @@ const ThinkMode = () => {
     enabled: activeView === 'concepts' && Boolean(selectedName),
     initial: cachedConceptForName
   });
-  const { related, loading: relatedLoading, error: relatedError } = useConceptRelated(selectedName, {
+  const { related, error: relatedError } = useConceptRelated(selectedName, {
     enabled: activeView === 'concepts' && Boolean(selectedName),
     limit: 20,
-    offset: highlightOffset
+    offset: 0
   });
   const {
     questions: conceptQuestions,
-    loading: questionsLoading,
-    error: questionsError,
     setQuestions: setConceptQuestions
   } = useQuestions({
     conceptName: selectedName,
@@ -834,8 +818,6 @@ const ThinkMode = () => {
   }, [notebookEntries, searchQuery]);
 
   const pinnedHighlightIds = useMemo(() => concept?.pinnedHighlightIds || [], [concept?.pinnedHighlightIds]);
-  const pinnedArticleIds = useMemo(() => concept?.pinnedArticleIds || [], [concept?.pinnedArticleIds]);
-  const pinnedHighlights = useMemo(() => concept?.pinnedHighlights || [], [concept?.pinnedHighlights]);
   const pinnedArticles = useMemo(() => concept?.pinnedArticles || [], [concept?.pinnedArticles]);
   const pinnedNotes = useMemo(() => concept?.pinnedNotes || [], [concept?.pinnedNotes]);
   const createNotebookEntry = useCallback(async (payload = {}) => {
@@ -1057,8 +1039,6 @@ const ThinkMode = () => {
       setConceptRelatedLoading(false);
       setConceptRelatedError('');
       setConceptSuggestions([]);
-      setConceptSuggestionsLoading(false);
-      setConceptSuggestionsError('');
       return;
     }
     let cancelled = false;
@@ -1066,8 +1046,6 @@ const ThinkMode = () => {
       const startedAt = startPerfTimer();
       setConceptRelatedLoading(true);
       setConceptRelatedError('');
-      setConceptSuggestionsLoading(true);
-      setConceptSuggestionsError('');
       try {
         const relatedParams = new URLSearchParams({
           sourceType: 'concept',
@@ -1096,12 +1074,10 @@ const ThinkMode = () => {
         if (!cancelled) {
           const message = formatAiError(err, 'Failed to load concept context.');
           setConceptRelatedError(message);
-          setConceptSuggestionsError(message);
         }
       } finally {
         if (!cancelled) {
           setConceptRelatedLoading(false);
-          setConceptSuggestionsLoading(false);
         }
       }
     };
@@ -1565,24 +1541,7 @@ const ThinkMode = () => {
 
   React.useEffect(() => {
     setDescriptionDraft(concept?.description || '');
-    setIsEditingSummary(false);
   }, [concept?.description]);
-
-  React.useEffect(() => {
-    setHighlightOffset(0);
-    setRecentHighlights([]);
-  }, [selectedName]);
-
-  React.useEffect(() => {
-    if (!related?.highlights) return;
-    setRecentHighlights(prev => {
-      const map = new Map(prev.map(h => [String(h._id), h]));
-      related.highlights.forEach(h => {
-        map.set(String(h._id), h);
-      });
-      return Array.from(map.values());
-    });
-  }, [related]);
 
   useEffect(() => {
     if (!conceptComposerOpen) return undefined;
@@ -2163,97 +2122,6 @@ const ThinkMode = () => {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [handleDumpToWorkingMemory]);
 
-  const handleSaveDescription = async () => {
-    if (!concept) return;
-    setSavingDescription(true);
-    setConceptError('');
-    try {
-      const updated = await updateConcept(concept.name, {
-        description: descriptionDraft,
-        pinnedHighlightIds,
-        pinnedArticleIds,
-        pinnedNoteIds: concept.pinnedNoteIds || [],
-        isPublic: concept.isPublic || false,
-        slug: concept.slug || ''
-      });
-      setConcept({ ...concept, description: updated.description || '' });
-      setIsEditingSummary(false);
-    } catch (err) {
-      setConceptError(err.response?.data?.error || 'Failed to save description.');
-    } finally {
-      setSavingDescription(false);
-    }
-  };
-
-  const togglePinHighlight = async (highlightId) => {
-    if (!concept) return;
-    const exists = pinnedHighlightIds.some(id => String(id) === String(highlightId));
-    try {
-      await updateConceptPins(concept.name, {
-        addHighlightIds: exists ? [] : [highlightId],
-        removeHighlightIds: exists ? [highlightId] : []
-      });
-      refresh();
-    } catch (err) {
-      setConceptError(err.response?.data?.error || 'Failed to update pins.');
-    }
-  };
-
-  const togglePinArticle = async (articleId) => {
-    if (!concept) return;
-    const exists = pinnedArticleIds.some(id => String(id) === String(articleId));
-    try {
-      await updateConceptPins(concept.name, {
-        addArticleIds: exists ? [] : [articleId],
-        removeArticleIds: exists ? [articleId] : []
-      });
-      refresh();
-    } catch (err) {
-      setConceptError(err.response?.data?.error || 'Failed to update pins.');
-    }
-  };
-
-  const togglePinNote = async (noteId) => {
-    if (!concept) return;
-    const current = concept.pinnedNoteIds || [];
-    const exists = current.some(id => String(id) === String(noteId));
-    const nextIds = exists
-      ? current.filter(id => String(id) !== String(noteId))
-      : [...current, noteId];
-    try {
-      const updated = await updateConcept(concept.name, {
-        description: concept.description || '',
-        pinnedHighlightIds,
-        pinnedArticleIds,
-        pinnedNoteIds: nextIds
-      });
-      setConcept({ ...concept, pinnedNoteIds: updated.pinnedNoteIds || nextIds });
-      refresh();
-    } catch (err) {
-      setConceptError(err.response?.data?.error || 'Failed to update pins.');
-    }
-  };
-
-  const loadMoreHighlights = async () => {
-    setLoadingMore(true);
-    setHighlightOffset(prev => prev + 20);
-    setLoadingMore(false);
-  };
-
-  const handleAddQuestion = async (text) => {
-    if (!selectedName) return;
-    try {
-      const created = await createQuestion({
-        text,
-        conceptName: selectedName,
-        blocks: [{ id: createBlockId(), type: 'paragraph', text }]
-      });
-      setConceptQuestions(prev => [created, ...prev]);
-    } catch (err) {
-      setConceptError(err.response?.data?.error || 'Failed to add question.');
-    }
-  };
-
   const handleAddHighlightToConcept = async (highlight, conceptName) => {
     await api.post(`/api/concepts/${encodeURIComponent(conceptName)}/add-highlight`, {
       highlightId: highlight._id
@@ -2287,28 +2155,6 @@ const ThinkMode = () => {
     setHighlightQuestionModal({ open: false, highlight: null });
   };
 
-  const handleAddHighlights = async (ids) => {
-    if (!concept || ids.length === 0) return;
-    try {
-      await updateConceptPins(concept.name, { addHighlightIds: ids });
-      setAddModal({ open: false, mode: 'highlight' });
-      refresh();
-    } catch (err) {
-      setConceptError(err.response?.data?.error || 'Failed to add highlights.');
-    }
-  };
-
-  const handleAddArticles = async (ids) => {
-    if (!concept || ids.length === 0) return;
-    try {
-      await updateConceptPins(concept.name, { addArticleIds: ids });
-      setAddModal({ open: false, mode: 'article' });
-      refresh();
-    } catch (err) {
-      setConceptError(err.response?.data?.error || 'Failed to add articles.');
-    }
-  };
-
   const handleAddRelatedHighlight = async (highlightId) => {
     if (!concept || !highlightId) return;
     if (pinnedHighlightIds.some(id => String(id) === String(highlightId))) return;
@@ -2318,16 +2164,6 @@ const ThinkMode = () => {
       refresh();
     } catch (err) {
       setConceptError(err.response?.data?.error || 'Failed to add highlight.');
-    }
-  };
-
-  const handleDismissSuggestion = async (highlightId) => {
-    if (!concept || !highlightId) return;
-    try {
-      await api.post(`/api/concepts/${concept._id}/suggestions/dismiss`, { highlightId }, getAuthHeaders());
-      setConceptSuggestions(prev => prev.filter(item => String(item.objectId) !== String(highlightId)));
-    } catch (err) {
-      setConceptSuggestionsError(err.response?.data?.error || 'Failed to dismiss suggestion.');
     }
   };
 
@@ -3516,13 +3352,6 @@ const ThinkMode = () => {
       .slice(0, THINK_HOME_LIMIT)
   ), [allHighlights]);
 
-  const showLegacyConceptCollections = false;
-
-  const openNotebookEntry = useCallback((entryId) => {
-    if (!entryId) return;
-    window.location.href = `/think?tab=notebook&entryId=${entryId}`;
-  }, []);
-
   const hasExplicitConceptSelection = activeView === 'concepts' && Boolean(selectedName);
   const thoughtPartnerContext = useMemo(() => resolveThoughtPartnerContext({
     activeView,
@@ -4218,65 +4047,6 @@ const ThinkMode = () => {
         )}
       </div>
     )
-  ) : activeView === 'questions' ? (
-    !activeQuestionData ? (
-      <div className="think-section-home think-section-home--questions">
-        <div className="think-section-home__hero">
-          <span className="think-section-home__eyebrow">Questions</span>
-          <h1>Start with the open loop, not the first item in the list.</h1>
-          <p>
-            Questions stay at the workspace level until you select one. Create a new inquiry or open an existing one when it is ready for evidence.
-          </p>
-          <div className="think-section-home__actions">
-            <Button variant="primary" onClick={handleCreateQuestion} disabled={questionSaving}>
-              {questionSaving ? 'Creating...' : 'New inquiry'}
-            </Button>
-            <QuietButton onClick={handleQueueOrganizationPrompt}>Clean up structure</QuietButton>
-          </div>
-        </div>
-        <div className="think-section-home__grid">
-          {filteredQuestions.slice(0, 6).map((question) => (
-            <button
-              key={question._id}
-              type="button"
-              className="think-section-home__card"
-              onClick={() => handleOpenQuestion(question._id)}
-            >
-              <span>{question.status || 'open'}</span>
-              <strong>{question.text || 'Untitled question'}</strong>
-              <p>{question.linkedTagName || 'No concept linked yet.'}</p>
-            </button>
-          ))}
-        </div>
-      </div>
-    ) : (
-      <div className="think-question-editor-pane">
-        <QuestionEditor
-          question={activeQuestionData}
-          saving={questionSaving}
-          error={questionError}
-          onSave={handleSaveQuestion}
-          onRegisterInsert={(fn) => { questionInsertRef.current = fn; }}
-          onSynthesize={(question) => openSynthesis('question', question?._id)}
-          onInvokeAgentSkill={queueThoughtPartnerPrompt}
-          agentContextType={thoughtPartnerContext?.contextType || 'question'}
-          agentContextId={thoughtPartnerContext?.contextId || activeQuestionData?._id || ''}
-          agentContextTitle={activeQuestionData?.text || thoughtPartnerContext?.contextTitle || 'Question'}
-        />
-        {activeQuestionData && questionStatus === 'open' && (
-          <div className="think-question-actions">
-            <QuietButton
-              onClick={() => handlePromoteThinkObjectToWiki('question')}
-              disabled={wikiPromotionState.busyTarget === questionWikiPromotionTarget}
-            >
-              {wikiPromotionState.busyTarget === questionWikiPromotionTarget ? 'Promoting...' : 'Promote to wiki page'}
-            </QuietButton>
-            {renderWikiPromotionTrace(questionWikiPromotionTarget)}
-            <QuietButton onClick={() => handleMarkAnswered(activeQuestionData)}>Mark answered</QuietButton>
-          </div>
-        )}
-      </div>
-    )
   ) : activeView === 'threads' ? (
     <ThreadsMainPanel
       threadsModel={threadsModel}
@@ -4329,275 +4099,7 @@ const ThinkMode = () => {
       renderConceptComposer={renderConceptComposer}
       describeMotionNote={describeConceptMotionNote}
     />
-  ) : (
-    <Profiler id="ThinkConceptMain" onRender={conceptProfilerLogger}>
-      <div className="section-stack">
-      {conceptLoadError && <p className="status-message error-message">{conceptLoadError}</p>}
-      {conceptError && <p className="status-message error-message">{conceptError}</p>}
-      {relatedError && <p className="status-message error-message">{relatedError}</p>}
-      {conceptLoading && (
-        <div className="think-concept-loading" aria-hidden="true">
-          <div className="skeleton skeleton-title" style={{ width: '34%', height: 16 }} />
-          <div className="skeleton skeleton-title" style={{ width: '62%', height: 28 }} />
-          <div className="skeleton skeleton-text" style={{ width: '100%', height: 14 }} />
-          <div className="skeleton skeleton-text" style={{ width: '90%', height: 14 }} />
-          <div className="skeleton skeleton-text" style={{ width: '94%', height: 14 }} />
-        </div>
-      )}
-      {!conceptLoading && concept && (
-        <>
-          {!isConceptWorkbenchView && isEditingSummary && (
-            <SurfaceCard className="idea-workbench-panel">
-              <SectionHeader
-                title="Legacy concept summary"
-                subtitle="This still writes to the concept description field while the new workbench remains local-first."
-              />
-              <div className="think-concept-summary-editor">
-                <textarea
-                  className="concept-description"
-                  rows={5}
-                  value={descriptionDraft}
-                  onChange={(e) => setDescriptionDraft(e.target.value)}
-                  placeholder="What is this concept? Why does it matter?"
-                />
-                <div className="think-concept-summary-actions">
-                  <Button onClick={handleSaveDescription} disabled={savingDescription}>
-                    {savingDescription ? 'Saving…' : 'Save summary'}
-                  </Button>
-                  <QuietButton
-                    onClick={() => {
-                      setDescriptionDraft(concept.description || '');
-                      setIsEditingSummary(false);
-                    }}
-                    disabled={savingDescription}
-                  >
-                    Cancel
-                  </QuietButton>
-                </div>
-              </div>
-            </SurfaceCard>
-          )}
-
-          <ConceptEvidenceStreamView
-            concept={concept}
-            model={ideaWorkbenchModel}
-            personalAgents={handoffsModel.sortedPersonalAgents}
-          />
-
-          {showLegacyConceptCollections && (
-            <>
-              <SectionHeader title="Pinned Highlights" subtitle="Anchor ideas." />
-              <div style={{ display: 'flex', gap: 8 }}>
-                <Button variant="secondary" onClick={() => setAddModal({ open: true, mode: 'highlight' })}>
-                  Add Highlights
-                </Button>
-              </div>
-              {pinnedHighlights.length === 0 && <p className="muted small">No pinned highlights yet.</p>}
-              <div className="concept-highlight-grid">
-                {pinnedHighlights.map(h => (
-                  <div key={h._id} className="concept-highlight-card">
-                    <HighlightCard
-                      highlight={h}
-                      compact
-                      organizable
-                      connectionScopeType={connectionScope.scopeType}
-                      connectionScopeId={connectionScope.scopeId}
-                      forceExpandedState={cardsExpanded}
-                      forceExpandedVersion={cardsExpandVersion}
-                      onDumpToWorkingMemory={(item) => handleDumpToWorkingMemory(item?.text || '')}
-                      onAddNotebook={(item) => setHighlightNotebookModal({ open: true, highlight: item })}
-                      onAddConcept={(item) => setHighlightConceptModal({ open: true, highlight: item })}
-                      onAddQuestion={(item) => setHighlightQuestionModal({ open: true, highlight: item })}
-                    />
-                    <QuietButton onClick={() => togglePinHighlight(h._id)}>Unpin</QuietButton>
-                  </div>
-                ))}
-              </div>
-
-              <SectionHeader title="Suggested highlights" subtitle="Partner recommendations you can approve." />
-              {conceptSuggestionsLoading && <p className="muted small">Finding suggestions…</p>}
-              {conceptSuggestionsError && <p className="status-message error-message">{conceptSuggestionsError}</p>}
-              {!conceptSuggestionsLoading && !conceptSuggestionsError && (
-                <div className="concept-highlight-grid">
-                  {conceptSuggestions.length === 0 ? (
-                    <p className="muted small">No suggestions yet.</p>
-                  ) : (
-                    conceptSuggestions.slice(0, 8).map(item => (
-                      <div key={item.objectId} className="concept-highlight-card">
-                        <HighlightCard
-                          highlight={{
-                            _id: item.objectId,
-                            text: item.title,
-                            tags: item.metadata?.tags || [],
-                            articleId: item.metadata?.articleId,
-                            articleTitle: item.metadata?.articleTitle || '',
-                            createdAt: item.metadata?.createdAt
-                          }}
-                          compact
-                          organizable
-                          connectionScopeType={connectionScope.scopeType}
-                          connectionScopeId={connectionScope.scopeId}
-                          forceExpandedState={cardsExpanded}
-                          forceExpandedVersion={cardsExpandVersion}
-                          onDumpToWorkingMemory={(highlight) => handleDumpToWorkingMemory(highlight?.text || '')}
-                          onAddNotebook={(highlight) => setHighlightNotebookModal({ open: true, highlight })}
-                          onAddConcept={(highlight) => setHighlightConceptModal({ open: true, highlight })}
-                          onAddQuestion={(highlight) => setHighlightQuestionModal({ open: true, highlight })}
-                        />
-                        <div className="concept-suggestion-actions">
-                          <QuietButton onClick={() => handleAddRelatedHighlight(item.objectId)}>Add to concept</QuietButton>
-                          <QuietButton onClick={() => handleDismissSuggestion(item.objectId)}>Dismiss</QuietButton>
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-              )}
-
-              <SectionHeader title="Recent Highlights" subtitle="Newest signals." />
-              <div className="concept-highlight-grid">
-                {recentHighlights.map(h => (
-                  <div key={h._id} className="concept-highlight-card">
-                    <HighlightCard
-                      highlight={h}
-                      compact
-                      organizable
-                      connectionScopeType={connectionScope.scopeType}
-                      connectionScopeId={connectionScope.scopeId}
-                      forceExpandedState={cardsExpanded}
-                      forceExpandedVersion={cardsExpandVersion}
-                      onDumpToWorkingMemory={(item) => handleDumpToWorkingMemory(item?.text || '')}
-                      onAddNotebook={(item) => setHighlightNotebookModal({ open: true, highlight: item })}
-                      onAddConcept={(item) => setHighlightConceptModal({ open: true, highlight: item })}
-                      onAddQuestion={(item) => setHighlightQuestionModal({ open: true, highlight: item })}
-                    />
-                    <QuietButton onClick={() => togglePinHighlight(h._id)}>
-                      {pinnedHighlightIds.some(id => String(id) === String(h._id)) ? 'Unpin' : 'Pin'}
-                    </QuietButton>
-                  </div>
-                ))}
-                {!relatedLoading && recentHighlights.length === 0 && (
-                  <p className="muted small">No highlights yet for this concept.</p>
-                )}
-              </div>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <Button variant="secondary" onClick={loadMoreHighlights} disabled={loadingMore || relatedLoading}>
-                  {loadingMore ? 'Loading…' : 'Load more'}
-                </Button>
-              </div>
-
-              <SectionHeader title="Notes referencing this concept" subtitle="Embedded fragments." />
-              {related.notes.length === 0 && !relatedLoading && (
-                <p className="muted small">No linked notes yet.</p>
-              )}
-              <div className="concept-note-grid">
-                {related.notes.map((note, idx) => (
-                  <NoteCard
-                    key={`${note.notebookEntryId}-${idx}`}
-                    id={note.notebookEntryId}
-                    title={note.notebookTitle || 'Untitled note'}
-                    bodyText={note.blockPreviewText || 'No preview available.'}
-                    type="note"
-                    tags={note.tags || []}
-                    timestamp={note.updatedAt}
-                    connectionScopeType={connectionScope.scopeType}
-                    connectionScopeId={connectionScope.scopeId}
-                    forceExpandedState={cardsExpanded}
-                    forceExpandedVersion={cardsExpandVersion}
-                    onOrganize={() => openNotebookEntry(note.notebookEntryId)}
-                    onDumpToWorkingMemory={() => handleDumpToWorkingMemory(note.blockPreviewText || note.notebookTitle || 'Note')}
-                  >
-                    <QuietButton onClick={() => togglePinNote(note.notebookEntryId)}>
-                      {(concept.pinnedNoteIds || []).some(id => String(id) === String(note.notebookEntryId))
-                        ? 'Unpin'
-                        : 'Pin'}
-                    </QuietButton>
-                    <QuietButton onClick={() => openNotebookEntry(note.notebookEntryId)}>
-                      Open note
-                    </QuietButton>
-                  </NoteCard>
-                ))}
-                {pinnedNotes.map(note => (
-                  <NoteCard
-                    key={note._id}
-                    id={note._id}
-                    title={note.title || 'Untitled note'}
-                    bodyText={note.content || ''}
-                    type={note.type || 'note'}
-                    tags={note.tags || []}
-                    timestamp={note.updatedAt || note.createdAt}
-                    connectionScopeType={connectionScope.scopeType}
-                    connectionScopeId={connectionScope.scopeId}
-                    forceExpandedState={cardsExpanded}
-                    forceExpandedVersion={cardsExpandVersion}
-                    onOrganize={() => openNotebookEntry(note._id)}
-                    onDumpToWorkingMemory={() => handleDumpToWorkingMemory(note.content || note.title || 'Note')}
-                  >
-                    <QuietButton onClick={() => togglePinNote(note._id)}>Unpin</QuietButton>
-                    <QuietButton onClick={() => openNotebookEntry(note._id)}>
-                      Open note
-                    </QuietButton>
-                  </NoteCard>
-                ))}
-              </div>
-
-              <SectionHeader title="Source articles" subtitle="Where the highlights live." />
-              <div style={{ display: 'flex', gap: 8 }}>
-                <Button variant="secondary" onClick={() => setAddModal({ open: true, mode: 'article' })}>
-                  Add Articles
-                </Button>
-              </div>
-              {pinnedArticles.length > 0 && (
-                <div className="concept-source-list">
-                  {pinnedArticles.map(article => (
-                    <ArticleCard
-                      key={article._id}
-                      article={article}
-                      connectionScopeType={connectionScope.scopeType}
-                      connectionScopeId={connectionScope.scopeId}
-                      forceExpandedState={cardsExpanded}
-                      forceExpandedVersion={cardsExpandVersion}
-                    >
-                      <QuietButton onClick={() => togglePinArticle(article._id)}>Unpin</QuietButton>
-                    </ArticleCard>
-                  ))}
-                </div>
-              )}
-              {related.articles.length === 0 && !relatedLoading && (
-                <p className="muted small">No source articles yet.</p>
-              )}
-              <div className="concept-source-list">
-                {related.articles.map(article => (
-                  <ArticleCard
-                    key={article._id}
-                    article={article}
-                    connectionScopeType={connectionScope.scopeType}
-                    connectionScopeId={connectionScope.scopeId}
-                    forceExpandedState={cardsExpanded}
-                    forceExpandedVersion={cardsExpandVersion}
-                  >
-                    <QuietButton onClick={() => togglePinArticle(article._id)}>
-                      {pinnedArticleIds.some(id => String(id) === String(article._id)) ? 'Unpin' : 'Pin'}
-                    </QuietButton>
-                  </ArticleCard>
-                ))}
-              </div>
-              <SectionHeader title="Questions" subtitle="Open loops tied to this concept." />
-              {questionsError && <p className="status-message error-message">{questionsError}</p>}
-              {questionsLoading && <p className="muted small">Loading questions…</p>}
-              {!questionsLoading && (
-                <>
-                  <QuestionInput onSubmit={handleAddQuestion} />
-                  <QuestionList questions={conceptQuestions} onMarkAnswered={handleMarkAnswered} />
-                </>
-              )}
-            </>
-          )}
-        </>
-      )}
-      </div>
-    </Profiler>
-  );
+  ) : null;
 
   const filteredHighlights = useMemo(() => {
     const query = highlightQuery.trim().toLowerCase();
@@ -6405,15 +5907,6 @@ const ThinkMode = () => {
           )}
         />
       )}
-      <AddToConceptModal
-        open={addModal.open}
-        mode={addModal.mode}
-        pinnedHighlightIds={pinnedHighlightIds}
-        pinnedArticleIds={pinnedArticleIds}
-        onClose={() => setAddModal({ open: false, mode: 'highlight' })}
-        onAddHighlights={handleAddHighlights}
-        onAddArticles={handleAddArticles}
-      />
       {highlightConceptModal.open && (
         <LibraryConceptModal
           open={highlightConceptModal.open}
