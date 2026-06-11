@@ -7299,8 +7299,7 @@ body.noeis-editorial .think-concepts-index-hero {
   border-bottom: 1px solid var(--vellum-line);
 }
 
-body.noeis-editorial .think-concepts-index-hero__eyebrow,
-body.noeis-editorial .think-concepts-index-card__meta {
+body.noeis-editorial .think-concepts-index-hero__eyebrow {
   display: flex;
   flex-wrap: wrap;
   gap: 12px;
@@ -7329,8 +7328,7 @@ body.noeis-editorial .think-concepts-index-hero__subtitle {
   color: var(--vellum-muted);
 }
 
-body.noeis-editorial .think-concepts-index-hero__actions,
-body.noeis-editorial .think-concepts-index-rail__actions {
+body.noeis-editorial .think-concepts-index-hero__actions {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
@@ -7340,110 +7338,6 @@ body.noeis-editorial .think-concepts-index-rail__actions {
 body.noeis-editorial .think-concepts-index-list {
   display: grid;
   gap: 18px;
-}
-
-body.noeis-editorial .think-concepts-index-card {
-  display: grid;
-  gap: 10px;
-  width: 100%;
-  padding: 0 0 14px;
-  border: 0;
-  border-bottom: 1px solid var(--vellum-line);
-  background: transparent;
-  text-align: left;
-}
-
-body.noeis-editorial .think-concepts-index-card__title {
-  margin: 0;
-  font-family: "Newsreader", Georgia, serif;
-  font-size: 1.62rem;
-  line-height: 1.02;
-  color: var(--vellum-ink);
-}
-
-body.noeis-editorial .think-concepts-index-card__body {
-  max-width: 680px;
-  margin: 0;
-  font-size: 0.96rem;
-  line-height: 1.56;
-  color: var(--vellum-muted);
-}
-
-body.noeis-editorial .think-concepts-index-card__review {
-  max-width: 640px;
-  margin: 0;
-  font-size: 0.78rem;
-  line-height: 1.55;
-  color: color-mix(in srgb, var(--vellum-ink) 74%, transparent);
-}
-
-body.noeis-editorial .think-concepts-index-card__review.is-stale {
-  color: #8b4d33;
-}
-
-body.noeis-editorial .think-concepts-index-card__status {
-  display: inline-flex;
-  align-items: center;
-  padding: 4px 8px;
-  border-radius: 999px;
-  background: rgba(167, 89, 58, 0.1);
-  color: #8b4d33;
-}
-
-body.noeis-editorial .think-concepts-index-card.is-stale {
-  border-bottom-color: rgba(167, 89, 58, 0.24);
-}
-
-body.noeis-editorial .think-concepts-index-card:hover .think-concepts-index-card__title {
-  color: color-mix(in srgb, var(--vellum-accent, #8b4d33) 26%, var(--vellum-ink));
-}
-
-body.noeis-editorial .think-concepts-index-section {
-  display: grid;
-  gap: 10px;
-}
-
-body.noeis-editorial .think-concepts-index-section__header {
-  display: flex;
-  align-items: end;
-  justify-content: space-between;
-  gap: 16px;
-}
-
-body.noeis-editorial .think-concepts-index-section__title {
-  margin: 0;
-  font-size: 0.76rem;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: color-mix(in srgb, var(--vellum-ink) 78%, transparent);
-}
-
-body.noeis-editorial .think-concepts-index-section__subtitle,
-body.noeis-editorial .think-concepts-index-section__count {
-  color: color-mix(in srgb, var(--vellum-ink) 72%, transparent);
-}
-
-body.noeis-editorial .think-concepts-index-section__subtitle {
-  margin: 4px 0 0;
-  font-size: 0.84rem;
-  line-height: 1.5;
-}
-
-body.noeis-editorial .think-concepts-index-section__count {
-  font-size: 0.8rem;
-}
-
-body.noeis-editorial .think-concepts-index-section__list {
-  display: grid;
-  gap: 16px;
-}
-
-body.noeis-editorial .think-concepts-index-rail {
-  display: grid;
-  gap: 12px;
-  padding-top: 12px;
-  border-top: 1px solid var(--vellum-line);
 }
 
 body.noeis-editorial .three-pane--library .three-pane__main-header {

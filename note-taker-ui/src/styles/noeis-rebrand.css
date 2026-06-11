@@ -414,7 +414,6 @@ button.notebook-button:hover,
 .think-question-editor-pane,
 .think-notebook-list,
 .think-notebook-editor-pane,
-.think-concept-hero,
 .library-article-list,
 .library-highlights-surface,
 .library-cabinet,
@@ -453,7 +452,6 @@ button.notebook-button:hover,
 
 .ui-page-title__eyebrow,
 .muted-label,
-.think-concept-kicker,
 .ui-section-header__subtitle,
 .think-home__column-title {
   font-family: var(--font-sans);
@@ -499,7 +497,6 @@ hr,
 .think-main-actions,
 .article-reader-header,
 .library-highlight-group,
-.think-concept-hero,
 .notebook-list-item,
 .think-home__row,
 .think-index__row,
@@ -671,7 +668,6 @@ select:focus {
   font-weight: 650;
 }
 
-.think-concept-hero,
 .notebook-editor,
 .think-question-editor,
 .think-notebook-editor,
@@ -704,7 +700,6 @@ select:focus {
 }
 
 .think-main-actions,
-.think-concept-toolbar,
 .notebook-actions,
 .notebook-editor-actions,
 .library-main-actions,

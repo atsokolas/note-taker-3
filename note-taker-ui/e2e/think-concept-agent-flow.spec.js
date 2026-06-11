@@ -268,7 +268,7 @@ test('stale concept can surface freshness, apply a related-source draft, and ope
   await page.goto('/think?tab=concepts');
 
   await expect(page.getByTestId('think-concept-status-Archive%20Memory')).toBeVisible();
-  await page.locator('.think-concepts-index-card').filter({ hasText: 'Archive Memory' }).click();
+  await page.getByRole('button', { name: /Archive Memory/ }).click();
 
   await expect(page.getByRole('heading', { name: 'Archive Memory' })).toBeVisible();
   await expect(page.getByText('Fresh material waiting')).toBeVisible();
