@@ -69,10 +69,9 @@ import { navigateWithViewTransition } from '../utils/viewTransitionNavigation';
 import { AGENT_DISPLAY_NAME } from '../constants/agentIdentity';
 import EditorialRail, { CalmEmptyLine, SidebarSkeletonRows } from '../components/think/EditorialRail';
 
-const NotebookEditor = lazy(() => import('../components/think/notebook/NotebookEditor'));
-const NotebookContext = lazy(() => import('../components/think/notebook/NotebookContext'));
 const NotebookFolderTree = lazy(() => import('../components/think/notebook/NotebookFolderTree'));
 const NotebookMoveEntryModal = lazy(() => import('../components/think/notebook/NotebookMoveEntryModal'));
+const NotebookEditorialView = lazy(() => import('../components/think/notebook/NotebookEditorialView'));
 const LibraryConceptModal = lazy(() => import('../components/library/LibraryConceptModal'));
 const LibraryNotebookModal = lazy(() => import('../components/library/LibraryNotebookModal'));
 const LibraryQuestionModal = lazy(() => import('../components/library/LibraryQuestionModal'));
@@ -152,7 +151,6 @@ const pulledReferenceRelatedItem = (item = {}) => ({
   title: cleanText(item.title || item.label || item.url || item.snippet),
   snippet: cleanText(item.snippet || item.description || item.url)
 });
-const previewText = (value = '') => cleanText(String(value || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' '));
 const normalizeNotebookFolderId = (value = '') => String(value || '').trim();
 const THINK_SUB_NAV_ITEMS = [
   { value: 'concepts', label: 'Generative', meta: 'Concept', ariaLabel: 'Generative concept posture' },
@@ -2920,115 +2918,6 @@ const ThinkMode = () => {
   );
 
 
-  const notebookEditorialLeftPanel = (
-    <EditorialRail
-      heroTitle={AGENT_DISPLAY_NAME}
-      heroSubtitle="Contextual intelligence"
-      ctaLabel={null}
-      onCta={handleCreateNotebookEntry}
-      navItems={partnerRailNavItems}
-      activeNav={notebookEditorialSection}
-      onChangeNav={setNotebookEditorialSection}
-      sections={
-        notebookEditorialSection === 'sources'
-          ? [
-              {
-                label: 'Search and route',
-                content: (
-                  <label className="feedback-field think-index__search" style={{ margin: 0 }}>
-                    <input
-                      type="text"
-                      value={search}
-                      placeholder="Search notebook pages"
-                      data-testid="think-notebook-index-search-input"
-                      onChange={(event) => setSearch(event.target.value)}
-                    />
-                  </label>
-                )
-              },
-              {
-                label: 'Working notebook',
-                flush: true,
-                content: renderNotebookFolderList(filteredNotebookEntries, {
-                  emptyMessage: 'No notebook entries match.',
-                  skeletonRows: 8
-                })
-              },
-              {
-                label: 'Open questions',
-                flush: true,
-                content: allQuestionsLoading
-                  ? <SidebarSkeletonRows rows={4} />
-                  : renderPartnerQuestionList(homeWorkingSet.questions.slice(0, 4), 'No open questions yet.')
-              }
-            ]
-          : notebookEditorialSection === 'highlights'
-            ? [
-                  {
-                    label: 'Working notebook',
-                    flush: true,
-                    content: renderNotebookFolderList(notebookEntries, {
-                      emptyMessage: 'No notebook entries yet.',
-                      skeletonRows: 6
-                    })
-                  },
-                {
-                  label: 'Concepts with evidence',
-                  flush: true,
-                  content: conceptsLoading
-                    ? <SidebarSkeletonRows rows={4} />
-                    : renderPartnerConceptList(conceptsWithHighlights.slice(0, 4), 'No concepts have evidence yet.')
-                }
-              ]
-            : notebookEditorialSection === 'annotations'
-              ? [
-                  {
-                    label: 'Question posture',
-                    content: <p>Keep notebook pages loose until the structure is clear enough to promote into claims, concepts, or questions.</p>
-                  },
-                  {
-                    label: 'Open questions',
-                    flush: true,
-                    content: allQuestionsLoading
-                      ? <SidebarSkeletonRows rows={5} />
-                      : renderPartnerQuestionList(filteredQuestions.slice(0, 5), 'No questions match.')
-                  }
-                ]
-              : [
-                  {
-                    label: 'Working notebook',
-                    flush: true,
-                    content: renderNotebookFolderList(filteredNotebookEntries, {
-                      emptyMessage: 'No notebook entries match.',
-                      skeletonRows: 8
-                    })
-                  },
-                  {
-                    label: 'Working concepts',
-                    flush: true,
-                    content: conceptsLoading
-                      ? <SidebarSkeletonRows rows={4} />
-                      : renderPartnerConceptList(homeWorkingSet.concepts.slice(0, 4), 'No concepts yet.')
-                  },
-                  {
-                    label: 'Search and route',
-                    content: (
-                      <label className="feedback-field think-index__search" style={{ margin: 0 }}>
-                        <input
-                          type="text"
-                          value={search}
-                          placeholder="Search notebook pages"
-                          onChange={(event) => setSearch(event.target.value)}
-                        />
-                      </label>
-                    )
-                  }
-                ]
-      }
-      footer={<button type="button" onClick={handleCreateNotebookEntry}>New page</button>}
-    />
-  );
-
   const handoffLeftPanel = (
     <HandoffsSidebar
       handoffsModel={handoffsModel}
@@ -3060,30 +2949,6 @@ const ThinkMode = () => {
     setConceptEditorialSection('assistant');
     setConceptPartnerCollapsed(false);
   }, [selectedName]);
-
-  const leftPanel = isConceptWorkbenchView
-    ? (
-      <ConceptPartnerRail
-        concept={concept}
-        concepts={concepts}
-        selectedConceptName={selectedName}
-        model={ideaWorkbenchModel}
-        activeSection={conceptEditorialSection}
-        onChangeSection={setConceptEditorialSection}
-        onOpenConcept={handleSelectConcept}
-      />
-    )
-    : (activeView === 'threads'
-      ? threadLeftPanel
-      : activeView === 'handoffs'
-      ? handoffLeftPanel
-      : activeView === 'notebook'
-        ? notebookEditorialLeftPanel
-        : activeView === 'concepts'
-        // AT-329 (b): the Think door is calm — no left rail on the index.
-        // Rails belong to the open-thread chassis, not the doorway.
-        ? null
-        : defaultLeftPanel);
 
   const insightsPanel = (
     <div className="section-stack">
@@ -3856,6 +3721,81 @@ const ThinkMode = () => {
     resolveDraftScope
   ]);
 
+  const renderNotebookEditorialView = (variant = 'shell') => (
+    <NotebookEditorialView
+      variant={variant}
+      activeNotebookEntry={activeNotebookEntry}
+      notebookLoadingEntry={notebookLoadingEntry}
+      notebookSaving={notebookSaving}
+      notebookEntryError={notebookEntryError}
+      notebookEntries={notebookEntries}
+      filteredNotebookEntries={filteredNotebookEntries}
+      notebookEditorialSection={notebookEditorialSection}
+      onChangeNotebookEditorialSection={setNotebookEditorialSection}
+      partnerRailNavItems={partnerRailNavItems}
+      search={search}
+      onSearchChange={setSearch}
+      renderNotebookFolderList={renderNotebookFolderList}
+      renderPartnerConceptList={renderPartnerConceptList}
+      renderPartnerQuestionList={renderPartnerQuestionList}
+      conceptsLoading={conceptsLoading}
+      conceptsWithHighlights={conceptsWithHighlights}
+      homeWorkingSet={homeWorkingSet}
+      allQuestionsLoading={allQuestionsLoading}
+      filteredQuestions={filteredQuestions}
+      onSelectNotebookEntry={handleSelectNotebookEntry}
+      onCreateNotebookEntry={handleCreateNotebookEntry}
+      onSaveNotebookEntry={handleSaveNotebookEntry}
+      onDeleteNotebookEntry={handleDeleteNotebookEntry}
+      onRegisterNotebookInsert={(fn) => { notebookInsertRef.current = fn; }}
+      onOpenSynthesis={openSynthesis}
+      onDumpToWorkingMemory={handleDumpToWorkingMemory}
+      renderThinkPostureStrip={renderThinkPostureStrip}
+      queueThoughtPartnerPrompt={queueThoughtPartnerPrompt}
+      thoughtPartnerContext={thoughtPartnerContext}
+      thoughtPartnerContextMetadata={thoughtPartnerContextMetadata}
+      queuedThoughtPartnerPrompt={queuedThoughtPartnerPrompt}
+      thoughtPartnerPostureProps={thoughtPartnerPostureProps}
+      renderReferencePullIn={renderReferencePullIn}
+      sharedArtifactDraftsModel={sharedArtifactDraftsModel}
+      onOpenThreadFromDraft={handleOpenThreadFromDraft}
+      onCreateHandoffFromDraft={handleCreateHandoffFromDraft}
+      onQueueFollowUpLoopFromDraft={handleQueueFollowUpLoopFromDraft}
+      onQueueOrganizationPrompt={handleQueueOrganizationPrompt}
+      onPromoteThinkObjectToWiki={handlePromoteThinkObjectToWiki}
+      wikiPromotionState={wikiPromotionState}
+      notebookWikiPromotionTarget={notebookWikiPromotionTarget}
+      conceptWikiPromotionTarget={conceptWikiPromotionTarget}
+      wikiPromotionError={wikiPromotionError}
+      renderWikiPromotionTrace={renderWikiPromotionTrace}
+      onSelectView={handleSelectView}
+    />
+  );
+
+  const leftPanel = isConceptWorkbenchView
+    ? (
+      <ConceptPartnerRail
+        concept={concept}
+        concepts={concepts}
+        selectedConceptName={selectedName}
+        model={ideaWorkbenchModel}
+        activeSection={conceptEditorialSection}
+        onChangeSection={setConceptEditorialSection}
+        onOpenConcept={handleSelectConcept}
+      />
+    )
+    : (activeView === 'threads'
+      ? threadLeftPanel
+      : activeView === 'handoffs'
+      ? handoffLeftPanel
+      : activeView === 'notebook'
+        ? renderNotebookEditorialView('left')
+        : activeView === 'concepts'
+        // AT-329 (b): the Think door is calm — no left rail on the index.
+        // Rails belong to the open-thread chassis, not the doorway.
+        ? null
+        : defaultLeftPanel);
+
   const mainPanel = activeView === 'home' ? (
     <ThinkHome
       showHero
@@ -3892,59 +3832,7 @@ const ThinkMode = () => {
       onUniversalCommand={handleHomeUniversalCommand}
     />
   ) : activeView === 'notebook' ? (
-    !activeNotebookEntry ? (
-      <div className="think-section-home think-section-home--notebook">
-        <div className="think-section-home__hero">
-          <span className="think-section-home__eyebrow">Notebook</span>
-          <h1>Choose a page when you are ready to write.</h1>
-          <p>
-            The notebook opens as a workspace first. Pick a page from the rail, create a fresh note, or use search to find the loose thread you want to continue.
-          </p>
-          <div className="think-section-home__actions">
-            <Button variant="primary" onClick={handleCreateNotebookEntry}>New page</Button>
-            <QuietButton onClick={handleQueueOrganizationPrompt}>Clean up structure</QuietButton>
-          </div>
-        </div>
-        <div className="think-section-home__grid">
-          {filteredNotebookEntries.slice(0, 6).map((entry) => (
-            <button
-              key={entry._id}
-              type="button"
-              className="think-section-home__card"
-              onClick={() => handleSelectNotebookEntry(entry._id)}
-            >
-              <span>Notebook page</span>
-              <strong>{entry.title || 'Untitled'}</strong>
-              <p>{previewText(entry.content).slice(0, 140) || 'Open this page to keep writing.'}</p>
-            </button>
-          ))}
-        </div>
-      </div>
-    ) : (
-      <div className="think-notebook-editor-pane">
-        {renderThinkPostureStrip('think-posture-strip--notebook')}
-        {notebookLoadingEntry && <p className="muted small">Loading note…</p>}
-        {!notebookLoadingEntry && (
-          <NotebookEditor
-            entry={activeNotebookEntry}
-            saving={notebookSaving}
-            error={notebookEntryError}
-            onSave={handleSaveNotebookEntry}
-            onDelete={handleDeleteNotebookEntry}
-            onCreate={handleCreateNotebookEntry}
-            onRegisterInsert={(fn) => { notebookInsertRef.current = fn; }}
-            onSynthesize={(entry) => openSynthesis('notebook', entry?._id)}
-            onDump={() => handleDumpToWorkingMemory()}
-            claimCandidates={notebookEntries.filter(item => (item.type || 'note') === 'claim')}
-            onInvokeAgentSkill={queueThoughtPartnerPrompt}
-            showInlineAgentDock={false}
-            agentContextType={thoughtPartnerContext?.contextType || 'notebook'}
-            agentContextId={thoughtPartnerContext?.contextId || activeNotebookEntry?._id || ''}
-            agentContextTitle={thoughtPartnerContext?.contextTitle || activeNotebookEntry?.title || 'Notebook'}
-          />
-        )}
-      </div>
-    )
+    renderNotebookEditorialView('main')
   ) : activeView === 'threads' ? (
     <ThreadsMainPanel
       threadsModel={threadsModel}
@@ -4091,6 +3979,8 @@ const ThinkMode = () => {
         submitLabel="Send"
       />
     </div>
+  ) : activeView === 'notebook' ? (
+    renderNotebookEditorialView('right')
   ) : activeView === 'threads' || activeView === 'handoffs' ? (
     <div className="section-stack think-layout__right-panel">
       {workingMemoryDrawer}
@@ -4655,93 +4545,6 @@ const ThinkMode = () => {
     </div>
   );
 
-  const notebookEditorialRightPanel = (
-    <div className="editorial-side-rail notebook-editorial-context">
-      <ThoughtPartnerPanel
-        className="editorial-side-rail__partner"
-        variant="stream"
-        contextType={thoughtPartnerContext?.contextType || 'notebook'}
-        contextId={thoughtPartnerContext?.contextId || activeNotebookEntry?._id || 'notebook'}
-        contextTitle={thoughtPartnerContext?.contextTitle || activeNotebookEntry?.title || 'Notebook'}
-        contextMetadata={thoughtPartnerContextMetadata}
-        queuedPrompt={queuedThoughtPartnerPrompt}
-        {...thoughtPartnerPostureProps}
-        title={AGENT_DISPLAY_NAME}
-        subtitle="Quiet notebook posture"
-        placeholder="Ask only when you want the agent to step in."
-        passiveStatusText="Quiet mode is active. Keep writing; the agent will stay ambient unless you ask it to connect, promote, or structure this page."
-        promptTemplates={[
-          'What matters most on this page?',
-          'Which concept is forming here?',
-          'What should move from notebook into concept or question?'
-        ]}
-        emptyStateText="Use the notebook rail to clarify what should stay loose and what should be promoted."
-        submitLabel="↗"
-      />
-      {renderReferencePullIn('editorial-side-rail__section')}
-      <details className="editorial-side-rail__section notebook-editorial-context__advanced">
-        <summary>
-          <span>Advanced drafting</span>
-          <small>Open when this note is ready to become an output.</small>
-        </summary>
-        <AgentArtifactDraftsPanel
-          draftsModel={sharedArtifactDraftsModel}
-          title="Draft staging"
-          subtitle="Promote the strongest note-driven outputs without leaving the notebook."
-          emptyText="No staged drafts yet."
-          accent="output"
-          className="editorial-side-rail__drafts think-draft-staging-panel"
-          compact
-          maxPending={3}
-          showPromoted={false}
-          onInvokeWorkflowSkill={queueThoughtPartnerPrompt}
-          onOpenThreadFromDraft={handleOpenThreadFromDraft}
-          onCreateHandoffFromDraft={handleCreateHandoffFromDraft}
-          onQueueFollowUpLoop={handleQueueFollowUpLoopFromDraft}
-          contextType={thoughtPartnerContext?.contextType || 'notebook'}
-          contextId={thoughtPartnerContext?.contextId || activeNotebookEntry?._id || 'notebook'}
-          contextTitle={thoughtPartnerContext?.contextTitle || activeNotebookEntry?.title || 'Notebook'}
-        />
-        <AgentSkillDock
-          surface="notebook"
-          contextType="notebook"
-          category="output"
-          contextId={activeNotebookEntry?._id || 'notebook'}
-          targetContextType={thoughtPartnerContext?.contextType || 'notebook'}
-          targetContextId={thoughtPartnerContext?.contextId || activeNotebookEntry?._id || ''}
-          contextTitle={thoughtPartnerContext?.contextTitle || activeNotebookEntry?.title || 'Notebook'}
-          title="Output studio"
-          subtitle="Spin active notes into briefs, synthesis docs, and deck-ready outlines."
-          className="agent-skill-dock--output"
-          maxVisible={4}
-          onInvoke={queueThoughtPartnerPrompt}
-        />
-      </details>
-
-      <div className="editorial-side-rail__section">
-        <SectionHeader title="Notebook posture" subtitle="How to use this page." />
-        <p className="muted small">
-          Keep the page exploratory. Promote only when a note has enough shape to become a concept, question, or draft.
-        </p>
-        <div className="think-home-rail__actions">
-          <QuietButton onClick={handleCreateNotebookEntry}>New page</QuietButton>
-          <QuietButton onClick={handleQueueOrganizationPrompt}>Clean up structure</QuietButton>
-          <QuietButton
-            onClick={() => handlePromoteThinkObjectToWiki('notebook')}
-            disabled={!activeNotebookEntry?._id || wikiPromotionState.busyTarget === notebookWikiPromotionTarget}
-          >
-            {wikiPromotionState.busyTarget === notebookWikiPromotionTarget ? 'Promoting...' : 'Promote to wiki'}
-          </QuietButton>
-          <QuietButton onClick={() => handleSelectView('concepts')}>Open concepts</QuietButton>
-        </div>
-        {wikiPromotionState.error && wikiPromotionState.busyTarget !== conceptWikiPromotionTarget ? wikiPromotionError : null}
-        {renderWikiPromotionTrace(notebookWikiPromotionTarget)}
-      </div>
-
-      <NotebookContext entry={activeNotebookEntry} />
-    </div>
-  );
-
   const homeEditorialRightPanel = (
     <div className="editorial-side-rail">
       <ThoughtPartnerPanel
@@ -4870,21 +4673,7 @@ const ThinkMode = () => {
     </div>
   ) : null;
 
-  const notebookEditorialLayout = activeView === 'notebook' ? (
-    <div className="notebook-editorial-shell-page" data-think-posture="notebook">
-      <div className="notebook-editorial-shell">
-        <aside className="notebook-editorial-shell__left">
-          {notebookEditorialLeftPanel}
-        </aside>
-        <main className="notebook-editorial-shell__main">
-          {mainPanel}
-        </main>
-        <aside className="notebook-editorial-shell__right">
-          {notebookEditorialRightPanel}
-        </aside>
-      </div>
-    </div>
-  ) : null;
+  const notebookEditorialLayout = activeView === 'notebook' ? renderNotebookEditorialView('shell') : null;
 
   const questionScopedArtifactDraftsModel = useMemo(() => {
     if (!sharedArtifactDraftsModel || typeof sharedArtifactDraftsModel !== 'object') return sharedArtifactDraftsModel;

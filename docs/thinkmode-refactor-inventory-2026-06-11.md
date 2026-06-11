@@ -120,6 +120,37 @@ CI=true npm run build
 
 Both pass after extraction.
 
+## Notebook extraction proof
+
+Created `note-taker-ui/src/components/think/notebook/NotebookEditorialView.jsx`.
+
+This moves the active notebook editorial surface out of `ThinkMode.jsx`:
+
+- Left `EditorialRail` notebook navigation, notebook search, working notebook lists, concept lists, and question lists.
+- Main notebook landing/editor branch, including the empty-state prompt tiles and `NotebookEditor` wiring.
+- Right passive thought-partner rail, reference pull-in, draft queue, notebook posture actions, `NotebookContext`, and wiki promotion controls.
+- The notebook editorial shell wrapper.
+
+Parent-owned state and side effects intentionally remain in `ThinkMode.jsx`:
+
+- URL/search-param routing and active notebook entry selection.
+- Notebook create/save/delete mutations and insertion ref registration.
+- ThoughtPartner context and queued prompt routing.
+- Reference pull-in rendering.
+- Wiki promotion mutation state.
+- Folder/move modal state.
+
+The extraction keeps the `legacyShell=0` route alive by rendering the same component in `left`, `main`, and `right` variants for the old `ThreePaneLayout` fallback instead of deleting that path.
+
+Verification:
+
+```bash
+CI=1 npm test -- --watchAll=false --runInBand src/pages/ThinkMode.templates.test.jsx
+CI=true npm run build
+```
+
+Both pass after extraction.
+
 ## AT-354 diagnostic
 
 The persistent rail clip is probably not the rail column itself. The right rail column is narrow by design:
@@ -185,9 +216,10 @@ CI=true npm run build
 2. Browser-measure concept and question right rails. If AT-354 still fails, patch only the measured descendant.
 3. Extract `NotebookEditorialView` after question path stabilizes.
 4. Reduce the remaining `mainPanel` fallback branches for threads/handoffs/paths/insights into route-specific modules.
+5. Purge stale legacy CSS only after route extraction stabilizes and selector reachability is rechecked.
 
 ## Cursor-delegatable follow-ups
 
-- Inventory stale CSS selectors after the deleted legacy concept branch, especially concept collection and old add-modal selectors.
-- Write a no-edit extraction plan for `NotebookEditorialView` with exact props and route-state dependencies.
-- Add targeted tests for any remaining fallback branch before extraction.
+- Inventory stale CSS selectors after the deleted legacy concept branch, especially concept collection and old add-modal selectors. Safe-looking candidates include `.think-concept-hero`, old concept summary/toolbar selectors, `.concept-suggestion-actions`, and legacy concept collection/card selectors. Keep workbench/editorial/insights paths such as `.concept-editorial-shell*`, `.think-concept-loading`, and `.concept-highlight-card` until browser reachability is proven.
+- Write a no-edit extraction plan for the remaining fallback route modules: `ThreadsView`, `HandoffsView`, `PathsView`, and `InsightsView`. Include exact props, tests, and whether each branch is still mounted under `legacyShell=0`.
+- Browser-QA `/think?tab=notebook&legacyShell=0` to confirm the extracted notebook `left`/`main`/`right` variants still match the pre-extraction fallback.
