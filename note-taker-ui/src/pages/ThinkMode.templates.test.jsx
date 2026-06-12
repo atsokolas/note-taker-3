@@ -85,13 +85,10 @@ jest.mock('../layout/ThreePaneLayout', () => ({
   )
 }));
 
-jest.mock('../components/think/ThinkHome', () => ({
+jest.mock('../components/think/ThinkHomeUniversalCommand', () => ({
   __esModule: true,
-  default: ({ onCreateFromTemplate, onUniversalCommand }) => (
-    <div>
-      <button type="button" onClick={onCreateFromTemplate}>
-        Use template
-      </button>
+  default: ({ onUniversalCommand }) => (
+    <div data-testid="think-home-universal-command">
       <button
         type="button"
         onClick={() => onUniversalCommand?.('What breaks this thesis?', {
@@ -939,11 +936,146 @@ describe('ThinkMode template integration', () => {
     });
   });
 
+  it('renders calm home index with shelf rail, orientation, and universal command', async () => {
+    useSearchParamsMock.mockReturnValue([
+      new URLSearchParams('tab=home'),
+      mockSetSearchParams
+    ]);
+    getNotebookSummaries.mockResolvedValue([]);
+    useConcepts.mockReturnValue({
+      concepts: [{
+        _id: 'concept-home-1',
+        name: 'Home Concept',
+        count: 2,
+        description: '',
+        freshness: { stale: false, lastReviewedAt: '2026-04-10T00:00:00.000Z' }
+      }],
+      loading: false,
+      error: '',
+      refresh: refreshConceptsMock
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/think?tab=home']}>
+        <ThinkMode />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByTestId('think-shelf-rail')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'In motion' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(/Home Concept|quiet desk/i);
+    expect(screen.getByTestId('think-home-universal-command')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Use template' })).toBeInTheDocument();
+  });
+
+  it('ranks stale concepts first in home mixed-type motion stream', async () => {
+    useSearchParamsMock.mockReturnValue([
+      new URLSearchParams('tab=home'),
+      mockSetSearchParams
+    ]);
+    getNotebookSummaries.mockResolvedValue([
+      { _id: 'note-home-1', title: 'Recent note', updatedAt: '2026-04-12T00:00:00.000Z' }
+    ]);
+    useConcepts.mockReturnValue({
+      concepts: [{
+        _id: 'concept-stale',
+        name: 'Stale Concept',
+        count: 0,
+        description: '',
+        freshness: {
+          stale: true,
+          statusLabel: '3 newer sources',
+          lastReviewedAt: '2026-04-01T00:00:00.000Z'
+        }
+      }],
+      loading: false,
+      error: '',
+      refresh: refreshConceptsMock
+    });
+    useQuestions.mockReturnValue({
+      questions: [{
+        _id: 'question-home-1',
+        text: 'Fresh question',
+        status: 'open',
+        createdAt: '2026-04-12T00:00:00.000Z',
+        updatedAt: '2026-04-12T00:00:00.000Z'
+      }],
+      loading: false,
+      error: '',
+      setQuestions: jest.fn()
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/think?tab=home']}>
+        <ThinkMode />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByRole('heading', { name: 'In motion' })).toBeInTheDocument();
+    const calmIndex = screen.getByTestId('think-calm-index');
+    const motionButtons = within(calmIndex).getAllByRole('button').filter((button) => (
+      button.className.includes('tix-thread')
+    ));
+    expect(motionButtons[0]).toHaveTextContent('Stale Concept');
+    expect(screen.getByTestId('think-home-status-concept%3AStale%20Concept')).toHaveTextContent(/3 newer sources/i);
+  });
+
+  it('renders calm questions index with orientation and motion', async () => {
+    useSearchParamsMock.mockReturnValue([
+      new URLSearchParams('tab=questions'),
+      mockSetSearchParams
+    ]);
+    getNotebookSummaries.mockResolvedValue([]);
+    useQuestions.mockReturnValue({
+      questions: [{
+        _id: 'question-1',
+        text: 'What breaks this thesis?',
+        status: 'open',
+        createdAt: '2026-04-11T00:00:00.000Z'
+      }],
+      loading: false,
+      error: '',
+      setQuestions: jest.fn()
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/think?tab=questions']}>
+        <ThinkMode />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByRole('heading', { name: 'In motion' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /strongest pull/i })).toBeInTheDocument();
+    expect(screen.getByTestId('think-shelf-rail')).toBeInTheDocument();
+    expect(screen.getByTestId('think-question-status-question%3Aquestion-1')).toHaveTextContent(/open/i);
+  });
+
+  it('renders calm notebook index with orientation and motion', async () => {
+    useSearchParamsMock.mockReturnValue([
+      new URLSearchParams('tab=notebook'),
+      mockSetSearchParams
+    ]);
+    getNotebookSummaries.mockResolvedValue([
+      { _id: 'note-1', title: 'Draft memo', updatedAt: '2026-04-11T00:00:00.000Z' }
+    ]);
+
+    render(
+      <MemoryRouter initialEntries={['/think?tab=notebook']}>
+        <ThinkMode />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByRole('heading', { name: 'In motion' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(/Draft memo|blank notebook/i);
+    expect(screen.getByTestId('think-shelf-rail')).toBeInTheDocument();
+  });
+
   it('opens template picker from Think home and handles successful create callback', async () => {
     useSearchParamsMock.mockReturnValue([
       new URLSearchParams('tab=home'),
       mockSetSearchParams
     ]);
+    getNotebookSummaries.mockResolvedValue([]);
 
     render(
       <MemoryRouter initialEntries={['/think?tab=home']}>
@@ -961,7 +1093,7 @@ describe('ThinkMode template integration', () => {
       expect(refreshConceptsMock).toHaveBeenCalled();
     });
 
-    expect(screen.getByText('Template Concept')).toBeInTheDocument();
+    expect(within(screen.getByTestId('think-calm-index')).getByText('Template Concept')).toBeInTheDocument();
   });
 
   it('persists pulled Home references when a Home command creates a question', async () => {
@@ -969,6 +1101,7 @@ describe('ThinkMode template integration', () => {
       new URLSearchParams('tab=home'),
       mockSetSearchParams
     ]);
+    getNotebookSummaries.mockResolvedValue([]);
     createQuestion.mockResolvedValueOnce({
       _id: 'question-home-1',
       text: 'What breaks this thesis?',
@@ -1002,6 +1135,7 @@ describe('ThinkMode template integration', () => {
       new URLSearchParams('tab=home'),
       mockSetSearchParams
     ]);
+    getNotebookSummaries.mockResolvedValue([]);
     api.post.mockResolvedValueOnce({
       data: {
         _id: 'note-home-1',

@@ -33,9 +33,19 @@ jest.mock('../layout/ThreePaneLayout', () => ({
 
 jest.mock('../components/library/LibraryMain', () => ({
   __esModule: true,
-  default: ({ selectedArticleId, onSelectArticle }) => (
+  default: ({ selectedArticleId, articleQuery, onArticleQueryChange, onSelectArticle }) => (
     <div>
       {selectedArticleId ? 'Reading article shell' : 'Browse library shell'}
+      {!selectedArticleId ? (
+        <label htmlFor="mock-library-article-search">
+          Search articles
+          <input
+            id="mock-library-article-search"
+            value={articleQuery || ''}
+            onChange={(event) => onArticleQueryChange?.(event.target.value)}
+          />
+        </label>
+      ) : null}
       {!selectedArticleId ? (
         <button type="button" onClick={() => onSelectArticle('article-1')}>
           Open article
@@ -148,5 +158,17 @@ describe('Library agent rail', () => {
 
     expect(screen.getByTestId('library-right')).toHaveAccessibleName('Thought partner');
     expect(screen.getAllByRole('button', { name: 'Thought partner' }).length).toBeGreaterThan(0);
+  });
+
+  it('keeps article search in the main list instead of duplicating it in the Cabinet rail', () => {
+    renderLibrary();
+
+    const leftRail = screen.getByTestId('library-left');
+    const main = screen.getByTestId('library-main');
+
+    expect(leftRail).not.toHaveTextContent('Article search');
+    expect(leftRail).not.toHaveTextContent('Highlight search');
+    expect(screen.getByLabelText('Search articles')).toBeInTheDocument();
+    expect(main).toContainElement(screen.getByLabelText('Search articles'));
   });
 });

@@ -406,7 +406,6 @@ body.calm-ui-global .library-highlight-group,
 body.calm-ui-global .library-main-actions,
 body.calm-ui-global .think-main-actions,
 body.calm-ui-global .library-cabinet-actions,
-body.calm-ui-global .library-search-panel,
 body.calm-ui-global .library-saved-views,
 body.calm-ui-global .think-index__group {
   background: var(--calm-panel);
@@ -496,7 +495,6 @@ body.calm-ui-global .library-folder-tree {
   gap: 6px;
 }
 
-body.calm-ui-global .library-search-panel,
 body.calm-ui-global .library-saved-views {
   padding: 10px;
   border-radius: 12px;

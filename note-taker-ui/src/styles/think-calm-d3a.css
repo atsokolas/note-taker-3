@@ -63,7 +63,6 @@ body.think-calm-d3a .think-main-actions {
 }
 
 body.think-calm-d3a .library-cabinet-actions,
-body.think-calm-d3a .library-search-panel,
 body.think-calm-d3a .library-saved-views,
 body.think-calm-d3a .think-index__group {
   background: color-mix(in srgb, var(--d3a-bg-1) 72%, transparent);

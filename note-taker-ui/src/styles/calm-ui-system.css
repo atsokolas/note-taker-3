@@ -37,7 +37,7 @@ body.calm-ui-global [data-ui-surface-state='empty'] .muted.small {
 }
 
 /* Hierarchy: secondary panels get lighter weight */
-body.calm-ui-global :is(.library-search-panel, .library-saved-views, .library-context-section) .ui-section-header__title,
+body.calm-ui-global :is(.library-saved-views, .library-context-section) .ui-section-header__title,
 body.calm-ui-global .library-context-section__title,
 body.calm-ui-global .map-canvas-meta,
 body.calm-ui-global .return-queue-meta,
@@ -45,7 +45,7 @@ body.calm-ui-global .return-queue-snippet {
   color: var(--calm-system-body);
 }
 
-body.calm-ui-global :is(.library-search-panel, .library-saved-views) {
+body.calm-ui-global .library-saved-views {
   background: color-mix(in srgb, var(--calm-bg-1) 90%, var(--mix-lift));
   border: 1px solid var(--calm-system-border);
   border-radius: var(--calm-system-radius);

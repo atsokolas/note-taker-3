@@ -1,5 +1,7 @@
 import React from 'react';
 import { Button, QuietButton, SectionHeader, TagChip } from '../../ui';
+import CalmIndexView, { QuestionIndexEmptyState } from '../CalmIndexView';
+import { describeThreadMotionNote } from '../calmIndexModel';
 import ReferencesPanel from '../../ReferencesPanel';
 import ThoughtPartnerPanel from '../../agent/ThoughtPartnerPanel';
 import AgentArtifactDraftsPanel from '../../agent/AgentArtifactDraftsPanel';
@@ -96,8 +98,15 @@ const QuestionEditorialView = ({
   questionScopedArtifactDraftsModel,
   onOpenThreadFromDraft,
   onCreateHandoffFromDraft,
-  onQueueFollowUpLoopFromDraft
+  onQueueFollowUpLoopFromDraft,
+  shelfRail = null,
+  indexMotion = { inMotion: [], shelf: [] },
+  indexOrientation = '',
+  indexLoading = false,
+  allQuestionsCount = 0,
+  onCalmThreadSelect = null
 }) => {
+  const isQuestionIndex = !activeQuestionData;
   const relatedHighlights = Array.isArray(questionRelated?.highlights) ? questionRelated.highlights : [];
   const relatedConcepts = Array.isArray(questionRelated?.concepts) ? questionRelated.concepts : [];
   const scopedConnections = Array.isArray(contextConnections) ? contextConnections : [];
@@ -347,7 +356,29 @@ const QuestionEditorialView = ({
     />
   );
 
-  const mainPanel = (
+  const mainPanel = isQuestionIndex ? (
+    <CalmIndexView
+      eyebrow="Think · Questions"
+      orientation={indexOrientation}
+      motion={indexMotion}
+      loading={indexLoading}
+      error={allQuestionsError}
+      describeMotionNote={describeThreadMotionNote}
+      onSelectThread={onCalmThreadSelect}
+      motionStatusTestIdPrefix="think-question-status"
+      emptyState={(
+        <QuestionIndexEmptyState onCreateQuestion={onCreateQuestion} questionSaving={questionSaving} />
+      )}
+      actions={filteredQuestions.length > 0 ? (
+        <>
+          <Button variant="secondary" onClick={onCreateQuestion} disabled={questionSaving} data-testid="think-questions-index-create-button">
+            New question
+          </Button>
+          <QuietButton onClick={onQueueOrganizationPrompt}>Clean up structure</QuietButton>
+        </>
+      ) : null}
+    />
+  ) : (
     <div className="question-editorial-main">
       {renderThinkPostureStrip('think-posture-strip--question')}
       <div className="question-editorial-main__hero">
@@ -666,7 +697,7 @@ const QuestionEditorialView = ({
     <div className="question-editorial-shell-page" data-think-posture="question">
       <div className="question-editorial-shell">
         <aside className="question-editorial-shell__left">
-          {leftPanel}
+          {isQuestionIndex && shelfRail ? shelfRail : leftPanel}
         </aside>
         <main className="question-editorial-shell__main">
           <h1 className="sr-only">Questions</h1>

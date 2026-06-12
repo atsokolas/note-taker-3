@@ -417,7 +417,6 @@ button.notebook-button:hover,
 .library-article-list,
 .library-highlights-surface,
 .library-cabinet,
-.library-search-panel,
 .library-saved-views,
 .think-home__continue,
 .think-home__panel,
@@ -587,8 +586,6 @@ hr,
 .think-index__search,
 .think-index-search-input,
 .library-highlight-filters input,
-.library-search-panel input,
-.library-search-panel select,
 .notebook-title-input,
 .notebook-toolbar input,
 .notebook-toolbar select,
@@ -607,8 +604,6 @@ select {
 .think-index__search:focus,
 .think-index-search-input:focus,
 .library-highlight-filters input:focus,
-.library-search-panel input:focus,
-.library-search-panel select:focus,
 .notebook-title-input:focus,
 .notebook-toolbar input:focus,
 .notebook-toolbar select:focus,
@@ -940,7 +935,6 @@ select:focus {
 }
 
 .library-cabinet-actions,
-.library-search-panel,
 .library-saved-views,
 .think-index__group {
   border: 1px solid rgba(120, 144, 220, 0.22);

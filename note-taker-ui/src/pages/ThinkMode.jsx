@@ -40,12 +40,6 @@ import {
   promoteWorkingMemory,
   splitWorkingMemory
 } from '../api/workingMemory';
-import {
-  buildCanonicalArticlePath,
-  clearFirstInsightState,
-  getFirstInsightOpenPath,
-  readFirstInsightState
-} from '../utils/firstInsight';
 import { buildNotebookDraftFromConcept } from '../utils/conceptNotebookDraft';
 import useAgentThreads from '../hooks/useAgentThreads';
 import useProtocolApprovals from '../hooks/useProtocolApprovals';
@@ -67,7 +61,21 @@ import { buildThinkWikiPromotionPayload } from '../utils/thinkWikiPromotion';
 import { classifyHomeUniversalCommand } from '../utils/homeUniversalCommand';
 import { navigateWithViewTransition } from '../utils/viewTransitionNavigation';
 import { AGENT_DISPLAY_NAME } from '../constants/agentIdentity';
-import EditorialRail, { CalmEmptyLine, SidebarSkeletonRows } from '../components/think/EditorialRail';
+import { CalmEmptyLine, SidebarSkeletonRows } from '../components/think/EditorialRail';
+import ThinkShelfRail from '../components/think/ThinkShelfRail';
+import CalmIndexView from '../components/think/CalmIndexView';
+import ThinkHomeUniversalCommand from '../components/think/ThinkHomeUniversalCommand';
+import {
+  buildConceptIndexMotion,
+  buildQuestionIndexMotion,
+  buildNotebookIndexMotion,
+  buildHomeIndexMotion,
+  composeConceptIndexOrientation,
+  composeQuestionIndexOrientation,
+  composeNotebookIndexOrientation,
+  composeHomeIndexOrientation,
+  describeThreadMotionNote
+} from '../components/think/calmIndexModel';
 
 const NotebookFolderTree = lazy(() => import('../components/think/notebook/NotebookFolderTree'));
 const NotebookMoveEntryModal = lazy(() => import('../components/think/notebook/NotebookMoveEntryModal'));
@@ -87,7 +95,6 @@ const ConceptEvidenceStreamRail = lazy(() => import('../components/think/concept
   .then((module) => ({ default: module.ConceptEvidenceStreamRail })));
 const ConceptPartnerRail = lazy(() => import('../components/think/concepts/ConceptEvidenceStreamView')
   .then((module) => ({ default: module.ConceptPartnerRail })));
-const ThinkHome = lazy(() => import('../components/think/ThinkHome'));
 const ConceptShareModal = lazy(() => import('../components/think/concepts/ConceptShareModal'));
 const SemanticRelatedPanel = lazy(() => import('../components/retrieval/SemanticRelatedPanel'));
 const QuestionEditorialView = lazy(() => import('../components/think/questions/QuestionEditorialView'));
@@ -275,51 +282,6 @@ const formatIndexDate = (value) => {
   return date.toLocaleDateString();
 };
 
-const formatReviewDate = (value) => {
-  if (!value) return '';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '';
-  const now = new Date();
-  const sameYear = date.getFullYear() === now.getFullYear();
-  return date.toLocaleDateString(undefined, sameYear
-    ? { month: 'short', day: 'numeric' }
-    : { month: 'short', day: 'numeric', year: 'numeric' });
-};
-
-// AT-329: instrument-register state note for "In motion" threads — only from
-// data we actually have.
-const describeConceptMotionNote = (conceptItem = {}) => {
-  const parts = [];
-  const reviewedLabel = formatReviewDate(conceptItem?.freshness?.lastReviewedAt);
-  parts.push(reviewedLabel ? `reviewed ${reviewedLabel}` : 'not yet reviewed');
-  if (Number.isFinite(conceptItem.count) && conceptItem.count > 0) {
-    parts.push(`${conceptItem.count} highlight${conceptItem.count === 1 ? '' : 's'}`);
-  }
-  if (conceptItem?.freshness?.stale) {
-    parts.push(`${conceptItem?.freshness?.statusLabel || 'new material'} waiting`);
-  }
-  return parts.join(' · ');
-};
-
-const compareReviewDates = (left, right) => {
-  const leftTime = left ? new Date(left).getTime() : 0;
-  const rightTime = right ? new Date(right).getTime() : 0;
-  const safeLeft = Number.isFinite(leftTime) ? leftTime : 0;
-  const safeRight = Number.isFinite(rightTime) ? rightTime : 0;
-  return safeLeft - safeRight;
-};
-
-const sortConceptsForIndex = (items = [], { staleFirst = false } = {}) => [...items].sort((left, right) => {
-  if (staleFirst) {
-    const reviewOrder = compareReviewDates(left?.freshness?.lastReviewedAt, right?.freshness?.lastReviewedAt);
-    if (reviewOrder !== 0) return reviewOrder;
-  } else {
-    const reviewOrder = compareReviewDates(right?.freshness?.lastReviewedAt, left?.freshness?.lastReviewedAt);
-    if (reviewOrder !== 0) return reviewOrder;
-  }
-  return String(left?.name || '').localeCompare(String(right?.name || ''));
-});
-
 const NotebookListItem = React.memo(({ entry, isActive, onSelect }) => (
   <button
     type="button"
@@ -382,7 +344,6 @@ const ThinkMode = () => {
     return 'concepts';
   }, [allowedViews]);
   const activeView = resolveActiveView(searchParams);
-  const [homeEditorialSection, setHomeEditorialSection] = useState('assistant');
   const [notebookEditorialSection, setNotebookEditorialSection] = useState('assistant');
   const [questionEditorialSection, setQuestionEditorialSection] = useState('assistant');
   const [queuedThoughtPartnerPrompt, setQueuedThoughtPartnerPrompt] = useState(null);
@@ -393,7 +354,6 @@ const ThinkMode = () => {
   const [search, setSearch] = useState('');
   const [descriptionDraft, setDescriptionDraft] = useState('');
   const [conceptError, setConceptError] = useState('');
-  const [activationState, setActivationState] = useState(() => readFirstInsightState());
   const [activeNotebookEntry, setActiveNotebookEntry] = useState(null);
   const [activeQuestion, setActiveQuestion] = useState(null);
   const highlightSearchEnabled = (
@@ -470,14 +430,14 @@ const ThinkMode = () => {
   const [cardsExpanded, setCardsExpanded] = useState(false);
   const [cardsExpandVersion, setCardsExpandVersion] = useState(0);
   const [recentTargets, setRecentTargets] = useState(() => readRecentTargets());
-  const [homeReturnQueue, setHomeReturnQueue] = useState([]);
-  const [homeQueueLoading, setHomeQueueLoading] = useState(false);
+  const [, setHomeReturnQueue] = useState([]);
+  const [, setHomeQueueLoading] = useState(false);
   const [homeQueueError, setHomeQueueError] = useState('');
-  const [homeArticles, setHomeArticles] = useState([]);
-  const [homeArticlesLoading, setHomeArticlesLoading] = useState(false);
+  const [, setHomeArticles] = useState([]);
+  const [, setHomeArticlesLoading] = useState(false);
   const [homeArticlesError, setHomeArticlesError] = useState('');
-  const [homeWikiPages, setHomeWikiPages] = useState([]);
-  const [homeWikiActivity, setHomeWikiActivity] = useState([]);
+  const [, setHomeWikiPages] = useState([]);
+  const [, setHomeWikiActivity] = useState([]);
   const [collapsedIndexGroups, setCollapsedIndexGroups] = useState(() => readCollapsedIndexGroups());
   const [rightOpen, setRightOpen] = useState(() => {
     try {
@@ -664,40 +624,16 @@ const ThinkMode = () => {
     if (!searchQuery) return concepts;
     return concepts.filter(c => c.name.toLowerCase().includes(searchQuery));
   }, [concepts, searchQuery]);
-  // AT-329 calm inversion: the index shows what's alive ("In motion") and lets
-  // the rest recede ("On the shelf"), instead of equal-weight card sections.
-  // Threads with waiting archive material count as motion — they're the ones
-  // pulling at you — then most-recently-reviewed.
-  const conceptIndexMotion = useMemo(() => {
-    const staleConcepts = sortConceptsForIndex(
-      filteredConcepts.filter((item) => item?.freshness?.stale),
-      { staleFirst: true }
-    );
-    const currentConcepts = sortConceptsForIndex(
-      filteredConcepts.filter((item) => !item?.freshness?.stale)
-    );
-    const ranked = [...staleConcepts, ...currentConcepts];
-    return {
-      inMotion: ranked.slice(0, 3),
-      shelf: ranked.slice(3)
-    };
-  }, [filteredConcepts]);
+  const conceptIndexMotion = useMemo(
+    () => buildConceptIndexMotion(filteredConcepts),
+    [filteredConcepts]
+  );
 
-  // The orientation lead — the agent's voice at the door, composed honestly
-  // from data we actually have (no fabricated signals).
-  const conceptIndexOrientation = useMemo(() => {
-    const lead = conceptIndexMotion.inMotion[0];
-    if (!lead) return 'A quiet desk. Start a thought and the archive will come in behind it.';
-    const others = conceptIndexMotion.inMotion.length - 1 + conceptIndexMotion.shelf.length;
-    if (lead?.freshness?.stale) {
-      const waiting = lead?.freshness?.statusLabel
-        ? `${lead.freshness.statusLabel} waiting`
-        : 'new material waiting';
-      return `“${lead.name}” has the strongest pull right now — ${waiting} in the archive${others > 0 ? `, with ${others} other thread${others === 1 ? '' : 's'} on the desk` : ''}.`;
-    }
-    const reviewedLabel = formatReviewDate(lead?.freshness?.lastReviewedAt);
-    return `“${lead.name}” is your most recent thread${reviewedLabel ? ` — reviewed ${reviewedLabel}` : ''} and current with the archive${others > 0 ? `. ${others} other thread${others === 1 ? '' : 's'} on the desk` : ''}.`;
-  }, [conceptIndexMotion]);
+  const conceptIndexOrientation = useMemo(
+    () => composeConceptIndexOrientation(conceptIndexMotion),
+    [conceptIndexMotion]
+  );
+
   const findExistingConcept = useCallback((name) => {
     const normalized = normalizeConceptName(name).toLowerCase();
     if (!normalized) return null;
@@ -835,6 +771,40 @@ const ThinkMode = () => {
     if (!searchQuery) return allQuestions;
     return allQuestions.filter((question) => (question.text || '').toLowerCase().includes(searchQuery));
   }, [allQuestions, searchQuery]);
+
+  const questionIndexMotion = useMemo(
+    () => buildQuestionIndexMotion(filteredQuestions),
+    [filteredQuestions]
+  );
+
+  const questionIndexOrientation = useMemo(
+    () => composeQuestionIndexOrientation(questionIndexMotion),
+    [questionIndexMotion]
+  );
+
+  const notebookIndexMotion = useMemo(
+    () => buildNotebookIndexMotion(filteredNotebookEntries),
+    [filteredNotebookEntries]
+  );
+
+  const notebookIndexOrientation = useMemo(
+    () => composeNotebookIndexOrientation(notebookIndexMotion),
+    [notebookIndexMotion]
+  );
+
+  const homeIndexMotion = useMemo(
+    () => buildHomeIndexMotion({
+      concepts: filteredConcepts,
+      questions: filteredQuestions.filter((item) => String(item?.status || '').toLowerCase() !== 'answered'),
+      notebookEntries: filteredNotebookEntries
+    }),
+    [filteredConcepts, filteredNotebookEntries, filteredQuestions]
+  );
+
+  const homeIndexOrientation = useMemo(
+    () => composeHomeIndexOrientation(homeIndexMotion),
+    [homeIndexMotion]
+  );
 
   const activeQuestionData = useMemo(
     () => allQuestions.find(q => q._id === activeQuestionId) || null,
@@ -1512,11 +1482,6 @@ const ThinkMode = () => {
     setSearchParams(params);
   }, [searchParams, setSearchParams]);
 
-  const handleCreateConceptFromHome = useCallback(() => {
-    handleSelectView('concepts');
-    openConceptComposer('hero', search);
-  }, [handleSelectView, openConceptComposer, search]);
-
   const handleTemplateCreated = useCallback(async (created = null) => {
     const nextConceptName = String(created?.conceptName || '').trim();
     const target = String(created?.target || '').trim().toLowerCase();
@@ -1674,17 +1639,6 @@ const ThinkMode = () => {
     const path = String(item?.path || '').trim();
     if (!path) return;
     window.location.href = path;
-  }, []);
-
-  const handleOpenReturnQueueEntry = useCallback((entry) => {
-    const openPath = String(entry?.item?.openPath || '').trim();
-    if (!openPath) return;
-    window.location.href = openPath;
-  }, []);
-
-  const handleOpenHomeArticle = useCallback((articleId) => {
-    if (!articleId) return;
-    window.location.href = buildCanonicalArticlePath(articleId);
   }, []);
 
   const handleSelectPath = useCallback((pathId) => {
@@ -2328,6 +2282,39 @@ const ThinkMode = () => {
     handleSelectView('questions');
   }, [handleSelectView]);
 
+  const handleCalmThreadSelect = useCallback((thread) => {
+    if (!thread?.type) return;
+    switch (thread.type) {
+      case 'concept':
+        handleSelectConcept(thread.id);
+        break;
+      case 'question':
+        handleOpenQuestion(thread.id);
+        break;
+      case 'notebook':
+        handleSelectNotebookEntry(thread.id);
+        break;
+      default:
+        break;
+    }
+  }, [handleOpenQuestion, handleSelectConcept, handleSelectNotebookEntry]);
+
+  const thinkShelfRail = (
+    <ThinkShelfRail
+      search={search}
+      onSearchChange={setSearch}
+      concepts={concepts}
+      questions={allQuestions}
+      notebookEntries={notebookEntries}
+      conceptsLoading={conceptsLoading}
+      questionsLoading={allQuestionsLoading}
+      notebookLoading={notebookLoadingList}
+      onSelectConcept={handleSelectConcept}
+      onSelectQuestion={handleOpenQuestion}
+      onSelectNotebook={handleSelectNotebookEntry}
+    />
+  );
+
   const renderNotebookRow = (entry) => (
     <NotebookListItem
       key={entry._id}
@@ -2404,28 +2391,6 @@ const ThinkMode = () => {
       })}
     />
   ), [handleOpenQuestion]);
-
-  const renderPartnerNotebookList = useCallback((items, emptyMessage = 'No notebook entries yet.') => (
-    <PartnerLineList
-      emptyMessage={emptyMessage}
-      items={items.map((entry) => {
-        const id = cleanText(entry?._id);
-        const title = cleanText(entry?.title) || 'Untitled';
-        const date = formatIndexDate(entry?.updatedAt || entry?.createdAt);
-        return (
-          <li key={id || title}>
-            <button
-              type="button"
-              className="concept-editorial-partner__concept-link"
-              onClick={() => handleSelectNotebookEntry(id)}
-            >
-              {date ? `${title} · ${date}` : title}
-            </button>
-          </li>
-        );
-      })}
-    />
-  ), [handleSelectNotebookEntry]);
 
   const renderNotebookFolderList = useCallback((items, {
     emptyMessage = 'No notebook entries yet.',
@@ -2748,15 +2713,6 @@ const ThinkMode = () => {
     concepts: concepts.slice(0, THINK_HOME_LIMIT),
     questions: allQuestions.filter(item => item.status !== 'answered').slice(0, THINK_HOME_LIMIT)
   }), [allQuestions, concepts, notebookEntries]);
-  const homeCorpusTelemetry = useMemo(() => ({
-    sources: homeArticles.length,
-    highlights: allHighlights.length,
-    concepts: concepts.length,
-    openThreads: allQuestions.filter(item => item.status !== 'answered').length,
-    wikiPages: homeWikiPages.length,
-    agentMoves: homeWikiActivity.length,
-    returnQueue: homeReturnQueue.length
-  }), [allHighlights.length, allQuestions, concepts.length, homeArticles.length, homeReturnQueue.length, homeWikiActivity.length, homeWikiPages.length]);
   const conceptsWithHighlights = useMemo(
     () => concepts.filter((item) => Number(item?.count || 0) > 0).slice(0, THINK_HOME_LIMIT),
     [concepts]
@@ -2768,152 +2724,7 @@ const ThinkMode = () => {
     { key: 'annotations', label: 'Annotations', short: 'An' }
   ]), []);
 
-  const homeEditorialLeftPanel = (
-    <EditorialRail
-      heroTitle={AGENT_DISPLAY_NAME}
-      heroSubtitle="Contextual intelligence"
-      ctaLabel="New inquiry"
-      onCta={handleCreateNotebookEntry}
-      navItems={partnerRailNavItems}
-      activeNav={homeEditorialSection}
-      onChangeNav={setHomeEditorialSection}
-      sections={
-        homeEditorialSection === 'sources'
-          ? [
-              {
-                label: 'Search and route',
-                content: (
-                  <label className="feedback-field think-index__search" style={{ margin: 0 }}>
-                    <input
-                      type="text"
-                      value={search}
-                      placeholder="Search notes, concepts, questions"
-                      data-testid="think-index-search-input"
-                      onChange={(event) => setSearch(event.target.value)}
-                    />
-                  </label>
-                )
-              },
-              {
-                label: 'Recent material',
-                flush: true,
-                content: (
-                  homeArticlesLoading ? (
-                    <SidebarSkeletonRows rows={6} />
-                  ) : (
-                    <PartnerLineList
-                      emptyMessage="No source material yet."
-                      items={homeArticles.slice(0, 6).map((article) => (
-                        <li key={article._id}>
-                          <button
-                            type="button"
-                            className="concept-editorial-partner__concept-link"
-                            onClick={() => handleOpenHomeArticle(article._id)}
-                          >
-                            {article.title || 'Untitled article'}{article.createdAt ? ` · ${formatIndexDate(article.createdAt)}` : ''}
-                          </button>
-                        </li>
-                      ))}
-                    />
-                  )
-                )
-              },
-              {
-                label: 'Working concepts',
-                flush: true,
-                content: conceptsLoading
-                  ? <SidebarSkeletonRows rows={4} />
-                  : renderPartnerConceptList(homeWorkingSet.concepts.slice(0, 4), 'No concepts yet.')
-              }
-            ]
-          : homeEditorialSection === 'highlights'
-            ? [
-              {
-                label: 'Working concepts',
-                flush: true,
-                content: conceptsLoading
-                  ? <SidebarSkeletonRows rows={6} />
-                  : renderPartnerConceptList(conceptsWithHighlights, 'No concepts have highlights yet.')
-              },
-              {
-                label: 'Open questions',
-                flush: true,
-                content: allQuestionsLoading
-                  ? <SidebarSkeletonRows rows={4} />
-                  : renderPartnerQuestionList(homeWorkingSet.questions.slice(0, 4), 'No open questions yet.')
-              }
-            ]
-            : homeEditorialSection === 'annotations'
-              ? [
-                  {
-                    label: 'Return queue',
-                    flush: true,
-                    content: (
-                      homeQueueLoading ? (
-                        <SidebarSkeletonRows rows={4} />
-                      ) : (
-                        <PartnerLineList
-                          emptyMessage="No return queue items."
-                          items={homeReturnQueue.slice(0, 5).map((entry) => (
-                            <li key={entry._id}>
-                              <button
-                                type="button"
-                                className="concept-editorial-partner__concept-link"
-                                onClick={() => handleOpenReturnQueueEntry(entry)}
-                              >
-                                {(entry.item?.title || `${entry.itemType} item`)}{entry.reason ? ` · ${entry.reason}` : ''}
-                              </button>
-                            </li>
-                          ))}
-                        />
-                      )
-                    )
-                  },
-                  {
-                    label: 'Quick moves',
-                    content: (
-                      <div className="think-home-rail__actions">
-                        <QuietButton onClick={() => handleSelectView('paths')}>Open paths</QuietButton>
-                        <QuietButton onClick={() => handleSelectView('concepts')}>Open concepts</QuietButton>
-                        <QuietButton onClick={() => handleSelectView('questions')}>Open questions</QuietButton>
-                      </div>
-                    )
-                  }
-                ]
-              : [
-                  {
-                    label: 'Notebook',
-                    flush: true,
-                    content: notebookLoadingList
-                      ? <SidebarSkeletonRows rows={6} />
-                      : renderPartnerNotebookList(homeWorkingSet.notebooks, 'No notebook entries yet.')
-                  },
-                  {
-                    label: 'Working concepts',
-                    flush: true,
-                    content: conceptsLoading
-                      ? <SidebarSkeletonRows rows={4} />
-                      : renderPartnerConceptList(homeWorkingSet.concepts.slice(0, 4), 'No concepts yet.')
-                  },
-                  {
-                    label: 'Open questions',
-                    flush: true,
-                    content: allQuestionsLoading
-                      ? <SidebarSkeletonRows rows={4} />
-                      : renderPartnerQuestionList(homeWorkingSet.questions.slice(0, 4), 'No open questions yet.')
-                  }
-                ]
-      }
-      footer={
-        homeQueueError || homeArticlesError ? (
-          <p className="status-message error-message">{homeQueueError || homeArticlesError}</p>
-        ) : (
-          <button type="button" onClick={() => handleSelectView('questions')}>Feedback</button>
-        )
-      }
-    />
-  );
-
+  const homeEditorialLeftPanel = thinkShelfRail;
 
   const isConceptWorkbenchView = activeView === 'concepts' && Boolean(selectedName);
   const isQuestionEditorialView = activeView === 'questions';
@@ -2957,12 +2768,6 @@ const ThinkMode = () => {
       onSelectView={handleSelectView}
     />
   );
-
-  const homeHighlights = useMemo(() => (
-    [...allHighlights]
-      .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
-      .slice(0, THINK_HOME_LIMIT)
-  ), [allHighlights]);
 
   const hasExplicitConceptSelection = activeView === 'concepts' && Boolean(selectedName);
   const thoughtPartnerContext = useMemo(() => resolveThoughtPartnerContext({
@@ -3618,6 +3423,13 @@ const ThinkMode = () => {
       wikiPromotionError={wikiPromotionError}
       renderWikiPromotionTrace={renderWikiPromotionTrace}
       onSelectView={handleSelectView}
+      shelfRail={thinkShelfRail}
+      indexMotion={notebookIndexMotion}
+      indexOrientation={notebookIndexOrientation}
+      indexLoading={notebookLoadingList}
+      indexError=""
+      allNotebookCount={notebookEntries.length}
+      onCalmThreadSelect={handleCalmThreadSelect}
     />
   );
 
@@ -3653,46 +3465,31 @@ const ThinkMode = () => {
       )
       : activeView === 'notebook'
         ? renderNotebookEditorialView('left')
-        : activeView === 'concepts'
-        // AT-329 (b): the Think door is calm — no left rail on the index.
-        // Rails belong to the open-thread chassis, not the doorway.
-        ? null
+        : activeView === 'concepts' && !hasExplicitConceptSelection
+        ? thinkShelfRail
         : defaultLeftPanel);
 
   const mainPanel = activeView === 'home' ? (
-    <ThinkHome
-      showHero
-      heroEyebrow="Workspace orientation"
-      heroTitle="Think"
-      heroSubtitle="Home for your notebook, concepts, and open questions."
-      recentTargets={recentTargets}
-      workingSet={homeWorkingSet}
-      returnQueue={homeReturnQueue}
-      recentHighlights={homeHighlights}
-      recentArticles={homeArticles}
-      recentWikiPages={homeWikiPages.slice(0, THINK_HOME_LIMIT)}
-      recentAgentActivity={homeWikiActivity}
-      corpusTelemetry={homeCorpusTelemetry}
+    <CalmIndexView
+      eyebrow="Think"
+      orientation={homeIndexOrientation}
+      motion={homeIndexMotion}
       loading={conceptsLoading || notebookLoadingList || allQuestionsLoading}
-      queueLoading={homeQueueLoading}
-      articlesLoading={homeArticlesLoading}
-      activationState={activationState}
-      onOpenTarget={handleOpenHomeTarget}
-      onOpenNotebook={handleSelectNotebookEntry}
-      onOpenConcept={handleSelectConcept}
-      onOpenQuestion={handleOpenQuestion}
-      onOpenReturnQueueItem={handleOpenReturnQueueEntry}
-      onOpenArticle={handleOpenHomeArticle}
-      onOpenActivation={() => { window.location.href = getFirstInsightOpenPath(activationState); }}
-      onClearActivation={() => {
-        clearFirstInsightState();
-        setActivationState(null);
-      }}
-      onCreateNote={handleCreateNotebookEntry}
-      onCreateConcept={handleCreateConceptFromHome}
-      onCreateFromTemplate={openTemplatePicker}
-      onCreateQuestion={handleCreateQuestion}
-      onUniversalCommand={handleHomeUniversalCommand}
+      showPostureTag
+      describeMotionNote={describeThreadMotionNote}
+      onSelectThread={handleCalmThreadSelect}
+      motionStatusTestIdPrefix="think-home-status"
+      homeCommand={(
+        <ThinkHomeUniversalCommand onUniversalCommand={handleHomeUniversalCommand} />
+      )}
+      actions={(
+        <>
+          <QuietButton onClick={openTemplatePicker}>Use template</QuietButton>
+          <QuietButton onClick={handleCreateNotebookEntry}>New page</QuietButton>
+          <QuietButton onClick={() => openConceptComposer('home', search)}>New concept</QuietButton>
+          <QuietButton onClick={handleCreateQuestion}>New question</QuietButton>
+        </>
+      )}
     />
   ) : activeView === 'notebook' ? (
     renderNotebookEditorialView('main')
@@ -3748,7 +3545,6 @@ const ThinkMode = () => {
       onOpenComposer={openConceptComposer}
       onOpenTemplatePicker={openTemplatePicker}
       renderConceptComposer={renderConceptComposer}
-      describeMotionNote={describeConceptMotionNote}
     />
   ) : null;
 
@@ -4565,10 +4361,10 @@ const ThinkMode = () => {
 
   const conceptIndexEditorialLayout = activeView === 'concepts' && !hasExplicitConceptSelection ? (
     <div className="concept-index-editorial-shell-page" data-think-posture="concept">
-      <div className="concept-index-editorial-shell concept-index-editorial-shell--calm">
-        {/* AT-329 (b): calm door — no left rail on the index. Working
-            concepts live on the shelf in the main column; rails belong to
-            the open-thread chassis. */}
+      <div className="concept-index-editorial-shell">
+        <aside className="concept-index-editorial-shell__left">
+          {thinkShelfRail}
+        </aside>
         <main className="concept-index-editorial-shell__main">
           <div className="concept-index-editorial-main">
             <div className="sr-only">
@@ -4665,6 +4461,12 @@ const ThinkMode = () => {
       onOpenThreadFromDraft={handleOpenThreadFromDraft}
       onCreateHandoffFromDraft={handleCreateHandoffFromDraft}
       onQueueFollowUpLoopFromDraft={handleQueueFollowUpLoopFromDraft}
+      shelfRail={thinkShelfRail}
+      indexMotion={questionIndexMotion}
+      indexOrientation={questionIndexOrientation}
+      indexLoading={allQuestionsLoading}
+      allQuestionsCount={allQuestions.length}
+      onCalmThreadSelect={handleCalmThreadSelect}
     />
   ) : null;
   const disableEditorialShell = searchParams.get('legacyShell') === '0';

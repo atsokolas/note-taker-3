@@ -606,40 +606,6 @@ const Library = () => {
           </div>
         )}
       </div>
-      <div className="library-search-panel">
-        <SectionHeader title="Search" subtitle="Find articles or highlights fast." />
-        <label className="feedback-field" style={{ margin: 0 }}>
-          <span>Article search</span>
-          <input
-            type="search"
-            value={articleQuery}
-            placeholder="Search articles..."
-            onChange={(event) => handleArticleQueryChange(event.target.value)}
-          />
-        </label>
-        <label className="feedback-field" style={{ margin: 0 }}>
-          <span>Highlight search</span>
-          <input
-            type="text"
-            value={highlightQuery}
-            placeholder="Search highlights..."
-            onChange={(event) => {
-              const params = new URLSearchParams(searchParams);
-              const value = event.target.value;
-              if (value) {
-                params.set('scope', 'highlights');
-                params.set('hq', value);
-                if (!params.get('highlightView')) {
-                  params.set('highlightView', 'concept');
-                }
-              } else {
-                params.delete('hq');
-              }
-              setSearchParams(params);
-            }}
-          />
-        </label>
-      </div>
       <div className="library-saved-views">
         <SectionHeader title="Saved Views" subtitle="Optional shortcuts." />
         <Link className="library-saved-view-link" to="/views">Open Saved Views</Link>

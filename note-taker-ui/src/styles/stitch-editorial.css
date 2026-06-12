@@ -1136,7 +1136,6 @@ body.noeis-editorial .think-main-actions .ui-quiet-button:hover {
 body.noeis-editorial .think-index__controls,
 body.noeis-editorial .think-index__group,
 body.noeis-editorial .library-cabinet-actions,
-body.noeis-editorial .library-search-panel,
 body.noeis-editorial .library-saved-views,
 body.noeis-editorial .notebook-organize-panel,
 body.noeis-editorial .search-section,
@@ -1177,15 +1176,12 @@ body.noeis-editorial .reflection-row {
 
 body.noeis-editorial .think-index__group,
 body.noeis-editorial .library-cabinet-actions,
-body.noeis-editorial .library-search-panel,
 body.noeis-editorial .library-saved-views,
 body.noeis-editorial .working-memory-panel {
   padding: 18px;
 }
 
 body.noeis-editorial .feedback-field input,
-body.noeis-editorial .library-search-panel input,
-body.noeis-editorial .library-search-panel select,
 body.noeis-editorial .think-index__filter select,
 body.noeis-editorial .think-index__search input,
 body.noeis-editorial .think-notebook-title-input,
@@ -1207,8 +1203,6 @@ body.noeis-editorial input {
 }
 
 body.noeis-editorial .think-index__search input,
-body.noeis-editorial .library-search-panel input,
-body.noeis-editorial .library-search-panel select,
 body.noeis-editorial .think-notebook-title-input,
 body.noeis-editorial .notebook-organize-panel input,
 body.noeis-editorial .notebook-organize-panel select,
@@ -7450,7 +7444,6 @@ body.noeis-editorial .three-pane--library .library-section-head .ui-section-head
 }
 
 body.noeis-editorial .three-pane--library .library-cabinet-actions,
-body.noeis-editorial .three-pane--library .library-search-panel,
 body.noeis-editorial .three-pane--library .library-saved-views {
   padding: 0 !important;
   background: transparent !important;
@@ -9513,17 +9506,133 @@ body.noeis-editorial a:hover {
 }
 
 /* ============================================================
-   AT-329 — Think index, calm inversion ("In motion" / "On the shelf").
-   The door opens on the agent's orientation and the threads with life;
-   the rest recedes. Left rail removed at the door (rails belong to the
-   open-thread chassis); the agent keeps the right seat.
+   Calm Think index — center column (tix-*) + left shelf rail.
+   Three-column editorial shells keep 250px | 1fr | 300px; the
+   shelf rail lives in the left column on home and type indexes.
    ============================================================ */
 
-body.noeis-editorial .concept-index-editorial-shell--calm,
-.concept-index-editorial-shell--calm {
-  grid-template-columns: minmax(0, 1fr) 300px;
-  max-width: 1120px;
-  margin: 0 auto;
+body.noeis-editorial .think-shelf-rail,
+.think-shelf-rail {
+  display: grid;
+  gap: 18px;
+  min-width: 0;
+  padding-top: 4px;
+}
+
+body.noeis-editorial .think-shelf-rail__search,
+.think-shelf-rail__search {
+  margin: 0;
+}
+
+body.noeis-editorial .think-shelf-rail__search input,
+.think-shelf-rail__search input {
+  width: 100%;
+  min-width: 0;
+}
+
+body.noeis-editorial .think-shelf-rail__section,
+.think-shelf-rail__section {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+body.noeis-editorial .think-shelf-rail__section-label,
+.think-shelf-rail__section-label {
+  margin: 0;
+  color: color-mix(in srgb, var(--text-muted) 92%, transparent);
+  font-size: 0.72rem;
+  font-weight: 750;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+body.noeis-editorial .think-shelf-rail__list,
+.think-shelf-rail__list {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  min-width: 0;
+}
+
+body.noeis-editorial .think-shelf-rail__item,
+.think-shelf-rail__item {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+body.noeis-editorial .think-shelf-rail__item:hover,
+.think-shelf-rail__item:hover {
+  background: color-mix(in srgb, var(--surface) 70%, transparent);
+}
+
+body.noeis-editorial .think-shelf-rail__item-title,
+.think-shelf-rail__item-title {
+  min-width: 0;
+  color: var(--text-primary);
+  font-size: 0.92rem;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+body.noeis-editorial .think-shelf-rail__item-meta,
+.think-shelf-rail__item-meta {
+  flex-shrink: 0;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+}
+
+body.noeis-editorial .think-shelf-rail__expand,
+.think-shelf-rail__expand {
+  justify-self: start;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--accent-primary);
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+
+body.noeis-editorial .think-calm-index,
+.think-calm-index {
+  min-width: 0;
+}
+
+body.noeis-editorial .think-calm-index__hero,
+.think-calm-index__hero {
+  display: grid;
+  gap: 6px;
+}
+
+body.noeis-editorial .think-calm-index__eyebrow,
+.think-calm-index__eyebrow {
+  color: color-mix(in srgb, var(--text-muted) 92%, transparent);
+  font-size: 0.72rem;
+  font-weight: 750;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+body.noeis-editorial .tix-thread__tag,
+.tix-thread__tag {
+  color: color-mix(in srgb, var(--text-muted) 88%, transparent);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
 }
 
 .tix-lead {

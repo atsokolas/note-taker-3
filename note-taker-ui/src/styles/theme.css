@@ -2939,11 +2939,6 @@ html[data-ui-theme='dark'] .topbar__search:-webkit-autofill:focus {
   gap: 8px;
 }
 
-.library-search-panel {
-  display: grid;
-  gap: 10px;
-}
-
 .library-saved-view-link {
   color: var(--text);
   text-decoration: none;

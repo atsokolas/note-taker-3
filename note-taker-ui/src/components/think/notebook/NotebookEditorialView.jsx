@@ -1,14 +1,13 @@
-import React from 'react';
-import { Button, QuietButton, SectionHeader } from '../../ui';
+import CalmIndexView, { NotebookIndexEmptyState } from '../CalmIndexView';
+import { describeThreadMotionNote } from '../calmIndexModel';
 import ThoughtPartnerPanel from '../../agent/ThoughtPartnerPanel';
 import AgentSkillDock from '../../agent/AgentSkillDock';
 import AgentArtifactDraftsPanel from '../../agent/AgentArtifactDraftsPanel';
+import { Button, QuietButton, SectionHeader } from '../../ui';
 import EditorialRail, { SidebarSkeletonRows } from '../EditorialRail';
 import NotebookContext from './NotebookContext';
 import NotebookEditor from './NotebookEditor';
 import { AGENT_DISPLAY_NAME } from '../../../constants/agentIdentity';
-
-const previewText = (value = '') => String(value || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
 
 const NotebookEditorialView = ({
   variant = 'shell',
@@ -56,7 +55,14 @@ const NotebookEditorialView = ({
   conceptWikiPromotionTarget,
   wikiPromotionError,
   renderWikiPromotionTrace,
-  onSelectView
+  onSelectView,
+  shelfRail = null,
+  indexMotion = { inMotion: [], shelf: [] },
+  indexOrientation = '',
+  indexLoading = false,
+  indexError = '',
+  allNotebookCount = 0,
+  onCalmThreadSelect = null
 }) => {
   const claimCandidates = (notebookEntries || []).filter(item => (item.type || 'note') === 'claim');
   const notebookList = filteredNotebookEntries || [];
@@ -173,33 +179,27 @@ const NotebookEditorialView = ({
   );
 
   const mainPanel = !activeNotebookEntry ? (
-    <div className="think-section-home think-section-home--notebook">
-      <div className="think-section-home__hero">
-        <span className="think-section-home__eyebrow">Notebook</span>
-        <h1>Choose a page when you are ready to write.</h1>
-        <p>
-          The notebook opens as a workspace first. Pick a page from the rail, create a fresh note, or use search to find the loose thread you want to continue.
-        </p>
-        <div className="think-section-home__actions">
-          <Button variant="primary" onClick={onCreateNotebookEntry}>New page</Button>
+    <CalmIndexView
+      eyebrow="Think · Notebook"
+      orientation={indexOrientation}
+      motion={indexMotion}
+      loading={indexLoading}
+      error={indexError}
+      describeMotionNote={describeThreadMotionNote}
+      onSelectThread={onCalmThreadSelect}
+      motionStatusTestIdPrefix="think-notebook-status"
+      emptyState={(
+        <NotebookIndexEmptyState onCreateNotebookEntry={onCreateNotebookEntry} />
+      )}
+      actions={notebookList.length > 0 ? (
+        <>
+          <Button variant="secondary" onClick={onCreateNotebookEntry} data-testid="think-notebook-index-create-button">
+            New page
+          </Button>
           <QuietButton onClick={onQueueOrganizationPrompt}>Clean up structure</QuietButton>
-        </div>
-      </div>
-      <div className="think-section-home__grid">
-        {notebookList.slice(0, 6).map((entry) => (
-          <button
-            key={entry._id}
-            type="button"
-            className="think-section-home__card"
-            onClick={() => onSelectNotebookEntry(entry._id)}
-          >
-            <span>Notebook page</span>
-            <strong>{entry.title || 'Untitled'}</strong>
-            <p>{previewText(entry.content).slice(0, 140) || 'Open this page to keep writing.'}</p>
-          </button>
-        ))}
-      </div>
-    </div>
+        </>
+      ) : null}
+    />
   ) : (
     <div className="think-notebook-editor-pane">
       {renderThinkPostureStrip('think-posture-strip--notebook')}
@@ -313,7 +313,7 @@ const NotebookEditorialView = ({
     </div>
   );
 
-  if (variant === 'left') return leftPanel;
+  if (variant === 'left') return !activeNotebookEntry && shelfRail ? shelfRail : leftPanel;
   if (variant === 'main') return mainPanel;
   if (variant === 'right') return rightPanel;
 
@@ -321,7 +321,7 @@ const NotebookEditorialView = ({
     <div className="notebook-editorial-shell-page" data-think-posture="notebook">
       <div className="notebook-editorial-shell">
         <aside className="notebook-editorial-shell__left">
-          {leftPanel}
+          {!activeNotebookEntry && shelfRail ? shelfRail : leftPanel}
         </aside>
         <main className="notebook-editorial-shell__main">
           {mainPanel}
