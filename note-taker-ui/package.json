@@ -37,6 +37,7 @@
 		"test:e2e": "npx @playwright/test test",
 		"test:agent-harness": "npx @playwright/test test e2e/agent-harness.smoke.spec.js",
 		"test:visual": "npx @playwright/test test e2e/visual-regression.spec.js",
+		"test:design-preview": "DESIGN_PREVIEW_EXPORT=1 npx @playwright/test test e2e/design-preview.spec.js",
 		"eject": "react-scripts eject"
 	},
 	"proxy": "http://localhost:5500",

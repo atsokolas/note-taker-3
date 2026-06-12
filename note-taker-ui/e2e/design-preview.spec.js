@@ -3,28 +3,34 @@ const path = require('path');
 const fs = require('fs');
 
 const screens = [
-  { id: 'home', tab: 'Think home', name: '01-think-home-full.png' },
-  { id: 'notebook', tab: 'Notebook', name: '02-notebook-full.png' },
-  { id: 'concept', tab: 'Concept', name: '03-concept-full.png' },
-  { id: 'library', tab: 'Library', name: '04-library-full.png' },
-  { id: 'handoffs', tab: 'Handoffs', name: '05-handoffs-full.png' }
+  { id: 'home', tab: 'Think home', name: 'home.png' },
+  { id: 'notebook', tab: 'Notebook', name: 'notebook.png' },
+  { id: 'concept', tab: 'Concept', name: 'concept.png' },
+  { id: 'library', tab: 'Library', name: 'library.png' },
+  { id: 'handoffs', tab: 'Handoffs', name: 'handoffs.png' }
 ];
 
-test('renders full redesign preview screens', async ({ page }) => {
-  const outputDir = path.resolve(__dirname, '../../output/ui-redesign-v2');
-  fs.mkdirSync(outputDir, { recursive: true });
+const shouldExportScreens = process.env.DESIGN_PREVIEW_EXPORT === '1';
+const outputDir = path.resolve(__dirname, '../../output/ui-redesign-v3');
 
+test('renders full redesign preview screens', async ({ page }) => {
   await page.goto('/design-preview');
   await expect(page.locator('.design-preview-shell')).toBeVisible();
 
   const iframe = page.frameLocator('.design-preview-shell__iframe');
 
+  if (shouldExportScreens) {
+    fs.mkdirSync(outputDir, { recursive: true });
+  }
+
   for (const screen of screens) {
     await page.getByRole('button', { name: screen.tab }).click();
     const locator = iframe.locator(`.screen.is-active[data-screen="${screen.id}"]`);
     await expect(locator).toBeVisible();
-    await locator.screenshot({
-      path: path.join(outputDir, screen.name)
-    });
+    if (shouldExportScreens) {
+      await locator.screenshot({
+        path: path.join(outputDir, screen.name)
+      });
+    }
   }
 });
