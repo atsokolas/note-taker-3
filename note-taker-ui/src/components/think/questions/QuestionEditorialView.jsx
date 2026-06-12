@@ -700,7 +700,7 @@ const QuestionEditorialView = ({
           {isQuestionIndex && shelfRail ? shelfRail : leftPanel}
         </aside>
         <main className="question-editorial-shell__main">
-          <h1 className="sr-only">Questions</h1>
+          <span className="sr-only">Questions</span>
           {mainPanel}
         </main>
         <aside className="question-editorial-shell__right">

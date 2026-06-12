@@ -1087,6 +1087,7 @@ describe('ThinkMode template integration', () => {
 
     expect(await screen.findByRole('heading', { name: 'In motion' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: /strongest pull/i })).toBeInTheDocument();
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
     expect(screen.getByTestId('think-shelf-rail')).toBeInTheDocument();
     expect(screen.getByTestId('think-question-status-question%3Aquestion-1')).toHaveTextContent(/open/i);
   });
