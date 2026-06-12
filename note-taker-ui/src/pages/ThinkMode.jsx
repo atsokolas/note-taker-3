@@ -74,7 +74,8 @@ import {
   composeQuestionIndexOrientation,
   composeNotebookIndexOrientation,
   composeHomeIndexOrientation,
-  describeThreadMotionNote
+  describeThreadMotionNote,
+  getThreadPostureTag
 } from '../components/think/calmIndexModel';
 
 const NotebookFolderTree = lazy(() => import('../components/think/notebook/NotebookFolderTree'));
@@ -430,8 +431,8 @@ const ThinkMode = () => {
   const [cardsExpanded, setCardsExpanded] = useState(false);
   const [cardsExpandVersion, setCardsExpandVersion] = useState(0);
   const [recentTargets, setRecentTargets] = useState(() => readRecentTargets());
-  const [, setHomeReturnQueue] = useState([]);
-  const [, setHomeQueueLoading] = useState(false);
+  const [homeReturnQueue, setHomeReturnQueue] = useState([]);
+  const [homeQueueLoading, setHomeQueueLoading] = useState(false);
   const [homeQueueError, setHomeQueueError] = useState('');
   const [, setHomeArticles] = useState([]);
   const [, setHomeArticlesLoading] = useState(false);
@@ -1635,10 +1636,10 @@ const ThinkMode = () => {
     handleSelectConcept
   ]);
 
-  const handleOpenHomeTarget = useCallback((item) => {
-    const path = String(item?.path || '').trim();
-    if (!path) return;
-    window.location.href = path;
+  const handleOpenReturnQueueEntry = useCallback((entry) => {
+    const openPath = String(entry?.item?.openPath || entry?.item?.path || '').trim();
+    if (!openPath) return;
+    window.location.href = openPath;
   }, []);
 
   const handleSelectPath = useCallback((pathId) => {
@@ -3482,6 +3483,9 @@ const ThinkMode = () => {
       homeCommand={(
         <ThinkHomeUniversalCommand onUniversalCommand={handleHomeUniversalCommand} />
       )}
+      returnQueue={homeReturnQueue}
+      returnQueueLoading={homeQueueLoading}
+      onOpenReturnQueueItem={handleOpenReturnQueueEntry}
       actions={(
         <>
           <QuietButton onClick={openTemplatePicker}>Use template</QuietButton>
@@ -3680,21 +3684,23 @@ const ThinkMode = () => {
       />
       {activeView === 'home' && (
         <div className="think-home-rail">
-          <div className="think-home-rail__section">
-            <SectionHeader title="Recent activity" subtitle="Your latest trails in Think." />
+          <div className="think-home-rail__section" data-testid="think-home-updated-stream">
+            <SectionHeader title="Updated stream" subtitle="Recent motion in Think." />
             <div className="think-home__list">
-              {recentTargets.slice(0, THINK_HOME_LIMIT).map((item) => (
+              {homeIndexMotion.inMotion.slice(0, 4).map((thread) => (
                 <button
-                  key={`${item.type}:${item.id}`}
+                  key={thread.key}
                   type="button"
                   className="think-home__row"
-                  onClick={() => handleOpenHomeTarget(item)}
+                  onClick={() => handleCalmThreadSelect(thread)}
                 >
-                  <span className="think-home__row-title">{item.title || item.type}</span>
-                  <span className="think-home__row-meta muted small">{item.type}</span>
+                  <span className="think-home__row-title">{thread.title}</span>
+                  <span className="think-home__row-meta muted small">
+                    {getThreadPostureTag(thread)} · {describeThreadMotionNote(thread)}
+                  </span>
                 </button>
               ))}
-              {recentTargets.length === 0 && <p className="muted small">No recent activity yet.</p>}
+              {homeIndexMotion.inMotion.length === 0 && <p className="muted small">No recent motion yet.</p>}
             </div>
           </div>
           <div className="think-home-rail__section">
@@ -4271,23 +4277,25 @@ const ThinkMode = () => {
         onInvoke={queueThoughtPartnerPrompt}
       />
 
-      <div className="editorial-side-rail__section">
+      <div className="editorial-side-rail__section" data-testid="think-home-updated-stream">
         <SectionHeader title="Updated stream" subtitle="Recent motion in Think." />
         <div className="think-home__list">
-          {recentTargets.length > 0 ? (
-            recentTargets.slice(0, 5).map((item) => (
+          {homeIndexMotion.inMotion.length > 0 ? (
+            homeIndexMotion.inMotion.slice(0, 4).map((thread) => (
               <button
-                key={`${item.type}:${item.id}`}
+                key={thread.key}
                 type="button"
                 className="think-home__row"
-                onClick={() => handleOpenHomeTarget(item)}
+                onClick={() => handleCalmThreadSelect(thread)}
               >
-                <span className="think-home__row-title">{item.title || item.type}</span>
-                <span className="think-home__row-meta muted small">{item.type}</span>
+                <span className="think-home__row-title">{thread.title}</span>
+                <span className="think-home__row-meta muted small">
+                  {getThreadPostureTag(thread)} · {describeThreadMotionNote(thread)}
+                </span>
               </button>
             ))
           ) : (
-            <p className="muted small">No recent activity yet.</p>
+            <p className="muted small">No recent motion yet.</p>
           )}
         </div>
       </div>

@@ -968,6 +968,47 @@ describe('ThinkMode template integration', () => {
     expect(screen.getByRole('button', { name: 'Use template' })).toBeInTheDocument();
   });
 
+  it('renders the home return queue in the calm center column and updated stream in the rail', async () => {
+    useSearchParamsMock.mockReturnValue([
+      new URLSearchParams('tab=home'),
+      mockSetSearchParams
+    ]);
+    listReturnQueue.mockResolvedValueOnce([{
+      _id: 'queue-home-1',
+      itemType: 'concept',
+      reason: 'waiting for review',
+      item: {
+        title: 'Queued Opportunity Cost',
+        openPath: '/think?tab=concepts&concept=Opportunity%20Cost'
+      }
+    }]);
+    getArticles.mockResolvedValueOnce([]);
+    getNotebookSummaries.mockResolvedValue([]);
+    useConcepts.mockReturnValue({
+      concepts: [{
+        _id: 'concept-home-1',
+        name: 'Home Concept',
+        count: 2,
+        description: '',
+        freshness: { stale: false, lastReviewedAt: '2026-04-10T00:00:00.000Z' }
+      }],
+      loading: false,
+      error: '',
+      refresh: refreshConceptsMock
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/think?tab=home']}>
+        <ThinkMode />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByRole('heading', { name: 'Return queue' })).toBeInTheDocument();
+    expect(screen.getByText('Queued Opportunity Cost')).toBeInTheDocument();
+    expect(screen.getByTestId('think-home-updated-stream')).toHaveTextContent('Home Concept');
+    expect(screen.getByTestId('think-home-updated-stream')).toHaveTextContent(/Concept/i);
+  });
+
   it('ranks stale concepts first in home mixed-type motion stream', async () => {
     useSearchParamsMock.mockReturnValue([
       new URLSearchParams('tab=home'),

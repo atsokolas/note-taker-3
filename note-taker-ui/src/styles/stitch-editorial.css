@@ -9724,6 +9724,57 @@ body.noeis-editorial .tix-thread__tag,
   border-top: 1px solid color-mix(in srgb, var(--nt-divider) 72%, transparent);
 }
 
+.think-home-return-queue {
+  display: grid;
+  gap: 8px;
+  padding-top: 16px;
+  border-top: 1px solid color-mix(in srgb, var(--nt-divider) 72%, transparent);
+}
+
+.think-home-return-queue__list {
+  display: grid;
+  gap: 4px;
+}
+
+.think-home-return-queue__item {
+  display: grid;
+  gap: 4px;
+  width: 100%;
+  min-width: 0;
+  padding: 10px 0;
+  border: 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--nt-divider) 58%, transparent);
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.think-home-return-queue__item:last-child {
+  border-bottom: 0;
+}
+
+.think-home-return-queue__item:hover .think-home-return-queue__title {
+  color: var(--accent-primary);
+}
+
+.think-home-return-queue__title {
+  min-width: 0;
+  color: var(--text-primary);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1rem;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.think-home-return-queue__meta {
+  min-width: 0;
+  color: color-mix(in srgb, var(--text-muted) 92%, transparent);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.7rem;
+  letter-spacing: 0.04em;
+  overflow-wrap: anywhere;
+}
+
 /* Arrival: one thing leads, others follow; then stillness. */
 .tix-anim {
   opacity: 0;
