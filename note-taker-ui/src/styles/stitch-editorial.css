@@ -1266,9 +1266,25 @@ body.noeis-editorial .library-article-row-kicker {
   flex-wrap: wrap;
   gap: 14px;
   align-items: center;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+body.noeis-editorial .library-article-row-source {
+  min-width: 0;
+  max-width: min(280px, 100%);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 body.noeis-editorial .library-article-row-tag {
+  min-width: 0;
+  max-width: min(260px, 100%);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-family: var(--noeis-ui-font);
   font-size: 0.68rem;
   letter-spacing: 0.14em;
@@ -1288,7 +1304,11 @@ body.noeis-editorial .library-article-row-excerpt {
 
 body.noeis-editorial .library-article-row-meta {
   display: flex;
+  flex-wrap: wrap;
   gap: 16px;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
   font-family: var(--noeis-ui-font);
   font-size: 0.7rem;
   letter-spacing: 0.14em;
@@ -1296,8 +1316,16 @@ body.noeis-editorial .library-article-row-meta {
   color: color-mix(in srgb, var(--vellum-ink) 60%, transparent);
 }
 
+body.noeis-editorial .library-article-row-meta > * {
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 body.noeis-editorial .library-article-row-action {
   align-self: center;
+  justify-self: start;
 }
 
 body.noeis-editorial .article-reader {
@@ -9360,6 +9388,7 @@ body.noeis-editorial a:hover {
   }
 
   body.noeis-editorial .three-pane__main {
+    grid-column: 1;
     padding: 0;
   }
 

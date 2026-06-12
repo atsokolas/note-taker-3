@@ -60,7 +60,7 @@ const getExcerpt = (article) => {
  *  onMoveArticle?: (article: { _id: string }) => void
  * }} props
  */
-const ARTICLE_ROW_HEIGHT = 148;
+const ARTICLE_ROW_HEIGHT = 164;
 const SKELETON_ROWS = 6;
 
 const ArticleRowSkeleton = React.memo(() => (
@@ -227,6 +227,7 @@ const LibraryArticleList = ({
               items={articles}
               height={virtualHeight}
               itemSize={ARTICLE_ROW_HEIGHT}
+              dynamicItemHeights
               className="library-article-list-virtual"
               renderItem={(article, index) => (
                 <div key={article._id || index} style={{ paddingBottom: 10 }}>
