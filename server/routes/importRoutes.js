@@ -389,9 +389,11 @@ const buildImportRouter = ({
       provider: 'readwise',
       userId: String(userId || '').trim(),
       nonce: crypto.randomUUID(),
-      codeVerifier,
-      clientId,
-      clientSecret
+      oauthPayload: encryptSecret(JSON.stringify({
+        codeVerifier,
+        clientId,
+        clientSecret
+      }))
     },
     process.env.JWT_SECRET,
     { expiresIn: '10m' }
@@ -402,12 +404,25 @@ const buildImportRouter = ({
     if (
       decoded?.provider !== 'readwise'
       || !decoded?.userId
-      || !decoded?.codeVerifier
-      || !decoded?.clientId
+      || !decoded?.oauthPayload
     ) {
       throw new Error('Invalid Readwise OAuth state.');
     }
-    return decoded;
+    let oauthPayload = {};
+    try {
+      oauthPayload = JSON.parse(decryptSecret(decoded.oauthPayload));
+    } catch (error) {
+      throw new Error('Invalid Readwise OAuth payload.');
+    }
+    if (!oauthPayload?.codeVerifier || !oauthPayload?.clientId) {
+      throw new Error('Incomplete Readwise OAuth payload.');
+    }
+    return {
+      ...decoded,
+      codeVerifier: oauthPayload.codeVerifier,
+      clientId: oauthPayload.clientId,
+      clientSecret: oauthPayload.clientSecret || ''
+    };
   };
 
   const registerReadwiseOAuthClient = async ({ redirectUri }) => {
