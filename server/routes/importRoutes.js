@@ -57,6 +57,13 @@ const normalizeSourcePath = (value = '') => {
 const NOTEBOOK_IMPORT_FOLDER_OWNERSHIP = 'import_mirror';
 const NOTEBOOK_USER_FOLDER_OWNERSHIP = 'user_owned';
 const IMPORT_ORGANIZATION_SUGGESTION_TYPE = 'organize_import';
+const READWISE_MCP_SERVER_URL = 'https://mcp2.readwise.io/mcp';
+const READWISE_OAUTH_AUTHORIZE_URL = 'https://readwise.io/o/authorize/';
+const READWISE_OAUTH_TOKEN_URL = 'https://readwise.io/o/token/';
+const READWISE_OAUTH_REGISTER_URL = 'https://readwise.io/o/register/';
+const READWISE_OAUTH_USERINFO_URL = 'https://readwise.io/o/userinfo';
+const READWISE_OAUTH_SCOPES = ['openid', 'read', 'write'];
+const READWISE_DYNAMIC_CLIENTS = new Map();
 
 const buildImportRouter = ({
   authenticateToken,
@@ -324,7 +331,7 @@ const buildImportRouter = ({
     || `${req.protocol}://${req.get('host')}/api/import/notion/oauth/callback`
   );
 
-  const getNotionAppUrl = (req) => (
+  const getImportAppUrl = (req) => (
     toTrimmedString(process.env.WEB_APP_URL)
     || toTrimmedString(process.env.APP_URL)
     || `${req.protocol}://${req.get('host')}`
@@ -346,6 +353,133 @@ const buildImportRouter = ({
       throw new Error('Invalid Notion OAuth state.');
     }
     return decoded;
+  };
+
+  const getReadwiseRedirectUri = (req) => (
+    toTrimmedString(process.env.READWISE_REDIRECT_URI)
+    || `${req.protocol}://${req.get('host')}/api/import/readwise/oauth/callback`
+  );
+
+  const createReadwisePkcePair = () => {
+    const verifier = crypto.randomBytes(32).toString('base64url');
+    const challenge = crypto
+      .createHash('sha256')
+      .update(verifier)
+      .digest('base64url');
+    return { verifier, challenge };
+  };
+
+  const createReadwiseState = ({
+    userId,
+    codeVerifier,
+    clientId,
+    clientSecret = ''
+  }) => jwt.sign(
+    {
+      provider: 'readwise',
+      userId: String(userId || '').trim(),
+      nonce: crypto.randomUUID(),
+      codeVerifier,
+      clientId,
+      clientSecret
+    },
+    process.env.JWT_SECRET,
+    { expiresIn: '10m' }
+  );
+
+  const verifyReadwiseState = (value = '') => {
+    const decoded = jwt.verify(String(value || ''), process.env.JWT_SECRET);
+    if (
+      decoded?.provider !== 'readwise'
+      || !decoded?.userId
+      || !decoded?.codeVerifier
+      || !decoded?.clientId
+    ) {
+      throw new Error('Invalid Readwise OAuth state.');
+    }
+    return decoded;
+  };
+
+  const registerReadwiseOAuthClient = async ({ redirectUri }) => {
+    const configuredClientId = toTrimmedString(process.env.READWISE_CLIENT_ID);
+    if (configuredClientId) {
+      return {
+        client_id: configuredClientId,
+        client_secret: toTrimmedString(process.env.READWISE_CLIENT_SECRET),
+        token_endpoint_auth_method: toTrimmedString(process.env.READWISE_TOKEN_AUTH_METHOD) || 'none'
+      };
+    }
+    const cacheKey = toTrimmedString(redirectUri);
+    if (cacheKey && READWISE_DYNAMIC_CLIENTS.has(cacheKey)) {
+      return READWISE_DYNAMIC_CLIENTS.get(cacheKey);
+    }
+
+    const response = await fetch(READWISE_OAUTH_REGISTER_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        client_name: 'Noeis',
+        redirect_uris: [redirectUri],
+        grant_types: ['authorization_code', 'refresh_token'],
+        response_types: ['code'],
+        scope: READWISE_OAUTH_SCOPES.join(' '),
+        token_endpoint_auth_method: 'none'
+      })
+    });
+    if (!response.ok) {
+      const text = await response.text().catch(() => '');
+      throw new Error(`Readwise dynamic client registration failed (${response.status}): ${text}`);
+    }
+    const payload = await response.json();
+    if (!toTrimmedString(payload?.client_id)) {
+      throw new Error('Readwise dynamic client registration did not return a client_id.');
+    }
+    if (cacheKey) {
+      READWISE_DYNAMIC_CLIENTS.set(cacheKey, payload);
+    }
+    return payload;
+  };
+
+  const exchangeReadwiseCode = async ({
+    code,
+    redirectUri,
+    clientId,
+    clientSecret = '',
+    codeVerifier
+  }) => {
+    const params = new URLSearchParams({
+      grant_type: 'authorization_code',
+      code,
+      redirect_uri: redirectUri,
+      client_id: clientId,
+      code_verifier: codeVerifier
+    });
+    if (clientSecret) {
+      params.set('client_secret', clientSecret);
+    }
+    const response = await fetch(READWISE_OAUTH_TOKEN_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: params.toString()
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok || !toTrimmedString(payload?.access_token)) {
+      throw new Error(`Readwise OAuth token exchange failed (${response.status}).`);
+    }
+    return payload;
+  };
+
+  const fetchReadwiseUserInfo = async (accessToken = '') => {
+    if (!accessToken) return null;
+    try {
+      const response = await fetch(READWISE_OAUTH_USERINFO_URL, {
+        headers: { Authorization: `Bearer ${accessToken}` }
+      });
+      if (!response.ok) return null;
+      return response.json();
+    } catch (error) {
+      return null;
+    }
   };
 
   const savePreviewToSession = async ({
@@ -1069,10 +1203,103 @@ const buildImportRouter = ({
     }
   });
 
+  router.post('/api/import/readwise/oauth/start', authenticateToken, async (req, res) => {
+    try {
+      const redirectUri = getReadwiseRedirectUri(req);
+      const { verifier, challenge } = createReadwisePkcePair();
+      const client = await registerReadwiseOAuthClient({ redirectUri });
+      const clientId = toTrimmedString(client?.client_id);
+      const clientSecret = toTrimmedString(client?.client_secret);
+      const state = createReadwiseState({
+        userId: req.user.id,
+        codeVerifier: verifier,
+        clientId,
+        clientSecret
+      });
+      const params = new URLSearchParams({
+        response_type: 'code',
+        client_id: clientId,
+        redirect_uri: redirectUri,
+        scope: READWISE_OAUTH_SCOPES.join(' '),
+        state,
+        code_challenge: challenge,
+        code_challenge_method: 'S256'
+      });
+      res.status(200).json({
+        authUrl: `${READWISE_OAUTH_AUTHORIZE_URL}?${params.toString()}`
+      });
+    } catch (error) {
+      console.error('Failed to start Readwise OAuth:', error);
+      res.status(500).json({ error: 'Failed to start Readwise browser authorization.' });
+    }
+  });
+
+  router.get('/api/import/readwise/oauth/callback', async (req, res) => {
+    try {
+      const code = toTrimmedString(req.query.code);
+      const state = toTrimmedString(req.query.state);
+      const redirectUri = getReadwiseRedirectUri(req);
+      if (!code || !state) {
+        throw new Error('Missing OAuth code or state.');
+      }
+      const decoded = verifyReadwiseState(state);
+      const tokenPayload = await exchangeReadwiseCode({
+        code,
+        redirectUri,
+        clientId: toTrimmedString(decoded.clientId),
+        clientSecret: toTrimmedString(decoded.clientSecret),
+        codeVerifier: toTrimmedString(decoded.codeVerifier)
+      });
+      const accessToken = toTrimmedString(tokenPayload.access_token);
+      const refreshToken = toTrimmedString(tokenPayload.refresh_token);
+      const userInfo = await fetchReadwiseUserInfo(accessToken);
+
+      let connection = await IntegrationConnection.findOne({
+        userId: decoded.userId,
+        provider: 'readwise',
+        mode: 'mcp_remote'
+      }).sort({ updatedAt: -1, createdAt: -1 });
+      if (!connection) {
+        connection = new IntegrationConnection({
+          userId: decoded.userId,
+          provider: 'readwise',
+          mode: 'mcp_remote'
+        });
+      }
+
+      const email = toTrimmedString(userInfo?.email);
+      const username = toTrimmedString(userInfo?.preferred_username || userInfo?.name);
+      connection.accountLabel = email || username || 'Readwise';
+      connection.externalAccountId = toTrimmedString(userInfo?.sub) || READWISE_MCP_SERVER_URL;
+      connection.encryptedAccessToken = encryptSecret(accessToken);
+      connection.encryptedRefreshToken = refreshToken ? encryptSecret(refreshToken) : '';
+      connection.scopes = [
+        ...READWISE_OAUTH_SCOPES,
+        'mcp:readwise.highlights.read',
+        'mcp:reader.documents.read',
+        'mcp:reader.documents.write'
+      ];
+      await markConnectionHealthy(connection);
+
+      const appUrl = getImportAppUrl(req);
+      const nextUrl = new URL('/data-integrations', appUrl);
+      nextUrl.searchParams.set('source', 'readwise');
+      nextUrl.searchParams.set('readwise', 'connected');
+      return res.redirect(nextUrl.toString());
+    } catch (error) {
+      console.error('Readwise OAuth callback failed:', error);
+      const appUrl = getImportAppUrl(req);
+      const nextUrl = new URL('/data-integrations', appUrl);
+      nextUrl.searchParams.set('source', 'readwise');
+      nextUrl.searchParams.set('readwise', 'error');
+      return res.redirect(nextUrl.toString());
+    }
+  });
+
   router.post('/api/import/readwise/mcp/connect', authenticateToken, async (req, res) => {
     try {
       const accountLabel = toTrimmedString(req.body?.accountLabel) || 'Readwise MCP';
-      const mcpServerUrl = 'https://mcp2.readwise.io/mcp';
+      const mcpServerUrl = READWISE_MCP_SERVER_URL;
 
       let connection = await IntegrationConnection.findOne({
         userId: req.user.id,
@@ -1579,14 +1806,14 @@ const buildImportRouter = ({
       connection.encryptedRefreshToken = encryptSecret(toTrimmedString(payload.refresh_token));
       await markConnectionHealthy(connection);
 
-      const appUrl = getNotionAppUrl(req);
+      const appUrl = getImportAppUrl(req);
       const nextUrl = new URL('/data-integrations', appUrl);
       nextUrl.searchParams.set('source', 'notion');
       nextUrl.searchParams.set('notion', 'connected');
       return res.redirect(nextUrl.toString());
     } catch (error) {
       console.error('Notion OAuth callback failed:', error);
-      const appUrl = getNotionAppUrl(req);
+      const appUrl = getImportAppUrl(req);
       const nextUrl = new URL('/data-integrations', appUrl);
       nextUrl.searchParams.set('source', 'notion');
       nextUrl.searchParams.set('notion', 'error');

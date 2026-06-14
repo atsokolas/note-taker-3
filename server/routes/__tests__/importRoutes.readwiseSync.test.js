@@ -149,6 +149,11 @@ const createArticleModel = () => {
 
 const run = async () => {
   const originalAxiosGet = axios.get;
+  const originalFetch = global.fetch;
+  const originalJwtSecret = process.env.JWT_SECRET;
+
+  process.env.JWT_SECRET = 'readwise-route-test-secret';
+
   const importSessions = buildImportSessionStore();
   const connections = buildConnectionStore();
   const Article = createArticleModel();
@@ -173,6 +178,26 @@ const run = async () => {
       };
     }
     throw new Error(`Unexpected axios.get URL: ${url}`);
+  };
+
+  global.fetch = async (url, options = {}) => {
+    if (String(url) === 'https://readwise.io/o/register/') {
+      const body = JSON.parse(String(options.body || '{}'));
+      assert.strictEqual(body.client_name, 'Noeis');
+      assert.deepStrictEqual(body.grant_types, ['authorization_code', 'refresh_token']);
+      assert.deepStrictEqual(body.response_types, ['code']);
+      assert.strictEqual(body.token_endpoint_auth_method, 'none');
+      assert.strictEqual(body.scope, 'openid read write');
+      assert.ok(
+        String(body.redirect_uris?.[0] || '').includes('/api/import/readwise/oauth/callback'),
+        'Readwise OAuth registration should include the API callback URL.'
+      );
+      return new Response(JSON.stringify({ client_id: 'readwise-dynamic-client' }), {
+        status: 201,
+        headers: { 'content-type': 'application/json' }
+      });
+    }
+    return originalFetch(url, options);
   };
 
   const app = express();
@@ -223,6 +248,24 @@ const run = async () => {
 
   const { server, url } = await listen(app);
   try {
+    const oauthStartResponse = await originalFetch(`${url}/api/import/readwise/oauth/start`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json'
+      },
+      body: JSON.stringify({})
+    });
+    const oauthStartPayload = await oauthStartResponse.json();
+    assert.strictEqual(oauthStartResponse.status, 200, `Readwise OAuth start should return an auth URL. body=${JSON.stringify(oauthStartPayload)}`);
+    const authUrl = new URL(oauthStartPayload.authUrl);
+    assert.strictEqual(authUrl.origin + authUrl.pathname, 'https://readwise.io/o/authorize/');
+    assert.strictEqual(authUrl.searchParams.get('response_type'), 'code');
+    assert.strictEqual(authUrl.searchParams.get('client_id'), 'readwise-dynamic-client');
+    assert.strictEqual(authUrl.searchParams.get('scope'), 'openid read write');
+    assert.strictEqual(authUrl.searchParams.get('code_challenge_method'), 'S256');
+    assert.ok(authUrl.searchParams.get('code_challenge'), 'Readwise OAuth start should include a PKCE challenge.');
+    assert.ok(authUrl.searchParams.get('state'), 'Readwise OAuth start should include signed state.');
+
     const mcpResponse = await fetch(`${url}/api/import/readwise/mcp/connect`, {
       method: 'POST',
       headers: {
@@ -271,6 +314,12 @@ const run = async () => {
     );
   } finally {
     axios.get = originalAxiosGet;
+    global.fetch = originalFetch;
+    if (originalJwtSecret === undefined) {
+      delete process.env.JWT_SECRET;
+    } else {
+      process.env.JWT_SECRET = originalJwtSecret;
+    }
     await new Promise((resolve) => server.close(resolve));
   }
 };

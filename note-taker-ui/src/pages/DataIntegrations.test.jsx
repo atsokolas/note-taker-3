@@ -8,7 +8,6 @@ import { updateConcept } from '../api/concepts';
 import {
   checkNotionConnection,
   checkReadwiseConnection,
-  connectReadwiseMcp,
   connectReadwiseToken,
   createImportSession,
   exportToNotionPage,
@@ -17,6 +16,7 @@ import {
   previewNotionConnection,
   previewReadwiseConnection,
   startNotionOAuth,
+  startReadwiseOAuth,
   syncReadwiseConnection,
   syncNotionConnection,
   updateImportSession
@@ -37,7 +37,6 @@ jest.mock('../api/concepts', () => ({
 jest.mock('../api/imports', () => ({
   checkNotionConnection: jest.fn(),
   checkReadwiseConnection: jest.fn(),
-  connectReadwiseMcp: jest.fn(),
   connectReadwiseToken: jest.fn(),
   createImportSession: jest.fn(),
   exportToNotionPage: jest.fn(),
@@ -46,6 +45,7 @@ jest.mock('../api/imports', () => ({
   previewNotionConnection: jest.fn(),
   previewReadwiseConnection: jest.fn(),
   startNotionOAuth: jest.fn(),
+  startReadwiseOAuth: jest.fn(),
   syncReadwiseConnection: jest.fn(),
   syncNotionConnection: jest.fn(),
   updateImportSession: jest.fn()
@@ -108,9 +108,9 @@ describe('DataIntegrations first insight workflow', () => {
     getActiveImportSession.mockResolvedValue(null);
     checkReadwiseConnection.mockResolvedValue({});
     checkNotionConnection.mockResolvedValue({});
-    connectReadwiseMcp.mockResolvedValue({});
     connectReadwiseToken.mockResolvedValue(null);
     startNotionOAuth.mockResolvedValue('');
+    startReadwiseOAuth.mockResolvedValue('');
     exportToNotionPage.mockResolvedValue({
       ok: true,
       page: {
@@ -368,33 +368,25 @@ describe('DataIntegrations first insight workflow', () => {
     expect(await screen.findByText('Readwise connection is healthy.')).toBeInTheDocument();
   });
 
-  it('shows Readwise MCP as the recommended connect flow with token fallback', async () => {
+  it('shows Readwise browser approval as the recommended connect flow with token fallback', async () => {
     render(
       <MemoryRouter>
         <DataIntegrations />
       </MemoryRouter>
     );
 
-    expect(await screen.findByText(/Recommended: Readwise MCP \+ OAuth/i)).toBeInTheDocument();
+    expect(await screen.findByText(/Recommended: browser approval/i)).toBeInTheDocument();
+    expect(screen.getByText(/You do not need to paste an API token/i)).toBeInTheDocument();
     expect(screen.getByText(/https:\/\/mcp2\.readwise\.io\/mcp/)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Readwise MCP setup' })).toHaveAttribute('href', 'https://docs.readwise.io/tools/mcp');
-    expect(screen.getByText(/Manual direct-sync fallback/i)).toBeInTheDocument();
+    fireEvent.click(screen.getByText(/Advanced: direct sync with API token/i));
     const tokenLink = await screen.findByRole('link', { name: 'Get Readwise token' });
     expect(tokenLink).toHaveAttribute('href', 'https://readwise.io/access_token');
   });
 
-  it('saves a Readwise MCP connection without requiring an API token', async () => {
-    connectReadwiseMcp.mockResolvedValue({
-      connection: {
-        id: 'rw-mcp-1',
-        provider: 'readwise',
-        mode: 'mcp_remote',
-        accountLabel: 'Readwise MCP',
-        externalAccountId: 'https://mcp2.readwise.io/mcp',
-        status: 'connected',
-        health: 'healthy'
-      }
-    });
+  it('starts Readwise browser authorization without requiring an API token', async () => {
+    const openSpy = jest.spyOn(window, 'open').mockImplementation(() => null);
+    startReadwiseOAuth.mockResolvedValue('https://readwise.io/o/authorize/?client_id=noeis');
 
     render(
       <MemoryRouter>
@@ -402,13 +394,15 @@ describe('DataIntegrations first insight workflow', () => {
       </MemoryRouter>
     );
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Use Readwise MCP' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Connect with Readwise' }));
 
-    await waitFor(() => expect(connectReadwiseMcp).toHaveBeenCalledWith({
-      accountLabel: 'Readwise'
-    }));
-    expect(await screen.findByText(/Readwise MCP saved/)).toBeInTheDocument();
-    expect(screen.getByText('Mode: Readwise MCP / OAuth')).toBeInTheDocument();
+    await waitFor(() => expect(startReadwiseOAuth).toHaveBeenCalledTimes(1));
+    expect(openSpy).toHaveBeenCalledWith(
+      'https://readwise.io/o/authorize/?client_id=noeis',
+      '_self',
+      'noopener,noreferrer'
+    );
+    openSpy.mockRestore();
   });
 
   it('renders source-aware activation guidance for a Readwise import', async () => {

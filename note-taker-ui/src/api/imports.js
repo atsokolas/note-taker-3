@@ -52,6 +52,11 @@ export const connectReadwiseMcp = async ({ accountLabel = '' } = {}) => {
   return response.data || {};
 };
 
+export const startReadwiseOAuth = async () => {
+  const response = await api.post('/api/import/readwise/oauth/start', {}, getAuthHeaders());
+  return response.data?.authUrl || '';
+};
+
 export const checkReadwiseConnection = async ({ connectionId } = {}) => {
   const response = await api.post('/api/import/readwise/check', { connectionId }, getAuthHeaders());
   return response.data || {};

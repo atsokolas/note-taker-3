@@ -9,7 +9,6 @@ import { updateConcept } from '../api/concepts';
 import {
   checkNotionConnection,
   checkReadwiseConnection,
-  connectReadwiseMcp,
   connectReadwiseToken,
   createImportSession,
   exportToNotionPage,
@@ -18,6 +17,7 @@ import {
   previewNotionConnection,
   previewReadwiseConnection,
   startNotionOAuth,
+  startReadwiseOAuth,
   syncReadwiseConnection,
   syncNotionConnection,
   updateImportSession
@@ -43,7 +43,7 @@ const SOURCE_OPTIONS = [
     title: 'Readwise',
     subtitle: 'Bring in highlights and notes from your reading layer.',
     status: 'Available today',
-    helper: 'Use Readwise MCP/OAuth for agent access; token sync and CSV remain available as direct Noeis fallbacks.'
+    helper: 'Connect through browser approval first; token sync and CSV remain available as direct Noeis fallbacks.'
   },
   {
     key: 'notion',
@@ -535,6 +535,7 @@ const DataIntegrations = () => {
     const params = new URLSearchParams(window.location.search);
     const source = params.get('source');
     const notionState = params.get('notion');
+    const readwiseState = params.get('readwise');
     if (source === 'notion') {
       setSelectedSource('notion');
       if (notionState === 'connected') {
@@ -544,6 +545,17 @@ const DataIntegrations = () => {
       }
       params.delete('source');
       params.delete('notion');
+      const next = `${window.location.pathname}${params.toString() ? `?${params.toString()}` : ''}`;
+      window.history.replaceState({}, '', next);
+    } else if (source === 'readwise') {
+      setSelectedSource('readwise');
+      if (readwiseState === 'connected') {
+        setStatus('Readwise connected. Browser authorization is ready for agent access.', 'success');
+      } else if (readwiseState === 'error') {
+        setStatus('Readwise browser authorization failed. Try again.', 'error');
+      }
+      params.delete('source');
+      params.delete('readwise');
       const next = `${window.location.pathname}${params.toString() ? `?${params.toString()}` : ''}`;
       window.history.replaceState({}, '', next);
     }
@@ -835,21 +847,18 @@ const DataIntegrations = () => {
     }
   };
 
-  const handleReadwiseMcpConnect = async () => {
+  const handleReadwiseBrowserConnect = async () => {
     setReadwiseMcpConnecting(true);
-    setStatus('Saving Readwise MCP connection...');
+    setStatus('Opening Readwise sign-in...');
     try {
-      const data = await connectReadwiseMcp({
-        accountLabel: readwiseLabel || 'Readwise MCP'
-      });
-      if (data?.connection) {
-        setReadwiseConnection(data.connection);
+      const authUrl = await startReadwiseOAuth();
+      if (!authUrl) {
+        throw new Error('Missing Readwise authorization URL.');
       }
-      setStatus('Readwise MCP saved. Add the MCP server URL to your agent and approve in Readwise when prompted.', 'success');
+      window.open(authUrl, '_self', 'noopener,noreferrer');
     } catch (error) {
-      console.error('Readwise MCP connect failed:', error);
-      setStatus(error.response?.data?.error || 'Failed to save Readwise MCP connection.', 'error');
-    } finally {
+      console.error('Failed to start Readwise OAuth:', error);
+      setStatus(error.response?.data?.error || error.message || 'Failed to start Readwise browser authorization.', 'error');
       setReadwiseMcpConnecting(false);
     }
   };
@@ -2021,82 +2030,82 @@ const DataIntegrations = () => {
       {selectedSource === 'readwise' && (
         <Card className="settings-card">
           <h2>Readwise connection</h2>
-          <p className="muted">Use Readwise MCP for browser-approved agent access. Keep manual token sync only when you want Noeis to run the direct import itself.</p>
+          <p className="muted">Connect through the browser. Noeis sends you to Readwise, you log in, and the connection comes back ready for agent access.</p>
           <div className="import-callout">
-            <p className="muted-label">Recommended: Readwise MCP + OAuth</p>
-            <p className="muted small">Readwise now exposes an official remote MCP server. Your agent connects to it, Readwise opens browser approval, then the agent can search highlights and Reader documents without pasting a raw token into Noeis.</p>
+            <p className="muted-label">Recommended: browser approval</p>
+            <p className="muted small">Use this path first. It opens Readwise in your browser for approval, then stores the connection for Noeis and MCP-capable agents. You do not need to paste an API token.</p>
             <p className="muted small">MCP server: <code>{READWISE_MCP_SERVER_URL}</code></p>
             <div className="capture-actions">
               <Button
                 type="button"
-                onClick={handleReadwiseMcpConnect}
+                onClick={handleReadwiseBrowserConnect}
                 disabled={busy || readwiseMcpConnecting}
               >
-                {readwiseMcpConnecting ? 'Saving…' : 'Use Readwise MCP'}
+                {readwiseMcpConnecting ? 'Opening…' : 'Connect with Readwise'}
               </Button>
               <a href={READWISE_MCP_DOCS_URL} target="_blank" rel="noopener noreferrer">Readwise MCP setup</a>
             </div>
           </div>
-          <div className="capture-form" style={{ marginBottom: 18 }}>
-            <label className="capture-label" htmlFor="readwise-account-label">Connection label</label>
-            <input
-              id="readwise-account-label"
-              className="capture-input"
-              type="text"
-              value={readwiseLabel}
-              onChange={(event) => setReadwiseLabel(event.target.value)}
-              placeholder="Readwise"
-              disabled={busy || readwiseConnecting || readwiseSyncing}
-            />
-            <div className="import-callout">
-              <p className="muted-label">Manual direct-sync fallback</p>
-              <p className="muted small">Use this only when you want Noeis to sync Readwise directly through the export API. MCP/OAuth is the default agent path.</p>
+          <details className="import-callout" style={{ marginBottom: 18 }}>
+            <summary className="muted-label">Advanced: direct sync with API token</summary>
+            <p className="muted small">Use this only when you want Noeis to run the legacy Readwise export sync itself. Browser approval is the default connection path.</p>
+            <div className="capture-form">
+              <label className="capture-label" htmlFor="readwise-account-label">Connection label</label>
+              <input
+                id="readwise-account-label"
+                className="capture-input"
+                type="text"
+                value={readwiseLabel}
+                onChange={(event) => setReadwiseLabel(event.target.value)}
+                placeholder="Readwise"
+                disabled={busy || readwiseConnecting || readwiseSyncing}
+              />
               <a href={READWISE_TOKEN_HELP_URL} target="_blank" rel="noopener noreferrer">Get Readwise token</a>
+              <label className="capture-label" htmlFor="readwise-token-input">Readwise API token</label>
+              <input
+                id="readwise-token-input"
+                className="capture-input"
+                type="password"
+                value={readwiseToken}
+                onChange={(event) => setReadwiseToken(event.target.value)}
+                placeholder="Paste token from Readwise"
+                disabled={busy || readwiseConnecting || readwiseSyncing}
+              />
+              <div className="capture-actions">
+                <Button
+                  type="button"
+                  onClick={handleReadwiseConnect}
+                  disabled={busy || readwiseConnecting || readwiseChecking || readwiseSyncing}
+                >
+                  {readwiseConnecting ? 'Connecting…' : readwiseConnection?.id ? 'Update token' : 'Connect with token'}
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={handleReadwiseCheck}
+                  disabled={busy || readwiseConnecting || readwiseChecking || readwiseSyncing || !readwiseConnection?.id}
+                >
+                  {readwiseChecking ? 'Checking…' : 'Check connection'}
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={handleReadwiseSync}
+                  disabled={busy || readwiseConnecting || readwiseChecking || readwiseSyncing || !readwiseConnection?.id || readwiseConnection?.mode === 'mcp_remote'}
+                >
+                  {readwiseSyncing ? 'Syncing…' : 'Sync from Readwise'}
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={handleReadwisePreview}
+                  disabled={busy || readwiseConnecting || readwiseChecking || readwiseSyncing || !readwiseConnection?.id || readwiseConnection?.mode === 'mcp_remote'}
+                >
+                  {previewing.readwise ? 'Previewing…' : 'Preview scope'}
+                </Button>
+              </div>
             </div>
-            <label className="capture-label" htmlFor="readwise-token-input">Readwise API token</label>
-            <input
-              id="readwise-token-input"
-              className="capture-input"
-              type="password"
-              value={readwiseToken}
-              onChange={(event) => setReadwiseToken(event.target.value)}
-              placeholder="Paste token from Readwise"
-              disabled={busy || readwiseConnecting || readwiseSyncing}
-            />
-            <div className="capture-actions">
-              <Button
-                type="button"
-                onClick={handleReadwiseConnect}
-                disabled={busy || readwiseConnecting || readwiseChecking || readwiseSyncing}
-              >
-                {readwiseConnecting ? 'Connecting…' : readwiseConnection?.id ? 'Update token' : 'Connect Readwise'}
-              </Button>
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={handleReadwiseCheck}
-                disabled={busy || readwiseConnecting || readwiseChecking || readwiseSyncing || !readwiseConnection?.id}
-              >
-                {readwiseChecking ? 'Checking…' : 'Check connection'}
-              </Button>
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={handleReadwiseSync}
-                disabled={busy || readwiseConnecting || readwiseChecking || readwiseSyncing || !readwiseConnection?.id}
-              >
-                {readwiseSyncing ? 'Syncing…' : 'Sync from Readwise'}
-              </Button>
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={handleReadwisePreview}
-                disabled={busy || readwiseConnecting || readwiseChecking || readwiseSyncing || !readwiseConnection?.id}
-              >
-                {previewing.readwise ? 'Previewing…' : 'Preview scope'}
-              </Button>
-            </div>
-          </div>
+          </details>
           {readwiseConnection ? (
             <div className="import-summary" style={{ marginBottom: 16 }}>
               <p className="muted-label">Connected account</p>
