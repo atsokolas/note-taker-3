@@ -63,6 +63,14 @@ describe('app theme design-system tokens', () => {
     expect(topBlocks).not.toContain('rgba(16, 24, 40');
   });
 
+  it('pins the wiki front page dark surface to the warm editorial palette', () => {
+    const css = fs.readFileSync(path.join(__dirname, 'wiki-front-page.css'), 'utf8');
+
+    expect(css).toContain("html[data-ui-theme='dark'] body.noeis-editorial .wiki-front-page");
+    expect(css).toContain('background: var(--vellum-bg, var(--canvas))');
+    expect(css).not.toContain('#0d1422');
+  });
+
   it('pins the alive composer and presence motion to reduced-motion-safe primitives', () => {
     const css = fs.readFileSync(path.join(__dirname, 'think-home-polish.css'), 'utf8');
 

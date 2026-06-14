@@ -208,6 +208,20 @@ describe('Library agent rail', () => {
     expect(screen.getByRole('button', { name: /Unfiled/i })).toBeInTheDocument();
   });
 
+  it('keeps low-signal tag shortcuts out of the Cabinet saved-view shelf', () => {
+    useTags.mockReturnValueOnce({
+      tags: [{ tag: 'valuation' }, { tag: 'Blah' }, { tag: 'TEST' }],
+      loading: false
+    });
+
+    renderLibrary();
+    fireEvent.click(screen.getByRole('button', { name: 'Review filing suggestions' }));
+
+    expect(screen.getByText('valuation')).toBeInTheDocument();
+    expect(screen.queryByText('Blah')).not.toBeInTheDocument();
+    expect(screen.queryByText('TEST')).not.toBeInTheDocument();
+  });
+
   it('exposes an explicit low-signal review action from the reading room lead', () => {
     renderLibrary();
 

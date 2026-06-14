@@ -428,6 +428,8 @@ describe('DataIntegrations first insight workflow', () => {
 
     expect(await screen.findByText('Agent access: connected')).toBeInTheDocument();
     expect(screen.getByText(/Direct import: add an API token or CSV/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Upload Readwise CSV' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Add API token' })).toHaveAttribute('href', 'https://readwise.io/access_token');
     fireEvent.click(screen.getByText(/Advanced: direct sync with API token/i));
     expect(screen.getByText(/Browser access is connected/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Sync from Readwise' })).toBeDisabled();

@@ -12,6 +12,12 @@
   padding: 40px 24px 72px;
 }
 
+html[data-ui-theme='dark'] body.noeis-editorial .page-area:has(.wiki-front-page),
+html[data-ui-theme='dark'] body.noeis-editorial .app-shell-new__body:has(.wiki-front-page),
+html[data-ui-theme='dark'] body.noeis-editorial .wiki-front-page {
+  background: var(--vellum-bg, var(--canvas));
+}
+
 .wiki-front-page__masthead {
   letter-spacing: 0.14em;
 }

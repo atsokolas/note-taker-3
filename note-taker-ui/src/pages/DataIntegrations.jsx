@@ -2164,6 +2164,19 @@ const DataIntegrations = ({ embedded = false } = {}) => {
               <p>Health: {readwiseConnection.health || 'unknown'}</p>
               {readwiseAgentConnection?.id ? <p>Agent access: connected</p> : null}
               {readwiseDirectConnection?.id ? <p>Direct import: token connection ready</p> : <p>Direct import: add an API token or CSV when you want Library sync.</p>}
+              {readwiseAgentConnection?.id && !readwiseDirectConnection?.id ? (
+                <div className="capture-actions">
+                  <Button
+                    variant="secondary"
+                    type="button"
+                    onClick={() => csvInputRef.current?.click()}
+                    disabled={busy}
+                  >
+                    Upload Readwise CSV
+                  </Button>
+                  <a href={READWISE_TOKEN_HELP_URL} target="_blank" rel="noopener noreferrer">Add API token</a>
+                </div>
+              ) : null}
               {readwiseConnection.mode === 'mcp_remote' && readwiseConnection.externalAccountId ? <p>MCP server: {readwiseConnection.externalAccountId}</p> : null}
               <p>Last checked: {readwiseConnection.lastValidatedAt ? new Date(readwiseConnection.lastValidatedAt).toLocaleString() : 'Never'}</p>
               <p>Last preview: {readwiseConnection.lastPreviewAt ? new Date(readwiseConnection.lastPreviewAt).toLocaleString() : 'Never'}</p>

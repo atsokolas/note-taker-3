@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import FolderRow from './FolderRow';
+import { matchesCruftHeuristic } from '../../utils/cruftSuppression';
 
 /**
  * @typedef {Object} Folder
@@ -24,7 +25,9 @@ const saveOpenState = (state) => {
 };
 
 const buildTree = (folders) => {
-  const nodes = folders.map(folder => ({ ...folder, children: [] }));
+  const nodes = folders
+    .filter(folder => !matchesCruftHeuristic(folder?.name))
+    .map(folder => ({ ...folder, children: [] }));
   return nodes;
 };
 

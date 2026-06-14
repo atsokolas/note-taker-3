@@ -26,6 +26,7 @@ import { chatWithAgent } from '../api/agent';
 import { AGENT_DISPLAY_NAME } from '../constants/agentIdentity';
 import AgentPresence from '../components/agent/AgentPresence';
 import AgentTicker from '../components/agent/AgentTicker';
+import { matchesCruftHeuristic } from '../utils/cruftSuppression';
 
 const RIGHT_STORAGE_KEY = 'workspace-right-open:/library';
 const CONTEXT_OVERRIDE_KEY = 'library.context.override:/library';
@@ -456,6 +457,10 @@ const Library = () => {
     });
     return options;
   }, [folders]);
+  const visibleTags = useMemo(
+    () => (Array.isArray(tags) ? tags : []).filter(tag => !matchesCruftHeuristic(tag?.tag || tag?.name)),
+    [tags]
+  );
   const articleOptions = useMemo(
     () => allArticles.map(article => ({ value: article._id, label: article.title || 'Untitled article' })),
     [allArticles]
@@ -632,9 +637,9 @@ const Library = () => {
       <div className="library-saved-views">
         <SectionHeader title="Saved Views" subtitle="Optional shortcuts." />
         <Link className="library-saved-view-link" to="/views">Open Saved Views</Link>
-        {!tagsLoading && tags.length > 0 && (
+        {!tagsLoading && visibleTags.length > 0 && (
           <div className="library-saved-view-tags">
-            {tags.slice(0, 6).map(tag => (
+            {visibleTags.slice(0, 6).map(tag => (
               <TagChip key={tag.tag} to={`/tags/${encodeURIComponent(tag.tag)}`}>{tag.tag}</TagChip>
             ))}
           </div>
