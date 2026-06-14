@@ -326,15 +326,25 @@ const buildImportRouter = ({
     };
   };
 
+  const getRequestOrigin = (req) => {
+    const host = toTrimmedString(req.get('host'));
+    if (!host) return '';
+    const forwardedProto = toTrimmedString(req.get('x-forwarded-proto')).split(',')[0].trim();
+    const proto = forwardedProto || toTrimmedString(req.protocol) || 'https';
+    const isLocalHost = /^localhost(?::\d+)?$/.test(host) || /^127\.0\.0\.1(?::\d+)?$/.test(host);
+    const safeProto = proto === 'http' && !isLocalHost ? 'https' : proto;
+    return `${safeProto}://${host}`;
+  };
+
   const getNotionRedirectUri = (req) => (
     toTrimmedString(process.env.NOTION_REDIRECT_URI)
-    || `${req.protocol}://${req.get('host')}/api/import/notion/oauth/callback`
+    || `${getRequestOrigin(req)}/api/import/notion/oauth/callback`
   );
 
   const getImportAppUrl = (req) => (
     toTrimmedString(process.env.WEB_APP_URL)
     || toTrimmedString(process.env.APP_URL)
-    || `${req.protocol}://${req.get('host')}`
+    || getRequestOrigin(req)
   );
 
   const createNotionState = ({ userId }) => jwt.sign(
@@ -357,7 +367,7 @@ const buildImportRouter = ({
 
   const getReadwiseRedirectUri = (req) => (
     toTrimmedString(process.env.READWISE_REDIRECT_URI)
-    || `${req.protocol}://${req.get('host')}/api/import/readwise/oauth/callback`
+    || `${getRequestOrigin(req)}/api/import/readwise/oauth/callback`
   );
 
   const createReadwisePkcePair = () => {
