@@ -10,7 +10,7 @@ import {
   getHighlightCount,
   getWhyItMatters
 } from './libraryReadingRoomModel';
-import { filterReturnViewItems } from '../../utils/cruftSuppression';
+import { filterLibraryBrowseItems } from '../../utils/cruftSuppression';
 
 const formatDate = (value) => {
   if (!value) return '';
@@ -172,15 +172,17 @@ const LibraryArticleList = ({
   onMoveArticle,
   scope = 'all',
   query = '',
-  onQueryChange = null
+  onQueryChange = null,
+  suppressedVisible = false
 }) => {
   const hasError = Boolean(error);
   const visibleArticles = useMemo(() => {
     const list = Array.isArray(articles) ? articles : [];
     const trimmedQuery = String(query || '').trim();
+    if (suppressedVisible) return list;
     if (trimmedQuery || (scope !== 'all' && scope !== 'unfiled')) return list;
-    return filterReturnViewItems(list);
-  }, [articles, query, scope]);
+    return filterLibraryBrowseItems(list);
+  }, [articles, query, scope, suppressedVisible]);
   const isEmpty = !loading && !hasError && visibleArticles.length === 0;
   const virtualHeight = useMemo(() => {
     const viewport = typeof window !== 'undefined' ? window.innerHeight : 0;

@@ -3,6 +3,15 @@ const { serializeHighlightWithArticle } = require('../utils/highlightUtils');
 const { createWikiSourceEvent } = require('../services/wikiSourceEventService');
 const { processWikiSourceEvent } = require('../services/wikiMaintenanceOrchestrator');
 
+const applyDefaultArticleVisibility = (match, { includeSuppressed = false } = {}) => {
+  if (includeSuppressed) return match;
+  return {
+    ...match,
+    debugOnly: { $ne: true },
+    archived: { $ne: true }
+  };
+};
+
 const buildLegacyContentRouter = ({
   authenticateToken,
   mongoose,
@@ -57,16 +66,6 @@ const buildLegacyContentRouter = ({
   };
 
   const escapeRegex = (value = '') => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-
-  const applyDefaultArticleVisibility = (match, { includeSuppressed = false } = {}) => {
-    if (includeSuppressed) return match;
-    return {
-      ...match,
-      hiddenFromHome: { $ne: true },
-      debugOnly: { $ne: true },
-      archived: { $ne: true }
-    };
-  };
 
   router.get('/api/notes', authenticateToken, async (req, res) => {
     try {
@@ -585,5 +584,8 @@ const buildLegacyContentRouter = ({
 };
 
 module.exports = {
-  buildLegacyContentRouter
+  buildLegacyContentRouter,
+  __testables: {
+    applyDefaultArticleVisibility
+  }
 };

@@ -34,8 +34,20 @@ export const isSuppressedFromReturnView = (item = {}) => {
   return matchesCruftHeuristic(getReturnViewTitle(item));
 };
 
+export const isSuppressedFromLibraryBrowse = (item = {}) => {
+  if (!item) return false;
+  const raw = item.raw || item;
+  if (raw.debugOnly || raw.archived) return true;
+  if (String(raw.status || '').toLowerCase() === 'archived') return true;
+  return matchesCruftHeuristic(getReturnViewTitle(item));
+};
+
 export const filterReturnViewItems = (items = []) => (
   (Array.isArray(items) ? items : []).filter((item) => !isSuppressedFromReturnView(item))
+);
+
+export const filterLibraryBrowseItems = (items = []) => (
+  (Array.isArray(items) ? items : []).filter((item) => !isSuppressedFromLibraryBrowse(item))
 );
 
 export const countSuppressedInCollection = (items = []) => (

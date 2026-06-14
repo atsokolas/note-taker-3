@@ -121,6 +121,7 @@ const LibraryMain = ({
         onQueryChange={onArticleQueryChange}
         onSelectArticle={onSelectArticle}
         onMoveArticle={onMoveArticle}
+        suppressedVisible={suppressedVisible}
       />
     </div>
   );

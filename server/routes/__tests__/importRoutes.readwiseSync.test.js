@@ -108,7 +108,7 @@ const buildConnectionStore = () => {
     connection,
     mcpConnection,
     async findOne(query = {}) {
-      if (String(query?.mode || '') === 'mcp_remote') {
+      if (String(query?.mode || '') === 'mcp_remote' || String(query?._id || '') === mcpConnection._id) {
         return String(query?.userId || '') === mcpConnection.userId
           && String(query?.provider || '') === mcpConnection.provider
           ? mcpConnection
@@ -283,6 +283,31 @@ const run = async () => {
     assert.strictEqual(mcpPayload.connection.status, 'connected');
     assert.strictEqual(mcpPayload.connection.health, 'healthy');
     assert.strictEqual(mcpPayload.connection.encryptedApiToken, undefined, 'Sanitized connection must not expose token fields.');
+
+    const mcpSyncResponse = await fetch(`${url}/api/import/readwise/sync`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json'
+      },
+      body: JSON.stringify({
+        connectionId: 'rw-mcp-1',
+        importSessionId: 'session-readwise'
+      })
+    });
+    const mcpSyncPayload = await mcpSyncResponse.json();
+    assert.strictEqual(mcpSyncResponse.status, 409, `MCP-only Readwise connections should not start direct sync. body=${JSON.stringify(mcpSyncPayload)}`);
+    assert.match(mcpSyncPayload.error, /agent retrieval/i);
+    assert.strictEqual(importSessions.session.status, 'failed', 'MCP-only sync attempts should make the import session terminal.');
+    assert.strictEqual(importSessions.session.progress.stage, 'readwise_sync_unavailable');
+    assert.strictEqual(importSessions.session.progress.percent, 100);
+
+    importSessions.session.status = 'draft';
+    importSessions.session.progress = {
+      stage: 'draft',
+      percent: 0,
+      indexingState: 'not_started'
+    };
+    importSessions.session.lastError = '';
 
     const response = await fetch(`${url}/api/import/readwise/sync`, {
       method: 'POST',

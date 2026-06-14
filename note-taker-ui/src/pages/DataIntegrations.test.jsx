@@ -405,6 +405,35 @@ describe('DataIntegrations first insight workflow', () => {
     openSpy.mockRestore();
   });
 
+  it('shows MCP browser access as agent retrieval and keeps direct sync paused until token setup', async () => {
+    listImportConnections.mockImplementation(async ({ provider } = {}) => (
+      provider === 'readwise'
+        ? [{
+          id: 'rw-mcp-1',
+          provider: 'readwise',
+          mode: 'mcp_remote',
+          accountLabel: 'Readwise MCP',
+          status: 'connected',
+          health: 'healthy',
+          externalAccountId: 'https://mcp2.readwise.io/mcp'
+        }]
+        : []
+    ));
+
+    render(
+      <MemoryRouter>
+        <DataIntegrations />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByText('Agent access: connected')).toBeInTheDocument();
+    expect(screen.getByText(/Direct import: add an API token or CSV/i)).toBeInTheDocument();
+    fireEvent.click(screen.getByText(/Advanced: direct sync with API token/i));
+    expect(screen.getByText(/Browser access is connected/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Sync from Readwise' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Preview scope' })).toBeDisabled();
+  });
+
   it('renders source-aware activation guidance for a Readwise import', async () => {
     localStorage.setItem('first-insight.activation.v1', JSON.stringify({
       status: 'captured',

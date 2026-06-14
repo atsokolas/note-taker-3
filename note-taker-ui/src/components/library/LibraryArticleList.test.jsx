@@ -155,4 +155,44 @@ describe('LibraryArticleList', () => {
     expect(screen.queryByText(/Open this source in the reading room/i)).not.toBeInTheDocument();
     expect(container.querySelector('.library-article-row-excerpt')).toBeNull();
   });
+
+  it('keeps hiddenFromHome saved articles visible in Library browse but filters debug cruft', () => {
+    renderList({
+      articles: [
+        {
+          _id: 'a7',
+          title: "Poor Charlie's Almanack",
+          createdAt: '2026-06-07T00:00:00Z',
+          source: 'Readwise',
+          hiddenFromHome: true,
+          highlightCount: 79
+        },
+        {
+          _id: 'a8',
+          title: 'Test',
+          createdAt: '2026-06-07T00:00:00Z',
+          debugOnly: true
+        }
+      ],
+      scope: 'all'
+    });
+
+    expect(screen.getByText("Poor Charlie's Almanack")).toBeInTheDocument();
+    expect(screen.queryByText('Test')).not.toBeInTheDocument();
+  });
+
+  it('shows debug cruft only in explicit suppressed review mode', () => {
+    renderList({
+      articles: [{
+        _id: 'a9',
+        title: 'Test',
+        createdAt: '2026-06-07T00:00:00Z',
+        debugOnly: true
+      }],
+      scope: 'all',
+      suppressedVisible: true
+    });
+
+    expect(screen.getByText('Test')).toBeInTheDocument();
+  });
 });

@@ -1,7 +1,9 @@
 import {
   composeCruftSuppressionNotice,
+  filterLibraryBrowseItems,
   countSuppressedInCollection,
   filterReturnViewItems,
+  isSuppressedFromLibraryBrowse,
   isSuppressedFromReturnView,
   matchesCruftHeuristic
 } from './cruftSuppression';
@@ -19,6 +21,22 @@ describe('cruftSuppression', () => {
     expect(matchesCruftHeuristic('Blah')).toBe(true);
     expect(matchesCruftHeuristic('TEST (8)')).toBe(true);
     expect(matchesCruftHeuristic('investing')).toBe(false);
+  });
+
+  it('keeps hiddenFromHome articles recoverable in Library browse while still hiding debug cruft', () => {
+    expect(isSuppressedFromReturnView({ title: 'Poor Charlie', hiddenFromHome: true })).toBe(true);
+    expect(isSuppressedFromLibraryBrowse({ title: 'Poor Charlie', hiddenFromHome: true })).toBe(false);
+    expect(isSuppressedFromLibraryBrowse({ title: 'Good thread', debugOnly: true })).toBe(true);
+
+    const rows = [
+      { title: 'Poor Charlie', hiddenFromHome: true },
+      { title: 'Test' },
+      { title: 'Margin of Safety' }
+    ];
+    expect(filterLibraryBrowseItems(rows).map((item) => item.title)).toEqual([
+      'Poor Charlie',
+      'Margin of Safety'
+    ]);
   });
 
   it('filters ranked collections and composes the maintenance notice', () => {

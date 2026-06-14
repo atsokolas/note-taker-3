@@ -413,6 +413,7 @@ const DataIntegrations = ({ embedded = false } = {}) => {
   const [readwiseToken, setReadwiseToken] = useState('');
   const [readwiseLabel, setReadwiseLabel] = useState('Readwise');
   const [readwiseConnection, setReadwiseConnection] = useState(null);
+  const [readwiseConnections, setReadwiseConnections] = useState([]);
   const [readwiseConnecting, setReadwiseConnecting] = useState(false);
   const [readwiseMcpConnecting, setReadwiseMcpConnecting] = useState(false);
   const [readwiseChecking, setReadwiseChecking] = useState(false);
@@ -503,6 +504,7 @@ const DataIntegrations = ({ embedded = false } = {}) => {
         const connections = await listImportConnections({ provider: 'readwise' });
         if (cancelled) return;
         const latest = connections[0] || null;
+        setReadwiseConnections(Array.isArray(connections) ? connections : []);
         setReadwiseConnection(latest);
         if (latest?.accountLabel) {
           setReadwiseLabel(latest.accountLabel);
@@ -887,6 +889,10 @@ const DataIntegrations = ({ embedded = false } = {}) => {
         accountLabel: readwiseLabel
       });
       setReadwiseConnection(connection);
+      setReadwiseConnections((previous) => [
+        connection,
+        ...previous.filter((item) => item?.id !== connection?.id)
+      ]);
       setReadwiseToken('');
       setStatus('Readwise connected. You can sync directly now.', 'success');
     } catch (error) {
@@ -914,8 +920,10 @@ const DataIntegrations = ({ embedded = false } = {}) => {
   };
 
   const handleReadwisePreview = async () => {
-    if (!readwiseConnection?.id) {
-      setStatus('Connect Readwise first.', 'error');
+    if (!readwiseSyncConnection?.id) {
+      setStatus(readwiseAgentConnection?.id
+        ? 'Readwise browser access is connected for agents. Direct preview still needs the advanced API-token connection.'
+        : 'Connect Readwise first.', 'error');
       return;
     }
     setPreviewing((previous) => ({ ...previous, readwise: true }));
@@ -925,11 +933,11 @@ const DataIntegrations = ({ embedded = false } = {}) => {
       const session = await ensureSessionForSource({
         provider: 'readwise',
         mode: 'api_token',
-        sourceLabel: readwiseConnection.accountLabel || 'Readwise',
+        sourceLabel: readwiseSyncConnection.accountLabel || 'Readwise',
         sourceType: 'api'
       });
       const data = await previewReadwiseConnection({
-        connectionId: readwiseConnection.id,
+        connectionId: readwiseSyncConnection.id,
         importSessionId: session?.id
       });
       if (data?.session) {
@@ -937,6 +945,10 @@ const DataIntegrations = ({ embedded = false } = {}) => {
       }
       if (data?.connection) {
         setReadwiseConnection(data.connection);
+        setReadwiseConnections((previous) => [
+          data.connection,
+          ...previous.filter((item) => item?.id !== data.connection?.id)
+        ]);
       }
       setStatus('Readwise preview ready. Review the sample before syncing.', 'success');
     } catch (error) {
@@ -948,7 +960,8 @@ const DataIntegrations = ({ embedded = false } = {}) => {
   };
 
   const handleReadwiseCheck = async () => {
-    if (!readwiseConnection?.id) {
+    const connectionToCheck = readwiseSyncConnection || readwiseAgentConnection || readwiseConnection;
+    if (!connectionToCheck?.id) {
       setStatus('Connect Readwise first.', 'error');
       return;
     }
@@ -956,16 +969,24 @@ const DataIntegrations = ({ embedded = false } = {}) => {
     setStatus('Checking Readwise connection...');
     try {
       const data = await checkReadwiseConnection({
-        connectionId: readwiseConnection.id
+        connectionId: connectionToCheck.id
       });
       if (data?.connection) {
         setReadwiseConnection(data.connection);
+        setReadwiseConnections((previous) => [
+          data.connection,
+          ...previous.filter((item) => item?.id !== data.connection?.id)
+        ]);
       }
       setStatus('Readwise connection is healthy.', 'success');
     } catch (error) {
       console.error('Readwise connection check failed:', error);
       if (error.response?.data?.connection) {
         setReadwiseConnection(error.response.data.connection);
+        setReadwiseConnections((previous) => [
+          error.response.data.connection,
+          ...previous.filter((item) => item?.id !== error.response.data.connection?.id)
+        ]);
       }
       setStatus(error.response?.data?.error || 'Failed to check Readwise connection.', 'error');
     } finally {
@@ -974,8 +995,10 @@ const DataIntegrations = ({ embedded = false } = {}) => {
   };
 
   const handleReadwiseSync = async () => {
-    if (!readwiseConnection?.id) {
-      setStatus('Connect Readwise first.', 'error');
+    if (!readwiseSyncConnection?.id) {
+      setStatus(readwiseAgentConnection?.id
+        ? 'Readwise browser access is connected for agents. Direct import still needs the advanced API-token connection.'
+        : 'Connect Readwise first.', 'error');
       return;
     }
     let session = null;
@@ -986,14 +1009,14 @@ const DataIntegrations = ({ embedded = false } = {}) => {
       session = await ensureSessionForSource({
         provider: 'readwise',
         mode: 'api_token',
-        sourceLabel: readwiseConnection.accountLabel || 'Readwise',
+        sourceLabel: readwiseSyncConnection.accountLabel || 'Readwise',
         sourceType: 'api'
       });
       if (session?.id) {
         setCurrentSession({
           ...session,
           status: 'importing',
-          sourceLabel: readwiseConnection.accountLabel || session.sourceLabel || 'Readwise',
+          sourceLabel: readwiseSyncConnection.accountLabel || session.sourceLabel || 'Readwise',
           progress: {
             ...(session.progress || {}),
             stage: 'fetching_readwise',
@@ -1003,19 +1026,23 @@ const DataIntegrations = ({ embedded = false } = {}) => {
         });
       }
       const data = await syncReadwiseConnection({
-        connectionId: readwiseConnection.id,
+        connectionId: readwiseSyncConnection.id,
         importSessionId: session?.id
       });
       const summary = makeSummaryFromCsvResponse(data);
       setImportStats(summary);
-      setLastImportSourceLabel(readwiseConnection.accountLabel || 'Readwise');
+      setLastImportSourceLabel(readwiseSyncConnection.accountLabel || 'Readwise');
       if (data?.connection) {
         setReadwiseConnection(data.connection);
+        setReadwiseConnections((previous) => [
+          data.connection,
+          ...previous.filter((item) => item?.id !== data.connection?.id)
+        ]);
       }
       if ((summary.importedArticles || 0) > 0 || (summary.importedHighlights || 0) > 0) {
         rememberFirstInsight({
           sourceType: 'readwise-api',
-          title: readwiseConnection.accountLabel || 'Readwise sync',
+          title: readwiseSyncConnection.accountLabel || 'Readwise sync',
           articleId: summary.articleIds[0] || '',
           counts: summary
         });
@@ -1836,6 +1863,11 @@ const DataIntegrations = ({ embedded = false } = {}) => {
     notionConnection?.id
     && (String(derivedActivationState?.conceptName || '').trim() || String(derivedActivationState?.notebookEntryId || '').trim())
   );
+  const readwiseAgentConnection = readwiseConnections.find(connection => connection?.mode === 'mcp_remote')
+    || (readwiseConnection?.mode === 'mcp_remote' ? readwiseConnection : null);
+  const readwiseDirectConnection = readwiseConnections.find(connection => connection?.mode !== 'mcp_remote')
+    || (readwiseConnection?.mode && readwiseConnection.mode !== 'mcp_remote' ? readwiseConnection : null);
+  const readwiseSyncConnection = readwiseDirectConnection || (readwiseConnection?.mode !== 'mcp_remote' ? readwiseConnection : null);
   const busy = importing.manual
     || importing.paste
     || importing.csv
@@ -2062,7 +2094,10 @@ const DataIntegrations = ({ embedded = false } = {}) => {
           </div>
           <details className="import-callout" style={{ marginBottom: 18 }}>
             <summary className="muted-label">Advanced: direct sync with API token</summary>
-            <p className="muted small">Use this only when you want Noeis to run the legacy Readwise export sync itself. Browser approval is the default connection path.</p>
+            <p className="muted small">Use this only when you want Noeis to run the legacy Readwise export sync itself. Browser approval is the default connection path for agents.</p>
+            {readwiseAgentConnection?.id && !readwiseDirectConnection?.id ? (
+              <p className="muted small">Browser access is connected. Direct Library import is intentionally paused until you add an API token or upload a Readwise CSV.</p>
+            ) : null}
             <div className="capture-form">
               <label className="capture-label" htmlFor="readwise-account-label">Connection label</label>
               <input
@@ -2105,7 +2140,7 @@ const DataIntegrations = ({ embedded = false } = {}) => {
                   type="button"
                   variant="secondary"
                   onClick={handleReadwiseSync}
-                  disabled={busy || readwiseConnecting || readwiseChecking || readwiseSyncing || !readwiseConnection?.id || readwiseConnection?.mode === 'mcp_remote'}
+                  disabled={busy || readwiseConnecting || readwiseChecking || readwiseSyncing || !readwiseSyncConnection?.id}
                 >
                   {readwiseSyncing ? 'Syncing…' : 'Sync from Readwise'}
                 </Button>
@@ -2113,7 +2148,7 @@ const DataIntegrations = ({ embedded = false } = {}) => {
                   type="button"
                   variant="secondary"
                   onClick={handleReadwisePreview}
-                  disabled={busy || readwiseConnecting || readwiseChecking || readwiseSyncing || !readwiseConnection?.id || readwiseConnection?.mode === 'mcp_remote'}
+                  disabled={busy || readwiseConnecting || readwiseChecking || readwiseSyncing || !readwiseSyncConnection?.id}
                 >
                   {previewing.readwise ? 'Previewing…' : 'Preview scope'}
                 </Button>
@@ -2127,6 +2162,8 @@ const DataIntegrations = ({ embedded = false } = {}) => {
               <p>Mode: {readwiseConnection.mode === 'mcp_remote' ? 'Readwise MCP / OAuth' : readwiseConnection.mode || 'manual'}</p>
               <p>Status: {readwiseConnection.status || 'connected'}</p>
               <p>Health: {readwiseConnection.health || 'unknown'}</p>
+              {readwiseAgentConnection?.id ? <p>Agent access: connected</p> : null}
+              {readwiseDirectConnection?.id ? <p>Direct import: token connection ready</p> : <p>Direct import: add an API token or CSV when you want Library sync.</p>}
               {readwiseConnection.mode === 'mcp_remote' && readwiseConnection.externalAccountId ? <p>MCP server: {readwiseConnection.externalAccountId}</p> : null}
               <p>Last checked: {readwiseConnection.lastValidatedAt ? new Date(readwiseConnection.lastValidatedAt).toLocaleString() : 'Never'}</p>
               <p>Last preview: {readwiseConnection.lastPreviewAt ? new Date(readwiseConnection.lastPreviewAt).toLocaleString() : 'Never'}</p>

@@ -19,6 +19,7 @@ const {
   pickExactPageSentence,
   isSelectedPageOnlyQuestion,
   pageTitleMentionedInQuestion,
+  extractMentionedTitleCandidates,
   rankWikiPageCandidates
 } = __testables;
 
@@ -286,6 +287,15 @@ describe('wikiAskService', () => {
       expect(pageTitleMentionedInQuestion('Random Walk', 'How does Loss Aversion connect to Opportunity Cost?')).toBe(false);
     });
 
+    it('extracts title-like question phrases for exact page prefetch', () => {
+      const candidates = extractMentionedTitleCandidates({
+        question: 'How does Loss Aversion connect to Opportunity Cost?',
+        selectedTitle: 'Loss Aversion'
+      });
+      expect(candidates).toContain('opportunity cost');
+      expect(candidates).not.toContain('loss aversion');
+    });
+
     it('prioritizes question-mentioned pages ahead of unrelated recent pages', () => {
       const ranked = rankWikiPageCandidates({
         page: { _id: 'page-loss', title: 'Loss Aversion' },
@@ -348,7 +358,7 @@ describe('wikiAskService', () => {
       const select = jest.fn(() => ({ lean }));
       const limit = jest.fn(() => ({ select }));
       const sort = jest.fn(() => ({ limit }));
-      const find = jest.fn(() => ({ sort }));
+      const find = jest.fn(() => ({ sort, limit }));
 
       await loadWikiAskCorpus({
         page: { _id: 'page-loss', title: 'Loss Aversion' },
@@ -366,6 +376,51 @@ describe('wikiAskService', () => {
         debugOnly: { $ne: true },
         archived: { $ne: true }
       });
+    });
+
+    it('prefetches question-mentioned page titles outside the recent page scan', async () => {
+      const recentPages = Array.from({ length: 3 }, (_, index) => ({
+        _id: `recent-${index}`,
+        title: `Recent Page ${index}`,
+        plainText: 'Recently updated but not relevant.'
+      }));
+      const mentionedPages = [{
+        _id: 'page-opp',
+        title: 'Opportunity Cost',
+        pageType: 'concept',
+        plainText: 'Opportunity cost is the hidden next best alternative.'
+      }];
+      const queryChain = (rows) => ({
+        sort: jest.fn(() => ({
+          limit: jest.fn(() => ({
+            select: jest.fn(() => ({
+              lean: jest.fn().mockResolvedValue(rows)
+            }))
+          }))
+        })),
+        limit: jest.fn(() => ({
+          select: jest.fn(() => ({
+            lean: jest.fn().mockResolvedValue(rows)
+          }))
+        }))
+      });
+      const find = jest.fn()
+        .mockReturnValueOnce(queryChain(recentPages))
+        .mockReturnValueOnce(queryChain(mentionedPages));
+
+      const corpus = await loadWikiAskCorpus({
+        page: { _id: 'page-loss', title: 'Loss Aversion' },
+        question: 'How does Loss Aversion connect to Opportunity Cost?',
+        userId: 'user-1',
+        WikiPage: { find },
+        TagMeta: null,
+        findWikiBacklinks: null,
+        pageScanLimit: 3,
+        candidateLimit: 8
+      });
+
+      expect(find).toHaveBeenCalledTimes(2);
+      expect(corpus.relatedPages.map(page => page.title)).toContain('Opportunity Cost');
     });
 
     it('summarizes graph-expanded provenance by object type for the UI', () => {

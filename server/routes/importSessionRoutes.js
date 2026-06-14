@@ -1,6 +1,7 @@
 const express = require('express');
 
 const TERMINAL_STATUSES = new Set(['completed', 'completed_with_warnings', 'failed']);
+const STALE_ACTIVE_IMPORT_MS = 15 * 60 * 1000;
 const SESSION_STATUSES = new Set(['draft', 'preview_ready', 'importing', 'imported', 'completed', 'completed_with_warnings', 'failed']);
 const INDEXING_STATES = new Set(['not_started', 'queued', 'partial', 'ready', 'failed']);
 const NEXT_ACTIONS = new Set(['organize_import']);
@@ -86,13 +87,56 @@ const syncAgentSuggestionsState = (session) => {
   return session;
 };
 
+const getSessionTime = (value) => {
+  const time = value ? new Date(value).getTime() : 0;
+  return Number.isFinite(time) ? time : 0;
+};
+
+const isStaleActiveImportSession = (session) => {
+  if (!session || TERMINAL_STATUSES.has(session.status)) return false;
+  const progress = session.progress || {};
+  const stage = toTrimmedString(progress.stage);
+  const isReadwiseFetch = session.provider === 'readwise'
+    && (stage === 'fetching_readwise' || stage === 'readwise_sync_unavailable');
+  const isZeroProgressImport = session.status === 'importing' && Number(progress.percent || 0) <= 5;
+  if (!isReadwiseFetch && !isZeroProgressImport) return false;
+  const lastTouched = Math.max(
+    getSessionTime(session.updatedAt),
+    getSessionTime(session.createdAt)
+  );
+  if (!lastTouched) return false;
+  return Date.now() - lastTouched > STALE_ACTIVE_IMPORT_MS;
+};
+
 const findActiveImportSession = async ({ ImportSession, userId }) => {
-  let session = await ImportSession.findOne({
+  const activeQuery = ImportSession.findOne({
     userId,
     status: { $nin: Array.from(TERMINAL_STATUSES) }
-  }).sort({ updatedAt: -1, createdAt: -1 }).lean();
+  }).sort({ updatedAt: -1, createdAt: -1 });
+  let session = null;
+  if (activeQuery && typeof activeQuery.then === 'function') {
+    session = await activeQuery;
+  } else if (activeQuery && typeof activeQuery.lean === 'function') {
+    session = await activeQuery.lean();
+  } else {
+    session = activeQuery;
+  }
 
-  if (session) return syncAgentSuggestionsState(session);
+  if (session) {
+    if (isStaleActiveImportSession(session)) {
+      session.status = 'failed';
+      session.progress = {
+        ...(session.progress || {}),
+        stage: 'stalled',
+        percent: 100
+      };
+      session.lastError = 'This import stopped before it could complete. Start a fresh sync or use the CSV/API-token fallback.';
+      if (typeof session.save === 'function') {
+        await session.save();
+      }
+    }
+    return syncAgentSuggestionsState(typeof session.toObject === 'function' ? session.toObject() : session);
+  }
 
   const completedSessions = await ImportSession.find({
     userId,

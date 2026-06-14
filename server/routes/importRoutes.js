@@ -200,6 +200,23 @@ const buildImportRouter = ({
     toTrimmedString(req.body?.importSessionId || req.query?.importSessionId)
   );
 
+  const markImportSessionUnavailable = async ({ sessionId, userId, stage, message }) => (
+    patchImportSession({
+      sessionId,
+      userId,
+      mutate: (session) => {
+        session.status = 'failed';
+        session.progress = {
+          ...(session.progress || {}),
+          stage,
+          percent: 100,
+          indexingState: session.progress?.indexingState || 'not_started'
+        };
+        session.lastError = message;
+      }
+    })
+  );
+
   const clearImportOrganizationOffer = (session) => {
     if (!session || typeof session !== 'object') return;
     if (toTrimmedString(session.recommendedNextAction) === IMPORT_ORGANIZATION_SUGGESTION_TYPE) {
@@ -1430,8 +1447,15 @@ const buildImportRouter = ({
         return res.status(404).json({ error: 'Readwise connection not found.' });
       }
       if (connection.mode === 'mcp_remote') {
-        return res.status(400).json({
-          error: 'Readwise MCP is configured for agent access. Use the manual token fallback for direct Noeis preview until the hosted MCP broker ships.',
+        const message = 'Readwise browser authorization is connected for agent retrieval. Direct Noeis preview still needs the advanced API-token sync path until the hosted Readwise broker ships.';
+        await markImportSessionUnavailable({
+          sessionId: importSessionId,
+          userId,
+          stage: 'readwise_sync_unavailable',
+          message
+        });
+        return res.status(409).json({
+          error: message,
           connection: sanitizeConnection(connection.toObject())
         });
       }
@@ -1500,8 +1524,15 @@ const buildImportRouter = ({
         return res.status(404).json({ error: 'Readwise connection not found.' });
       }
       if (connection.mode === 'mcp_remote') {
-        return res.status(400).json({
-          error: 'Readwise MCP is configured for agent access. Use the manual token fallback for direct Noeis sync until the hosted MCP broker ships.',
+        const message = 'Readwise browser authorization is connected for agent retrieval. Direct Noeis import still needs the advanced API-token sync path until the hosted Readwise broker ships.';
+        await markImportSessionUnavailable({
+          sessionId: importSessionId,
+          userId,
+          stage: 'readwise_sync_unavailable',
+          message
+        });
+        return res.status(409).json({
+          error: message,
           connection: sanitizeConnection(connection.toObject())
         });
       }

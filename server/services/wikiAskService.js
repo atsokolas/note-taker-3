@@ -124,6 +124,97 @@ const normalizeComparableText = (value = '') => (
 const serializeObjectId = (value = '') => String(value?._id || value?.id || value || '').trim();
 
 const escapeRegExp = (value = '') => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const WIKI_TITLE_MENTION_STOPWORDS = new Set([
+  'a',
+  'an',
+  'and',
+  'are',
+  'as',
+  'at',
+  'be',
+  'by',
+  'can',
+  'connect',
+  'does',
+  'for',
+  'from',
+  'how',
+  'in',
+  'is',
+  'it',
+  'of',
+  'on',
+  'only',
+  'or',
+  'page',
+  'relate',
+  'related',
+  'the',
+  'this',
+  'to',
+  'what',
+  'where',
+  'why',
+  'with'
+]);
+
+const normalizeTitleCandidate = (value = '') => String(value || '')
+  .toLowerCase()
+  .replace(/[^a-z0-9]+/g, ' ')
+  .replace(/\s+/g, ' ')
+  .trim();
+
+const exactTitleRegex = (title = '') => {
+  const escaped = escapeRegExp(String(title || '').trim()).replace(/\s+/g, '\\s+');
+  return new RegExp(`^\\s*${escaped}\\s*$`, 'i');
+};
+
+const extractMentionedTitleCandidates = ({
+  question = '',
+  selectedTitle = '',
+  limit = 32
+} = {}) => {
+  const normalizedSelected = normalizeTitleCandidate(selectedTitle);
+  const words = String(question || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .split(' ')
+    .filter(Boolean);
+  const seen = new Set();
+  const candidates = [];
+  for (let size = Math.min(5, words.length); size >= 2; size -= 1) {
+    for (let index = 0; index <= words.length - size; index += 1) {
+      const chunk = words.slice(index, index + size);
+      if (chunk.every(word => WIKI_TITLE_MENTION_STOPWORDS.has(word))) continue;
+      const first = chunk[0];
+      const last = chunk[chunk.length - 1];
+      if (WIKI_TITLE_MENTION_STOPWORDS.has(first) || WIKI_TITLE_MENTION_STOPWORDS.has(last)) continue;
+      const candidate = chunk.join(' ');
+      const normalized = normalizeTitleCandidate(candidate);
+      if (!normalized || normalized === normalizedSelected || seen.has(normalized)) continue;
+      seen.add(normalized);
+      candidates.push(candidate);
+      if (candidates.length >= limit) return candidates;
+    }
+  }
+  return candidates;
+};
+
+const mergeWikiPages = (primaryPages = [], extraPages = []) => {
+  const rows = [];
+  const seen = new Set();
+  [...(Array.isArray(primaryPages) ? primaryPages : []), ...(Array.isArray(extraPages) ? extraPages : [])]
+    .filter(Boolean)
+    .forEach((page) => {
+      const key = serializeObjectId(page) || normalizeTitleCandidate(page.title);
+      if (key && seen.has(key)) return;
+      if (key) seen.add(key);
+      rows.push(page);
+    });
+  return rows;
+};
 
 const isSelectedPageOnlyQuestion = (question = '') => (
   /\b(on|from|in)\s+(this|the)\s+(page|wiki\s+page)\s+only\b/i.test(question)
@@ -782,18 +873,37 @@ const loadWikiAskCorpus = async ({
     return { relatedPages: [], conceptRecords: [], backlinkRows: [] };
   }
   const trimmed = asString(question);
-  const allPages = await WikiPage.find({
+  const visibleWikiPageMatch = {
     userId,
     status: { $ne: 'archived' },
     hiddenFromHome: { $ne: true },
     debugOnly: { $ne: true },
     archived: { $ne: true }
-  })
+  };
+  const recentPages = await WikiPage.find(visibleWikiPageMatch)
     .sort({ updatedAt: -1 })
     .limit(Math.max(1, pageScanLimit))
     .select('title slug pageType plainText body sourceRefs updatedAt')
     .lean();
   const selectedPageOnly = isSelectedPageOnlyQuestion(trimmed);
+  let allPages = recentPages;
+  const titleCandidates = selectedPageOnly
+    ? []
+    : extractMentionedTitleCandidates({
+      question: trimmed,
+      selectedTitle: page?.title,
+      limit: Math.min(32, Math.max(8, candidateLimit))
+    });
+  if (titleCandidates.length > 0) {
+    const mentionedPages = await WikiPage.find({
+      ...visibleWikiPageMatch,
+      $or: titleCandidates.map(title => ({ title: exactTitleRegex(title) }))
+    })
+      .limit(Math.max(1, candidateLimit))
+      .select('title slug pageType plainText body sourceRefs updatedAt')
+      .lean();
+    allPages = mergeWikiPages(recentPages, mentionedPages);
+  }
   const relatedPages = rankWikiPageCandidates({
     page,
     relatedPages: allPages,
@@ -1081,6 +1191,7 @@ module.exports = {
     isExactSentenceRequest,
     isSelectedPageOnlyQuestion,
     pageTitleMentionedInQuestion,
+    extractMentionedTitleCandidates,
     rankWikiPageCandidates,
     pickExactPageSentence
   }
