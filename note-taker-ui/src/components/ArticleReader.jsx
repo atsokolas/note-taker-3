@@ -32,6 +32,8 @@ const parseTags = (value) => {
     });
 };
 
+const hasReadableContent = (value) => String(value || '').replace(/<[^>]*>/g, '').trim().length > 0;
+
 const ArticleReader = forwardRef(({
   article,
   highlights = [],
@@ -59,6 +61,10 @@ const ArticleReader = forwardRef(({
     [article, highlights]
   );
   const contentMarkup = useMemo(() => ({ __html: html }), [html]);
+  const isHighlightOnlyImport = Boolean(article)
+    && !hasReadableContent(article.content)
+    && Array.isArray(highlights)
+    && highlights.length > 0;
   const { selectionState, clearSelection } = useTextSelection({
     containerRef: contentRef,
     menuRef
@@ -236,7 +242,46 @@ const ArticleReader = forwardRef(({
           submitLabel="↗"
         />
       </div>
-      <div className="article-reader-content reader" ref={contentRef} dangerouslySetInnerHTML={contentMarkup} />
+      {isHighlightOnlyImport ? (
+        <div className="article-reader-content reader article-reader-content--highlights" ref={contentRef}>
+          <section className="article-highlight-edition" aria-label="Saved highlights">
+            <div className="article-highlight-edition__lead">
+              <span className="eyebrow">Highlight edition</span>
+              <p>
+                No full article text was imported for this source, so Noeis is showing the saved
+                highlights as the reading body.
+              </p>
+            </div>
+            <ol className="article-highlight-edition__list">
+              {highlights.map((highlight, index) => {
+                const highlightId = highlight?._id || highlight?.id || `${article?._id || 'article'}-${index}`;
+                const tags = Array.isArray(highlight?.tags) ? highlight.tags.filter(Boolean) : [];
+                const createdAt = formatDate(highlight?.createdAt || highlight?.highlightedAt);
+                return (
+                  <li
+                    key={highlightId}
+                    className="article-highlight-edition__item"
+                    data-highlight-id={`highlight-${highlightId}`}
+                  >
+                    <blockquote>{highlight?.text || 'Untitled highlight'}</blockquote>
+                    {(highlight?.note || createdAt || tags.length > 0) && (
+                      <div className="article-highlight-edition__meta">
+                        {createdAt && <span>{createdAt}</span>}
+                        {tags.slice(0, 6).map(tag => <span key={`${highlightId}-${tag}`}>{tag}</span>)}
+                      </div>
+                    )}
+                    {highlight?.note && (
+                      <p className="article-highlight-edition__note">{highlight.note}</p>
+                    )}
+                  </li>
+                );
+              })}
+            </ol>
+          </section>
+        </div>
+      ) : (
+        <div className="article-reader-content reader" ref={contentRef} dangerouslySetInnerHTML={contentMarkup} />
+      )}
       <MagneticReadingRail rootRef={readerRootRef} contentRef={contentRef} />
       {saveError && <p className="status-message error-message">{saveError}</p>}
     </div>
