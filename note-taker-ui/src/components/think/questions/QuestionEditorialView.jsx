@@ -104,7 +104,8 @@ const QuestionEditorialView = ({
   indexOrientation = '',
   indexLoading = false,
   allQuestionsCount = 0,
-  onCalmThreadSelect = null
+  onCalmThreadSelect = null,
+  onShareQuestion = null
 }) => {
   const isQuestionIndex = !activeQuestionData;
   const relatedHighlights = Array.isArray(questionRelated?.highlights) ? questionRelated.highlights : [];
@@ -364,6 +365,7 @@ const QuestionEditorialView = ({
       loading={indexLoading}
       error={allQuestionsError}
       describeMotionNote={describeThreadMotionNote}
+      showPostureTag
       onSelectThread={onCalmThreadSelect}
       motionStatusTestIdPrefix="think-question-status"
       emptyState={(
@@ -411,6 +413,9 @@ const QuestionEditorialView = ({
             />
             {activeQuestionData && questionStatus === 'open' && (
               <div className="think-question-actions">
+                {onShareQuestion ? (
+                  <QuietButton type="button" onClick={onShareQuestion}>Share</QuietButton>
+                ) : null}
                 <QuietButton onClick={onQueueOrganizationPrompt}>Clean up structure</QuietButton>
                 <QuietButton onClick={() => onMarkAnswered(activeQuestionData)}>Mark answered</QuietButton>
               </div>

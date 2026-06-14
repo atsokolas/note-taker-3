@@ -6,7 +6,7 @@ const {
   buildSectionMaintenancePlan,
   deriveClaimsFromDoc
 } = require('../services/wikiMaintenanceService');
-const { askWikiPage: defaultAskWikiPage } = require('../services/wikiAskService');
+const { askWikiPage: defaultAskWikiPage, loadWikiAskCorpus: defaultLoadWikiAskCorpus } = require('../services/wikiAskService');
 const { buildWikiBriefing: defaultBuildWikiBriefing } = require('../services/wikiBriefingService');
 const { findWikiBacklinks: defaultFindWikiBacklinks } = require('../services/wikiBacklinkService');
 const {
@@ -503,6 +503,37 @@ const serializeWikiPage = (page) => {
   };
 };
 
+const serializePublicWikiPage = (page) => {
+  const full = serializeWikiPage(page);
+  if (!full) return full;
+  const publicSourceRefs = (Array.isArray(full.sourceRefs) ? full.sourceRefs : [])
+    .map((source, index) => ({
+      id: String(source?._id || source?.id || source?.sourceRefId || `source-${index}`),
+      type: String(source?.type || source?.sourceType || 'source'),
+      title: String(source?.title || source?.url || 'Source').trim(),
+      url: String(source?.url || '').trim(),
+      snippet: String(source?.snippet || source?.quote || source?.excerpt || '').trim()
+    }))
+    .filter((source) => source.title || source.url || source.snippet);
+
+  return {
+    _id: String(full._id || ''),
+    title: full.title || 'Untitled wiki page',
+    slug: full.slug || '',
+    pageType: full.pageType || 'topic',
+    status: full.status || 'draft',
+    visibility: 'shared',
+    body: full.body || emptyDoc(),
+    plainText: full.plainText || '',
+    createdAt: full.createdAt || null,
+    updatedAt: full.updatedAt || null,
+    sourceRefs: publicSourceRefs,
+    sourceCount: full.sourceCount ?? publicSourceRefs.length,
+    claimCount: full.claimCount ?? 0,
+    wordCount: full.wordCount ?? countWords(full.plainText || '')
+  };
+};
+
 const buildWikiDraftSuggestions = ({ page }) => {
   const sourceIds = Array.isArray(page.sourceRefs)
     ? page.sourceRefs.map(source => source._id).filter(Boolean)
@@ -894,6 +925,7 @@ const buildWikiRouter = ({
   maintainWikiPage = defaultMaintainWikiPage,
   lintWiki = defaultLintWiki,
   askWikiPage = defaultAskWikiPage,
+  loadWikiAskCorpus = defaultLoadWikiAskCorpus,
   buildWikiBriefing = defaultBuildWikiBriefing,
   findWikiBacklinks = defaultFindWikiBacklinks,
   shapeWikiProposalCandidates: shapeWikiProposalCandidatesRunner = shapeWikiProposalCandidates,
@@ -1958,7 +1990,7 @@ const buildWikiRouter = ({
       const page = await WikiPage.findOne(query).lean();
       if (!page) return res.status(404).json({ error: 'Shared wiki page not found.' });
       res.status(200).json({
-        page: serializeWikiPage(page),
+        page: serializePublicWikiPage(page),
         sharedAt: page.updatedAt || page.createdAt || null
       });
     } catch (error) {
@@ -2283,10 +2315,21 @@ const buildWikiRouter = ({
 
       const page = await findOwnedPage(req);
       if (!page) return res.status(404).json({ error: 'Wiki page not found.' });
+      const corpus = await loadWikiAskCorpus({
+        page,
+        question,
+        userId: req.user.id,
+        WikiPage,
+        TagMeta,
+        findWikiBacklinks
+      });
 
       const result = await askWikiPage({
         page,
         question,
+        relatedPages: corpus.relatedPages,
+        conceptRecords: corpus.conceptRecords,
+        backlinkRows: corpus.backlinkRows,
         wikiSchemaContent: await loadWikiSchemaContent(req.user.id)
       });
 
@@ -2294,6 +2337,7 @@ const buildWikiRouter = ({
         question,
         answer: result.answer,
         citationIndexesUsed: result.citationIndexesUsed || [],
+        provenance: result.provenance || {},
         model: result.model || '',
         status: result.status || 'answered',
         errorMessage: result.errorMessage || '',
@@ -2348,14 +2392,25 @@ const buildWikiRouter = ({
         writeSse(res, 'error', { error: 'Wiki page not found.' });
         return res.end();
       }
+      const corpus = await loadWikiAskCorpus({
+        page,
+        question,
+        userId: req.user.id,
+        WikiPage,
+        TagMeta,
+        findWikiBacklinks
+      });
 
       writeSse(res, 'wiki-ask', {
         stage: 'thinking',
-        summary: 'Reading page and source context.'
+        summary: 'Reading selected page, related wiki pages, highlights, concepts, and backlinks.'
       });
       const result = await askWikiPage({
         page,
         question,
+        relatedPages: corpus.relatedPages,
+        conceptRecords: corpus.conceptRecords,
+        backlinkRows: corpus.backlinkRows,
         wikiSchemaContent: await loadWikiSchemaContent(req.user.id)
       });
       const answerText = answerDocText(result.answer);
@@ -2365,6 +2420,7 @@ const buildWikiRouter = ({
         question,
         answer: result.answer,
         citationIndexesUsed: result.citationIndexesUsed || [],
+        provenance: result.provenance || {},
         model: result.model || '',
         status: result.status || 'answered',
         errorMessage: result.errorMessage || '',

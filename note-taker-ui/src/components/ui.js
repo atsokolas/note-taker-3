@@ -52,7 +52,7 @@ export const PageTitle = ({ eyebrow, title, subtitle, className }) => (
 
 export const SectionHeader = ({ title, subtitle, action, className }) => (
   <div className={cx('ui-section-header', className)}>
-    <div>
+    <div className="ui-section-header__copy">
       {title && <div className="ui-section-header__title">{title}</div>}
       {subtitle && <div className="ui-section-header__subtitle">{subtitle}</div>}
     </div>

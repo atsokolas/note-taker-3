@@ -8,9 +8,10 @@ import { endPerfTimer, logPerf, startPerfTimer } from '../utils/perf';
  * @property {string} [folderId]
  * @property {string} [query]
  * @property {'recent'|'oldest'|'most-highlighted'} [sort]
+ * @property {boolean} [includeSuppressed]
  */
 
-const useLibraryArticles = ({ scope, folderId, query = '', sort = 'recent' }) => {
+const useLibraryArticles = ({ scope, folderId, query = '', sort = 'recent', includeSuppressed = false }) => {
   const [allArticles, setAllArticles] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -20,7 +21,7 @@ const useLibraryArticles = ({ scope, folderId, query = '', sort = 'recent' }) =>
     setLoading(true);
     setError('');
     try {
-      const data = await getArticles({ scope: 'all' });
+      const data = await getArticles({ scope: 'all', includeSuppressed });
       const next = data || [];
       setAllArticles(next);
       logPerf('library.list.load', {
@@ -32,7 +33,7 @@ const useLibraryArticles = ({ scope, folderId, query = '', sort = 'recent' }) =>
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [includeSuppressed]);
 
   useEffect(() => {
     fetchArticles();

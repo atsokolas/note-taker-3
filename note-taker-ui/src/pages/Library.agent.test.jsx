@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import Library from './Library';
 import useFolders from '../hooks/useFolders';
@@ -15,9 +15,9 @@ jest.mock('../hooks/useTags', () => jest.fn());
 
 jest.mock('../layout/ThreePaneLayout', () => ({
   __esModule: true,
-  default: ({ left, main, right, rightTitle, rightToggleLabel, mainHeader, mainActions }) => (
+  default: ({ left, main, right, rightTitle, rightToggleLabel, mainHeader, mainActions, leftOpen }) => (
     <div>
-      <aside data-testid="library-left">{left}</aside>
+      {leftOpen ? <aside data-testid="library-left">{left}</aside> : null}
       <main data-testid="library-main">
         {mainHeader}
         {mainActions}
@@ -33,9 +33,30 @@ jest.mock('../layout/ThreePaneLayout', () => ({
 
 jest.mock('../components/library/LibraryMain', () => ({
   __esModule: true,
-  default: ({ selectedArticleId, articleQuery, onArticleQueryChange, onSelectArticle }) => (
+  default: ({
+    selectedArticleId,
+    articleQuery,
+    onArticleQueryChange,
+    onSelectArticle,
+    onReviewFiling,
+    onToggleSuppressed,
+    suppressedVisible,
+    unfiledCount
+  }) => (
     <div>
       {selectedArticleId ? 'Reading article shell' : 'Browse library shell'}
+      {!selectedArticleId ? (
+        <>
+          <div data-testid="library-reading-room-lead">
+            Reading room lead · {unfiledCount} unfiled
+            {suppressedVisible ? ' · showing low-signal items' : ''}
+          </div>
+          <button type="button" onClick={onReviewFiling}>Review filing suggestions</button>
+          <button type="button" onClick={onToggleSuppressed}>
+            {suppressedVisible ? 'Hide low-signal items' : 'Show low-signal items'}
+          </button>
+        </>
+      ) : null}
       {!selectedArticleId ? (
         <label htmlFor="mock-library-article-search">
           Search articles
@@ -121,7 +142,8 @@ describe('Library agent rail', () => {
     useLibraryArticles.mockReturnValue({
       articles: [],
       allArticles: [
-        { _id: 'article-1', title: 'Investor letter', source: 'Library' }
+        { _id: 'article-1', title: 'Investor letter', source: 'Library' },
+        { _id: 'article-2', title: 'Unfiled note', source: 'Readwise', highlightCount: 2 }
       ],
       loading: false,
       error: '',
@@ -163,12 +185,32 @@ describe('Library agent rail', () => {
   it('keeps article search in the main list instead of duplicating it in the Cabinet rail', () => {
     renderLibrary();
 
-    const leftRail = screen.getByTestId('library-left');
     const main = screen.getByTestId('library-main');
 
-    expect(leftRail).not.toHaveTextContent('Article search');
-    expect(leftRail).not.toHaveTextContent('Highlight search');
+    expect(screen.queryByTestId('library-left')).not.toBeInTheDocument();
     expect(screen.getByLabelText('Search articles')).toBeInTheDocument();
     expect(main).toContainElement(screen.getByLabelText('Search articles'));
+  });
+
+  it('defaults to reading-room browse with cabinet closed until opened', () => {
+    renderLibrary();
+
+    expect(screen.getByTestId('library-reading-room-lead')).toBeInTheDocument();
+    expect(screen.queryByTestId('library-left')).not.toBeInTheDocument();
+  });
+
+  it('opens the cabinet for filing review from the reading room lead action', () => {
+    renderLibrary();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Review filing suggestions' }));
+
+    expect(screen.getByTestId('library-left')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Unfiled/i })).toBeInTheDocument();
+  });
+
+  it('exposes an explicit low-signal review action from the reading room lead', () => {
+    renderLibrary();
+
+    expect(screen.getByRole('button', { name: 'Show low-signal items' })).toBeInTheDocument();
   });
 });

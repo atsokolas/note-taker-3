@@ -53,6 +53,9 @@ const buildConceptService = ({ Article, TagMeta, NotebookEntry, ReferenceEdge, m
         pinnedNoteIds: found?.pinnedNoteIds || [],
         isPublic: found?.isPublic || false,
         slug: found?.slug || '',
+        hiddenFromHome: Boolean(found?.hiddenFromHome),
+        debugOnly: Boolean(found?.debugOnly),
+        archived: Boolean(found?.archived),
         freshness: resolveConceptFreshness(found)
       });
     });
@@ -71,6 +74,9 @@ const buildConceptService = ({ Article, TagMeta, NotebookEntry, ReferenceEdge, m
         pinnedNoteIds: found?.pinnedNoteIds || [],
         isPublic: found?.isPublic || false,
         slug: found?.slug || '',
+        hiddenFromHome: Boolean(found?.hiddenFromHome),
+        debugOnly: Boolean(found?.debugOnly),
+        archived: Boolean(found?.archived),
         freshness: resolveConceptFreshness(found)
       });
     });

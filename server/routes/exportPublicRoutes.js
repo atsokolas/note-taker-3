@@ -85,16 +85,19 @@ const buildExportPublicRouter = ({
           { conceptName: new RegExp(`^${concept.name}$`, 'i') },
           { linkedTagName: new RegExp(`^${concept.name}$`, 'i') }
         ]
-      }).select('text status updatedAt').lean();
+      }).select('_id').lean();
       res.status(200).json({
         concept: {
           name: concept.name,
           description: concept.description || '',
           slug: concept.slug
         },
-        highlights: related.highlights || [],
-        articles: related.articles || [],
-        questions: questions || []
+        relatedCounts: {
+          highlights: Array.isArray(related.highlights) ? related.highlights.length : 0,
+          articles: Array.isArray(related.articles) ? related.articles.length : 0,
+          questions: Array.isArray(questions) ? questions.length : 0
+        },
+        questions: []
       });
     } catch (error) {
       console.error('❌ Error loading public concept:', error);

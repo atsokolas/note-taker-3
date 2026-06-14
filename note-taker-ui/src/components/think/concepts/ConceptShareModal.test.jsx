@@ -45,6 +45,12 @@ describe('ConceptShareModal', () => {
     expect(screen.getByRole('button', { name: 'Copy link' })).toBeInTheDocument();
   });
 
+  it('shows the public share receipt when an active link exists', async () => {
+    getConceptShare.mockResolvedValueOnce({ shared: true, slug: 'abc123', createdAt: '2026-04-25' });
+    render(<ConceptShareModal open conceptName="Strategy" onClose={() => {}} />);
+    expect(await screen.findByText(/Public page ready: citations included, private source notes withheld\./)).toBeInTheDocument();
+  });
+
   it('revokes a share after confirmation', async () => {
     window.confirm = jest.fn(() => true);
     getConceptShare.mockResolvedValueOnce({ shared: true, slug: 'abc123', createdAt: '2026-04-25' });

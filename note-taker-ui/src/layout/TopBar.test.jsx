@@ -52,6 +52,16 @@ describe('TopBar help menu', () => {
     expect(screen.getByRole('link', { name: 'Settings' })).toHaveAttribute('href', '/settings');
   });
 
+  it('does not render More when secondary navigation is empty', () => {
+    render(
+      <MemoryRouter>
+        <TopBar secondaryNav={[]} />
+      </MemoryRouter>
+    );
+
+    expect(screen.queryByRole('button', { name: 'More' })).toBeNull();
+  });
+
   it('exposes a persistent reference handoff in the top bar', () => {
     render(
       <MemoryRouter>

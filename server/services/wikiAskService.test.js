@@ -1,14 +1,25 @@
-const { askWikiPage, __testables } = require('./wikiAskService');
+const { askWikiPage, loadWikiAskCorpus, __testables } = require('./wikiAskService');
 
 const {
   buildSourceList,
+  buildRelatedPageContexts,
+  buildGraphHighlightContexts,
+  buildConceptContexts,
+  buildBacklinkContexts,
+  buildAskGraphContext,
+  buildGraphSearchSummary,
+  provenanceFromContext,
   buildSystemPrompt,
   normalizeAnswerSchema,
   buildFallbackAnswer,
+  buildGraphFallbackAnswer,
   docFromAnswer,
   buildPageContext,
   truncateAtSentenceBoundary,
-  pickExactPageSentence
+  pickExactPageSentence,
+  isSelectedPageOnlyQuestion,
+  pageTitleMentionedInQuestion,
+  rankWikiPageCandidates
 } = __testables;
 
 const buildPage = (overrides = {}) => ({
@@ -63,6 +74,35 @@ describe('wikiAskService', () => {
       });
       expect(prompt).toContain('User wiki schema conventions');
       expect(prompt).toContain('Prefer durable reference prose.');
+    });
+
+    it('includes related wiki pages selected from the question', () => {
+      const prompt = buildSystemPrompt({
+        page: buildPage({ title: 'Loss Aversion' }),
+        sources: [],
+        relatedPageContexts: [{
+          id: 'page-opportunity-cost',
+          title: 'Opportunity Cost',
+          plainText: 'Opportunity cost is the value of the next best alternative.',
+          pageType: 'concept'
+        }],
+        highlightContexts: [{
+          id: 'hl-1',
+          title: 'Kahneman highlight',
+          snippet: 'Losses loom larger than gains.',
+          fromPageTitle: 'Loss Aversion'
+        }],
+        conceptContexts: [{
+          id: 'concept-1',
+          name: 'Opportunity Cost',
+          description: 'The hidden cost of the next best alternative.'
+        }],
+        question: 'How does Loss Aversion connect to Opportunity Cost?'
+      });
+      expect(prompt).toContain('Related wiki pages selected');
+      expect(prompt).toContain('RELATED WIKI PAGE 1: Opportunity Cost');
+      expect(prompt).toContain('Relevant highlights from the corpus');
+      expect(prompt).toContain('Never say "Answered from the selected wiki page"');
     });
 
     it('uses sentence-bounded page context for exact quote requests', () => {
@@ -174,6 +214,19 @@ describe('wikiAskService', () => {
       expect(out.paragraphs[1].citationIndexes).toEqual([2]);
       expect(out.citationIndexesUsed).toEqual([1, 2]);
     });
+
+    it('preserves deterministic fallback citations when model prose omits them', () => {
+      const fallback = {
+        paragraphs: [{ text: 'Fallback source-backed answer.', citationIndexes: [1] }],
+        citationIndexesUsed: [1]
+      };
+      const out = normalizeAnswerSchema({
+        paragraphs: [{ text: 'Model answer forgot citations.', citationIndexes: [] }]
+      }, fallback, 2);
+      expect(out.paragraphs[0].text).toBe('Model answer forgot citations.');
+      expect(out.paragraphs[0].citationIndexes).toEqual([1]);
+      expect(out.citationIndexesUsed).toEqual([1]);
+    });
   });
 
   describe('docFromAnswer', () => {
@@ -208,12 +261,144 @@ describe('wikiAskService', () => {
       expect(out.citationIndexesUsed).toEqual([]);
     });
 
-    it('admits when the page lacks evidence for the question instead of returning nearest generic material', () => {
+    it('admits when the page lacks evidence and states what was searched', () => {
       const sources = buildSourceList(buildPage().sourceRefs);
-      const out = buildFallbackAnswer({ page: buildPage(), sources, question: 'What is the weather in Chicago?' });
+      const out = buildFallbackAnswer({
+        page: buildPage(),
+        sources,
+        question: 'What is the weather in Chicago?',
+        searchedSummary: 'Searched Compounding interest, 1 related wiki page, 2 highlights.'
+      });
       expect(out.citationIndexesUsed).toEqual([]);
       expect(out.paragraphs[0].text).toMatch(/do not see enough evidence/i);
-      expect(out.paragraphs[0].text).not.toMatch(/most relevant material/i);
+      expect(out.paragraphs[0].text).toMatch(/Searched Compounding interest/);
+    });
+  });
+
+  describe('graph context', () => {
+    it('detects when the reader scoped the question to the selected page only', () => {
+      expect(isSelectedPageOnlyQuestion('Answer only from this page.')).toBe(true);
+      expect(isSelectedPageOnlyQuestion('How does Loss Aversion connect to Opportunity Cost?')).toBe(false);
+    });
+
+    it('matches named wiki page titles in the question', () => {
+      expect(pageTitleMentionedInQuestion('Opportunity Cost', 'How does Loss Aversion connect to Opportunity Cost?')).toBe(true);
+      expect(pageTitleMentionedInQuestion('Random Walk', 'How does Loss Aversion connect to Opportunity Cost?')).toBe(false);
+    });
+
+    it('prioritizes question-mentioned pages ahead of unrelated recent pages', () => {
+      const ranked = rankWikiPageCandidates({
+        page: { _id: 'page-loss', title: 'Loss Aversion' },
+        question: 'How does Loss Aversion connect to Opportunity Cost?',
+        relatedPages: [
+          { _id: 'page-random', title: 'Random Walk', plainText: 'Noise.' },
+          { _id: 'page-opp', title: 'Opportunity Cost', plainText: 'Hidden cost.' }
+        ]
+      });
+      expect(ranked[0].title).toBe('Opportunity Cost');
+    });
+
+    it('selects a named related wiki page from the question', () => {
+      const related = buildRelatedPageContexts({
+        page: { _id: 'page-loss', title: 'Loss Aversion', plainText: 'Losses feel larger than gains.' },
+        question: 'How does Loss Aversion connect to Opportunity Cost?',
+        relatedPages: [
+          { _id: 'page-loss', title: 'Loss Aversion', plainText: 'Current page.' },
+          { _id: 'page-opp', title: 'Opportunity Cost', pageType: 'concept', plainText: 'Opportunity cost is the forgone alternative.' },
+          { _id: 'page-random', title: 'Random Walk', plainText: 'Market prices move unpredictably.' }
+        ]
+      });
+      expect(related).toHaveLength(1);
+      expect(related[0].title).toBe('Opportunity Cost');
+    });
+
+    it('skips related pages when the reader scoped the question to the selected page only', () => {
+      const related = buildRelatedPageContexts({
+        page: { _id: 'page-loss', title: 'Loss Aversion', plainText: 'Losses feel larger than gains.' },
+        question: 'On this page only, what is the main claim?',
+        selectedPageOnly: true,
+        relatedPages: [
+          { _id: 'page-opp', title: 'Opportunity Cost', plainText: 'Opportunity cost is the forgone alternative.' }
+        ]
+      });
+      expect(related).toEqual([]);
+    });
+
+    it('collects highlight evidence from related pages', () => {
+      const highlights = buildGraphHighlightContexts({
+        page: {
+          _id: 'page-loss',
+          title: 'Loss Aversion',
+          sourceRefs: [{ _id: 'hl-1', type: 'highlight', title: 'Kahneman', snippet: 'Losses loom larger than gains.' }]
+        },
+        relatedPages: [{
+          _id: 'page-opp',
+          title: 'Opportunity Cost',
+          sourceRefs: [{ _id: 'hl-2', type: 'highlight', title: 'Thaler', snippet: 'Hidden opportunity costs feel weaker than visible losses.' }]
+        }],
+        relatedPageContexts: [{ id: 'page-opp', title: 'Opportunity Cost', plainText: 'Hidden cost.' }],
+        question: 'How does Loss Aversion connect to Opportunity Cost?'
+      });
+      expect(highlights).toHaveLength(2);
+      expect(highlights.some(row => row.title === 'Thaler')).toBe(true);
+    });
+
+    it('does not load hidden or debug wiki pages into graph ask corpus', async () => {
+      const lean = jest.fn().mockResolvedValue([]);
+      const select = jest.fn(() => ({ lean }));
+      const limit = jest.fn(() => ({ select }));
+      const sort = jest.fn(() => ({ limit }));
+      const find = jest.fn(() => ({ sort }));
+
+      await loadWikiAskCorpus({
+        page: { _id: 'page-loss', title: 'Loss Aversion' },
+        question: 'How does this connect to Opportunity Cost?',
+        userId: 'user-1',
+        WikiPage: { find },
+        TagMeta: null,
+        findWikiBacklinks: null
+      });
+
+      expect(find).toHaveBeenCalledWith({
+        userId: 'user-1',
+        status: { $ne: 'archived' },
+        hiddenFromHome: { $ne: true },
+        debugOnly: { $ne: true },
+        archived: { $ne: true }
+      });
+    });
+
+    it('summarizes graph-expanded provenance by object type for the UI', () => {
+      const page = { _id: 'page-loss', title: 'Loss Aversion' };
+      const provenance = provenanceFromContext({
+        page,
+        sources: [{ index: 1, type: 'highlight' }, { index: 2, type: 'highlight' }, { index: 3, type: 'article' }],
+        relatedPageContexts: [{ id: 'page-opp', title: 'Opportunity Cost', pageType: 'concept' }],
+        highlightContexts: [{ id: 'hl-2', title: 'Thaler', snippet: 'Hidden costs feel weaker.' }],
+        conceptContexts: [{ id: 'concept-1', name: 'Opportunity Cost', description: 'Hidden alternative cost.' }],
+        bridgeInsight: 'Loss aversion makes visible losses feel stronger than hidden opportunity costs.'
+      });
+      expect(provenance.mode).toBe('graph_expanded');
+      expect(provenance.summary).toBe('Used 2 wiki pages · 3 highlights · 1 concept · 1 source');
+      expect(provenance.bridgeInsight).toMatch(/visible losses/);
+      expect(provenance.wikiPages.map(pageRef => pageRef.title)).toEqual(['Loss Aversion', 'Opportunity Cost']);
+    });
+
+    it('builds an evidence-based bridge fallback across related pages', () => {
+      const out = buildGraphFallbackAnswer({
+        page: {
+          title: 'Loss Aversion',
+          body: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Losses feel larger than equivalent gains.' }] }] }
+        },
+        sources: [],
+        relatedPageContexts: [{
+          title: 'Opportunity Cost',
+          plainText: 'Opportunity cost is the hidden cost of the next best alternative.'
+        }],
+        question: 'How does Loss Aversion connect to Opportunity Cost?'
+      });
+      expect(out.bridgeInsight).toMatch(/Loss Aversion and Opportunity Cost connect because/);
+      expect(out.paragraphs[0].text).toMatch(/Opportunity Cost/);
     });
   });
 
@@ -240,6 +425,94 @@ describe('wikiAskService', () => {
       expect(out.citationIndexesUsed).toEqual([2]);
       const marks = findClaimMarks(out.answer);
       expect(marks.length).toBeGreaterThan(0);
+    });
+
+    it('expands page-first answers across named related wiki pages when the model is unavailable', async () => {
+      const out = await askWikiPage({
+        page: buildPage({
+          _id: 'page-loss',
+          title: 'Loss Aversion',
+          body: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Loss aversion makes visible losses feel more urgent than equivalent gains.' }] }] }
+        }),
+        relatedPages: [
+          { _id: 'page-opp', title: 'Opportunity Cost', pageType: 'concept', plainText: 'Opportunity cost is the hidden cost of the next best alternative.' }
+        ],
+        question: 'How does Loss Aversion connect to Opportunity Cost?',
+        aiClient: { chatComplete: jest.fn(), isTextGenerationConfigured: () => false }
+      });
+      expect(out.status).toBe('answered');
+      expect(out.provenance.mode).toBe('graph_expanded');
+      expect(out.provenance.summary).toContain('2 wiki pages');
+      expect(out.provenance.bridgeInsight).toMatch(/Loss Aversion and Opportunity Cost connect because/);
+      const marks = findClaimMarks(out.answer);
+      expect(marks[0].text).toMatch(/Opportunity Cost/);
+    });
+
+    it('does not expand graph context for selected-page-only questions', async () => {
+      const out = await askWikiPage({
+        page: buildPage({
+          _id: 'page-loss',
+          title: 'Loss Aversion',
+          body: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Loss aversion makes visible losses feel more urgent than equivalent gains.' }] }] }
+        }),
+        relatedPages: [
+          { _id: 'page-opp', title: 'Opportunity Cost', pageType: 'concept', plainText: 'Opportunity cost is the hidden cost of the next best alternative.' }
+        ],
+        question: 'On this page only, what is the main claim?',
+        aiClient: { chatComplete: jest.fn(), isTextGenerationConfigured: () => false }
+      });
+      expect(out.provenance.mode).toBe('page_only');
+      expect(out.provenance.summary).not.toContain('2 wiki pages');
+    });
+
+    it('uses multiple corpus objects for cross-page prompts with highlights and concepts', async () => {
+      const graph = buildAskGraphContext({
+        page: {
+          _id: 'page-loss',
+          title: 'Loss Aversion',
+          plainText: 'Loss aversion makes visible losses feel more urgent than equivalent gains.',
+          sourceRefs: [{ _id: 'hl-1', type: 'highlight', title: 'Kahneman', snippet: 'Losses loom larger than gains.' }]
+        },
+        relatedPages: [
+          {
+            _id: 'page-opp',
+            title: 'Opportunity Cost',
+            pageType: 'concept',
+            plainText: 'Opportunity cost is the hidden cost of the next best alternative.',
+            sourceRefs: [{ _id: 'hl-2', type: 'highlight', title: 'Thaler', snippet: 'Hidden opportunity costs feel weaker than visible losses.' }]
+          }
+        ],
+        conceptRecords: [{ _id: 'concept-1', name: 'Opportunity Cost', description: 'The hidden cost of the next best alternative.' }],
+        question: 'How does Loss Aversion connect to Opportunity Cost?'
+      });
+      expect(graph.relatedPageContexts).toHaveLength(1);
+      expect(graph.highlightContexts.length).toBeGreaterThanOrEqual(2);
+      expect(graph.conceptContexts).toHaveLength(1);
+
+      const out = await askWikiPage({
+        page: {
+          _id: 'page-loss',
+          title: 'Loss Aversion',
+          body: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Loss aversion makes visible losses feel more urgent than equivalent gains.' }] }] },
+          sourceRefs: [{ _id: 'hl-1', type: 'highlight', title: 'Kahneman', snippet: 'Losses loom larger than gains.' }]
+        },
+        relatedPages: [
+          {
+            _id: 'page-opp',
+            title: 'Opportunity Cost',
+            pageType: 'concept',
+            plainText: 'Opportunity cost is the hidden cost of the next best alternative.',
+            sourceRefs: [{ _id: 'hl-2', type: 'highlight', title: 'Thaler', snippet: 'Hidden opportunity costs feel weaker than visible losses.' }]
+          }
+        ],
+        conceptRecords: [{ _id: 'concept-1', name: 'Opportunity Cost', description: 'The hidden cost of the next best alternative.' }],
+        question: 'How does Loss Aversion connect to Opportunity Cost?',
+        aiClient: { chatComplete: jest.fn(), isTextGenerationConfigured: () => false }
+      });
+      expect(out.provenance.mode).toBe('graph_expanded');
+      expect(out.provenance.summary).toMatch(/2 wiki pages/);
+      expect(out.provenance.summary).toMatch(/highlight/);
+      expect(out.provenance.summary).toMatch(/concept/);
     });
 
     it('parses a JSON answer from the chat client and emits claim marks', async () => {

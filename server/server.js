@@ -127,6 +127,7 @@ const {
   IntegrationConnection,
   ImportSession,
   SharedConcept,
+  SharedQuestion,
   WikiPage,
   WikiProposal,
   WikiRevision,
@@ -210,6 +211,7 @@ const { buildSemanticSearchRouter } = require('./routes/semanticSearchRoutes');
 const { buildTagTemplateRouter } = require('./routes/tagTemplateRoutes');
 const { buildConceptMetaRouter } = require('./routes/conceptMetaRoutes');
 const { buildSharedConceptRouter } = require('./routes/sharedConceptRoutes');
+const { buildSharedQuestionRouter } = require('./routes/sharedQuestionRoutes');
 const { buildConceptMaterialRouter } = require('./routes/conceptMaterialRoutes');
 const { buildAgentNotionFetchRouter } = require('./routes/agentNotionFetchRoutes');
 const { fetchNotionPagesForAgent } = require('./services/agentTools/notionFetchTool');
@@ -1107,7 +1109,12 @@ const searchBridgeProjectCorpus = async ({
   const remaining = () => Math.max(0, safeLimit - results.length);
 
   if (includeType('article') && remaining() > 0) {
-    const articleQuery = { userId };
+    const articleQuery = {
+      userId,
+      hiddenFromHome: { $ne: true },
+      debugOnly: { $ne: true },
+      archived: { $ne: true }
+    };
     if (matcher) {
       articleQuery.$or = [
         { title: matcher },
@@ -6114,6 +6121,13 @@ app.use(buildSharedConceptRouter({
   User,
   escapeRegExp,
   getConceptRelated
+}));
+
+app.use(buildSharedQuestionRouter({
+  authenticateToken,
+  SharedQuestion,
+  Question,
+  User
 }));
 
 app.use(buildAgentNotionFetchRouter({

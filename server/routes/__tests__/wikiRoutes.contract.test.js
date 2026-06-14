@@ -943,6 +943,22 @@ const run = async () => {
           type: 'paragraph',
           content: [{ type: 'text', text: 'A shared systems page for unauthenticated readers.' }]
         }]
+      },
+      sourceRefs: [{
+        type: 'article',
+        title: 'Public source title',
+        url: 'https://example.com/source',
+        snippet: 'Public citation snippet.',
+        objectId: new mongoose.Types.ObjectId().toString(),
+        privateNote: 'private source note'
+      }],
+      claims: [{ text: 'Private claim draft', sourceRefIds: ['private-source'] }],
+      citations: [{ claimId: 'private-claim', sourceRefId: 'private-source' }],
+      discussions: [{ question: 'Private discussion', answer: { content: [] } }],
+      aiState: {
+        model: 'private-model',
+        provider: 'private-provider',
+        changeLog: [{ summary: 'private agent log' }]
       }
     });
     await sharedPage.save();
@@ -974,6 +990,16 @@ const run = async () => {
     assert.strictEqual(publicBySlug.body.page._id, String(sharedPage._id));
     assert.strictEqual(publicBySlug.body.page.visibility, 'shared');
     assert.strictEqual(publicBySlug.body.page.plainText, 'A shared systems page for unauthenticated readers.');
+    assert.strictEqual(publicBySlug.body.page.sourceRefs[0].title, 'Public source title');
+    assert.strictEqual(publicBySlug.body.page.sourceRefs[0].url, 'https://example.com/source');
+    assert.strictEqual(publicBySlug.body.page.sourceRefs[0].snippet, 'Public citation snippet.');
+    assert.strictEqual(publicBySlug.body.page.sourceRefs[0].objectId, undefined);
+    assert.strictEqual(publicBySlug.body.page.sourceRefs[0].privateNote, undefined);
+    assert.strictEqual(publicBySlug.body.page.discussions, undefined);
+    assert.strictEqual(publicBySlug.body.page.aiState, undefined);
+    assert.strictEqual(publicBySlug.body.page.claims, undefined);
+    assert.strictEqual(publicBySlug.body.page.citations, undefined);
+    assert.strictEqual(publicBySlug.body.page.createdFrom, undefined);
 
     const publicById = await request(url, `/api/public/wiki/pages/${sharedPage._id}`, {
       headers: {}
@@ -1396,6 +1422,16 @@ const run = async () => {
       plainText: 'This page should link to Ingest Change Answer when it exists.'
     });
     await neighborPage.save();
+
+    const graphAsked = await request(url, `/api/wiki/pages/${created.body._id}/ask`, {
+      method: 'POST',
+      body: JSON.stringify({ question: 'How does this connect to Neighbor Page?' })
+    });
+    assert.strictEqual(graphAsked.res.status, 200, graphAsked.text);
+    const graphDiscussion = graphAsked.body.discussions[graphAsked.body.discussions.length - 1];
+    assert.strictEqual(graphDiscussion.provenance.mode, 'graph_expanded');
+    assert.match(graphDiscussion.provenance.summary, /2 wiki pages/);
+    assert.ok(graphDiscussion.provenance.wikiPages.some(page => page.title === 'Neighbor Page'));
 
     const promoted = await request(
       url,

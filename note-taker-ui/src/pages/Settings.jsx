@@ -301,20 +301,13 @@ const Settings = ({
         </Button>
       </Card>
       <Card className="settings-card">
-        <h2>Agents & integrations</h2>
-        <p className="muted">Set up specialist agents and connect BYO runtimes.</p>
-        <Link to="/integrations" className="ui-button ui-button-secondary">
-          Set up agents
+        <h2>Connections</h2>
+        <p className="muted">Sources, agents, and advanced bridge settings live in one center.</p>
+        <Link to="/connections" className="ui-button ui-button-secondary">
+          Open connections
         </Link>
       </Card>
       <ConnectedAgentsCard tokenModel={agentTokensModel} />
-      <Card className="settings-card">
-        <h2>Data integrations</h2>
-        <p className="muted">Import Readwise CSVs and markdown notes on a dedicated page.</p>
-        <Link to="/data-integrations" className="ui-button ui-button-secondary">
-          Open data integrations
-        </Link>
-      </Card>
       {wikiSchemaEnabled ? (
       <Card className="settings-card">
         <div className="settings-appearance-header">

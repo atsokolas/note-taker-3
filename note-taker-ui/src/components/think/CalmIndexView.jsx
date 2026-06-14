@@ -1,6 +1,6 @@
 import React from 'react';
 import { Button, QuietButton, SectionHeader, SurfaceCard } from '../ui';
-import { getThreadPostureTag } from './calmIndexModel';
+import { getThreadMotionStateTag } from './calmIndexModel';
 
 const CalmIndexView = ({
   eyebrow = 'Think',
@@ -15,13 +15,10 @@ const CalmIndexView = ({
   actions = null,
   homeCommand = null,
   homeLinks = null,
-  returnQueue = [],
-  returnQueueLoading = false,
-  onOpenReturnQueueItem,
+  maintenanceNote = '',
   motionStatusTestIdPrefix = 'think-calm-status'
 }) => {
   const hasThreads = (motion.inMotion?.length || 0) + (motion.shelf?.length || 0) > 0;
-  const hasReturnQueue = returnQueueLoading || returnQueue.length > 0;
 
   return (
     <div className="think-calm-index tix" data-testid="think-calm-index">
@@ -56,7 +53,7 @@ const CalmIndexView = ({
                         onClick={() => onSelectThread?.(thread)}
                       >
                         {showPostureTag ? (
-                          <span className="tix-thread__tag">{getThreadPostureTag(thread)}</span>
+                          <span className="tix-thread__tag">{getThreadMotionStateTag(thread)}</span>
                         ) : null}
                         <span className="tix-thread__title">{thread.title}</span>
                         <span
@@ -108,33 +105,6 @@ const CalmIndexView = ({
             </div>
           ) : null}
 
-          {hasReturnQueue ? (
-            <section className="think-home-return-queue tix-anim tix-anim--4" aria-label="Return queue">
-              <h2 className="tix-eyebrow">Return queue</h2>
-              <div className="think-home-return-queue__list">
-                {returnQueueLoading ? (
-                  <p className="muted small">Loading return queue…</p>
-                ) : (
-                  returnQueue.slice(0, 3).map((entry) => (
-                    <button
-                      key={entry._id || `${entry.itemType}:${entry.item?.id || entry.item?.title}`}
-                      type="button"
-                      className="think-home-return-queue__item"
-                      onClick={() => onOpenReturnQueueItem?.(entry)}
-                    >
-                      <span className="think-home-return-queue__title">
-                        {entry.item?.title || `${entry.itemType || 'Queued'} item`}
-                      </span>
-                      <span className="think-home-return-queue__meta">
-                        {entry.reason || entry.itemType || 'waiting to be woven back in'}
-                      </span>
-                    </button>
-                  ))
-                )}
-              </div>
-            </section>
-          ) : null}
-
           {actions ? (
             <div className="tix-actions tix-anim tix-anim--4">
               {actions}
@@ -145,6 +115,15 @@ const CalmIndexView = ({
             <div className="think-calm-index__links tix-anim tix-anim--4">
               {homeLinks}
             </div>
+          ) : null}
+
+          {maintenanceNote ? (
+            <p
+              className="think-calm-index__maintenance muted small"
+              data-testid="think-cruft-notice"
+            >
+              {maintenanceNote}
+            </p>
           ) : null}
         </>
       )}

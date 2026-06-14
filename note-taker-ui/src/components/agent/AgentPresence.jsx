@@ -22,8 +22,8 @@ const AgentPresence = ({
       <span className="agent-presence__dot-inner wiki-agent-presence__dot-inner" />
     </span>
     <div className="agent-presence__copy wiki-agent-presence__copy">
-      <span className="agent-presence__text wiki-agent-presence__text">{title}</span>
-      {subtitle ? <span className="agent-presence__sub wiki-agent-presence__sub">{subtitle}</span> : null}
+      <div className="agent-presence__text wiki-agent-presence__text">{title}</div>
+      {subtitle ? <div className="agent-presence__sub wiki-agent-presence__sub">{subtitle}</div> : null}
     </div>
     {actionLabel ? (
       <button

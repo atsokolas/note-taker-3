@@ -4,6 +4,13 @@ import { SectionHeader } from '../ui';
 import VirtualList from '../virtual/VirtualList';
 import { createProfilerLogger } from '../../utils/perf';
 import { TOUR_EXTENSION_URL } from '../../tour/tourConfig';
+import {
+  getArticleTags,
+  getConnectedConceptNames,
+  getHighlightCount,
+  getWhyItMatters
+} from './libraryReadingRoomModel';
+import { filterReturnViewItems } from '../../utils/cruftSuppression';
 
 const formatDate = (value) => {
   if (!value) return '';
@@ -29,25 +36,33 @@ const getSourceLabel = (article) => {
   }
 };
 
-const getArticleTags = (article) => {
-  if (Array.isArray(article?.tags) && article.tags.length > 0) return article.tags.slice(0, 3);
-  if (Array.isArray(article?.concepts) && article.concepts.length > 0) {
-    return article.concepts
-      .map((item) => item?.name || item?.tag || item)
-      .filter(Boolean)
-      .slice(0, 3);
-  }
-  return [];
+const trimExcerpt = (text) => {
+  const normalized = String(text || '').replace(/\s+/g, ' ').trim();
+  if (!normalized) return '';
+  if (normalized.length <= 180) return normalized;
+  return `${normalized.slice(0, 177)}...`;
 };
 
-const getExcerpt = (article) => {
+const getHighlightExcerpt = (article) => {
+  const highlights = Array.isArray(article?.highlights) ? article.highlights : [];
+  const first = highlights.find((item) => String(item?.text || item?.quote || item?.content || '').trim());
+  if (!first) return '';
+  return trimExcerpt(first.text || first.quote || first.content || '');
+};
+
+export const getExcerpt = (article) => {
   const raw = article?.summary || article?.description || article?.excerpt || article?.previewText || article?.snippet || '';
-  const text = String(raw || '').replace(/\s+/g, ' ').trim();
-  if (!text) {
-    return 'Open this source in the reading room and use highlights, notes, and concepts as marginalia.';
+  const fromFields = trimExcerpt(raw);
+  if (fromFields) return fromFields;
+
+  const fromHighlight = getHighlightExcerpt(article);
+  if (fromHighlight) return fromHighlight;
+
+  if (getHighlightCount(article) > 0 || getArticleTags(article).length > 0) {
+    return '';
   }
-  if (text.length <= 180) return text;
-  return `${text.slice(0, 177)}...`;
+
+  return '';
 };
 
 /**
@@ -82,8 +97,11 @@ const LibraryArticleRow = React.memo(({
 }) => {
   const sourceLabel = getSourceLabel(article);
   const tags = getArticleTags(article);
+  const conceptNames = getConnectedConceptNames(article);
   const excerpt = getExcerpt(article);
-  const highlightCount = Number(article?.highlightCount ?? article?.highlights?.length ?? 0);
+  const whyItMatters = getWhyItMatters(article, excerpt);
+  const highlightCount = getHighlightCount(article);
+  const rowDate = article.updatedAt || article.createdAt;
 
   // Cursor-following bloom — same vocabulary as ThinkHome primary action,
   // applied lightly here because rows are dense and many. CSS-only fallback
@@ -106,7 +124,7 @@ const LibraryArticleRow = React.memo(({
     onPointerMove={handlePointerMove}
     onPointerLeave={handlePointerLeave}
   >
-    <div className="library-article-row-date">{formatDate(article.createdAt)}</div>
+    <div className="library-article-row-date">{formatDate(rowDate)}</div>
     <button
       className="library-article-row-main"
       onClick={() => onSelectArticle(article._id)}
@@ -118,9 +136,16 @@ const LibraryArticleRow = React.memo(({
           <span key={`${article._id}-${tag}`} className="library-article-row-tag">#{tag}</span>
         ))}
       </div>
-      <div className="library-article-row-excerpt">{excerpt}</div>
+      {whyItMatters ? (
+        <div className="library-article-row-excerpt">{whyItMatters}</div>
+      ) : null}
       <div className="library-article-row-meta">
         <span>{highlightCount} highlights</span>
+        {conceptNames.length > 0 ? (
+          <span className="library-article-row-concepts">
+            Connected: {conceptNames.slice(0, 3).join(', ')}
+          </span>
+        ) : null}
       </div>
     </button>
     {onMoveArticle && (
@@ -150,7 +175,13 @@ const LibraryArticleList = ({
   onQueryChange = null
 }) => {
   const hasError = Boolean(error);
-  const isEmpty = !loading && !hasError && articles.length === 0;
+  const visibleArticles = useMemo(() => {
+    const list = Array.isArray(articles) ? articles : [];
+    const trimmedQuery = String(query || '').trim();
+    if (trimmedQuery || (scope !== 'all' && scope !== 'unfiled')) return list;
+    return filterReturnViewItems(list);
+  }, [articles, query, scope]);
+  const isEmpty = !loading && !hasError && visibleArticles.length === 0;
   const virtualHeight = useMemo(() => {
     const viewport = typeof window !== 'undefined' ? window.innerHeight : 0;
     return Math.min(680, Math.max(320, viewport ? viewport - 290 : 560));
@@ -186,7 +217,7 @@ const LibraryArticleList = ({
         </div>
       )}
       {error && <p className="status-message error-message">{error}</p>}
-      {!loading && !error && articles.length === 0 && (
+      {!loading && !error && visibleArticles.length === 0 && (
         scope === 'all' || scope === 'unfiled' ? (
           <div className="library-empty-state library-empty-state--first-run" data-testid="library-empty-first-run">
             <div className="library-empty-state__copy">
@@ -222,9 +253,9 @@ const LibraryArticleList = ({
       )}
       {!loading && !error && (
         <Profiler id="LibraryArticleRows" onRender={createProfilerLogger('library.article-list')}>
-          {articles.length > 40 ? (
+          {visibleArticles.length > 40 ? (
             <VirtualList
-              items={articles}
+              items={visibleArticles}
               height={virtualHeight}
               itemSize={ARTICLE_ROW_HEIGHT}
               dynamicItemHeights
@@ -240,7 +271,7 @@ const LibraryArticleList = ({
               )}
             />
           ) : (
-            articles.map(article => (
+            visibleArticles.map(article => (
               <LibraryArticleRow
                 key={article._id}
                 article={article}

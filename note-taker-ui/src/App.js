@@ -60,7 +60,6 @@ const HowToUse = lazy(() => import('./pages/HowToUse'));
 const Integrations = lazy(() => import('./pages/Integrations'));
 const AgentConnectAuthorize = lazy(() => import('./pages/AgentConnectAuthorize'));
 const AgentTaskRun = lazy(() => import('./pages/AgentTaskRun'));
-const DataIntegrations = lazy(() => import('./pages/DataIntegrations'));
 const AiSecondBrain = lazy(() => import('./pages/AiSecondBrain'));
 const GuidesHub = lazy(() => import('./pages/GuidesHub'));
 const SecondBrainApp = lazy(() => import('./pages/SecondBrainApp'));
@@ -80,6 +79,7 @@ const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy'));
 const TermsOfUse = lazy(() => import('./pages/TermsOfUse'));
 const DesignPreview = lazy(() => import('./pages/DesignPreview'));
 const SharedConcept = lazy(() => import('./pages/SharedConcept'));
+const SharedQuestion = lazy(() => import('./pages/SharedQuestion'));
 const SharedWikiPage = lazy(() => import('./pages/SharedWikiPage'));
 
 const RouteLoadingFallback = () => {
@@ -166,6 +166,12 @@ const LegacyWikiPageRedirect = () => {
   return <Navigate to={workspacePath} replace />;
 };
 
+const DataIntegrationsRedirect = () => {
+  const location = useLocation();
+  const hash = location.hash || '#sources';
+  return <Navigate to={`/connections${location.search}${hash}`} replace />;
+};
+
 const PublicRoutes = ({ chromeStoreLink, handleLoginSuccess, uiSettings }) => {
   const location = useLocation();
   const isLongformRoute = (
@@ -218,6 +224,7 @@ const PublicRoutes = ({ chromeStoreLink, handleLoginSuccess, uiSettings }) => {
           <Route path="/terms" element={<TermsOfUse />} />
           <Route path="/design-preview" element={<DesignPreview />} />
           <Route path="/share/concepts/:slug" element={<SharedConcept />} />
+          <Route path="/share/questions/:slug" element={<SharedQuestion />} />
           <Route path="/share/wiki/:idOrSlug" element={<SharedWikiPage />} />
           <Route path="/settings/connected-agents/authorize" element={<AgentConnectAuthorize />} />
           <Route path="/a/run/:taskId" element={<AgentTaskRun />} />
@@ -475,8 +482,12 @@ function App() {
     const topBarUtilityNav = [
       {
         label: 'Connections',
-        to: '/integrations',
-        match: (currentLocation) => currentLocation.pathname.startsWith('/integrations')
+        to: '/connections',
+        match: (currentLocation) => (
+          currentLocation.pathname.startsWith('/connections')
+          || currentLocation.pathname.startsWith('/integrations')
+          || currentLocation.pathname.startsWith('/data-integrations')
+        )
       },
       {
         label: 'Settings',
@@ -537,10 +548,11 @@ function App() {
               )}
             />
             <Route path="/how-to-use" element={<HowToUse />} />
+            <Route path="/connections" element={<Integrations />} />
             <Route path="/integrations" element={<Integrations />} />
             <Route path="/settings/connected-agents/authorize" element={<AgentConnectAuthorize />} />
             <Route path="/a/run/:taskId" element={<AgentTaskRun />} />
-            <Route path="/data-integrations" element={<DataIntegrations />} />
+            <Route path="/data-integrations" element={<DataIntegrationsRedirect />} />
             <Route path="/marketing-analytics" element={<MarketingAnalytics />} />
             <Route path="/search-console-opportunities" element={<SearchConsoleOpportunities />} />
             <Route path="/guides" element={<GuidesHub />} />
@@ -561,6 +573,7 @@ function App() {
             <Route path="/design-preview" element={<DesignPreview />} />
             <Route path="/share/concepts/:slug" element={<SharedConcept />} />
             <Route path="/share/wiki/:idOrSlug" element={<SharedWikiPage />} />
+            <Route path="/share/questions/:slug" element={<SharedQuestion />} />
 
             {/* Legacy/feature routes kept for compatibility */}
             <Route path="/brain" element={<Navigate to="/review?tab=patterns" replace />} />

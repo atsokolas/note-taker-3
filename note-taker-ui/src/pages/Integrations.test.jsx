@@ -3,6 +3,10 @@ import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import Integrations from './Integrations';
 
+jest.mock('./DataIntegrations', () => function MockDataIntegrations() {
+  return <div data-testid="connections-sources">Sources panel</div>;
+});
+
 jest.mock('../api/agent', () => ({
   createAgentTaskLink: jest.fn()
 }));
@@ -69,24 +73,25 @@ jest.mock('../hooks/useHandoffs', () => () => ({
   sortedPersonalAgents: []
 }));
 
-describe('Integrations MCP setup', () => {
-  it('leads with a simple agent setup surface and hides advanced config by default', () => {
+describe('Connections center', () => {
+  it('embeds sources, agents, and advanced sections in one model', () => {
     render(
       <MemoryRouter>
         <Integrations />
       </MemoryRouter>
     );
 
+    expect(screen.getByRole('heading', { name: 'Connect sources and agents' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Bring in your reading layer' })).toBeInTheDocument();
+    expect(screen.getByTestId('connections-sources')).toBeInTheDocument();
+    expect(screen.getByText(/Readwise browser OAuth is the primary path/)).toBeInTheDocument();
     expect(screen.getByText('Connect an agent to Noeis')).toBeInTheDocument();
     expect(screen.getByText(/Read https:\/\/www\.noeis\.io\/skill\.md/)).toBeInTheDocument();
     expect(screen.getByText(/npm install -g @noeis\/noeis-cli/)).toBeInTheDocument();
     expect(screen.getByText(/noeis connect openclaw/)).toBeInTheDocument();
-    expect(screen.getByText('Import connections')).toBeInTheDocument();
-    expect(screen.getByText(/Readwise highlights, Notion pages and databases, Evernote ENEX/)).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /Import connections/i })).toHaveAttribute('href', '/data-integrations');
     expect(screen.getByText('Create an agent task link')).toBeInTheDocument();
-    expect(screen.getByText('Advanced connection details')).toBeInTheDocument();
-    expect(screen.queryByText('One-command agent connect')).not.toBeInTheDocument();
-    expect(screen.queryByText('Connect OpenClaw or Hermes')).not.toBeInTheDocument();
+    expect(screen.getByText('Advanced')).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /Advanced source import/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /Connect Readwise in the browser/i })).not.toBeInTheDocument();
   });
 });

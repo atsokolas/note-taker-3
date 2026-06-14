@@ -197,22 +197,17 @@ const buildSharedConceptRouter = ({
       const questions = cards.filter(card => card?.zone === 'questions');
 
       // Strip user-private fields from cards (no source paths to private
-      // articles, no agent annotations).
+      // articles, no agent annotations). Public cards keep the authored
+      // argument, not the private provenance trail.
       const sanitizeCard = (card) => ({
         id: String(card?.id || ''),
         type: String(card?.type || ''),
         title: String(card?.title || ''),
         content: String(card?.content || ''),
-        source: String(card?.source || ''),
         whyItMatters: String(card?.whyItMatters || ''),
         strength: String(card?.strength || ''),
         confidence: String(card?.confidence || '')
       });
-
-      const note = await ConceptNote.findOne({
-        userId: share.userId,
-        tagName: new RegExp(`^${escapeRegExp(share.conceptName)}$`, 'i')
-      }).select('title content updatedAt');
 
       return res.status(200).json({
         slug: share.slug,
@@ -225,12 +220,7 @@ const buildSharedConceptRouter = ({
           framing: String(workbench?.header?.prompt || ''),
           supports: supports.map(sanitizeCard),
           contradictions: contradictions.map(sanitizeCard),
-          questions: questions.map(sanitizeCard),
-          note: note ? {
-            title: String(note.title || ''),
-            content: String(note.content || ''),
-            updatedAt: note.updatedAt
-          } : null
+          questions: questions.map(sanitizeCard)
         }
       });
     } catch (error) {

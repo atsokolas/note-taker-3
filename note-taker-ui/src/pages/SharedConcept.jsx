@@ -6,8 +6,8 @@ import { getPublicConcept } from '../api/concepts';
  * SharedConcept — public read-only view of a concept.
  *
  * Mounted at /share/concepts/:slug, no auth required. Renders a stripped
- * snapshot: framing, hypothesis, support / tension cards, open questions,
- * concept note. No editor, no agent, no sidebar — just the thinking.
+ * snapshot: framing, hypothesis, support / tension cards, open questions.
+ * No editor, no private concept note, no agent, no sidebar — just the thinking.
  *
  * Polish in this iteration:
  *  - Real top header with Noeis brand, copy-link, and "Open Noeis" CTA so
@@ -183,7 +183,6 @@ const SharedConcept = () => {
       ...supports.map((c) => `${c.title || ''} ${c.content || ''} ${c.whyItMatters || ''}`),
       ...contradictions.map((c) => `${c.title || ''} ${c.content || ''} ${c.whyItMatters || ''}`),
       ...questions.map((c) => `${c.title || ''} ${c.content || ''}`),
-      stripHtml(concept.note?.content)
     ].join(' ').trim();
     if (!text) return 0;
     const words = text.split(/\s+/).filter(Boolean).length;
@@ -318,18 +317,6 @@ const SharedConcept = () => {
           <div className="shared-concept-page__cards">
             {questions.map((card) => <Card key={card.id} card={card} kind="question" />)}
           </div>
-        </section>
-      ) : null}
-
-      {concept.note?.content ? (
-        <section className="shared-concept-page__note">
-          <h2 className="shared-concept-page__section-title">Concept note</h2>
-          {concept.note.title ? <h3>{concept.note.title}</h3> : null}
-          <div
-            className="shared-concept-page__prose"
-            // eslint-disable-next-line react/no-danger
-            dangerouslySetInnerHTML={{ __html: concept.note.content }}
-          />
         </section>
       ) : null}
 

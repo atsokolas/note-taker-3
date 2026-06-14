@@ -114,6 +114,9 @@ const findWikiBacklinks = async ({ targetPage, userId, models = {} } = {}) => {
     {
       userId,
       status: { $ne: 'archived' },
+      hiddenFromHome: { $ne: true },
+      debugOnly: { $ne: true },
+      archived: { $ne: true },
       _id: { $ne: targetId }
     },
     600

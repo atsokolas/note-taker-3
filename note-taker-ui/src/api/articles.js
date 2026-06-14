@@ -20,6 +20,7 @@ import { clearCachedPrefix, fetchWithCache } from '../utils/cache';
  * @param {'recent'|'oldest'|'most-highlighted'} [params.sort]
  * @param {string} [params.cursor]
  * @param {number} [params.limit]
+ * @param {boolean} [params.includeSuppressed]
  */
 export const getArticles = async ({
   scope = 'all',
@@ -27,7 +28,8 @@ export const getArticles = async ({
   query = '',
   sort = 'recent',
   cursor,
-  limit
+  limit,
+  includeSuppressed = false
 } = {}) => {
   const params = new URLSearchParams();
   if (scope) params.set('scope', scope);
@@ -36,6 +38,7 @@ export const getArticles = async ({
   if (sort) params.set('sort', sort);
   if (cursor) params.set('cursor', cursor);
   if (limit) params.set('limit', String(limit));
+  if (includeSuppressed) params.set('includeSuppressed', 'true');
   const suffix = params.toString();
   const path = `/api/articles${suffix ? `?${suffix}` : ''}`;
   return fetchWithCache(

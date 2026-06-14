@@ -18,9 +18,13 @@ export const getPrimaryNavItems = () => [
 
 export const getSecondaryNavItems = () => [
   {
-    label: 'Import data',
-    to: '/data-integrations',
-    match: (location) => location.pathname.startsWith('/data-integrations')
+    label: 'Connections',
+    to: '/connections#sources',
+    match: (location) => (
+      location.pathname.startsWith('/connections')
+      || location.pathname.startsWith('/integrations')
+      || location.pathname.startsWith('/data-integrations')
+    )
   },
   {
     label: 'Map',

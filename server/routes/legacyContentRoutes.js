@@ -58,6 +58,16 @@ const buildLegacyContentRouter = ({
 
   const escapeRegex = (value = '') => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
+  const applyDefaultArticleVisibility = (match, { includeSuppressed = false } = {}) => {
+    if (includeSuppressed) return match;
+    return {
+      ...match,
+      hiddenFromHome: { $ne: true },
+      debugOnly: { $ne: true },
+      archived: { $ne: true }
+    };
+  };
+
   router.get('/api/notes', authenticateToken, async (req, res) => {
     try {
       const userId = req.user.id;
@@ -303,9 +313,10 @@ const buildLegacyContentRouter = ({
         q = '',
         query = '',
         sort = 'recent',
-        limit
+        limit,
+        includeSuppressed = ''
       } = req.query;
-      const match = { userId };
+      let match = { userId };
       const normalizedScope = String(scope || 'all').trim();
       if (normalizedScope === 'unfiled') {
         match.$or = [{ folder: null }, { folder: { $exists: false } }];
@@ -321,6 +332,9 @@ const buildLegacyContentRouter = ({
           { $or: [{ title: regex }, { url: regex }, { siteName: regex }] }
         ];
       }
+      match = applyDefaultArticleVisibility(match, {
+        includeSuppressed: String(includeSuppressed).toLowerCase() === 'true'
+      });
 
       const rows = await Article.aggregate([
         { $match: match },
@@ -334,6 +348,9 @@ const buildLegacyContentRouter = ({
             author: 1,
             publicationDate: 1,
             siteName: 1,
+            hiddenFromHome: 1,
+            debugOnly: 1,
+            archived: 1,
             highlightCount: { $size: { $ifNull: ['$highlights', []] } }
           }
         },

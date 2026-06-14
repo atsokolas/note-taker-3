@@ -5,7 +5,8 @@ import { Button, Card, Page } from '../components/ui';
 import { chatWithAgent, fetchNotionPagesViaAgent } from '../api/agent';
 import ExternalBridgeCard from '../components/integrations/ExternalBridgeCard';
 import NotionAgentFetchCard from '../components/integrations/NotionAgentFetchCard';
-import { updateConcept } from '../api/concepts';
+import { updateConcept, getConcepts } from '../api/concepts';
+import { getAllHighlights } from '../api/highlights';
 import {
   checkNotionConnection,
   checkReadwiseConnection,
@@ -36,6 +37,7 @@ import {
 import useAgentBridge from '../hooks/integrations/useAgentBridge';
 import usePersonalAgents from '../hooks/integrations/usePersonalAgents';
 import { trackActivationMilestone } from '../utils/marketingAnalytics';
+import { composeReadwiseConnectMoment, countActiveConcepts } from '../utils/connectionMagicMoment';
 
 const SOURCE_OPTIONS = [
   {
@@ -395,7 +397,7 @@ const getActivationCopy = ({ state, session, scheduleTarget }) => {
   };
 };
 
-const DataIntegrations = () => {
+const DataIntegrations = ({ embedded = false } = {}) => {
   const navigate = useNavigate();
   const bridgeModel = useAgentBridge();
   const personalAgentsModel = usePersonalAgents();
@@ -441,6 +443,7 @@ const DataIntegrations = () => {
   const csvInputRef = useRef(null);
   const mdInputRef = useRef(null);
   const enexInputRef = useRef(null);
+  const [showAdvancedBridgeSetup, setShowAdvancedBridgeSetup] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -534,6 +537,7 @@ const DataIntegrations = () => {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const source = params.get('source');
+    const hashSource = String(window.location.hash || '').replace(/^#/, '').trim().toLowerCase();
     const notionState = params.get('notion');
     const readwiseState = params.get('readwise');
     if (source === 'notion') {
@@ -550,7 +554,40 @@ const DataIntegrations = () => {
     } else if (source === 'readwise') {
       setSelectedSource('readwise');
       if (readwiseState === 'connected') {
-        setStatus('Readwise connected. Browser authorization is ready for agent access.', 'success');
+        void (async () => {
+          try {
+            const connections = await listImportConnections({ provider: 'readwise' });
+            const latest = connections[0] || null;
+            setReadwiseConnection(latest);
+            if (latest?.accountLabel) {
+              setReadwiseLabel(latest.accountLabel);
+            }
+            let previewHighlights;
+            let previewItems;
+            if (latest?.id) {
+              try {
+                const preview = await previewReadwiseConnection({ connectionId: latest.id });
+                previewHighlights = preview?.preview?.highlights ?? preview?.highlights;
+                previewItems = preview?.preview?.items ?? preview?.items;
+              } catch (_previewError) {
+                previewHighlights = undefined;
+                previewItems = undefined;
+              }
+            }
+            const [concepts, highlightsResult] = await Promise.all([
+              getConcepts().catch(() => []),
+              getAllHighlights().catch(() => [])
+            ]);
+            setStatus(composeReadwiseConnectMoment({
+              highlightCount: Array.isArray(highlightsResult) ? highlightsResult.length : 0,
+              activeConceptCount: countActiveConcepts(concepts),
+              previewHighlights,
+              previewItems
+            }), 'success');
+          } catch (_error) {
+            setStatus(composeReadwiseConnectMoment({}), 'success');
+          }
+        })();
       } else if (readwiseState === 'error') {
         setStatus('Readwise browser authorization failed. Try again.', 'error');
       }
@@ -558,8 +595,21 @@ const DataIntegrations = () => {
       params.delete('readwise');
       const next = `${window.location.pathname}${params.toString() ? `?${params.toString()}` : ''}`;
       window.history.replaceState({}, '', next);
+    } else if (['readwise', 'notion', 'evernote'].includes(hashSource)) {
+      setSelectedSource(hashSource);
     }
   }, []);
+
+  useEffect(() => {
+    const hashSource = String(window.location.hash || '').replace(/^#/, '').trim().toLowerCase();
+    if (!['readwise', 'notion', 'evernote'].includes(hashSource) || hashSource !== selectedSource) return;
+    window.requestAnimationFrame?.(() => {
+      const target = document.getElementById(hashSource);
+      if (target?.scrollIntoView) {
+        target.scrollIntoView({ block: 'start', behavior: 'auto' });
+      }
+    });
+  }, [selectedSource]);
 
   const setStatus = (message, tone = 'info') => {
     setImportStatus({ message, tone });
@@ -1824,45 +1874,9 @@ const DataIntegrations = () => {
     importStats,
     sourceLabel: lastImportSourceLabel
   });
-  const [showAdvancedBridgeSetup, setShowAdvancedBridgeSetup] = useState(false);
 
-  return (
-    <Page className="settings-page data-integrations-page">
-      <div className="page-header">
-        <p className="muted-label">Mode</p>
-        <h1>Bring your knowledge</h1>
-        <p className="muted">Choose a source, import the text cleanly, then turn it into a concept instead of leaving it as a dead archive.</p>
-      </div>
-
-      <Card className="settings-card data-integrations-agent-setup">
-        <div>
-          <p className="muted-label">Connected agents</p>
-          <h2>Need OpenClaw or Hermes?</h2>
-          <p className="muted">
-            Use the simple setup page for one-command browser approval. Raw bridge/runtime config is still here for custom agent workers.
-          </p>
-        </div>
-        <div className="settings-option-row">
-          <Button type="button" variant="secondary" onClick={() => navigate('/integrations')}>
-            Open simple setup
-          </Button>
-          <Button
-            type="button"
-            variant="secondary"
-            onClick={() => setShowAdvancedBridgeSetup((previous) => !previous)}
-          >
-            {showAdvancedBridgeSetup ? 'Hide advanced bridge' : 'Show advanced bridge'}
-          </Button>
-        </div>
-      </Card>
-
-      {showAdvancedBridgeSetup ? (
-        <ExternalBridgeCard
-          bridgeModel={bridgeModel}
-          sortedAgents={personalAgentsModel.sortedAgents}
-        />
-      ) : null}
-
+  const sourceContent = (
+    <>
       <Card className="settings-card">
         <h2>Choose a source</h2>
         <p className="muted">The goal is a source-aware path: import, preserve context, then activate the material inside Think.</p>
@@ -2028,7 +2042,7 @@ const DataIntegrations = () => {
       )}
 
       {selectedSource === 'readwise' && (
-        <Card className="settings-card">
+        <Card className="settings-card" id="readwise">
           <h2>Readwise connection</h2>
           <p className="muted">Connect through the browser. Noeis sends you to Readwise, you log in, and the connection comes back ready for agent access.</p>
           <div className="import-callout">
@@ -2144,7 +2158,7 @@ const DataIntegrations = () => {
       )}
 
       {selectedSource === 'notion' && (
-        <Card className="settings-card">
+        <Card className="settings-card" id="notion">
           <h2>Notion import</h2>
           <p className="muted">Connect Notion once, then sync accessible pages plus database row content into notebook entries that the model can retrieve.</p>
           <div className="import-callout">
@@ -2243,7 +2257,7 @@ const DataIntegrations = () => {
       )}
 
       {selectedSource === 'evernote' && (
-        <Card className="settings-card">
+        <Card className="settings-card" id="evernote">
           <h2>Evernote import</h2>
           <p className="muted">Evernote lands through ENEX as notebook entries with tags, dates, source identity, and semantic indexing queued behind the import.</p>
           <div className="import-callout">
@@ -2570,6 +2584,58 @@ const DataIntegrations = () => {
         <h2>Import rules</h2>
         <p className="muted">Import success should never depend on perfect semantic readiness. Persist the text first, then make indexing state explicit and resumable.</p>
       </Card>
+    </>
+  );
+
+  if (embedded) {
+    return (
+      <div
+        className="connections-sources-section data-integrations-page"
+        data-testid="connections-sources"
+      >
+        {sourceContent}
+      </div>
+    );
+  }
+
+  return (
+    <Page className="settings-page data-integrations-page">
+      <div className="page-header">
+        <p className="muted-label">Mode</p>
+        <h1>Bring your knowledge</h1>
+        <p className="muted">Choose a source, import the text cleanly, then turn it into a concept instead of leaving it as a dead archive.</p>
+      </div>
+
+      <Card className="settings-card data-integrations-agent-setup">
+        <div>
+          <p className="muted-label">Connected agents</p>
+          <h2>Need OpenClaw or Hermes?</h2>
+          <p className="muted">
+            Use the connections center for one-command browser approval. Raw bridge/runtime config lives under Advanced.
+          </p>
+        </div>
+        <div className="settings-option-row">
+          <Button type="button" variant="secondary" onClick={() => navigate('/connections#agents')}>
+            Open agent setup
+          </Button>
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() => setShowAdvancedBridgeSetup((previous) => !previous)}
+          >
+            {showAdvancedBridgeSetup ? 'Hide advanced bridge' : 'Show advanced bridge'}
+          </Button>
+        </div>
+      </Card>
+
+      {showAdvancedBridgeSetup ? (
+        <ExternalBridgeCard
+          bridgeModel={bridgeModel}
+          sortedAgents={personalAgentsModel.sortedAgents}
+        />
+      ) : null}
+
+      {sourceContent}
     </Page>
   );
 };

@@ -186,6 +186,7 @@ const NotebookEditorialView = ({
       loading={indexLoading}
       error={indexError}
       describeMotionNote={describeThreadMotionNote}
+      showPostureTag
       onSelectThread={onCalmThreadSelect}
       motionStatusTestIdPrefix="think-notebook-status"
       emptyState={(

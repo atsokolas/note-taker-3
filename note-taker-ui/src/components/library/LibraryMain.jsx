@@ -2,6 +2,7 @@ import React from 'react';
 import ArticleReader from '../ArticleReader';
 import LibraryArticleList from './LibraryArticleList';
 import LibraryHighlights from './LibraryHighlights';
+import LibraryReadingRoomLead from './LibraryReadingRoomLead';
 
 const LibraryMain = ({
   selectedArticleId,
@@ -28,11 +29,16 @@ const LibraryMain = ({
   folderOptions,
   articleOptions,
   articleQuery,
+  suppressedVisible = false,
   externalQuery,
   highlightView,
   onArticleQueryChange,
   onQueryChange,
-  onDumpHighlight
+  onDumpHighlight,
+  allArticles = [],
+  unfiledCount = 0,
+  onReviewFiling,
+  onToggleSuppressed
 }) => {
   if (scope === 'highlights') {
     return (
@@ -84,8 +90,21 @@ const LibraryMain = ({
     );
   }
 
+  const showReadingRoomLead = scope === 'all' || scope === 'unfiled';
+
   return (
     <div className="library-main-browse">
+      {showReadingRoomLead ? (
+        <LibraryReadingRoomLead
+          articles={articles}
+          allArticles={allArticles}
+          unfiledCount={unfiledCount}
+          suppressedVisible={suppressedVisible}
+          onSelectArticle={onSelectArticle}
+          onReviewFiling={onReviewFiling}
+          onToggleSuppressed={onToggleSuppressed}
+        />
+      ) : null}
       <LibraryArticleList
         articles={articles}
         loading={articlesLoading}

@@ -53,6 +53,18 @@ describe('WikiDiscussions', () => {
     expect(screen.getByText('HF model timed out.')).toBeInTheDocument();
   });
 
+  it('renders graph-aware bridge insight and provenance when present', () => {
+    render(<WikiDiscussions discussions={[buildDiscussion({
+      provenance: {
+        bridgeInsight: 'Loss aversion makes visible losses feel stronger than hidden opportunity costs.',
+        summary: 'Used 2 wiki pages · 3 highlights · 1 concept'
+      }
+    })]} />);
+    expect(screen.getByLabelText('Answer provenance')).toHaveTextContent('Bridge found');
+    expect(screen.getByLabelText('Answer provenance')).toHaveTextContent('Loss aversion makes visible losses feel stronger');
+    expect(screen.getByLabelText('Answer provenance')).toHaveTextContent('Used 2 wiki pages');
+  });
+
   it('orders multiple discussions newest-first', () => {
     const newer = buildDiscussion({ _id: 'd2', question: 'Newer?', askedAt: new Date().toISOString() });
     const older = buildDiscussion({ _id: 'd1', question: 'Older?', askedAt: new Date(Date.now() - 60 * 60_000).toISOString() });

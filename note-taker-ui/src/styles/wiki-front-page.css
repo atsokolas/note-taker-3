@@ -182,6 +182,13 @@
 .wiki-front-page__empty p { margin: 0; color: var(--text-secondary); line-height: 1.6; }
 
 /* Loading skeleton (self-contained — do not depend on other sheets). */
+.wiki-front-page__loading-copy {
+  margin: 0 0 16px;
+  max-width: 42ch;
+  color: var(--text-secondary);
+  font-size: 0.96rem;
+  line-height: 1.55;
+}
 .wiki-front-page__skeleton { display: grid; gap: 12px; max-width: 540px; }
 .wiki-front-page .wiki-skeleton {
   display: inline-block;

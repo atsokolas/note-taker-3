@@ -5,6 +5,7 @@ import { wikiPagePath } from '../../utils/wikiFeatureFlags';
 import { AGENT_DISPLAY_NAME } from '../../constants/agentIdentity';
 import WikiBuildPageComposer from './WikiBuildPageComposer';
 import { countWikiClaims, countWikiSources, wikiPreviewForPage } from './wikiPageMetrics';
+import { filterReturnViewItems } from '../../utils/cruftSuppression';
 import '../../styles/wiki-critical.css';
 import '../../styles/wiki-front-page.css';
 
@@ -126,11 +127,16 @@ const WikiFrontPage = () => {
     return () => { cancelled = true; };
   }, []);
 
+  const curatedPages = useMemo(
+    () => filterReturnViewItems(pages),
+    [pages]
+  );
+
   const byId = useMemo(() => {
     const map = new Map();
-    pages.forEach((page) => map.set(String(pageId(page)), page));
+    curatedPages.forEach((page) => map.set(String(pageId(page)), page));
     return map;
-  }, [pages]);
+  }, [curatedPages]);
 
   // Prefer the page object from the full list (it carries body/claims for
   // excerpts); the briefing's bucket entries can be slimmer.
@@ -139,13 +145,15 @@ const WikiFrontPage = () => {
   ), [byId]);
 
   const recentlyUpdated = useMemo(() => (
-    Array.isArray(briefing?.recentlyUpdatedPages) ? briefing.recentlyUpdatedPages.map(resolvePage) : []
+    Array.isArray(briefing?.recentlyUpdatedPages)
+      ? filterReturnViewItems(briefing.recentlyUpdatedPages.map(resolvePage))
+      : []
   ), [briefing, resolvePage]);
 
   const weighted = useMemo(() => (
-    [...pages].sort((a, b) => pageWeight(b) - pageWeight(a)
+    [...curatedPages].sort((a, b) => pageWeight(b) - pageWeight(a)
       || String(a.title || '').localeCompare(String(b.title || '')))
-  ), [pages]);
+  ), [curatedPages]);
 
   // Today's page: the agent's most recently enriched page; otherwise the
   // strongest page in the corpus. Different day to day because the corpus is.
@@ -155,12 +163,12 @@ const WikiFrontPage = () => {
     const leadId = String(pageId(todaysPage));
     const fromBriefing = recentlyUpdated.filter(page => String(pageId(page)) !== leadId);
     if (fromBriefing.length >= GROWN_LIMIT) return fromBriefing.slice(0, GROWN_LIMIT);
-    const fallback = [...pages]
+    const fallback = [...curatedPages]
       .filter(page => page.updatedAt && String(pageId(page)) !== leadId)
       .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
       .filter(page => !fromBriefing.some(existing => pageId(existing) === pageId(page)));
     return [...fromBriefing, ...fallback].slice(0, GROWN_LIMIT);
-  }, [recentlyUpdated, pages, todaysPage]);
+  }, [recentlyUpdated, curatedPages, todaysPage]);
 
   const explorePages = useMemo(() => (
     weighted.slice(0, EXPLORE_LIMIT)
@@ -178,6 +186,9 @@ const WikiFrontPage = () => {
         <p className="wiki-index__eyebrow wiki-front-page__masthead">
           Morning paper · {mastheadDate()}
         </p>
+        <p className="wiki-front-page__loading-copy" role="status">
+          Checking overnight edits and drift signals...
+        </p>
         <div className="wiki-front-page__skeleton" aria-hidden="true">
           <span className="wiki-skeleton wiki-skeleton--title" />
           <span className="wiki-skeleton wiki-skeleton--line" />
@@ -188,7 +199,7 @@ const WikiFrontPage = () => {
   }
 
   // First-run: never a dead screen. The agent proposes the first move.
-  if (!pages.length) {
+  if (!curatedPages.length) {
     return (
       <main className="wiki-page wiki-front-page">
         <p className="wiki-index__eyebrow wiki-front-page__masthead wfp-anim wfp-anim--1">

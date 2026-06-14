@@ -24,6 +24,7 @@ const ConceptsIndexView = ({
     loading={conceptsLoading}
     error={conceptsError}
     describeMotionNote={(thread) => describeConceptMotionNote(thread?.raw || thread)}
+    showPostureTag
     onSelectThread={(thread) => onSelectConcept(thread.id)}
     motionStatusTestIdPrefix="think-concept-status"
     emptyState={(

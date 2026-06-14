@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Button, QuietButton } from '../../ui';
 import { getConceptShare, mintConceptShare, revokeConceptShare } from '../../../api/concepts';
+import { buildSharePreviewReceipt } from '../../../utils/connectionMagicMoment';
 
 /**
  * ConceptShareModal — owner-facing share controls for a concept.
@@ -144,6 +145,7 @@ const ConceptShareModal = ({ open, conceptName, onClose }) => {
   if (!open) return null;
 
   const url = state.slug ? buildShareUrl(state.slug) : '';
+  const receipt = buildSharePreviewReceipt();
 
   return (
     <div
@@ -173,6 +175,7 @@ const ConceptShareModal = ({ open, conceptName, onClose }) => {
         ) : state.shared ? (
           <div className="concept-share-modal__active">
             <ShareLinkPreviewCard conceptName={conceptName} host={host} />
+            <p className="wiki-meta-bar__share concept-share-modal__receipt" role="status">{receipt}</p>
             <div className="concept-share-modal__active-controls">
               <label className="concept-share-modal__label" htmlFor="concept-share-url">Public link</label>
               <div className="concept-share-modal__url-row">

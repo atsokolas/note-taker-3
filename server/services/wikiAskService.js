@@ -2,8 +2,8 @@ const { chatComplete, isTextGenerationConfigured } = require('../ai/hfTextClient
 const { formatWikiSchemaPromptBlock } = require('./wikiSchemaService');
 
 /**
- * wikiAskService — answers a user's question about a single wiki page using
- * the page body + attached source refs as context. Returns a TipTap doc
+ * wikiAskService — answers a user's question about a wiki page using the page
+ * body, attached source refs, and related wiki pages as context. Returns a TipTap doc
  * whose paragraphs/bullets are wrapped in the same `claim` mark the
  * maintenance pipeline emits, so the existing citation popover works on
  * answer text without any extra plumbing.
@@ -16,6 +16,13 @@ const MAX_PAGE_TEXT = 6000;
 const MAX_SOURCE_TEXT = 800;
 const MAX_QUESTION = 500;
 const MAX_ANSWER_PARAGRAPHS = 6;
+const MAX_RELATED_PAGES = 3;
+const MAX_RELATED_PAGE_TEXT = 1400;
+const MAX_GRAPH_HIGHLIGHTS = 5;
+const MAX_GRAPH_CONCEPTS = 4;
+const MAX_GRAPH_BACKLINKS = 4;
+const MAX_WIKI_PAGE_SCAN = 200;
+const MAX_WIKI_PAGE_CANDIDATES = 80;
 const EXACT_SENTENCE_STOPWORDS = new Set([
   'about', 'answer', 'exact', 'from', 'page', 'quote', 'sentence', 'this',
   'verbatim', 'word', 'wording', 'words'
@@ -69,6 +76,10 @@ const isExactSentenceRequest = (question = '') => (
   /\b(exact|verbatim|quote|sentence|wording|word-for-word)\b/i.test(question)
 );
 
+const isSourceChangeQuestion = (question = '') => (
+  /\b(changed?|updated?|new|ingest|source|added|since)\b/i.test(question)
+);
+
 const extractQuestionTokens = (question = '') => {
   const tokens = asString(question)
     .toLowerCase()
@@ -100,6 +111,302 @@ const scoreTextForQuestion = (text = '', question = '') => {
   if (!haystack) return 0;
   return extractAnswerTokens(question)
     .reduce((score, token) => score + (haystack.includes(token) ? 1 : 0), 0);
+};
+
+const normalizeComparableText = (value = '') => (
+  asString(value)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+);
+
+const serializeObjectId = (value = '') => String(value?._id || value?.id || value || '').trim();
+
+const escapeRegExp = (value = '') => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+const isSelectedPageOnlyQuestion = (question = '') => (
+  /\b(on|from|in)\s+(this|the)\s+(page|wiki\s+page)\s+only\b/i.test(question)
+  || /\b(only|just)\s+(this|the)\s+(page|wiki\s+page)\b/i.test(question)
+  || /\bscope(?:d)?\s+to\s+(this|the)\s+page\b/i.test(question)
+  || /\banswer\s+(only|just)\s+from\s+(this|the)\s+page\b/i.test(question)
+);
+
+const pageTitleMentionedInQuestion = (title = '', question = '') => {
+  const normalizedTitle = normalizeComparableText(title);
+  const normalizedQuestion = normalizeComparableText(question);
+  if (!normalizedTitle || normalizedTitle.length < 3 || !normalizedQuestion) return false;
+  return normalizedQuestion.includes(normalizedTitle);
+};
+
+const rankWikiPageCandidates = ({
+  page,
+  relatedPages = [],
+  question = '',
+  selectedPageOnly = false,
+  limit = MAX_WIKI_PAGE_CANDIDATES
+} = {}) => {
+  const currentId = serializeObjectId(page);
+  const pool = (Array.isArray(relatedPages) ? relatedPages : [])
+    .filter(candidate => serializeObjectId(candidate) && serializeObjectId(candidate) !== currentId);
+  if (selectedPageOnly) return pool.slice(0, Math.max(0, limit));
+
+  const scored = pool.map((candidate) => {
+    const title = truncate(candidate.title, 200) || 'Untitled page';
+    const plainText = asString(candidate.plainText) || pageBodySentenceText(candidate);
+    const titleMentioned = pageTitleMentionedInQuestion(title, question);
+    const tokenScore = scoreTextForQuestion(`${title} ${plainText}`, question);
+    return {
+      candidate,
+      score: (titleMentioned ? 100 : 0) + tokenScore,
+      title
+    };
+  });
+  scored.sort((left, right) => (
+    right.score - left.score
+    || left.title.localeCompare(right.title)
+  ));
+  const prioritized = scored.filter(row => row.score > 0).map(row => row.candidate);
+  const remainder = scored.filter(row => row.score <= 0).map(row => row.candidate);
+  return [...prioritized, ...remainder].slice(0, Math.max(0, limit));
+};
+
+const buildRelatedPageContexts = ({
+  page,
+  relatedPages = [],
+  question = '',
+  limit = MAX_RELATED_PAGES,
+  selectedPageOnly = false
+} = {}) => {
+  if (selectedPageOnly) return [];
+  const currentId = serializeObjectId(page);
+  const normalizedQuestion = normalizeComparableText(question);
+  const questionTokens = extractAnswerTokens(question);
+  const rows = (Array.isArray(relatedPages) ? relatedPages : [])
+    .filter(Boolean)
+    .filter(candidate => serializeObjectId(candidate) && serializeObjectId(candidate) !== currentId)
+    .map((candidate) => {
+      const title = truncate(candidate.title, 200) || 'Untitled page';
+      const plainText = asString(candidate.plainText) || pageBodySentenceText(candidate);
+      const normalizedTitle = normalizeComparableText(title);
+      const titleMentioned = normalizedTitle && normalizedQuestion.includes(normalizedTitle);
+      const tokenScore = questionTokens.reduce((score, token) => {
+        const haystack = normalizeComparableText(`${title} ${plainText}`);
+        return score + (haystack.includes(token) ? 1 : 0);
+      }, 0);
+      const score = (titleMentioned ? 20 : 0) + tokenScore + scoreTextForQuestion(`${title} ${plainText}`, question);
+      return {
+        id: serializeObjectId(candidate),
+        title,
+        slug: candidate.slug || '',
+        pageType: candidate.pageType || 'topic',
+        plainText: truncateAtSentenceBoundary(plainText, MAX_RELATED_PAGE_TEXT),
+        score
+      };
+    })
+    .filter(candidate => candidate.score > 0)
+    .sort((left, right) => right.score - left.score || left.title.localeCompare(right.title))
+    .slice(0, Math.max(0, limit));
+  return rows;
+};
+
+const buildGraphHighlightContexts = ({
+  page,
+  relatedPages = [],
+  relatedPageContexts = [],
+  question = '',
+  limit = MAX_GRAPH_HIGHLIGHTS
+} = {}) => {
+  const relatedIds = new Set(relatedPageContexts.map(candidate => candidate.id));
+  const pages = [
+    page,
+    ...(Array.isArray(relatedPages) ? relatedPages : []).filter((candidate) => {
+      const id = serializeObjectId(candidate);
+      return relatedIds.has(id) || pageTitleMentionedInQuestion(candidate?.title, question);
+    })
+  ].filter(Boolean);
+  const seen = new Set();
+  const rows = [];
+  pages.forEach((sourcePage) => {
+    const fromPageTitle = truncate(sourcePage?.title, 160) || 'Untitled page';
+    (Array.isArray(sourcePage?.sourceRefs) ? sourcePage.sourceRefs : []).forEach((ref) => {
+      if (ref?.type !== 'highlight') return;
+      const key = serializeObjectId(ref._id || ref.objectId || ref.id);
+      if (key && seen.has(key)) return;
+      if (key) seen.add(key);
+      const snippet = truncateAtSentenceBoundary(ref.snippet || ref.text, 320);
+      const title = truncate(ref.title, 200) || 'Highlight';
+      const score = scoreTextForQuestion(`${title} ${snippet}`, question)
+        + (pageTitleMentionedInQuestion(fromPageTitle, question) ? 2 : 0);
+      if (score <= 0 && !relatedIds.has(serializeObjectId(sourcePage))) return;
+      rows.push({
+        id: key || `highlight-${rows.length}`,
+        title,
+        snippet,
+        fromPageTitle,
+        score
+      });
+    });
+  });
+  return rows
+    .sort((left, right) => right.score - left.score || left.title.localeCompare(right.title))
+    .slice(0, Math.max(0, limit));
+};
+
+const buildConceptContexts = ({
+  question = '',
+  conceptRecords = [],
+  relatedPageContexts = [],
+  limit = MAX_GRAPH_CONCEPTS
+} = {}) => {
+  const seen = new Set();
+  const rows = [];
+  const addRow = (row) => {
+    const key = normalizeComparableText(row.name);
+    if (!key || seen.has(key)) return;
+    seen.add(key);
+    rows.push(row);
+  };
+
+  (Array.isArray(conceptRecords) ? conceptRecords : []).forEach((record) => {
+    const name = truncate(record?.name, 160);
+    if (!name) return;
+    if (!pageTitleMentionedInQuestion(name, question) && scoreTextForQuestion(name, question) <= 0) return;
+    addRow({
+      id: serializeObjectId(record),
+      name,
+      description: truncate(record?.description || record?.workspaceTemplateName, 420),
+      source: 'tag_meta'
+    });
+  });
+
+  relatedPageContexts
+    .filter(candidate => candidate.pageType === 'concept')
+    .forEach((candidate) => {
+      addRow({
+        id: candidate.id,
+        name: candidate.title,
+        description: truncate(candidate.plainText, 420),
+        source: 'wiki_page'
+      });
+    });
+
+  return rows.slice(0, Math.max(0, limit));
+};
+
+const buildBacklinkContexts = ({
+  question = '',
+  backlinkRows = [],
+  relatedPageContexts = [],
+  limit = MAX_GRAPH_BACKLINKS
+} = {}) => {
+  const relatedTitles = new Set(relatedPageContexts.map(candidate => normalizeComparableText(candidate.title)));
+  return (Array.isArray(backlinkRows) ? backlinkRows : [])
+    .map((row) => {
+      const title = truncate(row?.title, 160) || 'Untitled wiki page';
+      const snippet = truncateAtSentenceBoundary(row?.snippet || '', 260);
+      const forPageTitle = truncate(row?.forPageTitle, 160);
+      const score = scoreTextForQuestion(`${title} ${snippet} ${forPageTitle}`, question)
+        + (relatedTitles.has(normalizeComparableText(forPageTitle)) ? 2 : 0);
+      return {
+        pageId: serializeObjectId(row?.pageId || row?._id),
+        title,
+        snippet,
+        forPageTitle,
+        mentionCount: Number(row?.mentionCount) || 0,
+        score
+      };
+    })
+    .filter(row => row.score > 0 || row.mentionCount > 0)
+    .sort((left, right) => right.score - left.score || right.mentionCount - left.mentionCount)
+    .slice(0, Math.max(0, limit));
+};
+
+const buildGraphSearchSummary = ({
+  page,
+  relatedPageContexts = [],
+  highlightContexts = [],
+  conceptContexts = [],
+  backlinkContexts = [],
+  selectedPageOnly = false
+} = {}) => {
+  const pageTitle = truncate(page?.title, 120) || 'the selected page';
+  if (selectedPageOnly) return `Searched ${pageTitle} only.`;
+  const parts = [pageTitle];
+  if (relatedPageContexts.length) {
+    parts.push(`${relatedPageContexts.length} related wiki page${relatedPageContexts.length === 1 ? '' : 's'}`);
+  }
+  if (highlightContexts.length) {
+    parts.push(`${highlightContexts.length} highlight${highlightContexts.length === 1 ? '' : 's'}`);
+  }
+  if (conceptContexts.length) {
+    parts.push(`${conceptContexts.length} concept record${conceptContexts.length === 1 ? '' : 's'}`);
+  }
+  if (backlinkContexts.length) {
+    parts.push(`${backlinkContexts.length} backlink${backlinkContexts.length === 1 ? '' : 's'}`);
+  }
+  return `Searched ${parts.join(', ')}.`;
+};
+
+const provenanceFromContext = ({
+  page,
+  sources = [],
+  relatedPageContexts = [],
+  highlightContexts = [],
+  conceptContexts = [],
+  backlinkContexts = [],
+  bridgeInsight = '',
+  selectedPageOnly = false,
+  searchedSummary = ''
+} = {}) => {
+  const wikiPages = [
+    {
+      id: serializeObjectId(page),
+      title: truncate(page?.title, 160) || 'Selected page',
+      role: 'selected'
+    },
+    ...relatedPageContexts.map(candidate => ({
+      id: candidate.id,
+      title: candidate.title,
+      role: 'related'
+    }))
+  ].filter(item => item.id || item.title);
+  const attachedHighlights = sources.filter(source => source.type === 'highlight').length;
+  const graphHighlights = highlightContexts.length;
+  const highlightCount = attachedHighlights + graphHighlights;
+  const nonHighlightSources = sources.filter(source => source.type !== 'highlight').length;
+  const conceptNames = new Set(conceptContexts.map(entry => normalizeComparableText(entry.name)).filter(Boolean));
+  const extraWikiConcepts = relatedPageContexts.filter(
+    candidate => candidate.pageType === 'concept'
+      && !conceptNames.has(normalizeComparableText(candidate.title))
+  ).length;
+  const conceptCount = conceptContexts.length + extraWikiConcepts;
+  const parts = [];
+  if (wikiPages.length) parts.push(`${wikiPages.length} wiki page${wikiPages.length === 1 ? '' : 's'}`);
+  if (highlightCount) parts.push(`${highlightCount} highlight${highlightCount === 1 ? '' : 's'}`);
+  if (conceptCount) parts.push(`${conceptCount} concept${conceptCount === 1 ? '' : 's'}`);
+  if (nonHighlightSources) {
+    parts.push(`${nonHighlightSources} source${nonHighlightSources === 1 ? '' : 's'}`);
+  }
+  const graphExpanded = !selectedPageOnly && (
+    relatedPageContexts.length > 0
+    || highlightContexts.length > 0
+    || conceptContexts.length > 0
+    || backlinkContexts.length > 0
+  );
+  return {
+    mode: selectedPageOnly ? 'page_only' : (graphExpanded ? 'graph_expanded' : 'page_first'),
+    bridgeInsight: bridgeInsight || '',
+    summary: parts.length
+      ? `Used ${parts.join(' · ')}`
+      : (selectedPageOnly ? 'Used selected page only' : 'Used selected page'),
+    searchedSummary: searchedSummary || '',
+    wikiPages,
+    highlightCount,
+    sourceCount: nonHighlightSources,
+    conceptCount,
+    backlinkCount: backlinkContexts.length
+  };
 };
 
 const topRelevantSentences = ({ page, sources = [], question = '', limit = 3 } = {}) => {
@@ -239,22 +546,55 @@ const buildPageContext = ({ page, question } = {}) => {
   return selected.join(' ') || truncateAtSentenceBoundary(sentences.join(' '), MAX_PAGE_TEXT);
 };
 
-const buildSystemPrompt = ({ page, sources, question, wikiSchemaContent = '' }) => {
+const buildSystemPrompt = ({
+  page,
+  sources,
+  relatedPageContexts = [],
+  highlightContexts = [],
+  conceptContexts = [],
+  backlinkContexts = [],
+  question,
+  wikiSchemaContent = '',
+  selectedPageOnly = false
+}) => {
   const sourceLines = sources
     .map(source => `[${source.index}] ${source.type.toUpperCase()} — ${source.title}\n${source.snippet || '(no snippet)'}${source.url ? `\n(${source.url})` : ''}`)
     .join('\n\n');
   const pageText = buildPageContext({ page, question });
+  const relatedPageLines = relatedPageContexts
+    .map((related, index) => `RELATED WIKI PAGE ${index + 1}: ${related.title}\n${related.plainText || '(empty page)'}`)
+    .join('\n\n');
+  const highlightLines = highlightContexts
+    .map((highlight, index) => `HIGHLIGHT ${index + 1}: ${highlight.title}${highlight.fromPageTitle ? ` (from ${highlight.fromPageTitle})` : ''}\n${highlight.snippet || '(empty highlight)'}`)
+    .join('\n\n');
+  const conceptLines = conceptContexts
+    .map((concept, index) => `CONCEPT ${index + 1}: ${concept.name}\n${concept.description || '(no concept description)'}`)
+    .join('\n\n');
+  const backlinkLines = backlinkContexts
+    .map((backlink, index) => `BACKLINK ${index + 1}: ${backlink.title}${backlink.forPageTitle ? ` (mentions ${backlink.forPageTitle})` : ''}\n${backlink.snippet || '(no snippet)'}`)
+    .join('\n\n');
   const exactRule = isExactSentenceRequest(question)
     ? '\n- This is an exact/quote request: answer from complete sentences in the page context, and preserve quoted sentence wording exactly when quoting.'
     : '';
-  return `You are answering a reader's question about a single wiki page in a personal knowledge base.
+  const scopeRule = selectedPageOnly
+    ? '\n- The reader scoped this question to the selected page only. Do not synthesize from related pages or graph context.'
+    : '\n- When related pages, highlights, concepts, or backlinks are provided, synthesize across them instead of treating the selected page as the only evidence.';
+  return `You are answering a reader's question about a wiki page in a personal knowledge base.
 
-The page is titled "${truncate(page.title, 200) || 'Untitled'}" and reads as follows:
+The selected page is titled "${truncate(page.title, 200) || 'Untitled'}" and reads as follows:
 """
 ${pageText || '(empty page)'}
 """
 
-The reader has attached the following sources, each prefixed with a 1-based index:
+${relatedPageLines ? `Related wiki pages selected from the reader's question and graph context:\n${relatedPageLines}` : 'No related wiki pages matched the question strongly enough.'}
+
+${highlightLines ? `Relevant highlights from the corpus:\n${highlightLines}` : ''}
+
+${conceptLines ? `Relevant concept records:\n${conceptLines}` : ''}
+
+${backlinkLines ? `Backlinks that mention related pages:\n${backlinkLines}` : ''}
+
+The reader has attached the following sources on the selected page, each prefixed with a 1-based index:
 ${sourceLines || '(no attached sources)'}
 
 The reader's question:
@@ -264,6 +604,7 @@ ${truncate(question, MAX_QUESTION)}
 
 Respond with a JSON object only. Schema:
 {
+  "bridgeInsight": "one concise connective insight if related pages were used, otherwise empty string",
   "paragraphs": [
     { "text": "single answer paragraph (1-3 sentences)", "citationIndexes": [1, 2] }
   ],
@@ -272,12 +613,15 @@ Respond with a JSON object only. Schema:
 
 Rules:
 - Output 1 to ${MAX_ANSWER_PARAGRAPHS} paragraphs.
+- If related wiki pages, highlights, concepts, or backlinks are provided and relevant, synthesize across selected page + graph context.
+- If a bridge exists, set bridgeInsight to a single specific sentence beginning with neither a heading nor markdown.
+- Never say "Answered from the selected wiki page" unless the reader explicitly scoped the question to the selected page only.
 - Every paragraph must be self-contained prose (no markdown, no headings).
 - citationIndexes per paragraph point to the reader's attached sources only.
 - Use [] for citationIndexes when the paragraph relies only on the page text or general reasoning.
 - Never invent sources or indexes outside the attached set.
 - Never include trailing "[1, 2]" suffixes inside the text — citations live in the JSON, not the prose.
-- Treat the page body above as coherent page context; do not answer from partial words or broken sentence fragments.${exactRule}
+- Treat the page body above as coherent page context; do not answer from partial words or broken sentence fragments.${scopeRule}${exactRule}
 
 Return only the JSON, no prose around it.`;
 };
@@ -298,11 +642,10 @@ const extractJson = (raw = '') => {
   return null;
 };
 
-const buildFallbackAnswer = ({ page, sources, question }) => {
+const buildFallbackAnswer = ({ page, sources, question, searchedSummary = '' }) => {
   const matches = topRelevantSentences({ page, sources, question, limit: 3 });
   if (!matches.length) {
-    const isChangeQuestion = /\b(changed?|updated?|new|ingest|source|added|since)\b/i.test(question);
-    if (isChangeQuestion && sources.length) {
+    if (isSourceChangeQuestion(question) && sources.length) {
       const citationIndexes = sources.slice(0, 2).map(source => source.index);
       return {
         paragraphs: [{
@@ -313,9 +656,10 @@ const buildFallbackAnswer = ({ page, sources, question }) => {
       };
     }
     const pageTitle = truncate(page?.title, 100) || 'this page';
+    const searched = searchedSummary ? ` ${searchedSummary}` : '';
     return {
       paragraphs: [{
-        text: `I do not see enough evidence on ${pageTitle} to answer that directly. The page and attached sources should be expanded before treating this as answered.`,
+        text: `I do not see enough evidence on ${pageTitle} to answer that directly.${searched} Expand the page or attach stronger source material before treating this as answered.`,
         citationIndexes: []
       }],
       citationIndexesUsed: []
@@ -341,6 +685,179 @@ const buildFallbackAnswer = ({ page, sources, question }) => {
   };
 };
 
+const buildGraphFallbackAnswer = ({
+  page,
+  sources,
+  relatedPageContexts = [],
+  highlightContexts = [],
+  conceptContexts = [],
+  question,
+  searchedSummary = ''
+}) => {
+  if (!relatedPageContexts.length && !highlightContexts.length && !conceptContexts.length) {
+    return buildFallbackAnswer({ page, sources, question, searchedSummary });
+  }
+  const selectedTitle = truncate(page?.title, 100) || 'the selected page';
+  const related = relatedPageContexts[0];
+  const selectedMatches = topRelevantSentences({ page, sources: [], question, limit: 1 });
+  const selectedSentence = selectedMatches[0]?.sentence || truncateAtSentenceBoundary(pageBodySentenceText(page), 260);
+  const relatedSentence = related
+    ? truncateAtSentenceBoundary(related.plainText, 320)
+    : truncateAtSentenceBoundary(highlightContexts[0]?.snippet || conceptContexts[0]?.description || '', 320);
+  const relatedLabel = related?.title || highlightContexts[0]?.fromPageTitle || conceptContexts[0]?.name || 'a related concept';
+  const bridgeInsight = relatedSentence && selectedSentence
+    ? `${selectedTitle} and ${relatedLabel} connect because ${selectedSentence} while ${relatedSentence}`.replace(/\s+/g, ' ').trim()
+    : `${selectedTitle} connects to ${relatedLabel} through shared evidence in the archive.`;
+  const bridgeSentence = truncate(bridgeInsight, 260);
+  return {
+    bridgeInsight: bridgeSentence,
+    paragraphs: [{
+      text: `${selectedSentence ? `On ${selectedTitle}, ${selectedSentence}` : ''} ${relatedSentence ? `On ${relatedLabel}, ${relatedSentence}` : ''}`.replace(/\s+/g, ' ').trim(),
+      citationIndexes: []
+    }],
+    citationIndexesUsed: []
+  };
+};
+
+const buildAskGraphContext = ({
+  page,
+  relatedPages = [],
+  question = '',
+  conceptRecords = [],
+  backlinkRows = []
+} = {}) => {
+  const selectedPageOnly = isSelectedPageOnlyQuestion(question);
+  const rankedPages = rankWikiPageCandidates({
+    page,
+    relatedPages,
+    question,
+    selectedPageOnly,
+    limit: MAX_WIKI_PAGE_CANDIDATES
+  });
+  const relatedPageContexts = buildRelatedPageContexts({
+    page,
+    relatedPages: rankedPages,
+    question,
+    selectedPageOnly
+  });
+  const highlightContexts = selectedPageOnly
+    ? []
+    : buildGraphHighlightContexts({ page, relatedPages: rankedPages, relatedPageContexts, question });
+  const conceptContexts = selectedPageOnly
+    ? []
+    : buildConceptContexts({ question, conceptRecords, relatedPageContexts });
+  const backlinkContexts = selectedPageOnly
+    ? []
+    : buildBacklinkContexts({ question, backlinkRows, relatedPageContexts });
+  const searchedSummary = buildGraphSearchSummary({
+    page,
+    relatedPageContexts,
+    highlightContexts,
+    conceptContexts,
+    backlinkContexts,
+    selectedPageOnly
+  });
+  return {
+    rankedPages,
+    relatedPageContexts,
+    highlightContexts,
+    conceptContexts,
+    backlinkContexts,
+    selectedPageOnly,
+    searchedSummary
+  };
+};
+
+const loadWikiAskCorpus = async ({
+  page,
+  question,
+  userId,
+  WikiPage,
+  TagMeta,
+  findWikiBacklinks,
+  pageScanLimit = MAX_WIKI_PAGE_SCAN,
+  candidateLimit = MAX_WIKI_PAGE_CANDIDATES
+} = {}) => {
+  if (!WikiPage?.find || !userId) {
+    return { relatedPages: [], conceptRecords: [], backlinkRows: [] };
+  }
+  const trimmed = asString(question);
+  const allPages = await WikiPage.find({
+    userId,
+    status: { $ne: 'archived' },
+    hiddenFromHome: { $ne: true },
+    debugOnly: { $ne: true },
+    archived: { $ne: true }
+  })
+    .sort({ updatedAt: -1 })
+    .limit(Math.max(1, pageScanLimit))
+    .select('title slug pageType plainText body sourceRefs updatedAt')
+    .lean();
+  const selectedPageOnly = isSelectedPageOnlyQuestion(trimmed);
+  const relatedPages = rankWikiPageCandidates({
+    page,
+    relatedPages: allPages,
+    question: trimmed,
+    selectedPageOnly,
+    limit: candidateLimit
+  });
+
+  const conceptNames = new Set();
+  allPages.forEach((candidate) => {
+    if (candidate.pageType !== 'concept') return;
+    if (pageTitleMentionedInQuestion(candidate.title, trimmed)) {
+      conceptNames.add(asString(candidate.title));
+    }
+  });
+  buildRelatedPageContexts({
+    page,
+    relatedPages,
+    question: trimmed,
+    selectedPageOnly
+  }).forEach((candidate) => {
+    if (candidate.pageType === 'concept') conceptNames.add(candidate.title);
+  });
+
+  let conceptRecords = [];
+  if (TagMeta?.find && conceptNames.size > 0) {
+    const names = Array.from(conceptNames).filter(Boolean);
+    conceptRecords = await TagMeta.find({
+      userId,
+      $or: names.map(name => ({ name: new RegExp(`^${escapeRegExp(name)}$`, 'i') }))
+    })
+      .select('name description workspaceTemplateName updatedAt')
+      .limit(MAX_GRAPH_CONCEPTS)
+      .lean();
+  }
+
+  const backlinkRows = [];
+  if (findWikiBacklinks && !selectedPageOnly) {
+    const namedRelated = buildRelatedPageContexts({
+      page,
+      relatedPages,
+      question: trimmed,
+      limit: 2
+    });
+    for (const related of namedRelated) {
+      const targetPage = allPages.find(candidate => serializeObjectId(candidate) === related.id) || {
+        _id: related.id,
+        title: related.title,
+        plainText: related.plainText
+      };
+      const result = await findWikiBacklinks({
+        targetPage,
+        userId,
+        models: { WikiPage }
+      });
+      (result?.backlinks || []).slice(0, MAX_GRAPH_BACKLINKS).forEach((row) => {
+        backlinkRows.push({ ...row, forPageTitle: related.title });
+      });
+    }
+  }
+
+  return { relatedPages, conceptRecords, backlinkRows };
+};
+
 const normalizeAnswerSchema = (raw, fallback, maxCitationIndex = Infinity) => {
   if (!raw || typeof raw !== 'object') return fallback;
   const maxIndex = Number.isFinite(Number(maxCitationIndex)) ? Number(maxCitationIndex) : Infinity;
@@ -358,11 +875,19 @@ const normalizeAnswerSchema = (raw, fallback, maxCitationIndex = Infinity) => {
     .filter(Boolean)
     .slice(0, MAX_ANSWER_PARAGRAPHS);
   if (!cleaned.length) return fallback;
+  const fallbackIndexes = Array.isArray(fallback?.citationIndexesUsed)
+    ? fallback.citationIndexesUsed.map(Number).filter(Number.isFinite).filter(index => index > 0 && index <= maxIndex)
+    : [];
+  const hasModelCitations = cleaned.some(entry => entry.citationIndexes.length > 0);
+  if (!hasModelCitations && fallbackIndexes.length) {
+    cleaned[0].citationIndexes = fallbackIndexes.slice(0, 6);
+  }
   const flat = new Set();
   cleaned.forEach(entry => entry.citationIndexes.forEach(idx => flat.add(idx)));
   return {
     paragraphs: cleaned,
-    citationIndexesUsed: Array.from(flat).sort((a, b) => a - b)
+    citationIndexesUsed: Array.from(flat).sort((a, b) => a - b),
+    bridgeInsight: truncate(raw.bridgeInsight, 260)
   };
 };
 
@@ -380,7 +905,15 @@ const docFromAnswer = (answer, maxCitationIndex = Infinity) => ({
  * @param {object} [params.aiClient]   Optional override for the chat client (used in tests).
  * @returns {Promise<{answer:object,citationIndexesUsed:number[],model:string,status:'answered'|'failed',errorMessage:string}>}
  */
-const askWikiPage = async ({ page, question, aiClient, wikiSchemaContent = '' } = {}) => {
+const askWikiPage = async ({
+  page,
+  question,
+  aiClient,
+  wikiSchemaContent = '',
+  relatedPages = [],
+  conceptRecords = [],
+  backlinkRows = []
+} = {}) => {
   const trimmed = truncate(question, MAX_QUESTION);
   if (!trimmed) {
     return {
@@ -392,7 +925,41 @@ const askWikiPage = async ({ page, question, aiClient, wikiSchemaContent = '' } 
     };
   }
   const sources = buildSourceList(page?.sourceRefs);
-  const fallback = buildFallbackAnswer({ page, sources, question: trimmed });
+  const graphContext = buildAskGraphContext({
+    page,
+    relatedPages,
+    question: trimmed,
+    conceptRecords,
+    backlinkRows
+  });
+  const {
+    relatedPageContexts,
+    highlightContexts,
+    conceptContexts,
+    backlinkContexts,
+    selectedPageOnly,
+    searchedSummary
+  } = graphContext;
+  const buildProvenance = (bridgeInsight = '') => provenanceFromContext({
+    page,
+    sources,
+    relatedPageContexts,
+    highlightContexts,
+    conceptContexts,
+    backlinkContexts,
+    bridgeInsight,
+    selectedPageOnly,
+    searchedSummary
+  });
+  const fallback = buildGraphFallbackAnswer({
+    page,
+    sources,
+    relatedPageContexts,
+    highlightContexts,
+    conceptContexts,
+    question: trimmed,
+    searchedSummary
+  });
   const exactSentence = pickExactPageSentence({ page, question: trimmed });
   if (exactSentence) {
     const answer = {
@@ -402,6 +969,24 @@ const askWikiPage = async ({ page, question, aiClient, wikiSchemaContent = '' } 
     return {
       answer: docFromAnswer(answer, sources.length),
       citationIndexesUsed: [],
+      provenance: buildProvenance(''),
+      model: 'deterministic',
+      status: 'answered',
+      errorMessage: ''
+    };
+  }
+
+  if (isSourceChangeQuestion(trimmed) && sources.length) {
+    const sourceFallback = buildFallbackAnswer({
+      page,
+      sources,
+      question: trimmed,
+      searchedSummary
+    });
+    return {
+      answer: docFromAnswer(sourceFallback, sources.length),
+      citationIndexesUsed: sourceFallback.citationIndexesUsed,
+      provenance: buildProvenance(fallback.bridgeInsight || ''),
       model: 'deterministic',
       status: 'answered',
       errorMessage: ''
@@ -415,13 +1000,24 @@ const askWikiPage = async ({ page, question, aiClient, wikiSchemaContent = '' } 
     return {
       answer: docFromAnswer(fallback, sources.length),
       citationIndexesUsed: fallback.citationIndexesUsed,
+      provenance: buildProvenance(fallback.bridgeInsight || ''),
       model: 'stub',
       status: 'answered',
       errorMessage: ''
     };
   }
 
-  const systemPrompt = buildSystemPrompt({ page, sources, question: trimmed, wikiSchemaContent });
+  const systemPrompt = buildSystemPrompt({
+    page,
+    sources,
+    relatedPageContexts,
+    highlightContexts,
+    conceptContexts,
+    backlinkContexts,
+    question: trimmed,
+    wikiSchemaContent,
+    selectedPageOnly
+  });
   let completion = null;
   try {
     completion = await chatClient({
@@ -439,6 +1035,7 @@ const askWikiPage = async ({ page, question, aiClient, wikiSchemaContent = '' } 
     return {
       answer: docFromAnswer(fallback, sources.length),
       citationIndexesUsed: fallback.citationIndexesUsed,
+      provenance: buildProvenance(fallback.bridgeInsight || ''),
       model: 'fallback',
       status: 'failed',
       errorMessage: String(error?.message || error || 'Ask request failed.').slice(0, 400)
@@ -450,6 +1047,7 @@ const askWikiPage = async ({ page, question, aiClient, wikiSchemaContent = '' } 
   return {
     answer: docFromAnswer(answer, sources.length),
     citationIndexesUsed: answer.citationIndexesUsed,
+    provenance: buildProvenance(answer.bridgeInsight || ''),
     model: completion?.model || 'hf',
     status: 'answered',
     errorMessage: ''
@@ -458,12 +1056,21 @@ const askWikiPage = async ({ page, question, aiClient, wikiSchemaContent = '' } 
 
 module.exports = {
   askWikiPage,
+  loadWikiAskCorpus,
   __testables: {
     buildSourceList,
+    buildRelatedPageContexts,
+    buildGraphHighlightContexts,
+    buildConceptContexts,
+    buildBacklinkContexts,
+    buildAskGraphContext,
+    buildGraphSearchSummary,
+    provenanceFromContext,
     buildSystemPrompt,
     extractJson,
     normalizeAnswerSchema,
     buildFallbackAnswer,
+    buildGraphFallbackAnswer,
     topRelevantSentences,
     scoreTextForQuestion,
     docFromAnswer,
@@ -472,6 +1079,9 @@ module.exports = {
     truncateAtSentenceBoundary,
     buildPageContext,
     isExactSentenceRequest,
+    isSelectedPageOnlyQuestion,
+    pageTitleMentionedInQuestion,
+    rankWikiPageCandidates,
     pickExactPageSentence
   }
 };

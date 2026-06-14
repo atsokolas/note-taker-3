@@ -57,9 +57,12 @@ const WikiPageMetaBar = ({ page, onChange, saveStatus = 'idle' }) => {
         {saveCopy[saveStatus] || saveCopy.idle}
       </span>
       {shareUrl ? (
-        <a className="wiki-meta-bar__share-link" href={shareUrl} target="_blank" rel="noopener noreferrer">
-          Public link
-        </a>
+        <span className="wiki-meta-bar__share" role="status">
+          <span>Public page ready: citations included, private source notes withheld.</span>
+          <a className="wiki-meta-bar__share-link" href={shareUrl} target="_blank" rel="noopener noreferrer">
+            Public link
+          </a>
+        </span>
       ) : null}
     </div>
   );

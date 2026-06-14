@@ -68,6 +68,35 @@ describe('wikiBacklinkService', () => {
   describe('findWikiBacklinks', () => {
     const targetPage = { _id: 'target', title: 'Compounding interest' };
 
+    it('excludes hidden, debug, and archived-flag pages from candidate scans', async () => {
+      let capturedQuery = null;
+      const model = {
+        find: (query) => {
+          capturedQuery = query;
+          return {
+            sort: () => ({
+              limit: () => ({
+                lean: () => Promise.resolve([])
+              })
+            })
+          };
+        }
+      };
+      await findWikiBacklinks({
+        targetPage,
+        userId: 'u1',
+        models: { WikiPage: model }
+      });
+      expect(capturedQuery).toMatchObject({
+        userId: 'u1',
+        status: { $ne: 'archived' },
+        hiddenFromHome: { $ne: true },
+        debugOnly: { $ne: true },
+        archived: { $ne: true },
+        _id: { $ne: 'target' }
+      });
+    });
+
     it('returns no backlinks when no other pages mention the target title', async () => {
       const out = await findWikiBacklinks({
         targetPage,

@@ -151,7 +151,10 @@ const articleSchema = new mongoose.Schema({
   author: { type: String, default: '' },
   publicationDate: { type: String, default: '' },
   siteName: { type: String, default: '' },
-  importMeta: { type: importMetaSchema, default: () => ({}) }
+  importMeta: { type: importMetaSchema, default: () => ({}) },
+  hiddenFromHome: { type: Boolean, default: false },
+  debugOnly: { type: Boolean, default: false },
+  archived: { type: Boolean, default: false }
 }, { timestamps: true });
 
 articleSchema.index({ url: 1, userId: 1 }, { unique: true });
@@ -228,6 +231,9 @@ const notebookEntrySchema = new mongoose.Schema({
   linkedArticleId: { type: mongoose.Schema.Types.ObjectId, ref: 'Article', default: null },
   linkedHighlightIds: [{ type: mongoose.Schema.Types.ObjectId }],
   importMeta: { type: importMetaSchema, default: () => ({}) },
+  hiddenFromHome: { type: Boolean, default: false },
+  debugOnly: { type: Boolean, default: false },
+  archived: { type: Boolean, default: false },
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }
 }, { timestamps: true });
 
@@ -436,6 +442,10 @@ const wikiDiscussionSchema = new mongoose.Schema({
     default: () => ({ type: 'doc', content: [{ type: 'paragraph' }] })
   },
   citationIndexesUsed: { type: [Number], default: [] },
+  provenance: {
+    type: mongoose.Schema.Types.Mixed,
+    default: () => ({})
+  },
   model: { type: String, default: '', trim: true },
   status: { type: String, enum: ['answered', 'failed'], default: 'answered' },
   errorMessage: { type: String, default: '', trim: true },
@@ -461,7 +471,10 @@ const wikiPageSchema = new mongoose.Schema({
   citations: { type: [wikiCitationSchema], default: [] },
   freshness: { type: wikiFreshnessSchema, default: () => ({}) },
   discussions: { type: [wikiDiscussionSchema], default: [] },
-  aiState: { type: wikiAiStateSchema, default: () => ({}) }
+  aiState: { type: wikiAiStateSchema, default: () => ({}) },
+  hiddenFromHome: { type: Boolean, default: false },
+  debugOnly: { type: Boolean, default: false },
+  archived: { type: Boolean, default: false }
 }, { timestamps: true });
 
 wikiPageSchema.index({ userId: 1, updatedAt: -1 });
@@ -755,6 +768,9 @@ const tagMetaSchema = new mongoose.Schema({
       return normalized || undefined;
     }
   },
+  hiddenFromHome: { type: Boolean, default: false },
+  debugOnly: { type: Boolean, default: false },
+  archived: { type: Boolean, default: false },
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }
 }, { timestamps: true });
 
@@ -802,6 +818,9 @@ const questionSchema = new mongoose.Schema({
   linkedHighlightId: { type: mongoose.Schema.Types.ObjectId, default: null },
   linkedHighlightIds: [{ type: mongoose.Schema.Types.ObjectId }],
   linkedNotebookEntryId: { type: mongoose.Schema.Types.ObjectId, default: null },
+  hiddenFromHome: { type: Boolean, default: false },
+  debugOnly: { type: Boolean, default: false },
+  archived: { type: Boolean, default: false },
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }
 }, { timestamps: true });
 
@@ -1795,6 +1814,22 @@ sharedConceptSchema.index({ userId: 1, conceptName: 1 }, { unique: true });
 
 const SharedConcept = mongoose.model('SharedConcept', sharedConceptSchema);
 
+/**
+ * SharedQuestion — public read-only snapshot of a question thread.
+ * Stores slug → (userId, questionId). Public reads expose only authored
+ * paragraph blocks; highlight refs and library material stay private.
+ */
+const sharedQuestionSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  questionId: { type: mongoose.Schema.Types.ObjectId, ref: 'Question', required: true },
+  slug: { type: String, required: true, unique: true, index: true },
+  ownerDisplayName: { type: String, default: '' }
+}, { timestamps: true });
+
+sharedQuestionSchema.index({ userId: 1, questionId: 1 }, { unique: true });
+
+const SharedQuestion = mongoose.model('SharedQuestion', sharedQuestionSchema);
+
 module.exports = {
   User,
   Feedback,
@@ -1849,5 +1884,6 @@ module.exports = {
   IntegrationConnection,
   ImportSession,
   SharedConcept,
+  SharedQuestion,
   dropLegacyConnectionIndex
 };

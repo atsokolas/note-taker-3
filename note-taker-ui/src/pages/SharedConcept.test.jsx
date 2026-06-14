@@ -39,7 +39,7 @@ const baseConcept = {
     questions: [
       { id: 'q1', title: 'What survives 100 years?', content: '' }
     ],
-    note: { content: '<p>Side note.</p>', updatedAt: '2026-04-20T00:00:00Z' }
+    note: { title: 'Owner note', content: '<p>Side note.</p>', updatedAt: '2026-04-20T00:00:00Z' }
   }
 };
 
@@ -73,6 +73,9 @@ describe('SharedConcept', () => {
     expect(screen.getByText('Buffett on holding')).toBeInTheDocument();
     expect(screen.getByText('Disruption')).toBeInTheDocument();
     expect(screen.getByText('What survives 100 years?')).toBeInTheDocument();
+    expect(screen.queryByText('Private note withheld')).toBeNull();
+    expect(screen.queryByText('Owner note')).toBeNull();
+    expect(screen.queryByText('Side note.')).toBeNull();
   });
 
   it('updates document.title and OG meta tags from the loaded concept', async () => {
@@ -113,4 +116,3 @@ describe('SharedConcept', () => {
     await waitFor(() => expect(screen.getAllByText('Link copied').length).toBeGreaterThan(0));
   });
 });
-

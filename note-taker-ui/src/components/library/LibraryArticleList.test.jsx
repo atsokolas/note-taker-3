@@ -94,4 +94,65 @@ describe('LibraryArticleList', () => {
     expect(screen.getByText('Move articles into this folder')).toBeInTheDocument();
     expect(screen.queryByText('Save your first article')).not.toBeInTheDocument();
   });
+
+  it('uses the first highlight as excerpt when summary fields are empty', () => {
+    renderList({
+      articles: [{
+        _id: 'a3',
+        title: "Poor Charlie's Almanack",
+        createdAt: '2026-06-07T00:00:00Z',
+        source: 'Readwise',
+        highlights: [{ text: 'Take a simple idea and take it seriously.' }],
+        highlightCount: 27
+      }]
+    });
+
+    expect(screen.getByText('Take a simple idea and take it seriously.')).toBeInTheDocument();
+    expect(screen.queryByText(/Open this source in the reading room/i)).not.toBeInTheDocument();
+  });
+
+  it('shows connected concepts in row meta when concept links exist', () => {
+    renderList({
+      articles: [{
+        _id: 'a6',
+        title: 'Decision quality',
+        createdAt: '2026-06-07T00:00:00Z',
+        highlightCount: 8,
+        concepts: [{ name: 'Opportunity Cost' }, { name: 'Circle of Competence' }]
+      }]
+    });
+
+    expect(screen.getByText(/Connected: Opportunity Cost, Circle of Competence/i)).toBeInTheDocument();
+  });
+
+  it('omits boilerplate filler when tags or highlights exist but no excerpt text', () => {
+    const { container } = renderList({
+      articles: [{
+        _id: 'a4',
+        title: 'Tagged article',
+        createdAt: '2026-06-07T00:00:00Z',
+        tags: ['investing'],
+        highlights: [],
+        highlightCount: 0
+      }]
+    });
+
+    expect(screen.queryByText(/Open this source in the reading room/i)).not.toBeInTheDocument();
+    expect(container.querySelector('.library-article-row-excerpt')).toBeNull();
+  });
+
+  it('keeps sparse rows quiet instead of showing boilerplate filler', () => {
+    const { container } = renderList({
+      articles: [{
+        _id: 'a5',
+        title: 'Untitled import',
+        createdAt: '2026-06-07T00:00:00Z',
+        highlights: [],
+        highlightCount: 0
+      }]
+    });
+
+    expect(screen.queryByText(/Open this source in the reading room/i)).not.toBeInTheDocument();
+    expect(container.querySelector('.library-article-row-excerpt')).toBeNull();
+  });
 });

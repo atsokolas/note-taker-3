@@ -78,6 +78,23 @@ const PromoteTitleModal = ({
   </div>
 );
 
+const WikiDiscussionProvenance = ({ provenance = {} }) => {
+  const bridgeInsight = String(provenance?.bridgeInsight || '').trim();
+  const summary = String(provenance?.summary || '').trim();
+  if (!bridgeInsight && !summary) return null;
+  return (
+    <aside className="wiki-discussions__provenance" aria-label="Answer provenance">
+      {bridgeInsight ? (
+        <p className="wiki-discussions__bridge">
+          <span>Bridge found</span>
+          {bridgeInsight}
+        </p>
+      ) : null}
+      {summary ? <p className="wiki-discussions__sources">{summary}</p> : null}
+    </aside>
+  );
+};
+
 const WikiDiscussions = ({ discussions = [], onRemove, onPromote, promotingId = '' }) => {
   const [promoteDraft, setPromoteDraft] = useState({ id: '', title: '' });
   if (!Array.isArray(discussions) || discussions.length === 0) return null;
@@ -125,6 +142,7 @@ const WikiDiscussions = ({ discussions = [], onRemove, onPromote, promotingId = 
               ) : null}
             </div>
             <p className="wiki-discussions__question">{discussion.question}</p>
+            <WikiDiscussionProvenance provenance={discussion.provenance || {}} />
             <div className="wiki-discussions__answer">
               {renderTiptapDoc(discussion.answer) || (
                 <p className="wiki-discussions__empty">No answer yet.</p>

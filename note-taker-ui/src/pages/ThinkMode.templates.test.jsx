@@ -11,8 +11,8 @@ import useHighlights from '../hooks/useHighlights';
 import useTags from '../hooks/useTags';
 import api from '../api';
 import { createQuestion } from '../api/questions';
-import { listReturnQueue } from '../api/returnQueue';
 import { getArticles } from '../api/articles';
+import { listReturnQueue } from '../api/returnQueue';
 import { getNotebookFolders, getNotebookSummaries } from '../api/notebook';
 import { listAgentHandoffs, listPersonalAgents } from '../api/agent';
 import { createConnection, getConnectionsForScope, searchConnectableItems } from '../api/connections';
@@ -46,12 +46,12 @@ jest.mock('../api', () => ({
   }
 }));
 
-jest.mock('../api/returnQueue', () => ({
-  listReturnQueue: jest.fn()
-}));
-
 jest.mock('../api/articles', () => ({
   getArticles: jest.fn()
+}));
+
+jest.mock('../api/returnQueue', () => ({
+  listReturnQueue: jest.fn().mockResolvedValue([])
 }));
 
 jest.mock('../api/notebook', () => ({
@@ -324,6 +324,7 @@ describe('ThinkMode template integration', () => {
     mockQuestionEditor.mockClear();
     mockSetSearchParams.mockReset();
     window.scrollTo = jest.fn();
+    listReturnQueue.mockResolvedValue([]);
     useSearchParamsMock.mockReturnValue([
       new URLSearchParams('tab=concepts'),
       mockSetSearchParams
@@ -373,7 +374,6 @@ describe('ThinkMode template integration', () => {
     api.patch.mockResolvedValue({ data: {} });
     api.delete.mockResolvedValue({ data: {} });
 
-    listReturnQueue.mockImplementation(() => pendingRequest());
     getArticles.mockImplementation(() => pendingRequest());
     getNotebookSummaries.mockImplementation(() => pendingRequest());
     getNotebookFolders.mockImplementation(() => pendingRequest());
@@ -968,22 +968,16 @@ describe('ThinkMode template integration', () => {
     expect(screen.getByRole('button', { name: 'Use template' })).toBeInTheDocument();
   });
 
-  it('renders the home return queue in the calm center column and updated stream in the rail', async () => {
+  it('keeps return queue and updated stream out of the calm home door', async () => {
     useSearchParamsMock.mockReturnValue([
       new URLSearchParams('tab=home'),
       mockSetSearchParams
     ]);
-    listReturnQueue.mockResolvedValueOnce([{
-      _id: 'queue-home-1',
-      itemType: 'concept',
-      reason: 'waiting for review',
-      item: {
-        title: 'Queued Opportunity Cost',
-        openPath: '/think?tab=concepts&concept=Opportunity%20Cost'
-      }
-    }]);
     getArticles.mockResolvedValueOnce([]);
     getNotebookSummaries.mockResolvedValue([]);
+    listReturnQueue.mockResolvedValueOnce([
+      { _id: 'rq-1', itemType: 'question', itemId: 'question-home-1', status: 'pending' }
+    ]);
     useConcepts.mockReturnValue({
       concepts: [{
         _id: 'concept-home-1',
@@ -996,6 +990,18 @@ describe('ThinkMode template integration', () => {
       error: '',
       refresh: refreshConceptsMock
     });
+    useQuestions.mockReturnValue({
+      questions: [{
+        _id: 'question-home-1',
+        text: 'Returning question',
+        status: 'open',
+        createdAt: '2026-04-12T00:00:00.000Z',
+        updatedAt: '2026-04-12T00:00:00.000Z'
+      }],
+      loading: false,
+      error: '',
+      setQuestions: jest.fn()
+    });
 
     render(
       <MemoryRouter initialEntries={['/think?tab=home']}>
@@ -1003,10 +1009,10 @@ describe('ThinkMode template integration', () => {
       </MemoryRouter>
     );
 
-    expect(await screen.findByRole('heading', { name: 'Return queue' })).toBeInTheDocument();
-    expect(screen.getByText('Queued Opportunity Cost')).toBeInTheDocument();
-    expect(screen.getByTestId('think-home-updated-stream')).toHaveTextContent('Home Concept');
-    expect(screen.getByTestId('think-home-updated-stream')).toHaveTextContent(/Concept/i);
+    expect(await screen.findByText('Home Concept')).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Return queue' })).not.toBeInTheDocument();
+    expect(screen.queryByTestId('think-home-updated-stream')).not.toBeInTheDocument();
+    expect(screen.getByText('QUESTION · RETURNING')).toBeInTheDocument();
   });
 
   it('ranks stale concepts first in home mixed-type motion stream', async () => {

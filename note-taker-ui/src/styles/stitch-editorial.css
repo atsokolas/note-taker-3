@@ -7417,6 +7417,108 @@ body.noeis-editorial .three-pane--library .library-main-reading {
   gap: 18px;
 }
 
+body.noeis-editorial .library-reading-room-lead {
+  display: grid;
+  gap: 18px;
+  padding: 0 0 8px;
+  border-bottom: 1px solid var(--vellum-line);
+}
+
+body.noeis-editorial .library-reading-room-lead__hero {
+  display: grid;
+  gap: 10px;
+  max-width: 720px;
+}
+
+body.noeis-editorial .library-reading-room-lead__eyebrow,
+body.noeis-editorial .library-reading-room-lead__maintenance-label {
+  font-family: var(--noeis-ui-font);
+  font-size: 0.62rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--vellum-blue) 70%, var(--vellum-ink));
+}
+
+body.noeis-editorial .library-reading-room-lead__headline {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  font-family: var(--noeis-display-font, var(--noeis-serif));
+  font-size: clamp(1.55rem, 2.2vw, 2.15rem);
+  line-height: 1.12;
+  color: var(--vellum-ink);
+  cursor: pointer;
+}
+
+body.noeis-editorial .library-reading-room-lead__headline.is-static {
+  cursor: default;
+}
+
+body.noeis-editorial .library-reading-room-lead__headline:hover,
+body.noeis-editorial .library-reading-room-lead__headline:focus-visible {
+  color: color-mix(in srgb, var(--vellum-ink) 88%, var(--vellum-blue));
+}
+
+body.noeis-editorial .library-reading-room-lead__detail,
+body.noeis-editorial .library-reading-room-lead__maintenance-copy p {
+  margin: 0;
+  max-width: 640px;
+  font-size: 0.98rem;
+  line-height: 1.45;
+  color: color-mix(in srgb, var(--vellum-ink) 78%, transparent);
+}
+
+body.noeis-editorial .library-reading-room-lead__open {
+  justify-self: start;
+}
+
+body.noeis-editorial .library-reading-room-lead__maintenance {
+  display: grid;
+  gap: 10px;
+  padding: 14px 0 0;
+}
+
+body.noeis-editorial .library-reading-room-lead__maintenance-copy {
+  display: grid;
+  gap: 6px;
+}
+
+body.noeis-editorial .library-reading-room-lead__stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  font-family: var(--noeis-ui-font);
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--vellum-ink) 58%, transparent);
+}
+
+body.noeis-editorial .library-reading-room-lead__filing-action {
+  justify-self: start;
+}
+
+body.noeis-editorial .library-reading-room-lead__cruft {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+}
+
+body.noeis-editorial .library-reading-room-lead__cruft-notice {
+  margin: 0;
+}
+
+body.noeis-editorial .library-reading-room-lead__suppressed-action {
+  flex: 0 0 auto;
+}
+
+body.noeis-editorial .library-article-row-concepts {
+  color: color-mix(in srgb, var(--vellum-blue) 72%, var(--vellum-ink));
+}
+
 body.noeis-editorial .three-pane--library .library-section-head,
 body.noeis-editorial .three-pane--library .library-section-head.is-articles,
 body.noeis-editorial .three-pane--library .library-section-head.is-highlights {
@@ -9626,6 +9728,19 @@ body.noeis-editorial .think-calm-index__eyebrow,
   text-transform: uppercase;
 }
 
+body.noeis-editorial .think-calm-index__maintenance,
+.think-calm-index__maintenance {
+  margin: 12px 0 0;
+  max-width: 42ch;
+  color: color-mix(in srgb, var(--text-muted) 88%, transparent);
+  font-size: 0.82rem;
+}
+
+body.noeis-editorial .library-reading-room-lead__cruft-notice {
+  margin: 0;
+  max-width: 42ch;
+}
+
 body.noeis-editorial .tix-thread__tag,
 .tix-thread__tag {
   color: color-mix(in srgb, var(--text-muted) 88%, transparent);
@@ -9722,57 +9837,6 @@ body.noeis-editorial .tix-thread__tag,
   align-items: center;
   padding-top: 16px;
   border-top: 1px solid color-mix(in srgb, var(--nt-divider) 72%, transparent);
-}
-
-.think-home-return-queue {
-  display: grid;
-  gap: 8px;
-  padding-top: 16px;
-  border-top: 1px solid color-mix(in srgb, var(--nt-divider) 72%, transparent);
-}
-
-.think-home-return-queue__list {
-  display: grid;
-  gap: 4px;
-}
-
-.think-home-return-queue__item {
-  display: grid;
-  gap: 4px;
-  width: 100%;
-  min-width: 0;
-  padding: 10px 0;
-  border: 0;
-  border-bottom: 1px solid color-mix(in srgb, var(--nt-divider) 58%, transparent);
-  background: transparent;
-  text-align: left;
-  cursor: pointer;
-}
-
-.think-home-return-queue__item:last-child {
-  border-bottom: 0;
-}
-
-.think-home-return-queue__item:hover .think-home-return-queue__title {
-  color: var(--accent-primary);
-}
-
-.think-home-return-queue__title {
-  min-width: 0;
-  color: var(--text-primary);
-  font-family: Georgia, "Times New Roman", serif;
-  font-size: 1rem;
-  line-height: 1.35;
-  overflow-wrap: anywhere;
-}
-
-.think-home-return-queue__meta {
-  min-width: 0;
-  color: color-mix(in srgb, var(--text-muted) 92%, transparent);
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 0.7rem;
-  letter-spacing: 0.04em;
-  overflow-wrap: anywhere;
 }
 
 /* Arrival: one thing leads, others follow; then stillness. */

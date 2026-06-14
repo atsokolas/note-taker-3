@@ -27,8 +27,8 @@ import { createConnection, getConnectionsForScope } from '../api/connections';
 import { createWikiPage, listWikiActivity, listWikiPages } from '../api/wiki';
 import { wikiPagePath } from '../utils/wikiFeatureFlags';
 import { createProfilerLogger, endPerfTimer, logPerf, startPerfTimer } from '../utils/perf';
-import { listReturnQueue } from '../api/returnQueue';
 import { getArticles } from '../api/articles';
+import { listReturnQueue } from '../api/returnQueue';
 import { getNotebookFolders, getNotebookSummaries } from '../api/notebook';
 import { resolveThoughtPartnerContext } from './thinkPartnerContext';
 import useHandoffs from '../hooks/useHandoffs';
@@ -74,8 +74,9 @@ import {
   composeQuestionIndexOrientation,
   composeNotebookIndexOrientation,
   composeHomeIndexOrientation,
-  describeThreadMotionNote,
-  getThreadPostureTag
+  composeCruftSuppressionNotice,
+  countSuppressedInCollection,
+  describeThreadMotionNote
 } from '../components/think/calmIndexModel';
 
 const NotebookFolderTree = lazy(() => import('../components/think/notebook/NotebookFolderTree'));
@@ -97,6 +98,7 @@ const ConceptEvidenceStreamRail = lazy(() => import('../components/think/concept
 const ConceptPartnerRail = lazy(() => import('../components/think/concepts/ConceptEvidenceStreamView')
   .then((module) => ({ default: module.ConceptPartnerRail })));
 const ConceptShareModal = lazy(() => import('../components/think/concepts/ConceptShareModal'));
+const QuestionShareModal = lazy(() => import('../components/think/questions/QuestionShareModal'));
 const SemanticRelatedPanel = lazy(() => import('../components/retrieval/SemanticRelatedPanel'));
 const QuestionEditorialView = lazy(() => import('../components/think/questions/QuestionEditorialView'));
 const InsightsPanel = lazy(() => import('../components/think/insights/InsightsPanel'));
@@ -431,14 +433,12 @@ const ThinkMode = () => {
   const [cardsExpanded, setCardsExpanded] = useState(false);
   const [cardsExpandVersion, setCardsExpandVersion] = useState(0);
   const [recentTargets, setRecentTargets] = useState(() => readRecentTargets());
-  const [homeReturnQueue, setHomeReturnQueue] = useState([]);
-  const [homeQueueLoading, setHomeQueueLoading] = useState(false);
-  const [homeQueueError, setHomeQueueError] = useState('');
   const [, setHomeArticles] = useState([]);
   const [, setHomeArticlesLoading] = useState(false);
   const [homeArticlesError, setHomeArticlesError] = useState('');
   const [, setHomeWikiPages] = useState([]);
-  const [, setHomeWikiActivity] = useState([]);
+  const [homeWikiActivity, setHomeWikiActivity] = useState([]);
+  const [homeReturnQueue, setHomeReturnQueue] = useState([]);
   const [collapsedIndexGroups, setCollapsedIndexGroups] = useState(() => readCollapsedIndexGroups());
   const [rightOpen, setRightOpen] = useState(() => {
     try {
@@ -586,6 +586,7 @@ const ThinkMode = () => {
   const [conceptEditorialSection, setConceptEditorialSection] = useState('assistant');
   const [conceptPartnerCollapsed, setConceptPartnerCollapsed] = useState(false);
   const [conceptShareModalOpen, setConceptShareModalOpen] = useState(false);
+  const [questionShareModalOpen, setQuestionShareModalOpen] = useState(false);
   const conceptComposerInputRef = useRef(null);
   const [templatePickerOpen, setTemplatePickerOpen] = useState(false);
   const [headerNewMenuOpen, setHeaderNewMenuOpen] = useState(false);
@@ -797,14 +798,28 @@ const ThinkMode = () => {
     () => buildHomeIndexMotion({
       concepts: filteredConcepts,
       questions: filteredQuestions.filter((item) => String(item?.status || '').toLowerCase() !== 'answered'),
-      notebookEntries: filteredNotebookEntries
+      notebookEntries: filteredNotebookEntries,
+      returnQueueEntries: homeReturnQueue,
+      wikiActivity: homeWikiActivity
     }),
-    [filteredConcepts, filteredNotebookEntries, filteredQuestions]
+    [filteredConcepts, filteredNotebookEntries, filteredQuestions, homeReturnQueue, homeWikiActivity]
   );
 
   const homeIndexOrientation = useMemo(
-    () => composeHomeIndexOrientation(homeIndexMotion),
-    [homeIndexMotion]
+    () => composeHomeIndexOrientation(homeIndexMotion, { returnQueueEntries: homeReturnQueue }),
+    [homeIndexMotion, homeReturnQueue]
+  );
+
+  const homeCruftNotice = useMemo(
+    () => composeCruftSuppressionNotice(
+      countSuppressedInCollection([
+        ...concepts,
+        ...allQuestions,
+        ...notebookEntries,
+        ...(Array.isArray(homeWikiActivity) ? homeWikiActivity : [])
+      ])
+    ),
+    [allQuestions, concepts, homeWikiActivity, notebookEntries]
   );
 
   const activeQuestionData = useMemo(
@@ -1294,8 +1309,6 @@ const ThinkMode = () => {
     if (activeView !== 'home') return;
     let cancelled = false;
     const loadThinkHomeData = async () => {
-      setHomeQueueLoading(true);
-      setHomeQueueError('');
       setHomeArticlesLoading(true);
       setHomeArticlesError('');
       try {
@@ -1314,21 +1327,18 @@ const ThinkMode = () => {
         setHomeArticles(Array.isArray(articleRows) ? articleRows.slice(0, THINK_HOME_LIMIT) : []);
         setHomeWikiPages(Array.isArray(wikiPageRows) ? wikiPageRows : []);
         setHomeWikiActivity(Array.isArray(wikiActivityRows) ? wikiActivityRows.slice(0, THINK_HOME_LIMIT) : []);
-        const failed = [queueResult, articleResult].find(result => result.status === 'rejected');
+        const failed = [articleResult, wikiPagesResult, wikiActivityResult].find(result => result.status === 'rejected');
         if (failed) {
           const message = failed.reason?.response?.data?.error || 'Failed to load Think home.';
-          setHomeQueueError(message);
           setHomeArticlesError(message);
         }
       } catch (homeError) {
         if (!cancelled) {
           const message = homeError?.response?.data?.error || 'Failed to load Think home.';
-          setHomeQueueError(message);
           setHomeArticlesError(message);
         }
       } finally {
         if (!cancelled) {
-          setHomeQueueLoading(false);
           setHomeArticlesLoading(false);
         }
       }
@@ -1635,12 +1645,6 @@ const ThinkMode = () => {
     refreshConcepts,
     handleSelectConcept
   ]);
-
-  const handleOpenReturnQueueEntry = useCallback((entry) => {
-    const openPath = String(entry?.item?.openPath || entry?.item?.path || '').trim();
-    if (!openPath) return;
-    window.location.href = openPath;
-  }, []);
 
   const handleSelectPath = useCallback((pathId) => {
     const params = new URLSearchParams(searchParams);
@@ -2295,10 +2299,17 @@ const ThinkMode = () => {
       case 'notebook':
         handleSelectNotebookEntry(thread.id);
         break;
+      case 'wiki': {
+        const pageId = thread.raw?.pageId || thread.id;
+        if (pageId) {
+          navigateWithViewTransition(navigate, wikiPagePath(pageId));
+        }
+        break;
+      }
       default:
         break;
     }
-  }, [handleOpenQuestion, handleSelectConcept, handleSelectNotebookEntry]);
+  }, [handleOpenQuestion, handleSelectConcept, handleSelectNotebookEntry, navigate]);
 
   const thinkShelfRail = (
     <ThinkShelfRail
@@ -3480,12 +3491,10 @@ const ThinkMode = () => {
       describeMotionNote={describeThreadMotionNote}
       onSelectThread={handleCalmThreadSelect}
       motionStatusTestIdPrefix="think-home-status"
+      maintenanceNote={homeCruftNotice}
       homeCommand={(
         <ThinkHomeUniversalCommand onUniversalCommand={handleHomeUniversalCommand} />
       )}
-      returnQueue={homeReturnQueue}
-      returnQueueLoading={homeQueueLoading}
-      onOpenReturnQueueItem={handleOpenReturnQueueEntry}
       actions={(
         <>
           <QuietButton onClick={openTemplatePicker}>Use template</QuietButton>
@@ -3684,36 +3693,8 @@ const ThinkMode = () => {
       />
       {activeView === 'home' && (
         <div className="think-home-rail">
-          <div className="think-home-rail__section" data-testid="think-home-updated-stream">
-            <SectionHeader title="Updated stream" subtitle="Recent motion in Think." />
-            <div className="think-home__list">
-              {homeIndexMotion.inMotion.slice(0, 4).map((thread) => (
-                <button
-                  key={thread.key}
-                  type="button"
-                  className="think-home__row"
-                  onClick={() => handleCalmThreadSelect(thread)}
-                >
-                  <span className="think-home__row-title">{thread.title}</span>
-                  <span className="think-home__row-meta muted small">
-                    {getThreadPostureTag(thread)} · {describeThreadMotionNote(thread)}
-                  </span>
-                </button>
-              ))}
-              {homeIndexMotion.inMotion.length === 0 && <p className="muted small">No recent motion yet.</p>}
-            </div>
-          </div>
-          <div className="think-home-rail__section">
-            <SectionHeader title="Next move" subtitle="Quick jumps into active work." />
-            <div className="think-home-rail__actions">
-              <QuietButton onClick={() => handleSelectView('notebook')}>Open notebook</QuietButton>
-              <QuietButton onClick={() => handleSelectView('concepts')}>Open concepts</QuietButton>
-              <QuietButton onClick={() => handleSelectView('questions')}>Open questions</QuietButton>
-              <QuietButton onClick={() => handleSelectView('paths')}>Open paths</QuietButton>
-            </div>
-          </div>
-          {(homeQueueError || homeArticlesError) && (
-            <p className="status-message error-message">{homeQueueError || homeArticlesError}</p>
+          {homeArticlesError && (
+            <p className="status-message error-message">{homeArticlesError}</p>
           )}
         </div>
       )}
@@ -4277,41 +4258,8 @@ const ThinkMode = () => {
         onInvoke={queueThoughtPartnerPrompt}
       />
 
-      <div className="editorial-side-rail__section" data-testid="think-home-updated-stream">
-        <SectionHeader title="Updated stream" subtitle="Recent motion in Think." />
-        <div className="think-home__list">
-          {homeIndexMotion.inMotion.length > 0 ? (
-            homeIndexMotion.inMotion.slice(0, 4).map((thread) => (
-              <button
-                key={thread.key}
-                type="button"
-                className="think-home__row"
-                onClick={() => handleCalmThreadSelect(thread)}
-              >
-                <span className="think-home__row-title">{thread.title}</span>
-                <span className="think-home__row-meta muted small">
-                  {getThreadPostureTag(thread)} · {describeThreadMotionNote(thread)}
-                </span>
-              </button>
-            ))
-          ) : (
-            <p className="muted small">No recent motion yet.</p>
-          )}
-        </div>
-      </div>
-
-      <div className="editorial-side-rail__section">
-        <SectionHeader title="Next move" subtitle="Jump back into active work." />
-        <div className="think-home-rail__actions">
-          <QuietButton onClick={() => handleSelectView('notebook')}>Open notebook</QuietButton>
-          <QuietButton onClick={() => handleSelectView('concepts')}>Open concepts</QuietButton>
-          <QuietButton onClick={() => handleSelectView('questions')}>Open questions</QuietButton>
-          <QuietButton onClick={() => handleSelectView('paths')}>Open paths</QuietButton>
-        </div>
-      </div>
-
-      {(homeQueueError || homeArticlesError) && (
-        <p className="status-message error-message">{homeQueueError || homeArticlesError}</p>
+      {homeArticlesError && (
+        <p className="status-message error-message">{homeArticlesError}</p>
       )}
     </div>
   );
@@ -4423,6 +4371,7 @@ const ThinkMode = () => {
   ) : null;
 
   const questionEditorialLayout = isQuestionEditorialView ? (
+    <>
     <QuestionEditorialView
       activeQuestion={activeQuestion}
       activeQuestionData={activeQuestionData}
@@ -4475,7 +4424,15 @@ const ThinkMode = () => {
       indexLoading={allQuestionsLoading}
       allQuestionsCount={allQuestions.length}
       onCalmThreadSelect={handleCalmThreadSelect}
+      onShareQuestion={() => setQuestionShareModalOpen(true)}
     />
+    <QuestionShareModal
+      open={questionShareModalOpen}
+      questionId={activeQuestionData?._id || ''}
+      questionText={activeQuestionData?.text || ''}
+      onClose={() => setQuestionShareModalOpen(false)}
+    />
+    </>
   ) : null;
   const disableEditorialShell = searchParams.get('legacyShell') === '0';
   const activePrimaryNavValue = THINK_SUB_NAV_ITEMS.some((item) => item.value === activeView) ? activeView : '';

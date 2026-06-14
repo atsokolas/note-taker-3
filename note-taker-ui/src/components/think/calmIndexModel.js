@@ -1,3 +1,16 @@
+import {
+  composeCruftSuppressionNotice,
+  countSuppressedInCollection,
+  filterReturnViewItems,
+  isSuppressedFromReturnView
+} from '../../utils/cruftSuppression';
+
+export {
+  composeCruftSuppressionNotice,
+  countSuppressedInCollection,
+  isSuppressedFromReturnView
+};
+
 export const CALM_INDEX_MOTION_LIMIT = 5;
 export const SHELF_RAIL_VISIBLE_LIMIT = 5;
 
@@ -96,18 +109,67 @@ const describeMotionNoteForType = (type, item, options) => {
   }
 };
 
-export const getThreadPostureTag = (thread) => {
-  switch (thread?.type) {
+const THREAD_TYPE_LABELS = {
+  concept: 'CONCEPT',
+  question: 'QUESTION',
+  notebook: 'NOTE',
+  wiki: 'WIKI'
+};
+
+const WIKI_OVERNIGHT_WINDOW_MS = 48 * 60 * 60 * 1000;
+const QUESTION_ANSWER_READY_EVIDENCE = 2;
+
+const normalizeReturnQueueItemType = (value) => {
+  const candidate = String(value || '').trim().toLowerCase();
+  if (candidate === 'wiki_page') return 'wiki';
+  if (candidate === 'concept' || candidate === 'question' || candidate === 'notebook') return candidate;
+  return '';
+};
+
+const isRecentWithin = (value, windowMs) => {
+  const timestamp = parseTimestamp(value);
+  if (!timestamp) return false;
+  return Date.now() - timestamp <= windowMs;
+};
+
+export const deriveThreadReturnState = (thread = {}) => {
+  if (thread.returnState) return thread.returnState;
+
+  switch (thread.type) {
     case 'concept':
-      return 'Concept';
-    case 'question':
-      return thread?.status === 'answered' ? 'Question · answered' : 'Question · open';
+      if (thread.stale || thread.raw?.freshness?.stale) return 'WAITING MATERIAL';
+      if (thread.returnQueued) return 'RETURNING';
+      return 'ACTIVE';
+    case 'question': {
+      const status = String(thread.status || thread.raw?.status || '').toLowerCase();
+      if (status === 'answered') return 'SETTLED';
+      if (thread.returnQueued) return 'RETURNING';
+      if (countQuestionEvidenceBlocks(thread.raw || {}) >= QUESTION_ANSWER_READY_EVIDENCE) {
+        return 'READY TO ANSWER';
+      }
+      return 'OPEN';
+    }
     case 'notebook':
-      return 'Note';
+      if (thread.returnQueued) return 'READY TO REOPEN';
+      return 'DRAFTING';
+    case 'wiki':
+      if (thread.updatedOvernight) return 'UPDATED OVERNIGHT';
+      return 'RECENT';
     default:
       return '';
   }
 };
+
+export const getThreadMotionStateTag = (thread = {}) => {
+  const typeLabel = THREAD_TYPE_LABELS[thread.type] || '';
+  const stateLabel = deriveThreadReturnState(thread);
+  if (!typeLabel || !stateLabel) return '';
+  return `${typeLabel} · ${stateLabel}`;
+};
+
+export const getThreadPostureTag = (thread) => getThreadMotionStateTag(thread);
+
+export const filterReturnThreads = (threads = []) => filterReturnViewItems(threads);
 
 export const toConceptThread = (conceptItem = {}) => ({
   key: `concept:${conceptItem.name}`,
@@ -147,6 +209,65 @@ export const toNotebookThread = (entry = {}) => ({
   raw: entry
 });
 
+export const toWikiThread = (activityEvent = {}) => {
+  const touchedAt = activityEvent.at || activityEvent.updatedAt || activityEvent.createdAt;
+  const updatedOvernight = isRecentWithin(touchedAt, WIKI_OVERNIGHT_WINDOW_MS);
+  return {
+    key: `wiki:${activityEvent.pageId || activityEvent.id || activityEvent.title}`,
+    type: 'wiki',
+    id: activityEvent.pageId || activityEvent.id || activityEvent.title,
+    title: activityEvent.title || activityEvent.pageTitle || 'Wiki page',
+    description: String(activityEvent.summary || activityEvent.detail || '').trim(),
+    stale: false,
+    touchedAt,
+    updatedOvernight,
+    returnState: updatedOvernight ? 'UPDATED OVERNIGHT' : 'RECENT',
+    status: '',
+    raw: activityEvent
+  };
+};
+
+const buildReturnQueueLookup = (entries = []) => {
+  const lookup = new Map();
+  (Array.isArray(entries) ? entries : []).forEach((entry) => {
+    if (String(entry?.status || '').toLowerCase() === 'completed') return;
+    const itemType = normalizeReturnQueueItemType(entry.itemType);
+    const itemId = String(entry.itemId || entry.item?.id || '').trim();
+    if (!itemType || !itemId) return;
+    lookup.set(`${itemType}:${itemId.toLowerCase()}`, entry);
+    const title = String(entry.item?.title || '').trim().toLowerCase();
+    if (itemType === 'concept' && title) {
+      lookup.set(`concept:${title}`, entry);
+    }
+  });
+  return lookup;
+};
+
+export const applyReturnQueueToThreads = (threads = [], returnQueueEntries = []) => {
+  const lookup = buildReturnQueueLookup(returnQueueEntries);
+  return threads.map((thread) => {
+    const lookupKeys = [
+      `${thread.type}:${String(thread.id || '').trim().toLowerCase()}`,
+      thread.type === 'concept' ? `concept:${String(thread.title || '').trim().toLowerCase()}` : ''
+    ].filter(Boolean);
+    const matchedEntry = lookupKeys.map((key) => lookup.get(key)).find(Boolean);
+    if (!matchedEntry) return thread;
+
+    let returnState = 'RETURNING';
+    if (thread.type === 'notebook') returnState = 'READY TO REOPEN';
+    if (thread.type === 'concept' && (thread.stale || thread.raw?.freshness?.stale)) {
+      returnState = 'WAITING MATERIAL';
+    }
+
+    return {
+      ...thread,
+      returnQueued: true,
+      returnState,
+      returnQueueEntry: matchedEntry
+    };
+  });
+};
+
 export const sortConceptsForIndex = (items = [], { staleFirst = false } = {}) => [...items].sort((left, right) => {
   if (staleFirst) {
     const reviewOrder = compareReviewDates(left?.freshness?.lastReviewedAt, right?.freshness?.lastReviewedAt);
@@ -178,7 +299,7 @@ export const sortNotebookForIndex = (items = []) => [...items].sort((left, right
 });
 
 export const splitMotionAndShelf = (threads = [], limit = CALM_INDEX_MOTION_LIMIT) => {
-  const ranked = [...threads];
+  const ranked = filterReturnThreads(threads);
   return {
     inMotion: ranked.slice(0, limit),
     shelf: ranked.slice(limit)
@@ -215,27 +336,54 @@ export const buildNotebookIndexMotion = (entries = []) => {
 };
 
 export const rankHomeThreads = (threads = []) => [...threads].sort((left, right) => {
-  const leftConceptStale = left?.type === 'concept' && Boolean(left?.raw?.freshness?.stale);
-  const rightConceptStale = right?.type === 'concept' && Boolean(right?.raw?.freshness?.stale);
+  if (Boolean(left.returnQueued) !== Boolean(right.returnQueued)) {
+    return left.returnQueued ? -1 : 1;
+  }
+  if (Boolean(left.updatedOvernight) !== Boolean(right.updatedOvernight)) {
+    return left.updatedOvernight ? -1 : 1;
+  }
+  const leftConceptStale = left?.type === 'concept' && Boolean(left?.stale || left?.raw?.freshness?.stale);
+  const rightConceptStale = right?.type === 'concept' && Boolean(right?.stale || right?.raw?.freshness?.stale);
   if (leftConceptStale !== rightConceptStale) return leftConceptStale ? -1 : 1;
   const touchOrder = parseTimestamp(right.touchedAt) - parseTimestamp(left.touchedAt);
   if (touchOrder !== 0) return touchOrder;
   return String(left.title || '').localeCompare(String(right.title || ''));
 });
 
+const dedupeThreadsByKey = (threads = []) => {
+  const seen = new Set();
+  return threads.filter((thread) => {
+    if (!thread?.key || seen.has(thread.key)) return false;
+    seen.add(thread.key);
+    return true;
+  });
+};
+
 export const buildHomeIndexMotion = ({
   concepts = [],
   questions = [],
-  notebookEntries = []
+  notebookEntries = [],
+  returnQueueEntries = [],
+  wikiActivity = []
 } = {}) => {
-  const threads = rankHomeThreads([
-    ...concepts.map(toConceptThread),
-    ...questions
-      .filter((item) => String(item?.status || '').toLowerCase() !== 'answered')
-      .map(toQuestionThread),
-    ...notebookEntries.map(toNotebookThread)
-  ]);
-  return splitMotionAndShelf(threads, CALM_INDEX_MOTION_LIMIT);
+  const wikiThreads = (Array.isArray(wikiActivity) ? wikiActivity : [])
+    .filter((event) => isRecentWithin(event?.at || event?.updatedAt, WIKI_OVERNIGHT_WINDOW_MS))
+    .slice(0, 2)
+    .map(toWikiThread);
+
+  const threads = applyReturnQueueToThreads(
+    rankHomeThreads([
+      ...concepts.map(toConceptThread),
+      ...questions
+        .filter((item) => String(item?.status || '').toLowerCase() !== 'answered')
+        .map(toQuestionThread),
+      ...notebookEntries.map(toNotebookThread),
+      ...wikiThreads
+    ]),
+    returnQueueEntries
+  );
+
+  return splitMotionAndShelf(dedupeThreadsByKey(threads), CALM_INDEX_MOTION_LIMIT);
 };
 
 export const composeConceptIndexOrientation = (motion = {}) => {
@@ -268,15 +416,60 @@ export const composeNotebookIndexOrientation = (motion = {}) => {
   return `"${lead.title}" is the page with the most recent movement${editedLabel ? ` — edited ${editedLabel}` : ''}${others > 0 ? `. ${others} other page${others === 1 ? '' : 's'} on the desk` : ''}.`;
 };
 
-export const composeHomeIndexOrientation = (motion = {}) => {
+export const composeHomeIndexOrientation = (motion = {}, { returnQueueEntries = [] } = {}) => {
   const lead = motion.inMotion?.[0];
   if (!lead) return 'A quiet desk. Start a thought and the archive will come in behind it.';
-  const others = (motion.inMotion?.length || 0) - 1 + (motion.shelf?.length || 0);
+
+  const inMotion = Array.isArray(motion.inMotion) ? motion.inMotion : [];
+  const warmConcept = inMotion.find((thread) => (
+    thread.type === 'concept' && (thread.stale || thread.raw?.freshness?.stale)
+  ));
+  const readyQuestions = inMotion.filter((thread) => (
+    thread.type === 'question' && deriveThreadReturnState(thread) === 'READY TO ANSWER'
+  ));
+  const pendingReturnCount = (Array.isArray(returnQueueEntries) ? returnQueueEntries : [])
+    .filter((entry) => String(entry?.status || '').toLowerCase() !== 'completed').length;
+
+  if (warmConcept) {
+    const statusLabel = warmConcept.raw?.freshness?.statusLabel || 'newer sources arrived';
+    const warmLead = `Your "${warmConcept.title}" thread is warm again: ${statusLabel}`;
+    if (readyQuestions.length > 0) {
+      const questionPhrase = readyQuestions.length === 1
+        ? 'one open question now has enough evidence to answer'
+        : `${readyQuestions.length} open questions now have enough evidence to answer`;
+      return `${warmLead}, and ${questionPhrase}.`;
+    }
+    if (pendingReturnCount > 0) {
+      const returnPhrase = pendingReturnCount === 1
+        ? 'one saved item is waiting to be woven back in'
+        : `${pendingReturnCount} saved items are waiting to be woven back in`;
+      return `${warmLead}, and ${returnPhrase}.`;
+    }
+    return `${warmLead}.`;
+  }
+
+  if (lead.type === 'wiki' && lead.updatedOvernight) {
+    const detail = lead.description ? ` — ${lead.description}` : '';
+    return `"${lead.title}" was updated overnight${detail}.`;
+  }
+
+  if (lead.returnQueued) {
+    if (lead.type === 'question') {
+      return `"${lead.title}" is returning to the desk — ready when you want to pick the thread back up.`;
+    }
+    if (lead.type === 'notebook') {
+      return `"${lead.title}" is ready to reopen when you want to continue the draft.`;
+    }
+  }
+
+  const others = inMotion.length - 1 + (motion.shelf?.length || 0);
   const typeNoun = lead.type === 'concept'
     ? 'concept'
     : lead.type === 'question'
       ? 'question'
-      : 'note';
+      : lead.type === 'wiki'
+        ? 'wiki page'
+        : 'note';
   if (lead.stale && lead.type === 'concept') {
     const waiting = lead.raw?.freshness?.statusLabel || 'new material waiting';
     return `Your "${lead.title}" ${typeNoun} has the strongest pull — ${waiting}${others > 0 ? `. ${others} other thread${others === 1 ? '' : 's'} on the desk` : ''}.`;
@@ -298,10 +491,11 @@ export const filterShelfRailSections = ({
 } = {}) => {
   const query = String(searchQuery || '').trim().toLowerCase();
   const matches = (value) => !query || String(value || '').toLowerCase().includes(query);
+  const maybeSuppress = (items) => (query ? items : filterReturnViewItems(items));
   return {
-    concepts: concepts.filter((item) => matches(item.name)),
-    questions: questions.filter((item) => matches(item.text)),
-    notebookEntries: notebookEntries.filter((item) => matches(item.title || 'Untitled'))
+    concepts: maybeSuppress(concepts.filter((item) => matches(item.name))),
+    questions: maybeSuppress(questions.filter((item) => matches(item.text))),
+    notebookEntries: maybeSuppress(notebookEntries.filter((item) => matches(item.title || 'Untitled')))
   };
 };
 

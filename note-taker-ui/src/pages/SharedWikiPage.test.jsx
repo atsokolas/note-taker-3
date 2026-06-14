@@ -47,6 +47,7 @@ describe('SharedWikiPage', () => {
 
     await waitFor(() => expect(getPublicWikiPage).toHaveBeenCalledWith('opportunity-cost'));
     expect(await screen.findByRole('heading', { name: 'Opportunity Cost' })).toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent('Public page ready: citations included, private source notes withheld.');
     expect(screen.getAllByText('Opportunity cost frames tradeoffs.')).toHaveLength(2);
     expect(screen.getByRole('link', { name: 'Munger notes' })).toHaveAttribute('href', 'https://example.com/munger');
     expect(screen.getByRole('link', { name: 'Open Noeis' })).toHaveAttribute('href', '/');

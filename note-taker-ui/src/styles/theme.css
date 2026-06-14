@@ -3808,11 +3808,34 @@ html[data-ui-theme='dark'] .topbar__search:-webkit-autofill:focus {
   font-size: 0.95rem;
 }
 
+.wiki-agent-presence__copy,
+.agent-presence__copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.wiki-agent-presence__text,
+.agent-presence__text,
+.wiki-agent-presence__sub,
+.agent-presence__sub {
+  display: block;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
 .ui-section-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+}
+
+.ui-section-header__copy {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
 }
 
 .ui-section-header__title {

@@ -44,6 +44,7 @@ const Library = () => {
   const requestedHighlightId = searchParams.get('highlightId') || '';
   const shouldOpenReferencePullIn = searchParams.get('pull') === '1';
   const articleQuery = searchParams.get('aq') || '';
+  const showSuppressedItems = searchParams.get('showSuppressed') === '1';
   const highlightQuery = searchParams.get('hq') || '';
   const highlightView = searchParams.get('highlightView') || 'concept';
   const [selectedArticleId, setSelectedArticleId] = useState('');
@@ -61,7 +62,7 @@ const Library = () => {
   });
   const [leftOpen, setLeftOpen] = useState(() => {
     const stored = localStorage.getItem(LEFT_STORAGE_KEY);
-    if (stored === null) return true;
+    if (stored === null) return false;
     return stored === 'true';
   });
   const [contextOverride, setContextOverride] = useState(() => (
@@ -86,7 +87,8 @@ const Library = () => {
     scope,
     folderId,
     query: articleQuery,
-    sort: 'recent'
+    sort: 'recent',
+    includeSuppressed: showSuppressedItems
   });
   const { tags, loading: tagsLoading } = useTags();
   const {
@@ -184,6 +186,27 @@ const Library = () => {
     }
     setSearchParams(params);
   }, [searchParams, setSearchParams]);
+
+  const handleReviewFiling = useCallback(() => {
+    handleSelectScope('unfiled');
+    setLeftOpen(true);
+    localStorage.setItem(LEFT_STORAGE_KEY, 'true');
+    setCabinetOverride(true);
+    localStorage.setItem(CABINET_OVERRIDE_KEY, 'true');
+  }, [handleSelectScope]);
+
+  const handleToggleSuppressedItems = useCallback(() => {
+    const params = new URLSearchParams(searchParams);
+    if (showSuppressedItems) {
+      params.delete('showSuppressed');
+    } else {
+      params.set('showSuppressed', '1');
+      params.set('scope', scope || 'all');
+    }
+    params.delete('articleId');
+    params.delete('highlightId');
+    setSearchParams(params);
+  }, [scope, searchParams, setSearchParams, showSuppressedItems]);
 
   const handleArticleQueryChange = useCallback((value) => {
     const nextValue = String(value || '');
@@ -749,11 +772,16 @@ const Library = () => {
       folderOptions={folderOptions}
       articleOptions={articleOptions}
       articleQuery={articleQuery}
+      suppressedVisible={showSuppressedItems}
       externalQuery={highlightQuery}
       highlightView={highlightView}
       onArticleQueryChange={handleArticleQueryChange}
       onQueryChange={handleHighlightQueryChange}
       onDumpHighlight={(highlight) => handleDumpToWorkingMemory(highlight?.text || '')}
+      allArticles={allArticles}
+      unfiledCount={unfiledCount}
+      onReviewFiling={handleReviewFiling}
+      onToggleSuppressed={handleToggleSuppressedItems}
     />
   );
 
@@ -822,7 +850,7 @@ const Library = () => {
             <span>{scope === 'folder' && selectedFolderName ? selectedFolderName : scope}</span>
           </div>
           <p>
-            Open a source to move from cabinet into reading room. Use highlights and notes as the active margin once a text is selected.
+            Open a source from the reading room list. Cabinet stays available when you want filing or batch organization.
           </p>
         </div>
 

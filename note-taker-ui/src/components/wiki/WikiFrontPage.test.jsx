@@ -66,6 +66,19 @@ describe('WikiFrontPage (AT-394)', () => {
     getWikiBriefing.mockResolvedValue(briefing);
   });
 
+  it('names the loading work before the paper arrives', () => {
+    listWikiPages.mockReturnValueOnce(new Promise(() => {}));
+    getWikiBriefing.mockReturnValueOnce(new Promise(() => {}));
+
+    render(
+      <MemoryRouter>
+        <WikiFrontPage />
+      </MemoryRouter>
+    );
+
+    expect(screen.getByRole('status')).toHaveTextContent(/checking overnight edits and drift signals/i);
+  });
+
   it('renders the newspaper front page: masthead, lead sentence, today’s page, recently grown, explore, hairline', async () => {
     render(
       <MemoryRouter>

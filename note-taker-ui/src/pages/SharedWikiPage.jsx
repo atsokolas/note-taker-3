@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import { getPublicWikiPage } from '../api/wiki';
 import renderTiptapDoc, { extractTocItems, firstParagraphText } from '../components/wiki/renderTiptapDoc';
 import { countWikiClaims, countWikiPageWords, countWikiSources } from '../components/wiki/wikiPageMetrics';
+import { buildSharePreviewReceipt } from '../utils/connectionMagicMoment';
 
 const formatDate = (value) => {
   if (!value) return '';
@@ -84,6 +85,9 @@ const SharedWikiPage = () => {
           <header className="shared-wiki-page__hero">
             <p className="shared-wiki-page__eyebrow">Shared wiki</p>
             <h1>{page.title || 'Untitled wiki page'}</h1>
+            <p className="shared-wiki-page__receipt" role="status">
+              {buildSharePreviewReceipt()}
+            </p>
             {intro ? <p className="shared-wiki-page__intro">{intro}</p> : null}
             <div className="shared-wiki-page__metrics" aria-label="Wiki page metrics">
               <span>{wordCount} words</span>
