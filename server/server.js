@@ -139,6 +139,7 @@ const {
   dropLegacyConnectionIndex
 } = require('./models/index');
 const { drainWikiSourceEventQueue } = require('./services/wikiSourceEventWorker');
+const { drainScheduledWikiMaintenance } = require('./services/wikiScheduledMaintenanceWorker');
 
 if (mongoose.connection.readyState === 1) {
   dropLegacyConnectionIndex();
@@ -150,6 +151,8 @@ if (mongoose.connection.readyState === 1) {
 
 let wikiSourceEventWorkerTimer = null;
 let wikiSourceEventWorkerRunning = false;
+let wikiScheduledMaintenanceTimer = null;
+let wikiScheduledMaintenanceRunning = false;
 
 const runWikiSourceEventWorker = async () => {
   if (wikiSourceEventWorkerRunning || mongoose.connection.readyState !== 1) return;
@@ -192,6 +195,52 @@ if (mongoose.connection.readyState === 1) {
   startWikiSourceEventWorker();
 } else {
   mongoose.connection.once('open', startWikiSourceEventWorker);
+}
+
+const runWikiScheduledMaintenance = async () => {
+  if (wikiScheduledMaintenanceRunning || mongoose.connection.readyState !== 1) return;
+  wikiScheduledMaintenanceRunning = true;
+  try {
+    const result = await drainScheduledWikiMaintenance({
+      models: {
+        WikiPage,
+        WikiRevision,
+        WikiMaintenanceRun,
+        Connection,
+        Article,
+        NotebookEntry,
+        TagMeta,
+        Question
+      },
+      limit: Number(process.env.WIKI_SCHEDULED_MAINTENANCE_BATCH_SIZE || 3),
+      maxAgeMs: Number(process.env.WIKI_SCHEDULED_MAINTENANCE_MAX_AGE_MS || 24 * 60 * 60 * 1000)
+    });
+    if (result.processed || result.failed) {
+      console.log(`[wiki-scheduled-maintenance] processed=${result.processed} failed=${result.failed}`);
+    }
+  } catch (error) {
+    console.error('[wiki-scheduled-maintenance] failed:', error);
+  } finally {
+    wikiScheduledMaintenanceRunning = false;
+  }
+};
+
+const startWikiScheduledMaintenance = () => {
+  if (process.env.WIKI_SCHEDULED_MAINTENANCE_DISABLED === 'true' || wikiScheduledMaintenanceTimer) return;
+  const intervalMs = Math.max(
+    15 * 60 * 1000,
+    Number(process.env.WIKI_SCHEDULED_MAINTENANCE_INTERVAL_MS || 6 * 60 * 60 * 1000)
+  );
+  wikiScheduledMaintenanceTimer = setInterval(runWikiScheduledMaintenance, intervalMs);
+  if (process.env.WIKI_SCHEDULED_MAINTENANCE_RUN_ON_START === 'true') {
+    runWikiScheduledMaintenance();
+  }
+};
+
+if (mongoose.connection.readyState === 1) {
+  startWikiScheduledMaintenance();
+} else {
+  mongoose.connection.once('open', startWikiScheduledMaintenance);
 }
 const { buildFolderService } = require('./services/folderService');
 const { getFoldersWithCounts } = buildFolderService({ Folder, Article, mongoose });

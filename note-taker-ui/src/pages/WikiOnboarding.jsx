@@ -270,7 +270,7 @@ const WikiOnboarding = () => {
             <Link to="/connections">Connect reading</Link>
             <Link to="/wiki">Explore pages</Link>
           </div>
-          <p className="wiki-onboarding__return">Tomorrow morning, Noeis should have something new to show you.</p>
+          <p className="wiki-onboarding__return">Tomorrow morning, Noeis will look for pages it can grow while you slept.</p>
         </section>
       ) : null}
     </main>

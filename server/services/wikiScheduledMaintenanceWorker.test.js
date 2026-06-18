@@ -1,0 +1,100 @@
+const assert = require('assert');
+const {
+  drainScheduledWikiMaintenance,
+  duePageQuery
+} = require('./wikiScheduledMaintenanceWorker');
+
+class Query {
+  constructor(value) {
+    this.value = value;
+  }
+
+  sort() {
+    return this;
+  }
+
+  limit(n) {
+    this.value = this.value.slice(0, n);
+    return this;
+  }
+
+  then(resolve, reject) {
+    return Promise.resolve(this.value).then(resolve, reject);
+  }
+}
+
+const createPageModel = (pages = []) => ({
+  find: () => new Query(pages)
+});
+
+const createRunModel = () => {
+  const records = [];
+  function WikiMaintenanceRun(payload = {}) {
+    Object.assign(this, payload);
+    this._id = this._id || `run-${records.length + 1}`;
+  }
+  WikiMaintenanceRun.records = records;
+  WikiMaintenanceRun.prototype.save = async function save() {
+    const index = records.findIndex(record => record._id === this._id);
+    const snapshot = JSON.parse(JSON.stringify(this));
+    if (index >= 0) records[index] = snapshot;
+    else records.push(snapshot);
+    return this;
+  };
+  return WikiMaintenanceRun;
+};
+
+const run = async () => {
+  const query = duePageQuery({ cutoff: new Date('2026-06-18T00:00:00.000Z') });
+  assert.strictEqual(query.status.$ne, 'archived');
+  assert.ok(Array.isArray(query.$or));
+
+  const page = {
+    _id: 'page-1',
+    userId: 'user-1',
+    title: 'Opportunity Cost',
+    aiState: {},
+    save: async () => page
+  };
+  const WikiMaintenanceRun = createRunModel();
+  const result = await drainScheduledWikiMaintenance({
+    models: {
+      WikiPage: createPageModel([page]),
+      WikiMaintenanceRun
+    },
+    limit: 1,
+    maintainWikiPageFn: async ({ page: targetPage, trigger }) => {
+      assert.strictEqual(trigger, 'scheduled');
+      targetPage.aiState.maintenanceSummary = 'Scheduled refresh completed.';
+      return targetPage;
+    },
+    now: new Date('2026-06-18T12:00:00.000Z')
+  });
+  assert.strictEqual(result.processed, 1);
+  assert.strictEqual(result.failed, 0);
+  assert.strictEqual(WikiMaintenanceRun.records.length, 1);
+  assert.strictEqual(WikiMaintenanceRun.records[0].status, 'completed');
+  assert.strictEqual(WikiMaintenanceRun.records[0].trigger, 'scheduled');
+
+  const failedRunModel = createRunModel();
+  const failed = await drainScheduledWikiMaintenance({
+    models: {
+      WikiPage: createPageModel([{ ...page, _id: 'page-2' }]),
+      WikiMaintenanceRun: failedRunModel
+    },
+    maintainWikiPageFn: async () => {
+      throw new Error('model unavailable');
+    }
+  });
+  assert.strictEqual(failed.processed, 0);
+  assert.strictEqual(failed.failed, 1);
+  assert.strictEqual(failedRunModel.records[0].status, 'failed');
+  assert.match(failedRunModel.records[0].errorMessage, /model unavailable/);
+
+  console.log('wikiScheduledMaintenanceWorker tests passed');
+};
+
+run().catch((error) => {
+  console.error(error);
+  process.exit(1);
+});
