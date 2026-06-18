@@ -1,8 +1,9 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
-import { getPublicWikiPage } from '../api/wiki';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
+import { adoptPublicWikiPage, getPublicWikiPage } from '../api/wiki';
 import renderTiptapDoc, { extractTocItems, firstParagraphText } from '../components/wiki/renderTiptapDoc';
 import { countWikiClaims, countWikiPageWords, countWikiSources } from '../components/wiki/wikiPageMetrics';
+import { wikiPagePath } from '../utils/wikiFeatureFlags';
 import { buildSharePreviewReceipt } from '../utils/connectionMagicMoment';
 
 const formatDate = (value) => {
@@ -29,11 +30,21 @@ const useDocumentTitle = (title) => {
   }, [title]);
 };
 
+const hasAuthToken = () => {
+  if (typeof window === 'undefined') return false;
+  return Boolean(localStorage.getItem('token') || localStorage.getItem('authToken'));
+};
+
 const SharedWikiPage = () => {
   const { idOrSlug = '' } = useParams();
+  const location = useLocation();
+  const navigate = useNavigate();
   const [page, setPage] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [adopting, setAdopting] = useState(false);
+  const [adoptionError, setAdoptionError] = useState('');
+  const autoAdoptAttemptedRef = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -64,7 +75,50 @@ const SharedWikiPage = () => {
   const sourceCount = countWikiSources(page || {});
   const claimCount = countWikiClaims(page || {});
   const updatedAt = formatDate(page?.updatedAt);
+  const shouldAutoAdopt = useMemo(() => {
+    const params = new URLSearchParams(location.search || '');
+    return params.get('adopt') === '1';
+  }, [location.search]);
   useDocumentTitle(page?.title ? `${page.title} · Noeis` : 'Shared wiki · Noeis');
+
+  const handleAdopt = useCallback(async () => {
+    if (!idOrSlug || adopting) return;
+    setAdoptionError('');
+    if (!hasAuthToken()) {
+      try {
+        const params = new URLSearchParams(location.search || '');
+        params.set('adopt', '1');
+        const returnTo = `${location.pathname}?${params.toString()}${location.hash || ''}`;
+        sessionStorage.setItem('auth_return_to', returnTo);
+        sessionStorage.setItem('auth_redirect_reason', 'auth');
+      } catch (_error) {
+        // Auth still works without preserving return state; the user can retry from the shared page.
+      }
+      navigate('/register');
+      return;
+    }
+    setAdopting(true);
+    try {
+      const result = await adoptPublicWikiPage(idOrSlug);
+      const adoptedPage = result?.page || {};
+      const adoptedId = adoptedPage._id || adoptedPage.id;
+      if (adoptedId) {
+        navigate(wikiPagePath(adoptedId), { replace: true });
+        return;
+      }
+      navigate('/wiki/workspace?view=list', { replace: true });
+    } catch (err) {
+      setAdoptionError(err?.response?.data?.error || err?.message || 'We could not finish adopting this wiki. Try again.');
+    } finally {
+      setAdopting(false);
+    }
+  }, [adopting, idOrSlug, location.hash, location.pathname, location.search, navigate]);
+
+  useEffect(() => {
+    if (!page || !shouldAutoAdopt || autoAdoptAttemptedRef.current || !hasAuthToken()) return;
+    autoAdoptAttemptedRef.current = true;
+    handleAdopt();
+  }, [handleAdopt, page, shouldAutoAdopt]);
 
   return (
     <main className="shared-wiki-page">
@@ -85,6 +139,16 @@ const SharedWikiPage = () => {
           <header className="shared-wiki-page__hero">
             <p className="shared-wiki-page__eyebrow">Shared wiki</p>
             <h1>{page.title || 'Untitled wiki page'}</h1>
+            <section className="shared-wiki-page__adopt" aria-label="Adopt shared wiki">
+              <div>
+                <h2>This is a shared wiki.</h2>
+                <p>Make it yours to edit, expand, and connect to your own thinking. The original owner keeps their version.</p>
+              </div>
+              <button type="button" onClick={handleAdopt} disabled={adopting}>
+                {adopting ? 'Making a copy...' : 'Make this mine'}
+              </button>
+              {adoptionError ? <p className="shared-wiki-page__adopt-error" role="alert">{adoptionError}</p> : null}
+            </section>
             <p className="shared-wiki-page__receipt" role="status">
               {buildSharePreviewReceipt()}
             </p>

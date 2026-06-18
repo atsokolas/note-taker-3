@@ -534,6 +534,40 @@ const serializePublicWikiPage = (page) => {
   };
 };
 
+const sanitizeSharedWikiSourceRefsForAdoption = (sourceRefs = []) => (
+  (Array.isArray(sourceRefs) ? sourceRefs : [])
+    .map((source, index) => ({
+      type: 'external',
+      title: String(source?.title || source?.url || `Shared reference ${index + 1}`).trim(),
+      snippet: String(source?.snippet || source?.quote || source?.excerpt || '').trim(),
+      url: String(source?.url || '').trim(),
+      citationLabel: `[${index + 1}]`,
+      addedBy: 'ai'
+    }))
+    .filter(source => source.title || source.url || source.snippet)
+);
+
+const buildAdoptableWikiPageSnapshot = (page) => {
+  const publicPage = serializePublicWikiPage(page);
+  if (!publicPage) return null;
+  const body = clonePlain(publicPage.body || emptyDoc());
+  const sourceRefs = sanitizeSharedWikiSourceRefsForAdoption(publicPage.sourceRefs || []);
+  return {
+    origin: {
+      originPageId: publicPage._id || null,
+      originSlug: publicPage.slug || '',
+      originTitle: publicPage.title || 'Untitled wiki page'
+    },
+    page: {
+      title: publicPage.title || 'Untitled wiki page',
+      pageType: normalizePageType(publicPage.pageType || 'topic'),
+      body,
+      plainText: publicPage.plainText || extractPlainText(body),
+      sourceRefs
+    }
+  };
+};
+
 const buildWikiDraftSuggestions = ({ page }) => {
   const sourceIds = Array.isArray(page.sourceRefs)
     ? page.sourceRefs.map(source => source._id).filter(Boolean)
@@ -1996,6 +2030,77 @@ const buildWikiRouter = ({
     } catch (error) {
       console.error('Error fetching public wiki page:', error);
       res.status(500).json({ error: 'Failed to fetch shared wiki page.' });
+    }
+  });
+
+  router.post('/api/public/wiki/pages/:idOrSlug/adopt', wikiAuth, async (req, res) => {
+    try {
+      const idOrSlug = String(req.params.idOrSlug || '').trim();
+      if (!idOrSlug) return res.status(400).json({ error: 'Wiki page id or slug is required.' });
+      const query = {
+        visibility: 'shared',
+        status: { $ne: 'archived' }
+      };
+      if (mongoose.Types.ObjectId.isValid(idOrSlug)) {
+        query._id = idOrSlug;
+      } else {
+        query.slug = idOrSlug;
+      }
+      const originPage = await WikiPage.findOne(query).lean();
+      if (!originPage) return res.status(404).json({ error: 'Shared wiki page not found.' });
+
+      const adoptable = buildAdoptableWikiPageSnapshot(originPage);
+      if (!adoptable?.page) return res.status(422).json({ error: 'Shared wiki page could not be adopted.' });
+      const titleExists = await WikiPage.findOne({
+        userId: req.user.id,
+        title: adoptable.page.title,
+        status: { $ne: 'archived' }
+      }).select('_id').lean();
+      const title = titleExists ? `${adoptable.page.title} (adapted)` : adoptable.page.title;
+      const page = new WikiPage({
+        userId: req.user.id,
+        title,
+        slug: await buildUniqueSlug(req.user.id, title),
+        pageType: adoptable.page.pageType,
+        status: 'draft',
+        visibility: 'private',
+        sourceScope: 'selected_sources',
+        createdFrom: {
+          type: 'wiki_index',
+          text: adoptable.page.plainText || '',
+          label: adoptable.origin.originTitle || adoptable.page.title
+        },
+        adoptedFrom: {
+          originPageId: mongoose.Types.ObjectId.isValid(adoptable.origin.originPageId)
+            ? adoptable.origin.originPageId
+            : null,
+          originSlug: adoptable.origin.originSlug || '',
+          originTitle: adoptable.origin.originTitle || adoptable.page.title,
+          adoptedAt: new Date()
+        },
+        body: adoptable.page.body || emptyDoc(),
+        plainText: adoptable.page.plainText || '',
+        sourceRefs: adoptable.page.sourceRefs || []
+      });
+      refreshPageClaims(page);
+      await page.save();
+      await syncPageGraph(page, req.user.id);
+      await createWikiRevision({
+        WikiRevision,
+        userId: req.user.id,
+        page,
+        reason: 'created',
+        actorType: 'user',
+        summary: `Adopted shared wiki page "${adoptable.origin.originTitle || page.title}".`
+      });
+      res.status(201).json({
+        page: serializeWikiPage(page),
+        adoptedFrom: page.adoptedFrom || {},
+        mergeAvailable: Boolean(titleExists)
+      });
+    } catch (error) {
+      console.error('Error adopting shared wiki page:', error);
+      res.status(500).json({ error: 'Failed to adopt shared wiki page.' });
     }
   });
 

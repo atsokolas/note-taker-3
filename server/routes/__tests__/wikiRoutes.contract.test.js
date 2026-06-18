@@ -1007,6 +1007,45 @@ const run = async () => {
     assert.strictEqual(publicById.res.status, 200, publicById.text);
     assert.strictEqual(publicById.body.page.slug, 'public-systems-page');
 
+    const adoptedPublicPage = await request(url, `/api/public/wiki/pages/${sharedPage._id}/adopt`, {
+      method: 'POST',
+      headers: { 'x-test-user': 'user-2' }
+    });
+    assert.strictEqual(adoptedPublicPage.res.status, 201, adoptedPublicPage.text);
+    assert.strictEqual(adoptedPublicPage.body.page.userId, 'user-2');
+    assert.strictEqual(adoptedPublicPage.body.page.title, 'Public Systems Page');
+    assert.strictEqual(adoptedPublicPage.body.page.visibility, 'private');
+    assert.strictEqual(adoptedPublicPage.body.page.status, 'draft');
+    assert.strictEqual(adoptedPublicPage.body.page.sourceScope, 'selected_sources');
+    assert.strictEqual(adoptedPublicPage.body.page.adoptedFrom.originTitle, 'Public Systems Page');
+    assert.strictEqual(adoptedPublicPage.body.page.adoptedFrom.originSlug, 'public-systems-page');
+    assert.strictEqual(String(adoptedPublicPage.body.page.adoptedFrom.originPageId), String(sharedPage._id));
+    assert.strictEqual(adoptedPublicPage.body.page.sourceRefs.length, 1);
+    assert.strictEqual(adoptedPublicPage.body.page.sourceRefs[0].type, 'external');
+    assert.strictEqual(adoptedPublicPage.body.page.sourceRefs[0].title, 'Public source title');
+    assert.strictEqual(adoptedPublicPage.body.page.sourceRefs[0].url, 'https://example.com/source');
+    assert.strictEqual(adoptedPublicPage.body.page.sourceRefs[0].snippet, 'Public citation snippet.');
+    assert.strictEqual(adoptedPublicPage.body.page.sourceRefs[0].objectId, undefined);
+    assert.strictEqual(adoptedPublicPage.body.page.sourceRefs[0].privateNote, undefined);
+    assert.deepStrictEqual(adoptedPublicPage.body.page.discussions, []);
+    assert.deepStrictEqual(adoptedPublicPage.body.page.aiState.suggestions, []);
+    assert.notStrictEqual(adoptedPublicPage.body.page.aiState.model, 'private-model');
+    assert.notStrictEqual(adoptedPublicPage.body.page.aiState.provider, 'private-provider');
+    const adoptionRevision = WikiRevision.records.find(record => (
+      String(record.pageId) === String(adoptedPublicPage.body.page._id)
+      && record.summary.includes('Adopted shared wiki page')
+    ));
+    assert.ok(adoptionRevision);
+    assert.strictEqual(adoptionRevision.after.adoptedFrom.originSlug, 'public-systems-page');
+
+    const duplicateAdoptedPublicPage = await request(url, `/api/public/wiki/pages/${sharedPage._id}/adopt`, {
+      method: 'POST',
+      headers: { 'x-test-user': 'user-2' }
+    });
+    assert.strictEqual(duplicateAdoptedPublicPage.res.status, 201, duplicateAdoptedPublicPage.text);
+    assert.strictEqual(duplicateAdoptedPublicPage.body.page.title, 'Public Systems Page (adapted)');
+    assert.strictEqual(duplicateAdoptedPublicPage.body.mergeAvailable, true);
+
     const hiddenPrivatePublicPage = await request(url, '/api/public/wiki/pages/private-systems-page', {
       headers: {}
     });

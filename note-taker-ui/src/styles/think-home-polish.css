@@ -6911,6 +6911,73 @@ html[data-ui-theme='dark'] .wiki-claim-popover__evidence--contradicts .wiki-clai
   line-height: 0.92;
 }
 
+.shared-wiki-page__adopt {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin: 10px 0 2px;
+  padding: 14px 16px;
+  border: 1px solid color-mix(in srgb, var(--accent-primary, #b1862e) 28%, var(--nt-divider));
+  border-radius: 10px;
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--accent-primary, #b1862e) 8%, transparent),
+    color-mix(in srgb, var(--surface) 94%, transparent)
+  );
+}
+
+.shared-wiki-page__adopt div {
+  min-width: 0;
+}
+
+.shared-wiki-page__adopt h2,
+.shared-wiki-page__adopt p {
+  margin: 0;
+}
+
+.shared-wiki-page__adopt h2 {
+  color: var(--text-primary);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.shared-wiki-page__adopt p {
+  margin-top: 5px;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
+.shared-wiki-page__adopt button {
+  flex: 0 0 auto;
+  min-height: 42px;
+  padding: 0 16px;
+  border: 1px solid color-mix(in srgb, var(--accent-primary, #b1862e) 42%, var(--nt-divider));
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent-primary, #b1862e) 10%, var(--surface));
+  color: var(--text-primary);
+  cursor: pointer;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Mono", Menlo, monospace;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.shared-wiki-page__adopt button:disabled {
+  cursor: wait;
+  opacity: 0.68;
+}
+
+.shared-wiki-page__adopt-error {
+  margin: 0;
+  color: var(--danger, #9b3b2f);
+  font-size: 0.85rem;
+}
+
 .shared-wiki-page__receipt,
 .shared-wiki-page__privacy-note,
 .shared-wiki-page__sources-note {
@@ -7024,10 +7091,15 @@ html[data-ui-theme='dark'] .wiki-claim-popover__evidence--contradicts .wiki-clai
   .wiki-read__share-strip,
   .wiki-read__viewbar,
   .wiki-read__share-compact,
+  .shared-wiki-page__adopt,
   .shared-wiki-page__topbar,
   .shared-wiki-page__metrics {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .shared-wiki-page__adopt button {
+    width: 100%;
   }
 
   .wiki-read__share-compact {

@@ -60,6 +60,11 @@ export const getPublicWikiPage = async (idOrSlug) => {
   return res.data || {};
 };
 
+export const adoptPublicWikiPage = async (idOrSlug) => {
+  const res = await api.post(`/api/public/wiki/pages/${safeId(idOrSlug)}/adopt`, {}, getAuthHeaders());
+  return res.data || {};
+};
+
 export const getWikiPageMarkdown = async (id) => {
   const res = await api.get(`${WIKI_PAGES_PATH}/${safeId(id)}/markdown`, {
     ...getAuthHeaders(),

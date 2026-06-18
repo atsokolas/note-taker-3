@@ -300,6 +300,13 @@ const wikiCreatedFromSchema = new mongoose.Schema({
   label: { type: String, default: '', trim: true }
 }, { _id: false });
 
+const wikiAdoptedFromSchema = new mongoose.Schema({
+  originPageId: { type: mongoose.Schema.Types.ObjectId, default: null },
+  originSlug: { type: String, default: '', trim: true },
+  originTitle: { type: String, default: '', trim: true },
+  adoptedAt: { type: Date, default: null }
+}, { _id: false });
+
 const wikiSourceRefSchema = new mongoose.Schema({
   type: {
     type: String,
@@ -461,6 +468,7 @@ const wikiPageSchema = new mongoose.Schema({
   visibility: { type: String, enum: WIKI_VISIBILITY_VALUES, default: 'private', index: true },
   sourceScope: { type: String, enum: WIKI_SOURCE_SCOPES, default: 'entire_library' },
   createdFrom: { type: wikiCreatedFromSchema, default: () => ({}) },
+  adoptedFrom: { type: wikiAdoptedFromSchema, default: () => ({}) },
   body: {
     type: mongoose.Schema.Types.Mixed,
     default: () => ({ type: 'doc', content: [{ type: 'paragraph' }] })

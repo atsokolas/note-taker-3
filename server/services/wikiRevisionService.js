@@ -9,6 +9,7 @@ const snapshotPage = (page) => {
     status: raw.status,
     visibility: raw.visibility,
     sourceScope: raw.sourceScope,
+    adoptedFrom: raw.adoptedFrom || {},
     body: raw.body || null,
     plainText: raw.plainText || '',
     sourceRefs: Array.isArray(raw.sourceRefs) ? raw.sourceRefs : [],
