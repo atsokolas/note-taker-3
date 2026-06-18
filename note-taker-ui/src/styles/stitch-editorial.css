@@ -533,6 +533,18 @@ body.noeis-editorial .app-shell-new--stitch .app-shell-new__body {
   overflow: hidden;
 }
 
+body.noeis-editorial.noeis-public-share .app-shell-new--stitch,
+body.noeis-editorial.noeis-public-share .app-shell-new--stitch .app-shell-new__main,
+body.noeis-editorial.noeis-public-share .app-shell-new--stitch .app-shell-new__body {
+  height: auto !important;
+  min-height: 100vh;
+  overflow: visible !important;
+}
+
+body.noeis-editorial.noeis-public-share .app-shell-new--stitch .app-shell-new__body {
+  max-width: none;
+}
+
 body.noeis-editorial .topbar {
   position: fixed;
   top: 0;
