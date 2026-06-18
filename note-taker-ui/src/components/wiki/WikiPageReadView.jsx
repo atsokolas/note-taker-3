@@ -8,7 +8,8 @@ import {
   getWikiPageMarkdown,
   maintainWikiPage,
   promoteWikiDiscussion,
-  streamAskWikiPage
+  streamAskWikiPage,
+  updateWikiPage
 } from '../../api/wiki';
 import { getConnectionsForItem } from '../../api/connections';
 import { trackWikiQaPromoted, trackWikiReadModePageView } from '../../utils/wikiAnalytics';
@@ -407,6 +408,12 @@ const formatSourceCounts = ({ citationCount = 0, claimCount = 0 }) => {
   if (citationCount > 0) parts.push(`${citationCount} citation${citationCount === 1 ? '' : 's'}`);
   if (claimCount > 0) parts.push(`${claimCount} claim${claimCount === 1 ? '' : 's'}`);
   return parts.join(' / ');
+};
+
+const buildPublicWikiShareUrl = (page = {}) => {
+  const pageId = normalizeId(page?._id || page?.id);
+  if (!pageId || typeof window === 'undefined') return '';
+  return `${window.location.origin}/share/wiki/${encodeURIComponent(pageId)}`;
 };
 
 const countPageSources = (page = {}) => countWikiSources(page);
@@ -962,6 +969,8 @@ const WikiPageReadView = ({
   const [streamingAskText, setStreamingAskText] = useState('');
   const [promotingDiscussionId, setPromotingDiscussionId] = useState('');
   const [error, setError] = useState('');
+  const [shareBusy, setShareBusy] = useState(false);
+  const [shareStatus, setShareStatus] = useState('');
   const [activeClaim, setActiveClaim] = useState(null);
   const [preview, setPreview] = useState(null);
   const [lastVisit, setLastVisit] = useState(null);
@@ -1027,6 +1036,7 @@ const WikiPageReadView = ({
     setNonCriticalReady(false);
     setMaintenanceTraceLines([]);
     setMaintenanceReceipt(null);
+    setShareStatus('');
     if (pageTransitionTimerRef.current) {
       clearTimeout(pageTransitionTimerRef.current);
       pageTransitionTimerRef.current = null;
@@ -1185,6 +1195,33 @@ const WikiPageReadView = ({
       });
     } finally {
       setMaintaining(false);
+    }
+  }, [page, pageId]);
+
+  const handleShareSafely = useCallback(async () => {
+    const currentPage = latestPageRef.current || page;
+    const publicUrl = buildPublicWikiShareUrl(currentPage);
+    if (!currentPage || !publicUrl) return;
+    setShareBusy(true);
+    setShareStatus('');
+    try {
+      let sharedPage = currentPage;
+      if (String(currentPage.visibility || 'private') !== 'shared') {
+        sharedPage = await updateWikiPage(pageId, { visibility: 'shared' });
+        latestPageRef.current = sharedPage;
+        setPage(sharedPage);
+      }
+      const nextUrl = buildPublicWikiShareUrl(sharedPage) || publicUrl;
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(nextUrl);
+        setShareStatus('Copied safe public link.');
+      } else {
+        setShareStatus('Safe public link ready.');
+      }
+    } catch (_error) {
+      setShareStatus('Could not create the public link.');
+    } finally {
+      setShareBusy(false);
     }
   }, [page, pageId]);
 
@@ -1739,6 +1776,8 @@ const WikiPageReadView = ({
   }
   const readPageType = String(page.pageType || 'topic').toLowerCase().replace(/[^a-z0-9_-]/g, '-');
   const bodyTransitionClass = pageTransitionState !== 'idle' ? ' wiki-read__body--transitioning' : '';
+  const publicShareUrl = buildPublicWikiShareUrl(page);
+  const isSharedPublicly = String(page.visibility || 'private') === 'shared';
   return (
     <main
       className={`wiki-page wiki-read wiki-read--type-${readPageType}`}
@@ -1756,6 +1795,25 @@ const WikiPageReadView = ({
           {error ? <span className="wiki-editor__error" role="alert">{error}</span> : null}
         </div>
       ) : null}
+      <section className={`wiki-read__share-strip ${isSharedPublicly ? 'is-shared' : 'is-private'}`} aria-label="Safe wiki sharing">
+        <div>
+          <p className="wiki-read__share-kicker">{isSharedPublicly ? 'Public link ready' : 'Share without exposing your workspace'}</p>
+          <p>
+            Public readers see this page and its references. Backlinks, private source notes, graph edges, and agent work stay inside Noeis.
+          </p>
+          {shareStatus ? <p className="wiki-read__share-status" role="status">{shareStatus}</p> : null}
+        </div>
+        <div className="wiki-read__share-actions">
+          <Button type="button" variant="secondary" onClick={handleShareSafely} disabled={shareBusy}>
+            {shareBusy ? 'Preparing...' : isSharedPublicly ? 'Copy public link' : 'Share safely'}
+          </Button>
+          {isSharedPublicly && publicShareUrl ? (
+            <a className="wiki-read__share-open" href={publicShareUrl} target="_blank" rel="noopener noreferrer">
+              Open
+            </a>
+          ) : null}
+        </div>
+      </section>
       {nonCriticalReady ? (
         <Suspense fallback={null}>
           {!workspaceMode ? (

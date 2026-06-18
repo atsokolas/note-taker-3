@@ -37,7 +37,15 @@ describe('SharedWikiPage', () => {
           content: [
             { type: 'paragraph', content: [{ type: 'text', text: 'Opportunity cost frames tradeoffs.' }] },
             { type: 'heading', attrs: { level: 2 }, content: [{ type: 'text', text: 'Evidence' }] },
-            { type: 'paragraph', content: [{ type: 'text', text: 'The evidence section is public.' }] }
+            { type: 'paragraph', content: [{ type: 'text', text: 'The evidence section is public.' }] },
+            {
+              type: 'paragraph',
+              content: [{
+                type: 'text',
+                text: 'Private neighbor',
+                marks: [{ type: 'wikiLink', attrs: { pageId: 'wiki-private', title: 'Private neighbor' } }]
+              }]
+            }
           ]
         }
       }
@@ -49,7 +57,11 @@ describe('SharedWikiPage', () => {
     expect(await screen.findByRole('heading', { name: 'Opportunity Cost' })).toBeInTheDocument();
     expect(screen.getByRole('status')).toHaveTextContent('Public page ready: citations included, private source notes withheld.');
     expect(screen.getAllByText('Opportunity cost frames tradeoffs.')).toHaveLength(2);
+    expect(screen.getByText('References')).toBeInTheDocument();
+    expect(screen.getByText(/Private backlinks, source notes, graph edges, and agent work are not exposed/i)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Munger notes' })).toHaveAttribute('href', 'https://example.com/munger');
+    expect(screen.queryByRole('link', { name: 'Private neighbor' })).not.toBeInTheDocument();
+    expect(screen.getByText('Private neighbor')).toHaveClass('wiki-internal-link--static');
     expect(screen.getByRole('link', { name: 'Open Noeis' })).toHaveAttribute('href', '/');
   });
 

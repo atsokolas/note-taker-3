@@ -100,14 +100,24 @@ export const firstParagraphText = (doc) => {
   return paragraph ? plainText(paragraph.content).replace(/\s+/g, ' ').trim() : '';
 };
 
-const renderTextNode = (node, key) => {
+const renderTextNode = (node, key, options = {}) => {
   const text = stripModelSourceRangeCitations(node?.text || '');
   if (!text) return null;
   const wikiLinkMark = Array.isArray(node.marks)
     ? node.marks.find(mark => mark?.type === 'wikiLink')
     : null;
   const wikiHref = wikiLinkMark?.attrs?.pageId ? wikiPagePath(wikiLinkMark.attrs.pageId) : '';
-  const wikiLinkedText = wikiLinkMark?.attrs?.pageId ? (
+  const wikiLinkedText = wikiLinkMark?.attrs?.pageId && options.disableInternalWikiLinks ? (
+    <span
+      key={`${key}-wiki-link-static`}
+      className="wiki-internal-link wiki-internal-link--static"
+      data-wiki-page-id={wikiLinkMark.attrs.pageId}
+      data-wiki-title={wikiLinkMark.attrs.title || ''}
+      title="Private wiki backlink hidden on the public share."
+    >
+      {text}
+    </span>
+  ) : wikiLinkMark?.attrs?.pageId ? (
     <Link
       key={`${key}-wiki-link`}
       className="wiki-internal-link"
@@ -158,10 +168,10 @@ const renderTextNode = (node, key) => {
   return <React.Fragment key={key}>{wikiLinkedText}</React.Fragment>;
 };
 
-const renderInline = (content = [], keyPrefix = '') => content
+const renderInline = (content = [], keyPrefix = '', options = {}) => content
   .map((child, index) => {
     if (!child) return null;
-    if (child.type === 'text') return renderTextNode(child, `${keyPrefix}-${index}`);
+    if (child.type === 'text') return renderTextNode(child, `${keyPrefix}-${index}`, options);
     return null;
   })
   .filter(Boolean);
@@ -170,8 +180,8 @@ const renderPullquoteContent = (node, key, options = {}) => {
   const content = Array.isArray(node.content) ? node.content : [];
   if (!content.length && node.attrs?.text) return <p>{node.attrs.text}</p>;
   return content.map((child, index) => {
-    if (child?.type === 'paragraph') return <p key={`${key}-p-${index}`}>{renderInline(child.content, `pullquote-${key}-${index}`)}</p>;
-    if (child?.type === 'text') return renderTextNode(child, `pullquote-${key}-${index}`);
+    if (child?.type === 'paragraph') return <p key={`${key}-p-${index}`}>{renderInline(child.content, `pullquote-${key}-${index}`, options)}</p>;
+    if (child?.type === 'text') return renderTextNode(child, `pullquote-${key}-${index}`, options);
     return renderBlock(child, `${key}-${index}`, options);
   }).filter(Boolean);
 };
@@ -193,7 +203,7 @@ const renderBlock = (node, key, options = {}) => {
           data-wiki-block-anchor={anchorId}
           className={isRecent ? 'wiki-read__paragraph--recent' : undefined}
         >
-          {renderInline(node.content, `p-${key}`)}
+          {renderInline(node.content, `p-${key}`, options)}
         </p>
       );
     }
@@ -203,7 +213,7 @@ const renderBlock = (node, key, options = {}) => {
       const level = Math.max(2, Math.min(6, node.attrs?.level || 2));
       const HeadingTag = `h${level}`;
       const tocItem = options.tocByBlockIndex?.get?.(key);
-      return <HeadingTag key={key} id={tocItem?.id}>{renderInline(node.content, `h-${key}`)}</HeadingTag>;
+      return <HeadingTag key={key} id={tocItem?.id}>{renderInline(node.content, `h-${key}`, options)}</HeadingTag>;
     }
     case 'bulletList':
       return (

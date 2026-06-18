@@ -13,7 +13,8 @@ import {
   maintainWikiPage,
   promoteWikiDiscussion,
   streamAskWikiPage,
-  streamMaintainWikiPage
+  streamMaintainWikiPage,
+  updateWikiPage
 } from '../../api/wiki';
 import { getConnectionsForItem } from '../../api/connections';
 
@@ -27,7 +28,8 @@ jest.mock('../../api/wiki', () => ({
   maintainWikiPage: jest.fn(),
   promoteWikiDiscussion: jest.fn(),
   streamAskWikiPage: jest.fn(),
-  streamMaintainWikiPage: jest.fn()
+  streamMaintainWikiPage: jest.fn(),
+  updateWikiPage: jest.fn()
 }));
 
 jest.mock('../../api/connections', () => ({
@@ -149,6 +151,7 @@ describe('WikiPageReadView', () => {
     streamAskWikiPage.mockResolvedValue(page);
     createWikiPage.mockResolvedValue({ _id: 'wiki-new', title: 'Portfolio Concentration' });
     streamMaintainWikiPage.mockResolvedValue({ _id: 'wiki-new', title: 'Portfolio Concentration' });
+    updateWikiPage.mockResolvedValue({ ...page, visibility: 'shared' });
     window.HTMLElement.prototype.scrollIntoView = jest.fn();
     window.matchMedia = jest.fn().mockReturnValue({ matches: false });
     window.localStorage.clear();
@@ -201,6 +204,35 @@ describe('WikiPageReadView', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
     expect(onEdit).toHaveBeenCalledTimes(1);
+  });
+
+  it('shares the current wiki page from the read surface without exposing private graph affordances', async () => {
+    const writeText = jest.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      writable: true,
+      value: { writeText }
+    });
+
+    render(
+      <MemoryRouter>
+        <WikiPageReadView pageId="wiki-1" onEdit={jest.fn()} workspaceMode />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByRole('heading', { name: 'Enterprise AI Memory' })).toBeInTheDocument();
+    const shareRegion = screen.getByRole('region', { name: 'Safe wiki sharing' });
+    expect(shareRegion).toHaveTextContent('Share without exposing your workspace');
+    expect(shareRegion).toHaveTextContent('Backlinks, private source notes, graph edges, and agent work stay inside Noeis.');
+
+    await act(async () => {
+      fireEvent.click(within(shareRegion).getByRole('button', { name: 'Share safely' }));
+    });
+
+    expect(updateWikiPage).toHaveBeenCalledWith('wiki-1', { visibility: 'shared' });
+    expect(writeText).toHaveBeenCalledWith(`${window.location.origin}/share/wiki/wiki-1`);
+    expect(await within(shareRegion).findByRole('status')).toHaveTextContent('Copied safe public link.');
+    expect(within(shareRegion).getByRole('link', { name: 'Open' })).toHaveAttribute('href', `${window.location.origin}/share/wiki/wiki-1`);
   });
 
   it('keeps the article title as the only h1 even when stored body content includes h1 headings', async () => {

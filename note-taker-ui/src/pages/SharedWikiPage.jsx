@@ -88,6 +88,9 @@ const SharedWikiPage = () => {
             <p className="shared-wiki-page__receipt" role="status">
               {buildSharePreviewReceipt()}
             </p>
+            <p className="shared-wiki-page__privacy-note">
+              References are visible as a static citation list. Private backlinks, source notes, graph edges, and agent work are not exposed.
+            </p>
             {intro ? <p className="shared-wiki-page__intro">{intro}</p> : null}
             <div className="shared-wiki-page__metrics" aria-label="Wiki page metrics">
               <span>{wordCount} words</span>
@@ -110,13 +113,16 @@ const SharedWikiPage = () => {
             ) : null}
 
             <div className="shared-wiki-page__body wiki-read">
-              {renderTiptapDoc(page.body, { tocItems })}
+              {renderTiptapDoc(page.body, { tocItems, disableInternalWikiLinks: true })}
             </div>
           </div>
 
           {Array.isArray(page.sourceRefs) && page.sourceRefs.length > 0 ? (
-            <section className="shared-wiki-page__sources" aria-label="Sources">
-              <h2>Sources</h2>
+            <section className="shared-wiki-page__sources" aria-label="References">
+              <h2>References</h2>
+              <p className="shared-wiki-page__sources-note">
+                These are static references for the shared page. They do not open the private Noeis graph.
+              </p>
               <ol>
                 {page.sourceRefs.slice(0, 24).map((source, index) => (
                   <li key={source._id || source.id || index}>
