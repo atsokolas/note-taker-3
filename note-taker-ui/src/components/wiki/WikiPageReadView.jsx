@@ -1225,6 +1225,23 @@ const WikiPageReadView = ({
     }
   }, [page, pageId]);
 
+  const handleStopSharing = useCallback(async () => {
+    const currentPage = latestPageRef.current || page;
+    if (!currentPage) return;
+    setShareBusy(true);
+    setShareStatus('');
+    try {
+      const privatePage = await updateWikiPage(pageId, { visibility: 'private' });
+      latestPageRef.current = privatePage;
+      setPage(privatePage);
+      setShareStatus('Public link turned off.');
+    } catch (_error) {
+      setShareStatus('Could not turn off the public link.');
+    } finally {
+      setShareBusy(false);
+    }
+  }, [page, pageId]);
+
   const handleAsk = async (question) => {
     setAsking(true);
     setError('');
@@ -1880,23 +1897,6 @@ const WikiPageReadView = ({
             surface={page?.title || 'Wiki page'}
           />
           <div className="wiki-read__maintenance-actions">
-            <div className={`wiki-read__share-compact wiki-read__share-compact--maintenance ${isSharedPublicly ? 'is-shared' : 'is-private'}`} role="region" aria-label="Safe wiki sharing">
-              <span className="wiki-read__share-compact-label">
-                {isSharedPublicly ? 'Public link ready' : 'Share safe link'}
-              </span>
-              <span className="wiki-read__share-compact-copy">
-                Page and references only.
-              </span>
-              <Button type="button" variant="secondary" onClick={handleShareSafely} disabled={shareBusy}>
-                {shareBusy ? 'Preparing...' : isSharedPublicly ? 'Copy link' : 'Share'}
-              </Button>
-              {isSharedPublicly && publicShareUrl ? (
-                <a className="wiki-read__share-open" href={publicShareUrl} target="_blank" rel="noopener noreferrer">
-                  Open
-                </a>
-              ) : null}
-              {shareStatus ? <span className="wiki-read__share-status" role="status">{shareStatus}</span> : null}
-            </div>
             <Button type="button" variant="secondary" onClick={handleMaintain} disabled={maintenanceActive}>
               {maintenanceActive ? 'Running...' : 'Run again'}
             </Button>
@@ -1958,6 +1958,37 @@ const WikiPageReadView = ({
                 In workspace mode the agent will surface quality problems
                 via chat notification (AT-26). */}
             <WikiReadTitle title={page.title || 'Untitled Wiki Page'} />
+            <section
+              className={`wiki-read__share-card ${isSharedPublicly ? 'is-shared' : 'is-private'}`}
+              aria-label="Share this wiki page"
+            >
+              <div className="wiki-read__share-card-copy">
+                <span className="wiki-read__share-card-kicker">
+                  {isSharedPublicly ? 'Public link ready' : 'Private page'}
+                </span>
+                <p>
+                  {isSharedPublicly
+                    ? 'Shared readers see this article and references only. Backlinks, highlights, source notes, and agent work stay private.'
+                    : 'Create a safe public page with the article and references only. Your backlinks, highlights, source notes, and agent work stay private.'}
+                </p>
+              </div>
+              <div className="wiki-read__share-card-actions">
+                <Button type="button" variant="secondary" onClick={handleShareSafely} disabled={shareBusy}>
+                  {shareBusy ? 'Preparing...' : isSharedPublicly ? 'Copy link' : 'Share'}
+                </Button>
+                {isSharedPublicly && publicShareUrl ? (
+                  <a className="wiki-read__share-open" href={publicShareUrl} target="_blank" rel="noopener noreferrer">
+                    Open public page
+                  </a>
+                ) : null}
+                {isSharedPublicly ? (
+                  <Button type="button" variant="secondary" onClick={handleStopSharing} disabled={shareBusy}>
+                    Stop sharing
+                  </Button>
+                ) : null}
+              </div>
+              {shareStatus ? <span className="wiki-read__share-status" role="status">{shareStatus}</span> : null}
+            </section>
             {!workspaceMode ? (
               <div className="wiki-read__exports" aria-label="Markdown export">
                 <button type="button" onClick={handleCopyMarkdown}>Copy markdown</button>

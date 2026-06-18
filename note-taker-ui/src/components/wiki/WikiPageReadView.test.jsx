@@ -221,9 +221,10 @@ describe('WikiPageReadView', () => {
     );
 
     expect(await screen.findByRole('heading', { name: 'Enterprise AI Memory' })).toBeInTheDocument();
-    const shareRegion = screen.getByRole('region', { name: 'Safe wiki sharing' });
-    expect(shareRegion).toHaveTextContent('Share safe link');
-    expect(shareRegion).toHaveTextContent('Page and references only.');
+    const shareRegion = screen.getByRole('region', { name: 'Share this wiki page' });
+    expect(shareRegion).toHaveTextContent('Private page');
+    expect(shareRegion).toHaveTextContent('Create a safe public page with the article and references only.');
+    expect(shareRegion).toHaveTextContent('backlinks, highlights, source notes, and agent work stay private');
 
     await act(async () => {
       fireEvent.click(within(shareRegion).getByRole('button', { name: 'Share' }));
@@ -232,7 +233,31 @@ describe('WikiPageReadView', () => {
     expect(updateWikiPage).toHaveBeenCalledWith('wiki-1', { visibility: 'shared' });
     expect(writeText).toHaveBeenCalledWith(`${window.location.origin}/share/wiki/wiki-1`);
     expect(await within(shareRegion).findByRole('status')).toHaveTextContent('Copied safe public link.');
-    expect(within(shareRegion).getByRole('link', { name: 'Open' })).toHaveAttribute('href', `${window.location.origin}/share/wiki/wiki-1`);
+    expect(within(shareRegion).getByRole('link', { name: 'Open public page' })).toHaveAttribute('href', `${window.location.origin}/share/wiki/wiki-1`);
+  });
+
+  it('lets a shared wiki page stop exposing its public link from the read surface', async () => {
+    getWikiPage.mockResolvedValueOnce({ ...page, visibility: 'shared' });
+    updateWikiPage.mockResolvedValueOnce({ ...page, visibility: 'private' });
+
+    render(
+      <MemoryRouter>
+        <WikiPageReadView pageId="wiki-1" onEdit={jest.fn()} workspaceMode />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByRole('heading', { name: 'Enterprise AI Memory' })).toBeInTheDocument();
+    const shareRegion = screen.getByRole('region', { name: 'Share this wiki page' });
+    expect(shareRegion).toHaveTextContent('Public link ready');
+    expect(within(shareRegion).getByRole('link', { name: 'Open public page' })).toHaveAttribute('href', `${window.location.origin}/share/wiki/wiki-1`);
+
+    await act(async () => {
+      fireEvent.click(within(shareRegion).getByRole('button', { name: 'Stop sharing' }));
+    });
+
+    expect(updateWikiPage).toHaveBeenCalledWith('wiki-1', { visibility: 'private' });
+    expect(await within(shareRegion).findByRole('status')).toHaveTextContent('Public link turned off.');
+    expect(within(shareRegion).queryByRole('link', { name: 'Open public page' })).not.toBeInTheDocument();
   });
 
   it('keeps the article title as the only h1 even when stored body content includes h1 headings', async () => {

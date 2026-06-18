@@ -5408,6 +5408,58 @@ html[data-ui-theme='dark'] {
   color: var(--text-muted);
 }
 
+.wiki-read__share-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: center;
+  margin: 16px 0 12px;
+  padding: 14px 16px;
+  border: 1px solid color-mix(in srgb, var(--border-subtle, #d8d0c4) 88%, transparent);
+  border-radius: 8px;
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--surface-raised, #fffaf2) 92%, transparent), transparent 120%),
+    var(--surface, #fffaf2);
+  box-shadow: 0 12px 28px color-mix(in srgb, #2a241b 7%, transparent);
+}
+
+.wiki-read__share-card-copy {
+  min-width: 0;
+}
+
+.wiki-read__share-card-kicker {
+  display: block;
+  margin-bottom: 5px;
+  color: color-mix(in srgb, var(--text-muted) 86%, var(--text-primary));
+  font-family: -apple-system, BlinkMacSystemFont, "SF Mono", Menlo, monospace;
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.wiki-read__share-card p {
+  margin: 0;
+  max-width: 70ch;
+  color: var(--text-secondary);
+  font-size: 0.86rem;
+  line-height: 1.45;
+}
+
+.wiki-read__share-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+  align-items: center;
+}
+
+.wiki-read__share-card .wiki-read__share-status {
+  grid-column: 1 / -1;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+
 .wiki-read__body {
   padding: 26px 0 12px;
   color: var(--text-primary);
@@ -7159,6 +7211,7 @@ html[data-ui-theme='dark'] .wiki-claim-popover__evidence--contradicts .wiki-clai
   .wiki-read__share-strip,
   .wiki-read__viewbar,
   .wiki-read__share-compact,
+  .wiki-read__share-card,
   .shared-wiki-page__adopt,
   .shared-wiki-page__topbar,
   .shared-wiki-page__metrics {
@@ -7173,6 +7226,14 @@ html[data-ui-theme='dark'] .wiki-claim-popover__evidence--contradicts .wiki-clai
   .wiki-read__share-compact {
     max-width: 100%;
     padding-bottom: 12px;
+  }
+
+  .wiki-read__share-card {
+    grid-template-columns: 1fr;
+  }
+
+  .wiki-read__share-card-actions {
+    justify-content: flex-start;
   }
 
   .wiki-read__share-compact-copy {
