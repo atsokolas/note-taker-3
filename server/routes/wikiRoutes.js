@@ -91,6 +91,20 @@ const INVERSE_CONNECTION_RELATION_TYPES = {
 
 const emptyDoc = () => ({ type: 'doc', content: [{ type: 'paragraph' }] });
 
+const paragraphNode = (content = []) => ({
+  type: 'paragraph',
+  content: content.map(item => {
+    if (typeof item === 'string') return { type: 'text', text: item };
+    return item;
+  })
+});
+
+const wikiLinkText = ({ text, pageId, title }) => ({
+  type: 'text',
+  text,
+  marks: [{ type: 'wikiLink', attrs: { pageId, title: title || text } }]
+});
+
 const slugify = (value = '') => {
   const base = String(value || 'untitled-wiki-page')
     .trim()
@@ -100,6 +114,129 @@ const slugify = (value = '') => {
     .slice(0, 80);
   return base || 'untitled-wiki-page';
 };
+
+const starterOriginId = (packId, title) => `starter:${packId}:${slugify(title)}`;
+
+const buildStarterPage = ({ packId, title, pageType = 'overview', summary, links = [] }) => {
+  const pageId = starterOriginId(packId, title);
+  const linkedContent = [];
+  links.forEach((link, index) => {
+    if (index > 0) linkedContent.push(', ');
+    linkedContent.push(wikiLinkText({
+      text: link,
+      title: link,
+      pageId: starterOriginId(packId, link)
+    }));
+  });
+  const body = {
+    type: 'doc',
+    content: [
+      { type: 'heading', attrs: { level: 1 }, content: [{ type: 'text', text: title }] },
+      paragraphNode([summary]),
+      ...(links.length ? [
+        { type: 'heading', attrs: { level: 2 }, content: [{ type: 'text', text: 'Connections' }] },
+        paragraphNode(['This starter page connects to ', ...linkedContent, '.'])
+      ] : []),
+      { type: 'heading', attrs: { level: 2 }, content: [{ type: 'text', text: 'Make it yours' }] },
+      paragraphNode(['Sample — feed me your reading to make these pages yours.'])
+    ]
+  };
+  return {
+    _id: pageId,
+    title,
+    slug: slugify(title),
+    pageType,
+    status: 'published',
+    visibility: 'shared',
+    plainText: [title, summary, ...links, 'Sample — feed me your reading to make these pages yours.'].filter(Boolean).join('\n'),
+    body,
+    sourceRefs: [{
+      type: 'external',
+      title: 'Noeis starter pack',
+      snippet: `Starter scaffold for ${title}.`,
+      citationLabel: '[1]'
+    }]
+  };
+};
+
+const STARTER_PACK_CONFIG = [
+  {
+    id: 'mental-models',
+    name: 'Mental Models',
+    tagline: 'The Munger latticework for better judgment.',
+    description: 'Core models for tradeoffs, safety, incentives, and compounding.',
+    hero: true,
+    pages: [
+      ['First Principles Thinking', 'Reason from constraints and irreducible facts before reaching for analogy.', ['Opportunity Cost', 'Inversion']],
+      ['Opportunity Cost', 'Every choice spends the best alternative you did not take.', ['Margin of Safety', 'Circle of Competence']],
+      ['Margin of Safety', 'Leave room for error when the world is uncertain and your model is incomplete.', ['Circle of Competence', 'Inversion']],
+      ['Circle of Competence', 'Knowing the boundary of what you understand is itself an advantage.', ['Incentives', 'Margin of Safety']],
+      ['Incentives', 'Behavior follows rewards, penalties, status, and friction more often than stated intent.', ['Opportunity Cost', 'Inversion']],
+      ['Compound Interest', 'Small gains, repeated and protected from interruption, become nonlinear.', ['Margin of Safety', 'Incentives']],
+      ['Inversion', 'Solve hard problems by asking what would guarantee failure and avoiding it.', ['First Principles Thinking', 'Margin of Safety']]
+    ]
+  },
+  {
+    id: 'behavioral-economics',
+    name: 'Behavioral Economics & Decision-Making',
+    tagline: 'Biases, base rates, and the psychology of judgment.',
+    description: 'A tight decision-making cluster that shows claims, examples, and counterweights.',
+    pages: [
+      ['Loss Aversion', 'People often feel losses more sharply than equivalent gains.', ['Prospect Theory', 'Opportunity Cost']],
+      ['Prospect Theory', 'Choices shift when outcomes are framed as gains or losses from a reference point.', ['Loss Aversion', 'Anchoring']],
+      ['Anchoring', 'Initial numbers and frames pull later judgments toward themselves.', ['Base Rates', 'Availability Heuristic']],
+      ['Availability Heuristic', 'Memorable examples can crowd out representative evidence.', ['Base Rates', 'Loss Aversion']],
+      ['Base Rates', 'Prior probabilities protect decisions from vivid but unrepresentative stories.', ['Availability Heuristic', 'Anchoring']],
+      ['Hyperbolic Discounting', 'Near-term rewards can dominate larger long-term payoffs.', ['Loss Aversion', 'Base Rates']]
+    ]
+  },
+  {
+    id: 'how-to-think-about-ai',
+    name: 'How to Think About AI',
+    tagline: 'A practical map for agents, evals, context, and capability.',
+    description: 'A tech-curious starter graph for reasoning about modern AI systems.',
+    pages: [
+      ['Scaling Laws', 'Model capability often improves predictably with compute, data, and parameters.', ['Evals', 'Capability vs Alignment']],
+      ['Agents', 'Agentic systems combine model reasoning with tools, memory, and delegated action.', ['Context Windows', 'Evals']],
+      ['Context Windows', 'Context is the working set a model can use during one task, not durable memory.', ['Agents', 'Evals']],
+      ['Evals', 'Evaluation turns vague capability claims into observable behavior under test.', ['Capability vs Alignment', 'Scaling Laws']],
+      ['Capability vs Alignment', 'A system can become more capable without becoming more reliably directed at the desired goal.', ['Agents', 'Evals']]
+    ]
+  },
+  {
+    id: 'value-investing',
+    name: 'Value Investing',
+    tagline: 'Durable investing concepts for business-quality thinking.',
+    description: 'Intrinsic value, moats, capital allocation, and owner-oriented judgment.',
+    pages: [
+      ['Intrinsic Value', 'Intrinsic value estimates the cash a business can produce for owners over time.', ['Owner Earnings', 'Margin of Safety']],
+      ['Moats', 'A moat protects returns from competition, substitution, and time.', ['Capital Allocation', 'Intrinsic Value']],
+      ['Mr. Market', 'Market prices can be useful servants and poor masters.', ['Margin of Safety', 'Intrinsic Value']],
+      ['Capital Allocation', 'Managers create or destroy value by deciding where each dollar goes next.', ['Owner Earnings', 'Moats']],
+      ['Owner Earnings', 'Owner earnings focus attention on cash that can truly accrue to owners.', ['Intrinsic Value', 'Capital Allocation']]
+    ]
+  }
+];
+
+const STARTER_PACKS = STARTER_PACK_CONFIG.map(pack => ({
+  ...pack,
+  pages: pack.pages.map(([title, summary, links]) => buildStarterPage({ packId: pack.id, title, summary, links }))
+}));
+
+const starterPackSummary = (pack) => ({
+  id: pack.id,
+  name: pack.name,
+  tagline: pack.tagline,
+  description: pack.description,
+  hero: Boolean(pack.hero),
+  pageCount: pack.pages.length,
+  pages: pack.pages.map(page => ({
+    id: page._id,
+    title: page.title,
+    slug: page.slug,
+    pageType: page.pageType
+  }))
+});
 
 const escapeRegExp = (value = '') => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
@@ -568,6 +705,49 @@ const buildAdoptableWikiPageSnapshot = (page) => {
   };
 };
 
+const remapWikiLinkPageIdsInDoc = (node, pageIdMap = new Map()) => {
+  if (!node || typeof node !== 'object') return node;
+  if (Array.isArray(node)) return node.map(child => remapWikiLinkPageIdsInDoc(child, pageIdMap));
+  const next = { ...node };
+  if (Array.isArray(next.marks)) {
+    next.marks = next.marks.map((mark) => {
+      if (mark?.type !== 'wikiLink') return mark;
+      const rawPageId = String(mark.attrs?.pageId || '');
+      const mappedPageId = pageIdMap.get(rawPageId);
+      if (!mappedPageId) return mark;
+      return {
+        ...mark,
+        attrs: {
+          ...(mark.attrs || {}),
+          pageId: mappedPageId
+        }
+      };
+    });
+  }
+  if (Array.isArray(next.content)) {
+    next.content = next.content.map(child => remapWikiLinkPageIdsInDoc(child, pageIdMap));
+  }
+  return next;
+};
+
+const serializePublicWikiCollection = ({ collection, pages = [] } = {}) => {
+  if (!collection) return null;
+  const raw = typeof collection.toObject === 'function'
+    ? collection.toObject({ virtuals: false })
+    : { ...collection };
+  return {
+    _id: serializeId(raw._id),
+    name: raw.name || 'Shared wiki',
+    description: raw.description || '',
+    slug: raw.slug || '',
+    visibility: raw.visibility || 'shared',
+    sourceType: raw.sourceType || 'user',
+    packId: raw.packId || '',
+    pageCount: pages.length,
+    pages: pages.map(serializePublicWikiPage).filter(Boolean)
+  };
+};
+
 const buildWikiDraftSuggestions = ({ page }) => {
   const sourceIds = Array.isArray(page.sourceRefs)
     ? page.sourceRefs.map(source => source._id).filter(Boolean)
@@ -944,6 +1124,7 @@ const buildWikiRouter = ({
   WikiLintRun = null,
   WikiSourceEvent = null,
   WikiMaintenanceRun = null,
+  WikiSharedCollection = null,
   WikiSchemaSettings = null,
   Connection = null,
   ConnectorActionLog = null,
@@ -1218,6 +1399,94 @@ const buildWikiRouter = ({
       if (!existing) return slug;
     }
     return `${base}-${Date.now()}`;
+  };
+
+  const buildUniqueCollectionSlug = async (slugBase) => {
+    const base = slugify(slugBase || 'shared-wiki');
+    if (!WikiSharedCollection?.findOne) return base;
+    for (let i = 0; i < 25; i += 1) {
+      const slug = i === 0 ? base : `${base}-${i + 1}`;
+      const existing = await WikiSharedCollection.findOne({ slug }).select('_id').lean();
+      if (!existing) return slug;
+    }
+    return `${base}-${Date.now()}`;
+  };
+
+  const createAdoptedWikiPages = async ({
+    userId,
+    snapshots = [],
+    originType = 'page',
+    originCollectionId = '',
+    originCollectionTitle = '',
+    packId = '',
+    sample = false
+  } = {}) => {
+    const validSnapshots = snapshots.filter(snapshot => snapshot?.page);
+    const pageIdMap = new Map();
+    const pageEntries = [];
+    for (const snapshot of validSnapshots) {
+      const titleExists = await WikiPage.findOne({
+        userId,
+        title: snapshot.page.title,
+        status: { $ne: 'archived' }
+      }).select('_id').lean();
+      const title = titleExists ? `${snapshot.page.title} (adapted)` : snapshot.page.title;
+      const page = new WikiPage({
+        userId,
+        title,
+        slug: await buildUniqueSlug(userId, title),
+        pageType: snapshot.page.pageType,
+        status: 'draft',
+        visibility: 'private',
+        sourceScope: 'selected_sources',
+        createdFrom: {
+          type: 'wiki_index',
+          text: snapshot.page.plainText || '',
+          label: originCollectionTitle || snapshot.origin.originTitle || snapshot.page.title
+        },
+        adoptedFrom: {
+          originType,
+          originPageId: mongoose.Types.ObjectId.isValid(snapshot.origin.originPageId)
+            ? snapshot.origin.originPageId
+            : null,
+          originCollectionId,
+          originSlug: snapshot.origin.originSlug || '',
+          originTitle: snapshot.origin.originTitle || snapshot.page.title,
+          packId,
+          sample,
+          adoptedAt: new Date()
+        },
+        body: clonePlain(snapshot.page.body || emptyDoc()),
+        plainText: snapshot.page.plainText || '',
+        sourceRefs: clonePlain(snapshot.page.sourceRefs || [])
+      });
+      pageIdMap.set(String(snapshot.origin.originPageId || ''), String(page._id));
+      pageEntries.push({ page, snapshot, titleExists: Boolean(titleExists) });
+    }
+
+    const pages = [];
+    for (const entry of pageEntries) {
+      entry.page.body = remapWikiLinkPageIdsInDoc(clonePlain(entry.page.body || emptyDoc()), pageIdMap);
+      entry.page.plainText = extractPlainText(entry.page.body);
+      refreshPageClaims(entry.page);
+      await entry.page.save();
+      await syncPageGraph(entry.page, userId);
+      await createWikiRevision({
+        WikiRevision,
+        userId,
+        page: entry.page,
+        reason: 'created',
+        actorType: 'user',
+        summary: originType === 'starter_pack'
+          ? `Adopted starter pack "${originCollectionTitle}".`
+          : `Adopted shared wiki "${originCollectionTitle || entry.snapshot.origin.originTitle || entry.page.title}".`
+      });
+      pages.push({ page: entry.page, mergeAvailable: entry.titleExists });
+    }
+    return {
+      pages,
+      pageIdMap
+    };
   };
 
   const findOwnedPage = (req) => WikiPage.findOne({ _id: req.params.id, userId: req.user.id });
@@ -2051,56 +2320,162 @@ const buildWikiRouter = ({
 
       const adoptable = buildAdoptableWikiPageSnapshot(originPage);
       if (!adoptable?.page) return res.status(422).json({ error: 'Shared wiki page could not be adopted.' });
-      const titleExists = await WikiPage.findOne({
+      const result = await createAdoptedWikiPages({
         userId: req.user.id,
-        title: adoptable.page.title,
-        status: { $ne: 'archived' }
-      }).select('_id').lean();
-      const title = titleExists ? `${adoptable.page.title} (adapted)` : adoptable.page.title;
-      const page = new WikiPage({
-        userId: req.user.id,
-        title,
-        slug: await buildUniqueSlug(req.user.id, title),
-        pageType: adoptable.page.pageType,
-        status: 'draft',
-        visibility: 'private',
-        sourceScope: 'selected_sources',
-        createdFrom: {
-          type: 'wiki_index',
-          text: adoptable.page.plainText || '',
-          label: adoptable.origin.originTitle || adoptable.page.title
-        },
-        adoptedFrom: {
-          originPageId: mongoose.Types.ObjectId.isValid(adoptable.origin.originPageId)
-            ? adoptable.origin.originPageId
-            : null,
-          originSlug: adoptable.origin.originSlug || '',
-          originTitle: adoptable.origin.originTitle || adoptable.page.title,
-          adoptedAt: new Date()
-        },
-        body: adoptable.page.body || emptyDoc(),
-        plainText: adoptable.page.plainText || '',
-        sourceRefs: adoptable.page.sourceRefs || []
+        snapshots: [adoptable],
+        originType: 'page'
       });
-      refreshPageClaims(page);
-      await page.save();
-      await syncPageGraph(page, req.user.id);
-      await createWikiRevision({
-        WikiRevision,
-        userId: req.user.id,
-        page,
-        reason: 'created',
-        actorType: 'user',
-        summary: `Adopted shared wiki page "${adoptable.origin.originTitle || page.title}".`
-      });
+      const adopted = result.pages[0] || {};
+      const page = adopted.page;
       res.status(201).json({
         page: serializeWikiPage(page),
         adoptedFrom: page.adoptedFrom || {},
-        mergeAvailable: Boolean(titleExists)
+        mergeAvailable: Boolean(adopted.mergeAvailable)
       });
     } catch (error) {
       console.error('Error adopting shared wiki page:', error);
       res.status(500).json({ error: 'Failed to adopt shared wiki page.' });
+    }
+  });
+
+  router.get('/api/public/wiki/starter-packs', async (_req, res) => {
+    res.status(200).json({
+      packs: STARTER_PACKS.map(starterPackSummary)
+    });
+  });
+
+  router.get('/api/public/wiki/starter-packs/:packId', async (req, res) => {
+    const pack = STARTER_PACKS.find(candidate => candidate.id === String(req.params.packId || '').trim());
+    if (!pack) return res.status(404).json({ error: 'Starter pack not found.' });
+    res.status(200).json({
+      pack: {
+        ...starterPackSummary(pack),
+        pages: pack.pages.map(serializePublicWikiPage)
+      }
+    });
+  });
+
+  router.post('/api/public/wiki/starter-packs/:packId/adopt', wikiAuth, async (req, res) => {
+    try {
+      const pack = STARTER_PACKS.find(candidate => candidate.id === String(req.params.packId || '').trim());
+      if (!pack) return res.status(404).json({ error: 'Starter pack not found.' });
+      const snapshots = pack.pages.map(buildAdoptableWikiPageSnapshot).filter(Boolean);
+      const result = await createAdoptedWikiPages({
+        userId: req.user.id,
+        snapshots,
+        originType: 'starter_pack',
+        originCollectionId: pack.id,
+        originCollectionTitle: pack.name,
+        packId: pack.id,
+        sample: true
+      });
+      res.status(201).json({
+        pack: starterPackSummary(pack),
+        pages: result.pages.map(entry => serializeWikiPage(entry.page)),
+        mergeAvailable: result.pages.some(entry => entry.mergeAvailable)
+      });
+    } catch (error) {
+      console.error('Error adopting starter pack:', error);
+      res.status(500).json({ error: 'Failed to adopt starter pack.' });
+    }
+  });
+
+  router.post('/api/wiki/collections', wikiAuth, async (req, res) => {
+    try {
+      if (!WikiSharedCollection) return res.status(501).json({ error: 'Wiki collections are not configured.' });
+      const name = String(req.body?.name || '').trim();
+      if (!name) return res.status(400).json({ error: 'Collection name is required.' });
+      const pageIds = Array.isArray(req.body?.pageIds)
+        ? req.body.pageIds.map(id => String(id || '').trim()).filter(Boolean)
+        : [];
+      if (!pageIds.length) return res.status(400).json({ error: 'At least one page is required.' });
+      const pages = await WikiPage.find({
+        _id: { $in: pageIds },
+        userId: req.user.id,
+        status: { $ne: 'archived' }
+      }).select('_id').lean();
+      const allowedIds = new Set((Array.isArray(pages) ? pages : []).map(page => String(page._id)));
+      const sanitizedPageIds = pageIds.filter(id => allowedIds.has(String(id)));
+      if (!sanitizedPageIds.length) return res.status(404).json({ error: 'No owned wiki pages found for this collection.' });
+      const visibility = req.body?.visibility === 'private' ? 'private' : 'shared';
+      const slug = await buildUniqueCollectionSlug(req.body?.slug || name);
+      const collection = new WikiSharedCollection({
+        userId: req.user.id,
+        name,
+        description: String(req.body?.description || '').trim(),
+        slug,
+        pageIds: sanitizedPageIds,
+        visibility,
+        sourceType: 'user'
+      });
+      await collection.save();
+      res.status(201).json({ collection: serializePublicWikiCollection({ collection, pages: [] }) });
+    } catch (error) {
+      console.error('Error creating wiki collection:', error);
+      if (error.code === 11000) return res.status(409).json({ error: 'Collection slug already exists.' });
+      res.status(500).json({ error: 'Failed to create wiki collection.' });
+    }
+  });
+
+  router.get('/api/public/wiki/collections/:idOrSlug', async (req, res) => {
+    try {
+      if (!WikiSharedCollection) return res.status(404).json({ error: 'Shared wiki collection not found.' });
+      const idOrSlug = String(req.params.idOrSlug || '').trim();
+      const query = { visibility: 'shared' };
+      if (mongoose.Types.ObjectId.isValid(idOrSlug)) query._id = idOrSlug;
+      else query.slug = idOrSlug;
+      const collection = await WikiSharedCollection.findOne(query).lean();
+      if (!collection) return res.status(404).json({ error: 'Shared wiki collection not found.' });
+      const pages = await WikiPage.find({
+        _id: { $in: collection.pageIds || [] },
+        visibility: 'shared',
+        status: { $ne: 'archived' }
+      }).sort({ updatedAt: -1 }).lean();
+      res.status(200).json({
+        collection: serializePublicWikiCollection({ collection, pages })
+      });
+    } catch (error) {
+      console.error('Error reading public wiki collection:', error);
+      res.status(500).json({ error: 'Failed to read shared wiki collection.' });
+    }
+  });
+
+  router.post('/api/public/wiki/collections/:idOrSlug/adopt', wikiAuth, async (req, res) => {
+    try {
+      if (!WikiSharedCollection) return res.status(404).json({ error: 'Shared wiki collection not found.' });
+      const idOrSlug = String(req.params.idOrSlug || '').trim();
+      const query = { visibility: 'shared' };
+      if (mongoose.Types.ObjectId.isValid(idOrSlug)) query._id = idOrSlug;
+      else query.slug = idOrSlug;
+      const collection = await WikiSharedCollection.findOne(query).lean();
+      if (!collection) return res.status(404).json({ error: 'Shared wiki collection not found.' });
+      const pages = await WikiPage.find({
+        _id: { $in: collection.pageIds || [] },
+        visibility: 'shared',
+        status: { $ne: 'archived' }
+      }).sort({ updatedAt: -1 }).lean();
+      const snapshots = (Array.isArray(pages) ? pages : []).map(buildAdoptableWikiPageSnapshot).filter(Boolean);
+      if (!snapshots.length) return res.status(422).json({ error: 'Shared wiki collection has no adoptable pages.' });
+      const result = await createAdoptedWikiPages({
+        userId: req.user.id,
+        snapshots,
+        originType: 'collection',
+        originCollectionId: serializeId(collection._id) || collection.slug || '',
+        originCollectionTitle: collection.name || 'Shared wiki'
+      });
+      res.status(201).json({
+        collection: {
+          _id: serializeId(collection._id),
+          name: collection.name,
+          slug: collection.slug,
+          pageCount: result.pages.length
+        },
+        pages: result.pages.map(entry => serializeWikiPage(entry.page)),
+        mergeAvailable: result.pages.some(entry => entry.mergeAvailable)
+      });
+    } catch (error) {
+      console.error('Error adopting shared wiki collection:', error);
+      res.status(500).json({ error: 'Failed to adopt shared wiki collection.' });
     }
   });
 

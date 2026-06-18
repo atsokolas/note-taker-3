@@ -134,6 +134,7 @@ const {
   WikiLintRun,
   WikiSourceEvent,
   WikiMaintenanceRun,
+  WikiSharedCollection,
   ConnectorActionLog,
   dropLegacyConnectionIndex
 } = require('./models/index');
@@ -4928,6 +4929,7 @@ app.use(buildWikiRouter({
   WikiRevision,
   WikiSourceEvent,
   WikiMaintenanceRun,
+  WikiSharedCollection,
   WikiSchemaSettings,
   Connection,
   ConnectorActionLog,

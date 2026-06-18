@@ -65,6 +65,36 @@ export const adoptPublicWikiPage = async (idOrSlug) => {
   return res.data || {};
 };
 
+export const createWikiCollection = async (payload = {}) => {
+  const res = await api.post('/api/wiki/collections', payload, getAuthHeaders());
+  return res.data || {};
+};
+
+export const getPublicWikiCollection = async (idOrSlug) => {
+  const res = await api.get(`/api/public/wiki/collections/${safeId(idOrSlug)}`);
+  return res.data || {};
+};
+
+export const adoptPublicWikiCollection = async (idOrSlug) => {
+  const res = await api.post(`/api/public/wiki/collections/${safeId(idOrSlug)}/adopt`, {}, getAuthHeaders());
+  return res.data || {};
+};
+
+export const listWikiStarterPacks = async () => {
+  const res = await api.get('/api/public/wiki/starter-packs');
+  return Array.isArray(res.data?.packs) ? res.data.packs : [];
+};
+
+export const getWikiStarterPack = async (packId) => {
+  const res = await api.get(`/api/public/wiki/starter-packs/${safeId(packId)}`);
+  return res.data || {};
+};
+
+export const adoptWikiStarterPack = async (packId) => {
+  const res = await api.post(`/api/public/wiki/starter-packs/${safeId(packId)}/adopt`, {}, getAuthHeaders());
+  return res.data || {};
+};
+
 export const getWikiPageMarkdown = async (id) => {
   const res = await api.get(`${WIKI_PAGES_PATH}/${safeId(id)}/markdown`, {
     ...getAuthHeaders(),

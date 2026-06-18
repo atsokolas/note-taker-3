@@ -301,9 +301,13 @@ const wikiCreatedFromSchema = new mongoose.Schema({
 }, { _id: false });
 
 const wikiAdoptedFromSchema = new mongoose.Schema({
+  originType: { type: String, enum: ['page', 'collection', 'starter_pack'], default: 'page' },
   originPageId: { type: mongoose.Schema.Types.ObjectId, default: null },
+  originCollectionId: { type: String, default: '', trim: true },
   originSlug: { type: String, default: '', trim: true },
   originTitle: { type: String, default: '', trim: true },
+  packId: { type: String, default: '', trim: true },
+  sample: { type: Boolean, default: false },
   adoptedAt: { type: Date, default: null }
 }, { _id: false });
 
@@ -631,6 +635,23 @@ const wikiMaintenanceRunSchema = new mongoose.Schema({
 wikiMaintenanceRunSchema.index({ userId: 1, status: 1, createdAt: -1 });
 
 const WikiMaintenanceRun = mongoose.model('WikiMaintenanceRun', wikiMaintenanceRunSchema);
+
+const wikiSharedCollectionSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+  name: { type: String, required: true, trim: true },
+  description: { type: String, default: '', trim: true },
+  slug: { type: String, required: true, trim: true },
+  pageIds: [{ type: mongoose.Schema.Types.ObjectId, ref: 'WikiPage' }],
+  visibility: { type: String, enum: ['private', 'shared'], default: 'shared', index: true },
+  sourceType: { type: String, enum: ['user', 'starter_pack'], default: 'user' },
+  packId: { type: String, default: '', trim: true }
+}, { timestamps: true });
+
+wikiSharedCollectionSchema.index({ slug: 1 }, { unique: true });
+wikiSharedCollectionSchema.index({ userId: 1, updatedAt: -1 });
+wikiSharedCollectionSchema.index({ visibility: 1, updatedAt: -1 });
+
+const WikiSharedCollection = mongoose.model('WikiSharedCollection', wikiSharedCollectionSchema);
 
 const connectorActionLogSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
@@ -1853,6 +1874,7 @@ module.exports = {
   WikiLintRun,
   WikiSourceEvent,
   WikiMaintenanceRun,
+  WikiSharedCollection,
   ConnectorActionLog,
   TagMeta,
   ConceptNote,

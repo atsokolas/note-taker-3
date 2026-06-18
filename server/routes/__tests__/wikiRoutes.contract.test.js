@@ -330,6 +330,41 @@ const createFakeWikiMaintenanceRunModel = () => {
   return WikiMaintenanceRun;
 };
 
+const createFakeWikiSharedCollectionModel = () => {
+  const records = [];
+
+  function WikiSharedCollection(payload = {}) {
+    Object.assign(this, payload);
+    this._id = this._id || new mongoose.Types.ObjectId().toString();
+    this.createdAt = this.createdAt || new Date();
+    this.updatedAt = this.updatedAt || new Date();
+    this.visibility = this.visibility || 'shared';
+    this.pageIds = Array.isArray(this.pageIds) ? this.pageIds : [];
+  }
+
+  WikiSharedCollection.records = records;
+
+  WikiSharedCollection.findOne = (query = {}) => {
+    const found = records.find(record => matches(record, query));
+    return new Query(found ? new WikiSharedCollection(clone(found)) : null);
+  };
+
+  WikiSharedCollection.prototype.toObject = function toObject() {
+    return clone(this);
+  };
+
+  WikiSharedCollection.prototype.save = async function save() {
+    this.updatedAt = new Date();
+    const stored = this.toObject();
+    const index = records.findIndex(record => String(record._id) === String(this._id));
+    if (index >= 0) records[index] = stored;
+    else records.push(stored);
+    return this;
+  };
+
+  return WikiSharedCollection;
+};
+
 const createFakeWikiSchemaSettingsModel = () => {
   const records = [];
 
@@ -509,6 +544,7 @@ const run = async () => {
   const WikiLintRun = createFakeWikiLintRunModel();
   const WikiSourceEvent = createFakeWikiSourceEventModel();
   const WikiMaintenanceRun = createFakeWikiMaintenanceRunModel();
+  const WikiSharedCollection = createFakeWikiSharedCollectionModel();
   const WikiSchemaSettings = createFakeWikiSchemaSettingsModel();
   const ConnectorActionLog = createFakeConnectorActionLogModel();
   const Article = createFakeLibraryModel([
@@ -552,6 +588,7 @@ const run = async () => {
     WikiLintRun,
     WikiSourceEvent,
     WikiMaintenanceRun,
+    WikiSharedCollection,
     WikiSchemaSettings,
     ConnectorActionLog,
     Connection,
@@ -1033,7 +1070,7 @@ const run = async () => {
     assert.notStrictEqual(adoptedPublicPage.body.page.aiState.provider, 'private-provider');
     const adoptionRevision = WikiRevision.records.find(record => (
       String(record.pageId) === String(adoptedPublicPage.body.page._id)
-      && record.summary.includes('Adopted shared wiki page')
+      && record.summary.includes('Adopted shared wiki')
     ));
     assert.ok(adoptionRevision);
     assert.strictEqual(adoptionRevision.after.adoptedFrom.originSlug, 'public-systems-page');
@@ -1045,6 +1082,99 @@ const run = async () => {
     assert.strictEqual(duplicateAdoptedPublicPage.res.status, 201, duplicateAdoptedPublicPage.text);
     assert.strictEqual(duplicateAdoptedPublicPage.body.page.title, 'Public Systems Page (adapted)');
     assert.strictEqual(duplicateAdoptedPublicPage.body.mergeAvailable, true);
+
+    const collectionTargetPage = new WikiPage({
+      userId: 'user-1',
+      title: 'Shared Target Page',
+      slug: 'shared-target-page',
+      pageType: 'topic',
+      status: 'published',
+      visibility: 'shared',
+      plainText: 'A second page in the shared wiki collection.',
+      body: {
+        type: 'doc',
+        content: [{ type: 'paragraph', content: [{ type: 'text', text: 'A second page in the shared wiki collection.' }] }]
+      }
+    });
+    await collectionTargetPage.save();
+    const collectionSourcePage = new WikiPage({
+      userId: 'user-1',
+      title: 'Shared Source Page',
+      slug: 'shared-source-page',
+      pageType: 'topic',
+      status: 'published',
+      visibility: 'shared',
+      plainText: 'A page that links to Shared Target Page.',
+      body: {
+        type: 'doc',
+        content: [{
+          type: 'paragraph',
+          content: [
+            { type: 'text', text: 'This collection page points to ' },
+            {
+              type: 'text',
+              text: 'Shared Target Page',
+              marks: [{ type: 'wikiLink', attrs: { pageId: String(collectionTargetPage._id), title: 'Shared Target Page' } }]
+            },
+            { type: 'text', text: '.' }
+          ]
+        }]
+      }
+    });
+    await collectionSourcePage.save();
+    const createdSharedCollection = await request(url, '/api/wiki/collections', {
+      method: 'POST',
+      body: JSON.stringify({
+        name: 'Judgment starter collection',
+        description: 'A two page shared wiki.',
+        pageIds: [collectionSourcePage._id, collectionTargetPage._id]
+      })
+    });
+    assert.strictEqual(createdSharedCollection.res.status, 201, createdSharedCollection.text);
+    assert.strictEqual(createdSharedCollection.body.collection.slug, 'judgment-starter-collection');
+
+    const publicCollection = await request(url, '/api/public/wiki/collections/judgment-starter-collection', {
+      headers: {}
+    });
+    assert.strictEqual(publicCollection.res.status, 200, publicCollection.text);
+    assert.strictEqual(publicCollection.body.collection.pageCount, 2);
+    assert.strictEqual(publicCollection.body.collection.pages[0].userId, undefined);
+    assert.strictEqual(publicCollection.body.collection.pages[0].aiState, undefined);
+
+    const adoptedCollection = await request(url, '/api/public/wiki/collections/judgment-starter-collection/adopt', {
+      method: 'POST',
+      headers: { 'x-test-user': 'user-2' }
+    });
+    assert.strictEqual(adoptedCollection.res.status, 201, adoptedCollection.text);
+    assert.strictEqual(adoptedCollection.body.pages.length, 2);
+    assert.ok(adoptedCollection.body.pages.every(page => page.userId === 'user-2'));
+    assert.ok(adoptedCollection.body.pages.every(page => page.adoptedFrom.originType === 'collection'));
+    const adoptedSource = adoptedCollection.body.pages.find(page => page.title === 'Shared Source Page');
+    const adoptedTarget = adoptedCollection.body.pages.find(page => page.title === 'Shared Target Page');
+    const adoptedLinkMark = adoptedSource.body.content[0].content[1].marks[0];
+    assert.strictEqual(adoptedLinkMark.attrs.pageId, String(adoptedTarget._id));
+    assert.notStrictEqual(adoptedLinkMark.attrs.pageId, String(collectionTargetPage._id));
+
+    const starterPacks = await request(url, '/api/public/wiki/starter-packs', { headers: {} });
+    assert.strictEqual(starterPacks.res.status, 200, starterPacks.text);
+    assert.ok(starterPacks.body.packs.some(pack => pack.id === 'mental-models'));
+    assert.ok(starterPacks.body.packs.some(pack => pack.id === 'value-investing'));
+
+    const adoptedStarterPack = await request(url, '/api/public/wiki/starter-packs/mental-models/adopt', {
+      method: 'POST',
+      headers: { 'x-test-user': 'user-3' }
+    });
+    assert.strictEqual(adoptedStarterPack.res.status, 201, adoptedStarterPack.text);
+    assert.strictEqual(adoptedStarterPack.body.pack.id, 'mental-models');
+    assert.ok(adoptedStarterPack.body.pages.length >= 6);
+    assert.ok(adoptedStarterPack.body.pages.every(page => page.userId === 'user-3'));
+    assert.ok(adoptedStarterPack.body.pages.every(page => page.adoptedFrom.originType === 'starter_pack'));
+    assert.ok(adoptedStarterPack.body.pages.every(page => page.adoptedFrom.sample === true));
+    assert.ok(adoptedStarterPack.body.pages.every(page => page.adoptedFrom.packId === 'mental-models'));
+    const firstPrinciples = adoptedStarterPack.body.pages.find(page => page.title === 'First Principles Thinking');
+    const opportunityCost = adoptedStarterPack.body.pages.find(page => page.title === 'Opportunity Cost');
+    const starterLink = JSON.stringify(firstPrinciples.body);
+    assert.ok(starterLink.includes(String(opportunityCost._id)));
 
     const hiddenPrivatePublicPage = await request(url, '/api/public/wiki/pages/private-systems-page', {
       headers: {}
