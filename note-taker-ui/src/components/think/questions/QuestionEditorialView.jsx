@@ -6,6 +6,7 @@ import ReferencesPanel from '../../ReferencesPanel';
 import ThoughtPartnerPanel from '../../agent/ThoughtPartnerPanel';
 import AgentArtifactDraftsPanel from '../../agent/AgentArtifactDraftsPanel';
 import EditorialRail, { CalmEmptyLine, SidebarSkeletonRows } from '../EditorialRail';
+import { EditorialSideRailCollapsible } from '../EditorialSideRail';
 import QuestionEditor from './QuestionEditor';
 import { AGENT_DISPLAY_NAME } from '../../../constants/agentIdentity';
 
@@ -522,179 +523,187 @@ const QuestionEditorialView = ({
           'What evidence would answer this best?',
           'What concept should this question connect to?'
         ]}
-        emptyStateText="Use the question rail to clarify, connect, and tighten open loops."
+        showQuickPrompts={false}
+        emptyStateText="Ask directly, or use the collapsed context below when you need supporting material."
         submitLabel="↗"
       />
-      {renderReferencePullIn('editorial-side-rail__section question-editorial-context__section')}
-      <div className="editorial-side-rail__section question-editorial-context__section question-dialectic-margin">
-        <SectionHeader
-          title="Dialectical margin"
-          subtitle="Support and counter-pressure stay beside the open loop."
-        />
-        <div
-          className="question-dialectic-margin__gauge"
-          style={{ '--question-support-lean': `${questionSupportLean}%` }}
-          aria-label={`Question evidence lean: ${questionSupportSignals.length} support, ${questionCounterSignals.length} counter`}
-        >
-          <span>Counter</span>
-          <div aria-hidden="true"><i /></div>
-          <span>Support</span>
-        </div>
-        <div className="question-dialectic-margin__lanes">
-          <section>
-            <h3>Strongest support</h3>
-            {questionSupportSignals.length === 0 ? (
-              <CalmEmptyLine>No support staged yet.</CalmEmptyLine>
-            ) : (
-              questionSupportSignals.map(signal => (
-                <article key={`support-${signal.id}`} className="question-dialectic-margin__card is-support">
-                  <span className="question-dialectic-margin__source">{signal.sourceKind || 'Evidence'}</span>
-                  <strong>{signal.title}</strong>
-                  <span>{signal.quote}</span>
-                  {signal.source && <em>{signal.source}</em>}
-                  {signal.objectId && (
-                    <button type="button" onClick={() => onAttachRelatedHighlight(signal.objectId)}>
-                      Pull into question
-                    </button>
-                  )}
-                </article>
-              ))
-            )}
-          </section>
-          <section>
-            <h3>Counter-pressure</h3>
-            {questionCounterSignals.length === 0 ? (
-              <CalmEmptyLine>No counter-evidence staged yet.</CalmEmptyLine>
-            ) : (
-              questionCounterSignals.map(signal => (
-                <article key={`counter-${signal.id}`} className="question-dialectic-margin__card is-counter">
-                  <span className="question-dialectic-margin__source">{signal.sourceKind || 'Evidence'}</span>
-                  <strong>{signal.title}</strong>
-                  <span>{signal.quote}</span>
-                  {signal.source && <em>{signal.source}</em>}
-                  {signal.objectId && (
-                    <button type="button" onClick={() => onAttachRelatedHighlight(signal.objectId)}>
-                      Pull into question
-                    </button>
-                  )}
-                </article>
-              ))
-            )}
-          </section>
-        </div>
-      </div>
-      {activeQuestionData?._id && (
-        <div className="editorial-side-rail__section question-editorial-context__section think-wiki-promotion">
-          <SectionHeader title="Graduate" subtitle="Make this open loop a durable wiki page." />
-          <Button
-            type="button"
-            onClick={() => onPromoteThinkObjectToWiki('question')}
-            disabled={wikiPromotionState.busyTarget === questionWikiPromotionTarget}
-          >
-            {wikiPromotionState.busyTarget === questionWikiPromotionTarget ? 'Promoting...' : 'Promote to wiki page'}
-          </Button>
-          {renderWikiPromotionTrace(questionWikiPromotionTarget)}
-          {wikiPromotionState.error && wikiPromotionState.busyTarget !== conceptWikiPromotionTarget ? wikiPromotionError : null}
-        </div>
-      )}
-      {questionScopedArtifactDraftsModel?.pendingCount > 0 && (
-        <AgentArtifactDraftsPanel
-          draftsModel={questionScopedArtifactDraftsModel}
-          title="Draft queue"
-          subtitle="Question-specific output waiting for review."
-          emptyText="No staged drafts yet."
-          className="editorial-side-rail__section think-draft-staging-panel question-editorial-context__drafts"
-          onInvokeWorkflowSkill={queueThoughtPartnerPrompt}
-          onOpenThreadFromDraft={onOpenThreadFromDraft}
-          onCreateHandoffFromDraft={onCreateHandoffFromDraft}
-          onQueueFollowUpLoop={onQueueFollowUpLoopFromDraft}
-          contextType={thoughtPartnerContext?.contextType || 'question'}
-          contextId={thoughtPartnerContext?.contextId || activeQuestionData?._id || 'question'}
-          contextTitle={thoughtPartnerContext?.contextTitle || activeQuestionData?.text || 'Question'}
-          maxPending={1}
-          showPromoted={false}
-          compact
-        />
-      )}
-
-      <div className="editorial-side-rail__section question-editorial-context__section">
-        <SectionHeader title="Question context" subtitle="What this question is attached to." />
-        {activeQuestion?.linkedTagName ? (
-          <TagChip to={`/think?tab=concepts&concept=${encodeURIComponent(activeQuestion.linkedTagName)}`}>
-            {activeQuestion.linkedTagName}
-          </TagChip>
-        ) : (
-          <CalmEmptyLine>No concept linked.</CalmEmptyLine>
-        )}
-      </div>
-
-      <div className="editorial-side-rail__section question-editorial-context__section">
-        <SectionHeader title="Connections" subtitle="Supports, contradictions, and extensions." />
-        {contextConnectionsLoading && <p className="muted small">Loading connections…</p>}
-        {contextConnectionsError && <p className="status-message error-message">{contextConnectionsError}</p>}
-        {!contextConnectionsLoading && !contextConnectionsError && (
-          <div className="context-connection-list">
-            {scopedConnections.length === 0 ? (
-              <CalmEmptyLine>No scoped connections yet.</CalmEmptyLine>
-            ) : (
-              scopedConnections.slice(0, 8).map(row => (
-                <div key={row._id} className="context-connection-row">
-                  <span className="context-connection-node">{row.fromItem?.title || row.fromType}</span>
-                  <span className="context-connection-relation">{row.relationType}</span>
-                  <span className="context-connection-node">{row.toItem?.title || row.toType}</span>
-                </div>
-              ))
-            )}
-          </div>
-        )}
-      </div>
-
-      <div className="editorial-side-rail__section question-editorial-context__section">
-        <SectionHeader title="Related highlights" subtitle="Relevant material to embed." />
-        {questionRelatedLoading && <p className="muted small">Finding related highlights…</p>}
-        {questionRelatedError && <p className="status-message error-message">{questionRelatedError}</p>}
-        {!questionRelatedLoading && !questionRelatedError && (
-          <div className="related-embed-list">
-            {relatedHighlights.length === 0 ? (
-              <CalmEmptyLine>No related highlights yet.</CalmEmptyLine>
-            ) : (
-              relatedHighlights.slice(0, 6).map(item => (
-                <div key={item.objectId} className="related-embed-row">
-                  <div>
-                    <div className="related-embed-title">{item.title || 'Highlight'}</div>
-                    <div className="muted small">{item.snippet || item.metadata?.articleTitle || ''}</div>
-                  </div>
-                  <QuietButton onClick={() => onAttachRelatedHighlight(item.objectId)}>Add</QuietButton>
-                </div>
-              ))
-            )}
-          </div>
-        )}
-      </div>
-
-      <div className="editorial-side-rail__section question-editorial-context__section">
-        <SectionHeader title="Related concepts" subtitle="Neighboring ideas." />
-        {questionRelatedLoading && <p className="muted small">Finding related concepts…</p>}
-        {questionRelatedError && <p className="status-message error-message">{questionRelatedError}</p>}
-        {!questionRelatedLoading && !questionRelatedError && (
-          <div className="related-embed-list">
-            <RelatedConceptTags items={relatedConcepts.slice(0, 8)} />
-          </div>
-        )}
-      </div>
-
-      {activeQuestion?._id && (
-        <div className="editorial-side-rail__section question-editorial-context__section">
-          <SectionHeader title="Used in" subtitle="Backlinks to this question." />
-          <ReferencesPanel
-            targetType="question"
-            targetId={activeQuestion._id}
-            label="Show backlinks"
-            defaultOpen
-            showToggle={false}
+      <EditorialSideRailCollapsible
+        title="Supporting context"
+        subtitle="Pull-in, evidence, drafts, and connections."
+        className="question-editorial-context__secondary"
+        testId="question-editorial-secondary-rail"
+      >
+        {renderReferencePullIn('editorial-side-rail__section question-editorial-context__section')}
+        <div className="editorial-side-rail__section question-editorial-context__section question-dialectic-margin">
+          <SectionHeader
+            title="Dialectical margin"
+            subtitle="Support and counter-pressure stay beside the open loop."
           />
+          <div
+            className="question-dialectic-margin__gauge"
+            style={{ '--question-support-lean': `${questionSupportLean}%` }}
+            aria-label={`Question evidence lean: ${questionSupportSignals.length} support, ${questionCounterSignals.length} counter`}
+          >
+            <span>Counter</span>
+            <div aria-hidden="true"><i /></div>
+            <span>Support</span>
+          </div>
+          <div className="question-dialectic-margin__lanes">
+            <section>
+              <h3>Strongest support</h3>
+              {questionSupportSignals.length === 0 ? (
+                <CalmEmptyLine>No support staged yet.</CalmEmptyLine>
+              ) : (
+                questionSupportSignals.map(signal => (
+                  <article key={`support-${signal.id}`} className="question-dialectic-margin__card is-support">
+                    <span className="question-dialectic-margin__source">{signal.sourceKind || 'Evidence'}</span>
+                    <strong>{signal.title}</strong>
+                    <span>{signal.quote}</span>
+                    {signal.source && <em>{signal.source}</em>}
+                    {signal.objectId && (
+                      <button type="button" onClick={() => onAttachRelatedHighlight(signal.objectId)}>
+                        Pull into question
+                      </button>
+                    )}
+                  </article>
+                ))
+              )}
+            </section>
+            <section>
+              <h3>Counter-pressure</h3>
+              {questionCounterSignals.length === 0 ? (
+                <CalmEmptyLine>No counter-evidence staged yet.</CalmEmptyLine>
+              ) : (
+                questionCounterSignals.map(signal => (
+                  <article key={`counter-${signal.id}`} className="question-dialectic-margin__card is-counter">
+                    <span className="question-dialectic-margin__source">{signal.sourceKind || 'Evidence'}</span>
+                    <strong>{signal.title}</strong>
+                    <span>{signal.quote}</span>
+                    {signal.source && <em>{signal.source}</em>}
+                    {signal.objectId && (
+                      <button type="button" onClick={() => onAttachRelatedHighlight(signal.objectId)}>
+                        Pull into question
+                      </button>
+                    )}
+                  </article>
+                ))
+              )}
+            </section>
+          </div>
         </div>
-      )}
+        {activeQuestionData?._id && (
+          <div className="editorial-side-rail__section question-editorial-context__section think-wiki-promotion">
+            <SectionHeader title="Graduate" subtitle="Make this open loop a durable wiki page." />
+            <Button
+              type="button"
+              onClick={() => onPromoteThinkObjectToWiki('question')}
+              disabled={wikiPromotionState.busyTarget === questionWikiPromotionTarget}
+            >
+              {wikiPromotionState.busyTarget === questionWikiPromotionTarget ? 'Promoting...' : 'Promote to wiki page'}
+            </Button>
+            {renderWikiPromotionTrace(questionWikiPromotionTarget)}
+            {wikiPromotionState.error && wikiPromotionState.busyTarget !== conceptWikiPromotionTarget ? wikiPromotionError : null}
+          </div>
+        )}
+        {questionScopedArtifactDraftsModel?.pendingCount > 0 && (
+          <AgentArtifactDraftsPanel
+            draftsModel={questionScopedArtifactDraftsModel}
+            title="Draft queue"
+            subtitle="Question-specific output waiting for review."
+            emptyText="No staged drafts yet."
+            className="editorial-side-rail__section think-draft-staging-panel question-editorial-context__drafts"
+            onInvokeWorkflowSkill={queueThoughtPartnerPrompt}
+            onOpenThreadFromDraft={onOpenThreadFromDraft}
+            onCreateHandoffFromDraft={onCreateHandoffFromDraft}
+            onQueueFollowUpLoop={onQueueFollowUpLoopFromDraft}
+            contextType={thoughtPartnerContext?.contextType || 'question'}
+            contextId={thoughtPartnerContext?.contextId || activeQuestionData?._id || 'question'}
+            contextTitle={thoughtPartnerContext?.contextTitle || activeQuestionData?.text || 'Question'}
+            maxPending={1}
+            showPromoted={false}
+            compact
+          />
+        )}
+
+        <div className="editorial-side-rail__section question-editorial-context__section">
+          <SectionHeader title="Question context" subtitle="What this question is attached to." />
+          {activeQuestion?.linkedTagName ? (
+            <TagChip to={`/think?tab=concepts&concept=${encodeURIComponent(activeQuestion.linkedTagName)}`}>
+              {activeQuestion.linkedTagName}
+            </TagChip>
+          ) : (
+            <CalmEmptyLine>No concept linked.</CalmEmptyLine>
+          )}
+        </div>
+
+        <div className="editorial-side-rail__section question-editorial-context__section">
+          <SectionHeader title="Connections" subtitle="Supports, contradictions, and extensions." />
+          {contextConnectionsLoading && <p className="muted small">Loading connections…</p>}
+          {contextConnectionsError && <p className="status-message error-message">{contextConnectionsError}</p>}
+          {!contextConnectionsLoading && !contextConnectionsError && (
+            <div className="context-connection-list">
+              {scopedConnections.length === 0 ? (
+                <CalmEmptyLine>No scoped connections yet.</CalmEmptyLine>
+              ) : (
+                scopedConnections.slice(0, 8).map(row => (
+                  <div key={row._id} className="context-connection-row">
+                    <span className="context-connection-node">{row.fromItem?.title || row.fromType}</span>
+                    <span className="context-connection-relation">{row.relationType}</span>
+                    <span className="context-connection-node">{row.toItem?.title || row.toType}</span>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+        </div>
+
+        <div className="editorial-side-rail__section question-editorial-context__section">
+          <SectionHeader title="Related highlights" subtitle="Relevant material to embed." />
+          {questionRelatedLoading && <p className="muted small">Finding related highlights…</p>}
+          {questionRelatedError && <p className="status-message error-message">{questionRelatedError}</p>}
+          {!questionRelatedLoading && !questionRelatedError && (
+            <div className="related-embed-list">
+              {relatedHighlights.length === 0 ? (
+                <CalmEmptyLine>No related highlights yet.</CalmEmptyLine>
+              ) : (
+                relatedHighlights.slice(0, 6).map(item => (
+                  <div key={item.objectId} className="related-embed-row">
+                    <div>
+                      <div className="related-embed-title">{item.title || 'Highlight'}</div>
+                      <div className="muted small">{item.snippet || item.metadata?.articleTitle || ''}</div>
+                    </div>
+                    <QuietButton onClick={() => onAttachRelatedHighlight(item.objectId)}>Add</QuietButton>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+        </div>
+
+        <div className="editorial-side-rail__section question-editorial-context__section">
+          <SectionHeader title="Related concepts" subtitle="Neighboring ideas." />
+          {questionRelatedLoading && <p className="muted small">Finding related concepts…</p>}
+          {questionRelatedError && <p className="status-message error-message">{questionRelatedError}</p>}
+          {!questionRelatedLoading && !questionRelatedError && (
+            <div className="related-embed-list">
+              <RelatedConceptTags items={relatedConcepts.slice(0, 8)} />
+            </div>
+          )}
+        </div>
+
+        {activeQuestion?._id && (
+          <div className="editorial-side-rail__section question-editorial-context__section">
+            <SectionHeader title="Used in" subtitle="Backlinks to this question." />
+            <ReferencesPanel
+              targetType="question"
+              targetId={activeQuestion._id}
+              label="Show backlinks"
+              defaultOpen
+              showToggle={false}
+            />
+          </div>
+        )}
+      </EditorialSideRailCollapsible>
     </div>
   );
 

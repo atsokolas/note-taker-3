@@ -38,6 +38,8 @@ const LibraryMain = ({
   allArticles = [],
   unfiledCount = 0,
   onReviewFiling,
+  filingLaunching = false,
+  filingReceipt = null,
   onToggleSuppressed
 }) => {
   if (scope === 'highlights') {
@@ -102,6 +104,8 @@ const LibraryMain = ({
           suppressedVisible={suppressedVisible}
           onSelectArticle={onSelectArticle}
           onReviewFiling={onReviewFiling}
+          filingLaunching={filingLaunching}
+          filingReceipt={filingReceipt}
           onToggleSuppressed={onToggleSuppressed}
         />
       ) : null}

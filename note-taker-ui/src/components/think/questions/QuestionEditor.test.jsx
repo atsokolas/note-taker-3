@@ -69,4 +69,24 @@ describe('QuestionEditor', () => {
       ]
     }));
   });
+
+  it('wraps long editorial question titles within the main column field', () => {
+    render(
+      <QuestionEditor
+        question={{
+          _id: 'question-1',
+          text: 'When does concentration in a portfolio create more downside tail risk than upside optionality across market regimes?',
+          blocks: [{ id: 'block-1', type: 'paragraph', text: 'Body copy.' }]
+        }}
+        saving={false}
+        error={null}
+        onSave={jest.fn()}
+        variant="editorial"
+      />
+    );
+
+    const titleField = screen.getByLabelText('Question title');
+    expect(titleField.tagName).toBe('TEXTAREA');
+    expect(titleField).toHaveClass('think-question-title-input--wrap');
+  });
 });

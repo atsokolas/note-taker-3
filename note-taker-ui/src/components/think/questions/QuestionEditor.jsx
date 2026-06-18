@@ -100,13 +100,24 @@ const QuestionEditor = ({
     <div className={`think-question-editor${variant === 'editorial' ? ' is-editorial' : ''}`}>
       <div className="think-question-editor-header">
         {showTitleField && (
-          <input
-            type="text"
-            className="think-question-title-input"
-            value={titleDraft}
-            onChange={(event) => setTitleDraft(event.target.value)}
-            placeholder="Untitled question"
-          />
+          variant === 'editorial' ? (
+            <textarea
+              className="think-question-title-input think-question-title-input--wrap"
+              rows={2}
+              value={titleDraft}
+              onChange={(event) => setTitleDraft(event.target.value)}
+              placeholder="Untitled question"
+              aria-label="Question title"
+            />
+          ) : (
+            <input
+              type="text"
+              className="think-question-title-input"
+              value={titleDraft}
+              onChange={(event) => setTitleDraft(event.target.value)}
+              placeholder="Untitled question"
+            />
+          )
         )}
         <div className="think-question-editor-actions">
           <ReturnLaterControl

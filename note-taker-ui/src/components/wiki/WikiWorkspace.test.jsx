@@ -567,6 +567,29 @@ describe('WikiWorkspace', () => {
     expect(mockNavigate).toHaveBeenLastCalledWith('/wiki/workspace?page=wiki-1&pane=chat', { replace: true });
   });
 
+  it('sends typed compact wiki asks instead of only opening a second composer', async () => {
+    renderWorkspace('/wiki/workspace?page=wiki-1&pane=wiki');
+    await settleWorkspaceEffects();
+
+    const quickPrompt = screen.getByRole('form', { name: 'Thought partner quick prompt' });
+    fireEvent.change(within(quickPrompt).getByLabelText('Thought partner quick message'), {
+      target: { value: 'How does this connect to Opportunity Cost?' }
+    });
+    fireEvent.click(within(quickPrompt).getByRole('button', { name: 'Ask' }));
+
+    expect(document.querySelector('.wiki-workspace')).toHaveClass('is-mobile-chat');
+    await waitFor(() => expect(streamChatWithAgent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: 'How does this connect to Opportunity Cost?',
+        context: expect.objectContaining({
+          pageId: 'wiki-1',
+          metadata: expect.objectContaining({ surface: 'wiki_workspace' })
+        })
+      }),
+      expect.any(Object)
+    ));
+  });
+
   it('opens the reference picker from the transient workspace pull URL', async () => {
     renderWorkspace('/wiki/workspace?view=graph&pull=1');
     await settleWorkspaceEffects();

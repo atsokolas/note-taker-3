@@ -23,9 +23,14 @@ import { updateHighlight, deleteHighlight } from '../api/highlights';
 import api from '../api';
 import { getAuthHeaders } from '../hooks/useAuthHeaders';
 import { chatWithAgent } from '../api/agent';
+import { startLibraryFilingSuggestions } from '../api/library';
 import { AGENT_DISPLAY_NAME } from '../constants/agentIdentity';
 import AgentPresence from '../components/agent/AgentPresence';
 import AgentTicker from '../components/agent/AgentTicker';
+import ThoughtPartnerPanel from '../components/agent/ThoughtPartnerPanel';
+import AgentSkillDock from '../components/agent/AgentSkillDock';
+import { EditorialSideRailCollapsible } from '../components/think/EditorialSideRail';
+import { buildArticleAmbientContext } from '../utils/ambientAgentContext';
 import { matchesCruftHeuristic } from '../utils/cruftSuppression';
 
 const RIGHT_STORAGE_KEY = 'workspace-right-open:/library';
@@ -75,6 +80,9 @@ const Library = () => {
   const [activeHighlightId, setActiveHighlightId] = useState('');
   const [articleGraphConnections, setArticleGraphConnections] = useState({ outgoing: [], incoming: [] });
   const [organizeLaunching, setOrganizeLaunching] = useState(false);
+  const [filingLaunching, setFilingLaunching] = useState(false);
+  const [filingReceipt, setFilingReceipt] = useState(null);
+  const [queuedPrompt, setQueuedPrompt] = useState(null);
   const readerRef = useRef(null);
 
   const { folders, loading: foldersLoading, error: foldersError } = useFolders();
@@ -124,7 +132,8 @@ const Library = () => {
 
   useEffect(() => {
     if (!selectedArticleId) return;
-    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+    if (window.navigator?.userAgent?.includes('jsdom')) return;
+    window.scrollTo?.({ top: 0, left: 0, behavior: 'auto' });
   }, [selectedArticleId]);
 
   useEffect(() => {
@@ -161,10 +170,9 @@ const Library = () => {
 
   useEffect(() => {
     if (requestedArticleId) return;
-    if (!selectedArticleId) return;
     setSelectedArticleId('');
     setActiveHighlightId('');
-  }, [requestedArticleId, selectedArticleId]);
+  }, [requestedArticleId]);
 
   useEffect(() => {
     if (searchParams.get('scope')) return;
@@ -188,13 +196,30 @@ const Library = () => {
     setSearchParams(params);
   }, [searchParams, setSearchParams]);
 
-  const handleReviewFiling = useCallback(() => {
-    handleSelectScope('unfiled');
-    setLeftOpen(true);
-    localStorage.setItem(LEFT_STORAGE_KEY, 'true');
-    setCabinetOverride(true);
-    localStorage.setItem(CABINET_OVERRIDE_KEY, 'true');
-  }, [handleSelectScope]);
+  const handleReviewFiling = useCallback(async () => {
+    if (filingLaunching) return;
+    setFilingLaunching(true);
+    setFilingReceipt(null);
+    try {
+      const result = await startLibraryFilingSuggestions();
+      const receipt = result?.receipt && typeof result.receipt === 'object' ? result.receipt : null;
+      if (receipt?.summary) {
+        setFilingReceipt(receipt);
+      }
+      const nextThreadId = String(result?.thread?.threadId || result?.thread?._id || '').trim();
+      navigate(nextThreadId
+        ? `/think?tab=threads&threadId=${encodeURIComponent(nextThreadId)}`
+        : '/think?tab=threads');
+    } catch (error) {
+      console.error('Failed to start library filing suggestions:', error);
+      setFilingReceipt({
+        stage: 'error',
+        summary: 'Could not stage filing suggestions. Try again in a moment.'
+      });
+    } finally {
+      setFilingLaunching(false);
+    }
+  }, [filingLaunching, navigate]);
 
   const handleToggleSuppressedItems = useCallback(() => {
     const params = new URLSearchParams(searchParams);
@@ -649,6 +674,14 @@ const Library = () => {
   );
 
   const isReadingView = Boolean(selectedArticleId);
+  const articleContextMetadata = useMemo(() => (
+    buildArticleAmbientContext({
+      article: selectedArticle,
+      highlights: articleHighlights,
+      graphConnections: articleGraphConnections,
+      selectionText: ''
+    })
+  ), [articleGraphConnections, articleHighlights, selectedArticle]);
   const topThemeTags = useMemo(
     () => (Array.isArray(tags) ? tags.slice(0, 3).map((tag) => String(tag?.tag || '')).filter(Boolean) : []),
     [tags]
@@ -786,36 +819,77 @@ const Library = () => {
       allArticles={allArticles}
       unfiledCount={unfiledCount}
       onReviewFiling={handleReviewFiling}
+      filingLaunching={filingLaunching}
+      filingReceipt={filingReceipt}
       onToggleSuppressed={handleToggleSuppressedItems}
     />
   );
 
   const rightPanel = isReadingView ? (
-    <div className="section-stack library-context-stack library-context-stack--reading">
-      {libraryAgentPanel}
-      <ReferencePullIn
-        targetType="article"
-        targetId={selectedArticleId}
-        targetTitle={selectedArticle?.title || 'Source'}
-        className="library-context-stack__reference-pull-in"
+    <div className="editorial-side-rail section-stack library-context-stack library-context-stack--reading">
+      <ThoughtPartnerPanel
+        className="editorial-side-rail__partner library-reading-rail__partner"
+        variant="stream"
+        title={AGENT_DISPLAY_NAME}
+        subtitle="Ask against the full article and your connected workspace."
+        contextType="article"
+        contextId={selectedArticleId}
+        contextTitle={selectedArticle?.title || 'Article'}
+        contextMetadata={articleContextMetadata}
+        queuedPrompt={queuedPrompt}
+        placeholder="Ask about this article, connected notes, or what to do next."
+        promptTemplates={[
+          'Summarize what matters most in this article.',
+          'Challenge the strongest claim in this article.',
+          'Find related concepts or notes for this article.'
+        ]}
+        showQuickPrompts={false}
+        emptyStateText="Ask directly, or open Source context for article moves and provenance."
+        submitLabel="↗"
       />
-      <LibraryContext
-        selectedArticleId={selectedArticleId}
-        articleHighlights={articleHighlights}
-        articleLoading={articleLoading}
-        references={references}
-        referencesLoading={articleLoading}
-        referencesError={articleError}
-        activeHighlightId={activeHighlightId}
-        onHighlightClick={handleHighlightClick}
-        onSelectHighlight={setActiveHighlightId}
-        onAddConcept={handleOpenConceptModal}
-        onAddNotebook={handleOpenNotebookModal}
-        onAddQuestion={handleOpenQuestionModal}
-        onUpdateHighlight={handleUpdateHighlight}
-        onDeleteHighlight={handleDeleteHighlight}
-        onDumpToWorkingMemory={(highlight) => handleDumpToWorkingMemory(highlight?.text || '')}
-      />
+      <EditorialSideRailCollapsible
+        title="Source context"
+        subtitle="Highlights, pull-in, provenance, and article moves."
+        className="library-reading-rail__secondary"
+        testId="library-reading-secondary-rail"
+      >
+        <AgentSkillDock
+          surface="article"
+          contextType="article"
+          contextId={selectedArticleId}
+          targetContextType="article"
+          targetContextId={selectedArticleId}
+          contextTitle={selectedArticle?.title || 'Article'}
+          headline="Draft-first article moves"
+          title={AGENT_DISPLAY_NAME}
+          subtitle="Turn the current article into a sharper summary, critique, question set, or concept lead."
+          className="library-reading-rail__skills agent-skill-dock--inline"
+          onInvoke={(nextPrompt) => setQueuedPrompt(nextPrompt)}
+        />
+        <ReferencePullIn
+          targetType="article"
+          targetId={selectedArticleId}
+          targetTitle={selectedArticle?.title || 'Source'}
+          className="library-context-stack__reference-pull-in"
+        />
+        <LibraryContext
+          selectedArticleId={selectedArticleId}
+          articleHighlights={articleHighlights}
+          articleLoading={articleLoading}
+          references={references}
+          referencesLoading={articleLoading}
+          referencesError={articleError}
+          activeHighlightId={activeHighlightId}
+          onHighlightClick={handleHighlightClick}
+          onSelectHighlight={setActiveHighlightId}
+          onAddConcept={handleOpenConceptModal}
+          onAddNotebook={handleOpenNotebookModal}
+          onAddQuestion={handleOpenQuestionModal}
+          onUpdateHighlight={handleUpdateHighlight}
+          onDeleteHighlight={handleDeleteHighlight}
+          onDumpToWorkingMemory={(highlight) => handleDumpToWorkingMemory(highlight?.text || '')}
+        />
+      </EditorialSideRailCollapsible>
     </div>
   ) : (
     <div className="section-stack library-context-stack library-context-stack--browse">

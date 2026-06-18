@@ -2958,7 +2958,7 @@ const WikiWorkspace = () => {
     const draft = clean(quickAgentDraft);
     if (draft) {
       setQuickAgentDraft('');
-      openChatWithDraft(draft, 'workspace-quick-agent');
+      openChatWithDraft(draft, 'workspace-quick-agent', { autoRun: !draft.startsWith('/') });
       return;
     }
     const pageId = selectedPageId || lastSelectedPageRef.current;

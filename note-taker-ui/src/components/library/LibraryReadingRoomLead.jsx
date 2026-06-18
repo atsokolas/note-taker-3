@@ -14,6 +14,8 @@ const LibraryReadingRoomLead = ({
   suppressedVisible = false,
   onSelectArticle,
   onReviewFiling,
+  filingLaunching = false,
+  filingReceipt = null,
   onToggleSuppressed
 }) => {
   const reopen = useMemo(() => {
@@ -74,9 +76,19 @@ const LibraryReadingRoomLead = ({
             type="button"
             className="library-reading-room-lead__filing-action"
             onClick={onReviewFiling}
+            disabled={filingLaunching}
           >
-            {maintenance.actionLabel}
+            {filingLaunching ? 'Classifying…' : maintenance.actionLabel}
           </QuietButton>
+        ) : null}
+        {filingReceipt?.summary ? (
+          <p
+            className="library-reading-room-lead__filing-receipt muted small"
+            data-testid="library-filing-receipt"
+            data-filing-stage={filingReceipt.stage || 'ready'}
+          >
+            {filingReceipt.summary}
+          </p>
         ) : null}
         {maintenance.cruftNotice || suppressedVisible ? (
           <div className="library-reading-room-lead__cruft">

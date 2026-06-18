@@ -4024,22 +4024,30 @@ body.noeis-editorial .agent-thought-partner__quick-prompts {
   grid-template-columns: minmax(0, 1fr);
 }
 
-body.noeis-editorial .notebook-editorial-context__advanced {
+body.noeis-editorial .notebook-editorial-context__advanced,
+body.noeis-editorial .editorial-side-rail__collapsible,
+body.noeis-editorial .concept-editorial-evidence__collapsible {
   color: color-mix(in srgb, var(--vellum-ink) 78%, transparent);
 }
 
-body.noeis-editorial .notebook-editorial-context__advanced summary {
+body.noeis-editorial .notebook-editorial-context__advanced summary,
+body.noeis-editorial .editorial-side-rail__collapsible summary,
+body.noeis-editorial .concept-editorial-evidence__collapsible summary {
   display: grid;
   gap: 4px;
   cursor: pointer;
   list-style: none;
 }
 
-body.noeis-editorial .notebook-editorial-context__advanced summary::-webkit-details-marker {
+body.noeis-editorial .notebook-editorial-context__advanced summary::-webkit-details-marker,
+body.noeis-editorial .editorial-side-rail__collapsible summary::-webkit-details-marker,
+body.noeis-editorial .concept-editorial-evidence__collapsible summary::-webkit-details-marker {
   display: none;
 }
 
-body.noeis-editorial .notebook-editorial-context__advanced summary span {
+body.noeis-editorial .notebook-editorial-context__advanced summary span,
+body.noeis-editorial .editorial-side-rail__collapsible summary span,
+body.noeis-editorial .concept-editorial-evidence__collapsible summary span {
   font-family: var(--noeis-ui-font);
   font-size: 0.72rem;
   font-weight: 700;
@@ -4048,13 +4056,17 @@ body.noeis-editorial .notebook-editorial-context__advanced summary span {
   color: color-mix(in srgb, var(--vellum-ink) 82%, transparent);
 }
 
-body.noeis-editorial .notebook-editorial-context__advanced summary small {
+body.noeis-editorial .notebook-editorial-context__advanced summary small,
+body.noeis-editorial .editorial-side-rail__collapsible summary small,
+body.noeis-editorial .concept-editorial-evidence__collapsible summary small {
   color: color-mix(in srgb, var(--vellum-muted) 92%, transparent);
   font-size: 0.78rem;
   line-height: 1.45;
 }
 
-body.noeis-editorial .notebook-editorial-context__advanced[open] {
+body.noeis-editorial .notebook-editorial-context__advanced[open],
+body.noeis-editorial .editorial-side-rail__collapsible[open],
+body.noeis-editorial .concept-editorial-evidence__collapsible[open] {
   gap: 14px;
 }
 
@@ -6407,6 +6419,7 @@ body.noeis-editorial .think-question-editor.is-editorial {
 body.noeis-editorial .think-question-editor-header {
   display: grid;
   gap: 18px;
+  min-width: 0;
   padding-bottom: 16px;
   border-bottom: 1px solid var(--vellum-line);
 }
@@ -6417,14 +6430,21 @@ body.noeis-editorial .think-question-editor.is-editorial .think-question-editor-
 }
 
 body.noeis-editorial .think-question-title-input {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
   min-height: 0;
   padding: 0 !important;
+  border: 0;
   background: transparent !important;
   font-family: "Newsreader", Georgia, serif !important;
   font-size: clamp(2.2rem, 4vw, 3.6rem);
   line-height: 0.98;
   letter-spacing: -0.04em;
   color: var(--vellum-ink) !important;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  box-sizing: border-box;
 }
 
 body.noeis-editorial .think-question-title-input::placeholder {
@@ -6435,6 +6455,14 @@ body.noeis-editorial .think-question-editor.is-editorial .think-question-title-i
   font-size: clamp(3rem, 5vw, 4.4rem);
   line-height: 0.94;
   letter-spacing: -0.05em;
+}
+
+body.noeis-editorial .think-question-title-input--wrap {
+  display: block;
+  white-space: pre-wrap;
+  resize: none;
+  field-sizing: content;
+  overflow: hidden;
 }
 
 body.noeis-editorial .think-question-editor-actions,

@@ -7,6 +7,7 @@ import { CONCEPT_NOTEBOOK_DRAFT_TEMPLATES } from '../../../utils/conceptNotebook
 import { formatEditorialEvidenceHtml } from './formatEditorialEvidenceHtml';
 import { AGENT_DISPLAY_NAME } from '../../../constants/agentIdentity';
 import AgentTicker from '../../agent/AgentTicker';
+import { EditorialSideRailCollapsible } from '../EditorialSideRail';
 
 const clean = (value) => String(value || '').trim();
 const truncate = (value = '', limit = 220) => {
@@ -726,12 +727,6 @@ export const ConceptEvidenceStreamRail = ({
         state={model.agentBusy ? 'working' : 'idle'}
       />
 
-      {referencePullInSlot && (
-        <div className="concept-editorial-evidence__reference-pull-in">
-          {referencePullInSlot}
-        </div>
-      )}
-
       {isFreshConcept && (
         <div className="concept-editorial-evidence__starter-block">
           <div className="concept-editorial-evidence__starter-copy">
@@ -831,188 +826,214 @@ export const ConceptEvidenceStreamRail = ({
         )}
       </section>
 
-      <section className="concept-editorial-evidence__section">
-        <div className="concept-editorial-evidence__section-head">
-          <span>Pulled material</span>
-          <span>{pulledMaterialCards.length > 0 ? `${pulledMaterialCards.length} ready` : 'Waiting'}</span>
-        </div>
-        <p className="concept-editorial-evidence__section-copy">
-          Articles, highlights, and source leads the partner surfaced for this concept.
-        </p>
-        {pulledMaterialCards.length > 0 ? (
-          <div className="concept-editorial-evidence__stack">
-            {pulledMaterialCards.map((card) => (
-              <DraggableEvidenceCard
-                key={card.id}
-                card={card}
-                onIntegrate={(nextCard) => {
-                  if (onIntegrateCard) {
-                    onIntegrateCard(nextCard);
-                    return;
-                  }
-                  if (model.state.cards.some((item) => String(item.id) === String(nextCard?.id))) {
-                    model.actions.insertCardIntoHypothesis(String(nextCard.id), { removeCard: true });
-                    return;
-                  }
-                  model.actions.addSuggestedCard(nextCard, 'workspace');
-                  model.actions.updateHypothesisHtml(
-                    `${model.state.hypothesis.html || '<p></p>'}${formatEditorialEvidenceHtml(nextCard)}`
-                  );
-                }}
-              />
-            ))}
+      {referencePullInSlot && (
+        <EditorialSideRailCollapsible
+          title="Provenance"
+          subtitle="Pull references in with relationship intact."
+          className="concept-editorial-evidence__collapsible"
+          testId="concept-rail-provenance"
+        >
+          <div className="concept-editorial-evidence__reference-pull-in">
+            {referencePullInSlot}
           </div>
-        ) : (
-          <p className="concept-editorial-evidence__empty">Pulled sources and highlights will collect here after the next agent move.</p>
-        )}
-      </section>
+        </EditorialSideRailCollapsible>
+      )}
 
-      {hasPreparedMoves && (
-        <section className="concept-editorial-evidence__section">
-          <div className="concept-editorial-evidence__section-head">
-            <span>Prepared moves</span>
-            <span>Apply or hold</span>
-          </div>
+      <EditorialSideRailCollapsible
+        title="Pulled material"
+        subtitle={`${pulledMaterialCards.length > 0 ? `${pulledMaterialCards.length} ready` : 'Waiting for the next agent move'}.`}
+        className="concept-editorial-evidence__collapsible"
+        testId="concept-rail-pulled-material"
+      >
+        <section className="concept-editorial-evidence__section concept-editorial-evidence__section--nested">
           <p className="concept-editorial-evidence__section-copy">
-            Staged support, tension, and revision work waiting for your call.
+            Articles, highlights, and source leads the partner surfaced for this concept.
           </p>
-
-          {freshness.isStale && (
-            <div className="concept-editorial-evidence__result concept-editorial-evidence__result--proposal">
-              <div className="concept-editorial-evidence__result-head">
-                <span>Fresh material waiting</span>
-                <span>{freshness.unreviewedCount || 0} newer</span>
-              </div>
-              <p>{freshness.summary}</p>
-              {Array.isArray(freshness.preview) && freshness.preview.length > 0 && (
-                <ul>
-                  {freshness.preview.slice(0, 3).map((item, index) => (
-                    <li key={`freshness-${index}-${item}`}>{item}</li>
-                  ))}
-                </ul>
-              )}
-              <div className="concept-editorial-evidence__proposal-actions">
-                <button type="button" onClick={() => model.actions.markReviewed?.()}>
-                  Mark current
-                </button>
-              </div>
+          {pulledMaterialCards.length > 0 ? (
+            <div className="concept-editorial-evidence__stack">
+              {pulledMaterialCards.map((card) => (
+                <DraggableEvidenceCard
+                  key={card.id}
+                  card={card}
+                  onIntegrate={(nextCard) => {
+                    if (onIntegrateCard) {
+                      onIntegrateCard(nextCard);
+                      return;
+                    }
+                    if (model.state.cards.some((item) => String(item.id) === String(nextCard?.id))) {
+                      model.actions.insertCardIntoHypothesis(String(nextCard.id), { removeCard: true });
+                      return;
+                    }
+                    model.actions.addSuggestedCard(nextCard, 'workspace');
+                    model.actions.updateHypothesisHtml(
+                      `${model.state.hypothesis.html || '<p></p>'}${formatEditorialEvidenceHtml(nextCard)}`
+                    );
+                  }}
+                />
+              ))}
             </div>
-          )}
-
-          {pendingChangeDrafts.map((draft) => (
-            <div key={draft.id} className="concept-editorial-evidence__result concept-editorial-evidence__result--proposal">
-              <div className="concept-editorial-evidence__result-head">
-                <span>{draft.title}</span>
-                <span>{getDraftTargetLabel(draft)}</span>
-              </div>
-              <p>{draft.summary}</p>
-              {clean(draft.caption) && (
-                <p className="concept-editorial-evidence__proposal-note">{draft.caption}</p>
-              )}
-              {Array.isArray(draft.cards) && draft.cards.length > 0 && (
-                <ul className="concept-editorial-evidence__proposal-list">
-                  {draft.cards.slice(0, 3).map((card) => (
-                    <li key={`${draft.id}-${card.id}`}>
-                      <span>{zoneLabel(card.zone)}</span>
-                      <strong>{card.title || truncate(card.content, 64) || 'Untitled source'}</strong>
-                      {clean(card.source) && <em>{card.source}</em>}
-                    </li>
-                  ))}
-                </ul>
-              )}
-              <div className="concept-editorial-evidence__proposal-actions">
-                <button type="button" onClick={() => model.actions.applyChangeDraft(draft.id)}>
-                  {getDraftApplyLabel(draft)}
-                </button>
-                <button type="button" onClick={() => model.actions.dismissChangeDraft(draft.id)}>
-                  Not now
-                </button>
-              </div>
-            </div>
-          ))}
-
-          {pendingRevision && (
-            <div className="concept-editorial-evidence__result concept-editorial-evidence__result--proposal">
-              <div className="concept-editorial-evidence__result-head">
-                <span>Pending revision</span>
-                <span>Approval required</span>
-              </div>
-              <p>{pendingRevision.body}</p>
-              {clean(pendingRevision.caption) && (
-                <p className="concept-editorial-evidence__proposal-note">{pendingRevision.caption}</p>
-              )}
-              <div className="concept-editorial-evidence__proposal-actions">
-                <button type="button" onClick={() => model.actions.acceptAgentComment(pendingRevision.id)}>
-                  Apply revision
-                </button>
-                <button type="button" onClick={() => model.actions.dismissAgentComment(pendingRevision.id)}>
-                  Dismiss
-                </button>
-              </div>
-            </div>
+          ) : (
+            <p className="concept-editorial-evidence__empty">Pulled sources and highlights will collect here after the next agent move.</p>
           )}
         </section>
+      </EditorialSideRailCollapsible>
+
+      {hasPreparedMoves && (
+        <EditorialSideRailCollapsible
+          title="Prepared moves"
+          subtitle="Staged support, tension, and revision work."
+          className="concept-editorial-evidence__collapsible"
+          testId="concept-rail-prepared-moves"
+        >
+          <section className="concept-editorial-evidence__section concept-editorial-evidence__section--nested">
+            <p className="concept-editorial-evidence__section-copy">
+              Staged support, tension, and revision work waiting for your call.
+            </p>
+
+            {freshness.isStale && (
+              <div className="concept-editorial-evidence__result concept-editorial-evidence__result--proposal">
+                <div className="concept-editorial-evidence__result-head">
+                  <span>Fresh material waiting</span>
+                  <span>{freshness.unreviewedCount || 0} newer</span>
+                </div>
+                <p>{freshness.summary}</p>
+                {Array.isArray(freshness.preview) && freshness.preview.length > 0 && (
+                  <ul>
+                    {freshness.preview.slice(0, 3).map((item, index) => (
+                      <li key={`freshness-${index}-${item}`}>{item}</li>
+                    ))}
+                  </ul>
+                )}
+                <div className="concept-editorial-evidence__proposal-actions">
+                  <button type="button" onClick={() => model.actions.markReviewed?.()}>
+                    Mark current
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {pendingChangeDrafts.map((draft) => (
+              <div key={draft.id} className="concept-editorial-evidence__result concept-editorial-evidence__result--proposal">
+                <div className="concept-editorial-evidence__result-head">
+                  <span>{draft.title}</span>
+                  <span>{getDraftTargetLabel(draft)}</span>
+                </div>
+                <p>{draft.summary}</p>
+                {clean(draft.caption) && (
+                  <p className="concept-editorial-evidence__proposal-note">{draft.caption}</p>
+                )}
+                {Array.isArray(draft.cards) && draft.cards.length > 0 && (
+                  <ul className="concept-editorial-evidence__proposal-list">
+                    {draft.cards.slice(0, 3).map((card) => (
+                      <li key={`${draft.id}-${card.id}`}>
+                        <span>{zoneLabel(card.zone)}</span>
+                        <strong>{card.title || truncate(card.content, 64) || 'Untitled source'}</strong>
+                        {clean(card.source) && <em>{card.source}</em>}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                <div className="concept-editorial-evidence__proposal-actions">
+                  <button type="button" onClick={() => model.actions.applyChangeDraft(draft.id)}>
+                    {getDraftApplyLabel(draft)}
+                  </button>
+                  <button type="button" onClick={() => model.actions.dismissChangeDraft(draft.id)}>
+                    Not now
+                  </button>
+                </div>
+              </div>
+            ))}
+
+            {pendingRevision && (
+              <div className="concept-editorial-evidence__result concept-editorial-evidence__result--proposal">
+                <div className="concept-editorial-evidence__result-head">
+                  <span>Pending revision</span>
+                  <span>Approval required</span>
+                </div>
+                <p>{pendingRevision.body}</p>
+                {clean(pendingRevision.caption) && (
+                  <p className="concept-editorial-evidence__proposal-note">{pendingRevision.caption}</p>
+                )}
+                <div className="concept-editorial-evidence__proposal-actions">
+                  <button type="button" onClick={() => model.actions.acceptAgentComment(pendingRevision.id)}>
+                    Apply revision
+                  </button>
+                  <button type="button" onClick={() => model.actions.dismissAgentComment(pendingRevision.id)}>
+                    Dismiss
+                  </button>
+                </div>
+              </div>
+            )}
+          </section>
+        </EditorialSideRailCollapsible>
       )}
 
       {!isFreshConcept && (
-        <section className="concept-editorial-evidence__section concept-editorial-evidence__section--handoff">
-          <div className="concept-editorial-evidence__section-head">
-            <span>Notebook handoff</span>
-            <span>Downstream draft</span>
-          </div>
-          <p className="concept-editorial-evidence__section-copy">
-            Spin the concept into a downstream draft without losing the concept as the source of truth.
-          </p>
-          <div className="concept-editorial-evidence__handoff-options">
-            {notebookHandoffTemplates.map((template) => (
-              <button
-                key={template.id}
-                type="button"
-                onClick={() => model.actions.dispatchConceptAction(CONCEPT_ACTIONS.CREATE_NOTEBOOK_DRAFT, {
-                  template: template.id
-                })}
-                disabled={model.agentBusy}
-              >
-                <strong>{template.label}</strong>
-                <span>{template.description}</span>
-              </button>
-            ))}
-          </div>
-          <div className="concept-editorial-evidence__section-head" style={{ marginTop: 18 }}>
-            <span>Agent handoff</span>
-            <span>Scoped delegation</span>
-          </div>
-          <p className="concept-editorial-evidence__section-copy">
-            Send the live concept to a specialist agent with the current claim, support, tension, and open questions already attached.
-          </p>
-          {activePersonalAgents.length > 0 ? (
-            <div className="concept-editorial-evidence__handoff-options">
-              {activePersonalAgents.map((agent) => {
-                const roleLabel = Array.isArray(agent?.preferredWorkerRoles) && agent.preferredWorkerRoles.length > 0
-                  ? agent.preferredWorkerRoles[0]
-                  : 'specialist';
-                return (
-                  <button
-                    key={agent._id}
-                    type="button"
-                    onClick={() => model.actions.dispatchConceptAction(CONCEPT_ACTIONS.CREATE_AGENT_HANDOFF, {
-                      requestedActorId: String(agent._id || ''),
-                      requestedActorName: String(agent.name || '')
-                    })}
-                    disabled={model.agentBusy}
-                  >
-                    <strong>{agent.name || 'Specialist agent'}</strong>
-                    <span>{roleLabel}</span>
-                  </button>
-                );
-              })}
+        <EditorialSideRailCollapsible
+          title="Drafts & handoff"
+          subtitle="Notebook drafts and specialist delegation."
+          className="concept-editorial-evidence__collapsible"
+          testId="concept-rail-handoff"
+        >
+          <section className="concept-editorial-evidence__section concept-editorial-evidence__section--nested concept-editorial-evidence__section--handoff">
+            <div className="concept-editorial-evidence__section-head">
+              <span>Notebook handoff</span>
+              <span>Downstream draft</span>
             </div>
-          ) : (
-            <p className="concept-editorial-evidence__empty">
-              No active specialist agents yet. <a href="/integrations#personal-agents">Set one up</a>.
+            <p className="concept-editorial-evidence__section-copy">
+              Spin the concept into a downstream draft without losing the concept as the source of truth.
             </p>
-          )}
-        </section>
+            <div className="concept-editorial-evidence__handoff-options">
+              {notebookHandoffTemplates.map((template) => (
+                <button
+                  key={template.id}
+                  type="button"
+                  onClick={() => model.actions.dispatchConceptAction(CONCEPT_ACTIONS.CREATE_NOTEBOOK_DRAFT, {
+                    template: template.id
+                  })}
+                  disabled={model.agentBusy}
+                >
+                  <strong>{template.label}</strong>
+                  <span>{template.description}</span>
+                </button>
+              ))}
+            </div>
+            <div className="concept-editorial-evidence__section-head" style={{ marginTop: 18 }}>
+              <span>Agent handoff</span>
+              <span>Scoped delegation</span>
+            </div>
+            <p className="concept-editorial-evidence__section-copy">
+              Send the live concept to a specialist agent with the current claim, support, tension, and open questions already attached.
+            </p>
+            {activePersonalAgents.length > 0 ? (
+              <div className="concept-editorial-evidence__handoff-options">
+                {activePersonalAgents.map((agent) => {
+                  const roleLabel = Array.isArray(agent?.preferredWorkerRoles) && agent.preferredWorkerRoles.length > 0
+                    ? agent.preferredWorkerRoles[0]
+                    : 'specialist';
+                  return (
+                    <button
+                      key={agent._id}
+                      type="button"
+                      onClick={() => model.actions.dispatchConceptAction(CONCEPT_ACTIONS.CREATE_AGENT_HANDOFF, {
+                        requestedActorId: String(agent._id || ''),
+                        requestedActorName: String(agent.name || '')
+                      })}
+                      disabled={model.agentBusy}
+                    >
+                      <strong>{agent.name || 'Specialist agent'}</strong>
+                      <span>{roleLabel}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="concept-editorial-evidence__empty">
+                No active specialist agents yet. <a href="/integrations#personal-agents">Set one up</a>.
+              </p>
+            )}
+          </section>
+        </EditorialSideRailCollapsible>
       )}
     </div>
   );

@@ -68,6 +68,39 @@ describe('LibraryReadingRoomLead', () => {
     expect(onReviewFiling).toHaveBeenCalledTimes(1);
   });
 
+  it('shows filing progress and completion receipt states', () => {
+    const { rerender } = render(
+      <LibraryReadingRoomLead
+        articles={sampleArticles}
+        allArticles={sampleArticles}
+        unfiledCount={2}
+        onSelectArticle={jest.fn()}
+        onReviewFiling={jest.fn()}
+        filingLaunching
+      />
+    );
+
+    expect(screen.getByRole('button', { name: 'Classifying…' })).toBeDisabled();
+
+    rerender(
+      <LibraryReadingRoomLead
+        articles={sampleArticles}
+        allArticles={sampleArticles}
+        unfiledCount={2}
+        onSelectArticle={jest.fn()}
+        onReviewFiling={jest.fn()}
+        filingReceipt={{
+          stage: 'ready',
+          summary: 'Staged 2 filing suggestions across 2 folders for review.'
+        }}
+      />
+    );
+
+    expect(screen.getByTestId('library-filing-receipt')).toHaveTextContent(
+      'Staged 2 filing suggestions across 2 folders for review.'
+    );
+  });
+
   it('shows a cruft suppression notice in the maintenance strip', () => {
     render(
       <LibraryReadingRoomLead

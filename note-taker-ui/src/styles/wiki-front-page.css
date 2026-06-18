@@ -12,6 +12,16 @@
   padding: 40px 24px 72px;
 }
 
+html[data-ui-theme='dark'] body:has(.wiki-front-page) {
+  --vellum-bg: #14110d;
+  --vellum-panel: #1c1813;
+  --vellum-ink: #efe6d4;
+  background: var(--vellum-bg) !important;
+}
+
+html[data-ui-theme='dark'] .page-area:has(.wiki-front-page),
+html[data-ui-theme='dark'] .app-shell-new__body:has(.wiki-front-page),
+html[data-ui-theme='dark'] .wiki-front-page,
 html[data-ui-theme='dark'] body.noeis-editorial .page-area:has(.wiki-front-page),
 html[data-ui-theme='dark'] body.noeis-editorial .app-shell-new__body:has(.wiki-front-page),
 html[data-ui-theme='dark'] body.noeis-editorial .wiki-front-page {

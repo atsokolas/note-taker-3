@@ -329,6 +329,7 @@ const ThoughtPartnerPanel = ({
   title = AGENT_DISPLAY_NAME,
   subtitle = '',
   promptTemplates: promptTemplatesProp = null,
+  showQuickPrompts = true,
   emptyStateText = 'Start with a question, or pick a prompt above.',
   submitLabel = 'Ask',
   variant = 'default',
@@ -1753,7 +1754,7 @@ const ThoughtPartnerPanel = ({
           {passiveStatusText}
         </p>
       ) : null}
-      {!isThreadStreamVariant && !isPassiveNotebookPosture && quickPromptsSection}
+      {showQuickPrompts && !isThreadStreamVariant && !isPassiveNotebookPosture && quickPromptsSection}
       {plannerStripSection}
       {scorecardSection}
       {modelComparisonSection}

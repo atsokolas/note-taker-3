@@ -3065,6 +3065,10 @@ html[data-ui-theme='dark'] .topbar__search:-webkit-autofill:focus {
   width: 100%;
 }
 
+.article-reader-agent-band--after-highlights {
+  margin-top: 28px;
+}
+
 .article-highlight-edition {
   display: grid;
   gap: 22px;

@@ -16,8 +16,6 @@ jest.mock('./reader/useTextSelection', () => () => ({
   clearSelection: jest.fn()
 }));
 jest.mock('../tour/useTourSignal', () => () => jest.fn());
-jest.mock('./agent/ThoughtPartnerPanel', () => () => <div data-testid="thought-partner-panel" />);
-jest.mock('./agent/AgentSkillDock', () => () => <div data-testid="agent-skill-dock" />);
 
 describe('ArticleReader', () => {
   it('shows saved highlights as the reading body when an imported source has no full text', () => {
@@ -46,5 +44,24 @@ describe('ArticleReader', () => {
     expect(screen.getByText('Invert, always invert.')).toBeInTheDocument();
     expect(screen.getByText('Useful for decision-making.')).toBeInTheDocument();
     expect(screen.getByText('mental models')).toBeInTheDocument();
+  });
+
+  it('does not render the inline thought partner dock before article content', () => {
+    render(
+      <ArticleReader
+        article={{
+          _id: 'article-1',
+          title: 'Investor letter',
+          content: '<p>Cash flow discipline matters.</p>',
+          createdAt: '2026-06-07T00:00:00.000Z'
+        }}
+        highlights={[]}
+      />
+    );
+
+    expect(screen.queryByTestId('thought-partner-panel')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('agent-skill-dock')).not.toBeInTheDocument();
+    expect(screen.queryByText(/Ask against the full article/)).not.toBeInTheDocument();
+    expect(screen.getByText('Cash flow discipline matters.')).toBeInTheDocument();
   });
 });

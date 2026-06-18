@@ -209,6 +209,24 @@ describe('Concept evidence shell surfaces', () => {
     expect(model.actions.acceptAgentComment).toHaveBeenCalledWith('comment-1');
   });
 
+  it('keeps provenance, pulled material, and handoff sections collapsed by default', () => {
+    const model = buildModel();
+
+    render(
+      <ConceptEvidenceStreamRail
+        concept={{ _id: 'concept-1', name: 'Template Concept' }}
+        model={model}
+        activeSection="assistant"
+        referencePullInSlot={<div aria-label="Reference pull-in">Reference control</div>}
+      />
+    );
+
+    expect(screen.getByTestId('concept-rail-provenance')).not.toHaveAttribute('open');
+    expect(screen.getByTestId('concept-rail-pulled-material')).not.toHaveAttribute('open');
+    expect(screen.getByTestId('concept-rail-handoff')).not.toHaveAttribute('open');
+    expect(screen.getByText('Conversation')).toBeVisible();
+  });
+
   it('removes pulled workspace material from the rail after integrating it into the draft', () => {
     const model = buildModel();
 

@@ -271,6 +271,8 @@ const { buildCollectionRouter } = require('./routes/collectionRoutes');
 const { buildHighlightMutationRouter } = require('./routes/highlightMutationRoutes');
 const { buildAiMaintenanceRouter } = require('./routes/aiMaintenanceRoutes');
 const { buildSystemRouter } = require('./routes/systemRoutes');
+const { buildLibraryFilingRouter } = require('./routes/libraryFilingRoutes');
+const { stageLibraryFilingSuggestions: runStageLibraryFilingSuggestions } = require('./services/libraryFilingService');
 const { startServer } = require('./startServer');
 const {
   listWorkspaceTemplates,
@@ -4878,6 +4880,20 @@ app.use(buildLegacyContentRouter({
   TagMeta,
   Question
 }));
+app.use(buildLibraryFilingRouter({
+  authenticateToken,
+  stageLibraryFilingSuggestions: (params) => runStageLibraryFilingSuggestions({
+    ...params,
+    AgentStructureProposal,
+    AgentThread,
+    Article,
+    Folder,
+    appendThreadMessage,
+    compactThreadState,
+    sanitizeAgentStructureProposalDoc,
+    sanitizeAgentThreadDoc
+  })
+}));
 app.use(buildNotebookRouter({
   authenticateToken,
   NotebookEntry,
@@ -6411,6 +6427,8 @@ app.use(buildAgentChatRouter({
   NotebookFolder,
   TagMeta,
   NotebookEntry,
+  WikiPage,
+  WikiSchemaSettings,
   normalizeThreadScope,
   appendThreadMessage,
   compactThreadState,

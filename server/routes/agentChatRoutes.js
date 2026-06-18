@@ -3,6 +3,12 @@ const {
   trackHarnessEvent,
   trackRunLifecycleEvents
 } = require('../services/agentHarnessEvents');
+const {
+  askWikiPage: defaultAskWikiPage,
+  loadWikiAskCorpus: defaultLoadWikiAskCorpus
+} = require('../services/wikiAskService');
+const { findWikiBacklinks: defaultFindWikiBacklinks } = require('../services/wikiBacklinkService');
+const { getWikiSchemaPromptContent } = require('../services/wikiSchemaService');
 
 const buildAgentChatRouter = ({
   authenticateToken,
@@ -22,6 +28,11 @@ const buildAgentChatRouter = ({
   NotebookFolder,
   TagMeta,
   NotebookEntry,
+  WikiPage,
+  WikiSchemaSettings,
+  askWikiPage = defaultAskWikiPage,
+  loadWikiAskCorpus = defaultLoadWikiAskCorpus,
+  findWikiBacklinks = defaultFindWikiBacklinks,
   AgentArtifactDraft,
   normalizeThreadScope,
   appendThreadMessage,
@@ -71,6 +82,103 @@ const buildAgentChatRouter = ({
       writeSse(res, 'agent-delta', { delta: chunk });
       await delay(10);
     }
+  };
+
+  const textFromRichDoc = (node) => {
+    if (!node) return '';
+    if (typeof node === 'string') return node;
+    if (Array.isArray(node)) return node.map(textFromRichDoc).filter(Boolean).join('\n\n');
+    if (typeof node !== 'object') return '';
+    const ownText = typeof node.text === 'string' ? node.text : '';
+    const childText = Array.isArray(node.content)
+      ? node.content.map(textFromRichDoc).filter(Boolean).join(node.type === 'doc' ? '\n\n' : '')
+      : '';
+    return [ownText, childText].filter(Boolean).join('').trim();
+  };
+
+  const loadSelectedWikiPage = async ({ userId, pageId } = {}) => {
+    const safePageId = String(pageId || '').trim();
+    if (!safePageId || !WikiPage?.findOne) return null;
+    if (mongoose?.Types?.ObjectId?.isValid && !mongoose.Types.ObjectId.isValid(safePageId)) return null;
+    const query = WikiPage.findOne({
+      _id: safePageId,
+      userId,
+      status: { $ne: 'archived' },
+      archived: { $ne: true }
+    });
+    const selected = query?.select
+      ? query.select('title slug pageType plainText body sourceRefs updatedAt status')
+      : query;
+    if (selected?.lean) return selected.lean();
+    return selected;
+  };
+
+  const buildWikiGraphChatReply = async ({ userId, message, context } = {}) => {
+    const question = String(message || '').trim();
+    const pageId = String(context?.pageId || '').trim();
+    if (!question || !pageId || !askWikiPage || !loadWikiAskCorpus) return null;
+    const page = await loadSelectedWikiPage({ userId, pageId });
+    if (!page) return null;
+
+    const corpus = await loadWikiAskCorpus({
+      page,
+      question,
+      userId,
+      WikiPage,
+      TagMeta,
+      findWikiBacklinks
+    });
+    let wikiSchemaContent = '';
+    if (WikiSchemaSettings) {
+      try {
+        wikiSchemaContent = await getWikiSchemaPromptContent({ WikiSchemaSettings, userId });
+      } catch (_error) {
+        wikiSchemaContent = '';
+      }
+    }
+    const answerResult = await askWikiPage({
+      page,
+      question,
+      relatedPages: corpus?.relatedPages || [],
+      conceptRecords: corpus?.conceptRecords || [],
+      backlinkRows: corpus?.backlinkRows || [],
+      wikiSchemaContent
+    });
+    const reply = textFromRichDoc(answerResult?.answer)
+      || answerResult?.errorMessage
+      || 'I could not compose an answer from the wiki graph.';
+    const provenance = answerResult?.provenance || {};
+    const wikiPages = Array.isArray(provenance.wikiPages) ? provenance.wikiPages : [];
+    const relatedItems = wikiPages
+      .filter(item => item?.id || item?.title)
+      .map(item => ({
+        itemType: 'wiki_page',
+        itemId: String(item.id || ''),
+        title: String(item.title || 'Wiki page'),
+        relationType: item.role === 'selected' ? 'selected_context' : 'graph_context',
+        role: item.role || ''
+      }));
+    const graphExpanded = provenance.mode === 'graph_expanded' || wikiPages.some(item => item.role === 'related');
+    return {
+      reply,
+      relatedItems,
+      citations: [],
+      suggestedActions: [],
+      retrieval: {
+        searchedWorkspace: graphExpanded,
+        source: 'wiki_graph',
+        mode: provenance.mode || 'page_first',
+        summary: provenance.summary || '',
+        searchedSummary: provenance.searchedSummary || '',
+        pageTitles: wikiPages.map(item => item.title).filter(Boolean)
+      },
+      wikiAsk: {
+        status: answerResult?.status || 'answered',
+        model: answerResult?.model || '',
+        provenance,
+        citationIndexesUsed: Array.isArray(answerResult?.citationIndexesUsed) ? answerResult.citationIndexesUsed : []
+      }
+    };
   };
 
   const buildActivityReceipt = ({ stage = 'activity', summary = '', elapsedMs = null } = {}) => ({
@@ -532,25 +640,49 @@ const buildAgentChatRouter = ({
         });
       }
       const entitlements = await getUserAgentEntitlements(String(req.user.id));
-      const result = await generateCollaborativeReply({
+      let result = await buildWikiGraphChatReply({
         userId: String(req.user.id),
         message: req.body?.message,
-        history: thread ? threadMessagesToHistory(thread.messages) : req.body?.history,
-        context,
-        limit: req.body?.limit,
-        premiumWebResearchAvailable: entitlements.premiumWebResearchAvailable,
-        skillInvocation: req.body?.skillInvocation || {},
-        signal: streamController.signal,
-        onDelta: (delta) => {
-          const text = String(delta || '');
-          if (!text || res.writableEnded || streamController.signal.aborted) return;
-          streamedReply += text;
-          writeSse(res, 'agent-delta', { delta: text });
-        }
+        context
       });
+      if (result) {
+        await streamReplyText(res, result.reply);
+        streamedReply = result.reply;
+      } else {
+        result = await generateCollaborativeReply({
+          userId: String(req.user.id),
+          message: req.body?.message,
+          history: thread ? threadMessagesToHistory(thread.messages) : req.body?.history,
+          context,
+          limit: req.body?.limit,
+          premiumWebResearchAvailable: entitlements.premiumWebResearchAvailable,
+          skillInvocation: req.body?.skillInvocation || {},
+          signal: streamController.signal,
+          onDelta: (delta) => {
+            const text = String(delta || '');
+            if (!text || res.writableEnded || streamController.signal.aborted) return;
+            streamedReply += text;
+            writeSse(res, 'agent-delta', { delta: text });
+          }
+        });
+      }
 
       const relatedCount = Array.isArray(result?.relatedItems) ? result.relatedItems.length : 0;
-      if (result?.retrieval?.searchedWorkspace) {
+      if (result?.retrieval?.source === 'wiki_graph') {
+        const pageTitles = Array.isArray(result?.retrieval?.pageTitles)
+          ? result.retrieval.pageTitles.filter(Boolean).slice(0, 4)
+          : [];
+        emitActivity(res, activityReceipts, {
+          stage: 'search',
+          summary: result?.retrieval?.searchedSummary || 'Searched the wiki graph around the selected page.'
+        });
+        emitActivity(res, activityReceipts, {
+          stage: 'retrieve',
+          summary: pageTitles.length > 1
+            ? `Read ${pageTitles.join(' + ')}.`
+            : 'Answered from the selected wiki page.'
+        });
+      } else if (result?.retrieval?.searchedWorkspace) {
         emitActivity(res, activityReceipts, {
           stage: 'search',
           summary: 'Searched the workspace context.'
@@ -561,7 +693,7 @@ const buildAgentChatRouter = ({
             ? `Retrieved ${relatedCount} related workspace item${relatedCount === 1 ? '' : 's'}.`
             : 'No additional related workspace items were needed.'
         });
-      } else {
+      } else if (context?.pageId) {
         emitActivity(res, activityReceipts, {
           stage: 'retrieve',
           summary: 'Answered from the selected wiki page.'

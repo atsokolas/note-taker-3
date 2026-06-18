@@ -1,12 +1,16 @@
 import React from 'react';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
+import * as router from 'react-router-dom';
 import Library from './Library';
 import useFolders from '../hooks/useFolders';
 import useLibraryArticles from '../hooks/useLibraryArticles';
 import useArticleDetail from '../hooks/useArticleDetail';
 import useTags from '../hooks/useTags';
 import { getConnectionsForItem } from '../api/connections';
+import { startLibraryFilingSuggestions } from '../api/library';
+
+const mockNavigate = jest.fn();
 
 jest.mock('../hooks/useFolders', () => jest.fn());
 jest.mock('../hooks/useLibraryArticles', () => jest.fn());
@@ -91,6 +95,14 @@ jest.mock('../components/references/ReferencePullIn', () => ({
   __esModule: true,
   default: ({ targetId }) => <div>Pull references for {targetId}</div>
 }));
+jest.mock('../components/agent/ThoughtPartnerPanel', () => ({
+  __esModule: true,
+  default: () => <div data-testid="thought-partner-panel">Library thought partner</div>
+}));
+jest.mock('../components/agent/AgentSkillDock', () => ({
+  __esModule: true,
+  default: () => <div data-testid="agent-skill-dock">Article moves</div>
+}));
 
 jest.mock('../api/articles', () => ({
   moveArticleToFolder: jest.fn()
@@ -111,6 +123,9 @@ jest.mock('../api/highlights', () => ({
 jest.mock('../api/agent', () => ({
   chatWithAgent: jest.fn()
 }));
+jest.mock('../api/library', () => ({
+  startLibraryFilingSuggestions: jest.fn()
+}));
 jest.mock('../hooks/useAuthHeaders', () => ({
   getAuthHeaders: () => ({})
 }));
@@ -123,17 +138,29 @@ jest.mock('../api', () => ({
   }
 }));
 
-const renderLibrary = (path = '/library?scope=all') => render(
-  <MemoryRouter initialEntries={[path]}>
-    <Library />
-  </MemoryRouter>
-);
+const renderLibrary = (path = '/library?scope=all') => {
+  jest.spyOn(router, 'useNavigate').mockReturnValue(mockNavigate);
+  return render(
+    <MemoryRouter initialEntries={[path]}>
+      <Library />
+    </MemoryRouter>
+  );
+};
 
 describe('Library agent rail', () => {
   beforeEach(() => {
+    jest.restoreAllMocks();
+    mockNavigate.mockReset();
     localStorage.clear();
     window.matchMedia = jest.fn().mockReturnValue({ matches: true });
     getConnectionsForItem.mockResolvedValue({ outgoing: [], incoming: [] });
+    startLibraryFilingSuggestions.mockResolvedValue({
+      thread: { threadId: 'thread-filing-1' },
+      receipt: {
+        stage: 'ready',
+        summary: 'Staged 2 filing suggestions across 2 folders for review.'
+      }
+    });
     useFolders.mockReturnValue({
       folders: [],
       loading: false,
@@ -199,13 +226,15 @@ describe('Library agent rail', () => {
     expect(screen.queryByTestId('library-left')).not.toBeInTheDocument();
   });
 
-  it('opens the cabinet for filing review from the reading room lead action', () => {
+  it('starts the filing classification flow from the reading room lead action', async () => {
     renderLibrary();
 
     fireEvent.click(screen.getByRole('button', { name: 'Review filing suggestions' }));
 
-    expect(screen.getByTestId('library-left')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Unfiled/i })).toBeInTheDocument();
+    await waitFor(() => {
+      expect(startLibraryFilingSuggestions).toHaveBeenCalledTimes(1);
+    });
+    expect(mockNavigate).toHaveBeenCalledWith('/think?tab=threads&threadId=thread-filing-1');
   });
 
   it('keeps low-signal tag shortcuts out of the Cabinet saved-view shelf', () => {
@@ -215,7 +244,7 @@ describe('Library agent rail', () => {
     });
 
     renderLibrary();
-    fireEvent.click(screen.getByRole('button', { name: 'Review filing suggestions' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Cabinet' }));
 
     expect(screen.getByText('valuation')).toBeInTheDocument();
     expect(screen.queryByText('Blah')).not.toBeInTheDocument();
@@ -226,5 +255,17 @@ describe('Library agent rail', () => {
     renderLibrary();
 
     expect(screen.getByRole('button', { name: 'Show low-signal items' })).toBeInTheDocument();
+  });
+
+  it('mounts the thought partner in the reading right rail with source context collapsed', async () => {
+    renderLibrary();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open article' }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('thought-partner-panel')).toBeInTheDocument();
+    });
+    expect(screen.getByText('Reading article shell')).toBeInTheDocument();
+    expect(screen.getByTestId('library-reading-secondary-rail')).not.toHaveAttribute('open');
   });
 });
