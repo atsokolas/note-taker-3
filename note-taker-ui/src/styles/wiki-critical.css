@@ -506,6 +506,11 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.wiki-read__share-compact--maintenance {
+  max-width: none;
+  justify-content: flex-end;
+  padding-bottom: 0;
+}
 .wiki-read__body,
 .wiki-read__references {
   font-family: Georgia, "Times New Roman", serif;
@@ -520,6 +525,10 @@
   .wiki-read__share-compact {
     max-width: 100%;
     padding-bottom: 12px;
+  }
+  .wiki-read__share-compact--maintenance {
+    justify-content: flex-start;
+    padding-bottom: 0;
   }
   .wiki-read__share-compact-copy {
     white-space: normal;

@@ -1879,9 +1879,28 @@ const WikiPageReadView = ({
             sharedMemory
             surface={page?.title || 'Wiki page'}
           />
-          <Button type="button" variant="secondary" onClick={handleMaintain} disabled={maintenanceActive}>
-            {maintenanceActive ? 'Running...' : 'Run again'}
-          </Button>
+          <div className="wiki-read__maintenance-actions">
+            <div className={`wiki-read__share-compact wiki-read__share-compact--maintenance ${isSharedPublicly ? 'is-shared' : 'is-private'}`} role="region" aria-label="Safe wiki sharing">
+              <span className="wiki-read__share-compact-label">
+                {isSharedPublicly ? 'Public link ready' : 'Share safe link'}
+              </span>
+              <span className="wiki-read__share-compact-copy">
+                Page and references only.
+              </span>
+              <Button type="button" variant="secondary" onClick={handleShareSafely} disabled={shareBusy}>
+                {shareBusy ? 'Preparing...' : isSharedPublicly ? 'Copy link' : 'Share'}
+              </Button>
+              {isSharedPublicly && publicShareUrl ? (
+                <a className="wiki-read__share-open" href={publicShareUrl} target="_blank" rel="noopener noreferrer">
+                  Open
+                </a>
+              ) : null}
+              {shareStatus ? <span className="wiki-read__share-status" role="status">{shareStatus}</span> : null}
+            </div>
+            <Button type="button" variant="secondary" onClick={handleMaintain} disabled={maintenanceActive}>
+              {maintenanceActive ? 'Running...' : 'Run again'}
+            </Button>
+          </div>
         </section>
       ) : null}
       <div className={`wiki-read__layout${railCollapsed ? ' wiki-read__layout--rail-collapsed' : ''}`}>
@@ -1972,23 +1991,6 @@ const WikiPageReadView = ({
                   {discussionCount ? <span>{discussionCount}</span> : null}
                 </button>
               </div> : null}
-              <div className={`wiki-read__share-compact ${isSharedPublicly ? 'is-shared' : 'is-private'}`} role="region" aria-label="Safe wiki sharing">
-                <span className="wiki-read__share-compact-label">
-                  {isSharedPublicly ? 'Public link ready' : 'Share safe link'}
-                </span>
-                <span className="wiki-read__share-compact-copy">
-                  Page and references only. Backlinks, private notes, graph edges, and agent work stay private.
-                </span>
-                <Button type="button" variant="secondary" onClick={handleShareSafely} disabled={shareBusy}>
-                  {shareBusy ? 'Preparing...' : isSharedPublicly ? 'Copy link' : 'Share'}
-                </Button>
-                {isSharedPublicly && publicShareUrl ? (
-                  <a className="wiki-read__share-open" href={publicShareUrl} target="_blank" rel="noopener noreferrer">
-                    Open
-                  </a>
-                ) : null}
-                {shareStatus ? <span className="wiki-read__share-status" role="status">{shareStatus}</span> : null}
-              </div>
             </div>
           </header>
           {!showPageTalk || activeTab === 'article' ? (

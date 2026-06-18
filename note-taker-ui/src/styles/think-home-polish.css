@@ -5398,6 +5398,16 @@ html[data-ui-theme='dark'] {
   padding: 6px 11px;
 }
 
+.wiki-read__share-compact--maintenance {
+  max-width: none;
+  justify-content: flex-end;
+  padding-bottom: 0;
+}
+
+.wiki-read__share-compact--maintenance .wiki-read__share-compact-copy {
+  color: var(--text-muted);
+}
+
 .wiki-read__body {
   padding: 26px 0 12px;
   color: var(--text-primary);
@@ -10309,7 +10319,7 @@ html[data-ui-theme='dark'] .wiki-activity-rail__graph-alerts span {
 
 .wiki-read__maintenance-receipt {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(220px, 360px) auto;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 360px) minmax(210px, auto);
   gap: 14px;
   align-items: center;
   max-width: 1060px;
@@ -10362,6 +10372,18 @@ html[data-ui-theme='dark'] .wiki-activity-rail__graph-alerts span {
   border-radius: 8px;
 }
 
+.wiki-read__maintenance-actions {
+  display: grid;
+  gap: 8px;
+  justify-items: end;
+  min-width: 0;
+}
+
+.wiki-read__maintenance-actions > .btn,
+.wiki-read__maintenance-actions > button {
+  justify-self: end;
+}
+
 .wiki-read-link-preview {
   animation: wikiLinkPreviewBloom 180ms cubic-bezier(0.16, 1, 0.3, 1);
   transform-origin: top left;
@@ -10401,6 +10423,14 @@ html[data-ui-theme='dark'] .wiki-activity-rail__graph-alerts span {
 
   .wiki-read__maintenance-receipt {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .wiki-read__maintenance-actions {
+    justify-items: start;
+  }
+
+  .wiki-read__share-compact--maintenance {
+    justify-content: flex-start;
   }
 }
 
