@@ -147,6 +147,15 @@ body {
   height: 100%;
 }
 
+body.noeis-public-share,
+body.noeis-public-share #root {
+  min-height: 100%;
+  height: auto;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
 .app-container {
   display: flex;
   height: 100vh;

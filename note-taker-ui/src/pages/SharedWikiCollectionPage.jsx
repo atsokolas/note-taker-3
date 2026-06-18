@@ -11,6 +11,15 @@ const hasAuthToken = () => {
   return Boolean(localStorage.getItem('token') || localStorage.getItem('authToken'));
 };
 
+const usePublicShareScrollSurface = () => {
+  useEffect(() => {
+    document.body.classList.add('noeis-public-share');
+    return () => {
+      document.body.classList.remove('noeis-public-share');
+    };
+  }, []);
+};
+
 const pageIdFor = (page = {}) => page?._id || page?.id || '';
 
 const SharedWikiCollectionPage = () => {
@@ -29,6 +38,7 @@ const SharedWikiCollectionPage = () => {
     const params = new URLSearchParams(location.search || '');
     return params.get('adopt') === '1';
   }, [location.search]);
+  usePublicShareScrollSurface();
 
   useEffect(() => {
     let cancelled = false;

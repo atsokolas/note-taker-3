@@ -72,9 +72,10 @@ describe('SharedWikiCollectionPage', () => {
   });
 
   it('renders a public-safe collection with static wiki links', async () => {
-    render(<SharedWikiCollectionPage />);
+    const { unmount } = render(<SharedWikiCollectionPage />);
 
     await waitFor(() => expect(getPublicWikiCollection).toHaveBeenCalledWith('thinking-foundations'));
+    expect(document.body).toHaveClass('noeis-public-share');
     expect(await screen.findByRole('heading', { name: 'Thinking Foundations' })).toBeInTheDocument();
     expect(screen.getByText('A safe public starting point.')).toBeInTheDocument();
     expect(screen.getByText(/Backlinks, highlights, source notes, and agent work stay private/i)).toBeInTheDocument();
@@ -83,6 +84,8 @@ describe('SharedWikiCollectionPage', () => {
     expect(screen.getByRole('heading', { name: 'Margin of Safety' })).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Private neighbor' })).not.toBeInTheDocument();
     expect(screen.getByText('Private neighbor')).toHaveClass('wiki-internal-link--static');
+    unmount();
+    expect(document.body).not.toHaveClass('noeis-public-share');
   });
 
   it('sends logged-out readers through auth with a collection adoption return URL', async () => {

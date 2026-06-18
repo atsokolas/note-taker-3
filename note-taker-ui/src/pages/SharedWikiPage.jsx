@@ -30,6 +30,15 @@ const useDocumentTitle = (title) => {
   }, [title]);
 };
 
+const usePublicShareScrollSurface = () => {
+  useEffect(() => {
+    document.body.classList.add('noeis-public-share');
+    return () => {
+      document.body.classList.remove('noeis-public-share');
+    };
+  }, []);
+};
+
 const hasAuthToken = () => {
   if (typeof window === 'undefined') return false;
   return Boolean(localStorage.getItem('token') || localStorage.getItem('authToken'));
@@ -79,6 +88,7 @@ const SharedWikiPage = () => {
     const params = new URLSearchParams(location.search || '');
     return params.get('adopt') === '1';
   }, [location.search]);
+  usePublicShareScrollSurface();
   useDocumentTitle(page?.title ? `${page.title} · Noeis` : 'Shared wiki · Noeis');
 
   const handleAdopt = useCallback(async () => {

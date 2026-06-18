@@ -66,9 +66,10 @@ describe('SharedWikiPage', () => {
       }
     });
 
-    render(<SharedWikiPage />);
+    const { unmount } = render(<SharedWikiPage />);
 
     await waitFor(() => expect(getPublicWikiPage).toHaveBeenCalledWith('opportunity-cost'));
+    expect(document.body).toHaveClass('noeis-public-share');
     expect(await screen.findByRole('heading', { name: 'Opportunity Cost' })).toBeInTheDocument();
     expect(screen.getByRole('status')).toHaveTextContent('Public page ready: citations included, private source notes withheld.');
     expect(screen.getAllByText('Opportunity cost frames tradeoffs.')).toHaveLength(2);
@@ -79,6 +80,8 @@ describe('SharedWikiPage', () => {
     expect(screen.queryByRole('link', { name: 'Private neighbor' })).not.toBeInTheDocument();
     expect(screen.getByText('Private neighbor')).toHaveClass('wiki-internal-link--static');
     expect(screen.getByRole('link', { name: 'Open Noeis' })).toHaveAttribute('href', '/');
+    unmount();
+    expect(document.body).not.toHaveClass('noeis-public-share');
   });
 
   it('sends logged-out readers through auth with a return-to adoption URL', async () => {
