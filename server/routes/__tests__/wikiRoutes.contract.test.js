@@ -1160,6 +1160,37 @@ const run = async () => {
     assert.ok(starterPacks.body.packs.some(pack => pack.id === 'mental-models'));
     assert.ok(starterPacks.body.packs.some(pack => pack.id === 'value-investing'));
 
+    const starterPackCollection = await request(url, '/api/public/wiki/collections/mental-models', {
+      headers: {}
+    });
+    assert.strictEqual(starterPackCollection.res.status, 200, starterPackCollection.text);
+    assert.strictEqual(starterPackCollection.body.collection.slug, 'mental-models');
+    assert.strictEqual(starterPackCollection.body.collection.sourceType, 'starter_pack');
+    assert.strictEqual(starterPackCollection.body.collection.packId, 'mental-models');
+    assert.ok(starterPackCollection.body.collection.pages.length >= 6);
+    assert.strictEqual(starterPackCollection.body.collection.pages[0].userId, undefined);
+    assert.strictEqual(starterPackCollection.body.collection.pages[0].aiState, undefined);
+
+    const adoptedStarterPackCollection = await request(url, '/api/public/wiki/collections/mental-models/adopt', {
+      method: 'POST',
+      headers: { 'x-test-user': 'user-4' }
+    });
+    assert.strictEqual(adoptedStarterPackCollection.res.status, 201, adoptedStarterPackCollection.text);
+    assert.strictEqual(adoptedStarterPackCollection.body.collection._id, 'mental-models');
+    assert.strictEqual(adoptedStarterPackCollection.body.collection.slug, 'mental-models');
+    assert.strictEqual(adoptedStarterPackCollection.body.collection.sourceType, 'starter_pack');
+    assert.strictEqual(adoptedStarterPackCollection.body.collection.packId, 'mental-models');
+    assert.strictEqual(adoptedStarterPackCollection.body.pack, undefined);
+    assert.ok(adoptedStarterPackCollection.body.pages.length >= 6);
+    assert.ok(adoptedStarterPackCollection.body.pages.every(page => page.userId === 'user-4'));
+    assert.ok(adoptedStarterPackCollection.body.pages.every(page => page.adoptedFrom.originType === 'starter_pack'));
+    assert.ok(adoptedStarterPackCollection.body.pages.every(page => page.adoptedFrom.sample === true));
+    assert.ok(adoptedStarterPackCollection.body.pages.every(page => page.adoptedFrom.packId === 'mental-models'));
+    const collectionFirstPrinciples = adoptedStarterPackCollection.body.pages.find(page => page.title === 'First Principles Thinking');
+    const collectionOpportunityCost = adoptedStarterPackCollection.body.pages.find(page => page.title === 'Opportunity Cost');
+    const collectionStarterLink = JSON.stringify(collectionFirstPrinciples.body);
+    assert.ok(collectionStarterLink.includes(String(collectionOpportunityCost._id)));
+
     const adoptedStarterPack = await request(url, '/api/public/wiki/starter-packs/mental-models/adopt', {
       method: 'POST',
       headers: { 'x-test-user': 'user-3' }

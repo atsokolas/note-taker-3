@@ -238,6 +238,28 @@ const starterPackSummary = (pack) => ({
   }))
 });
 
+const findStarterPack = (idOrSlug = '') => {
+  const safe = String(idOrSlug || '').trim();
+  if (!safe) return null;
+  return STARTER_PACKS.find(pack => pack.id === safe || slugify(pack.name) === safe) || null;
+};
+
+const serializeStarterPackAsPublicCollection = (pack) => {
+  if (!pack) return null;
+  return serializePublicWikiCollection({
+    collection: {
+      _id: pack.id,
+      name: pack.name,
+      description: pack.description || pack.tagline || '',
+      slug: pack.id,
+      visibility: 'shared',
+      sourceType: 'starter_pack',
+      packId: pack.id
+    },
+    pages: pack.pages
+  });
+};
+
 const escapeRegExp = (value = '') => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 const extractPlainText = (node) => {
@@ -1489,6 +1511,19 @@ const buildWikiRouter = ({
     };
   };
 
+  const adoptStarterPackForUser = async ({ pack, userId }) => {
+    const snapshots = pack.pages.map(buildAdoptableWikiPageSnapshot).filter(Boolean);
+    return createAdoptedWikiPages({
+      userId,
+      snapshots,
+      originType: 'starter_pack',
+      originCollectionId: pack.id,
+      originCollectionTitle: pack.name,
+      packId: pack.id,
+      sample: true
+    });
+  };
+
   const findOwnedPage = (req) => WikiPage.findOne({ _id: req.params.id, userId: req.user.id });
 
   const refreshWikiProposals = async ({ userId, force = false } = {}) => {
@@ -2357,18 +2392,9 @@ const buildWikiRouter = ({
 
   router.post('/api/public/wiki/starter-packs/:packId/adopt', wikiAuth, async (req, res) => {
     try {
-      const pack = STARTER_PACKS.find(candidate => candidate.id === String(req.params.packId || '').trim());
+      const pack = findStarterPack(req.params.packId);
       if (!pack) return res.status(404).json({ error: 'Starter pack not found.' });
-      const snapshots = pack.pages.map(buildAdoptableWikiPageSnapshot).filter(Boolean);
-      const result = await createAdoptedWikiPages({
-        userId: req.user.id,
-        snapshots,
-        originType: 'starter_pack',
-        originCollectionId: pack.id,
-        originCollectionTitle: pack.name,
-        packId: pack.id,
-        sample: true
-      });
+      const result = await adoptStarterPackForUser({ pack, userId: req.user.id });
       res.status(201).json({
         pack: starterPackSummary(pack),
         pages: result.pages.map(entry => serializeWikiPage(entry.page)),
@@ -2419,8 +2445,14 @@ const buildWikiRouter = ({
 
   router.get('/api/public/wiki/collections/:idOrSlug', async (req, res) => {
     try {
-      if (!WikiSharedCollection) return res.status(404).json({ error: 'Shared wiki collection not found.' });
       const idOrSlug = String(req.params.idOrSlug || '').trim();
+      const starterPack = findStarterPack(idOrSlug);
+      if (starterPack) {
+        return res.status(200).json({
+          collection: serializeStarterPackAsPublicCollection(starterPack)
+        });
+      }
+      if (!WikiSharedCollection) return res.status(404).json({ error: 'Shared wiki collection not found.' });
       const query = { visibility: 'shared' };
       if (mongoose.Types.ObjectId.isValid(idOrSlug)) query._id = idOrSlug;
       else query.slug = idOrSlug;
@@ -2442,8 +2474,24 @@ const buildWikiRouter = ({
 
   router.post('/api/public/wiki/collections/:idOrSlug/adopt', wikiAuth, async (req, res) => {
     try {
-      if (!WikiSharedCollection) return res.status(404).json({ error: 'Shared wiki collection not found.' });
       const idOrSlug = String(req.params.idOrSlug || '').trim();
+      const starterPack = findStarterPack(idOrSlug);
+      if (starterPack) {
+        const result = await adoptStarterPackForUser({ pack: starterPack, userId: req.user.id });
+        return res.status(201).json({
+          collection: {
+            _id: starterPack.id,
+            name: starterPack.name,
+            slug: starterPack.id,
+            sourceType: 'starter_pack',
+            packId: starterPack.id,
+            pageCount: result.pages.length
+          },
+          pages: result.pages.map(entry => serializeWikiPage(entry.page)),
+          mergeAvailable: result.pages.some(entry => entry.mergeAvailable)
+        });
+      }
+      if (!WikiSharedCollection) return res.status(404).json({ error: 'Shared wiki collection not found.' });
       const query = { visibility: 'shared' };
       if (mongoose.Types.ObjectId.isValid(idOrSlug)) query._id = idOrSlug;
       else query.slug = idOrSlug;
