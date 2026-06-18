@@ -174,8 +174,11 @@ const DataIntegrationsRedirect = () => {
   return <Navigate to={`/connections${location.search}${hash}`} replace />;
 };
 
+export const isPublicSharePath = (pathname = '') => pathname.startsWith('/share/');
+
 const PublicRoutes = ({ chromeStoreLink, handleLoginSuccess, uiSettings }) => {
   const location = useLocation();
+  const isShareRoute = isPublicSharePath(location.pathname);
   const isLongformRoute = (
     location.pathname === '/ai-second-brain'
     || location.pathname === '/second-brain-app'
@@ -196,6 +199,7 @@ const PublicRoutes = ({ chromeStoreLink, handleLoginSuccess, uiSettings }) => {
     location.pathname === '/'
     || location.pathname === '/privacy'
     || location.pathname === '/terms'
+    || isShareRoute
     || isLongformRoute
   );
   const publicContainerClassName = [
@@ -639,20 +643,31 @@ function App() {
     );
   };
 
-  return (
-    <Router>
-      <Analytics /> 
-      {isAuthenticated ? (
-        <TourProvider>
-          <AppLayout />
-        </TourProvider>
-      ) : (
+  const AppRouterContent = () => {
+    const location = useLocation();
+    const shouldUsePublicRoutes = !isAuthenticated || isPublicSharePath(location.pathname);
+
+    if (shouldUsePublicRoutes) {
+      return (
         <PublicRoutes
           chromeStoreLink={chromeStoreLink}
           handleLoginSuccess={handleLoginSuccess}
           uiSettings={uiSettings}
         />
-      )}
+      );
+    }
+
+    return (
+      <TourProvider>
+        <AppLayout />
+      </TourProvider>
+    );
+  };
+
+  return (
+    <Router>
+      <Analytics />
+      <AppRouterContent />
     </Router>
   );
 }
