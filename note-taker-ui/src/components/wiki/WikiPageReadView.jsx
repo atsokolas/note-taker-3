@@ -1795,25 +1795,6 @@ const WikiPageReadView = ({
           {error ? <span className="wiki-editor__error" role="alert">{error}</span> : null}
         </div>
       ) : null}
-      <section className={`wiki-read__share-strip ${isSharedPublicly ? 'is-shared' : 'is-private'}`} aria-label="Safe wiki sharing">
-        <div>
-          <p className="wiki-read__share-kicker">{isSharedPublicly ? 'Public link ready' : 'Share without exposing your workspace'}</p>
-          <p>
-            Public readers see this page and its references. Backlinks, private source notes, graph edges, and agent work stay inside Noeis.
-          </p>
-          {shareStatus ? <p className="wiki-read__share-status" role="status">{shareStatus}</p> : null}
-        </div>
-        <div className="wiki-read__share-actions">
-          <Button type="button" variant="secondary" onClick={handleShareSafely} disabled={shareBusy}>
-            {shareBusy ? 'Preparing...' : isSharedPublicly ? 'Copy public link' : 'Share safely'}
-          </Button>
-          {isSharedPublicly && publicShareUrl ? (
-            <a className="wiki-read__share-open" href={publicShareUrl} target="_blank" rel="noopener noreferrer">
-              Open
-            </a>
-          ) : null}
-        </div>
-      </section>
       {nonCriticalReady ? (
         <Suspense fallback={null}>
           {!workspaceMode ? (
@@ -1965,31 +1946,50 @@ const WikiPageReadView = ({
                 {markdownStatus ? <span role="status">{markdownStatus}</span> : null}
               </div>
             ) : null}
-            {showPageTalk ? <div className="wiki-read__tabs" role="tablist" aria-label="Wiki page views">
-              <button
-                type="button"
-                role="tab"
-                id="wiki-read-tab-article"
-                aria-selected={activeTab === 'article'}
-                aria-controls="wiki-read-panel-article"
-                className={activeTab === 'article' ? 'is-active' : ''}
-                onClick={() => setActiveTab('article')}
-              >
-                Article
-              </button>
-              <button
-                type="button"
-                role="tab"
-                id="wiki-read-tab-talk"
-                aria-selected={activeTab === 'talk'}
-                aria-controls="wiki-read-panel-talk"
-                className={activeTab === 'talk' ? 'is-active' : ''}
-                onClick={() => setActiveTab('talk')}
-              >
-                Talk
-                {discussionCount ? <span>{discussionCount}</span> : null}
-              </button>
-            </div> : null}
+            <div className="wiki-read__viewbar">
+              {showPageTalk ? <div className="wiki-read__tabs" role="tablist" aria-label="Wiki page views">
+                <button
+                  type="button"
+                  role="tab"
+                  id="wiki-read-tab-article"
+                  aria-selected={activeTab === 'article'}
+                  aria-controls="wiki-read-panel-article"
+                  className={activeTab === 'article' ? 'is-active' : ''}
+                  onClick={() => setActiveTab('article')}
+                >
+                  Article
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  id="wiki-read-tab-talk"
+                  aria-selected={activeTab === 'talk'}
+                  aria-controls="wiki-read-panel-talk"
+                  className={activeTab === 'talk' ? 'is-active' : ''}
+                  onClick={() => setActiveTab('talk')}
+                >
+                  Talk
+                  {discussionCount ? <span>{discussionCount}</span> : null}
+                </button>
+              </div> : null}
+              <div className={`wiki-read__share-compact ${isSharedPublicly ? 'is-shared' : 'is-private'}`} role="region" aria-label="Safe wiki sharing">
+                <span className="wiki-read__share-compact-label">
+                  {isSharedPublicly ? 'Public link ready' : 'Share safe link'}
+                </span>
+                <span className="wiki-read__share-compact-copy">
+                  Page and references only. Backlinks, private notes, graph edges, and agent work stay private.
+                </span>
+                <Button type="button" variant="secondary" onClick={handleShareSafely} disabled={shareBusy}>
+                  {shareBusy ? 'Preparing...' : isSharedPublicly ? 'Copy link' : 'Share'}
+                </Button>
+                {isSharedPublicly && publicShareUrl ? (
+                  <a className="wiki-read__share-open" href={publicShareUrl} target="_blank" rel="noopener noreferrer">
+                    Open
+                  </a>
+                ) : null}
+                {shareStatus ? <span className="wiki-read__share-status" role="status">{shareStatus}</span> : null}
+              </div>
+            </div>
           </header>
           {!showPageTalk || activeTab === 'article' ? (
             <section

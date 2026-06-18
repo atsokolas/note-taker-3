@@ -222,11 +222,11 @@ describe('WikiPageReadView', () => {
 
     expect(await screen.findByRole('heading', { name: 'Enterprise AI Memory' })).toBeInTheDocument();
     const shareRegion = screen.getByRole('region', { name: 'Safe wiki sharing' });
-    expect(shareRegion).toHaveTextContent('Share without exposing your workspace');
-    expect(shareRegion).toHaveTextContent('Backlinks, private source notes, graph edges, and agent work stay inside Noeis.');
+    expect(shareRegion).toHaveTextContent('Share safe link');
+    expect(shareRegion).toHaveTextContent('Page and references only. Backlinks, private notes, graph edges, and agent work stay private.');
 
     await act(async () => {
-      fireEvent.click(within(shareRegion).getByRole('button', { name: 'Share safely' }));
+      fireEvent.click(within(shareRegion).getByRole('button', { name: 'Share' }));
     });
 
     expect(updateWikiPage).toHaveBeenCalledWith('wiki-1', { visibility: 'shared' });

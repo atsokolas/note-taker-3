@@ -5300,6 +5300,14 @@ html[data-ui-theme='dark'] {
   font-size: 0.78rem;
 }
 
+.wiki-read__viewbar {
+  display: flex;
+  gap: 12px;
+  align-items: end;
+  justify-content: space-between;
+  border-bottom: 1px solid color-mix(in srgb, var(--nt-divider) 76%, transparent);
+}
+
 .wiki-read__facts {
   display: flex;
   flex-wrap: wrap;
@@ -5318,7 +5326,7 @@ html[data-ui-theme='dark'] {
   display: flex;
   gap: 0;
   align-items: flex-end;
-  border-bottom: 1px solid color-mix(in srgb, var(--nt-divider) 76%, transparent);
+  border-bottom: 0;
 }
 
 .wiki-read__tabs button {
@@ -5352,6 +5360,42 @@ html[data-ui-theme='dark'] {
   margin-left: 6px;
   color: var(--text-muted);
   font-size: 0.78rem;
+}
+
+.wiki-read__share-compact {
+  display: flex;
+  min-width: 0;
+  max-width: min(100%, 540px);
+  gap: 8px;
+  align-items: center;
+  justify-content: flex-end;
+  padding-bottom: 8px;
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+}
+
+.wiki-read__share-compact-label {
+  flex: 0 0 auto;
+  color: var(--text-primary);
+  font-family: -apple-system, BlinkMacSystemFont, "SF Mono", Menlo, monospace;
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.wiki-read__share-compact-copy {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wiki-read__share-compact .btn,
+.wiki-read__share-compact button {
+  flex: 0 0 auto;
+  min-height: 34px;
+  padding: 6px 11px;
 }
 
 .wiki-read__body {
@@ -6968,10 +7012,21 @@ html[data-ui-theme='dark'] .wiki-claim-popover__evidence--contradicts .wiki-clai
 
 @media (max-width: 860px) {
   .wiki-read__share-strip,
+  .wiki-read__viewbar,
+  .wiki-read__share-compact,
   .shared-wiki-page__topbar,
   .shared-wiki-page__metrics {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .wiki-read__share-compact {
+    max-width: 100%;
+    padding-bottom: 12px;
+  }
+
+  .wiki-read__share-compact-copy {
+    white-space: normal;
   }
 
   .shared-wiki-page__layout {
