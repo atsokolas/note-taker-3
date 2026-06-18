@@ -32,9 +32,11 @@ const useDocumentTitle = (title) => {
 
 const usePublicShareScrollSurface = () => {
   useEffect(() => {
+    document.documentElement.classList.add('noeis-public-share');
     document.body.classList.add('noeis-public-share');
     return () => {
       document.body.classList.remove('noeis-public-share');
+      document.documentElement.classList.remove('noeis-public-share');
     };
   }, []);
 };

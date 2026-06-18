@@ -75,6 +75,7 @@ describe('SharedWikiCollectionPage', () => {
     const { unmount } = render(<SharedWikiCollectionPage />);
 
     await waitFor(() => expect(getPublicWikiCollection).toHaveBeenCalledWith('thinking-foundations'));
+    expect(document.documentElement).toHaveClass('noeis-public-share');
     expect(document.body).toHaveClass('noeis-public-share');
     expect(await screen.findByRole('heading', { name: 'Thinking Foundations' })).toBeInTheDocument();
     expect(screen.getByText('A safe public starting point.')).toBeInTheDocument();
@@ -86,6 +87,7 @@ describe('SharedWikiCollectionPage', () => {
     expect(screen.getByText('Private neighbor')).toHaveClass('wiki-internal-link--static');
     unmount();
     expect(document.body).not.toHaveClass('noeis-public-share');
+    expect(document.documentElement).not.toHaveClass('noeis-public-share');
   });
 
   it('sends logged-out readers through auth with a collection adoption return URL', async () => {
