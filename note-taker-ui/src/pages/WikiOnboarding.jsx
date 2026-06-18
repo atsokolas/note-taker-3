@@ -3,9 +3,11 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   adoptWikiStarterPack,
   createWikiPage,
+  deleteWikiPage,
   listWikiStarterPacks,
   streamMaintainWikiPage
 } from '../api/wiki';
+import { importPastedText, importPastedUrl } from '../api/imports';
 import { wikiPagePath } from '../utils/wikiFeatureFlags';
 
 const COMPLETE_KEY = 'noeis.wikiOnboardingComplete';
@@ -35,6 +37,11 @@ const inferTitleFromText = (value = '') => {
   return words.join(' ') || 'My first source';
 };
 
+const firstUrlFromText = (value = '') => {
+  const match = String(value || '').trim().match(/^https?:\/\/\S+/i);
+  return match ? match[0] : '';
+};
+
 const metricLine = ({ pageCount = 0, claimCount = 0, linkCount = 0 } = {}) => (
   `${pageCount} page${pageCount === 1 ? '' : 's'} · ${claimCount} claim${claimCount === 1 ? '' : 's'} · ${linkCount} link${linkCount === 1 ? '' : 's'}`
 );
@@ -51,6 +58,9 @@ const WikiOnboarding = () => {
   const [lines, setLines] = useState([]);
   const [metrics, setMetrics] = useState({ pageCount: adoptedPageId ? 1 : 0, claimCount: 0, linkCount: 0 });
   const [builtPageId, setBuiltPageId] = useState(adoptedPageId);
+  const [adoptedStarterPages, setAdoptedStarterPages] = useState([]);
+  const [adoptedPack, setAdoptedPack] = useState(null);
+  const [mergeAvailable, setMergeAvailable] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
@@ -116,6 +126,9 @@ const WikiOnboarding = () => {
       ]);
       const result = await adoptWikiStarterPack(selectedPack.id);
       const pages = Array.isArray(result.pages) ? result.pages : [];
+      setAdoptedStarterPages(pages);
+      setAdoptedPack(result.pack || selectedPack);
+      setMergeAvailable(Boolean(result.mergeAvailable));
       const firstPage = pages[0] || {};
       setBuiltPageId(firstPage._id || firstPage.id || '');
       setMetrics({
@@ -152,19 +165,27 @@ const WikiOnboarding = () => {
     setBusy(true);
     setError('');
     try {
-      const title = inferTitleFromText(text);
+      const droppedUrl = firstUrlFromText(text);
+      const imported = droppedUrl
+        ? await importPastedUrl({ url: droppedUrl })
+        : await importPastedText({ text, title: inferTitleFromText(text) });
+      const article = imported?.article || {};
+      const title = article.title || inferTitleFromText(text);
       const page = await createWikiPage({
         title,
         pageType: 'overview',
         sourceScope: 'selected_sources',
         createdFrom: {
-          type: 'paste',
-          text,
-          label: 'Pasted source'
+          type: 'article',
+          objectId: article._id || article.id || '',
+          text: droppedUrl || text,
+          label: article.title || 'Pasted source'
         },
         initialSourceRef: {
-          type: 'external',
-          title: 'Pasted source',
+          type: 'article',
+          objectId: article._id || article.id || '',
+          title: article.title || 'Pasted source',
+          url: article.url || droppedUrl || '',
           snippet: text.slice(0, 360)
         }
       });
@@ -178,6 +199,32 @@ const WikiOnboarding = () => {
     } catch (err) {
       setError(err?.message || 'Could not build from that material.');
       setStep('feed');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const clearSamplePack = async () => {
+    const pages = adoptedStarterPages
+      .map(page => page?._id || page?.id)
+      .filter(Boolean);
+    if (!pages.length) {
+      setStep('feed');
+      return;
+    }
+    setBusy(true);
+    setError('');
+    try {
+      await Promise.all(pages.map(pageId => deleteWikiPage(pageId)));
+      setAdoptedStarterPages([]);
+      setAdoptedPack(null);
+      setMergeAvailable(false);
+      setBuiltPageId('');
+      setMetrics({ pageCount: 0, claimCount: 0, linkCount: 0 });
+      setLines([]);
+      setStep('feed');
+    } catch (err) {
+      setError(err?.message || 'Could not clear the sample pack.');
     } finally {
       setBusy(false);
     }
@@ -270,6 +317,21 @@ const WikiOnboarding = () => {
             <Link to="/connections">Connect reading</Link>
             <Link to="/wiki">Explore pages</Link>
           </div>
+          {adoptedStarterPages.some(page => page?.adoptedFrom?.sample) ? (
+            <section className="wiki-onboarding__sample" aria-label="Starter pack controls">
+              <div>
+                <strong>{adoptedPack?.name || 'Starter pack'} is sample material.</strong>
+                <p>Feed Noeis your reading to make these pages yours. You can clear the sample pack any time.</p>
+              </div>
+              <div className="wiki-onboarding__sample-actions">
+                {mergeAvailable ? <Link to="/wiki/workspace?view=list">Review possible merges</Link> : null}
+                <button type="button" onClick={clearSamplePack} disabled={busy}>
+                  {busy ? 'Clearing...' : 'Clear sample pack'}
+                </button>
+              </div>
+            </section>
+          ) : null}
+          {error ? <p className="wiki-onboarding__error" role="alert">{error}</p> : null}
           <p className="wiki-onboarding__return">Tomorrow morning, Noeis will look for pages it can grow while you slept.</p>
         </section>
       ) : null}

@@ -34,6 +34,16 @@ export const updateImportSession = async (id, payload = {}) => {
   return response.data?.session || null;
 };
 
+export const importPastedText = async ({ text, title = '', url = '' } = {}) => {
+  const response = await api.post('/api/import/text', { text, title, url }, getAuthHeaders());
+  return response.data || {};
+};
+
+export const importPastedUrl = async ({ url, title = '' } = {}) => {
+  const response = await api.post('/api/import/url', { url, title }, getAuthHeaders());
+  return response.data || {};
+};
+
 export const listImportConnections = async ({ provider = '' } = {}) => {
   const params = new URLSearchParams();
   if (provider) params.set('provider', String(provider).trim());

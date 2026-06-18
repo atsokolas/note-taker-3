@@ -26,6 +26,10 @@ const {
   buildReadwisePreviewSummary
 } = require('../services/import/readwiseTransform');
 const {
+  fetchUrlForIngest,
+  normalizeIngestText
+} = require('../services/import/urlTextIngest');
+const {
   ensureNotebookImportFolderPath
 } = require('../services/notebookImportTreeService');
 const {
@@ -132,6 +136,147 @@ const buildImportRouter = ({
       return null;
     }
   };
+
+  const ingestArticleSource = async ({
+    userId,
+    title,
+    content,
+    url,
+    provider = 'manual',
+    sourceType = 'text',
+    sourceLabel = 'Pasted source',
+    externalId = ''
+  } = {}) => {
+    const safeTitle = toTrimmedString(title) || 'Untitled source';
+    const safeContent = normalizeIngestText(content);
+    if (!safeContent) {
+      const error = new Error('Source text is required.');
+      error.statusCode = 400;
+      throw error;
+    }
+    const safeUrl = toTrimmedString(url) || `import://${provider}/${crypto.randomUUID()}`;
+    let article = await Article.findOne({ userId, url: safeUrl });
+    const isNew = !article;
+    if (!article) {
+      article = new Article({
+        url: safeUrl,
+        title: safeTitle,
+        content: safeContent,
+        userId,
+        importMeta: {
+          provider,
+          sourceType,
+          sourceLabel,
+          sourceUrl: /^https?:\/\//i.test(safeUrl) ? safeUrl : '',
+          externalId,
+          importedAt: new Date()
+        }
+      });
+    } else {
+      article.title = safeTitle || article.title;
+      article.content = safeContent || article.content;
+      article.importMeta = {
+        ...(article.importMeta || {}),
+        provider,
+        sourceType,
+        sourceLabel,
+        sourceUrl: /^https?:\/\//i.test(safeUrl) ? safeUrl : article.importMeta?.sourceUrl || '',
+        externalId: externalId || article.importMeta?.externalId || '',
+        importedAt: article.importMeta?.importedAt || new Date(),
+        lastSyncedAt: new Date()
+      };
+    }
+    await article.save();
+    if (enqueueArticleEmbedding) {
+      try {
+        const queued = enqueueArticleEmbedding(article);
+        if (queued?.catch) {
+          queued.catch(error => console.error('Failed queueing article embedding:', error));
+        }
+      } catch (error) {
+        console.error('Failed queueing article embedding:', error);
+      }
+    }
+    const sourceEvent = await emitWikiSourceEvent({
+      userId,
+      provider,
+      sourceType,
+      eventType: isNew ? 'imported' : 'updated',
+      title: article.title,
+      summary: safeContent.slice(0, 360),
+      text: safeContent,
+      url: article.url,
+      sourceObjectId: article._id,
+      externalId,
+      metadata: {
+        sourceLabel,
+        importMode: sourceType,
+        isNew
+      }
+    });
+    return { article, sourceEvent, isNew };
+  };
+
+  router.post('/api/import/text', authenticateToken, async (req, res) => {
+    try {
+      const userId = req.user.id;
+      const text = normalizeIngestText(req.body?.text);
+      if (!text) return res.status(400).json({ error: 'Text is required.' });
+      const result = await ingestArticleSource({
+        userId,
+        title: req.body?.title || text.split(/\n+/).find(Boolean)?.slice(0, 120) || 'Pasted source',
+        content: text,
+        url: req.body?.url,
+        provider: 'manual',
+        sourceType: 'text',
+        sourceLabel: 'Pasted text'
+      });
+      res.status(result.isNew ? 201 : 200).json({
+        article: {
+          _id: result.article._id,
+          title: result.article.title,
+          url: result.article.url,
+          contentLength: String(result.article.content || '').length
+        },
+        sourceEventId: result.sourceEvent?._id || null,
+        status: result.sourceEvent ? 'queued' : 'imported'
+      });
+    } catch (error) {
+      console.error('Error importing pasted text:', error);
+      res.status(error.statusCode || 500).json({ error: error.message || 'Failed to import text.' });
+    }
+  });
+
+  router.post('/api/import/url', authenticateToken, async (req, res) => {
+    try {
+      const userId = req.user.id;
+      const fetched = await fetchUrlForIngest({ url: req.body?.url });
+      if (!fetched.text) return res.status(422).json({ error: 'Could not extract readable text from that URL.' });
+      const result = await ingestArticleSource({
+        userId,
+        title: req.body?.title || fetched.title,
+        content: fetched.text,
+        url: fetched.url,
+        provider: 'url',
+        sourceType: 'url',
+        sourceLabel: 'Pasted URL',
+        externalId: fetched.url
+      });
+      res.status(result.isNew ? 201 : 200).json({
+        article: {
+          _id: result.article._id,
+          title: result.article.title,
+          url: result.article.url,
+          contentLength: String(result.article.content || '').length
+        },
+        sourceEventId: result.sourceEvent?._id || null,
+        status: result.sourceEvent ? 'queued' : 'imported'
+      });
+    } catch (error) {
+      console.error('Error importing URL:', error);
+      res.status(error.statusCode || 500).json({ error: error.message || 'Failed to import URL.' });
+    }
+  });
 
   const logConnectorAction = async (payload = {}) => {
     if (!ConnectorActionLog || !payload.userId || !payload.connector || !payload.action) return null;
