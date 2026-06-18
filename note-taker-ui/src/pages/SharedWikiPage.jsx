@@ -103,6 +103,10 @@ const SharedWikiPage = () => {
       const adoptedPage = result?.page || {};
       const adoptedId = adoptedPage._id || adoptedPage.id;
       if (adoptedId) {
+        if (shouldAutoAdopt) {
+          navigate(`/onboarding/wiki?adoptedPage=${encodeURIComponent(adoptedId)}&source=shared`, { replace: true });
+          return;
+        }
         navigate(wikiPagePath(adoptedId), { replace: true });
         return;
       }
@@ -112,7 +116,7 @@ const SharedWikiPage = () => {
     } finally {
       setAdopting(false);
     }
-  }, [adopting, idOrSlug, location.hash, location.pathname, location.search, navigate]);
+  }, [adopting, idOrSlug, location.hash, location.pathname, location.search, navigate, shouldAutoAdopt]);
 
   useEffect(() => {
     if (!page || !shouldAutoAdopt || autoAdoptAttemptedRef.current || !hasAuthToken()) return;

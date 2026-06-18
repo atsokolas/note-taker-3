@@ -56,6 +56,7 @@ const Wiki = lazy(() => import('./pages/Wiki'));
 const WikiProductIndex = lazy(() => import('./components/wiki/WikiProductIndex'));
 const WikiFrontPage = lazy(() => import('./components/wiki/WikiFrontPage'));
 const WikiIngestRun = lazy(() => import('./pages/WikiIngestRun'));
+const WikiOnboarding = lazy(() => import('./pages/WikiOnboarding'));
 const HowToUse = lazy(() => import('./pages/HowToUse'));
 const Integrations = lazy(() => import('./pages/Integrations'));
 const AgentConnectAuthorize = lazy(() => import('./pages/AgentConnectAuthorize'));
@@ -536,6 +537,7 @@ function App() {
             <Route path="/wiki/list" element={<Navigate to="/wiki/workspace?view=list" replace />} />
             <Route path="/wiki/workspace" element={<Wiki />} />
             <Route path="/wiki/activity/:runId" element={<WikiIngestRun />} />
+            <Route path="/onboarding/wiki" element={<WikiOnboarding />} />
             <Route path="/wiki/:id" element={<LegacyWikiPageRedirect />} />
             <Route
               path="/settings"

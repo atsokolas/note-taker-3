@@ -8634,6 +8634,210 @@ html[data-ui-theme='dark'] .wiki-activity-rail__graph-alerts span {
   text-underline-offset: 3px;
 }
 
+.wiki-onboarding {
+  --accent-primary: var(--wiki-warm-accent, #b1862e);
+  min-height: calc(100vh - 84px);
+  display: grid;
+  place-items: center;
+  padding: clamp(20px, 5vw, 56px);
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--accent-primary) 8%, transparent), transparent 42%),
+    var(--surface);
+}
+
+.wiki-onboarding__panel {
+  display: grid;
+  gap: 18px;
+  width: min(780px, 100%);
+  padding: clamp(22px, 4vw, 42px);
+  border: 1px solid color-mix(in srgb, var(--accent-primary) 28%, var(--nt-divider));
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface) 96%, transparent);
+  box-shadow: 0 24px 80px color-mix(in srgb, #000 12%, transparent);
+}
+
+.wiki-onboarding__eyebrow,
+.wiki-onboarding__counter,
+.wiki-onboarding__pack span,
+.wiki-onboarding__paste span {
+  margin: 0;
+  color: var(--text-secondary);
+  font-family: -apple-system, BlinkMacSystemFont, "SF Mono", Menlo, monospace;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.wiki-onboarding h1 {
+  margin: 0;
+  color: var(--text-primary);
+  font-family: "Newsreader", Georgia, serif;
+  font-size: clamp(2.6rem, 7vw, 5.6rem);
+  font-weight: 540;
+  line-height: 0.98;
+}
+
+.wiki-onboarding p {
+  margin: 0;
+  color: var(--text-secondary);
+  line-height: 1.55;
+}
+
+.wiki-onboarding button,
+.wiki-onboarding a {
+  min-height: 42px;
+}
+
+.wiki-onboarding button {
+  justify-self: start;
+  padding: 0 18px;
+  border: 1px solid color-mix(in srgb, var(--accent-primary) 36%, var(--nt-divider));
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent-primary) 10%, var(--surface));
+  color: var(--text-primary);
+  cursor: pointer;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Mono", Menlo, monospace;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.wiki-onboarding button:disabled {
+  cursor: wait;
+  opacity: 0.62;
+}
+
+.wiki-onboarding a {
+  display: inline-flex;
+  align-items: center;
+  color: var(--text-primary);
+  font-size: 0.92rem;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+.wiki-onboarding__example {
+  display: grid;
+  gap: 8px;
+  max-width: 560px;
+  padding: 18px;
+  border: 1px solid var(--nt-divider);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface-muted) 74%, transparent);
+}
+
+.wiki-onboarding__example span,
+.wiki-onboarding__pack strong {
+  color: var(--text-primary);
+  font-family: "Newsreader", Georgia, serif;
+  font-size: 1.35rem;
+  font-weight: 560;
+}
+
+.wiki-onboarding__packs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.wiki-onboarding__pack {
+  justify-self: stretch;
+  min-height: 148px;
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  padding: 16px;
+  border-radius: 8px;
+  text-align: left;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.wiki-onboarding__pack.is-selected {
+  border-color: color-mix(in srgb, var(--accent-primary) 70%, var(--nt-divider));
+  background: color-mix(in srgb, var(--accent-primary) 14%, var(--surface));
+}
+
+.wiki-onboarding__pack p {
+  font-size: 0.92rem;
+}
+
+.wiki-onboarding__feed-actions,
+.wiki-onboarding__hook-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+}
+
+.wiki-onboarding__paste {
+  display: grid;
+  gap: 8px;
+}
+
+.wiki-onboarding__paste textarea {
+  min-height: 128px;
+  width: 100%;
+  resize: vertical;
+  border: 1px solid var(--nt-divider);
+  border-radius: 8px;
+  padding: 14px;
+  background: var(--surface-muted);
+  color: var(--text-primary);
+  font: inherit;
+  line-height: 1.45;
+}
+
+.wiki-onboarding__narration {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.wiki-onboarding__narration li {
+  padding: 12px 14px;
+  border-left: 2px solid color-mix(in srgb, var(--accent-primary) 55%, var(--nt-divider));
+  background: color-mix(in srgb, var(--surface-muted) 68%, transparent);
+  color: var(--text-primary);
+  line-height: 1.45;
+}
+
+.wiki-onboarding__return {
+  padding-top: 12px;
+  border-top: 1px solid var(--nt-divider);
+  font-style: italic;
+}
+
+.wiki-onboarding__error {
+  color: var(--danger, #9b3b2f);
+}
+
+@media (max-width: 720px) {
+  .wiki-onboarding {
+    align-items: start;
+    padding: 16px;
+  }
+
+  .wiki-onboarding__panel {
+    padding: 20px;
+  }
+
+  .wiki-onboarding__packs {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .wiki-onboarding button,
+  .wiki-onboarding a {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
 .wiki-workspace__chat-pane,
 .wiki-workspace__right-pane {
   min-width: 0;

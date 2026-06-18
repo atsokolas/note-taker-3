@@ -149,7 +149,7 @@ describe('SharedWikiPage', () => {
     render(<SharedWikiPage />);
 
     await waitFor(() => expect(adoptPublicWikiPage).toHaveBeenCalledWith('opportunity-cost'));
-    expect(navigate).toHaveBeenCalledWith('/wiki/workspace?page=adopted-2', { replace: true });
+    expect(navigate).toHaveBeenCalledWith('/onboarding/wiki?adoptedPage=adopted-2&source=shared', { replace: true });
   });
 
   it('shows a private-page message when the public endpoint returns 404', async () => {
