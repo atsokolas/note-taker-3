@@ -25,6 +25,33 @@ const renderGuideCards = (content) => content.guides.map((guide) => `
         <p>${escapeHtml(guide.description)}</p>
       </a>`).join('');
 
+const renderStarterPackCards = () => ([
+  {
+    title: 'Mental Models',
+    href: '/share/wiki/collection/mental-models',
+    description: 'A shareable mini-wiki for first principles, opportunity cost, inversion, and related judgment tools.'
+  },
+  {
+    title: 'Behavioral Economics',
+    href: '/share/wiki/collection/behavioral-economics',
+    description: 'A starter graph for loss aversion, anchoring, base rates, and decision-making under bias.'
+  },
+  {
+    title: 'How to Think About AI',
+    href: '/share/wiki/collection/how-to-think-about-ai',
+    description: 'A starter graph for agents, evals, context windows, scaling laws, and capability tradeoffs.'
+  },
+  {
+    title: 'Value Investing',
+    href: '/share/wiki/collection/value-investing',
+    description: 'A starter graph for intrinsic value, moats, owner earnings, capital allocation, and margin of safety.'
+  }
+].map((pack) => `
+      <a class="subcard guide-card" href="${escapeHtml(pack.href)}">
+        <h2>${escapeHtml(pack.title)}</h2>
+        <p>${escapeHtml(pack.description)}</p>
+      </a>`).join('').trimStart());
+
 const renderGuideLinks = (links = []) => links.map((link) => (
   `<a href="${escapeHtml(link.href)}">${escapeHtml(link.label)}</a>`
 )).join('');
@@ -198,6 +225,18 @@ const renderHomeFallback = (content) => `
         <p class="eyebrow">Start with the guide that matches your intent</p>
         <div class="grid">
           ${renderGuideCards(content)}
+        </div>
+      </section>
+      <section class="card">
+        <p class="eyebrow">Shared wiki adoption</p>
+        <h2>Opening a shared Noeis wiki?</h2>
+        <p>The live app will show a <strong>Make this mine</strong> action that copies the safe public pages into your workspace. Private backlinks, highlights, source notes, and agent work stay with the original owner.</p>
+        <div class="cta-row">
+          <a class="button primary" href="/share/wiki/collection/mental-models">Try the Mental Models wiki</a>
+          <a class="button secondary" href="/onboarding/wiki">Build your wiki</a>
+        </div>
+        <div class="grid">
+          ${renderStarterPackCards()}
         </div>
       </section>
       <section class="card">

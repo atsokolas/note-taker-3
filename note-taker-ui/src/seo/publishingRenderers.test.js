@@ -16,6 +16,11 @@ describe('publishing renderers', () => {
     expect(html).toContain('Reading becomes notes. Notes become concepts. Questions stay open until they are answered.');
     expect(html).toContain('href="/guides"');
     expect(html).toContain('href="/ai-second-brain"');
+    expect(html).toContain('Shared wiki adoption');
+    expect(html).toContain('<strong>Make this mine</strong>');
+    expect(html).toContain('href="/share/wiki/collection/mental-models"');
+    expect(html).toContain('href="/share/wiki/collection/value-investing"');
+    expect(html).toContain('Private backlinks, highlights, source notes, and agent work stay with the original owner.');
   });
 
   it('renders a sitemap with canonical www URLs and lastmod values', () => {
@@ -67,6 +72,7 @@ describe('publishing renderers', () => {
         expect.objectContaining({ source: '/(.*)', destination: '/' })
       ])
     );
+    expect(vercel.rewrites[vercel.rewrites.length - 1]).toEqual({ source: '/(.*)', destination: '/' });
   });
 
   it('renders a Bing verification XML payload from a token', () => {
