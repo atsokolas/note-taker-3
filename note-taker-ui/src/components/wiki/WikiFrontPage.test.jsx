@@ -76,6 +76,7 @@ describe('WikiFrontPage (AT-394)', () => {
       </MemoryRouter>
     );
 
+    expect(document.body.classList.contains('wiki-front-page-route')).toBe(true);
     expect(screen.getByRole('status')).toHaveTextContent(/checking overnight edits and drift signals/i);
   });
 

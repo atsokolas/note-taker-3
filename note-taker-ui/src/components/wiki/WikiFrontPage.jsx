@@ -107,6 +107,13 @@ const WikiFrontPage = () => {
   const [error, setError] = useState('');
 
   useEffect(() => {
+    document.body.classList.add('wiki-front-page-route');
+    return () => {
+      document.body.classList.remove('wiki-front-page-route');
+    };
+  }, []);
+
+  useEffect(() => {
     let cancelled = false;
     setLoading(true);
     Promise.allSettled([

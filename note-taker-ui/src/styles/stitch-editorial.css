@@ -213,6 +213,8 @@ html[data-ui-theme='dark'] body.noeis-editorial {
   --dropzone-ink-hover: rgba(232, 222, 198, 0.95);
   --dropzone-text: rgba(232, 222, 198, 0.82);
   --dropzone-text-quiet: rgba(190, 190, 178, 0.5);
+  background: var(--vellum-bg) !important;
+  color: var(--vellum-ink);
 }
 
 body.noeis-editorial .think-home-editorial-ledger {

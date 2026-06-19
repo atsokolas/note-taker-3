@@ -65,10 +65,13 @@ describe('app theme design-system tokens', () => {
 
   it('pins the wiki front page dark surface to the warm editorial palette', () => {
     const css = fs.readFileSync(path.join(__dirname, 'wiki-front-page.css'), 'utf8');
+    const editorialCss = fs.readFileSync(path.join(__dirname, 'stitch-editorial.css'), 'utf8');
 
+    expect(css).toContain("html[data-ui-theme='dark'] body.noeis-editorial.wiki-front-page-route");
+    expect(css).toContain('background: var(--vellum-bg, var(--canvas)) !important');
     expect(css).toContain("html[data-ui-theme='dark'] body.noeis-editorial .wiki-front-page");
-    expect(css).toContain('background: var(--vellum-bg, var(--canvas))');
     expect(css).not.toContain('#0d1422');
+    expect(editorialCss).toMatch(/html\[data-ui-theme='dark'\] body\.noeis-editorial \{[\s\S]*background: var\(--vellum-bg\) !important;/);
   });
 
   it('pins the alive composer and presence motion to reduced-motion-safe primitives', () => {
