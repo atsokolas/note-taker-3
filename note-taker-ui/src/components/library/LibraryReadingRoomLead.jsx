@@ -40,6 +40,8 @@ const LibraryReadingRoomLead = ({
           <button
             type="button"
             className="library-reading-room-lead__headline"
+            aria-label={`Open in Reading Room: ${reopen.headline}`}
+            data-testid="library-reopen-headline"
             onClick={() => onSelectArticle?.(reopen.articleId)}
           >
             {reopen.headline}
@@ -52,6 +54,8 @@ const LibraryReadingRoomLead = ({
           <QuietButton
             type="button"
             className="library-reading-room-lead__open"
+            aria-label="Open in Reading Room"
+            data-testid="library-open-reading-room"
             onClick={() => onSelectArticle?.(reopen.articleId)}
           >
             Open in reading room

@@ -127,6 +127,9 @@ const LibraryArticleRow = React.memo(({
     <div className="library-article-row-date">{formatDate(rowDate)}</div>
     <button
       className="library-article-row-main"
+      type="button"
+      aria-label={`Open in Reading Room: ${article.title || 'Untitled article'}`}
+      data-testid="library-article-open"
       onClick={() => onSelectArticle(article._id)}
     >
       <div className="library-article-row-title">{article.title || 'Untitled article'}</div>

@@ -54,7 +54,9 @@ describe('LibraryArticleList', () => {
   it('clicking the row body invokes onSelectArticle with id', () => {
     const onSelect = jest.fn();
     renderList({ onSelectArticle: onSelect });
-    const main = screen.getByText('Calm interfaces in long-form reading').closest('button');
+    const main = screen.getByRole('button', {
+      name: 'Open in Reading Room: Calm interfaces in long-form reading'
+    });
     fireEvent.click(main);
     expect(onSelect).toHaveBeenCalledWith('a1');
   });

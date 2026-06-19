@@ -52,6 +52,21 @@ describe('LibraryReadingRoomLead', () => {
     expect(onSelectArticle).toHaveBeenCalledWith('a2');
   });
 
+  it('exposes a stable Open in Reading Room action', () => {
+    const onSelectArticle = jest.fn();
+    render(
+      <LibraryReadingRoomLead
+        articles={sampleArticles}
+        allArticles={sampleArticles}
+        onSelectArticle={onSelectArticle}
+        onReviewFiling={jest.fn()}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open in Reading Room' }));
+    expect(onSelectArticle).toHaveBeenCalledWith('a2');
+  });
+
   it('routes filing review through the maintenance action', () => {
     const onReviewFiling = jest.fn();
     render(

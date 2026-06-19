@@ -1703,6 +1703,33 @@ const WikiWorkspaceChat = ({
       }];
     });
   }, []);
+  const appendBuildSuccessMessage = useCallback((text, { includeRecovery = false } = {}) => {
+    const finalText = clean(text);
+    if (!finalText) return;
+    setMessages(current => {
+      const withoutFailures = current.filter(message => !isStaleBuildFailureMessage(message));
+      const recoveryMessage = withoutFailures.find(message => clean(message.text) === BUILD_RECOVERY_TEXT);
+      const withoutRecovery = withoutFailures.filter(message => clean(message.text) !== BUILD_RECOVERY_TEXT);
+      const nextMessages = [...withoutRecovery];
+      if (includeRecovery || recoveryMessage) {
+        nextMessages.push(recoveryMessage || {
+          id: messageId('assistant'),
+          createdAt: new Date().toISOString(),
+          role: 'assistant',
+          text: BUILD_RECOVERY_TEXT,
+          buildRecovery: true
+        });
+      }
+      nextMessages.push({
+        id: messageId('assistant'),
+        createdAt: new Date().toISOString(),
+        role: 'assistant',
+        text: finalText,
+        buildSuccess: true
+      });
+      return nextMessages;
+    });
+  }, []);
   const handleStreamEvent = useCallback((event, payload = {}, fallbackPageId = selectedPageId) => {
     const update = paragraphEditedUpdateFromStream(event, payload, fallbackPageId);
     if (update) onLiveUpdate?.(update);
@@ -2087,17 +2114,19 @@ const WikiWorkspaceChat = ({
       });
       try {
         await withMaintenanceTimeout(streamMaintainWikiPage(pageId, {}, handlers), title);
-        clearBuildFailureMessages();
         onNavigate({ page: pageId });
         onPageChanged?.(pageId);
-        append({ role: 'assistant', text: `Built @wiki:${pageId} from ${source.title || 'the source'}.` });
+        appendBuildSuccessMessage(`Built @wiki:${pageId} from ${source.title || 'the source'}.`, {
+          includeRecovery: state.sawQualityRebuild
+        });
       } catch (_error) {
-        clearBuildFailureMessages();
         if (state.sawQualityRebuild || state.sawStreamPage) {
           if (state.sawStreamPage) {
             onNavigate({ page: pageId });
             onPageChanged?.(pageId);
-            append({ role: 'assistant', text: `Built @wiki:${pageId} from ${source.title || 'the source'}.` });
+            appendBuildSuccessMessage(`Built @wiki:${pageId} from ${source.title || 'the source'}.`, {
+              includeRecovery: state.sawQualityRebuild
+            });
           }
         } else {
           append({ role: 'assistant', text: `Failed to build a wiki page from ${source.title || 'the source'}.` });
@@ -2108,7 +2137,7 @@ const WikiWorkspaceChat = ({
     } finally {
       setBusy(false);
     }
-  }, [append, busy, clearBuildFailureMessages, createMaintenanceStreamHandlers, onNavigate, onPageChanged, setBusy]);
+  }, [append, appendBuildSuccessMessage, busy, createMaintenanceStreamHandlers, onNavigate, onPageChanged, setBusy]);
 
   const handleCommand = async (command) => {
     const pageRef = parseWikiRef(command.args) || selectedPageId;
@@ -2167,17 +2196,19 @@ const WikiWorkspaceChat = ({
         });
         try {
           await withMaintenanceTimeout(streamMaintainWikiPage(pageId, {}, handlers), topic);
-          clearBuildFailureMessages();
           onNavigate({ page: pageId });
           onPageChanged?.(pageId);
-          append({ role: 'assistant', text: `Built @wiki:${pageId} for "${topic}".` });
+          appendBuildSuccessMessage(`Built @wiki:${pageId} for "${topic}".`, {
+            includeRecovery: state.sawQualityRebuild
+          });
         } catch (_streamError) {
-          clearBuildFailureMessages();
           if (state.sawQualityRebuild || state.sawStreamPage) {
             if (state.sawStreamPage) {
               onNavigate({ page: pageId });
               onPageChanged?.(pageId);
-              append({ role: 'assistant', text: `Built @wiki:${pageId} for "${topic}".` });
+              appendBuildSuccessMessage(`Built @wiki:${pageId} for "${topic}".`, {
+                includeRecovery: state.sawQualityRebuild
+              });
             }
           } else {
             append({ role: 'assistant', text: `Failed to build a wiki page for "${topic}".` });
