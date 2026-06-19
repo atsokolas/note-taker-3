@@ -9011,10 +9011,72 @@ html[data-ui-theme='dark'] .wiki-activity-rail__graph-alerts span {
   line-height: 1.45;
 }
 
-.wiki-onboarding__return {
-  padding-top: 12px;
-  border-top: 1px solid var(--nt-divider);
-  font-style: italic;
+.wiki-onboarding__return-loop {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(180px, 0.7fr);
+  gap: 18px;
+  padding: 18px;
+  border: 1px solid color-mix(in srgb, var(--accent-primary) 28%, var(--nt-divider));
+  border-radius: 8px;
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--accent-primary) 9%, transparent), transparent 58%),
+    color-mix(in srgb, var(--surface-muted) 72%, transparent);
+}
+
+.wiki-onboarding__return-loop h2,
+.wiki-onboarding__return-loop p {
+  margin: 0;
+}
+
+.wiki-onboarding__return-loop h2 {
+  margin-top: 6px;
+  color: var(--text-primary);
+  font-family: "Newsreader", Georgia, serif;
+  font-size: clamp(1.35rem, 3vw, 2rem);
+  font-weight: 560;
+  line-height: 1.08;
+}
+
+.wiki-onboarding__return-loop p {
+  margin-top: 8px;
+  font-size: 0.95rem;
+}
+
+.wiki-onboarding__return-kicker {
+  color: var(--text-secondary);
+  font-family: -apple-system, BlinkMacSystemFont, "SF Mono", Menlo, monospace;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.wiki-onboarding__return-loop ul {
+  display: grid;
+  gap: 8px;
+  align-content: start;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.wiki-onboarding__return-loop li {
+  position: relative;
+  padding-left: 18px;
+  color: var(--text-primary);
+  font-size: 0.92rem;
+  line-height: 1.35;
+}
+
+.wiki-onboarding__return-loop li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.52em;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--accent-primary);
 }
 
 .wiki-onboarding__sample {
@@ -9070,8 +9132,10 @@ html[data-ui-theme='dark'] .wiki-activity-rail__graph-alerts span {
   }
 
   .wiki-onboarding__sample,
-  .wiki-onboarding__sample-actions {
+  .wiki-onboarding__sample-actions,
+  .wiki-onboarding__return-loop {
     align-items: stretch;
+    grid-template-columns: minmax(0, 1fr);
     flex-direction: column;
   }
 }

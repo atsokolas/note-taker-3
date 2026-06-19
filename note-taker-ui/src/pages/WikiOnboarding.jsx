@@ -46,6 +46,23 @@ const metricLine = ({ pageCount = 0, claimCount = 0, linkCount = 0 } = {}) => (
   `${pageCount} page${pageCount === 1 ? '' : 's'} · ${claimCount} claim${claimCount === 1 ? '' : 's'} · ${linkCount} link${linkCount === 1 ? '' : 's'}`
 );
 
+const ReturnLoopCard = ({ adopted = false } = {}) => (
+  <section className="wiki-onboarding__return-loop" aria-label="Tomorrow's Morning Paper">
+    <div>
+      <span className="wiki-onboarding__return-kicker">Tomorrow's Morning Paper</span>
+      <h2>Noeis will look for pages it can grow while you are away.</h2>
+      <p>
+        Background maintenance checks due wiki pages about every six hours. Connect a reading source and tomorrow's front page can show what changed, what needs review, and where your graph got stronger.
+      </p>
+    </div>
+    <ul>
+      <li>Scheduled page refresh is on.</li>
+      <li>{adopted ? 'Your adopted copy joins your own maintenance loop.' : 'Your first page joins the maintenance loop.'}</li>
+      <li>Readwise or Notion adds fresh material when connected.</li>
+    </ul>
+  </section>
+);
+
 const WikiOnboarding = () => {
   const navigate = useNavigate();
   const [params] = useSearchParams();
@@ -332,7 +349,7 @@ const WikiOnboarding = () => {
             </section>
           ) : null}
           {error ? <p className="wiki-onboarding__error" role="alert">{error}</p> : null}
-          <p className="wiki-onboarding__return">Tomorrow morning, Noeis will look for pages it can grow while you slept.</p>
+          <ReturnLoopCard adopted={source === 'shared'} />
         </section>
       ) : null}
     </main>

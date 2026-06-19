@@ -146,7 +146,7 @@ const SharedWikiCollectionPage = () => {
             <section className="shared-wiki-page__adopt" aria-label="Adopt shared wiki">
               <div>
                 <h2>Make this wiki yours.</h2>
-                <p>The agent will copy these safe public pages into your workspace. The original owner keeps their private graph.</p>
+                <p>The agent will copy these safe public pages into your workspace. Your copy joins your own background maintenance loop; the original owner keeps their private graph.</p>
               </div>
               <button type="button" onClick={handleAdopt} disabled={adopting}>
                 {adopting ? 'Making a copy...' : 'Make this mine'}

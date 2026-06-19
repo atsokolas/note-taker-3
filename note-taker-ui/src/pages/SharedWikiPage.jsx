@@ -158,7 +158,7 @@ const SharedWikiPage = () => {
             <section className="shared-wiki-page__adopt" aria-label="Adopt shared wiki">
               <div>
                 <h2>This is a shared wiki.</h2>
-                <p>Make it yours to edit, expand, and connect to your own thinking. The original owner keeps their version.</p>
+                <p>Make it yours to edit, expand, and connect to your own thinking. Your copy joins your own background maintenance loop; the original owner keeps their version.</p>
               </div>
               <button type="button" onClick={handleAdopt} disabled={adopting}>
                 {adopting ? 'Making a copy...' : 'Make this mine'}

@@ -73,6 +73,7 @@ describe('SharedWikiPage', () => {
     expect(document.body).toHaveClass('noeis-public-share');
     expect(await screen.findByRole('heading', { name: 'Opportunity Cost' })).toBeInTheDocument();
     expect(screen.getByRole('status')).toHaveTextContent('Public page ready: citations included, private source notes withheld.');
+    expect(screen.getByLabelText('Adopt shared wiki')).toHaveTextContent(/background maintenance loop/i);
     expect(screen.getAllByText('Opportunity cost frames tradeoffs.')).toHaveLength(2);
     expect(screen.getByText('References')).toBeInTheDocument();
     expect(screen.getByText(/Private backlinks, source notes, graph edges, and agent work are not exposed/i)).toBeInTheDocument();

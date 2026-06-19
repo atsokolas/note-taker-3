@@ -84,7 +84,8 @@ describe('WikiOnboarding', () => {
 
     await waitFor(() => expect(adoptWikiStarterPack).toHaveBeenCalledWith('mental-models'));
     expect(await screen.findByRole('heading', { name: 'Your first page is ready.' })).toBeInTheDocument();
-    expect(screen.getByText(/Tomorrow morning/)).toBeInTheDocument();
+    expect(screen.getByLabelText("Tomorrow's Morning Paper")).toHaveTextContent(/Background maintenance checks due wiki pages about every six hours/i);
+    expect(screen.getByText('Scheduled page refresh is on.')).toBeInTheDocument();
   });
 
   it('builds a first page from pasted text', async () => {
@@ -163,6 +164,7 @@ describe('WikiOnboarding', () => {
     render(<WikiOnboarding />);
 
     expect(screen.getByRole('heading', { name: 'This wiki is now yours.' })).toBeInTheDocument();
+    expect(screen.getByLabelText("Tomorrow's Morning Paper")).toHaveTextContent(/Your adopted copy joins your own maintenance loop/i);
     await waitFor(() => expect(listWikiStarterPacks).toHaveBeenCalled());
     fireEvent.click(screen.getByRole('button', { name: 'Go to my wiki' }));
     expect(navigate).toHaveBeenCalledWith('/wiki/workspace?page=wiki-1', { replace: true });
