@@ -91,7 +91,14 @@ const labelText = (value = '') => clean(value)
   .replace(/\b\w/g, character => character.toUpperCase());
 
 const messageId = (prefix) => `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+const BUILD_FAILURE_TEXT_RE = /^Failed to build a wiki page (?:for "[^"]+"|from .+)\.$/;
+const BUILD_RECOVERY_TEXT = 'First pass needed another try — rebuilding with stricter instructions.';
 const MONGO_ID_RE = /\b[a-f0-9]{24}\b/gi;
+
+const isStaleBuildFailureMessage = (message = {}) => (
+  message.role === 'assistant'
+  && BUILD_FAILURE_TEXT_RE.test(clean(message.text))
+);
 
 const paragraphEditedUpdateFromStream = (event = '', payload = {}, fallbackPageId = '') => {
   const typeCandidates = [event, payload?.type, payload?.stage, payload?.action, payload?.kind]
@@ -1678,11 +1685,52 @@ const WikiWorkspaceChat = ({
       };
     }));
   }, []);
-
+  const clearBuildFailureMessages = useCallback(() => {
+    setMessages(current => current.filter(message => !isStaleBuildFailureMessage(message)));
+  }, []);
+  const appendBuildRecoveryNotice = useCallback(() => {
+    setMessages(current => {
+      const withoutFailures = current.filter(message => !isStaleBuildFailureMessage(message));
+      if (withoutFailures.some(message => clean(message.text) === BUILD_RECOVERY_TEXT)) {
+        return withoutFailures;
+      }
+      return [...withoutFailures, {
+        id: messageId('assistant'),
+        createdAt: new Date().toISOString(),
+        role: 'assistant',
+        text: BUILD_RECOVERY_TEXT,
+        buildRecovery: true
+      }];
+    });
+  }, []);
   const handleStreamEvent = useCallback((event, payload = {}, fallbackPageId = selectedPageId) => {
     const update = paragraphEditedUpdateFromStream(event, payload, fallbackPageId);
     if (update) onLiveUpdate?.(update);
   }, [onLiveUpdate, selectedPageId]);
+  const createMaintenanceStreamHandlers = useCallback((pageId, { onPage } = {}) => {
+    const state = { sawQualityRebuild: false, sawStreamPage: false };
+    return {
+      state,
+      handlers: {
+        onPage: (streamPage, event = {}) => {
+          if (streamPage) state.sawStreamPage = true;
+          onPage?.(streamPage, event);
+        },
+        onEvent: (event, payload = {}) => {
+          handleStreamEvent(event, payload, pageId);
+          if (event !== 'wiki-draft') return;
+          if (payload.stage === 'quality_rebuild') {
+            state.sawQualityRebuild = true;
+            appendBuildRecoveryNotice();
+          }
+          if (payload.stage === 'quality_rebuilt') {
+            state.sawQualityRebuild = true;
+            clearBuildFailureMessages();
+          }
+        }
+      }
+    };
+  }, [appendBuildRecoveryNotice, clearBuildFailureMessages, handleStreamEvent]);
 
   useEffect(() => {
     if (!selectedPageId) {
@@ -2031,28 +2079,36 @@ const WikiWorkspaceChat = ({
           action: graphTraceActionForPage(pageId)
         }]
       });
-      await withMaintenanceTimeout(streamMaintainWikiPage(pageId, {}, {
+      const { state, handlers } = createMaintenanceStreamHandlers(pageId, {
         onPage: (streamPage) => {
           onNavigate({ page: pageId });
           onPageChanged?.(pageId, streamPage);
-        },
-        onEvent: (event, payload = {}) => {
-          handleStreamEvent(event, payload, pageId);
-          if (event !== 'wiki-draft') return;
-          if (payload.stage === 'quality_rebuild') {
-            append({ role: 'assistant', text: 'The first draft missed quality gates, so I am rebuilding it once with stricter instructions.' });
-          }
         }
-      }), title);
-      onNavigate({ page: pageId });
-      onPageChanged?.(pageId);
-      append({ role: 'assistant', text: `Built @wiki:${pageId} from ${source.title || 'the source'}.` });
+      });
+      try {
+        await withMaintenanceTimeout(streamMaintainWikiPage(pageId, {}, handlers), title);
+        clearBuildFailureMessages();
+        onNavigate({ page: pageId });
+        onPageChanged?.(pageId);
+        append({ role: 'assistant', text: `Built @wiki:${pageId} from ${source.title || 'the source'}.` });
+      } catch (_error) {
+        clearBuildFailureMessages();
+        if (state.sawQualityRebuild || state.sawStreamPage) {
+          if (state.sawStreamPage) {
+            onNavigate({ page: pageId });
+            onPageChanged?.(pageId);
+            append({ role: 'assistant', text: `Built @wiki:${pageId} from ${source.title || 'the source'}.` });
+          }
+        } else {
+          append({ role: 'assistant', text: `Failed to build a wiki page from ${source.title || 'the source'}.` });
+        }
+      }
     } catch (_error) {
       append({ role: 'assistant', text: `Failed to build a wiki page from ${source.title || 'the source'}.` });
     } finally {
       setBusy(false);
     }
-  }, [append, busy, handleStreamEvent, onNavigate, onPageChanged, setBusy]);
+  }, [append, busy, clearBuildFailureMessages, createMaintenanceStreamHandlers, onNavigate, onPageChanged, setBusy]);
 
   const handleCommand = async (command) => {
     const pageRef = parseWikiRef(command.args) || selectedPageId;
@@ -2103,22 +2159,30 @@ const WikiWorkspaceChat = ({
         if (!pageId) throw new Error('Created page did not include an id.');
         onNavigate({ page: pageId });
         append({ role: 'assistant', text: `Created @wiki:${pageId} for "${topic}". Drafting it now.` });
-        await withMaintenanceTimeout(streamMaintainWikiPage(pageId, {}, {
+        const { state, handlers } = createMaintenanceStreamHandlers(pageId, {
           onPage: (streamPage) => {
             onNavigate({ page: pageId });
             onPageChanged?.(pageId, streamPage);
-          },
-          onEvent: (event, payload = {}) => {
-            handleStreamEvent(event, payload, pageId);
-            if (event !== 'wiki-draft') return;
-            if (payload.stage === 'quality_rebuild') {
-              append({ role: 'assistant', text: 'The first draft missed quality gates, so I am rebuilding it once with stricter instructions.' });
-            }
           }
-        }), topic);
-        onNavigate({ page: pageId });
-        onPageChanged?.(pageId);
-        append({ role: 'assistant', text: `Built @wiki:${pageId} for "${topic}".` });
+        });
+        try {
+          await withMaintenanceTimeout(streamMaintainWikiPage(pageId, {}, handlers), topic);
+          clearBuildFailureMessages();
+          onNavigate({ page: pageId });
+          onPageChanged?.(pageId);
+          append({ role: 'assistant', text: `Built @wiki:${pageId} for "${topic}".` });
+        } catch (_streamError) {
+          clearBuildFailureMessages();
+          if (state.sawQualityRebuild || state.sawStreamPage) {
+            if (state.sawStreamPage) {
+              onNavigate({ page: pageId });
+              onPageChanged?.(pageId);
+              append({ role: 'assistant', text: `Built @wiki:${pageId} for "${topic}".` });
+            }
+          } else {
+            append({ role: 'assistant', text: `Failed to build a wiki page for "${topic}".` });
+          }
+        }
       } catch (_error) {
         append({ role: 'assistant', text: `Failed to build a wiki page for "${topic}".` });
       } finally {
@@ -2134,22 +2198,30 @@ const WikiWorkspaceChat = ({
       setBusy(true);
       append({ role: 'assistant', text: `Drafting @wiki:${pageRef}. The right pane will update from the maintenance stream.` });
       try {
-        await withMaintenanceTimeout(streamMaintainWikiPage(pageRef, {}, {
+        const { state, handlers } = createMaintenanceStreamHandlers(pageRef, {
           onPage: (streamPage) => {
             onNavigate({ page: pageRef });
             onPageChanged?.(pageRef, streamPage);
-          },
-          onEvent: (event, payload = {}) => {
-            handleStreamEvent(event, payload, pageRef);
-            if (event !== 'wiki-draft') return;
-            if (payload.stage === 'quality_rebuild') {
-              append({ role: 'assistant', text: 'The first draft missed quality gates, so I am rebuilding it once with stricter instructions.' });
-            }
           }
-        }), pageRef);
-        onNavigate({ page: pageRef });
-        onPageChanged?.(pageRef);
-        append({ role: 'assistant', text: `Finished drafting @wiki:${pageRef}.` });
+        });
+        try {
+          await withMaintenanceTimeout(streamMaintainWikiPage(pageRef, {}, handlers), pageRef);
+          clearBuildFailureMessages();
+          onNavigate({ page: pageRef });
+          onPageChanged?.(pageRef);
+          append({ role: 'assistant', text: `Finished drafting @wiki:${pageRef}.` });
+        } catch (_streamError) {
+          clearBuildFailureMessages();
+          if (state.sawQualityRebuild || state.sawStreamPage) {
+            if (state.sawStreamPage) {
+              onNavigate({ page: pageRef });
+              onPageChanged?.(pageRef);
+              append({ role: 'assistant', text: `Finished drafting @wiki:${pageRef}.` });
+            }
+          } else {
+            append({ role: 'assistant', text: `Draft failed for @wiki:${pageRef}.` });
+          }
+        }
       } catch (_error) {
         append({ role: 'assistant', text: `Draft failed for @wiki:${pageRef}.` });
       } finally {

@@ -977,6 +977,46 @@ describe('WikiWorkspace', () => {
     expect(await screen.findByText('Built @wiki:wiki-new for "Portfolio Concentration".')).toBeInTheDocument();
   });
 
+  it('reframes build failure chat lines after a quality-gate rebuild succeeds', async () => {
+    createWikiPage.mockResolvedValueOnce({ _id: 'wiki-new', title: 'Economic Moats' });
+    streamMaintainWikiPage.mockImplementationOnce(async (_pageId, _options, handlers = {}) => {
+      handlers.onEvent?.('wiki-draft', { stage: 'quality_rebuild' });
+      handlers.onPage?.({ _id: 'wiki-new', title: 'Economic Moats' }, { stage: 'complete' });
+      return { _id: 'wiki-new', title: 'Economic Moats' };
+    });
+    renderWorkspace();
+    await settleWorkspaceEffects();
+
+    fireEvent.change(screen.getByLabelText('Wiki workspace message'), {
+      target: { value: '/build Economic Moats' }
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+
+    expect(await screen.findByText('First pass needed another try — rebuilding with stricter instructions.')).toBeInTheDocument();
+    expect(await screen.findByText('Built @wiki:wiki-new for "Economic Moats".')).toBeInTheDocument();
+    expect(screen.queryByText(/Failed to build a wiki page for/i)).not.toBeInTheDocument();
+  });
+
+  it('clears stale build failure lines when the maintenance stream recovers after quality rebuild', async () => {
+    createWikiPage.mockResolvedValueOnce({ _id: 'wiki-new', title: 'Economic Moats' });
+    streamMaintainWikiPage.mockImplementationOnce(async (_pageId, _options, handlers = {}) => {
+      handlers.onEvent?.('wiki-draft', { stage: 'quality_rebuild' });
+      handlers.onPage?.({ _id: 'wiki-new', title: 'Economic Moats' }, { stage: 'complete' });
+      throw new Error('stream tail error');
+    });
+    renderWorkspace();
+    await settleWorkspaceEffects();
+
+    fireEvent.change(screen.getByLabelText('Wiki workspace message'), {
+      target: { value: '/build Economic Moats' }
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+
+    expect(await screen.findByText('First pass needed another try — rebuilding with stricter instructions.')).toBeInTheDocument();
+    expect(await screen.findByText('Built @wiki:wiki-new for "Economic Moats".')).toBeInTheDocument();
+    expect(screen.queryByText(/Failed to build a wiki page for/i)).not.toBeInTheDocument();
+  });
+
   it('auto-drafts pages opened from the home build composer and refreshes the reader', async () => {
     renderWorkspace('/wiki/workspace?page=wiki-new&build=1');
     await settleWorkspaceEffects();
