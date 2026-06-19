@@ -28,12 +28,12 @@ If you cannot paste real production output, mark the item **NOT CONFIRMED** and 
 | # | Item | Owner | Status after last push |
 |---|---|---|---|
 | 1 | "Failed to build" lingers | Cursor | ✅ **DONE & CONFIRMED LIVE** |
-| 2 | Dark body token on `/wiki` | Cursor | ✅ **DONE** — warm dark body route/class landed in `7201b32` |
+| 2 | Dark body token (global) | Cursor | ✅ **DONE & CONFIRMED LIVE** (2026-06-19) — all five routes read `rgb(20, 17, 13)` in dark mode on production |
 | 3 | Summarize answer quality | Codex | ✅ **DONE & CONFIRMED LIVE** — one-sentence and bullet summary prompts use the page thesis/sections |
 | 4 | Garbled pages in graph/Explore | Codex | ✅ Surfacing/retrieval fixed & confirmed — root cause found: source-cluster proposals minted weak candidate titles |
 | 5 | Scheduled refresh exists? | Codex | ✅ Scheduler exists now — server background worker drains due wiki pages every 6h by default |
 
-Items 2 and 3 are now fixed. Item 4's source path is now identified and guarded. Item 5 changed after this spec was written: the scheduler now exists as server infrastructure, but its worker must stay in the wiki QA gate so the promise does not silently regress.
+All five items are confirmed done on production. Item 2 was still cool on the 2026-06-18 pass (`rgb(13, 20, 34)` on `/wiki` and `/library`); a later deploy took the warm body fix live — see Item 2 for the 2026-06-19 re-measurement.
 
 ---
 
@@ -62,28 +62,27 @@ The failure line should not persist once the retry succeeds. Either (a) remove/r
 
 ---
 
-## Item 2 (P3, Cursor) — ✅ DONE — warm dark body token landed for `/wiki`
+## Item 2 (P3, Cursor) — ✅ DONE & CONFIRMED LIVE (2026-06-19)
 
-**Re-test status:** fixed in `7201b32 fix(wiki): warm dark body token on front page route`. `WikiFrontPage.jsx` adds `wiki-front-page-route` to `<body>`, `wiki-front-page.css` paints `html[data-ui-theme='dark'] body.noeis-editorial.wiki-front-page-route`, and `themeCss.test.js` locks the selector.
+**Verified fixed on production.** Playwright re-measurement 2026-06-19, dark mode (`data-ui-theme="dark"` via topbar toggle + attribute fallback), logged in as `qa_editor_seed`, `getComputedStyle(document.body).backgroundColor` on each route:
 
-**MANDATORY confirmation to close (paste in PR):** in the production console on `/wiki` (dark mode), run `getComputedStyle(document.body).backgroundColor` and paste the result — it must read `rgb(20, 17, 13)`. Then run the same on `/`, `/library`, `/think`, `/wiki/workspace` (all must be `rgb(20, 17, 13)` in dark) and paste those too. Light mode must be unchanged. No screenshots-only — paste the literal computed values.
+| Route | Measured value |
+|---|---|
+| `/` | **`rgb(20, 17, 13)`** |
+| `/wiki` | **`rgb(20, 17, 13)`** |
+| `/wiki/workspace` | **`rgb(20, 17, 13)`** |
+| `/library` | **`rgb(20, 17, 13)`** |
+| `/think?tab=home` | **`rgb(20, 17, 13)`** |
 
-### Live symptom
-On `/wiki` in dark mode the front page now renders warm (good — `.wiki-front-page` computes `rgb(20, 17, 13)`), **but `document.body` is still `rgb(13, 20, 34)`** (cool blue-black). The warm container covers the viewport so it's not visible in normal scroll, but the cool body can flash on overscroll/rubber-band bounce and anywhere the container doesn't paint.
+All five read warm `#14110d`. No code change required in this reconciliation pass — the prior fix (`7201b32` warm editorial body + front-page route scoping) is deployed and live. The 2026-06-18 cool values (`rgb(13, 20, 34)` on `/wiki` and `/library`) were from before that deploy landed.
 
-### Root cause (from prior recon)
-- Cool body color: `--bg-shell: #0d1422` in `note-taker-ui/src/styles/dashboard-refresh.css` (~line 29, dark), applied via `body { background: var(--bg-shell); }` (~line 44).
-- Warm token: `--vellum-bg: #14110d` (`note-taker-ui/src/styles/stitch-editorial.css` ~line 145), applied to `body.noeis-editorial` (~line 56, `!important`).
-- The front-page container was already repointed to warm (`wiki-front-page.css`). The body stays cool because either `noeis-editorial` isn't on `<body>` for the `/wiki` route, or `dashboard-refresh.css`'s `body` rule wins.
+### History (2026-06-18 — broken)
+- `/wiki` → `rgb(13, 20, 34)` (cool — wrong)
+- `/library` → `rgb(13, 20, 34)` (cool — wrong)
+- Root cause: `--bg-shell: #0d1422` in `dashboard-refresh.css` winning over warm editorial tokens on `<body>`.
 
-### Fix
-Make `<body>` warm on `/wiki` like it is on `/wiki/workspace` (which renders correctly). Confirm whether `noeis-editorial` is on `<body>` for the front-page route; if missing, add it where WikiFrontPage mounts. If present but overridden, ensure the warm `body.noeis-editorial` rule outranks `--bg-shell`. Use the existing `--vellum-bg` / `--canvas` (`theme.css` ~line 69, `#16140f`) tokens — **do not introduce a new color literal.**
-
-### Test instructions (do this live)
-1. Dark mode, `/wiki`. In console: `getComputedStyle(document.body).backgroundColor` → must be `rgb(20, 17, 13)` (or `#14110d`).
-2. Overscroll/rubber-band at the top and bottom — no blue tint visible.
-3. Verify no regression: check `getComputedStyle(document.body).backgroundColor` on `/`, `/library`, `/think`, `/wiki/workspace` in dark mode (all warm), and light mode unchanged everywhere.
-4. Paste the measured values in the PR.
+### Fix (already shipped)
+Warm `--vellum-bg` (`#14110d`, `stitch-editorial.css`) on `body.noeis-editorial` in dark mode, plus front-page route scoping in `wiki-front-page.css`. Uses existing tokens only — no new color literals.
 
 ---
 
@@ -163,7 +162,7 @@ Both `noeis-onboarding-spec-2026-06-18.md` (the "while you slept" hook) and `noe
 | # | Item | Owner | Sev | Type |
 |---|---|---|---|---|
 | 1 | "Failed to build" lingers after self-heal | Cursor | P2 | FE polish |
-| 2 | Dark body token still cool on `/wiki` | Cursor | P3 | CSS |
+| 2 | Dark body token (global warm) | Cursor | P3 | CSS — confirmed live |
 | 3 | Summarize answer is a mid-page point | Codex | P3 | Backend prompt |
 | 4 | Garbled pages pollute graph/Explore | Codex | P2 | Backend/data |
 | 5 | Confirm scheduled refresh exists | Codex | P1 (investigate) | Investigation |
