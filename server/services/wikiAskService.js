@@ -608,6 +608,31 @@ const collectPageHeadings = (node) => {
   return headings;
 };
 
+const collectSectionSummaries = (node, limit = 5) => {
+  const sections = [];
+  const content = Array.isArray(node?.content) ? node.content : [];
+  let currentHeading = '';
+  for (const block of content) {
+    if (!block || typeof block !== 'object') continue;
+    if (block.type === 'heading') {
+      currentHeading = toPlainText(block);
+      continue;
+    }
+    if (!currentHeading || /^references?$/i.test(currentHeading)) continue;
+    if (!['paragraph', 'blockquote', 'listItem'].includes(block.type)) continue;
+    const sentence = firstMeaningfulSentence(toPlainText(block));
+    if (!sentence) continue;
+    const normalizedHeading = normalizeComparableText(currentHeading);
+    if (sections.some(section => normalizeComparableText(section.heading) === normalizedHeading)) continue;
+    sections.push({
+      heading: truncate(currentHeading, 80),
+      text: truncateAtSentenceBoundary(sentence, 220)
+    });
+    if (sections.length >= limit) break;
+  }
+  return sections;
+};
+
 const firstMeaningfulSentence = (value = '') => {
   const sentences = splitIntoSentences(value)
     .map(sentence => asString(sentence).replace(/\[[0-9,\s]+\]\s*$/g, '').trim())
@@ -629,16 +654,22 @@ const buildPageSummaryAnswer = ({ page, question = '' } = {}) => {
   const bulletCount = requestedBulletCount(question);
   if (bulletCount > 0) {
     const bullets = [];
-    if (lead) bullets.push(`${title}: ${lead}`);
+    if (lead) bullets.push(`• ${title}: ${lead}`);
+    collectSectionSummaries(page?.body, bulletCount)
+      .filter(section => !normalizeComparableText(section.text).includes(normalizeComparableText(lead).slice(0, 40)))
+      .slice(0, bulletCount - bullets.length)
+      .forEach((section) => {
+        bullets.push(`• ${section.heading}: ${section.text}`);
+      });
     headings.slice(0, bulletCount - bullets.length).forEach((heading) => {
-      bullets.push(`Covers ${heading.toLowerCase()} as part of the page's structure.`);
+      bullets.push(`• ${heading}: This section needs a concise source-backed summary.`);
     });
     while (bullets.length < bulletCount && pageText) {
       const nextSentence = splitIntoSentences(pageText).find(sentence => (
         sentence !== lead && !bullets.some(existing => normalizeComparableText(existing).includes(normalizeComparableText(sentence).slice(0, 40)))
       ));
       if (!nextSentence) break;
-      bullets.push(truncateAtSentenceBoundary(nextSentence, 220));
+      bullets.push(`• ${truncateAtSentenceBoundary(nextSentence, 220)}`);
     }
     return {
       paragraphs: bullets.slice(0, bulletCount).map(text => ({ text, citationIndexes: [] })),

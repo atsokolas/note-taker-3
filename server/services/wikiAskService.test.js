@@ -665,6 +665,36 @@ describe('wikiAskService', () => {
       expect(marks[0].text).not.toMatch(/Opportunity cost/);
     });
 
+    it('answers bullet overview prompts with section-specific bullets', async () => {
+      const out = await askWikiPage({
+        page: {
+          _id: 'page-loss',
+          title: 'Loss Aversion',
+          body: {
+            type: 'doc',
+            content: [
+              { type: 'paragraph', content: [{ type: 'text', text: 'Loss aversion makes losses feel larger than equivalent gains.' }] },
+              { type: 'heading', attrs: { level: 2 }, content: [{ type: 'text', text: 'Overview' }] },
+              { type: 'paragraph', content: [{ type: 'text', text: 'The page distinguishes loss aversion from ordinary risk aversion.' }] },
+              { type: 'heading', attrs: { level: 2 }, content: [{ type: 'text', text: 'Converging Evidence' }] },
+              { type: 'paragraph', content: [{ type: 'text', text: 'Behavioural studies repeatedly find stronger reactions to losses than gains.' }] },
+              { type: 'heading', attrs: { level: 2 }, content: [{ type: 'text', text: 'Diverging Evidence' }] },
+              { type: 'paragraph', content: [{ type: 'text', text: 'The effect changes across contexts and individual subjects.' }] }
+            ]
+          }
+        },
+        question: 'Give me a 3-bullet overview.',
+        aiClient: { chatComplete: jest.fn(), isTextGenerationConfigured: () => true }
+      });
+      expect(out.model).toBe('deterministic');
+      const marks = findClaimMarks(out.answer);
+      expect(marks).toHaveLength(3);
+      expect(marks.map(mark => mark.text).join('\n')).toContain('• Loss Aversion:');
+      expect(marks.map(mark => mark.text).join('\n')).toContain('• Overview: The page distinguishes loss aversion from ordinary risk aversion.');
+      expect(marks.map(mark => mark.text).join('\n')).toContain('• Converging Evidence: Behavioural studies repeatedly find stronger reactions to losses than gains.');
+      expect(marks.map(mark => mark.text).join('\n')).not.toMatch(/Covers overview/);
+    });
+
     it('uses multiple corpus objects for cross-page prompts with highlights and concepts', async () => {
       const graph = buildAskGraphContext({
         page: {
