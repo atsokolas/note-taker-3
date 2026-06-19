@@ -170,6 +170,58 @@ describe('DataIntegrations first insight workflow', () => {
     expect(screen.getByRole('button', { name: /MCP-first runtime/i })).toBeInTheDocument();
   });
 
+  it('shows which connected sources are feeding the return loop', async () => {
+    listImportConnections.mockImplementation(async ({ provider } = {}) => {
+      if (provider === 'readwise') {
+        return [{
+          id: 'rw-1',
+          provider: 'readwise',
+          accountLabel: 'Reader',
+          mode: 'manual',
+          status: 'connected',
+          health: 'healthy',
+          lastSyncAt: '2026-06-07T14:00:00.000Z',
+          lastValidatedAt: '2026-06-07T13:00:00.000Z'
+        }];
+      }
+      if (provider === 'notion') {
+        return [{
+          id: 'notion-1',
+          provider: 'notion',
+          accountLabel: 'Product HQ',
+          status: 'connected',
+          health: 'healthy',
+          lastSyncAt: '2026-06-08T15:30:00.000Z'
+        }];
+      }
+      return [];
+    });
+    getActiveImportSession.mockResolvedValue({
+      id: 'session-evernote',
+      provider: 'evernote',
+      status: 'completed',
+      sourceLabel: 'Research Notebook',
+      updatedAt: '2026-06-09T12:00:00.000Z',
+      result: {
+        importedNotes: 4
+      }
+    });
+
+    render(
+      <MemoryRouter>
+        <DataIntegrations />
+      </MemoryRouter>
+    );
+
+    const card = await screen.findByTestId('connections-return-loop');
+    expect(within(card).getByText('What is feeding Morning Paper?')).toBeInTheDocument();
+    expect(within(card).getByText(/scheduled wiki maintenance checks due pages about every six hours/i)).toBeInTheDocument();
+    expect(await within(card).findByText('Import feed active')).toBeInTheDocument();
+    expect(within(card).getByText('Workspace feed active')).toBeInTheDocument();
+    expect(within(card).getByText('Last manual import saved')).toBeInTheDocument();
+    expect(within(card).getByText(/Latest handoff: Evernote import on/i)).toBeInTheDocument();
+  });
+
   it('shows organize this import action after a completed import session', async () => {
     getActiveImportSession.mockResolvedValue({
       id: 'session-1',
@@ -428,6 +480,9 @@ describe('DataIntegrations first insight workflow', () => {
 
     expect(await screen.findByText('Agent access: connected')).toBeInTheDocument();
     expect(screen.getByText(/Direct import: add an API token or CSV/i)).toBeInTheDocument();
+    const returnLoopCard = screen.getByTestId('connections-return-loop');
+    expect(within(returnLoopCard).getByText('Agent access connected')).toBeInTheDocument();
+    expect(within(returnLoopCard).getByText(/Direct Library refresh still needs the advanced token sync or a CSV import/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Upload Readwise CSV' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Add API token' })).toHaveAttribute('href', 'https://readwise.io/access_token');
     fireEvent.click(screen.getByText(/Advanced: direct sync with API token/i));

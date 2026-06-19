@@ -289,6 +289,77 @@ const getReceiptDestination = ({ sourceKey, session, importStats, sourceLabel = 
   return null;
 };
 
+const toValidDate = (value) => {
+  if (!value) return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+};
+
+const formatLoopDate = (value) => {
+  const date = toValidDate(value);
+  if (!date) return 'Never';
+  return date.toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric'
+  });
+};
+
+const getConnectionLoopDate = (connection = null) => (
+  connection?.lastSyncAt
+    || connection?.lastPreviewAt
+    || connection?.lastValidatedAt
+    || connection?.updatedAt
+    || connection?.createdAt
+    || ''
+);
+
+const getSessionLoopDate = (session = null) => (
+  session?.updatedAt
+    || session?.completedAt
+    || session?.createdAt
+    || ''
+);
+
+const getProviderLabel = (provider = '') => {
+  if (provider === 'readwise') return 'Readwise';
+  if (provider === 'notion') return 'Notion';
+  if (provider === 'evernote') return 'Evernote';
+  if (provider === 'files') return 'Files and text';
+  return 'Manual import';
+};
+
+const describeLoopHandoff = ({ readwiseConnection, notionConnection, session }) => {
+  const candidates = [
+    readwiseConnection?.id
+      ? {
+          label: 'Readwise',
+          date: toValidDate(getConnectionLoopDate(readwiseConnection)),
+          kind: readwiseConnection.lastSyncAt ? 'sync' : 'connection check'
+        }
+      : null,
+    notionConnection?.id
+      ? {
+          label: 'Notion',
+          date: toValidDate(getConnectionLoopDate(notionConnection)),
+          kind: notionConnection.lastSyncAt ? 'sync' : 'connection check'
+        }
+      : null,
+    session?.id
+      ? {
+          label: getProviderLabel(session.provider),
+          date: toValidDate(getSessionLoopDate(session)),
+          kind: ['completed', 'completed_with_warnings'].includes(session.status) ? 'import' : 'session'
+        }
+      : null
+  ].filter((candidate) => candidate?.date);
+
+  if (!candidates.length) return 'No source handoff recorded yet.';
+  candidates.sort((a, b) => b.date.getTime() - a.date.getTime());
+  const latest = candidates[0];
+  return `Latest handoff: ${latest.label} ${latest.kind} on ${formatLoopDate(latest.date)}.`;
+};
+
 const hasPendingOrganizeImportSuggestion = (session = null) => (
   Array.isArray(session?.agentSuggestions)
     && session.agentSuggestions.some((suggestion) => (
@@ -1906,9 +1977,95 @@ const DataIntegrations = ({ embedded = false } = {}) => {
     importStats,
     sourceLabel: lastImportSourceLabel
   });
+  const directReadwiseReady = Boolean(readwiseSyncConnection?.id && readwiseSyncConnection.mode !== 'mcp_remote');
+  const readwiseFeedStatus = directReadwiseReady
+    ? (readwiseSyncConnection.lastSyncAt ? 'Import feed active' : 'Ready to sync')
+    : readwiseAgentConnection?.id
+      ? 'Agent access connected'
+      : 'Not connected';
+  const readwiseFeedDetail = directReadwiseReady
+    ? (readwiseSyncConnection.lastSyncAt
+      ? `Last Readwise sync: ${formatLoopDate(readwiseSyncConnection.lastSyncAt)}.`
+      : 'Run Sync from Readwise to move new highlights into the Library and return loop.')
+    : readwiseAgentConnection?.id
+      ? 'Browser approval is ready for agents. Direct Library refresh still needs the advanced token sync or a CSV import.'
+      : 'Connect with Readwise to give agents browser-approved access, then add direct sync when you want Library imports.';
+  const notionFeedStatus = notionConnection?.id
+    ? (notionConnection.lastSyncAt ? 'Workspace feed active' : 'Ready to sync')
+    : 'Not connected';
+  const notionFeedDetail = notionConnection?.id
+    ? (notionConnection.lastSyncAt
+      ? `Last Notion sync: ${formatLoopDate(notionConnection.lastSyncAt)}.`
+      : 'Run Sync from Notion after sharing pages or databases with the integration.')
+    : 'Connect Notion to let workspace pages become retrievable notes and source material.';
+  const latestManualSessionProvider = ['evernote', 'files'].includes(currentSession?.provider) ? currentSession.provider : '';
+  const latestManualImportFinished = Boolean(
+    latestManualSessionProvider
+    && ['completed', 'completed_with_warnings'].includes(currentSession?.status)
+  );
+  const manualFeedStatus = latestManualImportFinished
+    ? 'Last manual import saved'
+    : 'Manual handoff';
+  const manualFeedDetail = latestManualImportFinished
+    ? `${getProviderLabel(latestManualSessionProvider)} import last updated ${formatLoopDate(getSessionLoopDate(currentSession))}.`
+    : 'Evernote, CSV, markdown, paste, and one-off notes enter the same downstream retrieval path after you import them.';
+  const connectedLoopCount = [
+    directReadwiseReady,
+    Boolean(readwiseAgentConnection?.id),
+    Boolean(notionConnection?.id),
+    latestManualImportFinished
+  ].filter(Boolean).length;
+  const returnLoopHandoff = describeLoopHandoff({
+    readwiseConnection: readwiseSyncConnection || readwiseAgentConnection,
+    notionConnection,
+    session: currentSession
+  });
 
   const sourceContent = (
     <>
+      <Card className="settings-card connections-return-loop" data-testid="connections-return-loop">
+        <div className="connections-return-loop__header">
+          <div>
+            <p className="muted-label">Return loop</p>
+            <h2>What is feeding Morning Paper?</h2>
+            <p className="muted">
+              Connected sources add fresh material; scheduled wiki maintenance checks due pages about every six hours.
+            </p>
+          </div>
+          <div className="connections-return-loop__summary" aria-label={`${connectedLoopCount} source handoffs active`}>
+            <strong>{connectedLoopCount}</strong>
+            <span>active handoffs</span>
+          </div>
+        </div>
+        <div className="connections-return-loop__grid">
+          <div className="connections-return-loop__feed">
+            <span className="connections-return-loop__dot" aria-hidden="true" />
+            <div>
+              <p className="muted-label">Readwise</p>
+              <strong>{readwiseFeedStatus}</strong>
+              <p className="muted small">{readwiseFeedDetail}</p>
+            </div>
+          </div>
+          <div className="connections-return-loop__feed">
+            <span className="connections-return-loop__dot" aria-hidden="true" />
+            <div>
+              <p className="muted-label">Notion</p>
+              <strong>{notionFeedStatus}</strong>
+              <p className="muted small">{notionFeedDetail}</p>
+            </div>
+          </div>
+          <div className="connections-return-loop__feed">
+            <span className="connections-return-loop__dot" aria-hidden="true" />
+            <div>
+              <p className="muted-label">Files, Evernote, CSV</p>
+              <strong>{manualFeedStatus}</strong>
+              <p className="muted small">{manualFeedDetail}</p>
+            </div>
+          </div>
+        </div>
+        <p className="connections-return-loop__handoff">{returnLoopHandoff}</p>
+      </Card>
+
       <Card className="settings-card">
         <h2>Choose a source</h2>
         <p className="muted">The goal is a source-aware path: import, preserve context, then activate the material inside Think.</p>

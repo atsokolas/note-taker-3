@@ -1965,6 +1965,18 @@ body.noeis-editorial .product-feedback-modal .feedback-field textarea::placehold
         grid-template-columns: 1fr;
     }
 
+    .connections-return-loop__header {
+        flex-direction: column;
+    }
+
+    .connections-return-loop__summary {
+        width: 100%;
+    }
+
+    .connections-return-loop__grid {
+        grid-template-columns: 1fr;
+    }
+
     .settings-import-field {
         width: 100%;
     }
@@ -3849,6 +3861,84 @@ body.noeis-editorial .product-feedback-modal .feedback-field textarea::placehold
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 12px;
   margin-top: 14px;
+}
+
+.connections-return-loop {
+  overflow: hidden;
+}
+
+.connections-return-loop__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.connections-return-loop__header h2 {
+  margin: 0 0 8px;
+}
+
+.connections-return-loop__summary {
+  flex: 0 0 auto;
+  min-width: 108px;
+  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.12));
+  border-radius: 14px;
+  padding: 12px 14px;
+  text-align: center;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.connections-return-loop__summary strong {
+  display: block;
+  font-size: 1.65rem;
+  line-height: 1;
+}
+
+.connections-return-loop__summary span {
+  display: block;
+  margin-top: 6px;
+  color: var(--text-color-secondary);
+  font-size: 0.72rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.connections-return-loop__grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.connections-return-loop__feed {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 10px;
+  min-width: 0;
+  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.12));
+  border-radius: 14px;
+  padding: 14px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.connections-return-loop__feed strong,
+.connections-return-loop__feed p {
+  overflow-wrap: anywhere;
+}
+
+.connections-return-loop__dot {
+  width: 9px;
+  height: 9px;
+  margin-top: 7px;
+  border-radius: 999px;
+  background: var(--primary-color);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--primary-color) 18%, transparent);
+}
+
+.connections-return-loop__handoff {
+  margin: 14px 0 0;
+  color: var(--text-color-secondary);
+  font-size: 0.92rem;
 }
 
 .import-source-card {
