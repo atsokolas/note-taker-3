@@ -51,7 +51,7 @@ describe('WikiBuildPageComposer', () => {
     expect(streamMaintainWikiPage).not.toHaveBeenCalled();
     expect(onBuilt).toHaveBeenCalled();
     expect(mockNavigate).toHaveBeenCalledWith('/wiki/workspace?page=wiki-new&build=1', { replace: false });
-    fireEvent.click(screen.getByRole('button', { name: 'Expand trace history' }));
+    fireEvent.click(screen.getByRole('button', { name: /expand .* trace history/i }));
     await waitFor(() => {
       expect(screen.getByLabelText('Wiki build trace')).toHaveTextContent('captured topic · Portfolio Concentration');
       expect(screen.getByLabelText('Wiki build trace')).toHaveTextContent('opening @wiki:wiki-new');
@@ -76,7 +76,7 @@ describe('WikiBuildPageComposer', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Build page' }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Failed to build this wiki page.');
-    fireEvent.click(screen.getByRole('button', { name: 'Expand trace history' }));
+    fireEvent.click(screen.getByRole('button', { name: /expand .* trace history/i }));
     expect(screen.getByLabelText('Wiki build trace')).toHaveTextContent('build failed · Broken page');
     await waitFor(() => {
       expect(screen.getByLabelText('Wiki build trace')).toHaveTextContent('waiting for a retry');
