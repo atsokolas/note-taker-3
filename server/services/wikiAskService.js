@@ -228,10 +228,15 @@ const mergeWikiPages = (primaryPages = [], extraPages = []) => {
 };
 
 const isSelectedPageOnlyQuestion = (question = '') => (
-  /\b(on|from|in)\s+(this|the)\s+(page|wiki\s+page)\s+only\b/i.test(question)
-  || /\b(only|just)\s+(this|the)\s+(page|wiki\s+page)\b/i.test(question)
-  || /\bscope(?:d)?\s+to\s+(this|the)\s+page\b/i.test(question)
-  || /\banswer\s+(only|just)\s+from\s+(this|the)\s+page\b/i.test(question)
+  !/\b(?:not|don't|do\s+not)\s+(?:only|just)\s+(?:use\s+)?(?:this|the)\s+(?:page|wiki\s+page)\b/i.test(question)
+  && !/\b(?:not|don't|do\s+not)\s+(?:answer\s+)?(?:only|just)\s+from\s+(?:this|the)\s+(?:page|wiki\s+page)\b/i.test(question)
+  && !/\bfrom\s+the\s+graph\b|\buse\s+the\s+graph\b|\bgraph\b.*\bnot\s+(?:just|only)\b/i.test(question)
+  && (
+    /\b(on|from|in)\s+(this|the)\s+(page|wiki\s+page)\s+only\b/i.test(question)
+    || /\b(only|just)\s+(this|the)\s+(page|wiki\s+page)\b/i.test(question)
+    || /\bscope(?:d)?\s+to\s+(this|the)\s+page\b/i.test(question)
+    || /\banswer\s+(only|just)\s+from\s+(this|the)\s+page\b/i.test(question)
+  )
 );
 
 const pageTitleMentionedInQuestion = (title = '', question = '') => {
@@ -1155,22 +1160,6 @@ const askWikiPage = async ({
     question: trimmed,
     searchedSummary
   });
-  const exactSentence = pickExactPageSentence({ page, question: trimmed });
-  if (exactSentence) {
-    const answer = {
-      paragraphs: [{ text: exactSentence, citationIndexes: [] }],
-      citationIndexesUsed: []
-    };
-    return {
-      answer: docFromAnswer(answer, sources.length),
-      citationIndexesUsed: [],
-      provenance: buildProvenance(''),
-      model: 'deterministic',
-      status: 'answered',
-      errorMessage: ''
-    };
-  }
-
   if (isSummaryRequest(trimmed)) {
     const summaryAnswer = buildPageSummaryAnswer({ page, question: trimmed });
     return {
@@ -1182,6 +1171,22 @@ const askWikiPage = async ({
         selectedPageOnly: true,
         searchedSummary: buildGraphSearchSummary({ page, selectedPageOnly: true })
       }),
+      model: 'deterministic',
+      status: 'answered',
+      errorMessage: ''
+    };
+  }
+
+  const exactSentence = pickExactPageSentence({ page, question: trimmed });
+  if (exactSentence) {
+    const answer = {
+      paragraphs: [{ text: exactSentence, citationIndexes: [] }],
+      citationIndexesUsed: []
+    };
+    return {
+      answer: docFromAnswer(answer, sources.length),
+      citationIndexesUsed: [],
+      provenance: buildProvenance(''),
       model: 'deterministic',
       status: 'answered',
       errorMessage: ''

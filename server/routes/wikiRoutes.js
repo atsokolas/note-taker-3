@@ -2587,6 +2587,11 @@ const buildWikiRouter = ({
       }
       if (enumChecks[0]?.value) page.pageType = enumChecks[0].value;
       if (enumChecks[1]?.value) page.status = enumChecks[1].value;
+      if (enumChecks[2]?.value === 'shared' && !isWikiPageSurfaceEligible(page)) {
+        return res.status(422).json({
+          error: 'Fix or archive this page before sharing it publicly.'
+        });
+      }
       if (enumChecks[2]?.value) page.visibility = enumChecks[2].value;
       if (enumChecks[3]?.value) page.sourceScope = enumChecks[3].value;
       if (req.body?.body !== undefined) {

@@ -260,6 +260,33 @@ describe('WikiPageReadView', () => {
     expect(within(shareRegion).queryByRole('link', { name: 'Open public page' })).not.toBeInTheDocument();
   });
 
+  it('does not present a public link for blocked review pages even if visibility is shared', async () => {
+    getWikiPage.mockResolvedValueOnce({
+      ...page,
+      visibility: 'shared',
+      qualityReview: {
+        status: 'needs_review',
+        severity: 'blocked',
+        surfaceEligible: false,
+        reasons: [{ code: 'known_qa_junk_title', message: 'Page title matches a known malformed QA fixture.' }]
+      }
+    });
+
+    render(
+      <MemoryRouter>
+        <WikiPageReadView pageId="wiki-1" onEdit={jest.fn()} workspaceMode />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByRole('heading', { name: 'Enterprise AI Memory' })).toBeInTheDocument();
+    const shareRegion = screen.getByRole('region', { name: 'Share this wiki page' });
+    expect(shareRegion).toHaveTextContent('Needs review before sharing');
+    expect(shareRegion).toHaveTextContent('hidden from public sharing until the review items are fixed or archived');
+    expect(within(shareRegion).queryByRole('link', { name: 'Open public page' })).not.toBeInTheDocument();
+    expect(within(shareRegion).getByRole('button', { name: 'Share' })).toBeDisabled();
+    expect(within(shareRegion).getByRole('button', { name: 'Stop sharing' })).toBeInTheDocument();
+  });
+
   it('keeps the article title as the only h1 even when stored body content includes h1 headings', async () => {
     getWikiPage.mockResolvedValueOnce({
       ...page,

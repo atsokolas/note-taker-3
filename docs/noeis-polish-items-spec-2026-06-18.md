@@ -11,7 +11,35 @@
 
 ---
 
-## Item 1 (P2, Cursor) — "Failed to build" message lingers after the agent self-heals
+## ⚠️ MANDATORY live-confirmation protocol (read before claiming any item done)
+
+An item is **not done** until you have personally reproduced the FIXED behavior on `https://www.noeis.io` (logged in) and **pasted the raw evidence into the PR**. A passing unit test, a code-reading, or "this should now work" does **NOT** count and will be rejected. For each item you close you must paste:
+
+1. **The exact command/action you ran** on production (URL + the question typed / button clicked / console expression evaluated).
+2. **The literal output** — the agent's actual reply text, the actual `getComputedStyle(...)` value, the actual chat transcript, the actual Explore list. Copy-paste it verbatim, not a paraphrase.
+3. **A before line and an after line** so the change is visible.
+
+If you cannot paste real production output, mark the item **NOT CONFIRMED** and leave it open. Do not tick a checkbox you cannot prove. (Prior sessions reported items "done" that were still broken on production — this protocol exists because of that.)
+
+---
+
+## Re-test status (2026-06-18, live)
+
+| # | Item | Owner | Status after last push |
+|---|---|---|---|
+| 1 | "Failed to build" lingers | Cursor | ✅ **DONE & CONFIRMED LIVE** |
+| 2 | Dark body token on `/wiki` | Cursor | ❌ **NOT LANDED** — `document.body` still `rgb(13,20,34)` on `/wiki` |
+| 3 | Summarize answer quality | Codex | ❌ **NOT FIXED** — still returns a tangential sentence |
+| 4 | Garbled pages in graph/Explore | Codex | ✅ Surfacing/retrieval fixed & confirmed — root cause found: source-cluster proposals minted weak candidate titles |
+| 5 | Scheduled refresh exists? | Codex | ✅ Investigation complete — no scheduler exists; briefing/maintenance are on-demand |
+
+Items 2 and 3 are the live work remaining. Item 4's source path is now identified and guarded. Item 5 is confirmed as an onboarding/adoption prerequisite, not existing infrastructure.
+
+---
+
+## Item 1 (P2, Cursor) — ✅ DONE & CONFIRMED LIVE (2026-06-18)
+
+**Verified fixed on production.** Ran `/build Network Effects`; it tripped the quality gate, and the chat now reads *"First pass needed another try — rebuilding with stricter instructions"* → *"Built NETWORK EFFECTS"* — the alarming "Failed to build a wiki page" line is gone (`hasFail:false`). The reframe-on-recovery is exactly what was asked. No further work. (Original spec below for history.)
 
 ### Live symptom
 Run `/build <Topic>` in the wiki workspace chat (the composer with placeholder *"Ask, paste a source, or type / for wiki commands"*). When the first draft misses quality gates, the agent correctly self-recovers — the chat shows:
@@ -34,7 +62,11 @@ The failure line should not persist once the retry succeeds. Either (a) remove/r
 
 ---
 
-## Item 2 (P3, Cursor) — Finish the dark token at the body level on `/wiki`
+## Item 2 (P3, Cursor) — ❌ STILL OPEN — finish the dark token at the body level on `/wiki`
+
+**Re-test 2026-06-18: NOT LANDED.** On `/wiki` in dark mode, `getComputedStyle(document.body).backgroundColor` still returns **`rgb(13, 20, 34)`** (cool). The `.wiki-front-page` container is warm (`rgb(20, 17, 13)`), so it looks fine in normal view, but the body-level fix has not shipped. This is the remaining work.
+
+**MANDATORY confirmation to close (paste in PR):** in the production console on `/wiki` (dark mode), run `getComputedStyle(document.body).backgroundColor` and paste the result — it must read `rgb(20, 17, 13)`. Then run the same on `/`, `/library`, `/think`, `/wiki/workspace` (all must be `rgb(20, 17, 13)` in dark) and paste those too. Light mode must be unchanged. No screenshots-only — paste the literal computed values.
 
 ### Live symptom
 On `/wiki` in dark mode the front page now renders warm (good — `.wiki-front-page` computes `rgb(20, 17, 13)`), **but `document.body` is still `rgb(13, 20, 34)`** (cool blue-black). The warm container covers the viewport so it's not visible in normal scroll, but the cool body can flash on overscroll/rubber-band bounce and anywhere the container doesn't paint.
@@ -55,7 +87,11 @@ Make `<body>` warm on `/wiki` like it is on `/wiki/workspace` (which renders cor
 
 ---
 
-## Item 3 (P3, Codex) — "Summarize this page in one sentence" returns a mid-page point, not a whole-page summary
+## Item 3 (P3, Codex) — ❌ STILL OPEN — "Summarize this page" returns a tangential point, not a whole-page summary
+
+**Re-test 2026-06-18: NOT FIXED.** On the Economic Moats page, *"Summarize this page in one sentence"* returned *"Venture‑capital practitioners observe that successful startups often aim for monopoly‑like dominance rather than competing head‑to‑head."* — a tangential source point, not a summary of a page about durable competitive advantage / moats / Munger. Routing is correct (single-page, 0.9s); the synthesis grabs one retrieved sentence instead of representing the page. Summarize/overview intent handling is still not in.
+
+**MANDATORY confirmation to close (paste in PR):** on a real multi-section page on production, paste (a) the page title, (b) the exact question, and (c) the agent's **verbatim** reply, for two cases — "Summarize this page in one sentence" (must capture the page's main thesis) and "Give me a 3-bullet overview" (bullets must span the major sections). Also paste a cross-concept question's reply to prove Item 1-of-the-open-items-spec graph routing did not regress.
 
 ### Live symptom
 On the Investing page, asked *"Summarize this page in one sentence."* The routing was correct (stayed single-page, fast, 1.3s) but the answer was a single narrow claim — *"Practitioners who possess deep sector expertise may profit from a narrow focus, but they must maintain rigorous risk limits…"* — rather than a summary of the whole page. Instruction-following on summarize/overview-type asks is loose.
@@ -70,7 +106,15 @@ In the single-page wiki answer path (the `collaborativeAgentService` wiki branch
 
 ---
 
-## Item 4 (P2, Codex) — Garbled/junk pages are polluting the graph, Explore, and retrieval
+## Item 4 (P2, Codex) — ✅ surfacing/retrieval confirmed live — root cause found and guarded
+
+**Partly verified fixed on production (2026-06-18).** Explore no longer shows the garbled titles ("Cia Teach Investor Behavioural Investment" / "Complementary Machine Thing" are gone), graph retrieval came back clean (a cross-concept question read *"Network Effects + Economic Moats + Circle of Competence + Investing"* — no gibberish), and a new "needs review" affordance is present.
+
+**Root cause found:** the malformed pages were created through `wikiProposalService` source-cluster proposals, not the wiki reader UI. Production metadata for both bad pages has `createdFrom.type: "sources"` and `createdFrom.text` matching proposal copy:
+- `Complementary Machine Thing appears repeatedly enough to deserve a maintained page.`
+- `Cia Teach Investor Behavioural Investment may connect pages that are currently separate.`
+
+The guard now applies the same wiki page quality classifier to proposal candidate titles before a proposal can become a page, so known malformed/blocked titles are rejected upstream instead of only hidden downstream.
 
 ### Live symptom
 - The agent's retrieval receipt listed a page titled **"Complementary Machine Thing"** (nonsense).
@@ -90,16 +134,15 @@ These surface in Explore, in "related pages," and in agent receipts. They don't 
 
 ---
 
-## Item 5 (P1 investigation, Codex) — Confirm whether a scheduled refresh actually runs
+## Item 5 (P1 investigation, Codex) — ✅ confirmed: scheduled refresh does not exist yet
 
 ### Why
 Both `noeis-onboarding-spec-2026-06-18.md` (the "while you slept" hook) and `noeis-wiki-adoption-spec-2026-06-18.md` (the "kept updated" promise) depend on an overnight/background refresh. During this test multiple pages showed *"reviewed 2h ago"* and the morning paper auto-featured a page built minutes earlier — but that could be session-triggered maintenance, not a scheduler. Prior recon found **no cron/scheduled job** — maintenance appeared on-demand only (`wikiMaintenanceService.js` runs on click; `wikiBriefingService.js` only compiles stats).
 
 ### Task (investigation, report — don't build yet)
-- Confirm definitively whether any scheduled/background refresh exists (search `cron`, `schedule`, `setInterval`, `node-cron`, `agenda`, `bull`, queue workers, Render cron jobs, and any "morning"/"nightly"/"drift" trigger).
-- Explain what actually produced the "reviewed 2h ago" timestamps and the morning-paper auto-feature.
-- If no scheduler exists: state that clearly. It's then a **separate prerequisite** to build for onboarding + adoption — scope it as its own task, don't fake it.
-- Report findings in the PR description; this gates the two big specs.
+**Finding:** no scheduled/background refresh exists in the app code. The `/api/wiki/briefing` route states it is intentionally computed on demand, and `wikiBriefingService` compiles recent `aiState.lastDraftedAt` / drift signals from existing pages. The "reviewed X ago" timestamps come from user/session-triggered maintenance/build paths that update `aiState.lastDraftedAt`, not a cron. The morning-paper auto-feature is the on-demand briefing choosing from those recent updates.
+
+**Implication:** onboarding/adoption copy that promises "while you slept" or "kept updated" needs a real scheduler as a separate prerequisite. Do not imply this exists until a cron/worker is built and deployed.
 
 ---
 

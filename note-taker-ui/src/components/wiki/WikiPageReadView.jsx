@@ -23,6 +23,7 @@ import {
   countWikiPageWords,
   countWikiSources
 } from './wikiPageMetrics';
+import { isPageQualityBlocked } from './wikiPageQualityReview';
 import {
   diffClaimLedgerSnapshots,
   diffClaimSnapshots,
@@ -1202,6 +1203,10 @@ const WikiPageReadView = ({
     const currentPage = latestPageRef.current || page;
     const publicUrl = buildPublicWikiShareUrl(currentPage);
     if (!currentPage || !publicUrl) return;
+    if (isPageQualityBlocked(currentPage)) {
+      setShareStatus('Fix or archive the review items before sharing this page publicly.');
+      return;
+    }
     setShareBusy(true);
     setShareStatus('');
     try {
@@ -1795,6 +1800,8 @@ const WikiPageReadView = ({
   const bodyTransitionClass = pageTransitionState !== 'idle' ? ' wiki-read__body--transitioning' : '';
   const publicShareUrl = buildPublicWikiShareUrl(page);
   const isSharedPublicly = String(page.visibility || 'private') === 'shared';
+  const shareBlocked = isPageQualityBlocked(page);
+  const publicShareReady = isSharedPublicly && !shareBlocked;
   return (
     <main
       className={`wiki-page wiki-read wiki-read--type-${readPageType}`}
@@ -1959,24 +1966,26 @@ const WikiPageReadView = ({
                 via chat notification (AT-26). */}
             <WikiReadTitle title={page.title || 'Untitled Wiki Page'} />
             <section
-              className={`wiki-read__share-card ${isSharedPublicly ? 'is-shared' : 'is-private'}`}
+              className={`wiki-read__share-card ${publicShareReady ? 'is-shared' : 'is-private'}${shareBlocked ? ' is-blocked' : ''}`}
               aria-label="Share this wiki page"
             >
               <div className="wiki-read__share-card-copy">
                 <span className="wiki-read__share-card-kicker">
-                  {isSharedPublicly ? 'Public link ready' : 'Private page'}
+                  {shareBlocked ? 'Needs review before sharing' : publicShareReady ? 'Public link ready' : 'Private page'}
                 </span>
                 <p>
-                  {isSharedPublicly
-                    ? 'Shared readers see this article and references only. Backlinks, highlights, source notes, and agent work stay private.'
-                    : 'Create a safe public page with the article and references only. Your backlinks, highlights, source notes, and agent work stay private.'}
+                  {shareBlocked
+                    ? 'This page is hidden from public sharing until the review items are fixed or archived. Your private workspace copy is unchanged.'
+                    : publicShareReady
+                      ? 'Shared readers see this article and references only. Backlinks, highlights, source notes, and agent work stay private.'
+                      : 'Create a safe public page with the article and references only. Your backlinks, highlights, source notes, and agent work stay private.'}
                 </p>
               </div>
               <div className="wiki-read__share-card-actions">
-                <Button type="button" variant="secondary" onClick={handleShareSafely} disabled={shareBusy}>
-                  {shareBusy ? 'Preparing...' : isSharedPublicly ? 'Copy link' : 'Share'}
+                <Button type="button" variant="secondary" onClick={handleShareSafely} disabled={shareBusy || shareBlocked}>
+                  {shareBusy ? 'Preparing...' : publicShareReady ? 'Copy link' : 'Share'}
                 </Button>
-                {isSharedPublicly && publicShareUrl ? (
+                {publicShareReady && publicShareUrl ? (
                   <a className="wiki-read__share-open" href={publicShareUrl} target="_blank" rel="noopener noreferrer">
                     Open public page
                   </a>

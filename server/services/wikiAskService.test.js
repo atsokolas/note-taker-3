@@ -615,6 +615,26 @@ describe('wikiAskService', () => {
       expect(out.provenance.summary).not.toContain('2 wiki pages');
     });
 
+    it('does expand graph context when the user explicitly says not just this page', async () => {
+      expect(isSelectedPageOnlyQuestion('Answer from the graph, not just this page.')).toBe(false);
+      const out = await askWikiPage({
+        page: buildPage({
+          _id: 'page-loss',
+          title: 'Loss Aversion',
+          body: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Loss aversion makes visible losses feel more urgent than equivalent gains.' }] }] }
+        }),
+        relatedPages: [
+          { _id: 'page-first', title: 'First Principles Thinking', pageType: 'topic', plainText: 'First principles thinking strips a decision down to the underlying causal facts.' }
+        ],
+        question: 'How does Loss Aversion connect to First Principles Thinking? Answer from the graph, not just this page.',
+        aiClient: { chatComplete: jest.fn(), isTextGenerationConfigured: () => false }
+      });
+      expect(out.provenance.mode).toBe('graph_expanded');
+      expect(out.provenance.summary).toContain('2 wiki pages');
+      const marks = findClaimMarks(out.answer);
+      expect(marks[0].text).toMatch(/First Principles Thinking/);
+    });
+
     it('answers summary prompts from the selected page even when related pages are available', async () => {
       const chatComplete = jest.fn();
       const out = await askWikiPage({

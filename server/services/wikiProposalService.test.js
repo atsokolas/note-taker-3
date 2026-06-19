@@ -130,6 +130,49 @@ const run = async () => {
   }
 
   {
+    const proposals = buildProposalCandidates({
+      signals: [
+        {
+          type: 'highlight',
+          key: 'complementary machine thing',
+          label: 'Complementary Machine Thing',
+          title: 'Complementary Machine Thing',
+          snippet: 'Complementary machine thing appears in a rough source cluster.',
+          sourceType: 'article',
+          sourceObjectId: 'article-bad-1',
+          sourceFamily: 'article:bad-1',
+          weight: 1
+        },
+        {
+          type: 'highlight',
+          key: 'complementary machine thing',
+          label: 'Complementary Machine Thing',
+          title: 'Complementary Machine Thing',
+          snippet: 'Another source repeats the malformed cluster label.',
+          sourceType: 'article',
+          sourceObjectId: 'article-bad-2',
+          sourceFamily: 'article:bad-2',
+          weight: 1
+        },
+        {
+          type: 'note',
+          key: 'complementary machine thing',
+          label: 'Complementary Machine Thing',
+          title: 'Complementary Machine Thing',
+          snippet: 'A third signal should not promote a known malformed title.',
+          sourceType: 'notebook',
+          sourceObjectId: 'note-bad-3',
+          sourceFamily: 'notebook:bad-3',
+          weight: 1
+        }
+      ],
+      existingPages: []
+    });
+    assert.strictEqual(proposals.some(item => item.title === 'Complementary Machine Thing' && item.status === 'pending'), false);
+    assert.ok(proposals.some(item => item.title === 'Complementary Machine Thing' && item.status === 'dismissed'));
+  }
+
+  {
     const existingPages = [
       { _id: 'page-1', title: 'Personal Agents', plainText: 'Adaptive learning agents can adapt to users over time.' },
       { _id: 'page-2', title: 'Education Software', plainText: 'Learning interfaces need adaptive feedback.' }

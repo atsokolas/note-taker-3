@@ -1,5 +1,6 @@
 const crypto = require('crypto');
 const { chatComplete, isTextGenerationConfigured } = require('../ai/hfTextClient');
+const { classifyWikiPageQuality } = require('./wikiPageQualityGuard');
 
 const STOPWORDS = new Set([
   'about', 'after', 'again', 'against', 'also', 'and', 'because', 'before', 'being', 'between', 'by', 'can', 'could',
@@ -358,8 +359,19 @@ const qualityDecisionFor = (candidate = {}, existingPages = []) => {
   const [dominantTitleKey, dominantTitleCount] = dominantSourceTitleKey(candidate.sourceRefs || []);
   const reasons = [];
   let qualityScore = 0.35;
+  const titleQuality = classifyWikiPageQuality({
+    title: candidate.title,
+    plainText: [
+      candidate.summary,
+      candidate.thesis,
+      ...(candidate.starterClaims || [])
+    ].filter(Boolean).join(' '),
+    sourceRefs: candidate.sourceRefs || []
+  });
 
-  if (!titleKey || isUglyTopicKey(titleKey)) reasons.push('Title is not a durable wiki topic.');
+  if (!titleKey || isUglyTopicKey(titleKey) || titleQuality.surfaceEligible === false) {
+    reasons.push(titleQuality.reasons?.[0]?.message || 'Title is not a durable wiki topic.');
+  }
   else qualityScore += 0.18;
 
   if (tokens.some(token => GENERIC_TOPIC_TOKENS.has(token)) && tokens.length <= 2) {

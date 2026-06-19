@@ -1,4 +1,5 @@
 const { chatComplete, isTextGenerationConfigured } = require('../ai/hfTextClient');
+const { isWikiPageSurfaceEligible } = require('./wikiPageQualityGuard');
 
 /**
  * wikiBriefingService — assembles the "Daily wiki briefing" surfaced
@@ -158,7 +159,8 @@ const buildWikiBriefing = async ({
   if (!userId) {
     throw new Error('buildWikiBriefing requires a userId.');
   }
-  const pages = await safeFind(models.WikiPage, { userId, status: { $ne: 'archived' } }, 600);
+  const rawPages = await safeFind(models.WikiPage, { userId, status: { $ne: 'archived' } }, 600);
+  const pages = rawPages.filter(isWikiPageSurfaceEligible);
   const [newSources, recentlyUpdatedPages, driftingPages] = await Promise.all([
     countNewSources({ userId, models, windowMs, now }),
     Promise.resolve(collectRecentlyUpdatedPages(pages, { windowMs, now })),

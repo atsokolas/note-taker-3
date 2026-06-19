@@ -199,6 +199,37 @@ describe('wikiBriefingService', () => {
       expect(briefing.driftingPages[0].title).toBe('Drifting page');
     });
 
+    it('excludes blocked quality pages from briefing summaries and counts', async () => {
+      const blockedUpdatedPage = buildPage({
+        _id: 'blocked',
+        title: 'Complementary Machine Thing',
+        plainText: 'This should not become the morning paper.',
+        aiState: { lastDraftedAt: new Date(NOW - 1000).toISOString(), health: buildPage().aiState.health }
+      });
+      const goodUpdatedPage = buildPage({
+        _id: 'good',
+        title: 'Network Effects',
+        plainText: 'Network effects become stronger as users join.',
+        aiState: { lastDraftedAt: new Date(NOW - 2000).toISOString(), health: buildPage().aiState.health }
+      });
+      const briefing = await buildWikiBriefing({
+        userId: 'u1',
+        models: {
+          WikiPage: fakeModel([blockedUpdatedPage, goodUpdatedPage]),
+          Article: fakeModel([]),
+          NotebookEntry: fakeModel([])
+        },
+        now: NOW,
+        chat: jest.fn(),
+        isConfigured: () => false
+      });
+      expect(briefing.counts.recentlyUpdatedPages).toBe(1);
+      expect(briefing.totalPages).toBe(1);
+      expect(briefing.recentlyUpdatedPages.map(page => page.title)).toEqual(['Network Effects']);
+      expect(briefing.summary).toMatch(/1 wiki page updated/);
+      expect(briefing.summary).not.toMatch(/Complementary Machine Thing/);
+    });
+
     it('falls back to the deterministic summary when the chat client throws', async () => {
       const chat = jest.fn().mockRejectedValue(new Error('HF down'));
       const briefing = await buildWikiBriefing({
