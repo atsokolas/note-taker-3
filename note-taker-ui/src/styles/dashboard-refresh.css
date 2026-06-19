@@ -26,7 +26,7 @@
 }
 
 html[data-ui-theme='dark'] {
-  --bg-shell: #0d1422;
+  --bg-shell: #14110d;
   --bg-chrome: #121d2f;
   --surface-0: #182335;
   --surface-1: #141f31;

@@ -88,10 +88,11 @@ const WriteIn = ({ text = '' }) => {
     return () => window.clearInterval(timer);
   }, [words]);
 
+  const fullText = words.join(' ');
+
   return (
-    <span className="wiki-front-page__lead-text">
+    <span className="wiki-front-page__lead-text" aria-label={fullText}>
       <span aria-hidden="true">{words.slice(0, shown).join(' ')}</span>
-      <span className="sr-only">{words.join(' ')}</span>
     </span>
   );
 };
