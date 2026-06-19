@@ -944,6 +944,21 @@ const run = async () => {
       plainText: 'Machine assistance can extend human judgment when citations and review stay visible.'
     });
     await malformedFixturePage.save();
+    const failedDraftPrivatePage = new WikiPage({
+      userId: 'user-1',
+      title: 'Failed Draft Stub',
+      slug: 'failed-draft-stub',
+      pageType: 'topic',
+      status: 'draft',
+      visibility: 'private',
+      plainText: 'This page has real words but should stay private until the failed draft state is repaired.',
+      aiState: {
+        draftStatus: 'error',
+        lastError: 'Failed to build wiki page.',
+        errorCode: 'DRAFT_FAILED'
+      }
+    });
+    await failedDraftPrivatePage.save();
     const sparseDraftPage = new WikiPage({
       userId: 'user-1',
       title: 'Sparse Legitimate Draft',
@@ -975,6 +990,13 @@ const run = async () => {
       headers: {}
     });
     assert.strictEqual(blockedPublicPage.res.status, 404, blockedPublicPage.text);
+
+    const blockedShareAttempt = await request(url, `/api/wiki/pages/${failedDraftPrivatePage._id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ visibility: 'shared' })
+    });
+    assert.strictEqual(blockedShareAttempt.res.status, 422, blockedShareAttempt.text);
+    assert.strictEqual(blockedShareAttempt.body.error, 'Fix or archive this page before sharing it publicly.');
 
     const defaultSchema = await request(url, '/api/wiki/schema');
     assert.strictEqual(defaultSchema.res.status, 200, defaultSchema.text);

@@ -225,6 +225,7 @@ describe('WikiPageReadView', () => {
     expect(shareRegion).toHaveTextContent('Private page');
     expect(shareRegion).toHaveTextContent('Create a safe public page with the article and references only.');
     expect(shareRegion).toHaveTextContent('backlinks, highlights, source notes, and agent work stay private');
+    expect(shareRegion).toHaveTextContent('private graph sealed');
 
     await act(async () => {
       fireEvent.click(within(shareRegion).getByRole('button', { name: 'Share' }));
@@ -282,9 +283,13 @@ describe('WikiPageReadView', () => {
     const shareRegion = screen.getByRole('region', { name: 'Share this wiki page' });
     expect(shareRegion).toHaveTextContent('Needs review before sharing');
     expect(shareRegion).toHaveTextContent('hidden from public sharing until the review items are fixed or archived');
+    expect(shareRegion).toHaveTextContent('Page title matches a known malformed QA fixture.');
+    expect(shareRegion).toHaveTextContent('Public copy locked until review clears');
     expect(within(shareRegion).queryByRole('link', { name: 'Open public page' })).not.toBeInTheDocument();
-    expect(within(shareRegion).getByRole('button', { name: 'Share' })).toBeDisabled();
+    expect(within(shareRegion).getByRole('button', { name: 'Review first' })).toBeDisabled();
+    expect(within(shareRegion).getByRole('link', { name: 'Open review queue' })).toHaveAttribute('href', '/wiki/workspace?view=list&quality=needs_review');
     expect(within(shareRegion).getByRole('button', { name: 'Stop sharing' })).toBeInTheDocument();
+    expect(updateWikiPage).not.toHaveBeenCalled();
   });
 
   it('keeps the article title as the only h1 even when stored body content includes h1 headings', async () => {

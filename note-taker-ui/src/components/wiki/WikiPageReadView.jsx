@@ -23,7 +23,11 @@ import {
   countWikiPageWords,
   countWikiSources
 } from './wikiPageMetrics';
-import { isPageQualityBlocked } from './wikiPageQualityReview';
+import {
+  formatQualityReviewReasons,
+  isPageQualityBlocked,
+  normalizeQualityReview
+} from './wikiPageQualityReview';
 import {
   diffClaimLedgerSnapshots,
   diffClaimSnapshots,
@@ -415,6 +419,29 @@ const buildPublicWikiShareUrl = (page = {}) => {
   const pageId = normalizeId(page?._id || page?.id);
   if (!pageId || typeof window === 'undefined') return '';
   return `${window.location.origin}/share/wiki/${encodeURIComponent(pageId)}`;
+};
+
+const formatShareReceipt = ({ page = {}, blocked = false } = {}) => {
+  const wordCount = countWikiPageWords(page);
+  const sourceCount = countWikiSources(page);
+  const claimCount = countWikiClaims(page);
+  if (blocked) {
+    return 'Public copy locked until review clears · private graph sealed';
+  }
+  return [
+    wordCount ? `${wordCount} word${wordCount === 1 ? '' : 's'}` : '',
+    sourceCount ? `${sourceCount} reference${sourceCount === 1 ? '' : 's'}` : '',
+    claimCount ? `${claimCount} claim${claimCount === 1 ? '' : 's'}` : '',
+    'private graph sealed'
+  ].filter(Boolean).join(' · ');
+};
+
+const formatShareReviewSummary = (page = {}) => {
+  const review = normalizeQualityReview(page);
+  const reasons = formatQualityReviewReasons(review);
+  if (reasons.length === 1) return reasons[0];
+  if (reasons.length > 1) return `${reasons.length} review items need attention before this can be public.`;
+  return 'Review items need attention before this can be public.';
 };
 
 const countPageSources = (page = {}) => countWikiSources(page);
@@ -1802,6 +1829,8 @@ const WikiPageReadView = ({
   const isSharedPublicly = String(page.visibility || 'private') === 'shared';
   const shareBlocked = isPageQualityBlocked(page);
   const publicShareReady = isSharedPublicly && !shareBlocked;
+  const shareReceipt = formatShareReceipt({ page, blocked: shareBlocked });
+  const shareReviewSummary = shareBlocked ? formatShareReviewSummary(page) : '';
   return (
     <main
       className={`wiki-page wiki-read wiki-read--type-${readPageType}`}
@@ -1980,11 +2009,24 @@ const WikiPageReadView = ({
                       ? 'Shared readers see this article and references only. Backlinks, highlights, source notes, and agent work stay private.'
                       : 'Create a safe public page with the article and references only. Your backlinks, highlights, source notes, and agent work stay private.'}
                 </p>
+                <p className="wiki-read__share-receipt" aria-label="Public sharing receipt">
+                  {shareReceipt}
+                </p>
+                {shareBlocked ? (
+                  <p className="wiki-read__share-review-note">
+                    {shareReviewSummary}
+                  </p>
+                ) : null}
               </div>
               <div className="wiki-read__share-card-actions">
                 <Button type="button" variant="secondary" onClick={handleShareSafely} disabled={shareBusy || shareBlocked}>
-                  {shareBusy ? 'Preparing...' : publicShareReady ? 'Copy link' : 'Share'}
+                  {shareBusy ? 'Preparing...' : shareBlocked ? 'Review first' : publicShareReady ? 'Copy link' : 'Share'}
                 </Button>
+                {shareBlocked ? (
+                  <Link className="wiki-read__share-open" to="/wiki/workspace?view=list&quality=needs_review">
+                    Open review queue
+                  </Link>
+                ) : null}
                 {publicShareReady && publicShareUrl ? (
                   <a className="wiki-read__share-open" href={publicShareUrl} target="_blank" rel="noopener noreferrer">
                     Open public page

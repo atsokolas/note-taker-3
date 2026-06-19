@@ -5516,6 +5516,34 @@ html[data-ui-theme='dark'] {
   line-height: 1.45;
 }
 
+.wiki-read__share-card p + p {
+  margin-top: 8px;
+}
+
+.wiki-read__share-receipt {
+  display: inline-flex;
+  width: fit-content;
+  max-width: 100%;
+  padding: 6px 9px;
+  border: 1px solid color-mix(in srgb, var(--border-subtle, #d8d0c4) 82%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--surface-raised, #fffaf2) 84%, transparent);
+  color: color-mix(in srgb, var(--text-primary) 82%, var(--text-muted));
+  font-family: -apple-system, BlinkMacSystemFont, "SF Mono", Menlo, monospace;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.wiki-read__share-card.is-blocked .wiki-read__share-receipt {
+  border-color: color-mix(in srgb, var(--warning, #b9822f) 36%, var(--border-subtle, #d8d0c4));
+  color: color-mix(in srgb, var(--warning, #b9822f) 72%, var(--text-primary));
+}
+
+.wiki-read__share-review-note {
+  color: color-mix(in srgb, var(--text-primary) 76%, var(--text-muted));
+}
+
 .wiki-read__share-card-actions {
   display: flex;
   flex-wrap: wrap;
