@@ -965,6 +965,7 @@ const WIKI_SECTION_HEADING_START_RE = /^(overview|core idea|how it works|evidenc
 const QUESTION_DEPTH_RE = /\b(what is this question really asking|really asking|what is the real question|what is this actually asking)\b/i;
 const ORIENTATION_CONTEXT_RE = /\b(what am i looking at|what is this|what's this|where am i|what page is this|what object is this|what is open|what's in view|what am i reading)\b/i;
 const ORIENTATION_USAGE_RE = /\b(where else is this used|where is this used|what uses this|who cites this|what references this|referenced by|backlinks?|where else does this appear|where else is this cited)\b/i;
+const ORIENTATION_RETURN_LOOP_RE = /\b(what should i (?:reopen|resume|open|read|work on|do) next|where should i (?:start|resume|reopen)|what(?:'s| is) worth (?:reopening|resuming|reading)|what should i come back to|what needs attention next|what is the next move)\b/i;
 
 const shouldSearchWorkspaceForWikiPage = ({ message = '', conversationState = {}, skillInvocation = {} } = {}) => {
   const outputType = toSafeString(skillInvocation?.outputType).toLowerCase();
@@ -1145,6 +1146,26 @@ const formatVisibleConnectionLine = (item = {}) => {
     : `[${type}] ${label}`;
 };
 
+const formatReturnLoopRecommendation = ({ contextLabel = '', items = [] } = {}) => {
+  const lead = items[0];
+  if (!lead) return '';
+  const label = buildReplyLabel(lead);
+  const detail = buildReplyDetail(lead);
+  const supportItems = items.slice(1, 3)
+    .map((item) => buildReplyLabel(item))
+    .filter(Boolean);
+  const typeLabel = toSafeString(lead?.type).replace(/[_-]+/g, ' ') || 'item';
+  const scope = contextLabel ? ` in ${contextLabel}` : '';
+  const reason = detail
+    ? ` It has the clearest live signal: ${detail}`
+    : ' It is the strongest visible thread in the current workspace context.';
+  const nearbyLine = supportItems.length
+    ? ` After that, compare it with ${joinLabels(supportItems)}.`
+    : '';
+
+  return `Reopen ${label} next${scope}. It is a ${typeLabel} with enough attached context to move now.${reason}${nearbyLine}`;
+};
+
 const buildOrientationReply = ({
   message = '',
   context = {},
@@ -1155,7 +1176,8 @@ const buildOrientationReply = ({
   if (QUESTION_DEPTH_RE.test(safeMessage)) return '';
   const wantsContext = ORIENTATION_CONTEXT_RE.test(safeMessage);
   const wantsUsage = ORIENTATION_USAGE_RE.test(safeMessage);
-  if (!wantsContext && !wantsUsage) return '';
+  const wantsReturnLoop = ORIENTATION_RETURN_LOOP_RE.test(safeMessage);
+  if (!wantsContext && !wantsUsage && !wantsReturnLoop) return '';
 
   const metadata = normalizeAmbientContextMetadata(context?.metadata);
   const activeType = toSafeString(contextItem?.type || context?.type).toLowerCase();
@@ -1164,6 +1186,22 @@ const buildOrientationReply = ({
     || toSafeString(context?.title)
     || 'the current workspace';
   const preparedItems = prepareRelatedItemsForReply(relatedItems);
+
+  if (wantsReturnLoop) {
+    if (preparedItems.length === 0) {
+      return stripRawObjectIds(
+        `${surfaceLabel} "${title}" does not have a strong reopen candidate attached yet. Add one source, highlight, or question and I can choose the next concrete return point.`,
+        title
+      );
+    }
+    return stripRawObjectIds(
+      formatReturnLoopRecommendation({
+        contextLabel: title === 'the current workspace' ? '' : title,
+        items: preparedItems
+      }),
+      title
+    );
+  }
 
   if (wantsUsage) {
     if (preparedItems.length === 0) {
@@ -1752,6 +1790,7 @@ const inferReplyIntent = ({ message = '', conversationState = {} }) => {
 
   if (QUESTION_DEPTH_RE.test(lower)) return 'summarize';
   if (ORIENTATION_USAGE_RE.test(lower)) return 'show_usage';
+  if (ORIENTATION_RETURN_LOOP_RE.test(lower)) return 'orient_context';
   if (ORIENTATION_CONTEXT_RE.test(lower)) return 'orient_context';
   if (/\b(summarize|summary|distill|what matters|key claim|brief|synthesis)\b/i.test(lower)) return 'summarize';
   if (/\b(challenge|push back|pressure|weak|hole|counter|falsif|rethink|rethought)\b/i.test(lower)) return 'challenge';

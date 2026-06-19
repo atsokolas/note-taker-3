@@ -934,6 +934,48 @@ const run = async () => {
     assert.strictEqual(graphSizedList.res.status, 200, graphSizedList.text);
     assert.ok(graphSizedList.body.length >= 2);
 
+    const malformedFixturePage = new WikiPage({
+      userId: 'user-1',
+      title: 'Complementary Machine Thing',
+      slug: 'complementary-machine-thing',
+      pageType: 'topic',
+      status: 'published',
+      visibility: 'shared',
+      plainText: 'Machine assistance can extend human judgment when citations and review stay visible.'
+    });
+    await malformedFixturePage.save();
+    const sparseDraftPage = new WikiPage({
+      userId: 'user-1',
+      title: 'Sparse Legitimate Draft',
+      slug: 'sparse-legitimate-draft',
+      pageType: 'topic',
+      status: 'draft',
+      visibility: 'private',
+      plainText: ''
+    });
+    await sparseDraftPage.save();
+
+    const defaultQualityList = await request(url, '/api/wiki/pages?q=Complementary%20Machine%20Thing');
+    assert.strictEqual(defaultQualityList.res.status, 200, defaultQualityList.text);
+    assert.deepStrictEqual(defaultQualityList.body.map(page => page.title), []);
+
+    const blockedQualityList = await request(url, '/api/wiki/pages?quality=blocked');
+    assert.strictEqual(blockedQualityList.res.status, 200, blockedQualityList.text);
+    assert.ok(blockedQualityList.body.some(page => (
+      page.title === 'Complementary Machine Thing'
+      && page.qualityReview?.surfaceEligible === false
+    )));
+
+    const reviewQualityList = await request(url, '/api/wiki/pages?quality=needs_review');
+    assert.strictEqual(reviewQualityList.res.status, 200, reviewQualityList.text);
+    assert.ok(reviewQualityList.body.some(page => page.title === 'Sparse Legitimate Draft'));
+    assert.ok(reviewQualityList.body.some(page => page.title === 'Complementary Machine Thing'));
+
+    const blockedPublicPage = await request(url, '/api/public/wiki/pages/complementary-machine-thing', {
+      headers: {}
+    });
+    assert.strictEqual(blockedPublicPage.res.status, 404, blockedPublicPage.text);
+
     const defaultSchema = await request(url, '/api/wiki/schema');
     assert.strictEqual(defaultSchema.res.status, 200, defaultSchema.text);
     assert.ok(defaultSchema.body.content.includes('Page types I want'));
@@ -1784,7 +1826,7 @@ const run = async () => {
     assert.strictEqual(archived.res.status, 200, archived.text);
     assert.strictEqual(archived.body.status, 'archived');
 
-    const activeAfterArchive = await request(url, '/api/wiki/pages');
+    const activeAfterArchive = await request(url, '/api/wiki/pages?includeLowQuality=1&limit=500');
     assert.strictEqual(activeAfterArchive.res.status, 200, activeAfterArchive.text);
     assert.ok(activeAfterArchive.body.some(page => page._id === linkedPage._id));
     assert.ok(activeAfterArchive.body.some(page => page._id === acceptedProposal.body.page._id));

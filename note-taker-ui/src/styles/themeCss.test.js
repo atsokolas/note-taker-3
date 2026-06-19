@@ -74,6 +74,24 @@ describe('app theme design-system tokens', () => {
     expect(editorialCss).toMatch(/html\[data-ui-theme='dark'\] body\.noeis-editorial \{[\s\S]*background: var\(--vellum-bg\) !important;/);
   });
 
+  it('keeps collapsed wiki and concept rails inside their grid tracks', () => {
+    const wikiCriticalCss = fs.readFileSync(path.join(__dirname, 'wiki-critical.css'), 'utf8');
+    const thinkHomePolishCss = fs.readFileSync(path.join(__dirname, 'think-home-polish.css'), 'utf8');
+    const editorialCss = fs.readFileSync(path.join(__dirname, 'stitch-editorial.css'), 'utf8');
+
+    expect(wikiCriticalCss).toContain('grid-template-columns: minmax(160px, 220px) minmax(0, 860px) 48px;');
+    expect(wikiCriticalCss).toContain('grid-template-columns: minmax(128px, 180px) minmax(0, 1fr) 48px;');
+    expect(wikiCriticalCss).toMatch(/\.wiki-read__rail-toggle--show \{[\s\S]*box-sizing: border-box;[\s\S]*max-width: 100%;/);
+    expect(thinkHomePolishCss).toContain('grid-template-columns: minmax(160px, 220px) minmax(0, 860px) 48px;');
+    expect(thinkHomePolishCss).toContain('grid-template-columns: minmax(120px, 160px) minmax(0, 1fr) 48px;');
+    expect(thinkHomePolishCss).toContain('grid-template-columns: minmax(128px, 180px) minmax(0, 1fr) 48px;');
+    expect(thinkHomePolishCss).toContain('grid-template-columns: minmax(82px, 96px) minmax(0, 1fr) 48px;');
+    expect(thinkHomePolishCss).toMatch(/\.wiki-read__rail-toggle--show \{[\s\S]*box-sizing: border-box;[\s\S]*max-width: 100%;/);
+    expect(thinkHomePolishCss).not.toMatch(/grid-template-columns: minmax\([^;]+\) minmax\([^;]+\) 3[0-9]px;/);
+    expect(editorialCss).toMatch(/\.concept-editorial-shell__partner,[\s\S]*\.concept-editorial-shell__stream \{[\s\S]*box-sizing: border-box;/);
+    expect(editorialCss).toMatch(/\.concept-editorial-partner \{[\s\S]*box-sizing: border-box;/);
+  });
+
   it('pins the alive composer and presence motion to reduced-motion-safe primitives', () => {
     const css = fs.readFileSync(path.join(__dirname, 'think-home-polish.css'), 'utf8');
 

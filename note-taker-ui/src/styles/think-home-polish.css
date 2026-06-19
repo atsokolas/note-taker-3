@@ -3721,6 +3721,74 @@ html[data-ui-theme='dark'] {
   flex: 1;
 }
 
+.wiki-index__quality-filter {
+  align-self: center;
+  padding: 8px 12px;
+  border: 1px solid color-mix(in srgb, var(--nt-divider) 72%, transparent);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  line-height: 1.2;
+  cursor: pointer;
+  transition: border-color 160ms ease, color 160ms ease, background 160ms ease;
+}
+.wiki-index__quality-filter:hover,
+.wiki-index__quality-filter.is-active {
+  border-color: color-mix(in srgb, var(--accent-primary, #b1862e) 42%, var(--nt-divider));
+  color: var(--text-primary);
+  background: color-mix(in srgb, var(--accent-primary, #b1862e) 8%, transparent);
+}
+.wiki-index__quality-filter-note {
+  margin: -4px 0 0;
+  color: var(--text-secondary);
+  font-size: 0.84rem;
+  line-height: 1.45;
+}
+.wiki-index__page-card--quality-review {
+  gap: 12px;
+}
+.wiki-index__page-body {
+  display: grid;
+  gap: 8px;
+}
+.wiki-index__quality-badge {
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+}
+.wiki-index__quality-badge--review {
+  color: color-mix(in srgb, var(--accent-primary, #b1862e) 88%, #000);
+  background: color-mix(in srgb, var(--accent-primary, #b1862e) 12%, transparent);
+}
+.wiki-index__quality-badge--blocked {
+  color: color-mix(in srgb, #9a4a2d 88%, var(--text-primary));
+  background: color-mix(in srgb, #c96a3a 14%, transparent);
+}
+.wiki-index__quality-blocked-note {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+.wiki-index__quality-reasons {
+  margin: 0;
+  padding-left: 1.1rem;
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+.wiki-index__page-actions--quality-review {
+  gap: 8px;
+  justify-content: flex-start;
+}
+.wiki-index__page-open,
+.wiki-index__page-actions--quality-review .wiki-index__page-delete {
+  min-height: 40px;
+}
+
 .wiki-index-source-drop {
   display: grid;
   grid-template-columns: minmax(180px, 0.7fr) minmax(0, 1.4fr) auto;
@@ -5033,7 +5101,7 @@ html[data-ui-theme='dark'] {
    the canvas — Wikipedia / Tolkien Gateway reading shape. The rail column
    shrinks to a thin gutter and the article fills 800-880px. */
 .wiki-read__layout--rail-collapsed {
-  grid-template-columns: minmax(160px, 220px) minmax(0, 860px) 36px;
+  grid-template-columns: minmax(160px, 220px) minmax(0, 860px) 48px;
   gap: 24px;
 }
 
@@ -5045,7 +5113,7 @@ html[data-ui-theme='dark'] {
 @container wikiread (max-width: 1200px) {
   /* Default (collapsed) state: both side rails become slim gutters, body 1fr. */
   .wiki-read__layout--rail-collapsed {
-    grid-template-columns: minmax(120px, 160px) minmax(0, 1fr) 36px;
+    grid-template-columns: minmax(120px, 160px) minmax(0, 1fr) 48px;
     gap: 20px;
   }
   /* Expanded state: uncap the body and trim the rails so it stops crushing. */
@@ -5130,7 +5198,9 @@ html[data-ui-theme='dark'] {
 
 .wiki-read__rail-toggle--show {
   /* Render vertically so the gutter stays slim. */
+  box-sizing: border-box;
   flex-direction: column;
+  max-width: 100%;
   padding: 10px 6px;
   writing-mode: vertical-rl;
   text-orientation: mixed;
@@ -5704,7 +5774,7 @@ html[data-ui-theme='dark'] {
   }
 
   .wiki-read__layout--rail-collapsed {
-    grid-template-columns: minmax(128px, 180px) minmax(0, 1fr) 34px;
+    grid-template-columns: minmax(128px, 180px) minmax(0, 1fr) 48px;
     gap: 20px;
   }
 
@@ -9047,7 +9117,7 @@ html[data-ui-theme='dark'] .wiki-activity-rail__graph-alerts span {
   }
 
   .wiki-workspace .wiki-read__layout--rail-collapsed {
-    grid-template-columns: minmax(82px, 96px) minmax(0, 1fr) 34px;
+    grid-template-columns: minmax(82px, 96px) minmax(0, 1fr) 48px;
     gap: 12px;
   }
 

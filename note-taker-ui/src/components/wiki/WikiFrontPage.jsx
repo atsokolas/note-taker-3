@@ -295,6 +295,8 @@ const WikiFrontPage = () => {
         <span aria-hidden="true"> · </span>
         <Link to="/wiki/workspace?view=list">all pages</Link>
         <span aria-hidden="true"> · </span>
+        <Link to="/wiki/workspace?view=list&quality=needs_review">needs review</Link>
+        <span aria-hidden="true"> · </span>
         <Link to="/wiki/workspace?view=graph">review{reviewCount ? ` (${reviewCount})` : ''}</Link>
       </footer>
 

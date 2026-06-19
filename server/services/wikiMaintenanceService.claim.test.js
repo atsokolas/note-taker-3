@@ -96,7 +96,7 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
   it('keeps a small evidence bundle for sparse pages instead of starving maintenance context', () => {
     const candidates = selectCandidateSources({
       page: {
-        title: 'Complementary Machine Thing',
+        title: 'Complementary Machines and Human Capability',
         plainText: '',
         sourceRefs: []
       },
@@ -126,10 +126,11 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
     });
 
     expect(candidates).toHaveLength(3);
-    expect(candidates.map(source => source.objectId)).toEqual([
+    expect(candidates[0].objectId).toBe('complementary-machines');
+    expect(candidates.map(source => source.objectId).sort()).toEqual([
+      'agent-limits',
       'complementary-machines',
-      'world-models',
-      'agent-limits'
+      'world-models'
     ]);
   });
 

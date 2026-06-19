@@ -15,6 +15,8 @@ const {
   buildGraphFallbackAnswer,
   docFromAnswer,
   buildPageContext,
+  buildPageSummaryAnswer,
+  isSummaryRequest,
   truncateAtSentenceBoundary,
   pickExactPageSentence,
   isSelectedPageOnlyQuestion,
@@ -276,6 +278,53 @@ describe('wikiAskService', () => {
     });
   });
 
+  describe('summary requests', () => {
+    const investingPage = buildPage({
+      title: 'Investing - Concepts, Ideas, and Strategies',
+      body: {
+        type: 'doc',
+        content: [
+          { type: 'paragraph', content: [{ type: 'text', text: 'Investing is the disciplined allocation of capital to assets whose expected cash flows exceed their purchase price.' }] },
+          { type: 'heading', attrs: { level: 2 }, content: [{ type: 'text', text: 'Overview' }] },
+          { type: 'paragraph', content: [{ type: 'text', text: 'The page explains cash-flow valuation and repeatable decision processes.' }] },
+          { type: 'heading', attrs: { level: 2 }, content: [{ type: 'text', text: 'Converging Evidence' }] },
+          { type: 'paragraph', content: [{ type: 'text', text: 'Evidence emphasizes patience, source discipline, and risk limits.' }] },
+          { type: 'heading', attrs: { level: 2 }, content: [{ type: 'text', text: 'Diverging Evidence' }] },
+          { type: 'paragraph', content: [{ type: 'text', text: 'Narrow concentration can work for experts but requires strict controls.' }] }
+        ]
+      }
+    });
+
+    it('detects summarize and overview prompts', () => {
+      expect(isSummaryRequest('Summarize this page in one sentence.')).toBe(true);
+      expect(isSummaryRequest('Give me a 3-bullet overview.')).toBe(true);
+      expect(isSummaryRequest('How does this connect to Opportunity Cost?')).toBe(false);
+    });
+
+    it('builds one whole-page sentence from the lead and section structure', () => {
+      const out = buildPageSummaryAnswer({
+        page: investingPage,
+        question: 'Summarize this page in one sentence.'
+      });
+      expect(out.paragraphs).toHaveLength(1);
+      expect(out.paragraphs[0].text).toMatch(/Investing - Concepts/);
+      expect(out.paragraphs[0].text).toMatch(/disciplined allocation of capital/);
+      expect(out.paragraphs[0].text).toMatch(/Overview/);
+      expect(out.paragraphs[0].text).toMatch(/Converging Evidence/);
+    });
+
+    it('returns requested overview breadth instead of a single retrieved sub-point', () => {
+      const out = buildPageSummaryAnswer({
+        page: investingPage,
+        question: 'Give me a 3-bullet overview.'
+      });
+      expect(out.paragraphs).toHaveLength(3);
+      expect(out.paragraphs[0].text).toMatch(/disciplined allocation of capital/);
+      expect(out.paragraphs[1].text).toMatch(/Overview/i);
+      expect(out.paragraphs[2].text).toMatch(/Converging Evidence/i);
+    });
+  });
+
   describe('graph context', () => {
     it('detects when the reader scoped the question to the selected page only', () => {
       expect(isSelectedPageOnlyQuestion('Answer only from this page.')).toBe(true);
@@ -423,6 +472,52 @@ describe('wikiAskService', () => {
       expect(corpus.relatedPages.map(page => page.title)).toContain('Opportunity Cost');
     });
 
+    it('excludes malformed low-quality pages from related page retrieval', async () => {
+      const recentPages = [
+        {
+          _id: 'page-good-machine',
+          title: 'Complementary Machines and Human Capability',
+          plainText: 'Machine assistance can extend human judgment when citations and review stay visible.'
+        },
+        {
+          _id: 'page-junk-machine',
+          title: 'Complementary Machine Thing',
+          plainText: 'Machine assistance can extend human judgment when citations and review stay visible.'
+        }
+      ];
+      const queryChain = (rows) => ({
+        sort: jest.fn(() => ({
+          limit: jest.fn(() => ({
+            select: jest.fn(() => ({
+              lean: jest.fn().mockResolvedValue(rows)
+            }))
+          }))
+        })),
+        limit: jest.fn(() => ({
+          select: jest.fn(() => ({
+            lean: jest.fn().mockResolvedValue(rows)
+          }))
+        }))
+      });
+      const find = jest.fn()
+        .mockReturnValueOnce(queryChain(recentPages))
+        .mockReturnValueOnce(queryChain([]));
+
+      const corpus = await loadWikiAskCorpus({
+        page: { _id: 'page-investing', title: 'Investing', plainText: 'Investing requires evidence and judgment.' },
+        question: 'How does investing connect to machine assistance?',
+        userId: 'user-1',
+        WikiPage: { find },
+        TagMeta: null,
+        findWikiBacklinks: null,
+        pageScanLimit: 10,
+        candidateLimit: 8
+      });
+
+      expect(corpus.relatedPages.map(page => page.title)).toContain('Complementary Machines and Human Capability');
+      expect(corpus.relatedPages.map(page => page.title)).not.toContain('Complementary Machine Thing');
+    });
+
     it('summarizes graph-expanded provenance by object type for the UI', () => {
       const page = { _id: 'page-loss', title: 'Loss Aversion' };
       const provenance = provenanceFromContext({
@@ -518,6 +613,36 @@ describe('wikiAskService', () => {
       });
       expect(out.provenance.mode).toBe('page_only');
       expect(out.provenance.summary).not.toContain('2 wiki pages');
+    });
+
+    it('answers summary prompts from the selected page even when related pages are available', async () => {
+      const chatComplete = jest.fn();
+      const out = await askWikiPage({
+        page: {
+          _id: 'page-investing',
+          title: 'Investing',
+          body: {
+            type: 'doc',
+            content: [
+              { type: 'paragraph', content: [{ type: 'text', text: 'Investing allocates capital by weighing expected cash flows against price.' }] },
+              { type: 'heading', attrs: { level: 2 }, content: [{ type: 'text', text: 'Risk Limits' }] },
+              { type: 'paragraph', content: [{ type: 'text', text: 'Risk limits keep concentration from becoming fragility.' }] }
+            ]
+          }
+        },
+        relatedPages: [
+          { _id: 'page-opp', title: 'Opportunity Cost', pageType: 'concept', plainText: 'Opportunity cost is the hidden cost of the next best alternative.' }
+        ],
+        question: 'Summarize this page in one sentence.',
+        aiClient: { chatComplete, isTextGenerationConfigured: () => true }
+      });
+      expect(chatComplete).not.toHaveBeenCalled();
+      expect(out.model).toBe('deterministic');
+      expect(out.provenance.mode).toBe('page_only');
+      const marks = findClaimMarks(out.answer);
+      expect(marks[0].text).toMatch(/weighing expected cash flows against price/);
+      expect(marks[0].text).toMatch(/Risk Limits/);
+      expect(marks[0].text).not.toMatch(/Opportunity cost/);
     });
 
     it('uses multiple corpus objects for cross-page prompts with highlights and concepts', async () => {

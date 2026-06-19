@@ -63,7 +63,7 @@ const pages = [
     ]
   },
   {
-    title: 'Cia Teach Investor Behavioural Investment',
+    title: 'Behavioral Investing Discipline',
     pageType: 'overview',
     scope: 'A focused page on behavioral discipline, investor temperament, and decision hygiene.',
     summary: 'Behavioral investing treats patience, position sizing, and emotional control as first-class parts of investment edge.',
@@ -108,7 +108,7 @@ const pages = [
     ]
   },
   {
-    title: 'Complementary Machine Thing',
+    title: 'Complementary Machines and Human Capability',
     pageType: 'topic',
     scope: 'A bridge page connecting human judgment, machine assistance, and source-backed synthesis.',
     summary: 'Machine assistance is useful when it exposes evidence, drafts alternatives, and preserves traceability back to sources.',

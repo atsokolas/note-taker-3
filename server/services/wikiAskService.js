@@ -1,5 +1,6 @@
 const { chatComplete, isTextGenerationConfigured } = require('../ai/hfTextClient');
 const { formatWikiSchemaPromptBlock } = require('./wikiSchemaService');
+const { isWikiPageSurfaceEligible } = require('./wikiPageQualityGuard');
 
 /**
  * wikiAskService — answers a user's question about a wiki page using the page
@@ -79,6 +80,16 @@ const isExactSentenceRequest = (question = '') => (
 const isSourceChangeQuestion = (question = '') => (
   /\b(changed?|updated?|new|ingest|source|added|since)\b/i.test(question)
 );
+
+const isSummaryRequest = (question = '') => (
+  /\b(summarize|summary|overview|tl;?dr|tldr|main\s+(?:point|points|idea|ideas|thesis|takeaway|takeaways)|what\s+is\s+this\s+page\s+about)\b/i.test(question)
+);
+
+const requestedBulletCount = (question = '') => {
+  const match = asString(question).match(/\b(?:give\s+me\s+|in\s+)?([2-6])\s*[- ]?(?:bullet|point)s?\b/i);
+  if (!match) return 0;
+  return Math.max(2, Math.min(6, Number(match[1]) || 0));
+};
 
 const extractQuestionTokens = (question = '') => {
   const tokens = asString(question)
@@ -572,6 +583,75 @@ const pageBodySentenceText = (page = {}) => {
   return blocks.length ? blocks.join(' ') : asString(toPlainText(page?.body)).replace(/\s+/g, ' ');
 };
 
+const collectPageHeadings = (node) => {
+  const headings = [];
+  const walk = (value) => {
+    if (!value) return;
+    if (Array.isArray(value)) {
+      value.forEach(walk);
+      return;
+    }
+    if (typeof value !== 'object') return;
+    if (value.type === 'heading') {
+      const text = toPlainText(value);
+      if (text) headings.push(text);
+      return;
+    }
+    walk(value.content);
+  };
+  walk(node);
+  return headings;
+};
+
+const firstMeaningfulSentence = (value = '') => {
+  const sentences = splitIntoSentences(value)
+    .map(sentence => asString(sentence).replace(/\[[0-9,\s]+\]\s*$/g, '').trim())
+    .filter(sentence => sentence.length >= 24);
+  return sentences[0] || truncateAtSentenceBoundary(value, 240);
+};
+
+const buildPageSummaryAnswer = ({ page, question = '' } = {}) => {
+  const title = truncate(page?.title, 120) || 'This page';
+  const pageText = pageBodySentenceText(page);
+  const lead = firstMeaningfulSentence(pageText);
+  const leadStem = lead.replace(/[.!?]\s*$/g, '');
+  const headings = collectPageHeadings(page?.body)
+    .map(heading => truncate(heading, 80))
+    .filter(Boolean)
+    .filter((heading, index, list) => list.findIndex(item => normalizeComparableText(item) === normalizeComparableText(heading)) === index)
+    .filter(heading => !/^references?$/i.test(heading))
+    .slice(0, 5);
+  const bulletCount = requestedBulletCount(question);
+  if (bulletCount > 0) {
+    const bullets = [];
+    if (lead) bullets.push(`${title}: ${lead}`);
+    headings.slice(0, bulletCount - bullets.length).forEach((heading) => {
+      bullets.push(`Covers ${heading.toLowerCase()} as part of the page's structure.`);
+    });
+    while (bullets.length < bulletCount && pageText) {
+      const nextSentence = splitIntoSentences(pageText).find(sentence => (
+        sentence !== lead && !bullets.some(existing => normalizeComparableText(existing).includes(normalizeComparableText(sentence).slice(0, 40)))
+      ));
+      if (!nextSentence) break;
+      bullets.push(truncateAtSentenceBoundary(nextSentence, 220));
+    }
+    return {
+      paragraphs: bullets.slice(0, bulletCount).map(text => ({ text, citationIndexes: [] })),
+      citationIndexesUsed: []
+    };
+  }
+  const sectionPhrase = headings.length
+    ? `, spanning ${headings.slice(0, 3).join(', ')}${headings.length > 3 ? ', and related sections' : ''}`
+    : '';
+  const summary = lead
+    ? `${title} argues that ${leadStem.charAt(0).toLowerCase()}${leadStem.slice(1)}${sectionPhrase}.`
+    : `${title} is a sparse wiki page that needs more source-backed development before it can be summarized reliably.`;
+  return {
+    paragraphs: [{ text: truncateAtSentenceBoundary(summary.replace(/\s+/g, ' '), 420), citationIndexes: [] }],
+    citationIndexesUsed: []
+  };
+};
+
 let claimSeed = 0;
 const claimMark = (citationIndexes = [], maxCitationIndex = Infinity) => {
   claimSeed += 1;
@@ -667,6 +747,9 @@ const buildSystemPrompt = ({
   const exactRule = isExactSentenceRequest(question)
     ? '\n- This is an exact/quote request: answer from complete sentences in the page context, and preserve quoted sentence wording exactly when quoting.'
     : '';
+  const summaryRule = isSummaryRequest(question)
+    ? '\n- This is a summary/overview request: synthesize the whole selected page from its lead and section structure. Do not answer with one isolated sub-point unless the page itself has only that sub-point.'
+    : '';
   const scopeRule = selectedPageOnly
     ? '\n- The reader scoped this question to the selected page only. Do not synthesize from related pages or graph context.'
     : '\n- When related pages, highlights, concepts, or backlinks are provided, synthesize across them instead of treating the selected page as the only evidence.';
@@ -712,7 +795,7 @@ Rules:
 - Use [] for citationIndexes when the paragraph relies only on the page text or general reasoning.
 - Never invent sources or indexes outside the attached set.
 - Never include trailing "[1, 2]" suffixes inside the text — citations live in the JSON, not the prose.
-- Treat the page body above as coherent page context; do not answer from partial words or broken sentence fragments.${scopeRule}${exactRule}
+- Treat the page body above as coherent page context; do not answer from partial words or broken sentence fragments.${scopeRule}${exactRule}${summaryRule}
 
 Return only the JSON, no prose around it.`;
 };
@@ -880,11 +963,12 @@ const loadWikiAskCorpus = async ({
     debugOnly: { $ne: true },
     archived: { $ne: true }
   };
-  const recentPages = await WikiPage.find(visibleWikiPageMatch)
+  const recentPagesRaw = await WikiPage.find(visibleWikiPageMatch)
     .sort({ updatedAt: -1 })
     .limit(Math.max(1, pageScanLimit))
     .select('title slug pageType plainText body sourceRefs updatedAt')
     .lean();
+  const recentPages = (Array.isArray(recentPagesRaw) ? recentPagesRaw : []).filter(isWikiPageSurfaceEligible);
   const selectedPageOnly = isSelectedPageOnlyQuestion(trimmed);
   let allPages = recentPages;
   const titleCandidates = selectedPageOnly
@@ -895,13 +979,14 @@ const loadWikiAskCorpus = async ({
       limit: Math.min(32, Math.max(8, candidateLimit))
     });
   if (titleCandidates.length > 0) {
-    const mentionedPages = await WikiPage.find({
+    const mentionedPagesRaw = await WikiPage.find({
       ...visibleWikiPageMatch,
       $or: titleCandidates.map(title => ({ title: exactTitleRegex(title) }))
     })
       .limit(Math.max(1, candidateLimit))
       .select('title slug pageType plainText body sourceRefs updatedAt')
       .lean();
+    const mentionedPages = (Array.isArray(mentionedPagesRaw) ? mentionedPagesRaw : []).filter(isWikiPageSurfaceEligible);
     allPages = mergeWikiPages(recentPages, mentionedPages);
   }
   const relatedPages = rankWikiPageCandidates({
@@ -1086,6 +1171,23 @@ const askWikiPage = async ({
     };
   }
 
+  if (isSummaryRequest(trimmed)) {
+    const summaryAnswer = buildPageSummaryAnswer({ page, question: trimmed });
+    return {
+      answer: docFromAnswer(summaryAnswer, sources.length),
+      citationIndexesUsed: summaryAnswer.citationIndexesUsed,
+      provenance: provenanceFromContext({
+        page,
+        sources,
+        selectedPageOnly: true,
+        searchedSummary: buildGraphSearchSummary({ page, selectedPageOnly: true })
+      }),
+      model: 'deterministic',
+      status: 'answered',
+      errorMessage: ''
+    };
+  }
+
   if (isSourceChangeQuestion(trimmed) && sources.length) {
     const sourceFallback = buildFallbackAnswer({
       page,
@@ -1188,6 +1290,9 @@ module.exports = {
     splitIntoSentences,
     truncateAtSentenceBoundary,
     buildPageContext,
+    buildPageSummaryAnswer,
+    isSummaryRequest,
+    requestedBulletCount,
     isExactSentenceRequest,
     isSelectedPageOnlyQuestion,
     pageTitleMentionedInQuestion,

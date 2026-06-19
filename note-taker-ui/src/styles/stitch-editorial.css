@@ -3387,6 +3387,7 @@ body.noeis-editorial .concept-editorial-shell.is-partner-collapsed {
 
 body.noeis-editorial .concept-editorial-shell__partner,
 body.noeis-editorial .concept-editorial-shell__stream {
+  box-sizing: border-box;
   position: sticky;
   top: 98px;
   /* Without an internal scroller, long content (concept index, evidence
@@ -4856,6 +4857,7 @@ body.noeis-editorial .three-pane--concept-editorial .right-drawer__panel {
 }
 
 body.noeis-editorial .concept-editorial-partner {
+  box-sizing: border-box;
   display: grid;
   align-content: start;
   width: 100%;

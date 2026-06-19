@@ -40,6 +40,10 @@ const {
   renderWikiSchemaMarkdown,
   sanitizeFilename
 } = require('../services/wikiMarkdownExportService');
+const {
+  classifyWikiPageQuality,
+  isWikiPageSurfaceEligible
+} = require('../services/wikiPageQualityGuard');
 const { lintWiki: defaultLintWiki } = require('../services/wikiLintService');
 const {
   activeProposalsNeedClusteringRefresh,
@@ -614,6 +618,7 @@ const serializeWikiPage = (page) => {
     if (id) claimIds.add(String(id));
   });
   const plainText = raw.plainText || extractPlainText(raw.body || emptyDoc());
+  const qualityReview = classifyWikiPageQuality({ ...raw, plainText });
   return {
     ...raw,
     pageType: normalizePageType(raw.pageType || 'topic'),
@@ -626,6 +631,7 @@ const serializeWikiPage = (page) => {
     sourceCount: sourceIds.size,
     claimCount: claimIds.size,
     wordCount: countWords(plainText),
+    qualityReview,
     discussions: Array.isArray(raw.discussions) ? raw.discussions : [],
     aiState: {
       draftStatus: raw.aiState?.draftStatus || 'idle',
@@ -665,6 +671,7 @@ const serializeWikiPage = (page) => {
 const serializePublicWikiPage = (page) => {
   const full = serializeWikiPage(page);
   if (!full) return full;
+  if (full.qualityReview && full.qualityReview.surfaceEligible === false) return null;
   const publicSourceRefs = (Array.isArray(full.sourceRefs) ? full.sourceRefs : [])
     .map((source, index) => ({
       id: String(source?._id || source?.id || source?.sourceRefId || `source-${index}`),
@@ -765,7 +772,7 @@ const serializePublicWikiCollection = ({ collection, pages = [] } = {}) => {
     visibility: raw.visibility || 'shared',
     sourceType: raw.sourceType || 'user',
     packId: raw.packId || '',
-    pageCount: pages.length,
+    pageCount: pages.filter(isWikiPageSurfaceEligible).length,
     pages: pages.map(serializePublicWikiPage).filter(Boolean)
   };
 };
@@ -2226,6 +2233,11 @@ const buildWikiRouter = ({
       const pageType = validatePageType(req.query.pageType);
       const invalidEnum = [status, visibility, pageType].find(result => result?.error);
       if (invalidEnum) return res.status(400).json({ error: invalidEnum.error });
+      const qualityFilter = String(req.query.quality || '').trim().toLowerCase();
+      if (qualityFilter && !['ok', 'needs_review', 'blocked'].includes(qualityFilter)) {
+        return res.status(400).json({ error: 'quality must be one of: ok, needs_review, blocked.' });
+      }
+      const includeLowQuality = ['1', 'true', 'yes'].includes(String(req.query.includeLowQuality || '').toLowerCase());
       if (status?.value) query.status = status.value;
       else query.status = { $ne: 'archived' };
       if (visibility?.value) query.visibility = visibility.value;
@@ -2238,8 +2250,19 @@ const buildWikiRouter = ({
       }
 
       const limit = Math.max(1, Math.min(Number(req.query.limit) || 100, 500));
-      const pages = await WikiPage.find(query).sort({ updatedAt: -1 }).limit(limit).lean();
-      res.status(200).json(pages.map(serializeWikiPage));
+      const scanLimit = (qualityFilter || includeLowQuality)
+        ? limit
+        : Math.min(1000, Math.max(limit * 3, limit));
+      const pages = await WikiPage.find(query).sort({ updatedAt: -1 }).limit(scanLimit).lean();
+      const serialized = pages.map(serializeWikiPage).filter((page) => {
+        const review = page.qualityReview || classifyWikiPageQuality(page);
+        if (qualityFilter === 'ok') return review.status === 'ok';
+        if (qualityFilter === 'needs_review') return review.status === 'needs_review';
+        if (qualityFilter === 'blocked') return review.surfaceEligible === false;
+        if (includeLowQuality) return true;
+        return review.surfaceEligible !== false;
+      }).slice(0, limit);
+      res.status(200).json(serialized);
     } catch (error) {
       console.error('Error listing wiki pages:', error);
       res.status(500).json({ error: 'Failed to list wiki pages.' });
@@ -2327,8 +2350,10 @@ const buildWikiRouter = ({
       }
       const page = await WikiPage.findOne(query).lean();
       if (!page) return res.status(404).json({ error: 'Shared wiki page not found.' });
+      const publicPage = serializePublicWikiPage(page);
+      if (!publicPage) return res.status(404).json({ error: 'Shared wiki page not found.' });
       res.status(200).json({
-        page: serializePublicWikiPage(page),
+        page: publicPage,
         sharedAt: page.updatedAt || page.createdAt || null
       });
     } catch (error) {

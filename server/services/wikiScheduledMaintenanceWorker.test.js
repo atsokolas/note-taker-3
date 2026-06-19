@@ -44,6 +44,32 @@ const createRunModel = () => {
   return WikiMaintenanceRun;
 };
 
+const createRevisionModel = () => {
+  const records = [];
+  function WikiRevision(payload = {}) {
+    Object.assign(this, payload);
+    this._id = this._id || `revision-${records.length + 1}`;
+  }
+  WikiRevision.records = records;
+  WikiRevision.prototype.save = async function save() {
+    records.push(JSON.parse(JSON.stringify(this)));
+    return this;
+  };
+  return WikiRevision;
+};
+
+const createConnectionModel = () => {
+  const rows = [];
+  return {
+    rows,
+    deleteMany: async () => ({ deletedCount: 0 }),
+    findOneAndUpdate: async (query, update) => {
+      rows.push({ query, update });
+      return { ...query };
+    }
+  };
+};
+
 const run = async () => {
   const query = duePageQuery({ cutoff: new Date('2026-06-18T00:00:00.000Z') });
   assert.strictEqual(query.status.$ne, 'archived');
@@ -53,25 +79,53 @@ const run = async () => {
     _id: 'page-1',
     userId: 'user-1',
     title: 'Opportunity Cost',
+    body: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Opportunity cost links to Margin of Safety.' }] }] },
     aiState: {},
-    save: async () => page
+    saveCount: 0,
+    save: async () => {
+      page.saveCount += 1;
+      return page;
+    }
   };
   const WikiMaintenanceRun = createRunModel();
+  const WikiRevision = createRevisionModel();
+  const Connection = createConnectionModel();
   const result = await drainScheduledWikiMaintenance({
     models: {
       WikiPage: createPageModel([page]),
-      WikiMaintenanceRun
+      WikiMaintenanceRun,
+      WikiRevision,
+      Connection
     },
     limit: 1,
     maintainWikiPageFn: async ({ page: targetPage, trigger }) => {
       assert.strictEqual(trigger, 'scheduled');
       targetPage.aiState.maintenanceSummary = 'Scheduled refresh completed.';
+      targetPage.body = {
+        type: 'doc',
+        content: [{
+          type: 'paragraph',
+          content: [{
+            type: 'text',
+            text: 'Opportunity cost links to Margin of Safety.',
+            marks: [{ type: 'wikiLink', attrs: { pageId: 'page-margin', title: 'Margin of Safety' } }]
+          }]
+        }]
+      };
       return targetPage;
     },
     now: new Date('2026-06-18T12:00:00.000Z')
   });
   assert.strictEqual(result.processed, 1);
   assert.strictEqual(result.failed, 0);
+  assert.strictEqual(result.results[0].saved, true);
+  assert.strictEqual(result.results[0].graphSynced, true);
+  assert.strictEqual(result.results[0].revisionCreated, true);
+  assert.strictEqual(page.saveCount, 1);
+  assert.strictEqual(WikiRevision.records.length, 1);
+  assert.strictEqual(WikiRevision.records[0].maintenanceRunId, 'run-1');
+  assert.strictEqual(WikiRevision.records[0].reason, 'agent_maintenance');
+  assert.ok(Connection.rows.length >= 1);
   assert.strictEqual(WikiMaintenanceRun.records.length, 1);
   assert.strictEqual(WikiMaintenanceRun.records[0].status, 'completed');
   assert.strictEqual(WikiMaintenanceRun.records[0].trigger, 'scheduled');

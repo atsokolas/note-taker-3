@@ -68,6 +68,11 @@ const run = async () => {
     'show_usage',
     'Backlink and usage questions should be recognized as visible-usage requests.'
   );
+  assert.strictEqual(
+    inferReplyIntent({ message: 'What should I reopen next in this workspace, and why?' }),
+    'orient_context',
+    'Return-loop prompts should be treated as workspace orientation rather than generic chat.'
+  );
 
   const wikiOrientationReply = buildReply({
     message: 'What am I looking at?',
@@ -111,6 +116,40 @@ const run = async () => {
   assert.ok(usageReply.includes('2 visible items'), 'Usage replies should count visible connected items.');
   assert.ok(usageReply.includes('[notebook] Feedback loops'), 'Usage replies should classify notebook connections.');
   assert.ok(usageReply.includes('[wiki_page] Decision Quality'), 'Usage replies should classify wiki page connections.');
+
+  const returnLoopReply = buildOrientationReply({
+    message: 'From a user perspective, what should I reopen next in this workspace, and why?',
+    context: {
+      type: 'think',
+      title: 'Think home'
+    },
+    relatedItems: [
+      {
+        type: 'article',
+        id: 'a1',
+        title: 'Principles of Political Economy and Taxation',
+        snippet: 'There are 79 saved highlights ready to reconnect with active thinking.'
+      },
+      {
+        type: 'concept',
+        id: 'c1',
+        title: 'Opportunity Cost',
+        snippet: 'A live concept with evidence attached.'
+      }
+    ]
+  });
+  assert.ok(
+    returnLoopReply.startsWith('Reopen Principles of Political Economy and Taxation next'),
+    'Return-loop replies should name a concrete workspace item first.'
+  );
+  assert.ok(
+    returnLoopReply.includes('79 saved highlights'),
+    'Return-loop replies should explain why the item is worth reopening using attached metadata.'
+  );
+  assert.ok(
+    returnLoopReply.includes('Opportunity Cost'),
+    'Return-loop replies should point to the next comparison when another related item is available.'
+  );
 
   const activeConceptId = 'aaaaaaaaaaaaaaaaaaaaaaaa';
   const articleId = 'bbbbbbbbbbbbbbbbbbbbbbbb';

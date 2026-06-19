@@ -1,4 +1,6 @@
 const { maintainWikiPage } = require('./wikiMaintenanceService');
+const { createWikiRevision, snapshotPage } = require('./wikiRevisionService');
+const { syncWikiPageGraphConnections } = require('./wikiGraphConnectionService');
 
 const DEFAULT_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 
@@ -45,6 +47,48 @@ const finishRun = async ({ run, status = 'completed', summary = '', error = '' }
   return run;
 };
 
+const persistScheduledMaintenanceResult = async ({
+  page,
+  before,
+  run,
+  models = {},
+  summary = ''
+} = {}) => {
+  if (!page) {
+    return {
+      saved: false,
+      graphSynced: false,
+      revisionCreated: false
+    };
+  }
+  if (typeof page.save === 'function') {
+    await page.save();
+  }
+  let graphResult = null;
+  if (models.Connection) {
+    graphResult = await syncWikiPageGraphConnections({
+      Connection: models.Connection,
+      userId: page.userId,
+      page
+    });
+  }
+  const revision = await createWikiRevision({
+    WikiRevision: models.WikiRevision,
+    userId: page.userId,
+    page,
+    before,
+    reason: 'agent_maintenance',
+    actorType: 'agent',
+    maintenanceRunId: run?._id || null,
+    summary: summary || page.aiState?.maintenanceSummary || `Scheduled refresh completed for ${page.title || 'wiki page'}.`
+  });
+  return {
+    saved: typeof page.save === 'function',
+    graphSynced: Boolean(graphResult?.synced),
+    revisionCreated: Boolean(revision?._id || revision)
+  };
+};
+
 const drainScheduledWikiMaintenance = async ({
   models = {},
   limit = 3,
@@ -72,6 +116,7 @@ const drainScheduledWikiMaintenance = async ({
   for (const page of Array.isArray(pages) ? pages : []) {
     const run = await createRun({ WikiMaintenanceRun, page });
     try {
+      const before = snapshotPage(page);
       const maintainedPage = await maintainWikiPageFn({
         page,
         userId: page.userId,
@@ -87,12 +132,23 @@ const drainScheduledWikiMaintenance = async ({
           Question
         }
       });
+      const summary = maintainedPage?.aiState?.maintenanceSummary || `Scheduled refresh completed for ${page.title || 'wiki page'}.`;
+      const persistence = await persistScheduledMaintenanceResult({
+        page: maintainedPage || page,
+        before,
+        run,
+        models: {
+          WikiRevision,
+          Connection
+        },
+        summary
+      });
       await finishRun({
         run,
         status: 'completed',
-        summary: maintainedPage?.aiState?.maintenanceSummary || `Scheduled refresh completed for ${page.title || 'wiki page'}.`
+        summary
       });
-      results.push({ pageId: String(page._id), status: 'completed' });
+      results.push({ pageId: String(page._id), status: 'completed', ...persistence });
     } catch (error) {
       await finishRun({
         run,
@@ -113,5 +169,6 @@ const drainScheduledWikiMaintenance = async ({
 module.exports = {
   DEFAULT_MAX_AGE_MS,
   drainScheduledWikiMaintenance,
-  duePageQuery
+  duePageQuery,
+  persistScheduledMaintenanceResult
 };

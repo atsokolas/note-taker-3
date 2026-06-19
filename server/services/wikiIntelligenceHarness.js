@@ -159,7 +159,7 @@ const fixtures = [
       userId: complementaryMachineUserId,
       status: 'pending',
       proposalType: 'repeated_theme',
-      title: 'Complementary Machine Thing',
+      title: 'Complementary Machines and Human Capability',
       thesis: 'World models may enable complementary machines that work alongside people on tasks humans cannot or do not want to do.',
       whyNow: 'Multiple sources discuss world models, complementary agents, and deployment limits.',
       sourceRefs: [
@@ -216,7 +216,7 @@ const fixtures = [
       ]
     },
     modelResult: {
-      title: 'Complementary Machine Thing',
+      title: 'Complementary Machines and Human Capability',
       article: {
         summary: {
           text: 'A complementary machine is an AI system designed to extend human capability by taking on work that people find dangerous, tedious, or difficult while preserving human goals.',
