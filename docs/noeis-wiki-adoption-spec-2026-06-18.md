@@ -66,11 +66,11 @@ Display on the adopted page: a quiet line — *"Adapted from a shared Noeis wiki
 If the adopter already has a page with the same normalized title:
 - Default: keep both, name the new one *"<Title> (adapted)"*, and surface a one-click **"Merge with my existing page"** that asks the agent to reconcile claims/citations into one. Never silently clobber the adopter's existing page.
 
-## 7. "Kept updated" — the maintenance integration (and the dependency)
+## 7. "Kept updated" — the maintenance integration
 
 Once adopted, the page is a normal page in the adopter's wiki and flows through `maintainWikiPage()` like any other. Two things to handle:
 1. **Cold page refresh.** An adopted page initially has only external citations, no backing Library sources. `maintainWikiPage()` must handle "page whose sources aren't in my Library yet" gracefully — refresh from the citations + general knowledge, and deepen automatically as the adopter adds matching Library sources. Confirm/extend this behavior.
-2. **The scheduler dependency.** "Kept updated" implies the overnight/background refresh (the morning-paper grow). Today maintenance is **on-demand only** — recon found no cron/scheduled refresh (`wikiMaintenanceService` runs on click; `wikiBriefingService` only compiles stats). **Codex must check and confirm** whether a scheduled refresh exists anywhere; if not, that scheduler is a prerequisite for both this feature's "kept updated" promise and the onboarding "while you slept" hook, and should be specced/built separately. Report the finding in the PR.
+2. **The scheduler contract.** "Kept updated" rides the confirmed server worker in `server/services/wikiScheduledMaintenanceWorker.js`, started from `server/server.js` unless `WIKI_SCHEDULED_MAINTENANCE_DISABLED=true`. It runs every 6 hours by default, processes due wiki pages through `maintainWikiPage({ trigger: 'scheduled' })`, saves a maintenance run/revision, and syncs graph connections. `wikiBriefingService` remains an on-demand read model; it should surface the latest scheduled/manual/source-event maintenance results, not run maintenance itself.
 
 ## 8. The flow (frontend)
 

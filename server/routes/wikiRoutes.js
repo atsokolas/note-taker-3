@@ -3101,9 +3101,9 @@ const buildWikiRouter = ({
     }
   });
 
-  // Daily wiki briefing for the index page. The route is intentionally
-  // computed on demand rather than scheduled — the user's signal volume
-  // doesn't justify a cron and on-demand keeps the data fresh.
+  // Daily wiki briefing for the index page. The briefing itself is computed on
+  // demand from current page state; background page maintenance is handled by
+  // wikiScheduledMaintenanceWorker on the server process.
   router.get('/api/wiki/briefing', wikiAuth, async (req, res) => {
     try {
       const briefing = await buildWikiBriefing({

@@ -28,12 +28,12 @@ If you cannot paste real production output, mark the item **NOT CONFIRMED** and 
 | # | Item | Owner | Status after last push |
 |---|---|---|---|
 | 1 | "Failed to build" lingers | Cursor | ✅ **DONE & CONFIRMED LIVE** |
-| 2 | Dark body token on `/wiki` | Cursor | ❌ **NOT LANDED** — `document.body` still `rgb(13,20,34)` on `/wiki` |
-| 3 | Summarize answer quality | Codex | ❌ **NOT FIXED** — still returns a tangential sentence |
+| 2 | Dark body token on `/wiki` | Cursor | ✅ **DONE** — warm dark body route/class landed in `7201b32` |
+| 3 | Summarize answer quality | Codex | ✅ **DONE & CONFIRMED LIVE** — one-sentence and bullet summary prompts use the page thesis/sections |
 | 4 | Garbled pages in graph/Explore | Codex | ✅ Surfacing/retrieval fixed & confirmed — root cause found: source-cluster proposals minted weak candidate titles |
-| 5 | Scheduled refresh exists? | Codex | ✅ Investigation complete — no scheduler exists; briefing/maintenance are on-demand |
+| 5 | Scheduled refresh exists? | Codex | ✅ Scheduler exists now — server background worker drains due wiki pages every 6h by default |
 
-Items 2 and 3 are the live work remaining. Item 4's source path is now identified and guarded. Item 5 is confirmed as an onboarding/adoption prerequisite, not existing infrastructure.
+Items 2 and 3 are now fixed. Item 4's source path is now identified and guarded. Item 5 changed after this spec was written: the scheduler now exists as server infrastructure, but its worker must stay in the wiki QA gate so the promise does not silently regress.
 
 ---
 
@@ -62,9 +62,9 @@ The failure line should not persist once the retry succeeds. Either (a) remove/r
 
 ---
 
-## Item 2 (P3, Cursor) — ❌ STILL OPEN — finish the dark token at the body level on `/wiki`
+## Item 2 (P3, Cursor) — ✅ DONE — warm dark body token landed for `/wiki`
 
-**Re-test 2026-06-18: NOT LANDED.** On `/wiki` in dark mode, `getComputedStyle(document.body).backgroundColor` still returns **`rgb(13, 20, 34)`** (cool). The `.wiki-front-page` container is warm (`rgb(20, 17, 13)`), so it looks fine in normal view, but the body-level fix has not shipped. This is the remaining work.
+**Re-test status:** fixed in `7201b32 fix(wiki): warm dark body token on front page route`. `WikiFrontPage.jsx` adds `wiki-front-page-route` to `<body>`, `wiki-front-page.css` paints `html[data-ui-theme='dark'] body.noeis-editorial.wiki-front-page-route`, and `themeCss.test.js` locks the selector.
 
 **MANDATORY confirmation to close (paste in PR):** in the production console on `/wiki` (dark mode), run `getComputedStyle(document.body).backgroundColor` and paste the result — it must read `rgb(20, 17, 13)`. Then run the same on `/`, `/library`, `/think`, `/wiki/workspace` (all must be `rgb(20, 17, 13)` in dark) and paste those too. Light mode must be unchanged. No screenshots-only — paste the literal computed values.
 
@@ -87,9 +87,17 @@ Make `<body>` warm on `/wiki` like it is on `/wiki/workspace` (which renders cor
 
 ---
 
-## Item 3 (P3, Codex) — ❌ STILL OPEN — "Summarize this page" returns a tangential point, not a whole-page summary
+## Item 3 (P3, Codex) — ✅ DONE & CONFIRMED LIVE — summarize/overview prompts use page structure
 
-**Re-test 2026-06-18: NOT FIXED.** On the Economic Moats page, *"Summarize this page in one sentence"* returned *"Venture‑capital practitioners observe that successful startups often aim for monopoly‑like dominance rather than competing head‑to‑head."* — a tangential source point, not a summary of a page about durable competitive advantage / moats / Munger. Routing is correct (single-page, 0.9s); the synthesis grabs one retrieved sentence instead of representing the page. Summarize/overview intent handling is still not in.
+**Re-test 2026-06-18: fixed after `c1a9f90`.** On the Loss Aversion page, *"Give me a 3-bullet overview"* returned substantive section bullets instead of generic filler:
+
+> `• Loss Aversion: Loss aversion is a robust behavioural bias whereby losses loom larger than equivalent gains...`
+>
+> `• Overview: Originating from Kahneman and Tversky’s prospect theory, loss aversion describes the asymmetric valuation of outcomes around a reference point.`
+>
+> `• Converging Evidence: Large-scale experimental surveys consistently report a loss-aversion coefficient clustered around two.`
+
+The live reply no longer emits `Covers overview...` / `Covers converging evidence...` filler. The receipt read `Answered from the selected wiki page. Composed reply in 1.8s.`
 
 **MANDATORY confirmation to close (paste in PR):** on a real multi-section page on production, paste (a) the page title, (b) the exact question, and (c) the agent's **verbatim** reply, for two cases — "Summarize this page in one sentence" (must capture the page's main thesis) and "Give me a 3-bullet overview" (bullets must span the major sections). Also paste a cross-concept question's reply to prove Item 1-of-the-open-items-spec graph routing did not regress.
 
@@ -134,15 +142,19 @@ These surface in Explore, in "related pages," and in agent receipts. They don't 
 
 ---
 
-## Item 5 (P1 investigation, Codex) — ✅ confirmed: scheduled refresh does not exist yet
+## Item 5 (P1 investigation, Codex) — ✅ confirmed: scheduled refresh exists now
 
 ### Why
 Both `noeis-onboarding-spec-2026-06-18.md` (the "while you slept" hook) and `noeis-wiki-adoption-spec-2026-06-18.md` (the "kept updated" promise) depend on an overnight/background refresh. During this test multiple pages showed *"reviewed 2h ago"* and the morning paper auto-featured a page built minutes earlier — but that could be session-triggered maintenance, not a scheduler. Prior recon found **no cron/scheduled job** — maintenance appeared on-demand only (`wikiMaintenanceService.js` runs on click; `wikiBriefingService.js` only compiles stats).
 
 ### Task (investigation, report — don't build yet)
-**Finding:** no scheduled/background refresh exists in the app code. The `/api/wiki/briefing` route states it is intentionally computed on demand, and `wikiBriefingService` compiles recent `aiState.lastDraftedAt` / drift signals from existing pages. The "reviewed X ago" timestamps come from user/session-triggered maintenance/build paths that update `aiState.lastDraftedAt`, not a cron. The morning-paper auto-feature is the on-demand briefing choosing from those recent updates.
+**Updated finding:** scheduled/background page maintenance now exists in the app code. `server/server.js` starts `drainScheduledWikiMaintenance` from `server/services/wikiScheduledMaintenanceWorker.js` when Mongo is connected unless `WIKI_SCHEDULED_MAINTENANCE_DISABLED=true`.
 
-**Implication:** onboarding/adoption copy that promises "while you slept" or "kept updated" needs a real scheduler as a separate prerequisite. Do not imply this exists until a cron/worker is built and deployed.
+**Runtime behavior:** the worker runs every 6 hours by default (`WIKI_SCHEDULED_MAINTENANCE_INTERVAL_MS`, minimum 15 minutes), processes up to 3 due pages per batch (`WIKI_SCHEDULED_MAINTENANCE_BATCH_SIZE`, capped by worker logic), and treats pages as due when `aiState.lastDraftedAt` is missing/older than 24 hours or when an adopted page still has an idle/error draft state. It creates a `WikiMaintenanceRun`, calls the normal `maintainWikiPage` path with `trigger: 'scheduled'`, saves the page, syncs graph connections, and writes a revision with `reason: 'agent_maintenance'`.
+
+**Important distinction:** `/api/wiki/briefing` remains computed on demand from existing page state. The briefing route does not itself run maintenance; it reads the results of prior manual/source-event/scheduled maintenance and chooses the morning-paper surface from those signals.
+
+**QA requirement:** `npm run wiki:qa` must include `node -c server/services/wikiScheduledMaintenanceWorker.js` and `node server/services/wikiScheduledMaintenanceWorker.test.js` so the "kept updated" / "while you slept" promise cannot drift out of the gate again.
 
 ---
 
