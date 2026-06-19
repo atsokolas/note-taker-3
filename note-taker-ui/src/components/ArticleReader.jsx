@@ -171,7 +171,7 @@ const ArticleReader = forwardRef(({
       )}
       <div className="article-reader-header">
         <div>
-          <div className="article-reader-title">{article.title || 'Untitled article'}</div>
+          <h1 className="article-reader-title">{article.title || 'Untitled article'}</h1>
           <div className="article-reader-meta">
             {article.createdAt && <span>{formatDate(article.createdAt)}</span>}
             {article.url && (

@@ -190,6 +190,7 @@ const WikiFrontPage = () => {
   if (loading) {
     return (
       <main className="wiki-page wiki-front-page" aria-busy="true">
+        <h1 className="sr-only">Morning paper</h1>
         <p className="wiki-index__eyebrow wiki-front-page__masthead">
           Morning paper · {mastheadDate()}
         </p>
@@ -252,7 +253,9 @@ const WikiFrontPage = () => {
               Continue reading →
             </Link>
           </section>
-        ) : null}
+        ) : (
+          <h1 className="sr-only">Morning paper</h1>
+        )}
 
         {recentlyGrown.length ? (
           <aside className="wiki-front-page__grown wfp-anim wfp-anim--4" aria-labelledby="wfp-grown-title">

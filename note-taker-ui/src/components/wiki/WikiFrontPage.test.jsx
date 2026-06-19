@@ -78,6 +78,8 @@ describe('WikiFrontPage (AT-394)', () => {
 
     expect(document.body.classList.contains('wiki-front-page-route')).toBe(true);
     expect(screen.getByRole('status')).toHaveTextContent(/checking overnight edits and drift signals/i);
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
+    expect(screen.getByRole('heading', { level: 1, hidden: true })).toHaveTextContent('Morning paper');
   });
 
   it('renders the newspaper front page: masthead, lead sentence, today’s page, recently grown, explore, hairline', async () => {
@@ -95,6 +97,7 @@ describe('WikiFrontPage (AT-394)', () => {
     expect(screen.getByText(/Morning paper ·/i)).toBeInTheDocument();
 
     // Today's page = the briefing's most recently updated page, as the single h1.
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
     const heading = screen.getByRole('heading', { level: 1 });
     expect(heading).toHaveTextContent('First Principles Thinking');
     expect(screen.getByRole('link', { name: 'Continue reading →' }))
@@ -133,8 +136,9 @@ describe('WikiFrontPage (AT-394)', () => {
     );
 
     // Weighted fallback: most sources+claims wins the lead slot.
-    const heading = await screen.findByRole('heading', { level: 1 });
+    const heading = await screen.findByRole('heading', { level: 1, name: 'First Principles Thinking' });
     expect(heading).toHaveTextContent('First Principles Thinking');
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
   });
 
   it('shows the guide-me first-run state when the corpus is empty', async () => {
@@ -147,8 +151,9 @@ describe('WikiFrontPage (AT-394)', () => {
       </MemoryRouter>
     );
 
-    expect(await screen.findByRole('heading', { level: 1 }))
+    expect(await screen.findByRole('heading', { level: 1, name: /start your wiki/i }))
       .toHaveTextContent(/start your wiki/i);
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
     expect(screen.getByLabelText('Ask the wiki agent to build a page')).toBeInTheDocument();
   });
 });

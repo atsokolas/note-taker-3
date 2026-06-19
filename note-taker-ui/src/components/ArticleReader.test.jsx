@@ -39,6 +39,8 @@ describe('ArticleReader', () => {
       />
     );
 
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent("Poor Charlie's Almanack");
     expect(screen.getByText('Highlight edition')).toBeInTheDocument();
     expect(screen.getByText(/No full article text was imported/)).toBeInTheDocument();
     expect(screen.getByText('Invert, always invert.')).toBeInTheDocument();
@@ -62,6 +64,27 @@ describe('ArticleReader', () => {
     expect(screen.queryByTestId('thought-partner-panel')).not.toBeInTheDocument();
     expect(screen.queryByTestId('agent-skill-dock')).not.toBeInTheDocument();
     expect(screen.queryByText(/Ask against the full article/)).not.toBeInTheDocument();
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Investor letter');
     expect(screen.getByText('Cash flow discipline matters.')).toBeInTheDocument();
+  });
+
+  it('keeps a single page h1 when imported article HTML already includes an h1', () => {
+    const { container } = render(
+      <ArticleReader
+        article={{
+          _id: 'article-1',
+          title: 'Investor letter',
+          content: '<h1>Investor letter</h1><p>Cash flow discipline matters.</p>',
+          createdAt: '2026-06-07T00:00:00.000Z'
+        }}
+        highlights={[]}
+      />
+    );
+
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Investor letter');
+    expect(container.querySelector('.article-reader-content h1')).toBeNull();
+    expect(container.querySelector('.article-reader-content h2')).not.toBeNull();
   });
 });

@@ -3024,6 +3024,7 @@ html[data-ui-theme='dark'] .topbar__search:-webkit-autofill:focus {
 }
 
 .article-reader-title {
+  margin: 0;
   font-size: clamp(1.48rem, 1.35rem + 0.5vw, 1.86rem);
   font-weight: 700;
   color: var(--text);

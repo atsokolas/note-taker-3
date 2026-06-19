@@ -114,6 +114,16 @@ export const renderArticleContentWithHighlights = (article, highlights = []) => 
 
   doc.querySelectorAll('script, style, noscript').forEach(node => node.remove());
 
+  // The reader header owns the page h1; demote imported article titles in the body.
+  doc.querySelectorAll('h1').forEach((heading) => {
+    const replacement = doc.createElement('h2');
+    Array.from(heading.attributes).forEach((attr) => {
+      replacement.setAttribute(attr.name, attr.value);
+    });
+    replacement.innerHTML = heading.innerHTML;
+    heading.replaceWith(replacement);
+  });
+
   doc.querySelectorAll('[style]').forEach((node) => {
     const raw = node.getAttribute('style');
     if (!raw) return;
