@@ -140,6 +140,19 @@ describe('WikiOnboarding', () => {
       createdFrom: expect.objectContaining({ type: 'article', objectId: 'article-1' }),
       initialSourceRef: expect.objectContaining({ type: 'article', objectId: 'article-1' })
     })));
+    await waitFor(() => expect(streamMaintainWikiPage).toHaveBeenCalledWith(
+      'paste-page',
+      expect.objectContaining({
+        maintenanceProfile: 'fast',
+        sourceLimit: 8,
+        sourceTextLimit: 800,
+        inlineAutolinkLimit: 150,
+        skipQualityRebuild: true,
+        streamDraft: true,
+        deferInboundAutolinks: true
+      }),
+      expect.any(Object)
+    ));
     expect(await screen.findByRole('heading', { name: 'Your first page is ready.' })).toBeInTheDocument();
   });
 
@@ -159,6 +172,24 @@ describe('WikiOnboarding', () => {
     await waitFor(() => expect(importPastedText).toHaveBeenCalledWith(expect.objectContaining({
       title: 'Spaced Repetition'
     })));
+  });
+
+  it('shows streamed draft fragments while the first page is being written', async () => {
+    createWikiPage.mockResolvedValue({ _id: 'paste-page', title: 'Compounding' });
+    streamMaintainWikiPage.mockImplementation(async (_pageId, _options, handlers = {}) => {
+      handlers.onEvent?.('progress', { stage: 'model_streaming', delta: 'Compounding turns patient reinvestment into a widening advantage.' });
+      return new Promise(() => {});
+    });
+
+    render(<WikiOnboarding />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Start' }));
+    fireEvent.change(await screen.findByPlaceholderText('Drop in something you read this week...'), {
+      target: { value: 'Compounding rewards reinvestment over time.' }
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Build from this' }));
+
+    expect(await screen.findByLabelText('Live draft preview')).toHaveTextContent(/patient reinvestment/i);
   });
 
   it('imports a pasted URL before creating the first wiki page', async () => {

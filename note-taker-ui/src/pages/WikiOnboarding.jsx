@@ -11,12 +11,24 @@ import { importPastedText, importPastedUrl } from '../api/imports';
 import { wikiPagePath } from '../utils/wikiFeatureFlags';
 
 const COMPLETE_KEY = 'noeis.wikiOnboardingComplete';
+const FAST_BUILD_OPTIONS = {
+  maintenanceProfile: 'fast',
+  sourceLimit: 8,
+  sourceTextLimit: 800,
+  inlineAutolinkLimit: 150,
+  skipQualityRebuild: true,
+  streamDraft: true,
+  deferInboundAutolinks: true
+};
 
 const stageCopy = {
   maintaining: 'Reading the material and choosing the useful shape...',
   drafted: 'Drafting the page in wiki form...',
   saved: 'Saving the article and references...',
   graph_synced: 'Connecting the page to the graph...',
+  model_streaming: 'The article is starting to write itself...',
+  quality_rebuild_deferred: 'Saving the first readable draft now; deeper polish will happen in the background.',
+  inbound_links_deferred: 'Backlinks will settle in the background while you start reading.',
   complete: 'Ready. The page is alive in your wiki.'
 };
 
@@ -100,6 +112,7 @@ const WikiOnboarding = () => {
   const [selectedPackId, setSelectedPackId] = useState('mental-models');
   const [pasteText, setPasteText] = useState('');
   const [lines, setLines] = useState([]);
+  const [draftPreview, setDraftPreview] = useState('');
   const [metrics, setMetrics] = useState({ pageCount: adoptedPageId ? 1 : 0, claimCount: 0, linkCount: 0 });
   const [builtPageId, setBuiltPageId] = useState(adoptedPageId);
   const [adoptedStarterPages, setAdoptedStarterPages] = useState([]);
@@ -150,10 +163,14 @@ const WikiOnboarding = () => {
     const seenStages = new Set();
     setStep('build');
     setLines(openingLines);
+    setDraftPreview('');
     setMetrics(prev => ({ ...prev, pageCount: Math.max(prev.pageCount, 1) }));
-    const page = await streamMaintainWikiPage(pageId, {}, {
+    const page = await streamMaintainWikiPage(pageId, FAST_BUILD_OPTIONS, {
       onEvent: (_event, payload = {}) => {
         const stage = payload.stage || payload.status;
+        if (stage === 'model_streaming' && payload.delta) {
+          setDraftPreview(prev => `${prev} ${payload.delta}`.replace(/\s+/g, ' ').trim().slice(-900));
+        }
         if (!stage || seenStages.has(stage)) return;
         seenStages.add(stage);
         setLines(prev => [...prev, stageCopy[stage] || payload.summary || `Agent stage: ${stage}`]);
@@ -378,6 +395,12 @@ const WikiOnboarding = () => {
           <ol className="wiki-onboarding__narration">
             {lines.map((line, index) => <li key={`${line}-${index}`}>{line}</li>)}
           </ol>
+          {draftPreview ? (
+            <div className="wiki-onboarding__draft-preview" aria-label="Live draft preview">
+              <span>Live draft</span>
+              <p>{draftPreview}</p>
+            </div>
+          ) : null}
           <button type="button" onClick={goToWiki}>Skip to my wiki</button>
         </section>
       ) : null}

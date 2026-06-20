@@ -915,4 +915,122 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
     expect(page.aiState.quality.rebuiltAutomatically).toBe(true);
     expect(page.aiState.quality.previousFailures.join(' ')).toMatch(/scaffold/i);
   });
+
+  it('defers the quality rebuild in fast onboarding profile', async () => {
+    const page = {
+      _id: 'page-main',
+      title: 'Fast Investment Process',
+      pageType: 'topic',
+      plainText: '',
+      body: { type: 'doc', content: [] },
+      sourceRefs: [],
+      claims: [],
+      aiState: {}
+    };
+    const progressEvents = [];
+    const chat = jest.fn().mockResolvedValue({
+      model: 'test-model',
+      provider: 'test-provider',
+      text: JSON.stringify({
+        title: 'Fast Investment Process',
+        article: {
+          summary: {
+            text: 'The page should explain investing process.',
+            citationIndexes: [1]
+          },
+          sections: []
+        },
+        maintenance: { summary: 'Drafted weak page.', changelog: [], health: {} },
+        sourceIndexesUsed: [1]
+      })
+    });
+
+    const { maintainWikiPage } = require('./wikiMaintenanceService');
+    await maintainWikiPage({
+      page,
+      userId: 'user-1',
+      chat,
+      isConfigured: () => true,
+      maintenanceProfile: 'fast',
+      sourceLimit: 8,
+      sourceTextLimit: 800,
+      skipQualityRebuild: true,
+      onProgress: event => progressEvents.push(event),
+      models: {
+        Article: fakeFindModel([{ _id: 'article-1', title: 'Process evidence', content: 'Rules preserve judgment when markets make patience emotionally expensive.' }]),
+        NotebookEntry: fakeFindModel([]),
+        TagMeta: fakeFindModel([]),
+        Question: fakeFindModel([]),
+        WikiPage: fakeFindModel([])
+      }
+    });
+
+    expect(chat).toHaveBeenCalledTimes(1);
+    expect(page.aiState.maintenanceProfile).toBe('fast');
+    expect(page.aiState.quality.rebuildDeferred).toBe(true);
+    expect(page.aiState.quality.rebuiltAutomatically).toBe(false);
+    expect(progressEvents.some(event => event.stage === 'quality_rebuild_deferred')).toBe(true);
+  });
+
+  it('streams draft fragments during fast onboarding maintenance', async () => {
+    const page = {
+      _id: 'page-main',
+      title: 'Streaming Investment Process',
+      pageType: 'topic',
+      plainText: '',
+      body: { type: 'doc', content: [] },
+      sourceRefs: [],
+      claims: [],
+      aiState: {}
+    };
+    const progressEvents = [];
+    const chat = jest.fn();
+    const streamChat = jest.fn().mockImplementation(async ({ onDelta }) => {
+      onDelta?.('{"article":{"summary":{"text":"Investment process turns noisy evidence into a repeatable decision routine."');
+      return {
+        model: 'test-stream-model',
+        provider: 'test-provider',
+        text: JSON.stringify({
+          title: 'Streaming Investment Process',
+          article: {
+            summary: {
+              text: 'Investment process turns noisy evidence into a repeatable decision routine.',
+              citationIndexes: [1]
+            },
+            sections: []
+          },
+          maintenance: { summary: 'Streamed draft.', changelog: [], health: {} },
+          sourceIndexesUsed: [1]
+        })
+      };
+    });
+
+    const { maintainWikiPage } = require('./wikiMaintenanceService');
+    await maintainWikiPage({
+      page,
+      userId: 'user-1',
+      chat,
+      streamChat,
+      isConfigured: () => true,
+      maintenanceProfile: 'fast',
+      streamDraft: true,
+      skipQualityRebuild: true,
+      onProgress: event => progressEvents.push(event),
+      models: {
+        Article: fakeFindModel([{ _id: 'article-1', title: 'Process evidence', content: 'Investment process turns noisy evidence into a repeatable decision routine.' }]),
+        NotebookEntry: fakeFindModel([]),
+        TagMeta: fakeFindModel([]),
+        Question: fakeFindModel([]),
+        WikiPage: fakeFindModel([])
+      }
+    });
+
+    expect(chat).not.toHaveBeenCalled();
+    expect(streamChat).toHaveBeenCalledTimes(1);
+    expect(progressEvents.some(event => (
+      event.stage === 'model_streaming'
+      && /repeatable decision routine/i.test(event.delta || '')
+    ))).toBe(true);
+    expect(page.aiState.model).toContain('test-stream-model');
+  });
 });

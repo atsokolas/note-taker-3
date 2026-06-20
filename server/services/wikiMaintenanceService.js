@@ -1,4 +1,4 @@
-const { chatComplete, isTextGenerationConfigured } = require('../ai/hfTextClient');
+const { chatComplete, chatCompleteStream, isTextGenerationConfigured } = require('../ai/hfTextClient');
 const {
   alignArticleToPageStructure,
   getWikiPageStructure
@@ -8,7 +8,10 @@ const { applyWikiAutolinkToDoc } = require('./wikiAutolinkApplyService');
 const { formatWikiSchemaPromptBlock } = require('./wikiSchemaService');
 
 const DEFAULT_SOURCE_LIMIT = 24;
+const FAST_SOURCE_LIMIT = 8;
 const MAX_SOURCE_TEXT = 1800;
+const DEFAULT_PROMPT_SOURCE_TEXT_LIMIT = 1300;
+const FAST_PROMPT_SOURCE_TEXT_LIMIT = 800;
 const MIN_SOURCE_RELEVANCE_SCORE = 2;
 const MIN_SPARSE_PAGE_CANDIDATES = 3;
 const QUALITY_MIN_WORDS = 450;
@@ -418,12 +421,19 @@ const formatKnownWikiPages = (knownWikiPages = []) => {
     .join('\n');
 };
 
-const buildPrompt = ({ page, candidates, manualNotes = '', wikiSchemaContent = '', knownWikiPages = [] }) => {
+const buildPrompt = ({
+  page,
+  candidates,
+  manualNotes = '',
+  wikiSchemaContent = '',
+  knownWikiPages = [],
+  sourceTextLimit = DEFAULT_PROMPT_SOURCE_TEXT_LIMIT
+}) => {
   const structure = getWikiPageStructure(page.pageType || 'topic');
   const sourceBlock = candidates.map(source => (
     `[${source.index}] ${source.type.toUpperCase()}: ${source.title}\n` +
     `Updated: ${source.updatedAt || source.createdAt || 'unknown'}\n` +
-    `Text: ${truncate(source.text, 1300)}`
+    `Text: ${truncate(source.text, sourceTextLimit)}`
   )).join('\n\n');
 
   return `Maintain this Wiki page by directly rewriting it into a clean, durable Wiki article.
@@ -495,8 +505,16 @@ Return strict JSON only:
 }`;
 };
 
-const buildRebuildPrompt = ({ page, candidates, manualNotes = '', wikiSchemaContent = '', knownWikiPages = [], failures = [] }) => (
-  `${buildPrompt({ page, candidates, manualNotes, wikiSchemaContent, knownWikiPages })}
+const buildRebuildPrompt = ({
+  page,
+  candidates,
+  manualNotes = '',
+  wikiSchemaContent = '',
+  knownWikiPages = [],
+  failures = [],
+  sourceTextLimit = DEFAULT_PROMPT_SOURCE_TEXT_LIMIT
+}) => (
+  `${buildPrompt({ page, candidates, manualNotes, wikiSchemaContent, knownWikiPages, sourceTextLimit })}
 
 Your previous draft failed the wiki quality gate:
 ${failures.map(failure => `- ${failure}`).join('\n') || '- The draft was too thin or scaffold-like.'}
@@ -529,6 +547,27 @@ const extractJson = (value = '') => {
     }
   }
   return null;
+};
+
+const normalizeMaintenanceProfile = (value = '') => {
+  const normalized = asString(value).toLowerCase();
+  return normalized === 'fast' || normalized === 'onboarding_fast' ? 'fast' : 'standard';
+};
+
+const sanitizeDraftStreamDelta = (value = '') => (
+  String(value || '')
+    .replace(/[{}\[\]":,_]/g, ' ')
+    .replace(/\b(?:title|article|summary|text|citationIndexes|sections|heading|paragraphs|bullets|maintenance|sourceIndexesUsed|changelog|health)\b/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+);
+
+const shouldInlineQualityRebuild = ({ quality = {}, plainText = '', fastProfile = false, skipQualityRebuild = false } = {}) => {
+  if (!quality || quality.ok) return false;
+  if (skipQualityRebuild) return false;
+  if (!fastProfile) return true;
+  const wordCount = cleanWikiText(plainText).split(/\s+/).filter(Boolean).length;
+  return wordCount < 30;
 };
 
 const sourceRefFromCandidate = (candidate) => ({
@@ -1331,12 +1370,26 @@ const maintainWikiPage = async ({
   userId,
   models = {},
   chat = chatComplete,
+  streamChat = chatCompleteStream,
   isConfigured = isTextGenerationConfigured,
   now = new Date(),
   trigger = 'manual',
   wikiSchemaContent = '',
+  maintenanceProfile = 'standard',
+  sourceLimit = null,
+  sourceTextLimit = null,
+  skipQualityRebuild = false,
+  streamDraft = false,
   onProgress = null
 }) => {
+  const normalizedProfile = normalizeMaintenanceProfile(maintenanceProfile);
+  const fastProfile = normalizedProfile === 'fast';
+  const effectiveSourceLimit = Number.isFinite(Number(sourceLimit)) && Number(sourceLimit) > 0
+    ? Number(sourceLimit)
+    : (fastProfile ? FAST_SOURCE_LIMIT : DEFAULT_SOURCE_LIMIT);
+  const effectiveSourceTextLimit = Number.isFinite(Number(sourceTextLimit)) && Number(sourceTextLimit) > 0
+    ? Number(sourceTextLimit)
+    : (fastProfile ? FAST_PROMPT_SOURCE_TEXT_LIMIT : DEFAULT_PROMPT_SOURCE_TEXT_LIMIT);
   const emitProgress = async (payload = {}) => {
     if (typeof onProgress !== 'function') return;
     await onProgress({
@@ -1345,12 +1398,39 @@ const maintainWikiPage = async ({
     });
   };
   const allSources = await collectLibrarySources({ userId, models });
-  const candidates = selectCandidateSources({ page, sources: allSources });
-  const knownWikiPages = await collectKnownWikiPages({ page, userId, models });
+  const candidates = selectCandidateSources({ page, sources: allSources, limit: effectiveSourceLimit });
+  const knownWikiPages = await collectKnownWikiPages({
+    page,
+    userId,
+    models,
+    limit: fastProfile ? 16 : 40
+  });
   const manualNotes = extractManualNotes(page);
   let modelInfo = { model: 'local-maintainer', provider: '' };
   let result = null;
   let rebuiltAutomatically = false;
+  let draftDeltaBuffer = '';
+  let lastDraftDeltaAt = 0;
+  const flushDraftDelta = ({ force = false } = {}) => {
+    if (typeof onProgress !== 'function' || !draftDeltaBuffer.trim()) return;
+    const nowMs = Date.now();
+    if (!force && nowMs - lastDraftDeltaAt < 500 && draftDeltaBuffer.length < 160) return;
+    const delta = truncate(draftDeltaBuffer.replace(/\s+/g, ' ').trim(), 320);
+    draftDeltaBuffer = '';
+    lastDraftDeltaAt = nowMs;
+    Promise.resolve(onProgress({
+      at: new Date().toISOString(),
+      stage: 'model_streaming',
+      summary: 'The first draft is writing itself...',
+      delta
+    })).catch(() => {});
+  };
+  const handleDraftDelta = (delta = '') => {
+    const cleaned = sanitizeDraftStreamDelta(delta);
+    if (!cleaned) return;
+    draftDeltaBuffer = `${draftDeltaBuffer} ${cleaned}`.trim();
+    flushDraftDelta();
+  };
 
   await emitProgress({
     stage: 'sources_selected',
@@ -1364,12 +1444,14 @@ const maintainWikiPage = async ({
         stage: 'model_drafting',
         summary: 'Drafting a source-backed wiki revision.'
       });
-      const completion = await chat({
+      const draftClient = streamDraft && typeof streamChat === 'function' ? streamChat : chat;
+      const completion = await draftClient({
         route: 'artifact_draft',
         maxTokens: 2600,
         temperature: 0.2,
         reasoningEffort: 'medium',
         responseFormat: { type: 'json_object' },
+        ...(draftClient === streamChat ? { onDelta: handleDraftDelta } : {}),
         messages: [
           {
             role: 'system',
@@ -1377,10 +1459,18 @@ const maintainWikiPage = async ({
           },
           {
             role: 'user',
-            content: buildPrompt({ page, candidates, manualNotes, wikiSchemaContent, knownWikiPages })
+            content: buildPrompt({
+              page,
+              candidates,
+              manualNotes,
+              wikiSchemaContent,
+              knownWikiPages,
+              sourceTextLimit: effectiveSourceTextLimit
+            })
           }
         ]
       });
+      flushDraftDelta({ force: true });
       modelInfo = {
         model: completion.model || modelInfo.model,
         provider: completion.provider || ''
@@ -1419,7 +1509,14 @@ const maintainWikiPage = async ({
     models
   });
 
-  if (!materialized.quality.ok && candidates.length && isConfigured()) {
+  const shouldRebuildInline = shouldInlineQualityRebuild({
+    quality: materialized.quality,
+    plainText: materialized.plainText,
+    fastProfile,
+    skipQualityRebuild
+  });
+
+  if (!materialized.quality.ok && candidates.length && isConfigured() && shouldRebuildInline) {
     try {
       await emitProgress({
         stage: 'quality_rebuild',
@@ -1445,7 +1542,8 @@ const maintainWikiPage = async ({
               manualNotes,
               wikiSchemaContent,
               knownWikiPages,
-              failures: materialized.quality.failures
+              failures: materialized.quality.failures,
+              sourceTextLimit: effectiveSourceTextLimit
             })
           }
         ]
@@ -1494,6 +1592,16 @@ const maintainWikiPage = async ({
         summary: 'Automatic rebuild failed; preserving the best available draft.'
       });
     }
+  } else if (!materialized.quality.ok && candidates.length && isConfigured() && !shouldRebuildInline) {
+    materialized.quality = {
+      ...materialized.quality,
+      rebuildDeferred: true
+    };
+    await emitProgress({
+      stage: 'quality_rebuild_deferred',
+      summary: 'First draft is readable; deeper quality rebuild deferred to background maintenance.',
+      failures: materialized.quality.failures || []
+    });
   }
 
   page.title = materialized.title || page.title;
@@ -1562,6 +1670,7 @@ const maintainWikiPage = async ({
     provider: modelInfo.provider || '',
     sourceScopeAtDraft: 'entire_library',
     sourceRefIdsAtDraft: [],
+    maintenanceProfile: normalizedProfile,
     maintenanceSummary: finalNormalized.maintenance.summary,
     sectionMaintenance,
     quality: {

@@ -164,7 +164,7 @@ const scanTextForCandidate = ({ targetText, candidateTitle }) => {
  * @param {object} params.models      mongoose models, must include WikiPage
  * @returns {Promise<{suggestions: Array, scanned: number}>}
  */
-const findAutolinkSuggestions = async ({ targetPage, userId, models = {} } = {}) => {
+const findAutolinkSuggestions = async ({ targetPage, userId, models = {}, limit = 600 } = {}) => {
   const targetText = String(targetPage?.plainText || '').replace(/\s+/g, ' ');
   if (!targetText) return { suggestions: [], scanned: 0 };
 
@@ -176,7 +176,7 @@ const findAutolinkSuggestions = async ({ targetPage, userId, models = {} } = {})
       status: { $ne: 'archived' },
       _id: { $ne: targetId }
     },
-    600
+    Math.max(1, Math.min(Number(limit) || 600, 600))
   );
 
   const hits = [];

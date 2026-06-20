@@ -1994,11 +1994,12 @@ const buildWikiRouter = ({
     });
   };
 
-  const applyAutolinksForPage = async (page, userId) => {
+  const applyAutolinksForPage = async (page, userId, options = {}) => {
     const result = await findAutolinkSuggestions({
       targetPage: page,
       userId,
-      models: { WikiPage }
+      models: { WikiPage },
+      limit: options.limit || 600
     });
     let nextBody = page.body || emptyDoc();
     for (const suggestion of result.suggestions || []) {
@@ -2012,19 +2013,25 @@ const buildWikiRouter = ({
     return result;
   };
 
-  const autolinkPagesToTarget = async ({ targetPage, userId, sourcePageId = null } = {}) => {
+  const autolinkPagesToTarget = async ({
+    targetPage,
+    userId,
+    sourcePageId = null,
+    candidateLimit = 600,
+    concurrency = 1
+  } = {}) => {
     if (!targetPage?._id || !targetPage?.title) return [];
     const query = {
       userId,
       status: { $ne: 'archived' },
       _id: { $ne: targetPage._id }
     };
-    const candidates = await WikiPage.find(query).sort({ updatedAt: -1 }).limit(600);
+    const candidates = await WikiPage.find(query).sort({ updatedAt: -1 }).limit(Math.max(1, Math.min(Number(candidateLimit) || 600, 600)));
     const updatedPages = [];
-    for (const page of Array.isArray(candidates) ? candidates : []) {
+    const processCandidate = async (page) => {
       const before = snapshotPage(page);
       const result = applyWikiAutolinkToDoc({ doc: page.body || emptyDoc(), targetPage });
-      if (!result.applied) continue;
+      if (!result.applied) return null;
       page.body = result.doc;
       page.plainText = extractPlainText(result.doc);
       refreshPageClaims(page);
@@ -2039,12 +2046,62 @@ const buildWikiRouter = ({
         actorType: 'agent',
         summary: `Linked "${targetPage.title}" from "${page.title}".`
       });
-      updatedPages.push(page);
-    }
+      return page;
+    };
+    const queue = Array.isArray(candidates) ? [...candidates] : [];
+    const workerCount = Math.max(1, Math.min(Number(concurrency) || 1, 10, queue.length || 1));
+    await Promise.all(Array.from({ length: workerCount }, async () => {
+      while (queue.length) {
+        const candidate = queue.shift();
+        const updated = await processCandidate(candidate);
+        if (updated) updatedPages.push(updated);
+      }
+    }));
     if (!updatedPages.length && sourcePageId) {
       await syncPageGraph(targetPage, userId);
     }
     return updatedPages;
+  };
+
+  const normalizeMaintenanceProfileOption = (value = '') => {
+    const normalized = String(value || '').trim().toLowerCase();
+    return normalized === 'fast' || normalized === 'onboarding_fast' ? 'fast' : 'standard';
+  };
+
+  const positiveNumberOption = (value) => {
+    const number = Number(value);
+    return Number.isFinite(number) && number > 0 ? number : null;
+  };
+
+  const readMaintenanceRequestOptions = (body = {}) => {
+    const maintenanceProfile = normalizeMaintenanceProfileOption(body.maintenanceProfile || body.profile);
+    const fastProfile = maintenanceProfile === 'fast';
+    return {
+      maintenanceProfile,
+      sourceLimit: positiveNumberOption(body.sourceLimit),
+      sourceTextLimit: positiveNumberOption(body.sourceTextLimit),
+      inlineAutolinkLimit: positiveNumberOption(body.inlineAutolinkLimit) || (fastProfile ? 150 : 600),
+      skipQualityRebuild: body.skipQualityRebuild === true || (fastProfile && body.skipQualityRebuild !== false),
+      streamDraft: body.streamDraft === true || (fastProfile && body.streamDraft !== false),
+      deferInboundAutolinks: body.deferInboundAutolinks === true || (fastProfile && body.deferInboundAutolinks !== false)
+    };
+  };
+
+  const scheduleInboundAutolinks = ({ targetPage, userId, sourcePageId = null } = {}) => {
+    const targetSnapshot = clonePlain(targetPage?.toObject ? targetPage.toObject() : targetPage);
+    setImmediate(async () => {
+      try {
+        await autolinkPagesToTarget({
+          targetPage: targetSnapshot,
+          userId,
+          sourcePageId,
+          candidateLimit: 600,
+          concurrency: 10
+        });
+      } catch (error) {
+        console.error('Deferred wiki inbound autolink failed:', error);
+      }
+    });
   };
 
   router.get('/api/wiki/schema', wikiAuth, async (req, res) => {
@@ -2708,6 +2765,7 @@ const buildWikiRouter = ({
       page = await findOwnedPage(req);
       if (!page) return res.status(404).json({ error: 'Wiki page not found.' });
       const before = snapshotPage(page);
+      const maintenanceOptions = readMaintenanceRequestOptions(req.body || {});
       openWikiDraftStream(res);
 
       page.aiState = {
@@ -2735,6 +2793,11 @@ const buildWikiRouter = ({
           TagMeta,
           Question
         },
+        maintenanceProfile: maintenanceOptions.maintenanceProfile,
+        sourceLimit: maintenanceOptions.sourceLimit,
+        sourceTextLimit: maintenanceOptions.sourceTextLimit,
+        skipQualityRebuild: maintenanceOptions.skipQualityRebuild,
+        streamDraft: maintenanceOptions.streamDraft,
         onProgress: (event) => {
           writeSse(res, 'wiki-draft', event);
         }
@@ -2743,7 +2806,7 @@ const buildWikiRouter = ({
       // AT-288: convert concept mentions in the freshly-maintained body into
       // outbound wikilinks before emitting 'drafted', so the streamed page the
       // reader sees already reads like a wiki.
-      await applyAutolinksForPage(page, req.user.id);
+      await applyAutolinksForPage(page, req.user.id, { limit: maintenanceOptions.inlineAutolinkLimit });
 
       writeSse(res, 'wiki-page', {
         stage: 'drafted',
@@ -2759,12 +2822,20 @@ const buildWikiRouter = ({
       });
 
       await syncPageGraph(page, req.user.id);
-      // AT-288: link this page FROM existing pages that mention its title (inbound).
-      await autolinkPagesToTarget({ targetPage: page, userId: req.user.id });
-      writeSse(res, 'wiki-draft', {
-        stage: 'graph_synced',
-        summary: 'Wiki graph connections synced.'
-      });
+      if (maintenanceOptions.deferInboundAutolinks) {
+        scheduleInboundAutolinks({ targetPage: page, userId: req.user.id, sourcePageId: page._id });
+        writeSse(res, 'wiki-draft', {
+          stage: 'inbound_links_deferred',
+          summary: 'Backlinks will settle in the background while you start reading.'
+        });
+      } else {
+        // AT-288: link this page FROM existing pages that mention its title (inbound).
+        await autolinkPagesToTarget({ targetPage: page, userId: req.user.id });
+        writeSse(res, 'wiki-draft', {
+          stage: 'graph_synced',
+          summary: 'Wiki graph connections synced.'
+        });
+      }
 
       await createWikiRevision({
         WikiRevision,

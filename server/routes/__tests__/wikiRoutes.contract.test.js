@@ -593,8 +593,25 @@ const run = async () => {
     ConnectorActionLog,
     Connection,
     Article,
-    maintainWikiPage: async ({ page, userId, onProgress }) => {
-      proposalMaintainCalls.push({ pageId: String(page._id), userId });
+    maintainWikiPage: async ({
+      page,
+      userId,
+      maintenanceProfile,
+      sourceLimit,
+      sourceTextLimit,
+      skipQualityRebuild,
+      streamDraft,
+      onProgress
+    }) => {
+      proposalMaintainCalls.push({
+        pageId: String(page._id),
+        userId,
+        maintenanceProfile,
+        sourceLimit,
+        sourceTextLimit,
+        skipQualityRebuild,
+        streamDraft
+      });
       if (onProgress) {
         await onProgress({
           stage: 'test_progress',
@@ -1374,6 +1391,30 @@ const run = async () => {
     assert.ok(streamed.text.includes('"stage":"maintaining"'));
     assert.ok(streamed.text.includes('"stage":"test_progress"'));
     assert.ok(streamed.text.includes('"stage":"complete"'));
+
+    const fastStreamed = await request(url, `/api/wiki/pages/${created.body._id}/ai/draft/stream`, {
+      method: 'POST',
+      body: JSON.stringify({
+        maintenanceProfile: 'fast',
+        sourceLimit: 8,
+        sourceTextLimit: 800,
+        inlineAutolinkLimit: 150,
+        skipQualityRebuild: true,
+        streamDraft: true,
+        deferInboundAutolinks: true
+      })
+    });
+    assert.strictEqual(fastStreamed.res.status, 200, fastStreamed.text);
+    assert.ok(fastStreamed.text.includes('"stage":"inbound_links_deferred"'));
+    assert.ok(!fastStreamed.text.includes('"stage":"graph_synced"'));
+    assert.ok(proposalMaintainCalls.some(call => (
+      call.pageId === String(created.body._id)
+      && call.maintenanceProfile === 'fast'
+      && call.sourceLimit === 8
+      && call.sourceTextLimit === 800
+      && call.skipQualityRebuild === true
+      && call.streamDraft === true
+    )));
 
     const linkedPage = new WikiPage({
       userId: 'user-1',

@@ -9140,6 +9140,33 @@ html[data-ui-theme='dark'] .wiki-activity-rail__graph-alerts span {
   letter-spacing: 0.06em;
 }
 
+.wiki-onboarding__draft-preview {
+  display: grid;
+  gap: 8px;
+  padding: 16px 18px;
+  border: 1px solid color-mix(in srgb, var(--accent-primary) 22%, var(--nt-divider));
+  border-radius: 14px;
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--accent-primary) 10%, transparent), transparent 45%),
+    color-mix(in srgb, var(--surface-muted) 76%, transparent);
+  color: var(--text-primary);
+}
+
+.wiki-onboarding__draft-preview span {
+  font-family: -apple-system, BlinkMacSystemFont, "SF Mono", Menlo, monospace;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent-primary);
+}
+
+.wiki-onboarding__draft-preview p {
+  margin: 0;
+  color: var(--text-secondary);
+  line-height: 1.55;
+}
+
 .wiki-onboarding__return-loop {
   display: grid;
   grid-template-columns: minmax(0, 1.3fr) minmax(180px, 0.7fr);
