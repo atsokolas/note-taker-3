@@ -169,6 +169,46 @@ describe('WikiPageReadView', () => {
     window.history.pushState({}, '', '/');
   });
 
+  it('shows adopted-wiki attribution when the page has adoptedFrom provenance', async () => {
+    getWikiPage.mockResolvedValueOnce({
+      ...page,
+      adoptedFrom: {
+        originType: 'page',
+        originPageId: 'origin-page-1',
+        originSlug: 'public-systems-page',
+        originTitle: 'Public Systems Page',
+        adoptedAt: '2026-06-15T12:00:00.000Z'
+      }
+    });
+
+    render(
+      <MemoryRouter>
+        <WikiPageReadView pageId="wiki-1" onEdit={jest.fn()} />
+      </MemoryRouter>
+    );
+
+    const attribution = await screen.findByRole('note');
+    expect(attribution).toHaveClass('wiki-read__adopted-attribution');
+    expect(attribution).toHaveTextContent('Adapted from a shared Noeis wiki · Jun 15, 2026');
+    expect(screen.queryByText('Public Systems Page')).not.toBeInTheDocument();
+    expect(screen.queryByText('public-systems-page')).not.toBeInTheDocument();
+    expect(screen.queryByText('origin-page-1')).not.toBeInTheDocument();
+  });
+
+  it('does not show adopted-wiki attribution when adoptedFrom is missing or empty', async () => {
+    getWikiPage.mockResolvedValueOnce({ ...page, adoptedFrom: {} });
+
+    render(
+      <MemoryRouter>
+        <WikiPageReadView pageId="wiki-1" onEdit={jest.fn()} />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByRole('heading', { name: 'Enterprise AI Memory' })).toBeInTheDocument();
+    expect(screen.queryByText(/Adapted from a shared Noeis wiki/)).not.toBeInTheDocument();
+    expect(screen.queryByRole('note')).not.toBeInTheDocument();
+  });
+
   it('opens a wiki page as an article with no editor input until edit is requested', async () => {
     const onEdit = jest.fn();
     render(

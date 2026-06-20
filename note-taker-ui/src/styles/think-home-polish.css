@@ -7062,18 +7062,16 @@ html[data-ui-theme='dark'] .wiki-claim-popover__evidence--contradicts .wiki-clai
 }
 
 .shared-wiki-page__adopt {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 14px;
+  display: grid;
+  gap: 18px;
   margin: 10px 0 2px;
-  padding: 14px 16px;
-  border: 1px solid color-mix(in srgb, var(--accent-primary, #b1862e) 28%, var(--nt-divider));
-  border-radius: 10px;
+  padding: 20px 22px;
+  border: 1px solid color-mix(in srgb, var(--accent-primary, #b1862e) 32%, var(--nt-divider));
+  border-radius: 12px;
   background: linear-gradient(
-    90deg,
-    color-mix(in srgb, var(--accent-primary, #b1862e) 8%, transparent),
-    color-mix(in srgb, var(--surface) 94%, transparent)
+    135deg,
+    color-mix(in srgb, var(--accent-primary, #b1862e) 10%, transparent),
+    color-mix(in srgb, var(--surface) 96%, transparent) 58%
   );
 }
 
@@ -7101,25 +7099,43 @@ html[data-ui-theme='dark'] .wiki-claim-popover__evidence--contradicts .wiki-clai
   line-height: 1.4;
 }
 
-.shared-wiki-page__adopt button {
-  flex: 0 0 auto;
-  min-height: 42px;
-  padding: 0 16px;
-  border: 1px solid color-mix(in srgb, var(--accent-primary, #b1862e) 42%, var(--nt-divider));
+.shared-wiki-page__adopt-cta {
+  justify-self: start;
+  min-height: 52px;
+  padding: 0 28px;
+  border: 1px solid color-mix(in srgb, var(--accent-primary, #b1862e) 72%, #3d2f14);
   border-radius: 999px;
-  background: color-mix(in srgb, var(--accent-primary, #b1862e) 10%, var(--surface));
-  color: var(--text-primary);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--accent-primary, #b1862e) 92%, #fff),
+    var(--accent-primary, #b1862e)
+  );
+  color: #fffaf2;
   cursor: pointer;
   font-family: -apple-system, BlinkMacSystemFont, "SF Mono", Menlo, monospace;
-  font-size: 0.68rem;
+  font-size: 0.76rem;
   font-weight: 800;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
+  box-shadow:
+    0 1px 0 color-mix(in srgb, #fff 24%, transparent) inset,
+    0 12px 28px color-mix(in srgb, var(--accent-primary, #b1862e) 24%, transparent);
+  transition: transform 160ms ease, box-shadow 160ms ease, filter 160ms ease;
 }
 
-.shared-wiki-page__adopt button:disabled {
+.shared-wiki-page__adopt-cta:hover:not(:disabled) {
+  filter: brightness(1.04);
+  transform: translateY(-1px);
+  box-shadow:
+    0 1px 0 color-mix(in srgb, #fff 28%, transparent) inset,
+    0 16px 34px color-mix(in srgb, var(--accent-primary, #b1862e) 30%, transparent);
+}
+
+.shared-wiki-page__adopt-cta:disabled {
   cursor: wait;
-  opacity: 0.68;
+  opacity: 0.72;
+  transform: none;
+  box-shadow: none;
 }
 
 .shared-wiki-page__adopt-error {
@@ -7317,8 +7333,9 @@ html[data-ui-theme='dark'] .wiki-claim-popover__evidence--contradicts .wiki-clai
     flex-direction: column;
   }
 
-  .shared-wiki-page__adopt button {
+  .shared-wiki-page__adopt-cta {
     width: 100%;
+    justify-self: stretch;
   }
 
   .wiki-read__share-compact {
@@ -8953,7 +8970,7 @@ html[data-ui-theme='dark'] .wiki-activity-rail__graph-alerts span {
 
 .wiki-onboarding__example {
   display: grid;
-  gap: 8px;
+  gap: 12px;
   max-width: 560px;
   padding: 18px;
   border: 1px solid var(--nt-divider);
@@ -8961,12 +8978,53 @@ html[data-ui-theme='dark'] .wiki-activity-rail__graph-alerts span {
   background: color-mix(in srgb, var(--surface-muted) 74%, transparent);
 }
 
+.wiki-onboarding__example-page {
+  display: grid;
+  gap: 12px;
+  padding-top: 12px;
+  border-top: 1px solid color-mix(in srgb, var(--accent-primary) 24%, var(--nt-divider));
+}
+
+.wiki-onboarding__example-page section {
+  display: grid;
+  gap: 4px;
+}
+
+.wiki-onboarding__example-page h2 {
+  margin: 0;
+  color: var(--text-primary);
+  font-family: "Newsreader", Georgia, serif;
+  font-size: 1.08rem;
+  font-weight: 560;
+  line-height: 1.15;
+}
+
+.wiki-onboarding__example-page p,
+.wiki-onboarding__example-page small {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.wiki-onboarding__example-page small {
+  color: var(--text-secondary);
+  font-family: -apple-system, BlinkMacSystemFont, "SF Mono", Menlo, monospace;
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
 .wiki-onboarding__example span,
 .wiki-onboarding__pack strong {
   color: var(--text-primary);
   font-family: "Newsreader", Georgia, serif;
-  font-size: 1.35rem;
+  font-size: clamp(1.08rem, 1rem + 0.35vw, 1.35rem);
   font-weight: 560;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  hyphens: auto;
+  max-width: 100%;
 }
 
 .wiki-onboarding__packs {
@@ -8975,17 +9033,20 @@ html[data-ui-theme='dark'] .wiki-activity-rail__graph-alerts span {
   gap: 12px;
 }
 
-.wiki-onboarding__pack {
+.wiki-onboarding button.wiki-onboarding__pack {
   justify-self: stretch;
+  width: 100%;
+  min-width: 0;
   min-height: 148px;
   display: grid;
   align-content: start;
   gap: 8px;
-  padding: 16px;
-  border-radius: 8px;
+  padding: 16px 18px;
+  border-radius: 12px;
   text-align: left;
   text-transform: none;
-  letter-spacing: 0;
+  letter-spacing: normal;
+  overflow: hidden;
 }
 
 .wiki-onboarding__pack.is-selected {
@@ -9037,6 +9098,19 @@ html[data-ui-theme='dark'] .wiki-activity-rail__graph-alerts span {
   background: color-mix(in srgb, var(--surface-muted) 68%, transparent);
   color: var(--text-primary);
   line-height: 1.45;
+}
+
+.wiki-onboarding__working-pulse {
+  width: fit-content;
+  padding: 8px 12px;
+  border: 1px solid color-mix(in srgb, var(--accent-primary) 26%, var(--nt-divider));
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent-primary) 8%, transparent);
+  color: var(--text-secondary);
+  font-family: -apple-system, BlinkMacSystemFont, "SF Mono", Menlo, monospace;
+  font-size: 0.72rem;
+  font-weight: 750;
+  letter-spacing: 0.06em;
 }
 
 .wiki-onboarding__return-loop {
@@ -9118,6 +9192,27 @@ html[data-ui-theme='dark'] .wiki-activity-rail__graph-alerts span {
   background: color-mix(in srgb, var(--accent-primary) 8%, var(--surface));
 }
 
+.wiki-onboarding__save-habit {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 16px;
+  border: 1px solid color-mix(in srgb, var(--accent-primary) 24%, var(--nt-divider));
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface-muted) 74%, transparent);
+}
+
+.wiki-onboarding__save-habit div {
+  min-width: 0;
+}
+
+.wiki-onboarding__save-habit strong {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--text-primary);
+}
+
 .wiki-onboarding__sample div {
   min-width: 0;
 }
@@ -9160,6 +9255,7 @@ html[data-ui-theme='dark'] .wiki-activity-rail__graph-alerts span {
   }
 
   .wiki-onboarding__sample,
+  .wiki-onboarding__save-habit,
   .wiki-onboarding__sample-actions,
   .wiki-onboarding__return-loop {
     align-items: stretch;

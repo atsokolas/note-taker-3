@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { getWikiBriefing, listWikiPages } from '../../api/wiki';
 import { wikiPagePath } from '../../utils/wikiFeatureFlags';
 import { AGENT_DISPLAY_NAME } from '../../constants/agentIdentity';
@@ -19,6 +19,7 @@ const INDEX_PAGE_LIMIT = 80;
 const LEAD_EXCERPT_BUDGET = 320;
 const EXPLORE_LIMIT = 10;
 const GROWN_LIMIT = 3;
+const WIKI_ONBOARDING_COMPLETE_KEY = 'noeis.wikiOnboardingComplete';
 
 const pageId = (page) => (page && (page._id || page.id)) || '';
 
@@ -102,8 +103,10 @@ const mastheadDate = () => new Date().toLocaleDateString(undefined, {
 });
 
 const WikiFrontPage = () => {
+  const navigate = useNavigate();
   const [pages, setPages] = useState([]);
   const [briefing, setBriefing] = useState(null);
+  const [hasAnyWikiContent, setHasAnyWikiContent] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -119,13 +122,19 @@ const WikiFrontPage = () => {
     setLoading(true);
     Promise.allSettled([
       listWikiPages({ limit: INDEX_PAGE_LIMIT }),
+      listWikiPages({ limit: 1, includeLowQuality: 1 }),
       getWikiBriefing()
-    ]).then(([pagesResult, briefingResult]) => {
+    ]).then(([pagesResult, contentProbeResult, briefingResult]) => {
       if (cancelled) return;
       if (pagesResult.status === 'fulfilled' && Array.isArray(pagesResult.value)) {
         setPages(pagesResult.value);
       } else {
         setError('Failed to load wiki pages.');
+      }
+      if (contentProbeResult.status === 'fulfilled' && Array.isArray(contentProbeResult.value)) {
+        setHasAnyWikiContent(contentProbeResult.value.length > 0);
+      } else {
+        setHasAnyWikiContent(null);
       }
       if (briefingResult.status === 'fulfilled' && briefingResult.value) {
         setBriefing(briefingResult.value);
@@ -139,6 +148,19 @@ const WikiFrontPage = () => {
     () => filterReturnViewItems(pages),
     [pages]
   );
+  const onboardingComplete = (() => {
+    try {
+      return window.localStorage?.getItem(WIKI_ONBOARDING_COMPLETE_KEY) === 'true';
+    } catch (_error) {
+      return false;
+    }
+  })();
+  const shouldOpenOnboarding = !loading && !error && !onboardingComplete && hasAnyWikiContent === false;
+
+  useEffect(() => {
+    if (!shouldOpenOnboarding) return;
+    navigate('/onboarding/wiki', { replace: true });
+  }, [navigate, shouldOpenOnboarding]);
 
   const byId = useMemo(() => {
     const map = new Map();
@@ -207,7 +229,22 @@ const WikiFrontPage = () => {
     );
   }
 
-  // First-run: never a dead screen. The agent proposes the first move.
+  if (shouldOpenOnboarding) {
+    return (
+      <main className="wiki-page wiki-front-page" aria-busy="true">
+        <h1 className="sr-only">Opening your wiki</h1>
+        <p className="wiki-index__eyebrow wiki-front-page__masthead">
+          Morning paper · {mastheadDate()}
+        </p>
+        <p className="wiki-front-page__loading-copy" role="status">
+          Opening the first-page flow...
+        </p>
+      </main>
+    );
+  }
+
+  // First-run fallback for users who have already completed onboarding and
+  // cleared their corpus later: never a dead screen.
   if (!curatedPages.length) {
     return (
       <main className="wiki-page wiki-front-page">

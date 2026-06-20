@@ -31,10 +31,37 @@ const starterFallback = [
   }
 ];
 
-const inferTitleFromText = (value = '') => {
-  const firstLine = String(value || '').split(/\n+/).map(line => line.trim()).find(Boolean) || 'My first source';
-  const words = firstLine.replace(/^https?:\/\/\S+/i, '').split(/\s+/).filter(Boolean).slice(0, 8);
-  return words.join(' ') || 'My first source';
+const titleCaseConcept = (value = '') => (
+  String(value || '')
+    .replace(/[“”"]/g, '')
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 8)
+    .map((word) => {
+      const lower = word.toLowerCase();
+      if (['and', 'or', 'of', 'the', 'a', 'an', 'to', 'in', 'for'].includes(lower)) return lower;
+      return lower.charAt(0).toUpperCase() + lower.slice(1);
+    })
+    .join(' ')
+    .replace(/\b([A-Z][a-z]+)\s+(and|or|of|the|a|an|to|in|for)\b/g, (match) => match)
+);
+
+const inferConceptTitleFromText = (value = '') => {
+  const firstLine = String(value || '')
+    .replace(/^https?:\/\/\S+/i, '')
+    .split(/\n+/)
+    .map(line => line.trim())
+    .find(Boolean) || '';
+  const cleaned = firstLine
+    .replace(/^[#>\-\s*]+/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (!cleaned) return 'My First Source';
+  const definitionMatch = cleaned.match(/^(.{3,80}?)\s+(?:is|are|refers to|means|describes)\b/i);
+  const phrase = (definitionMatch?.[1] || cleaned.split(/[.:;!?—–-]/)[0] || cleaned)
+    .replace(/\b(?:this|that|these|those)\b/gi, '')
+    .trim();
+  return titleCaseConcept(phrase) || 'My First Source';
 };
 
 const firstUrlFromText = (value = '') => {
@@ -80,6 +107,7 @@ const WikiOnboarding = () => {
   const [mergeAvailable, setMergeAvailable] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [workingSeconds, setWorkingSeconds] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -100,6 +128,19 @@ const WikiOnboarding = () => {
     () => packs.find(pack => pack.id === selectedPackId) || packs[0] || starterFallback[0],
     [packs, selectedPackId]
   );
+
+  useEffect(() => {
+    if (step !== 'build' || !busy) {
+      setWorkingSeconds(0);
+      return undefined;
+    }
+    const startedAt = Date.now();
+    setWorkingSeconds(0);
+    const timer = window.setInterval(() => {
+      setWorkingSeconds(Math.max(1, Math.round((Date.now() - startedAt) / 1000)));
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [busy, step]);
 
   const markComplete = () => {
     localStorage.setItem(COMPLETE_KEY, 'true');
@@ -183,11 +224,12 @@ const WikiOnboarding = () => {
     setError('');
     try {
       const droppedUrl = firstUrlFromText(text);
+      const suggestedTitle = inferConceptTitleFromText(text);
       const imported = droppedUrl
         ? await importPastedUrl({ url: droppedUrl })
-        : await importPastedText({ text, title: inferTitleFromText(text) });
+        : await importPastedText({ text, title: suggestedTitle });
       const article = imported?.article || {};
-      const title = article.title || inferTitleFromText(text);
+      const title = article.title || suggestedTitle;
       const page = await createWikiPage({
         title,
         pageType: 'overview',
@@ -263,6 +305,21 @@ const WikiOnboarding = () => {
           <div className="wiki-onboarding__example">
             <span>Loss Aversion</span>
             <p>People often feel losses more sharply than equivalent gains, and that pressure changes decisions.</p>
+            <div className="wiki-onboarding__example-page" aria-label="Example wiki page preview">
+              <section>
+                <h2>Core idea</h2>
+                <p>Loss aversion explains why a small downside can dominate a larger upside when a decision feels personal or irreversible.</p>
+              </section>
+              <section>
+                <h2>Evidence</h2>
+                <p>When paired with Opportunity Cost, it exposes the hidden price of avoiding a visible loss: the foregone alternative may compound quietly.</p>
+              </section>
+              <section>
+                <h2>Open question</h2>
+                <p>Where is caution protecting the downside, and where is it disguising an unchosen better path?</p>
+              </section>
+              <small>[1] behavioral decision research · [2] saved investing notes</small>
+            </div>
           </div>
           <button type="button" onClick={() => setStep('feed')}>Start</button>
         </section>
@@ -313,6 +370,11 @@ const WikiOnboarding = () => {
           <p className="wiki-onboarding__eyebrow">Building your wiki</p>
           <h1>The agent is making the first page useful.</h1>
           <div className="wiki-onboarding__counter">{metricLine(metrics)}</div>
+          {busy ? (
+            <p className="wiki-onboarding__working-pulse" role="status">
+              Still shaping the draft · {workingSeconds}s elapsed
+            </p>
+          ) : null}
           <ol className="wiki-onboarding__narration">
             {lines.map((line, index) => <li key={`${line}-${index}`}>{line}</li>)}
           </ol>
@@ -334,6 +396,13 @@ const WikiOnboarding = () => {
             <Link to="/connections">Connect reading</Link>
             <Link to="/wiki">Explore pages</Link>
           </div>
+          <section className="wiki-onboarding__save-habit" aria-label="Save from anywhere">
+            <div>
+              <strong>Make saving frictionless next.</strong>
+              <p>Add the browser save flow so the next useful passage can land in Noeis without coming back to this setup screen.</p>
+            </div>
+            <Link to="/connections#capture">Set up browser save</Link>
+          </section>
           {adoptedStarterPages.some(page => page?.adoptedFrom?.sample) ? (
             <section className="wiki-onboarding__sample" aria-label="Starter pack controls">
               <div>

@@ -1,5 +1,6 @@
 const assert = require('assert');
 const {
+  deriveConceptTitleFromText,
   extractReadableText,
   extractTitle,
   fetchUrlForIngest,
@@ -22,6 +23,14 @@ const run = async () => {
   assert.ok(!extractReadableText(html).includes('.x{}'));
   assert.strictEqual(stripHtml('<p>A&nbsp;B&amp;C</p>'), 'A B&C');
   assert.strictEqual(normalizeIngestText(' a \r\n b '), 'a\n b');
+  assert.strictEqual(
+    deriveConceptTitleFromText('Spaced repetition is a learning technique where reviews are timed.'),
+    'Spaced Repetition'
+  );
+  assert.strictEqual(
+    deriveConceptTitleFromText('Opportunity cost is the price of the best alternative not taken.'),
+    'Opportunity Cost'
+  );
 
   const result = await fetchUrlForIngest({
     url: 'https://example.com/post',

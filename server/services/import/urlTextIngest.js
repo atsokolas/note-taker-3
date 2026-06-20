@@ -44,6 +44,38 @@ const normalizeIngestText = (value = '', maxLength = 120000) => (
   String(value || '').replace(/\r/g, '').replace(/[ \t]+\n/g, '\n').trim().slice(0, maxLength)
 );
 
+const titleCaseConcept = (value = '') => (
+  String(value || '')
+    .replace(/[“”"]/g, '')
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 8)
+    .map((word) => {
+      const lower = word.toLowerCase();
+      if (['and', 'or', 'of', 'the', 'a', 'an', 'to', 'in', 'for'].includes(lower)) return lower;
+      return lower.charAt(0).toUpperCase() + lower.slice(1);
+    })
+    .join(' ')
+);
+
+const deriveConceptTitleFromText = (value = '', fallback = 'Pasted source') => {
+  const firstLine = normalizeIngestText(value, 1000)
+    .replace(/^https?:\/\/\S+/i, '')
+    .split(/\n+/)
+    .map(line => line.trim())
+    .find(Boolean) || '';
+  const cleaned = firstLine
+    .replace(/^[#>\-\s*]+/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (!cleaned) return fallback;
+  const definitionMatch = cleaned.match(/^(.{3,80}?)\s+(?:is|are|refers to|means|describes)\b/i);
+  const phrase = (definitionMatch?.[1] || cleaned.split(/[.:;!?—–-]/)[0] || cleaned)
+    .replace(/\b(?:this|that|these|those)\b/gi, '')
+    .trim();
+  return titleCaseConcept(phrase) || fallback;
+};
+
 const fetchUrlForIngest = async ({ url, fetchImpl = fetch, timeoutMs = 12000 } = {}) => {
   const parsed = new URL(String(url || '').trim());
   if (!['http:', 'https:'].includes(parsed.protocol)) {
@@ -75,6 +107,7 @@ const fetchUrlForIngest = async ({ url, fetchImpl = fetch, timeoutMs = 12000 } =
 };
 
 module.exports = {
+  deriveConceptTitleFromText,
   extractReadableText,
   extractTitle,
   fetchUrlForIngest,

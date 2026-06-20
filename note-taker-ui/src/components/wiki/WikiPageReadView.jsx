@@ -302,6 +302,27 @@ const formatOptionalDate = (value, fallback = '') => {
   return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
 };
 
+const hasAdoptedFromProvenance = (adoptedFrom = {}) => {
+  if (!adoptedFrom || typeof adoptedFrom !== 'object') return false;
+  return Boolean(
+    adoptedFrom.adoptedAt
+    || adoptedFrom.originPageId
+    || adoptedFrom.originSlug
+    || adoptedFrom.originTitle
+    || adoptedFrom.originType
+    || adoptedFrom.originCollectionId
+    || adoptedFrom.packId
+    || adoptedFrom.sample
+  );
+};
+
+const adoptedAttributionLine = (adoptedFrom = {}) => {
+  const dateLabel = formatOptionalDate(adoptedFrom.adoptedAt);
+  return dateLabel
+    ? `Adapted from a shared Noeis wiki · ${dateLabel}`
+    : 'Adapted from a shared Noeis wiki';
+};
+
 const claimHealthCounts = (claims = []) => (
   (Array.isArray(claims) ? claims : []).reduce((counts, claim) => {
     const support = String(claim?.support || 'unsupported').trim() || 'unsupported';
@@ -1994,6 +2015,11 @@ const WikiPageReadView = ({
                 In workspace mode the agent will surface quality problems
                 via chat notification (AT-26). */}
             <WikiReadTitle title={page.title || 'Untitled Wiki Page'} />
+            {hasAdoptedFromProvenance(page.adoptedFrom) ? (
+              <p className="wiki-read__adopted-attribution" role="note">
+                {adoptedAttributionLine(page.adoptedFrom)}
+              </p>
+            ) : null}
             <section
               className={`wiki-read__share-card ${publicShareReady ? 'is-shared' : 'is-private'}${shareBlocked ? ' is-blocked' : ''}`}
               aria-label="Share this wiki page"

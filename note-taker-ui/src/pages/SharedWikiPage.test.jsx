@@ -77,7 +77,9 @@ describe('SharedWikiPage', () => {
     expect(screen.getAllByText('Opportunity cost frames tradeoffs.')).toHaveLength(2);
     expect(screen.getByText('References')).toBeInTheDocument();
     expect(screen.getByText(/Private backlinks, source notes, graph edges, and agent work are not exposed/i)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Make this mine' })).toBeInTheDocument();
+    const adoptCta = screen.getByRole('button', { name: 'Make this mine' });
+    expect(adoptCta).toHaveClass('shared-wiki-page__adopt-cta');
+    expect(adoptCta.className).not.toMatch(/ui-quiet-button/);
     expect(screen.getByRole('link', { name: 'Munger notes' })).toHaveAttribute('href', 'https://example.com/munger');
     expect(screen.queryByRole('link', { name: 'Private neighbor' })).not.toBeInTheDocument();
     expect(screen.getByText('Private neighbor')).toHaveClass('wiki-internal-link--static');

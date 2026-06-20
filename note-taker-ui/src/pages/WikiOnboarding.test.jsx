@@ -74,8 +74,39 @@ describe('WikiOnboarding', () => {
     deleteWikiPage.mockResolvedValue({});
   });
 
+  it('keeps long starter-pack titles inside the feed cards without uppercasing them', async () => {
+    listWikiStarterPacks.mockResolvedValueOnce([
+      {
+        id: 'behavioral-economics',
+        name: 'Behavioral Economics & Decision-Making',
+        tagline: 'Biases, base rates, and the psychology of judgment.',
+        pageCount: 6
+      },
+      {
+        id: 'mental-models',
+        name: 'Mental Models',
+        tagline: 'The Munger latticework for better judgment.',
+        pageCount: 7,
+        hero: true
+      }
+    ]);
+
+    render(<WikiOnboarding />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Start' }));
+
+    const longPackCard = await screen.findByRole('button', { name: /Behavioral Economics & Decision-Making/i });
+    expect(longPackCard).toHaveClass('wiki-onboarding__pack');
+    expect(longPackCard).toHaveTextContent('Behavioral Economics & Decision-Making');
+    expect(longPackCard).not.toHaveTextContent('BEHAVIORAL ECONOMICS & DECISION-MAKING');
+  });
+
   it('moves from show to starter-pack build narration and hook', async () => {
     render(<WikiOnboarding />);
+
+    expect(screen.getByLabelText('Example wiki page preview')).toHaveTextContent('Core idea');
+    expect(screen.getByLabelText('Example wiki page preview')).toHaveTextContent('Evidence');
+    expect(screen.getByLabelText('Example wiki page preview')).toHaveTextContent('Open question');
 
     fireEvent.click(screen.getByRole('button', { name: 'Start' }));
     expect(await screen.findByRole('button', { name: /Mental Models/ })).toBeInTheDocument();
@@ -86,6 +117,7 @@ describe('WikiOnboarding', () => {
     expect(await screen.findByRole('heading', { name: 'Your first page is ready.' })).toBeInTheDocument();
     expect(screen.getByLabelText("Tomorrow's Morning Paper")).toHaveTextContent(/Background maintenance checks due wiki pages about every six hours/i);
     expect(screen.getByText('Scheduled page refresh is on.')).toBeInTheDocument();
+    expect(screen.getByLabelText('Save from anywhere')).toHaveTextContent(/browser save/i);
   });
 
   it('builds a first page from pasted text', async () => {
@@ -102,13 +134,31 @@ describe('WikiOnboarding', () => {
 
     await waitFor(() => expect(importPastedText).toHaveBeenCalledWith({
       text: 'Opportunity cost is the price of the best alternative not taken.',
-      title: 'Opportunity cost is the price of the best'
+      title: 'Opportunity Cost'
     }));
     await waitFor(() => expect(createWikiPage).toHaveBeenCalledWith(expect.objectContaining({
       createdFrom: expect.objectContaining({ type: 'article', objectId: 'article-1' }),
       initialSourceRef: expect.objectContaining({ type: 'article', objectId: 'article-1' })
     })));
     expect(await screen.findByRole('heading', { name: 'Your first page is ready.' })).toBeInTheDocument();
+  });
+
+  it('keeps the build screen visibly alive while drafting work is still running', async () => {
+    createWikiPage.mockResolvedValue({ _id: 'paste-page', title: 'Spaced Repetition' });
+    streamMaintainWikiPage.mockImplementation(() => new Promise(() => {}));
+
+    render(<WikiOnboarding />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Start' }));
+    fireEvent.change(await screen.findByPlaceholderText('Drop in something you read this week...'), {
+      target: { value: 'Spaced repetition is a learning technique where reviews are timed.' }
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Build from this' }));
+
+    expect(await screen.findByRole('status')).toHaveTextContent(/still shaping the draft/i);
+    await waitFor(() => expect(importPastedText).toHaveBeenCalledWith(expect.objectContaining({
+      title: 'Spaced Repetition'
+    })));
   });
 
   it('imports a pasted URL before creating the first wiki page', async () => {

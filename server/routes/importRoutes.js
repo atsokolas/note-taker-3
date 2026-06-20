@@ -26,6 +26,7 @@ const {
   buildReadwisePreviewSummary
 } = require('../services/import/readwiseTransform');
 const {
+  deriveConceptTitleFromText,
   fetchUrlForIngest,
   normalizeIngestText
 } = require('../services/import/urlTextIngest');
@@ -224,7 +225,7 @@ const buildImportRouter = ({
       if (!text) return res.status(400).json({ error: 'Text is required.' });
       const result = await ingestArticleSource({
         userId,
-        title: req.body?.title || text.split(/\n+/).find(Boolean)?.slice(0, 120) || 'Pasted source',
+        title: req.body?.title || deriveConceptTitleFromText(text, 'Pasted source'),
         content: text,
         url: req.body?.url,
         provider: 'manual',

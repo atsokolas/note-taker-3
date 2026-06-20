@@ -1,6 +1,6 @@
 import React from 'react';
-import { render, screen } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { render, screen, waitFor } from '@testing-library/react';
+import * as router from 'react-router-dom';
 import WikiFrontPage from './WikiFrontPage';
 import { listWikiPages, getWikiBriefing } from '../../api/wiki';
 
@@ -60,8 +60,13 @@ const briefing = {
 };
 
 describe('WikiFrontPage (AT-394)', () => {
+  let navigate;
+
   beforeEach(() => {
     jest.clearAllMocks();
+    localStorage.clear();
+    navigate = jest.fn();
+    jest.spyOn(router, 'useNavigate').mockReturnValue(navigate);
     listWikiPages.mockResolvedValue(pages);
     getWikiBriefing.mockResolvedValue(briefing);
   });
@@ -71,9 +76,9 @@ describe('WikiFrontPage (AT-394)', () => {
     getWikiBriefing.mockReturnValueOnce(new Promise(() => {}));
 
     render(
-      <MemoryRouter>
+      <router.MemoryRouter>
         <WikiFrontPage />
-      </MemoryRouter>
+      </router.MemoryRouter>
     );
 
     expect(document.body.classList.contains('wiki-front-page-route')).toBe(true);
@@ -84,9 +89,9 @@ describe('WikiFrontPage (AT-394)', () => {
 
   it('renders the newspaper front page: masthead, lead sentence, today’s page, recently grown, explore, hairline', async () => {
     render(
-      <MemoryRouter>
+      <router.MemoryRouter>
         <WikiFrontPage />
-      </MemoryRouter>
+      </router.MemoryRouter>
     );
 
     // The agent's lead sentence arrives with the data, but is not duplicated
@@ -132,9 +137,9 @@ describe('WikiFrontPage (AT-394)', () => {
     getWikiBriefing.mockRejectedValueOnce(new Error('down'));
 
     render(
-      <MemoryRouter>
+      <router.MemoryRouter>
         <WikiFrontPage />
-      </MemoryRouter>
+      </router.MemoryRouter>
     );
 
     // Weighted fallback: most sources+claims wins the lead slot.
@@ -143,19 +148,56 @@ describe('WikiFrontPage (AT-394)', () => {
     expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
   });
 
-  it('shows the guide-me first-run state when the corpus is empty', async () => {
-    listWikiPages.mockResolvedValueOnce([]);
+  it('opens the onboarding arc when the corpus is empty and onboarding is incomplete', async () => {
+    listWikiPages
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([]);
     getWikiBriefing.mockResolvedValueOnce({ ...briefing, recentlyUpdatedPages: [], totalPages: 0 });
 
     render(
-      <MemoryRouter>
+      <router.MemoryRouter>
         <WikiFrontPage />
-      </MemoryRouter>
+      </router.MemoryRouter>
+    );
+
+    await waitFor(() => expect(navigate).toHaveBeenCalledWith('/onboarding/wiki', { replace: true }));
+    expect(await screen.findByText(/opening the first-page flow/i)).toBeInTheDocument();
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
+  });
+
+  it('keeps the fallback empty composer after onboarding has been completed', async () => {
+    localStorage.setItem('noeis.wikiOnboardingComplete', 'true');
+    listWikiPages
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([]);
+    getWikiBriefing.mockResolvedValueOnce({ ...briefing, recentlyUpdatedPages: [], totalPages: 0 });
+
+    render(
+      <router.MemoryRouter>
+        <WikiFrontPage />
+      </router.MemoryRouter>
     );
 
     expect(await screen.findByRole('heading', { level: 1, name: /start your wiki/i }))
       .toHaveTextContent(/start your wiki/i);
-    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
+    expect(navigate).not.toHaveBeenCalled();
     expect(screen.getByLabelText('Ask the wiki agent to build a page')).toBeInTheDocument();
+  });
+
+  it('does not redirect returning users whose pages are hidden from the front page', async () => {
+    listWikiPages
+      .mockResolvedValueOnce([{ _id: 'debug-page', title: 'Internal QA', debugOnly: true }])
+      .mockResolvedValueOnce([{ _id: 'debug-page', title: 'Internal QA', debugOnly: true }]);
+    getWikiBriefing.mockResolvedValueOnce({ ...briefing, recentlyUpdatedPages: [], totalPages: 1 });
+
+    render(
+      <router.MemoryRouter>
+        <WikiFrontPage />
+      </router.MemoryRouter>
+    );
+
+    expect(await screen.findByRole('heading', { level: 1, name: /start your wiki/i }))
+      .toHaveTextContent(/start your wiki/i);
+    expect(navigate).not.toHaveBeenCalled();
   });
 });
