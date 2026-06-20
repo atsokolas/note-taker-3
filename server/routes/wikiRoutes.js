@@ -1994,6 +1994,23 @@ const buildWikiRouter = ({
     });
   };
 
+  const savePageWithVersionRetry = async (page, userId) => {
+    try {
+      await page.save();
+      return page;
+    } catch (error) {
+      const versionConflict = error?.name === 'VersionError'
+        || /No matching document found/i.test(String(error?.message || ''));
+      if (!versionConflict) throw error;
+      const snapshot = snapshotPage(page);
+      const freshPage = await WikiPage.findOne({ _id: page._id, userId });
+      if (!freshPage) throw error;
+      restorePageSnapshot(freshPage, snapshot);
+      await freshPage.save();
+      return freshPage;
+    }
+  };
+
   const applyAutolinksForPage = async (page, userId, options = {}) => {
     const result = await findAutolinkSuggestions({
       targetPage: page,
@@ -2776,7 +2793,7 @@ const buildWikiRouter = ({
         lastError: '',
         errorCode: ''
       };
-      await page.save();
+      page = await savePageWithVersionRetry(page, req.user.id);
       writeSse(res, 'wiki-page', {
         stage: 'maintaining',
         summary: 'Wiki maintenance started.',
@@ -2814,7 +2831,7 @@ const buildWikiRouter = ({
         page: serializeWikiPage(page)
       });
 
-      await page.save();
+      page = await savePageWithVersionRetry(page, req.user.id);
       writeSse(res, 'wiki-page', {
         stage: 'saved',
         summary: 'Wiki page saved.',
