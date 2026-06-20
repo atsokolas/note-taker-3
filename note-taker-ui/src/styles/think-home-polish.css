@@ -5558,6 +5558,33 @@ html[data-ui-theme='dark'] {
   font-size: 0.78rem;
 }
 
+html[data-ui-theme='dark'] .wiki-read__share-card {
+  border-color: color-mix(in srgb, var(--wiki-warm-accent, #d2a45f) 28%, rgba(255, 255, 255, 0.08));
+  background:
+    linear-gradient(135deg, rgba(211, 164, 95, 0.10), rgba(211, 164, 95, 0.02) 44%, rgba(255, 255, 255, 0.02)),
+    color-mix(in srgb, var(--nt-surface-1, #211e17) 88%, #080705);
+  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.24);
+}
+
+html[data-ui-theme='dark'] .wiki-read__share-card-kicker {
+  color: color-mix(in srgb, var(--wiki-warm-accent, #d2a45f) 82%, var(--text-primary));
+}
+
+html[data-ui-theme='dark'] .wiki-read__share-card p {
+  color: color-mix(in srgb, var(--text-primary) 72%, var(--text-muted));
+}
+
+html[data-ui-theme='dark'] .wiki-read__share-receipt {
+  border-color: color-mix(in srgb, var(--wiki-warm-accent, #d2a45f) 30%, rgba(255, 255, 255, 0.10));
+  background: color-mix(in srgb, var(--wiki-warm-accent, #d2a45f) 11%, rgba(255, 255, 255, 0.05));
+  color: color-mix(in srgb, var(--text-primary) 88%, var(--wiki-warm-accent, #d2a45f));
+}
+
+html[data-ui-theme='dark'] .wiki-read__share-card-actions :is(.btn, .ui-button, button),
+html[data-ui-theme='dark'] .wiki-read__share-card-actions .wiki-read__share-open {
+  color: color-mix(in srgb, var(--text-primary) 84%, var(--wiki-warm-accent, #d2a45f));
+}
+
 .wiki-read__body {
   padding: 26px 0 12px;
   color: var(--text-primary);
