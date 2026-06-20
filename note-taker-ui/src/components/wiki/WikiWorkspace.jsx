@@ -1688,21 +1688,6 @@ const WikiWorkspaceChat = ({
   const clearBuildFailureMessages = useCallback(() => {
     setMessages(current => current.filter(message => !isStaleBuildFailureMessage(message)));
   }, []);
-  const appendBuildRecoveryNotice = useCallback(() => {
-    setMessages(current => {
-      const withoutFailures = current.filter(message => !isStaleBuildFailureMessage(message));
-      if (withoutFailures.some(message => clean(message.text) === BUILD_RECOVERY_TEXT)) {
-        return withoutFailures;
-      }
-      return [...withoutFailures, {
-        id: messageId('assistant'),
-        createdAt: new Date().toISOString(),
-        role: 'assistant',
-        text: BUILD_RECOVERY_TEXT,
-        buildRecovery: true
-      }];
-    });
-  }, []);
   const appendBuildSuccessMessage = useCallback((text, { includeRecovery = false } = {}) => {
     const finalText = clean(text);
     if (!finalText) return;
@@ -1748,7 +1733,7 @@ const WikiWorkspaceChat = ({
           if (event !== 'wiki-draft') return;
           if (payload.stage === 'quality_rebuild') {
             state.sawQualityRebuild = true;
-            appendBuildRecoveryNotice();
+            clearBuildFailureMessages();
           }
           if (payload.stage === 'quality_rebuilt') {
             state.sawQualityRebuild = true;
@@ -1757,7 +1742,7 @@ const WikiWorkspaceChat = ({
         }
       }
     };
-  }, [appendBuildRecoveryNotice, clearBuildFailureMessages, handleStreamEvent]);
+  }, [clearBuildFailureMessages, handleStreamEvent]);
 
   useEffect(() => {
     if (!selectedPageId) {
