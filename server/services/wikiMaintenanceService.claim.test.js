@@ -1033,4 +1033,61 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
     ))).toBe(true);
     expect(page.aiState.model).toContain('test-stream-model');
   });
+
+  it('falls back to the standard model call when draft streaming is unavailable', async () => {
+    const page = {
+      _id: 'page-main',
+      title: 'Fallback Investment Process',
+      pageType: 'topic',
+      plainText: '',
+      body: { type: 'doc', content: [] },
+      sourceRefs: [],
+      claims: [],
+      aiState: {}
+    };
+    const progressEvents = [];
+    const streamChat = jest.fn().mockRejectedValue(new Error('stream unsupported'));
+    const chat = jest.fn().mockResolvedValue({
+      model: 'test-blocking-model',
+      provider: 'test-provider',
+      text: JSON.stringify({
+        title: 'Fallback Investment Process',
+        article: {
+          summary: {
+            text: 'Fallback drafting keeps the page source-backed when streaming is unavailable.',
+            citationIndexes: [1]
+          },
+          sections: []
+        },
+        maintenance: { summary: 'Drafted after stream fallback.', changelog: [], health: {} },
+        sourceIndexesUsed: [1]
+      })
+    });
+
+    const { maintainWikiPage } = require('./wikiMaintenanceService');
+    await maintainWikiPage({
+      page,
+      userId: 'user-1',
+      chat,
+      streamChat,
+      isConfigured: () => true,
+      maintenanceProfile: 'fast',
+      streamDraft: true,
+      skipQualityRebuild: true,
+      onProgress: event => progressEvents.push(event),
+      models: {
+        Article: fakeFindModel([{ _id: 'article-1', title: 'Process evidence', content: 'Fallback drafting keeps the page source-backed when streaming is unavailable.' }]),
+        NotebookEntry: fakeFindModel([]),
+        TagMeta: fakeFindModel([]),
+        Question: fakeFindModel([]),
+        WikiPage: fakeFindModel([])
+      }
+    });
+
+    expect(streamChat).toHaveBeenCalledTimes(1);
+    expect(chat).toHaveBeenCalledTimes(1);
+    expect(progressEvents.some(event => event.stage === 'model_stream_fallback')).toBe(true);
+    expect(page.aiState.model).toContain('test-blocking-model');
+    expect(page.aiState.maintenanceSummary).toBe('Drafted after stream fallback.');
+  });
 });

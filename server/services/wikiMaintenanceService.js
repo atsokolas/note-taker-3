@@ -1444,14 +1444,12 @@ const maintainWikiPage = async ({
         stage: 'model_drafting',
         summary: 'Drafting a source-backed wiki revision.'
       });
-      const draftClient = streamDraft && typeof streamChat === 'function' ? streamChat : chat;
-      const completion = await draftClient({
+      const draftRequest = {
         route: 'artifact_draft',
         maxTokens: 2600,
         temperature: 0.2,
         reasoningEffort: 'medium',
         responseFormat: { type: 'json_object' },
-        ...(draftClient === streamChat ? { onDelta: handleDraftDelta } : {}),
         messages: [
           {
             role: 'system',
@@ -1469,7 +1467,26 @@ const maintainWikiPage = async ({
             })
           }
         ]
-      });
+      };
+      const shouldTryStream = streamDraft && typeof streamChat === 'function';
+      let completion = null;
+      if (shouldTryStream) {
+        try {
+          completion = await streamChat({
+            ...draftRequest,
+            onDelta: handleDraftDelta
+          });
+        } catch (_streamError) {
+          draftDeltaBuffer = '';
+          await emitProgress({
+            stage: 'model_stream_fallback',
+            summary: 'Live draft stream was unavailable; finishing the draft with the standard model call.'
+          });
+        }
+      }
+      if (!completion) {
+        completion = await chat(draftRequest);
+      }
       flushDraftDelta({ force: true });
       modelInfo = {
         model: completion.model || modelInfo.model,
