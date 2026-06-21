@@ -1416,21 +1416,14 @@ const maintainWikiPage = async ({
       ...payload
     });
   };
-  const __t = (label, startedAt) => console.log(`[build-timing] phase=${label} profile=${normalizedProfile} ms=${Date.now() - startedAt}`);
-  let __p = Date.now();
   const allSources = await collectLibrarySources({ userId, models, fastProfile });
-  __t('collectLibrarySources', __p);
-  __p = Date.now();
   const candidates = selectCandidateSources({ page, sources: allSources, limit: effectiveSourceLimit });
-  __t('selectCandidateSources', __p);
-  __p = Date.now();
   const knownWikiPages = await collectKnownWikiPages({
     page,
     userId,
     models,
     limit: fastProfile ? 16 : 40
   });
-  __t('collectKnownWikiPages', __p);
   const manualNotes = extractManualNotes(page);
   let modelInfo = { model: 'local-maintainer', provider: '' };
   let result = null;
@@ -1542,7 +1535,6 @@ const maintainWikiPage = async ({
   const normalized = normalizeModelResult({ raw: result, page, candidates, manualNotes });
   const previousClaims = page.claims?.toObject ? page.claims.toObject() : page.claims || [];
   let finalNormalized = normalized;
-  __p = Date.now();
   let materialized = await materializeMaintenanceResult({
     page,
     normalized: finalNormalized,
@@ -1552,7 +1544,6 @@ const maintainWikiPage = async ({
     userId,
     models
   });
-  __t('materializeMaintenanceResult', __p);
 
   const shouldRebuildInline = shouldInlineQualityRebuild({
     quality: materialized.quality,

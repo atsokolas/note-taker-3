@@ -22,7 +22,8 @@ const {
   enqueueArticleEmbedding,
   enqueueHighlightEmbedding,
   enqueueNotebookEmbedding,
-  enqueueQuestionEmbedding
+  enqueueQuestionEmbedding,
+  drainEmbeddingJobQueue
 } = require('./ai/embeddingJobs');
 const { EVENT_NAMES, trackEvent } = require('./utils/analytics');
 const { EmbeddingError } = require('./ai/embed');
@@ -126,6 +127,7 @@ const {
   Collection,
   IntegrationConnection,
   ImportSession,
+  EmbeddingJob,
   SharedConcept,
   SharedQuestion,
   WikiPage,
@@ -153,6 +155,8 @@ let wikiSourceEventWorkerTimer = null;
 let wikiSourceEventWorkerRunning = false;
 let wikiScheduledMaintenanceTimer = null;
 let wikiScheduledMaintenanceRunning = false;
+let embeddingJobWorkerTimer = null;
+let embeddingJobWorkerRunning = false;
 
 const runWikiSourceEventWorker = async () => {
   if (wikiSourceEventWorkerRunning || mongoose.connection.readyState !== 1) return;
@@ -195,6 +199,37 @@ if (mongoose.connection.readyState === 1) {
   startWikiSourceEventWorker();
 } else {
   mongoose.connection.once('open', startWikiSourceEventWorker);
+}
+
+const runEmbeddingJobWorker = async () => {
+  if (!isAiEnabled() || embeddingJobWorkerRunning || mongoose.connection.readyState !== 1) return;
+  embeddingJobWorkerRunning = true;
+  try {
+    const result = await drainEmbeddingJobQueue({
+      model: EmbeddingJob,
+      limit: Number(process.env.EMBEDDING_JOB_WORKER_BATCH_SIZE || 5)
+    });
+    if (result.processed || result.failed) {
+      console.log(`[embedding-worker] processed=${result.processed} failed=${result.failed}`);
+    }
+  } catch (error) {
+    console.error('[embedding-worker] failed:', error);
+  } finally {
+    embeddingJobWorkerRunning = false;
+  }
+};
+
+const startEmbeddingJobWorker = () => {
+  if (!isAiEnabled() || process.env.EMBEDDING_JOB_WORKER_DISABLED === 'true' || embeddingJobWorkerTimer) return;
+  const intervalMs = Math.max(15000, Number(process.env.EMBEDDING_JOB_WORKER_INTERVAL_MS || 60000));
+  embeddingJobWorkerTimer = setInterval(runEmbeddingJobWorker, intervalMs);
+  runEmbeddingJobWorker();
+};
+
+if (mongoose.connection.readyState === 1) {
+  startEmbeddingJobWorker();
+} else {
+  mongoose.connection.once('open', startEmbeddingJobWorker);
 }
 
 const runWikiScheduledMaintenance = async () => {

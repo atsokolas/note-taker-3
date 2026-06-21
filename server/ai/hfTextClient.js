@@ -526,7 +526,6 @@ const chatComplete = async ({
   for (const candidateRoute of candidateRoutes) {
     const candidateModel = candidateRoute.model;
     const candidateProvider = candidateRoute.provider || provider;
-    const attemptStartedAt = Date.now();
     try {
       const { body, provider: resolvedProvider } = await requestChatCompletions({
         token,
@@ -544,7 +543,6 @@ const chatComplete = async ({
           ...(toolChoice ? { tool_choice: toolChoice } : {})
         }
       });
-      console.log(`[hf-timing] route=${route || 'default'} mode=blocking provider=${candidateProvider} model=${candidateModel} effort=${reasoningEffort} maxTokens=${maxTokens} ms=${Date.now() - attemptStartedAt} outcome=ok`);
 
       const text = extractChatContent(body);
       const toolCalls = Array.isArray(body?.choices?.[0]?.message?.tool_calls)
@@ -570,7 +568,6 @@ const chatComplete = async ({
     } catch (error) {
       lastError = error;
       const status = Number(error?.status || 0);
-      console.log(`[hf-timing] route=${route || 'default'} mode=blocking provider=${candidateProvider} model=${candidateModel} effort=${reasoningEffort} maxTokens=${maxTokens} ms=${Date.now() - attemptStartedAt} outcome=error status=${status}`);
       const shouldTryNextModel = candidateRoute !== candidateRoutes.at(-1)
         && (status === 400 || status === 404 || status === 408 || status === 429 || status >= 500);
       if (shouldTryNextModel) continue;
@@ -713,7 +710,6 @@ const chatCompleteStream = async ({
   for (const candidateRoute of candidateRoutes) {
     const candidateModel = candidateRoute.model;
     const candidateProvider = candidateRoute.provider || provider;
-    const attemptStartedAt = Date.now();
     try {
       const { response, provider: resolvedProvider } = await requestChatCompletionsStream({
         token,
@@ -732,9 +728,7 @@ const chatCompleteStream = async ({
         },
         signal
       });
-      const responseReadyMs = Date.now() - attemptStartedAt;
       const streamed = await readStreamingCompletion({ response, onDelta, signal });
-      console.log(`[hf-timing] route=${route || 'default'} mode=stream provider=${candidateProvider} model=${candidateModel} effort=${reasoningEffort} maxTokens=${maxTokens} ttfbMs=${responseReadyMs} totalMs=${Date.now() - attemptStartedAt} outcome=ok`);
       if (!streamed.text) {
         throw buildError({
           status: 502,
@@ -753,7 +747,6 @@ const chatCompleteStream = async ({
     } catch (error) {
       lastError = error;
       const status = Number(error?.status || 0);
-      console.log(`[hf-timing] route=${route || 'default'} mode=stream provider=${candidateProvider} model=${candidateModel} effort=${reasoningEffort} maxTokens=${maxTokens} ms=${Date.now() - attemptStartedAt} outcome=error status=${status} aborted=${Boolean(signal?.aborted)}`);
       const shouldTryNextModel = candidateRoute !== candidateRoutes.at(-1)
         && !signal?.aborted
         && (status === 400 || status === 404 || status === 408 || status === 429 || status >= 500);

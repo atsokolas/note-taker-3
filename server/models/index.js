@@ -1818,6 +1818,30 @@ importSessionSchema.index({ userId: 1, provider: 1, updatedAt: -1 });
 
 const ImportSession = mongoose.model('ImportSession', importSessionSchema);
 
+const embeddingJobSchema = new mongoose.Schema({
+  collection: { type: String, required: true, trim: true },
+  objectId: { type: String, required: true, trim: true },
+  text: { type: String, default: '' },
+  payload: { type: mongoose.Schema.Types.Mixed, default: () => ({}) },
+  status: {
+    type: String,
+    enum: ['queued', 'running', 'completed', 'failed', 'abandoned'],
+    default: 'queued',
+    index: true
+  },
+  attemptCount: { type: Number, default: 0 },
+  nextRunAt: { type: Date, default: Date.now, index: true },
+  lockedAt: { type: Date, default: null },
+  lastAttemptAt: { type: Date, default: null },
+  completedAt: { type: Date, default: null },
+  lastError: { type: String, default: '', trim: true }
+}, { timestamps: true, suppressReservedKeysWarning: true });
+
+embeddingJobSchema.index({ collection: 1, objectId: 1 }, { unique: true });
+embeddingJobSchema.index({ status: 1, nextRunAt: 1, createdAt: 1 });
+
+const EmbeddingJob = mongoose.model('EmbeddingJob', embeddingJobSchema);
+
 /**
  * SharedConcept — public read-only snapshot of a concept.
  *
@@ -1913,6 +1937,7 @@ module.exports = {
   Collection,
   IntegrationConnection,
   ImportSession,
+  EmbeddingJob,
   SharedConcept,
   SharedQuestion,
   dropLegacyConnectionIndex

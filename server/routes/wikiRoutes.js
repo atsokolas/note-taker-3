@@ -2800,8 +2800,6 @@ const buildWikiRouter = ({
         page: serializeWikiPage(page)
       });
 
-      const __buildStartedAt = Date.now();
-      let __bp = Date.now();
       await maintainWikiPage({
         page,
         userId: req.user.id,
@@ -2821,14 +2819,11 @@ const buildWikiRouter = ({
           writeSse(res, 'wiki-draft', event);
         }
       });
-      console.log(`[build-timing] phase=maintainWikiPage_total ms=${Date.now() - __bp}`);
 
       // AT-288: convert concept mentions in the freshly-maintained body into
       // outbound wikilinks before emitting 'drafted', so the streamed page the
       // reader sees already reads like a wiki.
-      __bp = Date.now();
       await applyAutolinksForPage(page, req.user.id, { limit: maintenanceOptions.inlineAutolinkLimit });
-      console.log(`[build-timing] phase=applyAutolinksForPage ms=${Date.now() - __bp}`);
 
       writeSse(res, 'wiki-page', {
         stage: 'drafted',
@@ -2843,9 +2838,7 @@ const buildWikiRouter = ({
         page: serializeWikiPage(page)
       });
 
-      __bp = Date.now();
       await syncPageGraph(page, req.user.id);
-      console.log(`[build-timing] phase=syncPageGraph ms=${Date.now() - __bp}`);
       if (maintenanceOptions.deferInboundAutolinks) {
         scheduleInboundAutolinks({ targetPage: page, userId: req.user.id, sourcePageId: page._id });
         writeSse(res, 'wiki-draft', {
@@ -2854,16 +2847,13 @@ const buildWikiRouter = ({
         });
       } else {
         // AT-288: link this page FROM existing pages that mention its title (inbound).
-        __bp = Date.now();
         await autolinkPagesToTarget({ targetPage: page, userId: req.user.id });
-        console.log(`[build-timing] phase=autolinkPagesToTarget ms=${Date.now() - __bp}`);
         writeSse(res, 'wiki-draft', {
           stage: 'graph_synced',
           summary: 'Wiki graph connections synced.'
         });
       }
 
-      __bp = Date.now();
       await createWikiRevision({
         WikiRevision,
         userId: req.user.id,
@@ -2873,8 +2863,6 @@ const buildWikiRouter = ({
         actorType: 'agent',
         summary: page.aiState?.maintenanceSummary || `Maintained "${page.title}".`
       });
-      console.log(`[build-timing] phase=createWikiRevision ms=${Date.now() - __bp}`);
-      console.log(`[build-timing] phase=draftStreamEndpoint_total ms=${Date.now() - __buildStartedAt}`);
       writeSse(res, 'wiki-page', {
         stage: 'complete',
         summary: page.aiState?.maintenanceSummary || 'Wiki maintenance completed.',

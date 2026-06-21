@@ -302,18 +302,23 @@ const formatOptionalDate = (value, fallback = '') => {
   return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
 };
 
-const hasAdoptedFromProvenance = (adoptedFrom = {}) => {
+const hasSharedWikiProvenance = (adoptedFrom = {}) => {
   if (!adoptedFrom || typeof adoptedFrom !== 'object') return false;
+  if (adoptedFrom.sample || adoptedFrom.originType === 'starter_pack') return false;
   return Boolean(
-    adoptedFrom.adoptedAt
-    || adoptedFrom.originPageId
-    || adoptedFrom.originSlug
-    || adoptedFrom.originTitle
-    || adoptedFrom.originType
+    adoptedFrom.originPageId
     || adoptedFrom.originCollectionId
-    || adoptedFrom.packId
-    || adoptedFrom.sample
   );
+};
+
+const hasStarterPackSampleProvenance = (adoptedFrom = {}) => {
+  if (!adoptedFrom || typeof adoptedFrom !== 'object') return false;
+  return Boolean(adoptedFrom.sample || adoptedFrom.originType === 'starter_pack' || adoptedFrom.packId);
+};
+
+const starterPackAttributionLine = (adoptedFrom = {}) => {
+  const title = String(adoptedFrom.originTitle || '').trim();
+  return title ? `Starter pack sample · ${title}` : 'Starter pack sample';
 };
 
 const adoptedAttributionLine = (adoptedFrom = {}) => {
@@ -2015,9 +2020,13 @@ const WikiPageReadView = ({
                 In workspace mode the agent will surface quality problems
                 via chat notification (AT-26). */}
             <WikiReadTitle title={page.title || 'Untitled Wiki Page'} />
-            {hasAdoptedFromProvenance(page.adoptedFrom) ? (
+            {hasSharedWikiProvenance(page.adoptedFrom) ? (
               <p className="wiki-read__adopted-attribution" role="note">
                 {adoptedAttributionLine(page.adoptedFrom)}
+              </p>
+            ) : hasStarterPackSampleProvenance(page.adoptedFrom) ? (
+              <p className="wiki-read__adopted-attribution wiki-read__adopted-attribution--sample" role="note">
+                {starterPackAttributionLine(page.adoptedFrom)}
               </p>
             ) : null}
             <section

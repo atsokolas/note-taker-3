@@ -31,6 +31,21 @@ const routeMatches = (location, route) => {
   return true;
 };
 
+const TOUR_AUTONAV_BLOCKED_PREFIXES = [
+  '/wiki/workspace',
+  '/connections',
+  '/integrations',
+  '/share/'
+];
+
+const shouldAutoNavigateForTour = ({ location, currentStep, explicitResume = false } = {}) => {
+  if (!currentStep?.route) return false;
+  if (explicitResume) return true;
+  const pathname = location?.pathname || '';
+  if (TOUR_AUTONAV_BLOCKED_PREFIXES.some(prefix => pathname.startsWith(prefix))) return false;
+  return true;
+};
+
 const TourManager = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -48,6 +63,7 @@ const TourManager = () => {
     refreshState
   } = useTour();
   const autoAdvancedStepRef = useRef('');
+  const explicitResumeRef = useRef(false);
 
   useEffect(() => {
     if (state.loading) return;
@@ -62,6 +78,7 @@ const TourManager = () => {
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     if (params.get(TOUR_RESUME_QUERY) !== TOUR_RESUME_VALUE) return;
+    explicitResumeRef.current = true;
     resumeTour().catch((error) => {
       console.error('Failed to resume tour from URL param:', error);
     });
@@ -72,6 +89,9 @@ const TourManager = () => {
   useEffect(() => {
     if (!state.open || !currentStep) return;
     if (routeMatches(location, currentStep.route)) return;
+    const explicitResume = explicitResumeRef.current
+      || new URLSearchParams(location.search).get(TOUR_RESUME_QUERY) === TOUR_RESUME_VALUE;
+    if (!shouldAutoNavigateForTour({ location, currentStep, explicitResume })) return;
     navigate(currentStep.route, { replace: false });
   }, [currentStep, location, navigate, state.open]);
 

@@ -169,6 +169,67 @@ describe('WikiPageReadView', () => {
     window.history.pushState({}, '', '/');
   });
 
+  it('does not label starter-pack sample pages as adapted from a shared wiki', async () => {
+    getWikiPage.mockResolvedValueOnce({
+      ...page,
+      adoptedFrom: {
+        originType: 'starter_pack',
+        originCollectionId: 'mental-models',
+        originTitle: 'Mental Models',
+        packId: 'mental-models',
+        sample: true,
+        adoptedAt: '2026-06-19T00:00:00.000Z'
+      }
+    });
+
+    render(
+      <MemoryRouter>
+        <WikiPageReadView pageId="wiki-1" onEdit={jest.fn()} />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByRole('heading', { name: 'Enterprise AI Memory' })).toBeInTheDocument();
+    expect(screen.queryByText(/Adapted from a shared Noeis wiki/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/Starter pack sample/i)).toBeInTheDocument();
+  });
+
+  it('does label real adopted shared pages as adapted from a shared wiki', async () => {
+    getWikiPage.mockResolvedValueOnce({
+      ...page,
+      adoptedFrom: {
+        originType: 'page',
+        originPageId: '665000000000000000000001',
+        originSlug: 'opportunity-cost',
+        originTitle: 'Opportunity Cost',
+        adoptedAt: '2026-06-15T00:00:00.000Z'
+      }
+    });
+
+    render(
+      <MemoryRouter>
+        <WikiPageReadView pageId="wiki-1" onEdit={jest.fn()} />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByText(/Adapted from a shared Noeis wiki/i)).toBeInTheDocument();
+  });
+
+  it('does not show adoption attribution for default empty adoptedFrom documents', async () => {
+    getWikiPage.mockResolvedValueOnce({
+      ...page,
+      adoptedFrom: {}
+    });
+
+    render(
+      <MemoryRouter>
+        <WikiPageReadView pageId="wiki-1" onEdit={jest.fn()} />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByRole('heading', { name: 'Enterprise AI Memory' })).toBeInTheDocument();
+    expect(screen.queryByText(/Adapted from a shared Noeis wiki/i)).not.toBeInTheDocument();
+  });
+
   it('shows adopted-wiki attribution when the page has adoptedFrom provenance', async () => {
     getWikiPage.mockResolvedValueOnce({
       ...page,
