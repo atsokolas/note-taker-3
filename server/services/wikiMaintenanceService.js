@@ -216,11 +216,15 @@ const scoreSourceTitle = (source, queryTokens = []) => {
   return score;
 };
 
-const runFind = async (Model, query = {}, limit = 200) => {
+const runFind = async (Model, query = {}, limit = 200, projection = null) => {
   if (!Model?.find) return [];
   try {
-    const result = Model.find(query).sort?.({ updatedAt: -1, createdAt: -1 }).limit?.(limit).lean?.();
-    return Array.isArray(await result) ? await result : [];
+    let cursor = Model.find(query, projection || undefined);
+    cursor = cursor.sort?.({ updatedAt: -1, createdAt: -1 }) || cursor;
+    cursor = cursor.limit?.(limit) || cursor;
+    cursor = cursor.lean?.() || cursor;
+    const result = await cursor;
+    return Array.isArray(result) ? result : [];
   } catch (_error) {
     try {
       const result = await Model.find(query);
@@ -253,12 +257,22 @@ const extractManualNotes = (page) => {
   return withoutTitle;
 };
 
-const collectLibrarySources = async ({ userId, models = {} }) => {
+// Heavy article fields the maintenance loader never reads (PDF attachment
+// payloads, import metadata, highlight anchors). Excluding them server-side
+// is the difference between transferring full documents and the slim text we
+// actually score on — collectLibrarySources was taking 20-46s loading the
+// whole library before this projection + the profile-aware caps below.
+const ARTICLE_SOURCE_PROJECTION = '-pdfs -importMeta -annotations -highlights.anchor -highlights.importMeta';
+const FAST_LIBRARY_LIMITS = { article: 40, notebook: 20, concept: 20, question: 20 };
+const STANDARD_LIBRARY_LIMITS = { article: 150, notebook: 150, concept: 120, question: 120 };
+
+const collectLibrarySources = async ({ userId, models = {}, fastProfile = false } = {}) => {
+  const limits = fastProfile ? FAST_LIBRARY_LIMITS : STANDARD_LIBRARY_LIMITS;
   const [articles, notebooks, concepts, questions] = await Promise.all([
-    runFind(models.Article, { userId }, 250),
-    runFind(models.NotebookEntry, { userId }, 250),
-    runFind(models.TagMeta, { userId }, 200),
-    runFind(models.Question, { userId }, 200)
+    runFind(models.Article, { userId }, limits.article, ARTICLE_SOURCE_PROJECTION),
+    runFind(models.NotebookEntry, { userId }, limits.notebook),
+    runFind(models.TagMeta, { userId }, limits.concept),
+    runFind(models.Question, { userId }, limits.question)
   ]);
 
   const sources = [];
@@ -1404,7 +1418,7 @@ const maintainWikiPage = async ({
   };
   const __t = (label, startedAt) => console.log(`[build-timing] phase=${label} profile=${normalizedProfile} ms=${Date.now() - startedAt}`);
   let __p = Date.now();
-  const allSources = await collectLibrarySources({ userId, models });
+  const allSources = await collectLibrarySources({ userId, models, fastProfile });
   __t('collectLibrarySources', __p);
   __p = Date.now();
   const candidates = selectCandidateSources({ page, sources: allSources, limit: effectiveSourceLimit });
