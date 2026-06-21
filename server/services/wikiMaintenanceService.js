@@ -1390,6 +1390,11 @@ const maintainWikiPage = async ({
   const effectiveSourceTextLimit = Number.isFinite(Number(sourceTextLimit)) && Number(sourceTextLimit) > 0
     ? Number(sourceTextLimit)
     : (fastProfile ? FAST_PROMPT_SOURCE_TEXT_LIMIT : DEFAULT_PROMPT_SOURCE_TEXT_LIMIT);
+  // The draft model (gpt-oss-class) spends most of its wall-clock generating an
+  // internal reasoning trace. On the fast/onboarding path that reasoning is the
+  // dominant latency (~40s+) and buys little for a source-grounded rewrite, so
+  // drop to low effort; the scheduled maintenance loop deepens the page later.
+  const draftReasoningEffort = fastProfile ? 'low' : 'medium';
   const emitProgress = async (payload = {}) => {
     if (typeof onProgress !== 'function') return;
     await onProgress({
@@ -1448,7 +1453,7 @@ const maintainWikiPage = async ({
         route: 'artifact_draft',
         maxTokens: 2600,
         temperature: 0.2,
-        reasoningEffort: 'medium',
+        reasoningEffort: draftReasoningEffort,
         responseFormat: { type: 'json_object' },
         messages: [
           {
