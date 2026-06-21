@@ -17,7 +17,12 @@ const FAST_BUILD_OPTIONS = {
   sourceTextLimit: 800,
   inlineAutolinkLimit: 150,
   skipQualityRebuild: true,
-  streamDraft: true,
+  // Render [hf-timing] logs (2026-06-21): the streamed draft took ~31s
+  // (totalMs=30796) while the SAME groq+gpt-oss-120b call in blocking mode
+  // finished in 2-5s. The HF router trickles tokens for this model, so
+  // streaming costs ~26s for zero functional gain — the elapsed ticker and
+  // narration already carry perceived progress. Use the fast blocking call.
+  streamDraft: false,
   deferInboundAutolinks: true
 };
 
