@@ -19,7 +19,8 @@ export const MARKETING_FUNNEL_EMPTY_SNAPSHOT = {
     revisitScheduled: 0,
     wikiPageCreated: 0,
     wikiSourceAttached: 0,
-    wikiDraftGenerated: 0
+    wikiDraftGenerated: 0,
+    wikiSharedAdopted: 0
   },
   byEntry: [],
   bySource: []
@@ -44,7 +45,8 @@ const normalizeMilestones = (row = {}) => ({
   revisitScheduled: clampCount(row.revisitScheduled),
   wikiPageCreated: clampCount(row.wikiPageCreated),
   wikiSourceAttached: clampCount(row.wikiSourceAttached),
-  wikiDraftGenerated: clampCount(row.wikiDraftGenerated)
+  wikiDraftGenerated: clampCount(row.wikiDraftGenerated),
+  wikiSharedAdopted: clampCount(row.wikiSharedAdopted)
 });
 
 export const formatMarketingEntryLabel = (value = '') => {
@@ -166,6 +168,12 @@ export const buildMarketingFunnelViewModel = (snapshot = {}) => {
     .map((row) => buildBreakdownRow(row, formatMarketingSourceLabel(row.utmSource, row.utmMedium)));
 
   const activationMilestones = [
+    {
+      key: 'wiki_shared_adopted',
+      label: 'Shared wikis adopted',
+      value: totals.wikiSharedAdopted,
+      context: 'Public proof copied into workspace'
+    },
     {
       key: 'wiki_page_created',
       label: 'Wiki pages created',

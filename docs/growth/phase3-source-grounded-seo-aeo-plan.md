@@ -47,7 +47,7 @@ Next implementation steps:
 - Add `CreativeWork` JSON-LD when public source references exist. Done.
 - Add a curated examples page for intentionally public high-quality shared wikis.
 - Track shared wiki views and adoption clicks as marketing attribution inputs. Done.
-- Track shared wiki adoption as a downstream activation milestone.
+- Track shared wiki adoption as a downstream activation milestone. Done.
 - Keep low-quality, private, or incidental shared pages out of indexing unless intentionally published.
 
 ## Activation Instrumentation
@@ -55,10 +55,11 @@ Done:
 - `wiki_page_created` counts source-backed wiki page creation as an activation event.
 - `wiki_source_attached` counts attaching source provenance to a wiki page as an activation event.
 - `wiki_draft_generated` counts maintained AI wiki drafts as an activation event.
+- `wiki_shared_adopted` counts successful adoption of a public page, collection, or starter pack into a user's workspace.
 - The marketing funnel now includes these wiki events when attributing organic signup to activation.
 
 Remaining:
-- Track shared wiki adoption completion separately from adoption clicks.
+- Add production Search Console and Bing exports to rank examples/proof pages by impression-to-signup opportunity.
 - Surface wiki-specific activation breakdowns in the marketing analytics UI. Done.
 
 ## External Search Tooling

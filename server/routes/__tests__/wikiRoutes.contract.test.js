@@ -569,6 +569,7 @@ const run = async () => {
   const app = express();
   app.use(express.json());
   const proposalMaintainCalls = [];
+  const trackCalls = [];
   app.use(buildWikiRouter({
     authenticateToken: (req, _res, next) => {
       req.user = { id: req.headers['x-test-user'] || 'user-1' };
@@ -593,6 +594,21 @@ const run = async () => {
     ConnectorActionLog,
     Connection,
     Article,
+    EVENT_NAMES: {
+      WIKI_PAGE_CREATED: 'wiki_page_created',
+      WIKI_SOURCE_ATTACHED: 'wiki_source_attached',
+      WIKI_DRAFT_GENERATED: 'wiki_draft_generated',
+      WIKI_SHARED_ADOPTED: 'wiki_shared_adopted',
+      WIKI_SCHEMA_SAVED: 'wiki_schema_saved',
+      WIKI_SCHEMA_SUGGESTED: 'wiki_schema_suggested',
+      WIKI_INGEST_SUBMITTED: 'wiki_ingest_submitted',
+      WIKI_INGEST_COMPLETED: 'wiki_ingest_completed',
+      WIKI_INGEST_NO_MATCH: 'wiki_ingest_no_match',
+      WIKI_QA_PROMOTED: 'wiki_qa_promoted'
+    },
+    trackEvent: (event) => {
+      trackCalls.push(event);
+    },
     maintainWikiPage: async ({
       page,
       userId,
@@ -1155,6 +1171,13 @@ const run = async () => {
     ));
     assert.ok(adoptionRevision);
     assert.strictEqual(adoptionRevision.after.adoptedFrom.originSlug, 'public-systems-page');
+    assert.ok(trackCalls.some(call => (
+      call.event === 'wiki_shared_adopted'
+      && call.userId === 'user-2'
+      && call.properties.originType === 'page'
+      && call.properties.originSlug === 'public-systems-page'
+      && call.properties.pageCount === 1
+    )));
 
     const duplicateAdoptedPublicPage = await request(url, `/api/public/wiki/pages/${sharedPage._id}/adopt`, {
       method: 'POST',
@@ -1235,6 +1258,13 @@ const run = async () => {
     const adoptedLinkMark = adoptedSource.body.content[0].content[1].marks[0];
     assert.strictEqual(adoptedLinkMark.attrs.pageId, String(adoptedTarget._id));
     assert.notStrictEqual(adoptedLinkMark.attrs.pageId, String(collectionTargetPage._id));
+    assert.ok(trackCalls.some(call => (
+      call.event === 'wiki_shared_adopted'
+      && call.userId === 'user-2'
+      && call.properties.originType === 'collection'
+      && call.properties.originSlug === 'judgment-starter-collection'
+      && call.properties.pageCount === 2
+    )));
 
     const starterPacks = await request(url, '/api/public/wiki/starter-packs', { headers: {} });
     assert.strictEqual(starterPacks.res.status, 200, starterPacks.text);
@@ -1271,6 +1301,13 @@ const run = async () => {
     const collectionOpportunityCost = adoptedStarterPackCollection.body.pages.find(page => page.title === 'Opportunity Cost');
     const collectionStarterLink = JSON.stringify(collectionFirstPrinciples.body);
     assert.ok(collectionStarterLink.includes(String(collectionOpportunityCost._id)));
+    assert.ok(trackCalls.some(call => (
+      call.event === 'wiki_shared_adopted'
+      && call.userId === 'user-4'
+      && call.properties.originType === 'starter_pack'
+      && call.properties.surface === 'collection_route'
+      && call.properties.packId === 'mental-models'
+    )));
 
     const adoptedStarterPack = await request(url, '/api/public/wiki/starter-packs/mental-models/adopt', {
       method: 'POST',
@@ -1287,6 +1324,13 @@ const run = async () => {
     const opportunityCost = adoptedStarterPack.body.pages.find(page => page.title === 'Opportunity Cost');
     const starterLink = JSON.stringify(firstPrinciples.body);
     assert.ok(starterLink.includes(String(opportunityCost._id)));
+    assert.ok(trackCalls.some(call => (
+      call.event === 'wiki_shared_adopted'
+      && call.userId === 'user-3'
+      && call.properties.originType === 'starter_pack'
+      && call.properties.packId === 'mental-models'
+      && !call.properties.surface
+    )));
 
     const hiddenPrivatePublicPage = await request(url, '/api/public/wiki/pages/private-systems-page', {
       headers: {}

@@ -43,6 +43,7 @@ const EVENT_NAMES = Object.freeze({
   WIKI_PAGE_CREATED: 'wiki_page_created',
   WIKI_SOURCE_ATTACHED: 'wiki_source_attached',
   WIKI_DRAFT_GENERATED: 'wiki_draft_generated',
+  WIKI_SHARED_ADOPTED: 'wiki_shared_adopted',
   WIKI_INGEST_SUBMITTED: 'wiki_ingest_submitted',
   WIKI_INGEST_COMPLETED: 'wiki_ingest_completed',
   WIKI_INGEST_NO_MATCH: 'wiki_ingest_no_match',

@@ -96,6 +96,7 @@ const buildTrendRows = (series = []) => {
     signupViewed: Number(row?.totals?.signupViewed) || 0,
     signupsCompleted: Number(row?.totals?.signupsCompleted) || 0,
     activatedUsers: Number(row?.totals?.activatedUsers) || 0,
+    wikiSharedAdopted: Number(row?.totals?.wikiSharedAdopted) || 0,
     wikiPageCreated: Number(row?.totals?.wikiPageCreated) || 0,
     wikiDraftGenerated: Number(row?.totals?.wikiDraftGenerated) || 0,
     heightRatio: maxViewed > 0 ? (Number(row?.totals?.signupViewed) || 0) / maxViewed : 0
@@ -144,6 +145,7 @@ const TrendChart = ({ rows = [] }) => (
                 <th style={thStyle}>Viewed</th>
                 <th style={thStyle}>Signed up</th>
                 <th style={thStyle}>Activated</th>
+                <th style={thStyle}>Adoptions</th>
                 <th style={thStyle}>Wiki pages</th>
                 <th style={thStyle}>Drafts</th>
               </tr>
@@ -155,6 +157,7 @@ const TrendChart = ({ rows = [] }) => (
                   <td style={tdStyle}>{row.signupViewed}</td>
                   <td style={tdStyle}>{row.signupsCompleted}</td>
                   <td style={tdStyle}>{row.activatedUsers}</td>
+                  <td style={tdStyle}>{row.wikiSharedAdopted}</td>
                   <td style={tdStyle}>{row.wikiPageCreated}</td>
                   <td style={tdStyle}>{row.wikiDraftGenerated}</td>
                 </tr>
@@ -181,6 +184,7 @@ const BreakdownTable = ({ title, subtitle, rows = [] }) => (
               <th style={thStyle}>Viewed</th>
                 <th style={thStyle}>Signed up</th>
                 <th style={thStyle}>Activated</th>
+                <th style={thStyle}>Adoptions</th>
                 <th style={thStyle}>Wiki</th>
                 <th style={thStyle}>Sources</th>
                 <th style={thStyle}>Drafts</th>
@@ -199,6 +203,7 @@ const BreakdownTable = ({ title, subtitle, rows = [] }) => (
                 <td style={tdStyle}>{row.signupViewed}</td>
                 <td style={tdStyle}>{row.signupsCompleted}</td>
                 <td style={tdStyle}>{row.activatedUsers}</td>
+                <td style={tdStyle}>{row.wikiSharedAdopted}</td>
                 <td style={tdStyle}>{row.wikiPageCreated}</td>
                 <td style={tdStyle}>{row.wikiSourceAttached}</td>
                 <td style={tdStyle}>{row.wikiDraftGenerated}</td>

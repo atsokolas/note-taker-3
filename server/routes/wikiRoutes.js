@@ -2477,6 +2477,15 @@ const buildWikiRouter = ({
       });
       const adopted = result.pages[0] || {};
       const page = adopted.page;
+      trackWikiEvent(req, EVENT_NAMES.WIKI_SHARED_ADOPTED, {
+        originType: 'page',
+        originPageId: serializeId(originPage._id),
+        originSlug: originPage.slug || '',
+        originTitle: originPage.title || '',
+        adoptedPageId: serializeId(page?._id),
+        pageCount: 1,
+        mergeAvailable: Boolean(adopted.mergeAvailable)
+      });
       res.status(201).json({
         page: serializeWikiPage(page),
         adoptedFrom: page.adoptedFrom || {},
@@ -2510,6 +2519,14 @@ const buildWikiRouter = ({
       const pack = findStarterPack(req.params.packId);
       if (!pack) return res.status(404).json({ error: 'Starter pack not found.' });
       const result = await adoptStarterPackForUser({ pack, userId: req.user.id });
+      trackWikiEvent(req, EVENT_NAMES.WIKI_SHARED_ADOPTED, {
+        originType: 'starter_pack',
+        packId: pack.id,
+        originSlug: pack.id,
+        originTitle: pack.name,
+        pageCount: result.pages.length,
+        mergeAvailable: result.pages.some(entry => entry.mergeAvailable)
+      });
       res.status(201).json({
         pack: starterPackSummary(pack),
         pages: result.pages.map(entry => serializeWikiPage(entry.page)),
@@ -2593,6 +2610,15 @@ const buildWikiRouter = ({
       const starterPack = findStarterPack(idOrSlug);
       if (starterPack) {
         const result = await adoptStarterPackForUser({ pack: starterPack, userId: req.user.id });
+        trackWikiEvent(req, EVENT_NAMES.WIKI_SHARED_ADOPTED, {
+          originType: 'starter_pack',
+          packId: starterPack.id,
+          originSlug: starterPack.id,
+          originTitle: starterPack.name,
+          surface: 'collection_route',
+          pageCount: result.pages.length,
+          mergeAvailable: result.pages.some(entry => entry.mergeAvailable)
+        });
         return res.status(201).json({
           collection: {
             _id: starterPack.id,
@@ -2625,6 +2651,14 @@ const buildWikiRouter = ({
         originType: 'collection',
         originCollectionId: serializeId(collection._id) || collection.slug || '',
         originCollectionTitle: collection.name || 'Shared wiki'
+      });
+      trackWikiEvent(req, EVENT_NAMES.WIKI_SHARED_ADOPTED, {
+        originType: 'collection',
+        originCollectionId: serializeId(collection._id),
+        originSlug: collection.slug || '',
+        originTitle: collection.name || '',
+        pageCount: result.pages.length,
+        mergeAvailable: result.pages.some(entry => entry.mergeAvailable)
       });
       res.status(201).json({
         collection: {

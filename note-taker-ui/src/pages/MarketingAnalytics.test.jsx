@@ -25,6 +25,7 @@ describe('Marketing analytics view model helpers', () => {
         signupStarted: 10,
         signupsCompleted: 5,
         activatedUsers: 2,
+        wikiSharedAdopted: 1,
         wikiPageCreated: 2,
         wikiSourceAttached: 1,
         wikiDraftGenerated: 1
@@ -36,6 +37,7 @@ describe('Marketing analytics view model helpers', () => {
           signupStarted: 7,
           signupsCompleted: 4,
           activatedUsers: 2,
+          wikiSharedAdopted: 1,
           wikiPageCreated: 2,
           wikiSourceAttached: 1,
           wikiDraftGenerated: 1
@@ -56,6 +58,7 @@ describe('Marketing analytics view model helpers', () => {
           signupStarted: 9,
           signupsCompleted: 5,
           activatedUsers: 2,
+          wikiSharedAdopted: 1,
           wikiPageCreated: 2,
           wikiSourceAttached: 1,
           wikiDraftGenerated: 1
@@ -74,9 +77,9 @@ describe('Marketing analytics view model helpers', () => {
     expect(viewModel.topEntry.viewToActivationRate).toBeCloseTo(2 / 12, 5);
     expect(viewModel.topSource.label).toBe('google / organic');
     expect(viewModel.entryRows[0].signupCompletionRate).toBeCloseTo(4 / 7, 5);
-    expect(viewModel.activationMilestones[0]).toMatchObject({
-      key: 'wiki_page_created',
-      value: 2
+      expect(viewModel.activationMilestones[0]).toMatchObject({
+      key: 'wiki_shared_adopted',
+      value: 1
     });
   });
 });
@@ -94,6 +97,7 @@ describe('MarketingAnalytics page', () => {
         signupStarted: 7,
         signupsCompleted: 4,
         activatedUsers: 2,
+        wikiSharedAdopted: 1,
         wikiPageCreated: 2,
         wikiSourceAttached: 1,
         wikiDraftGenerated: 1
@@ -105,6 +109,7 @@ describe('MarketingAnalytics page', () => {
           signupStarted: 5,
           signupsCompleted: 3,
           activatedUsers: 2,
+          wikiSharedAdopted: 1,
           wikiPageCreated: 2,
           wikiSourceAttached: 1,
           wikiDraftGenerated: 1
@@ -118,6 +123,7 @@ describe('MarketingAnalytics page', () => {
           signupStarted: 5,
           signupsCompleted: 3,
           activatedUsers: 2,
+          wikiSharedAdopted: 1,
           wikiPageCreated: 2,
           wikiSourceAttached: 1,
           wikiDraftGenerated: 1
@@ -134,6 +140,7 @@ describe('MarketingAnalytics page', () => {
             signupStarted: 5,
             signupsCompleted: 3,
             activatedUsers: 2,
+            wikiSharedAdopted: 1,
             wikiPageCreated: 2,
             wikiSourceAttached: 1,
             wikiDraftGenerated: 1
@@ -153,6 +160,7 @@ describe('MarketingAnalytics page', () => {
     expect(screen.getAllByText('google / organic').length).toBeGreaterThan(0);
     expect(screen.getByText('Primary leak')).toBeInTheDocument();
     expect(screen.getByText('Activation quality')).toBeInTheDocument();
+    expect(screen.getByText('Shared wikis adopted')).toBeInTheDocument();
     expect(screen.getByText('Wiki pages created')).toBeInTheDocument();
     expect(screen.getByText('Sources attached')).toBeInTheDocument();
     expect(screen.getByText('Drafts generated')).toBeInTheDocument();

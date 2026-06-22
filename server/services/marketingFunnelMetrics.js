@@ -40,7 +40,8 @@ const createTotals = () => ({
   revisitScheduled: 0,
   wikiPageCreated: 0,
   wikiSourceAttached: 0,
-  wikiDraftGenerated: 0
+  wikiDraftGenerated: 0,
+  wikiSharedAdopted: 0
 });
 
 const ensureEntryBucket = (map, key) => {
@@ -56,7 +57,8 @@ const ensureEntryBucket = (map, key) => {
       revisitScheduled: 0,
       wikiPageCreated: 0,
       wikiSourceAttached: 0,
-      wikiDraftGenerated: 0
+      wikiDraftGenerated: 0,
+      wikiSharedAdopted: 0
     });
   }
   return map.get(key);
@@ -76,7 +78,8 @@ const ensureSourceBucket = (map, sourceKey, utmSource, utmMedium) => {
       revisitScheduled: 0,
       wikiPageCreated: 0,
       wikiSourceAttached: 0,
-      wikiDraftGenerated: 0
+      wikiDraftGenerated: 0,
+      wikiSharedAdopted: 0
     });
   }
   return map.get(sourceKey);
@@ -122,7 +125,8 @@ const marketingEventNameSet = new Set([
   'revisit_scheduled',
   'wiki_page_created',
   'wiki_source_attached',
-  'wiki_draft_generated'
+  'wiki_draft_generated',
+  'wiki_shared_adopted'
 ]);
 
 const activationEventSet = new Set([
@@ -131,7 +135,8 @@ const activationEventSet = new Set([
   'revisit_scheduled',
   'wiki_page_created',
   'wiki_source_attached',
-  'wiki_draft_generated'
+  'wiki_draft_generated',
+  'wiki_shared_adopted'
 ]);
 
 const activationMetricByEvent = {
@@ -140,7 +145,8 @@ const activationMetricByEvent = {
   revisit_scheduled: 'revisitScheduled',
   wiki_page_created: 'wikiPageCreated',
   wiki_source_attached: 'wikiSourceAttached',
-  wiki_draft_generated: 'wikiDraftGenerated'
+  wiki_draft_generated: 'wikiDraftGenerated',
+  wiki_shared_adopted: 'wikiSharedAdopted'
 };
 
 const listMarketingEntries = async ({
