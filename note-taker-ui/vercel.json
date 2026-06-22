@@ -18,6 +18,10 @@
       "destination": "/guides/index.html"
     },
     {
+      "source": "/examples",
+      "destination": "/examples/index.html"
+    },
+    {
       "source": "/ai-second-brain",
       "destination": "/ai-second-brain/index.html"
     },

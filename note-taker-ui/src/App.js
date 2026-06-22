@@ -63,6 +63,7 @@ const AgentConnectAuthorize = lazy(() => import('./pages/AgentConnectAuthorize')
 const AgentTaskRun = lazy(() => import('./pages/AgentTaskRun'));
 const AiSecondBrain = lazy(() => import('./pages/AiSecondBrain'));
 const GuidesHub = lazy(() => import('./pages/GuidesHub'));
+const Examples = lazy(() => import('./pages/Examples'));
 const SecondBrainApp = lazy(() => import('./pages/SecondBrainApp'));
 const AiNoteTakingWorkflow = lazy(() => import('./pages/AiNoteTakingWorkflow'));
 const PersonalKnowledgeManagementAi = lazy(() => import('./pages/PersonalKnowledgeManagementAi'));
@@ -185,6 +186,7 @@ const PublicRoutes = ({ chromeStoreLink, handleLoginSuccess, uiSettings }) => {
     || location.pathname === '/second-brain-app'
     || location.pathname === '/ai-note-taking-workflow'
     || location.pathname === '/guides'
+    || location.pathname === '/examples'
     || location.pathname === '/personal-knowledge-management-ai'
     || location.pathname === '/most-note-apps-solve-capture-not-recall'
     || location.pathname === '/readwise-is-not-a-second-brain'
@@ -216,6 +218,7 @@ const PublicRoutes = ({ chromeStoreLink, handleLoginSuccess, uiSettings }) => {
         <Routes>
           <Route path="/" element={<Landing />} />
           <Route path="/guides" element={<GuidesHub />} />
+          <Route path="/examples" element={<Examples />} />
           <Route path="/ai-second-brain" element={<AiSecondBrain />} />
           <Route path="/second-brain-app" element={<SecondBrainApp />} />
           <Route path="/ai-note-taking-workflow" element={<AiNoteTakingWorkflow />} />
@@ -567,6 +570,7 @@ function App() {
             <Route path="/marketing-analytics" element={<MarketingAnalytics />} />
             <Route path="/search-console-opportunities" element={<SearchConsoleOpportunities />} />
             <Route path="/guides" element={<GuidesHub />} />
+            <Route path="/examples" element={<Examples />} />
             <Route path="/ai-second-brain" element={<AiSecondBrain />} />
             <Route path="/second-brain-app" element={<SecondBrainApp />} />
             <Route path="/ai-note-taking-workflow" element={<AiNoteTakingWorkflow />} />

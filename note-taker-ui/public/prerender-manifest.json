@@ -9,6 +9,10 @@
       "file": "/guides/index.html"
     },
     {
+      "route": "/examples",
+      "file": "/examples/index.html"
+    },
+    {
       "route": "/ai-second-brain",
       "file": "/ai-second-brain/index.html"
     },

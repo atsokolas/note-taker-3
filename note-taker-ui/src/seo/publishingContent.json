@@ -36,6 +36,10 @@
         "href": "/guides"
       },
       {
+        "label": "Examples",
+        "href": "/examples"
+      },
+      {
         "label": "AI second brain",
         "href": "/ai-second-brain"
       },
@@ -45,6 +49,28 @@
       }
     ]
   },
+  "examples": [
+    {
+      "title": "Mental Models",
+      "href": "/share/wiki/collection/mental-models",
+      "description": "A shareable mini-wiki for first principles, opportunity cost, inversion, and related judgment tools."
+    },
+    {
+      "title": "Behavioral Economics",
+      "href": "/share/wiki/collection/behavioral-economics",
+      "description": "A starter graph for loss aversion, anchoring, base rates, and decision-making under bias."
+    },
+    {
+      "title": "How to Think About AI",
+      "href": "/share/wiki/collection/how-to-think-about-ai",
+      "description": "A starter graph for agents, evals, context windows, scaling laws, and capability tradeoffs."
+    },
+    {
+      "title": "Value Investing",
+      "href": "/share/wiki/collection/value-investing",
+      "description": "A starter graph for intrinsic value, moats, owner earnings, capital allocation, and margin of safety."
+    }
+  ],
   "guides": [
     {
       "slug": "ai-second-brain",

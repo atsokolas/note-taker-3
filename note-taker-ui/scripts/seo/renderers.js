@@ -13,6 +13,7 @@ const buildUrl = (host, path = '/') => {
 const getPrerenderRoutes = (content) => [
   { route: '/', file: '/index.html' },
   { route: '/guides', file: '/guides/index.html' },
+  { route: '/examples', file: '/examples/index.html' },
   ...content.guides.map((guide) => ({
     route: `/${guide.slug}`,
     file: `/${guide.slug}/index.html`
@@ -25,32 +26,11 @@ const renderGuideCards = (content) => content.guides.map((guide) => `
         <p>${escapeHtml(guide.description)}</p>
       </a>`).join('');
 
-const renderStarterPackCards = () => ([
-  {
-    title: 'Mental Models',
-    href: '/share/wiki/collection/mental-models',
-    description: 'A shareable mini-wiki for first principles, opportunity cost, inversion, and related judgment tools.'
-  },
-  {
-    title: 'Behavioral Economics',
-    href: '/share/wiki/collection/behavioral-economics',
-    description: 'A starter graph for loss aversion, anchoring, base rates, and decision-making under bias.'
-  },
-  {
-    title: 'How to Think About AI',
-    href: '/share/wiki/collection/how-to-think-about-ai',
-    description: 'A starter graph for agents, evals, context windows, scaling laws, and capability tradeoffs.'
-  },
-  {
-    title: 'Value Investing',
-    href: '/share/wiki/collection/value-investing',
-    description: 'A starter graph for intrinsic value, moats, owner earnings, capital allocation, and margin of safety.'
-  }
-].map((pack) => `
+const renderStarterPackCards = (content) => (Array.isArray(content.examples) ? content.examples : []).map((pack) => `
       <a class="subcard guide-card" href="${escapeHtml(pack.href)}">
         <h2>${escapeHtml(pack.title)}</h2>
         <p>${escapeHtml(pack.description)}</p>
-      </a>`).join('').trimStart());
+      </a>`).join('').trimStart();
 
 const renderGuideLinks = (links = []) => links.map((link) => (
   `<a href="${escapeHtml(link.href)}">${escapeHtml(link.label)}</a>`
@@ -236,7 +216,7 @@ const renderHomeFallback = (content) => `
           <a class="button secondary" href="/onboarding/wiki">Build your wiki</a>
         </div>
         <div class="grid">
-          ${renderStarterPackCards()}
+          ${renderStarterPackCards(content)}
         </div>
       </section>
       <section class="card">
@@ -288,6 +268,76 @@ const renderGuideHubPage = (content) => {
 ${guides}
           </div>
         </header>
+      </article>
+    </main>
+  </body>
+</html>`;
+};
+
+const renderExamplesPage = (content) => {
+  const canonical = buildUrl(content.site.host, '/examples');
+  return `<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Source-Grounded Wiki Examples | Noeis</title>
+    <meta
+      name="description"
+      content="Curated source-grounded Noeis wiki examples for serious readers evaluating evidence-backed research workflows."
+    />
+    <meta name="robots" content="index,follow" />
+    <link rel="canonical" href="${canonical}" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="${escapeHtml(content.site.name)}" />
+    <meta property="og:title" content="Source-Grounded Wiki Examples | Noeis" />
+    <meta
+      property="og:description"
+      content="Curated source-grounded Noeis wiki examples for serious readers evaluating evidence-backed research workflows."
+    />
+    <meta property="og:url" content="${canonical}" />
+    <meta name="twitter:card" content="summary" />
+    <link rel="stylesheet" href="/guides/styles.css" />
+    <script type="application/ld+json">${JSON.stringify({
+      '@context': 'https://schema.org',
+      '@type': 'CollectionPage',
+      name: 'Source-Grounded Wiki Examples',
+      url: canonical,
+      description: 'Curated source-grounded Noeis wiki examples for serious readers evaluating evidence-backed research workflows.',
+      publisher: {
+        '@type': 'Organization',
+        name: content.site.name,
+        url: content.site.host
+      },
+      hasPart: (Array.isArray(content.examples) ? content.examples : []).map((example) => ({
+        '@type': 'CreativeWork',
+        name: example.title,
+        url: buildUrl(content.site.host, example.href),
+        description: example.description
+      }))
+    })}</script>
+  </head>
+  <body>
+    <main class="seo-page">
+      <article class="seo-shell">
+        <header class="seo-hero">
+          <p class="eyebrow">Examples</p>
+          <h1>Source-Grounded Wiki Examples</h1>
+          <p class="lede">
+            Curated public Noeis wikis show how serious readers can turn source material into durable pages, claims, and reusable research structure.
+          </p>
+          <div class="grid">
+${renderStarterPackCards(content)}
+          </div>
+        </header>
+        <section class="card">
+          <h2>Why these examples are curated</h2>
+          <p>Shared wiki pages should be indexable only when they are intentional public examples. This page points search engines and readers to selected examples instead of treating every shared page as a growth asset.</p>
+          <div class="cta-row">
+            <a class="button primary" href="/register?via=marketing&amp;entry=examples&amp;cta=examples&amp;page_type=examples">Build your own research wiki</a>
+            <a class="button secondary" href="/from-saved-article-to-draft-in-noeis">See the draft workflow</a>
+          </div>
+        </section>
       </article>
     </main>
   </body>
@@ -391,6 +441,7 @@ const renderSitemap = (content) => {
   const urls = [
     '/',
     '/guides',
+    '/examples',
     ...content.guides.map((guide) => `/${guide.slug}`)
   ];
 
@@ -447,6 +498,7 @@ const renderBingSiteAuthXml = (token = '') => `<?xml version="1.0"?>\n<users>\n 
 
 module.exports = {
   renderGuideHubPage,
+  renderExamplesPage,
   renderGuidePage,
   renderHomeFallback,
   renderSitemap,

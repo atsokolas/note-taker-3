@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const {
   renderGuideHubPage,
+  renderExamplesPage,
   renderGuidePage,
   renderHomeFallback,
   renderSitemap,
@@ -16,6 +17,7 @@ const publicDir = path.join(rootDir, 'public');
 const contentPath = path.join(rootDir, 'src', 'seo', 'publishingContent.json');
 const indexHtmlPath = path.join(publicDir, 'index.html');
 const guideHubPath = path.join(publicDir, 'guides', 'index.html');
+const examplesPath = path.join(publicDir, 'examples', 'index.html');
 const sitemapPath = path.join(publicDir, 'sitemap.xml');
 const redirectsPath = path.join(publicDir, '_redirects');
 const prerenderManifestPath = path.join(publicDir, 'prerender-manifest.json');
@@ -44,6 +46,8 @@ const nextIndexHtml = indexHtml.replace(
 
 fs.writeFileSync(indexHtmlPath, nextIndexHtml);
 fs.writeFileSync(guideHubPath, renderGuideHubPage(content));
+fs.mkdirSync(path.dirname(examplesPath), { recursive: true });
+fs.writeFileSync(examplesPath, renderExamplesPage(content));
 fs.writeFileSync(sitemapPath, renderSitemap(content));
 fs.writeFileSync(redirectsPath, renderStaticRedirects(content));
 fs.writeFileSync(prerenderManifestPath, renderPrerenderManifest(content));

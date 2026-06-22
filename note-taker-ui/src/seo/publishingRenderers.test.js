@@ -1,5 +1,6 @@
 const {
   renderHomeFallback,
+  renderExamplesPage,
   renderSitemap,
   renderPrerenderManifest,
   renderStaticRedirects,
@@ -15,6 +16,7 @@ describe('publishing renderers', () => {
     expect(html).toContain('Source-grounded personal research wiki');
     expect(html).toContain('Saved reading becomes a source-grounded wiki. The wiki becomes drafts, decisions, and reusable insight.');
     expect(html).toContain('href="/guides"');
+    expect(html).toContain('href="/examples"');
     expect(html).toContain('href="/ai-second-brain"');
     expect(html).toContain('Shared wiki adoption');
     expect(html).toContain('<strong>Make this mine</strong>');
@@ -23,11 +25,22 @@ describe('publishing renderers', () => {
     expect(html).toContain('Private backlinks, highlights, source notes, and agent work stay with the original owner.');
   });
 
+  it('renders a curated examples page for source-grounded public wikis', () => {
+    const html = renderExamplesPage(publishingContent);
+
+    expect(html).toContain('Source-Grounded Wiki Examples | Noeis');
+    expect(html).toContain('Curated public Noeis wikis');
+    expect(html).toContain('href="/share/wiki/collection/mental-models"');
+    expect(html).toContain('href="/from-saved-article-to-draft-in-noeis"');
+    expect(html).toContain('"@type":"CollectionPage"');
+  });
+
   it('renders a sitemap with canonical www URLs and lastmod values', () => {
     const xml = renderSitemap(publishingContent);
 
     expect(xml).toContain('<loc>https://www.noeis.io/</loc>');
     expect(xml).toContain('<loc>https://www.noeis.io/guides</loc>');
+    expect(xml).toContain('<loc>https://www.noeis.io/examples</loc>');
     expect(xml).toContain('<loc>https://www.noeis.io/ai-second-brain</loc>');
     expect(xml).toContain('<lastmod>2026-04-19</lastmod>');
   });
@@ -39,6 +52,7 @@ describe('publishing renderers', () => {
       expect.arrayContaining([
         expect.objectContaining({ route: '/', file: '/index.html' }),
         expect.objectContaining({ route: '/guides', file: '/guides/index.html' }),
+        expect.objectContaining({ route: '/examples', file: '/examples/index.html' }),
         expect.objectContaining({ route: '/source-backed-synthesis-workflow', file: '/source-backed-synthesis-workflow/index.html' }),
         expect.objectContaining({ route: '/from-saved-article-to-draft-in-noeis', file: '/from-saved-article-to-draft-in-noeis/index.html' })
       ])
@@ -51,6 +65,7 @@ describe('publishing renderers', () => {
     const vercel = JSON.parse(renderVercelConfig(publishingContent));
 
     expect(redirects).toContain('/guides /guides/index.html 200');
+    expect(redirects).toContain('/examples /examples/index.html 200');
     expect(redirects).toContain('/import-reading-archive-into-noeis /import-reading-archive-into-noeis/index.html 200');
     expect(redirects).toContain('/from-saved-article-to-draft-in-noeis /from-saved-article-to-draft-in-noeis/index.html 200');
     expect(redirects.trim().endsWith('/* /index.html 200')).toBe(true);
@@ -70,6 +85,7 @@ describe('publishing renderers', () => {
     expect(vercel.rewrites).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ source: '/guides', destination: '/guides/index.html' }),
+        expect.objectContaining({ source: '/examples', destination: '/examples/index.html' }),
         expect.objectContaining({ source: '/best-second-brain-app-for-founders', destination: '/best-second-brain-app-for-founders/index.html' }),
         expect.objectContaining({ source: '/from-saved-article-to-draft-in-noeis', destination: '/from-saved-article-to-draft-in-noeis/index.html' }),
         expect.objectContaining({ source: '/(.*)', destination: '/' })
