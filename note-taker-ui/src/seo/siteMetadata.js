@@ -5,7 +5,7 @@ export const DEFAULT_AUTHOR_NAME = 'Anthony Tsokolas';
 export const DEFAULT_SOCIAL_IMAGE_PATH = '/logo512.png';
 export const DEFAULT_LAST_UPDATED = '2026-04-19';
 export const DEFAULT_LAST_UPDATED_LABEL = 'April 19, 2026';
-export const DEFAULT_DESCRIPTION = 'Noeis is a concept-centered thinking workspace for serious readers who want to turn highlights, notes, and saved reading into maintained concepts and reusable insight.';
+export const DEFAULT_DESCRIPTION = 'Noeis is a source-grounded personal research wiki for serious readers who want to turn saved reading, highlights, and notes into evidence-backed pages, drafts, and reusable insight.';
 
 export const buildCanonicalUrl = (path = '/') => {
   const normalizedPath = String(path || '/').trim();

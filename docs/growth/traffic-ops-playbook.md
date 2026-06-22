@@ -1,7 +1,7 @@
 # Traffic Ops Playbook (X + Reddit + Other Channels)
 
 ## Goal
-Drive qualified users to Note Taker/Noeis daily via consistent posting + engagement.
+Drive qualified users to Noeis daily via consistent posting + engagement.
 
 ## Daily structure
 - **Morning brief**: plan the day (angles, channels, targets)
@@ -33,8 +33,9 @@ Drive qualified users to Note Taker/Noeis daily via consistent posting + engagem
 1. Primary: https://noeis.io/register
 2. Secondary: guide pages for education intent
    - /ai-second-brain
-   - /ai-note-taking-workflow
-   - /personal-knowledge-management-ai
+   - /import-reading-archive-into-noeis
+   - /from-saved-article-to-draft-in-noeis
+   - /source-backed-synthesis-workflow
 
 ## Morning brief template
 - Today’s thesis:

@@ -52,6 +52,7 @@ const CTA_BY_THEME = {
   concepts: 'Create your first concept',
   reading: 'Save your first article',
   synthesis: 'Build your first synthesis',
+  draft: 'Turn an article into a draft',
   comparison: 'Create your first concept',
   secondBrain: 'Create your first concept',
   brand: 'Create your first concept',
@@ -90,6 +91,10 @@ const PLAYBOOK_BY_THEME = {
   synthesis: {
     title: 'Source-backed synthesis workflow in Noeis',
     slug: 'source-backed-synthesis-workflow'
+  },
+  draft: {
+    title: 'From saved article to draft in Noeis',
+    slug: 'from-saved-article-to-draft-in-noeis'
   }
 };
 
@@ -209,6 +214,7 @@ const detectTheme = (query = '') => {
   if (lower.includes('founder')) return 'founders';
   if (lower.includes('research')) return 'researchers';
   if (lower.includes('import') || lower.includes('archive')) return 'import';
+  if (lower.includes('draft') || lower.includes('saved article')) return 'draft';
   if (lower.includes('knowledge management') || lower.includes('pkm')) return 'concepts';
   if (lower.includes('highlight') || lower.includes('concept')) return 'concepts';
   if (lower.includes('synthesis') || lower.includes('draft')) return 'synthesis';

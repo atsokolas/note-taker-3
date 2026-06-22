@@ -84,13 +84,23 @@ const run = async () => {
         source: 'backend',
         actor: { userIdHash },
         properties: {}
+      },
+      {
+        event: 'wiki_page_created',
+        timestamp: '2026-04-18T12:30:00.000Z',
+        source: 'backend',
+        actor: { userIdHash },
+        properties: {
+          pageType: 'source',
+          sourceCount: 1
+        }
       }
     ]
   });
 
   const snapshot = await buildMarketingFunnelSnapshot({
     analyticsLogPath: filePath,
-    days: 30
+    days: 120
   });
 
   assert.strictEqual(snapshot.totals.signupViewed, 2, 'Should count signup views.');
@@ -106,7 +116,7 @@ const run = async () => {
 
   const series = await buildMarketingFunnelSeries({
     analyticsLogPath: filePath,
-    days: 30
+    days: 120
   });
 
   const april18 = series.series.find((bucket) => bucket.date === '2026-04-18');

@@ -5,6 +5,9 @@ import renderTiptapDoc, { extractTocItems, firstParagraphText } from '../compone
 import { countWikiClaims, countWikiPageWords, countWikiSources } from '../components/wiki/wikiPageMetrics';
 import { wikiPagePath } from '../utils/wikiFeatureFlags';
 import { buildSharePreviewReceipt } from '../utils/connectionMagicMoment';
+import useSeoMetadata from '../hooks/useSeoMetadata';
+import { CANONICAL_HOST, SITE_NAME, buildCanonicalUrl } from '../seo/siteMetadata';
+import { trackSharedWikiAdoptClicked, trackSharedWikiViewed } from '../utils/marketingAnalytics';
 
 const formatDate = (value) => {
   if (!value) return '';
@@ -17,17 +20,6 @@ const formatDate = (value) => {
   } catch (_error) {
     return '';
   }
-};
-
-const useDocumentTitle = (title) => {
-  useEffect(() => {
-    if (!title) return undefined;
-    const previous = document.title;
-    document.title = title;
-    return () => {
-      document.title = previous;
-    };
-  }, [title]);
 };
 
 const usePublicShareScrollSurface = () => {
@@ -44,6 +36,72 @@ const usePublicShareScrollSurface = () => {
 const hasAuthToken = () => {
   if (typeof window === 'undefined') return false;
   return Boolean(localStorage.getItem('token') || localStorage.getItem('authToken'));
+};
+
+const cleanText = (value = '') => String(value || '').replace(/\s+/g, ' ').trim();
+
+const buildSharedWikiDescription = (page, intro = '') => {
+  const fromIntro = cleanText(intro).slice(0, 220);
+  if (fromIntro) return fromIntro;
+  const title = cleanText(page?.title) || 'Shared wiki';
+  return `${title} is a public Noeis wiki page with static references and private workspace context withheld.`;
+};
+
+export const buildSharedWikiSchema = ({
+  page,
+  canonicalPath = '/',
+  description = '',
+  wordCount = 0,
+  sourceCount = 0,
+  claimCount = 0
+} = {}) => {
+  const title = cleanText(page?.title) || 'Shared wiki page';
+  const canonicalUrl = buildCanonicalUrl(canonicalPath);
+  const citations = Array.isArray(page?.sourceRefs)
+    ? page.sourceRefs
+      .slice(0, 24)
+      .map((source) => {
+        const name = cleanText(source?.title || source?.url || source?.type || 'Source');
+        if (!name) return null;
+        return {
+          '@type': 'CreativeWork',
+          name,
+          ...(source?.url ? { url: source.url } : {})
+        };
+      })
+      .filter(Boolean)
+    : [];
+
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'CreativeWork',
+    name: title,
+    headline: title,
+    description,
+    url: canonicalUrl,
+    mainEntityOfPage: canonicalUrl,
+    isAccessibleForFree: true,
+    inLanguage: 'en',
+    dateModified: page?.updatedAt || undefined,
+    publisher: {
+      '@type': 'Organization',
+      name: SITE_NAME,
+      url: CANONICAL_HOST
+    },
+    isPartOf: {
+      '@type': 'WebSite',
+      name: SITE_NAME,
+      url: CANONICAL_HOST
+    },
+    ...(wordCount ? { wordCount } : {}),
+    keywords: [
+      'source-grounded research',
+      'personal research wiki',
+      ...(sourceCount ? ['public source references'] : []),
+      ...(claimCount ? ['evidence-backed claims'] : [])
+    ],
+    ...(citations.length > 0 ? { citation: citations } : {})
+  };
 };
 
 const SharedWikiPage = () => {
@@ -86,16 +144,55 @@ const SharedWikiPage = () => {
   const sourceCount = countWikiSources(page || {});
   const claimCount = countWikiClaims(page || {});
   const updatedAt = formatDate(page?.updatedAt);
+  const canonicalPath = location.pathname || `/share/wiki/${idOrSlug}`;
+  const seoDescription = useMemo(
+    () => buildSharedWikiDescription(page, intro),
+    [intro, page]
+  );
+  const seoTitle = page?.title ? `${page.title} · Shared Wiki · Noeis` : 'Shared Wiki · Noeis';
+  const seoSchema = useMemo(
+    () => buildSharedWikiSchema({
+      page,
+      canonicalPath,
+      description: seoDescription,
+      wordCount,
+      sourceCount,
+      claimCount
+    }),
+    [canonicalPath, claimCount, page, seoDescription, sourceCount, wordCount]
+  );
   const shouldAutoAdopt = useMemo(() => {
     const params = new URLSearchParams(location.search || '');
     return params.get('adopt') === '1';
   }, [location.search]);
   usePublicShareScrollSurface();
-  useDocumentTitle(page?.title ? `${page.title} · Noeis` : 'Shared wiki · Noeis');
+  useSeoMetadata({
+    title: seoTitle,
+    description: seoDescription,
+    canonicalPath,
+    schema: seoSchema,
+    ogType: 'article'
+  });
+
+  useEffect(() => {
+    if (!page) return;
+    trackSharedWikiViewed({
+      page: canonicalPath,
+      title: page.title || '',
+      sourceCount,
+      claimCount
+    });
+  }, [canonicalPath, claimCount, page, sourceCount]);
 
   const handleAdopt = useCallback(async () => {
     if (!idOrSlug || adopting) return;
     setAdoptionError('');
+    trackSharedWikiAdoptClicked({
+      page: canonicalPath,
+      title: page?.title || '',
+      sourceCount,
+      claimCount
+    });
     if (!hasAuthToken()) {
       try {
         const params = new URLSearchParams(location.search || '');
@@ -128,7 +225,7 @@ const SharedWikiPage = () => {
     } finally {
       setAdopting(false);
     }
-  }, [adopting, idOrSlug, location.hash, location.pathname, location.search, navigate, shouldAutoAdopt]);
+  }, [adopting, canonicalPath, claimCount, idOrSlug, location.hash, location.pathname, location.search, navigate, page?.title, shouldAutoAdopt, sourceCount]);
 
   useEffect(() => {
     if (!page || !shouldAutoAdopt || autoAdoptAttemptedRef.current || !hasAuthToken()) return;

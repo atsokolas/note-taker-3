@@ -257,19 +257,19 @@ const renderGuideHubPage = (content) => {
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Noeis Guides for Thinking, Reading, and Knowledge Work</title>
+    <title>Noeis Guides for Source-Grounded Research and Knowledge Work</title>
     <meta
       name="description"
-      content="Opinionated guides on reliable recall, concept formation, reading workflows, and AI-assisted synthesis for serious readers."
+      content="Opinionated guides on source-grounded research workflows, reliable recall, reading-to-draft systems, and evidence-backed synthesis for serious readers."
     />
     <meta name="robots" content="index,follow" />
     <link rel="canonical" href="${canonical}" />
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="${escapeHtml(content.site.name)}" />
-    <meta property="og:title" content="Noeis Guides for Thinking, Reading, and Knowledge Work" />
+    <meta property="og:title" content="Noeis Guides for Source-Grounded Research and Knowledge Work" />
     <meta
       property="og:description"
-      content="Opinionated guides on reliable recall, concept formation, reading workflows, and AI-assisted synthesis."
+      content="Opinionated guides on source-grounded research workflows, reliable recall, reading-to-draft systems, and evidence-backed synthesis."
     />
     <meta property="og:url" content="${canonical}" />
     <meta name="twitter:card" content="summary" />
@@ -280,9 +280,9 @@ const renderGuideHubPage = (content) => {
       <article class="seo-shell">
         <header class="seo-hero">
           <p class="eyebrow">Guides</p>
-          <h1>Practical Guides for Thinking, Reading, and Knowledge Work</h1>
+          <h1>Practical Guides for Source-Grounded Research and Knowledge Work</h1>
           <p class="lede">
-            These guides are built for founders, writers, researchers, analysts, and serious readers evaluating better workflows for recall, synthesis, and concept formation.
+            These guides are built for founders, writers, researchers, analysts, and serious readers evaluating better workflows for source-grounded research, recall, synthesis, and drafts.
           </p>
           <div class="grid">
 ${guides}

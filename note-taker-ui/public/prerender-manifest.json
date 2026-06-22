@@ -55,6 +55,10 @@
     {
       "route": "/import-reading-archive-into-noeis",
       "file": "/import-reading-archive-into-noeis/index.html"
+    },
+    {
+      "route": "/from-saved-article-to-draft-in-noeis",
+      "file": "/from-saved-article-to-draft-in-noeis/index.html"
     }
   ],
   "spaFallback": "/index.html"

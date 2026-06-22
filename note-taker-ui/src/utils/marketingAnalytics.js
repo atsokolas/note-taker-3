@@ -51,6 +51,47 @@ export const trackGuideCta = ({ page, cta, target }) => {
   trackMarketingCta({ page, cta, target, pageType: 'guide' });
 };
 
+export const trackSharedWikiViewed = ({ page = '', title = '', sourceCount = 0, claimCount = 0 } = {}) => {
+  const target = typeof window !== 'undefined' ? window.location.pathname : page;
+  const attribution = captureMarketingAttribution({
+    entry: page,
+    cta: 'shared_wiki_view',
+    pageType: 'shared_wiki',
+    target
+  });
+  safeTrack('Shared Wiki Viewed', {
+    ...buildMarketingPayload({
+      page,
+      title,
+      pageType: 'shared_wiki',
+      sourceCount,
+      claimCount
+    }),
+    attributionCaptured: Boolean(attribution)
+  });
+};
+
+export const trackSharedWikiAdoptClicked = ({ page = '', title = '', sourceCount = 0, claimCount = 0 } = {}) => {
+  const target = '/register';
+  const attribution = captureMarketingAttribution({
+    entry: page,
+    cta: 'adopt_shared_wiki',
+    pageType: 'shared_wiki',
+    target
+  });
+  safeTrack('Shared Wiki Adopt Clicked', {
+    ...buildMarketingPayload({
+      page,
+      title,
+      pageType: 'shared_wiki',
+      sourceCount,
+      claimCount,
+      target
+    }),
+    attributionCaptured: Boolean(attribution)
+  });
+};
+
 export const trackSignupViewed = () => {
   captureMarketingAttribution({ pageType: 'signup', target: '/register' });
   safeTrack('Marketing Signup Viewed', buildMarketingPayload({ pageType: 'signup' }));

@@ -12,8 +12,8 @@ describe('publishing renderers', () => {
   it('renders a server-visible homepage fallback from the publishing registry', () => {
     const html = renderHomeFallback(publishingContent);
 
-    expect(html).toContain('Concept-centered thinking workspace for serious readers');
-    expect(html).toContain('Reading becomes notes. Notes become concepts. Questions stay open until they are answered.');
+    expect(html).toContain('Source-grounded personal research wiki');
+    expect(html).toContain('Saved reading becomes a source-grounded wiki. The wiki becomes drafts, decisions, and reusable insight.');
     expect(html).toContain('href="/guides"');
     expect(html).toContain('href="/ai-second-brain"');
     expect(html).toContain('Shared wiki adoption');
@@ -39,7 +39,8 @@ describe('publishing renderers', () => {
       expect.arrayContaining([
         expect.objectContaining({ route: '/', file: '/index.html' }),
         expect.objectContaining({ route: '/guides', file: '/guides/index.html' }),
-        expect.objectContaining({ route: '/source-backed-synthesis-workflow', file: '/source-backed-synthesis-workflow/index.html' })
+        expect.objectContaining({ route: '/source-backed-synthesis-workflow', file: '/source-backed-synthesis-workflow/index.html' }),
+        expect.objectContaining({ route: '/from-saved-article-to-draft-in-noeis', file: '/from-saved-article-to-draft-in-noeis/index.html' })
       ])
     );
     expect(manifest.spaFallback).toBe('/index.html');
@@ -51,6 +52,7 @@ describe('publishing renderers', () => {
 
     expect(redirects).toContain('/guides /guides/index.html 200');
     expect(redirects).toContain('/import-reading-archive-into-noeis /import-reading-archive-into-noeis/index.html 200');
+    expect(redirects).toContain('/from-saved-article-to-draft-in-noeis /from-saved-article-to-draft-in-noeis/index.html 200');
     expect(redirects.trim().endsWith('/* /index.html 200')).toBe(true);
 
     expect(vercel.cleanUrls).toBe(true);
@@ -69,6 +71,7 @@ describe('publishing renderers', () => {
       expect.arrayContaining([
         expect.objectContaining({ source: '/guides', destination: '/guides/index.html' }),
         expect.objectContaining({ source: '/best-second-brain-app-for-founders', destination: '/best-second-brain-app-for-founders/index.html' }),
+        expect.objectContaining({ source: '/from-saved-article-to-draft-in-noeis', destination: '/from-saved-article-to-draft-in-noeis/index.html' }),
         expect.objectContaining({ source: '/(.*)', destination: '/' })
       ])
     );

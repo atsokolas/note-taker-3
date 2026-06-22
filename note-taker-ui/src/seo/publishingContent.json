@@ -9,14 +9,14 @@
       "This guide is based on direct testing of Noeis workflows, review of current note-taking and second-brain patterns, and practical evaluation of what helps serious readers retrieve and reuse their own material.",
       "The goal is not to produce generic listicle SEO copy. It is to make the decision criteria explicit enough that a reader can judge whether the workflow will actually improve recall, synthesis, and output."
     ],
-    "description": "Noeis is a concept-centered thinking workspace for serious readers who want to turn highlights, notes, and saved reading into maintained concepts and reusable insight."
+    "description": "Noeis is a source-grounded personal research wiki for serious readers who want to turn saved reading, highlights, and notes into evidence-backed pages, drafts, and reusable insight."
   },
   "home": {
-    "eyebrow": "Concept-centered thinking workspace for serious readers",
-    "railEyebrow": "Built for reliable recall",
-    "railCopy": "A reading room for people who save too much, think in fragments, and want their notes to accumulate into actual judgment.",
-    "headline": "Reading becomes notes. Notes become concepts. Questions stay open until they are answered.",
-    "lede": "Noeis keeps highlights, working drafts, concepts, and question threads in one calm workspace so your thinking can compound instead of disappearing into tabs, folders, and screenshots.",
+    "eyebrow": "Source-grounded personal research wiki",
+    "railEyebrow": "Built for evidence-backed synthesis",
+    "railCopy": "A research workspace for people who save too much, think in fragments, and want reading to become pages, drafts, and decisions with sources attached.",
+    "headline": "Saved reading becomes a source-grounded wiki. The wiki becomes drafts, decisions, and reusable insight.",
+    "lede": "Noeis keeps articles, highlights, wiki pages, working drafts, concepts, and question threads in one calm workspace so your thinking can compound without losing the evidence underneath it.",
     "primaryCta": {
       "label": "Get started",
       "href": "/register"
@@ -27,7 +27,7 @@
     },
     "proofPoints": [
       "Highlights stay attached to source and context.",
-      "Concepts gather evidence before they become manuscripts.",
+      "Wiki pages gather evidence before they become manuscripts.",
       "Questions stay visible until something actually resolves them."
     ],
     "guideLinks": [
@@ -2620,6 +2620,248 @@
                 "source-backed-synthesis-workflow",
                 "highlights-into-concepts",
                 "ai-reading-without-losing-judgment"
+              ]
+            },
+            {
+              "type": "ctas",
+              "items": [
+                {
+                  "label": "Start free",
+                  "href": "/register",
+                  "variant": "primary",
+                  "track": "footer"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "from-saved-article-to-draft-in-noeis",
+      "title": "From Saved Article to Draft in Noeis",
+      "pageTitle": "From Saved Article to Draft in Noeis | Noeis",
+      "description": "A practical source-grounded workflow for turning a saved article into an evidence-backed draft in Noeis.",
+      "heroTitle": "From Saved Article to Draft in Noeis",
+      "heroDescription": "How to turn saved reading into a source-grounded draft without losing the evidence, context, or judgment underneath it.",
+      "eyebrow": "Proof layer",
+      "heroIntro": [
+        "The hard part of knowledge work is not saving another article. It is turning the useful parts of that article into a claim, a page, a memo, or a draft you can actually use later.",
+        "Noeis is built around that handoff. A saved article can become highlights, highlights can become source-backed wiki material, and the wiki can become a draft while the original evidence stays close enough to inspect."
+      ],
+      "methodology": [
+        "This guide is based on the Noeis library, highlighting, wiki, and drafting workflow as implemented in the product.",
+        "The standard is activation, not storage: a reader should be able to move from one saved source to a useful output while keeping citation context and human judgment visible."
+      ],
+      "directAnswer": {
+        "label": "Direct answer",
+        "title": "A saved article becomes useful when it produces a source-grounded draft.",
+        "text": "The workflow should preserve the article, pull out reusable evidence, attach that evidence to a wiki page or concept, and then turn the page into a draft that can still be checked against the original source.",
+        "points": [
+          "Start with one saved article and highlight only the reusable passages.",
+          "Group those highlights around a claim, question, or wiki page.",
+          "Draft from the evidence layer instead of asking AI to invent from a blank prompt."
+        ]
+      },
+      "ctas": [
+        {
+          "label": "Turn an article into a draft",
+          "href": "/register",
+          "variant": "primary",
+          "track": "hero"
+        },
+        {
+          "label": "Browse guides",
+          "href": "/guides",
+          "variant": "secondary",
+          "track": "hero"
+        }
+      ],
+      "toc": [
+        {
+          "id": "why-drafts-stall",
+          "label": "Why drafts stall"
+        },
+        {
+          "id": "workflow",
+          "label": "The Noeis workflow"
+        },
+        {
+          "id": "proof-check",
+          "label": "How to keep proof attached"
+        },
+        {
+          "id": "faq",
+          "label": "FAQ"
+        }
+      ],
+      "faq": [
+        {
+          "question": "How do I turn a saved article into a draft?",
+          "answer": "Save the article, highlight the passages that support a claim or question, move those passages into a wiki page or concept, and draft from that source-backed structure."
+        },
+        {
+          "question": "Why not just summarize the article with AI?",
+          "answer": "A summary can be useful, but it often collapses evidence and judgment into one flat answer. A source-grounded workflow keeps the passages, claims, and draft connected so you can inspect the reasoning."
+        },
+        {
+          "question": "What makes this different from a notes app?",
+          "answer": "The output is not just a note. The goal is a reusable page or draft with evidence underneath it, so the work can be checked, expanded, and shared."
+        }
+      ],
+      "sections": [
+        {
+          "id": "why-drafts-stall",
+          "title": "Why saved reading rarely becomes a draft",
+          "blocks": [
+            {
+              "type": "claimEvidence",
+              "claim": "Drafts stall when saved material is separated from the claim it is supposed to support.",
+              "evidence": [
+                "A saved article usually preserves the source but not the reason it mattered.",
+                "A highlight preserves the passage but often loses the question, claim, or decision it should support.",
+                "A draft written from memory or a blank AI prompt can lose nuance because the evidence is no longer in the workspace."
+              ],
+              "whyItMatters": "The best activation path for Noeis is not capture. It is the moment a user sees prior reading become an output they can trust."
+            },
+            {
+              "type": "paragraph",
+              "text": "Most reading workflows create a pile of potentially useful material. The user still has to reconstruct what the article meant, why they saved it, and how it connects to the argument they are trying to make."
+            },
+            {
+              "type": "paragraph",
+              "text": "A source-grounded draft workflow changes the order. The article is saved, the reusable evidence is pulled forward, and the draft is built from the evidence layer instead of from a vague memory of what the article said."
+            }
+          ]
+        },
+        {
+          "style": "callout",
+          "title": "The activation moment is when reading becomes output.",
+          "blocks": [
+            {
+              "type": "paragraph",
+              "text": "Noeis should be judged by whether a saved article can become a clear page, memo, or draft with the source material still inspectable underneath it."
+            }
+          ]
+        },
+        {
+          "id": "workflow",
+          "title": "A practical saved-article-to-draft workflow",
+          "blocks": [
+            {
+              "type": "orderedList",
+              "items": [
+                "Save the article into the Library so the source and reading context are preserved.",
+                "Highlight only the passages that may support a claim, question, or decision.",
+                "Attach the strongest highlights to a wiki page, concept, or active question.",
+                "Write a short synthesis in your own words before expanding into a longer draft.",
+                "Use AI to challenge, organize, or extend the draft while keeping the evidence visible.",
+                "Review the final draft against the source-backed page before sharing or acting on it."
+              ]
+            },
+            {
+              "type": "cards",
+              "variant": "example",
+              "items": [
+                {
+                  "title": "Example: founder decision memo",
+                  "paragraphs": [
+                    "A founder saves an article about onboarding, highlights two passages about activation friction, and attaches them to a wiki page about new-user drop-off. The page becomes a draft memo with three claims and the evidence needed to defend each one."
+                  ]
+                },
+                {
+                  "title": "Example: research note to essay section",
+                  "paragraphs": [
+                    "A writer saves a source about attention, pulls out the passages that sharpen their argument, and drafts one section from the source-backed page. The draft can still be checked against the original article before publishing."
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "proof-check",
+          "title": "How to keep proof attached while drafting",
+          "blocks": [
+            {
+              "type": "comparison",
+              "items": [
+                {
+                  "title": "Source-grounded drafting",
+                  "paragraphs": [
+                    "The draft grows from saved sources, highlights, wiki pages, and claims. The writer can move back from a sentence to the evidence that supported it."
+                  ]
+                },
+                {
+                  "title": "Generic AI drafting",
+                  "paragraphs": [
+                    "The draft starts from a prompt and may sound complete before the evidence is inspected. The user still has to verify what is true, useful, and actually grounded in their material."
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "unorderedList",
+              "items": [
+                "Keep the source URL and title attached to each article.",
+                "Use highlights as evidence, not as a separate inbox.",
+                "Name the wiki page or concept after the claim or question it supports.",
+                "Draft only after the evidence has been grouped enough to reveal a point of view.",
+                "Review the draft against the source-backed page before treating it as finished."
+              ]
+            },
+            {
+              "type": "ctas",
+              "items": [
+                {
+                  "label": "Start a source-backed draft",
+                  "href": "/register",
+                  "variant": "secondary",
+                  "track": "body"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "faq",
+          "title": "FAQ",
+          "blocks": [
+            {
+              "type": "faqCards",
+              "items": [
+                {
+                  "title": "Should every saved article become a draft?",
+                  "paragraphs": [
+                    "No. Most saved articles should be filtered. The workflow is strongest when one article clearly supports a claim, question, or page that already matters."
+                  ]
+                },
+                {
+                  "title": "Where does AI fit?",
+                  "paragraphs": [
+                    "AI is useful for organizing evidence, suggesting structure, and challenging gaps. It should not replace the step where the user decides what the source actually supports."
+                  ]
+                },
+                {
+                  "title": "What should I measure?",
+                  "paragraphs": [
+                    "Measure whether organic users reach the activation point: first saved article, first highlight, first source-backed wiki page, and first draft or synthesis."
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "style": "footer",
+          "title": "The point of saving is to create something you can trust.",
+          "blocks": [
+            {
+              "type": "relatedGuides",
+              "items": [
+                "import-reading-archive-into-noeis",
+                "source-backed-synthesis-workflow",
+                "highlights-into-concepts"
               ]
             },
             {

@@ -101,13 +101,19 @@ const marketingEventNameSet = new Set([
   'user_signup',
   'capture_completed',
   'concept_created',
-  'revisit_scheduled'
+  'revisit_scheduled',
+  'wiki_page_created',
+  'wiki_source_attached',
+  'wiki_draft_generated'
 ]);
 
 const activationEventSet = new Set([
   'capture_completed',
   'concept_created',
-  'revisit_scheduled'
+  'revisit_scheduled',
+  'wiki_page_created',
+  'wiki_source_attached',
+  'wiki_draft_generated'
 ]);
 
 const listMarketingEntries = async ({

@@ -26,7 +26,7 @@ const Landing = () => {
       <header className="landing-public__masthead">
         <div className="landing-public__brand-block">
           <Link to="/" className="landing-public__brand">Noeis</Link>
-          <p className="landing-public__brand-copy">Concept-centered thinking workspace for serious readers.</p>
+          <p className="landing-public__brand-copy">Source-grounded personal research wiki for serious readers.</p>
         </div>
         <nav className="landing-public__nav" aria-label="Public navigation">
           <Link to="/guides">Guides</Link>
@@ -38,19 +38,19 @@ const Landing = () => {
 
       <section className="landing-public__hero">
         <div className="landing-public__rail">
-          <div className="landing-public__eyebrow">Concept-centered thinking workspace</div>
+          <div className="landing-public__eyebrow">Source-grounded personal research wiki</div>
           <p>
-            A reading room for people who save too much, think in fragments, and want their notes
-            to accumulate into actual judgment.
+            A research workspace for people who save too much, think in fragments, and want reading
+            to become pages, drafts, and decisions with sources attached.
           </p>
         </div>
 
         <div className="landing-public__main">
-          <h1>Reading becomes notes. Notes become concepts. Questions stay open until they are answered.</h1>
+          <h1>Saved reading becomes a source-grounded wiki. The wiki becomes drafts, decisions, and reusable insight.</h1>
           <p className="landing-public__lede">
-            Noeis keeps highlights, working drafts, concepts, and question threads in one calm
-            workspace so your thinking can compound instead of disappearing into tabs, folders,
-            and screenshots.
+            Noeis keeps articles, highlights, wiki pages, working drafts, concepts, and question
+            threads in one calm workspace so your thinking can compound without losing the evidence
+            underneath it.
           </p>
           <div className="landing-public__actions">
             <Button
@@ -76,7 +76,7 @@ const Landing = () => {
           <div className="landing-public__eyebrow">What changes</div>
           <ul className="landing-public__mini-list">
             <li>Highlights stay attached to source and context.</li>
-            <li>Concepts gather evidence before they become manuscripts.</li>
+            <li>Wiki pages gather evidence before they become manuscripts.</li>
             <li>Questions stay visible until something actually resolves them.</li>
           </ul>
         </aside>

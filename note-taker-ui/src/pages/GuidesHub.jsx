@@ -10,13 +10,13 @@ const guidesHubSchema = {
   '@type': 'CollectionPage',
   name: 'Noeis Guides for Thinking, Reading, and Knowledge Work',
   url: `${CANONICAL_HOST}/guides`,
-  description: 'Opinionated guides on reliable recall, concept formation, reading workflows, and AI-assisted synthesis for serious readers.'
+  description: 'Opinionated guides on source-grounded research workflows, reliable recall, reading-to-draft systems, and evidence-backed synthesis for serious readers.'
 };
 
 const GuidesHub = () => {
   useSeoMetadata({
     title: 'Noeis Guides for Thinking, Reading, and Knowledge Work',
-    description: 'Opinionated guides on reliable recall, concept formation, reading workflows, and AI-assisted synthesis for serious readers.',
+    description: 'Opinionated guides on source-grounded research workflows, reliable recall, reading-to-draft systems, and evidence-backed synthesis for serious readers.',
     canonicalPath: '/guides',
     ogType: 'website',
     schema: guidesHubSchema
@@ -35,7 +35,7 @@ const GuidesHub = () => {
           <h1>Practical Guides for Thinking, Writing, and Knowledge Work</h1>
           <p className="seo-lede">
             These guides are built for founders, writers, researchers, analysts, and serious readers
-            evaluating better workflows for recall, synthesis, and concept formation.
+            evaluating better workflows for source-grounded research, recall, synthesis, and drafts.
           </p>
           <div className="seo-guide-grid">
             {publishingContent.guides.map((guide) => (

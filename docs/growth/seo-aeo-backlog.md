@@ -19,3 +19,18 @@
 - Your first concept in Noeis
 - Source-backed synthesis workflow in Noeis
 - From saved article to draft in Noeis
+
+## Source-grounded research wiki cluster
+- Personal research wiki for serious readers
+- Source-grounded AI notes
+- Readwise to research wiki
+- Evidence-backed writing workflow
+- Private wiki vs notes app
+- AI research assistant with citations
+- How founders turn reading into decisions
+- How researchers turn sources into claims
+
+## Published proof-layer pages
+- Import reading archive into Noeis
+- Source-backed synthesis workflow in Noeis
+- From saved article to draft in Noeis

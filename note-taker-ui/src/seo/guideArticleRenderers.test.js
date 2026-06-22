@@ -62,4 +62,16 @@ describe('guide article rendering', () => {
     expect(html).toContain('Import your archive');
     expect(html).toContain('href="/source-backed-synthesis-workflow"');
   });
+
+  it('renders the saved article to draft workflow page from the shared registry', () => {
+    const html = renderGuidePage(publishingContent, 'from-saved-article-to-draft-in-noeis');
+
+    expect(html).toContain('From Saved Article to Draft in Noeis | Noeis');
+    expect(html).toContain('A saved article becomes useful when it produces a source-grounded draft.');
+    expect(html).toContain('The activation moment is when reading becomes output.');
+    expect(html).toContain('A practical saved-article-to-draft workflow');
+    expect(html).toContain('Source-grounded drafting');
+    expect(html).toContain('Start a source-backed draft');
+    expect(html).toContain('href="/import-reading-archive-into-noeis"');
+  });
 });

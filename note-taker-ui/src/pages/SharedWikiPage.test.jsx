@@ -1,12 +1,18 @@
 import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import * as router from 'react-router-dom';
-import SharedWikiPage from './SharedWikiPage';
+import SharedWikiPage, { buildSharedWikiSchema } from './SharedWikiPage';
 import { adoptPublicWikiPage, getPublicWikiPage } from '../api/wiki';
+import { trackSharedWikiAdoptClicked, trackSharedWikiViewed } from '../utils/marketingAnalytics';
 
 jest.mock('../api/wiki', () => ({
   adoptPublicWikiPage: jest.fn(),
   getPublicWikiPage: jest.fn()
+}));
+
+jest.mock('../utils/marketingAnalytics', () => ({
+  trackSharedWikiAdoptClicked: jest.fn(),
+  trackSharedWikiViewed: jest.fn()
 }));
 
 const mockParams = (idOrSlug) => {
@@ -23,6 +29,8 @@ describe('SharedWikiPage', () => {
     navigate = jest.fn();
     adoptPublicWikiPage.mockReset();
     getPublicWikiPage.mockReset();
+    trackSharedWikiViewed.mockReset();
+    trackSharedWikiAdoptClicked.mockReset();
     mockParams('opportunity-cost');
     jest.spyOn(router, 'useNavigate').mockReturnValue(navigate);
     jest.spyOn(router, 'useLocation').mockReturnValue({
@@ -84,6 +92,33 @@ describe('SharedWikiPage', () => {
     expect(screen.queryByRole('link', { name: 'Private neighbor' })).not.toBeInTheDocument();
     expect(screen.getByText('Private neighbor')).toHaveClass('wiki-internal-link--static');
     expect(screen.getByRole('link', { name: 'Open Noeis' })).toHaveAttribute('href', '/');
+    await waitFor(() => expect(document.title).toBe('Opportunity Cost · Shared Wiki · Noeis'));
+    expect(document.head.querySelector('meta[name="description"]')).toHaveAttribute(
+      'content',
+      'Opportunity cost frames tradeoffs.'
+    );
+    expect(document.head.querySelector('link[rel="canonical"]')).toHaveAttribute(
+      'href',
+      'https://www.noeis.io/share/wiki/opportunity-cost'
+    );
+    const schema = JSON.parse(document.getElementById('seo-schema').textContent);
+    expect(schema).toEqual(expect.objectContaining({
+      '@type': 'CreativeWork',
+      name: 'Opportunity Cost',
+      mainEntityOfPage: 'https://www.noeis.io/share/wiki/opportunity-cost'
+    }));
+    expect(schema.citation).toEqual([
+      expect.objectContaining({
+        '@type': 'CreativeWork',
+        name: 'Munger notes',
+        url: 'https://example.com/munger'
+      })
+    ]);
+    expect(trackSharedWikiViewed).toHaveBeenCalledWith(expect.objectContaining({
+      page: '/share/wiki/opportunity-cost',
+      title: 'Opportunity Cost',
+      sourceCount: 1
+    }));
     unmount();
     expect(document.body).not.toHaveClass('noeis-public-share');
     expect(document.documentElement).not.toHaveClass('noeis-public-share');
@@ -104,6 +139,10 @@ describe('SharedWikiPage', () => {
 
     fireEvent.click(await screen.findByRole('button', { name: 'Make this mine' }));
 
+    expect(trackSharedWikiAdoptClicked).toHaveBeenCalledWith(expect.objectContaining({
+      page: '/share/wiki/opportunity-cost',
+      title: 'Opportunity Cost'
+    }));
     expect(adoptPublicWikiPage).not.toHaveBeenCalled();
     expect(sessionStorage.getItem('auth_return_to')).toBe('/share/wiki/opportunity-cost?adopt=1');
     expect(navigate).toHaveBeenCalledWith('/register');
@@ -128,6 +167,10 @@ describe('SharedWikiPage', () => {
 
     fireEvent.click(await screen.findByRole('button', { name: 'Make this mine' }));
 
+    expect(trackSharedWikiAdoptClicked).toHaveBeenCalledWith(expect.objectContaining({
+      page: '/share/wiki/opportunity-cost',
+      title: 'Opportunity Cost'
+    }));
     await waitFor(() => expect(adoptPublicWikiPage).toHaveBeenCalledWith('opportunity-cost'));
     expect(navigate).toHaveBeenCalledWith('/wiki/workspace?page=adopted-1', { replace: true });
   });
@@ -167,5 +210,45 @@ describe('SharedWikiPage', () => {
 
     expect(await screen.findByRole('heading', { name: 'Shared page unavailable' })).toBeInTheDocument();
     expect(screen.getByText('This wiki page is private, archived, or no longer exists.')).toBeInTheDocument();
+  });
+});
+
+describe('buildSharedWikiSchema', () => {
+  it('builds CreativeWork schema with public citations', () => {
+    const schema = buildSharedWikiSchema({
+      canonicalPath: '/share/wiki/opportunity-cost',
+      description: 'Opportunity cost frames tradeoffs.',
+      wordCount: 120,
+      sourceCount: 1,
+      claimCount: 2,
+      page: {
+        title: 'Opportunity Cost',
+        updatedAt: '2026-06-08T12:00:00.000Z',
+        sourceRefs: [
+          { title: 'Munger notes', url: 'https://example.com/munger' }
+        ]
+      }
+    });
+
+    expect(schema).toEqual(expect.objectContaining({
+      '@context': 'https://schema.org',
+      '@type': 'CreativeWork',
+      name: 'Opportunity Cost',
+      url: 'https://www.noeis.io/share/wiki/opportunity-cost',
+      wordCount: 120,
+      isAccessibleForFree: true
+    }));
+    expect(schema.citation).toEqual([
+      expect.objectContaining({
+        '@type': 'CreativeWork',
+        name: 'Munger notes',
+        url: 'https://example.com/munger'
+      })
+    ]);
+    expect(schema.keywords).toEqual(expect.arrayContaining([
+      'source-grounded research',
+      'public source references',
+      'evidence-backed claims'
+    ]));
   });
 });

@@ -74,6 +74,7 @@ const BestSecondBrainAppForFounders = lazy(() => import('./pages/BestSecondBrain
 const BestSecondBrainAppForResearchers = lazy(() => import('./pages/BestSecondBrainAppForResearchers'));
 const ImportReadingArchiveIntoNoeis = lazy(() => import('./pages/ImportReadingArchiveIntoNoeis'));
 const SourceBackedSynthesisWorkflow = lazy(() => import('./pages/SourceBackedSynthesisWorkflow'));
+const FromSavedArticleToDraftInNoeis = lazy(() => import('./pages/FromSavedArticleToDraftInNoeis'));
 const MarketingAnalytics = lazy(() => import('./pages/MarketingAnalytics'));
 const SearchConsoleOpportunities = lazy(() => import('./pages/SearchConsoleOpportunities'));
 const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy'));
@@ -193,6 +194,7 @@ const PublicRoutes = ({ chromeStoreLink, handleLoginSuccess, uiSettings }) => {
     || location.pathname === '/best-second-brain-app-for-researchers'
     || location.pathname === '/import-reading-archive-into-noeis'
     || location.pathname === '/source-backed-synthesis-workflow'
+    || location.pathname === '/from-saved-article-to-draft-in-noeis'
     || location.pathname === '/design-preview'
   );
   const isEditorialPublicRoute = (
@@ -226,6 +228,7 @@ const PublicRoutes = ({ chromeStoreLink, handleLoginSuccess, uiSettings }) => {
           <Route path="/best-second-brain-app-for-researchers" element={<BestSecondBrainAppForResearchers />} />
           <Route path="/import-reading-archive-into-noeis" element={<ImportReadingArchiveIntoNoeis />} />
           <Route path="/source-backed-synthesis-workflow" element={<SourceBackedSynthesisWorkflow />} />
+          <Route path="/from-saved-article-to-draft-in-noeis" element={<FromSavedArticleToDraftInNoeis />} />
           <Route path="/privacy" element={<PrivacyPolicy />} />
           <Route path="/terms" element={<TermsOfUse />} />
           <Route path="/design-preview" element={<DesignPreview />} />
@@ -576,6 +579,7 @@ function App() {
             <Route path="/best-second-brain-app-for-researchers" element={<BestSecondBrainAppForResearchers />} />
             <Route path="/import-reading-archive-into-noeis" element={<ImportReadingArchiveIntoNoeis />} />
             <Route path="/source-backed-synthesis-workflow" element={<SourceBackedSynthesisWorkflow />} />
+            <Route path="/from-saved-article-to-draft-in-noeis" element={<FromSavedArticleToDraftInNoeis />} />
             <Route path="/privacy" element={<PrivacyPolicy />} />
             <Route path="/terms" element={<TermsOfUse />} />
             <Route path="/design-preview" element={<DesignPreview />} />

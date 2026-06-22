@@ -125,6 +125,28 @@ describe('SearchConsoleOpportunities helpers', () => {
     ]));
   });
 
+  it('maps saved article and draft opportunities to the draft workflow page', () => {
+    const recommendations = evaluateSearchConsoleRows([
+      {
+        query: 'turn saved article into draft',
+        page: 'https://www.noeis.io/',
+        clicks: 1,
+        impressions: 73,
+        ctr: 1.4,
+        position: 18.1
+      }
+    ]);
+
+    expect(recommendations.create).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        query: 'turn saved article into draft',
+        recommendedTitle: 'From saved article to draft in Noeis',
+        recommendedSlug: 'from-saved-article-to-draft-in-noeis',
+        activationCta: 'Turn an article into a draft'
+      })
+    ]));
+  });
+
   it('builds an opportunity report with totals and buckets', () => {
     const report = buildSearchConsoleOpportunityReport({
       dateRange: 'Apr 1 to Apr 15, 2026',

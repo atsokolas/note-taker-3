@@ -2392,6 +2392,22 @@ const buildWikiRouter = ({
         actorType: 'user',
         summary: `Created "${page.title}".`
       });
+      trackWikiEvent(req, EVENT_NAMES.WIKI_PAGE_CREATED, {
+        pageId: serializeId(page._id),
+        title: page.title,
+        pageType: page.pageType,
+        sourceCount: Array.isArray(page.sourceRefs) ? page.sourceRefs.length : 0,
+        sourceScope: page.sourceScope
+      });
+      if (Array.isArray(page.sourceRefs) && page.sourceRefs.length > 0) {
+        trackWikiEvent(req, EVENT_NAMES.WIKI_SOURCE_ATTACHED, {
+          pageId: serializeId(page._id),
+          title: page.title,
+          pageType: page.pageType,
+          sourceCount: page.sourceRefs.length,
+          sourceType: page.sourceRefs[0]?.type || ''
+        });
+      }
       res.status(201).json(serializeWikiPage(page));
     } catch (error) {
       console.error('Error creating wiki page:', error);
@@ -2769,6 +2785,13 @@ const buildWikiRouter = ({
         actorType: 'agent',
         summary: page.aiState?.maintenanceSummary || `Maintained "${page.title}".`
       });
+      trackWikiEvent(req, EVENT_NAMES.WIKI_DRAFT_GENERATED, {
+        pageId: serializeId(page._id),
+        title: page.title,
+        pageType: page.pageType,
+        sourceCount: Array.isArray(page.sourceRefs) ? page.sourceRefs.length : 0,
+        claimCount: Array.isArray(page.claims) ? page.claims.length : 0
+      });
       res.status(200).json(serializeWikiPage(page));
     } catch (error) {
       console.error('Error maintaining wiki page:', error);
@@ -2863,6 +2886,14 @@ const buildWikiRouter = ({
         actorType: 'agent',
         summary: page.aiState?.maintenanceSummary || `Maintained "${page.title}".`
       });
+      trackWikiEvent(req, EVENT_NAMES.WIKI_DRAFT_GENERATED, {
+        pageId: serializeId(page._id),
+        title: page.title,
+        pageType: page.pageType,
+        sourceCount: Array.isArray(page.sourceRefs) ? page.sourceRefs.length : 0,
+        claimCount: Array.isArray(page.claims) ? page.claims.length : 0,
+        stream: true
+      });
       writeSse(res, 'wiki-page', {
         stage: 'complete',
         summary: page.aiState?.maintenanceSummary || 'Wiki maintenance completed.',
@@ -2915,6 +2946,13 @@ const buildWikiRouter = ({
         reason: 'user_edit',
         actorType: 'user',
         summary: `Attached a source to "${page.title}".`
+      });
+      trackWikiEvent(req, EVENT_NAMES.WIKI_SOURCE_ATTACHED, {
+        pageId: serializeId(page._id),
+        title: page.title,
+        pageType: page.pageType,
+        sourceCount: Array.isArray(page.sourceRefs) ? page.sourceRefs.length : 0,
+        sourceType: sourceRef.value?.type || ''
       });
       res.status(201).json(serializeWikiPage(page));
     } catch (error) {

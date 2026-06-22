@@ -66,6 +66,10 @@
       "destination": "/import-reading-archive-into-noeis/index.html"
     },
     {
+      "source": "/from-saved-article-to-draft-in-noeis",
+      "destination": "/from-saved-article-to-draft-in-noeis/index.html"
+    },
+    {
       "source": "/(.*)",
       "destination": "/"
     }
