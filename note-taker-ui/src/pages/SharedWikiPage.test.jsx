@@ -101,6 +101,7 @@ describe('SharedWikiPage', () => {
       'href',
       'https://www.noeis.io/share/wiki/opportunity-cost'
     );
+    expect(document.head.querySelector('meta[name="robots"]')).toHaveAttribute('content', 'index,follow');
     const schema = JSON.parse(document.getElementById('seo-schema').textContent);
     expect(schema).toEqual(expect.objectContaining({
       '@type': 'CreativeWork',
@@ -210,6 +211,8 @@ describe('SharedWikiPage', () => {
 
     expect(await screen.findByRole('heading', { name: 'Shared page unavailable' })).toBeInTheDocument();
     expect(screen.getByText('This wiki page is private, archived, or no longer exists.')).toBeInTheDocument();
+    expect(document.head.querySelector('meta[name="robots"]')).toHaveAttribute('content', 'noindex,follow');
+    expect(document.getElementById('seo-schema')).not.toBeInTheDocument();
   });
 });
 

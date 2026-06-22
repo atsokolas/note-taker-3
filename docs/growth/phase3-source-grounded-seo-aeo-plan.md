@@ -48,7 +48,7 @@ Next implementation steps:
 - Add a curated examples page for intentionally public high-quality shared wikis.
 - Track shared wiki views and adoption clicks as marketing attribution inputs. Done.
 - Track shared wiki adoption as a downstream activation milestone. Done.
-- Keep low-quality, private, or incidental shared pages out of indexing unless intentionally published.
+- Keep low-quality, private, or incidental shared pages out of indexing unless intentionally published. Done for shared page/collection render states and backend public filters.
 
 ## Activation Instrumentation
 Done:
@@ -57,6 +57,7 @@ Done:
 - `wiki_draft_generated` counts maintained AI wiki drafts as an activation event.
 - `wiki_shared_adopted` counts successful adoption of a public page, collection, or starter pack into a user's workspace.
 - The marketing funnel now includes these wiki events when attributing organic signup to activation.
+- Shared wiki collections now publish canonical metadata and `CollectionPage` JSON-LD while unavailable states emit `noindex,follow`.
 
 Remaining:
 - Add production Search Console and Bing exports to rank examples/proof pages by impression-to-signup opportunity.

@@ -5,6 +5,8 @@ import renderTiptapDoc, { firstParagraphText } from '../components/wiki/renderTi
 import { countWikiClaims, countWikiPageWords, countWikiSources } from '../components/wiki/wikiPageMetrics';
 import { wikiPagePath } from '../utils/wikiFeatureFlags';
 import { buildSharePreviewReceipt } from '../utils/connectionMagicMoment';
+import useSeoMetadata from '../hooks/useSeoMetadata';
+import { CANONICAL_HOST, SITE_NAME, buildCanonicalUrl } from '../seo/siteMetadata';
 
 const hasAuthToken = () => {
   if (typeof window === 'undefined') return false;
@@ -23,6 +25,55 @@ const usePublicShareScrollSurface = () => {
 };
 
 const pageIdFor = (page = {}) => page?._id || page?.id || '';
+
+const cleanText = (value = '') => String(value || '').replace(/\s+/g, ' ').trim();
+
+export const buildSharedWikiCollectionSchema = ({
+  collection = {},
+  pages = [],
+  canonicalPath = '/',
+  description = ''
+} = {}) => {
+  const title = cleanText(collection?.name || collection?.title) || 'Shared wiki collection';
+  const canonicalUrl = buildCanonicalUrl(canonicalPath);
+  const itemList = (Array.isArray(pages) ? pages : []).slice(0, 24).map((page, index) => ({
+    '@type': 'ListItem',
+    position: index + 1,
+    name: cleanText(page?.title) || `Wiki page ${index + 1}`
+  }));
+
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'CollectionPage',
+    name: title,
+    headline: title,
+    description,
+    url: canonicalUrl,
+    mainEntityOfPage: canonicalUrl,
+    isAccessibleForFree: true,
+    inLanguage: 'en',
+    publisher: {
+      '@type': 'Organization',
+      name: SITE_NAME,
+      url: CANONICAL_HOST
+    },
+    isPartOf: {
+      '@type': 'WebSite',
+      name: SITE_NAME,
+      url: CANONICAL_HOST
+    },
+    mainEntity: {
+      '@type': 'ItemList',
+      numberOfItems: itemList.length,
+      itemListElement: itemList
+    },
+    keywords: [
+      'source-grounded research',
+      'personal research wiki',
+      'public wiki collection'
+    ]
+  };
+};
 
 const SharedWikiCollectionPage = () => {
   const { idOrSlug = '' } = useParams();
@@ -64,16 +115,6 @@ const SharedWikiCollectionPage = () => {
       cancelled = true;
     };
   }, [idOrSlug]);
-
-  useEffect(() => {
-    const title = collection?.name || collection?.title;
-    if (!title) return undefined;
-    const previous = document.title;
-    document.title = `${title} · Noeis`;
-    return () => {
-      document.title = previous;
-    };
-  }, [collection?.name, collection?.title]);
 
   const handleAdopt = useCallback(async () => {
     if (!idOrSlug || adopting) return;
@@ -123,6 +164,27 @@ const SharedWikiCollectionPage = () => {
   const totalWords = pages.reduce((sum, page) => sum + countWikiPageWords(page), 0);
   const totalSources = pages.reduce((sum, page) => sum + countWikiSources(page), 0);
   const totalClaims = pages.reduce((sum, page) => sum + countWikiClaims(page), 0);
+  const canonicalPath = location.pathname || `/share/wiki/collection/${idOrSlug}`;
+  const seoTitle = collection ? `${title} · Shared Wiki Collection · Noeis` : 'Shared Wiki Collection · Noeis';
+  const seoDescription = cleanText(description).slice(0, 220) || 'A shared Noeis wiki you can copy into your own workspace.';
+  const seoSchema = useMemo(
+    () => buildSharedWikiCollectionSchema({
+      collection,
+      pages,
+      canonicalPath,
+      description: seoDescription
+    }),
+    [canonicalPath, collection, pages, seoDescription]
+  );
+
+  useSeoMetadata({
+    title: seoTitle,
+    description: seoDescription,
+    canonicalPath,
+    schema: collection && !error ? seoSchema : null,
+    ogType: 'article',
+    robots: collection && !error ? 'index,follow' : 'noindex,follow'
+  });
 
   return (
     <main className="shared-wiki-page shared-wiki-page--collection">

@@ -1,7 +1,7 @@
 import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import * as router from 'react-router-dom';
-import SharedWikiCollectionPage from './SharedWikiCollectionPage';
+import SharedWikiCollectionPage, { buildSharedWikiCollectionSchema } from './SharedWikiCollectionPage';
 import { adoptPublicWikiCollection, getPublicWikiCollection } from '../api/wiki';
 
 jest.mock('../api/wiki', () => ({
@@ -86,6 +86,23 @@ describe('SharedWikiCollectionPage', () => {
     expect(screen.getByRole('heading', { name: 'Margin of Safety' })).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Private neighbor' })).not.toBeInTheDocument();
     expect(screen.getByText('Private neighbor')).toHaveClass('wiki-internal-link--static');
+    await waitFor(() => expect(document.title).toBe('Thinking Foundations · Shared Wiki Collection · Noeis'));
+    expect(document.head.querySelector('meta[name="description"]')).toHaveAttribute('content', 'A safe public starting point.');
+    expect(document.head.querySelector('link[rel="canonical"]')).toHaveAttribute(
+      'href',
+      'https://www.noeis.io/share/wiki/collection/thinking-foundations'
+    );
+    expect(document.head.querySelector('meta[name="robots"]')).toHaveAttribute('content', 'index,follow');
+    const schema = JSON.parse(document.getElementById('seo-schema').textContent);
+    expect(schema).toEqual(expect.objectContaining({
+      '@type': 'CollectionPage',
+      name: 'Thinking Foundations',
+      mainEntityOfPage: 'https://www.noeis.io/share/wiki/collection/thinking-foundations'
+    }));
+    expect(schema.mainEntity).toEqual(expect.objectContaining({
+      '@type': 'ItemList',
+      numberOfItems: 2
+    }));
     unmount();
     expect(document.body).not.toHaveClass('noeis-public-share');
     expect(document.documentElement).not.toHaveClass('noeis-public-share');
@@ -132,5 +149,41 @@ describe('SharedWikiCollectionPage', () => {
 
     await waitFor(() => expect(adoptPublicWikiCollection).toHaveBeenCalledWith('thinking-foundations'));
     expect(navigate).toHaveBeenCalledWith('/onboarding/wiki?adoptedPage=adopted-2&source=shared', { replace: true });
+  });
+
+  it('marks unavailable collections noindex', async () => {
+    getPublicWikiCollection.mockRejectedValue({ response: { status: 404 } });
+
+    render(<SharedWikiCollectionPage />);
+
+    expect(await screen.findByRole('heading', { name: 'Shared wiki unavailable' })).toBeInTheDocument();
+    expect(document.head.querySelector('meta[name="robots"]')).toHaveAttribute('content', 'noindex,follow');
+    expect(document.getElementById('seo-schema')).not.toBeInTheDocument();
+  });
+});
+
+describe('buildSharedWikiCollectionSchema', () => {
+  it('builds CollectionPage schema with a public page item list', () => {
+    const schema = buildSharedWikiCollectionSchema({
+      canonicalPath: '/share/wiki/collection/thinking-foundations',
+      description: 'A safe public starting point.',
+      collection: { name: 'Thinking Foundations' },
+      pages: [
+        { title: 'Opportunity Cost' },
+        { title: 'Margin of Safety' }
+      ]
+    });
+
+    expect(schema).toEqual(expect.objectContaining({
+      '@context': 'https://schema.org',
+      '@type': 'CollectionPage',
+      name: 'Thinking Foundations',
+      url: 'https://www.noeis.io/share/wiki/collection/thinking-foundations',
+      isAccessibleForFree: true
+    }));
+    expect(schema.mainEntity.itemListElement).toEqual([
+      expect.objectContaining({ '@type': 'ListItem', position: 1, name: 'Opportunity Cost' }),
+      expect.objectContaining({ '@type': 'ListItem', position: 2, name: 'Margin of Safety' })
+    ]);
   });
 });

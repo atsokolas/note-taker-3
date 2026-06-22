@@ -48,7 +48,8 @@ const useSeoMetadata = ({
   description,
   canonicalPath = '/',
   schema = null,
-  ogType = 'article'
+  ogType = 'article',
+  robots = 'index,follow'
 }) => {
   useEffect(() => {
     if (typeof document === 'undefined') return undefined;
@@ -107,7 +108,7 @@ const useSeoMetadata = ({
     twitterTitleMeta.node.setAttribute('content', title);
     twitterDescriptionMeta.node.setAttribute('content', description);
     twitterImageMeta.node.setAttribute('content', socialImageUrl);
-    robotsMeta.node.setAttribute('content', 'index,follow');
+    robotsMeta.node.setAttribute('content', robots || 'index,follow');
     canonicalLink.node.setAttribute('href', canonicalUrl);
 
     let schemaNode = null;
@@ -148,7 +149,7 @@ const useSeoMetadata = ({
         schemaNode.remove();
       }
     };
-  }, [canonicalPath, description, ogType, schema, title]);
+  }, [canonicalPath, description, ogType, robots, schema, title]);
 };
 
 export default useSeoMetadata;

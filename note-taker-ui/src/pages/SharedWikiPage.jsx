@@ -170,8 +170,9 @@ const SharedWikiPage = () => {
     title: seoTitle,
     description: seoDescription,
     canonicalPath,
-    schema: seoSchema,
-    ogType: 'article'
+    schema: page && !error ? seoSchema : null,
+    ogType: 'article',
+    robots: page && !error ? 'index,follow' : 'noindex,follow'
   });
 
   useEffect(() => {
