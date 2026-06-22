@@ -217,9 +217,156 @@ describe('DataIntegrations first insight workflow', () => {
     expect(within(card).getByText('What is feeding Morning Paper?')).toBeInTheDocument();
     expect(within(card).getByText(/scheduled wiki maintenance checks due pages about every six hours/i)).toBeInTheDocument();
     expect(await within(card).findByText('Import feed active')).toBeInTheDocument();
-    expect(within(card).getByText('Workspace feed active')).toBeInTheDocument();
+    expect(within(card).getByText('Synced into Noeis')).toBeInTheDocument();
     expect(within(card).getByText('Last manual import saved')).toBeInTheDocument();
     expect(within(card).getByText(/Latest handoff: Evernote import on/i)).toBeInTheDocument();
+  });
+
+  it('makes the Notion redirect and unsynced state explicit before OAuth', async () => {
+    render(
+      <MemoryRouter>
+        <DataIntegrations />
+      </MemoryRouter>
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: /Notion.*Import pages plus database row content/s }));
+
+    const receipt = await screen.findByTestId('notion-sync-receipt');
+    expect(within(receipt).getByText('Not connected')).toBeInTheDocument();
+    expect(within(receipt).getByText(/Connect opens Notion in your browser/i)).toBeInTheDocument();
+    expect(within(receipt).getByText(/After approval, Noeis returns here/i)).toBeInTheDocument();
+    expect(screen.getByText('Live flow')).toBeInTheDocument();
+  });
+
+  it('shows a connected-but-not-synced Notion workspace as not yet in Noeis', async () => {
+    listImportConnections.mockImplementation(async ({ provider } = {}) => {
+      if (provider === 'notion') {
+        return [{
+          id: 'notion-1',
+          provider: 'notion',
+          accountLabel: 'Product HQ',
+          status: 'connected',
+          health: 'healthy',
+          lastValidatedAt: '2026-06-08T15:30:00.000Z',
+          lastSyncAt: null,
+          lastPreviewAt: null
+        }];
+      }
+      return [];
+    });
+
+    render(
+      <MemoryRouter>
+        <DataIntegrations />
+      </MemoryRouter>
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: /Notion.*Import pages plus database row content/s }));
+
+    const receipt = await screen.findByTestId('notion-sync-receipt');
+    expect(within(receipt).getByText('Connected, not synced')).toBeInTheDocument();
+    expect(within(receipt).getByText(/Share the pages or databases/i)).toBeInTheDocument();
+    expect(screen.getByText(/Last sync:/)).toHaveTextContent('Last sync: Never');
+  });
+
+  it('shows where a synced Notion workspace lands in the product', async () => {
+    getActiveImportSession.mockResolvedValue({
+      id: 'session-notion-1',
+      provider: 'notion',
+      status: 'completed',
+      result: {
+        importedNotes: 3,
+        skippedRows: 2,
+        indexingQueued: 1,
+        indexingFailures: 0
+      }
+    });
+    listImportConnections.mockImplementation(async ({ provider } = {}) => {
+      if (provider === 'notion') {
+        return [{
+          id: 'notion-1',
+          provider: 'notion',
+          accountLabel: 'Product HQ',
+          status: 'connected',
+          health: 'healthy',
+          lastValidatedAt: '2026-06-08T15:00:00.000Z',
+          lastSyncAt: '2026-06-08T15:30:00.000Z',
+          lastPreviewAt: '2026-06-08T15:15:00.000Z'
+        }];
+      }
+      return [];
+    });
+
+    render(
+      <MemoryRouter>
+        <DataIntegrations />
+      </MemoryRouter>
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: /Notion.*Import pages plus database row content/s }));
+
+    const receipt = await screen.findByTestId('notion-sync-receipt');
+    expect(within(receipt).getByText('Synced into Noeis')).toBeInTheDocument();
+    expect(within(receipt).getByText(/Imported pages are available as notebook entries/i)).toBeInTheDocument();
+    expect(within(receipt).getByText(/Where it lands: Library search, Think retrieval, and Morning Paper source maintenance/i)).toBeInTheDocument();
+    expect(within(receipt).getByText('Synced 3 pages · 2 skipped · 1 indexing.')).toBeInTheDocument();
+  });
+
+  it('shows durable Notion sync summary after reload without an active session', async () => {
+    getActiveImportSession.mockResolvedValue(null);
+    listImportConnections.mockImplementation(async ({ provider } = {}) => {
+      if (provider === 'notion') {
+        return [{
+          id: 'notion-1',
+          provider: 'notion',
+          accountLabel: 'Product HQ',
+          status: 'connected',
+          health: 'healthy',
+          lastValidatedAt: '2026-06-08T15:00:00.000Z',
+          lastSyncAt: '2026-06-08T15:30:00.000Z',
+          lastPreviewAt: '2026-06-08T15:15:00.000Z',
+          lastSyncResult: {
+            importedNotes: 5,
+            skippedRows: 1,
+            indexingQueued: 2,
+            indexingFailures: 0,
+            completedAt: '2026-06-08T15:30:00.000Z'
+          }
+        }];
+      }
+      return [];
+    });
+
+    render(
+      <MemoryRouter>
+        <DataIntegrations />
+      </MemoryRouter>
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: /Notion.*Import pages plus database row content/s }));
+
+    const receipt = await screen.findByTestId('notion-sync-receipt');
+    expect(within(receipt).getByText('Synced into Noeis')).toBeInTheDocument();
+    expect(within(receipt).getByText(/Last synced Jun 8, 2026 · 5 pages/i)).toBeInTheDocument();
+    expect(within(receipt).getByText('Synced 5 pages · 1 skipped · 2 indexing.')).toBeInTheDocument();
+  });
+
+  it('explains why Evernote uses ENEX instead of browser OAuth today', async () => {
+    render(
+      <MemoryRouter>
+        <DataIntegrations />
+      </MemoryRouter>
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: /Evernote.*Keep notebook migrations clean/s }));
+
+    expect(screen.getByText('Fastest self-serve path')).toBeInTheDocument();
+    expect(screen.getByText(/Browser OAuth sync is technically possible/i)).toBeInTheDocument();
+    expect(screen.getByText(/Evernote requires reviewed API access/i)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Evernote export instructions' })).toHaveAttribute(
+      'href',
+      'https://help.evernote.com/hc/en-us/articles/209005557-Export-Notes-and-Notebooks-as-ENEX-or-HTML'
+    );
   });
 
   it('shows organize this import action after a completed import session', async () => {
@@ -654,7 +801,7 @@ describe('DataIntegrations first insight workflow', () => {
       'href',
       'https://help.evernote.com/hc/en-us/articles/209005557-Export-Notes-and-Notebooks-as-ENEX-or-HTML'
     );
-    expect(screen.getByText(/This is a one-time import path today/)).toBeInTheDocument();
+    expect(screen.getByText(/ENEX is the reliable path you can use today without waiting on vendor approval/)).toBeInTheDocument();
 
     const fileInput = container.querySelector('input[accept=".enex,application/xml,text/xml"]');
     expect(fileInput).not.toBeNull();

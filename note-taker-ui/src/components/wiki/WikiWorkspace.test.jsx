@@ -276,6 +276,16 @@ describe('WikiWorkspace', () => {
     });
   });
 
+  it('renders the compact wiki list inside the workspace list shell', async () => {
+    renderWorkspace('/wiki/workspace?view=list');
+    await settleWorkspaceEffects();
+
+    expect(document.querySelector('.wiki-workspace')).toHaveClass('wiki-workspace--list-view');
+    expect(await screen.findByTestId('wiki-list')).toHaveTextContent('List view compact');
+    expect(screen.getByLabelText('Thought partner chat')).toBeInTheDocument();
+    expect(screen.queryByTestId('wiki-read-view')).not.toBeInTheDocument();
+  });
+
   it('renders the graph beside persistent chat by default', async () => {
     renderWorkspace();
     await settleWorkspaceEffects();

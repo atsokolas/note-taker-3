@@ -164,6 +164,9 @@
   grid-template-columns: 1fr;
   gap: 8px;
 }
+.wiki-index--compact .wiki-index__list {
+  gap: 0;
+}
 .wiki-index__page-card {
   display: grid;
   gap: 10px;
@@ -925,6 +928,22 @@
   overflow-x: clip;
   overflow-y: auto;
   position: relative;
+}
+.wiki-workspace--list-view {
+  grid-template-columns: minmax(0, 1fr) var(--wiki-workspace-chat-width);
+}
+.wiki-workspace--list-view .wiki-workspace__right-pane {
+  grid-column: 1;
+  grid-row: 1;
+}
+.wiki-workspace--list-view .wiki-workspace__chat-pane {
+  grid-column: 2;
+  grid-row: 1;
+  border-right: 0;
+  border-left: 1px solid color-mix(in srgb, var(--nt-divider) 80%, transparent);
+}
+.wiki-workspace--list-view .wiki-workspace__resizer {
+  display: none;
 }
 .wiki-workspace__quick-actions {
   position: sticky;

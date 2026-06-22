@@ -1,14 +1,20 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { Button, SurfaceCard } from '../ui';
+import { Button } from '../ui';
 import { createWikiPage, deleteWikiPage, listWikiPages } from '../../api/wiki';
 import { buildWikiCreatePayload, openWikiDraft } from '../../utils/wikiCreate';
 import { wikiPagePath } from '../../utils/wikiFeatureFlags';
 import WikiBriefing from './WikiBriefing';
 import WikiEmergingProposals from './WikiEmergingProposals';
 import WikiInbox from './WikiInbox';
-import { PAGE_TYPES, formatDate, labelFor } from './wikiGraph';
-import { countWikiSources, wikiPreviewForPage, wikiSourceStatusForPage } from './wikiPageMetrics';
+import WikiFacetRail from './WikiFacetRail';
+import { PAGE_TYPES, labelFor } from './wikiGraph';
+import { computeWikiFacetCounts, isWikiAllPagesActive } from './wikiFacetModel';
+import {
+  formatWikiRowDate,
+  wikiPreviewForPage,
+  wikiRowMetaForPage
+} from './wikiPageMetrics';
 import {
   BLOCKED_SURFACE_EXPLANATION,
   formatQualityReviewReasons,
@@ -20,7 +26,24 @@ import {
 const VISIBILITIES = ['all', 'private', 'shared'];
 const STATUSES = ['all', 'draft', 'published', 'archived'];
 
-const WikiPageCard = ({
+const WikiPageRowKicker = ({ page, showQualityReview, qualityLabel, blocked }) => (
+  <div className="library-article-row-kicker">
+    <span className="library-article-row-source">{labelFor(page.pageType || 'topic')}</span>
+    <span className="library-article-row-tag">{labelFor(page.status || 'draft')}</span>
+    {String(page.visibility || 'private') === 'shared' ? (
+      <span className="library-article-row-tag">Shared</span>
+    ) : null}
+    {showQualityReview && qualityLabel ? (
+      <span
+        className={`wiki-index__quality-badge wiki-index__quality-badge--${blocked ? 'blocked' : 'review'}`}
+      >
+        {qualityLabel}
+      </span>
+    ) : null}
+  </div>
+);
+
+const WikiPageRow = ({
   compact = false,
   deleting,
   page,
@@ -31,12 +54,17 @@ const WikiPageCard = ({
   const [actionsOpen, setActionsOpen] = useState(false);
   const snippet = wikiPreviewForPage(page, compact ? 118 : 180);
   const title = page.title || 'Untitled Wiki Page';
-  const sourceTotal = countWikiSources(page);
-  const sourceStatus = wikiSourceStatusForPage(page);
   const qualityReview = normalizeQualityReview(page);
   const qualityLabel = qualityReviewLabel(qualityReview);
   const qualityReasons = formatQualityReviewReasons(qualityReview);
   const blocked = isPageQualityBlocked(page);
+  const rowDate = page.updatedAt || page.createdAt;
+  const metaLine = wikiRowMetaForPage(page);
+  const rowClassName = [
+    'library-article-row',
+    'is-magnetic',
+    showQualityReview ? 'library-article-row--quality-review' : ''
+  ].filter(Boolean).join(' ');
 
   const handleOpen = (event) => {
     if (!onOpen) return;
@@ -44,126 +72,132 @@ const WikiPageCard = ({
     onOpen();
   };
 
+  const handlePointerMove = (event) => {
+    const target = event.currentTarget;
+    const rect = target.getBoundingClientRect();
+    target.style.setProperty('--row-bloom-x', `${event.clientX - rect.left}px`);
+    target.style.setProperty('--row-bloom-y', `${event.clientY - rect.top}px`);
+  };
+
+  const handlePointerLeave = (event) => {
+    const target = event.currentTarget;
+    target.style.removeProperty('--row-bloom-x');
+    target.style.removeProperty('--row-bloom-y');
+  };
+
+  const mainContent = (
+    <>
+      <div className="library-article-row-title">{title}</div>
+      <WikiPageRowKicker
+        page={page}
+        showQualityReview={showQualityReview}
+        qualityLabel={qualityLabel}
+        blocked={blocked}
+      />
+      {snippet ? (
+        <div className="library-article-row-excerpt">{snippet}</div>
+      ) : (
+        <div className="library-article-row-excerpt">No body yet. Open the page to start writing.</div>
+      )}
+      {showQualityReview && blocked ? (
+        <p className="wiki-index__quality-blocked-note">{BLOCKED_SURFACE_EXPLANATION}</p>
+      ) : null}
+      {showQualityReview && qualityReasons.length ? (
+        <ul className="wiki-index__quality-reasons">
+          {qualityReasons.map((reason) => (
+            <li key={`${page._id || page.id}-${reason}`}>{reason}</li>
+          ))}
+        </ul>
+      ) : null}
+      <div className="library-article-row-meta">
+        <span>{metaLine}</span>
+      </div>
+    </>
+  );
+
   return (
-    <SurfaceCard
-      className={`wiki-index__page-card${compact ? ' wiki-index__page-card--compact' : ''}${showQualityReview ? ' wiki-index__page-card--quality-review' : ''}`}
+    <div
+      className={rowClassName}
       role="article"
       aria-label={title}
+      onPointerMove={handlePointerMove}
+      onPointerLeave={handlePointerLeave}
     >
+      <div className="library-article-row-date">{formatWikiRowDate(rowDate)}</div>
       {showQualityReview ? (
-        <div className="wiki-index__page-body">
-          <div className="wiki-index__page-meta">
-            <span>{labelFor(page.pageType || 'topic')}</span>
-            <span>{labelFor(page.status || 'draft')}</span>
-            {qualityLabel ? (
-              <span
-                className={`wiki-index__quality-badge wiki-index__quality-badge--${blocked ? 'blocked' : 'review'}`}
-              >
-                {qualityLabel}
-              </span>
-            ) : null}
-          </div>
-          <h2>{title}</h2>
-          <p>{snippet || 'No body yet. Open the page to start writing.'}</p>
-          {blocked ? (
-            <p className="wiki-index__quality-blocked-note">{BLOCKED_SURFACE_EXPLANATION}</p>
-          ) : null}
-          {qualityReasons.length ? (
-            <ul className="wiki-index__quality-reasons">
-              {qualityReasons.map((reason) => (
-                <li key={`${page._id || page.id}-${reason}`}>{reason}</li>
-              ))}
-            </ul>
-          ) : null}
-          <div className="wiki-index__page-footer">
-            <span>{sourceTotal > 0 ? `${sourceTotal} source${sourceTotal === 1 ? '' : 's'}` : sourceStatus}</span>
-            <span>{formatDate(page.updatedAt)}</span>
-          </div>
-        </div>
+        <div className="library-article-row-main">{mainContent}</div>
       ) : (
         <Link
-          className="wiki-index__page-link"
+          className="library-article-row-main"
           to={wikiPagePath(page._id || page.id)}
           aria-label={`Open ${title}`}
           onClick={handleOpen}
         >
-          <div className="wiki-index__page-meta">
-            <span>{labelFor(page.pageType || 'topic')}</span>
-            <span>{labelFor(page.status || 'draft')}</span>
-          </div>
-          <h2>{title}</h2>
-          <p>{snippet || 'No body yet. Open the page to start writing.'}</p>
-          <div className="wiki-index__page-footer">
-            <span>{sourceTotal > 0 ? `${sourceTotal} source${sourceTotal === 1 ? '' : 's'}` : sourceStatus}</span>
-            <span>{formatDate(page.updatedAt)}</span>
-          </div>
+          {mainContent}
         </Link>
       )}
-      <div className={`wiki-index__page-actions${showQualityReview ? ' wiki-index__page-actions--quality-review' : ''}`}>
-        {showQualityReview ? (
-          <>
-            <Button
-              type="button"
-              variant="secondary"
-              className="wiki-index__page-open"
-              disabled={deleting}
-              aria-label={`Open ${title}`}
-              onClick={() => onOpen?.()}
-            >
-              Open
-            </Button>
-            <Button
-              type="button"
-              variant="secondary"
-              className="wiki-index__page-delete"
-              disabled={deleting}
-              aria-label={`Archive ${title}`}
-              onClick={onDelete}
-            >
-              {deleting ? 'Archiving...' : 'Archive'}
-            </Button>
-          </>
-        ) : (
-          <>
-            <Button
-              type="button"
-              variant="secondary"
-              className="wiki-index__page-more"
-              disabled={deleting}
-              aria-label={`More actions for ${title}`}
-              aria-expanded={actionsOpen}
-              onClick={(event) => {
-                event.stopPropagation();
-                event.preventDefault();
-                setActionsOpen(open => !open);
-              }}
-              onKeyDown={(event) => event.stopPropagation()}
-            >
-              More
-            </Button>
-            {actionsOpen ? (
-              <div className="wiki-index__page-menu" role="menu" aria-label={`Actions for ${title}`}>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  className="wiki-index__page-delete"
-                  disabled={deleting}
-                  aria-label={`Archive ${title}`}
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    event.preventDefault();
-                    onDelete();
-                  }}
-                  onKeyDown={(event) => event.stopPropagation()}
-                >
-                  {deleting ? 'Archiving...' : 'Archive'}
-                </Button>
-              </div>
-            ) : null}
-          </>
-        )}
-      </div>
-    </SurfaceCard>
+      {showQualityReview ? (
+        <div className="wiki-index__page-actions wiki-index__page-actions--quality-review">
+          <Button
+            type="button"
+            variant="secondary"
+            className="wiki-index__page-open library-article-row-action"
+            disabled={deleting}
+            aria-label={`Open ${title}`}
+            onClick={() => onOpen?.()}
+          >
+            Open
+          </Button>
+          <Button
+            type="button"
+            variant="secondary"
+            className="wiki-index__page-delete library-article-row-action"
+            disabled={deleting}
+            aria-label={`Archive ${title}`}
+            onClick={onDelete}
+          >
+            {deleting ? 'Archiving...' : 'Archive'}
+          </Button>
+        </div>
+      ) : (
+        <div className="wiki-index__page-actions">
+          <button
+            type="button"
+            className="library-article-row-action wiki-index__page-more"
+            disabled={deleting}
+            aria-label={`More actions for ${title}`}
+            aria-expanded={actionsOpen}
+            onClick={(event) => {
+              event.stopPropagation();
+              event.preventDefault();
+              setActionsOpen(open => !open);
+            }}
+            onKeyDown={(event) => event.stopPropagation()}
+          >
+            More
+          </button>
+          {actionsOpen ? (
+            <div className="wiki-index__page-menu" role="menu" aria-label={`Actions for ${title}`}>
+              <Button
+                type="button"
+                variant="secondary"
+                className="wiki-index__page-delete"
+                disabled={deleting}
+                aria-label={`Archive ${title}`}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  event.preventDefault();
+                  onDelete();
+                }}
+                onKeyDown={(event) => event.stopPropagation()}
+              >
+                {deleting ? 'Archiving...' : 'Archive'}
+              </Button>
+            </div>
+          ) : null}
+        </div>
+      )}
+    </div>
   );
 };
 
@@ -171,6 +205,7 @@ const WikiList = ({ compact = false, onOpenPage }) => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [pages, setPages] = useState([]);
+  const [catalogPages, setCatalogPages] = useState([]);
   const [query, setQuery] = useState('');
   const [pageType, setPageType] = useState('all');
   const [visibility, setVisibility] = useState('all');
@@ -192,6 +227,11 @@ const WikiList = ({ compact = false, onOpenPage }) => {
     return params;
   }, [needsReviewFilter, pageType, query, status, visibility]);
 
+  const facetCounts = useMemo(
+    () => computeWikiFacetCounts(catalogPages),
+    [catalogPages]
+  );
+
   const setNeedsReviewFilter = (enabled) => {
     const nextParams = new URLSearchParams(searchParams);
     if (enabled) nextParams.set('quality', 'needs_review');
@@ -203,7 +243,14 @@ const WikiList = ({ compact = false, onOpenPage }) => {
     setLoading(true);
     setError('');
     try {
-      setPages(await listWikiPages(requestParams));
+      const nextPages = await listWikiPages(requestParams);
+      setPages(nextPages);
+      if (
+        compact
+        && isWikiAllPagesActive({ pageType, visibility, status, needsReviewFilter })
+      ) {
+        setCatalogPages(nextPages);
+      }
     } catch (_error) {
       setError('Failed to load Wiki pages.');
     } finally {
@@ -253,6 +300,7 @@ const WikiList = ({ compact = false, onOpenPage }) => {
     try {
       await deleteWikiPage(page._id);
       setPages(current => current.filter(item => item._id !== page._id));
+      setCatalogPages(current => current.filter(item => item._id !== page._id));
     } catch (_error) {
       setError('Failed to archive Wiki page.');
     } finally {
@@ -260,63 +308,59 @@ const WikiList = ({ compact = false, onOpenPage }) => {
     }
   };
 
-  const Container = compact ? 'section' : 'main';
+  const handleSelectAllPages = () => {
+    setPageType('all');
+    setVisibility('all');
+    setStatus('all');
+    setNeedsReviewFilter(false);
+  };
 
-  return (
-    <Container className={`wiki-page wiki-index${compact ? ' wiki-index--compact' : ''}`}>
+  const handleSelectNeedsReview = () => {
+    setNeedsReviewFilter(!needsReviewFilter);
+  };
+
+  const handleSelectPageType = (nextType) => {
+    setPageType(current => (current === nextType ? 'all' : nextType));
+  };
+
+  const handleSelectStatus = (nextStatus) => {
+    setStatus(current => (current === nextStatus ? 'all' : nextStatus));
+  };
+
+  const handleSelectVisibility = (nextVisibility) => {
+    setVisibility(current => (current === nextVisibility ? 'all' : nextVisibility));
+  };
+
+  const listBody = (
+    <>
       {!compact ? (
-        <>
-          <WikiBriefing />
-          <WikiEmergingProposals />
-          <WikiInbox />
-          <section className="wiki-index__header">
-            <div className="wiki-index__title-block">
-              <p className="wiki-index__eyebrow">Wiki list</p>
-              <h1>Editable knowledge pages</h1>
-              <p>Draft source-backed pages from any idea, question, note, highlight, or article.</p>
-            </div>
-            <form className="wiki-index__composer" onSubmit={handleCreate}>
-              <label htmlFor="wiki-create-input">New page</label>
-              <div className="wiki-index__composer-row">
-                <input
-                  id="wiki-create-input"
-                  value={seed}
-                  onChange={(event) => setSeed(event.target.value)}
-                  placeholder="Start from an idea, question, source, or rough note"
-                />
-                <Button type="submit" disabled={creating}>{creating ? 'Creating...' : 'Create'}</Button>
-              </div>
-            </form>
-          </section>
-        </>
+        <section className="wiki-index__filters" aria-label="Wiki filters">
+          <input
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Search pages"
+            aria-label="Search Wiki pages"
+          />
+          <select value={pageType} onChange={(event) => setPageType(event.target.value)} aria-label="Page type">
+            {PAGE_TYPES.map(value => <option key={value} value={value}>{labelFor(value)}</option>)}
+          </select>
+          <select value={visibility} onChange={(event) => setVisibility(event.target.value)} aria-label="Visibility">
+            {VISIBILITIES.map(value => <option key={value} value={value}>{labelFor(value)}</option>)}
+          </select>
+          <select value={status} onChange={(event) => setStatus(event.target.value)} aria-label="Status">
+            {STATUSES.map(value => <option key={value} value={value}>{labelFor(value)}</option>)}
+          </select>
+          <button
+            type="button"
+            className={`wiki-index__quality-filter${needsReviewFilter ? ' is-active' : ''}`}
+            aria-pressed={needsReviewFilter}
+            aria-label="Show pages that need quality review"
+            onClick={() => setNeedsReviewFilter(!needsReviewFilter)}
+          >
+            Needs review
+          </button>
+        </section>
       ) : null}
-
-      <section className="wiki-index__filters" aria-label={compact ? 'Wiki mobile list filters' : 'Wiki filters'}>
-        <input
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-          placeholder="Search pages"
-          aria-label="Search Wiki pages"
-        />
-        <select value={pageType} onChange={(event) => setPageType(event.target.value)} aria-label="Page type">
-          {PAGE_TYPES.map(value => <option key={value} value={value}>{labelFor(value)}</option>)}
-        </select>
-        <select value={visibility} onChange={(event) => setVisibility(event.target.value)} aria-label="Visibility">
-          {VISIBILITIES.map(value => <option key={value} value={value}>{labelFor(value)}</option>)}
-        </select>
-        <select value={status} onChange={(event) => setStatus(event.target.value)} aria-label="Status">
-          {STATUSES.map(value => <option key={value} value={value}>{labelFor(value)}</option>)}
-        </select>
-        <button
-          type="button"
-          className={`wiki-index__quality-filter${needsReviewFilter ? ' is-active' : ''}`}
-          aria-pressed={needsReviewFilter}
-          aria-label="Show pages that need quality review"
-          onClick={() => setNeedsReviewFilter(!needsReviewFilter)}
-        >
-          Needs review
-        </button>
-      </section>
 
       {needsReviewFilter ? (
         <p className="wiki-index__quality-filter-note">
@@ -344,9 +388,12 @@ const WikiList = ({ compact = false, onOpenPage }) => {
         </section>
       ) : null}
 
-      <section className="wiki-index__grid" aria-label="Wiki pages">
+      <section
+        className={`library-article-list wiki-index__list${loading ? ' is-loading' : ''}`}
+        aria-label="Wiki pages"
+      >
         {pages.map(page => (
-          <WikiPageCard
+          <WikiPageRow
             key={page._id}
             compact={compact}
             page={page}
@@ -357,6 +404,61 @@ const WikiList = ({ compact = false, onOpenPage }) => {
           />
         ))}
       </section>
+    </>
+  );
+
+  const Container = compact ? 'section' : 'main';
+
+  return (
+    <Container className={`wiki-page wiki-index${compact ? ' wiki-index--compact wiki-index--faceted' : ''}`}>
+      {!compact ? (
+        <>
+          <WikiBriefing />
+          <WikiEmergingProposals />
+          <WikiInbox />
+          <section className="wiki-index__header">
+            <div className="wiki-index__title-block">
+              <p className="wiki-index__eyebrow">Wiki list</p>
+              <h1>Editable knowledge pages</h1>
+              <p>Draft source-backed pages from any idea, question, note, highlight, or article.</p>
+            </div>
+            <form className="wiki-index__composer" onSubmit={handleCreate}>
+              <label htmlFor="wiki-create-input">New page</label>
+              <div className="wiki-index__composer-row">
+                <input
+                  id="wiki-create-input"
+                  value={seed}
+                  onChange={(event) => setSeed(event.target.value)}
+                  placeholder="Start from an idea, question, source, or rough note"
+                />
+                <Button type="submit" disabled={creating}>{creating ? 'Creating...' : 'Create'}</Button>
+              </div>
+            </form>
+          </section>
+        </>
+      ) : null}
+
+      {compact ? (
+        <div className="wiki-index__faceted-layout">
+          <WikiFacetRail
+            query={query}
+            pageType={pageType}
+            visibility={visibility}
+            status={status}
+            needsReviewFilter={needsReviewFilter}
+            facetCounts={facetCounts}
+            onQueryChange={setQuery}
+            onSelectAllPages={handleSelectAllPages}
+            onSelectNeedsReview={handleSelectNeedsReview}
+            onSelectPageType={handleSelectPageType}
+            onSelectStatus={handleSelectStatus}
+            onSelectVisibility={handleSelectVisibility}
+          />
+          <div className="wiki-index__faceted-main">
+            {listBody}
+          </div>
+        </div>
+      ) : listBody}
     </Container>
   );
 };

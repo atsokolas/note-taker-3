@@ -113,4 +113,25 @@ export const wikiSourceStatusForPage = (page = {}) => {
   return isWikiScaffoldPage(page) ? 'Draft scaffold · needs sources' : 'Draft · needs sources';
 };
 
+export const formatWikiRowDate = (value) => {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+};
+
+export const wikiRowMetaForPage = (page = {}) => {
+  page = page || {};
+  const sources = countWikiSources(page);
+  if (sources === 0) return wikiSourceStatusForPage(page);
+  const claims = countWikiClaims(page);
+  const reviewedAt = page.lastReviewedAt || page.qualityReview?.reviewedAt;
+  const parts = [
+    `${sources} source${sources === 1 ? '' : 's'}`,
+    `${claims} claim${claims === 1 ? '' : 's'}`
+  ];
+  if (reviewedAt) parts.push(`reviewed ${formatWikiRowDate(reviewedAt)}`);
+  return parts.join(' · ');
+};
+
 export const isWikiSourceBackedPage = (page = {}) => countWikiSources(page) > 0;

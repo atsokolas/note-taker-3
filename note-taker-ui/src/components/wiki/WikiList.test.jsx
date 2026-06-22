@@ -70,6 +70,40 @@ describe('WikiList', () => {
     ]);
   });
 
+  it('loads an unfiltered catalog for compact facet counts', async () => {
+    listWikiPages.mockResolvedValueOnce([
+      {
+        _id: 'wiki-1',
+        title: 'Investing - Concepts, Ideas, and Strategies',
+        pageType: 'overview',
+        status: 'draft',
+        visibility: 'private',
+        updatedAt: '2026-05-01T12:00:00.000Z'
+      },
+      {
+        _id: 'wiki-2',
+        title: 'Systems Thinking',
+        pageType: 'concept',
+        status: 'published',
+        visibility: 'shared',
+        qualityReview: { status: 'needs_review' },
+        updatedAt: '2026-05-02T12:00:00.000Z'
+      }
+    ]);
+
+    renderWikiList();
+
+    expect(await screen.findByTestId('wiki-facet-rail')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(listWikiPages).toHaveBeenCalled();
+    });
+    expect(screen.getByTestId('wiki-facet-all-pages')).toHaveTextContent('2');
+    expect(screen.getByTestId('wiki-facet-needs-review')).toHaveTextContent('1');
+    expect(screen.getByTestId('wiki-facet-type-overview')).toHaveTextContent('1');
+    expect(screen.getByTestId('wiki-facet-type-concept')).toHaveTextContent('1');
+    expect(screen.queryByLabelText('Page type')).not.toBeInTheDocument();
+  });
+
   it('renders wiki rows as real page links instead of button-only cards', async () => {
     renderWikiList('view=list', { compact: false });
 
@@ -118,8 +152,7 @@ describe('WikiList', () => {
     await waitFor(() => {
       expect(listWikiPages).toHaveBeenCalledWith(expect.objectContaining({ quality: 'needs_review' }));
     });
-    expect(screen.getByRole('button', { name: /show pages that need quality review/i }))
-      .toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByTestId('wiki-facet-needs-review')).toHaveAttribute('aria-pressed', 'true');
   });
 
   it('renders blocked-page reasons and surface explanation in needs-review mode', async () => {
@@ -155,10 +188,74 @@ describe('WikiList', () => {
 
     await screen.findByRole('article', { name: 'Investing - Concepts, Ideas, and Strategies' });
 
-    fireEvent.click(screen.getByRole('button', { name: /show pages that need quality review/i }));
+    fireEvent.click(screen.getByTestId('wiki-facet-needs-review'));
 
     await waitFor(() => {
       expect(listWikiPages).toHaveBeenLastCalledWith(expect.objectContaining({ quality: 'needs_review' }));
     });
+  });
+
+  it('filters compact list results when a type facet is selected', async () => {
+    renderWikiList();
+
+    await screen.findByRole('article', { name: 'Investing - Concepts, Ideas, and Strategies' });
+    fireEvent.click(screen.getByTestId('wiki-facet-type-overview'));
+
+    await waitFor(() => {
+      expect(listWikiPages).toHaveBeenLastCalledWith(expect.objectContaining({ pageType: 'overview' }));
+    });
+  });
+
+  it('searches from the facet rail in compact mode', async () => {
+    renderWikiList();
+
+    await screen.findByRole('article', { name: 'Investing - Concepts, Ideas, and Strategies' });
+    fireEvent.change(screen.getByTestId('wiki-facet-search'), { target: { value: 'systems' } });
+
+    await waitFor(() => {
+      expect(listWikiPages).toHaveBeenLastCalledWith(expect.objectContaining({ q: 'systems' }));
+    });
+  });
+
+  it('renders library-style row metadata with date lead, kicker, and source counts', async () => {
+    listWikiPages.mockResolvedValueOnce([
+      {
+        _id: 'wiki-shared',
+        title: 'Public Concept Page',
+        pageType: 'concept',
+        status: 'published',
+        visibility: 'shared',
+        sourceRefs: [{ _id: 'source-1' }, { _id: 'source-2' }],
+        claimCount: 3,
+        lastReviewedAt: '2026-04-19T12:00:00.000Z',
+        updatedAt: '2026-05-01T12:00:00.000Z',
+        plainText: 'A published concept with sources and claims.'
+      }
+    ]);
+
+    renderWikiList();
+
+    const row = await screen.findByRole('article', { name: 'Public Concept Page' });
+
+    expect(row).toHaveClass('library-article-row');
+    expect(within(row).getByText('May 1, 2026')).toBeInTheDocument();
+    expect(within(row).getByText('Concept')).toBeInTheDocument();
+    expect(within(row).getByText('Published')).toBeInTheDocument();
+    expect(within(row).getByText('Shared')).toBeInTheDocument();
+    expect(within(row).getByText('2 sources · 3 claims · reviewed Apr 19, 2026')).toBeInTheDocument();
+  });
+
+  it('uses library row action for More and keeps archive in the menu', async () => {
+    renderWikiList();
+
+    const row = await screen.findByRole('article', { name: 'Investing - Concepts, Ideas, and Strategies' });
+    const moreButton = within(row).getByRole('button', { name: /more actions for investing/i });
+
+    expect(moreButton).toHaveClass('library-article-row-action');
+    expect(within(row).queryByRole('button', { name: /archive investing/i })).not.toBeInTheDocument();
+
+    fireEvent.click(moreButton);
+
+    expect(within(row).getByRole('button', { name: /archive investing/i })).toBeInTheDocument();
   });
 });

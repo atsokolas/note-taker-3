@@ -329,6 +329,76 @@ const getProviderLabel = (provider = '') => {
   return 'Manual import';
 };
 
+const describeNotionConnectionState = (connection = null) => {
+  if (!connection?.id) {
+    return {
+      status: 'Not connected',
+      tone: 'neutral',
+      headline: 'Connect opens Notion in your browser.',
+      detail: 'After approval, Noeis returns here with the workspace connected. Then preview or sync the pages you shared with the integration.',
+      cta: 'Connect Notion'
+    };
+  }
+
+  if (connection.lastSyncAt) {
+    const imported = Number(connection.lastSyncResult?.importedNotes || 0);
+    const pageSuffix = imported > 0 ? ` · ${imported} page${imported === 1 ? '' : 's'}` : '';
+    return {
+      status: 'Synced into Noeis',
+      tone: 'success',
+      headline: `Last synced ${formatLoopDate(connection.lastSyncAt)}${pageSuffix}.`,
+      detail: 'Imported pages are available as notebook entries and source material for Library search, Think retrieval, and Morning Paper maintenance.',
+      cta: 'Sync again'
+    };
+  }
+
+  if (connection.lastPreviewAt) {
+    return {
+      status: 'Scope previewed',
+      tone: 'warning',
+      headline: `Previewed ${formatLoopDate(connection.lastPreviewAt)}.`,
+      detail: 'No pages have been imported yet. Run Sync from Notion to make the previewed workspace material retrievable in Noeis.',
+      cta: 'Sync from Notion'
+    };
+  }
+
+  if (connection.lastValidatedAt || connection.status === 'connected') {
+    return {
+      status: 'Connected, not synced',
+      tone: 'warning',
+      headline: connection.lastValidatedAt
+        ? `Connection checked ${formatLoopDate(connection.lastValidatedAt)}.`
+        : 'OAuth is connected.',
+      detail: 'Share the pages or databases you want Noeis to read with the integration, then run Preview scope or Sync from Notion.',
+      cta: 'Preview or sync'
+    };
+  }
+
+  return {
+    status: connection.status || 'Needs attention',
+    tone: 'warning',
+    headline: 'Reconnect Notion if this looks stale.',
+    detail: connection.lastError || 'No successful validation, preview, or sync has been recorded yet.',
+    cta: 'Reconnect Notion'
+  };
+};
+
+const describeNotionSyncResult = ({ stats = null, session = null, connection = null } = {}) => {
+  const durable = connection?.lastSyncResult;
+  const result = durable || stats || (session?.provider === 'notion' ? session?.result : null);
+  if (!result) return '';
+  const imported = Number(result.importedNotes || result.notes || 0);
+  const skipped = Number(result.skippedRows || result.skipped || 0);
+  const indexingQueued = Number(result.indexingQueued || 0);
+  const indexingFailures = Number(result.indexingFailures || 0);
+  const pieces = [];
+  pieces.push(`Synced ${imported} page${imported === 1 ? '' : 's'}`);
+  if (skipped > 0) pieces.push(`${skipped} skipped`);
+  if (indexingQueued > 0) pieces.push(`${indexingQueued} indexing`);
+  if (indexingFailures > 0) pieces.push(`${indexingFailures} indexing warning${indexingFailures === 1 ? '' : 's'}`);
+  return `${pieces.join(' · ')}.`;
+};
+
 const describeLoopHandoff = ({ readwiseConnection, notionConnection, session }) => {
   const candidates = [
     readwiseConnection?.id
@@ -1990,13 +2060,15 @@ const DataIntegrations = ({ embedded = false } = {}) => {
     : readwiseAgentConnection?.id
       ? 'Browser approval is ready for agents. Direct Library refresh still needs the advanced token sync or a CSV import.'
       : 'Connect with Readwise to give agents browser-approved access, then add direct sync when you want Library imports.';
-  const notionFeedStatus = notionConnection?.id
-    ? (notionConnection.lastSyncAt ? 'Workspace feed active' : 'Ready to sync')
-    : 'Not connected';
+  const notionConnectionState = describeNotionConnectionState(notionConnection);
+  const notionSyncResultLine = describeNotionSyncResult({
+    stats: lastImportSourceLabel === (notionConnection?.accountLabel || 'Notion') ? importStats : null,
+    session: currentSession,
+    connection: notionConnection
+  });
+  const notionFeedStatus = notionConnectionState.status;
   const notionFeedDetail = notionConnection?.id
-    ? (notionConnection.lastSyncAt
-      ? `Last Notion sync: ${formatLoopDate(notionConnection.lastSyncAt)}.`
-      : 'Run Sync from Notion after sharing pages or databases with the integration.')
+    ? notionConnectionState.detail
     : 'Connect Notion to let workspace pages become retrievable notes and source material.';
   const latestManualSessionProvider = ['evernote', 'files'].includes(currentSession?.provider) ? currentSession.provider : '';
   const latestManualImportFinished = Boolean(
@@ -2368,9 +2440,21 @@ const DataIntegrations = ({ embedded = false } = {}) => {
         <Card className="settings-card" id="notion">
           <h2>Notion import</h2>
           <p className="muted">Connect Notion once, then sync accessible pages plus database row content into notebook entries that the model can retrieve.</p>
+          <div className={`import-summary import-summary--${notionConnectionState.tone}`} data-testid="notion-sync-receipt">
+            <p className="muted-label">Notion status</p>
+            <p><strong>{notionConnectionState.status}</strong></p>
+            <p>{notionConnectionState.headline}</p>
+            <p className="muted small">{notionConnectionState.detail}</p>
+            {notionConnection?.lastSyncAt ? (
+              <p className="muted small">Where it lands: Library search, Think retrieval, and Morning Paper source maintenance.</p>
+            ) : null}
+            {notionSyncResultLine ? (
+              <p className="muted small">{notionSyncResultLine}</p>
+            ) : null}
+          </div>
           <div className="import-callout">
-            <p className="muted-label">Planned flow</p>
-            <p className="muted small">OAuth connect → fetch pages and data sources shared with the integration → import them into notebook entries → create first concept.</p>
+            <p className="muted-label">Live flow</p>
+            <p className="muted small">OAuth connect opens Notion, returns here, previews shared pages and data sources, then syncs them into notebook entries.</p>
             {notionSetupMissingEnv.length ? (
               <p className="status-message error-message" data-testid="notion-setup-warning">
                 This button is the Notion connection flow. It cannot redirect until the server has {notionSetupMissingEnv.join(' and ')} configured.
@@ -2468,11 +2552,11 @@ const DataIntegrations = ({ embedded = false } = {}) => {
           <h2>Evernote import</h2>
           <p className="muted">Evernote lands through ENEX as notebook entries with tags, dates, source identity, and semantic indexing queued behind the import.</p>
           <div className="import-callout">
-            <p className="muted-label">3-step ENEX flow</p>
+            <p className="muted-label">Fastest self-serve path</p>
             <p className="muted small">1. Export a notebook or notes as `.enex` from the Evernote desktop app.</p>
             <p className="muted small">2. Drop that file here to preview parsed notes and tags before anything is imported.</p>
             <p className="muted small">3. Import into Think, where Noeis mirrors the ENEX name as the destination folder and lets you activate the notes.</p>
-            <p className="muted small">This is a one-time import path today. Cloud sync stays future-facing until the OAuth spike says it is worth building.</p>
+            <p className="muted small">Browser OAuth sync is technically possible, but Evernote requires reviewed API access for apps that read existing notes. ENEX is the reliable path you can use today without waiting on vendor approval.</p>
             <a href={EVERNOTE_EXPORT_HELP_URL} target="_blank" rel="noopener noreferrer">Evernote export instructions</a>
           </div>
           <div

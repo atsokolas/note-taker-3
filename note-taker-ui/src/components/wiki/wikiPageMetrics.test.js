@@ -2,7 +2,9 @@ import {
   countWikiClaims,
   countWikiPageWords,
   countWikiSources,
+  formatWikiRowDate,
   wikiPreviewForPage,
+  wikiRowMetaForPage,
   wikiSourceStatusForPage
 } from './wikiPageMetrics';
 
@@ -54,5 +56,16 @@ describe('wikiPageMetrics', () => {
     expect(wikiSourceStatusForPage(page)).toBe('Draft scaffold · needs sources');
     expect(wikiPreviewForPage(page, 90).length).toBeLessThanOrEqual(93);
     expect(wikiPreviewForPage(page, 90).startsWith('Sparse Topic')).toBe(false);
+  });
+
+  it('builds browse-row meta with reviewed date when sources exist', () => {
+    const page = {
+      sourceCount: 2,
+      claimCount: 4,
+      lastReviewedAt: '2026-04-19T12:00:00.000Z'
+    };
+
+    expect(formatWikiRowDate('2026-05-01T12:00:00.000Z')).toMatch(/May 1, 2026/);
+    expect(wikiRowMetaForPage(page)).toBe('2 sources · 4 claims · reviewed Apr 19, 2026');
   });
 });

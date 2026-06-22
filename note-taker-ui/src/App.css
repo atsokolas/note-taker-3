@@ -4013,6 +4013,37 @@ body.noeis-editorial .product-feedback-modal .feedback-field textarea::placehold
   border: 1px solid var(--border-color, rgba(255, 255, 255, 0.08));
 }
 
+.import-summary {
+  margin-top: 12px;
+  margin-bottom: 16px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.import-summary p {
+  margin: 0;
+}
+
+.import-summary p + p {
+  margin-top: 6px;
+}
+
+.import-summary--success {
+  border-color: color-mix(in srgb, var(--primary-color) 38%, var(--border-color, rgba(255, 255, 255, 0.1)));
+  background: color-mix(in srgb, var(--primary-color) 9%, transparent);
+}
+
+.import-summary--warning {
+  border-color: color-mix(in srgb, #d8a84f 42%, var(--border-color, rgba(255, 255, 255, 0.1)));
+  background: rgba(216, 168, 79, 0.08);
+}
+
+.import-summary--neutral {
+  background: rgba(255, 255, 255, 0.02);
+}
+
 .import-dropzone {
   display: flex;
   justify-content: space-between;
@@ -4079,7 +4110,7 @@ body.noeis-editorial .product-feedback-modal .feedback-field textarea::placehold
 }
 
 .shared-wiki-page__home {
-  font-family: var(--noeis-ui-font, Inter, sans-serif);
+  font-family: var(--noeis-ui-font, system-ui, sans-serif);
   font-size: 0.68rem;
   letter-spacing: 0.14em;
   text-transform: uppercase;
@@ -4106,7 +4137,7 @@ body.noeis-editorial .product-feedback-modal .feedback-field textarea::placehold
 
 .shared-wiki-page__eyebrow {
   margin: 0 0 8px;
-  font-family: var(--noeis-ui-font, Inter, sans-serif);
+  font-family: var(--noeis-ui-font, system-ui, sans-serif);
   font-size: 0.68rem;
   letter-spacing: 0.16em;
   text-transform: uppercase;
@@ -4135,7 +4166,7 @@ body.noeis-editorial .product-feedback-modal .feedback-field textarea::placehold
   gap: 14px;
   flex-wrap: wrap;
   margin-top: 24px;
-  font-family: var(--noeis-ui-font, Inter, sans-serif);
+  font-family: var(--noeis-ui-font, system-ui, sans-serif);
   font-size: 0.68rem;
   letter-spacing: 0.14em;
   text-transform: uppercase;
@@ -4155,7 +4186,7 @@ body.noeis-editorial .product-feedback-modal .feedback-field textarea::placehold
   top: 24px;
   display: grid;
   gap: 8px;
-  font-family: var(--noeis-ui-font, Inter, sans-serif);
+  font-family: var(--noeis-ui-font, system-ui, sans-serif);
   font-size: 0.78rem;
 }
 

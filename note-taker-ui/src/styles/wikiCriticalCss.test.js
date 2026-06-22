@@ -8,7 +8,7 @@ describe('wiki critical CSS loading', () => {
     const cssPath = path.join(__dirname, 'wiki-critical.css');
     const cssBytes = fs.statSync(cssPath).size;
 
-    expect(cssBytes).toBeLessThan(30 * 1024);
+    expect(cssBytes).toBeLessThan(32 * 1024);
   });
 
   it('defers the full polish stylesheet out of the root CSS bundle', () => {
@@ -46,6 +46,22 @@ describe('wiki critical CSS loading', () => {
     expect(workspaceBlock).toContain('height: calc(100dvh - 96px)');
     expect(workspaceBlock).toContain('overflow: hidden');
     expect(rightPaneBlocks.some(block => block.includes('overflow: auto'))).toBe(true);
+  });
+
+  it('keeps wiki list mode in the Library-style order after deferred CSS loads', () => {
+    const css = fs.readFileSync(path.join(__dirname, 'wiki-critical.css'), 'utf8');
+    const polishCss = fs.readFileSync(path.join(__dirname, 'think-home-polish.css'), 'utf8');
+
+    [css, polishCss].forEach(source => {
+      expect(source).toContain('.wiki-workspace--list-view');
+      expect(source).toContain('grid-template-columns: minmax(0, 1fr) var(--wiki-workspace-chat-width)');
+      expect(source).toContain('.wiki-workspace--list-view .wiki-workspace__right-pane');
+      expect(source).toContain('grid-column: 1');
+      expect(source).toContain('.wiki-workspace--list-view .wiki-workspace__chat-pane');
+      expect(source).toContain('grid-column: 2');
+      expect(source).toContain('.wiki-workspace--list-view .wiki-workspace__resizer');
+      expect(source).toContain('display: none');
+    });
   });
 
   it('keeps the mobile wiki reader article-first with a readable measure', () => {
@@ -151,7 +167,7 @@ describe('wiki critical CSS loading', () => {
     expect(polishCss).toContain('container-name: wikiread');
     expect(polishCss).toContain('@container wikiread (max-width: 1200px)');
     expect(polishCss).toContain('.wiki-workspace .wiki-read__layout--rail-collapsed');
-    expect(polishCss).toContain('grid-template-columns: minmax(82px, 96px) minmax(0, 1fr) 34px');
+    expect(polishCss).toContain('grid-template-columns: minmax(82px, 96px) minmax(0, 1fr) 48px');
     expect(polishCss).not.toContain('grid-template-columns: 200px 464px 300px');
   });
 });

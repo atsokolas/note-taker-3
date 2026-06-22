@@ -2747,6 +2747,7 @@ const WikiWorkspace = () => {
   const shouldAutoBuild = params.get('build') === '1';
   const shouldOpenReferencePullIn = params.get('pull') === '1';
   const view = selectedPageId ? 'page' : explicitView || 'graph';
+  const isListWorkspace = !selectedPageId && view === 'list';
 
   useEffect(() => {
     if (location.search === currentSearchRef.current) return;
@@ -3142,7 +3143,7 @@ const WikiWorkspace = () => {
 
   return (
     <section
-      className={`wiki-workspace is-mobile-${mobilePane}`}
+      className={`wiki-workspace is-mobile-${mobilePane}${isListWorkspace ? ' wiki-workspace--list-view' : ''}`}
       aria-label="Wiki workspace"
       style={{ '--wiki-workspace-chat-width': `${chatWidth}px` }}
       onTouchStart={handleTouchStart}

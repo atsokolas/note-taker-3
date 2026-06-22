@@ -1719,6 +1719,13 @@ const integrationConnectionSchema = new mongoose.Schema({
   lastSyncAt: { type: Date, default: null },
   lastValidatedAt: { type: Date, default: null },
   lastPreviewAt: { type: Date, default: null },
+  lastSyncResult: {
+    importedNotes: { type: Number, default: 0 },
+    skippedRows: { type: Number, default: 0 },
+    indexingQueued: { type: Number, default: 0 },
+    indexingFailures: { type: Number, default: 0 },
+    completedAt: { type: Date, default: null }
+  },
   lastError: { type: String, default: '', trim: true },
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }
 }, { timestamps: true });

@@ -469,6 +469,47 @@ const buildImportRouter = ({
     }
   };
 
+  const sanitizeLastSyncResult = (value) => {
+    if (!value || typeof value !== 'object') return null;
+    return {
+      importedNotes: Number(value.importedNotes || 0),
+      skippedRows: Number(value.skippedRows || 0),
+      indexingQueued: Number(value.indexingQueued || 0),
+      indexingFailures: Number(value.indexingFailures || 0),
+      completedAt: value.completedAt ? new Date(value.completedAt).toISOString() : null
+    };
+  };
+
+  const buildConnectionLastSyncResult = ({
+    importedNotes = 0,
+    skippedRows = 0,
+    indexingQueued = 0,
+    indexingFailures = 0,
+    completedAt = new Date()
+  } = {}) => ({
+    importedNotes: Number(importedNotes) || 0,
+    skippedRows: Number(skippedRows) || 0,
+    indexingQueued: Number(indexingQueued) || 0,
+    indexingFailures: Number(indexingFailures) || 0,
+    completedAt: completedAt instanceof Date ? completedAt : new Date(completedAt || Date.now())
+  });
+
+  const persistConnectionLastSyncResult = (connection, summary = {}) => {
+    if (!connection) return null;
+    const completedAt = summary.completedAt instanceof Date
+      ? summary.completedAt
+      : new Date(summary.completedAt || Date.now());
+    connection.lastSyncAt = completedAt;
+    connection.lastSyncResult = buildConnectionLastSyncResult({
+      importedNotes: summary.importedNotes,
+      skippedRows: summary.skippedRows,
+      indexingQueued: summary.indexingQueued,
+      indexingFailures: summary.indexingFailures,
+      completedAt
+    });
+    return connection.lastSyncResult;
+  };
+
   const sanitizeConnection = (connection) => {
     if (!connection) return null;
     return {
@@ -483,6 +524,7 @@ const buildImportRouter = ({
       lastSyncAt: connection.lastSyncAt ? new Date(connection.lastSyncAt).toISOString() : null,
       lastValidatedAt: connection.lastValidatedAt ? new Date(connection.lastValidatedAt).toISOString() : null,
       lastPreviewAt: connection.lastPreviewAt ? new Date(connection.lastPreviewAt).toISOString() : null,
+      lastSyncResult: sanitizeLastSyncResult(connection.lastSyncResult),
       lastError: toTrimmedString(connection.lastError),
       createdAt: connection.createdAt ? new Date(connection.createdAt).toISOString() : null,
       updatedAt: connection.updatedAt ? new Date(connection.updatedAt).toISOString() : null
@@ -2009,14 +2051,14 @@ const buildImportRouter = ({
       await markConnectionHealthy(connection);
 
       const appUrl = getImportAppUrl(req);
-      const nextUrl = new URL('/data-integrations', appUrl);
+      const nextUrl = new URL('/connections', appUrl);
       nextUrl.searchParams.set('source', 'notion');
       nextUrl.searchParams.set('notion', 'connected');
       return res.redirect(nextUrl.toString());
     } catch (error) {
       console.error('Notion OAuth callback failed:', error);
       const appUrl = getImportAppUrl(req);
-      const nextUrl = new URL('/data-integrations', appUrl);
+      const nextUrl = new URL('/connections', appUrl);
       nextUrl.searchParams.set('source', 'notion');
       nextUrl.searchParams.set('notion', 'error');
       return res.redirect(nextUrl.toString());
@@ -2284,7 +2326,12 @@ const buildImportRouter = ({
         queueIndexingAttempt(indexing, () => enqueueNotebookEmbedding(entry), `Notebook indexing failed for ${entry.title || entry._id}`);
       });
 
-      connection.lastSyncAt = new Date();
+      persistConnectionLastSyncResult(connection, {
+        importedNotes,
+        skippedRows,
+        indexingQueued: indexing.indexingQueued,
+        indexingFailures: indexing.indexingFailures
+      });
       await markConnectionHealthy(connection);
 
       const warningEntries = indexing.warnings.map(message => buildWarning('indexing_failed', message));

@@ -1263,6 +1263,75 @@ html[data-ui-theme='dark'] .topbar__search:-webkit-autofill:focus {
   padding-left: 14px;
 }
 
+.wiki-facet-rail {
+  min-width: 0;
+}
+
+.wiki-facet-rail__search {
+  margin: 0;
+}
+
+.wiki-facet-rail__search input {
+  width: 100%;
+  min-height: 40px;
+  border: 1px solid color-mix(in srgb, var(--border-subtle) 88%, transparent);
+  border-radius: 8px;
+  padding: 8px 10px;
+  background: var(--surface-card);
+  color: var(--text-primary);
+}
+
+.wiki-facet-rail__primary {
+  margin-top: 4px;
+}
+
+.wiki-facet-rail__section {
+  display: grid;
+  gap: 8px;
+}
+
+.wiki-facet-rail__section-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 4px;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.wiki-facet-rail__section-chevron {
+  font-size: 0.9rem;
+  line-height: 1;
+}
+
+.wiki-facet-rail__facet.is-empty .library-cabinet-count {
+  opacity: 0.55;
+}
+
+.wiki-index--faceted .wiki-index__faceted-layout {
+  display: grid;
+  grid-template-columns: minmax(220px, 260px) minmax(0, 1fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.wiki-index--faceted .wiki-index__faceted-main {
+  min-width: 0;
+}
+
+@media (max-width: 960px) {
+  .wiki-index--faceted .wiki-index__faceted-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 .library-article-list {
   display: grid;
   gap: 10px;
