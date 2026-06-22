@@ -24,7 +24,10 @@ describe('Marketing analytics view model helpers', () => {
         signupViewed: 20,
         signupStarted: 10,
         signupsCompleted: 5,
-        activatedUsers: 2
+        activatedUsers: 2,
+        wikiPageCreated: 2,
+        wikiSourceAttached: 1,
+        wikiDraftGenerated: 1
       },
       byEntry: [
         {
@@ -32,7 +35,10 @@ describe('Marketing analytics view model helpers', () => {
           signupViewed: 12,
           signupStarted: 7,
           signupsCompleted: 4,
-          activatedUsers: 2
+          activatedUsers: 2,
+          wikiPageCreated: 2,
+          wikiSourceAttached: 1,
+          wikiDraftGenerated: 1
         },
         {
           entry: 'second-brain-app',
@@ -49,7 +55,10 @@ describe('Marketing analytics view model helpers', () => {
           signupViewed: 16,
           signupStarted: 9,
           signupsCompleted: 5,
-          activatedUsers: 2
+          activatedUsers: 2,
+          wikiPageCreated: 2,
+          wikiSourceAttached: 1,
+          wikiDraftGenerated: 1
         }
       ]
     });
@@ -65,6 +74,10 @@ describe('Marketing analytics view model helpers', () => {
     expect(viewModel.topEntry.viewToActivationRate).toBeCloseTo(2 / 12, 5);
     expect(viewModel.topSource.label).toBe('google / organic');
     expect(viewModel.entryRows[0].signupCompletionRate).toBeCloseTo(4 / 7, 5);
+    expect(viewModel.activationMilestones[0]).toMatchObject({
+      key: 'wiki_page_created',
+      value: 2
+    });
   });
 });
 
@@ -80,7 +93,10 @@ describe('MarketingAnalytics page', () => {
         signupViewed: 12,
         signupStarted: 7,
         signupsCompleted: 4,
-        activatedUsers: 2
+        activatedUsers: 2,
+        wikiPageCreated: 2,
+        wikiSourceAttached: 1,
+        wikiDraftGenerated: 1
       },
       byEntry: [
         {
@@ -88,7 +104,10 @@ describe('MarketingAnalytics page', () => {
           signupViewed: 8,
           signupStarted: 5,
           signupsCompleted: 3,
-          activatedUsers: 2
+          activatedUsers: 2,
+          wikiPageCreated: 2,
+          wikiSourceAttached: 1,
+          wikiDraftGenerated: 1
         }
       ],
       bySource: [
@@ -98,7 +117,10 @@ describe('MarketingAnalytics page', () => {
           signupViewed: 8,
           signupStarted: 5,
           signupsCompleted: 3,
-          activatedUsers: 2
+          activatedUsers: 2,
+          wikiPageCreated: 2,
+          wikiSourceAttached: 1,
+          wikiDraftGenerated: 1
         }
       ]
     });
@@ -111,7 +133,10 @@ describe('MarketingAnalytics page', () => {
             signupViewed: 8,
             signupStarted: 5,
             signupsCompleted: 3,
-            activatedUsers: 2
+            activatedUsers: 2,
+            wikiPageCreated: 2,
+            wikiSourceAttached: 1,
+            wikiDraftGenerated: 1
           }
         }
       ]
@@ -127,6 +152,10 @@ describe('MarketingAnalytics page', () => {
     expect(screen.getAllByText('Ai Second Brain').length).toBeGreaterThan(0);
     expect(screen.getAllByText('google / organic').length).toBeGreaterThan(0);
     expect(screen.getByText('Primary leak')).toBeInTheDocument();
+    expect(screen.getByText('Activation quality')).toBeInTheDocument();
+    expect(screen.getByText('Wiki pages created')).toBeInTheDocument();
+    expect(screen.getByText('Sources attached')).toBeInTheDocument();
+    expect(screen.getByText('Drafts generated')).toBeInTheDocument();
     expect(screen.getByText('Daily trend')).toBeInTheDocument();
     expect(screen.getAllByText('Apr 18').length).toBeGreaterThan(0);
   });

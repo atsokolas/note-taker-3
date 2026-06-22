@@ -59,7 +59,7 @@ Done:
 
 Remaining:
 - Track shared wiki adoption completion separately from adoption clicks.
-- Surface wiki-specific activation breakdowns in the marketing analytics UI.
+- Surface wiki-specific activation breakdowns in the marketing analytics UI. Done.
 
 ## External Search Tooling
 - Verify `www.noeis.io` in Bing Webmaster Tools.

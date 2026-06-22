@@ -96,6 +96,8 @@ const buildTrendRows = (series = []) => {
     signupViewed: Number(row?.totals?.signupViewed) || 0,
     signupsCompleted: Number(row?.totals?.signupsCompleted) || 0,
     activatedUsers: Number(row?.totals?.activatedUsers) || 0,
+    wikiPageCreated: Number(row?.totals?.wikiPageCreated) || 0,
+    wikiDraftGenerated: Number(row?.totals?.wikiDraftGenerated) || 0,
     heightRatio: maxViewed > 0 ? (Number(row?.totals?.signupViewed) || 0) / maxViewed : 0
   }));
 };
@@ -142,6 +144,8 @@ const TrendChart = ({ rows = [] }) => (
                 <th style={thStyle}>Viewed</th>
                 <th style={thStyle}>Signed up</th>
                 <th style={thStyle}>Activated</th>
+                <th style={thStyle}>Wiki pages</th>
+                <th style={thStyle}>Drafts</th>
               </tr>
             </thead>
             <tbody>
@@ -151,6 +155,8 @@ const TrendChart = ({ rows = [] }) => (
                   <td style={tdStyle}>{row.signupViewed}</td>
                   <td style={tdStyle}>{row.signupsCompleted}</td>
                   <td style={tdStyle}>{row.activatedUsers}</td>
+                  <td style={tdStyle}>{row.wikiPageCreated}</td>
+                  <td style={tdStyle}>{row.wikiDraftGenerated}</td>
                 </tr>
               ))}
             </tbody>
@@ -173,10 +179,13 @@ const BreakdownTable = ({ title, subtitle, rows = [] }) => (
             <tr>
               <th style={thStyle}>Segment</th>
               <th style={thStyle}>Viewed</th>
-              <th style={thStyle}>Signed up</th>
-              <th style={thStyle}>Activated</th>
-              <th style={thStyle}>View → Activation</th>
-            </tr>
+                <th style={thStyle}>Signed up</th>
+                <th style={thStyle}>Activated</th>
+                <th style={thStyle}>Wiki</th>
+                <th style={thStyle}>Sources</th>
+                <th style={thStyle}>Drafts</th>
+                <th style={thStyle}>View → Activation</th>
+              </tr>
           </thead>
           <tbody>
             {rows.map((row) => (
@@ -190,6 +199,9 @@ const BreakdownTable = ({ title, subtitle, rows = [] }) => (
                 <td style={tdStyle}>{row.signupViewed}</td>
                 <td style={tdStyle}>{row.signupsCompleted}</td>
                 <td style={tdStyle}>{row.activatedUsers}</td>
+                <td style={tdStyle}>{row.wikiPageCreated}</td>
+                <td style={tdStyle}>{row.wikiSourceAttached}</td>
+                <td style={tdStyle}>{row.wikiDraftGenerated}</td>
                 <td style={{ ...tdStyle, minWidth: 180 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, marginBottom: 8 }}>
                     <span>{formatPercent(row.viewToActivationRate)}</span>
@@ -368,6 +380,22 @@ const MarketingAnalytics = () => {
                 )}
               </Card>
             </div>
+
+            <Card className="search-section">
+              <SectionHeader
+                title="Activation quality"
+                subtitle="Which product milestones attributed organic users are reaching after signup."
+              />
+              <div style={cardGridStyle}>
+                {viewModel.activationMilestones.map((milestone) => (
+                  <div key={milestone.key} style={metricCardStyle}>
+                    <span className="muted-label">{milestone.label}</span>
+                    <div style={{ fontSize: 28, fontWeight: 700 }}>{milestone.value}</div>
+                    <div className="muted small">{milestone.context}</div>
+                  </div>
+                ))}
+              </div>
+            </Card>
           </div>
 
           <div className="section-stack">

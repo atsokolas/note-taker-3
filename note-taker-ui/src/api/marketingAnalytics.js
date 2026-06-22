@@ -13,7 +13,13 @@ export const MARKETING_FUNNEL_EMPTY_SNAPSHOT = {
     signupViewed: 0,
     signupStarted: 0,
     signupsCompleted: 0,
-    activatedUsers: 0
+    activatedUsers: 0,
+    captureCompleted: 0,
+    conceptCreated: 0,
+    revisitScheduled: 0,
+    wikiPageCreated: 0,
+    wikiSourceAttached: 0,
+    wikiDraftGenerated: 0
   },
   byEntry: [],
   bySource: []
@@ -31,6 +37,15 @@ const toRate = (numerator, denominator) => {
   if (safeDenominator <= 0) return 0;
   return clampCount(numerator) / safeDenominator;
 };
+
+const normalizeMilestones = (row = {}) => ({
+  captureCompleted: clampCount(row.captureCompleted),
+  conceptCreated: clampCount(row.conceptCreated),
+  revisitScheduled: clampCount(row.revisitScheduled),
+  wikiPageCreated: clampCount(row.wikiPageCreated),
+  wikiSourceAttached: clampCount(row.wikiSourceAttached),
+  wikiDraftGenerated: clampCount(row.wikiDraftGenerated)
+});
 
 export const formatMarketingEntryLabel = (value = '') => {
   const cleaned = String(value || '').trim();
@@ -56,14 +71,16 @@ export const normalizeMarketingFunnelSnapshot = (snapshot = {}) => {
       signupViewed: clampCount(totals.signupViewed),
       signupStarted: clampCount(totals.signupStarted),
       signupsCompleted: clampCount(totals.signupsCompleted),
-      activatedUsers: clampCount(totals.activatedUsers)
+      activatedUsers: clampCount(totals.activatedUsers),
+      ...normalizeMilestones(totals)
     },
     byEntry: Array.isArray(snapshot?.byEntry) ? snapshot.byEntry.map((row) => ({
       entry: String(row?.entry || '(unknown)').trim() || '(unknown)',
       signupViewed: clampCount(row?.signupViewed),
       signupStarted: clampCount(row?.signupStarted),
       signupsCompleted: clampCount(row?.signupsCompleted),
-      activatedUsers: clampCount(row?.activatedUsers)
+      activatedUsers: clampCount(row?.activatedUsers),
+      ...normalizeMilestones(row)
     })) : [],
     bySource: Array.isArray(snapshot?.bySource) ? snapshot.bySource.map((row) => ({
       utmSource: String(row?.utmSource || '(direct)').trim() || '(direct)',
@@ -71,7 +88,8 @@ export const normalizeMarketingFunnelSnapshot = (snapshot = {}) => {
       signupViewed: clampCount(row?.signupViewed),
       signupStarted: clampCount(row?.signupStarted),
       signupsCompleted: clampCount(row?.signupsCompleted),
-      activatedUsers: clampCount(row?.activatedUsers)
+      activatedUsers: clampCount(row?.activatedUsers),
+      ...normalizeMilestones(row)
     })) : []
   };
 };
@@ -85,7 +103,8 @@ export const normalizeMarketingFunnelSeries = (payload = {}) => ({
           signupViewed: clampCount(bucket?.totals?.signupViewed),
           signupStarted: clampCount(bucket?.totals?.signupStarted),
           signupsCompleted: clampCount(bucket?.totals?.signupsCompleted),
-          activatedUsers: clampCount(bucket?.totals?.activatedUsers)
+          activatedUsers: clampCount(bucket?.totals?.activatedUsers),
+          ...normalizeMilestones(bucket?.totals)
         }
       })).filter((bucket) => bucket.date)
     : []
@@ -146,6 +165,45 @@ export const buildMarketingFunnelViewModel = (snapshot = {}) => {
   const sourceRows = normalized.bySource
     .map((row) => buildBreakdownRow(row, formatMarketingSourceLabel(row.utmSource, row.utmMedium)));
 
+  const activationMilestones = [
+    {
+      key: 'wiki_page_created',
+      label: 'Wiki pages created',
+      value: totals.wikiPageCreated,
+      context: 'Source-backed wiki activation'
+    },
+    {
+      key: 'wiki_source_attached',
+      label: 'Sources attached',
+      value: totals.wikiSourceAttached,
+      context: 'Evidence provenance added'
+    },
+    {
+      key: 'wiki_draft_generated',
+      label: 'Drafts generated',
+      value: totals.wikiDraftGenerated,
+      context: 'Reading-to-draft activation'
+    },
+    {
+      key: 'concept_created',
+      label: 'Concepts created',
+      value: totals.conceptCreated,
+      context: 'Legacy concept activation'
+    },
+    {
+      key: 'capture_completed',
+      label: 'Captures completed',
+      value: totals.captureCompleted,
+      context: 'Imported or saved first material'
+    },
+    {
+      key: 'revisit_scheduled',
+      label: 'Revisits scheduled',
+      value: totals.revisitScheduled,
+      context: 'Return behavior'
+    }
+  ];
+
   const byEfficiency = (a, b) => (
     b.viewToActivationRate - a.viewToActivationRate
     || b.activatedUsers - a.activatedUsers
@@ -190,7 +248,8 @@ export const buildMarketingFunnelViewModel = (snapshot = {}) => {
     topEntry,
     topSource,
     entryRows,
-    sourceRows
+    sourceRows,
+    activationMilestones
   };
 };
 

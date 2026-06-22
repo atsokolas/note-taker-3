@@ -34,7 +34,13 @@ const createTotals = () => ({
   signupViewed: 0,
   signupStarted: 0,
   signupsCompleted: 0,
-  activatedUsers: 0
+  activatedUsers: 0,
+  captureCompleted: 0,
+  conceptCreated: 0,
+  revisitScheduled: 0,
+  wikiPageCreated: 0,
+  wikiSourceAttached: 0,
+  wikiDraftGenerated: 0
 });
 
 const ensureEntryBucket = (map, key) => {
@@ -44,7 +50,13 @@ const ensureEntryBucket = (map, key) => {
       signupViewed: 0,
       signupStarted: 0,
       signupsCompleted: 0,
-      activatedUsers: 0
+      activatedUsers: 0,
+      captureCompleted: 0,
+      conceptCreated: 0,
+      revisitScheduled: 0,
+      wikiPageCreated: 0,
+      wikiSourceAttached: 0,
+      wikiDraftGenerated: 0
     });
   }
   return map.get(key);
@@ -58,7 +70,13 @@ const ensureSourceBucket = (map, sourceKey, utmSource, utmMedium) => {
       signupViewed: 0,
       signupStarted: 0,
       signupsCompleted: 0,
-      activatedUsers: 0
+      activatedUsers: 0,
+      captureCompleted: 0,
+      conceptCreated: 0,
+      revisitScheduled: 0,
+      wikiPageCreated: 0,
+      wikiSourceAttached: 0,
+      wikiDraftGenerated: 0
     });
   }
   return map.get(sourceKey);
@@ -115,6 +133,15 @@ const activationEventSet = new Set([
   'wiki_source_attached',
   'wiki_draft_generated'
 ]);
+
+const activationMetricByEvent = {
+  capture_completed: 'captureCompleted',
+  concept_created: 'conceptCreated',
+  revisit_scheduled: 'revisitScheduled',
+  wiki_page_created: 'wikiPageCreated',
+  wiki_source_attached: 'wikiSourceAttached',
+  wiki_draft_generated: 'wikiDraftGenerated'
+};
 
 const listMarketingEntries = async ({
   analyticsLogPath = process.env.ANALYTICS_LOG_PATH || 'server/logs/product-events.jsonl',
@@ -191,22 +218,30 @@ const aggregateMarketingEntries = ({ entries = [], windowDays = 30 } = {}) => {
 
     if (activationEventSet.has(event)) {
       const userIdHash = clean(actor.userIdHash);
-      if (!userIdHash || activatedUsers.has(userIdHash)) return;
+      if (!userIdHash) return;
       const attribution = signupAttributionByUser.get(userIdHash);
       if (!attribution) return;
-      activatedUsers.add(userIdHash);
-      incrementCounter(totals, 'activatedUsers');
-      incrementCounter(dayBucket, 'activatedUsers');
-      incrementCounter(ensureEntryBucket(byEntry, attribution.entry), 'activatedUsers');
-      incrementCounter(
-        ensureSourceBucket(
-          bySource,
-          `${attribution.utmSource || '(direct)'}::${attribution.utmMedium || '(none)'}`,
-          attribution.utmSource,
-          attribution.utmMedium
-        ),
-        'activatedUsers'
+      const entryBucket = ensureEntryBucket(byEntry, attribution.entry);
+      const sourceBucket = ensureSourceBucket(
+        bySource,
+        `${attribution.utmSource || '(direct)'}::${attribution.utmMedium || '(none)'}`,
+        attribution.utmSource,
+        attribution.utmMedium
       );
+      const activationMetric = activationMetricByEvent[event];
+      if (activationMetric) {
+        incrementCounter(totals, activationMetric);
+        incrementCounter(dayBucket, activationMetric);
+        incrementCounter(entryBucket, activationMetric);
+        incrementCounter(sourceBucket, activationMetric);
+      }
+      if (!activatedUsers.has(userIdHash)) {
+        activatedUsers.add(userIdHash);
+        incrementCounter(totals, 'activatedUsers');
+        incrementCounter(dayBucket, 'activatedUsers');
+        incrementCounter(entryBucket, 'activatedUsers');
+        incrementCounter(sourceBucket, 'activatedUsers');
+      }
     }
   });
 

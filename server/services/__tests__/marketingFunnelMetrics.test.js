@@ -107,9 +107,11 @@ const run = async () => {
   assert.strictEqual(snapshot.totals.signupStarted, 1, 'Should count signup starts.');
   assert.strictEqual(snapshot.totals.signupsCompleted, 1, 'Should count completed signups.');
   assert.strictEqual(snapshot.totals.activatedUsers, 1, 'Should count activated marketing signups.');
+  assert.strictEqual(snapshot.totals.wikiPageCreated, 1, 'Should count wiki page activation milestones.');
   assert.strictEqual(snapshot.byEntry[0].entry, 'ai-second-brain', 'Entry should be grouped.');
   assert.strictEqual(snapshot.byEntry[0].signupViewed, 1, 'Entry should count signup views.');
   assert.strictEqual(snapshot.byEntry[0].activatedUsers, 1, 'Entry should count activated users.');
+  assert.strictEqual(snapshot.byEntry[0].wikiPageCreated, 1, 'Entry should count wiki page milestones.');
   assert.strictEqual(snapshot.bySource[0].utmSource, 'google', 'UTM source grouping should be preserved.');
   assert.strictEqual(snapshot.bySource[0].utmMedium, 'organic', 'UTM medium grouping should be preserved.');
   assert.strictEqual(snapshot.bySource[0].signupsCompleted, 1, 'UTM grouping should count signups.');
@@ -125,6 +127,7 @@ const run = async () => {
   assert.ok(april19, 'Series should include April 19.');
   assert.strictEqual(april18.totals.signupsCompleted, 1, 'Series should count daily signups.');
   assert.strictEqual(april18.totals.activatedUsers, 1, 'Series should count daily activation.');
+  assert.strictEqual(april18.totals.wikiPageCreated, 1, 'Series should count daily wiki page milestones.');
   assert.strictEqual(april19.totals.signupViewed, 1, 'Series should count daily signup views.');
 };
 
