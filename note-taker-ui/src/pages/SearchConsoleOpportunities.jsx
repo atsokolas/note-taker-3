@@ -49,6 +49,14 @@ const SAMPLE_INPUT = [
 ].join('\n');
 
 const DEFAULT_SOURCE_LABEL = 'Google Search Console export';
+const GSC_PASTE_TEMPLATE = 'Query\tPage\tClicks\tImpressions\tCTR\tPosition';
+const GSC_EXPORT_CHECKLIST = [
+  'Open Google Search Console → Performance → Search results.',
+  'Set the date range to the review window, usually the last 28 or 90 days.',
+  'Export queries with landing page, clicks, impressions, CTR, and average position.',
+  'Paste the query/page rows here, then run Analyze export.',
+  'Ship the highest-value improve/create action and validate downstream quality in Marketing Analytics.'
+];
 
 const CTA_BY_THEME = {
   import: 'Import your reading archive',
@@ -573,6 +581,19 @@ const SearchConsoleOpportunities = () => {
 
       <Card className="settings-card">
         <form onSubmit={handleAnalyze} style={{ display: 'grid', gap: 16 }}>
+          <div className="settings-option-button" style={{ alignItems: 'flex-start', flexDirection: 'column', gap: 10 }}>
+            <strong>GSC export checklist</strong>
+            <ol style={{ margin: 0, paddingLeft: 20 }}>
+              {GSC_EXPORT_CHECKLIST.map((item) => (
+                <li key={item} className="muted small">{item}</li>
+              ))}
+            </ol>
+            <div style={{ display: 'grid', gap: 6, width: '100%' }}>
+              <span className="muted-label">Expected paste header</span>
+              <code style={{ whiteSpace: 'pre-wrap' }}>{GSC_PASTE_TEMPLATE}</code>
+            </div>
+          </div>
+
           <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
             <label style={{ display: 'grid', gap: 6 }}>
               <span className="muted-label">Date range</span>
@@ -610,6 +631,9 @@ const SearchConsoleOpportunities = () => {
             <Button type="submit">Analyze export</Button>
             <Button type="button" variant="secondary" onClick={() => setPasteInput(SAMPLE_INPUT)}>
               Load sample
+            </Button>
+            <Button type="button" variant="secondary" onClick={() => setPasteInput(GSC_PASTE_TEMPLATE)}>
+              Load GSC header
             </Button>
             <Button
               type="button"

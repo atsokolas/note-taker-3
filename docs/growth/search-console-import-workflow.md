@@ -1,12 +1,11 @@
 # Search Performance Import Workflow
 
-Use the internal `Search Opportunities` page when you want a fast local pass over pasted Google Search Console or Bing Webmaster Tools data without waiting on backend work.
+Use the internal `Search Opportunities` page when you want a fast local pass over pasted Google Search Console data without waiting on backend work.
 
 ## Supported paste shapes
 - Query exports with headers such as `Query`, `Queries`, or `Top queries`
 - Page exports with headers such as `Page`, `Top pages`, `Landing page`, or `URL`
 - Combined query/page exports with `Clicks`, `Impressions`, `CTR`, and `Position`
-- Bing-style headers such as `Keyword`, `Page URL`, `Click Through Rate`, and `Average Position`
 - Tab-delimited copies from spreadsheets or CSV text exports
 
 ## What the page does
@@ -23,10 +22,11 @@ Use the internal `Search Opportunities` page when you want a fast local pass ove
   - serious reading workflows
 
 ## How to use it
-1. Copy the relevant Search Console or Bing rows for the time range you care about.
+1. Copy the relevant Search Console rows for the time range you care about.
 2. Open the internal `Search Opportunities` page.
 3. Paste the export, set the date range/source label, and run the analysis.
-4. Move the highest-priority outputs into [search-console-opportunity-template.md](/Users/athantsokolas/Documents/GitHub/note-taker-3-1/docs/growth/search-console-opportunity-template.md:1) for approval and execution.
+4. Use the generated execution brief for approval and execution.
+5. After the change ships, validate signups and activation quality in Marketing Analytics.
 
 ## Heuristic notes
 - The page prefers improving an existing matching page before suggesting a new page.

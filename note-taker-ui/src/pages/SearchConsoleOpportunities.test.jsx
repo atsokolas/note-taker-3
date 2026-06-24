@@ -221,6 +221,7 @@ describe('SearchConsoleOpportunities page', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Analyze export' }));
 
     expect(await screen.findByText('Import summary')).toBeInTheDocument();
+    expect(screen.getByText('GSC export checklist')).toBeInTheDocument();
     expect(screen.getByText('GSC copy/paste')).toBeInTheDocument();
     expect(screen.getByText((_, node) => node?.textContent === 'Highest-priority move: ai second brain')).toBeInTheDocument();
     expect(screen.getByText('Execution brief')).toBeInTheDocument();
@@ -229,6 +230,18 @@ describe('SearchConsoleOpportunities page', () => {
     expect(screen.getByText('Current page: https://www.noeis.io/ai-second-brain')).toBeInTheDocument();
     expect(screen.getByText('Recommended page title: Readwise is not a second brain')).toBeInTheDocument();
     expect(screen.getByText(/Reason to ignore: The query is low-intent or off-strategy/)).toBeInTheDocument();
+  });
+
+  it('can load the required Google Search Console paste header', () => {
+    render(
+      <MemoryRouter>
+        <SearchConsoleOpportunities />
+      </MemoryRouter>
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Load GSC header' }));
+
+    expect(screen.getByLabelText('Search performance export')).toHaveValue('Query\tPage\tClicks\tImpressions\tCTR\tPosition');
   });
 
   it('accepts Bing export labeling in the UI flow', async () => {
