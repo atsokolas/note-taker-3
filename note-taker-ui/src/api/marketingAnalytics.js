@@ -112,14 +112,29 @@ export const normalizeMarketingFunnelSeries = (payload = {}) => ({
     : []
 });
 
-const buildBreakdownRow = (row, label) => ({
-  ...row,
-  label,
-  viewToStartRate: toRate(row.signupStarted, row.signupViewed),
-  signupCompletionRate: toRate(row.signupsCompleted, row.signupStarted),
-  signupToActivationRate: toRate(row.activatedUsers, row.signupsCompleted),
-  viewToActivationRate: toRate(row.activatedUsers, row.signupViewed)
-});
+const activationDepthScore = (row = {}) => (
+  clampCount(row.wikiSharedAdopted) * 4
+  + clampCount(row.wikiDraftGenerated) * 3
+  + clampCount(row.wikiSourceAttached) * 2
+  + clampCount(row.wikiPageCreated) * 2
+  + clampCount(row.conceptCreated)
+  + clampCount(row.captureCompleted)
+  + clampCount(row.revisitScheduled)
+);
+
+const buildBreakdownRow = (row, label) => {
+  const depthScore = activationDepthScore(row);
+  return {
+    ...row,
+    label,
+    activationDepthScore: depthScore,
+    activationDepthPerSignup: toRate(depthScore, row.signupsCompleted),
+    viewToStartRate: toRate(row.signupStarted, row.signupViewed),
+    signupCompletionRate: toRate(row.signupsCompleted, row.signupStarted),
+    signupToActivationRate: toRate(row.activatedUsers, row.signupsCompleted),
+    viewToActivationRate: toRate(row.activatedUsers, row.signupViewed)
+  };
+};
 
 export const buildMarketingFunnelViewModel = (snapshot = {}) => {
   const normalized = normalizeMarketingFunnelSnapshot(snapshot);
@@ -218,8 +233,32 @@ export const buildMarketingFunnelViewModel = (snapshot = {}) => {
     || b.signupsCompleted - a.signupsCompleted
   );
 
+  const byActivationQuality = (a, b) => (
+    b.activationDepthPerSignup - a.activationDepthPerSignup
+    || b.activationDepthScore - a.activationDepthScore
+    || b.activatedUsers - a.activatedUsers
+    || b.signupsCompleted - a.signupsCompleted
+  );
+
   const topEntry = [...entryRows].sort(byEfficiency)[0] || null;
   const topSource = [...sourceRows].sort(byEfficiency)[0] || null;
+  const topQualityEntry = [...entryRows].filter(row => row.signupsCompleted > 0).sort(byActivationQuality)[0] || null;
+  const topQualitySource = [...sourceRows].filter(row => row.signupsCompleted > 0).sort(byActivationQuality)[0] || null;
+  const seoOperatorRecommendation = topQualityEntry ? {
+    title: `Double down on ${topQualityEntry.label}`,
+    action: 'Use this entry page as the first candidate for the next GSC refresh, internal-link push, or proof-page expansion.',
+    evidence: `${topQualityEntry.activationDepthScore} weighted activation-depth points from ${topQualityEntry.signupsCompleted} signups.`,
+    cta: topQualityEntry.wikiSharedAdopted > 0
+      ? 'Lean into shared wiki adoption proof.'
+      : topQualityEntry.wikiDraftGenerated > 0
+        ? 'Lean into reading-to-draft proof.'
+        : 'Lean into source-backed wiki activation proof.'
+  } : {
+    title: 'Wait for activation-quality data',
+    action: 'Do not create another content page from clicks alone. Paste GSC data, then compare it against activated-user quality here.',
+    evidence: 'No entry page has attributed completed signups in this window.',
+    cta: 'Prioritize instrumentation and Search Console exports.'
+  };
 
   return {
     snapshot: normalized,
@@ -255,6 +294,9 @@ export const buildMarketingFunnelViewModel = (snapshot = {}) => {
     primaryLeak,
     topEntry,
     topSource,
+    topQualityEntry,
+    topQualitySource,
+    seoOperatorRecommendation,
     entryRows,
     sourceRows,
     activationMilestones

@@ -384,6 +384,22 @@ const MarketingAnalytics = () => {
                   <p className="muted small">No source attribution yet.</p>
                 )}
               </Card>
+
+              <Card className="search-section">
+                <SectionHeader title="SEO operator move" subtitle="Highest-quality activation signal, not just raw traffic." />
+                <div style={{ fontSize: 22, fontWeight: 700, marginBottom: 8 }}>
+                  {viewModel.seoOperatorRecommendation.title}
+                </div>
+                <p className="muted" style={{ marginBottom: 8 }}>
+                  {viewModel.seoOperatorRecommendation.action}
+                </p>
+                <p className="muted small" style={{ marginBottom: 8 }}>
+                  {viewModel.seoOperatorRecommendation.evidence}
+                </p>
+                <p className="muted small">
+                  {viewModel.seoOperatorRecommendation.cta}
+                </p>
+              </Card>
             </div>
 
             <Card className="search-section">

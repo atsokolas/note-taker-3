@@ -58,6 +58,7 @@ Done:
 - `wiki_shared_adopted` counts successful adoption of a public page, collection, or starter pack into a user's workspace.
 - The marketing funnel now includes these wiki events when attributing organic signup to activation.
 - Shared wiki collections now publish canonical metadata and `CollectionPage` JSON-LD while unavailable states emit `noindex,follow`.
+- Marketing Analytics now recommends one SEO operator move from activation depth so content decisions do not overfit clicks.
 
 Remaining:
 - Add production Search Console exports to rank examples/proof pages by impression-to-signup opportunity.

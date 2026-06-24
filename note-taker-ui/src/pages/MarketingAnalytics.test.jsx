@@ -75,9 +75,15 @@ describe('Marketing analytics view model helpers', () => {
     expect(viewModel.primaryLeak.key).toBe('signup_to_activation');
     expect(viewModel.topEntry.label).toBe('Ai Second Brain');
     expect(viewModel.topEntry.viewToActivationRate).toBeCloseTo(2 / 12, 5);
+    expect(viewModel.topQualityEntry.label).toBe('Ai Second Brain');
+    expect(viewModel.topQualityEntry.activationDepthScore).toBe(13);
+    expect(viewModel.seoOperatorRecommendation).toMatchObject({
+      title: 'Double down on Ai Second Brain',
+      cta: 'Lean into shared wiki adoption proof.'
+    });
     expect(viewModel.topSource.label).toBe('google / organic');
     expect(viewModel.entryRows[0].signupCompletionRate).toBeCloseTo(4 / 7, 5);
-      expect(viewModel.activationMilestones[0]).toMatchObject({
+    expect(viewModel.activationMilestones[0]).toMatchObject({
       key: 'wiki_shared_adopted',
       value: 1
     });
@@ -159,6 +165,9 @@ describe('MarketingAnalytics page', () => {
     expect(screen.getAllByText('Ai Second Brain').length).toBeGreaterThan(0);
     expect(screen.getAllByText('google / organic').length).toBeGreaterThan(0);
     expect(screen.getByText('Primary leak')).toBeInTheDocument();
+    expect(screen.getByText('SEO operator move')).toBeInTheDocument();
+    expect(screen.getByText('Double down on Ai Second Brain')).toBeInTheDocument();
+    expect(screen.getByText('Lean into shared wiki adoption proof.')).toBeInTheDocument();
     expect(screen.getByText('Activation quality')).toBeInTheDocument();
     expect(screen.getByText('Shared wikis adopted')).toBeInTheDocument();
     expect(screen.getByText('Wiki pages created')).toBeInTheDocument();
