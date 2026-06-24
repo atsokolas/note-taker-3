@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Button, Card, Page, TagChip } from '../components/ui';
 
 const HEADER_ALIASES = {
@@ -682,6 +683,10 @@ const SearchConsoleOpportunities = () => {
             <h2>Execution brief</h2>
             <p className="muted small">
               Copy this into the weekly SEO operator or a founder review note. It picks one action from the current export and ties it to signup and activation quality.
+            </p>
+            <p className="muted small">
+              After shipping the selected change, validate whether it produced signups and wiki activation in{' '}
+              <Link to="/marketing-analytics">Marketing Analytics</Link>.
             </p>
             <textarea
               aria-label="Search opportunity execution brief"

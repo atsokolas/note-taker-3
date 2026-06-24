@@ -224,6 +224,7 @@ describe('SearchConsoleOpportunities page', () => {
     expect(screen.getByText('GSC copy/paste')).toBeInTheDocument();
     expect(screen.getByText((_, node) => node?.textContent === 'Highest-priority move: ai second brain')).toBeInTheDocument();
     expect(screen.getByText('Execution brief')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Marketing Analytics' })).toHaveAttribute('href', '/marketing-analytics');
     expect(screen.getByLabelText('Search opportunity execution brief').value).toContain('Highest-value action: Improve existing page');
     expect(screen.getByText('Current page: https://www.noeis.io/ai-second-brain')).toBeInTheDocument();
     expect(screen.getByText('Recommended page title: Readwise is not a second brain')).toBeInTheDocument();

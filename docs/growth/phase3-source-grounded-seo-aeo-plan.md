@@ -59,6 +59,7 @@ Done:
 - The marketing funnel now includes these wiki events when attributing organic signup to activation.
 - Shared wiki collections now publish canonical metadata and `CollectionPage` JSON-LD while unavailable states emit `noindex,follow`.
 - Marketing Analytics now recommends one SEO operator move from activation depth so content decisions do not overfit clicks.
+- Search Opportunities and Marketing Analytics cross-link the weekly loop: choose the GSC action, ship it, then validate activated-user quality.
 
 Remaining:
 - Add production Search Console exports to rank examples/proof pages by impression-to-signup opportunity.

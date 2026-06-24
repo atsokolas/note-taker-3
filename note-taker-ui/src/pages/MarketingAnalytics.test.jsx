@@ -168,6 +168,7 @@ describe('MarketingAnalytics page', () => {
     expect(screen.getByText('SEO operator move')).toBeInTheDocument();
     expect(screen.getByText('Double down on Ai Second Brain')).toBeInTheDocument();
     expect(screen.getByText('Lean into shared wiki adoption proof.')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Search Opportunities' })).toHaveAttribute('href', '/search-console-opportunities');
     expect(screen.getByText('Activation quality')).toBeInTheDocument();
     expect(screen.getByText('Shared wikis adopted')).toBeInTheDocument();
     expect(screen.getByText('Wiki pages created')).toBeInTheDocument();

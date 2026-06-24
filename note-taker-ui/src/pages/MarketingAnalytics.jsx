@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Card, Page, PageTitle, SectionHeader, SegmentedNav } from '../components/ui';
 import {
   MARKETING_FUNNEL_WINDOW_OPTIONS,
@@ -398,6 +399,9 @@ const MarketingAnalytics = () => {
                 </p>
                 <p className="muted small">
                   {viewModel.seoOperatorRecommendation.cta}
+                </p>
+                <p className="muted small" style={{ marginTop: 12 }}>
+                  Use <Link to="/search-console-opportunities">Search Opportunities</Link> to choose the next GSC-driven page action, then come back here to validate activation quality.
                 </p>
               </Card>
             </div>
