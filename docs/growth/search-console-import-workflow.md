@@ -28,6 +28,15 @@ Use the internal `Search Opportunities` page when you want a fast local pass ove
 4. Use the generated execution brief for approval and execution.
 5. After the change ships, validate signups and activation quality in Marketing Analytics.
 
+## Operator CLI
+For the weekly operator, place the latest export at `data/growth/search-console/latest.tsv` or pass an explicit file:
+
+```bash
+npm run seo:gsc -- --file data/growth/search-console/latest.tsv --date-range "Last 28 days" --out docs/growth/latest-search-console-brief.md
+```
+
+The raw export path is gitignored so private query/page performance data does not get committed by accident. The generated brief can be committed if it is useful as an execution artifact.
+
 ## Heuristic notes
 - The page prefers improving an existing matching page before suggesting a new page.
 - New pages are only suggested when the query intent appears distinct from the current landing page.

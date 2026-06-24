@@ -62,6 +62,7 @@ Done:
 - Search Opportunities and Marketing Analytics cross-link the weekly loop: choose the GSC action, ship it, then validate activated-user quality.
 - Search Opportunities includes an in-product GSC export checklist and expected paste header so the weekly loop is self-serve.
 - Wiki-specific activation breakdowns are surfaced in the marketing analytics UI.
+- A repo-local `seo:gsc` operator script can analyze a dropped Search Console export and generate the weekly execution brief without using the UI.
 
 External input still required:
 - Add production Google Search Console exports to rank examples/proof pages by impression-to-signup opportunity.

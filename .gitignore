@@ -14,6 +14,10 @@ tmp/
 .cursor/hooks/state/
 .codex-qa-*.png
 
+# Local search-performance exports can contain private query/page performance data.
+data/growth/search-console/*
+!data/growth/search-console/.gitkeep
+
 # Local Xcode workspace metadata
 ios/**/xcuserdata/
 ios/**/*.xcworkspace/
