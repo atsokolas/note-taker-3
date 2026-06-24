@@ -45,7 +45,7 @@ Shared wiki pages are a growth surface, but they need quality control before bro
 Next implementation steps:
 - Add dynamic metadata for shared wiki pages. Done.
 - Add `CreativeWork` JSON-LD when public source references exist. Done.
-- Add a curated examples page for intentionally public high-quality shared wikis.
+- Add a curated examples page for intentionally public high-quality shared wikis. Done.
 - Track shared wiki views and adoption clicks as marketing attribution inputs. Done.
 - Track shared wiki adoption as a downstream activation milestone. Done.
 - Keep low-quality, private, or incidental shared pages out of indexing unless intentionally published. Done for shared page/collection render states and backend public filters.
@@ -61,10 +61,10 @@ Done:
 - Marketing Analytics now recommends one SEO operator move from activation depth so content decisions do not overfit clicks.
 - Search Opportunities and Marketing Analytics cross-link the weekly loop: choose the GSC action, ship it, then validate activated-user quality.
 - Search Opportunities includes an in-product GSC export checklist and expected paste header so the weekly loop is self-serve.
+- Wiki-specific activation breakdowns are surfaced in the marketing analytics UI.
 
-Remaining:
-- Add production Search Console exports to rank examples/proof pages by impression-to-signup opportunity.
-- Surface wiki-specific activation breakdowns in the marketing analytics UI. Done.
+External input still required:
+- Add production Google Search Console exports to rank examples/proof pages by impression-to-signup opportunity.
 
 ## External Search Tooling
 - Use Google Search Console as the source of truth for query/page opportunity selection.
