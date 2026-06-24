@@ -18,15 +18,15 @@ Use `AI second brain` and `note-taking` language as acquisition terms, not as th
 - First highlight from organic users
 - First source-backed wiki page from organic users
 - First draft or synthesis from organic users
-- Bing AI citations after Webmaster Tools verification
+- AI/search citation visibility from public examples and source-grounded proof pages
 
 ## Immediate Execution
 1. Publish the missing proof-layer page: `from-saved-article-to-draft-in-noeis`. Done.
 2. Align homepage and software metadata around source-grounded research wiki language. Done.
 3. Route Search Console draft and saved-article queries to the new page. Done.
 4. Add metadata, structured data, and attribution hooks for shared wiki pages. Done.
-5. Replace the test Bing verification file with a real token and deploy.
-6. Feed Search Console and Bing exports into the Search Opportunities importer weekly.
+5. Bing verification is intentionally out of scope unless a real token becomes available.
+6. Feed Google Search Console exports into the Search Opportunities importer weekly.
 7. Add backend activation events for source-backed wiki creation, source attachment, and AI draft generation. Done.
 
 ## Next Content Cluster
@@ -60,12 +60,10 @@ Done:
 - Shared wiki collections now publish canonical metadata and `CollectionPage` JSON-LD while unavailable states emit `noindex,follow`.
 
 Remaining:
-- Add production Search Console and Bing exports to rank examples/proof pages by impression-to-signup opportunity.
+- Add production Search Console exports to rank examples/proof pages by impression-to-signup opportunity.
 - Surface wiki-specific activation breakdowns in the marketing analytics UI. Done.
 
 ## External Search Tooling
-- Verify `www.noeis.io` in Bing Webmaster Tools.
-- Replace `test-bing-verification` with the real Bing verification token.
-- Set a real `INDEXNOW_KEY`.
-- Submit the sitemap in Bing Webmaster Tools.
-- Review Bing AI Performance once citation data exists.
+- Use Google Search Console as the source of truth for query/page opportunity selection.
+- Bing Webmaster Tools and IndexNow are parked because no real verification token will be provided.
+- Review Marketing Analytics weekly after GSC-driven changes to validate signup and activation quality.

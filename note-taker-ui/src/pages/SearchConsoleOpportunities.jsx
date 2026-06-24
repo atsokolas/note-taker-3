@@ -47,6 +47,8 @@ const SAMPLE_INPUT = [
   'noeis jobs\thttps://www.noeis.io/\t0\t11\t0%\t41.0'
 ].join('\n');
 
+const DEFAULT_SOURCE_LABEL = 'Google Search Console export';
+
 const CTA_BY_THEME = {
   import: 'Import your reading archive',
   concepts: 'Create your first concept',
@@ -442,7 +444,7 @@ export const evaluateSearchConsoleRows = (rows = []) => {
 export const buildSearchConsoleOpportunityReport = ({
   input = '',
   dateRange = '',
-  source = 'Search performance export'
+  source = DEFAULT_SOURCE_LABEL
 } = {}) => {
   const parsed = parseSearchConsolePaste(input);
   const recommendations = evaluateSearchConsoleRows(parsed.rows);
@@ -462,6 +464,64 @@ export const buildSearchConsoleOpportunityReport = ({
   };
 };
 
+export const buildSearchOpportunityExecutionBrief = (report = {}) => {
+  const recommendations = report.recommendations || { improve: [], create: [], ignore: [] };
+  const topOpportunity = [...(recommendations.improve || []), ...(recommendations.create || [])]
+    .sort((left, right) => right.priority - left.priority)[0] || null;
+  if (!topOpportunity) {
+    return [
+      '# Noeis Search Opportunity Brief',
+      '',
+      `Source: ${report.source || DEFAULT_SOURCE_LABEL}`,
+      report.dateRange ? `Date range: ${report.dateRange}` : '',
+      '',
+      'No improve/create opportunity cleared the current threshold. Do not create content from this export yet.',
+      'Next action: wait for more Google Search Console data or paste a broader query/page export.'
+    ].filter(Boolean).join('\n');
+  }
+
+  const action = topOpportunity.currentPage ? 'Improve existing page' : 'Create/refine page';
+  const target = topOpportunity.currentPage
+    ? topOpportunity.currentPage
+    : `/${topOpportunity.recommendedSlug}`;
+  const title = topOpportunity.recommendedTitle || titleCase(topOpportunity.query);
+  const activationCta = topOpportunity.activationCta || activationCtaForQuery(topOpportunity.query);
+  const row = topOpportunity.row || {};
+
+  return [
+    '# Noeis Search Opportunity Brief',
+    '',
+    `Source: ${report.source || DEFAULT_SOURCE_LABEL}`,
+    report.dateRange ? `Date range: ${report.dateRange}` : '',
+    `Rows analyzed: ${report.rowCount || 0}`,
+    `Total impressions: ${Math.round(report.totals?.impressions || 0)}`,
+    `Total clicks: ${Math.round(report.totals?.clicks || 0)}`,
+    '',
+    `Highest-value action: ${action}`,
+    `Primary query: ${topOpportunity.query}`,
+    `Target: ${target}`,
+    `Recommended title: ${title}`,
+    `Activation CTA: ${activationCta}`,
+    `Search signal: ${Math.round(row.impressions || 0)} impressions, ${Math.round(row.clicks || 0)} clicks, ${metricLabel(row.ctr || 0, '%')} CTR, position ${metricLabel(row.position || 0)}`,
+    '',
+    'Why this matters:',
+    topOpportunity.why || topOpportunity.proposedFix || 'The query maps to Noeis’s source-grounded research wiki wedge and can drive signup-quality traffic.',
+    '',
+    'Execution steps:',
+    topOpportunity.currentPage
+      ? `1. Rewrite the first screen of ${target} to answer "${topOpportunity.query}" directly.`
+      : `1. Create or refine ${target} around "${topOpportunity.query}".`,
+    `2. Put the CTA "${activationCta}" above the fold and again after the proof section.`,
+    '3. Add answer-first headings, FAQ schema where appropriate, and internal links from /guides and /examples when relevant.',
+    '4. After deploy, check Marketing Analytics for signup and activation quality, not just clicks.',
+    '',
+    'Bucket counts:',
+    `Improve: ${(recommendations.improve || []).length}`,
+    `Create: ${(recommendations.create || []).length}`,
+    `Ignore: ${(recommendations.ignore || []).length}`
+  ].filter(Boolean).join('\n');
+};
+
 const numberFormat = new Intl.NumberFormat('en-US');
 const metricLabel = (value = 0, suffix = '') => `${numberFormat.format(Math.round(value * 10) / 10)}${suffix}`;
 
@@ -479,7 +539,7 @@ const RecommendationList = ({ items = [], renderItem = () => null, emptyMessage 
 
 const SearchConsoleOpportunities = () => {
   const [dateRange, setDateRange] = useState('');
-  const [source, setSource] = useState('Search performance export');
+  const [source, setSource] = useState(DEFAULT_SOURCE_LABEL);
   const [pasteInput, setPasteInput] = useState('');
   const [analysis, setAnalysis] = useState(() => buildSearchConsoleOpportunityReport());
 
@@ -506,7 +566,7 @@ const SearchConsoleOpportunities = () => {
         <p className="muted-label">Growth Ops</p>
         <h1>Search Opportunities</h1>
         <p className="muted">
-          Paste Search Console or Bing query exports and get action buckets aligned to Noeis’s SEO/AEO playbook.
+          Paste Google Search Console query exports and get action buckets aligned to Noeis’s SEO/AEO playbook.
         </p>
       </div>
 
@@ -528,7 +588,7 @@ const SearchConsoleOpportunities = () => {
                 aria-label="Source"
                 value={source}
                 onChange={(event) => setSource(event.target.value)}
-                placeholder="Search performance export"
+                placeholder={DEFAULT_SOURCE_LABEL}
               />
             </label>
           </div>
@@ -573,7 +633,7 @@ const SearchConsoleOpportunities = () => {
           <TagChip>Anchor every recommendation to Noeis’s wedge</TagChip>
         </div>
         <p className="muted small">
-          This parser is local-only. It accepts common Search Console and Bing query/page exports and turns them into the same buckets used in the opportunity review template.
+          This parser is local-only. It is optimized for Google Search Console query/page exports and still tolerates common Bing-style headers if older data is pasted.
         </p>
       </Card>
 
@@ -616,6 +676,20 @@ const SearchConsoleOpportunities = () => {
                 Highest-priority move: <strong>{qualitySummary.query}</strong>
               </p>
             )}
+          </Card>
+
+          <Card className="settings-card">
+            <h2>Execution brief</h2>
+            <p className="muted small">
+              Copy this into the weekly SEO operator or a founder review note. It picks one action from the current export and ties it to signup and activation quality.
+            </p>
+            <textarea
+              aria-label="Search opportunity execution brief"
+              readOnly
+              rows={16}
+              value={buildSearchOpportunityExecutionBrief(analysis)}
+              style={{ width: '100%', resize: 'vertical', marginTop: 12 }}
+            />
           </Card>
 
           <Card className="settings-card">

@@ -3,6 +3,7 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import SearchConsoleOpportunities, {
   buildSearchConsoleOpportunityReport,
+  buildSearchOpportunityExecutionBrief,
   evaluateSearchConsoleRows,
   parseSearchConsolePaste
 } from './SearchConsoleOpportunities';
@@ -170,6 +171,26 @@ describe('SearchConsoleOpportunities helpers', () => {
       query: 'noeis jobs'
     }));
   });
+
+  it('builds an execution brief with the highest-value action', () => {
+    const report = buildSearchConsoleOpportunityReport({
+      dateRange: 'Jun 1 to Jun 22, 2026',
+      source: 'Google Search Console export',
+      input: [
+        'Query,Page,Clicks,Impressions,CTR,Position',
+        'ai second brain,https://www.noeis.io/ai-second-brain,14,620,2.3%,8.1',
+        'readwise alternative,https://www.noeis.io/,2,144,1.4%,15.8'
+      ].join('\n')
+    });
+
+    const brief = buildSearchOpportunityExecutionBrief(report);
+
+    expect(brief).toContain('Highest-value action: Improve existing page');
+    expect(brief).toContain('Primary query: ai second brain');
+    expect(brief).toContain('Target: https://www.noeis.io/ai-second-brain');
+    expect(brief).toContain('Activation CTA: Create your first concept');
+    expect(brief).toContain('Bucket counts:');
+  });
 });
 
 describe('SearchConsoleOpportunities page', () => {
@@ -202,6 +223,8 @@ describe('SearchConsoleOpportunities page', () => {
     expect(await screen.findByText('Import summary')).toBeInTheDocument();
     expect(screen.getByText('GSC copy/paste')).toBeInTheDocument();
     expect(screen.getByText((_, node) => node?.textContent === 'Highest-priority move: ai second brain')).toBeInTheDocument();
+    expect(screen.getByText('Execution brief')).toBeInTheDocument();
+    expect(screen.getByLabelText('Search opportunity execution brief').value).toContain('Highest-value action: Improve existing page');
     expect(screen.getByText('Current page: https://www.noeis.io/ai-second-brain')).toBeInTheDocument();
     expect(screen.getByText('Recommended page title: Readwise is not a second brain')).toBeInTheDocument();
     expect(screen.getByText(/Reason to ignore: The query is low-intent or off-strategy/)).toBeInTheDocument();
