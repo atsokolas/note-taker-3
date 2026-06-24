@@ -65,5 +65,5 @@ Remaining:
 
 ## External Search Tooling
 - Use Google Search Console as the source of truth for query/page opportunity selection.
-- Bing Webmaster Tools and IndexNow are parked because no real verification token will be provided.
+- Bing Webmaster Tools and IndexNow are parked because no real verification token will be provided; the fake `BingSiteAuth.xml` has been removed from deploy output.
 - Review Marketing Analytics weekly after GSC-driven changes to validate signup and activation quality.

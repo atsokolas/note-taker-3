@@ -58,6 +58,8 @@ if (bingSiteAuthXml || bingSiteAuthToken) {
     bingSiteAuthPath,
     bingSiteAuthXml || renderBingSiteAuthXml(bingSiteAuthToken)
   );
+} else if (fs.existsSync(bingSiteAuthPath)) {
+  fs.unlinkSync(bingSiteAuthPath);
 }
 
 content.guides.forEach((guide) => {
