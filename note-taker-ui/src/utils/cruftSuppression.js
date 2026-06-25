@@ -8,6 +8,7 @@ export const CRUFT_TITLE_PATTERNS = [
   /^kevin\b/i,
   /^brand new pull test\b/i,
   /^claim note \d{10,}$/i,
+  /^evidence note \d{10,}$/i,
   /^connection concept [a-z]\s+\d{10,}$/i,
   /^idea workbench route\s+\d{10,}$/i,
   /^new question$/i,

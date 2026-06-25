@@ -25,6 +25,7 @@ describe('cruftSuppression', () => {
     expect(matchesCruftHeuristic('QA public question: what makes a reading note durable?')).toBe(true);
     expect(matchesCruftHeuristic('Brand New Pull Test')).toBe(true);
     expect(matchesCruftHeuristic('Claim note 1780622210271')).toBe(true);
+    expect(matchesCruftHeuristic('Evidence note 1780622210271')).toBe(true);
     expect(matchesCruftHeuristic('Connection Concept A 1780621533872')).toBe(true);
     expect(matchesCruftHeuristic('Idea Workbench Route 1780621569070')).toBe(true);
     expect(matchesCruftHeuristic('investing')).toBe(false);
