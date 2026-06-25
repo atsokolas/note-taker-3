@@ -62,6 +62,16 @@ describe('WikiBuildPageComposer', () => {
     });
   });
 
+  it('exposes the full build placeholder for the thought partner prompt', () => {
+    render(
+      <MemoryRouter>
+        <WikiBuildPageComposer />
+      </MemoryRouter>
+    );
+
+    expect(screen.getByPlaceholderText('Ask thought partner to build a wiki page...')).toBeInTheDocument();
+  });
+
   it('surfaces a build failure without navigating', async () => {
     createWikiPage.mockRejectedValueOnce(new Error('nope'));
     render(

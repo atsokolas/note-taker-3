@@ -5631,6 +5631,7 @@ html[data-ui-theme='dark'] .wiki-read__share-card-actions .wiki-read__share-open
 }
 
 .wiki-read__body {
+  max-width: 68ch;
   padding: 26px 0 12px;
   color: var(--text-primary);
   font-family: Georgia, 'Times New Roman', serif;

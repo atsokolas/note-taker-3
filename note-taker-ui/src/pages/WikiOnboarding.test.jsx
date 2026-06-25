@@ -148,12 +148,29 @@ describe('WikiOnboarding', () => {
         sourceTextLimit: 800,
         inlineAutolinkLimit: 150,
         skipQualityRebuild: true,
-        streamDraft: true,
+        streamDraft: false,
         deferInboundAutolinks: true
       }),
       expect.any(Object)
     ));
     expect(await screen.findByRole('heading', { name: 'Your first page is ready.' })).toBeInTheDocument();
+  });
+
+  it('strips a leading article when inferring a generated first-page title', async () => {
+    createWikiPage.mockResolvedValue({ _id: 'paste-page', title: 'Availability Heuristic' });
+    streamMaintainWikiPage.mockResolvedValue({ _id: 'paste-page', claimCount: 1, sourceCount: 1 });
+
+    render(<WikiOnboarding />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Start' }));
+    fireEvent.change(await screen.findByPlaceholderText('Drop in something you read this week...'), {
+      target: { value: 'The availability heuristic is a shortcut where vivid examples crowd out base rates.' }
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Build from this' }));
+
+    await waitFor(() => expect(importPastedText).toHaveBeenCalledWith(expect.objectContaining({
+      title: 'Availability Heuristic'
+    })));
   });
 
   it('keeps the build screen visibly alive while drafting work is still running', async () => {

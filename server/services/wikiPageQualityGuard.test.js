@@ -22,6 +22,27 @@ describe('wikiPageQualityGuard', () => {
     expect(review.status).toBe('ok');
   });
 
+  it('blocks generated QA verification page titles from hero surfaces', () => {
+    const review = classifyWikiPageQuality({
+      title: 'QA Build Order Verification 2026-06-19',
+      plainText: 'This page was created by a browser regression test and should not lead the Morning Paper.'
+    });
+
+    expect(review.surfaceEligible).toBe(false);
+    expect(review.reasons.map(reason => reason.code)).toContain('generated_qa_title');
+  });
+
+  it('does not block legitimate quality-assurance topics', () => {
+    const review = classifyWikiPageQuality({
+      title: 'Quality Assurance Strategy',
+      plainText: 'Quality assurance strategy explains how teams prevent regressions before software reaches customers.',
+      sourceRefs: [{ type: 'article', title: 'Testing strategy' }]
+    });
+
+    expect(review.surfaceEligible).toBe(true);
+    expect(review.status).toBe('ok');
+  });
+
   it('marks sparse unsourced pages for owner review without hiding them', () => {
     const review = classifyWikiPageQuality({
       title: 'Sparse Legitimate Draft',

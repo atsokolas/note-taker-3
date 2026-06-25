@@ -6,7 +6,9 @@ export const CRUFT_TITLE_PATTERNS = [
   /^discard\b/i,
   /^favorite\b/i,
   /^kevin\b/i,
-  /^new question$/i
+  /^new question$/i,
+  /^(?:qa|codex qa)\s+(?:build order verification|user test|shared adoption|public share|fresh concept|slash concept|embedding retry)\b/i,
+  /^(?:qa|codex qa)\b.*\b\d{10,}\b/i
 ];
 
 export const getReturnViewTitle = (item = {}) => {

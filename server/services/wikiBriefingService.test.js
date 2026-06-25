@@ -199,6 +199,32 @@ describe('wikiBriefingService', () => {
       expect(briefing.driftingPages[0].title).toBe('Drifting page');
     });
 
+    it('trims model summaries at a sentence boundary instead of mid-sentence', async () => {
+      const updatedPage = buildPage({
+        _id: 'updated',
+        title: 'Availability Heuristic',
+        aiState: { lastDraftedAt: new Date(NOW - 1000).toISOString(), health: buildPage().aiState.health }
+      });
+      const chat = jest.fn().mockResolvedValue({
+        text: 'Availability Heuristic moved today with fresh evidence. This second sentence keeps going past the budget with extra detail about decision quality, base rates, and the kinds of availability traps that make vivid examples crowd out quieter evidence in everyday judgment while adding still more material about source freshness, drift signals, section review, graph context, and the owner return loop.',
+        model: 'gpt-test'
+      });
+      const briefing = await buildWikiBriefing({
+        userId: 'u1',
+        models: {
+          WikiPage: fakeModel([updatedPage]),
+          Article: fakeModel([]),
+          NotebookEntry: fakeModel([])
+        },
+        now: NOW,
+        chat,
+        isConfigured: () => true
+      });
+
+      expect(briefing.summary).toBe('Availability Heuristic moved today with fresh evidence.');
+      expect(briefing.summary).toMatch(/[.!?]$/);
+    });
+
     it('excludes blocked quality pages from briefing summaries and counts', async () => {
       const blockedUpdatedPage = buildPage({
         _id: 'blocked',
@@ -228,6 +254,36 @@ describe('wikiBriefingService', () => {
       expect(briefing.recentlyUpdatedPages.map(page => page.title)).toEqual(['Network Effects']);
       expect(briefing.summary).toMatch(/1 wiki page updated/);
       expect(briefing.summary).not.toMatch(/Complementary Machine Thing/);
+    });
+
+    it('excludes generated QA pages from recently updated briefing pages', async () => {
+      const qaUpdatedPage = buildPage({
+        _id: 'qa',
+        title: 'QA Build Order Verification 2026-06-19',
+        plainText: 'Browser test page created to verify build order.',
+        aiState: { lastDraftedAt: new Date(NOW - 1000).toISOString(), health: buildPage().aiState.health }
+      });
+      const goodUpdatedPage = buildPage({
+        _id: 'good',
+        title: 'Opportunity Cost',
+        plainText: 'Opportunity cost compares an action to the best available alternative.',
+        aiState: { lastDraftedAt: new Date(NOW - 2000).toISOString(), health: buildPage().aiState.health }
+      });
+
+      const briefing = await buildWikiBriefing({
+        userId: 'u1',
+        models: {
+          WikiPage: fakeModel([qaUpdatedPage, goodUpdatedPage]),
+          Article: fakeModel([]),
+          NotebookEntry: fakeModel([])
+        },
+        now: NOW,
+        chat: jest.fn(),
+        isConfigured: () => false
+      });
+
+      expect(briefing.recentlyUpdatedPages.map(page => page.title)).toEqual(['Opportunity Cost']);
+      expect(briefing.totalPages).toBe(1);
     });
 
     it('falls back to the deterministic summary when the chat client throws', async () => {

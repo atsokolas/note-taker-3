@@ -1244,6 +1244,8 @@ body.noeis-editorial .library-article-list {
 }
 
 body.noeis-editorial .library-article-row {
+  position: relative;
+  isolation: isolate;
   display: grid;
   grid-template-columns: 96px minmax(0, 1fr) auto;
   gap: 16px;
@@ -1251,6 +1253,70 @@ body.noeis-editorial .library-article-row {
   min-height: 136px;
   padding: 14px 0;
   border-bottom: 1px solid var(--vellum-line);
+}
+
+/* Cursor-following row bloom — wiki index + library browse rows.
+   Pairs with --row-bloom-x/y from LibraryArticleList / WikiList. */
+body.noeis-editorial .library-article-row.is-magnetic::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: -1;
+  background: radial-gradient(
+    180px circle at var(--row-bloom-x, 50%) var(--row-bloom-y, 50%),
+    color-mix(in srgb, var(--vellum-warm, var(--accent-primary)) 14%, transparent),
+    transparent 70%
+  );
+  opacity: 0;
+  transition: opacity 220ms ease-out;
+}
+
+body.noeis-editorial .library-article-row.is-magnetic::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 6px;
+  bottom: 6px;
+  width: 2px;
+  background: var(--vellum-warm, var(--accent-primary));
+  border-radius: 2px;
+  opacity: 0;
+  transform: translateX(-3px);
+  transition: opacity 220ms ease-out, transform 220ms ease-out;
+}
+
+body.noeis-editorial .library-article-row.is-magnetic:hover::before,
+body.noeis-editorial .library-article-row.is-magnetic:focus-within::before {
+  opacity: 1;
+}
+
+body.noeis-editorial .library-article-row.is-magnetic:hover::after,
+body.noeis-editorial .library-article-row.is-magnetic:focus-within::after {
+  opacity: 0.55;
+  transform: translateX(0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body.noeis-editorial .library-article-row.is-magnetic::before,
+  body.noeis-editorial .library-article-row.is-magnetic::after {
+    transition: none;
+    opacity: 0;
+  }
+
+  body.noeis-editorial .library-article-row.is-magnetic:hover::before,
+  body.noeis-editorial .library-article-row.is-magnetic:focus-within::before,
+  body.noeis-editorial .library-article-row.is-magnetic:hover::after,
+  body.noeis-editorial .library-article-row.is-magnetic:focus-within::after {
+    opacity: 0;
+    transform: translateX(-3px);
+  }
+}
+
+@media (pointer: coarse) {
+  body.noeis-editorial .library-article-row.is-magnetic::before {
+    display: none;
+  }
 }
 
 body.noeis-editorial .library-article-row-date {
@@ -7662,8 +7728,7 @@ body.noeis-editorial .three-pane--library .library-article-list > .library-secti
   display: none;
 }
 
-body.noeis-editorial .three-pane--library .library-article-list::before,
-body.noeis-editorial .three-pane--library .library-article-row::before {
+body.noeis-editorial .three-pane--library .library-article-list::before {
   display: none !important;
   content: none !important;
 }

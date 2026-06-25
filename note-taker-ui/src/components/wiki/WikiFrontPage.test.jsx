@@ -200,4 +200,40 @@ describe('WikiFrontPage (AT-394)', () => {
       .toHaveTextContent(/start your wiki/i);
     expect(navigate).not.toHaveBeenCalled();
   });
+
+  it('keeps generated QA pages out of the hero and Explore even if the API returns them', async () => {
+    listWikiPages.mockResolvedValueOnce([
+      {
+        _id: 'qa-page',
+        title: 'QA Build Order Verification 2026-06-19',
+        summary: 'A browser verification page that should not become the front door.',
+        sourceRefs: [{ _id: 'qa-source' }],
+        claims: [{ _id: 'qa-claim' }],
+        updatedAt: '2026-06-11T13:00:00.000Z'
+      },
+      ...pages
+    ]);
+    listWikiPages.mockResolvedValueOnce([
+      {
+        _id: 'qa-page',
+        title: 'QA Build Order Verification 2026-06-19',
+        summary: 'A browser verification page that should not become the front door.'
+      },
+      ...pages
+    ]);
+    getWikiBriefing.mockResolvedValueOnce({
+      ...briefing,
+      recentlyUpdatedPages: [{ _id: 'qa-page', title: 'QA Build Order Verification 2026-06-19' }]
+    });
+
+    render(
+      <router.MemoryRouter>
+        <WikiFrontPage />
+      </router.MemoryRouter>
+    );
+
+    expect(await screen.findByRole('heading', { level: 1, name: 'First Principles Thinking' }))
+      .toBeInTheDocument();
+    expect(screen.queryByText(/QA Build Order Verification/i)).not.toBeInTheDocument();
+  });
 });

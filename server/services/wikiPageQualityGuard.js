@@ -1,5 +1,8 @@
 const GENERIC_PLACEHOLDER_TITLE_RE = /^(?:thing|stuff|blah|asdf|test|untitled|lorem ipsum)(?:\s+\d+)?$/i;
 const DEBUG_FIXTURE_TITLE_RE = /\bdebug fixture\b/i;
+const QA_GENERATED_TITLE_RE = /^(?:qa|codex qa)\b/i;
+const QA_VERIFICATION_TITLE_RE = /\b(?:build order verification|user test|slash concept|fresh concept|shared adoption|public share|retest|mcp retest|embedding retry)\b/i;
+const LONG_TIMESTAMP_RE = /\b\d{10,}\b/;
 const KNOWN_QA_JUNK_TITLES = new Set([
   'cia teach investor behavioural investment',
   'complementary machine thing'
@@ -53,6 +56,11 @@ const classifyWikiPageQuality = (page = {}) => {
 
   if (KNOWN_QA_JUNK_TITLES.has(normalizedTitle)) {
     addReason('known_qa_junk_title', 'Page title matches a known malformed QA fixture.', { blocking: true });
+  } else if (
+    (QA_GENERATED_TITLE_RE.test(title) && (QA_VERIFICATION_TITLE_RE.test(title) || LONG_TIMESTAMP_RE.test(title)))
+    || /^qa\s+(?:build order verification|user test|shared adoption|public share|fresh concept|slash concept)\b/i.test(title)
+  ) {
+    addReason('generated_qa_title', 'Page title looks like an internal QA/generated verification page.', { blocking: true });
   } else if (GENERIC_PLACEHOLDER_TITLE_RE.test(title) || DEBUG_FIXTURE_TITLE_RE.test(title)) {
     addReason('placeholder_title', 'Page title contains placeholder/debug wording.', { blocking: true });
   }

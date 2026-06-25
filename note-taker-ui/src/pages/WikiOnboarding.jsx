@@ -48,20 +48,22 @@ const starterFallback = [
   }
 ];
 
-const titleCaseConcept = (value = '') => (
-  String(value || '')
+const titleCaseConcept = (value = '') => {
+  const words = String(value || '')
     .replace(/[“”"]/g, '')
+    .replace(/^(?:the|a|an)\s+/i, '')
     .split(/\s+/)
     .filter(Boolean)
-    .slice(0, 8)
-    .map((word) => {
+    .slice(0, 8);
+
+  return words
+    .map((word, index) => {
       const lower = word.toLowerCase();
-      if (['and', 'or', 'of', 'the', 'a', 'an', 'to', 'in', 'for'].includes(lower)) return lower;
+      if (index > 0 && index < words.length - 1 && ['and', 'or', 'of', 'the', 'a', 'an', 'to', 'in', 'for'].includes(lower)) return lower;
       return lower.charAt(0).toUpperCase() + lower.slice(1);
     })
-    .join(' ')
-    .replace(/\b([A-Z][a-z]+)\s+(and|or|of|the|a|an|to|in|for)\b/g, (match) => match)
-);
+    .join(' ');
+};
 
 const inferConceptTitleFromText = (value = '') => {
   const firstLine = String(value || '')

@@ -44,6 +44,9 @@ const {
   classifyWikiPageQuality,
   isWikiPageSurfaceEligible
 } = require('../services/wikiPageQualityGuard');
+const {
+  normalizeWikiTitleForPresentation
+} = require('../services/wikiPresentationGuard');
 const { lintWiki: defaultLintWiki } = require('../services/wikiLintService');
 const {
   activeProposalsNeedClusteringRefresh,
@@ -296,9 +299,7 @@ const extractRelevanceTextFromDoc = (node, out = [], state = { paragraphSeen: fa
   return out;
 };
 
-const normalizeTitle = (value = '') => (
-  String(value || 'Untitled Wiki Page').trim().slice(0, 180) || 'Untitled Wiki Page'
-);
+const normalizeTitle = (value = '') => normalizeWikiTitleForPresentation(value, { maxLength: 180 });
 
 const deriveTitleFromQuestion = (question = '') => {
   const title = String(question || '')

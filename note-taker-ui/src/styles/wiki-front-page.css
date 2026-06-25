@@ -133,8 +133,38 @@ html[data-ui-theme='dark'] body.noeis-editorial .wiki-front-page {
 /* Quiet composer — present, breathing, never shouting. */
 .wiki-front-page__composer {
   position: relative;
-  max-width: 560px;
+  max-width: min(100%, 560px);
   border-radius: 10px;
+}
+
+/* Front-page builder: let the input use the full composer width. */
+.wiki-front-page__composer .wiki-build-page.wiki-front-page__builder {
+  max-width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.wiki-front-page__composer .wiki-build-page__row {
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+}
+
+.wiki-front-page__composer .wiki-build-page__row input {
+  min-width: 0;
+  width: 100%;
+}
+
+@media (min-width: 1280px) {
+  .wiki-front-page__composer {
+    max-width: min(100%, 720px);
+  }
+}
+
+@media (min-width: 1440px) {
+  .wiki-front-page__composer {
+    max-width: min(100%, 760px);
+  }
 }
 .wiki-front-page__composer::before {
   content: '';

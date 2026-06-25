@@ -1,5 +1,9 @@
 const { chatComplete, isTextGenerationConfigured } = require('../ai/hfTextClient');
 const { isWikiPageSurfaceEligible } = require('./wikiPageQualityGuard');
+const {
+  normalizeWikiTitleForPresentation,
+  sentenceBoundaryTrim
+} = require('./wikiPresentationGuard');
 
 /**
  * wikiBriefingService — assembles the "Daily wiki briefing" surfaced
@@ -85,7 +89,7 @@ const collectRecentlyUpdatedPages = (pages = [], { windowMs = ONE_DAY_MS, now = 
     .slice(0, 8)
     .map(page => ({
       _id: String(page._id || ''),
-      title: truncate(page.title, 140) || 'Untitled wiki page',
+      title: truncate(normalizeWikiTitleForPresentation(page.title, { stripLeadingArticle: false }), 140) || 'Untitled wiki page',
       lastDraftedAt: page.aiState?.lastDraftedAt || null
     }));
 };
@@ -103,7 +107,7 @@ const collectDriftingPages = (pages = []) => {
     .slice(0, 8)
     .map(entry => ({
       _id: String(entry.page._id || ''),
-      title: truncate(entry.page.title, 140) || 'Untitled wiki page',
+      title: truncate(normalizeWikiTitleForPresentation(entry.page.title, { stripLeadingArticle: false }), 140) || 'Untitled wiki page',
       driftSignals: entry.driftSignals
     }));
 };
@@ -167,7 +171,10 @@ const buildWikiBriefing = async ({
     Promise.resolve(collectDriftingPages(pages))
   ]);
 
-  const fallbackSummary = buildFallbackSummary({ newSources, recentlyUpdatedPages, driftingPages });
+  const fallbackSummary = sentenceBoundaryTrim(
+    buildFallbackSummary({ newSources, recentlyUpdatedPages, driftingPages }),
+    { maxLength: 280 }
+  );
   let summary = fallbackSummary;
   let model = 'stub';
 
@@ -184,7 +191,7 @@ const buildWikiBriefing = async ({
         ]
       });
       const raw = typeof completion === 'string' ? completion : completion?.text || '';
-      const cleaned = truncate(raw.replace(/^["']|["']$/g, '').trim(), 320);
+      const cleaned = sentenceBoundaryTrim(raw, { maxLength: 280, fallback: fallbackSummary });
       if (cleaned) {
         summary = cleaned;
         model = completion?.model || 'hf';

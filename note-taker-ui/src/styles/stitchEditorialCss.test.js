@@ -76,4 +76,13 @@ describe('stitch editorial CSS tokens', () => {
     expect(documentScrollBlock).toContain('height: auto;');
     expect(documentScrollBlock).toContain('overflow-y: auto;');
   });
+
+  it('wires editorial magnetic row bloom to --row-bloom vars with reduced-motion off', () => {
+    const css = fs.readFileSync(path.join(__dirname, 'stitch-editorial.css'), 'utf8');
+
+    expect(css).toContain('body.noeis-editorial .library-article-row.is-magnetic::before');
+    expect(css).toContain('var(--row-bloom-x, 50%) var(--row-bloom-y, 50%)');
+    expect(css).toMatch(/@media \(prefers-reduced-motion: reduce\)[\s\S]*?library-article-row\.is-magnetic::before/);
+    expect(css).not.toContain('.three-pane--library .library-article-row::before');
+  });
 });

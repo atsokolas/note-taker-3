@@ -20,7 +20,10 @@ describe('cruftSuppression', () => {
     expect(matchesCruftHeuristic('TEMP MCP RETEST 2026-06-06')).toBe(true);
     expect(matchesCruftHeuristic('Blah')).toBe(true);
     expect(matchesCruftHeuristic('TEST (8)')).toBe(true);
+    expect(matchesCruftHeuristic('QA Build Order Verification 2026-06-19')).toBe(true);
+    expect(matchesCruftHeuristic('QA User Test Embedding Retry 1782083461056')).toBe(true);
     expect(matchesCruftHeuristic('investing')).toBe(false);
+    expect(matchesCruftHeuristic('Quality Assurance Strategy')).toBe(false);
   });
 
   it('keeps hiddenFromHome articles recoverable in Library browse while still hiding debug cruft', () => {

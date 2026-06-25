@@ -540,6 +540,7 @@
   }
 }
 .wiki-read__body {
+  max-width: 68ch;
   padding: 26px 0 12px;
   color: var(--wiki-reading-ink);
   font-size: 1.12rem;
@@ -746,6 +747,7 @@
   }
 }
 .wiki-read__references {
+  max-width: 68ch;
   margin-top: 42px;
   padding-top: 18px;
   border-top: 1px solid color-mix(in srgb, var(--nt-divider) 60%, transparent);
