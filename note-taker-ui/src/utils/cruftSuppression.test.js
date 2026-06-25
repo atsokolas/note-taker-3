@@ -28,6 +28,7 @@ describe('cruftSuppression', () => {
     expect(matchesCruftHeuristic('Evidence note 1780622210271')).toBe(true);
     expect(matchesCruftHeuristic('Connection Concept A 1780621533872')).toBe(true);
     expect(matchesCruftHeuristic('Idea Workbench Route 1780621569070')).toBe(true);
+    expect(matchesCruftHeuristic('Retrieval A 1780622208171')).toBe(true);
     expect(matchesCruftHeuristic('investing')).toBe(false);
     expect(matchesCruftHeuristic('Quality Assurance Strategy')).toBe(false);
   });
