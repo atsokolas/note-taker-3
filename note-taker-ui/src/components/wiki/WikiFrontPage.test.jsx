@@ -124,10 +124,13 @@ describe('WikiFrontPage (AT-394)', () => {
     expect(screen.getAllByRole('link', { name: 'Margin of Safety' })[0])
       .toHaveAttribute('href', '/wiki/workspace?page=wiki-margin-of-safety');
 
-    // Machinery is behind the hairline — with the review count, off the door.
+    // Workspace destinations are legible secondary nav near the top.
+    const workspaceNav = screen.getByRole('navigation', { name: 'Wiki workspace' });
+    expect(workspaceNav).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /review \(4\)/i }))
       .toHaveAttribute('href', '/wiki/workspace?view=graph');
-    expect(screen.getByRole('link', { name: 'knowledge map' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Knowledge map' })).toBeInTheDocument();
+    expect(screen.queryByRole('contentinfo')).not.toBeInTheDocument();
 
     // No review queue / counters dumped on the front door.
     expect(screen.queryByText(/pages need review/i)).not.toBeInTheDocument();

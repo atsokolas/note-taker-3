@@ -1,3 +1,5 @@
+import { formatSurfaceDate } from '../../utils/dateDisplay';
+
 const EMPTY_DOC = { type: 'doc', content: [] };
 
 export const collectWikiText = (node) => {
@@ -114,10 +116,7 @@ export const wikiSourceStatusForPage = (page = {}) => {
 };
 
 export const formatWikiRowDate = (value) => {
-  if (!value) return '';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '';
-  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+  return formatSurfaceDate(value, { includeYear: true });
 };
 
 export const wikiRowMetaForPage = (page = {}) => {
@@ -130,7 +129,7 @@ export const wikiRowMetaForPage = (page = {}) => {
     `${sources} source${sources === 1 ? '' : 's'}`,
     `${claims} claim${claims === 1 ? '' : 's'}`
   ];
-  if (reviewedAt) parts.push(`reviewed ${formatWikiRowDate(reviewedAt)}`);
+  if (reviewedAt) parts.push(`reviewed ${formatSurfaceDate(reviewedAt)}`);
   return parts.join(' · ');
 };
 

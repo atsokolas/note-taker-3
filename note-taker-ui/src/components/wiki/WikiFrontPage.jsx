@@ -6,6 +6,7 @@ import { AGENT_DISPLAY_NAME } from '../../constants/agentIdentity';
 import WikiBuildPageComposer from './WikiBuildPageComposer';
 import { countWikiClaims, countWikiSources, wikiPreviewForPage } from './wikiPageMetrics';
 import { filterReturnViewItems } from '../../utils/cruftSuppression';
+import { formatSurfaceDate } from '../../utils/dateDisplay';
 import '../../styles/wiki-critical.css';
 import '../../styles/wiki-front-page.css';
 
@@ -32,13 +33,7 @@ const pageWeight = (page = {}) => (
 
 const relativeTime = (iso) => {
   if (!iso) return '';
-  const then = new Date(iso).getTime();
-  if (!Number.isFinite(then)) return '';
-  const diff = Math.max(0, Math.round((Date.now() - then) / 1000));
-  if (diff < 3600) return 'in the last hour';
-  if (diff < 86400) return `${Math.round(diff / 3600)}h ago`;
-  if (diff < 86400 * 7) return `${Math.round(diff / 86400)}d ago`;
-  return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  return formatSurfaceDate(iso, { includeYear: true });
 };
 
 // Growth note for the "Recently grown" column — instrument register, but only
@@ -207,6 +202,17 @@ const WikiFrontPage = () => {
   const reviewCount = briefing?.counts?.driftingPages
     ?? (Array.isArray(briefing?.driftingPages) ? briefing.driftingPages.length : 0);
 
+  const workspaceNav = (
+    <nav className="wiki-front-page__secondary-nav" aria-label="Wiki workspace">
+      <Link to="/wiki/workspace?view=graph">Knowledge map</Link>
+      <Link to="/wiki/workspace?view=list">All pages</Link>
+      <Link to="/wiki/workspace?view=list&quality=needs_review">Needs review</Link>
+      <Link to="/wiki/workspace?view=graph">
+        Review{reviewCount ? ` (${reviewCount})` : ''}
+      </Link>
+    </nav>
+  );
+
   const leadSentence = briefing?.summary || '';
   const leadExcerpt = todaysPage ? wikiPreviewForPage(todaysPage, LEAD_EXCERPT_BUDGET) : '';
 
@@ -248,17 +254,22 @@ const WikiFrontPage = () => {
   if (!curatedPages.length) {
     return (
       <main className="wiki-page wiki-front-page">
-        <p className="wiki-index__eyebrow wiki-front-page__masthead wfp-anim wfp-anim--1">
-          Morning paper · {mastheadDate()}
-        </p>
-        <section className="wiki-front-page__empty wfp-anim wfp-anim--2" aria-labelledby="wfp-empty-title">
+        <header className="wiki-front-page__top">
+          <p className="wiki-index__eyebrow wiki-front-page__masthead wfp-anim wfp-anim--1">
+            Morning paper · {mastheadDate()}
+          </p>
+          <div className="wiki-front-page__intro wfp-anim wfp-anim--2">
+            {workspaceNav}
+          </div>
+        </header>
+        <section className="wiki-front-page__empty wfp-anim wfp-anim--3" aria-labelledby="wfp-empty-title">
           <h1 id="wfp-empty-title">Nothing here yet — let&rsquo;s start your wiki.</h1>
           <p>
             Save something you&rsquo;re reading and {AGENT_DISPLAY_NAME} will turn it into your
             first page, or ask for a page on anything you&rsquo;re thinking about.
           </p>
         </section>
-        <section className="wiki-front-page__composer wfp-anim wfp-anim--3" aria-label="Build a wiki page">
+        <section className="wiki-front-page__composer wfp-anim wfp-anim--4" aria-label="Build a wiki page">
           <WikiBuildPageComposer compact className="wiki-front-page__builder" />
         </section>
         {error ? <div className="wiki-index__error" role="alert">{error}</div> : null}
@@ -272,11 +283,14 @@ const WikiFrontPage = () => {
         <p className="wiki-index__eyebrow wiki-front-page__masthead wfp-anim wfp-anim--1">
           Morning paper · {mastheadDate()}
         </p>
-        {leadSentence ? (
-          <p className="wiki-front-page__lead wfp-anim wfp-anim--2">
-            <WriteIn text={leadSentence} />
-          </p>
-        ) : null}
+        <div className="wiki-front-page__intro wfp-anim wfp-anim--2">
+          {leadSentence ? (
+            <p className="wiki-front-page__lead">
+              <WriteIn text={leadSentence} />
+            </p>
+          ) : null}
+          {workspaceNav}
+        </div>
       </header>
 
       <div className="wiki-front-page__columns">
@@ -329,17 +343,6 @@ const WikiFrontPage = () => {
       <section className="wiki-front-page__composer wfp-anim wfp-anim--6" aria-label="Ask or build a wiki page">
         <WikiBuildPageComposer compact className="wiki-front-page__builder" />
       </section>
-
-      <footer className="wiki-front-page__hairline wfp-anim wfp-anim--6">
-        <span className="wiki-front-page__hairline-label">workspace:</span>
-        <Link to="/wiki/workspace?view=graph">knowledge map</Link>
-        <span aria-hidden="true"> · </span>
-        <Link to="/wiki/workspace?view=list">all pages</Link>
-        <span aria-hidden="true"> · </span>
-        <Link to="/wiki/workspace?view=list&quality=needs_review">needs review</Link>
-        <span aria-hidden="true"> · </span>
-        <Link to="/wiki/workspace?view=graph">review{reviewCount ? ` (${reviewCount})` : ''}</Link>
-      </footer>
 
       {error ? <div className="wiki-index__error" role="alert">{error}</div> : null}
     </main>

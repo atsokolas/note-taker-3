@@ -492,22 +492,6 @@ function App() {
   if (isLoading) return <RouteLoadingFallback />;
 
   const AppLayout = () => {
-    const topBarUtilityNav = [
-      {
-        label: 'Connections',
-        to: '/connections',
-        match: (currentLocation) => (
-          currentLocation.pathname.startsWith('/connections')
-          || currentLocation.pathname.startsWith('/integrations')
-          || currentLocation.pathname.startsWith('/data-integrations')
-        )
-      },
-      {
-        label: 'Settings',
-        to: '/settings',
-        match: (currentLocation) => currentLocation.pathname.startsWith('/settings')
-      }
-    ];
     const topBarAccountMenuItems = [
       {
         label: 'Feedback',
@@ -523,7 +507,14 @@ function App() {
         onClick: handleLogout
       }
     ];
-    const moreNavItems = secondaryNavItems;
+    const moreNavItems = [
+      ...secondaryNavItems,
+      {
+        label: 'Settings',
+        to: '/settings',
+        match: (currentLocation) => currentLocation.pathname.startsWith('/settings')
+      }
+    ];
 
     const routes = (
       <Page className="page-area">
@@ -634,7 +625,6 @@ function App() {
           <TopBar
             brandEnergy={uiSettings.brandEnergy}
             primaryNav={primaryNavItems}
-            utilityNav={topBarUtilityNav}
             secondaryNav={moreNavItems}
             searchMode="field"
             onSearchOpen={openPalette}

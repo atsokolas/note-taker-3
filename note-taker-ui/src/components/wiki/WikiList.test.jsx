@@ -31,7 +31,7 @@ jest.mock('./WikiInbox', () => function MockWikiInbox() {
 let mockSearchParams = new URLSearchParams('view=list');
 let rerenderList = () => {};
 
-const renderWikiList = (search = 'view=list', { compact = true } = {}) => {
+const renderWikiList = (search = 'view=list', { compact = true, onOpenPage } = {}) => {
   mockSearchParams = new URLSearchParams(search);
   const mockSetSearchParams = jest.fn((next) => {
     mockSearchParams = typeof next === 'function'
@@ -43,12 +43,12 @@ const renderWikiList = (search = 'view=list', { compact = true } = {}) => {
 
   const view = render(
     <MemoryRouter>
-      <WikiList compact={compact} />
+      <WikiList compact={compact} onOpenPage={onOpenPage} />
     </MemoryRouter>
   );
   rerenderList = () => view.rerender(
     <MemoryRouter>
-      <WikiList compact={compact} />
+      <WikiList compact={compact} onOpenPage={onOpenPage} />
     </MemoryRouter>
   );
   return view;
@@ -94,6 +94,7 @@ describe('WikiList', () => {
     renderWikiList();
 
     expect(await screen.findByTestId('wiki-facet-rail')).toBeInTheDocument();
+    expect(await screen.findByLabelText('Wiki pages')).toHaveClass('wiki-index__list');
     await waitFor(() => {
       expect(listWikiPages).toHaveBeenCalled();
     });
@@ -257,5 +258,16 @@ describe('WikiList', () => {
     fireEvent.click(moreButton);
 
     expect(within(row).getByRole('button', { name: /archive investing/i })).toBeInTheDocument();
+  });
+
+  it('shows a brief row receipt when opening through the workspace callback', async () => {
+    const onOpenPage = jest.fn();
+    renderWikiList('view=list', { onOpenPage });
+
+    const openLink = await screen.findByRole('link', { name: /open investing/i });
+    fireEvent.click(openLink);
+
+    expect(onOpenPage).toHaveBeenCalledWith('wiki-1');
+    expect(screen.getByRole('status')).toHaveTextContent('Opening');
   });
 });

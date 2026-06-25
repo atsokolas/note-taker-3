@@ -27,15 +27,15 @@
 
 html[data-ui-theme='dark'] {
   --bg-shell: #14110d;
-  --bg-chrome: #121d2f;
-  --surface-0: #182335;
-  --surface-1: #141f31;
-  --surface-2: #1a2a44;
-  --text-0: #e5ecf9;
-  --text-1: #c2cee3;
-  --text-2: #9eb0cf;
-  --line-0: #2a3b58;
-  --line-1: #344966;
+  --bg-chrome: #1a1712;
+  --surface-0: #211e17;
+  --surface-1: #1c1813;
+  --surface-2: #2a241c;
+  --text-0: #f1eadc;
+  --text-1: #c5bda9;
+  --text-2: #948b7d;
+  --line-0: rgba(223, 206, 166, 0.16);
+  --line-1: rgba(223, 206, 166, 0.24);
   --shadow-1: 0 12px 38px rgba(0, 0, 0, 0.32);
   --shadow-2: 0 24px 60px rgba(0, 0, 0, 0.5);
 }
@@ -1413,11 +1413,11 @@ select {
 }
 
 html[data-ui-theme='dark'] {
-  --border-subtle: rgba(96, 118, 153, 0.42);
-  --border-strong: rgba(126, 150, 191, 0.52);
-  --surface-panel: color-mix(in srgb, var(--surface-0) 84%, #0f1a2b);
-  --surface-card: color-mix(in srgb, var(--surface-0) 92%, #101a2b);
-  --surface-input: color-mix(in srgb, var(--surface-1) 85%, #0d1524);
+  --border-subtle: var(--line-0);
+  --border-strong: var(--line-1);
+  --surface-panel: color-mix(in srgb, var(--surface-0) 84%, var(--surface-2));
+  --surface-card: color-mix(in srgb, var(--surface-0) 92%, var(--surface-1));
+  --surface-input: color-mix(in srgb, var(--surface-1) 85%, var(--surface-2));
 }
 
 .app-shell-new {

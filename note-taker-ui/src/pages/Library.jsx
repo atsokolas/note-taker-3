@@ -973,7 +973,7 @@ const Library = () => {
         leftOpen={effectiveLeftOpen}
         onToggleLeft={handleToggleLeft}
         rightToggleLabel={AGENT_DISPLAY_NAME}
-        mainHeader={isReadingView ? null : <PageTitle eyebrow="Mode" title="Library" subtitle="Reading room for your saved work." />}
+        mainHeader={isReadingView ? null : <PageTitle title="Library" subtitle="Reading room for your saved work." />}
         mainActions={isReadingView ? null : (
           <div className="library-main-actions">
             <QuietButton

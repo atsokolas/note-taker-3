@@ -6,11 +6,11 @@ body.noeis-editorial {
   --vellum-panel: #fcf9f3;
   --vellum-panel-strong: #f6f4ec;
   --vellum-panel-stronger: #eae8de;
-  --vellum-ink: #383831;
-  --vellum-muted: #65655c;
-  --vellum-subtle: #818178;
-  --vellum-line: rgba(129, 129, 120, 0.18);
-  --vellum-line-strong: rgba(129, 129, 120, 0.28);
+  --vellum-ink: var(--text-primary, #383831);
+  --vellum-muted: var(--text-secondary, #65655c);
+  --vellum-subtle: var(--text-muted, #818178);
+  --vellum-line: var(--surface-border, rgba(129, 129, 120, 0.18));
+  --vellum-line-strong: color-mix(in srgb, var(--surface-border, rgba(129, 129, 120, 0.18)) 155%, transparent);
   --vellum-accent: #615e5b;
   --vellum-accent-dim: #55524f;
   --vellum-warm: #74614a;
@@ -146,10 +146,16 @@ html[data-ui-theme='dark'] body.noeis-editorial {
   --vellum-panel: #1c1813;
   --vellum-panel-strong: #221d16;
   --vellum-panel-stronger: #2a241c;
-  --vellum-ink: #efe6d4;
-  --vellum-muted: #b9b0a0;
-  --vellum-subtle: #948b7d;
-  --vellum-line: rgba(232, 222, 198, 0.10);
+  --text-primary: #efe6d4;
+  --text-secondary: #b9b0a0;
+  --text-muted: #948b7d;
+  --text-link: var(--spark, #d6ad63);
+  --text-on-accent: #100f0c;
+  --surface-border: rgba(232, 222, 198, 0.10);
+  --vellum-ink: var(--text-primary);
+  --vellum-muted: var(--text-secondary);
+  --vellum-subtle: var(--text-muted);
+  --vellum-line: var(--surface-border);
   --vellum-line-strong: rgba(232, 222, 198, 0.18);
   --vellum-accent: #d2c4ac;
   --vellum-accent-dim: #b9ad96;
@@ -478,11 +484,17 @@ body.noeis-editorial .notebook-ref-title,
 body.noeis-editorial .idea-workbench-head__title,
 body.noeis-editorial .idea-workbench-sheet__header h2,
 body.noeis-editorial .idea-workbench-column__header h3,
-body.noeis-editorial .idea-workbench-rail__header h2 {
+body.noeis-editorial .idea-workbench-rail__header h2,
+body.noeis-editorial .wiki-front-page__story h1,
+body.noeis-editorial .wiki-front-page__story h1 a,
+body.noeis-editorial .wiki-front-page__grown a,
+body.noeis-editorial .wiki-front-page__index a,
+body.noeis-editorial .think-index__row-title,
+body.noeis-editorial .think-shelf-rail__in-motion-title {
   font-family: "Newsreader", Georgia, serif;
   font-weight: 350;
   letter-spacing: -0.04em;
-  color: var(--vellum-ink);
+  color: var(--text-primary);
 }
 
 body.noeis-editorial p,
@@ -1263,7 +1275,7 @@ body.noeis-editorial .library-article-row {
 
 body.noeis-editorial .library-article-row.is-magnetic:hover,
 body.noeis-editorial .library-article-row.is-magnetic:focus-within {
-  transform: translate3d(2px, -1px, 0);
+  transform: translate3d(4px, -2px, 0);
 }
 
 /* Cursor-following row bloom — wiki index + library browse rows.
@@ -1303,9 +1315,24 @@ body.noeis-editorial .library-article-row.is-magnetic:focus-within::before {
 }
 
 body.noeis-editorial .library-article-row.is-magnetic:hover::after,
-body.noeis-editorial .library-article-row.is-magnetic:focus-within::after {
+body.noeis-editorial .library-article-row.is-magnetic:focus-within::after,
+body.noeis-editorial .library-article-row.is-magnetic.is-activated::after {
   opacity: 0.55;
   transform: translateX(0);
+}
+
+body.noeis-editorial .library-article-row.is-magnetic.is-activated {
+  border-color: color-mix(in srgb, var(--vellum-warm, var(--accent-primary)) 54%, var(--vellum-line));
+  box-shadow: 0 10px 26px color-mix(in srgb, var(--vellum-warm, var(--accent-primary)) 10%, transparent);
+}
+
+body.noeis-editorial .library-article-row-receipt {
+  align-self: end;
+  color: var(--vellum-subtle);
+  font-family: var(--noeis-ui-font);
+  font-size: 0.62rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1323,9 +1350,14 @@ body.noeis-editorial .library-article-row.is-magnetic:focus-within::after {
   body.noeis-editorial .library-article-row.is-magnetic:hover::before,
   body.noeis-editorial .library-article-row.is-magnetic:focus-within::before,
   body.noeis-editorial .library-article-row.is-magnetic:hover::after,
-  body.noeis-editorial .library-article-row.is-magnetic:focus-within::after {
+  body.noeis-editorial .library-article-row.is-magnetic:focus-within::after,
+  body.noeis-editorial .library-article-row.is-magnetic.is-activated::after {
     opacity: 0;
     transform: translateX(-3px);
+  }
+
+  body.noeis-editorial .library-article-row.is-magnetic.is-activated {
+    box-shadow: none;
   }
 }
 
@@ -1900,7 +1932,7 @@ body.noeis-editorial .think-home-editorial__reference-head {
 
 body.noeis-editorial .think-home-editorial__reference-head span,
 body.noeis-editorial .think-home-editorial__reference-strip > span {
-  color: var(--vellum-blue);
+  color: var(--text-link);
   font-family: var(--noeis-ui-font);
   font-size: 0.68rem;
   font-weight: 800;
@@ -4675,7 +4707,7 @@ body.noeis-editorial .reference-pull-in__result-open {
   max-width: 100%;
   align-items: center;
   overflow: hidden;
-  color: var(--vellum-blue);
+  color: var(--text-link);
   font-family: var(--noeis-ui-font);
   font-size: 0.68rem;
   font-weight: 700;
@@ -7576,7 +7608,7 @@ body.noeis-editorial .library-reading-room-lead__maintenance-label {
   font-size: 0.62rem;
   letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: color-mix(in srgb, var(--vellum-blue) 70%, var(--vellum-ink));
+  color: color-mix(in srgb, var(--text-muted) 70%, var(--vellum-ink));
 }
 
 body.noeis-editorial .library-reading-room-lead__headline {
@@ -7598,7 +7630,7 @@ body.noeis-editorial .library-reading-room-lead__headline.is-static {
 
 body.noeis-editorial .library-reading-room-lead__headline:hover,
 body.noeis-editorial .library-reading-room-lead__headline:focus-visible {
-  color: color-mix(in srgb, var(--vellum-ink) 88%, var(--vellum-blue));
+  color: color-mix(in srgb, var(--vellum-ink) 88%, var(--text-link));
 }
 
 body.noeis-editorial .library-reading-room-lead__detail,
@@ -7618,6 +7650,43 @@ body.noeis-editorial .library-reading-room-lead__maintenance {
   display: grid;
   gap: 10px;
   padding: 14px 0 0;
+}
+
+body.noeis-editorial .library-reading-room-lead__maintenance-strip {
+  gap: 8px 14px;
+  padding: 12px 0 0;
+  border-top: 1px solid var(--vellum-line);
+}
+
+body.noeis-editorial .library-reading-room-lead__maintenance-strip .library-reading-room-lead__maintenance-copy p,
+body.noeis-editorial .library-reading-room-lead__maintenance-strip .library-reading-room-lead__stats {
+  font-size: 0.82rem;
+  line-height: 1.4;
+  color: color-mix(in srgb, var(--text-muted) 88%, var(--text-secondary));
+}
+
+body.noeis-editorial .library-reading-room-lead__maintenance-strip .library-reading-room-lead__maintenance-label {
+  font-size: 0.58rem;
+  color: color-mix(in srgb, var(--text-muted) 82%, var(--text-secondary));
+}
+
+@media (min-width: 900px) {
+  body.noeis-editorial .library-reading-room-lead__maintenance-strip {
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    align-items: center;
+  }
+
+  body.noeis-editorial .library-reading-room-lead__maintenance-strip .library-reading-room-lead__stats {
+    justify-self: end;
+  }
+
+  body.noeis-editorial .library-reading-room-lead__maintenance-strip .library-reading-room-lead__filing-action {
+    justify-self: end;
+  }
+
+  body.noeis-editorial .library-reading-room-lead__maintenance-strip .library-reading-room-lead__cruft {
+    grid-column: 1 / -1;
+  }
 }
 
 body.noeis-editorial .library-reading-room-lead__maintenance-copy {
@@ -7655,8 +7724,73 @@ body.noeis-editorial .library-reading-room-lead__suppressed-action {
   flex: 0 0 auto;
 }
 
+body.noeis-editorial .wiki-facet-rail.library-cabinet {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+}
+
+body.noeis-editorial .wiki-facet-rail .library-cabinet-actions,
+body.noeis-editorial .wiki-facet-rail .wiki-facet-rail__primary {
+  display: grid;
+  gap: 14px;
+  padding: 0 !important;
+  background: transparent !important;
+}
+
+body.noeis-editorial .wiki-facet-rail .library-cabinet-actions .list-button,
+body.noeis-editorial .wiki-facet-rail .wiki-facet-rail__facet {
+  justify-content: space-between;
+  width: 100%;
+  padding: 0 0 8px !important;
+  border: 0 !important;
+  border-bottom: 1px solid transparent !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: color-mix(in srgb, var(--text-primary) 82%, transparent) !important;
+}
+
+body.noeis-editorial .wiki-facet-rail .library-cabinet-actions .list-button:hover,
+body.noeis-editorial .wiki-facet-rail .wiki-facet-rail__facet:hover,
+body.noeis-editorial .wiki-facet-rail .library-cabinet-actions .list-button.is-active,
+body.noeis-editorial .wiki-facet-rail .wiki-facet-rail__facet.is-active {
+  color: var(--text-primary) !important;
+  border-bottom-color: var(--vellum-line) !important;
+}
+
+body.noeis-editorial .wiki-facet-rail .library-cabinet-count {
+  color: color-mix(in srgb, var(--text-primary) 54%, transparent) !important;
+}
+
+body.noeis-editorial .wiki-facet-rail__search input {
+  width: 100%;
+  min-height: 42px;
+  border: 1px solid var(--vellum-line);
+  border-radius: 0;
+  background: color-mix(in srgb, var(--vellum-panel) 82%, transparent);
+  color: var(--text-primary);
+  padding: 0 12px;
+}
+
+body.noeis-editorial .wiki-index__list.library-article-list {
+  border: 0 !important;
+  padding: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+body.noeis-editorial .wiki-index__list .library-article-row {
+  border-top: 0;
+  border-left: 0;
+  border-right: 0;
+}
+
+body.noeis-editorial .wiki-index__list .library-article-row:last-child {
+  border-bottom: 0;
+}
+
 body.noeis-editorial .library-article-row-concepts {
-  color: color-mix(in srgb, var(--vellum-blue) 72%, var(--vellum-ink));
+  color: color-mix(in srgb, var(--text-link) 72%, var(--vellum-ink));
 }
 
 body.noeis-editorial .three-pane--library .library-section-head,
@@ -7783,7 +7917,7 @@ body.noeis-editorial .library-article-search span {
   font-size: 0.62rem;
   letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: color-mix(in srgb, var(--vellum-blue) 70%, var(--vellum-ink));
+  color: color-mix(in srgb, var(--text-muted) 70%, var(--vellum-ink));
 }
 
 body.noeis-editorial .library-article-search input {

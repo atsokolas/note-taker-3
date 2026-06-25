@@ -1,0 +1,124 @@
+.surface-notice {
+  --surface-notice-accent: var(--nt-accent, #b89253);
+  --surface-notice-bg: color-mix(in srgb, var(--surface-notice-accent) 7%, transparent);
+  --surface-notice-border: color-mix(in srgb, var(--surface-notice-accent) 34%, var(--nt-divider, rgba(116, 100, 73, 0.34)));
+  align-items: flex-start;
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--surface-notice-accent) 13%, transparent), transparent 48%),
+    var(--surface-notice-bg);
+  border: 1px solid var(--surface-notice-border);
+  border-left: 3px solid var(--surface-notice-accent);
+  border-radius: 10px;
+  color: var(--text-secondary, var(--vellum-muted, #746b5e));
+  display: grid;
+  gap: 12px;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  line-height: 1.45;
+  padding: 13px 14px;
+}
+
+.surface-notice--success {
+  --surface-notice-accent: var(--nt-success, #8d7a40);
+}
+
+.surface-notice--warning,
+.surface-notice--recovering {
+  --surface-notice-accent: var(--nt-warning, #b89253);
+}
+
+.surface-notice--error {
+  --surface-notice-accent: var(--nt-danger, #b56a55);
+}
+
+.surface-notice__dot {
+  background: var(--surface-notice-accent);
+  border-radius: 999px;
+  box-shadow: 0 0 0 5px color-mix(in srgb, var(--surface-notice-accent) 14%, transparent);
+  display: inline-block;
+  height: 8px;
+  margin-top: 6px;
+  width: 8px;
+}
+
+.surface-notice--working .surface-notice__dot,
+.surface-notice--recovering .surface-notice__dot {
+  animation: surface-notice-pulse 1.8s ease-in-out infinite;
+}
+
+.surface-notice__body {
+  min-width: 0;
+}
+
+.surface-notice__label {
+  color: var(--text-muted, var(--vellum-subtle, #9c8f7c));
+  font-family: var(--font-mono, "SFMono-Regular", Consolas, monospace);
+  font-size: 0.66rem;
+  letter-spacing: 0.18em;
+  margin: 0 0 4px;
+  text-transform: uppercase;
+}
+
+.surface-notice__title {
+  color: var(--text-primary, var(--vellum-ink, #f0e5d1));
+  font-weight: 650;
+  margin: 0;
+}
+
+.surface-notice__content {
+  margin-top: 4px;
+}
+
+.surface-notice__content p {
+  margin: 0;
+}
+
+.surface-notice__action {
+  align-self: center;
+  background: transparent;
+  border: 1px solid color-mix(in srgb, var(--surface-notice-accent) 42%, transparent);
+  border-radius: 999px;
+  color: var(--text-primary, var(--vellum-ink, #f0e5d1));
+  cursor: pointer;
+  font-family: var(--font-mono, "SFMono-Regular", Consolas, monospace);
+  font-size: 0.68rem;
+  letter-spacing: 0.16em;
+  min-height: 34px;
+  padding: 0 14px;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.surface-notice__action:focus-visible,
+.surface-notice__action:hover {
+  background: color-mix(in srgb, var(--surface-notice-accent) 15%, transparent);
+  outline: none;
+}
+
+@keyframes surface-notice-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.22);
+  }
+}
+
+@media (max-width: 640px) {
+  .surface-notice {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .surface-notice__action {
+    grid-column: 2;
+    justify-self: start;
+    margin-top: 2px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .surface-notice--working .surface-notice__dot,
+  .surface-notice--recovering .surface-notice__dot {
+    animation: none;
+  }
+}

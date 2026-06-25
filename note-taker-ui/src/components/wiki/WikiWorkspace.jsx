@@ -27,6 +27,7 @@ import { buildWikiCreatePayload } from '../../utils/wikiCreate';
 import { trackWikiEditModeEntered } from '../../utils/wikiAnalytics';
 import { AGENT_CHAT_LABEL, AGENT_DISPLAY_NAME, AGENT_STATUS_LABEL } from '../../constants/agentIdentity';
 import { Button } from '../ui';
+import SurfaceNotice from '../feedback/SurfaceNotice';
 import AgentTicker from '../agent/AgentTicker';
 import ReferencePullIn from '../references/ReferencePullIn';
 import WikiList from './WikiList';
@@ -2664,7 +2665,15 @@ const WikiWorkspaceChat = ({
         {messages.map(message => (
           <article key={message.id} className={`wiki-workspace-chat__message is-${message.role}`}>
             <span>{message.role === 'user' ? 'You' : 'Agent'}</span>
-            {message.text ? (
+            {message.buildRecovery ? (
+              <SurfaceNotice
+                className="wiki-workspace-chat__surface-notice"
+                variant="recovering"
+                title="First pass needed another try"
+              >
+                <p>Rebuilding with stricter source and quality checks.</p>
+              </SurfaceNotice>
+            ) : message.text ? (
               <WikiChatMarkdown text={message.text} pages={wikiPages} currentPage={selectedPagePresence.page} />
             ) : null}
             {message.pending ? <span className="wiki-workspace-chat__caret" aria-hidden="true" /> : null}

@@ -32,6 +32,7 @@ describe('LibraryReadingRoomLead', () => {
 
     expect(screen.getByText("Reopen Poor Charlie's Almanack")).toBeInTheDocument();
     expect(screen.getByText(/27 highlights are now pulling toward Opportunity Cost and Circle of Competence/i)).toBeInTheDocument();
+    expect(screen.getByLabelText('Corpus maintenance')).toHaveClass('library-reading-room-lead__maintenance-strip');
     expect(screen.getByText(/2 unfiled/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Review filing suggestions' })).toBeInTheDocument();
   });

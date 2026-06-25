@@ -4,6 +4,7 @@ import {
   filterReturnViewItems,
   isSuppressedFromReturnView
 } from '../../utils/cruftSuppression';
+import { formatSurfaceDate } from '../../utils/dateDisplay';
 
 export {
   composeCruftSuppressionNotice,
@@ -15,14 +16,7 @@ export const CALM_INDEX_MOTION_LIMIT = 5;
 export const SHELF_RAIL_VISIBLE_LIMIT = 5;
 
 export const formatReviewDate = (value) => {
-  if (!value) return '';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '';
-  const now = new Date();
-  const sameYear = date.getFullYear() === now.getFullYear();
-  return date.toLocaleDateString(undefined, sameYear
-    ? { month: 'short', day: 'numeric' }
-    : { month: 'short', day: 'numeric', year: 'numeric' });
+  return formatSurfaceDate(value);
 };
 
 export const compareReviewDates = (left, right) => {

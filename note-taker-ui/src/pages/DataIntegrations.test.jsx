@@ -4,6 +4,7 @@ import { MemoryRouter } from 'react-router-dom';
 import DataIntegrations from './DataIntegrations';
 import api from '../api';
 import { chatWithAgent } from '../api/agent';
+import { getEmbeddingJobStatus } from '../api/ai';
 import { updateConcept } from '../api/concepts';
 import {
   checkNotionConnection,
@@ -32,6 +33,10 @@ jest.mock('../api', () => ({
 
 jest.mock('../api/concepts', () => ({
   updateConcept: jest.fn()
+}));
+
+jest.mock('../api/ai', () => ({
+  getEmbeddingJobStatus: jest.fn()
 }));
 
 jest.mock('../api/imports', () => ({
@@ -140,6 +145,11 @@ describe('DataIntegrations first insight workflow', () => {
     syncReadwiseConnection.mockResolvedValue({});
     syncNotionConnection.mockResolvedValue({});
     chatWithAgent.mockResolvedValue({});
+    getEmbeddingJobStatus.mockResolvedValue({
+      status: 'ready',
+      counts: { queued: 0, running: 0, failed: 0, abandoned: 0, completed: 0, total: 0 },
+      failedJobs: []
+    });
   });
 
   it('marks the import surface as a scrollable settings-style page', async () => {
@@ -349,6 +359,64 @@ describe('DataIntegrations first insight workflow', () => {
     expect(within(receipt).getByText('Synced into Noeis')).toBeInTheDocument();
     expect(within(receipt).getByText(/Last synced Jun 8, 2026 · 5 pages/i)).toBeInTheDocument();
     expect(within(receipt).getByText('Synced 5 pages · 1 skipped · 2 indexing.')).toBeInTheDocument();
+  });
+
+  it('surfaces persisted semantic indexing warnings from connection sync results', async () => {
+    getActiveImportSession.mockResolvedValue(null);
+    listImportConnections.mockImplementation(async ({ provider } = {}) => {
+      if (provider === 'notion') {
+        return [{
+          id: 'notion-1',
+          provider: 'notion',
+          accountLabel: 'Product HQ',
+          status: 'connected',
+          health: 'healthy',
+          lastSyncAt: '2026-06-08T15:30:00.000Z',
+          lastSyncResult: {
+            importedNotes: 2,
+            indexingFailures: 2
+          }
+        }];
+      }
+      return [];
+    });
+
+    render(
+      <MemoryRouter>
+        <DataIntegrations />
+      </MemoryRouter>
+    );
+
+    const notice = await screen.findByText('Semantic indexing needs another pass');
+    expect(notice).toBeInTheDocument();
+    expect(screen.getByText(/2 semantic indexing warnings reported from Notion/i)).toBeInTheDocument();
+  });
+
+  it('surfaces real background embedding job failures independently of import counters', async () => {
+    getActiveImportSession.mockResolvedValue(null);
+    listImportConnections.mockResolvedValue([]);
+    getEmbeddingJobStatus.mockResolvedValue({
+      status: 'warning',
+      counts: { queued: 0, running: 0, failed: 1, abandoned: 1, completed: 3, total: 5 },
+      failedJobs: [{
+        id: 'job-1',
+        collection: 'articles',
+        objectId: 'article-1',
+        status: 'failed',
+        lastError: 'HF 429 rate limit exceeded'
+      }]
+    });
+
+    render(
+      <MemoryRouter>
+        <DataIntegrations />
+      </MemoryRouter>
+    );
+
+    const notice = await screen.findByText('Background indexing needs a retry');
+    expect(notice).toBeInTheDocument();
+    expect(screen.getByText(/2 background indexing jobs need retry/i)).toBeInTheDocument();
+    expect(screen.getByText(/Latest: articles — HF 429 rate limit exceeded/i)).toBeInTheDocument();
   });
 
   it('explains why Evernote uses ENEX instead of browser OAuth today', async () => {

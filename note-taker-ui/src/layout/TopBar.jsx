@@ -2,7 +2,6 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import BrandGradient from '../components/BrandGradient';
 import { THEME_OPTIONS } from '../settings/uiPreferences';
-import { buildReferenceHandoffPath } from '../navigation/referenceHandoff';
 
 const TopBar = ({
   rightSlot,
@@ -56,13 +55,6 @@ const TopBar = ({
     navigate('/search');
   };
 
-  const openReferenceHandoff = () => {
-    navigate(buildReferenceHandoffPath({
-      pathname: location.pathname,
-      search: location.search
-    }));
-  };
-
   useEffect(() => {
     if (!themeMenuOpen) return undefined;
     const onPointerDown = (event) => {
@@ -109,7 +101,7 @@ const TopBar = ({
       <div className="topbar__content">
         <div className="topbar__left">
           <div className="topbar__brand-nav">
-            <NavLink to="/think?tab=home" className="topbar__brand" aria-label="Noeis Think home">
+            <NavLink to="/wiki" className="topbar__brand" aria-label="Noeis home">
               Noeis
             </NavLink>
             <nav className="topbar__primary-nav" aria-label="Primary navigation">
@@ -146,13 +138,6 @@ const TopBar = ({
           </div>
         ) : null}
         <div className="topbar__right">
-          <button
-            type="button"
-            className="topbar__button topbar__reference-button"
-            onClick={openReferenceHandoff}
-          >
-            Reference…
-          </button>
           {searchMode === 'icon' && (
             <button
               type="button"

@@ -6872,6 +6872,7 @@ app.use(buildAiMaintenanceRouter({
   NotebookEntry,
   TagMeta,
   Question,
+  EmbeddingJob,
   safeMapEmbedding,
   articleToEmbeddingItems,
   highlightToEmbeddingItem,

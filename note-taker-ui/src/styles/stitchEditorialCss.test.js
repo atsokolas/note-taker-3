@@ -95,6 +95,35 @@ describe('stitch editorial CSS tokens', () => {
     expect(css).toMatch(/@media \(max-width: 760px\)[\s\S]*?body\.noeis-editorial \.app-shell-new--stitch \.app-shell-new__body[\s\S]*?padding-top: 76px;/);
   });
 
+  it('maps vellum aliases to canonical text role tokens', () => {
+    const css = fs.readFileSync(path.join(__dirname, 'stitch-editorial.css'), 'utf8');
+    const lightPalette = css.match(/body\.noeis-editorial \{[\s\S]*?\n\}/)?.[0] || '';
+    const darkPalette = css.match(/html\[data-ui-theme='dark'\] body\.noeis-editorial \{[\s\S]*?\n\}/)?.[0] || '';
+
+    expect(lightPalette).toContain('--vellum-ink: var(--text-primary');
+    expect(lightPalette).toContain('--vellum-muted: var(--text-secondary');
+    expect(lightPalette).toContain('--vellum-subtle: var(--text-muted');
+    expect(darkPalette).toContain('--vellum-ink: var(--text-primary)');
+    expect(darkPalette).toContain('--vellum-muted: var(--text-secondary)');
+    expect(darkPalette).toContain('--vellum-subtle: var(--text-muted)');
+    expect(css).not.toContain('--vellum-blue');
+  });
+
+  it('promotes wiki workspace destinations into a secondary nav block', () => {
+    const css = fs.readFileSync(path.join(__dirname, 'wiki-front-page.css'), 'utf8');
+
+    expect(css).toContain('.wiki-front-page__secondary-nav');
+    expect(css).not.toContain('.wiki-front-page__hairline');
+  });
+
+  it('aligns wiki facet rail and list rows with library cabinet grammar', () => {
+    const css = fs.readFileSync(path.join(__dirname, 'stitch-editorial.css'), 'utf8');
+
+    expect(css).toContain('body.noeis-editorial .wiki-facet-rail.library-cabinet');
+    expect(css).toContain('body.noeis-editorial .wiki-index__list.library-article-list');
+    expect(css).toContain('body.noeis-editorial .wiki-index__list .library-article-row:last-child');
+  });
+
   it('keeps connection statuses from breaking mid-word on narrow cards', () => {
     const css = fs.readFileSync(path.join(__dirname, 'stitch-editorial.css'), 'utf8');
 

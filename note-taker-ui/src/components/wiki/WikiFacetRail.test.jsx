@@ -39,6 +39,8 @@ describe('WikiFacetRail', () => {
     );
 
     expect(screen.getByTestId('wiki-facet-search')).toBeInTheDocument();
+    expect(screen.getByText('Pages')).toBeInTheDocument();
+    expect(screen.getByText('Browse your wiki.')).toBeInTheDocument();
     expect(screen.getByTestId('wiki-facet-all-pages')).toHaveTextContent('4');
     expect(screen.getByTestId('wiki-facet-needs-review')).toHaveTextContent('1');
     expect(screen.getByTestId('wiki-facet-type-overview')).toHaveTextContent('2');

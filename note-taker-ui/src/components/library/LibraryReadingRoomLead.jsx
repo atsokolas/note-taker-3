@@ -63,7 +63,11 @@ const LibraryReadingRoomLead = ({
         ) : null}
       </div>
 
-      <div className="library-reading-room-lead__maintenance" data-maintenance-state={maintenance.status}>
+      <aside
+        className="library-reading-room-lead__maintenance library-reading-room-lead__maintenance-strip"
+        data-maintenance-state={maintenance.status}
+        aria-label="Corpus maintenance"
+      >
         <div className="library-reading-room-lead__maintenance-copy">
           <span className="library-reading-room-lead__maintenance-label">Corpus maintenance</span>
           <p>{maintenance.message}</p>
@@ -116,7 +120,7 @@ const LibraryReadingRoomLead = ({
             ) : null}
           </div>
         ) : null}
-      </div>
+      </aside>
     </section>
   );
 };

@@ -21,6 +21,10 @@
   --surface-elevated: color-mix(in srgb, var(--raised) 96%, white);
   --text-primary: var(--reading-text);
   --text-secondary: var(--working-text);
+  --text-muted: #7a756c;
+  --text-link: var(--spark);
+  --text-on-accent: #fffdf8;
+  --surface-border: var(--hairline);
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
@@ -87,6 +91,10 @@ html[data-ui-theme='dark'] {
   --border-subtle: var(--hairline);
   --text-primary: var(--reading-text);
   --text-secondary: var(--working-text);
+  --text-muted: #948b7d;
+  --text-link: var(--spark);
+  --text-on-accent: #100f0c;
+  --surface-border: var(--hairline);
   --accent: var(--spark);
   --accent-soft: rgba(214, 173, 99, 0.14);
   --wiki-warm-accent: #d2a45f;

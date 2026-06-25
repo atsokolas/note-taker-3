@@ -3,8 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import api from '../api';
 import { Button, Card, Page } from '../components/ui';
 import { chatWithAgent, fetchNotionPagesViaAgent } from '../api/agent';
+import { getEmbeddingJobStatus } from '../api/ai';
 import ExternalBridgeCard from '../components/integrations/ExternalBridgeCard';
 import NotionAgentFetchCard from '../components/integrations/NotionAgentFetchCard';
+import SurfaceNotice from '../components/feedback/SurfaceNotice';
 import { updateConcept, getConcepts } from '../api/concepts';
 import { getAllHighlights } from '../api/highlights';
 import {
@@ -289,6 +291,12 @@ const getReceiptDestination = ({ sourceKey, session, importStats, sourceLabel = 
   return null;
 };
 
+const getNoticeVariant = (tone = '') => {
+  const value = String(tone || '').trim().toLowerCase();
+  if (['error', 'recovering', 'success', 'warning', 'working'].includes(value)) return value;
+  return 'info';
+};
+
 const toValidDate = (value) => {
   if (!value) return null;
   const date = new Date(value);
@@ -430,6 +438,55 @@ const describeLoopHandoff = ({ readwiseConnection, notionConnection, session }) 
   return `Latest handoff: ${latest.label} ${latest.kind} on ${formatLoopDate(latest.date)}.`;
 };
 
+const getIndexingWarning = ({ readwiseConnection, notionConnection, session } = {}) => {
+  const candidates = [
+    {
+      label: 'Readwise',
+      result: readwiseConnection?.lastSyncResult
+    },
+    {
+      label: 'Notion',
+      result: notionConnection?.lastSyncResult
+    },
+    {
+      label: getProviderLabel(session?.provider),
+      result: session?.result
+    }
+  ].filter(item => item?.result);
+  const failing = candidates
+    .map(item => ({
+      ...item,
+      count: Number(item.result?.indexingFailures || 0)
+    }))
+    .filter(item => item.count > 0);
+  if (!failing.length) return null;
+  const total = failing.reduce((sum, item) => sum + item.count, 0);
+  const labels = failing.map(item => item.label).filter(Boolean).join(', ');
+  return {
+    total,
+    labels,
+    message: `${total} semantic indexing warning${total === 1 ? '' : 's'} reported from ${labels || 'the latest import'}. Imported text is saved; retrieval may need a follow-up indexing pass.`
+  };
+};
+
+const getEmbeddingJobWarning = (status = null) => {
+  if (!status || !status.counts) return null;
+  const failed = Number(status.counts.failed || 0);
+  const abandoned = Number(status.counts.abandoned || 0);
+  const total = failed + abandoned;
+  if (total <= 0) return null;
+  const sample = Array.isArray(status.failedJobs) && status.failedJobs[0]
+    ? status.failedJobs[0]
+    : null;
+  const target = sample?.collection
+    ? ` Latest: ${sample.collection}${sample.lastError ? ` — ${sample.lastError}` : ''}`
+    : '';
+  return {
+    total,
+    message: `${total} background indexing job${total === 1 ? '' : 's'} need${total === 1 ? 's' : ''} retry. Imported text is saved; semantic retrieval may be incomplete until the worker clears them.${target}`
+  };
+};
+
 const hasPendingOrganizeImportSuggestion = (session = null) => (
   Array.isArray(session?.agentSuggestions)
     && session.agentSuggestions.some((suggestion) => (
@@ -548,6 +605,7 @@ const DataIntegrations = ({ embedded = false } = {}) => {
   const [lastImportSourceLabel, setLastImportSourceLabel] = useState('');
   const [currentSession, setCurrentSession] = useState(null);
   const [sessionLoading, setSessionLoading] = useState(true);
+  const [embeddingJobStatus, setEmbeddingJobStatus] = useState(null);
   const [organizeLaunching, setOrganizeLaunching] = useState(false);
   const [importing, setImporting] = useState({ csv: false, md: false, enex: false, manual: false, paste: false });
   const [previewing, setPreviewing] = useState({ readwise: false, notion: false, evernote: false });
@@ -605,6 +663,22 @@ const DataIntegrations = ({ embedded = false } = {}) => {
       }
     };
     loadActiveSession();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadEmbeddingJobStatus = async () => {
+      try {
+        const status = await getEmbeddingJobStatus();
+        if (!cancelled) setEmbeddingJobStatus(status);
+      } catch (error) {
+        console.error('Failed to load embedding job status:', error);
+      }
+    };
+    loadEmbeddingJobStatus();
     return () => {
       cancelled = true;
     };
@@ -2092,6 +2166,12 @@ const DataIntegrations = ({ embedded = false } = {}) => {
     notionConnection,
     session: currentSession
   });
+  const indexingWarning = getIndexingWarning({
+    readwiseConnection: readwiseSyncConnection || readwiseAgentConnection,
+    notionConnection,
+    session: currentSession
+  });
+  const embeddingJobWarning = getEmbeddingJobWarning(embeddingJobStatus);
 
   const sourceContent = (
     <>
@@ -2136,6 +2216,24 @@ const DataIntegrations = ({ embedded = false } = {}) => {
           </div>
         </div>
         <p className="connections-return-loop__handoff">{returnLoopHandoff}</p>
+        {indexingWarning ? (
+          <SurfaceNotice
+            className="data-integrations-page__notice"
+            variant="warning"
+            title="Semantic indexing needs another pass"
+          >
+            <p>{indexingWarning.message}</p>
+          </SurfaceNotice>
+        ) : null}
+        {embeddingJobWarning ? (
+          <SurfaceNotice
+            className="data-integrations-page__notice"
+            variant="warning"
+            title="Background indexing needs a retry"
+          >
+            <p>{embeddingJobWarning.message}</p>
+          </SurfaceNotice>
+        ) : null}
       </Card>
 
       <Card className="settings-card">
@@ -2170,14 +2268,18 @@ const DataIntegrations = ({ embedded = false } = {}) => {
             {currentSession?.status ? <p className="muted-label">{currentSession.status.replace(/_/g, ' ')}</p> : null}
           </div>
           {sessionMessage ? (
-            <p className={`status-message ${sessionTone === 'success' ? 'success-message' : ''} ${sessionTone === 'error' ? 'error-message' : ''}`}>
-              {sessionMessage}
-            </p>
+            <SurfaceNotice
+              className="data-integrations-page__notice"
+              variant={getNoticeVariant(sessionTone)}
+              title={sessionMessage}
+            />
           ) : null}
           {importStatus.message ? (
-            <p className={`status-message ${importStatus.tone === 'success' ? 'success-message' : ''} ${importStatus.tone === 'error' ? 'error-message' : ''}`}>
-              {importStatus.message}
-            </p>
+            <SurfaceNotice
+              className="data-integrations-page__notice"
+              variant={getNoticeVariant(importStatus.tone)}
+              title={importStatus.message}
+            />
           ) : null}
           {currentSession?.progress ? (
             <div className="import-session-grid">

@@ -7,6 +7,7 @@ const buildAiMaintenanceRouter = ({
   NotebookEntry,
   TagMeta,
   Question,
+  EmbeddingJob,
   safeMapEmbedding,
   articleToEmbeddingItems,
   highlightToEmbeddingItem,
@@ -19,6 +20,31 @@ const buildAiMaintenanceRouter = ({
   sendEmbeddingError
 }) => {
   const router = express.Router();
+
+  const emptyEmbeddingJobStatus = () => ({
+    status: 'ready',
+    counts: {
+      queued: 0,
+      running: 0,
+      failed: 0,
+      abandoned: 0,
+      completed: 0,
+      total: 0
+    },
+    failedJobs: []
+  });
+
+  const serializeEmbeddingJob = (job = {}) => ({
+    id: String(job._id || job.id || ''),
+    collection: String(job.collection || ''),
+    objectId: String(job.objectId || ''),
+    status: String(job.status || ''),
+    attemptCount: Number(job.attemptCount || 0),
+    nextRunAt: job.nextRunAt || null,
+    lastAttemptAt: job.lastAttemptAt || null,
+    updatedAt: job.updatedAt || null,
+    lastError: String(job.lastError || '').slice(0, 240)
+  });
 
   router.post('/api/ai/reindex', authenticateToken, async (req, res) => {
     try {
@@ -116,6 +142,56 @@ const buildAiMaintenanceRouter = ({
         return sendEmbeddingError(res, error);
       }
       res.status(502).json({ error: 'UPSTREAM_FAILED', message: error.message });
+    }
+  });
+
+  router.get('/api/ai/embedding-jobs/status', authenticateToken, async (req, res) => {
+    if (!EmbeddingJob?.find) {
+      return res.status(200).json(emptyEmbeddingJobStatus());
+    }
+
+    try {
+      const userId = String(req.user.id || '');
+      const userIds = Array.from(new Set([userId, req.user.id].filter(Boolean)));
+      const query = {
+        $or: userIds.map(id => ({ 'payload.userId': id }))
+      };
+      const jobs = await EmbeddingJob.find(query)
+        .select('collection objectId status attemptCount nextRunAt lastAttemptAt updatedAt lastError')
+        .sort({ updatedAt: -1, createdAt: -1 })
+        .limit(500)
+        .lean();
+
+      const counts = {
+        queued: 0,
+        running: 0,
+        failed: 0,
+        abandoned: 0,
+        completed: 0,
+        total: jobs.length
+      };
+      jobs.forEach((job) => {
+        const status = String(job.status || '').toLowerCase();
+        if (Object.prototype.hasOwnProperty.call(counts, status)) counts[status] += 1;
+      });
+
+      const failedJobs = jobs
+        .filter(job => ['failed', 'abandoned'].includes(String(job.status || '').toLowerCase()))
+        .slice(0, 5)
+        .map(serializeEmbeddingJob);
+
+      const status = counts.failed || counts.abandoned
+        ? 'warning'
+        : (counts.queued || counts.running ? 'working' : 'ready');
+
+      return res.status(200).json({
+        status,
+        counts,
+        failedJobs
+      });
+    } catch (error) {
+      console.error('❌ Failed to load embedding job status:', error);
+      return res.status(500).json({ error: 'Failed to load embedding job status.' });
     }
   });
 

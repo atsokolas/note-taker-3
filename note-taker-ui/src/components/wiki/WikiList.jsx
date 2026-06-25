@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '../ui';
 import { createWikiPage, deleteWikiPage, listWikiPages } from '../../api/wiki';
@@ -52,6 +52,8 @@ const WikiPageRow = ({
   showQualityReview = false
 }) => {
   const [actionsOpen, setActionsOpen] = useState(false);
+  const [activated, setActivated] = useState(false);
+  const receiptTimerRef = useRef(null);
   const snippet = wikiPreviewForPage(page, compact ? 118 : 180);
   const title = page.title || 'Untitled Wiki Page';
   const qualityReview = normalizeQualityReview(page);
@@ -63,14 +65,22 @@ const WikiPageRow = ({
   const rowClassName = [
     'library-article-row',
     'is-magnetic',
+    activated ? 'is-activated' : '',
     showQualityReview ? 'library-article-row--quality-review' : ''
   ].filter(Boolean).join(' ');
 
   const handleOpen = (event) => {
     if (!onOpen) return;
     event.preventDefault();
+    setActivated(true);
+    if (receiptTimerRef.current) window.clearTimeout(receiptTimerRef.current);
+    receiptTimerRef.current = window.setTimeout(() => setActivated(false), 720);
     onOpen();
   };
+
+  useEffect(() => () => {
+    if (receiptTimerRef.current) window.clearTimeout(receiptTimerRef.current);
+  }, []);
 
   const handlePointerMove = (event) => {
     const target = event.currentTarget;
@@ -187,6 +197,9 @@ const WikiPageRow = ({
                 onClick={(event) => {
                   event.stopPropagation();
                   event.preventDefault();
+                  setActivated(true);
+                  if (receiptTimerRef.current) window.clearTimeout(receiptTimerRef.current);
+                  receiptTimerRef.current = window.setTimeout(() => setActivated(false), 720);
                   onDelete();
                 }}
                 onKeyDown={(event) => event.stopPropagation()}
@@ -197,6 +210,7 @@ const WikiPageRow = ({
           ) : null}
         </div>
       )}
+      {activated ? <span className="library-article-row-receipt" role="status">Opening</span> : null}
     </div>
   );
 };

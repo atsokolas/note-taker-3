@@ -63,6 +63,35 @@ describe('app theme design-system tokens', () => {
     expect(topBlocks).not.toContain('rgba(16, 24, 40');
   });
 
+  it('defines canonical editorial text role tokens in light and dark palettes', () => {
+    const css = fs.readFileSync(path.join(__dirname, 'theme.css'), 'utf8');
+    const rootBlock = css.match(/:root \{[\s\S]*?\n\}/)?.[0] || '';
+    const darkBlock = css.match(/html\[data-ui-theme='dark'\] \{[\s\S]*?\n\}/)?.[0] || '';
+
+    [
+      '--text-primary:',
+      '--text-secondary:',
+      '--text-muted:',
+      '--text-link:',
+      '--text-on-accent:',
+      '--surface-border:'
+    ].forEach((token) => {
+      expect(rootBlock).toContain(token);
+      expect(darkBlock).toContain(token);
+    });
+  });
+
+  it('rejects known cool palette literals from editorial dashboard dark tokens', () => {
+    const dashboardCss = fs.readFileSync(path.join(__dirname, 'dashboard-refresh.css'), 'utf8');
+    const editorialCss = fs.readFileSync(path.join(__dirname, 'stitch-editorial.css'), 'utf8');
+    const wikiFrontCss = fs.readFileSync(path.join(__dirname, 'wiki-front-page.css'), 'utf8');
+
+    expect(dashboardCss).not.toContain('#9eb0cf');
+    expect(dashboardCss).not.toContain('rgba(96, 118, 153');
+    expect(editorialCss).not.toContain('--vellum-blue');
+    expect(wikiFrontCss).not.toContain('#0d1422');
+  });
+
   it('pins the wiki front page dark surface to the warm editorial palette', () => {
     const css = fs.readFileSync(path.join(__dirname, 'wiki-front-page.css'), 'utf8');
     const editorialCss = fs.readFileSync(path.join(__dirname, 'stitch-editorial.css'), 'utf8');
@@ -73,6 +102,8 @@ describe('app theme design-system tokens', () => {
     expect(css).toContain("html[data-ui-theme='dark'] body.noeis-editorial .wiki-front-page");
     expect(css).not.toContain('#0d1422');
     expect(dashboardCss).not.toContain('#0d1422');
+    expect(dashboardCss).not.toContain('#9eb0cf');
+    expect(dashboardCss).not.toContain('rgba(96, 118, 153');
     expect(dashboardCss).toMatch(/html\[data-ui-theme='dark'\] \{[\s\S]*--bg-shell: #14110d;/);
     expect(editorialCss).toMatch(/html\[data-ui-theme='dark'\] body\.noeis-editorial \{[\s\S]*background: var\(--vellum-bg\) !important;/);
   });

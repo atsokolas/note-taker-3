@@ -1002,7 +1002,8 @@ describe('WikiWorkspace', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: 'Send' }));
 
-    const recovery = await screen.findByText('First pass needed another try — rebuilding with stricter instructions.');
+    const recovery = await screen.findByText('First pass needed another try');
+    expect(screen.getByText('Rebuilding with stricter source and quality checks.')).toBeInTheDocument();
     const built = await screen.findByText('Built @wiki:wiki-new for "Economic Moats".');
     expect(recovery.compareDocumentPosition(built) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(screen.queryByText(/Failed to build a wiki page for/i)).not.toBeInTheDocument();
@@ -1023,7 +1024,8 @@ describe('WikiWorkspace', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: 'Send' }));
 
-    const recovery = await screen.findByText('First pass needed another try — rebuilding with stricter instructions.');
+    const recovery = await screen.findByText('First pass needed another try');
+    expect(screen.getByText('Rebuilding with stricter source and quality checks.')).toBeInTheDocument();
     const built = await screen.findByText('Built @wiki:wiki-new for "Economic Moats".');
     expect(recovery.compareDocumentPosition(built) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(screen.queryByText(/Failed to build a wiki page for/i)).not.toBeInTheDocument();

@@ -1,4 +1,4 @@
-import React, { Profiler, useMemo } from 'react';
+import React, { Profiler, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { SectionHeader } from '../ui';
 import VirtualList from '../virtual/VirtualList';
@@ -11,12 +11,7 @@ import {
   getWhyItMatters
 } from './libraryReadingRoomModel';
 import { filterLibraryBrowseItems } from '../../utils/cruftSuppression';
-
-const formatDate = (value) => {
-  if (!value) return '';
-  const date = new Date(value);
-  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
-};
+import { formatSurfaceDate } from '../../utils/dateDisplay';
 
 const getSourceLabel = (article) => {
   const explicit = article?.source || article?.publication || article?.publisher || article?.siteName;
@@ -95,6 +90,8 @@ const LibraryArticleRow = React.memo(({
   onSelectArticle,
   onMoveArticle
 }) => {
+  const [activated, setActivated] = useState(false);
+  const receiptTimerRef = useRef(null);
   const sourceLabel = getSourceLabel(article);
   const tags = getArticleTags(article);
   const conceptNames = getConnectedConceptNames(article);
@@ -117,20 +114,32 @@ const LibraryArticleRow = React.memo(({
     target.style.removeProperty('--row-bloom-x');
     target.style.removeProperty('--row-bloom-y');
   };
+  const triggerReceipt = () => {
+    setActivated(true);
+    if (receiptTimerRef.current) window.clearTimeout(receiptTimerRef.current);
+    receiptTimerRef.current = window.setTimeout(() => setActivated(false), 720);
+  };
+
+  useEffect(() => () => {
+    if (receiptTimerRef.current) window.clearTimeout(receiptTimerRef.current);
+  }, []);
 
   return (
   <div
-    className="library-article-row is-magnetic"
+    className={`library-article-row is-magnetic${activated ? ' is-activated' : ''}`}
     onPointerMove={handlePointerMove}
     onPointerLeave={handlePointerLeave}
   >
-    <div className="library-article-row-date">{formatDate(rowDate)}</div>
+    <div className="library-article-row-date">{formatSurfaceDate(rowDate, { includeYear: true })}</div>
     <button
       className="library-article-row-main"
       type="button"
       aria-label={`Open in Reading Room: ${article.title || 'Untitled article'}`}
       data-testid="library-article-open"
-      onClick={() => onSelectArticle(article._id)}
+      onClick={() => {
+        triggerReceipt();
+        onSelectArticle(article._id);
+      }}
     >
       <div className="library-article-row-title">{article.title || 'Untitled article'}</div>
       <div className="library-article-row-kicker">
@@ -156,12 +165,14 @@ const LibraryArticleRow = React.memo(({
         className="library-article-row-action"
         onClick={(e) => {
           e.stopPropagation();
+          triggerReceipt();
           onMoveArticle(article);
         }}
       >
         Move
       </button>
     )}
+    {activated ? <span className="library-article-row-receipt" role="status">Opening</span> : null}
   </div>
   );
 });

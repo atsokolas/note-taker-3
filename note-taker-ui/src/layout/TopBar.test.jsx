@@ -28,15 +28,25 @@ describe('TopBar help menu', () => {
     expect(onSearchOpen).toHaveBeenCalledTimes(1);
   });
 
-  it('renders direct utility links in the top bar', () => {
+  it('links the brand to the wiki landing surface', () => {
+    render(
+      <MemoryRouter>
+        <TopBar />
+      </MemoryRouter>
+    );
+
+    expect(screen.getByRole('link', { name: 'Noeis home' })).toHaveAttribute('href', '/wiki');
+  });
+
+  it('keeps Connections and Settings inside the More menu', () => {
     render(
       <MemoryRouter>
         <TopBar
-          utilityNav={[
+          secondaryNav={[
             {
               label: 'Connections',
-              to: '/integrations',
-              match: (location) => location.pathname.startsWith('/integrations')
+              to: '/connections#sources',
+              match: (location) => location.pathname.startsWith('/connections')
             },
             {
               label: 'Settings',
@@ -48,10 +58,13 @@ describe('TopBar help menu', () => {
       </MemoryRouter>
     );
 
-    expect(screen.getByRole('link', { name: 'Connections' })).toHaveAttribute('href', '/integrations');
-    expect(screen.getByRole('link', { name: 'Settings' })).toHaveAttribute('href', '/settings');
-    expect(screen.getByRole('link', { name: 'Connections' })).toHaveClass('topbar__utility-button');
-    expect(screen.getByRole('link', { name: 'Settings' })).toHaveClass('topbar__utility-button');
+    expect(screen.queryByRole('link', { name: 'Connections' })).toBeNull();
+    expect(screen.queryByRole('link', { name: 'Settings' })).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: 'More' }));
+
+    expect(screen.getByRole('menuitem', { name: 'Connections' })).toHaveAttribute('href', '/connections#sources');
+    expect(screen.getByRole('menuitem', { name: 'Settings' })).toHaveAttribute('href', '/settings');
   });
 
   it('does not render More when secondary navigation is empty', () => {
@@ -64,14 +77,15 @@ describe('TopBar help menu', () => {
     expect(screen.queryByRole('button', { name: 'More' })).toBeNull();
   });
 
-  it('exposes a persistent reference handoff in the top bar', () => {
+  it('does not render the ambiguous reference handoff in the top bar', () => {
     render(
       <MemoryRouter>
         <TopBar />
       </MemoryRouter>
     );
 
-    expect(screen.getByRole('button', { name: 'Reference…' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Reference…' })).toBeNull();
+    expect(screen.queryByRole('button', { name: /Reference/i })).toBeNull();
   });
 
   it('opens the more menu for secondary navigation links', () => {

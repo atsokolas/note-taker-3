@@ -59,6 +59,7 @@ describe('LibraryArticleList', () => {
     });
     fireEvent.click(main);
     expect(onSelect).toHaveBeenCalledWith('a1');
+    expect(screen.getByRole('status')).toHaveTextContent('Opening');
   });
 
   it('renders an article search box when a query handler is provided', () => {
@@ -78,6 +79,7 @@ describe('LibraryArticleList', () => {
     fireEvent.click(moveBtn);
     expect(onMove).toHaveBeenCalledTimes(1);
     expect(onSelect).not.toHaveBeenCalled();
+    expect(screen.getByRole('status')).toHaveTextContent('Opening');
   });
 
   it('shows the first-run empty state with extension CTA when scope=all and no articles', () => {
