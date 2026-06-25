@@ -11,6 +11,16 @@ describe('wikiPageQualityGuard', () => {
     expect(review.reasons.map(reason => reason.code)).toContain('known_qa_junk_title');
   });
 
+  it('blocks QA-prefixed malformed fixture titles from surface retrieval', () => {
+    const review = classifyWikiPageQuality({
+      title: 'QA Cia Teach Investor Behavioural Investment',
+      plainText: 'A generated browser fixture should not lead the front page.'
+    });
+
+    expect(review.surfaceEligible).toBe(false);
+    expect(review.reasons.map(reason => reason.code)).toContain('known_qa_junk_title');
+  });
+
   it('does not block legitimate titles containing the word things', () => {
     const review = classifyWikiPageQuality({
       title: 'Internet of Things Security',

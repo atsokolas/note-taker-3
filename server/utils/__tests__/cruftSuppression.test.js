@@ -15,7 +15,10 @@ assert.strictEqual(isSuppressedFromReturnView({ title: 'Good thread', status: 'a
 assert.strictEqual(matchesCruftHeuristic('TEMP MCP RETEST 2026-06-06'), true);
 assert.strictEqual(matchesCruftHeuristic('Blah'), true);
 assert.strictEqual(matchesCruftHeuristic('TEST (8)'), true);
+assert.strictEqual(matchesCruftHeuristic('QA Cia Teach Investor Behavioural Investment'), true);
+assert.strictEqual(matchesCruftHeuristic('QA Complementary Machine Thing'), true);
 assert.strictEqual(matchesCruftHeuristic('investing'), false);
+assert.strictEqual(matchesCruftHeuristic('Quality Assurance Strategy'), false);
 
 const mixed = [
   { title: 'investing' },

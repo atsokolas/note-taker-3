@@ -21,6 +21,8 @@ describe('cruftSuppression', () => {
     expect(matchesCruftHeuristic('Blah')).toBe(true);
     expect(matchesCruftHeuristic('TEST (8)')).toBe(true);
     expect(matchesCruftHeuristic('QA Build Order Verification 2026-06-19')).toBe(true);
+    expect(matchesCruftHeuristic('QA Cia Teach Investor Behavioural Investment')).toBe(true);
+    expect(matchesCruftHeuristic('QA Complementary Machine Thing')).toBe(true);
     expect(matchesCruftHeuristic('QA User Test Embedding Retry 1782083461056')).toBe(true);
     expect(matchesCruftHeuristic('QA public question: what makes a reading note durable?')).toBe(true);
     expect(matchesCruftHeuristic('Brand New Pull Test')).toBe(true);

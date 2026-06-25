@@ -6,7 +6,9 @@ const CRUFT_TITLE_PATTERNS = [
   /^discard\b/i,
   /^favorite\b/i,
   /^kevin\b/i,
-  /^new question$/i
+  /^new question$/i,
+  /^qa\s+/i,
+  /^(?:qa|codex qa)\b.*\b\d{10,}\b/i
 ];
 
 const getReturnViewTitle = (item = {}) => {

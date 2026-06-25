@@ -54,10 +54,13 @@ const classifyWikiPageQuality = (page = {}) => {
     addReason('untitled_page', 'Page has a placeholder title.');
   }
 
-  if (KNOWN_QA_JUNK_TITLES.has(normalizedTitle)) {
+  const qaStrippedTitle = normalizedTitle.replace(/^qa\s+/, '');
+
+  if (KNOWN_QA_JUNK_TITLES.has(normalizedTitle) || KNOWN_QA_JUNK_TITLES.has(qaStrippedTitle)) {
     addReason('known_qa_junk_title', 'Page title matches a known malformed QA fixture.', { blocking: true });
   } else if (
-    (QA_GENERATED_TITLE_RE.test(title) && (QA_VERIFICATION_TITLE_RE.test(title) || LONG_TIMESTAMP_RE.test(title)))
+    QA_GENERATED_TITLE_RE.test(title)
+    || (QA_GENERATED_TITLE_RE.test(title) && (QA_VERIFICATION_TITLE_RE.test(title) || LONG_TIMESTAMP_RE.test(title)))
     || /^qa\s+(?:build order verification|user test|shared adoption|public share|fresh concept|slash concept)\b/i.test(title)
   ) {
     addReason('generated_qa_title', 'Page title looks like an internal QA/generated verification page.', { blocking: true });
