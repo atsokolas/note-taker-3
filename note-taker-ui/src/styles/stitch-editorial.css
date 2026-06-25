@@ -9568,6 +9568,26 @@ body.noeis-editorial .status-message.success-message {
   color: var(--vellum-accent) !important;
 }
 
+body.noeis-editorial .connections-return-loop__feed,
+body.noeis-editorial .import-source-card {
+  min-width: 0;
+}
+
+body.noeis-editorial .connections-return-loop__feed strong,
+body.noeis-editorial .import-source-card h3,
+body.noeis-editorial .import-source-status {
+  overflow-wrap: normal;
+  word-break: normal;
+  hyphens: manual;
+}
+
+body.noeis-editorial .connections-return-loop__feed p,
+body.noeis-editorial .import-source-card p,
+body.noeis-editorial .import-source-helper {
+  overflow-wrap: break-word;
+  word-break: normal;
+}
+
 body.noeis-editorial a {
   color: var(--vellum-accent);
 }
@@ -9655,9 +9675,23 @@ body.noeis-editorial a:hover {
 }
 
 @media (max-width: 760px) {
+  body.noeis-editorial .topbar__content {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 8px;
+    width: calc(100vw - 24px);
+    padding: 10px 0 8px;
+  }
+
+  body.noeis-editorial .topbar__search-slot,
+  body.noeis-editorial .topbar__reference-button,
+  body.noeis-editorial .topbar__utility-button {
+    display: none !important;
+  }
+
   body.noeis-editorial .topbar__brand-nav {
-    flex-wrap: wrap;
-    gap: 16px;
+    flex-wrap: nowrap;
+    gap: 10px;
   }
 
   body.noeis-editorial .working-memory-header-controls {
@@ -9666,18 +9700,35 @@ body.noeis-editorial a:hover {
   }
 
   body.noeis-editorial .topbar__primary-nav {
-    gap: 14px;
-    flex-wrap: wrap;
+    gap: 10px;
+    flex-wrap: nowrap;
+  }
+
+  body.noeis-editorial .topbar__primary-link {
+    font-size: 0.92rem;
+    padding-bottom: 5px;
   }
 
   body.noeis-editorial .topbar__right {
-    flex-wrap: wrap;
-    justify-content: flex-start;
-    row-gap: 4px;
+    flex-wrap: nowrap;
+    justify-content: flex-end;
+    gap: 2px;
   }
 
   body.noeis-editorial .topbar__brand {
-    font-size: 1.7rem;
+    font-size: 1.58rem;
+  }
+
+  body.noeis-editorial .topbar__button,
+  body.noeis-editorial .topbar__theme-pill,
+  body.noeis-editorial .topbar__icon-button {
+    min-height: 34px;
+    height: 34px;
+    padding: 6px 8px;
+  }
+
+  body.noeis-editorial .app-shell-new--stitch .app-shell-new__body {
+    padding-top: 76px;
   }
 
   body.noeis-editorial .landing-public__main h1 {

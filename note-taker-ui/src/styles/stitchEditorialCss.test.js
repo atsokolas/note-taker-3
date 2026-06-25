@@ -85,4 +85,20 @@ describe('stitch editorial CSS tokens', () => {
     expect(css).toMatch(/@media \(prefers-reduced-motion: reduce\)[\s\S]*?library-article-row\.is-magnetic::before/);
     expect(css).not.toContain('.three-pane--library .library-article-row::before');
   });
+
+  it('keeps mobile editorial chrome compact and moves utility links behind More', () => {
+    const css = fs.readFileSync(path.join(__dirname, 'stitch-editorial.css'), 'utf8');
+
+    expect(css).toMatch(/@media \(max-width: 760px\)[\s\S]*?body\.noeis-editorial \.topbar__content[\s\S]*?grid-template-columns: minmax\(0, 1fr\) auto;/);
+    expect(css).toMatch(/@media \(max-width: 760px\)[\s\S]*?body\.noeis-editorial \.topbar__utility-button[\s\S]*?display: none !important;/);
+    expect(css).toMatch(/@media \(max-width: 760px\)[\s\S]*?body\.noeis-editorial \.app-shell-new--stitch \.app-shell-new__body[\s\S]*?padding-top: 76px;/);
+  });
+
+  it('keeps connection statuses from breaking mid-word on narrow cards', () => {
+    const css = fs.readFileSync(path.join(__dirname, 'stitch-editorial.css'), 'utf8');
+
+    expect(css).toContain('body.noeis-editorial .connections-return-loop__feed strong');
+    expect(css).toMatch(/connections-return-loop__feed strong,[\s\S]*?overflow-wrap: normal;/);
+    expect(css).toMatch(/connections-return-loop__feed p,[\s\S]*?overflow-wrap: break-word;/);
+  });
 });

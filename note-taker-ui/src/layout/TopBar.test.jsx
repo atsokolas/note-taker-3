@@ -50,6 +50,8 @@ describe('TopBar help menu', () => {
 
     expect(screen.getByRole('link', { name: 'Connections' })).toHaveAttribute('href', '/integrations');
     expect(screen.getByRole('link', { name: 'Settings' })).toHaveAttribute('href', '/settings');
+    expect(screen.getByRole('link', { name: 'Connections' })).toHaveClass('topbar__utility-button');
+    expect(screen.getByRole('link', { name: 'Settings' })).toHaveClass('topbar__utility-button');
   });
 
   it('does not render More when secondary navigation is empty', () => {
@@ -89,6 +91,7 @@ describe('TopBar help menu', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'More' }));
 
+    expect(screen.getByRole('button', { name: 'More' })).toHaveClass('topbar__more-button');
     expect(screen.getByRole('menuitem', { name: 'How To Use' })).toBeInTheDocument();
   });
 

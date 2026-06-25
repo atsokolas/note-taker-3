@@ -209,7 +209,7 @@ const TopBar = ({
             item.href ? (
               <a
                 key={item.label}
-                className={`topbar__button ${isNavItemActive(item) ? 'is-active' : ''}`.trim()}
+                className={`topbar__button topbar__utility-button ${isNavItemActive(item) ? 'is-active' : ''}`.trim()}
                 href={item.href}
                 target={item.external ? '_blank' : undefined}
                 rel={item.external ? 'noopener noreferrer' : undefined}
@@ -220,7 +220,7 @@ const TopBar = ({
               <NavLink
                 key={item.label}
                 to={item.to}
-                className={`topbar__button ${isNavItemActive(item) ? 'is-active' : ''}`.trim()}
+                className={`topbar__button topbar__utility-button ${isNavItemActive(item) ? 'is-active' : ''}`.trim()}
               >
                 {item.label}
               </NavLink>
@@ -228,7 +228,7 @@ const TopBar = ({
               <button
                 key={item.label}
                 type="button"
-                className={`topbar__button ${isNavItemActive(item) ? 'is-active' : ''}`.trim()}
+                className={`topbar__button topbar__utility-button ${isNavItemActive(item) ? 'is-active' : ''}`.trim()}
                 onClick={() => item.onClick?.()}
               >
                 {item.label}
@@ -239,7 +239,7 @@ const TopBar = ({
             <div className="topbar__menu" ref={moreMenuRef}>
               <button
                 type="button"
-                className={`topbar__button ${moreOpen ? 'is-active' : ''}`}
+                className={`topbar__button topbar__more-button ${moreOpen ? 'is-active' : ''}`}
                 aria-haspopup="menu"
                 aria-expanded={moreOpen}
                 onClick={() => {
