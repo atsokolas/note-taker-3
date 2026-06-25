@@ -1253,6 +1253,17 @@ body.noeis-editorial .library-article-row {
   min-height: 136px;
   padding: 14px 0;
   border-bottom: 1px solid var(--vellum-line);
+  transform: translate3d(0, 0, 0);
+  transition:
+    transform 180ms ease-out,
+    border-color 180ms ease-out,
+    background 180ms ease-out,
+    box-shadow 180ms ease-out;
+}
+
+body.noeis-editorial .library-article-row.is-magnetic:hover,
+body.noeis-editorial .library-article-row.is-magnetic:focus-within {
+  transform: translate3d(2px, -1px, 0);
 }
 
 /* Cursor-following row bloom — wiki index + library browse rows.
@@ -1298,6 +1309,11 @@ body.noeis-editorial .library-article-row.is-magnetic:focus-within::after {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  body.noeis-editorial .library-article-row {
+    transform: none;
+    transition: none;
+  }
+
   body.noeis-editorial .library-article-row.is-magnetic::before,
   body.noeis-editorial .library-article-row.is-magnetic::after {
     transition: none;

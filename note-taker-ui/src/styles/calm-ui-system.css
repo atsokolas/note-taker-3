@@ -240,6 +240,20 @@ body.calm-ui-global .library-page-shell .library-article-row:last-child {
   border-bottom: 0;
 }
 
+body.calm-ui-global .library-page-shell .library-article-row.is-magnetic {
+  transform: translate3d(0, 0, 0);
+  transition:
+    transform 180ms ease-out,
+    border-color 180ms ease-out,
+    background 180ms ease-out,
+    box-shadow 180ms ease-out;
+}
+
+body.calm-ui-global .library-page-shell .library-article-row.is-magnetic:hover,
+body.calm-ui-global .library-page-shell .library-article-row.is-magnetic:focus-within {
+  transform: translate3d(2px, -1px, 0);
+}
+
 /* Magnetic row hover — cursor-following bloom + thin left-edge accent.
    Pairs with the ThinkHome primary action and reading rail vocabulary;
    density-aware (much lighter than primary buttons since rows are many). */
@@ -287,6 +301,7 @@ body.calm-ui-global .library-page-shell .library-article-row.is-magnetic:focus-w
   body.calm-ui-global .library-page-shell .library-article-row,
   body.calm-ui-global .library-page-shell .library-article-row.is-magnetic::before,
   body.calm-ui-global .library-page-shell .library-article-row.is-magnetic::after {
+    transform: none;
     transition: none;
   }
 }

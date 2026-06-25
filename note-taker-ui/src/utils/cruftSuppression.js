@@ -6,7 +6,12 @@ export const CRUFT_TITLE_PATTERNS = [
   /^discard\b/i,
   /^favorite\b/i,
   /^kevin\b/i,
+  /^brand new pull test\b/i,
+  /^claim note \d{10,}$/i,
+  /^connection concept [a-z]\s+\d{10,}$/i,
+  /^idea workbench route\s+\d{10,}$/i,
   /^new question$/i,
+  /^(?:qa|codex qa)\s+public\s+(?:question|concept|note|wiki)\b/i,
   /^(?:qa|codex qa)\s+(?:build order verification|user test|shared adoption|public share|fresh concept|slash concept|embedding retry)\b/i,
   /^(?:qa|codex qa)\b.*\b\d{10,}\b/i
 ];
