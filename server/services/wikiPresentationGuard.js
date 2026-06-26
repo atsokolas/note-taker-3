@@ -88,6 +88,14 @@ const normalizeWikiTitleForPresentation = (value = '', {
   return title || 'Untitled Wiki Page';
 };
 
+const normalizeExistingWikiTitleForPresentation = (value = '', options = {}) => {
+  const raw = normalizeSpaces(value || 'Untitled Wiki Page');
+  return normalizeWikiTitleForPresentation(raw, {
+    ...options,
+    stripLeadingArticle: /^(?:the|a|an)\s+/.test(raw)
+  });
+};
+
 const sentenceBoundaryTrim = (value = '', {
   maxLength = 280,
   fallback = ''
@@ -120,6 +128,7 @@ const sentenceBoundaryTrim = (value = '', {
 
 module.exports = {
   normalizeSpaces,
+  normalizeExistingWikiTitleForPresentation,
   normalizeWikiTitleForPresentation,
   sentenceBoundaryTrim,
   __testables: {

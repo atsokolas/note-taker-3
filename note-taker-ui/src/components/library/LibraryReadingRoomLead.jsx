@@ -106,7 +106,7 @@ const LibraryReadingRoomLead = ({
               </p>
             ) : suppressedVisible ? (
               <p className="library-reading-room-lead__cruft-notice muted small" data-testid="library-cruft-notice">
-                Showing low-signal items for review.
+                Showing hidden review imports.
               </p>
             ) : null}
             {onToggleSuppressed ? (
@@ -115,7 +115,7 @@ const LibraryReadingRoomLead = ({
                 className="library-reading-room-lead__suppressed-action"
                 onClick={onToggleSuppressed}
               >
-                {suppressedVisible ? 'Hide low-signal items' : 'Show low-signal items'}
+                {suppressedVisible ? 'Hide review imports' : 'Show review imports'}
               </QuietButton>
             ) : null}
           </div>

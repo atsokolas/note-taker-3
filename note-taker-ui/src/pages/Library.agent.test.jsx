@@ -53,11 +53,11 @@ jest.mock('../components/library/LibraryMain', () => ({
         <>
           <div data-testid="library-reading-room-lead">
             Reading room lead · {unfiledCount} unfiled
-            {suppressedVisible ? ' · showing low-signal items' : ''}
+            {suppressedVisible ? ' · showing review imports' : ''}
           </div>
           <button type="button" onClick={onReviewFiling}>Review filing suggestions</button>
           <button type="button" onClick={onToggleSuppressed}>
-            {suppressedVisible ? 'Hide low-signal items' : 'Show low-signal items'}
+            {suppressedVisible ? 'Hide review imports' : 'Show review imports'}
           </button>
         </>
       ) : null}
@@ -254,7 +254,7 @@ describe('Library agent rail', () => {
   it('exposes an explicit low-signal review action from the reading room lead', () => {
     renderLibrary();
 
-    expect(screen.getByRole('button', { name: 'Show low-signal items' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Show review imports' })).toBeInTheDocument();
   });
 
   it('mounts the thought partner in the reading right rail with source context collapsed', async () => {

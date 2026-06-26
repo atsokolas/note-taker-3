@@ -21,4 +21,14 @@ describe('wiki push-2 polish CSS', () => {
     expect(css).toMatch(/@media \(min-width:\s*1280px\)[\s\S]*?max-width:\s*min\(100%,\s*720px\)/);
     expect(css).toMatch(/@media \(min-width:\s*1440px\)[\s\S]*?max-width:\s*min\(100%,\s*760px\)/);
   });
+
+  it('renders a warm knowledge-graph motif with reduced-motion fallback', () => {
+    const css = readCss('wiki-front-page.css');
+
+    expect(css).toContain('.wiki-front-page__graph-motif');
+    expect(css).toContain('.wiki-front-page__graph-motif-edges line');
+    expect(css).toContain('var(--wiki-warm-accent');
+    expect(css).toContain('body.noeis-editorial.wiki-front-page-route .brand-gradient');
+    expect(css).toMatch(/@media \(prefers-reduced-motion: reduce\)[\s\S]*\.wiki-front-page__graph-motif-network \{ animation: none; \}/);
+  });
 });

@@ -16,16 +16,26 @@ export const getPrimaryNavItems = () => [
   }
 ];
 
-export const getSecondaryNavItems = () => [
+export const getTopBarUtilityNavItems = () => [
   {
     label: 'Connections',
     to: '/connections#sources',
+    essential: true,
     match: (location) => (
       location.pathname.startsWith('/connections')
       || location.pathname.startsWith('/integrations')
       || location.pathname.startsWith('/data-integrations')
     )
   },
+  {
+    label: 'Settings',
+    to: '/settings',
+    essential: true,
+    match: (location) => location.pathname.startsWith('/settings')
+  }
+];
+
+export const getSecondaryNavItems = () => [
   {
     label: 'Map',
     to: '/map',

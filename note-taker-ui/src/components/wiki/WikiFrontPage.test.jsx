@@ -82,6 +82,7 @@ describe('WikiFrontPage (AT-394)', () => {
     );
 
     expect(document.body.classList.contains('wiki-front-page-route')).toBe(true);
+    expect(document.querySelector('.wiki-front-page__graph-motif')).toBeInTheDocument();
     expect(screen.getByRole('status')).toHaveTextContent(/checking overnight edits and drift signals/i);
     expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
     expect(screen.getByRole('heading', { level: 1, hidden: true })).toHaveTextContent('Morning paper');

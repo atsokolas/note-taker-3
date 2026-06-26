@@ -455,6 +455,7 @@ const WikiList = ({ compact = false, onOpenPage }) => {
       {compact ? (
         <div className="wiki-index__faceted-layout">
           <WikiFacetRail
+            scope="primary"
             query={query}
             pageType={pageType}
             visibility={visibility}
@@ -471,6 +472,18 @@ const WikiList = ({ compact = false, onOpenPage }) => {
           <div className="wiki-index__faceted-main">
             {listBody}
           </div>
+          <WikiFacetRail
+            scope="deep"
+            deepSectionsDefaultOpen={false}
+            pageType={pageType}
+            visibility={visibility}
+            status={status}
+            needsReviewFilter={needsReviewFilter}
+            facetCounts={facetCounts}
+            onSelectPageType={handleSelectPageType}
+            onSelectStatus={handleSelectStatus}
+            onSelectVisibility={handleSelectVisibility}
+          />
         </div>
       ) : listBody}
     </Container>

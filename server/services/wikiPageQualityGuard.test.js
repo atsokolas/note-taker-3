@@ -21,6 +21,28 @@ describe('wikiPageQualityGuard', () => {
     expect(review.reasons.map(reason => reason.code)).toContain('known_qa_junk_title');
   });
 
+  it('blocks known browser smoke pages and placeholder titles from hero surfaces', () => {
+    const smoke = classifyWikiPageQuality({
+      title: 'Public Share Smoke Page',
+      plainText: 'A public sharing regression fixture.'
+    });
+    const pull = classifyWikiPageQuality({
+      title: 'Brand New Pull Test',
+      plainText: 'A pull-in regression fixture.'
+    });
+    const untitled = classifyWikiPageQuality({
+      title: 'Untitled Wiki Page',
+      plainText: 'A placeholder title should not become a front-door story.'
+    });
+
+    expect(smoke.surfaceEligible).toBe(false);
+    expect(smoke.reasons.map(reason => reason.code)).toContain('known_qa_junk_title');
+    expect(pull.surfaceEligible).toBe(false);
+    expect(pull.reasons.map(reason => reason.code)).toContain('known_qa_junk_title');
+    expect(untitled.surfaceEligible).toBe(false);
+    expect(untitled.reasons.map(reason => reason.code)).toContain('untitled_page');
+  });
+
   it('does not block legitimate titles containing the word things', () => {
     const review = classifyWikiPageQuality({
       title: 'Internet of Things Security',

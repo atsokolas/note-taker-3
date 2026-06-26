@@ -7,6 +7,7 @@ export const CRUFT_TITLE_PATTERNS = [
   /^favorite\b/i,
   /^kevin\b/i,
   /^brand new pull test\b/i,
+  /^public share smoke page$/i,
   /^claim note \d{10,}$/i,
   /^evidence note \d{10,}$/i,
   /^connection concept [a-z]\s+\d{10,}$/i,
@@ -67,7 +68,7 @@ export const countSuppressedInCollection = (items = []) => (
 export const composeCruftSuppressionNotice = (count = 0) => {
   const total = Number(count) || 0;
   if (total <= 0) return '';
-  const label = total === 1 ? 'item' : 'items';
+  const label = total === 1 ? 'import' : 'imports';
   const verb = total === 1 ? 'was' : 'were';
-  return `${total} low-signal test ${label} ${verb} kept out of your return view.`;
+  return `${total} low-signal ${label} ${verb} kept out of your return view.`;
 };

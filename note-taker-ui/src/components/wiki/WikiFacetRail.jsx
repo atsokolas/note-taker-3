@@ -61,6 +61,8 @@ const FacetSection = ({ title, children, defaultOpen = true }) => {
 
 /**
  * @param {{
+ *  scope?: 'all' | 'primary' | 'deep',
+ *  deepSectionsDefaultOpen?: boolean,
  *  query?: string,
  *  pageType?: string,
  *  visibility?: string,
@@ -76,6 +78,8 @@ const FacetSection = ({ title, children, defaultOpen = true }) => {
  * }} props
  */
 const WikiFacetRail = ({
+  scope = 'all',
+  deepSectionsDefaultOpen = scope === 'all',
   query = '',
   pageType = 'all',
   visibility = 'all',
@@ -104,39 +108,18 @@ const WikiFacetRail = ({
     needsReviewFilter
   }), [needsReviewFilter, pageType, status, visibility]);
 
-  return (
-    <aside className="wiki-facet-rail library-cabinet" aria-label="Wiki page facets" data-testid="wiki-facet-rail">
-      <SectionHeader title="Pages" subtitle="Browse your wiki." />
-      <label className="wiki-facet-rail__search feedback-field">
-        <span className="sr-only">Search wiki pages</span>
-        <input
-          type="search"
-          value={query}
-          placeholder="Search pages"
-          aria-label="Search Wiki pages"
-          data-testid="wiki-facet-search"
-          onChange={(event) => onQueryChange?.(event.target.value)}
-        />
-      </label>
+  const showPrimary = scope === 'all' || scope === 'primary';
+  const showDeep = scope === 'all' || scope === 'deep';
+  const railClassName = [
+    'wiki-facet-rail',
+    'library-cabinet',
+    scope === 'primary' ? 'wiki-facet-rail--primary' : '',
+    scope === 'deep' ? 'wiki-facet-rail--deep' : ''
+  ].filter(Boolean).join(' ');
 
-      <div className="library-cabinet-actions wiki-facet-rail__primary">
-        <FacetButton
-          label="All pages"
-          count={counts.all}
-          active={allPagesActive}
-          testId="wiki-facet-all-pages"
-          onClick={() => onSelectAllPages?.()}
-        />
-        <FacetButton
-          label="Needs review"
-          count={counts.needsReview}
-          active={needsReviewFilter}
-          testId="wiki-facet-needs-review"
-          onClick={() => onSelectNeedsReview?.()}
-        />
-      </div>
-
-      <FacetSection title="By type">
+  const deepSections = showDeep ? (
+    <>
+      <FacetSection title="By type" defaultOpen={deepSectionsDefaultOpen}>
         {WIKI_FACET_TYPES.map((type) => (
           <FacetButton
             key={type}
@@ -150,7 +133,7 @@ const WikiFacetRail = ({
         ))}
       </FacetSection>
 
-      <FacetSection title="By status">
+      <FacetSection title="By status" defaultOpen={deepSectionsDefaultOpen}>
         {WIKI_FACET_STATUSES.map((value) => (
           <FacetButton
             key={value}
@@ -164,7 +147,7 @@ const WikiFacetRail = ({
         ))}
       </FacetSection>
 
-      <FacetSection title="Shared / Private">
+      <FacetSection title="Shared / Private" defaultOpen={deepSectionsDefaultOpen}>
         {WIKI_FACET_VISIBILITIES.map((value) => (
           <FacetButton
             key={value}
@@ -177,6 +160,58 @@ const WikiFacetRail = ({
           />
         ))}
       </FacetSection>
+    </>
+  ) : null;
+
+  if (scope === 'deep') {
+    return (
+      <aside
+        className={railClassName}
+        aria-label="Wiki page deep facets"
+        data-testid="wiki-facet-rail-deep"
+      >
+        {deepSections}
+      </aside>
+    );
+  }
+
+  return (
+    <aside className={railClassName} aria-label="Wiki page facets" data-testid="wiki-facet-rail">
+      {showPrimary ? (
+        <>
+          <SectionHeader title="Pages" subtitle="Browse your wiki." />
+          <label className="wiki-facet-rail__search feedback-field">
+            <span className="sr-only">Search wiki pages</span>
+            <input
+              type="search"
+              value={query}
+              placeholder="Search pages"
+              aria-label="Search Wiki pages"
+              data-testid="wiki-facet-search"
+              onChange={(event) => onQueryChange?.(event.target.value)}
+            />
+          </label>
+
+          <div className="library-cabinet-actions wiki-facet-rail__primary">
+            <FacetButton
+              label="All pages"
+              count={counts.all}
+              active={allPagesActive}
+              testId="wiki-facet-all-pages"
+              onClick={() => onSelectAllPages?.()}
+            />
+            <FacetButton
+              label="Needs review"
+              count={counts.needsReview}
+              active={needsReviewFilter}
+              testId="wiki-facet-needs-review"
+              onClick={() => onSelectNeedsReview?.()}
+            />
+          </div>
+        </>
+      ) : null}
+
+      {deepSections}
     </aside>
   );
 };

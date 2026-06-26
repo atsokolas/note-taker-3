@@ -1,7 +1,7 @@
 const { chatComplete, isTextGenerationConfigured } = require('../ai/hfTextClient');
 const { isWikiPageSurfaceEligible } = require('./wikiPageQualityGuard');
 const {
-  normalizeWikiTitleForPresentation,
+  normalizeExistingWikiTitleForPresentation,
   sentenceBoundaryTrim
 } = require('./wikiPresentationGuard');
 
@@ -89,7 +89,7 @@ const collectRecentlyUpdatedPages = (pages = [], { windowMs = ONE_DAY_MS, now = 
     .slice(0, 8)
     .map(page => ({
       _id: String(page._id || ''),
-      title: truncate(normalizeWikiTitleForPresentation(page.title, { stripLeadingArticle: false }), 140) || 'Untitled wiki page',
+      title: truncate(normalizeExistingWikiTitleForPresentation(page.title), 140) || 'Untitled wiki page',
       lastDraftedAt: page.aiState?.lastDraftedAt || null
     }));
 };
@@ -107,7 +107,7 @@ const collectDriftingPages = (pages = []) => {
     .slice(0, 8)
     .map(entry => ({
       _id: String(entry.page._id || ''),
-      title: truncate(normalizeWikiTitleForPresentation(entry.page.title, { stripLeadingArticle: false }), 140) || 'Untitled wiki page',
+      title: truncate(normalizeExistingWikiTitleForPresentation(entry.page.title), 140) || 'Untitled wiki page',
       driftSignals: entry.driftSignals
     }));
 };

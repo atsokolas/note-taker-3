@@ -70,4 +70,19 @@ describe('WikiFacetRail', () => {
     expect(onSelectNeedsReview).toHaveBeenCalledTimes(1);
     expect(onSelectPageType).toHaveBeenCalledWith('concept');
   });
+
+  it('renders deep facet sections in a separate rail with collapsed defaults', () => {
+    render(
+      <WikiFacetRail
+        scope="deep"
+        deepSectionsDefaultOpen={false}
+        facetCounts={baseCounts}
+        onSelectPageType={jest.fn()}
+      />
+    );
+
+    expect(screen.getByTestId('wiki-facet-rail-deep')).toBeInTheDocument();
+    expect(screen.queryByTestId('wiki-facet-search')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'By type' })).toHaveAttribute('aria-expanded', 'false');
+  });
 });

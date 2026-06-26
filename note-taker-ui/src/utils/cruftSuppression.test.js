@@ -26,6 +26,7 @@ describe('cruftSuppression', () => {
     expect(matchesCruftHeuristic('QA User Test Embedding Retry 1782083461056')).toBe(true);
     expect(matchesCruftHeuristic('QA public question: what makes a reading note durable?')).toBe(true);
     expect(matchesCruftHeuristic('Brand New Pull Test')).toBe(true);
+    expect(matchesCruftHeuristic('Public Share Smoke Page')).toBe(true);
     expect(matchesCruftHeuristic('Claim note 1780622210271')).toBe(true);
     expect(matchesCruftHeuristic('Evidence note 1780622210271')).toBe(true);
     expect(matchesCruftHeuristic('Connection Concept A 1780621533872')).toBe(true);
@@ -64,7 +65,7 @@ describe('cruftSuppression', () => {
       'Playing to Win'
     ]);
     expect(composeCruftSuppressionNotice(7)).toBe(
-      '7 low-signal test items were kept out of your return view.'
+      '7 low-signal imports were kept out of your return view.'
     );
   });
 });

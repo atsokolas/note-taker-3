@@ -17,6 +17,8 @@ assert.strictEqual(matchesCruftHeuristic('Blah'), true);
 assert.strictEqual(matchesCruftHeuristic('TEST (8)'), true);
 assert.strictEqual(matchesCruftHeuristic('QA Cia Teach Investor Behavioural Investment'), true);
 assert.strictEqual(matchesCruftHeuristic('QA Complementary Machine Thing'), true);
+assert.strictEqual(matchesCruftHeuristic('Brand New Pull Test'), true);
+assert.strictEqual(matchesCruftHeuristic('Public Share Smoke Page'), true);
 assert.strictEqual(matchesCruftHeuristic('investing'), false);
 assert.strictEqual(matchesCruftHeuristic('Quality Assurance Strategy'), false);
 
@@ -34,11 +36,11 @@ assert.deepStrictEqual(
 
 assert.strictEqual(
   composeCruftSuppressionNotice(7),
-  '7 low-signal test items were kept out of your return view.'
+  '7 low-signal imports were kept out of your return view.'
 );
 assert.strictEqual(
   composeCruftSuppressionNotice(1),
-  '1 low-signal test item was kept out of your return view.'
+  '1 low-signal import was kept out of your return view.'
 );
 assert.strictEqual(composeCruftSuppressionNotice(0), '');
 

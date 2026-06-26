@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import TopBar from './TopBar';
 
@@ -38,19 +38,21 @@ describe('TopBar help menu', () => {
     expect(screen.getByRole('link', { name: 'Noeis home' })).toHaveAttribute('href', '/wiki');
   });
 
-  it('keeps Connections and Settings inside the More menu', () => {
+  it('renders Connections and Settings as direct top-bar links', () => {
     render(
       <MemoryRouter>
         <TopBar
-          secondaryNav={[
+          utilityNav={[
             {
               label: 'Connections',
               to: '/connections#sources',
+              essential: true,
               match: (location) => location.pathname.startsWith('/connections')
             },
             {
               label: 'Settings',
               to: '/settings',
+              essential: true,
               match: (location) => location.pathname.startsWith('/settings')
             }
           ]}
@@ -58,13 +60,9 @@ describe('TopBar help menu', () => {
       </MemoryRouter>
     );
 
-    expect(screen.queryByRole('link', { name: 'Connections' })).toBeNull();
-    expect(screen.queryByRole('link', { name: 'Settings' })).toBeNull();
-
-    fireEvent.click(screen.getByRole('button', { name: 'More' }));
-
-    expect(screen.getByRole('menuitem', { name: 'Connections' })).toHaveAttribute('href', '/connections#sources');
-    expect(screen.getByRole('menuitem', { name: 'Settings' })).toHaveAttribute('href', '/settings');
+    expect(screen.getByRole('link', { name: 'Connections' })).toHaveAttribute('href', '/connections#sources');
+    expect(screen.getByRole('link', { name: 'Settings' })).toHaveAttribute('href', '/settings');
+    expect(screen.getByRole('link', { name: 'Connections' })).toHaveClass('topbar__utility-button--essential');
   });
 
   it('does not render More when secondary navigation is empty', () => {
@@ -88,7 +86,7 @@ describe('TopBar help menu', () => {
     expect(screen.queryByRole('button', { name: /Reference/i })).toBeNull();
   });
 
-  it('opens the more menu for secondary navigation links', () => {
+  it('opens the more menu in a portal with secondary navigation links', () => {
     render(
       <MemoryRouter>
         <TopBar
@@ -103,10 +101,63 @@ describe('TopBar help menu', () => {
       </MemoryRouter>
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'More' }));
+    fireEvent.click(screen.getByTestId('topbar-more-button'));
 
-    expect(screen.getByRole('button', { name: 'More' })).toHaveClass('topbar__more-button');
-    expect(screen.getByRole('menuitem', { name: 'How To Use' })).toBeInTheDocument();
+    const menu = screen.getByTestId('topbar-more-menu');
+    expect(menu).toHaveClass('topbar__menu-popover--portal');
+    expect(within(menu).getByRole('menuitem', { name: 'How To Use' })).toBeInTheDocument();
+  });
+
+  it('closes the more menu on Escape', () => {
+    render(
+      <MemoryRouter>
+        <TopBar
+          secondaryNav={[
+            {
+              label: 'Map',
+              to: '/map',
+              match: (location) => location.pathname.startsWith('/map')
+            }
+          ]}
+        />
+      </MemoryRouter>
+    );
+
+    fireEvent.click(screen.getByTestId('topbar-more-button'));
+    expect(screen.getByTestId('topbar-more-menu')).toBeInTheDocument();
+
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(screen.queryByTestId('topbar-more-menu')).toBeNull();
+  });
+
+  it('opens the account menu when account items are provided', () => {
+    const onLogout = jest.fn();
+    render(
+      <MemoryRouter>
+        <TopBar
+          accountMenuItems={[
+            { label: 'Logout', onClick: onLogout }
+          ]}
+        />
+      </MemoryRouter>
+    );
+
+    fireEvent.click(screen.getByTestId('topbar-account-button'));
+    const menu = screen.getByTestId('topbar-account-menu');
+    expect(menu).toHaveClass('topbar__menu-popover--portal');
+    fireEvent.click(within(menu).getByRole('menuitem', { name: 'Logout' }));
+    expect(onLogout).toHaveBeenCalledTimes(1);
+    expect(screen.queryByTestId('topbar-account-menu')).toBeNull();
+  });
+
+  it('does not render the account button when there are no account menu items', () => {
+    render(
+      <MemoryRouter>
+        <TopBar accountMenuItems={[]} />
+      </MemoryRouter>
+    );
+
+    expect(screen.queryByTestId('topbar-account-button')).toBeNull();
   });
 
   it('does not create More just to hold tour actions', () => {
@@ -154,7 +205,7 @@ describe('TopBar help menu', () => {
       </MemoryRouter>
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'More' }));
+    fireEvent.click(screen.getByTestId('topbar-more-button'));
     expect(screen.getByRole('menuitem', { name: 'How To Use' })).toBeInTheDocument();
     expect(screen.queryByRole('menuitem', { name: /tour/i })).toBeNull();
   });
@@ -248,6 +299,7 @@ describe('TopBar help menu', () => {
       </MemoryRouter>
     );
     fireEvent.contextMenu(screen.getByTestId('topbar-theme-toggle'));
+    expect(screen.getByTestId('topbar-theme-menu')).toBeInTheDocument();
     expect(screen.getByRole('menuitemradio', { name: /Auto/ })).toBeInTheDocument();
     expect(screen.getByRole('menuitemradio', { name: /Light/ })).toBeInTheDocument();
     expect(screen.getByRole('menuitemradio', { name: /Dark/ })).toBeInTheDocument();

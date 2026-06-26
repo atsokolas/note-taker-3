@@ -1,4 +1,5 @@
 const {
+  normalizeExistingWikiTitleForPresentation,
   normalizeWikiTitleForPresentation,
   sentenceBoundaryTrim
 } = require('./wikiPresentationGuard');
@@ -12,6 +13,13 @@ describe('wikiPresentationGuard', () => {
   it('preserves acronyms while title-casing short generated titles', () => {
     expect(normalizeWikiTitleForPresentation('GPT-5 adoption in R&D teams', { stripLeadingArticle: false }))
       .toBe('GPT-5 Adoption in R&D Teams');
+  });
+
+  it('normalizes already-stored lowercase titles without stripping intentional title articles', () => {
+    expect(normalizeExistingWikiTitleForPresentation('the Availability Heuristic'))
+      .toBe('Availability Heuristic');
+    expect(normalizeExistingWikiTitleForPresentation('The Wealth of Nations'))
+      .toBe('The Wealth of Nations');
   });
 
   it('returns a complete sentence instead of a mid-sentence character clamp', () => {

@@ -21,7 +21,7 @@ import TopBar from './layout/TopBar';
 import TourProvider from './tour/TourProvider';
 import TourManager from './tour/TourManager';
 import { buildCanonicalArticlePath } from './utils/firstInsight';
-import { buildThinkPosturePath, getPrimaryNavItems, getSecondaryNavItems } from './navigation/appNavigation';
+import { buildThinkPosturePath, getPrimaryNavItems, getSecondaryNavItems, getTopBarUtilityNavItems } from './navigation/appNavigation';
 import './styles/theme.css';
 import './styles/tokens.css';
 import './styles/global.css';
@@ -507,14 +507,8 @@ function App() {
         onClick: handleLogout
       }
     ];
-    const moreNavItems = [
-      ...secondaryNavItems,
-      {
-        label: 'Settings',
-        to: '/settings',
-        match: (currentLocation) => currentLocation.pathname.startsWith('/settings')
-      }
-    ];
+    const moreNavItems = secondaryNavItems.filter((item) => item.label !== 'Connections');
+    const utilityNavItems = getTopBarUtilityNavItems();
 
     const routes = (
       <Page className="page-area">
@@ -625,6 +619,7 @@ function App() {
           <TopBar
             brandEnergy={uiSettings.brandEnergy}
             primaryNav={primaryNavItems}
+            utilityNav={utilityNavItems}
             secondaryNav={moreNavItems}
             searchMode="field"
             onSearchOpen={openPalette}

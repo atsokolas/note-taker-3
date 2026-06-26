@@ -1,7 +1,56 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import BrandGradient from '../components/BrandGradient';
 import { THEME_OPTIONS } from '../settings/uiPreferences';
+
+const TopBarMenuPopover = ({
+  open,
+  anchorRef,
+  popoverRef,
+  children,
+  className = '',
+  testId
+}) => {
+  const [style, setStyle] = useState({});
+
+  useLayoutEffect(() => {
+    if (!open || !anchorRef.current) return undefined;
+
+    const updatePosition = () => {
+      const rect = anchorRef.current.getBoundingClientRect();
+      setStyle({
+        position: 'fixed',
+        top: rect.bottom + 8,
+        right: Math.max(8, window.innerWidth - rect.right),
+        zIndex: 220
+      });
+    };
+
+    updatePosition();
+    window.addEventListener('resize', updatePosition);
+    window.addEventListener('scroll', updatePosition, true);
+    return () => {
+      window.removeEventListener('resize', updatePosition);
+      window.removeEventListener('scroll', updatePosition, true);
+    };
+  }, [anchorRef, open]);
+
+  if (!open) return null;
+
+  return createPortal(
+    <div
+      ref={popoverRef}
+      className={`topbar__menu-popover topbar__menu-popover--portal ${className}`.trim()}
+      style={style}
+      role="menu"
+      data-testid={testId}
+    >
+      {children}
+    </div>,
+    document.body
+  );
+};
 
 const TopBar = ({
   rightSlot,
@@ -17,11 +66,9 @@ const TopBar = ({
   onThemeChange = null,
   themeSaving = false
 }) => {
-  // Theme cycling: auto → light → dark → auto. Single click on the pill
-  // advances; popover under the pill exposes all 3 options for users who
-  // want to pick directly.
   const [themeMenuOpen, setThemeMenuOpen] = useState(false);
   const themeMenuRef = useRef(null);
+  const themePopoverRef = useRef(null);
   const cycleTheme = () => {
     if (!onThemeChange) return;
     const idx = THEME_OPTIONS.findIndex((option) => option.value === theme);
@@ -37,8 +84,11 @@ const TopBar = ({
   const [moreOpen, setMoreOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
   const moreMenuRef = useRef(null);
+  const morePopoverRef = useRef(null);
   const accountMenuRef = useRef(null);
+  const accountPopoverRef = useRef(null);
   const showMoreMenu = secondaryNav.length > 0;
+  const showAccountMenu = accountMenuItems.length > 0;
 
   const isNavItemActive = useMemo(() => (item) => {
     if (typeof item.match === 'function') {
@@ -59,6 +109,7 @@ const TopBar = ({
     if (!themeMenuOpen) return undefined;
     const onPointerDown = (event) => {
       if (themeMenuRef.current?.contains(event.target)) return;
+      if (themePopoverRef.current?.contains(event.target)) return;
       setThemeMenuOpen(false);
     };
     const onKeyDown = (event) => {
@@ -77,7 +128,9 @@ const TopBar = ({
     const onPointerDown = (event) => {
       const target = event.target;
       if (moreMenuRef.current?.contains(target)) return;
+      if (morePopoverRef.current?.contains(target)) return;
       if (accountMenuRef.current?.contains(target)) return;
+      if (accountPopoverRef.current?.contains(target)) return;
       setMoreOpen(false);
       setAccountOpen(false);
     };
@@ -94,6 +147,51 @@ const TopBar = ({
       window.removeEventListener('keydown', onKeyDown);
     };
   }, [moreOpen, accountOpen]);
+
+  const renderMenuItem = (item, onSelect) => {
+    if (item.href) {
+      return (
+        <a
+          key={item.label}
+          className="topbar__menu-item"
+          role="menuitem"
+          href={item.href}
+          target={item.external ? '_blank' : undefined}
+          rel={item.external ? 'noopener noreferrer' : undefined}
+          onClick={onSelect}
+        >
+          {item.label}
+        </a>
+      );
+    }
+    if (item.to) {
+      return (
+        <NavLink
+          key={item.label}
+          to={item.to}
+          className={`topbar__menu-item ${isNavItemActive(item) ? 'is-active' : ''}`}
+          role="menuitem"
+          onClick={onSelect}
+        >
+          {item.label}
+        </NavLink>
+      );
+    }
+    return (
+      <button
+        key={item.label}
+        type="button"
+        className="topbar__menu-item"
+        role="menuitem"
+        onClick={() => {
+          item.onClick?.();
+          onSelect();
+        }}
+      >
+        {item.label}
+      </button>
+    );
+  };
 
   return (
     <header className={`topbar topbar--noeis ${className}`.trim()}>
@@ -167,34 +265,38 @@ const TopBar = ({
               >
                 <span aria-hidden="true" className={`topbar__theme-icon topbar__theme-icon--${currentThemeOption.value}`} />
               </button>
-              {themeMenuOpen && (
-                <div className="topbar__menu-popover topbar__theme-popover" role="menu">
-                  {THEME_OPTIONS.map((option) => (
-                    <button
-                      key={option.value}
-                      type="button"
-                      role="menuitemradio"
-                      aria-checked={option.value === theme}
-                      className={`topbar__menu-item ${option.value === theme ? 'is-active' : ''}`}
-                      onClick={() => {
-                        onThemeChange(option.value);
-                        setThemeMenuOpen(false);
-                      }}
-                    >
-                      <span aria-hidden="true" className={`topbar__theme-icon topbar__theme-icon--${option.value}`} />
-                      {option.label}
-                      {option.value === 'auto' ? <span className="muted small" style={{ marginLeft: 'auto' }}>System</span> : null}
-                    </button>
-                  ))}
-                </div>
-              )}
+              <TopBarMenuPopover
+                open={themeMenuOpen}
+                anchorRef={themeMenuRef}
+                popoverRef={themePopoverRef}
+                className="topbar__theme-popover"
+                testId="topbar-theme-menu"
+              >
+                {THEME_OPTIONS.map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    role="menuitemradio"
+                    aria-checked={option.value === theme}
+                    className={`topbar__menu-item ${option.value === theme ? 'is-active' : ''}`}
+                    onClick={() => {
+                      onThemeChange(option.value);
+                      setThemeMenuOpen(false);
+                    }}
+                  >
+                    <span aria-hidden="true" className={`topbar__theme-icon topbar__theme-icon--${option.value}`} />
+                    {option.label}
+                    {option.value === 'auto' ? <span className="muted small" style={{ marginLeft: 'auto' }}>System</span> : null}
+                  </button>
+                ))}
+              </TopBarMenuPopover>
             </div>
           ) : null}
           {utilityNav.map((item) => (
             item.href ? (
               <a
                 key={item.label}
-                className={`topbar__button topbar__utility-button ${isNavItemActive(item) ? 'is-active' : ''}`.trim()}
+                className={`topbar__button topbar__utility-button ${item.essential ? 'topbar__utility-button--essential' : ''} ${isNavItemActive(item) ? 'is-active' : ''}`.trim()}
                 href={item.href}
                 target={item.external ? '_blank' : undefined}
                 rel={item.external ? 'noopener noreferrer' : undefined}
@@ -205,7 +307,7 @@ const TopBar = ({
               <NavLink
                 key={item.label}
                 to={item.to}
-                className={`topbar__button topbar__utility-button ${isNavItemActive(item) ? 'is-active' : ''}`.trim()}
+                className={`topbar__button topbar__utility-button ${item.essential ? 'topbar__utility-button--essential' : ''} ${isNavItemActive(item) ? 'is-active' : ''}`.trim()}
               >
                 {item.label}
               </NavLink>
@@ -213,7 +315,7 @@ const TopBar = ({
               <button
                 key={item.label}
                 type="button"
-                className={`topbar__button topbar__utility-button ${isNavItemActive(item) ? 'is-active' : ''}`.trim()}
+                className={`topbar__button topbar__utility-button ${item.essential ? 'topbar__utility-button--essential' : ''} ${isNavItemActive(item) ? 'is-active' : ''}`.trim()}
                 onClick={() => item.onClick?.()}
               >
                 {item.label}
@@ -227,6 +329,7 @@ const TopBar = ({
                 className={`topbar__button topbar__more-button ${moreOpen ? 'is-active' : ''}`}
                 aria-haspopup="menu"
                 aria-expanded={moreOpen}
+                data-testid="topbar-more-button"
                 onClick={() => {
                   setMoreOpen((prev) => {
                     const next = !prev;
@@ -237,51 +340,17 @@ const TopBar = ({
               >
                 More
               </button>
-              {moreOpen && (
-                <div className="topbar__menu-popover" role="menu">
-                  {secondaryNav.map((item) => (
-                    item.href ? (
-                      <a
-                        key={item.label}
-                        className="topbar__menu-item"
-                        role="menuitem"
-                        href={item.href}
-                        target={item.external ? '_blank' : undefined}
-                        rel={item.external ? 'noopener noreferrer' : undefined}
-                        onClick={() => setMoreOpen(false)}
-                      >
-                        {item.label}
-                      </a>
-                    ) : item.to ? (
-                      <NavLink
-                        key={item.label}
-                        to={item.to}
-                        className={`topbar__menu-item ${isNavItemActive(item) ? 'is-active' : ''}`}
-                        role="menuitem"
-                        onClick={() => setMoreOpen(false)}
-                      >
-                        {item.label}
-                      </NavLink>
-                    ) : (
-                      <button
-                        key={item.label}
-                        type="button"
-                        className="topbar__menu-item"
-                        role="menuitem"
-                        onClick={() => {
-                          item.onClick?.();
-                          setMoreOpen(false);
-                        }}
-                      >
-                        {item.label}
-                      </button>
-                    )
-                  ))}
-                </div>
-              )}
+              <TopBarMenuPopover
+                open={moreOpen}
+                anchorRef={moreMenuRef}
+                popoverRef={morePopoverRef}
+                testId="topbar-more-menu"
+              >
+                {secondaryNav.map((item) => renderMenuItem(item, () => setMoreOpen(false)))}
+              </TopBarMenuPopover>
             </div>
           )}
-          {accountMenuItems.length > 0 && (
+          {showAccountMenu && (
             <div className="topbar__menu" ref={accountMenuRef}>
               <button
                 type="button"
@@ -290,6 +359,7 @@ const TopBar = ({
                 aria-expanded={accountOpen}
                 aria-label="Account"
                 title="Account"
+                data-testid="topbar-account-button"
                 onClick={() => {
                   setAccountOpen((prev) => {
                     const next = !prev;
@@ -302,38 +372,14 @@ const TopBar = ({
               >
                 <span className="topbar__avatar-glyph" aria-hidden="true" />
               </button>
-              {accountOpen && (
-                <div className="topbar__menu-popover" role="menu">
-                  {accountMenuItems.map((item) => (
-                    item.href ? (
-                      <a
-                        key={item.label}
-                        className="topbar__menu-item"
-                        role="menuitem"
-                        href={item.href}
-                        target={item.external ? '_blank' : undefined}
-                        rel={item.external ? 'noopener noreferrer' : undefined}
-                        onClick={() => setAccountOpen(false)}
-                      >
-                        {item.label}
-                      </a>
-                    ) : (
-                      <button
-                        key={item.label}
-                        type="button"
-                        className="topbar__menu-item"
-                        role="menuitem"
-                        onClick={() => {
-                          item.onClick?.();
-                          setAccountOpen(false);
-                        }}
-                      >
-                        {item.label}
-                      </button>
-                    )
-                  ))}
-                </div>
-              )}
+              <TopBarMenuPopover
+                open={accountOpen}
+                anchorRef={accountMenuRef}
+                popoverRef={accountPopoverRef}
+                testId="topbar-account-menu"
+              >
+                {accountMenuItems.map((item) => renderMenuItem(item, () => setAccountOpen(false)))}
+              </TopBarMenuPopover>
             </div>
           )}
           {rightSlot}

@@ -5,7 +5,9 @@ const QA_VERIFICATION_TITLE_RE = /\b(?:build order verification|user test|slash 
 const LONG_TIMESTAMP_RE = /\b\d{10,}\b/;
 const KNOWN_QA_JUNK_TITLES = new Set([
   'cia teach investor behavioural investment',
-  'complementary machine thing'
+  'complementary machine thing',
+  'brand new pull test',
+  'public share smoke page'
 ]);
 
 const normalizeText = (value = '') => String(value || '').replace(/\s+/g, ' ').trim();
@@ -51,7 +53,7 @@ const classifyWikiPageQuality = (page = {}) => {
   };
 
   if (!title || /^untitled wiki page$/i.test(title)) {
-    addReason('untitled_page', 'Page has a placeholder title.');
+    addReason('untitled_page', 'Page has a placeholder title.', { blocking: true });
   }
 
   const qaStrippedTitle = normalizedTitle.replace(/^qa\s+/, '');

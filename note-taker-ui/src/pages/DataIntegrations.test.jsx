@@ -232,6 +232,54 @@ describe('DataIntegrations first insight workflow', () => {
     expect(within(card).getByText(/Latest handoff: Evernote import on/i)).toBeInTheDocument();
   });
 
+  it('marks source and return-loop cards with grayscale-safe connection state classes', async () => {
+    listImportConnections.mockImplementation(async ({ provider } = {}) => {
+      if (provider === 'readwise') {
+        return [{
+          id: 'rw-1',
+          provider: 'readwise',
+          accountLabel: 'Reader',
+          mode: 'manual',
+          status: 'connected',
+          health: 'healthy',
+          lastSyncAt: '2026-06-08T15:30:00.000Z'
+        }];
+      }
+      if (provider === 'notion') {
+        return [{
+          id: 'notion-1',
+          provider: 'notion',
+          accountLabel: 'Product HQ',
+          status: 'connected',
+          health: 'healthy',
+          lastValidatedAt: '2026-06-08T15:30:00.000Z'
+        }];
+      }
+      return [];
+    });
+
+    render(
+      <MemoryRouter>
+        <DataIntegrations />
+      </MemoryRouter>
+    );
+
+    const returnLoop = await screen.findByTestId('connections-return-loop');
+    await waitFor(() => {
+      expect(returnLoop.querySelector('.connections-return-loop__feed--connected')).toBeTruthy();
+    });
+    expect(returnLoop.querySelector('.connections-return-loop__feed--warning')).toBeTruthy();
+
+    const readwiseCard = await screen.findByTestId('import-source-card-readwise');
+    const notionCard = screen.getByTestId('import-source-card-notion');
+    expect(readwiseCard).toHaveClass('import-source-card--connected');
+    expect(notionCard).toHaveClass('import-source-card--warning');
+    expect(readwiseCard).toHaveAttribute('aria-pressed', 'true');
+    fireEvent.click(notionCard);
+    expect(notionCard).toHaveAttribute('aria-pressed', 'true');
+    expect(readwiseCard).toHaveAttribute('aria-pressed', 'false');
+  });
+
   it('makes the Notion redirect and unsynced state explicit before OAuth', async () => {
     render(
       <MemoryRouter>

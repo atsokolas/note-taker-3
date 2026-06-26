@@ -2172,6 +2172,22 @@ const DataIntegrations = ({ embedded = false } = {}) => {
     session: currentSession
   });
   const embeddingJobWarning = getEmbeddingJobWarning(embeddingJobStatus);
+  const readwiseLoopTone = directReadwiseReady
+    ? 'connected'
+    : readwiseAgentConnection?.id
+      ? 'warning'
+      : 'disconnected';
+  const notionLoopTone = notionConnection?.id
+    ? (notionConnectionState.tone === 'success' ? 'connected' : 'warning')
+    : 'disconnected';
+  const manualLoopTone = latestManualImportFinished ? 'connected' : 'neutral';
+
+  const getSourceCardTone = (sourceKey) => {
+    if (sourceKey === 'readwise') return readwiseLoopTone;
+    if (sourceKey === 'notion') return notionLoopTone;
+    if (sourceKey === 'evernote' || sourceKey === 'files') return manualLoopTone;
+    return 'neutral';
+  };
 
   const sourceContent = (
     <>
@@ -2190,7 +2206,7 @@ const DataIntegrations = ({ embedded = false } = {}) => {
           </div>
         </div>
         <div className="connections-return-loop__grid">
-          <div className="connections-return-loop__feed">
+          <div className={`connections-return-loop__feed connections-return-loop__feed--${readwiseLoopTone}`}>
             <span className="connections-return-loop__dot" aria-hidden="true" />
             <div>
               <p className="muted-label">Readwise</p>
@@ -2198,7 +2214,7 @@ const DataIntegrations = ({ embedded = false } = {}) => {
               <p className="muted small">{readwiseFeedDetail}</p>
             </div>
           </div>
-          <div className="connections-return-loop__feed">
+          <div className={`connections-return-loop__feed connections-return-loop__feed--${notionLoopTone}`}>
             <span className="connections-return-loop__dot" aria-hidden="true" />
             <div>
               <p className="muted-label">Notion</p>
@@ -2206,7 +2222,7 @@ const DataIntegrations = ({ embedded = false } = {}) => {
               <p className="muted small">{notionFeedDetail}</p>
             </div>
           </div>
-          <div className="connections-return-loop__feed">
+          <div className={`connections-return-loop__feed connections-return-loop__feed--${manualLoopTone}`}>
             <span className="connections-return-loop__dot" aria-hidden="true" />
             <div>
               <p className="muted-label">Files, Evernote, CSV</p>
@@ -2240,19 +2256,24 @@ const DataIntegrations = ({ embedded = false } = {}) => {
         <h2>Choose a source</h2>
         <p className="muted">The goal is a source-aware path: import, preserve context, then activate the material inside Think.</p>
         <div className="import-source-grid">
-          {SOURCE_OPTIONS.map((option) => (
+          {SOURCE_OPTIONS.map((option) => {
+            const cardTone = getSourceCardTone(option.key);
+            return (
             <button
               key={option.key}
               type="button"
-              className={`import-source-card ${selectedSource === option.key ? 'is-active' : ''}`}
+              className={`import-source-card import-source-card--${cardTone} ${selectedSource === option.key ? 'is-active' : ''}`}
+              aria-pressed={selectedSource === option.key}
+              data-testid={`import-source-card-${option.key}`}
               onClick={() => setSelectedSource(option.key)}
             >
-              <span className="import-source-status">{option.status}</span>
+              <span className={`import-source-status import-source-status--${cardTone}`}>{option.status}</span>
               <h3>{option.title}</h3>
               <p>{option.subtitle}</p>
               <span className="import-source-helper">{option.helper}</span>
             </button>
-          ))}
+            );
+          })}
         </div>
       </Card>
 

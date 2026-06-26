@@ -27,6 +27,7 @@ import {
   computeConceptFreshness,
   mergeConceptChangeDrafts
 } from './conceptChangeDrafts';
+import { cleanSourceTextForDisplay } from './ideaWorkbenchText';
 
 const STORAGE_VERSION = 1;
 const STORAGE_PREFIX = 'idea-workbench';
@@ -141,7 +142,8 @@ const buildArticleCard = (article, origin = 'material') => ({
   zone: 'workspace',
   type: 'Article snippet',
   title: clean(article?.title) || 'Article snippet',
-  content: clean(article?.summary || article?.excerpt || article?.url || article?.title),
+  content: cleanSourceTextForDisplay(article?.summary || article?.excerpt || article?.description || article?.title)
+    || clean(article?.title),
   source: clean(article?.title) || 'Article',
   sourcePath: article?._id ? `/articles/${encodeURIComponent(article._id)}` : '',
   whyItMatters: 'Useful as outside context or a longer argument source.',
@@ -160,7 +162,8 @@ const buildNoteCard = (note, origin = 'material') => ({
   zone: 'workspace',
   type: 'Note',
   title: clean(note?.title || note?.notebookTitle) || 'Notebook note',
-  content: clean(note?.content || note?.blockPreviewText || note?.summary || note?.title || note?.notebookTitle),
+  content: cleanSourceTextForDisplay(note?.content || note?.blockPreviewText || note?.summary || note?.title || note?.notebookTitle)
+    || clean(note?.title || note?.notebookTitle),
   source: clean(note?.title || note?.notebookTitle) || 'Notebook',
   sourcePath: clean(note?._id || note?.notebookEntryId)
     ? `/think?tab=notebook&entryId=${encodeURIComponent(clean(note?._id || note?.notebookEntryId))}`
@@ -219,7 +222,7 @@ const formatCardForWorkspaceDraft = (card) => {
   if (!card) return '';
   const source = clean(card.source);
   const title = clean(card.title);
-  const content = clean(card.content);
+  const content = cleanSourceTextForDisplay(card.content);
   const prefix = source ? `${source}: ` : title ? `${title}: ` : '';
   return clean(`${prefix}${content}`);
 };

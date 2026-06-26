@@ -4,6 +4,7 @@ import { getWikiBriefing, listWikiPages } from '../../api/wiki';
 import { wikiPagePath } from '../../utils/wikiFeatureFlags';
 import { AGENT_DISPLAY_NAME } from '../../constants/agentIdentity';
 import WikiBuildPageComposer from './WikiBuildPageComposer';
+import WikiFrontPageGraphMotif from './WikiFrontPageGraphMotif';
 import { countWikiClaims, countWikiSources, wikiPreviewForPage } from './wikiPageMetrics';
 import { filterReturnViewItems } from '../../utils/cruftSuppression';
 import { formatSurfaceDate } from '../../utils/dateDisplay';
@@ -58,6 +59,24 @@ const prefersReducedMotion = () => {
   }
 };
 
+const completeLeadSentence = (value = '', maxLength = 280) => {
+  const text = String(value || '').replace(/\s+/g, ' ').trim();
+  if (!text) return '';
+  if (text.length <= maxLength && /[.!?]$/.test(text)) return text;
+  const limit = Math.max(80, Number(maxLength) || 280);
+  const matches = Array.from(text.matchAll(/[.!?](?=\s|$)/g));
+  const boundary = matches
+    .map(match => match.index + 1)
+    .filter(index => index <= limit)
+    .pop();
+  if (boundary) return text.slice(0, boundary).trim();
+  const clipped = text.slice(0, limit).replace(/[,:;–—-]+$/g, '').trim();
+  const wordBoundary = clipped.lastIndexOf(' ');
+  const clean = wordBoundary > 80 ? clipped.slice(0, wordBoundary).trim() : clipped;
+  if (!clean) return '';
+  return /[.!?]$/.test(clean) ? clean : `${clean}.`;
+};
+
 // The morning-paper lead writes itself in, word by word — the agent's voice
 // arriving at the door. Instant under reduced motion (and in jsdom).
 const WriteIn = ({ text = '' }) => {
@@ -96,6 +115,15 @@ const WriteIn = ({ text = '' }) => {
 const mastheadDate = () => new Date().toLocaleDateString(undefined, {
   weekday: 'long', month: 'long', day: 'numeric'
 });
+
+const WikiFrontPageShell = ({ children, ...mainProps }) => (
+  <>
+    <WikiFrontPageGraphMotif />
+    <main className="wiki-page wiki-front-page" {...mainProps}>
+      {children}
+    </main>
+  </>
+);
 
 const WikiFrontPage = () => {
   const navigate = useNavigate();
@@ -213,12 +241,12 @@ const WikiFrontPage = () => {
     </nav>
   );
 
-  const leadSentence = briefing?.summary || '';
+  const leadSentence = completeLeadSentence(briefing?.summary || '');
   const leadExcerpt = todaysPage ? wikiPreviewForPage(todaysPage, LEAD_EXCERPT_BUDGET) : '';
 
   if (loading) {
     return (
-      <main className="wiki-page wiki-front-page" aria-busy="true">
+      <WikiFrontPageShell aria-busy="true">
         <h1 className="sr-only">Morning paper</h1>
         <p className="wiki-index__eyebrow wiki-front-page__masthead">
           Morning paper · {mastheadDate()}
@@ -231,13 +259,13 @@ const WikiFrontPage = () => {
           <span className="wiki-skeleton wiki-skeleton--line" />
           <span className="wiki-skeleton wiki-skeleton--line wiki-skeleton--line-short" />
         </div>
-      </main>
+      </WikiFrontPageShell>
     );
   }
 
   if (shouldOpenOnboarding) {
     return (
-      <main className="wiki-page wiki-front-page" aria-busy="true">
+      <WikiFrontPageShell aria-busy="true">
         <h1 className="sr-only">Opening your wiki</h1>
         <p className="wiki-index__eyebrow wiki-front-page__masthead">
           Morning paper · {mastheadDate()}
@@ -245,7 +273,7 @@ const WikiFrontPage = () => {
         <p className="wiki-front-page__loading-copy" role="status">
           Opening the first-page flow...
         </p>
-      </main>
+      </WikiFrontPageShell>
     );
   }
 
@@ -253,7 +281,7 @@ const WikiFrontPage = () => {
   // cleared their corpus later: never a dead screen.
   if (!curatedPages.length) {
     return (
-      <main className="wiki-page wiki-front-page">
+      <WikiFrontPageShell>
         <header className="wiki-front-page__top">
           <p className="wiki-index__eyebrow wiki-front-page__masthead wfp-anim wfp-anim--1">
             Morning paper · {mastheadDate()}
@@ -273,12 +301,12 @@ const WikiFrontPage = () => {
           <WikiBuildPageComposer compact className="wiki-front-page__builder" />
         </section>
         {error ? <div className="wiki-index__error" role="alert">{error}</div> : null}
-      </main>
+      </WikiFrontPageShell>
     );
   }
 
   return (
-    <main className="wiki-page wiki-front-page">
+    <WikiFrontPageShell>
       <header className="wiki-front-page__top">
         <p className="wiki-index__eyebrow wiki-front-page__masthead wfp-anim wfp-anim--1">
           Morning paper · {mastheadDate()}
@@ -345,7 +373,7 @@ const WikiFrontPage = () => {
       </section>
 
       {error ? <div className="wiki-index__error" role="alert">{error}</div> : null}
-    </main>
+    </WikiFrontPageShell>
   );
 };
 

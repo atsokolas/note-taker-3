@@ -94,14 +94,18 @@ describe('WikiList', () => {
     renderWikiList();
 
     expect(await screen.findByTestId('wiki-facet-rail')).toBeInTheDocument();
+    expect(await screen.findByTestId('wiki-facet-rail-deep')).toBeInTheDocument();
     expect(await screen.findByLabelText('Wiki pages')).toHaveClass('wiki-index__list');
     await waitFor(() => {
       expect(listWikiPages).toHaveBeenCalled();
     });
     expect(screen.getByTestId('wiki-facet-all-pages')).toHaveTextContent('2');
     expect(screen.getByTestId('wiki-facet-needs-review')).toHaveTextContent('1');
-    expect(screen.getByTestId('wiki-facet-type-overview')).toHaveTextContent('1');
-    expect(screen.getByTestId('wiki-facet-type-concept')).toHaveTextContent('1');
+
+    const deepRail = screen.getByTestId('wiki-facet-rail-deep');
+    fireEvent.click(within(deepRail).getByRole('button', { name: 'By type' }));
+    expect(within(deepRail).getByTestId('wiki-facet-type-overview')).toHaveTextContent('1');
+    expect(within(deepRail).getByTestId('wiki-facet-type-concept')).toHaveTextContent('1');
     expect(screen.queryByLabelText('Page type')).not.toBeInTheDocument();
   });
 
@@ -200,7 +204,9 @@ describe('WikiList', () => {
     renderWikiList();
 
     await screen.findByRole('article', { name: 'Investing - Concepts, Ideas, and Strategies' });
-    fireEvent.click(screen.getByTestId('wiki-facet-type-overview'));
+    const deepRail = screen.getByTestId('wiki-facet-rail-deep');
+    fireEvent.click(within(deepRail).getByRole('button', { name: 'By type' }));
+    fireEvent.click(within(deepRail).getByTestId('wiki-facet-type-overview'));
 
     await waitFor(() => {
       expect(listWikiPages).toHaveBeenLastCalledWith(expect.objectContaining({ pageType: 'overview' }));

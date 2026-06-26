@@ -45,6 +45,7 @@ const {
   isWikiPageSurfaceEligible
 } = require('../services/wikiPageQualityGuard');
 const {
+  normalizeExistingWikiTitleForPresentation,
   normalizeWikiTitleForPresentation
 } = require('../services/wikiPresentationGuard');
 const { lintWiki: defaultLintWiki } = require('../services/wikiLintService');
@@ -620,8 +621,10 @@ const serializeWikiPage = (page) => {
   });
   const plainText = raw.plainText || extractPlainText(raw.body || emptyDoc());
   const qualityReview = classifyWikiPageQuality({ ...raw, plainText });
+  const presentationTitle = normalizeExistingWikiTitleForPresentation(raw.title || 'Untitled Wiki Page');
   return {
     ...raw,
+    title: presentationTitle,
     pageType: normalizePageType(raw.pageType || 'topic'),
     body: raw.body || emptyDoc(),
     createdFrom: raw.createdFrom || { type: 'wiki_index', objectIds: [], text: '', label: '' },

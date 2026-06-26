@@ -78,21 +78,22 @@ describe('stitch editorial CSS tokens', () => {
   });
 
   it('wires editorial magnetic row bloom to --row-bloom vars with reduced-motion off', () => {
-    const css = fs.readFileSync(path.join(__dirname, 'stitch-editorial.css'), 'utf8');
+    const css = fs.readFileSync(path.join(__dirname, 'calm-ui-system.css'), 'utf8');
 
-    expect(css).toContain('body.noeis-editorial .library-article-row.is-magnetic::before');
+    expect(css).toContain('body.calm-ui-global .library-article-row.is-magnetic::before');
     expect(css).toContain('var(--row-bloom-x, 50%) var(--row-bloom-y, 50%)');
-    expect(css).toMatch(/library-article-row\.is-magnetic:hover,[\s\S]*?library-article-row\.is-magnetic:focus-within[\s\S]*?transform: translate3d\(2px, -1px, 0\);/);
+    expect(css).toMatch(/library-article-row\.is-magnetic:hover,[\s\S]*?library-article-row\.is-magnetic:focus-within[\s\S]*?transform: translate3d\(4px, -2px, 0\);/);
     expect(css).toMatch(/@media \(prefers-reduced-motion: reduce\)[\s\S]*?library-article-row\.is-magnetic::before/);
     expect(css).not.toContain('.three-pane--library .library-article-row::before');
   });
 
-  it('keeps mobile editorial chrome compact and moves utility links behind More', () => {
+  it('keeps mobile editorial chrome compact while preserving essential utility links', () => {
     const css = fs.readFileSync(path.join(__dirname, 'stitch-editorial.css'), 'utf8');
 
     expect(css).toMatch(/@media \(max-width: 760px\)[\s\S]*?body\.noeis-editorial \.topbar__content[\s\S]*?grid-template-columns: minmax\(0, 1fr\) auto;/);
-    expect(css).toMatch(/@media \(max-width: 760px\)[\s\S]*?body\.noeis-editorial \.topbar__utility-button[\s\S]*?display: none !important;/);
+    expect(css).toMatch(/@media \(max-width: 760px\)[\s\S]*?body\.noeis-editorial \.topbar__utility-button:not\(\.topbar__utility-button--essential\)[\s\S]*?display: none !important;/);
     expect(css).toMatch(/@media \(max-width: 760px\)[\s\S]*?body\.noeis-editorial \.app-shell-new--stitch \.app-shell-new__body[\s\S]*?padding-top: 76px;/);
+    expect(css).toContain('.topbar__menu-popover--portal');
   });
 
   it('maps vellum aliases to canonical text role tokens', () => {
@@ -122,6 +123,17 @@ describe('stitch editorial CSS tokens', () => {
     expect(css).toContain('body.noeis-editorial .wiki-facet-rail.library-cabinet');
     expect(css).toContain('body.noeis-editorial .wiki-index__list.library-article-list');
     expect(css).toContain('body.noeis-editorial .wiki-index__list .library-article-row:last-child');
+    expect(css).toContain('body.noeis-editorial .wiki-facet-rail--deep');
+    expect(css).toMatch(/@media \(max-width: 960px\)[\s\S]*?wiki-index__faceted-main[\s\S]*?order: 2;/);
+  });
+
+  it('styles connection cards with grayscale-safe state hierarchy', () => {
+    const css = fs.readFileSync(path.join(__dirname, 'stitch-editorial.css'), 'utf8');
+
+    expect(css).toContain('connections-return-loop__feed--connected');
+    expect(css).toContain('connections-return-loop__feed--warning');
+    expect(css).toContain('import-source-card--connected');
+    expect(css).toContain('import-source-card--warning');
   });
 
   it('keeps connection statuses from breaking mid-word on narrow cards', () => {

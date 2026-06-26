@@ -77,7 +77,7 @@ describe('libraryReadingRoomModel', () => {
       suppressedCount: 2
     });
     expect(summary.cruftNotice).toBe(
-      '2 low-signal test items were kept out of your return view.'
+      '2 low-signal imports were kept out of your return view.'
     );
   });
 });
