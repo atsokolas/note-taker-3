@@ -78,9 +78,9 @@ describe('stitch editorial CSS tokens', () => {
   });
 
   it('wires editorial magnetic row bloom to --row-bloom vars with reduced-motion off', () => {
-    const css = fs.readFileSync(path.join(__dirname, 'calm-ui-system.css'), 'utf8');
+    const css = fs.readFileSync(path.join(__dirname, 'stitch-editorial.css'), 'utf8');
 
-    expect(css).toContain('body.calm-ui-global .library-article-row.is-magnetic::before');
+    expect(css).toContain('body.noeis-editorial .library-article-row.is-magnetic::before');
     expect(css).toContain('var(--row-bloom-x, 50%) var(--row-bloom-y, 50%)');
     expect(css).toMatch(/library-article-row\.is-magnetic:hover,[\s\S]*?library-article-row\.is-magnetic:focus-within[\s\S]*?transform: translate3d\(4px, -2px, 0\);/);
     expect(css).toMatch(/@media \(prefers-reduced-motion: reduce\)[\s\S]*?library-article-row\.is-magnetic::before/);
@@ -125,6 +125,17 @@ describe('stitch editorial CSS tokens', () => {
     expect(css).toContain('body.noeis-editorial .wiki-index__list .library-article-row:last-child');
     expect(css).toContain('body.noeis-editorial .wiki-facet-rail--deep');
     expect(css).toMatch(/@media \(max-width: 960px\)[\s\S]*?wiki-index__faceted-main[\s\S]*?order: 2;/);
+  });
+
+  it('keeps library and wiki index rows out of the legacy card cascade', () => {
+    const css = fs.readFileSync(path.join(__dirname, 'stitch-editorial.css'), 'utf8');
+
+    expect(css).toContain('body.noeis-editorial .library-page-shell .library-article-row,');
+    expect(css).toContain('body.noeis-editorial .wiki-index__list .library-article-row {');
+    expect(css).toMatch(/library-page-shell \.library-article-row,[\s\S]*?wiki-index__list \.library-article-row \{[\s\S]*?border-radius: 0 !important;/);
+    expect(css).toMatch(/library-page-shell \.library-article-row,[\s\S]*?wiki-index__list \.library-article-row \{[\s\S]*?background: transparent !important;/);
+    expect(css).toMatch(/library-page-shell \.library-article-row,[\s\S]*?wiki-index__list \.library-article-row \{[\s\S]*?box-shadow: none !important;/);
+    expect(css).toMatch(/library-page-shell \.library-article-row-title,[\s\S]*?wiki-index__list \.library-article-row-title \{[\s\S]*?font-size: clamp\(1\.2rem, 1\.35vw, 1\.46rem\) !important;/);
   });
 
   it('styles connection cards with grayscale-safe state hierarchy', () => {

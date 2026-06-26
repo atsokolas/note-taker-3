@@ -8030,6 +8030,48 @@ body.noeis-editorial .three-pane--library .library-article-row.is-active {
   box-shadow: none !important;
 }
 
+body.noeis-editorial .library-page-shell .library-article-row,
+body.noeis-editorial .wiki-index__list .library-article-row {
+  grid-template-columns: minmax(76px, 0.15fr) minmax(0, 1fr) auto !important;
+  gap: 18px !important;
+  min-height: 128px;
+  padding: 14px 10px !important;
+  border: 0 !important;
+  border-bottom: 1px solid var(--vellum-line) !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+body.noeis-editorial .library-page-shell .library-article-row:hover,
+body.noeis-editorial .library-page-shell .library-article-row.is-active,
+body.noeis-editorial .library-page-shell .library-article-row.is-activated,
+body.noeis-editorial .wiki-index__list .library-article-row:hover,
+body.noeis-editorial .wiki-index__list .library-article-row.is-active,
+body.noeis-editorial .wiki-index__list .library-article-row.is-activated {
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+body.noeis-editorial .library-page-shell .library-article-row-title,
+body.noeis-editorial .wiki-index__list .library-article-row-title {
+  font-size: clamp(1.2rem, 1.35vw, 1.46rem) !important;
+  line-height: 1.16 !important;
+  font-weight: 650 !important;
+}
+
+body.noeis-editorial .library-page-shell .library-article-row-date,
+body.noeis-editorial .wiki-index__list .library-article-row-date {
+  color: color-mix(in srgb, var(--vellum-ink) 50%, transparent) !important;
+}
+
+body.noeis-editorial .library-page-shell .library-article-row-excerpt,
+body.noeis-editorial .wiki-index__list .library-article-row-excerpt {
+  max-width: 620px;
+  font-size: 0.94rem !important;
+  line-height: 1.4;
+}
+
 body.noeis-editorial .three-pane--library .library-article-row-main,
 body.noeis-editorial .three-pane--library .library-article-row-action {
   background: transparent !important;
